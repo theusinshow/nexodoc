@@ -15,9 +15,9 @@ export const runtime = "nodejs";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const DEFAULT_MODEL = "gpt-5-mini";
-const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 900;
-const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 1600;
-const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 1800;
+const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 1800;
+const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 2800;
+const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 3600;
 
 function isPdf(file: File) {
   return (
@@ -28,6 +28,60 @@ function isPdf(file: File) {
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+
+function extractResponseText(response: unknown) {
+  if (
+    response &&
+    typeof response === "object" &&
+    "output_text" in response &&
+    typeof response.output_text === "string"
+  ) {
+    return response.output_text.trim();
+  }
+
+  if (!response || typeof response !== "object" || !("output" in response)) {
+    return "";
+  }
+
+  const output = response.output;
+
+  if (!Array.isArray(output)) {
+    return "";
+  }
+
+  return output
+    .flatMap((item) => {
+      if (!item || typeof item !== "object" || !("content" in item)) {
+        return [];
+      }
+
+      const content = item.content;
+
+      if (!Array.isArray(content)) {
+        return [];
+      }
+
+      return content
+        .map((part) => {
+          if (!part || typeof part !== "object") {
+            return "";
+          }
+
+          if ("text" in part && typeof part.text === "string") {
+            return part.text;
+          }
+
+          if ("content" in part && typeof part.content === "string") {
+            return part.content;
+          }
+
+          return "";
+        })
+        .filter(Boolean);
+    })
+    .join("\n")
+    .trim();
 }
 
 export async function POST(request: Request) {
@@ -116,9 +170,16 @@ export async function POST(request: Request) {
       ],
     });
 
-    const result = response.output_text?.trim();
+    const result = extractResponseText(response);
 
     if (!result) {
+      console.warn("OpenAI response without text", {
+        id: response.id,
+        status: response.status,
+        incompleteDetails: response.incomplete_details,
+        outputTypes: response.output?.map((item) => item.type),
+        usage: response.usage,
+      });
       return jsonError("A análise não retornou conteúdo.", 502);
     }
 
