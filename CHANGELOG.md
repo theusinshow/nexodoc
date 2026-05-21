@@ -25,6 +25,9 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Modelo padrao ajustado para `gpt-5-mini`.
 - Registro do primeiro teste real com documento de 218 paginas.
 - Modo mock para testar a interface sem consumir tokens da OpenAI API.
+- Renderizacao estruturada da resposta do agente.
+- Auto-scroll para progresso e resultado final.
+- Registro da estrategia de evidencias visuais.
 
 ### Alterado
 

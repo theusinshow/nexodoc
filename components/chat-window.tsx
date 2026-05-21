@@ -1,10 +1,10 @@
 "use client";
 
 import { ClipboardList, FileSearch, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AuditResultActions } from "@/components/audit-result-actions";
 import { AuditProgress } from "@/components/audit-progress";
+import { AuditResult } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  elapsedMs?: number;
 };
 
 const MAX_FILES = 5;
@@ -63,10 +64,15 @@ export function ChatWindow() {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const latestResult = useMemo(() => {
-    return [...messages].reverse().find((item) => item.role === "assistant")?.content;
+    return [...messages].reverse().find((item) => item.role === "assistant");
   }, [messages]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isLoading, error]);
 
   function handleFilesAdd(newFiles: File[]) {
     const result = validateFiles(files, newFiles);
@@ -101,6 +107,7 @@ export function ChatWindow() {
 
     setIsLoading(true);
     setError("");
+    const startedAt = performance.now();
 
     const formData = new FormData();
     formData.append("message", trimmedMessage);
@@ -137,6 +144,7 @@ export function ChatWindow() {
           id: crypto.randomUUID(),
           role: "assistant",
           content: result,
+          elapsedMs: performance.now() - startedAt,
         },
       ]);
     } catch (requestError) {
@@ -222,11 +230,16 @@ export function ChatWindow() {
               </div>
             ) : (
               messages.map((item) => (
-                <MessageBubble
-                  key={item.id}
-                  role={item.role}
-                  content={item.content}
-                />
+                <div key={item.id}>
+                  {item.role === "assistant" ? (
+                    <AuditResult
+                      content={item.content}
+                      elapsedMs={item.elapsedMs}
+                    />
+                  ) : (
+                    <MessageBubble role={item.role} content={item.content} />
+                  )}
+                </div>
               ))
             )}
 
@@ -237,9 +250,7 @@ export function ChatWindow() {
             ) : null}
 
             {latestResult ? (
-              <div className="flex justify-start">
-                <AuditResultActions result={latestResult} />
-              </div>
+              <div className="sr-only">Resultado pronto</div>
             ) : null}
 
             {error ? (
@@ -247,6 +258,7 @@ export function ChatWindow() {
                 {error}
               </div>
             ) : null}
+            <div ref={bottomRef} />
           </div>
         </div>
 

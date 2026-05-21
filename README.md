@@ -51,6 +51,7 @@ Ordem sugerida de leitura:
 5. [Interface UI](C:/Dev/trabalho/empresa/nexodoc/docs/05-interface-ui.md)
 6. [Roadmap](C:/Dev/trabalho/empresa/nexodoc/docs/06-roadmap.md)
 7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
+8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
 
 ## Variaveis de ambiente
 
