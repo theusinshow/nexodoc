@@ -1,0 +1,42 @@
+# Changelog
+
+Todas as mudancas relevantes do NexoDoc devem ser documentadas neste arquivo.
+
+O formato segue a ideia de manter secoes por versao, com itens objetivos.
+
+## [Nao lancado]
+
+### Adicionado
+
+- Documentacao inicial do produto.
+- Escopo do MVP 0.1.
+- Regras do agente auditor documental.
+- Direcao inicial de arquitetura tecnica.
+- Direcao inicial da interface.
+- Roadmap de evolucao.
+- Arquivos padrao de organizacao do projeto.
+
+### Alterado
+
+- Nenhuma alteracao registrada.
+
+### Removido
+
+- Nenhuma remocao registrada.
+
+## [0.1.0] - Planejado
+
+### Objetivo
+
+- Criar o primeiro MVP funcional do NexoDoc.
+
+### Escopo planejado
+
+- Pagina unica.
+- Chat.
+- Upload multiplo de PDFs.
+- Envio para backend.
+- Integracao com OpenAI API.
+- Resposta padronizada do agente auditor.
+- Botao para copiar resposta.
+
