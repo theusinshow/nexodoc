@@ -41,8 +41,26 @@ No frontend, essa resposta passa a ser renderizada em blocos visuais:
 - conclusao objetiva;
 - tempo decorrido;
 - botao para copiar resposta completa.
+- botao para copiar achados;
+- botao para copiar acoes recomendadas;
+- visualizacao alternativa em formato de relatorio.
 
 Essa camada melhora a leitura sem alterar o contrato do backend.
+
+## 2.2 Historico em memoria
+
+Status: implementado no MVP.
+
+O NexoDoc mantem um historico local apenas durante a sessao aberta do navegador.
+
+Esse historico permite:
+
+- consultar auditorias ja executadas na sessao;
+- reabrir o resultado estruturado;
+- preservar modo escolhido, arquivos e status;
+- manter o MVP sem banco de dados e sem historico persistente.
+
+Ao recarregar a pagina, o historico em memoria pode ser perdido.
 
 ## 2.1 Modos de auditoria
 

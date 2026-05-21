@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -7,8 +9,10 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
+import { useState } from "react";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -181,6 +185,40 @@ function splitFindings(findings: string): StructuredFinding[] {
     }));
 }
 
+function buildFindingsText(findings: StructuredFinding[]) {
+  if (findings.length === 0) {
+    return "Nenhuma incongruência relevante encontrada.";
+  }
+
+  return findings
+    .map((finding, index) => {
+      return [
+        `${index + 1}. ${finding.title}`,
+        finding.documento ? `Documento: ${finding.documento}` : null,
+        finding.pagina ? `Página: ${finding.pagina}` : null,
+        finding.local ? `Local: ${finding.local}` : null,
+        finding.evidencia ? `Evidência: ${finding.evidencia}` : null,
+        finding.conflito ? `Conflito: ${finding.conflito}` : null,
+        finding.acao ? `Ação recomendada: ${finding.acao}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n");
+}
+
+function buildActionsText(findings: StructuredFinding[]) {
+  const actions = findings
+    .map((finding) => finding.acao)
+    .filter((value): value is string => Boolean(value));
+
+  if (actions.length === 0) {
+    return "Nenhuma ação recomendada identificada.";
+  }
+
+  return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
+}
+
 function SectionCard({
   title,
   icon: Icon,
@@ -202,11 +240,18 @@ function SectionCard({
 }
 
 export function AuditResult({ content, elapsedMs }: AuditResultProps) {
+  const [view, setView] = useState<"analysis" | "report">("analysis");
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(parsed.status);
   const StatusIcon = status.icon;
   const elapsed = formatElapsedTime(elapsedMs);
   const findings = splitFindings(parsed.findings);
+  const findingsText = buildFindingsText(findings);
+  const actionsText = buildActionsText(findings);
+
+  async function copyText(value: string) {
+    await navigator.clipboard.writeText(value);
+  }
 
   return (
     <article className="w-full rounded-lg border bg-card p-4 shadow-xs">
@@ -231,7 +276,89 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
         <AuditResultActions result={content} />
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant={view === "analysis" ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setView("analysis")}
+        >
+          Análise
+        </Button>
+        <Button
+          type="button"
+          variant={view === "report" ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setView("report")}
+        >
+          Relatório
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => copyText(findingsText)}
+        >
+          Copiar achados
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => copyText(actionsText)}
+        >
+          Copiar ações
+        </Button>
+      </div>
+
       <div className="mt-4 grid gap-4">
+        {view === "report" ? (
+          <SectionCard title="Relatório da auditoria" icon={ClipboardCheck}>
+            <div className="space-y-4 text-foreground">
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Projeto
+                </p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
+                  {parsed.project || "Não identificado na resposta."}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Status
+                </p>
+                <p className="mt-1 text-sm">{status.label}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Achados
+                </p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm leading-6">
+                  {findingsText}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Ações recomendadas
+                </p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm leading-6">
+                  {actionsText}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Conclusão
+                </p>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
+                  {parsed.conclusion || "Sem conclusão identificada."}
+                </pre>
+              </div>
+            </div>
+          </SectionCard>
+        ) : null}
+
+        {view === "analysis" ? (
+          <>
         <SectionCard title="Projeto analisado" icon={ClipboardCheck}>
           <pre className="whitespace-pre-wrap break-words font-sans">
             {parsed.project || "Não identificado na resposta."}
@@ -325,11 +452,19 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
           )}
         </SectionCard>
 
+        <SectionCard title="Ações recomendadas" icon={CheckCircle2}>
+          <pre className="whitespace-pre-wrap break-words font-sans">
+            {actionsText}
+          </pre>
+        </SectionCard>
+
         <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
           <pre className="whitespace-pre-wrap break-words font-sans">
             {parsed.conclusion || "Sem conclusão identificada."}
           </pre>
         </SectionCard>
+          </>
+        ) : null}
       </div>
     </article>
   );

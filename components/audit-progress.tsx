@@ -1,12 +1,25 @@
-import { CheckCircle2, FileUp, Loader2, ScanText } from "lucide-react";
+import { CheckCircle2, FileUp, Loader2, ScanText, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
 
 type AuditProgressProps = {
   fileCount: number;
   auditMode: AuditMode;
+  elapsedMs: number;
+  onCancel: () => void;
 };
 
-export function AuditProgress({ fileCount, auditMode }: AuditProgressProps) {
+function formatElapsed(elapsedMs: number) {
+  return `${Math.max(1, Math.floor(elapsedMs / 1000))}s`;
+}
+
+export function AuditProgress({
+  fileCount,
+  auditMode,
+  elapsedMs,
+  onCancel,
+}: AuditProgressProps) {
   return (
     <section className="w-full max-w-[min(760px,100%)] rounded-lg border bg-card px-4 py-4 text-sm shadow-xs">
       <div className="flex items-start gap-3">
@@ -14,13 +27,29 @@ export function AuditProgress({ fileCount, auditMode }: AuditProgressProps) {
           <Loader2 className="size-4 animate-spin" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <p className="font-medium">Auditoria em andamento</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {getAuditModeLabel(auditMode)} processando {fileCount}{" "}
-              {fileCount === 1 ? "PDF" : "PDFs"} e aguardando a resposta
-              padronizada do agente.
-            </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-medium">Auditoria em andamento</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {getAuditModeLabel(auditMode)} processando {fileCount}{" "}
+                {fileCount === 1 ? "PDF" : "PDFs"} e aguardando a resposta
+                padronizada do agente.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground">
+                {formatElapsed(elapsedMs)}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onCancel}
+              >
+                <X />
+                Cancelar
+              </Button>
+            </div>
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-muted">

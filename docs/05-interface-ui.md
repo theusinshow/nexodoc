@@ -22,6 +22,10 @@ Elementos principais:
 - botao "Auditar documentos";
 - area de resposta do agente;
 - botao "Copiar resposta".
+- historico em memoria da sessao;
+- painel lateral com resumo da auditoria atual;
+- visualizacao de relatorio;
+- botao para cancelar processamento.
 
 ## 3. Layout recomendado
 
@@ -88,7 +92,9 @@ A resposta deve:
 - aparecer na area de chat;
 - preservar quebras de linha;
 - manter a estrutura obrigatoria do agente;
-- permitir copia em um clique.
+- permitir copia em um clique;
+- permitir copia separada de achados e acoes recomendadas;
+- permitir alternar entre analise estruturada e visualizacao de relatorio.
 
 ## 6. Linguagem de interface
 
@@ -124,6 +130,8 @@ A interface deve prever:
 - erro de validacao;
 - erro de API;
 - envio bloqueado por ausencia de PDF.
+- auditoria cancelada.
+- historico vazio.
 
 ## 8. Estilo visual
 

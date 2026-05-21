@@ -30,6 +30,11 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Registro da estrategia de evidencias visuais.
 - Modos de auditoria rapida e completa no frontend e backend.
 - Achados de incongruencia com documento, pagina provavel, local, evidencia, conflito e acao recomendada.
+- Historico em memoria para auditorias da sessao.
+- Painel lateral com resumo da auditoria atual.
+- Cancelamento de auditoria em andamento.
+- Tempo decorrido durante o processamento.
+- Visualizacao de relatorio e copias especificas de achados e acoes.
 
 ### Alterado
 

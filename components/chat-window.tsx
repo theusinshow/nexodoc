@@ -1,6 +1,12 @@
 "use client";
 
-import { ClipboardList, FileSearch, RotateCcw } from "lucide-react";
+import {
+  ClipboardList,
+  Clock3,
+  FileSearch,
+  Files,
+  RotateCcw,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
@@ -17,6 +23,18 @@ type ChatMessage = {
   content: string;
   auditMode?: AuditMode;
   elapsedMs?: number;
+};
+
+type AuditHistoryItem = {
+  id: string;
+  title: string;
+  createdAt: Date;
+  auditMode: AuditMode;
+  fileNames: string[];
+  status: "processing" | "completed" | "failed" | "canceled";
+  result?: string;
+  elapsedMs?: number;
+  error?: string;
 };
 
 const MAX_FILES = 5;
@@ -67,7 +85,12 @@ export function ChatWindow() {
   const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
+  const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const startedAtRef = useRef(0);
 
   const latestResult = useMemo(() => {
     return [...messages].reverse().find((item) => item.role === "assistant");
@@ -76,6 +99,18 @@ export function ChatWindow() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isLoading, error]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setElapsedMs(performance.now() - startedAtRef.current);
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, [isLoading]);
 
   function handleFilesAdd(newFiles: File[]) {
     const result = validateFiles(files, newFiles);
@@ -93,6 +128,54 @@ export function ChatWindow() {
     setMessage("Confira a consistência documental entre memorial e pranchas.");
     setFiles([]);
     setError("");
+    setActiveAuditId(null);
+    setElapsedMs(0);
+  }
+
+  function handleOpenAudit(item: AuditHistoryItem) {
+    setActiveAuditId(item.id);
+    setError(item.error ?? "");
+    setMessage("Confira a consistência documental entre memorial e pranchas.");
+    setFiles([]);
+    setAuditMode(item.auditMode);
+
+    const userMessage: ChatMessage = {
+      id: `${item.id}-request`,
+      role: "user",
+      content: `Auditoria registrada\n\nModo: ${getAuditModeLabel(item.auditMode)}\nArquivos: ${item.fileNames.join(", ")}`,
+      auditMode: item.auditMode,
+    };
+
+    setMessages(
+      item.result
+        ? [
+            userMessage,
+            {
+              id: `${item.id}-result`,
+              role: "assistant",
+              content: item.result,
+              auditMode: item.auditMode,
+              elapsedMs: item.elapsedMs,
+            },
+          ]
+        : [userMessage],
+    );
+  }
+
+  function handleCancelAudit() {
+    abortControllerRef.current?.abort();
+    setIsLoading(false);
+    setError("Auditoria cancelada pelo usuário.");
+
+    if (activeAuditId) {
+      setAuditHistory((current) =>
+        current.map((item) =>
+          item.id === activeAuditId
+            ? { ...item, status: "canceled", error: "Auditoria cancelada." }
+            : item,
+        ),
+      );
+    }
   }
 
   async function handleSubmit() {
@@ -110,7 +193,11 @@ export function ChatWindow() {
 
     setIsLoading(true);
     setError("");
-    const startedAt = performance.now();
+    setElapsedMs(0);
+    startedAtRef.current = performance.now();
+    const auditId = crypto.randomUUID();
+    setActiveAuditId(auditId);
+    abortControllerRef.current = new AbortController();
 
     const formData = new FormData();
     formData.append("message", trimmedMessage);
@@ -118,18 +205,30 @@ export function ChatWindow() {
     files.forEach((file) => formData.append("files", file));
 
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: `${auditId}-request`,
       role: "user",
       content: `${trimmedMessage}\n\nModo: ${getAuditModeLabel(auditMode)}`,
       auditMode,
     };
 
     setMessages((current) => [...current, userMessage]);
+    setAuditHistory((current) => [
+      {
+        id: auditId,
+        title: `Auditoria ${current.length + 1}`,
+        createdAt: new Date(),
+        auditMode,
+        fileNames: files.map((file) => file.name),
+        status: "processing",
+      },
+      ...current,
+    ]);
 
     try {
       const response = await fetch("/api/audit", {
         method: "POST",
         body: formData,
+        signal: abortControllerRef.current.signal,
       });
 
       const payload = (await response.json()) as {
@@ -143,25 +242,46 @@ export function ChatWindow() {
       }
 
       const result = payload.result;
+      const finalElapsedMs = performance.now() - startedAtRef.current;
 
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: `${auditId}-result`,
           role: "assistant",
           content: result,
           auditMode: payload.auditMode ?? auditMode,
-          elapsedMs: performance.now() - startedAt,
+          elapsedMs: finalElapsedMs,
         },
       ]);
+      setAuditHistory((current) =>
+        current.map((item) =>
+          item.id === auditId
+            ? {
+                ...item,
+                status: "completed",
+                result,
+                elapsedMs: finalElapsedMs,
+              }
+            : item,
+        ),
+      );
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Não foi possível concluir a auditoria.",
+      const message =
+        requestError instanceof DOMException && requestError.name === "AbortError"
+          ? "Auditoria cancelada pelo usuário."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Não foi possível concluir a auditoria.";
+      setError(message);
+      setAuditHistory((current) =>
+        current.map((item) =>
+          item.id === auditId ? { ...item, status: "failed", error: message } : item,
+        ),
       );
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   }
 
@@ -194,6 +314,48 @@ export function ChatWindow() {
           <p className="font-medium text-foreground">Versão 0.1</p>
           <p>Sem login, banco de dados ou histórico persistente.</p>
           <p>Limite inicial: até 5 PDFs, 25 MB por arquivo.</p>
+        </div>
+
+        <div className="mt-8 rounded-lg border bg-background p-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Files className="size-4 text-primary" />
+            Auditoria atual
+          </div>
+          <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+            <p>Modo: {getAuditModeLabel(auditMode)}</p>
+            <p>Arquivos anexados: {files.length}</p>
+            <p>Status: {isLoading ? "em andamento" : latestResult ? "concluída" : "aguardando envio"}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-background p-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Clock3 className="size-4 text-primary" />
+            Histórico da sessão
+          </div>
+          <div className="mt-3 space-y-2">
+            {auditHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma auditoria nesta sessão.
+              </p>
+            ) : (
+              auditHistory.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleOpenAudit(item)}
+                  className="w-full rounded-md border bg-card px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+                >
+                  <span className="block font-medium text-foreground">
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block text-muted-foreground">
+                    {getAuditModeLabel(item.auditMode)} · {item.status}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </aside>
 
@@ -252,7 +414,12 @@ export function ChatWindow() {
 
             {isLoading ? (
               <div className="flex justify-start">
-                <AuditProgress fileCount={files.length} auditMode={auditMode} />
+                <AuditProgress
+                  fileCount={files.length}
+                  auditMode={auditMode}
+                  elapsedMs={elapsedMs}
+                  onCancel={handleCancelAudit}
+                />
               </div>
             ) : null}
 
