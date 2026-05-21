@@ -95,7 +95,7 @@ function getStatusVariant(status: string) {
     return {
       label: "com incongruência relevante",
       className:
-        "border-destructive/30 bg-destructive/10 text-destructive",
+        "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]",
       icon: AlertTriangle,
     };
   }
@@ -104,7 +104,7 @@ function getStatusVariant(status: string) {
     return {
       label: "com ponto de atenção",
       className:
-        "border-amber-300 bg-amber-50 text-amber-800",
+        "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
       icon: AlertTriangle,
     };
   }
@@ -112,7 +112,7 @@ function getStatusVariant(status: string) {
   return {
     label: "sem incongruência relevante",
     className:
-      "border-emerald-300 bg-emerald-50 text-emerald-800",
+      "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
     icon: CheckCircle2,
   };
 }

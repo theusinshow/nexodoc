@@ -52,6 +52,7 @@ Ordem sugerida de leitura:
 6. [Roadmap](C:/Dev/trabalho/empresa/nexodoc/docs/06-roadmap.md)
 7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
 8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
+9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
 
 ## Variaveis de ambiente
 

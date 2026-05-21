@@ -287,7 +287,7 @@ export function ChatWindow() {
 
   return (
     <main className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden w-72 shrink-0 border-r bg-card px-5 py-5 lg:flex lg:flex-col">
+      <aside className="hidden w-72 shrink-0 border-r bg-[var(--nexodoc-panel)] px-5 py-5 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <FileSearch className="size-5" />
@@ -316,7 +316,7 @@ export function ChatWindow() {
           <p>Limite inicial: até 5 PDFs, 25 MB por arquivo.</p>
         </div>
 
-        <div className="mt-8 rounded-lg border bg-background p-3">
+        <div className="mt-8 rounded-lg border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
             Auditoria atual
@@ -328,7 +328,7 @@ export function ChatWindow() {
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-background p-3">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
             Histórico da sessão

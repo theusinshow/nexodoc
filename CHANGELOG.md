@@ -35,6 +35,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Cancelamento de auditoria em andamento.
 - Tempo decorrido durante o processamento.
 - Visualizacao de relatorio e copias especificas de achados e acoes.
+- Documento inicial do design system mantendo o chat como fluxo principal.
 
 ### Alterado
 

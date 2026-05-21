@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: resolve(projectRoot),
   },
+  typescript: {
+    tsconfigPath: "./tsconfig.json",
+  },
 };
 
 export default nextConfig;
