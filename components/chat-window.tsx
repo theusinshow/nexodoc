@@ -20,6 +20,7 @@ import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import { DEFAULT_AUDIT_MODE, getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
 
 type ChatWindowProps = {
@@ -169,6 +170,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   );
   const latestReport =
     latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
+  const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
+  const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
   const statusIsCritical = latestStatus === "com incongruência relevante";
   const statusIsOk = latestStatus === "sem incongruência relevante";
   const statusToneClass = statusIsCritical
@@ -257,6 +260,46 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         ),
       );
     }
+  }
+
+  function handleLoadDemo() {
+    const auditId = crypto.randomUUID();
+    const result = getDemoAuditResult(auditMode);
+    const demoElapsedMs = auditMode === "complete" ? 4200 : 1800;
+
+    setIsLoading(false);
+    setError("");
+    setFiles([]);
+    setElapsedMs(0);
+    setActiveAuditId(auditId);
+    setMessages([
+      {
+        id: `${auditId}-request`,
+        role: "user",
+        content: `Demonstração local\n\nModo: ${getAuditModeLabel(auditMode)}\nArquivos: Memorial.pdf, Pranchas.pdf`,
+        auditMode,
+      },
+      {
+        id: `${auditId}-result`,
+        role: "assistant",
+        content: result,
+        auditMode,
+        elapsedMs: demoElapsedMs,
+      },
+    ]);
+    setAuditHistory((current) => [
+      {
+        id: auditId,
+        title: `Demo ${current.length + 1}`,
+        createdAt: new Date(),
+        auditMode,
+        fileNames: ["Memorial.pdf", "Pranchas.pdf"],
+        status: "completed",
+        result,
+        elapsedMs: demoElapsedMs,
+      },
+      ...current,
+    ]);
   }
 
   async function handleSubmit() {
@@ -410,7 +453,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </div>
           <div className="mt-3 space-y-2 text-xs text-muted-foreground">
             <p>Modo: {getAuditModeLabel(auditMode)}</p>
-            <p>Arquivos anexados: {files.length}</p>
+            <p>Arquivos anexados: {displayedFileCount}</p>
             <p>Status: {isLoading ? "em andamento" : latestResult ? "concluída" : "aguardando envio"}</p>
           </div>
         </div>
@@ -533,6 +576,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           onFilesAdd={handleFilesAdd}
           onFileRemove={handleFileRemove}
           onSubmit={handleSubmit}
+          onLoadDemo={handleLoadDemo}
         />
       </section>
 
@@ -570,7 +614,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           <div className="border bg-card p-3">
             <Files className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">PDFs</p>
-            <p className="mt-1 text-sm font-medium">{files.length || "-"}</p>
+            <p className="mt-1 text-sm font-medium">{displayedFileCount || "-"}</p>
           </div>
           <div className="border bg-card p-3">
             <ListChecks className="mb-2 size-4 text-primary" />

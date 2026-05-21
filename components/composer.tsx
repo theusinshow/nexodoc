@@ -1,6 +1,6 @@
 "use client";
 
-import { SendHorizontal } from "lucide-react";
+import { Play, SendHorizontal } from "lucide-react";
 
 import { AttachedFiles } from "@/components/attached-files";
 import { FileUpload } from "@/components/file-upload";
@@ -19,6 +19,7 @@ type ComposerProps = {
   onFilesAdd: (files: File[]) => void;
   onFileRemove: (index: number) => void;
   onSubmit: () => void;
+  onLoadDemo: () => void;
 };
 
 export function Composer({
@@ -31,6 +32,7 @@ export function Composer({
   onFilesAdd,
   onFileRemove,
   onSubmit,
+  onLoadDemo,
 }: ComposerProps) {
   const canSubmit = message.trim().length > 0 && files.length > 0 && !isLoading;
 
@@ -89,10 +91,21 @@ export function Composer({
           />
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <FileUpload onFilesSelected={onFilesAdd} disabled={isLoading} />
-            <Button type="button" onClick={onSubmit} disabled={!canSubmit}>
-              <SendHorizontal />
-              {isLoading ? "Analisando" : "Auditar documentos"}
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onLoadDemo}
+                disabled={isLoading}
+              >
+                <Play />
+                Ver demo
+              </Button>
+              <Button type="button" onClick={onSubmit} disabled={!canSubmit}>
+                <SendHorizontal />
+                {isLoading ? "Analisando" : "Auditar documentos"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

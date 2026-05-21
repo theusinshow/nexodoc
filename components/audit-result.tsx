@@ -4,10 +4,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
+  Eye,
   FileText,
   LayoutList,
   MapPin,
   Search,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +36,7 @@ type ParsedAudit = Record<AuditSectionKey, string>;
 
 type StructuredFinding = {
   title: string;
+  severity: "critical" | "warning" | "ok";
   documento?: string;
   pagina?: string;
   local?: string;
@@ -40,6 +44,11 @@ type StructuredFinding = {
   conflito?: string;
   acao?: string;
   raw: string;
+};
+
+type ProjectField = {
+  label: string;
+  value: string;
 };
 
 const SECTION_MAP: Record<string, AuditSectionKey> = {
@@ -135,6 +144,67 @@ function getFindingField(block: string, label: string) {
   return block.match(regex)?.[1]?.trim();
 }
 
+function getFindingSeverity(block: string): StructuredFinding["severity"] {
+  const normalized = block.toLowerCase();
+
+  if (
+    normalized.includes("divergente") ||
+    normalized.includes("conflito") ||
+    normalized.includes("reaproveitamento") ||
+    normalized.includes("não corresponde")
+  ) {
+    return "critical";
+  }
+
+  if (
+    normalized.includes("atenção") ||
+    normalized.includes("conferir") ||
+    normalized.includes("confirmar")
+  ) {
+    return "warning";
+  }
+
+  return "ok";
+}
+
+function getSeverityLabel(severity: StructuredFinding["severity"]) {
+  if (severity === "critical") {
+    return "incongruência relevante";
+  }
+
+  if (severity === "warning") {
+    return "ponto de atenção";
+  }
+
+  return "sem incongruência relevante";
+}
+
+function getSeverityClass(severity: StructuredFinding["severity"]) {
+  if (severity === "critical") {
+    return "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]";
+  }
+
+  if (severity === "warning") {
+    return "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
+  }
+
+  return "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
+}
+
+function parseProjectFields(project: string): ProjectField[] {
+  return project
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [label, ...valueParts] = line.split(":");
+      return {
+        label: label?.trim() || "Campo",
+        value: valueParts.join(":").trim() || line,
+      };
+    });
+}
+
 function splitFindings(findings: string): StructuredFinding[] {
   const normalized = findings.trim();
 
@@ -156,6 +226,7 @@ function splitFindings(findings: string): StructuredFinding[] {
           ?.replace(/^[-•]\s*/, "")
           .replace(/^Achado\s*\d+\s*:\s*/i, "")
           .trim() || `Achado ${index + 1}`,
+      severity: getFindingSeverity(block),
       documento: getFindingField(block, "Documento"),
       pagina:
         getFindingField(block, "Página provável") ??
@@ -178,6 +249,7 @@ function splitFindings(findings: string): StructuredFinding[] {
     .filter(Boolean)
     .map((line, index) => ({
       title: line.replace(/^[-•]\s*/, ""),
+      severity: getFindingSeverity(line),
       raw: line,
       pagina: "não informada",
       local: "não informado",
@@ -240,7 +312,7 @@ function SectionCard({
 }
 
 export function AuditResult({ content, elapsedMs }: AuditResultProps) {
-  const [view, setView] = useState<"analysis" | "report">("analysis");
+  const [view, setView] = useState<"summary" | "findings" | "evidence" | "report">("summary");
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(parsed.status);
   const StatusIcon = status.icon;
@@ -248,6 +320,9 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
   const findings = splitFindings(parsed.findings);
   const findingsText = buildFindingsText(findings);
   const actionsText = buildActionsText(findings);
+  const projectFields = parseProjectFields(parsed.project);
+  const criticalCount = findings.filter((finding) => finding.severity === "critical").length;
+  const warningCount = findings.filter((finding) => finding.severity === "warning").length;
 
   async function copyText(value: string) {
     await navigator.clipboard.writeText(value);
@@ -279,11 +354,27 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
-          variant={view === "analysis" ? "secondary" : "outline"}
+          variant={view === "summary" ? "secondary" : "outline"}
           size="sm"
-          onClick={() => setView("analysis")}
+          onClick={() => setView("summary")}
         >
-          Análise
+          Resumo
+        </Button>
+        <Button
+          type="button"
+          variant={view === "findings" ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setView("findings")}
+        >
+          Achados
+        </Button>
+        <Button
+          type="button"
+          variant={view === "evidence" ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setView("evidence")}
+        >
+          Evidências
         </Button>
         <Button
           type="button"
@@ -312,8 +403,190 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
       </div>
 
       <div className="mt-4 grid gap-4">
+        {view === "summary" ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="border bg-background p-3">
+                <p className="text-xs text-muted-foreground">Achados</p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {findings.length}
+                </p>
+              </div>
+              <div className="border bg-background p-3">
+                <p className="text-xs text-muted-foreground">Críticos</p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--status-critical)]">
+                  {criticalCount}
+                </p>
+              </div>
+              <div className="border bg-background p-3">
+                <p className="text-xs text-muted-foreground">Atenção</p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--status-warning)]">
+                  {warningCount}
+                </p>
+              </div>
+            </div>
+
+            <SectionCard title="Projeto analisado" icon={ClipboardCheck}>
+              {projectFields.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {projectFields.map((field) => (
+                    <div key={`${field.label}-${field.value}`} className="border bg-background p-3">
+                      <p className="text-xs uppercase text-muted-foreground">
+                        {field.label}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-foreground">
+                        {field.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>Não identificado na resposta.</p>
+              )}
+            </SectionCard>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <SectionCard title="Memorial" icon={FileText}>
+                <pre className="whitespace-pre-wrap break-words font-sans">
+                  {parsed.memorial || "Sem informação específica."}
+                </pre>
+              </SectionCard>
+              <SectionCard title="Pranchas" icon={LayoutList}>
+                <pre className="whitespace-pre-wrap break-words font-sans">
+                  {parsed.drawings || "Sem informação específica."}
+                </pre>
+              </SectionCard>
+            </div>
+
+            <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
+              <pre className="whitespace-pre-wrap break-words font-sans">
+                {parsed.conclusion || "Sem conclusão identificada."}
+              </pre>
+            </SectionCard>
+          </>
+        ) : null}
+
+        {view === "findings" ? (
+          <SectionCard title="Achados e ações recomendadas" icon={MapPin}>
+            {findings.length > 0 ? (
+              <ul className="space-y-3">
+                {findings.map((finding, index) => (
+                  <li
+                    key={`${finding.raw}-${index}`}
+                    className="rounded-none border bg-background p-4"
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <Search className="mt-0.5 size-4 shrink-0 text-primary" />
+                          <p className="font-medium text-foreground">
+                            {index + 1}. {finding.title}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "w-fit shrink-0 border px-2 py-1 text-xs font-medium",
+                            getSeverityClass(finding.severity),
+                          )}
+                        >
+                          {getSeverityLabel(finding.severity)}
+                        </span>
+                      </div>
+
+                      <div className="grid gap-2 text-xs sm:grid-cols-3">
+                        <p>
+                          <span className="font-medium text-foreground">Documento:</span>{" "}
+                          {finding.documento || "não informado"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-foreground">Página:</span>{" "}
+                          {finding.pagina || "não identificada"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-foreground">Local:</span>{" "}
+                          {finding.local || "não informado"}
+                        </p>
+                      </div>
+
+                      {finding.evidencia ? (
+                        <p className="border-l-2 border-primary pl-3 text-xs">
+                          <span className="font-medium text-foreground">Evidência:</span>{" "}
+                          {finding.evidencia}
+                        </p>
+                      ) : null}
+                      {finding.conflito ? (
+                        <p className="text-xs">
+                          <span className="font-medium text-foreground">Conflito:</span>{" "}
+                          {finding.conflito}
+                        </p>
+                      ) : null}
+                      {finding.acao ? (
+                        <p className="border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning)]">
+                          <Wrench className="mr-1 inline size-3" />
+                          {finding.acao}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Nenhuma incongruência relevante encontrada.</p>
+            )}
+          </SectionCard>
+        ) : null}
+
+        {view === "evidence" ? (
+          <SectionCard title="Evidências visuais planejadas" icon={Eye}>
+            {findings.length > 0 ? (
+              <div className="grid gap-3">
+                {findings.map((finding, index) => (
+                  <div key={`${finding.raw}-evidence-${index}`} className="grid gap-3 border bg-background p-3 lg:grid-cols-[220px_1fr]">
+                    <div className="relative aspect-[3/4] border bg-card p-3">
+                      <div className="absolute left-4 right-4 top-4 h-3 border bg-muted" />
+                      <div className="absolute left-4 right-4 top-12 h-20 border border-primary/40 bg-primary/10" />
+                      <div className="absolute bottom-4 left-4 right-4 border border-[var(--status-critical)]/60 bg-[var(--status-critical-bg)] p-2 text-[10px] text-[var(--status-critical)]">
+                        {finding.local || "local provável"}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs uppercase text-muted-foreground">
+                          Evidência {index + 1}
+                        </p>
+                        <h4 className="mt-1 font-medium text-foreground">
+                          {finding.title}
+                        </h4>
+                      </div>
+                      <div className="grid gap-2 text-xs sm:grid-cols-2">
+                        <p>
+                          <span className="font-medium text-foreground">Documento:</span>{" "}
+                          {finding.documento || "não informado"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-foreground">Página provável:</span>{" "}
+                          {finding.pagina || "não identificada"}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {finding.evidencia || "Sem evidência textual detalhada."}
+                      </p>
+                      <p className="border border-dashed p-3 text-xs text-muted-foreground">
+                        Nesta etapa o NexoDoc mostra uma prévia esquemática do local do problema.
+                        A marcação real sobre a página do PDF entra na próxima fase.
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>Nenhuma evidência visual necessária para este resultado.</p>
+            )}
+          </SectionCard>
+        ) : null}
+
         {view === "report" ? (
-          <SectionCard title="Relatório da auditoria" icon={ClipboardCheck}>
+          <SectionCard title="Relatório da auditoria" icon={ClipboardList}>
             <div className="space-y-4 text-foreground">
               <div>
                 <p className="text-xs font-medium uppercase text-muted-foreground">
@@ -355,115 +628,6 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
               </div>
             </div>
           </SectionCard>
-        ) : null}
-
-        {view === "analysis" ? (
-          <>
-        <SectionCard title="Projeto analisado" icon={ClipboardCheck}>
-          <pre className="whitespace-pre-wrap break-words font-sans">
-            {parsed.project || "Não identificado na resposta."}
-          </pre>
-        </SectionCard>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SectionCard title="Memorial" icon={FileText}>
-            <pre className="whitespace-pre-wrap break-words font-sans">
-              {parsed.memorial || "Sem informação específica."}
-            </pre>
-          </SectionCard>
-          <SectionCard title="Pranchas" icon={LayoutList}>
-            <pre className="whitespace-pre-wrap break-words font-sans">
-              {parsed.drawings || "Sem informação específica."}
-            </pre>
-          </SectionCard>
-        </div>
-
-        <SectionCard title="Incongruências relevantes" icon={MapPin}>
-          {findings.length > 0 ? (
-            <ul className="space-y-2">
-              {findings.map((finding, index) => (
-                <li
-                  key={`${finding.raw}-${index}`}
-                  className="rounded-none border bg-background p-3"
-                >
-                  <div className="flex items-start gap-2">
-                    <Search className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground">
-                        {finding.title}
-                      </p>
-                      <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                        {finding.documento ? (
-                          <p>
-                            <span className="font-medium text-foreground">
-                              Documento:
-                            </span>{" "}
-                            {finding.documento}
-                          </p>
-                        ) : null}
-                        {finding.pagina ? (
-                          <p>
-                            <span className="font-medium text-foreground">
-                              Página:
-                            </span>{" "}
-                            {finding.pagina}
-                          </p>
-                        ) : null}
-                        {finding.local ? (
-                          <p>
-                            <span className="font-medium text-foreground">
-                              Local:
-                            </span>{" "}
-                            {finding.local}
-                          </p>
-                        ) : null}
-                      </div>
-                      {finding.evidencia ? (
-                        <p className="mt-2 text-xs">
-                          <span className="font-medium text-foreground">
-                            Evidência:
-                          </span>{" "}
-                          {finding.evidencia}
-                        </p>
-                      ) : null}
-                      {finding.conflito ? (
-                        <p className="mt-2 text-xs">
-                          <span className="font-medium text-foreground">
-                            Conflito:
-                          </span>{" "}
-                          {finding.conflito}
-                        </p>
-                      ) : null}
-                      {finding.acao ? (
-                        <p className="mt-2 text-xs">
-                          <span className="font-medium text-foreground">
-                            Ação recomendada:
-                          </span>{" "}
-                          {finding.acao}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nenhuma incongruência relevante encontrada.</p>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Ações recomendadas" icon={CheckCircle2}>
-          <pre className="whitespace-pre-wrap break-words font-sans">
-            {actionsText}
-          </pre>
-        </SectionCard>
-
-        <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
-          <pre className="whitespace-pre-wrap break-words font-sans">
-            {parsed.conclusion || "Sem conclusão identificada."}
-          </pre>
-        </SectionCard>
-          </>
         ) : null}
       </div>
     </article>

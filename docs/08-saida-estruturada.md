@@ -34,16 +34,19 @@ No frontend, essa resposta passa a ser renderizada em blocos visuais:
 
 - resultado da auditoria;
 - status geral destacado;
-- projeto analisado;
+- resumo com metricas de achados;
+- projeto analisado em campos;
 - memorial;
 - pranchas;
-- incongruencias relevantes;
+- achados em cards estruturados;
+- acoes recomendadas destacadas;
 - conclusao objetiva;
 - tempo decorrido;
-- botao para copiar resposta completa.
+- botao para copiar resposta completa;
 - botao para copiar achados;
 - botao para copiar acoes recomendadas;
-- visualizacao alternativa em formato de relatorio.
+- visualizacao alternativa em formato de relatorio;
+- aba de evidencias com pre-visualizacao esquematica.
 
 Essa camada melhora a leitura sem alterar o contrato do backend.
 
@@ -132,11 +135,13 @@ Formato alvo:
 
 ## 4. Camada 3 - Evidencia visual
 
-Status: planejada.
+Status: iniciada.
 
 A evidencia visual deve ser implementada em etapas para evitar indicacoes imprecisas.
 
 ### Etapa 3.1 - Documento e pagina provavel
+
+Status: implementada no frontend.
 
 O agente deve informar:
 
@@ -146,7 +151,19 @@ O agente deve informar:
 - evidencia encontrada;
 - informacao conflitante.
 
+O NexoDoc ja renderiza uma aba de evidencias com:
+
+- documento;
+- pagina provavel;
+- local do problema;
+- evidencia textual;
+- pre-visualizacao esquematica do trecho.
+
+Essa pre-visualizacao ainda nao marca a pagina real do PDF. Ela serve para preparar a experiencia sem gerar falsa precisao.
+
 ### Etapa 3.2 - Miniatura da pagina
+
+Status: planejada.
 
 O backend deve renderizar a pagina indicada do PDF como imagem.
 
@@ -158,6 +175,8 @@ A interface deve exibir:
 - observacao do agente.
 
 ### Etapa 3.3 - Marcacao visual
+
+Status: planejada.
 
 Somente depois de validar a confiabilidade da localizacao, adicionar destaque visual na imagem:
 
