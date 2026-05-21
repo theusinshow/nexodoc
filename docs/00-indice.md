@@ -10,6 +10,7 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 4. [Arquitetura tecnica](C:/Dev/trabalho/empresa/nexodoc/docs/04-arquitetura-tecnica.md)
 5. [Interface UI](C:/Dev/trabalho/empresa/nexodoc/docs/05-interface-ui.md)
 6. [Roadmap](C:/Dev/trabalho/empresa/nexodoc/docs/06-roadmap.md)
+7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
 
 ## Fonte de verdade
 
@@ -24,4 +25,3 @@ A versao 0.1 deve permanecer simples:
 - sem historico persistente;
 - sem exportacao PDF ou DOCX;
 - com foco em pagina unica, chat, upload multiplo de PDFs, backend e resposta padronizada pela OpenAI API.
-

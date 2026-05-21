@@ -23,6 +23,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Integracao inicial com OpenAI API pelo backend.
 - Override de `postcss` para corrigir vulnerabilidade moderada apontada pelo npm audit.
 - Modelo padrao ajustado para `gpt-5-mini`.
+- Registro do primeiro teste real com documento de 218 paginas.
 
 ### Alterado
 
