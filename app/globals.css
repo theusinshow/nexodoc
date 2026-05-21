@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  --font-sans: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -28,36 +28,36 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.985 0.003 247.858);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.305 0.046 229.195);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.92 0.018 196.844);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.305 0.046 229.195);
-  --nexodoc-surface: oklch(1 0 0);
-  --nexodoc-panel: oklch(0.972 0.004 247.858);
-  --nexodoc-panel-foreground: oklch(0.21 0.006 285.885);
-  --nexodoc-accent: oklch(0.305 0.046 229.195);
-  --nexodoc-accent-foreground: oklch(0.985 0.003 247.858);
-  --status-ok: oklch(0.448 0.119 151.328);
-  --status-ok-bg: oklch(0.962 0.044 156.743);
-  --status-warning: oklch(0.555 0.135 66.442);
-  --status-warning-bg: oklch(0.973 0.071 103.193);
-  --status-critical: oklch(0.577 0.245 27.325);
-  --status-critical-bg: oklch(0.971 0.013 17.38);
+  --radius: 0px;
+  --background: #0b101a;
+  --foreground: #eef3fb;
+  --card: #171c24;
+  --card-foreground: #eef3fb;
+  --popover: #171c24;
+  --popover-foreground: #eef3fb;
+  --primary: #17243e;
+  --primary-foreground: #f8fbff;
+  --secondary: #101827;
+  --secondary-foreground: #d9e4f2;
+  --muted: #101827;
+  --muted-foreground: #8996a8;
+  --accent: #1b2c4c;
+  --accent-foreground: #f8fbff;
+  --destructive: #ef6b73;
+  --border: #263244;
+  --input: #2b3648;
+  --ring: #2f5592;
+  --nexodoc-surface: #171c24;
+  --nexodoc-panel: #101827;
+  --nexodoc-panel-foreground: #d9e4f2;
+  --nexodoc-accent: #17243e;
+  --nexodoc-accent-foreground: #f8fbff;
+  --status-ok: #75d69c;
+  --status-ok-bg: #102418;
+  --status-warning: #f2c96d;
+  --status-warning-bg: #2a220f;
+  --status-critical: #ff7a84;
+  --status-critical-bg: #2b1218;
 }
 
 * {
@@ -72,6 +72,22 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
+}
+
+::selection {
+  background: #243b66;
+  color: #f8fbff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @keyframes audit-progress {

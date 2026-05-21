@@ -1,69 +1,74 @@
-# NexoDoc - Design system
+# NexoDoc Audit Workspace - Design system
 
-Este documento define a direcao visual e os padroes iniciais do design system do NexoDoc.
+Este documento consolida as decisoes iniciais do design system do NexoDoc.
 
-O objetivo e manter o aplicativo com aparencia tecnica, profissional e consistente, sem perder o fluxo principal em formato de chat.
+O objetivo e manter a experiencia principal em formato de chat, mas com uma estrutura visual de bancada tecnica para auditoria documental.
 
-## 1. Decisao de produto
+## 1. Direcao visual
 
-O NexoDoc deve continuar sendo uma aplicacao estilo chat.
+O NexoDoc deve parecer uma ferramenta de trabalho para engenharia e auditoria documental, nao uma landing page.
 
-O design system anexado em `design-system/` sera usado como referencia de componentes shadcn/ui, tokens e estrutura visual, mas nao deve substituir a experiencia principal.
+Direcao definida:
 
-Fluxo prioritario:
+- SaaS tecnico e premium;
+- tema dark;
+- alta legibilidade;
+- densidade moderada;
+- geometria reta, sem cantos arredondados;
+- detalhes em azul escuro;
+- status documental sempre visivel.
+
+Nome interno do sistema visual:
 
 ```text
-anexar PDFs -> escolher modo -> enviar mensagem -> acompanhar progresso -> receber auditoria estruturada
+NexoDoc Audit Workspace
 ```
 
-## 2. Principios visuais
+## 2. Layout principal
 
-- Tecnico e direto.
-- Interface de trabalho, nao landing page.
-- Alta legibilidade.
-- Pouco ruido visual.
-- Densidade moderada para uso recorrente.
-- Hierarquia clara entre chat, auditoria e relatorio.
-- Status documental sempre visivel.
-- Evidencias e acoes recomendadas com destaque maior que textos explicativos.
+A tela principal deve seguir tres areas:
 
-## 3. Paleta inicial
+- sidebar esquerda: marca, nova auditoria, resumo atual e historico da sessao;
+- area central: chat dominante, upload, progresso e resposta estruturada;
+- painel direito: inspecao analitica com resumo, achados e relatorio.
 
-Base:
+O chat continua sendo o fluxo principal do produto.
 
-- fundo: neutro muito claro;
-- texto: grafite;
-- superficie principal: branco;
-- painel lateral: neutro frio;
-- bordas: cinza claro;
-- acento: azul-petroleo tecnico.
+## 3. Paleta
+
+Tokens principais:
+
+```css
+--background: #0b101a;
+--foreground: #eef3fb;
+--nexodoc-panel: #101827;
+--nexodoc-surface: #171c24;
+--card: #171c24;
+--primary: #17243e;
+--border: #263244;
+--ring: #2f5592;
+```
 
 Status:
 
-- sem incongruencia relevante: verde tecnico;
-- com ponto de atencao: amarelo/ambar;
-- com incongruencia relevante: vermelho controlado;
-- processamento: azul-petroleo.
-
-## 4. Tokens CSS
-
-Tokens especificos do NexoDoc:
-
 ```css
---nexodoc-surface
---nexodoc-panel
---nexodoc-panel-foreground
---nexodoc-accent
---nexodoc-accent-foreground
---status-ok
---status-ok-bg
---status-warning
---status-warning-bg
---status-critical
---status-critical-bg
+--status-ok: #75d69c;
+--status-ok-bg: #102418;
+--status-warning: #f2c96d;
+--status-warning-bg: #2a220f;
+--status-critical: #ff7a84;
+--status-critical-bg: #2b1218;
 ```
 
-Esses tokens devem complementar os tokens shadcn existentes, nao substitui-los sem necessidade.
+## 4. Geometria
+
+Regra geral:
+
+- `border-radius: 0`;
+- componentes em bloco com bordas retas;
+- botoes em estilo comando;
+- estados ativos com borda azul e contraste de fundo;
+- sombras discretas ou ausentes.
 
 ## 5. Componentes principais
 
@@ -72,62 +77,74 @@ Esses tokens devem complementar os tokens shadcn existentes, nao substitui-los s
 Deve conter:
 
 - marca NexoDoc;
+- indicador de modo mock quando ativo;
 - botao Nova auditoria;
+- informacoes da versao 0.1;
 - resumo da auditoria atual;
 - historico em memoria da sessao.
+
+### Chat
+
+Deve conter:
+
+- estado vazio claro;
+- mensagens do usuario;
+- resultado estruturado do agente;
+- progresso de auditoria;
+- estados de erro e cancelamento.
 
 ### Composer
 
 Deve conter:
 
-- seletor rapido/completo;
-- campo de mensagem;
-- upload de PDFs;
-- botao Auditar documentos;
-- estados desabilitados durante processamento.
+- arquivos anexados;
+- seletor de modo rapido/completo;
+- campo de solicitacao;
+- acao principal de auditoria;
+- upload multiplo de PDFs.
 
-### Resultado de auditoria
+### Painel analitico
 
 Deve conter:
 
-- status geral em destaque;
-- tempo de conclusao;
-- projeto analisado;
-- memorial;
-- pranchas;
-- incongruencias relevantes;
-- acoes recomendadas;
-- conclusao objetiva;
-- visualizacao de relatorio.
+- status geral;
+- modo selecionado;
+- tempo de processamento;
+- quantidade de PDFs;
+- quantidade de achados;
+- abas Resumo, Achados e Relatorio.
 
-### Achado
+## 6. Resposta do agente
 
-Cada achado deve exibir:
+A resposta renderizada deve preservar a estrutura definida para o agente auditor:
 
-- titulo;
-- documento;
-- pagina provavel;
-- local;
-- evidencia;
-- conflito;
-- acao recomendada.
+1. Projeto analisado
+2. Status geral
+3. Memorial
+4. Pranchas
+5. Incongruencias relevantes encontradas
+6. Conclusao objetiva
 
-## 6. Estados obrigatorios
+As classificacoes permitidas continuam sendo:
 
-- vazio;
-- arquivos anexados;
-- processando;
-- concluido;
-- erro;
-- cancelado;
-- historico vazio.
+- sem incongruencia relevante;
+- com ponto de atencao;
+- com incongruencia relevante.
 
-## 7. Regras de implementacao
+## 7. Animacao e estados
 
-- Manter chat como tela principal.
-- Nao criar landing page no lugar da aplicacao.
-- Nao remover upload e composer.
-- Nao substituir a resposta estruturada por dashboard isolado.
-- Componentes do design system podem ser incorporados gradualmente.
-- Toda mudanca visual deve preservar a legibilidade da auditoria.
+Animacoes devem ser funcionais:
 
+- transicoes entre 150 ms e 300 ms;
+- sem decoracao excessiva;
+- respeitar `prefers-reduced-motion`;
+- progresso deve comunicar atividade sem prometer porcentagem exata.
+
+## 8. Regras de implementacao
+
+- Nao remover o chat do fluxo principal.
+- Nao transformar a tela inicial em landing page.
+- Nao usar cards decorativos aninhados.
+- Manter a interface escaneavel.
+- Preservar upload, composer, progresso, resultado e historico.
+- Evoluir exportacao e visualizacao de evidencias em etapas posteriores.

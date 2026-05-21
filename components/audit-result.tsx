@@ -229,7 +229,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-xs">
+    <section className="rounded-none border bg-card p-4">
       <div className="mb-3 flex items-center gap-2">
         <Icon className="size-4 text-primary" />
         <h3 className="text-sm font-semibold">{title}</h3>
@@ -254,7 +254,7 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
   }
 
   return (
-    <article className="w-full rounded-lg border bg-card p-4 shadow-xs">
+    <article className="w-full rounded-none border bg-card p-4">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
           </div>
           <div
             className={cn(
-              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium",
+              "inline-flex items-center gap-2 rounded-none border px-3 py-2 text-sm font-medium",
               status.className,
             )}
           >
@@ -384,7 +384,7 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
               {findings.map((finding, index) => (
                 <li
                   key={`${finding.raw}-${index}`}
-                  className="rounded-md border bg-background p-3"
+                  className="rounded-none border bg-background p-3"
                 >
                   <div className="flex items-start gap-2">
                     <Search className="mt-0.5 size-4 shrink-0 text-primary" />

@@ -35,15 +35,15 @@ export function Composer({
   const canSubmit = message.trim().length > 0 && files.length > 0 && !isLoading;
 
   return (
-    <div className="border-t bg-background/95 p-4">
+    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-4">
       <div className="mx-auto flex max-w-4xl flex-col gap-3">
         <AttachedFiles
           files={files}
           onRemove={onFileRemove}
           disabled={isLoading}
         />
-        <div className="rounded-lg border bg-card p-3 shadow-xs">
-          <div className="mb-3 grid gap-2 rounded-md bg-muted/40 p-1 sm:grid-cols-2">
+        <div className="rounded-none border bg-card p-3">
+          <div className="mb-3 grid gap-2 rounded-none border bg-muted/40 p-1 sm:grid-cols-2">
             {[
               {
                 value: "fast" as const,
@@ -62,9 +62,9 @@ export function Composer({
                 disabled={isLoading}
                 onClick={() => onAuditModeChange(mode.value)}
                 className={cn(
-                  "rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  "rounded-none border px-3 py-2 text-left transition-[background-color,border-color,color] duration-200 disabled:cursor-not-allowed disabled:opacity-60",
                   auditMode === mode.value
-                    ? "border-primary bg-background text-foreground shadow-xs"
+                    ? "border-ring bg-background text-foreground shadow-[inset_0_0_0_1px_var(--ring)]"
                     : "border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground",
                 )}
               >
@@ -79,7 +79,7 @@ export function Composer({
             value={message}
             onChange={(event) => onMessageChange(event.target.value)}
             placeholder="Descreva a conferência documental desejada"
-            className="max-h-40 min-h-20 resize-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+            className="max-h-40 min-h-20 resize-none rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
             disabled={isLoading}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {

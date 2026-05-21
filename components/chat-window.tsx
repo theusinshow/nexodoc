@@ -1,11 +1,16 @@
 "use client";
 
 import {
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
   ClipboardList,
   Clock3,
   FileSearch,
   Files,
+  ListChecks,
   RotateCcw,
+  ScrollText,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -16,6 +21,10 @@ import { MessageBubble } from "@/components/message-bubble";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_AUDIT_MODE, getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
+
+type ChatWindowProps = {
+  isMockMode?: boolean;
+};
 
 type ChatMessage = {
   id: string;
@@ -37,8 +46,60 @@ type AuditHistoryItem = {
   error?: string;
 };
 
+type InspectorTab = "summary" | "findings" | "report";
+
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+function getStatusFromResult(result?: string) {
+  if (!result) {
+    return "aguardando envio";
+  }
+
+  const lowerResult = result.toLowerCase();
+
+  if (lowerResult.includes("com incongruência relevante")) {
+    return "com incongruência relevante";
+  }
+
+  if (lowerResult.includes("com ponto de atenção")) {
+    return "com ponto de atenção";
+  }
+
+  if (lowerResult.includes("sem incongruência relevante")) {
+    return "sem incongruência relevante";
+  }
+
+  return "resultado disponível";
+}
+
+function getFindingCount(result?: string) {
+  if (!result) {
+    return 0;
+  }
+
+  return result.match(/Achado\s+\d+:/gi)?.length ?? 0;
+}
+
+function formatSeconds(ms?: number) {
+  if (!ms) {
+    return "--";
+  }
+
+  return `${Math.max(1, Math.round(ms / 1000))}s`;
+}
+
+function extractSection(content: string | undefined, titlePattern: string) {
+  if (!content) {
+    return "";
+  }
+
+  const regex = new RegExp(
+    `${titlePattern}\\s*\\n([\\s\\S]*?)(?=\\n\\s*\\d+\\.\\s|$)`,
+    "i",
+  );
+  return regex.exec(content)?.[1]?.trim() ?? "";
+}
 
 function validateFiles(currentFiles: File[], newFiles: File[]) {
   const pdfFiles = newFiles.filter((file) => {
@@ -76,7 +137,7 @@ function validateFiles(currentFiles: File[], newFiles: File[]) {
   };
 }
 
-export function ChatWindow() {
+export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(
     "Confira a consistência documental entre memorial e pranchas.",
@@ -88,6 +149,7 @@ export function ChatWindow() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("summary");
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef(0);
@@ -95,6 +157,25 @@ export function ChatWindow() {
   const latestResult = useMemo(() => {
     return [...messages].reverse().find((item) => item.role === "assistant");
   }, [messages]);
+  const latestStatus = getStatusFromResult(latestResult?.content);
+  const latestFindingCount = getFindingCount(latestResult?.content);
+  const latestProject = extractSection(
+    latestResult?.content,
+    "1\\.\\s*Projeto analisado",
+  );
+  const latestFindings = extractSection(
+    latestResult?.content,
+    "5\\.\\s*Incongruências relevantes encontradas",
+  );
+  const latestReport =
+    latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
+  const statusIsCritical = latestStatus === "com incongruência relevante";
+  const statusIsOk = latestStatus === "sem incongruência relevante";
+  const statusToneClass = statusIsCritical
+    ? "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]"
+    : statusIsOk
+      ? "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+      : "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -289,7 +370,7 @@ export function ChatWindow() {
     <main className="flex min-h-screen bg-background text-foreground">
       <aside className="hidden w-72 shrink-0 border-r bg-[var(--nexodoc-panel)] px-5 py-5 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <div className="flex size-10 items-center justify-center rounded-none bg-primary text-primary-foreground">
             <FileSearch className="size-5" />
           </div>
           <div>
@@ -299,6 +380,12 @@ export function ChatWindow() {
             </p>
           </div>
         </div>
+
+        {isMockMode ? (
+          <div className="mt-4 border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning)]">
+            Modo mock ativo. Testes de interface sem consumo da OpenAI API.
+          </div>
+        ) : null}
 
         <Button
           type="button"
@@ -316,7 +403,7 @@ export function ChatWindow() {
           <p>Limite inicial: até 5 PDFs, 25 MB por arquivo.</p>
         </div>
 
-        <div className="mt-8 rounded-lg border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-8 rounded-none border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
             Auditoria atual
@@ -328,7 +415,7 @@ export function ChatWindow() {
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-none border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
             Histórico da sessão
@@ -344,7 +431,7 @@ export function ChatWindow() {
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-md border bg-card px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+                  className="w-full rounded-none border bg-card px-3 py-2 text-left text-xs transition-[background-color,border-color] hover:border-ring hover:bg-muted"
                 >
                   <span className="block font-medium text-foreground">
                     {item.title}
@@ -375,14 +462,14 @@ export function ChatWindow() {
           <div className="mx-auto flex max-w-4xl flex-col gap-4">
             {messages.length === 0 ? (
               <div className="grid min-h-[calc(100vh-280px)] place-items-center">
-                <section className="w-full max-w-2xl rounded-lg border bg-card p-6 shadow-xs">
+                <section className="w-full max-w-2xl rounded-none border bg-card p-6">
                   <div className="flex items-start gap-4">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-none bg-accent text-accent-foreground">
                       <ClipboardList className="size-5" />
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <Badge variant="secondary">MVP 0.1</Badge>
+                        <Badge variant="secondary">NexoDoc Audit Workspace</Badge>
                         <h2 className="mt-3 text-xl font-semibold">
                           Auditoria documental de PDFs
                         </h2>
@@ -428,7 +515,7 @@ export function ChatWindow() {
             ) : null}
 
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <div className="rounded-none border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
@@ -448,6 +535,120 @@ export function ChatWindow() {
           onSubmit={handleSubmit}
         />
       </section>
+
+      <aside className="hidden w-[360px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 xl:flex xl:flex-col">
+        <div className="flex items-start justify-between gap-3 border-b pb-4">
+          <div>
+            <p className="text-xs uppercase text-muted-foreground">
+              Painel analítico
+            </p>
+            <h2 className="mt-1 text-base font-semibold">Inspeção da auditoria</h2>
+          </div>
+          <div className={`border px-2 py-1 text-xs font-medium ${statusToneClass}`}>
+            {statusIsCritical ? (
+              <AlertTriangle className="mr-1 inline size-3" />
+            ) : (
+              <CheckCircle2 className="mr-1 inline size-3" />
+            )}
+            {latestStatus}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 py-4">
+          <div className="border bg-card p-3">
+            <BarChart3 className="mb-2 size-4 text-primary" />
+            <p className="text-xs text-muted-foreground">Modo</p>
+            <p className="mt-1 text-sm font-medium">{getAuditModeLabel(auditMode)}</p>
+          </div>
+          <div className="border bg-card p-3">
+            <Clock3 className="mb-2 size-4 text-primary" />
+            <p className="text-xs text-muted-foreground">Tempo</p>
+            <p className="mt-1 text-sm font-medium">
+              {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
+            </p>
+          </div>
+          <div className="border bg-card p-3">
+            <Files className="mb-2 size-4 text-primary" />
+            <p className="text-xs text-muted-foreground">PDFs</p>
+            <p className="mt-1 text-sm font-medium">{files.length || "-"}</p>
+          </div>
+          <div className="border bg-card p-3">
+            <ListChecks className="mb-2 size-4 text-primary" />
+            <p className="text-xs text-muted-foreground">Achados</p>
+            <p className="mt-1 text-sm font-medium">{latestFindingCount}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 border bg-card p-1 text-xs">
+          {[
+            { value: "summary" as const, label: "Resumo" },
+            { value: "findings" as const, label: "Achados" },
+            { value: "report" as const, label: "Relatório" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setInspectorTab(tab.value)}
+              className={
+                inspectorTab === tab.value
+                  ? "border border-ring bg-background px-2 py-2 text-foreground"
+                  : "border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto border bg-card p-4 text-sm leading-6">
+          {inspectorTab === "summary" ? (
+            <div className="space-y-4">
+              <section>
+                <p className="text-xs uppercase text-muted-foreground">
+                  Projeto analisado
+                </p>
+                <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm">
+                  {latestProject || "Aguardando resultado da primeira auditoria."}
+                </pre>
+              </section>
+              <section className="border-t pt-4">
+                <p className="text-xs uppercase text-muted-foreground">
+                  Próxima ação
+                </p>
+                <p className="mt-2 text-muted-foreground">
+                  {latestResult
+                    ? "Revise os achados, copie os pontos relevantes e valide os documentos citados."
+                    : "Anexe PDFs, escolha o modo de auditoria e envie a solicitação no chat."}
+                </p>
+              </section>
+            </div>
+          ) : null}
+
+          {inspectorTab === "findings" ? (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="size-4 text-primary" />
+                <p className="font-medium">Incongruências relevantes</p>
+              </div>
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
+                {latestFindings || "Nenhum achado estruturado disponível ainda."}
+              </pre>
+            </div>
+          ) : null}
+
+          {inspectorTab === "report" ? (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <ScrollText className="size-4 text-primary" />
+                <p className="font-medium">Relatório completo</p>
+              </div>
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
+                {latestReport}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      </aside>
     </main>
   );
 }

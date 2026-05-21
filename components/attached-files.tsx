@@ -27,7 +27,7 @@ export function AttachedFiles({
       {files.map((file, index) => (
         <div
           key={`${file.name}-${file.size}-${index}`}
-          className="flex min-w-0 items-center gap-3 rounded-md border bg-card px-3 py-2 text-sm"
+          className="flex min-w-0 items-center gap-3 rounded-none border bg-card px-3 py-2 text-sm"
         >
           <FileText className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">

@@ -38,10 +38,15 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Documento inicial do design system mantendo o chat como fluxo principal.
 - Pasta `project-skills/` para armazenar skills e referencias auxiliares do projeto.
 - Pasta `.codex/` com instrucoes locais do projeto e area para skills.
+- Aplicacao inicial do design system NexoDoc Audit Workspace.
+- Painel analitico direito com status, metricas e abas de resumo, achados e relatorio.
+- Indicador visual de modo mock em ambiente de desenvolvimento.
 
 ### Alterado
 
-- Nenhuma alteracao registrada.
+- Tema visual ajustado para dark tecnico com tons de preto, cinza e azul escuro.
+- Componentes principais ajustados para geometria reta com `border-radius` zero.
+- Fonte externa removida do build local para evitar dependencia de rede.
 
 ### Removido
 
