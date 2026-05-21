@@ -15,9 +15,10 @@ export const runtime = "nodejs";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const DEFAULT_MODEL = "gpt-5-mini";
-const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 1800;
-const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 2800;
-const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 3600;
+const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 2800;
+const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 5200;
+const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 6400;
+const DEFAULT_REASONING_EFFORT = "minimal";
 
 function isPdf(file: File) {
   return (
@@ -28,6 +29,21 @@ function isPdf(file: File) {
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+
+function getReasoningEffort() {
+  const effort = process.env.OPENAI_REASONING_EFFORT;
+
+  if (
+    effort === "minimal" ||
+    effort === "low" ||
+    effort === "medium" ||
+    effort === "high"
+  ) {
+    return effort;
+  }
+
+  return DEFAULT_REASONING_EFFORT;
 }
 
 function extractResponseText(response: unknown) {
@@ -138,6 +154,9 @@ export async function POST(request: Request) {
     const response = await openai.responses.create({
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
       instructions: getAuditorPrompt(auditMode),
+      reasoning: {
+        effort: getReasoningEffort(),
+      },
       max_output_tokens:
         auditMode === "volume"
           ? Number(
