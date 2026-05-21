@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { toFile } from "openai";
 
-import { AUDITOR_SYSTEM_PROMPT } from "@/lib/auditor-prompt";
+import { parseAuditMode } from "@/lib/audit-mode";
+import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import {
+  getMockAuditResult,
   isMockModeEnabled,
-  MOCK_AUDIT_RESULT,
   waitForMockAudit,
 } from "@/lib/mock-audit";
 import { getOpenAIClient } from "@/lib/openai";
@@ -14,6 +15,8 @@ export const runtime = "nodejs";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 900;
+const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 1800;
 
 function isPdf(file: File) {
   return (
@@ -30,6 +33,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
+    const auditMode = parseAuditMode(formData.get("auditMode"));
     const files = formData
       .getAll("files")
       .filter((file): file is File => file instanceof File);
@@ -59,7 +63,8 @@ export async function POST(request: Request) {
     if (isMockModeEnabled()) {
       await waitForMockAudit();
       return NextResponse.json({
-        result: MOCK_AUDIT_RESULT,
+        result: getMockAuditResult(auditMode),
+        auditMode,
         mock: true,
       });
     }
@@ -77,7 +82,17 @@ export async function POST(request: Request) {
 
     const response = await openai.responses.create({
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
-      instructions: AUDITOR_SYSTEM_PROMPT,
+      instructions: getAuditorPrompt(auditMode),
+      max_output_tokens:
+        auditMode === "complete"
+          ? Number(
+              process.env.NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS ??
+                DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS,
+            )
+          : Number(
+              process.env.NEXODOC_FAST_MAX_OUTPUT_TOKENS ??
+                DEFAULT_FAST_MAX_OUTPUT_TOKENS,
+            ),
       input: [
         {
           role: "user",
@@ -101,7 +116,7 @@ export async function POST(request: Request) {
       return jsonError("A análise não retornou conteúdo.", 502);
     }
 
-    return NextResponse.json({ result });
+    return NextResponse.json({ result, auditMode });
   } catch (error) {
     console.error(error);
 

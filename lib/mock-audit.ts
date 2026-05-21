@@ -1,4 +1,28 @@
-export const MOCK_AUDIT_RESULT = `
+import type { AuditMode } from "@/lib/audit-mode";
+
+const MOCK_FAST_AUDIT_RESULT = `
+1. Projeto analisado
+Obra: Escola Municipal Exemplo
+Projeto: NX-001/2026
+
+2. Status geral
+com incongruência relevante
+
+3. Memorial
+O memorial apresenta identificação principal compatível com a obra, mas contém referência residual a bairro divergente.
+
+4. Pranchas
+As pranchas indicam a mesma obra, porém o selo da prancha A-02 apresenta código de projeto divergente.
+
+5. Incongruências relevantes encontradas
+- Memorial: referência a bairro diferente do indicado na identificação principal.
+- Prancha A-02: código do projeto divergente do memorial.
+
+6. Conclusão objetiva
+conjunto com incongruência relevante e necessidade de revisão
+`.trim();
+
+const MOCK_COMPLETE_AUDIT_RESULT = `
 1. Projeto analisado
 Obra: Escola Municipal Exemplo
 Projeto: NX-001/2026
@@ -20,6 +44,12 @@ As pranchas apresentam identificação geral compatível com a obra, mas o selo 
 6. Conclusão objetiva
 conjunto com incongruência relevante e necessidade de revisão
 `.trim();
+
+export function getMockAuditResult(mode: AuditMode) {
+  return mode === "complete"
+    ? MOCK_COMPLETE_AUDIT_RESULT
+    : MOCK_FAST_AUDIT_RESULT;
+}
 
 export function isMockModeEnabled() {
   return process.env.NEXODOC_MOCK_MODE === "true";

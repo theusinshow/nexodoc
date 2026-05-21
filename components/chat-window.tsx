@@ -9,11 +9,13 @@ import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_AUDIT_MODE, getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  auditMode?: AuditMode;
   elapsedMs?: number;
 };
 
@@ -62,6 +64,7 @@ export function ChatWindow() {
     "Confira a consistência documental entre memorial e pranchas.",
   );
   const [files, setFiles] = useState<File[]>([]);
+  const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -111,12 +114,14 @@ export function ChatWindow() {
 
     const formData = new FormData();
     formData.append("message", trimmedMessage);
+    formData.append("auditMode", auditMode);
     files.forEach((file) => formData.append("files", file));
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: trimmedMessage,
+      content: `${trimmedMessage}\n\nModo: ${getAuditModeLabel(auditMode)}`,
+      auditMode,
     };
 
     setMessages((current) => [...current, userMessage]);
@@ -130,6 +135,7 @@ export function ChatWindow() {
       const payload = (await response.json()) as {
         result?: string;
         error?: string;
+        auditMode?: AuditMode;
       };
 
       if (!response.ok || !payload.result) {
@@ -144,6 +150,7 @@ export function ChatWindow() {
           id: crypto.randomUUID(),
           role: "assistant",
           content: result,
+          auditMode: payload.auditMode ?? auditMode,
           elapsedMs: performance.now() - startedAt,
         },
       ]);
@@ -245,7 +252,7 @@ export function ChatWindow() {
 
             {isLoading ? (
               <div className="flex justify-start">
-                <AuditProgress fileCount={files.length} />
+                <AuditProgress fileCount={files.length} auditMode={auditMode} />
               </div>
             ) : null}
 
@@ -265,8 +272,10 @@ export function ChatWindow() {
         <Composer
           message={message}
           files={files}
+          auditMode={auditMode}
           isLoading={isLoading}
           onMessageChange={setMessage}
+          onAuditModeChange={setAuditMode}
           onFilesAdd={handleFilesAdd}
           onFileRemove={handleFileRemove}
           onSubmit={handleSubmit}

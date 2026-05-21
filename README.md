@@ -62,6 +62,8 @@ OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5-mini
 NEXODOC_MOCK_MODE=false
 NEXODOC_MOCK_DELAY_MS=3500
+NEXODOC_FAST_MAX_OUTPUT_TOKENS=900
+NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS=1800
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
@@ -75,6 +77,22 @@ NEXODOC_MOCK_MODE=true
 ```
 
 Nesse modo, a rota `/api/audit` valida a mensagem e os PDFs, aguarda alguns segundos e retorna uma resposta simulada no formato padrao do agente.
+
+## Modos de auditoria
+
+O NexoDoc possui dois modos iniciais:
+
+- **Rápida**: triagem objetiva, menor resposta e menor consumo esperado.
+- **Completa**: conferência mais cuidadosa, resposta mais detalhada e maior consumo esperado.
+
+O frontend envia o modo selecionado para `/api/audit` pelo campo `auditMode`.
+
+Limites de resposta podem ser ajustados por ambiente:
+
+```bash
+NEXODOC_FAST_MAX_OUTPUT_TOKENS=900
+NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS=1800
+```
 
 ## Como rodar localmente
 

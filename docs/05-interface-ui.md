@@ -17,6 +17,7 @@ Elementos principais:
 - area central de conversa;
 - area para upload multiplo de PDFs;
 - lista de arquivos anexados;
+- seletor de modo rapido ou completo;
 - campo de mensagem;
 - botao "Auditar documentos";
 - area de resposta do agente;
@@ -70,6 +71,15 @@ O botao de auditoria deve:
 - exigir pelo menos um PDF;
 - enviar mensagem e arquivos ao backend;
 - indicar que a analise esta em andamento.
+
+### Modo de auditoria
+
+A interface deve permitir escolher:
+
+- auditoria rapida: triagem objetiva, menor custo esperado e resposta mais curta;
+- auditoria completa: conferencia mais cuidadosa, maior detalhe e maior custo esperado.
+
+O modo selecionado deve ser visivel antes do envio e enviado ao backend.
 
 ### Resposta
 
@@ -137,4 +147,3 @@ anexar PDFs -> escrever solicitacao -> auditar -> ler resposta
 ```
 
 Qualquer elemento que nao ajude esse fluxo deve ficar fora da versao inicial.
-

@@ -6,12 +6,16 @@ import { AttachedFiles } from "@/components/attached-files";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { AuditMode } from "@/lib/audit-mode";
+import { cn } from "@/lib/utils";
 
 type ComposerProps = {
   message: string;
   files: File[];
+  auditMode: AuditMode;
   isLoading: boolean;
   onMessageChange: (value: string) => void;
+  onAuditModeChange: (value: AuditMode) => void;
   onFilesAdd: (files: File[]) => void;
   onFileRemove: (index: number) => void;
   onSubmit: () => void;
@@ -20,8 +24,10 @@ type ComposerProps = {
 export function Composer({
   message,
   files,
+  auditMode,
   isLoading,
   onMessageChange,
+  onAuditModeChange,
   onFilesAdd,
   onFileRemove,
   onSubmit,
@@ -37,6 +43,38 @@ export function Composer({
           disabled={isLoading}
         />
         <div className="rounded-lg border bg-card p-3 shadow-xs">
+          <div className="mb-3 grid gap-2 rounded-md bg-muted/40 p-1 sm:grid-cols-2">
+            {[
+              {
+                value: "fast" as const,
+                title: "Rápida",
+                description: "Triagem objetiva, menor custo e resposta curta.",
+              },
+              {
+                value: "complete" as const,
+                title: "Completa",
+                description: "Conferência mais cuidadosa e detalhada.",
+              },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                disabled={isLoading}
+                onClick={() => onAuditModeChange(mode.value)}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  auditMode === mode.value
+                    ? "border-primary bg-background text-foreground shadow-xs"
+                    : "border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                )}
+              >
+                <span className="block text-sm font-medium">{mode.title}</span>
+                <span className="mt-1 block text-xs leading-4">
+                  {mode.description}
+                </span>
+              </button>
+            ))}
+          </div>
           <Textarea
             value={message}
             onChange={(event) => onMessageChange(event.target.value)}

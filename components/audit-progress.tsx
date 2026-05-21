@@ -1,10 +1,12 @@
 import { CheckCircle2, FileUp, Loader2, ScanText } from "lucide-react";
+import { getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
 
 type AuditProgressProps = {
   fileCount: number;
+  auditMode: AuditMode;
 };
 
-export function AuditProgress({ fileCount }: AuditProgressProps) {
+export function AuditProgress({ fileCount, auditMode }: AuditProgressProps) {
   return (
     <section className="w-full max-w-[min(760px,100%)] rounded-lg border bg-card px-4 py-4 text-sm shadow-xs">
       <div className="flex items-start gap-3">
@@ -15,8 +17,9 @@ export function AuditProgress({ fileCount }: AuditProgressProps) {
           <div>
             <p className="font-medium">Auditoria em andamento</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Processando {fileCount} {fileCount === 1 ? "PDF" : "PDFs"} e
-              aguardando a resposta padronizada do agente.
+              {getAuditModeLabel(auditMode)} processando {fileCount}{" "}
+              {fileCount === 1 ? "PDF" : "PDFs"} e aguardando a resposta
+              padronizada do agente.
             </p>
           </div>
 

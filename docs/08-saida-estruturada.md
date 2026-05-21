@@ -44,6 +44,21 @@ No frontend, essa resposta passa a ser renderizada em blocos visuais:
 
 Essa camada melhora a leitura sem alterar o contrato do backend.
 
+## 2.1 Modos de auditoria
+
+Status: implementado no MVP.
+
+O NexoDoc possui dois modos iniciais:
+
+- auditoria rapida;
+- auditoria completa.
+
+A auditoria rapida prioriza triagem, resposta curta e menor consumo esperado.
+
+A auditoria completa prioriza comparacao documental mais cuidadosa, maior detalhamento e maior consumo esperado.
+
+Os dois modos mantem a mesma estrutura obrigatoria da resposta para preservar a renderizacao no frontend.
+
 ## 3. Camada 2 - Dados estruturados
 
 Status: planejada.
@@ -122,4 +137,3 @@ Somente depois de validar a confiabilidade da localizacao, adicionar destaque vi
 Nao marcar visualmente um ponto exato se a localizacao nao for confiavel.
 
 Uma marcacao visual errada pode prejudicar a confianca no NexoDoc. Por isso, a evolucao deve priorizar primeiro documento, pagina provavel e local textual.
-

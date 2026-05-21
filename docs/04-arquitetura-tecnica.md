@@ -108,12 +108,14 @@ Entrada esperada:
 
 ```text
 message: string
+auditMode: "fast" | "complete"
 files: File[]
 ```
 
 Regras:
 
 - `message` deve ser texto;
+- `auditMode` deve indicar auditoria rapida ou completa;
 - `files` deve conter pelo menos um PDF;
 - todos os arquivos devem ter tipo PDF;
 - cada arquivo deve respeitar o limite de 25 MB;
@@ -125,7 +127,8 @@ Resposta de sucesso:
 
 ```json
 {
-  "result": "texto padronizado do agente"
+  "result": "texto padronizado do agente",
+  "auditMode": "fast"
 }
 ```
 
@@ -161,4 +164,3 @@ Requisitos para deploy:
 - garantir que a chave nao seja exposta ao cliente;
 - validar limites de upload conforme suporte do ambiente;
 - testar a rota `/api/audit` com PDFs reais de tamanho pequeno e medio.
-

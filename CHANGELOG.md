@@ -28,6 +28,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Renderizacao estruturada da resposta do agente.
 - Auto-scroll para progresso e resultado final.
 - Registro da estrategia de evidencias visuais.
+- Modos de auditoria rapida e completa no frontend e backend.
 
 ### Alterado
 
