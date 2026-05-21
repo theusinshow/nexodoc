@@ -50,6 +50,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Prompt especializado de checagem de volume no backend.
 - Demo local especifica para checagem de volume.
 - Campos opcionais de categoria e referencia comparada nos achados.
+- Documento de bateria de testes com cenarios mock, validacoes de API e roteiro de testes reais.
 
 ### Alterado
 
