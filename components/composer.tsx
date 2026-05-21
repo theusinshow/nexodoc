@@ -1,12 +1,13 @@
 "use client";
 
-import { Play, SendHorizontal } from "lucide-react";
+import { Lightbulb, Play, SendHorizontal } from "lucide-react";
 
 import { AttachedFiles } from "@/components/attached-files";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuditMode } from "@/lib/audit-mode";
+import { PROMPT_SUGGESTIONS } from "@/lib/prompt-suggestions";
 import { cn } from "@/lib/utils";
 
 type ComposerProps = {
@@ -77,6 +78,32 @@ export function Composer({
               </button>
             ))}
           </div>
+          {files.length > 0 ? (
+            <div className="mb-3 border bg-background p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Lightbulb className="size-3.5 text-primary" />
+                Modelos de solicitação
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {PROMPT_SUGGESTIONS.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => onMessageChange(suggestion.prompt)}
+                    className="rounded-none border bg-card px-3 py-2 text-left transition-[background-color,border-color,color] hover:border-ring hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="block text-xs font-medium text-foreground">
+                      {suggestion.title}
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                      {suggestion.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <Textarea
             value={message}
             onChange={(event) => onMessageChange(event.target.value)}

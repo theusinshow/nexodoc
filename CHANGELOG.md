@@ -45,6 +45,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Resultado avancado com abas de resumo, achados, evidencias e relatorio.
 - Cards de achados com severidade, documento, pagina provavel, evidencia, conflito e acao recomendada.
 - Pre-visualizacao esquematica de evidencias para preparar futura marcacao sobre PDF.
+- Modelos de solicitacao sugeridos apos anexar PDFs.
 
 ### Alterado
 
