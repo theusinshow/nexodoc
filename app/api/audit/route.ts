@@ -18,7 +18,7 @@ const DEFAULT_MODEL = "gpt-5-mini";
 const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 2800;
 const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 5200;
 const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 6400;
-const DEFAULT_REASONING_EFFORT = "minimal";
+const DEFAULT_REASONING_EFFORT = "low";
 
 function isPdf(file: File) {
   return (
@@ -31,7 +31,7 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function getReasoningEffort() {
+function getReasoningEffort(auditMode: ReturnType<typeof parseAuditMode>) {
   const effort = process.env.OPENAI_REASONING_EFFORT;
 
   if (
@@ -41,6 +41,10 @@ function getReasoningEffort() {
     effort === "high"
   ) {
     return effort;
+  }
+
+  if (auditMode === "complete") {
+    return "medium";
   }
 
   return DEFAULT_REASONING_EFFORT;
@@ -155,7 +159,7 @@ export async function POST(request: Request) {
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
       instructions: getAuditorPrompt(auditMode),
       reasoning: {
-        effort: getReasoningEffort(),
+        effort: getReasoningEffort(auditMode),
       },
       max_output_tokens:
         auditMode === "volume"

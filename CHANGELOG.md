@@ -59,6 +59,8 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Fonte externa removida do build local para evitar dependencia de rede.
 - Conteudo mock centralizado para reutilizacao no backend e no modo demonstracao do frontend.
 - Modelos de solicitacao de Volume e Selo/LD passam a selecionar automaticamente o modo Volume.
+- Prompt reforcado para evitar falso negativo em divergencias de municipio, endereco, bairro e codigo.
+- Esforco de raciocinio ajustado por modo para equilibrar custo e qualidade da auditoria real.
 
 ### Removido
 

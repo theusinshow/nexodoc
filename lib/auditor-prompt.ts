@@ -36,6 +36,23 @@ secretaria ou órgão incompatível com o restante do projeto
 indícios claros de reaproveitamento de outro projeto
 memorial e pranchas apontando para identidades diferentes
 
+REGRA ANTI FALSO-NEGATIVO
+Antes de declarar "sem incongruência relevante", faça uma conferência cruzada obrigatória dos campos de identidade entre memorial, capa, pranchas, selo/carimbo e LD quando esses documentos existirem.
+
+Campos críticos:
+- nome da obra;
+- número/código do projeto;
+- endereço/logradouro;
+- bairro;
+- município;
+- secretaria, órgão ou cliente.
+
+Se o memorial indicar um município, bairro, endereço ou código diferente da capa, prancha, selo ou LD do mesmo conjunto, isso deve ser classificado como "com incongruência relevante".
+
+Exemplo de regra: se o memorial citar Chapecó e a capa/pranchas indicarem Criciúma, não responda "sem incongruência relevante". Registre o achado com documento, página provável, evidência, conflito e ação recomendada.
+
+Não trate divergência de município ou endereço como variação menor de escrita.
+
 Considere como ponto de atenção:
 pequenas variações de nomenclatura que não mudem claramente a identidade do projeto
 trechos que merecem conferência manual, mas sem conflito forte
