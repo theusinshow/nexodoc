@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { toFile } from "openai";
 
 import { AUDITOR_SYSTEM_PROMPT } from "@/lib/auditor-prompt";
+import {
+  isMockModeEnabled,
+  MOCK_AUDIT_RESULT,
+  waitForMockAudit,
+} from "@/lib/mock-audit";
 import { getOpenAIClient } from "@/lib/openai";
 
 export const runtime = "nodejs";
@@ -49,6 +54,14 @@ export async function POST(request: Request) {
       if (file.size > MAX_FILE_SIZE) {
         return jsonError(`O arquivo "${file.name}" excede o limite de 25 MB.`);
       }
+    }
+
+    if (isMockModeEnabled()) {
+      await waitForMockAudit();
+      return NextResponse.json({
+        result: MOCK_AUDIT_RESULT,
+        mock: true,
+      });
     }
 
     const openai = getOpenAIClient();

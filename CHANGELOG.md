@@ -24,6 +24,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Override de `postcss` para corrigir vulnerabilidade moderada apontada pelo npm audit.
 - Modelo padrao ajustado para `gpt-5-mini`.
 - Registro do primeiro teste real com documento de 218 paginas.
+- Modo mock para testar a interface sem consumir tokens da OpenAI API.
 
 ### Alterado
 

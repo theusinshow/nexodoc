@@ -59,11 +59,21 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5-mini
+NEXODOC_MOCK_MODE=false
+NEXODOC_MOCK_DELAY_MS=3500
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5-mini`.
+
+Para testar a interface sem consumir tokens, use:
+
+```bash
+NEXODOC_MOCK_MODE=true
+```
+
+Nesse modo, a rota `/api/audit` valida a mensagem e os PDFs, aguarda alguns segundos e retorna uma resposta simulada no formato padrao do agente.
 
 ## Como rodar localmente
 
