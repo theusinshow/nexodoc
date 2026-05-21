@@ -5,6 +5,7 @@ import {
   FileText,
   LayoutList,
   MapPin,
+  Search,
 } from "lucide-react";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
@@ -25,6 +26,17 @@ type AuditSectionKey =
   | "conclusion";
 
 type ParsedAudit = Record<AuditSectionKey, string>;
+
+type StructuredFinding = {
+  title: string;
+  documento?: string;
+  pagina?: string;
+  local?: string;
+  evidencia?: string;
+  conflito?: string;
+  acao?: string;
+  raw: string;
+};
 
 const SECTION_MAP: Record<string, AuditSectionKey> = {
   "projeto analisado": "project",
@@ -110,12 +122,63 @@ function formatElapsedTime(elapsedMs?: number) {
   return `${seconds}s`;
 }
 
-function splitFindings(findings: string) {
-  return findings
+function getFindingField(block: string, label: string) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(
+    `(?:^|\\n)\\s*(?:-\\s*)?${escapedLabel}\\s*:\\s*(.+?)(?=\\n\\s*(?:-\\s*)?(?:Documento|Página provável|Pagina provavel|Local|Evidência|Evidencia|Conflito|Ação recomendada|Acao recomendada)\\s*:|$)`,
+    "is",
+  );
+  return block.match(regex)?.[1]?.trim();
+}
+
+function splitFindings(findings: string): StructuredFinding[] {
+  const normalized = findings.trim();
+
+  if (!normalized) {
+    return [];
+  }
+
+  const structuredBlocks = normalized
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .filter((block) => /Documento\s*:|Página provável\s*:|Pagina provavel\s*:/i.test(block));
+
+  if (structuredBlocks.length > 0) {
+    return structuredBlocks.map((block, index) => ({
+      title:
+        block
+          .split("\n")[0]
+          ?.replace(/^[-•]\s*/, "")
+          .replace(/^Achado\s*\d+\s*:\s*/i, "")
+          .trim() || `Achado ${index + 1}`,
+      documento: getFindingField(block, "Documento"),
+      pagina:
+        getFindingField(block, "Página provável") ??
+        getFindingField(block, "Pagina provavel"),
+      local: getFindingField(block, "Local"),
+      evidencia:
+        getFindingField(block, "Evidência") ??
+        getFindingField(block, "Evidencia"),
+      conflito: getFindingField(block, "Conflito"),
+      acao:
+        getFindingField(block, "Ação recomendada") ??
+        getFindingField(block, "Acao recomendada"),
+      raw: block,
+    }));
+  }
+
+  return normalized
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^[-•]\s*/, ""));
+    .map((line, index) => ({
+      title: line.replace(/^[-•]\s*/, ""),
+      raw: line,
+      pagina: "não informada",
+      local: "não informado",
+      acao: index === 0 ? undefined : undefined,
+    }));
 }
 
 function SectionCard({
@@ -193,10 +256,67 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
             <ul className="space-y-2">
               {findings.map((finding, index) => (
                 <li
-                  key={`${finding}-${index}`}
-                  className="rounded-md border bg-background px-3 py-2"
+                  key={`${finding.raw}-${index}`}
+                  className="rounded-md border bg-background p-3"
                 >
-                  {finding}
+                  <div className="flex items-start gap-2">
+                    <Search className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground">
+                        {finding.title}
+                      </p>
+                      <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                        {finding.documento ? (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Documento:
+                            </span>{" "}
+                            {finding.documento}
+                          </p>
+                        ) : null}
+                        {finding.pagina ? (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Página:
+                            </span>{" "}
+                            {finding.pagina}
+                          </p>
+                        ) : null}
+                        {finding.local ? (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Local:
+                            </span>{" "}
+                            {finding.local}
+                          </p>
+                        ) : null}
+                      </div>
+                      {finding.evidencia ? (
+                        <p className="mt-2 text-xs">
+                          <span className="font-medium text-foreground">
+                            Evidência:
+                          </span>{" "}
+                          {finding.evidencia}
+                        </p>
+                      ) : null}
+                      {finding.conflito ? (
+                        <p className="mt-2 text-xs">
+                          <span className="font-medium text-foreground">
+                            Conflito:
+                          </span>{" "}
+                          {finding.conflito}
+                        </p>
+                      ) : null}
+                      {finding.acao ? (
+                        <p className="mt-2 text-xs">
+                          <span className="font-medium text-foreground">
+                            Ação recomendada:
+                          </span>{" "}
+                          {finding.acao}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>

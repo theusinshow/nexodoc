@@ -125,9 +125,25 @@ Informar se capa, selo, carimbo e lista de desenhos ou documentos estao coerente
 
 Quando houver incongruencia, listar objetivamente:
 
-- onde apareceu;
-- qual informacao conflita;
-- por que isso e relevante.
+- titulo curto do achado;
+- documento;
+- pagina provavel, quando visivel;
+- local;
+- evidencia;
+- conflito;
+- acao recomendada.
+
+Subformato recomendado:
+
+```text
+Achado N: titulo curto do problema
+Documento: nome ou tipo do documento onde apareceu
+Pagina provavel: numero da pagina, se visivel; se nao for possivel, escrever "nao identificada"
+Local: capa, memorial, selo/carimbo, lista de desenhos, lista de documentos, cabecalho, rodape ou outro local visivel
+Evidencia: texto ou informacao encontrada
+Conflito: qual informacao diverge e com o que foi comparada
+Acao recomendada: revisao objetiva a executar
+```
 
 Quando nao houver incongruencia relevante, escrever:
 

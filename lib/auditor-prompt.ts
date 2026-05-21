@@ -119,9 +119,16 @@ Diga se capa, selo e LD estão coerentes ou se há conflito relevante de identif
 
 5. Incongruências relevantes encontradas
 Se houver erro, liste de forma objetiva:
-  - onde apareceu
-  - qual informação conflita
-  - por que isso é relevante
+Para cada achado, use exatamente este subformato:
+
+Achado N: título curto do problema
+Documento: nome ou tipo do documento onde apareceu
+Página provável: número da página, se visível; se não for possível, escreva "não identificada"
+Local: capa, memorial, selo/carimbo, lista de desenhos, lista de documentos, cabeçalho, rodapé ou outro local visível
+Evidência: texto ou informação encontrada
+Conflito: qual informação diverge e com o que foi comparada
+Ação recomendada: revisão objetiva a executar
+
 Se não houver erro, escreva:
   - nenhuma incongruência relevante encontrada
 

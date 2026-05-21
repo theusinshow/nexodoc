@@ -29,6 +29,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Auto-scroll para progresso e resultado final.
 - Registro da estrategia de evidencias visuais.
 - Modos de auditoria rapida e completa no frontend e backend.
+- Achados de incongruencia com documento, pagina provavel, local, evidencia, conflito e acao recomendada.
 
 ### Alterado
 

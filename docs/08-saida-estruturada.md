@@ -61,7 +61,23 @@ Os dois modos mantem a mesma estrutura obrigatoria da resposta para preservar a 
 
 ## 3. Camada 2 - Dados estruturados
 
-Status: planejada.
+Status: parcialmente implementada.
+
+A seção "Incongruências relevantes encontradas" já usa um subformato textual estruturado para cada achado:
+
+```text
+Achado N: título curto do problema
+Documento: nome ou tipo do documento onde apareceu
+Página provável: número da página, se visível; se não for possível, escrever "não identificada"
+Local: capa, memorial, selo/carimbo, lista de desenhos, lista de documentos, cabeçalho, rodapé ou outro local visível
+Evidência: texto ou informação encontrada
+Conflito: qual informação diverge e com o que foi comparada
+Ação recomendada: revisão objetiva a executar
+```
+
+O frontend interpreta esses campos e renderiza cada achado em um bloco proprio.
+
+Proxima evolucao: migrar de texto estruturado para JSON.
 
 Evoluir a resposta para incluir dados estruturados em JSON, mantendo uma resposta humana copiavel.
 
