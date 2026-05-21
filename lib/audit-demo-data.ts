@@ -87,6 +87,64 @@ Ação recomendada: conferir se a prancha pertence ao mesmo projeto antes da emi
 conjunto com incongruência relevante e necessidade de revisão
 `.trim();
 
+const DEMO_VOLUME_AUDIT_RESULT = `
+1. Projeto analisado
+Obra: Escola Municipal Exemplo
+Projeto: NX-001/2026
+Endereço: Rua das Acácias, 120
+Bairro: Centro
+Município: Município Exemplo
+Órgão/cliente: Secretaria Municipal de Educação
+Volume/Tomo/Disciplina: Volume único / Arquitetura
+
+2. Status geral
+com incongruência relevante
+
+3. Memorial
+O memorial está compatível com a identificação principal da capa, mas deve ser usado como referência para confirmar código, bairro e município nas pranchas.
+
+4. Pranchas
+O conjunto de pranchas apresenta divergências entre a lista de desenhos, os selos/carimbos e a numeração indicada nas folhas. Há indício de prancha fora da sequência do volume e revisão divergente entre LD e selo.
+
+5. Incongruências relevantes encontradas
+Achado 1: Prancha listada na LD não corresponde ao PDF anexado
+Documento: Lista de Desenhos.pdf
+Página provável: 2
+Local: lista de desenhos
+Evidência: LD lista a prancha A-02 como "Planta baixa - bloco administrativo"
+Conflito: o PDF anexado com identificação A-02 apresenta título "Cortes e Fachadas"
+Ação recomendada: conferir se a prancha A-02 correta foi anexada ao volume
+Categoria: LD x prancha
+Referência comparada: LD item A-02 x selo da prancha A-02
+
+Achado 2: Revisão do selo divergente da lista de desenhos
+Documento: Pranchas.pdf
+Página provável: 12
+Local: selo/carimbo da prancha A-03
+Evidência: selo da prancha A-03 indica revisão R02
+Conflito: lista de desenhos indica revisão R01 para a prancha A-03
+Ação recomendada: alinhar a revisão da prancha A-03 com a LD antes da emissão
+Categoria: selo x LD
+Referência comparada: selo da prancha A-03 x LD item A-03
+
+Achado 3: Indício de prancha fora do volume
+Documento: Pranchas.pdf
+Página provável: 18
+Local: selo/carimbo da prancha E-01
+Evidência: prancha E-01 indica disciplina Estrutural, mas o volume está identificado como Arquitetura
+Conflito: capa e LD indicam volume de Arquitetura, enquanto a prancha E-01 pertence a outra disciplina
+Ação recomendada: verificar se a prancha E-01 deve compor outro volume ou se a LD/capa precisam ser atualizadas
+Categoria: estrutura do volume
+Referência comparada: capa do volume x selo da prancha E-01
+
+6. Conclusão objetiva
+volume com incongruência relevante entre LD, selos e estrutura documental
+`.trim();
+
 export function getDemoAuditResult(mode: AuditMode) {
+  if (mode === "volume") {
+    return DEMO_VOLUME_AUDIT_RESULT;
+  }
+
   return mode === "complete" ? DEMO_COMPLETE_AUDIT_RESULT : DEMO_FAST_AUDIT_RESULT;
 }

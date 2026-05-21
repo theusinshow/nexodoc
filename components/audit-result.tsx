@@ -43,6 +43,8 @@ type StructuredFinding = {
   evidencia?: string;
   conflito?: string;
   acao?: string;
+  categoria?: string;
+  referencia?: string;
   raw: string;
 };
 
@@ -138,7 +140,7 @@ function formatElapsedTime(elapsedMs?: number) {
 function getFindingField(block: string, label: string) {
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(
-    `(?:^|\\n)\\s*(?:-\\s*)?${escapedLabel}\\s*:\\s*(.+?)(?=\\n\\s*(?:-\\s*)?(?:Documento|Página provável|Pagina provavel|Local|Evidência|Evidencia|Conflito|Ação recomendada|Acao recomendada)\\s*:|$)`,
+    `(?:^|\\n)\\s*(?:-\\s*)?${escapedLabel}\\s*:\\s*(.+?)(?=\\n\\s*(?:-\\s*)?(?:Documento|Página provável|Pagina provavel|Local|Evidência|Evidencia|Conflito|Ação recomendada|Acao recomendada|Categoria|Referência comparada|Referencia comparada)\\s*:|$)`,
     "is",
   );
   return block.match(regex)?.[1]?.trim();
@@ -239,6 +241,10 @@ function splitFindings(findings: string): StructuredFinding[] {
       acao:
         getFindingField(block, "Ação recomendada") ??
         getFindingField(block, "Acao recomendada"),
+      categoria: getFindingField(block, "Categoria"),
+      referencia:
+        getFindingField(block, "Referência comparada") ??
+        getFindingField(block, "Referencia comparada"),
       raw: block,
     }));
   }
@@ -272,6 +278,8 @@ function buildFindingsText(findings: StructuredFinding[]) {
         finding.evidencia ? `Evidência: ${finding.evidencia}` : null,
         finding.conflito ? `Conflito: ${finding.conflito}` : null,
         finding.acao ? `Ação recomendada: ${finding.acao}` : null,
+        finding.categoria ? `Categoria: ${finding.categoria}` : null,
+        finding.referencia ? `Referência comparada: ${finding.referencia}` : null,
       ]
         .filter(Boolean)
         .join("\n");
@@ -507,6 +515,24 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
                           {finding.local || "não informado"}
                         </p>
                       </div>
+                      {(finding.categoria || finding.referencia) ? (
+                        <div className="grid gap-2 text-xs sm:grid-cols-2">
+                          {finding.categoria ? (
+                            <p>
+                              <span className="font-medium text-foreground">Categoria:</span>{" "}
+                              {finding.categoria}
+                            </p>
+                          ) : null}
+                          {finding.referencia ? (
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Referência comparada:
+                              </span>{" "}
+                              {finding.referencia}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {finding.evidencia ? (
                         <p className="border-l-2 border-primary pl-3 text-xs">
@@ -568,6 +594,24 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
                           {finding.pagina || "não identificada"}
                         </p>
                       </div>
+                      {(finding.categoria || finding.referencia) ? (
+                        <div className="grid gap-2 text-xs sm:grid-cols-2">
+                          {finding.categoria ? (
+                            <p>
+                              <span className="font-medium text-foreground">Categoria:</span>{" "}
+                              {finding.categoria}
+                            </p>
+                          ) : null}
+                          {finding.referencia ? (
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Referência comparada:
+                              </span>{" "}
+                              {finding.referencia}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <p className="text-xs text-muted-foreground">
                         {finding.evidencia || "Sem evidência textual detalhada."}
                       </p>

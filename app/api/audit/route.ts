@@ -16,6 +16,7 @@ const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const DEFAULT_MODEL = "gpt-5-mini";
 const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 900;
+const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 1600;
 const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 1800;
 
 function isPdf(file: File) {
@@ -84,7 +85,12 @@ export async function POST(request: Request) {
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
       instructions: getAuditorPrompt(auditMode),
       max_output_tokens:
-        auditMode === "complete"
+        auditMode === "volume"
+          ? Number(
+              process.env.NEXODOC_VOLUME_MAX_OUTPUT_TOKENS ??
+                DEFAULT_VOLUME_MAX_OUTPUT_TOKENS,
+            )
+          : auditMode === "complete"
           ? Number(
               process.env.NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS ??
                 DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS,

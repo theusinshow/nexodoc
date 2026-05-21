@@ -81,6 +81,7 @@ O botao de auditoria deve:
 A interface deve permitir escolher:
 
 - auditoria rapida: triagem objetiva, menor custo esperado e resposta mais curta;
+- checagem de volume: conferencia de capa, LD, pranchas, selos, revisoes e estrutura do pacote documental;
 - auditoria completa: conferencia mais cuidadosa, maior detalhe e maior custo esperado.
 
 O modo selecionado deve ser visivel antes do envio e enviado ao backend.

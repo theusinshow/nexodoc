@@ -115,7 +115,7 @@ files: File[]
 Regras:
 
 - `message` deve ser texto;
-- `auditMode` deve indicar auditoria rapida ou completa;
+- `auditMode` deve indicar auditoria rapida, checagem de volume ou auditoria completa;
 - `files` deve conter pelo menos um PDF;
 - todos os arquivos devem ter tipo PDF;
 - cada arquivo deve respeitar o limite de 25 MB;

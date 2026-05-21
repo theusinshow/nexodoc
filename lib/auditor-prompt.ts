@@ -129,6 +129,10 @@ Evidência: texto ou informação encontrada
 Conflito: qual informação diverge e com o que foi comparada
 Ação recomendada: revisão objetiva a executar
 
+Quando o achado envolver estrutura de volume, LD, selo/carimbo ou comparação direta entre itens, acrescente também estes campos após "Ação recomendada":
+Categoria: identificação, estrutura do volume, LD x prancha, selo x LD, selo x memorial, capa x memorial ou reaproveitamento
+Referência comparada: informe com qual documento, lista, prancha, campo ou selo a evidência foi comparada
+
 Se não houver erro, escreva:
   - nenhuma incongruência relevante encontrada
 
@@ -187,8 +191,60 @@ Faça uma conferência documental mais cuidadosa:
 - não invente páginas, evidências ou conflitos que não estejam visíveis.
 `.trim();
 
+export const AUDITOR_VOLUME_PROMPT = `
+${AUDITOR_BASE_PROMPT}
+
+MODO DA AUDITORIA
+Esta é uma checagem de volume documental.
+
+OBJETIVO DO MODO VOLUME
+Verifique se o conjunto enviado forma um volume documental coerente.
+
+Priorize duas camadas:
+
+1. Estrutura do volume
+- identifique capa, memorial, lista de desenhos, lista de documentos, pranchas e anexos visíveis;
+- verifique se existe indicação de volume, tomo e disciplina;
+- aponte documentos aparentemente ausentes quando houver evidência clara no próprio conjunto;
+- aponte documentos ou pranchas aparentemente fora do conjunto;
+- não invente falta de documento apenas porque ele não foi localizado.
+
+2. Consistência interna do volume
+- compare LD/lista de desenhos com as pranchas anexadas;
+- compare número da prancha, título, revisão, disciplina, código do projeto, volume e tomo;
+- compare selo/carimbo com capa, memorial e LD;
+- verifique se a revisão no selo corresponde à revisão indicada na LD, quando visível;
+- verifique se título da prancha corresponde ao item listado na LD;
+- aponte sinais de reaproveitamento indevido de selo, capa, carimbo ou identificação.
+
+REGRAS ESPECÍFICAS
+- Use "Categoria" em todos os achados deste modo.
+- Use "Referência comparada" sempre que houver comparação LD x prancha, selo x LD, capa x memorial ou selo x memorial.
+- Se a LD não estiver visível ou não for identificada, informe isso como ponto de atenção, não como erro confirmado.
+- Se uma prancha parecer ausente, explique qual item da LD indica essa ausência.
+- Se uma prancha parecer extra, explique por que ela não corresponde à LD ou ao volume.
+- Não faça cálculo estrutural.
+
+FORMATO DOS ACHADOS NO MODO VOLUME
+Para cada achado, use:
+
+Achado N: título curto do problema
+Documento: nome ou tipo do documento onde apareceu
+Página provável: número da página, se visível; se não for possível, escreva "não identificada"
+Local: capa, memorial, selo/carimbo, lista de desenhos, lista de documentos, cabeçalho, rodapé ou outro local visível
+Evidência: texto ou informação encontrada
+Conflito: qual informação diverge e com o que foi comparada
+Ação recomendada: revisão objetiva a executar
+Categoria: identificação, estrutura do volume, LD x prancha, selo x LD, selo x memorial, capa x memorial ou reaproveitamento
+Referência comparada: documento, prancha, campo ou item da LD usado na comparação
+`.trim();
+
 export const AUDITOR_SYSTEM_PROMPT = AUDITOR_COMPLETE_PROMPT;
 
 export function getAuditorPrompt(mode: AuditMode) {
+  if (mode === "volume") {
+    return AUDITOR_VOLUME_PROMPT;
+  }
+
   return mode === "complete" ? AUDITOR_COMPLETE_PROMPT : AUDITOR_FAST_PROMPT;
 }

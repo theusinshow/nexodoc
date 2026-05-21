@@ -46,12 +46,17 @@ export function Composer({
           disabled={isLoading}
         />
         <div className="rounded-none border bg-card p-3">
-          <div className="mb-3 grid gap-2 rounded-none border bg-muted/40 p-1 sm:grid-cols-2">
+          <div className="mb-3 grid gap-2 rounded-none border bg-muted/40 p-1 lg:grid-cols-3">
             {[
               {
                 value: "fast" as const,
                 title: "Rápida",
                 description: "Triagem objetiva, menor custo e resposta curta.",
+              },
+              {
+                value: "volume" as const,
+                title: "Volume",
+                description: "Capa, LD, pranchas, selos, revisões e estrutura.",
               },
               {
                 value: "complete" as const,
@@ -90,7 +95,13 @@ export function Composer({
                     key={suggestion.id}
                     type="button"
                     disabled={isLoading}
-                    onClick={() => onMessageChange(suggestion.prompt)}
+                    onClick={() => {
+                      onMessageChange(suggestion.prompt);
+
+                      if (suggestion.auditMode) {
+                        onAuditModeChange(suggestion.auditMode);
+                      }
+                    }}
                     className="rounded-none border bg-card px-3 py-2 text-left transition-[background-color,border-color,color] hover:border-ring hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="block text-xs font-medium text-foreground">

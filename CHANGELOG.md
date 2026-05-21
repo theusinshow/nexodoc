@@ -46,6 +46,10 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Cards de achados com severidade, documento, pagina provavel, evidencia, conflito e acao recomendada.
 - Pre-visualizacao esquematica de evidencias para preparar futura marcacao sobre PDF.
 - Modelos de solicitacao sugeridos apos anexar PDFs.
+- Modo Volume para checar estrutura documental, LD, pranchas, selos e revisoes.
+- Prompt especializado de checagem de volume no backend.
+- Demo local especifica para checagem de volume.
+- Campos opcionais de categoria e referencia comparada nos achados.
 
 ### Alterado
 
@@ -53,6 +57,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Componentes principais ajustados para geometria reta com `border-radius` zero.
 - Fonte externa removida do build local para evitar dependencia de rede.
 - Conteudo mock centralizado para reutilizacao no backend e no modo demonstracao do frontend.
+- Modelos de solicitacao de Volume e Selo/LD passam a selecionar automaticamente o modo Volume.
 
 ### Removido
 

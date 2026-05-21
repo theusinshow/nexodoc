@@ -69,16 +69,19 @@ Ao recarregar a pagina, o historico em memoria pode ser perdido.
 
 Status: implementado no MVP.
 
-O NexoDoc possui dois modos iniciais:
+O NexoDoc possui tres modos iniciais:
 
 - auditoria rapida;
+- checagem de volume;
 - auditoria completa.
 
 A auditoria rapida prioriza triagem, resposta curta e menor consumo esperado.
 
+A checagem de volume prioriza capa, LD, lista de desenhos, pranchas, selos/carimbos, revisoes, disciplinas, volume/tomo e estrutura do pacote documental.
+
 A auditoria completa prioriza comparacao documental mais cuidadosa, maior detalhamento e maior consumo esperado.
 
-Os dois modos mantem a mesma estrutura obrigatoria da resposta para preservar a renderizacao no frontend.
+Os tres modos mantem a mesma estrutura obrigatoria da resposta para preservar a renderizacao no frontend.
 
 ## 3. Camada 2 - Dados estruturados
 
@@ -94,9 +97,11 @@ Local: capa, memorial, selo/carimbo, lista de desenhos, lista de documentos, cab
 Evidência: texto ou informação encontrada
 Conflito: qual informação diverge e com o que foi comparada
 Ação recomendada: revisão objetiva a executar
+Categoria: categoria documental do achado, quando aplicavel
+Referência comparada: documento, item da LD, prancha ou campo usado na comparação, quando aplicavel
 ```
 
-O frontend interpreta esses campos e renderiza cada achado em um bloco proprio.
+O frontend interpreta esses campos e renderiza cada achado em um bloco proprio. No modo Volume, os campos `Categoria` e `Referência comparada` ajudam a separar achados de estrutura, LD x prancha, selo x LD, selo x memorial, capa x memorial e reaproveitamento.
 
 Proxima evolucao: migrar de texto estruturado para JSON.
 

@@ -1,8 +1,11 @@
+import type { AuditMode } from "@/lib/audit-mode";
+
 export type PromptSuggestion = {
   id: string;
   title: string;
   description: string;
   prompt: string;
+  auditMode?: AuditMode;
 };
 
 export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
@@ -17,6 +20,7 @@ export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
     id: "volume",
     title: "Checar volume",
     description: "Avaliar estrutura do volume, LD, pranchas e selos.",
+    auditMode: "volume",
     prompt:
       "Faça uma checagem de volume documental. Identifique capa, memorial, lista de desenhos/lista de documentos e pranchas. Verifique se a LD corresponde às pranchas, se há pranchas ausentes ou fora da lista, e se selos/carimbos estão coerentes com código, título, revisão, disciplina, volume e tomo.",
   },
@@ -24,6 +28,7 @@ export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
     id: "selo-ld",
     title: "Selo e LD",
     description: "Focar em selo/carimbo, lista de desenhos e revisões.",
+    auditMode: "volume",
     prompt:
       "Verifique especificamente selos/carimbos das pranchas em comparação com a lista de desenhos ou lista de documentos. Aponte divergências de número da prancha, título, revisão, disciplina, código do projeto, órgão/cliente, volume ou tomo.",
   },
