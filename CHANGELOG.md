@@ -36,6 +36,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Tempo decorrido durante o processamento.
 - Visualizacao de relatorio e copias especificas de achados e acoes.
 - Documento inicial do design system mantendo o chat como fluxo principal.
+- Pasta `project-skills/` para armazenar skills e referencias auxiliares do projeto.
 
 ### Alterado
 

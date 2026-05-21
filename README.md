@@ -54,6 +54,12 @@ Ordem sugerida de leitura:
 8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
 9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
 
+## Skills de referencia do projeto
+
+Skills e referencias auxiliares podem ser armazenadas em [project-skills](C:/Dev/trabalho/empresa/nexodoc/project-skills).
+
+Essa pasta nao instala skills automaticamente no Codex. Ela serve para guardar materiais que podem orientar a evolucao do NexoDoc.
+
 ## Variaveis de ambiente
 
 Crie um arquivo `.env.local` a partir de `.env.example`:
