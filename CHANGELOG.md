@@ -15,6 +15,13 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Direcao inicial da interface.
 - Roadmap de evolucao.
 - Arquivos padrao de organizacao do projeto.
+- Scaffold Next.js com TypeScript e Tailwind CSS.
+- Componentes iniciais da interface de chat do NexoDoc.
+- Upload multiplo de PDFs com validacao inicial no frontend.
+- Rota backend `/api/audit` para auditoria documental.
+- Prompt fixo do agente auditor.
+- Integracao inicial com OpenAI API pelo backend.
+- Override de `postcss` para corrigir vulnerabilidade moderada apontada pelo npm audit.
 
 ### Alterado
 
@@ -39,4 +46,3 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Integracao com OpenAI API.
 - Resposta padronizada do agente auditor.
 - Botao para copiar resposta.
-

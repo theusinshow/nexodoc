@@ -6,9 +6,9 @@ O NexoDoc permite anexar PDFs de memoriais, pranchas, capas, listas de documento
 
 ## Status do projeto
 
-Projeto em fase inicial de organizacao.
+MVP 0.1 em implementacao inicial.
 
-Nesta etapa, a base esta documentada antes da implementacao do MVP.
+A base atual inclui a pagina unica de chat, upload multiplo de PDFs, rota backend `/api/audit`, prompt fixo do agente auditor e integracao com a OpenAI API pelo servidor.
 
 ## Escopo da versao 0.1
 
@@ -53,15 +53,47 @@ Ordem sugerida de leitura:
 
 ## Variaveis de ambiente
 
-Quando a implementacao com OpenAI API for criada, o projeto devera usar:
+Crie um arquivo `.env.local` a partir de `.env.example`:
 
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
+OPENAI_MODEL=gpt-5.1-mini
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
+`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.1-mini`.
+
+## Como rodar localmente
+
+Instale as dependencias:
+
+```bash
+npm install
+```
+
+Rode o servidor de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+Acesse:
+
+```text
+http://localhost:3000
+```
+
+## Verificacoes
+
+Comandos usados para validar a base:
+
+```bash
+npm run lint
+npm run build
+npm audit --audit-level=moderate
+```
+
 ## Proximo passo
 
-Implementar o MVP 0.1 com base na documentacao, mantendo o escopo simples e sem funcionalidades fora da versao inicial.
-
+Testar a rota `/api/audit` com PDFs reais e uma chave OpenAI configurada em `.env.local`.
