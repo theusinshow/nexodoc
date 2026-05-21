@@ -57,12 +57,12 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
-OPENAI_MODEL=gpt-5.1-mini
+OPENAI_MODEL=gpt-5-mini
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
-`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.1-mini`.
+`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5-mini`.
 
 ## Como rodar localmente
 
