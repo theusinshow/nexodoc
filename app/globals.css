@@ -62,3 +62,17 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+@keyframes audit-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+.audit-progress-bar {
+  animation: audit-progress 1.4s ease-in-out infinite;
+}

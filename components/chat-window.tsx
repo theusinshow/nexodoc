@@ -4,6 +4,7 @@ import { ClipboardList, FileSearch, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
+import { AuditProgress } from "@/components/audit-progress";
 import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
 import { Badge } from "@/components/ui/badge";
@@ -230,10 +231,9 @@ export function ChatWindow() {
             )}
 
             {isLoading ? (
-              <MessageBubble
-                role="assistant"
-                content="Analisando documentos. Aguarde a resposta do agente auditor."
-              />
+              <div className="flex justify-start">
+                <AuditProgress fileCount={files.length} />
+              </div>
             ) : null}
 
             {latestResult ? (
