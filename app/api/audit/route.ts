@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const DEFAULT_MODEL = "gpt-5.1-mini";
+const DEFAULT_MODEL = "gpt-5-mini";
 
 function isPdf(file: File) {
   return (
@@ -94,6 +94,28 @@ export async function POST(request: Request) {
 
     if (error instanceof Error && error.message.includes("OPENAI_API_KEY")) {
       return jsonError("OPENAI_API_KEY não configurada no backend.", 500);
+    }
+
+    if (
+      error instanceof Error &&
+      (error.message.includes("model") || error.message.includes("modelo"))
+    ) {
+      return jsonError(
+        "Modelo da OpenAI indisponível. Verifique OPENAI_MODEL no .env.local.",
+        500,
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      (error.message.includes("quota") ||
+        error.message.includes("insufficient_quota") ||
+        error.message.includes("billing"))
+    ) {
+      return jsonError(
+        "A conta da OpenAI API está sem quota ou sem cobrança ativa. Verifique o billing na plataforma da OpenAI.",
+        402,
+      );
     }
 
     return jsonError("Não foi possível concluir a auditoria documental.", 500);
