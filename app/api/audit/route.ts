@@ -53,6 +53,7 @@ type ModelFinding = {
   tipo?: string;
   descricao?: string;
   evidencia?: string;
+  termo_busca?: string;
   conflito?: string;
   sugestao_correcao?: string;
   confianca?: string;
@@ -227,6 +228,7 @@ Responda APENAS JSON valido:
       "tipo": "tipo do erro",
       "descricao": "descricao objetiva",
       "evidencia": "texto encontrado",
+      "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "conflito": "por que diverge",
       "sugestao_correcao": "correcao sugerida",
       "confianca": "alta|media|baixa"
@@ -325,6 +327,9 @@ function modelFindingToAuditFinding(
     tipo: type || "Incongruencia documental",
     descricao: description || evidence,
     evidencia: evidence || description,
+    termo_busca: String(finding.termo_busca ?? (evidence || description))
+      .trim()
+      .slice(0, 160),
     conflito: String(finding.conflito ?? "nao informado"),
     sugestao_correcao: String(finding.sugestao_correcao ?? "revisar o trecho indicado"),
     confianca: normalizeConfidence(finding.confianca),
@@ -421,6 +426,7 @@ async function deepAnalyzeFile(args: {
   }).map((finding) => ({
     ...finding,
     arquivo: finding.arquivo ?? args.file.file.name,
+    termo_busca: finding.termo_busca ?? finding.evidencia.slice(0, 160),
   }));
   const chunks = chunkPdfByChapter(args.file.extracted).slice(0, getMaxChunksPerFile());
   const concurrency = getChunkConcurrency();

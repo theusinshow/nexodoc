@@ -59,6 +59,7 @@ type StructuredFinding = {
   pagina?: string;
   local?: string;
   evidencia?: string;
+  termoBusca?: string;
   conflito?: string;
   acao?: string;
   categoria?: string;
@@ -171,7 +172,7 @@ function formatElapsedTime(elapsedMs?: number) {
 function getFindingField(block: string, label: string) {
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(
-    `(?:^|\\n)\\s*(?:-\\s*)?${escapedLabel}\\s*:\\s*(.+?)(?=\\n\\s*(?:-\\s*)?(?:Documento|Página provável|Pagina provavel|Local|Evidência|Evidencia|Conflito|Ação recomendada|Acao recomendada|Categoria|Referência comparada|Referencia comparada)\\s*:|$)`,
+    `(?:^|\\n)\\s*(?:-\\s*)?${escapedLabel}\\s*:\\s*(.+?)(?=\\n\\s*(?:-\\s*)?(?:Documento|Página provável|Pagina provavel|Local|Evidência|Evidencia|Termo de busca|Conflito|Ação recomendada|Acao recomendada|Categoria|Referência comparada|Referencia comparada)\\s*:|$)`,
     "is",
   );
   return block.match(regex)?.[1]?.trim();
@@ -269,6 +270,7 @@ function splitFindings(findings: string): StructuredFinding[] {
       evidencia:
         getFindingField(block, "Evidência") ??
         getFindingField(block, "Evidencia"),
+      termoBusca: getFindingField(block, "Termo de busca"),
       conflito: getFindingField(block, "Conflito"),
       acao:
         getFindingField(block, "Ação recomendada") ??
@@ -309,6 +311,7 @@ function buildFindingsText(findings: StructuredFinding[]) {
         finding.pagina ? `Página: ${finding.pagina}` : null,
         finding.local ? `Local: ${finding.local}` : null,
         finding.evidencia ? `Evidência: ${finding.evidencia}` : null,
+        finding.termoBusca ? `Termo de busca: ${finding.termoBusca}` : null,
         finding.conflito ? `Conflito: ${finding.conflito}` : null,
         finding.acao ? `Ação recomendada: ${finding.acao}` : null,
         finding.categoria ? `Categoria: ${finding.categoria}` : null,
@@ -401,6 +404,7 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     pagina: finding.pagina,
     local: finding.local,
     evidencia: finding.evidencia,
+    termoBusca: finding.termo_busca ?? finding.evidencia,
     conflito: finding.conflito,
     acao: finding.sugestao_correcao,
     categoria: finding.capitulo,
@@ -413,6 +417,7 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
       `Capitulo: ${finding.capitulo}`,
       `Local: ${finding.local}`,
       `Evidencia: ${finding.evidencia}`,
+      `Termo de busca: ${finding.termo_busca ?? finding.evidencia}`,
       `Conflito: ${finding.conflito}`,
       `Acao recomendada: ${finding.sugestao_correcao}`,
       `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
@@ -762,6 +767,26 @@ export function AuditResult({
                                   {finding.evidencia}
                                 </p>
                               ) : null}
+                              {finding.termoBusca ? (
+                                <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                                  <p className="min-w-0">
+                                    <span className="font-medium text-foreground">
+                                      Buscar no PDF:
+                                    </span>{" "}
+                                    <span className="break-words text-foreground">
+                                      {finding.termoBusca}
+                                    </span>
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => copyText(finding.termoBusca ?? "")}
+                                  >
+                                    Copiar termo
+                                  </Button>
+                                </div>
+                              ) : null}
                               {finding.conflito ? (
                                 <p className="text-xs">
                                   <span className="font-medium text-foreground">Conflito:</span>{" "}
@@ -841,6 +866,26 @@ export function AuditResult({
                       <p className="text-xs text-muted-foreground">
                         {finding.evidencia || "Sem evidência textual detalhada."}
                       </p>
+                      {finding.termoBusca ? (
+                        <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                          <p className="min-w-0">
+                            <span className="font-medium text-foreground">
+                              Termo para localizar:
+                            </span>{" "}
+                            <span className="break-words text-foreground">
+                              {finding.termoBusca}
+                            </span>
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyText(finding.termoBusca ?? "")}
+                          >
+                            Copiar termo
+                          </Button>
+                        </div>
+                      ) : null}
                       <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                         <span>
                           Abra o PDF local direto na página provável e use a evidência como termo de busca.

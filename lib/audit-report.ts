@@ -14,6 +14,7 @@ export type AuditFinding = {
   tipo: string;
   descricao: string;
   evidencia: string;
+  termo_busca?: string;
   conflito: string;
   sugestao_correcao: string;
   confianca: FindingConfidence;
@@ -277,6 +278,7 @@ export function makeTextReport(report: AuditReport) {
               `Capitulo: ${finding.capitulo || "nao identificado"}`,
               `Local: ${finding.local || "nao informado"}`,
               `Evidencia: ${finding.evidencia || finding.descricao}`,
+              `Termo de busca: ${finding.termo_busca || finding.evidencia || finding.descricao}`,
               `Conflito: ${finding.conflito || "nao informado"}`,
               `Acao recomendada: ${finding.sugestao_correcao || "revisar o trecho indicado"}`,
               `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
