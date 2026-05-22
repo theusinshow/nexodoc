@@ -69,6 +69,8 @@ OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5-mini
 NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
+NEXODOC_ADMIN_TOKEN=
+OPENAI_ADMIN_KEY=
 NEXODOC_MOCK_MODE=false
 NEXODOC_MOCK_DELAY_MS=3500
 NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
@@ -91,6 +93,31 @@ Exemplo:
 ```bash
 NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
 NEXODOC_ALLOWED_ORIGINS=https://nexodoc.vercel.app
+```
+
+## Painel administrativo
+
+O painel de uso fica em:
+
+```text
+/admin/usage
+```
+
+Ele consulta o backend em `/api/admin/usage` e exige um token admin.
+
+Variaveis necessarias no Render:
+
+```bash
+NEXODOC_ADMIN_TOKEN=uma_senha_forte_para_o_admin
+OPENAI_ADMIN_KEY=chave_admin_da_openai
+```
+
+`OPENAI_ADMIN_KEY` deve ser uma chave admin da organizacao OpenAI com acesso aos endpoints de Usage/Costs. Ela nao deve ser exposta no frontend.
+
+Na Vercel, mantenha apenas:
+
+```bash
+NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
 ```
 
 Para usar sempre a mesma chave, gere uma chave de projeto uma unica vez na plataforma da OpenAI, cole em `.env.local` e mantenha esse arquivo local. Ele ja esta no `.gitignore`, entao nao entra no repositorio.
