@@ -656,7 +656,12 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-3">
+          <div
+            className={cn(
+              "mx-auto flex min-h-full flex-col gap-3",
+              isLoading ? "max-w-[760px]" : "max-w-4xl",
+            )}
+          >
             {!isLoading ? renderAuditContext() : null}
 
             {messages.length === 0 && !isLoading ? (
@@ -678,7 +683,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             )}
 
             {isLoading ? (
-              <div className="grid min-h-[180px] flex-1 place-items-center">
+              <div className="flex min-h-[240px] flex-1 items-center justify-center py-8">
                 <AuditProgress
                   fileCount={files.length}
                   auditMode={auditMode}

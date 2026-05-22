@@ -41,13 +41,13 @@ export function AuditProgress({
   onCancel,
 }: AuditProgressProps) {
   return (
-    <section className="w-full max-w-[min(720px,100%)] rounded-lg border bg-card/95 px-4 py-4 text-sm shadow-[var(--shadow-panel)]">
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/15 text-primary">
+    <section className="w-full max-w-[760px] rounded-lg border bg-card/95 px-4 py-4 text-sm shadow-[var(--shadow-panel)]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex size-10 shrink-0 items-center justify-center self-center rounded-md border border-primary/30 bg-primary/15 text-primary sm:self-start">
           <Loader2 className="size-5 animate-spin" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="font-medium">{getCurrentStep(elapsedMs, auditMode)}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -57,8 +57,8 @@ export function AuditProgress({
                 separado por arquivo/comparacao.
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 text-xs text-muted-foreground">
+            <div className="flex shrink-0 items-center justify-start gap-2 md:justify-end">
+              <span className="flex h-8 min-w-10 items-center justify-center rounded-md border bg-[var(--nexodoc-recessed)] px-2 text-xs text-muted-foreground">
                 {formatElapsed(elapsedMs)}
               </span>
               <Button
@@ -77,20 +77,20 @@ export function AuditProgress({
             <div className="audit-progress-bar h-full w-1/2 bg-primary" />
           </div>
 
-          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
-            <div className="flex items-center gap-2">
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex min-w-0 items-center gap-2">
               <CheckCircle2 className="size-4 text-primary" />
               <span>Arquivos recebidos</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <FileUp className="size-4 text-primary" />
               <span>PDFs em leitura</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <SearchCheck className="size-4 text-primary" />
               <span>5 em paralelo</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <ScanText className="size-4 text-primary" />
               <span>Ate 24 blocos</span>
             </div>
