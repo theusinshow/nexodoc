@@ -52,6 +52,74 @@ function unique(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+function canonicalIdentity(value: string) {
+  return normalize(value)
+    .replace(/\s+/g, " ")
+    .replace(/\s+[–-]\s+/g, " - ")
+    .trim();
+}
+
+function titleCaseIdentity(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\s+[–-]\s+/g, " - ")
+    .trim();
+}
+
+function findIdentityMentions(
+  extracted: ExtractedPdf,
+  pattern: RegExp,
+) {
+  const mentions: Array<{ value: string; page: number; evidence: string }> = [];
+
+  for (const page of extracted.pages) {
+    for (const match of page.text.matchAll(pattern)) {
+      const value = match[0] ?? "";
+
+      if (!value.trim()) {
+        continue;
+      }
+
+      mentions.push({
+        value: titleCaseIdentity(value),
+        page: page.page,
+        evidence: snippet(page.text, match.index ?? 0),
+      });
+    }
+  }
+
+  return mentions;
+}
+
+function groupIdentityMentions(
+  mentions: Array<{ value: string; page: number; evidence: string }>,
+) {
+  const groups = new Map<
+    string,
+    { value: string; pages: number[]; count: number; evidence: string }
+  >();
+
+  for (const mention of mentions) {
+    const key = canonicalIdentity(mention.value);
+    const current = groups.get(key);
+
+    if (current) {
+      current.count += 1;
+      current.pages = unique([...current.pages.map(String), String(mention.page)]).map(Number);
+      continue;
+    }
+
+    groups.set(key, {
+      value: mention.value,
+      pages: [mention.page],
+      count: 1,
+      evidence: mention.evidence,
+    });
+  }
+
+  return [...groups.values()].sort((a, b) => b.count - a.count);
+}
+
 export function runDeterministicAuditRules(context: RuleContext): AuditFinding[] {
   const { extracted, projectName } = context;
   const fullText = extracted.text;
@@ -65,6 +133,33 @@ export function runDeterministicAuditRules(context: RuleContext): AuditFinding[]
       (match) => match[1] ?? "",
     ),
   );
+
+  const ubsGroups = groupIdentityMentions(
+    findIdentityMentions(
+      extracted,
+      /\bUBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç0-9\s]+?[–-]\s*Porte\s*\d+\b/gi,
+    ),
+  );
+
+  if (ubsGroups.length > 1) {
+    const dominant = ubsGroups[0];
+    const divergentGroups = ubsGroups.slice(1);
+    const divergent = divergentGroups[0];
+
+    findings.push(
+      makeFinding(nextId(), {
+        prioridade: "Alta",
+        pagina: divergent ? divergent.pages.join(", ") : "nao identificada",
+        capitulo: "Identidade global do documento",
+        local: "nome da obra/unidade",
+        tipo: "Nome da obra/unidade divergente",
+        descricao: `Foram identificados nomes de UBS distintos no mesmo documento: ${ubsGroups.map((group) => group.value).join(" | ")}.`,
+        evidencia: divergent?.evidence ?? ubsGroups.map((group) => group.value).join(" | "),
+        conflito: `A identidade predominante aparenta ser "${dominant.value}", mas tambem aparece "${divergentGroups.map((group) => group.value).join(", ")}".`,
+        sugestao_correcao: "Padronizar o nome correto da unidade/obra em todos os capitulos, cabecalhos e objetivos tecnicos.",
+      }),
+    );
+  }
 
   if (owners.length > 1) {
     const hit = findFirstPage(extracted, /Prefeitura Municipal de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]+?(?:[;,.]|\n)/g);
@@ -96,6 +191,24 @@ export function runDeterministicAuditRules(context: RuleContext): AuditFinding[]
         evidencia: chapecoHit.evidence,
         conflito: "Chapeco diverge de Criciuma.",
         sugestao_correcao: "Corrigir o proprietario para Prefeitura Municipal de Criciuma, se este for o municipio correto do projeto.",
+      }),
+    );
+  }
+
+  const comcapHit = findFirstPage(extracted, /\bCOMCAP\b|manual\s+COMCAP/i);
+  if (comcapHit && normalizedText.includes("criciuma")) {
+    findings.push(
+      makeFinding(nextId(), {
+        prioridade: "Media/Alta",
+        pagina: String(comcapHit.page),
+        capitulo: "Residuos / referencia municipal",
+        local: "referencia a manual externo",
+        tipo: "Referencia municipal externa suspeita",
+        descricao: "O documento cita COMCAP em memorial identificado como Criciuma, indicando possivel reaproveitamento de texto de outro contexto municipal.",
+        evidencia: comcapHit.evidence,
+        conflito: "COMCAP pode nao ser a referencia municipal aplicavel ao projeto de Criciuma.",
+        sugestao_correcao: "Conferir a referencia normativa/manual de residuos aplicavel ao municipio correto e substituir se necessario.",
+        confianca: "media",
       }),
     );
   }

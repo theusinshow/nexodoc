@@ -5,6 +5,7 @@ import {
   makeTextReport,
   normalizeConfidence,
   normalizePriority,
+  sortAuditFindings,
   type AuditFinding,
   type AuditReport,
 } from "@/lib/audit-report";
@@ -22,12 +23,12 @@ export const runtime = "nodejs";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 24;
-const DEFAULT_CHUNK_CONCURRENCY = 3;
+const DEFAULT_CHUNK_CONCURRENCY = 5;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
 
 type UploadedAuditFile = {
@@ -166,7 +167,7 @@ function getChunkPrompt(args: {
 ${modeInstruction}
 
 Leia o trecho abaixo procurando erros que possam comprometer emissao, licitacao, cliente ou consistencia documental.
-Procure ativamente: municipio/proprietario divergente, bairro divergente, logradouro de outro projeto, conflito de hierarquia, norma inadequada, calculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redacao/formatação critica.
+Procure ativamente: nome de obra/unidade divergente (ex.: UBS X vs UBS Y), municipio/proprietario divergente, bairro divergente, logradouro de outro projeto, referencia municipal externa, conflito de hierarquia, norma inadequada, calculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redacao/formatação critica.
 
 Projeto informado: ${args.projectName || "nao informado"}
 Arquivo: ${args.fileName}
@@ -389,12 +390,12 @@ async function deepAnalyzeFile(args: {
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} (${chunk.startPage}-${chunk.endPage}) iniciado`,
       );
       const findings = await analyzeChunkWithModel({
-      auditMode: args.auditMode,
-      userMessage: args.userMessage,
-      projectName: args.projectName,
-      fileName: args.file.file.name,
-      fileType: args.file.fileType,
-      chunk,
+        auditMode: args.auditMode,
+        userMessage: args.userMessage,
+        projectName: args.projectName,
+        fileName: args.file.file.name,
+        fileType: args.file.fileType,
+        chunk,
       });
       console.log(
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,
@@ -491,7 +492,12 @@ export async function POST(request: Request) {
       allFindings.push(...findings);
     }
 
-    const findings = dedupeFindings(allFindings);
+    const findings = sortAuditFindings(dedupeFindings(allFindings)).map(
+      (finding, index) => ({
+        ...finding,
+        id: `INC-${String(index + 1).padStart(3, "0")}`,
+      }),
+    );
     console.log(
       `[audit] requisicao concluida em ${Math.round((Date.now() - requestStartedAt) / 1000)}s com ${findings.length} achado(s)`,
     );

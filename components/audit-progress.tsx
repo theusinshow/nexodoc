@@ -18,20 +18,20 @@ function getCurrentStep(elapsedMs: number, auditMode: AuditMode) {
   const seconds = elapsedMs / 1000;
 
   if (seconds < 3) {
-    return "Enviando PDFs para leitura";
+    return "Recebendo PDFs e preparando leitura";
   }
 
   if (seconds < 8) {
-    return "Extraindo identificacao documental";
+    return "Extraindo texto e identidade global";
   }
 
-  if (seconds < 18) {
+  if (seconds < 30) {
     return auditMode === "volume"
-      ? "Comparando LD, selos e pranchas"
-      : "Conferindo coerencia interna do memorial";
+      ? "Auditando LD, selos, pranchas e consistencia do volume"
+      : "Auditando coerencia interna e trechos reaproveitados";
   }
 
-  return "Organizando achados e acoes";
+  return "Analisando blocos em paralelo; o servidor segue trabalhando";
 }
 
 export function AuditProgress({
@@ -52,8 +52,9 @@ export function AuditProgress({
               <p className="font-medium">{getCurrentStep(elapsedMs, auditMode)}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {getAuditModeLabel(auditMode)} com {fileCount}{" "}
-                {fileCount === 1 ? "arquivo" : "arquivos"}. O resultado sera separado
-                por arquivo e comparacao.
+                {fileCount === 1 ? "arquivo" : "arquivos"}. Auditoria profunda
+                com ate 24 blocos por arquivo, 5 blocos em paralelo e resultado
+                separado por arquivo/comparacao.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -87,11 +88,11 @@ export function AuditProgress({
             </div>
             <div className="flex items-center gap-2">
               <SearchCheck className="size-4 text-primary" />
-              <span>Comparacoes</span>
+              <span>5 em paralelo</span>
             </div>
             <div className="flex items-center gap-2">
               <ScanText className="size-4 text-primary" />
-              <span>Resultado</span>
+              <span>Ate 24 blocos</span>
             </div>
           </div>
         </div>

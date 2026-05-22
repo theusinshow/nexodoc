@@ -79,11 +79,48 @@ export function normalizeConfidence(value: string | undefined): FindingConfidenc
   return "media";
 }
 
+export function getPriorityRank(priority: FindingPriority) {
+  switch (priority) {
+    case "Alta":
+      return 0;
+    case "Media/Alta":
+      return 1;
+    case "Media":
+      return 2;
+    case "Baixa/Media":
+      return 3;
+    case "Baixa":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+export function sortAuditFindings(findings: AuditFinding[]) {
+  return [...findings].sort((a, b) => {
+    const priorityDiff = getPriorityRank(a.prioridade) - getPriorityRank(b.prioridade);
+
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    const pageA = Number.parseInt(a.pagina, 10);
+    const pageB = Number.parseInt(b.pagina, 10);
+
+    if (Number.isFinite(pageA) && Number.isFinite(pageB) && pageA !== pageB) {
+      return pageA - pageB;
+    }
+
+    return a.tipo.localeCompare(b.tipo, "pt-BR");
+  });
+}
+
 export function makeTextReport(report: AuditReport) {
+  const sortedFindings = sortAuditFindings(report.incongruencias);
   const findings =
-    report.incongruencias.length === 0
+    sortedFindings.length === 0
       ? "- nenhuma incongruencia relevante encontrada"
-      : report.incongruencias
+      : sortedFindings
           .map((finding) => {
             return [
               `Achado ${finding.id}: ${finding.tipo}`,
