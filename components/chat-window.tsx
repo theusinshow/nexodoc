@@ -15,7 +15,7 @@ import {
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
-import { AuditResult } from "@/components/audit-result";
+import { AuditResult, type AuditPdfSource } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
 import { FileUpload } from "@/components/file-upload";
 import { MessageBubble } from "@/components/message-bubble";
@@ -42,6 +42,7 @@ type ChatMessage = {
   auditMode?: AuditMode;
   elapsedMs?: number;
   report?: AuditReport;
+  pdfSources?: AuditPdfSource[];
 };
 
 type AuditHistoryItem = {
@@ -57,6 +58,7 @@ type AuditHistoryItem = {
   report?: AuditReport;
   elapsedMs?: number;
   error?: string;
+  pdfSources?: AuditPdfSource[];
 };
 
 type InspectorTab = "summary" | "findings" | "report";
@@ -202,6 +204,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef(0);
+  const pdfObjectUrlsRef = useRef<string[]>([]);
 
   const latestResult = useMemo(() => {
     return [...messages].reverse().find((item) => item.role === "assistant");
@@ -235,6 +238,13 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isLoading, error]);
+
+  useEffect(() => {
+    return () => {
+      pdfObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      pdfObjectUrlsRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading) {
@@ -305,6 +315,18 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     setElapsedMs(0);
   }
 
+  function createPdfSources() {
+    return files.map((attachment) => {
+      const url = URL.createObjectURL(attachment.file);
+      pdfObjectUrlsRef.current.push(url);
+
+      return {
+        name: attachment.file.name,
+        url,
+      };
+    });
+  }
+
   function handleOpenAudit(item: AuditHistoryItem) {
     setActiveAuditId(item.id);
     setError(item.error ?? "");
@@ -333,6 +355,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               auditMode: item.auditMode,
               elapsedMs: item.elapsedMs,
               report: item.report,
+              pdfSources: item.pdfSources,
             },
           ]
         : [userMessage],
@@ -429,6 +452,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
       const result = payload.result;
       const finalElapsedMs = performance.now() - startedAtRef.current;
+      const pdfSources = createPdfSources();
 
       setMessages((current) => [
         ...current,
@@ -439,6 +463,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           auditMode: payload.auditMode ?? auditMode,
           elapsedMs: finalElapsedMs,
           report: payload.report,
+          pdfSources,
         },
       ]);
       setAuditHistory((current) =>
@@ -450,6 +475,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 result,
                 report: payload.report,
                 elapsedMs: finalElapsedMs,
+                pdfSources,
               }
             : item,
         ),
@@ -693,6 +719,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                       content={item.content}
                       elapsedMs={item.elapsedMs}
                       report={item.report}
+                      pdfSources={item.pdfSources}
                     />
                   ) : (
                     <MessageBubble role={item.role} content={item.content} />

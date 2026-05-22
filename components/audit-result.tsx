@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Eye,
+  ExternalLink,
   FileText,
   LayoutList,
   MapPin,
@@ -31,6 +32,12 @@ type AuditResultProps = {
   content: string;
   elapsedMs?: number;
   report?: AuditReport;
+  pdfSources?: AuditPdfSource[];
+};
+
+export type AuditPdfSource = {
+  name: string;
+  url: string;
 };
 
 type AuditSectionKey =
@@ -46,6 +53,7 @@ type ParsedAudit = Record<AuditSectionKey, string>;
 
 type StructuredFinding = {
   title: string;
+  refId?: string;
   severity: "critical" | "warning" | "ok";
   documento?: string;
   pagina?: string;
@@ -56,6 +64,7 @@ type StructuredFinding = {
   categoria?: string;
   referencia?: string;
   impacto?: FindingImpact;
+  pdfUrl?: string;
   raw: string;
 };
 
@@ -323,6 +332,59 @@ function buildActionsText(findings: StructuredFinding[]) {
   return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
+function getFirstPageNumber(value?: string) {
+  const match = value?.match(/\d+/);
+
+  if (!match) {
+    return null;
+  }
+
+  const page = Number(match[0]);
+
+  return Number.isFinite(page) && page > 0 ? page : null;
+}
+
+function normalizeFileName(value: string) {
+  return normalizeText(value).replace(/\s+/g, " ").trim();
+}
+
+function findPdfSource(
+  finding: StructuredFinding,
+  pdfSources: AuditPdfSource[],
+) {
+  if (pdfSources.length === 0) {
+    return null;
+  }
+
+  const documentName = normalizeFileName(finding.documento ?? "");
+
+  if (documentName) {
+    const directMatch = pdfSources.find((source) => {
+      const sourceName = normalizeFileName(source.name);
+
+      return sourceName === documentName || documentName.includes(sourceName);
+    });
+
+    if (directMatch) {
+      return directMatch;
+    }
+  }
+
+  return pdfSources.length === 1 ? pdfSources[0] : null;
+}
+
+function openPdfAtFinding(finding: StructuredFinding, pdfSources: AuditPdfSource[]) {
+  const source = findPdfSource(finding, pdfSources);
+
+  if (!source) {
+    return;
+  }
+
+  const page = getFirstPageNumber(finding.pagina);
+  const url = page ? `${source.url}#page=${page}` : source.url;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
   const severity =
     finding.prioridade === "Alta" || finding.prioridade === "Media/Alta"
@@ -332,9 +394,10 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
         : "warning";
 
   return {
-    title: `${finding.id}: ${finding.tipo}`,
+    title: finding.tipo,
+    refId: finding.id,
     severity,
-    documento: "",
+    documento: finding.arquivo,
     pagina: finding.pagina,
     local: finding.local,
     evidencia: finding.evidencia,
@@ -378,7 +441,12 @@ function SectionCard({
   );
 }
 
-export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
+export function AuditResult({
+  content,
+  elapsedMs,
+  report,
+  pdfSources = [],
+}: AuditResultProps) {
   const [view, setView] = useState<"summary" | "findings" | "evidence" | "report">("summary");
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
@@ -387,16 +455,20 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
   const findings = report
     ? report.incongruencias.map(reportFindingToStructured)
     : splitFindings(parsed.findings);
+  const findingsWithPdf = findings.map((finding) => ({
+    ...finding,
+    pdfUrl: findPdfSource(finding, pdfSources)?.url,
+  }));
   const groupedReportFindings = report
     ? groupFindingsByImpact(report.incongruencias)
     : null;
   const groupedStructuredFindings = {
-    critico_documental: findings.filter((finding) => finding.impacto === "critico_documental" || (!finding.impacto && finding.severity === "critical")),
-    tecnico_contratual: findings.filter((finding) => finding.impacto === "tecnico_contratual"),
-    revisao_editorial: findings.filter((finding) => finding.impacto === "revisao_editorial" || (!finding.impacto && finding.severity !== "critical")),
+    critico_documental: findingsWithPdf.filter((finding) => finding.impacto === "critico_documental" || (!finding.impacto && finding.severity === "critical")),
+    tecnico_contratual: findingsWithPdf.filter((finding) => finding.impacto === "tecnico_contratual"),
+    revisao_editorial: findingsWithPdf.filter((finding) => finding.impacto === "revisao_editorial" || (!finding.impacto && finding.severity !== "critical")),
   };
-  const findingsText = buildFindingsText(findings);
-  const actionsText = buildActionsText(findings);
+  const findingsText = buildFindingsText(findingsWithPdf);
+  const actionsText = buildActionsText(findingsWithPdf);
   const projectFields = report
     ? [
         { label: "Arquivo", value: report.arquivo ?? "nao informado" },
@@ -617,16 +689,23 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
                                     {index + 1}. {finding.title}
                                   </p>
                                 </div>
-                                <span
-                                  className={cn(
-                                    "w-fit shrink-0 border px-2 py-1 text-xs font-medium",
-                                    getSeverityClass(finding.severity),
-                                  )}
-                                >
-                                  {finding.impacto
-                                    ? getImpactLabel(finding.impacto)
-                                    : getSeverityLabel(finding.severity)}
-                                </span>
+                                <div className="flex shrink-0 flex-wrap gap-2">
+                                  {finding.refId ? (
+                                    <span className="w-fit border px-2 py-1 text-xs text-muted-foreground">
+                                      Ref. {finding.refId}
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={cn(
+                                      "w-fit border px-2 py-1 text-xs font-medium",
+                                      getSeverityClass(finding.severity),
+                                    )}
+                                  >
+                                    {finding.impacto
+                                      ? getImpactLabel(finding.impacto)
+                                      : getSeverityLabel(finding.severity)}
+                                  </span>
+                                </div>
                               </div>
 
                               <div className="grid gap-2 text-xs sm:grid-cols-3">
@@ -643,6 +722,21 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
                                   {finding.local || "não informado"}
                                 </p>
                               </div>
+                              {finding.pdfUrl ? (
+                                <div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      openPdfAtFinding(finding, pdfSources)
+                                    }
+                                  >
+                                    <ExternalLink />
+                                    Abrir página no PDF
+                                  </Button>
+                                </div>
+                              ) : null}
                               {(finding.categoria || finding.referencia) ? (
                                 <div className="grid gap-2 text-xs sm:grid-cols-2">
                                   {finding.categoria ? (
@@ -695,10 +789,10 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
         ) : null}
 
         {view === "evidence" ? (
-          <SectionCard title="Evidências visuais planejadas" icon={Eye}>
-            {findings.length > 0 ? (
+          <SectionCard title="Localização no PDF" icon={Eye}>
+            {findingsWithPdf.length > 0 ? (
               <div className="grid gap-3">
-                {findings.map((finding, index) => (
+                {findingsWithPdf.map((finding, index) => (
                   <div key={`${finding.raw}-evidence-${index}`} className="grid gap-3 border bg-background p-3 lg:grid-cols-[220px_1fr]">
                     <div className="relative aspect-[3/4] border bg-card p-3">
                       <div className="absolute left-4 right-4 top-4 h-3 border bg-muted" />
@@ -747,10 +841,26 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
                       <p className="text-xs text-muted-foreground">
                         {finding.evidencia || "Sem evidência textual detalhada."}
                       </p>
-                      <p className="border border-dashed p-3 text-xs text-muted-foreground">
-                        Nesta etapa o NexoDoc mostra uma prévia esquemática do local do problema.
-                        A marcação real sobre a página do PDF entra na próxima fase.
-                      </p>
+                      <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <span>
+                          Abra o PDF local direto na página provável e use a evidência como termo de busca.
+                        </span>
+                        {finding.pdfUrl ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPdfAtFinding(finding, pdfSources)}
+                          >
+                            <ExternalLink />
+                            Abrir página
+                          </Button>
+                        ) : (
+                          <span className="text-[var(--status-warning)]">
+                            PDF indisponível nesta sessão.
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

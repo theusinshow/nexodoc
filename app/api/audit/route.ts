@@ -304,6 +304,7 @@ async function mapWithConcurrency<T, R>(
 function modelFindingToAuditFinding(
   finding: ModelFinding,
   index: number,
+  fileName?: string,
 ): AuditFinding | null {
   const description = String(finding.descricao ?? "").trim();
   const type = String(finding.tipo ?? "").trim();
@@ -315,6 +316,7 @@ function modelFindingToAuditFinding(
 
   return {
     id: `IA-${String(index).padStart(3, "0")}`,
+    arquivo: fileName,
     origem: "ia",
     prioridade: normalizePriority(finding.prioridade),
     pagina: String(finding.pagina ?? "nao identificada"),
@@ -398,7 +400,9 @@ async function analyzeChunkWithModel(args: {
   const parsed = parseJsonObject(text);
 
   return (parsed?.findings ?? [])
-    .map((finding, index) => modelFindingToAuditFinding(finding, index + 1))
+    .map((finding, index) =>
+      modelFindingToAuditFinding(finding, index + 1, args.fileName),
+    )
     .filter((finding): finding is AuditFinding => Boolean(finding));
 }
 
@@ -414,7 +418,10 @@ async function deepAnalyzeFile(args: {
     fileName: args.file.file.name,
     projectName: args.projectName,
     extracted: args.file.extracted,
-  });
+  }).map((finding) => ({
+    ...finding,
+    arquivo: finding.arquivo ?? args.file.file.name,
+  }));
   const chunks = chunkPdfByChapter(args.file.extracted).slice(0, getMaxChunksPerFile());
   const concurrency = getChunkConcurrency();
 

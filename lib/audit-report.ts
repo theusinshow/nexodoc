@@ -6,6 +6,7 @@ export type FindingImpact = "critico_documental" | "tecnico_contratual" | "revis
 
 export type AuditFinding = {
   id: string;
+  arquivo?: string;
   prioridade: FindingPriority;
   pagina: string;
   capitulo: string;
@@ -271,7 +272,7 @@ export function makeTextReport(report: AuditReport) {
             return [
               `Achado ${finding.id}: ${finding.tipo}`,
               `Prioridade: ${finding.prioridade}`,
-              `Documento: ${report.arquivo ?? report.arquivos_analisados[0]?.arquivo ?? "nao informado"}`,
+              `Documento: ${finding.arquivo ?? report.arquivo ?? report.arquivos_analisados[0]?.arquivo ?? "nao informado"}`,
               `Pagina provavel: ${finding.pagina || "nao identificada"}`,
               `Capitulo: ${finding.capitulo || "nao identificado"}`,
               `Local: ${finding.local || "nao informado"}`,
