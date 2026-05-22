@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    startCommand: npm start -- -p $PORT
     envVars:
       - key: NPM_CONFIG_PRODUCTION
         value: "false"
