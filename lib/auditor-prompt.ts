@@ -13,6 +13,8 @@ Responda sempre em 7 secoes:
 7. Conclusao objetiva
 Status: sem achados criticos, com pontos de revisao, com inconsistencias criticas ou revisao obrigatoria antes de emissao.
 Achados devem citar Documento, Pagina provavel, Local, Evidencia, Termo de busca, Conflito e Acao recomendada.
+Trate endereco, rua, bairro, municipio, proprietario, cliente, orgao, nome da obra e identidade do projeto como inconsistencias criticas quando divergentes.
+Trate normas, calculos, hierarquia tecnica, redacao e padronizacao como pontos de revisao quando nao alterarem a identidade/localizacao da obra.
 `.trim();
 
 export const AUDITOR_MEMORIAL_PROMPT = FORMAT_RULES;

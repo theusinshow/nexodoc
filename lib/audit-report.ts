@@ -120,18 +120,28 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
       finding.descricao,
       finding.evidencia,
       finding.conflito,
+      finding.sugestao_correcao,
     ].join(" "),
   );
 
   if (
+    haystack.includes("endereco") ||
+    haystack.includes("enderecamento") ||
+    haystack.includes("endereço") ||
+    haystack.includes("rua") ||
+    haystack.includes("avenida") ||
+    haystack.includes("logradouro") ||
+    haystack.includes("bairro") ||
+    haystack.includes("localizacao") ||
+    haystack.includes("localização") ||
+    haystack.includes("municipio") ||
+    haystack.includes("proprietario") ||
+    haystack.includes("cliente") ||
+    haystack.includes("orgao") ||
+    haystack.includes("secretaria") ||
     haystack.includes("nome da obra") ||
     haystack.includes("unidade") ||
     haystack.includes("ubs") ||
-    haystack.includes("municipio") ||
-    haystack.includes("proprietario") ||
-    haystack.includes("bairro") ||
-    haystack.includes("logradouro") ||
-    haystack.includes("endereco") ||
     haystack.includes("identidade")
   ) {
     return "critico_documental";

@@ -681,12 +681,12 @@ export function AuditResult({
                 {[
                   {
                     title: "Críticos documentais",
-                    description: "Identidade, localização, proprietário, município, obra ou trecho reaproveitado.",
+                    description: "Endereço, bairro, município, proprietário, cliente, obra, identidade ou trecho reaproveitado.",
                     items: groupedStructuredFindings.critico_documental,
                   },
                   {
-                    title: "Pontos técnicos/contratuais",
-                    description: "Hierarquia, norma, cálculo, referência municipal ou compatibilização técnica.",
+                    title: "Pontos de revisão técnica",
+                    description: "Normas, cálculos, hierarquia técnica, compatibilização, redação e padronização.",
                     items: groupedStructuredFindings.tecnico_contratual,
                   },
                   {
