@@ -2,6 +2,7 @@
 
 import { Lightbulb, Play, SendHorizontal } from "lucide-react";
 
+import { AttachedFiles } from "@/components/attached-files";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ type ComposerProps = {
   onMessageChange: (value: string) => void;
   onAuditModeChange: (value: AuditMode) => void;
   onFilesAdd: (files: File[], documentType: DocumentType) => void;
+  onFileRemove: (index: number) => void;
   onSubmit: () => void;
   onLoadDemo: () => void;
 };
@@ -31,6 +33,7 @@ export function Composer({
   onMessageChange,
   onAuditModeChange,
   onFilesAdd,
+  onFileRemove,
   onSubmit,
   onLoadDemo,
 }: ComposerProps) {
@@ -113,6 +116,16 @@ export function Composer({
               </Button>
             </div>
           </div>
+
+          {files.length > 0 ? (
+            <div className="mt-2 border-t pt-2">
+              <AttachedFiles
+                files={files}
+                onRemove={onFileRemove}
+                disabled={isLoading}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

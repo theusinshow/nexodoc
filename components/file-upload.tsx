@@ -28,7 +28,9 @@ export function FileUpload({
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFiles = Array.from(event.target.files ?? []);
-    onFilesSelected(selectedFiles, documentType);
+    if (selectedFiles.length > 0) {
+      onFilesSelected(selectedFiles, documentType);
+    }
     event.target.value = "";
   }
 
@@ -46,10 +48,21 @@ export function FileUpload({
       >
         {DOCUMENT_TYPES.map((type) => (
           <option key={type} value={type}>
-            {getDocumentTypeLabel(type)}
+          {getDocumentTypeLabel(type)}
           </option>
         ))}
       </select>
+
+      <input
+        id={uploadId}
+        type="file"
+        accept="application/pdf,.pdf"
+        multiple
+        className="sr-only"
+        onChange={handleChange}
+        disabled={disabled}
+        aria-label="Anexar PDFs"
+      />
 
       <label
         htmlFor={uploadId}
@@ -65,16 +78,6 @@ export function FileUpload({
       >
         {compact ? <Paperclip /> : <FileUp />}
         Anexar PDFs
-        <input
-          id={uploadId}
-          type="file"
-          accept="application/pdf,.pdf"
-          multiple
-          className="absolute inset-0 cursor-pointer opacity-0"
-          onChange={handleChange}
-          disabled={disabled}
-          aria-label="Anexar PDFs"
-        />
       </label>
     </div>
   );

@@ -240,9 +240,11 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   }, [isLoading]);
 
   function handleFilesAdd(newFiles: File[], documentType: DocumentType) {
-    const result = validateFiles(files, newFiles, documentType);
-    setFiles(result.files);
-    setError(result.error);
+    setFiles((currentFiles) => {
+      const result = validateFiles(currentFiles, newFiles, documentType);
+      setError(result.error);
+      return result.files;
+    });
   }
 
   function handleFileRemove(index: number) {
@@ -703,6 +705,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           onMessageChange={setMessage}
           onAuditModeChange={handleAuditModeChange}
           onFilesAdd={handleFilesAdd}
+          onFileRemove={handleFileRemove}
           onSubmit={handleSubmit}
           onLoadDemo={handleLoadDemo}
         />
