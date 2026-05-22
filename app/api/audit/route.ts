@@ -576,12 +576,12 @@ export async function POST(request: Request) {
       status_analise: "concluida",
       status_geral:
         findings.length === 0
-          ? "sem incongruencia relevante"
+          ? "sem achados criticos"
           : hasCriticalDocumental
             ? "revisao obrigatoria antes de emissao"
             : hasHigh
-            ? "com incongruencia relevante"
-            : "com ponto de atencao",
+            ? "com inconsistencias criticas"
+            : "com pontos de revisao",
       total_incongruencias: findings.length,
       arquivos_analisados: uploadedFiles.map((file) => ({
         arquivo: file.file.name,
@@ -597,7 +597,7 @@ export async function POST(request: Request) {
       incongruencias: findings,
       conclusao:
         findings.length === 0
-          ? "nenhuma incongruencia relevante encontrada dentro da auditoria profunda executada"
+          ? "nenhum achado critico detectado dentro da auditoria profunda executada"
           : executiveSummary,
     };
     const result = makeTextReport(report);

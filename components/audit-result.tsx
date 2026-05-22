@@ -82,6 +82,7 @@ const SECTION_MAP: Record<string, AuditSectionKey> = {
   "análise por arquivo": "fileAnalysis",
   "comparacoes entre arquivos": "comparisons",
   "comparações entre arquivos": "comparisons",
+  "achados encontrados": "findings",
   "incongruências relevantes encontradas": "findings",
   "incongruencias relevantes encontradas": "findings",
   "conclusão objetiva": "conclusion",
@@ -112,7 +113,7 @@ function normalizeText(value: string) {
 function parseAuditResult(content: string): ParsedAudit {
   const parsed = { ...EMPTY_AUDIT };
   const sectionRegex =
-    /(?:^|\n)\s*(\d+)\.\s*(Projeto analisado|Status geral|Arquivos analisados|Analise por arquivo|Análise por arquivo|Comparacoes entre arquivos|Comparações entre arquivos|Incongruências relevantes encontradas|Incongruencias relevantes encontradas|Conclusão objetiva|Conclusao objetiva)\s*\n/gi;
+    /(?:^|\n)\s*(\d+)\.\s*(Projeto analisado|Status geral|Arquivos analisados|Analise por arquivo|Análise por arquivo|Comparacoes entre arquivos|Comparações entre arquivos|Achados encontrados|Incongruências relevantes encontradas|Incongruencias relevantes encontradas|Conclusão objetiva|Conclusao objetiva)\s*\n/gi;
   const matches = Array.from(content.matchAll(sectionRegex));
 
   matches.forEach((match, index) => {
@@ -134,18 +135,37 @@ function parseAuditResult(content: string): ParsedAudit {
 function getStatusVariant(status: string) {
   const normalized = normalizeText(status);
 
-  if (normalized.includes("incongruencia relevante")) {
+  if (
+    normalized.includes("sem achados criticos") ||
+    normalized.includes("sem incongruencia relevante")
+  ) {
     return {
-      label: "com incongruência relevante",
+      label: "sem achados críticos",
+      className:
+        "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
+      icon: CheckCircle2,
+    };
+  }
+
+  if (
+    normalized.includes("revisao obrigatoria") ||
+    normalized.includes("inconsistencias criticas") ||
+    normalized.includes("incongruencia relevante")
+  ) {
+    return {
+      label: "com inconsistências críticas",
       className:
         "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]",
       icon: AlertTriangle,
     };
   }
 
-  if (normalized.includes("ponto de atencao")) {
+  if (
+    normalized.includes("pontos de revisao") ||
+    normalized.includes("ponto de atencao")
+  ) {
     return {
-      label: "com ponto de atenção",
+      label: "com pontos de revisão",
       className:
         "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
       icon: AlertTriangle,
@@ -153,7 +173,7 @@ function getStatusVariant(status: string) {
   }
 
   return {
-    label: "sem incongruência relevante",
+    label: "sem achados críticos",
     className:
       "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
     icon: CheckCircle2,
@@ -203,14 +223,14 @@ function getFindingSeverity(block: string): StructuredFinding["severity"] {
 
 function getSeverityLabel(severity: StructuredFinding["severity"]) {
   if (severity === "critical") {
-    return "incongruência relevante";
+    return "inconsistência crítica";
   }
 
   if (severity === "warning") {
     return "ponto de atenção";
   }
 
-  return "sem incongruência relevante";
+  return "achado informativo";
 }
 
 function getSeverityClass(severity: StructuredFinding["severity"]) {
@@ -300,7 +320,7 @@ function splitFindings(findings: string): StructuredFinding[] {
 
 function buildFindingsText(findings: StructuredFinding[]) {
   if (findings.length === 0) {
-    return "Nenhuma incongruência relevante encontrada.";
+    return "Nenhum achado encontrado.";
   }
 
   return findings
@@ -436,7 +456,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-none border bg-card p-4">
+    <section className="rounded-lg border bg-card/80 p-4 shadow-[var(--shadow-panel)]">
       <div className="mb-3 flex items-center gap-2">
         <Icon className="size-4 text-primary" />
         <h3 className="text-sm font-semibold">{title}</h3>
@@ -494,7 +514,7 @@ export function AuditResult({
   }
 
   return (
-    <article className="w-full rounded-none border bg-card p-4">
+    <article className="w-full rounded-lg border bg-[var(--nexodoc-panel)] p-4 shadow-[var(--shadow-panel)]">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -505,7 +525,7 @@ export function AuditResult({
           </div>
           <div
             className={cn(
-              "inline-flex items-center gap-2 rounded-none border px-3 py-2 text-sm font-medium",
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium",
               status.className,
             )}
           >
@@ -516,11 +536,12 @@ export function AuditResult({
         <AuditResultActions result={content} />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-1 rounded-lg border bg-[var(--nexodoc-recessed)] p-1">
         <Button
           type="button"
           variant={view === "summary" ? "secondary" : "outline"}
           size="sm"
+          className="border-transparent"
           onClick={() => setView("summary")}
         >
           Resumo
@@ -529,6 +550,7 @@ export function AuditResult({
           type="button"
           variant={view === "findings" ? "secondary" : "outline"}
           size="sm"
+          className="border-transparent"
           onClick={() => setView("findings")}
         >
           Achados
@@ -537,6 +559,7 @@ export function AuditResult({
           type="button"
           variant={view === "evidence" ? "secondary" : "outline"}
           size="sm"
+          className="border-transparent"
           onClick={() => setView("evidence")}
         >
           Evidências
@@ -545,6 +568,7 @@ export function AuditResult({
           type="button"
           variant={view === "report" ? "secondary" : "outline"}
           size="sm"
+          className="border-transparent"
           onClick={() => setView("report")}
         >
           Relatório
@@ -553,6 +577,7 @@ export function AuditResult({
           type="button"
           variant="outline"
           size="sm"
+          className="ml-auto"
           onClick={() => copyText(findingsText)}
         >
           Copiar achados
@@ -578,13 +603,13 @@ export function AuditResult({
                 </p>
               </div>
               <div className="border bg-background p-3">
-                <p className="text-xs text-muted-foreground">Críticos</p>
+                <p className="text-xs text-muted-foreground">Inconsistências críticas</p>
                 <p className="mt-1 text-2xl font-semibold text-[var(--status-critical)]">
                   {criticalCount}
                 </p>
               </div>
               <div className="border bg-background p-3">
-                <p className="text-xs text-muted-foreground">Atenção</p>
+                <p className="text-xs text-muted-foreground">Pontos de revisão</p>
                 <p className="mt-1 text-2xl font-semibold text-[var(--status-warning)]">
                   {warningCount}
                 </p>
@@ -684,7 +709,7 @@ export function AuditResult({
                         {group.items.map((finding, index) => (
                           <li
                             key={`${finding.raw}-${group.title}-${index}`}
-                            className="rounded-none border bg-background p-4"
+                            className="rounded-lg border bg-background/80 p-4"
                           >
                             <div className="flex flex-col gap-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -713,18 +738,24 @@ export function AuditResult({
                                 </div>
                               </div>
 
-                              <div className="grid gap-2 text-xs sm:grid-cols-3">
+                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:grid-cols-3">
                                 <p>
-                                  <span className="font-medium text-foreground">Documento:</span>{" "}
-                                  {finding.documento || "não informado"}
+                                  <span className="block text-muted-foreground">Documento</span>
+                                  <span className="font-medium text-foreground">
+                                    {finding.documento || "não informado"}
+                                  </span>
                                 </p>
                                 <p>
-                                  <span className="font-medium text-foreground">Página:</span>{" "}
-                                  {finding.pagina || "não identificada"}
+                                  <span className="block text-muted-foreground">Página</span>
+                                  <span className="font-medium text-foreground">
+                                    {finding.pagina || "não identificada"}
+                                  </span>
                                 </p>
                                 <p>
-                                  <span className="font-medium text-foreground">Local:</span>{" "}
-                                  {finding.local || "não informado"}
+                                  <span className="block text-muted-foreground">Local</span>
+                                  <span className="font-medium text-foreground">
+                                    {finding.local || "não informado"}
+                                  </span>
                                 </p>
                               </div>
                               {finding.pdfUrl ? (
@@ -808,7 +839,7 @@ export function AuditResult({
                 )}
               </div>
             ) : (
-              <p>Nenhuma incongruência relevante encontrada.</p>
+              <p>Nenhum achado encontrado.</p>
             )}
           </SectionCard>
         ) : null}
@@ -818,31 +849,47 @@ export function AuditResult({
             {findingsWithPdf.length > 0 ? (
               <div className="grid gap-3">
                 {findingsWithPdf.map((finding, index) => (
-                  <div key={`${finding.raw}-evidence-${index}`} className="grid gap-3 border bg-background p-3 lg:grid-cols-[220px_1fr]">
-                    <div className="relative aspect-[3/4] border bg-card p-3">
-                      <div className="absolute left-4 right-4 top-4 h-3 border bg-muted" />
-                      <div className="absolute left-4 right-4 top-12 h-20 border border-primary/40 bg-primary/10" />
-                      <div className="absolute bottom-4 left-4 right-4 border border-[var(--status-critical)]/60 bg-[var(--status-critical-bg)] p-2 text-[10px] text-[var(--status-critical)]">
-                        {finding.local || "local provável"}
-                      </div>
-                    </div>
+                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-lg border bg-background/80 p-4">
                     <div className="space-y-3">
-                      <div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
                         <p className="text-xs uppercase text-muted-foreground">
-                          Evidência {index + 1}
+                          Localização {index + 1}
                         </p>
                         <h4 className="mt-1 font-medium text-foreground">
                           {finding.title}
                         </h4>
+                        </div>
+                        {finding.pdfUrl ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPdfAtFinding(finding, pdfSources)}
+                          >
+                            <ExternalLink />
+                            Abrir página
+                          </Button>
+                        ) : null}
                       </div>
-                      <div className="grid gap-2 text-xs sm:grid-cols-2">
+                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:grid-cols-3">
                         <p>
-                          <span className="font-medium text-foreground">Documento:</span>{" "}
-                          {finding.documento || "não informado"}
+                          <span className="block text-muted-foreground">Documento</span>
+                          <span className="font-medium text-foreground">
+                            {finding.documento || "não informado"}
+                          </span>
                         </p>
                         <p>
-                          <span className="font-medium text-foreground">Página provável:</span>{" "}
-                          {finding.pagina || "não identificada"}
+                          <span className="block text-muted-foreground">Página provável</span>
+                          <span className="font-medium text-foreground">
+                            {finding.pagina || "não identificada"}
+                          </span>
+                        </p>
+                        <p>
+                          <span className="block text-muted-foreground">Local</span>
+                          <span className="font-medium text-foreground">
+                            {finding.local || "não informado"}
+                          </span>
                         </p>
                       </div>
                       {(finding.categoria || finding.referencia) ? (
@@ -863,9 +910,11 @@ export function AuditResult({
                           ) : null}
                         </div>
                       ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        {finding.evidencia || "Sem evidência textual detalhada."}
-                      </p>
+                      {finding.evidencia ? (
+                        <p className="border-l-2 border-primary pl-3 text-xs text-muted-foreground">
+                          {finding.evidencia}
+                        </p>
+                      ) : null}
                       {finding.termoBusca ? (
                         <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                           <p className="min-w-0">
@@ -888,23 +937,13 @@ export function AuditResult({
                       ) : null}
                       <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                         <span>
-                          Abra o PDF local direto na página provável e use a evidência como termo de busca.
+                          O PDF abre na página provável. Use o termo de busca para localizar o trecho exato.
                         </span>
-                        {finding.pdfUrl ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPdfAtFinding(finding, pdfSources)}
-                          >
-                            <ExternalLink />
-                            Abrir página
-                          </Button>
-                        ) : (
+                        {!finding.pdfUrl ? (
                           <span className="text-[var(--status-warning)]">
                             PDF indisponível nesta sessão.
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>

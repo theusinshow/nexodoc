@@ -40,9 +40,9 @@ export type AuditReport = {
   data_documento: string;
   status_analise: "concluida" | "parcial" | "falha";
   status_geral:
-    | "sem incongruencia relevante"
-    | "com ponto de atencao"
-    | "com incongruencia relevante"
+    | "sem achados criticos"
+    | "com pontos de revisao"
+    | "com inconsistencias criticas"
     | "revisao obrigatoria antes de emissao";
   total_incongruencias: number;
   arquivos_analisados: AuditFileSummary[];
@@ -231,7 +231,7 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
   const editorial = groups.revisao_editorial;
 
   if (findings.length === 0) {
-    return "Nao foram encontradas incongruencias relevantes dentro da auditoria executada.";
+    return "Nao foram detectados achados criticos dentro da auditoria executada.";
   }
 
   const parts: string[] = [];
@@ -267,7 +267,7 @@ export function makeTextReport(report: AuditReport) {
   const executiveSummary = buildExecutiveSummary(sortedFindings);
   const findings =
     sortedFindings.length === 0
-      ? "- nenhuma incongruencia relevante encontrada"
+      ? "- nenhum achado critico detectado"
       : sortedFindings
           .map((finding) => {
             return [
@@ -325,10 +325,10 @@ ${report.comparacoes.length > 0 ? report.comparacoes.map((item) => `- ${item}`).
 ${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum achado critico documental"}
 
 6.1 Pontos tecnicos/contratuais
-${grouped.tecnico_contratual.length > 0 ? grouped.tecnico_contratual.map(formatFindingLine).join("\n") : "- nenhum ponto tecnico/contratual relevante"}
+${grouped.tecnico_contratual.length > 0 ? grouped.tecnico_contratual.map(formatFindingLine).join("\n") : "- nenhum ponto tecnico/contratual detectado"}
 
 6.2 Revisoes editoriais
-${grouped.revisao_editorial.length > 0 ? grouped.revisao_editorial.map(formatFindingLine).join("\n") : "- nenhuma revisao editorial relevante"}
+${grouped.revisao_editorial.length > 0 ? grouped.revisao_editorial.map(formatFindingLine).join("\n") : "- nenhuma revisao editorial detectada"}
 
 6.3 Lista completa com evidencias
 ${findings}

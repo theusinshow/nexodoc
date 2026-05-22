@@ -9,10 +9,10 @@ Responda sempre em 7 secoes:
 3. Arquivos analisados
 4. Analise por arquivo
 5. Comparacoes entre arquivos
-6. Incongruencias relevantes encontradas
+6. Achados encontrados
 7. Conclusao objetiva
-Status: sem incongruencia relevante, com ponto de atencao ou com incongruencia relevante.
-Achados devem citar Documento, Pagina provavel, Local, Evidencia, Conflito e Acao recomendada.
+Status: sem achados criticos, com pontos de revisao, com inconsistencias criticas ou revisao obrigatoria antes de emissao.
+Achados devem citar Documento, Pagina provavel, Local, Evidencia, Termo de busca, Conflito e Acao recomendada.
 `.trim();
 
 export const AUDITOR_MEMORIAL_PROMPT = FORMAT_RULES;

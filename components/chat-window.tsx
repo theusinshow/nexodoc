@@ -94,16 +94,26 @@ function getStatusFromResult(result?: string) {
 
   const lowerResult = normalizeText(result);
 
-  if (lowerResult.includes("com incongruencia relevante")) {
-    return "com incongruencia relevante";
+  if (
+    lowerResult.includes("revisao obrigatoria") ||
+    lowerResult.includes("com inconsistencias criticas") ||
+    lowerResult.includes("com incongruencia relevante")
+  ) {
+    return "com inconsistencias criticas";
   }
 
-  if (lowerResult.includes("com ponto de atencao")) {
-    return "com ponto de atencao";
+  if (
+    lowerResult.includes("com pontos de revisao") ||
+    lowerResult.includes("com ponto de atencao")
+  ) {
+    return "com pontos de revisao";
   }
 
-  if (lowerResult.includes("sem incongruencia relevante")) {
-    return "sem incongruencia relevante";
+  if (
+    lowerResult.includes("sem achados criticos") ||
+    lowerResult.includes("sem incongruencia relevante")
+  ) {
+    return "sem achados criticos";
   }
 
   return "resultado disponivel";
@@ -225,8 +235,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
   const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
   const setupComplete = true;
-  const statusIsCritical = latestStatus === "com incongruencia relevante";
-  const statusIsOk = latestStatus === "sem incongruencia relevante";
+  const statusIsCritical = latestStatus === "com inconsistencias criticas";
+  const statusIsOk = latestStatus === "sem achados criticos";
   const statusToneClass = statusIsCritical
     ? "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]"
     : statusIsOk
