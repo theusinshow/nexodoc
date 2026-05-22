@@ -33,9 +33,9 @@ export function Composer({
     setupComplete && message.trim().length > 0 && files.length > 0 && !isLoading;
 
   return (
-    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-3 shadow-[0_-18px_45px_rgb(0_0_0_/_0.18)]">
+    <div className="border-t bg-[var(--nexodoc-panel)]/92 p-3 shadow-[0_-12px_32px_rgb(0_0_0_/_0.16)] backdrop-blur">
       <div className="mx-auto flex max-w-4xl flex-col gap-2">
-        <div className="rounded-lg border bg-card/95 p-2 shadow-[var(--shadow-panel)]">
+        <div className="rounded-lg border bg-card/90 p-2 shadow-[var(--shadow-subtle)]">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
               {files.length}/5 PDFs anexados
@@ -56,7 +56,7 @@ export function Composer({
                   ? "Solicitacao objetiva da auditoria"
                   : "Preencha a identificacao da auditoria para liberar o envio"
               }
-              className="max-h-[16rem] min-h-[12.5rem] resize-none py-3 text-sm leading-6 shadow-none focus-visible:ring-2"
+              className="max-h-[16rem] min-h-[12.5rem] resize-none border-border/80 bg-[var(--nexodoc-recessed)] py-3 text-sm leading-6 shadow-none focus-visible:ring-2"
               disabled={isLoading || !setupComplete}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {

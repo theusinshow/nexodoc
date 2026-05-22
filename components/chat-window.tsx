@@ -612,9 +612,9 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
   return (
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden h-screen w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-4 lg:flex lg:flex-col">
+      <aside className="hidden h-screen w-64 shrink-0 border-r bg-[var(--nexodoc-panel)]/95 px-4 py-4 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md border border-primary/35 bg-primary/15 text-primary">
+          <div className="flex size-9 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
             <FileSearch className="size-5" />
           </div>
           <div>
@@ -624,7 +624,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
 
         {isMockMode ? (
-          <div className="mt-4 rounded-md border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning)]">
+          <div className="mt-4 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 px-3 py-2 text-xs text-[var(--status-warning)]">
             Mock ativo
           </div>
         ) : null}
@@ -648,7 +648,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           Uso e custos
         </Button>
 
-        <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
             Atual
@@ -660,7 +660,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
             Historico
@@ -674,7 +674,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-md border bg-card px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted"
+                  className="w-full rounded-md border bg-card/75 px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted/70"
                 >
                   <span className="block truncate font-medium text-foreground">
                     {item.title}
@@ -690,7 +690,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
       </aside>
 
       <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b bg-card px-4 py-3 lg:hidden">
+        <header className="flex items-center justify-between border-b bg-card/95 px-4 py-3 lg:hidden">
           <div className="flex items-center gap-2">
             <FileSearch className="size-5 text-primary" />
             <span className="font-semibold">NexoDoc</span>
@@ -710,7 +710,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div
             className={cn(
               "mx-auto flex min-h-full flex-col gap-3",
@@ -770,7 +770,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         />
       </section>
 
-      <aside className="hidden h-screen w-[340px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 2xl:flex 2xl:flex-col">
+      <aside className="hidden h-screen w-[340px] shrink-0 border-l bg-[var(--nexodoc-panel)]/95 p-4 2xl:flex 2xl:flex-col">
         <div className="flex items-start justify-between gap-3 border-b pb-4">
           <div>
             <p className="text-xs uppercase text-muted-foreground">Painel</p>
@@ -787,31 +787,31 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 py-4">
-          <div className="rounded-lg border bg-card p-3">
+          <div className="rounded-lg border bg-card/75 p-3">
             <BarChart3 className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Tipo</p>
             <p className="mt-1 text-sm font-medium">{getAuditModeLabel(auditMode)}</p>
           </div>
-          <div className="rounded-lg border bg-card p-3">
+          <div className="rounded-lg border bg-card/75 p-3">
             <Clock3 className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Tempo</p>
             <p className="mt-1 text-sm font-medium">
               {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
             </p>
           </div>
-          <div className="rounded-lg border bg-card p-3">
+          <div className="rounded-lg border bg-card/75 p-3">
             <Files className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">PDFs</p>
             <p className="mt-1 text-sm font-medium">{displayedFileCount || "-"}</p>
           </div>
-          <div className="rounded-lg border bg-card p-3">
+          <div className="rounded-lg border bg-card/75 p-3">
             <ListChecks className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Achados</p>
             <p className="mt-1 text-sm font-medium">{latestFindingCount}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 rounded-lg border bg-card p-1 text-xs">
+        <div className="grid grid-cols-3 rounded-lg border bg-card/75 p-1 text-xs">
           {[
             { value: "summary" as const, label: "Resumo" },
             { value: "findings" as const, label: "Achados" },
@@ -823,8 +823,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               onClick={() => setInspectorTab(tab.value)}
               className={
                 inspectorTab === tab.value
-                  ? "border border-ring bg-background px-2 py-2 text-foreground"
-                  : "border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  ? "rounded-md border border-ring bg-background px-2 py-2 text-foreground"
+                  : "rounded-md border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               }
             >
               {tab.label}
@@ -832,7 +832,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           ))}
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-card p-4 text-sm leading-6">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-card/75 p-4 text-sm leading-6">
           {inspectorTab === "summary" ? (
             <div className="space-y-4">
               <section>

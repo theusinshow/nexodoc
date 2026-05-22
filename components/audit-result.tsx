@@ -456,7 +456,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border bg-card/80 p-4 shadow-[var(--shadow-panel)]">
+    <section className="rounded-lg border bg-card/70 p-4 shadow-[var(--shadow-subtle)]">
       <div className="mb-3 flex items-center gap-2">
         <Icon className="size-4 text-primary" />
         <h3 className="text-sm font-semibold">{title}</h3>
@@ -514,7 +514,7 @@ export function AuditResult({
   }
 
   return (
-    <article className="w-full rounded-lg border bg-[var(--nexodoc-panel)] p-4 shadow-[var(--shadow-panel)]">
+    <article className="w-full rounded-lg border bg-[var(--nexodoc-panel)]/95 p-4 shadow-[var(--shadow-panel)]">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -596,19 +596,19 @@ export function AuditResult({
         {view === "summary" ? (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="border bg-background p-3">
+              <div className="rounded-lg border bg-background/70 p-3">
                 <p className="text-xs text-muted-foreground">Achados</p>
                 <p className="mt-1 text-2xl font-semibold text-foreground">
                   {findings.length}
                 </p>
               </div>
-              <div className="border bg-background p-3">
+              <div className="rounded-lg border bg-background/70 p-3">
                 <p className="text-xs text-muted-foreground">Inconsistências críticas</p>
                 <p className="mt-1 text-2xl font-semibold text-[var(--status-critical)]">
                   {criticalCount}
                 </p>
               </div>
-              <div className="border bg-background p-3">
+              <div className="rounded-lg border bg-background/70 p-3">
                 <p className="text-xs text-muted-foreground">Pontos de revisão</p>
                 <p className="mt-1 text-2xl font-semibold text-[var(--status-warning)]">
                   {warningCount}
@@ -620,7 +620,7 @@ export function AuditResult({
               {projectFields.length > 0 ? (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {projectFields.map((field) => (
-                    <div key={`${field.label}-${field.value}`} className="border bg-background p-3">
+                    <div key={`${field.label}-${field.value}`} className="rounded-lg border bg-background/70 p-3">
                       <p className="text-xs uppercase text-muted-foreground">
                         {field.label}
                       </p>
@@ -709,7 +709,7 @@ export function AuditResult({
                         {group.items.map((finding, index) => (
                           <li
                             key={`${finding.raw}-${group.title}-${index}`}
-                            className="rounded-lg border bg-background/80 p-4"
+                            className="rounded-lg border bg-background/70 p-4 shadow-[var(--shadow-subtle)]"
                           >
                             <div className="flex flex-col gap-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -738,7 +738,7 @@ export function AuditResult({
                                 </div>
                               </div>
 
-                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:grid-cols-3">
+                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:grid-cols-3">
                                 <p>
                                   <span className="block text-muted-foreground">Documento</span>
                                   <span className="font-medium text-foreground">
@@ -799,7 +799,7 @@ export function AuditResult({
                                 </p>
                               ) : null}
                               {finding.termoBusca ? (
-                                <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                                   <p className="min-w-0">
                                     <span className="font-medium text-foreground">
                                       Buscar no PDF:
@@ -825,7 +825,7 @@ export function AuditResult({
                                 </p>
                               ) : null}
                               {finding.acao ? (
-                                <p className="border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning)]">
+                                <p className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/80 p-3 text-xs text-[var(--status-warning)]">
                                   <Wrench className="mr-1 inline size-3" />
                                   {finding.acao}
                                 </p>
@@ -849,7 +849,7 @@ export function AuditResult({
             {findingsWithPdf.length > 0 ? (
               <div className="grid gap-3">
                 {findingsWithPdf.map((finding, index) => (
-                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-lg border bg-background/80 p-4">
+                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-lg border bg-background/70 p-4 shadow-[var(--shadow-subtle)]">
                     <div className="space-y-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -872,7 +872,7 @@ export function AuditResult({
                           </Button>
                         ) : null}
                       </div>
-                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:grid-cols-3">
+                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:grid-cols-3">
                         <p>
                           <span className="block text-muted-foreground">Documento</span>
                           <span className="font-medium text-foreground">
@@ -916,7 +916,7 @@ export function AuditResult({
                         </p>
                       ) : null}
                       {finding.termoBusca ? (
-                        <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                           <p className="min-w-0">
                             <span className="font-medium text-foreground">
                               Termo para localizar:

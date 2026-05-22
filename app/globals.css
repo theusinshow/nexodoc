@@ -28,40 +28,41 @@
 }
 
 :root {
-  --radius: 6px;
-  --background: #111315;
-  --foreground: #f2f4f7;
-  --card: #1b1f23;
-  --card-foreground: #f2f4f7;
-  --popover: #1b1f23;
-  --popover-foreground: #f2f4f7;
-  --primary: #4f8fd8;
+  --radius: 8px;
+  --background: #0b0d10;
+  --foreground: #f5f7fb;
+  --card: #14171c;
+  --card-foreground: #f5f7fb;
+  --popover: #14171c;
+  --popover-foreground: #f5f7fb;
+  --primary: #5aa2ff;
   --primary-foreground: #ffffff;
-  --secondary: #252a30;
-  --secondary-foreground: #f0f3f6;
-  --muted: #252a30;
-  --muted-foreground: #aab3bf;
-  --accent: #2e3740;
+  --secondary: #1d222a;
+  --secondary-foreground: #f2f5f8;
+  --muted: #1d222a;
+  --muted-foreground: #9aa6b5;
+  --accent: #222936;
   --accent-foreground: #ffffff;
-  --destructive: #ff6f7d;
-  --border: #303842;
-  --input: #3b4652;
-  --ring: #6da8f2;
-  --nexodoc-surface: #191d21;
-  --nexodoc-panel: #15181c;
-  --nexodoc-panel-foreground: #eef2f6;
-  --nexodoc-accent: #4f8fd8;
+  --destructive: #ff6b7c;
+  --border: #252c36;
+  --input: #2d3542;
+  --ring: #79b4ff;
+  --nexodoc-surface: #11151b;
+  --nexodoc-panel: #0f1217;
+  --nexodoc-panel-foreground: #eef2f7;
+  --nexodoc-accent: #5aa2ff;
   --nexodoc-accent-foreground: #ffffff;
-  --nexodoc-raised: #20262c;
-  --nexodoc-recessed: #0e1012;
-  --nexodoc-grid: #242b33;
-  --status-ok: #6fd69a;
-  --status-ok-bg: #0f2518;
-  --status-warning: #f3c969;
-  --status-warning-bg: #2b230f;
-  --status-critical: #ff7481;
-  --status-critical-bg: #301217;
-  --shadow-panel: 0 18px 50px rgb(0 0 0 / 0.22);
+  --nexodoc-raised: #171c23;
+  --nexodoc-recessed: #090b0e;
+  --nexodoc-grid: #1a2029;
+  --status-ok: #57d58a;
+  --status-ok-bg: #0c2116;
+  --status-warning: #f2c15f;
+  --status-warning-bg: #251c0c;
+  --status-critical: #ff7182;
+  --status-critical-bg: #2a1016;
+  --shadow-panel: 0 16px 40px rgb(0 0 0 / 0.2);
+  --shadow-subtle: 0 1px 0 rgb(255 255 255 / 0.04) inset;
 }
 
 * {
@@ -75,10 +76,9 @@ html {
 body {
   min-height: 100vh;
   background:
-    linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px),
-    linear-gradient(rgb(255 255 255 / 0.014) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgb(90 162 255 / 0.08), transparent 34rem),
+    linear-gradient(180deg, rgb(255 255 255 / 0.018), transparent 16rem),
     var(--background);
-  background-size: 32px 32px;
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "tnum";
   text-rendering: geometricPrecision;

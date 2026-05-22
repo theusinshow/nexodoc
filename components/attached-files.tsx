@@ -31,13 +31,13 @@ export function AttachedFiles({
       {files.map((attachment, index) => (
         <div
           key={attachment.id}
-          className="flex min-w-0 items-center gap-2 rounded-md border bg-[var(--nexodoc-raised)] px-2 py-1.5 text-xs"
+          className="flex min-w-0 items-center gap-2 rounded-md border bg-[var(--nexodoc-raised)]/80 px-2 py-1.5 text-xs"
         >
           <FileText className="size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
               <p className="truncate font-medium">{attachment.file.name}</p>
-              <span className="shrink-0 rounded border bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">
+              <span className="shrink-0 rounded border bg-muted/70 px-1 py-0.5 text-[9px] uppercase text-muted-foreground">
                 {getDocumentTypeLabel(attachment.documentType)}
               </span>
             </div>
