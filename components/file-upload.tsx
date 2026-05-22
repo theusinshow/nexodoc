@@ -1,12 +1,15 @@
-import { ChangeEvent, useRef, useState } from "react";
+"use client";
+
+import { ChangeEvent, useId, useState } from "react";
 import { FileUp, Paperclip } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DOCUMENT_TYPES,
   getDocumentTypeLabel,
   type DocumentType,
 } from "@/lib/document-types";
+import { cn } from "@/lib/utils";
 
 type FileUploadProps = {
   onFilesSelected: (files: File[], documentType: DocumentType) => void;
@@ -19,7 +22,8 @@ export function FileUpload({
   disabled = false,
   compact = false,
 }: FileUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadId = useId();
+  const typeId = useId();
   const [documentType, setDocumentType] = useState<DocumentType>("memorial");
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -30,11 +34,11 @@ export function FileUpload({
 
   return (
     <div className={compact ? "flex gap-1.5" : "grid gap-2 sm:grid-cols-[180px_1fr]"}>
-      <label className="sr-only" htmlFor="document-type">
+      <label className="sr-only" htmlFor={typeId}>
         Tipo de documento
       </label>
       <select
-        id="document-type"
+        id={typeId}
         value={documentType}
         onChange={(event) => setDocumentType(event.target.value as DocumentType)}
         disabled={disabled}
@@ -47,27 +51,31 @@ export function FileUpload({
         ))}
       </select>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        multiple
-        className="hidden"
-        onChange={handleChange}
-        disabled={disabled}
-      />
-
-      <Button
-        type="button"
-        variant={compact ? "outline" : "default"}
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled}
-        size={compact ? "sm" : "default"}
-        className="justify-center"
+      <label
+        htmlFor={uploadId}
+        aria-disabled={disabled}
+        className={cn(
+          buttonVariants({
+            variant: compact ? "outline" : "default",
+            size: compact ? "sm" : "default",
+          }),
+          "relative cursor-pointer justify-center overflow-hidden",
+          disabled && "pointer-events-none opacity-50",
+        )}
       >
         {compact ? <Paperclip /> : <FileUp />}
         Anexar PDFs
-      </Button>
+        <input
+          id={uploadId}
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          className="absolute inset-0 cursor-pointer opacity-0"
+          onChange={handleChange}
+          disabled={disabled}
+          aria-label="Anexar PDFs"
+        />
+      </label>
     </div>
   );
 }
