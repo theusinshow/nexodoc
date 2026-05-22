@@ -7,6 +7,7 @@ import {
   Clock3,
   FileSearch,
   Files,
+  Gauge,
   ListChecks,
   RotateCcw,
   ScrollText,
@@ -601,6 +602,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           <RotateCcw />
           Nova auditoria
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-2 justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+        >
+          <Gauge />
+          Uso e custos
+        </Button>
 
         <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -652,6 +662,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           <Button type="button" variant="outline" size="sm" onClick={handleNewAudit}>
             <RotateCcw />
             Nova
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Abrir uso e custos"
+            onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+          >
+            <Gauge />
           </Button>
         </header>
 
