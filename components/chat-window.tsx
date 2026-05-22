@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
-  ClipboardList,
   Clock3,
   FileSearch,
   Files,
@@ -14,14 +13,23 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { AttachedFiles } from "@/components/attached-files";
 import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
+import { FileUpload } from "@/components/file-upload";
 import { MessageBubble } from "@/components/message-bubble";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { getDemoAuditResult } from "@/lib/audit-demo-data";
-import { DEFAULT_AUDIT_MODE, getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
+import type { AuditReport } from "@/lib/audit-report";
+import {
+  DEFAULT_AUDIT_MODE,
+  getAuditModeDescription,
+  getAuditModeLabel,
+  type AuditMode,
+} from "@/lib/audit-mode";
+import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 
 type ChatWindowProps = {
   isMockMode?: boolean;
@@ -33,16 +41,20 @@ type ChatMessage = {
   content: string;
   auditMode?: AuditMode;
   elapsedMs?: number;
+  report?: AuditReport;
 };
 
 type AuditHistoryItem = {
   id: string;
   title: string;
+  projectName: string;
+  description: string;
   createdAt: Date;
   auditMode: AuditMode;
   fileNames: string[];
   status: "processing" | "completed" | "failed" | "canceled";
   result?: string;
+  report?: AuditReport;
   elapsedMs?: number;
   error?: string;
 };
@@ -52,26 +64,41 @@ type InspectorTab = "summary" | "findings" | "report";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getDefaultPrompt(mode: AuditMode) {
+  if (mode === "volume") {
+    return "Cheque o volume de projeto. Compare capa, separatriz, LDs e pranchas, com foco em LD x pranchas, selos, revisoes, titulos, disciplina, volume e tomo.";
+  }
+
+  return "Cheque o memorial descritivo. Verifique identificacao do projeto, coerencia interna do texto e sinais de reaproveitamento de outro projeto.";
+}
+
 function getStatusFromResult(result?: string) {
   if (!result) {
     return "aguardando envio";
   }
 
-  const lowerResult = result.toLowerCase();
+  const lowerResult = normalizeText(result);
 
-  if (lowerResult.includes("com incongruência relevante")) {
-    return "com incongruência relevante";
+  if (lowerResult.includes("com incongruencia relevante")) {
+    return "com incongruencia relevante";
   }
 
-  if (lowerResult.includes("com ponto de atenção")) {
-    return "com ponto de atenção";
+  if (lowerResult.includes("com ponto de atencao")) {
+    return "com ponto de atencao";
   }
 
-  if (lowerResult.includes("sem incongruência relevante")) {
-    return "sem incongruência relevante";
+  if (lowerResult.includes("sem incongruencia relevante")) {
+    return "sem incongruencia relevante";
   }
 
-  return "resultado disponível";
+  return "resultado disponivel";
 }
 
 function getFindingCount(result?: string) {
@@ -80,6 +107,10 @@ function getFindingCount(result?: string) {
   }
 
   return result.match(/Achado\s+\d+:/gi)?.length ?? 0;
+}
+
+function getReportFindingCount(report?: AuditReport) {
+  return report?.total_incongruencias ?? report?.incongruencias.length ?? 0;
 }
 
 function formatSeconds(ms?: number) {
@@ -102,7 +133,11 @@ function extractSection(content: string | undefined, titlePattern: string) {
   return regex.exec(content)?.[1]?.trim() ?? "";
 }
 
-function validateFiles(currentFiles: File[], newFiles: File[]) {
+function validateFiles(
+  currentFiles: AuditFileAttachment[],
+  newFiles: File[],
+  documentType: DocumentType,
+) {
   const pdfFiles = newFiles.filter((file) => {
     return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   });
@@ -110,7 +145,7 @@ function validateFiles(currentFiles: File[], newFiles: File[]) {
   if (pdfFiles.length !== newFiles.length) {
     return {
       files: currentFiles,
-      error: "Anexe apenas arquivos PDF.",
+      error: "Anexe apenas PDFs nesta versao.",
     };
   }
 
@@ -123,7 +158,12 @@ function validateFiles(currentFiles: File[], newFiles: File[]) {
     };
   }
 
-  const merged = [...currentFiles, ...pdfFiles].slice(0, MAX_FILES);
+  const attachments = pdfFiles.map((file) => ({
+    id: crypto.randomUUID(),
+    file,
+    documentType,
+  }));
+  const merged = [...currentFiles, ...attachments].slice(0, MAX_FILES);
 
   if (currentFiles.length + pdfFiles.length > MAX_FILES) {
     return {
@@ -140,11 +180,12 @@ function validateFiles(currentFiles: File[], newFiles: File[]) {
 
 export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [message, setMessage] = useState(
-    "Confira a consistência documental entre memorial e pranchas.",
-  );
-  const [files, setFiles] = useState<File[]>([]);
+  const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
+  const [files, setFiles] = useState<AuditFileAttachment[]>([]);
   const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
+  const [auditTitle, setAuditTitle] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [auditDescription, setAuditDescription] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -159,21 +200,23 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     return [...messages].reverse().find((item) => item.role === "assistant");
   }, [messages]);
   const latestStatus = getStatusFromResult(latestResult?.content);
-  const latestFindingCount = getFindingCount(latestResult?.content);
+  const latestFindingCount =
+    getReportFindingCount(latestResult?.report) || getFindingCount(latestResult?.content);
   const latestProject = extractSection(
     latestResult?.content,
     "1\\.\\s*Projeto analisado",
   );
   const latestFindings = extractSection(
     latestResult?.content,
-    "5\\.\\s*Incongruências relevantes encontradas",
+    "6\\.\\s*Incongruencias relevantes encontradas|6\\.\\s*Incongruências relevantes encontradas",
   );
   const latestReport =
-    latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
+    latestResult?.content ?? "Nenhuma auditoria concluida nesta sessao.";
   const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
   const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
-  const statusIsCritical = latestStatus === "com incongruência relevante";
-  const statusIsOk = latestStatus === "sem incongruência relevante";
+  const setupComplete = true;
+  const statusIsCritical = latestStatus === "com incongruencia relevante";
+  const statusIsOk = latestStatus === "sem incongruencia relevante";
   const statusToneClass = statusIsCritical
     ? "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]"
     : statusIsOk
@@ -196,8 +239,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
-  function handleFilesAdd(newFiles: File[]) {
-    const result = validateFiles(files, newFiles);
+  function handleFilesAdd(newFiles: File[], documentType: DocumentType) {
+    const result = validateFiles(files, newFiles, documentType);
     setFiles(result.files);
     setError(result.error);
   }
@@ -207,10 +250,19 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     setError("");
   }
 
+  function handleAuditModeChange(mode: AuditMode) {
+    setAuditMode(mode);
+    setMessage(getDefaultPrompt(mode));
+  }
+
   function handleNewAudit() {
     setMessages([]);
-    setMessage("Confira a consistência documental entre memorial e pranchas.");
+    setMessage(getDefaultPrompt(DEFAULT_AUDIT_MODE));
     setFiles([]);
+    setAuditMode(DEFAULT_AUDIT_MODE);
+    setAuditTitle("");
+    setProjectName("");
+    setAuditDescription("");
     setError("");
     setActiveAuditId(null);
     setElapsedMs(0);
@@ -219,14 +271,17 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function handleOpenAudit(item: AuditHistoryItem) {
     setActiveAuditId(item.id);
     setError(item.error ?? "");
-    setMessage("Confira a consistência documental entre memorial e pranchas.");
+    setAuditTitle(item.title);
+    setProjectName(item.projectName);
+    setAuditDescription(item.description);
     setFiles([]);
     setAuditMode(item.auditMode);
+    setMessage(getDefaultPrompt(item.auditMode));
 
     const userMessage: ChatMessage = {
       id: `${item.id}-request`,
       role: "user",
-      content: `Auditoria registrada\n\nModo: ${getAuditModeLabel(item.auditMode)}\nArquivos: ${item.fileNames.join(", ")}`,
+      content: `Auditoria registrada\n\nIdentificacao: ${item.title}\nProjeto: ${item.projectName}\nTipo: ${getAuditModeLabel(item.auditMode)}\nArquivos: ${item.fileNames.join(", ")}`,
       auditMode: item.auditMode,
     };
 
@@ -240,6 +295,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               content: item.result,
               auditMode: item.auditMode,
               elapsedMs: item.elapsedMs,
+              report: item.report,
             },
           ]
         : [userMessage],
@@ -249,7 +305,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function handleCancelAudit() {
     abortControllerRef.current?.abort();
     setIsLoading(false);
-    setError("Auditoria cancelada pelo usuário.");
+    setError("Auditoria cancelada pelo usuario.");
 
     if (activeAuditId) {
       setAuditHistory((current) =>
@@ -265,7 +321,13 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function handleLoadDemo() {
     const auditId = crypto.randomUUID();
     const result = getDemoAuditResult(auditMode);
-    const demoElapsedMs = auditMode === "complete" ? 4200 : 1800;
+    const demoElapsedMs = auditMode === "volume" ? 4200 : 1800;
+    const demoTitle = auditTitle || "Demo";
+    const demoProject = projectName || "Escola Municipal Exemplo";
+    const demoFiles =
+      auditMode === "volume"
+        ? ["Capa e separatriz.pdf", "LD arquitetura.pdf", "Pranchas arquitetura.pdf"]
+        : ["Memorial descritivo.pdf"];
 
     setIsLoading(false);
     setError("");
@@ -276,7 +338,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
       {
         id: `${auditId}-request`,
         role: "user",
-        content: `Demonstração local\n\nModo: ${getAuditModeLabel(auditMode)}\nArquivos: Memorial.pdf, Pranchas.pdf`,
+        content: `Demonstração local\n\nIdentificacao: ${demoTitle}\nProjeto: ${demoProject}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${demoFiles.join(", ")}`,
         auditMode,
       },
       {
@@ -290,12 +352,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     setAuditHistory((current) => [
       {
         id: auditId,
-        title: `Demo ${current.length + 1}`,
+        title: demoTitle,
+        projectName: demoProject,
+        description: auditDescription,
         createdAt: new Date(),
         auditMode,
-        fileNames: ["Memorial.pdf", "Pranchas.pdf"],
+        fileNames: demoFiles,
         status: "completed",
         result,
+        report: undefined,
         elapsedMs: demoElapsedMs,
       },
       ...current,
@@ -306,7 +371,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     const trimmedMessage = message.trim();
 
     if (!trimmedMessage) {
-      setError("Informe uma solicitação para a auditoria.");
+      setError("Informe uma solicitacao para a auditoria.");
       return;
     }
 
@@ -326,12 +391,18 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     const formData = new FormData();
     formData.append("message", trimmedMessage);
     formData.append("auditMode", auditMode);
-    files.forEach((file) => formData.append("files", file));
+    formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificacao");
+    formData.append("projectName", projectName.trim() || "Projeto nao informado");
+    formData.append("auditDescription", auditDescription.trim());
+    files.forEach((attachment) => {
+      formData.append("files", attachment.file);
+      formData.append("fileTypes", attachment.documentType);
+    });
 
     const userMessage: ChatMessage = {
       id: `${auditId}-request`,
       role: "user",
-      content: `${trimmedMessage}\n\nModo: ${getAuditModeLabel(auditMode)}`,
+      content: `${trimmedMessage}\n\nIdentificacao: ${auditTitle || "Auditoria sem identificacao"}\nProjeto: ${projectName || "Projeto nao informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
       auditMode,
     };
 
@@ -339,10 +410,12 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     setAuditHistory((current) => [
       {
         id: auditId,
-        title: `Auditoria ${current.length + 1}`,
+        title: auditTitle.trim() || `Auditoria ${current.length + 1}`,
+        projectName: projectName.trim() || "Projeto nao informado",
+        description: auditDescription.trim(),
         createdAt: new Date(),
         auditMode,
-        fileNames: files.map((file) => file.name),
+        fileNames: files.map((item) => item.file.name),
         status: "processing",
       },
       ...current,
@@ -357,12 +430,13 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
       const payload = (await response.json()) as {
         result?: string;
+        report?: AuditReport;
         error?: string;
         auditMode?: AuditMode;
       };
 
       if (!response.ok || !payload.result) {
-        throw new Error(payload.error ?? "Não foi possível concluir a auditoria.");
+        throw new Error(payload.error ?? "Nao foi possivel concluir a auditoria.");
       }
 
       const result = payload.result;
@@ -376,6 +450,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           content: result,
           auditMode: payload.auditMode ?? auditMode,
           elapsedMs: finalElapsedMs,
+          report: payload.report,
         },
       ]);
       setAuditHistory((current) =>
@@ -385,6 +460,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 ...item,
                 status: "completed",
                 result,
+                report: payload.report,
                 elapsedMs: finalElapsedMs,
               }
             : item,
@@ -393,10 +469,10 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     } catch (requestError) {
       const message =
         requestError instanceof DOMException && requestError.name === "AbortError"
-          ? "Auditoria cancelada pelo usuário."
+          ? "Auditoria cancelada pelo usuario."
           : requestError instanceof Error
             ? requestError.message
-            : "Não foi possível concluir a auditoria.";
+            : "Nao foi possivel concluir a auditoria.";
       setError(message);
       setAuditHistory((current) =>
         current.map((item) =>
@@ -409,74 +485,149 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     }
   }
 
+  function renderAuditContext() {
+    return (
+      <section className="border bg-card p-2">
+        <div className="grid gap-2 2xl:grid-cols-[1fr_auto] 2xl:items-end">
+          <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.2fr]">
+            <label className="grid gap-1 text-xs">
+              <span className="text-muted-foreground">Identificacao</span>
+              <input
+                value={auditTitle}
+                onChange={(event) => setAuditTitle(event.target.value)}
+                placeholder="Opcional"
+                disabled={isLoading}
+                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+              />
+            </label>
+            <label className="grid gap-1 text-xs">
+              <span className="text-muted-foreground">Projeto</span>
+              <input
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="Nome do projeto"
+                disabled={isLoading}
+                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+              />
+            </label>
+            <label className="grid gap-1 text-xs">
+              <span className="text-muted-foreground">Descricao</span>
+              <input
+                value={auditDescription}
+                onChange={(event) => setAuditDescription(event.target.value)}
+                placeholder="Opcional"
+                disabled={isLoading}
+                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto] 2xl:min-w-[420px]">
+            <div className="grid grid-cols-2 border bg-background p-0.5 text-xs">
+              {(["memorial", "volume"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleAuditModeChange(mode)}
+                  className={
+                    auditMode === mode
+                      ? "border border-ring bg-muted px-2 py-2 text-foreground"
+                      : "border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                  }
+                  title={getAuditModeDescription(mode)}
+                >
+                  {getAuditModeLabel(mode)}
+                </button>
+              ))}
+            </div>
+            <FileUpload
+              onFilesSelected={handleFilesAdd}
+              disabled={isLoading}
+              compact
+            />
+          </div>
+        </div>
+
+        <div className="mt-2">
+          <AttachedFiles files={files} onRemove={handleFileRemove} disabled={isLoading} />
+        </div>
+      </section>
+    );
+  }
+
+  function renderEmptyChat() {
+    return (
+      <section className="grid min-h-[120px] flex-1 place-items-center">
+        <div className="max-w-xl border bg-card px-4 py-3 text-center">
+          <FileSearch className="mx-auto mb-2 size-5 text-primary" />
+          <h2 className="text-base font-semibold">Chat de auditoria documental</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Escolha Memorial ou Volume, anexe os PDFs e mande a solicitacao.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden w-72 shrink-0 border-r bg-[var(--nexodoc-panel)] px-5 py-5 lg:flex lg:flex-col">
+    <main className="flex h-screen overflow-hidden bg-background text-foreground">
+      <aside className="hidden h-screen w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-4 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-none bg-primary text-primary-foreground">
+          <div className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
             <FileSearch className="size-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-normal">NexoDoc</h1>
-            <p className="text-xs text-muted-foreground">
-              Auditoria documental
-            </p>
+            <h1 className="text-base font-semibold tracking-normal">NexoDoc</h1>
+            <p className="text-xs text-muted-foreground">Auditoria documental</p>
           </div>
         </div>
 
         {isMockMode ? (
           <div className="mt-4 border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning)]">
-            Modo mock ativo. Testes de interface sem consumo da OpenAI API.
+            Mock ativo
           </div>
         ) : null}
 
         <Button
           type="button"
           variant="outline"
-          className="mt-6 justify-start"
+          className="mt-5 justify-start"
           onClick={handleNewAudit}
         >
           <RotateCcw />
           Nova auditoria
         </Button>
 
-        <div className="mt-8 space-y-3 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Versão 0.1</p>
-          <p>Sem login, banco de dados ou histórico persistente.</p>
-          <p>Limite inicial: até 5 PDFs, 25 MB por arquivo.</p>
-        </div>
-
-        <div className="mt-8 rounded-none border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-5 border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
-            Auditoria atual
+            Atual
           </div>
           <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-            <p>Modo: {getAuditModeLabel(auditMode)}</p>
-            <p>Arquivos anexados: {displayedFileCount}</p>
-            <p>Status: {isLoading ? "em andamento" : latestResult ? "concluída" : "aguardando envio"}</p>
+            <p>{projectName || "Projeto nao informado"}</p>
+            <p>{getAuditModeLabel(auditMode)}</p>
+            <p>{displayedFileCount} arquivo(s)</p>
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-none border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
-            Histórico da sessão
+            Historico
           </div>
           <div className="mt-3 space-y-2">
             {auditHistory.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Nenhuma auditoria nesta sessão.
-              </p>
+              <p className="text-xs text-muted-foreground">Sem auditorias.</p>
             ) : (
               auditHistory.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-none border bg-card px-3 py-2 text-left text-xs transition-[background-color,border-color] hover:border-ring hover:bg-muted"
+                  className="w-full border bg-card px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted"
                 >
-                  <span className="block font-medium text-foreground">
+                  <span className="block truncate font-medium text-foreground">
                     {item.title}
                   </span>
                   <span className="mt-1 block text-muted-foreground">
@@ -489,7 +640,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex items-center justify-between border-b bg-card px-4 py-3 lg:hidden">
           <div className="flex items-center gap-2">
             <FileSearch className="size-5 text-primary" />
@@ -501,32 +652,12 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </Button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto flex max-w-4xl flex-col gap-4">
-            {messages.length === 0 ? (
-              <div className="grid min-h-[calc(100vh-280px)] place-items-center">
-                <section className="w-full max-w-2xl rounded-none border bg-card p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-none bg-accent text-accent-foreground">
-                      <ClipboardList className="size-5" />
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <Badge variant="secondary">NexoDoc Audit Workspace</Badge>
-                        <h2 className="mt-3 text-xl font-semibold">
-                          Auditoria documental de PDFs
-                        </h2>
-                      </div>
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        Anexe memoriais, pranchas, capas, listas de documentos
-                        ou documentos técnicos em PDF. O NexoDoc confere
-                        identificação documental e retorna uma análise
-                        padronizada.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-3">
+            {!isLoading ? renderAuditContext() : null}
+
+            {messages.length === 0 && !isLoading ? (
+              renderEmptyChat()
             ) : (
               messages.map((item) => (
                 <div key={item.id}>
@@ -534,6 +665,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                     <AuditResult
                       content={item.content}
                       elapsedMs={item.elapsedMs}
+                      report={item.report}
                     />
                   ) : (
                     <MessageBubble role={item.role} content={item.content} />
@@ -543,7 +675,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             )}
 
             {isLoading ? (
-              <div className="flex justify-start">
+              <div className="grid min-h-[180px] flex-1 place-items-center">
                 <AuditProgress
                   fileCount={files.length}
                   auditMode={auditMode}
@@ -553,12 +685,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               </div>
             ) : null}
 
-            {latestResult ? (
-              <div className="sr-only">Resultado pronto</div>
-            ) : null}
-
             {error ? (
-              <div className="rounded-none border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <div className="border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
@@ -571,22 +699,20 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           files={files}
           auditMode={auditMode}
           isLoading={isLoading}
+          setupComplete={setupComplete}
           onMessageChange={setMessage}
-          onAuditModeChange={setAuditMode}
+          onAuditModeChange={handleAuditModeChange}
           onFilesAdd={handleFilesAdd}
-          onFileRemove={handleFileRemove}
           onSubmit={handleSubmit}
           onLoadDemo={handleLoadDemo}
         />
       </section>
 
-      <aside className="hidden w-[360px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 xl:flex xl:flex-col">
+      <aside className="hidden h-screen w-[340px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 2xl:flex 2xl:flex-col">
         <div className="flex items-start justify-between gap-3 border-b pb-4">
           <div>
-            <p className="text-xs uppercase text-muted-foreground">
-              Painel analítico
-            </p>
-            <h2 className="mt-1 text-base font-semibold">Inspeção da auditoria</h2>
+            <p className="text-xs uppercase text-muted-foreground">Painel</p>
+            <h2 className="mt-1 text-base font-semibold">Inspecao</h2>
           </div>
           <div className={`border px-2 py-1 text-xs font-medium ${statusToneClass}`}>
             {statusIsCritical ? (
@@ -601,7 +727,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         <div className="grid grid-cols-2 gap-2 py-4">
           <div className="border bg-card p-3">
             <BarChart3 className="mb-2 size-4 text-primary" />
-            <p className="text-xs text-muted-foreground">Modo</p>
+            <p className="text-xs text-muted-foreground">Tipo</p>
             <p className="mt-1 text-sm font-medium">{getAuditModeLabel(auditMode)}</p>
           </div>
           <div className="border bg-card p-3">
@@ -627,7 +753,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           {[
             { value: "summary" as const, label: "Resumo" },
             { value: "findings" as const, label: "Achados" },
-            { value: "report" as const, label: "Relatório" },
+            { value: "report" as const, label: "Relatorio" },
           ].map((tab) => (
             <button
               key={tab.value}
@@ -649,20 +775,20 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <div className="space-y-4">
               <section>
                 <p className="text-xs uppercase text-muted-foreground">
-                  Projeto analisado
+                  Projeto
                 </p>
                 <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm">
-                  {latestProject || "Aguardando resultado da primeira auditoria."}
+                  {latestProject || projectName || "Aguardando auditoria."}
                 </pre>
               </section>
               <section className="border-t pt-4">
                 <p className="text-xs uppercase text-muted-foreground">
-                  Próxima ação
+                  Proxima acao
                 </p>
                 <p className="mt-2 text-muted-foreground">
                   {latestResult
-                    ? "Revise os achados, copie os pontos relevantes e valide os documentos citados."
-                    : "Anexe PDFs, escolha o modo de auditoria e envie a solicitação no chat."}
+                    ? "Revise achados por arquivo e valide os documentos citados."
+                    : "Siga o passo a passo e envie os PDFs."}
                 </p>
               </section>
             </div>
@@ -672,10 +798,10 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <AlertTriangle className="size-4 text-primary" />
-                <p className="font-medium">Incongruências relevantes</p>
+                <p className="font-medium">Incongruencias</p>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
-                {latestFindings || "Nenhum achado estruturado disponível ainda."}
+                {latestFindings || "Nenhum achado estruturado disponivel ainda."}
               </pre>
             </div>
           ) : null}
@@ -684,7 +810,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <ScrollText className="size-4 text-primary" />
-                <p className="font-medium">Relatório completo</p>
+                <p className="font-medium">Relatorio completo</p>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
                 {latestReport}

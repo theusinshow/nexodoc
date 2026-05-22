@@ -1,11 +1,11 @@
-export const AUDIT_MODES = ["fast", "volume", "complete"] as const;
+export const AUDIT_MODES = ["memorial", "volume"] as const;
 
 export type AuditMode = (typeof AUDIT_MODES)[number];
 
-export const DEFAULT_AUDIT_MODE: AuditMode = "fast";
+export const DEFAULT_AUDIT_MODE: AuditMode = "memorial";
 
 export function parseAuditMode(value: FormDataEntryValue | null): AuditMode {
-  if (value === "volume" || value === "complete") {
+  if (value === "volume") {
     return value;
   }
 
@@ -14,8 +14,16 @@ export function parseAuditMode(value: FormDataEntryValue | null): AuditMode {
 
 export function getAuditModeLabel(mode: AuditMode) {
   if (mode === "volume") {
-    return "Checagem de volume";
+    return "Volume de projeto";
   }
 
-  return mode === "complete" ? "Auditoria completa" : "Auditoria rápida";
+  return "Memorial";
+}
+
+export function getAuditModeDescription(mode: AuditMode) {
+  if (mode === "volume") {
+    return "Capa, separatriz, LDs e pranchas A1/A0.";
+  }
+
+  return "Memorial descritivo em A4, texto corrido.";
 }

@@ -69,13 +69,23 @@ OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5-mini
 NEXODOC_MOCK_MODE=false
 NEXODOC_MOCK_DELAY_MS=3500
-NEXODOC_FAST_MAX_OUTPUT_TOKENS=900
-NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS=1800
+NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
+NEXODOC_VOLUME_MAX_OUTPUT_TOKENS=768
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5-mini`.
+
+Para usar sempre a mesma chave, gere uma chave de projeto uma unica vez na plataforma da OpenAI, cole em `.env.local` e mantenha esse arquivo local. Ele ja esta no `.gitignore`, entao nao entra no repositorio.
+
+Depois de alterar `.env.local`, reinicie o servidor de desenvolvimento para o Next.js recarregar as variaveis:
+
+```bash
+npm run dev
+```
+
+Trocar a chave nao corrige erro de quota se a nova chave pertence ao mesmo projeto/conta sem billing ativo. Nesse caso, mantenha a mesma chave e ajuste billing/quota na plataforma da OpenAI.
 
 Para testar a interface sem consumir tokens, use:
 
@@ -85,21 +95,23 @@ NEXODOC_MOCK_MODE=true
 
 Nesse modo, a rota `/api/audit` valida a mensagem e os PDFs, aguarda alguns segundos e retorna uma resposta simulada no formato padrao do agente.
 
-## Modos de auditoria
+## Tipos de auditoria
 
-O NexoDoc possui dois modos iniciais:
+O NexoDoc possui dois fluxos principais:
 
-- **Rápida**: triagem objetiva, menor resposta e menor consumo esperado.
-- **Completa**: conferência mais cuidadosa, resposta mais detalhada e maior consumo esperado.
+- **Memorial**: checagem do memorial descritivo em A4, com foco em texto, identificação e reaproveitamento.
+- **Volume de projeto**: checagem de capa, separatriz, LDs e pranchas A1/A0, com foco em LD x pranchas, selos, revisões e estrutura do volume.
 
-O frontend envia o modo selecionado para `/api/audit` pelo campo `auditMode`.
+O frontend envia o tipo selecionado para `/api/audit` pelo campo `auditMode`.
 
 Limites de resposta podem ser ajustados por ambiente:
 
 ```bash
-NEXODOC_FAST_MAX_OUTPUT_TOKENS=900
-NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS=1800
+NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
+NEXODOC_VOLUME_MAX_OUTPUT_TOKENS=768
 ```
+
+Se a API retornar erro de quota mesmo com billing ativo, reduza esses limites primeiro. Chamadas com PDF podem validar quota considerando o teto de saída solicitado. A rota tenta fallback automatico para respostas menores quando detecta `insufficient_quota`.
 
 ## Como rodar localmente
 

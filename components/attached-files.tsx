@@ -1,9 +1,13 @@
 import { FileText, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getDocumentTypeLabel,
+  type AuditFileAttachment,
+} from "@/lib/document-types";
 
 type AttachedFilesProps = {
-  files: File[];
+  files: AuditFileAttachment[];
   onRemove: (index: number) => void;
   disabled?: boolean;
 };
@@ -23,27 +27,32 @@ export function AttachedFiles({
   }
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {files.map((file, index) => (
+    <div className="grid max-h-24 gap-1.5 overflow-y-auto sm:grid-cols-2">
+      {files.map((attachment, index) => (
         <div
-          key={`${file.name}-${file.size}-${index}`}
-          className="flex min-w-0 items-center gap-3 rounded-none border bg-card px-3 py-2 text-sm"
+          key={attachment.id}
+          className="flex min-w-0 items-center gap-2 border bg-card px-2 py-1.5 text-xs"
         >
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
+          <FileText className="size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{file.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatFileSize(file.size)}
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate font-medium">{attachment.file.name}</p>
+              <span className="shrink-0 border bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">
+                {getDocumentTypeLabel(attachment.documentType)}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {formatFileSize(attachment.file.size)}
             </p>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0"
+            className="size-7 shrink-0"
             onClick={() => onRemove(index)}
             disabled={disabled}
-            aria-label={`Remover ${file.name}`}
+            aria-label={`Remover ${attachment.file.name}`}
           >
             <X />
           </Button>

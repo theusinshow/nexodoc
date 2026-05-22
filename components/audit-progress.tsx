@@ -1,4 +1,4 @@
-import { CheckCircle2, FileUp, Loader2, ScanText, X } from "lucide-react";
+import { CheckCircle2, FileUp, Loader2, ScanText, SearchCheck, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
@@ -14,6 +14,26 @@ function formatElapsed(elapsedMs: number) {
   return `${Math.max(1, Math.floor(elapsedMs / 1000))}s`;
 }
 
+function getCurrentStep(elapsedMs: number, auditMode: AuditMode) {
+  const seconds = elapsedMs / 1000;
+
+  if (seconds < 3) {
+    return "Enviando PDFs para leitura";
+  }
+
+  if (seconds < 8) {
+    return "Extraindo identificacao documental";
+  }
+
+  if (seconds < 18) {
+    return auditMode === "volume"
+      ? "Comparando LD, selos e pranchas"
+      : "Conferindo coerencia interna do memorial";
+  }
+
+  return "Organizando achados e acoes";
+}
+
 export function AuditProgress({
   fileCount,
   auditMode,
@@ -21,23 +41,23 @@ export function AuditProgress({
   onCancel,
 }: AuditProgressProps) {
   return (
-    <section className="w-full max-w-[min(760px,100%)] rounded-none border bg-card px-4 py-4 text-sm">
+    <section className="w-full max-w-[min(720px,100%)] border bg-card px-4 py-4 text-sm shadow-xl shadow-black/20">
       <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-none bg-accent text-accent-foreground">
-          <Loader2 className="size-4 animate-spin" />
+        <div className="flex size-10 shrink-0 items-center justify-center bg-accent text-accent-foreground">
+          <Loader2 className="size-5 animate-spin" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-medium">Auditoria em andamento</p>
+              <p className="font-medium">{getCurrentStep(elapsedMs, auditMode)}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {getAuditModeLabel(auditMode)} processando {fileCount}{" "}
-                {fileCount === 1 ? "PDF" : "PDFs"} e aguardando a resposta
-                padronizada do agente.
+                {getAuditModeLabel(auditMode)} com {fileCount}{" "}
+                {fileCount === 1 ? "arquivo" : "arquivos"}. O resultado sera separado
+                por arquivo e comparacao.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-none border bg-background px-2 py-1 text-xs text-muted-foreground">
+              <span className="border bg-background px-2 py-1 text-xs text-muted-foreground">
                 {formatElapsed(elapsedMs)}
               </span>
               <Button
@@ -56,18 +76,22 @@ export function AuditProgress({
             <div className="audit-progress-bar h-full w-1/2 bg-primary" />
           </div>
 
-          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="size-4 text-primary" />
-              <span>Arquivos enviados</span>
+              <span>Arquivos recebidos</span>
             </div>
             <div className="flex items-center gap-2">
               <FileUp className="size-4 text-primary" />
               <span>PDFs em leitura</span>
             </div>
             <div className="flex items-center gap-2">
+              <SearchCheck className="size-4 text-primary" />
+              <span>Comparacoes</span>
+            </div>
+            <div className="flex items-center gap-2">
               <ScanText className="size-4 text-primary" />
-              <span>Resposta em geração</span>
+              <span>Resultado</span>
             </div>
           </div>
         </div>

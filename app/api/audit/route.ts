@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { toFile } from "openai";
 
-import { parseAuditMode } from "@/lib/audit-mode";
+import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
+import {
+  makeTextReport,
+  normalizeConfidence,
+  normalizePriority,
+  type AuditFinding,
+  type AuditReport,
+} from "@/lib/audit-report";
+import { runDeterministicAuditRules } from "@/lib/audit-rules";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import {
   getMockAuditResult,
@@ -9,16 +16,37 @@ import {
   waitForMockAudit,
 } from "@/lib/mock-audit";
 import { getOpenAIClient } from "@/lib/openai";
+import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
 
 export const runtime = "nodejs";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const DEFAULT_MODEL = "gpt-5-mini";
-const DEFAULT_FAST_MAX_OUTPUT_TOKENS = 2800;
-const DEFAULT_VOLUME_MAX_OUTPUT_TOKENS = 5200;
-const DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS = 6400;
-const DEFAULT_REASONING_EFFORT = "low";
+const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
+const DEFAULT_REASONING_EFFORT = "high";
+const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
+const MAX_CHUNKS_PER_FILE = 24;
+
+type UploadedAuditFile = {
+  file: File;
+  fileType: string;
+  buffer: Buffer;
+  extracted: ExtractedPdf;
+};
+
+type ModelFinding = {
+  prioridade?: string;
+  pagina?: string | number;
+  capitulo?: string;
+  local?: string;
+  tipo?: string;
+  descricao?: string;
+  evidencia?: string;
+  conflito?: string;
+  sugestao_correcao?: string;
+  confianca?: string;
+};
 
 function isPdf(file: File) {
   return (
@@ -31,7 +59,7 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function getReasoningEffort(auditMode: ReturnType<typeof parseAuditMode>) {
+function getReasoningEffort() {
   const effort = process.env.OPENAI_REASONING_EFFORT;
 
   if (
@@ -41,10 +69,6 @@ function getReasoningEffort(auditMode: ReturnType<typeof parseAuditMode>) {
     effort === "high"
   ) {
     return effort;
-  }
-
-  if (auditMode === "complete") {
-    return "medium";
   }
 
   return DEFAULT_REASONING_EFFORT;
@@ -104,11 +128,217 @@ function extractResponseText(response: unknown) {
     .trim();
 }
 
+function parseJsonObject(text: string) {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text)?.[1];
+  const candidate = fenced ?? text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(candidate.slice(start, end + 1)) as { findings?: ModelFinding[] };
+  } catch {
+    return null;
+  }
+}
+
+function getChunkPrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  chunk: AuditTextChunk;
+}) {
+  const modeInstruction =
+    args.auditMode === "volume"
+      ? "Audite volume de projeto: capa, separatriz, LDs/listas, pranchas, selos, revisoes, titulos, disciplinas, volume e tomo."
+      : "Audite memorial descritivo textual: identidade do projeto, coerencia interna, trechos reaproveitados, localidades divergentes, normas suspeitas, calculos simples e redacao.";
+
+  return `
+${modeInstruction}
+
+Leia o trecho abaixo procurando erros que possam comprometer emissao, licitacao, cliente ou consistencia documental.
+Procure ativamente: municipio/proprietario divergente, bairro divergente, logradouro de outro projeto, conflito de hierarquia, norma inadequada, calculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redacao/formatação critica.
+
+Projeto informado: ${args.projectName || "nao informado"}
+Arquivo: ${args.fileName}
+Tipo informado: ${args.fileType}
+Trecho: ${args.chunk.title}, paginas ${args.chunk.startPage}-${args.chunk.endPage}
+Solicitacao do usuario: ${args.userMessage}
+
+Responda APENAS JSON valido:
+{
+  "findings": [
+    {
+      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
+      "pagina": "numero ou intervalo",
+      "capitulo": "capitulo/secao",
+      "local": "local do erro",
+      "tipo": "tipo do erro",
+      "descricao": "descricao objetiva",
+      "evidencia": "texto encontrado",
+      "conflito": "por que diverge",
+      "sugestao_correcao": "correcao sugerida",
+      "confianca": "alta|media|baixa"
+    }
+  ]
+}
+
+Se nao encontrar erro relevante, retorne {"findings":[]}.
+
+TEXTO:
+${args.chunk.text}
+`.trim();
+}
+
+function getMaxOutputTokens() {
+  return Number(
+    process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ??
+      DEFAULT_CHUNK_MAX_OUTPUT_TOKENS,
+  );
+}
+
+function modelFindingToAuditFinding(
+  finding: ModelFinding,
+  index: number,
+): AuditFinding | null {
+  const description = String(finding.descricao ?? "").trim();
+  const type = String(finding.tipo ?? "").trim();
+  const evidence = String(finding.evidencia ?? "").trim();
+
+  if (!description && !type && !evidence) {
+    return null;
+  }
+
+  return {
+    id: `IA-${String(index).padStart(3, "0")}`,
+    origem: "ia",
+    prioridade: normalizePriority(finding.prioridade),
+    pagina: String(finding.pagina ?? "nao identificada"),
+    capitulo: String(finding.capitulo ?? "nao identificado"),
+    local: String(finding.local ?? "nao informado"),
+    tipo: type || "Incongruencia documental",
+    descricao: description || evidence,
+    evidencia: evidence || description,
+    conflito: String(finding.conflito ?? "nao informado"),
+    sugestao_correcao: String(finding.sugestao_correcao ?? "revisar o trecho indicado"),
+    confianca: normalizeConfidence(finding.confianca),
+  };
+}
+
+function dedupeFindings(findings: AuditFinding[]) {
+  const seen = new Set<string>();
+  const result: AuditFinding[] = [];
+
+  for (const finding of findings) {
+    const key = [
+      finding.tipo,
+      finding.pagina,
+      finding.evidencia.slice(0, 120),
+      finding.conflito.slice(0, 120),
+    ]
+      .join("|")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push({ ...finding, id: `INC-${String(result.length + 1).padStart(3, "0")}` });
+  }
+
+  return result;
+}
+
+function inferProjectFields(text: string, fallbackProjectName: string) {
+  const obra =
+    /UBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9\s-]+PORTE\s*\d+/i.exec(text)?.[0]?.trim() ??
+    fallbackProjectName;
+  const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";
+  const municipio =
+    /(Crici[uú]ma\/SC|Chapec[oó]\/SC|Munic[ií]pio\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]+)/i.exec(text)?.[0] ??
+    "";
+  const data = /(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/?\d{4}/i.exec(text)?.[0] ?? "";
+
+  return {
+    obra,
+    codigo,
+    municipio,
+    data,
+  };
+}
+
+async function analyzeChunkWithModel(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  chunk: AuditTextChunk;
+}) {
+  const openai = getOpenAIClient();
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    instructions: getAuditorPrompt(args.auditMode),
+    reasoning: {
+      effort: getReasoningEffort(),
+    },
+    max_output_tokens: getMaxOutputTokens(),
+    input: getChunkPrompt(args),
+  });
+  const text = extractResponseText(response);
+  const parsed = parseJsonObject(text);
+
+  return (parsed?.findings ?? [])
+    .map((finding, index) => modelFindingToAuditFinding(finding, index + 1))
+    .filter((finding): finding is AuditFinding => Boolean(finding));
+}
+
+async function deepAnalyzeFile(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  auditTitle: string;
+  file: UploadedAuditFile;
+}) {
+  const deterministicFindings = runDeterministicAuditRules({
+    fileName: args.file.file.name,
+    projectName: args.projectName,
+    extracted: args.file.extracted,
+  });
+  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, MAX_CHUNKS_PER_FILE);
+  const modelFindings: AuditFinding[] = [];
+
+  for (const chunk of chunks) {
+    const findings = await analyzeChunkWithModel({
+      auditMode: args.auditMode,
+      userMessage: args.userMessage,
+      projectName: args.projectName,
+      fileName: args.file.file.name,
+      fileType: args.file.fileType,
+      chunk,
+    });
+    modelFindings.push(...findings);
+  }
+
+  return dedupeFindings([...deterministicFindings, ...modelFindings]);
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
+    const projectName = String(formData.get("projectName") ?? "").trim();
+    const auditTitle = String(formData.get("auditTitle") ?? "").trim();
+    const fileTypes = formData.getAll("fileTypes").map((value) => String(value));
     const files = formData
       .getAll("files")
       .filter((file): file is File => file instanceof File);
@@ -144,69 +374,76 @@ export async function POST(request: Request) {
       });
     }
 
-    const openai = getOpenAIClient();
     const uploadedFiles = await Promise.all(
-      files.map(async (file) => {
+      files.map(async (file, index): Promise<UploadedAuditFile> => {
         const buffer = Buffer.from(await file.arrayBuffer());
-        return openai.files.create({
-          file: await toFile(buffer, file.name, { type: "application/pdf" }),
-          purpose: "user_data",
-        });
+        const extracted = await extractPdfText(buffer);
+
+        if (extracted.charCount < MIN_TEXT_CHARS_FOR_DEEP_AUDIT) {
+          throw new Error(`O arquivo "${file.name}" nao possui texto suficiente para auditoria profunda.`);
+        }
+
+        return {
+          file,
+          fileType: fileTypes[index] ?? "nao informado",
+          buffer,
+          extracted,
+        };
       }),
     );
+    const allFindings: AuditFinding[] = [];
 
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
-      instructions: getAuditorPrompt(auditMode),
-      reasoning: {
-        effort: getReasoningEffort(auditMode),
-      },
-      max_output_tokens:
-        auditMode === "volume"
-          ? Number(
-              process.env.NEXODOC_VOLUME_MAX_OUTPUT_TOKENS ??
-                DEFAULT_VOLUME_MAX_OUTPUT_TOKENS,
-            )
-          : auditMode === "complete"
-          ? Number(
-              process.env.NEXODOC_COMPLETE_MAX_OUTPUT_TOKENS ??
-                DEFAULT_COMPLETE_MAX_OUTPUT_TOKENS,
-            )
-          : Number(
-              process.env.NEXODOC_FAST_MAX_OUTPUT_TOKENS ??
-                DEFAULT_FAST_MAX_OUTPUT_TOKENS,
-            ),
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: message,
-            },
-            ...uploadedFiles.map((file) => ({
-              type: "input_file" as const,
-              file_id: file.id,
-            })),
-          ],
-        },
-      ],
-    });
-
-    const result = extractResponseText(response);
-
-    if (!result) {
-      console.warn("OpenAI response without text", {
-        id: response.id,
-        status: response.status,
-        incompleteDetails: response.incomplete_details,
-        outputTypes: response.output?.map((item) => item.type),
-        usage: response.usage,
+    for (const file of uploadedFiles) {
+      const findings = await deepAnalyzeFile({
+        auditMode,
+        userMessage: message,
+        projectName,
+        auditTitle,
+        file,
       });
-      return jsonError("A análise não retornou conteúdo.", 502);
+      allFindings.push(...findings);
     }
 
-    return NextResponse.json({ result, auditMode });
+    const findings = dedupeFindings(allFindings);
+    const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 20000)).join("\n");
+    const inferred = inferProjectFields(combinedText, projectName);
+    const hasHigh = findings.some((finding) => finding.prioridade === "Alta" || finding.prioridade === "Media/Alta");
+    const report: AuditReport = {
+      arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
+      tipo_auditoria: auditMode,
+      tipo_documento: auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo",
+      obra: inferred.obra || projectName || "nao identificada",
+      codigo: inferred.codigo,
+      municipio: inferred.municipio,
+      data_documento: inferred.data,
+      status_analise: "concluida",
+      status_geral:
+        findings.length === 0
+          ? "sem incongruencia relevante"
+          : hasHigh
+            ? "com incongruencia relevante"
+            : "com ponto de atencao",
+      total_incongruencias: findings.length,
+      arquivos_analisados: uploadedFiles.map((file) => ({
+        arquivo: file.file.name,
+        tipo_documento: file.fileType,
+        paginas: file.extracted.pageCount,
+        caracteres_extraidos: file.extracted.charCount,
+        resumo: `Auditoria profunda com texto extraido por pagina, ${chunkPdfByChapter(file.extracted).length} blocos de leitura e checklist deterministico.`,
+      })),
+      comparacoes:
+        auditMode === "volume"
+          ? ["Analise focada em LD x pranchas, selos, revisoes, titulos e estrutura do volume."]
+          : ["Analise focada em coerencia interna do memorial, reaproveitamento de texto, localidades, normas e calculos simples."],
+      incongruencias: findings,
+      conclusao:
+        findings.length === 0
+          ? "nenhuma incongruencia relevante encontrada dentro da auditoria profunda executada"
+          : `documento com ${findings.length} incongruencia(s) ou ponto(s) de atencao para revisao antes da emissao`,
+    };
+    const result = makeTextReport(report);
+
+    return NextResponse.json({ result, report, auditMode });
   } catch (error) {
     console.error(error);
 
@@ -231,11 +468,16 @@ export async function POST(request: Request) {
         error.message.includes("billing"))
     ) {
       return jsonError(
-        "A conta da OpenAI API está sem quota ou sem cobrança ativa. Verifique o billing na plataforma da OpenAI.",
+        "A conta da OpenAI API retornou limite de quota para esta auditoria profunda. Reduza o tamanho do arquivo ou aumente os limites do projeto OpenAI.",
         402,
       );
     }
 
-    return jsonError("Não foi possível concluir a auditoria documental.", 500);
+    return jsonError(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível concluir a auditoria documental.",
+      500,
+    );
   }
 }

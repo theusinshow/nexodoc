@@ -29,29 +29,29 @@
 
 :root {
   --radius: 0px;
-  --background: #0b101a;
-  --foreground: #eef3fb;
-  --card: #171c24;
-  --card-foreground: #eef3fb;
-  --popover: #171c24;
-  --popover-foreground: #eef3fb;
-  --primary: #17243e;
-  --primary-foreground: #f8fbff;
-  --secondary: #101827;
-  --secondary-foreground: #d9e4f2;
-  --muted: #101827;
-  --muted-foreground: #8996a8;
-  --accent: #1b2c4c;
-  --accent-foreground: #f8fbff;
+  --background: #151618;
+  --foreground: #f3f4f6;
+  --card: #202226;
+  --card-foreground: #f3f4f6;
+  --popover: #202226;
+  --popover-foreground: #f3f4f6;
+  --primary: #3f6fb5;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2d32;
+  --secondary-foreground: #eef0f3;
+  --muted: #2a2d32;
+  --muted-foreground: #b7bdc7;
+  --accent: #30353c;
+  --accent-foreground: #ffffff;
   --destructive: #ef6b73;
-  --border: #263244;
-  --input: #2b3648;
-  --ring: #2f5592;
-  --nexodoc-surface: #171c24;
-  --nexodoc-panel: #101827;
-  --nexodoc-panel-foreground: #d9e4f2;
-  --nexodoc-accent: #17243e;
-  --nexodoc-accent-foreground: #f8fbff;
+  --border: #383d45;
+  --input: #464c55;
+  --ring: #6ea2e8;
+  --nexodoc-surface: #202226;
+  --nexodoc-panel: #1b1d21;
+  --nexodoc-panel-foreground: #eef0f3;
+  --nexodoc-accent: #3f6fb5;
+  --nexodoc-accent-foreground: #ffffff;
   --status-ok: #75d69c;
   --status-ok-bg: #102418;
   --status-warning: #f2c96d;
@@ -75,8 +75,8 @@ body {
 }
 
 ::selection {
-  background: #243b66;
-  color: #f8fbff;
+  background: #3f6fb5;
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {

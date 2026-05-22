@@ -10,40 +10,35 @@ export type PromptSuggestion = {
 
 export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
   {
-    id: "memorial-pranchas",
-    title: "Memorial x pranchas",
-    description: "Conferir identificação principal entre memorial e pranchas.",
+    id: "memorial-identificacao",
+    title: "Identificacao do memorial",
+    description: "Conferir campos principais e referencias residuais.",
+    auditMode: "memorial",
     prompt:
-      "Confira a consistência documental entre memorial, capa e pranchas. Verifique nome da obra, código do projeto, endereço, bairro, município, órgão/cliente, disciplina e sinais de reaproveitamento de outro projeto.",
+      "Cheque o memorial descritivo. Verifique nome da obra, codigo do projeto, endereco, bairro, municipio, orgao/cliente, disciplina e referencias residuais de outro projeto. Aponte apenas incongruencias documentais relevantes.",
   },
   {
-    id: "volume",
-    title: "Checar volume",
-    description: "Avaliar estrutura do volume, LD, pranchas e selos.",
-    auditMode: "volume",
-    prompt:
-      "Faça uma checagem de volume documental. Identifique capa, memorial, lista de desenhos/lista de documentos e pranchas. Verifique se a LD corresponde às pranchas, se há pranchas ausentes ou fora da lista, e se selos/carimbos estão coerentes com código, título, revisão, disciplina, volume e tomo.",
-  },
-  {
-    id: "selo-ld",
-    title: "Selo e LD",
-    description: "Focar em selo/carimbo, lista de desenhos e revisões.",
-    auditMode: "volume",
-    prompt:
-      "Verifique especificamente selos/carimbos das pranchas em comparação com a lista de desenhos ou lista de documentos. Aponte divergências de número da prancha, título, revisão, disciplina, código do projeto, órgão/cliente, volume ou tomo.",
-  },
-  {
-    id: "reaproveitamento",
+    id: "memorial-reaproveitamento",
     title: "Reaproveitamento",
-    description: "Procurar indícios de texto, selo ou capa de outro projeto.",
+    description: "Buscar trechos herdados de outro projeto.",
+    auditMode: "memorial",
     prompt:
-      "Procure sinais de reaproveitamento indevido de outro projeto. Foque em nomes de obra conflitantes, bairros, municípios, códigos, órgãos, selos, capas, rodapés, cabeçalhos e referências residuais incompatíveis com o conjunto analisado.",
+      "Procure sinais de reaproveitamento indevido no memorial descritivo. Foque em nomes de obra conflitantes, bairros, municipios, enderecos, codigos, orgaos e referencias residuais incompatíveis com a identificacao principal.",
   },
   {
-    id: "identificacao",
-    title: "Identificação",
-    description: "Checar campos essenciais de identificação documental.",
+    id: "volume-ld-pranchas",
+    title: "LD x pranchas",
+    description: "Comparar lista, selos, titulos e revisoes.",
+    auditMode: "volume",
     prompt:
-      "Confira apenas os campos essenciais de identificação documental: nome da obra, número/código do projeto, endereço, bairro, município, secretaria/órgão/cliente, volume, tomo e disciplina. Aponte somente divergências relevantes.",
+      "Cheque o volume de projeto. Compare LD/lista de desenhos com as pranchas anexadas, verificando numero da prancha, titulo, revisao, disciplina, codigo do projeto, volume e tomo.",
+  },
+  {
+    id: "volume-estrutura",
+    title: "Estrutura do volume",
+    description: "Conferir capa, separatriz, LDs e pacote.",
+    auditMode: "volume",
+    prompt:
+      "Verifique se o volume de projeto esta coerente: capa, separatriz, LDs/listas e pranchas. Aponte pranchas ausentes, extras, fora do volume ou com selo/carimbo divergente.",
   },
 ];

@@ -17,18 +17,21 @@ import { useState } from "react";
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import type { AuditFinding, AuditReport } from "@/lib/audit-report";
 import { cn } from "@/lib/utils";
 
 type AuditResultProps = {
   content: string;
   elapsedMs?: number;
+  report?: AuditReport;
 };
 
 type AuditSectionKey =
   | "project"
   | "status"
-  | "memorial"
-  | "drawings"
+  | "files"
+  | "fileAnalysis"
+  | "comparisons"
   | "findings"
   | "conclusion";
 
@@ -56,8 +59,11 @@ type ProjectField = {
 const SECTION_MAP: Record<string, AuditSectionKey> = {
   "projeto analisado": "project",
   "status geral": "status",
-  memorial: "memorial",
-  pranchas: "drawings",
+  "arquivos analisados": "files",
+  "analise por arquivo": "fileAnalysis",
+  "análise por arquivo": "fileAnalysis",
+  "comparacoes entre arquivos": "comparisons",
+  "comparações entre arquivos": "comparisons",
   "incongruências relevantes encontradas": "findings",
   "incongruencias relevantes encontradas": "findings",
   "conclusão objetiva": "conclusion",
@@ -67,8 +73,9 @@ const SECTION_MAP: Record<string, AuditSectionKey> = {
 const EMPTY_AUDIT: ParsedAudit = {
   project: "",
   status: "",
-  memorial: "",
-  drawings: "",
+  files: "",
+  fileAnalysis: "",
+  comparisons: "",
   findings: "",
   conclusion: "",
 };
@@ -77,10 +84,17 @@ function normalizeHeading(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 function parseAuditResult(content: string): ParsedAudit {
   const parsed = { ...EMPTY_AUDIT };
   const sectionRegex =
-    /(?:^|\n)\s*(\d+)\.\s*(Projeto analisado|Status geral|Memorial|Pranchas|Incongruências relevantes encontradas|Incongruencias relevantes encontradas|Conclusão objetiva|Conclusao objetiva)\s*\n/gi;
+    /(?:^|\n)\s*(\d+)\.\s*(Projeto analisado|Status geral|Arquivos analisados|Analise por arquivo|Análise por arquivo|Comparacoes entre arquivos|Comparações entre arquivos|Incongruências relevantes encontradas|Incongruencias relevantes encontradas|Conclusão objetiva|Conclusao objetiva)\s*\n/gi;
   const matches = Array.from(content.matchAll(sectionRegex));
 
   matches.forEach((match, index) => {
@@ -100,9 +114,9 @@ function parseAuditResult(content: string): ParsedAudit {
 }
 
 function getStatusVariant(status: string) {
-  const normalized = status.toLowerCase();
+  const normalized = normalizeText(status);
 
-  if (normalized.includes("incongruência relevante")) {
+  if (normalized.includes("incongruencia relevante")) {
     return {
       label: "com incongruência relevante",
       className:
@@ -111,7 +125,7 @@ function getStatusVariant(status: string) {
     };
   }
 
-  if (normalized.includes("ponto de atenção")) {
+  if (normalized.includes("ponto de atencao")) {
     return {
       label: "com ponto de atenção",
       className:
@@ -147,19 +161,19 @@ function getFindingField(block: string, label: string) {
 }
 
 function getFindingSeverity(block: string): StructuredFinding["severity"] {
-  const normalized = block.toLowerCase();
+  const normalized = normalizeText(block);
 
   if (
     normalized.includes("divergente") ||
     normalized.includes("conflito") ||
     normalized.includes("reaproveitamento") ||
-    normalized.includes("não corresponde")
+    normalized.includes("nao corresponde")
   ) {
     return "critical";
   }
 
   if (
-    normalized.includes("atenção") ||
+    normalized.includes("atencao") ||
     normalized.includes("conferir") ||
     normalized.includes("confirmar")
   ) {
@@ -232,6 +246,7 @@ function splitFindings(findings: string): StructuredFinding[] {
       documento: getFindingField(block, "Documento"),
       pagina:
         getFindingField(block, "Página provável") ??
+        getFindingField(block, "Pagina provável") ??
         getFindingField(block, "Pagina provavel"),
       local: getFindingField(block, "Local"),
       evidencia:
@@ -240,6 +255,7 @@ function splitFindings(findings: string): StructuredFinding[] {
       conflito: getFindingField(block, "Conflito"),
       acao:
         getFindingField(block, "Ação recomendada") ??
+        getFindingField(block, "Acao recomendada") ??
         getFindingField(block, "Acao recomendada"),
       categoria: getFindingField(block, "Categoria"),
       referencia:
@@ -299,6 +315,39 @@ function buildActionsText(findings: StructuredFinding[]) {
   return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
+function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
+  const severity =
+    finding.prioridade === "Alta" || finding.prioridade === "Media/Alta"
+      ? "critical"
+      : finding.prioridade === "Baixa"
+        ? "ok"
+        : "warning";
+
+  return {
+    title: `${finding.id}: ${finding.tipo}`,
+    severity,
+    documento: "",
+    pagina: finding.pagina,
+    local: finding.local,
+    evidencia: finding.evidencia,
+    conflito: finding.conflito,
+    acao: finding.sugestao_correcao,
+    categoria: finding.capitulo,
+    referencia: finding.descricao,
+    raw: [
+      `${finding.id}: ${finding.tipo}`,
+      `Prioridade: ${finding.prioridade}`,
+      `Pagina: ${finding.pagina}`,
+      `Capitulo: ${finding.capitulo}`,
+      `Local: ${finding.local}`,
+      `Evidencia: ${finding.evidencia}`,
+      `Conflito: ${finding.conflito}`,
+      `Acao recomendada: ${finding.sugestao_correcao}`,
+      `Confianca: ${finding.confianca}`,
+    ].join("\n"),
+  };
+}
+
 function SectionCard({
   title,
   icon: Icon,
@@ -319,16 +368,27 @@ function SectionCard({
   );
 }
 
-export function AuditResult({ content, elapsedMs }: AuditResultProps) {
+export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
   const [view, setView] = useState<"summary" | "findings" | "evidence" | "report">("summary");
   const parsed = parseAuditResult(content);
-  const status = getStatusVariant(parsed.status);
+  const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
   const elapsed = formatElapsedTime(elapsedMs);
-  const findings = splitFindings(parsed.findings);
+  const findings = report
+    ? report.incongruencias.map(reportFindingToStructured)
+    : splitFindings(parsed.findings);
   const findingsText = buildFindingsText(findings);
   const actionsText = buildActionsText(findings);
-  const projectFields = parseProjectFields(parsed.project);
+  const projectFields = report
+    ? [
+        { label: "Arquivo", value: report.arquivo ?? "nao informado" },
+        { label: "Obra", value: report.obra || "nao identificada" },
+        { label: "Codigo", value: report.codigo || "nao identificado" },
+        { label: "Municipio", value: report.municipio || "nao identificado" },
+        { label: "Data", value: report.data_documento || "nao identificada" },
+        { label: "Total de achados", value: String(report.total_incongruencias) },
+      ]
+    : parseProjectFields(parsed.project);
   const criticalCount = findings.filter((finding) => finding.severity === "critical").length;
   const warningCount = findings.filter((finding) => finding.severity === "warning").length;
 
@@ -454,21 +514,39 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
             </SectionCard>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <SectionCard title="Memorial" icon={FileText}>
+              <SectionCard title="Arquivos analisados" icon={FileText}>
                 <pre className="whitespace-pre-wrap break-words font-sans">
-                  {parsed.memorial || "Sem informação específica."}
+                  {report
+                    ? report.arquivos_analisados
+                        .map((item) => {
+                          return `${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} paginas | ${item.caracteres_extraidos ?? "-"} caracteres\n${item.resumo}`;
+                        })
+                        .join("\n\n")
+                    : parsed.files || "Sem informacao especifica."}
                 </pre>
               </SectionCard>
-              <SectionCard title="Pranchas" icon={LayoutList}>
+              <SectionCard title="Comparacoes" icon={LayoutList}>
                 <pre className="whitespace-pre-wrap break-words font-sans">
-                  {parsed.drawings || "Sem informação específica."}
+                  {report
+                    ? report.comparacoes.map((item) => `- ${item}`).join("\n")
+                    : parsed.comparisons || "Sem comparacao especifica."}
                 </pre>
               </SectionCard>
             </div>
 
+            <SectionCard title="Analise por arquivo" icon={ClipboardList}>
+              <pre className="whitespace-pre-wrap break-words font-sans">
+                {report
+                  ? report.arquivos_analisados
+                      .map((item) => `${item.arquivo}\n${item.resumo}`)
+                      .join("\n\n")
+                  : parsed.fileAnalysis || "Sem analise por arquivo identificada."}
+              </pre>
+            </SectionCard>
+
             <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
               <pre className="whitespace-pre-wrap break-words font-sans">
-                {parsed.conclusion || "Sem conclusão identificada."}
+                {report?.conclusao || parsed.conclusion || "Sem conclusão identificada."}
               </pre>
             </SectionCard>
           </>
@@ -637,7 +715,9 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
                   Projeto
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
-                  {parsed.project || "Não identificado na resposta."}
+                  {report
+                    ? `Arquivo: ${report.arquivo ?? "nao informado"}\nObra: ${report.obra}\nCodigo: ${report.codigo}\nMunicipio: ${report.municipio}`
+                    : parsed.project || "Não identificado na resposta."}
                 </pre>
               </div>
               <div>
@@ -667,7 +747,7 @@ export function AuditResult({ content, elapsedMs }: AuditResultProps) {
                   Conclusão
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
-                  {parsed.conclusion || "Sem conclusão identificada."}
+                  {report?.conclusao || parsed.conclusion || "Sem conclusão identificada."}
                 </pre>
               </div>
             </div>

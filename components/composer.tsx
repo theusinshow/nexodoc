@@ -2,23 +2,22 @@
 
 import { Lightbulb, Play, SendHorizontal } from "lucide-react";
 
-import { AttachedFiles } from "@/components/attached-files";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { AuditMode } from "@/lib/audit-mode";
+import { getAuditModeLabel, type AuditMode } from "@/lib/audit-mode";
+import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 import { PROMPT_SUGGESTIONS } from "@/lib/prompt-suggestions";
-import { cn } from "@/lib/utils";
 
 type ComposerProps = {
   message: string;
-  files: File[];
+  files: AuditFileAttachment[];
   auditMode: AuditMode;
   isLoading: boolean;
+  setupComplete: boolean;
   onMessageChange: (value: string) => void;
   onAuditModeChange: (value: AuditMode) => void;
-  onFilesAdd: (files: File[]) => void;
-  onFileRemove: (index: number) => void;
+  onFilesAdd: (files: File[], documentType: DocumentType) => void;
   onSubmit: () => void;
   onLoadDemo: () => void;
 };
@@ -28,108 +27,77 @@ export function Composer({
   files,
   auditMode,
   isLoading,
+  setupComplete,
   onMessageChange,
   onAuditModeChange,
   onFilesAdd,
-  onFileRemove,
   onSubmit,
   onLoadDemo,
 }: ComposerProps) {
-  const canSubmit = message.trim().length > 0 && files.length > 0 && !isLoading;
+  const canSubmit =
+    setupComplete && message.trim().length > 0 && files.length > 0 && !isLoading;
+  const suggestions = PROMPT_SUGGESTIONS.filter(
+    (suggestion) => suggestion.auditMode === auditMode,
+  );
 
   return (
-    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-4">
-      <div className="mx-auto flex max-w-4xl flex-col gap-3">
-        <AttachedFiles
-          files={files}
-          onRemove={onFileRemove}
-          disabled={isLoading}
-        />
-        <div className="rounded-none border bg-card p-3">
-          <div className="mb-3 grid gap-2 rounded-none border bg-muted/40 p-1 lg:grid-cols-3">
-            {[
-              {
-                value: "fast" as const,
-                title: "Rápida",
-                description: "Triagem objetiva, menor custo e resposta curta.",
-              },
-              {
-                value: "volume" as const,
-                title: "Volume",
-                description: "Capa, LD, pranchas, selos, revisões e estrutura.",
-              },
-              {
-                value: "complete" as const,
-                title: "Completa",
-                description: "Conferência mais cuidadosa e detalhada.",
-              },
-            ].map((mode) => (
-              <button
-                key={mode.value}
-                type="button"
-                disabled={isLoading}
-                onClick={() => onAuditModeChange(mode.value)}
-                className={cn(
-                  "rounded-none border px-3 py-2 text-left transition-[background-color,border-color,color] duration-200 disabled:cursor-not-allowed disabled:opacity-60",
-                  auditMode === mode.value
-                    ? "border-ring bg-background text-foreground shadow-[inset_0_0_0_1px_var(--ring)]"
-                    : "border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground",
-                )}
-              >
-                <span className="block text-sm font-medium">{mode.title}</span>
-                <span className="mt-1 block text-xs leading-4">
-                  {mode.description}
-                </span>
-              </button>
-            ))}
-          </div>
-          {files.length > 0 ? (
-            <div className="mb-3 border bg-background p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Lightbulb className="size-3.5 text-primary" />
-                Modelos de solicitação
-              </div>
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {PROMPT_SUGGESTIONS.map((suggestion) => (
-                  <button
-                    key={suggestion.id}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => {
-                      onMessageChange(suggestion.prompt);
+    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-3">
+      <div className="mx-auto flex max-w-4xl flex-col gap-2">
+        <div className="border bg-card p-2">
+          <div className="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+              <span className="border bg-muted px-2 py-1 font-medium text-foreground">
+                {getAuditModeLabel(auditMode)}
+              </span>
+              {suggestions.slice(0, 2).map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  type="button"
+                  disabled={isLoading || !setupComplete}
+                  onClick={() => {
+                    onMessageChange(suggestion.prompt);
 
-                      if (suggestion.auditMode) {
-                        onAuditModeChange(suggestion.auditMode);
-                      }
-                    }}
-                    className="rounded-none border bg-card px-3 py-2 text-left transition-[background-color,border-color,color] hover:border-ring hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <span className="block text-xs font-medium text-foreground">
-                      {suggestion.title}
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
-                      {suggestion.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    if (suggestion.auditMode) {
+                      onAuditModeChange(suggestion.auditMode);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 border bg-background px-2 py-1 text-muted-foreground transition-colors hover:border-ring hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Lightbulb className="size-3" />
+                  {suggestion.title}
+                </button>
+              ))}
             </div>
-          ) : null}
-          <Textarea
-            value={message}
-            onChange={(event) => onMessageChange(event.target.value)}
-            placeholder="Descreva a conferência documental desejada"
-            className="max-h-40 min-h-20 resize-none rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
-            disabled={isLoading}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                onSubmit();
+            <div className="flex shrink-0 items-center gap-2">
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                {files.length}/5 PDFs
+              </p>
+              <FileUpload
+                onFilesSelected={onFilesAdd}
+                disabled={isLoading || !setupComplete}
+                compact
+              />
+            </div>
+          </div>
+
+          <div className="mt-2 grid gap-2 lg:grid-cols-[1fr_auto]">
+            <Textarea
+              value={message}
+              onChange={(event) => onMessageChange(event.target.value)}
+              placeholder={
+                setupComplete
+                  ? "Solicitacao objetiva da auditoria"
+                  : "Preencha a identificacao da auditoria para liberar o envio"
               }
-            }}
-          />
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <FileUpload onFilesSelected={onFilesAdd} disabled={isLoading} />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              className="max-h-20 min-h-12 resize-none rounded-none border bg-background py-2 text-sm shadow-none focus-visible:ring-2"
+              disabled={isLoading || !setupComplete}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  onSubmit();
+                }
+              }}
+            />
+            <div className="flex gap-2 lg:flex-col">
               <Button
                 type="button"
                 variant="outline"
@@ -137,11 +105,11 @@ export function Composer({
                 disabled={isLoading}
               >
                 <Play />
-                Ver demo
+                Demo
               </Button>
               <Button type="button" onClick={onSubmit} disabled={!canSubmit}>
                 <SendHorizontal />
-                {isLoading ? "Analisando" : "Auditar documentos"}
+                {isLoading ? "Analisando" : "Auditar"}
               </Button>
             </div>
           </div>

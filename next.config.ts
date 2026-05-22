@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["pdfjs-dist"],
   turbopack: {
     root: resolve(projectRoot),
   },
