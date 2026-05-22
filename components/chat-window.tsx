@@ -11,9 +11,8 @@ import {
   RotateCcw,
   ScrollText,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { AttachedFiles } from "@/components/attached-files";
 import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
@@ -21,7 +20,6 @@ import { FileUpload } from "@/components/file-upload";
 import { MessageBubble } from "@/components/message-bubble";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditReport } from "@/lib/audit-report";
 import {
   DEFAULT_AUDIT_MODE,
@@ -30,6 +28,7 @@ import {
   type AuditMode,
 } from "@/lib/audit-mode";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
+import { cn } from "@/lib/utils";
 
 type ChatWindowProps = {
   isMockMode?: boolean;
@@ -192,6 +191,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("summary");
+  const [isDropActive, setIsDropActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef(0);
@@ -247,6 +247,32 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
       setError(result.error);
       return result.files;
     });
+  }
+
+  function handleDropFiles(newFiles: File[]) {
+    handleFilesAdd(newFiles, auditMode === "volume" ? "outro" : "memorial");
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setIsDropActive(false);
+    const droppedFiles = Array.from(event.dataTransfer.files ?? []);
+
+    if (droppedFiles.length > 0) {
+      handleDropFiles(droppedFiles);
+    }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDropActive(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDropActive(false);
+    }
   }
 
   function handleFileRemove(index: number) {
@@ -320,55 +346,6 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         ),
       );
     }
-  }
-
-  function handleLoadDemo() {
-    const auditId = crypto.randomUUID();
-    const result = getDemoAuditResult(auditMode);
-    const demoElapsedMs = auditMode === "volume" ? 4200 : 1800;
-    const demoTitle = auditTitle || "Demo";
-    const demoProject = projectName || "Escola Municipal Exemplo";
-    const demoFiles =
-      auditMode === "volume"
-        ? ["Capa e separatriz.pdf", "LD arquitetura.pdf", "Pranchas arquitetura.pdf"]
-        : ["Memorial descritivo.pdf"];
-
-    setIsLoading(false);
-    setError("");
-    setFiles([]);
-    setElapsedMs(0);
-    setActiveAuditId(auditId);
-    setMessages([
-      {
-        id: `${auditId}-request`,
-        role: "user",
-        content: `Demonstração local\n\nIdentificacao: ${demoTitle}\nProjeto: ${demoProject}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${demoFiles.join(", ")}`,
-        auditMode,
-      },
-      {
-        id: `${auditId}-result`,
-        role: "assistant",
-        content: result,
-        auditMode,
-        elapsedMs: demoElapsedMs,
-      },
-    ]);
-    setAuditHistory((current) => [
-      {
-        id: auditId,
-        title: demoTitle,
-        projectName: demoProject,
-        description: auditDescription,
-        createdAt: new Date(),
-        auditMode,
-        fileNames: demoFiles,
-        status: "completed",
-        result,
-        report: undefined,
-        elapsedMs: demoElapsedMs,
-      },
-      ...current,
-    ]);
   }
 
   async function handleSubmit() {
@@ -492,8 +469,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function renderAuditContext() {
     return (
       <section className="rounded-lg border bg-card/95 p-2 shadow-[var(--shadow-panel)]">
-        <div className="grid gap-2 2xl:grid-cols-[1fr_auto] 2xl:items-end">
-          <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.2fr]">
+        <div className="grid gap-2 xl:grid-cols-[1fr_minmax(280px,420px)] xl:items-end">
+          <div className="grid min-w-0 gap-2 md:grid-cols-[1fr_1fr_1.2fr]">
             <label className="grid gap-1 text-xs">
               <span className="font-medium text-muted-foreground">Identificacao</span>
               <input
@@ -526,7 +503,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             </label>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto] 2xl:min-w-[420px]">
+          <div className="min-w-0">
             <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-0.5 text-xs">
               {(["memorial", "volume"] as const).map((mode) => (
                 <button
@@ -545,16 +522,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 </button>
               ))}
             </div>
-            <FileUpload
-              onFilesSelected={handleFilesAdd}
-              disabled={isLoading}
-              compact
-            />
           </div>
-        </div>
-
-        <div className="mt-2">
-          <AttachedFiles files={files} onRemove={handleFileRemove} disabled={isLoading} />
         </div>
       </section>
     );
@@ -562,12 +530,37 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
   function renderEmptyChat() {
     return (
-      <section className="grid min-h-[120px] flex-1 place-items-center">
-        <div className="max-w-xl rounded-lg border bg-card/90 px-5 py-4 text-center shadow-[var(--shadow-panel)]">
-          <FileSearch className="mx-auto mb-2 size-5 text-primary" />
-          <h2 className="text-base font-semibold">Chat de auditoria documental</h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Escolha Memorial ou Volume, anexe os PDFs e mande a solicitacao.
+      <section
+        className="grid min-h-[220px] flex-1 place-items-center"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <div
+          className={cn(
+            "grid w-full max-w-2xl place-items-center rounded-lg border border-dashed bg-card/90 px-6 py-10 text-center shadow-[var(--shadow-panel)] transition-[border-color,background-color,transform]",
+            isDropActive
+              ? "border-primary bg-primary/10 text-foreground"
+              : "border-border hover:border-ring",
+          )}
+        >
+          <div className="flex size-12 items-center justify-center rounded-md border border-primary/35 bg-primary/15 text-primary">
+            <FileSearch className="size-6" />
+          </div>
+          <h2 className="mt-4 text-base font-semibold">Solte os PDFs aqui</h2>
+          <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+            Arraste os arquivos para esta area ou use o botao abaixo. Depois,
+            descreva no chat o que deve ser auditado.
+          </p>
+          <div className="mt-4">
+            <FileUpload
+              onFilesSelected={handleFilesAdd}
+              disabled={isLoading}
+              compact
+            />
+          </div>
+          <p className="mt-3 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-1 text-xs text-muted-foreground">
+            {files.length}/5 PDFs anexados
           </p>
         </div>
       </section>
@@ -701,15 +694,12 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         <Composer
           message={message}
           files={files}
-          auditMode={auditMode}
           isLoading={isLoading}
           setupComplete={setupComplete}
           onMessageChange={setMessage}
-          onAuditModeChange={handleAuditModeChange}
           onFilesAdd={handleFilesAdd}
           onFileRemove={handleFileRemove}
           onSubmit={handleSubmit}
-          onLoadDemo={handleLoadDemo}
         />
       </section>
 
