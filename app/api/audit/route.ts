@@ -519,6 +519,7 @@ export async function POST(request: Request) {
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
+    const requestMockMode = formData.get("mockMode") === "true";
     const fileTypes = formData.getAll("fileTypes").map((value) => String(value));
     const files = formData
       .getAll("files")
@@ -546,7 +547,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (isMockModeEnabled()) {
+    if (isMockModeEnabled() || requestMockMode) {
       await waitForMockAudit();
       return withCors(
         NextResponse.json({

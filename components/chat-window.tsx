@@ -11,6 +11,7 @@ import {
   ListChecks,
   RotateCcw,
   ScrollText,
+  TestTube2,
 } from "lucide-react";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -204,6 +205,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const [auditTitle, setAuditTitle] = useState("");
   const [projectName, setProjectName] = useState("");
   const [auditDescription, setAuditDescription] = useState("");
+  const [useMockMode, setUseMockMode] = useState(isMockMode);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -415,6 +417,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificacao");
     formData.append("projectName", projectName.trim() || "Projeto nao informado");
     formData.append("auditDescription", auditDescription.trim());
+    formData.append("mockMode", useMockMode ? "true" : "false");
     files.forEach((attachment) => {
       formData.append("files", attachment.file);
       formData.append("fileTypes", attachment.documentType);
@@ -666,6 +669,33 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           Configurações
         </Button>
 
+        <button
+          type="button"
+          onClick={() => setUseMockMode((current) => !current)}
+          className="mt-4 flex items-center justify-between rounded-lg border bg-[var(--nexodoc-surface)]/75 px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted/60"
+        >
+          <span className="flex items-center gap-2">
+            <TestTube2 className="size-4 text-primary" />
+            <span>
+              <span className="block font-medium text-foreground">Modo demo</span>
+              <span className="text-muted-foreground">Sem consumir tokens</span>
+            </span>
+          </span>
+          <span
+            className={cn(
+              "h-5 w-9 rounded-full border p-0.5 transition-colors",
+              useMockMode ? "border-primary/50 bg-primary/70" : "bg-[var(--nexodoc-recessed)]",
+            )}
+          >
+            <span
+              className={cn(
+                "block size-3.5 rounded-full bg-foreground transition-transform",
+                useMockMode && "translate-x-4",
+              )}
+            />
+          </span>
+        </button>
+
         <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
@@ -713,6 +743,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <FileSearch className="size-5 text-primary" />
             <span className="font-semibold">NexoDoc</span>
           </div>
+          <Button
+            type="button"
+            variant={useMockMode ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setUseMockMode((current) => !current)}
+          >
+            <TestTube2 />
+            Demo
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={handleNewAudit}>
             <RotateCcw />
             Nova
