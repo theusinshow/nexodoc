@@ -63,6 +63,12 @@ type InspectorTab = "summary" | "findings" | "report";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+function getAuditEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+
+  return apiUrl ? `${apiUrl}/api/audit` : "/api/audit";
+}
+
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -403,7 +409,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     ]);
 
     try {
-      const response = await fetch("/api/audit", {
+      const response = await fetch(getAuditEndpoint(), {
         method: "POST",
         body: formData,
         signal: abortControllerRef.current.signal,

@@ -33,6 +33,11 @@ const DEFAULT_MAX_CHUNKS_PER_FILE = 24;
 const DEFAULT_CHUNK_CONCURRENCY = 5;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 type UploadedAuditFile = {
   file: File;
   fileType: string;
@@ -61,7 +66,41 @@ function isPdf(file: File) {
 }
 
 function jsonError(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+  return withCors(NextResponse.json({ error: message }, { status }));
+}
+
+function getAllowedOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  const allowedOrigins = process.env.NEXODOC_ALLOWED_ORIGINS?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!origin) {
+    return allowedOrigins?.[0] ?? "*";
+  }
+
+  if (!allowedOrigins || allowedOrigins.length === 0) {
+    return origin;
+  }
+
+  return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+}
+
+function withCors(response: NextResponse, request?: Request) {
+  const allowedOrigin = request ? getAllowedOrigin(request) : "*";
+
+  response.headers.set("Access-Control-Allow-Origin", allowedOrigin);
+  response.headers.set("Vary", "Origin");
+
+  for (const [header, value] of Object.entries(CORS_HEADERS)) {
+    response.headers.set(header, value);
+  }
+
+  return response;
+}
+
+export function OPTIONS(request: Request) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
 function getReasoningEffort() {
@@ -452,11 +491,14 @@ export async function POST(request: Request) {
 
     if (isMockModeEnabled()) {
       await waitForMockAudit();
-      return NextResponse.json({
-        result: getMockAuditResult(auditMode),
-        auditMode,
-        mock: true,
-      });
+      return withCors(
+        NextResponse.json({
+          result: getMockAuditResult(auditMode),
+          auditMode,
+          mock: true,
+        }),
+        request,
+      );
     }
 
     const uploadedFiles = await Promise.all(
@@ -547,7 +589,7 @@ export async function POST(request: Request) {
     };
     const result = makeTextReport(report);
 
-    return NextResponse.json({ result, report, auditMode });
+    return withCors(NextResponse.json({ result, report, auditMode }), request);
   } catch (error) {
     console.error(error);
 

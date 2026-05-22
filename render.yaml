@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: nexodoc-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      - key: NEXODOC_ALLOWED_ORIGINS
+        sync: false
+      - key: NEXODOC_MOCK_MODE
+        value: "false"

@@ -67,6 +67,8 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5-mini
+NEXT_PUBLIC_API_URL=
+NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_MOCK_MODE=false
 NEXODOC_MOCK_DELAY_MS=3500
 NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
@@ -76,6 +78,20 @@ NEXODOC_VOLUME_MAX_OUTPUT_TOKENS=768
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5-mini`.
+
+Para deploy dividido, use:
+
+- Vercel para o frontend;
+- Render para o backend, rodando este mesmo projeto como Web Service;
+- `NEXT_PUBLIC_API_URL` na Vercel apontando para a URL do Render;
+- `NEXODOC_ALLOWED_ORIGINS` no Render contendo os dominios da Vercel autorizados a chamar `/api/audit`.
+
+Exemplo:
+
+```bash
+NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
+NEXODOC_ALLOWED_ORIGINS=https://nexodoc.vercel.app
+```
 
 Para usar sempre a mesma chave, gere uma chave de projeto uma unica vez na plataforma da OpenAI, cole em `.env.local` e mantenha esse arquivo local. Ele ja esta no `.gitignore`, entao nao entra no repositorio.
 
