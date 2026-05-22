@@ -10,6 +10,7 @@ import {
   FileText,
   LayoutList,
   MapPin,
+  Route,
   Search,
   Wrench,
 } from "lucide-react";
@@ -355,6 +356,37 @@ function buildActionsText(findings: StructuredFinding[]) {
   return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
+function buildReviewRouteText(findings: StructuredFinding[]) {
+  if (findings.length === 0) {
+    return "Nenhum achado para revisar.";
+  }
+
+  return groupFindingsByDocumentPage(findings)
+    .map((documentGroup) => {
+      const pages = documentGroup.pages
+        .map((pageGroup) => {
+          const items = pageGroup.items
+            .map((finding, index) => {
+              return [
+                `${index + 1}. ${finding.title}`,
+                finding.local ? `Local: ${finding.local}` : null,
+                finding.termoBusca ? `Buscar: ${finding.termoBusca}` : null,
+                finding.acao ? `Acao: ${finding.acao}` : null,
+              ]
+                .filter(Boolean)
+                .join("\n   ");
+            })
+            .join("\n");
+
+          return `Pagina ${pageGroup.page}\n${items}`;
+        })
+        .join("\n\n");
+
+      return `${documentGroup.document}\n\n${pages}`;
+    })
+    .join("\n\n---\n\n");
+}
+
 function getFirstPageNumber(value?: string) {
   const match = value?.match(/\d+/);
 
@@ -365,6 +397,37 @@ function getFirstPageNumber(value?: string) {
   const page = Number(match[0]);
 
   return Number.isFinite(page) && page > 0 ? page : null;
+}
+
+function getPageSortValue(value: string) {
+  return getFirstPageNumber(value) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function groupFindingsByDocumentPage(findings: StructuredFinding[]) {
+  const documents = new Map<
+    string,
+    Map<string, StructuredFinding[]>
+  >();
+
+  for (const finding of findings) {
+    const document = finding.documento || "Documento não informado";
+    const page = finding.pagina || "não identificada";
+    const pageMap = documents.get(document) ?? new Map<string, StructuredFinding[]>();
+    const pageFindings = pageMap.get(page) ?? [];
+
+    pageFindings.push(finding);
+    pageMap.set(page, pageFindings);
+    documents.set(document, pageMap);
+  }
+
+  return [...documents.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+    .map(([document, pageMap]) => ({
+      document,
+      pages: [...pageMap.entries()]
+        .sort(([a], [b]) => getPageSortValue(a) - getPageSortValue(b))
+        .map(([page, items]) => ({ page, items })),
+    }));
 }
 
 function normalizeFileName(value: string) {
@@ -472,7 +535,7 @@ export function AuditResult({
   report,
   pdfSources = [],
 }: AuditResultProps) {
-  const [view, setView] = useState<"summary" | "findings" | "evidence" | "report">("summary");
+  const [view, setView] = useState<"summary" | "findings" | "route" | "evidence" | "report">("summary");
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
@@ -494,6 +557,8 @@ export function AuditResult({
   };
   const findingsText = buildFindingsText(findingsWithPdf);
   const actionsText = buildActionsText(findingsWithPdf);
+  const reviewRouteText = buildReviewRouteText(findingsWithPdf);
+  const reviewRoute = groupFindingsByDocumentPage(findingsWithPdf);
   const projectFields = report
     ? [
         { label: "Arquivo", value: report.arquivo ?? "nao informado" },
@@ -566,6 +631,15 @@ export function AuditResult({
         </Button>
         <Button
           type="button"
+          variant={view === "route" ? "secondary" : "outline"}
+          size="sm"
+          className="border-transparent"
+          onClick={() => setView("route")}
+        >
+          Roteiro
+        </Button>
+        <Button
+          type="button"
           variant={view === "report" ? "secondary" : "outline"}
           size="sm"
           className="border-transparent"
@@ -581,6 +655,14 @@ export function AuditResult({
           onClick={() => copyText(findingsText)}
         >
           Copiar achados
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => copyText(reviewRouteText)}
+        >
+          Copiar roteiro
         </Button>
         <Button
           type="button"
@@ -951,6 +1033,83 @@ export function AuditResult({
               </div>
             ) : (
               <p>Nenhuma evidência visual necessária para este resultado.</p>
+            )}
+          </SectionCard>
+        ) : null}
+
+        {view === "route" ? (
+          <SectionCard title="Roteiro de revisão" icon={Route}>
+            {reviewRoute.length > 0 ? (
+              <div className="space-y-4">
+                {reviewRoute.map((documentGroup) => (
+                  <section key={documentGroup.document} className="rounded-lg border bg-background/70 p-4">
+                    <div className="flex items-center gap-2 border-b pb-3">
+                      <FileText className="size-4 text-primary" />
+                      <h4 className="text-sm font-semibold text-foreground">
+                        {documentGroup.document}
+                      </h4>
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      {documentGroup.pages.map((pageGroup) => (
+                        <div key={`${documentGroup.document}-${pageGroup.page}`} className="grid gap-3 md:grid-cols-[7rem_1fr]">
+                          <div className="text-xs text-muted-foreground">
+                            Página
+                            <p className="mt-1 text-base font-semibold text-foreground">
+                              {pageGroup.page}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {pageGroup.items.map((finding, index) => (
+                              <div
+                                key={`${finding.raw}-route-${index}`}
+                                className="rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3"
+                              >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <p className="font-medium text-foreground">
+                                    {finding.title}
+                                  </p>
+                                  {finding.pdfUrl ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openPdfAtFinding(finding, pdfSources)}
+                                    >
+                                      <ExternalLink />
+                                      Abrir
+                                    </Button>
+                                  ) : null}
+                                </div>
+                                <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                                  <p>
+                                    <span className="text-muted-foreground">Local:</span>{" "}
+                                    <span className="text-foreground">
+                                      {finding.local || "não informado"}
+                                    </span>
+                                  </p>
+                                  <p>
+                                    <span className="text-muted-foreground">Buscar:</span>{" "}
+                                    <span className="text-foreground">
+                                      {finding.termoBusca || finding.evidencia || "-"}
+                                    </span>
+                                  </p>
+                                </div>
+                                {finding.acao ? (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    {finding.acao}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <p>Nenhum achado para revisar.</p>
             )}
           </SectionCard>
         ) : null}

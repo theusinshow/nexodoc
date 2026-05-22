@@ -13,6 +13,8 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
 8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
 9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
+10. [Bateria de testes](C:/Dev/trabalho/empresa/nexodoc/docs/10-bateria-testes.md)
+11. [Checklist de testes sem custo](C:/Dev/trabalho/empresa/nexodoc/docs/11-checklist-testes-sem-custo.md)
 
 ## Fonte de verdade
 

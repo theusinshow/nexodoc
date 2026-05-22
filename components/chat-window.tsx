@@ -647,6 +647,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           <Gauge />
           Uso e custos
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
+        >
+          <Gauge />
+          Configurações
+        </Button>
 
         <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
