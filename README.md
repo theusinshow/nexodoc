@@ -71,6 +71,7 @@ NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
 OPENAI_ADMIN_KEY=
+DATABASE_URL=
 NEXODOC_MOCK_MODE=false
 NEXODOC_MOCK_DELAY_MS=3500
 NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
@@ -118,6 +119,39 @@ Na Vercel, mantenha apenas:
 
 ```bash
 NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
+```
+
+## Banco de dados e historico
+
+O historico usa PostgreSQL via Prisma.
+
+Variavel necessaria no Render:
+
+```bash
+DATABASE_URL=postgresql://...
+```
+
+Recomendacao: criar um banco Neon Postgres e usar a connection string pooled no Render.
+
+Comandos locais:
+
+```bash
+npm run db:generate
+npm run db:push
+```
+
+Em producao, depois que `DATABASE_URL` estiver configurada, rode uma vez:
+
+```bash
+npm run db:push
+```
+
+O endpoint `/api/audit` salva auditorias concluidas quando `DATABASE_URL` existe. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+
+O historico admin fica em:
+
+```text
+/admin/audits
 ```
 
 Para usar sempre a mesma chave, gere uma chave de projeto uma unica vez na plataforma da OpenAI, cole em `.env.local` e mantenha esse arquivo local. Ele ja esta no `.gitignore`, entao nao entra no repositorio.

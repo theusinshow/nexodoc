@@ -13,6 +13,7 @@ import {
 } from "@/lib/audit-report";
 import { runDeterministicAuditRules } from "@/lib/audit-rules";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
+import { isDatabaseConfigured, prisma } from "@/lib/db";
 import {
   getMockAuditResult,
   isMockModeEnabled,
@@ -44,6 +45,49 @@ type UploadedAuditFile = {
   buffer: Buffer;
   extracted: ExtractedPdf;
 };
+
+async function persistCompletedAudit(args: {
+  auditMode: AuditMode;
+  auditTitle: string;
+  projectName: string;
+  auditDescription: string;
+  uploadedFiles: UploadedAuditFile[];
+  report: AuditReport;
+  result: string;
+  elapsedMs: number;
+}) {
+  if (!isDatabaseConfigured()) {
+    return;
+  }
+
+  try {
+    await prisma.audit.create({
+      data: {
+        title: args.auditTitle || "Auditoria sem identificacao",
+        projectName: args.projectName || "Projeto nao informado",
+        description: args.auditDescription,
+        auditMode: args.auditMode,
+        status: "COMPLETED",
+        result: args.result,
+        report: args.report,
+        elapsedMs: args.elapsedMs,
+        totalFindings: args.report.total_incongruencias,
+        completedAt: new Date(),
+        files: {
+          create: args.uploadedFiles.map((file) => ({
+            fileName: file.file.name,
+            documentType: file.fileType,
+            pageCount: file.extracted.pageCount,
+            extractedCharCount: file.extracted.charCount,
+            sizeBytes: file.file.size,
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[audit] falha ao persistir auditoria", error);
+  }
+}
 
 type ModelFinding = {
   prioridade?: string;
@@ -601,6 +645,16 @@ export async function POST(request: Request) {
           : executiveSummary,
     };
     const result = makeTextReport(report);
+    await persistCompletedAudit({
+      auditMode,
+      auditTitle,
+      projectName,
+      auditDescription: String(formData.get("auditDescription") ?? "").trim(),
+      uploadedFiles,
+      report,
+      result,
+      elapsedMs: Date.now() - requestStartedAt,
+    });
 
     return withCors(NextResponse.json({ result, report, auditMode }), request);
   } catch (error) {

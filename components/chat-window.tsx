@@ -651,6 +651,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           type="button"
           variant="ghost"
           className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
+        >
+          <ListChecks />
+          Histórico admin
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
           onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
         >
           <Gauge />

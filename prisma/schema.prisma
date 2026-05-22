@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum AuditStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(USER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  audits       Audit[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Audit {
+  id             String       @id @default(cuid())
+  userId         String?
+  title          String
+  projectName    String
+  description    String      @default("")
+  auditMode      String
+  status         AuditStatus @default(PROCESSING)
+  result         String?
+  report         Json?
+  error          String?
+  elapsedMs      Int?
+  totalFindings  Int         @default(0)
+  createdAt      DateTime    @default(now())
+  completedAt    DateTime?
+  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  files          AuditFile[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AuditFile {
+  id                 String   @id @default(cuid())
+  auditId            String
+  fileName           String
+  documentType       String
+  pageCount          Int?
+  extractedCharCount Int?
+  sizeBytes          Int?
+  createdAt          DateTime @default(now())
+  audit              Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}

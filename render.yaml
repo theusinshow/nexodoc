@@ -18,5 +18,7 @@ services:
         sync: false
       - key: OPENAI_ADMIN_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: NEXODOC_MOCK_MODE
         value: "false"
