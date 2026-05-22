@@ -26,7 +26,9 @@ const DEFAULT_MODEL = "gpt-5-mini";
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
-const MAX_CHUNKS_PER_FILE = 24;
+const DEFAULT_MAX_CHUNKS_PER_FILE = 24;
+const DEFAULT_CHUNK_CONCURRENCY = 3;
+const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
 
 type UploadedAuditFile = {
   file: File;
@@ -63,10 +65,12 @@ function getReasoningEffort() {
   const effort = process.env.OPENAI_REASONING_EFFORT;
 
   if (
+    effort === "none" ||
     effort === "minimal" ||
     effort === "low" ||
     effort === "medium" ||
-    effort === "high"
+    effort === "high" ||
+    effort === "xhigh"
   ) {
     return effort;
   }
@@ -202,6 +206,59 @@ function getMaxOutputTokens() {
   );
 }
 
+function getMaxChunksPerFile() {
+  const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
+
+  if (Number.isFinite(value) && value > 0) {
+    return Math.min(48, Math.floor(value));
+  }
+
+  return DEFAULT_MAX_CHUNKS_PER_FILE;
+}
+
+function getChunkConcurrency() {
+  const value = Number(process.env.NEXODOC_CHUNK_CONCURRENCY);
+
+  if (Number.isFinite(value) && value > 0) {
+    return Math.min(6, Math.floor(value));
+  }
+
+  return DEFAULT_CHUNK_CONCURRENCY;
+}
+
+function getChunkTimeoutMs() {
+  const value = Number(process.env.NEXODOC_CHUNK_TIMEOUT_MS);
+
+  if (Number.isFinite(value) && value >= 30_000) {
+    return Math.min(300_000, Math.floor(value));
+  }
+
+  return DEFAULT_CHUNK_TIMEOUT_MS;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+
+  return results;
+}
+
 function modelFindingToAuditFinding(
   finding: ModelFinding,
   index: number,
@@ -292,6 +349,8 @@ async function analyzeChunkWithModel(args: {
     },
     max_output_tokens: getMaxOutputTokens(),
     input: getChunkPrompt(args),
+  }, {
+    timeout: getChunkTimeoutMs(),
   });
   const text = extractResponseText(response);
   const parsed = parseJsonObject(text);
@@ -308,31 +367,54 @@ async function deepAnalyzeFile(args: {
   auditTitle: string;
   file: UploadedAuditFile;
 }) {
+  const startedAt = Date.now();
   const deterministicFindings = runDeterministicAuditRules({
     fileName: args.file.file.name,
     projectName: args.projectName,
     extracted: args.file.extracted,
   });
-  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, MAX_CHUNKS_PER_FILE);
-  const modelFindings: AuditFinding[] = [];
+  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, getMaxChunksPerFile());
+  const concurrency = getChunkConcurrency();
 
-  for (const chunk of chunks) {
-    const findings = await analyzeChunkWithModel({
+  console.log(
+    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, ${chunks.length} blocos, concorrencia ${concurrency}, ${deterministicFindings.length} achado(s) por regra`,
+  );
+
+  const modelFindingGroups = await mapWithConcurrency(
+    chunks,
+    concurrency,
+    async (chunk, index) => {
+      const chunkStartedAt = Date.now();
+      console.log(
+        `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} (${chunk.startPage}-${chunk.endPage}) iniciado`,
+      );
+      const findings = await analyzeChunkWithModel({
       auditMode: args.auditMode,
       userMessage: args.userMessage,
       projectName: args.projectName,
       fileName: args.file.file.name,
       fileType: args.file.fileType,
       chunk,
-    });
-    modelFindings.push(...findings);
-  }
+      });
+      console.log(
+        `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,
+      );
+      return findings;
+    },
+  );
+  const modelFindings = modelFindingGroups.flat();
+
+  console.log(
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${deterministicFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+  );
 
   return dedupeFindings([...deterministicFindings, ...modelFindings]);
 }
 
 export async function POST(request: Request) {
   try {
+    const requestStartedAt = Date.now();
+    console.log("[audit] requisicao recebida");
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
@@ -376,8 +458,13 @@ export async function POST(request: Request) {
 
     const uploadedFiles = await Promise.all(
       files.map(async (file, index): Promise<UploadedAuditFile> => {
+        const fileStartedAt = Date.now();
+        console.log(`[audit] extraindo texto: ${file.name} (${file.size} bytes)`);
         const buffer = Buffer.from(await file.arrayBuffer());
         const extracted = await extractPdfText(buffer);
+        console.log(
+          `[audit] texto extraido: ${file.name}, ${extracted.pageCount} paginas, ${extracted.charCount} caracteres em ${Math.round((Date.now() - fileStartedAt) / 1000)}s`,
+        );
 
         if (extracted.charCount < MIN_TEXT_CHARS_FOR_DEEP_AUDIT) {
           throw new Error(`O arquivo "${file.name}" nao possui texto suficiente para auditoria profunda.`);
@@ -405,6 +492,9 @@ export async function POST(request: Request) {
     }
 
     const findings = dedupeFindings(allFindings);
+    console.log(
+      `[audit] requisicao concluida em ${Math.round((Date.now() - requestStartedAt) / 1000)}s com ${findings.length} achado(s)`,
+    );
     const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 20000)).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
     const hasHigh = findings.some((finding) => finding.prioridade === "Alta" || finding.prioridade === "Media/Alta");
