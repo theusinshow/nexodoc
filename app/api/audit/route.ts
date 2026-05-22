@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
 import {
   makeTextReport,
+  buildExecutiveSummary,
+  classifyFindingImpact,
   normalizeConfidence,
   normalizePriority,
   sortAuditFindings,
@@ -503,7 +505,11 @@ export async function POST(request: Request) {
     );
     const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 20000)).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
+    const hasCriticalDocumental = findings.some(
+      (finding) => classifyFindingImpact(finding) === "critico_documental",
+    );
     const hasHigh = findings.some((finding) => finding.prioridade === "Alta" || finding.prioridade === "Media/Alta");
+    const executiveSummary = buildExecutiveSummary(findings);
     const report: AuditReport = {
       arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
       tipo_auditoria: auditMode,
@@ -516,7 +522,9 @@ export async function POST(request: Request) {
       status_geral:
         findings.length === 0
           ? "sem incongruencia relevante"
-          : hasHigh
+          : hasCriticalDocumental
+            ? "revisao obrigatoria antes de emissao"
+            : hasHigh
             ? "com incongruencia relevante"
             : "com ponto de atencao",
       total_incongruencias: findings.length,
@@ -535,7 +543,7 @@ export async function POST(request: Request) {
       conclusao:
         findings.length === 0
           ? "nenhuma incongruencia relevante encontrada dentro da auditoria profunda executada"
-          : `documento com ${findings.length} incongruencia(s) ou ponto(s) de atencao para revisao antes da emissao`,
+          : executiveSummary,
     };
     const result = makeTextReport(report);
 

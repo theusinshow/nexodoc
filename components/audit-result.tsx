@@ -17,7 +17,14 @@ import { useState } from "react";
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { AuditFinding, AuditReport } from "@/lib/audit-report";
+import {
+  classifyFindingImpact,
+  getImpactLabel,
+  groupFindingsByImpact,
+  type AuditFinding,
+  type AuditReport,
+  type FindingImpact,
+} from "@/lib/audit-report";
 import { cn } from "@/lib/utils";
 
 type AuditResultProps = {
@@ -48,6 +55,7 @@ type StructuredFinding = {
   acao?: string;
   categoria?: string;
   referencia?: string;
+  impacto?: FindingImpact;
   raw: string;
 };
 
@@ -334,6 +342,7 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     acao: finding.sugestao_correcao,
     categoria: finding.capitulo,
     referencia: finding.descricao,
+    impacto: finding.impacto ?? classifyFindingImpact(finding),
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
@@ -343,6 +352,7 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
       `Evidencia: ${finding.evidencia}`,
       `Conflito: ${finding.conflito}`,
       `Acao recomendada: ${finding.sugestao_correcao}`,
+      `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
       `Confianca: ${finding.confianca}`,
     ].join("\n"),
   };
@@ -377,6 +387,14 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
   const findings = report
     ? report.incongruencias.map(reportFindingToStructured)
     : splitFindings(parsed.findings);
+  const groupedReportFindings = report
+    ? groupFindingsByImpact(report.incongruencias)
+    : null;
+  const groupedStructuredFindings = {
+    critico_documental: findings.filter((finding) => finding.impacto === "critico_documental" || (!finding.impacto && finding.severity === "critical")),
+    tecnico_contratual: findings.filter((finding) => finding.impacto === "tecnico_contratual"),
+    revisao_editorial: findings.filter((finding) => finding.impacto === "revisao_editorial" || (!finding.impacto && finding.severity !== "critical")),
+  };
   const findingsText = buildFindingsText(findings);
   const actionsText = buildActionsText(findings);
   const projectFields = report
@@ -389,7 +407,9 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
         { label: "Total de achados", value: String(report.total_incongruencias) },
       ]
     : parseProjectFields(parsed.project);
-  const criticalCount = findings.filter((finding) => finding.severity === "critical").length;
+  const criticalCount = groupedReportFindings
+    ? groupedReportFindings.critico_documental.length
+    : findings.filter((finding) => finding.severity === "critical").length;
   const warningCount = findings.filter((finding) => finding.severity === "warning").length;
 
   async function copyText(value: string) {
@@ -555,85 +575,119 @@ export function AuditResult({ content, elapsedMs, report }: AuditResultProps) {
         {view === "findings" ? (
           <SectionCard title="Achados e ações recomendadas" icon={MapPin}>
             {findings.length > 0 ? (
-              <ul className="space-y-3">
-                {findings.map((finding, index) => (
-                  <li
-                    key={`${finding.raw}-${index}`}
-                    className="rounded-none border bg-background p-4"
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <Search className="mt-0.5 size-4 shrink-0 text-primary" />
-                          <p className="font-medium text-foreground">
-                            {index + 1}. {finding.title}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "w-fit shrink-0 border px-2 py-1 text-xs font-medium",
-                            getSeverityClass(finding.severity),
-                          )}
-                        >
-                          {getSeverityLabel(finding.severity)}
-                        </span>
-                      </div>
-
-                      <div className="grid gap-2 text-xs sm:grid-cols-3">
-                        <p>
-                          <span className="font-medium text-foreground">Documento:</span>{" "}
-                          {finding.documento || "não informado"}
-                        </p>
-                        <p>
-                          <span className="font-medium text-foreground">Página:</span>{" "}
-                          {finding.pagina || "não identificada"}
-                        </p>
-                        <p>
-                          <span className="font-medium text-foreground">Local:</span>{" "}
-                          {finding.local || "não informado"}
+              <div className="space-y-5">
+                {[
+                  {
+                    title: "Críticos documentais",
+                    description: "Identidade, localização, proprietário, município, obra ou trecho reaproveitado.",
+                    items: groupedStructuredFindings.critico_documental,
+                  },
+                  {
+                    title: "Pontos técnicos/contratuais",
+                    description: "Hierarquia, norma, cálculo, referência municipal ou compatibilização técnica.",
+                    items: groupedStructuredFindings.tecnico_contratual,
+                  },
+                  {
+                    title: "Revisões editoriais",
+                    description: "Redação, nomenclatura, formatação e padronização.",
+                    items: groupedStructuredFindings.revisao_editorial,
+                  },
+                ].map((group) =>
+                  group.items.length > 0 ? (
+                    <section key={group.title} className="space-y-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {group.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          {group.description}
                         </p>
                       </div>
-                      {(finding.categoria || finding.referencia) ? (
-                        <div className="grid gap-2 text-xs sm:grid-cols-2">
-                          {finding.categoria ? (
-                            <p>
-                              <span className="font-medium text-foreground">Categoria:</span>{" "}
-                              {finding.categoria}
-                            </p>
-                          ) : null}
-                          {finding.referencia ? (
-                            <p>
-                              <span className="font-medium text-foreground">
-                                Referência comparada:
-                              </span>{" "}
-                              {finding.referencia}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
+                      <ul className="space-y-3">
+                        {group.items.map((finding, index) => (
+                          <li
+                            key={`${finding.raw}-${group.title}-${index}`}
+                            className="rounded-none border bg-background p-4"
+                          >
+                            <div className="flex flex-col gap-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex min-w-0 items-start gap-2">
+                                  <Search className="mt-0.5 size-4 shrink-0 text-primary" />
+                                  <p className="font-medium text-foreground">
+                                    {index + 1}. {finding.title}
+                                  </p>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "w-fit shrink-0 border px-2 py-1 text-xs font-medium",
+                                    getSeverityClass(finding.severity),
+                                  )}
+                                >
+                                  {finding.impacto
+                                    ? getImpactLabel(finding.impacto)
+                                    : getSeverityLabel(finding.severity)}
+                                </span>
+                              </div>
 
-                      {finding.evidencia ? (
-                        <p className="border-l-2 border-primary pl-3 text-xs">
-                          <span className="font-medium text-foreground">Evidência:</span>{" "}
-                          {finding.evidencia}
-                        </p>
-                      ) : null}
-                      {finding.conflito ? (
-                        <p className="text-xs">
-                          <span className="font-medium text-foreground">Conflito:</span>{" "}
-                          {finding.conflito}
-                        </p>
-                      ) : null}
-                      {finding.acao ? (
-                        <p className="border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning)]">
-                          <Wrench className="mr-1 inline size-3" />
-                          {finding.acao}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                              <div className="grid gap-2 text-xs sm:grid-cols-3">
+                                <p>
+                                  <span className="font-medium text-foreground">Documento:</span>{" "}
+                                  {finding.documento || "não informado"}
+                                </p>
+                                <p>
+                                  <span className="font-medium text-foreground">Página:</span>{" "}
+                                  {finding.pagina || "não identificada"}
+                                </p>
+                                <p>
+                                  <span className="font-medium text-foreground">Local:</span>{" "}
+                                  {finding.local || "não informado"}
+                                </p>
+                              </div>
+                              {(finding.categoria || finding.referencia) ? (
+                                <div className="grid gap-2 text-xs sm:grid-cols-2">
+                                  {finding.categoria ? (
+                                    <p>
+                                      <span className="font-medium text-foreground">Categoria:</span>{" "}
+                                      {finding.categoria}
+                                    </p>
+                                  ) : null}
+                                  {finding.referencia ? (
+                                    <p>
+                                      <span className="font-medium text-foreground">
+                                        Referência comparada:
+                                      </span>{" "}
+                                      {finding.referencia}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              {finding.evidencia ? (
+                                <p className="border-l-2 border-primary pl-3 text-xs">
+                                  <span className="font-medium text-foreground">Evidência:</span>{" "}
+                                  {finding.evidencia}
+                                </p>
+                              ) : null}
+                              {finding.conflito ? (
+                                <p className="text-xs">
+                                  <span className="font-medium text-foreground">Conflito:</span>{" "}
+                                  {finding.conflito}
+                                </p>
+                              ) : null}
+                              {finding.acao ? (
+                                <p className="border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning)]">
+                                  <Wrench className="mr-1 inline size-3" />
+                                  {finding.acao}
+                                </p>
+                              ) : null}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null,
+                )}
+              </div>
             ) : (
               <p>Nenhuma incongruência relevante encontrada.</p>
             )}
