@@ -1,9 +1,19 @@
 "use client";
 
-import { AlertTriangle, Clock3, FileText, KeyRound, ListChecks, RefreshCcw } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  Clock3,
+  FileText,
+  KeyRound,
+  ListChecks,
+  RefreshCcw,
+  Search,
+  UserRound,
+} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type AuditListItem = {
   id: string;
@@ -57,10 +67,26 @@ function formatDuration(ms: number | null) {
   return `${Math.max(1, Math.round(ms / 1000))}s`;
 }
 
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+
 function isErrorPayload(
   payload: AuditsResponse | { error?: string },
 ): payload is { error?: string } {
   return "error" in payload;
+}
+
+function getStatusClass(status: string) {
+  if (status === "COMPLETED") {
+    return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
+  }
+
+  if (status === "FAILED" || status === "CANCELED") {
+    return "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]";
+  }
+
+  return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
 }
 
 export default function AdminAuditsPage() {
@@ -68,7 +94,21 @@ export default function AdminAuditsPage() {
   const [audits, setAudits] = useState<AuditListItem[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [mode, setMode] = useState("all");
+  const [userFilter, setUserFilter] = useState("");
   const apiUrl = getApiUrl();
+  const totals = useMemo(() => {
+    return audits.reduce(
+      (acc, audit) => ({
+        files: acc.files + audit.files.length,
+        findings: acc.findings + audit.totalFindings,
+        completed: acc.completed + (audit.status === "COMPLETED" ? 1 : 0),
+      }),
+      { files: 0, findings: 0, completed: 0 },
+    );
+  }, [audits]);
 
   async function loadAudits(nextToken = token) {
     const trimmedToken = nextToken.trim();
@@ -82,7 +122,27 @@ export default function AdminAuditsPage() {
     setError("");
 
     try {
-      const response = await fetch(`${apiUrl}/api/admin/audits?limit=50`, {
+      const params = new URLSearchParams({
+        limit: "100",
+      });
+
+      if (query.trim()) {
+        params.set("q", query.trim());
+      }
+
+      if (status !== "all") {
+        params.set("status", status);
+      }
+
+      if (mode !== "all") {
+        params.set("mode", mode);
+      }
+
+      if (userFilter.trim()) {
+        params.set("user", userFilter.trim());
+      }
+
+      const response = await fetch(`${apiUrl}/api/admin/audits?${params}`, {
         headers: {
           Authorization: `Bearer ${trimmedToken}`,
         },
@@ -130,24 +190,24 @@ export default function AdminAuditsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5">
-        <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="min-h-screen bg-background px-5 py-5 text-foreground">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-4">
+        <header className="flex items-end justify-between gap-4 border-b pb-4">
           <div>
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-primary">
               <ListChecks className="size-4" />
               Admin
             </div>
             <h1 className="mt-2 text-2xl font-semibold">Histórico de auditorias</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Auditorias persistidas no banco. Quando usuarios forem vinculados,
-              esta lista passa a mostrar o responsavel por cada análise.
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+              Visão desktop para acompanhar auditorias persistidas, filtrar por
+              projeto, status, modo e responsável.
             </p>
           </div>
 
           <form
             onSubmit={handleSubmit}
-            className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 md:w-[420px]"
+            className="flex w-[460px] flex-col gap-2 rounded-lg border bg-card/80 p-3"
           >
             <label className="text-xs font-medium text-muted-foreground">
               Token admin
@@ -178,52 +238,135 @@ export default function AdminAuditsPage() {
           </div>
         ) : null}
 
-        <section className="grid gap-3">
-          {audits.length > 0 ? (
-            audits.map((audit) => (
-              <article key={audit.id} className="rounded-lg border bg-card p-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-semibold">{audit.title}</h2>
-                      <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 text-xs text-muted-foreground">
+        <section className="grid grid-cols-4 gap-3">
+          <div className="rounded-lg border bg-card/80 p-3">
+            <p className="text-xs text-muted-foreground">Auditorias</p>
+            <p className="mt-1 text-2xl font-semibold">{formatNumber(audits.length)}</p>
+          </div>
+          <div className="rounded-lg border bg-card/80 p-3">
+            <p className="text-xs text-muted-foreground">Concluídas</p>
+            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.completed)}</p>
+          </div>
+          <div className="rounded-lg border bg-card/80 p-3">
+            <p className="text-xs text-muted-foreground">PDFs</p>
+            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.files)}</p>
+          </div>
+          <div className="rounded-lg border bg-card/80 p-3">
+            <p className="text-xs text-muted-foreground">Achados</p>
+            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.findings)}</p>
+          </div>
+        </section>
+
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-[1fr_170px_170px_220px_auto] gap-2 rounded-lg border bg-card/80 p-3"
+        >
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+              placeholder="Buscar projeto, título ou arquivo"
+            />
+          </div>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="h-9 rounded-md border bg-[var(--nexodoc-recessed)] px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          >
+            <option value="all">Todos status</option>
+            <option value="COMPLETED">Concluídas</option>
+            <option value="PROCESSING">Processando</option>
+            <option value="FAILED">Falhas</option>
+            <option value="CANCELED">Canceladas</option>
+          </select>
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value)}
+            className="h-9 rounded-md border bg-[var(--nexodoc-recessed)] px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          >
+            <option value="all">Todos modos</option>
+            <option value="memorial">Memorial</option>
+            <option value="volume">Volume</option>
+          </select>
+          <div className="relative">
+            <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={userFilter}
+              onChange={(event) => setUserFilter(event.target.value)}
+              className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+              placeholder="Usuário"
+            />
+          </div>
+          <Button type="submit" disabled={isLoading}>
+            <RefreshCcw />
+            Filtrar
+          </Button>
+        </form>
+
+        <section className="overflow-hidden rounded-lg border bg-card/80">
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-[var(--nexodoc-recessed)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3 font-medium">Auditoria</th>
+                <th className="px-3 py-3 font-medium">Projeto</th>
+                <th className="px-3 py-3 font-medium">Status</th>
+                <th className="px-3 py-3 font-medium">Modo</th>
+                <th className="px-3 py-3 text-right font-medium">PDFs</th>
+                <th className="px-3 py-3 text-right font-medium">Achados</th>
+                <th className="px-3 py-3 text-right font-medium">Tempo</th>
+                <th className="px-3 py-3 font-medium">Usuário</th>
+                <th className="px-3 py-3 font-medium">Criada em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audits.length > 0 ? (
+                audits.map((audit) => (
+                  <tr key={audit.id} className="border-t align-top hover:bg-muted/30">
+                    <td className="max-w-[280px] px-3 py-3">
+                      <p className="truncate font-medium text-foreground">{audit.title}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {audit.files.map((file) => file.fileName).join(", ") || "-"}
+                      </p>
+                    </td>
+                    <td className="max-w-[220px] px-3 py-3">
+                      <p className="truncate">{audit.projectName}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex rounded-md border px-2 py-1 text-xs font-medium",
+                          getStatusClass(audit.status),
+                        )}
+                      >
                         {audit.status}
                       </span>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {audit.projectName} · {audit.auditMode}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs md:w-[340px]">
-                    <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-2">
-                      <FileText className="mb-1 size-4 text-primary" />
-                      {audit.files.length} PDF(s)
-                    </div>
-                    <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-2">
-                      <ListChecks className="mb-1 size-4 text-primary" />
-                      {audit.totalFindings} achado(s)
-                    </div>
-                    <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-2">
-                      <Clock3 className="mb-1 size-4 text-primary" />
-                      {formatDuration(audit.elapsedMs)}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-2 border-t pt-3 text-xs text-muted-foreground md:grid-cols-3">
-                  <p>Criada em {formatDate(audit.createdAt)}</p>
-                  <p>Usuario: {audit.user?.email ?? "nao vinculado"}</p>
-                  <p>
-                    Arquivos:{" "}
-                    {audit.files.map((file) => file.fileName).join(", ") || "-"}
-                  </p>
-                </div>
-              </article>
-            ))
-          ) : (
-            <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-              Nenhuma auditoria persistida ainda.
-            </div>
-          )}
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground">{audit.auditMode}</td>
+                    <td className="px-3 py-3 text-right">{audit.files.length}</td>
+                    <td className="px-3 py-3 text-right">{audit.totalFindings}</td>
+                    <td className="px-3 py-3 text-right">{formatDuration(audit.elapsedMs)}</td>
+                    <td className="max-w-[220px] px-3 py-3">
+                      <p className="truncate">{audit.user?.email ?? "não vinculado"}</p>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
+                      {formatDate(audit.createdAt)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    className="px-3 py-10 text-center text-muted-foreground"
+                    colSpan={9}
+                  >
+                    Nenhuma auditoria encontrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </section>
       </div>
     </main>

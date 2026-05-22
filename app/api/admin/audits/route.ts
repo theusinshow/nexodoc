@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 
 import { isDatabaseConfigured, prisma } from "@/lib/db";
 
@@ -62,6 +63,49 @@ function getLimit(request: Request) {
   return Math.min(100, Math.max(1, Math.floor(limit)));
 }
 
+function getFilters(request: Request) {
+  const url = new URL(request.url);
+  const query = url.searchParams.get("q")?.trim();
+  const status = url.searchParams.get("status")?.trim();
+  const auditMode = url.searchParams.get("mode")?.trim();
+  const user = url.searchParams.get("user")?.trim();
+  const where: Prisma.AuditWhereInput = {};
+
+  if (query) {
+    where.OR = [
+      { title: { contains: query, mode: "insensitive" } },
+      { projectName: { contains: query, mode: "insensitive" } },
+      { description: { contains: query, mode: "insensitive" } },
+      {
+        files: {
+          some: {
+            fileName: { contains: query, mode: "insensitive" },
+          },
+        },
+      },
+    ];
+  }
+
+  if (status && status !== "all") {
+    where.status = status as Prisma.EnumAuditStatusFilter["equals"];
+  }
+
+  if (auditMode && auditMode !== "all") {
+    where.auditMode = auditMode;
+  }
+
+  if (user) {
+    where.user = {
+      OR: [
+        { name: { contains: user, mode: "insensitive" } },
+        { email: { contains: user, mode: "insensitive" } },
+      ],
+    };
+  }
+
+  return where;
+}
+
 export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
@@ -83,6 +127,7 @@ export async function GET(request: Request) {
 
   const audits = await prisma.audit.findMany({
     take: getLimit(request),
+    where: getFilters(request),
     orderBy: {
       createdAt: "desc",
     },
