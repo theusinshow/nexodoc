@@ -44,12 +44,12 @@ export function Composer({
   );
 
   return (
-    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-3">
+    <div className="border-t bg-[var(--nexodoc-panel)]/95 p-3 shadow-[0_-18px_45px_rgb(0_0_0_/_0.18)]">
       <div className="mx-auto flex max-w-4xl flex-col gap-2">
-        <div className="border bg-card p-2">
+        <div className="rounded-lg border bg-card/95 p-2 shadow-[var(--shadow-panel)]">
           <div className="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-              <span className="border bg-muted px-2 py-1 font-medium text-foreground">
+              <span className="rounded-md border bg-muted px-2 py-1 font-semibold text-foreground">
                 {getAuditModeLabel(auditMode)}
               </span>
               {suggestions.slice(0, 2).map((suggestion) => (
@@ -64,7 +64,7 @@ export function Composer({
                       onAuditModeChange(suggestion.auditMode);
                     }
                   }}
-                  className="inline-flex items-center gap-1 border bg-background px-2 py-1 text-muted-foreground transition-colors hover:border-ring hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 text-muted-foreground transition-colors hover:border-ring hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Lightbulb className="size-3" />
                   {suggestion.title}
@@ -92,7 +92,7 @@ export function Composer({
                   ? "Solicitacao objetiva da auditoria"
                   : "Preencha a identificacao da auditoria para liberar o envio"
               }
-              className="max-h-20 min-h-12 resize-none rounded-none border bg-background py-2 text-sm shadow-none focus-visible:ring-2"
+              className="max-h-20 min-h-12 resize-none py-2 text-sm shadow-none focus-visible:ring-2"
               disabled={isLoading || !setupComplete}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {

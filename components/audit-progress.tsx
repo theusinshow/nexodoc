@@ -41,9 +41,9 @@ export function AuditProgress({
   onCancel,
 }: AuditProgressProps) {
   return (
-    <section className="w-full max-w-[min(720px,100%)] border bg-card px-4 py-4 text-sm shadow-xl shadow-black/20">
+    <section className="w-full max-w-[min(720px,100%)] rounded-lg border bg-card/95 px-4 py-4 text-sm shadow-[var(--shadow-panel)]">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center bg-accent text-accent-foreground">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/15 text-primary">
           <Loader2 className="size-5 animate-spin" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
@@ -58,7 +58,7 @@ export function AuditProgress({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="border bg-background px-2 py-1 text-xs text-muted-foreground">
+              <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 text-xs text-muted-foreground">
                 {formatElapsed(elapsedMs)}
               </span>
               <Button
@@ -73,7 +73,7 @@ export function AuditProgress({
             </div>
           </div>
 
-          <div className="h-2 overflow-hidden bg-muted">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div className="audit-progress-bar h-full w-1/2 bg-primary" />
           </div>
 

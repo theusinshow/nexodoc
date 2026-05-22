@@ -44,7 +44,7 @@ export function FileUpload({
         value={documentType}
         onChange={(event) => setDocumentType(event.target.value as DocumentType)}
         disabled={disabled}
-        className="h-8 border bg-background px-2 text-xs text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+        className="h-8 rounded-md border border-input bg-[var(--nexodoc-recessed)] px-2 text-xs text-foreground outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
       >
         {DOCUMENT_TYPES.map((type) => (
           <option key={type} value={type}>

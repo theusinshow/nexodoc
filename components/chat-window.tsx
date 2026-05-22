@@ -222,6 +222,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     : statusIsOk
       ? "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
       : "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
+  const fieldClass =
+    "h-8 rounded-md border border-input bg-[var(--nexodoc-recessed)] px-2 text-xs text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -489,43 +491,43 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
   function renderAuditContext() {
     return (
-      <section className="border bg-card p-2">
+      <section className="rounded-lg border bg-card/95 p-2 shadow-[var(--shadow-panel)]">
         <div className="grid gap-2 2xl:grid-cols-[1fr_auto] 2xl:items-end">
           <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.2fr]">
             <label className="grid gap-1 text-xs">
-              <span className="text-muted-foreground">Identificacao</span>
+              <span className="font-medium text-muted-foreground">Identificacao</span>
               <input
                 value={auditTitle}
                 onChange={(event) => setAuditTitle(event.target.value)}
                 placeholder="Opcional"
                 disabled={isLoading}
-                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+                className={fieldClass}
               />
             </label>
             <label className="grid gap-1 text-xs">
-              <span className="text-muted-foreground">Projeto</span>
+              <span className="font-medium text-muted-foreground">Projeto</span>
               <input
                 value={projectName}
                 onChange={(event) => setProjectName(event.target.value)}
                 placeholder="Nome do projeto"
                 disabled={isLoading}
-                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+                className={fieldClass}
               />
             </label>
             <label className="grid gap-1 text-xs">
-              <span className="text-muted-foreground">Descricao</span>
+              <span className="font-medium text-muted-foreground">Descricao</span>
               <input
                 value={auditDescription}
                 onChange={(event) => setAuditDescription(event.target.value)}
                 placeholder="Opcional"
                 disabled={isLoading}
-                className="h-8 border bg-background px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+                className={fieldClass}
               />
             </label>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[1fr_auto] 2xl:min-w-[420px]">
-            <div className="grid grid-cols-2 border bg-background p-0.5 text-xs">
+            <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-0.5 text-xs">
               {(["memorial", "volume"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -534,8 +536,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                   onClick={() => handleAuditModeChange(mode)}
                   className={
                     auditMode === mode
-                      ? "border border-ring bg-muted px-2 py-2 text-foreground"
-                      : "border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                      ? "rounded border border-ring/60 bg-muted px-2 py-2 font-semibold text-foreground"
+                      : "rounded border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   }
                   title={getAuditModeDescription(mode)}
                 >
@@ -561,7 +563,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function renderEmptyChat() {
     return (
       <section className="grid min-h-[120px] flex-1 place-items-center">
-        <div className="max-w-xl border bg-card px-4 py-3 text-center">
+        <div className="max-w-xl rounded-lg border bg-card/90 px-5 py-4 text-center shadow-[var(--shadow-panel)]">
           <FileSearch className="mx-auto mb-2 size-5 text-primary" />
           <h2 className="text-base font-semibold">Chat de auditoria documental</h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -576,7 +578,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
       <aside className="hidden h-screen w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-4 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
+          <div className="flex size-9 items-center justify-center rounded-md border border-primary/35 bg-primary/15 text-primary">
             <FileSearch className="size-5" />
           </div>
           <div>
@@ -586,7 +588,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
 
         {isMockMode ? (
-          <div className="mt-4 border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning)]">
+          <div className="mt-4 rounded-md border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning)]">
             Mock ativo
           </div>
         ) : null}
@@ -601,7 +603,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           Nova auditoria
         </Button>
 
-        <div className="mt-5 border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Files className="size-4 text-primary" />
             Atual
@@ -613,7 +615,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto border bg-[var(--nexodoc-surface)] p-3">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)] p-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
             Historico
@@ -627,7 +629,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full border bg-card px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted"
+                  className="w-full rounded-md border bg-card px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted"
                 >
                   <span className="block truncate font-medium text-foreground">
                     {item.title}
@@ -688,7 +690,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             ) : null}
 
             {error ? (
-              <div className="border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
@@ -717,7 +719,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <p className="text-xs uppercase text-muted-foreground">Painel</p>
             <h2 className="mt-1 text-base font-semibold">Inspecao</h2>
           </div>
-          <div className={`border px-2 py-1 text-xs font-medium ${statusToneClass}`}>
+          <div className={`rounded-md border px-2 py-1 text-xs font-medium ${statusToneClass}`}>
             {statusIsCritical ? (
               <AlertTriangle className="mr-1 inline size-3" />
             ) : (
@@ -728,31 +730,31 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 py-4">
-          <div className="border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <BarChart3 className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Tipo</p>
             <p className="mt-1 text-sm font-medium">{getAuditModeLabel(auditMode)}</p>
           </div>
-          <div className="border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <Clock3 className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Tempo</p>
             <p className="mt-1 text-sm font-medium">
               {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
             </p>
           </div>
-          <div className="border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <Files className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">PDFs</p>
             <p className="mt-1 text-sm font-medium">{displayedFileCount || "-"}</p>
           </div>
-          <div className="border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <ListChecks className="mb-2 size-4 text-primary" />
             <p className="text-xs text-muted-foreground">Achados</p>
             <p className="mt-1 text-sm font-medium">{latestFindingCount}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 border bg-card p-1 text-xs">
+        <div className="grid grid-cols-3 rounded-lg border bg-card p-1 text-xs">
           {[
             { value: "summary" as const, label: "Resumo" },
             { value: "findings" as const, label: "Achados" },
@@ -765,7 +767,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               className={
                 inspectorTab === tab.value
                   ? "border border-ring bg-background px-2 py-2 text-foreground"
-                  : "border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                  : "border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               }
             >
               {tab.label}
@@ -773,7 +775,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           ))}
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto border bg-card p-4 text-sm leading-6">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-card p-4 text-sm leading-6">
           {inspectorTab === "summary" ? (
             <div className="space-y-4">
               <section>

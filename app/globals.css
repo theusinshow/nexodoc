@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -28,36 +28,40 @@
 }
 
 :root {
-  --radius: 0px;
-  --background: #151618;
-  --foreground: #f3f4f6;
-  --card: #202226;
-  --card-foreground: #f3f4f6;
-  --popover: #202226;
-  --popover-foreground: #f3f4f6;
-  --primary: #3f6fb5;
+  --radius: 6px;
+  --background: #111315;
+  --foreground: #f2f4f7;
+  --card: #1b1f23;
+  --card-foreground: #f2f4f7;
+  --popover: #1b1f23;
+  --popover-foreground: #f2f4f7;
+  --primary: #4f8fd8;
   --primary-foreground: #ffffff;
-  --secondary: #2a2d32;
-  --secondary-foreground: #eef0f3;
-  --muted: #2a2d32;
-  --muted-foreground: #b7bdc7;
-  --accent: #30353c;
+  --secondary: #252a30;
+  --secondary-foreground: #f0f3f6;
+  --muted: #252a30;
+  --muted-foreground: #aab3bf;
+  --accent: #2e3740;
   --accent-foreground: #ffffff;
-  --destructive: #ef6b73;
-  --border: #383d45;
-  --input: #464c55;
-  --ring: #6ea2e8;
-  --nexodoc-surface: #202226;
-  --nexodoc-panel: #1b1d21;
-  --nexodoc-panel-foreground: #eef0f3;
-  --nexodoc-accent: #3f6fb5;
+  --destructive: #ff6f7d;
+  --border: #303842;
+  --input: #3b4652;
+  --ring: #6da8f2;
+  --nexodoc-surface: #191d21;
+  --nexodoc-panel: #15181c;
+  --nexodoc-panel-foreground: #eef2f6;
+  --nexodoc-accent: #4f8fd8;
   --nexodoc-accent-foreground: #ffffff;
-  --status-ok: #75d69c;
-  --status-ok-bg: #102418;
-  --status-warning: #f2c96d;
-  --status-warning-bg: #2a220f;
-  --status-critical: #ff7a84;
-  --status-critical-bg: #2b1218;
+  --nexodoc-raised: #20262c;
+  --nexodoc-recessed: #0e1012;
+  --nexodoc-grid: #242b33;
+  --status-ok: #6fd69a;
+  --status-ok-bg: #0f2518;
+  --status-warning: #f3c969;
+  --status-warning-bg: #2b230f;
+  --status-critical: #ff7481;
+  --status-critical-bg: #301217;
+  --shadow-panel: 0 18px 50px rgb(0 0 0 / 0.22);
 }
 
 * {
@@ -70,8 +74,27 @@ html {
 
 body {
   min-height: 100vh;
-  background: var(--background);
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.014) 1px, transparent 1px),
+    var(--background);
+  background-size: 32px 32px;
   color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "tnum";
+  text-rendering: geometricPrecision;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
 }
 
 ::selection {

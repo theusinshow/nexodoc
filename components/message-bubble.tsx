@@ -12,9 +12,9 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
       <article
         className={cn(
-          "max-w-[min(760px,100%)] rounded-none border px-4 py-3 text-sm leading-6",
+          "max-w-[min(760px,100%)] rounded-lg border px-4 py-3 text-sm leading-6 shadow-[var(--shadow-panel)]",
           isUser
-            ? "border-primary bg-primary text-primary-foreground"
+            ? "border-primary/40 bg-primary text-primary-foreground"
             : "border-border bg-card text-card-foreground",
         )}
       >
