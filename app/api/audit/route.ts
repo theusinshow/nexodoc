@@ -438,8 +438,16 @@ const IDENTITY_CONTEXT_PATTERN =
 
 const IDENTITY_CANDIDATE_PATTERNS: Array<{ field: string; pattern: RegExp }> = [
   {
+    field: "identidade em cabecalho",
+    pattern: /[–-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,120})\s+[–-]\s*PROJETO\s+EXECUTIVO/gi,
+  },
+  {
     field: "campo identificado",
     pattern: /\b(obra|identifica[cç][aã]o|nome|projeto|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|cliente|[oó]rg[aã]o)\s*:\s*([^.;\n]{4,180})/gi,
+  },
+  {
+    field: "entidade nomeada",
+    pattern: /\b((?:Centro|Cidade|UBS|Unidade|Escola|Creche|Gin[aá]sio|Reforma)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][^,.;\n]{2,110})/g,
   },
   {
     field: "finalidade/obra citada",
@@ -450,6 +458,16 @@ const IDENTITY_CANDIDATE_PATTERNS: Array<{ field: string; pattern: RegExp }> = [
     pattern: /\b(?:reforma|adequa[cç][aã]o|reforma\s+e\s+adequa[cç][aã]o)\s*(?:[-–]\s*)?([^.;\n]{4,140})/gi,
   },
 ];
+
+type IdentityCandidate = {
+  field: string;
+  value: string;
+  pages: number[];
+  count: number;
+  evidence: string;
+  firstPage: number;
+  key: string;
+};
 
 function getContextSnippet(text: string, index: number, radius = 320) {
   return text
@@ -472,23 +490,38 @@ function cleanIdentityCandidate(value: string) {
   return value
     .replace(/\s+/g, " ")
     .replace(/^(?:para\s+a|para\s+o|da|do|de)\s+/i, "")
-    .replace(/\s+(?:localizado|localizada|sito|situado|situada|no munic[ií]pio|em crici[uú]ma)\b.*$/i, "")
+    .replace(/\s+(?:é|possui|volume|projeto executivo|localizado|localizada|sito|situado|situada|no munic[ií]pio|em crici[uú]ma|endereço|endere[cç]o|propriet[aá]rio|[aá]rea)\b.*$/i, "")
     .replace(/\s*[,;:.-]+$/g, "")
     .trim();
 }
 
-function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
-  const groups = new Map<
-    string,
-    {
-      field: string;
-      value: string;
-      pages: number[];
-      count: number;
-      evidence: string;
-      firstPage: number;
-    }
-  >();
+function isLikelyProjectIdentity(value: string) {
+  const normalized = normalizeLoose(value);
+
+  if (normalized.length < 8) {
+    return false;
+  }
+
+  if (
+    /\b(procedimento|norma|paver|chapisco|estrutura|contentor|contentores|litros|publico em|acessibilidade|declividade|carga|pavimento|projeto executivo|prefeitura municipal)\b/i.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+
+  return /\b(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(normalized);
+}
+
+function identityComparisonKey(value: string) {
+  return normalizeLoose(value)
+    .replace(/\b(de|do|da|dos|das)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getIdentityCandidates(extracted: ExtractedPdf) {
+  const groups = new Map<string, IdentityCandidate>();
 
   for (const page of extracted.pages) {
     for (const { field, pattern } of IDENTITY_CANDIDATE_PATTERNS) {
@@ -522,6 +555,7 @@ function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
           count: 1,
           evidence: getContextSnippet(page.text, match.index ?? 0, 220),
           firstPage: page.page,
+          key,
         });
       }
     }
@@ -537,7 +571,11 @@ function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
 
       return left.firstPage - right.firstPage;
     })
-    .slice(0, 120)
+    .slice(0, 160);
+}
+
+function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
+  return getIdentityCandidates(extracted)
     .map((item) => {
       return [
         `Campo: ${item.field}`,
@@ -548,6 +586,66 @@ function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
       ].join("\n");
     })
     .join("\n\n");
+}
+
+function areSameIdentity(left: IdentityCandidate, right: IdentityCandidate) {
+  const leftKey = identityComparisonKey(left.value);
+  const rightKey = identityComparisonKey(right.value);
+
+  return leftKey === rightKey || leftKey.includes(rightKey) || rightKey.includes(leftKey);
+}
+
+function getDominantIdentityCandidate(candidates: IdentityCandidate[]) {
+  const viable = candidates.filter((candidate) => isLikelyProjectIdentity(candidate.value));
+
+  return viable
+    .map((candidate) => {
+      const earlyBonus = candidate.firstPage <= 3 ? 10 : candidate.firstPage <= 15 ? 4 : 0;
+      const headerBonus = candidate.field === "identidade em cabecalho" ? 12 : 0;
+      const labelBonus = candidate.field === "campo identificado" ? 4 : 0;
+
+      return {
+        candidate,
+        score: candidate.count * 3 + earlyBonus + headerBonus + labelBonus,
+      };
+    })
+    .sort((left, right) => right.score - left.score)[0]?.candidate ?? null;
+}
+
+function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const candidates = getIdentityCandidates(extracted);
+  const dominant = getDominantIdentityCandidate(candidates);
+
+  if (!dominant) {
+    return [];
+  }
+
+  const divergentCandidates = candidates
+    .filter((candidate) => isLikelyProjectIdentity(candidate.value))
+    .filter((candidate) => !areSameIdentity(candidate, dominant))
+    .filter((candidate) => candidate.firstPage > dominant.firstPage || candidate.count < dominant.count)
+    .sort((left, right) => left.firstPage - right.firstPage)
+    .slice(0, 5);
+
+  return divergentCandidates.map((candidate, index) => ({
+    id: `ID-${String(index + 1).padStart(3, "0")}`,
+    arquivo: fileName,
+    origem: "regra",
+    prioridade: "Alta",
+    pagina: candidate.pages.join(", "),
+    capitulo: "Identidade documental",
+    local: candidate.field,
+    tipo: "Possível trecho reaproveitado de outro projeto",
+    descricao: `O documento tem identidade predominante "${dominant.value}", mas também cita "${candidate.value}".`,
+    evidencia: candidate.evidence,
+    termo_busca: candidate.value.slice(0, 160),
+    categoria: "Identidade documental",
+    referencia_comparada: `Identidade predominante inferida: ${dominant.value} (páginas ${dominant.pages.join(", ")})`,
+    conflito: `"${candidate.value}" não corresponde à identidade predominante "${dominant.value}".`,
+    sugestao_correcao: "Confirmar a obra correta e revisar o trecho indicado para remover referência residual de outro projeto.",
+    confianca: candidate.count === 1 ? "media" : "alta",
+    impacto: "critico_documental",
+  }));
 }
 
 function buildIdentityContext(extracted: ExtractedPdf) {
@@ -1009,6 +1107,10 @@ async function deepAnalyzeFile(args: {
 
   const identityStartedAt = Date.now();
   console.log(`[audit] ${args.file.file.name}: leitura de identidade iniciada`);
+  const inferredIdentityFindings = deriveIdentityFindingsFromText(
+    args.file.extracted,
+    args.file.file.name,
+  );
   const identityFindings = await analyzeIdentityWithModel({
     auditMode: args.auditMode,
     userMessage: args.userMessage,
@@ -1018,7 +1120,7 @@ async function deepAnalyzeFile(args: {
     extracted: args.file.extracted,
   });
   console.log(
-    `[audit] ${args.file.file.name}: leitura de identidade concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${identityFindings.length} achado(s)`,
+    `[audit] ${args.file.file.name}: leitura de identidade concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${inferredIdentityFindings.length + identityFindings.length} achado(s)`,
   );
 
   const globalStartedAt = Date.now();
@@ -1060,10 +1162,10 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${inferredIdentityFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
-  return dedupeFindings([...identityFindings, ...globalFindings, ...modelFindings]);
+  return dedupeFindings([...inferredIdentityFindings, ...identityFindings, ...globalFindings, ...modelFindings]);
 }
 
 export async function POST(request: Request) {
