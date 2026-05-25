@@ -433,6 +433,56 @@ function buildDocumentContext(extracted: ExtractedPdf) {
   ].join("");
 }
 
+const IDENTITY_CONTEXT_PATTERN =
+  /\b(obra|identifica[cç][aã]o|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|nome|memorial descritivo|projeto preventivo|ppci|constru[cç][aã]o|reforma|adequa[cç][aã]o)\b/gi;
+
+function getContextSnippet(text: string, index: number, radius = 320) {
+  return text
+    .slice(Math.max(0, index - radius), Math.min(text.length, index + radius))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildIdentityContext(extracted: ExtractedPdf) {
+  const sections: string[] = [];
+
+  for (const page of extracted.pages) {
+    const snippets: string[] = [];
+    const seen = new Set<string>();
+
+    if (page.page <= 3) {
+      const coverSnippet = page.text.slice(0, 1400).replace(/\s+/g, " ").trim();
+
+      if (coverSnippet) {
+        snippets.push(coverSnippet);
+      }
+    }
+
+    IDENTITY_CONTEXT_PATTERN.lastIndex = 0;
+    for (const match of page.text.matchAll(IDENTITY_CONTEXT_PATTERN)) {
+      const candidate = getContextSnippet(page.text, match.index ?? 0);
+      const key = candidate.slice(0, 160).toLowerCase();
+
+      if (!candidate || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      snippets.push(candidate);
+
+      if (snippets.length >= 5) {
+        break;
+      }
+    }
+
+    if (snippets.length > 0) {
+      sections.push(`Pagina ${page.page}\n- ${snippets.join("\n- ")}`);
+    }
+  }
+
+  return sections.join("\n\n").slice(0, 140_000);
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -560,6 +610,85 @@ async function analyzeChunkWithModel(args: {
   });
   const text = extractResponseText(response);
   const parsed = parseJsonObject(text);
+
+  return (parsed?.findings ?? [])
+    .map((finding, index) =>
+      modelFindingToAuditFinding(finding, index + 1, args.fileName),
+    )
+    .filter((finding): finding is AuditFinding => Boolean(finding));
+}
+
+function getIdentityAuditPrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+}) {
+  return `
+Faça uma leitura livre e contextual apenas da identidade documental deste arquivo. Não use termos pré-cadastrados. Extraia do próprio texto quais nomes de obra, códigos, endereços, municípios, proprietários, órgãos, disciplinas e finalidades aparecem.
+
+Depois compare:
+- qual identidade parece predominante;
+- quais trechos citam outra obra, outra finalidade, outro endereço ou outro projeto;
+- quais divergências são graves o suficiente para aparecer antes de normas, cálculos ou erros de formatação.
+
+Se houver conflito de identidade, ele deve ser achado de prioridade Alta. Se houver apenas dúvida de grafia/endereço, use Media/Alta ou Media conforme impacto. Ignore problemas que não sejam de identidade nesta etapa.
+
+Projeto informado pelo usuário: ${args.projectName || "não informado"}
+Arquivo: ${args.fileName}
+Tipo informado: ${args.fileType}
+Modo: ${args.auditMode}
+Solicitação do usuário: ${args.userMessage}
+
+Responda APENAS JSON válido:
+{
+  "findings": [
+    {
+      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
+      "pagina": "número ou intervalo",
+      "capitulo": "capítulo/seção",
+      "local": "local do erro",
+      "tipo": "tipo do erro",
+      "descricao": "descrição objetiva",
+      "evidencia": "texto encontrado",
+      "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
+      "categoria": "Identidade documental",
+      "referencia_comparada": "identidade predominante ou trecho comparado",
+      "conflito": "por que diverge",
+      "sugestao_correcao": "correção sugerida",
+      "confianca": "alta|media|baixa"
+    }
+  ]
+}
+
+Se não houver conflito de identidade, retorne {"findings":[]}.
+
+TRECHOS DE IDENTIFICAÇÃO EXTRAÍDOS DO DOCUMENTO:
+${buildIdentityContext(args.extracted)}
+`.trim();
+}
+
+async function analyzeIdentityWithModel(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+}) {
+  const openai = getOpenAIClient();
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    instructions: getAuditorPrompt(args.auditMode),
+    reasoning: { effort: getReasoningEffort() },
+    max_output_tokens: getMaxOutputTokens(),
+    input: getIdentityAuditPrompt(args),
+  }, {
+    timeout: getChunkTimeoutMs(),
+  });
+  const parsed = parseJsonObject(extractResponseText(response));
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -761,7 +890,21 @@ async function deepAnalyzeFile(args: {
   const concurrency = getChunkConcurrency();
 
   console.log(
-    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}`,
+    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura de identidade, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}`,
+  );
+
+  const identityStartedAt = Date.now();
+  console.log(`[audit] ${args.file.file.name}: leitura de identidade iniciada`);
+  const identityFindings = await analyzeIdentityWithModel({
+    auditMode: args.auditMode,
+    userMessage: args.userMessage,
+    projectName: args.projectName,
+    fileName: args.file.file.name,
+    fileType: args.file.fileType,
+    extracted: args.file.extracted,
+  });
+  console.log(
+    `[audit] ${args.file.file.name}: leitura de identidade concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${identityFindings.length} achado(s)`,
   );
 
   const globalStartedAt = Date.now();
@@ -803,10 +946,10 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
-  return dedupeFindings([...globalFindings, ...modelFindings]);
+  return dedupeFindings([...identityFindings, ...globalFindings, ...modelFindings]);
 }
 
 export async function POST(request: Request) {
@@ -966,7 +1109,7 @@ export async function POST(request: Request) {
         tipo_documento: file.fileType,
         paginas: file.extracted.pageCount,
         caracteres_extraidos: file.extracted.charCount,
-        resumo: `Auditoria profunda com leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
+        resumo: `Auditoria profunda com leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
       })),
       comparacoes:
         modelComparison.comparisons,
