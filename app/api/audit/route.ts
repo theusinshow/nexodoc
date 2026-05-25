@@ -436,11 +436,118 @@ function buildDocumentContext(extracted: ExtractedPdf) {
 const IDENTITY_CONTEXT_PATTERN =
   /\b(obra|identifica[cç][aã]o|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|nome|memorial descritivo|projeto preventivo|ppci|constru[cç][aã]o|reforma|adequa[cç][aã]o)\b/gi;
 
+const IDENTITY_CANDIDATE_PATTERNS: Array<{ field: string; pattern: RegExp }> = [
+  {
+    field: "campo identificado",
+    pattern: /\b(obra|identifica[cç][aã]o|nome|projeto|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|cliente|[oó]rg[aã]o)\s*:\s*([^.;\n]{4,180})/gi,
+  },
+  {
+    field: "finalidade/obra citada",
+    pattern: /\b(?:constru[cç][aã]o|execu[cç][aã]o|implanta[cç][aã]o)\s+(?:da|do|de|para\s+a|para\s+o)\s+([^.;\n]{4,140})/gi,
+  },
+  {
+    field: "reforma/adequacao citada",
+    pattern: /\b(?:reforma|adequa[cç][aã]o|reforma\s+e\s+adequa[cç][aã]o)\s*(?:[-–]\s*)?([^.;\n]{4,140})/gi,
+  },
+];
+
 function getContextSnippet(text: string, index: number, radius = 320) {
   return text
     .slice(Math.max(0, index - radius), Math.min(text.length, index + radius))
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeLoose(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s/-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanIdentityCandidate(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/^(?:para\s+a|para\s+o|da|do|de)\s+/i, "")
+    .replace(/\s+(?:localizado|localizada|sito|situado|situada|no munic[ií]pio|em crici[uú]ma)\b.*$/i, "")
+    .replace(/\s*[,;:.-]+$/g, "")
+    .trim();
+}
+
+function buildIdentityCandidateInventory(extracted: ExtractedPdf) {
+  const groups = new Map<
+    string,
+    {
+      field: string;
+      value: string;
+      pages: number[];
+      count: number;
+      evidence: string;
+      firstPage: number;
+    }
+  >();
+
+  for (const page of extracted.pages) {
+    for (const { field, pattern } of IDENTITY_CANDIDATE_PATTERNS) {
+      pattern.lastIndex = 0;
+
+      for (const match of page.text.matchAll(pattern)) {
+        const rawValue = match[2] ?? match[1] ?? "";
+        const value = cleanIdentityCandidate(rawValue);
+        const key = normalizeLoose(value);
+
+        if (value.length < 4 || key.length < 4) {
+          continue;
+        }
+
+        const current = groups.get(key);
+
+        if (current) {
+          current.count += 1;
+
+          if (!current.pages.includes(page.page)) {
+            current.pages.push(page.page);
+          }
+
+          continue;
+        }
+
+        groups.set(key, {
+          field,
+          value,
+          pages: [page.page],
+          count: 1,
+          evidence: getContextSnippet(page.text, match.index ?? 0, 220),
+          firstPage: page.page,
+        });
+      }
+    }
+  }
+
+  return [...groups.values()]
+    .sort((left, right) => {
+      const countDiff = right.count - left.count;
+
+      if (countDiff !== 0) {
+        return countDiff;
+      }
+
+      return left.firstPage - right.firstPage;
+    })
+    .slice(0, 120)
+    .map((item) => {
+      return [
+        `Campo: ${item.field}`,
+        `Valor: ${item.value}`,
+        `Paginas: ${item.pages.join(", ")}`,
+        `Ocorrencias: ${item.count}`,
+        `Evidencia: ${item.evidence}`,
+      ].join("\n");
+    })
+    .join("\n\n");
 }
 
 function buildIdentityContext(extracted: ExtractedPdf) {
@@ -572,6 +679,8 @@ function dedupeFindings(findings: AuditFinding[]) {
 
 function inferProjectFields(text: string, fallbackProjectName: string) {
   const obra =
+    /\bObra\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
+    /\bIdentifica[cç][aã]o\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
     /UBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9\s-]+PORTE\s*\d+/i.exec(text)?.[0]?.trim() ??
     fallbackProjectName;
   const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";
@@ -634,7 +743,9 @@ Depois compare:
 - quais trechos citam outra obra, outra finalidade, outro endereço ou outro projeto;
 - quais divergências são graves o suficiente para aparecer antes de normas, cálculos ou erros de formatação.
 
-Se houver conflito de identidade, ele deve ser achado de prioridade Alta. Se houver apenas dúvida de grafia/endereço, use Media/Alta ou Media conforme impacto. Ignore problemas que não sejam de identidade nesta etapa.
+Use o inventário de candidatos abaixo como pistas extraídas automaticamente do PDF, não como regras fixas. Valores muito recorrentes em capa/cabeçalho/apresentação tendem a indicar a identidade predominante. Valores raros, mas incompatíveis com essa identidade, devem ser avaliados como possível reaproveitamento de outro projeto.
+
+Se houver conflito de identidade, ele deve ser achado de prioridade Alta. Se houver apenas dúvida de grafia/endereço, use Media/Alta ou Media conforme impacto. Ignore problemas que não sejam de identidade nesta etapa. Não retorne duplicidade de sumário, norma, cálculo ou redação nesta etapa.
 
 Projeto informado pelo usuário: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
@@ -664,6 +775,9 @@ Responda APENAS JSON válido:
 }
 
 Se não houver conflito de identidade, retorne {"findings":[]}.
+
+INVENTÁRIO DE CANDIDATOS DE IDENTIDADE:
+${buildIdentityCandidateInventory(args.extracted)}
 
 TRECHOS DE IDENTIFICAÇÃO EXTRAÍDOS DO DOCUMENTO:
 ${buildIdentityContext(args.extracted)}
