@@ -574,6 +574,23 @@ function CopyTextButton({
   );
 }
 
+function FindingField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-2.5">
+      <p className="font-mono text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words text-sm text-foreground">
+        {value || "não informado"}
+      </p>
+    </div>
+  );
+}
+
 export function AuditResult({
   content,
   elapsedMs,
@@ -694,7 +711,7 @@ export function AuditResult({
               className="border-transparent"
               onClick={() => setView("findings")}
             >
-              Achados
+              Matriz
             </Button>
             <Button
               type="button"
@@ -855,163 +872,135 @@ export function AuditResult({
         ) : null}
 
         {view === "findings" ? (
-          <SectionCard title="Achados e ações recomendadas" icon={MapPin}>
+          <SectionCard title="Matriz de achados" icon={MapPin}>
             {findings.length > 0 ? (
-              <div className="space-y-5">
-                {[
-                  {
-                    title: "Críticos documentais",
-                    description: "Endereço, bairro, município, proprietário, cliente, obra, identidade ou trecho reaproveitado.",
-                    items: groupedStructuredFindings.critico_documental,
-                  },
-                  {
-                    title: "Pontos de revisão técnica",
-                    description: "Normas, cálculos, hierarquia técnica, compatibilização, redação e padronização.",
-                    items: groupedStructuredFindings.tecnico_contratual,
-                  },
-                  {
-                    title: "Revisões editoriais",
-                    description: "Redação, nomenclatura, formatação e padronização.",
-                    items: groupedStructuredFindings.revisao_editorial,
-                  },
-                ].map((group) =>
-                  group.items.length > 0 ? (
-                    <section key={group.title} className="space-y-2">
-                      <div>
-                        <h4 className="text-sm font-semibold text-foreground">
-                          {group.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                          {group.description}
-                        </p>
+              <div className="space-y-4">
+                <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-4">
+                  <p className="font-mono text-xs uppercase text-muted-foreground">
+                    Como ler
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-foreground">
+                    Cada linha mostra o problema, onde conferir, a evidência encontrada, o conflito e a ação recomendada. Use o termo de busca para localizar o trecho no PDF.
+                  </p>
+                </div>
+
+                <div className="grid gap-4">
+                  {findingsWithPdf.map((finding, index) => (
+                    <article
+                      key={`${finding.raw}-matrix-${index}`}
+                      className="overflow-hidden rounded-md border bg-card"
+                    >
+                      <div className="grid gap-4 border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
+                        <div className="min-w-0">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
+                              Achado {index + 1}
+                            </span>
+                            <span
+                              className={cn(
+                                "rounded-md border px-2 py-1 font-mono text-xs font-medium",
+                                getSeverityClass(finding.severity),
+                              )}
+                            >
+                              {finding.impacto
+                                ? getImpactLabel(finding.impacto)
+                                : getSeverityLabel(finding.severity)}
+                            </span>
+                            {finding.refId ? (
+                              <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                                Ref. {finding.refId}
+                              </span>
+                            ) : null}
+                          </div>
+                          <h4 className="text-base font-semibold leading-6 text-foreground">
+                            {finding.title}
+                          </h4>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 xl:justify-end">
+                          {finding.pdfUrl ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPdfAtFinding(finding, pdfSources)}
+                            >
+                              <ExternalLink />
+                              Abrir PDF
+                            </Button>
+                          ) : null}
+                          {finding.termoBusca ? (
+                            <CopyTextButton value={finding.termoBusca}>
+                              Copiar termo
+                            </CopyTextButton>
+                          ) : null}
+                        </div>
                       </div>
-                      <ul className="space-y-3">
-                        {group.items.map((finding, index) => (
-                          <li
-                            key={`${finding.raw}-${group.title}-${index}`}
-                            className="rounded-md border bg-card p-4"
-                          >
-                            <div className="flex flex-col gap-3">
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="flex min-w-0 items-start gap-2">
-                                  <Search className="mt-0.5 size-4 shrink-0 text-primary" />
-                                  <p className="font-medium text-foreground">
-                                    {index + 1}. {finding.title}
-                                  </p>
-                                </div>
-                                <div className="flex shrink-0 flex-wrap gap-2">
-                                  {finding.refId ? (
-                                    <span className="w-fit border px-2 py-1 text-xs text-muted-foreground">
-                                      Ref. {finding.refId}
-                                    </span>
-                                  ) : null}
-                                  <span
-                                    className={cn(
-                                      "w-fit border px-2 py-1 text-xs font-medium",
-                                      getSeverityClass(finding.severity),
-                                    )}
-                                  >
-                                    {finding.impacto
-                                      ? getImpactLabel(finding.impacto)
-                                      : getSeverityLabel(finding.severity)}
-                                  </span>
-                                </div>
-                              </div>
 
-                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 font-mono text-xs sm:grid-cols-3">
-                                <p>
-                                  <span className="block text-muted-foreground">Documento</span>
-                                  <span className="font-medium text-foreground">
-                                    {finding.documento || "não informado"}
-                                  </span>
-                                </p>
-                                <p>
-                                  <span className="block text-muted-foreground">Página</span>
-                                  <span className="font-medium text-foreground">
-                                    {finding.pagina || "não identificada"}
-                                  </span>
-                                </p>
-                                <p>
-                                  <span className="block text-muted-foreground">Local</span>
-                                  <span className="font-medium text-foreground">
-                                    {finding.local || "não informado"}
-                                  </span>
-                                </p>
-                              </div>
-                              {finding.pdfUrl ? (
-                                <div>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      openPdfAtFinding(finding, pdfSources)
-                                    }
-                                  >
-                                    <ExternalLink />
-                                    Abrir página no PDF
-                                  </Button>
-                                </div>
-                              ) : null}
-                              {(finding.categoria || finding.referencia) ? (
-                                <div className="grid gap-2 text-xs sm:grid-cols-2">
-                                  {finding.categoria ? (
-                                    <p>
-                                      <span className="font-medium text-foreground">Categoria:</span>{" "}
-                                      {finding.categoria}
-                                    </p>
-                                  ) : null}
-                                  {finding.referencia ? (
-                                    <p>
-                                      <span className="font-medium text-foreground">
-                                        Referência comparada:
-                                      </span>{" "}
-                                      {finding.referencia}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : null}
+                      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]">
+                        <div className="grid content-start gap-2">
+                          <FindingField label="Documento" value={finding.documento} />
+                          <FindingField label="Página provável" value={finding.pagina} />
+                          <FindingField label="Local" value={finding.local} />
+                          <FindingField label="Categoria" value={finding.categoria} />
+                        </div>
 
-                              {finding.evidencia ? (
-                                <p className="rounded-md bg-[var(--nexodoc-recessed)] p-3 text-xs">
-                                  <span className="font-medium text-foreground">Evidência:</span>{" "}
-                                  {finding.evidencia}
-                                </p>
-                              ) : null}
-                              {finding.termoBusca ? (
-                                <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-                                  <p className="min-w-0">
-                                    <span className="font-medium text-foreground">
-                                      Buscar no PDF:
-                                    </span>{" "}
-                                    <span className="break-words text-foreground">
-                                      {finding.termoBusca}
-                                    </span>
-                                  </p>
-                                  <CopyTextButton value={finding.termoBusca}>
-                                    Copiar termo
-                                  </CopyTextButton>
-                                </div>
-                              ) : null}
-                              {finding.conflito ? (
-                                <p className="text-xs">
-                                  <span className="font-medium text-foreground">Conflito:</span>{" "}
-                                  {finding.conflito}
-                                </p>
-                              ) : null}
-                              {finding.acao ? (
-                                <p className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/80 p-3 text-xs text-[var(--status-warning)]">
-                                  <Wrench className="mr-1 inline size-3" />
-                                  {finding.acao}
-                                </p>
-                              ) : null}
+                        <div className="grid gap-3">
+                          <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                            <div className="mb-2 flex items-center gap-2">
+                              <Search className="size-4 text-primary" />
+                              <p className="font-mono text-xs uppercase text-muted-foreground">
+                                Evidência encontrada
+                              </p>
                             </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null,
-                )}
+                            <p className="text-sm leading-6 text-foreground">
+                              {finding.evidencia || "Evidência não informada no resultado."}
+                            </p>
+                          </section>
+
+                          <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                            <p className="font-mono text-xs uppercase text-muted-foreground">
+                              Conflito / por que importa
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-foreground">
+                              {finding.conflito ||
+                                finding.referencia ||
+                                "Conflito não detalhado no resultado."}
+                            </p>
+                          </section>
+
+                          <section className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/70 p-3 text-[var(--status-warning)]">
+                            <div className="mb-2 flex items-center gap-2">
+                              <Wrench className="size-4" />
+                              <p className="font-mono text-xs uppercase">
+                                Ação recomendada
+                              </p>
+                            </div>
+                            <p className="text-sm leading-6">
+                              {finding.acao || "Ação recomendada não identificada."}
+                            </p>
+                          </section>
+
+                          <section className="flex items-center justify-between gap-3 rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                            <div className="min-w-0">
+                              <p className="font-mono text-xs uppercase text-muted-foreground">
+                                Termo de busca
+                              </p>
+                              <p className="mt-1 break-words text-sm text-foreground">
+                                {finding.termoBusca || finding.evidencia || "não informado"}
+                              </p>
+                            </div>
+                            {finding.termoBusca ? (
+                              <CopyTextButton value={finding.termoBusca}>
+                                Copiar
+                              </CopyTextButton>
+                            ) : null}
+                          </section>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
             ) : (
               <p>Nenhum achado encontrado.</p>
