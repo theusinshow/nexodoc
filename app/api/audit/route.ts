@@ -29,10 +29,10 @@ const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
-const DEFAULT_MAX_CHUNKS_PER_FILE = 24;
-const DEFAULT_CHUNK_CONCURRENCY = 5;
+const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
+const DEFAULT_CHUNK_CONCURRENCY = 3;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
-const DEFAULT_GLOBAL_CONTEXT_CHARS = 180_000;
+const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
@@ -376,7 +376,7 @@ function getMaxChunksPerFile() {
   const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
 
   if (Number.isFinite(value) && value > 0) {
-    return Math.min(48, Math.floor(value));
+    return Math.min(24, Math.floor(value));
   }
 
   return DEFAULT_MAX_CHUNKS_PER_FILE;
@@ -386,7 +386,7 @@ function getChunkConcurrency() {
   const value = Number(process.env.NEXODOC_CHUNK_CONCURRENCY);
 
   if (Number.isFinite(value) && value > 0) {
-    return Math.min(6, Math.floor(value));
+    return Math.min(4, Math.floor(value));
   }
 
   return DEFAULT_CHUNK_CONCURRENCY;
@@ -405,8 +405,8 @@ function getChunkTimeoutMs() {
 function getGlobalContextChars() {
   const value = Number(process.env.NEXODOC_GLOBAL_CONTEXT_CHARS);
 
-  if (Number.isFinite(value) && value >= 60_000) {
-    return Math.min(400_000, Math.floor(value));
+  if (Number.isFinite(value) && value >= 40_000) {
+    return Math.min(180_000, Math.floor(value));
   }
 
   return DEFAULT_GLOBAL_CONTEXT_CHARS;
@@ -1098,7 +1098,15 @@ async function deepAnalyzeFile(args: {
   file: UploadedAuditFile;
 }) {
   const startedAt = Date.now();
-  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, getMaxChunksPerFile());
+  const inferredIdentityFindings = deriveIdentityFindingsFromText(
+    args.file.extracted,
+    args.file.file.name,
+  );
+  const hasInferredIdentityConflict = inferredIdentityFindings.length > 0;
+  const chunkLimit = hasInferredIdentityConflict
+    ? Math.min(4, getMaxChunksPerFile())
+    : getMaxChunksPerFile();
+  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, chunkLimit);
   const concurrency = getChunkConcurrency();
 
   console.log(
@@ -1107,34 +1115,35 @@ async function deepAnalyzeFile(args: {
 
   const identityStartedAt = Date.now();
   console.log(`[audit] ${args.file.file.name}: leitura de identidade iniciada`);
-  const inferredIdentityFindings = deriveIdentityFindingsFromText(
-    args.file.extracted,
-    args.file.file.name,
-  );
-  const identityFindings = await analyzeIdentityWithModel({
-    auditMode: args.auditMode,
-    userMessage: args.userMessage,
-    projectName: args.projectName,
-    fileName: args.file.file.name,
-    fileType: args.file.fileType,
-    extracted: args.file.extracted,
-  });
+  const identityFindings = hasInferredIdentityConflict
+    ? []
+    : await analyzeIdentityWithModel({
+        auditMode: args.auditMode,
+        userMessage: args.userMessage,
+        projectName: args.projectName,
+        fileName: args.file.file.name,
+        fileType: args.file.fileType,
+        extracted: args.file.extracted,
+      });
   console.log(
     `[audit] ${args.file.file.name}: leitura de identidade concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${inferredIdentityFindings.length + identityFindings.length} achado(s)`,
   );
 
   const globalStartedAt = Date.now();
-  console.log(`[audit] ${args.file.file.name}: leitura global iniciada`);
-  const globalFindings = await analyzeFileGloballyWithModel({
-    auditMode: args.auditMode,
-    userMessage: args.userMessage,
-    projectName: args.projectName,
-    fileName: args.file.file.name,
-    fileType: args.file.fileType,
-    extracted: args.file.extracted,
-  });
+  const shouldRunGlobalPass =
+    !hasInferredIdentityConflict || process.env.NEXODOC_ALWAYS_RUN_GLOBAL_AI === "true";
+  const globalFindings = shouldRunGlobalPass
+    ? await analyzeFileGloballyWithModel({
+        auditMode: args.auditMode,
+        userMessage: args.userMessage,
+        projectName: args.projectName,
+        fileName: args.file.file.name,
+        fileType: args.file.fileType,
+        extracted: args.file.extracted,
+      })
+    : [];
   console.log(
-    `[audit] ${args.file.file.name}: leitura global concluida em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
+    `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
 
   const modelFindingGroups = await mapWithConcurrency(
