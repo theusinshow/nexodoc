@@ -38,11 +38,10 @@ Resultado:
 
 ### 2.2 API em modo mock
 
-Foram testados os tres modos:
+Testar os dois modos atuais:
 
-- `fast`;
+- `memorial`;
 - `volume`;
-- `complete`.
 
 Resultado esperado:
 
@@ -50,7 +49,8 @@ Resultado esperado:
 - `mock: true`;
 - `auditMode` retornado igual ao modo enviado;
 - resposta contendo a estrutura `1. Projeto analisado`;
-- modo `volume` contendo `Categoria` e `Referência comparada`.
+- auditoria com multiplos arquivos contendo comparacoes efetivamente executadas;
+- divergencias entre LD/prancha ou memorial/capa contendo `Categoria` e `Referência comparada`.
 
 Resultado:
 
@@ -81,11 +81,10 @@ Executar com `NEXODOC_MOCK_MODE=true`.
 ### 3.1 Fluxo de demo
 
 1. Abrir o app.
-2. Selecionar modo `Rápida`.
-3. Clicar em `Ver demo`.
+2. Selecionar modo `Memorial`.
+3. Ativar `Modo demo`.
 4. Conferir abas `Resumo`, `Achados`, `Evidências` e `Relatório`.
 5. Repetir para modo `Volume`.
-6. Repetir para modo `Completa`.
 
 Critérios:
 
@@ -128,7 +127,7 @@ Entrada:
 
 Modo:
 
-- `Rápida`.
+- `Memorial`.
 
 Medir:
 
@@ -137,7 +136,7 @@ Medir:
 - qualidade da identificação do projeto;
 - se a resposta respeitou a estrutura.
 
-### 4.2 Teste real de Volume
+### 4.2 Teste real de Volume e comparacao cruzada
 
 Entrada:
 
@@ -157,6 +156,7 @@ Medir:
 - se avaliou selo/carimbo;
 - se retornou `Categoria`;
 - se retornou `Referência comparada`;
+- se a secao `Comparações entre arquivos` descreve confrontos realmente executados;
 - custo total.
 
 ### 4.3 Teste real pesado
@@ -168,7 +168,7 @@ Entrada:
 Modo:
 
 - `Volume`;
-- depois `Completa`, se fizer sentido.
+- repetir com outro conjunto menor, se fizer sentido.
 
 Medir:
 
@@ -178,6 +178,15 @@ Medir:
 - qualidade dos achados;
 - falsos positivos;
 - falsos negativos conhecidos.
+
+### 4.4 Persistencia operacional
+
+Com `DATABASE_URL` configurada, validar no painel `/admin/audits`:
+
+- execucao aparece como `PROCESSING` enquanto a analise esta ativa;
+- execucao concluida muda para `COMPLETED` e inclui relatorio;
+- erro de API ou extracao muda para `FAILED`;
+- cancelamento pelo chat muda para `CANCELED`.
 
 ## 5. Registro recomendado por teste real
 

@@ -9,6 +9,7 @@ type AdminConfigResponse = {
   runtime: {
     nodeEnv: string;
     mockMode: boolean;
+    clientDemoAllowed: boolean;
     model: string;
     allowedOrigins: string;
   };
@@ -26,8 +27,8 @@ function getApiUrl() {
 function ConfigRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b py-3 text-sm last:border-b-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium text-foreground">{value}</span>
+      <span className="font-mono text-muted-foreground">{label}</span>
+      <span className="font-mono text-right font-medium text-foreground">{value}</span>
     </div>
   );
 }
@@ -71,7 +72,7 @@ export default function AdminConfigPage() {
         throw new Error(
           isErrorPayload(payload) && payload.error
             ? payload.error
-            : "Nao foi possivel carregar configuracoes.",
+            : "Não foi possível carregar configurações.",
         );
       }
 
@@ -83,7 +84,7 @@ export default function AdminConfigPage() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Nao foi possivel carregar configuracoes.",
+          : "Não foi possível carregar configurações.",
       );
     } finally {
       setIsLoading(false);
@@ -97,10 +98,12 @@ export default function AdminConfigPage() {
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
-    setToken(storedToken);
 
     if (storedToken) {
-      void loadConfig(storedToken);
+      queueMicrotask(() => {
+        setToken(storedToken);
+        void loadConfig(storedToken);
+      });
     }
     // Run only once after mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,7 +114,7 @@ export default function AdminConfigPage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
         <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-primary">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
               <Settings2 className="size-4" />
               Admin
             </div>
@@ -125,7 +128,7 @@ export default function AdminConfigPage() {
             onSubmit={handleSubmit}
             className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 md:w-[420px]"
           >
-            <label className="text-xs font-medium text-muted-foreground">
+            <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
             </label>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -160,6 +163,7 @@ export default function AdminConfigPage() {
             <div className="mt-3">
               <ConfigRow label="Ambiente" value={data?.runtime.nodeEnv || "--"} />
               <ConfigRow label="Mock mode" value={data?.runtime.mockMode ? "ativo" : "inativo"} />
+              <ConfigRow label="Demo pelo cliente" value={data?.runtime.clientDemoAllowed ? "permitida" : "bloqueada"} />
               <ConfigRow label="Modelo" value={data?.runtime.model || "--"} />
               <ConfigRow label="Origins" value={data?.runtime.allowedOrigins || "--"} />
             </div>

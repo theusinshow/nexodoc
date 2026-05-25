@@ -11,9 +11,10 @@ import {
   type AuditFinding,
   type AuditReport,
 } from "@/lib/audit-report";
+import { runCrossDocumentRules } from "@/lib/cross-document-audit";
 import { runDeterministicAuditRules } from "@/lib/audit-rules";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
-import { isDatabaseConfigured, prisma } from "@/lib/db";
+import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   getMockAuditResult,
   isMockModeEnabled,
@@ -46,46 +47,118 @@ type UploadedAuditFile = {
   extracted: ExtractedPdf;
 };
 
-async function persistCompletedAudit(args: {
+async function createPendingAudit(args: {
+  auditId: string;
   auditMode: AuditMode;
   auditTitle: string;
   projectName: string;
   auditDescription: string;
+  files: File[];
+  fileTypes: string[];
+}) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrisma();
+    const audit = await prisma.audit.create({
+      data: {
+        id: args.auditId,
+        title: args.auditTitle || "Auditoria sem identificação",
+        projectName: args.projectName || "Projeto não informado",
+        description: args.auditDescription,
+        auditMode: args.auditMode,
+        status: "PROCESSING",
+        files: {
+          create: args.files.map((file, index) => ({
+            fileName: file.name,
+            documentType: args.fileTypes[index] ?? "não informado",
+            sizeBytes: file.size,
+          })),
+        },
+      },
+      select: { id: true },
+    });
+
+    return audit.id;
+  } catch (error) {
+    console.error("[audit] falha ao iniciar persistência da auditoria", error);
+    return null;
+  }
+}
+
+async function persistCompletedAudit(args: {
+  auditId: string | null;
   uploadedFiles: UploadedAuditFile[];
   report: AuditReport;
   result: string;
   elapsedMs: number;
 }) {
-  if (!isDatabaseConfigured()) {
+  if (!args.auditId || !isDatabaseConfigured()) {
     return;
   }
 
   try {
-    await prisma.audit.create({
-      data: {
-        title: args.auditTitle || "Auditoria sem identificacao",
-        projectName: args.projectName || "Projeto nao informado",
-        description: args.auditDescription,
-        auditMode: args.auditMode,
-        status: "COMPLETED",
-        result: args.result,
-        report: args.report,
-        elapsedMs: args.elapsedMs,
-        totalFindings: args.report.total_incongruencias,
-        completedAt: new Date(),
-        files: {
-          create: args.uploadedFiles.map((file) => ({
+    const prisma = getPrisma();
+    await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.audit.updateMany({
+        where: {
+          id: args.auditId!,
+          status: "PROCESSING",
+        },
+        data: {
+          status: "COMPLETED",
+          result: args.result,
+          report: args.report,
+          elapsedMs: args.elapsedMs,
+          totalFindings: args.report.total_incongruencias,
+          completedAt: new Date(),
+        },
+      });
+
+      if (updated.count === 0) {
+        return;
+      }
+
+      await transaction.auditFile.deleteMany({ where: { auditId: args.auditId! } });
+      await transaction.auditFile.createMany({
+        data: args.uploadedFiles.map((file) => ({
+            auditId: args.auditId!,
             fileName: file.file.name,
             documentType: file.fileType,
             pageCount: file.extracted.pageCount,
             extractedCharCount: file.extracted.charCount,
             sizeBytes: file.file.size,
           })),
-        },
-      },
+      });
     });
   } catch (error) {
     console.error("[audit] falha ao persistir auditoria", error);
+  }
+}
+
+async function persistFailedAudit(auditId: string | null, error: unknown, elapsedMs: number) {
+  if (!auditId || !isDatabaseConfigured()) {
+    return;
+  }
+
+  try {
+    const prisma = getPrisma();
+    await prisma.audit.updateMany({
+      where: { id: auditId, status: "PROCESSING" },
+      data: {
+        status: "FAILED",
+        error:
+          error instanceof Error
+            ? error.message.slice(0, 1000)
+            : "Não foi possível concluir a auditoria documental.",
+        elapsedMs,
+        completedAt: new Date(),
+      },
+    });
+  } catch (persistenceError) {
+    console.error("[audit] falha ao persistir erro da auditoria", persistenceError);
   }
 }
 
@@ -98,6 +171,9 @@ type ModelFinding = {
   descricao?: string;
   evidencia?: string;
   termo_busca?: string;
+  arquivo?: string;
+  categoria?: string;
+  referencia_comparada?: string;
   conflito?: string;
   sugestao_correcao?: string;
   confianca?: string;
@@ -230,7 +306,10 @@ function parseJsonObject(text: string) {
   }
 
   try {
-    return JSON.parse(candidate.slice(start, end + 1)) as { findings?: ModelFinding[] };
+    return JSON.parse(candidate.slice(start, end + 1)) as {
+      findings?: ModelFinding[];
+      comparisons?: string[];
+    };
   } catch {
     return null;
   }
@@ -246,41 +325,41 @@ function getChunkPrompt(args: {
 }) {
   const modeInstruction =
     args.auditMode === "volume"
-      ? "Audite volume de projeto: capa, separatriz, LDs/listas, pranchas, selos, revisoes, titulos, disciplinas, volume e tomo."
-      : "Audite memorial descritivo textual: identidade do projeto, coerencia interna, trechos reaproveitados, localidades divergentes, normas suspeitas, calculos simples e redacao.";
+      ? "Audite volume de projeto: capa, separatriz, LDs/listas, pranchas, selos, revisões, títulos, disciplinas, volume e tomo."
+      : "Audite memorial descritivo textual: identidade do projeto, coerência interna, trechos reaproveitados, localidades divergentes, normas suspeitas, cálculos simples e redação.";
 
   return `
 ${modeInstruction}
 
-Leia o trecho abaixo procurando erros que possam comprometer emissao, licitacao, cliente ou consistencia documental.
-Procure ativamente: nome de obra/unidade divergente (ex.: UBS X vs UBS Y), municipio/proprietario divergente, bairro divergente, logradouro de outro projeto, referencia municipal externa, conflito de hierarquia, norma inadequada, calculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redacao/formatação critica.
+Leia o trecho abaixo procurando erros que possam comprometer emissão, licitação, cliente ou consistência documental.
+Procure ativamente: nome de obra/unidade divergente (ex.: UBS X vs UBS Y), município/proprietário divergente, bairro divergente, logradouro de outro projeto, referência municipal externa, conflito de hierarquia, norma inadequada, cálculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redação/formatação crítica.
 
-Projeto informado: ${args.projectName || "nao informado"}
+Projeto informado: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
-Trecho: ${args.chunk.title}, paginas ${args.chunk.startPage}-${args.chunk.endPage}
-Solicitacao do usuario: ${args.userMessage}
+Trecho: ${args.chunk.title}, páginas ${args.chunk.startPage}-${args.chunk.endPage}
+Solicitação do usuário: ${args.userMessage}
 
-Responda APENAS JSON valido:
+Responda APENAS JSON válido:
 {
   "findings": [
     {
       "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
-      "pagina": "numero ou intervalo",
-      "capitulo": "capitulo/secao",
+      "pagina": "número ou intervalo",
+      "capitulo": "capítulo/seção",
       "local": "local do erro",
       "tipo": "tipo do erro",
-      "descricao": "descricao objetiva",
+      "descricao": "descrição objetiva",
       "evidencia": "texto encontrado",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "conflito": "por que diverge",
-      "sugestao_correcao": "correcao sugerida",
+      "sugestao_correcao": "correção sugerida",
       "confianca": "alta|media|baixa"
     }
   ]
 }
 
-Se nao encontrar erro relevante, retorne {"findings":[]}.
+Se não encontrar erro relevante, retorne {"findings":[]}.
 
 TEXTO:
 ${args.chunk.text}
@@ -365,16 +444,19 @@ function modelFindingToAuditFinding(
     arquivo: fileName,
     origem: "ia",
     prioridade: normalizePriority(finding.prioridade),
-    pagina: String(finding.pagina ?? "nao identificada"),
-    capitulo: String(finding.capitulo ?? "nao identificado"),
-    local: String(finding.local ?? "nao informado"),
-    tipo: type || "Incongruencia documental",
+    pagina: String(finding.pagina ?? "não identificada"),
+    capitulo: String(finding.capitulo ?? "não identificado"),
+    local: String(finding.local ?? "não informado"),
+    tipo: type || "Incongruência documental",
     descricao: description || evidence,
     evidencia: evidence || description,
     termo_busca: String(finding.termo_busca ?? (evidence || description))
       .trim()
       .slice(0, 160),
-    conflito: String(finding.conflito ?? "nao informado"),
+    categoria: String(finding.categoria ?? "").trim() || undefined,
+    referencia_comparada:
+      String(finding.referencia_comparada ?? "").trim() || undefined,
+    conflito: String(finding.conflito ?? "não informado"),
     sugestao_correcao: String(finding.sugestao_correcao ?? "revisar o trecho indicado"),
     confianca: normalizeConfidence(finding.confianca),
   };
@@ -386,6 +468,7 @@ function dedupeFindings(findings: AuditFinding[]) {
 
   for (const finding of findings) {
     const key = [
+      finding.arquivo,
       finding.tipo,
       finding.pagina,
       finding.evidencia.slice(0, 120),
@@ -455,6 +538,101 @@ async function analyzeChunkWithModel(args: {
     .filter((finding): finding is AuditFinding => Boolean(finding));
 }
 
+function getCrossDocumentPrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  files: UploadedAuditFile[];
+}) {
+  let remainingCharacters = 120_000;
+  const sources = args.files.map((file) => {
+    const text = file.extracted.text.slice(0, Math.min(remainingCharacters, 45_000));
+    remainingCharacters -= text.length;
+
+    return [
+      `ARQUIVO: ${file.file.name}`,
+      `TIPO: ${file.fileType}`,
+      `TEXTO EXTRAÍDO:`,
+      text,
+    ].join("\n");
+  });
+
+  return `
+Compare os documentos do mesmo conjunto de auditoria. Esta etapa não é uma leitura isolada: confronte explicitamente os valores repetidos nos arquivos.
+
+Modo: ${args.auditMode}
+Projeto informado: ${args.projectName || "não informado"}
+Solicitação do usuário: ${args.userMessage}
+
+Verifique, quando os documentos fornecerem evidência suficiente:
+- memorial x capa: obra, código, endereço, bairro, município, órgão e volume;
+- LD/lista x pranchas: número da prancha, título e revisão;
+- capa/separatriz x selos: disciplina, volume, tomo, projeto e revisão;
+- indícios de arquivo pertencente a outro projeto.
+
+Não produza achado se um valor não estiver visível nos dois lados da comparação.
+Responda APENAS JSON válido:
+{
+  "comparisons": ["comparação realmente executada e seu resultado"],
+  "findings": [
+    {
+      "arquivo": "documento em que a divergência foi localizada",
+      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
+      "pagina": "número ou intervalo",
+      "capitulo": "Comparação entre documentos",
+      "categoria": "LD x prancha|capa x selo|memorial x capa|estrutura do volume",
+      "referencia_comparada": "outro documento e valor comparado",
+      "local": "campo ou local visível",
+      "tipo": "tipo da divergência",
+      "descricao": "descrição objetiva",
+      "evidencia": "texto localizado no documento",
+      "termo_busca": "termo exato para localizar",
+      "conflito": "valor A x valor B",
+      "sugestao_correcao": "ação objetiva",
+      "confianca": "alta|media|baixa"
+    }
+  ]
+}
+
+DOCUMENTOS:
+${sources.join("\n\n---\n\n")}
+`.trim();
+}
+
+async function analyzeCrossDocumentsWithModel(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  files: UploadedAuditFile[];
+}) {
+  if (args.files.length < 2) {
+    return { findings: [] as AuditFinding[], comparisons: [] as string[] };
+  }
+
+  const openai = getOpenAIClient();
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    instructions: getAuditorPrompt(args.auditMode),
+    reasoning: { effort: getReasoningEffort() },
+    max_output_tokens: getMaxOutputTokens(),
+    input: getCrossDocumentPrompt(args),
+  }, {
+    timeout: getChunkTimeoutMs(),
+  });
+  const parsed = parseJsonObject(extractResponseText(response));
+
+  return {
+    findings: (parsed?.findings ?? [])
+      .map((finding, index) =>
+        modelFindingToAuditFinding(finding, index + 1, finding.arquivo),
+      )
+      .filter((finding): finding is AuditFinding => Boolean(finding)),
+    comparisons: (parsed?.comparisons ?? []).filter(
+      (comparison): comparison is string => typeof comparison === "string" && Boolean(comparison.trim()),
+    ),
+  };
+}
+
 async function deepAnalyzeFile(args: {
   auditMode: AuditMode;
   userMessage: string;
@@ -511,14 +689,18 @@ async function deepAnalyzeFile(args: {
 }
 
 export async function POST(request: Request) {
+  const requestStartedAt = Date.now();
+  let persistedAuditId: string | null = null;
+
   try {
-    const requestStartedAt = Date.now();
     console.log("[audit] requisicao recebida");
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
+    const auditDescription = String(formData.get("auditDescription") ?? "").trim();
+    const clientAuditId = String(formData.get("auditId") ?? "").trim();
     const requestMockMode = formData.get("mockMode") === "true";
     const fileTypes = formData.getAll("fileTypes").map((value) => String(value));
     const files = formData
@@ -547,7 +729,16 @@ export async function POST(request: Request) {
       }
     }
 
-    if (isMockModeEnabled() || requestMockMode) {
+    const canUseClientMock = process.env.NODE_ENV !== "production" ||
+      process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true";
+
+    if (requestMockMode && !canUseClientMock && !isMockModeEnabled()) {
+      return jsonError("Modo demo não está habilitado neste ambiente.", 403);
+    }
+
+    const useMockMode = isMockModeEnabled() || (requestMockMode && canUseClientMock);
+
+    if (useMockMode) {
       await waitForMockAudit();
       return withCors(
         NextResponse.json({
@@ -558,6 +749,19 @@ export async function POST(request: Request) {
         request,
       );
     }
+
+    const auditId = /^[A-Za-z0-9-]{8,80}$/.test(clientAuditId)
+      ? clientAuditId
+      : crypto.randomUUID();
+    persistedAuditId = await createPendingAudit({
+      auditId,
+      auditMode,
+      auditTitle,
+      projectName,
+      auditDescription,
+      files,
+      fileTypes,
+    });
 
     const uploadedFiles = await Promise.all(
       files.map(async (file, index): Promise<UploadedAuditFile> => {
@@ -570,12 +774,12 @@ export async function POST(request: Request) {
         );
 
         if (extracted.charCount < MIN_TEXT_CHARS_FOR_DEEP_AUDIT) {
-          throw new Error(`O arquivo "${file.name}" nao possui texto suficiente para auditoria profunda.`);
+          throw new Error(`O arquivo "${file.name}" não possui texto suficiente para auditoria profunda.`);
         }
 
         return {
           file,
-          fileType: fileTypes[index] ?? "nao informado",
+          fileType: fileTypes[index] ?? "não informado",
           buffer,
           extracted,
         };
@@ -593,6 +797,21 @@ export async function POST(request: Request) {
       });
       allFindings.push(...findings);
     }
+
+    const ruleComparison = runCrossDocumentRules(
+      uploadedFiles.map((file) => ({
+        fileName: file.file.name,
+        fileType: file.fileType,
+        extracted: file.extracted,
+      })),
+    );
+    const modelComparison = await analyzeCrossDocumentsWithModel({
+      auditMode,
+      userMessage: message,
+      projectName,
+      files: uploadedFiles,
+    });
+    allFindings.push(...ruleComparison.findings, ...modelComparison.findings);
 
     const findings = sortAuditFindings(dedupeFindings(allFindings)).map(
       (finding, index) => ({
@@ -614,52 +833,51 @@ export async function POST(request: Request) {
       arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
       tipo_auditoria: auditMode,
       tipo_documento: auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo",
-      obra: inferred.obra || projectName || "nao identificada",
+      obra: inferred.obra || projectName || "não identificada",
       codigo: inferred.codigo,
       municipio: inferred.municipio,
       data_documento: inferred.data,
       status_analise: "concluida",
       status_geral:
         findings.length === 0
-          ? "sem achados criticos"
+          ? "sem achados críticos"
           : hasCriticalDocumental
-            ? "revisao obrigatoria antes de emissao"
+            ? "revisão obrigatória antes de emissão"
             : hasHigh
-            ? "com inconsistencias criticas"
-            : "com pontos de revisao",
+            ? "com inconsistências críticas"
+            : "com pontos de revisão",
       total_incongruencias: findings.length,
       arquivos_analisados: uploadedFiles.map((file) => ({
         arquivo: file.file.name,
         tipo_documento: file.fileType,
         paginas: file.extracted.pageCount,
         caracteres_extraidos: file.extracted.charCount,
-        resumo: `Auditoria profunda com texto extraido por pagina, ${chunkPdfByChapter(file.extracted).length} blocos de leitura e checklist deterministico.`,
+        resumo: `Auditoria profunda com texto extraído por página, ${chunkPdfByChapter(file.extracted).length} blocos de leitura e checklist determinístico.`,
       })),
       comparacoes:
-        auditMode === "volume"
-          ? ["Analise focada em LD x pranchas, selos, revisoes, titulos e estrutura do volume."]
-          : ["Analise focada em coerencia interna do memorial, reaproveitamento de texto, localidades, normas e calculos simples."],
+        [...ruleComparison.comparisons, ...modelComparison.comparisons],
       incongruencias: findings,
       conclusao:
         findings.length === 0
-          ? "nenhum achado critico detectado dentro da auditoria profunda executada"
+          ? "nenhum achado crítico detectado dentro da auditoria profunda executada"
           : executiveSummary,
     };
     const result = makeTextReport(report);
     await persistCompletedAudit({
-      auditMode,
-      auditTitle,
-      projectName,
-      auditDescription: String(formData.get("auditDescription") ?? "").trim(),
+      auditId: persistedAuditId,
       uploadedFiles,
       report,
       result,
       elapsedMs: Date.now() - requestStartedAt,
     });
 
-    return withCors(NextResponse.json({ result, report, auditMode }), request);
+    return withCors(
+      NextResponse.json({ result, report, auditMode, auditId: persistedAuditId }),
+      request,
+    );
   } catch (error) {
     console.error(error);
+    await persistFailedAudit(persistedAuditId, error, Date.now() - requestStartedAt);
 
     if (error instanceof Error && error.message.includes("OPENAI_API_KEY")) {
       return jsonError("OPENAI_API_KEY não configurada no backend.", 500);

@@ -1,5 +1,7 @@
 # NexoDoc - Escopo do MVP
 
+> Este documento preserva o escopo originalmente planejado para a versao 0.1. Banco opcional, historico e painel administrativo foram antecipados na implementacao atual.
+
 ## 1. Objetivo da versao 0.1
 
 A versao 0.1 do NexoDoc deve validar o fluxo essencial:

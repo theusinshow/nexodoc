@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
-import { isDatabaseConfigured, prisma } from "@/lib/db";
+import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -86,7 +86,11 @@ function getFilters(request: Request) {
     ];
   }
 
-  if (status && status !== "all") {
+  if (
+    status &&
+    status !== "all" &&
+    ["PROCESSING", "COMPLETED", "FAILED", "CANCELED"].includes(status)
+  ) {
     where.status = status as Prisma.EnumAuditStatusFilter["equals"];
   }
 
@@ -114,7 +118,7 @@ export async function GET(request: Request) {
   const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
 
   if (!adminToken) {
-    return jsonError(request, "NEXODOC_ADMIN_TOKEN nao configurado.", 500);
+    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
   }
 
   if (getBearerToken(request) !== adminToken) {
@@ -122,10 +126,10 @@ export async function GET(request: Request) {
   }
 
   if (!isDatabaseConfigured()) {
-    return jsonError(request, "DATABASE_URL nao configurada.", 500);
+    return jsonError(request, "DATABASE_URL não configurada.", 500);
   }
 
-  const audits = await prisma.audit.findMany({
+  const audits = await getPrisma().audit.findMany({
     take: getLimit(request),
     where: getFilters(request),
     orderBy: {

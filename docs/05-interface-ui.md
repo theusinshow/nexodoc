@@ -17,7 +17,7 @@ Elementos principais:
 - area central de conversa;
 - area para upload multiplo de PDFs;
 - lista de arquivos anexados;
-- seletor de modo rapido ou completo;
+- seletor de modo Memorial ou Volume;
 - campo de mensagem;
 - botao "Auditar documentos";
 - area de resposta do agente;
@@ -80,9 +80,8 @@ O botao de auditoria deve:
 
 A interface deve permitir escolher:
 
-- auditoria rapida: triagem objetiva, menor custo esperado e resposta mais curta;
-- checagem de volume: conferencia de capa, LD, pranchas, selos, revisoes e estrutura do pacote documental;
-- auditoria completa: conferencia mais cuidadosa, maior detalhe e maior custo esperado.
+- memorial: conferencia textual de identificacao, coerencia interna e reaproveitamento;
+- volume: conferencia cruzada de capa, LD, pranchas, selos, revisoes e estrutura do pacote documental.
 
 O modo selecionado deve ser visivel antes do envio e enviado ao backend.
 

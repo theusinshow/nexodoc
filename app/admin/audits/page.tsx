@@ -154,7 +154,7 @@ export default function AdminAuditsPage() {
         throw new Error(
           isErrorPayload(payload) && payload.error
             ? payload.error
-            : "Nao foi possivel carregar auditorias.",
+            : "Não foi possível carregar auditorias.",
         );
       }
 
@@ -166,7 +166,7 @@ export default function AdminAuditsPage() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Nao foi possivel carregar auditorias.",
+          : "Não foi possível carregar auditorias.",
       );
     } finally {
       setIsLoading(false);
@@ -180,10 +180,12 @@ export default function AdminAuditsPage() {
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
-    setToken(storedToken);
 
     if (storedToken) {
-      void loadAudits(storedToken);
+      queueMicrotask(() => {
+        setToken(storedToken);
+        void loadAudits(storedToken);
+      });
     }
     // Run only once after mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,7 +196,7 @@ export default function AdminAuditsPage() {
       <div className="mx-auto flex max-w-[1500px] flex-col gap-4">
         <header className="flex items-end justify-between gap-4 border-b pb-4">
           <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-primary">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
               <ListChecks className="size-4" />
               Admin
             </div>
@@ -209,7 +211,7 @@ export default function AdminAuditsPage() {
             onSubmit={handleSubmit}
             className="flex w-[460px] flex-col gap-2 rounded-lg border bg-card/80 p-3"
           >
-            <label className="text-xs font-medium text-muted-foreground">
+            <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
             </label>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -240,20 +242,20 @@ export default function AdminAuditsPage() {
 
         <section className="grid grid-cols-4 gap-3">
           <div className="rounded-lg border bg-card/80 p-3">
-            <p className="text-xs text-muted-foreground">Auditorias</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNumber(audits.length)}</p>
+            <p className="font-mono text-xs text-muted-foreground">Auditorias</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(audits.length)}</p>
           </div>
           <div className="rounded-lg border bg-card/80 p-3">
-            <p className="text-xs text-muted-foreground">Concluídas</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.completed)}</p>
+            <p className="font-mono text-xs text-muted-foreground">Concluídas</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.completed)}</p>
           </div>
           <div className="rounded-lg border bg-card/80 p-3">
-            <p className="text-xs text-muted-foreground">PDFs</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.files)}</p>
+            <p className="font-mono text-xs text-muted-foreground">PDFs</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.files)}</p>
           </div>
           <div className="rounded-lg border bg-card/80 p-3">
-            <p className="text-xs text-muted-foreground">Achados</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNumber(totals.findings)}</p>
+            <p className="font-mono text-xs text-muted-foreground">Achados</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.findings)}</p>
           </div>
         </section>
 
@@ -307,7 +309,7 @@ export default function AdminAuditsPage() {
 
         <section className="overflow-hidden rounded-lg border bg-card/80">
           <table className="w-full border-collapse text-sm">
-            <thead className="bg-[var(--nexodoc-recessed)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>
                 <th className="px-3 py-3 font-medium">Auditoria</th>
                 <th className="px-3 py-3 font-medium">Projeto</th>
@@ -326,7 +328,7 @@ export default function AdminAuditsPage() {
                   <tr key={audit.id} className="border-t align-top hover:bg-muted/30">
                     <td className="max-w-[280px] px-3 py-3">
                       <p className="truncate font-medium text-foreground">{audit.title}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                         {audit.files.map((file) => file.fileName).join(", ") || "-"}
                       </p>
                     </td>
@@ -336,21 +338,21 @@ export default function AdminAuditsPage() {
                     <td className="px-3 py-3">
                       <span
                         className={cn(
-                          "inline-flex rounded-md border px-2 py-1 text-xs font-medium",
+                          "inline-flex rounded-md border px-2 py-1 font-mono text-xs font-medium",
                           getStatusClass(audit.status),
                         )}
                       >
                         {audit.status}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-muted-foreground">{audit.auditMode}</td>
-                    <td className="px-3 py-3 text-right">{audit.files.length}</td>
-                    <td className="px-3 py-3 text-right">{audit.totalFindings}</td>
-                    <td className="px-3 py-3 text-right">{formatDuration(audit.elapsedMs)}</td>
+                    <td className="px-3 py-3 font-mono text-muted-foreground">{audit.auditMode}</td>
+                    <td className="px-3 py-3 text-right font-mono">{audit.files.length}</td>
+                    <td className="px-3 py-3 text-right font-mono">{audit.totalFindings}</td>
+                    <td className="px-3 py-3 text-right font-mono">{formatDuration(audit.elapsedMs)}</td>
                     <td className="max-w-[220px] px-3 py-3">
                       <p className="truncate">{audit.user?.email ?? "não vinculado"}</p>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
+                    <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">
                       {formatDate(audit.createdAt)}
                     </td>
                   </tr>

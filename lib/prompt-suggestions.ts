@@ -11,11 +11,11 @@ export type PromptSuggestion = {
 export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
   {
     id: "memorial-identificacao",
-    title: "Identificacao do memorial",
-    description: "Conferir campos principais e referencias residuais.",
+    title: "Identificação do memorial",
+    description: "Conferir campos principais e referências residuais.",
     auditMode: "memorial",
     prompt:
-      "Cheque o memorial descritivo. Verifique nome da obra, codigo do projeto, endereco, bairro, municipio, orgao/cliente, disciplina e referencias residuais de outro projeto. Aponte apenas incongruencias documentais relevantes.",
+      "Cheque o memorial descritivo. Verifique nome da obra, código do projeto, endereço, bairro, município, órgão/cliente, disciplina e referências residuais de outro projeto. Aponte apenas incongruências documentais relevantes.",
   },
   {
     id: "memorial-reaproveitamento",
@@ -23,15 +23,15 @@ export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
     description: "Buscar trechos herdados de outro projeto.",
     auditMode: "memorial",
     prompt:
-      "Procure sinais de reaproveitamento indevido no memorial descritivo. Foque em nomes de obra conflitantes, bairros, municipios, enderecos, codigos, orgaos e referencias residuais incompatíveis com a identificacao principal.",
+      "Procure sinais de reaproveitamento indevido no memorial descritivo. Foque em nomes de obra conflitantes, bairros, municípios, endereços, códigos, órgãos e referências residuais incompatíveis com a identificação principal.",
   },
   {
     id: "volume-ld-pranchas",
     title: "LD x pranchas",
-    description: "Comparar lista, selos, titulos e revisoes.",
+    description: "Comparar lista, selos, títulos e revisões.",
     auditMode: "volume",
     prompt:
-      "Cheque o volume de projeto. Compare LD/lista de desenhos com as pranchas anexadas, verificando numero da prancha, titulo, revisao, disciplina, codigo do projeto, volume e tomo.",
+      "Cheque o volume de projeto. Compare LD/lista de desenhos com as pranchas anexadas, verificando número da prancha, título, revisão, disciplina, código do projeto, volume e tomo.",
   },
   {
     id: "volume-estrutura",
@@ -39,6 +39,6 @@ export const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
     description: "Conferir capa, separatriz, LDs e pacote.",
     auditMode: "volume",
     prompt:
-      "Verifique se o volume de projeto esta coerente: capa, separatriz, LDs/listas e pranchas. Aponte pranchas ausentes, extras, fora do volume ou com selo/carimbo divergente.",
+      "Verifique se o volume de projeto está coerente: capa, separatriz, LDs/listas e pranchas. Aponte pranchas ausentes, extras, fora do volume ou com selo/carimbo divergente.",
   },
 ];

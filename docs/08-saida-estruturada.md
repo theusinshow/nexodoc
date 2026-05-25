@@ -50,42 +50,37 @@ No frontend, essa resposta passa a ser renderizada em blocos visuais:
 
 Essa camada melhora a leitura sem alterar o contrato do backend.
 
-## 2.2 Historico em memoria
+## 2.2 Historico
 
-Status: implementado no MVP.
+Status: implementado.
 
-O NexoDoc mantem um historico local apenas durante a sessao aberta do navegador.
+O NexoDoc mantem historico local durante a sessao do navegador e, quando `DATABASE_URL` esta configurada, persiste as execucoes no backend.
 
 Esse historico permite:
 
 - consultar auditorias ja executadas na sessao;
 - reabrir o resultado estruturado;
 - preservar modo escolhido, arquivos e status;
-- manter o MVP sem banco de dados e sem historico persistente.
+- consultar auditorias concluidas, falhas, canceladas ou em processamento no painel admin.
 
-Ao recarregar a pagina, o historico em memoria pode ser perdido.
+Os PDFs originais continuam disponiveis para abertura apenas na sessao local; o banco persiste metadados e o relatorio, nao o arquivo binario.
 
 ## 2.1 Modos de auditoria
 
 Status: implementado no MVP.
 
-O NexoDoc possui tres modos iniciais:
+O NexoDoc possui dois modos:
 
-- auditoria rapida;
-- checagem de volume;
-- auditoria completa.
+- memorial;
+- volume de projeto.
 
-A auditoria rapida prioriza triagem, resposta curta e menor consumo esperado.
+Memorial prioriza coerencia interna, identificacao do projeto e sinais de reaproveitamento. Volume prioriza capa, LD, lista de desenhos, pranchas, selos/carimbos, revisoes, disciplinas, volume/tomo e estrutura do pacote documental.
 
-A checagem de volume prioriza capa, LD, lista de desenhos, pranchas, selos/carimbos, revisoes, disciplinas, volume/tomo e estrutura do pacote documental.
-
-A auditoria completa prioriza comparacao documental mais cuidadosa, maior detalhamento e maior consumo esperado.
-
-Os tres modos mantem a mesma estrutura obrigatoria da resposta para preservar a renderizacao no frontend.
+Os dois modos mantem a mesma estrutura obrigatoria da resposta para preservar a renderizacao no frontend.
 
 ## 3. Camada 2 - Dados estruturados
 
-Status: parcialmente implementada.
+Status: implementada para o contrato interno e a exibicao humana.
 
 A seção "Incongruências relevantes encontradas" já usa um subformato textual estruturado para cada achado:
 
@@ -103,11 +98,9 @@ Referência comparada: documento, item da LD, prancha ou campo usado na compara�
 
 O frontend interpreta esses campos e renderiza cada achado em um bloco proprio. No modo Volume, os campos `Categoria` e `Referência comparada` ajudam a separar achados de estrutura, LD x prancha, selo x LD, selo x memorial, capa x memorial e reaproveitamento.
 
-Proxima evolucao: migrar de texto estruturado para JSON.
+O backend retorna um objeto `report` estruturado junto da resposta humana copiavel. Achados de comparacao entre arquivos podem incluir `categoria` e `referencia_comparada`.
 
-Evoluir a resposta para incluir dados estruturados em JSON, mantendo uma resposta humana copiavel.
-
-Formato alvo:
+Formato de referencia do relatorio estruturado:
 
 ```json
 {

@@ -7,21 +7,25 @@ const globalForPrisma = globalThis as unknown as {
   prismaPgPool?: Pool;
 };
 
-const connectionString =
-  process.env.DATABASE_URL ??
-  "postgresql://nexodoc:nexodoc@localhost:5432/nexodoc";
-const pool =
-  globalForPrisma.prismaPgPool ??
-  new Pool({
-    connectionString,
-  });
-const adapter = new PrismaPg(pool);
+export function getPrisma() {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+  const connectionString =
+    process.env.DATABASE_URL ??
+    "postgresql://nexodoc:nexodoc@localhost:5432/nexodoc";
+  const pool =
+    globalForPrisma.prismaPgPool ??
+    new Pool({
+      connectionString,
+    });
+  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = client;
   globalForPrisma.prismaPgPool = pool;
+
+  return client;
 }
 
 export function isDatabaseConfigured() {

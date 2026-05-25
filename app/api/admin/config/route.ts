@@ -57,7 +57,7 @@ export function GET(request: Request) {
   const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
 
   if (!adminToken) {
-    return jsonError(request, "NEXODOC_ADMIN_TOKEN nao configurado.", 500);
+    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
   }
 
   if (getBearerToken(request) !== adminToken) {
@@ -69,6 +69,9 @@ export function GET(request: Request) {
       runtime: {
         nodeEnv: process.env.NODE_ENV ?? "",
         mockMode: process.env.NEXODOC_MOCK_MODE === "true",
+        clientDemoAllowed:
+          process.env.NODE_ENV !== "production" ||
+          process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true",
         model: process.env.OPENAI_MODEL ?? "gpt-5.4-mini",
         allowedOrigins: process.env.NEXODOC_ALLOWED_ORIGINS ?? "",
       },
@@ -80,12 +83,6 @@ export function GET(request: Request) {
         chunkTimeoutMs: Number(process.env.NEXODOC_CHUNK_TIMEOUT_MS ?? 120000),
         deepChunkMaxOutputTokens: Number(
           process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ?? 1800,
-        ),
-        memorialMaxOutputTokens: Number(
-          process.env.NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS ?? 768,
-        ),
-        volumeMaxOutputTokens: Number(
-          process.env.NEXODOC_VOLUME_MAX_OUTPUT_TOKENS ?? 768,
         ),
       },
       secrets: {

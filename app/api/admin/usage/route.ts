@@ -115,7 +115,7 @@ async function fetchOpenAIPage<T>(
 
   if (!response.ok) {
     throw new Error(
-      payload?.error?.message ?? "Nao foi possivel consultar a OpenAI.",
+      payload?.error?.message ?? "Não foi possível consultar a OpenAI.",
     );
   }
 
@@ -267,7 +267,7 @@ export async function GET(request: Request) {
   const openAIAdminKey = process.env.OPENAI_ADMIN_KEY?.trim();
 
   if (!adminToken) {
-    return jsonError(request, "NEXODOC_ADMIN_TOKEN nao configurado.", 500);
+    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
   }
 
   if (getBearerToken(request) !== adminToken) {
@@ -275,7 +275,7 @@ export async function GET(request: Request) {
   }
 
   if (!openAIAdminKey) {
-    return jsonError(request, "OPENAI_ADMIN_KEY nao configurada.", 500);
+    return jsonError(request, "OPENAI_ADMIN_KEY não configurada.", 500);
   }
 
   try {
@@ -324,7 +324,7 @@ export async function GET(request: Request) {
       request,
       error instanceof Error
         ? error.message
-        : "Nao foi possivel carregar uso administrativo.",
+        : "Não foi possível carregar uso administrativo.",
       500,
     );
   }

@@ -35,7 +35,7 @@ export function FileUpload({
   }
 
   return (
-    <div className={compact ? "flex gap-1.5" : "grid gap-2 sm:grid-cols-[180px_1fr]"}>
+    <div className={compact ? "flex flex-wrap gap-2" : "grid gap-3 sm:grid-cols-[190px_1fr]"}>
       <label className="sr-only" htmlFor={typeId}>
         Tipo de documento
       </label>
@@ -44,7 +44,7 @@ export function FileUpload({
         value={documentType}
         onChange={(event) => setDocumentType(event.target.value as DocumentType)}
         disabled={disabled}
-        className="h-8 rounded-md border border-input bg-[var(--nexodoc-recessed)] px-2 text-xs text-foreground outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+        className="h-10 rounded-md border border-input bg-card px-3 font-mono text-sm text-foreground outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:opacity-60"
       >
         {DOCUMENT_TYPES.map((type) => (
           <option key={type} value={type}>

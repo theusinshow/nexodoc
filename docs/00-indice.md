@@ -18,14 +18,15 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 
 ## Fonte de verdade
 
-O arquivo [NexoDoc_contexto_principal.md](C:/Dev/trabalho/empresa/nexodoc/docs/NexoDoc_contexto_principal.md) contem o contexto principal usado para orientar as decisoes iniciais do projeto.
+O arquivo [NexoDoc_contexto_principal.md](C:/Dev/trabalho/empresa/nexodoc/docs/NexoDoc_contexto_principal.md) registra o contexto inicial do produto. Para o estado implementado, use o README, o roadmap e a bateria de testes.
 
 ## Regra de escopo atual
 
-A versao 0.1 deve permanecer simples:
+A base atual preserva o chat como fluxo principal, mas ja incorpora recursos operacionais:
 
 - sem login;
-- sem banco de dados;
-- sem historico persistente;
+- com historico persistente opcional via PostgreSQL;
+- com painel administrativo protegido por token;
+- com comparacao entre documentos em auditorias com multiplos PDFs;
 - sem exportacao PDF ou DOCX;
-- com foco em pagina unica, chat, upload multiplo de PDFs, backend e resposta padronizada pela OpenAI API.
+- com exportacao Markdown do relatorio.

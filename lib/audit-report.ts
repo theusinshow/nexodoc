@@ -15,6 +15,8 @@ export type AuditFinding = {
   descricao: string;
   evidencia: string;
   termo_busca?: string;
+  categoria?: string;
+  referencia_comparada?: string;
   conflito: string;
   sugestao_correcao: string;
   confianca: FindingConfidence;
@@ -40,10 +42,10 @@ export type AuditReport = {
   data_documento: string;
   status_analise: "concluida" | "parcial" | "falha";
   status_geral:
-    | "sem achados criticos"
-    | "com pontos de revisao"
-    | "com inconsistencias criticas"
-    | "revisao obrigatoria antes de emissao";
+    | "sem achados críticos"
+    | "com pontos de revisão"
+    | "com inconsistências críticas"
+    | "revisão obrigatória antes de emissão";
   total_incongruencias: number;
   arquivos_analisados: AuditFileSummary[];
   comparacoes: string[];
@@ -139,6 +141,8 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     haystack.includes("cliente") ||
     haystack.includes("orgao") ||
     haystack.includes("secretaria") ||
+    haystack.includes("codigo do projeto") ||
+    haystack.includes("código do projeto") ||
     haystack.includes("nome da obra") ||
     haystack.includes("unidade") ||
     haystack.includes("ubs") ||
@@ -156,7 +160,9 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     haystack.includes("referencia municipal") ||
     haystack.includes("comcap") ||
     haystack.includes("ld") ||
-    haystack.includes("prancha")
+    haystack.includes("prancha") ||
+    haystack.includes("revisao") ||
+    haystack.includes("revisão")
   ) {
     return "tecnico_contratual";
   }
@@ -241,20 +247,20 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
   const editorial = groups.revisao_editorial;
 
   if (findings.length === 0) {
-    return "Nao foram detectados achados criticos dentro da auditoria executada.";
+    return "Não foram detectados achados críticos dentro da auditoria executada.";
   }
 
   const parts: string[] = [];
 
   if (critical.length > 0) {
     parts.push(
-      `Documento com ${critical.length} incongruencia(s) critica(s) de identidade/localizacao da obra, com risco de reaproveitamento de texto ou emissao com dados divergentes.`,
+      `Documento com ${critical.length} incongruência(s) crítica(s) de identidade/localização da obra, com risco de reaproveitamento de texto ou emissão com dados divergentes.`,
     );
   }
 
   if (technical.length > 0) {
     parts.push(
-      `${technical.length} ponto(s) tecnico(s)/contratual(is) exigem conferencia antes da emissao.`,
+      `${technical.length} ponto(s) técnico(s)/contratual(is) exigem conferência antes da emissão.`,
     );
   }
 
@@ -268,7 +274,7 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
 }
 
 function formatFindingLine(finding: AuditFinding) {
-  return `- ${finding.id}: ${finding.tipo} | Pagina ${finding.pagina || "nao identificada"} | ${finding.conflito || finding.descricao}`;
+  return `- ${finding.id}: ${finding.tipo} | Página ${finding.pagina || "não identificada"} | ${finding.conflito || finding.descricao}`;
 }
 
 export function makeTextReport(report: AuditReport) {
@@ -277,73 +283,75 @@ export function makeTextReport(report: AuditReport) {
   const executiveSummary = buildExecutiveSummary(sortedFindings);
   const findings =
     sortedFindings.length === 0
-      ? "- nenhum achado critico detectado"
+      ? "- nenhum achado crítico detectado"
       : sortedFindings
           .map((finding) => {
             return [
               `Achado ${finding.id}: ${finding.tipo}`,
               `Prioridade: ${finding.prioridade}`,
-              `Documento: ${finding.arquivo ?? report.arquivo ?? report.arquivos_analisados[0]?.arquivo ?? "nao informado"}`,
-              `Pagina provavel: ${finding.pagina || "nao identificada"}`,
-              `Capitulo: ${finding.capitulo || "nao identificado"}`,
-              `Local: ${finding.local || "nao informado"}`,
-              `Evidencia: ${finding.evidencia || finding.descricao}`,
+              `Documento: ${finding.arquivo ?? report.arquivo ?? report.arquivos_analisados[0]?.arquivo ?? "não informado"}`,
+              `Página provável: ${finding.pagina || "não identificada"}`,
+              `Capítulo: ${finding.capitulo || "não identificado"}`,
+              `Local: ${finding.local || "não informado"}`,
+              `Evidência: ${finding.evidencia || finding.descricao}`,
               `Termo de busca: ${finding.termo_busca || finding.evidencia || finding.descricao}`,
-              `Conflito: ${finding.conflito || "nao informado"}`,
-              `Acao recomendada: ${finding.sugestao_correcao || "revisar o trecho indicado"}`,
+              finding.categoria ? `Categoria: ${finding.categoria}` : "",
+              finding.referencia_comparada ? `Referência comparada: ${finding.referencia_comparada}` : "",
+              `Conflito: ${finding.conflito || "não informado"}`,
+              `Ação recomendada: ${finding.sugestao_correcao || "revisar o trecho indicado"}`,
               `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
-              `Confianca: ${finding.confianca}`,
-            ].join("\n");
+              `Confiança: ${finding.confianca}`,
+            ].filter(Boolean).join("\n");
           })
           .join("\n\n");
 
   return `
 1. Projeto analisado
-Arquivo: ${report.arquivo ?? "nao informado"}
-Obra: ${report.obra || "nao identificada"}
-Codigo: ${report.codigo || "nao identificado"}
-Municipio: ${report.municipio || "nao identificado"}
-Data: ${report.data_documento || "nao identificada"}
+Arquivo: ${report.arquivo ?? "não informado"}
+Obra: ${report.obra || "não identificada"}
+Código: ${report.codigo || "não identificado"}
+Município: ${report.municipio || "não identificado"}
+Data: ${report.data_documento || "não identificada"}
 
 2. Status geral
 ${report.status_geral}
 
-2.1 Sintese executiva
+2.1 Síntese executiva
 ${executiveSummary}
 
 2.2 Principais riscos
-${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum risco critico documental identificado"}
+${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum risco crítico documental identificado"}
 
 3. Arquivos analisados
 ${report.arquivos_analisados
   .map((item) => {
-    return `- ${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} paginas | ${item.caracteres_extraidos ?? "-"} caracteres`;
+    return `- ${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} páginas | ${item.caracteres_extraidos ?? "-"} caracteres`;
   })
   .join("\n")}
 
-4. Analise por arquivo
+4. Análise por arquivo
 ${report.arquivos_analisados
   .map((item) => {
     return `Arquivo: ${item.arquivo}\nResumo: ${item.resumo}`;
   })
   .join("\n\n")}
 
-5. Comparacoes entre arquivos
-${report.comparacoes.length > 0 ? report.comparacoes.map((item) => `- ${item}`).join("\n") : "- sem comparacao especifica"}
+5. Comparações entre arquivos
+${report.comparacoes.length > 0 ? report.comparacoes.map((item) => `- ${item}`).join("\n") : "- sem comparação específica"}
 
-6. Achados criticos documentais
-${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum achado critico documental"}
+6. Achados críticos documentais
+${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum achado crítico documental"}
 
-6.1 Pontos tecnicos/contratuais
-${grouped.tecnico_contratual.length > 0 ? grouped.tecnico_contratual.map(formatFindingLine).join("\n") : "- nenhum ponto tecnico/contratual detectado"}
+6.1 Pontos técnicos/contratuais
+${grouped.tecnico_contratual.length > 0 ? grouped.tecnico_contratual.map(formatFindingLine).join("\n") : "- nenhum ponto técnico/contratual detectado"}
 
-6.2 Revisoes editoriais
-${grouped.revisao_editorial.length > 0 ? grouped.revisao_editorial.map(formatFindingLine).join("\n") : "- nenhuma revisao editorial detectada"}
+6.2 Revisões editoriais
+${grouped.revisao_editorial.length > 0 ? grouped.revisao_editorial.map(formatFindingLine).join("\n") : "- nenhuma revisão editorial detectada"}
 
-6.3 Lista completa com evidencias
+6.3 Lista completa com evidências
 ${findings}
 
-7. Conclusao objetiva
+7. Conclusão objetiva
 ${report.conclusao}
 `.trim();
 }

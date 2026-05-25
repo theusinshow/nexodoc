@@ -119,15 +119,15 @@ function MetricCard({
   return (
     <article className="rounded-lg border bg-card px-4 py-4 shadow-[var(--shadow-panel)]">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
           {label}
         </span>
         <span className="flex size-9 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
           <Icon className="size-4" />
         </span>
       </div>
-      <p className="mt-4 text-2xl font-semibold leading-none">{value}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-4 font-mono text-2xl font-semibold leading-none">{value}</p>
+      <p className="mt-2 font-mono text-xs text-muted-foreground">{detail}</p>
     </article>
   );
 }
@@ -138,7 +138,6 @@ export default function AdminUsagePage() {
   const [data, setData] = useState<AdminUsageResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [hasLoadedToken, setHasLoadedToken] = useState(false);
   const apiUrl = getApiUrl();
   const maxDailyValue = getMaxDailyValue(data);
   const totalTokens = useMemo(() => {
@@ -175,7 +174,7 @@ export default function AdminUsagePage() {
         throw new Error(
           isErrorPayload(payload) && payload.error
             ? payload.error
-            : "Nao foi possivel carregar uso.",
+            : "Não foi possível carregar uso.",
         );
       }
 
@@ -187,7 +186,7 @@ export default function AdminUsagePage() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Nao foi possivel carregar uso.",
+          : "Não foi possível carregar uso.",
       );
     } finally {
       setIsLoading(false);
@@ -201,24 +200,22 @@ export default function AdminUsagePage() {
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
-    setToken(storedToken);
-    setHasLoadedToken(true);
-  }, []);
-
-  useEffect(() => {
-    if (hasLoadedToken && token) {
-      void loadUsage(token, days);
+    if (storedToken) {
+      queueMicrotask(() => {
+        setToken(storedToken);
+        void loadUsage(storedToken, days);
+      });
     }
-    // Run only after session token restoration.
+    // Run only once after mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasLoadedToken]);
+  }, []);
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground">
       <div className="mx-auto flex max-w-6xl flex-col gap-5">
         <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-primary">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
               <ShieldCheck className="size-4" />
               Admin
             </div>
@@ -233,7 +230,7 @@ export default function AdminUsagePage() {
             onSubmit={handleSubmit}
             className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 md:w-[460px]"
           >
-            <label className="text-xs font-medium text-muted-foreground">
+            <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
             </label>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -291,7 +288,7 @@ export default function AdminUsagePage() {
                 ? formatCurrency(data.costs.total.amount, data.costs.total.currency)
                 : "--"
             }
-            detail={`Ultimos ${days} dias`}
+            detail={`Últimos ${days} dias`}
           />
           <MetricCard
             icon={Sigma}
@@ -299,7 +296,7 @@ export default function AdminUsagePage() {
             value={data ? formatNumber(totalTokens) : "--"}
             detail={
               data
-                ? `${formatNumber(data.usage.totals.inputTokens)} entrada / ${formatNumber(data.usage.totals.outputTokens)} saida`
+                ? `${formatNumber(data.usage.totals.inputTokens)} entrada / ${formatNumber(data.usage.totals.outputTokens)} saída`
                 : "Aguardando consulta"
             }
           />
@@ -327,7 +324,7 @@ export default function AdminUsagePage() {
                 </p>
               </div>
               {data ? (
-                <span className="text-xs text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   Atualizado {new Date(data.generatedAt).toLocaleTimeString("pt-BR")}
                 </span>
               ) : null}
@@ -364,10 +361,10 @@ export default function AdminUsagePage() {
                       />
                     </div>
                     <div className="text-center">
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate font-mono text-xs text-muted-foreground">
                         {usageDay ? formatDate(usageDay.date) : "--"}
                       </p>
-                      <p className="truncate text-[11px] text-primary">
+                      <p className="truncate font-mono text-[11px] text-primary">
                         {costDay
                           ? formatCurrency(costDay.amount, costDay.currency)
                           : "--"}
@@ -392,12 +389,12 @@ export default function AdminUsagePage() {
                       className="rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <p className="break-all text-sm font-medium">{model.model}</p>
-                        <span className="rounded-md border bg-card px-2 py-1 text-xs text-muted-foreground">
+                        <p className="break-all font-mono text-sm font-medium">{model.model}</p>
+                        <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
                           {formatNumber(model.requests)}
                         </span>
                       </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
+                      <p className="mt-2 font-mono text-xs text-muted-foreground">
                         {formatNumber(modelTokens)} tokens totais
                       </p>
                     </div>
@@ -416,7 +413,7 @@ export default function AdminUsagePage() {
           <h2 className="text-sm font-semibold">Itens de custo</h2>
           <div className="mt-4 overflow-hidden rounded-md border">
             <table className="w-full border-collapse text-sm">
-              <thead className="bg-[var(--nexodoc-recessed)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
+              <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   <th className="px-3 py-3 font-medium">Item</th>
                   <th className="px-3 py-3 text-right font-medium">Valor</th>

@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  BarChart3,
   CheckCircle2,
   Clock3,
   FileSearch,
@@ -18,7 +17,6 @@ import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult, type AuditPdfSource } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
-import { FileUpload } from "@/components/file-upload";
 import { MessageBubble } from "@/components/message-bubble";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 type ChatWindowProps = {
   isMockMode?: boolean;
+  allowDemoMode?: boolean;
 };
 
 type ChatMessage = {
@@ -73,6 +72,13 @@ function getAuditEndpoint() {
   return apiUrl ? `${apiUrl}/api/audit` : "/api/audit";
 }
 
+function getAuditCancelEndpoint(auditId: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  const path = `/api/audit/${encodeURIComponent(auditId)}/cancel`;
+
+  return apiUrl ? `${apiUrl}${path}` : path;
+}
+
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -82,10 +88,10 @@ function normalizeText(value: string) {
 
 function getDefaultPrompt(mode: AuditMode) {
   if (mode === "volume") {
-    return "Cheque o volume de projeto. Compare capa, separatriz, LDs e pranchas, com foco em LD x pranchas, selos, revisoes, titulos, disciplina, volume e tomo.";
+    return "Cheque o volume de projeto. Compare capa, separatriz, LDs e pranchas, com foco em LD x pranchas, selos, revisões, títulos, disciplina, volume e tomo.";
   }
 
-  return "Cheque o memorial descritivo. Verifique identificacao do projeto, coerencia interna do texto e sinais de reaproveitamento de outro projeto.";
+  return "Cheque o memorial descritivo. Verifique identificação do projeto, coerência interna do texto e sinais de reaproveitamento de outro projeto.";
 }
 
 function getStatusFromResult(result?: string) {
@@ -100,24 +106,24 @@ function getStatusFromResult(result?: string) {
     lowerResult.includes("com inconsistencias criticas") ||
     lowerResult.includes("com incongruencia relevante")
   ) {
-    return "com inconsistencias criticas";
+    return "com inconsistências críticas";
   }
 
   if (
     lowerResult.includes("com pontos de revisao") ||
     lowerResult.includes("com ponto de atencao")
   ) {
-    return "com pontos de revisao";
+    return "com pontos de revisão";
   }
 
   if (
     lowerResult.includes("sem achados criticos") ||
     lowerResult.includes("sem incongruencia relevante")
   ) {
-    return "sem achados criticos";
+    return "sem achados críticos";
   }
 
-  return "resultado disponivel";
+    return "resultado disponível";
 }
 
 function getFindingCount(result?: string) {
@@ -197,7 +203,10 @@ function validateFiles(
   };
 }
 
-export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
+export function ChatWindow({
+  isMockMode = false,
+  allowDemoMode = false,
+}: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
@@ -205,7 +214,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   const [auditTitle, setAuditTitle] = useState("");
   const [projectName, setProjectName] = useState("");
   const [auditDescription, setAuditDescription] = useState("");
-  const [useMockMode, setUseMockMode] = useState(isMockMode);
+  const [useMockMode, setUseMockMode] = useState(isMockMode && allowDemoMode);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -233,19 +242,19 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     "6\\.\\s*Incongruencias relevantes encontradas|6\\.\\s*Incongruências relevantes encontradas",
   );
   const latestReport =
-    latestResult?.content ?? "Nenhuma auditoria concluida nesta sessao.";
+    latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
   const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
   const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
   const setupComplete = true;
-  const statusIsCritical = latestStatus === "com inconsistencias criticas";
-  const statusIsOk = latestStatus === "sem achados criticos";
+  const statusIsCritical = latestStatus === "com inconsistências críticas";
+  const statusIsOk = latestStatus === "sem achados críticos";
   const statusToneClass = statusIsCritical
     ? "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]"
     : statusIsOk
       ? "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
       : "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
   const fieldClass =
-    "h-8 rounded-md border border-input bg-[var(--nexodoc-recessed)] px-2 text-xs text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-60";
+    "h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:opacity-60";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -377,9 +386,10 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function handleCancelAudit() {
     abortControllerRef.current?.abort();
     setIsLoading(false);
-    setError("Auditoria cancelada pelo usuario.");
+    setError("Auditoria cancelada pelo usuário.");
 
     if (activeAuditId) {
+      void fetch(getAuditCancelEndpoint(activeAuditId), { method: "PATCH" });
       setAuditHistory((current) =>
         current.map((item) =>
           item.id === activeAuditId
@@ -414,9 +424,10 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     const formData = new FormData();
     formData.append("message", trimmedMessage);
     formData.append("auditMode", auditMode);
-    formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificacao");
-    formData.append("projectName", projectName.trim() || "Projeto nao informado");
+    formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificação");
+    formData.append("projectName", projectName.trim() || "Projeto não informado");
     formData.append("auditDescription", auditDescription.trim());
+    formData.append("auditId", auditId);
     formData.append("mockMode", useMockMode ? "true" : "false");
     files.forEach((attachment) => {
       formData.append("files", attachment.file);
@@ -426,7 +437,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     const userMessage: ChatMessage = {
       id: `${auditId}-request`,
       role: "user",
-      content: `${trimmedMessage}\n\nIdentificacao: ${auditTitle || "Auditoria sem identificacao"}\nProjeto: ${projectName || "Projeto nao informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
+      content: `${trimmedMessage}\n\nIdentificação: ${auditTitle || "Auditoria sem identificação"}\nProjeto: ${projectName || "Projeto não informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
       auditMode,
     };
 
@@ -435,7 +446,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
       {
         id: auditId,
         title: auditTitle.trim() || `Auditoria ${current.length + 1}`,
-        projectName: projectName.trim() || "Projeto nao informado",
+        projectName: projectName.trim() || "Projeto não informado",
         description: auditDescription.trim(),
         createdAt: new Date(),
         auditMode,
@@ -457,10 +468,11 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         report?: AuditReport;
         error?: string;
         auditMode?: AuditMode;
+        auditId?: string | null;
       };
 
       if (!response.ok || !payload.result) {
-        throw new Error(payload.error ?? "Nao foi possivel concluir a auditoria.");
+        throw new Error(payload.error ?? "Não foi possível concluir a auditoria.");
       }
 
       const result = payload.result;
@@ -496,14 +508,23 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
     } catch (requestError) {
       const message =
         requestError instanceof DOMException && requestError.name === "AbortError"
-          ? "Auditoria cancelada pelo usuario."
+          ? "Auditoria cancelada pelo usuário."
           : requestError instanceof Error
             ? requestError.message
-            : "Nao foi possivel concluir a auditoria.";
+            : "Não foi possível concluir a auditoria.";
       setError(message);
       setAuditHistory((current) =>
         current.map((item) =>
-          item.id === auditId ? { ...item, status: "failed", error: message } : item,
+          item.id === auditId
+            ? {
+                ...item,
+                status:
+                  requestError instanceof DOMException && requestError.name === "AbortError"
+                    ? "canceled"
+                    : "failed",
+                error: message,
+              }
+            : item,
         ),
       );
     } finally {
@@ -514,11 +535,11 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
 
   function renderAuditContext() {
     return (
-      <section className="rounded-lg border bg-card/95 p-2 shadow-[var(--shadow-panel)]">
-        <div className="grid gap-2 xl:grid-cols-[1fr_minmax(280px,420px)] xl:items-end">
-          <div className="grid min-w-0 gap-2 md:grid-cols-[1fr_1fr_1.2fr]">
-            <label className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">Identificacao</span>
+      <section className="border-b bg-card px-4 py-4 sm:px-5">
+        <div className="grid gap-4 xl:grid-cols-[1fr_minmax(300px,390px)] xl:items-end">
+          <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
+            <label className="grid gap-1.5 text-xs">
+              <span className="font-mono font-medium text-muted-foreground">Identificacao</span>
               <input
                 value={auditTitle}
                 onChange={(event) => setAuditTitle(event.target.value)}
@@ -527,8 +548,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 className={fieldClass}
               />
             </label>
-            <label className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">Projeto</span>
+            <label className="grid gap-1.5 text-xs">
+              <span className="font-mono font-medium text-muted-foreground">Projeto</span>
               <input
                 value={projectName}
                 onChange={(event) => setProjectName(event.target.value)}
@@ -537,8 +558,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 className={fieldClass}
               />
             </label>
-            <label className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">Descricao</span>
+            <label className="grid gap-1.5 text-xs">
+              <span className="font-mono font-medium text-muted-foreground">Descricao</span>
               <input
                 value={auditDescription}
                 onChange={(event) => setAuditDescription(event.target.value)}
@@ -550,7 +571,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </div>
 
           <div className="min-w-0">
-            <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-0.5 text-xs">
+            <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-sm">
               {(["memorial", "volume"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -559,8 +580,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                   onClick={() => handleAuditModeChange(mode)}
                   className={
                     auditMode === mode
-                      ? "rounded border border-ring/60 bg-muted px-2 py-2 font-semibold text-foreground"
-                      : "rounded border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                      ? "rounded-md border border-border bg-card px-3 py-2.5 font-medium text-foreground shadow-[var(--shadow-subtle)]"
+                      : "rounded-md border border-transparent px-3 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   }
                   title={getAuditModeDescription(mode)}
                 >
@@ -577,36 +598,25 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   function renderEmptyChat() {
     return (
       <section
-        className="grid min-h-[220px] flex-1 place-items-center"
+        className="grid min-h-[240px] flex-1 place-items-center px-4 py-8"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
         <div
           className={cn(
-            "grid w-full max-w-2xl place-items-center rounded-lg border border-dashed bg-card/90 px-6 py-10 text-center shadow-[var(--shadow-panel)] transition-[border-color,background-color,transform]",
+            "grid w-full max-w-xl place-items-center rounded-md border border-dashed bg-card px-8 py-12 text-center transition-[border-color,background-color]",
             isDropActive
               ? "border-primary bg-primary/10 text-foreground"
-              : "border-border hover:border-ring",
+              : "border-input hover:border-ring",
           )}
         >
-          <div className="flex size-12 items-center justify-center rounded-md border border-primary/35 bg-primary/15 text-primary">
+          <div className="flex size-12 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary">
             <FileSearch className="size-6" />
           </div>
-          <h2 className="mt-4 text-base font-semibold">Solte os PDFs aqui</h2>
-          <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
-            Arraste os arquivos para esta area ou use o botao abaixo. Depois,
-            descreva no chat o que deve ser auditado.
-          </p>
-          <div className="mt-4">
-            <FileUpload
-              onFilesSelected={handleFilesAdd}
-              disabled={isLoading}
-              compact
-            />
-          </div>
-          <p className="mt-3 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-1 text-xs text-muted-foreground">
-            {files.length}/5 PDFs anexados
+          <h2 className="mt-4 text-lg font-semibold">Nova auditoria documental</h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            Arraste PDFs para esta area ou anexe documentos no campo abaixo.
           </p>
         </div>
       </section>
@@ -614,20 +624,20 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
   }
 
   return (
-    <main className="flex h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden h-screen w-64 shrink-0 border-r bg-[var(--nexodoc-panel)]/95 px-4 py-4 lg:flex lg:flex-col">
+    <main className="flex h-dvh overflow-hidden bg-background text-foreground">
+      <aside className="hidden h-dvh w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-5 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+          <div className="flex size-10 items-center justify-center rounded-md border border-primary/15 bg-card text-primary">
             <FileSearch className="size-5" />
           </div>
           <div>
-            <h1 className="text-base font-semibold tracking-normal">NexoDoc</h1>
-            <p className="text-xs text-muted-foreground">Auditoria documental</p>
+            <h1 className="font-mono text-base font-semibold tracking-normal">NexoDoc</h1>
+            <p className="font-mono text-xs text-muted-foreground">Auditoria documental</p>
           </div>
         </div>
 
         {isMockMode ? (
-          <div className="mt-4 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 px-3 py-2 text-xs text-[var(--status-warning)]">
+          <div className="mt-4 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 px-3 py-2 font-mono text-xs text-[var(--status-warning)]">
             Mock ativo
           </div>
         ) : null}
@@ -635,7 +645,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         <Button
           type="button"
           variant="outline"
-          className="mt-5 justify-start"
+          className="mt-6 justify-start"
           onClick={handleNewAudit}
         >
           <RotateCcw />
@@ -669,60 +679,63 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           Configurações
         </Button>
 
-        <button
-          type="button"
-          onClick={() => setUseMockMode((current) => !current)}
-          className="mt-4 flex items-center justify-between rounded-lg border bg-[var(--nexodoc-surface)]/75 px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted/60"
-        >
-          <span className="flex items-center gap-2">
-            <TestTube2 className="size-4 text-primary" />
-            <span>
-              <span className="block font-medium text-foreground">Modo demo</span>
-              <span className="text-muted-foreground">Sem consumir tokens</span>
-            </span>
-          </span>
-          <span
-            className={cn(
-              "h-5 w-9 rounded-full border p-0.5 transition-colors",
-              useMockMode ? "border-primary/50 bg-primary/70" : "bg-[var(--nexodoc-recessed)]",
-            )}
+        {allowDemoMode ? (
+          <button
+            type="button"
+            aria-pressed={useMockMode}
+            onClick={() => setUseMockMode((current) => !current)}
+            className="mt-5 flex items-center justify-between rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs transition-colors hover:border-ring hover:bg-accent"
           >
+            <span className="flex items-center gap-2">
+              <TestTube2 className="size-4 text-primary" />
+              <span>
+                <span className="block font-medium text-foreground">Modo demo</span>
+                <span className="text-muted-foreground">Sem consumir tokens</span>
+              </span>
+            </span>
             <span
               className={cn(
-                "block size-3.5 rounded-full bg-foreground transition-transform",
-                useMockMode && "translate-x-4",
+                "h-5 w-9 rounded-full border p-0.5 transition-colors",
+                useMockMode ? "border-primary/50 bg-primary/70" : "bg-[var(--nexodoc-recessed)]",
               )}
-            />
-          </span>
-        </button>
+            >
+              <span
+                className={cn(
+                  "block size-3.5 rounded-full bg-foreground transition-transform",
+                  useMockMode && "translate-x-4",
+                )}
+              />
+            </span>
+          </button>
+        ) : null}
 
-        <div className="mt-5 rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="mt-6 border-t pt-5">
+          <div className="flex items-center gap-2 font-mono text-sm font-medium">
             <Files className="size-4 text-primary" />
             Atual
           </div>
-          <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-            <p>{projectName || "Projeto nao informado"}</p>
+          <div className="mt-3 space-y-2 font-mono text-xs text-muted-foreground">
+            <p>{projectName || "Projeto não informado"}</p>
             <p>{getAuditModeLabel(auditMode)}</p>
             <p>{displayedFileCount} arquivo(s)</p>
           </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-[var(--nexodoc-surface)]/75 p-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto border-t pt-5">
+          <div className="flex items-center gap-2 font-mono text-sm font-medium">
             <Clock3 className="size-4 text-primary" />
-            Historico
+            Histórico
           </div>
           <div className="mt-3 space-y-2">
             {auditHistory.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sem auditorias.</p>
+              <p className="font-mono text-xs text-muted-foreground">Sem auditorias.</p>
             ) : (
               auditHistory.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-md border bg-card/75 px-3 py-2 text-left text-xs transition-colors hover:border-ring hover:bg-muted/70"
+                  className="w-full rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs transition-colors hover:border-ring hover:bg-accent"
                 >
                   <span className="block truncate font-medium text-foreground">
                     {item.title}
@@ -737,21 +750,24 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         </div>
       </aside>
 
-      <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b bg-card/95 px-4 py-3 lg:hidden">
+      <section className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-3 lg:hidden">
           <div className="flex items-center gap-2">
             <FileSearch className="size-5 text-primary" />
-            <span className="font-semibold">NexoDoc</span>
+            <span className="font-mono font-semibold">NexoDoc</span>
           </div>
-          <Button
-            type="button"
-            variant={useMockMode ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setUseMockMode((current) => !current)}
-          >
-            <TestTube2 />
-            Demo
-          </Button>
+          {allowDemoMode ? (
+            <Button
+              type="button"
+              aria-pressed={useMockMode}
+              variant={useMockMode ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setUseMockMode((current) => !current)}
+            >
+              <TestTube2 />
+              Demo
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" size="sm" onClick={handleNewAudit}>
             <RotateCcw />
             Nova
@@ -767,15 +783,15 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        {!isLoading ? renderAuditContext() : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
           <div
             className={cn(
-              "mx-auto flex min-h-full flex-col gap-3",
-              isLoading ? "max-w-[760px]" : "max-w-4xl",
+              "mx-auto flex min-h-full flex-col gap-4",
+              isLoading ? "max-w-[760px]" : "max-w-5xl",
             )}
           >
-            {!isLoading ? renderAuditContext() : null}
-
             {messages.length === 0 && !isLoading ? (
               renderEmptyChat()
             ) : (
@@ -827,13 +843,13 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
         />
       </section>
 
-      <aside className="hidden h-screen w-[340px] shrink-0 border-l bg-[var(--nexodoc-panel)]/95 p-4 2xl:flex 2xl:flex-col">
+      <aside className="hidden h-dvh w-[320px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-5 2xl:flex 2xl:flex-col">
         <div className="flex items-start justify-between gap-3 border-b pb-4">
           <div>
-            <p className="text-xs uppercase text-muted-foreground">Painel</p>
-            <h2 className="mt-1 text-base font-semibold">Inspecao</h2>
+            <p className="font-mono text-xs uppercase text-muted-foreground">Painel</p>
+            <h2 className="mt-1 text-base font-semibold">Inspeção</h2>
           </div>
-          <div className={`rounded-md border px-2 py-1 text-xs font-medium ${statusToneClass}`}>
+          <div className={`rounded-md border px-2 py-1 font-mono text-xs font-medium ${statusToneClass}`}>
             {statusIsCritical ? (
               <AlertTriangle className="mr-1 inline size-3" />
             ) : (
@@ -843,36 +859,32 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 py-4">
-          <div className="rounded-lg border bg-card/75 p-3">
-            <BarChart3 className="mb-2 size-4 text-primary" />
-            <p className="text-xs text-muted-foreground">Tipo</p>
-            <p className="mt-1 text-sm font-medium">{getAuditModeLabel(auditMode)}</p>
+        <dl className="my-5 divide-y border-y font-mono text-sm">
+          <div className="flex items-center justify-between gap-3 py-3">
+            <dt className="text-muted-foreground">Tipo</dt>
+            <dd className="font-medium">{getAuditModeLabel(auditMode)}</dd>
           </div>
-          <div className="rounded-lg border bg-card/75 p-3">
-            <Clock3 className="mb-2 size-4 text-primary" />
-            <p className="text-xs text-muted-foreground">Tempo</p>
-            <p className="mt-1 text-sm font-medium">
+          <div className="flex items-center justify-between gap-3 py-3">
+            <dt className="text-muted-foreground">Tempo</dt>
+            <dd className="font-mono text-xs font-medium">
               {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
-            </p>
+            </dd>
           </div>
-          <div className="rounded-lg border bg-card/75 p-3">
-            <Files className="mb-2 size-4 text-primary" />
-            <p className="text-xs text-muted-foreground">PDFs</p>
-            <p className="mt-1 text-sm font-medium">{displayedFileCount || "-"}</p>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <dt className="text-muted-foreground">PDFs</dt>
+            <dd className="font-medium">{displayedFileCount || "-"}</dd>
           </div>
-          <div className="rounded-lg border bg-card/75 p-3">
-            <ListChecks className="mb-2 size-4 text-primary" />
-            <p className="text-xs text-muted-foreground">Achados</p>
-            <p className="mt-1 text-sm font-medium">{latestFindingCount}</p>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <dt className="text-muted-foreground">Achados</dt>
+            <dd className="font-medium">{latestFindingCount}</dd>
           </div>
-        </div>
+        </dl>
 
-        <div className="grid grid-cols-3 rounded-lg border bg-card/75 p-1 text-xs">
+        <div className="grid grid-cols-3 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">
           {[
             { value: "summary" as const, label: "Resumo" },
             { value: "findings" as const, label: "Achados" },
-            { value: "report" as const, label: "Relatorio" },
+            { value: "report" as const, label: "Relatório" },
           ].map((tab) => (
             <button
               key={tab.value}
@@ -880,8 +892,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
               onClick={() => setInspectorTab(tab.value)}
               className={
                 inspectorTab === tab.value
-                  ? "rounded-md border border-ring bg-background px-2 py-2 text-foreground"
-                  : "rounded-md border border-transparent px-2 py-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  ? "rounded-md border bg-card px-2 py-2.5 font-medium text-foreground"
+                  : "rounded-md border border-transparent px-2 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               }
             >
               {tab.label}
@@ -889,11 +901,11 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
           ))}
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border bg-card/75 p-4 text-sm leading-6">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-md border bg-card p-4 text-sm leading-6">
           {inspectorTab === "summary" ? (
             <div className="space-y-4">
               <section>
-                <p className="text-xs uppercase text-muted-foreground">
+                <p className="font-mono text-xs uppercase text-muted-foreground">
                   Projeto
                 </p>
                 <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm">
@@ -901,8 +913,8 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
                 </pre>
               </section>
               <section className="border-t pt-4">
-                <p className="text-xs uppercase text-muted-foreground">
-                  Proxima acao
+                <p className="font-mono text-xs uppercase text-muted-foreground">
+                  Próxima ação
                 </p>
                 <p className="mt-2 text-muted-foreground">
                   {latestResult
@@ -929,7 +941,7 @@ export function ChatWindow({ isMockMode = false }: ChatWindowProps) {
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <ScrollText className="size-4 text-primary" />
-                <p className="font-medium">Relatorio completo</p>
+                <p className="font-medium">Relatório completo</p>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
                 {latestReport}

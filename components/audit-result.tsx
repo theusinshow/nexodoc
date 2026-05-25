@@ -371,14 +371,14 @@ function buildReviewRouteText(findings: StructuredFinding[]) {
                 `${index + 1}. ${finding.title}`,
                 finding.local ? `Local: ${finding.local}` : null,
                 finding.termoBusca ? `Buscar: ${finding.termoBusca}` : null,
-                finding.acao ? `Acao: ${finding.acao}` : null,
+                finding.acao ? `Ação: ${finding.acao}` : null,
               ]
                 .filter(Boolean)
                 .join("\n   ");
             })
             .join("\n");
 
-          return `Pagina ${pageGroup.page}\n${items}`;
+          return `Página ${pageGroup.page}\n${items}`;
         })
         .join("\n\n");
 
@@ -490,21 +490,21 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     termoBusca: finding.termo_busca ?? finding.evidencia,
     conflito: finding.conflito,
     acao: finding.sugestao_correcao,
-    categoria: finding.capitulo,
-    referencia: finding.descricao,
+    categoria: finding.categoria ?? finding.capitulo,
+    referencia: finding.referencia_comparada ?? finding.descricao,
     impacto: finding.impacto ?? classifyFindingImpact(finding),
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
-      `Pagina: ${finding.pagina}`,
-      `Capitulo: ${finding.capitulo}`,
+      `Página: ${finding.pagina}`,
+      `Capítulo: ${finding.capitulo}`,
       `Local: ${finding.local}`,
-      `Evidencia: ${finding.evidencia}`,
+      `Evidência: ${finding.evidencia}`,
       `Termo de busca: ${finding.termo_busca ?? finding.evidencia}`,
       `Conflito: ${finding.conflito}`,
-      `Acao recomendada: ${finding.sugestao_correcao}`,
+      `Ação recomendada: ${finding.sugestao_correcao}`,
       `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
-      `Confianca: ${finding.confianca}`,
+      `Confiança: ${finding.confianca}`,
     ].join("\n"),
   };
 }
@@ -519,8 +519,8 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border bg-card/70 p-4 shadow-[var(--shadow-subtle)]">
-      <div className="mb-3 flex items-center gap-2">
+    <section className="border-b pb-5 last:border-b-0 last:pb-0">
+      <div className="mb-4 flex items-center gap-2">
         <Icon className="size-4 text-primary" />
         <h3 className="text-sm font-semibold">{title}</h3>
       </div>
@@ -561,11 +561,11 @@ export function AuditResult({
   const reviewRoute = groupFindingsByDocumentPage(findingsWithPdf);
   const projectFields = report
     ? [
-        { label: "Arquivo", value: report.arquivo ?? "nao informado" },
-        { label: "Obra", value: report.obra || "nao identificada" },
-        { label: "Codigo", value: report.codigo || "nao identificado" },
-        { label: "Municipio", value: report.municipio || "nao identificado" },
-        { label: "Data", value: report.data_documento || "nao identificada" },
+        { label: "Arquivo", value: report.arquivo ?? "não informado" },
+        { label: "Obra", value: report.obra || "não identificada" },
+        { label: "Código", value: report.codigo || "não identificado" },
+        { label: "Município", value: report.municipio || "não identificado" },
+        { label: "Data", value: report.data_documento || "não identificada" },
         { label: "Total de achados", value: String(report.total_incongruencias) },
       ]
     : parseProjectFields(parsed.project);
@@ -579,7 +579,7 @@ export function AuditResult({
   }
 
   return (
-    <article className="w-full rounded-lg border bg-[var(--nexodoc-panel)]/95 p-4 shadow-[var(--shadow-panel)]">
+    <article className="w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -590,7 +590,7 @@ export function AuditResult({
           </div>
           <div
             className={cn(
-              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium",
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2 font-mono text-sm font-medium",
               status.className,
             )}
           >
@@ -601,7 +601,7 @@ export function AuditResult({
         <AuditResultActions result={content} />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-1 rounded-lg border bg-[var(--nexodoc-recessed)] p-1">
+      <div className="mt-5 flex flex-wrap gap-1 rounded-md border bg-[var(--nexodoc-recessed)] p-1">
         <Button
           type="button"
           variant={view === "summary" ? "secondary" : "outline"}
@@ -674,25 +674,25 @@ export function AuditResult({
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-4">
+      <div className="mt-6 grid gap-5">
         {view === "summary" ? (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border bg-background/70 p-3">
-                <p className="text-xs text-muted-foreground">Achados</p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">
+            <div className="grid divide-y rounded-md border bg-[var(--nexodoc-recessed)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              <div className="px-4 py-3">
+                <p className="font-mono text-xs text-muted-foreground">Achados</p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
                   {findings.length}
                 </p>
               </div>
-              <div className="rounded-lg border bg-background/70 p-3">
-                <p className="text-xs text-muted-foreground">Inconsistências críticas</p>
-                <p className="mt-1 text-2xl font-semibold text-[var(--status-critical)]">
+              <div className="px-4 py-3">
+                <p className="font-mono text-xs text-muted-foreground">Inconsistências críticas</p>
+                <p className="mt-1 text-xl font-semibold text-[var(--status-critical)]">
                   {criticalCount}
                 </p>
               </div>
-              <div className="rounded-lg border bg-background/70 p-3">
-                <p className="text-xs text-muted-foreground">Pontos de revisão</p>
-                <p className="mt-1 text-2xl font-semibold text-[var(--status-warning)]">
+              <div className="px-4 py-3">
+                <p className="font-mono text-xs text-muted-foreground">Pontos de revisão</p>
+                <p className="mt-1 text-xl font-semibold text-[var(--status-warning)]">
                   {warningCount}
                 </p>
               </div>
@@ -702,8 +702,8 @@ export function AuditResult({
               {projectFields.length > 0 ? (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {projectFields.map((field) => (
-                    <div key={`${field.label}-${field.value}`} className="rounded-lg border bg-background/70 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">
+                    <div key={`${field.label}-${field.value}`} className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                      <p className="font-mono text-xs text-muted-foreground">
                         {field.label}
                       </p>
                       <p className="mt-1 text-sm font-medium text-foreground">
@@ -723,28 +723,28 @@ export function AuditResult({
                   {report
                     ? report.arquivos_analisados
                         .map((item) => {
-                          return `${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} paginas | ${item.caracteres_extraidos ?? "-"} caracteres\n${item.resumo}`;
+                          return `${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} páginas | ${item.caracteres_extraidos ?? "-"} caracteres\n${item.resumo}`;
                         })
                         .join("\n\n")
-                    : parsed.files || "Sem informacao especifica."}
+                    : parsed.files || "Sem informação específica."}
                 </pre>
               </SectionCard>
-              <SectionCard title="Comparacoes" icon={LayoutList}>
+              <SectionCard title="Comparações" icon={LayoutList}>
                 <pre className="whitespace-pre-wrap break-words font-sans">
                   {report
                     ? report.comparacoes.map((item) => `- ${item}`).join("\n")
-                    : parsed.comparisons || "Sem comparacao especifica."}
+                    : parsed.comparisons || "Sem comparação específica."}
                 </pre>
               </SectionCard>
             </div>
 
-            <SectionCard title="Analise por arquivo" icon={ClipboardList}>
+            <SectionCard title="Análise por arquivo" icon={ClipboardList}>
               <pre className="whitespace-pre-wrap break-words font-sans">
                 {report
                   ? report.arquivos_analisados
                       .map((item) => `${item.arquivo}\n${item.resumo}`)
                       .join("\n\n")
-                  : parsed.fileAnalysis || "Sem analise por arquivo identificada."}
+                  : parsed.fileAnalysis || "Sem análise por arquivo identificada."}
               </pre>
             </SectionCard>
 
@@ -791,7 +791,7 @@ export function AuditResult({
                         {group.items.map((finding, index) => (
                           <li
                             key={`${finding.raw}-${group.title}-${index}`}
-                            className="rounded-lg border bg-background/70 p-4 shadow-[var(--shadow-subtle)]"
+                            className="rounded-md border bg-card p-4"
                           >
                             <div className="flex flex-col gap-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -820,7 +820,7 @@ export function AuditResult({
                                 </div>
                               </div>
 
-                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:grid-cols-3">
+                              <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 font-mono text-xs sm:grid-cols-3">
                                 <p>
                                   <span className="block text-muted-foreground">Documento</span>
                                   <span className="font-medium text-foreground">
@@ -875,7 +875,7 @@ export function AuditResult({
                               ) : null}
 
                               {finding.evidencia ? (
-                                <p className="border-l-2 border-primary pl-3 text-xs">
+                                <p className="rounded-md bg-[var(--nexodoc-recessed)] p-3 text-xs">
                                   <span className="font-medium text-foreground">Evidência:</span>{" "}
                                   {finding.evidencia}
                                 </p>
@@ -931,11 +931,11 @@ export function AuditResult({
             {findingsWithPdf.length > 0 ? (
               <div className="grid gap-3">
                 {findingsWithPdf.map((finding, index) => (
-                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-lg border bg-background/70 p-4 shadow-[var(--shadow-subtle)]">
+                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-md border bg-card p-4">
                     <div className="space-y-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                        <p className="text-xs uppercase text-muted-foreground">
+                        <p className="font-mono text-xs uppercase text-muted-foreground">
                           Localização {index + 1}
                         </p>
                         <h4 className="mt-1 font-medium text-foreground">
@@ -954,7 +954,7 @@ export function AuditResult({
                           </Button>
                         ) : null}
                       </div>
-                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:grid-cols-3">
+                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 font-mono text-xs sm:grid-cols-3">
                         <p>
                           <span className="block text-muted-foreground">Documento</span>
                           <span className="font-medium text-foreground">
@@ -993,7 +993,7 @@ export function AuditResult({
                         </div>
                       ) : null}
                       {finding.evidencia ? (
-                        <p className="border-l-2 border-primary pl-3 text-xs text-muted-foreground">
+                        <p className="rounded-md bg-[var(--nexodoc-recessed)] p-3 text-xs text-muted-foreground">
                           {finding.evidencia}
                         </p>
                       ) : null}
@@ -1042,7 +1042,7 @@ export function AuditResult({
             {reviewRoute.length > 0 ? (
               <div className="space-y-4">
                 {reviewRoute.map((documentGroup) => (
-                  <section key={documentGroup.document} className="rounded-lg border bg-background/70 p-4">
+                  <section key={documentGroup.document} className="rounded-md border bg-card p-4">
                     <div className="flex items-center gap-2 border-b pb-3">
                       <FileText className="size-4 text-primary" />
                       <h4 className="text-sm font-semibold text-foreground">
@@ -1118,23 +1118,23 @@ export function AuditResult({
           <SectionCard title="Relatório da auditoria" icon={ClipboardList}>
             <div className="space-y-4 text-foreground">
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Projeto
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
                   {report
-                    ? `Arquivo: ${report.arquivo ?? "nao informado"}\nObra: ${report.obra}\nCodigo: ${report.codigo}\nMunicipio: ${report.municipio}`
+                    ? `Arquivo: ${report.arquivo ?? "não informado"}\nObra: ${report.obra}\nCódigo: ${report.codigo}\nMunicípio: ${report.municipio}`
                     : parsed.project || "Não identificado na resposta."}
                 </pre>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Status
                 </p>
                 <p className="mt-1 text-sm">{status.label}</p>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Achados
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm leading-6">
@@ -1142,7 +1142,7 @@ export function AuditResult({
                 </pre>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Ações recomendadas
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm leading-6">
@@ -1150,7 +1150,7 @@ export function AuditResult({
                 </pre>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Conclusão
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">

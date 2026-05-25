@@ -22,3 +22,5 @@ services:
         sync: false
       - key: NEXODOC_MOCK_MODE
         value: "false"
+      - key: NEXODOC_ALLOW_CLIENT_DEMO
+        value: "false"

@@ -1,5 +1,24 @@
 # NexoDoc - Roadmap
 
+## Estado implementado - maio de 2026
+
+Entregue:
+
+- fluxo principal de chat, upload e auditoria;
+- modos `Memorial` e `Volume de projeto`;
+- extracao textual por pagina e analise profunda em blocos;
+- comparacao cruzada entre documentos;
+- resultado estruturado com evidencias textuais e download Markdown;
+- historico persistente opcional e paineis administrativos;
+- modo demo controlado por configuracao do backend.
+
+Pendente:
+
+- validar a comparacao cruzada com conjuntos reais conhecidos;
+- OCR e visualizacao de paginas para PDFs escaneados;
+- login e associacao de auditorias a usuarios;
+- exportacoes PDF e DOCX.
+
 ## 1. Versao 0.1 - MVP local
 
 Objetivo: validar o fluxo essencial de auditoria documental com PDFs e OpenAI API.
@@ -20,7 +39,7 @@ Escopo:
 - prompt fixo do agente auditor;
 - integracao com OpenAI API no backend.
 
-Fora do escopo:
+Fora do escopo originalmente planejado:
 
 - login;
 - banco de dados;
@@ -30,7 +49,9 @@ Fora do escopo:
 - dashboard;
 - painel administrativo.
 
-## 2. Versao 0.2 - Refinamento de uso
+Observacao: banco, historico e painel administrativo foram antecipados durante a evolucao do MVP.
+
+## 2. Versao 0.2 - Refinamento de uso (entregue em grande parte)
 
 Objetivo: melhorar a experiencia de uso sem alterar o escopo central.
 
@@ -59,7 +80,7 @@ Possiveis entregas:
 - revisao de custos da OpenAI API;
 - coleta de feedback qualitativo.
 
-## 4. Versao 0.4 - Robustez operacional
+## 4. Versao 0.4 - Robustez operacional (em andamento)
 
 Objetivo: tornar o MVP mais estavel para uso recorrente, ainda sem transformar em sistema completo.
 
@@ -71,6 +92,8 @@ Possiveis entregas:
 - logs tecnicos sem dados sensiveis;
 - orientacoes mais claras para conjuntos com baixa qualidade visual;
 - ajustes no prompt do agente auditor com base em testes reais.
+- validar comparacao `memorial x capa`, `LD x prancha` e `capa x selo`;
+- acompanhar auditorias processando, concluidas, falhas e canceladas.
 
 ## 5. Versao 1.0 - Uso interno
 
@@ -117,5 +140,4 @@ uso interno
 funcionalidades avancadas
 ```
 
-O proximo passo apos esta documentacao deve ser implementar o MVP 0.1, mantendo o escopo restrito ao fluxo principal.
-
+O proximo passo e testar a comparacao entre documentos com conjuntos reais e registrar falsos positivos, falsos negativos, tempo e custo.

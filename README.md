@@ -6,9 +6,9 @@ O NexoDoc permite anexar PDFs de memoriais, pranchas, capas, listas de documento
 
 ## Status do projeto
 
-MVP 0.1 em implementacao inicial.
+MVP funcional em evolucao para uso interno controlado.
 
-A base atual inclui a pagina unica de chat, upload multiplo de PDFs, rota backend `/api/audit`, prompt fixo do agente auditor e integracao com a OpenAI API pelo servidor.
+A base atual inclui chat com upload multiplo de PDFs, auditoria de memorial e volume, analise profunda por texto extraido, comparacao entre documentos, resultado estruturado, historico persistente opcional e paineis administrativos.
 
 ## Escopo da versao 0.1
 
@@ -21,13 +21,18 @@ O foco da versao 0.1 e:
 - analise pela OpenAI API;
 - resposta padronizada na tela.
 
-Fora do escopo da versao 0.1:
+Ja incorporado alem do escopo inicial:
 
-- login;
-- banco de dados;
-- historico persistente;
+- banco de dados PostgreSQL opcional para historico;
+- painel administrativo de auditorias, uso e configuracao;
+- exportacao do relatorio em Markdown.
+
+Ainda fora do escopo atual:
+
+- login de usuarios;
 - exportacao PDF;
-- exportacao DOCX.
+- exportacao DOCX;
+- OCR para PDFs escaneados.
 
 ## Stack definida
 
@@ -66,21 +71,24 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
-OPENAI_MODEL=gpt-5-mini
+OPENAI_MODEL=gpt-5.4-mini
 NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
 OPENAI_ADMIN_KEY=
 DATABASE_URL=
 NEXODOC_MOCK_MODE=false
+NEXODOC_ALLOW_CLIENT_DEMO=false
 NEXODOC_MOCK_DELAY_MS=3500
-NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
-NEXODOC_VOLUME_MAX_OUTPUT_TOKENS=768
+NEXODOC_MAX_CHUNKS_PER_FILE=24
+NEXODOC_CHUNK_CONCURRENCY=5
+NEXODOC_CHUNK_TIMEOUT_MS=120000
+NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
-`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5-mini`.
+`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.4-mini`.
 
 Para deploy dividido, use:
 
@@ -146,7 +154,7 @@ Em producao, depois que `DATABASE_URL` estiver configurada, rode uma vez:
 npm run db:push
 ```
 
-O endpoint `/api/audit` salva auditorias concluidas quando `DATABASE_URL` existe. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha e cancelamento. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
 
 O historico admin fica em:
 
@@ -172,6 +180,12 @@ NEXODOC_MOCK_MODE=true
 
 Nesse modo, a rota `/api/audit` valida a mensagem e os PDFs, aguarda alguns segundos e retorna uma resposta simulada no formato padrao do agente.
 
+O controle de demo enviado pelo navegador fica disponivel automaticamente em desenvolvimento. Em producao, ele somente e aceito quando:
+
+```bash
+NEXODOC_ALLOW_CLIENT_DEMO=true
+```
+
 ## Tipos de auditoria
 
 O NexoDoc possui dois fluxos principais:
@@ -181,14 +195,16 @@ O NexoDoc possui dois fluxos principais:
 
 O frontend envia o tipo selecionado para `/api/audit` pelo campo `auditMode`.
 
-Limites de resposta podem ser ajustados por ambiente:
+Limites da auditoria profunda podem ser ajustados por ambiente:
 
 ```bash
-NEXODOC_MEMORIAL_MAX_OUTPUT_TOKENS=768
-NEXODOC_VOLUME_MAX_OUTPUT_TOKENS=768
+NEXODOC_MAX_CHUNKS_PER_FILE=24
+NEXODOC_CHUNK_CONCURRENCY=5
+NEXODOC_CHUNK_TIMEOUT_MS=120000
+NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 ```
 
-Se a API retornar erro de quota mesmo com billing ativo, reduza esses limites primeiro. Chamadas com PDF podem validar quota considerando o teto de saída solicitado. A rota tenta fallback automatico para respostas menores quando detecta `insufficient_quota`.
+Cada arquivo e analisado em blocos e, quando ha mais de um PDF, uma etapa adicional confronta informacoes entre os documentos. Se a API retornar erro de quota, reduza a quantidade de blocos ou o teto de saida por bloco.
 
 ## Como rodar localmente
 
@@ -222,4 +238,4 @@ npm audit --audit-level=moderate
 
 ## Proximo passo
 
-Testar a rota `/api/audit` com PDFs reais e uma chave OpenAI configurada em `.env.local`.
+Validar a comparacao entre memorial, capa, LD e pranchas com conjuntos reais contendo divergencias conhecidas.

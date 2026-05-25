@@ -33,11 +33,10 @@ export function Composer({
     setupComplete && message.trim().length > 0 && files.length > 0 && !isLoading;
 
   return (
-    <div className="border-t bg-[var(--nexodoc-panel)]/92 p-3 shadow-[0_-12px_32px_rgb(0_0_0_/_0.16)] backdrop-blur">
-      <div className="mx-auto flex max-w-4xl flex-col gap-2">
-        <div className="rounded-lg border bg-card/90 p-2 shadow-[var(--shadow-subtle)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
+    <div className="border-t bg-card px-4 py-4">
+      <div className="mx-auto flex max-w-5xl flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="font-mono text-sm font-medium text-foreground">
               {files.length}/5 PDFs anexados
             </p>
             <FileUpload
@@ -45,18 +44,18 @@ export function Composer({
               disabled={isLoading || !setupComplete}
               compact
             />
-          </div>
+        </div>
 
-          <div className="mt-2 grid gap-2 lg:grid-cols-[1fr_auto]">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
             <Textarea
               value={message}
               onChange={(event) => onMessageChange(event.target.value)}
               placeholder={
                 setupComplete
-                  ? "Solicitacao objetiva da auditoria"
-                  : "Preencha a identificacao da auditoria para liberar o envio"
+                  ? "Solicitação objetiva da auditoria"
+                  : "Preencha a identificação da auditoria para liberar o envio"
               }
-              className="max-h-[16rem] min-h-[12.5rem] resize-none border-border/80 bg-[var(--nexodoc-recessed)] py-3 text-sm leading-6 shadow-none focus-visible:ring-2"
+              className="max-h-[15rem] min-h-[7.5rem] resize-none py-3 text-sm leading-6 shadow-none sm:min-h-[8.5rem]"
               disabled={isLoading || !setupComplete}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -65,7 +64,7 @@ export function Composer({
               }}
             />
             <div className="flex lg:flex-col">
-              <Button type="button" onClick={onSubmit} disabled={!canSubmit}>
+              <Button className="w-full lg:min-w-32" type="button" onClick={onSubmit} disabled={!canSubmit}>
                 <SendHorizontal />
                 {isLoading ? "Analisando" : "Auditar"}
               </Button>
@@ -73,7 +72,7 @@ export function Composer({
           </div>
 
           {files.length > 0 ? (
-            <div className="mt-2 border-t pt-2">
+            <div className="border-t pt-3">
               <AttachedFiles
                 files={files}
                 onRemove={onFileRemove}
@@ -81,7 +80,6 @@ export function Composer({
               />
             </div>
           ) : null}
-        </div>
       </div>
     </div>
   );

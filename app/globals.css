@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", "Roboto Mono", "Consolas", ui-monospace, monospace;
-  --font-mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", "Roboto Mono", "Consolas", ui-monospace, monospace;
+  --font-sans: var(--font-geist), "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -28,41 +28,42 @@
 }
 
 :root {
-  --radius: 8px;
-  --background: #0b0d10;
-  --foreground: #f5f7fb;
-  --card: #14171c;
-  --card-foreground: #f5f7fb;
-  --popover: #14171c;
-  --popover-foreground: #f5f7fb;
-  --primary: #5aa2ff;
-  --primary-foreground: #ffffff;
-  --secondary: #1d222a;
-  --secondary-foreground: #f2f5f8;
-  --muted: #1d222a;
-  --muted-foreground: #9aa6b5;
-  --accent: #222936;
-  --accent-foreground: #ffffff;
-  --destructive: #ff6b7c;
-  --border: #252c36;
-  --input: #2d3542;
-  --ring: #79b4ff;
-  --nexodoc-surface: #11151b;
-  --nexodoc-panel: #0f1217;
-  --nexodoc-panel-foreground: #eef2f7;
-  --nexodoc-accent: #5aa2ff;
-  --nexodoc-accent-foreground: #ffffff;
-  --nexodoc-raised: #171c23;
-  --nexodoc-recessed: #090b0e;
-  --nexodoc-grid: #1a2029;
-  --status-ok: #57d58a;
-  --status-ok-bg: #0c2116;
-  --status-warning: #f2c15f;
-  --status-warning-bg: #251c0c;
-  --status-critical: #ff7182;
-  --status-critical-bg: #2a1016;
-  --shadow-panel: 0 16px 40px rgb(0 0 0 / 0.2);
-  --shadow-subtle: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+  --radius: 7px;
+  --background: #0b0d0e;
+  --foreground: #e6ebe9;
+  --card: #1c2123;
+  --card-foreground: #e6ebe9;
+  --popover: #1c2123;
+  --popover-foreground: #e6ebe9;
+  --primary: #004643;
+  --primary-foreground: #e6ebe9;
+  --secondary: #171b1d;
+  --secondary-foreground: #e6ebe9;
+  --muted: #171b1d;
+  --muted-foreground: #8a9490;
+  --accent: #005A55;
+  --accent-foreground: #e6ebe9;
+  --destructive: #d36b5f;
+  --destructive-foreground: #0b0d0e;
+  --border: rgb(230 235 233 / 0.1);
+  --input: rgb(230 235 233 / 0.14);
+  --ring: #00746d;
+  --nexodoc-surface: #111416;
+  --nexodoc-panel: #111416;
+  --nexodoc-panel-foreground: #e6ebe9;
+  --nexodoc-accent: #004643;
+  --nexodoc-accent-foreground: #e6ebe9;
+  --nexodoc-raised: #171b1d;
+  --nexodoc-recessed: #121618;
+  --nexodoc-grid: rgb(230 235 233 / 0.07);
+  --status-ok: #7faf8b;
+  --status-ok-bg: rgb(127 175 139 / 0.1);
+  --status-warning: #c7a35a;
+  --status-warning-bg: rgb(199 163 90 / 0.1);
+  --status-critical: #d36b5f;
+  --status-critical-bg: rgb(211 107 95 / 0.1);
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.32);
+  --shadow-subtle: 0 1px 2px rgb(0 0 0 / 0.24);
 }
 
 * {
@@ -75,20 +76,25 @@ html {
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 50% 0%, rgb(90 162 255 / 0.08), transparent 34rem),
-    linear-gradient(180deg, rgb(255 255 255 / 0.018), transparent 16rem),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv06", "tnum", "zero";
-  text-rendering: geometricPrecision;
+  font-family: var(--font-geist), "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv06", "tnum";
+  text-rendering: optimizeLegibility;
 }
 
-button,
-input,
-select,
-textarea {
+button:not(.font-mono),
+input:not(.font-mono),
+select:not(.font-mono),
+textarea:not(.font-mono) {
   font: inherit;
+}
+
+button.font-mono,
+input.font-mono,
+select.font-mono,
+textarea.font-mono {
+  font-family: var(--font-jetbrains-mono), "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
 }
 
 button,
@@ -111,8 +117,8 @@ textarea {
 }
 
 ::selection {
-  background: #3f6fb5;
-  color: #ffffff;
+  background: #004643;
+  color: #e6ebe9;
 }
 
 @media (prefers-reduced-motion: reduce) {

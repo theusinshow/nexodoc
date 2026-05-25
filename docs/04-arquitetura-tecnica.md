@@ -20,9 +20,11 @@ Frontend Next.js
   envia mensagem e PDFs via FormData
 Backend Next.js em /api/audit
   valida arquivos
+  extrai texto por pagina e divide em blocos
   aplica prompt fixo do agente auditor
-  chama OpenAI API
-  retorna JSON
+  executa analise por arquivo e comparacao entre documentos
+  persiste o ciclo operacional quando DATABASE_URL existe
+  retorna relatorio estruturado em JSON
 Frontend Next.js
   renderiza resposta no chat
 ```
@@ -98,8 +100,10 @@ Responsabilidades da rota:
 - validar se todos os arquivos sao PDFs;
 - validar limite de tamanho por arquivo;
 - aplicar o prompt fixo do agente auditor;
-- enviar arquivos e mensagem para a OpenAI API;
-- retornar JSON com a resposta;
+- extrair texto e analisar blocos por arquivo;
+- comparar documentos do mesmo conjunto;
+- persistir execucao, resultado ou falha quando houver banco configurado;
+- retornar JSON com resposta textual e relatorio estruturado;
 - retornar erros claros para o frontend.
 
 ## 6. Contrato inicial de entrada
@@ -108,14 +112,14 @@ Entrada esperada:
 
 ```text
 message: string
-auditMode: "fast" | "complete"
+auditMode: "memorial" | "volume"
 files: File[]
 ```
 
 Regras:
 
 - `message` deve ser texto;
-- `auditMode` deve indicar auditoria rapida, checagem de volume ou auditoria completa;
+- `auditMode` deve indicar auditoria de memorial ou checagem de volume;
 - `files` deve conter pelo menos um PDF;
 - todos os arquivos devem ter tipo PDF;
 - cada arquivo deve respeitar o limite de 25 MB;
@@ -128,7 +132,7 @@ Resposta de sucesso:
 ```json
 {
   "result": "texto padronizado do agente",
-  "auditMode": "fast"
+  "auditMode": "memorial"
 }
 ```
 
@@ -142,7 +146,7 @@ Resposta de erro:
 
 ## 8. Estado e persistencia
 
-Na versao 0.1, o NexoDoc nao deve usar banco de dados.
+O frontend mantem o estado corrente em memoria. Quando `DATABASE_URL` esta configurada, o backend persiste o ciclo da auditoria e seus metadados.
 
 O estado deve existir apenas em memoria no frontend durante a sessao aberta:
 
@@ -153,6 +157,8 @@ O estado deve existir apenas em memoria no frontend durante a sessao aberta:
 - erro atual.
 
 Ao atualizar a pagina, o historico pode ser perdido.
+
+No painel administrativo, execucoes persistidas podem ser consultadas com os estados `PROCESSING`, `COMPLETED`, `FAILED` e `CANCELED`.
 
 ## 9. Deploy
 

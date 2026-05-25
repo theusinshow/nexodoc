@@ -21,6 +21,7 @@ Verificar:
 - aba `Roteiro` agrupa por arquivo e pagina;
 - aba `Evidencias` mostra documento, pagina, local e termo de busca;
 - aba `Relatorio` continua copiavel.
+- em auditoria com mais de um arquivo, a secao de comparacoes identifica os documentos confrontados.
 
 ## 3. Localizacao no PDF
 
@@ -50,8 +51,17 @@ Verificar:
 - `/admin/config` abre com token admin;
 - `/admin/config` mostra modelo, mock mode, origins, limites e chaves configuradas;
 - nenhuma chave secreta e exibida.
+- configuracao indica se o demo iniciado pelo navegador esta permitido.
 
-## 6. Erros esperados
+## 6. Historico persistente
+
+Com banco configurado e uma auditoria real:
+
+- confirmar transicao `PROCESSING` para `COMPLETED`;
+- provocar falha controlada e confirmar `FAILED`;
+- cancelar uma auditoria em andamento e confirmar `CANCELED`.
+
+## 7. Erros esperados
 
 Testar:
 

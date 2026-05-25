@@ -1,5 +1,7 @@
 # NexoDoc - Visao geral
 
+> Documento de visao inicial. O estado implementado ja inclui persistencia opcional e paineis administrativos; consulte `README.md` e `06-roadmap.md`.
+
 ## 1. Objetivo do produto
 
 NexoDoc e uma aplicacao web para auditoria documental de projetos de engenharia civil.
@@ -76,4 +78,3 @@ A stack inicial do NexoDoc e:
 - shadcn/ui;
 - OpenAI API;
 - Vercel.
-
