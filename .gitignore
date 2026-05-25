@@ -50,4 +50,5 @@ temp/
 # Local artifacts
 uploads/
 *.local
-
+.nexodoc-learnings.json
+data/nexodoc-learnings.json

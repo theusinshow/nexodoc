@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  BookmarkPlus,
   CheckCircle2,
   Clock3,
   ClipboardCheck,
@@ -79,6 +80,18 @@ function getAuditEndpoint() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
 
   return apiUrl ? `${apiUrl}/api/audit` : "/api/audit";
+}
+
+function getAuditChatEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+
+  return apiUrl ? `${apiUrl}/api/audit/chat` : "/api/audit/chat";
+}
+
+function getLearningsEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+
+  return apiUrl ? `${apiUrl}/api/learnings` : "/api/learnings";
 }
 
 function getAuditCancelEndpoint(auditId: string) {
@@ -244,19 +257,31 @@ export function ChatWindow({
   const [useMockMode, setUseMockMode] = useState(isMockMode && allowDemoMode);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<"audit" | "followup" | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("summary");
   const [isDropActive, setIsDropActive] = useState(false);
+  const [learningTitle, setLearningTitle] = useState("");
+  const [learningContent, setLearningContent] = useState("");
+  const [learningNotice, setLearningNotice] = useState("");
+  const [isSavingLearning, setIsSavingLearning] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef(0);
   const pdfObjectUrlsRef = useRef<string[]>([]);
 
   const latestResult = useMemo(() => {
-    return [...messages].reverse().find((item) => item.role === "assistant");
+    return [...messages]
+      .reverse()
+      .find(
+        (item) =>
+          item.role === "assistant" &&
+          (item.report || item.elapsedMs || item.pdfSources),
+      );
   }, [messages]);
+  const canAskAboutAudit = Boolean(latestResult?.report);
   const latestStatus = getStatusFromResult(latestResult?.content);
   const latestFindingCount =
     getReportFindingCount(latestResult?.report) || getFindingCount(latestResult?.content);
@@ -466,6 +491,7 @@ export function ChatWindow({
   function handleCancelAudit() {
     abortControllerRef.current?.abort();
     setIsLoading(false);
+    setLoadingMode(null);
     setError("Auditoria cancelada pelo usuário.");
 
     if (activeAuditId) {
@@ -480,11 +506,125 @@ export function ChatWindow({
     }
   }
 
+  async function handleFollowupSubmit(trimmedMessage: string, report: AuditReport) {
+    const questionId = crypto.randomUUID();
+    const userMessage: ChatMessage = {
+      id: `${questionId}-question`,
+      role: "user",
+      content: trimmedMessage,
+    };
+
+    setMessages((current) => [...current, userMessage]);
+    setMessage("");
+    setIsLoading(true);
+    setLoadingMode("followup");
+    setError("");
+    setElapsedMs(0);
+    startedAtRef.current = performance.now();
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const response = await fetch(getAuditChatEndpoint(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortControllerRef.current.signal,
+        body: JSON.stringify({
+          question: trimmedMessage,
+          report,
+          history: messages
+            .filter((item) => item.role === "user" || item.role === "assistant")
+            .slice(-8)
+            .map((item) => ({
+              role: item.role,
+              content: item.content,
+            })),
+        }),
+      });
+      const payload = (await response.json()) as { answer?: string; error?: string };
+
+      if (!response.ok || !payload.answer) {
+        throw new Error(payload.error ?? "Não foi possível responder sobre a auditoria.");
+      }
+
+      const answer = payload.answer;
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${questionId}-answer`,
+          role: "assistant",
+          content: answer,
+        },
+      ]);
+    } catch (requestError) {
+      const followupError =
+        requestError instanceof DOMException && requestError.name === "AbortError"
+          ? "Pergunta cancelada pelo usuário."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Não foi possível responder sobre a auditoria.";
+      setError(followupError);
+    } finally {
+      setIsLoading(false);
+      setLoadingMode(null);
+      abortControllerRef.current = null;
+    }
+  }
+
+  async function handleSaveLearning() {
+    const title = learningTitle.trim();
+    const content = learningContent.trim();
+
+    if (!title || !content) {
+      setLearningNotice("Informe título e conteúdo para salvar.");
+      return;
+    }
+
+    setIsSavingLearning(true);
+    setLearningNotice("");
+
+    try {
+      const response = await fetch(getLearningsEndpoint(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          content,
+          type: "preference",
+          scope: auditMode,
+          status: "active",
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Não foi possível salvar o aprendizado.");
+      }
+
+      setLearningNotice("Aprendizado salvo e será usado nas próximas auditorias.");
+      setLearningTitle("");
+      setLearningContent("");
+    } catch (saveError) {
+      setLearningNotice(
+        saveError instanceof Error
+          ? saveError.message
+          : "Não foi possível salvar o aprendizado.",
+      );
+    } finally {
+      setIsSavingLearning(false);
+    }
+  }
+
   async function handleSubmit() {
     const trimmedMessage = message.trim();
 
     if (!trimmedMessage) {
       setError("Informe uma solicitacao para a auditoria.");
+      return;
+    }
+
+    if (files.length === 0 && latestResult?.report) {
+      await handleFollowupSubmit(trimmedMessage, latestResult.report);
       return;
     }
 
@@ -494,6 +634,7 @@ export function ChatWindow({
     }
 
     setIsLoading(true);
+    setLoadingMode("audit");
     setError("");
     setElapsedMs(0);
     startedAtRef.current = performance.now();
@@ -585,6 +726,10 @@ export function ChatWindow({
             : item,
         ),
       );
+      setFiles([]);
+      setMessage("");
+      setLearningTitle("Preferência de auditoria");
+      setLearningContent("");
     } catch (requestError) {
       const message =
         requestError instanceof DOMException && requestError.name === "AbortError"
@@ -609,6 +754,7 @@ export function ChatWindow({
       );
     } finally {
       setIsLoading(false);
+      setLoadingMode(null);
       abortControllerRef.current = null;
     }
   }
@@ -955,7 +1101,7 @@ export function ChatWindow({
             ) : (
               messages.map((item) => (
                 <div key={item.id}>
-                  {item.role === "assistant" ? (
+                  {item.role === "assistant" && (item.report || item.elapsedMs || item.pdfSources) ? (
                     <AuditResult
                       content={item.content}
                       elapsedMs={item.elapsedMs}
@@ -969,7 +1115,7 @@ export function ChatWindow({
               ))
             )}
 
-            {isLoading ? (
+            {isLoading && loadingMode === "audit" ? (
               <div className="flex min-h-[240px] flex-1 items-center justify-center py-8">
                 <AuditProgress
                   fileCount={files.length}
@@ -977,6 +1123,12 @@ export function ChatWindow({
                   elapsedMs={elapsedMs}
                   onCancel={handleCancelAudit}
                 />
+              </div>
+            ) : null}
+
+            {isLoading && loadingMode === "followup" ? (
+              <div className="rounded-md border bg-card px-4 py-3 font-mono text-sm text-muted-foreground">
+                Interpretando o relatório da auditoria...
               </div>
             ) : null}
 
@@ -990,6 +1142,7 @@ export function ChatWindow({
           files={files}
           isLoading={isLoading}
           setupComplete={setupComplete}
+          followupEnabled={canAskAboutAudit}
           onMessageChange={setMessage}
           onFilesAdd={handleFilesAdd}
           onFileRemove={handleFileRemove}
@@ -1073,6 +1226,43 @@ export function ChatWindow({
               Demo local
             </Button>
           </div>
+          {latestResult?.report ? (
+            <div className="mt-4 border-t pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <BookmarkPlus className="size-4 text-primary" />
+                <p className="font-mono text-xs uppercase text-muted-foreground">
+                  Aprendizado global
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <input
+                  value={learningTitle}
+                  onChange={(event) => setLearningTitle(event.target.value)}
+                  placeholder="Título do aprendizado"
+                  className={fieldClass}
+                />
+                <Textarea
+                  value={learningContent}
+                  onChange={(event) => setLearningContent(event.target.value)}
+                  placeholder="Ex.: Sempre tratar citação de outra obra como achado crítico quando houver identidade predominante diferente."
+                  className="min-h-24 resize-none bg-[var(--nexodoc-recessed)] text-sm leading-6 shadow-none"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveLearning}
+                  disabled={isSavingLearning}
+                >
+                  <BookmarkPlus />
+                  {isSavingLearning ? "Salvando" : "Salvar aprendizado"}
+                </Button>
+                {learningNotice ? (
+                  <p className="font-mono text-xs text-muted-foreground">{learningNotice}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <div className="grid grid-cols-3 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">

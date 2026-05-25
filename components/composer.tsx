@@ -13,6 +13,7 @@ type ComposerProps = {
   files: AuditFileAttachment[];
   isLoading: boolean;
   setupComplete: boolean;
+  followupEnabled?: boolean;
   onMessageChange: (value: string) => void;
   onFilesAdd: (files: File[], documentType: DocumentType) => void;
   onFileRemove: (index: number) => void;
@@ -24,20 +25,22 @@ export function Composer({
   files,
   isLoading,
   setupComplete,
+  followupEnabled = false,
   onMessageChange,
   onFilesAdd,
   onFileRemove,
   onSubmit,
 }: ComposerProps) {
+  const isFollowup = followupEnabled && files.length === 0;
   const canSubmit =
-    setupComplete && message.trim().length > 0 && files.length > 0 && !isLoading;
+    setupComplete && message.trim().length > 0 && (files.length > 0 || followupEnabled) && !isLoading;
 
   return (
     <div className="border-t bg-card px-4 py-4">
       <div className="mx-auto flex max-w-5xl flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="font-mono text-sm font-medium text-foreground">
-              {files.length}/5 PDFs anexados
+              {isFollowup ? "Conversa sobre a auditoria" : `${files.length}/5 PDFs anexados`}
             </p>
             <FileUpload
               onFilesSelected={onFilesAdd}
@@ -51,7 +54,9 @@ export function Composer({
               value={message}
               onChange={(event) => onMessageChange(event.target.value)}
               placeholder={
-                setupComplete
+                isFollowup
+                  ? "Pergunte sobre os achados, evidências, prioridades ou correções desta auditoria"
+                  : setupComplete
                   ? "Solicitação objetiva da auditoria"
                   : "Preencha a identificação da auditoria para liberar o envio"
               }
@@ -66,7 +71,7 @@ export function Composer({
             <div className="flex lg:flex-col">
               <Button className="w-full lg:min-w-32" type="button" onClick={onSubmit} disabled={!canSubmit}>
                 <SendHorizontal />
-                {isLoading ? "Analisando" : "Auditar"}
+                {isLoading ? "Analisando" : isFollowup ? "Perguntar" : "Auditar"}
               </Button>
             </div>
           </div>

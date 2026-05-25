@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
 import {
+  formatAuditLearningsForPrompt,
+  listAuditLearnings,
+} from "@/lib/audit-learnings";
+import {
   makeTextReport,
   buildExecutiveSummary,
   classifyFindingImpact,
@@ -318,6 +322,7 @@ function getChunkPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   chunk: AuditTextChunk;
@@ -338,6 +343,9 @@ Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
 Trecho: ${args.chunk.title}, páginas ${args.chunk.startPage}-${args.chunk.endPage}
 Solicitação do usuário: ${args.userMessage}
+
+Aprendizados ativos do escritório, usados como contexto e preferência de auditoria, não como evidência:
+${args.learningContext}
 
 Responda APENAS JSON válido:
 {
@@ -830,6 +838,7 @@ async function analyzeChunkWithModel(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   chunk: AuditTextChunk;
@@ -860,6 +869,7 @@ function getIdentityAuditPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -881,6 +891,9 @@ Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
 Modo: ${args.auditMode}
 Solicitação do usuário: ${args.userMessage}
+
+Aprendizados ativos do escritório, usados como contexto e preferência de auditoria, não como evidência:
+${args.learningContext}
 
 Responda APENAS JSON válido:
 {
@@ -917,6 +930,7 @@ async function analyzeIdentityWithModel(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -944,6 +958,7 @@ function getGlobalFilePrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -970,6 +985,9 @@ Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
 Páginas extraídas: ${args.extracted.pageCount}
 Solicitação do usuário: ${args.userMessage}
+
+Aprendizados ativos do escritório, usados como contexto e preferência de auditoria, não como evidência:
+${args.learningContext}
 
 Responda APENAS JSON válido:
 {
@@ -1003,6 +1021,7 @@ async function analyzeFileGloballyWithModel(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -1030,6 +1049,7 @@ function getCrossDocumentPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   files: UploadedAuditFile[];
 }) {
   let remainingCharacters = 120_000;
@@ -1051,6 +1071,9 @@ Compare os documentos do mesmo conjunto de auditoria. Esta etapa não é uma lei
 Modo: ${args.auditMode}
 Projeto informado: ${args.projectName || "não informado"}
 Solicitação do usuário: ${args.userMessage}
+
+Aprendizados ativos do escritório, usados como contexto e preferência de auditoria, não como evidência:
+${args.learningContext}
 
 Verifique, quando os documentos fornecerem evidência suficiente:
 - memorial x capa: obra, código, endereço, bairro, município, órgão e volume;
@@ -1091,6 +1114,7 @@ async function analyzeCrossDocumentsWithModel(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   files: UploadedAuditFile[];
 }) {
   if (args.files.length < 2) {
@@ -1125,6 +1149,7 @@ async function deepAnalyzeFile(args: {
   auditMode: AuditMode;
   userMessage: string;
   projectName: string;
+  learningContext: string;
   auditTitle: string;
   file: UploadedAuditFile;
 }) {
@@ -1152,6 +1177,7 @@ async function deepAnalyzeFile(args: {
         auditMode: args.auditMode,
         userMessage: args.userMessage,
         projectName: args.projectName,
+        learningContext: args.learningContext,
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
@@ -1168,6 +1194,7 @@ async function deepAnalyzeFile(args: {
         auditMode: args.auditMode,
         userMessage: args.userMessage,
         projectName: args.projectName,
+        learningContext: args.learningContext,
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
@@ -1189,6 +1216,7 @@ async function deepAnalyzeFile(args: {
         auditMode: args.auditMode,
         userMessage: args.userMessage,
         projectName: args.projectName,
+        learningContext: args.learningContext,
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         chunk,
@@ -1270,6 +1298,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const activeLearnings = await listAuditLearnings({
+      activeOnly: true,
+      scope: auditMode,
+    });
+    const learningContext = formatAuditLearningsForPrompt(activeLearnings);
+
     const auditId = /^[A-Za-z0-9-]{8,80}$/.test(clientAuditId)
       ? clientAuditId
       : crypto.randomUUID();
@@ -1312,6 +1346,7 @@ export async function POST(request: Request) {
         auditMode,
         userMessage: message,
         projectName,
+        learningContext,
         auditTitle,
         file,
       });
@@ -1322,6 +1357,7 @@ export async function POST(request: Request) {
       auditMode,
       userMessage: message,
       projectName,
+      learningContext,
       files: uploadedFiles,
     });
     allFindings.push(...modelComparison.findings);

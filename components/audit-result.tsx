@@ -486,6 +486,162 @@ function openPdfAtFinding(finding: StructuredFinding, pdfSources: AuditPdfSource
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapeSvgText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function getHighlightNeedle(finding: StructuredFinding) {
+  const evidence = finding.evidencia ?? "";
+  const candidates = [
+    finding.termoBusca,
+    ...Array.from((finding.conflito ?? "").matchAll(/"([^"]{3,120})"/g)).map(
+      (match) => match[1],
+    ),
+  ]
+    .map((item) => item?.trim())
+    .filter((item): item is string => Boolean(item && item.length >= 3));
+
+  return (
+    candidates.find((candidate) =>
+      evidence.toLowerCase().includes(candidate.toLowerCase()),
+    ) ?? candidates[0] ?? ""
+  );
+}
+
+function HighlightedEvidence({
+  text,
+  needle,
+}: {
+  text?: string;
+  needle?: string;
+}) {
+  if (!text) {
+    return <span>Evidência não informada no resultado.</span>;
+  }
+
+  const cleanNeedle = needle?.trim();
+
+  if (!cleanNeedle) {
+    return <span>{text}</span>;
+  }
+
+  const parts = text.split(new RegExp(`(${escapeRegExp(cleanNeedle)})`, "i"));
+
+  if (parts.length === 1) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === cleanNeedle.toLowerCase() ? (
+          <mark
+            key={`${part}-${index}`}
+            className="rounded-sm border border-primary/30 bg-primary/20 px-1 py-0.5 font-medium text-foreground"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function wrapSnapshotText(value: string, maxLength: number) {
+  const words = value.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+
+    if (next.length > maxLength && current) {
+      lines.push(current);
+      current = word;
+      continue;
+    }
+
+    current = next;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+async function createFindingSnapshot(finding: StructuredFinding, index: number) {
+  const rows = [
+    `Achado ${index + 1}${finding.refId ? ` | ${finding.refId}` : ""}`,
+    finding.title,
+    `Documento: ${finding.documento || "não informado"}`,
+    `Página provável: ${finding.pagina || "não identificada"}`,
+    `Local: ${finding.local || "não informado"}`,
+    `Evidência: ${finding.evidencia || "não informada"}`,
+    `Conflito: ${finding.conflito || finding.referencia || "não informado"}`,
+    `Ação: ${finding.acao || "revisar o trecho indicado"}`,
+    `Termo de busca: ${finding.termoBusca || finding.evidencia || "não informado"}`,
+  ];
+  const lines = rows.flatMap((row, rowIndex) => {
+    const wrapped = wrapSnapshotText(row, rowIndex <= 1 ? 78 : 92);
+    return rowIndex === 0 ? wrapped : ["", ...wrapped];
+  });
+  const width = 1400;
+  const lineHeight = 28;
+  const height = Math.max(720, 96 + lines.length * lineHeight);
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" fill="#0B0D0E"/>
+  <rect x="40" y="40" width="${width - 80}" height="${height - 80}" rx="10" fill="#171B1D" stroke="rgba(230,235,233,0.14)"/>
+  <text x="76" y="88" fill="#8A9490" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18">NexoDoc | evidência de auditoria</text>
+  ${lines
+    .map((line, lineIndex) => {
+      const isTitle = lineIndex === 0;
+      const isFindingTitle = lineIndex === 2;
+      const fill = isTitle ? "#8A9490" : isFindingTitle ? "#E6EBE9" : "#D4DBD8";
+      const size = isFindingTitle ? 24 : 19;
+      const weight = isTitle || isFindingTitle ? 700 : 400;
+
+      return `<text x="76" y="${134 + lineIndex * lineHeight}" fill="${fill}" font-family="Inter, system-ui, sans-serif" font-size="${size}" font-weight="${weight}">${escapeSvgText(line || " ")}</text>`;
+    })
+    .join("\n")}
+</svg>`.trim();
+  const image = new Image();
+  const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("Não foi possível gerar o print do achado."));
+    image.src = dataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Canvas indisponível para gerar o print.");
+  }
+
+  context.drawImage(image, 0, 0);
+  const link = document.createElement("a");
+  link.download = `nexodoc-achado-${finding.refId ?? index + 1}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
 function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
   const severity =
     finding.prioridade === "Alta" || finding.prioridade === "Media/Alta"
@@ -571,6 +727,39 @@ function CopyTextButton({
     >
       {copied ? <Check /> : <Copy />}
       {copied ? "Copiado" : children}
+    </Button>
+  );
+}
+
+function FindingSnapshotButton({
+  finding,
+  index,
+}: {
+  finding: StructuredFinding;
+  index: number;
+}) {
+  const [isCreating, setIsCreating] = useState(false);
+
+  async function handleCreateSnapshot() {
+    setIsCreating(true);
+
+    try {
+      await createFindingSnapshot(finding, index);
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handleCreateSnapshot}
+      disabled={isCreating}
+    >
+      <Eye />
+      {isCreating ? "Gerando" : "Print do achado"}
     </Button>
   );
 }
@@ -935,6 +1124,7 @@ export function AuditResult({
                               Copiar termo
                             </CopyTextButton>
                           ) : null}
+                          <FindingSnapshotButton finding={finding} index={index} />
                         </div>
                       </div>
 
@@ -955,7 +1145,10 @@ export function AuditResult({
                               </p>
                             </div>
                             <p className="text-sm leading-6 text-foreground">
-                              {finding.evidencia || "Evidência não informada no resultado."}
+                              <HighlightedEvidence
+                                text={finding.evidencia}
+                                needle={getHighlightNeedle(finding)}
+                              />
                             </p>
                           </section>
 
@@ -1101,9 +1294,17 @@ export function AuditResult({
                         </div>
                       ) : null}
                       {finding.evidencia ? (
-                        <p className="rounded-md bg-[var(--nexodoc-recessed)] p-3 text-xs text-muted-foreground">
-                          {finding.evidencia}
-                        </p>
+                        <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
+                            Trecho grifado
+                          </p>
+                          <p className="text-sm leading-6 text-foreground">
+                            <HighlightedEvidence
+                              text={finding.evidencia}
+                              needle={getHighlightNeedle(finding)}
+                            />
+                          </p>
+                        </div>
                       ) : null}
                       {finding.termoBusca ? (
                         <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
@@ -1120,6 +1321,20 @@ export function AuditResult({
                           </CopyTextButton>
                         </div>
                       ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        <FindingSnapshotButton finding={finding} index={index} />
+                        {finding.pdfUrl ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPdfAtFinding(finding, pdfSources)}
+                          >
+                            <ExternalLink />
+                            Abrir página provável
+                          </Button>
+                        ) : null}
+                      </div>
                       <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                         <span>
                           {finding.pdfUrl
