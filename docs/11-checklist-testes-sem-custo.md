@@ -1,14 +1,15 @@
 # NexoDoc - Checklist de testes sem custo
 
-Use este roteiro com `NEXODOC_MOCK_MODE=true` para validar a interface sem consumir tokens.
+Use este roteiro para validar a interface sem consumir tokens. O caminho mais rapido e o botao `Demo local`, que injeta um resultado demonstrativo no navegador sem chamar API. O modo `NEXODOC_MOCK_MODE=true` continua util para testar o backend em mock.
 
 ## 1. Preparacao
 
-- Confirmar que o backend Render esta em mock mode.
-- Abrir o app pela Vercel.
-- Anexar um PDF pequeno qualquer.
-- Executar uma auditoria de Memorial.
-- Repetir com modo Volume.
+- Abrir o app.
+- Clicar em `Demo local`.
+- Conferir que o resultado aparece sem upload e sem chamada de API.
+- Trocar o modo para `Volume` e clicar em `Demo local` novamente.
+- Confirmar que o historico da sessao registra as duas demos.
+- Opcional: com `NEXODOC_MOCK_MODE=true`, anexar um PDF pequeno e executar uma auditoria mock pelo backend.
 
 ## 2. Resultado
 
@@ -22,6 +23,8 @@ Verificar:
 - aba `Evidencias` mostra documento, pagina, local e termo de busca;
 - aba `Relatorio` continua copiavel.
 - em auditoria com mais de um arquivo, a secao de comparacoes identifica os documentos confrontados.
+- a demo de Volume mostra comparacoes entre LD, pranchas e capa;
+- a demo de Memorial mostra achados internos e uma conclusao objetiva.
 
 ## 3. Localizacao no PDF
 
@@ -69,4 +72,15 @@ Testar:
 - enviar sem mensagem;
 - anexar arquivo nao PDF;
 - anexar mais de 5 PDFs;
+- anexar arquivo acima de 25 MB;
+- erro de API mostra acao para abrir a demo local;
 - recarregar a pagina depois de uma auditoria e confirmar que PDFs locais deixam de abrir, pois ainda nao ha storage persistente.
+
+## 8. Responsividade sem custo
+
+Testar com dados da demo local:
+
+- notebook 1366 px: chat e composer continuam legiveis;
+- largura menor que `lg`: sidebar some e header movel mostra acoes principais;
+- largura `2xl`: painel de inspecao aparece sem esmagar o resultado;
+- textos monoespacados em botoes, labels e nomes de arquivos nao quebram o layout.

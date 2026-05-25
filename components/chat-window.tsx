@@ -4,13 +4,16 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  ClipboardCheck,
   FileSearch,
   Files,
   Gauge,
   ListChecks,
+  PlayCircle,
   RotateCcw,
   ScrollText,
   TestTube2,
+  Wrench,
 } from "lucide-react";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -27,6 +30,7 @@ import {
   getAuditModeLabel,
   type AuditMode,
 } from "@/lib/audit-mode";
+import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +70,11 @@ type InspectorTab = "summary" | "findings" | "report";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+const DEMO_FILE_NAMES: Record<AuditMode, string[]> = {
+  memorial: ["Memorial descritivo.pdf"],
+  volume: ["Capa e separatriz.pdf", "LD arquitetura.pdf", "Pranchas arquitetura.pdf"],
+};
+
 function getAuditEndpoint() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
 
@@ -92,6 +101,12 @@ function getDefaultPrompt(mode: AuditMode) {
   }
 
   return "Cheque o memorial descritivo. Verifique identificação do projeto, coerência interna do texto e sinais de reaproveitamento de outro projeto.";
+}
+
+function getDemoProjectName(mode: AuditMode) {
+  return mode === "volume"
+    ? "Escola Municipal Exemplo - Volume Arquitetura"
+    : "Escola Municipal Exemplo - Memorial";
 }
 
 function getStatusFromResult(result?: string) {
@@ -156,6 +171,18 @@ function extractSection(content: string | undefined, titlePattern: string) {
     "i",
   );
   return regex.exec(content)?.[1]?.trim() ?? "";
+}
+
+function extractFirstRecommendedAction(content: string | undefined) {
+  if (!content) {
+    return "";
+  }
+
+  return (
+    content.match(/Ação recomendada:\s*(.+)/i)?.[1]?.trim() ??
+    content.match(/Acao recomendada:\s*(.+)/i)?.[1]?.trim() ??
+    ""
+  );
 }
 
 function validateFiles(
@@ -239,10 +266,15 @@ export function ChatWindow({
   );
   const latestFindings = extractSection(
     latestResult?.content,
-    "6\\.\\s*Incongruencias relevantes encontradas|6\\.\\s*Incongruências relevantes encontradas",
+    "6\\.\\s*Achados encontrados|6\\.\\s*Incongruencias relevantes encontradas|6\\.\\s*Incongruências relevantes encontradas",
   );
   const latestReport =
     latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
+  const latestRecommendedAction =
+    extractFirstRecommendedAction(latestResult?.content) ||
+    (latestResult
+      ? "Revisar achados, confirmar evidências e registrar decisão técnica."
+      : "Carregue a demo local ou envie uma auditoria para iniciar a inspeção.");
   const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
   const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
   const setupComplete = true;
@@ -334,6 +366,54 @@ export function ChatWindow({
     setError("");
     setActiveAuditId(null);
     setElapsedMs(0);
+  }
+
+  function handleLoadDemoAudit() {
+    const demoId = crypto.randomUUID();
+    const demoResult = getDemoAuditResult(auditMode);
+    const fileNames = DEMO_FILE_NAMES[auditMode];
+    const title = `Demo ${getAuditModeLabel(auditMode)}`;
+    const demoProjectName = getDemoProjectName(auditMode);
+    const demoDescription = "Cenário demonstrativo local, sem chamada de API.";
+    const demoElapsedMs = auditMode === "volume" ? 18400 : 9200;
+    const userMessage: ChatMessage = {
+      id: `${demoId}-request`,
+      role: "user",
+      content: `${getDefaultPrompt(auditMode)}\n\nIdentificação: ${title}\nProjeto: ${demoProjectName}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${fileNames.join(", ")}`,
+      auditMode,
+    };
+    const assistantMessage: ChatMessage = {
+      id: `${demoId}-result`,
+      role: "assistant",
+      content: demoResult,
+      auditMode,
+      elapsedMs: demoElapsedMs,
+    };
+
+    setAuditTitle(title);
+    setProjectName(demoProjectName);
+    setAuditDescription(demoDescription);
+    setFiles([]);
+    setError("");
+    setElapsedMs(0);
+    setActiveAuditId(demoId);
+    setMessages([userMessage, assistantMessage]);
+    setAuditHistory((current) => [
+      {
+        id: demoId,
+        title,
+        projectName: demoProjectName,
+        description: demoDescription,
+        createdAt: new Date(),
+        auditMode,
+        fileNames,
+        status: "completed",
+        result: demoResult,
+        elapsedMs: demoElapsedMs,
+      },
+      ...current,
+    ]);
+    setInspectorTab("summary");
   }
 
   function createPdfSources() {
@@ -605,21 +685,90 @@ export function ChatWindow({
       >
         <div
           className={cn(
-            "grid w-full max-w-xl place-items-center rounded-md border border-dashed bg-card px-8 py-12 text-center transition-[border-color,background-color]",
+            "grid w-full max-w-3xl gap-5 rounded-md border border-dashed bg-card px-6 py-8 transition-[border-color,background-color] sm:px-8",
             isDropActive
               ? "border-primary bg-primary/10 text-foreground"
               : "border-input hover:border-ring",
           )}
         >
-          <div className="flex size-12 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary">
-            <FileSearch className="size-6" />
+          <div className="flex flex-col items-center text-center">
+            <div className="flex size-12 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary">
+              <FileSearch className="size-6" />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold">Nova auditoria documental</h2>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+              Arraste PDFs para esta area, anexe documentos no campo abaixo ou carregue um exemplo local para revisar a experiencia sem consumir tokens.
+            </p>
           </div>
-          <h2 className="mt-4 text-lg font-semibold">Nova auditoria documental</h2>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-            Arraste PDFs para esta area ou anexe documentos no campo abaixo.
-          </p>
+
+          <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground sm:grid-cols-3">
+            <div>
+              <span className="block text-foreground">1. Anexar</span>
+              PDF tecnico do projeto
+            </div>
+            <div>
+              <span className="block text-foreground">2. Solicitar</span>
+              Escopo objetivo da revisao
+            </div>
+            <div>
+              <span className="block text-foreground">3. Auditar</span>
+              Ler achados e roteiro
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="outline" onClick={handleLoadDemoAudit}>
+              <PlayCircle />
+              Carregar demo local
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setMessage(getDefaultPrompt(auditMode))}>
+              <ClipboardCheck />
+              Restaurar solicitação
+            </Button>
+          </div>
         </div>
       </section>
+    );
+  }
+
+  function renderErrorState() {
+    if (!error) {
+      return null;
+    }
+
+    const isValidationError =
+      error.includes("PDF") ||
+      error.includes("solicitacao") ||
+      error.includes("solicitação") ||
+      error.includes("25 MB") ||
+      error.includes("primeiros");
+
+    return (
+      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-medium">{error}</p>
+            <p className="mt-1 text-xs leading-5 text-destructive/80">
+              {isValidationError
+                ? "Revise arquivos anexados, limite de 5 PDFs e solicitacao antes de enviar."
+                : "A auditoria nao foi concluida. Voce pode tentar novamente, cancelar ou carregar a demo local."}
+            </p>
+            {!isValidationError ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 border-destructive/30 text-destructive hover:bg-destructive/10"
+                onClick={handleLoadDemoAudit}
+              >
+                <PlayCircle />
+                Ver demo local
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -677,6 +826,15 @@ export function ChatWindow({
         >
           <Gauge />
           Configurações
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-2 justify-start"
+          onClick={handleLoadDemoAudit}
+        >
+          <PlayCircle />
+          Demo local
         </Button>
 
         {allowDemoMode ? (
@@ -822,11 +980,7 @@ export function ChatWindow({
               </div>
             ) : null}
 
-            {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            ) : null}
+            {renderErrorState()}
             <div ref={bottomRef} />
           </div>
         </div>
@@ -843,11 +997,11 @@ export function ChatWindow({
         />
       </section>
 
-      <aside className="hidden h-dvh w-[320px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-5 2xl:flex 2xl:flex-col">
+      <aside className="hidden h-dvh w-[380px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-5 xl:flex xl:flex-col">
         <div className="flex items-start justify-between gap-3 border-b pb-4">
           <div>
             <p className="font-mono text-xs uppercase text-muted-foreground">Painel</p>
-            <h2 className="mt-1 text-base font-semibold">Inspeção</h2>
+            <h2 className="mt-1 text-base font-semibold">Controle da auditoria</h2>
           </div>
           <div className={`rounded-md border px-2 py-1 font-mono text-xs font-medium ${statusToneClass}`}>
             {statusIsCritical ? (
@@ -859,26 +1013,67 @@ export function ChatWindow({
           </div>
         </div>
 
-        <dl className="my-5 divide-y border-y font-mono text-sm">
-          <div className="flex items-center justify-between gap-3 py-3">
-            <dt className="text-muted-foreground">Tipo</dt>
-            <dd className="font-medium">{getAuditModeLabel(auditMode)}</dd>
+        <div className="my-5 grid grid-cols-2 gap-2">
+          <div className="rounded-md border bg-card px-3 py-3">
+            <p className="font-mono text-xs text-muted-foreground">Tipo</p>
+            <p className="mt-1 font-mono text-sm font-medium text-foreground">
+              {getAuditModeLabel(auditMode)}
+            </p>
           </div>
-          <div className="flex items-center justify-between gap-3 py-3">
-            <dt className="text-muted-foreground">Tempo</dt>
-            <dd className="font-mono text-xs font-medium">
+          <div className="rounded-md border bg-card px-3 py-3">
+            <p className="font-mono text-xs text-muted-foreground">Tempo</p>
+            <p className="mt-1 font-mono text-sm font-medium text-foreground">
               {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
-            </dd>
+            </p>
           </div>
-          <div className="flex items-center justify-between gap-3 py-3">
-            <dt className="text-muted-foreground">PDFs</dt>
-            <dd className="font-medium">{displayedFileCount || "-"}</dd>
+          <div className="rounded-md border bg-card px-3 py-3">
+            <p className="font-mono text-xs text-muted-foreground">PDFs</p>
+            <p className="mt-1 font-mono text-sm font-medium text-foreground">
+              {displayedFileCount || "-"}
+            </p>
           </div>
-          <div className="flex items-center justify-between gap-3 py-3">
-            <dt className="text-muted-foreground">Achados</dt>
-            <dd className="font-medium">{latestFindingCount}</dd>
+          <div className="rounded-md border bg-card px-3 py-3">
+            <p className="font-mono text-xs text-muted-foreground">Achados</p>
+            <p
+              className={cn(
+                "mt-1 font-mono text-sm font-medium",
+                latestFindingCount > 0 ? "text-[var(--status-warning)]" : "text-foreground",
+              )}
+            >
+              {latestFindingCount}
+            </p>
           </div>
-        </dl>
+        </div>
+
+        <section className="mb-5 rounded-md border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="size-4 text-primary" />
+            <p className="font-mono text-xs uppercase text-muted-foreground">
+              Próxima ação
+            </p>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-foreground">
+            {latestRecommendedAction}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setInspectorTab("findings")}
+            >
+              Ver achados
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleLoadDemoAudit}
+            >
+              Demo local
+            </Button>
+          </div>
+        </section>
 
         <div className="grid grid-cols-3 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">
           {[

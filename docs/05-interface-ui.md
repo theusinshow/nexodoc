@@ -26,6 +26,7 @@ Elementos principais:
 - painel lateral com resumo da auditoria atual;
 - visualizacao de relatorio;
 - botao para cancelar processamento.
+- botao de demo local para validar UI sem API, sem PDF real e sem custo.
 
 ## 3. Layout recomendado
 
@@ -132,6 +133,21 @@ A interface deve prever:
 - envio bloqueado por ausencia de PDF.
 - auditoria cancelada.
 - historico vazio.
+- demo local carregada;
+- limite de 5 PDFs;
+- limite de 25 MB por PDF;
+- resultado sem PDF persistido para abrir evidencia.
+
+### Demo local
+
+A demo local deve:
+
+- ser acionada pelo usuario;
+- nao chamar API;
+- nao exigir PDF anexado;
+- preencher mensagens, historico em memoria, painel de inspecao e resultado;
+- oferecer cenarios para Memorial e Volume;
+- servir para validar layout, leitura, copia, tabs e responsividade antes de testes reais.
 
 ## 8. Estilo visual
 

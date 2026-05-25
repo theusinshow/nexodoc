@@ -2,9 +2,11 @@
 
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
+  Copy,
   Eye,
   ExternalLink,
   FileText,
@@ -356,6 +358,18 @@ function buildActionsText(findings: StructuredFinding[]) {
   return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
+function getFirstAction(findings: StructuredFinding[]) {
+  return findings.find((finding) => finding.acao)?.acao;
+}
+
+function countUniqueDocuments(findings: StructuredFinding[]) {
+  return new Set(
+    findings
+      .map((finding) => finding.documento)
+      .filter((value): value is string => Boolean(value)),
+  ).size;
+}
+
 function buildReviewRouteText(findings: StructuredFinding[]) {
   if (findings.length === 0) {
     return "Nenhum achado para revisar.";
@@ -529,6 +543,37 @@ function SectionCard({
   );
 }
 
+function CopyTextButton({
+  value,
+  children,
+  className,
+}: {
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={className}
+      onClick={handleCopy}
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? "Copiado" : children}
+    </Button>
+  );
+}
+
 export function AuditResult({
   content,
   elapsedMs,
@@ -559,6 +604,40 @@ export function AuditResult({
   const actionsText = buildActionsText(findingsWithPdf);
   const reviewRouteText = buildReviewRouteText(findingsWithPdf);
   const reviewRoute = groupFindingsByDocumentPage(findingsWithPdf);
+  const uniqueDocumentCount = countUniqueDocuments(findingsWithPdf);
+  const evidenceLinkCount = findingsWithPdf.filter((finding) => finding.pdfUrl).length;
+  const criticalCount = groupedReportFindings
+    ? groupedReportFindings.critico_documental.length
+    : findings.filter((finding) => finding.severity === "critical").length;
+  const warningCount = findings.filter((finding) => finding.severity === "warning").length;
+  const firstAction = getFirstAction(findingsWithPdf);
+  const nextStep =
+    firstAction ??
+    (criticalCount > 0
+      ? "Revisar achados críticos antes da emissão."
+      : "Validar pontos de revisão e registrar aceite técnico.");
+  const confidenceItems = [
+    {
+      label: "Status",
+      value: status.label,
+      tone: status.className,
+    },
+    {
+      label: "Arquivos",
+      value: uniqueDocumentCount > 0 ? String(uniqueDocumentCount) : "não informado",
+    },
+    {
+      label: "Achados",
+      value: String(findings.length),
+    },
+    {
+      label: "Evidências",
+      value:
+        evidenceLinkCount > 0
+          ? `${evidenceLinkCount}/${findingsWithPdf.length} com PDF`
+          : "sem PDF local",
+    },
+  ];
   const projectFields = report
     ? [
         { label: "Arquivo", value: report.arquivo ?? "não informado" },
@@ -569,14 +648,6 @@ export function AuditResult({
         { label: "Total de achados", value: String(report.total_incongruencias) },
       ]
     : parseProjectFields(parsed.project);
-  const criticalCount = groupedReportFindings
-    ? groupedReportFindings.critico_documental.length
-    : findings.filter((finding) => finding.severity === "critical").length;
-  const warningCount = findings.filter((finding) => finding.severity === "warning").length;
-
-  async function copyText(value: string) {
-    await navigator.clipboard.writeText(value);
-  }
 
   return (
     <article className="w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
@@ -601,82 +672,109 @@ export function AuditResult({
         <AuditResultActions result={content} />
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-1 rounded-md border bg-[var(--nexodoc-recessed)] p-1">
-        <Button
-          type="button"
-          variant={view === "summary" ? "secondary" : "outline"}
-          size="sm"
-          className="border-transparent"
-          onClick={() => setView("summary")}
-        >
-          Resumo
-        </Button>
-        <Button
-          type="button"
-          variant={view === "findings" ? "secondary" : "outline"}
-          size="sm"
-          className="border-transparent"
-          onClick={() => setView("findings")}
-        >
-          Achados
-        </Button>
-        <Button
-          type="button"
-          variant={view === "evidence" ? "secondary" : "outline"}
-          size="sm"
-          className="border-transparent"
-          onClick={() => setView("evidence")}
-        >
-          Evidências
-        </Button>
-        <Button
-          type="button"
-          variant={view === "route" ? "secondary" : "outline"}
-          size="sm"
-          className="border-transparent"
-          onClick={() => setView("route")}
-        >
-          Roteiro
-        </Button>
-        <Button
-          type="button"
-          variant={view === "report" ? "secondary" : "outline"}
-          size="sm"
-          className="border-transparent"
-          onClick={() => setView("report")}
-        >
-          Relatório
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="ml-auto"
-          onClick={() => copyText(findingsText)}
-        >
-          Copiar achados
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => copyText(reviewRouteText)}
-        >
-          Copiar roteiro
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => copyText(actionsText)}
-        >
-          Copiar ações
-        </Button>
+      <div className="mt-5 grid gap-3 rounded-md border bg-[var(--nexodoc-recessed)] p-3 xl:grid-cols-[1fr_auto] xl:items-center">
+        <div>
+          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
+            Navegação do resultado
+          </p>
+          <div className="flex flex-wrap gap-1 rounded-md border bg-background/35 p-1">
+            <Button
+              type="button"
+              variant={view === "summary" ? "secondary" : "outline"}
+              size="sm"
+              className="border-transparent"
+              onClick={() => setView("summary")}
+            >
+              Resumo
+            </Button>
+            <Button
+              type="button"
+              variant={view === "findings" ? "secondary" : "outline"}
+              size="sm"
+              className="border-transparent"
+              onClick={() => setView("findings")}
+            >
+              Achados
+            </Button>
+            <Button
+              type="button"
+              variant={view === "evidence" ? "secondary" : "outline"}
+              size="sm"
+              className="border-transparent"
+              onClick={() => setView("evidence")}
+            >
+              Evidências
+            </Button>
+            <Button
+              type="button"
+              variant={view === "route" ? "secondary" : "outline"}
+              size="sm"
+              className="border-transparent"
+              onClick={() => setView("route")}
+            >
+              Roteiro
+            </Button>
+            <Button
+              type="button"
+              variant={view === "report" ? "secondary" : "outline"}
+              size="sm"
+              className="border-transparent"
+              onClick={() => setView("report")}
+            >
+              Relatório
+            </Button>
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
+            Ações rápidas
+          </p>
+          <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+            <CopyTextButton value={findingsText}>Copiar achados</CopyTextButton>
+            <CopyTextButton value={reviewRouteText}>Copiar roteiro</CopyTextButton>
+            <CopyTextButton value={actionsText}>Copiar ações</CopyTextButton>
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-5">
         {view === "summary" ? (
           <>
+            <section className="rounded-md border bg-[var(--nexodoc-recessed)]/80 p-4">
+              <div className="grid gap-3 md:grid-cols-[1fr_1.4fr] md:items-start">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {confidenceItems.map((item) => (
+                    <div key={item.label} className="rounded-md border bg-card px-3 py-2.5">
+                      <p className="font-mono text-xs text-muted-foreground">{item.label}</p>
+                      <p
+                        className={cn(
+                          "mt-1 text-sm font-medium text-foreground",
+                          item.tone && "inline-flex rounded border px-2 py-1 font-mono text-xs",
+                          item.tone,
+                        )}
+                      >
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-md border bg-card px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="size-4 text-primary" />
+                    <p className="font-mono text-xs uppercase text-muted-foreground">
+                      Próximo passo sugerido
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-foreground">{nextStep}</p>
+                  {evidenceLinkCount === 0 ? (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      Esta sessão não possui PDFs persistidos para abertura direta. Use Documento, Página, Local e Termo de busca como roteiro de conferência.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+
             <div className="grid divide-y rounded-md border bg-[var(--nexodoc-recessed)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="px-4 py-3">
                 <p className="font-mono text-xs text-muted-foreground">Achados</p>
@@ -890,14 +988,9 @@ export function AuditResult({
                                       {finding.termoBusca}
                                     </span>
                                   </p>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => copyText(finding.termoBusca ?? "")}
-                                  >
+                                  <CopyTextButton value={finding.termoBusca}>
                                     Copiar termo
-                                  </Button>
+                                  </CopyTextButton>
                                 </div>
                               ) : null}
                               {finding.conflito ? (
@@ -930,6 +1023,19 @@ export function AuditResult({
           <SectionCard title="Localização no PDF" icon={Eye}>
             {findingsWithPdf.length > 0 ? (
               <div className="grid gap-3">
+                {evidenceLinkCount === 0 ? (
+                  <div className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/70 p-4 text-sm text-[var(--status-warning)]">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                      <div>
+                        <p className="font-medium">PDF não disponível nesta sessão</p>
+                        <p className="mt-1 text-xs leading-5">
+                          A demo local e auditorias reabertas do histórico em memória podem não ter arquivo persistido. Ainda assim, os campos abaixo indicam documento, página provável, local e termo para conferência manual.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 {findingsWithPdf.map((finding, index) => (
                   <div key={`${finding.raw}-evidence-${index}`} className="rounded-md border bg-card p-4">
                     <div className="space-y-3">
@@ -942,17 +1048,29 @@ export function AuditResult({
                           {finding.title}
                         </h4>
                         </div>
-                        {finding.pdfUrl ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPdfAtFinding(finding, pdfSources)}
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex rounded-md border px-2 py-1 font-mono text-xs",
+                              finding.pdfUrl
+                                ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                                : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
+                            )}
                           >
-                            <ExternalLink />
-                            Abrir página
-                          </Button>
-                        ) : null}
+                            {finding.pdfUrl ? "PDF vinculado" : "sem PDF local"}
+                          </span>
+                          {finding.pdfUrl ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPdfAtFinding(finding, pdfSources)}
+                            >
+                              <ExternalLink />
+                              Abrir página
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 font-mono text-xs sm:grid-cols-3">
                         <p>
@@ -1007,19 +1125,16 @@ export function AuditResult({
                               {finding.termoBusca}
                             </span>
                           </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyText(finding.termoBusca ?? "")}
-                          >
+                          <CopyTextButton value={finding.termoBusca}>
                             Copiar termo
-                          </Button>
+                          </CopyTextButton>
                         </div>
                       ) : null}
                       <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                         <span>
-                          O PDF abre na página provável. Use o termo de busca para localizar o trecho exato.
+                          {finding.pdfUrl
+                            ? "O PDF abre na página provável. Use o termo de busca para localizar o trecho exato."
+                            : "Use este registro como roteiro manual: documento, página provável, local e termo de busca."}
                         </span>
                         {!finding.pdfUrl ? (
                           <span className="text-[var(--status-warning)]">
@@ -1052,9 +1167,9 @@ export function AuditResult({
                     <div className="mt-4 space-y-4">
                       {documentGroup.pages.map((pageGroup) => (
                         <div key={`${documentGroup.document}-${pageGroup.page}`} className="grid gap-3 md:grid-cols-[7rem_1fr]">
-                          <div className="text-xs text-muted-foreground">
-                            Página
-                            <p className="mt-1 text-base font-semibold text-foreground">
+                          <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground">
+                            Página provável
+                            <p className="mt-1 text-lg font-semibold text-foreground">
                               {pageGroup.page}
                             </p>
                           </div>
@@ -1065,9 +1180,14 @@ export function AuditResult({
                                 className="rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3"
                               >
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <p className="font-medium text-foreground">
-                                    {finding.title}
-                                  </p>
+                                  <div className="flex min-w-0 gap-2">
+                                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border bg-card font-mono text-xs text-muted-foreground">
+                                      {index + 1}
+                                    </span>
+                                    <p className="font-medium text-foreground">
+                                      {finding.title}
+                                    </p>
+                                  </div>
                                   {finding.pdfUrl ? (
                                     <Button
                                       type="button"
