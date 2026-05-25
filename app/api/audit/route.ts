@@ -11,8 +11,6 @@ import {
   type AuditFinding,
   type AuditReport,
 } from "@/lib/audit-report";
-import { runCrossDocumentRules } from "@/lib/cross-document-audit";
-import { runDeterministicAuditRules } from "@/lib/audit-rules";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
@@ -34,6 +32,7 @@ const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 24;
 const DEFAULT_CHUNK_CONCURRENCY = 5;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
+const DEFAULT_GLOBAL_CONTEXT_CHARS = 180_000;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
@@ -403,6 +402,37 @@ function getChunkTimeoutMs() {
   return DEFAULT_CHUNK_TIMEOUT_MS;
 }
 
+function getGlobalContextChars() {
+  const value = Number(process.env.NEXODOC_GLOBAL_CONTEXT_CHARS);
+
+  if (Number.isFinite(value) && value >= 60_000) {
+    return Math.min(400_000, Math.floor(value));
+  }
+
+  return DEFAULT_GLOBAL_CONTEXT_CHARS;
+}
+
+function buildDocumentContext(extracted: ExtractedPdf) {
+  const maxChars = getGlobalContextChars();
+
+  if (extracted.text.length <= maxChars) {
+    return extracted.text;
+  }
+
+  const headChars = Math.floor(maxChars * 0.38);
+  const tailChars = Math.floor(maxChars * 0.42);
+  const middleChars = maxChars - headChars - tailChars;
+  const middleStart = Math.max(0, Math.floor((extracted.text.length - middleChars) / 2));
+
+  return [
+    extracted.text.slice(0, headChars),
+    "\n\n--- RECORTE INTERMEDIARIO DO DOCUMENTO ---\n\n",
+    extracted.text.slice(middleStart, middleStart + middleChars),
+    "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
+    extracted.text.slice(-tailChars),
+  ].join("");
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -538,6 +568,92 @@ async function analyzeChunkWithModel(args: {
     .filter((finding): finding is AuditFinding => Boolean(finding));
 }
 
+function getGlobalFilePrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+}) {
+  const modeInstruction =
+    args.auditMode === "volume"
+      ? "Faça uma leitura global do volume de projeto, como auditor documental sênior."
+      : "Faça uma leitura global do memorial descritivo, como auditor documental sênior.";
+
+  return `
+${modeInstruction}
+
+Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Primeiro entenda a identidade predominante do documento: obra, código, município, endereço, proprietário/órgão, data e disciplina. Depois procure incongruências internas, trechos reaproveitados, referências que pareçam pertencer a outra obra, conflitos de endereço/localidade, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes e problemas editoriais relevantes.
+
+Priorize pelo impacto:
+- Alta: conflito de identidade da obra, município, endereço, proprietário, órgão, disciplina ou trecho claramente herdado de outro projeto.
+- Media/Alta: divergência técnica/contratual que pode afetar emissão, contratação ou revisão formal.
+- Media ou menor: redação, formatação, duplicidade e pontos de conferência que não mudam a identidade do projeto.
+
+Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo.
+
+Projeto informado pelo usuário: ${args.projectName || "não informado"}
+Arquivo: ${args.fileName}
+Tipo informado: ${args.fileType}
+Páginas extraídas: ${args.extracted.pageCount}
+Solicitação do usuário: ${args.userMessage}
+
+Responda APENAS JSON válido:
+{
+  "findings": [
+    {
+      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
+      "pagina": "número ou intervalo",
+      "capitulo": "capítulo/seção",
+      "local": "local do erro",
+      "tipo": "tipo do erro",
+      "descricao": "descrição objetiva",
+      "evidencia": "texto encontrado",
+      "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
+      "categoria": "categoria do achado",
+      "referencia_comparada": "identidade predominante ou trecho comparado, quando existir",
+      "conflito": "por que diverge",
+      "sugestao_correcao": "correção sugerida",
+      "confianca": "alta|media|baixa"
+    }
+  ]
+}
+
+Se não encontrar erro relevante, retorne {"findings":[]}.
+
+TEXTO DO DOCUMENTO:
+${buildDocumentContext(args.extracted)}
+`.trim();
+}
+
+async function analyzeFileGloballyWithModel(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+}) {
+  const openai = getOpenAIClient();
+  const response = await openai.responses.create({
+    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    instructions: getAuditorPrompt(args.auditMode),
+    reasoning: { effort: getReasoningEffort() },
+    max_output_tokens: getMaxOutputTokens(),
+    input: getGlobalFilePrompt(args),
+  }, {
+    timeout: getChunkTimeoutMs(),
+  });
+  const parsed = parseJsonObject(extractResponseText(response));
+
+  return (parsed?.findings ?? [])
+    .map((finding, index) =>
+      modelFindingToAuditFinding(finding, index + 1, args.fileName),
+    )
+    .filter((finding): finding is AuditFinding => Boolean(finding));
+}
+
 function getCrossDocumentPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
@@ -641,20 +757,25 @@ async function deepAnalyzeFile(args: {
   file: UploadedAuditFile;
 }) {
   const startedAt = Date.now();
-  const deterministicFindings = runDeterministicAuditRules({
-    fileName: args.file.file.name,
-    projectName: args.projectName,
-    extracted: args.file.extracted,
-  }).map((finding) => ({
-    ...finding,
-    arquivo: finding.arquivo ?? args.file.file.name,
-    termo_busca: finding.termo_busca ?? finding.evidencia.slice(0, 160),
-  }));
   const chunks = chunkPdfByChapter(args.file.extracted).slice(0, getMaxChunksPerFile());
   const concurrency = getChunkConcurrency();
 
   console.log(
-    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, ${chunks.length} blocos, concorrencia ${concurrency}, ${deterministicFindings.length} achado(s) por regra`,
+    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}`,
+  );
+
+  const globalStartedAt = Date.now();
+  console.log(`[audit] ${args.file.file.name}: leitura global iniciada`);
+  const globalFindings = await analyzeFileGloballyWithModel({
+    auditMode: args.auditMode,
+    userMessage: args.userMessage,
+    projectName: args.projectName,
+    fileName: args.file.file.name,
+    fileType: args.file.fileType,
+    extracted: args.file.extracted,
+  });
+  console.log(
+    `[audit] ${args.file.file.name}: leitura global concluida em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
 
   const modelFindingGroups = await mapWithConcurrency(
@@ -682,10 +803,10 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${deterministicFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
-  return dedupeFindings([...deterministicFindings, ...modelFindings]);
+  return dedupeFindings([...globalFindings, ...modelFindings]);
 }
 
 export async function POST(request: Request) {
@@ -798,20 +919,13 @@ export async function POST(request: Request) {
       allFindings.push(...findings);
     }
 
-    const ruleComparison = runCrossDocumentRules(
-      uploadedFiles.map((file) => ({
-        fileName: file.file.name,
-        fileType: file.fileType,
-        extracted: file.extracted,
-      })),
-    );
     const modelComparison = await analyzeCrossDocumentsWithModel({
       auditMode,
       userMessage: message,
       projectName,
       files: uploadedFiles,
     });
-    allFindings.push(...ruleComparison.findings, ...modelComparison.findings);
+    allFindings.push(...modelComparison.findings);
 
     const findings = sortAuditFindings(dedupeFindings(allFindings)).map(
       (finding, index) => ({
@@ -852,10 +966,10 @@ export async function POST(request: Request) {
         tipo_documento: file.fileType,
         paginas: file.extracted.pageCount,
         caracteres_extraidos: file.extracted.charCount,
-        resumo: `Auditoria profunda com texto extraído por página, ${chunkPdfByChapter(file.extracted).length} blocos de leitura e checklist determinístico.`,
+        resumo: `Auditoria profunda com leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
       })),
       comparacoes:
-        [...ruleComparison.comparisons, ...modelComparison.comparisons],
+        modelComparison.comparisons,
       incongruencias: findings,
       conclusao:
         findings.length === 0
