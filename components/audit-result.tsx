@@ -350,12 +350,13 @@ function buildActionsText(findings: StructuredFinding[]) {
   const actions = findings
     .map((finding) => finding.acao)
     .filter((value): value is string => Boolean(value));
+  const uniqueActions = [...new Set(actions.map((action) => action.trim()).filter(Boolean))];
 
-  if (actions.length === 0) {
+  if (uniqueActions.length === 0) {
     return "Nenhuma ação recomendada identificada.";
   }
 
-  return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
+  return uniqueActions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
 function getFirstAction(findings: StructuredFinding[]) {

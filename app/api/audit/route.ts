@@ -490,6 +490,7 @@ function cleanIdentityCandidate(value: string) {
   return value
     .replace(/\s+/g, " ")
     .replace(/^(?:para\s+a|para\s+o|da|do|de)\s+/i, "")
+    .replace(/^reforma\s+/i, "")
     .replace(/\s+(?:é|possui|volume|projeto executivo|localizado|localizada|sito|situado|situada|no munic[ií]pio|em crici[uú]ma|endereço|endere[cç]o|propriet[aá]rio|[aá]rea)\b.*$/i, "")
     .replace(/\s*[,;:.-]+$/g, "")
     .trim();
@@ -595,6 +596,17 @@ function areSameIdentity(left: IdentityCandidate, right: IdentityCandidate) {
   return leftKey === rightKey || leftKey.includes(rightKey) || rightKey.includes(leftKey);
 }
 
+function summarizePages(pages: number[]) {
+  const uniquePages = [...new Set(pages)].sort((left, right) => left - right);
+  const visible = uniquePages.slice(0, 6).join(", ");
+
+  if (uniquePages.length <= 6) {
+    return visible;
+  }
+
+  return `${visible} e mais ${uniquePages.length - 6}`;
+}
+
 function getDominantIdentityCandidate(candidates: IdentityCandidate[]) {
   const viable = candidates.filter((candidate) => isLikelyProjectIdentity(candidate.value));
 
@@ -620,14 +632,26 @@ function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: strin
     return [];
   }
 
-  const divergentCandidates = candidates
+  const divergentGroups = new Map<string, IdentityCandidate>();
+
+  for (const candidate of candidates
     .filter((candidate) => isLikelyProjectIdentity(candidate.value))
     .filter((candidate) => !areSameIdentity(candidate, dominant))
     .filter((candidate) => candidate.firstPage > dominant.firstPage || candidate.count < dominant.count)
-    .sort((left, right) => left.firstPage - right.firstPage)
-    .slice(0, 5);
+    .sort((left, right) => left.firstPage - right.firstPage)) {
+    const key = identityComparisonKey(candidate.value);
+    const current = divergentGroups.get(key);
 
-  return divergentCandidates.map((candidate, index) => ({
+    if (current) {
+      current.count += candidate.count;
+      current.pages = [...new Set([...current.pages, ...candidate.pages])].sort((left, right) => left - right);
+      continue;
+    }
+
+    divergentGroups.set(key, { ...candidate });
+  }
+
+  return [...divergentGroups.values()].slice(0, 4).map((candidate, index) => ({
     id: `ID-${String(index + 1).padStart(3, "0")}`,
     arquivo: fileName,
     origem: "regra",
@@ -640,7 +664,7 @@ function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: strin
     evidencia: candidate.evidence,
     termo_busca: candidate.value.slice(0, 160),
     categoria: "Identidade documental",
-    referencia_comparada: `Identidade predominante inferida: ${dominant.value} (páginas ${dominant.pages.join(", ")})`,
+    referencia_comparada: `Identidade predominante inferida: ${dominant.value} (${dominant.count} ocorrência(s), páginas ${summarizePages(dominant.pages)}).`,
     conflito: `"${candidate.value}" não corresponde à identidade predominante "${dominant.value}".`,
     sugestao_correcao: "Confirmar a obra correta e revisar o trecho indicado para remover referência residual de outro projeto.",
     confianca: candidate.count === 1 ? "media" : "alta",
@@ -779,6 +803,7 @@ function inferProjectFields(text: string, fallbackProjectName: string) {
   const obra =
     /\bObra\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
     /\bIdentifica[cç][aã]o\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
+    /\b\d{2,4}[_-]\d{2}\s*[–-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,120})\s*[–-]\s*PROJETO\s+EXECUTIVO/i.exec(text)?.[1]?.trim() ??
     /UBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9\s-]+PORTE\s*\d+/i.exec(text)?.[0]?.trim() ??
     fallbackProjectName;
   const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";
@@ -793,6 +818,12 @@ function inferProjectFields(text: string, fallbackProjectName: string) {
     municipio,
     data,
   };
+}
+
+function isMissingProjectField(value: string) {
+  const normalized = normalizeLoose(value);
+
+  return !normalized || normalized === "projeto nao informado" || normalized === "nao informado";
 }
 
 async function analyzeChunkWithModel(args: {
@@ -1304,8 +1335,11 @@ export async function POST(request: Request) {
     console.log(
       `[audit] requisicao concluida em ${Math.round((Date.now() - requestStartedAt) / 1000)}s com ${findings.length} achado(s)`,
     );
-    const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 20000)).join("\n");
+    const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 50000)).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
+    const dominantIdentity = uploadedFiles[0]
+      ? getDominantIdentityCandidate(getIdentityCandidates(uploadedFiles[0].extracted))?.value
+      : "";
     const hasCriticalDocumental = findings.some(
       (finding) => classifyFindingImpact(finding) === "critico_documental",
     );
@@ -1315,7 +1349,7 @@ export async function POST(request: Request) {
       arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
       tipo_auditoria: auditMode,
       tipo_documento: auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo",
-      obra: inferred.obra || projectName || "não identificada",
+      obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
       codigo: inferred.codigo,
       municipio: inferred.municipio,
       data_documento: inferred.data,
