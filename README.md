@@ -23,13 +23,14 @@ O foco da versao 0.1 e:
 
 Ja incorporado alem do escopo inicial:
 
+- login exclusivo com Google OAuth;
 - banco de dados PostgreSQL opcional para historico;
 - painel administrativo de auditorias, uso e configuracao;
 - exportacao do relatorio em Markdown.
 
 Ainda fora do escopo atual:
 
-- login de usuarios;
+- associacao do historico a cada usuario autenticado;
 - exportacao PDF;
 - exportacao DOCX;
 - OCR para PDFs escaneados.
@@ -71,6 +72,10 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
+AUTH_SECRET=gere_um_segredo_forte
+AUTH_GOOGLE_ID=client_id_do_google
+AUTH_GOOGLE_SECRET=client_secret_do_google
+AUTH_TRUST_HOST=true
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_VALIDATION_MODEL=
 OPENAI_STANDARD_MODEL=gpt-5.4-mini
@@ -93,6 +98,23 @@ NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 ```
 
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
+
+## Login com Google
+
+O acesso ao workspace em `/` exige autenticacao e a tela `/login` oferece somente
+o provedor Google. Para configurar o OAuth:
+
+1. Gere `AUTH_SECRET` no terminal com `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
+2. No Google Cloud Console, crie um cliente OAuth do tipo Web application.
+3. Cadastre `http://localhost:3000/api/auth/callback/google` para desenvolvimento.
+4. Cadastre `https://SEU-DOMINIO/api/auth/callback/google` para producao.
+5. Defina `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` e `AUTH_SECRET` no ambiente de deploy.
+
+Quando frontend e backend forem publicados separadamente usando
+`NEXT_PUBLIC_API_URL`, o login protege o workspace do frontend. As APIs remotas no
+Render continuam usando a protecao operacional propria do backend; para
+autorizacao por usuario nelas sera necessario encaminhar e validar uma credencial
+entre os dois servicos.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.4-mini`.
 `OPENAI_VALIDATION_MODEL` tambem e opcional; quando vazio, a revisao semantica final usa o mesmo modelo principal.

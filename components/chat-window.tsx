@@ -23,6 +23,7 @@ import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult, type AuditPdfSource } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
+import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1269,6 +1270,7 @@ export function ChatWindow({
           <Gauge />
           Configurações
         </Button>
+        <SignOutButton />
         <Button
           type="button"
           variant="secondary"
@@ -1400,6 +1402,7 @@ export function ChatWindow({
           >
             <Gauge />
           </Button>
+          <SignOutButton compact />
         </header>
 
         {!isLoading ? renderAuditContext() : null}

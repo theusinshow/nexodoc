@@ -1,6 +1,15 @@
+import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
 import { ChatWindow } from "@/components/chat-window";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
   const isMockMode = process.env.NEXODOC_MOCK_MODE === "true";
   const allowDemoMode =
     process.env.NODE_ENV !== "production" ||
