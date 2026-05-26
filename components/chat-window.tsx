@@ -18,7 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Image from "next/image";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
@@ -49,6 +49,9 @@ type ChatWindowProps = {
   isMockMode?: boolean;
   allowDemoMode?: boolean;
   isAdmin?: boolean;
+  userName?: string | null;
+  userEmail?: string | null;
+  userImage?: string | null;
 };
 
 type ChatMessage = {
@@ -398,8 +401,10 @@ export function ChatWindow({
   isMockMode = false,
   allowDemoMode = false,
   isAdmin = false,
+  userName,
+  userEmail,
+  userImage,
 }: ChatWindowProps) {
-  const session = useSession();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
@@ -1359,9 +1364,9 @@ export function ChatWindow({
 
           <div className="mt-3 border-t pt-3">
             <div className="flex items-center gap-2.5">
-              {session.data?.user?.image ? (
+              {userImage ? (
                 <Image
-                  src={session.data.user.image}
+                  src={userImage}
                   alt=""
                   width={24}
                   height={24}
@@ -1369,15 +1374,15 @@ export function ChatWindow({
                 />
               ) : (
                 <div className="flex size-6 items-center justify-center rounded-full border border-border bg-[var(--nexodoc-recessed)] text-[10px] font-mono text-muted-foreground">
-                  {session.data?.user?.name?.charAt(0) ?? "?"}
+                  {userName?.charAt(0) ?? "?"}
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-[11px] font-medium text-foreground">
-                  {session.data?.user?.name ?? "Usuário"}
+                  {userName ?? "Usuário"}
                 </p>
                 <p className="truncate font-mono text-[10px] text-muted-foreground">
-                  {session.data?.user?.email ?? ""}
+                  {userEmail ?? ""}
                 </p>
               </div>
               <button

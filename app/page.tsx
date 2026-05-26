@@ -22,6 +22,9 @@ export default async function Home() {
       isMockMode={isMockMode}
       allowDemoMode={allowDemoMode}
       isAdmin={isAdminEmail(session.user.email)}
+      userName={session.user.name}
+      userEmail={session.user.email}
+      userImage={session.user.image}
     />
   );
 }
