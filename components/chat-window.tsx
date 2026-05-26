@@ -992,7 +992,7 @@ export function ChatWindow({
   function renderAuditContext() {
     return (
       <section className="border-b bg-card px-4 py-4 sm:px-5">
-        <div className="grid gap-4 xl:grid-cols-[1fr_minmax(300px,390px)] xl:items-start">
+        <div className="grid gap-4 2xl:grid-cols-[1fr_minmax(300px,390px)] 2xl:items-start">
           <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
             <label className="grid gap-1.5 text-xs">
               <span className="font-mono font-medium text-muted-foreground">Identificação</span>
@@ -1057,7 +1057,9 @@ export function ChatWindow({
                   onClick={() => setAnalysisLevel(level)}
                   className={
                     analysisLevel === level
-                      ? "rounded-md border border-ring/35 bg-card px-3 py-2 font-medium text-foreground shadow-[var(--shadow-subtle)]"
+                      ? level === "deep"
+                        ? "rounded-md border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 font-medium text-[var(--status-warning)] shadow-[var(--shadow-subtle)]"
+                        : "rounded-md border border-ring/35 bg-card px-3 py-2 font-medium text-foreground shadow-[var(--shadow-subtle)]"
                       : "rounded-md border border-transparent px-3 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
                   }
                   title={getAnalysisLevelDescription(level)}
