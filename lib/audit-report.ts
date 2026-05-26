@@ -39,6 +39,8 @@ export type AuditReport = {
   obra: string;
   codigo: string;
   municipio: string;
+  volume?: string;
+  orgao?: string;
   data_documento: string;
   status_analise: "concluida" | "parcial" | "falha";
   status_geral:
@@ -127,6 +129,25 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
   );
 
   if (
+    haystack.includes("grafia") ||
+    haystack.includes("ortografia") ||
+    haystack.includes("numeracao") ||
+    haystack.includes("numeração") ||
+    haystack.includes("sumario") ||
+    haystack.includes("sumário") ||
+    haystack.includes("hierarquia") ||
+    haystack.includes("titulo repetido") ||
+    haystack.includes("título repetido") ||
+    haystack.includes("linguagem rodoviaria") ||
+    haystack.includes("linguagem rodoviária") ||
+    haystack.includes("eixo da rodovia") ||
+    haystack.includes("quadro de origem e destino") ||
+    haystack.includes("dnit")
+  ) {
+    return "tecnico_contratual";
+  }
+
+  if (
     haystack.includes("endereco") ||
     haystack.includes("enderecamento") ||
     haystack.includes("endereço") ||
@@ -144,7 +165,6 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     haystack.includes("codigo do projeto") ||
     haystack.includes("código do projeto") ||
     haystack.includes("nome da obra") ||
-    haystack.includes("unidade") ||
     haystack.includes("ubs") ||
     haystack.includes("identidade")
   ) {
@@ -309,9 +329,11 @@ export function makeTextReport(report: AuditReport) {
 1. Projeto analisado
 Arquivo: ${report.arquivo ?? "não informado"}
 Obra: ${report.obra || "não identificada"}
-Código: ${report.codigo || "não identificado"}
-Município: ${report.municipio || "não identificado"}
+Projeto: ${report.codigo || "não identificado"}
+Documento: ${report.tipo_documento || "não identificado"}
+Volume: ${report.volume || "não identificado"}
 Data: ${report.data_documento || "não identificada"}
+Órgão: ${report.orgao || "não identificado"}
 
 2. Status geral
 ${report.status_geral}

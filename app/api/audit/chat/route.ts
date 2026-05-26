@@ -92,8 +92,11 @@ function compactReport(report: AuditReport) {
     projeto: {
       arquivo: report.arquivo,
       obra: report.obra,
-      codigo: report.codigo,
+      projeto: report.codigo,
+      documento: report.tipo_documento,
+      volume: report.volume,
       municipio: report.municipio,
+      orgao: report.orgao,
       data: report.data_documento,
       status: report.status_geral,
       conclusao: report.conclusao,

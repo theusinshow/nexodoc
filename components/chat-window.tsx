@@ -66,6 +66,26 @@ type AuditHistoryItem = {
   pdfSources?: AuditPdfSource[];
 };
 
+type RecentAuditListItem = {
+  id: string;
+  title: string;
+  projectName: string;
+  description: string;
+  auditMode: string;
+  status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELED";
+  result: string | null;
+  report: AuditReport | null;
+  error: string | null;
+  elapsedMs: number | null;
+  createdAt: string;
+  fileNames: string[];
+};
+
+type RecentAuditsResponse = {
+  audits: RecentAuditListItem[];
+  disabledReason?: string;
+};
+
 type InspectorTab = "summary" | "findings" | "report";
 
 const MAX_FILES = 5;
@@ -92,6 +112,13 @@ function getLearningsEndpoint() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
 
   return apiUrl ? `${apiUrl}/api/learnings` : "/api/learnings";
+}
+
+function getRecentAuditsEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  const path = "/api/audits/recent?limit=20";
+
+  return apiUrl ? `${apiUrl}${path}` : path;
 }
 
 function getAuditCancelEndpoint(auditId: string) {
@@ -172,6 +199,39 @@ function formatSeconds(ms?: number) {
   }
 
   return `${Math.max(1, Math.round(ms / 1000))}s`;
+}
+
+function mapPersistedAuditStatus(status: RecentAuditListItem["status"]): AuditHistoryItem["status"] {
+  if (status === "COMPLETED") {
+    return "completed";
+  }
+
+  if (status === "FAILED") {
+    return "failed";
+  }
+
+  if (status === "CANCELED") {
+    return "canceled";
+  }
+
+  return "processing";
+}
+
+function mapPersistedAudit(item: RecentAuditListItem): AuditHistoryItem {
+  return {
+    id: item.id,
+    title: item.title,
+    projectName: item.projectName,
+    description: item.description,
+    createdAt: new Date(item.createdAt),
+    auditMode: item.auditMode === "volume" ? "volume" : "memorial",
+    fileNames: item.fileNames,
+    status: mapPersistedAuditStatus(item.status),
+    result: item.result ?? undefined,
+    report: item.report ?? undefined,
+    elapsedMs: item.elapsedMs ?? undefined,
+    error: item.error ?? undefined,
+  };
 }
 
 function extractSection(content: string | undefined, titlePattern: string) {
@@ -322,6 +382,39 @@ export function ChatWindow({
       pdfObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       pdfObjectUrlsRef.current = [];
     };
+  }, []);
+
+  useEffect(() => {
+    async function loadRecentAudits() {
+      try {
+        const response = await fetch(getRecentAuditsEndpoint(), {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as RecentAuditsResponse;
+
+        if (!payload.audits?.length) {
+          return;
+        }
+
+        setAuditHistory((current) => {
+          const currentIds = new Set(current.map((item) => item.id));
+          const persistedItems = payload.audits
+            .filter((item) => !currentIds.has(item.id))
+            .map(mapPersistedAudit);
+
+          return [...persistedItems, ...current];
+        });
+      } catch {
+        // Histórico persistido é incremental; a auditoria continua funcionando sem ele.
+      }
+    }
+
+    void loadRecentAudits();
   }, []);
 
   useEffect(() => {

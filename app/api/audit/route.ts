@@ -182,6 +182,19 @@ type ModelFinding = {
   confianca?: string;
 };
 
+type ValidationDecision = {
+  source_id?: string;
+  acao?: "confirmar" | "rebaixar" | "remover";
+  prioridade?: string;
+  impacto?: "critico_documental" | "tecnico_contratual" | "revisao_editorial";
+  tipo?: string;
+  descricao?: string;
+  conflito?: string;
+  sugestao_correcao?: string;
+  confianca?: string;
+  motivo?: string;
+};
+
 function isPdf(file: File) {
   return (
     file.type === "application/pdf" ||
@@ -312,6 +325,7 @@ function parseJsonObject(text: string) {
     return JSON.parse(candidate.slice(start, end + 1)) as {
       findings?: ModelFinding[];
       comparisons?: string[];
+      decisions?: ValidationDecision[];
     };
   } catch {
     return null;
@@ -506,13 +520,22 @@ function cleanIdentityCandidate(value: string) {
 
 function isLikelyProjectIdentity(value: string) {
   const normalized = normalizeLoose(value);
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const startsAsNamedEntity =
+    /^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
+      normalized,
+    );
 
   if (normalized.length < 8) {
     return false;
   }
 
+  if (words.length > 10 && !startsAsNamedEntity) {
+    return false;
+  }
+
   if (
-    /\b(procedimento|norma|paver|chapisco|estrutura|contentor|contentores|litros|publico em|acessibilidade|declividade|carga|pavimento|projeto executivo|prefeitura municipal)\b/i.test(
+    /\b(procedimento|norma|paver|chapisco|estrutura|contentor|contentores|litros|publico em|acessibilidade|declividade|carga|pavimento|projeto executivo|prefeitura municipal|fiscalizacao|desenhos atualizados|conforme executado|aterro|aterros|jazida|infraestrutura composta|cabos|tubulacoes|caixas de passagem|tomadas de logica|rack de telecomunicacoes|indice de atendimento|populacao atendida|unidade de saude)\b/i.test(
       normalized,
     )
   ) {
@@ -520,6 +543,32 @@ function isLikelyProjectIdentity(value: string) {
   }
 
   return /\b(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(normalized);
+}
+
+function shouldKeepIdentityCandidate(field: string, value: string) {
+  const normalized = normalizeLoose(value);
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const startsAsNamedEntity =
+    /^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
+      normalized,
+    );
+
+  if (
+    field === "finalidade/obra citada" &&
+    (!startsAsNamedEntity || words.length > 10)
+  ) {
+    return false;
+  }
+
+  if (
+    /\b(fiscalizacao|desenhos atualizados|conforme executado|aterro|aterros|jazida|infraestrutura composta|cabos|tubulacoes|caixas de passagem|tomadas de logica|rack de telecomunicacoes|indice de atendimento|populacao atendida|unidade de saude)\b/i.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function identityComparisonKey(value: string) {
@@ -542,6 +591,10 @@ function getIdentityCandidates(extracted: ExtractedPdf) {
         const key = normalizeLoose(value);
 
         if (value.length < 4 || key.length < 4) {
+          continue;
+        }
+
+        if (!shouldKeepIdentityCandidate(field, value)) {
           continue;
         }
 
@@ -604,6 +657,34 @@ function areSameIdentity(left: IdentityCandidate, right: IdentityCandidate) {
   return leftKey === rightKey || leftKey.includes(rightKey) || rightKey.includes(leftKey);
 }
 
+function isActionableDivergentIdentityCandidate(
+  candidate: IdentityCandidate,
+  dominant: IdentityCandidate,
+) {
+  const candidateKey = identityComparisonKey(candidate.value);
+  const dominantKey = identityComparisonKey(dominant.value);
+  const candidateWords = candidateKey.split(/\s+/).filter(Boolean);
+
+  if (candidateWords.length > 10) {
+    return false;
+  }
+
+  if (candidateKey.includes(dominantKey) || dominantKey.includes(candidateKey)) {
+    return false;
+  }
+
+  if (
+    candidate.field === "finalidade/obra citada" &&
+    !/^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
+      candidateKey,
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 function summarizePages(pages: number[]) {
   const uniquePages = [...new Set(pages)].sort((left, right) => left - right);
   const visible = uniquePages.slice(0, 6).join(", ");
@@ -645,6 +726,7 @@ function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: strin
   for (const candidate of candidates
     .filter((candidate) => isLikelyProjectIdentity(candidate.value))
     .filter((candidate) => !areSameIdentity(candidate, dominant))
+    .filter((candidate) => isActionableDivergentIdentityCandidate(candidate, dominant))
     .filter((candidate) => candidate.firstPage > dominant.firstPage || candidate.count < dominant.count)
     .sort((left, right) => left.firstPage - right.firstPage)) {
     const key = identityComparisonKey(candidate.value);
@@ -678,6 +760,285 @@ function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: strin
     confianca: candidate.count === 1 ? "media" : "alta",
     impacto: "critico_documental",
   }));
+}
+
+function levenshteinDistance(left: string, right: string) {
+  const rows = left.length + 1;
+  const columns = right.length + 1;
+  const matrix = Array.from({ length: rows }, () => new Array<number>(columns).fill(0));
+
+  for (let row = 0; row < rows; row += 1) {
+    matrix[row][0] = row;
+  }
+
+  for (let column = 0; column < columns; column += 1) {
+    matrix[0][column] = column;
+  }
+
+  for (let row = 1; row < rows; row += 1) {
+    for (let column = 1; column < columns; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[left.length][right.length];
+}
+
+function findEvidenceLine(text: string, term: string) {
+  const normalizedTerm = normalizeLoose(term);
+  const line = text
+    .split(/\r?\n/)
+    .find((item) => normalizeLoose(item).includes(normalizedTerm));
+
+  return (line ?? term).replace(/\s+/g, " ").trim();
+}
+
+function deriveSpellingFindingsFromText(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const dominant = getDominantIdentityCandidate(getIdentityCandidates(extracted));
+
+  if (!dominant) {
+    return [];
+  }
+
+  const identityWords = normalizeLoose(dominant.value)
+    .split(/\s+/)
+    .filter((word) => word.length >= 8);
+  const findings = new Map<string, AuditFinding>();
+
+  if (identityWords.length === 0) {
+    return [];
+  }
+
+  for (const page of extracted.pages) {
+    const rawWords = page.text.match(/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{8,}\b/g) ?? [];
+
+    for (const rawWord of rawWords) {
+      const normalizedWord = normalizeLoose(rawWord);
+      const target = identityWords.find((word) => {
+        return (
+          normalizedWord !== word &&
+          normalizedWord[0] === word[0] &&
+          Math.abs(normalizedWord.length - word.length) <= 2 &&
+          levenshteinDistance(normalizedWord, word) <= 2
+        );
+      });
+
+      if (!target || findings.has(normalizedWord)) {
+        continue;
+      }
+
+      findings.set(normalizedWord, {
+        id: `REG-GRAFIA-${String(findings.size + 1).padStart(3, "0")}`,
+        arquivo: fileName,
+        origem: "regra",
+        prioridade: "Media",
+        pagina: String(page.page),
+        capitulo: "Identidade documental",
+        local: "nome da obra",
+        tipo: "Grafia divergente no nome da obra",
+        descricao: `O termo "${rawWord}" parece uma variação ortográfica de "${target}".`,
+        evidencia: findEvidenceLine(page.text, rawWord),
+        termo_busca: rawWord,
+        categoria: "Revisão editorial",
+        referencia_comparada: `Identidade predominante inferida: ${dominant.value}.`,
+        conflito: `A grafia "${rawWord}" diverge da forma predominante "${target}", sem indicar troca de obra.`,
+        sugestao_correcao: "Padronizar a grafia do nome da obra no trecho indicado.",
+        confianca: "media",
+        impacto: "tecnico_contratual",
+      });
+    }
+  }
+
+  return [...findings.values()].slice(0, 4);
+}
+
+function cleanHeadingTitle(value: string) {
+  return normalizeLoose(value)
+    .replace(/\d+/g, " ")
+    .replace(/\b(pag|pagina|página)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function deriveSummaryAndNumberingFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const headings: Array<{ page: number; number: string; title: string; evidence: string }> = [];
+
+  for (const page of extracted.pages) {
+    for (const line of page.text.split(/\r?\n/)) {
+      const compactLine = line.replace(/\s+/g, " ").trim();
+      const match = /^(\d+(?:\.\d+)+)\s+([^.\n]{4,120}?)(?:\.{2,}|\s{2,}|\d{1,4}\s*$|$)/.exec(compactLine);
+
+      if (!match) {
+        continue;
+      }
+
+      const title = match[2].trim();
+
+      if (title.length < 4 || cleanHeadingTitle(title).length < 4) {
+        continue;
+      }
+
+      headings.push({
+        page: page.page,
+        number: match[1],
+        title,
+        evidence: compactLine,
+      });
+    }
+  }
+
+  const findings: AuditFinding[] = [];
+  const byTitle = new Map<string, Array<{ page: number; number: string; title: string; evidence: string }>>();
+
+  for (const heading of headings) {
+    const key = cleanHeadingTitle(heading.title);
+    const current = byTitle.get(key) ?? [];
+    current.push(heading);
+    byTitle.set(key, current);
+  }
+
+  for (const entries of byTitle.values()) {
+    const distinctNumbers = [...new Set(entries.map((entry) => entry.number))];
+
+    if (entries.length < 2 || distinctNumbers.length < 2) {
+      continue;
+    }
+
+    const sample = entries.slice(0, 3);
+    findings.push({
+      id: `REG-SUM-${String(findings.length + 1).padStart(3, "0")}`,
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media",
+      pagina: [...new Set(sample.map((entry) => entry.page))].join(", "),
+      capitulo: "Sumário / hierarquia",
+      local: sample.map((entry) => entry.number).join(" e "),
+      tipo: "Título repetido em itens distintos",
+      descricao: `O título "${sample[0].title}" aparece em mais de um item numerado.`,
+      evidencia: sample.map((entry) => entry.evidence).join(" | "),
+      termo_busca: sample[0].title.slice(0, 160),
+      categoria: "Sumário / hierarquia",
+      referencia_comparada: `Itens identificados: ${distinctNumbers.join(", ")}.`,
+      conflito: "A repetição do mesmo título em itens diferentes sugere erro de edição, duplicidade ou seção não renomeada.",
+      sugestao_correcao: "Confirmar se os itens tratam de assuntos diferentes; se forem distintos, renomear. Se forem duplicados, eliminar redundância e renumerar.",
+      confianca: "alta",
+      impacto: "tecnico_contratual",
+    });
+
+    if (findings.length >= 3) {
+      break;
+    }
+  }
+
+  const text = extracted.text.replace(/\r/g, "");
+  const hierarchyChecks = [
+    {
+      chapter: "8",
+      label: "Projeto Estrutural",
+      wrongPrefix: "1.",
+      pattern: /(?:^|\n)\s*8(?:\.\d+)?\s+[^\n]{0,80}Projeto\s+Estrutural[\s\S]{0,12000}?(?:^|\n)\s*(1\.(?:1[2-9]|[2-9]\d?)\s+[^\n]{4,140})/i,
+    },
+    {
+      chapter: "14.3",
+      label: "Memorial de Cálculo do Processo de Tratamento",
+      wrongPrefix: "1.3.",
+      pattern: /(?:^|\n)\s*14\.3\s+[^\n]{0,120}Memorial\s+de\s+C[aá]lculo[\s\S]{0,12000}?(?:^|\n)\s*(1\.3\.\d+\s+[^\n]{4,140})/i,
+    },
+  ];
+
+  for (const check of hierarchyChecks) {
+    const match = check.pattern.exec(text);
+
+    if (!match) {
+      continue;
+    }
+
+    const evidence = match[1].replace(/\s+/g, " ").trim();
+    const page = extracted.pages.find((item) => item.text.includes(match[1]))?.page ?? "";
+
+    findings.push({
+      id: `REG-NUM-${String(findings.length + 1).padStart(3, "0")}`,
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media",
+      pagina: page ? String(page) : "não identificada",
+      capitulo: check.label,
+      local: `numeração iniciada por ${check.wrongPrefix}`,
+      tipo: "Numeração hierárquica incoerente",
+      descricao: `Foi encontrado item com prefixo "${check.wrongPrefix}" dentro do capítulo ${check.chapter}.`,
+      evidencia: evidence,
+      termo_busca: evidence.slice(0, 160),
+      categoria: "Sumário / hierarquia",
+      referencia_comparada: `Capítulo esperado: ${check.chapter}.`,
+      conflito: "A numeração do subitem não acompanha o capítulo em que aparece, sugerindo colagem ou revisão incompleta.",
+      sugestao_correcao: "Revisar a hierarquia e renumerar os subitens para seguir o capítulo correto.",
+      confianca: "media",
+      impacto: "tecnico_contratual",
+    });
+  }
+
+  return findings.slice(0, 6);
+}
+
+function deriveTechnicalReuseFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const indicators = [
+    "eixo da rodovia",
+    "Volume 2 - Quadro de Origem e Destino",
+    "Volume 2 – Quadro de Origem e Destino",
+    "DNIT",
+    "jazida",
+    "distribuição de volumes",
+    "distribuicao de volumes",
+  ];
+  const findings: AuditFinding[] = [];
+
+  for (const page of extracted.pages) {
+    const normalizedPage = normalizeLoose(page.text);
+    const found = indicators.find((indicator) => normalizedPage.includes(normalizeLoose(indicator)));
+
+    if (!found) {
+      continue;
+    }
+
+    findings.push({
+      id: `REG-TEC-${String(findings.length + 1).padStart(3, "0")}`,
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media",
+      pagina: String(page.page),
+      capitulo: "Coerência técnica do memorial",
+      local: "redação técnica",
+      tipo: "Linguagem técnica possivelmente reaproveitada",
+      descricao: `O texto contém expressão típica de terraplenagem/rodovia: "${found}".`,
+      evidencia: findEvidenceLine(page.text, found),
+      termo_busca: found,
+      categoria: "Revisão técnica",
+      referencia_comparada: "Objeto principal inferido do documento e linguagem técnica do trecho.",
+      conflito: "A expressão pode ser compatível com metodologia de terraplenagem, mas exige conferência porque pode indicar texto-base de outro tipo de projeto.",
+      sugestao_correcao: "Revisar o trecho para confirmar se a linguagem rodoviária é aplicável ao escopo da obra ou se deve ser ajustada.",
+      confianca: "media",
+      impacto: "tecnico_contratual",
+    });
+
+    if (findings.length >= 3) {
+      break;
+    }
+  }
+
+  return findings;
+}
+
+function deriveRuleBasedReviewFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  return [
+    ...deriveSpellingFindingsFromText(extracted, fileName),
+    ...deriveSummaryAndNumberingFindings(extracted, fileName),
+    ...deriveTechnicalReuseFindings(extracted, fileName),
+  ];
 }
 
 function buildIdentityContext(extracted: ExtractedPdf) {
@@ -818,14 +1179,47 @@ function inferProjectFields(text: string, fallbackProjectName: string) {
   const municipio =
     /(Crici[uú]ma\/SC|Chapec[oó]\/SC|Munic[ií]pio\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]+)/i.exec(text)?.[0] ??
     "";
-  const data = /(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/?\d{4}/i.exec(text)?.[0] ?? "";
+  const data = /(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*\/?\s*\d{4}/i.exec(text)?.[0]?.replace(/\s*\/\s*/g, "/") ?? "";
+  const volume =
+    /\bVol(?:ume)?\.?\s*(?:n[ºo]\s*)?([IVXLCDM]+|\d+)\b/i.exec(text)?.[0]?.trim() ??
+    /\bVolume\s+([IVXLCDM]+|\d+)\b/i.exec(text)?.[0]?.trim() ??
+    "";
+  const orgao =
+    /(Prefeitura\s+Municipal\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s/]+(?:Secretaria\s+Municipal\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s/]+)?)/i
+      .exec(text)?.[0]
+      ?.replace(/\s+/g, " ")
+      .trim() ??
+    /(PMF\s*-\s*Secretaria\s+Municipal\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s/]+)/i
+      .exec(text)?.[0]
+      ?.replace(/^PMF\s*-\s*/i, "Prefeitura Municipal de Florianópolis / ")
+      .replace(/\s+/g, " ")
+      .trim() ??
+    "";
 
   return {
     obra,
     codigo,
     municipio,
+    volume,
+    orgao,
     data,
   };
+}
+
+function inferDocumentType(auditMode: AuditMode, text: string) {
+  if (/memorial\s+descritivo/i.test(text)) {
+    return "Memorial Descritivo";
+  }
+
+  if (/lista\s+de\s+documentos|lista\s+de\s+desenhos|\bLD\b/i.test(text)) {
+    return "Lista de Documentos";
+  }
+
+  if (/prancha|selo|carimbo/i.test(text)) {
+    return "Prancha";
+  }
+
+  return auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo";
 }
 
 function isMissingProjectField(value: string) {
@@ -883,6 +1277,8 @@ Depois compare:
 - quais divergências são graves o suficiente para aparecer antes de normas, cálculos ou erros de formatação.
 
 Use o inventário de candidatos abaixo como pistas extraídas automaticamente do PDF, não como regras fixas. Valores muito recorrentes em capa/cabeçalho/apresentação tendem a indicar a identidade predominante. Valores raros, mas incompatíveis com essa identidade, devem ser avaliados como possível reaproveitamento de outro projeto.
+
+Não trate como conflito de identidade trechos técnicos genéricos que apenas estejam próximos do rodapé/cabeçalho com a identidade correta. Se o trecho cita a mesma obra predominante, mesmo em frase longa de escopo, infraestrutura, aterro, fiscalização, unidade atendida ou execução, classifique no máximo como ponto técnico em outra etapa, não como outra obra.
 
 Se houver conflito de identidade, ele deve ser achado de prioridade Alta. Se houver apenas dúvida de grafia/endereço, use Media/Alta ou Media conforme impacto. Ignore problemas que não sejam de identidade nesta etapa. Não retorne duplicidade de sumário, norma, cálculo ou redação nesta etapa.
 
@@ -1110,6 +1506,190 @@ ${sources.join("\n\n---\n\n")}
 `.trim();
 }
 
+function normalizeImpactDecision(value: string | undefined) {
+  if (
+    value === "critico_documental" ||
+    value === "tecnico_contratual" ||
+    value === "revisao_editorial"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function buildValidationContext(files: UploadedAuditFile[]) {
+  let remainingCharacters = 90_000;
+
+  return files
+    .map((file) => {
+      const text = buildDocumentContext(file.extracted).slice(0, Math.min(remainingCharacters, 45_000));
+      remainingCharacters -= text.length;
+
+      return [
+        `ARQUIVO: ${file.file.name}`,
+        `TIPO: ${file.fileType}`,
+        `PÁGINAS: ${file.extracted.pageCount}`,
+        `TEXTO DE CONTEXTO:`,
+        text,
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+function buildFindingCandidateList(findings: AuditFinding[]) {
+  return findings
+    .slice(0, 40)
+    .map((finding) => {
+      return [
+        `ID: ${finding.id}`,
+        `Arquivo: ${finding.arquivo ?? "não informado"}`,
+        `Origem: ${finding.origem ?? "não informada"}`,
+        `Prioridade atual: ${finding.prioridade}`,
+        `Impacto atual: ${finding.impacto ?? classifyFindingImpact(finding)}`,
+        `Página: ${finding.pagina}`,
+        `Capítulo: ${finding.capitulo}`,
+        `Tipo: ${finding.tipo}`,
+        `Descrição: ${finding.descricao}`,
+        `Evidência: ${finding.evidencia}`,
+        `Conflito: ${finding.conflito}`,
+        `Ação atual: ${finding.sugestao_correcao}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
+function getFindingValidationPrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  learningContext: string;
+  files: UploadedAuditFile[];
+  findings: AuditFinding[];
+}) {
+  return `
+Você é a camada final de validação semântica do NexoDoc. Revise os achados candidatos abaixo como um auditor documental sênior, com julgamento parecido com uma boa análise manual.
+
+Sua tarefa não é procurar novos erros. Sua tarefa é validar os candidatos:
+- confirmar achado real;
+- rebaixar gravidade quando for apenas ponto técnico/editorial;
+- remover falso positivo.
+
+Regra de gravidade:
+- critico_documental: somente quando houver troca real de obra, município, endereço, órgão, cliente, código, disciplina ou documento pertencente a outro projeto.
+- tecnico_contratual: numeração incoerente, sumário duplicado, linguagem técnica possivelmente reaproveitada, norma/cálculo/hierarquia que exige conferência.
+- revisao_editorial: grafia, padronização, redação e detalhes sem impacto técnico direto.
+
+Não mantenha como crítico:
+- rodapé/cabeçalho repetido com a identidade correta;
+- frase técnica longa apenas próxima do rodapé;
+- menção histórica ou contexto da reforma;
+- termo genérico como unidade, saúde, fiscalização, infraestrutura, aterro ou população atendida sem troca real da obra.
+
+Se o candidato for útil mas exagerado, use "acao": "rebaixar" e ajuste prioridade/impacto/conflito.
+Se for falso positivo, use "acao": "remover".
+Se estiver correto, use "acao": "confirmar".
+
+Projeto informado: ${args.projectName || "não informado"}
+Modo: ${args.auditMode}
+Solicitação do usuário: ${args.userMessage}
+
+Aprendizados ativos do escritório, usados como preferência de auditoria, não como evidência:
+${args.learningContext}
+
+Responda APENAS JSON válido:
+{
+  "decisions": [
+    {
+      "source_id": "ID do achado candidato",
+      "acao": "confirmar|rebaixar|remover",
+      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
+      "impacto": "critico_documental|tecnico_contratual|revisao_editorial",
+      "tipo": "tipo ajustado, se necessário",
+      "descricao": "descrição ajustada, se necessário",
+      "conflito": "por que é erro real, ponto de revisão ou falso positivo",
+      "sugestao_correcao": "ação objetiva",
+      "confianca": "alta|media|baixa",
+      "motivo": "justificativa curta da decisão"
+    }
+  ]
+}
+
+ACHADOS CANDIDATOS:
+${buildFindingCandidateList(args.findings)}
+
+CONTEXTO DO DOCUMENTO:
+${buildValidationContext(args.files)}
+`.trim();
+}
+
+async function validateFindingsWithModel(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  learningContext: string;
+  files: UploadedAuditFile[];
+  findings: AuditFinding[];
+}) {
+  if (args.findings.length === 0 || process.env.NEXODOC_DISABLE_FINDING_VALIDATION === "true") {
+    return args.findings;
+  }
+
+  const openai = getOpenAIClient();
+
+  try {
+    const response = await openai.responses.create({
+      model: process.env.OPENAI_VALIDATION_MODEL ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+      instructions: getAuditorPrompt(args.auditMode),
+      reasoning: { effort: getReasoningEffort() },
+      max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
+      input: getFindingValidationPrompt(args),
+    }, {
+      timeout: getChunkTimeoutMs(),
+    });
+    const parsed = parseJsonObject(extractResponseText(response));
+    const decisions = new Map(
+      (parsed?.decisions ?? [])
+        .filter((decision) => decision.source_id && decision.acao)
+        .map((decision) => [String(decision.source_id), decision]),
+    );
+
+    if (decisions.size === 0) {
+      return args.findings;
+    }
+
+    return args.findings
+      .map((finding) => {
+        const decision = decisions.get(finding.id);
+
+        if (!decision) {
+          return finding;
+        }
+
+        if (decision.acao === "remover") {
+          return null;
+        }
+
+        return {
+          ...finding,
+          prioridade: normalizePriority(decision.prioridade ?? finding.prioridade),
+          impacto: normalizeImpactDecision(decision.impacto) ?? finding.impacto,
+          tipo: String(decision.tipo ?? finding.tipo).trim() || finding.tipo,
+          descricao: String(decision.descricao ?? finding.descricao).trim() || finding.descricao,
+          conflito: String(decision.conflito ?? finding.conflito).trim() || finding.conflito,
+          sugestao_correcao:
+            String(decision.sugestao_correcao ?? finding.sugestao_correcao).trim() ||
+            finding.sugestao_correcao,
+          confianca: normalizeConfidence(decision.confianca ?? finding.confianca),
+        };
+      })
+      .filter((finding): finding is AuditFinding => Boolean(finding));
+  } catch (error) {
+    console.error("[audit] validação semântica dos achados falhou; mantendo candidatos", error);
+    return args.findings;
+  }
+}
+
 async function analyzeCrossDocumentsWithModel(args: {
   auditMode: AuditMode;
   userMessage: string;
@@ -1155,6 +1735,10 @@ async function deepAnalyzeFile(args: {
 }) {
   const startedAt = Date.now();
   const inferredIdentityFindings = deriveIdentityFindingsFromText(
+    args.file.extracted,
+    args.file.file.name,
+  );
+  const ruleBasedReviewFindings = deriveRuleBasedReviewFindings(
     args.file.extracted,
     args.file.file.name,
   );
@@ -1230,10 +1814,16 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${inferredIdentityFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
-  return dedupeFindings([...inferredIdentityFindings, ...identityFindings, ...globalFindings, ...modelFindings]);
+  return dedupeFindings([
+    ...inferredIdentityFindings,
+    ...ruleBasedReviewFindings,
+    ...identityFindings,
+    ...globalFindings,
+    ...modelFindings,
+  ]);
 }
 
 export async function POST(request: Request) {
@@ -1362,7 +1952,23 @@ export async function POST(request: Request) {
     });
     allFindings.push(...modelComparison.findings);
 
-    const findings = sortAuditFindings(dedupeFindings(allFindings)).map(
+    const candidateFindings = dedupeFindings(allFindings);
+    console.log(
+      `[audit] validação semântica iniciada com ${candidateFindings.length} achado(s) candidato(s)`,
+    );
+    const validatedFindings = await validateFindingsWithModel({
+      auditMode,
+      userMessage: message,
+      projectName,
+      learningContext,
+      files: uploadedFiles,
+      findings: candidateFindings,
+    });
+    console.log(
+      `[audit] validação semântica concluida com ${validatedFindings.length} achado(s) confirmado(s)`,
+    );
+
+    const findings = sortAuditFindings(dedupeFindings(validatedFindings)).map(
       (finding, index) => ({
         ...finding,
         id: `INC-${String(index + 1).padStart(3, "0")}`,
@@ -1373,21 +1979,23 @@ export async function POST(request: Request) {
     );
     const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 50000)).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
+    const inferredDocumentType = inferDocumentType(auditMode, combinedText);
     const dominantIdentity = uploadedFiles[0]
       ? getDominantIdentityCandidate(getIdentityCandidates(uploadedFiles[0].extracted))?.value
       : "";
     const hasCriticalDocumental = findings.some(
-      (finding) => classifyFindingImpact(finding) === "critico_documental",
+      (finding) => (finding.impacto ?? classifyFindingImpact(finding)) === "critico_documental",
     );
-    const hasHigh = findings.some((finding) => finding.prioridade === "Alta" || finding.prioridade === "Media/Alta");
     const executiveSummary = buildExecutiveSummary(findings);
     const report: AuditReport = {
       arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
       tipo_auditoria: auditMode,
-      tipo_documento: auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo",
+      tipo_documento: inferredDocumentType,
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
       codigo: inferred.codigo,
       municipio: inferred.municipio,
+      volume: inferred.volume,
+      orgao: inferred.orgao,
       data_documento: inferred.data,
       status_analise: "concluida",
       status_geral:
@@ -1395,8 +2003,6 @@ export async function POST(request: Request) {
           ? "sem achados críticos"
           : hasCriticalDocumental
             ? "revisão obrigatória antes de emissão"
-            : hasHigh
-            ? "com inconsistências críticas"
             : "com pontos de revisão",
       total_incongruencias: findings.length,
       arquivos_analisados: uploadedFiles.map((file) => ({

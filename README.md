@@ -77,6 +77,7 @@ NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
 OPENAI_ADMIN_KEY=
 DATABASE_URL=
+NEXODOC_ENABLE_PUBLIC_AUDIT_HISTORY=false
 NEXODOC_MOCK_MODE=false
 NEXODOC_ALLOW_CLIENT_DEMO=false
 NEXODOC_MOCK_DELAY_MS=3500
@@ -155,6 +156,14 @@ npm run db:push
 ```
 
 O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha e cancelamento. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+
+A area principal carrega as ultimas auditorias persistidas por `/api/audits/recent` em desenvolvimento. Em producao, habilite explicitamente:
+
+```bash
+NEXODOC_ENABLE_PUBLIC_AUDIT_HISTORY=true
+```
+
+Use essa opcao apenas em ambiente interno/controlado, porque ela permite que a tela principal leia auditorias recentes salvas.
 
 O historico admin fica em:
 

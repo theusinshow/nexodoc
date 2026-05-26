@@ -1448,7 +1448,15 @@ export function AuditResult({
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
                   {report
-                    ? `Arquivo: ${report.arquivo ?? "não informado"}\nObra: ${report.obra}\nCódigo: ${report.codigo}\nMunicípio: ${report.municipio}`
+                    ? [
+                        `Arquivo: ${report.arquivo ?? "não informado"}`,
+                        `Obra: ${report.obra}`,
+                        `Projeto: ${report.codigo || "não identificado"}`,
+                        `Documento: ${report.tipo_documento || "não identificado"}`,
+                        `Volume: ${report.volume || "não identificado"}`,
+                        `Data: ${report.data_documento || "não identificada"}`,
+                        `Órgão: ${report.orgao || "não identificado"}`,
+                      ].join("\n")
                     : parsed.project || "Não identificado na resposta."}
                 </pre>
               </div>
