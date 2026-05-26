@@ -248,6 +248,18 @@ function formatSeconds(ms?: number) {
   return `${Math.max(1, Math.round(ms / 1000))}s`;
 }
 
+function getUserInitials(name?: string | null) {
+  if (!name) {
+    return "?";
+  }
+
+  const parts = name.trim().split(/\s+/);
+
+  return parts.length > 1
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
 function formatHistoryDate(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -1361,39 +1373,39 @@ export function ChatWindow({
               ))
             )}
           </div>
+        </div>
 
-          <div className="mt-3 border-t pt-3">
-            <div className="flex items-center gap-2.5">
-              {userImage ? (
-                <Image
-                  src={userImage}
-                  alt=""
-                  width={24}
-                  height={24}
-                  className="size-6 rounded-full border border-border"
-                />
-              ) : (
-                <div className="flex size-6 items-center justify-center rounded-full border border-border bg-[var(--nexodoc-recessed)] text-[10px] font-mono text-muted-foreground">
-                  {userName?.charAt(0) ?? "?"}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-[11px] font-medium text-foreground">
-                  {userName ?? "Usuário"}
-                </p>
-                <p className="truncate font-mono text-[10px] text-muted-foreground">
-                  {userEmail ?? ""}
-                </p>
+        <div className="shrink-0 border-t pt-3 pb-1">
+          <div className="flex items-center gap-2.5">
+            {userImage ? (
+              <Image
+                src={userImage}
+                alt=""
+                width={28}
+                height={28}
+                className="size-7 rounded-full border border-border"
+              />
+            ) : (
+              <div className="flex size-7 items-center justify-center rounded-full border border-border bg-[var(--nexodoc-recessed)] text-[11px] font-mono font-medium text-primary">
+                {getUserInitials(userName)}
               </div>
-              <button
-                type="button"
-                aria-label="Sair"
-                onClick={() => void signOut({ redirectTo: "/login" })}
-                className="flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-[var(--nexodoc-raised)] hover:text-foreground"
-              >
-                <LogOut className="size-3.5" />
-              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-mono text-[11px] font-medium text-foreground">
+                {userName ?? "Usuário"}
+              </p>
+              <p className="truncate font-mono text-[10px] text-muted-foreground">
+                {userEmail ?? ""}
+              </p>
             </div>
+            <button
+              type="button"
+              aria-label="Sair"
+              onClick={() => void signOut({ redirectTo: "/login" })}
+              className="flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-[var(--nexodoc-raised)] hover:text-foreground"
+            >
+              <LogOut className="size-3.5" />
+            </button>
           </div>
         </div>
       </aside>
