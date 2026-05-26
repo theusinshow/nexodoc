@@ -690,7 +690,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-b pb-5 last:border-b-0 last:pb-0">
+    <section className="nexodoc-section-reveal border-b pb-5 last:border-b-0 last:pb-0">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="size-4 text-primary" />
         <h3 className="text-sm font-semibold">{title}</h3>
@@ -857,7 +857,7 @@ export function AuditResult({
     : parseProjectFields(parsed.project);
 
   return (
-    <article className="w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
+    <article className="nexodoc-result-in w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

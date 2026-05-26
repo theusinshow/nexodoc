@@ -31,7 +31,7 @@ export function AttachedFiles({
       {files.map((attachment, index) => (
         <div
           key={attachment.id}
-          className="flex min-w-0 items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-xs"
+          className="nexodoc-file-in flex min-w-0 items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-xs"
         >
           <FileText className="size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
@@ -49,7 +49,7 @@ export function AttachedFiles({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0"
+            className="size-8 shrink-0 transition-transform hover:scale-[1.03]"
             onClick={() => onRemove(index)}
             disabled={disabled}
             aria-label={`Remover ${attachment.file.name}`}

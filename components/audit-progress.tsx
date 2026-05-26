@@ -41,9 +41,9 @@ export function AuditProgress({
   onCancel,
 }: AuditProgressProps) {
   return (
-    <section className="w-full max-w-[760px] rounded-md border bg-card px-5 py-5 text-sm shadow-[var(--shadow-subtle)]">
+    <section className="nexodoc-result-in w-full max-w-[760px] rounded-md border bg-card px-5 py-5 text-sm shadow-[var(--shadow-subtle)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex size-10 shrink-0 items-center justify-center self-center rounded-md border border-primary/15 bg-primary/8 text-primary sm:self-start">
+        <div className="nexodoc-status-pulse flex size-10 shrink-0 items-center justify-center self-center rounded-md border border-primary/15 bg-primary/8 text-primary sm:self-start">
           <Loader2 className="size-5 animate-spin" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">

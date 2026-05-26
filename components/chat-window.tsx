@@ -831,9 +831,9 @@ export function ChatWindow({
       >
         <div
           className={cn(
-            "grid w-full max-w-3xl gap-3 rounded-md border border-dashed bg-card px-4 py-5 transition-[border-color,background-color,box-shadow] sm:gap-5 sm:px-8 sm:py-8",
+            "nexodoc-enter grid w-full max-w-3xl gap-3 rounded-md border border-dashed bg-card px-4 py-5 transition-[border-color,background-color,box-shadow,transform] sm:gap-5 sm:px-8 sm:py-8",
             isDropActive
-              ? "border-primary bg-primary/10 text-foreground"
+              ? "border-primary bg-primary/10 text-foreground shadow-[var(--shadow-panel)]"
               : "border-input hover:border-ring",
           )}
         >
@@ -890,7 +890,7 @@ export function ChatWindow({
       error.includes("primeiros");
 
     return (
-      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div className="nexodoc-enter rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <div className="min-w-0">
@@ -1127,7 +1127,7 @@ export function ChatWindow({
             ) : null}
 
             {isLoading && loadingMode === "followup" ? (
-              <div className="rounded-md border bg-card px-4 py-3 font-mono text-sm text-muted-foreground">
+              <div className="nexodoc-enter rounded-md border bg-card px-4 py-3 font-mono text-sm text-muted-foreground">
                 Interpretando o relatório da auditoria...
               </div>
             ) : null}
