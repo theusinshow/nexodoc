@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils";
 type ChatWindowProps = {
   isMockMode?: boolean;
   allowDemoMode?: boolean;
+  isAdmin?: boolean;
 };
 
 type ChatMessage = {
@@ -394,6 +395,7 @@ function validateFiles(
 export function ChatWindow({
   isMockMode = false,
   allowDemoMode = false,
+  isAdmin = false,
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
@@ -1234,42 +1236,46 @@ export function ChatWindow({
           <RotateCcw />
           Nova auditoria
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-2 justify-start text-muted-foreground hover:text-foreground"
-          onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
-        >
-          <Gauge />
-          Uso e custos
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-          onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
-        >
-          <ListChecks />
-          Histórico admin
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-          onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
-        >
-          <CheckCircle2 />
-          Qualidade do motor
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-          onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
-        >
-          <Gauge />
-          Configurações
-        </Button>
+        {isAdmin ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-2 justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+            >
+              <Gauge />
+              Uso e custos
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
+            >
+              <ListChecks />
+              Histórico admin
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
+            >
+              <CheckCircle2 />
+              Qualidade do motor
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
+            >
+              <Gauge />
+              Configurações
+            </Button>
+          </>
+        ) : null}
         <SignOutButton />
         <Button
           type="button"
@@ -1393,15 +1399,17 @@ export function ChatWindow({
             <RotateCcw />
             Nova
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Abrir uso e custos"
-            onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
-          >
-            <Gauge />
-          </Button>
+          {isAdmin ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Abrir uso e custos"
+              onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+            >
+              <Gauge />
+            </Button>
+          ) : null}
           <SignOutButton compact />
         </header>
 

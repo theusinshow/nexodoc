@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ChatWindow } from "@/components/chat-window";
+import { isAdminEmail } from "@/lib/access-control";
 
 export default async function Home() {
   const session = await auth();
@@ -16,5 +17,11 @@ export default async function Home() {
     process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true" ||
     isMockMode;
 
-  return <ChatWindow isMockMode={isMockMode} allowDemoMode={allowDemoMode} />;
+  return (
+    <ChatWindow
+      isMockMode={isMockMode}
+      allowDemoMode={allowDemoMode}
+      isAdmin={isAdminEmail(session.user.email)}
+    />
+  );
 }

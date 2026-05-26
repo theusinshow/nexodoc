@@ -76,6 +76,7 @@ AUTH_SECRET=gere_um_segredo_forte
 AUTH_GOOGLE_ID=client_id_do_google
 AUTH_GOOGLE_SECRET=client_secret_do_google
 AUTH_TRUST_HOST=true
+NEXODOC_ADMIN_EMAILS=admin@empresa.com
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_VALIDATION_MODEL=
 OPENAI_STANDARD_MODEL=gpt-5.4-mini
@@ -109,6 +110,14 @@ o provedor Google. Para configurar o OAuth:
 3. Cadastre `http://localhost:3000/api/auth/callback/google` para desenvolvimento.
 4. Cadastre `https://SEU-DOMINIO/api/auth/callback/google` para producao.
 5. Defina `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` e `AUTH_SECRET` no ambiente de deploy.
+
+Para separar perfis, defina `NEXODOC_ADMIN_EMAILS` no frontend com os e-mails
+Google que podem abrir os paineis administrativos. Os demais usuarios continuam
+autenticados como usuarios comuns:
+
+```bash
+NEXODOC_ADMIN_EMAILS=voce@empresa.com,outro.admin@empresa.com
+```
 
 Quando frontend e backend forem publicados separadamente usando
 `NEXT_PUBLIC_API_URL`, o login protege o workspace do frontend. As APIs remotas no
@@ -145,7 +154,9 @@ Os paineis protegidos ficam em:
 /admin/config
 ```
 
-Eles consultam o backend em `/api/admin/*` e exigem o mesmo token admin. O painel
+Somente contas Google listadas em `NEXODOC_ADMIN_EMAILS` visualizam os atalhos e
+podem acessar essas rotas. Eles consultam o backend em `/api/admin/*` e exigem
+tambem o token admin operacional. O painel
 `/admin/quality` compara o desempenho de `Padrao` e `Profundo`, alem dos modelos
 usados, a partir dos achados classificados manualmente na auditoria.
 
@@ -162,6 +173,7 @@ Na Vercel, mantenha apenas:
 
 ```bash
 NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
+NEXODOC_ADMIN_EMAILS=voce@empresa.com
 ```
 
 ## Banco de dados e historico
