@@ -16,6 +16,7 @@ import {
   TestTube2,
   Wrench,
 } from "lucide-react";
+import Image from "next/image";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
@@ -1175,9 +1176,14 @@ export function ChatWindow({
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside className="hidden h-dvh w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-5 lg:flex lg:flex-col">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-md border border-primary/15 bg-card text-primary">
-            <FileSearch className="size-5" />
-          </div>
+          <Image
+            src="/assets/logo.svg"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="size-10 rounded-sm border border-[var(--nexodoc-tertiary-strong)]/25 object-cover"
+          />
           <div>
             <h1 className="font-mono text-base font-semibold tracking-normal">NexoDoc</h1>
             <p className="font-mono text-xs text-muted-foreground">Auditoria documental</p>
@@ -1244,6 +1250,15 @@ export function ChatWindow({
         >
           <ListChecks />
           Histórico admin
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-1 justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
+        >
+          <CheckCircle2 />
+          Qualidade do motor
         </Button>
         <Button
           type="button"
@@ -1350,7 +1365,14 @@ export function ChatWindow({
       <section className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-3 lg:hidden">
           <div className="flex items-center gap-2">
-            <FileSearch className="size-5 text-primary" />
+            <Image
+              src="/assets/logo.svg"
+              alt=""
+              width={22}
+              height={22}
+              priority
+              className="size-[22px] rounded-sm object-cover"
+            />
             <span className="font-mono font-semibold">NexoDoc</span>
           </div>
           {allowDemoMode ? (

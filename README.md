@@ -112,15 +112,20 @@ NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
 NEXODOC_ALLOWED_ORIGINS=https://nexodoc.vercel.app
 ```
 
-## Painel administrativo
+## Paineis administrativos
 
-O painel de uso fica em:
+Os paineis protegidos ficam em:
 
 ```text
 /admin/usage
+/admin/audits
+/admin/quality
+/admin/config
 ```
 
-Ele consulta o backend em `/api/admin/usage` e exige um token admin.
+Eles consultam o backend em `/api/admin/*` e exigem o mesmo token admin. O painel
+`/admin/quality` compara o desempenho de `Padrao` e `Profundo`, alem dos modelos
+usados, a partir dos achados classificados manualmente na auditoria.
 
 Variaveis necessarias no Render:
 
@@ -173,6 +178,11 @@ A prontidao do historico pode ser verificada por:
 Ele informa se `DATABASE_URL` esta configurada, se o banco respondeu e se o historico publico da tela principal esta habilitado.
 
 Auditorias persistidas tambem aceitam avaliacao dos achados. A interface permite marcar achados como corretos, falsos positivos ou com gravidade inadequada, alem de registrar erros ausentes; esse feedback fica associado a auditoria para apoiar benchmark e calibracao do motor.
+
+No painel `/admin/quality`, os indicadores de confirmacao, falsos positivos e
+erros perdidos so passam a representar uma comparacao confiavel depois que uma
+amostra suficiente de auditorias for revisada. Como ponto de partida, rotule ao
+menos 10 auditorias em cada nivel de analise antes de alterar o padrao do produto.
 
 A area principal carrega as ultimas auditorias persistidas por `/api/audits/recent` em desenvolvimento. Em producao, habilite explicitamente:
 
