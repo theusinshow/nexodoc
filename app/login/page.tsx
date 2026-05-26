@@ -41,124 +41,78 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="relative flex min-h-dvh overflow-hidden bg-background text-foreground">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12 text-foreground sm:px-6">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_17%_12%,rgba(0,166,147,0.14),transparent_32%),radial-gradient(circle_at_88%_78%,rgba(220,120,88,0.12),transparent_27%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(var(--nexodoc-grid)_1px,transparent_1px),linear-gradient(90deg,var(--nexodoc-grid)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_76%)]"
+        className="pointer-events-none absolute inset-0 opacity-15 [background-image:linear-gradient(var(--nexodoc-grid)_1px,transparent_1px),linear-gradient(90deg,var(--nexodoc-grid)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)]"
       />
 
-      <section className="relative hidden w-[53%] flex-col justify-between border-r px-12 py-10 lg:flex xl:px-16">
-        <div className="flex items-center gap-3">
+      <div className="relative w-full max-w-[420px]">
+        <div className="mb-10 flex flex-col items-center text-center nexodoc-enter">
           <Image
             src="/assets/logo.svg"
-            alt=""
+            alt="NexoDoc"
             width={48}
             height={48}
             priority
-            className="size-12 rounded-sm border border-[var(--nexodoc-tertiary-strong)]/35 object-cover"
+            className="size-12 rounded-sm object-cover"
           />
-          <div>
-            <p className="font-mono text-lg font-semibold">NexoDoc</p>
-            <p className="font-mono text-xs text-muted-foreground">AUDIT WORKSPACE / v0.1</p>
-          </div>
-        </div>
-
-        <div className="max-w-xl nexodoc-enter">
-          <p className="mb-5 font-mono text-xs tracking-[0.22em] text-primary">
+          <h1 className="mt-4 font-mono text-xl font-semibold">NexoDoc</h1>
+          <p className="mt-1 font-mono text-xs tracking-[0.15em] text-muted-foreground">
             AUDITORIA DOCUMENTAL
           </p>
-          <h1 className="max-w-lg text-5xl font-semibold leading-[1.08] tracking-[-0.055em] text-foreground">
-            Documentos técnicos sob revisão precisa.
-          </h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground">
-            Analise memoriais, pranchas e listas de documentos em uma bancada segura,
-            rastreável e orientada a evidências.
-          </p>
         </div>
 
-        <div className="grid max-w-xl grid-cols-3 gap-px border bg-border">
-          {[
-            ["01", "Anexe PDFs"],
-            ["02", "Execute a auditoria"],
-            ["03", "Revise achados"],
-          ].map(([number, label]) => (
-            <div key={number} className="bg-[var(--nexodoc-panel)] px-4 py-4">
-              <p className="font-mono text-xs text-primary">{number}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
-        <div className="w-full max-w-[420px] nexodoc-enter">
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <Image
-              src="/assets/logo.svg"
-              alt=""
-              width={44}
-              height={44}
-              priority
-              className="size-11 rounded-sm border border-[var(--nexodoc-tertiary-strong)]/35 object-cover"
-            />
-            <div>
-              <p className="font-mono text-base font-semibold">NexoDoc</p>
-              <p className="font-mono text-[11px] text-muted-foreground">AUDIT WORKSPACE</p>
-            </div>
+        <div className="nexodoc-enter rounded-sm border bg-card p-6 sm:p-8">
+          <div className="flex size-10 items-center justify-center rounded-sm border border-primary/20 bg-primary/5 text-primary">
+            <LockKeyhole className="size-5" />
           </div>
 
-          <div className="rounded-md border bg-card p-6 shadow-[0_24px_70px_rgba(0,0,0,0.22)] sm:p-8">
-            <div className="flex size-11 items-center justify-center rounded-sm border border-primary/25 bg-[var(--status-ok-bg)] text-primary">
-              <LockKeyhole className="size-5" />
+          <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">
+            Acessar workspace
+          </h2>
+          <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+            Entre com sua conta Google autorizada para iniciar auditorias documentais.
+          </p>
+
+          {error ? (
+            <div className="mt-5 rounded-sm border border-destructive/25 bg-destructive/8 px-3 py-2.5 text-sm text-destructive">
+              Não foi possível autenticar com o Google. Tente novamente.
             </div>
-            <h2 className="mt-6 text-2xl font-semibold tracking-[-0.045em]">Acessar workspace</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Entre com sua conta Google autorizada para iniciar auditorias documentais.
+          ) : null}
+
+          <form
+            className="mt-6"
+            action={async () => {
+              "use server";
+              await signIn("google", { redirectTo: "/" });
+            }}
+          >
+            <Button type="submit" size="lg" className="w-full justify-between px-5">
+              <span className="flex items-center gap-3">
+                <GoogleMark />
+                Continuar com Google
+              </span>
+              <ArrowRight className="size-4" />
+            </Button>
+          </form>
+
+          <div className="mt-6 space-y-2 border-t pt-5 text-sm text-muted-foreground">
+            <p className="flex items-center gap-2">
+              <ShieldCheck className="size-4 shrink-0 text-primary" />
+              Sessão protegida e acesso único por identidade Google.
             </p>
-
-            {error ? (
-              <div className="mt-5 rounded-sm border border-destructive/35 bg-[var(--status-critical-bg)] px-3 py-2.5 text-sm text-destructive">
-                Não foi possível autenticar com o Google. Tente novamente.
-              </div>
-            ) : null}
-
-            <form
-              className="mt-7"
-              action={async () => {
-                "use server";
-                await signIn("google", { redirectTo: "/" });
-              }}
-            >
-              <Button type="submit" size="lg" className="w-full justify-between px-5">
-                <span className="flex items-center gap-3">
-                  <GoogleMark />
-                  Continuar com Google
-                </span>
-                <ArrowRight />
-              </Button>
-            </form>
-
-            <div className="mt-7 space-y-3 border-t pt-6 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2">
-                <ShieldCheck className="size-4 shrink-0 text-primary" />
-                Sessão protegida e acesso único por identidade Google.
-              </p>
-              <p className="flex items-center gap-2">
-                <FileSearch className="size-4 shrink-0 text-primary" />
-                PDFs processados para conferência documental técnica.
-              </p>
-            </div>
+            <p className="flex items-center gap-2">
+              <FileSearch className="size-4 shrink-0 text-primary" />
+              PDFs processados para conferência documental técnica.
+            </p>
           </div>
-
-          <p className="mt-5 text-center font-mono text-[11px] text-muted-foreground">
-            ACESSO RESTRITO / NEXODOC AUDITORIA DOCUMENTAL
-          </p>
         </div>
-      </section>
+
+        <p className="mt-6 text-center font-mono text-xs text-muted-foreground">
+          ACESSO RESTRITO / NEXODOC
+        </p>
+      </div>
     </main>
   );
 }

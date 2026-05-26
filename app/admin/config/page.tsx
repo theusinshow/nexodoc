@@ -126,7 +126,7 @@ export default function AdminConfigPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 md:w-[420px]"
+            className="flex w-full flex-col gap-2 rounded-sm border bg-card p-3 md:w-[420px]"
           >
             <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
@@ -151,14 +151,14 @@ export default function AdminConfigPage() {
         </header>
 
         {error ? (
-          <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>
         ) : null}
 
         <section className="grid gap-4 lg:grid-cols-3">
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-sm border bg-card p-4">
             <h2 className="text-sm font-semibold">Runtime</h2>
             <div className="mt-3">
               <ConfigRow label="Ambiente" value={data?.runtime.nodeEnv || "--"} />
@@ -169,7 +169,7 @@ export default function AdminConfigPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-sm border bg-card p-4">
             <h2 className="text-sm font-semibold">Limites</h2>
             <div className="mt-3">
               {data
@@ -180,7 +180,7 @@ export default function AdminConfigPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-sm border bg-card p-4">
             <h2 className="text-sm font-semibold">Chaves</h2>
             <div className="mt-3">
               {data

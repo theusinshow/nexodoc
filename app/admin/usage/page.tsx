@@ -117,7 +117,7 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <article className="rounded-lg border bg-card px-4 py-4 shadow-[var(--shadow-panel)]">
+    <article className="rounded-sm border bg-card px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
           {label}
@@ -228,7 +228,7 @@ export default function AdminUsagePage() {
 
           <form
             onSubmit={handleSubmit}
-            className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 md:w-[460px]"
+            className="flex w-full flex-col gap-2 rounded-sm border bg-card p-3 md:w-[460px]"
           >
             <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
@@ -273,7 +273,7 @@ export default function AdminUsagePage() {
         </header>
 
         {error ? (
-          <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -315,7 +315,7 @@ export default function AdminUsagePage() {
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-          <article className="rounded-lg border bg-card p-4 shadow-[var(--shadow-panel)]">
+          <article className="rounded-sm border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Uso diario</h2>
@@ -376,7 +376,7 @@ export default function AdminUsagePage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-card p-4 shadow-[var(--shadow-panel)]">
+          <article className="rounded-sm border bg-card p-4">
             <h2 className="text-sm font-semibold">Modelos</h2>
             <div className="mt-4 space-y-2">
               {data && data.usage.models.length > 0 ? (
@@ -409,7 +409,7 @@ export default function AdminUsagePage() {
           </article>
         </section>
 
-        <section className="rounded-lg border bg-card p-4 shadow-[var(--shadow-panel)]">
+        <section className="rounded-sm border bg-card p-4">
           <h2 className="text-sm font-semibold">Itens de custo</h2>
           <div className="mt-4 overflow-hidden rounded-md border">
             <table className="w-full border-collapse text-sm">

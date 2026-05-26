@@ -995,83 +995,64 @@ export function ChatWindow({
 
   function renderAuditContext() {
     return (
-      <section className="border-b bg-card px-4 py-4 sm:px-5">
-        <div className="grid gap-4 2xl:grid-cols-[1fr_minmax(300px,390px)] 2xl:items-start">
-          <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
-            <label className="grid gap-1.5 text-xs">
-              <span className="font-mono font-medium text-muted-foreground">Identificação</span>
-              <input
-                value={auditTitle}
-                onChange={(event) => setAuditTitle(event.target.value)}
-                placeholder="Opcional"
-                disabled={isLoading}
-                className={fieldClass}
-              />
-            </label>
-            <label className="grid gap-1.5 text-xs">
-              <span className="font-mono font-medium text-muted-foreground">Projeto</span>
-              <input
-                value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-                placeholder="Nome do projeto"
-                disabled={isLoading}
-                className={fieldClass}
-              />
-            </label>
-            <label className="grid gap-1.5 text-xs">
-              <span className="font-mono font-medium text-muted-foreground">Descrição</span>
-              <input
-                value={auditDescription}
-                onChange={(event) => setAuditDescription(event.target.value)}
-                placeholder="Opcional"
-                disabled={isLoading}
-                className={fieldClass}
-              />
-            </label>
-          </div>
+      <section className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 sm:px-5">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <input
+            value={auditTitle}
+            onChange={(event) => setAuditTitle(event.target.value)}
+            placeholder="Identificação"
+            disabled={isLoading}
+            className="h-8 w-[140px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+          />
+          <input
+            value={projectName}
+            onChange={(event) => setProjectName(event.target.value)}
+            placeholder="Projeto"
+            disabled={isLoading}
+            className="h-8 w-[160px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+          />
+        </div>
 
-          <div className="min-w-0">
-            <p className="mb-1.5 font-mono text-xs font-medium text-muted-foreground">
-              Tipo e nível da análise
-            </p>
-            <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-sm">
-              {(["memorial", "volume"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => handleAuditModeChange(mode)}
-                  className={
-                    auditMode === mode
-                      ? "rounded-md border border-ring/35 bg-card px-3 py-2.5 font-medium text-foreground shadow-[var(--shadow-subtle)]"
-                      : "rounded-md border border-transparent px-3 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
-                  }
-                  title={getAuditModeDescription(mode)}
-                >
-                  {getAuditModeLabel(mode)}
-                </button>
-              ))}
-            </div>
-            <div className="mt-2 grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">
-              {(["standard", "deep"] as const).map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setAnalysisLevel(level)}
-                  className={
-                    analysisLevel === level
-                      ? level === "deep"
-                        ? "rounded-md border border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] px-3 py-2 font-medium text-[var(--status-warning)] shadow-[var(--shadow-subtle)]"
-                        : "rounded-md border border-ring/35 bg-card px-3 py-2 font-medium text-foreground shadow-[var(--shadow-subtle)]"
-                      : "rounded-md border border-transparent px-3 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
-                  }
-                  title={getAnalysisLevelDescription(level)}
-                >
-                  {getAnalysisLevelLabel(level)}
-                </button>
-              ))}
-            </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex rounded-sm border border-input/50 bg-transparent p-0.5">
+            {(["memorial", "volume"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleAuditModeChange(mode)}
+                className={cn(
+                  "rounded-sm px-2 py-1 font-mono text-xs outline-none transition-colors",
+                  auditMode === mode
+                    ? "border border-ring/30 bg-card font-medium text-foreground"
+                    : "border border-transparent text-muted-foreground hover:text-foreground",
+                )}
+                title={getAuditModeDescription(mode)}
+              >
+                {getAuditModeLabel(mode)}
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-sm border border-input/50 bg-transparent p-0.5">
+            {(["standard", "deep"] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                disabled={isLoading}
+                onClick={() => setAnalysisLevel(level)}
+                className={cn(
+                  "rounded-sm px-2 py-1 font-mono text-xs outline-none transition-colors",
+                  analysisLevel === level
+                    ? level === "deep"
+                      ? "border border-[var(--nexodoc-tertiary)]/30 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
+                      : "border border-ring/30 bg-card font-medium text-foreground"
+                    : "border border-transparent text-muted-foreground hover:text-foreground",
+                )}
+                title={getAnalysisLevelDescription(level)}
+              >
+                {getAnalysisLevelLabel(level)}
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -1081,53 +1062,58 @@ export function ChatWindow({
   function renderEmptyChat() {
     return (
       <section
-        className="grid min-h-[160px] flex-1 place-items-center px-4 py-4 sm:min-h-[240px] sm:py-8"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-8 sm:py-12"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
         <div
           className={cn(
-            "nexodoc-enter grid w-full max-w-3xl gap-3 rounded-md border border-dashed bg-card px-4 py-5 transition-[border-color,background-color,box-shadow,transform] sm:gap-5 sm:px-8 sm:py-8",
-            isDropActive
-              ? "border-primary bg-primary/10 text-foreground shadow-[var(--shadow-panel)]"
-              : "border-input hover:border-ring",
+            "nexodoc-enter w-full max-w-3xl",
+            isDropActive && "scale-[1.01]",
           )}
         >
-          <div className="flex flex-col items-center text-center">
-            <div className="flex size-10 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary sm:size-12">
-              <FileSearch className="size-5 sm:size-6" />
+          <div className={cn(
+            "mx-auto w-full max-w-[680px] rounded-sm border border-dashed px-8 py-10 text-center transition-[border-color,background-color]",
+            isDropActive
+              ? "border-primary bg-primary/5"
+              : "border-input/60 hover:border-ring/50",
+          )}>
+            <div className="mx-auto flex size-12 items-center justify-center rounded-sm border border-primary/15 bg-primary/5 text-primary">
+              <FileSearch className="size-6" />
             </div>
-            <h2 className="mt-3 text-base font-semibold sm:mt-4 sm:text-lg">Nova auditoria documental</h2>
-            <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-              Arraste PDFs para esta área, anexe documentos no campo abaixo ou carregue um exemplo local para revisar a experiência sem consumir tokens.
+            <h2 className="mt-5 text-lg font-semibold">Nova auditoria documental</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Anexe PDFs, escolha o tipo de auditoria e solicite a análise.
             </p>
+
+            <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
+              {[
+                ["01", "Anexe os PDFs"],
+                ["02", "Escolha o tipo"],
+                ["03", "Execute e revise"],
+              ].map(([num, title]) => (
+                <div key={num} className="space-y-1">
+                  <span className="block font-mono text-xs text-primary">{num}</span>
+                  <span className="block font-medium text-foreground">{title}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={handleLoadDemoAudit}>
+                <PlayCircle className="size-4" />
+                Demo local
+              </Button>
+            </div>
           </div>
 
-          <div className="hidden gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground sm:grid sm:grid-cols-3">
-            <div>
-              <span className="block text-foreground">1. Anexar</span>
-              PDF técnico do projeto
+          <div className="mt-6 mx-auto max-w-[680px]">
+            <div className="flex justify-start">
+              <article className="nexodoc-message-in max-w-[min(680px,100%)] rounded-sm border border-border bg-card px-4 py-3 text-sm leading-6 text-muted-foreground">
+                Olá! Sou o assistente de auditoria documental do NexoDoc. Anexe os PDFs do seu projeto, escolha entre Memorial ou Volume, e eu vou analisar a coerência, identificar incongruências e sugerir correções.
+              </article>
             </div>
-            <div>
-              <span className="block text-foreground">2. Solicitar</span>
-              Escopo objetivo da revisão
-            </div>
-            <div>
-              <span className="block text-foreground">3. Auditar</span>
-              Ler achados e roteiro
-            </div>
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" onClick={handleLoadDemoAudit}>
-              <PlayCircle />
-              Carregar demo local
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setMessage(getDefaultPrompt(auditMode))}>
-              <ClipboardCheck />
-              Restaurar solicitação
-            </Button>
           </div>
         </div>
       </section>
@@ -1147,12 +1133,12 @@ export function ChatWindow({
       error.includes("primeiros");
 
     return (
-      <div className="nexodoc-enter rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div className="nexodoc-enter rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <div className="min-w-0">
             <p className="font-medium">{error}</p>
-            <p className="mt-1 text-xs leading-5 text-destructive/80">
+            <p className="mt-1 text-xs leading-5 text-destructive/70">
               {isValidationError
                 ? "Revise arquivos anexados, limite de 5 PDFs e solicitação antes de enviar."
                 : "A auditoria não foi concluída. Você pode tentar novamente, cancelar ou carregar a demo local."}
@@ -1162,10 +1148,10 @@ export function ChatWindow({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-3 border-destructive/30 text-destructive hover:bg-destructive/10"
+                className="mt-2 h-8 border-destructive/25 text-destructive hover:bg-destructive/10"
                 onClick={handleLoadDemoAudit}
               >
-                <PlayCircle />
+                <PlayCircle className="size-4" />
                 Ver demo local
               </Button>
             ) : null}
@@ -1177,139 +1163,106 @@ export function ChatWindow({
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="hidden h-dvh w-64 shrink-0 border-r bg-[var(--nexodoc-panel)] px-4 py-5 lg:flex lg:flex-col">
-        <div className="flex items-center gap-3">
+      <aside className="hidden h-dvh w-[236px] shrink-0 border-r bg-[var(--nexodoc-panel)] px-3 py-5 lg:flex lg:flex-col">
+        <div className="flex items-center gap-2.5 px-1">
           <Image
             src="/assets/logo.svg"
-            alt=""
-            width={40}
-            height={40}
+            alt="NexoDoc"
+            width={34}
+            height={34}
             priority
-            className="size-10 rounded-sm border border-[var(--nexodoc-tertiary-strong)]/25 object-cover"
+            className="size-8 rounded-sm object-cover"
           />
           <div>
-            <h1 className="font-mono text-base font-semibold tracking-normal">NexoDoc</h1>
-            <p className="font-mono text-xs text-muted-foreground">Auditoria documental</p>
+            <h1 className="font-mono text-sm font-semibold tracking-normal">NexoDoc</h1>
+            <p className="font-mono text-[11px] text-muted-foreground">Auditoria documental</p>
           </div>
         </div>
 
-        {isMockMode ? (
-          <div className="mt-4 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 px-3 py-2 font-mono text-xs text-[var(--status-warning)]">
-            Mock ativo
-          </div>
-        ) : null}
-
-        {historyStatus ? (
-          <div
-            className={cn(
-              "mt-4 rounded-md border px-3 py-2 font-mono text-xs",
-              historyStatus.connected
-                ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]/80 text-[var(--status-ok)]"
-                : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 text-[var(--status-warning)]",
-            )}
+        <div className="mt-4 space-y-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start h-9 text-xs"
+            onClick={handleNewAudit}
           >
-            <span className="block font-medium">
-              {historyStatus.connected ? "Histórico ativo" : "Histórico local"}
-            </span>
-            <span className="mt-1 block text-current/80">{historyStatus.message}</span>
-          </div>
-        ) : null}
-
-        {qualitySummary?.enabled ? (
-          <div className="mt-3 rounded-md border bg-card px-3 py-2 font-mono text-xs">
-            <p className="font-medium text-foreground">Qualidade avaliada</p>
-            <p className="mt-1 text-muted-foreground">
-              {qualitySummary.confirmed} corretos · {qualitySummary.falsePositive} falsos positivos
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {qualitySummary.missingFinding} erros ausentes · {qualitySummary.wrongSeverity} gravidades
-            </p>
-          </div>
-        ) : null}
-
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-6 justify-start"
-          onClick={handleNewAudit}
-        >
-          <RotateCcw />
-          Nova auditoria
-        </Button>
-        {isAdmin ? (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-2 justify-start text-muted-foreground hover:text-foreground"
-              onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
-            >
-              <Gauge />
-              Uso e custos
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-              onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
-            >
-              <ListChecks />
-              Histórico admin
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-              onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
-            >
-              <CheckCircle2 />
-              Qualidade do motor
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-1 justify-start text-muted-foreground hover:text-foreground"
-              onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
-            >
-              <Gauge />
-              Configurações
-            </Button>
-          </>
-        ) : null}
-        <SignOutButton />
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-2 justify-start"
-          onClick={handleLoadDemoAudit}
-        >
-          <PlayCircle />
-          Demo local
-        </Button>
+            <RotateCcw className="size-3.5" />
+            Nova auditoria
+          </Button>
+          {isAdmin ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+              >
+                <Gauge className="size-3.5" />
+                Uso e custos
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
+              >
+                <ListChecks className="size-3.5" />
+                Histórico admin
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
+              >
+                <CheckCircle2 className="size-3.5" />
+                Qualidade
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
+              >
+                <Gauge className="size-3.5" />
+                Configurações
+              </Button>
+            </>
+          ) : null}
+          <SignOutButton />
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full justify-start h-9 text-xs"
+            onClick={handleLoadDemoAudit}
+          >
+            <PlayCircle className="size-3.5" />
+            Demo local
+          </Button>
+        </div>
 
         {allowDemoMode ? (
           <button
             type="button"
             aria-pressed={useMockMode}
             onClick={() => setUseMockMode((current) => !current)}
-            className="mt-5 flex items-center justify-between rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs outline-none transition-[border-color,background-color,box-shadow] hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
+            className="mt-3 flex w-full items-center justify-between rounded-sm border border-transparent bg-transparent px-2 py-1.5 text-left font-mono text-[11px] outline-none transition-[border-color,background-color] hover:border-border hover:bg-[var(--nexodoc-raised)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
           >
-            <span className="flex items-center gap-2">
-              <TestTube2 className="size-4 text-primary" />
+            <span className="flex items-center gap-1.5">
+              <TestTube2 className="size-3.5 text-[var(--nexodoc-tertiary)]" />
               <span>
-                <span className="block font-medium text-foreground">Modo demo</span>
-                <span className="text-muted-foreground">Sem consumir tokens</span>
+                <span className="font-medium text-foreground">Modo demo</span>
               </span>
             </span>
             <span
               className={cn(
-                "h-5 w-9 rounded-full border p-0.5 transition-colors",
-                useMockMode ? "border-primary/50 bg-primary/70" : "bg-[var(--nexodoc-recessed)]",
+                "h-4 w-8 rounded-full border p-px transition-colors",
+                useMockMode ? "border-[var(--nexodoc-tertiary-strong)]/50 bg-[var(--nexodoc-tertiary-strong)]/60" : "bg-[var(--nexodoc-recessed)]",
               )}
             >
               <span
                 className={cn(
-                  "block size-3.5 rounded-full bg-foreground transition-transform",
+                  "block size-3 rounded-full bg-foreground transition-transform",
                   useMockMode && "translate-x-4",
                 )}
               />
@@ -1317,34 +1270,59 @@ export function ChatWindow({
           </button>
         ) : null}
 
-        <div className="mt-6 border-t pt-5">
-          <div className="flex items-center gap-2 font-mono text-sm font-medium">
-            <Files className="size-4 text-primary" />
+        <div className="mt-3 space-y-1 text-[11px]">
+          {isMockMode ? (
+            <div className="flex items-center gap-1.5 rounded-sm border border-[var(--nexodoc-tertiary)]/25 bg-[var(--nexodoc-tertiary-bg)] px-2 py-1 font-mono text-[var(--nexodoc-tertiary)]">
+              <span className="size-1.5 rounded-full bg-current" />
+              Mock ativo
+            </div>
+          ) : null}
+
+          {historyStatus ? (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-sm border px-2 py-1 font-mono",
+                historyStatus.connected
+                  ? "border-[var(--status-ok)]/25 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                  : "border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-current" />
+              {historyStatus.connected ? "Histórico ativo" : "Histórico local"}
+            </div>
+          ) : null}
+
+          {qualitySummary?.enabled ? (
+            <div className="rounded-sm px-2 py-1 font-mono text-muted-foreground">
+              {qualitySummary.confirmed} corretos · {qualitySummary.falsePositive} FP · {qualitySummary.missingFinding} ausentes
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-4 border-t pt-3">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            <Files className="size-3 text-primary" />
             Atual
           </div>
-          <div className="mt-3 space-y-2 font-mono text-xs text-muted-foreground">
-            <p>{projectName || "Projeto não informado"}</p>
-            <p>{getAuditModeLabel(auditMode)}</p>
-            <p>Nível {getAnalysisLevelLabel(analysisLevel)}</p>
+          <div className="mt-1.5 space-y-0.5 font-mono text-xs text-muted-foreground">
+            <p className="truncate">{projectName || "Projeto não informado"}</p>
+            <p className="truncate">{getAuditModeLabel(auditMode)} · {getAnalysisLevelLabel(analysisLevel)}</p>
             <p>{displayedFileCount} arquivo(s)</p>
           </div>
         </div>
 
-        <div className="mt-6 min-h-0 flex-1 overflow-y-auto border-t pt-5">
-          <div className="flex items-center justify-between gap-2 font-mono text-sm font-medium">
-            <span className="flex items-center gap-2">
-              <Clock3 className="size-4 text-primary" />
-              Histórico
-            </span>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto border-t pt-3">
+          <div className="flex items-center justify-between gap-2 px-0.5 font-mono text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            Histórico
             {auditHistory.length > 0 ? (
-              <span className="rounded border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <span className="rounded-sm border bg-[var(--nexodoc-recessed)] px-1 py-px text-[10px] text-muted-foreground">
                 {auditHistory.length}
               </span>
             ) : null}
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-1">
             {auditHistory.length === 0 ? (
-              <p className="font-mono text-xs text-muted-foreground">
+              <p className="px-0.5 font-mono text-[11px] text-muted-foreground/60">
                 {historyStatus?.connected
                   ? "Nenhuma auditoria salva."
                   : "Histórico persistente inativo."}
@@ -1355,12 +1333,12 @@ export function ChatWindow({
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs outline-none transition-[border-color,background-color,box-shadow] hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
+                  className="w-full rounded-sm border border-transparent bg-transparent px-1.5 py-1 text-left font-mono text-[11px] outline-none transition-[border-color,background-color] hover:border-border hover:bg-[var(--nexodoc-raised)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
                 >
                   <span className="block truncate font-medium text-foreground">
                     {getHistoryItemTitle(item)}
                   </span>
-                  <span className="mt-1 block text-muted-foreground">
+                  <span className="mt-0.5 block truncate text-muted-foreground/70">
                     {getHistoryItemDetail(item)}
                   </span>
                 </button>
@@ -1371,7 +1349,7 @@ export function ChatWindow({
       </aside>
 
       <section className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-3 lg:hidden">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-2.5 lg:hidden">
           <div className="flex items-center gap-2">
             <Image
               src="/assets/logo.svg"
@@ -1381,44 +1359,36 @@ export function ChatWindow({
               priority
               className="size-[22px] rounded-sm object-cover"
             />
-            <span className="font-mono font-semibold">NexoDoc</span>
+            <span className="font-mono text-sm font-semibold">NexoDoc</span>
           </div>
-          {allowDemoMode ? (
-            <Button
-              type="button"
-              aria-pressed={useMockMode}
-              variant={useMockMode ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setUseMockMode((current) => !current)}
-            >
-              <TestTube2 />
-              Demo
+          <div className="flex items-center gap-2">
+            {allowDemoMode ? (
+              <Button
+                type="button"
+                aria-pressed={useMockMode}
+                variant={useMockMode ? "secondary" : "outline"}
+                size="sm"
+                className="h-8"
+                onClick={() => setUseMockMode((current) => !current)}
+              >
+                <TestTube2 className="size-4" />
+                Demo
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" size="sm" className="h-8" onClick={handleNewAudit}>
+              <RotateCcw className="size-4" />
+              Nova
             </Button>
-          ) : null}
-          <Button type="button" variant="outline" size="sm" onClick={handleNewAudit}>
-            <RotateCcw />
-            Nova
-          </Button>
-          {isAdmin ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Abrir uso e custos"
-              onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
-            >
-              <Gauge />
-            </Button>
-          ) : null}
-          <SignOutButton compact />
+            <SignOutButton compact />
+          </div>
         </header>
 
         {!isLoading ? renderAuditContext() : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           <div
             className={cn(
-              "mx-auto flex min-h-full flex-col gap-4",
+              "mx-auto flex min-h-full flex-col gap-3",
               isLoading ? "max-w-[760px]" : "max-w-5xl",
             )}
           >
@@ -1477,13 +1447,13 @@ export function ChatWindow({
         />
       </section>
 
-      <aside className="hidden h-dvh w-[380px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-5 xl:flex xl:flex-col">
-        <div className="flex items-start justify-between gap-3 border-b pb-4">
+      <aside className="hidden h-dvh w-[320px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 xl:flex xl:flex-col">
+        <div className="flex items-start justify-between gap-3 border-b pb-3">
           <div>
-            <p className="font-mono text-xs uppercase text-muted-foreground">Painel</p>
-            <h2 className="mt-1 text-base font-semibold">Controle da auditoria</h2>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Painel</p>
+            <h2 className="mt-0.5 text-base font-semibold">Controle</h2>
           </div>
-          <div className={`rounded-md border px-2 py-1 font-mono text-xs font-medium ${statusToneClass}`}>
+          <div className={`rounded-sm border px-2 py-1 font-mono text-[11px] font-medium ${statusToneClass}`}>
             {statusIsCritical ? (
               <AlertTriangle className="mr-1 inline size-3" />
             ) : (
@@ -1493,102 +1463,80 @@ export function ChatWindow({
           </div>
         </div>
 
-        <div className="my-5 grid grid-cols-2 gap-2">
-          <div className="rounded-md border bg-card px-3 py-3">
-            <p className="font-mono text-xs text-muted-foreground">Tipo</p>
-            <p className="mt-1 font-mono text-sm font-medium text-foreground">
-              {getAuditModeLabel(auditMode)}
-            </p>
-          </div>
-          <div className="rounded-md border bg-card px-3 py-3">
-            <p className="font-mono text-xs text-muted-foreground">Nível</p>
-            <p className="mt-1 font-mono text-sm font-medium text-foreground">
-              {getAnalysisLevelLabel(latestResult?.report?.runtime?.nivel_analise ?? analysisLevel)}
-            </p>
-          </div>
-          <div className="rounded-md border bg-card px-3 py-3">
-            <p className="font-mono text-xs text-muted-foreground">Tempo</p>
-            <p className="mt-1 font-mono text-sm font-medium text-foreground">
-              {isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs)}
-            </p>
-          </div>
-          <div className="rounded-md border bg-card px-3 py-3">
-            <p className="font-mono text-xs text-muted-foreground">PDFs</p>
-            <p className="mt-1 font-mono text-sm font-medium text-foreground">
-              {displayedFileCount || "-"}
-            </p>
-          </div>
-          <div className="rounded-md border bg-card px-3 py-3">
-            <p className="font-mono text-xs text-muted-foreground">Achados</p>
-            <p
-              className={cn(
-                "mt-1 font-mono text-sm font-medium",
-                latestFindingCount > 0 ? "text-[var(--status-warning)]" : "text-foreground",
-              )}
-            >
-              {latestFindingCount}
-            </p>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {[
+            { label: "Tipo", value: getAuditModeLabel(auditMode) },
+            { label: "Nível", value: getAnalysisLevelLabel(latestResult?.report?.runtime?.nivel_analise ?? analysisLevel) },
+            { label: "Tempo", value: isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs) },
+            { label: "PDFs", value: displayedFileCount || "-" },
+            { label: "Achados", value: String(latestFindingCount), tone: latestFindingCount > 0 ? "text-[var(--nexodoc-tertiary)]" : undefined },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-sm border bg-card px-3 py-2.5">
+              <p className="font-mono text-[11px] text-muted-foreground">{metric.label}</p>
+              <p className={cn("mt-0.5 font-mono text-sm font-medium text-foreground", metric.tone)}>{metric.value}</p>
+            </div>
+          ))}
         </div>
 
-        <section className="mb-5 rounded-md border bg-card p-4">
+        <section className="mt-3 rounded-sm border border-[var(--nexodoc-tertiary)]/15 bg-[var(--nexodoc-tertiary-bg)] p-3">
           <div className="flex items-center gap-2">
-            <Wrench className="size-4 text-primary" />
-            <p className="font-mono text-xs uppercase text-muted-foreground">
-              Próxima ação
-            </p>
+            <Wrench className="size-3.5 text-[var(--nexodoc-tertiary)]" />
+            <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--nexodoc-tertiary)]">Próxima ação</p>
           </div>
-          <p className="mt-2 text-sm leading-6 text-foreground">
+          <p className="mt-1.5 text-sm leading-5 text-foreground">
             {latestRecommendedAction}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="h-8"
               onClick={() => setInspectorTab("findings")}
             >
               Ver achados
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleLoadDemoAudit}
-            >
-              Demo local
-            </Button>
+            {latestResult?.report ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={handleLoadDemoAudit}
+              >
+                Demo local
+              </Button>
+            ) : null}
           </div>
           {latestResult?.report ? (
-            <div className="mt-4 border-t pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <BookmarkPlus className="size-4 text-primary" />
-                <p className="font-mono text-xs uppercase text-muted-foreground">
-                  Aprendizado global
-                </p>
+            <div className="mt-3 border-t pt-3">
+              <div className="mb-2 flex items-center gap-2">
+                <BookmarkPlus className="size-3.5 text-primary" />
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Aprendizado global</p>
               </div>
               <div className="grid gap-2">
                 <input
                   value={learningTitle}
                   onChange={(event) => setLearningTitle(event.target.value)}
                   placeholder="Título do aprendizado"
-                  className={fieldClass}
+                  className="h-9 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-2.5 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
                 />
                 <Textarea
                   value={learningContent}
                   onChange={(event) => setLearningContent(event.target.value)}
-                  placeholder="Ex.: Sempre tratar citação de outra obra como achado crítico quando houver identidade predominante diferente."
-                  className="min-h-24 resize-none bg-[var(--nexodoc-recessed)] text-sm leading-6 shadow-none"
+                  placeholder="Ex.: Sempre tratar citação de outra obra como achado crítico..."
+                  className="min-h-20 resize-none bg-[var(--nexodoc-recessed)] text-sm leading-5 shadow-none"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="h-8"
                   onClick={handleSaveLearning}
                   disabled={isSavingLearning}
                 >
-                  <BookmarkPlus />
-                  {isSavingLearning ? "Salvando" : "Salvar aprendizado"}
+                  <BookmarkPlus className="size-3.5" />
+                  {isSavingLearning ? "Salvando" : "Salvar"}
                 </Button>
                 {learningNotice ? (
                   <p className="font-mono text-xs text-muted-foreground">{learningNotice}</p>
@@ -1598,7 +1546,7 @@ export function ChatWindow({
           ) : null}
         </section>
 
-        <div className="grid grid-cols-3 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">
+        <div className="mt-4 grid grid-cols-3 rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5 font-mono text-xs">
           {[
             { value: "summary" as const, label: "Resumo" },
             { value: "findings" as const, label: "Achados" },
@@ -1608,33 +1556,30 @@ export function ChatWindow({
               key={tab.value}
               type="button"
               onClick={() => setInspectorTab(tab.value)}
-              className={
+              className={cn(
+                "rounded-sm px-2 py-2 outline-none transition-[background-color,border-color,color]",
                 inspectorTab === tab.value
-                  ? "rounded-md border border-ring/35 bg-card px-2 py-2.5 font-medium text-foreground"
-                  : "rounded-md border border-transparent px-2 py-2.5 text-muted-foreground outline-none transition-[background-color,border-color,color,box-shadow] hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
-              }
+                  ? "border border-ring/35 bg-card font-medium text-foreground"
+                  : "border border-transparent text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring",
+              )}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-md border bg-card p-4 text-sm leading-6">
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-sm border bg-card p-3 text-sm leading-6">
           {inspectorTab === "summary" ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <section>
-                <p className="font-mono text-xs uppercase text-muted-foreground">
-                  Projeto
-                </p>
-                <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Projeto</p>
+                <pre className="mt-1.5 whitespace-pre-wrap break-words font-sans text-sm">
                   {latestProject || projectName || "Aguardando auditoria."}
                 </pre>
               </section>
-              <section className="border-t pt-4">
-                <p className="font-mono text-xs uppercase text-muted-foreground">
-                  Próxima ação
-                </p>
-                <p className="mt-2 text-muted-foreground">
+              <section className="border-t pt-3">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Próxima ação</p>
+                <p className="mt-1.5 text-muted-foreground">
                   {latestResult
                     ? "Revise achados por arquivo e valide os documentos citados."
                     : "Siga o passo a passo e envie os PDFs."}
@@ -1645,20 +1590,20 @@ export function ChatWindow({
 
           {inspectorTab === "findings" ? (
             <div>
-              <div className="mb-3 flex items-center gap-2">
-                <AlertTriangle className="size-4 text-primary" />
-                <p className="font-medium">Incongruencias</p>
+              <div className="mb-2 flex items-center gap-2">
+                <AlertTriangle className="size-3.5 text-primary" />
+                <p className="font-medium">Incongruências</p>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
-                {latestFindings || "Nenhum achado estruturado disponivel ainda."}
+                {latestFindings || "Nenhum achado estruturado disponível ainda."}
               </pre>
             </div>
           ) : null}
 
           {inspectorTab === "report" ? (
             <div>
-              <div className="mb-3 flex items-center gap-2">
-                <ScrollText className="size-4 text-primary" />
+              <div className="mb-2 flex items-center gap-2">
+                <ScrollText className="size-3.5 text-primary" />
                 <p className="font-medium">Relatório completo</p>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">

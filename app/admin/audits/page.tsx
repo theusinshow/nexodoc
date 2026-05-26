@@ -210,7 +210,7 @@ export default function AdminAuditsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="flex w-[460px] flex-col gap-2 rounded-lg border bg-card/80 p-3"
+            className="flex w-[460px] flex-col gap-2 rounded-sm border bg-card p-3"
           >
             <label className="font-mono text-xs font-medium text-muted-foreground">
               Token admin
@@ -235,26 +235,26 @@ export default function AdminAuditsPage() {
         </header>
 
         {error ? (
-          <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>
         ) : null}
 
         <section className="grid grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-card/80 p-3">
+          <div className="rounded-sm border bg-card p-3">
             <p className="font-mono text-xs text-muted-foreground">Auditorias</p>
             <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(audits.length)}</p>
           </div>
-          <div className="rounded-lg border bg-card/80 p-3">
+          <div className="rounded-sm border bg-card p-3">
             <p className="font-mono text-xs text-muted-foreground">Concluídas</p>
             <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.completed)}</p>
           </div>
-          <div className="rounded-lg border bg-card/80 p-3">
+          <div className="rounded-sm border bg-card p-3">
             <p className="font-mono text-xs text-muted-foreground">PDFs</p>
             <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.files)}</p>
           </div>
-          <div className="rounded-lg border bg-card/80 p-3">
+          <div className="rounded-sm border bg-card p-3">
             <p className="font-mono text-xs text-muted-foreground">Achados</p>
             <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.findings)}</p>
           </div>
@@ -262,7 +262,7 @@ export default function AdminAuditsPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-[1fr_170px_170px_220px_auto] gap-2 rounded-lg border bg-card/80 p-3"
+          className="grid grid-cols-[1fr_170px_170px_220px_auto] gap-2 rounded-sm border bg-card p-3"
         >
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -308,7 +308,7 @@ export default function AdminAuditsPage() {
           </Button>
         </form>
 
-        <section className="overflow-hidden rounded-lg border bg-card/80">
+        <section className="overflow-hidden rounded-sm border bg-card">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>

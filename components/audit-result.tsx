@@ -991,158 +991,93 @@ export function AuditResult({
   }
 
   return (
-    <article className="nexodoc-result-in w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
-      <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">Resultado da auditoria</Badge>
-            {elapsed ? (
-              <Badge variant="outline">Concluída em {elapsed}</Badge>
-            ) : null}
-            {runtime?.modelo_principal ? (
-              <Badge variant="outline">Modelo {runtime.modelo_principal}</Badge>
-            ) : null}
-            {runtime?.nivel_analise ? (
-              <Badge variant="outline">{getAnalysisLevelLabel(runtime.nivel_analise)}</Badge>
-            ) : null}
-            {runtime?.modelo_validacao && runtime.modelo_validacao !== runtime.modelo_principal ? (
-              <Badge variant="outline">Validação {runtime.modelo_validacao}</Badge>
-            ) : null}
+    <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 rounded-sm border px-3 py-1.5 font-mono text-sm font-medium",
+                status.className,
+              )}
+            >
+              <StatusIcon className="size-4" />
+              {status.label}
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              {findings.length} achado{findings.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
+              {elapsed ? ` · ${elapsed}` : ""}
+            </span>
           </div>
-          <div
-            className={cn(
-              "inline-flex items-center gap-2 rounded-md border px-3 py-2 font-mono text-sm font-medium",
-              status.className,
-            )}
-          >
-            <StatusIcon className="size-4" />
-            {status.label}
-          </div>
-        </div>
-        <AuditResultActions result={content} />
-      </div>
 
-      <div className="mt-5 grid gap-3 rounded-md border bg-[var(--nexodoc-recessed)] p-3 xl:grid-cols-[1fr_auto] xl:items-center">
-        <div>
-          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
-            Navegação do resultado
-          </p>
-          <div className="flex flex-wrap gap-1 rounded-md border bg-background/35 p-1">
-            <Button
-              type="button"
-              variant={view === "summary" ? "secondary" : "outline"}
-              size="sm"
-              className="border-transparent"
-              onClick={() => setView("summary")}
-            >
-              Resumo
-            </Button>
-            <Button
-              type="button"
-              variant={view === "findings" ? "secondary" : "outline"}
-              size="sm"
-              className="border-transparent"
-              onClick={() => setView("findings")}
-            >
-              Matriz
-            </Button>
-            <Button
-              type="button"
-              variant={view === "evidence" ? "secondary" : "outline"}
-              size="sm"
-              className="border-transparent"
-              onClick={() => setView("evidence")}
-            >
-              Evidências
-            </Button>
-            <Button
-              type="button"
-              variant={view === "route" ? "secondary" : "outline"}
-              size="sm"
-              className="border-transparent"
-              onClick={() => setView("route")}
-            >
-              Roteiro
-            </Button>
-            <Button
-              type="button"
-              variant={view === "report" ? "secondary" : "outline"}
-              size="sm"
-              className="border-transparent"
-              onClick={() => setView("report")}
-            >
-              Relatório
-            </Button>
+          <h3 className="mt-3 text-base font-semibold">{nextStep}</h3>
+
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="flex rounded-sm bg-[var(--nexodoc-recessed)] p-0.5">
+              {([
+                { value: "summary" as const, label: "Resumo" },
+                { value: "findings" as const, label: "Matriz" },
+                { value: "evidence" as const, label: "Evidências" },
+                { value: "route" as const, label: "Roteiro" },
+                { value: "report" as const, label: "Relatório" },
+              ]).map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setView(tab.value)}
+                  className={cn(
+                    "rounded-sm px-2.5 py-1 font-mono text-xs outline-none transition-colors",
+                    view === tab.value
+                      ? "border border-ring/30 bg-card font-medium text-foreground"
+                      : "border border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div>
-          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
-            Ações rápidas
-          </p>
-          <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
-            <CopyTextButton value={findingsText}>Copiar achados</CopyTextButton>
-            <CopyTextButton value={reviewRouteText}>Copiar roteiro</CopyTextButton>
-            <CopyTextButton value={actionsText}>Copiar ações</CopyTextButton>
-          </div>
+
+        <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+          <CopyTextButton value={findingsText}>Copiar achados</CopyTextButton>
+          <CopyTextButton value={actionsText}>Copiar ações</CopyTextButton>
+          <AuditResultActions result={content} />
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5">
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {confidenceItems.map((item) => (
+          <div key={item.label} className="rounded-sm border bg-[var(--nexodoc-recessed)] px-3 py-2.5">
+            <p className="font-mono text-[11px] text-muted-foreground">{item.label}</p>
+            <p
+              className={cn(
+                "mt-0.5 font-mono text-sm font-medium text-foreground",
+                item.tone && "inline-flex rounded-sm border px-1.5 py-px font-mono text-[11px]",
+                item.tone,
+              )}
+            >
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5">
         {view === "summary" ? (
           <>
-            <section className="rounded-md border bg-[var(--nexodoc-recessed)]/80 p-4">
-              <div className="grid gap-3 md:grid-cols-[1fr_1.4fr] md:items-start">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {confidenceItems.map((item) => (
-                    <div key={item.label} className="rounded-md border bg-card px-3 py-2.5">
-                      <p className="font-mono text-xs text-muted-foreground">{item.label}</p>
-                      <p
-                        className={cn(
-                          "mt-1 text-sm font-medium text-foreground",
-                          item.tone && "inline-flex rounded border px-2 py-1 font-mono text-xs",
-                          item.tone,
-                        )}
-                      >
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="rounded-md border bg-card px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="size-4 text-primary" />
-                    <p className="font-mono text-xs uppercase text-muted-foreground">
-                      Próximo passo sugerido
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-foreground">{nextStep}</p>
-                  {evidenceLinkCount === 0 ? (
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                      Esta sessão não possui PDFs persistidos para abertura direta. Use Documento, Página, Local e Termo de busca como roteiro de conferência.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
-            <div className="grid divide-y rounded-md border bg-[var(--nexodoc-recessed)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="grid divide-y rounded-sm border bg-[var(--nexodoc-recessed)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="px-4 py-3">
-                <p className="font-mono text-xs text-muted-foreground">Achados</p>
-                <p className="mt-1 text-xl font-semibold text-foreground">
-                  {findings.length}
-                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">Achados</p>
+                <p className="mt-1 text-xl font-semibold text-foreground">{findings.length}</p>
               </div>
               <div className="px-4 py-3">
-                <p className="font-mono text-xs text-muted-foreground">Inconsistências críticas</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--status-critical)]">
-                  {criticalCount}
-                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">Inconsistências críticas</p>
+                <p className="mt-1 text-xl font-semibold text-[var(--status-critical)]">{criticalCount}</p>
               </div>
               <div className="px-4 py-3">
-                <p className="font-mono text-xs text-muted-foreground">Pontos de revisão</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--status-warning)]">
-                  {warningCount}
-                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">Pontos de revisão</p>
+                <p className="mt-1 text-xl font-semibold text-[var(--status-warning)]">{warningCount}</p>
               </div>
             </div>
 
@@ -1150,13 +1085,9 @@ export function AuditResult({
               {projectFields.length > 0 ? (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {projectFields.map((field) => (
-                    <div key={`${field.label}-${field.value}`} className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {field.label}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {field.value}
-                      </p>
+                    <div key={`${field.label}-${field.value}`} className="rounded-sm border bg-[var(--nexodoc-recessed)] p-3">
+                      <p className="font-mono text-[11px] text-muted-foreground">{field.label}</p>
+                      <p className="mt-1 text-sm font-medium text-foreground">{field.value}</p>
                     </div>
                   ))}
                 </div>
@@ -1167,7 +1098,7 @@ export function AuditResult({
 
             <div className="grid gap-4 lg:grid-cols-2">
               <SectionCard title="Arquivos analisados" icon={FileText}>
-                <pre className="whitespace-pre-wrap break-words font-sans">
+                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
                   {report
                     ? report.arquivos_analisados
                         .map((item) => {
@@ -1178,7 +1109,7 @@ export function AuditResult({
                 </pre>
               </SectionCard>
               <SectionCard title="Comparações" icon={LayoutList}>
-                <pre className="whitespace-pre-wrap break-words font-sans">
+                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
                   {report
                     ? report.comparacoes.map((item) => `- ${item}`).join("\n")
                     : parsed.comparisons || "Sem comparação específica."}
@@ -1186,18 +1117,8 @@ export function AuditResult({
               </SectionCard>
             </div>
 
-            <SectionCard title="Análise por arquivo" icon={ClipboardList}>
-              <pre className="whitespace-pre-wrap break-words font-sans">
-                {report
-                  ? report.arquivos_analisados
-                      .map((item) => `${item.arquivo}\n${item.resumo}`)
-                      .join("\n\n")
-                  : parsed.fileAnalysis || "Sem análise por arquivo identificada."}
-              </pre>
-            </SectionCard>
-
             <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
-              <pre className="whitespace-pre-wrap break-words font-sans">
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
                 {report?.conclusao || parsed.conclusion || "Sem conclusão identificada."}
               </pre>
             </SectionCard>
