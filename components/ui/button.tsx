@@ -5,18 +5,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-mono text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-150 disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 outline-none focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-[3px]",
+  "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-mono text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out disabled:pointer-events-none disabled:opacity-45 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 outline-none focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-[3px]",
   {
     variants: {
       variant: {
         default:
-          "border border-primary bg-primary text-primary-foreground hover:bg-primary/92",
+          "border border-primary bg-primary text-primary-foreground shadow-[var(--shadow-subtle)] hover:bg-primary/90",
         destructive:
           "border border-destructive/35 bg-destructive text-[var(--destructive-foreground)] hover:bg-destructive/90 focus-visible:ring-destructive/20",
         outline:
           "border bg-card text-foreground hover:border-ring hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "border border-border bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "border border-ring/35 bg-secondary text-secondary-foreground hover:border-ring hover:bg-accent",
         ghost: "border border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
       },
       size: {

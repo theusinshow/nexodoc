@@ -311,7 +311,7 @@ export function ChatWindow({
       ? "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
       : "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
   const fieldClass =
-    "h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:opacity-60";
+    "h-10 rounded-md border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -765,7 +765,7 @@ export function ChatWindow({
         <div className="grid gap-4 xl:grid-cols-[1fr_minmax(300px,390px)] xl:items-end">
           <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
             <label className="grid gap-1.5 text-xs">
-              <span className="font-mono font-medium text-muted-foreground">Identificacao</span>
+              <span className="font-mono font-medium text-muted-foreground">Identificação</span>
               <input
                 value={auditTitle}
                 onChange={(event) => setAuditTitle(event.target.value)}
@@ -785,7 +785,7 @@ export function ChatWindow({
               />
             </label>
             <label className="grid gap-1.5 text-xs">
-              <span className="font-mono font-medium text-muted-foreground">Descricao</span>
+              <span className="font-mono font-medium text-muted-foreground">Descrição</span>
               <input
                 value={auditDescription}
                 onChange={(event) => setAuditDescription(event.target.value)}
@@ -806,8 +806,8 @@ export function ChatWindow({
                   onClick={() => handleAuditModeChange(mode)}
                   className={
                     auditMode === mode
-                      ? "rounded-md border border-border bg-card px-3 py-2.5 font-medium text-foreground shadow-[var(--shadow-subtle)]"
-                      : "rounded-md border border-transparent px-3 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      ? "rounded-md border border-ring/35 bg-card px-3 py-2.5 font-medium text-foreground shadow-[var(--shadow-subtle)]"
+                      : "rounded-md border border-transparent px-3 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
                   }
                   title={getAuditModeDescription(mode)}
                 >
@@ -824,37 +824,37 @@ export function ChatWindow({
   function renderEmptyChat() {
     return (
       <section
-        className="grid min-h-[240px] flex-1 place-items-center px-4 py-8"
+        className="grid min-h-[160px] flex-1 place-items-center px-4 py-4 sm:min-h-[240px] sm:py-8"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
         <div
           className={cn(
-            "grid w-full max-w-3xl gap-5 rounded-md border border-dashed bg-card px-6 py-8 transition-[border-color,background-color] sm:px-8",
+            "grid w-full max-w-3xl gap-3 rounded-md border border-dashed bg-card px-4 py-5 transition-[border-color,background-color,box-shadow] sm:gap-5 sm:px-8 sm:py-8",
             isDropActive
               ? "border-primary bg-primary/10 text-foreground"
               : "border-input hover:border-ring",
           )}
         >
           <div className="flex flex-col items-center text-center">
-            <div className="flex size-12 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary">
-              <FileSearch className="size-6" />
+            <div className="flex size-10 items-center justify-center rounded-md border border-primary/15 bg-primary/8 text-primary sm:size-12">
+              <FileSearch className="size-5 sm:size-6" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold">Nova auditoria documental</h2>
+            <h2 className="mt-3 text-base font-semibold sm:mt-4 sm:text-lg">Nova auditoria documental</h2>
             <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-              Arraste PDFs para esta area, anexe documentos no campo abaixo ou carregue um exemplo local para revisar a experiencia sem consumir tokens.
+              Arraste PDFs para esta área, anexe documentos no campo abaixo ou carregue um exemplo local para revisar a experiência sem consumir tokens.
             </p>
           </div>
 
-          <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground sm:grid-cols-3">
+          <div className="hidden gap-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground sm:grid sm:grid-cols-3">
             <div>
               <span className="block text-foreground">1. Anexar</span>
-              PDF tecnico do projeto
+              PDF técnico do projeto
             </div>
             <div>
               <span className="block text-foreground">2. Solicitar</span>
-              Escopo objetivo da revisao
+              Escopo objetivo da revisão
             </div>
             <div>
               <span className="block text-foreground">3. Auditar</span>
@@ -897,8 +897,8 @@ export function ChatWindow({
             <p className="font-medium">{error}</p>
             <p className="mt-1 text-xs leading-5 text-destructive/80">
               {isValidationError
-                ? "Revise arquivos anexados, limite de 5 PDFs e solicitacao antes de enviar."
-                : "A auditoria nao foi concluida. Voce pode tentar novamente, cancelar ou carregar a demo local."}
+                ? "Revise arquivos anexados, limite de 5 PDFs e solicitação antes de enviar."
+                : "A auditoria não foi concluída. Você pode tentar novamente, cancelar ou carregar a demo local."}
             </p>
             {!isValidationError ? (
               <Button
@@ -988,7 +988,7 @@ export function ChatWindow({
             type="button"
             aria-pressed={useMockMode}
             onClick={() => setUseMockMode((current) => !current)}
-            className="mt-5 flex items-center justify-between rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs transition-colors hover:border-ring hover:bg-accent"
+            className="mt-5 flex items-center justify-between rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs outline-none transition-[border-color,background-color,box-shadow] hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
           >
             <span className="flex items-center gap-2">
               <TestTube2 className="size-4 text-primary" />
@@ -1039,7 +1039,7 @@ export function ChatWindow({
                   key={item.id}
                   type="button"
                   onClick={() => handleOpenAudit(item)}
-                  className="w-full rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs transition-colors hover:border-ring hover:bg-accent"
+                  className="w-full rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs outline-none transition-[border-color,background-color,box-shadow] hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
                 >
                   <span className="block truncate font-medium text-foreground">
                     {item.title}
@@ -1277,8 +1277,8 @@ export function ChatWindow({
               onClick={() => setInspectorTab(tab.value)}
               className={
                 inspectorTab === tab.value
-                  ? "rounded-md border bg-card px-2 py-2.5 font-medium text-foreground"
-                  : "rounded-md border border-transparent px-2 py-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  ? "rounded-md border border-ring/35 bg-card px-2 py-2.5 font-medium text-foreground"
+                  : "rounded-md border border-transparent px-2 py-2.5 text-muted-foreground outline-none transition-[background-color,border-color,color,box-shadow] hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
               }
             >
               {tab.label}

@@ -28,42 +28,42 @@
 }
 
 :root {
-  --radius: 7px;
-  --background: #0b0d0e;
-  --foreground: #e6ebe9;
-  --card: #1c2123;
-  --card-foreground: #e6ebe9;
-  --popover: #1c2123;
-  --popover-foreground: #e6ebe9;
-  --primary: #004643;
-  --primary-foreground: #e6ebe9;
-  --secondary: #171b1d;
-  --secondary-foreground: #e6ebe9;
-  --muted: #171b1d;
-  --muted-foreground: #8a9490;
-  --accent: #005A55;
-  --accent-foreground: #e6ebe9;
-  --destructive: #d36b5f;
-  --destructive-foreground: #0b0d0e;
-  --border: rgb(230 235 233 / 0.1);
-  --input: rgb(230 235 233 / 0.14);
-  --ring: #00746d;
-  --nexodoc-surface: #111416;
-  --nexodoc-panel: #111416;
-  --nexodoc-panel-foreground: #e6ebe9;
-  --nexodoc-accent: #004643;
-  --nexodoc-accent-foreground: #e6ebe9;
-  --nexodoc-raised: #171b1d;
-  --nexodoc-recessed: #121618;
-  --nexodoc-grid: rgb(230 235 233 / 0.07);
-  --status-ok: #7faf8b;
-  --status-ok-bg: rgb(127 175 139 / 0.1);
-  --status-warning: #c7a35a;
-  --status-warning-bg: rgb(199 163 90 / 0.1);
-  --status-critical: #d36b5f;
-  --status-critical-bg: rgb(211 107 95 / 0.1);
-  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.32);
-  --shadow-subtle: 0 1px 2px rgb(0 0 0 / 0.24);
+  --radius: 0px;
+  --background: oklch(17.5% 0.026 255);
+  --foreground: oklch(95% 0.018 245);
+  --card: oklch(22.8% 0.03 252);
+  --card-foreground: oklch(95% 0.018 245);
+  --popover: oklch(22.8% 0.03 252);
+  --popover-foreground: oklch(95% 0.018 245);
+  --primary: oklch(43% 0.105 255);
+  --primary-foreground: oklch(95% 0.018 245);
+  --secondary: oklch(26% 0.033 252);
+  --secondary-foreground: oklch(95% 0.018 245);
+  --muted: oklch(25% 0.028 252);
+  --muted-foreground: oklch(72% 0.03 247);
+  --accent: oklch(31% 0.058 254);
+  --accent-foreground: oklch(95% 0.018 245);
+  --destructive: oklch(66% 0.135 24);
+  --destructive-foreground: oklch(17.5% 0.026 255);
+  --border: oklch(95% 0.018 245 / 0.12);
+  --input: oklch(95% 0.018 245 / 0.18);
+  --ring: oklch(62% 0.135 252);
+  --nexodoc-surface: oklch(22.8% 0.03 252);
+  --nexodoc-panel: oklch(20% 0.028 255);
+  --nexodoc-panel-foreground: oklch(95% 0.018 245);
+  --nexodoc-accent: oklch(43% 0.105 255);
+  --nexodoc-accent-foreground: oklch(95% 0.018 245);
+  --nexodoc-raised: oklch(26% 0.033 252);
+  --nexodoc-recessed: oklch(18.8% 0.027 255);
+  --nexodoc-grid: oklch(95% 0.018 245 / 0.07);
+  --status-ok: oklch(76% 0.12 154);
+  --status-ok-bg: oklch(42% 0.09 154 / 0.14);
+  --status-warning: oklch(80% 0.125 82);
+  --status-warning-bg: oklch(51% 0.095 82 / 0.14);
+  --status-critical: oklch(70% 0.145 24);
+  --status-critical-bg: oklch(55% 0.11 24 / 0.14);
+  --shadow-panel: 0 1px 2px oklch(10% 0.015 255 / 0.34);
+  --shadow-subtle: 0 1px 2px oklch(10% 0.015 255 / 0.26);
 }
 
 * {
@@ -117,8 +117,12 @@ textarea {
 }
 
 ::selection {
-  background: #004643;
-  color: #e6ebe9;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+:focus-visible {
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

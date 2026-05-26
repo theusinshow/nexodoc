@@ -44,11 +44,11 @@ export function FileUpload({
         value={documentType}
         onChange={(event) => setDocumentType(event.target.value as DocumentType)}
         disabled={disabled}
-        className="h-10 rounded-md border border-input bg-card px-3 font-mono text-sm text-foreground outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:opacity-60"
+        className="h-10 min-w-44 rounded-md border border-input bg-card px-3 font-mono text-sm text-foreground outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {DOCUMENT_TYPES.map((type) => (
           <option key={type} value={type}>
-          {getDocumentTypeLabel(type)}
+            {getDocumentTypeLabel(type)}
           </option>
         ))}
       </select>
