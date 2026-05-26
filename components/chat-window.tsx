@@ -10,6 +10,7 @@ import {
   Files,
   Gauge,
   ListChecks,
+  LogOut,
   PlayCircle,
   RotateCcw,
   ScrollText,
@@ -17,6 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Image from "next/image";
+import { signOut, useSession } from "next-auth/react";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
@@ -397,6 +399,7 @@ export function ChatWindow({
   allowDemoMode = false,
   isAdmin = false,
 }: ChatWindowProps) {
+  const session = useSession();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
@@ -995,64 +998,73 @@ export function ChatWindow({
 
   function renderAuditContext() {
     return (
-      <section className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 sm:px-5">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          <input
-            value={auditTitle}
-            onChange={(event) => setAuditTitle(event.target.value)}
-            placeholder="Identificação"
-            disabled={isLoading}
-            className="h-8 w-[140px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-          />
-          <input
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder="Projeto"
-            disabled={isLoading}
-            className="h-8 w-[160px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <div className="flex rounded-sm border border-input/50 bg-transparent p-0.5">
-            {(["memorial", "volume"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleAuditModeChange(mode)}
-                className={cn(
-                  "rounded-sm px-2 py-1 font-mono text-xs outline-none transition-colors",
-                  auditMode === mode
-                    ? "border border-ring/30 bg-card font-medium text-foreground"
-                    : "border border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                title={getAuditModeDescription(mode)}
-              >
-                {getAuditModeLabel(mode)}
-              </button>
-            ))}
+      <section className="border-b bg-background px-4 py-2.5 sm:px-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={auditTitle}
+              onChange={(event) => setAuditTitle(event.target.value)}
+              placeholder="Identificação"
+              disabled={isLoading}
+              className="h-8 w-[140px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+            />
+            <input
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              placeholder="Projeto"
+              disabled={isLoading}
+              className="h-8 w-[160px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+            />
           </div>
-          <div className="flex rounded-sm border border-input/50 bg-transparent p-0.5">
-            {(["standard", "deep"] as const).map((level) => (
-              <button
-                key={level}
-                type="button"
-                disabled={isLoading}
-                onClick={() => setAnalysisLevel(level)}
-                className={cn(
-                  "rounded-sm px-2 py-1 font-mono text-xs outline-none transition-colors",
-                  analysisLevel === level
-                    ? level === "deep"
-                      ? "border border-[var(--nexodoc-tertiary)]/30 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
-                      : "border border-ring/30 bg-card font-medium text-foreground"
-                    : "border border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                title={getAnalysisLevelDescription(level)}
-              >
-                {getAnalysisLevelLabel(level)}
-              </button>
-            ))}
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">Tipo</span>
+              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                {(["memorial", "volume"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleAuditModeChange(mode)}
+                    className={cn(
+                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
+                      auditMode === mode
+                        ? "border border-ring/40 bg-card font-medium text-foreground"
+                        : "border border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                    title={getAuditModeDescription(mode)}
+                  >
+                    {getAuditModeLabel(mode)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">Nível</span>
+              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                {(["standard", "deep"] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setAnalysisLevel(level)}
+                    className={cn(
+                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
+                      analysisLevel === level
+                        ? level === "deep"
+                          ? "border border-[var(--nexodoc-tertiary)]/40 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
+                          : "border border-ring/40 bg-card font-medium text-foreground"
+                        : "border border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                    title={getAnalysisLevelDescription(level)}
+                  >
+                    {getAnalysisLevelLabel(level)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1229,7 +1241,6 @@ export function ChatWindow({
               </Button>
             </>
           ) : null}
-          <SignOutButton />
           <Button
             type="button"
             variant="secondary"
@@ -1344,6 +1355,40 @@ export function ChatWindow({
                 </button>
               ))
             )}
+          </div>
+
+          <div className="mt-3 border-t pt-3">
+            <div className="flex items-center gap-2.5">
+              {session.data?.user?.image ? (
+                <Image
+                  src={session.data.user.image}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="size-6 rounded-full border border-border"
+                />
+              ) : (
+                <div className="flex size-6 items-center justify-center rounded-full border border-border bg-[var(--nexodoc-recessed)] text-[10px] font-mono text-muted-foreground">
+                  {session.data?.user?.name?.charAt(0) ?? "?"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-[11px] font-medium text-foreground">
+                  {session.data?.user?.name ?? "Usuário"}
+                </p>
+                <p className="truncate font-mono text-[10px] text-muted-foreground">
+                  {session.data?.user?.email ?? ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Sair"
+                onClick={() => void signOut({ redirectTo: "/login" })}
+                className="flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-[var(--nexodoc-raised)] hover:text-foreground"
+              >
+                <LogOut className="size-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
