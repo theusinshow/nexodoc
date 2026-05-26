@@ -257,6 +257,14 @@ function getReasoningEffort() {
   return DEFAULT_REASONING_EFFORT;
 }
 
+function getPrimaryModelName() {
+  return process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+}
+
+function getValidationModelName() {
+  return process.env.OPENAI_VALIDATION_MODEL ?? getPrimaryModelName();
+}
+
 function extractResponseText(response: unknown) {
   if (
     response &&
@@ -991,9 +999,6 @@ function deriveTechnicalReuseFindings(extracted: ExtractedPdf, fileName: string)
     "Volume 2 - Quadro de Origem e Destino",
     "Volume 2 – Quadro de Origem e Destino",
     "DNIT",
-    "jazida",
-    "distribuição de volumes",
-    "distribuicao de volumes",
   ];
   const findings: AuditFinding[] = [];
 
@@ -1001,7 +1006,7 @@ function deriveTechnicalReuseFindings(extracted: ExtractedPdf, fileName: string)
     const normalizedPage = normalizeLoose(page.text);
     const found = indicators.find((indicator) => normalizedPage.includes(normalizeLoose(indicator)));
 
-    if (!found) {
+    if (!found || normalizedPage.includes("sumario")) {
       continue;
     }
 
@@ -1025,7 +1030,7 @@ function deriveTechnicalReuseFindings(extracted: ExtractedPdf, fileName: string)
       impacto: "tecnico_contratual",
     });
 
-    if (findings.length >= 3) {
+    if (findings.length >= 1) {
       break;
     }
   }
@@ -1140,6 +1145,155 @@ function modelFindingToAuditFinding(
   };
 }
 
+function hasSpecificAlternateIdentity(value: string) {
+  const normalized = normalizeLoose(value);
+
+  return (
+    /\b(ubs|upa|centro|escola|creche|ginasio|ginásio|unidade)\s+[a-z0-9]/i.test(normalized) &&
+    !/\b(unidade de saude|unidade atendida|populacao atendida)\b/i.test(normalized)
+  );
+}
+
+function isLikelyFalseIdentityFinding(finding: AuditFinding) {
+  const normalizedType = normalizeLoose(
+    [
+      finding.tipo,
+      finding.categoria ?? "",
+      finding.local,
+      finding.descricao,
+      finding.conflito,
+      finding.evidencia,
+      finding.termo_busca ?? "",
+    ].join(" "),
+  );
+
+  const looksLikeIdentityConflict =
+    normalizedType.includes("identidade") ||
+    normalizedType.includes("reaproveitado de outro projeto") ||
+    normalizedType.includes("nao corresponde a identidade predominante");
+
+  if (!looksLikeIdentityConflict) {
+    return false;
+  }
+
+  const searchTerm = normalizeLoose(finding.termo_busca ?? finding.evidencia);
+  const evidence = normalizeLoose(finding.evidencia);
+  const hasCorrectIdentityInEvidence =
+    evidence.includes("centro de neurodivergencia") ||
+    /pmf\s+secretaria municipal/.test(evidence) ||
+    evidence.includes("projeto executivo memorial descritivo");
+  const genericTechnicalContext =
+    /\b(fiscalizacao|desenhos atualizados|conforme executado|aterro|aterros|jazida|infraestrutura composta|cabos|tubulacoes|caixas de passagem|tomadas de logica|rack de telecomunicacoes|indice de atendimento|populacao atendida|unidade de saude|estacao elevatoria|coeficiente de retorno)\b/i.test(
+      `${searchTerm} ${evidence}`,
+    );
+  const startsAsGenericPhrase =
+    /^(obra|aterros?|infraestrutura|indice|populacao|unidade|desenhos|fiscalizacao)\b/i.test(searchTerm);
+
+  return (
+    (hasCorrectIdentityInEvidence || genericTechnicalContext || startsAsGenericPhrase) &&
+    !hasSpecificAlternateIdentity(searchTerm)
+  );
+}
+
+function isLowValueModelFinding(finding: AuditFinding) {
+  const normalized = normalizeLoose(
+    [
+      finding.tipo,
+      finding.categoria ?? "",
+      finding.local,
+      finding.descricao,
+      finding.evidencia,
+      finding.conflito,
+    ].join(" "),
+  );
+
+  if (
+    normalized.includes("paginacao") &&
+    normalized.includes("sumario") &&
+    (normalized.includes("pagina analisada") || normalized.includes("trecho nao corresponde"))
+  ) {
+    return true;
+  }
+
+  if (
+    normalized.includes("sobreposicao de escopo") &&
+    normalized.includes("sumario") &&
+    normalized.includes("paver") &&
+    !normalized.includes("identidade")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function filterFalsePositiveIdentityFindings(findings: AuditFinding[]) {
+  return findings.filter(
+    (finding) =>
+      !isLikelyFalseIdentityFinding(finding) && !isLowValueModelFinding(finding),
+  );
+}
+
+function getAlternateIdentityKey(finding: AuditFinding) {
+  const normalized = normalizeLoose(
+    [finding.termo_busca ?? "", finding.conflito, finding.descricao, finding.evidencia].join(" "),
+  );
+
+  if (
+    !normalized.includes("identidade predominante") &&
+    !normalized.includes("nao corresponde") &&
+    !normalized.includes("outro projeto")
+  ) {
+    return "";
+  }
+
+  const known = /(cidade do autista|centro dia do idoso|centro comunitario boa vista)/i.exec(normalized)?.[1];
+
+  if (known) {
+    return known;
+  }
+
+  const generic =
+    /\b((?:cidade|centro|ubs|upa|unidade|escola|creche|ginasio)\s+[a-z0-9]+(?:\s+[a-z0-9]+){0,4})\b/i.exec(
+      normalized,
+    )?.[1] ?? "";
+
+  return generic
+    .replace(/\s+(?:e|eh|é|para|localizado|situado|sito)\b.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactRepeatedIdentityFindings(findings: AuditFinding[]) {
+  const result: AuditFinding[] = [];
+  const byAlternateIdentity = new Map<string, AuditFinding>();
+
+  for (const finding of findings) {
+    const key = getAlternateIdentityKey(finding);
+
+    if (!key) {
+      result.push(finding);
+      continue;
+    }
+
+    const current = byAlternateIdentity.get(key);
+
+    if (!current) {
+      byAlternateIdentity.set(key, finding);
+      result.push(finding);
+      continue;
+    }
+
+    current.pagina = [...new Set([...current.pagina.split(/\s*,\s*/), ...finding.pagina.split(/\s*,\s*/)])]
+      .filter(Boolean)
+      .join(", ");
+    current.evidencia = current.evidencia.length >= finding.evidencia.length ? current.evidencia : finding.evidencia;
+    current.confianca = current.confianca === "alta" || finding.confianca === "alta" ? "alta" : "media";
+  }
+
+  return result;
+}
+
 function dedupeFindings(findings: AuditFinding[]) {
   const seen = new Set<string>();
   const result: AuditFinding[] = [];
@@ -1183,9 +1337,14 @@ function inferProjectFields(text: string, fallbackProjectName: string) {
   const volume =
     /\bVol(?:ume)?\.?\s*(?:n[ºo]\s*)?([IVXLCDM]+|\d+)\b/i.exec(text)?.[0]?.trim() ??
     /\bVolume\s+([IVXLCDM]+|\d+)\b/i.exec(text)?.[0]?.trim() ??
+    /\bVOL\.?\s*[–-]?\s*([IVXLCDM]+|\d+)\b/i.exec(text)?.[0]?.trim() ??
     "";
   const orgao =
     /(Prefeitura\s+Municipal\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s/]+(?:Secretaria\s+Municipal\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s/]+)?)/i
+      .exec(text)?.[0]
+      ?.replace(/\s+/g, " ")
+      .trim() ??
+    /(Prefeitura\s+Municipal\s+de\s+Florian[oó]polis\s*\/\s*Secretaria\s+Municipal\s+de\s+Infraestrutura\s+e\s+Manuten[cç][aã]o\s+da\s+Cidade)/i
       .exec(text)?.[0]
       ?.replace(/\s+/g, " ")
       .trim() ??
@@ -1193,6 +1352,11 @@ function inferProjectFields(text: string, fallbackProjectName: string) {
       .exec(text)?.[0]
       ?.replace(/^PMF\s*-\s*/i, "Prefeitura Municipal de Florianópolis / ")
       .replace(/\s+/g, " ")
+      .trim() ??
+    /(SECRETARIA\s+MUNICIPAL\s+DE\s+INFRAESTRUTURA\s+E\s+MANUTEN[CÇ][AÃ]O\s+DA\s+CIDADE)/i
+      .exec(text)?.[0]
+      ?.replace(/\s+/g, " ")
+      .replace(/^/i, "Prefeitura Municipal de Florianópolis / ")
       .trim() ??
     "";
 
@@ -1239,7 +1403,7 @@ async function analyzeChunkWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    model: getPrimaryModelName(),
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: {
       effort: getReasoningEffort(),
@@ -1333,7 +1497,7 @@ async function analyzeIdentityWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    model: getPrimaryModelName(),
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort() },
     max_output_tokens: getMaxOutputTokens(),
@@ -1424,7 +1588,7 @@ async function analyzeFileGloballyWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    model: getPrimaryModelName(),
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort() },
     max_output_tokens: getMaxOutputTokens(),
@@ -1639,7 +1803,7 @@ async function validateFindingsWithModel(args: {
 
   try {
     const response = await openai.responses.create({
-      model: process.env.OPENAI_VALIDATION_MODEL ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+      model: getValidationModelName(),
       instructions: getAuditorPrompt(args.auditMode),
       reasoning: { effort: getReasoningEffort() },
       max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
@@ -1703,7 +1867,7 @@ async function analyzeCrossDocumentsWithModel(args: {
 
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+    model: getPrimaryModelName(),
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort() },
     max_output_tokens: getMaxOutputTokens(),
@@ -1952,7 +2116,9 @@ export async function POST(request: Request) {
     });
     allFindings.push(...modelComparison.findings);
 
-    const candidateFindings = dedupeFindings(allFindings);
+    const candidateFindings = compactRepeatedIdentityFindings(
+      filterFalsePositiveIdentityFindings(dedupeFindings(allFindings)),
+    );
     console.log(
       `[audit] validação semântica iniciada com ${candidateFindings.length} achado(s) candidato(s)`,
     );
@@ -1968,7 +2134,11 @@ export async function POST(request: Request) {
       `[audit] validação semântica concluida com ${validatedFindings.length} achado(s) confirmado(s)`,
     );
 
-    const findings = sortAuditFindings(dedupeFindings(validatedFindings)).map(
+    const findings = sortAuditFindings(
+      compactRepeatedIdentityFindings(
+        filterFalsePositiveIdentityFindings(dedupeFindings(validatedFindings)),
+      ),
+    ).map(
       (finding, index) => ({
         ...finding,
         id: `INC-${String(index + 1).padStart(3, "0")}`,
@@ -1977,7 +2147,7 @@ export async function POST(request: Request) {
     console.log(
       `[audit] requisicao concluida em ${Math.round((Date.now() - requestStartedAt) / 1000)}s com ${findings.length} achado(s)`,
     );
-    const combinedText = uploadedFiles.map((file) => file.extracted.text.slice(0, 50000)).join("\n");
+    const combinedText = uploadedFiles.map((file) => file.extracted.text).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
     const inferredDocumentType = inferDocumentType(auditMode, combinedText);
     const dominantIdentity = uploadedFiles[0]
@@ -1991,6 +2161,14 @@ export async function POST(request: Request) {
       arquivo: uploadedFiles.map((file) => file.file.name).join(", "),
       tipo_auditoria: auditMode,
       tipo_documento: inferredDocumentType,
+      runtime: {
+        modelo_principal: getPrimaryModelName(),
+        modelo_validacao: getValidationModelName(),
+        esforco_raciocinio: getReasoningEffort(),
+        duracao_ms: Date.now() - requestStartedAt,
+        arquivos: uploadedFiles.length,
+        gerado_em: new Date().toISOString(),
+      },
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
       codigo: inferred.codigo,
       municipio: inferred.municipio,

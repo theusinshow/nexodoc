@@ -72,6 +72,7 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 ```bash
 OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5.4-mini
+OPENAI_VALIDATION_MODEL=
 NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
@@ -90,6 +91,7 @@ NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.4-mini`.
+`OPENAI_VALIDATION_MODEL` tambem e opcional; quando vazio, a revisao semantica final usa o mesmo modelo principal.
 
 Para deploy dividido, use:
 
@@ -155,7 +157,17 @@ Em producao, depois que `DATABASE_URL` estiver configurada, rode uma vez:
 npm run db:push
 ```
 
-O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha e cancelamento. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha, cancelamento, modelo usado e runtime da analise dentro do relatorio estruturado. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+
+A prontidao do historico pode ser verificada por:
+
+```text
+/api/audits/status
+```
+
+Ele informa se `DATABASE_URL` esta configurada, se o banco respondeu e se o historico publico da tela principal esta habilitado.
+
+Auditorias persistidas tambem aceitam avaliacao dos achados. A interface permite marcar achados como corretos, falsos positivos ou com gravidade inadequada, alem de registrar erros ausentes; esse feedback fica associado a auditoria para apoiar benchmark e calibracao do motor.
 
 A area principal carrega as ultimas auditorias persistidas por `/api/audits/recent` em desenvolvimento. Em producao, habilite explicitamente:
 

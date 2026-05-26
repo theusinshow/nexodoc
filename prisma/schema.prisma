@@ -18,6 +18,13 @@ enum AuditStatus {
   CANCELED
 }
 
+enum AuditFeedbackVerdict {
+  CONFIRMED
+  FALSE_POSITIVE
+  WRONG_SEVERITY
+  MISSING_FINDING
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -60,9 +67,28 @@ model Audit {
   completedAt    DateTime?
   user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   files          AuditFile[]
+  feedback       AuditFeedback[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+}
+
+model AuditFeedback {
+  id           String               @id @default(cuid())
+  auditId      String
+  targetKey    String
+  findingId    String?
+  findingLabel String?
+  page         String?
+  verdict      AuditFeedbackVerdict
+  note         String               @default("")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  audit        Audit                @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@unique([auditId, targetKey])
+  @@index([auditId, createdAt])
+  @@index([verdict, createdAt])
 }
 
 model AuditFile {

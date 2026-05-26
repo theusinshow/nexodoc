@@ -16,7 +16,7 @@ import {
   Search,
   Wrench,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 
 type AuditResultProps = {
   content: string;
+  auditId?: string;
   elapsedMs?: number;
   report?: AuditReport;
   pdfSources?: AuditPdfSource[];
@@ -76,6 +77,26 @@ type ProjectField = {
   label: string;
   value: string;
 };
+
+type FeedbackVerdict =
+  | "CONFIRMED"
+  | "FALSE_POSITIVE"
+  | "WRONG_SEVERITY"
+  | "MISSING_FINDING";
+
+type SavedFeedback = {
+  id: string;
+  findingId: string | null;
+  verdict: FeedbackVerdict;
+  note: string;
+};
+
+function getFeedbackEndpoint(auditId: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  const path = `/api/audits/${encodeURIComponent(auditId)}/feedback`;
+
+  return apiUrl ? `${apiUrl}${path}` : path;
+}
 
 const SECTION_MAP: Record<string, AuditSectionKey> = {
   "projeto analisado": "project",
@@ -783,15 +804,21 @@ function FindingField({
 
 export function AuditResult({
   content,
+  auditId,
   elapsedMs,
   report,
   pdfSources = [],
 }: AuditResultProps) {
   const [view, setView] = useState<"summary" | "findings" | "route" | "evidence" | "report">("summary");
+  const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
+  const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
+  const [feedbackNotice, setFeedbackNotice] = useState("");
+  const [missingFindingNote, setMissingFindingNote] = useState("");
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
   const elapsed = formatElapsedTime(elapsedMs);
+  const runtime = report?.runtime;
   const findings = report
     ? report.incongruencias.map(reportFindingToStructured)
     : splitFindings(parsed.findings);
@@ -852,9 +879,114 @@ export function AuditResult({
         { label: "Código", value: report.codigo || "não identificado" },
         { label: "Município", value: report.municipio || "não identificado" },
         { label: "Data", value: report.data_documento || "não identificada" },
+        { label: "Modelo", value: report.runtime?.modelo_principal || "não informado" },
+        { label: "Validação", value: report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado" },
         { label: "Total de achados", value: String(report.total_incongruencias) },
       ]
     : parseProjectFields(parsed.project);
+
+  useEffect(() => {
+    if (!auditId) {
+      return;
+    }
+
+    async function loadFeedback() {
+      try {
+        const response = await fetch(getFeedbackEndpoint(auditId!), { cache: "no-store" });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { feedback?: SavedFeedback[] };
+        const saved = Object.fromEntries(
+          (payload.feedback ?? [])
+            .filter((item) => item.findingId)
+            .map((item) => [item.findingId as string, item.verdict]),
+        );
+
+        setFeedbackByFinding(saved);
+      } catch {
+        // O relatório continua utilizável mesmo sem carregar avaliação.
+      }
+    }
+
+    void loadFeedback();
+  }, [auditId]);
+
+  async function saveFindingFeedback(
+    finding: StructuredFinding,
+    index: number,
+    verdict: FeedbackVerdict,
+  ) {
+    if (!auditId) {
+      return;
+    }
+
+    const findingId = finding.refId ?? `achado-${index + 1}`;
+    setFeedbackSavingKey(findingId);
+    setFeedbackNotice("");
+
+    try {
+      const response = await fetch(getFeedbackEndpoint(auditId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingId,
+          findingLabel: finding.title,
+          page: finding.pagina,
+          verdict,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível salvar a avaliação.");
+      }
+
+      setFeedbackByFinding((current) => ({ ...current, [findingId]: verdict }));
+      setFeedbackNotice("Avaliação registrada para o benchmark.");
+    } catch (error) {
+      setFeedbackNotice(
+        error instanceof Error ? error.message : "Não foi possível salvar a avaliação.",
+      );
+    } finally {
+      setFeedbackSavingKey("");
+    }
+  }
+
+  async function saveMissingFinding() {
+    if (!auditId || !missingFindingNote.trim()) {
+      setFeedbackNotice("Descreva brevemente o erro que faltou apontar.");
+      return;
+    }
+
+    setFeedbackSavingKey("missing");
+    setFeedbackNotice("");
+
+    try {
+      const response = await fetch(getFeedbackEndpoint(auditId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verdict: "MISSING_FINDING",
+          note: missingFindingNote.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível registrar o erro ausente.");
+      }
+
+      setMissingFindingNote("");
+      setFeedbackNotice("Erro ausente registrado para revisão do motor.");
+    } catch (error) {
+      setFeedbackNotice(
+        error instanceof Error ? error.message : "Não foi possível registrar o erro ausente.",
+      );
+    } finally {
+      setFeedbackSavingKey("");
+    }
+  }
 
   return (
     <article className="nexodoc-result-in w-full rounded-md border bg-card p-5 shadow-[var(--shadow-subtle)] sm:p-6">
@@ -864,6 +996,12 @@ export function AuditResult({
             <Badge variant="secondary">Resultado da auditoria</Badge>
             {elapsed ? (
               <Badge variant="outline">Concluída em {elapsed}</Badge>
+            ) : null}
+            {runtime?.modelo_principal ? (
+              <Badge variant="outline">Modelo {runtime.modelo_principal}</Badge>
+            ) : null}
+            {runtime?.modelo_validacao && runtime.modelo_validacao !== runtime.modelo_principal ? (
+              <Badge variant="outline">Validação {runtime.modelo_validacao}</Badge>
             ) : null}
           </div>
           <div
@@ -1190,11 +1328,79 @@ export function AuditResult({
                               </CopyTextButton>
                             ) : null}
                           </section>
+
+                          {auditId && finding.refId ? (
+                            <section className="rounded-md border bg-card p-3">
+                              <p className="font-mono text-xs uppercase text-muted-foreground">
+                                Avaliar achado
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={feedbackByFinding[finding.refId] === "CONFIRMED" ? "secondary" : "outline"}
+                                  disabled={feedbackSavingKey === finding.refId}
+                                  onClick={() => void saveFindingFeedback(finding, index, "CONFIRMED")}
+                                >
+                                  <Check />
+                                  Correto
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={feedbackByFinding[finding.refId] === "FALSE_POSITIVE" ? "secondary" : "outline"}
+                                  disabled={feedbackSavingKey === finding.refId}
+                                  onClick={() => void saveFindingFeedback(finding, index, "FALSE_POSITIVE")}
+                                >
+                                  <AlertTriangle />
+                                  Falso positivo
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={feedbackByFinding[finding.refId] === "WRONG_SEVERITY" ? "secondary" : "outline"}
+                                  disabled={feedbackSavingKey === finding.refId}
+                                  onClick={() => void saveFindingFeedback(finding, index, "WRONG_SEVERITY")}
+                                >
+                                  <Wrench />
+                                  Gravidade errada
+                                </Button>
+                              </div>
+                            </section>
+                          ) : null}
                         </div>
                       </div>
                     </article>
                   ))}
                 </div>
+
+                {auditId ? (
+                  <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-4">
+                    <p className="font-mono text-xs uppercase text-muted-foreground">
+                      Faltou apontar algum erro?
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <textarea
+                        value={missingFindingNote}
+                        onChange={(event) => setMissingFindingNote(event.target.value)}
+                        rows={2}
+                        className="min-h-12 flex-1 resize-y rounded-md border bg-card px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
+                        placeholder="Descreva o erro não identificado pelo NexoDoc."
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={feedbackSavingKey === "missing"}
+                        onClick={() => void saveMissingFinding()}
+                      >
+                        Registrar erro ausente
+                      </Button>
+                    </div>
+                    {feedbackNotice ? (
+                      <p className="mt-2 font-mono text-xs text-muted-foreground">{feedbackNotice}</p>
+                    ) : null}
+                  </section>
+                ) : null}
               </div>
             ) : (
               <p>Nenhum achado encontrado.</p>

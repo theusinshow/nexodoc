@@ -36,6 +36,14 @@ export type AuditReport = {
   arquivo?: string;
   tipo_auditoria: AuditMode;
   tipo_documento: string;
+  runtime?: {
+    modelo_principal?: string;
+    modelo_validacao?: string;
+    esforco_raciocinio?: string;
+    duracao_ms?: number;
+    arquivos?: number;
+    gerado_em?: string;
+  };
   obra: string;
   codigo: string;
   municipio: string;
@@ -334,6 +342,8 @@ Documento: ${report.tipo_documento || "não identificado"}
 Volume: ${report.volume || "não identificado"}
 Data: ${report.data_documento || "não identificada"}
 Órgão: ${report.orgao || "não identificado"}
+Modelo: ${report.runtime?.modelo_principal || "não informado"}
+Validação: ${report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado"}
 
 2. Status geral
 ${report.status_geral}

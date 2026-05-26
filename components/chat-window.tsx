@@ -44,6 +44,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  auditId?: string;
   auditMode?: AuditMode;
   elapsedMs?: number;
   report?: AuditReport;
@@ -86,6 +87,22 @@ type RecentAuditsResponse = {
   disabledReason?: string;
 };
 
+type AuditHistoryStatus = {
+  configured: boolean;
+  connected: boolean;
+  publicHistoryEnabled: boolean;
+  message: string;
+};
+
+type QualitySummary = {
+  enabled: boolean;
+  total: number;
+  confirmed: number;
+  falsePositive: number;
+  wrongSeverity: number;
+  missingFinding: number;
+};
+
 type InspectorTab = "summary" | "findings" | "report";
 
 const MAX_FILES = 5;
@@ -117,6 +134,20 @@ function getLearningsEndpoint() {
 function getRecentAuditsEndpoint() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
   const path = "/api/audits/recent?limit=20";
+
+  return apiUrl ? `${apiUrl}${path}` : path;
+}
+
+function getAuditHistoryStatusEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  const path = "/api/audits/status";
+
+  return apiUrl ? `${apiUrl}${path}` : path;
+}
+
+function getQualitySummaryEndpoint() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  const path = "/api/audits/quality";
 
   return apiUrl ? `${apiUrl}${path}` : path;
 }
@@ -199,6 +230,52 @@ function formatSeconds(ms?: number) {
   }
 
   return `${Math.max(1, Math.round(ms / 1000))}s`;
+}
+
+function formatHistoryDate(value: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function getHistoryStatusLabel(status: AuditHistoryItem["status"]) {
+  if (status === "completed") {
+    return "concluída";
+  }
+
+  if (status === "failed") {
+    return "falhou";
+  }
+
+  if (status === "canceled") {
+    return "cancelada";
+  }
+
+  return "processando";
+}
+
+function getHistoryItemTitle(item: AuditHistoryItem) {
+  if (item.title && !/auditoria sem identifica/i.test(item.title)) {
+    return item.title;
+  }
+
+  if (item.projectName && !/projeto n[aã]o informado/i.test(item.projectName)) {
+    return item.projectName;
+  }
+
+  return item.fileNames[0] ?? "Auditoria salva";
+}
+
+function getHistoryItemDetail(item: AuditHistoryItem) {
+  const fileCount =
+    item.fileNames.length > 1
+      ? `${item.fileNames.length} arquivos`
+      : item.fileNames[0] ?? "sem arquivo";
+
+  return `${getAuditModeLabel(item.auditMode)} · ${getHistoryStatusLabel(item.status)} · ${formatHistoryDate(item.createdAt)} · ${fileCount}`;
 }
 
 function mapPersistedAuditStatus(status: RecentAuditListItem["status"]): AuditHistoryItem["status"] {
@@ -320,6 +397,8 @@ export function ChatWindow({
   const [loadingMode, setLoadingMode] = useState<"audit" | "followup" | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<AuditHistoryStatus | null>(null);
+  const [qualitySummary, setQualitySummary] = useState<QualitySummary | null>(null);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("summary");
   const [isDropActive, setIsDropActive] = useState(false);
@@ -415,6 +494,47 @@ export function ChatWindow({
     }
 
     void loadRecentAudits();
+  }, []);
+
+  useEffect(() => {
+    async function loadHistoryStatus() {
+      try {
+        const response = await fetch(getAuditHistoryStatusEndpoint(), {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        setHistoryStatus((await response.json()) as AuditHistoryStatus);
+      } catch {
+        setHistoryStatus({
+          configured: false,
+          connected: false,
+          publicHistoryEnabled: false,
+          message: "Não foi possível verificar o histórico persistente.",
+        });
+      }
+    }
+
+    void loadHistoryStatus();
+  }, []);
+
+  useEffect(() => {
+    async function loadQualitySummary() {
+      try {
+        const response = await fetch(getQualitySummaryEndpoint(), { cache: "no-store" });
+
+        if (response.ok) {
+          setQualitySummary((await response.json()) as QualitySummary);
+        }
+      } catch {
+        // Métrica é auxiliar e não bloqueia auditorias.
+      }
+    }
+
+    void loadQualitySummary();
   }, []);
 
   useEffect(() => {
@@ -570,6 +690,7 @@ export function ChatWindow({
             {
               id: `${item.id}-result`,
               role: "assistant",
+              auditId: item.id,
               content: item.result,
               auditMode: item.auditMode,
               elapsedMs: item.elapsedMs,
@@ -798,6 +919,7 @@ export function ChatWindow({
         {
           id: `${auditId}-result`,
           role: "assistant",
+          auditId: payload.auditId ?? auditId,
           content: result,
           auditMode: payload.auditMode ?? auditMode,
           elapsedMs: finalElapsedMs,
@@ -1030,6 +1152,34 @@ export function ChatWindow({
           </div>
         ) : null}
 
+        {historyStatus ? (
+          <div
+            className={cn(
+              "mt-4 rounded-md border px-3 py-2 font-mono text-xs",
+              historyStatus.connected
+                ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]/80 text-[var(--status-ok)]"
+                : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]/80 text-[var(--status-warning)]",
+            )}
+          >
+            <span className="block font-medium">
+              {historyStatus.connected ? "Histórico ativo" : "Histórico local"}
+            </span>
+            <span className="mt-1 block text-current/80">{historyStatus.message}</span>
+          </div>
+        ) : null}
+
+        {qualitySummary?.enabled ? (
+          <div className="mt-3 rounded-md border bg-card px-3 py-2 font-mono text-xs">
+            <p className="font-medium text-foreground">Qualidade avaliada</p>
+            <p className="mt-1 text-muted-foreground">
+              {qualitySummary.confirmed} corretos · {qualitySummary.falsePositive} falsos positivos
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {qualitySummary.missingFinding} erros ausentes · {qualitySummary.wrongSeverity} gravidades
+            </p>
+          </div>
+        ) : null}
+
         <Button
           type="button"
           variant="outline"
@@ -1119,13 +1269,24 @@ export function ChatWindow({
         </div>
 
         <div className="mt-6 min-h-0 flex-1 overflow-y-auto border-t pt-5">
-          <div className="flex items-center gap-2 font-mono text-sm font-medium">
-            <Clock3 className="size-4 text-primary" />
-            Histórico
+          <div className="flex items-center justify-between gap-2 font-mono text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <Clock3 className="size-4 text-primary" />
+              Histórico
+            </span>
+            {auditHistory.length > 0 ? (
+              <span className="rounded border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {auditHistory.length}
+              </span>
+            ) : null}
           </div>
           <div className="mt-3 space-y-2">
             {auditHistory.length === 0 ? (
-              <p className="font-mono text-xs text-muted-foreground">Sem auditorias.</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {historyStatus?.connected
+                  ? "Nenhuma auditoria salva."
+                  : "Histórico persistente inativo."}
+              </p>
             ) : (
               auditHistory.map((item) => (
                 <button
@@ -1135,10 +1296,10 @@ export function ChatWindow({
                   className="w-full rounded-md border bg-card px-3 py-2.5 text-left font-mono text-xs outline-none transition-[border-color,background-color,box-shadow] hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
                 >
                   <span className="block truncate font-medium text-foreground">
-                    {item.title}
+                    {getHistoryItemTitle(item)}
                   </span>
                   <span className="mt-1 block text-muted-foreground">
-                    {getAuditModeLabel(item.auditMode)} · {item.status}
+                    {getHistoryItemDetail(item)}
                   </span>
                 </button>
               ))
@@ -1197,6 +1358,7 @@ export function ChatWindow({
                   {item.role === "assistant" && (item.report || item.elapsedMs || item.pdfSources) ? (
                     <AuditResult
                       content={item.content}
+                      auditId={item.auditId}
                       elapsedMs={item.elapsedMs}
                       report={item.report}
                       pdfSources={item.pdfSources}
