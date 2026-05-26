@@ -24,6 +24,12 @@ import { Composer } from "@/components/composer";
 import { MessageBubble } from "@/components/message-bubble";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_ANALYSIS_LEVEL,
+  getAnalysisLevelDescription,
+  getAnalysisLevelLabel,
+  type AnalysisLevel,
+} from "@/lib/analysis-level";
 import type { AuditReport } from "@/lib/audit-report";
 import {
   DEFAULT_AUDIT_MODE,
@@ -58,6 +64,7 @@ type AuditHistoryItem = {
   description: string;
   createdAt: Date;
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   fileNames: string[];
   status: "processing" | "completed" | "failed" | "canceled";
   result?: string;
@@ -73,6 +80,7 @@ type RecentAuditListItem = {
   projectName: string;
   description: string;
   auditMode: string;
+  analysisLevel?: string;
   status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELED";
   result: string | null;
   report: AuditReport | null;
@@ -275,7 +283,7 @@ function getHistoryItemDetail(item: AuditHistoryItem) {
       ? `${item.fileNames.length} arquivos`
       : item.fileNames[0] ?? "sem arquivo";
 
-  return `${getAuditModeLabel(item.auditMode)} · ${getHistoryStatusLabel(item.status)} · ${formatHistoryDate(item.createdAt)} · ${fileCount}`;
+  return `${getAuditModeLabel(item.auditMode)} · ${getAnalysisLevelLabel(item.analysisLevel)} · ${getHistoryStatusLabel(item.status)} · ${formatHistoryDate(item.createdAt)} · ${fileCount}`;
 }
 
 function mapPersistedAuditStatus(status: RecentAuditListItem["status"]): AuditHistoryItem["status"] {
@@ -302,6 +310,7 @@ function mapPersistedAudit(item: RecentAuditListItem): AuditHistoryItem {
     description: item.description,
     createdAt: new Date(item.createdAt),
     auditMode: item.auditMode === "volume" ? "volume" : "memorial",
+    analysisLevel: item.analysisLevel === "deep" ? "deep" : "standard",
     fileNames: item.fileNames,
     status: mapPersistedAuditStatus(item.status),
     result: item.result ?? undefined,
@@ -388,6 +397,7 @@ export function ChatWindow({
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
   const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
+  const [analysisLevel, setAnalysisLevel] = useState<AnalysisLevel>(DEFAULT_ANALYSIS_LEVEL);
   const [auditTitle, setAuditTitle] = useState("");
   const [projectName, setProjectName] = useState("");
   const [auditDescription, setAuditDescription] = useState("");
@@ -598,6 +608,7 @@ export function ChatWindow({
     setMessage(getDefaultPrompt(DEFAULT_AUDIT_MODE));
     setFiles([]);
     setAuditMode(DEFAULT_AUDIT_MODE);
+    setAnalysisLevel(DEFAULT_ANALYSIS_LEVEL);
     setAuditTitle("");
     setProjectName("");
     setAuditDescription("");
@@ -644,6 +655,7 @@ export function ChatWindow({
         description: demoDescription,
         createdAt: new Date(),
         auditMode,
+        analysisLevel,
         fileNames,
         status: "completed",
         result: demoResult,
@@ -674,6 +686,7 @@ export function ChatWindow({
     setAuditDescription(item.description);
     setFiles([]);
     setAuditMode(item.auditMode);
+    setAnalysisLevel(item.analysisLevel);
     setMessage(getDefaultPrompt(item.auditMode));
 
     const userMessage: ChatMessage = {
@@ -859,6 +872,7 @@ export function ChatWindow({
     const formData = new FormData();
     formData.append("message", trimmedMessage);
     formData.append("auditMode", auditMode);
+    formData.append("analysisLevel", analysisLevel);
     formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificação");
     formData.append("projectName", projectName.trim() || "Projeto não informado");
     formData.append("auditDescription", auditDescription.trim());
@@ -885,6 +899,7 @@ export function ChatWindow({
         description: auditDescription.trim(),
         createdAt: new Date(),
         auditMode,
+        analysisLevel,
         fileNames: files.map((item) => item.file.name),
         status: "processing",
       },
@@ -977,7 +992,7 @@ export function ChatWindow({
   function renderAuditContext() {
     return (
       <section className="border-b bg-card px-4 py-4 sm:px-5">
-        <div className="grid gap-4 xl:grid-cols-[1fr_minmax(300px,390px)] xl:items-end">
+        <div className="grid gap-4 xl:grid-cols-[1fr_minmax(300px,390px)] xl:items-start">
           <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
             <label className="grid gap-1.5 text-xs">
               <span className="font-mono font-medium text-muted-foreground">Identificação</span>
@@ -1012,6 +1027,9 @@ export function ChatWindow({
           </div>
 
           <div className="min-w-0">
+            <p className="mb-1.5 font-mono text-xs font-medium text-muted-foreground">
+              Tipo e nível da análise
+            </p>
             <div className="grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-sm">
               {(["memorial", "volume"] as const).map((mode) => (
                 <button
@@ -1027,6 +1045,24 @@ export function ChatWindow({
                   title={getAuditModeDescription(mode)}
                 >
                   {getAuditModeLabel(mode)}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 grid grid-cols-2 rounded-md border bg-[var(--nexodoc-recessed)] p-1 font-mono text-xs">
+              {(["standard", "deep"] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setAnalysisLevel(level)}
+                  className={
+                    analysisLevel === level
+                      ? "rounded-md border border-ring/35 bg-card px-3 py-2 font-medium text-foreground shadow-[var(--shadow-subtle)]"
+                      : "rounded-md border border-transparent px-3 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
+                  }
+                  title={getAnalysisLevelDescription(level)}
+                >
+                  {getAnalysisLevelLabel(level)}
                 </button>
               ))}
             </div>
@@ -1264,6 +1300,7 @@ export function ChatWindow({
           <div className="mt-3 space-y-2 font-mono text-xs text-muted-foreground">
             <p>{projectName || "Projeto não informado"}</p>
             <p>{getAuditModeLabel(auditMode)}</p>
+            <p>Nível {getAnalysisLevelLabel(analysisLevel)}</p>
             <p>{displayedFileCount} arquivo(s)</p>
           </div>
         </div>
@@ -1426,6 +1463,12 @@ export function ChatWindow({
             <p className="font-mono text-xs text-muted-foreground">Tipo</p>
             <p className="mt-1 font-mono text-sm font-medium text-foreground">
               {getAuditModeLabel(auditMode)}
+            </p>
+          </div>
+          <div className="rounded-md border bg-card px-3 py-3">
+            <p className="font-mono text-xs text-muted-foreground">Nível</p>
+            <p className="mt-1 font-mono text-sm font-medium text-foreground">
+              {getAnalysisLevelLabel(latestResult?.report?.runtime?.nivel_analise ?? analysisLevel)}
             </p>
           </div>
           <div className="rounded-md border bg-card px-3 py-3">

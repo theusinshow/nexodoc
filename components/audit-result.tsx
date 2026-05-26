@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import {
   classifyFindingImpact,
   getImpactLabel,
@@ -879,6 +880,7 @@ export function AuditResult({
         { label: "Código", value: report.codigo || "não identificado" },
         { label: "Município", value: report.municipio || "não identificado" },
         { label: "Data", value: report.data_documento || "não identificada" },
+        { label: "Nível", value: getAnalysisLevelLabel(report.runtime?.nivel_analise ?? "standard") },
         { label: "Modelo", value: report.runtime?.modelo_principal || "não informado" },
         { label: "Validação", value: report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado" },
         { label: "Total de achados", value: String(report.total_incongruencias) },
@@ -999,6 +1001,9 @@ export function AuditResult({
             ) : null}
             {runtime?.modelo_principal ? (
               <Badge variant="outline">Modelo {runtime.modelo_principal}</Badge>
+            ) : null}
+            {runtime?.nivel_analise ? (
+              <Badge variant="outline">{getAnalysisLevelLabel(runtime.nivel_analise)}</Badge>
             ) : null}
             {runtime?.modelo_validacao && runtime.modelo_validacao !== runtime.modelo_principal ? (
               <Badge variant="outline">Validação {runtime.modelo_validacao}</Badge>

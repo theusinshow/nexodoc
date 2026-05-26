@@ -54,6 +54,7 @@ export async function GET(request: Request) {
       projectName: true,
       description: true,
       auditMode: true,
+      analysisLevel: true,
       status: true,
       result: true,
       report: true,

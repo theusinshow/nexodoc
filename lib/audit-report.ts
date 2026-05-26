@@ -1,4 +1,5 @@
 import type { AuditMode } from "@/lib/audit-mode";
+import type { AnalysisLevel } from "@/lib/analysis-level";
 
 export type FindingPriority = "Alta" | "Media/Alta" | "Media" | "Baixa/Media" | "Baixa";
 export type FindingConfidence = "alta" | "media" | "baixa";
@@ -37,6 +38,7 @@ export type AuditReport = {
   tipo_auditoria: AuditMode;
   tipo_documento: string;
   runtime?: {
+    nivel_analise?: AnalysisLevel;
     modelo_principal?: string;
     modelo_validacao?: string;
     esforco_raciocinio?: string;
@@ -344,6 +346,7 @@ Data: ${report.data_documento || "não identificada"}
 Órgão: ${report.orgao || "não identificado"}
 Modelo: ${report.runtime?.modelo_principal || "não informado"}
 Validação: ${report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado"}
+Nível: ${report.runtime?.nivel_analise === "deep" ? "Profundo" : "Padrão"}
 
 2. Status geral
 ${report.status_geral}

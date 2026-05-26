@@ -73,6 +73,10 @@ Crie um arquivo `.env.local` a partir de `.env.example`:
 OPENAI_API_KEY=sua_chave_aqui
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_VALIDATION_MODEL=
+OPENAI_STANDARD_MODEL=gpt-5.4-mini
+OPENAI_STANDARD_VALIDATION_MODEL=gpt-5.4-mini
+OPENAI_DEEP_MODEL=gpt-5.4
+OPENAI_DEEP_VALIDATION_MODEL=gpt-5.4
 NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
@@ -92,6 +96,7 @@ A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
 
 `OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.4-mini`.
 `OPENAI_VALIDATION_MODEL` tambem e opcional; quando vazio, a revisao semantica final usa o mesmo modelo principal.
+O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. As variaveis `OPENAI_STANDARD_*` e `OPENAI_DEEP_*` permitem alterar esses modelos sem mudar a interface.
 
 Para deploy dividido, use:
 

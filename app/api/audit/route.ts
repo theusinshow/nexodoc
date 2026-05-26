@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
+import { parseAnalysisLevel, type AnalysisLevel } from "@/lib/analysis-level";
 import {
   formatAuditLearningsForPrompt,
   listAuditLearnings,
@@ -53,6 +54,7 @@ type UploadedAuditFile = {
 async function createPendingAudit(args: {
   auditId: string;
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   auditTitle: string;
   projectName: string;
   auditDescription: string;
@@ -72,6 +74,7 @@ async function createPendingAudit(args: {
         projectName: args.projectName || "Projeto não informado",
         description: args.auditDescription,
         auditMode: args.auditMode,
+        analysisLevel: args.analysisLevel,
         status: "PROCESSING",
         files: {
           create: args.files.map((file, index) => ({
@@ -240,8 +243,11 @@ export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
-function getReasoningEffort() {
-  const effort = process.env.OPENAI_REASONING_EFFORT;
+function getReasoningEffort(analysisLevel: AnalysisLevel) {
+  const effort =
+    analysisLevel === "deep"
+      ? process.env.OPENAI_DEEP_REASONING_EFFORT ?? process.env.OPENAI_REASONING_EFFORT
+      : process.env.OPENAI_STANDARD_REASONING_EFFORT;
 
   if (
     effort === "none" ||
@@ -254,15 +260,19 @@ function getReasoningEffort() {
     return effort;
   }
 
-  return DEFAULT_REASONING_EFFORT;
+  return analysisLevel === "deep" ? DEFAULT_REASONING_EFFORT : "medium";
 }
 
-function getPrimaryModelName() {
-  return process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+function getPrimaryModelName(analysisLevel: AnalysisLevel) {
+  return analysisLevel === "deep"
+    ? process.env.OPENAI_DEEP_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.4"
+    : process.env.OPENAI_STANDARD_MODEL ?? DEFAULT_MODEL;
 }
 
-function getValidationModelName() {
-  return process.env.OPENAI_VALIDATION_MODEL ?? getPrimaryModelName();
+function getValidationModelName(analysisLevel: AnalysisLevel) {
+  return analysisLevel === "deep"
+    ? process.env.OPENAI_DEEP_VALIDATION_MODEL ?? process.env.OPENAI_VALIDATION_MODEL ?? getPrimaryModelName(analysisLevel)
+    : process.env.OPENAI_STANDARD_VALIDATION_MODEL ?? getPrimaryModelName(analysisLevel);
 }
 
 function extractResponseText(response: unknown) {
@@ -402,14 +412,15 @@ function getMaxOutputTokens() {
   );
 }
 
-function getMaxChunksPerFile() {
+function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
+  const modeLimit = analysisLevel === "deep" ? 24 : 8;
 
   if (Number.isFinite(value) && value > 0) {
-    return Math.min(24, Math.floor(value));
+    return Math.min(modeLimit, Math.floor(value));
   }
 
-  return DEFAULT_MAX_CHUNKS_PER_FILE;
+  return analysisLevel === "deep" ? DEFAULT_MAX_CHUNKS_PER_FILE : 8;
 }
 
 function getChunkConcurrency() {
@@ -1394,6 +1405,7 @@ function isMissingProjectField(value: string) {
 
 async function analyzeChunkWithModel(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1403,10 +1415,10 @@ async function analyzeChunkWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(),
+    model: getPrimaryModelName(args.analysisLevel),
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: {
-      effort: getReasoningEffort(),
+      effort: getReasoningEffort(args.analysisLevel),
     },
     max_output_tokens: getMaxOutputTokens(),
     input: getChunkPrompt(args),
@@ -1488,6 +1500,7 @@ ${buildIdentityContext(args.extracted)}
 
 async function analyzeIdentityWithModel(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1497,9 +1510,9 @@ async function analyzeIdentityWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(),
+    model: getPrimaryModelName(args.analysisLevel),
     instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort() },
+    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getIdentityAuditPrompt(args),
   }, {
@@ -1579,6 +1592,7 @@ ${buildDocumentContext(args.extracted)}
 
 async function analyzeFileGloballyWithModel(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1588,9 +1602,9 @@ async function analyzeFileGloballyWithModel(args: {
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(),
+    model: getPrimaryModelName(args.analysisLevel),
     instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort() },
+    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getGlobalFilePrompt(args),
   }, {
@@ -1789,6 +1803,7 @@ ${buildValidationContext(args.files)}
 
 async function validateFindingsWithModel(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1803,9 +1818,9 @@ async function validateFindingsWithModel(args: {
 
   try {
     const response = await openai.responses.create({
-      model: getValidationModelName(),
+      model: getValidationModelName(args.analysisLevel),
       instructions: getAuditorPrompt(args.auditMode),
-      reasoning: { effort: getReasoningEffort() },
+      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
       max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
       input: getFindingValidationPrompt(args),
     }, {
@@ -1856,6 +1871,7 @@ async function validateFindingsWithModel(args: {
 
 async function analyzeCrossDocumentsWithModel(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1867,9 +1883,9 @@ async function analyzeCrossDocumentsWithModel(args: {
 
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(),
+    model: getPrimaryModelName(args.analysisLevel),
     instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort() },
+    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getCrossDocumentPrompt(args),
   }, {
@@ -1891,6 +1907,7 @@ async function analyzeCrossDocumentsWithModel(args: {
 
 async function deepAnalyzeFile(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1908,8 +1925,8 @@ async function deepAnalyzeFile(args: {
   );
   const hasInferredIdentityConflict = inferredIdentityFindings.length > 0;
   const chunkLimit = hasInferredIdentityConflict
-    ? Math.min(4, getMaxChunksPerFile())
-    : getMaxChunksPerFile();
+    ? Math.min(4, getMaxChunksPerFile(args.analysisLevel))
+    : getMaxChunksPerFile(args.analysisLevel);
   const chunks = chunkPdfByChapter(args.file.extracted).slice(0, chunkLimit);
   const concurrency = getChunkConcurrency();
 
@@ -1923,6 +1940,7 @@ async function deepAnalyzeFile(args: {
     ? []
     : await analyzeIdentityWithModel({
         auditMode: args.auditMode,
+        analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
         projectName: args.projectName,
         learningContext: args.learningContext,
@@ -1940,6 +1958,7 @@ async function deepAnalyzeFile(args: {
   const globalFindings = shouldRunGlobalPass
     ? await analyzeFileGloballyWithModel({
         auditMode: args.auditMode,
+        analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
         projectName: args.projectName,
         learningContext: args.learningContext,
@@ -1962,6 +1981,7 @@ async function deepAnalyzeFile(args: {
       );
       const findings = await analyzeChunkWithModel({
         auditMode: args.auditMode,
+        analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
         projectName: args.projectName,
         learningContext: args.learningContext,
@@ -1999,6 +2019,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
+    const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
     const auditDescription = String(formData.get("auditDescription") ?? "").trim();
@@ -2064,6 +2085,7 @@ export async function POST(request: Request) {
     persistedAuditId = await createPendingAudit({
       auditId,
       auditMode,
+      analysisLevel,
       auditTitle,
       projectName,
       auditDescription,
@@ -2098,6 +2120,7 @@ export async function POST(request: Request) {
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
         auditMode,
+        analysisLevel,
         userMessage: message,
         projectName,
         learningContext,
@@ -2109,6 +2132,7 @@ export async function POST(request: Request) {
 
     const modelComparison = await analyzeCrossDocumentsWithModel({
       auditMode,
+      analysisLevel,
       userMessage: message,
       projectName,
       learningContext,
@@ -2124,6 +2148,7 @@ export async function POST(request: Request) {
     );
     const validatedFindings = await validateFindingsWithModel({
       auditMode,
+      analysisLevel,
       userMessage: message,
       projectName,
       learningContext,
@@ -2162,9 +2187,10 @@ export async function POST(request: Request) {
       tipo_auditoria: auditMode,
       tipo_documento: inferredDocumentType,
       runtime: {
-        modelo_principal: getPrimaryModelName(),
-        modelo_validacao: getValidationModelName(),
-        esforco_raciocinio: getReasoningEffort(),
+        nivel_analise: analysisLevel,
+        modelo_principal: getPrimaryModelName(analysisLevel),
+        modelo_validacao: getValidationModelName(analysisLevel),
+        esforco_raciocinio: getReasoningEffort(analysisLevel),
         duracao_ms: Date.now() - requestStartedAt,
         arquivos: uploadedFiles.length,
         gerado_em: new Date().toISOString(),

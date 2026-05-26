@@ -20,6 +20,7 @@ type AuditListItem = {
   title: string;
   projectName: string;
   auditMode: string;
+  analysisLevel: string;
   status: string;
   totalFindings: number;
   elapsedMs: number | null;
@@ -315,6 +316,7 @@ export default function AdminAuditsPage() {
                 <th className="px-3 py-3 font-medium">Projeto</th>
                 <th className="px-3 py-3 font-medium">Status</th>
                 <th className="px-3 py-3 font-medium">Modo</th>
+                <th className="px-3 py-3 font-medium">Nível</th>
                 <th className="px-3 py-3 text-right font-medium">PDFs</th>
                 <th className="px-3 py-3 text-right font-medium">Achados</th>
                 <th className="px-3 py-3 text-right font-medium">Tempo</th>
@@ -346,6 +348,9 @@ export default function AdminAuditsPage() {
                       </span>
                     </td>
                     <td className="px-3 py-3 font-mono text-muted-foreground">{audit.auditMode}</td>
+                    <td className="px-3 py-3 font-mono text-muted-foreground">
+                      {audit.analysisLevel === "deep" ? "Profundo" : "Padrão"}
+                    </td>
                     <td className="px-3 py-3 text-right font-mono">{audit.files.length}</td>
                     <td className="px-3 py-3 text-right font-mono">{audit.totalFindings}</td>
                     <td className="px-3 py-3 text-right font-mono">{formatDuration(audit.elapsedMs)}</td>
@@ -361,7 +366,7 @@ export default function AdminAuditsPage() {
                 <tr>
                   <td
                     className="px-3 py-10 text-center text-muted-foreground"
-                    colSpan={9}
+                    colSpan={10}
                   >
                     Nenhuma auditoria encontrada.
                   </td>

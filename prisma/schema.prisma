@@ -57,6 +57,7 @@ model Audit {
   projectName    String
   description    String      @default("")
   auditMode      String
+  analysisLevel  String      @default("standard")
   status         AuditStatus @default(PROCESSING)
   result         String?
   report         Json?
