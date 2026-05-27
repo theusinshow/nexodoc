@@ -6,14 +6,17 @@ import {
   ChevronRight,
   CircleAlert,
   CircleX,
+  Copy,
   Download,
   FileArchive,
   FileSearch,
   FileText,
+  Filter,
   Loader2,
   Plus,
   RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -64,6 +67,7 @@ type PdfReadResult = {
   stampPreviewUrl?: string;
   stampImageUrl?: string;
   extractionAttempt?: string;
+  ldData?: Partial<LdData>;
 };
 
 type CachedPdfReadResult = Omit<PdfReadResult, "row"> & {
@@ -86,14 +90,14 @@ const steps = [
 ];
 
 const initialLdData: LdData = {
-  projectCode: "196_25",
-  formattedCode: "196-25",
-  discipline: "est",
-  revision: "a",
-  sectionTitle: "PROJETO ESTRUTURAL CONCRETO",
-  client: "PMF/SMI",
-  workName: "CENTRO DE NEURODIVERGÊNCIA",
-  phase: "PROJETO EXECUTIVO",
+  projectCode: "",
+  formattedCode: "",
+  discipline: "",
+  revision: "",
+  sectionTitle: "",
+  client: "",
+  workName: "",
+  phase: "",
   templateMode: "padrao",
 };
 
@@ -221,6 +225,9 @@ type PdfJsDocument = {
 };
 
 type StampCropMode = "tight" | "normal" | "expanded" | "full-page";
+type ReviewFilterMode = "all" | "blockers" | "warnings" | "low-confidence" | "missing";
+type ReviewSortMode = "sheet" | "file" | "discipline" | "status";
+type ReviewDensity = "comfortable" | "compact";
 
 const stampCropModes: Array<{ mode: StampCropMode; label: string }> = [
   { mode: "tight", label: "selo compacto" },
@@ -229,7 +236,13 @@ const stampCropModes: Array<{ mode: StampCropMode; label: string }> = [
   { mode: "full-page", label: "pagina inteira" },
 ];
 
-const maxConcurrentVisualPages = 5;
+const maxConcurrentVisualPages = 3;
+
+function waitForUiFrame() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+  });
+}
 
 function normalizeExtractedValue(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -366,6 +379,7 @@ function parsePdfTextToRow(
     sourceFileIndex,
     textForAi,
     foundFields,
+    ldData: extractLdMetadataFromText(fullText),
     row: {
       id,
       sheet,
@@ -453,6 +467,59 @@ function fromCachedPdfReadResult(cached: CachedPdfReadResult, id: number): PdfRe
       reviewedAlertKeys: [],
     },
   };
+}
+
+function titleCaseProjectValue(value: string) {
+  return value
+    .toLocaleUpperCase("pt-BR")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractLdMetadataFromText(text: string): Partial<LdData> {
+  const normalized = normalizeExtractedValue(text).replace(/[–—]/g, "-");
+  const fallbackMatch = normalized.match(
+    /(PREFEITURA\s+MUNICIPAL\s+DE\s+CRICI[ÚU]MA)\s+(\d{2,4}[_-]\d{2})\s+(.+?)\s+(PROJETO\s+[A-ZÀ-Ú\s]+?)\s+LISTA\s+DE\s+DOCUMENTOS/i,
+  );
+  const headerParts = normalized
+    .split(/\s*-{2,}\s*/)
+    .map((part) => titleCaseProjectValue(part))
+    .filter(Boolean);
+  const client = headerParts.find((part) => /^PREFEITURA\s+MUNICIPAL\s+DE\s+/i.test(part));
+  const clientIndex = client ? headerParts.indexOf(client) : -1;
+  const projectCode = clientIndex >= 0 ? headerParts[clientIndex + 1] : "";
+  const workName = clientIndex >= 0 ? headerParts[clientIndex + 2] : "";
+  const phase = clientIndex >= 0 ? headerParts[clientIndex + 3] : "";
+  const metadata: Partial<LdData> = {};
+
+  if (fallbackMatch) {
+    return {
+      client: titleCaseProjectValue(fallbackMatch[1]),
+      projectCode: fallbackMatch[2].replace("-", "_"),
+      formattedCode: fallbackMatch[2].replace("_", "-"),
+      workName: titleCaseProjectValue(fallbackMatch[3]),
+      phase: titleCaseProjectValue(fallbackMatch[4]),
+    };
+  }
+
+  if (client) {
+    metadata.client = client;
+  }
+
+  if (projectCode && /^\d{2,4}[_-]\d{2}$/.test(projectCode)) {
+    metadata.projectCode = projectCode.replace("-", "_");
+    metadata.formattedCode = projectCode.replace("_", "-");
+  }
+
+  if (workName && !/LISTA\s+DE\s+DOCUMENTOS/i.test(workName)) {
+    metadata.workName = workName;
+  }
+
+  if (phase && !/LISTA\s+DE\s+DOCUMENTOS/i.test(phase)) {
+    metadata.phase = phase;
+  }
+
+  return metadata;
 }
 
 function deriveLdDataFromRow(row: ReviewRow): Partial<LdData> {
@@ -720,6 +787,17 @@ export function LdWorkspace() {
   const hasUnreviewedWarnings = reviewedWarnings < warningCount;
   const hasReferenceTotal = validation.totals.length <= 1 || referenceTotal !== null;
   const canAdvancePastReview = !hasBlockingIssues && !hasUnreviewedWarnings && hasReferenceTotal;
+  const fullAnalysisComplete = rows.length > 0 && pdfReadResults.length > 0 && !pdfProcessing;
+  const hasRequiredLdData = [
+    ldData.projectCode,
+    ldData.formattedCode,
+    ldData.discipline,
+    ldData.revision,
+    ldData.sectionTitle,
+    ldData.client,
+    ldData.workName,
+    ldData.phase,
+  ].every((value) => value.trim().length > 0);
 
   const generatedFiles = useMemo(
     () => [
@@ -1014,6 +1092,7 @@ export function LdWorkspace() {
       const parsedSheet = parseSheet(pageResult.row.sheet);
 
       setPreAnalysisResult(pageResult);
+      await waitForUiFrame();
 
       if (isProviderUnavailable(pageResult)) {
         setPdfReadError(
@@ -1023,7 +1102,11 @@ export function LdWorkspace() {
         return;
       }
 
-      setLdData((currentData) => ({ ...currentData, ...deriveLdDataFromRow(pageResult.row) }));
+      setLdData((currentData) => ({
+        ...currentData,
+        ...deriveLdDataFromRow(pageResult.row),
+        ...pageResult.ldData,
+      }));
 
       if (parsedSheet) {
         changeReferenceTotal(parsedSheet.total);
@@ -1148,7 +1231,11 @@ export function LdWorkspace() {
 
           nextResults.push(pageResult);
           setPreAnalysisResult(pageResult);
-          setLdData((currentData) => ({ ...currentData, ...deriveLdDataFromRow(pageResult.row) }));
+          setLdData((currentData) => ({
+            ...currentData,
+            ...deriveLdDataFromRow(pageResult.row),
+            ...pageResult.ldData,
+          }));
 
           const parsedSheetTotal = parseSheet(pageResult.row.sheet)?.total;
 
@@ -1221,6 +1308,7 @@ export function LdWorkspace() {
 
         documents.push({ file, fileIndex, pdf });
         totalPages += pdf.numPages;
+        await waitForUiFrame();
       }
 
       const nextResults: PdfReadResult[] = [];
@@ -1275,6 +1363,7 @@ export function LdWorkspace() {
         nextResults.push(...batchResults);
         setPdfReadResults([...nextResults]);
         setRows(nextResults.map((result) => result.row).sort(compareBySheet));
+        await waitForUiFrame();
       }
 
       setPdfReadResults(nextResults);
@@ -1373,6 +1462,11 @@ export function LdWorkspace() {
   }
 
   function goToStep(step: number) {
+    if (step > 1 && (!fullAnalysisComplete || !hasRequiredLdData)) {
+      setActiveStep(1);
+      return;
+    }
+
     if (step > 2 && !canAdvancePastReview) {
       setActiveStep(2);
       return;
@@ -1391,7 +1485,7 @@ export function LdWorkspace() {
       return;
     }
 
-    if (activeStep === 1 && rows.length === 0) {
+    if (activeStep === 1 && (!fullAnalysisComplete || !hasRequiredLdData)) {
       return;
     }
 
@@ -1419,7 +1513,7 @@ export function LdWorkspace() {
     setManualTotal(total ? String(total) : "");
 
     if (total) {
-      setTomos((current) => buildBalancedTomos(total, Math.min(current.length, total)));
+      setTomos(buildBalancedTomos(total, Math.max(1, Math.ceil(total / 15))));
     }
   }
 
@@ -1528,7 +1622,7 @@ export function LdWorkspace() {
   return (
     <main className="min-h-screen">
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mx-auto flex max-w-[1800px] flex-col gap-5 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               NexoDoc
@@ -1552,7 +1646,7 @@ export function LdWorkspace() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[260px_1fr]">
+      <div className="mx-auto grid max-w-[1800px] gap-6 px-5 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="h-fit border border-border bg-card p-3">
           <nav className="space-y-1" aria-label="Etapas">
             {steps.map((step, index) => (
@@ -1686,7 +1780,7 @@ export function LdWorkspace() {
               disabled={
                 activeStep === steps.length - 1 ||
                 (activeStep === 0 && !preAnalysisResult) ||
-                (activeStep === 1 && rows.length === 0) ||
+                (activeStep === 1 && (!fullAnalysisComplete || !hasRequiredLdData)) ||
                 (activeStep === 2 && !canAdvancePastReview) ||
                 (activeStep === 3 && !canAdvancePastTomos)
               }
@@ -1694,8 +1788,10 @@ export function LdWorkspace() {
             >
               {activeStep === 0 && !preAnalysisResult
                 ? "Importe os PDFs"
-                : activeStep === 1 && rows.length === 0
-                ? "Analise completa pendente"
+                : activeStep === 1 && !fullAnalysisComplete
+                ? pdfProcessing ? "Aguarde a análise" : "Analise todas as pranchas"
+                : activeStep === 1 && !hasRequiredLdData
+                ? "Preencha os dados da LD"
                 : activeStep === 2
                   ? "Validar e avançar"
                   : "Avançar"}
@@ -1730,14 +1826,21 @@ function LdForm({
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Field label="Código do projeto" value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
-      <Field label="Código formatado" value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
-      <Field label="Sigla da disciplina" value={data.discipline} onChange={(value) => onChange("discipline", value)} />
-      <Field label="Revisão" value={data.revision} onChange={(value) => onChange("revision", value)} />
-      <Field className="md:col-span-2" label="Título da seção" value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
-      <Field label="Órgão/cliente" value={data.client} onChange={(value) => onChange("client", value)} />
-      <Field label="Nome da obra" value={data.workName} onChange={(value) => onChange("workName", value)} />
-      <Field label="Fase" value={data.phase} onChange={(value) => onChange("phase", value)} />
+      <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm md:col-span-2">
+        <p className="font-medium">Confira os dados antes de avançar.</p>
+        <p className="mt-1 text-muted-foreground">
+          O NexoDoc só preenche órgão, obra e fase quando encontra esses dados no rodapé/cabeçalho do PDF.
+          Se não encontrar, os campos ficam em branco para evitar siglas ou nomes de projeto incorretos.
+        </p>
+      </div>
+      <Field required label="Código do projeto" value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
+      <Field required label="Código formatado" value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
+      <Field required label="Sigla da disciplina" value={data.discipline} onChange={(value) => onChange("discipline", value)} />
+      <Field required label="Revisão" value={data.revision} onChange={(value) => onChange("revision", value)} />
+      <Field required className="md:col-span-2" label="Título da seção" value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
+      <Field required label="Órgão/cliente" value={data.client} onChange={(value) => onChange("client", value)} />
+      <Field required label="Nome da obra" value={data.workName} onChange={(value) => onChange("workName", value)} />
+      <Field required label="Fase" value={data.phase} onChange={(value) => onChange("phase", value)} />
       <label className="grid gap-1.5">
         <span className="text-sm font-medium">Template</span>
         <select
@@ -1774,20 +1877,27 @@ function Field({
   value,
   onChange,
   className = "",
+  required = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  required?: boolean;
 }) {
+  const isMissing = required && value.trim().length === 0;
+
   return (
     <label className={`grid gap-1.5 ${className}`}>
       <span className="text-sm font-medium">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+        className={`h-10 rounded-md border bg-background px-3 text-sm ${
+          isMissing ? "border-warning" : "border-border"
+        }`}
       />
+      {isMissing ? <span className="text-xs text-[var(--status-warning)]">Preenchimento obrigatório para gerar a LD.</span> : null}
     </label>
   );
 }
@@ -2044,6 +2154,12 @@ function ReviewTable({
   onReprocess: (rowId: number) => void;
 }) {
   const [zoomedStamp, setZoomedStamp] = useState<PdfReadResult | null>(null);
+  const [filterMode, setFilterMode] = useState<ReviewFilterMode>("all");
+  const [sortMode, setSortMode] = useState<ReviewSortMode>("sheet");
+  const [density, setDensity] = useState<ReviewDensity>("comfortable");
+  const [clipboardStatus, setClipboardStatus] = useState("");
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(() => new Set());
+  const [bulkDiscipline, setBulkDiscipline] = useState("");
   const warningIssues = rows.flatMap((row) =>
     (validation.rowIssues[row.id] ?? []).filter((issue) => issue.severity === "warning"),
   );
@@ -2058,6 +2174,176 @@ function ReviewTable({
   ).length;
   const totalWarnings = warningIssues.length + validation.globalWarnings.length;
   const reviewedWarnings = reviewedRowWarnings + reviewedGlobalWarningCount;
+  const getRowIssues = (row: ReviewRow) => validation.rowIssues[row.id] ?? [];
+  const hasMissingData = (row: ReviewRow) =>
+    !parseSheet(row.sheet) || row.file.trim().length === 0 || row.description.trim().length === 0;
+  const getRowPriority = (row: ReviewRow) => {
+    const issues = getRowIssues(row);
+
+    if (issues.some((issue) => issue.severity === "blocker")) {
+      return 0;
+    }
+
+    if (issues.some((issue) => issue.severity === "warning")) {
+      return 1;
+    }
+
+    if (row.lowConfidence) {
+      return 2;
+    }
+
+    if (hasMissingData(row)) {
+      return 3;
+    }
+
+    return 4;
+  };
+  const filteredRows = rows.filter((row) => {
+    const issues = getRowIssues(row);
+
+    if (filterMode === "blockers") {
+      return issues.some((issue) => issue.severity === "blocker");
+    }
+
+    if (filterMode === "warnings") {
+      return issues.some((issue) => issue.severity === "warning");
+    }
+
+    if (filterMode === "low-confidence") {
+      return row.lowConfidence;
+    }
+
+    if (filterMode === "missing") {
+      return hasMissingData(row);
+    }
+
+    return true;
+  });
+  const visibleRows = [...filteredRows].sort((a, b) => {
+    if (sortMode === "file") {
+      return a.file.localeCompare(b.file, "pt-BR", { numeric: true });
+    }
+
+    if (sortMode === "discipline") {
+      return a.readDiscipline.localeCompare(b.readDiscipline, "pt-BR", { numeric: true }) || compareBySheet(a, b);
+    }
+
+    if (sortMode === "status") {
+      return getRowPriority(a) - getRowPriority(b) || compareBySheet(a, b);
+    }
+
+    return compareBySheet(a, b);
+  });
+  const selectedRows = rows.filter((row) => selectedRowIds.has(row.id));
+  const visibleSelectedCount = visibleRows.filter((row) => selectedRowIds.has(row.id)).length;
+  const allVisibleSelected = visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
+  const filterOptions: Array<{ value: ReviewFilterMode; label: string; count: number }> = [
+    { value: "all", label: "Todas", count: rows.length },
+    {
+      value: "blockers",
+      label: "Com erro",
+      count: rows.filter((row) => getRowIssues(row).some((issue) => issue.severity === "blocker")).length,
+    },
+    {
+      value: "warnings",
+      label: "Alertas",
+      count: rows.filter((row) => getRowIssues(row).some((issue) => issue.severity === "warning")).length,
+    },
+    { value: "low-confidence", label: "Baixa confiança", count: rows.filter((row) => row.lowConfidence).length },
+    { value: "missing", label: "Campos vazios", count: rows.filter(hasMissingData).length },
+  ];
+  const copyVisibleRows = async () => {
+    const text = [
+      "Folha\tArquivo\tDescricao\tDisciplina\tStatus",
+      ...visibleRows.map((row) => {
+        const status = getRowIssues(row)
+          .map((issue) => issue.label)
+          .join(" | ") || (row.lowConfidence ? "Baixa confianca" : "OK");
+
+        return [row.sheet, row.file, row.description, row.readDiscipline, status]
+          .map((value) => value.replace(/\s+/g, " ").trim())
+          .join("\t");
+      }),
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setClipboardStatus(`${visibleRows.length} linhas copiadas`);
+    } catch {
+      setClipboardStatus("Nao foi possivel copiar automaticamente");
+    }
+
+    window.setTimeout(() => setClipboardStatus(""), 2500);
+  };
+  const toggleVisibleSelection = (checked: boolean) => {
+    setSelectedRowIds((current) => {
+      const next = new Set(current);
+
+      for (const row of visibleRows) {
+        if (checked) {
+          next.add(row.id);
+        } else {
+          next.delete(row.id);
+        }
+      }
+
+      return next;
+    });
+  };
+  const toggleRowSelection = (rowId: number, checked: boolean) => {
+    setSelectedRowIds((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(rowId);
+      } else {
+        next.delete(rowId);
+      }
+
+      return next;
+    });
+  };
+  const markSelectedWarningsReviewed = () => {
+    for (const row of selectedRows) {
+      for (const issue of getRowIssues(row).filter((item) => item.severity === "warning")) {
+        if (!row.reviewedAlertKeys.includes(issue.key)) {
+          onToggleReviewedAlert(row.id, issue.key, true);
+        }
+      }
+    }
+  };
+  const clearSelectedLowConfidence = () => {
+    for (const row of selectedRows) {
+      if (row.lowConfidence) {
+        onUpdate(row.id, "lowConfidence", false);
+      }
+    }
+  };
+  const applySelectedDiscipline = () => {
+    const nextDiscipline = bulkDiscipline.trim();
+
+    if (!nextDiscipline) {
+      return;
+    }
+
+    for (const row of selectedRows) {
+      onUpdate(row.id, "readDiscipline", nextDiscipline);
+    }
+  };
+  const removeSelectedRows = () => {
+    if (
+      selectedRows.length === 0 ||
+      !window.confirm(`Excluir ${selectedRows.length} linha(s) selecionada(s) da LD?`)
+    ) {
+      return;
+    }
+
+    for (const row of selectedRows) {
+      onRemove(row.id);
+    }
+
+    setSelectedRowIds(new Set());
+  };
 
   return (
     <div className="space-y-4">
@@ -2124,10 +2410,146 @@ function ReviewTable({
           Adicionar linha
         </button>
       </div>
-      <div className="overflow-x-auto border border-border">
-        <table className="w-full min-w-[1240px] border-collapse text-sm">
-          <thead className="bg-[var(--nexodoc-raised)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Filter size={16} />
+              Organizar revisão
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mostrando {visibleRows.length} de {rows.length} pranchas. Use filtros para atacar primeiro o que bloqueia a LD.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={copyVisibleRows}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+          >
+            <Copy size={16} />
+            Copiar visão atual
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {filterOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setFilterMode(option.value)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                filterMode === option.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {option.label} ({option.count})
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="flex items-center gap-2 text-muted-foreground">
+            <SlidersHorizontal size={16} />
+            Ordenar
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as ReviewSortMode)}
+              className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
+            >
+              <option value="sheet">Nº da folha</option>
+              <option value="status">Status de revisão</option>
+              <option value="file">Arquivo</option>
+              <option value="discipline">Disciplina lida</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-muted-foreground">
+            Densidade
+            <select
+              value={density}
+              onChange={(event) => setDensity(event.target.value as ReviewDensity)}
+              className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
+            >
+              <option value="comfortable">Confortável</option>
+              <option value="compact">Compacta</option>
+            </select>
+          </label>
+          {clipboardStatus ? <span className="text-xs text-muted-foreground">{clipboardStatus}</span> : null}
+        </div>
+        <div className="grid gap-3 border-t border-border pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div>
+            <p className="text-sm font-medium">
+              {selectedRows.length > 0
+                ? `${selectedRows.length} prancha(s) selecionada(s)`
+                : "Selecione pranchas para aplicar ações em massa"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              A seleção respeita os filtros atuais. Você pode revisar alertas e padronizar disciplina sem editar linha por linha.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={markSelectedWarningsReviewed}
+              disabled={selectedRows.length === 0}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check size={16} />
+              Revisar alertas
+            </button>
+            <button
+              type="button"
+              onClick={clearSelectedLowConfidence}
+              disabled={selectedRows.length === 0}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Limpar baixa confiança
+            </button>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Disciplina
+              <input
+                value={bulkDiscipline}
+                onChange={(event) => setBulkDiscipline(event.target.value)}
+                placeholder="ex.: est"
+                className="h-9 w-24 rounded-md border border-border bg-card px-2 text-foreground"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={applySelectedDiscipline}
+              disabled={selectedRows.length === 0 || bulkDiscipline.trim().length === 0}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Aplicar
+            </button>
+            <button
+              type="button"
+              onClick={removeSelectedRows}
+              disabled={selectedRows.length === 0}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-destructive transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              Excluir seleção
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="max-h-[68vh] overflow-auto border border-border">
+        <table className="w-full min-w-[1500px] border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-[var(--nexodoc-raised)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
             <tr>
+              <th className="w-12 border-b border-border px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate = visibleSelectedCount > 0 && !allVisibleSelected;
+                    }
+                  }}
+                  onChange={(event) => toggleVisibleSelection(event.target.checked)}
+                  aria-label="Selecionar pranchas visíveis"
+                  className="size-4"
+                />
+              </th>
               <th className="w-28 border-b border-border px-3 py-3">Nº da folha</th>
               <th className="w-52 border-b border-border px-3 py-3">Arquivos</th>
               <th className="border-b border-border px-3 py-3">Descrição</th>
@@ -2138,12 +2560,21 @@ function ReviewTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const result = readResults.find((item) => item.row.id === row.id);
               const reprocessing = reprocessingRowId === row.id;
 
               return (
               <tr key={row.id} className="border-b border-border last:border-b-0">
+                <td className="px-3 py-3 align-top">
+                  <input
+                    type="checkbox"
+                    checked={selectedRowIds.has(row.id)}
+                    onChange={(event) => toggleRowSelection(row.id, event.target.checked)}
+                    aria-label={`Selecionar prancha ${row.sheet || row.id}`}
+                    className="size-4"
+                  />
+                </td>
                 <td className="px-3 py-3 align-top">
                   <CellInput value={row.sheet} onChange={(value) => onUpdate(row.id, "sheet", value)} />
                 </td>
@@ -2154,7 +2585,9 @@ function ReviewTable({
                   <textarea
                     value={row.description}
                     onChange={(event) => onUpdate(row.id, "description", event.target.value)}
-                    className="min-h-20 w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    className={`w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm ${
+                      density === "compact" ? "min-h-12" : "min-h-20"
+                    }`}
                   />
                 </td>
                 <td className="px-3 py-3 align-top">
@@ -2251,6 +2684,13 @@ function ReviewTable({
               </tr>
               );
             })}
+            {visibleRows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  Nenhuma prancha corresponde ao filtro atual.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -2532,6 +2972,8 @@ function TomosStep({
   const allocatedSheets = tomos.reduce((sum, tomo) => sum + tomo.quantity, 0);
   const maxTomos = Math.min(totalSheets, Math.max(1, Math.ceil(totalSheets / 5)));
   const tomoCountOptions = Array.from({ length: maxTomos }, (_, index) => index + 1);
+  const recommendedTomoCount = Math.max(1, Math.ceil(totalSheets / 15));
+  const oversizedTomos = tomos.filter((tomo) => tomo.quantity > 15);
 
   return (
     <div className="space-y-4">
@@ -2549,6 +2991,38 @@ function TomosStep({
           </p>
         </div>
       </div>
+      <div className="rounded-md border border-border bg-background p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Sugestão automática de tomos</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Para {totalSheets} pranchas, a divisão sugerida é de {recommendedTomoCount} tomo(s),
+              mantendo até 15 pranchas por tomo sempre que possível.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onTomoCountChange(recommendedTomoCount)}
+            className="inline-flex items-center justify-center rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+          >
+            Aplicar sugestão
+          </button>
+        </div>
+      </div>
+      {oversizedTomos.length > 0 && (
+        <div className="rounded-md border border-warning bg-warning-soft p-4">
+          <div className="flex items-start gap-2">
+            <CircleAlert size={18} className="mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold">Atenção: tomo com mais de 15 pranchas</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {oversizedTomos.map((tomo) => `${tomo.title} (${tomo.quantity})`).join(", ")}.
+                Confira se essa divisão é intencional antes de gerar a LD final.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Quantidade de tomos</legend>
         <div className="flex flex-wrap gap-2">

@@ -58,6 +58,9 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Rotas `/api/ld/*` para extracao visual, geracao ODT e pacote final da LD.
 - Fallback MiMo `mimo-v2.5` centralizado no backend para extracao dos selos.
 - Dashboard autenticado de modulos com acessos a conferencia documental e montagem de LDs.
+- Ferramentas de organizacao na revisao da LD: filtros por status, ordenacao, densidade compacta, copia da visao atual e acoes em massa por selecao.
+- Preenchimento seguro dos dados da LD a partir do PDF, sem valores mockados de cliente/obra, com leitura do rodape quando disponivel.
+- Sugestao automatica de divisao de tomos com alerta para tomos acima de 15 pranchas.
 
 ### Alterado
 
@@ -78,6 +81,8 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Extracao de LD informa uso de fallback MiMo e separa falhas de quota, autenticacao, timeout e resposta invalida.
 - Erros de texto incompleto na LD deixam de ser tratados implicitamente como falta de quota.
 - Conferencia documental movida para `/audit`, preservando o workspace de chat e liberando `/` para o painel inicial.
+- Leitura de PDFs da LD passa a processar lotes menores e liberar a interface entre etapas para reduzir travamentos percebidos.
+- Avanco da LD passa a ficar bloqueado enquanto a analise completa das pranchas estiver em andamento ou os dados obrigatorios estiverem incompletos.
 
 ### Removido
 

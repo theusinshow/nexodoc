@@ -40,7 +40,28 @@ O workspace principal em `/audit` preserva:
 - botao para cancelar processamento.
 - botao de demo local para validar UI sem API, sem PDF real e sem custo.
 
-## 4. Layout recomendado
+## 4. Workspace de montagem de LDs
+
+O workspace de `/ld` deve priorizar revisao assistida e organizacao rapida das
+pranchas extraidas. A tabela de revisao precisa oferecer:
+
+- preenchimento seguro dos dados da LD, sem usar cliente ou obra mockados quando
+  esses dados nao forem encontrados no PDF;
+- bloqueio do avanco enquanto a analise completa das pranchas estiver pendente
+  ou enquanto campos obrigatorios da LD estiverem vazios;
+- filtros por todas, erros bloqueantes, alertas, baixa confianca e campos vazios;
+- ordenacao por folha, status, arquivo e disciplina lida;
+- modo de densidade compacta para volumes maiores;
+- copia da visao filtrada para conferencia externa;
+- selecao de pranchas e acoes em massa para revisar alertas, limpar baixa
+  confianca, padronizar disciplina lida e excluir linhas selecionadas;
+- cabecalho fixo e area de rolagem propria para manter a navegacao da revisao;
+- progresso incremental durante leitura dos PDFs, evitando longos periodos sem
+  resposta visual.
+- sugestao automatica de divisao de tomos, priorizando ate 15 pranchas por tomo,
+  com alerta quando o usuario configurar um tomo acima desse limite.
+
+## 5. Layout recomendado
 
 Estrutura visual:
 
@@ -56,7 +77,7 @@ Estrutura visual:
 
 Em telas menores, a sidebar pode ser reduzida ou empilhada, mantendo prioridade para a area de chat e envio.
 
-## 5. Componentes previstos
+## 6. Componentes previstos
 
 Componentes previstos para a fase de implementacao:
 
@@ -69,7 +90,7 @@ Componentes previstos para a fase de implementacao:
 
 Esses componentes ainda nao devem ser criados nesta etapa de documentacao.
 
-## 6. Comportamentos esperados
+## 7. Comportamentos esperados
 
 ### Upload de arquivos
 
@@ -109,7 +130,7 @@ A resposta deve:
 - permitir copia separada de achados e acoes recomendadas;
 - permitir alternar entre analise estruturada e visualizacao de relatorio.
 
-## 7. Linguagem de interface
+## 8. Linguagem de interface
 
 A linguagem da interface deve ser objetiva.
 
