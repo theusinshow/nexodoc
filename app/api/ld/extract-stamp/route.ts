@@ -17,6 +17,10 @@ type StampExtraction = {
   numeroFolha: string | null;
   arquivo: string | null;
   conteudo: string | null;
+  cliente: string | null;
+  obra: string | null;
+  fase: string | null;
+  tituloSecao: string | null;
   confianca: "alta" | "media" | "baixa";
 };
 
@@ -48,27 +52,61 @@ const extractionSchema = {
       type: ["string", "null"],
       description: "Valor exato do campo CONTEÚDO, apenas com quebras de linha juntadas.",
     },
+    cliente: {
+      type: ["string", "null"],
+      description: "Órgão/cliente lido no cabeçalho ou rodapé da página, como PREFEITURA MUNICIPAL DE CRICIÚMA.",
+    },
+    obra: {
+      type: ["string", "null"],
+      description: "Nome da obra/projeto lido no cabeçalho ou rodapé da página.",
+    },
+    fase: {
+      type: ["string", "null"],
+      description: "Fase do projeto lida no cabeçalho ou rodapé, como PROJETO EXECUTIVO.",
+    },
+    tituloSecao: {
+      type: ["string", "null"],
+      description: "Título técnico da seção ou disciplina da LD, como PROJETO ESTRUTURAL CONCRETO.",
+    },
     confianca: {
       type: "string",
       enum: ["alta", "media", "baixa"],
       description: "Confiança da extração visual.",
     },
   },
-  required: ["disciplina", "folha", "total", "numeroFolha", "arquivo", "conteudo", "confianca"],
+  required: [
+    "disciplina",
+    "folha",
+    "total",
+    "numeroFolha",
+    "arquivo",
+    "conteudo",
+    "cliente",
+    "obra",
+    "fase",
+    "tituloSecao",
+    "confianca",
+  ],
 } as const;
 
-const systemPrompt = `Leia apenas o selo da prancha técnica.
+const systemPrompt = `Leia a primeira prancha técnica para montar uma Lista de Documentos.
 
-Extraia exclusivamente os campos:
+Extraia do selo da prancha:
 - PRANCHA
 - ARQUIVO
 - CONTEÚDO
+
+Extraia também do cabeçalho ou rodapé da página, quando visível ou presente no texto extraído:
+- Órgão/cliente
+- Nome da obra/projeto
+- Fase do projeto
+- Título técnico da seção/disciplina da LD
 
 O campo PRANCHA sempre existe no selo.
 O campo ARQUIVO sempre existe no selo.
 O campo CONTEÚDO sempre existe no selo.
 
-Não use informações fora desses campos.
+Para cliente, obra, fase e título da seção, use apenas texto presente na página.
 Não reescreva textos.
 Não corrija ortografia.
 Não resuma.
@@ -102,6 +140,7 @@ function buildTextPrompt(pdfText?: string) {
 
 O conteúdo abaixo foi extraído do PDF e pode estar fora de ordem por causa da diagramação.
 Identifique os valores associados aos rótulos do selo sem usar o nome do arquivo enviado.
+Para cliente, obra, fase e título da seção, procure também no cabeçalho, rodapé e linhas com LISTA DE DOCUMENTOS.
 
 TEXTO EXTRAÍDO:
 ${pdfText}`;
@@ -197,7 +236,7 @@ async function extractWithMimo(model: string, textPrompt: string, imageDataUrl?:
               type: "text",
               text: `${textPrompt}
 
-Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, numeroFolha, arquivo, conteudo e confianca. Para campos não encontrados use null. Para confianca use "alta", "media" ou "baixa".`,
+Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, numeroFolha, arquivo, conteudo, cliente, obra, fase, tituloSecao e confianca. Para campos não encontrados use null. Para confianca use "alta", "media" ou "baixa".`,
             },
           ],
         },

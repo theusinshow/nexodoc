@@ -55,11 +55,19 @@ pranchas extraidas. A tabela de revisao precisa oferecer:
 - copia da visao filtrada para conferencia externa;
 - selecao de pranchas e acoes em massa para revisar alertas, limpar baixa
   confianca, padronizar disciplina lida e excluir linhas selecionadas;
+- modo de triagem rapida para percorrer somente erros e alertas pendentes,
+  com navegacao anterior/proxima;
 - cabecalho fixo e area de rolagem propria para manter a navegacao da revisao;
 - progresso incremental durante leitura dos PDFs, evitando longos periodos sem
   resposta visual.
 - sugestao automatica de divisao de tomos, priorizando ate 15 pranchas por tomo,
   com alerta quando o usuario configurar um tomo acima desse limite.
+- historico e autosave de rascunhos por usuario autenticado;
+- checklist obrigatorio antes da geracao dos arquivos finais.
+- mapa dos tomos no resumo final, com intervalo, quantidade e destaque para
+  tomos acima da recomendacao.
+- pagina `/ld/historico` com busca, filtros de status, continuidade,
+  duplicacao, arquivamento e linha do tempo de alteracoes relevantes.
 
 ## 5. Layout recomendado
 

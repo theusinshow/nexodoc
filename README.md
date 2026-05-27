@@ -26,12 +26,13 @@ Ja incorporado alem do escopo inicial:
 - login exclusivo com Google OAuth;
 - dashboard inicial autenticado para acesso aos modulos;
 - banco de dados PostgreSQL opcional para historico;
+- historico individual de LDs por usuario autenticado, com autosave e rastreabilidade;
 - painel administrativo de auditorias, uso e configuracao;
 - exportacao do relatorio em Markdown.
 
 Ainda fora do escopo atual:
 
-- associacao do historico a cada usuario autenticado;
+- armazenamento permanente dos arquivos PDF/ODT/ZIP gerados no historico de LDs;
 - exportacao PDF;
 - exportacao DOCX;
 - OCR para PDFs escaneados.
@@ -149,6 +150,7 @@ Depois do login, a rota `/` abre o painel de modulos. Os fluxos ativos sao:
 ```text
 /audit  - Conferencia documental (fluxo principal)
 /ld     - Montagem de Listas de Documentos
+/ld/historico - Historico pessoal de LDs salvas
 ```
 
 O painel tambem apresenta como futuros os modulos de montagem de capas e
@@ -168,9 +170,14 @@ Ele importa PDFs de pranchas, extrai os campos do selo, permite revisao manual, 
 /api/ld/extract-stamp
 /api/ld/generate-odt
 /api/ld/generate-package
+/api/ld/drafts
+/api/ld/drafts/[id]
+/api/ld/drafts/[id]/duplicate
 ```
 
 A extracao visual tenta `NEXODOC_LD_OPENAI_MODEL` primeiro e utiliza `MIMO_MODEL` como fallback quando a chamada principal falha, inclusive quando OpenAI retorna quota/billing. `MIMO_API_KEY` e `MIMO_MODEL` ficam no mesmo ambiente backend das variaveis OpenAI. A tela da LD identifica quando uma pagina foi lida por OpenAI, quando MiMo foi acionado como fallback ou quando os dois provedores falharam; texto incompleto nao e classificado automaticamente como erro de quota.
+
+Com `DATABASE_URL` configurada, a LD faz autosave associado ao usuario logado. A rota `/ld/historico` permite pesquisar, continuar, duplicar e arquivar rascunhos, alem de consultar os eventos de criacao, atualizacao, geracao, reabertura e arquivamento.
 
 O painel `/admin/config` mostra apenas provedor, modelo, presenca da chave requerida e o ultimo incidente classificado (`quota_billing`, `authentication`, `timeout`, `rate_limit`, `invalid_response` ou configuracao) observado na instancia atual. Sua verificacao de saude e intencionalmente local: nao faz chamadas externas e nao consome tokens.
 
@@ -201,6 +208,7 @@ Os paineis protegidos ficam em:
 /admin/audits
 /admin/quality
 /admin/config
+/admin/lds
 ```
 
 Somente contas Google listadas em `NEXODOC_ADMIN_EMAILS` visualizam os atalhos e
@@ -208,6 +216,8 @@ podem acessar essas rotas. Eles consultam o backend em `/api/admin/*` e exigem
 tambem o token admin operacional. O painel
 `/admin/quality` compara o desempenho de `Padrao` e `Profundo`, alem dos modelos
 usados, a partir dos achados classificados manualmente na auditoria.
+O painel `/admin/lds` acompanha os rascunhos e geracoes de LD por usuario,
+projeto e status, incluindo contagem de pranchas, tomos e eventos registrados.
 
 Variaveis necessarias no Render:
 
@@ -251,6 +261,12 @@ npm run db:push
 ```
 
 O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha, cancelamento, modelo usado e runtime da analise dentro do relatorio estruturado. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
+
+No Criador de LDs, o banco guarda rascunhos por e-mail autenticado, dados
+revisados, divisao de tomos, nomes dos arquivos e eventos de rastreabilidade.
+Os binarios originais e os arquivos finais para download ainda nao sao
+armazenados permanentemente; essa etapa requer um armazenamento de objetos
+protegido antes de liberar uso operacional amplo.
 
 A prontidao do historico pode ser verificada por:
 

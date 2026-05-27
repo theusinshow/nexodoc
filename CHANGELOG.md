@@ -61,6 +61,12 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Ferramentas de organizacao na revisao da LD: filtros por status, ordenacao, densidade compacta, copia da visao atual e acoes em massa por selecao.
 - Preenchimento seguro dos dados da LD a partir do PDF, sem valores mockados de cliente/obra, com leitura do rodape quando disponivel.
 - Sugestao automatica de divisao de tomos com alerta para tomos acima de 15 pranchas.
+- Historico e autosave de rascunhos de LD por usuario autenticado.
+- Checklist obrigatorio antes da geracao dos arquivos finais da LD.
+- Modo de triagem rapida na revisao da LD para navegar apenas por pendencias.
+- Mapa de tomos no resumo final para conferencia visual dos intervalos antes da geracao.
+- Pagina de historico pessoal de LDs com busca, filtros, duplicacao, arquivamento e rastreabilidade de eventos.
+- Painel administrativo de LDs com filtros por projeto, status e usuario.
 
 ### Alterado
 

@@ -25,6 +25,12 @@ enum AuditFeedbackVerdict {
   MISSING_FINDING
 }
 
+enum LdDraftStatus {
+  DRAFT
+  GENERATED
+  ARCHIVED
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -104,4 +110,44 @@ model AuditFile {
   audit              Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   @@index([auditId])
+}
+
+model LdDraft {
+  id                 String        @id @default(cuid())
+  userEmail          String
+  userName           String?
+  title              String
+  projectCode        String
+  workName           String
+  status             LdDraftStatus @default(DRAFT)
+  activeStep         Int           @default(0)
+  ldData             Json
+  rows               Json
+  tomos              Json
+  referenceTotal     Int?
+  manualTotal        String        @default("")
+  uploadedFileNames  Json
+  generatedFileNames Json
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  generatedAt        DateTime?
+  events             LdDraftEvent[]
+
+  @@index([userEmail, updatedAt])
+  @@index([status, updatedAt])
+}
+
+model LdDraftEvent {
+  id         String   @id @default(cuid())
+  draftId    String
+  actorEmail String
+  actorName  String?
+  action     String
+  summary    String
+  details    Json?
+  createdAt  DateTime @default(now())
+  draft      LdDraft  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, createdAt])
+  @@index([actorEmail, createdAt])
 }

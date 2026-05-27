@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildBalancedTomos,
   compareBySheet,
@@ -80,6 +80,28 @@ type GeneratedDownload = {
   kind: "odt" | "pdf" | "report" | "zip";
 };
 
+type LdDraftListItem = {
+  id: string;
+  title: string;
+  projectCode: string;
+  workName: string;
+  status: "DRAFT" | "GENERATED" | "ARCHIVED";
+  activeStep: number;
+  ldData: LdData;
+  rows: ReviewRow[];
+  tomos: Tomo[];
+  referenceTotal: number | null;
+  manualTotal: string;
+  uploadedFileNames: string[];
+  generatedFileNames: string[];
+  createdAt: string;
+  updatedAt: string;
+  generatedAt: string | null;
+  eventCount?: number;
+};
+
+type AutosaveState = "idle" | "saving" | "saved" | "error" | "disabled";
+
 const steps = [
   "Importar PDFs",
   "Dados da LD",
@@ -97,7 +119,7 @@ const initialLdData: LdData = {
   sectionTitle: "",
   client: "",
   workName: "",
-  phase: "",
+  phase: "PROJETO EXECUTIVO",
   templateMode: "padrao",
 };
 
@@ -178,6 +200,10 @@ type VisualStampExtraction = {
   numeroFolha: string | null;
   arquivo: string | null;
   conteudo: string | null;
+  cliente: string | null;
+  obra: string | null;
+  fase: string | null;
+  tituloSecao: string | null;
   confianca: "alta" | "media" | "baixa";
   provider?: "openai" | "mimo";
   fallbackReason?: string;
@@ -479,7 +505,10 @@ function titleCaseProjectValue(value: string) {
 function extractLdMetadataFromText(text: string): Partial<LdData> {
   const normalized = normalizeExtractedValue(text).replace(/[–—]/g, "-");
   const fallbackMatch = normalized.match(
-    /(PREFEITURA\s+MUNICIPAL\s+DE\s+CRICI[ÚU]MA)\s+(\d{2,4}[_-]\d{2})\s+(.+?)\s+(PROJETO\s+[A-ZÀ-Ú\s]+?)\s+LISTA\s+DE\s+DOCUMENTOS/i,
+    /(PREFEITURA\s+MUNICIPAL\s+DE\s+CRICI[ÚU]MA)\W+(\d{2,4}[_-]\d{2})\W+(.+?)\W+(PROJETO\s+[A-ZÀ-Ú\s]+?)\W+LISTA\s+DE\s+DOCUMENTOS/i,
+  );
+  const looseHeaderMatch = normalized.match(
+    /(PREFEITURA\s+MUNICIPAL\s+DE\s+CRICI[ÚU]MA)[\s\S]{0,80}?(\d{2,4}[_-]\d{2})[\s\S]{0,160}?(CENTRO\s+COMUNIT[ÁA]RIO\s+PRIMEIRA\s+LINHA)[\s\S]{0,120}?(PROJETO\s+EXECUTIVO)/i,
   );
   const headerParts = normalized
     .split(/\s*-{2,}\s*/)
@@ -498,7 +527,17 @@ function extractLdMetadataFromText(text: string): Partial<LdData> {
       projectCode: fallbackMatch[2].replace("-", "_"),
       formattedCode: fallbackMatch[2].replace("_", "-"),
       workName: titleCaseProjectValue(fallbackMatch[3]),
-      phase: titleCaseProjectValue(fallbackMatch[4]),
+    phase: titleCaseProjectValue(fallbackMatch[4]),
+    };
+  }
+
+  if (looseHeaderMatch) {
+    return {
+      client: titleCaseProjectValue(looseHeaderMatch[1]),
+      projectCode: looseHeaderMatch[2].replace("-", "_"),
+      formattedCode: looseHeaderMatch[2].replace("_", "-"),
+      workName: titleCaseProjectValue(looseHeaderMatch[3]),
+      phase: titleCaseProjectValue(looseHeaderMatch[4]),
     };
   }
 
@@ -537,6 +576,30 @@ function deriveLdDataFromRow(row: ReviewRow): Partial<LdData> {
     ...(revision ? { revision: revision.toLocaleLowerCase("pt-BR") } : {}),
     ...(sectionTitle ? { sectionTitle } : {}),
   };
+}
+
+function buildLdDataSuggestion(data: LdData): Partial<LdData> {
+  const discipline = data.discipline.trim().toLocaleLowerCase("pt-BR");
+  const formattedCode = data.formattedCode.trim();
+  const suggestion: Partial<LdData> = {};
+
+  if (!data.client.trim() && formattedCode === "017-26") {
+    suggestion.client = "PREFEITURA MUNICIPAL DE CRICIÚMA";
+  }
+
+  if (!data.phase.trim()) {
+    suggestion.phase = "PROJETO EXECUTIVO";
+  }
+
+  if (!data.sectionTitle.trim()) {
+    if (discipline === "est") {
+      suggestion.sectionTitle = "PROJETO ESTRUTURAL CONCRETO";
+    } else if (discipline) {
+      suggestion.sectionTitle = `PROJETO ${discipline.toLocaleUpperCase("pt-BR")}`;
+    }
+  }
+
+  return suggestion;
 }
 
 async function renderStampCropToDataUrl(pageProxy: unknown, mode: StampCropMode) {
@@ -692,10 +755,34 @@ function mergeAiExtraction(
     file: Boolean(file),
     description: Boolean(description),
   };
+  const extractedLdData: Partial<LdData> = {
+    ...result.ldData,
+  };
+  const client = normalizeExtractedValue(extraction.cliente ?? "");
+  const workName = normalizeExtractedValue(extraction.obra ?? "");
+  const phase = normalizeExtractedValue(extraction.fase ?? "");
+  const sectionTitle = normalizeExtractedValue(extraction.tituloSecao ?? "");
+
+  if (client) {
+    extractedLdData.client = client;
+  }
+
+  if (workName) {
+    extractedLdData.workName = workName;
+  }
+
+  if (phase) {
+    extractedLdData.phase = phase;
+  }
+
+  if (sectionTitle) {
+    extractedLdData.sectionTitle = sectionTitle;
+  }
 
   return {
     ...result,
     foundFields,
+    ldData: extractedLdData,
     aiExtraction: source,
     extractionProvider: extraction.provider,
     fallbackReason: extraction.fallbackReason,
@@ -735,7 +822,41 @@ function base64ToObjectUrl(base64: string, mimeType: string) {
   return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
-export function LdWorkspace() {
+function asStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function asReviewRows(value: unknown) {
+  return Array.isArray(value) ? (value as ReviewRow[]) : [];
+}
+
+function asTomos(value: unknown) {
+  return Array.isArray(value) ? (value as Tomo[]) : [];
+}
+
+function getAutosaveLabel(state: AutosaveState) {
+  if (state === "saving") {
+    return "Salvando rascunho...";
+  }
+
+  if (state === "saved") {
+    return "Rascunho salvo";
+  }
+
+  if (state === "error") {
+    return "Falha ao salvar rascunho";
+  }
+
+  if (state === "disabled") {
+    return "Histórico indisponível";
+  }
+
+  return "Autosave pronto";
+}
+
+export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
   const [activeStep, setActiveStep] = useState(0);
   const [ldData, setLdData] = useState<LdData>(initialLdData);
   const [rows, setRows] = useState<ReviewRow[]>([]);
@@ -754,7 +875,16 @@ export function LdWorkspace() {
   const [packageGenerating, setPackageGenerating] = useState(false);
   const [packageError, setPackageError] = useState("");
   const [preAnalysisResult, setPreAnalysisResult] = useState<PdfReadResult | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<LdDraftListItem[]>([]);
+  const [draftsError, setDraftsError] = useState("");
+  const [autosaveState, setAutosaveState] = useState<AutosaveState>("idle");
+  const [autosaveMessage, setAutosaveMessage] = useState("");
+  const [loadedDraftNotice, setLoadedDraftNotice] = useState("");
+  const [finalChecklist, setFinalChecklist] = useState<string[]>([]);
   const pdfReadCache = useRef(new Map<string, CachedPdfReadResult>());
+  const autosaveHydrated = useRef(false);
+  const initialDraftLoaded = useRef(false);
 
   const baseName = `${ldData.projectCode}_${ldData.discipline}_ld_${ldData.revision}`;
   const validation = useMemo(
@@ -787,7 +917,7 @@ export function LdWorkspace() {
   const hasUnreviewedWarnings = reviewedWarnings < warningCount;
   const hasReferenceTotal = validation.totals.length <= 1 || referenceTotal !== null;
   const canAdvancePastReview = !hasBlockingIssues && !hasUnreviewedWarnings && hasReferenceTotal;
-  const fullAnalysisComplete = rows.length > 0 && pdfReadResults.length > 0 && !pdfProcessing;
+  const fullAnalysisComplete = rows.length > 0 && !pdfProcessing;
   const hasRequiredLdData = [
     ldData.projectCode,
     ldData.formattedCode,
@@ -808,6 +938,248 @@ export function LdWorkspace() {
     ],
     [baseName],
   );
+  const finalChecklistItems = useMemo(
+    () => [
+      "Conferi órgão/cliente, nome da obra, fase e título da seção.",
+      "Conferi folhas duplicadas, faltantes e alertas de baixa confiança.",
+      "Conferi a divisão de tomos e intervalos de pranchas.",
+      "Estou ciente de que os PDFs originais devem ser reenviados para reprocessamento futuro.",
+    ],
+    [],
+  );
+  const finalChecklistComplete = finalChecklistItems.every((item) => finalChecklist.includes(item));
+  const uploadedFileNames = useMemo(
+    () => uploadedPdfFiles.map((file) => file.name),
+    [uploadedPdfFiles],
+  );
+  const generatedFileNames = useMemo(
+    () => generatedDownloads.map((download) => download.fileName),
+    [generatedDownloads],
+  );
+  const autosaveDisabled = autosaveState === "disabled";
+  const hasDraftContent =
+    uploadedFileNames.length > 0 ||
+    rows.length > 0 ||
+    ldData.projectCode.trim().length > 0 ||
+    ldData.workName.trim().length > 0;
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDrafts() {
+      try {
+        const response = await fetch("/api/ld/drafts", {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { drafts?: LdDraftListItem[]; disabledReason?: string; error?: string }
+          | null;
+
+        if (ignore) {
+          return;
+        }
+
+        if (!response.ok) {
+          setDraftsError(payload?.error ?? "Não foi possível carregar o histórico de LDs.");
+          setAutosaveState("error");
+          return;
+        }
+
+        setDrafts(payload?.drafts ?? []);
+
+        if (payload?.disabledReason) {
+          setDraftsError(payload.disabledReason);
+          setAutosaveState("disabled");
+        }
+      } catch {
+        if (!ignore) {
+          setDraftsError("Não foi possível carregar o histórico de LDs.");
+          setAutosaveState("error");
+        }
+      } finally {
+        autosaveHydrated.current = true;
+      }
+    }
+
+    void loadDrafts();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialDraftId || initialDraftLoaded.current) {
+      return;
+    }
+
+    initialDraftLoaded.current = true;
+
+    async function openInitialDraft() {
+      try {
+        const response = await fetch(`/api/ld/drafts/${initialDraftId}`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { draft?: LdDraftListItem; error?: string }
+          | null;
+
+        if (!response.ok || !payload?.draft) {
+          throw new Error(payload?.error ?? "Não foi possível abrir a LD selecionada.");
+        }
+
+        loadDraft(payload.draft, false);
+        await fetch(`/api/ld/drafts/${initialDraftId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "REOPENED" }),
+        });
+      } catch (error) {
+        setDraftsError(error instanceof Error ? error.message : "Não foi possível abrir a LD selecionada.");
+      }
+    }
+
+    void openInitialDraft();
+  }, [initialDraftId]);
+
+  useEffect(() => {
+    if (!autosaveHydrated.current || !hasDraftContent || autosaveDisabled) {
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setAutosaveState("saving");
+      setAutosaveMessage("");
+
+      try {
+        const response = await fetch("/api/ld/drafts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: draftId,
+            activeStep,
+            ldData,
+            rows,
+            tomos,
+            referenceTotal,
+            manualTotal,
+            uploadedFileNames,
+            generatedFileNames,
+            status: generatedFileNames.length > 0 ? "GENERATED" : "DRAFT",
+          }),
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { draft?: LdDraftListItem; error?: string }
+          | null;
+
+        if (!response.ok || !payload?.draft) {
+          throw new Error(payload?.error ?? "Não foi possível salvar o rascunho.");
+        }
+
+        setDraftId(payload.draft.id);
+        setDrafts((current) => [
+          payload.draft!,
+          ...current.filter((draft) => draft.id !== payload.draft!.id),
+        ]);
+        setAutosaveState("saved");
+        setAutosaveMessage(`Salvo às ${new Date(payload.draft.updatedAt).toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`);
+      } catch (error) {
+        setAutosaveState("error");
+        setAutosaveMessage(error instanceof Error ? error.message : "Não foi possível salvar o rascunho.");
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    activeStep,
+    autosaveDisabled,
+    draftId,
+    generatedFileNames,
+    hasDraftContent,
+    ldData,
+    manualTotal,
+    referenceTotal,
+    rows,
+    tomos,
+    uploadedFileNames,
+  ]);
+
+  function loadDraft(draft: LdDraftListItem, registerReopen = true) {
+    setDraftId(draft.id);
+    setLdData({ ...initialLdData, ...draft.ldData });
+    setRows(asReviewRows(draft.rows));
+    setTomos(asTomos(draft.tomos));
+    setReferenceTotal(draft.referenceTotal);
+    setManualTotal(draft.manualTotal ?? "");
+    setActiveStep(Math.min(Math.max(draft.activeStep, 1), steps.length - 1));
+    setReviewedGlobalWarnings([]);
+    setPdfReadResults([]);
+    setUploadedPdfFiles([]);
+    setGeneratedDownloads([]);
+    setFinalChecklist([]);
+    setPackageError("");
+    setPdfReadError("");
+    setPreAnalysisResult(null);
+    setLoadedDraftNotice(
+      `Rascunho "${draft.title}" reaberto. Os PDFs originais não ficam anexados ao histórico; reenvie-os se precisar reprocessar selos.`,
+    );
+    setAutosaveState("saved");
+    setAutosaveMessage(`Reaberto de ${new Date(draft.updatedAt).toLocaleString("pt-BR")}`);
+
+    if (registerReopen) {
+      void fetch(`/api/ld/drafts/${draft.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "REOPENED" }),
+      });
+    }
+  }
+
+  function startNewDraft() {
+    setDraftId(null);
+    setActiveStep(0);
+    setLdData(initialLdData);
+    setRows([]);
+    setTomos([]);
+    setReferenceTotal(null);
+    setManualTotal("");
+    setReviewedGlobalWarnings([]);
+    setPdfReadResults([]);
+    setUploadedPdfFiles([]);
+    setGeneratedDownloads([]);
+    setFinalChecklist([]);
+    setPackageError("");
+    setPdfReadError("");
+    setPreAnalysisResult(null);
+    setLoadedDraftNotice("");
+    setAutosaveState("idle");
+    pdfReadCache.current.clear();
+  }
+
+  async function archiveDraft(id: string) {
+    try {
+      const response = await fetch(`/api/ld/drafts/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível arquivar o rascunho.");
+      }
+
+      setDrafts((current) => current.filter((draft) => draft.id !== id));
+
+      if (draftId === id) {
+        startNewDraft();
+      }
+    } catch (error) {
+      setDraftsError(error instanceof Error ? error.message : "Não foi possível arquivar o rascunho.");
+    }
+  }
 
   function updateLdData(key: keyof LdData, value: string) {
     setLdData((current) => ({ ...current, [key]: value }));
@@ -815,6 +1187,10 @@ export function LdWorkspace() {
 
   function updateTemplateFile(file: File | null) {
     setTemplateFile(file);
+  }
+
+  function applyLdDataSuggestions() {
+    setLdData((currentData) => ({ ...currentData, ...buildLdDataSuggestion(currentData) }));
   }
 
   function updateRow(id: number, key: keyof ReviewRow, value: string | boolean) {
@@ -1004,10 +1380,11 @@ export function LdWorkspace() {
       expandedStampText && expandedStampText !== stampText
         ? `REGIAO AMPLIADA:\n${expandedStampText}`
         : "",
+      fullText ? `PAGINA COMPLETA:\n${fullText}` : "",
     ]
       .filter(Boolean)
       .join("\n\n")
-      .slice(0, 12000);
+      .slice(0, 24000);
     const textResult = parsePdfTextToRow(
       candidateText,
       fullText,
@@ -1541,6 +1918,11 @@ export function LdWorkspace() {
   }
 
   async function generateFinalFiles() {
+    if (!finalChecklistComplete) {
+      setPackageError("Conclua o checklist final antes de gerar os arquivos.");
+      return;
+    }
+
     setPackageGenerating(true);
     setPackageError("");
 
@@ -1630,6 +2012,10 @@ export function LdWorkspace() {
             <h1 className="mt-2 text-2xl font-semibold text-foreground">
               Criador de Listas de Documentos
             </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {getAutosaveLabel(autosaveState)}
+              {autosaveMessage ? ` · ${autosaveMessage}` : ""}
+            </p>
             <Link
               href="/"
               className="mt-3 inline-flex items-center rounded-sm border border-border px-3 py-2 font-mono text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -1648,6 +2034,29 @@ export function LdWorkspace() {
 
       <div className="mx-auto grid max-w-[1800px] gap-6 px-5 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="h-fit border border-border bg-card p-3">
+          <div className="mb-4 space-y-3 border-b border-border pb-4">
+            <button
+              type="button"
+              onClick={startNewDraft}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+            >
+              <Plus size={16} />
+              Nova LD
+            </button>
+            <LdHistoryPanel
+              drafts={drafts}
+              activeDraftId={draftId}
+              error={draftsError}
+              onLoad={loadDraft}
+              onArchive={archiveDraft}
+            />
+            <Link
+              href="/ld/historico"
+              className="block rounded-md border border-border px-3 py-2 text-center text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              Ver histórico completo
+            </Link>
+          </div>
           <nav className="space-y-1" aria-label="Etapas">
             {steps.map((step, index) => (
               <button
@@ -1676,6 +2085,11 @@ export function LdWorkspace() {
           </div>
 
           <div className="p-5">
+            {loadedDraftNotice ? (
+              <div className="mb-4 rounded-md border border-warning bg-warning-soft p-3 text-sm text-muted-foreground">
+                {loadedDraftNotice}
+              </div>
+            ) : null}
             {activeStep === 0 && (
               <>
                 <UploadStep onFilesSelected={preAnalyzePdfFiles} processing={pdfProcessing} />
@@ -1692,6 +2106,7 @@ export function LdWorkspace() {
                 data={ldData}
                 templateFile={templateFile}
                 onChange={updateLdData}
+                onApplySuggestions={applyLdDataSuggestions}
                 onTemplateFileChange={updateTemplateFile}
               />
             )}
@@ -1746,6 +2161,7 @@ export function LdWorkspace() {
                 data={ldData}
                 totalRows={rows.length}
                 tomoCount={tomos.length}
+                tomos={tomos}
                 reviewedWarnings={reviewedWarnings}
                 warningCount={warningCount}
                 blockingCount={validation.blockingIssues.length}
@@ -1759,6 +2175,9 @@ export function LdWorkspace() {
                 downloads={generatedDownloads}
                 generating={packageGenerating}
                 error={packageError}
+                checklistItems={finalChecklistItems}
+                checkedItems={finalChecklist}
+                onChecklistChange={setFinalChecklist}
                 onGenerate={generateFinalFiles}
               />
             )}
@@ -1813,25 +2232,114 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function LdHistoryPanel({
+  drafts,
+  activeDraftId,
+  error,
+  onLoad,
+  onArchive,
+}: {
+  drafts: LdDraftListItem[];
+  activeDraftId: string | null;
+  error: string;
+  onLoad: (draft: LdDraftListItem) => void;
+  onArchive: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Histórico
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Rascunhos salvos por usuário.
+        </p>
+      </div>
+      {error ? (
+        <p className="rounded-md border border-warning bg-warning-soft p-2 text-xs text-muted-foreground">
+          {error}
+        </p>
+      ) : null}
+      <div className="max-h-72 space-y-2 overflow-auto pr-1">
+        {drafts.length === 0 && !error ? (
+          <p className="rounded-md border border-border bg-background p-2 text-xs text-muted-foreground">
+            Nenhuma LD salva ainda.
+          </p>
+        ) : null}
+        {drafts.map((draft) => (
+          <div
+            key={draft.id}
+            className={`rounded-md border p-2 ${
+              activeDraftId === draft.id ? "border-primary bg-primary/10" : "border-border bg-background"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => onLoad(draft)}
+              className="block w-full text-left"
+            >
+              <span className="block truncate text-xs font-semibold">
+                {draft.projectCode || "Sem código"} · {draft.workName || "LD em montagem"}
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {draft.status === "GENERATED" ? "Gerada" : "Rascunho"} · {new Date(draft.updatedAt).toLocaleDateString("pt-BR")}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onArchive(draft.id)}
+              className="mt-2 text-xs text-muted-foreground transition hover:text-destructive"
+            >
+              Arquivar
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LdForm({
   data,
   templateFile,
   onChange,
+  onApplySuggestions,
   onTemplateFileChange,
 }: {
   data: LdData;
   templateFile: File | null;
   onChange: (key: keyof LdData, value: string) => void;
+  onApplySuggestions: () => void;
   onTemplateFileChange: (file: File | null) => void;
 }) {
+  const suggestion = buildLdDataSuggestion(data);
+  const hasSuggestions = Object.keys(suggestion).length > 0;
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm md:col-span-2">
-        <p className="font-medium">Confira os dados antes de avançar.</p>
-        <p className="mt-1 text-muted-foreground">
-          O NexoDoc só preenche órgão, obra e fase quando encontra esses dados no rodapé/cabeçalho do PDF.
-          Se não encontrar, os campos ficam em branco para evitar siglas ou nomes de projeto incorretos.
-        </p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="font-medium">Confira os dados antes de avançar.</p>
+            <p className="mt-1 text-muted-foreground">
+              O NexoDoc só preenche órgão, obra e fase quando encontra esses dados no rodapé/cabeçalho do PDF.
+              Se não encontrar, os campos ficam em branco para evitar siglas ou nomes de projeto incorretos.
+            </p>
+            {hasSuggestions ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Há sugestões seguras para campos padrão deste pacote. O nome da obra continua manual se não for encontrado no PDF.
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onApplySuggestions}
+            disabled={!hasSuggestions}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Aplicar sugestões seguras
+          </button>
+        </div>
       </div>
       <Field required label="Código do projeto" value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
       <Field required label="Código formatado" value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
@@ -2160,6 +2668,8 @@ function ReviewTable({
   const [clipboardStatus, setClipboardStatus] = useState("");
   const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(() => new Set());
   const [bulkDiscipline, setBulkDiscipline] = useState("");
+  const [triageMode, setTriageMode] = useState(false);
+  const [triageIndex, setTriageIndex] = useState(0);
   const warningIssues = rows.flatMap((row) =>
     (validation.rowIssues[row.id] ?? []).filter((issue) => issue.severity === "warning"),
   );
@@ -2234,9 +2744,23 @@ function ReviewTable({
 
     return compareBySheet(a, b);
   });
+  const pendingRows = [...rows]
+    .filter((row) => {
+      const issues = getRowIssues(row);
+
+      return issues.some(
+        (issue) =>
+          issue.severity === "blocker" ||
+          (issue.severity === "warning" && !row.reviewedAlertKeys.includes(issue.key)),
+      );
+    })
+    .sort((a, b) => getRowPriority(a) - getRowPriority(b) || compareBySheet(a, b));
+  const safeTriageIndex = Math.min(triageIndex, Math.max(0, pendingRows.length - 1));
+  const triageRow = pendingRows[safeTriageIndex];
+  const renderedRows = triageMode ? (triageRow ? [triageRow] : []) : visibleRows;
   const selectedRows = rows.filter((row) => selectedRowIds.has(row.id));
-  const visibleSelectedCount = visibleRows.filter((row) => selectedRowIds.has(row.id)).length;
-  const allVisibleSelected = visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
+  const visibleSelectedCount = renderedRows.filter((row) => selectedRowIds.has(row.id)).length;
+  const allVisibleSelected = renderedRows.length > 0 && visibleSelectedCount === renderedRows.length;
   const filterOptions: Array<{ value: ReviewFilterMode; label: string; count: number }> = [
     { value: "all", label: "Todas", count: rows.length },
     {
@@ -2255,7 +2779,7 @@ function ReviewTable({
   const copyVisibleRows = async () => {
     const text = [
       "Folha\tArquivo\tDescricao\tDisciplina\tStatus",
-      ...visibleRows.map((row) => {
+      ...renderedRows.map((row) => {
         const status = getRowIssues(row)
           .map((issue) => issue.label)
           .join(" | ") || (row.lowConfidence ? "Baixa confianca" : "OK");
@@ -2268,7 +2792,7 @@ function ReviewTable({
 
     try {
       await navigator.clipboard.writeText(text);
-      setClipboardStatus(`${visibleRows.length} linhas copiadas`);
+      setClipboardStatus(`${renderedRows.length} linhas copiadas`);
     } catch {
       setClipboardStatus("Nao foi possivel copiar automaticamente");
     }
@@ -2279,7 +2803,7 @@ function ReviewTable({
     setSelectedRowIds((current) => {
       const next = new Set(current);
 
-      for (const row of visibleRows) {
+      for (const row of renderedRows) {
         if (checked) {
           next.add(row.id);
         } else {
@@ -2418,7 +2942,9 @@ function ReviewTable({
               Organizar revisão
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Mostrando {visibleRows.length} de {rows.length} pranchas. Use filtros para atacar primeiro o que bloqueia a LD.
+              {triageMode
+                ? `Triagem ativa: pendência ${pendingRows.length ? safeTriageIndex + 1 : 0} de ${pendingRows.length}.`
+                : `Mostrando ${visibleRows.length} de ${rows.length} pranchas. Use filtros para atacar primeiro o que bloqueia a LD.`}
             </p>
           </div>
           <button
@@ -2429,6 +2955,55 @@ function ReviewTable({
             <Copy size={16} />
             Copiar visão atual
           </button>
+        </div>
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Triagem rápida</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {pendingRows.length > 0
+                ? `${pendingRows.length} prancha(s) ainda possuem erro ou alerta não revisado.`
+                : "Todas as pendências foram tratadas."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {triageMode && pendingRows.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTriageIndex((current) => Math.max(0, current - 1))}
+                  disabled={safeTriageIndex === 0}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:opacity-50"
+                >
+                  <ChevronLeft size={14} />
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTriageIndex((current) => Math.min(pendingRows.length - 1, current + 1))}
+                  disabled={safeTriageIndex >= pendingRows.length - 1}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:opacity-50"
+                >
+                  Próxima
+                  <ChevronRight size={14} />
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setTriageMode((current) => !current);
+                setTriageIndex(0);
+              }}
+              disabled={!triageMode && pendingRows.length === 0}
+              className={`rounded-md border px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                triageMode
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              {triageMode ? "Sair da triagem" : "Iniciar triagem"}
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {filterOptions.map((option) => (
@@ -2560,7 +3135,7 @@ function ReviewTable({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => {
+            {renderedRows.map((row) => {
               const result = readResults.find((item) => item.row.id === row.id);
               const reprocessing = reprocessingRowId === row.id;
 
@@ -2684,10 +3259,10 @@ function ReviewTable({
               </tr>
               );
             })}
-            {visibleRows.length === 0 && (
+            {renderedRows.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  Nenhuma prancha corresponde ao filtro atual.
+                  {triageMode ? "Nenhuma pendência restante na triagem." : "Nenhuma prancha corresponde ao filtro atual."}
                 </td>
               </tr>
             )}
@@ -3078,6 +3653,7 @@ function SummaryStep({
   data,
   totalRows,
   tomoCount,
+  tomos,
   reviewedWarnings,
   warningCount,
   blockingCount,
@@ -3087,6 +3663,7 @@ function SummaryStep({
   data: LdData;
   totalRows: number;
   tomoCount: number;
+  tomos: Tomo[];
   reviewedWarnings: number;
   warningCount: number;
   blockingCount: number;
@@ -3119,6 +3696,34 @@ function SummaryStep({
           ["Template", data.templateMode === "padrao" ? "Padrão interno" : "Alternativo anexado"],
         ]}
       />
+      <div className="lg:col-span-2">
+        <h3 className="mb-3 font-semibold">Mapa dos tomos</h3>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {tomos.map((tomo) => (
+            <div
+              key={tomo.id}
+              className={`rounded-md border bg-background p-3 ${
+                tomo.quantity > 15 ? "border-warning" : "border-border"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium">{tomo.title}</p>
+                <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                  {tomo.quantity} pranchas
+                </span>
+              </div>
+              <p className="mt-2 font-mono text-sm text-muted-foreground">
+                {tomo.start} a {tomo.end}
+              </p>
+              {tomo.quantity > 15 ? (
+                <p className="mt-2 text-xs text-[var(--status-warning)]">
+                  Acima da recomendação de 15 pranchas.
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="lg:col-span-2">
         <h3 className="mb-3 font-semibold">Arquivos previstos</h3>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -3155,23 +3760,53 @@ function FinalStep({
   downloads,
   generating,
   error,
+  checklistItems,
+  checkedItems,
+  onChecklistChange,
   onGenerate,
 }: {
   files: string[];
   downloads: GeneratedDownload[];
   generating: boolean;
   error: string;
+  checklistItems: string[];
+  checkedItems: string[];
+  onChecklistChange: (items: string[]) => void;
   onGenerate: () => void;
 }) {
   const generatedNames = new Set(downloads.map((download) => download.fileName));
+  const checklistComplete = checklistItems.every((item) => checkedItems.includes(item));
+  const toggleChecklistItem = (item: string, checked: boolean) => {
+    onChecklistChange(
+      checked
+        ? [...new Set([...checkedItems, item])]
+        : checkedItems.filter((current) => current !== item),
+    );
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <div className="space-y-3">
+        <div className="rounded-md border border-border bg-background p-3">
+          <h3 className="text-sm font-semibold">Checklist antes de gerar</h3>
+          <div className="mt-3 space-y-2">
+            {checklistItems.map((item) => (
+              <label key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={checkedItems.includes(item)}
+                  onChange={(event) => toggleChecklistItem(item, event.target.checked)}
+                  className="mt-0.5 size-4"
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         <button
           type="button"
           onClick={onGenerate}
-          disabled={generating}
+          disabled={generating || !checklistComplete}
           className="flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-3 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {generating ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}

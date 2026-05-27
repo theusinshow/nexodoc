@@ -169,6 +169,15 @@ export default async function DashboardPage() {
                       <ArrowRight />
                     </Link>
                   </Button>
+                  {module.href === "/ld" ? (
+                    <Link
+                      href="/ld/historico"
+                      className="mt-3 inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
+                    >
+                      <BookOpenCheck className="size-4" />
+                      Consultar histórico de LDs
+                    </Link>
+                  ) : null}
                 </article>
               );
             })}
@@ -220,6 +229,12 @@ export default async function DashboardPage() {
               <Link href="/admin/config">
                 <Gauge />
                 Abrir controles
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/lds">
+                <TableProperties />
+                Operação de LDs
               </Link>
             </Button>
           </section>
