@@ -13,6 +13,26 @@ type AdminConfigResponse = {
     model: string;
     allowedOrigins: string;
   };
+  aiFlows: Array<{
+    id: string;
+    label: string;
+    provider: "openai" | "mimo";
+    model: string;
+    keyConfigured: boolean;
+  }>;
+  aiHealth: {
+    externalConnectivityChecked: boolean;
+    note: string;
+    lastFailures: Array<{
+      provider: "openai" | "mimo";
+      flow: string;
+      model: string;
+      category: string;
+      message: string;
+      occurredAt: string;
+    }>;
+    statusStorage: string;
+  };
   limits: Record<string, number>;
   secrets: Record<string, boolean>;
   generatedAt: string;
@@ -30,6 +50,19 @@ function ConfigRow({ label, value }: { label: string; value: React.ReactNode }) 
       <span className="font-mono text-muted-foreground">{label}</span>
       <span className="font-mono text-right font-medium text-foreground">{value}</span>
     </div>
+  );
+}
+
+function ConfigurationStatus({ configured }: { configured: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      {configured ? (
+        <CheckCircle2 className="size-4 text-[var(--status-ok)]" />
+      ) : (
+        <AlertTriangle className="size-4 text-[var(--status-warning)]" />
+      )}
+      {configured ? "chave configurada" : "chave ausente"}
+    </span>
   );
 }
 
@@ -120,7 +153,7 @@ export default function AdminConfigPage() {
             </div>
             <h1 className="mt-2 text-2xl font-semibold">Configurações</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Leitura operacional dos limites e chaves configuradas no backend.
+              Leitura operacional dos modelos e chaves backend-only, sem expor credenciais.
             </p>
           </div>
 
@@ -157,6 +190,32 @@ export default function AdminConfigPage() {
           </div>
         ) : null}
 
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Fluxos de IA</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Provedor e modelo efetivamente selecionados pelo backend.
+              </p>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              conectividade: não testada (zero chamadas)
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {data?.aiFlows.map((flow) => (
+              <article key={flow.id} className="rounded-sm border bg-background p-3">
+                <p className="text-xs text-muted-foreground">{flow.label}</p>
+                <p className="mt-2 font-mono text-xs uppercase text-primary">{flow.provider}</p>
+                <p className="mt-1 break-all font-mono text-sm font-medium">{flow.model}</p>
+                <div className="mt-3 border-t pt-2">
+                  <ConfigurationStatus configured={flow.keyConfigured} />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="grid gap-4 lg:grid-cols-3">
           <article className="rounded-sm border bg-card p-4">
             <h2 className="text-sm font-semibold">Runtime</h2>
@@ -164,7 +223,7 @@ export default function AdminConfigPage() {
               <ConfigRow label="Ambiente" value={data?.runtime.nodeEnv || "--"} />
               <ConfigRow label="Mock mode" value={data?.runtime.mockMode ? "ativo" : "inativo"} />
               <ConfigRow label="Demo pelo cliente" value={data?.runtime.clientDemoAllowed ? "permitida" : "bloqueada"} />
-              <ConfigRow label="Modelo" value={data?.runtime.model || "--"} />
+              <ConfigRow label="Modelo do chat" value={data?.runtime.model || "--"} />
               <ConfigRow label="Origins" value={data?.runtime.allowedOrigins || "--"} />
             </div>
           </article>
@@ -203,6 +262,35 @@ export default function AdminConfigPage() {
                 : null}
             </div>
           </article>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <h2 className="text-sm font-semibold">Últimos incidentes de provedor</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {data?.aiHealth.note ?? "Carregue a configuração para consultar os status."}
+          </p>
+          {data?.aiHealth.lastFailures.length ? (
+            <div className="mt-4 grid gap-2">
+              {data.aiHealth.lastFailures.map((failure) => (
+                <div
+                  key={`${failure.flow}-${failure.provider}`}
+                  className="grid gap-2 rounded-sm border border-[var(--status-warning)]/30 bg-background p-3 text-sm md:grid-cols-[1.2fr_1fr_1fr_2fr]"
+                >
+                  <span className="font-medium">{failure.flow}</span>
+                  <span className="font-mono uppercase">{failure.provider}</span>
+                  <span className="font-mono text-[var(--status-warning)]">{failure.category}</span>
+                  <span className="text-muted-foreground">{failure.message}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-sm border bg-background px-3 py-4 text-sm text-muted-foreground">
+              Nenhum erro de provedor registrado nesta instância.
+            </p>
+          )}
+          {data ? (
+            <p className="mt-3 text-xs text-muted-foreground">{data.aiHealth.statusStorage}</p>
+          ) : null}
         </section>
       </div>
     </main>

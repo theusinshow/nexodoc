@@ -54,9 +54,14 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Demo local especifica para checagem de volume.
 - Campos opcionais de categoria e referencia comparada nos achados.
 - Documento de bateria de testes com cenarios mock, validacoes de API e roteiro de testes reais.
+- Modulo autenticado `/ld` para criacao de Listas de Documentos a partir de pranchas PDF.
+- Rotas `/api/ld/*` para extracao visual, geracao ODT e pacote final da LD.
+- Fallback MiMo `mimo-v2.5` centralizado no backend para extracao dos selos.
+- Dashboard autenticado de modulos com acessos a conferencia documental e montagem de LDs.
 
 ### Alterado
 
+- Imagens de perfil autenticado do Google passam a ser aceitas pelo componente de imagem do Next.js.
 - Tema visual ajustado para dark tecnico com tons de preto, cinza e azul escuro.
 - Componentes principais ajustados para geometria reta com `border-radius` zero.
 - Fonte externa removida do build local para evitar dependencia de rede.
@@ -67,6 +72,12 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Modo demo iniciado pelo navegador passa a exigir permissao explicita em producao.
 - Configuracao e documentacao alinhadas aos modos `Memorial` e `Volume` e aos limites da auditoria profunda.
 - Cliente Prisma inicializado sob demanda nas rotas do backend.
+- Painel de configuracao passa a indicar a chave e o modelo MiMo utilizados pelo Criador de LDs.
+- Criador de LDs usa modelo OpenAI proprio configuravel e timeout visual ampliado para suportar o fallback MiMo.
+- Configuracao backend de OpenAI e MiMo centralizada por fluxo, com validacao segura no painel admin.
+- Extracao de LD informa uso de fallback MiMo e separa falhas de quota, autenticacao, timeout e resposta invalida.
+- Erros de texto incompleto na LD deixam de ser tratados implicitamente como falta de quota.
+- Conferencia documental movida para `/audit`, preservando o workspace de chat e liberando `/` para o painel inicial.
 
 ### Removido
 

@@ -8,7 +8,7 @@ O NexoDoc permite anexar PDFs de memoriais, pranchas, capas, listas de documento
 
 MVP funcional em evolucao para uso interno controlado.
 
-A base atual inclui chat com upload multiplo de PDFs, auditoria de memorial e volume, analise profunda por texto extraido, comparacao entre documentos, resultado estruturado, historico persistente opcional e paineis administrativos.
+A base atual inclui dashboard autenticado de modulos, chat com upload multiplo de PDFs, auditoria de memorial e volume, analise profunda por texto extraido, comparacao entre documentos, Criador de LDs, resultado estruturado, historico persistente opcional e paineis administrativos.
 
 ## Escopo da versao 0.1
 
@@ -24,6 +24,7 @@ O foco da versao 0.1 e:
 Ja incorporado alem do escopo inicial:
 
 - login exclusivo com Google OAuth;
+- dashboard inicial autenticado para acesso aos modulos;
 - banco de dados PostgreSQL opcional para historico;
 - painel administrativo de auditorias, uso e configuracao;
 - exportacao do relatorio em Markdown.
@@ -78,6 +79,9 @@ AUTH_GOOGLE_SECRET=client_secret_do_google
 AUTH_TRUST_HOST=true
 NEXODOC_ADMIN_EMAILS=admin@empresa.com
 OPENAI_MODEL=gpt-5.4-mini
+NEXODOC_LD_OPENAI_MODEL=gpt-5.4
+MIMO_API_KEY=
+MIMO_MODEL=mimo-v2.5
 OPENAI_VALIDATION_MODEL=
 OPENAI_STANDARD_MODEL=gpt-5.4-mini
 OPENAI_STANDARD_VALIDATION_MODEL=gpt-5.4-mini
@@ -98,11 +102,11 @@ NEXODOC_CHUNK_TIMEOUT_MS=120000
 NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 ```
 
-A chave deve ficar apenas no backend e nunca deve ser exposta no frontend.
+As chaves devem ficar apenas no backend e nunca devem ser expostas no frontend.
 
 ## Login com Google
 
-O acesso ao workspace em `/` exige autenticacao e a tela `/login` oferece somente
+O acesso ao painel e aos workspaces exige autenticacao e a tela `/login` oferece somente
 o provedor Google. Para configurar o OAuth:
 
 1. Gere `AUTH_SECRET` no terminal com `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
@@ -125,9 +129,54 @@ Render continuam usando a protecao operacional propria do backend; para
 autorizacao por usuario nelas sera necessario encaminhar e validar uma credencial
 entre os dois servicos.
 
-`OPENAI_MODEL` e opcional. Se nao for definido, o backend usa `gpt-5.4-mini`.
-`OPENAI_VALIDATION_MODEL` tambem e opcional; quando vazio, a revisao semantica final usa o mesmo modelo principal.
-O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. As variaveis `OPENAI_STANDARD_*` e `OPENAI_DEEP_*` permitem alterar esses modelos sem mudar a interface.
+Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto central. A separacao efetiva e:
+
+| Fluxo | Provedor | Variavel de modelo | Chave necessaria |
+| --- | --- | --- | --- |
+| Auditoria padrao | OpenAI | `OPENAI_STANDARD_MODEL` | `OPENAI_API_KEY` |
+| Auditoria profunda | OpenAI | `OPENAI_DEEP_MODEL` | `OPENAI_API_KEY` |
+| Validacao da auditoria | OpenAI | `OPENAI_STANDARD_VALIDATION_MODEL` / `OPENAI_DEEP_VALIDATION_MODEL` | `OPENAI_API_KEY` |
+| Chat pos-auditoria | OpenAI | `OPENAI_MODEL` | `OPENAI_API_KEY` |
+| Criador de LDs, principal | OpenAI | `NEXODOC_LD_OPENAI_MODEL` | `OPENAI_API_KEY` |
+| Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
+
+O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
+
+## Modulos da plataforma
+
+Depois do login, a rota `/` abre o painel de modulos. Os fluxos ativos sao:
+
+```text
+/audit  - Conferencia documental (fluxo principal)
+/ld     - Montagem de Listas de Documentos
+```
+
+O painel tambem apresenta como futuros os modulos de montagem de capas e
+juncao/organizacao de volumes, sem oferecer acoes ainda indisponiveis.
+
+## Criador de LDs
+
+O modulo autenticado de Listas de Documentos fica em:
+
+```text
+/ld
+```
+
+Ele importa PDFs de pranchas, extrai os campos do selo, permite revisao manual, divide tomos e gera os arquivos finais da LD. As rotas backend sao:
+
+```text
+/api/ld/extract-stamp
+/api/ld/generate-odt
+/api/ld/generate-package
+```
+
+A extracao visual tenta `NEXODOC_LD_OPENAI_MODEL` primeiro e utiliza `MIMO_MODEL` como fallback quando a chamada principal falha, inclusive quando OpenAI retorna quota/billing. `MIMO_API_KEY` e `MIMO_MODEL` ficam no mesmo ambiente backend das variaveis OpenAI. A tela da LD identifica quando uma pagina foi lida por OpenAI, quando MiMo foi acionado como fallback ou quando os dois provedores falharam; texto incompleto nao e classificado automaticamente como erro de quota.
+
+O painel `/admin/config` mostra apenas provedor, modelo, presenca da chave requerida e o ultimo incidente classificado (`quota_billing`, `authentication`, `timeout`, `rate_limit`, `invalid_response` ou configuracao) observado na instancia atual. Sua verificacao de saude e intencionalmente local: nao faz chamadas externas e nao consome tokens.
+
+Em desenvolvimento, variaveis de provedor presentes em `.env.local` sao autoritativas, inclusive quando vazias. Isso impede que uma chave antiga herdada pelo terminal ative silenciosamente OpenAI ou MiMo durante testes locais.
+
+Se uma chave `MIMO_API_KEY` foi compartilhada em conversa, ticket ou qualquer canal fora do backend, considere-a exposta: revogue-a no provedor, gere uma nova chave e substitua-a em `.env.local` e nos ambientes de deploy antes de testar a LD.
 
 Para deploy dividido, use:
 
@@ -241,6 +290,12 @@ npm run dev
 ```
 
 Trocar a chave nao corrige erro de quota se a nova chave pertence ao mesmo projeto/conta sem billing ativo. Nesse caso, mantenha a mesma chave e ajuste billing/quota na plataforma da OpenAI.
+
+Para testar cada provedor isoladamente na extracao de LD sem confundir o fallback:
+
+1. OpenAI: configure `OPENAI_API_KEY` e `NEXODOC_LD_OPENAI_MODEL`, deixe `MIMO_API_KEY` vazio temporariamente, reinicie o servidor e leia uma prancha pequena em `/ld`.
+2. MiMo: configure a chave MiMo nova e `MIMO_MODEL`; para forcar o fallback localmente, use uma credencial OpenAI deliberadamente ausente apenas durante esse teste e restaure-a logo depois. A origem da pagina deve indicar `MiMo`.
+3. Abra `/admin/config` com o token admin para conferir modelo/chave configurada e a categoria do ultimo erro. Essa tela nao prova conectividade; o teste real de uma prancha consome tokens do provedor chamado.
 
 Para testar a interface sem consumir tokens, use:
 

@@ -6,6 +6,14 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfjs-dist"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
   turbopack: {
     root: resolve(projectRoot),
   },

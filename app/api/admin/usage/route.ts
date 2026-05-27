@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getOpenAiAdminKey } from "@/lib/ai-providers";
 
 export const runtime = "nodejs";
 
@@ -264,7 +265,7 @@ export function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
-  const openAIAdminKey = process.env.OPENAI_ADMIN_KEY?.trim();
+  const openAIAdminKey = getOpenAiAdminKey();
 
   if (!adminToken) {
     return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);

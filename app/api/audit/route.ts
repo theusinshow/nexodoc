@@ -23,6 +23,12 @@ import {
   isMockModeEnabled,
   waitForMockAudit,
 } from "@/lib/mock-audit";
+import {
+  classifyProviderFailure,
+  getAuditModel,
+  getAuditValidationModel,
+  recordProviderFailure,
+} from "@/lib/ai-providers";
 import { getOpenAIClient } from "@/lib/openai";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
 
@@ -30,7 +36,6 @@ export const runtime = "nodejs";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
@@ -264,15 +269,11 @@ function getReasoningEffort(analysisLevel: AnalysisLevel) {
 }
 
 function getPrimaryModelName(analysisLevel: AnalysisLevel) {
-  return analysisLevel === "deep"
-    ? process.env.OPENAI_DEEP_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.4"
-    : process.env.OPENAI_STANDARD_MODEL ?? DEFAULT_MODEL;
+  return getAuditModel(analysisLevel);
 }
 
 function getValidationModelName(analysisLevel: AnalysisLevel) {
-  return analysisLevel === "deep"
-    ? process.env.OPENAI_DEEP_VALIDATION_MODEL ?? process.env.OPENAI_VALIDATION_MODEL ?? getPrimaryModelName(analysisLevel)
-    : process.env.OPENAI_STANDARD_VALIDATION_MODEL ?? getPrimaryModelName(analysisLevel);
+  return getAuditValidationModel(analysisLevel);
 }
 
 function extractResponseText(response: unknown) {
@@ -1864,7 +1865,16 @@ async function validateFindingsWithModel(args: {
       })
       .filter((finding): finding is AuditFinding => Boolean(finding));
   } catch (error) {
-    console.error("[audit] validação semântica dos achados falhou; mantendo candidatos", error);
+    const failure = classifyProviderFailure(
+      "openai",
+      "audit",
+      getValidationModelName(args.analysisLevel),
+      error,
+    );
+    if (failure.category !== "unknown") {
+      recordProviderFailure(failure);
+    }
+    console.error(`[audit] validacao semantica falhou; mantendo candidatos (${failure.category})`);
     return args.findings;
   }
 }
@@ -2013,6 +2023,7 @@ async function deepAnalyzeFile(args: {
 export async function POST(request: Request) {
   const requestStartedAt = Date.now();
   let persistedAuditId: string | null = null;
+  let requestedAnalysisLevel: AnalysisLevel = "standard";
 
   try {
     console.log("[audit] requisicao recebida");
@@ -2020,6 +2031,7 @@ export async function POST(request: Request) {
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
+    requestedAnalysisLevel = analysisLevel;
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
     const auditDescription = String(formData.get("auditDescription") ?? "").trim();
@@ -2238,32 +2250,32 @@ export async function POST(request: Request) {
       request,
     );
   } catch (error) {
-    console.error(error);
+    const failure = classifyProviderFailure(
+      "openai",
+      "audit",
+      getPrimaryModelName(requestedAnalysisLevel),
+      error,
+    );
+    if (failure.category !== "unknown") {
+      recordProviderFailure(failure);
+    }
+    console.error(`[audit] requisicao falhou (${failure.category})`);
     await persistFailedAudit(persistedAuditId, error, Date.now() - requestStartedAt);
 
-    if (error instanceof Error && error.message.includes("OPENAI_API_KEY")) {
-      return jsonError("OPENAI_API_KEY não configurada no backend.", 500);
-    }
-
-    if (
-      error instanceof Error &&
-      (error.message.includes("model") || error.message.includes("modelo"))
-    ) {
+    if (failure.category !== "unknown") {
+      const status =
+        failure.category === "authentication"
+          ? 401
+          : failure.category === "quota_billing"
+            ? 402
+            : failure.category === "rate_limit"
+              ? 429
+              : failure.category === "timeout"
+                ? 504
+                : 503;
       return jsonError(
-        "Modelo da OpenAI indisponível. Verifique OPENAI_MODEL no .env.local.",
-        500,
-      );
-    }
-
-    if (
-      error instanceof Error &&
-      (error.message.includes("quota") ||
-        error.message.includes("insufficient_quota") ||
-        error.message.includes("billing"))
-    ) {
-      return jsonError(
-        "A conta da OpenAI API retornou limite de quota para esta auditoria profunda. Reduza o tamanho do arquivo ou aumente os limites do projeto OpenAI.",
-        402,
+        `${failure.message} Fluxo: auditoria ${requestedAnalysisLevel === "deep" ? "profunda" : "padrão"}.`,
+        status,
       );
     }
 

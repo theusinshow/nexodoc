@@ -9,11 +9,13 @@ import {
   FileSearch,
   Files,
   Gauge,
+  LayoutGrid,
   ListChecks,
   LogOut,
   PlayCircle,
   RotateCcw,
   ScrollText,
+  TableProperties,
   TestTube2,
   Wrench,
 } from "lucide-react";
@@ -1211,12 +1213,30 @@ export function ChatWindow({
         <div className="mt-4 space-y-1">
           <Button
             type="button"
+            variant="ghost"
+            className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => window.location.assign("/")}
+          >
+            <LayoutGrid className="size-3.5" />
+            Painel de módulos
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             className="w-full justify-start h-9 text-xs"
             onClick={handleNewAudit}
           >
             <RotateCcw className="size-3.5" />
             Nova auditoria
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => window.location.assign("/ld")}
+          >
+            <TableProperties className="size-3.5" />
+            Criador de LDs
           </Button>
           {isAdmin ? (
             <>
@@ -1424,6 +1444,16 @@ export function ChatWindow({
             <span className="font-mono text-sm font-semibold">NexoDoc</span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 min-h-8 w-8"
+              onClick={() => window.location.assign("/")}
+              aria-label="Voltar ao painel de módulos"
+            >
+              <LayoutGrid className="size-4" />
+            </Button>
             {allowDemoMode ? (
               <Button
                 type="button"

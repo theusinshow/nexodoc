@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 
 import type { AuditReport } from "@/lib/audit-report";
+import {
+  classifyProviderFailure,
+  getAiConfiguration,
+  recordProviderFailure,
+} from "@/lib/ai-providers";
 import { getOpenAIClient } from "@/lib/openai";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "gpt-5.4-mini";
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -177,9 +181,10 @@ export async function POST(request: Request) {
           .filter((turn) => turn.role === "user" || turn.role === "assistant")
           .slice(-6)
       : [];
+    const model = getAiConfiguration().auditChat.model;
     const openai = getOpenAIClient();
     const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+      model,
       instructions: "Você responde perguntas pós-auditoria documental com base estrita no relatório fornecido.",
       reasoning: { effort: getReasoningEffort() },
       max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
@@ -193,12 +198,19 @@ export async function POST(request: Request) {
 
     return withCors(NextResponse.json({ answer }), request);
   } catch (error) {
-    console.error(error);
-
-    if (error instanceof Error && error.message.includes("OPENAI_API_KEY")) {
-      return jsonError("OPENAI_API_KEY não configurada no backend.", 500, request);
+    const failure = classifyProviderFailure(
+      "openai",
+      "audit-chat",
+      getAiConfiguration().auditChat.model,
+      error,
+    );
+    if (failure.category !== "unknown") {
+      recordProviderFailure(failure);
+      console.error(`[audit-chat] falha do provedor (${failure.category})`);
+      return jsonError(failure.message, failure.category === "quota_billing" ? 402 : 503, request);
     }
 
+    console.error("[audit-chat] falha não classificada");
     return jsonError(
       error instanceof Error ? error.message : "Não foi possível responder sobre a auditoria.",
       500,

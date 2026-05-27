@@ -6,11 +6,23 @@ A interface do NexoDoc deve ser limpa, tecnica e profissional.
 
 O produto deve lembrar uma ferramenta de trabalho para engenharia, com foco em leitura, envio de documentos e resposta objetiva. A interface nao deve parecer uma landing page comercial.
 
-## 2. Tela inicial
+## 2. Tela inicial autenticada
 
-A versao 0.1 deve ter pagina unica.
+A entrada autenticada do NexoDoc e um painel tecnico de modulos. Ele encaminha
+o usuario ao fluxo pretendido sem assumir aparencia de landing page comercial.
 
 Elementos principais:
+
+- marca NexoDoc e usuario autenticado;
+- card principal para `Conferencia documental`, acessivel em `/audit`;
+- card ativo para `Montagem de LDs`, acessivel em `/ld`;
+- cards inativos identificados como futuros para `Montagem de capas` e
+  `Organizacao de volumes`;
+- acesso administrativo para usuarios autorizados.
+
+## 3. Workspace de conferencia documental
+
+O workspace principal em `/audit` preserva:
 
 - sidebar simples com o nome NexoDoc;
 - botao "Nova auditoria";
@@ -28,7 +40,7 @@ Elementos principais:
 - botao para cancelar processamento.
 - botao de demo local para validar UI sem API, sem PDF real e sem custo.
 
-## 3. Layout recomendado
+## 4. Layout recomendado
 
 Estrutura visual:
 
@@ -44,7 +56,7 @@ Estrutura visual:
 
 Em telas menores, a sidebar pode ser reduzida ou empilhada, mantendo prioridade para a area de chat e envio.
 
-## 4. Componentes previstos
+## 5. Componentes previstos
 
 Componentes previstos para a fase de implementacao:
 
@@ -57,7 +69,7 @@ Componentes previstos para a fase de implementacao:
 
 Esses componentes ainda nao devem ser criados nesta etapa de documentacao.
 
-## 5. Comportamentos esperados
+## 6. Comportamentos esperados
 
 ### Upload de arquivos
 
@@ -97,7 +109,7 @@ A resposta deve:
 - permitir copia separada de achados e acoes recomendadas;
 - permitir alternar entre analise estruturada e visualizacao de relatorio.
 
-## 6. Linguagem de interface
+## 7. Linguagem de interface
 
 A linguagem da interface deve ser objetiva.
 
@@ -120,7 +132,7 @@ Evitar:
 - termos que indiquem conclusao tecnica absoluta;
 - promessas de aprovacao ou validacao completa.
 
-## 7. Estados da interface
+## 8. Estados da interface
 
 A interface deve prever:
 
@@ -149,7 +161,7 @@ A demo local deve:
 - oferecer cenarios para Memorial e Volume;
 - servir para validar layout, leitura, copia, tabs e responsividade antes de testes reais.
 
-## 8. Estilo visual
+## 9. Estilo visual
 
 Diretrizes:
 
@@ -162,9 +174,9 @@ Diretrizes:
 - foco na leitura da resposta;
 - layout responsivo para desktop e notebook.
 
-## 9. Prioridade da versao 0.1
+## 10. Prioridade da versao 0.1
 
-A prioridade da interface e tornar o fluxo principal evidente:
+A prioridade do workspace de conferencia e tornar o fluxo principal evidente:
 
 ```text
 anexar PDFs -> escrever solicitacao -> auditar -> ler resposta

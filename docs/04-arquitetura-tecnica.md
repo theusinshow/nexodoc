@@ -29,6 +29,16 @@ Frontend Next.js
   renderiza resposta no chat
 ```
 
+O Criador de LDs faz parte do mesmo aplicativo autenticado:
+
+```text
+Frontend Next.js em /ld
+  envia pranchas PDF e revisa os campos extraidos
+Backend Next.js em /api/ld/*
+  recorta e interpreta selos com OpenAI e fallback MiMo
+  monta ODT pelo template oficial e gera PDF/ZIP
+```
+
 ## 3. Regra de seguranca principal
 
 A chave da OpenAI deve ficar somente no backend.
@@ -46,6 +56,20 @@ Frontend -> OpenAI API
 ```
 
 A variavel `OPENAI_API_KEY` deve ser lida apenas no ambiente de servidor.
+O mesmo vale para `MIMO_API_KEY`, usada somente pelo fallback visual das LDs.
+
+As configuracoes de IA sao centralizadas no backend em `lib/ai-providers.ts`:
+
+```text
+Auditoria padrao/profunda -> OpenAI -> OPENAI_STANDARD_* / OPENAI_DEEP_*
+Chat pos-auditoria         -> OpenAI -> OPENAI_MODEL
+Leitura de selo da LD      -> OpenAI -> NEXODOC_LD_OPENAI_MODEL
+Fallback de selo da LD     -> MiMo   -> MIMO_MODEL
+```
+
+`/api/admin/config` faz apenas validacao segura de presenca e modelos. Ele nao
+envia prompts a provedores; incidentes exibidos sao armazenados somente na
+memoria da instancia atual e categorizados sem conter tokens ou credenciais.
 
 ## 4. Estrutura recomendada
 
@@ -167,6 +191,7 @@ O deploy previsto e na Vercel.
 Requisitos para deploy:
 
 - configurar `OPENAI_API_KEY` como variavel de ambiente;
+- configurar `MIMO_API_KEY` e `MIMO_MODEL` no mesmo backend quando o Criador de LDs estiver habilitado;
 - garantir que a chave nao seja exposta ao cliente;
 - validar limites de upload conforme suporte do ambiente;
 - testar a rota `/api/audit` com PDFs reais de tamanho pequeno e medio.

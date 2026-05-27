@@ -6,7 +6,7 @@ O objetivo e manter a experiencia principal em formato de chat, mas com uma estr
 
 ## 1. Direcao visual
 
-O NexoDoc deve parecer uma ferramenta de trabalho para engenharia e auditoria documental, nao uma landing page.
+O NexoDoc deve parecer uma ferramenta de trabalho para engenharia e auditoria documental, nao uma landing page. O painel inicial e um seletor operacional de modulos; o workspace de conferencia continua orientado a tarefa.
 
 Direcao definida:
 
@@ -24,9 +24,20 @@ Nome interno do sistema visual:
 NexoDoc Audit Workspace
 ```
 
-## 2. Layout principal
+## 2. Painel de modulos
 
-A tela principal deve seguir tres areas:
+A rota `/` apresenta:
+
+- acesso prioritario a `Conferencia documental` em `/audit`;
+- acesso ativo a `Montagem de LDs` em `/ld`;
+- modulos futuros visiveis, mas sem acao ativa;
+- informacao compacta da sessao e acesso administrativo, quando aplicavel.
+
+Os cards comunicam disponibilidade por texto e status, nao apenas por cor.
+
+## 3. Layout principal da conferencia
+
+O workspace `/audit` deve seguir tres areas:
 
 - sidebar esquerda: marca, nova auditoria, resumo atual e historico da sessao;
 - area central: chat dominante, upload, progresso e resposta estruturada;
@@ -34,7 +45,7 @@ A tela principal deve seguir tres areas:
 
 O chat continua sendo o fluxo principal do produto.
 
-## 3. Paleta
+## 4. Paleta
 
 Tokens principais:
 
@@ -60,7 +71,7 @@ Status:
 --status-critical-bg: #2b1218;
 ```
 
-## 4. Geometria
+## 5. Geometria
 
 Regra geral:
 
@@ -70,7 +81,7 @@ Regra geral:
 - estados ativos com borda azul e contraste de fundo;
 - sombras discretas ou ausentes.
 
-## 5. Componentes principais
+## 6. Componentes principais
 
 ### Sidebar
 
@@ -114,7 +125,7 @@ Deve conter:
 - quantidade de achados;
 - abas Resumo, Achados e Relatorio.
 
-## 6. Resposta do agente
+## 7. Resposta do agente
 
 A resposta renderizada deve preservar a estrutura definida para o agente auditor:
 
@@ -131,7 +142,7 @@ As classificacoes permitidas continuam sendo:
 - com ponto de atencao;
 - com incongruencia relevante.
 
-## 7. Animacao e estados
+## 8. Animacao e estados
 
 Animacoes devem ser funcionais:
 
@@ -140,10 +151,10 @@ Animacoes devem ser funcionais:
 - respeitar `prefers-reduced-motion`;
 - progresso deve comunicar atividade sem prometer porcentagem exata.
 
-## 8. Regras de implementacao
+## 9. Regras de implementacao
 
 - Nao remover o chat do fluxo principal.
-- Nao transformar a tela inicial em landing page.
+- Manter o dashboard como selecao funcional de modulos, sem linguagem promocional.
 - Nao usar cards decorativos aninhados.
 - Manter a interface escaneavel.
 - Preservar upload, composer, progresso, resultado e historico.

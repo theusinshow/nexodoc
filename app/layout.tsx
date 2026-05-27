@@ -16,7 +16,7 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "NexoDoc",
-  description: "Auditoria documental para projetos de engenharia",
+  description: "Plataforma documental para projetos de engenharia",
   icons: {
     icon: [{ url: "/assets/logo.svg", type: "image/svg+xml" }],
     shortcut: "/assets/logo.svg",

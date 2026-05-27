@@ -59,7 +59,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           />
           <h1 className="mt-4 font-mono text-xl font-semibold">NexoDoc</h1>
           <p className="mt-1 font-mono text-xs tracking-[0.15em] text-muted-foreground">
-            AUDITORIA DOCUMENTAL
+            PLATAFORMA DOCUMENTAL
           </p>
         </div>
 
@@ -72,7 +72,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Acessar workspace
           </h2>
           <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-            Entre com sua conta Google autorizada para iniciar auditorias documentais.
+            Entre com sua conta Google autorizada para acessar os módulos documentais.
           </p>
 
           {error ? (

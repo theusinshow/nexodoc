@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAiConfiguration, getLastProviderFailures } from "@/lib/ai-providers";
 
 export const runtime = "nodejs";
 
@@ -64,6 +65,8 @@ export function GET(request: Request) {
     return jsonError(request, "Acesso admin negado.", 401);
   }
 
+  const ai = getAiConfiguration();
+
   return withCors(
     NextResponse.json({
       runtime: {
@@ -72,8 +75,51 @@ export function GET(request: Request) {
         clientDemoAllowed:
           process.env.NODE_ENV !== "production" ||
           process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true",
-        model: process.env.OPENAI_MODEL ?? "gpt-5.4-mini",
+        model: ai.auditChat.model,
         allowedOrigins: process.env.NEXODOC_ALLOWED_ORIGINS ?? "",
+      },
+      aiFlows: [
+        {
+          id: "audit-standard",
+          label: "Auditoria padrão",
+          provider: ai.audit.provider,
+          model: ai.audit.standardModel,
+          keyConfigured: ai.audit.keyConfigured,
+        },
+        {
+          id: "audit-deep",
+          label: "Auditoria profunda",
+          provider: ai.audit.provider,
+          model: ai.audit.deepModel,
+          keyConfigured: ai.audit.keyConfigured,
+        },
+        {
+          id: "audit-chat",
+          label: "Chat pós-auditoria",
+          provider: ai.auditChat.provider,
+          model: ai.auditChat.model,
+          keyConfigured: ai.auditChat.keyConfigured,
+        },
+        {
+          id: "ld-primary",
+          label: "LD - leitura principal",
+          provider: ai.ldExtraction.primary.provider,
+          model: ai.ldExtraction.primary.model,
+          keyConfigured: ai.ldExtraction.primary.keyConfigured,
+        },
+        {
+          id: "ld-fallback",
+          label: "LD - fallback",
+          provider: ai.ldExtraction.fallback.provider,
+          model: ai.ldExtraction.fallback.model,
+          keyConfigured: ai.ldExtraction.fallback.keyConfigured,
+        },
+      ],
+      aiHealth: {
+        externalConnectivityChecked: false,
+        note: "Validação somente de configuração; nenhuma chamada externa ou consumo de tokens foi executado.",
+        lastFailures: getLastProviderFailures(),
+        statusStorage: "Memória da instância atual; reiniciar o servidor limpa os incidentes.",
       },
       limits: {
         maxFiles: 5,
@@ -86,8 +132,9 @@ export function GET(request: Request) {
         ),
       },
       secrets: {
-        openaiApiKeyConfigured: Boolean(process.env.OPENAI_API_KEY),
-        openaiAdminKeyConfigured: Boolean(process.env.OPENAI_ADMIN_KEY),
+        openaiApiKeyConfigured: ai.audit.keyConfigured,
+        mimoApiKeyConfigured: ai.ldExtraction.fallback.keyConfigured,
+        openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
         adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
       },
       generatedAt: new Date().toISOString(),

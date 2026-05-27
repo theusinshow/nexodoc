@@ -227,7 +227,7 @@ export default function AdminQualityPage() {
               className="inline-flex items-center gap-2 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" />
-              Auditoria
+              Painel de módulos
             </Link>
             <div className="mt-4 flex items-center gap-2 font-mono text-xs uppercase text-primary">
               <ShieldCheck className="size-4" />
