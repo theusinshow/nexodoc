@@ -1,0 +1,24 @@
+{
+  "id": "prefchap",
+  "nome": "Prefeitura Municipal de Chapeco",
+  "arquivoTemplate": "modelo-capa.odt",
+  "volumeFormat": "roman",
+  "tomoFormat": "parenthesized-padded",
+  "coverTitleMode": "items",
+  "defaults": {
+    "orgao": "PREFEITURA MUNICIPAL DE CHAPECO",
+    "secretaria": "SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO",
+    "fase": "PROJETO EXECUTIVO"
+  },
+  "campos": [
+    "ORGAO",
+    "SECRETARIA",
+    "NOME_OBRA",
+    "FASE",
+    "TITULO_CAPA",
+    "TOMO",
+    "VOLUME",
+    "MES_ANO",
+    "CODIGO_EXIBIDO"
+  ]
+}

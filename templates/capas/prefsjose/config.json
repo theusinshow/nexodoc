@@ -1,0 +1,22 @@
+{
+  "id": "prefsjose",
+  "nome": "Prefeitura Municipal de Sao Jose",
+  "arquivoTemplate": "modelo_capa.odt",
+  "volumeFormat": "roman",
+  "tomoFormat": "plain-padded",
+  "coverTitleMode": "items",
+  "defaults": {
+    "orgao": "PREFEITURA MUNICIPAL DE SAO JOSE",
+    "secretaria": "",
+    "fase": "PROJETO EXECUTIVO"
+  },
+  "campos": [
+    "NOME_OBRA",
+    "FASE",
+    "TITULO_CAPA",
+    "TOMO",
+    "VOLUME",
+    "MES_ANO",
+    "CODIGO_EXIBIDO"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "pmcriciuma",
+  "nome": "Prefeitura Municipal de Criciuma",
+  "arquivoTemplate": "modelo_capa.odt",
+  "volumeFormat": "numeric",
+  "tomoFormat": "parenthesized-padded",
+  "coverTitleMode": "volume-title-items",
+  "defaults": {
+    "orgao": "PREFEITURA MUNICIPAL DE CRICIUMA",
+    "secretaria": "",
+    "fase": "PROJETO EXECUTIVO"
+  },
+  "campos": [
+    "NOME_OBRA",
+    "TITULO_CAPA",
+    "TOMO",
+    "VOLUME",
+    "MES_ANO",
+    "CODIGO_EXIBIDO"
+  ]
+}

@@ -37,14 +37,18 @@ const availableModules = [
     icon: TableProperties,
     emphasis: false,
   },
+  {
+    title: "Montagem de capas",
+    description:
+      "Gere capas padronizadas em ODT, PDF ou ZIP a partir de templates por prefeitura.",
+    href: "/capas",
+    label: "Abrir capas",
+    icon: FolderCog,
+    emphasis: false,
+  },
 ] as const;
 
 const futureModules = [
-  {
-    title: "Montagem de capas",
-    description: "Composição e validação de capas padronizadas para entregáveis técnicos.",
-    icon: FolderCog,
-  },
   {
     title: "Organização de volumes",
     description: "Junção, ordenação e conferência final dos volumes de projeto.",
@@ -125,18 +129,18 @@ export default async function DashboardPage() {
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
               Escolha a operação para iniciar. A conferência documental segue como fluxo
-              principal; a montagem de LDs já está disponível no mesmo workspace autenticado.
+              principal; LDs e capas já estão disponíveis no mesmo workspace autenticado.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border lg:w-[290px]">
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Disponíveis</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">02</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">03</p>
             </div>
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Planejados</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">02</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">01</p>
             </div>
           </div>
         </section>

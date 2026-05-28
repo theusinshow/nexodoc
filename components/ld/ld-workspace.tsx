@@ -24,6 +24,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { encodeLdData } from "@/modules/ld-interop";
 import {
   buildBalancedTomos,
   compareBySheet,
@@ -994,6 +995,21 @@ export function LdWorkspace({
     ],
     [baseName],
   );
+  const coverGeneratorHref = useMemo(() => {
+    const params = encodeLdData({
+      codigoInterno: ldData.projectCode,
+      codigoExibido: ldData.formattedCode,
+      revisao: ldData.revision,
+      nomeObra: ldData.workName,
+      fase: ldData.phase,
+      orgao: ldData.client,
+      tituloLd: ldData.sectionTitle,
+      tomos: tomos.map((_, index) => String(index + 1).padStart(2, "0")),
+      volume: "I",
+    });
+
+    return `/capas?${params.toString()}`;
+  }, [ldData, tomos]);
   const finalChecklistItems = useMemo(
     () => [
       "Conferi órgão/cliente, nome da obra, fase e título da seção.",
@@ -2275,6 +2291,7 @@ export function LdWorkspace({
               <FinalStep
                 files={generatedFiles}
                 downloads={generatedDownloads}
+                coverGeneratorHref={coverGeneratorHref}
                 generating={packageGenerating}
                 error={packageError}
                 checklistItems={finalChecklistItems}
@@ -4085,6 +4102,7 @@ function SummaryGroup({ title, items }: { title: string; items: [string, string]
 function FinalStep({
   files,
   downloads,
+  coverGeneratorHref,
   generating,
   error,
   checklistItems,
@@ -4094,6 +4112,7 @@ function FinalStep({
 }: {
   files: string[];
   downloads: GeneratedDownload[];
+  coverGeneratorHref: string;
   generating: boolean;
   error: string;
   checklistItems: string[];
@@ -4140,6 +4159,13 @@ function FinalStep({
           Gerar arquivos finais
         </button>
         {error && <p className="rounded-md border border-destructive bg-background p-3 text-sm text-destructive">{error}</p>}
+        <Link
+          href={coverGeneratorHref}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-3 text-sm font-medium text-[var(--nexodoc-accent)] transition hover:border-primary hover:bg-primary/15"
+        >
+          <FileArchive size={16} />
+          Gerar capas desta LD
+        </Link>
         {downloads.map((download) => (
           <a
             key={download.fileName}
