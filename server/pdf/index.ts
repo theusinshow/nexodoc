@@ -9,75 +9,89 @@ export interface ConvertToPdfResult {
   error?: string;
 }
 
+const CONVERTER_URL = process.env.DOCUMENT_CONVERTER_URL?.trim();
+
 export async function convertOdtToPdf(odtBuffer: Buffer): Promise<ConvertToPdfResult> {
-  const tmpDir = join(/*turbopackIgnore: true*/ tmpdir(), `nexodoc-pdf-${randomUUID()}`);
-  const odtPath = join(/*turbopackIgnore: true*/ tmpDir, "document.odt");
-  const pdfPath = join(/*turbopackIgnore: true*/ tmpDir, "document.pdf");
+  if (CONVERTER_URL) {
+    return convertViaRender(odtBuffer);
+  }
+
+  if (process.env.LIBREOFFICE_PATH) {
+    return convertViaLocal(odtBuffer);
+  }
+
+  return {
+    pdfBuffer: null,
+    error:
+      "PDF indisponivel. Configure DOCUMENT_CONVERTER_URL (Render) ou LIBREOFFICE_PATH (local) para habilitar a conversao.",
+  };
+}
+
+async function convertViaRender(odtBuffer: Buffer): Promise<ConvertToPdfResult> {
+  try {
+    const formData = new FormData();
+    formData.append("file", new Blob([new Uint8Array(odtBuffer)], { type: "application/vnd.oasis.opendocument.text" }), "document.odt");
+
+    const response = await fetch(CONVERTER_URL!, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errPayload = await response.json().catch(() => null);
+      throw new Error(errPayload?.error || `Render retornou status ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+
+    if (arrayBuffer.byteLength === 0) {
+      return { pdfBuffer: null, error: "Render retornou PDF vazio." };
+    }
+
+    return { pdfBuffer: Buffer.from(arrayBuffer) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { pdfBuffer: null, error: `Falha na conversao via Render (${CONVERTER_URL}): ${message}` };
+  }
+}
+
+async function convertViaLocal(odtBuffer: Buffer): Promise<ConvertToPdfResult> {
+  const tmpDir = join(tmpdir(), `nexodoc-pdf-${randomUUID()}`);
+  const odtPath = join(tmpDir, "document.odt");
+  const pdfPath = join(tmpDir, "document.pdf");
 
   try {
     await mkdir(tmpDir, { recursive: true });
     await writeFile(odtPath, odtBuffer);
 
-    await execLibreOffice(tmpDir);
+    await execLibreOffice(process.env.LIBREOFFICE_PATH!, tmpDir);
 
-    try {
-      const pdfBuffer = await readFile(pdfPath);
-      return { pdfBuffer };
-    } catch {
-      return {
-        pdfBuffer: null,
-        error:
-          "LibreOffice executado mas o PDF nao foi encontrado no caminho esperado.",
-      };
+    const pdfBuffer = await readFile(pdfPath);
+
+    if (pdfBuffer.length === 0) {
+      return { pdfBuffer: null, error: "LibreOffice gerou PDF vazio." };
     }
-  } catch (err: unknown) {
+
+    return { pdfBuffer };
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return {
-      pdfBuffer: null,
-      error: `Falha na conversao PDF. LibreOffice headless nao encontrado ou erro na execucao. Instale o LibreOffice para habilitar a conversao PDF. Detalhes: ${message}`,
-    };
+    return { pdfBuffer: null, error: `Falha na conversao local: ${message}` };
   } finally {
-    try {
-      await rm(tmpDir, { recursive: true, force: true });
-    } catch {
-      // cleanup failure is non-critical
-    }
+    try { await rm(tmpDir, { recursive: true, force: true }); } catch { /* cleanup non-critical */ }
   }
 }
 
-function execLibreOffice(workDir: string): Promise<void> {
+function execLibreOffice(binaryPath: string, workDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const possiblePaths = [
-      "libreoffice",
-      "soffice",
-      "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
-      "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
-    ];
-
-    const args = [
-      "--headless",
-      "--convert-to",
-      "pdf",
-      "--outdir",
-      workDir,
-      join(/*turbopackIgnore: true*/ workDir, "document.odt"),
-    ];
-
-    function tryExec(index: number) {
-      if (index >= possiblePaths.length) {
-        reject(new Error("LibreOffice not found in any known path"));
-        return;
+    execFile(
+      binaryPath,
+      ["--headless", "--convert-to", "pdf", "--outdir", workDir, join(workDir, "document.odt")],
+      { timeout: 30000 },
+      (error) => {
+        if (error) reject(error);
+        else resolve();
       }
-
-      execFile(possiblePaths[index], args, { timeout: 30000 }, (error) => {
-        if (error) {
-          tryExec(index + 1);
-        } else {
-          resolve();
-        }
-      });
-    }
-
-    tryExec(0);
+    );
   });
 }

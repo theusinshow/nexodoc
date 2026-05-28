@@ -48,7 +48,66 @@ Ainda fora do escopo atual:
 - Tailwind CSS;
 - shadcn/ui;
 - OpenAI API;
-- Vercel.
+- Vercel (frontend);
+- Render (API backend + conversao PDF).
+
+## Conversao ODT para PDF
+
+A Vercel nao suporta binarios nativos como LibreOffice. A conversao de ODT para PDF
+e delegada ao Render, que roda LibreOffice headless via Docker.
+
+**Arquitetura:**
+
+```text
+Vercel                         Render
+------                         ------
+Usuario clica "Baixar"
+       |
+       v
+POST /api/capas/generate  -->  (se DOCUMENT_CONVERTER_URL configurada)
+ou                              |
+POST /api/ld/generate-package   v
+       |                  POST /convert (multipart: file=document.odt)
+       |                        |
+       |                  LibreOffice --headless --convert-to pdf
+       |                        |
+       |                  <--  application/pdf (binary)
+       |
+       v
+Resposta JSON com base64: { odt, pdf?, zip }
+```
+
+**Variavel necessaria na Vercel:**
+
+```bash
+DOCUMENT_CONVERTER_URL=https://nexodoc-converter.onrender.com/convert
+```
+
+**Variavel opcional para desenvolvimento local:**
+
+```bash
+LIBREOFFICE_PATH=C:\Program Files\LibreOffice\program\soffice.exe
+```
+
+O conversor tenta nesta ordem:
+1. `DOCUMENT_CONVERTER_URL` (Render) -- producao
+2. `LIBREOFFICE_PATH` (fallback local) -- apenas desenvolvimento
+3. Sem nenhum dos dois, o PDF retorna `null` (ODT e ZIP ainda funcionam)
+
+**Deploy do servico Render:**
+
+O servico fica em `render-service/`. Para fazer deploy:
+
+1. Crie um novo Web Service no Render apontando para o repo
+2. Root Directory: `render-service`
+3. Build Command: `npm install`
+4. Start Command: `npm start`
+5. Plano: Free para teste, pago para producao (Free desliga apos inatividade)
+
+**Nota sobre Render Free:**
+O plano gratuito do Render suspende o servico apos 15 minutos de inatividade.
+Na primeira requisicao apos suspensao, a inicializacao demora ~30-60s (cold start).
+Para producao, use plano pago para manter o servico sempre ativo.
 
 ## Documentacao
 
