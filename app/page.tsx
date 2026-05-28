@@ -13,6 +13,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { getUserAccess } from "@/lib/access-control";
@@ -247,6 +248,7 @@ export default async function DashboardPage() {
           </section>
         ) : null}
       </div>
+      <DashboardShortcuts isAdmin={isAdmin} />
     </main>
   );
 }

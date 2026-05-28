@@ -104,16 +104,22 @@ export function AdminError({ message }: { message: string }) {
 export function AdminMetricStrip({
   metrics,
   columns = "sm:grid-cols-4",
+  loading = false,
 }: {
   metrics: Array<{ label: string; value: string | number; detail?: string }>;
   columns?: string;
+  loading?: boolean;
 }) {
   return (
     <section className={`grid gap-3 ${columns}`}>
       {metrics.map((metric) => (
         <div key={metric.label} className="border border-border bg-card p-3">
           <p className="font-mono text-xs text-muted-foreground">{metric.label}</p>
-          <p className="mt-1 font-mono text-2xl font-semibold">{metric.value}</p>
+          {loading ? (
+            <div className="mt-1 h-8 w-16 animate-pulse bg-muted" />
+          ) : (
+            <p className="mt-1 font-mono text-2xl font-semibold">{metric.value}</p>
+          )}
           {metric.detail ? <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p> : null}
         </div>
       ))}

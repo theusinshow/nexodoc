@@ -12,20 +12,25 @@ import {
   LayoutGrid,
   ListChecks,
   LogOut,
+  Menu,
   PlayCircle,
   RotateCcw,
   ScrollText,
   TableProperties,
   TestTube2,
   Wrench,
+  X,
 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult, type AuditPdfSource } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
+import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { MessageBubble } from "@/components/message-bubble";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
@@ -45,6 +50,7 @@ import {
 } from "@/lib/audit-mode";
 import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 
 type ChatWindowProps = {
@@ -441,6 +447,36 @@ export function ChatWindow({
   const [learningTitle, setLearningTitle] = useState("");
   const [learningContent, setLearningContent] = useState("");
   const [learningNotice, setLearningNotice] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const router = useRouter();
+  useKeyboardShortcuts({
+    shortcuts: [
+      {
+        key: "g",
+        ctrl: true,
+        handler: () => router.push("/"),
+        description: "Ir para o dashboard",
+      },
+      {
+        key: "l",
+        ctrl: true,
+        handler: () => router.push("/ld"),
+        description: "Ir para montagem de LDs",
+      },
+      ...(isAdmin
+        ? [
+            {
+              key: "a",
+              ctrl: true,
+              shift: true,
+              handler: () => router.push("/admin"),
+              description: "Ir para painel admin",
+            },
+          ]
+        : []),
+    ],
+  });
   const [isSavingLearning, setIsSavingLearning] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -1194,7 +1230,21 @@ export function ChatWindow({
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="hidden h-dvh w-[236px] shrink-0 border-r bg-[var(--nexodoc-panel)] px-3 py-5 lg:flex lg:flex-col">
+      {sidebarOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+      <aside
+        className={cn(
+          "h-dvh w-[236px] shrink-0 border-r bg-[var(--nexodoc-panel)] px-3 py-5",
+          sidebarOpen
+            ? "fixed inset-y-0 left-0 z-50 flex flex-col lg:relative lg:z-auto lg:flex lg:flex-col"
+            : "hidden lg:flex lg:flex-col",
+        )}
+      >
         <div className="flex items-center gap-2.5 px-1">
           <Image
             src="/assets/logo.svg"
@@ -1208,6 +1258,16 @@ export function ChatWindow({
             <h1 className="font-mono text-sm font-semibold tracking-normal">NexoDoc</h1>
             <p className="font-mono text-[11px] text-muted-foreground">Auditoria documental</p>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="ml-auto h-7 min-h-7 w-7 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Fechar menu lateral"
+          >
+            <X className="size-3.5" />
+          </Button>
         </div>
 
         <div className="mt-4 space-y-1">
@@ -1442,6 +1502,16 @@ export function ChatWindow({
       <section className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-2.5 lg:hidden">
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 min-h-8 w-8"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              aria-label="Abrir menu lateral"
+            >
+              <Menu className="size-4" />
+            </Button>
             <Image
               src="/assets/logo.svg"
               alt=""
@@ -1726,6 +1796,7 @@ export function ChatWindow({
           ) : null}
         </div>
       </aside>
+      <KeyboardShortcutsHelp />
     </main>
   );
 }

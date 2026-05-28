@@ -134,6 +134,12 @@ input {
   letter-spacing: 0;
 }
 
+button.font-mono,
+select.font-mono,
+input.font-mono {
+  letter-spacing: inherit;
+}
+
 button,
 label[for] {
   transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);

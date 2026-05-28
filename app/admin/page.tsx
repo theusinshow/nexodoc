@@ -72,7 +72,7 @@ function AdminMetric({
   icon: Icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   detail: string;
   icon: typeof ShieldCheck;
 }) {
@@ -174,11 +174,11 @@ export default function AdminHomePage() {
         <AdminError message={error} />
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <AdminMetric label="Usuários ativos" value={data?.totals.activeUsers ?? 0} detail={`${data?.totals.admins ?? 0} admin(s)`} icon={UsersRound} />
-          <AdminMetric label="Auditorias" value={data?.totals.audits ?? 0} detail={`${data?.totals.recentAudits ?? 0} nos últimos 7 dias`} icon={ListChecks} />
-          <AdminMetric label="Falhas" value={data?.totals.failedAudits ?? 0} detail="Auditorias com erro" icon={AlertTriangle} />
-          <AdminMetric label="LDs" value={data?.totals.ldDrafts ?? 0} detail={`${data?.totals.generatedLds ?? 0} gerada(s)`} icon={FileSpreadsheet} />
-          <AdminMetric label="Eventos LD" value={data?.totals.ldEvents ?? 0} detail={`${data?.totals.recentLds ?? 0} LD(s) recentes`} icon={Clock3} />
+          <AdminMetric label="Usuários ativos" value={loading ? "--" : (data?.totals.activeUsers ?? 0)} detail={`${data?.totals.admins ?? 0} admin(s)`} icon={UsersRound} />
+          <AdminMetric label="Auditorias" value={loading ? "--" : (data?.totals.audits ?? 0)} detail={`${data?.totals.recentAudits ?? 0} nos últimos 7 dias`} icon={ListChecks} />
+          <AdminMetric label="Falhas" value={loading ? "--" : (data?.totals.failedAudits ?? 0)} detail="Auditorias com erro" icon={AlertTriangle} />
+          <AdminMetric label="LDs" value={loading ? "--" : (data?.totals.ldDrafts ?? 0)} detail={`${data?.totals.generatedLds ?? 0} gerada(s)`} icon={FileSpreadsheet} />
+          <AdminMetric label="Eventos LD" value={loading ? "--" : (data?.totals.ldEvents ?? 0)} detail={`${data?.totals.recentLds ?? 0} LD(s) recentes`} icon={Clock3} />
         </section>
 
         <section className="grid gap-3 md:grid-cols-5">

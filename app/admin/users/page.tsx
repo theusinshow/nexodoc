@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Search, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Check, Search, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ADMIN_TOKEN_STORAGE_KEY,
@@ -56,6 +56,11 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
+
+  const allSelected = users.length > 0 && selectedIds.size === users.length;
+  const someSelected = selectedIds.size > 0;
   const totals = useMemo(
     () => ({
       active: users.filter((user) => user.isActive).length,
@@ -65,6 +70,58 @@ export default function AdminUsersPage() {
     }),
     [users],
   );
+
+  const toggleSelect = useCallback((userId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(users.map((u) => u.id)));
+    }
+  }, [allSelected, users]);
+
+  async function batchUpdateUsers(updates: Partial<Pick<AdminUser, "role" | "isActive">>) {
+    if (selectedIds.size === 0) return;
+
+    setBatchBusy(true);
+    setError("");
+
+    try {
+      const ids = Array.from(selectedIds);
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids, ...updates }),
+      });
+      const payload = (await response.json().catch(() => null)) as { updatedCount?: number; error?: string } | null;
+
+      if (!response.ok) throw new Error(payload?.error ?? "Não foi possível atualizar usuários em lote.");
+      setUsers((current) =>
+        current.map((user) =>
+          ids.includes(user.id) ? { ...user, ...updates } : user,
+        ),
+      );
+      setSelectedIds(new Set());
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível atualizar usuários em lote.");
+    } finally {
+      setBatchBusy(false);
+    }
+  }
 
   async function loadUsers(nextToken = token) {
     const trimmedToken = nextToken.trim();
@@ -235,10 +292,64 @@ export default function AdminUsersPage() {
           <Button type="submit" disabled={loading}>Filtrar</Button>
         </form>
 
+        {someSelected ? (
+          <div className="flex flex-wrap items-center gap-2 border border-primary/30 bg-card p-3">
+            <span className="font-mono text-xs text-muted-foreground">
+              {selectedIds.size} selecionado(s)
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              disabled={batchBusy}
+              onClick={() => void batchUpdateUsers({ role: "ADMIN" })}
+            >
+              <ShieldCheck className="size-3.5" />
+              Tornar admins
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={batchBusy}
+              onClick={() => void batchUpdateUsers({ isActive: false })}
+            >
+              <X className="size-3.5" />
+              Desativar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={batchBusy}
+              onClick={() => void batchUpdateUsers({ isActive: true })}
+            >
+              <Check className="size-3.5" />
+              Ativar
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Limpar seleção
+            </Button>
+          </div>
+        ) : null}
+
         <section className="overflow-x-auto border border-border bg-card">
-          <table className="w-full min-w-[1180px] border-collapse text-sm">
+          <table className="w-full min-w-[1210px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Selecionar todos"
+                    className="size-4 accent-primary"
+                  />
+                </th>
                 <th className="px-3 py-3">Usuário</th>
                 <th className="px-3 py-3">Papel</th>
                 <th className="px-3 py-3">Status</th>
@@ -252,6 +363,15 @@ export default function AdminUsersPage() {
             <tbody>
               {users.length ? users.map((user) => (
                 <tr key={user.id} className="border-t border-border hover:bg-muted/30">
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(user.id)}
+                      onChange={() => toggleSelect(user.id)}
+                      aria-label={`Selecionar ${user.name}`}
+                      className="size-4 accent-primary"
+                    />
+                  </td>
                   <td className="max-w-[320px] px-3 py-3">
                     <p className="truncate font-medium">{user.name}</p>
                     <p className="truncate font-mono text-xs text-muted-foreground">{user.email}</p>
@@ -285,7 +405,7 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                 </tr>
-              )) : <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>}
+              )) : <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>}
             </tbody>
           </table>
         </section>
