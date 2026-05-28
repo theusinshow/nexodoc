@@ -1,10 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, FileCheck, FolderArchive, Download, Loader2, RotateCcw, AlertTriangle } from "lucide-react";
+import { FileText, FileCheck, FolderArchive, Download, Loader2, RotateCcw, AlertTriangle, Ban } from "lucide-react";
 import type { GeneralData, CoverPage } from "../types";
 import { Button } from "@/components/ui/button";
 import { getFileName } from "../hooks/helpers";
+
+interface GeneratedDownload {
+  fileName: string;
+  url: string;
+  kind: "odt" | "pdf" | "zip";
+}
+
+interface GenerateResponse {
+  files: {
+    odt: { name: string; data: string };
+    pdf: { name: string; data: string } | null;
+    zip: { name: string; data: string };
+  };
+  error?: string;
+}
 
 const CHECKLIST_ITEMS = [
   "Abrir ODT no LibreOffice",
@@ -17,15 +32,24 @@ const CHECKLIST_ITEMS = [
   "Conferir codigo exibido",
   "Conferir titulo, tomo e volume de cada capa",
   "Conferir rodape e propriedades do documento",
-  "Conferir PDF gerado",
+  "Conferir PDF gerado (se disponivel)",
 ];
 
 interface StepResultProps {
   generalData: GeneralData;
-  totalPages: number;
   pages: CoverPage[];
-  templateFields: string[];
   onReset: () => void;
+}
+
+function base64ToObjectUrl(base64: string, mimeType: string) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
 export function StepResult({
@@ -34,9 +58,9 @@ export function StepResult({
   onReset,
 }: StepResultProps) {
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
-  const [generatingFormat, setGeneratingFormat] = useState<"odt" | "pdf" | "zip" | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pdfWarning, setPdfWarning] = useState<string | null>(null);
+  const [downloads, setDownloads] = useState<GeneratedDownload[]>([]);
 
   const { codigoInterno, siglaArquivo, revisao } = generalData;
   const sigla = siglaArquivo || "";
@@ -55,59 +79,62 @@ export function StepResult({
     });
   }
 
-  async function handleDownload(outputFormat: "odt" | "pdf" | "zip") {
-    setGeneratingFormat(outputFormat);
+  async function handleGenerate() {
+    setGenerating(true);
     setError(null);
-    setPdfWarning(null);
 
     try {
       const response = await fetch("/api/capas/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generalData, pages, outputFormat }),
+        body: JSON.stringify({ generalData, pages }),
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => null);
-        throw new Error(errData?.error || `Erro ${response.status}`);
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Nao foi possivel gerar os arquivos.");
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      const isZip = contentType.includes("application/zip");
-      const isPdf = contentType.includes("application/pdf");
+      const payload = (await response.json()) as GenerateResponse;
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = getFileName(code, sigla, rev, isZip ? "zip" : isPdf ? "pdf" : "odt");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloads.forEach((d) => URL.revokeObjectURL(d.url));
 
-      const pdfHeaderError = response.headers.get("X-PDF-Error");
-      if (pdfHeaderError) {
-        setPdfWarning(
-          outputFormat === "zip"
-            ? `${pdfHeaderError}. Baixei o ODT para voce conferir enquanto o PDF fica indisponivel.`
-            : pdfHeaderError
-        );
-      }
+      setDownloads(
+        [
+          {
+            fileName: payload.files.odt.name,
+            kind: "odt" as const,
+            url: base64ToObjectUrl(payload.files.odt.data, "application/vnd.oasis.opendocument.text"),
+          },
+          payload.files.pdf
+            ? {
+                fileName: payload.files.pdf.name,
+                kind: "pdf" as const,
+                url: base64ToObjectUrl(payload.files.pdf.data, "application/pdf"),
+              }
+            : null,
+          {
+            fileName: payload.files.zip.name,
+            kind: "zip" as const,
+            url: base64ToObjectUrl(payload.files.zip.data, "application/zip"),
+          },
+        ].filter((d): d is GeneratedDownload => Boolean(d)),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar arquivos");
     } finally {
-      setGeneratingFormat(null);
+      setGenerating(false);
     }
   }
 
+  const { codigoInterno: _unused, siglaArquivo: _unused2, ...shownData } = generalData;
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Resultado</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Escolha exatamente o arquivo que deseja baixar. O ZIP inclui ODT e
-          PDF quando a conversao estiver disponivel.
+          Clique em Gerar para criar os arquivos. O ODT sempre estara disponivel.
+          O PDF depende do LibreOffice no servidor.
         </p>
       </div>
 
@@ -118,59 +145,51 @@ export function StepResult({
         </div>
       )}
 
-      {pdfWarning && (
-        <div className="flex items-start gap-2 border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] p-3 text-sm" style={{ color: "var(--nexodoc-tertiary-strong)" }}>
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{pdfWarning}</span>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          { icon: FileText, label: "ODT", ext: "odt", description: "Documento editavel" },
-          { icon: FileCheck, label: "PDF", ext: "pdf", description: "Arquivo final para envio" },
-          { icon: FolderArchive, label: "ZIP", ext: "zip", description: "ODT + PDF no mesmo pacote" },
-        ].map(({ icon: Icon, label, ext, description }) => {
-          const isGeneratingThis = generatingFormat === ext;
-          return (
-          <div
-            key={ext}
-            className="border border-border bg-card p-4 text-center"
-          >
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center border border-primary/25 bg-primary/10">
-              <Icon className="h-4 w-4 text-primary" />
-            </div>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-1 font-mono text-xs text-muted-foreground break-all">
-              {getFileName(code, sigla, rev, ext)}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">{description}</p>
-            <Button
-              className="mt-4 w-full"
-              variant={ext === "zip" ? "default" : "outline"}
-              onClick={() => handleDownload(ext as "odt" | "pdf" | "zip")}
-              disabled={generatingFormat !== null}
-            >
-              {isGeneratingThis ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-1.5 h-4 w-4" />
-              )}
-              {isGeneratingThis ? "Gerando..." : `Baixar ${label}`}
-            </Button>
-          </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="flex items-center justify-between">
         <Button variant="outline" onClick={onReset}>
           <RotateCcw className="mr-1.5 h-4 w-4" />
           Iniciar nova geracao
         </Button>
+        <Button
+          onClick={handleGenerate}
+          disabled={generating}
+        >
+          {generating ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-1.5 h-4 w-4" />
+          )}
+          {generating ? "Gerando..." : "Gerar arquivos"}
+        </Button>
       </div>
+
+      {downloads.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <DownloadCard
+            icon={FileText}
+            label="ODT"
+            fileName={getFileName(code, sigla, rev, "odt")}
+            description="Documento editavel"
+            download={downloads.find((d) => d.kind === "odt")}
+          />
+          <DownloadCard
+            icon={FileCheck}
+            label="PDF"
+            fileName={getFileName(code, sigla, rev, "pdf")}
+            description={downloads.some((d) => d.kind === "pdf") ? "Arquivo final para envio" : "PDF indisponivel (requer LibreOffice no servidor)"}
+            download={downloads.find((d) => d.kind === "pdf")}
+            unavailable={!downloads.some((d) => d.kind === "pdf")}
+          />
+          <DownloadCard
+            icon={FolderArchive}
+            label="ZIP"
+            fileName={getFileName(code, sigla, rev, "zip")}
+            description={downloads.some((d) => d.kind === "pdf") ? "ODT + PDF no mesmo pacote" : "Apenas ODT (PDF indisponivel)"}
+            download={downloads.find((d) => d.kind === "zip")}
+            primary
+          />
+        </div>
+      )}
 
       <div className="border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
@@ -209,6 +228,62 @@ export function StepResult({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DownloadCard({
+  icon: Icon,
+  label,
+  fileName,
+  description,
+  download,
+  unavailable,
+  primary,
+}: {
+  icon: typeof FileText;
+  label: string;
+  fileName: string;
+  description: string;
+  download?: GeneratedDownload;
+  unavailable?: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <div className="border border-border bg-card p-4 text-center">
+      <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center border ${
+        unavailable ? "border-muted-foreground/25 bg-muted" : "border-primary/25 bg-primary/10"
+      }`}>
+        <Icon className={`h-4 w-4 ${unavailable ? "text-muted-foreground" : "text-primary"}`} />
+      </div>
+      <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-mono text-xs text-muted-foreground break-all">
+        {fileName}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">{description}</p>
+      {download ? (
+        <Button
+          className="mt-4 w-full"
+          variant={primary ? "default" : "outline"}
+          asChild
+        >
+          <a href={download.url} download={download.fileName}>
+            <Download className="mr-1.5 h-4 w-4" />
+            Baixar {label}
+          </a>
+        </Button>
+      ) : (
+        <Button
+          className="mt-4 w-full"
+          variant="outline"
+          disabled
+        >
+          <Ban className="mr-1.5 h-4 w-4" />
+          Indisponivel
+        </Button>
+      )}
     </div>
   );
 }

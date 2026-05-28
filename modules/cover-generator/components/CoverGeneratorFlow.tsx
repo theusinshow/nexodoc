@@ -132,9 +132,7 @@ export function CoverGeneratorFlow({ initialData }: CoverGeneratorFlowProps) {
           {ctx.step === 5 && (
             <StepResult
               generalData={ctx.generalData}
-              totalPages={ctx.pages.length}
               pages={ctx.pages}
-              templateFields={ctx.templateFields}
               onReset={ctx.reset}
             />
           )}
