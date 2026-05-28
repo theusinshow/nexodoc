@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyboardEvent, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,32 @@ function AdminNavLink({
 export function AdminNav() {
   const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownClosing, setDropdownClosing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function closeDropdown() {
+    setDropdownClosing(true);
+    dropdownTimer.current = setTimeout(() => {
+      setDropdownOpen(false);
+      setDropdownClosing(false);
+    }, 150);
+  }
+
+  function toggleDropdown() {
+    if (dropdownOpen) {
+      closeDropdown();
+    } else {
+      setDropdownClosing(false);
+      setDropdownOpen(true);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (dropdownTimer.current) clearTimeout(dropdownTimer.current);
+    };
+  }, []);
 
   const isActive = (href: string) => pathname === href;
   const visibleLinks = adminLinks.slice(0, VISIBLE_COUNT);
@@ -133,10 +158,10 @@ export function AdminNav() {
               role="tab"
               aria-selected={activeOverflow}
               aria-expanded={dropdownOpen}
-              onClick={() => setDropdownOpen((prev) => !prev)}
+              onClick={toggleDropdown}
               onBlur={(event) => {
                 if (!dropdownRef.current?.contains(event.relatedTarget)) {
-                  setDropdownOpen(false);
+                  closeDropdown();
                 }
               }}
               className={cn(
@@ -150,14 +175,17 @@ export function AdminNav() {
               <ChevronDown className={cn("size-3.5 transition-transform", dropdownOpen && "rotate-180")} />
             </button>
             {dropdownOpen ? (
-              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-panel">
+              <div className={cn(
+                "absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-panel",
+                dropdownClosing ? "animate-out fade-out-0 zoom-out-95" : "dropdown-expand",
+              )}>
                 {overflowLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     role="tab"
                     aria-selected={isActive(link.href)}
-                    onClick={() => setDropdownOpen(false)}
+                    onClick={closeDropdown}
                     onKeyDown={(e) => handleTabKeyDown(e, overflowLinks)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition",

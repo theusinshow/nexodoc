@@ -303,3 +303,95 @@ textarea {
 .nexodoc-status-pulse {
   animation: nexodoc-status-pulse 1.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
 }
+
+/* Sidebar drawer mobile */
+@keyframes sidebar-slide-in {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes sidebar-slide-out {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes backdrop-fade-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes backdrop-fade-out {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.sidebar-drawer-open {
+  animation: sidebar-slide-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sidebar-drawer-closing {
+  animation: sidebar-slide-out 180ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.backdrop-fade-in {
+  animation: backdrop-fade-in 200ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.backdrop-fade-out {
+  animation: backdrop-fade-out 150ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Modal entrance */
+@keyframes modal-scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-scale-in {
+  animation: modal-scale-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dropdown expand */
+@keyframes dropdown-expand {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.95);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.dropdown-expand {
+  animation: dropdown-expand 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top;
+}

@@ -448,6 +448,20 @@ export function ChatWindow({
   const [learningContent, setLearningContent] = useState("");
   const [learningNotice, setLearningNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarClosing, setSidebarClosing] = useState(false);
+
+  function closeSidebar() {
+    setSidebarClosing(true);
+    setTimeout(() => {
+      setSidebarOpen(false);
+      setSidebarClosing(false);
+    }, 170);
+  }
+
+  function openSidebar() {
+    setSidebarClosing(false);
+    setSidebarOpen(true);
+  }
 
   const router = useRouter();
   useKeyboardShortcuts({
@@ -1232,8 +1246,11 @@ export function ChatWindow({
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
       {sidebarOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          className={cn(
+            "fixed inset-0 z-40 bg-black/50 lg:hidden",
+            sidebarClosing ? "backdrop-fade-out" : "backdrop-fade-in",
+          )}
+          onClick={closeSidebar}
           aria-hidden="true"
         />
       ) : null}
@@ -1241,7 +1258,10 @@ export function ChatWindow({
         className={cn(
           "h-dvh w-[236px] shrink-0 border-r bg-[var(--nexodoc-panel)] px-3 py-5",
           sidebarOpen
-            ? "fixed inset-y-0 left-0 z-50 flex flex-col lg:relative lg:z-auto lg:flex lg:flex-col"
+            ? cn(
+                "fixed inset-y-0 left-0 z-50 flex flex-col lg:relative lg:z-auto lg:flex lg:flex-col",
+                sidebarClosing ? "sidebar-drawer-closing" : "sidebar-drawer-open",
+              )
             : "hidden lg:flex lg:flex-col",
         )}
       >
@@ -1263,7 +1283,7 @@ export function ChatWindow({
             variant="ghost"
             size="icon"
             className="ml-auto h-7 min-h-7 w-7 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeSidebar}
             aria-label="Fechar menu lateral"
           >
             <X className="size-3.5" />
@@ -1507,7 +1527,7 @@ export function ChatWindow({
               variant="ghost"
               size="icon"
               className="h-8 min-h-8 w-8"
-              onClick={() => setSidebarOpen((prev) => !prev)}
+              onClick={openSidebar}
               aria-label="Abrir menu lateral"
             >
               <Menu className="size-4" />
