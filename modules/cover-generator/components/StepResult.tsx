@@ -18,6 +18,7 @@ interface GenerateResponse {
     pdf: { name: string; data: string } | null;
     zip: { name: string; data: string };
   };
+  pdfError?: string;
   error?: string;
 }
 
@@ -61,6 +62,7 @@ export function StepResult({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<GeneratedDownload[]>([]);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const { codigoInterno, siglaArquivo, revisao } = generalData;
   const sigla = siglaArquivo || "";
@@ -82,6 +84,7 @@ export function StepResult({
   async function handleGenerate() {
     setGenerating(true);
     setError(null);
+    setPdfError(null);
 
     try {
       const response = await fetch("/api/capas/generate", {
@@ -98,6 +101,8 @@ export function StepResult({
       const payload = (await response.json()) as GenerateResponse;
 
       downloads.forEach((d) => URL.revokeObjectURL(d.url));
+
+      if (payload.pdfError) setPdfError(payload.pdfError);
 
       setDownloads(
         [
@@ -176,7 +181,13 @@ export function StepResult({
             icon={FileCheck}
             label="PDF"
             fileName={getFileName(code, sigla, rev, "pdf")}
-            description={downloads.some((d) => d.kind === "pdf") ? "Arquivo final para envio" : "PDF indisponivel (requer LibreOffice no servidor)"}
+            description={
+              downloads.some((d) => d.kind === "pdf")
+                ? "Arquivo final para envio"
+                : pdfError
+                ? `PDF indisponivel: ${pdfError}`
+                : "PDF indisponivel (conversor nao configurado)"
+            }
             download={downloads.find((d) => d.kind === "pdf")}
             unavailable={!downloads.some((d) => d.kind === "pdf")}
           />

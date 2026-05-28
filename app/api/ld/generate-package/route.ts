@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const zipFileName = `${baseName}.zip`;
 
     const odtBuffer = await generateOdtBuffer(payload);
-    const { pdfBuffer } = await convertOdtToPdf(odtBuffer);
+    const { pdfBuffer, error: pdfError } = await convertOdtToPdf(odtBuffer);
     const report = buildInconsistencyReport(payload);
 
     const zip = new JSZip();
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
           data: zipBuffer.toString("base64"),
         },
       },
+      pdfError: pdfError || undefined,
     });
   } catch (error) {
     return NextResponse.json(

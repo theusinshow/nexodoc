@@ -2060,9 +2060,14 @@ export function LdWorkspace({
           report: { name: string; data: string } | null;
           zip: { name: string; data: string };
         };
+        pdfError?: string;
       };
 
       generatedDownloads.forEach((download) => URL.revokeObjectURL(download.url));
+
+      if (payload.pdfError) {
+        setPackageError(`PDF indisponivel: ${payload.pdfError}`);
+      }
 
       setGeneratedDownloads(
         [

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       pages,
     });
 
-    const { pdfBuffer } = await convertOdtToPdf(odtBuffer);
+    const { pdfBuffer, error: pdfError } = await convertOdtToPdf(odtBuffer);
 
     let zipData: string;
 
@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
           data: zipData,
         },
       },
+      pdfError: pdfError || undefined,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro desconhecido";
