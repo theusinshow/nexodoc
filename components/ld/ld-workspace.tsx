@@ -2056,7 +2056,7 @@ export function LdWorkspace({
       const payload = (await response.json()) as {
         files: {
           odt: { name: string; data: string };
-          pdf: { name: string; data: string };
+          pdf: { name: string; data: string } | null;
           report: { name: string; data: string } | null;
           zip: { name: string; data: string };
         };
@@ -2071,11 +2071,13 @@ export function LdWorkspace({
             kind: "odt" as const,
             url: base64ToObjectUrl(payload.files.odt.data, "application/vnd.oasis.opendocument.text"),
           },
-          {
-            fileName: payload.files.pdf.name,
-            kind: "pdf" as const,
-            url: base64ToObjectUrl(payload.files.pdf.data, "application/pdf"),
-          },
+          payload.files.pdf
+            ? {
+                fileName: payload.files.pdf.name,
+                kind: "pdf" as const,
+                url: base64ToObjectUrl(payload.files.pdf.data, "application/pdf"),
+              }
+            : null,
           payload.files.report
             ? {
                 fileName: payload.files.report.name,
