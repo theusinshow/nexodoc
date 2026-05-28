@@ -17,5 +17,5 @@ export default async function LdHistoryPage() {
     redirect("/login");
   }
 
-  return <LdHistoryWorkspace userName={session.user.name ?? "Usuário"} />;
+  return <LdHistoryWorkspace userName={session.user.name ?? "Usuário"} isAdmin={access.isAdmin} />;
 }

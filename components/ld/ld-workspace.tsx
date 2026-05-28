@@ -12,6 +12,7 @@ import {
   FileSearch,
   FileText,
   Filter,
+  Gauge,
   Loader2,
   Plus,
   RotateCcw,
@@ -903,7 +904,13 @@ function getAutosaveLabel(state: AutosaveState) {
   return "Autosave pronto";
 }
 
-export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
+export function LdWorkspace({
+  initialDraftId,
+  isAdmin = false,
+}: {
+  initialDraftId?: string;
+  isAdmin?: boolean;
+}) {
   const [activeStep, setActiveStep] = useState(0);
   const [ldData, setLdData] = useState<LdData>(initialLdData);
   const [ldFieldSources, setLdFieldSources] = useState<LdFieldSources>(initialLdFieldSources);
@@ -2089,12 +2096,23 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
               {getAutosaveLabel(autosaveState)}
               {autosaveMessage ? ` · ${autosaveMessage}` : ""}
             </p>
-            <Link
-              href="/"
-              className="mt-3 inline-flex items-center rounded-sm border border-border px-3 py-2 font-mono text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              Voltar ao painel de módulos
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center rounded-sm border border-border px-3 py-2 font-mono text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                Voltar ao painel de módulos
+              </Link>
+              {isAdmin ? (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-2 rounded-sm border border-primary/35 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground transition hover:bg-primary/90"
+                >
+                  <Gauge className="size-3.5" />
+                  Painel admin
+                </Link>
+              ) : null}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Metric label="Projeto" value={ldData.projectCode} />

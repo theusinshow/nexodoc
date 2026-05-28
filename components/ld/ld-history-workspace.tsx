@@ -7,6 +7,7 @@ import {
   FileClock,
   FileText,
   FolderOpen,
+  Gauge,
   History,
   Loader2,
   Search,
@@ -67,7 +68,13 @@ function getStatusClass(status: DraftStatus) {
   return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
 }
 
-export function LdHistoryWorkspace({ userName }: { userName: string }) {
+export function LdHistoryWorkspace({
+  userName,
+  isAdmin = false,
+}: {
+  userName: string;
+  isAdmin?: boolean;
+}) {
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [selected, setSelected] = useState<DraftItem | null>(null);
   const [events, setEvents] = useState<DraftEvent[]>([]);
@@ -200,13 +207,24 @@ export function LdHistoryWorkspace({ userName }: { userName: string }) {
               Rascunhos e listas geradas por {userName}, com rastreabilidade de alterações.
             </p>
           </div>
-          <Link
-            href="/ld"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-          >
-            <FileText size={16} />
-            Nova montagem
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 rounded-md border border-primary/35 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+              >
+                <Gauge size={16} />
+                Painel admin
+              </Link>
+            ) : null}
+            <Link
+              href="/ld"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              <FileText size={16} />
+              Nova montagem
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-3 sm:grid-cols-4">

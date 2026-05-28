@@ -93,6 +93,14 @@ export default async function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {isAdmin ? (
+              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                <Link href="/admin">
+                  <Gauge />
+                  Painel admin
+                </Link>
+              </Button>
+            ) : null}
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium">{session.user.name ?? "Usuário"}</p>
               <p className="font-mono text-[11px] text-muted-foreground">
@@ -221,7 +229,7 @@ export default async function DashboardPage() {
         </section>
 
         {isAdmin ? (
-          <section className="flex flex-wrap items-center justify-between gap-4 border border-border bg-card p-4">
+          <section className="flex flex-wrap items-center justify-between gap-4 border border-primary/35 bg-card p-4">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-primary">
                 Administração
@@ -230,10 +238,10 @@ export default async function DashboardPage() {
                 Acompanhe execução, qualidade, custos e configuração dos provedores.
               </p>
             </div>
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="default" size="sm">
               <Link href="/admin">
                 <Gauge />
-                Abrir controles
+                Abrir painel admin
               </Link>
             </Button>
           </section>

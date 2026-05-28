@@ -23,5 +23,5 @@ export default async function LdPage({
 
   const { draft } = await searchParams;
 
-  return <LdWorkspace initialDraftId={draft} />;
+  return <LdWorkspace initialDraftId={draft} isAdmin={access.isAdmin} />;
 }

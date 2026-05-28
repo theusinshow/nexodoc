@@ -1242,6 +1242,15 @@ export function ChatWindow({
             <>
               <Button
                 type="button"
+                variant="secondary"
+                className="w-full justify-start h-9 text-xs"
+                onClick={() => window.location.assign("/admin")}
+              >
+                <Gauge className="size-3.5" />
+                Painel admin
+              </Button>
+              <Button
+                type="button"
                 variant="ghost"
                 className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
@@ -1471,6 +1480,18 @@ export function ChatWindow({
               <RotateCcw className="size-4" />
               Nova
             </Button>
+            {isAdmin ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8"
+                onClick={() => window.location.assign("/admin")}
+              >
+                <Gauge className="size-4" />
+                Admin
+              </Button>
+            ) : null}
             <SignOutButton compact />
           </div>
         </header>
