@@ -25,9 +25,13 @@ Ja incorporado alem do escopo inicial:
 
 - login exclusivo com Google OAuth;
 - dashboard inicial autenticado para acesso aos modulos;
+- atalhos de teclado globais (`Ctrl+G`, `Ctrl+A`, `Ctrl+L`, `Ctrl+Shift+A`, `?`);
+- suporte mobile com sidebar deslizante no workspace de auditoria;
+- tooltips contextuais e navegacao por setas nas abas administrativas;
 - banco de dados PostgreSQL opcional para historico;
 - historico individual de LDs por usuario autenticado, com autosave e rastreabilidade;
-- painel administrativo de auditorias, uso e configuracao;
+- painel administrativo de auditorias, LDs, uso, qualidade e configuracao;
+- operacoes em lote no painel de usuarios (selecao multipla, promover, ativar/desativar);
 - exportacao do relatorio em Markdown.
 
 Ainda fora do escopo atual:
@@ -223,8 +227,9 @@ em `/api/admin/*` e exigem tambem o token admin operacional. O painel
 usados, a partir dos achados classificados manualmente na auditoria.
 O painel `/admin/lds` acompanha os rascunhos e geracoes de LD por usuario,
 projeto e status, incluindo contagem de pranchas, tomos e eventos registrados.
-O painel `/admin` centraliza a visao operacional, e `/admin/users` permite
-adicionar usuarios, promover admins e desativar acessos sem apagar historico.
+O painel `/admin` centraliza a visao operacional com metricas em tempo real, e `/admin/users` permite
+adicionar usuarios, promover admins, desativar acessos sem apagar historico e
+realizar operacoes em lote com selecao multipla.
 
 Variaveis necessarias no Render:
 

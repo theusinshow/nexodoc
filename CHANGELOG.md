@@ -67,6 +67,43 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Mapa de tomos no resumo final para conferencia visual dos intervalos antes da geracao.
 - Pagina de historico pessoal de LDs com busca, filtros, duplicacao, arquivamento e rastreabilidade de eventos.
 - Painel administrativo de LDs com filtros por projeto, status e usuario.
+- Hook `use-keyboard-shortcuts` com suporte a Ctrl, Meta, Alt e Shift.
+- Modal de atalhos de teclado (`?`) com `Ctrl+G` (dashboard), `Ctrl+A` (auditoria), `Ctrl+L` (LD), `Ctrl+Shift+A` (admin).
+- Componente `Tooltip` baseado em Radix UI com `TooltipProvider` global.
+- Link skip-to-content no layout raiz para acessibilidade por teclado.
+- Skeleton de carregamento (`app/admin/loading.tsx`) para a rota admin.
+- Operacoes em lote no painel admin/users: checkboxes de selecao, barra de acoes (tornar admin, ativar, desativar).
+- Sidebar mobile no chat-window com toggle (Menu/X), overlay e backdrop com animacao slide.
+- Dropdown "Mais" responsivo na Admin Nav com animacao de expandir.
+- Animacoes de transicao: sidebar-drawer (220ms slide), modal (200ms scale+fade), dropdown (180ms expand).
+- `AdminMetricStrip` com suporte a skeleton durante loading.
+- Logo atualizado: teal `#00a693` + detalhe laranja `#DC7858`, fundo transparente.
+
+### Alterado
+
+- Imagens de perfil autenticado do Google passam a ser aceitas pelo componente de imagem do Next.js.
+- Tema visual ajustado para dark tecnico com tons de preto, cinza e azul escuro.
+- Componentes principais ajustados para geometria reta com `border-radius` zero.
+- Fonte externa removida do build local para evitar dependencia de rede.
+- Conteudo mock centralizado para reutilizacao no backend e no modo demonstracao do frontend.
+- Modelos de solicitacao de Volume e Selo/LD passam a selecionar automaticamente o modo Volume.
+- Prompt reforcado para evitar falso negativo em divergencias de municipio, endereco, bairro e codigo.
+- Esforco de raciocinio ajustado por modo para equilibrar custo e qualidade da auditoria real.
+- Modo demo iniciado pelo navegador passa a exigir permissao explicita em producao.
+- Configuracao e documentacao alinhadas aos modos `Memorial` e `Volume` e aos limites da auditoria profunda.
+- Cliente Prisma inicializado sob demanda nas rotas do backend.
+- Painel de configuracao passa a indicar a chave e o modelo MiMo utilizados pelo Criador de LDs.
+- Criador de LDs usa modelo OpenAI proprio configuravel e timeout visual ampliado para suportar o fallback MiMo.
+- Configuracao backend de OpenAI e MiMo centralizada por fluxo, com validacao segura no painel admin.
+- Extracao de LD informa uso de fallback MiMo e separa falhas de quota, autenticacao, timeout e resposta invalida.
+- Erros de texto incompleto na LD deixam de ser tratados implicitamente como falta de quota.
+- Conferencia documental movida para `/audit`, preservando o workspace de chat e liberando `/` para o painel inicial.
+- Leitura de PDFs da LD passa a processar lotes menores e liberar a interface entre etapas para reduzir travamentos percebidos.
+- Avanco da LD passa a ficar bloqueado enquanto a analise completa das pranchas estiver em andamento ou os dados obrigatorios estiverem incompletos.
+- Admin Nav refatorada com WAI-ARIA (`role=tab`, `aria-selected`, navegacao por setas).
+- SignOutButton compacto com tooltip "Sair da conta".
+- Letter-spacing corrigido em botoes com fonte mono (`font-mono`).
+- Metricas do admin dashboard mostram `"--"` durante carregamento em vez de `0`.
 
 ### Alterado
 

@@ -125,6 +125,20 @@ Deve conter:
 - quantidade de achados;
 - abas Resumo, Achados e Relatorio.
 
+### Tooltip
+
+- Baseado em Radix UI (`@radix-ui/react-tooltip`).
+- Fundo `card`, borda `border`, fonte mono 12px, `shadow-subtle`.
+- Delay de 300ms antes de exibir.
+- Usado em botoes compactos sem texto visivel e labels tecnicos.
+
+### Atalhos de teclado
+
+- Modal com overlay `bg-black/60 backdrop-blur-sm`.
+- Entrada `modal-scale-in` (200ms), saida `fade-out zoom-out-95`.
+- Keycaps em `JetBrains Mono` 11px, borda `border`, fundo `muted`.
+- Lista de atalhos com layout `flex justify-between` por linha.
+
 ## 7. Resposta do agente
 
 A resposta renderizada deve preservar a estrutura definida para o agente auditor:
@@ -147,9 +161,31 @@ As classificacoes permitidas continuam sendo:
 Animacoes devem ser funcionais:
 
 - transicoes entre 150 ms e 300 ms;
+- entradas usam `cubic-bezier(0.22, 1, 0.36, 1)` (snappy);
+- feedback usa `cubic-bezier(0.25, 1, 0.5, 1)` (smooth);
+- saidas sao ~75% da duracao de entrada;
+- apenas `transform` e `opacity` animados;
+- `will-change` usado com parcimonia;
 - sem decoracao excessiva;
 - respeitar `prefers-reduced-motion`;
 - progresso deve comunicar atividade sem prometer porcentagem exata.
+
+Animacoes implementadas:
+
+| Animacao | Duracao | Uso |
+|----------|---------|-----|
+| `nexodoc-enter` | 240ms | Dashboard, login, secoes |
+| `nexodoc-message-in` | 180ms | Baloes de chat |
+| `nexodoc-file-in` | 180ms | Arquivos anexados |
+| `nexodoc-result-in` | 220ms | Resultado da auditoria |
+| `sidebar-drawer-open` | 220ms | Sidebar mobile abrindo |
+| `sidebar-drawer-closing` | 180ms | Sidebar mobile fechando |
+| `backdrop-fade-in` | 200ms | Overlay de backdrop |
+| `backdrop-fade-out` | 150ms | Overlay de backdrop |
+| `modal-scale-in` | 200ms | Modal de atalhos |
+| `dropdown-expand` | 180ms | Dropdown "Mais" admin |
+| `audit-progress` | 1.4s loop | Barra de progresso |
+| `nexodoc-status-pulse` | 1.8s loop | Indicadores de status |
 
 ## 9. Regras de implementacao
 
@@ -159,3 +195,5 @@ Animacoes devem ser funcionais:
 - Manter a interface escaneavel.
 - Preservar upload, composer, progresso, resultado e historico.
 - Evoluir exportacao e visualizacao de evidencias em etapas posteriores.
+- Admin Nav usa `role=tablist` com `aria-selected` e navegacao por setas nos links.
+- Abas excedentes colapsam em dropdown "Mais" com animacao `dropdown-expand`.

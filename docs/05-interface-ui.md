@@ -19,6 +19,8 @@ Elementos principais:
 - cards inativos identificados como futuros para `Montagem de capas` e
   `Organizacao de volumes`;
 - acesso administrativo para usuarios autorizados.
+- link skip-to-content visivel ao navegar por teclado.
+- modal de atalhos de teclado acessivel por `?`.
 
 ## 3. Workspace de conferencia documental
 
@@ -39,6 +41,8 @@ O workspace principal em `/audit` preserva:
 - visualizacao de relatorio;
 - botao para cancelar processamento.
 - botao de demo local para validar UI sem API, sem PDF real e sem custo.
+- sidebar mobile com toggle (Menu/X) para dispositivos menores.
+- modal de atalhos de teclado via `?` com lista de comandos.
 
 ## 4. Workspace de montagem de LDs
 
@@ -83,7 +87,7 @@ Estrutura visual:
 └────────────────────┴────────────────────────────────────┘
 ```
 
-Em telas menores, a sidebar pode ser reduzida ou empilhada, mantendo prioridade para a area de chat e envio.
+Em telas menores, a sidebar colapsa e pode ser aberta por um botao Menu no cabecalho mobile, exibindo-se como drawer com overlay e animacao de slide. O botao X dentro do drawer e o clique no backdrop fecham o painel.
 
 ## 6. Componentes previstos
 
@@ -203,7 +207,32 @@ Diretrizes:
 - foco na leitura da resposta;
 - layout responsivo para desktop e notebook.
 
-## 10. Prioridade da versao 0.1
+## 10. Atalhos de teclado
+
+A interface suporta atalhos globais disponiveis em qualquer pagina autenticada:
+
+| Atalho | Acao |
+|--------|------|
+| `Ctrl+G` | Ir para o dashboard |
+| `Ctrl+A` | Ir para auditoria |
+| `Ctrl+L` | Ir para montagem de LDs |
+| `Ctrl+Shift+A` | Ir para painel admin (apenas admins) |
+| `?` | Abrir/fechar modal de atalhos |
+| `Esc` | Fechar modal, sidebar ou dropdown ativo |
+
+Atalhos sao ignorados quando o foco esta em campos de texto (input, textarea, select).
+
+## 11. Painel administrativo
+
+O painel `/admin` oferece:
+
+- navegacao por abas com suporte a setas direita/esquerda (WAI-ARIA tablist);
+- dropdown "Mais" responsivo para abas excedentes em telas menores;
+- metricas com skeleton durante carregamento (`"--"` em vez de `0`);
+- operacoes em lote em `/admin/users`: selecao multipla com checkboxes,
+  barra de acoes para promover a admin, ativar ou desativar usuarios.
+
+## 12. Prioridade da versao 0.1
 
 A prioridade do workspace de conferencia e tornar o fluxo principal evidente:
 

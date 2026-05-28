@@ -209,6 +209,24 @@ Shadows are limited to two structural tokens used sparingly:
 - **Tabs:** Segmented control pattern (`bg-recessed`, 4px radius). Active: card bg + teal border. Inactive: transparent + muted text.
 - **Finding Card:** Single container with internal sections separated by borders, not nested cards. Evidence, conflict, and action are adjacent blocks distinguished by icon + label headers.
 
+### Tooltip
+- **Style:** `max-w-xs`, border + card background, `shadow-subtle`, mono text at 12px. Fade + zoom entrance via `animate-in`.
+- **Trigger:** Wraps the target element via `asChild`. Delay 300ms before showing.
+- **Usage:** Compact buttons without visible labels (SignOut icon-only), technical terms that benefit from explanation.
+
+### Keyboard Shortcuts
+- **Modal:** `modal-scale-in` entrance (200ms, scale + fade). Backdrop with `backdrop-blur-sm`. Dismiss via Esc or overlay click.
+- **Keycap style:** `h-6 min-w-[24px]`, `rounded` border, bg-muted, mono 11px text.
+- **Shortcuts:** `Ctrl+G` dashboard, `Ctrl+A` auditoria, `Ctrl+L` LD, `Ctrl+Shift+A` admin, `?` ajuda.
+
+### Animations
+- **Entrance:** `nexodoc-enter` (240ms, fade + slideY 10px), `nexodoc-message-in` (180ms), `nexodoc-file-in` (180ms), `nexodoc-result-in` (220ms), `nexodoc-section-reveal` (200ms).
+- **Progress:** `audit-progress` (1.4s, infinite translateX), `nexodoc-status-pulse` (1.8s, opacity pulse).
+- **Drawer:** `sidebar-drawer-open` (220ms, slide-in from left), `sidebar-drawer-closing` (180ms exit). Backdrop `backdrop-fade-in` (200ms) / `backdrop-fade-out` (150ms).
+- **Dropdown:** `dropdown-expand` (180ms, scaleY from top origin).
+- **Easing:** `cubic-bezier(0.25, 1, 0.5, 1)` para feedback; `cubic-bezier(0.22, 1, 0.36, 1)` para entrances. Exit faster than enter (approx 75% da duracao).
+- **Safety:** Tudo usa `transform` + `opacity`. `prefers-reduced-motion` desabilita todas as animacoes.
+
 ## 6. Do's and Don'ts
 
 ### Do:

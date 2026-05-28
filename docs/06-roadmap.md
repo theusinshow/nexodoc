@@ -10,14 +10,24 @@ Entregue:
 - comparacao cruzada entre documentos;
 - resultado estruturado com evidencias textuais e download Markdown;
 - historico persistente opcional e paineis administrativos;
-- modo demo controlado por configuracao do backend.
+- modo demo controlado por configuracao do backend;
+- dashboard autenticado de modulos com login Google OAuth;
+- workspace de montagem de LDs com extracao visual, revisao assistida e geracao ODT/PDF;
+- painel administrativo completo com metricas, usuarios, LDs, auditorias, consumo, qualidade e config;
+- atalhos de teclado globais (`Ctrl+G/A/L`, `Ctrl+Shift+A`, `?`);
+- suporte mobile com sidebar deslizante no workspace de auditoria;
+- animacoes de transicao (sidebar, modal, dropdown) com `prefers-reduced-motion`;
+- operacoes em lote no painel de usuarios;
+- tooltips contextuais e navegacao WAI-ARIA nas abas administrativas;
+- skip-to-content para acessibilidade por teclado;
+- skeleton de carregamento nas rotas administrativas.
 
 Pendente:
 
 - validar a comparacao cruzada com conjuntos reais conhecidos;
 - OCR e visualizacao de paginas para PDFs escaneados;
-- login e associacao de auditorias a usuarios;
-- exportacoes PDF e DOCX.
+- exportacoes PDF e DOCX;
+- armazenamento permanente dos PDFs/ODT/ZIP gerados.
 
 ## 1. Versao 0.1 - MVP local
 
@@ -101,7 +111,6 @@ Objetivo: evoluir o NexoDoc para uso interno mais organizado.
 
 Possiveis entregas:
 
-- login;
 - usuarios do escritorio;
 - historico simples;
 - projetos salvos;

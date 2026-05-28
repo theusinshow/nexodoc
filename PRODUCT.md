@@ -41,3 +41,11 @@ funcao.
 
 Preservar contraste legivel, navegacao por teclado, estados de foco visiveis,
 responsividade para telas menores e movimento discreto ou reduzivel.
+
+Features implementadas de acessibilidade:
+- Link "Pular para o conteudo" (skip-to-content) visivel ao focar via Tab.
+- Navegacao por setas entre abas da barra administrativa (WAI-ARIA tablist).
+- Tooltips contextuais em botoes sem texto visivel (SignOut compacto).
+- Atalhos de teclado globais: `Ctrl+G` dashboard, `Ctrl+A` auditoria, `Ctrl+L` LD, `Ctrl+Shift+A` admin, `?` ajuda.
+- Sidebar mobile com toggle e overlay para dispositivos menores.
+- `prefers-reduced-motion` desabilita todas as animacoes CSS.
