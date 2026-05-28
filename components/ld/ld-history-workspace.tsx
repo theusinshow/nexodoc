@@ -25,6 +25,7 @@ type DraftItem = {
   activeStep: number;
   referenceTotal: number | null;
   uploadedFileNames: string[];
+  uploadedFileCount: number;
   generatedFileNames: string[];
   eventCount: number;
   createdAt: string;
@@ -274,7 +275,7 @@ export function LdHistoryWorkspace({ userName }: { userName: string }) {
                       </div>
                       <p className="mt-2 truncate text-sm font-medium">{draft.workName || "Obra não preenchida"}</p>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Atualizada em {formatDate(draft.updatedAt)} · {draft.eventCount} evento(s)
+                        Atualizada em {formatDate(draft.updatedAt)} · {draft.eventCount} evento(s) · {draft.uploadedFileCount || draft.uploadedFileNames.length} PDF(s) não armazenado(s)
                       </p>
                     </button>
                     <div className="flex flex-wrap items-center gap-2">

@@ -61,6 +61,7 @@ Ordem sugerida de leitura:
 7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
 8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
 9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
+10. [Piloto controlado da Montagem de LDs](C:/Dev/trabalho/empresa/nexodoc/docs/12-piloto-controlado-ld.md)
 
 ## Skills de referencia do projeto
 
@@ -204,6 +205,8 @@ NEXODOC_ALLOWED_ORIGINS=https://nexodoc.vercel.app
 Os paineis protegidos ficam em:
 
 ```text
+/admin
+/admin/users
 /admin/usage
 /admin/audits
 /admin/quality
@@ -211,13 +214,17 @@ Os paineis protegidos ficam em:
 /admin/lds
 ```
 
-Somente contas Google listadas em `NEXODOC_ADMIN_EMAILS` visualizam os atalhos e
-podem acessar essas rotas. Eles consultam o backend em `/api/admin/*` e exigem
-tambem o token admin operacional. O painel
+O primeiro acesso administrativo vem das contas Google listadas em
+`NEXODOC_ADMIN_EMAILS`. Depois, admins podem promover ou desativar usuarios em
+`/admin/users`; o acesso passa a considerar tambem o papel salvo no banco
+(`ADMIN` ou `USER`) e o status ativo do usuario. Os paineis consultam o backend
+em `/api/admin/*` e exigem tambem o token admin operacional. O painel
 `/admin/quality` compara o desempenho de `Padrao` e `Profundo`, alem dos modelos
 usados, a partir dos achados classificados manualmente na auditoria.
 O painel `/admin/lds` acompanha os rascunhos e geracoes de LD por usuario,
 projeto e status, incluindo contagem de pranchas, tomos e eventos registrados.
+O painel `/admin` centraliza a visao operacional, e `/admin/users` permite
+adicionar usuarios, promover admins e desativar acessos sem apagar historico.
 
 Variaveis necessarias no Render:
 
@@ -254,7 +261,9 @@ npm run db:generate
 npm run db:push
 ```
 
-Em producao, depois que `DATABASE_URL` estiver configurada, rode uma vez:
+Durante o MVP/piloto interno, `db:push` ainda pode ser usado em ambiente controlado. Antes de producao, substitua esse fluxo por migrations versionadas e use `npm run db:migrate` no deploy.
+
+Em piloto interno, depois que `DATABASE_URL` estiver configurada, rode uma vez:
 
 ```bash
 npm run db:push
@@ -263,10 +272,14 @@ npm run db:push
 O endpoint `/api/audit` registra o ciclo de auditorias quando `DATABASE_URL` existe, incluindo processamento, conclusao, falha, cancelamento, modelo usado e runtime da analise dentro do relatorio estruturado. Sem banco configurado, a auditoria continua funcionando normalmente, apenas sem historico persistente.
 
 No Criador de LDs, o banco guarda rascunhos por e-mail autenticado, dados
-revisados, divisao de tomos, nomes dos arquivos e eventos de rastreabilidade.
-Os binarios originais e os arquivos finais para download ainda nao sao
-armazenados permanentemente; essa etapa requer um armazenamento de objetos
-protegido antes de liberar uso operacional amplo.
+revisados, divisao de tomos, contagem de PDFs processados, nomes dos arquivos
+finais gerados e eventos de rastreabilidade. Por privacidade, os nomes e
+binarios dos PDFs anexados nao sao persistidos.
+Os arquivos finais para download ainda nao sao armazenados permanentemente; se
+essa etapa for adotada, deve usar armazenamento protegido apenas para ODT/PDF/MD/ZIP
+gerados, nunca para PDFs anexados.
+
+O checklist completo do piloto, a matriz de ambientes e o roadmap de storage protegido ficam em [docs/12-piloto-controlado-ld.md](C:/Dev/trabalho/empresa/nexodoc/docs/12-piloto-controlado-ld.md).
 
 A prontidao do historico pode ser verificada por:
 

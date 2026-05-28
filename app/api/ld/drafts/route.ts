@@ -18,6 +18,7 @@ type LdDraftPayload = {
   referenceTotal?: number | null;
   manualTotal?: string;
   uploadedFileNames?: Prisma.InputJsonValue;
+  uploadedFileCount?: number;
   generatedFileNames?: Prisma.InputJsonValue;
   status?: "DRAFT" | "GENERATED" | "ARCHIVED";
 };
@@ -75,6 +76,16 @@ function asJson(value: unknown, fallback: Prisma.InputJsonValue): Prisma.InputJs
   return value as Prisma.InputJsonValue;
 }
 
+function toNonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : 0;
+}
+
+function getJsonArrayLength(value: Prisma.JsonValue) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
 function serializeDraft(draft: {
   id: string;
   title: string;
@@ -88,6 +99,7 @@ function serializeDraft(draft: {
   referenceTotal: number | null;
   manualTotal: string;
   uploadedFileNames: Prisma.JsonValue;
+  uploadedFileCount: number;
   generatedFileNames: Prisma.JsonValue;
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +108,8 @@ function serializeDraft(draft: {
 }) {
   return {
     ...draft,
+    uploadedFileNames: [],
+    uploadedFileCount: draft.uploadedFileCount || getJsonArrayLength(draft.uploadedFileNames),
     eventCount: draft._count?.events ?? 0,
     _count: undefined,
     createdAt: draft.createdAt.toISOString(),
@@ -239,7 +253,7 @@ export async function POST(request: Request) {
   const ldData = asJson(body.ldData, {});
   const rows = asJson(body.rows, []);
   const tomos = asJson(body.tomos, []);
-  const uploadedFileNames = asJson(body.uploadedFileNames, []);
+  const uploadedFileNames: Prisma.InputJsonValue = [];
   const generatedFileNames = asJson(body.generatedFileNames, []);
   const status = body.status ?? "DRAFT";
   const data = {
@@ -256,6 +270,7 @@ export async function POST(request: Request) {
     referenceTotal: toNumberOrNull(body.referenceTotal),
     manualTotal: body.manualTotal ?? "",
     uploadedFileNames,
+    uploadedFileCount: toNonNegativeInteger(body.uploadedFileCount),
     generatedFileNames,
     generatedAt: status === "GENERATED" ? new Date() : undefined,
   };

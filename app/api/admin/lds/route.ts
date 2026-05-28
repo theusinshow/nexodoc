@@ -82,6 +82,7 @@ export async function GET(request: Request) {
       activeStep: draft.activeStep,
       rowCount: getArrayLength(draft.rows),
       tomoCount: getArrayLength(draft.tomos),
+      uploadedFileCount: draft.uploadedFileCount || getArrayLength(draft.uploadedFileNames),
       eventCount: draft._count.events,
       updatedAt: draft.updatedAt.toISOString(),
       generatedAt: draft.generatedAt?.toISOString() ?? null,

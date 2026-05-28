@@ -37,6 +37,7 @@ Frontend Next.js em /ld
 Backend Next.js em /api/ld/*
   recorta e interpreta selos com OpenAI e fallback MiMo
   monta ODT pelo template oficial e gera PDF/ZIP
+  salva rascunhos, eventos e metadados quando DATABASE_URL existe
 ```
 
 ## 3. Regra de seguranca principal
@@ -182,6 +183,8 @@ O estado deve existir apenas em memoria no frontend durante a sessao aberta:
 
 Ao atualizar a pagina, o historico pode ser perdido.
 
+Na Montagem de LDs, quando `DATABASE_URL` esta configurada, o estado revisado e salvo em `LdDraft` e os eventos em `LdDraftEvent`. Por privacidade, PDFs anexados nao sao armazenados: o banco guarda apenas a contagem de PDFs processados, nao nomes nem binarios. Os arquivos ODT/PDF/ZIP gerados tambem ainda nao possuem armazenamento permanente; o historico reabre dados, linhas e tomos, mas nao recupera binarios para reprocessamento.
+
 No painel administrativo, execucoes persistidas podem ser consultadas com os estados `PROCESSING`, `COMPLETED`, `FAILED` e `CANCELED`.
 
 ## 9. Deploy
@@ -195,3 +198,4 @@ Requisitos para deploy:
 - garantir que a chave nao seja exposta ao cliente;
 - validar limites de upload conforme suporte do ambiente;
 - testar a rota `/api/audit` com PDFs reais de tamanho pequeno e medio.
+- antes de producao ampla, trocar `prisma db push` por migrations versionadas e, se necessario, definir storage protegido apenas para arquivos finais da LD, mantendo PDFs anexados fora de persistencia permanente.

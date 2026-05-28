@@ -17,6 +17,7 @@ type LdRecord = {
   activeStep: number;
   rowCount: number;
   tomoCount: number;
+  uploadedFileCount: number;
   eventCount: number;
   updatedAt: string;
   generatedAt: string | null;
@@ -106,7 +107,7 @@ export default function AdminLdsPage() {
             </div>
             <h1 className="mt-2 text-2xl font-semibold">Operação de LDs</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Acompanhe listas em montagem, geradas e arquivadas por usuário.
+              Acompanhe listas em montagem, geradas e arquivadas por usuário. PDFs anexados não são armazenados.
             </p>
           </div>
           <form onSubmit={submit} className="flex w-[460px] flex-col gap-2 border border-border bg-card p-3">
@@ -148,7 +149,7 @@ export default function AdminLdsPage() {
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">Projeto / obra</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Usuário</th>
-                <th className="px-3 py-3 text-right">Pranchas</th><th className="px-3 py-3 text-right">Tomos</th><th className="px-3 py-3 text-right">Eventos</th><th className="px-3 py-3">Atualizada</th>
+                <th className="px-3 py-3 text-right">Pranchas</th><th className="px-3 py-3 text-right">PDFs</th><th className="px-3 py-3 text-right">Tomos</th><th className="px-3 py-3 text-right">Eventos</th><th className="px-3 py-3">Atualizada</th>
               </tr>
             </thead>
             <tbody>
@@ -157,10 +158,10 @@ export default function AdminLdsPage() {
                   <td className="max-w-[320px] px-3 py-3"><p className="font-mono font-semibold">{ld.projectCode || "-"}</p><p className="truncate text-muted-foreground">{ld.workName || "Obra não preenchida"}</p></td>
                   <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(ld.status))}>{ld.status}</span></td>
                   <td className="max-w-[250px] px-3 py-3"><p className="truncate">{ld.userName || ld.userEmail}</p><p className="truncate text-xs text-muted-foreground">{ld.userEmail}</p></td>
-                  <td className="px-3 py-3 text-right font-mono">{ld.rowCount}</td><td className="px-3 py-3 text-right font-mono">{ld.tomoCount}</td><td className="px-3 py-3 text-right font-mono">{ld.eventCount}</td>
+                  <td className="px-3 py-3 text-right font-mono">{ld.rowCount}</td><td className="px-3 py-3 text-right font-mono">{ld.uploadedFileCount}</td><td className="px-3 py-3 text-right font-mono">{ld.tomoCount}</td><td className="px-3 py-3 text-right font-mono">{ld.eventCount}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">{formatDate(ld.updatedAt)}</td>
                 </tr>
-              )) : <tr><td colSpan={7} className="p-10 text-center text-muted-foreground">Nenhuma LD encontrada.</td></tr>}
+              )) : <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">Nenhuma LD encontrada.</td></tr>}
             </tbody>
           </table>
         </section>

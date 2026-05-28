@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { isAdminEmail } from "@/lib/access-control";
+import { AdminNav } from "@/components/admin/admin-nav";
+import { getUserAccess } from "@/lib/access-control";
 
 export default async function AdminLayout({
   children,
@@ -14,9 +15,16 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  if (!isAdminEmail(session.user.email)) {
+  const access = await getUserAccess(session.user.email, session.user.name);
+
+  if (!access.isActive || !access.isAdmin) {
     redirect("/");
   }
 
-  return children;
+  return (
+    <>
+      <AdminNav />
+      {children}
+    </>
+  );
 }

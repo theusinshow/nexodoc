@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
-import { isAdminEmail } from "@/lib/access-control";
+import { getUserAccess } from "@/lib/access-control";
 
 const availableModules = [
   {
@@ -58,7 +58,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const isAdmin = isAdminEmail(session.user.email);
+  const access = await getUserAccess(session.user.email, session.user.name);
+
+  if (!access.isActive) {
+    redirect("/login");
+  }
+
+  const isAdmin = access.isAdmin;
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -226,7 +232,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/config">
+              <Link href="/admin">
                 <Gauge />
                 Abrir controles
               </Link>

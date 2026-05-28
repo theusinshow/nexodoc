@@ -93,6 +93,7 @@ type LdDraftListItem = {
   referenceTotal: number | null;
   manualTotal: string;
   uploadedFileNames: string[];
+  uploadedFileCount: number;
   generatedFileNames: string[];
   createdAt: string;
   updatedAt: string;
@@ -101,6 +102,9 @@ type LdDraftListItem = {
 };
 
 type AutosaveState = "idle" | "saving" | "saved" | "error" | "disabled";
+type LdFieldKey = Exclude<keyof LdData, "templateMode">;
+type LdFieldSource = "ai" | "system" | "manual" | "history" | "empty";
+type LdFieldSources = Record<LdFieldKey, LdFieldSource>;
 
 const steps = [
   "Importar PDFs",
@@ -121,6 +125,28 @@ const initialLdData: LdData = {
   workName: "",
   phase: "PROJETO EXECUTIVO",
   templateMode: "padrao",
+};
+
+const ldFieldKeys: LdFieldKey[] = [
+  "projectCode",
+  "formattedCode",
+  "discipline",
+  "revision",
+  "sectionTitle",
+  "client",
+  "workName",
+  "phase",
+];
+
+const initialLdFieldSources: LdFieldSources = {
+  projectCode: "empty",
+  formattedCode: "empty",
+  discipline: "empty",
+  revision: "empty",
+  sectionTitle: "empty",
+  client: "empty",
+  workName: "empty",
+  phase: "system",
 };
 
 const initialRows: ReviewRow[] = [
@@ -602,6 +628,27 @@ function buildLdDataSuggestion(data: LdData): Partial<LdData> {
   return suggestion;
 }
 
+function getFilledLdFieldSources(data: LdData, source: LdFieldSource) {
+  return ldFieldKeys.reduce((sources, key) => {
+    sources[key] = data[key].trim() ? source : "empty";
+    return sources;
+  }, {} as LdFieldSources);
+}
+
+function markLdFieldSources(
+  current: LdFieldSources,
+  fields: Partial<LdData>,
+  source: LdFieldSource,
+) {
+  return ldFieldKeys.reduce((next, key) => {
+    if (typeof fields[key] === "string" && fields[key]?.trim()) {
+      next[key] = source;
+    }
+
+    return next;
+  }, { ...current });
+}
+
 async function renderStampCropToDataUrl(pageProxy: unknown, mode: StampCropMode) {
   const page = pageProxy as {
   getViewport: (options: { scale: number }) => { width: number; height: number };
@@ -859,6 +906,7 @@ function getAutosaveLabel(state: AutosaveState) {
 export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
   const [activeStep, setActiveStep] = useState(0);
   const [ldData, setLdData] = useState<LdData>(initialLdData);
+  const [ldFieldSources, setLdFieldSources] = useState<LdFieldSources>(initialLdFieldSources);
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [tomos, setTomos] = useState<Tomo[]>([]);
   const [referenceTotal, setReferenceTotal] = useState<number | null>(null);
@@ -928,6 +976,7 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
     ldData.workName,
     ldData.phase,
   ].every((value) => value.trim().length > 0);
+  const missingRequiredLdFields = ldFieldKeys.filter((key) => ldData[key].trim().length === 0);
 
   const generatedFiles = useMemo(
     () => [
@@ -948,17 +997,14 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
     [],
   );
   const finalChecklistComplete = finalChecklistItems.every((item) => finalChecklist.includes(item));
-  const uploadedFileNames = useMemo(
-    () => uploadedPdfFiles.map((file) => file.name),
-    [uploadedPdfFiles],
-  );
+  const uploadedFileCount = uploadedPdfFiles.length;
   const generatedFileNames = useMemo(
     () => generatedDownloads.map((download) => download.fileName),
     [generatedDownloads],
   );
   const autosaveDisabled = autosaveState === "disabled";
   const hasDraftContent =
-    uploadedFileNames.length > 0 ||
+    uploadedFileCount > 0 ||
     rows.length > 0 ||
     ldData.projectCode.trim().length > 0 ||
     ldData.workName.trim().length > 0;
@@ -1065,7 +1111,8 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
             tomos,
             referenceTotal,
             manualTotal,
-            uploadedFileNames,
+            uploadedFileNames: [],
+            uploadedFileCount,
             generatedFileNames,
             status: generatedFileNames.length > 0 ? "GENERATED" : "DRAFT",
           }),
@@ -1106,12 +1153,15 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
     referenceTotal,
     rows,
     tomos,
-    uploadedFileNames,
+    uploadedFileCount,
   ]);
 
   function loadDraft(draft: LdDraftListItem, registerReopen = true) {
+    const nextLdData = { ...initialLdData, ...draft.ldData };
+
     setDraftId(draft.id);
-    setLdData({ ...initialLdData, ...draft.ldData });
+    setLdData(nextLdData);
+    setLdFieldSources(getFilledLdFieldSources(nextLdData, "history"));
     setRows(asReviewRows(draft.rows));
     setTomos(asTomos(draft.tomos));
     setReferenceTotal(draft.referenceTotal);
@@ -1144,6 +1194,7 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
     setDraftId(null);
     setActiveStep(0);
     setLdData(initialLdData);
+    setLdFieldSources(initialLdFieldSources);
     setRows([]);
     setTomos([]);
     setReferenceTotal(null);
@@ -1183,6 +1234,12 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
 
   function updateLdData(key: keyof LdData, value: string) {
     setLdData((current) => ({ ...current, [key]: value }));
+    if (key !== "templateMode") {
+      setLdFieldSources((current) => ({
+        ...current,
+        [key]: value.trim() ? "manual" : "empty",
+      }));
+    }
   }
 
   function updateTemplateFile(file: File | null) {
@@ -1190,7 +1247,13 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
   }
 
   function applyLdDataSuggestions() {
-    setLdData((currentData) => ({ ...currentData, ...buildLdDataSuggestion(currentData) }));
+    setLdData((currentData) => {
+      const suggestion = buildLdDataSuggestion(currentData);
+
+      setLdFieldSources((currentSources) => markLdFieldSources(currentSources, suggestion, "system"));
+
+      return { ...currentData, ...suggestion };
+    });
   }
 
   function updateRow(id: number, key: keyof ReviewRow, value: string | boolean) {
@@ -1479,11 +1542,16 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
         return;
       }
 
-      setLdData((currentData) => ({
-        ...currentData,
+      const automaticLdData = {
         ...deriveLdDataFromRow(pageResult.row),
         ...pageResult.ldData,
+      };
+
+      setLdData((currentData) => ({
+        ...currentData,
+        ...automaticLdData,
       }));
+      setLdFieldSources((currentSources) => markLdFieldSources(currentSources, automaticLdData, "ai"));
 
       if (parsedSheet) {
         changeReferenceTotal(parsedSheet.total);
@@ -1608,11 +1676,16 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
 
           nextResults.push(pageResult);
           setPreAnalysisResult(pageResult);
-          setLdData((currentData) => ({
-            ...currentData,
+          const automaticLdData = {
             ...deriveLdDataFromRow(pageResult.row),
             ...pageResult.ldData,
+          };
+
+          setLdData((currentData) => ({
+            ...currentData,
+            ...automaticLdData,
           }));
+          setLdFieldSources((currentSources) => markLdFieldSources(currentSources, automaticLdData, "ai"));
 
           const parsedSheetTotal = parseSheet(pageResult.row.sheet)?.total;
 
@@ -2076,6 +2149,15 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
               </button>
             ))}
           </nav>
+          <LdSideSummary
+            uploadedCount={uploadedFileCount}
+            analyzedCount={rows.length}
+            pendingCount={validation.blockingIssues.length + Math.max(0, warningCount - reviewedWarnings)}
+            tomoCount={tomos.length}
+            autosaveState={autosaveState}
+            autosaveMessage={autosaveMessage}
+            generatedCount={generatedDownloads.length}
+          />
         </aside>
 
         <section className="min-w-0 border border-border bg-card">
@@ -2104,6 +2186,8 @@ export function LdWorkspace({ initialDraftId }: { initialDraftId?: string }) {
             {activeStep === 1 && (
               <LdForm
                 data={ldData}
+                sources={ldFieldSources}
+                missingFields={missingRequiredLdFields}
                 templateFile={templateFile}
                 onChange={updateLdData}
                 onApplySuggestions={applyLdDataSuggestions}
@@ -2232,6 +2316,55 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function LdSideSummary({
+  uploadedCount,
+  analyzedCount,
+  pendingCount,
+  tomoCount,
+  autosaveState,
+  autosaveMessage,
+  generatedCount,
+}: {
+  uploadedCount: number;
+  analyzedCount: number;
+  pendingCount: number;
+  tomoCount: number;
+  autosaveState: AutosaveState;
+  autosaveMessage: string;
+  generatedCount: number;
+}) {
+  const items = [
+    ["PDFs carregados", String(uploadedCount)],
+    ["Pranchas analisadas", String(analyzedCount)],
+    ["Pendências", String(pendingCount)],
+    ["Tomos", String(tomoCount)],
+    ["Arquivos finais", String(generatedCount)],
+  ];
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+        Resumo da LD
+      </p>
+      <dl className="space-y-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="font-mono text-sm font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-2 rounded-md border border-border bg-background px-3 py-2">
+        <p className="text-xs text-muted-foreground">Autosave</p>
+        <p className="mt-1 text-xs font-medium">
+          {getAutosaveLabel(autosaveState)}
+          {autosaveMessage ? ` · ${autosaveMessage}` : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function LdHistoryPanel({
   drafts,
   activeDraftId,
@@ -2301,12 +2434,16 @@ function LdHistoryPanel({
 
 function LdForm({
   data,
+  sources,
+  missingFields,
   templateFile,
   onChange,
   onApplySuggestions,
   onTemplateFileChange,
 }: {
   data: LdData;
+  sources: LdFieldSources;
+  missingFields: LdFieldKey[];
   templateFile: File | null;
   onChange: (key: keyof LdData, value: string) => void;
   onApplySuggestions: () => void;
@@ -2341,14 +2478,21 @@ function LdForm({
           </button>
         </div>
       </div>
-      <Field required label="Código do projeto" value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
-      <Field required label="Código formatado" value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
-      <Field required label="Sigla da disciplina" value={data.discipline} onChange={(value) => onChange("discipline", value)} />
-      <Field required label="Revisão" value={data.revision} onChange={(value) => onChange("revision", value)} />
-      <Field required className="md:col-span-2" label="Título da seção" value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
-      <Field required label="Órgão/cliente" value={data.client} onChange={(value) => onChange("client", value)} />
-      <Field required label="Nome da obra" value={data.workName} onChange={(value) => onChange("workName", value)} />
-      <Field required label="Fase" value={data.phase} onChange={(value) => onChange("phase", value)} />
+      {missingFields.length > 0 ? (
+        <RequiredFieldsSummary missingFields={missingFields} />
+      ) : (
+        <div className="rounded-md border border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] p-3 text-sm text-[var(--status-ok)] md:col-span-2">
+          Dados mínimos da LD preenchidos. Confira a origem de cada campo antes de avançar.
+        </div>
+      )}
+      <Field required label="Código do projeto" source={sources.projectCode} value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
+      <Field required label="Código formatado" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
+      <Field required label="Sigla da disciplina" source={sources.discipline} value={data.discipline} onChange={(value) => onChange("discipline", value)} />
+      <Field required label="Revisão" source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
+      <Field required className="md:col-span-2" label="Título da seção" source={sources.sectionTitle} value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
+      <Field required label="Órgão/cliente" source={sources.client} value={data.client} onChange={(value) => onChange("client", value)} />
+      <Field required label="Nome da obra" source={sources.workName} value={data.workName} onChange={(value) => onChange("workName", value)} />
+      <Field required label="Fase" source={sources.phase} value={data.phase} onChange={(value) => onChange("phase", value)} />
       <label className="grid gap-1.5">
         <span className="text-sm font-medium">Template</span>
         <select
@@ -2383,12 +2527,14 @@ function LdForm({
 function Field({
   label,
   value,
+  source,
   onChange,
   className = "",
   required = false,
 }: {
   label: string;
   value: string;
+  source: LdFieldSource;
   onChange: (value: string) => void;
   className?: string;
   required?: boolean;
@@ -2397,7 +2543,10 @@ function Field({
 
   return (
     <label className={`grid gap-1.5 ${className}`}>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
+        {label}
+        <FieldSourceBadge source={isMissing ? "empty" : source} />
+      </span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -2405,8 +2554,66 @@ function Field({
           isMissing ? "border-warning" : "border-border"
         }`}
       />
-      {isMissing ? <span className="text-xs text-[var(--status-warning)]">Preenchimento obrigatório para gerar a LD.</span> : null}
     </label>
+  );
+}
+
+function RequiredFieldsSummary({ missingFields }: { missingFields: LdFieldKey[] }) {
+  const labels: Record<LdFieldKey, string> = {
+    projectCode: "código do projeto",
+    formattedCode: "código formatado",
+    discipline: "disciplina",
+    revision: "revisão",
+    sectionTitle: "título da seção",
+    client: "órgão/cliente",
+    workName: "nome da obra",
+    phase: "fase",
+  };
+
+  return (
+    <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm md:col-span-2">
+      <div className="flex items-start gap-2">
+        <CircleAlert size={16} className="mt-0.5 shrink-0" />
+        <div>
+          <p className="font-medium">Pendências obrigatórias: {missingFields.length}</p>
+          <p className="mt-1 text-muted-foreground">
+            Preencha {missingFields.map((field) => labels[field]).join(", ")} para liberar a próxima etapa.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldSourceBadge({ source }: { source: LdFieldSource }) {
+  const sourceMap: Record<LdFieldSource, { label: string; className: string }> = {
+    ai: {
+      label: "IA",
+      className: "border-primary/30 bg-primary/10 text-primary",
+    },
+    system: {
+      label: "Padrão",
+      className: "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
+    },
+    manual: {
+      label: "Manual",
+      className: "border-border bg-muted text-muted-foreground",
+    },
+    history: {
+      label: "Histórico",
+      className: "border-border bg-muted text-muted-foreground",
+    },
+    empty: {
+      label: "Pendente",
+      className: "border-warning bg-warning-soft text-foreground",
+    },
+  };
+  const config = sourceMap[source];
+
+  return (
+    <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase ${config.className}`}>
+      {config.label}
+    </span>
   );
 }
 
@@ -2684,6 +2891,7 @@ function ReviewTable({
   ).length;
   const totalWarnings = warningIssues.length + validation.globalWarnings.length;
   const reviewedWarnings = reviewedRowWarnings + reviewedGlobalWarningCount;
+  const unreviewedWarnings = Math.max(0, totalWarnings - reviewedWarnings);
   const getRowIssues = (row: ReviewRow) => validation.rowIssues[row.id] ?? [];
   const hasMissingData = (row: ReviewRow) =>
     !parseSheet(row.sheet) || row.file.trim().length === 0 || row.description.trim().length === 0;
@@ -2875,6 +3083,12 @@ function ReviewTable({
         validation={validation}
         totalWarnings={totalWarnings}
         reviewedWarnings={reviewedWarnings}
+      />
+      <ReviewPendingSummary
+        blockers={validation.blockingIssues}
+        unreviewedWarnings={unreviewedWarnings}
+        missingSheets={validation.missingSheets}
+        referenceTotalNeeded={validation.totals.length > 1 && referenceTotal === null}
       />
 
       {validation.totals.length > 1 && (
@@ -3215,6 +3429,7 @@ function ReviewTable({
                         <p className="text-xs text-muted-foreground">
                           Origem: {describeExtractionSource(result)}
                         </p>
+                        <FieldOriginStack result={result} />
                         {result.fallbackReason ? (
                           <p className="text-xs text-[var(--status-warning)]">
                             Fallback: {result.fallbackReason}
@@ -3367,6 +3582,37 @@ function CellInput({
   );
 }
 
+function FieldOriginStack({ result }: { result: PdfReadResult }) {
+  const sourceLabel =
+    result.aiExtraction === "visual" || result.aiExtraction === "text"
+      ? "IA"
+      : result.aiExtraction === "failed"
+        ? "Falha"
+        : "Parser";
+  const fields: Array<[string, boolean]> = [
+    ["Folha", result.foundFields.sheet],
+    ["Arquivo", result.foundFields.file],
+    ["Descrição", result.foundFields.description],
+  ];
+
+  return (
+    <div className="grid gap-1">
+      {fields.map(([label, found]) => (
+        <span
+          key={String(label)}
+          className={`inline-flex w-fit rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase ${
+            found
+              ? "border-primary/30 bg-primary/10 text-primary"
+              : "border-warning bg-warning-soft text-foreground"
+          }`}
+        >
+          {label}: {found ? sourceLabel : "Manual"}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ValidationPanel({
   validation,
   totalWarnings,
@@ -3422,6 +3668,55 @@ function ValidationPanel({
         <p className="mt-1 text-sm text-muted-foreground">
           O buraco é mantido e registrado para o relatório MD futuro.
         </p>
+      </div>
+    </div>
+  );
+}
+
+function ReviewPendingSummary({
+  blockers,
+  unreviewedWarnings,
+  missingSheets,
+  referenceTotalNeeded,
+}: {
+  blockers: string[];
+  unreviewedWarnings: number;
+  missingSheets: number[];
+  referenceTotalNeeded: boolean;
+}) {
+  const hasPending = blockers.length > 0 || unreviewedWarnings > 0 || referenceTotalNeeded;
+
+  if (!hasPending && missingSheets.length === 0) {
+    return (
+      <div className="rounded-md border border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] p-4 text-sm text-[var(--status-ok)]">
+        Revisão liberada: sem erros bloqueantes, alertas pendentes ou total divergente.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-warning bg-warning-soft p-4 text-sm">
+      <div className="flex items-start gap-2">
+        <CircleAlert size={18} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <h3 className="font-semibold">Resumo único de pendências</h3>
+          <div className="mt-2 grid gap-1 text-muted-foreground">
+            {referenceTotalNeeded ? <p>Defina o total de referência antes de avançar.</p> : null}
+            {blockers.length > 0 ? <p>{blockers.length} erro(s) bloqueante(s) na tabela.</p> : null}
+            {unreviewedWarnings > 0 ? <p>{unreviewedWarnings} alerta(s) ainda precisam ser revisados.</p> : null}
+            {missingSheets.length > 0 ? (
+              <p>Folhas faltantes registradas para relatório: {missingSheets.join(", ")}.</p>
+            ) : null}
+          </div>
+          {blockers.length > 0 ? (
+            <ul className="mt-3 grid gap-1 text-xs text-muted-foreground">
+              {blockers.slice(0, 4).map((blocker) => (
+                <li key={blocker}>- {blocker}</li>
+              ))}
+              {blockers.length > 4 ? <li>- mais {blockers.length - 4} erro(s)</li> : null}
+            </ul>
+          ) : null}
+        </div>
       </div>
     </div>
   );

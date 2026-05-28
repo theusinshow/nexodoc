@@ -127,6 +127,7 @@ model LdDraft {
   referenceTotal     Int?
   manualTotal        String        @default("")
   uploadedFileNames  Json
+  uploadedFileCount  Int           @default(0)
   generatedFileNames Json
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt

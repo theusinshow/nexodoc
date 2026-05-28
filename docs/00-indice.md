@@ -15,6 +15,9 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
 10. [Bateria de testes](C:/Dev/trabalho/empresa/nexodoc/docs/10-bateria-testes.md)
 11. [Checklist de testes sem custo](C:/Dev/trabalho/empresa/nexodoc/docs/11-checklist-testes-sem-custo.md)
+12. [Piloto controlado da Montagem de LDs](C:/Dev/trabalho/empresa/nexodoc/docs/12-piloto-controlado-ld.md)
+13. [Checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/13-checklist-banco-piloto-ld.md)
+14. [Execucao do checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/14-execucao-checklist-banco-piloto-ld.md)
 
 ## Fonte de verdade
 
@@ -24,9 +27,12 @@ O arquivo [NexoDoc_contexto_principal.md](C:/Dev/trabalho/empresa/nexodoc/docs/N
 
 A base atual preserva o chat como fluxo principal, mas ja incorpora recursos operacionais:
 
-- sem login;
+- com login Google;
 - com historico persistente opcional via PostgreSQL;
 - com painel administrativo protegido por token;
 - com comparacao entre documentos em auditorias com multiplos PDFs;
-- sem exportacao PDF ou DOCX;
+- com Montagem de LDs, historico por usuario e painel administrativo de LDs;
+- com painel admin central e gestao basica de usuarios por e-mail;
+- sem armazenamento permanente dos binarios PDF/ODT/ZIP da LD;
+- sem exportacao DOCX;
 - com exportacao Markdown do relatorio.

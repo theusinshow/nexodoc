@@ -2,12 +2,18 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ChatWindow } from "@/components/chat-window";
-import { isAdminEmail } from "@/lib/access-control";
+import { getUserAccess } from "@/lib/access-control";
 
 export default async function AuditPage() {
   const session = await auth();
 
   if (!session?.user) {
+    redirect("/login");
+  }
+
+  const access = await getUserAccess(session.user.email, session.user.name);
+
+  if (!access.isActive) {
     redirect("/login");
   }
 
@@ -21,7 +27,7 @@ export default async function AuditPage() {
     <ChatWindow
       isMockMode={isMockMode}
       allowDemoMode={allowDemoMode}
-      isAdmin={isAdminEmail(session.user.email)}
+      isAdmin={access.isAdmin}
       userName={session.user.name}
       userEmail={session.user.email}
       userImage={session.user.image}

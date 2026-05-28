@@ -17,6 +17,10 @@ function copyJson(value: Prisma.JsonValue): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+function getArrayLength(value: Prisma.JsonValue) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -58,7 +62,8 @@ export async function POST(
       tomos: copyJson(source.tomos),
       referenceTotal: source.referenceTotal,
       manualTotal: source.manualTotal,
-      uploadedFileNames: copyJson(source.uploadedFileNames),
+      uploadedFileNames: [],
+      uploadedFileCount: source.uploadedFileCount || getArrayLength(source.uploadedFileNames),
       generatedFileNames: [],
       events: {
         create: {

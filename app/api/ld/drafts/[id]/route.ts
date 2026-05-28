@@ -11,6 +11,10 @@ function getUserEmail(session: Session | null) {
   return session?.user?.email?.trim().toLocaleLowerCase("pt-BR") ?? "";
 }
 
+function getArrayLength(value: unknown) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
 function serializeDraft(draft: {
   id: string;
   title: string;
@@ -24,6 +28,7 @@ function serializeDraft(draft: {
   referenceTotal: number | null;
   manualTotal: string;
   uploadedFileNames: unknown;
+  uploadedFileCount: number;
   generatedFileNames: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +45,8 @@ function serializeDraft(draft: {
 }) {
   return {
     ...draft,
+    uploadedFileNames: [],
+    uploadedFileCount: draft.uploadedFileCount || getArrayLength(draft.uploadedFileNames),
     events: draft.events?.map((event) => ({
       ...event,
       createdAt: event.createdAt.toISOString(),
