@@ -160,3 +160,34 @@ export async function GET(request: Request) {
     request,
   );
 }
+
+export async function DELETE(request: Request) {
+  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+
+  if (!adminToken) return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
+  if (getBearerToken(request) !== adminToken) return jsonError(request, "Acesso admin negado.", 401);
+  if (!isDatabaseConfigured()) return jsonError(request, "DATABASE_URL não configurada.", 500);
+
+  try {
+    const body = (await request.json().catch(() => null)) as { ids?: string[] } | null;
+    const ids = body?.ids;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return jsonError(request, "Forneca um array de ids.", 400);
+    }
+
+    const prisma = getPrisma();
+
+    await prisma.audit.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return withCors(
+      NextResponse.json({ deleted: ids.length }),
+      request,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao excluir auditorias.";
+    return jsonError(request, message, 500);
+  }
+}

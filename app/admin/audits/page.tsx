@@ -6,6 +6,7 @@ import {
   ListChecks,
   RefreshCcw,
   Search,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -99,10 +100,12 @@ export default function AdminAuditsPage() {
   const [audits, setAudits] = useState<AuditListItem[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [mode, setMode] = useState("all");
   const [userFilter, setUserFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const apiUrl = getApiUrl();
   const totals = useMemo(() => {
     return audits.reduce(
@@ -114,6 +117,53 @@ export default function AdminAuditsPage() {
       { files: 0, findings: 0, completed: 0 },
     );
   }, [audits]);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === audits.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(audits.map((a) => a.id)));
+    }
+  }
+
+  async function handleDelete() {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Excluir permanentemente ${selected.size} auditoria(s) selecionada(s)? Esta acao remove todos os arquivos e feedbacks vinculados.`)) return;
+
+    setDeleting(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/audits`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: [...selected] }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { deleted?: number; error?: string } | null;
+
+      if (!response.ok) throw new Error(payload?.error ?? "Erro ao excluir auditorias.");
+
+      setAudits((prev) => prev.filter((a) => !selected.has(a.id)));
+      setSelected(new Set());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir auditorias.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function loadAudits(nextToken = token) {
     const trimmedToken = nextToken.trim();
@@ -166,6 +216,7 @@ export default function AdminAuditsPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setAudits(payload.audits);
+      setSelected(new Set());
     } catch (requestError) {
       setAudits([]);
       setError(
@@ -192,7 +243,6 @@ export default function AdminAuditsPage() {
         void loadAudits(storedToken);
       });
     }
-    // Run only once after mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -271,10 +321,33 @@ export default function AdminAuditsPage() {
           </Button>
         </form>
 
+        {selected.size > 0 && (
+          <div className="flex items-center justify-between border border-destructive/30 bg-destructive/8 px-4 py-3">
+            <span className="text-sm text-destructive">{selected.size} auditoria(s) selecionada(s)</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              {deleting ? "Excluindo..." : "Excluir permanentemente"}
+            </Button>
+          </div>
+        )}
+
         <section className="overflow-x-auto border border-border bg-card">
           <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>
+                <th className="w-10 px-3 py-3 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={audits.length > 0 && selected.size === audits.length}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </th>
                 <th className="px-3 py-3 font-medium">Auditoria</th>
                 <th className="px-3 py-3 font-medium">Projeto</th>
                 <th className="px-3 py-3 font-medium">Status</th>
@@ -290,7 +363,15 @@ export default function AdminAuditsPage() {
             <tbody>
               {audits.length > 0 ? (
                 audits.map((audit) => (
-                  <tr key={audit.id} className="border-t align-top hover:bg-muted/30">
+                  <tr key={audit.id} className={cn("border-t align-top", selected.has(audit.id) ? "bg-primary/5" : "hover:bg-muted/30")}>
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(audit.id)}
+                        onChange={() => toggleSelect(audit.id)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </td>
                     <td className="max-w-[280px] px-3 py-3">
                       <p className="truncate font-medium text-foreground">{audit.title}</p>
                       <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
@@ -329,7 +410,7 @@ export default function AdminAuditsPage() {
                 <tr>
                   <td
                     className="px-3 py-10 text-center text-muted-foreground"
-                    colSpan={10}
+                    colSpan={11}
                   >
                     Nenhuma auditoria encontrada.
                   </td>

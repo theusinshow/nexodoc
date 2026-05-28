@@ -90,3 +90,31 @@ export async function GET(request: Request) {
     generatedAt: new Date().toISOString(),
   });
 }
+
+export async function DELETE(request: Request) {
+  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+
+  if (!adminToken) return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
+  if (getBearerToken(request) !== adminToken) return jsonError("Acesso admin negado.", 401);
+  if (!isDatabaseConfigured()) return jsonError("DATABASE_URL não configurada.", 500);
+
+  try {
+    const body = (await request.json().catch(() => null)) as { ids?: string[] } | null;
+    const ids = body?.ids;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return jsonError("Forneca um array de ids.", 400);
+    }
+
+    const prisma = getPrisma();
+
+    await prisma.ldDraft.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return NextResponse.json({ deleted: ids.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao excluir LDs.";
+    return jsonError(message, 500);
+  }
+}
