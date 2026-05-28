@@ -1,20 +1,21 @@
 "use client";
 
 import {
-  AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock3,
-  KeyRound,
-  RefreshCcw,
   ScanSearch,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 
 type QualityBucket = {
   key: string;
@@ -40,8 +41,6 @@ type QualityResponse = {
   models: QualityBucket[];
   generatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function getApiUrl() {
   return process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
@@ -182,7 +181,7 @@ export default function AdminQualityPage() {
         );
       }
 
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
     } catch (requestError) {
@@ -203,7 +202,7 @@ export default function AdminQualityPage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
 
     if (storedToken) {
       queueMicrotask(() => {
@@ -218,57 +217,22 @@ export default function AdminQualityPage() {
   const overview = data?.overview;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto flex max-w-[1300px] flex-col gap-5">
-        <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" />
-              Painel de módulos
-            </Link>
-            <div className="mt-4 flex items-center gap-2 font-mono text-xs uppercase text-primary">
-              <ShieldCheck className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Qualidade do motor</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Compare níveis e modelos a partir dos achados revisados manualmente.
-              Quanto mais auditorias rotuladas, mais confiável será a decisão de produto.
-            </p>
-          </div>
+    <AdminPageShell maxWidth="max-w-[1300px]">
+      <AdminPageHeader
+        icon={ShieldCheck}
+        title="Qualidade do motor"
+        description="Compare níveis e modelos a partir dos achados revisados manualmente. Quanto mais auditorias rotuladas, mais confiável será a decisão de produto."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={isLoading}
+            onTokenChange={setToken}
+            onSubmit={handleSubmit}
+          />
+        }
+      />
 
-          <form onSubmit={handleSubmit} className="flex w-full flex-col gap-2 rounded-md border bg-card p-3 lg:w-[460px]">
-            <label className="font-mono text-xs font-medium text-muted-foreground">
-              Token admin
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  placeholder="NEXODOC_ADMIN_TOKEN"
-                />
-              </div>
-              <Button type="submit" disabled={isLoading}>
-                <RefreshCcw className={isLoading ? "animate-spin" : ""} />
-                Atualizar
-              </Button>
-            </div>
-          </form>
-        </header>
-
-        {error ? (
-          <div className="flex items-start gap-3 rounded-md border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+        <AdminError message={error} />
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
@@ -314,7 +278,6 @@ export default function AdminQualityPage() {
           subtitle="O modelo só vence quando reduz falhas reais em auditorias revisadas, não apenas quando produz mais achados."
           rows={data?.models ?? []}
         />
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

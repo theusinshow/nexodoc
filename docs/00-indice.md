@@ -18,6 +18,7 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 12. [Piloto controlado da Montagem de LDs](C:/Dev/trabalho/empresa/nexodoc/docs/12-piloto-controlado-ld.md)
 13. [Checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/13-checklist-banco-piloto-ld.md)
 14. [Execucao do checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/14-execucao-checklist-banco-piloto-ld.md)
+15. [Auditoria UI/UX](C:/Dev/trabalho/empresa/nexodoc/docs/15-auditoria-ui-ux.md)
 
 ## Fonte de verdade
 

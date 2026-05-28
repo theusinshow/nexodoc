@@ -2,10 +2,8 @@
 
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   Coins,
-  KeyRound,
   Loader2,
   RefreshCcw,
   ShieldCheck,
@@ -13,6 +11,13 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -62,8 +67,6 @@ type AdminUsageResponse = {
   };
   generatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function getApiUrl() {
   return process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
@@ -178,7 +181,7 @@ export default function AdminUsagePage() {
         );
       }
 
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
     } catch (requestError) {
@@ -199,7 +202,7 @@ export default function AdminUsagePage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
     if (storedToken) {
       queueMicrotask(() => {
         setToken(storedToken);
@@ -211,39 +214,19 @@ export default function AdminUsagePage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5">
-        <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <ShieldCheck className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Uso e custos</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Painel operacional para acompanhar tokens, chamadas e gasto da
-              conta OpenAI conectada ao NexoDoc.
-            </p>
-          </div>
-
-          <form
+    <AdminPageShell maxWidth="max-w-6xl">
+      <AdminPageHeader
+        icon={ShieldCheck}
+        title="Uso e custos"
+        description="Painel operacional para acompanhar tokens, chamadas e gasto da conta OpenAI conectada ao NexoDoc."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={isLoading}
+            onTokenChange={setToken}
             onSubmit={handleSubmit}
-            className="flex w-full flex-col gap-2 rounded-sm border bg-card p-3 md:w-[460px]"
+            gridClassName="sm:grid-cols-[1fr_auto_auto]"
           >
-            <label className="font-mono text-xs font-medium text-muted-foreground">
-              Token admin
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  placeholder="NEXODOC_ADMIN_TOKEN"
-                />
-              </div>
               <select
                 value={days}
                 onChange={(event) => {
@@ -268,16 +251,11 @@ export default function AdminUsagePage() {
                 )}
                 Atualizar
               </Button>
-            </div>
-          </form>
-        </header>
+          </AdminTokenForm>
+        }
+      />
 
-        {error ? (
-          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+        <AdminError message={error} />
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
@@ -443,7 +421,6 @@ export default function AdminUsagePage() {
             </table>
           </div>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

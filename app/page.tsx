@@ -72,7 +72,6 @@ export default async function DashboardPage() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(var(--nexodoc-grid)_1px,transparent_1px),linear-gradient(90deg,var(--nexodoc-grid)_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_42%_24%,black,transparent_68%)]"
       />
-      <div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-[420px] w-full bg-[radial-gradient(circle_at_30%_0%,rgb(0_166_147_/_0.13),transparent_58%)]" />
 
       <header className="relative border-b border-border bg-card/65 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
@@ -235,12 +234,6 @@ export default async function DashboardPage() {
               <Link href="/admin">
                 <Gauge />
                 Abrir controles
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/admin/lds">
-                <TableProperties />
-                Operação de LDs
               </Link>
             </Button>
           </section>

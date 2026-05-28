@@ -161,6 +161,34 @@ textarea {
   outline: none;
 }
 
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px rgb(91 218 198 / 0.18);
+}
+
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+input,
+select,
+textarea {
+  min-height: 2.5rem;
+}
+
+textarea {
+  line-height: 1.5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

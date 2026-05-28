@@ -1,8 +1,16 @@
 "use client";
 
-import { AlertTriangle, FileSpreadsheet, KeyRound, RefreshCcw, Search, UserRound } from "lucide-react";
+import { FileSpreadsheet, Search, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminMetricStrip,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +30,6 @@ type LdRecord = {
   updatedAt: string;
   generatedAt: string | null;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
@@ -74,7 +80,7 @@ export default function AdminLdsPage() {
       const payload = (await response.json().catch(() => null)) as { lds?: LdRecord[]; error?: string } | null;
 
       if (!response.ok) throw new Error(payload?.error ?? "Não foi possível carregar LDs.");
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, nextToken.trim());
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken.trim());
       setToken(nextToken.trim());
       setLds(payload?.lds ?? []);
     } catch (requestError) {
@@ -85,7 +91,7 @@ export default function AdminLdsPage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
     if (storedToken) queueMicrotask(() => void loadLds(storedToken));
     // Initial token restoration only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,39 +103,29 @@ export default function AdminLdsPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-background px-5 py-5 text-foreground">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-4">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <FileSpreadsheet className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Operação de LDs</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Acompanhe listas em montagem, geradas e arquivadas por usuário. PDFs anexados não são armazenados.
-            </p>
-          </div>
-          <form onSubmit={submit} className="flex w-[460px] flex-col gap-2 border border-border bg-card p-3">
-            <label className="font-mono text-xs text-muted-foreground">Token admin</label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="NEXODOC_ADMIN_TOKEN" className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm" />
-              </div>
-              <Button type="submit" disabled={loading}><RefreshCcw /> Atualizar</Button>
-            </div>
-          </form>
-        </header>
-        {error ? <p className="flex gap-2 border border-destructive/30 bg-card p-3 text-sm text-destructive"><AlertTriangle className="size-4" />{error}</p> : null}
-        <section className="grid gap-3 sm:grid-cols-4">
-          {[["LDs", lds.length], ["Geradas", totals.generated], ["Pranchas", totals.rows], ["Eventos", totals.events]].map(([label, value]) => (
-            <div key={String(label)} className="border border-border bg-card p-3">
-              <p className="font-mono text-xs text-muted-foreground">{label}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{value}</p>
-            </div>
-          ))}
-        </section>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={FileSpreadsheet}
+        title="Operação de LDs"
+        description="Acompanhe listas em montagem, geradas e arquivadas por usuário. PDFs anexados não são armazenados."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={loading}
+            onTokenChange={setToken}
+            onSubmit={submit}
+          />
+        }
+      />
+        <AdminError message={error} />
+        <AdminMetricStrip
+          metrics={[
+            { label: "LDs", value: lds.length },
+            { label: "Geradas", value: totals.generated },
+            { label: "Pranchas", value: totals.rows },
+            { label: "Eventos", value: totals.events },
+          ]}
+        />
         <form onSubmit={submit} className="grid gap-2 border border-border bg-card p-3 md:grid-cols-[1fr_180px_250px_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -165,7 +161,6 @@ export default function AdminLdsPage() {
             </tbody>
           </table>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

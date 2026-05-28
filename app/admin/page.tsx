@@ -5,9 +5,7 @@ import {
   BarChart3,
   Clock3,
   FileSpreadsheet,
-  KeyRound,
   ListChecks,
-  RefreshCcw,
   Settings2,
   ShieldCheck,
   UsersRound,
@@ -15,7 +13,13 @@ import {
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 
 type OverviewResponse = {
   totals: {
@@ -52,8 +56,6 @@ type OverviewResponse = {
   }>;
   generatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
@@ -130,7 +132,7 @@ export default function AdminHomePage() {
         throw new Error(isErrorPayload(payload) ? payload.error ?? "Não foi possível carregar o painel admin." : "Não foi possível carregar o painel admin.");
       }
 
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
     } catch (requestError) {
@@ -147,53 +149,29 @@ export default function AdminHomePage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
     if (storedToken) queueMicrotask(() => void loadOverview(storedToken));
     // Initial token restoration only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <main className="min-h-dvh bg-background px-5 py-5 text-foreground">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <ShieldCheck className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Centro de controle</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Operação do NexoDoc para piloto: usuários, histórico, LDs, consumo, qualidade e configuração.
-            </p>
-          </div>
-          <form onSubmit={submit} className="flex w-[460px] flex-col gap-2 border border-border bg-card p-3">
-            <label className="font-mono text-xs text-muted-foreground">Token admin</label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  placeholder="NEXODOC_ADMIN_TOKEN"
-                  className="h-10 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm"
-                />
-              </div>
-              <Button type="submit" disabled={loading}>
-                <RefreshCcw />
-                Atualizar
-              </Button>
-            </div>
-          </form>
-        </header>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={ShieldCheck}
+        title="Centro de controle"
+        description="Operação do NexoDoc para piloto: usuários, histórico, LDs, consumo, qualidade e configuração."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={loading}
+            onTokenChange={setToken}
+            onSubmit={submit}
+          />
+        }
+      />
 
-        {error ? (
-          <p className="flex gap-2 border border-destructive/30 bg-card p-3 text-sm text-destructive">
-            <AlertTriangle className="size-4" />
-            {error}
-          </p>
-        ) : null}
+        <AdminError message={error} />
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <AdminMetric label="Usuários ativos" value={data?.totals.activeUsers ?? 0} detail={`${data?.totals.admins ?? 0} admin(s)`} icon={UsersRound} />
@@ -258,7 +236,6 @@ export default function AdminHomePage() {
             </div>
           </article>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

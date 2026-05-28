@@ -1,9 +1,15 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, KeyRound, RefreshCcw, Settings2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Settings2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 
 type AdminConfigResponse = {
   runtime: {
@@ -37,8 +43,6 @@ type AdminConfigResponse = {
   secrets: Record<string, boolean>;
   generatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function getApiUrl() {
   return process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
@@ -109,7 +113,7 @@ export default function AdminConfigPage() {
         );
       }
 
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
     } catch (requestError) {
@@ -130,7 +134,7 @@ export default function AdminConfigPage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
 
     if (storedToken) {
       queueMicrotask(() => {
@@ -143,52 +147,22 @@ export default function AdminConfigPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto flex max-w-5xl flex-col gap-5">
-        <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <Settings2 className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Configurações</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Leitura operacional dos modelos e chaves backend-only, sem expor credenciais.
-            </p>
-          </div>
-
-          <form
+    <AdminPageShell maxWidth="max-w-5xl">
+      <AdminPageHeader
+        icon={Settings2}
+        title="Configurações"
+        description="Leitura operacional dos modelos e chaves backend-only, sem expor credenciais."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={isLoading}
+            onTokenChange={setToken}
             onSubmit={handleSubmit}
-            className="flex w-full flex-col gap-2 rounded-sm border bg-card p-3 md:w-[420px]"
-          >
-            <label className="font-mono text-xs font-medium text-muted-foreground">
-              Token admin
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  placeholder="NEXODOC_ADMIN_TOKEN"
-                />
-              </div>
-              <Button type="submit" disabled={isLoading}>
-                <RefreshCcw />
-                Atualizar
-              </Button>
-            </div>
-          </form>
-        </header>
+          />
+        }
+      />
 
-        {error ? (
-          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+        <AdminError message={error} />
 
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -292,7 +266,6 @@ export default function AdminConfigPage() {
             <p className="mt-3 text-xs text-muted-foreground">{data.aiHealth.statusStorage}</p>
           ) : null}
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

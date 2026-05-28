@@ -1,8 +1,16 @@
 "use client";
 
-import { AlertTriangle, Check, KeyRound, RefreshCcw, Search, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { Check, Search, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminMetricStrip,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +27,6 @@ type AdminUser = {
   createdAt: string;
   updatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
@@ -84,7 +90,7 @@ export default function AdminUsersPage() {
       const payload = (await response.json().catch(() => null)) as { users?: AdminUser[]; error?: string } | null;
 
       if (!response.ok) throw new Error(payload?.error ?? "Não foi possível carregar usuários.");
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setUsers(payload?.users ?? []);
     } catch (requestError) {
@@ -147,7 +153,7 @@ export default function AdminUsersPage() {
       const payload = (await response.json().catch(() => null)) as { user?: AdminUser; error?: string } | null;
 
       if (!response.ok || !payload?.user) throw new Error(payload?.error ?? "Não foi possível adicionar usuário.");
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, token.trim());
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token.trim());
       setUsers((current) => [payload.user!, ...current.filter((user) => user.id !== payload.user!.id)]);
       setNewEmail("");
       setNewName("");
@@ -165,48 +171,38 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
     if (storedToken) queueMicrotask(() => void loadUsers(storedToken));
     // Initial token restoration only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <main className="min-h-dvh bg-background px-5 py-5 text-foreground">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-4">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <UsersRound className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Usuários e permissões</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Admins podem acessar todos os painéis. Remover usuário desativa o acesso sem apagar histórico.
-            </p>
-          </div>
-          <form onSubmit={submitFilters} className="flex w-[460px] flex-col gap-2 border border-border bg-card p-3">
-            <label className="font-mono text-xs text-muted-foreground">Token admin</label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="NEXODOC_ADMIN_TOKEN" className="h-10 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm" />
-              </div>
-              <Button type="submit" disabled={loading}><RefreshCcw /> Atualizar</Button>
-            </div>
-          </form>
-        </header>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={UsersRound}
+        title="Usuários e permissões"
+        description="Admins acessam todos os painéis. Remover usuário desativa o acesso sem apagar histórico."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={loading}
+            onTokenChange={setToken}
+            onSubmit={submitFilters}
+          />
+        }
+      />
 
-        {error ? <p className="flex gap-2 border border-destructive/30 bg-card p-3 text-sm text-destructive"><AlertTriangle className="size-4" />{error}</p> : null}
+        <AdminError message={error} />
 
-        <section className="grid gap-3 sm:grid-cols-4">
-          {[["Usuários", users.length], ["Ativos", totals.active], ["Admins", totals.admins], ["LDs", totals.lds]].map(([label, value]) => (
-            <div key={String(label)} className="border border-border bg-card p-3">
-              <p className="font-mono text-xs text-muted-foreground">{label}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{value}</p>
-            </div>
-          ))}
-        </section>
+        <AdminMetricStrip
+          metrics={[
+            { label: "Usuários", value: users.length },
+            { label: "Ativos", value: totals.active },
+            { label: "Admins", value: totals.admins },
+            { label: "LDs", value: totals.lds },
+          ]}
+        />
 
         <form onSubmit={createUser} className="grid gap-2 border border-border bg-card p-3 lg:grid-cols-[1fr_1fr_160px_auto]">
           <div className="relative">
@@ -293,7 +289,6 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

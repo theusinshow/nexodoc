@@ -1,10 +1,8 @@
 "use client";
 
 import {
-  AlertTriangle,
   Clock3,
   FileText,
-  KeyRound,
   ListChecks,
   RefreshCcw,
   Search,
@@ -12,6 +10,14 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  AdminError,
+  AdminMetricStrip,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTokenForm,
+} from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +52,6 @@ type AuditsResponse = {
   audits: AuditListItem[];
   generatedAt: string;
 };
-
-const TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
 function getApiUrl() {
   return process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
@@ -159,7 +163,7 @@ export default function AdminAuditsPage() {
         );
       }
 
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, trimmedToken);
+      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setAudits(payload.audits);
     } catch (requestError) {
@@ -180,7 +184,7 @@ export default function AdminAuditsPage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
 
     if (storedToken) {
       queueMicrotask(() => {
@@ -193,76 +197,35 @@ export default function AdminAuditsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background px-5 py-5 text-foreground">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-4">
-        <header className="flex items-end justify-between gap-4 border-b pb-4">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-primary">
-              <ListChecks className="size-4" />
-              Admin
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">Histórico de auditorias</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Visão desktop para acompanhar auditorias persistidas, filtrar por
-              projeto, status, modo e responsável.
-            </p>
-          </div>
-
-          <form
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={ListChecks}
+        title="Histórico de auditorias"
+        description="Acompanhe auditorias persistidas e filtre por projeto, status, modo e responsável."
+        actions={
+          <AdminTokenForm
+            token={token}
+            loading={isLoading}
+            onTokenChange={setToken}
             onSubmit={handleSubmit}
-            className="flex w-[460px] flex-col gap-2 rounded-sm border bg-card p-3"
-          >
-            <label className="font-mono text-xs font-medium text-muted-foreground">
-              Token admin
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  placeholder="NEXODOC_ADMIN_TOKEN"
-                />
-              </div>
-              <Button type="submit" disabled={isLoading}>
-                <RefreshCcw />
-                Atualizar
-              </Button>
-            </div>
-          </form>
-        </header>
+          />
+        }
+      />
 
-        {error ? (
-          <div className="flex items-start gap-3 rounded-sm border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+        <AdminError message={error} />
 
-        <section className="grid grid-cols-4 gap-3">
-          <div className="rounded-sm border bg-card p-3">
-            <p className="font-mono text-xs text-muted-foreground">Auditorias</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(audits.length)}</p>
-          </div>
-          <div className="rounded-sm border bg-card p-3">
-            <p className="font-mono text-xs text-muted-foreground">Concluídas</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.completed)}</p>
-          </div>
-          <div className="rounded-sm border bg-card p-3">
-            <p className="font-mono text-xs text-muted-foreground">PDFs</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.files)}</p>
-          </div>
-          <div className="rounded-sm border bg-card p-3">
-            <p className="font-mono text-xs text-muted-foreground">Achados</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{formatNumber(totals.findings)}</p>
-          </div>
-        </section>
+        <AdminMetricStrip
+          metrics={[
+            { label: "Auditorias", value: formatNumber(audits.length) },
+            { label: "Concluídas", value: formatNumber(totals.completed) },
+            { label: "PDFs", value: formatNumber(totals.files) },
+            { label: "Achados", value: formatNumber(totals.findings) },
+          ]}
+        />
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-[1fr_170px_170px_220px_auto] gap-2 rounded-sm border bg-card p-3"
+          className="grid gap-2 border border-border bg-card p-3 lg:grid-cols-[1fr_170px_170px_220px_auto]"
         >
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -308,8 +271,8 @@ export default function AdminAuditsPage() {
           </Button>
         </form>
 
-        <section className="overflow-hidden rounded-sm border bg-card">
-          <table className="w-full border-collapse text-sm">
+        <section className="overflow-x-auto border border-border bg-card">
+          <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>
                 <th className="px-3 py-3 font-medium">Auditoria</th>
@@ -375,7 +338,6 @@ export default function AdminAuditsPage() {
             </tbody>
           </table>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

@@ -14,8 +14,8 @@ Direcao definida:
 - tema dark;
 - alta legibilidade;
 - densidade moderada;
-- geometria reta, sem cantos arredondados;
-- detalhes em azul escuro;
+- geometria contida, com raio pequeno apenas onde ajuda toque e foco;
+- acento verde-teal apenas para acao, estado e foco;
 - status documental sempre visivel.
 
 Nome interno do sistema visual:
@@ -50,35 +50,35 @@ O chat continua sendo o fluxo principal do produto.
 Tokens principais:
 
 ```css
---background: #0b101a;
---foreground: #eef3fb;
---nexodoc-panel: #101827;
---nexodoc-surface: #171c24;
---card: #171c24;
---primary: #17243e;
---border: #263244;
---ring: #2f5592;
+--background: #090c0e;
+--foreground: #e1e7ea;
+--nexodoc-panel: #121518;
+--nexodoc-surface: #121518;
+--card: #121518;
+--primary: #00a693;
+--border: #23282c;
+--ring: #5bdac6;
 ```
 
 Status:
 
 ```css
---status-ok: #75d69c;
---status-ok-bg: #102418;
---status-warning: #f2c96d;
---status-warning-bg: #2a220f;
---status-critical: #ff7a84;
---status-critical-bg: #2b1218;
+--status-ok: #7af7e1;
+--status-ok-bg: rgb(0 166 147 / 0.14);
+--status-warning: #ffb59e;
+--status-warning-bg: rgb(220 120 88 / 0.14);
+--status-critical: #ffb4ab;
+--status-critical-bg: rgb(147 0 10 / 0.22);
 ```
 
 ## 5. Geometria
 
 Regra geral:
 
-- `border-radius: 0`;
-- componentes em bloco com bordas retas;
+- `border-radius` padrao de 4px;
+- componentes em bloco com bordas discretas;
 - botoes em estilo comando;
-- estados ativos com borda azul e contraste de fundo;
+- estados ativos com borda teal e contraste de fundo;
 - sombras discretas ou ausentes.
 
 ## 6. Componentes principais

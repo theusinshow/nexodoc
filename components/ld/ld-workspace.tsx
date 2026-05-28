@@ -3120,40 +3120,12 @@ function ReviewTable({
         </div>
       )}
 
-      <div className="flex flex-wrap justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onSort}
-            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
-          >
-            <ShieldCheck size={16} />
-            Ordenar por folha
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
-          >
-            <RotateCcw size={16} />
-            Restaurar mock
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
-        >
-          <Plus size={16} />
-          Adicionar linha
-        </button>
-      </div>
       <div className="grid gap-3 rounded-md border border-border bg-background p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Filter size={16} />
-              Organizar revisão
+              Revisão das pranchas
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {triageMode
@@ -3170,12 +3142,12 @@ function ReviewTable({
             Copiar visão atual
           </button>
         </div>
-        <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Triagem rápida</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {pendingRows.length > 0
-                ? `${pendingRows.length} prancha(s) ainda possuem erro ou alerta não revisado.`
+                ? `${pendingRows.length} prancha(s) ainda precisam de decisão.`
                 : "Todas as pendências foram tratadas."}
             </p>
           </div>
@@ -3219,13 +3191,13 @@ function ReviewTable({
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" aria-label="Filtros da revisão">
           {filterOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => setFilterMode(option.value)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded-md border px-3 py-2 text-xs font-medium transition ${
                 filterMode === option.value
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -3235,91 +3207,133 @@ function ReviewTable({
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <label className="flex items-center gap-2 text-muted-foreground">
-            <SlidersHorizontal size={16} />
-            Ordenar
-            <select
-              value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as ReviewSortMode)}
-              className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
-            >
-              <option value="sheet">Nº da folha</option>
-              <option value="status">Status de revisão</option>
-              <option value="file">Arquivo</option>
-              <option value="discipline">Disciplina lida</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-muted-foreground">
-            Densidade
-            <select
-              value={density}
-              onChange={(event) => setDensity(event.target.value as ReviewDensity)}
-              className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
-            >
-              <option value="comfortable">Confortável</option>
-              <option value="compact">Compacta</option>
-            </select>
-          </label>
-          {clipboardStatus ? <span className="text-xs text-muted-foreground">{clipboardStatus}</span> : null}
-        </div>
-        <div className="grid gap-3 border-t border-border pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div>
-            <p className="text-sm font-medium">
+        {clipboardStatus ? <p className="text-xs text-muted-foreground">{clipboardStatus}</p> : null}
+        <details className="group border-t border-border pt-3">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1 py-2 text-sm text-muted-foreground transition hover:text-foreground">
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontal size={16} />
+              Ajustes avançados
+            </span>
+            <span className="text-xs">
               {selectedRows.length > 0
-                ? `${selectedRows.length} prancha(s) selecionada(s)`
-                : "Selecione pranchas para aplicar ações em massa"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              A seleção respeita os filtros atuais. Você pode revisar alertas e padronizar disciplina sem editar linha por linha.
-            </p>
+                ? `${selectedRows.length} selecionada(s)`
+                : "Ordenação, densidade e ações em massa"}
+            </span>
+          </summary>
+          <div className="grid gap-3 pt-3">
+            <div className="flex flex-wrap justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onSort}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+                >
+                  <ShieldCheck size={16} />
+                  Ordenar por folha
+                </button>
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+                >
+                  <RotateCcw size={16} />
+                  Restaurar mock
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={onAdd}
+                className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+              >
+                <Plus size={16} />
+                Adicionar linha
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                Ordenar
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as ReviewSortMode)}
+                  className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
+                >
+                  <option value="sheet">Nº da folha</option>
+                  <option value="status">Status de revisão</option>
+                  <option value="file">Arquivo</option>
+                  <option value="discipline">Disciplina lida</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-muted-foreground">
+                Densidade
+                <select
+                  value={density}
+                  onChange={(event) => setDensity(event.target.value as ReviewDensity)}
+                  className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
+                >
+                  <option value="comfortable">Confortável</option>
+                  <option value="compact">Compacta</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid gap-3 rounded-md border border-border bg-card p-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div>
+                <p className="text-sm font-medium">
+                  {selectedRows.length > 0
+                    ? `${selectedRows.length} prancha(s) selecionada(s)`
+                    : "Ações em massa"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Selecione linhas na tabela para revisar alertas, limpar baixa confiança ou padronizar disciplina.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={markSelectedWarningsReviewed}
+                  disabled={selectedRows.length === 0}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Check size={16} />
+                  Revisar alertas
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelectedLowConfidence}
+                  disabled={selectedRows.length === 0}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Limpar baixa confiança
+                </button>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  Disciplina
+                  <input
+                    value={bulkDiscipline}
+                    onChange={(event) => setBulkDiscipline(event.target.value)}
+                    placeholder="ex.: est"
+                    className="h-9 w-24 rounded-md border border-border bg-background px-2 text-foreground"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={applySelectedDiscipline}
+                  disabled={selectedRows.length === 0 || bulkDiscipline.trim().length === 0}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Aplicar
+                </button>
+                <button
+                  type="button"
+                  onClick={removeSelectedRows}
+                  disabled={selectedRows.length === 0}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-destructive transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  Excluir seleção
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={markSelectedWarningsReviewed}
-              disabled={selectedRows.length === 0}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Check size={16} />
-              Revisar alertas
-            </button>
-            <button
-              type="button"
-              onClick={clearSelectedLowConfidence}
-              disabled={selectedRows.length === 0}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Limpar baixa confiança
-            </button>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              Disciplina
-              <input
-                value={bulkDiscipline}
-                onChange={(event) => setBulkDiscipline(event.target.value)}
-                placeholder="ex.: est"
-                className="h-9 w-24 rounded-md border border-border bg-card px-2 text-foreground"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={applySelectedDiscipline}
-              disabled={selectedRows.length === 0 || bulkDiscipline.trim().length === 0}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Aplicar
-            </button>
-            <button
-              type="button"
-              onClick={removeSelectedRows}
-              disabled={selectedRows.length === 0}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-destructive transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 size={16} />
-              Excluir seleção
-            </button>
-          </div>
-        </div>
+        </details>
       </div>
       <div className="max-h-[68vh] overflow-auto border border-border">
         <table className="w-full min-w-[1500px] border-collapse text-sm">
