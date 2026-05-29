@@ -15,6 +15,31 @@ app.get("/", (_req, res) => {
   res.json({ service: "nexodoc-converter", status: "ok" });
 });
 
+const LIBREOFFICE_BINARIES = ["soffice", "libreoffice"];
+
+async function tryConvert(workDir, odtPath) {
+  let lastError = "";
+
+  for (const binary of LIBREOFFICE_BINARIES) {
+    try {
+      await execFileAsync(binary, [
+        "--headless",
+        "--norestore",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        workDir,
+        odtPath,
+      ], { timeout: 60000 });
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  throw new Error(`LibreOffice falhou: ${lastError}`);
+}
+
 app.post("/convert", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Nenhum arquivo enviado. Envie um ODT no campo 'file'." });
@@ -29,15 +54,7 @@ app.post("/convert", upload.single("file"), async (req, res) => {
 
   try {
     await writeFile(odtPath, odtBuffer);
-
-    await execFileAsync("libreoffice", [
-      "--headless",
-      "--convert-to",
-      "pdf",
-      "--outdir",
-      workDir,
-      odtPath,
-    ], { timeout: 60000 });
+    await tryConvert(workDir, odtPath);
 
     const pdfBuffer = await readFile(pdfPath);
 
