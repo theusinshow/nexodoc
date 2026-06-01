@@ -71,6 +71,26 @@ export function getOpenAiApiKey() {
   return getBackendValue("OPENAI_API_KEY");
 }
 
+export function getSecretFingerprint(name: string) {
+  const value = getBackendValue(name);
+
+  if (!value) {
+    return {
+      configured: false,
+      length: 0,
+      prefix: "",
+      suffix: "",
+    };
+  }
+
+  return {
+    configured: true,
+    length: value.length,
+    prefix: value.slice(0, 7),
+    suffix: value.slice(-4),
+  };
+}
+
 export function getMimoApiKey() {
   return getBackendValue("MIMO_API_KEY");
 }

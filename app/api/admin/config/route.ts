@@ -3,6 +3,7 @@ import {
   classifyProviderFailure,
   getAiConfiguration,
   getLastProviderFailures,
+  getSecretFingerprint,
   recordProviderFailure,
 } from "@/lib/ai-providers";
 import { getOpenAIClient } from "@/lib/openai";
@@ -55,6 +56,14 @@ function getBearerToken(request: Request) {
 function jsonError(request: Request, message: string, status = 400) {
   return withCors(NextResponse.json({ error: message }, { status }), request);
 }
+
+type ProviderErrorShape = {
+  status?: number;
+  code?: string;
+  type?: string;
+  name?: string;
+  message?: string;
+};
 
 export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
@@ -143,6 +152,10 @@ export function GET(request: Request) {
         openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
         adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
       },
+      secretFingerprints: {
+        openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
+        openaiAdminKey: getSecretFingerprint("OPENAI_ADMIN_KEY"),
+      },
       generatedAt: new Date().toISOString(),
     }),
     request,
@@ -191,6 +204,7 @@ export async function POST(request: Request) {
       request,
     );
   } catch (error) {
+    const rawError = error as ProviderErrorShape;
     const failure = classifyProviderFailure("openai", "audit-chat", ai.auditChat.model, error);
     recordProviderFailure(failure);
 
@@ -202,6 +216,12 @@ export async function POST(request: Request) {
           model: failure.model,
           category: failure.category,
           message: failure.message,
+          rawStatus: rawError.status,
+          rawCode: rawError.code,
+          rawType: rawError.type,
+          rawName: rawError.name,
+          rawMessage: rawError.message?.slice(0, 500),
+          keyFingerprint: getSecretFingerprint("OPENAI_API_KEY"),
           testedAt: new Date().toISOString(),
         },
         { status: failure.category === "authentication" ? 401 : 503 },

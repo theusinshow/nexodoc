@@ -42,7 +42,18 @@ type AdminConfigResponse = {
   };
   limits: Record<string, number>;
   secrets: Record<string, boolean>;
+  secretFingerprints?: {
+    openaiApiKey?: SecretFingerprint;
+    openaiAdminKey?: SecretFingerprint;
+  };
   generatedAt: string;
+};
+
+type SecretFingerprint = {
+  configured: boolean;
+  length: number;
+  prefix: string;
+  suffix: string;
 };
 
 type ConnectivityTestResult = {
@@ -53,6 +64,12 @@ type ConnectivityTestResult = {
   output?: string;
   category?: string;
   message?: string;
+  rawStatus?: number;
+  rawCode?: string;
+  rawType?: string;
+  rawName?: string;
+  rawMessage?: string;
+  keyFingerprint?: SecretFingerprint;
   testedAt: string;
 };
 
@@ -80,6 +97,14 @@ function ConfigurationStatus({ configured }: { configured: boolean }) {
       {configured ? "chave configurada" : "chave ausente"}
     </span>
   );
+}
+
+function formatFingerprint(fingerprint?: SecretFingerprint) {
+  if (!fingerprint?.configured) {
+    return "ausente";
+  }
+
+  return `${fingerprint.prefix}...${fingerprint.suffix} (${fingerprint.length} chars)`;
 }
 
 function isErrorPayload(
@@ -275,6 +300,15 @@ export default function AdminConfigPage() {
               <p className="mt-1 font-mono text-xs text-muted-foreground">
                 {connectivityTest.provider} · {connectivityTest.model} · {new Date(connectivityTest.testedAt).toLocaleString("pt-BR")}
               </p>
+              {!connectivityTest.ok ? (
+                <div className="mt-3 grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
+                  <span>key: {formatFingerprint(connectivityTest.keyFingerprint)}</span>
+                  <span>status: {connectivityTest.rawStatus ?? "-"}</span>
+                  <span>code: {connectivityTest.rawCode ?? "-"}</span>
+                  <span>type: {connectivityTest.rawType ?? "-"}</span>
+                  <span>raw: {connectivityTest.rawMessage ?? "-"}</span>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -323,6 +357,18 @@ export default function AdminConfigPage() {
                     />
                   ))
                 : null}
+              {data?.secretFingerprints?.openaiApiKey ? (
+                <ConfigRow
+                  label="OPENAI_API_KEY fingerprint"
+                  value={formatFingerprint(data.secretFingerprints.openaiApiKey)}
+                />
+              ) : null}
+              {data?.secretFingerprints?.openaiAdminKey ? (
+                <ConfigRow
+                  label="OPENAI_ADMIN_KEY fingerprint"
+                  value={formatFingerprint(data.secretFingerprints.openaiAdminKey)}
+                />
+              ) : null}
             </div>
           </article>
         </section>
