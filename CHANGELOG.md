@@ -85,6 +85,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Registro interno `AiUsageEvent` para medir tokens, custo estimado e chamadas de IA por fluxo/tarefa no painel admin de uso.
 - Modelo padrão da extração OpenAI de selos/LDs ajustado para `gpt-5.4-mini` após testes de qualidade com o nano.
 - Recorte visual do selo configurado por retângulos normalizados da área útil da prancha, com detecção da borda azul e margem de segurança no modo `normal`.
+- Recorte visual de selo ampliado e aplicado diretamente à página para evitar referência incorreta por textos/linhas azuis internas.
 
 ### Alterado
 

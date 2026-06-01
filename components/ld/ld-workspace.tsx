@@ -288,8 +288,8 @@ const stampCropModes: Array<{
   label: string;
   crop: { x: number; y: number; width: number; height: number };
 }> = [
-  { mode: "tight", label: "selo compacto", crop: { x: 0.807, y: 0.717, width: 0.171, height: 0.228 } },
-  { mode: "normal", label: "recorte do selo", crop: { x: 0.79, y: 0.7, width: 0.2, height: 0.26 } },
+  { mode: "tight", label: "selo compacto", crop: { x: 0.64, y: 0.58, width: 0.35, height: 0.4 } },
+  { mode: "normal", label: "recorte do selo", crop: { x: 0.52, y: 0.5, width: 0.47, height: 0.48 } },
 ];
 
 const maxConcurrentVisualPages = 3;
@@ -674,65 +674,6 @@ function clampRect(rect: CanvasRect, bounds: CanvasRect): CanvasRect {
   };
 }
 
-function isBlueBorderPixel(red: number, green: number, blue: number, alpha: number) {
-  return alpha > 120 && blue > 90 && blue > red + 20 && blue >= green;
-}
-
-function detectUsefulSheetBounds(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D): CanvasRect {
-  const fallback = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-  let imageData: ImageData;
-
-  try {
-    imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-  } catch {
-    return fallback;
-  }
-
-  const { data, width, height } = imageData;
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
-  let hits = 0;
-
-  for (let y = 0; y < height; y += 2) {
-    for (let x = 0; x < width; x += 2) {
-      const index = (y * width + x) * 4;
-
-      if (isBlueBorderPixel(data[index], data[index + 1], data[index + 2], data[index + 3])) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-        hits += 1;
-      }
-    }
-  }
-
-  const detectedWidth = maxX - minX;
-  const detectedHeight = maxY - minY;
-
-  if (
-    hits < 80 ||
-    detectedWidth < width * 0.45 ||
-    detectedHeight < height * 0.45 ||
-    detectedWidth > width ||
-    detectedHeight > height
-  ) {
-    return fallback;
-  }
-
-  return clampRect(
-    {
-      x: minX,
-      y: minY,
-      width: detectedWidth,
-      height: detectedHeight,
-    },
-    fallback,
-  );
-}
-
 async function renderStampCropToDataUrl(
   pageProxy: unknown,
   normalizedCrop: CanvasRect,
@@ -759,15 +700,14 @@ async function renderStampCropToDataUrl(
   await page.render({ canvasContext: context, canvas, viewport }).promise;
 
   const pageBounds = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-  const usefulBounds = detectUsefulSheetBounds(canvas, context);
   const targetRect = clampRect(
     {
-      x: usefulBounds.x + usefulBounds.width * normalizedCrop.x,
-      y: usefulBounds.y + usefulBounds.height * normalizedCrop.y,
-      width: usefulBounds.width * normalizedCrop.width,
-      height: usefulBounds.height * normalizedCrop.height,
+      x: pageBounds.width * normalizedCrop.x,
+      y: pageBounds.height * normalizedCrop.y,
+      width: pageBounds.width * normalizedCrop.width,
+      height: pageBounds.height * normalizedCrop.height,
     },
-    usefulBounds.width > 0 && usefulBounds.height > 0 ? usefulBounds : pageBounds,
+    pageBounds,
   );
   const cropX = Math.floor(targetRect.x);
   const cropY = Math.floor(targetRect.y);
