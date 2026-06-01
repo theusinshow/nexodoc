@@ -834,6 +834,7 @@ export function ChatWindow({
         body: JSON.stringify({
           question: trimmedMessage,
           report,
+          auditId: latestResult?.auditId,
           history: messages
             .filter((item) => item.role === "user" || item.role === "assistant")
             .slice(-8)

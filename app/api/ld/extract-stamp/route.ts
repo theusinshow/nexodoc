@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { recordAiUsage } from "@/lib/ai-usage";
 import {
   classifyProviderFailure,
   createInvalidProviderResponseError,
@@ -131,6 +132,16 @@ type ProviderError = {
   message?: string;
 };
 
+type ExtractionMetadata = {
+  taskId?: string;
+  taskLabel?: string;
+  operation?: string;
+  fileName?: string;
+  pageNumber?: number;
+  cropMode?: string;
+  source?: "text" | "visual";
+};
+
 function buildTextPrompt(pdfText?: string) {
   if (!pdfText) {
     return systemPrompt;
@@ -185,7 +196,10 @@ async function extractWithOpenAi(model: string, textPrompt: string, imageDataUrl
   });
 
   try {
-    return JSON.parse(response.output_text) as StampExtraction;
+    return {
+      parsed: JSON.parse(response.output_text) as StampExtraction,
+      response,
+    };
   } catch {
     throw createInvalidProviderResponseError();
   }
@@ -258,7 +272,10 @@ Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, nume
     throw providerError;
   }
 
-  return parseMimoOutput(payload?.choices?.[0]?.message?.content);
+  return {
+    parsed: parseMimoOutput(payload?.choices?.[0]?.message?.content),
+    payload,
+  };
 }
 
 function getFailureStatus(failure: SafeProviderFailure) {
@@ -295,9 +312,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const body = (await request.json()) as { imageDataUrl?: unknown; pdfText?: unknown };
+  const body = (await request.json()) as {
+    imageDataUrl?: unknown;
+    pdfText?: unknown;
+    metadata?: ExtractionMetadata;
+  };
   const imageDataUrl = isValidImageDataUrl(body.imageDataUrl) ? body.imageDataUrl : undefined;
   const pdfText = isValidPdfText(body.pdfText) ? body.pdfText : undefined;
+  const metadata = body.metadata ?? {};
+  const operation =
+    metadata.operation ??
+    (imageDataUrl ? "ld-stamp-visual-extraction" : "ld-stamp-text-extraction");
 
   if (!imageDataUrl && !pdfText) {
     return NextResponse.json(
@@ -311,7 +336,31 @@ export async function POST(request: Request) {
   let openAiFailure: SafeProviderFailure;
 
   try {
-    const parsed = await extractWithOpenAi(configuration.primary.model, textPrompt, imageDataUrl);
+    const startedAt = Date.now();
+    const { parsed, response } = await extractWithOpenAi(
+      configuration.primary.model,
+      textPrompt,
+      imageDataUrl,
+    );
+    await recordAiUsage({
+      flow: "ld-extraction",
+      taskId: metadata.taskId,
+      taskLabel: metadata.taskLabel,
+      provider: "openai",
+      model: configuration.primary.model,
+      operation,
+      response,
+      durationMs: Date.now() - startedAt,
+      userEmail: session.user.email,
+      metadata: {
+        fileName: metadata.fileName,
+        pageNumber: metadata.pageNumber,
+        cropMode: metadata.cropMode,
+        source: metadata.source ?? (imageDataUrl ? "visual" : "text"),
+        hasImage: Boolean(imageDataUrl),
+        pdfTextChars: pdfText?.length ?? 0,
+      },
+    });
 
     return NextResponse.json({
       ...parsed,
@@ -334,7 +383,32 @@ export async function POST(request: Request) {
 
   if (configuration.fallback.keyConfigured) {
     try {
-      const parsed = await extractWithMimo(configuration.fallback.model, textPrompt, imageDataUrl);
+      const startedAt = Date.now();
+      const { parsed, payload } = await extractWithMimo(
+        configuration.fallback.model,
+        textPrompt,
+        imageDataUrl,
+      );
+      await recordAiUsage({
+        flow: "ld-extraction",
+        taskId: metadata.taskId,
+        taskLabel: metadata.taskLabel,
+        provider: "mimo",
+        model: configuration.fallback.model,
+        operation,
+        response: payload,
+        durationMs: Date.now() - startedAt,
+        userEmail: session.user.email,
+        metadata: {
+          fileName: metadata.fileName,
+          pageNumber: metadata.pageNumber,
+          cropMode: metadata.cropMode,
+          source: metadata.source ?? (imageDataUrl ? "visual" : "text"),
+          hasImage: Boolean(imageDataUrl),
+          pdfTextChars: pdfText?.length ?? 0,
+          fallbackReason: openAiFailure.category,
+        },
+      });
 
       return NextResponse.json({
         ...parsed,

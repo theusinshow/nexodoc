@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOpenAiAdminKey } from "@/lib/ai-providers";
+import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -259,6 +260,137 @@ function summarizeCosts(buckets: CostsBucket[]) {
   };
 }
 
+async function summarizeInternalUsage(startTime: number) {
+  if (!isDatabaseConfigured()) {
+    return {
+      enabled: false,
+      totals: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0,
+        requests: 0,
+      },
+      flows: [],
+      tasks: [],
+      recentEvents: [],
+    };
+  }
+
+  const events = await getPrisma().aiUsageEvent.findMany({
+    where: {
+      createdAt: {
+        gte: new Date(startTime * 1000),
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 500,
+  });
+  const totals = events.reduce(
+    (total, event) => ({
+      inputTokens: total.inputTokens + event.inputTokens,
+      outputTokens: total.outputTokens + event.outputTokens,
+      cachedTokens: total.cachedTokens + event.cachedTokens,
+      totalTokens: total.totalTokens + event.totalTokens,
+      estimatedCostUsd: total.estimatedCostUsd + (event.estimatedCostUsd ?? 0),
+      requests: total.requests + 1,
+    }),
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedTokens: 0,
+      totalTokens: 0,
+      estimatedCostUsd: 0,
+      requests: 0,
+    },
+  );
+  const byFlow = new Map<
+    string,
+    {
+      flow: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      requests: number;
+    }
+  >();
+  const byTask = new Map<
+    string,
+    {
+      taskId: string;
+      taskLabel: string;
+      flow: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      requests: number;
+    }
+  >();
+
+  for (const event of events) {
+    const flow = byFlow.get(event.flow) ?? {
+      flow: event.flow,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      estimatedCostUsd: 0,
+      requests: 0,
+    };
+    const taskKey = event.taskId ?? `${event.flow}:${event.taskLabel ?? event.operation}`;
+    const task = byTask.get(taskKey) ?? {
+      taskId: event.taskId ?? "",
+      taskLabel: event.taskLabel ?? event.operation,
+      flow: event.flow,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      estimatedCostUsd: 0,
+      requests: 0,
+    };
+
+    for (const target of [flow, task]) {
+      target.inputTokens += event.inputTokens;
+      target.outputTokens += event.outputTokens;
+      target.totalTokens += event.totalTokens;
+      target.estimatedCostUsd += event.estimatedCostUsd ?? 0;
+      target.requests += 1;
+    }
+
+    byFlow.set(event.flow, flow);
+    byTask.set(taskKey, task);
+  }
+
+  return {
+    enabled: true,
+    totals,
+    flows: [...byFlow.values()].sort((a, b) => b.totalTokens - a.totalTokens),
+    tasks: [...byTask.values()].sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 50),
+    recentEvents: events.slice(0, 100).map((event) => ({
+      id: event.id,
+      createdAt: event.createdAt.toISOString(),
+      flow: event.flow,
+      taskId: event.taskId,
+      taskLabel: event.taskLabel,
+      provider: event.provider,
+      model: event.model,
+      operation: event.operation,
+      status: event.status,
+      inputTokens: event.inputTokens,
+      outputTokens: event.outputTokens,
+      cachedTokens: event.cachedTokens,
+      totalTokens: event.totalTokens,
+      estimatedCostUsd: event.estimatedCostUsd,
+      durationMs: event.durationMs,
+      userEmail: event.userEmail,
+    })),
+  };
+}
+
 export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
@@ -294,7 +426,7 @@ export async function GET(request: Request) {
     const costParams = new URLSearchParams(baseParams);
     costParams.append("group_by", "line_item");
 
-    const [usageBuckets, costBuckets] = await Promise.all([
+    const [usageBuckets, costBuckets, internalUsage] = await Promise.all([
       fetchOpenAIPage<UsageBucket>(
         "/v1/organization/usage/completions",
         usageParams,
@@ -305,6 +437,7 @@ export async function GET(request: Request) {
         costParams,
         openAIAdminKey,
       ),
+      summarizeInternalUsage(startTime),
     ]);
 
     return withCors(
@@ -316,6 +449,7 @@ export async function GET(request: Request) {
         },
         usage: summarizeUsage(usageBuckets),
         costs: summarizeCosts(costBuckets),
+        internalUsage,
         generatedAt: new Date().toISOString(),
       }),
       request,

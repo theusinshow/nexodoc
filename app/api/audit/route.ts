@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { recordAiUsage } from "@/lib/ai-usage";
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
 import { parseAnalysisLevel, type AnalysisLevel } from "@/lib/analysis-level";
 import {
@@ -295,6 +296,28 @@ function getPrimaryModelName(analysisLevel: AnalysisLevel) {
 
 function getValidationModelName(analysisLevel: AnalysisLevel) {
   return getAuditValidationModel(analysisLevel);
+}
+
+async function recordAuditModelUsage(args: {
+  taskId?: string | null;
+  taskLabel?: string | null;
+  model: string;
+  operation: string;
+  response: unknown;
+  durationMs: number;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
+}) {
+  await recordAiUsage({
+    flow: "audit",
+    taskId: args.taskId,
+    taskLabel: args.taskLabel,
+    provider: "openai",
+    model: args.model,
+    operation: args.operation,
+    response: args.response,
+    durationMs: args.durationMs,
+    metadata: args.metadata ?? {},
+  });
 }
 
 function extractResponseText(response: unknown) {
@@ -1426,6 +1449,7 @@ function isMissingProjectField(value: string) {
 }
 
 async function analyzeChunkWithModel(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1436,8 +1460,10 @@ async function analyzeChunkWithModel(args: {
   chunk: AuditTextChunk;
 }) {
   const openai = getOpenAIClient();
+  const model = getPrimaryModelName(args.analysisLevel);
+  const startedAt = Date.now();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(args.analysisLevel),
+    model,
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: {
       effort: getReasoningEffort(args.analysisLevel),
@@ -1446,6 +1472,23 @@ async function analyzeChunkWithModel(args: {
     input: getChunkPrompt(args),
   }, {
     timeout: getChunkTimeoutMs(),
+  });
+  await recordAuditModelUsage({
+    taskId: args.auditId,
+    taskLabel: args.fileName,
+    model,
+    operation: "audit-chunk",
+    response,
+    durationMs: Date.now() - startedAt,
+    metadata: {
+      fileName: args.fileName,
+      fileType: args.fileType,
+      chunkId: args.chunk.id,
+      startPage: args.chunk.startPage,
+      endPage: args.chunk.endPage,
+      analysisLevel: args.analysisLevel,
+      auditMode: args.auditMode,
+    },
   });
   const text = extractResponseText(response);
   const parsed = parseJsonObject(text);
@@ -1521,6 +1564,7 @@ ${buildIdentityContext(args.extracted)}
 }
 
 async function analyzeIdentityWithModel(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1531,14 +1575,31 @@ async function analyzeIdentityWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const openai = getOpenAIClient();
+  const model = getPrimaryModelName(args.analysisLevel);
+  const startedAt = Date.now();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(args.analysisLevel),
+    model,
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getIdentityAuditPrompt(args),
   }, {
     timeout: getChunkTimeoutMs(),
+  });
+  await recordAuditModelUsage({
+    taskId: args.auditId,
+    taskLabel: args.fileName,
+    model,
+    operation: "audit-identity",
+    response,
+    durationMs: Date.now() - startedAt,
+    metadata: {
+      fileName: args.fileName,
+      fileType: args.fileType,
+      pages: args.extracted.pageCount,
+      analysisLevel: args.analysisLevel,
+      auditMode: args.auditMode,
+    },
   });
   const parsed = parseJsonObject(extractResponseText(response));
 
@@ -1613,6 +1674,7 @@ ${buildDocumentContext(args.extracted)}
 }
 
 async function analyzeFileGloballyWithModel(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1623,14 +1685,31 @@ async function analyzeFileGloballyWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const openai = getOpenAIClient();
+  const model = getPrimaryModelName(args.analysisLevel);
+  const startedAt = Date.now();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(args.analysisLevel),
+    model,
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getGlobalFilePrompt(args),
   }, {
     timeout: getChunkTimeoutMs(),
+  });
+  await recordAuditModelUsage({
+    taskId: args.auditId,
+    taskLabel: args.fileName,
+    model,
+    operation: "audit-global",
+    response,
+    durationMs: Date.now() - startedAt,
+    metadata: {
+      fileName: args.fileName,
+      fileType: args.fileType,
+      pages: args.extracted.pageCount,
+      analysisLevel: args.analysisLevel,
+      auditMode: args.auditMode,
+    },
   });
   const parsed = parseJsonObject(extractResponseText(response));
 
@@ -1824,6 +1903,7 @@ ${buildValidationContext(args.files)}
 }
 
 async function validateFindingsWithModel(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1839,14 +1919,30 @@ async function validateFindingsWithModel(args: {
   const openai = getOpenAIClient();
 
   try {
+    const model = getValidationModelName(args.analysisLevel);
+    const startedAt = Date.now();
     const response = await openai.responses.create({
-      model: getValidationModelName(args.analysisLevel),
+      model,
       instructions: getAuditorPrompt(args.auditMode),
       reasoning: { effort: getReasoningEffort(args.analysisLevel) },
       max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
       input: getFindingValidationPrompt(args),
     }, {
       timeout: getChunkTimeoutMs(),
+    });
+    await recordAuditModelUsage({
+      taskId: args.auditId,
+      taskLabel: args.projectName || "Auditoria",
+      model,
+      operation: "audit-validation",
+      response,
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        findings: args.findings.length,
+        files: args.files.length,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
     });
     const parsed = parseJsonObject(extractResponseText(response));
     const decisions = new Map(
@@ -1901,6 +1997,7 @@ async function validateFindingsWithModel(args: {
 }
 
 async function analyzeCrossDocumentsWithModel(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1913,14 +2010,29 @@ async function analyzeCrossDocumentsWithModel(args: {
   }
 
   const openai = getOpenAIClient();
+  const model = getPrimaryModelName(args.analysisLevel);
+  const startedAt = Date.now();
   const response = await openai.responses.create({
-    model: getPrimaryModelName(args.analysisLevel),
+    model,
     instructions: getAuditorPrompt(args.auditMode),
     reasoning: { effort: getReasoningEffort(args.analysisLevel) },
     max_output_tokens: getMaxOutputTokens(),
     input: getCrossDocumentPrompt(args),
   }, {
     timeout: getChunkTimeoutMs(),
+  });
+  await recordAuditModelUsage({
+    taskId: args.auditId,
+    taskLabel: args.projectName || "Auditoria",
+    model,
+    operation: "audit-cross-document",
+    response,
+    durationMs: Date.now() - startedAt,
+    metadata: {
+      files: args.files.length,
+      analysisLevel: args.analysisLevel,
+      auditMode: args.auditMode,
+    },
   });
   const parsed = parseJsonObject(extractResponseText(response));
 
@@ -1937,6 +2049,7 @@ async function analyzeCrossDocumentsWithModel(args: {
 }
 
 async function deepAnalyzeFile(args: {
+  auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
@@ -1969,7 +2082,8 @@ async function deepAnalyzeFile(args: {
   console.log(`[audit] ${args.file.file.name}: leitura de identidade iniciada`);
   const identityFindings = hasInferredIdentityConflict
     ? []
-    : await analyzeIdentityWithModel({
+      : await analyzeIdentityWithModel({
+        auditId: args.auditId,
         auditMode: args.auditMode,
         analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
@@ -1988,6 +2102,7 @@ async function deepAnalyzeFile(args: {
     !hasInferredIdentityConflict || process.env.NEXODOC_ALWAYS_RUN_GLOBAL_AI === "true";
   const globalFindings = shouldRunGlobalPass
     ? await analyzeFileGloballyWithModel({
+        auditId: args.auditId,
         auditMode: args.auditMode,
         analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
@@ -2011,6 +2126,7 @@ async function deepAnalyzeFile(args: {
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} (${chunk.startPage}-${chunk.endPage}) iniciado`,
       );
       const findings = await analyzeChunkWithModel({
+        auditId: args.auditId,
         auditMode: args.auditMode,
         analysisLevel: args.analysisLevel,
         userMessage: args.userMessage,
@@ -2154,6 +2270,7 @@ export async function POST(request: Request) {
 
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
+        auditId,
         auditMode,
         analysisLevel,
         userMessage: message,
@@ -2166,6 +2283,7 @@ export async function POST(request: Request) {
     }
 
     const modelComparison = await analyzeCrossDocumentsWithModel({
+      auditId,
       auditMode,
       analysisLevel,
       userMessage: message,
@@ -2182,6 +2300,7 @@ export async function POST(request: Request) {
       `[audit] validação semântica iniciada com ${candidateFindings.length} achado(s) candidato(s)`,
     );
     const validatedFindings = await validateFindingsWithModel({
+      auditId,
       auditMode,
       analysisLevel,
       userMessage: message,

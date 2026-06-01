@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { recordAiUsage } from "@/lib/ai-usage";
 import type { AuditReport } from "@/lib/audit-report";
 import {
   classifyProviderFailure,
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
       question?: string;
       report?: AuditReport;
       history?: ChatTurn[];
+      auditId?: string;
     };
     const question = String(body.question ?? "").trim();
 
@@ -183,12 +185,27 @@ export async function POST(request: Request) {
       : [];
     const model = getAiConfiguration().auditChat.model;
     const openai = getOpenAIClient();
+    const startedAt = Date.now();
     const response = await openai.responses.create({
       model,
       instructions: "Você responde perguntas pós-auditoria documental com base estrita no relatório fornecido.",
       reasoning: { effort: getReasoningEffort() },
       max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
       input: getChatPrompt({ question, report: body.report, history }),
+    });
+    await recordAiUsage({
+      flow: "audit-chat",
+      taskId: body.auditId,
+      taskLabel: body.report.obra || body.report.arquivo || "Pós-auditoria",
+      provider: "openai",
+      model,
+      operation: "audit-chat-answer",
+      response,
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        findings: body.report.incongruencias.length,
+        historyTurns: history.length,
+      },
     });
     const answer = extractResponseText(response);
 

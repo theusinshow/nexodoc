@@ -278,14 +278,18 @@ type PdfJsDocument = {
   getPage: (pageNumber: number) => Promise<unknown>;
 };
 
-type StampCropMode = "tight" | "normal" | "expanded" | "full-page";
+type StampCropMode = "tight" | "normal";
 type ReviewFilterMode = "all" | "blockers" | "warnings" | "low-confidence" | "missing";
 type ReviewSortMode = "sheet" | "file" | "discipline" | "status";
 type ReviewDensity = "comfortable" | "compact";
 
-const stampCropModes: Array<{ mode: StampCropMode; label: string }> = [
-  { mode: "tight", label: "selo compacto" },
-  { mode: "normal", label: "recorte do selo" },
+const stampCropModes: Array<{
+  mode: StampCropMode;
+  label: string;
+  crop: { x: number; y: number; width: number; height: number };
+}> = [
+  { mode: "tight", label: "selo compacto", crop: { x: 0.807, y: 0.717, width: 0.171, height: 0.228 } },
+  { mode: "normal", label: "recorte do selo", crop: { x: 0.79, y: 0.7, width: 0.2, height: 0.26 } },
 ];
 
 const maxConcurrentVisualPages = 3;
@@ -649,7 +653,90 @@ function markLdFieldSources(
   }, { ...current });
 }
 
-async function renderStampCropToDataUrl(pageProxy: unknown, mode: StampCropMode) {
+type CanvasRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function clampRect(rect: CanvasRect, bounds: CanvasRect): CanvasRect {
+  const x = Math.max(bounds.x, Math.min(bounds.x + bounds.width - 1, rect.x));
+  const y = Math.max(bounds.y, Math.min(bounds.y + bounds.height - 1, rect.y));
+  const right = Math.max(x + 1, Math.min(bounds.x + bounds.width, rect.x + rect.width));
+  const bottom = Math.max(y + 1, Math.min(bounds.y + bounds.height, rect.y + rect.height));
+
+  return {
+    x,
+    y,
+    width: right - x,
+    height: bottom - y,
+  };
+}
+
+function isBlueBorderPixel(red: number, green: number, blue: number, alpha: number) {
+  return alpha > 120 && blue > 90 && blue > red + 20 && blue >= green;
+}
+
+function detectUsefulSheetBounds(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D): CanvasRect {
+  const fallback = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  let imageData: ImageData;
+
+  try {
+    imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  } catch {
+    return fallback;
+  }
+
+  const { data, width, height } = imageData;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let hits = 0;
+
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      const index = (y * width + x) * 4;
+
+      if (isBlueBorderPixel(data[index], data[index + 1], data[index + 2], data[index + 3])) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        hits += 1;
+      }
+    }
+  }
+
+  const detectedWidth = maxX - minX;
+  const detectedHeight = maxY - minY;
+
+  if (
+    hits < 80 ||
+    detectedWidth < width * 0.45 ||
+    detectedHeight < height * 0.45 ||
+    detectedWidth > width ||
+    detectedHeight > height
+  ) {
+    return fallback;
+  }
+
+  return clampRect(
+    {
+      x: minX,
+      y: minY,
+      width: detectedWidth,
+      height: detectedHeight,
+    },
+    fallback,
+  );
+}
+
+async function renderStampCropToDataUrl(
+  pageProxy: unknown,
+  normalizedCrop: CanvasRect,
+) {
   const page = pageProxy as {
   getViewport: (options: { scale: number }) => { width: number; height: number };
   render: (options: {
@@ -671,18 +758,21 @@ async function renderStampCropToDataUrl(pageProxy: unknown, mode: StampCropMode)
 
   await page.render({ canvasContext: context, canvas, viewport }).promise;
 
-  const cropBounds =
-    mode === "tight"
-      ? { x: 0.62, y: 0.62 }
-      : mode === "normal"
-      ? { x: 0.55, y: 0.55 }
-      : mode === "expanded"
-        ? { x: 0.4, y: 0.4 }
-        : { x: 0, y: 0 };
-  const cropX = Math.floor(canvas.width * cropBounds.x);
-  const cropY = Math.floor(canvas.height * cropBounds.y);
-  const cropWidth = canvas.width - cropX;
-  const cropHeight = canvas.height - cropY;
+  const pageBounds = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  const usefulBounds = detectUsefulSheetBounds(canvas, context);
+  const targetRect = clampRect(
+    {
+      x: usefulBounds.x + usefulBounds.width * normalizedCrop.x,
+      y: usefulBounds.y + usefulBounds.height * normalizedCrop.y,
+      width: usefulBounds.width * normalizedCrop.width,
+      height: usefulBounds.height * normalizedCrop.height,
+    },
+    usefulBounds.width > 0 && usefulBounds.height > 0 ? usefulBounds : pageBounds,
+  );
+  const cropX = Math.floor(targetRect.x);
+  const cropY = Math.floor(targetRect.y);
+  const cropWidth = Math.ceil(targetRect.width);
+  const cropHeight = Math.ceil(targetRect.height);
   const cropCanvas = document.createElement("canvas");
   const cropContext = cropCanvas.getContext("2d");
 
@@ -726,7 +816,22 @@ async function renderStampCropToDataUrl(pageProxy: unknown, mode: StampCropMode)
   };
 }
 
-async function requestVisualStampExtraction(imageDataUrl: string, pdfText: string, timeoutMs = 30000) {
+type StampExtractionRequestMetadata = {
+  taskId?: string;
+  taskLabel?: string;
+  operation?: string;
+  fileName?: string;
+  pageNumber?: number;
+  cropMode?: string;
+  source?: "text" | "visual";
+};
+
+async function requestVisualStampExtraction(
+  imageDataUrl: string,
+  pdfText: string,
+  metadata?: StampExtractionRequestMetadata,
+  timeoutMs = 30000,
+) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -735,7 +840,7 @@ async function requestVisualStampExtraction(imageDataUrl: string, pdfText: strin
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ imageDataUrl, pdfText }),
+    body: JSON.stringify({ imageDataUrl, pdfText, metadata }),
     signal: controller.signal,
   });
 
@@ -761,13 +866,16 @@ async function requestVisualStampExtraction(imageDataUrl: string, pdfText: strin
   }
 }
 
-async function requestTextStampExtraction(pdfText: string) {
+async function requestTextStampExtraction(
+  pdfText: string,
+  metadata?: StampExtractionRequestMetadata,
+) {
   const response = await fetch("/api/ld/extract-stamp", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ pdfText }),
+    body: JSON.stringify({ pdfText, metadata }),
   });
 
   if (!response.ok) {
@@ -1317,6 +1425,7 @@ export function LdWorkspace({
   async function extractWithProgressiveVision(
     page: unknown,
     textResult: PdfReadResult,
+    metadata?: StampExtractionRequestMetadata,
     onAttempt?: (status: string) => void,
   ) {
     let lastResult = textResult;
@@ -1328,10 +1437,15 @@ export function LdWorkspace({
       let imageDataUrl: string | undefined;
 
       try {
-        const crop = await renderStampCropToDataUrl(page, attempt.mode);
+        const crop = await renderStampCropToDataUrl(page, attempt.crop);
         previewDataUrl = crop.previewDataUrl;
         imageDataUrl = crop.imageDataUrl;
-        const extraction = await requestVisualStampExtraction(crop.imageDataUrl, textResult.textForAi);
+        const extraction = await requestVisualStampExtraction(crop.imageDataUrl, textResult.textForAi, {
+          ...metadata,
+          operation: "ld-stamp-visual-extraction",
+          cropMode: attempt.mode,
+          source: "visual",
+        });
         const merged = {
           ...mergeAiExtraction(textResult, extraction, "visual"),
           stampPreviewUrl: crop.previewDataUrl,
@@ -1479,7 +1593,12 @@ export function LdWorkspace({
       textForAi,
       referenceTotal,
     );
-    let pageResult = await extractWithProgressiveVision(page, textResult, (status) => {
+    let pageResult = await extractWithProgressiveVision(page, textResult, {
+      taskId: getPdfPageCacheKey(file, pageNumber),
+      taskLabel: `${file.name} p.${pageNumber}`,
+      fileName: file.name,
+      pageNumber,
+    }, (status) => {
       setPdfProgress({ current, total, fileName: file.name, pageNumber, status });
     });
 
@@ -1659,7 +1778,14 @@ export function LdWorkspace({
                 pageNumber,
                 status: "Interpretando texto com IA",
               });
-              const textExtraction = await requestTextStampExtraction(textForAi);
+              const textExtraction = await requestTextStampExtraction(textForAi, {
+                taskId: getPdfPageCacheKey(file, pageNumber),
+                taskLabel: `${file.name} p.${pageNumber}`,
+                operation: "ld-stamp-text-extraction",
+                fileName: file.name,
+                pageNumber,
+                source: "text",
+              });
               pageResult = mergeAiExtraction(textResult, textExtraction, "text");
             }
           } catch (textError) {
@@ -1667,7 +1793,12 @@ export function LdWorkspace({
           }
 
           if (hasMissingStampFields(pageResult) || pageResult.row.lowConfidence) {
-            pageResult = await extractWithProgressiveVision(page, textResult, (status) => {
+            pageResult = await extractWithProgressiveVision(page, textResult, {
+              taskId: getPdfPageCacheKey(file, pageNumber),
+              taskLabel: `${file.name} p.${pageNumber}`,
+              fileName: file.name,
+              pageNumber,
+            }, (status) => {
               setPdfProgress({ current, total: totalPages, fileName: file.name, pageNumber, status });
             });
 
@@ -1881,7 +2012,12 @@ export function LdWorkspace({
       ).toString();
       const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
       const page = await pdf.getPage(result.pageNumber);
-      const updated = await extractWithProgressiveVision(page, result);
+      const updated = await extractWithProgressiveVision(page, result, {
+        taskId: getPdfPageCacheKey(file, result.pageNumber),
+        taskLabel: `${file.name} p.${result.pageNumber}`,
+        fileName: file.name,
+        pageNumber: result.pageNumber,
+      });
 
       setPdfReadResults((current) =>
         current.map((item) => (item.row.id === id ? updated : item)),

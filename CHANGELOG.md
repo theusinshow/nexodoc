@@ -82,6 +82,9 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Serviço Render de conversão ODT para PDF configurado para Docker, garantindo instalação do LibreOffice headless no ambiente.
 - Modelo padrão da extração OpenAI de selos/LDs alterado para `gpt-5.4-nano` para reduzir custo dos testes.
 - Tentativas visuais de leitura de selo na LD limitadas aos recortes `tight` e `normal`, removendo `expanded` e `full-page`.
+- Registro interno `AiUsageEvent` para medir tokens, custo estimado e chamadas de IA por fluxo/tarefa no painel admin de uso.
+- Modelo padrão da extração OpenAI de selos/LDs ajustado para `gpt-5.4-mini` após testes de qualidade com o nano.
+- Recorte visual do selo configurado por retângulos normalizados da área útil da prancha, com detecção da borda azul e margem de segurança no modo `normal`.
 
 ### Alterado
 

@@ -65,6 +65,52 @@ type AdminUsageResponse = {
       currency: string;
     }>;
   };
+  internalUsage?: {
+    enabled: boolean;
+    totals: {
+      inputTokens: number;
+      outputTokens: number;
+      cachedTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      requests: number;
+    };
+    flows: Array<{
+      flow: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      requests: number;
+    }>;
+    tasks: Array<{
+      taskId: string;
+      taskLabel: string;
+      flow: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      requests: number;
+    }>;
+    recentEvents: Array<{
+      id: string;
+      createdAt: string;
+      flow: string;
+      taskLabel: string | null;
+      provider: string;
+      model: string;
+      operation: string;
+      status: string;
+      inputTokens: number;
+      outputTokens: number;
+      cachedTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number | null;
+      durationMs: number | null;
+      userEmail: string | null;
+    }>;
+  };
   generatedAt: string;
 };
 
@@ -88,6 +134,10 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "2-digit",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatUsd(value: number | null | undefined) {
+  return formatCurrency(value ?? 0, "usd");
 }
 
 function getMaxDailyValue(data: AdminUsageResponse | null) {
@@ -420,6 +470,85 @@ export default function AdminUsagePage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Uso interno por tarefa</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Eventos gravados pelo NexoDoc por fluxo, tarefa e chamada de IA.
+              </p>
+            </div>
+            {data?.internalUsage?.enabled ? (
+              <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 font-mono text-xs text-muted-foreground">
+                {formatNumber(data.internalUsage.totals.requests)} eventos · {formatUsd(data.internalUsage.totals.estimatedCostUsd)}
+              </span>
+            ) : null}
+          </div>
+
+          {!data?.internalUsage?.enabled ? (
+            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+              Registro interno indisponível. Configure `DATABASE_URL` e aplique o schema do Prisma.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+              <div className="space-y-2">
+                <h3 className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                  Fluxos
+                </h3>
+                {data.internalUsage.flows.map((flow) => (
+                  <div key={flow.flow} className="rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-mono text-sm font-medium">{flow.flow}</p>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {formatUsd(flow.estimatedCostUsd)}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">
+                      {formatNumber(flow.totalTokens)} tokens · {formatNumber(flow.requests)} chamadas
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="min-w-0">
+                <h3 className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                  Tarefas com maior consumo
+                </h3>
+                <div className="mt-2 overflow-hidden rounded-md border">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-3 font-medium">Tarefa</th>
+                        <th className="px-3 py-3 font-medium">Fluxo</th>
+                        <th className="px-3 py-3 text-right font-medium">Tokens</th>
+                        <th className="px-3 py-3 text-right font-medium">Custo est.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.internalUsage.tasks.length > 0 ? (
+                        data.internalUsage.tasks.map((task) => (
+                          <tr key={`${task.flow}-${task.taskId || task.taskLabel}`} className="border-t">
+                            <td className="max-w-[280px] truncate px-3 py-3">{task.taskLabel || task.taskId || "-"}</td>
+                            <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{task.flow}</td>
+                            <td className="px-3 py-3 text-right font-mono">{formatNumber(task.totalTokens)}</td>
+                            <td className="px-3 py-3 text-right font-mono">{formatUsd(task.estimatedCostUsd)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="px-3 py-6 text-center text-muted-foreground" colSpan={4}>
+                            Nenhum evento interno no período.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
     </AdminPageShell>
   );
