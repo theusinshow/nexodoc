@@ -31,7 +31,7 @@ const extractionSchema = {
   properties: {
     disciplina: {
       type: ["string", "null"],
-      description: "Sigla da disciplina lida no campo PRANCHA, quando existir.",
+      description: "Sigla real da disciplina lida no campo PRANCHA, quando existir. Nunca use rótulos do carimbo como IMP, DATA, ESCALA ou REV.",
     },
     folha: {
       type: ["number", "null"],
@@ -51,7 +51,7 @@ const extractionSchema = {
     },
     conteudo: {
       type: ["string", "null"],
-      description: "Valor exato do campo CONTEÚDO, apenas com quebras de linha juntadas.",
+      description: "Valor exato somente do campo CONTEÚDO/DESCRIÇÃO, sem rótulos vizinhos como IMP, DATA, ESCALA, REV ou PRANCHA.",
     },
     cliente: {
       type: ["string", "null"],
@@ -113,6 +113,10 @@ Não corrija ortografia.
 Não resuma.
 Não complete informação ausente.
 Copie o campo CONTEÚDO exatamente como aparece, exceto por juntar quebras de linha.
+O campo CONTEÚDO/DESCRIÇÃO deve conter apenas a descrição técnica da prancha.
+Não inclua rótulos ou valores de campos vizinhos do carimbo no CONTEÚDO, como IMP, DATA, ESCALA, REV, REVISÃO, VISTO, DESENHO, FOLHA, PRANCHA, ARQUIVO, RESPONSÁVEL ou CLIENTE.
+Se o texto visual estiver próximo desses campos, pare o CONTEÚDO antes do primeiro rótulo vizinho.
+Para disciplina, use somente siglas reais de disciplina/projeto. Se a leitura sugerir IMP, DATA, ESCALA, REV, VISTO, ARQUIVO ou outro rótulo do carimbo, retorne disciplina como null.
 
 Responda apenas em JSON.
 Se algum campo não for encontrado, use null.`;
@@ -141,6 +145,72 @@ type ExtractionMetadata = {
   cropMode?: string;
   source?: "text" | "visual";
 };
+
+const CONTENT_FIELD_STOP_LABELS = [
+  "IMP",
+  "DATA",
+  "ESCALA",
+  "REV",
+  "REVISÃO",
+  "REVISAO",
+  "VISTO",
+  "DESENHO",
+  "FOLHA",
+  "N° DA FOLHA",
+  "Nº DA FOLHA",
+  "N DA FOLHA",
+  "PRANCHA",
+  "ARQUIVO",
+  "RESPONSÁVEL",
+  "RESPONSAVEL",
+  "CLIENTE",
+  "OBRA",
+  "FASE",
+  "DISCIPLINA",
+];
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cleanExtractedContentField(value: string | null) {
+  if (!value) {
+    return value;
+  }
+
+  const normalized = value
+    .replace(/\s+/g, " ")
+    .replace(/^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i, "")
+    .trim();
+  const stopPattern = CONTENT_FIELD_STOP_LABELS.map(escapeRegex).join("|");
+  const stopMatch = new RegExp(`\\s(?:${stopPattern})\\s*[:\\-]?`, "i").exec(normalized);
+  const cleaned = (stopMatch ? normalized.slice(0, stopMatch.index) : normalized)
+    .replace(/\s*[,;:\-–—]+\s*$/g, "")
+    .trim();
+
+  return cleaned || null;
+}
+
+function sanitizeStampExtraction(extraction: StampExtraction): StampExtraction {
+  const normalizedDiscipline = extraction.disciplina
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const disciplina =
+    normalizedDiscipline &&
+    ["imp", "data", "escala", "rev", "revisao", "visto", "arquivo", "prancha", "folha"].includes(
+      normalizedDiscipline,
+    )
+      ? null
+      : extraction.disciplina;
+
+  return {
+    ...extraction,
+    disciplina,
+    conteudo: cleanExtractedContentField(extraction.conteudo),
+  };
+}
 
 function buildTextPrompt(pdfText?: string) {
   if (!pdfText) {
@@ -197,7 +267,7 @@ async function extractWithOpenAi(model: string, textPrompt: string, imageDataUrl
 
   try {
     return {
-      parsed: JSON.parse(response.output_text) as StampExtraction,
+      parsed: sanitizeStampExtraction(JSON.parse(response.output_text) as StampExtraction),
       response,
     };
   } catch {
@@ -273,7 +343,7 @@ Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, nume
   }
 
   return {
-    parsed: parseMimoOutput(payload?.choices?.[0]?.message?.content),
+    parsed: sanitizeStampExtraction(parseMimoOutput(payload?.choices?.[0]?.message?.content)),
     payload,
   };
 }

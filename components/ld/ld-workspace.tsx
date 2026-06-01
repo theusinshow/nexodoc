@@ -367,13 +367,52 @@ function cleanDescriptionValue(value: string) {
     return "";
   }
 
-  return normalized.replace(/\s+(?:PRANCHA|ARQUIVO)\s*[:\-]?[\s\S]*$/i, "").trim();
+  return normalized
+    .replace(/^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i, "")
+    .replace(
+      /\s+(?:IMP|DATA|ESCALA|REV|REVIS[ÃA]O|VISTO|DESENHO|FOLHA|N[°º]?\s*DA\s*FOLHA|PRANCHA|ARQUIVO|RESPONS[ÁA]VEL|CLIENTE|OBRA|FASE|DISCIPLINA)\s*[:\-]?[\s\S]*$/i,
+      "",
+    )
+    .replace(/\s*[,;:\-–—]+\s*$/g, "")
+    .trim();
 }
 
 function extractDisciplineFromPrancha(value: string) {
   const match = value.match(/[A-Za-z]{2,}(?:-[A-Za-z]{2,})?/);
 
   return match ? match[0] : "";
+}
+
+const invalidDisciplineLabels = new Set([
+  "imp",
+  "data",
+  "escala",
+  "rev",
+  "revisao",
+  "revisão",
+  "visto",
+  "desenho",
+  "folha",
+  "prancha",
+  "arquivo",
+  "conteudo",
+  "conteúdo",
+  "descricao",
+  "descrição",
+]);
+
+function normalizeReadDiscipline(value: string) {
+  const normalized = normalizeExtractedValue(value);
+  const key = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
+  if (!key || invalidDisciplineLabels.has(key)) {
+    return "";
+  }
+
+  return normalized;
 }
 
 function groupTextLines(items: PdfTextLine[]) {
@@ -842,7 +881,7 @@ function mergeAiExtraction(
   const file = extractFileCode(visualFile, visualFile) || result.row.file;
   const description = visualDescription || result.row.description;
   const readDiscipline =
-    normalizeExtractedValue(extraction.disciplina ?? "") ||
+    normalizeReadDiscipline(extraction.disciplina ?? "") ||
     extractDisciplineFromPrancha(sheet) ||
     result.row.readDiscipline;
   const foundFields = {

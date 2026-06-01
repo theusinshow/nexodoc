@@ -131,6 +131,31 @@ export function compareBySheet(a: ReviewRow, b: ReviewRow) {
   return a.sheet.localeCompare(b.sheet, "pt-BR");
 }
 
+const invalidDisciplineLabels = new Set([
+  "imp",
+  "data",
+  "escala",
+  "rev",
+  "revisao",
+  "visto",
+  "desenho",
+  "folha",
+  "prancha",
+  "arquivo",
+  "conteudo",
+  "descricao",
+]);
+
+function normalizeDisciplineForComparison(value: string) {
+  const normalized = value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
+  return invalidDisciplineLabels.has(normalized) ? "" : normalized;
+}
+
 export function validateRows(
   rows: ReviewRow[],
   discipline: string,
@@ -152,8 +177,8 @@ export function validateRows(
   for (const row of rows) {
     const issues: RowIssue[] = [];
     const parsed = parseSheet(row.sheet);
-    const normalizedDiscipline = discipline.trim().toLocaleLowerCase("pt-BR");
-    const normalizedReadDiscipline = row.readDiscipline.trim().toLocaleLowerCase("pt-BR");
+    const normalizedDiscipline = normalizeDisciplineForComparison(discipline);
+    const normalizedReadDiscipline = normalizeDisciplineForComparison(row.readDiscipline);
 
     if (!row.file.trim()) {
       issues.push({
