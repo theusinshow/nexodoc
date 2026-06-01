@@ -32,7 +32,7 @@ type ProviderErrorShape = {
 
 const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.4-mini";
 const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.4";
-const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4";
+const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-nano";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 
 const statusStore = globalThis as typeof globalThis & {

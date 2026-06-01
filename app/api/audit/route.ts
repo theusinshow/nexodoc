@@ -49,6 +49,16 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+class AuditInputError extends Error {
+  status: number;
+
+  constructor(message: string, status = 422) {
+    super(message);
+    this.name = "AuditInputError";
+    this.status = status;
+  }
+}
+
 type UploadedAuditFile = {
   file: File;
   fileType: string;
@@ -212,6 +222,17 @@ function isPdf(file: File) {
 
 function jsonError(message: string, status = 400) {
   return withCors(NextResponse.json({ error: message }, { status }));
+}
+
+function getLowTextPdfMessage(fileName: string, fileType: string) {
+  const type = fileType.toLowerCase();
+  const baseMessage = `O arquivo "${fileName}" não possui texto pesquisável suficiente para auditoria documental.`;
+
+  if (type === "pranchas") {
+    return `${baseMessage} Para pranchas, envie um PDF com texto/OCR pesquisável ou use o módulo de LD para leitura visual dos selos.`;
+  }
+
+  return `${baseMessage} Envie uma versão com OCR ou texto selecionável para que o auditor consiga verificar evidências.`;
 }
 
 function getAllowedOrigin(request: Request) {
@@ -2115,13 +2136,15 @@ export async function POST(request: Request) {
           `[audit] texto extraido: ${file.name}, ${extracted.pageCount} paginas, ${extracted.charCount} caracteres em ${Math.round((Date.now() - fileStartedAt) / 1000)}s`,
         );
 
+        const fileType = fileTypes[index] ?? "não informado";
+
         if (extracted.charCount < MIN_TEXT_CHARS_FOR_DEEP_AUDIT) {
-          throw new Error(`O arquivo "${file.name}" não possui texto suficiente para auditoria profunda.`);
+          throw new AuditInputError(getLowTextPdfMessage(file.name, fileType));
         }
 
         return {
           file,
-          fileType: fileTypes[index] ?? "não informado",
+          fileType,
           buffer,
           extracted,
         };
@@ -2261,6 +2284,10 @@ export async function POST(request: Request) {
     }
     console.error(`[audit] requisicao falhou (${failure.category})`);
     await persistFailedAudit(persistedAuditId, error, Date.now() - requestStartedAt);
+
+    if (error instanceof AuditInputError) {
+      return jsonError(error.message, error.status);
+    }
 
     if (failure.category !== "unknown") {
       const status =

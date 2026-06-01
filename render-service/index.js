@@ -15,7 +15,14 @@ app.get("/", (_req, res) => {
   res.json({ service: "nexodoc-converter", status: "ok" });
 });
 
-const LIBREOFFICE_BINARIES = ["soffice", "libreoffice"];
+const LIBREOFFICE_BINARIES = [
+  process.env.LIBREOFFICE_PATH,
+  "soffice",
+  "libreoffice",
+  "/usr/bin/soffice",
+  "/usr/bin/libreoffice",
+  "/usr/lib/libreoffice/program/soffice",
+].filter(Boolean);
 
 async function tryConvert(workDir, odtPath) {
   let lastError = "";
@@ -37,7 +44,7 @@ async function tryConvert(workDir, odtPath) {
     }
   }
 
-  throw new Error(`LibreOffice falhou: ${lastError}`);
+  throw new Error(`LibreOffice falhou ou nao foi encontrado: ${lastError}`);
 }
 
 app.post("/convert", upload.single("file"), async (req, res) => {

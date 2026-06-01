@@ -39,12 +39,13 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
   await document.destroy();
 
   const text = pages.map((page) => `--- PAGINA ${page.page} ---\n${page.text}`).join("\n\n");
+  const charCount = pages.reduce((total, page) => total + page.text.length, 0);
 
   return {
     pages,
     text,
     pageCount: document.numPages,
-    charCount: text.length,
+    charCount,
   };
 }
 

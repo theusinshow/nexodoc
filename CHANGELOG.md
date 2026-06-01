@@ -78,6 +78,10 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Animacoes de transicao: sidebar-drawer (220ms slide), modal (200ms scale+fade), dropdown (180ms expand).
 - `AdminMetricStrip` com suporte a skeleton durante loading.
 - Logo atualizado: teal `#00a693` + detalhe laranja `#DC7858`, fundo transparente.
+- Erro de auditoria para pranchas/PDFs sem texto pesquisável tratado como validação 422, com orientação para enviar OCR ou usar a leitura visual de LD.
+- Serviço Render de conversão ODT para PDF configurado para Docker, garantindo instalação do LibreOffice headless no ambiente.
+- Modelo padrão da extração OpenAI de selos/LDs alterado para `gpt-5.4-nano` para reduzir custo dos testes.
+- Tentativas visuais de leitura de selo na LD limitadas aos recortes `tight` e `normal`, removendo `expanded` e `full-page`.
 
 ### Alterado
 

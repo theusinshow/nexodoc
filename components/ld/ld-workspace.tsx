@@ -286,8 +286,6 @@ type ReviewDensity = "comfortable" | "compact";
 const stampCropModes: Array<{ mode: StampCropMode; label: string }> = [
   { mode: "tight", label: "selo compacto" },
   { mode: "normal", label: "recorte do selo" },
-  { mode: "expanded", label: "recorte ampliado" },
-  { mode: "full-page", label: "pagina inteira" },
 ];
 
 const maxConcurrentVisualPages = 3;
