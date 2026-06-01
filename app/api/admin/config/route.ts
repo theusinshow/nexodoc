@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { getAiConfiguration, getLastProviderFailures } from "@/lib/ai-providers";
+import {
+  classifyProviderFailure,
+  getAiConfiguration,
+  getLastProviderFailures,
+  recordProviderFailure,
+} from "@/lib/ai-providers";
+import { getOpenAIClient } from "@/lib/openai";
 
 export const runtime = "nodejs";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function getAllowedOrigin(request: Request) {
@@ -141,4 +147,66 @@ export function GET(request: Request) {
     }),
     request,
   );
+}
+
+export async function POST(request: Request) {
+  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+
+  if (!adminToken) {
+    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
+  }
+
+  if (getBearerToken(request) !== adminToken) {
+    return jsonError(request, "Acesso admin negado.", 401);
+  }
+
+  const ai = getAiConfiguration();
+
+  if (!ai.auditChat.keyConfigured) {
+    return jsonError(request, "OPENAI_API_KEY não configurada.", 500);
+  }
+
+  try {
+    const model = ai.auditChat.model;
+    const startedAt = Date.now();
+    const response = await getOpenAIClient().responses.create({
+      model,
+      instructions: "Responda apenas OK.",
+      input: "Teste de conectividade do NexoDoc. Responda OK.",
+      max_output_tokens: 16,
+      reasoning: { effort: "none" },
+    }, {
+      timeout: 20_000,
+    });
+
+    return withCors(
+      NextResponse.json({
+        ok: true,
+        provider: "openai",
+        model,
+        durationMs: Date.now() - startedAt,
+        output: response.output_text?.trim().slice(0, 120) ?? "",
+        testedAt: new Date().toISOString(),
+      }),
+      request,
+    );
+  } catch (error) {
+    const failure = classifyProviderFailure("openai", "audit-chat", ai.auditChat.model, error);
+    recordProviderFailure(failure);
+
+    return withCors(
+      NextResponse.json(
+        {
+          ok: false,
+          provider: failure.provider,
+          model: failure.model,
+          category: failure.category,
+          message: failure.message,
+          testedAt: new Date().toISOString(),
+        },
+        { status: failure.category === "authentication" ? 401 : 503 },
+      ),
+      request,
+    );
+  }
 }

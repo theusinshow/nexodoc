@@ -88,6 +88,7 @@ O formato segue a ideia de manter secoes por versao, com itens objetivos.
 - Recorte visual de selo ampliado e aplicado diretamente à página para evitar referência incorreta por textos/linhas azuis internas.
 - Limpeza do campo `CONTEÚDO` da LD para remover rótulos vizinhos do carimbo, como `IMP`, `DATA`, `ESCALA`, `REV`, `PRANCHA` e `ARQUIVO`.
 - Rótulos do carimbo como `IMP`, `DATA`, `ESCALA` e `REV` deixam de ser aceitos como disciplina lida nas pranchas da LD.
+- Painel admin de configurações ganhou teste manual de conectividade OpenAI com chamada mínima real e diagnóstico de credencial/modelo/billing.
 
 ### Alterado
 

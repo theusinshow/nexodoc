@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Settings2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Settings2, Zap } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { Button } from "@/components/ui/button";
 
 type AdminConfigResponse = {
   runtime: {
@@ -42,6 +43,17 @@ type AdminConfigResponse = {
   limits: Record<string, number>;
   secrets: Record<string, boolean>;
   generatedAt: string;
+};
+
+type ConnectivityTestResult = {
+  ok: boolean;
+  provider: "openai";
+  model: string;
+  durationMs?: number;
+  output?: string;
+  category?: string;
+  message?: string;
+  testedAt: string;
 };
 
 function getApiUrl() {
@@ -81,6 +93,8 @@ export default function AdminConfigPage() {
   const [data, setData] = useState<AdminConfigResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isTestingOpenAi, setIsTestingOpenAi] = useState(false);
+  const [connectivityTest, setConnectivityTest] = useState<ConnectivityTestResult | null>(null);
   const apiUrl = getApiUrl();
 
   async function loadConfig(nextToken = token) {
@@ -133,6 +147,46 @@ export default function AdminConfigPage() {
     void loadConfig();
   }
 
+  async function testOpenAiConnectivity() {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+      setError("Informe o token admin.");
+      return;
+    }
+
+    setIsTestingOpenAi(true);
+    setConnectivityTest(null);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/config`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${trimmedToken}`,
+        },
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as ConnectivityTestResult | { error?: string };
+
+      if ("error" in payload && payload.error) {
+        throw new Error(payload.error);
+      }
+
+      setConnectivityTest(payload as ConnectivityTestResult);
+      void loadConfig(trimmedToken);
+    } catch (requestError) {
+      setConnectivityTest(null);
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível testar a OpenAI.",
+      );
+    } finally {
+      setIsTestingOpenAi(false);
+    }
+  }
+
   useEffect(() => {
     const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
 
@@ -173,7 +227,9 @@ export default function AdminConfigPage() {
               </p>
             </div>
             <span className="font-mono text-xs text-muted-foreground">
-              conectividade: não testada (zero chamadas)
+              {connectivityTest
+                ? `conectividade: ${connectivityTest.ok ? "ok" : connectivityTest.category ?? "falha"}`
+                : "conectividade: não testada (zero chamadas)"}
             </span>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -188,6 +244,39 @@ export default function AdminConfigPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Teste de conectividade OpenAI</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Executa uma chamada mínima real para validar credencial, modelo e billing.
+              </p>
+            </div>
+            <Button type="button" onClick={testOpenAiConnectivity} disabled={isTestingOpenAi}>
+              {isTestingOpenAi ? <Loader2 className="animate-spin" /> : <Zap />}
+              Testar OpenAI
+            </Button>
+          </div>
+          {connectivityTest ? (
+            <div
+              className={`mt-4 rounded-sm border px-3 py-3 text-sm ${
+                connectivityTest.ok
+                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]"
+                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
+              }`}
+            >
+              <p className="font-mono font-medium">
+                {connectivityTest.ok
+                  ? `OK em ${connectivityTest.durationMs ?? "-"}ms`
+                  : connectivityTest.message ?? "Falha no teste"}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {connectivityTest.provider} · {connectivityTest.model} · {new Date(connectivityTest.testedAt).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
