@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { VOLUME_OPTIONS_ROMAN, VOLUME_OPTIONS_NUMERIC, FIELD_BASE } from "../constants";
 import { formatVolume } from "../hooks/helpers";
 import type { CoverTitleMode, VolumeFormat } from "@/lib/cover-utils";
+import { DisciplineQuickPick } from "./DisciplineQuickPick";
 
 interface StepCoverGroupsProps {
   groups: CoverGroup[];
@@ -136,6 +137,12 @@ export function StepCoverGroups({
                     rows={2}
                   />
                   <p className="text-xs text-muted-foreground">{titleHelp}</p>
+                  {!hasSeparateDiscipline && (
+                    <DisciplineQuickPick
+                      value={group.tituloCapa}
+                      onChange={(value) => onUpdate(group.id, { tituloCapa: value })}
+                    />
+                  )}
                 </div>
 
                 {hasSeparateDiscipline && (
@@ -152,6 +159,10 @@ export function StepCoverGroups({
                       }
                       placeholder={"PROJETO DE FUNDACOES\nPROJETO ESTRUTURAL EM CONCRETO"}
                       rows={3}
+                    />
+                    <DisciplineQuickPick
+                      value={group.disciplina}
+                      onChange={(value) => onUpdate(group.id, { disciplina: value })}
                     />
                     <p className="text-xs text-muted-foreground">
                       Se cada tomo tiver disciplinas diferentes, gere a previa e

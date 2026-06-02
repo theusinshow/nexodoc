@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CoverPage, GeneralData } from "../types";
 import { formatMesAno } from "../hooks/helpers";
+import { DisciplineQuickPick } from "./DisciplineQuickPick";
 
 interface StepPreviewProps {
   pages: CoverPage[];
@@ -161,6 +162,12 @@ function SortablePageRow({
               }
               rows={4}
             />
+            {!hasSeparateDiscipline && (
+              <DisciplineQuickPick
+                value={page.tituloCapa}
+                onChange={(value) => onUpdate(page.id, { tituloCapa: value })}
+              />
+            )}
           </div>
 
           {hasSeparateDiscipline && (
@@ -174,6 +181,10 @@ function SortablePageRow({
                 onChange={(e) => onUpdate(page.id, { disciplina: e.target.value })}
                 placeholder="Uma disciplina por linha"
                 rows={3}
+              />
+              <DisciplineQuickPick
+                value={page.disciplina}
+                onChange={(value) => onUpdate(page.id, { disciplina: value })}
               />
             </div>
           )}
