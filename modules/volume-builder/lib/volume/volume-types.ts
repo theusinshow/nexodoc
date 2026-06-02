@@ -28,6 +28,24 @@ export type ImportedPdfFile = {
 
 export type PageAssetRole = "cover" | "ld" | "document" | "separator" | "appendix";
 
+export type PageClassificationSource = "filename" | "pdf-text" | "filename+pdf-text" | "manual" | "ai";
+
+export type PageClassification = {
+  role: PageAssetRole | "unknown";
+  disciplineCode?: string;
+  disciplineName?: string;
+  blockCode?: string;
+  documentCode?: string;
+  sheetNumber?: string;
+  title?: string;
+  revision?: string;
+  volumeHint?: string;
+  projectCode?: string;
+  confidence: number;
+  source: PageClassificationSource;
+  warnings: string[];
+};
+
 export type PageAsset = {
   id: string;
   sourceFileId: string;
@@ -36,6 +54,7 @@ export type PageAsset = {
   pageCount: number;
   summary?: string;
   role?: PageAssetRole;
+  classification?: PageClassification;
 };
 
 export type PageSelectionMode = "entire_file" | "page_range" | "specific_pages";

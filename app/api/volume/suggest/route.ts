@@ -12,6 +12,7 @@ import {
   ASSEMBLY_SUGGESTION_SYSTEM_PROMPT,
   buildAssemblySuggestionUserPrompt,
 } from "@/modules/volume-builder/lib/ai/assembly-suggestion-prompt";
+import { getClassificationKey } from "@/modules/volume-builder/lib/volume/page-classification";
 import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
 
 type AiSuggestionPayload = {
@@ -37,12 +38,12 @@ export async function POST(request: NextRequest) {
     }
 
     const configuration = getAiConfiguration().volumeSuggestion;
-    const localSuggestion = buildLocalSuggestion(pageAssets, metadata);
+    const localSuggestions = buildLocalSuggestions(pageAssets, metadata);
 
     if (!configuration.keyConfigured) {
       return withVolumeCors(
         NextResponse.json({
-          suggestions: localSuggestion ? [localSuggestion] : [],
+          suggestions: localSuggestions,
           source: "local",
           warnings: [
             "IA nao configurada. Sugestao local baseada em tipos de upload e ordem das paginas.",
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 
       const parsed = parseAiJson(response.output_text ?? "");
       const sanitized = sanitizeSuggestions(parsed.suggestions ?? [], pageAssets);
-      const suggestions = sanitized.length > 0 ? sanitized : localSuggestion ? [localSuggestion] : [];
+      const suggestions = sanitized.length > 0 ? sanitized : localSuggestions;
 
       await recordAiUsage({
         flow: "volume-suggestion",
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
 
       return withVolumeCors(
         NextResponse.json({
-          suggestions: localSuggestion ? [localSuggestion] : [],
+          suggestions: localSuggestions,
           source: "local",
           model: configuration.model,
           warnings: [
@@ -146,40 +147,140 @@ function sanitizeSuggestions(suggestions: AssemblySuggestion[], assets: PageAsse
   }));
 }
 
-function buildLocalSuggestion(
+function buildLocalSuggestions(
   assets: PageAsset[],
   metadata: VolumeMetadata
-): AssemblySuggestion | null {
-  const cover = assets.find((asset) => asset.role === "cover");
-  const ld = assets.find((asset) => asset.role === "ld");
+): AssemblySuggestion[] {
+  const covers = assets.filter((asset) => asset.role === "cover");
+  const lds = assets.filter((asset) => asset.role === "ld");
   const documents = assets.filter((asset) => asset.role === "document");
 
-  if (!cover && !ld && documents.length === 0) {
-    return null;
+  if (covers.length === 0 && lds.length === 0 && documents.length === 0) {
+    return [];
   }
 
-  const inferredTitle = inferSeparatorTitle(ld, documents);
-  const outputBase =
-    metadata.tomo ||
-    metadata.volume ||
-    metadata.projectCode ||
-    "volume_01";
+  const documentGroups = groupDocumentsByClassification(documents);
+  const groups =
+    documentGroups.length > 0 ? documentGroups : [{ key: "GERAL:SEM_BLOCO", documents: [] }];
 
-  return {
-    id: "sugestao-local-1",
-    title: metadata.tomo ? `Volume ${metadata.tomo}` : "Volume 01",
-    outputFileName: ensurePdfExtension(`${sanitizeFileName(outputBase)}.pdf`),
-    coverAssetId: cover?.id,
-    ldAssetId: ld?.id,
-    separatorTitle: inferredTitle,
-    documentAssetIds: documents.map((asset) => asset.id),
-    confidence: ld && documents.length > 0 ? "medium" : "low",
-    notes: [
-      cover ? "Capa selecionada pelo tipo do upload." : "Nenhuma capa classificada foi encontrada.",
-      ld ? "LD selecionada pelo tipo do upload." : "Nenhuma LD classificada foi encontrada.",
-      `${documents.length} prancha(s) classificada(s) foram incluidas na ordem da bandeja.`,
-    ],
-  };
+  return groups.map((group, index) => {
+    const reference = group.documents[0];
+    const cover = pickBestMatch(covers, reference) ?? covers[index] ?? covers[0];
+    const ld = pickBestMatch(lds, reference) ?? lds[index] ?? lds[0];
+    const discipline = reference?.classification?.disciplineCode ?? ld?.classification?.disciplineCode;
+    const block = reference?.classification?.blockCode ?? ld?.classification?.blockCode;
+    const inferredTitle = inferSeparatorTitle(ld, group.documents);
+    const outputBase =
+      metadata.tomo ||
+      metadata.volume ||
+      [metadata.projectCode, discipline, block ? `bl_${block}` : undefined]
+        .filter(Boolean)
+        .join("_") ||
+      `volume_${index + 1}`;
+
+    return {
+      id: `sugestao-local-${index + 1}`,
+      title: buildSuggestionTitle(index, discipline, block, metadata),
+      outputFileName: ensurePdfExtension(`${sanitizeFileName(outputBase)}.pdf`),
+      coverAssetId: cover?.id,
+      ldAssetId: ld?.id,
+      separatorTitle: inferredTitle,
+      documentAssetIds: group.documents.map((asset) => asset.id),
+      confidence: getLocalConfidence(cover, ld, group.documents, reference),
+      notes: [
+        cover
+          ? `Capa associada${block ? ` ao bloco ${block}` : ""}.`
+          : "Nenhuma capa compativel foi encontrada.",
+        ld ? `LD associada${block ? ` ao bloco ${block}` : ""}.` : "Nenhuma LD compativel foi encontrada.",
+        `${group.documents.length} prancha(s) incluidas${discipline ? ` em ${discipline}` : ""}${block ? ` bloco ${block}` : ""}.`,
+      ],
+    };
+  });
+}
+
+function groupDocumentsByClassification(documents: PageAsset[]) {
+  const map = new Map<string, PageAsset[]>();
+
+  for (const document of documents) {
+    const key = getClassificationKey(document.classification);
+    const group = map.get(key) ?? [];
+    group.push(document);
+    map.set(key, group);
+  }
+
+  return Array.from(map.entries())
+    .map(([key, groupDocuments]) => ({
+      key,
+      documents: groupDocuments.sort(compareAssetsByClassification),
+    }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function pickBestMatch(candidates: PageAsset[], reference?: PageAsset) {
+  if (!reference) {
+    return candidates[0];
+  }
+
+  const discipline = reference.classification?.disciplineCode;
+  const block = reference.classification?.blockCode;
+  const volume = reference.classification?.volumeHint;
+
+  return candidates
+    .map((candidate) => ({
+      candidate,
+      score:
+        (discipline && candidate.classification?.disciplineCode === discipline ? 2 : 0) +
+        (block && candidate.classification?.blockCode === block ? 3 : 0) +
+        (volume && candidate.classification?.volumeHint === volume ? 1 : 0),
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.candidate;
+}
+
+function compareAssetsByClassification(a: PageAsset, b: PageAsset) {
+  const aNumber = Number(a.classification?.sheetNumber?.replace(/\D/g, "") || a.pageNumber);
+  const bNumber = Number(b.classification?.sheetNumber?.replace(/\D/g, "") || b.pageNumber);
+
+  if (aNumber !== bNumber) {
+    return aNumber - bNumber;
+  }
+
+  return a.pageNumber - b.pageNumber;
+}
+
+function buildSuggestionTitle(
+  index: number,
+  discipline: string | undefined,
+  block: string | undefined,
+  metadata: VolumeMetadata
+) {
+  if (discipline && block) {
+    return `${discipline} - Bloco ${block}`;
+  }
+
+  if (discipline) {
+    return `${discipline} - Volume ${String(index + 1).padStart(2, "0")}`;
+  }
+
+  return metadata.tomo ? `Volume ${metadata.tomo}` : `Volume ${String(index + 1).padStart(2, "0")}`;
+}
+
+function getLocalConfidence(
+  cover: PageAsset | undefined,
+  ld: PageAsset | undefined,
+  documents: PageAsset[],
+  reference: PageAsset | undefined
+): AssemblySuggestion["confidence"] {
+  const strongReference = (reference?.classification?.confidence ?? 0) >= 0.72;
+
+  if (cover && ld && documents.length > 0 && strongReference) {
+    return "high";
+  }
+
+  if ((cover || ld) && documents.length > 0) {
+    return "medium";
+  }
+
+  return "low";
 }
 
 function inferSeparatorTitle(ld: PageAsset | undefined, documents: PageAsset[]) {

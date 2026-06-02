@@ -11,6 +11,8 @@ Regras:
 - Nao invente assetIds.
 - Nao use paginas que nao aparecem no payload.
 - A LD deve guiar quais pranchas entram e a ordem provavel.
+- Quando houver disciplineCode e blockCode, agrupe capa, LD e pranchas pelo mesmo par disciplina/bloco.
+- Para projetos por bloco, gere uma sugestao por bloco quando houver pranchas suficientes.
 - Se a LD disser que ha N pranchas e houver N pranchas compativeis, sugira todas.
 - A separatriz deve ser gerada automaticamente, com titulo tecnico em caixa alta.
 - Se houver duvida, use confidence "medium" ou "low" e explique em notes.
@@ -43,6 +45,21 @@ export function buildAssemblySuggestionUserPrompt(data: AssemblySuggestionReques
     pageCount: asset.pageCount,
     role: asset.role ?? "document",
     summary: asset.summary ?? "",
+    classification: asset.classification
+      ? {
+          role: asset.classification.role,
+          disciplineCode: asset.classification.disciplineCode,
+          disciplineName: asset.classification.disciplineName,
+          blockCode: asset.classification.blockCode,
+          documentCode: asset.classification.documentCode,
+          sheetNumber: asset.classification.sheetNumber,
+          revision: asset.classification.revision,
+          volumeHint: asset.classification.volumeHint,
+          projectCode: asset.classification.projectCode,
+          confidence: asset.classification.confidence,
+          warnings: asset.classification.warnings,
+        }
+      : undefined,
   }));
 
   const files = data.importedFiles.map((file) => ({

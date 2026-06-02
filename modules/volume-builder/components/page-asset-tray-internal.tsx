@@ -6,11 +6,12 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Document, Page, pdfjs } from "react-pdf";
 import type { PageAsset, PageAssetRole } from "@/modules/volume-builder/lib/volume/volume-types";
+import { classifyPageAsset } from "@/modules/volume-builder/lib/volume/page-classification";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { FileStack, GripVertical, Layers3, Search, X } from "lucide-react";
+import { AlertTriangle, FileStack, GripVertical, Layers3, Search, X } from "lucide-react";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -41,6 +42,9 @@ export default function PageAssetTrayInternal({
   const [query, setQuery] = useState("");
   const [activeFileId, setActiveFileId] = useState<string>("all");
   const [activeRole, setActiveRole] = useState<PageAssetRole | "all">("all");
+  const [activeDiscipline, setActiveDiscipline] = useState<string>("all");
+  const [activeBlock, setActiveBlock] = useState<string>("all");
+  const [showReviewOnly, setShowReviewOnly] = useState(false);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
   const files = useMemo(() => {
@@ -65,6 +69,9 @@ export default function PageAssetTrayInternal({
     [assets]
   );
 
+  const disciplineCounts = useMemo(() => getFacetCounts(assets, "disciplineCode"), [assets]);
+  const blockCounts = useMemo(() => getFacetCounts(assets, "blockCode"), [assets]);
+
   const selectedAssets = useMemo(
     () =>
       selectedAssetIds
@@ -78,15 +85,33 @@ export default function PageAssetTrayInternal({
     return assets.filter((asset) => {
       const matchesFile = activeFileId === "all" || asset.sourceFileId === activeFileId;
       const matchesRole = activeRole === "all" || asset.role === activeRole;
+      const matchesDiscipline =
+        activeDiscipline === "all" || asset.classification?.disciplineCode === activeDiscipline;
+      const matchesBlock = activeBlock === "all" || asset.classification?.blockCode === activeBlock;
+      const matchesReview =
+        !showReviewOnly ||
+        !asset.classification ||
+        asset.classification.confidence < 0.72 ||
+        asset.classification.warnings.length > 0;
       const matchesQuery =
         normalizedQuery.length === 0 ||
         asset.sourceFileName.toLowerCase().includes(normalizedQuery) ||
         asset.summary?.toLowerCase().includes(normalizedQuery) ||
+        asset.classification?.documentCode?.toLowerCase().includes(normalizedQuery) ||
+        asset.classification?.blockCode?.toLowerCase().includes(normalizedQuery) ||
+        asset.classification?.disciplineCode?.toLowerCase().includes(normalizedQuery) ||
         String(asset.pageNumber).includes(normalizedQuery);
 
-      return matchesFile && matchesRole && matchesQuery;
+      return (
+        matchesFile &&
+        matchesRole &&
+        matchesDiscipline &&
+        matchesBlock &&
+        matchesReview &&
+        matchesQuery
+      );
     });
-  }, [activeFileId, activeRole, assets, query]);
+  }, [activeBlock, activeDiscipline, activeFileId, activeRole, assets, query, showReviewOnly]);
 
   const groupedAssets = useMemo(() => {
     const map = new Map<string, PageAsset[]>();
@@ -145,7 +170,20 @@ export default function PageAssetTrayInternal({
             const index = nextAssets.findIndex((item) => item.id === asset.id);
 
             if (index >= 0) {
-              nextAssets[index] = { ...nextAssets[index], summary };
+              const nextAsset = nextAssets[index];
+              const classification = classifyPageAsset({
+                fileName: nextAsset.sourceFileName,
+                pageNumber: nextAsset.pageNumber,
+                currentRole: nextAsset.role,
+                summary,
+                previous: nextAsset.classification,
+              });
+              nextAssets[index] = {
+                ...nextAsset,
+                summary,
+                role: classification.role === "unknown" ? nextAsset.role : classification.role,
+                classification,
+              };
               changed = true;
             }
           }
@@ -269,6 +307,41 @@ export default function PageAssetTrayInternal({
             </Button>
           ))}
         </div>
+
+        {(disciplineCounts.length > 0 || blockCounts.length > 0) && (
+          <div className="space-y-2 rounded-md border bg-muted/15 p-2">
+            {disciplineCounts.length > 0 && (
+              <FacetButtons
+                label="Disciplina"
+                activeValue={activeDiscipline}
+                options={disciplineCounts}
+                onChange={setActiveDiscipline}
+              />
+            )}
+            {blockCounts.length > 0 && (
+              <FacetButtons
+                label="Bloco"
+                activeValue={activeBlock}
+                options={blockCounts}
+                onChange={setActiveBlock}
+              />
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={`h-7 px-2 text-xs ${
+                showReviewOnly
+                  ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                  : ""
+              }`}
+              onClick={() => setShowReviewOnly((current) => !current)}
+            >
+              <AlertTriangle className="mr-1 h-3 w-3" />
+              Revisar baixa confianca
+            </Button>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1.5 border-t pt-3">
           <Button
@@ -432,6 +505,77 @@ const ROLE_LABELS: Record<PageAssetRole, string> = {
   appendix: "Anexo",
 };
 
+function getFacetCounts(assets: PageAsset[], field: "disciplineCode" | "blockCode") {
+  const counts = new Map<string, number>();
+
+  for (const asset of assets) {
+    const value = asset.classification?.[field];
+    if (!value) {
+      continue;
+    }
+
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+}
+
+function FacetButtons({
+  label,
+  activeValue,
+  options,
+  onChange,
+}: {
+  label: string;
+  activeValue: string;
+  options: Array<{ value: string; count: number }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-medium uppercase tracking-normal text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={`h-7 px-2 text-xs ${
+            activeValue === "all"
+              ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+              : ""
+          }`}
+          onClick={() => onChange("all")}
+        >
+          Todos
+        </Button>
+        {options.map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`h-7 px-2 text-xs ${
+              activeValue === option.value
+                ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                : ""
+            }`}
+            onClick={() => onChange(option.value)}
+          >
+            {option.value}
+            <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+              {option.count}
+            </Badge>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TraySkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
@@ -464,6 +608,15 @@ function PageAssetTile({
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.45 : 1,
   };
+  const classification = asset.classification;
+  const confidence = classification?.confidence ?? 0;
+  const classificationLine = [
+    classification?.disciplineCode,
+    classification?.blockCode ? `Bloco ${classification.blockCode}` : undefined,
+    classification?.revision ? `Rev. ${classification.revision}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div
@@ -512,6 +665,18 @@ function PageAssetTile({
             >
               {ROLE_LABELS[asset.role ?? "document"]}
             </Badge>
+            {classification && (
+              <Badge
+                variant="outline"
+                className={`h-4 px-1 text-[9px] ${
+                  confidence >= 0.72
+                    ? "border-[var(--status-ok)]/35 text-[var(--status-ok)]"
+                    : "border-[var(--nexodoc-tertiary-strong)]/50 text-[var(--nexodoc-tertiary)]"
+                }`}
+              >
+                {Math.round(confidence * 100)}%
+              </Badge>
+            )}
             <GripVertical
               className={`h-3 w-3 opacity-70 ${
                 selected ? "text-[var(--nexodoc-tertiary)]" : "text-muted-foreground"
@@ -519,6 +684,16 @@ function PageAssetTile({
             />
           </div>
         </div>
+        {classificationLine && (
+          <p className="truncate text-[10px] font-semibold text-[var(--nexodoc-tertiary)]">
+            {classificationLine}
+          </p>
+        )}
+        {classification?.documentCode && (
+          <p className="truncate font-mono text-[10px] text-foreground">
+            {classification.documentCode}
+          </p>
+        )}
         <p
           className={`line-clamp-2 min-h-7 text-[10px] leading-snug ${
             selected ? "text-foreground" : "text-muted-foreground"

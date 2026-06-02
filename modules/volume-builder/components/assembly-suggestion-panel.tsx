@@ -54,7 +54,7 @@ export function AssemblySuggestionPanel({
     }
   }
 
-  const suggestion = response?.suggestions[0];
+  const suggestions = response?.suggestions ?? [];
 
   return (
     <Card>
@@ -92,47 +92,65 @@ export function AssemblySuggestionPanel({
           </div>
         )}
 
-        {suggestion && (
-          <div className="rounded-md border bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-medium">{suggestion.title}</p>
-                <p className="text-xs text-muted-foreground">{suggestion.outputFileName}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getConfidenceClassName(suggestion.confidence)}>
-                  {CONFIDENCE_LABELS[suggestion.confidence]}
-                </Badge>
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                  {response.source === "ai" ? "IA" : "Local"}
-                </Badge>
-              </div>
+        {suggestions.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {response?.source === "ai" ? "IA" : "Local"}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {suggestions.length} sugestao(oes) encontradas
+              </span>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-              <SuggestionMetric label="Capa" value={suggestion.coverAssetId ? "1" : "0"} />
-              <SuggestionMetric label="LD" value={suggestion.ldAssetId ? "1" : "0"} />
-              <SuggestionMetric label="Pranchas" value={String(suggestion.documentAssetIds.length)} />
-              <SuggestionMetric label="Separatriz" value="Auto" />
-            </div>
+            {suggestions.map((suggestion) => (
+              <div key={suggestion.id} className="rounded-md border bg-muted/20 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{suggestion.title}</p>
+                    <p className="text-xs text-muted-foreground">{suggestion.outputFileName}</p>
+                  </div>
+                  <Badge variant="outline" className={getConfidenceClassName(suggestion.confidence)}>
+                    {CONFIDENCE_LABELS[suggestion.confidence]}
+                  </Badge>
+                </div>
 
-            <div className="mt-3 rounded-md border bg-background/60 p-2">
-              <p className="text-[11px] font-medium text-muted-foreground">Separatriz</p>
-              <p className="mt-1 text-xs font-semibold uppercase">{suggestion.separatorTitle}</p>
-            </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                  <SuggestionMetric label="Capa" value={suggestion.coverAssetId ? "1" : "0"} />
+                  <SuggestionMetric label="LD" value={suggestion.ldAssetId ? "1" : "0"} />
+                  <SuggestionMetric label="Pranchas" value={String(suggestion.documentAssetIds.length)} />
+                  <SuggestionMetric label="Separatriz" value="Auto" />
+                </div>
 
-            {suggestion.notes.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {suggestion.notes.slice(0, 3).map((note, index) => (
-                  <p key={`${note}-${index}`} className="text-[11px] text-muted-foreground">
-                    {note}
-                  </p>
-                ))}
+                <div className="mt-3 rounded-md border bg-background/60 p-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">Separatriz</p>
+                  <p className="mt-1 text-xs font-semibold uppercase">{suggestion.separatorTitle}</p>
+                </div>
+
+                {suggestion.notes.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {suggestion.notes.slice(0, 3).map((note, index) => (
+                      <p key={`${note}-${index}`} className="text-[11px] text-muted-foreground">
+                        {note}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3 h-8 text-xs"
+                  onClick={() => onApplySuggestion(suggestion)}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Aplicar esta sugestao
+                </Button>
               </div>
-            )}
+            ))}
 
-            {response.warnings.length > 0 && (
-              <div className="mt-3 rounded-md border border-[var(--nexodoc-tertiary-strong)]/35 bg-[var(--nexodoc-tertiary-bg)] p-2">
+            {response && response.warnings.length > 0 && (
+              <div className="rounded-md border border-[var(--nexodoc-tertiary-strong)]/35 bg-[var(--nexodoc-tertiary-bg)] p-2">
                 {response.warnings.map((warning, index) => (
                   <p key={`${warning}-${index}`} className="text-[11px] text-[var(--nexodoc-tertiary)]">
                     {warning}
@@ -140,16 +158,6 @@ export function AssemblySuggestionPanel({
                 ))}
               </div>
             )}
-
-            <Button
-              type="button"
-              size="sm"
-              className="mt-3 h-8 text-xs"
-              onClick={() => onApplySuggestion(suggestion)}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              Aplicar na mesa
-            </Button>
           </div>
         )}
       </CardContent>
