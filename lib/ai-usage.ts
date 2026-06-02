@@ -10,7 +10,7 @@ type TokenUsage = {
 };
 
 type RecordAiUsageArgs = {
-  flow: "audit" | "audit-chat" | "ld-extraction" | "volume-analysis";
+  flow: "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
   taskId?: string | null;
   taskLabel?: string | null;
   provider: "openai" | "mimo";

@@ -7,7 +7,7 @@ import { generateZipFileName, generateReportFileName } from "@/modules/volume-bu
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileArchive, FileText, Loader2 } from "lucide-react";
+import { Download, Eye, FileArchive, FileText, Loader2 } from "lucide-react";
 
 interface ExportPanelProps {
   rows: AssemblyRow[];
@@ -19,6 +19,7 @@ interface ExportPanelProps {
 
 export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compact = false }: ExportPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,32 +29,78 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
   const zipFileName = generateZipFileName(metadata);
   const reportFileName = generateReportFileName(metadata);
 
+  function createBuildFormData() {
+    const formData = new FormData();
+    formData.append("rows", JSON.stringify(rows));
+    formData.append("metadata", JSON.stringify(metadata));
+    formData.append("importedFiles", JSON.stringify(importedFiles));
+
+    for (const file of importedFiles) {
+      const fileData = fileDataMap.get(file.id);
+      if (fileData) {
+        formData.append(`file_${file.id}`, fileData);
+      }
+    }
+
+    return formData;
+  }
+
+  async function requestBuild(fallback: string) {
+    const response = await fetch("/api/volume/build", {
+      method: "POST",
+      body: createBuildFormData(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await readErrorResponse(response, fallback));
+    }
+
+    return response;
+  }
+
+  async function handlePreview() {
+    if (outputMode !== "single_pdf") {
+      setError("Preview direto esta disponivel apenas para PDF unico. Para multiplos volumes, gere o ZIP.");
+      return;
+    }
+
+    setIsPreviewing(true);
+    setError(null);
+
+    const previewWindow = window.open("", "_blank");
+
+    try {
+      const response = await requestBuild("Erro ao gerar preview");
+      const responseType = response.headers.get("Content-Type") ?? "";
+
+      if (!responseType.includes("application/pdf")) {
+        throw new Error(await readErrorResponse(response, "Resposta inesperada ao gerar preview"));
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      if (previewWindow) {
+        previewWindow.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setIsPreviewing(false);
+    }
+  }
+
   async function handleExport() {
     setIsExporting(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("rows", JSON.stringify(rows));
-      formData.append("metadata", JSON.stringify(metadata));
-      formData.append("importedFiles", JSON.stringify(importedFiles));
-
-      for (const file of importedFiles) {
-        const fileData = fileDataMap.get(file.id);
-        if (fileData) {
-          formData.append(`file_${file.id}`, fileData);
-        }
-      }
-
-      const response = await fetch("/api/volume/build", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response, "Erro ao gerar PDF"));
-      }
-
+      const response = await requestBuild("Erro ao gerar PDF");
       const responseType = response.headers.get("Content-Type") ?? "";
       const isExpectedFile =
         responseType.includes("application/pdf") ||
@@ -148,6 +195,9 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
             <p className="text-xs text-muted-foreground">
               Com {rows.length} linhas, a exportacao sera em formato ZIP contendo todos os PDFs e o relatorio de montagem.
             </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Preview direto fica disponivel quando ha apenas um PDF.
+            </p>
             <p className="text-xs font-mono mt-1">
               {zipFileName}
             </p>
@@ -155,6 +205,19 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
         )}
 
         <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            disabled={!canExport || isPreviewing || outputMode !== "single_pdf"}
+            size="sm"
+            onClick={handlePreview}
+          >
+            {isPreviewing ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Eye className="h-4 w-4 mr-1" />
+            )}
+            Preview
+          </Button>
           <Button disabled={!canExport || isExporting} size="sm" onClick={handleExport}>
             {isExporting ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />

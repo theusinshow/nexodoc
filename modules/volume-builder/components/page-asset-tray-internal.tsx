@@ -229,12 +229,22 @@ export default function PageAssetTrayInternal({
           />
         </div>
 
+        <div className="rounded-md border bg-muted/20 px-2 py-1.5">
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Clique para selecionar. Use Shift para intervalo ou Ctrl para varias paginas.
+          </p>
+        </div>
+
         <div className="flex flex-wrap gap-1.5">
           <Button
             type="button"
-            variant={activeRole === "all" ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={`h-7 px-2 text-xs ${
+              activeRole === "all"
+                ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                : ""
+            }`}
             onClick={() => setActiveRole("all")}
           >
             Todos
@@ -243,9 +253,13 @@ export default function PageAssetTrayInternal({
             <Button
               key={role.value}
               type="button"
-              variant={activeRole === role.value ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              className="h-7 px-2 text-xs"
+              className={`h-7 px-2 text-xs ${
+                activeRole === role.value
+                  ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                  : ""
+              }`}
               onClick={() => setActiveRole(role.value)}
             >
               {role.label}
@@ -259,9 +273,13 @@ export default function PageAssetTrayInternal({
         <div className="flex flex-wrap gap-1.5 border-t pt-3">
           <Button
             type="button"
-            variant={activeFileId === "all" ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={`h-7 px-2 text-xs ${
+              activeFileId === "all"
+                ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                : ""
+            }`}
             onClick={() => setActiveFileId("all")}
           >
             Todos
@@ -270,9 +288,13 @@ export default function PageAssetTrayInternal({
             <Button
               key={file.id}
               type="button"
-              variant={activeFileId === file.id ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              className="h-7 max-w-full px-2 text-xs"
+              className={`h-7 max-w-full px-2 text-xs ${
+                activeFileId === file.id
+                  ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
+                  : ""
+              }`}
               onClick={() => setActiveFileId(file.id)}
             >
               <span className="truncate">{file.name}</span>
@@ -450,10 +472,10 @@ function PageAssetTile({
       draggable
       onClick={(event) => onSelect(asset, event)}
       onDragStart={(event) => onNativeDragStart(asset, event)}
-      className={`group relative cursor-grab touch-none overflow-hidden rounded-md border bg-background text-left transition active:cursor-grabbing ${
+      className={`group relative cursor-grab touch-none overflow-hidden rounded-md border bg-background text-left transition-[border-color,box-shadow,transform,background-color,opacity] duration-200 ease-out active:cursor-grabbing active:scale-[0.985] ${
         selected
           ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] ring-2 ring-[var(--nexodoc-tertiary)]/25 shadow-[0_0_0_1px_rgb(255_181_158_/_0.12)]"
-          : "border-border hover:border-primary/60"
+          : "border-border hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-[0_8px_24px_rgb(0_0_0_/_0.28)]"
       }`}
       {...listeners}
       {...attributes}
@@ -467,6 +489,9 @@ function PageAssetTile({
           renderAnnotationLayer={false}
         />
       </div>
+      {isDragging && (
+        <div className="absolute inset-0 border-2 border-[var(--nexodoc-tertiary)] bg-[var(--nexodoc-tertiary-bg)]" />
+      )}
       <div
         className={`space-y-1 border-t px-2 py-1.5 ${
           selected

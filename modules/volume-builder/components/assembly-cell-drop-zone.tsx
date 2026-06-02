@@ -83,8 +83,10 @@ export function AssemblyCellDropZone({
     return (
       <div
         ref={setNodeRef}
-        className={`h-full rounded-md border bg-background p-2 transition-colors ${
-          isOver ? "border-primary bg-primary/10 ring-2 ring-primary/20" : ""
+        className={`h-full rounded-md border bg-background p-2 transition-[border-color,box-shadow,background-color,transform] duration-200 ease-out ${
+          isOver
+            ? "scale-[1.015] border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] ring-2 ring-[var(--nexodoc-tertiary)]/25"
+            : ""
         }`}
         onDragEnter={(event) => event.preventDefault()}
         onDragOver={(event) => {
@@ -136,10 +138,12 @@ export function AssemblyCellDropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center justify-center rounded-md border border-dashed bg-muted/20 p-2 text-center transition-colors hover:border-primary/60 hover:bg-primary/5 ${
+      className={`flex items-center justify-center rounded-md border border-dashed bg-muted/20 p-2 text-center transition-[border-color,box-shadow,background-color,transform] duration-200 ease-out hover:border-primary/60 hover:bg-primary/5 ${
         density === "compact" ? "h-full min-h-[132px]" : "min-h-[68px]"
       } ${
-        isOver ? "border-primary bg-primary/10 ring-2 ring-primary/20" : ""
+        isOver
+          ? "scale-[1.015] border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] ring-2 ring-[var(--nexodoc-tertiary)]/25"
+          : ""
       }`}
       onDragEnter={(event) => event.preventDefault()}
       onDragOver={(event) => {

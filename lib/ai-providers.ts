@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type AiProvider = "openai" | "mimo";
-export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis";
+export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type ProviderFailureCategory =
@@ -37,6 +37,7 @@ const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.4";
 const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.4-mini";
+const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.4-mini";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;
@@ -208,6 +209,14 @@ export function getAiConfiguration() {
     volumeAnalysis: {
       provider: "openai" as const,
       model: getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
+      keyConfigured: isConfigured("OPENAI_API_KEY"),
+    },
+    volumeSuggestion: {
+      provider: "openai" as const,
+      model:
+        getBackendValue("NEXODOC_VOLUME_SUGGESTION_MODEL") ||
+        getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
+        DEFAULT_VOLUME_SUGGESTION_MODEL,
       keyConfigured: isConfigured("OPENAI_API_KEY"),
     },
     ldExtraction: {

@@ -19,13 +19,16 @@ export function ImportedPdfCard({ file, fileData, onRemove }: ImportedPdfCardPro
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border bg-card p-3 space-y-2">
+    <div className="space-y-2 rounded-md border bg-card/80 p-2 transition-[border-color,background-color] duration-200 hover:border-primary/45 hover:bg-muted/20">
       <div className="flex items-start gap-2">
         <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{file.name}</p>
+          <p className="truncate text-xs font-medium">{file.name}</p>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+            <Badge
+              variant="outline"
+              className="h-5 border-[var(--nexodoc-tertiary-strong)]/45 px-1.5 text-[10px] text-[var(--nexodoc-tertiary)]"
+            >
               {ROLE_LABELS[file.role]}
             </Badge>
             <span className="text-xs text-muted-foreground">

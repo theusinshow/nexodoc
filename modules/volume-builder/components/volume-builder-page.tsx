@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { DragEndEvent } from "@dnd-kit/core";
-import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import type {
   AssemblyRow,
   AssemblySlot,
@@ -10,19 +10,21 @@ import type {
   PageAsset,
   VolumeMetadata,
 } from "@/modules/volume-builder/lib/volume/volume-types";
+import type { AssemblySuggestion } from "@/modules/volume-builder/lib/volume/assembly-suggestion-types";
 import { createEmptyBlock, createEmptyRow } from "@/modules/volume-builder/lib/volume/assembly-builder";
 import { createPageAssetsForFile, createPageSelectionFromAsset } from "@/modules/volume-builder/lib/volume/page-assets";
 import { VolumeMetadataForm } from "./volume-metadata-form";
 import { ImportedFilesPool } from "./imported-files-pool";
 import { PageAssetTray } from "./page-asset-tray";
 import { AssemblyWorkspace } from "./assembly-workspace";
+import { AssemblySuggestionPanel } from "./assembly-suggestion-panel";
 import { VolumeStructurePreview } from "./volume-structure-preview";
 import { AiValidationPanel } from "./ai-validation-panel";
 import { ExportPanel } from "./export-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Layers3, Plus } from "lucide-react";
+import { FileStack, Layers3, Plus, Upload } from "lucide-react";
 
 export function VolumeBuilderPage() {
   const [metadata, setMetadata] = useState<VolumeMetadata>({
@@ -34,6 +36,8 @@ export function VolumeBuilderPage() {
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [fileDataMap, setFileDataMap] = useState<Map<string, File>>(new Map());
   const [rows, setRows] = useState<AssemblyRow[]>([]);
+  const [showUploadPanel, setShowUploadPanel] = useState(true);
+  const [activeDragAssets, setActiveDragAssets] = useState<PageAsset[]>([]);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -136,6 +140,42 @@ export function VolumeBuilderPage() {
     });
   }
 
+  function handleApplySuggestion(suggestion: AssemblySuggestion) {
+    const coverAsset = suggestion.coverAssetId
+      ? pageAssets.find((asset) => asset.id === suggestion.coverAssetId)
+      : undefined;
+    const ldAsset = suggestion.ldAssetId
+      ? pageAssets.find((asset) => asset.id === suggestion.ldAssetId)
+      : undefined;
+    const documentAssets = suggestion.documentAssetIds
+      .map((id) => pageAssets.find((asset) => asset.id === id))
+      .filter((asset): asset is PageAsset => Boolean(asset));
+
+    const row = createEmptyRow(rows.length + 1);
+    const block = createEmptyBlock(1);
+
+    setRows((currentRows) => [
+      ...currentRows,
+      {
+        ...row,
+        title: suggestion.title || row.title,
+        outputFileName: suggestion.outputFileName || row.outputFileName,
+        cover: coverAsset ? createSlotFromAsset(coverAsset, "cover", "Capa") : undefined,
+        blocks: [
+          {
+            ...block,
+            title: suggestion.title || block.title,
+            separatorTitle: suggestion.separatorTitle || block.separatorTitle,
+            ld: ldAsset ? createSlotFromAsset(ldAsset, "ld", "LD") : undefined,
+            documents: documentAssets.map((asset, index) =>
+              createSlotFromAsset(asset, "document", `Doc ${index + 1}`)
+            ),
+          },
+        ],
+      },
+    ]);
+  }
+
   function getDraggedAssets(activeId: string) {
     const ids = selectedAssetIds.includes(activeId) ? selectedAssetIds : [activeId];
     return ids
@@ -143,7 +183,12 @@ export function VolumeBuilderPage() {
       .filter((asset): asset is PageAsset => Boolean(asset));
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDragAssets(getDraggedAssets(String(event.active.id)));
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDragAssets([]);
     const overId = event.over?.id;
     if (!overId || typeof overId !== "string") {
       return;
@@ -322,18 +367,44 @@ export function VolumeBuilderPage() {
 
       <VolumeMetadataForm metadata={metadata} onChange={setMetadata} />
 
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(280px,360px)_minmax(320px,420px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(340px,420px)_minmax(0,1fr)_minmax(280px,320px)]">
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragCancel={() => setActiveDragAssets([])}
+        onDragEnd={handleDragEnd}
+      >
+      <div
+        className={`grid min-w-0 grid-cols-1 gap-5 ${
+          showUploadPanel
+            ? "xl:grid-cols-[minmax(260px,320px)_minmax(320px,420px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(260px,300px)_minmax(340px,420px)_minmax(0,1fr)_minmax(280px,320px)]"
+            : "xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,480px)_minmax(0,1fr)_minmax(280px,320px)]"
+        }`}
+      >
+        {showUploadPanel && (
         <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
             <ImportedFilesPool
               files={importedFiles}
               fileDataMap={fileDataMap}
               onFilesImported={handleFilesImported}
               onRemoveFile={handleRemoveFile}
+              onCollapse={() => setShowUploadPanel(false)}
             />
         </aside>
+        )}
 
         <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+            {!showUploadPanel && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 w-full justify-start text-xs"
+                onClick={() => setShowUploadPanel(true)}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Mostrar upload
+              </Button>
+            )}
             <PageAssetTray
               assets={pageAssets}
               fileDataMap={fileDataMap}
@@ -359,6 +430,12 @@ export function VolumeBuilderPage() {
               Adicionar volume
             </Button>
           </div>
+          <AssemblySuggestionPanel
+            metadata={metadata}
+            importedFiles={importedFiles}
+            pageAssets={pageAssets}
+            onApplySuggestion={handleApplySuggestion}
+          />
           <AssemblyWorkspace
             rows={rows}
             pageAssets={pageAssets}
@@ -367,7 +444,11 @@ export function VolumeBuilderPage() {
           />
         </main>
 
-        <aside className="min-w-0 space-y-4 xl:col-span-3 2xl:col-span-1 2xl:sticky 2xl:top-24 2xl:self-start">
+        <aside
+          className={`min-w-0 space-y-4 2xl:sticky 2xl:top-24 2xl:self-start ${
+            showUploadPanel ? "xl:col-span-3 2xl:col-span-1" : "xl:col-span-2 2xl:col-span-1"
+          }`}
+        >
           <Card>
             <CardContent className="space-y-3 py-4">
               <div className="flex items-center gap-2">
@@ -393,6 +474,11 @@ export function VolumeBuilderPage() {
           <VolumeStructurePreview rows={rows} metadata={metadata} compact />
         </aside>
       </div>
+      <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }}>
+        {activeDragAssets.length > 0 ? (
+          <DragPreview assets={activeDragAssets} />
+        ) : null}
+      </DragOverlay>
       </DndContext>
     </div>
   );
@@ -403,6 +489,34 @@ function Metric({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border bg-muted/30 p-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function DragPreview({ assets }: { assets: PageAsset[] }) {
+  const first = assets[0];
+
+  return (
+    <div className="pointer-events-none w-56 rounded-md border border-[var(--nexodoc-tertiary-strong)]/60 bg-[var(--nexodoc-panel)] p-2 shadow-[0_14px_42px_rgb(0_0_0_/_0.45)] ring-2 ring-[var(--nexodoc-tertiary)]/20">
+      <div className="flex items-center gap-2">
+        <div className="flex h-12 w-9 shrink-0 items-center justify-center rounded-sm border bg-[var(--nexodoc-recessed)] text-xs font-semibold text-[var(--nexodoc-tertiary)]">
+          {first?.pageNumber ?? 1}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium">
+            {assets.length > 1 ? `${assets.length} paginas selecionadas` : first?.sourceFileName}
+          </p>
+          <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+            {assets.length > 1
+              ? "Solte na capa, LD ou trilho de pranchas."
+              : first?.summary ?? "Solte na area desejada."}
+          </p>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-[10px] text-[var(--nexodoc-tertiary)]">
+        <FileStack className="h-3 w-3" />
+        Arrastando
+      </div>
     </div>
   );
 }

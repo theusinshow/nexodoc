@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, FileUp } from "lucide-react";
+import { AlertCircle, EyeOff, FileUp } from "lucide-react";
 
 interface ImportedFilesPoolProps {
   files: ImportedPdfFile[];
   fileDataMap: Map<string, File>;
   onFilesImported: (files: ImportedPdfFile[], fileData: File[]) => void;
   onRemoveFile: (fileId: string) => void;
+  onCollapse?: () => void;
 }
 
 export function ImportedFilesPool({
@@ -28,6 +29,7 @@ export function ImportedFilesPool({
   fileDataMap,
   onFilesImported,
   onRemoveFile,
+  onCollapse,
 }: ImportedFilesPoolProps) {
   const [odtWarning, setOdtWarning] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<PageAssetRole>("document");
@@ -87,11 +89,28 @@ export function ImportedFilesPool({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <FileUp className="h-4 w-4" />
-          Upload classificado
-        </CardTitle>
+      <CardHeader className="space-y-2 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileUp className="h-4 w-4" />
+            Upload classificado
+          </CardTitle>
+          {onCollapse && files.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={onCollapse}
+            >
+              <EyeOff className="mr-1 h-3 w-3" />
+              Ocultar
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Escolha o tipo antes de importar para a bandeja ja nascer filtrada.
+        </p>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-1.5">
@@ -101,7 +120,11 @@ export function ImportedFilesPool({
               type="button"
               variant={selectedRole === role.value ? "default" : "outline"}
               size="sm"
-              className="h-auto justify-between gap-2 px-2 py-2 text-xs"
+              className={`h-auto justify-between gap-2 px-2 py-2 text-xs transition-all duration-200 ${
+                selectedRole === role.value
+                  ? "border-primary shadow-[0_0_0_1px_rgb(91_218_198_/_0.16)]"
+                  : "hover:border-primary/60 hover:bg-muted/40"
+              }`}
               onClick={() => setSelectedRole(role.value)}
             >
               <span className="truncate">{role.label}</span>
@@ -129,6 +152,14 @@ export function ImportedFilesPool({
           </p>
         ) : (
           <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-md border bg-muted/20 px-2 py-1.5">
+              <span className="text-xs text-muted-foreground">
+                {files.length} arquivo(s), {files.reduce((total, file) => total + file.pageCount, 0)} pagina(s)
+              </span>
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                pronto
+              </Badge>
+            </div>
             {files.map((file) => (
               <ImportedPdfCard
                 key={file.id}
