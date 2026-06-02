@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/volume-builder/lib/volume/volume-types";
 import { determineOutputMode } from "@/modules/volume-builder/lib/volume/volume-rules";
 import { generateZipFileName, generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
+import { getVolumeApiEndpoint } from "@/modules/volume-builder/lib/utils/volume-api-endpoint";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +47,14 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
   }
 
   async function requestBuild(fallback: string) {
-    const response = await fetch("/api/volume/build", {
+    const endpoint = getVolumeApiEndpoint("/api/volume/build");
+    const response = await fetch(endpoint, {
       method: "POST",
       body: createBuildFormData(),
     });
 
     if (!response.ok) {
-      throw new Error(await readErrorResponse(response, fallback));
+      throw new Error(await readErrorResponse(response, `${fallback} (${endpoint})`));
     }
 
     return response;
@@ -142,14 +144,15 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
     setError(null);
 
     try {
-      const response = await fetch("/api/volume/report", {
+      const endpoint = getVolumeApiEndpoint("/api/volume/report");
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows, metadata, importedFiles }),
       });
 
       if (!response.ok) {
-        throw new Error(await readErrorResponse(response, "Erro ao gerar relatorio"));
+        throw new Error(await readErrorResponse(response, `Erro ao gerar relatorio (${endpoint})`));
       }
 
       const text = await response.text();

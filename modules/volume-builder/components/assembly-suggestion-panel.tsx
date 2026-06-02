@@ -6,6 +6,7 @@ import type {
   AssemblySuggestion,
   AssemblySuggestionResponse,
 } from "@/modules/volume-builder/lib/volume/assembly-suggestion-types";
+import { getVolumeApiEndpoint } from "@/modules/volume-builder/lib/utils/volume-api-endpoint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +34,7 @@ export function AssemblySuggestionPanel({
     setError(null);
 
     try {
-      const result = await fetch("/api/volume/suggest", {
+      const result = await fetch(getVolumeApiEndpoint("/api/volume/suggest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata, importedFiles, pageAssets }),

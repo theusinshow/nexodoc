@@ -1,6 +1,7 @@
 "use client";
 
 import type { AssemblyRow, ImportedPdfFile, VolumeMetadata, BatchAnalysisResult } from "@/modules/volume-builder/lib/volume/volume-types";
+import { getVolumeApiEndpoint } from "@/modules/volume-builder/lib/utils/volume-api-endpoint";
 import { WarningCard } from "@/modules/volume-builder/shared/warning-card";
 import { StatusBadge } from "@/modules/volume-builder/shared/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +26,7 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
     setError(null);
 
     try {
-      const response = await fetch("/api/volume/analyze", {
+      const response = await fetch(getVolumeApiEndpoint("/api/volume/analyze"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,8 +37,7 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Erro ao analisar montagem");
+        throw new Error(await readErrorResponse(response, "Erro ao analisar montagem"));
       }
 
       const result: BatchAnalysisResult = await response.json();
@@ -157,4 +157,15 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
       </CardContent>
     </Card>
   );
+}
+
+async function readErrorResponse(response: Response, fallback: string) {
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const data = (await response.json()) as { error?: string };
+    return data.error || fallback;
+  }
+
+  return `${fallback} (${response.status})`;
 }
