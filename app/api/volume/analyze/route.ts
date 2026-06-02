@@ -12,6 +12,7 @@ import {
   buildBatchAnalysisUserPrompt,
 } from "@/modules/volume-builder/lib/ai/batch-analysis-prompt";
 import { validateBatchAssembly } from "@/modules/volume-builder/lib/volume/volume-validator";
+import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,9 +25,12 @@ export async function POST(request: NextRequest) {
     };
 
     if (!rows || rows.length === 0) {
-      return NextResponse.json(
-        { error: "Nenhuma linha de montagem fornecida." },
-        { status: 400 }
+      return withVolumeCors(
+        NextResponse.json(
+          { error: "Nenhuma linha de montagem fornecida." },
+          { status: 400 }
+        ),
+        request
       );
     }
 
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
         requiresManualConfirmation: localResult.status === "problema_de_montagem",
       };
 
-      return NextResponse.json(result);
+      return withVolumeCors(NextResponse.json(result), request);
     }
 
     try {
@@ -131,7 +135,7 @@ export async function POST(request: NextRequest) {
           combinedStatus === "problema_de_montagem",
       };
 
-      return NextResponse.json(combinedResult);
+      return withVolumeCors(NextResponse.json(combinedResult), request);
     } catch (aiError) {
       console.error("Erro na analise por IA:", aiError);
 
@@ -148,10 +152,14 @@ export async function POST(request: NextRequest) {
         requiresManualConfirmation: localResult.status === "problema_de_montagem",
       };
 
-      return NextResponse.json(fallbackResult);
+      return withVolumeCors(NextResponse.json(fallbackResult), request);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withVolumeCors(NextResponse.json({ error: message }, { status: 500 }), request);
   }
+}
+
+export function OPTIONS(request: Request) {
+  return volumeOptions(request, "POST, OPTIONS");
 }

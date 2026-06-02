@@ -12,6 +12,7 @@ import {
   ASSEMBLY_SUGGESTION_SYSTEM_PROMPT,
   buildAssemblySuggestionUserPrompt,
 } from "@/modules/volume-builder/lib/ai/assembly-suggestion-prompt";
+import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
 
 type AiSuggestionPayload = {
   suggestions?: AssemblySuggestion[];
@@ -26,9 +27,12 @@ export async function POST(request: NextRequest) {
     const metadata = body.metadata ?? { projectCode: "", projectName: "" };
 
     if (pageAssets.length === 0) {
-      return NextResponse.json(
-        { error: "Nenhuma pagina importada para sugerir montagem." },
-        { status: 400 }
+      return withVolumeCors(
+        NextResponse.json(
+          { error: "Nenhuma pagina importada para sugerir montagem." },
+          { status: 400 }
+        ),
+        request
       );
     }
 
@@ -36,13 +40,16 @@ export async function POST(request: NextRequest) {
     const localSuggestion = buildLocalSuggestion(pageAssets, metadata);
 
     if (!configuration.keyConfigured) {
-      return NextResponse.json({
-        suggestions: localSuggestion ? [localSuggestion] : [],
-        source: "local",
-        warnings: [
-          "IA nao configurada. Sugestao local baseada em tipos de upload e ordem das paginas.",
-        ],
-      } satisfies AssemblySuggestionResponse);
+      return withVolumeCors(
+        NextResponse.json({
+          suggestions: localSuggestion ? [localSuggestion] : [],
+          source: "local",
+          warnings: [
+            "IA nao configurada. Sugestao local baseada em tipos de upload e ordem das paginas.",
+          ],
+        } satisfies AssemblySuggestionResponse),
+        request
+      );
     }
 
     try {
@@ -78,28 +85,38 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({
-        suggestions,
-        source: "ai",
-        model: configuration.model,
-        warnings: parsed.warnings ?? [],
-      } satisfies AssemblySuggestionResponse);
+      return withVolumeCors(
+        NextResponse.json({
+          suggestions,
+          source: "ai",
+          model: configuration.model,
+          warnings: parsed.warnings ?? [],
+        } satisfies AssemblySuggestionResponse),
+        request
+      );
     } catch (error) {
       console.error("Erro na sugestao de montagem por IA:", error);
 
-      return NextResponse.json({
-        suggestions: localSuggestion ? [localSuggestion] : [],
-        source: "local",
-        model: configuration.model,
-        warnings: [
-          "IA indisponivel. Sugestao local baseada em tipos de upload e ordem das paginas.",
-        ],
-      } satisfies AssemblySuggestionResponse);
+      return withVolumeCors(
+        NextResponse.json({
+          suggestions: localSuggestion ? [localSuggestion] : [],
+          source: "local",
+          model: configuration.model,
+          warnings: [
+            "IA indisponivel. Sugestao local baseada em tipos de upload e ordem das paginas.",
+          ],
+        } satisfies AssemblySuggestionResponse),
+        request
+      );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withVolumeCors(NextResponse.json({ error: message }, { status: 500 }), request);
   }
+}
+
+export function OPTIONS(request: Request) {
+  return volumeOptions(request, "POST, OPTIONS");
 }
 
 function parseAiJson(text: string): AiSuggestionPayload {
