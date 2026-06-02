@@ -144,14 +144,23 @@ AUTH_GOOGLE_SECRET=client_secret_do_google
 AUTH_TRUST_HOST=true
 NEXODOC_ADMIN_EMAILS=admin@empresa.com
 OPENAI_MODEL=gpt-5.4-mini
+NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
 NEXODOC_LD_OPENAI_MODEL=gpt-5.4
 MIMO_API_KEY=
 MIMO_MODEL=mimo-v2.5
 OPENAI_VALIDATION_MODEL=
 OPENAI_STANDARD_MODEL=gpt-5.4-mini
 OPENAI_STANDARD_VALIDATION_MODEL=gpt-5.4-mini
+NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL=
+NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL=
+NEXODOC_AUDIT_STANDARD_CHUNK_MODEL=
+NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL=
 OPENAI_DEEP_MODEL=gpt-5.4
 OPENAI_DEEP_VALIDATION_MODEL=gpt-5.4
+NEXODOC_AUDIT_DEEP_IDENTITY_MODEL=
+NEXODOC_AUDIT_DEEP_GLOBAL_MODEL=
+NEXODOC_AUDIT_DEEP_CHUNK_MODEL=
+NEXODOC_AUDIT_DEEP_CROSS_DOCUMENT_MODEL=
 NEXT_PUBLIC_API_URL=
 NEXODOC_ALLOWED_ORIGINS=
 NEXODOC_ADMIN_TOKEN=
@@ -199,13 +208,24 @@ Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto cen
 | Fluxo | Provedor | Variavel de modelo | Chave necessaria |
 | --- | --- | --- | --- |
 | Auditoria padrao | OpenAI | `OPENAI_STANDARD_MODEL` | `OPENAI_API_KEY` |
+| Auditoria padrao, identidade | OpenAI | `NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL` | `OPENAI_API_KEY` |
+| Auditoria padrao, leitura global | OpenAI | `NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL` | `OPENAI_API_KEY` |
+| Auditoria padrao, blocos | OpenAI | `NEXODOC_AUDIT_STANDARD_CHUNK_MODEL` | `OPENAI_API_KEY` |
+| Auditoria padrao, comparacao entre arquivos | OpenAI | `NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL` | `OPENAI_API_KEY` |
 | Auditoria profunda | OpenAI | `OPENAI_DEEP_MODEL` | `OPENAI_API_KEY` |
+| Auditoria profunda, identidade | OpenAI | `NEXODOC_AUDIT_DEEP_IDENTITY_MODEL` | `OPENAI_API_KEY` |
+| Auditoria profunda, leitura global | OpenAI | `NEXODOC_AUDIT_DEEP_GLOBAL_MODEL` | `OPENAI_API_KEY` |
+| Auditoria profunda, blocos | OpenAI | `NEXODOC_AUDIT_DEEP_CHUNK_MODEL` | `OPENAI_API_KEY` |
+| Auditoria profunda, comparacao entre arquivos | OpenAI | `NEXODOC_AUDIT_DEEP_CROSS_DOCUMENT_MODEL` | `OPENAI_API_KEY` |
 | Validacao da auditoria | OpenAI | `OPENAI_STANDARD_VALIDATION_MODEL` / `OPENAI_DEEP_VALIDATION_MODEL` | `OPENAI_API_KEY` |
 | Chat pos-auditoria | OpenAI | `OPENAI_MODEL` | `OPENAI_API_KEY` |
+| Organizacao de volumes, validacao | OpenAI | `NEXODOC_VOLUME_ANALYSIS_MODEL` | `OPENAI_API_KEY` |
 | Criador de LDs, principal | OpenAI | `NEXODOC_LD_OPENAI_MODEL` | `OPENAI_API_KEY` |
 | Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
 
 O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
+
+Para reduzir custo, as variaveis `NEXODOC_AUDIT_*` permitem trocar apenas uma etapa interna da auditoria. Se uma delas ficar vazia, o app usa o modelo base do respectivo nivel (`OPENAI_STANDARD_MODEL` ou `OPENAI_DEEP_MODEL`). As variaveis sem o nivel, como `NEXODOC_AUDIT_CHUNK_MODEL`, tambem sao aceitas como fallback comum para padrao e profundo.
 
 ## Modulos da plataforma
 
@@ -215,6 +235,7 @@ Depois do login, a rota `/` abre o painel de modulos. Os fluxos ativos sao:
 /audit  - Conferencia documental (fluxo principal)
 /ld     - Montagem de Listas de Documentos
 /ld/historico - Historico pessoal de LDs salvas
+/volumes - Organizacao e montagem de volumes
 ```
 
 O painel tambem apresenta como futuros os modulos de montagem de capas e

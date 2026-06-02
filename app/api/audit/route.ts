@@ -27,8 +27,10 @@ import {
 import {
   classifyProviderFailure,
   getAuditModel,
+  getAuditTaskModel,
   getAuditValidationModel,
   recordProviderFailure,
+  type AuditModelRole,
 } from "@/lib/ai-providers";
 import { getOpenAIClient } from "@/lib/openai";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
@@ -290,7 +292,11 @@ function getReasoningEffort(analysisLevel: AnalysisLevel) {
   return analysisLevel === "deep" ? DEFAULT_REASONING_EFFORT : "medium";
 }
 
-function getPrimaryModelName(analysisLevel: AnalysisLevel) {
+function getPrimaryModelName(analysisLevel: AnalysisLevel, role?: AuditModelRole) {
+  if (role) {
+    return getAuditTaskModel(analysisLevel, role);
+  }
+
   return getAuditModel(analysisLevel);
 }
 
@@ -1460,7 +1466,7 @@ async function analyzeChunkWithModel(args: {
   chunk: AuditTextChunk;
 }) {
   const openai = getOpenAIClient();
-  const model = getPrimaryModelName(args.analysisLevel);
+  const model = getPrimaryModelName(args.analysisLevel, "chunk");
   const startedAt = Date.now();
   const response = await openai.responses.create({
     model,
@@ -1575,7 +1581,7 @@ async function analyzeIdentityWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const openai = getOpenAIClient();
-  const model = getPrimaryModelName(args.analysisLevel);
+  const model = getPrimaryModelName(args.analysisLevel, "identity");
   const startedAt = Date.now();
   const response = await openai.responses.create({
     model,
@@ -1685,7 +1691,7 @@ async function analyzeFileGloballyWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const openai = getOpenAIClient();
-  const model = getPrimaryModelName(args.analysisLevel);
+  const model = getPrimaryModelName(args.analysisLevel, "global");
   const startedAt = Date.now();
   const response = await openai.responses.create({
     model,
@@ -2010,7 +2016,7 @@ async function analyzeCrossDocumentsWithModel(args: {
   }
 
   const openai = getOpenAIClient();
-  const model = getPrimaryModelName(args.analysisLevel);
+  const model = getPrimaryModelName(args.analysisLevel, "crossDocument");
   const startedAt = Date.now();
   const response = await openai.responses.create({
     model,
@@ -2344,6 +2350,13 @@ export async function POST(request: Request) {
         nivel_analise: analysisLevel,
         modelo_principal: getPrimaryModelName(analysisLevel),
         modelo_validacao: getValidationModelName(analysisLevel),
+        modelos_operacionais: {
+          identidade: getPrimaryModelName(analysisLevel, "identity"),
+          leitura_global: getPrimaryModelName(analysisLevel, "global"),
+          blocos: getPrimaryModelName(analysisLevel, "chunk"),
+          comparacao_arquivos: getPrimaryModelName(analysisLevel, "crossDocument"),
+          validacao: getValidationModelName(analysisLevel),
+        },
         esforco_raciocinio: getReasoningEffort(analysisLevel),
         duracao_ms: Date.now() - requestStartedAt,
         arquivos: uploadedFiles.length,

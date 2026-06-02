@@ -46,13 +46,13 @@ const availableModules = [
     icon: FolderCog,
     emphasis: false,
   },
-] as const;
-
-const futureModules = [
   {
     title: "Organização de volumes",
     description: "Junção, ordenação e conferência final dos volumes de projeto.",
+    href: "/volumes",
+    label: "Abrir volumes",
     icon: Layers3,
+    emphasis: false,
   },
 ] as const;
 
@@ -136,11 +136,11 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border lg:w-[290px]">
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Disponíveis</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">03</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">04</p>
             </div>
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Planejados</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">01</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">00</p>
             </div>
           </div>
         </section>
@@ -196,37 +196,6 @@ export default async function DashboardPage() {
                       Consultar histórico de LDs
                     </Link>
                   ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section aria-labelledby="roadmap-title">
-          <div className="mb-4 flex items-center gap-3">
-            <Layers3 className="size-4 text-muted-foreground" />
-            <h2 id="roadmap-title" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              Próximos módulos
-            </h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {futureModules.map((module) => {
-              const Icon = module.icon;
-
-              return (
-                <article key={module.title} className="flex gap-4 border border-dashed bg-card/55 p-5 text-muted-foreground">
-                  <div className="flex size-11 shrink-0 items-center justify-center border border-border bg-[var(--nexodoc-recessed)]">
-                    <Icon className="size-5" />
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-medium text-foreground/75">{module.title}</h3>
-                      <span className="border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider">
-                        Futuro
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm leading-6">{module.description}</p>
-                  </div>
                 </article>
               );
             })}

@@ -2,7 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type AiProvider = "openai" | "mimo";
-export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction";
+export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis";
+export type AuditAnalysisLevel = "standard" | "deep";
+export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type ProviderFailureCategory =
   | "quota_billing"
   | "authentication"
@@ -34,6 +36,7 @@ const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.4-mini";
 const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.4";
 const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
+const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.4-mini";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;
@@ -61,6 +64,18 @@ function getBackendValue(name: string) {
   const localValue = readLocalEnvironmentValue(name);
 
   return localValue !== undefined ? localValue : process.env[name]?.trim() || "";
+}
+
+function firstBackendValue(names: string[]) {
+  for (const name of names) {
+    const value = getBackendValue(name);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 function isConfigured(name: string) {
@@ -106,18 +121,78 @@ export function getAiConfiguration() {
     getBackendValue("OPENAI_DEEP_MODEL") ||
     getBackendValue("OPENAI_MODEL") ||
     DEFAULT_AUDIT_DEEP_MODEL;
+  const auditStandardValidationModel =
+    getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel;
+  const auditDeepValidationModel =
+    getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
+    getBackendValue("OPENAI_VALIDATION_MODEL") ||
+    auditDeepModel;
+  const standardRoleModels = {
+    identity:
+      firstBackendValue([
+        "NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL",
+        "NEXODOC_AUDIT_IDENTITY_MODEL",
+      ]) || auditStandardModel,
+    global:
+      firstBackendValue([
+        "NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL",
+        "NEXODOC_AUDIT_GLOBAL_MODEL",
+      ]) || auditStandardModel,
+    chunk:
+      firstBackendValue([
+        "NEXODOC_AUDIT_STANDARD_CHUNK_MODEL",
+        "NEXODOC_AUDIT_CHUNK_MODEL",
+      ]) || auditStandardModel,
+    crossDocument:
+      firstBackendValue([
+        "NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL",
+        "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
+      ]) || auditStandardModel,
+  };
+  const deepRoleModels = {
+    identity:
+      firstBackendValue([
+        "NEXODOC_AUDIT_DEEP_IDENTITY_MODEL",
+        "NEXODOC_AUDIT_IDENTITY_MODEL",
+      ]) || auditDeepModel,
+    global:
+      firstBackendValue([
+        "NEXODOC_AUDIT_DEEP_GLOBAL_MODEL",
+        "NEXODOC_AUDIT_GLOBAL_MODEL",
+      ]) || auditDeepModel,
+    chunk:
+      firstBackendValue([
+        "NEXODOC_AUDIT_DEEP_CHUNK_MODEL",
+        "NEXODOC_AUDIT_CHUNK_MODEL",
+      ]) || auditDeepModel,
+    crossDocument:
+      firstBackendValue([
+        "NEXODOC_AUDIT_DEEP_CROSS_DOCUMENT_MODEL",
+        "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
+      ]) || auditDeepModel,
+  };
 
   return {
     audit: {
       provider: "openai" as const,
       standardModel: auditStandardModel,
-      standardValidationModel:
-        getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel,
+      standardValidationModel: auditStandardValidationModel,
       deepModel: auditDeepModel,
-      deepValidationModel:
-        getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
-        getBackendValue("OPENAI_VALIDATION_MODEL") ||
-        auditDeepModel,
+      deepValidationModel: auditDeepValidationModel,
+      standardRoleModels,
+      deepRoleModels,
+      models: {
+        standard: {
+          primary: auditStandardModel,
+          validation: auditStandardValidationModel,
+          ...standardRoleModels,
+        },
+        deep: {
+          primary: auditDeepModel,
+          validation: auditDeepValidationModel,
+          ...deepRoleModels,
+        },
+      },
       keyConfigured: isConfigured("OPENAI_API_KEY"),
     },
     auditChat: {
@@ -129,6 +204,11 @@ export function getAiConfiguration() {
       provider: "openai" as const,
       purpose: "usage_costs",
       keyConfigured: isConfigured("OPENAI_ADMIN_KEY"),
+    },
+    volumeAnalysis: {
+      provider: "openai" as const,
+      model: getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
+      keyConfigured: isConfigured("OPENAI_API_KEY"),
     },
     ldExtraction: {
       primary: {
@@ -145,12 +225,22 @@ export function getAiConfiguration() {
   };
 }
 
-export function getAuditModel(analysisLevel: "standard" | "deep") {
+export function getAuditModel(analysisLevel: AuditAnalysisLevel) {
   const configuration = getAiConfiguration().audit;
   return analysisLevel === "deep" ? configuration.deepModel : configuration.standardModel;
 }
 
-export function getAuditValidationModel(analysisLevel: "standard" | "deep") {
+export function getAuditTaskModel(analysisLevel: AuditAnalysisLevel, role: AuditModelRole) {
+  const configuration = getAiConfiguration().audit;
+  const models =
+    analysisLevel === "deep"
+      ? configuration.deepRoleModels
+      : configuration.standardRoleModels;
+
+  return models[role];
+}
+
+export function getAuditValidationModel(analysisLevel: AuditAnalysisLevel) {
   const configuration = getAiConfiguration().audit;
   return analysisLevel === "deep"
     ? configuration.deepValidationModel

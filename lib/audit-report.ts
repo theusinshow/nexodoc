@@ -41,6 +41,13 @@ export type AuditReport = {
     nivel_analise?: AnalysisLevel;
     modelo_principal?: string;
     modelo_validacao?: string;
+    modelos_operacionais?: {
+      identidade?: string;
+      leitura_global?: string;
+      blocos?: string;
+      comparacao_arquivos?: string;
+      validacao?: string;
+    };
     esforco_raciocinio?: string;
     duracao_ms?: number;
     arquivos?: number;
