@@ -4,8 +4,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libreoffice-headless \
       libreoffice-writer \
+      fonts-dejavu \
+      fonts-liberation \
       curl \
       ca-certificates \
     && rm -rf /var/lib/apt/lists/*
