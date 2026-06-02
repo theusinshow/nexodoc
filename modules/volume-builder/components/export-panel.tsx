@@ -51,8 +51,17 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Erro ao gerar PDF");
+        throw new Error(await readErrorResponse(response, "Erro ao gerar PDF"));
+      }
+
+      const responseType = response.headers.get("Content-Type") ?? "";
+      const isExpectedFile =
+        responseType.includes("application/pdf") ||
+        responseType.includes("application/zip") ||
+        responseType.includes("application/octet-stream");
+
+      if (!isExpectedFile) {
+        throw new Error(await readErrorResponse(response, "Resposta inesperada ao gerar PDF"));
       }
 
       const blob = await response.blob();
@@ -93,8 +102,7 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Erro ao gerar relatorio");
+        throw new Error(await readErrorResponse(response, "Erro ao gerar relatorio"));
       }
 
       const text = await response.text();
@@ -195,4 +203,20 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
       </CardContent>
     </Card>
   );
+}
+
+async function readErrorResponse(response: Response, fallback: string) {
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const data = (await response.json()) as { error?: string };
+    return data.error || fallback;
+  }
+
+  const text = await response.text();
+  if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+    return `${fallback}: o servidor retornou uma pagina HTML (${response.status}). Verifique se a sessao ainda esta ativa e se a rota da API esta acessivel.`;
+  }
+
+  return text.trim() || `${fallback} (${response.status})`;
 }
