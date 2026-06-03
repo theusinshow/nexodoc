@@ -10,13 +10,15 @@ export function createPageAssetsForFile(file: ImportedPdfFile): PageAsset[] {
       currentRole: file.role,
     });
 
+    const role = classification.role === "unknown" ? file.role : classification.role;
+
     return {
       id: `${file.id}-page-${pageNumber}`,
       sourceFileId: file.id,
       sourceFileName: file.name,
       pageNumber,
       pageCount: file.pageCount,
-      role: file.role,
+      role,
       classification,
     };
   });

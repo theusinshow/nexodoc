@@ -16,7 +16,10 @@ import { AlertTriangle, FileStack, GripVertical, Layers3, Search, X } from "luci
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 interface PageAssetTrayProps {
   assets: PageAsset[];
@@ -64,7 +67,7 @@ export default function PageAssetTrayInternal({
     () =>
       ROLE_OPTIONS.map((role) => ({
         ...role,
-        count: assets.filter((asset) => asset.role === role.value).length,
+        count: assets.filter((asset) => getAssetRole(asset) === role.value).length,
       })),
     [assets]
   );
@@ -84,7 +87,7 @@ export default function PageAssetTrayInternal({
     const normalizedQuery = query.trim().toLowerCase();
     return assets.filter((asset) => {
       const matchesFile = activeFileId === "all" || asset.sourceFileId === activeFileId;
-      const matchesRole = activeRole === "all" || asset.role === activeRole;
+      const matchesRole = activeRole === "all" || getAssetRole(asset) === activeRole;
       const matchesDiscipline =
         activeDiscipline === "all" || asset.classification?.disciplineCode === activeDiscipline;
       const matchesBlock = activeBlock === "all" || asset.classification?.blockCode === activeBlock;
@@ -459,7 +462,16 @@ export default function PageAssetTrayInternal({
                 </div>
 
                 {group.file ? (
-                  <Document file={group.file} loading={<TraySkeleton />}>
+                  <Document
+                    key={group.fileId}
+                    file={group.file}
+                    loading={<TraySkeleton />}
+                    error={
+                      <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                        Nao foi possivel carregar as miniaturas deste PDF.
+                      </div>
+                    }
+                  >
                     <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
                       {group.assets.map((asset) => {
                         const selected = selectedAssetIds.includes(asset.id);
@@ -520,6 +532,12 @@ function getFacetCounts(assets: PageAsset[], field: "disciplineCode" | "blockCod
   return Array.from(counts.entries())
     .map(([value, count]) => ({ value, count }))
     .sort((a, b) => a.value.localeCompare(b.value));
+}
+
+function getAssetRole(asset: PageAsset): PageAssetRole {
+  return asset.classification?.role && asset.classification.role !== "unknown"
+    ? asset.classification.role
+    : asset.role ?? "document";
 }
 
 function FacetButtons({
@@ -609,6 +627,7 @@ function PageAssetTile({
     opacity: isDragging ? 0.45 : 1,
   };
   const classification = asset.classification;
+  const role = getAssetRole(asset);
   const confidence = classification?.confidence ?? 0;
   const classificationLine = [
     classification?.disciplineCode,
@@ -663,7 +682,7 @@ function PageAssetTile({
                   : ""
               }`}
             >
-              {ROLE_LABELS[asset.role ?? "document"]}
+              {ROLE_LABELS[role]}
             </Badge>
             {classification && (
               <Badge

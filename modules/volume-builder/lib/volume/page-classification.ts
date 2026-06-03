@@ -24,6 +24,10 @@ const ROLE_PATTERNS: Array<{ role: PageAssetRole; patterns: RegExp[] }> = [
   },
   { role: "separator", patterns: [/\bseparatriz\b/i, /\bseparador\b/i] },
   { role: "appendix", patterns: [/\banexo\b/i, /\bappendix\b/i] },
+  {
+    role: "document",
+    patterns: [/\bprancha\b/i, /\bfolha\b/i, /\bdesenho\b/i, /\bdrawing\b/i],
+  },
 ];
 
 export function classifyPageAsset(input: {

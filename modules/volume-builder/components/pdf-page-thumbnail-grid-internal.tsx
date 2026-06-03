@@ -9,7 +9,10 @@ import { List, Grid, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 interface PdfPageThumbnailGridProps {
   file: File;
@@ -181,6 +184,8 @@ export default function PdfPageThumbnailGridInternal({
                 <Page
                   pageNumber={pageNumber}
                   width={120}
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
                   loading={
                     <div className="w-[120px] h-[160px] flex items-center justify-center bg-muted">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -223,6 +228,8 @@ export default function PdfPageThumbnailGridInternal({
                   <Page
                     pageNumber={pageNumber}
                     width={48}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
                     loading={
                       <div className="w-full h-full flex items-center justify-center bg-muted">
                         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
