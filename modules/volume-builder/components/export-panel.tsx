@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/volume-builder/lib/volume/volume-types";
 import { determineOutputMode } from "@/modules/volume-builder/lib/volume/volume-rules";
 import { generateZipFileName, generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
@@ -29,14 +29,17 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
 
   const zipFileName = generateZipFileName(metadata);
   const reportFileName = generateReportFileName(metadata);
+  const usedFileIds = useMemo(() => getUsedFileIds(rows), [rows]);
 
   function createBuildFormData() {
     const formData = new FormData();
+    const usedImportedFiles = importedFiles.filter((file) => usedFileIds.has(file.id));
+
     formData.append("rows", JSON.stringify(rows));
     formData.append("metadata", JSON.stringify(metadata));
-    formData.append("importedFiles", JSON.stringify(importedFiles));
+    formData.append("importedFiles", JSON.stringify(usedImportedFiles));
 
-    for (const file of importedFiles) {
+    for (const file of usedImportedFiles) {
       const fileData = fileDataMap.get(file.id);
       if (fileData) {
         formData.append(`file_${file.id}`, fileData);
@@ -269,6 +272,39 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
       </CardContent>
     </Card>
   );
+}
+
+function getUsedFileIds(rows: AssemblyRow[]) {
+  const ids = new Set<string>();
+
+  for (const row of rows) {
+    if (row.cover?.selection?.sourceFileId) {
+      ids.add(row.cover.selection.sourceFileId);
+    }
+
+    for (const block of row.blocks) {
+      if (block.separator?.selection?.sourceFileId) {
+        ids.add(block.separator.selection.sourceFileId);
+      }
+      if (block.ld?.selection?.sourceFileId) {
+        ids.add(block.ld.selection.sourceFileId);
+      }
+
+      for (const doc of block.documents) {
+        if (doc.selection?.sourceFileId) {
+          ids.add(doc.selection.sourceFileId);
+        }
+      }
+
+      for (const appendix of block.appendices ?? []) {
+        if (appendix.selection?.sourceFileId) {
+          ids.add(appendix.selection.sourceFileId);
+        }
+      }
+    }
+  }
+
+  return ids;
 }
 
 async function readErrorResponse(response: Response, fallback: string) {

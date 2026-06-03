@@ -280,8 +280,8 @@ export default function PageAssetTrayInternal({
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="space-y-3 pb-3">
+    <Card className="flex max-h-full flex-col overflow-hidden">
+      <CardHeader className="shrink-0 space-y-3 pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Layers3 className="h-4 w-4" />
@@ -412,7 +412,7 @@ export default function PageAssetTrayInternal({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="min-h-0 flex-1 space-y-4 overflow-hidden">
         {selectedAssetIds.length > 0 && (
           <div className="space-y-2 rounded-md border border-[var(--nexodoc-tertiary-strong)]/45 bg-[var(--nexodoc-tertiary-bg)] p-2 shadow-[inset_0_0_0_1px_rgb(255_181_158_/_0.08)]">
             <div className="flex items-center justify-between gap-2">
@@ -481,7 +481,7 @@ export default function PageAssetTrayInternal({
             </p>
           </div>
         ) : (
-          <div className="max-h-[760px] space-y-5 overflow-y-auto pr-1">
+          <div className="max-h-[calc(100vh-360px)] space-y-5 overflow-y-auto pr-1">
             {groupedAssets.map((group) => (
               <div key={group.fileId} className="space-y-2">
                 <div className="flex items-center justify-between gap-2">

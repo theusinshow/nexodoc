@@ -76,90 +76,122 @@ export function duplicateSlot(slot: AssemblySlot): AssemblySlot {
 }
 
 import type { PageSelection } from "./volume-types";
-import { extractPages, extractPageRange } from "@/modules/volume-builder/lib/pdf/extract-pages";
-import { mergePdfs } from "@/modules/volume-builder/lib/pdf/merge-pdfs";
 import { generateSeparatorPdf } from "@/modules/volume-builder/lib/pdf/generate-separator";
+import { PDFDocument } from "pdf-lib";
 
 export async function buildRowPdf(
   row: AssemblyRow,
   fileBuffers: Map<string, ArrayBuffer>
 ): Promise<Uint8Array> {
-  const pdfParts: Uint8Array[] = [];
+  const outputDoc = await PDFDocument.create();
+  const sourceDocs = new Map<string, PDFDocument>();
+  let pageCount = 0;
 
   if (row.cover?.selection) {
-    const coverPdf = await extractSelection(row.cover.selection, fileBuffers);
-    pdfParts.push(coverPdf);
+    pageCount += await appendSelection(outputDoc, sourceDocs, row.cover.selection, fileBuffers);
   }
 
   for (const block of row.blocks) {
-    const separatorPdf = block.separator?.selection
-      ? await extractSelection(block.separator.selection, fileBuffers)
-      : await generateSeparatorPdf({
+    if (block.separator?.selection) {
+      pageCount += await appendSelection(outputDoc, sourceDocs, block.separator.selection, fileBuffers);
+    } else {
+      pageCount += await appendPdfBytes(
+        outputDoc,
+        await generateSeparatorPdf({
           title: block.separatorTitle || block.title,
-        });
-    pdfParts.push(separatorPdf);
+        })
+      );
+    }
 
     if (block.ld?.selection) {
-      const ldPdf = await extractSelection(block.ld.selection, fileBuffers);
-      pdfParts.push(ldPdf);
+      pageCount += await appendSelection(outputDoc, sourceDocs, block.ld.selection, fileBuffers);
     }
 
     for (const doc of block.documents) {
       if (doc.selection) {
-        const docPdf = await extractSelection(doc.selection, fileBuffers);
-        pdfParts.push(docPdf);
+        pageCount += await appendSelection(outputDoc, sourceDocs, doc.selection, fileBuffers);
       }
     }
 
     if (block.appendices) {
       for (const appendix of block.appendices) {
         if (appendix.selection) {
-          const appendixPdf = await extractSelection(
-            appendix.selection,
-            fileBuffers
-          );
-          pdfParts.push(appendixPdf);
+          pageCount += await appendSelection(outputDoc, sourceDocs, appendix.selection, fileBuffers);
         }
       }
     }
   }
 
-  if (pdfParts.length === 0) {
+  if (pageCount === 0) {
     throw new Error(`Linha "${row.title}" nao tem conteudo para gerar PDF.`);
   }
 
-  return await mergePdfs(pdfParts);
+  return await outputDoc.save();
 }
 
-async function extractSelection(
+async function appendSelection(
+  outputDoc: PDFDocument,
+  sourceDocs: Map<string, PDFDocument>,
   selection: PageSelection,
   fileBuffers: Map<string, ArrayBuffer>
-): Promise<Uint8Array> {
+): Promise<number> {
   const pdfBuffer = fileBuffers.get(selection.sourceFileId);
   if (!pdfBuffer) {
     throw new Error(`Arquivo "${selection.sourceFileName}" nao encontrado.`);
   }
 
+  let sourceDoc = sourceDocs.get(selection.sourceFileId);
+  if (!sourceDoc) {
+    sourceDoc = await PDFDocument.load(pdfBuffer);
+    sourceDocs.set(selection.sourceFileId, sourceDoc);
+  }
+
+  const totalPages = sourceDoc.getPageCount();
+  let pages: number[] = [];
+
   if (selection.mode === "entire_file") {
-    return new Uint8Array(pdfBuffer);
-  }
-
-  if (selection.mode === "page_range") {
-    if (
-      selection.startPage !== undefined &&
-      selection.endPage !== undefined
-    ) {
-      return await extractPageRange(
-        pdfBuffer,
-        selection.startPage,
-        selection.endPage
-      );
+    pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  } else if (
+    selection.mode === "page_range" &&
+    selection.startPage !== undefined &&
+    selection.endPage !== undefined
+  ) {
+    for (let page = selection.startPage; page <= selection.endPage; page++) {
+      pages.push(page);
     }
+  } else if (selection.mode === "specific_pages" && selection.pages) {
+    pages = selection.pages;
   }
 
-  if (selection.mode === "specific_pages" && selection.pages) {
-    return await extractPages(pdfBuffer, selection.pages);
+  const validPages = pages.filter((page) => page >= 1 && page <= totalPages);
+  if (validPages.length === 0) {
+    throw new Error(
+      `Nenhuma pagina valida em "${selection.sourceFileName}". PDF tem ${totalPages} pagina(s).`
+    );
   }
 
-  throw new Error(`Selecao invalida para "${selection.sourceFileName}".`);
+  const copiedPages = await outputDoc.copyPages(
+    sourceDoc,
+    validPages.map((page) => page - 1)
+  );
+
+  for (const page of copiedPages) {
+    outputDoc.addPage(page);
+  }
+
+  return copiedPages.length;
+}
+
+async function appendPdfBytes(outputDoc: PDFDocument, pdfBytes: Uint8Array) {
+  const sourceDoc = await PDFDocument.load(pdfBytes);
+  const copiedPages = await outputDoc.copyPages(
+    sourceDoc,
+    Array.from({ length: sourceDoc.getPageCount() }, (_, index) => index)
+  );
+
+  for (const page of copiedPages) {
+    outputDoc.addPage(page);
+  }
+
+  return copiedPages.length;
 }

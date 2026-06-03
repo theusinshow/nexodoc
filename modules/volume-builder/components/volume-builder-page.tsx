@@ -303,6 +303,10 @@ export function VolumeBuilderPage() {
       }
       return newMap;
     });
+
+    if (files.length > 0) {
+      setShowUploadPanel(false);
+    }
   }
 
   function handleRemoveFile(fileId: string) {
@@ -341,8 +345,8 @@ export function VolumeBuilderPage() {
   }
 
   return (
-    <div className="max-w-full space-y-5 overflow-x-clip">
-      <Card className="sticky top-0 z-20 border bg-background/95 backdrop-blur">
+    <div className="flex max-h-[calc(100vh-16px)] max-w-full flex-col gap-3 overflow-hidden">
+      <Card className="shrink-0 border bg-background/95">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 py-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -365,7 +369,9 @@ export function VolumeBuilderPage() {
         </CardContent>
       </Card>
 
-      <VolumeMetadataForm metadata={metadata} onChange={setMetadata} />
+      <div className="shrink-0">
+        <VolumeMetadataForm metadata={metadata} onChange={setMetadata} />
+      </div>
 
       <DndContext
         sensors={sensors}
@@ -374,14 +380,14 @@ export function VolumeBuilderPage() {
         onDragEnd={handleDragEnd}
       >
       <div
-        className={`grid min-w-0 grid-cols-1 gap-5 ${
+        className={`grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden ${
           showUploadPanel
-            ? "xl:grid-cols-[minmax(260px,320px)_minmax(320px,420px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(260px,300px)_minmax(340px,420px)_minmax(0,1fr)_minmax(280px,320px)]"
-            : "xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,480px)_minmax(0,1fr)_minmax(280px,320px)]"
+            ? "xl:grid-cols-[minmax(240px,280px)_minmax(300px,360px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(240px,280px)_minmax(320px,380px)_minmax(0,1fr)_minmax(260px,300px)]"
+            : "xl:grid-cols-[minmax(320px,390px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(320px,390px)_minmax(0,1fr)_minmax(260px,300px)]"
         }`}
       >
         {showUploadPanel && (
-        <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+        <aside className="min-h-0 min-w-0 overflow-y-auto pr-1">
             <ImportedFilesPool
               files={importedFiles}
               fileDataMap={fileDataMap}
@@ -392,7 +398,7 @@ export function VolumeBuilderPage() {
         </aside>
         )}
 
-        <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+        <aside className="min-h-0 min-w-0 space-y-3 overflow-y-auto pr-1">
             {!showUploadPanel && (
               <Button
                 type="button"
@@ -417,8 +423,8 @@ export function VolumeBuilderPage() {
             />
         </aside>
 
-        <main className="min-w-0 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+        <main className="min-h-0 min-w-0 space-y-3 overflow-y-auto pr-1">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 pb-2">
             <div>
               <h2 className="text-base font-semibold">Mesa de montagem</h2>
               <p className="text-xs text-muted-foreground">
@@ -445,7 +451,7 @@ export function VolumeBuilderPage() {
         </main>
 
         <aside
-          className={`min-w-0 space-y-4 2xl:sticky 2xl:top-24 2xl:self-start ${
+          className={`min-h-0 min-w-0 space-y-3 overflow-y-auto pr-1 ${
             showUploadPanel ? "xl:col-span-3 2xl:col-span-1" : "xl:col-span-2 2xl:col-span-1"
           }`}
         >

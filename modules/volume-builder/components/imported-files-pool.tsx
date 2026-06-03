@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, EyeOff, FileUp } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, EyeOff, FileUp } from "lucide-react";
 
 interface ImportedFilesPoolProps {
   files: ImportedPdfFile[];
@@ -33,6 +33,7 @@ export function ImportedFilesPool({
 }: ImportedFilesPoolProps) {
   const [odtWarning, setOdtWarning] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<PageAssetRole>("document");
+  const [showImportedList, setShowImportedList] = useState(false);
 
   const handleFilesAccepted = useCallback(
     async (acceptedFiles: File[]) => {
@@ -77,6 +78,7 @@ export function ImportedFilesPool({
 
       if (newFiles.length > 0) {
         onFilesImported(newFiles, fileDataList);
+        setShowImportedList(false);
       }
     },
     [onFilesImported, selectedRole]
@@ -156,18 +158,38 @@ export function ImportedFilesPool({
               <span className="text-xs text-muted-foreground">
                 {files.length} arquivo(s), {files.reduce((total, file) => total + file.pageCount, 0)} pagina(s)
               </span>
-              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                pronto
-              </Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                  pronto
+                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px]"
+                  onClick={() => setShowImportedList((current) => !current)}
+                >
+                  {showImportedList ? (
+                    <ChevronUp className="mr-1 h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="mr-1 h-3 w-3" />
+                  )}
+                  Lista
+                </Button>
+              </div>
             </div>
-            {files.map((file) => (
-              <ImportedPdfCard
-                key={file.id}
-                file={file}
-                fileData={fileDataMap.get(file.id)}
-                onRemove={() => onRemoveFile(file.id)}
-              />
-            ))}
+            {showImportedList && (
+              <div className="max-h-[34vh] space-y-2 overflow-y-auto pr-1">
+                {files.map((file) => (
+                  <ImportedPdfCard
+                    key={file.id}
+                    file={file}
+                    fileData={fileDataMap.get(file.id)}
+                    onRemove={() => onRemoveFile(file.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
