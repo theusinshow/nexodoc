@@ -9,10 +9,7 @@ import { List, Grid, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/nexodoc-pdf-engine.mjs";
 
 interface PdfPageThumbnailGridProps {
   file: File;
@@ -158,6 +155,9 @@ export default function PdfPageThumbnailGridInternal({
 
       <Document
         file={file}
+        onLoadError={(error) => {
+          console.error(`Erro ao carregar miniaturas de ${file.name}:`, error);
+        }}
         loading={
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

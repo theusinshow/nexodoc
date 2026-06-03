@@ -11,15 +11,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, FileStack, GripVertical, Layers3, Search, X } from "lucide-react";
+import {
+  AlertTriangle,
+  FileStack,
+  GripVertical,
+  Layers3,
+  Maximize2,
+  Search,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/nexodoc-pdf-engine.mjs";
 
 interface PageAssetTrayProps {
   assets: PageAsset[];
@@ -49,6 +56,7 @@ export default function PageAssetTrayInternal({
   const [activeBlock, setActiveBlock] = useState<string>("all");
   const [showReviewOnly, setShowReviewOnly] = useState(false);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [zoomedAssetId, setZoomedAssetId] = useState<string | null>(null);
 
   const files = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number }>();
@@ -466,12 +474,24 @@ export default function PageAssetTrayInternal({
                     key={group.fileId}
                     file={group.file}
                     loading={<TraySkeleton />}
+                    onLoadError={(error) => {
+                      console.error(`Erro ao carregar miniaturas de ${group.fileName}:`, error);
+                    }}
                     error={
                       <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                         Nao foi possivel carregar as miniaturas deste PDF.
                       </div>
                     }
                   >
+                    {group.assets.map((asset) => (
+                      asset.id === zoomedAssetId ? (
+                        <PageZoomOverlay
+                          key={`zoom-${asset.id}`}
+                          asset={asset}
+                          onClose={() => setZoomedAssetId(null)}
+                        />
+                      ) : null
+                    ))}
                     <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
                       {group.assets.map((asset) => {
                         const selected = selectedAssetIds.includes(asset.id);
@@ -482,6 +502,7 @@ export default function PageAssetTrayInternal({
                             selected={selected}
                             onSelect={selectAsset}
                             onNativeDragStart={handleDragStart}
+                            onOpenZoom={() => setZoomedAssetId(asset.id)}
                           />
                         );
                       })}
@@ -611,11 +632,13 @@ function PageAssetTile({
   selected,
   onSelect,
   onNativeDragStart,
+  onOpenZoom,
 }: {
   asset: PageAsset;
   selected: boolean;
   onSelect: (asset: PageAsset, event: MouseEvent<HTMLDivElement>) => void;
   onNativeDragStart: (asset: PageAsset, event: DragEvent<HTMLDivElement>) => void;
+  onOpenZoom: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: asset.id,
@@ -653,6 +676,20 @@ function PageAssetTile({
       {...attributes}
     >
       <div className="flex aspect-[3/4] items-center justify-center bg-muted/40">
+        <button
+          type="button"
+          title="Ampliar miniatura"
+          aria-label={`Ampliar pagina ${asset.pageNumber}`}
+          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-background/90 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity hover:border-[var(--nexodoc-tertiary-strong)] hover:text-[var(--nexodoc-tertiary)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenZoom();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onDragStart={(event) => event.preventDefault()}
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
         <Page
           pageNumber={asset.pageNumber}
           width={148}
@@ -720,6 +757,126 @@ function PageAssetTile({
         >
           {asset.summary ?? "Lendo texto da pagina..."}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function PageZoomOverlay({
+  asset,
+  onClose,
+}: {
+  asset: PageAsset;
+  onClose: () => void;
+}) {
+  const [zoom, setZoom] = useState(1);
+  const [baseWidth, setBaseWidth] = useState(760);
+  const role = getAssetRole(asset);
+
+  useEffect(() => {
+    function updateWidth() {
+      setBaseWidth(Math.min(860, Math.max(360, window.innerWidth - 96)));
+    }
+
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const pageWidth = Math.round(baseWidth * zoom);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Miniatura ampliada da pagina ${asset.pageNumber}`}
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-md border border-border bg-[var(--nexodoc-panel)] shadow-[0_24px_90px_rgb(0_0_0_/_0.55)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 px-3 py-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {ROLE_LABELS[role]}
+              </Badge>
+              <span className="text-xs font-semibold">Pag. {asset.pageNumber}</span>
+            </div>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+              {asset.sourceFileName}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Reduzir"
+              onClick={() => setZoom((current) => Math.max(0.75, Number((current - 0.15).toFixed(2))))}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 text-xs tabular-nums"
+              title="Ajustar"
+              onClick={() => setZoom(1)}
+            >
+              <Maximize2 className="mr-1 h-3.5 w-3.5" />
+              {Math.round(zoom * 100)}%
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Ampliar"
+              onClick={() => setZoom((current) => Math.min(1.8, Number((current + 0.15).toFixed(2))))}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Fechar"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="min-h-0 overflow-auto bg-muted/25 p-4">
+          <div className="mx-auto w-fit overflow-hidden rounded-sm border bg-white shadow-[0_18px_50px_rgb(0_0_0_/_0.35)]">
+            <Page
+              pageNumber={asset.pageNumber}
+              width={pageWidth}
+              loading={<TraySkeleton />}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
