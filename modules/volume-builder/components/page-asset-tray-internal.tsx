@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { DragEvent, MouseEvent } from "react";
+import type { CSSProperties, DragEvent, MouseEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Document, Page, pdfjs } from "react-pdf";
@@ -57,6 +57,8 @@ export default function PageAssetTrayInternal({
   const [showReviewOnly, setShowReviewOnly] = useState(false);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [zoomedAssetId, setZoomedAssetId] = useState<string | null>(null);
+  const [fileObjectUrls, setFileObjectUrls] = useState<Map<string, string>>(new Map());
+  const [failedPdfFileIds, setFailedPdfFileIds] = useState<Set<string>>(new Set());
 
   const files = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number }>();
@@ -136,8 +138,28 @@ export default function PageAssetTrayInternal({
       fileName: group[0]?.sourceFileName ?? "PDF",
       assets: group,
       file: fileDataMap.get(fileId),
+      fileUrl: fileObjectUrls.get(fileId),
     }));
-  }, [fileDataMap, filteredAssets]);
+  }, [fileDataMap, fileObjectUrls, filteredAssets]);
+
+  useEffect(() => {
+    const nextUrls = new Map<string, string>();
+
+    for (const asset of assets) {
+      const file = fileDataMap.get(asset.sourceFileId);
+      if (file && !nextUrls.has(asset.sourceFileId)) {
+        nextUrls.set(asset.sourceFileId, URL.createObjectURL(file));
+      }
+    }
+
+    setFileObjectUrls(nextUrls);
+
+    return () => {
+      for (const url of nextUrls.values()) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [assets, fileDataMap]);
 
   useEffect(() => {
     const pendingFileIds = new Set(
@@ -470,44 +492,85 @@ export default function PageAssetTrayInternal({
                 </div>
 
                 {group.file ? (
-                  <Document
-                    key={group.fileId}
-                    file={group.file}
-                    loading={<TraySkeleton />}
-                    onLoadError={(error) => {
-                      console.error(`Erro ao carregar miniaturas de ${group.fileName}:`, error);
-                    }}
-                    error={
-                      <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                        Nao foi possivel carregar as miniaturas deste PDF.
+                  failedPdfFileIds.has(group.fileId) && group.fileUrl ? (
+                    <>
+                      <NativePdfFallbackNotice />
+                      {group.assets.map((asset) =>
+                        asset.id === zoomedAssetId ? (
+                          <PageZoomOverlay
+                            key={`zoom-${asset.id}`}
+                            asset={asset}
+                            nativePreviewUrl={group.fileUrl}
+                            onClose={() => setZoomedAssetId(null)}
+                          />
+                        ) : null
+                      )}
+                      <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
+                        {group.assets.map((asset) => {
+                          const selected = selectedAssetIds.includes(asset.id);
+                          return (
+                            <PageAssetTile
+                              key={asset.id}
+                              asset={asset}
+                              selected={selected}
+                              nativePreviewUrl={group.fileUrl}
+                              onSelect={selectAsset}
+                              onNativeDragStart={handleDragStart}
+                              onOpenZoom={() => setZoomedAssetId(asset.id)}
+                            />
+                          );
+                        })}
                       </div>
-                    }
-                  >
-                    {group.assets.map((asset) => (
-                      asset.id === zoomedAssetId ? (
+                    </>
+                  ) : (
+                    <Document
+                      key={group.fileId}
+                      file={group.fileUrl ?? group.file}
+                      loading={<TraySkeleton />}
+                      onLoadSuccess={() => {
+                        setFailedPdfFileIds((current) => {
+                          if (!current.has(group.fileId)) return current;
+                          const next = new Set(current);
+                          next.delete(group.fileId);
+                          return next;
+                        });
+                      }}
+                      onLoadError={(error) => {
+                        console.error(`Erro ao carregar miniaturas de ${group.fileName}:`, error);
+                        setFailedPdfFileIds((current) => new Set(current).add(group.fileId));
+                      }}
+                      error={
+                        <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                          Nao foi possivel carregar as miniaturas deste PDF.
+                        </div>
+                      }
+                    >
+                      {group.assets.map((asset) => (
+                        asset.id === zoomedAssetId ? (
                         <PageZoomOverlay
                           key={`zoom-${asset.id}`}
                           asset={asset}
                           onClose={() => setZoomedAssetId(null)}
                         />
-                      ) : null
-                    ))}
-                    <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
-                      {group.assets.map((asset) => {
-                        const selected = selectedAssetIds.includes(asset.id);
-                        return (
-                          <PageAssetTile
-                            key={asset.id}
-                            asset={asset}
-                            selected={selected}
-                            onSelect={selectAsset}
-                            onNativeDragStart={handleDragStart}
-                            onOpenZoom={() => setZoomedAssetId(asset.id)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </Document>
+                        ) : null
+                      ))}
+                      <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
+                        {group.assets.map((asset) => {
+                          const selected = selectedAssetIds.includes(asset.id);
+                          return (
+                            <PageAssetTile
+                              key={asset.id}
+                              asset={asset}
+                              selected={selected}
+                              onSelect={selectAsset}
+                              onNativeDragStart={handleDragStart}
+                              onOpenZoom={() => setZoomedAssetId(asset.id)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </Document>
+                  )
                 ) : (
                   <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                     Arquivo original indisponivel.
@@ -627,18 +690,28 @@ function TraySkeleton({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function NativePdfFallbackNotice() {
+  return (
+    <div className="mb-2 rounded-md border border-[var(--nexodoc-tertiary-strong)]/35 bg-[var(--nexodoc-tertiary-bg)] px-2 py-1.5 text-[11px] leading-snug text-[var(--nexodoc-tertiary)]">
+      Preview alternativo ativado para este PDF.
+    </div>
+  );
+}
+
 function PageAssetTile({
   asset,
   selected,
   onSelect,
   onNativeDragStart,
   onOpenZoom,
+  nativePreviewUrl,
 }: {
   asset: PageAsset;
   selected: boolean;
   onSelect: (asset: PageAsset, event: MouseEvent<HTMLDivElement>) => void;
   onNativeDragStart: (asset: PageAsset, event: DragEvent<HTMLDivElement>) => void;
   onOpenZoom: () => void;
+  nativePreviewUrl?: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: asset.id,
@@ -690,13 +763,21 @@ function PageAssetTile({
         >
           <ZoomIn className="h-3.5 w-3.5" />
         </button>
-        <Page
-          pageNumber={asset.pageNumber}
-          width={148}
-          loading={<TraySkeleton compact />}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-        />
+        {nativePreviewUrl ? (
+          <NativePdfPageFrame
+            src={nativePreviewUrl}
+            pageNumber={asset.pageNumber}
+            className="h-full w-full"
+          />
+        ) : (
+          <Page
+            pageNumber={asset.pageNumber}
+            width={148}
+            loading={<TraySkeleton compact />}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+          />
+        )}
       </div>
       {isDragging && (
         <div className="absolute inset-0 border-2 border-[var(--nexodoc-tertiary)] bg-[var(--nexodoc-tertiary-bg)]" />
@@ -764,9 +845,11 @@ function PageAssetTile({
 
 function PageZoomOverlay({
   asset,
+  nativePreviewUrl,
   onClose,
 }: {
   asset: PageAsset;
+  nativePreviewUrl?: string;
   onClose: () => void;
 }) {
   const [zoom, setZoom] = useState(1);
@@ -868,16 +951,46 @@ function PageZoomOverlay({
 
         <div className="min-h-0 overflow-auto bg-muted/25 p-4">
           <div className="mx-auto w-fit overflow-hidden rounded-sm border bg-white shadow-[0_18px_50px_rgb(0_0_0_/_0.35)]">
-            <Page
-              pageNumber={asset.pageNumber}
-              width={pageWidth}
-              loading={<TraySkeleton />}
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-            />
+            {nativePreviewUrl ? (
+              <NativePdfPageFrame
+                src={nativePreviewUrl}
+                pageNumber={asset.pageNumber}
+                className="h-[78vh]"
+                style={{ width: pageWidth }}
+              />
+            ) : (
+              <Page
+                pageNumber={asset.pageNumber}
+                width={pageWidth}
+                loading={<TraySkeleton />}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function NativePdfPageFrame({
+  src,
+  pageNumber,
+  className,
+  style,
+}: {
+  src: string;
+  pageNumber: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <iframe
+      title={`Preview da pagina ${pageNumber}`}
+      src={`${src}#page=${pageNumber}&zoom=page-fit&toolbar=0&navpanes=0&scrollbar=0`}
+      className={`pointer-events-none block border-0 bg-white ${className ?? ""}`}
+      style={style}
+    />
   );
 }

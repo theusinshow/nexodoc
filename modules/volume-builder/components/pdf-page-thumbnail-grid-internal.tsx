@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,16 @@ export default function PdfPageThumbnailGridInternal({
   const pagesPerLoad = 20;
   const [rangeStart, setRangeStart] = useState<string>("");
   const [rangeEnd, setRangeEnd] = useState<string>("");
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setFileUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
 
   const startPage = Math.max(1, currentPage - Math.floor(pagesPerLoad / 2));
   const endPage = Math.min(pageCount, startPage + pagesPerLoad - 1);
@@ -154,7 +164,7 @@ export default function PdfPageThumbnailGridInternal({
       )}
 
       <Document
-        file={file}
+        file={fileUrl ?? file}
         onLoadError={(error) => {
           console.error(`Erro ao carregar miniaturas de ${file.name}:`, error);
         }}
