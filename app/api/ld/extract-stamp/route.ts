@@ -9,7 +9,7 @@ import {
   recordProviderFailure,
   type SafeProviderFailure,
 } from "@/lib/ai-providers";
-import { getOpenAIClient } from "@/lib/openai";
+import { executeOpenAiResponse } from "@/lib/ai-runner";
 
 type StampExtraction = {
   disciplina: string | null;
@@ -146,6 +146,14 @@ type ExtractionMetadata = {
   source?: "text" | "visual";
 };
 
+type ExtractionTrackingContext = {
+  operation: string;
+  metadata: ExtractionMetadata;
+  userEmail?: string | null;
+  hasImage: boolean;
+  pdfTextChars: number;
+};
+
 const CONTENT_FIELD_STOP_LABELS = [
   "IMP",
   "DATA",
@@ -227,8 +235,29 @@ TEXTO EXTRAÍDO:
 ${pdfText}`;
 }
 
-async function extractWithOpenAi(model: string, textPrompt: string, imageDataUrl?: string) {
-  const client = getOpenAIClient();
+function buildExtractionUsageMetadata(
+  metadata: ExtractionMetadata,
+  hasImage: boolean,
+  pdfTextChars: number,
+  extra?: Record<string, unknown>,
+) {
+  return {
+    fileName: metadata.fileName,
+    pageNumber: metadata.pageNumber,
+    cropMode: metadata.cropMode,
+    source: metadata.source ?? (hasImage ? "visual" : "text"),
+    hasImage,
+    pdfTextChars,
+    ...extra,
+  };
+}
+
+async function extractWithOpenAi(
+  model: string,
+  textPrompt: string,
+  imageDataUrl: string | undefined,
+  tracking: ExtractionTrackingContext,
+) {
   const inputContent = [
     {
       type: "input_text" as const,
@@ -243,32 +272,45 @@ async function extractWithOpenAi(model: string, textPrompt: string, imageDataUrl
       : []),
   ];
 
-  const response = await client.responses.create({
+  const result = await executeOpenAiResponse({
+    flow: "ld-extraction",
+    taskId: tracking.metadata.taskId,
+    taskLabel: tracking.metadata.taskLabel,
     model,
-    max_output_tokens: 8000,
-    reasoning: {
-      effort: "none",
-    },
-    input: [
-      {
-        role: "user",
-        content: inputContent,
+    operation: tracking.operation,
+    userEmail: tracking.userEmail,
+    metadata: buildExtractionUsageMetadata(
+      tracking.metadata,
+      tracking.hasImage,
+      tracking.pdfTextChars,
+    ),
+    request: {
+      model,
+      max_output_tokens: 8000,
+      reasoning: {
+        effort: "none",
       },
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "ld_stamp_extraction",
-        strict: true,
-        schema: extractionSchema,
+      input: [
+        {
+          role: "user",
+          content: inputContent,
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "ld_stamp_extraction",
+          strict: true,
+          schema: extractionSchema,
+        },
       },
     },
   });
 
   try {
     return {
-      parsed: sanitizeStampExtraction(JSON.parse(response.output_text) as StampExtraction),
-      response,
+      parsed: sanitizeStampExtraction(JSON.parse(result.text) as StampExtraction),
+      response: result.response,
     };
   } catch {
     throw createInvalidProviderResponseError();
@@ -406,31 +448,18 @@ export async function POST(request: Request) {
   let openAiFailure: SafeProviderFailure;
 
   try {
-    const startedAt = Date.now();
-    const { parsed, response } = await extractWithOpenAi(
+    const { parsed } = await extractWithOpenAi(
       configuration.primary.model,
       textPrompt,
       imageDataUrl,
-    );
-    await recordAiUsage({
-      flow: "ld-extraction",
-      taskId: metadata.taskId,
-      taskLabel: metadata.taskLabel,
-      provider: "openai",
-      model: configuration.primary.model,
-      operation,
-      response,
-      durationMs: Date.now() - startedAt,
-      userEmail: session.user.email,
-      metadata: {
-        fileName: metadata.fileName,
-        pageNumber: metadata.pageNumber,
-        cropMode: metadata.cropMode,
-        source: metadata.source ?? (imageDataUrl ? "visual" : "text"),
+      {
+        operation,
+        metadata,
+        userEmail: session.user.email,
         hasImage: Boolean(imageDataUrl),
         pdfTextChars: pdfText?.length ?? 0,
       },
-    });
+    );
 
     return NextResponse.json({
       ...parsed,
@@ -469,15 +498,14 @@ export async function POST(request: Request) {
         response: payload,
         durationMs: Date.now() - startedAt,
         userEmail: session.user.email,
-        metadata: {
-          fileName: metadata.fileName,
-          pageNumber: metadata.pageNumber,
-          cropMode: metadata.cropMode,
-          source: metadata.source ?? (imageDataUrl ? "visual" : "text"),
-          hasImage: Boolean(imageDataUrl),
-          pdfTextChars: pdfText?.length ?? 0,
-          fallbackReason: openAiFailure.category,
-        },
+        metadata: buildExtractionUsageMetadata(
+          metadata,
+          Boolean(imageDataUrl),
+          pdfText?.length ?? 0,
+          {
+            fallbackReason: openAiFailure.category,
+          },
+        ),
       });
 
       return NextResponse.json({

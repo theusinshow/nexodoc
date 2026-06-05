@@ -19,6 +19,8 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 13. [Checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/13-checklist-banco-piloto-ld.md)
 14. [Execucao do checklist do banco piloto para LDs](C:/Dev/trabalho/empresa/nexodoc/docs/14-execucao-checklist-banco-piloto-ld.md)
 15. [Auditoria UI/UX](C:/Dev/trabalho/empresa/nexodoc/docs/15-auditoria-ui-ux.md)
+16. [Roadmap software solido, IA e UI](C:/Dev/trabalho/empresa/nexodoc/docs/16-roadmap-software-solido-ia-ui.md)
+17. [Roadmap de agentes de IA e economia de tokens](C:/Dev/trabalho/empresa/nexodoc/docs/17-roadmap-agentes-ia-economia.md)
 
 ## Fonte de verdade
 

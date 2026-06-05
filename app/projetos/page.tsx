@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectConsole, type ProjectConsoleItem } from "@/components/projects/project-console";
 import { getUserAccess } from "@/lib/access-control";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { getUserActor, normalizeEmail } from "@/lib/project-store";
 
@@ -11,7 +12,7 @@ export default async function ProjectsPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin("/projetos");
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);

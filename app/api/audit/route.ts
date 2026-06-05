@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { recordAiUsage } from "@/lib/ai-usage";
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
 import { parseAnalysisLevel, type AnalysisLevel } from "@/lib/analysis-level";
 import {
@@ -19,17 +18,13 @@ import {
   type AuditReport,
 } from "@/lib/audit-report";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
-import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { isDatabaseConfigured } from "@/lib/db";
 import {
   assertProjectAccess,
-  createDocumentArtifact,
-  createProjectEvent,
-  createProjectUpload,
   getUserActor,
   normalizeEmail,
   type ActorIdentity,
 } from "@/lib/project-store";
-import { describeStoredFile } from "@/lib/file-storage";
 import {
   getMockAuditResult,
   isMockModeEnabled,
@@ -43,7 +38,17 @@ import {
   recordProviderFailure,
   type AuditModelRole,
 } from "@/lib/ai-providers";
-import { getOpenAIClient } from "@/lib/openai";
+import {
+  executeAuditModelResponse,
+  parseAuditModelJson,
+  type ModelFinding,
+} from "@/lib/audit-ai";
+import {
+  createPendingAudit,
+  persistCompletedAudit,
+  persistFailedAudit,
+  type UploadedAuditFile,
+} from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
 
 export const runtime = "nodejs";
@@ -72,231 +77,6 @@ class AuditInputError extends Error {
     this.status = status;
   }
 }
-
-type UploadedAuditFile = {
-  file: File;
-  fileType: string;
-  buffer: Buffer;
-  extracted: ExtractedPdf;
-};
-
-async function createPendingAudit(args: {
-  auditId: string;
-  auditMode: AuditMode;
-  analysisLevel: AnalysisLevel;
-  auditTitle: string;
-  projectName: string;
-  auditDescription: string;
-  projectId?: string | null;
-  actor?: ActorIdentity | null;
-  files: File[];
-  fileTypes: string[];
-}) {
-  if (!isDatabaseConfigured()) {
-    return null;
-  }
-
-  try {
-    const prisma = getPrisma();
-    const audit = await prisma.audit.create({
-      data: {
-        id: args.auditId,
-        projectId: args.projectId ?? undefined,
-        userId: args.actor?.id ?? undefined,
-        title: args.auditTitle || "Auditoria sem identificação",
-        projectName: args.projectName || "Projeto não informado",
-        description: args.auditDescription,
-        auditMode: args.auditMode,
-        analysisLevel: args.analysisLevel,
-        status: "PROCESSING",
-        files: {
-          create: args.files.map((file, index) => ({
-            fileName: file.name,
-            documentType: args.fileTypes[index] ?? "não informado",
-            sizeBytes: file.size,
-          })),
-        },
-      },
-      select: { id: true },
-    });
-
-    if (args.projectId && args.actor) {
-      await createProjectEvent(prisma, {
-        projectId: args.projectId,
-        actor: args.actor,
-        type: "AUDIT_CREATED",
-        title: "Auditoria criada",
-        summary: args.auditTitle || args.projectName || "Auditoria documental",
-        details: {
-          auditId: audit.id,
-          auditMode: args.auditMode,
-          analysisLevel: args.analysisLevel,
-          fileCount: args.files.length,
-        },
-      });
-    }
-
-    return audit.id;
-  } catch (error) {
-    console.error("[audit] falha ao iniciar persistência da auditoria", error);
-    return null;
-  }
-}
-
-async function persistCompletedAudit(args: {
-  auditId: string | null;
-  uploadedFiles: UploadedAuditFile[];
-  report: AuditReport;
-  result: string;
-  elapsedMs: number;
-  projectId?: string | null;
-  actor?: ActorIdentity | null;
-}) {
-  if (!args.auditId || !isDatabaseConfigured()) {
-    return;
-  }
-
-  try {
-    const prisma = getPrisma();
-    await prisma.$transaction(async (transaction) => {
-      const updated = await transaction.audit.updateMany({
-        where: {
-          id: args.auditId!,
-          status: "PROCESSING",
-        },
-        data: {
-          status: "COMPLETED",
-          result: args.result,
-          report: args.report,
-          elapsedMs: args.elapsedMs,
-          totalFindings: args.report.total_incongruencias,
-          completedAt: new Date(),
-        },
-      });
-
-      if (updated.count === 0) {
-        return;
-      }
-
-      await transaction.auditFile.deleteMany({ where: { auditId: args.auditId! } });
-      await transaction.auditFile.createMany({
-        data: args.uploadedFiles.map((file) => ({
-            auditId: args.auditId!,
-            fileName: file.file.name,
-            documentType: file.fileType,
-            pageCount: file.extracted.pageCount,
-            extractedCharCount: file.extracted.charCount,
-            sizeBytes: file.file.size,
-          })),
-      });
-
-      if (args.projectId && args.actor) {
-        for (const file of args.uploadedFiles) {
-          const uploadStorage = describeStoredFile({
-            data: file.buffer,
-            module: "audit",
-            projectId: args.projectId,
-            fileName: file.file.name,
-          });
-          await createProjectUpload(transaction, {
-            projectId: args.projectId,
-            actor: args.actor,
-            module: "audit",
-            source: "audit-input",
-            fileName: file.file.name,
-            mimeType: file.file.type || "application/pdf",
-            ...uploadStorage,
-            pageCount: file.extracted.pageCount,
-            metadata: {
-              auditId: args.auditId,
-              documentType: file.fileType,
-              extractedCharCount: file.extracted.charCount,
-            },
-          });
-        }
-
-        const reportFileName = `${args.auditId}-relatorio-auditoria.md`;
-        const reportStorage = describeStoredFile({
-          data: args.result,
-          module: "audit",
-          projectId: args.projectId,
-          fileName: reportFileName,
-        });
-        await createDocumentArtifact(transaction, {
-          projectId: args.projectId,
-          auditId: args.auditId,
-          actor: args.actor,
-          module: "audit",
-          kind: "AUDIT_MARKDOWN",
-          fileName: reportFileName,
-          mimeType: "text/markdown",
-          ...reportStorage,
-          metadata: {
-            auditMode: args.report.tipo_auditoria,
-            analysisLevel: args.report.runtime?.nivel_analise,
-            totalFindings: args.report.total_incongruencias,
-          },
-        });
-      }
-    });
-  } catch (error) {
-    console.error("[audit] falha ao persistir auditoria", error);
-  }
-}
-
-async function persistFailedAudit(auditId: string | null, error: unknown, elapsedMs: number) {
-  if (!auditId || !isDatabaseConfigured()) {
-    return;
-  }
-
-  try {
-    const prisma = getPrisma();
-    await prisma.audit.updateMany({
-      where: { id: auditId, status: "PROCESSING" },
-      data: {
-        status: "FAILED",
-        error:
-          error instanceof Error
-            ? error.message.slice(0, 1000)
-            : "Não foi possível concluir a auditoria documental.",
-        elapsedMs,
-        completedAt: new Date(),
-      },
-    });
-  } catch (persistenceError) {
-    console.error("[audit] falha ao persistir erro da auditoria", persistenceError);
-  }
-}
-
-type ModelFinding = {
-  prioridade?: string;
-  pagina?: string | number;
-  capitulo?: string;
-  local?: string;
-  tipo?: string;
-  descricao?: string;
-  evidencia?: string;
-  termo_busca?: string;
-  arquivo?: string;
-  categoria?: string;
-  referencia_comparada?: string;
-  conflito?: string;
-  sugestao_correcao?: string;
-  confianca?: string;
-};
-
-type ValidationDecision = {
-  source_id?: string;
-  acao?: "confirmar" | "rebaixar" | "remover";
-  prioridade?: string;
-  impacto?: "critico_documental" | "tecnico_contratual" | "revisao_editorial";
-  tipo?: string;
-  descricao?: string;
-  conflito?: string;
-  sugestao_correcao?: string;
-  confianca?: string;
-  motivo?: string;
-};
 
 function isPdf(file: File) {
   return (
@@ -384,103 +164,6 @@ function getPrimaryModelName(analysisLevel: AnalysisLevel, role?: AuditModelRole
 
 function getValidationModelName(analysisLevel: AnalysisLevel) {
   return getAuditValidationModel(analysisLevel);
-}
-
-async function recordAuditModelUsage(args: {
-  taskId?: string | null;
-  taskLabel?: string | null;
-  model: string;
-  operation: string;
-  response: unknown;
-  durationMs: number;
-  metadata?: Record<string, string | number | boolean | null | undefined>;
-}) {
-  await recordAiUsage({
-    flow: "audit",
-    taskId: args.taskId,
-    taskLabel: args.taskLabel,
-    provider: "openai",
-    model: args.model,
-    operation: args.operation,
-    response: args.response,
-    durationMs: args.durationMs,
-    metadata: args.metadata ?? {},
-  });
-}
-
-function extractResponseText(response: unknown) {
-  if (
-    response &&
-    typeof response === "object" &&
-    "output_text" in response &&
-    typeof response.output_text === "string"
-  ) {
-    return response.output_text.trim();
-  }
-
-  if (!response || typeof response !== "object" || !("output" in response)) {
-    return "";
-  }
-
-  const output = response.output;
-
-  if (!Array.isArray(output)) {
-    return "";
-  }
-
-  return output
-    .flatMap((item) => {
-      if (!item || typeof item !== "object" || !("content" in item)) {
-        return [];
-      }
-
-      const content = item.content;
-
-      if (!Array.isArray(content)) {
-        return [];
-      }
-
-      return content
-        .map((part) => {
-          if (!part || typeof part !== "object") {
-            return "";
-          }
-
-          if ("text" in part && typeof part.text === "string") {
-            return part.text;
-          }
-
-          if ("content" in part && typeof part.content === "string") {
-            return part.content;
-          }
-
-          return "";
-        })
-        .filter(Boolean);
-    })
-    .join("\n")
-    .trim();
-}
-
-function parseJsonObject(text: string) {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text)?.[1];
-  const candidate = fenced ?? text;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-
-  if (start === -1 || end === -1 || end <= start) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(candidate.slice(start, end + 1)) as {
-      findings?: ModelFinding[];
-      comparisons?: string[];
-      decisions?: ValidationDecision[];
-    };
-  } catch {
-    return null;
-  }
 }
 
 function getChunkPrompt(args: {
@@ -1547,27 +1230,22 @@ async function analyzeChunkWithModel(args: {
   fileType: string;
   chunk: AuditTextChunk;
 }) {
-  const openai = getOpenAIClient();
   const model = getPrimaryModelName(args.analysisLevel, "chunk");
-  const startedAt = Date.now();
-  const response = await openai.responses.create({
-    model,
-    instructions: getAuditorPrompt(args.auditMode),
-    reasoning: {
-      effort: getReasoningEffort(args.analysisLevel),
-    },
-    max_output_tokens: getMaxOutputTokens(),
-    input: getChunkPrompt(args),
-  }, {
-    timeout: getChunkTimeoutMs(),
-  });
-  await recordAuditModelUsage({
+  const result = await executeAuditModelResponse({
     taskId: args.auditId,
     taskLabel: args.fileName,
     model,
     operation: "audit-chunk",
-    response,
-    durationMs: Date.now() - startedAt,
+    timeoutMs: getChunkTimeoutMs(),
+    request: {
+      model,
+      instructions: getAuditorPrompt(args.auditMode),
+      reasoning: {
+        effort: getReasoningEffort(args.analysisLevel),
+      },
+      max_output_tokens: getMaxOutputTokens(),
+      input: getChunkPrompt(args),
+    },
     metadata: {
       fileName: args.fileName,
       fileType: args.fileType,
@@ -1578,8 +1256,8 @@ async function analyzeChunkWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const text = extractResponseText(response);
-  const parsed = parseJsonObject(text);
+  const text = result.text;
+  const parsed = parseAuditModelJson(text);
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1662,25 +1340,20 @@ async function analyzeIdentityWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
 }) {
-  const openai = getOpenAIClient();
   const model = getPrimaryModelName(args.analysisLevel, "identity");
-  const startedAt = Date.now();
-  const response = await openai.responses.create({
-    model,
-    instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-    max_output_tokens: getMaxOutputTokens(),
-    input: getIdentityAuditPrompt(args),
-  }, {
-    timeout: getChunkTimeoutMs(),
-  });
-  await recordAuditModelUsage({
+  const result = await executeAuditModelResponse({
     taskId: args.auditId,
     taskLabel: args.fileName,
     model,
     operation: "audit-identity",
-    response,
-    durationMs: Date.now() - startedAt,
+    timeoutMs: getChunkTimeoutMs(),
+    request: {
+      model,
+      instructions: getAuditorPrompt(args.auditMode),
+      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+      max_output_tokens: getMaxOutputTokens(),
+      input: getIdentityAuditPrompt(args),
+    },
     metadata: {
       fileName: args.fileName,
       fileType: args.fileType,
@@ -1689,7 +1362,7 @@ async function analyzeIdentityWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseJsonObject(extractResponseText(response));
+  const parsed = parseAuditModelJson(result.text);
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1772,25 +1445,20 @@ async function analyzeFileGloballyWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
 }) {
-  const openai = getOpenAIClient();
   const model = getPrimaryModelName(args.analysisLevel, "global");
-  const startedAt = Date.now();
-  const response = await openai.responses.create({
-    model,
-    instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-    max_output_tokens: getMaxOutputTokens(),
-    input: getGlobalFilePrompt(args),
-  }, {
-    timeout: getChunkTimeoutMs(),
-  });
-  await recordAuditModelUsage({
+  const result = await executeAuditModelResponse({
     taskId: args.auditId,
     taskLabel: args.fileName,
     model,
     operation: "audit-global",
-    response,
-    durationMs: Date.now() - startedAt,
+    timeoutMs: getChunkTimeoutMs(),
+    request: {
+      model,
+      instructions: getAuditorPrompt(args.auditMode),
+      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+      max_output_tokens: getMaxOutputTokens(),
+      input: getGlobalFilePrompt(args),
+    },
     metadata: {
       fileName: args.fileName,
       fileType: args.fileType,
@@ -1799,7 +1467,7 @@ async function analyzeFileGloballyWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseJsonObject(extractResponseText(response));
+  const parsed = parseAuditModelJson(result.text);
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -2004,27 +1672,21 @@ async function validateFindingsWithModel(args: {
     return args.findings;
   }
 
-  const openai = getOpenAIClient();
-
   try {
     const model = getValidationModelName(args.analysisLevel);
-    const startedAt = Date.now();
-    const response = await openai.responses.create({
-      model,
-      instructions: getAuditorPrompt(args.auditMode),
-      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-      max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
-      input: getFindingValidationPrompt(args),
-    }, {
-      timeout: getChunkTimeoutMs(),
-    });
-    await recordAuditModelUsage({
+    const result = await executeAuditModelResponse({
       taskId: args.auditId,
       taskLabel: args.projectName || "Auditoria",
       model,
       operation: "audit-validation",
-      response,
-      durationMs: Date.now() - startedAt,
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
+        input: getFindingValidationPrompt(args),
+      },
       metadata: {
         findings: args.findings.length,
         files: args.files.length,
@@ -2032,7 +1694,7 @@ async function validateFindingsWithModel(args: {
         auditMode: args.auditMode,
       },
     });
-    const parsed = parseJsonObject(extractResponseText(response));
+    const parsed = parseAuditModelJson(result.text);
     const decisions = new Map(
       (parsed?.decisions ?? [])
         .filter((decision) => decision.source_id && decision.acao)
@@ -2097,32 +1759,27 @@ async function analyzeCrossDocumentsWithModel(args: {
     return { findings: [] as AuditFinding[], comparisons: [] as string[] };
   }
 
-  const openai = getOpenAIClient();
   const model = getPrimaryModelName(args.analysisLevel, "crossDocument");
-  const startedAt = Date.now();
-  const response = await openai.responses.create({
-    model,
-    instructions: getAuditorPrompt(args.auditMode),
-    reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-    max_output_tokens: getMaxOutputTokens(),
-    input: getCrossDocumentPrompt(args),
-  }, {
-    timeout: getChunkTimeoutMs(),
-  });
-  await recordAuditModelUsage({
+  const result = await executeAuditModelResponse({
     taskId: args.auditId,
     taskLabel: args.projectName || "Auditoria",
     model,
     operation: "audit-cross-document",
-    response,
-    durationMs: Date.now() - startedAt,
+    timeoutMs: getChunkTimeoutMs(),
+    request: {
+      model,
+      instructions: getAuditorPrompt(args.auditMode),
+      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+      max_output_tokens: getMaxOutputTokens(),
+      input: getCrossDocumentPrompt(args),
+    },
     metadata: {
       files: args.files.length,
       analysisLevel: args.analysisLevel,
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseJsonObject(extractResponseText(response));
+  const parsed = parseAuditModelJson(result.text);
 
   return {
     findings: (parsed?.findings ?? [])

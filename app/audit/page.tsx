@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ChatWindow } from "@/components/chat-window";
 import { getUserAccess } from "@/lib/access-control";
+import { buildCallbackPath, redirectToLogin } from "@/lib/auth-redirect";
 import { getProjectContextForUser } from "@/lib/project-context";
 
 export default async function AuditPage({
@@ -10,10 +11,11 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  const params = await searchParams;
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin(buildCallbackPath("/audit", params));
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);
@@ -27,7 +29,7 @@ export default async function AuditPage({
     process.env.NODE_ENV !== "production" ||
     process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true" ||
     isMockMode;
-  const { project } = await searchParams;
+  const { project } = params;
   const projectContext = await getProjectContextForUser(project, session.user);
 
   return (

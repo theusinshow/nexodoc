@@ -6,6 +6,13 @@ import {
   recordProviderFailure,
   type AiProviderFlow,
 } from "@/lib/ai-providers";
+import {
+  completeAiTask,
+  createAiTask,
+  failAiTask,
+  startAiTask,
+  type AiAgentName,
+} from "@/lib/ai/tasks";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { getOpenAIClient } from "@/lib/openai";
 
@@ -16,8 +23,16 @@ type ExecuteOpenAiResponseArgs = {
   model: string;
   operation: string;
   request: OpenAiResponseCreateParams;
+  aiTaskId?: string | null;
   taskId?: string | null;
   taskLabel?: string | null;
+  agent?: AiAgentName | string;
+  projectId?: string | null;
+  relatedType?: string | null;
+  relatedId?: string | null;
+  inputHash?: string | null;
+  inputSummary?: string | null;
+  maxAttempts?: number;
   userEmail?: string | null;
   metadata?: Prisma.InputJsonValue;
   timeoutMs?: number;
@@ -80,6 +95,27 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
+  const aiTaskId =
+    args.aiTaskId ??
+    (args.agent
+      ? await createAiTask({
+          flow: args.flow,
+          agent: args.agent,
+          operation: args.operation,
+          provider: "openai",
+          model: args.model,
+          projectId: args.projectId,
+          userEmail: args.userEmail,
+          relatedType: args.relatedType,
+          relatedId: args.relatedId,
+          inputHash: args.inputHash,
+          inputSummary: args.inputSummary,
+          metadata: args.metadata,
+          maxAttempts: args.maxAttempts,
+        })
+      : null);
+
+  await startAiTask(aiTaskId, { provider: "openai", model: args.model });
 
   try {
     const response = await getOpenAIClient().responses.create(args.request, {
@@ -89,6 +125,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
 
     await recordAiUsage({
       flow: args.flow,
+      aiTaskId,
       taskId: args.taskId,
       taskLabel: args.taskLabel,
       provider: "openai",
@@ -98,6 +135,9 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       durationMs,
       metadata: args.metadata,
       userEmail: args.userEmail,
+    });
+    await completeAiTask(aiTaskId, {
+      outputSummary: extractOutputText(response).slice(0, 2000),
     });
 
     return {
@@ -113,6 +153,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
     recordProviderFailure(failure);
     await recordAiUsage({
       flow: args.flow,
+      aiTaskId,
       taskId: args.taskId,
       taskLabel: args.taskLabel,
       provider: "openai",
@@ -123,6 +164,10 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       metadata: withFailureMetadata(args.metadata, failure.category),
       error,
       userEmail: args.userEmail,
+    });
+    await failAiTask(aiTaskId, {
+      error,
+      metadata: withFailureMetadata(args.metadata, failure.category),
     });
 
     throw error;

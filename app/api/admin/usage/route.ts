@@ -274,21 +274,35 @@ async function summarizeInternalUsage(startTime: number) {
       },
       flows: [],
       tasks: [],
+      aiTasks: [],
       recentEvents: [],
     };
   }
 
-  const events = await getPrisma().aiUsageEvent.findMany({
-    where: {
-      createdAt: {
-        gte: new Date(startTime * 1000),
+  const [events, aiTasks] = await Promise.all([
+    getPrisma().aiUsageEvent.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(startTime * 1000),
+        },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 500,
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 500,
+    }),
+    getPrisma().aiTask.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(startTime * 1000),
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 100,
+    }),
+  ]);
   const totals = events.reduce(
     (total, event) => ({
       inputTokens: total.inputTokens + event.inputTokens,
@@ -341,9 +355,10 @@ async function summarizeInternalUsage(startTime: number) {
       estimatedCostUsd: 0,
       requests: 0,
     };
-    const taskKey = event.taskId ?? `${event.flow}:${event.taskLabel ?? event.operation}`;
+    const taskKey =
+      event.aiTaskId ?? event.taskId ?? `${event.flow}:${event.taskLabel ?? event.operation}`;
     const task = byTask.get(taskKey) ?? {
-      taskId: event.taskId ?? "",
+      taskId: event.aiTaskId ?? event.taskId ?? "",
       taskLabel: event.taskLabel ?? event.operation,
       flow: event.flow,
       inputTokens: 0,
@@ -370,10 +385,36 @@ async function summarizeInternalUsage(startTime: number) {
     totals,
     flows: [...byFlow.values()].sort((a, b) => b.totalTokens - a.totalTokens),
     tasks: [...byTask.values()].sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 50),
+    aiTasks: aiTasks.map((task) => ({
+      id: task.id,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+      startedAt: task.startedAt?.toISOString() ?? null,
+      finishedAt: task.finishedAt?.toISOString() ?? null,
+      projectId: task.projectId,
+      userEmail: task.userEmail,
+      flow: task.flow,
+      agent: task.agent,
+      operation: task.operation,
+      provider: task.provider,
+      model: task.model,
+      status: task.status,
+      priority: task.priority,
+      relatedType: task.relatedType,
+      relatedId: task.relatedId,
+      attemptCount: task.attemptCount,
+      maxAttempts: task.maxAttempts,
+      estimatedCostUsd: task.estimatedCostUsd,
+      actualCostUsd: task.actualCostUsd,
+      inputSummary: task.inputSummary,
+      outputSummary: task.outputSummary,
+      lastError: task.lastError,
+    })),
     recentEvents: events.slice(0, 100).map((event) => ({
       id: event.id,
       createdAt: event.createdAt.toISOString(),
       flow: event.flow,
+      aiTaskId: event.aiTaskId,
       taskId: event.taskId,
       taskLabel: event.taskLabel,
       provider: event.provider,

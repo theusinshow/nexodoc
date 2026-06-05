@@ -2270,7 +2270,15 @@ export function LdWorkspace({
                   Abrir projeto
                 </Link>
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-sm border border-dashed bg-background px-3 py-2 text-xs">
+                <span className="font-medium">Modo independente</span>
+                <span className="text-muted-foreground">Sem projeto vinculado</span>
+                <Link href="/projetos" className="font-medium text-primary hover:underline">
+                  Projetos
+                </Link>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href="/"

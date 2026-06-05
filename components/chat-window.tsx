@@ -1084,7 +1084,19 @@ export function ChatWindow({
               <span className="font-mono text-muted-foreground">{projectContext.code}</span>
               <span className="max-w-[220px] truncate text-muted-foreground">{projectContext.name}</span>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex max-w-full items-center gap-2 rounded-sm border border-dashed bg-card/70 px-2.5 py-1.5 text-xs">
+              <span className="font-medium">Modo independente</span>
+              <span className="text-muted-foreground">Sem projeto vinculado</span>
+              <button
+                type="button"
+                onClick={() => router.push("/projetos")}
+                className="font-medium text-primary outline-none hover:underline focus-visible:underline"
+              >
+                Projetos
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <input

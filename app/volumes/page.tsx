@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectContextStrip } from "@/components/projects/project-context-strip";
 import { getUserAccess } from "@/lib/access-control";
+import { buildCallbackPath, redirectToLogin } from "@/lib/auth-redirect";
 import { getProjectContextForUser } from "@/lib/project-context";
 import { VolumeBuilderPage } from "@/modules/volume-builder/components/volume-builder-page";
 
@@ -12,10 +13,11 @@ export default async function VolumesPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  const params = await searchParams;
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin(buildCallbackPath("/volumes", params));
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);
@@ -24,7 +26,7 @@ export default async function VolumesPage({
     redirect("/login");
   }
 
-  const { project } = await searchParams;
+  const { project } = params;
   const projectContext = await getProjectContextForUser(project, session.user);
 
   return (
@@ -34,7 +36,7 @@ export default async function VolumesPage({
         description="Monte volumes tecnicos a partir de PDFs, selecione paginas, gere separatrizes, valide a montagem e exporte PDF ou ZIP."
       />
 
-      <ProjectContextStrip project={projectContext} />
+      <ProjectContextStrip project={projectContext} moduleName="Volumes" />
 
       <VolumeBuilderPage projectId={project} projectContext={projectContext} />
     </div>

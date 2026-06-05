@@ -6,7 +6,7 @@ import {
   getSecretFingerprint,
   recordProviderFailure,
 } from "@/lib/ai-providers";
-import { getOpenAIClient } from "@/lib/openai";
+import { executeOpenAiResponse } from "@/lib/ai-runner";
 
 export const runtime = "nodejs";
 
@@ -206,6 +206,16 @@ export function GET(request: Request) {
           model: ai.ldExtraction.fallback.model,
           keyConfigured: ai.ldExtraction.fallback.keyConfigured,
         },
+        {
+          id: "deepseek-placeholder",
+          label: "DeepSeek - placeholder",
+          provider: ai.deepseek.provider,
+          model: ai.deepseek.model,
+          keyConfigured: ai.deepseek.keyConfigured,
+          enabled: ai.deepseek.enabled,
+          placeholderOnly: ai.deepseek.placeholderOnly,
+          note: ai.deepseek.note,
+        },
       ],
       aiHealth: {
         externalConnectivityChecked: false,
@@ -226,11 +236,13 @@ export function GET(request: Request) {
       secrets: {
         openaiApiKeyConfigured: ai.audit.keyConfigured,
         mimoApiKeyConfigured: ai.ldExtraction.fallback.keyConfigured,
+        deepseekApiKeyConfigured: ai.deepseek.keyConfigured,
         openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
         adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
       },
       secretFingerprints: {
         openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
+        deepseekApiKey: getSecretFingerprint("DEEPSEEK_API_KEY"),
         openaiAdminKey: getSecretFingerprint("OPENAI_ADMIN_KEY"),
       },
       generatedAt: new Date().toISOString(),
@@ -258,15 +270,21 @@ export async function POST(request: Request) {
 
   try {
     const model = ai.auditChat.model;
-    const startedAt = Date.now();
-    const response = await getOpenAIClient().responses.create({
+    const result = await executeOpenAiResponse({
+      flow: "audit-chat",
       model,
-      instructions: "Responda apenas OK.",
-      input: "Teste de conectividade do NexoDoc. Responda OK.",
-      max_output_tokens: 16,
-      reasoning: { effort: "none" },
-    }, {
-      timeout: 20_000,
+      operation: "admin-config-connectivity-test",
+      timeoutMs: 20_000,
+      metadata: {
+        source: "admin-config",
+      },
+      request: {
+        model,
+        instructions: "Responda apenas OK.",
+        input: "Teste de conectividade do NexoDoc. Responda OK.",
+        max_output_tokens: 16,
+        reasoning: { effort: "none" },
+      },
     });
 
     return withCors(
@@ -274,8 +292,8 @@ export async function POST(request: Request) {
         ok: true,
         provider: "openai",
         model,
-        durationMs: Date.now() - startedAt,
-        output: response.output_text?.trim().slice(0, 120) ?? "",
+        durationMs: result.durationMs,
+        output: result.text.slice(0, 120),
         testedAt: new Date().toISOString(),
       }),
       request,

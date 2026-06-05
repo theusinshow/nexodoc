@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type AiProvider = "openai" | "mimo";
+export type AiProvider = "openai" | "mimo" | "deepseek";
 export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
@@ -38,6 +38,7 @@ const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.4-mini";
 const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.4-mini";
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;
@@ -109,6 +110,14 @@ export function getSecretFingerprint(name: string) {
 
 export function getMimoApiKey() {
   return getBackendValue("MIMO_API_KEY");
+}
+
+export function getDeepSeekApiKey() {
+  return getBackendValue("DEEPSEEK_API_KEY");
+}
+
+export function getDeepSeekBaseUrl() {
+  return getBackendValue("DEEPSEEK_BASE_URL") || "https://api.deepseek.com";
 }
 
 export function getOpenAiAdminKey() {
@@ -231,6 +240,15 @@ export function getAiConfiguration() {
         keyConfigured: isConfigured("MIMO_API_KEY"),
       },
     },
+    deepseek: {
+      provider: "deepseek" as const,
+      enabled: getBackendValue("NEXODOC_ENABLE_DEEPSEEK") === "true",
+      model: getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL,
+      baseUrl: getDeepSeekBaseUrl(),
+      keyConfigured: isConfigured("DEEPSEEK_API_KEY"),
+      placeholderOnly: true,
+      note: "Placeholder de provider. Ainda nao e usado pelos fluxos sem implementar runner/roteador especifico.",
+    },
   };
 }
 
@@ -295,7 +313,8 @@ export function classifyProviderFailure(
 }
 
 export function getSafeProviderMessage(provider: AiProvider, category: ProviderFailureCategory) {
-  const name = provider === "openai" ? "OpenAI" : "MiMo";
+  const name =
+    provider === "openai" ? "OpenAI" : provider === "mimo" ? "MiMo" : "DeepSeek";
 
   switch (category) {
     case "quota_billing":

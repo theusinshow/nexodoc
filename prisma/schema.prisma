@@ -97,6 +97,21 @@ enum ProjectEventType {
   NOTE_ADDED
 }
 
+enum AiTaskStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  NEEDS_REVIEW
+}
+
+enum AiTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -109,6 +124,7 @@ model User {
   sessions     Session[]
   organizationMemberships OrganizationMember[]
   audits       Audit[]
+  aiTasks      AiTask[]
   aiUsageEvents AiUsageEvent[]
   projects     Project[]
   projectDocuments ProjectDocument[]
@@ -173,6 +189,7 @@ model Project {
   uploads     ProjectUpload[]
   artifacts   DocumentArtifact[]
   events      ProjectEvent[]
+  aiTasks     AiTask[]
 
   @@unique([ownerEmail, code])
   @@index([organizationId, updatedAt])
@@ -407,9 +424,50 @@ model ProjectEvent {
   @@index([type, createdAt])
 }
 
+model AiTask {
+  id               String         @id @default(cuid())
+  projectId        String?
+  userId           String?
+  userEmail        String?
+  flow             String
+  agent            String
+  operation        String
+  provider         String?
+  model            String?
+  status           AiTaskStatus   @default(QUEUED)
+  priority         AiTaskPriority @default(NORMAL)
+  inputHash        String?
+  inputSummary     String?
+  outputSummary    String?
+  relatedType      String?
+  relatedId        String?
+  attemptCount     Int            @default(0)
+  maxAttempts      Int            @default(1)
+  estimatedCostUsd Float?
+  actualCostUsd    Float?
+  lastError        String?
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  project          Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  usageEvents      AiUsageEvent[]
+
+  @@index([projectId, createdAt])
+  @@index([userEmail, createdAt])
+  @@index([flow, status, createdAt])
+  @@index([agent, status, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([relatedType, relatedId])
+  @@index([inputHash])
+}
+
 model AiUsageEvent {
   id           String   @id @default(cuid())
   flow         String
+  aiTaskId     String?
   taskId       String?
   taskLabel    String?
   provider     String
@@ -428,9 +486,11 @@ model AiUsageEvent {
   userEmail    String?
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aiTask       AiTask?  @relation(fields: [aiTaskId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([flow, createdAt])
+  @@index([aiTaskId, createdAt])
   @@index([taskId, createdAt])
   @@index([userEmail, createdAt])
   @@index([model, createdAt])

@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getUserAccess } from "@/lib/access-control";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { assertProjectAccess, getUserActor, normalizeEmail } from "@/lib/project-store";
 
@@ -25,10 +26,11 @@ export default async function ProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin(`/projetos/${encodeURIComponent(id)}`);
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);
@@ -37,7 +39,6 @@ export default async function ProjectDetailPage({
     redirect("/projetos");
   }
 
-  const { id } = await params;
   const actor = await getUserActor(normalizeEmail(session.user.email ?? ""), session.user.name);
 
   try {
@@ -68,12 +69,56 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
+  const hasAuditOutput = project.artifacts.some((artifact) =>
+    artifact.module === "audit" || artifact.kind.toString().startsWith("AUDIT_"),
+  );
+  const hasLdOutput =
+    project.artifacts.some((artifact) =>
+      artifact.module === "ld" || artifact.kind.toString().startsWith("LD_"),
+    ) || project.documents.some((document) => document.module === "ld");
+  const hasCoverOutput = project.artifacts.some((artifact) =>
+    artifact.module === "capas" || artifact.kind.toString().startsWith("COVER_"),
+  );
+  const hasVolumeOutput = project.artifacts.some((artifact) =>
+    artifact.module === "volumes" || artifact.kind.toString().startsWith("VOLUME_"),
+  );
+
   const moduleLinks = [
-    { label: "Auditoria", href: `/audit?project=${project.id}`, icon: BookOpenCheck },
-    { label: "LD", href: `/ld?project=${project.id}`, icon: TableProperties },
-    { label: "Capas", href: `/capas?project=${project.id}`, icon: FileText },
-    { label: "Volumes", href: `/volumes?project=${project.id}`, icon: Layers3 },
+    {
+      label: "Auditoria",
+      action: "Auditar documentos",
+      description: "Checar memoriais, capas, LDs, pranchas e divergencias documentais.",
+      href: `/audit?project=${project.id}`,
+      icon: BookOpenCheck,
+      completed: hasAuditOutput,
+    },
+    {
+      label: "LD",
+      action: "Montar LD",
+      description: "Ler selos, revisar pranchas, ajustar tomos e gerar pacote final.",
+      href: `/ld?project=${project.id}`,
+      icon: TableProperties,
+      completed: hasLdOutput,
+    },
+    {
+      label: "Capas",
+      action: "Gerar capas",
+      description: "Gerar capas tecnicas a partir dos dados confirmados do projeto.",
+      href: `/capas?project=${project.id}`,
+      icon: FileText,
+      completed: hasCoverOutput,
+    },
+    {
+      label: "Volumes",
+      action: "Montar volume",
+      description: "Classificar arquivos, organizar paginas, validar e exportar o volume.",
+      href: `/volumes?project=${project.id}`,
+      icon: Layers3,
+      completed: hasVolumeOutput,
+    },
   ] as const;
+  const nextModule = moduleLinks.find((item) => !item.completed) ?? moduleLinks[0];
+  const NextIcon = nextModule.icon;
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-7">
@@ -107,16 +152,51 @@ export default async function ProjectDetailPage({
         <Metric label="Eventos" value={project._count.events} />
       </section>
 
-      <section className="flex flex-wrap gap-2">
+      <section className="rounded-sm border bg-card px-4 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] uppercase text-muted-foreground">Proxima acao</p>
+            <h2 className="mt-1 flex items-center gap-2 text-base font-semibold">
+              <NextIcon className="size-4 text-primary" />
+              {nextModule.action}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{nextModule.description}</p>
+          </div>
+          <Button asChild size="sm" className="shrink-0">
+            <Link href={nextModule.href}>
+              Abrir
+              <NextIcon className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {moduleLinks.map((item) => {
           const Icon = item.icon;
           return (
-            <Button key={item.href} asChild variant="outline" size="sm">
-              <Link href={item.href}>
-                <Icon className="size-4" />
-                {item.label}
-              </Link>
-            </Button>
+            <Card key={item.href}>
+              <CardContent className="flex h-full flex-col gap-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-sm border bg-muted text-primary">
+                    <Icon className="size-4" />
+                  </div>
+                  <Badge variant={item.completed ? "secondary" : "outline"}>
+                    {item.completed ? "Com registros" : "Pendente"}
+                  </Badge>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-semibold">{item.label}</h2>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{item.description}</p>
+                </div>
+                <Button asChild variant="outline" size="sm" className="w-full justify-between">
+                  <Link href={item.href}>
+                    {item.action}
+                    <Icon className="size-4" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
           );
         })}
       </section>

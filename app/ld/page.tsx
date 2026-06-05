@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LdWorkspace } from "@/components/ld/ld-workspace";
 import { getUserAccess } from "@/lib/access-control";
+import { buildCallbackPath, redirectToLogin } from "@/lib/auth-redirect";
 import { getProjectContextForUser } from "@/lib/project-context";
 
 export default async function LdPage({
@@ -10,10 +11,11 @@ export default async function LdPage({
 }: {
   searchParams: Promise<{ draft?: string; project?: string }>;
 }) {
+  const params = await searchParams;
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin(buildCallbackPath("/ld", params));
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);
@@ -22,7 +24,7 @@ export default async function LdPage({
     redirect("/login");
   }
 
-  const { draft, project } = await searchParams;
+  const { draft, project } = params;
   const projectContext = await getProjectContextForUser(project, session.user);
 
   return (

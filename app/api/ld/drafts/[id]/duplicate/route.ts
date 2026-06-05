@@ -1,32 +1,20 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
-import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
-import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { isDatabaseConfigured } from "@/lib/db";
+import {
+  duplicateLdDraft,
+  getLdUserIdentity,
+} from "@/lib/ld/ld-draft-store";
 
 export const runtime = "nodejs";
-
-function getUser(session: Session | null) {
-  const email = session?.user?.email?.trim().toLocaleLowerCase("pt-BR");
-
-  return email ? { email, name: session?.user?.name ?? null } : null;
-}
-
-function copyJson(value: Prisma.JsonValue): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
-}
-
-function getArrayLength(value: Prisma.JsonValue) {
-  return Array.isArray(value) ? value.length : 0;
-}
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
-  const user = getUser(session);
+  const user = getLdUserIdentity(session?.user);
 
   if (!user) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
@@ -37,54 +25,11 @@ export async function POST(
   }
 
   const { id } = await params;
-  const source = await getPrisma().ldDraft.findFirst({
-    where: {
-      id,
-      userEmail: user.email,
-    },
-  });
+  const draft = await duplicateLdDraft({ id, user });
 
-  if (!source) {
+  if (!draft) {
     return NextResponse.json({ error: "LD não encontrada." }, { status: 404 });
   }
 
-  const duplicate = await getPrisma().ldDraft.create({
-    data: {
-      userEmail: user.email,
-      userName: user.name,
-      title: `${source.title} (cópia)`,
-      projectCode: source.projectCode,
-      workName: source.workName,
-      status: "DRAFT",
-      activeStep: source.activeStep,
-      ldData: copyJson(source.ldData),
-      rows: copyJson(source.rows),
-      tomos: copyJson(source.tomos),
-      referenceTotal: source.referenceTotal,
-      manualTotal: source.manualTotal,
-      uploadedFileNames: [],
-      uploadedFileCount: source.uploadedFileCount || getArrayLength(source.uploadedFileNames),
-      generatedFileNames: [],
-      events: {
-        create: {
-          actorEmail: user.email,
-          actorName: user.name,
-          action: "DUPLICATED",
-          summary: `LD duplicada a partir de "${source.title}".`,
-          details: {
-            sourceId: source.id,
-          },
-        },
-      },
-    },
-  });
-
-  return NextResponse.json({
-    draft: {
-      ...duplicate,
-      createdAt: duplicate.createdAt.toISOString(),
-      updatedAt: duplicate.updatedAt.toISOString(),
-      generatedAt: null,
-    },
-  });
+  return NextResponse.json({ draft });
 }

@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { normalizeAuthCallbackPath } from "@/lib/auth-redirect";
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 };
 
 function GoogleMark() {
@@ -34,10 +35,11 @@ function GoogleMark() {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
-  const { error } = await searchParams;
+  const { callbackUrl, error } = await searchParams;
+  const redirectTo = normalizeAuthCallbackPath(callbackUrl);
 
   if (session?.user) {
-    redirect("/");
+    redirect(redirectTo);
   }
 
   return (
@@ -85,7 +87,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             className="mt-6"
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: "/" });
+              await signIn("google", { redirectTo });
             }}
           >
             <Button type="submit" size="lg" className="w-full justify-between px-5">

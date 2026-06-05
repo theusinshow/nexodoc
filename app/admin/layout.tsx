@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { getUserAccess } from "@/lib/access-control";
+import { redirectToLogin } from "@/lib/auth-redirect";
 
 export default async function AdminLayout({
   children,
@@ -12,7 +13,7 @@ export default async function AdminLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin("/admin");
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);

@@ -18,6 +18,7 @@ import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { getUserAccess } from "@/lib/access-control";
+import { redirectToLogin } from "@/lib/auth-redirect";
 
 const availableModules = [
   {
@@ -70,7 +71,7 @@ export default async function DashboardPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin("/");
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);

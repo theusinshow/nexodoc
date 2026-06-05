@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { auth } from "@/auth";
-import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
-  assertProjectAccess,
-  createDocumentArtifact,
-  getUserActor,
-  normalizeEmail,
-} from "@/lib/project-store";
-import { describeStoredFile } from "@/lib/file-storage";
+  persistVolumeReportArtifact,
+  VolumeArtifactPersistenceError,
+} from "@/lib/volume-artifacts";
 import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/volume-builder/lib/volume/volume-types";
 import { generateMarkdownReport } from "@/modules/volume-builder/lib/pdf/generate-markdown-report";
 import { generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
@@ -44,60 +41,28 @@ export async function POST(request: NextRequest) {
     const reportFileName = generateReportFileName(metadata || { projectCode: "", projectName: "" });
 
     if (body.projectId) {
-      if (!isDatabaseConfigured()) {
-        return withVolumeCors(
-          NextResponse.json(
-            { error: "DATABASE_URL nao configurada para registrar artefatos." },
-            { status: 503 },
-          ),
-          request,
-        );
-      }
-
       const session = await auth();
-      const email = session?.user?.email?.trim();
-
-      if (!email) {
-        return withVolumeCors(
-          NextResponse.json({ error: "Autenticacao necessaria." }, { status: 401 }),
-          request,
-        );
-      }
-
-      const actor = await getUserActor(normalizeEmail(email), session?.user?.name ?? null);
 
       try {
-        await assertProjectAccess(body.projectId, actor);
-      } catch {
-        return withVolumeCors(
-          NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }),
-          request,
-        );
-      }
-
-      const reportStorage = describeStoredFile({
-        data: report,
-        module: "volumes",
-        projectId: body.projectId,
-        fileName: reportFileName,
-      });
-
-      await getPrisma().$transaction((tx) =>
-        createDocumentArtifact(tx, {
+        await persistVolumeReportArtifact({
           projectId: body.projectId,
-          actor,
-          module: "volumes",
-          kind: "VOLUME_REPORT",
+          userEmail: session?.user?.email,
+          userName: session?.user?.name,
+          report,
           fileName: reportFileName,
-          mimeType: "text/markdown",
-          ...reportStorage,
-          metadata: {
-            artifactRole: "assembly-report",
-            importedFileCount: importedFiles?.length ?? 0,
-            rowCount: rows.length,
-          },
-        }),
-      );
+          importedFileCount: importedFiles?.length ?? 0,
+          rowCount: rows.length,
+        });
+      } catch (error) {
+        if (error instanceof VolumeArtifactPersistenceError) {
+          return withVolumeCors(
+            NextResponse.json({ error: error.message }, { status: error.status }),
+            request,
+          );
+        }
+
+        throw error;
+      }
     }
 
     return withVolumeCors(new NextResponse(report, {

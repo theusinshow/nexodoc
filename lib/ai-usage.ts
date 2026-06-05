@@ -11,9 +11,10 @@ type TokenUsage = {
 
 type RecordAiUsageArgs = {
   flow: "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
+  aiTaskId?: string | null;
   taskId?: string | null;
   taskLabel?: string | null;
-  provider: "openai" | "mimo";
+  provider: "openai" | "mimo" | "deepseek";
   model: string;
   operation: string;
   status?: "success" | "failed";
@@ -107,6 +108,7 @@ export async function recordAiUsage(args: RecordAiUsageArgs) {
     await getPrisma().aiUsageEvent.create({
       data: {
         flow: args.flow,
+        aiTaskId: args.aiTaskId || null,
         taskId: args.taskId || null,
         taskLabel: args.taskLabel || null,
         provider: args.provider,

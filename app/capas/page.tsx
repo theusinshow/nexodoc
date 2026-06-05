@@ -7,6 +7,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getUserAccess } from "@/lib/access-control";
+import { buildCallbackPath, redirectToLogin } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
 import { getProjectContextForUser } from "@/lib/project-context";
 
@@ -15,10 +16,11 @@ interface CapasPageProps {
 }
 
 export default async function CapasPage({ searchParams }: CapasPageProps) {
+  const params = await searchParams;
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login");
+    redirectToLogin(buildCallbackPath("/capas", params));
   }
 
   const access = await getUserAccess(session.user.email, session.user.name);
@@ -27,7 +29,6 @@ export default async function CapasPage({ searchParams }: CapasPageProps) {
     redirect("/login");
   }
 
-  const params = await searchParams;
   const ldData = decodeLdData(params);
   const projectId = typeof params.project === "string" ? params.project : undefined;
   const projectContext = await getProjectContextForUser(projectId, session.user);
@@ -65,7 +66,7 @@ export default async function CapasPage({ searchParams }: CapasPageProps) {
         </Button>
       </PageHeader>
 
-      <ProjectContextStrip project={projectContext} />
+      <ProjectContextStrip project={projectContext} moduleName="Capas" />
 
       <CoverGeneratorFlow initialData={initialData} projectId={projectId} />
     </div>

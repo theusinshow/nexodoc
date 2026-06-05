@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
+
 import { auth } from "@/auth";
-import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
-  assertProjectAccess,
-  createDocumentArtifact,
-  getUserActor,
-  normalizeEmail,
-} from "@/lib/project-store";
-import { describeStoredFile } from "@/lib/file-storage";
+  CoverArtifactPersistenceError,
+  persistCoverGenerationArtifacts,
+} from "@/lib/cover-artifacts";
 import { generateOdtBuffer } from "@/server/odt";
 import { convertOdtToPdf } from "@/server/pdf";
 import { getFileName } from "@/lib/cover-utils";
@@ -62,109 +59,51 @@ export async function POST(request: NextRequest) {
 
     const { pdfBuffer, error: pdfError } = await convertOdtToPdf(odtBuffer);
 
-    let zipData: string;
+    let zipBuffer: Buffer;
 
     if (pdfBuffer) {
       const zip = new JSZip();
       zip.file(odtFileName, odtBuffer);
       zip.file(pdfFileName, pdfBuffer);
-      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
-      zipData = Buffer.from(zipBuffer).toString("base64");
+      zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
     } else {
       const zip = new JSZip();
       zip.file(odtFileName, odtBuffer);
-      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
-      zipData = Buffer.from(zipBuffer).toString("base64");
+      zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
     }
 
     if (projectId) {
-      if (!isDatabaseConfigured()) {
-        return NextResponse.json(
-          { error: "DATABASE_URL nao configurada para registrar artefatos." },
-          { status: 503 },
-        );
-      }
-
       const session = await auth();
-      const email = session?.user?.email?.trim();
-
-      if (!email) {
-        return NextResponse.json({ error: "Autenticacao necessaria." }, { status: 401 });
-      }
-
-      const actor = await getUserActor(normalizeEmail(email), session?.user?.name ?? null);
 
       try {
-        await assertProjectAccess(projectId, actor);
-      } catch {
-        return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 });
-      }
-
-      await getPrisma().$transaction(async (tx) => {
-        const odtStorage = describeStoredFile({
-          data: odtBuffer,
-          module: "capas",
+        await persistCoverGenerationArtifacts({
           projectId,
-          fileName: odtFileName,
-        });
-        await createDocumentArtifact(tx, {
-          projectId,
-          actor,
-          module: "capas",
-          kind: "COVER_ODT",
-          fileName: odtFileName,
-          mimeType: "application/vnd.oasis.opendocument.text",
-          ...odtStorage,
-          metadata: {
-            templateId: generalData.templateId,
-            pageCount: pages.length,
+          userEmail: session?.user?.email,
+          userName: session?.user?.name,
+          generalData,
+          pageCount: pages.length,
+          odt: {
+            fileName: odtFileName,
+            buffer: odtBuffer,
+          },
+          pdf: pdfBuffer
+            ? {
+                fileName: pdfFileName,
+                buffer: pdfBuffer,
+              }
+            : null,
+          zip: {
+            fileName: zipFileName,
+            buffer: zipBuffer,
           },
         });
-
-        if (pdfBuffer) {
-          const pdfStorage = describeStoredFile({
-            data: pdfBuffer,
-            module: "capas",
-            projectId,
-            fileName: pdfFileName,
-          });
-          await createDocumentArtifact(tx, {
-            projectId,
-            actor,
-            module: "capas",
-            kind: "COVER_PDF",
-            fileName: pdfFileName,
-            mimeType: "application/pdf",
-            ...pdfStorage,
-            metadata: {
-              templateId: generalData.templateId,
-              pageCount: pages.length,
-            },
-          });
+      } catch (error) {
+        if (error instanceof CoverArtifactPersistenceError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
         }
 
-        const zipBuffer = Buffer.from(zipData, "base64");
-        const zipStorage = describeStoredFile({
-          data: zipBuffer,
-          module: "capas",
-          projectId,
-          fileName: zipFileName,
-        });
-        await createDocumentArtifact(tx, {
-          projectId,
-          actor,
-          module: "capas",
-          kind: "COVER_ZIP",
-          fileName: zipFileName,
-          mimeType: "application/zip",
-          ...zipStorage,
-          metadata: {
-            templateId: generalData.templateId,
-            pageCount: pages.length,
-            pdfGenerated: Boolean(pdfBuffer),
-          },
-        });
-      });
+        throw error;
+      }
     }
 
     return NextResponse.json({
@@ -181,7 +120,7 @@ export async function POST(request: NextRequest) {
           : null,
         zip: {
           name: zipFileName,
-          data: zipData,
+          data: Buffer.from(zipBuffer).toString("base64"),
         },
       },
       pdfError: pdfError || undefined,
