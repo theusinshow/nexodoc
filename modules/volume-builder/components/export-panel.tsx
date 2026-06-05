@@ -15,10 +15,11 @@ interface ExportPanelProps {
   metadata: VolumeMetadata;
   importedFiles: ImportedPdfFile[];
   fileDataMap: Map<string, File>;
+  projectId?: string;
   compact?: boolean;
 }
 
-export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compact = false }: ExportPanelProps) {
+export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, projectId, compact = false }: ExportPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
@@ -38,6 +39,9 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
     formData.append("rows", JSON.stringify(rows));
     formData.append("metadata", JSON.stringify(metadata));
     formData.append("importedFiles", JSON.stringify(usedImportedFiles));
+    if (projectId) {
+      formData.append("projectId", projectId);
+    }
 
     for (const file of usedImportedFiles) {
       const fileData = fileDataMap.get(file.id);
@@ -151,7 +155,7 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, compac
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, metadata, importedFiles }),
+        body: JSON.stringify({ rows, metadata, importedFiles, projectId }),
       });
 
       if (!response.ok) {

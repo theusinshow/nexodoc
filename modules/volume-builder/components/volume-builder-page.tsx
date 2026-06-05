@@ -25,11 +25,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, CircleDot, FileSearch, FileStack, Layers3, Plus, Upload } from "lucide-react";
+import type { ProjectContext } from "@/lib/project-context";
 
-export function VolumeBuilderPage() {
+export function VolumeBuilderPage({
+  projectId,
+  projectContext,
+}: {
+  projectId?: string;
+  projectContext?: ProjectContext | null;
+}) {
   const [metadata, setMetadata] = useState<VolumeMetadata>({
-    projectCode: "",
-    projectName: "",
+    projectCode: projectContext?.code ?? "",
+    projectName: projectContext?.name ?? "",
   });
   const [importedFiles, setImportedFiles] = useState<ImportedPdfFile[]>([]);
   const [pageAssets, setPageAssets] = useState<PageAsset[]>([]);
@@ -503,6 +510,7 @@ export function VolumeBuilderPage() {
             metadata={metadata}
             importedFiles={importedFiles}
             fileDataMap={fileDataMap}
+            projectId={projectId}
             compact
           />
           <VolumeStructurePreview rows={rows} metadata={metadata} compact />

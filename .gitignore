@@ -49,6 +49,7 @@ temp/
 
 # Local artifacts
 uploads/
+backups/
 *.local
 .nexodoc-learnings.json
 data/nexodoc-learnings.json

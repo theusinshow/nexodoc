@@ -4,10 +4,10 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   assertProjectAccess,
   createDocumentArtifact,
-  getChecksumSha256,
   getUserActor,
   normalizeEmail,
 } from "@/lib/project-store";
+import { describeStoredFile } from "@/lib/file-storage";
 import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/volume-builder/lib/volume/volume-types";
 import { generateMarkdownReport } from "@/modules/volume-builder/lib/pdf/generate-markdown-report";
 import { generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
@@ -75,6 +75,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const reportStorage = describeStoredFile({
+        data: report,
+        module: "volumes",
+        projectId: body.projectId,
+        fileName: reportFileName,
+      });
+
       await getPrisma().$transaction((tx) =>
         createDocumentArtifact(tx, {
           projectId: body.projectId,
@@ -83,8 +90,7 @@ export async function POST(request: NextRequest) {
           kind: "VOLUME_REPORT",
           fileName: reportFileName,
           mimeType: "text/markdown",
-          sizeBytes: Buffer.byteLength(report, "utf8"),
-          checksumSha256: getChecksumSha256(report),
+          ...reportStorage,
           metadata: {
             artifactRole: "assembly-report",
             importedFileCount: importedFiles?.length ?? 0,

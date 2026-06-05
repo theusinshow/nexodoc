@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { recordAiUsage } from "@/lib/ai-usage";
+import { executeOpenAiResponse, getProviderFailureStatus } from "@/lib/ai-runner";
 import type { AuditReport } from "@/lib/audit-report";
-import {
-  classifyProviderFailure,
-  getAiConfiguration,
-  recordProviderFailure,
-} from "@/lib/ai-providers";
-import { getOpenAIClient } from "@/lib/openai";
+import { classifyProviderFailure, getAiConfiguration } from "@/lib/ai-providers";
 
 export const runtime = "nodejs";
 
@@ -184,30 +179,25 @@ export async function POST(request: Request) {
           .slice(-6)
       : [];
     const model = getAiConfiguration().auditChat.model;
-    const openai = getOpenAIClient();
-    const startedAt = Date.now();
-    const response = await openai.responses.create({
-      model,
-      instructions: "Você responde perguntas pós-auditoria documental com base estrita no relatório fornecido.",
-      reasoning: { effort: getReasoningEffort() },
-      max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
-      input: getChatPrompt({ question, report: body.report, history }),
-    });
-    await recordAiUsage({
+    const aiResponse = await executeOpenAiResponse({
       flow: "audit-chat",
       taskId: body.auditId,
       taskLabel: body.report.obra || body.report.arquivo || "Pós-auditoria",
-      provider: "openai",
       model,
       operation: "audit-chat-answer",
-      response,
-      durationMs: Date.now() - startedAt,
       metadata: {
         findings: body.report.incongruencias.length,
         historyTurns: history.length,
       },
+      request: {
+        model,
+        instructions: "Você responde perguntas pós-auditoria documental com base estrita no relatório fornecido.",
+        reasoning: { effort: getReasoningEffort() },
+        max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
+        input: getChatPrompt({ question, report: body.report, history }),
+      },
     });
-    const answer = extractResponseText(response);
+    const answer = extractResponseText(aiResponse.response);
 
     if (!answer) {
       throw new Error("Resposta vazia do modelo.");
@@ -222,9 +212,8 @@ export async function POST(request: Request) {
       error,
     );
     if (failure.category !== "unknown") {
-      recordProviderFailure(failure);
       console.error(`[audit-chat] falha do provedor (${failure.category})`);
-      return jsonError(failure.message, failure.category === "quota_billing" ? 402 : 503, request);
+      return jsonError(failure.message, getProviderFailureStatus(failure.category), request);
     }
 
     console.error("[audit-chat] falha não classificada");

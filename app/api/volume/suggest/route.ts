@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfiguration } from "@/lib/ai-providers";
-import { getOpenAIClient } from "@/lib/openai";
-import { recordAiUsage } from "@/lib/ai-usage";
+import { executeOpenAiResponse } from "@/lib/ai-runner";
 import type {
   AssemblySuggestion,
   AssemblySuggestionRequest,
@@ -54,37 +53,31 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const startedAt = Date.now();
-      const response = await getOpenAIClient().responses.create({
-        model: configuration.model,
-        instructions: ASSEMBLY_SUGGESTION_SYSTEM_PROMPT,
-        input: buildAssemblySuggestionUserPrompt({
-          metadata,
-          importedFiles,
-          pageAssets,
-        }),
-        max_output_tokens: 2500,
-        reasoning: { effort: "low" },
-      });
-
-      const parsed = parseAiJson(response.output_text ?? "");
-      const sanitized = sanitizeSuggestions(parsed.suggestions ?? [], pageAssets);
-      const suggestions = sanitized.length > 0 ? sanitized : localSuggestions;
-
-      await recordAiUsage({
+      const aiResponse = await executeOpenAiResponse({
         flow: "volume-suggestion",
-        provider: "openai",
         model: configuration.model,
         operation: "volume-assembly-suggestion",
-        response,
-        durationMs: Date.now() - startedAt,
         taskLabel: metadata.projectName || metadata.projectCode || "Volume",
         metadata: {
           importedFiles: importedFiles.length,
           pageAssets: pageAssets.length,
-          suggestions: suggestions.length,
+        },
+        request: {
+          model: configuration.model,
+          instructions: ASSEMBLY_SUGGESTION_SYSTEM_PROMPT,
+          input: buildAssemblySuggestionUserPrompt({
+            metadata,
+            importedFiles,
+            pageAssets,
+          }),
+          max_output_tokens: 2500,
+          reasoning: { effort: "low" },
         },
       });
+
+      const parsed = parseAiJson(aiResponse.text);
+      const sanitized = sanitizeSuggestions(parsed.suggestions ?? [], pageAssets);
+      const suggestions = sanitized.length > 0 ? sanitized : localSuggestions;
 
       return withVolumeCors(
         NextResponse.json({

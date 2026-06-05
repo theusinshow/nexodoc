@@ -25,11 +25,11 @@ import {
   createDocumentArtifact,
   createProjectEvent,
   createProjectUpload,
-  getChecksumSha256,
   getUserActor,
   normalizeEmail,
   type ActorIdentity,
 } from "@/lib/project-store";
+import { describeStoredFile } from "@/lib/file-storage";
 import {
   getMockAuditResult,
   isMockModeEnabled,
@@ -192,6 +192,12 @@ async function persistCompletedAudit(args: {
 
       if (args.projectId && args.actor) {
         for (const file of args.uploadedFiles) {
+          const uploadStorage = describeStoredFile({
+            data: file.buffer,
+            module: "audit",
+            projectId: args.projectId,
+            fileName: file.file.name,
+          });
           await createProjectUpload(transaction, {
             projectId: args.projectId,
             actor: args.actor,
@@ -199,9 +205,8 @@ async function persistCompletedAudit(args: {
             source: "audit-input",
             fileName: file.file.name,
             mimeType: file.file.type || "application/pdf",
-            sizeBytes: file.file.size,
+            ...uploadStorage,
             pageCount: file.extracted.pageCount,
-            checksumSha256: getChecksumSha256(file.buffer),
             metadata: {
               auditId: args.auditId,
               documentType: file.fileType,
@@ -210,16 +215,22 @@ async function persistCompletedAudit(args: {
           });
         }
 
+        const reportFileName = `${args.auditId}-relatorio-auditoria.md`;
+        const reportStorage = describeStoredFile({
+          data: args.result,
+          module: "audit",
+          projectId: args.projectId,
+          fileName: reportFileName,
+        });
         await createDocumentArtifact(transaction, {
           projectId: args.projectId,
           auditId: args.auditId,
           actor: args.actor,
           module: "audit",
           kind: "AUDIT_MARKDOWN",
-          fileName: `${args.auditId}-relatorio-auditoria.md`,
+          fileName: reportFileName,
           mimeType: "text/markdown",
-          sizeBytes: Buffer.byteLength(args.result, "utf8"),
-          checksumSha256: getChecksumSha256(args.result),
+          ...reportStorage,
           metadata: {
             auditMode: args.report.tipo_auditoria,
             analysisLevel: args.report.runtime?.nivel_analise,

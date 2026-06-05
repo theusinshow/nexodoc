@@ -40,6 +40,7 @@ interface StepResultProps {
   generalData: GeneralData;
   pages: CoverPage[];
   onReset: () => void;
+  projectId?: string;
 }
 
 function base64ToObjectUrl(base64: string, mimeType: string) {
@@ -57,6 +58,7 @@ export function StepResult({
   generalData,
   pages,
   onReset,
+  projectId,
 }: StepResultProps) {
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -90,7 +92,7 @@ export function StepResult({
       const response = await fetch("/api/capas/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generalData, pages }),
+        body: JSON.stringify({ generalData, pages, projectId }),
       });
 
       if (!response.ok) {

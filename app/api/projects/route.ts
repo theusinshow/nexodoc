@@ -153,6 +153,10 @@ export async function POST(request: Request) {
   const organizationId = getStringField(payload?.organizationId) || null;
   const code = normalizeProjectCode(getStringField(payload?.code));
 
+  if (!code) {
+    return NextResponse.json({ error: "Informe o codigo do projeto." }, { status: 400 });
+  }
+
   const project = await prisma.$transaction(async (tx) => {
     const createdProject = await tx.project.create({
       data: {

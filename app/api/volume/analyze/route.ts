@@ -6,7 +6,6 @@ import type {
   BatchAnalysisResult,
 } from "@/modules/volume-builder/lib/volume/volume-types";
 import { isAIConfigured, callOpenAI } from "@/modules/volume-builder/lib/ai/openai";
-import { recordAiUsage } from "@/lib/ai-usage";
 import {
   BATCH_ANALYSIS_SYSTEM_PROMPT,
   buildBatchAnalysisUserPrompt,
@@ -94,15 +93,8 @@ export async function POST(request: NextRequest) {
         metadataJson
       );
 
-      const aiResponse = await callOpenAI(BATCH_ANALYSIS_SYSTEM_PROMPT, userPrompt);
-
-      await recordAiUsage({
-        flow: "volume-analysis",
-        provider: "openai",
-        model: aiResponse.model,
+      const aiResponse = await callOpenAI(BATCH_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
         operation: "volume-batch-analysis",
-        response: aiResponse.response,
-        durationMs: aiResponse.durationMs,
         taskLabel: metadata.projectName || metadata.projectCode || "Volume",
         metadata: {
           rows: rows.length,

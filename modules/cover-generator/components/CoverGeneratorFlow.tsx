@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 
 interface CoverGeneratorFlowProps {
   initialData?: InitialData;
+  projectId?: string;
 }
 
-export function CoverGeneratorFlow({ initialData }: CoverGeneratorFlowProps) {
+export function CoverGeneratorFlow({ initialData, projectId }: CoverGeneratorFlowProps) {
   const ctx = useCoverGenerator(initialData);
 
   function handleNext() {
@@ -134,6 +135,7 @@ export function CoverGeneratorFlow({ initialData }: CoverGeneratorFlowProps) {
               generalData={ctx.generalData}
               pages={ctx.pages}
               onReset={ctx.reset}
+              projectId={projectId}
             />
           )}
         </div>

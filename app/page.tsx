@@ -3,6 +3,7 @@ import {
   BookOpenCheck,
   Files,
   FolderCog,
+  FolderKanban,
   Gauge,
   LayoutGrid,
   Layers3,
@@ -44,6 +45,15 @@ const availableModules = [
     href: "/capas",
     label: "Abrir capas",
     icon: FolderCog,
+    emphasis: false,
+  },
+  {
+    title: "Projetos",
+    description:
+      "Acompanhe projetos, uploads, documentos, artefatos e eventos consolidados no banco.",
+    href: "/projetos",
+    label: "Abrir projetos",
+    icon: FolderKanban,
     emphasis: false,
   },
   {
@@ -136,7 +146,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border lg:w-[290px]">
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Disponíveis</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">04</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">05</p>
             </div>
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Planejados</p>

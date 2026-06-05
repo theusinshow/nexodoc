@@ -5,10 +5,10 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   assertProjectAccess,
   createDocumentArtifact,
-  getChecksumSha256,
   getUserActor,
   normalizeEmail,
 } from "@/lib/project-store";
+import { describeStoredFile } from "@/lib/file-storage";
 import { generateOdtBuffer } from "@/server/odt";
 import { convertOdtToPdf } from "@/server/pdf";
 import { getFileName } from "@/lib/cover-utils";
@@ -101,6 +101,12 @@ export async function POST(request: NextRequest) {
       }
 
       await getPrisma().$transaction(async (tx) => {
+        const odtStorage = describeStoredFile({
+          data: odtBuffer,
+          module: "capas",
+          projectId,
+          fileName: odtFileName,
+        });
         await createDocumentArtifact(tx, {
           projectId,
           actor,
@@ -108,8 +114,7 @@ export async function POST(request: NextRequest) {
           kind: "COVER_ODT",
           fileName: odtFileName,
           mimeType: "application/vnd.oasis.opendocument.text",
-          sizeBytes: odtBuffer.byteLength,
-          checksumSha256: getChecksumSha256(odtBuffer),
+          ...odtStorage,
           metadata: {
             templateId: generalData.templateId,
             pageCount: pages.length,
@@ -117,6 +122,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (pdfBuffer) {
+          const pdfStorage = describeStoredFile({
+            data: pdfBuffer,
+            module: "capas",
+            projectId,
+            fileName: pdfFileName,
+          });
           await createDocumentArtifact(tx, {
             projectId,
             actor,
@@ -124,8 +135,7 @@ export async function POST(request: NextRequest) {
             kind: "COVER_PDF",
             fileName: pdfFileName,
             mimeType: "application/pdf",
-            sizeBytes: pdfBuffer.byteLength,
-            checksumSha256: getChecksumSha256(pdfBuffer),
+            ...pdfStorage,
             metadata: {
               templateId: generalData.templateId,
               pageCount: pages.length,
@@ -133,6 +143,13 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        const zipBuffer = Buffer.from(zipData, "base64");
+        const zipStorage = describeStoredFile({
+          data: zipBuffer,
+          module: "capas",
+          projectId,
+          fileName: zipFileName,
+        });
         await createDocumentArtifact(tx, {
           projectId,
           actor,
@@ -140,8 +157,7 @@ export async function POST(request: NextRequest) {
           kind: "COVER_ZIP",
           fileName: zipFileName,
           mimeType: "application/zip",
-          sizeBytes: Buffer.byteLength(zipData, "base64"),
-          checksumSha256: getChecksumSha256(Buffer.from(zipData, "base64")),
+          ...zipStorage,
           metadata: {
             templateId: generalData.templateId,
             pageCount: pages.length,

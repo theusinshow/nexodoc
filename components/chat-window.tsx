@@ -51,6 +51,7 @@ import {
 import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import type { ProjectContext } from "@/lib/project-context";
 import { cn } from "@/lib/utils";
 
 type ChatWindowProps = {
@@ -60,6 +61,8 @@ type ChatWindowProps = {
   userName?: string | null;
   userEmail?: string | null;
   userImage?: string | null;
+  projectId?: string;
+  projectContext?: ProjectContext | null;
 };
 
 type ChatMessage = {
@@ -424,14 +427,16 @@ export function ChatWindow({
   userName,
   userEmail,
   userImage,
+  projectId,
+  projectContext,
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState(getDefaultPrompt(DEFAULT_AUDIT_MODE));
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
   const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
   const [analysisLevel, setAnalysisLevel] = useState<AnalysisLevel>(DEFAULT_ANALYSIS_LEVEL);
-  const [auditTitle, setAuditTitle] = useState("");
-  const [projectName, setProjectName] = useState("");
+  const [auditTitle, setAuditTitle] = useState(projectContext?.code ? `Auditoria ${projectContext.code}` : "");
+  const [projectName, setProjectName] = useState(projectContext?.name ?? "");
   const [auditDescription, setAuditDescription] = useState("");
   const [useMockMode, setUseMockMode] = useState(isMockMode && allowDemoMode);
   const [error, setError] = useState("");
@@ -955,6 +960,9 @@ export function ChatWindow({
     formData.append("auditDescription", auditDescription.trim());
     formData.append("auditId", auditId);
     formData.append("mockMode", useMockMode ? "true" : "false");
+    if (projectId) {
+      formData.append("projectId", projectId);
+    }
     files.forEach((attachment) => {
       formData.append("files", attachment.file);
       formData.append("fileTypes", attachment.documentType);
@@ -1070,6 +1078,14 @@ export function ChatWindow({
     return (
       <section className="border-b bg-background px-4 py-2.5 sm:px-5">
         <div className="flex flex-wrap items-center gap-3">
+          {projectContext ? (
+            <div className="flex max-w-full items-center gap-2 rounded-sm border bg-card px-2.5 py-1.5 text-xs">
+              <span className="font-medium">Projeto vinculado</span>
+              <span className="font-mono text-muted-foreground">{projectContext.code}</span>
+              <span className="max-w-[220px] truncate text-muted-foreground">{projectContext.name}</span>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={auditTitle}

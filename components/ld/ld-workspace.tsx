@@ -25,6 +25,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { encodeLdData } from "@/modules/ld-interop";
+import type { ProjectContext } from "@/lib/project-context";
 import {
   buildBalancedTomos,
   compareBySheet,
@@ -992,14 +993,36 @@ function getAutosaveLabel(state: AutosaveState) {
 
 export function LdWorkspace({
   initialDraftId,
+  projectId,
+  projectContext,
   isAdmin = false,
 }: {
   initialDraftId?: string;
+  projectId?: string;
+  projectContext?: ProjectContext | null;
   isAdmin?: boolean;
 }) {
+  const seededLdData: LdData = projectContext
+    ? {
+        ...initialLdData,
+        projectCode: projectContext.code.replace(/-/g, "_"),
+        formattedCode: projectContext.code.replace(/_/g, "-"),
+        client: projectContext.client,
+        workName: projectContext.name,
+      }
+    : initialLdData;
+  const seededLdFieldSources: LdFieldSources = projectContext
+    ? {
+        ...initialLdFieldSources,
+        projectCode: "system",
+        formattedCode: "system",
+        client: projectContext.client ? "system" : "empty",
+        workName: "system",
+      }
+    : initialLdFieldSources;
   const [activeStep, setActiveStep] = useState(0);
-  const [ldData, setLdData] = useState<LdData>(initialLdData);
-  const [ldFieldSources, setLdFieldSources] = useState<LdFieldSources>(initialLdFieldSources);
+  const [ldData, setLdData] = useState<LdData>(seededLdData);
+  const [ldFieldSources, setLdFieldSources] = useState<LdFieldSources>(seededLdFieldSources);
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [tomos, setTomos] = useState<Tomo[]>([]);
   const [referenceTotal, setReferenceTotal] = useState<number | null>(null);
@@ -1093,8 +1116,12 @@ export function LdWorkspace({
       volume: "I",
     });
 
+    if (projectId) {
+      params.set("project", projectId);
+    }
+
     return `/capas?${params.toString()}`;
-  }, [ldData, tomos]);
+  }, [ldData, projectId, tomos]);
   const finalChecklistItems = useMemo(
     () => [
       "Conferi órgão/cliente, nome da obra, fase e título da seção.",
@@ -1222,6 +1249,7 @@ export function LdWorkspace({
             uploadedFileNames: [],
             uploadedFileCount,
             generatedFileNames,
+            projectId,
             status: generatedFileNames.length > 0 ? "GENERATED" : "DRAFT",
           }),
         });
@@ -1262,6 +1290,7 @@ export function LdWorkspace({
     rows,
     tomos,
     uploadedFileCount,
+    projectId,
   ]);
 
   function loadDraft(draft: LdDraftListItem, registerReopen = true) {
@@ -2232,6 +2261,16 @@ export function LdWorkspace({
               {getAutosaveLabel(autosaveState)}
               {autosaveMessage ? ` · ${autosaveMessage}` : ""}
             </p>
+            {projectContext ? (
+              <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-sm border bg-background px-3 py-2 text-xs">
+                <span className="font-medium">Projeto vinculado</span>
+                <span className="font-mono text-muted-foreground">{projectContext.code}</span>
+                <span className="truncate text-muted-foreground">{projectContext.name}</span>
+                <Link href={`/projetos/${projectContext.id}`} className="font-medium text-primary hover:underline">
+                  Abrir projeto
+                </Link>
+              </div>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href="/"
