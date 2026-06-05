@@ -66,7 +66,25 @@ export default function PageAssetTrayInternal({
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [previewAssetId, setPreviewAssetId] = useState<string | null>(null);
   const [zoomAssetId, setZoomAssetId] = useState<string | null>(null);
-  const [fileObjectUrls, setFileObjectUrls] = useState<Map<string, string>>(new Map());
+  const fileObjectUrls = useMemo(() => {
+    const nextUrls = new Map<string, string>();
+
+    for (const file of fileDataMap.values()) {
+      const asset = assets.find((item) => item.sourceFileName === file.name);
+      if (asset && !nextUrls.has(asset.sourceFileId)) {
+        nextUrls.set(asset.sourceFileId, URL.createObjectURL(file));
+      }
+    }
+
+    for (const asset of assets) {
+      const file = fileDataMap.get(asset.sourceFileId);
+      if (file && !nextUrls.has(asset.sourceFileId)) {
+        nextUrls.set(asset.sourceFileId, URL.createObjectURL(file));
+      }
+    }
+
+    return nextUrls;
+  }, [assets, fileDataMap]);
 
   const files = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number }>();
@@ -166,30 +184,12 @@ export default function PageAssetTrayInternal({
     : undefined;
 
   useEffect(() => {
-    const nextUrls = new Map<string, string>();
-
-    for (const file of fileDataMap.values()) {
-      const asset = assets.find((item) => item.sourceFileName === file.name);
-      if (asset && !nextUrls.has(asset.sourceFileId)) {
-        nextUrls.set(asset.sourceFileId, URL.createObjectURL(file));
-      }
-    }
-
-    for (const asset of assets) {
-      const file = fileDataMap.get(asset.sourceFileId);
-      if (file && !nextUrls.has(asset.sourceFileId)) {
-        nextUrls.set(asset.sourceFileId, URL.createObjectURL(file));
-      }
-    }
-
-    setFileObjectUrls(nextUrls);
-
     return () => {
-      for (const url of nextUrls.values()) {
+      for (const url of fileObjectUrls.values()) {
         URL.revokeObjectURL(url);
       }
     };
-  }, [assets, fileDataMap]);
+  }, [fileObjectUrls]);
 
   useEffect(() => {
     const pendingFileIds = new Set(
@@ -444,6 +444,7 @@ export default function PageAssetTrayInternal({
           )}
 
           <PreviewPanel
+            key={`${previewTarget?.asset.id ?? "empty"}:${previewTarget?.fileUrl ?? ""}`}
             target={previewTarget}
             onZoom={() => previewTarget && setZoomAssetId(previewTarget.asset.id)}
           />
@@ -738,10 +739,6 @@ function PreviewPanel({
   onZoom: () => void;
 }) {
   const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [target?.asset.id, target?.fileUrl]);
 
   if (!target) {
     return (

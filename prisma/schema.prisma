@@ -31,6 +31,72 @@ enum LdDraftStatus {
   ARCHIVED
 }
 
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum OrganizationMemberStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum ProjectDocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum DocumentArtifactKind {
+  COVER_ODT
+  COVER_PDF
+  COVER_ZIP
+  LD_ODT
+  LD_PDF
+  LD_REPORT
+  LD_ZIP
+  AUDIT_MARKDOWN
+  AUDIT_PDF
+  VOLUME_REPORT
+  VOLUME_PDF
+  VOLUME_ZIP
+  OTHER
+}
+
+enum DocumentArtifactStatus {
+  AVAILABLE
+  FAILED
+  EXPIRED
+  DELETED
+}
+
+enum ProjectEventType {
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  STATUS_CHANGED
+  PROJECT_ARCHIVED
+  PROJECT_DELETED
+  DOCUMENT_ADDED
+  DOCUMENT_ARCHIVED
+  INPUT_UPLOADED
+  AUDIT_CREATED
+  AUDIT_COMPLETED
+  LD_DRAFT_CREATED
+  LD_GENERATED
+  COVER_GENERATED
+  VOLUME_GENERATED
+  ARTIFACT_CREATED
+  NOTE_ADDED
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -41,8 +107,131 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
+  organizationMemberships OrganizationMember[]
   audits       Audit[]
   aiUsageEvents AiUsageEvent[]
+  projects     Project[]
+  projectDocuments ProjectDocument[]
+  projectUploads ProjectUpload[]
+  documentArtifacts DocumentArtifact[]
+  projectEvents ProjectEvent[]
+}
+
+model Organization {
+  id          String                     @id @default(cuid())
+  name        String
+  slug        String                     @unique
+  ownerEmail  String
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  archivedAt  DateTime?
+  members     OrganizationMember[]
+  projects    Project[]
+
+  @@index([ownerEmail, createdAt])
+  @@index([archivedAt])
+}
+
+model OrganizationMember {
+  id             String                   @id @default(cuid())
+  organizationId String
+  userId         String?
+  email          String
+  name           String?
+  role           OrganizationRole         @default(MEMBER)
+  status         OrganizationMemberStatus @default(ACTIVE)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([email, status])
+  @@index([userId])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  organizationId String?
+  ownerId     String?
+  ownerEmail  String
+  ownerName   String?
+  code        String        @default("")
+  name        String
+  client      String        @default("")
+  description String        @default("")
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  audits      Audit[]
+  ldDrafts    LdDraft[]
+  documents   ProjectDocument[]
+  uploads     ProjectUpload[]
+  artifacts   DocumentArtifact[]
+  events      ProjectEvent[]
+
+  @@unique([ownerEmail, code])
+  @@index([organizationId, updatedAt])
+  @@index([ownerEmail, updatedAt])
+  @@index([status, updatedAt])
+  @@index([archivedAt])
+  @@index([deletedAt])
+}
+
+model ProjectDocument {
+  id            String                @id @default(cuid())
+  projectId     String?
+  userId        String?
+  userEmail     String
+  module        String
+  documentType  String
+  fileName      String
+  mimeType      String                @default("application/pdf")
+  sizeBytes     Int?
+  pageCount     Int?
+  checksumSha256 String?
+  status        ProjectDocumentStatus @default(ACTIVE)
+  metadata      Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  project       Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([userEmail, createdAt])
+  @@index([module, createdAt])
+  @@index([documentType, createdAt])
+  @@index([checksumSha256])
+}
+
+model ProjectUpload {
+  id             String                @id @default(cuid())
+  projectId      String?
+  userId         String?
+  userEmail      String
+  module         String
+  source         String                @default("manual")
+  fileName       String
+  mimeType       String
+  sizeBytes      Int?
+  pageCount      Int?
+  storageProvider String               @default("none")
+  storageKey     String?
+  checksumSha256 String?
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+  project        Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([userEmail, createdAt])
+  @@index([module, createdAt])
+  @@index([checksumSha256])
+  @@index([storageProvider, storageKey])
 }
 
 model Session {
@@ -60,6 +249,7 @@ model Session {
 model Audit {
   id             String       @id @default(cuid())
   userId         String?
+  projectId      String?
   title          String
   projectName    String
   description    String      @default("")
@@ -74,9 +264,12 @@ model Audit {
   createdAt      DateTime    @default(now())
   completedAt    DateTime?
   user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   files          AuditFile[]
   feedback       AuditFeedback[]
+  artifacts      DocumentArtifact[]
 
+  @@index([projectId, createdAt])
   @@index([userId, createdAt])
   @@index([status, createdAt])
 }
@@ -115,6 +308,7 @@ model AuditFile {
 
 model LdDraft {
   id                 String        @id @default(cuid())
+  projectId          String?
   userEmail          String
   userName           String?
   title              String
@@ -133,8 +327,11 @@ model LdDraft {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   generatedAt        DateTime?
+  project            Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   events             LdDraftEvent[]
+  artifacts          DocumentArtifact[]
 
+  @@index([projectId, updatedAt])
   @@index([userEmail, updatedAt])
   @@index([status, updatedAt])
 }
@@ -152,6 +349,62 @@ model LdDraftEvent {
 
   @@index([draftId, createdAt])
   @@index([actorEmail, createdAt])
+}
+
+model DocumentArtifact {
+  id             String                 @id @default(cuid())
+  projectId      String?
+  auditId        String?
+  ldDraftId      String?
+  userId         String?
+  userEmail      String
+  module         String
+  kind           DocumentArtifactKind
+  status         DocumentArtifactStatus @default(AVAILABLE)
+  fileName       String
+  mimeType       String
+  sizeBytes      Int?
+  storageProvider String                 @default("none")
+  storageKey     String?
+  downloadUrl    String?
+  checksumSha256 String?
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  expiresAt      DateTime?
+  project        Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  audit          Audit?                 @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  ldDraft        LdDraft?               @relation(fields: [ldDraftId], references: [id], onDelete: SetNull)
+  user           User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([auditId, createdAt])
+  @@index([ldDraftId, createdAt])
+  @@index([userEmail, createdAt])
+  @@index([module, createdAt])
+  @@index([kind, createdAt])
+  @@index([status, createdAt])
+  @@index([storageProvider, storageKey])
+  @@index([checksumSha256])
+}
+
+model ProjectEvent {
+  id         String           @id @default(cuid())
+  projectId  String
+  actorId    String?
+  actorEmail String
+  actorName  String?
+  type       ProjectEventType
+  title      String
+  summary    String           @default("")
+  details    Json?
+  createdAt  DateTime         @default(now())
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor      User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([actorEmail, createdAt])
+  @@index([type, createdAt])
 }
 
 model AiUsageEvent {

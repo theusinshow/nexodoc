@@ -4,6 +4,12 @@ import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import {
+  assertProjectAccess,
+  createDocumentArtifact,
+  createProjectEvent,
+  getUserActor,
+} from "@/lib/project-store";
 
 export const runtime = "nodejs";
 
@@ -11,6 +17,7 @@ const MAX_DRAFTS = 30;
 
 type LdDraftPayload = {
   id?: string;
+  projectId?: string;
   activeStep?: number;
   ldData?: Prisma.InputJsonValue;
   rows?: Prisma.InputJsonValue;
@@ -86,6 +93,48 @@ function getJsonArrayLength(value: Prisma.JsonValue) {
   return Array.isArray(value) ? value.length : 0;
 }
 
+function getGeneratedFileNames(value: Prisma.InputJsonValue) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function getLdArtifactKind(fileName: string) {
+  const normalized = fileName.toLocaleLowerCase("pt-BR");
+
+  if (normalized.endsWith(".zip")) {
+    return "LD_ZIP" as const;
+  }
+
+  if (normalized.endsWith(".pdf")) {
+    return "LD_PDF" as const;
+  }
+
+  if (normalized.endsWith(".md")) {
+    return "LD_REPORT" as const;
+  }
+
+  return "LD_ODT" as const;
+}
+
+function getMimeType(fileName: string) {
+  const normalized = fileName.toLocaleLowerCase("pt-BR");
+
+  if (normalized.endsWith(".zip")) {
+    return "application/zip";
+  }
+
+  if (normalized.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+
+  if (normalized.endsWith(".md")) {
+    return "text/markdown";
+  }
+
+  return "application/vnd.oasis.opendocument.text";
+}
+
 function serializeDraft(draft: {
   id: string;
   title: string;
@@ -104,6 +153,7 @@ function serializeDraft(draft: {
   createdAt: Date;
   updatedAt: Date;
   generatedAt: Date | null;
+  projectId?: string | null;
   _count?: { events: number };
 }) {
   return {
@@ -256,6 +306,17 @@ export async function POST(request: Request) {
   const uploadedFileNames: Prisma.InputJsonValue = [];
   const generatedFileNames = asJson(body.generatedFileNames, []);
   const status = body.status ?? "DRAFT";
+  const actor = await getUserActor(user.email, user.name);
+  const requestedProjectId = body.projectId === undefined ? undefined : getStringField(body.projectId) || null;
+
+  if (requestedProjectId) {
+    try {
+      await assertProjectAccess(requestedProjectId, actor);
+    } catch {
+      return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 });
+    }
+  }
+
   const data = {
     userEmail: user.email,
     userName: user.name,
@@ -292,10 +353,12 @@ export async function POST(request: Request) {
     const change = buildUpdateSummary(previous, data);
     const updateData = {
       ...data,
+      projectId: requestedProjectId === undefined ? previous.projectId : requestedProjectId,
       generatedAt:
         previous.generatedAt ??
         (status === "GENERATED" ? new Date() : undefined),
     };
+    const effectiveProjectId = updateData.projectId;
 
     draft = await getPrisma().$transaction(async (transaction) => {
       const updated = await transaction.ldDraft.update({
@@ -315,21 +378,87 @@ export async function POST(request: Request) {
         });
       }
 
+      if (effectiveProjectId && change?.action === "GENERATED") {
+        await createProjectEvent(transaction, {
+          projectId: effectiveProjectId,
+          actor,
+          type: "LD_GENERATED",
+          title: "LD gerada",
+          summary: updated.title,
+          details: {
+            draftId: updated.id,
+            generatedFileNames,
+          },
+        });
+
+        for (const fileName of getGeneratedFileNames(generatedFileNames)) {
+          await createDocumentArtifact(transaction, {
+            projectId: effectiveProjectId,
+            ldDraftId: updated.id,
+            actor,
+            module: "ld",
+            kind: getLdArtifactKind(fileName),
+            fileName,
+            mimeType: getMimeType(fileName),
+            metadata: {
+              source: "ld-draft",
+              status,
+            },
+          });
+        }
+      }
+
       return updated;
     });
   } else {
-    draft = await getPrisma().ldDraft.create({
-      data: {
-        ...data,
-        events: {
-          create: {
-            actorEmail: user.email,
-            actorName: user.name,
-            action: "CREATED",
-            summary: "Rascunho da LD criado.",
+    draft = await getPrisma().$transaction(async (transaction) => {
+      const created = await transaction.ldDraft.create({
+        data: {
+          ...data,
+          projectId: requestedProjectId,
+          events: {
+            create: {
+              actorEmail: user.email,
+              actorName: user.name,
+              action: "CREATED",
+              summary: "Rascunho da LD criado.",
+            },
           },
         },
-      },
+      });
+
+      if (requestedProjectId) {
+        await createProjectEvent(transaction, {
+          projectId: requestedProjectId,
+          actor,
+          type: "LD_DRAFT_CREATED",
+          title: "Rascunho de LD criado",
+          summary: created.title,
+          details: {
+            draftId: created.id,
+          },
+        });
+
+        if (status === "GENERATED") {
+          for (const fileName of getGeneratedFileNames(generatedFileNames)) {
+            await createDocumentArtifact(transaction, {
+              projectId: requestedProjectId,
+              ldDraftId: created.id,
+              actor,
+              module: "ld",
+              kind: getLdArtifactKind(fileName),
+              fileName,
+              mimeType: getMimeType(fileName),
+              metadata: {
+                source: "ld-draft",
+                status,
+              },
+            });
+          }
+        }
+      }
+
+      return created;
     });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/auth";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { parseAuditMode, type AuditMode } from "@/lib/audit-mode";
 import { parseAnalysisLevel, type AnalysisLevel } from "@/lib/analysis-level";
@@ -19,6 +20,16 @@ import {
 } from "@/lib/audit-report";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import {
+  assertProjectAccess,
+  createDocumentArtifact,
+  createProjectEvent,
+  createProjectUpload,
+  getChecksumSha256,
+  getUserActor,
+  normalizeEmail,
+  type ActorIdentity,
+} from "@/lib/project-store";
 import {
   getMockAuditResult,
   isMockModeEnabled,
@@ -76,6 +87,8 @@ async function createPendingAudit(args: {
   auditTitle: string;
   projectName: string;
   auditDescription: string;
+  projectId?: string | null;
+  actor?: ActorIdentity | null;
   files: File[];
   fileTypes: string[];
 }) {
@@ -88,6 +101,8 @@ async function createPendingAudit(args: {
     const audit = await prisma.audit.create({
       data: {
         id: args.auditId,
+        projectId: args.projectId ?? undefined,
+        userId: args.actor?.id ?? undefined,
         title: args.auditTitle || "Auditoria sem identificação",
         projectName: args.projectName || "Projeto não informado",
         description: args.auditDescription,
@@ -105,6 +120,22 @@ async function createPendingAudit(args: {
       select: { id: true },
     });
 
+    if (args.projectId && args.actor) {
+      await createProjectEvent(prisma, {
+        projectId: args.projectId,
+        actor: args.actor,
+        type: "AUDIT_CREATED",
+        title: "Auditoria criada",
+        summary: args.auditTitle || args.projectName || "Auditoria documental",
+        details: {
+          auditId: audit.id,
+          auditMode: args.auditMode,
+          analysisLevel: args.analysisLevel,
+          fileCount: args.files.length,
+        },
+      });
+    }
+
     return audit.id;
   } catch (error) {
     console.error("[audit] falha ao iniciar persistência da auditoria", error);
@@ -118,6 +149,8 @@ async function persistCompletedAudit(args: {
   report: AuditReport;
   result: string;
   elapsedMs: number;
+  projectId?: string | null;
+  actor?: ActorIdentity | null;
 }) {
   if (!args.auditId || !isDatabaseConfigured()) {
     return;
@@ -156,6 +189,44 @@ async function persistCompletedAudit(args: {
             sizeBytes: file.file.size,
           })),
       });
+
+      if (args.projectId && args.actor) {
+        for (const file of args.uploadedFiles) {
+          await createProjectUpload(transaction, {
+            projectId: args.projectId,
+            actor: args.actor,
+            module: "audit",
+            source: "audit-input",
+            fileName: file.file.name,
+            mimeType: file.file.type || "application/pdf",
+            sizeBytes: file.file.size,
+            pageCount: file.extracted.pageCount,
+            checksumSha256: getChecksumSha256(file.buffer),
+            metadata: {
+              auditId: args.auditId,
+              documentType: file.fileType,
+              extractedCharCount: file.extracted.charCount,
+            },
+          });
+        }
+
+        await createDocumentArtifact(transaction, {
+          projectId: args.projectId,
+          auditId: args.auditId,
+          actor: args.actor,
+          module: "audit",
+          kind: "AUDIT_MARKDOWN",
+          fileName: `${args.auditId}-relatorio-auditoria.md`,
+          mimeType: "text/markdown",
+          sizeBytes: Buffer.byteLength(args.result, "utf8"),
+          checksumSha256: getChecksumSha256(args.result),
+          metadata: {
+            auditMode: args.report.tipo_auditoria,
+            analysisLevel: args.report.runtime?.nivel_analise,
+            totalFindings: args.report.total_incongruencias,
+          },
+        });
+      }
     });
   } catch (error) {
     console.error("[audit] falha ao persistir auditoria", error);
@@ -2178,6 +2249,7 @@ export async function POST(request: Request) {
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
     const auditDescription = String(formData.get("auditDescription") ?? "").trim();
+    const projectId = String(formData.get("projectId") ?? "").trim() || null;
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
     const requestMockMode = formData.get("mockMode") === "true";
     const fileTypes = formData.getAll("fileTypes").map((value) => String(value));
@@ -2214,6 +2286,29 @@ export async function POST(request: Request) {
       return jsonError("Modo demo não está habilitado neste ambiente.", 403);
     }
 
+    let auditActor: ActorIdentity | null = null;
+
+    if (projectId) {
+      if (!isDatabaseConfigured()) {
+        return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
+      }
+
+      const session = await auth();
+      const email = session?.user?.email?.trim();
+
+      if (!email) {
+        return jsonError("Autenticacao necessaria para vincular auditoria ao projeto.", 401);
+      }
+
+      auditActor = await getUserActor(normalizeEmail(email), session?.user?.name ?? null);
+
+      try {
+        await assertProjectAccess(projectId, auditActor);
+      } catch {
+        return jsonError("Projeto nao encontrado.", 404);
+      }
+    }
+
     const useMockMode = isMockModeEnabled() || (requestMockMode && canUseClientMock);
 
     if (useMockMode) {
@@ -2244,6 +2339,8 @@ export async function POST(request: Request) {
       auditTitle,
       projectName,
       auditDescription,
+      projectId,
+      actor: auditActor,
       files,
       fileTypes,
     });
@@ -2398,6 +2495,8 @@ export async function POST(request: Request) {
       report,
       result,
       elapsedMs: Date.now() - requestStartedAt,
+      projectId,
+      actor: auditActor,
     });
 
     return withCors(

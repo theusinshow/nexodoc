@@ -24,7 +24,7 @@ import { ExportPanel } from "./export-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileStack, Layers3, Plus, Upload } from "lucide-react";
+import { CheckCircle2, CircleDot, FileSearch, FileStack, Layers3, Plus, Upload } from "lucide-react";
 
 export function VolumeBuilderPage() {
   const [metadata, setMetadata] = useState<VolumeMetadata>({
@@ -38,6 +38,32 @@ export function VolumeBuilderPage() {
   const [rows, setRows] = useState<AssemblyRow[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(true);
   const [activeDragAssets, setActiveDragAssets] = useState<PageAsset[]>([]);
+  const operationalStages = [
+    {
+      id: "import",
+      label: "Importar",
+      detail: `${importedFiles.length} PDF(s)`,
+      state: importedFiles.length > 0 ? "done" : "current",
+    },
+    {
+      id: "classify",
+      label: "Classificar",
+      detail: `${pageAssets.length} pagina(s)`,
+      state: importedFiles.length === 0 ? "pending" : pageAssets.length > 0 ? "done" : "current",
+    },
+    {
+      id: "assemble",
+      label: "Montar",
+      detail: `${rows.length} volume(s)`,
+      state: pageAssets.length === 0 ? "pending" : rows.length > 0 ? "done" : "current",
+    },
+    {
+      id: "export",
+      label: "Exportar",
+      detail: rows.length > 0 ? "pronto para revisar" : "aguardando montagem",
+      state: rows.length > 0 ? "current" : "pending",
+    },
+  ] as const;
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -347,7 +373,7 @@ export function VolumeBuilderPage() {
   return (
     <div className="flex max-h-[calc(100vh-16px)] max-w-full flex-col gap-3 overflow-hidden">
       <Card className="shrink-0 border bg-background/95">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 py-3">
+        <CardContent className="grid gap-3 py-3 xl:grid-cols-[minmax(220px,1fr)_minmax(520px,1.45fr)_auto] xl:items-center">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-semibold">Montagem de volumes</h1>
@@ -360,7 +386,9 @@ export function VolumeBuilderPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <OperationalStageStrip stages={operationalStages} />
+
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <Button onClick={handleAddRow} size="sm" variant="outline">
               <Plus className="h-4 w-4 mr-1" />
               Volume
@@ -487,6 +515,55 @@ export function VolumeBuilderPage() {
       </DragOverlay>
       </DndContext>
     </div>
+  );
+}
+
+function OperationalStageStrip({
+  stages,
+}: {
+  stages: ReadonlyArray<{
+    id: string;
+    label: string;
+    detail: string;
+    state: "done" | "current" | "pending";
+  }>;
+}) {
+  return (
+    <ol className="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border text-xs lg:grid-cols-4">
+      {stages.map((stage) => {
+        const isDone = stage.state === "done";
+        const isCurrent = stage.state === "current";
+
+        return (
+          <li
+            key={stage.id}
+            className={`min-w-0 bg-card px-3 py-2 ${
+              isCurrent ? "ring-1 ring-inset ring-primary/45" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {isDone ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[var(--status-ok)]" />
+              ) : isCurrent ? (
+                <CircleDot className="h-3.5 w-3.5 shrink-0 text-primary" />
+              ) : (
+                <FileSearch className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+              )}
+              <span
+                className={`truncate font-medium ${
+                  stage.state === "pending" ? "text-muted-foreground" : "text-foreground"
+                }`}
+              >
+                {stage.label}
+              </span>
+            </div>
+            <p className="mt-1 truncate pl-5 font-mono text-[11px] text-muted-foreground">
+              {stage.detail}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

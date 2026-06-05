@@ -33,16 +33,13 @@ export default function PdfPageThumbnailGridInternal({
   const pagesPerLoad = 20;
   const [rangeStart, setRangeStart] = useState<string>("");
   const [rangeEnd, setRangeEnd] = useState<string>("");
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const fileUrl = useMemo(() => URL.createObjectURL(file), [file]);
 
   useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setFileUrl(url);
-
     return () => {
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(fileUrl);
     };
-  }, [file]);
+  }, [fileUrl]);
 
   const startPage = Math.max(1, currentPage - Math.floor(pagesPerLoad / 2));
   const endPage = Math.min(pageCount, startPage + pagesPerLoad - 1);
