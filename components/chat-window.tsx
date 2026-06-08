@@ -135,10 +135,61 @@ type InspectorTab = "summary" | "findings" | "report";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+type AuditTriageOption = {
+  id: string;
+  mode: AuditMode;
+  recommendedLevel: AnalysisLevel;
+  icon: typeof ScrollText;
+  title: string;
+  shortLabel: string;
+  description: string;
+  fileHint: string;
+  prompt: string;
+};
+
 const DEMO_FILE_NAMES: Record<AuditMode, string[]> = {
   memorial: ["Memorial descritivo.pdf"],
   volume: ["Capa e separatriz.pdf", "LD arquitetura.pdf", "Pranchas arquitetura.pdf"],
 };
+
+const AUDIT_TRIAGE_OPTIONS: AuditTriageOption[] = [
+  {
+    id: "memorial-coherence",
+    mode: "memorial",
+    recommendedLevel: "standard",
+    icon: ScrollText,
+    title: "Conferir memorial",
+    shortLabel: "Memorial",
+    description: "Use quando o alvo e um memorial, especificacao ou texto tecnico unico.",
+    fileHint: "1 PDF principal",
+    prompt:
+      "Cheque o memorial descritivo. Verifique identificacao do projeto, coerencia interna do texto e sinais de reaproveitamento de outro projeto.",
+  },
+  {
+    id: "volume-cross-check",
+    mode: "volume",
+    recommendedLevel: "standard",
+    icon: Files,
+    title: "Conferir volume",
+    shortLabel: "Volume",
+    description: "Use para comparar capa, separatriz, LD e pranchas do mesmo volume.",
+    fileHint: "2 a 5 PDFs",
+    prompt:
+      "Cheque o volume de projeto. Compare capa, separatriz, LDs e pranchas, com foco em LD x pranchas, selos, revisoes, titulos, disciplina, volume e tomo.",
+  },
+  {
+    id: "deep-review",
+    mode: "volume",
+    recommendedLevel: "deep",
+    icon: ClipboardCheck,
+    title: "Revisao completa",
+    shortLabel: "Profunda",
+    description: "Use quando o risco e maior e vale gastar mais tempo e tokens.",
+    fileHint: "Volume completo",
+    prompt:
+      "Faca uma auditoria profunda do conjunto documental. Compare identificacao, LD, capa, separatriz, pranchas, selos, revisoes, titulos, disciplina, volume e tomo. Priorize inconsistencias que possam travar revisao tecnica.",
+  },
+];
 
 function getAuditEndpoint() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
@@ -194,11 +245,7 @@ function normalizeText(value: string) {
 }
 
 function getDefaultPrompt(mode: AuditMode) {
-  if (mode === "volume") {
-    return "Cheque o volume de projeto. Compare capa, separatriz, LDs e pranchas, com foco em LD x pranchas, selos, revisões, títulos, disciplina, volume e tomo.";
-  }
-
-  return "Cheque o memorial descritivo. Verifique identificação do projeto, coerência interna do texto e sinais de reaproveitamento de outro projeto.";
+  return AUDIT_TRIAGE_OPTIONS.find((option) => option.mode === mode)?.prompt ?? AUDIT_TRIAGE_OPTIONS[0].prompt;
 }
 
 function getDemoProjectName(mode: AuditMode) {
@@ -682,6 +729,13 @@ export function ChatWindow({
   function handleAuditModeChange(mode: AuditMode) {
     setAuditMode(mode);
     setMessage(getDefaultPrompt(mode));
+  }
+
+  function handleTriageSelect(option: AuditTriageOption) {
+    setAuditMode(option.mode);
+    setAnalysisLevel(option.recommendedLevel);
+    setMessage(option.prompt);
+    setError("");
   }
 
   function handleNewAudit() {
@@ -1169,6 +1223,130 @@ export function ChatWindow({
     );
   }
 
+  function renderAuditSetup() {
+    return (
+      <section className="border-b bg-background px-4 py-3 sm:px-5">
+        <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_1fr_auto] xl:items-start">
+          <div className="min-w-0 space-y-2">
+            {projectContext ? (
+              <div className="rounded-sm border bg-card px-3 py-2 text-xs">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projeto vinculado</p>
+                <div className="mt-1 flex min-w-0 items-center gap-2">
+                  <span className="shrink-0 font-mono text-primary">{projectContext.code}</span>
+                  <span className="truncate text-foreground">{projectContext.name}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-sm border border-dashed bg-card/70 px-3 py-2 text-xs">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Modo independente</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-foreground">Sem projeto vinculado</span>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/projetos")}
+                    className="font-medium text-primary outline-none hover:underline focus-visible:underline"
+                  >
+                    Projetos
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <input
+                value={auditTitle}
+                onChange={(event) => setAuditTitle(event.target.value)}
+                placeholder="Identificacao"
+                disabled={isLoading}
+                className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+              />
+              <input
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="Projeto"
+                disabled={isLoading}
+                className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+              />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Triagem da auditoria</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Escolha pelo que precisa conferir. O prompt sera ajustado automaticamente.</p>
+              </div>
+              <p className="font-mono text-[11px] text-muted-foreground">
+                Atual: {getAuditModeLabel(auditMode)} / {getAnalysisLevelLabel(analysisLevel)}
+              </p>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-3">
+              {AUDIT_TRIAGE_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                const isSelected = auditMode === option.mode && analysisLevel === option.recommendedLevel;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleTriageSelect(option)}
+                    className={cn(
+                      "min-h-[118px] rounded-sm border bg-card px-3 py-3 text-left outline-none transition-[border-color,background-color] hover:border-ring/50 hover:bg-[var(--nexodoc-raised)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 disabled:opacity-60",
+                      isSelected && "border-ring/60 bg-[var(--nexodoc-raised)]",
+                    )}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 font-medium text-foreground">
+                        <Icon className={cn("size-4", isSelected ? "text-primary" : "text-muted-foreground")} />
+                        {option.title}
+                      </span>
+                      <span className="rounded-sm border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {option.fileHint}
+                      </span>
+                    </span>
+                    <span className="mt-2 block text-xs leading-5 text-muted-foreground">{option.description}</span>
+                    <span className="mt-2 block font-mono text-[11px] text-muted-foreground">
+                      {option.shortLabel} / {getAnalysisLevelLabel(option.recommendedLevel)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-sm border bg-card px-3 py-2">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Ajuste fino</p>
+            <div className="mt-2 flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+              {(["standard", "deep"] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setAnalysisLevel(level)}
+                  className={cn(
+                    "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
+                    analysisLevel === level
+                      ? level === "deep"
+                        ? "border border-[var(--nexodoc-tertiary)]/40 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
+                        : "border border-ring/40 bg-card font-medium text-foreground"
+                      : "border border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                  title={getAnalysisLevelDescription(level)}
+                >
+                  {getAnalysisLevelLabel(level)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 max-w-[220px] text-xs leading-5 text-muted-foreground">
+              Padrao economiza tokens. Profundo amplia comparacao e validacao.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   function renderEmptyChat() {
     return (
       <section
@@ -1615,7 +1793,7 @@ export function ChatWindow({
           </div>
         </header>
 
-        {!isLoading ? renderAuditContext() : null}
+        {!isLoading ? renderAuditSetup() : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           <div

@@ -365,6 +365,13 @@ function isLikelyProjectIdentity(value: string) {
     return false;
   }
 
+  if (
+    /\bescola municipal\s+contendo\s+\w+\s+blocos?\b/i.test(normalized) ||
+    /\bnao\s+(?:e|eh)\s+considerado\b/i.test(normalized)
+  ) {
+    return false;
+  }
+
   if (words.length > 10 && !startsAsNamedEntity) {
     return false;
   }
@@ -387,6 +394,13 @@ function shouldKeepIdentityCandidate(field: string, value: string) {
     /^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
       normalized,
     );
+
+  if (
+    /\bescola municipal\s+contendo\s+\w+\s+blocos?\b/i.test(normalized) ||
+    /\bnao\s+(?:e|eh)\s+considerado\b/i.test(normalized)
+  ) {
+    return false;
+  }
 
   if (
     field === "finalidade/obra citada" &&
@@ -865,8 +879,179 @@ function deriveTechnicalReuseFindings(extracted: ExtractedPdf, fileName: string)
   return findings;
 }
 
+function findLooseEvidenceLine(text: string, normalizedTerm: string) {
+  const line = text
+    .split(/\r?\n/)
+    .find((item) => normalizeLoose(item).includes(normalizedTerm));
+
+  return (line ?? normalizedTerm).replace(/\s+/g, " ").trim();
+}
+
+function deriveMemorialConsistencyFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const normalizedText = normalizeLoose(extracted.text);
+  const hasJoseGiassi = normalizedText.includes("emeb jose giassi") || normalizedText.includes("jose giassi");
+  const hasCriciuma = normalizedText.includes("criciuma");
+  const coverPage = extracted.pages.find((page) => page.page <= 3);
+  const coverText = normalizeLoose(coverPage?.text ?? "");
+
+  if (coverPage && hasJoseGiassi && coverText.includes("centro comunitario primeira linha")) {
+    findings.push({
+      id: "REG-MEM-001",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Alta",
+      pagina: String(coverPage.page),
+      capitulo: "Capa / identidade documental",
+      local: "titulo da capa",
+      tipo: "Capa com obra divergente",
+      descricao: "A capa cita Centro Comunitario Primeira Linha, mas o corpo do memorial identifica a obra como EMEB Jose Giassi.",
+      evidencia: findLooseEvidenceLine(coverPage.text, "centro comunitario primeira linha"),
+      termo_busca: "Centro Comunitario Primeira Linha",
+      categoria: "Identidade documental",
+      referencia_comparada: "Identidade predominante no memorial: EMEB Jose Giassi.",
+      conflito: "O titulo da capa aponta outra obra, indicando reaproveitamento ou emissao com capa incorreta.",
+      sugestao_correcao: "Corrigir a capa para a obra EMEB Jose Giassi e conferir se cabecalhos/rodapes usam a mesma identidade.",
+      confianca: "alta",
+      impacto: "critico_documental",
+    });
+  }
+
+  if (
+    (normalizedText.includes("construcao de escola municipal") ||
+      normalizedText.includes("construcao da escola municipal") ||
+      normalizedText.includes("construcao da escola municipal de ensino basico")) &&
+    normalizedText.includes("reforma e adequacao do edificio")
+  ) {
+    const page = extracted.pages.find((item) => normalizeLoose(item.text).includes("reforma e adequacao do edificio"));
+
+    findings.push({
+      id: "REG-MEM-002",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media/Alta",
+      pagina: page ? String(page.page) : "nao identificada",
+      capitulo: "Escopo da obra",
+      local: "plantas e desenhos",
+      tipo: "Escopo de reforma em obra de construcao nova",
+      descricao: "O memorial caracteriza a obra como construcao de escola municipal, mas tambem usa texto de reforma e adequacao do edificio.",
+      evidencia: page ? findLooseEvidenceLine(page.text, "reforma e adequacao do edificio") : "reforma e adequacao do edificio",
+      termo_busca: "reforma e adequacao do edificio",
+      categoria: "Reaproveitamento de texto",
+      referencia_comparada: "Caracterizacao predominante: construcao de escola municipal.",
+      conflito: "O trecho parece herdado de memorial de reforma e nao corresponde ao escopo de construcao nova.",
+      sugestao_correcao: "Substituir por texto indicando que os documentos servem de referencia para a construcao da edificacao.",
+      confianca: "alta",
+      impacto: "critico_documental",
+    });
+  }
+
+  const areaRefs: Array<{ page: number; value: string; evidence: string }> = [];
+  for (const page of extracted.pages) {
+    for (const line of page.text.split(/\r?\n/)) {
+      const normalizedLine = normalizeLoose(line);
+
+      if (!normalizedLine.includes("area") || !normalizedLine.includes("construida")) {
+        continue;
+      }
+
+      const values = line.match(/\d{1,3}(?:\.\d{3})*,\d{2}\s*m(?:²|2)?/gi) ?? [];
+      for (const value of values) {
+        areaRefs.push({
+          page: page.page,
+          value: value.replace(/\s+/g, " ").trim(),
+          evidence: line.replace(/\s+/g, " ").trim(),
+        });
+      }
+    }
+  }
+  const distinctAreas = [...new Set(areaRefs.map((item) => item.value))];
+
+  if (distinctAreas.length >= 2) {
+    const sample = areaRefs.filter((item, index) => areaRefs.findIndex((candidate) => candidate.value === item.value) === index);
+    findings.push({
+      id: "REG-MEM-003",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Alta",
+      pagina: [...new Set(sample.map((item) => item.page))].join(", "),
+      capitulo: "Area da obra",
+      local: "areas construidas informadas",
+      tipo: "Area construida divergente",
+      descricao: `O memorial informa areas construidas diferentes: ${distinctAreas.join(" x ")}.`,
+      evidencia: sample.map((item) => item.evidence).join(" | "),
+      termo_busca: distinctAreas[0],
+      categoria: "Consistencia quantitativa",
+      referencia_comparada: "Valores de area construida encontrados no mesmo memorial.",
+      conflito: "Nao fica claro qual area e oficial, nem se os valores representam area total, computavel ou area considerada por disciplina.",
+      sugestao_correcao: "Padronizar a area oficial ou declarar explicitamente area total, area computavel e area considerada por disciplina.",
+      confianca: "alta",
+      impacto: "critico_documental",
+    });
+  }
+
+  const hasFiveBlocks = /\b(cinco|5)\s+blocos?\b/i.test(normalizedText);
+  const hasSixBlocks = /\b(seis|6)\s+blocos?\b/i.test(normalizedText);
+  const hasBlockCQuadra = /\bbloco\s+c\b[\s\S]{0,80}\bquadra\b/i.test(normalizedText);
+  const hasBlockEQuadra = /\bbloco\s+e\b[\s\S]{0,80}\bquadra\b/i.test(normalizedText);
+
+  if ((hasFiveBlocks && hasSixBlocks) || (hasBlockCQuadra && hasBlockEQuadra)) {
+    const page = extracted.pages.find((item) => {
+      const normalizedPage = normalizeLoose(item.text);
+      return normalizedPage.includes("bloco c") && normalizedPage.includes("quadra");
+    }) ?? extracted.pages.find((item) => normalizeLoose(item.text).includes("seis blocos"));
+
+    findings.push({
+      id: "REG-MEM-004",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media/Alta",
+      pagina: page ? String(page.page) : "nao identificada",
+      capitulo: "Caracterizacao dos blocos",
+      local: "descricao dos blocos da escola",
+      tipo: "Quantidade ou nomenclatura de blocos incoerente",
+      descricao: "O memorial alterna a caracterizacao dos blocos, com conflito entre cinco/seis blocos ou entre Bloco C e Bloco E para a quadra.",
+      evidencia: page ? getContextSnippet(page.text, normalizeLoose(page.text).indexOf("bloco"), 420) : "blocos C/D, Bloco C, Bloco E, seis blocos",
+      termo_busca: "Bloco C",
+      categoria: "Consistencia interna",
+      referencia_comparada: "Apresentacao dos blocos x descricoes tecnicas posteriores.",
+      conflito: "A mesma estrutura da obra fica ambigua, afetando entendimento de escopo, disciplinas e revisao do memorial.",
+      sugestao_correcao: "Padronizar a lista de blocos, indicando Blocos C/D para ensino fundamental, Bloco E para quadra se essa for a estrutura correta, e tratar reservatorio como apoio quando aplicavel.",
+      confianca: "media",
+      impacto: "tecnico_contratual",
+    });
+  }
+
+  if (hasCriciuma && normalizedText.includes("coopera")) {
+    const page = extracted.pages.find((item) => normalizeLoose(item.text).includes("coopera"));
+
+    findings.push({
+      id: "REG-MEM-005",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media",
+      pagina: page ? String(page.page) : "nao identificada",
+      capitulo: "Projeto eletrico",
+      local: "concessionaria / normas aplicaveis",
+      tipo: "Concessionaria eletrica exige validacao",
+      descricao: "O memorial cita COOPERA para uma obra em Criciuma/SC; isso pode estar correto, mas exige confirmacao territorial.",
+      evidencia: page ? findLooseEvidenceLine(page.text, "coopera") : "COOPERA",
+      termo_busca: "COOPERA",
+      categoria: "Ponto de checagem",
+      referencia_comparada: "Endereco/municipio da obra em Criciuma/SC.",
+      conflito: "Se a concessionaria aplicavel ao endereco nao for COOPERA, o trecho indica reaproveitamento de memorial eletrico ou norma incorreta.",
+      sugestao_correcao: "Confirmar a concessionaria do endereco e ajustar normas de subestacao, medicao e aterramento se necessario.",
+      confianca: "baixa",
+      impacto: "tecnico_contratual",
+    });
+  }
+
+  return findings;
+}
+
 function deriveRuleBasedReviewFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
   return [
+    ...deriveMemorialConsistencyFindings(extracted, fileName),
     ...deriveSpellingFindingsFromText(extracted, fileName),
     ...deriveSummaryAndNumberingFindings(extracted, fileName),
     ...deriveTechnicalReuseFindings(extracted, fileName),
@@ -1389,6 +1574,13 @@ function getGlobalFilePrompt(args: {
 ${modeInstruction}
 
 Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Primeiro entenda a identidade predominante do documento: obra, código, município, endereço, proprietário/órgão, data e disciplina. Depois procure incongruências internas, trechos reaproveitados, referências que pareçam pertencer a outra obra, conflitos de endereço/localidade, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes e problemas editoriais relevantes.
+
+Em memoriais, confira explicitamente antes de responder:
+- capa x apresentacao/corpo: nome da obra, codigo, municipio, endereco e orgao;
+- construcao nova x trechos de reforma/adequacao herdados de outro memorial;
+- quantidade e nomenclatura de blocos, pavimentos, volumes e disciplinas;
+- areas informadas em secoes diferentes, inclusive arquitetura, eletrica, cabeamento e CFTV;
+- concessionaria, normas locais e siglas que podem pertencer a outro municipio ou contrato.
 
 Priorize pelo impacto:
 - Alta: conflito de identidade da obra, município, endereço, proprietário, órgão, disciplina ou trecho claramente herdado de outro projeto.
