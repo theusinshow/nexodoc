@@ -1,5 +1,12 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+
+import {
+  DEV_AUTH_PROVIDER_ID,
+  getDevAuthUser,
+  isDevAuthEnabled,
+} from "@/lib/dev-auth";
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   providers: [
@@ -10,6 +17,18 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         },
       },
     }),
+    ...(isDevAuthEnabled()
+      ? [
+          Credentials({
+            id: DEV_AUTH_PROVIDER_ID,
+            name: "Acesso dev",
+            credentials: {},
+            authorize() {
+              return getDevAuthUser();
+            },
+          }),
+        ]
+      : []),
   ],
   pages: {
     signIn: "/login",

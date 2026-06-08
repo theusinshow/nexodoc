@@ -143,6 +143,9 @@ AUTH_GOOGLE_ID=client_id_do_google
 AUTH_GOOGLE_SECRET=client_secret_do_google
 AUTH_TRUST_HOST=true
 NEXODOC_ADMIN_EMAILS=admin@empresa.com
+NEXODOC_DEV_AUTH=false
+NEXODOC_DEV_AUTH_EMAIL=
+NEXODOC_DEV_AUTH_NAME=Usuario Dev
 OPENAI_MODEL=gpt-5.4-mini
 NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
 NEXODOC_LD_OPENAI_MODEL=gpt-5.4
@@ -195,6 +198,16 @@ autenticados como usuarios comuns:
 
 ```bash
 NEXODOC_ADMIN_EMAILS=voce@empresa.com,outro.admin@empresa.com
+```
+
+Para QA local automatizado, o ambiente de desenvolvimento aceita um login
+dev-only. Ele e ignorado em producao e so aparece na tela `/login` quando a flag
+esta ativa:
+
+```bash
+NEXODOC_DEV_AUTH=true
+NEXODOC_DEV_AUTH_EMAIL=voce@empresa.com
+NEXODOC_DEV_AUTH_NAME=Usuario Dev
 ```
 
 Quando frontend e backend forem publicados separadamente usando

@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { normalizeAuthCallbackPath } from "@/lib/auth-redirect";
+import {
+  DEV_AUTH_PROVIDER_ID,
+  getDevAuthUser,
+  isDevAuthEnabled,
+} from "@/lib/dev-auth";
 
 type LoginPageProps = {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
@@ -37,6 +42,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const { callbackUrl, error } = await searchParams;
   const redirectTo = normalizeAuthCallbackPath(callbackUrl);
+  const devUser = getDevAuthUser();
+  const canUseDevAuth = isDevAuthEnabled() && Boolean(devUser);
 
   if (session?.user) {
     redirect(redirectTo);
@@ -98,6 +105,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <ArrowRight className="size-4" />
             </Button>
           </form>
+
+          {canUseDevAuth ? (
+            <form
+              className="mt-3"
+              action={async () => {
+                "use server";
+                await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
+              }}
+            >
+              <Button type="submit" variant="outline" size="lg" className="w-full justify-between px-5">
+                <span className="flex items-center gap-3">
+                  <ShieldCheck className="size-4" />
+                  Entrar como dev
+                </span>
+                <span className="max-w-[180px] truncate font-mono text-xs text-muted-foreground">
+                  {devUser?.email}
+                </span>
+              </Button>
+            </form>
+          ) : null}
 
           <div className="mt-6 space-y-2 border-t pt-5 text-sm text-muted-foreground">
             <p className="flex items-center gap-2">
