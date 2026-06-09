@@ -32,6 +32,7 @@ import {
 } from "@/lib/mock-audit";
 import {
   classifyProviderFailure,
+  createInvalidProviderResponseError,
   getAiConfiguration,
   getAuditModel,
   getAuditTaskModel,
@@ -175,6 +176,18 @@ function isRuleBasedAuditEnabled() {
 
 function parseAuditEngine(value: FormDataEntryValue | null): AuditEngine {
   return value === "dual" ? "dual" : "single";
+}
+
+function parseRequiredAuditModelJson(text: string, operation: string) {
+  const parsed = parseAuditModelJson(text);
+
+  if (!parsed) {
+    const error = createInvalidProviderResponseError();
+    error.message = `Resposta inválida do modelo na etapa ${operation}.`;
+    throw error;
+  }
+
+  return parsed;
 }
 
 function getChunkPrompt(args: {
@@ -620,6 +633,90 @@ function deriveIdentityFindingsFromText(extracted: ExtractedPdf, fileName: strin
     confianca: candidate.count === 1 ? "media" : "alta",
     impacto: "critico_documental",
   }));
+}
+
+function getDominantIdentityForPages(
+  extracted: ExtractedPdf,
+  predicate: (page: ExtractedPdf["pages"][number]) => boolean,
+) {
+  const pages = extracted.pages.filter(predicate);
+
+  if (pages.length === 0) {
+    return null;
+  }
+
+  return getDominantIdentityCandidate(
+    getIdentityCandidates({
+      pages,
+      text: pages.map((page) => `--- PAGINA ${page.page} ---\n${page.text}`).join("\n\n"),
+      pageCount: pages.length,
+      charCount: pages.reduce((total, page) => total + page.text.length, 0),
+    }),
+  );
+}
+
+function deriveMandatoryIdentityGuardFindings(extracted: ExtractedPdf, fileName: string): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const firstPage = extracted.pages[0];
+
+  if (firstPage && firstPage.text.length < 80) {
+    findings.push({
+      id: "GUARDA-CAPA-LEITURA",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Media/Alta",
+      pagina: String(firstPage.page),
+      capitulo: "Pré-leitura documental",
+      local: "capa / primeira página",
+      tipo: "Capa sem texto pesquisável suficiente",
+      descricao:
+        "A primeira página possui pouco texto extraível, então a auditoria não consegue validar a capa com segurança.",
+      evidencia: firstPage.text || "Nenhum texto pesquisável relevante extraído da primeira página.",
+      termo_busca: firstPage.text.slice(0, 120) || "capa sem texto pesquisável",
+      categoria: "Confiabilidade da leitura",
+      referencia_comparada: "Texto extraído da primeira página do PDF.",
+      conflito:
+        "Sem texto pesquisável na capa, o sistema pode deixar passar obra, código, município ou órgão divergente.",
+      sugestao_correcao:
+        "Enviar PDF com OCR/texto pesquisável ou revisar manualmente a capa antes de aceitar o relatório.",
+      confianca: "alta",
+      impacto: "tecnico_contratual",
+    });
+  }
+
+  const coverIdentity = getDominantIdentityForPages(extracted, (page) => page.page <= 2);
+  const bodyIdentity = getDominantIdentityForPages(extracted, (page) => page.page > 2);
+
+  if (
+    coverIdentity &&
+    bodyIdentity &&
+    isLikelyProjectIdentity(coverIdentity.value) &&
+    isLikelyProjectIdentity(bodyIdentity.value) &&
+    !areSameIdentity(coverIdentity, bodyIdentity)
+  ) {
+    findings.push({
+      id: "GUARDA-CAPA-CORPO",
+      arquivo: fileName,
+      origem: "regra",
+      prioridade: "Alta",
+      pagina: coverIdentity.pages.join(", "),
+      capitulo: "Identidade documental",
+      local: "capa x corpo do memorial",
+      tipo: "Capa divergente do corpo do memorial",
+      descricao: `A capa indica "${coverIdentity.value}", mas o corpo do memorial indica "${bodyIdentity.value}".`,
+      evidencia: coverIdentity.evidence,
+      termo_busca: coverIdentity.value.slice(0, 160),
+      categoria: "Identidade documental",
+      referencia_comparada: `Identidade predominante no corpo: ${bodyIdentity.value} (páginas ${summarizePages(bodyIdentity.pages)}).`,
+      conflito: `"${coverIdentity.value}" na capa não corresponde a "${bodyIdentity.value}" no corpo do memorial.`,
+      sugestao_correcao:
+        "Substituir a capa ou revisar o corpo do memorial para que a identidade documental seja única antes da emissão.",
+      confianca: "alta",
+      impacto: "critico_documental",
+    });
+  }
+
+  return findings;
 }
 
 function levenshteinDistance(left: string, right: string) {
@@ -1558,7 +1655,7 @@ async function analyzeIdentityWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseAuditModelJson(result.text);
+  const parsed = parseRequiredAuditModelJson(result.text, "audit-identity");
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1670,7 +1767,7 @@ async function analyzeFileGloballyWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseAuditModelJson(result.text);
+  const parsed = parseRequiredAuditModelJson(result.text, "audit-global");
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1797,6 +1894,10 @@ function buildFindingCandidateList(findings: AuditFinding[]) {
     .join("\n\n");
 }
 
+function isMandatoryGuardFinding(finding: AuditFinding) {
+  return finding.id.startsWith("GUARDA-");
+}
+
 function getFindingValidationPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
@@ -1902,7 +2003,7 @@ async function validateFindingsWithModel(args: {
         auditMode: args.auditMode,
       },
     });
-    const parsed = parseAuditModelJson(result.text);
+    const parsed = parseRequiredAuditModelJson(result.text, "audit-validation");
     const decisions = new Map(
       (parsed?.decisions ?? [])
         .filter((decision) => decision.source_id && decision.acao)
@@ -1922,6 +2023,10 @@ async function validateFindingsWithModel(args: {
         }
 
         if (decision.acao === "remover") {
+          if (isMandatoryGuardFinding(finding)) {
+            return finding;
+          }
+
           return null;
         }
 
@@ -1988,7 +2093,7 @@ async function analyzeCrossDocumentsWithModel(args: {
       auditMode: args.auditMode,
     },
   });
-  const parsed = parseAuditModelJson(result.text);
+  const parsed = parseRequiredAuditModelJson(result.text, "audit-cross-document");
 
   return {
     findings: (parsed?.findings ?? [])
@@ -2013,6 +2118,10 @@ async function deepAnalyzeFile(args: {
   file: UploadedAuditFile;
 }) {
   const startedAt = Date.now();
+  const mandatoryGuardFindings = deriveMandatoryIdentityGuardFindings(
+    args.file.extracted,
+    args.file.file.name,
+  );
   const useRuleBasedFindings = isRuleBasedAuditEnabled();
   const inferredIdentityFindings = useRuleBasedFindings
     ? deriveIdentityFindingsFromText(
@@ -2104,10 +2213,11 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${mandatoryGuardFindings.length + inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
   return dedupeFindings([
+    ...mandatoryGuardFindings,
     ...inferredIdentityFindings,
     ...ruleBasedReviewFindings,
     ...identityFindings,
