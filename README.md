@@ -150,7 +150,9 @@ OPENAI_MODEL=gpt-5.4-mini
 NEXODOC_AI_PROVIDER=openai
 NEXODOC_ENABLE_DEEPSEEK=false
 DEEPSEEK_API_KEY=
-DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_MODEL=deepseek-v4-flash(1)
+DEEPSEEK_AUDIT_MODEL=deepseek-v4-pro
+DEEPSEEK_AUDIT_CHAT_MODEL=deepseek-v4-pro
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
 NEXODOC_LD_OPENAI_MODEL=gpt-5.4
@@ -248,7 +250,9 @@ Para testar DeepSeek como principal em todos os fluxos centrais, configure no ba
 NEXODOC_AI_PROVIDER=deepseek
 NEXODOC_ENABLE_DEEPSEEK=true
 DEEPSEEK_API_KEY=sua_chave_deepseek
-DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_MODEL=deepseek-v4-flash(1)
+DEEPSEEK_AUDIT_MODEL=deepseek-v4-pro
+DEEPSEEK_AUDIT_CHAT_MODEL=deepseek-v4-pro
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
