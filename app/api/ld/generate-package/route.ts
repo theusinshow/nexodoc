@@ -31,6 +31,10 @@ export async function POST(request: Request) {
     const zipFileName = `${baseName}.zip`;
 
     const odtBuffer = await generateOdtBuffer(payload);
+    if (odtBuffer.length === 0) {
+      throw new Error("ODT gerado vazio.");
+    }
+
     const { pdfBuffer, error: pdfError } = await convertOdtToPdf(odtBuffer);
     const report = buildInconsistencyReport(payload);
 
@@ -46,22 +50,26 @@ export async function POST(request: Request) {
         odt: {
           name: odtFileName,
           data: odtBuffer.toString("base64"),
+          size: odtBuffer.length,
         },
         pdf: pdfBuffer
           ? {
               name: pdfFileName,
               data: pdfBuffer.toString("base64"),
+              size: pdfBuffer.length,
             }
           : null,
         report: report
           ? {
               name: reportFileName,
               data: Buffer.from(report, "utf8").toString("base64"),
+              size: Buffer.byteLength(report, "utf8"),
             }
           : null,
         zip: {
           name: zipFileName,
           data: zipBuffer.toString("base64"),
+          size: zipBuffer.length,
         },
       },
       pdfError: pdfError || undefined,

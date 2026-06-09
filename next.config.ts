@@ -6,6 +6,11 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfjs-dist"],
+  outputFileTracingIncludes: {
+    "/api/ld/generate-odt": ["./templates/modelo_ld_empresa.odt"],
+    "/api/ld/generate-package": ["./templates/modelo_ld_empresa.odt"],
+    "/api/capas/generate": ["./templates/**/*"],
+  },
   images: {
     remotePatterns: [
       {

@@ -957,6 +957,16 @@ function base64ToObjectUrl(base64: string, mimeType: string) {
   return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
+function triggerDownload(download: GeneratedDownload) {
+  const link = document.createElement("a");
+  link.href = download.url;
+  link.download = download.fileName;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 function asStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
@@ -2197,10 +2207,10 @@ export function LdWorkspace({
 
       const payload = (await response.json()) as {
         files: {
-          odt: { name: string; data: string };
-          pdf: { name: string; data: string } | null;
-          report: { name: string; data: string } | null;
-          zip: { name: string; data: string };
+          odt: { name: string; data: string; size?: number };
+          pdf: { name: string; data: string; size?: number } | null;
+          report: { name: string; data: string; size?: number } | null;
+          zip: { name: string; data: string; size?: number };
         };
         pdfError?: string;
       };
@@ -2211,34 +2221,39 @@ export function LdWorkspace({
         setPackageError(`PDF indisponivel: ${payload.pdfError}`);
       }
 
-      setGeneratedDownloads(
-        [
-          {
-            fileName: payload.files.odt.name,
-            kind: "odt" as const,
-            url: base64ToObjectUrl(payload.files.odt.data, "application/vnd.oasis.opendocument.text"),
-          },
-          payload.files.pdf
-            ? {
-                fileName: payload.files.pdf.name,
-                kind: "pdf" as const,
-                url: base64ToObjectUrl(payload.files.pdf.data, "application/pdf"),
-              }
-            : null,
-          payload.files.report
-            ? {
-                fileName: payload.files.report.name,
-                kind: "report" as const,
-                url: base64ToObjectUrl(payload.files.report.data, "text/markdown"),
-              }
-            : null,
-          {
-            fileName: payload.files.zip.name,
-            kind: "zip" as const,
-            url: base64ToObjectUrl(payload.files.zip.data, "application/zip"),
-          },
-        ].filter((download): download is GeneratedDownload => Boolean(download)),
-      );
+      const downloads = [
+        {
+          fileName: payload.files.odt.name,
+          kind: "odt" as const,
+          url: base64ToObjectUrl(payload.files.odt.data, "application/vnd.oasis.opendocument.text"),
+        },
+        payload.files.pdf
+          ? {
+              fileName: payload.files.pdf.name,
+              kind: "pdf" as const,
+              url: base64ToObjectUrl(payload.files.pdf.data, "application/pdf"),
+            }
+          : null,
+        payload.files.report
+          ? {
+              fileName: payload.files.report.name,
+              kind: "report" as const,
+              url: base64ToObjectUrl(payload.files.report.data, "text/markdown"),
+            }
+          : null,
+        {
+          fileName: payload.files.zip.name,
+          kind: "zip" as const,
+          url: base64ToObjectUrl(payload.files.zip.data, "application/zip"),
+        },
+      ].filter((download): download is GeneratedDownload => Boolean(download));
+
+      setGeneratedDownloads(downloads);
+      const zipDownload = downloads.find((download) => download.kind === "zip");
+
+      if (zipDownload) {
+        window.setTimeout(() => triggerDownload(zipDownload), 0);
+      }
     } catch (error) {
       setPackageError(error instanceof Error ? error.message : "Não foi possível gerar os arquivos finais.");
     } finally {

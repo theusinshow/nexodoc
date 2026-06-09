@@ -153,6 +153,7 @@ DEEPSEEK_API_KEY=
 DEEPSEEK_MODEL=deepseek-v4-flash(1)
 DEEPSEEK_AUDIT_MODEL=deepseek-v4-pro
 DEEPSEEK_AUDIT_CHAT_MODEL=deepseek-v4-pro
+DEEPSEEK_LD_MODEL=deepseek-v4-flash(1)
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
 NEXODOC_LD_OPENAI_MODEL=gpt-5.4
@@ -237,7 +238,7 @@ Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto cen
 | Validacao da auditoria | `NEXODOC_AI_PROVIDER` | `OPENAI_STANDARD_VALIDATION_MODEL` / `OPENAI_DEEP_VALIDATION_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Chat pos-auditoria | `NEXODOC_AI_PROVIDER` | `OPENAI_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Organizacao de volumes, validacao | `NEXODOC_AI_PROVIDER` | `NEXODOC_VOLUME_ANALYSIS_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
-| Criador de LDs, principal | `NEXODOC_AI_PROVIDER` | `NEXODOC_LD_OPENAI_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Criador de LDs, principal | `NEXODOC_AI_PROVIDER` | `NEXODOC_LD_OPENAI_MODEL` ou `DEEPSEEK_LD_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
 
 O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
@@ -253,10 +254,11 @@ DEEPSEEK_API_KEY=sua_chave_deepseek
 DEEPSEEK_MODEL=deepseek-v4-flash(1)
 DEEPSEEK_AUDIT_MODEL=deepseek-v4-pro
 DEEPSEEK_AUDIT_CHAT_MODEL=deepseek-v4-pro
+DEEPSEEK_LD_MODEL=deepseek-v4-flash(1)
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
-Com `NEXODOC_AI_PROVIDER=deepseek`, o app usa DeepSeek em auditoria, chat pos-auditoria, validacao/sugestao de volumes e leitura principal de LD. O fallback MiMo da LD continua separado.
+Com `NEXODOC_AI_PROVIDER=deepseek`, o app usa DeepSeek em auditoria, chat pos-auditoria, validacao/sugestao de volumes e leitura principal de LD. Use `DEEPSEEK_LD_MODEL` para escolher o modelo da leitura de LD. O fallback MiMo da LD continua separado.
 
 Por padrao, a auditoria e IA-first: achados de regras locais/heuristicas ficam desligados com `NEXODOC_ENABLE_RULE_BASED_AUDIT=false`. Use `true` somente para benchmark ou comparacao com o motor legado, porque essas regras podem se comportar como busca de palavras e gerar falsos positivos.
 
