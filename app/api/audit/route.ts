@@ -32,6 +32,7 @@ import {
 } from "@/lib/mock-audit";
 import {
   classifyProviderFailure,
+  getAiConfiguration,
   getAuditModel,
   getAuditTaskModel,
   getAuditValidationModel,
@@ -62,6 +63,8 @@ const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
 const DEFAULT_CHUNK_CONCURRENCY = 3;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
 const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
+
+type AuditEngine = "single" | "dual";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
@@ -164,6 +167,14 @@ function getPrimaryModelName(analysisLevel: AnalysisLevel, role?: AuditModelRole
 
 function getValidationModelName(analysisLevel: AnalysisLevel) {
   return getAuditValidationModel(analysisLevel);
+}
+
+function isRuleBasedAuditEnabled() {
+  return process.env.NEXODOC_ENABLE_RULE_BASED_AUDIT === "true";
+}
+
+function parseAuditEngine(value: FormDataEntryValue | null): AuditEngine {
+  return value === "dual" ? "dual" : "single";
 }
 
 function getChunkPrompt(args: {
@@ -1854,13 +1865,17 @@ async function validateFindingsWithModel(args: {
   auditId?: string | null;
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
+  auditEngine: AuditEngine;
   userMessage: string;
   projectName: string;
   learningContext: string;
   files: UploadedAuditFile[];
   findings: AuditFinding[];
 }) {
-  if (args.findings.length === 0 || process.env.NEXODOC_DISABLE_FINDING_VALIDATION === "true") {
+  if (
+    args.findings.length === 0 ||
+    (args.auditEngine !== "dual" && process.env.NEXODOC_DISABLE_FINDING_VALIDATION === "true")
+  ) {
     return args.findings;
   }
 
@@ -1882,6 +1897,7 @@ async function validateFindingsWithModel(args: {
       metadata: {
         findings: args.findings.length,
         files: args.files.length,
+        auditEngine: args.auditEngine,
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
@@ -1924,8 +1940,9 @@ async function validateFindingsWithModel(args: {
       })
       .filter((finding): finding is AuditFinding => Boolean(finding));
   } catch (error) {
+    const provider = getAiConfiguration().audit.provider;
     const failure = classifyProviderFailure(
-      "openai",
+      provider,
       "audit",
       getValidationModelName(args.analysisLevel),
       error,
@@ -1996,14 +2013,19 @@ async function deepAnalyzeFile(args: {
   file: UploadedAuditFile;
 }) {
   const startedAt = Date.now();
-  const inferredIdentityFindings = deriveIdentityFindingsFromText(
-    args.file.extracted,
-    args.file.file.name,
-  );
-  const ruleBasedReviewFindings = deriveRuleBasedReviewFindings(
-    args.file.extracted,
-    args.file.file.name,
-  );
+  const useRuleBasedFindings = isRuleBasedAuditEnabled();
+  const inferredIdentityFindings = useRuleBasedFindings
+    ? deriveIdentityFindingsFromText(
+        args.file.extracted,
+        args.file.file.name,
+      )
+    : [];
+  const ruleBasedReviewFindings = useRuleBasedFindings
+    ? deriveRuleBasedReviewFindings(
+        args.file.extracted,
+        args.file.file.name,
+      )
+    : [];
   const hasInferredIdentityConflict = inferredIdentityFindings.length > 0;
   const chunkLimit = hasInferredIdentityConflict
     ? Math.min(4, getMaxChunksPerFile(args.analysisLevel))
@@ -2012,7 +2034,7 @@ async function deepAnalyzeFile(args: {
   const concurrency = getChunkConcurrency();
 
   console.log(
-    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura de identidade, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}`,
+    `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura de identidade, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}, regras locais ${useRuleBasedFindings ? "ativas" : "desligadas"}`,
   );
 
   const identityStartedAt = Date.now();
@@ -2031,7 +2053,7 @@ async function deepAnalyzeFile(args: {
         extracted: args.file.extracted,
       });
   console.log(
-    `[audit] ${args.file.file.name}: leitura de identidade concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${inferredIdentityFindings.length + identityFindings.length} achado(s)`,
+    `[audit] ${args.file.file.name}: leitura de identidade por IA concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${identityFindings.length} achado(s)`,
   );
 
   const globalStartedAt = Date.now();
@@ -2105,6 +2127,7 @@ export async function POST(request: Request) {
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
+    const auditEngine = parseAuditEngine(formData.get("auditEngine"));
     requestedAnalysisLevel = analysisLevel;
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
@@ -2266,6 +2289,7 @@ export async function POST(request: Request) {
       auditId,
       auditMode,
       analysisLevel,
+      auditEngine,
       userMessage: message,
       projectName,
       learningContext,
@@ -2305,8 +2329,22 @@ export async function POST(request: Request) {
       tipo_documento: inferredDocumentType,
       runtime: {
         nivel_analise: analysisLevel,
+        motor_auditoria: auditEngine,
+        regras_locais_ativas: isRuleBasedAuditEnabled(),
+        provedor_principal: getAiConfiguration().audit.provider,
+        provedor_validacao: getAiConfiguration().audit.provider,
         modelo_principal: getPrimaryModelName(analysisLevel),
         modelo_validacao: getValidationModelName(analysisLevel),
+        segunda_ia:
+          auditEngine === "dual"
+            ? {
+                ativa: true,
+                modelo: getValidationModelName(analysisLevel),
+                papel: "validacao_semantica",
+                observacao:
+                  "Modo comparativo: a segunda IA revisou, rebaixou ou removeu achados candidatos antes do relatório final.",
+              }
+            : undefined,
         modelos_operacionais: {
           identidade: getPrimaryModelName(analysisLevel, "identity"),
           leitura_global: getPrimaryModelName(analysisLevel, "global"),
@@ -2364,8 +2402,9 @@ export async function POST(request: Request) {
       request,
     );
   } catch (error) {
+    const provider = getAiConfiguration().audit.provider;
     const failure = classifyProviderFailure(
-      "openai",
+      provider,
       "audit",
       getPrimaryModelName(requestedAnalysisLevel),
       error,

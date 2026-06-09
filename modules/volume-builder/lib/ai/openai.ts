@@ -24,8 +24,14 @@ export async function callOpenAI(
   userPrompt: string,
   options: CallOpenAIOptions = {},
 ): Promise<{ text: string; model: string; response: unknown; durationMs: number }> {
+  const configuration = getAiConfiguration().volumeAnalysis;
+
   if (!isAIConfigured()) {
-    throw new Error("OpenAI nao configurada. Defina OPENAI_API_KEY.");
+    throw new Error(
+      configuration.provider === "deepseek"
+        ? "DeepSeek nao configurado. Defina DEEPSEEK_API_KEY."
+        : "OpenAI nao configurada. Defina OPENAI_API_KEY.",
+    );
   }
 
   const model = getVolumeAnalysisModel();

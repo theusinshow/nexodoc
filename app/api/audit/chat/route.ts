@@ -197,7 +197,7 @@ export async function POST(request: Request) {
         input: getChatPrompt({ question, report: body.report, history }),
       },
     });
-    const answer = extractResponseText(aiResponse.response);
+    const answer = aiResponse.text || extractResponseText(aiResponse.response);
 
     if (!answer) {
       throw new Error("Resposta vazia do modelo.");
@@ -205,10 +205,11 @@ export async function POST(request: Request) {
 
     return withCors(NextResponse.json({ answer }), request);
   } catch (error) {
+    const configuration = getAiConfiguration().auditChat;
     const failure = classifyProviderFailure(
-      "openai",
+      configuration.provider,
       "audit-chat",
-      getAiConfiguration().auditChat.model,
+      configuration.model,
       error,
     );
     if (failure.category !== "unknown") {

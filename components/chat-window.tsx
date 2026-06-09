@@ -131,6 +131,7 @@ type QualitySummary = {
 };
 
 type InspectorTab = "summary" | "findings" | "report";
+type AuditEngine = "single" | "dual";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -482,6 +483,7 @@ export function ChatWindow({
   const [files, setFiles] = useState<AuditFileAttachment[]>([]);
   const [auditMode, setAuditMode] = useState<AuditMode>(DEFAULT_AUDIT_MODE);
   const [analysisLevel, setAnalysisLevel] = useState<AnalysisLevel>(DEFAULT_ANALYSIS_LEVEL);
+  const [auditEngine, setAuditEngine] = useState<AuditEngine>("single");
   const [auditTitle, setAuditTitle] = useState(projectContext?.code ? `Auditoria ${projectContext.code}` : "");
   const [projectName, setProjectName] = useState(projectContext?.name ?? "");
   const [auditDescription, setAuditDescription] = useState("");
@@ -744,6 +746,7 @@ export function ChatWindow({
     setFiles([]);
     setAuditMode(DEFAULT_AUDIT_MODE);
     setAnalysisLevel(DEFAULT_ANALYSIS_LEVEL);
+    setAuditEngine("single");
     setAuditTitle("");
     setProjectName("");
     setAuditDescription("");
@@ -1009,6 +1012,7 @@ export function ChatWindow({
     formData.append("message", trimmedMessage);
     formData.append("auditMode", auditMode);
     formData.append("analysisLevel", analysisLevel);
+    formData.append("auditEngine", auditEngine);
     formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificação");
     formData.append("projectName", projectName.trim() || "Projeto não informado");
     formData.append("auditDescription", auditDescription.trim());
@@ -1025,7 +1029,7 @@ export function ChatWindow({
     const userMessage: ChatMessage = {
       id: `${auditId}-request`,
       role: "user",
-      content: `${trimmedMessage}\n\nIdentificação: ${auditTitle || "Auditoria sem identificação"}\nProjeto: ${projectName || "Projeto não informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
+      content: `${trimmedMessage}\n\nIdentificação: ${auditTitle || "Auditoria sem identificação"}\nProjeto: ${projectName || "Projeto não informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nMotor: ${auditEngine === "dual" ? "2 IAs em consenso" : "IA única"}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
       auditMode,
     };
 
@@ -1213,6 +1217,34 @@ export function ChatWindow({
                     title={getAnalysisLevelDescription(level)}
                   >
                     {getAnalysisLevelLabel(level)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">IA</span>
+              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                {([
+                  { value: "single" as const, label: "Única", title: "Auditoria com o motor principal e validação padrão configurada." },
+                  { value: "dual" as const, label: "2 IAs", title: "Modo comparativo: uma segunda IA revisa os achados antes do relatório final." },
+                ]).map((engine) => (
+                  <button
+                    key={engine.value}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setAuditEngine(engine.value)}
+                    className={cn(
+                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
+                      auditEngine === engine.value
+                        ? engine.value === "dual"
+                          ? "border border-primary/40 bg-primary/10 font-medium text-[var(--nexodoc-accent)]"
+                          : "border border-ring/40 bg-card font-medium text-foreground"
+                        : "border border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                    title={engine.title}
+                  >
+                    {engine.label}
                   </button>
                 ))}
               </div>
@@ -1877,6 +1909,11 @@ export function ChatWindow({
           {[
             { label: "Tipo", value: getAuditModeLabel(auditMode) },
             { label: "Nível", value: getAnalysisLevelLabel(latestResult?.report?.runtime?.nivel_analise ?? analysisLevel) },
+            {
+              label: "IA",
+              value: latestResult?.report?.runtime?.motor_auditoria === "dual" || auditEngine === "dual" ? "2 IAs" : "Única",
+              tone: latestResult?.report?.runtime?.motor_auditoria === "dual" || auditEngine === "dual" ? "text-[var(--nexodoc-accent)]" : undefined,
+            },
             { label: "Tempo", value: isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs) },
             { label: "PDFs", value: displayedFileCount || "-" },
             { label: "Achados", value: String(latestFindingCount), tone: latestFindingCount > 0 ? "text-[var(--nexodoc-tertiary)]" : undefined },

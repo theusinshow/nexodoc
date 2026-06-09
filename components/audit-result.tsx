@@ -820,6 +820,7 @@ export function AuditResult({
   const StatusIcon = status.icon;
   const elapsed = formatElapsedTime(elapsedMs);
   const runtime = report?.runtime;
+  const dualReview = runtime?.motor_auditoria === "dual" && runtime.segunda_ia?.ativa;
   const findings = report
     ? report.incongruencias.map(reportFindingToStructured)
     : splitFindings(parsed.findings);
@@ -881,6 +882,9 @@ export function AuditResult({
         { label: "Município", value: report.municipio || "não identificado" },
         { label: "Data", value: report.data_documento || "não identificada" },
         { label: "Nível", value: getAnalysisLevelLabel(report.runtime?.nivel_analise ?? "standard") },
+        { label: "Motor", value: dualReview ? "2 IAs em consenso" : "IA única" },
+        { label: "Provider", value: report.runtime?.provedor_principal || "openai" },
+        { label: "Regras locais", value: report.runtime?.regras_locais_ativas ? "ativas" : "desligadas" },
         { label: "Modelo", value: report.runtime?.modelo_principal || "não informado" },
         { label: "Validação", value: report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado" },
         { label: "Total de achados", value: String(report.total_incongruencias) },
@@ -1062,6 +1066,36 @@ export function AuditResult({
           </div>
         ))}
       </div>
+
+      {dualReview ? (
+        <section className="mt-4 rounded-sm border border-primary/30 bg-primary/8 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--nexodoc-accent)]">
+                Consenso de duas IAs
+              </p>
+              <p className="mt-1 text-sm leading-6 text-foreground">
+                O modelo principal encontrou candidatos e a segunda IA revisou a lista final antes da emissão do relatório.
+              </p>
+            </div>
+            <div className="grid gap-2 text-xs sm:min-w-[260px]">
+              <div className="flex items-center justify-between gap-3 rounded-sm border bg-card px-3 py-2">
+                <span className="text-muted-foreground">Principal</span>
+                <span className="font-mono text-foreground">{runtime?.modelo_principal || "não informado"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-sm border bg-card px-3 py-2">
+                <span className="text-muted-foreground">Segunda IA</span>
+                <span className="font-mono text-foreground">{runtime?.segunda_ia?.modelo || runtime?.modelo_validacao || "não informado"}</span>
+              </div>
+            </div>
+          </div>
+          {runtime?.segunda_ia?.observacao ? (
+            <p className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
+              {runtime.segunda_ia.observacao}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="mt-5 grid gap-5">
         {view === "summary" ? (

@@ -124,19 +124,54 @@ export function getOpenAiAdminKey() {
   return getBackendValue("OPENAI_ADMIN_KEY");
 }
 
+function getPrimaryAiProvider(): "openai" | "deepseek" {
+  const provider = (
+    getBackendValue("NEXODOC_AI_PROVIDER") ||
+    getBackendValue("NEXODOC_PRIMARY_AI_PROVIDER")
+  ).toLowerCase();
+
+  if (provider === "deepseek") {
+    return "deepseek";
+  }
+
+  return "openai";
+}
+
+function getProviderKeyConfigured(provider: "openai" | "deepseek") {
+  return provider === "deepseek"
+    ? isConfigured("DEEPSEEK_API_KEY")
+    : isConfigured("OPENAI_API_KEY");
+}
+
+function getProviderModel(provider: "openai" | "deepseek", openAiModel: string) {
+  return provider === "deepseek"
+    ? getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL
+    : openAiModel;
+}
+
 export function getAiConfiguration() {
+  const primaryProvider = getPrimaryAiProvider();
   const auditStandardModel =
-    getBackendValue("OPENAI_STANDARD_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL;
+    getProviderModel(primaryProvider, getBackendValue("OPENAI_STANDARD_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL);
   const auditDeepModel =
-    getBackendValue("OPENAI_DEEP_MODEL") ||
-    getBackendValue("OPENAI_MODEL") ||
-    DEFAULT_AUDIT_DEEP_MODEL;
+    getProviderModel(
+      primaryProvider,
+      getBackendValue("OPENAI_DEEP_MODEL") ||
+        getBackendValue("OPENAI_MODEL") ||
+        DEFAULT_AUDIT_DEEP_MODEL,
+    );
   const auditStandardValidationModel =
-    getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel;
+    getProviderModel(
+      primaryProvider,
+      getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel,
+    );
   const auditDeepValidationModel =
-    getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
-    getBackendValue("OPENAI_VALIDATION_MODEL") ||
-    auditDeepModel;
+    getProviderModel(
+      primaryProvider,
+      getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
+        getBackendValue("OPENAI_VALIDATION_MODEL") ||
+        auditDeepModel,
+    );
   const standardRoleModels = {
     identity:
       firstBackendValue([
@@ -184,7 +219,7 @@ export function getAiConfiguration() {
 
   return {
     audit: {
-      provider: "openai" as const,
+      provider: primaryProvider,
       standardModel: auditStandardModel,
       standardValidationModel: auditStandardValidationModel,
       deepModel: auditDeepModel,
@@ -203,12 +238,15 @@ export function getAiConfiguration() {
           ...deepRoleModels,
         },
       },
-      keyConfigured: isConfigured("OPENAI_API_KEY"),
+      keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
     auditChat: {
-      provider: "openai" as const,
-      model: getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
-      keyConfigured: isConfigured("OPENAI_API_KEY"),
+      provider: primaryProvider,
+      model: getProviderModel(
+        primaryProvider,
+        getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
+      ),
+      keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
     administrationUsage: {
       provider: "openai" as const,
@@ -216,23 +254,31 @@ export function getAiConfiguration() {
       keyConfigured: isConfigured("OPENAI_ADMIN_KEY"),
     },
     volumeAnalysis: {
-      provider: "openai" as const,
-      model: getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
-      keyConfigured: isConfigured("OPENAI_API_KEY"),
+      provider: primaryProvider,
+      model: getProviderModel(
+        primaryProvider,
+        getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
+      ),
+      keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
     volumeSuggestion: {
-      provider: "openai" as const,
-      model:
+      provider: primaryProvider,
+      model: getProviderModel(
+        primaryProvider,
         getBackendValue("NEXODOC_VOLUME_SUGGESTION_MODEL") ||
-        getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
-        DEFAULT_VOLUME_SUGGESTION_MODEL,
-      keyConfigured: isConfigured("OPENAI_API_KEY"),
+          getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
+          DEFAULT_VOLUME_SUGGESTION_MODEL,
+      ),
+      keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
     ldExtraction: {
       primary: {
-        provider: "openai" as const,
-        model: getBackendValue("NEXODOC_LD_OPENAI_MODEL") || DEFAULT_LD_OPENAI_MODEL,
-        keyConfigured: isConfigured("OPENAI_API_KEY"),
+        provider: primaryProvider,
+        model: getProviderModel(
+          primaryProvider,
+          getBackendValue("NEXODOC_LD_OPENAI_MODEL") || DEFAULT_LD_OPENAI_MODEL,
+        ),
+        keyConfigured: getProviderKeyConfigured(primaryProvider),
       },
       fallback: {
         provider: "mimo" as const,
@@ -246,8 +292,11 @@ export function getAiConfiguration() {
       model: getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL,
       baseUrl: getDeepSeekBaseUrl(),
       keyConfigured: isConfigured("DEEPSEEK_API_KEY"),
-      placeholderOnly: true,
-      note: "Placeholder de provider. Ainda nao e usado pelos fluxos sem implementar runner/roteador especifico.",
+      placeholderOnly: false,
+      note:
+        primaryProvider === "deepseek"
+          ? "DeepSeek configurado como provider principal."
+          : "DeepSeek disponivel; defina NEXODOC_AI_PROVIDER=deepseek para usar como principal.",
     },
   };
 }

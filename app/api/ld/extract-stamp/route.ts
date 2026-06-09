@@ -445,7 +445,7 @@ export async function POST(request: Request) {
 
   const textPrompt = buildTextPrompt(pdfText);
   const configuration = getAiConfiguration().ldExtraction;
-  let openAiFailure: SafeProviderFailure;
+  let primaryFailure: SafeProviderFailure;
 
   try {
     const { parsed } = await extractWithOpenAi(
@@ -463,21 +463,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...parsed,
-      provider: "openai",
+      provider: configuration.primary.provider,
       attempts: [{
-        provider: "openai",
+        provider: configuration.primary.provider,
         model: configuration.primary.model,
         status: "succeeded",
       }],
     });
   } catch (error) {
-    openAiFailure = classifyProviderFailure(
-      "openai",
+    primaryFailure = classifyProviderFailure(
+      configuration.primary.provider,
       "ld-extraction",
       configuration.primary.model,
       error,
     );
-    recordProviderFailure(openAiFailure);
+    recordProviderFailure(primaryFailure);
   }
 
   if (configuration.fallback.keyConfigured) {
@@ -503,7 +503,7 @@ export async function POST(request: Request) {
           Boolean(imageDataUrl),
           pdfText?.length ?? 0,
           {
-            fallbackReason: openAiFailure.category,
+            fallbackReason: primaryFailure.category,
           },
         ),
       });
@@ -511,9 +511,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ...parsed,
         provider: "mimo",
-        fallbackReason: openAiFailure.message,
+        fallbackReason: primaryFailure.message,
         attempts: [
-          asAttempt(openAiFailure),
+          asAttempt(primaryFailure),
           {
             provider: "mimo",
             model: configuration.fallback.model,
@@ -532,8 +532,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error: `${openAiFailure.message} ${mimoFailure.message}`,
-          attempts: [asAttempt(openAiFailure), asAttempt(mimoFailure)],
+          error: `${primaryFailure.message} ${mimoFailure.message}`,
+          attempts: [asAttempt(primaryFailure), asAttempt(mimoFailure)],
         },
         { status: getFailureStatus(mimoFailure) },
       );
@@ -542,9 +542,9 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     {
-      error: `${openAiFailure.message} O fallback MiMo não está configurado no backend.`,
+      error: `${primaryFailure.message} O fallback MiMo não está configurado no backend.`,
       attempts: [
-        asAttempt(openAiFailure),
+        asAttempt(primaryFailure),
         {
           provider: "mimo",
           model: configuration.fallback.model,
@@ -554,6 +554,6 @@ export async function POST(request: Request) {
         },
       ],
     },
-    { status: getFailureStatus(openAiFailure) },
+    { status: getFailureStatus(primaryFailure) },
   );
 }

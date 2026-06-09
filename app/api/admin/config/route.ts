@@ -234,7 +234,9 @@ export function GET(request: Request) {
         ),
       },
       secrets: {
-        openaiApiKeyConfigured: ai.audit.keyConfigured,
+        primaryProvider: ai.audit.provider,
+        primaryApiKeyConfigured: ai.audit.keyConfigured,
+        openaiApiKeyConfigured: getSecretFingerprint("OPENAI_API_KEY").configured,
         mimoApiKeyConfigured: ai.ldExtraction.fallback.keyConfigured,
         deepseekApiKeyConfigured: ai.deepseek.keyConfigured,
         openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
@@ -265,7 +267,13 @@ export async function POST(request: Request) {
   const ai = getAiConfiguration();
 
   if (!ai.auditChat.keyConfigured) {
-    return jsonError(request, "OPENAI_API_KEY não configurada.", 500);
+    return jsonError(
+      request,
+      ai.auditChat.provider === "deepseek"
+        ? "DEEPSEEK_API_KEY não configurada."
+        : "OPENAI_API_KEY não configurada.",
+      500,
+    );
   }
 
   try {
@@ -290,7 +298,7 @@ export async function POST(request: Request) {
     return withCors(
       NextResponse.json({
         ok: true,
-        provider: "openai",
+        provider: ai.auditChat.provider,
         model,
         durationMs: result.durationMs,
         output: result.text.slice(0, 120),
@@ -300,7 +308,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const rawError = error as ProviderErrorShape;
-    const failure = classifyProviderFailure("openai", "audit-chat", ai.auditChat.model, error);
+    const failure = classifyProviderFailure(ai.auditChat.provider, "audit-chat", ai.auditChat.model, error);
     recordProviderFailure(failure);
 
     return withCors(

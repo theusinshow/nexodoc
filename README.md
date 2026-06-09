@@ -147,6 +147,11 @@ NEXODOC_DEV_AUTH=false
 NEXODOC_DEV_AUTH_EMAIL=
 NEXODOC_DEV_AUTH_NAME=Usuario Dev
 OPENAI_MODEL=gpt-5.4-mini
+NEXODOC_AI_PROVIDER=openai
+NEXODOC_ENABLE_DEEPSEEK=false
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
 NEXODOC_LD_OPENAI_MODEL=gpt-5.4
 MIMO_API_KEY=
@@ -177,6 +182,7 @@ NEXODOC_MAX_CHUNKS_PER_FILE=24
 NEXODOC_CHUNK_CONCURRENCY=5
 NEXODOC_CHUNK_TIMEOUT_MS=120000
 NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
+NEXODOC_ENABLE_RULE_BASED_AUDIT=false
 ```
 
 As chaves devem ficar apenas no backend e nunca devem ser expostas no frontend.
@@ -220,25 +226,35 @@ Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto cen
 
 | Fluxo | Provedor | Variavel de modelo | Chave necessaria |
 | --- | --- | --- | --- |
-| Auditoria padrao | OpenAI | `OPENAI_STANDARD_MODEL` | `OPENAI_API_KEY` |
-| Auditoria padrao, identidade | OpenAI | `NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL` | `OPENAI_API_KEY` |
-| Auditoria padrao, leitura global | OpenAI | `NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL` | `OPENAI_API_KEY` |
-| Auditoria padrao, blocos | OpenAI | `NEXODOC_AUDIT_STANDARD_CHUNK_MODEL` | `OPENAI_API_KEY` |
-| Auditoria padrao, comparacao entre arquivos | OpenAI | `NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL` | `OPENAI_API_KEY` |
-| Auditoria profunda | OpenAI | `OPENAI_DEEP_MODEL` | `OPENAI_API_KEY` |
-| Auditoria profunda, identidade | OpenAI | `NEXODOC_AUDIT_DEEP_IDENTITY_MODEL` | `OPENAI_API_KEY` |
-| Auditoria profunda, leitura global | OpenAI | `NEXODOC_AUDIT_DEEP_GLOBAL_MODEL` | `OPENAI_API_KEY` |
-| Auditoria profunda, blocos | OpenAI | `NEXODOC_AUDIT_DEEP_CHUNK_MODEL` | `OPENAI_API_KEY` |
-| Auditoria profunda, comparacao entre arquivos | OpenAI | `NEXODOC_AUDIT_DEEP_CROSS_DOCUMENT_MODEL` | `OPENAI_API_KEY` |
-| Validacao da auditoria | OpenAI | `OPENAI_STANDARD_VALIDATION_MODEL` / `OPENAI_DEEP_VALIDATION_MODEL` | `OPENAI_API_KEY` |
-| Chat pos-auditoria | OpenAI | `OPENAI_MODEL` | `OPENAI_API_KEY` |
-| Organizacao de volumes, validacao | OpenAI | `NEXODOC_VOLUME_ANALYSIS_MODEL` | `OPENAI_API_KEY` |
-| Criador de LDs, principal | OpenAI | `NEXODOC_LD_OPENAI_MODEL` | `OPENAI_API_KEY` |
+| Auditoria padrao | `NEXODOC_AI_PROVIDER` | `OPENAI_STANDARD_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Auditoria padrao, identidade | `NEXODOC_AI_PROVIDER` | `NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Auditoria padrao, leitura global | `NEXODOC_AI_PROVIDER` | `NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Auditoria padrao, blocos | `NEXODOC_AI_PROVIDER` | `NEXODOC_AUDIT_STANDARD_CHUNK_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Auditoria padrao, comparacao entre arquivos | `NEXODOC_AI_PROVIDER` | `NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Auditoria profunda | `NEXODOC_AI_PROVIDER` | `OPENAI_DEEP_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Validacao da auditoria | `NEXODOC_AI_PROVIDER` | `OPENAI_STANDARD_VALIDATION_MODEL` / `OPENAI_DEEP_VALIDATION_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Chat pos-auditoria | `NEXODOC_AI_PROVIDER` | `OPENAI_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Organizacao de volumes, validacao | `NEXODOC_AI_PROVIDER` | `NEXODOC_VOLUME_ANALYSIS_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
+| Criador de LDs, principal | `NEXODOC_AI_PROVIDER` | `NEXODOC_LD_OPENAI_MODEL` ou `DEEPSEEK_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
 
 O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
 
 Para reduzir custo, as variaveis `NEXODOC_AUDIT_*` permitem trocar apenas uma etapa interna da auditoria. Se uma delas ficar vazia, o app usa o modelo base do respectivo nivel (`OPENAI_STANDARD_MODEL` ou `OPENAI_DEEP_MODEL`). As variaveis sem o nivel, como `NEXODOC_AUDIT_CHUNK_MODEL`, tambem sao aceitas como fallback comum para padrao e profundo.
+
+Para testar DeepSeek como principal em todos os fluxos centrais, configure no backend:
+
+```bash
+NEXODOC_AI_PROVIDER=deepseek
+NEXODOC_ENABLE_DEEPSEEK=true
+DEEPSEEK_API_KEY=sua_chave_deepseek
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+Com `NEXODOC_AI_PROVIDER=deepseek`, o app usa DeepSeek em auditoria, chat pos-auditoria, validacao/sugestao de volumes e leitura principal de LD. O fallback MiMo da LD continua separado.
+
+Por padrao, a auditoria e IA-first: achados de regras locais/heuristicas ficam desligados com `NEXODOC_ENABLE_RULE_BASED_AUDIT=false`. Use `true` somente para benchmark ou comparacao com o motor legado, porque essas regras podem se comportar como busca de palavras e gerar falsos positivos.
 
 ## Modulos da plataforma
 

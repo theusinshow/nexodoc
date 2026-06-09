@@ -3,7 +3,11 @@ import type OpenAI from "openai";
 
 import {
   classifyProviderFailure,
+  getAiConfiguration,
+  getDeepSeekApiKey,
+  getDeepSeekBaseUrl,
   recordProviderFailure,
+  type AiProvider,
   type AiProviderFlow,
 } from "@/lib/ai-providers";
 import {
@@ -40,6 +44,22 @@ type ExecuteOpenAiResponseArgs = {
 
 type ResponseWithOutputText = {
   output_text?: string | null;
+};
+
+type DeepSeekChatCompletion = {
+  id?: string;
+  model?: string;
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
 };
 
 function getDefaultTimeoutMs() {
@@ -90,7 +110,139 @@ function extractOutputText(response: unknown) {
   return candidate.output_text?.trim() ?? "";
 }
 
+function getProviderForFlow(flow: AiProviderFlow): Exclude<AiProvider, "mimo"> {
+  const configuration = getAiConfiguration();
+
+  switch (flow) {
+    case "audit":
+      return configuration.audit.provider;
+    case "audit-chat":
+      return configuration.auditChat.provider;
+    case "ld-extraction":
+      return configuration.ldExtraction.primary.provider;
+    case "volume-suggestion":
+      return configuration.volumeSuggestion.provider;
+    case "volume-analysis":
+    default:
+      return configuration.volumeAnalysis.provider;
+  }
+}
+
+function getInputText(input: OpenAiResponseCreateParams["input"]): string {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (!Array.isArray(input)) {
+    return "";
+  }
+
+  return input
+    .map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      const candidate = item as {
+        role?: string;
+        content?: string | Array<{ type?: string; text?: string; image_url?: string }>;
+      };
+      const content = candidate.content;
+
+      if (typeof content === "string") {
+        return content;
+      }
+
+      if (!Array.isArray(content)) {
+        return "";
+      }
+
+      return content
+        .map((part) => {
+          if (part.type === "input_text" || part.type === "text") {
+            return part.text ?? "";
+          }
+
+          if (part.type === "input_image" || part.image_url) {
+            return "[Imagem enviada ao fluxo original. DeepSeek recebera apenas o texto extraido disponivel.]";
+          }
+
+          return "";
+        })
+        .filter(Boolean)
+        .join("\n");
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function getDeepSeekMessages(request: OpenAiResponseCreateParams) {
+  const messages: Array<{ role: "system" | "user"; content: string }> = [];
+
+  if (typeof request.instructions === "string" && request.instructions.trim()) {
+    messages.push({ role: "system", content: request.instructions.trim() });
+  }
+
+  const input = getInputText(request.input).trim();
+
+  if (input) {
+    messages.push({ role: "user", content: input });
+  }
+
+  return messages.length > 0 ? messages : [{ role: "user" as const, content: "Responda objetivamente." }];
+}
+
+async function executeDeepSeekChatCompletion(args: ExecuteOpenAiResponseArgs, signal: AbortSignal) {
+  const apiKey = getDeepSeekApiKey();
+
+  if (!apiKey) {
+    const error = new Error("DEEPSEEK_API_KEY não configurada.") as Error & { code?: string };
+    error.code = "configuration";
+    throw error;
+  }
+
+  const baseUrl = getDeepSeekBaseUrl().replace(/\/+$/, "");
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: args.model,
+      messages: getDeepSeekMessages(args.request),
+      max_tokens: args.request.max_output_tokens,
+      stream: false,
+    }),
+    signal,
+  });
+  const payload = (await response.json().catch(() => null)) as DeepSeekChatCompletion & {
+    error?: { message?: string; code?: string; type?: string };
+  } | null;
+
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || "DeepSeek recusou a chamada.") as Error & {
+      status?: number;
+      code?: string;
+      type?: string;
+    };
+    error.status = response.status;
+    error.code = payload?.error?.code;
+    error.type = payload?.error?.type;
+    throw error;
+  }
+
+  return payload ?? {};
+}
+
+function extractDeepSeekText(response: unknown) {
+  const candidate = response as DeepSeekChatCompletion;
+
+  return candidate.choices?.[0]?.message?.content?.trim() ?? "";
+}
+
 export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
+  const provider = getProviderForFlow(args.flow);
   const timeoutMs = args.timeoutMs ?? getDefaultTimeoutMs();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -102,7 +254,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
           flow: args.flow,
           agent: args.agent,
           operation: args.operation,
-          provider: "openai",
+          provider,
           model: args.model,
           projectId: args.projectId,
           userEmail: args.userEmail,
@@ -115,20 +267,25 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
         })
       : null);
 
-  await startAiTask(aiTaskId, { provider: "openai", model: args.model });
+  await startAiTask(aiTaskId, { provider, model: args.model });
 
   try {
-    const response = await getOpenAIClient().responses.create(args.request, {
-      signal: controller.signal,
-    });
+    const response =
+      provider === "deepseek"
+        ? await executeDeepSeekChatCompletion(args, controller.signal)
+        : await getOpenAIClient().responses.create(args.request, {
+            signal: controller.signal,
+          });
     const durationMs = Date.now() - startedAt;
+    const outputText =
+      provider === "deepseek" ? extractDeepSeekText(response) : extractOutputText(response);
 
     await recordAiUsage({
       flow: args.flow,
       aiTaskId,
       taskId: args.taskId,
       taskLabel: args.taskLabel,
-      provider: "openai",
+      provider,
       model: args.model,
       operation: args.operation,
       response,
@@ -137,18 +294,18 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       userEmail: args.userEmail,
     });
     await completeAiTask(aiTaskId, {
-      outputSummary: extractOutputText(response).slice(0, 2000),
+      outputSummary: outputText.slice(0, 2000),
     });
 
     return {
       response,
-      text: extractOutputText(response),
+      text: outputText,
       durationMs,
       model: args.model,
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const failure = classifyProviderFailure("openai", args.flow, args.model, error);
+    const failure = classifyProviderFailure(provider, args.flow, args.model, error);
 
     recordProviderFailure(failure);
     await recordAiUsage({
@@ -156,7 +313,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       aiTaskId,
       taskId: args.taskId,
       taskLabel: args.taskLabel,
-      provider: "openai",
+      provider,
       model: args.model,
       operation: args.operation,
       status: "failed",

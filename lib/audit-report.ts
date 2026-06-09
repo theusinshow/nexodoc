@@ -39,8 +39,18 @@ export type AuditReport = {
   tipo_documento: string;
   runtime?: {
     nivel_analise?: AnalysisLevel;
+    motor_auditoria?: "single" | "dual";
+    regras_locais_ativas?: boolean;
+    provedor_principal?: "openai" | "deepseek";
+    provedor_validacao?: "openai" | "deepseek";
     modelo_principal?: string;
     modelo_validacao?: string;
+    segunda_ia?: {
+      ativa?: boolean;
+      modelo?: string;
+      papel?: "validacao_semantica";
+      observacao?: string;
+    };
     modelos_operacionais?: {
       identidade?: string;
       leitura_global?: string;
