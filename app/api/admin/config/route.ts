@@ -90,6 +90,7 @@ export function GET(request: Request) {
         clientDemoAllowed:
           process.env.NODE_ENV !== "production" ||
           process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true",
+        primaryProvider: ai.audit.provider,
         model: ai.auditChat.model,
         allowedOrigins: process.env.NEXODOC_ALLOWED_ORIGINS ?? "",
       },
@@ -193,6 +194,13 @@ export function GET(request: Request) {
           keyConfigured: ai.volumeAnalysis.keyConfigured,
         },
         {
+          id: "volume-suggestion",
+          label: "Volumes - sugestão de montagem",
+          provider: ai.volumeSuggestion.provider,
+          model: ai.volumeSuggestion.model,
+          keyConfigured: ai.volumeSuggestion.keyConfigured,
+        },
+        {
           id: "ld-primary",
           label: "LD - leitura principal",
           provider: ai.ldExtraction.primary.provider,
@@ -207,8 +215,8 @@ export function GET(request: Request) {
           keyConfigured: ai.ldExtraction.fallback.keyConfigured,
         },
         {
-          id: "deepseek-placeholder",
-          label: "DeepSeek - placeholder",
+          id: "deepseek-provider",
+          label: "DeepSeek - configuração",
           provider: ai.deepseek.provider,
           model: ai.deepseek.model,
           keyConfigured: ai.deepseek.keyConfigured,
@@ -234,7 +242,6 @@ export function GET(request: Request) {
         ),
       },
       secrets: {
-        primaryProvider: ai.audit.provider,
         primaryApiKeyConfigured: ai.audit.keyConfigured,
         openaiApiKeyConfigured: getSecretFingerprint("OPENAI_API_KEY").configured,
         mimoApiKeyConfigured: ai.ldExtraction.fallback.keyConfigured,
@@ -324,7 +331,9 @@ export async function POST(request: Request) {
           rawType: rawError.type,
           rawName: rawError.name,
           rawMessage: rawError.message?.slice(0, 500),
-          keyFingerprint: getSecretFingerprint("OPENAI_API_KEY"),
+          keyFingerprint: getSecretFingerprint(
+            ai.auditChat.provider === "deepseek" ? "DEEPSEEK_API_KEY" : "OPENAI_API_KEY",
+          ),
           testedAt: new Date().toISOString(),
         },
         { status: failure.category === "authentication" ? 401 : 503 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Loader2, Settings2, Zap } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Loader2, Settings2, Zap } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import {
@@ -17,21 +17,25 @@ type AdminConfigResponse = {
     nodeEnv: string;
     mockMode: boolean;
     clientDemoAllowed: boolean;
+    primaryProvider?: AiProvider;
     model: string;
     allowedOrigins: string;
   };
   aiFlows: Array<{
     id: string;
     label: string;
-    provider: "openai" | "mimo";
+    provider: AiProvider;
     model: string;
     keyConfigured: boolean;
+    enabled?: boolean;
+    placeholderOnly?: boolean;
+    note?: string;
   }>;
   aiHealth: {
     externalConnectivityChecked: boolean;
     note: string;
     lastFailures: Array<{
-      provider: "openai" | "mimo";
+      provider: AiProvider;
       flow: string;
       model: string;
       category: string;
@@ -44,10 +48,13 @@ type AdminConfigResponse = {
   secrets: Record<string, boolean>;
   secretFingerprints?: {
     openaiApiKey?: SecretFingerprint;
+    deepseekApiKey?: SecretFingerprint;
     openaiAdminKey?: SecretFingerprint;
   };
   generatedAt: string;
 };
+
+type AiProvider = "openai" | "deepseek" | "mimo";
 
 type SecretFingerprint = {
   configured: boolean;
@@ -58,7 +65,7 @@ type SecretFingerprint = {
 
 type ConnectivityTestResult = {
   ok: boolean;
-  provider: "openai";
+  provider: AiProvider;
   model: string;
   durationMs?: number;
   output?: string;
@@ -99,6 +106,50 @@ function ConfigurationStatus({ configured }: { configured: boolean }) {
   );
 }
 
+function getProviderLabel(provider: AiProvider) {
+  if (provider === "deepseek") {
+    return "DeepSeek";
+  }
+
+  if (provider === "mimo") {
+    return "MiMo";
+  }
+
+  return "OpenAI";
+}
+
+function getProviderClass(provider: AiProvider) {
+  if (provider === "deepseek") {
+    return "border-primary/30 bg-primary/10 text-[var(--nexodoc-accent)]";
+  }
+
+  if (provider === "mimo") {
+    return "border-[var(--nexodoc-tertiary)]/30 bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]";
+  }
+
+  return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
+}
+
+function getFailureForFlow(
+  failures: AdminConfigResponse["aiHealth"]["lastFailures"] | undefined,
+  flowId: string,
+  provider: AiProvider,
+) {
+  const runtimeFlow = flowId.startsWith("audit-")
+    ? "audit"
+    : flowId === "audit-chat"
+      ? "audit-chat"
+      : flowId === "ld-primary" || flowId === "ld-fallback"
+        ? "ld-extraction"
+        : flowId === "volume-analysis"
+          ? "volume-analysis"
+          : flowId === "volume-suggestion"
+            ? "volume-suggestion"
+            : flowId;
+
+  return failures?.find((failure) => failure.flow === runtimeFlow && failure.provider === provider);
+}
+
 function formatFingerprint(fingerprint?: SecretFingerprint) {
   if (!fingerprint?.configured) {
     return "ausente";
@@ -118,7 +169,7 @@ export default function AdminConfigPage() {
   const [data, setData] = useState<AdminConfigResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isTestingOpenAi, setIsTestingOpenAi] = useState(false);
+  const [isTestingProvider, setIsTestingProvider] = useState(false);
   const [connectivityTest, setConnectivityTest] = useState<ConnectivityTestResult | null>(null);
   const apiUrl = getApiUrl();
 
@@ -172,7 +223,7 @@ export default function AdminConfigPage() {
     void loadConfig();
   }
 
-  async function testOpenAiConnectivity() {
+  async function testProviderConnectivity() {
     const trimmedToken = token.trim();
 
     if (!trimmedToken) {
@@ -180,7 +231,7 @@ export default function AdminConfigPage() {
       return;
     }
 
-    setIsTestingOpenAi(true);
+    setIsTestingProvider(true);
     setConnectivityTest(null);
     setError("");
 
@@ -205,10 +256,10 @@ export default function AdminConfigPage() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Não foi possível testar a OpenAI.",
+          : "Não foi possível testar o provedor ativo.",
       );
     } finally {
-      setIsTestingOpenAi(false);
+      setIsTestingProvider(false);
     }
   }
 
@@ -246,42 +297,96 @@ export default function AdminConfigPage() {
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold">Fluxos de IA</h2>
+              <h2 className="text-sm font-semibold">Painel de provedores IA</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Provedor e modelo efetivamente selecionados pelo backend.
+                Provedor ativo, modelo, chave e última falha conhecida por fluxo. Não executa chamadas externas ao carregar.
               </p>
             </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              {connectivityTest
-                ? `conectividade: ${connectivityTest.ok ? "ok" : connectivityTest.category ?? "falha"}`
-                : "conectividade: não testada (zero chamadas)"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {data?.runtime.primaryProvider ? (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 font-mono text-xs font-medium ${getProviderClass(data.runtime.primaryProvider)}`}
+                >
+                  <Activity className="size-3.5" />
+                  principal: {getProviderLabel(data.runtime.primaryProvider)}
+                </span>
+              ) : null}
+              <span className="font-mono text-xs text-muted-foreground">
+                {connectivityTest
+                  ? `conectividade: ${connectivityTest.ok ? "ok" : connectivityTest.category ?? "falha"}`
+                  : "conectividade: não testada"}
+              </span>
+            </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {data?.aiFlows.map((flow) => (
-              <article key={flow.id} className="rounded-sm border bg-background p-3">
-                <p className="text-xs text-muted-foreground">{flow.label}</p>
-                <p className="mt-2 font-mono text-xs uppercase text-primary">{flow.provider}</p>
-                <p className="mt-1 break-all font-mono text-sm font-medium">{flow.model}</p>
-                <div className="mt-3 border-t pt-2">
-                  <ConfigurationStatus configured={flow.keyConfigured} />
+          <div className="mt-4 overflow-hidden rounded-sm border">
+            <div className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+              <span>Fluxo</span>
+              <span>Provider</span>
+              <span>Modelo</span>
+              <span>Status</span>
+              <span>Última falha</span>
+            </div>
+            {data?.aiFlows.map((flow) => {
+              const failure = getFailureForFlow(data.aiHealth.lastFailures, flow.id, flow.provider);
+              const isReady = flow.keyConfigured && !flow.placeholderOnly;
+
+              return (
+                <div
+                  key={flow.id}
+                  className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{flow.label}</p>
+                    {flow.note ? <p className="mt-1 text-xs text-muted-foreground">{flow.note}</p> : null}
+                  </div>
+                  <span
+                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
+                  >
+                    {getProviderLabel(flow.provider)}
+                  </span>
+                  <span className="break-all font-mono text-xs text-foreground">{flow.model || "--"}</span>
+                  <span
+                    className={`inline-flex w-fit items-center gap-1.5 rounded-sm border px-2 py-1 text-xs ${
+                      isReady
+                        ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                        : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
+                    }`}
+                  >
+                    {isReady ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+                    {isReady ? "pronto" : flow.keyConfigured ? "atenção" : "sem chave"}
+                  </span>
+                  <div className="min-w-0">
+                    {failure ? (
+                      <>
+                        <p className="font-mono text-xs text-[var(--status-warning)]">{failure.category}</p>
+                        <p className="truncate text-xs text-muted-foreground">{failure.message}</p>
+                      </>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">sem falhas registradas</span>
+                    )}
+                  </div>
                 </div>
-              </article>
-            ))}
+              );
+            })}
+            {!data ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">
+                Informe o token admin para carregar os provedores.
+              </div>
+            ) : null}
           </div>
         </section>
 
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold">Teste de conectividade OpenAI</h2>
+              <h2 className="text-sm font-semibold">Teste de conectividade do provider ativo</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Executa uma chamada mínima real para validar credencial, modelo e billing.
+                Executa uma chamada mínima real apenas quando você clicar.
               </p>
             </div>
-            <Button type="button" onClick={testOpenAiConnectivity} disabled={isTestingOpenAi}>
-              {isTestingOpenAi ? <Loader2 className="animate-spin" /> : <Zap />}
-              Testar OpenAI
+            <Button type="button" onClick={testProviderConnectivity} disabled={isTestingProvider}>
+              {isTestingProvider ? <Loader2 className="animate-spin" /> : <Zap />}
+              Testar provider
             </Button>
           </div>
           {connectivityTest ? (
@@ -318,6 +423,10 @@ export default function AdminConfigPage() {
             <h2 className="text-sm font-semibold">Runtime</h2>
             <div className="mt-3">
               <ConfigRow label="Ambiente" value={data?.runtime.nodeEnv || "--"} />
+              <ConfigRow
+                label="Provider principal"
+                value={data?.runtime.primaryProvider ? getProviderLabel(data.runtime.primaryProvider) : "--"}
+              />
               <ConfigRow label="Mock mode" value={data?.runtime.mockMode ? "ativo" : "inativo"} />
               <ConfigRow label="Demo pelo cliente" value={data?.runtime.clientDemoAllowed ? "permitida" : "bloqueada"} />
               <ConfigRow label="Modelo do chat" value={data?.runtime.model || "--"} />
@@ -361,6 +470,12 @@ export default function AdminConfigPage() {
                 <ConfigRow
                   label="OPENAI_API_KEY fingerprint"
                   value={formatFingerprint(data.secretFingerprints.openaiApiKey)}
+                />
+              ) : null}
+              {data?.secretFingerprints?.deepseekApiKey ? (
+                <ConfigRow
+                  label="DEEPSEEK_API_KEY fingerprint"
+                  value={formatFingerprint(data.secretFingerprints.deepseekApiKey)}
                 />
               ) : null}
               {data?.secretFingerprints?.openaiAdminKey ? (
