@@ -12,9 +12,11 @@ import {
 } from "@/modules/volume-builder/lib/ai/batch-analysis-prompt";
 import { validateBatchAssembly } from "@/modules/volume-builder/lib/volume/volume-validator";
 import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 
 export async function POST(request: NextRequest) {
   try {
+    await refreshAiModelOverrideCache();
     const body = await request.json();
 
     const { rows, metadata, importedFiles } = body as {

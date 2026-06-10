@@ -45,6 +45,7 @@ import {
   parseAuditModelJson,
   type ModelFinding,
 } from "@/lib/audit-ai";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import {
   createPendingAudit,
   persistCompletedAudit,
@@ -2232,6 +2233,7 @@ export async function POST(request: Request) {
   let requestedAnalysisLevel: AnalysisLevel = "standard";
 
   try {
+    await refreshAiModelOverrideCache();
     console.log("[audit] requisicao recebida");
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();

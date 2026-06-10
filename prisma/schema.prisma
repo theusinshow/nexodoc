@@ -464,6 +464,21 @@ model AiTask {
   @@index([inputHash])
 }
 
+model AiModelConfig {
+  id        String   @id @default(cuid())
+  flowId    String   @unique
+  label     String
+  model     String
+  isActive  Boolean  @default(true)
+  notes     String   @default("")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, updatedAt])
+  @@index([model])
+}
+
 model AiUsageEvent {
   id           String   @id @default(cuid())
   flow         String

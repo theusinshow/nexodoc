@@ -245,6 +245,12 @@ O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.5` e leit
 
 Para reduzir custo, as variaveis `NEXODOC_AUDIT_*` permitem trocar apenas uma etapa interna da auditoria. Se uma delas ficar vazia, o app usa o modelo base do respectivo nivel (`OPENAI_STANDARD_MODEL` ou `OPENAI_DEEP_MODEL`). As variaveis sem o nivel, como `NEXODOC_AUDIT_CHUNK_MODEL`, tambem sao aceitas como fallback comum para padrao e profundo.
 
+O painel `/admin/config` permite salvar overrides de modelo por fluxo diretamente no banco (`AiModelConfig`). As chaves continuam somente no ambiente backend. Se nao houver override salvo, o app usa as variaveis de ambiente/defaults acima. Em producao, aplique a migration antes de usar o editor:
+
+```bash
+npm run db:migrate
+```
+
 Para testar DeepSeek como principal em todos os fluxos centrais, configure no backend:
 
 ```bash

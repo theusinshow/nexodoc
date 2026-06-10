@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { getCachedAiModelOverride } from "@/lib/ai-model-config";
+
 export type AiProvider = "openai" | "mimo" | "deepseek";
 export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
 export type AuditAnalysisLevel = "standard" | "deep";
@@ -151,7 +153,14 @@ function getProviderModel(
   provider: "openai" | "deepseek",
   openAiModel: string,
   deepSeekModelNames: string[] = [],
+  flowId?: string,
 ) {
+  const override = flowId ? getCachedAiModelOverride(flowId) : "";
+
+  if (override) {
+    return override;
+  }
+
   return provider === "deepseek"
     ? getDeepSeekModel(deepSeekModelNames)
     : openAiModel;
@@ -162,7 +171,14 @@ function getProviderRoleModel(args: {
   baseModel: string;
   openAiModelNames: string[];
   deepSeekModelNames: string[];
+  flowId?: string;
 }) {
+  const override = args.flowId ? getCachedAiModelOverride(args.flowId) : "";
+
+  if (override) {
+    return override;
+  }
+
   if (args.provider === "deepseek") {
     return getDeepSeekModel(args.deepSeekModelNames) || args.baseModel;
   }
@@ -177,6 +193,7 @@ export function getAiConfiguration() {
       primaryProvider,
       getBackendValue("OPENAI_STANDARD_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
       ["DEEPSEEK_AUDIT_STANDARD_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      "audit-standard",
     );
   const auditDeepModel =
     getProviderModel(
@@ -185,6 +202,7 @@ export function getAiConfiguration() {
         getBackendValue("OPENAI_MODEL") ||
         DEFAULT_AUDIT_DEEP_MODEL,
       ["DEEPSEEK_AUDIT_DEEP_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      "audit-deep",
     );
   const auditStandardValidationModel =
     getProviderModel(
@@ -195,6 +213,7 @@ export function getAiConfiguration() {
         "DEEPSEEK_AUDIT_VALIDATION_MODEL",
         "DEEPSEEK_AUDIT_MODEL",
       ],
+      "audit-standard-validation",
     );
   const auditDeepValidationModel =
     getProviderModel(
@@ -207,6 +226,7 @@ export function getAiConfiguration() {
         "DEEPSEEK_AUDIT_VALIDATION_MODEL",
         "DEEPSEEK_AUDIT_MODEL",
       ],
+      "audit-deep-validation",
     );
   const standardRoleModels = {
     identity: getProviderRoleModel({
@@ -217,6 +237,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_IDENTITY_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_IDENTITY_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-standard-identity",
     }),
     global: getProviderRoleModel({
       provider: primaryProvider,
@@ -226,6 +247,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_GLOBAL_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_GLOBAL_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-standard-global",
     }),
     chunk: getProviderRoleModel({
       provider: primaryProvider,
@@ -235,6 +257,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_CHUNK_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_CHUNK_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-standard-chunk",
     }),
     crossDocument: getProviderRoleModel({
       provider: primaryProvider,
@@ -244,6 +267,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-standard-cross-document",
     }),
   };
   const deepRoleModels = {
@@ -255,6 +279,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_IDENTITY_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_IDENTITY_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-deep-identity",
     }),
     global: getProviderRoleModel({
       provider: primaryProvider,
@@ -264,6 +289,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_GLOBAL_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_GLOBAL_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-deep-global",
     }),
     chunk: getProviderRoleModel({
       provider: primaryProvider,
@@ -273,6 +299,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_CHUNK_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_CHUNK_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-deep-chunk",
     }),
     crossDocument: getProviderRoleModel({
       provider: primaryProvider,
@@ -282,6 +309,7 @@ export function getAiConfiguration() {
         "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
       ],
       deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_CROSS_DOCUMENT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+      flowId: "audit-deep-cross-document",
     }),
   };
 
@@ -314,6 +342,7 @@ export function getAiConfiguration() {
         primaryProvider,
         getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
         ["DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
+        "audit-chat",
       ),
       keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
@@ -328,6 +357,7 @@ export function getAiConfiguration() {
         primaryProvider,
         getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
         ["DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
+        "volume-analysis",
       ),
       keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
@@ -339,6 +369,7 @@ export function getAiConfiguration() {
           getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
           DEFAULT_VOLUME_SUGGESTION_MODEL,
         ["DEEPSEEK_VOLUME_SUGGESTION_MODEL", "DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
+        "volume-suggestion",
       ),
       keyConfigured: getProviderKeyConfigured(primaryProvider),
     },
@@ -349,19 +380,20 @@ export function getAiConfiguration() {
           primaryProvider,
           getBackendValue("NEXODOC_LD_OPENAI_MODEL") || DEFAULT_LD_OPENAI_MODEL,
           ["DEEPSEEK_LD_MODEL"],
+          "ld-primary",
         ),
         keyConfigured: getProviderKeyConfigured(primaryProvider),
       },
       fallback: {
         provider: "mimo" as const,
-        model: getBackendValue("MIMO_MODEL") || DEFAULT_LD_MIMO_MODEL,
+        model: getCachedAiModelOverride("ld-fallback") || getBackendValue("MIMO_MODEL") || DEFAULT_LD_MIMO_MODEL,
         keyConfigured: isConfigured("MIMO_API_KEY"),
       },
     },
     deepseek: {
       provider: "deepseek" as const,
       enabled: getBackendValue("NEXODOC_ENABLE_DEEPSEEK") === "true",
-      model: getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL,
+      model: getCachedAiModelOverride("deepseek-provider") || getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL,
       baseUrl: getDeepSeekBaseUrl(),
       keyConfigured: isConfigured("DEEPSEEK_API_KEY"),
       placeholderOnly: false,

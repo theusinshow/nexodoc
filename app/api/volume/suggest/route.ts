@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfiguration } from "@/lib/ai-providers";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import type {
   AssemblySuggestion,
@@ -21,6 +22,7 @@ type AiSuggestionPayload = {
 
 export async function POST(request: NextRequest) {
   try {
+    await refreshAiModelOverrideCache();
     const body = (await request.json()) as AssemblySuggestionRequest;
     const pageAssets = Array.isArray(body.pageAssets) ? body.pageAssets : [];
     const importedFiles = Array.isArray(body.importedFiles) ? body.importedFiles : [];

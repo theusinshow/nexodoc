@@ -1,6 +1,15 @@
 "use client";
 
-import { Activity, AlertTriangle, CheckCircle2, Loader2, Settings2, Zap } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  RotateCcw,
+  Save,
+  Settings2,
+  Zap,
+} from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import {
@@ -31,6 +40,21 @@ type AdminConfigResponse = {
     placeholderOnly?: boolean;
     note?: string;
   }>;
+  modelSettings: {
+    databaseConfigured: boolean;
+    options: string[];
+    flows: Array<{
+      flowId: string;
+      label: string;
+      provider: AiProvider;
+      effectiveModel: string;
+      overrideModel: string;
+      hasOverride: boolean;
+      updatedAt?: string;
+      updatedBy?: string | null;
+      notes: string;
+    }>;
+  };
   aiHealth: {
     externalConnectivityChecked: boolean;
     note: string;
@@ -78,6 +102,11 @@ type ConnectivityTestResult = {
   rawMessage?: string;
   keyFingerprint?: SecretFingerprint;
   testedAt: string;
+};
+
+type ConfigPatchResponse = {
+  ok: boolean;
+  config: AdminConfigResponse;
 };
 
 function getApiUrl() {
@@ -164,12 +193,20 @@ function isErrorPayload(
   return "error" in payload;
 }
 
+function isPatchErrorPayload(
+  payload: ConfigPatchResponse | { error?: string },
+): payload is { error?: string } {
+  return "error" in payload;
+}
+
 export default function AdminConfigPage() {
   const [token, setToken] = useState("");
   const [data, setData] = useState<AdminConfigResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingProvider, setIsTestingProvider] = useState(false);
+  const [savingFlowId, setSavingFlowId] = useState("");
+  const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
   const [connectivityTest, setConnectivityTest] = useState<ConnectivityTestResult | null>(null);
   const apiUrl = getApiUrl();
 
@@ -206,6 +243,14 @@ export default function AdminConfigPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
+      setModelDrafts(
+        Object.fromEntries(
+          payload.modelSettings.flows.map((flow) => [
+            flow.flowId,
+            flow.overrideModel || flow.effectiveModel,
+          ]),
+        ),
+      );
     } catch (requestError) {
       setData(null);
       setError(
@@ -263,6 +308,111 @@ export default function AdminConfigPage() {
     }
   }
 
+  async function saveModelOverride(flowId: string) {
+    const trimmedToken = token.trim();
+    const model = modelDrafts[flowId]?.trim() ?? "";
+
+    if (!trimmedToken) {
+      setError("Informe o token admin.");
+      return;
+    }
+
+    if (!model) {
+      setError("Informe o modelo antes de salvar.");
+      return;
+    }
+
+    setSavingFlowId(flowId);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/config`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${trimmedToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "save",
+          flowId,
+          model,
+        }),
+      });
+      const payload = (await response.json()) as ConfigPatchResponse | { error?: string };
+
+      if (!response.ok || isPatchErrorPayload(payload)) {
+        throw new Error(
+          isPatchErrorPayload(payload) && payload.error
+            ? payload.error
+            : "Não foi possível salvar o modelo.",
+        );
+      }
+
+      setData(payload.config);
+      setModelDrafts(
+        Object.fromEntries(
+          payload.config.modelSettings.flows.map((flow) => [
+            flow.flowId,
+            flow.overrideModel || flow.effectiveModel,
+          ]),
+        ),
+      );
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível salvar o modelo.");
+    } finally {
+      setSavingFlowId("");
+    }
+  }
+
+  async function resetModelOverride(flowId: string) {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+      setError("Informe o token admin.");
+      return;
+    }
+
+    setSavingFlowId(flowId);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/config`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${trimmedToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "reset",
+          flowId,
+        }),
+      });
+      const payload = (await response.json()) as ConfigPatchResponse | { error?: string };
+
+      if (!response.ok || isPatchErrorPayload(payload)) {
+        throw new Error(
+          isPatchErrorPayload(payload) && payload.error
+            ? payload.error
+            : "Não foi possível restaurar o padrão.",
+        );
+      }
+
+      setData(payload.config);
+      setModelDrafts(
+        Object.fromEntries(
+          payload.config.modelSettings.flows.map((flow) => [
+            flow.flowId,
+            flow.overrideModel || flow.effectiveModel,
+          ]),
+        ),
+      );
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível restaurar o padrão.");
+    } finally {
+      setSavingFlowId("");
+    }
+  }
+
   useEffect(() => {
     const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
 
@@ -293,6 +443,112 @@ export default function AdminConfigPage() {
       />
 
         <AdminError message={error} />
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Editor de modelos por fluxo</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Salva somente nomes de modelos no banco. Chaves continuam protegidas no ambiente do backend.
+              </p>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs ${
+                data?.modelSettings.databaseConfigured
+                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
+              }`}
+            >
+              {data?.modelSettings.databaseConfigured ? (
+                <CheckCircle2 className="size-3.5" />
+              ) : (
+                <AlertTriangle className="size-3.5" />
+              )}
+              {data?.modelSettings.databaseConfigured ? "persistência ativa" : "sem DATABASE_URL"}
+            </span>
+          </div>
+
+          <datalist id="nexodoc-ai-model-options">
+            {data?.modelSettings.options.map((model) => <option key={model} value={model} />)}
+          </datalist>
+
+          <div className="mt-4 overflow-hidden rounded-sm border">
+            <div className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+              <span>Fluxo</span>
+              <span>Provider</span>
+              <span>Efetivo</span>
+              <span>Override</span>
+              <span>Ações</span>
+            </div>
+            {data?.modelSettings.flows.map((flow) => {
+              const draft = (modelDrafts[flow.flowId] ?? flow.overrideModel) || flow.effectiveModel;
+              const isSaving = savingFlowId === flow.flowId;
+              const changed = draft.trim() !== (flow.overrideModel || flow.effectiveModel);
+
+              return (
+                <div
+                  key={flow.flowId}
+                  className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{flow.label}</p>
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                      {flow.hasOverride
+                        ? `override salvo${flow.updatedAt ? ` em ${new Date(flow.updatedAt).toLocaleString("pt-BR")}` : ""}`
+                        : "usando padrão/env"}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
+                  >
+                    {getProviderLabel(flow.provider)}
+                  </span>
+                  <span className="break-all font-mono text-xs text-foreground">{flow.effectiveModel || "--"}</span>
+                  <input
+                    list="nexodoc-ai-model-options"
+                    value={draft}
+                    onChange={(event) =>
+                      setModelDrafts((current) => ({
+                        ...current,
+                        [flow.flowId]: event.target.value,
+                      }))
+                    }
+                    disabled={!data.modelSettings.databaseConfigured || isSaving}
+                    className="min-h-9 w-full rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary"
+                    aria-label={`Modelo para ${flow.label}`}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!data.modelSettings.databaseConfigured || isSaving || (!changed && flow.hasOverride)}
+                      onClick={() => saveModelOverride(flow.flowId)}
+                      title="Salvar modelo"
+                    >
+                      {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!data.modelSettings.databaseConfigured || isSaving || !flow.hasOverride}
+                      onClick={() => resetModelOverride(flow.flowId)}
+                      title="Voltar ao padrão/env"
+                    >
+                      <RotateCcw />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {!data ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">
+                Informe o token admin para editar modelos.
+              </div>
+            ) : null}
+          </div>
+        </section>
 
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">

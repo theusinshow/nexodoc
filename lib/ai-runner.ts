@@ -10,6 +10,7 @@ import {
   type AiProvider,
   type AiProviderFlow,
 } from "@/lib/ai-providers";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import {
   completeAiTask,
   createAiTask,
@@ -242,6 +243,8 @@ function extractDeepSeekText(response: unknown) {
 }
 
 export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
+  await refreshAiModelOverrideCache();
+
   const provider = getProviderForFlow(args.flow);
   const timeoutMs = args.timeoutMs ?? getDefaultTimeoutMs();
   const controller = new AbortController();

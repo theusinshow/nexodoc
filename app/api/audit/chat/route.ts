@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { executeOpenAiResponse, getProviderFailureStatus } from "@/lib/ai-runner";
 import type { AuditReport } from "@/lib/audit-report";
 import { classifyProviderFailure, getAiConfiguration } from "@/lib/ai-providers";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 
 export const runtime = "nodejs";
 
@@ -157,6 +158,7 @@ export function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await refreshAiModelOverrideCache();
     const body = (await request.json()) as {
       question?: string;
       report?: AuditReport;

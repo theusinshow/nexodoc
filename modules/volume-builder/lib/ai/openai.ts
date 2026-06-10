@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { getAiConfiguration } from "@/lib/ai-providers";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 
 type CallOpenAIOptions = {
@@ -24,6 +25,8 @@ export async function callOpenAI(
   userPrompt: string,
   options: CallOpenAIOptions = {},
 ): Promise<{ text: string; model: string; response: unknown; durationMs: number }> {
+  await refreshAiModelOverrideCache();
+
   const configuration = getAiConfiguration().volumeAnalysis;
 
   if (!isAIConfigured()) {

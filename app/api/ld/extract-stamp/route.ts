@@ -10,6 +10,7 @@ import {
   type SafeProviderFailure,
 } from "@/lib/ai-providers";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 
 type StampExtraction = {
   disciplina: string | null;
@@ -418,6 +419,8 @@ function asAttempt(failure: SafeProviderFailure) {
 }
 
 export async function POST(request: Request) {
+  await refreshAiModelOverrideCache();
+
   const session = await auth();
 
   if (!session?.user) {
