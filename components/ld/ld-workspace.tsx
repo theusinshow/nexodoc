@@ -63,7 +63,7 @@ type PdfReadResult = {
     description: boolean;
   };
   aiExtraction: "not-used" | "text" | "visual" | "failed";
-  extractionProvider?: "openai" | "mimo";
+  extractionProvider?: AiProvider;
   fallbackReason?: string;
   providerFailureCategories?: ProviderFailureCategory[];
   aiError?: string;
@@ -234,7 +234,7 @@ type VisualStampExtraction = {
   fase: string | null;
   tituloSecao: string | null;
   confianca: "alta" | "media" | "baixa";
-  provider?: "openai" | "mimo";
+  provider?: AiProvider;
   fallbackReason?: string;
   attempts?: ProviderAttempt[];
 };
@@ -250,11 +250,13 @@ type ProviderFailureCategory =
   | "unknown";
 
 type ProviderAttempt = {
-  provider: "openai" | "mimo";
+  provider: AiProvider;
   status: "succeeded" | "failed" | "not_configured";
   category?: ProviderFailureCategory;
   message?: string;
 };
+
+type AiProvider = "openai" | "deepseek" | "mimo";
 
 class StampExtractionError extends Error {
   attempts: ProviderAttempt[];
@@ -523,7 +525,12 @@ function describeExtractionSource(result: PdfReadResult) {
   }
 
   const method = result.aiExtraction === "visual" ? "visual" : "textual";
-  const provider = result.extractionProvider === "mimo" ? "MiMo" : "OpenAI";
+  const provider =
+    result.extractionProvider === "mimo"
+      ? "MiMo"
+      : result.extractionProvider === "deepseek"
+        ? "DeepSeek"
+        : "OpenAI";
 
   return `IA ${method} (${provider})`;
 }
@@ -2955,7 +2962,7 @@ function PreAnalysisPanel({
             </dd>
             {result.fallbackReason ? (
               <p className="mt-1 text-xs text-[var(--status-warning)]">
-                Fallback utilizado: {result.fallbackReason}
+                Principal falhou; fallback MiMo utilizado: {result.fallbackReason}
               </p>
             ) : null}
           </div>
@@ -3663,7 +3670,7 @@ function ReviewTable({
                         <FieldOriginStack result={result} />
                         {result.fallbackReason ? (
                           <p className="text-xs text-[var(--status-warning)]">
-                            Fallback: {result.fallbackReason}
+                            Principal falhou; fallback MiMo: {result.fallbackReason}
                           </p>
                         ) : null}
                       </>
@@ -3784,7 +3791,7 @@ function StampZoomOverlay({
               </dd>
               {result.fallbackReason ? (
                 <p className="mt-1 text-xs text-[var(--status-warning)]">
-                  Fallback: {result.fallbackReason}
+                  Principal falhou; fallback MiMo: {result.fallbackReason}
                 </p>
               ) : null}
             </div>

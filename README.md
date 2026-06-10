@@ -146,7 +146,7 @@ NEXODOC_ADMIN_EMAILS=admin@empresa.com
 NEXODOC_DEV_AUTH=false
 NEXODOC_DEV_AUTH_EMAIL=
 NEXODOC_DEV_AUTH_NAME=Usuario Dev
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.5
 NEXODOC_AI_PROVIDER=openai
 NEXODOC_ENABLE_DEEPSEEK=false
 DEEPSEEK_API_KEY=
@@ -155,19 +155,19 @@ DEEPSEEK_AUDIT_MODEL=deepseek-v4-pro
 DEEPSEEK_AUDIT_CHAT_MODEL=deepseek-v4-pro
 DEEPSEEK_LD_MODEL=deepseek-v4-flash(1)
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.4-mini
-NEXODOC_LD_OPENAI_MODEL=gpt-5.4
+NEXODOC_VOLUME_ANALYSIS_MODEL=gpt-5.5
+NEXODOC_LD_OPENAI_MODEL=gpt-5.5
 MIMO_API_KEY=
 MIMO_MODEL=mimo-v2.5
 OPENAI_VALIDATION_MODEL=
-OPENAI_STANDARD_MODEL=gpt-5.4-mini
-OPENAI_STANDARD_VALIDATION_MODEL=gpt-5.4-mini
+OPENAI_STANDARD_MODEL=gpt-5.5
+OPENAI_STANDARD_VALIDATION_MODEL=gpt-5.5
 NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL=
 NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL=
 NEXODOC_AUDIT_STANDARD_CHUNK_MODEL=
 NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL=
-OPENAI_DEEP_MODEL=gpt-5.4
-OPENAI_DEEP_VALIDATION_MODEL=gpt-5.4
+OPENAI_DEEP_MODEL=gpt-5.5
+OPENAI_DEEP_VALIDATION_MODEL=gpt-5.5
 NEXODOC_AUDIT_DEEP_IDENTITY_MODEL=
 NEXODOC_AUDIT_DEEP_GLOBAL_MODEL=
 NEXODOC_AUDIT_DEEP_CHUNK_MODEL=
@@ -241,7 +241,7 @@ Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto cen
 | Criador de LDs, principal | `NEXODOC_AI_PROVIDER` | `NEXODOC_LD_OPENAI_MODEL` ou `DEEPSEEK_LD_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
 
-O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.4-mini` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.4` e leitura ampliada. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
+O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.5` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.5` e leitura ampliada. Para rotinas de menor custo/latencia, use overrides pontuais com `gpt-5.4-mini`, como em `NEXODOC_VOLUME_SUGGESTION_MODEL`. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
 
 Para reduzir custo, as variaveis `NEXODOC_AUDIT_*` permitem trocar apenas uma etapa interna da auditoria. Se uma delas ficar vazia, o app usa o modelo base do respectivo nivel (`OPENAI_STANDARD_MODEL` ou `OPENAI_DEEP_MODEL`). As variaveis sem o nivel, como `NEXODOC_AUDIT_CHUNK_MODEL`, tambem sao aceitas como fallback comum para padrao e profundo.
 

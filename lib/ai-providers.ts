@@ -32,11 +32,11 @@ type ProviderErrorShape = {
   message?: string;
 };
 
-const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.4-mini";
-const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.4";
-const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-mini";
+const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.5";
+const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.5";
+const DEFAULT_LD_OPENAI_MODEL = "gpt-5.5";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
-const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.4-mini";
+const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.5";
 const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.4-mini";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 
