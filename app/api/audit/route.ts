@@ -68,6 +68,128 @@ const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
 
 type AuditEngine = "single" | "dual";
 
+const auditFindingModelSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    prioridade: { type: "string" },
+    pagina: { type: "string" },
+    capitulo: { type: "string" },
+    local: { type: "string" },
+    tipo: { type: "string" },
+    descricao: { type: "string" },
+    evidencia: { type: "string" },
+    termo_busca: { type: "string" },
+    arquivo: { type: "string" },
+    categoria: { type: "string" },
+    referencia_comparada: { type: "string" },
+    conflito: { type: "string" },
+    sugestao_correcao: { type: "string" },
+    confianca: { type: "string" },
+  },
+  required: [
+    "prioridade",
+    "pagina",
+    "capitulo",
+    "local",
+    "tipo",
+    "descricao",
+    "evidencia",
+    "termo_busca",
+    "arquivo",
+    "categoria",
+    "referencia_comparada",
+    "conflito",
+    "sugestao_correcao",
+    "confianca",
+  ],
+};
+
+const auditFindingsResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_findings",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      findings: {
+        type: "array",
+        items: auditFindingModelSchema,
+      },
+    },
+    required: ["findings"],
+  },
+};
+
+const auditCrossDocumentResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_cross_document",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      comparisons: {
+        type: "array",
+        items: { type: "string" },
+      },
+      findings: {
+        type: "array",
+        items: auditFindingModelSchema,
+      },
+    },
+    required: ["comparisons", "findings"],
+  },
+};
+
+const auditValidationResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_validation",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      decisions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            source_id: { type: "string" },
+            acao: { type: "string", enum: ["confirmar", "rebaixar", "remover"] },
+            prioridade: { type: "string" },
+            impacto: {
+              type: "string",
+              enum: ["critico_documental", "tecnico_contratual", "revisao_editorial"],
+            },
+            tipo: { type: "string" },
+            descricao: { type: "string" },
+            conflito: { type: "string" },
+            sugestao_correcao: { type: "string" },
+            confianca: { type: "string" },
+            motivo: { type: "string" },
+          },
+          required: [
+            "source_id",
+            "acao",
+            "prioridade",
+            "impacto",
+            "tipo",
+            "descricao",
+            "conflito",
+            "sugestao_correcao",
+            "confianca",
+            "motivo",
+          ],
+        },
+      },
+    },
+    required: ["decisions"],
+  },
+};
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -189,6 +311,15 @@ function parseRequiredAuditModelJson(text: string, operation: string) {
   }
 
   return parsed;
+}
+
+function isInvalidAuditModelResponse(error: unknown) {
+  const candidate = error as { code?: string; message?: string };
+
+  return (
+    candidate?.code === "invalid_response" ||
+    String(candidate?.message ?? "").toLowerCase().includes("resposta inválida")
+  );
 }
 
 function getChunkPrompt(args: {
@@ -1538,6 +1669,7 @@ async function analyzeChunkWithModel(args: {
         effort: getReasoningEffort(args.analysisLevel),
       },
       max_output_tokens: getMaxOutputTokens(),
+      text: { format: auditFindingsResponseFormat },
       input: getChunkPrompt(args),
     },
     metadata: {
@@ -1635,28 +1767,40 @@ async function analyzeIdentityWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "identity");
-  const result = await executeAuditModelResponse({
-    taskId: args.auditId,
-    taskLabel: args.fileName,
-    model,
-    operation: "audit-identity",
-    timeoutMs: getChunkTimeoutMs(),
-    request: {
+  let parsed;
+
+  try {
+    const result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.fileName,
       model,
-      instructions: getAuditorPrompt(args.auditMode),
-      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-      max_output_tokens: getMaxOutputTokens(),
-      input: getIdentityAuditPrompt(args),
-    },
-    metadata: {
-      fileName: args.fileName,
-      fileType: args.fileType,
-      pages: args.extracted.pageCount,
-      analysisLevel: args.analysisLevel,
-      auditMode: args.auditMode,
-    },
-  });
-  const parsed = parseRequiredAuditModelJson(result.text, "audit-identity");
+      operation: "audit-identity",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: getMaxOutputTokens(),
+        text: { format: auditFindingsResponseFormat },
+        input: getIdentityAuditPrompt(args),
+      },
+      metadata: {
+        fileName: args.fileName,
+        fileType: args.fileType,
+        pages: args.extracted.pageCount,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+    });
+    parsed = parseRequiredAuditModelJson(result.text, "audit-identity");
+  } catch (error) {
+    if (!isInvalidAuditModelResponse(error)) {
+      throw error;
+    }
+
+    console.error(`[audit] ${args.fileName}: resposta invalida na leitura de identidade; etapa ignorada`);
+    return [];
+  }
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1747,28 +1891,40 @@ async function analyzeFileGloballyWithModel(args: {
   extracted: ExtractedPdf;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
-  const result = await executeAuditModelResponse({
-    taskId: args.auditId,
-    taskLabel: args.fileName,
-    model,
-    operation: "audit-global",
-    timeoutMs: getChunkTimeoutMs(),
-    request: {
+  let parsed;
+
+  try {
+    const result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.fileName,
       model,
-      instructions: getAuditorPrompt(args.auditMode),
-      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-      max_output_tokens: getMaxOutputTokens(),
-      input: getGlobalFilePrompt(args),
-    },
-    metadata: {
-      fileName: args.fileName,
-      fileType: args.fileType,
-      pages: args.extracted.pageCount,
-      analysisLevel: args.analysisLevel,
-      auditMode: args.auditMode,
-    },
-  });
-  const parsed = parseRequiredAuditModelJson(result.text, "audit-global");
+      operation: "audit-global",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: getMaxOutputTokens(),
+        text: { format: auditFindingsResponseFormat },
+        input: getGlobalFilePrompt(args),
+      },
+      metadata: {
+        fileName: args.fileName,
+        fileType: args.fileType,
+        pages: args.extracted.pageCount,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+    });
+    parsed = parseRequiredAuditModelJson(result.text, "audit-global");
+  } catch (error) {
+    if (!isInvalidAuditModelResponse(error)) {
+      throw error;
+    }
+
+    console.error(`[audit] ${args.fileName}: resposta invalida na leitura global; etapa ignorada`);
+    return [];
+  }
 
   return (parsed?.findings ?? [])
     .map((finding, index) =>
@@ -1994,6 +2150,7 @@ async function validateFindingsWithModel(args: {
         instructions: getAuditorPrompt(args.auditMode),
         reasoning: { effort: getReasoningEffort(args.analysisLevel) },
         max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
+        text: { format: auditValidationResponseFormat },
         input: getFindingValidationPrompt(args),
       },
       metadata: {
@@ -2075,26 +2232,38 @@ async function analyzeCrossDocumentsWithModel(args: {
   }
 
   const model = getPrimaryModelName(args.analysisLevel, "crossDocument");
-  const result = await executeAuditModelResponse({
-    taskId: args.auditId,
-    taskLabel: args.projectName || "Auditoria",
-    model,
-    operation: "audit-cross-document",
-    timeoutMs: getChunkTimeoutMs(),
-    request: {
+  let parsed;
+
+  try {
+    const result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.projectName || "Auditoria",
       model,
-      instructions: getAuditorPrompt(args.auditMode),
-      reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-      max_output_tokens: getMaxOutputTokens(),
-      input: getCrossDocumentPrompt(args),
-    },
-    metadata: {
-      files: args.files.length,
-      analysisLevel: args.analysisLevel,
-      auditMode: args.auditMode,
-    },
-  });
-  const parsed = parseRequiredAuditModelJson(result.text, "audit-cross-document");
+      operation: "audit-cross-document",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: getMaxOutputTokens(),
+        text: { format: auditCrossDocumentResponseFormat },
+        input: getCrossDocumentPrompt(args),
+      },
+      metadata: {
+        files: args.files.length,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+    });
+    parsed = parseRequiredAuditModelJson(result.text, "audit-cross-document");
+  } catch (error) {
+    if (!isInvalidAuditModelResponse(error)) {
+      throw error;
+    }
+
+    console.error("[audit] resposta invalida na comparacao entre documentos; etapa ignorada");
+    return { findings: [] as AuditFinding[], comparisons: [] as string[] };
+  }
 
   return {
     findings: (parsed?.findings ?? [])
