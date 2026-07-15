@@ -139,6 +139,31 @@ function getPrimaryAiProvider(): "openai" | "deepseek" {
   return "openai";
 }
 
+// Provider por fluxo: permite, por exemplo, auditoria no OpenAI e LD/Volumes na
+// DeepSeek. Cai no provider global (NEXODOC_AI_PROVIDER) quando não sobrescrito.
+function getFlowProvider(
+  flow: "audit" | "volume" | "ld",
+  fallback: "openai" | "deepseek",
+): "openai" | "deepseek" {
+  const key =
+    flow === "audit"
+      ? "NEXODOC_AUDIT_PROVIDER"
+      : flow === "volume"
+        ? "NEXODOC_VOLUME_PROVIDER"
+        : "NEXODOC_LD_PROVIDER";
+  const value = getBackendValue(key).toLowerCase();
+
+  if (value === "deepseek") {
+    return "deepseek";
+  }
+
+  if (value === "openai") {
+    return "openai";
+  }
+
+  return fallback;
+}
+
 function getProviderKeyConfigured(provider: "openai" | "deepseek") {
   return provider === "deepseek"
     ? isConfigured("DEEPSEEK_API_KEY")
@@ -187,7 +212,14 @@ function getProviderRoleModel(args: {
 }
 
 export function getAiConfiguration() {
-  const primaryProvider = getPrimaryAiProvider();
+  const globalProvider = getPrimaryAiProvider();
+  const auditProvider = getFlowProvider("audit", globalProvider);
+  const volumeProvider = getFlowProvider("volume", globalProvider);
+  const ldProvider = getFlowProvider("ld", globalProvider);
+  // A auditoria e o chat pós-auditoria seguem auditProvider; volume e LD têm os
+  // seus próprios. primaryProvider é apelido de auditProvider para o bloco de
+  // auditoria abaixo (que domina esta função).
+  const primaryProvider = auditProvider;
   const auditStandardModel =
     getProviderModel(
       primaryProvider,
@@ -352,37 +384,37 @@ export function getAiConfiguration() {
       keyConfigured: isConfigured("OPENAI_ADMIN_KEY"),
     },
     volumeAnalysis: {
-      provider: primaryProvider,
+      provider: volumeProvider,
       model: getProviderModel(
-        primaryProvider,
+        volumeProvider,
         getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
         ["DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
         "volume-analysis",
       ),
-      keyConfigured: getProviderKeyConfigured(primaryProvider),
+      keyConfigured: getProviderKeyConfigured(volumeProvider),
     },
     volumeSuggestion: {
-      provider: primaryProvider,
+      provider: volumeProvider,
       model: getProviderModel(
-        primaryProvider,
+        volumeProvider,
         getBackendValue("NEXODOC_VOLUME_SUGGESTION_MODEL") ||
           getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
           DEFAULT_VOLUME_SUGGESTION_MODEL,
         ["DEEPSEEK_VOLUME_SUGGESTION_MODEL", "DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
         "volume-suggestion",
       ),
-      keyConfigured: getProviderKeyConfigured(primaryProvider),
+      keyConfigured: getProviderKeyConfigured(volumeProvider),
     },
     ldExtraction: {
       primary: {
-        provider: primaryProvider,
+        provider: ldProvider,
         model: getProviderModel(
-          primaryProvider,
+          ldProvider,
           getBackendValue("NEXODOC_LD_OPENAI_MODEL") || DEFAULT_LD_OPENAI_MODEL,
           ["DEEPSEEK_LD_MODEL"],
           "ld-primary",
         ),
-        keyConfigured: getProviderKeyConfigured(primaryProvider),
+        keyConfigured: getProviderKeyConfigured(ldProvider),
       },
       fallback: {
         provider: "mimo" as const,
@@ -398,9 +430,9 @@ export function getAiConfiguration() {
       keyConfigured: isConfigured("DEEPSEEK_API_KEY"),
       placeholderOnly: false,
       note:
-        primaryProvider === "deepseek"
-          ? "DeepSeek configurado como provider principal."
-          : "DeepSeek disponivel; defina NEXODOC_AI_PROVIDER=deepseek para usar como principal.",
+        globalProvider === "deepseek"
+          ? "DeepSeek configurado como provider global padrão."
+          : "DeepSeek disponivel; defina NEXODOC_AI_PROVIDER=deepseek (global) ou NEXODOC_LD_PROVIDER/NEXODOC_VOLUME_PROVIDER (por fluxo).",
     },
   };
 }

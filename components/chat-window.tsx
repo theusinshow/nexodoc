@@ -50,6 +50,7 @@ import {
 } from "@/lib/audit-mode";
 import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
+import type { DocumentClassification, DocumentKind } from "@/lib/audit-classify";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import type { ProjectContext } from "@/lib/project-context";
 import { cn } from "@/lib/utils";
@@ -423,6 +424,16 @@ function extractFirstRecommendedAction(content: string | undefined) {
   );
 }
 
+// Mapeia o tipo detectado pela classificação para o DocumentType do anexo.
+const CLASSIFICATION_DOCTYPE: Record<DocumentKind, DocumentType> = {
+  memorial: "memorial",
+  ld: "ld",
+  capa: "capa",
+  prancha: "pranchas",
+  orcamento: "outro",
+  desconhecido: "outro",
+};
+
 function validateFiles(
   currentFiles: AuditFileAttachment[],
   newFiles: File[],
@@ -487,6 +498,10 @@ export function ChatWindow({
   const [auditTitle, setAuditTitle] = useState(projectContext?.code ? `Auditoria ${projectContext.code}` : "");
   const [projectName, setProjectName] = useState(projectContext?.name ?? "");
   const [auditDescription, setAuditDescription] = useState("");
+  const [classifications, setClassifications] = useState<DocumentClassification[]>([]);
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const classifiedSignatureRef = useRef("");
   const [useMockMode, setUseMockMode] = useState(isMockMode && allowDemoMode);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -496,7 +511,6 @@ export function ChatWindow({
   const [historyStatus, setHistoryStatus] = useState<AuditHistoryStatus | null>(null);
   const [qualitySummary, setQualitySummary] = useState<QualitySummary | null>(null);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("summary");
   const [isDropActive, setIsDropActive] = useState(false);
   const [learningTitle, setLearningTitle] = useState("");
   const [learningContent, setLearningContent] = useState("");
@@ -568,12 +582,6 @@ export function ChatWindow({
     latestResult?.content,
     "1\\.\\s*Projeto analisado",
   );
-  const latestFindings = extractSection(
-    latestResult?.content,
-    "6\\.\\s*Achados encontrados|6\\.\\s*Incongruencias relevantes encontradas|6\\.\\s*Incongruências relevantes encontradas",
-  );
-  const latestReport =
-    latestResult?.content ?? "Nenhuma auditoria concluída nesta sessão.";
   const latestRecommendedAction =
     extractFirstRecommendedAction(latestResult?.content) ||
     (latestResult
@@ -689,6 +697,79 @@ export function ChatWindow({
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
+  // Classificação determinística ao anexar: lê o(s) PDF(s) e pré-preenche
+  // tipo/obra/município/código, para o operador só confirmar. Não chama IA.
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const signature = files.map((item) => `${item.file.name}:${item.file.size}`).join("|");
+
+    if (signature === classifiedSignatureRef.current) {
+      return; // mesmo conjunto de arquivos (ex.: só o documentType mudou) — não reclassifica
+    }
+
+    if (files.length === 0) {
+      classifiedSignatureRef.current = "";
+      setClassifications([]);
+      return;
+    }
+
+    classifiedSignatureRef.current = signature;
+    const controller = new AbortController();
+
+    async function classify(items: AuditFileAttachment[]) {
+      setIsClassifying(true);
+
+      try {
+        const form = new FormData();
+        for (const item of items) {
+          form.append("files", item.file, item.file.name);
+        }
+
+        const response = await fetch("/api/audit/classify", {
+          method: "POST",
+          body: form,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { classifications?: DocumentClassification[] };
+        const list = payload.classifications ?? [];
+        setClassifications(list);
+
+        const primary = list[0];
+
+        if (primary) {
+          if (primary.obra) {
+            setProjectName(primary.obra);
+          }
+          setAuditTitle((current) => current || primary.codigo || primary.obra || current);
+          setAuditMode(primary.auditMode);
+          setAnalysisLevel(primary.analysisLevel);
+          setFiles((current) =>
+            current.map((item, index) => {
+              const tipo = list[index]?.tipo;
+              return tipo ? { ...item, documentType: CLASSIFICATION_DOCTYPE[tipo] } : item;
+            }),
+          );
+        }
+      } catch {
+        // Classificação é auxiliar; falha não bloqueia a auditoria manual.
+      } finally {
+        setIsClassifying(false);
+      }
+    }
+
+    void classify(files);
+
+    return () => controller.abort();
+  }, [files, isLoading]);
+
   function handleFilesAdd(newFiles: File[], documentType: DocumentType) {
     setFiles((currentFiles) => {
       const result = validateFiles(currentFiles, newFiles, documentType);
@@ -766,7 +847,7 @@ export function ChatWindow({
     const userMessage: ChatMessage = {
       id: `${demoId}-request`,
       role: "user",
-      content: `${getDefaultPrompt(auditMode)}\n\nIdentificação: ${title}\nProjeto: ${demoProjectName}\nTipo: ${getAuditModeLabel(auditMode)}\nArquivos: ${fileNames.join(", ")}`,
+      content: getDefaultPrompt(auditMode),
       auditMode,
     };
     const assistantMessage: ChatMessage = {
@@ -801,7 +882,6 @@ export function ChatWindow({
       },
       ...current,
     ]);
-    setInspectorTab("summary");
   }
 
   function createPdfSources() {
@@ -1029,7 +1109,7 @@ export function ChatWindow({
     const userMessage: ChatMessage = {
       id: `${auditId}-request`,
       role: "user",
-      content: `${trimmedMessage}\n\nIdentificação: ${auditTitle || "Auditoria sem identificação"}\nProjeto: ${projectName || "Projeto não informado"}\nTipo: ${getAuditModeLabel(auditMode)}\nMotor: ${auditEngine === "dual" ? "2 IAs em consenso" : "IA única"}\nArquivos: ${files.map((item) => item.file.name).join(", ")}`,
+      content: trimmedMessage,
       auditMode,
     };
 
@@ -1255,10 +1335,132 @@ export function ChatWindow({
     );
   }
 
+  function renderDetectionCards() {
+    if (files.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-2">
+        {files.map((item, index) => {
+          const detected = classifications[index];
+          const reading = isClassifying && !detected;
+          const confDot =
+            detected?.confianca === "alta"
+              ? "bg-[var(--status-ok)]"
+              : detected?.confianca === "media"
+                ? "bg-[var(--status-warning)]"
+                : "bg-[var(--status-critical)]";
+          const confText =
+            detected?.confianca === "alta"
+              ? "text-[var(--status-ok)]"
+              : detected?.confianca === "media"
+                ? "text-[var(--status-warning)]"
+                : "text-[var(--status-critical)]";
+          const fields = detected
+            ? [
+                { label: "Obra", value: detected.obra, mono: false },
+                { label: "Município", value: detected.municipio, mono: false },
+                { label: "Código", value: detected.codigo, mono: true },
+                { label: "Páginas", value: detected.pageCount ? String(detected.pageCount) : "", mono: true },
+              ].filter((field) => field.value)
+            : [];
+
+          return (
+            <div key={item.id} className="nexodoc-file-in overflow-hidden rounded-sm border bg-card">
+              <div className="flex items-center justify-between gap-3 border-b bg-[var(--nexodoc-raised)] px-3.5 py-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <FileSearch className="size-4 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium leading-tight text-foreground">{item.file.name}</p>
+                    {reading ? (
+                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                        lendo o documento…
+                      </span>
+                    ) : detected ? (
+                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-primary">
+                        {detected.tipoLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                {detected ? (
+                  <span className={cn("flex shrink-0 items-center gap-1.5 font-mono text-[11px]", confText)}>
+                    <span className={cn("size-1.5 rounded-full", confDot)} />
+                    {detected.confianca}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="px-3.5 py-3">
+                {reading ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-2/3 animate-pulse rounded-sm bg-[var(--nexodoc-raised)]" />
+                    <div className="h-3 w-2/5 animate-pulse rounded-sm bg-[var(--nexodoc-raised)]" />
+                  </div>
+                ) : detected ? (
+                  <>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
+                      {fields.map((field) => (
+                        <div key={field.label} className="min-w-0">
+                          <dt className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                            {field.label}
+                          </dt>
+                          <dd className={cn("truncate text-sm text-foreground", field.mono && "font-mono")}>
+                            {field.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    {detected.precisaOcr ? (
+                      <p className="mt-3 flex items-start gap-1.5 rounded-sm bg-[var(--status-warning-bg)] px-2.5 py-1.5 text-[11px] leading-4 text-[var(--status-warning)]">
+                        <AlertTriangle className="mt-px size-3 shrink-0" />
+                        Sem texto pesquisável (provável imagem ou prancha). Confirme o tipo em Opções avançadas.
+                      </p>
+                    ) : detected.sinais.length ? (
+                      <p className="mt-2.5 font-mono text-[10px] leading-4 text-muted-foreground">{detected.sinais[0]}</p>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+
+        {classifications.length > 0 && !isClassifying ? (
+          <p className="px-0.5 pt-0.5 text-xs leading-5 text-muted-foreground">
+            Confira os dados detectados. Algo errado? Ajuste em{" "}
+            <span className="font-medium text-foreground">Opções avançadas</span>. Caso contrário, execute a auditoria.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   function renderAuditSetup() {
     return (
       <section className="border-b bg-background px-4 py-3 sm:px-5">
-        <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_1fr_auto] xl:items-start">
+        {files.length > 0 ? (
+          <div className="space-y-3">
+            {renderDetectionCards()}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen((value) => !value)}
+                disabled={isLoading}
+                className="font-mono text-[11px] font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:underline"
+              >
+                {advancedOpen ? "Ocultar opções avançadas ▲" : "Opções avançadas ▾"}
+              </button>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {getAuditModeLabel(auditMode)} / {getAnalysisLevelLabel(analysisLevel)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+        {files.length === 0 || advancedOpen ? (
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(220px,280px)_1fr_auto] xl:items-start">
           <div className="min-w-0 space-y-2">
             {projectContext ? (
               <div className="rounded-sm border bg-card px-3 py-2 text-xs">
@@ -1375,6 +1577,7 @@ export function ChatWindow({
             </p>
           </div>
         </div>
+        ) : null}
       </section>
     );
   }
@@ -1394,47 +1597,45 @@ export function ChatWindow({
           )}
         >
           <div className={cn(
-            "mx-auto w-full max-w-[680px] rounded-sm border border-dashed px-8 py-10 text-center transition-[border-color,background-color]",
+            "mx-auto w-full max-w-[560px] rounded-sm border border-dashed px-8 py-11 text-center transition-[border-color,background-color]",
             isDropActive
               ? "border-primary bg-primary/5"
-              : "border-input/60 hover:border-ring/50",
+              : "border-input/60 hover:border-ring/40",
           )}>
-            <div className="mx-auto flex size-12 items-center justify-center rounded-sm border border-primary/15 bg-primary/5 text-primary">
-              <FileSearch className="size-6" />
+            <div className="mx-auto flex size-11 items-center justify-center rounded-sm border border-primary/20 bg-primary/5 text-primary">
+              <FileSearch className="size-5" />
             </div>
-            <h2 className="mt-5 text-lg font-semibold">Nova auditoria documental</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Anexe PDFs, escolha o tipo de auditoria e solicite a análise.
+            <h2 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
+              Solte o documento para auditar
+            </h2>
+            <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-6 text-muted-foreground">
+              Arraste um PDF técnico para esta área. A IA identifica a obra, o município e o tipo do documento; você confere e executa.
             </p>
 
-            <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
-              {[
-                ["01", "Anexe os PDFs"],
-                ["02", "Escolha o tipo"],
-                ["03", "Execute e revise"],
-              ].map(([num, title]) => (
-                <div key={num} className="space-y-1">
-                  <span className="block font-mono text-xs text-primary">{num}</span>
-                  <span className="block font-medium text-foreground">{title}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <div className="mt-7 flex justify-center">
               <Button type="button" variant="outline" size="sm" className="h-8" onClick={handleLoadDemoAudit}>
                 <PlayCircle className="size-4" />
-                Demo local
+                Ver demonstração
               </Button>
             </div>
           </div>
 
-          <div className="mt-6 mx-auto max-w-[680px]">
-            <div className="flex justify-start">
-              <article className="nexodoc-message-in max-w-[min(680px,100%)] rounded-sm border border-border bg-card px-4 py-3 text-sm leading-6 text-muted-foreground">
-                Olá! Sou o assistente de auditoria documental do NexoDoc. Anexe os PDFs do seu projeto, escolha entre Memorial ou Volume, e eu vou analisar a coerência, identificar incongruências e sugerir correções.
-              </article>
-            </div>
-          </div>
+          <ol className="mx-auto mt-6 flex max-w-[560px] flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-[11px] text-muted-foreground">
+            <li className="flex items-center gap-1.5">
+              <span className="text-primary">01</span>
+              <span className="text-foreground">Solte o PDF</span>
+            </li>
+            <span aria-hidden className="text-border">—</span>
+            <li className="flex items-center gap-1.5">
+              <span className="text-primary">02</span>
+              <span className="text-foreground">A IA identifica</span>
+            </li>
+            <span aria-hidden className="text-border">—</span>
+            <li className="flex items-center gap-1.5">
+              <span className="text-primary">03</span>
+              <span className="text-foreground">Confira e audite</span>
+            </li>
+          </ol>
         </div>
       </section>
     );
@@ -1825,7 +2026,7 @@ export function ChatWindow({
           </div>
         </header>
 
-        {!isLoading ? renderAuditSetup() : null}
+        {!isLoading && messages.length === 0 ? renderAuditSetup() : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           <div
@@ -1933,17 +2134,8 @@ export function ChatWindow({
           <p className="mt-1.5 text-sm leading-5 text-foreground">
             {latestRecommendedAction}
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setInspectorTab("findings")}
-            >
-              Ver achados
-            </Button>
-            {latestResult?.report ? (
+          {latestResult?.report ? (
+            <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -1953,8 +2145,8 @@ export function ChatWindow({
               >
                 Demo local
               </Button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {latestResult?.report ? (
             <div className="mt-3 border-t pt-3">
               <div className="mb-2 flex items-center gap-2">
@@ -1993,72 +2185,12 @@ export function ChatWindow({
           ) : null}
         </section>
 
-        <div className="mt-4 grid grid-cols-3 rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5 font-mono text-xs">
-          {[
-            { value: "summary" as const, label: "Resumo" },
-            { value: "findings" as const, label: "Achados" },
-            { value: "report" as const, label: "Relatório" },
-          ].map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setInspectorTab(tab.value)}
-              className={cn(
-                "rounded-sm px-2 py-2 outline-none transition-[background-color,border-color,color]",
-                inspectorTab === tab.value
-                  ? "border border-ring/35 bg-card font-medium text-foreground"
-                  : "border border-transparent text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-sm border bg-card p-3 text-sm leading-6">
-          {inspectorTab === "summary" ? (
-            <div className="space-y-3">
-              <section>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Projeto</p>
-                <pre className="mt-1.5 whitespace-pre-wrap break-words font-sans text-sm">
-                  {latestProject || projectName || "Aguardando auditoria."}
-                </pre>
-              </section>
-              <section className="border-t pt-3">
-                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Próxima ação</p>
-                <p className="mt-1.5 text-muted-foreground">
-                  {latestResult
-                    ? "Revise achados por arquivo e valide os documentos citados."
-                    : "Siga o passo a passo e envie os PDFs."}
-                </p>
-              </section>
-            </div>
-          ) : null}
-
-          {inspectorTab === "findings" ? (
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <AlertTriangle className="size-3.5 text-primary" />
-                <p className="font-medium">Incongruências</p>
-              </div>
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
-                {latestFindings || "Nenhum achado estruturado disponível ainda."}
-              </pre>
-            </div>
-          ) : null}
-
-          {inspectorTab === "report" ? (
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <ScrollText className="size-3.5 text-primary" />
-                <p className="font-medium">Relatório completo</p>
-              </div>
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
-                {latestReport}
-              </pre>
-            </div>
-          ) : null}
-        </div>
+        <section className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-sm border bg-card p-3">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Projeto</p>
+          <pre className="mt-1.5 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-foreground">
+            {latestProject || projectName || "Aguardando auditoria. Envie os PDFs para iniciar."}
+          </pre>
+        </section>
       </aside>
       <KeyboardShortcutsHelp />
     </main>

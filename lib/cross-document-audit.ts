@@ -1,4 +1,4 @@
-import type { AuditFinding } from "@/lib/audit-report";
+import type { AuditFinding, FindingPriority } from "@/lib/audit-report";
 import type { ExtractedPdf } from "@/lib/pdf-text";
 
 export type CrossDocumentSource = {
@@ -7,63 +7,146 @@ export type CrossDocumentSource = {
   extracted: ExtractedPdf;
 };
 
-type IdentifiedValue = {
-  label: string;
-  value: string;
-  fileName: string;
-  fileType: string;
+type IdentityFieldKey =
+  | "municipio"
+  | "orgao"
+  | "endereco"
+  | "bairro"
+  | "obra"
+  | "codigo"
+  | "revisao";
+
+type IdentityMention = {
+  /** valor bruto exibível, como aparece no documento */
+  display: string;
+  /** valor normalizado para comparação (sem acento/caixa/ruído) */
+  canonical: string;
   page: number;
   evidence: string;
 };
 
-type ComparisonField = {
-  label: string;
-  type: string;
-  pattern: RegExp;
-  priority: AuditFinding["prioridade"];
+/** valor "afirmado" por um documento para um campo (moda das menções) */
+type AssertedValue = IdentityMention & {
+  /** quantas menções sustentam esse valor no documento */
+  support: number;
+  /** quantos valores distintos o campo teve no mesmo documento */
+  distinct: number;
 };
 
-const COMPARISON_FIELDS: ComparisonField[] = [
+export type IdentityFingerprint = {
+  fileName: string;
+  fileType: string;
+  fields: Partial<Record<IdentityFieldKey, AssertedValue>>;
+};
+
+type FieldSpec = {
+  key: IdentityFieldKey;
+  label: string;
+  type: string;
+  priority: FindingPriority;
+  patterns: RegExp[];
+  /** normalização específica do campo; cai no baseCanonical se ausente */
+  canonical?: (raw: string) => string;
+};
+
+function stripAccents(value: string) {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function baseCanonical(value: string) {
+  return stripAccents(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:;,.\-–]+/, "")
+    .replace(/[\s:;,.\-–]+$/, "")
+    .trim();
+}
+
+function canonicalMunicipio(raw: string) {
+  let value = baseCanonical(raw);
+  value = value
+    .replace(/^prefeitura\s+municipal\s+de\s+/, "")
+    .replace(/^prefeitura\s+de\s+/, "")
+    .replace(/^municipio\s+(?:de\s+)?/, "");
+  // remove sufixo de estado: " - sc", " / sc", " sc"
+  value = value.replace(/\s*[-/]\s*[a-z]{2}\b.*$/, "");
+  value = value.replace(/\s+estado\b.*$/, "");
+  return value.trim();
+}
+
+function cleanDisplay(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:;,.\-–]+/, "")
+    .replace(/[\s:;,.\-–]+$/, "")
+    .trim();
+}
+
+const FIELD_SPECS: FieldSpec[] = [
   {
+    key: "municipio",
     label: "município/proprietário",
     type: "Município/proprietário divergente entre documentos",
-    pattern: /(?:munic[ií]pio|prefeitura\s+municipal)\s*(?:de|:)?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,45})(?=[,;.\n]|$)/gi,
     priority: "Alta",
+    canonical: canonicalMunicipio,
+    patterns: [
+      /prefeitura\s+municipal\s+de\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç.\s]{2,45}?)(?=[,;.\n/]|\s{2}|$)/gi,
+      /\bmunic[ií]pio\s*(?:de\s+|:\s*)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç.\s]{2,45}?)(?=[,;.\n/]|\s{2}|$)/gi,
+    ],
   },
   {
-    label: "código do projeto",
-    type: "Código do projeto divergente entre documentos",
-    pattern: /(?:c[oó]digo(?:\s+do\s+projeto)?|projeto)\s*[:#-]\s*([A-Z0-9][A-Z0-9./_-]{2,30})/gi,
-    priority: "Alta",
+    key: "orgao",
+    label: "órgão/secretaria",
+    type: "Órgão/secretaria divergente entre documentos",
+    priority: "Media/Alta",
+    patterns: [
+      /\b(secretaria\s+(?:municipal\s+|estadual\s+)?(?:de|da|do)\s+[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{3,60}?)(?=[,;.\n]|\s{2}|$)/gi,
+    ],
   },
   {
-    label: "nome da obra",
-    type: "Nome da obra divergente entre documentos",
-    pattern: /(?:obra|unidade)\s*:\s*([^\n;]{4,80})/gi,
-    priority: "Alta",
-  },
-  {
+    key: "endereco",
     label: "endereço",
     type: "Endereço divergente entre documentos",
-    pattern: /(?:endere[cç]o|logradouro)\s*:\s*([^\n;]{4,100})/gi,
     priority: "Alta",
+    patterns: [
+      /(?:endere[cç]o|logradouro)\s*:?\s*([^\n;]{6,100}?)(?=[;\n]|$)/gi,
+    ],
   },
   {
+    key: "bairro",
+    label: "bairro",
+    type: "Bairro divergente entre documentos",
+    priority: "Alta",
+    patterns: [
+      /\bbairro\s*:?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,40}?)(?=[,;.\n]|\s{2}|$)/gi,
+    ],
+  },
+  {
+    key: "obra",
+    label: "nome da obra/unidade",
+    type: "Nome da obra/unidade divergente entre documentos",
+    priority: "Alta",
+    patterns: [
+      /(?:obra|unidade|edifica[cç][aã]o)\s*:\s*([^\n;]{4,80}?)(?=[;\n]|$)/gi,
+    ],
+  },
+  {
+    key: "codigo",
+    label: "código do projeto",
+    type: "Código do projeto divergente entre documentos",
+    priority: "Alta",
+    patterns: [
+      /(?:c[oó]digo(?:\s+do\s+projeto)?|projeto)\s*(?:n[ºo°.]*)?\s*[:#-]\s*([A-Z0-9][A-Z0-9./_-]{2,30})/gi,
+    ],
+  },
+  {
+    key: "revisao",
     label: "revisão",
     type: "Revisão divergente entre documentos",
-    pattern: /(?:revis[aã]o|rev\.)\s*[:#-]?\s*(R?\d{1,3}|[A-Z]\d{0,2})\b/gi,
     priority: "Media/Alta",
+    patterns: [/(?:revis[aã]o|rev\.)\s*[:#-]?\s*(R?\d{1,3}|[A-Z]\d{0,2})\b/gi],
   },
 ];
-
-function normalize(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
 
 function extractEvidence(text: string, index: number) {
   return text
@@ -72,7 +155,96 @@ function extractEvidence(text: string, index: number) {
     .trim();
 }
 
-function sourceRank(source: CrossDocumentSource) {
+function collectMentions(source: CrossDocumentSource, spec: FieldSpec): IdentityMention[] {
+  const canonicalize = spec.canonical ?? baseCanonical;
+  const mentions: IdentityMention[] = [];
+
+  for (const page of source.extracted.pages) {
+    for (const pattern of spec.patterns) {
+      pattern.lastIndex = 0;
+
+      for (const match of page.text.matchAll(pattern)) {
+        const raw = match[1]?.trim();
+
+        if (!raw) {
+          continue;
+        }
+
+        const display = cleanDisplay(raw);
+        const canonical = canonicalize(raw);
+
+        if (!canonical || canonical.length < 2) {
+          continue;
+        }
+
+        mentions.push({
+          display,
+          canonical,
+          page: page.page,
+          evidence: extractEvidence(page.text, match.index ?? 0),
+        });
+      }
+    }
+  }
+
+  return mentions;
+}
+
+/** valor afirmado por um documento = a moda das menções (evita que uma linha solta vire "o valor") */
+function resolveAssertedValue(mentions: IdentityMention[]): AssertedValue | null {
+  if (mentions.length === 0) {
+    return null;
+  }
+
+  const groups = new Map<string, { mention: IdentityMention; support: number; order: number }>();
+
+  mentions.forEach((mention, index) => {
+    const current = groups.get(mention.canonical);
+
+    if (current) {
+      current.support += 1;
+      return;
+    }
+
+    groups.set(mention.canonical, { mention, support: 1, order: index });
+  });
+
+  const ranked = [...groups.values()].sort((a, b) => {
+    if (b.support !== a.support) {
+      return b.support - a.support;
+    }
+
+    return a.order - b.order;
+  });
+
+  const winner = ranked[0];
+
+  return {
+    ...winner.mention,
+    support: winner.support,
+    distinct: groups.size,
+  };
+}
+
+export function extractIdentityFingerprint(source: CrossDocumentSource): IdentityFingerprint {
+  const fields: Partial<Record<IdentityFieldKey, AssertedValue>> = {};
+
+  for (const spec of FIELD_SPECS) {
+    const asserted = resolveAssertedValue(collectMentions(source, spec));
+
+    if (asserted) {
+      fields[spec.key] = asserted;
+    }
+  }
+
+  return {
+    fileName: source.fileName,
+    fileType: source.fileType,
+    fields,
+  };
+}
+
+function sourceRank(fileType: string) {
   const ranks: Record<string, number> = {
     capa: 0,
     memorial: 1,
@@ -82,93 +254,67 @@ function sourceRank(source: CrossDocumentSource) {
     outro: 5,
   };
 
-  return ranks[source.fileType.toLowerCase()] ?? 6;
+  return ranks[fileType.toLowerCase()] ?? 6;
 }
 
-function identifyValues(source: CrossDocumentSource, field: ComparisonField) {
-  const values: IdentifiedValue[] = [];
-
-  for (const page of source.extracted.pages) {
-    field.pattern.lastIndex = 0;
-
-    for (const match of page.text.matchAll(field.pattern)) {
-      const value = match[1]?.replace(/\s+/g, " ").trim();
-
-      if (!value) {
-        continue;
-      }
-
-      values.push({
-        label: field.label,
-        value,
-        fileName: source.fileName,
-        fileType: source.fileType,
-        page: page.page,
-        evidence: extractEvidence(page.text, match.index ?? 0),
-      });
-    }
-  }
-
-  return values;
-}
-
-function uniqueByFileAndValue(values: IdentifiedValue[]) {
-  const seen = new Set<string>();
-
-  return values.filter((value) => {
-    const key = `${value.fileName}|${normalize(value.value)}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
+/**
+ * Confronto determinístico de identidade entre documentos.
+ * Sem IA: um campo só vira achado quando dois documentos AFIRMAM valores
+ * diferentes para o mesmo campo. Ausência em um documento nunca é conflito.
+ */
 export function runCrossDocumentRules(sources: CrossDocumentSource[]) {
   if (sources.length < 2) {
     return {
       findings: [] as AuditFinding[],
-      comparisons: ["Auditoria realizada em arquivo único; não há documentos distintos para confronto."],
+      comparisons: [
+        "Auditoria realizada em arquivo único; não há documentos distintos para confronto de identidade.",
+      ],
     };
   }
 
-  const orderedSources = [...sources].sort((a, b) => sourceRank(a) - sourceRank(b));
+  const fingerprints = sources
+    .map((source) => ({ source, fingerprint: extractIdentityFingerprint(source) }))
+    .sort((a, b) => sourceRank(a.source.fileType) - sourceRank(b.source.fileType));
+
   const findings: AuditFinding[] = [];
   const comparisons: string[] = [];
 
-  for (const field of COMPARISON_FIELDS) {
-    const identified = uniqueByFileAndValue(
-      orderedSources.flatMap((source) => identifyValues(source, field)),
-    );
-    const representedFiles = new Set(identified.map((item) => item.fileName));
+  for (const spec of FIELD_SPECS) {
+    const represented = fingerprints
+      .map((item) => ({
+        fileName: item.fingerprint.fileName,
+        fileType: item.fingerprint.fileType,
+        value: item.fingerprint.fields[spec.key],
+      }))
+      .filter((item): item is { fileName: string; fileType: string; value: AssertedValue } =>
+        Boolean(item.value),
+      );
 
-    if (representedFiles.size < 2) {
+    if (represented.length < 2) {
       continue;
     }
 
-    const values = new Map<string, IdentifiedValue[]>();
+    const distinctCanonicals = new Set(represented.map((item) => item.value.canonical));
 
-    for (const value of identified) {
-      const key = normalize(value.value);
-      values.set(key, [...(values.get(key) ?? []), value]);
-    }
-
-    if (values.size === 1) {
+    if (distinctCanonicals.size === 1) {
       comparisons.push(
-        `${field.label}: valor compatível entre ${[...representedFiles].join(" e ")}.`,
+        `${spec.label}: valor compatível ("${represented[0].value.display}") entre ${represented
+          .map((item) => item.fileName)
+          .join(" e ")}.`,
       );
       continue;
     }
 
-    const baseline = identified[0];
-    const conflicting = identified.filter(
-      (item) => normalize(item.value) !== normalize(baseline.value),
+    // baseline = documento de maior precedência (capa > memorial > ld > ...)
+    const baseline = represented[0];
+    const conflicting = represented.filter(
+      (item) => item.value.canonical !== baseline.value.canonical,
     );
+
     comparisons.push(
-      `${field.label}: divergência entre ${identified.map((item) => `${item.fileName} (${item.value})`).join(" x ")}.`,
+      `${spec.label}: divergência entre ${represented
+        .map((item) => `${item.fileName} ("${item.value.display}")`)
+        .join(" x ")}.`,
     );
 
     for (const item of conflicting) {
@@ -176,18 +322,18 @@ export function runCrossDocumentRules(sources: CrossDocumentSource[]) {
         id: `CROSS-${String(findings.length + 1).padStart(3, "0")}`,
         arquivo: item.fileName,
         origem: "regra",
-        prioridade: field.priority,
-        pagina: String(item.page),
+        prioridade: spec.priority,
+        pagina: String(item.value.page),
         capitulo: "Comparação entre documentos",
-        categoria: field.label,
-        referencia_comparada: `${baseline.fileName}: ${baseline.value}`,
-        local: field.label,
-        tipo: field.type,
-        descricao: `${item.fileName} informa "${item.value}", enquanto ${baseline.fileName} informa "${baseline.value}".`,
-        evidencia: item.evidence,
-        termo_busca: item.value.slice(0, 160),
-        conflito: `${item.fileName}: ${item.value} x ${baseline.fileName}: ${baseline.value}.`,
-        sugestao_correcao: `Conferir o ${field.label} correto e padronizar os documentos antes da emissão.`,
+        categoria: spec.label,
+        referencia_comparada: `${baseline.fileName}: ${baseline.value.display}`,
+        local: spec.label,
+        tipo: spec.type,
+        descricao: `${item.fileName} informa "${item.value.display}", enquanto ${baseline.fileName} informa "${baseline.value.display}" para ${spec.label}.`,
+        evidencia: item.value.evidence,
+        termo_busca: item.value.display.slice(0, 160),
+        conflito: `${item.fileName}: ${item.value.display} x ${baseline.fileName}: ${baseline.value.display}.`,
+        sugestao_correcao: `Conferir o ${spec.label} correto e padronizar todos os documentos antes da emissão.`,
         confianca: "alta",
       });
     }
@@ -195,9 +341,217 @@ export function runCrossDocumentRules(sources: CrossDocumentSource[]) {
 
   if (comparisons.length === 0) {
     comparisons.push(
-      `Documentos confrontados: ${orderedSources.map((source) => `${source.fileType} (${source.fileName})`).join(" x ")}; não foram extraídos campos comuns suficientes para regra automática.`,
+      `Documentos confrontados: ${fingerprints
+        .map((item) => `${item.source.fileType} (${item.source.fileName})`)
+        .join(" x ")}; não foram extraídos campos de identidade comuns suficientes para confronto automático.`,
     );
   }
 
   return { findings, comparisons };
+}
+
+// ---------------------------------------------------------------------------
+// Consistência de identidade DENTRO de um único documento.
+//
+// Pega o caso clássico de "texto reaproveitado": um memorial da obra X que
+// carrega, em capítulos internos, o nome de outra obra/unidade (Y, Z). É
+// determinístico: identifica a obra dominante (a que mais aparece) e sinaliza
+// toda menção nomeada divergente. Complementa runCrossDocumentRules, que só
+// atua quando há 2+ arquivos.
+// ---------------------------------------------------------------------------
+
+/** tipos de equipamento/obra reconhecidos (para nome próprio e para tipo de ocupação) */
+const FACILITY_TYPES = [
+  "centro comunitario",
+  "centro dia",
+  "centro de saude",
+  "cidade",
+  "unidade basica de saude",
+  "ubs",
+  "creche",
+  "escola",
+  "ginasio",
+  "posto de saude",
+  "hospital",
+  "cras",
+  "creas",
+];
+
+// Captura "TIPO" seguido do texto imediato (até a próxima pontuação). O nome
+// próprio da obra é recortado depois, em trimProperName, mantendo só a sequência
+// de palavras com inicial maiúscula (e conectores de/do/da entre elas) — o que
+// evita sobre-capturar o texto seguinte. Case-insensitive para casar tanto o
+// corpo em Title Case quanto o rodapé em CAIXA ALTA.
+const FACILITY_PATTERN =
+  /\b(Centro Comunit[áa]rio|Centro Dia|Centro de Sa[úu]de|Cidade|Unidade B[áa]sica de Sa[úu]de|UBS|Creche|Escola|Gin[áa]sio|Posto de Sa[úu]de|Hospital|CRAS|CREAS)\b([^.,;:\n()/–-]{0,60})/gi;
+
+const NAME_CONNECTORS = new Set(["de", "do", "da", "dos", "das", "di", "des", "dis"]);
+
+function isProperNameWord(word: string) {
+  const first = word[0] ?? "";
+  return first !== first.toLowerCase() && first === first.toUpperCase();
+}
+
+/** recorta o nome próprio: sequência inicial de palavras Maiúsculas + conectores */
+function trimProperName(raw: string) {
+  const words = raw.trim().split(/\s+/).filter(Boolean);
+  const kept: string[] = [];
+
+  for (const word of words) {
+    if (isProperNameWord(word) || NAME_CONNECTORS.has(baseCanonical(word))) {
+      kept.push(word);
+      continue;
+    }
+
+    break;
+  }
+
+  while (kept.length && NAME_CONNECTORS.has(baseCanonical(kept[kept.length - 1]))) {
+    kept.pop();
+  }
+
+  return kept.join(" ");
+}
+
+type FacilityMention = {
+  display: string;
+  canonical: string;
+  type: string;
+  hasName: boolean;
+  page: number;
+  evidence: string;
+};
+
+function facilityCanonical(value: string) {
+  return baseCanonical(value).replace(/\s+/g, " ").trim();
+}
+
+function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[] {
+  const mentions: FacilityMention[] = [];
+
+  for (const page of source.extracted.pages) {
+    FACILITY_PATTERN.lastIndex = 0;
+
+    for (const match of page.text.matchAll(FACILITY_PATTERN)) {
+      const typeRaw = match[1] ?? "";
+      const name = trimProperName(match[2] ?? "");
+      const type = baseCanonical(typeRaw);
+      const hasName = name.length > 0;
+      const display = cleanDisplay(hasName ? `${typeRaw} ${name}` : typeRaw);
+      const canonical = facilityCanonical(hasName ? `${type} ${name}` : type);
+
+      if (!canonical || canonical.length < 3) {
+        continue;
+      }
+
+      mentions.push({
+        display,
+        canonical,
+        type,
+        hasName,
+        page: page.page,
+        evidence: extractEvidence(page.text, match.index ?? 0),
+      });
+    }
+  }
+
+  return mentions;
+}
+
+export function runWithinDocumentIdentityRules(source: CrossDocumentSource): AuditFinding[] {
+  const mentions = collectFacilityMentions(source);
+
+  if (mentions.length === 0) {
+    return [];
+  }
+
+  // agrupa por identidade canônica, contando frequência e guardando 1ª evidência
+  const groups = new Map<
+    string,
+    { mention: FacilityMention; count: number; order: number }
+  >();
+
+  mentions.forEach((mention, index) => {
+    const current = groups.get(mention.canonical);
+
+    if (current) {
+      current.count += 1;
+      return;
+    }
+
+    groups.set(mention.canonical, { mention, count: 1, order: index });
+  });
+
+  const ranked = [...groups.values()].sort((a, b) => {
+    if (b.count !== a.count) {
+      return b.count - a.count;
+    }
+
+    return a.order - b.order;
+  });
+
+  const dominant = ranked[0];
+
+  // sem uma identidade claramente dominante não há baseline confiável;
+  // evita ruído em documentos que apenas citam vários equipamentos.
+  if (dominant.count < 3) {
+    return [];
+  }
+
+  const dominantType = dominant.mention.type;
+  const dominantCanonical = dominant.mention.canonical;
+  const findings: AuditFinding[] = [];
+
+  for (const group of ranked.slice(1)) {
+    const candidate = group.mention;
+
+    if (candidate.canonical === dominantCanonical) {
+      continue;
+    }
+
+    // ignora o tipo "nu" que é apenas um prefixo do dominante
+    // (ex.: "Centro Comunitário" sozinho não conflita com "Centro Comunitário Primeira Linha")
+    if (
+      !candidate.hasName &&
+      (dominantCanonical.startsWith(candidate.canonical) ||
+        candidate.canonical.startsWith(dominantType))
+    ) {
+      continue;
+    }
+
+    // ignora quando um é claramente subconjunto textual do outro (mesma obra, grafia parcial)
+    if (
+      dominantCanonical.includes(candidate.canonical) ||
+      candidate.canonical.includes(dominantCanonical)
+    ) {
+      continue;
+    }
+
+    const isOccupancyMismatch = !candidate.hasName && candidate.type !== dominantType;
+
+    findings.push({
+      id: `IDENT-${String(findings.length + 1).padStart(3, "0")}`,
+      arquivo: source.fileName,
+      origem: "regra",
+      prioridade: "Alta",
+      pagina: String(candidate.page),
+      capitulo: "Identidade da obra no documento",
+      categoria: "nome da obra/unidade",
+      referencia_comparada: `Obra dominante: ${dominant.mention.display}`,
+      local: isOccupancyMismatch ? "tipo de ocupação" : "nome da obra/unidade",
+      tipo: isOccupancyMismatch
+        ? "Tipo de ocupação divergente no mesmo documento"
+        : "Nome de obra/unidade divergente no mesmo documento",
+      descricao: isOccupancyMismatch
+        ? `O documento trata da obra "${dominant.mention.display}", mas a página ${candidate.page} menciona "${candidate.display}" — possível trecho reaproveitado de outro projeto.`
+        : `O documento identifica a obra como "${dominant.mention.display}", mas a página ${candidate.page} cita "${candidate.display}" — indício de texto reaproveitado de outro projeto.`,
+      evidencia: candidate.evidence,
+      termo_busca: candidate.display.slice(0, 160),
+      conflito: `"${candidate.display}" diverge da obra dominante "${dominant.mention.display}".`,
+      sugestao_correcao: `Substituir "${candidate.display}" pelo nome correto da obra (${dominant.mention.display}) e revisar o capítulo em busca de outros dados reaproveitados.`,
+      confianca: "alta",
+    });
+  }
+
+  return findings;
 }

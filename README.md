@@ -186,6 +186,7 @@ NEXODOC_CHUNK_CONCURRENCY=5
 NEXODOC_CHUNK_TIMEOUT_MS=120000
 NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS=1800
 NEXODOC_ENABLE_RULE_BASED_AUDIT=false
+NEXODOC_ENABLE_AI_CROSS_DOCUMENT=false
 ```
 
 As chaves devem ficar apenas no backend e nunca devem ser expostas no frontend.
@@ -266,7 +267,11 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 
 Com `NEXODOC_AI_PROVIDER=deepseek`, o app usa DeepSeek em auditoria, chat pos-auditoria, validacao/sugestao de volumes e leitura principal de LD. Use `DEEPSEEK_LD_MODEL` para escolher o modelo da leitura de LD. O fallback MiMo da LD continua separado.
 
+O provider pode ser definido **por fluxo**, sobrescrevendo o global: `NEXODOC_AUDIT_PROVIDER` (auditoria + chat pos-auditoria), `NEXODOC_LD_PROVIDER` (leitura de LD) e `NEXODOC_VOLUME_PROVIDER` (analise/sugestao de volumes). Cada um cai no `NEXODOC_AI_PROVIDER` quando ausente. Split tipico: `NEXODOC_AUDIT_PROVIDER=openai` (mais fiel, menos alucinacao) com `NEXODOC_LD_PROVIDER=deepseek` e `NEXODOC_VOLUME_PROVIDER=deepseek` (mais barato). O modulo de Capas nao usa IA.
+
 Por padrao, a auditoria e IA-first: achados de regras locais/heuristicas ficam desligados com `NEXODOC_ENABLE_RULE_BASED_AUDIT=false`. Use `true` somente para benchmark ou comparacao com o motor legado, porque essas regras podem se comportar como busca de palavras e gerar falsos positivos.
+
+O confronto de identidade **entre documentos** (municipio/proprietario, endereco, bairro, nome da obra, codigo do projeto, revisao) e uma excecao: roda de forma **deterministica e sempre ligada** (`lib/cross-document-audit.ts`), sem IA e com evidencia verificavel (pagina + trecho). Um campo so vira achado quando dois documentos AFIRMAM valores diferentes; ausencia em um documento nunca e conflito. A comparacao antiga por IA (mais cara e sujeita a alucinacao) fica desligada por padrao e so volta com `NEXODOC_ENABLE_AI_CROSS_DOCUMENT=true`, para benchmark. Teste do motor: `npm run test:audit`.
 
 ## Modulos da plataforma
 

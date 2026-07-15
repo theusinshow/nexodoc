@@ -143,6 +143,11 @@ function normalizeForMatch(value: string) {
 }
 
 export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
+  // Escopo = a auto-classificação do achado (tipo + categoria). Não inclui o
+  // "local" nem a evidência: locais como "Sumário" ou "Título do capítulo"
+  // contaminam a decisão (um achado técnico localizado no sumário não é
+  // editorial), e a prosa da IA menciona "identidade" sem o achado ser disso.
+  const scope = normalizeForMatch([finding.tipo, finding.categoria ?? ""].join(" "));
   const haystack = normalizeForMatch(
     [
       finding.tipo,
@@ -155,61 +160,63 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     ].join(" "),
   );
 
+  // 1) Crítico documental — identidade/localização da obra (o mais grave).
+  //    Decidido pelo ESCOPO do achado (tipo/categoria/local), não pela prosa:
+  //    a IA menciona "identidade"/"obra" em muitas descrições sem que o achado
+  //    seja de identidade — usar o haystack completo inflava os críticos.
   if (
-    haystack.includes("grafia") ||
-    haystack.includes("ortografia") ||
-    haystack.includes("numeracao") ||
-    haystack.includes("numeração") ||
-    haystack.includes("sumario") ||
-    haystack.includes("sumário") ||
-    haystack.includes("hierarquia") ||
-    haystack.includes("titulo repetido") ||
-    haystack.includes("título repetido") ||
-    haystack.includes("linguagem rodoviaria") ||
-    haystack.includes("linguagem rodoviária") ||
-    haystack.includes("eixo da rodovia") ||
-    haystack.includes("quadro de origem e destino") ||
-    haystack.includes("dnit")
-  ) {
-    return "tecnico_contratual";
-  }
-
-  if (
-    haystack.includes("endereco") ||
-    haystack.includes("enderecamento") ||
-    haystack.includes("endereço") ||
-    haystack.includes("rua") ||
-    haystack.includes("avenida") ||
-    haystack.includes("logradouro") ||
-    haystack.includes("bairro") ||
-    haystack.includes("localizacao") ||
-    haystack.includes("localização") ||
-    haystack.includes("municipio") ||
-    haystack.includes("proprietario") ||
-    haystack.includes("cliente") ||
-    haystack.includes("orgao") ||
-    haystack.includes("secretaria") ||
-    haystack.includes("codigo do projeto") ||
-    haystack.includes("código do projeto") ||
-    haystack.includes("nome da obra") ||
-    haystack.includes("ubs") ||
-    haystack.includes("identidade")
+    scope.includes("nome da obra") ||
+    scope.includes("nome de obra") ||
+    scope.includes("obra/unidade") ||
+    scope.includes("identidade") ||
+    scope.includes("identificacao") ||
+    scope.includes("ocupacao") ||
+    scope.includes("municipio") ||
+    scope.includes("proprietario") ||
+    scope.includes("endereco") ||
+    scope.includes("logradouro") ||
+    scope.includes("bairro") ||
+    scope.includes("ubs")
   ) {
     return "critico_documental";
   }
 
+  // 2) Revisão editorial — decidido pelo TIPO/CATEGORIA do achado (grafia,
+  //    redação, formatação, numeração, duplicidade). Evita "titulo"/"sumario"
+  //    soltos, que são locais e não indicam natureza editorial.
+  if (
+    scope.includes("reda") ||
+    scope.includes("grafia") ||
+    scope.includes("ortograf") ||
+    scope.includes("formata") ||
+    scope.includes("acentua") ||
+    scope.includes("editorial") ||
+    scope.includes("numeracao") ||
+    scope.includes("duplicad") ||
+    scope.includes("repetid")
+  ) {
+    return "revisao_editorial";
+  }
+
+  // 3) Técnico/contratual.
   if (
     haystack.includes("hierarquia") ||
+    haystack.includes("prevalenc") ||
+    haystack.includes("responsabilidade") ||
+    haystack.includes("terraplenagem") ||
+    haystack.includes("linguagem rodoviaria") ||
+    haystack.includes("eixo da rodovia") ||
+    haystack.includes("quadro de origem e destino") ||
+    haystack.includes("dnit") ||
     haystack.includes("norma") ||
     haystack.includes("calculo") ||
     haystack.includes("autonomia") ||
     haystack.includes("carga termica") ||
     haystack.includes("referencia municipal") ||
     haystack.includes("comcap") ||
-    haystack.includes("ld") ||
     haystack.includes("prancha") ||
     haystack.includes("revisao") ||
-    haystack.includes("revisão")
+    scope.includes("escopo")
   ) {
     return "tecnico_contratual";
   }

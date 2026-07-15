@@ -998,31 +998,19 @@ export function AuditResult({
     <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <div
-              className={cn(
-                "inline-flex items-center gap-2 rounded-sm border px-3 py-1.5 font-mono text-sm font-medium",
-                status.className,
-              )}
-            >
-              <StatusIcon className="size-4" />
-              {status.label}
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              {findings.length} achado{findings.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
-              {elapsed ? ` · ${elapsed}` : ""}
-            </span>
-          </div>
-
-          <h3 className="mt-3 text-base font-semibold">{nextStep}</h3>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            Resultado da auditoria
+          </p>
+          <span className="mt-1 block font-mono text-xs text-muted-foreground">
+            {findings.length} achado{findings.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
+            {elapsed ? ` · ${elapsed}` : ""}
+          </span>
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <div className="flex rounded-sm bg-[var(--nexodoc-recessed)] p-0.5">
               {([
                 { value: "summary" as const, label: "Resumo" },
-                { value: "findings" as const, label: "Matriz" },
-                { value: "evidence" as const, label: "Evidências" },
-                { value: "route" as const, label: "Roteiro" },
+                { value: "findings" as const, label: "Achados" },
                 { value: "report" as const, label: "Relatório" },
               ]).map((tab) => (
                 <button
@@ -1043,28 +1031,11 @@ export function AuditResult({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+        <div className="flex flex-wrap items-start gap-2 sm:justify-end">
           <CopyTextButton value={findingsText}>Copiar achados</CopyTextButton>
           <CopyTextButton value={actionsText}>Copiar ações</CopyTextButton>
           <AuditResultActions result={content} />
         </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {confidenceItems.map((item) => (
-          <div key={item.label} className="rounded-sm border bg-[var(--nexodoc-recessed)] px-3 py-2.5">
-            <p className="font-mono text-[11px] text-muted-foreground">{item.label}</p>
-            <p
-              className={cn(
-                "mt-0.5 font-mono text-sm font-medium text-foreground",
-                item.tone && "inline-flex rounded-sm border px-1.5 py-px font-mono text-[11px]",
-                item.tone,
-              )}
-            >
-              {item.value}
-            </p>
-          </div>
-        ))}
       </div>
 
       {dualReview ? (
@@ -1100,11 +1071,7 @@ export function AuditResult({
       <div className="mt-5 grid gap-5">
         {view === "summary" ? (
           <>
-            <div className="grid divide-y rounded-sm border bg-[var(--nexodoc-recessed)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              <div className="px-4 py-3">
-                <p className="font-mono text-[11px] text-muted-foreground">Achados</p>
-                <p className="mt-1 text-xl font-semibold text-foreground">{findings.length}</p>
-              </div>
+            <div className="grid divide-y rounded-sm border bg-[var(--nexodoc-recessed)] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
               <div className="px-4 py-3">
                 <p className="font-mono text-[11px] text-muted-foreground">Inconsistências críticas</p>
                 <p className="mt-1 text-xl font-semibold text-[var(--status-critical)]">{criticalCount}</p>
@@ -1114,21 +1081,6 @@ export function AuditResult({
                 <p className="mt-1 text-xl font-semibold text-[var(--status-warning)]">{warningCount}</p>
               </div>
             </div>
-
-            <SectionCard title="Projeto analisado" icon={ClipboardCheck}>
-              {projectFields.length > 0 ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {projectFields.map((field) => (
-                    <div key={`${field.label}-${field.value}`} className="rounded-sm border bg-[var(--nexodoc-recessed)] p-3">
-                      <p className="font-mono text-[11px] text-muted-foreground">{field.label}</p>
-                      <p className="mt-1 text-sm font-medium text-foreground">{field.value}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p>Não identificado na resposta.</p>
-              )}
-            </SectionCard>
 
             <div className="grid gap-4 lg:grid-cols-2">
               <SectionCard title="Arquivos analisados" icon={FileText}>
@@ -1271,22 +1223,6 @@ export function AuditResult({
                             <p className="text-sm leading-6">
                               {finding.acao || "Ação recomendada não identificada."}
                             </p>
-                          </section>
-
-                          <section className="flex items-center justify-between gap-3 rounded-md border bg-[var(--nexodoc-recessed)] p-3">
-                            <div className="min-w-0">
-                              <p className="font-mono text-xs uppercase text-muted-foreground">
-                                Termo de busca
-                              </p>
-                              <p className="mt-1 break-words text-sm text-foreground">
-                                {finding.termoBusca || finding.evidencia || "não informado"}
-                              </p>
-                            </div>
-                            {finding.termoBusca ? (
-                              <CopyTextButton value={finding.termoBusca}>
-                                Copiar
-                              </CopyTextButton>
-                            ) : null}
                           </section>
 
                           {auditId && finding.refId ? (

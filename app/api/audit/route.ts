@@ -53,6 +53,9 @@ import {
   type UploadedAuditFile,
 } from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
+import { runCrossDocumentRules, runWithinDocumentIdentityRules } from "@/lib/cross-document-audit";
+import { runDocumentCoherenceRules } from "@/lib/audit-coherence";
+import { filterGroundedFindings } from "@/lib/audit-verify";
 
 export const runtime = "nodejs";
 
@@ -297,6 +300,13 @@ function isRuleBasedAuditEnabled() {
   return process.env.NEXODOC_ENABLE_RULE_BASED_AUDIT === "true";
 }
 
+// A comparação determinística entre documentos é sempre ativa. Este flag apenas
+// mantém disponível o motor legado de comparação por IA (mais caro e sujeito a
+// alucinação) para benchmark; desligado por padrão.
+function isAiCrossDocumentEnabled() {
+  return process.env.NEXODOC_ENABLE_AI_CROSS_DOCUMENT === "true";
+}
+
 function parseAuditEngine(value: FormDataEntryValue | null): AuditEngine {
   return value === "dual" ? "dual" : "single";
 }
@@ -382,6 +392,19 @@ function getMaxOutputTokens() {
     process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ??
       DEFAULT_CHUNK_MAX_OUTPUT_TOKENS,
   );
+}
+
+// A passada de coerência lê o documento inteiro e pode devolver vários achados
+// com evidências longas; precisa de um teto de saída bem maior que o dos blocos,
+// senão o JSON trunca e a etapa vira "resposta inválida" (0 achados).
+function getCoherenceMaxOutputTokens() {
+  const value = Number(process.env.NEXODOC_COHERENCE_MAX_OUTPUT_TOKENS);
+
+  if (Number.isFinite(value) && value >= 2000) {
+    return Math.min(16000, Math.floor(value));
+  }
+
+  return 6000;
 }
 
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
@@ -1933,6 +1956,123 @@ async function analyzeFileGloballyWithModel(args: {
     .filter((finding): finding is AuditFinding => Boolean(finding));
 }
 
+function isCoherencePassEnabled() {
+  return process.env.NEXODOC_ENABLE_COHERENCE_PASS !== "false";
+}
+
+function getCoherenceContextChars() {
+  const value = Number(process.env.NEXODOC_COHERENCE_CONTEXT_CHARS);
+
+  if (Number.isFinite(value) && value >= 80_000) {
+    return Math.min(600_000, Math.floor(value));
+  }
+
+  return 400_000;
+}
+
+// Documento inteiro (sem amostragem cabeça/meio/cauda). Só recorta se exceder o
+// teto — memoriais típicos cabem por completo, garantindo que capítulos distantes
+// sejam vistos na mesma passada.
+function buildWholeDocumentContext(extracted: ExtractedPdf) {
+  const maxChars = getCoherenceContextChars();
+
+  if (extracted.text.length <= maxChars) {
+    return extracted.text;
+  }
+
+  const head = Math.floor(maxChars * 0.6);
+  const tail = maxChars - head;
+
+  return [
+    extracted.text.slice(0, head),
+    "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
+    extracted.text.slice(-tail),
+  ].join("");
+}
+
+function getCoherencePrompt(args: {
+  auditMode: AuditMode;
+  userMessage: string;
+  projectName: string;
+  extracted: ExtractedPdf;
+}) {
+  return `
+Você é um auditor documental sênior. Leia o DOCUMENTO INTEIRO abaixo de uma vez e procure APENAS incoerências que exigem enxergar capítulos distantes ao mesmo tempo — o tipo de erro que passa despercebido numa leitura por blocos:
+
+- Regras contratuais contraditórias entre capítulos (ex.: hierarquia/prevalência de documentos que muda de um capítulo para outro).
+- Responsabilidades atribuídas a partes diferentes em trechos distintos (ex.: um serviço dado ora à Prefeitura, ora à contratada).
+- Escopo incoerente (obra declarada como construção nova em um capítulo e como reforma/adequação em outro).
+- Erros de unidade/tabela (ex.: valor com unidade impossível, como "15,0 m" onde deveria ser cm).
+- Nome de obra/unidade, município ou endereço que muda entre capítulos.
+- Normas, siglas ou referências municipais que parecem pertencer a outro projeto.
+
+Regras rígidas:
+- Só relate o que puder sustentar com um trecho EXATO copiado do texto (campos evidencia e termo_busca). NÃO invente. Sem trecho exato, não relate.
+- Cada achado deve citar as páginas/capítulos envolvidos.
+- Ignore erros puramente editoriais de uma palavra (grafia isolada); foque em incoerências de conteúdo entre capítulos.
+
+Modo: ${args.auditMode}
+Projeto informado: ${args.projectName || "não informado"}
+Solicitação do usuário: ${args.userMessage}
+
+Responda APENAS JSON válido no formato {"findings":[{ "prioridade": "...", "pagina": "...", "capitulo": "...", "local": "...", "tipo": "...", "descricao": "...", "evidencia": "...", "termo_busca": "...", "categoria": "...", "referencia_comparada": "...", "conflito": "...", "sugestao_correcao": "...", "confianca": "..." }]}. Se nada, {"findings":[]}.
+
+TEXTO DO DOCUMENTO:
+${buildWholeDocumentContext(args.extracted)}
+`.trim();
+}
+
+async function analyzeDocumentCoherenceWithModel(args: {
+  auditId?: string | null;
+  auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
+  userMessage: string;
+  projectName: string;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+}) {
+  const model = getPrimaryModelName(args.analysisLevel, "global");
+  let parsed;
+
+  try {
+    const result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.fileName,
+      model,
+      operation: "audit-coherence",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: getCoherenceMaxOutputTokens(),
+        text: { format: auditFindingsResponseFormat },
+        input: getCoherencePrompt(args),
+      },
+      metadata: {
+        fileName: args.fileName,
+        fileType: args.fileType,
+        pages: args.extracted.pageCount,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+    });
+    parsed = parseRequiredAuditModelJson(result.text, "audit-coherence");
+  } catch (error) {
+    if (!isInvalidAuditModelResponse(error)) {
+      throw error;
+    }
+
+    console.error(`[audit] ${args.fileName}: resposta invalida na passada de coerência; etapa ignorada`);
+    return [];
+  }
+
+  return (parsed?.findings ?? [])
+    .map((finding, index) => modelFindingToAuditFinding(finding, index + 1, args.fileName))
+    .filter((finding): finding is AuditFinding => Boolean(finding));
+}
+
 function getCrossDocumentPrompt(args: {
   auditMode: AuditMode;
   userMessage: string;
@@ -2292,6 +2432,30 @@ async function deepAnalyzeFile(args: {
     args.file.extracted,
     args.file.file.name,
   );
+  // Camada 1 (intra-documento) — sempre ativa, sem IA. Pega texto reaproveitado
+  // de outro projeto: nome de obra/unidade divergente da obra dominante do arquivo.
+  const withinDocumentIdentityFindings = runWithinDocumentIdentityRules({
+    fileName: args.file.file.name,
+    fileType: args.file.fileType,
+    extracted: args.file.extracted,
+  });
+  if (withinDocumentIdentityFindings.length > 0) {
+    console.log(
+      `[audit] ${args.file.file.name}: ${withinDocumentIdentityFindings.length} identidade(s) divergente(s) no mesmo documento (regra determinística)`,
+    );
+  }
+  // Camada 1 (coerência) — sempre ativa, sem IA. Contradições e reúso de texto
+  // que atravessam capítulos distantes (hierarquia, escopo, linguagem rodoviária).
+  const coherenceFindings = runDocumentCoherenceRules({
+    fileName: args.file.file.name,
+    fileType: args.file.fileType,
+    extracted: args.file.extracted,
+  });
+  if (coherenceFindings.length > 0) {
+    console.log(
+      `[audit] ${args.file.file.name}: ${coherenceFindings.length} achado(s) de coerência documental (regra determinística)`,
+    );
+  }
   const useRuleBasedFindings = isRuleBasedAuditEnabled();
   const inferredIdentityFindings = useRuleBasedFindings
     ? deriveIdentityFindingsFromText(
@@ -2355,6 +2519,31 @@ async function deepAnalyzeFile(args: {
     `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
 
+  // Passada de coerência — documento inteiro numa leitura só, para contradições
+  // entre capítulos distantes que a amostragem da leitura global não enxerga.
+  // Só em nível profundo e quando o documento é maior que a janela global.
+  const shouldRunCoherencePass =
+    isCoherencePassEnabled() &&
+    args.analysisLevel === "deep" &&
+    args.file.extracted.text.length > getGlobalContextChars();
+  const coherenceModelFindings = shouldRunCoherencePass
+    ? await analyzeDocumentCoherenceWithModel({
+        auditId: args.auditId,
+        auditMode: args.auditMode,
+        analysisLevel: args.analysisLevel,
+        userMessage: args.userMessage,
+        projectName: args.projectName,
+        fileName: args.file.file.name,
+        fileType: args.file.fileType,
+        extracted: args.file.extracted,
+      })
+    : [];
+  if (shouldRunCoherencePass) {
+    console.log(
+      `[audit] ${args.file.file.name}: passada de coerência (documento inteiro) com ${coherenceModelFindings.length} achado(s)`,
+    );
+  }
+
   const modelFindingGroups = await mapWithConcurrency(
     chunks,
     concurrency,
@@ -2383,16 +2572,31 @@ async function deepAnalyzeFile(args: {
   const modelFindings = modelFindingGroups.flat();
 
   console.log(
-    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${mandatoryGuardFindings.length + inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
+    `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${mandatoryGuardFindings.length + withinDocumentIdentityFindings.length + coherenceFindings.length + inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + coherenceModelFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
+
+  // Fase B — trava anti-alucinação: achados de IA (identidade/global/blocos)
+  // só sobrevivem se o trecho citado existir de fato no texto extraído.
+  const aiFindings = [...identityFindings, ...globalFindings, ...coherenceModelFindings, ...modelFindings];
+  const evidenceGate = filterGroundedFindings(aiFindings, args.file.extracted);
+  if (evidenceGate.dropped.length > 0) {
+    console.log(
+      `[audit] ${args.file.file.name}: ${evidenceGate.dropped.length} achado(s) de IA descartado(s) por falta de evidência no texto (anti-alucinação)`,
+    );
+  }
+  if (evidenceGate.suppressed.length > 0) {
+    console.log(
+      `[audit] ${args.file.file.name}: ${evidenceGate.suppressed.length} achado(s) de IA suprimido(s) por ruído (meta-achado ou artefato de extração)`,
+    );
+  }
 
   return dedupeFindings([
     ...mandatoryGuardFindings,
+    ...withinDocumentIdentityFindings,
+    ...coherenceFindings,
     ...inferredIdentityFindings,
     ...ruleBasedReviewFindings,
-    ...identityFindings,
-    ...globalFindings,
-    ...modelFindings,
+    ...evidenceGate.kept,
   ]);
 }
 
@@ -2549,15 +2753,33 @@ export async function POST(request: Request) {
       allFindings.push(...findings);
     }
 
-    const modelComparison = await analyzeCrossDocumentsWithModel({
-      auditId,
-      auditMode,
-      analysisLevel,
-      userMessage: message,
-      projectName,
-      learningContext,
-      files: uploadedFiles,
-    });
+    // Camada 1 — confronto determinístico de identidade entre documentos.
+    // Sempre ativo, sem IA, com evidência verificável. É o que pega troca de
+    // município/endereço/obra entre arquivos do mesmo projeto.
+    const ruleComparison = runCrossDocumentRules(
+      uploadedFiles.map((file) => ({
+        fileName: file.file.name,
+        fileType: file.fileType,
+        extracted: file.extracted,
+      })),
+    );
+    allFindings.push(...ruleComparison.findings);
+    console.log(
+      `[audit] confronto determinístico entre documentos: ${ruleComparison.findings.length} divergência(s) de identidade`,
+    );
+
+    // Motor legado por IA: só quando explicitamente habilitado (benchmark).
+    const modelComparison = isAiCrossDocumentEnabled()
+      ? await analyzeCrossDocumentsWithModel({
+          auditId,
+          auditMode,
+          analysisLevel,
+          userMessage: message,
+          projectName,
+          learningContext,
+          files: uploadedFiles,
+        })
+      : { findings: [] as AuditFinding[], comparisons: [] as string[] };
     allFindings.push(...modelComparison.findings);
 
     const candidateFindings = compactRepeatedIdentityFindings(
@@ -2659,8 +2881,7 @@ export async function POST(request: Request) {
         caracteres_extraidos: file.extracted.charCount,
         resumo: `Auditoria profunda com leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
       })),
-      comparacoes:
-        modelComparison.comparisons,
+      comparacoes: [...ruleComparison.comparisons, ...modelComparison.comparisons],
       incongruencias: findings,
       conclusao:
         findings.length === 0
