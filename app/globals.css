@@ -21,8 +21,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) * 0.75);
-  --radius-md: calc(var(--radius) * 0.875);
+  --color-warning: var(--status-warning);
+  --color-warning-soft: var(--status-warning-bg);
+  /* DESIGN.md: 4px e o unico raio do sistema. sm/md/lg colapsam nele de
+     proposito; xl fica para o raro caso de container externo. */
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.5);
 }
@@ -69,12 +73,17 @@
   --shadow-subtle: 0 1px 1px rgb(0 0 0 / 0.25);
 }
 
-* {
-  border-color: var(--border);
-}
+/* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as
+   utilities do Tailwind (que vivem em @layer utilities) por estar sem camada,
+   e nenhum `border-<cor>` pintaria borda em lugar nenhum. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 
-html {
-  background: var(--background);
+  html {
+    background: var(--background);
+  }
 }
 
 /* Scrollbar */
@@ -185,7 +194,10 @@ summary::-webkit-details-marker {
   display: none;
 }
 
-input,
+/* Vale para campos de digitacao. Checkbox e radio sao caixas de 16px e ficavam
+   esticados para 40px por esta regra -- ela e unlayered, entao vencia o h-4 das
+   utilities do Tailwind independentemente de especificidade. */
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   min-height: 2.5rem;

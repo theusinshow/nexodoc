@@ -2,6 +2,7 @@
 
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -14,6 +15,7 @@ import {
   Filter,
   Gauge,
   Loader2,
+  Lock,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -23,7 +25,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { encodeLdData } from "@/modules/ld-interop";
 import type { ProjectContext } from "@/lib/project-context";
 import {
@@ -140,6 +143,43 @@ const ldFieldKeys: LdFieldKey[] = [
   "workName",
   "phase",
 ];
+
+const ldFieldLabels: Record<LdFieldKey, string> = {
+  projectCode: "código do projeto",
+  formattedCode: "código formatado",
+  discipline: "disciplina",
+  revision: "revisão",
+  sectionTitle: "título da seção",
+  client: "órgão/cliente",
+  workName: "nome da obra",
+  phase: "fase",
+};
+
+// Um bloqueio impede a LD de avançar.
+//   step     - onde o usuario resolve o bloqueio (destino do stepper e dos CTAs)
+//   gateStep - ultima etapa alcancavel enquanto ele existir
+// Os dois diferem: sem pranchas analisadas o conserto e na etapa 1 (importar),
+// mas a navegacao ainda pode chegar na 2 (dados da LD).
+type LdBlocker = {
+  step: number;
+  gateStep: number;
+  label: string;
+  fieldKey?: LdFieldKey;
+};
+
+const ldFieldDomId = (key: LdFieldKey) => `ld-field-${key}`;
+
+function focusLdField(key: LdFieldKey | null | undefined) {
+  if (!key) {
+    return;
+  }
+
+  const input = document.getElementById(ldFieldDomId(key));
+  if (input instanceof HTMLInputElement) {
+    input.focus();
+    input.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+}
 
 const initialLdFieldSources: LdFieldSources = {
   projectCode: "empty",
@@ -284,7 +324,6 @@ type PdfJsDocument = {
 type StampCropMode = "tight" | "normal";
 type ReviewFilterMode = "all" | "blockers" | "warnings" | "low-confidence" | "missing";
 type ReviewSortMode = "sheet" | "file" | "discipline" | "status";
-type ReviewDensity = "comfortable" | "compact";
 
 const stampCropModes: Array<{
   mode: StampCropMode;
@@ -1053,9 +1092,14 @@ export function LdWorkspace({
   const [reprocessingRowId, setReprocessingRowId] = useState<number | null>(null);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [generatedDownloads, setGeneratedDownloads] = useState<GeneratedDownload[]>([]);
+  // Quando um rascunho ja gerado e reaberto, os arquivos nao voltam (nao ha
+  // storage). Guardamos a data para poder dizer isso em vez de exibir
+  // "Aguardando geracao" numa LD que o historico chama de "Gerada".
+  const [previousGenerationAt, setPreviousGenerationAt] = useState<string | null>(null);
   const [packageGenerating, setPackageGenerating] = useState(false);
   const [packageError, setPackageError] = useState("");
   const [preAnalysisResult, setPreAnalysisResult] = useState<PdfReadResult | null>(null);
+  const fieldToFocus = useRef<LdFieldKey | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<LdDraftListItem[]>([]);
   const [draftsError, setDraftsError] = useState("");
@@ -1094,22 +1138,108 @@ export function LdWorkspace({
     reviewedGlobalWarnings.includes(warning.key),
   ).length;
   const reviewedWarnings = reviewedRowWarnings + reviewedGlobalWarningCount;
-  const hasBlockingIssues = validation.blockingIssues.length > 0;
-  const hasUnreviewedWarnings = reviewedWarnings < warningCount;
   const hasReferenceTotal = validation.totals.length <= 1 || referenceTotal !== null;
-  const canAdvancePastReview = !hasBlockingIssues && !hasUnreviewedWarnings && hasReferenceTotal;
   const fullAnalysisComplete = rows.length > 0 && !pdfProcessing;
-  const hasRequiredLdData = [
-    ldData.projectCode,
-    ldData.formattedCode,
-    ldData.discipline,
-    ldData.revision,
-    ldData.sectionTitle,
-    ldData.client,
-    ldData.workName,
-    ldData.phase,
-  ].every((value) => value.trim().length > 0);
   const missingRequiredLdFields = ldFieldKeys.filter((key) => ldData[key].trim().length === 0);
+
+  // Fonte unica de verdade do que impede a LD de avancar. O resumo lateral, os
+  // gates do stepper e os CTAs de cada etapa leem daqui, para nunca divergirem.
+  const ldBlockers = useMemo<LdBlocker[]>(() => {
+    const list: LdBlocker[] = [];
+
+    if (pdfProcessing) {
+      list.push({ step: 0, gateStep: 1, label: "Aguarde a análise das pranchas terminar" });
+    } else if (rows.length === 0) {
+      // Um rascunho reaberto tem linhas mas nao tem preAnalysisResult: os PDFs
+      // nao ficam guardados. Por isso o gate olha as linhas, nao a pre-analise.
+      list.push(
+        preAnalysisResult
+          ? { step: 0, gateStep: 1, label: "Analise todas as pranchas" }
+          : { step: 0, gateStep: 0, label: "Importe os PDFs e analise a primeira prancha" },
+      );
+    }
+
+    for (const key of missingRequiredLdFields) {
+      list.push({ step: 1, gateStep: 1, label: `Preencha ${ldFieldLabels[key]}`, fieldKey: key });
+    }
+
+    for (const issue of validation.blockingIssues) {
+      list.push({ step: 2, gateStep: 2, label: issue });
+    }
+
+    const unreviewedWarnings = Math.max(0, warningCount - reviewedWarnings);
+    if (unreviewedWarnings > 0) {
+      list.push({
+        step: 2,
+        gateStep: 2,
+        label:
+          unreviewedWarnings === 1
+            ? "Marque o alerta restante como revisado"
+            : `Marque os ${unreviewedWarnings} alertas restantes como revisados`,
+      });
+    }
+
+    if (!hasReferenceTotal) {
+      list.push({ step: 2, gateStep: 2, label: "Defina o total de referência das folhas" });
+    }
+
+    if (fullAnalysisComplete && !canAdvancePastTomos) {
+      list.push({
+        step: 3,
+        gateStep: 3,
+        label:
+          tomoAllocatedTotal === tomoSheetTotal
+            ? "Cada tomo precisa ter ao menos uma prancha"
+            : `Aloque as ${tomoSheetTotal} folhas nos tomos (${tomoAllocatedTotal} alocadas)`,
+      });
+    }
+
+    return list;
+  }, [
+    fullAnalysisComplete,
+    pdfProcessing,
+    preAnalysisResult,
+    rows.length,
+    missingRequiredLdFields,
+    validation.blockingIssues,
+    warningCount,
+    reviewedWarnings,
+    hasReferenceTotal,
+    canAdvancePastTomos,
+    tomoAllocatedTotal,
+    tomoSheetTotal,
+  ]);
+
+  // Ate onde a navegacao pode ir, e qual bloqueio explica a parada. O stepper
+  // usa os dois para desabilitar a etapa e dizer o porque, em vez de aceitar o
+  // clique e devolver o usuario para tras sem aviso.
+  const maxReachableStep = ldBlockers.length
+    ? Math.min(...ldBlockers.map((blocker) => blocker.gateStep))
+    : steps.length - 1;
+  const blockerForStep = (step: number) =>
+    step <= maxReachableStep
+      ? null
+      : (ldBlockers
+          .filter((blocker) => blocker.gateStep < step)
+          .sort((a, b) => a.gateStep - b.gateStep || a.step - b.step)[0] ?? null);
+
+  // Leva o usuario ate o bloqueio em vez de so informar que ele existe. Quando
+  // a etapa muda o campo so existe no DOM depois do render, entao o alvo fica
+  // num ref e o foco acontece no efeito abaixo.
+  function resolveBlocker(blocker: LdBlocker) {
+    if (blocker.step === activeStep) {
+      focusLdField(blocker.fieldKey);
+      return;
+    }
+
+    fieldToFocus.current = blocker.fieldKey ?? null;
+    setActiveStep(blocker.step);
+  }
+
+  useEffect(() => {
+    focusLdField(fieldToFocus.current);
+    fieldToFocus.current = null;
+  }, [activeStep]);
 
   const generatedFiles = useMemo(
     () => [
@@ -1329,6 +1459,7 @@ export function LdWorkspace({
     setPackageError("");
     setPdfReadError("");
     setPreAnalysisResult(null);
+    setPreviousGenerationAt(draft.status === "GENERATED" ? draft.generatedAt ?? draft.updatedAt : null);
     setLoadedDraftNotice(
       `Rascunho "${draft.title}" reaberto. Os PDFs originais não ficam anexados ao histórico; reenvie-os se precisar reprocessar selos.`,
     );
@@ -1361,6 +1492,7 @@ export function LdWorkspace({
     setPackageError("");
     setPdfReadError("");
     setPreAnalysisResult(null);
+    setPreviousGenerationAt(null);
     setLoadedDraftNotice("");
     setAutosaveState("idle");
     pdfReadCache.current.clear();
@@ -2093,43 +2225,22 @@ export function LdWorkspace({
     );
   }
 
+  // Nao redireciona: uma etapa trancada simplesmente nao e alcancavel, e o
+  // proprio botao ja explica o motivo. Redirecionar em silencio tirava o
+  // usuario do lugar sem dizer nada.
   function goToStep(step: number) {
-    if (step > 1 && (!fullAnalysisComplete || !hasRequiredLdData)) {
-      setActiveStep(1);
-      return;
-    }
-
-    if (step > 2 && !canAdvancePastReview) {
-      setActiveStep(2);
-      return;
-    }
-
-    if (step > 3 && !canAdvancePastTomos) {
-      setActiveStep(3);
+    if (step > maxReachableStep) {
       return;
     }
 
     setActiveStep(step);
   }
 
+  // Le o mesmo modelo de bloqueios do stepper: antes, esta funcao tinha regras
+  // proprias e discordava dele (num rascunho reaberto ela exigia preAnalysisResult,
+  // que nunca volta do historico, e travava uma LD ja completa).
   function goNext() {
-    if (activeStep === 0 && !preAnalysisResult) {
-      return;
-    }
-
-    if (activeStep === 1 && (!fullAnalysisComplete || !hasRequiredLdData)) {
-      return;
-    }
-
-    if (activeStep === 2 && !canAdvancePastReview) {
-      return;
-    }
-
-    if (activeStep === 3 && !canAdvancePastTomos) {
-      return;
-    }
-
-    setActiveStep((step) => Math.min(steps.length - 1, step + 1));
+    goToStep(Math.min(steps.length - 1, activeStep + 1));
   }
 
   function changeTomoCount(count: number) {
@@ -2279,10 +2390,6 @@ export function LdWorkspace({
             <h1 className="mt-2 text-2xl font-semibold text-foreground">
               Criador de Listas de Documentos
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {getAutosaveLabel(autosaveState)}
-              {autosaveMessage ? ` · ${autosaveMessage}` : ""}
-            </p>
             {projectContext ? (
               <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-sm border bg-background px-3 py-2 text-xs">
                 <span className="font-medium">Projeto vinculado</span>
@@ -2311,7 +2418,7 @@ export function LdWorkspace({
               {isAdmin ? (
                 <Link
                   href="/admin"
-                  className="inline-flex items-center gap-2 rounded-sm border border-primary/35 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground transition hover:bg-primary/90"
+                  className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 font-mono text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 >
                   <Gauge className="size-3.5" />
                   Painel admin
@@ -2319,18 +2426,71 @@ export function LdWorkspace({
               ) : null}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          {/* Identidade da LD. Contagens de progresso (pranchas, tomos,
+              pendencias) ficam so no resumo lateral, para nao existirem dois
+              placares da mesma coisa. */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
             <Metric label="Projeto" value={ldData.projectCode} />
             <Metric label="Disciplina" value={ldData.discipline.toUpperCase()} />
-            <Metric label="Pranchas" value={String(rows.length)} />
-            <Metric label="Tomos" value={String(tomos.length)} />
           </div>
         </div>
       </header>
 
       <div className="mx-auto grid max-w-[1800px] gap-6 px-5 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* Ordem: a LD aberta primeiro (etapas, depois estado), e so no fim o
+            que troca de LD. Antes o stepper -- navegacao principal da tarefa --
+            ficava enterrado embaixo da lista rolavel de rascunhos. */}
         <aside className="h-fit border border-border bg-card p-3">
-          <div className="mb-4 space-y-3 border-b border-border pb-4">
+          <nav className="space-y-1" aria-label="Etapas">
+            {steps.map((step, index) => {
+              const blocker = blockerForStep(index);
+              const locked = blocker !== null;
+
+              return (
+              <button
+                key={step}
+                type="button"
+                onClick={() => goToStep(index)}
+                aria-disabled={locked}
+                aria-current={activeStep === index ? "step" : undefined}
+                title={locked ? `Trancada: ${blocker.label}` : undefined}
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
+                  activeStep === index
+                    ? "bg-primary text-primary-foreground"
+                    : locked
+                      ? "cursor-not-allowed text-muted-foreground/45"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-current text-xs font-semibold">
+                  {locked ? <Lock size={11} aria-hidden /> : index + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{step}</span>
+              </button>
+              );
+            })}
+          </nav>
+          {(() => {
+            const nextBlocker = ldBlockers[0];
+            // Sem lowercase: os rótulos carregam maiúsculas com significado
+            // ("ARQUIVOS vazio" é o nome da coluna, não ênfase).
+            return nextBlocker ? (
+              <p className="mt-2 px-3 text-xs text-muted-foreground">
+                <Lock size={11} className="mr-1 inline align-[-1px]" aria-hidden />
+                Para destravar as próximas etapas — {nextBlocker.label}.
+              </p>
+            ) : null;
+          })()}
+          <LdSideSummary
+            uploadedCount={uploadedFileCount}
+            analyzedCount={rows.length}
+            pendingCount={ldBlockers.length}
+            tomoCount={tomos.length}
+            autosaveState={autosaveState}
+            autosaveMessage={autosaveMessage}
+            generatedCount={generatedDownloads.length}
+          />
+          <div className="mt-4 space-y-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={startNewDraft}
@@ -2353,34 +2513,6 @@ export function LdWorkspace({
               Ver histórico completo
             </Link>
           </div>
-          <nav className="space-y-1" aria-label="Etapas">
-            {steps.map((step, index) => (
-              <button
-                key={step}
-                type="button"
-                onClick={() => goToStep(index)}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
-                  activeStep === index
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-current text-xs font-semibold">
-                  {index + 1}
-                </span>
-                {step}
-              </button>
-            ))}
-          </nav>
-          <LdSideSummary
-            uploadedCount={uploadedFileCount}
-            analyzedCount={rows.length}
-            pendingCount={validation.blockingIssues.length + Math.max(0, warningCount - reviewedWarnings)}
-            tomoCount={tomos.length}
-            autosaveState={autosaveState}
-            autosaveMessage={autosaveMessage}
-            generatedCount={generatedDownloads.length}
-          />
         </aside>
 
         <section className="min-w-0 border border-border bg-card">
@@ -2391,7 +2523,8 @@ export function LdWorkspace({
 
           <div className="p-5">
             {loadedDraftNotice ? (
-              <div className="mb-4 rounded-md border border-warning bg-warning-soft p-3 text-sm text-muted-foreground">
+              // Informativo, nao alerta: salmao fica reservado para o que bloqueia.
+              <div className="mb-4 rounded-md border border-border bg-background p-3 text-sm text-muted-foreground">
                 {loadedDraftNotice}
               </div>
             ) : null}
@@ -2485,6 +2618,7 @@ export function LdWorkspace({
                 error={packageError}
                 checklistItems={finalChecklistItems}
                 checkedItems={finalChecklist}
+                previousGenerationAt={previousGenerationAt}
                 onChecklistChange={setFinalChecklist}
                 onGenerate={generateFinalFiles}
               />
@@ -2501,29 +2635,56 @@ export function LdWorkspace({
               <ChevronLeft size={16} />
               Voltar
             </button>
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={
-                activeStep === steps.length - 1 ||
-                (activeStep === 0 && !preAnalysisResult) ||
-                (activeStep === 1 && (!fullAnalysisComplete || !hasRequiredLdData)) ||
-                (activeStep === 2 && !canAdvancePastReview) ||
-                (activeStep === 3 && !canAdvancePastTomos)
-              }
-              className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {activeStep === 0 && !preAnalysisResult
-                ? "Importe os PDFs"
-                : activeStep === 1 && !fullAnalysisComplete
-                ? pdfProcessing ? "Aguarde a análise" : "Analise todas as pranchas"
-                : activeStep === 1 && !hasRequiredLdData
-                ? "Preencha os dados da LD"
-                : activeStep === 2
-                  ? "Validar e avançar"
-                  : "Avançar"}
-              <ChevronRight size={16} />
-            </button>
+            {/* Nao existe CTA morto com texto de instrucao: ou o botao avanca,
+                ou ele leva ate o que esta bloqueando. A ultima etapa nao tem
+                para onde avancar, entao nao mostra botao. */}
+            {activeStep < steps.length - 1 &&
+              (() => {
+                const blocker = blockerForStep(activeStep + 1);
+
+                if (blocker) {
+                  // Quando o bloqueio ja esta na tela atual e nao ha campo para
+                  // focar, nao existe para onde levar o usuario: vira aviso, nao
+                  // botao. Um botao que aceita clique e nao faz nada e o vicio
+                  // que este trecho existe para eliminar.
+                  const podeLevar = blocker.step !== activeStep || Boolean(blocker.fieldKey);
+
+                  if (!podeLevar) {
+                    return (
+                      <p
+                        role="status"
+                        className="inline-flex items-center gap-2 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm font-medium text-foreground"
+                      >
+                        {pdfProcessing ? <Loader2 size={16} className="animate-spin" /> : <CircleAlert size={16} />}
+                        {blocker.label}
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => resolveBlocker(blocker)}
+                      disabled={pdfProcessing}
+                      className="inline-flex items-center gap-2 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm font-medium text-foreground transition hover:bg-warning/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {pdfProcessing ? <Loader2 size={16} className="animate-spin" /> : <CircleAlert size={16} />}
+                      {blocker.label}
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                  >
+                    {activeStep === 2 ? "Validar e avançar" : "Avançar"}
+                    <ChevronRight size={16} />
+                  </button>
+                );
+              })()}
           </footer>
         </section>
       </div>
@@ -2557,12 +2718,12 @@ function LdSideSummary({
   autosaveMessage: string;
   generatedCount: number;
 }) {
-  const items = [
-    ["PDFs carregados", String(uploadedCount)],
-    ["Pranchas analisadas", String(analyzedCount)],
-    ["Pendências", String(pendingCount)],
-    ["Tomos", String(tomoCount)],
-    ["Arquivos finais", String(generatedCount)],
+  const items: { label: string; value: string; alerta?: boolean }[] = [
+    { label: "PDFs carregados", value: String(uploadedCount) },
+    { label: "Pranchas analisadas", value: String(analyzedCount) },
+    { label: "Pendências", value: String(pendingCount), alerta: pendingCount > 0 },
+    { label: "Tomos", value: String(tomoCount) },
+    { label: "Arquivos finais", value: String(generatedCount) },
   ];
 
   return (
@@ -2571,20 +2732,19 @@ function LdSideSummary({
         Resumo da LD
       </p>
       <dl className="space-y-2">
-        {items.map(([label, value]) => (
+        {items.map(({ label, value, alerta }) => (
           <div key={label} className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2">
             <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-mono text-sm font-semibold">{value}</dd>
+            <dd className={`font-mono text-sm font-semibold ${alerta ? "text-warning" : ""}`}>{value}</dd>
           </div>
         ))}
       </dl>
-      <div className="mt-2 rounded-md border border-border bg-background px-3 py-2">
-        <p className="text-xs text-muted-foreground">Autosave</p>
-        <p className="mt-1 text-xs font-medium">
-          {getAutosaveLabel(autosaveState)}
-          {autosaveMessage ? ` · ${autosaveMessage}` : ""}
-        </p>
-      </div>
+      {/* Unico lugar onde o autosave aparece. O rotulo "Autosave" era redundante:
+          "Rascunho salvo as 10:14" ja diz o que e. */}
+      <p className="mt-2 px-3 text-xs text-muted-foreground">
+        {getAutosaveLabel(autosaveState)}
+        {autosaveMessage ? ` · ${autosaveMessage}` : ""}
+      </p>
     </div>
   );
 }
@@ -2623,10 +2783,13 @@ function LdHistoryPanel({
             Nenhuma LD salva ainda.
           </p>
         ) : null}
+        {/* "Arquivar" so aparece no hover/foco da linha: e uma acao rara e
+            destrutiva, e repeti-la visivel em cada item competia com o nome da
+            LD, que e o que o usuario esta procurando. */}
         {drafts.map((draft) => (
           <div
             key={draft.id}
-            className={`rounded-md border p-2 ${
+            className={`group relative rounded-md border p-2 ${
               activeDraftId === draft.id ? "border-primary bg-primary/10" : "border-border bg-background"
             }`}
           >
@@ -2634,8 +2797,9 @@ function LdHistoryPanel({
               type="button"
               onClick={() => onLoad(draft)}
               className="block w-full text-left"
+              aria-current={activeDraftId === draft.id ? "true" : undefined}
             >
-              <span className="block truncate text-xs font-semibold">
+              <span className="block truncate pr-6 text-xs font-semibold">
                 {draft.projectCode || "Sem código"} · {draft.workName || "LD em montagem"}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
@@ -2645,9 +2809,11 @@ function LdHistoryPanel({
             <button
               type="button"
               onClick={() => onArchive(draft.id)}
-              className="mt-2 text-xs text-muted-foreground transition hover:text-destructive"
+              title={`Arquivar ${draft.projectCode || "esta LD"}`}
+              className="absolute right-1.5 top-1.5 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
             >
-              Arquivar
+              <Trash2 size={13} />
+              <span className="sr-only">Arquivar</span>
             </button>
           </div>
         ))}
@@ -2678,7 +2844,9 @@ function LdForm({
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm md:col-span-2">
+      {/* Explicativo fixo da etapa: neutro, para o salmao continuar significando
+          "isto esta bloqueando voce". */}
+      <div className="rounded-md border border-border bg-background p-3 text-sm md:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="font-medium">Confira os dados antes de avançar.</p>
@@ -2709,14 +2877,14 @@ function LdForm({
           Dados mínimos da LD preenchidos. Confira a origem de cada campo antes de avançar.
         </div>
       )}
-      <Field required label="Código do projeto" source={sources.projectCode} value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
-      <Field required label="Código formatado" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
-      <Field required label="Sigla da disciplina" source={sources.discipline} value={data.discipline} onChange={(value) => onChange("discipline", value)} />
-      <Field required label="Revisão" source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
-      <Field required className="md:col-span-2" label="Título da seção" source={sources.sectionTitle} value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
-      <Field required label="Órgão/cliente" source={sources.client} value={data.client} onChange={(value) => onChange("client", value)} />
-      <Field required label="Nome da obra" source={sources.workName} value={data.workName} onChange={(value) => onChange("workName", value)} />
-      <Field required label="Fase" source={sources.phase} value={data.phase} onChange={(value) => onChange("phase", value)} />
+      <Field required fieldKey="projectCode" label="Código do projeto" source={sources.projectCode} value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
+      <Field required fieldKey="formattedCode" label="Código formatado" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
+      <Field required fieldKey="discipline" label="Sigla da disciplina" source={sources.discipline} value={data.discipline} onChange={(value) => onChange("discipline", value)} />
+      <Field required fieldKey="revision" label="Revisão" source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
+      <Field required fieldKey="sectionTitle" className="md:col-span-2" label="Título da seção" source={sources.sectionTitle} value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
+      <Field required fieldKey="client" label="Órgão/cliente" source={sources.client} value={data.client} onChange={(value) => onChange("client", value)} />
+      <Field required fieldKey="workName" label="Nome da obra" source={sources.workName} value={data.workName} onChange={(value) => onChange("workName", value)} />
+      <Field required fieldKey="phase" label="Fase" source={sources.phase} value={data.phase} onChange={(value) => onChange("phase", value)} />
       <label className="grid gap-1.5">
         <span className="text-sm font-medium">Template</span>
         <select
@@ -2749,6 +2917,7 @@ function LdForm({
 }
 
 function Field({
+  fieldKey,
   label,
   value,
   source,
@@ -2756,6 +2925,7 @@ function Field({
   className = "",
   required = false,
 }: {
+  fieldKey: LdFieldKey;
   label: string;
   value: string;
   source: LdFieldSource;
@@ -2764,44 +2934,48 @@ function Field({
   required?: boolean;
 }) {
   const isMissing = required && value.trim().length === 0;
+  const id = ldFieldDomId(fieldKey);
 
   return (
-    <label className={`grid gap-1.5 ${className}`}>
-      <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
-        {label}
+    // O badge de procedencia fica fora do <label> para nao entrar no nome
+    // acessivel do campo; o estado de falta vai por aria-invalid.
+    <div className={`grid gap-1.5 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </label>
         <FieldSourceBadge source={isMissing ? "empty" : source} />
-      </span>
+      </div>
       <input
+        id={id}
         value={value}
+        required={required}
+        aria-invalid={isMissing}
         onChange={(event) => onChange(event.target.value)}
         className={`h-10 rounded-md border bg-background px-3 text-sm ${
           isMissing ? "border-warning" : "border-border"
         }`}
       />
-    </label>
+    </div>
   );
 }
 
+// Escopo desta etapa. A contagem global de bloqueios vive no resumo lateral,
+// sob o nome "Pendencias"; aqui falamos so de campos, para nao existirem dois
+// numeros diferentes com o mesmo nome.
 function RequiredFieldsSummary({ missingFields }: { missingFields: LdFieldKey[] }) {
-  const labels: Record<LdFieldKey, string> = {
-    projectCode: "código do projeto",
-    formattedCode: "código formatado",
-    discipline: "disciplina",
-    revision: "revisão",
-    sectionTitle: "título da seção",
-    client: "órgão/cliente",
-    workName: "nome da obra",
-    phase: "fase",
-  };
-
   return (
     <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm md:col-span-2">
       <div className="flex items-start gap-2">
         <CircleAlert size={16} className="mt-0.5 shrink-0" />
         <div>
-          <p className="font-medium">Pendências obrigatórias: {missingFields.length}</p>
+          <p className="font-medium">
+            {missingFields.length === 1
+              ? "1 campo obrigatório em falta"
+              : `${missingFields.length} campos obrigatórios em falta`}
+          </p>
           <p className="mt-1 text-muted-foreground">
-            Preencha {missingFields.map((field) => labels[field]).join(", ")} para liberar a próxima etapa.
+            Preencha {missingFields.map((field) => ldFieldLabels[field]).join(", ")} para liberar a próxima etapa.
           </p>
         </div>
       </div>
@@ -3095,12 +3269,22 @@ function ReviewTable({
   const [zoomedStamp, setZoomedStamp] = useState<PdfReadResult | null>(null);
   const [filterMode, setFilterMode] = useState<ReviewFilterMode>("all");
   const [sortMode, setSortMode] = useState<ReviewSortMode>("sheet");
-  const [density, setDensity] = useState<ReviewDensity>("comfortable");
   const [clipboardStatus, setClipboardStatus] = useState("");
   const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(() => new Set());
   const [bulkDiscipline, setBulkDiscipline] = useState("");
   const [triageMode, setTriageMode] = useState(false);
   const [triageIndex, setTriageIndex] = useState(0);
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<number>>(() => new Set());
+  const toggleRowExpanded = (id: number) =>
+    setExpandedRowIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   const warningIssues = rows.flatMap((row) =>
     (validation.rowIssues[row.id] ?? []).filter((issue) => issue.severity === "warning"),
   );
@@ -3331,9 +3515,8 @@ function ReviewTable({
           <div className="grid gap-2">
             {validation.globalWarnings.map((warning) => (
               <label key={warning.key} className="flex items-start gap-3 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4"
+                <Checkbox
+                  className="mt-0.5"
                   checked={reviewedGlobalWarnings.includes(warning.key)}
                   onChange={(event) => onToggleGlobalWarning(warning.key, event.target.checked)}
                 />
@@ -3441,7 +3624,7 @@ function ReviewTable({
             <span className="text-xs">
               {selectedRows.length > 0
                 ? `${selectedRows.length} selecionada(s)`
-                : "Ordenação, densidade e ações em massa"}
+                : "Ordenação e ações em massa"}
             </span>
           </summary>
           <div className="grid gap-3 pt-3">
@@ -3485,17 +3668,6 @@ function ReviewTable({
                   <option value="status">Status de revisão</option>
                   <option value="file">Arquivo</option>
                   <option value="discipline">Disciplina lida</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-muted-foreground">
-                Densidade
-                <select
-                  value={density}
-                  onChange={(event) => setDensity(event.target.value as ReviewDensity)}
-                  className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
-                >
-                  <option value="comfortable">Confortável</option>
-                  <option value="compact">Compacta</option>
                 </select>
               </label>
             </div>
@@ -3559,13 +3731,16 @@ function ReviewTable({
           </div>
         </details>
       </div>
+      {/* Sem min-width: a tabela cabe no container. As colunas que sobravam
+          para fora eram Status e Ações -- justamente o que a etapa pede para
+          fazer. Selo e diagnóstico da extração viraram detalhe por linha:
+          são consulta, não a tarefa. */}
       <div className="max-h-[68vh] overflow-auto border border-border">
-        <table className="w-full min-w-[1500px] border-collapse text-sm">
+        <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-[var(--nexodoc-raised)] text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
             <tr>
-              <th className="w-12 border-b border-border px-3 py-3">
-                <input
-                  type="checkbox"
+              <th className="w-10 border-b border-border px-2 py-2">
+                <Checkbox
                   checked={allVisibleSelected}
                   ref={(input) => {
                     if (input) {
@@ -3574,16 +3749,14 @@ function ReviewTable({
                   }}
                   onChange={(event) => toggleVisibleSelection(event.target.checked)}
                   aria-label="Selecionar pranchas visíveis"
-                  className="size-4"
                 />
               </th>
-              <th className="w-28 border-b border-border px-3 py-3">Nº da folha</th>
-              <th className="w-52 border-b border-border px-3 py-3">Arquivos</th>
-              <th className="border-b border-border px-3 py-3">Descrição</th>
-              <th className="w-44 border-b border-border px-3 py-3">Selo</th>
-              <th className="w-40 border-b border-border px-3 py-3">Leitura</th>
-              <th className="w-56 border-b border-border px-3 py-3">Status</th>
-              <th className="w-24 border-b border-border px-3 py-3">Ações</th>
+              <th className="w-24 border-b border-border px-2 py-2">Nº da folha</th>
+              <th className="w-48 border-b border-border px-2 py-2">Arquivos</th>
+              <th className="border-b border-border px-2 py-2">Descrição</th>
+              <th className="w-24 border-b border-border px-2 py-2">Discip.</th>
+              <th className="w-[220px] border-b border-border px-2 py-2">Status</th>
+              <th className="w-24 border-b border-border px-2 py-2 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -3591,130 +3764,93 @@ function ReviewTable({
               const result = readResults.find((item) => item.row.id === row.id);
               const reprocessing = reprocessingRowId === row.id;
 
+              const expanded = expandedRowIds.has(row.id);
+
               return (
-              <tr key={row.id} className="border-b border-border last:border-b-0">
-                <td className="px-3 py-3 align-top">
-                  <input
-                    type="checkbox"
+              <Fragment key={row.id}>
+              <tr className={`border-b border-border ${expanded ? "bg-[var(--nexodoc-raised)]" : ""}`}>
+                <td className="px-2 py-1.5">
+                  <Checkbox
                     checked={selectedRowIds.has(row.id)}
                     onChange={(event) => toggleRowSelection(row.id, event.target.checked)}
                     aria-label={`Selecionar prancha ${row.sheet || row.id}`}
-                    className="size-4"
                   />
                 </td>
-                <td className="px-3 py-3 align-top">
+                <td className="px-2 py-1.5">
                   <CellInput value={row.sheet} onChange={(value) => onUpdate(row.id, "sheet", value)} />
                 </td>
-                <td className="px-3 py-3 align-top">
+                <td className="px-2 py-1.5">
                   <CellInput value={row.file} onChange={(value) => onUpdate(row.id, "file", value)} mono />
                 </td>
-                <td className="px-3 py-3 align-top">
-                  <textarea
+                <td className="px-2 py-1.5">
+                  {/* title: a descrição precisa bater exatamente com o campo
+                      CONTEÚDO da prancha, e numa linha só as longas não cabem. */}
+                  <CellInput
                     value={row.description}
-                    onChange={(event) => onUpdate(row.id, "description", event.target.value)}
-                    className={`w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm ${
-                      density === "compact" ? "min-h-12" : "min-h-20"
-                    }`}
+                    onChange={(value) => onUpdate(row.id, "description", value)}
+                    title={row.description}
                   />
                 </td>
-                <td className="px-3 py-3 align-top">
-                  {result?.stampPreviewUrl ? (
-                    <div className="space-y-2">
-                      <Image
-                        src={result.stampPreviewUrl}
-                        alt={`Recorte analisado de ${result.fileName}, página ${result.pageNumber}`}
-                        width={160}
-                        height={80}
-                        unoptimized
-                        className="h-20 w-40 rounded-sm border border-border bg-background object-contain transition hover:border-primary"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setZoomedStamp(result)}
-                        className="text-xs font-medium text-primary transition hover:text-foreground"
-                      >
-                        Ampliar selo
-                      </button>
-                      <p className="text-xs text-muted-foreground">
-                        {result.extractionAttempt ?? "Recorte analisado"}
-                      </p>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Somente texto</span>
-                  )}
+                <td className="px-2 py-1.5">
+                  <CellInput
+                    value={row.readDiscipline}
+                    onChange={(value) => onUpdate(row.id, "readDiscipline", value)}
+                    aria-label={`Disciplina lida da prancha ${row.sheet || row.id}`}
+                  />
                 </td>
-                <td className="px-3 py-3 align-top">
-                  <div className="space-y-3">
-                    <label className="grid gap-1.5">
-                      <span className="text-xs text-muted-foreground">Disciplina lida</span>
-                      <input
-                        value={row.readDiscipline}
-                        onChange={(event) => onUpdate(row.id, "readDiscipline", event.target.value)}
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={row.lowConfidence}
-                        onChange={(event) => onUpdate(row.id, "lowConfidence", event.target.checked)}
-                        className="size-4"
-                      />
-                      Baixa confiança
-                    </label>
-                    {result && (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Origem: {describeExtractionSource(result)}
-                        </p>
-                        <FieldOriginStack result={result} />
-                        {result.fallbackReason ? (
-                          <p className="text-xs text-[var(--status-warning)]">
-                            Principal falhou; fallback MiMo: {result.fallbackReason}
-                          </p>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-3 align-top">
+                <td className="px-2 py-1.5">
                   <RowStatus
                     issues={validation.rowIssues[row.id] ?? []}
                     reviewedKeys={row.reviewedAlertKeys}
                     onToggle={(key, checked) => onToggleReviewedAlert(row.id, key, checked)}
                   />
                 </td>
-                <td className="px-3 py-3 align-top">
-                  <div className="flex items-center gap-2">
-                    {result && (
-                      <button
-                        type="button"
-                        onClick={() => onReprocess(row.id)}
-                        disabled={reprocessing}
-                        className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-                        aria-label="Reanalisar prancha"
-                        title="Reanalisar prancha"
-                      >
-                        {reprocessing ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
-                      </button>
-                    )}
+                <td className="px-2 py-1.5">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleRowExpanded(row.id)}
+                      aria-expanded={expanded}
+                      className={`inline-flex size-8 items-center justify-center rounded-md border border-border transition hover:bg-muted hover:text-foreground ${
+                        expanded ? "text-foreground" : "text-muted-foreground"
+                      }`}
+                      aria-label={expanded ? "Ocultar detalhes da leitura" : "Ver detalhes da leitura"}
+                      title={expanded ? "Ocultar detalhes da leitura" : "Ver detalhes da leitura"}
+                    >
+                      <ChevronDown size={15} className={expanded ? "rotate-180 transition" : "transition"} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => onRemove(row.id)}
-                      className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-muted hover:text-destructive"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-muted hover:text-destructive"
                       aria-label="Excluir linha"
                       title="Excluir linha"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </td>
               </tr>
+              {expanded && (
+                <tr className="border-b border-border bg-[var(--nexodoc-raised)]">
+                  <td colSpan={7} className="px-2 pb-3 pt-0">
+                    <RowDetails
+                      row={row}
+                      result={result}
+                      reprocessing={reprocessing}
+                      onUpdate={onUpdate}
+                      onReprocess={onReprocess}
+                      onZoomStamp={setZoomedStamp}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
               );
             })}
             {renderedRows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
                   {triageMode ? "Nenhuma pendência restante na triagem." : "Nenhuma prancha corresponde ao filtro atual."}
                 </td>
               </tr>
@@ -3806,17 +3942,109 @@ function CellInput({
   value,
   onChange,
   mono = false,
+  ...props
 }: {
   value: string;
   onChange: (value: string) => void;
   mono?: boolean;
-}) {
+} & Omit<React.ComponentProps<"input">, "value" | "onChange">) {
   return (
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className={`h-9 w-full rounded-md border border-border bg-background px-2 text-sm ${mono ? "font-mono" : ""}`}
+      className={`h-8 w-full rounded-md border border-border bg-background px-2 text-sm ${mono ? "font-mono text-xs" : ""}`}
+      {...props}
     />
+  );
+}
+
+// Diagnóstico da extração: o usuário só precisa disto quando desconfia da
+// leitura. Ocupava duas colunas fixas em todas as 59 linhas e empurrava Status
+// e Ações para fora da tela.
+function RowDetails({
+  row,
+  result,
+  reprocessing,
+  onUpdate,
+  onReprocess,
+  onZoomStamp,
+}: {
+  row: ReviewRow;
+  result?: PdfReadResult;
+  reprocessing: boolean;
+  onUpdate: (id: number, field: keyof ReviewRow, value: string | boolean) => void;
+  onReprocess: (id: number) => void;
+  onZoomStamp: (result: PdfReadResult) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-start gap-6 rounded-md border border-border bg-background p-3">
+      <div className="shrink-0">
+        <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Selo</p>
+        {result?.stampPreviewUrl ? (
+          <button
+            type="button"
+            onClick={() => onZoomStamp(result)}
+            title="Ampliar selo"
+            className="block rounded-sm border border-border transition hover:border-primary"
+          >
+            <Image
+              src={result.stampPreviewUrl}
+              alt={`Recorte analisado de ${result.fileName}, página ${result.pageNumber}`}
+              width={160}
+              height={80}
+              unoptimized
+              className="h-20 w-40 bg-background object-contain"
+            />
+          </button>
+        ) : (
+          <p className="flex h-20 w-40 items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+            Somente texto
+          </p>
+        )}
+      </div>
+
+      <div className="min-w-[200px] space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Leitura</p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Checkbox
+            checked={row.lowConfidence}
+            onChange={(event) => onUpdate(row.id, "lowConfidence", event.target.checked)}
+          />
+          Baixa confiança
+        </label>
+        {result ? (
+          <>
+            <p className="text-xs text-muted-foreground">Origem: {describeExtractionSource(result)}</p>
+            <p className="text-xs text-muted-foreground">{result.extractionAttempt ?? "Recorte analisado"}</p>
+            {result.fallbackReason ? (
+              <p className="text-xs text-warning">Principal falhou; fallback MiMo: {result.fallbackReason}</p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Sem dados da leitura. Reenvie o PDF para reprocessar o selo.
+          </p>
+        )}
+      </div>
+
+      {result ? (
+        <div className="min-w-[180px] space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            Origem por campo
+          </p>
+          <FieldOriginStack result={result} />
+          <button
+            type="button"
+            onClick={() => onReprocess(row.id)}
+            disabled={reprocessing}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            {reprocessing ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+            Reanalisar prancha
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -4049,11 +4277,9 @@ function RowStatus({
           </span>
           {issue.severity === "warning" && (
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={reviewedKeys.includes(issue.key)}
                 onChange={(event) => onToggle(issue.key, event.target.checked)}
-                className="size-4"
               />
               Marcar como revisado
             </label>
@@ -4296,6 +4522,7 @@ function FinalStep({
   error,
   checklistItems,
   checkedItems,
+  previousGenerationAt,
   onChecklistChange,
   onGenerate,
 }: {
@@ -4306,6 +4533,7 @@ function FinalStep({
   error: string;
   checklistItems: string[];
   checkedItems: string[];
+  previousGenerationAt: string | null;
   onChecklistChange: (items: string[]) => void;
   onGenerate: () => void;
 }) {
@@ -4319,6 +4547,8 @@ function FinalStep({
     );
   };
 
+  const pendentes = files.filter((file) => !generatedNames.has(file));
+
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <div className="space-y-3">
@@ -4327,11 +4557,10 @@ function FinalStep({
           <div className="mt-3 space-y-2">
             {checklistItems.map((item) => (
               <label key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checkedItems.includes(item)}
                   onChange={(event) => toggleChecklistItem(item, event.target.checked)}
-                  className="mt-0.5 size-4"
+                  className="mt-0.5"
                 />
                 <span>{item}</span>
               </label>
@@ -4342,60 +4571,139 @@ function FinalStep({
           type="button"
           onClick={onGenerate}
           disabled={generating || !checklistComplete}
+          title={!checklistComplete ? "Conclua o checklist acima para liberar a geração." : undefined}
           className="flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-3 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {generating ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-          Gerar arquivos finais
+          {downloads.length > 0 ? "Gerar novamente" : "Gerar arquivos finais"}
         </button>
         {error && <p className="rounded-md border border-destructive bg-background p-3 text-sm text-destructive">{error}</p>}
+        {/* Acao secundaria: sai do fluxo da LD, entao nao compete em teal com
+            "Gerar arquivos finais". */}
         <Link
           href={coverGeneratorHref}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-3 text-sm font-medium text-[var(--nexodoc-accent)] transition hover:border-primary hover:bg-primary/15"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <FileArchive size={16} />
           Gerar capas desta LD
         </Link>
-        {downloads.map((download) => (
-          <a
-            key={download.fileName}
-            href={download.url}
-            download={download.fileName}
-            className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-3 text-left text-sm transition hover:bg-muted"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              {download.kind === "zip" ? <FileArchive size={16} /> : <Download size={16} />}
-              <span className="truncate font-mono">{download.fileName}</span>
-            </span>
-            Baixar
-          </a>
-        ))}
-        {files
-          .filter((file) => !generatedNames.has(file))
-          .map((file) => (
-            <button
-              key={file}
-              type="button"
-              disabled
-              className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-3 text-left text-sm opacity-70"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                {file.endsWith(".zip") ? <FileArchive size={16} /> : <Download size={16} />}
-                <span className="truncate font-mono">{file}</span>
-              </span>
-              Aguardando geração
-            </button>
-          ))}
       </div>
-      <div>
-        <h3 className="mb-3 font-semibold">Checklist final</h3>
-        <div className="grid gap-2">
-          {checklist.map((item) => (
-            <label key={item} className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
-              <input type="checkbox" className="mt-0.5 size-4" />
-              <span>{item}</span>
-            </label>
-          ))}
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="mb-3 font-semibold">Arquivos</h3>
+          {/* Uma LD reaberta aparece como "Gerada" no historico mas nao tem os
+              binarios de volta -- eles nao sao armazenados. Dizer isso e melhor
+              que exibir "Aguardando geracao", que sugere um processo travado. */}
+          {previousGenerationAt && downloads.length === 0 ? (
+            <p className="mb-3 rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+              Esta LD foi gerada em {new Date(previousGenerationAt).toLocaleString("pt-BR")}, mas os arquivos não ficam
+              guardados no histórico. Gere novamente para baixá-los.
+            </p>
+          ) : null}
+          <div className="grid gap-2">
+            {downloads.map((download) => (
+              <LdFileRow key={download.fileName} fileName={download.fileName}>
+                <a
+                  href={download.url}
+                  download={download.fileName}
+                  className="shrink-0 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-[var(--nexodoc-accent)] transition hover:border-primary hover:bg-primary/15"
+                >
+                  Baixar
+                </a>
+              </LdFileRow>
+            ))}
+            {pendentes.map((file) => (
+              <LdFileRow key={file} fileName={file} dimmed>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                  {previousGenerationAt ? "não guardado" : "aguardando geração"}
+                </span>
+              </LdFileRow>
+            ))}
+          </div>
         </div>
+        <FinalChecklist />
+      </div>
+    </div>
+  );
+}
+
+const ldFileKinds: { sufixo: string; rotulo: string; descricao: string }[] = [
+  { sufixo: "_inconsistencias.md", rotulo: "MD", descricao: "Relatório de inconsistências" },
+  { sufixo: ".odt", rotulo: "ODT", descricao: "LD editável (LibreOffice Writer)" },
+  { sufixo: ".pdf", rotulo: "PDF", descricao: "LD final para envio" },
+  { sufixo: ".zip", rotulo: "ZIP", descricao: "Pacote com todos os arquivos" },
+];
+
+// Antes esta lista mostrava so `031_26_est_ld_...` truncado, sem dizer qual era
+// o ODT e qual era o ZIP.
+function LdFileRow({
+  fileName,
+  dimmed = false,
+  children,
+}: {
+  fileName: string;
+  dimmed?: boolean;
+  children: React.ReactNode;
+}) {
+  const kind = ldFileKinds.find((item) => fileName.endsWith(item.sufixo));
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-sm ${
+        dimmed ? "opacity-60" : ""
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="w-10 shrink-0 rounded-md border border-border py-0.5 text-center font-mono text-[10px] text-muted-foreground">
+          {kind?.rotulo ?? "?"}
+        </span>
+        <span className="min-w-0">
+          <span className="block break-all font-mono text-xs">{fileName}</span>
+          {kind ? <span className="mt-0.5 block text-xs text-muted-foreground">{kind.descricao}</span> : null}
+        </span>
+      </span>
+      {children}
+    </div>
+  );
+}
+
+// Conferencia manual do ODT/PDF gerados, feita fora do app. As marcas valem so
+// enquanto a tela estiver aberta: servem para o usuario nao perder o lugar na
+// lista, nao como registro. Antes eram inputs sem estado nenhum, que esqueciam
+// a marca no primeiro re-render.
+function FinalChecklist() {
+  const [checked, setChecked] = useState<string[]>([]);
+
+  return (
+    <div>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h3 className="font-semibold">Checklist final</h3>
+        <span className="font-mono text-xs text-muted-foreground">
+          {checked.length}/{checklist.length}
+        </span>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Conferência manual dos arquivos gerados. Não fica salva no histórico.
+      </p>
+      <div className="grid gap-2">
+        {checklist.map((item) => (
+          <label
+            key={item}
+            className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm transition hover:bg-muted"
+          >
+            <Checkbox
+              className="mt-0.5"
+              checked={checked.includes(item)}
+              onChange={(event) =>
+                setChecked((current) =>
+                  event.target.checked ? [...current, item] : current.filter((value) => value !== item),
+                )
+              }
+            />
+            <span className={checked.includes(item) ? "text-muted-foreground line-through" : undefined}>{item}</span>
+          </label>
+        ))}
       </div>
     </div>
   );
