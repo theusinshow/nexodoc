@@ -327,6 +327,60 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
   return parts.join(" ");
 }
 
+// Item 12 — bandeira de emissão binária no topo do relatório. Determinística:
+// existe achado crítico documental -> não emitir; só técnico/contratual -> revisar;
+// nada disso -> liberado. É o "semáforo" que o cliente lê em 1 segundo.
+export type EmissionVerdict = {
+  emoji: string;
+  label: string;
+  detail: string;
+};
+
+export function getEmissionVerdict(findings: AuditFinding[]): EmissionVerdict {
+  const groups = groupFindingsByImpact(findings);
+
+  if (groups.critico_documental.length > 0) {
+    return {
+      emoji: "🔴",
+      label: "NÃO EMITIR",
+      detail: `${groups.critico_documental.length} incongruência(s) crítica(s) de identidade/documento antes da emissão.`,
+    };
+  }
+
+  if (groups.tecnico_contratual.length > 0) {
+    return {
+      emoji: "🟡",
+      label: "REVISAR ANTES DE EMITIR",
+      detail: `${groups.tecnico_contratual.length} ponto(s) técnico(s)/contratual(is) exigem conferência.`,
+    };
+  }
+
+  if (groups.revisao_editorial.length > 0) {
+    return {
+      emoji: "🟢",
+      label: "LIBERADO COM RESSALVAS EDITORIAIS",
+      detail: `${groups.revisao_editorial.length} ajuste(s) editorial(is), sem impacto documental.`,
+    };
+  }
+
+  return {
+    emoji: "🟢",
+    label: "LIBERADO",
+    detail: "Nenhum achado documental, técnico ou editorial detectado.",
+  };
+}
+
+// Item 4 — selo de confiança por achado. Achado de regra é verificável (página +
+// evidência conferidas deterministicamente, sem alucinação); achado de IA é uma
+// sugestão que passou pela trava anti-alucinação, mas ainda pede conferência.
+export function getFindingAssurance(finding: AuditFinding) {
+  if (finding.origem === "regra") {
+    return "✔ Verificado (regra determinística — página e evidência conferidas)";
+  }
+
+  return "◻ Sugerido pela IA (confira a evidência antes de agir)";
+}
+
 function formatFindingLine(finding: AuditFinding) {
   return `- ${finding.id}: ${finding.tipo} | Página ${finding.pagina || "não identificada"} | ${finding.conflito || finding.descricao}`;
 }
@@ -335,6 +389,8 @@ export function makeTextReport(report: AuditReport) {
   const sortedFindings = sortAuditFindings(report.incongruencias);
   const grouped = groupFindingsByImpact(sortedFindings);
   const executiveSummary = buildExecutiveSummary(sortedFindings);
+  const verdict = getEmissionVerdict(sortedFindings);
+  const deterministicFindings = sortedFindings.filter((finding) => finding.origem === "regra");
   const findings =
     sortedFindings.length === 0
       ? "- nenhum achado crítico detectado"
@@ -343,6 +399,7 @@ export function makeTextReport(report: AuditReport) {
             return [
               `Achado ${finding.id}: ${finding.tipo}`,
               `Prioridade: ${finding.prioridade}`,
+              `Verificação: ${getFindingAssurance(finding)}`,
               `Documento: ${finding.arquivo ?? report.arquivo ?? report.arquivos_analisados[0]?.arquivo ?? "não informado"}`,
               `Página provável: ${finding.pagina || "não identificada"}`,
               `Capítulo: ${finding.capitulo || "não identificado"}`,
@@ -360,6 +417,9 @@ export function makeTextReport(report: AuditReport) {
           .join("\n\n");
 
   return `
+0. Veredito de emissão
+${verdict.emoji} ${verdict.label} — ${verdict.detail}
+
 1. Projeto analisado
 Arquivo: ${report.arquivo ?? "não informado"}
 Obra: ${report.obra || "não identificada"}
@@ -397,6 +457,15 @@ ${report.arquivos_analisados
 
 5. Comparações entre arquivos
 ${report.comparacoes.length > 0 ? report.comparacoes.map((item) => `- ${item}`).join("\n") : "- sem comparação específica"}
+
+5.1 O que só o Nexodoc encontra (achados verificados, sem IA)
+${
+  deterministicFindings.length > 0
+    ? `${deterministicFindings.length} achado(s) obtidos por regras determinísticas — identidade reaproveitada, confronto entre documentos e contradições entre capítulos distantes, cada um com página e evidência conferidas (o tipo de erro que um chat de IA genérico não localiza de forma confiável):\n${deterministicFindings
+        .map(formatFindingLine)
+        .join("\n")}`
+    : "- nenhum achado determinístico neste conjunto (a leitura por IA cobre o restante)"
+}
 
 6. Achados críticos documentais
 ${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum achado crítico documental"}

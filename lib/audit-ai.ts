@@ -32,10 +32,17 @@ export type ValidationDecision = {
   motivo?: string;
 };
 
+export type RefutationVerdict = {
+  source_id?: string;
+  sustentado?: boolean;
+  motivo?: string;
+};
+
 export type AuditModelJson = {
   findings?: ModelFinding[];
   comparisons?: string[];
   decisions?: ValidationDecision[];
+  verdicts?: RefutationVerdict[];
 };
 
 export async function executeAuditModelResponse(args: {

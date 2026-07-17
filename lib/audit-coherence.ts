@@ -226,5 +226,200 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     );
   }
 
+  // 5) Área construída TOTAL declarada com valores divergentes no mesmo documento.
+  //    Genérico (não amarrado a um projeto): só a área total conta — áreas por
+  //    ambiente/pavimento não disparam, para não confundir detalhamento com conflito.
+  for (const areaFinding of runDeclaredTotalAreaRule(extracted, fileName, nextId)) {
+    findings.push(areaFinding);
+  }
+
+  // 6) Concessionária de energia citada fora da sua microrregião de atendimento.
+  //    Só dispara para cooperativas de área pequena e bem delimitada — grandes
+  //    distribuidoras estaduais (CELESC, ENEL, CPFL...) cobrem municípios demais
+  //    para inferir reaproveitamento. Ponto de checagem territorial, confiança baixa.
+  for (const utilityFinding of runElectricUtilityTerritoryRule(extracted, fileName, nextId)) {
+    findings.push(utilityFinding);
+  }
+
+  return findings;
+}
+
+// --- Regra 5: área total construída divergente -------------------------------
+
+function parseAreaValue(raw: string) {
+  // "1.234,56 m²" -> 1234.56 ; "987,00 m2" -> 987
+  const numberPart = (raw.match(/[\d.,]+/) ?? [""])[0];
+  const canonical = numberPart.replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
+  const value = Number(canonical);
+  return Number.isFinite(value) ? value : null;
+}
+
+function runDeclaredTotalAreaRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const TOTAL_AREA_LINE =
+    /[áa]rea\s+(?:total\s+constru[íi]da|constru[íi]da\s+total|total\s+edificada|total\s+da\s+edifica[cç][ãa]o)/i;
+  const AREA_VALUE = /\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*m(?:²|2)(?![\d\w])/gi;
+
+  const found: Array<{ page: number; value: number; display: string; evidence: string }> = [];
+
+  for (const page of extracted.pages) {
+    for (const line of page.text.split(/\r?\n/)) {
+      if (!TOTAL_AREA_LINE.test(line)) {
+        continue;
+      }
+
+      AREA_VALUE.lastIndex = 0;
+      for (const match of line.match(AREA_VALUE) ?? []) {
+        const value = parseAreaValue(match);
+
+        // ignora valores implausíveis para área total de edificação (< 10 m²)
+        if (value === null || value < 10) {
+          continue;
+        }
+
+        found.push({
+          page: page.page,
+          value,
+          display: match.replace(/\s+/g, " ").trim(),
+          evidence: line.replace(/\s+/g, " ").trim(),
+        });
+      }
+    }
+  }
+
+  // agrupa por valor arredondado (0,5 m² de tolerância) para não acusar
+  // arredondamento como divergência
+  const distinct = new Map<number, { page: number; display: string; evidence: string }>();
+  for (const item of found) {
+    const key = Math.round(item.value * 2) / 2;
+    if (!distinct.has(key)) {
+      distinct.set(key, { page: item.page, display: item.display, evidence: item.evidence });
+    }
+  }
+
+  if (distinct.size < 2) {
+    return [];
+  }
+
+  const entries = [...distinct.values()];
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Alta",
+      impacto: "critico_documental",
+      pagina: [...new Set(entries.map((item) => item.page))].join(", "),
+      capitulo: "Área da obra / quantitativos",
+      local: "área total construída",
+      tipo: "Área total construída divergente no mesmo documento",
+      descricao: `O documento declara áreas totais construídas diferentes: ${entries
+        .map((item) => item.display)
+        .join(" × ")}.`,
+      evidencia: entries.map((item) => `Pág. ${item.page}: "${item.evidence}"`).join(" | "),
+      termo_busca: entries[0].display,
+      conflito: `Valores de área total incompatíveis (${entries
+        .map((item) => item.display)
+        .join(" × ")}) — não fica claro qual é a área oficial da obra.`,
+      sugestao_correcao:
+        "Padronizar a área total construída oficial em todo o documento ou declarar explicitamente a diferença (área total × área computável × área por disciplina).",
+    }),
+  ];
+}
+
+// --- Regra 6: concessionária de energia fora da microrregião ------------------
+
+/** cooperativas/permissionárias de área delimitada, com seus municípios de atendimento */
+const SMALL_ELECTRIC_UTILITIES: Array<{
+  nome: string;
+  sigla: RegExp;
+  municipios: string[];
+}> = [
+  { nome: "COOPERA", sigla: /\bcoopera\b/i, municipios: ["forquilhinha"] },
+  { nome: "CERMOFUL", sigla: /\bcermoful\b/i, municipios: ["morro da fumaca"] },
+  { nome: "CERGAL", sigla: /\bcergal\b/i, municipios: ["garopaba", "paulo lopes"] },
+  { nome: "CERPALO", sigla: /\bcerpalo\b/i, municipios: ["sao ludgero"] },
+  { nome: "CERGRAL", sigla: /\bcergral\b/i, municipios: ["gravatal"] },
+  { nome: "COOPERALIANÇA", sigla: /\bcooperalian[cç]a\b/i, municipios: ["icara", "cocal do sul", "nova veneza", "urussanga"] },
+  { nome: "CEJAMA", sigla: /\bcejama\b/i, municipios: ["jacinto machado"] },
+  { nome: "CERSAD", sigla: /\bcersad\b/i, municipios: ["treze de maio"] },
+];
+
+function stripAccentsLower(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+/** município dominante do documento (moda das menções em "prefeitura municipal de X" / "município de X") */
+function findDominantMunicipio(extracted: ExtractedPdf) {
+  const MUNICIPIO = /(?:prefeitura\s+municipal\s+de|munic[ií]pio\s+de)\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,40}?)(?=[,;.\n/]|\s{2}|\s+[-–]\s+|$)/gi;
+  const counts = new Map<string, number>();
+
+  for (const page of extracted.pages) {
+    MUNICIPIO.lastIndex = 0;
+    for (const match of page.text.matchAll(MUNICIPIO)) {
+      const canonical = stripAccentsLower(match[1].trim()).replace(/\s+/g, " ");
+      if (canonical.length < 3) {
+        continue;
+      }
+      counts.set(canonical, (counts.get(canonical) ?? 0) + 1);
+    }
+  }
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return ranked[0]?.[0] ?? null;
+}
+
+function runElectricUtilityTerritoryRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const municipio = findDominantMunicipio(extracted);
+
+  if (!municipio) {
+    return [];
+  }
+
+  const findings: AuditFinding[] = [];
+
+  for (const utility of SMALL_ELECTRIC_UTILITIES) {
+    const hit = findFirst(extracted, utility.sigla);
+
+    if (!hit) {
+      continue;
+    }
+
+    const servesThisCity = utility.municipios.some(
+      (city) => municipio.includes(city) || city.includes(municipio),
+    );
+
+    if (servesThisCity) {
+      continue;
+    }
+
+    findings.push(
+      makeFinding(nextId(), {
+        arquivo: fileName,
+        prioridade: "Media",
+        impacto: "tecnico_contratual",
+        pagina: String(hit.page),
+        capitulo: "Projeto elétrico / concessionária",
+        local: "concessionária de energia",
+        tipo: "Concessionária de energia fora da microrregião de atendimento",
+        descricao: `O documento cita a concessionária ${utility.nome} para uma obra em "${municipio}", mas ${utility.nome} atende tipicamente ${utility.municipios.join(", ")}.`,
+        evidencia: `Pág. ${hit.page}: "${hit.evidence}"`,
+        termo_busca: utility.nome,
+        conflito: `${utility.nome} × município da obra (${municipio}) — possível memorial elétrico reaproveitado de outra cidade.`,
+        sugestao_correcao:
+          "Confirmar a concessionária responsável pelo endereço da obra e ajustar normas de padrão de entrada, medição e aterramento se necessário.",
+        confianca: "baixa",
+      }),
+    );
+  }
+
   return findings;
 }

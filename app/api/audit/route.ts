@@ -193,6 +193,32 @@ const auditValidationResponseFormat = {
   },
 };
 
+const auditRefutationResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_refutation",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      verdicts: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            source_id: { type: "string" },
+            sustentado: { type: "boolean" },
+            motivo: { type: "string" },
+          },
+          required: ["source_id", "sustentado", "motivo"],
+        },
+      },
+    },
+    required: ["verdicts"],
+  },
+};
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -307,6 +333,26 @@ function isAiCrossDocumentEnabled() {
   return process.env.NEXODOC_ENABLE_AI_CROSS_DOCUMENT === "true";
 }
 
+// Fase C — a identidade documental (obra, município, endereço, proprietário,
+// órgão, código, revisão) é decidida por regras determinísticas da Camada 1
+// (guardas capa×corpo + `runWithinDocumentIdentityRules`), que não alucinam e
+// citam página/evidência. A passada de IA dedicada à identidade virou redundante
+// e é a maior fonte de "aponta obra divergente que não existe"; fica atrás deste
+// flag, desligada por padrão, disponível apenas para benchmark.
+function isAiIdentityPassEnabled() {
+  return process.env.NEXODOC_ENABLE_AI_IDENTITY_PASS === "true";
+}
+
+// Item 3 — passada de refutação adversarial. Depois que os achados de IA passam
+// pela trava de ancoragem (Fase B), uma 2ª chamada tenta DERRUBAR cada um: "essa
+// evidência realmente sustenta o conflito?". O que a IA não conseguir defender é
+// descartado. Corta o falso positivo plausível-porém-errado. Só afeta achados de
+// IA (regra nunca é refutada). Custa 1 chamada extra por arquivo; fica atrás de
+// flag, desligado por padrão até validação com tokens reais.
+function isRefutationPassEnabled() {
+  return process.env.NEXODOC_ENABLE_REFUTATION_PASS === "true";
+}
+
 function parseAuditEngine(value: FormDataEntryValue | null): AuditEngine {
   return value === "dual" ? "dual" : "single";
 }
@@ -343,14 +389,16 @@ function getChunkPrompt(args: {
 }) {
   const modeInstruction =
     args.auditMode === "volume"
-      ? "Audite volume de projeto: capa, separatriz, LDs/listas, pranchas, selos, revisões, títulos, disciplinas, volume e tomo."
-      : "Audite memorial descritivo textual: identidade do projeto, coerência interna, trechos reaproveitados, localidades divergentes, normas suspeitas, cálculos simples e redação.";
+      ? "Audite volume de projeto: coerência entre capa, separatriz, LDs/listas, pranchas, selos, revisões, títulos, disciplinas, volume e tomo."
+      : "Audite memorial descritivo textual: coerência interna, normas suspeitas, cálculos simples, hierarquia e redação técnica.";
 
   return `
 ${modeInstruction}
 
 Leia o trecho abaixo procurando erros que possam comprometer emissão, licitação, cliente ou consistência documental.
-Procure ativamente: nome de obra/unidade divergente (ex.: UBS X vs UBS Y), município/proprietário divergente, bairro divergente, logradouro de outro projeto, referência municipal externa, conflito de hierarquia, norma inadequada, cálculo incoerente, unidade divergente, texto colado, trecho reaproveitado e redação/formatação crítica.
+Procure ativamente: conflito de hierarquia documental, norma inadequada ao escopo, cálculo incoerente, unidade de medida divergente (cm × m, m² × m³), linguagem técnica reaproveitada de outro tipo de obra (ex.: rodovia num prédio), quadro/tabela inconsistente e redação/formatação crítica.
+
+NÃO reporte divergência de identidade documental — nome da obra, unidade, município, bairro, endereço, proprietário, órgão, cliente ou código. Essa camada é auditada por regras determinísticas próprias e reafirmá-la aqui só gera ruído e falso positivo. Se notar um trecho que parece de outra obra, trate-o apenas como possível reaproveitamento de linguagem técnica, não como troca de identidade.
 
 Projeto informado: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
@@ -1849,19 +1897,20 @@ function getGlobalFilePrompt(args: {
   return `
 ${modeInstruction}
 
-Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Primeiro entenda a identidade predominante do documento: obra, código, município, endereço, proprietário/órgão, data e disciplina. Depois procure incongruências internas, trechos reaproveitados, referências que pareçam pertencer a outra obra, conflitos de endereço/localidade, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes e problemas editoriais relevantes.
+Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Use a identidade predominante do documento (obra, município, órgão, disciplina) apenas como referência para julgar coerência técnica — NÃO a audite nem a reafirme. Procure incongruências internas, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes, escopo ambíguo e problemas editoriais relevantes.
+
+A identidade documental (nome da obra, código, município, bairro, endereço, proprietário, órgão, cliente) já é auditada por regras determinísticas próprias. NÃO gere achado de "obra divergente", "município divergente", "capa x corpo" ou "trecho de outra obra": isso é responsabilidade da camada determinística e reafirmá-lo aqui só gera duplicidade e falso positivo.
 
 Em memoriais, confira explicitamente antes de responder:
-- capa x apresentacao/corpo: nome da obra, codigo, municipio, endereco e orgao;
-- construcao nova x trechos de reforma/adequacao herdados de outro memorial;
+- construcao nova x trechos de reforma/adequacao (escopo ambíguo);
 - quantidade e nomenclatura de blocos, pavimentos, volumes e disciplinas;
 - areas informadas em secoes diferentes, inclusive arquitetura, eletrica, cabeamento e CFTV;
-- concessionaria, normas locais e siglas que podem pertencer a outro municipio ou contrato.
+- concessionaria, normas locais e siglas que exigem validação técnica.
 
 Priorize pelo impacto:
-- Alta: conflito de identidade da obra, município, endereço, proprietário, órgão, disciplina ou trecho claramente herdado de outro projeto.
+- Alta: contradição técnica interna grave, cálculo/quantitativo incoerente ou norma incompatível que impede emissão.
 - Media/Alta: divergência técnica/contratual que pode afetar emissão, contratação ou revisão formal.
-- Media ou menor: redação, formatação, duplicidade e pontos de conferência que não mudam a identidade do projeto.
+- Media ou menor: redação, formatação, duplicidade e pontos de conferência editoriais.
 
 Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo.
 
@@ -2321,7 +2370,11 @@ async function validateFindingsWithModel(args: {
         }
 
         if (decision.acao === "remover") {
-          if (isMandatoryGuardFinding(finding)) {
+          // Fase C — a Camada 1 determinística é dona da identidade e da coerência.
+          // A validação por IA pode reclassificar prioridade, mas nunca apagar um
+          // achado de regra (guardas, identidade intra-documento, coerência): eles
+          // não alucinam e citam página/evidência.
+          if (isMandatoryGuardFinding(finding) || finding.origem === "regra") {
             return finding;
           }
 
@@ -2417,6 +2470,109 @@ async function analyzeCrossDocumentsWithModel(args: {
   };
 }
 
+function getRefutationPrompt(args: {
+  fileName: string;
+  extracted: ExtractedPdf;
+  findings: AuditFinding[];
+}) {
+  return `
+Você é um revisor cético. Sua ÚNICA tarefa é tentar DERRUBAR cada achado abaixo, não confirmá-lo. Para cada achado, decida se a evidência citada realmente sustenta o conflito descrito, lendo o contexto do documento.
+
+Marque "sustentado": false quando:
+- a evidência não comprova o conflito (o achado interpretou mal o trecho);
+- o "conflito" some ao ler a frase inteira em contexto (ex.: menção histórica, exemplo, citação de norma);
+- o trecho é genérico/boilerplate e não indica erro real;
+- na dúvida real sobre se é erro, prefira derrubar (false).
+
+Marque "sustentado": true apenas quando o erro resiste a uma leitura crítica.
+
+Responda APENAS JSON válido:
+{
+  "verdicts": [
+    { "source_id": "ID do achado", "sustentado": true, "motivo": "por que resiste ou cai" }
+  ]
+}
+
+ACHADOS A REFUTAR:
+${buildFindingCandidateList(args.findings)}
+
+CONTEXTO DO DOCUMENTO (${args.fileName}):
+${buildDocumentContext(args.extracted)}
+`.trim();
+}
+
+async function refuteFindingsWithModel(args: {
+  auditId?: string | null;
+  auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
+  fileName: string;
+  fileType: string;
+  extracted: ExtractedPdf;
+  findings: AuditFinding[];
+}) {
+  // só faz sentido refutar achados de IA; regra nunca é refutada
+  const aiFindings = args.findings.filter((finding) => finding.origem === "ia");
+
+  if (aiFindings.length === 0) {
+    return args.findings;
+  }
+
+  try {
+    const model = getValidationModelName(args.analysisLevel);
+    const result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.fileName,
+      model,
+      operation: "audit-refutation",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
+        text: { format: auditRefutationResponseFormat },
+        input: getRefutationPrompt({
+          fileName: args.fileName,
+          extracted: args.extracted,
+          findings: aiFindings,
+        }),
+      },
+      metadata: {
+        fileName: args.fileName,
+        fileType: args.fileType,
+        findings: aiFindings.length,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+    });
+    const parsed = parseRequiredAuditModelJson(result.text, "audit-refutation");
+    const refuted = new Set(
+      (parsed?.verdicts ?? [])
+        .filter((verdict) => verdict.source_id && verdict.sustentado === false)
+        .map((verdict) => String(verdict.source_id)),
+    );
+
+    if (refuted.size === 0) {
+      return args.findings;
+    }
+
+    const kept = args.findings.filter(
+      (finding) => finding.origem !== "ia" || !refuted.has(finding.id),
+    );
+    console.log(
+      `[audit] ${args.fileName}: refutação adversarial derrubou ${args.findings.length - kept.length} achado(s) de IA`,
+    );
+    return kept;
+  } catch (error) {
+    if (!isInvalidAuditModelResponse(error)) {
+      throw error;
+    }
+
+    console.error(`[audit] ${args.fileName}: resposta inválida na refutação; etapa ignorada`);
+    return args.findings;
+  }
+}
+
 async function deepAnalyzeFile(args: {
   auditId?: string | null;
   auditMode: AuditMode;
@@ -2480,11 +2636,13 @@ async function deepAnalyzeFile(args: {
     `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura de identidade, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}, regras locais ${useRuleBasedFindings ? "ativas" : "desligadas"}`,
   );
 
+  // Fase C — a identidade é da Camada 1 (guardas + regras determinísticas acima).
+  // A passada de IA de identidade só roda sob flag explícito (benchmark).
+  const shouldRunAiIdentityPass =
+    isAiIdentityPassEnabled() && !hasInferredIdentityConflict;
   const identityStartedAt = Date.now();
-  console.log(`[audit] ${args.file.file.name}: leitura de identidade iniciada`);
-  const identityFindings = hasInferredIdentityConflict
-    ? []
-      : await analyzeIdentityWithModel({
+  const identityFindings = shouldRunAiIdentityPass
+    ? await analyzeIdentityWithModel({
         auditId: args.auditId,
         auditMode: args.auditMode,
         analysisLevel: args.analysisLevel,
@@ -2494,9 +2652,12 @@ async function deepAnalyzeFile(args: {
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
-      });
+      })
+    : [];
   console.log(
-    `[audit] ${args.file.file.name}: leitura de identidade por IA concluida em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${identityFindings.length} achado(s)`,
+    `[audit] ${args.file.file.name}: leitura de identidade por IA ${
+      shouldRunAiIdentityPass ? "concluida" : "desligada (Camada 1 determinística é dona da identidade)"
+    } em ${Math.round((Date.now() - identityStartedAt) / 1000)}s com ${identityFindings.length} achado(s)`,
   );
 
   const globalStartedAt = Date.now();
@@ -2590,13 +2751,28 @@ async function deepAnalyzeFile(args: {
     );
   }
 
+  // Item 3 — passada de refutação adversarial (só nível deep, atrás de flag).
+  // Tenta derrubar cada achado de IA que passou pela ancoragem; regra é intocada.
+  const refutedGate =
+    isRefutationPassEnabled() && args.analysisLevel === "deep"
+      ? await refuteFindingsWithModel({
+          auditId: args.auditId,
+          auditMode: args.auditMode,
+          analysisLevel: args.analysisLevel,
+          fileName: args.file.file.name,
+          fileType: args.file.fileType,
+          extracted: args.file.extracted,
+          findings: evidenceGate.kept,
+        })
+      : evidenceGate.kept;
+
   return dedupeFindings([
     ...mandatoryGuardFindings,
     ...withinDocumentIdentityFindings,
     ...coherenceFindings,
     ...inferredIdentityFindings,
     ...ruleBasedReviewFindings,
-    ...evidenceGate.kept,
+    ...refutedGate,
   ]);
 }
 

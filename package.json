@@ -15,6 +15,7 @@
     "db:restore": "node scripts/db-restore.mjs",
     "db:check-env": "node scripts/check-env.mjs",
     "test:audit": "node scripts/test-audit-consistency.ts",
+    "test:audit:metrics": "node scripts/audit-precision-recall.ts",
     "test:ld": "node scripts/test-ld-rules.ts"
   },
   "dependencies": {

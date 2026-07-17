@@ -21,7 +21,14 @@ import {
 } from "../lib/cross-document-audit.ts";
 import { runDocumentCoherenceRules } from "../lib/audit-coherence.ts";
 import { filterGroundedFindings } from "../lib/audit-verify.ts";
-import { classifyFindingImpact } from "../lib/audit-report.ts";
+import {
+  classifyFindingImpact,
+  getEmissionVerdict,
+  getFindingAssurance,
+  makeTextReport,
+  type AuditFinding,
+  type AuditReport,
+} from "../lib/audit-report.ts";
 
 type PageInput = string;
 
@@ -240,6 +247,62 @@ check("NÃO acusa coerência quando não há contradição de prevalência", () 
   assert.equal(findings.filter((f) => f.tipo.includes("Hierarquia")).length, 0);
 });
 
+// --- 6.1 Área total construída divergente (item 6) ----------------------------
+check("acusa área total construída divergente no mesmo documento", () => {
+  const doc = makeSource("memorial.pdf", "memorial", [
+    "A área total construída da edificação é de 1.250,00 m².",
+    "Conforme quadro, a área total construída totaliza 1.480,00 m².",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  const area = findings.filter((f) => f.tipo.includes("Área total construída divergente"));
+  assert.equal(area.length, 1, "esperava 1 achado de área divergente");
+  assert.equal(area[0].impacto, "critico_documental");
+  assert.equal(area[0].origem, "regra");
+});
+
+check("NÃO acusa quando a área total repete o mesmo valor", () => {
+  const doc = makeSource("ok.pdf", "memorial", [
+    "A área total construída é de 850,00 m².",
+    "Reforçando: a área total construída é de 850,00 m².",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(findings.filter((f) => f.tipo.includes("Área total")).length, 0);
+});
+
+check("NÃO confunde área por ambiente com área total", () => {
+  const doc = makeSource("ok.pdf", "memorial", [
+    "Sala 1 possui área de 25,00 m² e a Sala 2 possui área de 40,00 m².",
+    "A área total construída é de 850,00 m².",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(
+    findings.filter((f) => f.tipo.includes("Área total")).length,
+    0,
+    "áreas por ambiente não podem disparar o achado de área total",
+  );
+});
+
+// --- 6.2 Concessionária fora da microrregião (item 7) -------------------------
+check("acusa concessionária (COOPERA) fora da microrregião do município", () => {
+  const doc = makeSource("eletrico.pdf", "memorial", [
+    "Prefeitura Municipal de Criciúma. Memorial do projeto elétrico.",
+    "O padrão de entrada seguirá as normas da concessionária COOPERA.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  const util = findings.filter((f) => f.tipo.includes("Concessionária de energia fora"));
+  assert.equal(util.length, 1, "esperava 1 ponto de checagem de concessionária");
+  assert.equal(util[0].confianca, "baixa", "é ponto de checagem, não erro certo");
+});
+
+check("NÃO acusa concessionária correta para o município", () => {
+  const doc = makeSource("eletrico.pdf", "memorial", [
+    "Prefeitura Municipal de Forquilhinha. Memorial elétrico.",
+    "O padrão de entrada seguirá as normas da concessionária COOPERA.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(findings.filter((f) => f.tipo.includes("Concessionária")).length, 0);
+});
+
 // --- 7. Trava anti-alucinação (Fase B) ----------------------------------------
 function mkFinding(partial: Record<string, unknown>) {
   return {
@@ -422,6 +485,80 @@ check("suprime artefato de extração de 1 letra 'p eças'", () => {
   const { kept, suppressed } = filterGroundedFindings([finding], doc);
   assert.equal(kept.length, 0);
   assert.equal(suppressed.length, 1);
+});
+
+// --- 10. Veredito de emissão e selo de confiança (itens 12 e 4) ---------------
+function mkReportFinding(partial: Partial<AuditFinding>): AuditFinding {
+  return {
+    id: "T-001",
+    prioridade: "Media",
+    pagina: "1",
+    capitulo: "cap",
+    local: "local",
+    tipo: "tipo",
+    descricao: "desc",
+    evidencia: "ev",
+    conflito: "conf",
+    sugestao_correcao: "corrigir",
+    confianca: "media",
+    ...partial,
+  };
+}
+
+check("veredito 🔴 NÃO EMITIR quando há achado crítico documental", () => {
+  const verdict = getEmissionVerdict([
+    mkReportFinding({ impacto: "critico_documental", tipo: "Nome de obra divergente" }),
+  ]);
+  assert.equal(verdict.emoji, "🔴");
+  assert.match(verdict.label, /NÃO EMITIR/);
+});
+
+check("veredito 🟡 REVISAR quando só há ponto técnico/contratual", () => {
+  const verdict = getEmissionVerdict([
+    mkReportFinding({ impacto: "tecnico_contratual", tipo: "Hierarquia documental" }),
+  ]);
+  assert.equal(verdict.emoji, "🟡");
+});
+
+check("veredito 🟢 LIBERADO quando não há achado", () => {
+  const verdict = getEmissionVerdict([]);
+  assert.equal(verdict.emoji, "🟢");
+  assert.match(verdict.label, /LIBERADO/);
+});
+
+check("selo de confiança distingue regra (verificado) de IA (sugerido)", () => {
+  assert.match(getFindingAssurance(mkReportFinding({ origem: "regra" })), /Verificado/);
+  assert.match(getFindingAssurance(mkReportFinding({ origem: "ia" })), /Sugerido/);
+});
+
+check("makeTextReport monta veredito, selo e seção diferencial", () => {
+  const report: AuditReport = {
+    tipo_auditoria: "memorial",
+    tipo_documento: "memorial",
+    obra: "Centro Comunitário Primeira Linha",
+    codigo: "017_26",
+    municipio: "Criciúma",
+    data_documento: "2026",
+    status_analise: "concluida",
+    status_geral: "com inconsistências críticas",
+    total_incongruencias: 1,
+    arquivos_analisados: [{ arquivo: "memorial.pdf", tipo_documento: "memorial", resumo: "ok" }],
+    comparacoes: [],
+    incongruencias: [
+      mkReportFinding({
+        id: "IDENT-001",
+        origem: "regra",
+        impacto: "critico_documental",
+        tipo: "Nome de obra/unidade divergente no mesmo documento",
+      }),
+    ],
+    conclusao: "revisar",
+  };
+  const text = makeTextReport(report);
+  assert.match(text, /0\. Veredito de emissão/);
+  assert.match(text, /🔴 NÃO EMITIR/);
+  assert.match(text, /5\.1 O que só o Nexodoc encontra/);
+  assert.match(text, /Verificação: ✔ Verificado/);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);
