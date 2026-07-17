@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Loader2 } from "lucide-react";
 
@@ -30,20 +30,47 @@ export default function AuditPdfViewerInternal({ url, page, highlight }: AuditPd
   const [numPages, setNumPages] = useState(0);
   const needle = (highlight ?? "").trim();
 
+  // O pdfjs quebra o texto em vários spans, então o customTextRenderer recebe um
+  // fragmento por vez e um termo de várias palavras raramente cai inteiro num só.
+  // Solução: destacar o termo inteiro E cada palavra significativa (>= 4 letras,
+  // sem stopwords) dele — assim o trecho fica marcado mesmo quando o pdfjs corta.
+  const pattern = useMemo(() => {
+    if (needle.length < 3) {
+      return null;
+    }
+
+    const stop = new Set(["para", "pelo", "pela", "com", "sem", "das", "dos", "que", "por", "uma", "num", "nos", "nas"]);
+    const words = needle
+      .split(/\s+/)
+      .map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+      .filter((word) => word.length >= 4 && !stop.has(word.toLowerCase()));
+
+    const parts = [...new Set([needle, ...words])]
+      .filter((part) => part.length >= 3)
+      .sort((a, b) => b.length - a.length)
+      .map(escapeRegExp);
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    try {
+      return new RegExp(`(${parts.join("|")})`, "gi");
+    } catch {
+      return null;
+    }
+  }, [needle]);
+
   const textRenderer = useCallback(
     (textItem: { str: string }) => {
-      if (needle.length < 3) {
+      if (!pattern) {
         return textItem.str;
       }
 
-      try {
-        const pattern = new RegExp(`(${escapeRegExp(needle)})`, "gi");
-        return textItem.str.replace(pattern, "<mark>$1</mark>");
-      } catch {
-        return textItem.str;
-      }
+      pattern.lastIndex = 0;
+      return textItem.str.replace(pattern, "<mark>$1</mark>");
     },
-    [needle],
+    [pattern],
   );
 
   const safePage = numPages > 0 ? Math.min(Math.max(1, page), numPages) : Math.max(1, page);
