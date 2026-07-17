@@ -74,6 +74,16 @@ const DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS = 700_000;
 
 type AuditEngine = "single" | "dual";
 
+// Item 1 — gabarito declarado na tela de entrada (ground truth). Todos opcionais:
+// se o usuário pular, ficam vazios e o motor volta a inferir.
+type AuditGabarito = {
+  obra?: string;
+  prefeitura?: string;
+  municipio?: string;
+  centroCusto?: string;
+  endereco?: string;
+};
+
 const auditFindingModelSchema = {
   type: "object",
   additionalProperties: false,
@@ -1889,12 +1899,36 @@ async function analyzeIdentityWithModel(args: {
     .filter((finding): finding is AuditFinding => Boolean(finding));
 }
 
+function buildGabaritoContext(gabarito?: AuditGabarito) {
+  if (!gabarito) {
+    return "";
+  }
+
+  const lines = [
+    gabarito.obra ? `- Obra (capa): ${gabarito.obra}` : "",
+    gabarito.prefeitura ? `- Prefeitura: ${gabarito.prefeitura}` : "",
+    gabarito.municipio ? `- Município: ${gabarito.municipio}` : "",
+    gabarito.centroCusto ? `- Centro de custo: ${gabarito.centroCusto}` : "",
+    gabarito.endereco ? `- Endereço: ${gabarito.endereco}` : "",
+  ].filter(Boolean);
+
+  if (lines.length === 0) {
+    return "";
+  }
+
+  return `
+GABARITO DECLARADO PELO USUÁRIO (verdade da obra, não evidência). A identidade já é conferida por regra determinística — use isto apenas como referência para julgar coerência técnica; NÃO reafirme identidade:
+${lines.join("\n")}
+`.trim();
+}
+
 function getGlobalFilePrompt(args: {
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
+  gabarito?: AuditGabarito;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -1935,6 +1969,8 @@ Solicitação do usuário: ${args.userMessage}
 Aprendizados ativos do escritório, usados como contexto e preferência de auditoria, não como evidência:
 ${args.learningContext}
 
+${buildGabaritoContext(args.gabarito)}
+
 Responda APENAS JSON válido:
 {
   "findings": [
@@ -1970,6 +2006,7 @@ async function analyzeFileGloballyWithModel(args: {
   userMessage: string;
   projectName: string;
   learningContext: string;
+  gabarito?: AuditGabarito;
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
@@ -2612,6 +2649,7 @@ async function deepAnalyzeFile(args: {
   projectName: string;
   learningContext: string;
   auditTitle: string;
+  gabarito?: AuditGabarito;
   file: UploadedAuditFile;
 }) {
   const startedAt = Date.now();
@@ -2621,11 +2659,14 @@ async function deepAnalyzeFile(args: {
   );
   // Camada 1 (intra-documento) — sempre ativa, sem IA. Pega texto reaproveitado
   // de outro projeto: nome de obra/unidade divergente da obra dominante do arquivo.
-  const withinDocumentIdentityFindings = runWithinDocumentIdentityRules({
-    fileName: args.file.file.name,
-    fileType: args.file.fileType,
-    extracted: args.file.extracted,
-  });
+  const withinDocumentIdentityFindings = runWithinDocumentIdentityRules(
+    {
+      fileName: args.file.file.name,
+      fileType: args.file.fileType,
+      extracted: args.file.extracted,
+    },
+    { gabaritoObra: args.gabarito?.obra },
+  );
   if (withinDocumentIdentityFindings.length > 0) {
     console.log(
       `[audit] ${args.file.file.name}: ${withinDocumentIdentityFindings.length} identidade(s) divergente(s) no mesmo documento (regra determinística)`,
@@ -2709,6 +2750,7 @@ async function deepAnalyzeFile(args: {
         userMessage: args.userMessage,
         projectName: args.projectName,
         learningContext: args.learningContext,
+        gabarito: args.gabarito,
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
@@ -2832,6 +2874,13 @@ export async function POST(request: Request) {
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
     const auditDescription = String(formData.get("auditDescription") ?? "").trim();
+    const gabarito: AuditGabarito = {
+      obra: String(formData.get("gabaritoObra") ?? "").trim() || undefined,
+      prefeitura: String(formData.get("gabaritoPrefeitura") ?? "").trim() || undefined,
+      municipio: String(formData.get("gabaritoMunicipio") ?? "").trim() || undefined,
+      centroCusto: String(formData.get("gabaritoCentroCusto") ?? "").trim() || undefined,
+      endereco: String(formData.get("gabaritoEndereco") ?? "").trim() || undefined,
+    };
     const projectId = String(formData.get("projectId") ?? "").trim() || null;
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
     const requestMockMode = formData.get("mockMode") === "true";
@@ -2963,6 +3012,7 @@ export async function POST(request: Request) {
         projectName,
         learningContext,
         auditTitle,
+        gabarito,
         file,
       });
       allFindings.push(...findings);

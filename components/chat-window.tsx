@@ -51,9 +51,19 @@ import {
 import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 import type { DocumentClassification, DocumentKind } from "@/lib/audit-classify";
+import { PREFEITURAS, PREFEITURA_OUTRA_ID, findPrefeitura } from "@/lib/prefeituras";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import type { ProjectContext } from "@/lib/project-context";
 import { cn } from "@/lib/utils";
+
+function normalizeMunicipio(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 type ChatWindowProps = {
   isMockMode?: boolean;
@@ -498,6 +508,12 @@ export function ChatWindow({
   const [auditTitle, setAuditTitle] = useState(projectContext?.code ? `Auditoria ${projectContext.code}` : "");
   const [projectName, setProjectName] = useState(projectContext?.name ?? "");
   const [auditDescription, setAuditDescription] = useState("");
+  // Item 1 — gabarito (ground truth). Pré-preenchido pela classificação; o usuário
+  // confere/corrige ou pula. Vazio = motor infere sozinho.
+  const [gabaritoPrefeitura, setGabaritoPrefeitura] = useState<string>("");
+  const [gabaritoObra, setGabaritoObra] = useState(projectContext?.name ?? "");
+  const [gabaritoCentroCusto, setGabaritoCentroCusto] = useState(projectContext?.code ?? "");
+  const [gabaritoEndereco, setGabaritoEndereco] = useState("");
   const [classifications, setClassifications] = useState<DocumentClassification[]>([]);
   const [isClassifying, setIsClassifying] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -751,6 +767,16 @@ export function ChatWindow({
           setAuditTitle((current) => current || primary.codigo || primary.obra || current);
           setAuditMode(primary.auditMode);
           setAnalysisLevel(primary.analysisLevel);
+          // Pré-preenche o gabarito (item 1) sem sobrescrever o que o usuário já digitou.
+          setGabaritoObra((current) => current || primary.obra || "");
+          setGabaritoCentroCusto((current) => current || primary.codigo || "");
+          if (primary.municipio) {
+            const detected = normalizeMunicipio(primary.municipio);
+            const matched = PREFEITURAS.find((item) => normalizeMunicipio(item.municipio) === detected);
+            if (matched) {
+              setGabaritoPrefeitura((current) => current || matched.id);
+            }
+          }
           setFiles((current) =>
             current.map((item, index) => {
               const tipo = list[index]?.tipo;
@@ -1096,6 +1122,13 @@ export function ChatWindow({
     formData.append("auditTitle", auditTitle.trim() || "Auditoria sem identificação");
     formData.append("projectName", projectName.trim() || "Projeto não informado");
     formData.append("auditDescription", auditDescription.trim());
+    // Item 1 — gabarito (ground truth). Vazio quando o usuário pula.
+    formData.append("gabaritoObra", gabaritoObra.trim());
+    formData.append("gabaritoCentroCusto", gabaritoCentroCusto.trim());
+    formData.append("gabaritoEndereco", gabaritoEndereco.trim());
+    const gabaritoPref = findPrefeitura(gabaritoPrefeitura);
+    formData.append("gabaritoPrefeitura", gabaritoPref?.nome ?? "");
+    formData.append("gabaritoMunicipio", gabaritoPref?.municipio ?? "");
     formData.append("auditId", auditId);
     formData.append("mockMode", useMockMode ? "true" : "false");
     if (projectId) {
@@ -1444,6 +1477,63 @@ export function ChatWindow({
         {files.length > 0 ? (
           <div className="space-y-3">
             {renderDetectionCards()}
+            <div className="rounded-sm border bg-card px-3 py-3">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Gabarito da obra{" "}
+                <span className="font-sans normal-case text-muted-foreground/70">
+                  — opcional; preencher deixa a auditoria mais precisa (senão a IA identifica sozinha)
+                </span>
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Prefeitura</span>
+                  <select
+                    value={gabaritoPrefeitura}
+                    onChange={(event) => setGabaritoPrefeitura(event.target.value)}
+                    disabled={isLoading}
+                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] focus:border-ring"
+                  >
+                    <option value="">Selecione…</option>
+                    {PREFEITURAS.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.nome}
+                      </option>
+                    ))}
+                    <option value={PREFEITURA_OUTRA_ID}>Outra…</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Nome da obra (capa)</span>
+                  <input
+                    value={gabaritoObra}
+                    onChange={(event) => setGabaritoObra(event.target.value)}
+                    placeholder="Como consta na capa"
+                    disabled={isLoading}
+                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Centro de custo</span>
+                  <input
+                    value={gabaritoCentroCusto}
+                    onChange={(event) => setGabaritoCentroCusto(event.target.value)}
+                    placeholder="Código do projeto"
+                    disabled={isLoading}
+                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Endereço</span>
+                  <input
+                    value={gabaritoEndereco}
+                    onChange={(event) => setGabaritoEndereco(event.target.value)}
+                    placeholder="Logradouro da obra"
+                    disabled={isLoading}
+                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                  />
+                </label>
+              </div>
+            </div>
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"

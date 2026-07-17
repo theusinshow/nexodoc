@@ -458,7 +458,46 @@ function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[]
   return mentions;
 }
 
-export function runWithinDocumentIdentityRules(source: CrossDocumentSource): AuditFinding[] {
+/** extrai tipo+canônico do nome de obra declarado no gabarito (item 1) */
+function parseDeclaredObra(
+  declared: string,
+): { canonical: string; type: string; display: string } | null {
+  const trimmed = declared.trim();
+
+  if (trimmed.length < 3) {
+    return null;
+  }
+
+  FACILITY_PATTERN.lastIndex = 0;
+  const match = FACILITY_PATTERN.exec(trimmed);
+
+  if (match) {
+    const typeRaw = match[1] ?? "";
+    const name = trimProperName(match[2] ?? "");
+    const type = baseCanonical(typeRaw);
+    const hasName = name.length > 0;
+    const canonical = facilityCanonical(hasName ? `${type} ${name}` : type);
+
+    if (canonical.length >= 3) {
+      return { canonical, type, display: trimmed };
+    }
+  }
+
+  const canonical = facilityCanonical(trimmed);
+  return canonical.length >= 3 ? { canonical, type: "", display: trimmed } : null;
+}
+
+/**
+ * Consistência de identidade dentro de um documento.
+ * Com `gabaritoObra` (item 1) o baseline deixa de ser inferido e passa a ser a
+ * obra DECLARADA na capa — mais confiável que "a mais frequente". Além de
+ * sinalizar menções divergentes, emite um achado crítico quando o documento
+ * afirma predominantemente OUTRA obra que a declarada (gabarito × documento).
+ */
+export function runWithinDocumentIdentityRules(
+  source: CrossDocumentSource,
+  options: { gabaritoObra?: string } = {},
+): AuditFinding[] {
   const mentions = collectFacilityMentions(source);
 
   if (mentions.length === 0) {
@@ -490,44 +529,84 @@ export function runWithinDocumentIdentityRules(source: CrossDocumentSource): Aud
     return a.order - b.order;
   });
 
-  const dominant = ranked[0];
+  const inferredDominant = ranked[0];
+  const declared = parseDeclaredObra(options.gabaritoObra ?? "");
 
-  // sem uma identidade claramente dominante não há baseline confiável;
-  // evita ruído em documentos que apenas citam vários equipamentos.
-  if (dominant.count < 3) {
+  // Sem gabarito e sem dominância clara não há baseline confiável; evita ruído em
+  // documentos que apenas citam vários equipamentos. Com gabarito, a obra
+  // declarada é o baseline mesmo que apareça pouco no texto.
+  if (!declared && inferredDominant.count < 3) {
     return [];
   }
 
-  const dominantType = dominant.mention.type;
-  const dominantCanonical = dominant.mention.canonical;
+  const baselineCanonical = declared ? declared.canonical : inferredDominant.mention.canonical;
+  const baselineType = declared ? declared.type : inferredDominant.mention.type;
+  const baselineDisplay = declared ? declared.display : inferredDominant.mention.display;
+  const baselineLabel = declared ? "obra declarada (gabarito)" : "obra dominante";
+
   const findings: AuditFinding[] = [];
 
-  for (const group of ranked.slice(1)) {
+  // Gabarito × documento: o documento afirma fortemente outra obra que a declarada.
+  if (declared && inferredDominant.count >= 3) {
+    const domCanon = inferredDominant.mention.canonical;
+    const divergesFromDeclared =
+      domCanon !== baselineCanonical &&
+      !domCanon.includes(baselineCanonical) &&
+      !baselineCanonical.includes(domCanon);
+
+    if (divergesFromDeclared) {
+      findings.push({
+        id: `IDENT-${String(findings.length + 1).padStart(3, "0")}`,
+        arquivo: source.fileName,
+        origem: "regra",
+        prioridade: "Alta",
+        pagina: String(inferredDominant.mention.page),
+        capitulo: "Identidade da obra no documento",
+        categoria: "nome da obra/unidade",
+        referencia_comparada: `Obra declarada (gabarito): ${baselineDisplay}`,
+        local: "gabarito × documento",
+        tipo: "Documento diverge da obra declarada no gabarito",
+        descricao: `O gabarito informa a obra "${baselineDisplay}", mas o documento identifica predominantemente "${inferredDominant.mention.display}".`,
+        evidencia: inferredDominant.mention.evidence,
+        termo_busca: inferredDominant.mention.display.slice(0, 160),
+        conflito: `Gabarito: "${baselineDisplay}" × documento: "${inferredDominant.mention.display}".`,
+        sugestao_correcao:
+          "Confirmar se o arquivo enviado corresponde à obra declarada; se sim, corrigir a identidade no documento, se não, auditar o arquivo correto.",
+        confianca: "alta",
+      });
+    }
+  }
+
+  // Com gabarito, checa todos os grupos contra a obra declarada; sem gabarito,
+  // mantém o comportamento antigo (todos menos o dominante).
+  const groupsToCheck = declared ? ranked : ranked.slice(1);
+
+  for (const group of groupsToCheck) {
     const candidate = group.mention;
 
-    if (candidate.canonical === dominantCanonical) {
+    if (candidate.canonical === baselineCanonical) {
       continue;
     }
 
-    // ignora o tipo "nu" que é apenas um prefixo do dominante
+    // ignora o tipo "nu" que é apenas um prefixo do baseline
     // (ex.: "Centro Comunitário" sozinho não conflita com "Centro Comunitário Primeira Linha")
     if (
       !candidate.hasName &&
-      (dominantCanonical.startsWith(candidate.canonical) ||
-        candidate.canonical.startsWith(dominantType))
+      (baselineCanonical.startsWith(candidate.canonical) ||
+        (baselineType.length > 0 && candidate.canonical.startsWith(baselineType)))
     ) {
       continue;
     }
 
     // ignora quando um é claramente subconjunto textual do outro (mesma obra, grafia parcial)
     if (
-      dominantCanonical.includes(candidate.canonical) ||
-      candidate.canonical.includes(dominantCanonical)
+      baselineCanonical.includes(candidate.canonical) ||
+      candidate.canonical.includes(baselineCanonical)
     ) {
       continue;
     }
 
-    const isOccupancyMismatch = !candidate.hasName && candidate.type !== dominantType;
+    const isOccupancyMismatch = !candidate.hasName && candidate.type !== baselineType;
 
     findings.push({
       id: `IDENT-${String(findings.length + 1).padStart(3, "0")}`,
@@ -537,18 +616,18 @@ export function runWithinDocumentIdentityRules(source: CrossDocumentSource): Aud
       pagina: String(candidate.page),
       capitulo: "Identidade da obra no documento",
       categoria: "nome da obra/unidade",
-      referencia_comparada: `Obra dominante: ${dominant.mention.display}`,
+      referencia_comparada: `${declared ? "Obra declarada (gabarito)" : "Obra dominante"}: ${baselineDisplay}`,
       local: isOccupancyMismatch ? "tipo de ocupação" : "nome da obra/unidade",
       tipo: isOccupancyMismatch
         ? "Tipo de ocupação divergente no mesmo documento"
         : "Nome de obra/unidade divergente no mesmo documento",
       descricao: isOccupancyMismatch
-        ? `O documento trata da obra "${dominant.mention.display}", mas a página ${candidate.page} menciona "${candidate.display}" — possível trecho reaproveitado de outro projeto.`
-        : `O documento identifica a obra como "${dominant.mention.display}", mas a página ${candidate.page} cita "${candidate.display}" — indício de texto reaproveitado de outro projeto.`,
+        ? `A ${baselineLabel} é "${baselineDisplay}", mas a página ${candidate.page} menciona "${candidate.display}" — possível trecho reaproveitado de outro projeto.`
+        : `A ${baselineLabel} é "${baselineDisplay}", mas a página ${candidate.page} cita "${candidate.display}" — indício de texto reaproveitado de outro projeto.`,
       evidencia: candidate.evidence,
       termo_busca: candidate.display.slice(0, 160),
-      conflito: `"${candidate.display}" diverge da obra dominante "${dominant.mention.display}".`,
-      sugestao_correcao: `Substituir "${candidate.display}" pelo nome correto da obra (${dominant.mention.display}) e revisar o capítulo em busca de outros dados reaproveitados.`,
+      conflito: `"${candidate.display}" diverge da ${baselineLabel} "${baselineDisplay}".`,
+      sugestao_correcao: `Substituir "${candidate.display}" pelo nome correto da obra (${baselineDisplay}) e revisar o capítulo em busca de outros dados reaproveitados.`,
       confianca: "alta",
     });
   }

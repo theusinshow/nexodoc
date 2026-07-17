@@ -225,6 +225,43 @@ check("NÃO acusa documento coerente (só Centro Comunitário Primeira Linha)", 
   assert.equal(runWithinDocumentIdentityRules(limpo).length, 0);
 });
 
+// --- 5.1 Gabarito (item 1: obra declarada como baseline) ----------------------
+check("gabarito: usa a obra declarada como baseline e ainda pega os reaproveitados", () => {
+  const findings = runWithinDocumentIdentityRules(makePrimeiraLinhaDoc(), {
+    gabaritoObra: "Centro Comunitário Primeira Linha",
+  });
+  const nomes = findings.map((f) => f.termo_busca ?? "");
+  assert.ok(nomes.some((n) => /Cidade do Autista/i.test(n)));
+  assert.ok(nomes.some((n) => /Centro Dia do Idoso/i.test(n)));
+  // com gabarito, a referência comparada aponta o gabarito, não "dominante"
+  assert.ok(
+    findings.every((f) => /gabarito/i.test(f.referencia_comparada ?? "")),
+    "referência deve citar o gabarito",
+  );
+});
+
+check("gabarito × documento: acusa quando o arquivo é de outra obra", () => {
+  const findings = runWithinDocumentIdentityRules(makePrimeiraLinhaDoc(), {
+    gabaritoObra: "Escola Municipal Professor Fulano",
+  });
+  assert.ok(
+    findings.some((f) => /diverge da obra declarada/i.test(f.tipo)),
+    "deveria acusar que o documento não corresponde à obra declarada",
+  );
+});
+
+check("gabarito: documento coerente com a obra declarada não gera achado", () => {
+  const limpo = makeSource("ok.pdf", "memorial", [
+    "Obra: Centro Comunitário Primeira Linha, em Criciúma.",
+    "O Centro Comunitário Primeira Linha terá salão de festas.",
+    "Projeto do Centro Comunitário Primeira Linha.",
+  ]);
+  assert.equal(
+    runWithinDocumentIdentityRules(limpo, { gabaritoObra: "Centro Comunitário Primeira Linha" }).length,
+    0,
+  );
+});
+
 // --- 6. Regras de coerência documental (contradições cross-capítulo) ----------
 check("pega hierarquia documental contraditória", () => {
   const doc = makeSource("memorial.pdf", "memorial", [
