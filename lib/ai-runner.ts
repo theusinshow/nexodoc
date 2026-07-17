@@ -18,7 +18,7 @@ import {
   startAiTask,
   type AiAgentName,
 } from "@/lib/ai/tasks";
-import { recordAiUsage } from "@/lib/ai-usage";
+import { extractTokenUsage, recordAiUsage } from "@/lib/ai-usage";
 import { getOpenAIClient } from "@/lib/openai";
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
@@ -283,6 +283,13 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
     const outputText =
       provider === "deepseek" ? extractDeepSeekText(response) : extractOutputText(response);
 
+    // Prova de vida da IA: uma linha por chamada, dizendo qual provider/modelo
+    // atendeu e quantos tokens foram cobrados. Se aqui não aparecer, a IA não rodou.
+    const usage = extractTokenUsage(response);
+    console.log(
+      `[ai] flow=${args.flow} op=${args.operation} provider=${provider} model=${args.model} status=OK in=${usage.inputTokens} out=${usage.outputTokens} total=${usage.totalTokens} ${durationMs}ms`,
+    );
+
     await recordAiUsage({
       flow: args.flow,
       aiTaskId,
@@ -309,6 +316,12 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     const failure = classifyProviderFailure(provider, args.flow, args.model, error);
+
+    // Se a IA falhou, o achado some silenciosamente na camada da auditoria — este
+    // log é a única pista de que a chamada existiu e por que morreu.
+    console.error(
+      `[ai] flow=${args.flow} op=${args.operation} provider=${provider} model=${args.model} status=FAILED categoria=${failure.category} ${durationMs}ms :: ${String((error as { message?: string })?.message ?? error).slice(0, 200)}`,
+    );
 
     recordProviderFailure(failure);
     await recordAiUsage({

@@ -20,9 +20,10 @@ import {
   type CrossDocumentSource,
 } from "../lib/cross-document-audit.ts";
 import { runDocumentCoherenceRules } from "../lib/audit-coherence.ts";
-import { filterGroundedFindings } from "../lib/audit-verify.ts";
+import { filterGroundedFindings, isMetaAuditFinding } from "../lib/audit-verify.ts";
 import {
   classifyFindingImpact,
+  classifyFindingTier,
   getEmissionVerdict,
   getFindingAssurance,
   makeTextReport,
@@ -282,6 +283,22 @@ check("NÃO confunde área por ambiente com área total", () => {
   );
 });
 
+check("NÃO confunde limite normativo de incêndio com área da obra (caso 017-26)", () => {
+  // pdfjs entrega a página inteira como uma "linha" só; a página do PPCI cita a
+  // área real (256,41 m²) E o limite da norma ("superior a 1.000 m²"). Só a área
+  // real deve contar — o 1.000 é threshold, não área da obra.
+  const doc = makeSource("017.pdf", "memorial", [
+    "A edificação possui área total construída de 256,41 m², compreendendo a edificação principal e as estruturas de apoio.",
+    "ocupação subsidiária depósito com área total superior a 1.000 m² (mil metros quadrados); a área total da edificação foi considerada para os cálculos.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(
+    findings.filter((f) => f.tipo.includes("Área total")).length,
+    0,
+    "o limite normativo de 1.000 m² não pode virar falso positivo de área divergente",
+  );
+});
+
 // --- 6.2 Concessionária fora da microrregião (item 7) -------------------------
 check("acusa concessionária (COOPERA) fora da microrregião do município", () => {
   const doc = makeSource("eletrico.pdf", "memorial", [
@@ -439,6 +456,30 @@ check("NÃO suprime typo real 'Frânces'", () => {
   assert.equal(kept.length, 1);
 });
 
+check("suprime meta-achado que reclama de auditar a partir do sumário (caso real)", () => {
+  const finding = mkFinding({
+    origem: "ia",
+    tipo: "inconsistência de recorte/hierarquia documental",
+    conflito:
+      "Não é possível auditar coerência técnica, normas, cálculos ou redação do capítulo 11 com base apenas no sumário da página 7.",
+    sugestao_correcao:
+      "Disponibilizar ou revisar o recorte correspondente ao conteúdo real do capítulo 11.",
+    termo_busca: "11 PROJETO PREVENTIVO CONTRA INCÊNDIO",
+  });
+  assert.equal(isMetaAuditFinding(finding), true, "meta-achado de recorte/sumário deve ser suprimido");
+});
+
+check("NÃO suprime achado técnico real que menciona a palavra sumário", () => {
+  const finding = mkFinding({
+    origem: "ia",
+    tipo: "cálculo incoerente",
+    conflito: "A soma das áreas do quadro difere do total apresentado no sumário de áreas.",
+    sugestao_correcao: "Revisar o quadro de áreas e o total.",
+    termo_busca: "quadro de áreas",
+  });
+  assert.equal(isMetaAuditFinding(finding), false, "achado técnico legítimo não pode ser confundido com meta");
+});
+
 check("suprime meta-achado sobre a mecânica da auditoria", () => {
   const doc = {
     pages: [{ page: 1, text: "9 PROJETO ESTRUTURAL DE CONCRETO 91" }],
@@ -529,6 +570,21 @@ check("veredito 🟢 LIBERADO quando não há achado", () => {
 check("selo de confiança distingue regra (verificado) de IA (sugerido)", () => {
   assert.match(getFindingAssurance(mkReportFinding({ origem: "regra" })), /Verificado/);
   assert.match(getFindingAssurance(mkReportFinding({ origem: "ia" })), /Sugerido/);
+});
+
+check("camada: regra é principal, IA baixa/rebaixada é sugestão", () => {
+  assert.equal(classifyFindingTier(mkReportFinding({ origem: "regra", confianca: "baixa" })), "principal");
+  assert.equal(classifyFindingTier(mkReportFinding({ origem: "ia", confianca: "alta" })), "principal");
+  assert.equal(classifyFindingTier(mkReportFinding({ origem: "ia", confianca: "baixa" })), "sugestao");
+  assert.equal(classifyFindingTier(mkReportFinding({ origem: "ia", tier: "sugestao", confianca: "alta" })), "sugestao");
+});
+
+check("veredito ignora sugestões da IA (não acende o semáforo sozinho)", () => {
+  const onlySuggestion = [
+    mkReportFinding({ origem: "ia", tier: "sugestao", impacto: "critico_documental", confianca: "baixa" }),
+  ];
+  const principal = onlySuggestion.filter((f) => classifyFindingTier(f) === "principal");
+  assert.equal(getEmissionVerdict(principal).emoji, "🟢", "só sugestão não pode virar 🔴");
 });
 
 check("makeTextReport monta veredito, selo e seção diferencial", () => {

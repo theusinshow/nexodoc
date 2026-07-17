@@ -166,6 +166,16 @@ const CASES: Case[] = [
     ],
     expected: [],
   },
+  {
+    name: "LIMPO: limite normativo de incendio nao e area da obra (regressao 017-26)",
+    sources: [
+      makeSource("017.pdf", "memorial", [
+        "A edificacao possui area total construida de 256,41 m², compreendendo a edificacao principal.",
+        "ocupacao subsidiaria deposito com area total superior a 1.000 m² (mil metros quadrados); a area total da edificacao foi considerada.",
+      ]),
+    ],
+    expected: [],
+  },
 ];
 
 // --- avaliação ----------------------------------------------------------------

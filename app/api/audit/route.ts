@@ -68,6 +68,9 @@ const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
 const DEFAULT_CHUNK_CONCURRENCY = 3;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
 const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
+// Teto do nível Profundo: grande o bastante para o memorial inteiro caber numa
+// leitura só (memoriais reais têm ~300k chars; damos folga para os maiores).
+const DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS = 700_000;
 
 type AuditEngine = "single" | "dual";
 
@@ -400,6 +403,8 @@ Procure ativamente: conflito de hierarquia documental, norma inadequada ao escop
 
 NÃO reporte divergência de identidade documental — nome da obra, unidade, município, bairro, endereço, proprietário, órgão, cliente ou código. Essa camada é auditada por regras determinísticas próprias e reafirmá-la aqui só gera ruído e falso positivo. Se notar um trecho que parece de outra obra, trate-o apenas como possível reaproveitamento de linguagem técnica, não como troca de identidade.
 
+Se o trecho for sumário/índice (títulos com pontilhado e número de página), NÃO gere achados sobre ele — títulos repetidos, numeração ou grafia do índice não são defeitos. Nunca reclame de "recorte", "página fornecida" ou de não conseguir auditar a partir do sumário.
+
 Projeto informado: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
@@ -486,18 +491,22 @@ function getChunkTimeoutMs() {
   return DEFAULT_CHUNK_TIMEOUT_MS;
 }
 
-function getGlobalContextChars() {
+// A1 — no nível Profundo a leitura global recebe o DOCUMENTO INTEIRO (uma passada
+// forte, como quem cola o PDF todo no ChatGPT). Antes amostrava ~90k chars (~1/5
+// de um memorial), então a IA nunca via a metade de trás e só sobrava o sumário.
+// O gpt-5.5 comporta ~300k+ chars com folga. Padrão segue amostrado (velocidade/custo).
+function getGlobalContextChars(analysisLevel: AnalysisLevel = "standard") {
   const value = Number(process.env.NEXODOC_GLOBAL_CONTEXT_CHARS);
 
   if (Number.isFinite(value) && value >= 40_000) {
-    return Math.min(180_000, Math.floor(value));
+    return Math.min(1_200_000, Math.floor(value));
   }
 
-  return DEFAULT_GLOBAL_CONTEXT_CHARS;
+  return analysisLevel === "deep" ? DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS : DEFAULT_GLOBAL_CONTEXT_CHARS;
 }
 
-function buildDocumentContext(extracted: ExtractedPdf) {
-  const maxChars = getGlobalContextChars();
+function buildDocumentContext(extracted: ExtractedPdf, analysisLevel: AnalysisLevel = "standard") {
+  const maxChars = getGlobalContextChars(analysisLevel);
 
   if (extracted.text.length <= maxChars) {
     return extracted.text;
@@ -1882,6 +1891,7 @@ async function analyzeIdentityWithModel(args: {
 
 function getGlobalFilePrompt(args: {
   auditMode: AuditMode;
+  analysisLevel: AnalysisLevel;
   userMessage: string;
   projectName: string;
   learningContext: string;
@@ -1900,6 +1910,8 @@ ${modeInstruction}
 Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Use a identidade predominante do documento (obra, município, órgão, disciplina) apenas como referência para julgar coerência técnica — NÃO a audite nem a reafirme. Procure incongruências internas, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes, escopo ambíguo e problemas editoriais relevantes.
 
 A identidade documental (nome da obra, código, município, bairro, endereço, proprietário, órgão, cliente) já é auditada por regras determinísticas próprias. NÃO gere achado de "obra divergente", "município divergente", "capa x corpo" ou "trecho de outra obra": isso é responsabilidade da camada determinística e reafirmá-lo aqui só gera duplicidade e falso positivo.
+
+IGNORE O SUMÁRIO / ÍNDICE. Linhas de título seguidas de pontilhado e número de página (ex.: "12.6 Quadro geral ....... 122") são apenas o índice do documento. NÃO gere achados sobre títulos repetidos, numeração, hierarquia ou grafia que apareçam SÓ no sumário — audite o corpo técnico. Nunca reclame de "recorte", "página fornecida", "reprocessar" ou de não conseguir auditar a partir do sumário: você recebeu o documento; audite o conteúdo real.
 
 Em memoriais, confira explicitamente antes de responder:
 - construcao nova x trechos de reforma/adequacao (escopo ambíguo);
@@ -1947,7 +1959,7 @@ Responda APENAS JSON válido:
 Se não encontrar erro relevante, retorne {"findings":[]}.
 
 TEXTO DO DOCUMENTO:
-${buildDocumentContext(args.extracted)}
+${buildDocumentContext(args.extracted, args.analysisLevel)}
 `.trim();
 }
 
@@ -1976,7 +1988,10 @@ async function analyzeFileGloballyWithModel(args: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
         reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-        max_output_tokens: getMaxOutputTokens(),
+        // Com o documento inteiro, a leitura global do Profundo devolve mais
+        // achados; o teto precisa acompanhar, senão o JSON trunca (0 achados).
+        max_output_tokens:
+          args.analysisLevel === "deep" ? getCoherenceMaxOutputTokens() : getMaxOutputTokens(),
         text: { format: auditFindingsResponseFormat },
         input: getGlobalFilePrompt(args),
       },
@@ -2378,7 +2393,23 @@ async function validateFindingsWithModel(args: {
             return finding;
           }
 
-          return null;
+          // Item 4 — recall: a validação NÃO deleta mais achado de IA incerto.
+          // Rebaixa pra "Sugestão" (confiança baixa, camada recolhível) em vez de
+          // sumir com ele. Alucinação e meta-lixo já foram cortados antes (ancoragem
+          // + supressão). Aqui a gente prefere mostrar-e-marcar a perder recall.
+          return {
+            ...finding,
+            tier: "sugestao" as const,
+            confianca: "baixa" as const,
+            impacto: "revisao_editorial" as const,
+            prioridade: normalizePriority(decision.prioridade ?? "Baixa"),
+            tipo: String(decision.tipo ?? finding.tipo).trim() || finding.tipo,
+            descricao: String(decision.descricao ?? finding.descricao).trim() || finding.descricao,
+            conflito: String(decision.conflito ?? finding.conflito).trim() || finding.conflito,
+            sugestao_correcao:
+              String(decision.sugestao_correcao ?? finding.sugestao_correcao).trim() ||
+              finding.sugestao_correcao,
+          };
         }
 
         return {
@@ -2626,9 +2657,16 @@ async function deepAnalyzeFile(args: {
       )
     : [];
   const hasInferredIdentityConflict = inferredIdentityFindings.length > 0;
-  const chunkLimit = hasInferredIdentityConflict
-    ? Math.min(4, getMaxChunksPerFile(args.analysisLevel))
-    : getMaxChunksPerFile(args.analysisLevel);
+  // Item 5 — no Profundo a leitura global já lê o DOCUMENTO INTEIRO (A1), então a
+  // passada por blocos vira redundante e só reintroduz o lixo de sumário. Cortamos
+  // os blocos no Profundo; o Padrão (leitura global amostrada) ainda usa blocos
+  // para cobrir o começo do documento.
+  const chunkLimit =
+    args.analysisLevel === "deep"
+      ? 0
+      : hasInferredIdentityConflict
+        ? Math.min(4, getMaxChunksPerFile(args.analysisLevel))
+        : getMaxChunksPerFile(args.analysisLevel);
   const chunks = chunkPdfByChapter(args.file.extracted).slice(0, chunkLimit);
   const concurrency = getChunkConcurrency();
 
@@ -2680,13 +2718,14 @@ async function deepAnalyzeFile(args: {
     `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
 
-  // Passada de coerência — documento inteiro numa leitura só, para contradições
-  // entre capítulos distantes que a amostragem da leitura global não enxerga.
-  // Só em nível profundo e quando o documento é maior que a janela global.
+  // Passada de coerência — só faz sentido quando o documento é MAIOR que a janela
+  // da leitura global (senão a global já leu tudo e a coerência seria redundante,
+  // dobrando o custo da chamada grande). Com a A1, o Profundo lê o doc inteiro,
+  // então isto vira fallback só para documentos gigantes acima da janela.
   const shouldRunCoherencePass =
     isCoherencePassEnabled() &&
     args.analysisLevel === "deep" &&
-    args.file.extracted.text.length > getGlobalContextChars();
+    args.file.extracted.text.length > getGlobalContextChars(args.analysisLevel);
   const coherenceModelFindings = shouldRunCoherencePass
     ? await analyzeDocumentCoherenceWithModel({
         auditId: args.auditId,

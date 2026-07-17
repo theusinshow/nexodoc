@@ -85,14 +85,29 @@ export function isFindingGrounded(finding: AuditFinding, haystack: Haystack) {
  *  capítulo no sumário"), não um defeito do documento. */
 export function isMetaAuditFinding(finding: AuditFinding) {
   const scope = normalizeCollapsed(
-    [finding.tipo, finding.descricao, finding.conflito, finding.referencia_comparada ?? ""].join(" "),
+    [
+      finding.tipo,
+      finding.descricao,
+      finding.conflito,
+      finding.sugestao_correcao,
+      finding.referencia_comparada ?? "",
+    ].join(" "),
   );
 
   return (
     /trecho auditado/.test(scope) ||
     /pagina auditada nao contem/.test(scope) ||
+    /pagina auditada nao corresponde/.test(scope) ||
     /nao contem o texto tecnico do capitulo/.test(scope) ||
-    /apenas (a|sua) chamada no sumario/.test(scope)
+    /nao corresponde ao conteudo tecnico/.test(scope) ||
+    /apenas (a|sua) chamada no sumario/.test(scope) ||
+    /com base (apenas )?no sumario/.test(scope) ||
+    /nao (e|eh) possivel auditar/.test(scope) ||
+    /inconsistencia de recorte/.test(scope) ||
+    /recorte\/hierarquia/.test(scope) ||
+    // sugestão que pede reprocessar/fornecer páginas = queixa do pipeline, não defeito do doc
+    /(reprocessar|disponibilizar|fornecer) .{0,50}(recorte|paginas?|capitulo)/.test(scope) ||
+    /(trecho|paginas?) (informad[oa]s?|solicitad[oa]s?|fornecid[oa]s?) .{0,50}sumario/.test(scope)
   );
 }
 

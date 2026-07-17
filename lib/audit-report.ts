@@ -23,7 +23,29 @@ export type AuditFinding = {
   confianca: FindingConfidence;
   origem?: "regra" | "ia";
   impacto?: FindingImpact;
+  // Item 4 — camada de exibição. "principal" = achado sólido (regra ou IA
+  // confirmada); "sugestao" = achado de IA que a validação rebaixou em vez de
+  // deletar (vai pra seção recolhível "Sugestões da IA — confira").
+  tier?: FindingTier;
 };
+
+export type FindingTier = "principal" | "sugestao";
+
+// Regra de camada para a UI de duas camadas (itens 2 e 4):
+// - achado de regra é sempre principal (verificado, não alucina);
+// - achado de IA explicitamente rebaixado pela validação vai pra "sugestao";
+// - achado de IA de baixa confiança também é sugestão.
+export function classifyFindingTier(finding: AuditFinding): FindingTier {
+  if (finding.origem === "regra") {
+    return "principal";
+  }
+
+  if (finding.tier) {
+    return finding.tier;
+  }
+
+  return finding.confianca === "baixa" ? "sugestao" : "principal";
+}
 
 export type AuditFileSummary = {
   arquivo: string;
@@ -387,14 +409,23 @@ function formatFindingLine(finding: AuditFinding) {
 
 export function makeTextReport(report: AuditReport) {
   const sortedFindings = sortAuditFindings(report.incongruencias);
-  const grouped = groupFindingsByImpact(sortedFindings);
-  const executiveSummary = buildExecutiveSummary(sortedFindings);
-  const verdict = getEmissionVerdict(sortedFindings);
-  const deterministicFindings = sortedFindings.filter((finding) => finding.origem === "regra");
+  // Item 4 — duas camadas: achados sólidos (principal) mandam no veredito e nas
+  // seções principais; sugestões da IA (rebaixadas) ficam numa seção à parte e
+  // NÃO acendem o semáforo sozinhas.
+  const principalFindings = sortedFindings.filter(
+    (finding) => classifyFindingTier(finding) === "principal",
+  );
+  const suggestionFindings = sortedFindings.filter(
+    (finding) => classifyFindingTier(finding) === "sugestao",
+  );
+  const grouped = groupFindingsByImpact(principalFindings);
+  const executiveSummary = buildExecutiveSummary(principalFindings);
+  const verdict = getEmissionVerdict(principalFindings);
+  const deterministicFindings = principalFindings.filter((finding) => finding.origem === "regra");
   const findings =
-    sortedFindings.length === 0
-      ? "- nenhum achado crítico detectado"
-      : sortedFindings
+    principalFindings.length === 0
+      ? "- nenhum achado sólido detectado"
+      : principalFindings
           .map((finding) => {
             return [
               `Achado ${finding.id}: ${finding.tipo}`,
@@ -478,6 +509,13 @@ ${grouped.revisao_editorial.length > 0 ? grouped.revisao_editorial.map(formatFin
 
 6.3 Lista completa com evidências
 ${findings}
+
+6.4 Sugestões da IA — confira (menor confiança, não contam para o veredito)
+${
+  suggestionFindings.length > 0
+    ? suggestionFindings.map(formatFindingLine).join("\n")
+    : "- nenhuma sugestão adicional"
+}
 
 7. Conclusão objetiva
 ${report.conclusao}

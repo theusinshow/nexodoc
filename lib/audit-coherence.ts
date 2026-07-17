@@ -259,34 +259,33 @@ function runDeclaredTotalAreaRule(
   fileName: string,
   nextId: () => string,
 ): AuditFinding[] {
-  const TOTAL_AREA_LINE =
-    /[áa]rea\s+(?:total\s+constru[íi]da|constru[íi]da\s+total|total\s+edificada|total\s+da\s+edifica[cç][ãa]o)/i;
-  const AREA_VALUE = /\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*m(?:²|2)(?![\d\w])/gi;
+  // O valor tem que vir LOGO APÓS a frase "área total construída ... N m²".
+  // Ancorar assim evita o falso positivo clássico: no pdfjs a página inteira vira
+  // uma "linha" só, e a versão antiga pescava qualquer valor da página — inclusive
+  // o limite normativo "depósito com área total superior a 1.000 m²", que não é a
+  // área da obra. Aqui, "1.000" não vem depois de "construída de", então não casa.
+  const DECLARED_TOTAL_AREA =
+    /[áa]rea\s+(?:total\s+constru[íi]da|constru[íi]da\s+total|total\s+edificada|total\s+da\s+edifica[cç][ãa]o)[^\d\n]{0,25}?(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*m(?:²|2)/gi;
 
   const found: Array<{ page: number; value: number; display: string; evidence: string }> = [];
 
   for (const page of extracted.pages) {
-    for (const line of page.text.split(/\r?\n/)) {
-      if (!TOTAL_AREA_LINE.test(line)) {
+    DECLARED_TOTAL_AREA.lastIndex = 0;
+    for (const match of page.text.matchAll(DECLARED_TOTAL_AREA)) {
+      const value = parseAreaValue(match[1]);
+
+      // ignora valores implausíveis para área total de edificação (< 10 m²)
+      if (value === null || value < 10) {
         continue;
       }
 
-      AREA_VALUE.lastIndex = 0;
-      for (const match of line.match(AREA_VALUE) ?? []) {
-        const value = parseAreaValue(match);
-
-        // ignora valores implausíveis para área total de edificação (< 10 m²)
-        if (value === null || value < 10) {
-          continue;
-        }
-
-        found.push({
-          page: page.page,
-          value,
-          display: match.replace(/\s+/g, " ").trim(),
-          evidence: line.replace(/\s+/g, " ").trim(),
-        });
-      }
+      found.push({
+        page: page.page,
+        value,
+        display: `${match[1].trim()} m²`,
+        // evidência = trecho curto ao redor da menção, não a página inteira
+        evidence: snippet(page.text, match.index ?? 0, 120),
+      });
     }
   }
 
