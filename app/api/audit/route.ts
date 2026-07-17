@@ -482,6 +482,18 @@ function getDeepGlobalMaxOutputTokens() {
   return 16000;
 }
 
+// A leitura global do Profundo lê o documento inteiro com esforço alto e devolve
+// bastante saída — precisa de bem mais que os 120s dos blocos. Teto de 8 min.
+function getDeepGlobalTimeoutMs() {
+  const value = Number(process.env.NEXODOC_DEEP_GLOBAL_TIMEOUT_MS);
+
+  if (Number.isFinite(value) && value >= 120_000) {
+    return Math.min(480_000, Math.floor(value));
+  }
+
+  return 300_000;
+}
+
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
   const modeLimit = analysisLevel === "deep" ? 24 : 8;
@@ -2034,7 +2046,11 @@ async function analyzeFileGloballyWithModel(args: {
       taskLabel: args.fileName,
       model,
       operation: "audit-global",
-      timeoutMs: getChunkTimeoutMs(),
+      // A leitura do documento INTEIRO com esforço alto é lenta; o timeout curto
+      // dos blocos abortava a global no meio (aborto aos 120s no 017-26). No
+      // Profundo damos folga maior.
+      timeoutMs:
+        args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : getChunkTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
@@ -2057,11 +2073,11 @@ async function analyzeFileGloballyWithModel(args: {
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
   } catch (error) {
-    if (!isInvalidAuditModelResponse(error)) {
-      throw error;
-    }
-
-    console.error(`[audit] ${args.fileName}: resposta invalida na leitura global; etapa ignorada`);
+    // A leitura global é best-effort: se falhar (timeout, aborto, resposta
+    // inválida, erro de provider), a auditoria NÃO pode ser perdida — os achados
+    // determinísticos (identidade, coerência) já valem sozinhos. Só registramos.
+    const reason = (error as { message?: string })?.message ?? String(error);
+    console.error(`[audit] ${args.fileName}: leitura global ignorada (${reason.slice(0, 160)})`);
     return [];
   }
 
