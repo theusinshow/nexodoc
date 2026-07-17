@@ -15,8 +15,10 @@ import {
   Route,
   Search,
   Wrench,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,14 @@ import {
   type FindingTier,
 } from "@/lib/audit-report";
 import { cn } from "@/lib/utils";
+
+// Visor de PDF só no cliente (react-pdf não faz SSR).
+const AuditPdfViewer = dynamic(() => import("@/components/audit-pdf-viewer-internal"), {
+  ssr: false,
+  loading: () => <div className="p-6 text-sm text-muted-foreground">Carregando visor…</div>,
+});
+
+type ActivePdf = { url: string; page: number; highlight?: string; label?: string };
 
 type AuditResultProps = {
   content: string;
@@ -504,18 +514,6 @@ function findPdfSource(
   return pdfSources.length === 1 ? pdfSources[0] : null;
 }
 
-function openPdfAtFinding(finding: StructuredFinding, pdfSources: AuditPdfSource[]) {
-  const source = findPdfSource(finding, pdfSources);
-
-  if (!source) {
-    return;
-  }
-
-  const page = getFirstPageNumber(finding.pagina);
-  const url = page ? `${source.url}#page=${page}` : source.url;
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -827,6 +825,7 @@ export function AuditResult({
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
+  const [activePdf, setActivePdf] = useState<ActivePdf | null>(null);
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
@@ -1013,8 +1012,48 @@ export function AuditResult({
     }
   }
 
+  function openInlinePdf(finding: StructuredFinding) {
+    const source = findPdfSource(finding, pdfSources);
+
+    if (!source) {
+      return;
+    }
+
+    setActivePdf({
+      url: source.url,
+      page: getFirstPageNumber(finding.pagina) ?? 1,
+      highlight: getHighlightNeedle(finding),
+      label: finding.title,
+    });
+  }
+
   return (
     <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
+      {activePdf ? (
+        <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[560px] flex-col border-l bg-card shadow-2xl">
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+            <div className="min-w-0">
+              <p className="truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                PDF · página {activePdf.page}
+              </p>
+              {activePdf.label ? (
+                <p className="truncate text-xs text-foreground">{activePdf.label}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePdf(null)}
+              className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
+              aria-label="Fechar visor de PDF"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3 [&_mark]:bg-yellow-300 [&_mark]:text-black">
+            <AuditPdfViewer url={activePdf.url} page={activePdf.page} highlight={activePdf.highlight} />
+          </div>
+        </div>
+      ) : null}
       {verdict ? (
         <div
           className={cn(
@@ -1213,7 +1252,7 @@ export function AuditResult({
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => openPdfAtFinding(finding, pdfSources)}
+                              onClick={() => openInlinePdf(finding)}
                             >
                               <ExternalLink />
                               Abrir PDF
@@ -1367,7 +1406,7 @@ export function AuditResult({
                             {finding.pdfUrl ? (
                               <button
                                 type="button"
-                                onClick={() => openPdfAtFinding(finding, pdfSources)}
+                                onClick={() => openInlinePdf(finding)}
                                 className="ml-auto text-xs text-primary outline-none hover:underline focus-visible:underline"
                               >
                                 Abrir PDF
@@ -1436,7 +1475,7 @@ export function AuditResult({
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => openPdfAtFinding(finding, pdfSources)}
+                              onClick={() => openInlinePdf(finding)}
                             >
                               <ExternalLink />
                               Abrir página
@@ -1517,7 +1556,7 @@ export function AuditResult({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => openPdfAtFinding(finding, pdfSources)}
+                            onClick={() => openInlinePdf(finding)}
                           >
                             <ExternalLink />
                             Abrir página provável
@@ -1587,7 +1626,7 @@ export function AuditResult({
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => openPdfAtFinding(finding, pdfSources)}
+                                      onClick={() => openInlinePdf(finding)}
                                     >
                                       <ExternalLink />
                                       Abrir
