@@ -2421,7 +2421,10 @@ async function validateFindingsWithModel(args: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
         reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-        max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
+        // Uma decisão por achado; com o doc inteiro a lista cresce (26 no 017-26)
+        // e o teto fixo de 2600 truncava o JSON → validação inteira descartada.
+        // Escala com o nº de achados.
+        max_output_tokens: Math.min(16000, Math.max(2600, args.findings.length * 260)),
         text: { format: auditValidationResponseFormat },
         input: getFindingValidationPrompt(args),
       },
