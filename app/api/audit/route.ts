@@ -470,6 +470,18 @@ function getCoherenceMaxOutputTokens() {
   return 6000;
 }
 
+// Teto de saída da leitura global do Profundo, que agora lê o documento inteiro.
+// Precisa ser grande para caber a lista completa de achados sem truncar o JSON.
+function getDeepGlobalMaxOutputTokens() {
+  const value = Number(process.env.NEXODOC_DEEP_GLOBAL_MAX_OUTPUT_TOKENS);
+
+  if (Number.isFinite(value) && value >= 4000) {
+    return Math.min(32000, Math.floor(value));
+  }
+
+  return 16000;
+}
+
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
   const modeLimit = analysisLevel === "deep" ? 24 : 8;
@@ -1960,6 +1972,8 @@ Priorize pelo impacto:
 
 Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo.
 
+Retorne no MÁXIMO os 30 achados mais relevantes, priorizando os que mais comprometem a emissão. Não infle a lista com detalhes secundários — é melhor 15 achados sólidos que 40 com ruído.
+
 Projeto informado pelo usuário: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
@@ -2025,10 +2039,11 @@ async function analyzeFileGloballyWithModel(args: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
         reasoning: { effort: getReasoningEffort(args.analysisLevel) },
-        // Com o documento inteiro, a leitura global do Profundo devolve mais
-        // achados; o teto precisa acompanhar, senão o JSON trunca (0 achados).
+        // Com o documento inteiro, a leitura global do Profundo devolve MUITOS
+        // achados; o teto precisa ser alto, senão o JSON trunca e a etapa inteira
+        // vira "resposta inválida" (0 achados). Provado no 017-26: 6000 truncou.
         max_output_tokens:
-          args.analysisLevel === "deep" ? getCoherenceMaxOutputTokens() : getMaxOutputTokens(),
+          args.analysisLevel === "deep" ? getDeepGlobalMaxOutputTokens() : getMaxOutputTokens(),
         text: { format: auditFindingsResponseFormat },
         input: getGlobalFilePrompt(args),
       },

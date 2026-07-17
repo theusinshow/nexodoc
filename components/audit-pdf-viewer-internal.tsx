@@ -7,7 +7,11 @@ import { Loader2 } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/nexodoc-pdf-engine.mjs";
+// IMPORTANTE: o worker precisa casar com a versão do pdfjs que o react-pdf usa
+// (nested 5.4.296), não com o engine 5.7.284 do repo — senão dá
+// "API version does not match Worker version" e nada renderiza. Este arquivo é
+// cópia do worker do próprio react-pdf.
+pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.react-pdf.mjs";
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
