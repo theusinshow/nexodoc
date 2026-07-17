@@ -24,11 +24,15 @@ import { Badge } from "@/components/ui/badge";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import {
   classifyFindingImpact,
+  classifyFindingTier,
+  getEmissionVerdict,
+  getFindingAssurance,
   getImpactLabel,
   groupFindingsByImpact,
   type AuditFinding,
   type AuditReport,
   type FindingImpact,
+  type FindingTier,
 } from "@/lib/audit-report";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +74,10 @@ type StructuredFinding = {
   categoria?: string;
   referencia?: string;
   impacto?: FindingImpact;
+  origem?: "regra" | "ia";
+  confianca?: "alta" | "media" | "baixa";
+  tier?: FindingTier;
+  assurance?: string;
   pdfUrl?: string;
   raw: string;
 };
@@ -686,6 +694,10 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     categoria: finding.categoria ?? finding.capitulo,
     referencia: finding.referencia_comparada ?? finding.descricao,
     impacto: finding.impacto ?? classifyFindingImpact(finding),
+    origem: finding.origem,
+    confianca: finding.confianca,
+    tier: classifyFindingTier(finding),
+    assurance: getFindingAssurance(finding),
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
@@ -828,6 +840,13 @@ export function AuditResult({
     ...finding,
     pdfUrl: findPdfSource(finding, pdfSources)?.url,
   }));
+  // Item 2/4 — duas camadas: sólidos (principal) e sugestões da IA (recolhível).
+  const principalFindingsWithPdf = findingsWithPdf.filter((finding) => finding.tier !== "sugestao");
+  const suggestionFindings = findingsWithPdf.filter((finding) => finding.tier === "sugestao");
+  // Item 12 — veredito de emissão só a partir dos achados sólidos.
+  const verdict = report
+    ? getEmissionVerdict(report.incongruencias.filter((finding) => classifyFindingTier(finding) === "principal"))
+    : null;
   const groupedReportFindings = report
     ? groupFindingsByImpact(report.incongruencias)
     : null;
@@ -996,6 +1015,26 @@ export function AuditResult({
 
   return (
     <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
+      {verdict ? (
+        <div
+          className={cn(
+            "mb-5 flex flex-col gap-1 rounded-sm border-l-4 px-4 py-3",
+            verdict.emoji === "🔴"
+              ? "border-l-[var(--status-danger,#dc2626)] bg-[color-mix(in_srgb,var(--status-danger,#dc2626)_10%,transparent)]"
+              : verdict.emoji === "🟡"
+                ? "border-l-[var(--status-warn,#d97706)] bg-[color-mix(in_srgb,var(--status-warn,#d97706)_10%,transparent)]"
+                : "border-l-[var(--status-ok,#16a34a)] bg-[var(--status-ok-bg,transparent)]",
+          )}
+        >
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <span aria-hidden>{verdict.emoji}</span>
+            {verdict.label}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {(report?.obra && report.obra !== "não identificada" ? `${report.obra} · ` : "") + verdict.detail}
+          </p>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -1125,7 +1164,7 @@ export function AuditResult({
                 </div>
 
                 <div className="grid gap-4">
-                  {findingsWithPdf.map((finding, index) => (
+                  {principalFindingsWithPdf.map((finding, index) => (
                     <article
                       key={`${finding.raw}-matrix-${index}`}
                       className="overflow-hidden rounded-md border bg-card"
@@ -1145,6 +1184,17 @@ export function AuditResult({
                               {finding.impacto
                                 ? getImpactLabel(finding.impacto)
                                 : getSeverityLabel(finding.severity)}
+                            </span>
+                            <span
+                              title={finding.assurance}
+                              className={cn(
+                                "rounded-md border px-2 py-1 font-mono text-xs",
+                                finding.origem === "regra"
+                                  ? "border-[var(--status-ok)]/30 text-[var(--status-ok)]"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {finding.origem === "regra" ? "✔ Verificado" : "◻ Sugerido"}
                             </span>
                             {finding.refId ? (
                               <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -1296,6 +1346,43 @@ export function AuditResult({
                       <p className="mt-2 font-mono text-xs text-muted-foreground">{feedbackNotice}</p>
                     ) : null}
                   </section>
+                ) : null}
+
+                {suggestionFindings.length > 0 ? (
+                  <details className="rounded-md border bg-[var(--nexodoc-recessed)]/40">
+                    <summary className="cursor-pointer px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Sugestões da IA — confira ({suggestionFindings.length}) · menor confiança, não contam para o veredito
+                    </summary>
+                    <div className="grid gap-2 px-4 pb-4">
+                      {suggestionFindings.map((finding, index) => (
+                        <div key={`${finding.raw}-suggestion-${index}`} className="rounded-md border bg-card p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-md border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                              ◻ Sugerido
+                            </span>
+                            {finding.pagina ? (
+                              <span className="font-mono text-[11px] text-muted-foreground">p.{finding.pagina}</span>
+                            ) : null}
+                            <span className="text-sm font-medium text-foreground">{finding.title}</span>
+                            {finding.pdfUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => openPdfAtFinding(finding, pdfSources)}
+                                className="ml-auto text-xs text-primary outline-none hover:underline focus-visible:underline"
+                              >
+                                Abrir PDF
+                              </button>
+                            ) : null}
+                          </div>
+                          {finding.conflito || finding.referencia ? (
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {finding.conflito || finding.referencia}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 ) : null}
               </div>
             ) : (

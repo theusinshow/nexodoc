@@ -1474,6 +1474,52 @@ export function ChatWindow({
   function renderAuditSetup() {
     return (
       <section className="border-b bg-background px-4 py-3 sm:px-5">
+        <div className="mb-3">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            O que você vai auditar?
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-sm border border-ring/60 bg-[var(--nexodoc-raised)] px-3 py-2.5">
+              <span className="flex items-center gap-2 font-medium text-foreground">
+                <ScrollText className="size-4 text-primary" />
+                Memorial / Volume (texto)
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                Auditoria de texto completa — é o que você faz aqui mesmo, abaixo.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/ld")}
+              disabled={isLoading}
+              className="rounded-sm border bg-card px-3 py-2.5 text-left outline-none transition-[border-color] hover:border-ring/50 focus-visible:border-ring"
+            >
+              <span className="flex items-center gap-2 font-medium text-foreground">
+                <TableProperties className="size-4 text-muted-foreground" />
+                Prancha — Selo / LD
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                Ler número, título, revisão e disciplina do carimbo. Abre a Montagem de LDs.
+              </span>
+            </button>
+            <div
+              aria-disabled="true"
+              title="Conferência visual do desenho — em desenvolvimento"
+              className="cursor-not-allowed rounded-sm border border-dashed bg-card/60 px-3 py-2.5 opacity-70"
+            >
+              <span className="flex items-center gap-2 font-medium text-muted-foreground">
+                <FileSearch className="size-4" />
+                Prancha — Desenho
+                <span className="ml-auto rounded-sm border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider">
+                  Em breve
+                </span>
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                Conferência visual do desenho (cotas, elementos). Em desenvolvimento.
+              </span>
+            </div>
+          </div>
+        </div>
         {files.length > 0 ? (
           <div className="space-y-3">
             {renderDetectionCards()}
