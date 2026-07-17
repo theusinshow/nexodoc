@@ -22,6 +22,8 @@ import {
 import { runDocumentCoherenceRules } from "../lib/audit-coherence.ts";
 import { filterGroundedFindings, isMetaAuditFinding } from "../lib/audit-verify.ts";
 import {
+  classifyFindingDiscipline,
+  classifyFindingErrorType,
   classifyFindingImpact,
   classifyFindingTier,
   getEmissionVerdict,
@@ -652,6 +654,23 @@ check("makeTextReport monta veredito, selo e seção diferencial", () => {
   assert.match(text, /🔴 NÃO EMITIR/);
   assert.match(text, /5\.1 O que só o Nexodoc encontra/);
   assert.match(text, /Verificação: ✔ Verificado/);
+});
+
+// --- 11. Classificação por disciplina e tipo de erro (filtros) ---------------
+check("disciplina: PPCI, hidro, elétrico, paisagismo, geral", () => {
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Contradição de exigências de segurança contra incêndio", categoria: "PPCI" })), "ppci");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Erro de reservatório", categoria: "hidrossanitário" })), "hidrossanitario");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Quadro geral de proteção QGP", categoria: "projeto elétrico" })), "eletrico");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Inconsistência de nomenclatura botânica", categoria: "Paisagismo" })), "paisagismo");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Hierarquia documental contraditória", categoria: "Condições gerais" })), "geral");
+});
+
+check("tipo de erro: identidade, norma, quantitativo, escopo, especificação", () => {
+  assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Nome de obra/unidade divergente no mesmo documento", categoria: "nome da obra/unidade" })), "identidade");
+  assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Referência normativa desatualizada", categoria: "Normas técnicas" })), "norma");
+  assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Área total construída divergente", categoria: "Quantitativos e áreas" })), "quantitativo");
+  assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Responsabilidade de terraplenagem divergente", categoria: "Escopo / responsabilidades" })), "escopo");
+  assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Contradição de material", categoria: "Especificação de materiais" })), "especificacao");
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

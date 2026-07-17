@@ -17,7 +17,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { AuditResultActions } from "@/components/audit-result-actions";
@@ -25,14 +25,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import {
+  classifyFindingDiscipline,
+  classifyFindingErrorType,
   classifyFindingImpact,
   classifyFindingTier,
+  getDisciplineLabel,
   getEmissionVerdict,
+  getErrorTypeLabel,
   getFindingAssurance,
   getImpactLabel,
   groupFindingsByImpact,
   type AuditFinding,
   type AuditReport,
+  type FindingDiscipline,
+  type FindingErrorType,
   type FindingImpact,
   type FindingTier,
 } from "@/lib/audit-report";
@@ -88,6 +94,8 @@ type StructuredFinding = {
   confianca?: "alta" | "media" | "baixa";
   tier?: FindingTier;
   assurance?: string;
+  disciplina?: FindingDiscipline;
+  tipoErro?: FindingErrorType;
   pdfUrl?: string;
   raw: string;
 };
@@ -696,6 +704,8 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     confianca: finding.confianca,
     tier: classifyFindingTier(finding),
     assurance: getFindingAssurance(finding),
+    disciplina: classifyFindingDiscipline(finding),
+    tipoErro: classifyFindingErrorType(finding),
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
@@ -826,6 +836,8 @@ export function AuditResult({
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
   const [activePdf, setActivePdf] = useState<ActivePdf | null>(null);
+  const [disciplineFilter, setDisciplineFilter] = useState<Set<FindingDiscipline>>(new Set());
+  const [errorTypeFilter, setErrorTypeFilter] = useState<Set<FindingErrorType>>(new Set());
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
@@ -842,6 +854,42 @@ export function AuditResult({
   // Item 2/4 — duas camadas: sólidos (principal) e sugestões da IA (recolhível).
   const principalFindingsWithPdf = findingsWithPdf.filter((finding) => finding.tier !== "sugestao");
   const suggestionFindings = findingsWithPdf.filter((finding) => finding.tier === "sugestao");
+
+  // Filtros por disciplina e tipo de erro (só mostra os que existem no resultado).
+  const disciplineOrder: FindingDiscipline[] = [
+    "geral", "arquitetura", "estrutural", "hidrossanitario", "eletrico",
+    "ppci", "cabeamento", "terraplenagem", "paisagismo", "acessibilidade",
+  ];
+  const findingDiscipline = (finding: StructuredFinding): FindingDiscipline => finding.disciplina ?? "geral";
+  const findingErrorType = (finding: StructuredFinding): FindingErrorType => finding.tipoErro ?? "tecnico";
+  const presentDisciplines = disciplineOrder.filter((discipline) =>
+    principalFindingsWithPdf.some((finding) => findingDiscipline(finding) === discipline),
+  );
+  const presentErrorTypes = ([
+    "identidade", "escopo", "norma", "quantitativo", "especificacao", "editorial", "tecnico",
+  ] as FindingErrorType[]).filter((type) =>
+    principalFindingsWithPdf.some((finding) => findingErrorType(finding) === type),
+  );
+  const filteredPrincipal = principalFindingsWithPdf.filter(
+    (finding) =>
+      (disciplineFilter.size === 0 || disciplineFilter.has(findingDiscipline(finding))) &&
+      (errorTypeFilter.size === 0 || errorTypeFilter.has(findingErrorType(finding))),
+  );
+  // Ordena por disciplina para agrupar visualmente (headers inseridos na troca).
+  const groupedPrincipal = [...filteredPrincipal].sort(
+    (a, b) => disciplineOrder.indexOf(findingDiscipline(a)) - disciplineOrder.indexOf(findingDiscipline(b)),
+  );
+  const disciplineCount = (discipline: FindingDiscipline) =>
+    filteredPrincipal.filter((finding) => findingDiscipline(finding) === discipline).length;
+  const toggleFrom = <T,>(set: Set<T>, value: T) => {
+    const next = new Set(set);
+    if (next.has(value)) {
+      next.delete(value);
+    } else {
+      next.add(value);
+    }
+    return next;
+  };
   // Item 12 — veredito de emissão só a partir dos achados sólidos.
   const verdict = report
     ? getEmissionVerdict(report.incongruencias.filter((finding) => classifyFindingTier(finding) === "principal"))
@@ -1202,10 +1250,79 @@ export function AuditResult({
                   </p>
                 </div>
 
+                {presentDisciplines.length > 1 || presentErrorTypes.length > 1 ? (
+                  <div className="space-y-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Disciplina</span>
+                      {presentDisciplines.map((discipline) => (
+                        <button
+                          key={discipline}
+                          type="button"
+                          onClick={() => setDisciplineFilter((current) => toggleFrom(current, discipline))}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            disciplineFilter.has(discipline)
+                              ? "border-ring bg-card text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {getDisciplineLabel(discipline)} ({disciplineCount(discipline)})
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Tipo</span>
+                      {presentErrorTypes.map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setErrorTypeFilter((current) => toggleFrom(current, type))}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            errorTypeFilter.has(type)
+                              ? "border-ring bg-card text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {getErrorTypeLabel(type)}
+                        </button>
+                      ))}
+                      {disciplineFilter.size > 0 || errorTypeFilter.size > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDisciplineFilter(new Set());
+                            setErrorTypeFilter(new Set());
+                          }}
+                          className="ml-1 rounded-full px-2 py-1 font-mono text-[11px] text-primary outline-none hover:underline focus-visible:underline"
+                        >
+                          limpar filtros
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-4">
-                  {principalFindingsWithPdf.map((finding, index) => (
+                  {groupedPrincipal.length === 0 ? (
+                    <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                      Nenhum achado com os filtros selecionados.
+                    </p>
+                  ) : null}
+                  {groupedPrincipal.map((finding, index) => {
+                    const disciplina = findingDiscipline(finding);
+                    const showDisciplineHeader =
+                      index === 0 || findingDiscipline(groupedPrincipal[index - 1]) !== disciplina;
+                    return (
+                    <Fragment key={`${finding.raw}-matrix-${index}`}>
+                      {showDisciplineHeader ? (
+                        <h5 className="mt-2 flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                          <span className="h-px flex-1 bg-border" />
+                          {getDisciplineLabel(disciplina)} ({disciplineCount(disciplina)})
+                          <span className="h-px flex-1 bg-border" />
+                        </h5>
+                      ) : null}
                     <article
-                      key={`${finding.raw}-matrix-${index}`}
                       className="overflow-hidden rounded-md border bg-card"
                     >
                       <div className="grid gap-4 border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
@@ -1234,6 +1351,12 @@ export function AuditResult({
                               )}
                             >
                               {finding.origem === "regra" ? "✔ Verificado" : "◻ Sugerido"}
+                            </span>
+                            <span className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono text-xs text-[var(--nexodoc-accent)]">
+                              {getDisciplineLabel(disciplina)}
+                            </span>
+                            <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                              {getErrorTypeLabel(findingErrorType(finding))}
                             </span>
                             {finding.refId ? (
                               <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -1356,7 +1479,9 @@ export function AuditResult({
                         </div>
                       </div>
                     </article>
-                  ))}
+                    </Fragment>
+                    );
+                  })}
                 </div>
 
                 {auditId ? (

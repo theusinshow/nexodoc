@@ -246,6 +246,115 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
   return "revisao_editorial";
 }
 
+// --- Classificação por DISCIPLINA e por TIPO DE ERRO (filtros do resultado) ----
+// Derivadas por palavra-chave dos campos do achado (memorial é organizado por
+// disciplina, então o texto do capítulo/categoria carrega o sinal). Determinístico
+// e de graça; achado ambíguo cai em "geral"/"tecnico".
+
+export type FindingDiscipline =
+  | "arquitetura"
+  | "estrutural"
+  | "hidrossanitario"
+  | "eletrico"
+  | "ppci"
+  | "cabeamento"
+  | "terraplenagem"
+  | "paisagismo"
+  | "acessibilidade"
+  | "geral";
+
+export type FindingErrorType =
+  | "identidade"
+  | "escopo"
+  | "norma"
+  | "quantitativo"
+  | "especificacao"
+  | "editorial"
+  | "tecnico";
+
+const DISCIPLINE_LABELS: Record<FindingDiscipline, string> = {
+  arquitetura: "Arquitetura",
+  estrutural: "Estrutural",
+  hidrossanitario: "Hidrossanitário",
+  eletrico: "Elétrico",
+  ppci: "PPCI / Incêndio",
+  cabeamento: "Cabeamento / CFTV",
+  terraplenagem: "Terraplenagem / Urbanização",
+  paisagismo: "Paisagismo",
+  acessibilidade: "Acessibilidade",
+  geral: "Geral / Documental",
+};
+
+const ERROR_TYPE_LABELS: Record<FindingErrorType, string> = {
+  identidade: "Identidade / documental",
+  escopo: "Escopo / contratual",
+  norma: "Norma",
+  quantitativo: "Quantitativo",
+  especificacao: "Especificação / material",
+  editorial: "Redação / editorial",
+  tecnico: "Técnico (geral)",
+};
+
+export function getDisciplineLabel(discipline: FindingDiscipline) {
+  return DISCIPLINE_LABELS[discipline];
+}
+
+export function getErrorTypeLabel(errorType: FindingErrorType) {
+  return ERROR_TYPE_LABELS[errorType];
+}
+
+function findingHaystack(finding: AuditFinding) {
+  return normalizeForMatch(
+    [finding.tipo, finding.categoria ?? "", finding.capitulo, finding.local, finding.evidencia, finding.conflito].join(" "),
+  );
+}
+
+// ordem = prioridade (mais específico primeiro); PPCI antes porque cita várias disciplinas
+const DISCIPLINE_RULES: Array<{ key: FindingDiscipline; pattern: RegExp }> = [
+  { key: "ppci", pattern: /\b(?:ppci|incendio|cbmsc|smsci|preventivo|hidrante|extintor|brigada|trrf|iluminacao de emergencia|saidas de emergencia)/ },
+  { key: "hidrossanitario", pattern: /\b(?:hidrossanit|hidraulic|esgoto|agua fria|agua quente|reservatori|sanitari|bacia|louca|efluente|pluvial)/ },
+  { key: "eletrico", pattern: /\b(?:eletric|qgp|quadro geral|quadro de distribui|luminotecnic|spda|aterramento|baixa tensao|subestacao|concessionaria)/ },
+  { key: "cabeamento", pattern: /\b(?:cabeamento|cftv|logica|telecom|rack)/ },
+  { key: "estrutural", pattern: /\b(?:estrutural|concreto armado|fundac|pilar|viga|laje|estrutura de madeira|nbr 7480|nbr 14931)/ },
+  { key: "paisagismo", pattern: /\b(?:paisagism|especie|botanic|arvore|arbust|vegeta|jardim|maranta|ipe)/ },
+  { key: "acessibilidade", pattern: /\b(?:acessib|pcd|rota acess|piso tatil|piso podotatil|rampa|nbr 9050|vaga acess|vaga especial)/ },
+  { key: "terraplenagem", pattern: /\b(?:terraplenagem|pavimenta|urbaniza|drenagem|rodovia|aterro|meio-fio|estacionamento|paver|brita)/ },
+  { key: "arquitetura", pattern: /\b(?:arquitetonic|bancada|granito|esquadria|telha|cobertura|revestimento|pintura|forro|porta de vidro|grade)/ },
+];
+
+export function classifyFindingDiscipline(finding: AuditFinding): FindingDiscipline {
+  const haystack = findingHaystack(finding);
+
+  for (const rule of DISCIPLINE_RULES) {
+    if (rule.pattern.test(haystack)) {
+      return rule.key;
+    }
+  }
+
+  return "geral";
+}
+
+const ERROR_TYPE_RULES: Array<{ key: FindingErrorType; pattern: RegExp }> = [
+  { key: "identidade", pattern: /\b(?:identidade|nome de obra|nome da obra|obra\/unidade|ocupacao divergente|reaproveit|gabarito|outra obra)/ },
+  { key: "norma", pattern: /\b(?:norma|nbr|abnt|nr ?18|iso \d|vigencia|desatualiz|instituiu)/ },
+  { key: "quantitativo", pattern: /\b(?:area|unidade|quantitativ|populacao|vaga|dimens)/ },
+  { key: "especificacao", pattern: /\b(?:material|especifica|bancada|grade|granito|inox|bacia|caixa acoplada|valvula)/ },
+  { key: "escopo", pattern: /\b(?:escopo|responsabilidad|hierarquia|prevalenc|contratual|precedencia)/ },
+  { key: "editorial", pattern: /\b(?:redac|grafia|ortograf|formata|editorial|acentua)/ },
+];
+
+export function classifyFindingErrorType(finding: AuditFinding): FindingErrorType {
+  const haystack = findingHaystack(finding);
+
+  for (const rule of ERROR_TYPE_RULES) {
+    if (rule.pattern.test(haystack)) {
+      return rule.key;
+    }
+  }
+
+  return "tecnico";
+}
+
 export function getImpactRank(impact: FindingImpact) {
   switch (impact) {
     case "critico_documental":
