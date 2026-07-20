@@ -640,7 +640,7 @@ async function createFindingSnapshot(finding: StructuredFinding, index: number) 
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#0B0D0E"/>
   <rect x="40" y="40" width="${width - 80}" height="${height - 80}" rx="10" fill="#171B1D" stroke="rgba(230,235,233,0.14)"/>
-  <text x="76" y="88" fill="#8A9490" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18">NexoDoc | evidência de auditoria</text>
+  <text x="76" y="88" fill="#8A9490" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="18">NexoDoc | evidência de auditoria</text>
   ${lines
     .map((line, lineIndex) => {
       const isTitle = lineIndex === 0;
@@ -649,7 +649,7 @@ async function createFindingSnapshot(finding: StructuredFinding, index: number) 
       const size = isFindingTitle ? 24 : 19;
       const weight = isTitle || isFindingTitle ? 700 : 400;
 
-      return `<text x="76" y="${134 + lineIndex * lineHeight}" fill="${fill}" font-family="Inter, system-ui, sans-serif" font-size="${size}" font-weight="${weight}">${escapeSvgText(line || " ")}</text>`;
+      return `<text x="76" y="${134 + lineIndex * lineHeight}" fill="${fill}" font-family="'IBM Plex Sans', system-ui, sans-serif" font-size="${size}" font-weight="${weight}">${escapeSvgText(line || " ")}</text>`;
     })
     .join("\n")}
 </svg>`.trim();

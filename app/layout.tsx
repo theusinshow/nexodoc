@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({
+// IBM Plex Sans/Mono (DESIGN.md secao 3): familia unica de engenharia,
+// fora do look v0/IA. Pesos conforme a rampa: 400 body, 500 label/title,
+// 600 display. IBM Plex nao e variavel no next/font, entao os pesos sao
+// declarados explicitamente.
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  variable: "--font-geist",
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-sans",
   display: "swap",
 });
 
-const jetBrainsMono = JetBrains_Mono({
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
   display: "swap",
 });
 
@@ -30,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${geist.variable} ${jetBrainsMono.variable}`}>
+    <html lang="pt-BR" className={`${plexSans.variable} ${plexMono.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <a
           href="#main-content"

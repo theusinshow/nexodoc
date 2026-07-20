@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback", "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "JetBrains Mono Fallback", "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
+  --font-sans: var(--font-plex-sans), "IBM Plex Sans", "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -23,7 +23,7 @@
   --color-ring: var(--ring);
   --color-warning: var(--status-warning);
   --color-warning-soft: var(--status-warning-bg);
-  /* DESIGN.md: 4px e o unico raio do sistema. sm/md/lg colapsam nele de
+  /* DESIGN.md: 8px e o unico raio do sistema. sm/md/lg colapsam nele de
      proposito; xl fica para o raro caso de container externo. */
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
@@ -32,8 +32,8 @@
 }
 
 :root {
-  --radius: 4px;
-  --background: #090c0e;
+  --radius: 8px;
+  --background: #0a0e11;
   --foreground: #e1e7ea;
   --card: #121518;
   --card-foreground: #e1e7ea;
@@ -47,7 +47,7 @@
   --muted-foreground: #8e9ba3;
   --accent: #1a1e21;
   --accent-foreground: #e1e7ea;
-  --destructive: #ffb4ab;
+  --destructive: #ff9285;
   --destructive-foreground: #2b0a08;
   --border: #23282c;
   --input: #2c3338;
@@ -63,14 +63,24 @@
   --nexodoc-tertiary: #ffb59e;
   --nexodoc-tertiary-strong: #dc7858;
   --nexodoc-tertiary-bg: rgb(220 120 88 / 0.14);
-  --status-ok: #7af7e1;
-  --status-ok-bg: rgb(0 166 147 / 0.14);
-  --status-warning: #ffb59e;
-  --status-warning-bg: rgb(220 120 88 / 0.14);
-  --status-critical: #ffb4ab;
-  --status-critical-bg: rgb(147 0 10 / 0.22);
+  /* Sinais de status: 3 familias distintas (verde/ambar/coral), separadas do
+     teal interativo e do rust de enfase. Ver DESIGN.md secao 2. */
+  --status-ok: #6ee7a3;
+  --status-ok-bg: rgb(110 231 163 / 0.13);
+  --status-warning: #e9b45c;
+  --status-warning-bg: rgb(233 180 92 / 0.14);
+  --status-critical: #ff9285;
+  --status-critical-bg: rgb(255 146 133 / 0.14);
   --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.35);
   --shadow-subtle: 0 1px 1px rgb(0 0 0 / 0.25);
+  /* Fio de luz no topo de superficies elevadas/interativas (DESIGN.md secao 4). */
+  --edge-highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  /* Tokens de motion (DESIGN.md secao 5). */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+  --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as
@@ -118,7 +128,7 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist), "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
+  font-family: var(--font-plex-sans), "IBM Plex Sans", "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv06", "tnum";
   text-rendering: optimizeLegibility;
 }
@@ -134,7 +144,7 @@ button.font-mono,
 input.font-mono,
 select.font-mono,
 textarea.font-mono {
-  font-family: var(--font-jetbrains-mono), "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
+  font-family: var(--font-plex-mono), "IBM Plex Mono", "Cascadia Mono", "Cascadia Code", ui-monospace, monospace;
 }
 
 button,
