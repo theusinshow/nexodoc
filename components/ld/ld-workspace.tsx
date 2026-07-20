@@ -697,20 +697,16 @@ function deriveLdDataFromRow(row: ReviewRow): Partial<LdData> {
   const projectCode = fileMatch ? `${fileMatch[1]}_${fileMatch[2]}` : "";
   const discipline = fileMatch?.[3] ?? row.readDiscipline;
   const revision = fileMatch?.[4] ?? "";
-  const sectionTitle = row.description.includes(":")
-    ? row.description.split(":")[0].trim()
-    : "";
 
+  // O título da seção (título da LD) é definido pelo usuário — nunca auto-preenche.
   return {
     ...(projectCode ? { projectCode, formattedCode: projectCode.replace("_", "-") } : {}),
     ...(discipline ? { discipline: discipline.toLocaleLowerCase("pt-BR") } : {}),
-    ...(revision ? { revision: revision.toLocaleLowerCase("pt-BR") } : {}),
-    ...(sectionTitle ? { sectionTitle } : {}),
+    ...(revision ? { revision: revision.toLocaleUpperCase("pt-BR") } : {}),
   };
 }
 
 function buildLdDataSuggestion(data: LdData): Partial<LdData> {
-  const discipline = data.discipline.trim().toLocaleLowerCase("pt-BR");
   const formattedCode = data.formattedCode.trim();
   const suggestion: Partial<LdData> = {};
 
@@ -722,13 +718,7 @@ function buildLdDataSuggestion(data: LdData): Partial<LdData> {
     suggestion.phase = "PROJETO EXECUTIVO";
   }
 
-  if (!data.sectionTitle.trim()) {
-    if (discipline === "est") {
-      suggestion.sectionTitle = "PROJETO ESTRUTURAL CONCRETO";
-    } else if (discipline) {
-      suggestion.sectionTitle = `PROJETO ${discipline.toLocaleUpperCase("pt-BR")}`;
-    }
-  }
+  // Título da seção (título da LD) não entra nas sugestões: é definido pelo usuário.
 
   return suggestion;
 }
@@ -957,7 +947,6 @@ function mergeAiExtraction(
   const client = normalizeExtractedValue(extraction.cliente ?? "");
   const workName = normalizeExtractedValue(extraction.obra ?? "");
   const phase = normalizeExtractedValue(extraction.fase ?? "");
-  const sectionTitle = normalizeExtractedValue(extraction.tituloSecao ?? "");
 
   if (client) {
     extractedLdData.client = client;
@@ -971,9 +960,7 @@ function mergeAiExtraction(
     extractedLdData.phase = phase;
   }
 
-  if (sectionTitle) {
-    extractedLdData.sectionTitle = sectionTitle;
-  }
+  // Título da seção (título da LD) é definido pelo usuário — não auto-preenche.
 
   return {
     ...result,
@@ -2019,9 +2006,10 @@ export function LdWorkspace({
         await waitForUiFrame();
       }
 
-      // Recupera folhas cujo número a IA não leu: o total dominante das demais
-      // folhas + o número embutido no código do arquivo montam o NN/TT que faltou,
-      // evitando "folha faltante" falsa numa sequência completa.
+      // O número da folha embutido no código do arquivo (ex.: 040_26_est_imp_005_a
+      // -> folha 5) é a fonte determinística da sequência. Quando disponível, ele
+      // manda: corrige tanto folha não lida (faltante) quanto número trocado pela
+      // IA (duplicada). O total vem do dominante das folhas lidas.
       const readTotals = nextResults
         .map((result) => parseSheet(result.row.sheet)?.total)
         .filter((total): total is number => typeof total === "number");
@@ -2041,9 +2029,6 @@ export function LdWorkspace({
 
       if (dominantTotal) {
         for (const result of nextResults) {
-          if (parseSheet(result.row.sheet)) {
-            continue;
-          }
           const sheetNumber = extractSheetNumberFromFileCode(result.row.file);
           if (sheetNumber && sheetNumber <= dominantTotal) {
             result.row.sheet = formatSheet(sheetNumber, dominantTotal);
