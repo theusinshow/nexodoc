@@ -7,6 +7,7 @@ import {
   Gauge,
   LayoutGrid,
   Layers3,
+  type LucideIcon,
   TableProperties,
 } from "lucide-react";
 import Image from "next/image";
@@ -16,11 +17,24 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
 import { SignOutButton } from "@/components/sign-out-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
 
-const availableModules = [
+type ModuleDef = {
+  title: string;
+  description: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  emphasis: boolean;
+  status: "active" | "planned";
+  shortcut: string | null;
+};
+
+const availableModules: readonly ModuleDef[] = [
   {
     title: "Conferência documental",
     description:
@@ -29,6 +43,8 @@ const availableModules = [
     label: "Abrir conferência",
     icon: BookOpenCheck,
     emphasis: true,
+    status: "active",
+    shortcut: "Ctrl A",
   },
   {
     title: "Montagem de LDs",
@@ -38,6 +54,8 @@ const availableModules = [
     label: "Abrir montagem",
     icon: TableProperties,
     emphasis: false,
+    status: "active",
+    shortcut: "Ctrl L",
   },
   {
     title: "Montagem de capas",
@@ -47,6 +65,8 @@ const availableModules = [
     label: "Abrir capas",
     icon: FolderCog,
     emphasis: false,
+    status: "active",
+    shortcut: null,
   },
   {
     title: "Projetos",
@@ -56,6 +76,8 @@ const availableModules = [
     label: "Abrir projetos",
     icon: FolderKanban,
     emphasis: false,
+    status: "active",
+    shortcut: null,
   },
   {
     title: "Organização de volumes",
@@ -64,8 +86,25 @@ const availableModules = [
     label: "Abrir volumes",
     icon: Layers3,
     emphasis: false,
+    status: "active",
+    shortcut: null,
   },
-] as const;
+];
+
+function ShortcutHint({ keys }: { keys: string }) {
+  return (
+    <span className="hidden items-center gap-1 sm:inline-flex" aria-hidden="true">
+      {keys.split(" ").map((key) => (
+        <kbd
+          key={key}
+          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded border border-border bg-[var(--nexodoc-recessed)] px-1.5 font-mono text-[11px] text-muted-foreground"
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>
+  );
+}
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -81,6 +120,14 @@ export default async function DashboardPage() {
   }
 
   const isAdmin = access.isAdmin;
+
+  const availableCount = availableModules.filter((m) => m.status === "active").length;
+  const plannedCount = availableModules.filter((m) => m.status === "planned").length;
+  const fmt = (n: number) => String(n).padStart(2, "0");
+
+  const primaryModule = availableModules.find((m) => m.emphasis) ?? availableModules[0];
+  const secondaryModules = availableModules.filter((m) => m.title !== primaryModule.title);
+  const PrimaryIcon = primaryModule.icon;
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -144,70 +191,104 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border lg:w-[290px]">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:w-[290px]">
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Disponíveis</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">05</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">
+                {fmt(availableCount)}
+              </p>
             </div>
             <div className="bg-card p-4">
               <p className="font-mono text-[11px] uppercase text-muted-foreground">Planejados</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">00</p>
+              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">
+                {fmt(plannedCount)}
+              </p>
             </div>
           </div>
         </section>
 
-        <section aria-labelledby="available-title">
-          <div className="mb-4 flex items-center gap-3">
+        <section aria-labelledby="available-title" className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
             <Files className="size-4 text-primary" />
             <h2 id="available-title" className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
               Operações disponíveis
             </h2>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {availableModules.map((module) => {
+
+          <Card className="group relative overflow-hidden border-primary/45 p-6 transition-colors duration-200 hover:border-ring sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-5">
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-[var(--nexodoc-accent)]">
+                  <PrimaryIcon className="size-7" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="ok">Ativo</Badge>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Fluxo principal
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+                    {primaryModule.title}
+                  </h3>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                    {primaryModule.description}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 lg:flex-col lg:items-end">
+                {primaryModule.shortcut ? <ShortcutHint keys={primaryModule.shortcut} /> : null}
+                <Button asChild className="w-full sm:w-fit">
+                  <Link href={primaryModule.href}>
+                    {primaryModule.label}
+                    <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {secondaryModules.map((module) => {
               const Icon = module.icon;
 
               return (
-                <article
+                <Card
                   key={module.title}
-                  className={`group flex min-h-[250px] flex-col border bg-card p-5 transition-colors duration-200 hover:border-ring sm:p-6 ${
-                    module.emphasis ? "border-primary/45" : "border-border"
-                  }`}
+                  className="group flex min-h-[230px] flex-col border-border p-5 transition-colors duration-200 hover:border-ring"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div
-                      className={`flex size-12 items-center justify-center border ${
-                        module.emphasis
-                          ? "border-primary/30 bg-primary/10 text-[var(--nexodoc-accent)]"
-                          : "border-border bg-[var(--nexodoc-recessed)] text-muted-foreground"
-                      }`}
-                    >
-                      <Icon className="size-6" />
+                    <div className="flex size-11 items-center justify-center rounded-md border border-border bg-[var(--nexodoc-recessed)] text-muted-foreground transition-colors group-hover:text-[var(--nexodoc-accent)]">
+                      <Icon className="size-5" />
                     </div>
-                    <span className="border border-[var(--status-ok)]/25 bg-[var(--status-ok-bg)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--status-ok)]">
-                      Ativo
-                    </span>
+                    {module.shortcut ? (
+                      <ShortcutHint keys={module.shortcut} />
+                    ) : (
+                      <Badge variant="ok">Ativo</Badge>
+                    )}
                   </div>
-                  <h3 className="mt-7 text-2xl font-semibold tracking-[-0.03em]">{module.title}</h3>
-                  <p className="mt-3 max-w-lg flex-1 text-sm leading-6 text-muted-foreground">
+                  <h3 className="mt-6 text-xl font-semibold tracking-[-0.02em]">{module.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
                     {module.description}
                   </p>
-                  <Button asChild variant={module.emphasis ? "default" : "outline"} className="mt-6 w-fit">
-                    <Link href={module.href}>
-                      {module.label}
-                      <ArrowRight />
-                    </Link>
-                  </Button>
-                  {module.href === "/ld" ? (
-                    <Link
-                      href="/ld/historico"
-                      className="mt-3 inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
-                    >
-                      <BookOpenCheck className="size-4" />
-                      Consultar histórico de LDs
-                    </Link>
-                  ) : null}
-                </article>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                    <Button asChild variant="outline" className="w-fit">
+                      <Link href={module.href}>
+                        {module.label}
+                        <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                      </Link>
+                    </Button>
+                    {module.href === "/ld" ? (
+                      <Link
+                        href="/ld/historico"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
+                      >
+                        <BookOpenCheck className="size-3.5" />
+                        Histórico
+                      </Link>
+                    ) : null}
+                  </div>
+                </Card>
               );
             })}
           </div>
