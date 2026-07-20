@@ -67,6 +67,8 @@ type PdfReadResult = {
   };
   aiExtraction: "not-used" | "text" | "visual" | "failed";
   extractionProvider?: AiProvider;
+  extractionModel?: string;
+  extractionTokens?: number;
   fallbackReason?: string;
   providerFailureCategories?: ProviderFailureCategory[];
   aiError?: string;
@@ -230,6 +232,12 @@ type VisualStampExtraction = {
   tituloSecao: string | null;
   confianca: "alta" | "media" | "baixa";
   provider?: AiProvider;
+  model?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   fallbackReason?: string;
   attempts?: ProviderAttempt[];
 };
@@ -280,12 +288,14 @@ type StampCropMode = "tight" | "normal";
 type ReviewFilterMode = "all" | "blockers" | "warnings" | "low-confidence" | "missing";
 type ReviewSortMode = "sheet" | "file" | "discipline" | "status";
 
+// Um único recorte por página (antes eram dois: "tight" + "normal"). O recorte
+// mais largo cobre melhor o selo numa só tentativa, cortando pela metade o tempo
+// de render/leitura visual por página.
 const stampCropModes: Array<{
   mode: StampCropMode;
   label: string;
   crop: { x: number; y: number; width: number; height: number };
 }> = [
-  { mode: "tight", label: "selo compacto", crop: { x: 0.64, y: 0.58, width: 0.35, height: 0.4 } },
   { mode: "normal", label: "recorte do selo", crop: { x: 0.52, y: 0.5, width: 0.47, height: 0.48 } },
 ];
 
@@ -921,6 +931,8 @@ function mergeAiExtraction(
     ldData: extractedLdData,
     aiExtraction: source,
     extractionProvider: extraction.provider,
+    extractionModel: extraction.model,
+    extractionTokens: extraction.usage?.totalTokens,
     fallbackReason: extraction.fallbackReason,
     row: {
       ...result.row,
@@ -3448,6 +3460,21 @@ function ReviewTable({
                 ? `Triagem ativa: pendência ${pendingRows.length ? safeTriageIndex + 1 : 0} de ${pendingRows.length}.`
                 : `Mostrando ${visibleRows.length} de ${rows.length} pranchas. Use filtros para atacar primeiro o que bloqueia a LD.`}
             </p>
+            {(() => {
+              const model = readResults.find((item) => item.extractionModel)?.extractionModel;
+              const tokens = readResults.reduce((sum, item) => sum + (item.extractionTokens ?? 0), 0);
+
+              if (!model) {
+                return null;
+              }
+
+              return (
+                <p className="mt-1 font-mono text-[10px] text-muted-foreground/70">
+                  Leitura do selo por IA: {model}
+                  {tokens > 0 ? ` · ${tokens.toLocaleString("pt-BR")} tokens` : ""}
+                </p>
+              );
+            })()}
           </div>
           <button
             type="button"

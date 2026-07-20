@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { recordAiUsage } from "@/lib/ai-usage";
+import { extractTokenUsage, recordAiUsage } from "@/lib/ai-usage";
 import {
   classifyProviderFailure,
   createInvalidProviderResponseError,
@@ -312,6 +312,7 @@ async function extractWithOpenAi(
     return {
       parsed: sanitizeStampExtraction(JSON.parse(result.text) as StampExtraction),
       response: result.response,
+      model: result.model,
     };
   } catch {
     throw createInvalidProviderResponseError();
@@ -451,7 +452,7 @@ export async function POST(request: Request) {
   let primaryFailure: SafeProviderFailure;
 
   try {
-    const { parsed } = await extractWithOpenAi(
+    const { parsed, response, model } = await extractWithOpenAi(
       configuration.primary.model,
       textPrompt,
       imageDataUrl,
@@ -463,13 +464,20 @@ export async function POST(request: Request) {
         pdfTextChars: pdfText?.length ?? 0,
       },
     );
+    const usage = extractTokenUsage(response);
 
     return NextResponse.json({
       ...parsed,
       provider: configuration.primary.provider,
+      model,
+      usage: {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+      },
       attempts: [{
         provider: configuration.primary.provider,
-        model: configuration.primary.model,
+        model,
         status: "succeeded",
       }],
     });
@@ -511,9 +519,17 @@ export async function POST(request: Request) {
         ),
       });
 
+      const usage = extractTokenUsage(payload);
+
       return NextResponse.json({
         ...parsed,
         provider: "mimo",
+        model: configuration.fallback.model,
+        usage: {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          totalTokens: usage.totalTokens,
+        },
         fallbackReason: primaryFailure.message,
         attempts: [
           asAttempt(primaryFailure),
