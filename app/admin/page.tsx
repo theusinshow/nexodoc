@@ -13,6 +13,8 @@ import {
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { EmptyState } from "@/components/ui/empty-state";
+
 import {
   ADMIN_TOKEN_STORAGE_KEY,
   AdminError,
@@ -212,7 +214,7 @@ export default function AdminHomePage() {
                   </p>
                 </div>
               ))}
-              {data && data.latestAudits.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Nenhuma auditoria registrada.</p> : null}
+              {data && data.latestAudits.length === 0 ? <EmptyState description="Nenhuma auditoria registrada." className="py-10" /> : null}
             </div>
           </article>
 
@@ -232,7 +234,7 @@ export default function AdminHomePage() {
                   </p>
                 </div>
               ))}
-              {data && data.latestLds.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Nenhuma LD registrada.</p> : null}
+              {data && data.latestLds.length === 0 ? <EmptyState description="Nenhuma LD registrada." className="py-10" /> : null}
             </div>
           </article>
         </section>

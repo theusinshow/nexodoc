@@ -8,6 +8,7 @@ import { ProjectDetailActions } from "@/components/projects/project-detail-actio
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -249,7 +250,7 @@ export default async function ProjectDetailPage({
           </div>
           <div className="divide-y divide-border">
             {project.events.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">Nenhum evento registrado.</p>
+              <EmptyState description="Nenhum evento registrado." className="py-8" />
             ) : (
               project.events.map((event) => (
                 <div key={event.id} className="grid gap-1 py-3 md:grid-cols-[180px_1fr_auto] md:items-center">
@@ -296,7 +297,7 @@ function DataTable({
       <CardContent className="space-y-4 py-5">
         <h2 className="text-base font-semibold">{title}</h2>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{empty}</p>
+          <EmptyState description={empty} className="py-8" />
         ) : (
           <Table>
             <TableHeader>

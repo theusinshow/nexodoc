@@ -9,7 +9,6 @@ import {
   FolderOpen,
   Gauge,
   History,
-  Loader2,
   Search,
 } from "lucide-react";
 import Link from "next/link";
@@ -354,10 +353,11 @@ export function LdHistoryWorkspace({
               </p>
             </div>
             {loadingEvents ? (
-              <p className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-                <Loader2 size={15} className="animate-spin" />
-                Carregando eventos
-              </p>
+              <div className="space-y-3 p-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-3 w-full" />
+                ))}
+              </div>
             ) : events.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
                 {selected ? "Ainda não há eventos registrados." : "Clique em uma LD para consultar seu histórico."}

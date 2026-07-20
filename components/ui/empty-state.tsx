@@ -3,8 +3,12 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps extends React.ComponentProps<"div"> {
-  /** Rotulo curto (Mono Label) nomeando a regiao. */
-  label: string;
+  /**
+   * Rotulo curto (Mono Label) nomeando a regiao. Opcional: quando o
+   * container ja nomeia a regiao (um card com titulo, uma tabela), pode-se
+   * usar apenas a descricao.
+   */
+  label?: string;
   /** Uma linha de corpo explicando o que aparece aqui e como. */
   description?: string;
   /** Icone opcional, pequeno e muted (lucide). Nunca uma ilustracao grande. */
@@ -44,9 +48,11 @@ function EmptyState({
           aria-hidden
         />
       )}
-      <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-foreground">
-        {label}
-      </p>
+      {label && (
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-foreground">
+          {label}
+        </p>
+      )}
       {description && (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}
