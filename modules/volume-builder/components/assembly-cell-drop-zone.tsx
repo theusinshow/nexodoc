@@ -124,7 +124,7 @@ export function AssemblyCellDropZone({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-red-600 hover:text-red-700"
+              className="h-6 w-6 text-[var(--status-critical)] hover:text-[var(--status-critical)]"
               onClick={() => onSlotChange(undefined)}
             >
               <X className="h-3 w-3" />

@@ -80,8 +80,8 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-            <p className="text-xs text-red-700">{error}</p>
+          <div className="rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] p-3">
+            <p className="text-xs text-[var(--status-critical)]">{error}</p>
           </div>
         )}
 
@@ -99,8 +99,8 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
             )}
 
             {validationResult.requiresManualConfirmation && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                <p className="text-xs text-orange-800 font-medium">
+              <div className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] p-3">
+                <p className="text-xs text-[var(--status-warning)] font-medium">
                   Confirmacao manual necessaria devido a problemas de montagem.
                 </p>
               </div>
@@ -114,10 +114,10 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
                       <p className="text-xs font-medium">{rw.rowTitle}</p>
                       {rw.problems.length > 0 && (
                         <div className="flex items-start gap-1">
-                          <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 shrink-0" />
+                          <AlertCircle className="h-3 w-3 text-[var(--status-critical)] mt-0.5 shrink-0" />
                           <ul className="space-y-0.5">
                             {rw.problems.map((p, i) => (
-                              <li key={i} className="text-xs text-red-700">{p}</li>
+                              <li key={i} className="text-xs text-[var(--status-critical)]">{p}</li>
                             ))}
                           </ul>
                         </div>
@@ -125,7 +125,7 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
                       {rw.warnings.length > 0 && (
                         <ul className="space-y-0.5 ml-4">
                           {rw.warnings.map((w, i) => (
-                            <li key={i} className="text-xs text-yellow-700">{w}</li>
+                            <li key={i} className="text-xs text-[var(--status-warning)]">{w}</li>
                           ))}
                         </ul>
                       )}
@@ -142,7 +142,7 @@ export function AiValidationPanel({ rows, importedFiles, metadata, compact = fal
                 validationResult.rowWarnings.every(
                   (rw) => rw.warnings.length === 0 && rw.problems.length === 0
                 )) && (
-                <p className="text-xs text-green-700">
+                <p className="text-xs text-[var(--status-ok)]">
                   Nenhum problema encontrado.
                 </p>
               )}

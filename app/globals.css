@@ -183,7 +183,9 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px rgb(91 218 198 / 0.18);
+  /* Ring unico do sistema: 3px em bright-teal /25, igual aos primitivos
+     Button/Input/Textarea. */
+  box-shadow: 0 0 0 3px rgb(91 218 198 / 0.25);
 }
 
 summary {

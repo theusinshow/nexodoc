@@ -12,15 +12,15 @@ export function WarningCard({ warnings, className }: WarningCardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-yellow-200 bg-yellow-50 p-3",
+        "rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] p-3",
         className
       )}
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--status-warning)]" />
         <ul className="space-y-1">
           {warnings.map((warning, index) => (
-            <li key={index} className="text-xs text-yellow-800">
+            <li key={index} className="text-xs text-[var(--status-warning)]">
               {warning}
             </li>
           ))}

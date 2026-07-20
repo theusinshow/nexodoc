@@ -19,9 +19,9 @@ export function LdIntegrationBanner({ data }: LdIntegrationBannerProps) {
   if (!hasData) return null;
 
   return (
-    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+    <div className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-[var(--nexodoc-recessed)]">
           <Link className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1">

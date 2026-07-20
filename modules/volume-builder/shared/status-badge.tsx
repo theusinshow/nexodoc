@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { VolumeStatus } from "@/modules/volume-builder/lib/volume/volume-types";
 
 interface StatusBadgeProps {
@@ -6,36 +6,24 @@ interface StatusBadgeProps {
   className?: string;
 }
 
+// Mapeia o status de volume para o vocabulario unico de status do sistema
+// (Badge variants). Antes usava cores Tailwind de light-mode (green-100 etc.)
+// que destoavam do app dark.
 const statusConfig: Record<
   VolumeStatus,
-  { label: string; className: string }
+  { label: string; variant: "ok" | "warning" | "critical" }
 > = {
-  sem_problemas: {
-    label: "OK",
-    className: "bg-green-100 text-green-800 border-green-200",
-  },
-  ponto_de_atencao: {
-    label: "Atencao",
-    className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  },
-  problema_de_montagem: {
-    label: "Problema",
-    className: "bg-red-100 text-red-800 border-red-200",
-  },
+  sem_problemas: { label: "OK", variant: "ok" },
+  ponto_de_atencao: { label: "Atencao", variant: "warning" },
+  problema_de_montagem: { label: "Problema", variant: "critical" },
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = statusConfig[status];
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
-        config.className,
-        className
-      )}
-    >
+    <Badge variant={config.variant} className={className}>
       {config.label}
-    </span>
+    </Badge>
   );
 }

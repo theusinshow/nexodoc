@@ -450,7 +450,7 @@ export default function PageAssetTrayInternal({
           />
 
           {assets.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-8 text-center">
+            <div className="rounded-md border border-dashed py-8 text-center">
               <FileStack className="mx-auto h-5 w-5 text-muted-foreground" />
               <p className="mt-2 text-xs text-muted-foreground">
                 Importe PDFs para indexar as paginas.

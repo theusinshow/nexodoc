@@ -134,7 +134,7 @@ export default function PdfPageThumbnailGridInternal({
       </div>
 
       {onRangeSelect && (
-        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+        <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/50">
           <Input
             type="number"
             placeholder="Início"
@@ -181,7 +181,7 @@ export default function PdfPageThumbnailGridInternal({
             {Array.from(loadedPages).map((pageNumber) => (
               <div
                 key={pageNumber}
-                className={`relative cursor-pointer border-2 rounded-lg overflow-hidden transition-all ${
+                className={`relative cursor-pointer border rounded-md overflow-hidden transition-all ${
                   selectedPages.includes(pageNumber)
                     ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] ring-2 ring-[var(--nexodoc-tertiary)]/25"
                     : "border-border hover:border-primary/50"
@@ -224,7 +224,7 @@ export default function PdfPageThumbnailGridInternal({
             {Array.from(loadedPages).map((pageNumber) => (
               <div
                 key={pageNumber}
-                className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                className={`flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-all ${
                   selectedPages.includes(pageNumber)
                     ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)]"
                     : "border-border hover:border-primary/50 hover:bg-muted/50"

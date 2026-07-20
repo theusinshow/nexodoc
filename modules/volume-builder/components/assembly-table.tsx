@@ -18,7 +18,7 @@ export function AssemblyTable({
 }: AssemblyTableProps) {
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border bg-muted/20 px-3 py-2">
+      <div className="rounded-md border bg-muted/20 px-3 py-2">
         <p className="text-xs font-medium text-muted-foreground">
           Arraste paginas da bandeja para capa, LD e documentos. A ordem dos documentos segue da esquerda para direita.
         </p>

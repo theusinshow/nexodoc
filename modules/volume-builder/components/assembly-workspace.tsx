@@ -18,7 +18,7 @@ export function AssemblyWorkspace({
 }: AssemblyWorkspaceProps) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-12 text-center">
+      <div className="rounded-md border border-dashed p-12 text-center">
         <p className="text-sm text-muted-foreground">
           Nenhuma linha de montagem criada.
         </p>

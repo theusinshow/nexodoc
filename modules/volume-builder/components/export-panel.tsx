@@ -201,7 +201,7 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, projec
         </div>
 
         {outputMode === "zip" && (
-          <div className="rounded-lg border bg-muted/30 p-3">
+          <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">
               Com {rows.length} linhas, a exportacao sera em formato ZIP contendo todos os PDFs e o relatorio de montagem.
             </p>
@@ -252,8 +252,8 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, projec
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-            <p className="text-xs text-red-700">{error}</p>
+          <div className="rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] p-3">
+            <p className="text-xs text-[var(--status-critical)]">{error}</p>
           </div>
         )}
 

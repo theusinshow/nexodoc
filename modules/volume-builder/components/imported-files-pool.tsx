@@ -140,10 +140,10 @@ export function ImportedFilesPool({
         <FileDropzone onFilesAccepted={handleFilesAccepted} />
 
         {odtWarning && (
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+          <div className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] p-3">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-yellow-800">{odtWarning}</p>
+              <AlertCircle className="h-4 w-4 text-[var(--status-warning)] mt-0.5 shrink-0" />
+              <p className="text-xs text-[var(--status-warning)]">{odtWarning}</p>
             </div>
           </div>
         )}

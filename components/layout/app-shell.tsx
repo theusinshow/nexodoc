@@ -2,10 +2,19 @@ import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   children: React.ReactNode;
+  /** Nome do modulo mostrado no breadcrumb do cabecalho (apos "NEXODOC /"). */
+  moduleName: string;
+  /** Rotulo de versao opcional no canto direito do cabecalho. */
+  version?: string;
   className?: string;
 }
 
-export function AppShell({ children, className }: AppShellProps) {
+export function AppShell({
+  children,
+  moduleName,
+  version,
+  className,
+}: AppShellProps) {
   return (
     <div className={cn("min-h-dvh bg-background text-foreground", className)}>
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 px-5 py-3">
@@ -15,9 +24,11 @@ export function AppShell({ children, className }: AppShellProps) {
               NEXODOC
             </span>
             <span className="text-muted-foreground/40">/</span>
-            <span className="font-mono text-sm font-semibold">Gerador de Capas</span>
+            <span className="font-mono text-sm font-semibold">{moduleName}</span>
           </div>
-          <span className="font-mono text-xs text-muted-foreground">v1.0</span>
+          {version && (
+            <span className="font-mono text-xs text-muted-foreground">{version}</span>
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>

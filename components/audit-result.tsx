@@ -1105,16 +1105,28 @@ export function AuditResult({
       {verdict ? (
         <div
           className={cn(
-            "mb-5 flex flex-col gap-1 rounded-sm border-l-4 px-4 py-3",
+            // Borda 1px completa + tint de fundo (sem side-stripe, sem emoji),
+            // usando os tokens de status reais do sistema.
+            "mb-5 flex flex-col gap-1 rounded-sm border px-4 py-3",
             verdict.emoji === "🔴"
-              ? "border-l-[var(--status-danger,#dc2626)] bg-[color-mix(in_srgb,var(--status-danger,#dc2626)_10%,transparent)]"
+              ? "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)]"
               : verdict.emoji === "🟡"
-                ? "border-l-[var(--status-warn,#d97706)] bg-[color-mix(in_srgb,var(--status-warn,#d97706)_10%,transparent)]"
-                : "border-l-[var(--status-ok,#16a34a)] bg-[var(--status-ok-bg,transparent)]",
+                ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
+                : "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]",
           )}
         >
           <p className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <span aria-hidden>{verdict.emoji}</span>
+            <span
+              aria-hidden
+              className={cn(
+                "size-2 shrink-0 rounded-full",
+                verdict.emoji === "🔴"
+                  ? "bg-[var(--status-critical)]"
+                  : verdict.emoji === "🟡"
+                    ? "bg-[var(--status-warning)]"
+                    : "bg-[var(--status-ok)]",
+              )}
+            />
             {verdict.label}
           </p>
           <p className="text-sm text-muted-foreground">

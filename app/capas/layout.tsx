@@ -11,5 +11,9 @@ export default function CapasLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell moduleName="Gerador de Capas" version="v1.0">
+      {children}
+    </AppShell>
+  );
 }

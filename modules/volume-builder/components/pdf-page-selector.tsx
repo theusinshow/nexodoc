@@ -189,9 +189,9 @@ export function PdfPageSelector({
       )}
 
       {validationError && (
-        <div className="flex items-start gap-2 rounded border border-red-200 bg-red-50 p-2">
-          <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-700">{validationError}</p>
+        <div className="flex items-start gap-2 rounded border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] p-2">
+          <AlertCircle className="h-3 w-3 text-[var(--status-critical)] mt-0.5 shrink-0" />
+          <p className="text-xs text-[var(--status-critical)]">{validationError}</p>
         </div>
       )}
 
