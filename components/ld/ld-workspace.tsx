@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { encodeLdData } from "@/modules/ld-interop";
@@ -1607,6 +1607,22 @@ export function LdWorkspace({
     };
   }
 
+  // Barra de progresso monotônica: com o mesmo total, nunca deixa o `current`
+  // regredir. As páginas de um lote rodam em paralelo e escreviam valores
+  // diferentes de `current` no mesmo estado, fazendo a barra "subir e voltar".
+  // Aqui só o status/arquivo pode mudar quando o current tentaria retroceder.
+  function reportProgress(next: PdfProcessingProgress | null) {
+    setPdfProgress((prev) => {
+      if (!next) {
+        return null;
+      }
+      if (prev && prev.total === next.total && next.current < prev.current) {
+        return { ...next, current: prev.current };
+      }
+      return next;
+    });
+  }
+
   async function analyzePdfPage({
     file,
     fileIndex,
@@ -1630,7 +1646,7 @@ export function LdWorkspace({
     if (cached?.aiExtraction === "failed") {
       pdfReadCache.current.delete(cacheKey);
     } else if (cached) {
-      setPdfProgress({
+      reportProgress({
         current,
         total,
         fileName: file.name,
@@ -1641,7 +1657,7 @@ export function LdWorkspace({
       return fromCachedPdfReadResult(cached, id);
     }
 
-    setPdfProgress({
+    reportProgress({
       current,
       total,
       fileName: file.name,
@@ -1711,7 +1727,7 @@ export function LdWorkspace({
       fileName: file.name,
       pageNumber,
     }, (status) => {
-      setPdfProgress({ current, total, fileName: file.name, pageNumber, status });
+      reportProgress({ current, total, fileName: file.name, pageNumber, status });
     });
 
     if (hasMissingStampFields(pageResult)) {
@@ -1898,12 +1914,19 @@ export function LdWorkspace({
         );
 
         if (batchResults.every(isProviderUnavailable)) {
-          setPdfReadResults([...nextResults, ...batchResults]);
+          // A IA de leitura do selo caiu para o lote inteiro (quota/chave/limite).
+          // Em vez de deixar a tabela vazia, mantém as linhas que o parser LOCAL
+          // do PDF já extraiu (podem estar incompletas) para revisão manual, e
+          // interrompe o processamento para não insistir num provedor indisponível.
+          nextResults.push(...batchResults);
+          setPdfReadResults([...nextResults]);
+          setRows(nextResults.map((result) => result.row).sort(compareBySheet));
           setPdfReadError(
-            `Análise interrompida sem gerar linhas vazias: ${
-              batchResults[0].aiError ?? "a API de IA recusou este lote."
-            }`,
+            `A leitura do selo por IA está indisponível (${
+              batchResults[0].aiError ?? "provedor recusou a chamada"
+            }). As pranchas abaixo vêm da leitura local do PDF e podem estar incompletas — revise manualmente ou verifique a configuração de IA em Painel admin → Configurações.`,
           );
+          setActiveStep(2);
           return;
         }
 
@@ -2657,41 +2680,68 @@ function LdForm({
           Dados mínimos da LD preenchidos. Confira a origem de cada campo antes de avançar.
         </div>
       )}
+      <p className="mt-1 -mb-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:col-span-2">
+        Identificação
+      </p>
       <Field required fieldKey="projectCode" label="Código do projeto" source={sources.projectCode} value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
       <Field required fieldKey="formattedCode" label="Código formatado" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
       <Field required fieldKey="discipline" label="Sigla da disciplina" source={sources.discipline} value={data.discipline} onChange={(value) => onChange("discipline", value)} />
       <Field required fieldKey="revision" label="Revisão" source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
-      <Field required fieldKey="sectionTitle" className="md:col-span-2" label="Título da seção" source={sources.sectionTitle} value={data.sectionTitle} onChange={(value) => onChange("sectionTitle", value)} />
+
+      <p className="mt-2 -mb-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:col-span-2">
+        Conteúdo da LD
+      </p>
+      <Field
+        required
+        fieldKey="sectionTitle"
+        className="md:col-span-2"
+        label="Título da seção (título da LD)"
+        placeholder="EX.: PROJETO EXECUTIVO DE ESTRUTURAS - MEMORIAL DESCRITIVO"
+        uppercase
+        source={sources.sectionTitle}
+        value={data.sectionTitle}
+        onChange={(value) => onChange("sectionTitle", value)}
+      />
       <Field required fieldKey="client" label="Órgão/cliente" source={sources.client} value={data.client} onChange={(value) => onChange("client", value)} />
       <Field required fieldKey="workName" label="Nome da obra" source={sources.workName} value={data.workName} onChange={(value) => onChange("workName", value)} />
       <Field required fieldKey="phase" label="Fase" source={sources.phase} value={data.phase} onChange={(value) => onChange("phase", value)} />
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Template</span>
-        <select
-          value={data.templateMode}
-          onChange={(event) => onChange("templateMode", event.target.value)}
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="padrao">Usar template padrão</option>
-          <option value="alternativo">Anexar template alternativo</option>
-        </select>
-      </label>
-      {data.templateMode === "alternativo" && (
-        <label className="grid gap-1.5 md:col-span-2">
-          <span className="text-sm font-medium">Template alternativo (.odt)</span>
-          <input
-            type="file"
-            accept=".odt,application/vnd.oasis.opendocument.text"
-            onChange={(event) => onTemplateFileChange(event.target.files?.[0] ?? null)}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          {templateFile && (
-            <span className="text-xs text-muted-foreground">
-              Template selecionado: {templateFile.name}
-            </span>
-          )}
-        </label>
-      )}
+
+      <div className="rounded-md border border-border bg-background p-3 md:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Template da LD</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Em uso:{" "}
+              <span className="font-medium text-foreground">
+                {data.templateMode === "padrao"
+                  ? "Padrão interno"
+                  : templateFile
+                    ? templateFile.name
+                    : "Alternativo (nenhum arquivo anexado)"}
+              </span>
+            </p>
+          </div>
+          <select
+            value={data.templateMode}
+            onChange={(event) => onChange("templateMode", event.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="padrao">Usar template padrão</option>
+            <option value="alternativo">Anexar template alternativo</option>
+          </select>
+        </div>
+        {data.templateMode === "alternativo" && (
+          <label className="mt-3 grid gap-1.5 border-t border-border pt-3">
+            <span className="text-sm font-medium">Template alternativo (.odt)</span>
+            <input
+              type="file"
+              accept=".odt,application/vnd.oasis.opendocument.text"
+              onChange={(event) => onTemplateFileChange(event.target.files?.[0] ?? null)}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </label>
+        )}
+      </div>
     </div>
   );
 }
@@ -2704,6 +2754,8 @@ function Field({
   onChange,
   className = "",
   required = false,
+  placeholder,
+  uppercase = false,
 }: {
   fieldKey: LdFieldKey;
   label: string;
@@ -2712,6 +2764,8 @@ function Field({
   onChange: (value: string) => void;
   className?: string;
   required?: boolean;
+  placeholder?: string;
+  uppercase?: boolean;
 }) {
   const isMissing = required && value.trim().length === 0;
   const id = ldFieldDomId(fieldKey);
@@ -2730,11 +2784,12 @@ function Field({
         id={id}
         value={value}
         required={required}
+        placeholder={placeholder}
         aria-invalid={isMissing}
-        onChange={(event) => onChange(event.target.value)}
-        className={`h-10 rounded-md border bg-background px-3 text-sm ${
-          isMissing ? "border-warning" : "border-border"
-        }`}
+        onChange={(event) => onChange(uppercase ? event.target.value.toUpperCase() : event.target.value)}
+        className={`h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground/70 ${
+          uppercase ? "uppercase" : ""
+        } ${isMissing ? "border-warning" : "border-border"}`}
       />
     </div>
   );
@@ -2802,23 +2857,39 @@ function UploadStep({
   onFilesSelected: (files: FileList) => void;
   processing: boolean;
 }) {
+  // Guarda qual box disparou o upload, para a animação de carregamento aparecer
+  // só nela (a outra fica desabilitada enquanto processa).
+  const [activePanel, setActivePanel] = useState<"single" | "multiple" | null>(null);
+  const [selectedNames, setSelectedNames] = useState<string[]>([]);
+
+  function handleSelected(panel: "single" | "multiple", files: FileList) {
+    setActivePanel(panel);
+    setSelectedNames(Array.from(files).map((file) => file.name));
+    onFilesSelected(files);
+  }
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <UploadPanel
         title="PDF único com várias pranchas"
         description="O sistema separa as páginas e tenta extrair PRANCHA, ARQUIVO e CONTEÚDO."
-        disabled={processing}
-        onFilesSelected={onFilesSelected}
+        loading={processing && activePanel === "single"}
+        disabled={processing && activePanel !== "single"}
+        selectedNames={activePanel === "single" ? selectedNames : []}
+        onFilesSelected={(files) => handleSelected("single", files)}
       />
       <UploadPanel
         title="Vários PDFs separados"
         description="Arquivos individuais processados em sequência e ordenados pelo campo PRANCHA."
         multiple
-        disabled={processing}
-        onFilesSelected={onFilesSelected}
+        loading={processing && activePanel === "multiple"}
+        disabled={processing && activePanel !== "multiple"}
+        selectedNames={activePanel === "multiple" ? selectedNames : []}
+        onFilesSelected={(files) => handleSelected("multiple", files)}
       />
       <div className="md:col-span-2 rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
-        A extração interpreta o texto do PDF e aplica leitura visual progressiva quando algum campo exigir confirmação.
+        Arraste os PDFs para uma das áreas acima ou clique para selecionar. A leitura do selo (recorte e anotação
+        dos campos) é feita por IA na etapa de análise.
       </div>
     </div>
   );
@@ -2828,35 +2899,95 @@ function UploadPanel({
   title,
   description,
   multiple = false,
+  loading = false,
   disabled = false,
+  selectedNames = [],
   onFilesSelected,
 }: {
   title: string;
   description: string;
   multiple?: boolean;
+  loading?: boolean;
   disabled?: boolean;
+  selectedNames?: string[];
   onFilesSelected: (files: FileList) => void;
 }) {
+  const [dragActive, setDragActive] = useState(false);
+  const inactive = disabled || loading;
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+
+    if (inactive) {
+      return;
+    }
+
+    const { files } = event.dataTransfer;
+
+    if (files && files.length > 0) {
+      onFilesSelected(files);
+    }
+  }
+
   return (
     <label
-      className={`flex min-h-56 flex-col items-center justify-center rounded-md border border-dashed border-border bg-background p-6 text-center transition ${
-        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-muted"
+      onDragOver={(event) => {
+        if (inactive) {
+          return;
+        }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragActive(false);
+        }
+      }}
+      onDrop={handleDrop}
+      className={`flex min-h-56 flex-col items-center justify-center rounded-md border border-dashed p-6 text-center transition ${
+        disabled
+          ? "cursor-not-allowed border-border opacity-50"
+          : loading
+            ? "cursor-default border-primary/50 bg-primary/5"
+            : dragActive
+              ? "cursor-copy border-primary bg-primary/10"
+              : "cursor-pointer border-border bg-background hover:bg-muted"
       }`}
     >
-      {disabled ? (
+      {loading ? (
         <Loader2 className="animate-spin text-primary" size={28} />
       ) : (
         <Upload className="text-primary" size={28} />
       )}
       <span className="mt-4 font-medium">{title}</span>
-      <span className="mt-2 max-w-xs text-sm text-muted-foreground">{description}</span>
+      {loading && selectedNames.length > 0 ? (
+        <div className="mt-3 w-full max-w-xs space-y-1.5">
+          {selectedNames.map((name) => (
+            <div
+              key={name}
+              className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-left"
+            >
+              <FileText size={14} className="shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate font-mono text-xs">{name}</span>
+              <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
+            </div>
+          ))}
+          <p className="pt-1 text-xs text-muted-foreground">Lendo o documento…</p>
+        </div>
+      ) : (
+        <span className="mt-2 max-w-xs text-sm text-muted-foreground">
+          {dragActive ? "Solte o arquivo aqui" : description}
+        </span>
+      )}
       <input
         type="file"
         accept="application/pdf,.pdf"
         multiple={multiple}
-        disabled={disabled}
+        disabled={inactive}
         onChange={(event) => {
-          if (event.target.files) {
+          if (event.target.files && event.target.files.length > 0) {
             onFilesSelected(event.target.files);
             event.target.value = "";
           }
