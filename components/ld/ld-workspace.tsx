@@ -8,7 +8,6 @@ import {
   CircleAlert,
   CircleX,
   Copy,
-  Download,
   FileArchive,
   FileSearch,
   FileText,
@@ -27,6 +26,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { encodeLdData } from "@/modules/ld-interop";
 import type { ProjectContext } from "@/lib/project-context";
 import {
@@ -191,51 +191,6 @@ const initialLdFieldSources: LdFieldSources = {
   workName: "empty",
   phase: "system",
 };
-
-const initialRows: ReviewRow[] = [
-  {
-    id: 1,
-    sheet: "01/30",
-    file: "196_25_est_001_a",
-    description: "TORRE RESERVATÓRIO: PLANTA DE LOCAÇÃO E DETALHAMENTO DAS FUNDAÇÕES",
-    readDiscipline: "est",
-    lowConfidence: false,
-    reviewedAlertKeys: [],
-  },
-  {
-    id: 2,
-    sheet: "02/30",
-    file: "196_25_est_002_a",
-    description: "TORRE RESERVATÓRIO: PLANTA DE FORMAS TÉRREO, INTERMEDIÁRIO 01, 02, 03 E BARRILETE 01",
-    readDiscipline: "est",
-    lowConfidence: false,
-    reviewedAlertKeys: [],
-  },
-  {
-    id: 3,
-    sheet: "03/34",
-    file: "196_25_est_003_a",
-    description: "TORRE RESERVATÓRIO: PLANTA DE FORMAS INTERMEDIÁRIO 04, 05, 06, BARRILETE 02 E COBERTURA",
-    readDiscipline: "est",
-    lowConfidence: false,
-    reviewedAlertKeys: [],
-  },
-  {
-    id: 4,
-    sheet: "05/30",
-    file: "196_25_fnd_005_a",
-    description: "TORRE RESERVATÓRIO: DETALHAMENTO DE ARMADURAS DAS FUNDAÇÕES",
-    readDiscipline: "fnd",
-    lowConfidence: true,
-    reviewedAlertKeys: [],
-  },
-];
-
-const initialTomos: Tomo[] = [
-  { id: 1, title: "TOMO 1", start: "01/30", end: "10/30", quantity: 10 },
-  { id: 2, title: "TOMO 2", start: "11/30", end: "20/30", quantity: 10 },
-  { id: 3, title: "TOMO 3", start: "21/30", end: "30/30", quantity: 10 },
-];
 
 const checklist = [
   "Abrir o arquivo .odt no LibreOffice Writer",
@@ -1803,8 +1758,6 @@ export function LdWorkspace({
       ).toString();
 
       const firstFile = files[0];
-      const documents = [];
-      const totalPages = 1;
 
       setPdfProgress({
         current: 0,
@@ -1856,171 +1809,6 @@ export function LdWorkspace({
 
       setActiveStep(1);
       return;
-
-      documents.push({ file: firstFile, fileIndex: 0, pdf });
-
-      const nextResults: PdfReadResult[] = [];
-      let nextId = 1;
-
-      for (const { file, fileIndex, pdf } of documents) {
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          const current = nextResults.length + 1;
-          setPdfProgress({
-            current,
-            total: totalPages,
-            fileName: file.name,
-            pageNumber,
-            status: "Extraindo texto da página",
-          });
-          const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1 });
-          const textContent = await page.getTextContent();
-          const textItems: PdfTextItem[] = textContent.items.filter(
-            (item: unknown): item is PdfTextItem =>
-              typeof item === "object" &&
-              item !== null &&
-              "str" in item &&
-              "transform" in item,
-          );
-          const positionedItems = textItems.map((item) => {
-            const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-
-            return {
-              x,
-              y,
-              text: item.str,
-            };
-          });
-          const stampItems = positionedItems.filter(
-            (item) => item.x >= viewport.width * 0.55 && item.y >= viewport.height * 0.55,
-          );
-          const expandedStampItems = positionedItems.filter(
-            (item) => item.x >= viewport.width * 0.45 && item.y >= viewport.height * 0.45,
-          );
-          const fullText = groupTextLines(positionedItems).join(" ");
-          const stampText = groupTextLines(stampItems).join(" ");
-          const expandedStampText = groupTextLines(expandedStampItems).join(" ");
-          const candidateText = stampText || expandedStampText || fullText;
-          const textForAi = [
-            stampText ? `REGIAO DO SELO:\n${stampText}` : "",
-            expandedStampText && expandedStampText !== stampText
-              ? `REGIAO AMPLIADA:\n${expandedStampText}`
-              : "",
-            fullText ? `PAGINA COMPLETA:\n${fullText}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n\n")
-            .slice(0, 60000);
-
-          const textResult = parsePdfTextToRow(
-            candidateText,
-            fullText,
-            file.name,
-            pageNumber,
-            nextId,
-            fileIndex,
-            textForAi,
-            referenceTotal,
-          );
-          let pageResult = textResult;
-          let textAiError = "";
-          const shouldUseTextAi = hasMissingStampFields(textResult) || textResult.row.lowConfidence;
-
-          try {
-            if (textForAi && shouldUseTextAi) {
-              setPdfProgress({
-                current,
-                total: totalPages,
-                fileName: file.name,
-                pageNumber,
-                status: "Interpretando texto com IA",
-              });
-              const textExtraction = await requestTextStampExtraction(textForAi, {
-                taskId: getPdfPageCacheKey(file, pageNumber),
-                taskLabel: `${file.name} p.${pageNumber}`,
-                operation: "ld-stamp-text-extraction",
-                fileName: file.name,
-                pageNumber,
-                source: "text",
-              });
-              pageResult = mergeAiExtraction(textResult, textExtraction, "text");
-            }
-          } catch (textError) {
-            textAiError = getErrorMessage(textError, "Leitura textual por IA falhou.");
-          }
-
-          if (hasMissingStampFields(pageResult) || pageResult.row.lowConfidence) {
-            pageResult = await extractWithProgressiveVision(page, textResult, {
-              taskId: getPdfPageCacheKey(file, pageNumber),
-              taskLabel: `${file.name} p.${pageNumber}`,
-              fileName: file.name,
-              pageNumber,
-            }, (status) => {
-              setPdfProgress({ current, total: totalPages, fileName: file.name, pageNumber, status });
-            });
-
-            if (textAiError && pageResult.aiExtraction === "failed") {
-              pageResult = {
-                ...pageResult,
-                aiError: `${textAiError} ${pageResult.aiError ?? ""}`.trim(),
-              };
-            }
-          } else if (textAiError) {
-            pageResult = {
-              ...textResult,
-              aiExtraction: "failed",
-              aiError: textAiError,
-            };
-          }
-
-          if (hasMissingStampFields(pageResult)) {
-            pageResult = {
-              ...pageResult,
-              row: {
-                ...pageResult.row,
-                lowConfidence: true,
-              },
-            };
-          }
-
-          nextResults.push(pageResult);
-          setPreAnalysisResult(pageResult);
-          const automaticLdData = {
-            ...deriveLdDataFromRow(pageResult.row),
-            ...pageResult.ldData,
-          };
-
-          setLdData((currentData) => ({
-            ...currentData,
-            ...automaticLdData,
-          }));
-          setLdFieldSources((currentSources) => markLdFieldSources(currentSources, automaticLdData, "ai"));
-
-          const parsedSheetTotal = parseSheet(pageResult.row.sheet)?.total;
-
-          if (typeof parsedSheetTotal === "number") {
-            changeReferenceTotal(Number(parsedSheetTotal));
-          }
-
-          setActiveStep(1);
-          return;
-        }
-      }
-
-      setPdfReadResults(nextResults);
-      setRows(nextResults.map((result) => result.row).sort(compareBySheet));
-      setReviewedGlobalWarnings([]);
-
-      const totals = new Set(
-        nextResults
-          .map((result) => parseSheet(result.row.sheet)?.total)
-          .filter((total): total is number => typeof total === "number"),
-      );
-
-      if (totals.size === 1) {
-        const [total] = [...totals];
-        changeReferenceTotal(total);
-      }
     } catch (error) {
       setPdfReadError(error instanceof Error ? error.message : "Não foi possível ler o PDF selecionado.");
     } finally {
@@ -2191,13 +1979,6 @@ export function LdWorkspace({
 
   function sortRowsBySheet() {
     setRows((current) => [...current].sort(compareBySheet));
-  }
-
-  function resetRows() {
-    setRows(initialRows);
-    setTomos(initialTomos);
-    changeReferenceTotal(30);
-    setReviewedGlobalWarnings([]);
   }
 
   function toggleReviewedAlert(rowId: number, key: string, checked: boolean) {
@@ -2579,7 +2360,6 @@ export function LdWorkspace({
                 onRemove={removeRow}
                 onUpdate={updateRow}
                 onSort={sortRowsBySheet}
-                onReset={resetRows}
                 onReferenceTotalChange={changeReferenceTotal}
                 onManualTotalChange={setManualTotal}
                 onToggleReviewedAlert={toggleReviewedAlert}
@@ -3241,7 +3021,6 @@ function ReviewTable({
   onRemove,
   onUpdate,
   onSort,
-  onReset,
   onReferenceTotalChange,
   onManualTotalChange,
   onToggleReviewedAlert,
@@ -3259,7 +3038,6 @@ function ReviewTable({
   onRemove: (id: number) => void;
   onUpdate: (id: number, key: keyof ReviewRow, value: string | boolean) => void;
   onSort: () => void;
-  onReset: () => void;
   onReferenceTotalChange: (value: number | null) => void;
   onManualTotalChange: (value: string) => void;
   onToggleReviewedAlert: (rowId: number, key: string, checked: boolean) => void;
@@ -3598,138 +3376,183 @@ function ReviewTable({
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2" aria-label="Filtros da revisão">
-          {filterOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setFilterMode(option.value)}
-              className={`rounded-md border px-3 py-2 text-xs font-medium transition ${
-                filterMode === option.value
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {option.label} ({option.count})
-            </button>
-          ))}
-        </div>
-        {clipboardStatus ? <p className="text-xs text-muted-foreground">{clipboardStatus}</p> : null}
-        <details className="group border-t border-border pt-3">
-          <summary className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1 py-2 text-sm text-muted-foreground transition hover:text-foreground">
-            <span className="inline-flex items-center gap-2">
-              <SlidersHorizontal size={16} />
-              Ajustes avançados
-            </span>
-            <span className="text-xs">
-              {selectedRows.length > 0
-                ? `${selectedRows.length} selecionada(s)`
-                : "Ordenação e ações em massa"}
-            </span>
-          </summary>
-          <div className="grid gap-3 pt-3">
-            <div className="flex flex-wrap justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={onSort}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
-                >
-                  <ShieldCheck size={16} />
-                  Ordenar por folha
-                </button>
-                <button
-                  type="button"
-                  onClick={onReset}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
-                >
-                  <RotateCcw size={16} />
-                  Restaurar mock
-                </button>
-              </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Dropdown
+            align="start"
+            panelClassName="w-[230px]"
+            trigger={({ open, toggle }) => (
               <button
                 type="button"
-                onClick={onAdd}
+                onClick={toggle}
+                aria-expanded={open}
                 className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
               >
-                <Plus size={16} />
-                Adicionar linha
+                <Filter size={16} />
+                {filterMode === "all"
+                  ? "Filtrar"
+                  : `Filtro: ${filterOptions.find((option) => option.value === filterMode)?.label ?? ""}`}
+                <ChevronDown size={14} className="opacity-60" />
               </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <label className="flex items-center gap-2 text-muted-foreground">
+            )}
+          >
+            {({ close }) => (
+              <>
+                {filterOptions.map((option) => (
+                  <DropdownItem
+                    key={option.value}
+                    onClick={() => {
+                      setFilterMode(option.value);
+                      close();
+                    }}
+                  >
+                    <Check size={14} className={filterMode === option.value ? "opacity-100" : "opacity-0"} />
+                    <span className="flex-1">{option.label}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{option.count}</span>
+                  </DropdownItem>
+                ))}
+              </>
+            )}
+          </Dropdown>
+
+          <Dropdown
+            align="start"
+            panelClassName="w-[230px]"
+            trigger={({ open, toggle }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+              >
+                <SlidersHorizontal size={16} />
                 Ordenar
-                <select
-                  value={sortMode}
-                  onChange={(event) => setSortMode(event.target.value as ReviewSortMode)}
-                  className="h-9 rounded-md border border-border bg-card px-2 text-foreground"
+                <ChevronDown size={14} className="opacity-60" />
+              </button>
+            )}
+          >
+            {({ close }) => (
+              <>
+                {([
+                  { value: "sheet", label: "Nº da folha" },
+                  { value: "status", label: "Status de revisão" },
+                  { value: "file", label: "Arquivo" },
+                  { value: "discipline", label: "Disciplina lida" },
+                ] as const).map((option) => (
+                  <DropdownItem
+                    key={option.value}
+                    onClick={() => {
+                      setSortMode(option.value as ReviewSortMode);
+                      close();
+                    }}
+                  >
+                    <Check size={14} className={sortMode === option.value ? "opacity-100" : "opacity-0"} />
+                    <span className="flex-1">{option.label}</span>
+                  </DropdownItem>
+                ))}
+                <div className="my-1 border-t border-border" />
+                <DropdownItem
+                  onClick={() => {
+                    onSort();
+                    close();
+                  }}
                 >
-                  <option value="sheet">Nº da folha</option>
-                  <option value="status">Status de revisão</option>
-                  <option value="file">Arquivo</option>
-                  <option value="discipline">Disciplina lida</option>
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-3 rounded-md border border-border bg-card p-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div>
-                <p className="text-sm font-medium">
-                  {selectedRows.length > 0
-                    ? `${selectedRows.length} prancha(s) selecionada(s)`
-                    : "Ações em massa"}
+                  <ShieldCheck size={14} />
+                  Reordenar linhas por folha
+                </DropdownItem>
+              </>
+            )}
+          </Dropdown>
+
+          <Dropdown
+            align="start"
+            panelClassName="w-[264px]"
+            trigger={({ open, toggle }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted"
+              >
+                Ações
+                {selectedRows.length > 0 ? (
+                  <span className="rounded-sm bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-[var(--nexodoc-accent)]">
+                    {selectedRows.length}
+                  </span>
+                ) : null}
+                <ChevronDown size={14} className="opacity-60" />
+              </button>
+            )}
+          >
+            {({ close }) => (
+              <>
+                <DropdownItem
+                  onClick={() => {
+                    onAdd();
+                    close();
+                  }}
+                >
+                  <Plus size={14} />
+                  Adicionar linha
+                </DropdownItem>
+                <div className="my-1 border-t border-border" />
+                <p className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Em massa{selectedRows.length > 0 ? ` · ${selectedRows.length} selecionada(s)` : ""}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Selecione linhas na tabela para revisar alertas, limpar baixa confiança ou padronizar disciplina.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={markSelectedWarningsReviewed}
+                <DropdownItem
                   disabled={selectedRows.length === 0}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => {
+                    markSelectedWarningsReviewed();
+                    close();
+                  }}
                 >
-                  <Check size={16} />
+                  <Check size={14} />
                   Revisar alertas
-                </button>
-                <button
-                  type="button"
-                  onClick={clearSelectedLowConfidence}
+                </DropdownItem>
+                <DropdownItem
                   disabled={selectedRows.length === 0}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => {
+                    clearSelectedLowConfidence();
+                    close();
+                  }}
                 >
                   Limpar baixa confiança
-                </button>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  Disciplina
+                </DropdownItem>
+                <div className="flex items-center gap-2 px-2.5 py-1.5">
                   <input
                     value={bulkDiscipline}
                     onChange={(event) => setBulkDiscipline(event.target.value)}
-                    placeholder="ex.: est"
-                    className="h-9 w-24 rounded-md border border-border bg-background px-2 text-foreground"
+                    placeholder="Disciplina (ex.: est)"
+                    className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground"
                   />
-                </label>
-                <button
-                  type="button"
-                  onClick={applySelectedDiscipline}
-                  disabled={selectedRows.length === 0 || bulkDiscipline.trim().length === 0}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Aplicar
-                </button>
-                <button
-                  type="button"
-                  onClick={removeSelectedRows}
+                  <button
+                    type="button"
+                    disabled={selectedRows.length === 0 || bulkDiscipline.trim().length === 0}
+                    onClick={() => {
+                      applySelectedDiscipline();
+                      close();
+                    }}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+                <div className="my-1 border-t border-border" />
+                <DropdownItem
                   disabled={selectedRows.length === 0}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-destructive transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-destructive"
+                  onClick={() => {
+                    removeSelectedRows();
+                    close();
+                  }}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                   Excluir seleção
-                </button>
-              </div>
-            </div>
-          </div>
-        </details>
+                </DropdownItem>
+              </>
+            )}
+          </Dropdown>
+        </div>
+        {clipboardStatus ? <p className="text-xs text-muted-foreground">{clipboardStatus}</p> : null}
       </div>
       {/* Sem min-width: a tabela cabe no container. As colunas que sobravam
           para fora eram Status e Ações -- justamente o que a etapa pede para
@@ -4539,6 +4362,9 @@ function FinalStep({
 }) {
   const generatedNames = new Set(downloads.map((download) => download.fileName));
   const checklistComplete = checklistItems.every((item) => checkedItems.includes(item));
+  // Conferência manual do ODT/PDF, feita após gerar. Marca vale só enquanto a
+  // tela estiver aberta (não fica salva no histórico).
+  const [qaChecked, setQaChecked] = useState<string[]>([]);
   const toggleChecklistItem = (item: string, checked: boolean) => {
     onChecklistChange(
       checked
@@ -4587,6 +4413,38 @@ function FinalStep({
           <FileArchive size={16} />
           Gerar capas desta LD
         </Link>
+
+        <div className="rounded-md border border-border bg-background p-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-sm font-semibold">Após gerar, conferir o arquivo</h3>
+            <span className="font-mono text-xs text-muted-foreground">
+              {qaChecked.length}/{checklist.length}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Conferência manual do ODT/PDF gerados. Não fica salva no histórico.
+          </p>
+          <div className="mt-3 space-y-2">
+            {checklist.map((item) => (
+              <label key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={qaChecked.includes(item)}
+                  onChange={(event) =>
+                    setQaChecked((current) =>
+                      event.target.checked
+                        ? [...current, item]
+                        : current.filter((value) => value !== item),
+                    )
+                  }
+                />
+                <span className={qaChecked.includes(item) ? "text-muted-foreground line-through" : undefined}>
+                  {item}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -4622,7 +4480,6 @@ function FinalStep({
             ))}
           </div>
         </div>
-        <FinalChecklist />
       </div>
     </div>
   );
@@ -4668,43 +4525,3 @@ function LdFileRow({
   );
 }
 
-// Conferencia manual do ODT/PDF gerados, feita fora do app. As marcas valem so
-// enquanto a tela estiver aberta: servem para o usuario nao perder o lugar na
-// lista, nao como registro. Antes eram inputs sem estado nenhum, que esqueciam
-// a marca no primeiro re-render.
-function FinalChecklist() {
-  const [checked, setChecked] = useState<string[]>([]);
-
-  return (
-    <div>
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="font-semibold">Checklist final</h3>
-        <span className="font-mono text-xs text-muted-foreground">
-          {checked.length}/{checklist.length}
-        </span>
-      </div>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Conferência manual dos arquivos gerados. Não fica salva no histórico.
-      </p>
-      <div className="grid gap-2">
-        {checklist.map((item) => (
-          <label
-            key={item}
-            className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm transition hover:bg-muted"
-          >
-            <Checkbox
-              className="mt-0.5"
-              checked={checked.includes(item)}
-              onChange={(event) =>
-                setChecked((current) =>
-                  event.target.checked ? [...current, item] : current.filter((value) => value !== item),
-                )
-              }
-            />
-            <span className={checked.includes(item) ? "text-muted-foreground line-through" : undefined}>{item}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
