@@ -147,8 +147,8 @@ const ldFieldKeys: LdFieldKey[] = [
 ];
 
 const ldFieldLabels: Record<LdFieldKey, string> = {
-  projectCode: "código do projeto",
-  formattedCode: "código formatado",
+  projectCode: "código do projeto (interno)",
+  formattedCode: "código do projeto",
   discipline: "disciplina",
   revision: "revisão",
   sectionTitle: "título da seção",
@@ -1107,7 +1107,11 @@ export function LdWorkspace({
   const reviewedWarnings = reviewedRowWarnings + reviewedGlobalWarningCount;
   const hasReferenceTotal = validation.totals.length <= 1 || referenceTotal !== null;
   const fullAnalysisComplete = rows.length > 0 && !pdfProcessing;
-  const missingRequiredLdFields = ldFieldKeys.filter((key) => ldData[key].trim().length === 0);
+  // projectCode é derivado do campo único "Código do projeto" (formattedCode);
+  // não conta como pendência separada para não duplicar o aviso.
+  const missingRequiredLdFields = ldFieldKeys.filter(
+    (key) => key !== "projectCode" && ldData[key].trim().length === 0,
+  );
 
   // Fonte unica de verdade do que impede a LD de avancar. O resumo lateral, os
   // gates do stepper e os CTAs de cada etapa leem daqui, para nunca divergirem.
@@ -1486,12 +1490,29 @@ export function LdWorkspace({
   }
 
   function updateLdData(key: keyof LdData, value: string) {
-    setLdData((current) => ({ ...current, [key]: value }));
+    setLdData((current) => {
+      const next = { ...current, [key]: value };
+      // Código do projeto e código formatado são o mesmo código; só muda o
+      // separador (_ interno para nome de arquivo vs - de exibição). Editar um
+      // sincroniza o outro, então basta um campo na UI.
+      if (key === "projectCode") {
+        next.formattedCode = value.replace(/_/g, "-");
+      } else if (key === "formattedCode") {
+        next.projectCode = value.replace(/-/g, "_");
+      }
+      return next;
+    });
     if (key !== "templateMode") {
-      setLdFieldSources((current) => ({
-        ...current,
-        [key]: value.trim() ? "manual" : "empty",
-      }));
+      setLdFieldSources((current) => {
+        const source: LdFieldSource = value.trim() ? "manual" : "empty";
+        const next = { ...current, [key]: source };
+        if (key === "projectCode") {
+          next.formattedCode = source;
+        } else if (key === "formattedCode") {
+          next.projectCode = source;
+        }
+        return next;
+      });
     }
   }
 
@@ -2695,10 +2716,9 @@ function LdForm({
       <p className="mt-1 -mb-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:col-span-2">
         Identificação
       </p>
-      <Field required fieldKey="projectCode" label="Código do projeto" source={sources.projectCode} value={data.projectCode} onChange={(value) => onChange("projectCode", value)} />
-      <Field required fieldKey="formattedCode" label="Código formatado" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
+      <Field required fieldKey="formattedCode" label="Código do projeto" placeholder="017-26" source={sources.formattedCode} value={data.formattedCode} onChange={(value) => onChange("formattedCode", value)} />
       <Field required fieldKey="discipline" label="Sigla da disciplina" source={sources.discipline} value={data.discipline} onChange={(value) => onChange("discipline", value)} />
-      <Field required fieldKey="revision" label="Revisão" source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
+      <Field required fieldKey="revision" label="Revisão" options={["A", "B", "C", "D"]} source={sources.revision} value={data.revision} onChange={(value) => onChange("revision", value)} />
 
       <p className="mt-2 -mb-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:col-span-2">
         Conteúdo da LD
@@ -2768,6 +2788,7 @@ function Field({
   required = false,
   placeholder,
   uppercase = false,
+  options,
 }: {
   fieldKey: LdFieldKey;
   label: string;
@@ -2778,9 +2799,13 @@ function Field({
   required?: boolean;
   placeholder?: string;
   uppercase?: boolean;
+  options?: string[];
 }) {
   const isMissing = required && value.trim().length === 0;
   const id = ldFieldDomId(fieldKey);
+  const controlClass = `h-10 rounded-md border bg-background px-3 text-sm ${
+    isMissing ? "border-warning" : "border-border"
+  }`;
 
   return (
     // O badge de procedencia fica fora do <label> para nao entrar no nome
@@ -2792,17 +2817,34 @@ function Field({
         </label>
         <FieldSourceBadge source={isMissing ? "empty" : source} />
       </div>
-      <input
-        id={id}
-        value={value}
-        required={required}
-        placeholder={placeholder}
-        aria-invalid={isMissing}
-        onChange={(event) => onChange(uppercase ? event.target.value.toUpperCase() : event.target.value)}
-        className={`h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground/70 ${
-          uppercase ? "uppercase" : ""
-        } ${isMissing ? "border-warning" : "border-border"}`}
-      />
+      {options ? (
+        <select
+          id={id}
+          value={value}
+          required={required}
+          aria-invalid={isMissing}
+          onChange={(event) => onChange(event.target.value)}
+          className={controlClass}
+        >
+          <option value="">Selecione…</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+          {value && !options.includes(value) ? <option value={value}>{value}</option> : null}
+        </select>
+      ) : (
+        <input
+          id={id}
+          value={value}
+          required={required}
+          placeholder={placeholder}
+          aria-invalid={isMissing}
+          onChange={(event) => onChange(uppercase ? event.target.value.toUpperCase() : event.target.value)}
+          className={`${controlClass} placeholder:text-muted-foreground/70 ${uppercase ? "uppercase" : ""}`}
+        />
+      )}
     </div>
   );
 }
