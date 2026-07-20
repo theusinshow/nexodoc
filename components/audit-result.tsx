@@ -4,15 +4,17 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   Copy,
+  Download,
   Eye,
   ExternalLink,
   FileText,
   LayoutList,
   MapPin,
-  Route,
+  MoreHorizontal,
   Search,
   Wrench,
   X,
@@ -20,8 +22,8 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
-import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
+import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -425,37 +427,6 @@ function countUniqueDocuments(findings: StructuredFinding[]) {
   ).size;
 }
 
-function buildReviewRouteText(findings: StructuredFinding[]) {
-  if (findings.length === 0) {
-    return "Nenhum achado para revisar.";
-  }
-
-  return groupFindingsByDocumentPage(findings)
-    .map((documentGroup) => {
-      const pages = documentGroup.pages
-        .map((pageGroup) => {
-          const items = pageGroup.items
-            .map((finding, index) => {
-              return [
-                `${index + 1}. ${finding.title}`,
-                finding.local ? `Local: ${finding.local}` : null,
-                finding.termoBusca ? `Buscar: ${finding.termoBusca}` : null,
-                finding.acao ? `Ação: ${finding.acao}` : null,
-              ]
-                .filter(Boolean)
-                .join("\n   ");
-            })
-            .join("\n");
-
-          return `Página ${pageGroup.page}\n${items}`;
-        })
-        .join("\n\n");
-
-      return `${documentGroup.document}\n\n${pages}`;
-    })
-    .join("\n\n---\n\n");
-}
-
 function getFirstPageNumber(value?: string) {
   const match = value?.match(/\d+/);
 
@@ -466,37 +437,6 @@ function getFirstPageNumber(value?: string) {
   const page = Number(match[0]);
 
   return Number.isFinite(page) && page > 0 ? page : null;
-}
-
-function getPageSortValue(value: string) {
-  return getFirstPageNumber(value) ?? Number.MAX_SAFE_INTEGER;
-}
-
-function groupFindingsByDocumentPage(findings: StructuredFinding[]) {
-  const documents = new Map<
-    string,
-    Map<string, StructuredFinding[]>
-  >();
-
-  for (const finding of findings) {
-    const document = finding.documento || "Documento não informado";
-    const page = finding.pagina || "não identificada";
-    const pageMap = documents.get(document) ?? new Map<string, StructuredFinding[]>();
-    const pageFindings = pageMap.get(page) ?? [];
-
-    pageFindings.push(finding);
-    pageMap.set(page, pageFindings);
-    documents.set(document, pageMap);
-  }
-
-  return [...documents.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
-    .map(([document, pageMap]) => ({
-      document,
-      pages: [...pageMap.entries()]
-        .sort(([a], [b]) => getPageSortValue(a) - getPageSortValue(b))
-        .map(([page, items]) => ({ page, items })),
-    }));
 }
 
 function normalizeFileName(value: string) {
@@ -748,70 +688,6 @@ function SectionCard({
   );
 }
 
-function CopyTextButton({
-  value,
-  children,
-  className,
-}: {
-  value: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className={className}
-      onClick={handleCopy}
-    >
-      {copied ? <Check /> : <Copy />}
-      {copied ? "Copiado" : children}
-    </Button>
-  );
-}
-
-function FindingSnapshotButton({
-  finding,
-  index,
-}: {
-  finding: StructuredFinding;
-  index: number;
-}) {
-  const [isCreating, setIsCreating] = useState(false);
-
-  async function handleCreateSnapshot() {
-    setIsCreating(true);
-
-    try {
-      await createFindingSnapshot(finding, index);
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleCreateSnapshot}
-      disabled={isCreating}
-    >
-      <Eye />
-      {isCreating ? "Gerando" : "Print do achado"}
-    </Button>
-  );
-}
-
 function FindingField({
   label,
   value,
@@ -829,6 +705,17 @@ function FindingField({
   );
 }
 
+function downloadMarkdown(result: string, fileName = "nexodoc-auditoria.md") {
+  const blob = new Blob([result], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AuditResult({
   content,
   auditId,
@@ -836,7 +723,7 @@ export function AuditResult({
   report,
   pdfSources = [],
 }: AuditResultProps) {
-  const [view, setView] = useState<"summary" | "findings" | "route" | "evidence" | "report">("summary");
+  const [view, setView] = useState<"summary" | "findings" | "report">("summary");
   const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
@@ -910,8 +797,6 @@ export function AuditResult({
   };
   const findingsText = buildFindingsText(findingsWithPdf);
   const actionsText = buildActionsText(findingsWithPdf);
-  const reviewRouteText = buildReviewRouteText(findingsWithPdf);
-  const reviewRoute = groupFindingsByDocumentPage(findingsWithPdf);
   const uniqueDocumentCount = countUniqueDocuments(findingsWithPdf);
   const evidenceLinkCount = findingsWithPdf.filter((finding) => finding.pdfUrl).length;
   const criticalCount = groupedReportFindings
@@ -1176,9 +1061,57 @@ export function AuditResult({
         </div>
 
         <div className="flex flex-wrap items-start gap-2 sm:justify-end">
-          <CopyTextButton value={findingsText}>Copiar achados</CopyTextButton>
-          <CopyTextButton value={actionsText}>Copiar ações</CopyTextButton>
-          <AuditResultActions result={content} />
+          <Dropdown
+            align="end"
+            trigger={({ open, toggle }) => (
+              <Button type="button" variant="outline" size="sm" onClick={toggle} aria-expanded={open}>
+                <Download />
+                Exportar
+                <ChevronDown className="size-3.5 opacity-60" />
+              </Button>
+            )}
+          >
+            {({ close }) => (
+              <>
+                <DropdownItem
+                  onClick={() => {
+                    void navigator.clipboard.writeText(content);
+                    close();
+                  }}
+                >
+                  <Copy className="size-4" />
+                  Copiar resposta
+                </DropdownItem>
+                <DropdownItem
+                  onClick={() => {
+                    void navigator.clipboard.writeText(findingsText);
+                    close();
+                  }}
+                >
+                  <Copy className="size-4" />
+                  Copiar achados
+                </DropdownItem>
+                <DropdownItem
+                  onClick={() => {
+                    void navigator.clipboard.writeText(actionsText);
+                    close();
+                  }}
+                >
+                  <Copy className="size-4" />
+                  Copiar ações
+                </DropdownItem>
+                <DropdownItem
+                  onClick={() => {
+                    downloadMarkdown(content);
+                    close();
+                  }}
+                >
+                  <Download className="size-4" />
+                  Baixar .md
+                </DropdownItem>
+              </>
+            )}
+          </Dropdown>
         </div>
       </div>
 
@@ -1388,24 +1321,59 @@ export function AuditResult({
                           </h4>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 xl:justify-end">
-                          {finding.pdfUrl ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openInlinePdf(finding)}
-                            >
-                              <ExternalLink />
-                              Abrir PDF
-                            </Button>
-                          ) : null}
-                          {finding.termoBusca ? (
-                            <CopyTextButton value={finding.termoBusca}>
-                              Copiar termo
-                            </CopyTextButton>
-                          ) : null}
-                          <FindingSnapshotButton finding={finding} index={index} />
+                        <div className="flex xl:justify-end">
+                          <Dropdown
+                            align="end"
+                            trigger={({ open, toggle }) => (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                onClick={toggle}
+                                aria-expanded={open}
+                                aria-label="Ações do achado"
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            )}
+                          >
+                            {({ close }) => (
+                              <>
+                                {finding.pdfUrl ? (
+                                  <DropdownItem
+                                    onClick={() => {
+                                      openInlinePdf(finding);
+                                      close();
+                                    }}
+                                  >
+                                    <ExternalLink className="size-4" />
+                                    Abrir PDF
+                                  </DropdownItem>
+                                ) : null}
+                                {finding.termoBusca ? (
+                                  <DropdownItem
+                                    onClick={() => {
+                                      void navigator.clipboard.writeText(finding.termoBusca ?? "");
+                                      close();
+                                    }}
+                                  >
+                                    <Copy className="size-4" />
+                                    Copiar termo
+                                  </DropdownItem>
+                                ) : null}
+                                <DropdownItem
+                                  onClick={() => {
+                                    void createFindingSnapshot(finding, index);
+                                    close();
+                                  }}
+                                >
+                                  <Eye className="size-4" />
+                                  Print do achado
+                                </DropdownItem>
+                              </>
+                            )}
+                          </Dropdown>
                         </div>
                       </div>
 
@@ -1570,246 +1538,6 @@ export function AuditResult({
               </div>
             ) : (
               <EmptyState description="Nenhum achado encontrado." className="py-8" />
-            )}
-          </SectionCard>
-        ) : null}
-
-        {view === "evidence" ? (
-          <SectionCard title="Localização no PDF" icon={Eye}>
-            {findingsWithPdf.length > 0 ? (
-              <div className="grid gap-3">
-                {evidenceLinkCount === 0 ? (
-                  <div className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/70 p-4 text-sm text-[var(--status-warning)]">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                      <div>
-                        <p className="font-medium">PDF não disponível nesta sessão</p>
-                        <p className="mt-1 text-xs leading-5">
-                          A demo local e auditorias reabertas do histórico em memória podem não ter arquivo persistido. Ainda assim, os campos abaixo indicam documento, página provável, local e termo para conferência manual.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-                {findingsWithPdf.map((finding, index) => (
-                  <div key={`${finding.raw}-evidence-${index}`} className="rounded-md border bg-card p-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                        <p className="font-mono text-xs uppercase text-muted-foreground">
-                          Localização {index + 1}
-                        </p>
-                        <h4 className="mt-1 font-medium text-foreground">
-                          {finding.title}
-                        </h4>
-                        </div>
-                        <div className="flex shrink-0 flex-wrap gap-2">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-md border px-2 py-1 font-mono text-xs",
-                              finding.pdfUrl
-                                ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                                : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
-                            )}
-                          >
-                            {finding.pdfUrl ? "PDF vinculado" : "sem PDF local"}
-                          </span>
-                          {finding.pdfUrl ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openInlinePdf(finding)}
-                            >
-                              <ExternalLink />
-                              Abrir página
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="grid gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 font-mono text-xs sm:grid-cols-3">
-                        <p>
-                          <span className="block text-muted-foreground">Documento</span>
-                          <span className="font-medium text-foreground">
-                            {finding.documento || "não informado"}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="block text-muted-foreground">Página provável</span>
-                          <span className="font-medium text-foreground">
-                            {finding.pagina || "não identificada"}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="block text-muted-foreground">Local</span>
-                          <span className="font-medium text-foreground">
-                            {finding.local || "não informado"}
-                          </span>
-                        </p>
-                      </div>
-                      {(finding.categoria || finding.referencia) ? (
-                        <div className="grid gap-2 text-xs sm:grid-cols-2">
-                          {finding.categoria ? (
-                            <p>
-                              <span className="font-medium text-foreground">Categoria:</span>{" "}
-                              {finding.categoria}
-                            </p>
-                          ) : null}
-                          {finding.referencia ? (
-                            <p>
-                              <span className="font-medium text-foreground">
-                                Referência comparada:
-                              </span>{" "}
-                              {finding.referencia}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {finding.evidencia ? (
-                        <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
-                          <p className="mb-2 font-mono text-xs uppercase text-muted-foreground">
-                            Trecho grifado
-                          </p>
-                          <p className="text-sm leading-6 text-foreground">
-                            <HighlightedEvidence
-                              text={finding.evidencia}
-                              needle={getHighlightNeedle(finding)}
-                            />
-                          </p>
-                        </div>
-                      ) : null}
-                      {finding.termoBusca ? (
-                        <div className="flex flex-col gap-2 rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-                          <p className="min-w-0">
-                            <span className="font-medium text-foreground">
-                              Termo para localizar:
-                            </span>{" "}
-                            <span className="break-words text-foreground">
-                              {finding.termoBusca}
-                            </span>
-                          </p>
-                          <CopyTextButton value={finding.termoBusca}>
-                            Copiar termo
-                          </CopyTextButton>
-                        </div>
-                      ) : null}
-                      <div className="flex flex-wrap gap-2">
-                        <FindingSnapshotButton finding={finding} index={index} />
-                        {finding.pdfUrl ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openInlinePdf(finding)}
-                          >
-                            <ExternalLink />
-                            Abrir página provável
-                          </Button>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-col gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                        <span>
-                          {finding.pdfUrl
-                            ? "O PDF abre na página provável. Use o termo de busca para localizar o trecho exato."
-                            : "Use este registro como roteiro manual: documento, página provável, local e termo de busca."}
-                        </span>
-                        {!finding.pdfUrl ? (
-                          <span className="text-[var(--status-warning)]">
-                            PDF indisponível nesta sessão.
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                description="Nenhuma evidência visual necessária para este resultado."
-                className="py-8"
-              />
-            )}
-          </SectionCard>
-        ) : null}
-
-        {view === "route" ? (
-          <SectionCard title="Roteiro de revisão" icon={Route}>
-            {reviewRoute.length > 0 ? (
-              <div className="space-y-4">
-                {reviewRoute.map((documentGroup) => (
-                  <section key={documentGroup.document} className="rounded-md border bg-card p-4">
-                    <div className="flex items-center gap-2 border-b pb-3">
-                      <FileText className="size-4 text-primary" />
-                      <h4 className="text-sm font-semibold text-foreground">
-                        {documentGroup.document}
-                      </h4>
-                    </div>
-                    <div className="mt-4 space-y-4">
-                      {documentGroup.pages.map((pageGroup) => (
-                        <div key={`${documentGroup.document}-${pageGroup.page}`} className="grid gap-3 md:grid-cols-[7rem_1fr]">
-                          <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-3 font-mono text-xs text-muted-foreground">
-                            Página provável
-                            <p className="mt-1 text-lg font-semibold text-foreground">
-                              {pageGroup.page}
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            {pageGroup.items.map((finding, index) => (
-                              <div
-                                key={`${finding.raw}-route-${index}`}
-                                className="rounded-md border bg-[var(--nexodoc-recessed)]/80 p-3"
-                              >
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div className="flex min-w-0 gap-2">
-                                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border bg-card font-mono text-xs text-muted-foreground">
-                                      {index + 1}
-                                    </span>
-                                    <p className="font-medium text-foreground">
-                                      {finding.title}
-                                    </p>
-                                  </div>
-                                  {finding.pdfUrl ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => openInlinePdf(finding)}
-                                    >
-                                      <ExternalLink />
-                                      Abrir
-                                    </Button>
-                                  ) : null}
-                                </div>
-                                <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                                  <p>
-                                    <span className="text-muted-foreground">Local:</span>{" "}
-                                    <span className="text-foreground">
-                                      {finding.local || "não informado"}
-                                    </span>
-                                  </p>
-                                  <p>
-                                    <span className="text-muted-foreground">Buscar:</span>{" "}
-                                    <span className="text-foreground">
-                                      {finding.termoBusca || finding.evidencia || "-"}
-                                    </span>
-                                  </p>
-                                </div>
-                                {finding.acao ? (
-                                  <p className="mt-2 text-xs text-muted-foreground">
-                                    {finding.acao}
-                                  </p>
-                                ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <EmptyState description="Nenhum achado para revisar." className="py-8" />
             )}
           </SectionCard>
         ) : null}

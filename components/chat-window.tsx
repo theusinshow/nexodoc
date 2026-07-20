@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   BookmarkPlus,
   CheckCircle2,
-  Clock3,
+  ChevronDown,
   ClipboardCheck,
   FileSearch,
   Files,
@@ -13,11 +13,11 @@ import {
   ListChecks,
   LogOut,
   Menu,
-  PlayCircle,
+  PanelRight,
   RotateCcw,
   ScrollText,
+  SlidersHorizontal,
   TableProperties,
-  TestTube2,
   Wrench,
   X,
 } from "lucide-react";
@@ -29,11 +29,11 @@ import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AuditProgress } from "@/components/audit-progress";
 import { AuditResult, type AuditPdfSource } from "@/components/audit-result";
 import { Composer } from "@/components/composer";
-import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { MessageBubble } from "@/components/message-bubble";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
+import { Dropdown } from "@/components/ui/dropdown";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DEFAULT_ANALYSIS_LEVEL,
@@ -48,7 +48,6 @@ import {
   getAuditModeLabel,
   type AuditMode,
 } from "@/lib/audit-mode";
-import { getDemoAuditResult } from "@/lib/audit-demo-data";
 import type { AuditFileAttachment, DocumentType } from "@/lib/document-types";
 import type { DocumentClassification, DocumentKind } from "@/lib/audit-classify";
 import { PREFEITURAS, PREFEITURA_OUTRA_ID, findPrefeitura } from "@/lib/prefeituras";
@@ -159,11 +158,6 @@ type AuditTriageOption = {
   prompt: string;
 };
 
-const DEMO_FILE_NAMES: Record<AuditMode, string[]> = {
-  memorial: ["Memorial descritivo.pdf"],
-  volume: ["Capa e separatriz.pdf", "LD arquitetura.pdf", "Pranchas arquitetura.pdf"],
-};
-
 const AUDIT_TRIAGE_OPTIONS: AuditTriageOption[] = [
   {
     id: "memorial-coherence",
@@ -258,12 +252,6 @@ function normalizeText(value: string) {
 
 function getDefaultPrompt(mode: AuditMode) {
   return AUDIT_TRIAGE_OPTIONS.find((option) => option.mode === mode)?.prompt ?? AUDIT_TRIAGE_OPTIONS[0].prompt;
-}
-
-function getDemoProjectName(mode: AuditMode) {
-  return mode === "volume"
-    ? "Escola Municipal Exemplo - Volume Arquitetura"
-    : "Escola Municipal Exemplo - Memorial";
 }
 
 function getStatusFromResult(result?: string) {
@@ -516,9 +504,10 @@ export function ChatWindow({
   const [gabaritoEndereco, setGabaritoEndereco] = useState("");
   const [classifications, setClassifications] = useState<DocumentClassification[]>([]);
   const [isClassifying, setIsClassifying] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [gabaritoOpen, setGabaritoOpen] = useState(false);
   const classifiedSignatureRef = useRef("");
-  const [useMockMode, setUseMockMode] = useState(isMockMode && allowDemoMode);
+  // Mock permanece disponível apenas via env var (invisível ao usuário na UI).
+  const [useMockMode] = useState(isMockMode && allowDemoMode);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<"audit" | "followup" | null>(null);
@@ -533,6 +522,8 @@ export function ChatWindow({
   const [learningNotice, setLearningNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarClosing, setSidebarClosing] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   function closeSidebar() {
     setSidebarClosing(true);
@@ -602,7 +593,7 @@ export function ChatWindow({
     extractFirstRecommendedAction(latestResult?.content) ||
     (latestResult
       ? "Revisar achados, confirmar evidências e registrar decisão técnica."
-      : "Carregue a demo local ou envie uma auditoria para iniciar a inspeção.");
+      : "Envie os PDFs e execute uma auditoria para iniciar a inspeção.");
   const activeAudit = auditHistory.find((item) => item.id === activeAuditId);
   const displayedFileCount = files.length || activeAudit?.fileNames.length || 0;
   const setupComplete = true;
@@ -619,6 +610,21 @@ export function ChatWindow({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isLoading, error]);
+
+  useEffect(() => {
+    if (!detailsOpen) {
+      return;
+    }
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDetailsOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [detailsOpen]);
 
   useEffect(() => {
     return () => {
@@ -860,54 +866,6 @@ export function ChatWindow({
     setError("");
     setActiveAuditId(null);
     setElapsedMs(0);
-  }
-
-  function handleLoadDemoAudit() {
-    const demoId = crypto.randomUUID();
-    const demoResult = getDemoAuditResult(auditMode);
-    const fileNames = DEMO_FILE_NAMES[auditMode];
-    const title = `Demo ${getAuditModeLabel(auditMode)}`;
-    const demoProjectName = getDemoProjectName(auditMode);
-    const demoDescription = "Cenário demonstrativo local, sem chamada de API.";
-    const demoElapsedMs = auditMode === "volume" ? 18400 : 9200;
-    const userMessage: ChatMessage = {
-      id: `${demoId}-request`,
-      role: "user",
-      content: getDefaultPrompt(auditMode),
-      auditMode,
-    };
-    const assistantMessage: ChatMessage = {
-      id: `${demoId}-result`,
-      role: "assistant",
-      content: demoResult,
-      auditMode,
-      elapsedMs: demoElapsedMs,
-    };
-
-    setAuditTitle(title);
-    setProjectName(demoProjectName);
-    setAuditDescription(demoDescription);
-    setFiles([]);
-    setError("");
-    setElapsedMs(0);
-    setActiveAuditId(demoId);
-    setMessages([userMessage, assistantMessage]);
-    setAuditHistory((current) => [
-      {
-        id: demoId,
-        title,
-        projectName: demoProjectName,
-        description: demoDescription,
-        createdAt: new Date(),
-        auditMode,
-        analysisLevel,
-        fileNames,
-        status: "completed",
-        result: demoResult,
-        elapsedMs: demoElapsedMs,
-      },
-      ...current,
-    ]);
   }
 
   function createPdfSources() {
@@ -1245,129 +1203,6 @@ export function ChatWindow({
     }
   }
 
-  function renderAuditContext() {
-    return (
-      <section className="border-b bg-background px-4 py-2.5 sm:px-5">
-        <div className="flex flex-wrap items-center gap-3">
-          {projectContext ? (
-            <div className="flex max-w-full items-center gap-2 rounded-sm border bg-card px-2.5 py-1.5 text-xs">
-              <span className="font-medium">Projeto vinculado</span>
-              <span className="font-mono text-muted-foreground">{projectContext.code}</span>
-              <span className="max-w-[220px] truncate text-muted-foreground">{projectContext.name}</span>
-            </div>
-          ) : (
-            <div className="flex max-w-full items-center gap-2 rounded-sm border border-dashed bg-card/70 px-2.5 py-1.5 text-xs">
-              <span className="font-medium">Modo independente</span>
-              <span className="text-muted-foreground">Sem projeto vinculado</span>
-              <button
-                type="button"
-                onClick={() => router.push("/projetos")}
-                className="font-medium text-primary outline-none hover:underline focus-visible:underline"
-              >
-                Projetos
-              </button>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={auditTitle}
-              onChange={(event) => setAuditTitle(event.target.value)}
-              placeholder="Identificação"
-              disabled={isLoading}
-              className="h-8 w-[140px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-            />
-            <input
-              value={projectName}
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="Projeto"
-              disabled={isLoading}
-              className="h-8 w-[160px] rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">Tipo</span>
-              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
-                {(["memorial", "volume"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => handleAuditModeChange(mode)}
-                    className={cn(
-                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
-                      auditMode === mode
-                        ? "border border-ring/40 bg-card font-medium text-foreground"
-                        : "border border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                    title={getAuditModeDescription(mode)}
-                  >
-                    {getAuditModeLabel(mode)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">Nível</span>
-              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
-                {(["standard", "deep"] as const).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => setAnalysisLevel(level)}
-                    className={cn(
-                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
-                      analysisLevel === level
-                        ? level === "deep"
-                          ? "border border-[var(--nexodoc-tertiary)]/40 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
-                          : "border border-ring/40 bg-card font-medium text-foreground"
-                        : "border border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                    title={getAnalysisLevelDescription(level)}
-                  >
-                    {getAnalysisLevelLabel(level)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-medium text-muted-foreground whitespace-nowrap">IA</span>
-              <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
-                {([
-                  { value: "single" as const, label: "Única", title: "Auditoria com o motor principal e validação padrão configurada." },
-                  { value: "dual" as const, label: "2 IAs", title: "Modo comparativo: uma segunda IA revisa os achados antes do relatório final." },
-                ]).map((engine) => (
-                  <button
-                    key={engine.value}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => setAuditEngine(engine.value)}
-                    className={cn(
-                      "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
-                      auditEngine === engine.value
-                        ? engine.value === "dual"
-                          ? "border border-primary/40 bg-primary/10 font-medium text-[var(--nexodoc-accent)]"
-                          : "border border-ring/40 bg-card font-medium text-foreground"
-                        : "border border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                    title={engine.title}
-                  >
-                    {engine.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   function renderDetectionCards() {
     if (files.length === 0) {
       return null;
@@ -1471,248 +1306,273 @@ export function ChatWindow({
     );
   }
 
+  function renderConfigDropdown() {
+    const engineLabel = auditEngine === "dual" ? " · 2 IAs" : "";
+
+    return (
+      <Dropdown
+        align="end"
+        panelClassName="w-[300px] p-3"
+        trigger={({ open, toggle }) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={toggle}
+            aria-expanded={open}
+            disabled={isLoading}
+          >
+            <SlidersHorizontal className="size-4" />
+            <span className="font-mono text-[11px]">
+              {getAuditModeLabel(auditMode)} · {getAnalysisLevelLabel(analysisLevel)}
+              {engineLabel}
+            </span>
+            <ChevronDown className="size-3.5 opacity-60" />
+          </Button>
+        )}
+      >
+        {() => (
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Preset</p>
+              <div className="grid gap-1">
+                {AUDIT_TRIAGE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected =
+                    auditMode === option.mode && analysisLevel === option.recommendedLevel;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleTriageSelect(option)}
+                      className={cn(
+                        "flex items-center gap-2 rounded-sm border px-2.5 py-1.5 text-left text-sm outline-none transition-colors",
+                        isSelected
+                          ? "border-ring/60 bg-[var(--nexodoc-raised)] text-foreground"
+                          : "border-transparent text-muted-foreground hover:bg-[var(--nexodoc-raised)] hover:text-foreground",
+                      )}
+                    >
+                      <Icon className={cn("size-4", isSelected ? "text-primary" : "text-muted-foreground")} />
+                      <span className="flex-1">{option.title}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground">{option.fileHint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-2.5 border-t pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[11px] text-muted-foreground">Tipo</span>
+                <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                  {(["memorial", "volume"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => handleAuditModeChange(mode)}
+                      title={getAuditModeDescription(mode)}
+                      className={cn(
+                        "rounded-sm px-2.5 py-1 font-mono text-[11px] outline-none transition-colors",
+                        auditMode === mode
+                          ? "border border-ring/40 bg-card font-medium text-foreground"
+                          : "border border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {getAuditModeLabel(mode)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[11px] text-muted-foreground">Nível</span>
+                <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                  {(["standard", "deep"] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setAnalysisLevel(level)}
+                      title={getAnalysisLevelDescription(level)}
+                      className={cn(
+                        "rounded-sm px-2.5 py-1 font-mono text-[11px] outline-none transition-colors",
+                        analysisLevel === level
+                          ? level === "deep"
+                            ? "border border-[var(--nexodoc-tertiary)]/40 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
+                            : "border border-ring/40 bg-card font-medium text-foreground"
+                          : "border border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {getAnalysisLevelLabel(level)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[11px] text-muted-foreground">IA</span>
+                <div className="flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
+                  {([
+                    { value: "single" as const, label: "Única", title: "Motor principal com validação padrão." },
+                    { value: "dual" as const, label: "2 IAs", title: "Uma segunda IA revisa os achados antes do relatório." },
+                  ]).map((engine) => (
+                    <button
+                      key={engine.value}
+                      type="button"
+                      onClick={() => setAuditEngine(engine.value)}
+                      title={engine.title}
+                      className={cn(
+                        "rounded-sm px-2.5 py-1 font-mono text-[11px] outline-none transition-colors",
+                        auditEngine === engine.value
+                          ? engine.value === "dual"
+                            ? "border border-primary/40 bg-primary/10 font-medium text-[var(--nexodoc-accent)]"
+                            : "border border-ring/40 bg-card font-medium text-foreground"
+                          : "border border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {engine.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Identificação (opcional)
+              </p>
+              <div className="grid gap-2">
+                <input
+                  value={auditTitle}
+                  onChange={(event) => setAuditTitle(event.target.value)}
+                  placeholder="Identificação"
+                  disabled={isLoading}
+                  className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                />
+                <input
+                  value={projectName}
+                  onChange={(event) => setProjectName(event.target.value)}
+                  placeholder="Projeto"
+                  disabled={isLoading}
+                  className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Dropdown>
+    );
+  }
+
   function renderAuditSetup() {
     return (
-      <section className="border-b bg-background px-4 py-3 sm:px-5">
-        <div className="mb-3">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            O que você vai auditar?
-          </p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-sm border border-ring/60 bg-[var(--nexodoc-raised)] px-3 py-2.5">
-              <span className="flex items-center gap-2 font-medium text-foreground">
-                <ScrollText className="size-4 text-primary" />
-                Memorial / Volume (texto)
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                Auditoria de texto completa — é o que você faz aqui mesmo, abaixo.
-              </span>
+      <section className="border-b bg-background px-4 py-2.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {projectContext ? (
+            <div className="flex min-w-0 items-center gap-2 rounded-md border bg-card px-2.5 py-1.5 text-xs">
+              <span className="font-medium text-foreground">Projeto</span>
+              <span className="shrink-0 font-mono text-primary">{projectContext.code}</span>
+              <span className="max-w-[200px] truncate text-muted-foreground">{projectContext.name}</span>
             </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-dashed bg-card/70 px-2.5 py-1.5 text-xs">
+              <span className="text-muted-foreground">Modo independente</span>
+              <button
+                type="button"
+                onClick={() => router.push("/projetos")}
+                className="font-medium text-primary outline-none hover:underline focus-visible:underline"
+              >
+                Vincular projeto
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => router.push("/ld")}
               disabled={isLoading}
-              className="rounded-sm border bg-card px-3 py-2.5 text-left outline-none transition-[border-color] hover:border-ring/50 focus-visible:border-ring"
+              className="hidden items-center gap-1.5 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:underline sm:inline-flex"
             >
-              <span className="flex items-center gap-2 font-medium text-foreground">
-                <TableProperties className="size-4 text-muted-foreground" />
-                Prancha — Selo / LD
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                Ler número, título, revisão e disciplina do carimbo. Abre a Montagem de LDs.
-              </span>
+              <TableProperties className="size-3.5" />
+              Prancha / selo → LDs
             </button>
-            <div
-              aria-disabled="true"
-              title="Conferência visual do desenho — em desenvolvimento"
-              className="cursor-not-allowed rounded-sm border border-dashed bg-card/60 px-3 py-2.5 opacity-70"
-            >
-              <span className="flex items-center gap-2 font-medium text-muted-foreground">
-                <FileSearch className="size-4" />
-                Prancha — Desenho
-                <span className="ml-auto rounded-sm border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider">
-                  Em breve
-                </span>
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                Conferência visual do desenho (cotas, elementos). Em desenvolvimento.
-              </span>
-            </div>
+            {renderConfigDropdown()}
           </div>
         </div>
+
         {files.length > 0 ? (
-          <div className="space-y-3">
+          <div className="mt-3 space-y-3">
             {renderDetectionCards()}
-            <div className="rounded-sm border bg-card px-3 py-3">
-              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Gabarito da obra{" "}
-                <span className="font-sans normal-case text-muted-foreground/70">
-                  — opcional; preencher deixa a auditoria mais precisa (senão a IA identifica sozinha)
-                </span>
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Prefeitura</span>
-                  <select
-                    value={gabaritoPrefeitura}
-                    onChange={(event) => setGabaritoPrefeitura(event.target.value)}
-                    disabled={isLoading}
-                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] focus:border-ring"
-                  >
-                    <option value="">Selecione…</option>
-                    {PREFEITURAS.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nome}
-                      </option>
-                    ))}
-                    <option value={PREFEITURA_OUTRA_ID}>Outra…</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Nome da obra (capa)</span>
-                  <input
-                    value={gabaritoObra}
-                    onChange={(event) => setGabaritoObra(event.target.value)}
-                    placeholder="Como consta na capa"
-                    disabled={isLoading}
-                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Centro de custo</span>
-                  <input
-                    value={gabaritoCentroCusto}
-                    onChange={(event) => setGabaritoCentroCusto(event.target.value)}
-                    placeholder="Código do projeto"
-                    disabled={isLoading}
-                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Endereço</span>
-                  <input
-                    value={gabaritoEndereco}
-                    onChange={(event) => setGabaritoEndereco(event.target.value)}
-                    placeholder="Logradouro da obra"
-                    disabled={isLoading}
-                    className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="overflow-hidden rounded-md border bg-card">
               <button
                 type="button"
-                onClick={() => setAdvancedOpen((value) => !value)}
-                disabled={isLoading}
-                className="font-mono text-[11px] font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:underline"
+                onClick={() => setGabaritoOpen((value) => !value)}
+                aria-expanded={gabaritoOpen}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left outline-none transition-colors hover:bg-[var(--nexodoc-raised)] focus-visible:ring-3 focus-visible:ring-ring/20"
               >
-                {advancedOpen ? "Ocultar opções avançadas ▲" : "Opções avançadas ▾"}
+                <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Gabarito da obra
+                  <span className="ml-1 font-sans normal-case text-muted-foreground/70">— opcional, aumenta a precisão</span>
+                </span>
+                <ChevronDown
+                  className={cn("size-4 shrink-0 text-muted-foreground transition-transform", gabaritoOpen && "rotate-180")}
+                />
               </button>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {getAuditModeLabel(auditMode)} / {getAnalysisLevelLabel(analysisLevel)}
-              </span>
-            </div>
-          </div>
-        ) : null}
-        {files.length === 0 || advancedOpen ? (
-        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(220px,280px)_1fr_auto] xl:items-start">
-          <div className="min-w-0 space-y-2">
-            {projectContext ? (
-              <div className="rounded-sm border bg-card px-3 py-2 text-xs">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projeto vinculado</p>
-                <div className="mt-1 flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 font-mono text-primary">{projectContext.code}</span>
-                  <span className="truncate text-foreground">{projectContext.name}</span>
+              {gabaritoOpen ? (
+                <div className="grid gap-2 border-t px-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Prefeitura</span>
+                    <select
+                      value={gabaritoPrefeitura}
+                      onChange={(event) => setGabaritoPrefeitura(event.target.value)}
+                      disabled={isLoading}
+                      className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] focus:border-ring"
+                    >
+                      <option value="">Selecione…</option>
+                      {PREFEITURAS.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.nome}
+                        </option>
+                      ))}
+                      <option value={PREFEITURA_OUTRA_ID}>Outra…</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Nome da obra (capa)</span>
+                    <input
+                      value={gabaritoObra}
+                      onChange={(event) => setGabaritoObra(event.target.value)}
+                      placeholder="Como consta na capa"
+                      disabled={isLoading}
+                      className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Centro de custo</span>
+                    <input
+                      value={gabaritoCentroCusto}
+                      onChange={(event) => setGabaritoCentroCusto(event.target.value)}
+                      placeholder="Código do projeto"
+                      disabled={isLoading}
+                      className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Endereço</span>
+                    <input
+                      value={gabaritoEndereco}
+                      onChange={(event) => setGabaritoEndereco(event.target.value)}
+                      placeholder="Logradouro da obra"
+                      disabled={isLoading}
+                      className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
+                    />
+                  </label>
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-sm border border-dashed bg-card/70 px-3 py-2 text-xs">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Modo independente</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-foreground">Sem projeto vinculado</span>
-                  <button
-                    type="button"
-                    onClick={() => router.push("/projetos")}
-                    className="font-medium text-primary outline-none hover:underline focus-visible:underline"
-                  >
-                    Projetos
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-              <input
-                value={auditTitle}
-                onChange={(event) => setAuditTitle(event.target.value)}
-                placeholder="Identificacao"
-                disabled={isLoading}
-                className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-              />
-              <input
-                value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-                placeholder="Projeto"
-                disabled={isLoading}
-                className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs font-mono outline-none transition-[border-color] placeholder:text-muted-foreground focus:border-ring"
-              />
+              ) : null}
             </div>
           </div>
-
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Triagem da auditoria</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Escolha pelo que precisa conferir. O prompt sera ajustado automaticamente.</p>
-              </div>
-              <p className="font-mono text-[11px] text-muted-foreground">
-                Atual: {getAuditModeLabel(auditMode)} / {getAnalysisLevelLabel(analysisLevel)}
-              </p>
-            </div>
-            <div className="grid gap-2 lg:grid-cols-3">
-              {AUDIT_TRIAGE_OPTIONS.map((option) => {
-                const Icon = option.icon;
-                const isSelected = auditMode === option.mode && analysisLevel === option.recommendedLevel;
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => handleTriageSelect(option)}
-                    className={cn(
-                      "min-h-[118px] rounded-sm border bg-card px-3 py-3 text-left outline-none transition-[border-color,background-color] hover:border-ring/50 hover:bg-[var(--nexodoc-raised)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 disabled:opacity-60",
-                      isSelected && "border-ring/60 bg-[var(--nexodoc-raised)]",
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 font-medium text-foreground">
-                        <Icon className={cn("size-4", isSelected ? "text-primary" : "text-muted-foreground")} />
-                        {option.title}
-                      </span>
-                      <span className="rounded-sm border bg-[var(--nexodoc-recessed)] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        {option.fileHint}
-                      </span>
-                    </span>
-                    <span className="mt-2 block text-xs leading-5 text-muted-foreground">{option.description}</span>
-                    <span className="mt-2 block font-mono text-[11px] text-muted-foreground">
-                      {option.shortLabel} / {getAnalysisLevelLabel(option.recommendedLevel)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-sm border bg-card px-3 py-2">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Ajuste fino</p>
-            <div className="mt-2 flex rounded-sm border bg-[var(--nexodoc-recessed)] p-0.5">
-              {(["standard", "deep"] as const).map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setAnalysisLevel(level)}
-                  className={cn(
-                    "rounded-sm px-3 py-1.5 font-mono text-xs outline-none transition-colors",
-                    analysisLevel === level
-                      ? level === "deep"
-                        ? "border border-[var(--nexodoc-tertiary)]/40 bg-[var(--nexodoc-tertiary-bg)] font-medium text-[var(--nexodoc-tertiary)]"
-                        : "border border-ring/40 bg-card font-medium text-foreground"
-                      : "border border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                  title={getAnalysisLevelDescription(level)}
-                >
-                  {getAnalysisLevelLabel(level)}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 max-w-[220px] text-xs leading-5 text-muted-foreground">
-              Padrao economiza tokens. Profundo amplia comparacao e validacao.
-            </p>
-          </div>
-        </div>
         ) : null}
       </section>
     );
@@ -1747,13 +1607,6 @@ export function ChatWindow({
             <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-6 text-muted-foreground">
               Arraste um PDF técnico para esta área. A IA identifica a obra, o município e o tipo do documento; você confere e executa.
             </p>
-
-            <div className="mt-7 flex justify-center">
-              <Button type="button" variant="outline" size="sm" className="h-8" onClick={handleLoadDemoAudit}>
-                <PlayCircle className="size-4" />
-                Ver demonstração
-              </Button>
-            </div>
           </div>
 
           <ol className="mx-auto mt-6 flex max-w-[560px] flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-[11px] text-muted-foreground">
@@ -1798,20 +1651,8 @@ export function ChatWindow({
             <p className="mt-1 text-xs leading-5 text-destructive/70">
               {isValidationError
                 ? "Revise arquivos anexados, limite de 5 PDFs e solicitação antes de enviar."
-                : "A auditoria não foi concluída. Você pode tentar novamente, cancelar ou carregar a demo local."}
+                : "A auditoria não foi concluída. Você pode tentar novamente ou cancelar."}
             </p>
-            {!isValidationError ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-2 h-8 border-destructive/25 text-destructive hover:bg-destructive/10"
-                onClick={handleLoadDemoAudit}
-              >
-                <PlayCircle className="size-4" />
-                Ver demo local
-              </Button>
-            ) : null}
           </div>
         </div>
       </div>
@@ -1895,102 +1736,73 @@ export function ChatWindow({
             Criador de LDs
           </Button>
           {isAdmin ? (
-            <>
-              <Button
+            <div className="pt-1">
+              <button
                 type="button"
-                variant="secondary"
-                className="w-full justify-start h-9 text-xs"
-                onClick={() => window.location.assign("/admin")}
+                onClick={() => setAdminOpen((value) => !value)}
+                aria-expanded={adminOpen}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/20"
               >
-                <Gauge className="size-3.5" />
-                Painel admin
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
-              >
-                <Gauge className="size-3.5" />
-                Uso e custos
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
-              >
-                <ListChecks className="size-3.5" />
-                Histórico admin
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
-              >
-                <CheckCircle2 className="size-3.5" />
-                Qualidade
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
-              >
-                <Gauge className="size-3.5" />
-                Configurações
-              </Button>
-            </>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full justify-start h-9 text-xs"
-            onClick={handleLoadDemoAudit}
-          >
-            <PlayCircle className="size-3.5" />
-            Demo local
-          </Button>
-        </div>
-
-        {allowDemoMode ? (
-          <button
-            type="button"
-            aria-pressed={useMockMode}
-            onClick={() => setUseMockMode((current) => !current)}
-            className="mt-3 flex w-full items-center justify-between rounded-sm border border-transparent bg-transparent px-2 py-1.5 text-left font-mono text-[11px] outline-none transition-[border-color,background-color] hover:border-border hover:bg-[var(--nexodoc-raised)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
-          >
-            <span className="flex items-center gap-1.5">
-              <TestTube2 className="size-3.5 text-[var(--nexodoc-tertiary)]" />
-              <span>
-                <span className="font-medium text-foreground">Modo demo</span>
-              </span>
-            </span>
-            <span
-              className={cn(
-                "h-4 w-8 rounded-full border p-px transition-colors",
-                useMockMode ? "border-[var(--nexodoc-tertiary-strong)]/50 bg-[var(--nexodoc-tertiary-strong)]/60" : "bg-[var(--nexodoc-recessed)]",
-              )}
-            >
-              <span
-                className={cn(
-                  "block size-3 rounded-full bg-foreground transition-transform",
-                  useMockMode && "translate-x-4",
-                )}
-              />
-            </span>
-          </button>
-        ) : null}
-
-        <div className="mt-3 space-y-1 text-[11px]">
-          {isMockMode ? (
-            <div className="flex items-center gap-1.5 rounded-sm border border-[var(--nexodoc-tertiary)]/25 bg-[var(--nexodoc-tertiary-bg)] px-2 py-1 font-mono text-[var(--nexodoc-tertiary)]">
-              <span className="size-1.5 rounded-full bg-current" />
-              Mock ativo
+                <span className="flex items-center gap-1.5">
+                  <Gauge className="size-3" />
+                  Admin
+                </span>
+                <ChevronDown className={cn("size-3.5 transition-transform", adminOpen && "rotate-180")} />
+              </button>
+              {adminOpen ? (
+                <div className="mt-1 space-y-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full justify-start h-9 text-xs"
+                    onClick={() => window.location.assign("/admin")}
+                  >
+                    <Gauge className="size-3.5" />
+                    Painel admin
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => window.open("/admin/usage", "_blank", "noopener,noreferrer")}
+                  >
+                    <Gauge className="size-3.5" />
+                    Uso e custos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => window.open("/admin/audits", "_blank", "noopener,noreferrer")}
+                  >
+                    <ListChecks className="size-3.5" />
+                    Histórico admin
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => window.open("/admin/quality", "_blank", "noopener,noreferrer")}
+                  >
+                    <CheckCircle2 className="size-3.5" />
+                    Qualidade
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start h-9 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => window.open("/admin/config", "_blank", "noopener,noreferrer")}
+                  >
+                    <Gauge className="size-3.5" />
+                    Configurações
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
+        </div>
 
+        <div className="mt-3 space-y-1 text-[11px]">
           {historyStatus ? (
             <div
               className={cn(
@@ -2129,19 +1941,6 @@ export function ChatWindow({
             >
               <LayoutGrid className="size-4" />
             </Button>
-            {allowDemoMode ? (
-              <Button
-                type="button"
-                aria-pressed={useMockMode}
-                variant={useMockMode ? "secondary" : "outline"}
-                size="sm"
-                className="h-8"
-                onClick={() => setUseMockMode((current) => !current)}
-              >
-                <TestTube2 className="size-4" />
-                Demo
-              </Button>
-            ) : null}
             <Button type="button" variant="outline" size="sm" className="h-8" onClick={handleNewAudit}>
               <RotateCcw className="size-4" />
               Nova
@@ -2158,9 +1957,52 @@ export function ChatWindow({
                 Admin
               </Button>
             ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 min-h-8 w-8"
+              onClick={() => setDetailsOpen(true)}
+              aria-label="Abrir painel de detalhes"
+            >
+              <PanelRight className="size-4" />
+            </Button>
             <SignOutButton compact />
           </div>
         </header>
+
+        <div className="hidden items-center justify-between gap-3 border-b bg-card px-5 py-2 lg:flex">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] font-medium",
+                statusToneClass,
+              )}
+            >
+              {statusIsCritical ? (
+                <AlertTriangle className="size-3" />
+              ) : (
+                <CheckCircle2 className="size-3" />
+              )}
+              {latestStatus}
+            </span>
+            {latestFindingCount > 0 ? (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {latestFindingCount} achado(s)
+              </span>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant={detailsOpen ? "secondary" : "outline"}
+            size="sm"
+            className="h-8"
+            onClick={() => setDetailsOpen((value) => !value)}
+          >
+            <PanelRight className="size-4" />
+            Detalhes
+          </Button>
+        </div>
 
         {!isLoading && messages.length === 0 ? renderAuditSetup() : null}
 
@@ -2226,20 +2068,41 @@ export function ChatWindow({
         />
       </section>
 
-      <aside className="hidden h-dvh w-[320px] shrink-0 border-l bg-[var(--nexodoc-panel)] p-4 xl:flex xl:flex-col">
+      {detailsOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-fade-in"
+          onClick={() => setDetailsOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+      <aside
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 flex h-dvh w-[340px] max-w-[90vw] flex-col overflow-y-auto border-l bg-[var(--nexodoc-panel)] p-4 transition-transform duration-200 ease-out",
+          detailsOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
+        )}
+        aria-hidden={!detailsOpen}
+      >
         <div className="flex items-start justify-between gap-3 border-b pb-3">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Painel</p>
-            <h2 className="mt-0.5 text-base font-semibold">Controle</h2>
+          <div className="flex items-center gap-2">
+            <div className={`rounded-sm border px-2 py-1 font-mono text-[11px] font-medium ${statusToneClass}`}>
+              {statusIsCritical ? (
+                <AlertTriangle className="mr-1 inline size-3" />
+              ) : (
+                <CheckCircle2 className="mr-1 inline size-3" />
+              )}
+              {latestStatus}
+            </div>
           </div>
-          <div className={`rounded-sm border px-2 py-1 font-mono text-[11px] font-medium ${statusToneClass}`}>
-            {statusIsCritical ? (
-              <AlertTriangle className="mr-1 inline size-3" />
-            ) : (
-              <CheckCircle2 className="mr-1 inline size-3" />
-            )}
-            {latestStatus}
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 min-h-7 w-7"
+            onClick={() => setDetailsOpen(false)}
+            aria-label="Fechar painel de detalhes"
+          >
+            <X className="size-3.5" />
+          </Button>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -2270,19 +2133,6 @@ export function ChatWindow({
           <p className="mt-1.5 text-sm leading-5 text-foreground">
             {latestRecommendedAction}
           </p>
-          {latestResult?.report ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8"
-                onClick={handleLoadDemoAudit}
-              >
-                Demo local
-              </Button>
-            </div>
-          ) : null}
           {latestResult?.report ? (
             <div className="mt-3 border-t pt-3">
               <div className="mb-2 flex items-center gap-2">
