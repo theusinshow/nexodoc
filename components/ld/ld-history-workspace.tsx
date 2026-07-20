@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type DraftStatus = "DRAFT" | "GENERATED" | "ARCHIVED";
 
@@ -274,12 +276,20 @@ export function LdHistoryWorkspace({
               Registros encontrados
             </div>
             {loading ? (
-              <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-                <Loader2 className="animate-spin" size={16} />
-                Carregando histórico
+              <div className="divide-y divide-border">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="grid gap-3 p-4">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-64" />
+                  </div>
+                ))}
               </div>
             ) : drafts.length === 0 ? (
-              <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma LD encontrada.</p>
+              <EmptyState
+                icon={History}
+                label="Nenhum registro"
+                description="Nenhuma LD encontrada com os filtros atuais. Gere uma LD no Criador para vê-la aqui."
+              />
             ) : (
               <div className="divide-y divide-border">
                 {drafts.map((draft) => (

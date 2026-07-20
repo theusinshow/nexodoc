@@ -245,6 +245,29 @@ textarea {
   will-change: transform;
 }
 
+/* Skeleton: varredura unica, sutil e lenta (DESIGN.md secao Loading).
+   Nunca um pulse brilhante. */
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.04),
+    transparent
+  );
+  animation: skeleton-shimmer 1.8s var(--ease-feedback) infinite;
+  will-change: transform;
+}
+
 @keyframes nexodoc-enter {
   0% {
     opacity: 0;
