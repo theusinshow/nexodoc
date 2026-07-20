@@ -15,12 +15,15 @@ import {
   Gauge,
   Loader2,
   Lock,
+  Maximize2,
   Plus,
   RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
   Upload,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -3963,6 +3966,21 @@ function StampZoomOverlay({
   onClose: () => void;
 }) {
   const imageUrl = result.stampImageUrl ?? result.stampPreviewUrl;
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const zoomIn = () => setScale((value) => Math.min(5, Math.round((value + 0.5) * 10) / 10));
+  const zoomOut = () => setScale((value) => Math.max(1, Math.round((value - 0.5) * 10) / 10));
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
@@ -3983,18 +4001,59 @@ function StampZoomOverlay({
           </button>
         </div>
         <div className="grid max-h-[calc(92vh-64px)] gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-h-80 overflow-auto rounded-sm border border-border bg-background p-3">
+          <div className="flex min-h-80 flex-col overflow-hidden rounded-sm border border-border bg-background">
             {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={`Selo ampliado de ${result.fileName}, página ${result.pageNumber}`}
-                width={1200}
-                height={800}
-                unoptimized
-                className="h-auto min-w-full object-contain"
-              />
+              <>
+                <div className="flex items-center gap-1 border-b border-border bg-[var(--nexodoc-raised)] px-2 py-1.5">
+                  <button
+                    type="button"
+                    onClick={zoomOut}
+                    disabled={scale <= 1}
+                    className="inline-flex size-8 items-center justify-center rounded-md border border-border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Diminuir zoom"
+                  >
+                    <ZoomOut size={16} />
+                  </button>
+                  <span className="w-14 text-center font-mono text-xs text-muted-foreground">
+                    {Math.round(scale * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={zoomIn}
+                    disabled={scale >= 5}
+                    className="inline-flex size-8 items-center justify-center rounded-md border border-border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Aumentar zoom"
+                  >
+                    <ZoomIn size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScale(1)}
+                    disabled={scale === 1}
+                    className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Maximize2 size={14} />
+                    Ajustar
+                  </button>
+                  <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
+                    Clique na imagem para ampliar; arraste a barra para navegar.
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-auto p-3">
+                  <Image
+                    src={imageUrl}
+                    alt={`Selo ampliado de ${result.fileName}, página ${result.pageNumber}`}
+                    width={1200}
+                    height={800}
+                    unoptimized
+                    onClick={() => setScale((value) => (value >= 3 ? 1 : value + 1))}
+                    style={{ width: `${scale * 100}%` }}
+                    className={`h-auto max-w-none object-contain ${scale >= 5 ? "cursor-zoom-out" : "cursor-zoom-in"}`}
+                  />
+                </div>
+              </>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma imagem de selo foi registrada para esta linha.</p>
+              <p className="p-3 text-sm text-muted-foreground">Nenhuma imagem de selo foi registrada para esta linha.</p>
             )}
           </div>
           <dl className="space-y-3 rounded-sm border border-border bg-background p-3 text-sm">
