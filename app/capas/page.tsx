@@ -56,6 +56,7 @@ export default async function CapasPage({ searchParams }: CapasPageProps) {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <PageHeader
+        backHref="/"
         title="Gerador de Capas"
         description="Gere capas tecnicas padronizadas a partir de templates ODT. Modulo independente, com integracao opcional ao Criador de LDs."
       >

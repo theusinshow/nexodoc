@@ -25,6 +25,7 @@ export default async function ProjectsPage() {
     return (
       <main className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-7">
         <PageHeader
+          backHref="/"
           title="Projetos"
           description="DATABASE_URL nao esta configurada. Configure o banco para consultar projetos."
         />
@@ -66,6 +67,7 @@ export default async function ProjectsPage() {
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-7">
       <PageHeader
+        backHref="/"
         title="Projetos"
         description="Base consolidada de projetos, documentos, uploads, artefatos e eventos gerados pelos modulos."
       />

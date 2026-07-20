@@ -32,6 +32,7 @@ export default async function VolumesPage({
   return (
     <div className="w-full max-w-full space-y-6 overflow-x-clip px-4 py-4 sm:px-6 lg:px-8">
       <PageHeader
+        backHref="/"
         title="Organização de Volumes"
         description="Monte volumes tecnicos a partir de PDFs, selecione paginas, gere separatrizes, valide a montagem e exporte PDF ou ZIP."
       />
