@@ -42,7 +42,7 @@ const availableModules: readonly ModuleDef[] = [
     href: "/audit",
     label: "Abrir conferência",
     icon: BookOpenCheck,
-    emphasis: true,
+    emphasis: false,
     status: "active",
     shortcut: "Ctrl A",
   },
@@ -75,7 +75,7 @@ const availableModules: readonly ModuleDef[] = [
     href: "/projetos",
     label: "Abrir projetos",
     icon: FolderKanban,
-    emphasis: false,
+    emphasis: true,
     status: "active",
     shortcut: null,
   },
@@ -120,10 +120,6 @@ export default async function DashboardPage() {
   }
 
   const isAdmin = access.isAdmin;
-
-  const availableCount = availableModules.filter((m) => m.status === "active").length;
-  const plannedCount = availableModules.filter((m) => m.status === "planned").length;
-  const fmt = (n: number) => String(n).padStart(2, "0");
 
   const primaryModule = availableModules.find((m) => m.emphasis) ?? availableModules[0];
   const secondaryModules = availableModules.filter((m) => m.title !== primaryModule.title);
@@ -176,35 +172,18 @@ export default async function DashboardPage() {
       </header>
 
       <div className="relative mx-auto flex max-w-7xl flex-col gap-9 px-5 py-8 sm:px-7 lg:py-12">
-        <section className="grid items-end gap-8 lg:grid-cols-[1fr_auto]">
-          <div className="max-w-3xl nexodoc-enter">
-            <div className="inline-flex items-center gap-2 border border-primary/30 bg-primary/8 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--nexodoc-accent)]">
-              <LayoutGrid className="size-3.5" />
-              Painel de módulos
-            </div>
-            <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-              Produção documental em um só ambiente.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-              Escolha a operação para iniciar. A conferência documental segue como fluxo
-              principal; LDs e capas já estão disponíveis no mesmo workspace autenticado.
-            </p>
+        <section className="max-w-3xl nexodoc-enter">
+          <div className="inline-flex items-center gap-2 border border-primary/30 bg-primary/8 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--nexodoc-accent)]">
+            <LayoutGrid className="size-3.5" />
+            Painel de módulos
           </div>
-
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:w-[290px]">
-            <div className="bg-card p-4">
-              <p className="font-mono text-[11px] uppercase text-muted-foreground">Disponíveis</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-[var(--status-ok)]">
-                {fmt(availableCount)}
-              </p>
-            </div>
-            <div className="bg-card p-4">
-              <p className="font-mono text-[11px] uppercase text-muted-foreground">Planejados</p>
-              <p className="mt-2 font-mono text-3xl font-semibold text-muted-foreground">
-                {fmt(plannedCount)}
-              </p>
-            </div>
-          </div>
+          <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+            Produção documental em um só ambiente.
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+            Escolha a operação para iniciar. Todos os módulos estão disponíveis no
+            mesmo workspace autenticado.
+          </p>
         </section>
 
         <section aria-labelledby="available-title" className="flex flex-col gap-4">
