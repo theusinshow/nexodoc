@@ -176,7 +176,7 @@ export function AdminNav() {
             </button>
             {dropdownOpen ? (
               <div className={cn(
-                "absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-panel",
+                "absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-[var(--shadow-overlay)]",
                 dropdownClosing ? "animate-out fade-out-0 zoom-out-95" : "dropdown-expand",
               )}>
                 {overflowLinks.map((link) => (

@@ -84,7 +84,7 @@ export function KeyboardShortcutsHelp() {
     >
       <div
         className={cn(
-          "mx-4 w-full max-w-md rounded-md border border-border bg-card p-6 shadow-panel",
+          "mx-4 w-full max-w-md rounded-md border border-border bg-card p-6 shadow-[var(--shadow-overlay)]",
           closing ? "animate-out fade-out-0 zoom-out-95" : "modal-scale-in",
         )}
         role="dialog"
