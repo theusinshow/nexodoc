@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -80,8 +80,8 @@ export default function AuditPdfViewerInternal({ url, page, highlight }: AuditPd
       file={url}
       onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
       loading={
-        <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Carregando PDF…
+        <div className="p-3">
+          <Skeleton className="mx-auto h-[70vh] w-full max-w-[560px]" />
         </div>
       }
       error={

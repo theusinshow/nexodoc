@@ -23,6 +23,8 @@ import dynamic from "next/dynamic";
 import { AuditResultActions } from "@/components/audit-result-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import {
   classifyFindingDiscipline,
@@ -47,7 +49,11 @@ import { cn } from "@/lib/utils";
 // Visor de PDF só no cliente (react-pdf não faz SSR).
 const AuditPdfViewer = dynamic(() => import("@/components/audit-pdf-viewer-internal"), {
   ssr: false,
-  loading: () => <div className="p-6 text-sm text-muted-foreground">Carregando visor…</div>,
+  loading: () => (
+    <div className="p-3">
+      <Skeleton className="h-[70vh] w-full" />
+    </div>
+  ),
 });
 
 type ActivePdf = { url: string; page: number; highlight?: string; label?: string };
@@ -1317,9 +1323,10 @@ export function AuditResult({
 
                 <div className="grid gap-4">
                   {groupedPrincipal.length === 0 ? (
-                    <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                      Nenhum achado com os filtros selecionados.
-                    </p>
+                    <EmptyState
+                      description="Nenhum achado com os filtros selecionados."
+                      className="py-8"
+                    />
                   ) : null}
                   {groupedPrincipal.map((finding, index) => {
                     const disciplina = findingDiscipline(finding);
@@ -1562,7 +1569,7 @@ export function AuditResult({
                 ) : null}
               </div>
             ) : (
-              <p>Nenhum achado encontrado.</p>
+              <EmptyState description="Nenhum achado encontrado." className="py-8" />
             )}
           </SectionCard>
         ) : null}
@@ -1717,7 +1724,10 @@ export function AuditResult({
                 ))}
               </div>
             ) : (
-              <p>Nenhuma evidência visual necessária para este resultado.</p>
+              <EmptyState
+                description="Nenhuma evidência visual necessária para este resultado."
+                className="py-8"
+              />
             )}
           </SectionCard>
         ) : null}
@@ -1799,7 +1809,7 @@ export function AuditResult({
                 ))}
               </div>
             ) : (
-              <p>Nenhum achado para revisar.</p>
+              <EmptyState description="Nenhum achado para revisar." className="py-8" />
             )}
           </SectionCard>
         ) : null}
