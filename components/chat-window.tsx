@@ -2070,15 +2070,18 @@ export function ChatWindow({
 
       {detailsOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-fade-in"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-fade-in xl:hidden"
           onClick={() => setDetailsOpen(false)}
           aria-hidden="true"
         />
       ) : null}
       <aside
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex h-dvh w-[340px] max-w-[90vw] flex-col overflow-y-auto border-l bg-[var(--nexodoc-panel)] p-4 transition-transform duration-200 ease-out",
-          detailsOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
+          // Em telas largas (xl) encaixa como coluna no fluxo, empurrando o
+          // conteúdo. Abaixo de xl vira drawer sobreposto (fixed) com backdrop.
+          "z-50 flex h-dvh w-[340px] max-w-[90vw] shrink-0 flex-col overflow-y-auto border-l bg-[var(--nexodoc-panel)] p-4",
+          "fixed inset-y-0 right-0 transition-transform duration-200 ease-out xl:static xl:z-auto xl:max-w-none xl:transition-none",
+          detailsOpen ? "translate-x-0" : "pointer-events-none translate-x-full xl:hidden",
         )}
         aria-hidden={!detailsOpen}
       >
