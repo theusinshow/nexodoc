@@ -367,6 +367,21 @@ function extractFileCode(value: string, sourceText: string) {
   return "";
 }
 
+// O número da folha vem embutido no código do arquivo (ex.: 040_26_est_imp_005_a
+// -> folha 5): é o grupo numérico logo antes do sufixo de revisão (letra) no fim.
+// Serve para recuperar a folha quando a IA não leu o campo Nº DA FOLHA.
+function extractSheetNumberFromFileCode(fileCode: string): number | null {
+  const match = fileCode.match(/[_\-.](\d{1,3})[_\-.][A-Za-z]+\d*$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function cleanDescriptionValue(value: string) {
   const normalized = normalizeExtractedValue(value);
 
@@ -2004,7 +2019,39 @@ export function LdWorkspace({
         await waitForUiFrame();
       }
 
-      setPdfReadResults(nextResults);
+      // Recupera folhas cujo número a IA não leu: o total dominante das demais
+      // folhas + o número embutido no código do arquivo montam o NN/TT que faltou,
+      // evitando "folha faltante" falsa numa sequência completa.
+      const readTotals = nextResults
+        .map((result) => parseSheet(result.row.sheet)?.total)
+        .filter((total): total is number => typeof total === "number");
+      const totalCounts = new Map<number, number>();
+      for (const total of readTotals) {
+        totalCounts.set(total, (totalCounts.get(total) ?? 0) + 1);
+      }
+      let dominantTotal: number | null = null;
+      let bestCount = 0;
+      for (const [total, count] of totalCounts) {
+        if (count > bestCount) {
+          bestCount = count;
+          dominantTotal = total;
+        }
+      }
+      dominantTotal = dominantTotal ?? referenceTotal;
+
+      if (dominantTotal) {
+        for (const result of nextResults) {
+          if (parseSheet(result.row.sheet)) {
+            continue;
+          }
+          const sheetNumber = extractSheetNumberFromFileCode(result.row.file);
+          if (sheetNumber && sheetNumber <= dominantTotal) {
+            result.row.sheet = formatSheet(sheetNumber, dominantTotal);
+          }
+        }
+      }
+
+      setPdfReadResults([...nextResults]);
       setRows(nextResults.map((result) => result.row).sort(compareBySheet));
       setReviewedGlobalWarnings([]);
 
