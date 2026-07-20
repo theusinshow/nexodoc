@@ -2079,22 +2079,16 @@ export function ChatWindow({
         className={cn(
           // Em telas largas (xl) encaixa como coluna no fluxo, empurrando o
           // conteúdo. Abaixo de xl vira drawer sobreposto (fixed) com backdrop.
-          "z-50 flex h-dvh w-[340px] max-w-[90vw] shrink-0 flex-col overflow-y-auto border-l bg-[var(--nexodoc-panel)] p-4",
+          "z-50 flex h-dvh w-[300px] max-w-[90vw] shrink-0 flex-col overflow-y-auto border-l bg-[var(--nexodoc-panel)] p-4",
           "fixed inset-y-0 right-0 transition-transform duration-200 ease-out xl:static xl:z-auto xl:max-w-none xl:transition-none",
           detailsOpen ? "translate-x-0" : "pointer-events-none translate-x-full xl:hidden",
         )}
         aria-hidden={!detailsOpen}
       >
-        <div className="flex items-start justify-between gap-3 border-b pb-3">
-          <div className="flex items-center gap-2">
-            <div className={`rounded-sm border px-2 py-1 font-mono text-[11px] font-medium ${statusToneClass}`}>
-              {statusIsCritical ? (
-                <AlertTriangle className="mr-1 inline size-3" />
-              ) : (
-                <CheckCircle2 className="mr-1 inline size-3" />
-              )}
-              {latestStatus}
-            </div>
+        <div className="flex items-center justify-between gap-3 border-b pb-3">
+          <div className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] font-medium", statusToneClass)}>
+            {statusIsCritical ? <AlertTriangle className="size-3" /> : <CheckCircle2 className="size-3" />}
+            {latestStatus}
           </div>
           <Button
             type="button"
@@ -2108,7 +2102,19 @@ export function ChatWindow({
           </Button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 rounded-md border bg-card px-4 py-3">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Achados</p>
+          <p
+            className={cn(
+              "mt-1 font-mono text-3xl font-semibold",
+              latestFindingCount > 0 ? "text-[var(--nexodoc-tertiary)]" : "text-foreground",
+            )}
+          >
+            {latestFindingCount}
+          </p>
+        </div>
+
+        <dl className="mt-3 grid gap-px overflow-hidden rounded-md border bg-border">
           {[
             { label: "Tipo", value: getAuditModeLabel(auditMode) },
             { label: "Nível", value: getAnalysisLevelLabel(latestResult?.report?.runtime?.nivel_analise ?? analysisLevel) },
@@ -2118,68 +2124,70 @@ export function ChatWindow({
               tone: latestResult?.report?.runtime?.motor_auditoria === "dual" || auditEngine === "dual" ? "text-[var(--nexodoc-accent)]" : undefined,
             },
             { label: "Tempo", value: isLoading ? formatSeconds(elapsedMs) : formatSeconds(latestResult?.elapsedMs) },
-            { label: "PDFs", value: displayedFileCount || "-" },
-            { label: "Achados", value: String(latestFindingCount), tone: latestFindingCount > 0 ? "text-[var(--nexodoc-tertiary)]" : undefined },
+            { label: "PDFs", value: String(displayedFileCount || "-") },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-sm border bg-card px-3 py-2.5">
-              <p className="font-mono text-[11px] text-muted-foreground">{metric.label}</p>
-              <p className={cn("mt-0.5 font-mono text-sm font-medium text-foreground", metric.tone)}>{metric.value}</p>
+            <div key={metric.label} className="flex items-center justify-between gap-3 bg-card px-3 py-2">
+              <dt className="font-mono text-[11px] text-muted-foreground">{metric.label}</dt>
+              <dd className={cn("font-mono text-xs font-medium text-foreground", metric.tone)}>{metric.value}</dd>
             </div>
           ))}
-        </div>
+        </dl>
 
-        <section className="mt-3 rounded-sm border border-[var(--nexodoc-tertiary)]/15 bg-[var(--nexodoc-tertiary-bg)] p-3">
-          <div className="flex items-center gap-2">
-            <Wrench className="size-3.5 text-[var(--nexodoc-tertiary)]" />
-            <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--nexodoc-tertiary)]">Próxima ação</p>
-          </div>
-          <p className="mt-1.5 text-sm leading-5 text-foreground">
-            {latestRecommendedAction}
-          </p>
-          {latestResult?.report ? (
-            <div className="mt-3 border-t pt-3">
-              <div className="mb-2 flex items-center gap-2">
-                <BookmarkPlus className="size-3.5 text-primary" />
-                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Aprendizado global</p>
-              </div>
-              <div className="grid gap-2">
-                <input
-                  value={learningTitle}
-                  onChange={(event) => setLearningTitle(event.target.value)}
-                  placeholder="Título do aprendizado"
-                  className="h-9 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-2.5 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
-                />
-                <Textarea
-                  value={learningContent}
-                  onChange={(event) => setLearningContent(event.target.value)}
-                  placeholder="Ex.: Sempre tratar citação de outra obra como achado crítico..."
-                  className="min-h-20 resize-none bg-[var(--nexodoc-recessed)] text-sm leading-5 shadow-none"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={handleSaveLearning}
-                  disabled={isSavingLearning}
-                >
-                  <BookmarkPlus className="size-3.5" />
-                  {isSavingLearning ? "Salvando" : "Salvar"}
-                </Button>
-                {learningNotice ? (
-                  <p className="font-mono text-xs text-muted-foreground">{learningNotice}</p>
-                ) : null}
-              </div>
+        {latestResult ? (
+          <section className="mt-3 rounded-md border border-[var(--nexodoc-tertiary)]/15 bg-[var(--nexodoc-tertiary-bg)] p-3">
+            <div className="flex items-center gap-2">
+              <Wrench className="size-3.5 text-[var(--nexodoc-tertiary)]" />
+              <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--nexodoc-tertiary)]">Próxima ação</p>
             </div>
-          ) : null}
-        </section>
+            <p className="mt-1.5 text-sm leading-5 text-foreground">{latestRecommendedAction}</p>
+          </section>
+        ) : null}
 
-        <section className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-sm border bg-card p-3">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Projeto</p>
-          <pre className="mt-1.5 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-foreground">
+        {latestResult?.report ? (
+          <details className="group mt-3 rounded-md border bg-card">
+            <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground">
+              <BookmarkPlus className="size-3.5 text-primary" />
+              Aprendizado global
+            </summary>
+            <div className="grid gap-2 border-t p-3">
+              <input
+                value={learningTitle}
+                onChange={(event) => setLearningTitle(event.target.value)}
+                placeholder="Título do aprendizado"
+                className="h-9 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-2.5 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
+              />
+              <Textarea
+                value={learningContent}
+                onChange={(event) => setLearningContent(event.target.value)}
+                placeholder="Ex.: Sempre tratar citação de outra obra como achado crítico..."
+                className="min-h-20 resize-none bg-[var(--nexodoc-recessed)] text-sm leading-5 shadow-none"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={handleSaveLearning}
+                disabled={isSavingLearning}
+              >
+                <BookmarkPlus className="size-3.5" />
+                {isSavingLearning ? "Salvando" : "Salvar"}
+              </Button>
+              {learningNotice ? (
+                <p className="font-mono text-xs text-muted-foreground">{learningNotice}</p>
+              ) : null}
+            </div>
+          </details>
+        ) : null}
+
+        <details className="mt-3 rounded-md border bg-card">
+          <summary className="cursor-pointer px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground">
+            Projeto
+          </summary>
+          <pre className="whitespace-pre-wrap break-words border-t p-3 font-sans text-sm leading-6 text-foreground">
             {latestProject || projectName || "Aguardando auditoria. Envie os PDFs para iniciar."}
           </pre>
-        </section>
+        </details>
       </aside>
       <KeyboardShortcutsHelp />
     </main>
