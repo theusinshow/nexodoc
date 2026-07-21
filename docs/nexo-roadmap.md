@@ -11,6 +11,18 @@
 4. **Não altera o conteúdo-fonte.** O Nexo empacota, gera artefatos novos (LD, capa) e audita. Nunca edita as pranchas do usuário.
 5. **Kill-switch sempre.** É um módulo isolado. Se der ruim, desliga a flag e os outros módulos seguem intactos.
 
+## Fluxo canônico (confirmado com o usuário) — o caminho principal
+
+A unidade de trabalho é **o lote de pranchas de UMA disciplina**, não o projeto inteiro nem o memorial:
+
+1. Engenheiro da disciplina (ex.: incêndio) anexa **as pranchas dele** + escolhe a **prefeitura**.
+2. Nexo lê os **selos das pranchas** (OCR — reusa `/api/ld/extract-stamp`) → obra/fase + folhas → propõe **capa + LD**. Órgão/secretaria/formato de volume vêm do **template da prefeitura**; obra/fase do selo. Engenheiro confirma.
+3. Gera capa + LD (`generateCovers`, `createLD`).
+4. Depois: memorial pronto → **audita** (conferência leve sempre; completa contra o memorial quando anexado).
+5. Salva resultados **nas pastas certas**, fecha.
+
+**Casos raros** (mantidos, mas secundários): upload de pasta inteira; auditoria do memorial inteiro.
+
 ## O Dossiê do Projeto
 
 Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao longo da conversa e que cada ferramenta consome sem redigitar: obra, órgão, código, revisão, fase, disciplinas, arquivos e artefatos gerados. Cada fato carrega origem (`extraido | projeto | usuario | sugerido`) e `confirmado`.
@@ -25,7 +37,10 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
 - [x] **Ferramentas headless de geração** (subagent + verificado/testado):
   - `server/nexo/tools/generate-separatrizes.ts` — `generateSeparatrizes()` (ODT+PDF+ZIP, Buffers). Testado: ODT real gerado.
   - `server/nexo/tools/generate-covers.ts` — `generateCovers()` (compõe generateOdtBuffer+convertOdtToPdf+JSZip; persistência opcional c/ userEmail explícito, sem auth()).
-- [ ] **Ferramentas restantes**: `createLD` (compõe `validateRows`+`generateOdtBuffer`(ld)+`convertOdtToPdf`); `assembleVolume` (`buildRowPdf`, recebe Map<id,ArrayBuffer>) + extrair `buildLocalSuggestions` de `suggest/route.ts`; `runAudit` (CARO: extrair ~40 helpers de audit/route.ts — por último, ou chamar a rota existente).
+- [ ] **PRIMÁRIO — leitura de selo das pranchas**: reusar `/api/ld/extract-stamp` (OCR do carimbo → obra/cliente/fase/folha/descrição) como o intake do caso comum. É daqui que saem as linhas da LD e a identidade da capa. Depende de renderizar a região do selo por prancha (como o módulo LD faz).
+- [ ] **PRIMÁRIO — `createLD`** (compõe `validateRows`+`generateOdtBuffer`(ld)+`convertOdtToPdf`). Necessário pro passo 2 do fluxo canônico.
+- [ ] **Conferência leve** (auditoria do caso comum): folhas/código/revisão/disciplina batem entre pranchas, capa e LD — sem depender do memorial.
+- [ ] Secundário: `assembleVolume` (`buildRowPdf`, Map<id,ArrayBuffer>) + extrair `buildLocalSuggestions`; `runAudit` completo (CARO, por último) para a auditoria rara contra o memorial.
 - [x] Semente de estado compartilhado: `getProjectContextForUser` (id/code/name/client/status) — o Dossiê estende isso.
 
 ### Blocos/tomos (pendência refinada)
