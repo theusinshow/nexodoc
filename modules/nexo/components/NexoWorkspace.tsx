@@ -12,10 +12,12 @@ import {
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import { ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
+import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -284,8 +286,9 @@ export function NexoWorkspace() {
           )}
         </div>
 
-        {/* Direita: estrutura de volumes (quando ha) + conversa */}
+        {/* Direita: selos (fluxo comum) + estrutura + conversa */}
         <div className="space-y-4">
+          <SelosPanel />
           {dossie && dossie.volumes.length > 0 && (
             <div className="rounded-md border border-border bg-card">
               <div className="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -393,6 +396,133 @@ function DossieRow({ label, value }: { label: string; value?: string }) {
     <div className="flex gap-2">
       <dt className="w-24 shrink-0 text-muted-foreground">{label}:</dt>
       <dd className="min-w-0 flex-1 font-medium">{value || "—"}</dd>
+    </div>
+  );
+}
+
+/**
+ * Leitura de selo das pranchas (fluxo canonico). Renderiza o carimbo no browser
+ * e OCRa via /api/ld/extract-stamp; mostra o que extraiu de cada folha — a
+ * materia-prima da LD (proximo passo: virar proposta de LD + capa).
+ */
+function SelosPanel() {
+  const [results, setResults] = useState<SeloResult[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef<HTMLInputElement>(null);
+
+  async function run(list: FileList | null) {
+    if (!list) return;
+    const files = Array.from(list).filter((f) => /\.pdf$/i.test(f.name));
+    if (files.length === 0) {
+      setError("Selecione PDFs de pranchas.");
+      return;
+    }
+    setError(null);
+    setResults([]);
+    setBusy(true);
+    try {
+      const collected: SeloResult[] = [];
+      await extractSelosFromFiles(files, (r) => {
+        collected.push(r);
+        setResults([...collected]);
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao ler selos.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const okCount = results.filter((r) => r.extraction).length;
+
+  return (
+    <div className="rounded-md border border-border bg-card">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <ScanLine className="h-4 w-4 text-muted-foreground" />
+          <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            Selos das pranchas
+          </span>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => ref.current?.click()} disabled={busy}>
+          {busy ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ScanLine className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {busy ? "Lendo selos..." : "Ler pranchas"}
+        </Button>
+      </div>
+      <input
+        ref={ref}
+        type="file"
+        accept="application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void run(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {error && (
+        <div role="alert" className="px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {results.length === 0 && !busy && !error ? (
+        <EmptyState
+          className="py-8"
+          description="Anexe as pranchas de uma disciplina. O Nexo le o selo de cada folha (obra, disciplina, numero, descricao) — base da LD e da capa."
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left font-mono text-xs text-muted-foreground">
+                <th className="px-3 py-2">Folha</th>
+                <th className="px-3 py-2">Descricao</th>
+                <th className="px-3 py-2">Disc.</th>
+                <th className="px-3 py-2">Conf.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r, i) => (
+                <tr key={`${r.fileName}-${r.pageNumber}-${i}`} className="border-b border-border align-top">
+                  <td className="px-3 py-2 font-mono text-xs tabular-nums whitespace-nowrap">
+                    {r.extraction?.numeroFolha ??
+                      (r.extraction?.folha != null ? String(r.extraction.folha) : "—")}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.error ? (
+                      <span className="text-destructive">{r.error}</span>
+                    ) : (
+                      r.extraction?.conteudo || r.extraction?.tituloSecao || "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs">{r.extraction?.disciplina ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.extraction ? (
+                      <Badge variant={CONFIANCA_BADGE[r.extraction.confianca]}>
+                        {r.extraction.confianca}
+                      </Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(busy || okCount > 0) && (
+            <div className="px-4 py-2 font-mono text-xs text-muted-foreground">
+              {okCount}/{results.length} folhas lidas{busy ? "…" : ""}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
