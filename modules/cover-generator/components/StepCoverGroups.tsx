@@ -3,7 +3,7 @@
 import { Plus, Trash2, Eye, ArrowLeft } from "lucide-react";
 import type { CoverGroup } from "../types";
 import { Button } from "@/components/ui/button";
-import { VOLUME_OPTIONS_ROMAN, VOLUME_OPTIONS_NUMERIC, FIELD_BASE } from "../constants";
+import { VOLUME_OPTIONS_ROMAN, VOLUME_OPTIONS_NUMERIC, FIELD_CLASS, LABEL_CLASS } from "../constants";
 import { formatVolume } from "../hooks/helpers";
 import type { CoverTitleMode, VolumeFormat } from "@/lib/cover-utils";
 import { DisciplineQuickPick } from "./DisciplineQuickPick";
@@ -19,8 +19,6 @@ interface StepCoverGroupsProps {
   onBack: () => void;
   onGenerate: () => void;
 }
-
-const FIELD_CLASS = `${FIELD_BASE} px-3 py-1.5 text-sm`;
 
 export function StepCoverGroups({
   groups,
@@ -101,15 +99,14 @@ export function StepCoverGroups({
               className="border border-border bg-card p-5 space-y-4"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-                  Grupo {index + 1}
-                </span>
+                <span className={LABEL_CLASS}>Grupo {index + 1}</span>
                 {groups.length > 1 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onRemove(group.id)}
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remover grupo ${index + 1}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -118,7 +115,7 @@ export function StepCoverGroups({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  <label className={LABEL_CLASS}>
                     {titleLabel}
                   </label>
                   <textarea
@@ -147,7 +144,7 @@ export function StepCoverGroups({
 
                 {hasSeparateDiscipline && (
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                    <label className={LABEL_CLASS}>
                       Disciplinas desta capa
                       <span className="text-muted-foreground font-normal ml-1 normal-case">(uma por linha)</span>
                     </label>
@@ -172,7 +169,7 @@ export function StepCoverGroups({
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  <label className={LABEL_CLASS}>
                     Volume
                   </label>
                   <select
@@ -191,7 +188,7 @@ export function StepCoverGroups({
                 </div>
 
                 <div className="space-y-3">
-                  <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  <label className={LABEL_CLASS}>
                     Como gerar os tomos
                   </label>
                   <div className="flex gap-2">
@@ -248,9 +245,7 @@ export function StepCoverGroups({
                         value={group.tomoList.join("\n")}
                         onChange={(e) =>
                           onUpdate(group.id, {
-                            tomoList: e.target.value
-                              .split("\n")
-                              .map((s) => s.trim()),
+                            tomoList: e.target.value.split("\n"),
                           })
                         }
                         placeholder={"01\n02\n03"}

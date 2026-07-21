@@ -17,7 +17,7 @@ export function getTomos(group: CoverGroup): string[] {
       String(i + 1).padStart(2, "0")
     );
   }
-  return group.tomoList.filter((t) => t.trim() !== "");
+  return group.tomoList.map((t) => t.trim()).filter((t) => t !== "");
 }
 
 export function generatePages(

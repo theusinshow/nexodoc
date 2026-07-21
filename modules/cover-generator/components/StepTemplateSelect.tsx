@@ -80,7 +80,11 @@ export function StepTemplateSelect({
 
   if (error) {
     return (
-      <div className="border border-destructive/30 bg-destructive/8 p-6 text-center">
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="border border-destructive/30 bg-destructive/8 p-6 text-center"
+      >
         <p className="text-sm text-destructive">{error}</p>
       </div>
     );
@@ -132,11 +136,11 @@ export function StepTemplateSelect({
               <div className="flex flex-wrap items-center gap-2">
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <h4 className="text-sm font-semibold">{group.nome}</h4>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-[11px]">
                   {volumeFormat === "numeric" ? "Volume numerico" : "Volume romano"}
                 </Badge>
                 {multiVariant && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-[11px]">
                     {group.variantes.length} variacoes
                   </Badge>
                 )}
@@ -176,12 +180,12 @@ export function StepTemplateSelect({
 
               <div className="flex flex-wrap gap-1.5">
                 {active.campos.slice(0, 8).map((campo) => (
-                  <Badge key={campo} variant="secondary" className="text-[10px]">
+                  <Badge key={campo} variant="secondary" className="text-[11px]">
                     {campo}
                   </Badge>
                 ))}
                 {active.campos.length > 8 && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-[11px]">
                     +{active.campos.length - 8}
                   </Badge>
                 )}

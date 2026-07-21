@@ -3,7 +3,7 @@
 import { GripVertical, Plus, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CoverTitleMode } from "@/lib/cover-utils";
-import { FIELD_BASE } from "../constants";
+import { FIELD_BASE, LABEL_CLASS } from "../constants";
 import {
   DndContext,
   closestCenter,
@@ -107,7 +107,7 @@ function SortablePageRow({
       <div className="min-w-0 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <p className={LABEL_CLASS}>
               Capa {String(page.pageNumber).padStart(2, "0")}
             </p>
             <p className="text-sm font-medium">
@@ -144,7 +144,7 @@ function SortablePageRow({
 
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px_100px]">
           <div className="space-y-1.5 sm:col-span-3">
-            <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <label className={LABEL_CLASS}>
               {coverTitleMode === "volume-title-items"
                 ? "Primeira linha = titulo do volume; demais linhas = itens abaixo"
                 : hasSeparateDiscipline
@@ -172,7 +172,7 @@ function SortablePageRow({
 
           {hasSeparateDiscipline && (
             <div className="space-y-1.5 sm:col-span-3">
-              <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+              <label className={LABEL_CLASS}>
                 Disciplinas
               </label>
               <textarea
@@ -190,11 +190,11 @@ function SortablePageRow({
           )}
 
           <div className="space-y-1.5">
-            <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <label className={LABEL_CLASS}>
               Tomo
             </label>
             <input
-              className={`${FIELD_CLASS} h-9`}
+              className={FIELD_CLASS}
               value={page.tomo}
               onChange={(e) => onUpdate(page.id, { tomo: e.target.value })}
               placeholder="TOMO"
@@ -202,11 +202,11 @@ function SortablePageRow({
           </div>
 
           <div className="space-y-1.5">
-            <label className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <label className={LABEL_CLASS}>
               Volume
             </label>
             <input
-              className={`${FIELD_CLASS} h-9`}
+              className={FIELD_CLASS}
               value={page.volume}
               onChange={(e) => onUpdate(page.id, { volume: e.target.value })}
               placeholder="Vol."

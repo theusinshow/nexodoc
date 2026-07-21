@@ -23,6 +23,7 @@ import {
   formatMesAno,
 } from "../hooks/helpers";
 import type { CoverTitleMode } from "@/lib/cover-utils";
+import { LABEL_CLASS } from "../constants";
 
 interface GeneratedDownload {
   fileName: string;
@@ -232,7 +233,11 @@ export function StepResult({
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex items-start gap-2 border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive"
+        >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -248,7 +253,11 @@ export function StepResult({
             <RotateCcw className="mr-1.5 h-4 w-4" />
             Nova geracao
           </Button>
-          <Button onClick={handleGenerate} disabled={generating}>
+          <Button
+            variant="outline"
+            onClick={handleGenerate}
+            disabled={generating}
+          >
             {generating ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
@@ -330,7 +339,7 @@ export function StepResult({
       {/* Resumo do que foi gerado */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="border border-border bg-card p-5 space-y-3">
-          <h3 className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+          <h3 className={LABEL_CLASS}>
             Totais
           </h3>
           <div className="space-y-1">
@@ -353,7 +362,7 @@ export function StepResult({
         </div>
 
         <div className="border border-border bg-card p-5 space-y-3">
-          <h3 className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+          <h3 className={LABEL_CLASS}>
             Dados do Projeto
           </h3>
           <div className="grid gap-1.5 text-sm">
@@ -381,7 +390,7 @@ export function StepResult({
 
       <div className="border border-border">
         <div className="flex items-center justify-between border-b border-border bg-muted px-5 py-3">
-          <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+          <span className={LABEL_CLASS}>
             Lista de capas ({pages.length})
           </span>
         </div>
@@ -432,7 +441,7 @@ export function StepResult({
       <div className="border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <span className={LABEL_CLASS}>
               Checklist de conferencia
             </span>
             <span className="font-mono text-xs text-muted-foreground">(pos-download)</span>
@@ -494,7 +503,7 @@ function DownloadCard({
       }`}>
         <Icon className={`h-4 w-4 ${unavailable ? "text-muted-foreground" : "text-primary"}`} />
       </div>
-      <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+      <p className={LABEL_CLASS}>
         {label}
       </p>
       <p className="mt-1 font-mono text-xs text-muted-foreground break-all">

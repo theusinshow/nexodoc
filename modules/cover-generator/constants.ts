@@ -66,3 +66,14 @@ export const VOLUME_OPTIONS = VOLUME_OPTIONS_ROMAN;
 
 export const FIELD_BASE =
   "flex w-full border border-input bg-[var(--nexodoc-recessed)] transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20";
+
+/**
+ * Classe unica dos campos do modulo. A altura vem do global (min-height 40px em
+ * globals.css) -- nao passe h-9/py-1 aqui (era codigo morto, o global vence).
+ * Textareas adicionam apenas `min-h-[...] py-2` por cima.
+ */
+export const FIELD_CLASS = `${FIELD_BASE} px-3 text-sm`;
+
+/** Rotulo mono-uppercase padrao dos campos (Mono Label do DESIGN.md). */
+export const LABEL_CLASS =
+  "font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground";
