@@ -28,7 +28,7 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
   - `runAudit` — CARO: exige extrair ~40 helpers inline de `app/api/audit/route.ts` p/ um lib. Deixar por último (ou por enquanto o Nexo chama a rota existente).
 - [x] Semente de estado compartilhado: `getProjectContextForUser` (carrega id/code/name/client/status) — o Dossiê estende isso.
 
-**Nota de encoding:** a camada compartilhada `pdf-text`/`audit-classify` devolve alguns campos com mojibake (ex.: "Básica"→"BÃ¡sica"). Afeta também a auditoria; follow-up próprio (não é do Nexo).
+**Encoding — investigado, sem bug:** o "mojibake" observado ("Básica"→"BÃ¡sica") era artefato do terminal (Windows `python -m json.tool` lendo bytes UTF-8 como cp1252). Confirmado server-side: `extractPdfText` devolve os acentos corretos (á=U+00E1, ú=U+00FA), sem `Ã`/`Â` órfãos. Nada a corrigir — e deliberadamente **não** vamos adicionar um "reparo" de mojibake, que corromperia texto correto. Vigiar se algum PDF real (ToUnicode ruim / escaneado) trouxer mojibake de verdade.
 
 ### Fase 1 — Casca do módulo (atrás de flag) ← ATUAL
 - [x] Flag `isNexoEnabled()` (`lib/feature-flags.ts`).
