@@ -17,7 +17,9 @@ interface StepperProps {
 
 export function Stepper({ currentStep, onStepClick, className }: StepperProps) {
   const total = STEPS.length;
-  const progress = Math.round(((currentStep + 1) / total) * 100);
+  // Preenchimento alinhado aos nos: os circulos ficam em 0/25/50/75/100% (justify-between),
+  // entao a barra tem que parar EXATAMENTE sobre o no atual, nunca no meio do vao.
+  const progress = total > 1 ? Math.round((currentStep / (total - 1)) * 100) : 0;
 
   return (
     <nav className={className} aria-label="Progresso">
@@ -31,7 +33,7 @@ export function Stepper({ currentStep, onStepClick, className }: StepperProps) {
       </div>
 
       <div className="relative flex items-center justify-between">
-        <div className="absolute left-2 right-2 top-3.5 h-1 overflow-hidden bg-muted">
+        <div className="absolute left-4 right-4 top-3.5 h-1 overflow-hidden bg-muted">
           <div
             className="h-full bg-primary transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
