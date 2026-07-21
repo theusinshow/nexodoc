@@ -4,7 +4,7 @@ import { Plus, Trash2, Eye, ArrowLeft } from "lucide-react";
 import type { CoverGroup } from "../types";
 import { Button } from "@/components/ui/button";
 import { VOLUME_OPTIONS_ROMAN, VOLUME_OPTIONS_NUMERIC, FIELD_CLASS, LABEL_CLASS } from "../constants";
-import { formatVolume } from "../hooks/helpers";
+import { formatVolumeDisplay } from "../hooks/helpers";
 import type { CoverTitleMode, VolumeFormat } from "@/lib/cover-utils";
 import { DisciplineQuickPick } from "./DisciplineQuickPick";
 
@@ -273,7 +273,7 @@ export function StepCoverGroups({
                   {group.tomoMode === "quantity"
                     ? `${group.tomoQuantity} tomo(s)`
                     : `${group.tomoList.filter(t => t).length} tomo(s)`}
-                  {" \u00B7 "}{formatVolume(group.volume, volumeFormat)}
+                  {" \u00B7 "}{formatVolumeDisplay(group.volume, volumeFormat)}
                 </span>
                 {!group.tituloCapa.trim() && (
                   <span className="ml-auto text-destructive">

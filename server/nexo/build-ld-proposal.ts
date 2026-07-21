@@ -1,5 +1,6 @@
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
+import { buildBalancedTomos } from "@/lib/ld/ld-rules";
 import type { CreateLDInput } from "./tools/create-ld";
 
 /** Um selo lido de uma prancha (subconjunto do StampExtraction que interessa aqui). */
@@ -62,8 +63,9 @@ function mode(values: (string | null | undefined)[]): string {
 /**
  * Monta uma proposta de LD a partir dos selos lidos das pranchas + o nome dos
  * arquivos (parser). Determinístico: o engenheiro revisa/confirma antes de gerar.
+ * `numTomos` (decisão do engenheiro) divide as folhas em tomos balanceados.
  */
-export function buildLdProposal(selos: SeloForLd[]): LdProposal {
+export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
   const validos = selos.filter((s) => s.fileName);
 
   // Identidade: filename (código/revisão) + selo (obra/cliente/fase/disciplina).
@@ -93,6 +95,11 @@ export function buildLdProposal(selos: SeloForLd[]): LdProposal {
   const referenceTotal =
     Math.max(0, ...validos.map((s) => s.total ?? 0)) || rows.length || null;
 
+  // Tomos: decisão do engenheiro. >1 divide as folhas em faixas balanceadas.
+  const total = referenceTotal ?? rows.length;
+  const tomos =
+    numTomos > 1 && total > 0 ? buildBalancedTomos(total, numTomos) : [];
+
   const input: CreateLDInput = {
     ldData: {
       projectCode: codigo,
@@ -105,7 +112,7 @@ export function buildLdProposal(selos: SeloForLd[]): LdProposal {
       phase: fase,
     },
     rows,
-    tomos: [],
+    tomos,
     referenceTotal,
     // Proposta: não bloqueia na geração; a UI mostra os avisos e o engenheiro decide.
     enforceValidation: false,

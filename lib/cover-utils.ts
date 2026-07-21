@@ -17,9 +17,23 @@ export function escapeXml(str: string): string {
     .replace(/'/g, "&apos;");
 }
 
-export function formatVolume(value: string, format: VolumeFormat = "roman"): string {
-  if (format === "numeric") return value;
-  return `Vol. ${value}`;
+/**
+ * Valor do marcador {{VOLUME}} no ODT. O RÓTULO ("Vol."/"VOLUME") já vem escrito
+ * no próprio template de cada prefeitura — então o marcador leva só o valor cru
+ * ("I", "1"). Antes, o formato romano adicionava "Vol." e, somado ao literal do
+ * template, saía "Vol. Vol. I". Para exibir na UI (prévia), use formatVolumeDisplay.
+ */
+export function formatVolume(value: string): string {
+  return value;
+}
+
+/** Volume com rótulo, só para exibição na UI (o ODT usa formatVolume cru). */
+export function formatVolumeDisplay(
+  value: string,
+  format: VolumeFormat = "roman",
+): string {
+  if (!value) return "";
+  return format === "numeric" ? `Volume ${value}` : `Vol. ${value}`;
 }
 
 export function formatMesAno(mes: string, ano: string): string {

@@ -5,6 +5,7 @@ import { formatTomo, formatVolume } from "@/lib/cover-utils";
 export type { TomoFormat, VolumeFormat } from "@/lib/cover-utils";
 export {
   formatVolume,
+  formatVolumeDisplay,
   formatMesAno,
   formatTomo,
   formatDisplayCode,
@@ -23,7 +24,9 @@ export function getTomos(group: CoverGroup): string[] {
 export function generatePages(
   groups: CoverGroup[],
   existingPages?: CoverPage[],
-  volumeFormat: VolumeFormat = "roman",
+  // O volume agora vai cru no ODT (rótulo vem do template); mantido na assinatura
+  // por compatibilidade com os chamadores posicionais.
+  _volumeFormat: VolumeFormat = "roman",
   tomoFormat: TomoFormat = "parenthesized-padded"
 ): CoverPage[] {
   const pages: CoverPage[] = [];
@@ -49,7 +52,7 @@ export function generatePages(
           disciplina: prev?.disciplina ?? group.disciplina,
           // Tomo e numerado por grupo: cada volume tem sua propria contagem.
           tomo: prev?.tomo ?? formatTomo(tomos[i], tomos.length, tomoFormat),
-          volume: prev?.volume ?? formatVolume(group.volume, volumeFormat),
+          volume: prev?.volume ?? formatVolume(group.volume),
           pageNumber: ++pageIndex,
         });
       }
@@ -65,7 +68,7 @@ export function generatePages(
           disciplina: group.disciplina,
           // Tomo e numerado por grupo: cada volume tem sua propria contagem.
           tomo: formatTomo(t, tomos.length, tomoFormat),
-          volume: formatVolume(group.volume, volumeFormat),
+          volume: formatVolume(group.volume),
           pageNumber: ++pageIndex,
         });
       }
