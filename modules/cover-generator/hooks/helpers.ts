@@ -26,18 +26,7 @@ export function generatePages(
   volumeFormat: VolumeFormat = "roman",
   tomoFormat: TomoFormat = "parenthesized-padded"
 ): CoverPage[] {
-  const allTomos: { tomo: string }[] = [];
-  for (const group of groups) {
-    const tomos = getTomos(group);
-    for (const t of tomos) {
-      allTomos.push({ tomo: t });
-    }
-  }
-
-  const totalTomos = allTomos.length;
-
   const pages: CoverPage[] = [];
-  let tomoIndex = 0;
   let pageIndex = 0;
 
   if (existingPages && existingPages.length > 0) {
@@ -58,7 +47,8 @@ export function generatePages(
           groupId: group.id,
           tituloCapa: prev?.tituloCapa ?? group.tituloCapa,
           disciplina: prev?.disciplina ?? group.disciplina,
-          tomo: prev?.tomo ?? formatTomo(tomos[i], totalTomos, tomoFormat),
+          // Tomo e numerado por grupo: cada volume tem sua propria contagem.
+          tomo: prev?.tomo ?? formatTomo(tomos[i], tomos.length, tomoFormat),
           volume: prev?.volume ?? formatVolume(group.volume, volumeFormat),
           pageNumber: ++pageIndex,
         });
@@ -73,12 +63,12 @@ export function generatePages(
           groupId: group.id,
           tituloCapa: group.tituloCapa,
           disciplina: group.disciplina,
-          tomo: formatTomo(t, totalTomos, tomoFormat),
+          // Tomo e numerado por grupo: cada volume tem sua propria contagem.
+          tomo: formatTomo(t, tomos.length, tomoFormat),
           volume: formatVolume(group.volume, volumeFormat),
           pageNumber: ++pageIndex,
         });
       }
-      tomoIndex += tomos.length;
     }
   }
 

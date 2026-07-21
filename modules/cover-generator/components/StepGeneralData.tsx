@@ -122,6 +122,10 @@ export function StepGeneralData({
             onChange={(e) => onChange({ codigoExibido: e.target.value })}
             placeholder="196-25"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Preenchido automaticamente a partir do codigo interno. Edite se
+            precisar de um formato diferente.
+          </p>
         </div>
 
         <div className="space-y-1.5">

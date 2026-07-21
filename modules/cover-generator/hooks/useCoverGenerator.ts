@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import type { CoverGroup, CoverPage, GeneralData } from "../types";
 import { generatePages } from "./helpers";
+import { formatDisplayCode } from "@/lib/cover-utils";
 import type { CoverTitleMode, TomoFormat, VolumeFormat } from "@/lib/cover-utils";
 
 export function emptyGeneralData(): GeneralData {
@@ -110,7 +111,21 @@ export function useCoverGenerator(initialData?: InitialData) {
 
   const updateGeneralData = useCallback(
     (partial: Partial<GeneralData>) => {
-      setGeneralData((prev) => ({ ...prev, ...partial }));
+      setGeneralData((prev) => {
+        const next = { ...prev, ...partial };
+        // Auto-deriva o codigo exibido (196_25 -> 196-25) enquanto o usuario
+        // nao o editar manualmente. Assim que ele divergir do valor derivado,
+        // paramos de sobrescrever e respeitamos o que foi digitado.
+        if (partial.codigoInterno !== undefined && partial.codigoExibido === undefined) {
+          const wasAutoDerived =
+            !prev.codigoExibido ||
+            prev.codigoExibido === formatDisplayCode(prev.codigoInterno);
+          if (wasAutoDerived) {
+            next.codigoExibido = formatDisplayCode(partial.codigoInterno);
+          }
+        }
+        return next;
+      });
     },
     []
   );

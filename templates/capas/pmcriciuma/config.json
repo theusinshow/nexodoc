@@ -1,6 +1,8 @@
 {
   "id": "pmcriciuma",
   "nome": "Prefeitura Municipal de Criciuma",
+  "grupo": "Prefeitura Municipal de Criciuma",
+  "variante": "Padrao",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "numeric",
   "tomoFormat": "parenthesized-padded",

@@ -228,7 +228,7 @@ function MiniCover({
   coverTitleMode: CoverTitleMode;
 }) {
   const { volumeTitle, items } = getCoverLines(page, coverTitleMode);
-  const mainItems = coverTitleMode === "volume-title-items" ? items : items;
+  const mainItems = items;
   const [obra, localidade] = generalData.nomeObra
     .split("\n")
     .map((line) => line.trim())

@@ -5,6 +5,10 @@ import { existsSync } from "fs";
 export interface TemplateConfigFile {
   id: string;
   nome: string;
+  /** Prefeitura que agrupa as variacoes. Se ausente, o proprio `nome` vira o grupo. */
+  grupo?: string;
+  /** Rotulo da variacao dentro do grupo (chip). Se ausente, usa `nome`. */
+  variante?: string;
   arquivoTemplate: string;
   volumeFormat?: "roman" | "numeric";
   tomoFormat?: "parenthesized-padded" | "parenthesized" | "plain-padded" | "plain";
@@ -50,7 +54,11 @@ export async function getTemplateRegistry(): Promise<TemplateConfigFile[]> {
     // templates directory might not exist yet
   }
 
-  templates.sort((a, b) => a.nome.localeCompare(b.nome));
+  templates.sort((a, b) => {
+    const grupoCmp = (a.grupo ?? a.nome).localeCompare(b.grupo ?? b.nome);
+    if (grupoCmp !== 0) return grupoCmp;
+    return (a.variante ?? a.nome).localeCompare(b.variante ?? b.nome);
+  });
   cachedTemplates = templates;
   return templates;
 }

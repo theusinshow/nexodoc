@@ -5,7 +5,6 @@ import { StepTemplateSelect, type TemplateOption } from "./StepTemplateSelect";
 import { StepGeneralData } from "./StepGeneralData";
 import { StepCoverGroups } from "./StepCoverGroups";
 import { StepPreview } from "./StepPreview";
-import { StepSummary } from "./StepSummary";
 import { StepResult } from "./StepResult";
 import { LdIntegrationBanner } from "@/modules/ld-interop/components/LdIntegrationBanner";
 import { Stepper } from "@/components/layout/stepper";
@@ -45,10 +44,6 @@ export function CoverGeneratorFlow({ initialData, projectId }: CoverGeneratorFlo
   function handleGeneratePreview() {
     ctx.buildPages();
     ctx.goToStep(3);
-  }
-
-  function handleGenerate() {
-    ctx.goToStep(5);
   }
 
   return (
@@ -120,20 +115,12 @@ export function CoverGeneratorFlow({ initialData, projectId }: CoverGeneratorFlo
           )}
 
           {ctx.step === 4 && (
-            <StepSummary
+            <StepResult
               generalData={ctx.generalData}
               pages={ctx.pages}
               templateFields={ctx.templateFields}
               coverTitleMode={ctx.coverTitleMode}
               onBack={handleBack}
-              onGenerate={handleGenerate}
-            />
-          )}
-
-          {ctx.step === 5 && (
-            <StepResult
-              generalData={ctx.generalData}
-              pages={ctx.pages}
               onReset={ctx.reset}
               projectId={projectId}
             />

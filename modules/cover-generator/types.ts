@@ -1,6 +1,8 @@
 export interface TemplateConfig {
   id: string;
   name: string;
+  grupo?: string;
+  variante?: string;
   volumeFormat?: "roman" | "numeric";
   tomoFormat?: "parenthesized-padded" | "parenthesized" | "plain-padded" | "plain";
   coverTitleMode?: "items" | "volume-title-items";

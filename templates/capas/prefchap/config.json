@@ -1,6 +1,8 @@
 {
   "id": "prefchap",
   "nome": "Prefeitura Municipal de Chapeco",
+  "grupo": "Prefeitura Municipal de Chapeco",
+  "variante": "Padrao",
   "arquivoTemplate": "modelo-capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "parenthesized-padded",

@@ -1,6 +1,8 @@
 {
   "id": "prefsjose",
   "nome": "Prefeitura Municipal de Sao Jose",
+  "grupo": "Prefeitura Municipal de Sao Jose",
+  "variante": "Padrao",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "plain-padded",

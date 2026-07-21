@@ -6,7 +6,6 @@ const STEPS = [
   { label: "Dados Gerais" },
   { label: "Grupos" },
   { label: "Previa" },
-  { label: "Resumo" },
   { label: "Resultado" },
 ] as const;
 

@@ -1,6 +1,8 @@
 {
   "id": "prefflor",
   "nome": "Prefeitura Municipal de Florianopolis",
+  "grupo": "Prefeitura Municipal de Florianopolis",
+  "variante": "Padrao (capa + contracapa)",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "plain",
