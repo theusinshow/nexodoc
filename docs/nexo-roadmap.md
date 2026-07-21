@@ -37,8 +37,12 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
 - [x] **Ferramentas headless de geração** (subagent + verificado/testado):
   - `server/nexo/tools/generate-separatrizes.ts` — `generateSeparatrizes()` (ODT+PDF+ZIP, Buffers). Testado: ODT real gerado.
   - `server/nexo/tools/generate-covers.ts` — `generateCovers()` (compõe generateOdtBuffer+convertOdtToPdf+JSZip; persistência opcional c/ userEmail explícito, sem auth()).
-- [ ] **PRIMÁRIO — leitura de selo das pranchas**: reusar `/api/ld/extract-stamp` (OCR do carimbo → obra/cliente/fase/folha/descrição) como o intake do caso comum. É daqui que saem as linhas da LD e a identidade da capa. Depende de renderizar a região do selo por prancha (como o módulo LD faz).
-- [ ] **PRIMÁRIO — `createLD`** (compõe `validateRows`+`generateOdtBuffer`(ld)+`convertOdtToPdf`). Necessário pro passo 2 do fluxo canônico.
+- [ ] **PRIMÁRIO — leitura de selo das pranchas** (arquitetura decidida via mapa do extract-stamp):
+  - **Render do selo é CLIENT-ONLY** — não há render de PDF no servidor (só `getTextContent`). O crop do carimbo usa `canvas`/`toDataURL` (browser). Logo o Nexo renderiza no browser e **reusa a rota `/api/ld/extract-stamp` como está** (ela já faz auth + OpenAI→MiMo + telemetria `flow:"ld-extraction"`).
+  - **Isolamento**: NÃO refatorar `ld-workspace.tsx`. O Nexo ganha helper próprio de render (copiar a lógica): pdf.js legacy + worker; `getViewport({scale:2})`; crop normalizado do selo `{x:0.52,y:0.5,width:0.47,height:0.48}` (canto inf. direito); downscale p/ ≤2400px; `toDataURL("image/jpeg",0.92)`; + `textForAi` (texto posicional das regiões do selo, cap 24000). POST por prancha, ~3 concorrentes, timeout 30s.
+  - **StampExtraction** devolve: `disciplina, folha, total, numeroFolha ("NN/TT"), arquivo, conteudo, cliente, obra, fase, tituloSecao, confianca`. Daí saem as linhas da LD (folha+descrição) e a identidade da capa (obra/fase/cliente).
+  - Ressalva: precisa de OpenAI/MiMo configurado; em dev pode não estar (testar com chave real ou mock).
+- [x] **`createLD`** (`server/nexo/tools/create-ld.ts`): valida (`validateRows`) → `generateOdtBuffer`(ld) → `convertOdtToPdf` → relatório de inconsistências. Recusa se houver blocking (a menos que `enforceValidation:false`). Trata os DOIS tipos `ReviewRow` (ld-generation vs ld-rules) com normalizer. **Testado**: LD ODT real de 244KB. Barrel em `server/nexo/tools/index.ts`.
 - [ ] **Conferência leve** (auditoria do caso comum): folhas/código/revisão/disciplina batem entre pranchas, capa e LD — sem depender do memorial.
 - [ ] Secundário: `assembleVolume` (`buildRowPdf`, Map<id,ArrayBuffer>) + extrair `buildLocalSuggestions`; `runAudit` completo (CARO, por último) para a auditoria rara contra o memorial.
 - [x] Semente de estado compartilhado: `getProjectContextForUser` (id/code/name/client/status) — o Dossiê estende isso.
