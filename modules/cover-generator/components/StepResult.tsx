@@ -225,7 +225,7 @@ export function StepResult({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Resultado</h2>
+        <h2 className="text-2xl font-medium tracking-[-0.01em]">Resultado</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Os arquivos sao gerados automaticamente. O ODT sempre fica disponivel;
           o PDF depende do LibreOffice no servidor.
@@ -236,7 +236,7 @@ export function StepResult({
         <div
           role="alert"
           aria-live="assertive"
-          className="flex items-start gap-2 border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive"
+          className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
@@ -273,7 +273,7 @@ export function StepResult({
       </div>
 
       {generating && downloads.length === 0 && (
-        <div className="flex items-center justify-center gap-2 border border-dashed border-border bg-card p-10 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card p-10 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Gerando {pages.length} capa(s)...
         </div>
@@ -314,9 +314,9 @@ export function StepResult({
       )}
 
       {/* Atalho para separar as disciplinas dentro do volume */}
-      <div className="flex flex-col gap-3 border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center border border-primary/25 bg-primary/10">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
             <Layers className="h-4 w-4 text-primary" />
           </div>
           <div>
@@ -338,7 +338,7 @@ export function StepResult({
 
       {/* Resumo do que foi gerado */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="border border-border bg-card p-5 space-y-3">
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
           <h3 className={LABEL_CLASS}>
             Totais
           </h3>
@@ -361,7 +361,7 @@ export function StepResult({
           </div>
         </div>
 
-        <div className="border border-border bg-card p-5 space-y-3">
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
           <h3 className={LABEL_CLASS}>
             Dados do Projeto
           </h3>
@@ -388,7 +388,7 @@ export function StepResult({
         </div>
       </div>
 
-      <div className="border border-border">
+      <div className="overflow-hidden rounded-md border border-border">
         <div className="flex items-center justify-between border-b border-border bg-muted px-5 py-3">
           <span className={LABEL_CLASS}>
             Lista de capas ({pages.length})
@@ -438,7 +438,7 @@ export function StepResult({
         </div>
       </div>
 
-      <div className="border border-border bg-card">
+      <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2">
             <span className={LABEL_CLASS}>
@@ -497,8 +497,12 @@ function DownloadCard({
   primary?: boolean;
 }) {
   return (
-    <div className="border border-border bg-card p-4 text-center">
-      <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center border ${
+    <div
+      className={`rounded-md border bg-card p-4 text-center ${
+        primary ? "border-primary/40 bg-primary/[0.04]" : "border-border"
+      }`}
+    >
+      <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border ${
         unavailable ? "border-muted-foreground/25 bg-muted" : "border-primary/25 bg-primary/10"
       }`}>
         <Icon className={`h-4 w-4 ${unavailable ? "text-muted-foreground" : "text-primary"}`} />

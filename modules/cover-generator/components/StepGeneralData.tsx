@@ -44,7 +44,7 @@ export function StepGeneralData({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Dados Gerais</h2>
+        <h2 className="text-2xl font-medium tracking-[-0.01em]">Dados Gerais</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Preencha as informacoes do projeto. Todos os campos podem ser
           editados a qualquer momento.{" "}
@@ -190,7 +190,7 @@ export function StepGeneralData({
         </label>
 
         {data.codigoInterno && data.revisao && (
-          <div className="sm:col-span-2 border border-border bg-card p-4">
+          <div className="sm:col-span-2 rounded-md border border-border bg-card p-4">
             <p className={`${LABEL_CLASS} mb-1`}>Previa do nome do arquivo</p>
             <p className="font-mono text-sm">
               {[data.codigoInterno, "capas", data.siglaArquivo, data.revisao]

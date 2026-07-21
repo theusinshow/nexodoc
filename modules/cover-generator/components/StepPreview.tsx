@@ -94,7 +94,7 @@ function SortablePageRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`grid gap-4 border border-border bg-card p-4 transition-shadow lg:grid-cols-[240px_minmax(0,1fr)] ${
+      className={`grid gap-4 rounded-md border border-border bg-card p-4 transition-shadow lg:grid-cols-[240px_minmax(0,1fr)] ${
         isDragging ? "z-10 shadow-panel opacity-80" : ""
       }`}
     >
@@ -144,7 +144,7 @@ function SortablePageRow({
 
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px_100px]">
           <div className="space-y-1.5 sm:col-span-3">
-            <label className={LABEL_CLASS}>
+            <label className={LABEL_CLASS} htmlFor={`capa-titulo-${page.id}`}>
               {coverTitleMode === "volume-title-items"
                 ? "Primeira linha = titulo do volume; demais linhas = itens abaixo"
                 : hasSeparateDiscipline
@@ -152,6 +152,7 @@ function SortablePageRow({
                   : "Itens da capa"}
             </label>
             <textarea
+              id={`capa-titulo-${page.id}`}
               className={`${FIELD_CLASS} min-h-[94px]`}
               value={page.tituloCapa}
               onChange={(e) => onUpdate(page.id, { tituloCapa: e.target.value })}
@@ -172,10 +173,11 @@ function SortablePageRow({
 
           {hasSeparateDiscipline && (
             <div className="space-y-1.5 sm:col-span-3">
-              <label className={LABEL_CLASS}>
+              <label className={LABEL_CLASS} htmlFor={`capa-disciplina-${page.id}`}>
                 Disciplinas
               </label>
               <textarea
+                id={`capa-disciplina-${page.id}`}
                 className={`${FIELD_CLASS} min-h-[70px]`}
                 value={page.disciplina}
                 onChange={(e) => onUpdate(page.id, { disciplina: e.target.value })}
@@ -190,10 +192,11 @@ function SortablePageRow({
           )}
 
           <div className="space-y-1.5">
-            <label className={LABEL_CLASS}>
+            <label className={LABEL_CLASS} htmlFor={`capa-tomo-${page.id}`}>
               Tomo
             </label>
             <input
+              id={`capa-tomo-${page.id}`}
               className={FIELD_CLASS}
               value={page.tomo}
               onChange={(e) => onUpdate(page.id, { tomo: e.target.value })}
@@ -202,10 +205,11 @@ function SortablePageRow({
           </div>
 
           <div className="space-y-1.5">
-            <label className={LABEL_CLASS}>
+            <label className={LABEL_CLASS} htmlFor={`capa-volume-${page.id}`}>
               Volume
             </label>
             <input
+              id={`capa-volume-${page.id}`}
               className={FIELD_CLASS}
               value={page.volume}
               onChange={(e) => onUpdate(page.id, { volume: e.target.value })}
@@ -237,7 +241,7 @@ function MiniCover({
   const codigo = generalData.codigoExibido || generalData.codigoInterno;
 
   return (
-    <div className="mx-auto aspect-[210/297] w-full max-w-[220px] border border-border bg-card p-4 shadow-subtle">
+    <div className="mx-auto aspect-[210/297] w-full max-w-[220px] rounded-md border border-border bg-card p-4 shadow-subtle">
       <div className="flex h-full flex-col text-center text-[8px] leading-tight text-muted-foreground">
         <div className="space-y-1 pt-1 font-semibold uppercase tracking-[0.16em]">
           <p>Estado de Santa Catarina</p>
@@ -313,7 +317,7 @@ export function StepPreview({
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Previa Editavel</h2>
+          <h2 className="text-2xl font-medium tracking-[-0.01em]">Previa Editavel</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Revise cada capa antes de gerar. Aqui voce pode ajustar tomos com
             disciplinas diferentes, reordenar ou adicionar uma capa avulsa.
@@ -326,8 +330,8 @@ export function StepPreview({
       </div>
 
       {pages.length === 0 ? (
-        <div className="border border-dashed border-border bg-card p-10 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center border border-border bg-muted">
+        <div className="rounded-md border border-dashed border-border bg-card p-10 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted">
             <Plus className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium">Nenhuma capa na previa</p>

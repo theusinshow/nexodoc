@@ -64,7 +64,7 @@ export function StepCoverGroups({
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Capas e tomos</h2>
+          <h2 className="text-2xl font-medium tracking-[-0.01em]">Capas e tomos</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Crie um grupo para cada titulo de capa. Cada tomo dentro do grupo
             vira uma pagina no ODT final.
@@ -77,8 +77,8 @@ export function StepCoverGroups({
       </div>
 
       {groups.length === 0 ? (
-        <div className="border border-dashed border-border bg-card p-10 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center border border-border bg-muted">
+        <div className="rounded-md border border-dashed border-border bg-card p-10 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted">
             <Plus className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium">Nenhum grupo configurado</p>
@@ -96,7 +96,7 @@ export function StepCoverGroups({
           {groups.map((group, index) => (
             <div
               key={group.id}
-              className="border border-border bg-card p-5 space-y-4"
+              className="rounded-md border border-border bg-card p-4 space-y-4"
             >
               <div className="flex items-center justify-between">
                 <span className={LABEL_CLASS}>Grupo {index + 1}</span>
@@ -115,10 +115,11 @@ export function StepCoverGroups({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className={LABEL_CLASS}>
+                  <label className={LABEL_CLASS} htmlFor={`titulo-${group.id}`}>
                     {titleLabel}
                   </label>
                   <textarea
+                    id={`titulo-${group.id}`}
                     className={`${FIELD_CLASS} min-h-[60px] py-2`}
                     value={group.tituloCapa}
                     onChange={(e) =>
@@ -144,11 +145,12 @@ export function StepCoverGroups({
 
                 {hasSeparateDiscipline && (
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label className={LABEL_CLASS}>
+                    <label className={LABEL_CLASS} htmlFor={`disciplina-${group.id}`}>
                       Disciplinas desta capa
                       <span className="text-muted-foreground font-normal ml-1 normal-case">(uma por linha)</span>
                     </label>
                     <textarea
+                      id={`disciplina-${group.id}`}
                       className={`${FIELD_CLASS} min-h-[60px] py-2`}
                       value={group.disciplina}
                       onChange={(e) =>
@@ -169,10 +171,11 @@ export function StepCoverGroups({
                 )}
 
                 <div className="space-y-1.5">
-                  <label className={LABEL_CLASS}>
+                  <label className={LABEL_CLASS} htmlFor={`volume-${group.id}`}>
                     Volume
                   </label>
                   <select
+                    id={`volume-${group.id}`}
                     className={FIELD_CLASS}
                     value={group.volume}
                     onChange={(e) =>
@@ -216,10 +219,14 @@ export function StepCoverGroups({
 
                   {group.tomoMode === "quantity" ? (
                     <div className="space-y-1.5">
-                      <label className="font-mono text-xs text-muted-foreground">
+                      <label
+                        className="font-mono text-xs text-muted-foreground"
+                        htmlFor={`tomo-qtd-${group.id}`}
+                      >
                         Quantidade de tomos
                       </label>
                       <input
+                        id={`tomo-qtd-${group.id}`}
                         type="number"
                         min={1}
                         max={99}
@@ -237,10 +244,14 @@ export function StepCoverGroups({
                     </div>
                   ) : (
                     <div className="space-y-1.5">
-                      <label className="font-mono text-xs text-muted-foreground">
+                      <label
+                        className="font-mono text-xs text-muted-foreground"
+                        htmlFor={`tomo-lista-${group.id}`}
+                      >
                         Lista de tomos (um por linha)
                       </label>
                       <textarea
+                        id={`tomo-lista-${group.id}`}
                         className={`${FIELD_CLASS} min-h-[80px] py-2`}
                         value={group.tomoList.join("\n")}
                         onChange={(e) =>

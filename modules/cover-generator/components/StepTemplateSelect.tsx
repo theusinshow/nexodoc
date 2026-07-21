@@ -83,7 +83,7 @@ export function StepTemplateSelect({
       <div
         role="alert"
         aria-live="assertive"
-        className="border border-destructive/30 bg-destructive/8 p-6 text-center"
+        className="rounded-md border border-destructive/30 bg-destructive/8 p-6 text-center"
       >
         <p className="text-sm text-destructive">{error}</p>
       </div>
@@ -92,10 +92,10 @@ export function StepTemplateSelect({
 
   if (templates.length === 0) {
     return (
-      <div className="border border-dashed border-border bg-card p-8 text-center">
+      <div className="rounded-md border border-dashed border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           Nenhum template encontrado. Adicione templates em{" "}
-          <code className="border border-border bg-muted px-1 py-0.5 font-mono text-xs">
+          <code className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-xs">
             templates/capas/
           </code>
           .
@@ -107,7 +107,7 @@ export function StepTemplateSelect({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Modelo da capa</h2>
+        <h2 className="text-2xl font-medium tracking-[-0.01em]">Modelo da capa</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Escolha a prefeitura e, quando houver mais de um padrao, a variacao.
           Cada variacao define o arquivo ODT oficial, marcadores aceitos e
@@ -129,7 +129,7 @@ export function StepTemplateSelect({
             <div
               key={group.nome}
               className={cn(
-                "border p-4 space-y-3 transition",
+                "rounded-md border p-4 space-y-3 transition",
                 isGroupSelected ? "border-primary bg-primary/5" : "border-border bg-card"
               )}
             >
@@ -195,7 +195,7 @@ export function StepTemplateSelect({
         })}
         </div>
 
-        <aside className="border border-border bg-card p-4">
+        <aside className="rounded-md border border-border bg-card p-4">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Modelo selecionado</h3>
@@ -217,7 +217,7 @@ export function StepTemplateSelect({
                 </p>
               </div>
 
-              <div className="border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">
+              <div className="rounded-md border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">
                 Os campos padrao entram no formulario seguinte, mas continuam
                 editaveis antes da geracao.
               </div>
