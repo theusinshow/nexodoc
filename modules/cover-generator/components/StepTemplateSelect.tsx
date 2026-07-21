@@ -21,17 +21,34 @@ function getInitials(name: string): string {
 }
 
 /**
- * Slot do logotipo da prefeitura. Hoje renderiza o monograma (iniciais da
- * cidade); quando houver arquivos de brasao, trocar por <Image>.
+ * Slot do logotipo da prefeitura: brasao/logo oficial em `public/capas-logos/<id>.jpg`
+ * (extraido do ODT), enquadrado em chip branco por serem JPG de fundo branco num
+ * app dark. Sem arquivo, cai no monograma das iniciais da cidade.
  */
-function TemplateLogo({ name }: { name: string }) {
+function TemplateLogo({ id, name }: { id: string; name: string }) {
+  const [broken, setBroken] = useState(false);
+
+  if (broken) {
+    return (
+      <div
+        aria-hidden="true"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs font-semibold uppercase tracking-tight text-muted-foreground"
+      >
+        {getInitials(name)}
+      </div>
+    );
+  }
+
   return (
-    <div
-      aria-hidden="true"
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs font-semibold uppercase tracking-tight text-muted-foreground"
-    >
-      {getInitials(name)}
-    </div>
+    <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-border bg-white px-1.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/capas-logos/${id}.jpg`}
+        alt={`Logotipo ${name}`}
+        className="h-7 w-auto max-w-[120px] object-contain"
+        onError={() => setBroken(true)}
+      />
+    </span>
   );
 }
 
@@ -162,7 +179,7 @@ export function StepTemplateSelect({
                 aria-pressed={selected}
                 className={cn(cardBase, "flex w-full items-center gap-3 text-left hover:border-ring")}
               >
-                <TemplateLogo name={group.nome} />
+                <TemplateLogo id={variant.id} name={group.nome} />
                 <span className="text-sm font-semibold leading-snug">{group.nome}</span>
                 {selected && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
               </button>
@@ -172,7 +189,7 @@ export function StepTemplateSelect({
           return (
             <div key={group.nome} className={cn(cardBase, "space-y-3")}>
               <div className="flex items-center gap-3">
-                <TemplateLogo name={group.nome} />
+                <TemplateLogo id={group.variantes[0].id} name={group.nome} />
                 <h4 className="text-sm font-semibold leading-snug">{group.nome}</h4>
               </div>
 
@@ -214,7 +231,7 @@ export function StepTemplateSelect({
           {selectedTemplate ? (
             <div className="mt-4 space-y-4">
               <div className="flex items-center gap-3">
-                <TemplateLogo name={selectedTemplate.grupo || selectedTemplate.nome} />
+                <TemplateLogo id={selectedTemplate.id} name={selectedTemplate.grupo || selectedTemplate.nome} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium leading-snug">
                     {selectedTemplate.grupo || selectedTemplate.nome}
