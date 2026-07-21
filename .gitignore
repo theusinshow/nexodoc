@@ -53,3 +53,7 @@ backups/
 *.local
 .nexodoc-learnings.json
 data/nexodoc-learnings.json
+
+# Amostras CONFIDENCIAIS de projetos — NUNCA versionar (manter so o README)
+/docs/samples/*
+!/docs/samples/README.md
