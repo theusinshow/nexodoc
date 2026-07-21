@@ -1,0 +1,184 @@
+import { getTemplateRegistry } from "@/server/templates/registry";
+import { parseFilename } from "./parse-filename";
+import { disciplinaLabel } from "./disciplinas";
+import { generatePages } from "@/modules/cover-generator/hooks/helpers";
+import { formatDisplayCode } from "@/lib/cover-utils";
+import { MESES } from "@/modules/cover-generator/constants";
+import type { SeloForLd } from "./build-ld-proposal";
+import type {
+  GeneralData,
+  CoverGroup,
+  CoverPage,
+} from "@/modules/cover-generator/types";
+
+/**
+ * Monta a proposta de capa (Nexo) a partir dos selos ja lidos das pranchas + o
+ * template da prefeitura escolhida. Deterministico: converte os fatos objetivos
+ * (codigo, revisao, disciplina, volume, obra, fase) no input que o `generateCovers`
+ * ja espera. O engenheiro revisa/edita antes de gerar. Uma unica capa (um grupo).
+ */
+
+export interface BuildCapaInput {
+  selos: SeloForLd[];
+  templateId: string;
+  /** Decisao editavel; default = rotulo da disciplina. */
+  tituloCapa?: string;
+  /** Override opcional; senao vem do parseFilename (arabico). */
+  volume?: string;
+}
+
+export interface CapaProposal {
+  generalData: GeneralData;
+  pages: CoverPage[];
+  resumo: {
+    prefeitura: string;
+    disciplina: string;
+    codigo: string;
+    volume: string;
+    totalCapas: number;
+  };
+}
+
+/** Escolhe o valor mais frequente (nao-vazio) entre os candidatos. */
+function mode(values: (string | null | undefined)[]): string {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    const s = v?.trim();
+    if (s) counts.set(s, (counts.get(s) ?? 0) + 1);
+  }
+  let best = "";
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
+/**
+ * Arabico -> romano, alinhado ao que VOLUME_OPTIONS_ROMAN codifica ("I".."X") e ao
+ * que formatVolume espera (o valor cru, sem o prefixo "Vol. ", que o formatVolume
+ * adiciona). Cobre alem de 10 para robustez; casos reais ficam em 1-10.
+ */
+function arabicToRoman(arabic: string): string {
+  const n = parseInt(arabic, 10);
+  if (!Number.isFinite(n) || n <= 0) return "I";
+  const table: [number, string][] = [
+    [1000, "M"],
+    [900, "CM"],
+    [500, "D"],
+    [400, "CD"],
+    [100, "C"],
+    [90, "XC"],
+    [50, "L"],
+    [40, "XL"],
+    [10, "X"],
+    [9, "IX"],
+    [5, "V"],
+    [4, "IV"],
+    [1, "I"],
+  ];
+  let rest = n;
+  let out = "";
+  for (const [value, symbol] of table) {
+    while (rest >= value) {
+      out += symbol;
+      rest -= value;
+    }
+  }
+  return out;
+}
+
+export async function buildCapaProposal(
+  input: BuildCapaInput,
+): Promise<CapaProposal> {
+  const registry = await getTemplateRegistry();
+  const template = registry.find((t) => t.id === input.templateId);
+  if (!template) {
+    throw new Error(
+      `Template de capa nao encontrado: "${input.templateId}". Verifique templates/capas/*/config.json.`,
+    );
+  }
+
+  const validos = input.selos.filter((s) => s.fileName);
+  const parsedList = validos.map((s) => parseFilename(s.fileName));
+
+  // Disciplina: preferir o codigo do nome (autoritativo); rotulo p/ exibicao.
+  const discCode =
+    mode(parsedList.flatMap((p) => p.disciplinas)) ||
+    mode(validos.map((s) => s.disciplina)).toLowerCase();
+  const discLabel = disciplinaLabel(discCode) ?? "";
+
+  // Codigo: manter a forma com underscore do proprio arquivo quando existir
+  // (ex.: "040_26"); senao a forma normalizada do parser (ex.: "040-26").
+  const codigoFormatado = mode(parsedList.map((p) => p.codigo));
+  const codigoUnderscore = mode(
+    validos.map((s) => {
+      const m = /^(\d{2,4})_(\d{2})(?!\d)/.exec(s.fileName.trim());
+      return m ? `${m[1]}_${m[2]}` : "";
+    }),
+  );
+  const codigoInterno = codigoUnderscore || codigoFormatado;
+  const codigoExibido = codigoInterno
+    ? formatDisplayCode(codigoInterno)
+    : codigoFormatado;
+
+  const revisao = mode(parsedList.map((p) => p.revisao));
+  const nomeObra = mode(validos.map((s) => s.obra));
+  const fase = mode(validos.map((s) => s.fase)) || template.defaults.fase;
+
+  // Volume: override -> parseFilename (arabico) -> default. Converte p/ romano
+  // quando o template pede; formatVolume so adiciona "Vol. ", nao converte.
+  const volumeArabic = (input.volume ?? mode(parsedList.map((p) => p.volume))) || "";
+  let volumeValue: string;
+  if (template.volumeFormat === "numeric") {
+    volumeValue = volumeArabic || "1";
+  } else {
+    // roman (default do formatVolume/generatePages)
+    volumeValue = volumeArabic ? arabicToRoman(volumeArabic) : "I";
+  }
+
+  const now = new Date();
+  const mes = MESES[now.getMonth()];
+  const ano = String(now.getFullYear());
+
+  const generalData: GeneralData = {
+    templateId: template.id,
+    orgao: template.defaults.orgao,
+    secretaria: template.defaults.secretaria,
+    nomeObra,
+    fase,
+    mes,
+    ano,
+    codigoInterno,
+    codigoExibido,
+    siglaArquivo: discCode,
+    revisao,
+  };
+
+  const group: CoverGroup = {
+    id: "nexo-capa",
+    tituloCapa: input.tituloCapa ?? disciplinaLabel(discCode) ?? "PROJETO",
+    disciplina: discLabel,
+    volume: volumeValue,
+    tomoMode: "quantity",
+    tomoQuantity: 1,
+    tomoList: [],
+  };
+
+  const pages = generatePages(
+    [group],
+    undefined,
+    template.volumeFormat,
+    template.tomoFormat,
+  );
+
+  return {
+    generalData,
+    pages,
+    resumo: {
+      prefeitura: template.grupo ?? template.nome,
+      disciplina: discLabel,
+      codigo: codigoExibido,
+      volume: volumeValue,
+      totalCapas: pages.length,
+    },
+  };
+}

@@ -414,6 +414,26 @@ interface LdGenResult {
   pdfName?: string;
 }
 
+interface NexoTemplateOption {
+  id: string;
+  nome: string;
+  grupo?: string;
+  variante?: string;
+}
+
+interface CapaGenResult {
+  resumo: { prefeitura: string; disciplina: string; codigo: string; volume: string };
+  pdfError?: string;
+  zipUrl: string;
+  zipName: string;
+  odtUrl: string;
+  odtName: string;
+  pdfUrl?: string;
+  pdfName?: string;
+}
+
+const ODT_MIME = "application/vnd.oasis.opendocument.text";
+
 function base64ToUrl(base64: string, mime: string): string {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -442,9 +462,73 @@ function SelosPanel() {
   const [ld, setLd] = useState<LdGenResult | null>(null);
   // null = ainda usa o palpite do selo; string = o engenheiro editou.
   const [tituloEditado, setTituloEditado] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
+  const [templateId, setTemplateId] = useState("");
+  const [capaBusy, setCapaBusy] = useState(false);
+  const [capa, setCapa] = useState<CapaGenResult | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
   const tituloLd = tituloEditado ?? suggestTitulo(results);
+
+  // Lista de prefeituras (templates de capa) — carrega uma vez.
+  useEffect(() => {
+    fetch("/api/capas/templates")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: NexoTemplateOption[] = d.templates ?? [];
+        setTemplates(list);
+        setTemplateId((prev) => prev || list[0]?.id || "");
+      })
+      .catch(() => {});
+  }, []);
+
+  async function gerarCapa() {
+    const selos = results
+      .filter((r) => r.extraction)
+      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+    if (selos.length === 0 || !templateId) return;
+    setCapaBusy(true);
+    setError(null);
+    setCapa(null);
+    try {
+      const res = await fetch("/api/nexo/capa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selos, templateId, tituloCapa: tituloLd }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            error?: string;
+            resumo?: CapaGenResult["resumo"];
+            pdfError?: string;
+            files?: {
+              odt: { name: string; data: string };
+              pdf: { name: string; data: string } | null;
+              zip: { name: string; data: string };
+            } | null;
+          }
+        | null;
+      if (!res.ok || !payload?.files) {
+        throw new Error(payload?.error ?? "Falha ao gerar a capa.");
+      }
+      setCapa({
+        resumo: payload.resumo!,
+        pdfError: payload.pdfError,
+        odtName: payload.files.odt.name,
+        odtUrl: base64ToUrl(payload.files.odt.data, ODT_MIME),
+        zipName: payload.files.zip.name,
+        zipUrl: base64ToUrl(payload.files.zip.data, "application/zip"),
+        pdfName: payload.files.pdf?.name,
+        pdfUrl: payload.files.pdf
+          ? base64ToUrl(payload.files.pdf.data, "application/pdf")
+          : undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
+    } finally {
+      setCapaBusy(false);
+    }
+  }
 
   async function gerarLd() {
     const selos = results
@@ -670,6 +754,74 @@ function SelosPanel() {
               </div>
             </div>
           )}
+
+          {/* Capa: precisa da prefeitura (orgao/secretaria/formato de volume) */}
+          <div className="flex flex-col gap-2 border-t border-dashed border-border pt-3">
+            <label className="block space-y-1.5">
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                Prefeitura (capa)
+              </span>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="flex w-full rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+              >
+                {templates.length === 0 && <option value="">Carregando...</option>}
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {(t.grupo ?? t.nome) + (t.variante ? ` — ${t.variante}` : "")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">
+                Usa o titulo acima e a obra/fase do selo.
+              </span>
+              <Button size="sm" onClick={gerarCapa} disabled={capaBusy || !templateId}>
+                {capaBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {capaBusy ? "Gerando..." : "Gerar capa"}
+              </Button>
+            </div>
+
+            {capa && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+                <p className="text-sm">
+                  Capa <span className="font-medium">{capa.resumo.prefeitura}</span> ·{" "}
+                  {capa.resumo.disciplina} · {capa.resumo.codigo} · vol {capa.resumo.volume}
+                  {capa.pdfError && (
+                    <span className="text-[var(--status-warning)]"> · PDF indisponivel</span>
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" asChild>
+                    <a href={capa.zipUrl} download={capa.zipName}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      ZIP
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={capa.odtUrl} download={capa.odtName}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      ODT
+                    </a>
+                  </Button>
+                  {capa.pdfUrl && (
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={capa.pdfUrl} download={capa.pdfName}>
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        PDF
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
