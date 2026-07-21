@@ -10,6 +10,7 @@ import {
   Layers3,
   type LucideIcon,
   TableProperties,
+  Waypoints,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
+import { isNexoEnabled } from "@/lib/feature-flags";
 
 type ModuleDef = {
   title: string;
@@ -33,6 +35,20 @@ type ModuleDef = {
   emphasis: boolean;
   status: "active" | "planned";
   shortcut: string | null;
+  beta?: boolean;
+};
+
+const nexoModule: ModuleDef = {
+  title: "Nexo",
+  description:
+    "Solte os PDFs e diga o que precisa: o assistente orquestra LD, capas, volume e auditoria, sempre confirmando cada passo.",
+  href: "/nexo",
+  label: "Abrir Nexo",
+  icon: Waypoints,
+  emphasis: true,
+  status: "active",
+  shortcut: null,
+  beta: true,
 };
 
 const availableModules: readonly ModuleDef[] = [
@@ -133,8 +149,10 @@ export default async function DashboardPage() {
 
   const isAdmin = access.isAdmin;
 
-  const primaryModule = availableModules.find((m) => m.emphasis) ?? availableModules[0];
-  const secondaryModules = availableModules.filter((m) => m.title !== primaryModule.title);
+  // Nexo (carro-chefe) entra na frente como principal quando a flag esta ligada.
+  const modules = isNexoEnabled() ? [nexoModule, ...availableModules] : availableModules;
+  const primaryModule = modules.find((m) => m.emphasis) ?? modules[0];
+  const secondaryModules = modules.filter((m) => m.title !== primaryModule.title);
   const PrimaryIcon = primaryModule.icon;
 
   return (
@@ -214,7 +232,11 @@ export default async function DashboardPage() {
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="ok">Ativo</Badge>
+                    {primaryModule.beta ? (
+                      <Badge variant="warning">Beta</Badge>
+                    ) : (
+                      <Badge variant="ok">Ativo</Badge>
+                    )}
                     <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                       Fluxo principal
                     </span>
@@ -252,7 +274,9 @@ export default async function DashboardPage() {
                     <div className="flex size-11 items-center justify-center rounded-md border border-border bg-[var(--nexodoc-recessed)] text-muted-foreground transition-colors group-hover:text-[var(--nexodoc-accent)]">
                       <Icon className="size-5" />
                     </div>
-                    {module.shortcut ? (
+                    {module.beta ? (
+                      <Badge variant="warning">Beta</Badge>
+                    ) : module.shortcut ? (
                       <ShortcutHint keys={module.shortcut} />
                     ) : (
                       <Badge variant="ok">Ativo</Badge>
