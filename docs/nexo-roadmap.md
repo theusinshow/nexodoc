@@ -18,11 +18,17 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
 ## Fases
 
 ### Fase 0 — Fundação (pré-requisito; tem valor mesmo sem chat)
-- [ ] **Ferramentas headless**: cada módulo vira uma função chamável com schema de I/O claro.
-  - Reuso: `/api/capas/generate`, `/api/separatrizes/generate`, `app/api/audit/route.ts`, `app/api/volume/suggest` já existem. Falta padronizar a **criação de LD** como função e unificar o formato de entrada/saída.
-- [ ] **Dossiê do Projeto** (`modules/nexo/types.ts`) — feito o primeiro rascunho; evoluir conforme as ferramentas.
-- [ ] **Intake + extração**: upload → classificação preenche o dossiê. Reuso: `modules/volume-builder/lib/volume/page-classification.ts`, `lib/audit-classify.ts`.
-- [ ] Semente de estado compartilhado já existe: `getProjectContextForUser`, decode LD→Capas do `ld-interop`.
+- [x] **Intake + extração** (keystone): `server/nexo/classify-documents.ts` — `classifyDocuments(files)` compõe `extractPdfText` + `classifyDocument` + `classifyPageAsset`, **determinístico, sem IA**, e agrega num Dossiê parcial. Rota `app/api/nexo/classify` (flag+auth). **Validado** contra PDF real (memorial 218 pág.): detectou tipo, obra, órgão, código, páginas, confiança. Ligado na UII (o card "Dossiê detectado" afirma os fatos).
+- [x] **Dossiê do Projeto** (`modules/nexo/types.ts`) — `NexoDossieDraft` + `NexoFileClassification` em uso pelo intake.
+- [ ] **Demais ferramentas headless** — mapeadas por subagents (assinaturas prontas), a implementar como composição fina das funções puras já existentes:
+  - `generateCovers` (compõe `generateOdtBuffer` + `convertOdtToPdf` + JSZip; persistência opcional). PURO, baixo risco.
+  - `createLD` (compõe `validateRows` de `ld-rules` + `generateOdtBuffer` de `ld-generation` + `convertOdtToPdf`). O gate real `ldBlockers` é UI-only; o núcleo objetivo é `validateRows`.
+  - `generateSeparatrizes` (compõe `generateSeparatorOdtBuffer` + `convertOdtToPdf`). PURO.
+  - `assembleVolume` (compõe `buildRowPdf` de `assembly-builder`, recebe `Map<id,ArrayBuffer>`). `suggestVolumeAssembly` precisa **extrair** `buildLocalSuggestions` de dentro de `suggest/route.ts` p/ um lib.
+  - `runAudit` — CARO: exige extrair ~40 helpers inline de `app/api/audit/route.ts` p/ um lib. Deixar por último (ou por enquanto o Nexo chama a rota existente).
+- [x] Semente de estado compartilhado: `getProjectContextForUser` (carrega id/code/name/client/status) — o Dossiê estende isso.
+
+**Nota de encoding:** a camada compartilhada `pdf-text`/`audit-classify` devolve alguns campos com mojibake (ex.: "Básica"→"BÃ¡sica"). Afeta também a auditoria; follow-up próprio (não é do Nexo).
 
 ### Fase 1 — Casca do módulo (atrás de flag) ← ATUAL
 - [x] Flag `isNexoEnabled()` (`lib/feature-flags.ts`).

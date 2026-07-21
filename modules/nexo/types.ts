@@ -53,6 +53,40 @@ export interface NexoArtifact {
   url?: string;
 }
 
+/**
+ * Resultado da classificacao deterministica de UM arquivo no intake (sem IA).
+ * Composto por `classifyDocument` (tipo/identidade) + `classifyPageAsset`
+ * (disciplina). Alimenta o "afirma fatos, pergunta decisoes".
+ */
+export interface NexoFileClassification {
+  fileName: string;
+  tipo: string;
+  tipoLabel: string;
+  obra: string;
+  municipio: string;
+  codigo: string;
+  orgao: string;
+  revisao: string;
+  disciplinaCode?: string;
+  disciplinaName?: string;
+  pageCount: number;
+  charCount: number;
+  confianca: "alta" | "media" | "baixa";
+  precisaOcr: boolean;
+  sinais: string[];
+}
+
+/** Dossie parcial montado pelo intake: fatos agregados + por-arquivo. */
+export interface NexoDossieDraft {
+  obra?: string;
+  orgao?: string;
+  municipio?: string;
+  codigo?: string;
+  revisao?: string;
+  disciplinas: string[];
+  arquivos: NexoFileClassification[];
+}
+
 /** Papel de cada mensagem no chat do Nexo. */
 export type NexoRole = "user" | "assistant";
 
