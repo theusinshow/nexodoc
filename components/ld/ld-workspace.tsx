@@ -1859,14 +1859,23 @@ export function LdWorkspace({
       const documentTask = pdfjs.getDocument({ data });
       const pdf = await documentTask.promise as PdfJsDocument;
       const page = await pdf.getPage(1);
+      // current: 0 durante a leitura -> a barra NÃO chega a 100% enquanto a IA
+      // ainda extrai os dados principais do selo. Só ao concluir marcamos 1/1.
       const pageResult = await analyzePdfPage({
         file: firstFile,
         fileIndex: 0,
         page,
         pageNumber: 1,
         id: 1,
+        current: 0,
+        total: 1,
+      });
+      reportProgress({
         current: 1,
         total: 1,
+        fileName: firstFile.name,
+        pageNumber: 1,
+        status: "Selo lido",
       });
       const parsedSheet = parseSheet(pageResult.row.sheet);
 
@@ -2985,6 +2994,7 @@ function UploadStep({
   // só nela (a outra fica desabilitada enquanto processa).
   const [activePanel, setActivePanel] = useState<"single" | "multiple" | null>(null);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
+  const [dragActive, setDragActive] = useState(false);
 
   function handleSelected(panel: "single" | "multiple", files: FileList) {
     setActivePanel(panel);
@@ -2992,8 +3002,43 @@ function UploadStep({
     onFilesSelected(files);
   }
 
+  // Aceita o drop em QUALQUER ponto da área de upload (inclusive na faixa de
+  // instrução e nos vãos entre os boxes), não só dentro de cada label. Sem isso o
+  // arquivo solto fora dos boxes ou não fazia nada, ou o navegador abria o PDF.
+  // Drop na área toda: 1 arquivo -> fluxo "single"; vários -> "multiple". Drops
+  // que caem dentro de um box são tratados lá (stopPropagation) e não repetem aqui.
+  function handleContainerDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    if (processing) {
+      return;
+    }
+    const { files } = event.dataTransfer;
+    if (files && files.length > 0) {
+      handleSelected(files.length > 1 ? "multiple" : "single", files);
+    }
+  }
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div
+      onDragOver={(event) => {
+        if (processing) {
+          return;
+        }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragActive(false);
+        }
+      }}
+      onDrop={handleContainerDrop}
+      className={`grid gap-4 rounded-md md:grid-cols-2 ${
+        dragActive ? "outline outline-2 outline-offset-4 outline-primary" : ""
+      }`}
+    >
       <UploadPanel
         title="PDF único com várias pranchas"
         description="O sistema separa as páginas e tenta extrair PRANCHA, ARQUIVO e CONTEÚDO."
@@ -3012,7 +3057,7 @@ function UploadStep({
         onFilesSelected={(files) => handleSelected("multiple", files)}
       />
       <div className="md:col-span-2 rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
-        Arraste os PDFs para uma das áreas acima ou clique para selecionar. A leitura do selo (recorte e anotação
+        Arraste os PDFs para qualquer ponto desta área ou clique para selecionar. A leitura do selo (recorte e anotação
         dos campos) é feita por IA na etapa de análise.
       </div>
     </div>
@@ -3041,6 +3086,9 @@ function UploadPanel({
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
+    // Drop dentro do box é resolvido aqui; não deixa borbulhar para o container
+    // da etapa (que também escuta drop) para não processar o arquivo duas vezes.
+    event.stopPropagation();
     setDragActive(false);
 
     if (inactive) {
@@ -3061,6 +3109,7 @@ function UploadPanel({
           return;
         }
         event.preventDefault();
+        event.stopPropagation();
         event.dataTransfer.dropEffect = "copy";
         setDragActive(true);
       }}
@@ -3227,7 +3276,9 @@ function PdfReadSummary({
           </div>
           <div className="h-2 overflow-hidden rounded-sm bg-muted">
             <div
-              className="h-full bg-primary transition-[width] duration-300"
+              className={`h-full bg-primary transition-[width] duration-300 ${
+                progress && progress.total > 0 && progress.current === 0 ? "animate-pulse" : ""
+              }`}
               style={{
                 width: progress?.total ? `${Math.max(4, (progress.current / progress.total) * 100)}%` : "4%",
               }}
@@ -4583,8 +4634,7 @@ function SummaryStep({
       <SummaryGroup
         title="Dados manuais"
         items={[
-          ["Código do projeto", data.projectCode],
-          ["Código formatado", data.formattedCode],
+          ["Código do projeto", data.formattedCode],
           ["Disciplina", data.discipline],
           ["Revisão", data.revision],
           ["Título da seção", data.sectionTitle],
