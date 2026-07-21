@@ -421,13 +421,30 @@ function base64ToUrl(base64: string, mime: string): string {
   return URL.createObjectURL(new Blob([bytes], { type: mime }));
 }
 
+/** Palpite do título da LD a partir do que o selo trouxe (mais frequente). */
+function suggestTitulo(results: SeloResult[]): string {
+  const counts = new Map<string, number>();
+  for (const r of results) {
+    const t = r.extraction?.tituloSecao?.trim();
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  let best = "";
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
 function SelosPanel() {
   const [results, setResults] = useState<SeloResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ldBusy, setLdBusy] = useState(false);
   const [ld, setLd] = useState<LdGenResult | null>(null);
+  // null = ainda usa o palpite do selo; string = o engenheiro editou.
+  const [tituloEditado, setTituloEditado] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+
+  const tituloLd = tituloEditado ?? suggestTitulo(results);
 
   async function gerarLd() {
     const selos = results
@@ -441,7 +458,7 @@ function SelosPanel() {
       const res = await fetch("/api/nexo/ld", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos }),
+        body: JSON.stringify({ selos, tituloLd }),
       });
       const payload = (await res.json().catch(() => null)) as
         | {
@@ -592,6 +609,22 @@ function SelosPanel() {
 
       {okCount > 0 && !busy && (
         <div className="flex flex-col gap-3 border-t border-border p-4">
+          <label className="block space-y-1.5">
+            <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+              Titulo da LD
+            </span>
+            <input
+              value={tituloLd}
+              onChange={(e) => setTituloEditado(e.target.value)}
+              placeholder="Ex.: PROJETO ESTRUTURAL DE CONCRETO - BLOCO B"
+              className="flex w-full rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Varia por projeto. Confirme antes de gerar. O tomo, quando houver, e
+              anexado automaticamente.
+            </span>
+          </label>
+
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">
               {okCount} folhas prontas para virar LD.

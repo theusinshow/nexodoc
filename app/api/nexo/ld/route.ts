@@ -21,10 +21,14 @@ export async function POST(req: NextRequest) {
   }
 
   let selos: SeloForLd[];
+  let tituloLd: string | undefined;
   try {
-    const body = (await req.json()) as { selos?: unknown };
+    const body = (await req.json()) as { selos?: unknown; tituloLd?: unknown };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
+    if (typeof body.tituloLd === "string" && body.tituloLd.trim()) {
+      tituloLd = body.tituloLd.trim();
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -34,6 +38,9 @@ export async function POST(req: NextRequest) {
   }
 
   const proposal = buildLdProposal(selos);
+  // Título da LD é uma DECISÃO (varia por projeto: "... - BLOCO B (TOMO X)").
+  // O engenheiro edita/confirma; sobrescreve o palpite determinístico.
+  if (tituloLd) proposal.input.ldData.sectionTitle = tituloLd;
   const result = await createLD(proposal.input);
 
   return NextResponse.json({
