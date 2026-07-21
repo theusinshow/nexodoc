@@ -1105,6 +1105,9 @@ export function LdWorkspace({
   const [previousGenerationAt, setPreviousGenerationAt] = useState<string | null>(null);
   const [packageGenerating, setPackageGenerating] = useState(false);
   const [packageError, setPackageError] = useState("");
+  // Conversão automática ODT->PDF ausente NÃO é erro: o fluxo recomendado é gerar
+  // o PDF pelo LibreOffice, na pasta do projeto, para o caminho do rodapé sair certo.
+  const [pdfUnavailable, setPdfUnavailable] = useState(false);
   const [preAnalysisResult, setPreAnalysisResult] = useState<PdfReadResult | null>(null);
   const fieldToFocus = useRef<LdFieldKey | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -2207,6 +2210,7 @@ export function LdWorkspace({
 
     setPackageGenerating(true);
     setPackageError("");
+    setPdfUnavailable(false);
 
     try {
       const templateBase64 =
@@ -2251,8 +2255,10 @@ export function LdWorkspace({
 
       generatedDownloads.forEach((download) => URL.revokeObjectURL(download.url));
 
+      // PDF não convertido no servidor não é falha da geração: o ODT saiu e o
+      // fluxo recomendado é exportar o PDF pelo LibreOffice na pasta do projeto.
       if (payload.pdfError) {
-        setPackageError(`PDF indisponivel: ${payload.pdfError}`);
+        setPdfUnavailable(true);
       }
 
       const downloads = [
@@ -2531,6 +2537,7 @@ export function LdWorkspace({
                 coverGeneratorHref={coverGeneratorHref}
                 generating={packageGenerating}
                 error={packageError}
+                pdfUnavailable={pdfUnavailable}
                 checklistItems={finalChecklistItems}
                 checkedItems={finalChecklist}
                 previousGenerationAt={previousGenerationAt}
@@ -4719,6 +4726,7 @@ function FinalStep({
   coverGeneratorHref,
   generating,
   error,
+  pdfUnavailable,
   checklistItems,
   checkedItems,
   previousGenerationAt,
@@ -4730,6 +4738,7 @@ function FinalStep({
   coverGeneratorHref: string;
   generating: boolean;
   error: string;
+  pdfUnavailable: boolean;
   checklistItems: string[];
   checkedItems: string[];
   previousGenerationAt: string | null;
@@ -4780,6 +4789,23 @@ function FinalStep({
           {downloads.length > 0 ? "Gerar novamente" : "Gerar arquivos finais"}
         </button>
         {error && <p className="rounded-md border border-destructive bg-background p-3 text-sm text-destructive">{error}</p>}
+        {pdfUnavailable && !error && (
+          <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm text-foreground">
+            <p className="flex items-center gap-1.5 font-semibold">
+              <FileText size={14} className="text-warning" />
+              Gere o PDF pelo LibreOffice
+            </p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              O ODT foi gerado normalmente — o PDF não é convertido automaticamente aqui, e esse é o fluxo
+              recomendado. Assim o rodapé sai com o caminho correto do arquivo.
+            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
+              <li>Baixe o arquivo <span className="font-mono">.odt</span> gerado (lista de arquivos).</li>
+              <li>Salve-o na pasta correta do projeto (o caminho vira o rodapé do documento).</li>
+              <li>Abra no LibreOffice e exporte em <span className="font-medium">Arquivo → Exportar como → Exportar como PDF</span>.</li>
+            </ol>
+          </div>
+        )}
         {/* Acao secundaria: sai do fluxo da LD, entao nao compete em teal com
             "Gerar arquivos finais". */}
         <Link
