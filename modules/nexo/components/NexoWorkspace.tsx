@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Layers,
 } from "lucide-react";
-import { ScanLine } from "lucide-react";
+import { ScanLine, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -405,11 +405,77 @@ function DossieRow({ label, value }: { label: string; value?: string }) {
  * e OCRa via /api/ld/extract-stamp; mostra o que extraiu de cada folha — a
  * materia-prima da LD (proximo passo: virar proposta de LD + capa).
  */
+interface LdGenResult {
+  resumo: { disciplina: string; codigo: string; revisao: string; totalFolhas: number };
+  warnings: string[];
+  odtUrl: string;
+  odtName: string;
+  pdfUrl?: string;
+  pdfName?: string;
+}
+
+function base64ToUrl(base64: string, mime: string): string {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
+}
+
 function SelosPanel() {
   const [results, setResults] = useState<SeloResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ldBusy, setLdBusy] = useState(false);
+  const [ld, setLd] = useState<LdGenResult | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+
+  async function gerarLd() {
+    const selos = results
+      .filter((r) => r.extraction)
+      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+    if (selos.length === 0) return;
+    setLdBusy(true);
+    setError(null);
+    setLd(null);
+    try {
+      const res = await fetch("/api/nexo/ld", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selos }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            error?: string;
+            resumo?: LdGenResult["resumo"];
+            warnings?: string[];
+            files?: {
+              odt: { name: string; data: string };
+              pdf: { name: string; data: string } | null;
+            } | null;
+          }
+        | null;
+      if (!res.ok || !payload?.files) {
+        throw new Error(payload?.error ?? "Falha ao gerar a LD.");
+      }
+      setLd({
+        resumo: payload.resumo!,
+        warnings: payload.warnings ?? [],
+        odtName: payload.files.odt.name,
+        odtUrl: base64ToUrl(
+          payload.files.odt.data,
+          "application/vnd.oasis.opendocument.text",
+        ),
+        pdfName: payload.files.pdf?.name,
+        pdfUrl: payload.files.pdf
+          ? base64ToUrl(payload.files.pdf.data, "application/pdf")
+          : undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
+    } finally {
+      setLdBusy(false);
+    }
+  }
 
   async function run(list: FileList | null) {
     if (!list) return;
@@ -519,6 +585,56 @@ function SelosPanel() {
           {(busy || okCount > 0) && (
             <div className="px-4 py-2 font-mono text-xs text-muted-foreground">
               {okCount}/{results.length} folhas lidas{busy ? "…" : ""}
+            </div>
+          )}
+        </div>
+      )}
+
+      {okCount > 0 && !busy && (
+        <div className="flex flex-col gap-3 border-t border-border p-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">
+              {okCount} folhas prontas para virar LD.
+            </span>
+            <Button size="sm" onClick={gerarLd} disabled={ldBusy}>
+              {ldBusy ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {ldBusy ? "Gerando..." : "Gerar LD"}
+            </Button>
+          </div>
+
+          {ld && (
+            <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+              <p className="text-sm">
+                LD <span className="font-medium">{ld.resumo.disciplina}</span> ·{" "}
+                {ld.resumo.codigo} · rev {ld.resumo.revisao} ·{" "}
+                <span className="tabular-nums">{ld.resumo.totalFolhas}</span> folhas
+                {ld.warnings.length > 0 && (
+                  <span className="text-[var(--status-warning)]">
+                    {" "}
+                    · {ld.warnings.length} aviso(s)
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" asChild>
+                  <a href={ld.odtUrl} download={ld.odtName}>
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    ODT
+                  </a>
+                </Button>
+                {ld.pdfUrl && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={ld.pdfUrl} download={ld.pdfName}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      PDF
+                    </a>
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
