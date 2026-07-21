@@ -52,6 +52,13 @@ export function NexoWorkspace() {
     try {
       const form = new FormData();
       for (const file of nextFiles) form.append("files", file);
+      // Caminho relativo (quando vem de upload de pasta) ajuda em volume/blocos.
+      form.append(
+        "relPaths",
+        JSON.stringify(
+          nextFiles.map((f) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || ""),
+        ),
+      );
       const res = await fetch("/api/nexo/classify", {
         method: "POST",
         body: form,
@@ -170,16 +177,33 @@ export function NexoWorkspace() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    {found && (
+                    {found && found.foraDeEscopo && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7">
                         <Badge variant="outline">{found.tipoLabel}</Badge>
-                        {found.disciplinaName && (
-                          <Badge variant="outline">{found.disciplinaName}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          fora do escopo do Nexo
+                        </span>
+                      </div>
+                    )}
+                    {found && !found.foraDeEscopo && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7">
+                        <Badge variant="outline">{found.tipoLabel}</Badge>
+                        {found.volume && (
+                          <Badge variant="outline">vol {found.volume}</Badge>
+                        )}
+                        {found.disciplinas.map((d) => (
+                          <Badge key={d} variant="outline">
+                            {d.toUpperCase()}
+                          </Badge>
+                        ))}
+                        {found.revisao && (
+                          <Badge variant="outline">rev {found.revisao}</Badge>
                         )}
                         <Badge variant="outline">{found.pageCount} pag.</Badge>
                         <Badge variant={CONFIANCA_BADGE[found.confianca]}>
                           {found.confianca}
                         </Badge>
+                        {found.assinado && <Badge variant="outline">assinado</Badge>}
                         {found.precisaOcr && (
                           <Badge variant="warning">precisa OCR</Badge>
                         )}

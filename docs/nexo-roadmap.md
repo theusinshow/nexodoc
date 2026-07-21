@@ -18,7 +18,8 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
 ## Fases
 
 ### Fase 0 — Fundação (pré-requisito; tem valor mesmo sem chat)
-- [x] **Intake + extração** (keystone): `server/nexo/classify-documents.ts` — `classifyDocuments(files)` compõe `extractPdfText` + `classifyDocument` + `classifyPageAsset`, **determinístico, sem IA**, e agrega num Dossiê parcial. Rota `app/api/nexo/classify` (flag+auth). **Validado** contra PDF real (memorial 218 pág.): detectou tipo, obra, órgão, código, páginas, confiança. Ligado na UII (o card "Dossiê detectado" afirma os fatos).
+- [x] **Intake + extração** (keystone) — **filename-first**: `server/nexo/parse-filename.ts` + `server/nexo/disciplinas.ts` (léxico real do escritório) parseiam código, revisão, tipo (memorial/capa/separatriz/prancha/volume), disciplinas (multi) e folha **direto do nome/pasta** — fato objetivo primeiro. `classifyDocuments` usa o parser como autoritativo e só lê o conteúdo do PDF para IDENTIDADE (obra/órgão/município) + páginas. Orçamento = fora de escopo (nem lê). **Calibrado nos 4 projetos reais (640 PDFs)**: código 98%, revisão 87%, disciplina 98%; capa/separatriz que antes eram 0% agora corretas. Rota `app/api/nexo/classify` (flag+auth, aceita relPaths de upload de pasta). Card "Dossiê detectado" na UI afirma os fatos.
+  - Ajuste: disciplinas do NOME são autoritativas; pasta só como fallback (evita o volume `his_inc_spd` contaminar uma prancha que é só `his`).
 - [x] **Dossiê do Projeto** (`modules/nexo/types.ts`) — `NexoDossieDraft` + `NexoFileClassification` em uso pelo intake.
 - [ ] **Demais ferramentas headless** — mapeadas por subagents (assinaturas prontas), a implementar como composição fina das funções puras já existentes:
   - `generateCovers` (compõe `generateOdtBuffer` + `convertOdtToPdf` + JSZip; persistência opcional). PURO, baixo risco.

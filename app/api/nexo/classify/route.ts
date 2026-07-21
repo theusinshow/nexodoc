@@ -43,14 +43,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let declaredTypes: string[] = [];
-  const typesRaw = form.get("fileTypes");
-  if (typeof typesRaw === "string") {
+  // Caminhos relativos (opcional, de upload de diretorio) enriquecem volume/blocos.
+  let relPaths: string[] = [];
+  const relRaw = form.get("relPaths");
+  if (typeof relRaw === "string") {
     try {
-      const parsed = JSON.parse(typesRaw);
-      if (Array.isArray(parsed)) declaredTypes = parsed.map((t) => String(t));
+      const parsed = JSON.parse(relRaw);
+      if (Array.isArray(parsed)) relPaths = parsed.map((p) => String(p));
     } catch {
-      // dica opcional; ignora se malformada
+      // opcional; ignora se malformada
     }
   }
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     files.map(async (file, index) => ({
       fileName: file.name,
       buffer: Buffer.from(await file.arrayBuffer()),
-      declaredType: declaredTypes[index],
+      relPath: relPaths[index] || undefined,
     })),
   );
 

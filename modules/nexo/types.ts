@@ -60,15 +60,23 @@ export interface NexoArtifact {
  */
 export interface NexoFileClassification {
   fileName: string;
+  /** NexoDocTipo do parser: memorial | capa | separatriz | prancha | volume | orcamento | outro. */
   tipo: string;
   tipoLabel: string;
+  /** true = orcamento (fora do escopo do Nexo); conteudo nem e lido. */
+  foraDeEscopo: boolean;
+  /** versao assinada (duplicata do documento). */
+  assinado: boolean;
   obra: string;
   municipio: string;
-  codigo: string;
   orgao: string;
+  /** Do nome do arquivo (autoritativo), com fallback no conteudo. */
+  codigo: string;
   revisao: string;
-  disciplinaCode?: string;
-  disciplinaName?: string;
+  /** Codigos de disciplina do nome/pasta (multi). */
+  disciplinas: string[];
+  folha?: string;
+  volume?: string;
   pageCount: number;
   charCount: number;
   confianca: "alta" | "media" | "baixa";
