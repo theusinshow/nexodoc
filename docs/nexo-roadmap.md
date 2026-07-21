@@ -21,13 +21,15 @@ Objeto único de estado (`modules/nexo/types.ts`) que o agente constrói ao long
 - [x] **Intake + extração** (keystone) — **filename-first**: `server/nexo/parse-filename.ts` + `server/nexo/disciplinas.ts` (léxico real do escritório) parseiam código, revisão, tipo (memorial/capa/separatriz/prancha/volume), disciplinas (multi) e folha **direto do nome/pasta** — fato objetivo primeiro. `classifyDocuments` usa o parser como autoritativo e só lê o conteúdo do PDF para IDENTIDADE (obra/órgão/município) + páginas. Orçamento = fora de escopo (nem lê). **Calibrado nos 4 projetos reais (640 PDFs)**: código 98%, revisão 87%, disciplina 98%; capa/separatriz que antes eram 0% agora corretas. Rota `app/api/nexo/classify` (flag+auth, aceita relPaths de upload de pasta). Card "Dossiê detectado" na UI afirma os fatos.
   - Ajuste: disciplinas do NOME são autoritativas; pasta só como fallback (evita o volume `his_inc_spd` contaminar uma prancha que é só `his`).
 - [x] **Dossiê do Projeto** (`modules/nexo/types.ts`) — `NexoDossieDraft` + `NexoFileClassification` em uso pelo intake.
-- [ ] **Demais ferramentas headless** — mapeadas por subagents (assinaturas prontas), a implementar como composição fina das funções puras já existentes:
-  - `generateCovers` (compõe `generateOdtBuffer` + `convertOdtToPdf` + JSZip; persistência opcional). PURO, baixo risco.
-  - `createLD` (compõe `validateRows` de `ld-rules` + `generateOdtBuffer` de `ld-generation` + `convertOdtToPdf`). O gate real `ldBlockers` é UI-only; o núcleo objetivo é `validateRows`.
-  - `generateSeparatrizes` (compõe `generateSeparatorOdtBuffer` + `convertOdtToPdf`). PURO.
-  - `assembleVolume` (compõe `buildRowPdf` de `assembly-builder`, recebe `Map<id,ArrayBuffer>`). `suggestVolumeAssembly` precisa **extrair** `buildLocalSuggestions` de dentro de `suggest/route.ts` p/ um lib.
-  - `runAudit` — CARO: exige extrair ~40 helpers inline de `app/api/audit/route.ts` p/ um lib. Deixar por último (ou por enquanto o Nexo chama a rota existente).
-- [x] Semente de estado compartilhado: `getProjectContextForUser` (carrega id/code/name/client/status) — o Dossiê estende isso.
+- [x] **Estrutura do projeto no Dossiê**: `classifyFilenames` (só nomes, sem ler PDF) + rota `app/api/nexo/structure` agrupam por **volume** (disciplinas + contagem capas/separatrizes/pranchas/memoriais). UI ganhou **upload de pasta** (webkitdirectory → manda nomes+relPaths, instantâneo p/ 600+ arquivos) + visão "Estrutura do projeto". Conteúdo do PDF só é lido para o **memorial** (identidade); pranchas/capas ficam filename-only (rápido). Validado no 040-26 (143 arquivos, 10 volumes corretos).
+- [x] **Ferramentas headless de geração** (subagent + verificado/testado):
+  - `server/nexo/tools/generate-separatrizes.ts` — `generateSeparatrizes()` (ODT+PDF+ZIP, Buffers). Testado: ODT real gerado.
+  - `server/nexo/tools/generate-covers.ts` — `generateCovers()` (compõe generateOdtBuffer+convertOdtToPdf+JSZip; persistência opcional c/ userEmail explícito, sem auth()).
+- [ ] **Ferramentas restantes**: `createLD` (compõe `validateRows`+`generateOdtBuffer`(ld)+`convertOdtToPdf`); `assembleVolume` (`buildRowPdf`, recebe Map<id,ArrayBuffer>) + extrair `buildLocalSuggestions` de `suggest/route.ts`; `runAudit` (CARO: extrair ~40 helpers de audit/route.ts — por último, ou chamar a rota existente).
+- [x] Semente de estado compartilhado: `getProjectContextForUser` (id/code/name/client/status) — o Dossiê estende isso.
+
+### Blocos/tomos (pendência refinada)
+A estrutura já modela **volumes**. Falta o nível **bloco/tomo** dentro do volume (pastas `arquivos separados/<n>_<disc>/[TOMO N]`) — dá pra derivar do `relPath` que já é capturado. Próximo refinamento do Dossiê.
 
 **Encoding — investigado, sem bug:** o "mojibake" observado ("Básica"→"BÃ¡sica") era artefato do terminal (Windows `python -m json.tool` lendo bytes UTF-8 como cp1252). Confirmado server-side: `extractPdfText` devolve os acentos corretos (á=U+00E1, ú=U+00FA), sem `Ã`/`Â` órfãos. Nada a corrigir — e deliberadamente **não** vamos adicionar um "reparo" de mojibake, que corromperia texto correto. Vigiar se algum PDF real (ToUnicode ruim / escaneado) trouxer mojibake de verdade.
 

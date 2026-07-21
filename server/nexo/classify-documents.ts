@@ -3,14 +3,20 @@ import { classifyDocument } from "@/lib/audit-classify";
 import type {
   NexoDossieDraft,
   NexoFileClassification,
+  NexoVolumeGroup,
 } from "@/modules/nexo/types";
-import { parseFilename, TIPO_LABEL } from "./parse-filename";
+import { parseFilename, TIPO_LABEL, type ParsedFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
 
 export interface ClassifyDocumentsInput {
   fileName: string;
   buffer: Buffer;
-  /** Caminho relativo (pastas) quando vier de upload de diretorio — enriquece volume/blocos. */
+  /** Caminho relativo (pastas) de upload de diretorio — enriquece volume/blocos. */
+  relPath?: string;
+}
+
+export interface ClassifyNamesInput {
+  fileName: string;
   relPath?: string;
 }
 
@@ -20,12 +26,55 @@ const CONFIANCA_RANK: Record<NexoFileClassification["confianca"], number> = {
   baixa: 1,
 };
 
+/** Identidade extraida do conteudo (so faz sentido para o memorial). */
+interface ContentIdentity {
+  obra: string;
+  municipio: string;
+  orgao: string;
+  codigo: string;
+  pageCount: number;
+  charCount: number;
+  confianca: NexoFileClassification["confianca"];
+  precisaOcr: boolean;
+  sinais: string[];
+}
+
+function toClassification(
+  fileName: string,
+  relPath: string | undefined,
+  parsed: ParsedFilename,
+  content?: ContentIdentity,
+): NexoFileClassification {
+  return {
+    fileName,
+    relPath,
+    tipo: parsed.tipo,
+    tipoLabel: TIPO_LABEL[parsed.tipo],
+    foraDeEscopo: parsed.foraDeEscopo,
+    assinado: parsed.assinado,
+    obra: content?.obra ?? "",
+    municipio: content?.municipio ?? "",
+    orgao: content?.orgao ?? "",
+    // filename e autoritativo; conteudo so como fallback.
+    codigo: parsed.codigo || content?.codigo || "",
+    revisao: parsed.revisao,
+    disciplinas: parsed.disciplinas,
+    folha: parsed.folha,
+    volume: parsed.volume,
+    pageCount: content?.pageCount ?? 0,
+    charCount: content?.charCount ?? 0,
+    // Sem conteudo, a confianca vem do parser (nome e altamente estruturado).
+    confianca: content?.confianca ?? "alta",
+    precisaOcr: content?.precisaOcr ?? false,
+    sinais: content?.sinais ?? [],
+  };
+}
+
 /**
- * Intake do Nexo (Fase 0), FILENAME-FIRST. A convencao de nomes do escritorio
- * carrega os fatos objetivos (codigo, revisao, tipo, disciplinas, folha) — o
- * parser deles e autoritativo. O conteudo do PDF so entra para a IDENTIDADE
- * (obra/orgao/municipio) e contagem de paginas. Orcamento e fora de escopo: nem
- * lemos o conteudo. Determinístico, sem IA.
+ * Intake do Nexo (Fase 0), FILENAME-FIRST. O nome carrega os fatos objetivos
+ * (codigo, revisao, tipo, disciplinas, folha) — autoritativos. O conteudo do PDF
+ * so e lido para o MEMORIAL (fonte de obra/orgao/municipio) — pranchas/capas nao
+ * precisam e seriam caras (600+ arquivos). Orcamento = fora de escopo.
  */
 export async function classifyDocuments(
   files: ClassifyDocumentsInput[],
@@ -35,57 +84,39 @@ export async function classifyDocuments(
   for (const file of files) {
     const parsed = parseFilename(file.fileName, file.relPath);
 
-    // Orcamento: fora de escopo — registra e nao le o conteudo.
-    if (parsed.foraDeEscopo) {
-      arquivos.push({
-        fileName: file.fileName,
-        tipo: parsed.tipo,
-        tipoLabel: TIPO_LABEL[parsed.tipo],
-        foraDeEscopo: true,
-        assinado: parsed.assinado,
-        obra: "",
-        municipio: "",
-        orgao: "",
-        codigo: parsed.codigo,
-        revisao: parsed.revisao,
-        disciplinas: parsed.disciplinas,
-        folha: parsed.folha,
-        volume: parsed.volume,
-        pageCount: 0,
-        charCount: 0,
-        confianca: "baixa",
-        precisaOcr: false,
-        sinais: [],
-      });
-      continue;
+    // Le conteudo apenas do memorial em escopo (identidade do projeto).
+    let content: ContentIdentity | undefined;
+    if (!parsed.foraDeEscopo && parsed.tipo === "memorial") {
+      const extracted = await extractPdfText(file.buffer);
+      const doc = classifyDocument(file.fileName, extracted, "memorial");
+      content = {
+        obra: doc.obra,
+        municipio: doc.municipio,
+        orgao: doc.orgao,
+        codigo: doc.codigo,
+        pageCount: doc.pageCount,
+        charCount: doc.charCount,
+        confianca: doc.confianca,
+        precisaOcr: doc.precisaOcr,
+        sinais: doc.sinais,
+      };
     }
 
-    const extracted = await extractPdfText(file.buffer);
-    const doc = classifyDocument(file.fileName, extracted, "memorial");
-
-    arquivos.push({
-      fileName: file.fileName,
-      tipo: parsed.tipo,
-      tipoLabel: TIPO_LABEL[parsed.tipo],
-      foraDeEscopo: false,
-      assinado: parsed.assinado,
-      obra: doc.obra,
-      municipio: doc.municipio,
-      orgao: doc.orgao,
-      // filename e autoritativo; conteudo so como fallback.
-      codigo: parsed.codigo || doc.codigo,
-      revisao: parsed.revisao,
-      disciplinas: parsed.disciplinas,
-      folha: parsed.folha,
-      volume: parsed.volume,
-      pageCount: doc.pageCount,
-      charCount: doc.charCount,
-      confianca: doc.confianca,
-      precisaOcr: doc.precisaOcr,
-      sinais: doc.sinais,
-    });
+    arquivos.push(toClassification(file.fileName, file.relPath, parsed, content));
   }
 
+  return aggregate(arquivos);
+}
+
+/**
+ * Classificacao SO por nome/caminho (sem ler PDF). Para upload de pasta inteira:
+ * o browser manda os nomes+relPaths (leve), e a estrutura do projeto sai daqui.
+ * Nao extrai identidade (obra/orgao) — isso exige o conteudo do memorial.
+ */
+export function classifyFilenames(items: ClassifyNamesInput[]): NexoDossieDraft {
+  const arquivos = items.map((it) =>
+    toClassification(it.fileName, it.relPath, parseFilename(it.fileName, it.relPath)),
+  );
   return aggregate(arquivos);
 }
 
@@ -102,13 +133,13 @@ function pickByConfidence(
 }
 
 function aggregate(arquivos: NexoFileClassification[]): NexoDossieDraft {
-  // Disciplinas do dossie: rotulos distintos, so de arquivos em escopo.
+  const emEscopo = arquivos.filter((a) => !a.foraDeEscopo);
+
   const codes = new Set<string>();
-  for (const a of arquivos) {
-    if (a.foraDeEscopo) continue;
-    for (const c of a.disciplinas) codes.add(c);
-  }
+  for (const a of emEscopo) for (const c of a.disciplinas) codes.add(c);
   const disciplinas = Array.from(codes, (c) => disciplinaLabel(c) ?? c.toUpperCase());
+
+  const { volumes, semVolume } = buildVolumes(emEscopo);
 
   return {
     obra: pickByConfidence(arquivos, "obra"),
@@ -117,6 +148,48 @@ function aggregate(arquivos: NexoFileClassification[]): NexoDossieDraft {
     codigo: pickByConfidence(arquivos, "codigo"),
     revisao: pickByConfidence(arquivos, "revisao"),
     disciplinas,
+    volumes,
+    semVolume,
     arquivos,
   };
+}
+
+/** Agrupa por volume (parser.volume); memorial/avulsos ficam sem volume. */
+function buildVolumes(arquivos: NexoFileClassification[]): {
+  volumes: NexoVolumeGroup[];
+  semVolume: NexoFileClassification[];
+} {
+  const map = new Map<string, NexoFileClassification[]>();
+  const semVolume: NexoFileClassification[] = [];
+
+  for (const a of arquivos) {
+    if (a.volume) {
+      const list = map.get(a.volume) ?? [];
+      list.push(a);
+      map.set(a.volume, list);
+    } else {
+      semVolume.push(a);
+    }
+  }
+
+  const volumes: NexoVolumeGroup[] = Array.from(map, ([numero, files]) => {
+    const codes = new Set<string>();
+    for (const f of files) for (const c of f.disciplinas) codes.add(c);
+    return {
+      numero,
+      rotulo: `Volume ${numero}`,
+      disciplinas: Array.from(codes, (c) => disciplinaLabel(c) ?? c.toUpperCase()),
+      contagem: {
+        memoriais: files.filter((f) => f.tipo === "memorial").length,
+        capas: files.filter((f) => f.tipo === "capa").length,
+        separatrizes: files.filter((f) => f.tipo === "separatriz").length,
+        pranchas: files.filter((f) => f.tipo === "prancha").length,
+        volumes: files.filter((f) => f.tipo === "volume").length,
+        outros: files.filter((f) => f.tipo === "outro").length,
+      },
+      arquivos: files,
+    };
+  }).sort((a, b) => Number(a.numero) - Number(b.numero));
+
+  return { volumes, semVolume };
 }

@@ -7,6 +7,8 @@ export type {
   NexoArtifactKind,
   NexoFileClassification,
   NexoDossieDraft,
+  NexoVolumeGroup,
+  NexoVolumeCounts,
   NexoMessage,
   NexoRole,
 } from "./types";

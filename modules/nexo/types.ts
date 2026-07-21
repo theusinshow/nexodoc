@@ -60,6 +60,8 @@ export interface NexoArtifact {
  */
 export interface NexoFileClassification {
   fileName: string;
+  /** Caminho relativo quando veio de upload de pasta (blocos/tomos). */
+  relPath?: string;
   /** NexoDocTipo do parser: memorial | capa | separatriz | prancha | volume | orcamento | outro. */
   tipo: string;
   tipoLabel: string;
@@ -84,7 +86,26 @@ export interface NexoFileClassification {
   sinais: string[];
 }
 
-/** Dossie parcial montado pelo intake: fatos agregados + por-arquivo. */
+/** Contagem de documentos por papel dentro de um volume. */
+export interface NexoVolumeCounts {
+  memoriais: number;
+  capas: number;
+  separatrizes: number;
+  pranchas: number;
+  volumes: number;
+  outros: number;
+}
+
+/** Um volume do projeto, com seus arquivos e disciplinas. */
+export interface NexoVolumeGroup {
+  numero?: string;
+  rotulo: string;
+  disciplinas: string[];
+  contagem: NexoVolumeCounts;
+  arquivos: NexoFileClassification[];
+}
+
+/** Dossie parcial montado pelo intake: fatos agregados + estrutura + por-arquivo. */
 export interface NexoDossieDraft {
   obra?: string;
   orgao?: string;
@@ -92,6 +113,10 @@ export interface NexoDossieDraft {
   codigo?: string;
   revisao?: string;
   disciplinas: string[];
+  /** Estrutura por volume (agrupa pranchas/capas/separatrizes). */
+  volumes: NexoVolumeGroup[];
+  /** Arquivos sem volume identificado (memorial geral, avulsos). */
+  semVolume: NexoFileClassification[];
   arquivos: NexoFileClassification[];
 }
 
