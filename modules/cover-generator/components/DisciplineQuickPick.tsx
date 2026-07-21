@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const DISCIPLINE_OPTIONS = [
@@ -49,19 +50,21 @@ export function DisciplineQuickPick({ value, onChange }: DisciplineQuickPickProp
               type="button"
               variant="outline"
               size="sm"
-              className={`h-7 px-2 text-[11px] ${
+              aria-pressed={selected}
+              className={`h-7 gap-1 px-2 text-xs ${
                 selected
                   ? "border-[var(--nexodoc-tertiary-strong)] bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]"
                   : "hover:border-primary/60"
               }`}
               onClick={() => toggleDiscipline(option)}
             >
+              {selected && <Check className="h-3 w-3 shrink-0" />}
               {option}
             </Button>
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p className="mt-2 text-xs text-muted-foreground">
         Clique para adicionar ou remover. O campo continua editavel para nomes especificos.
       </p>
     </div>
