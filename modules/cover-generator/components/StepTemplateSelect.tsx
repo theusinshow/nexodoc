@@ -4,9 +4,36 @@ import { useMemo, useState, useEffect } from "react";
 import { Check, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { TomoFormat, VolumeFormat, CoverTitleMode } from "@/lib/cover-utils";
+
+const LOGO_STOPWORDS = new Set(["prefeitura", "municipal", "de", "do", "da", "dos", "das", "e"]);
+
+/** Iniciais da cidade para o slot de logo (placeholder ate ter o brasao real). */
+function getInitials(name: string): string {
+  const words = name
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w && !LOGO_STOPWORDS.has(w.toLowerCase()));
+  if (words.length === 0) return name.slice(0, 2).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+/**
+ * Slot do logotipo da prefeitura. Hoje renderiza o monograma (iniciais da
+ * cidade); quando houver arquivos de brasao, trocar por <Image>.
+ */
+function TemplateLogo({ name }: { name: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs font-semibold uppercase tracking-tight text-muted-foreground"
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
 
 export interface TemplateOption {
   id: string;
@@ -109,41 +136,44 @@ export function StepTemplateSelect({
       <div>
         <h2 className="text-2xl font-medium tracking-[-0.01em]">Modelo da capa</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Escolha a prefeitura e, quando houver mais de um padrao, a variacao.
-          Cada variacao define o arquivo ODT oficial, marcadores aceitos e
-          formato de volume usado nas proximas etapas.
+          Escolha a prefeitura. Quando houver mais de um padrao, selecione a
+          variacao.
         </p>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-3">
         {groups.map((group) => {
-          const active =
-            group.variantes.find((v) => v.id === templateId) ?? group.variantes[0];
           const isGroupSelected = group.variantes.some((v) => v.id === templateId);
-          const volumeFormat =
-            active.volumeFormat ?? active.defaults.volumeFormat ?? "roman";
-          const showSecretaria = active.campos.includes("SECRETARIA");
-          const multiVariant = group.variantes.length > 1;
+          const cardBase = cn(
+            "rounded-md border p-4 transition",
+            isGroupSelected ? "border-primary bg-primary/5" : "border-border bg-card"
+          );
+
+          // Prefeitura com um unico padrao: o card inteiro seleciona (sem chip redundante).
+          if (group.variantes.length === 1) {
+            const variant = group.variantes[0];
+            const selected = variant.id === templateId;
+            return (
+              <button
+                key={group.nome}
+                type="button"
+                onClick={() => onSelect(variant)}
+                aria-pressed={selected}
+                className={cn(cardBase, "flex w-full items-center gap-3 text-left hover:border-ring")}
+              >
+                <TemplateLogo name={group.nome} />
+                <span className="text-sm font-semibold leading-snug">{group.nome}</span>
+                {selected && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
+              </button>
+            );
+          }
+
           return (
-            <div
-              key={group.nome}
-              className={cn(
-                "rounded-md border p-4 space-y-3 transition",
-                isGroupSelected ? "border-primary bg-primary/5" : "border-border bg-card"
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <h4 className="text-sm font-semibold">{group.nome}</h4>
-                <Badge variant="outline" className="text-[11px]">
-                  {volumeFormat === "numeric" ? "Volume numerico" : "Volume romano"}
-                </Badge>
-                {multiVariant && (
-                  <Badge variant="secondary" className="text-[11px]">
-                    {group.variantes.length} variacoes
-                  </Badge>
-                )}
+            <div key={group.nome} className={cn(cardBase, "space-y-3")}>
+              <div className="flex items-center gap-3">
+                <TemplateLogo name={group.nome} />
+                <h4 className="text-sm font-semibold leading-snug">{group.nome}</h4>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
@@ -155,6 +185,7 @@ export function StepTemplateSelect({
                       type="button"
                       variant="outline"
                       size="sm"
+                      aria-pressed={isSelected}
                       onClick={() => onSelect(variant)}
                       className={cn(
                         "h-8 gap-1.5 px-3 text-xs",
@@ -169,27 +200,6 @@ export function StepTemplateSelect({
                   );
                 })}
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                {active.arquivoTemplate} &middot;{" "}
-                {active.defaults.fase || "Sem fase padrao"}
-                {showSecretaria && active.defaults.secretaria
-                  ? ` · ${active.defaults.secretaria}`
-                  : ""}
-              </p>
-
-              <div className="flex flex-wrap gap-1.5">
-                {active.campos.slice(0, 8).map((campo) => (
-                  <Badge key={campo} variant="secondary" className="text-[11px]">
-                    {campo}
-                  </Badge>
-                ))}
-                {active.campos.length > 8 && (
-                  <Badge variant="secondary" className="text-[11px]">
-                    +{active.campos.length - 8}
-                  </Badge>
-                )}
-              </div>
             </div>
           );
         })}
@@ -203,18 +213,18 @@ export function StepTemplateSelect({
 
           {selectedTemplate ? (
             <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-sm font-medium">
-                  {selectedTemplate.grupo || selectedTemplate.nome}
-                </p>
-                {selectedTemplate.variante && (
-                  <p className="mt-0.5 text-xs font-medium text-primary">
-                    {selectedTemplate.variante}
+              <div className="flex items-center gap-3">
+                <TemplateLogo name={selectedTemplate.grupo || selectedTemplate.nome} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium leading-snug">
+                    {selectedTemplate.grupo || selectedTemplate.nome}
                   </p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  ODT: {selectedTemplate.arquivoTemplate}
-                </p>
+                  {selectedTemplate.variante && (
+                    <p className="mt-0.5 text-xs font-medium text-primary">
+                      {selectedTemplate.variante}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="rounded-md border border-border bg-muted p-3 font-mono text-xs text-muted-foreground">
