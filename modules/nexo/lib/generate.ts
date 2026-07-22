@@ -23,7 +23,7 @@ export interface CapaGenResult {
     disciplina: string;
     codigo: string;
     volume: string;
-    tomo: number;
+    tomos: number;
   };
   pdfError?: string;
   zipUrl: string;
@@ -44,8 +44,8 @@ export function base64ToUrl(base64: string, mime: string): string {
 
 export interface LdOptions {
   tituloLd?: string;
-  /** Tomo específico (0 = sem tomo). */
-  tomo?: number;
+  /** Divide as folhas em N tomos. Default 1. */
+  numTomos?: number;
 }
 
 export async function postLd(
@@ -58,7 +58,7 @@ export async function postLd(
     body: JSON.stringify({
       selos,
       tituloLd: opts.tituloLd,
-      tomo: opts.tomo ?? 0,
+      numTomos: opts.numTomos ?? 1,
     }),
   });
   const payload = (await res.json().catch(() => null)) as
@@ -91,8 +91,8 @@ export interface CapaOptions {
   templateId: string;
   /** arábico ("1","2"...); vazio/omitido = deriva do nome do arquivo. */
   volume?: string;
-  /** Tomo específico (0 = sem tomo). */
-  tomo?: number;
+  /** Divide em N tomos (uma capa por tomo). Default 1. */
+  numTomos?: number;
   /** override do mês/ano da capa; vazio = mês/ano atual. */
   mes?: string;
   ano?: string;
@@ -108,7 +108,7 @@ export async function postCapa(
     body: JSON.stringify({
       selos,
       templateId: opts.templateId,
-      tomo: opts.tomo ?? 0,
+      numTomos: opts.numTomos ?? 1,
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
       ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),
       ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),

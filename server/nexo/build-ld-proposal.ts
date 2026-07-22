@@ -1,9 +1,10 @@
 import {
   parseFilename,
-  sheetNumberFromFilename,
   sheetNumberFromSelo,
 } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
+import { formatSheet, buildBalancedTomos, type Tomo } from "@/lib/ld/ld-rules";
+import { cleanStampDescription } from "@/lib/ld/stamp-parsing";
 import type { CreateLDInput } from "./tools/create-ld";
 
 /** Um selo lido de uma prancha (subconjunto do StampExtraction que interessa aqui). */
@@ -34,44 +35,19 @@ export interface LdProposal {
   };
 }
 
-/** Todos os números (>0) que um selo carrega — base para o total de referência. */
-function seloNumbers(s: SeloForLd): number[] {
-  const out: number[] = [];
-  if (typeof s.total === "number") out.push(s.total);
-  if (typeof s.folha === "number") out.push(s.folha);
-  const fromArquivo = s.arquivo ? sheetNumberFromFilename(s.arquivo) : null;
-  if (fromArquivo != null) out.push(fromArquivo);
-  const fromName = sheetNumberFromFilename(s.fileName);
-  if (fromName != null) out.push(fromName);
-  if (s.numeroFolha) {
-    for (const m of s.numeroFolha.matchAll(/\d+/g)) out.push(parseInt(m[0], 10));
-  }
-  return out.filter((n) => Number.isFinite(n) && n > 0);
+/** Folha da prancha (fonte única): ARQUIVO do carimbo -> nome do upload -> OCR. */
+function seloSheet(s: SeloForLd): number | null {
+  return sheetNumberFromSelo({
+    arquivo: s.arquivo,
+    fileName: s.fileName,
+    folha: s.folha,
+  });
 }
 
-/**
- * "NN/TT" com o TOTAL fixado no total de referência da LD (todas as folhas de uma
- * LD compartilham o mesmo total — regra do escritório). A folha vem do campo
- * dedicado `folha` (mais confiável) e, na falta, do 1º número de `numeroFolha`.
- * NÃO adivinha inversão folha↔total (isso perdia folhas quando o OCR lia o total
- * baixo, ex.: "16/15" para a folha 16); a ambiguidade residual fica visível na
- * pré-visualização para o engenheiro corrigir antes de gerar.
- */
-function normalizeSheet(
-  numeroFolha: string | null,
-  folha: number | null,
-  referenceTotal: number,
-): string {
-  let n: number | null = folha != null && Number.isFinite(folha) ? folha : null;
-  if (n == null && numeroFolha) {
-    const m = /(\d+)/.exec(numeroFolha);
-    if (m) n = parseInt(m[1], 10);
-  }
-  if (n == null || Number.isNaN(n)) return "";
-  if (referenceTotal > 0) {
-    return `${String(n).padStart(2, "0")}/${String(referenceTotal).padStart(2, "0")}`;
-  }
-  return String(n).padStart(2, "0");
+/** Parse do nome, preferindo o código do CARIMBO (per-prancha) ao nome do upload
+ *  (que num PDF combinado é o do tomo/volume, sem folha/revisão por prancha). */
+function parseSelo(s: SeloForLd) {
+  return parseFilename(s.arquivo?.trim() || s.fileName);
 }
 
 function sheetOrder(sheet: string): number {
@@ -90,7 +66,13 @@ function isOrgaoLike(value: string): boolean {
   );
 }
 
-/** Escolhe o valor mais frequente (não-vazio) entre os selos. */
+/** Só pranchas: exclui capa/memorial/separatriz/orçamento/volume lidos por engano. */
+function isPranchaSelo(s: SeloForLd): boolean {
+  const t = parseSelo(s).tipo;
+  return t !== "capa" && t !== "memorial" && t !== "separatriz" && t !== "orcamento" && t !== "volume";
+}
+
+/** Valor mais frequente (não-vazio) entre os selos — para strings. */
 function mode(values: (string | null | undefined)[]): string {
   const counts = new Map<string, number>();
   for (const v of values) {
@@ -103,31 +85,50 @@ function mode(values: (string | null | undefined)[]): string {
   return best;
 }
 
+/** Valor mais frequente (>0) — para números (total dominante). */
+function modeNumber(values: number[]): number {
+  const counts = new Map<number, number>();
+  for (const v of values) if (Number.isFinite(v) && v > 0) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best = 0;
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
+/** Rótulo da disciplina desta prancha (LABEL), para casar com o LABEL da LD e
+ *  não disparar falso "disciplina divergente" (o validador compara rótulos). */
+function rowDisciplineLabel(s: SeloForLd): string {
+  const parsed = parseSelo(s);
+  const code = parsed.disciplinas[0] || (s.disciplina ? s.disciplina.toLowerCase() : "");
+  return (disciplinaLabel(code) ?? s.disciplina ?? "").toUpperCase();
+}
+
 export interface BuildLdOptions {
-  /** Tomo ESPECÍFICO desta LD (ex.: 6 -> título "... (TOMO 06)"); 0 = sem tomo. */
-  tomo?: number;
+  /** Divide as folhas em N tomos balanceados (decisão do engenheiro). Default 1. */
+  numTomos?: number;
   /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
   tituloLd?: string;
 }
 
 /**
- * Monta uma proposta de LD a partir dos selos lidos das pranchas + o nome dos
- * arquivos (parser). Determinístico: o engenheiro revisa/confirma antes de gerar.
- * `tomo` (opcional) rotula a LD como um tomo específico (o engenheiro gera um por vez).
+ * Monta uma proposta de LD a partir dos selos lidos das pranchas. Determinístico:
+ * o engenheiro revisa/confirma antes de gerar. `numTomos` > 1 divide as folhas em
+ * tomos balanceados (o motor `ld-generation` cria uma seção "(TOMO N)" por tomo).
+ * A folha vem do CARIMBO (ARQUIVO), o total é o DOMINANTE (resiste a OCR ruim), a
+ * descrição é limpa dos rótulos do carimbo, e não-pranchas são filtradas.
  */
 export function buildLdProposal(
   selos: SeloForLd[],
   opts: BuildLdOptions = {},
 ): LdProposal {
-  const tomo = Math.max(0, Math.floor(opts.tomo ?? 0));
-  const validos = selos.filter((s) => s.fileName);
+  const numTomos = Math.max(1, Math.floor(opts.numTomos ?? 1));
+  const validos = selos.filter((s) => (s.fileName || s.arquivo) && isPranchaSelo(s));
 
-  // Identidade: filename (código/revisão) + selo (obra/cliente/fase/disciplina).
-  const parsedList = validos.map((s) => parseFilename(s.fileName));
+  // Identidade: preferir o código do CARIMBO (per-prancha).
+  const parsedList = validos.map(parseSelo);
   const codigo = mode(parsedList.map((p) => p.codigo)) || "";
   const revisao = mode(parsedList.map((p) => p.revisao)) || "a";
 
-  // Disciplina: preferir o código do nome (autoritativo); rótulo p/ exibição.
   const discCode =
     mode(parsedList.flatMap((p) => p.disciplinas)) ||
     mode(validos.map((s) => s.disciplina)).toLowerCase();
@@ -137,32 +138,42 @@ export function buildLdProposal(
   const cliente = mode(validos.map((s) => s.cliente));
   const fase = mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
 
-  // Total de referência: o MAIOR número visto entre todos os selos (a folha nunca
-  // excede o total, então o máximo global é o total da LD). Resiste ao total lido
-  // baixo em folhas isoladas; a pré-visualização mostra o resultado ao engenheiro.
-  const allNums = validos.flatMap(seloNumbers);
-  const referenceTotal = allNums.length ? Math.max(...allNums) : validos.length;
+  // Total de referência ROBUSTO: total DOMINANTE (o /TT mais frequente — resiste a
+  // um total mal-lido isolado) OU a maior folha real OU a contagem. NÃO é o max de
+  // números soltos (que inflava e inventava folhas faltando).
+  const dominantTotal = modeNumber(
+    validos.map((s) => s.total).filter((t): t is number => typeof t === "number"),
+  );
+  const sheets = validos
+    .map(seloSheet)
+    .filter((n): n is number => n != null && n > 0);
+  const maxSheet = sheets.length ? Math.max(...sheets) : 0;
+  const referenceTotal = Math.max(dominantTotal, maxSheet, validos.length);
 
   const rows = validos
-    .map((s) => ({
-      // Folha: ARQUIVO do carimbo -> nome do upload -> OCR (fonte única).
-      sheet: normalizeSheet(
-        s.numeroFolha,
-        sheetNumberFromSelo({ arquivo: s.arquivo, fileName: s.fileName, folha: s.folha }),
-        referenceTotal,
-      ),
-      // Coluna ARQUIVOS = campo ARQUIVO do selo (código da prancha); só cai no
-      // nome do PDF quando o selo não trouxe (ex.: PDF combinado sem esse campo).
-      file: s.arquivo?.trim() || s.fileName,
-      description: (s.conteudo || s.tituloSecao || "").trim(),
-      readDiscipline: (s.disciplina || discCode || "").toUpperCase(),
-    }))
+    .map((s) => {
+      const n = seloSheet(s);
+      const sheet =
+        n != null && n > 0
+          ? referenceTotal > 0
+            ? formatSheet(n, referenceTotal) // padding largura-do-total
+            : String(n).padStart(2, "0")
+          : "";
+      return {
+        sheet,
+        // Coluna ARQUIVOS = campo ARQUIVO do carimbo (código da prancha).
+        file: s.arquivo?.trim() || s.fileName,
+        // Descrição limpa dos rótulos do carimbo (IMP/DATA/REV...) — motor provado
+        // do módulo LD original, agora compartilhado em lib/ld/stamp-parsing.
+        description: cleanStampDescription(s.conteudo || s.tituloSecao || ""),
+        readDiscipline: rowDisciplineLabel(s),
+      };
+    })
     .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
 
-  // Título da seção: manual (decisão do engenheiro) OU palpite do selo (descarta
-  // captura de órgão/secretaria) OU "PROJETO <disciplina>". O "(TOMO 0N)" é
-  // anexado quando é um tomo específico.
-  const tituloBase =
+  // Título da seção: manual (decisão) OU palpite do selo (descarta órgão/secretaria)
+  // OU "PROJETO <disciplina>". O "(TOMO N)" é anexado por tomo pelo ld-generation.
+  const sectionTitle =
     opts.tituloLd?.trim() ||
     mode(
       validos.map((s) =>
@@ -170,8 +181,12 @@ export function buildLdProposal(
       ),
     ) ||
     `PROJETO ${discLabel}`;
-  const sectionTitle =
-    tomo > 0 ? `${tituloBase} (TOMO ${String(tomo).padStart(2, "0")})` : tituloBase;
+
+  // Tomos: divide as folhas em N faixas balanceadas (motor provado do módulo LD).
+  const tomos: Tomo[] =
+    numTomos > 1 && referenceTotal > 0
+      ? buildBalancedTomos(referenceTotal, numTomos)
+      : [];
 
   const input: CreateLDInput = {
     ldData: {
@@ -185,7 +200,7 @@ export function buildLdProposal(
       phase: fase,
     },
     rows,
-    tomos: [],
+    tomos,
     referenceTotal,
     // Proposta: não bloqueia na geração; a UI mostra os avisos e o engenheiro decide.
     enforceValidation: false,

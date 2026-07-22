@@ -1,7 +1,7 @@
 import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
-import { generatePages, formatTomo } from "@/modules/cover-generator/hooks/helpers";
+import { generatePages } from "@/modules/cover-generator/hooks/helpers";
 import { formatDisplayCode } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { SeloForLd } from "./build-ld-proposal";
@@ -25,8 +25,8 @@ export interface BuildCapaInput {
   tituloCapa?: string;
   /** Override opcional; senao vem do parseFilename (arabico). */
   volume?: string;
-  /** Tomo ESPECÍFICO desta capa (ex.: 6 = "(TOMO 06)"); 0/undefined = sem tomo. */
-  tomo?: number;
+  /** Divide em N tomos (uma capa por tomo, "(TOMO 0N)"). Default 1. */
+  numTomos?: number;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
   mes?: string;
   /** Ano da capa (ex.: "2026"). Default = ano atual. */
@@ -41,7 +41,7 @@ export interface CapaProposal {
     disciplina: string;
     codigo: string;
     volume: string;
-    tomo: number;
+    tomos: number;
     totalCapas: number;
   };
 }
@@ -178,8 +178,8 @@ export async function buildCapaProposal(
     volumeValue = volumeArabic ? arabicToRoman(volumeArabic) : "I";
   }
 
-  // Tomo específico desta capa (0 = sem tomo). O engenheiro gera um tomo por vez.
-  const tomo = Math.max(0, Math.floor(input.tomo ?? 0));
+  // Divide em N tomos (uma capa por tomo). Default 1.
+  const numTomos = Math.max(1, Math.floor(input.numTomos ?? 1));
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
@@ -208,7 +208,7 @@ export async function buildCapaProposal(
     disciplina: discLabel,
     volume: volumeValue,
     tomoMode: "quantity",
-    tomoQuantity: 1,
+    tomoQuantity: numTomos,
     tomoList: [],
   };
 
@@ -219,12 +219,6 @@ export async function buildCapaProposal(
     template.tomoFormat,
   );
 
-  // Tomo específico: uma capa única rotulada "(TOMO 0N)". formatTomo esconde o
-  // rótulo quando há 1 tomo, então forçamos com total=2 para renderizar.
-  if (tomo > 0 && pages[0]) {
-    pages[0].tomo = formatTomo(String(tomo), 2, template.tomoFormat);
-  }
-
   return {
     generalData,
     pages,
@@ -233,7 +227,7 @@ export async function buildCapaProposal(
       disciplina: discLabel,
       codigo: codigoExibido,
       volume: volumeValue,
-      tomo,
+      tomos: numTomos,
       totalCapas: pages.length,
     },
   };

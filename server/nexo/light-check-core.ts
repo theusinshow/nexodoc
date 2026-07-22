@@ -68,6 +68,16 @@ function joinNames(names: string[], max = 6): string {
   return `${names.slice(0, max).join(", ")} (+${names.length - max})`;
 }
 
+/** Valor mais frequente (>0) entre números — total dominante. */
+function modeNumber(values: number[]): number {
+  const counts = new Map<number, number>();
+  for (const v of values) if (Number.isFinite(v) && v > 0) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best = 0;
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
 /**
  * Checagem PURA sobre fatos já parseados (sem tocar em nome de arquivo). Cada
  * regra que falha vira um finding; `veredito` = pior severidade (critico > aviso
@@ -163,8 +173,17 @@ export function checkSeloFacts(facts: SeloFact[]): LightCheckResult {
   }
 
   // --- Sequência de folhas: faltas (gaps) e duplicatas (AVISO) ---------------
-  const allNums = facts.flatMap((f) => f.numeros);
-  const referenceTotal = allNums.length ? Math.max(...allNums) : facts.length;
+  // Total ROBUSTO: total DOMINANTE (o /TT mais frequente, resiste a OCR ruim) OU a
+  // maior folha real OU a contagem. NÃO é o max de números soltos (que inflava e
+  // inventava folhas faltando).
+  const dominantTotal = modeNumber(
+    facts.map((f) => f.totalLido).filter((t): t is number => typeof t === "number"),
+  );
+  const maxSheet = Math.max(
+    0,
+    ...facts.map((f) => (f.sheet != null && f.sheet > 0 ? f.sheet : 0)),
+  );
+  const referenceTotal = Math.max(dominantTotal, maxSheet, facts.length);
 
   const sheetCount = new Map<number, number>();
   for (const f of facts) {

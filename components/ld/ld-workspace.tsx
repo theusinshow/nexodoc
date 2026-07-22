@@ -44,6 +44,11 @@ import {
   type Tomo,
   type ValidationResult,
 } from "@/lib/ld/ld-rules";
+import {
+  cleanStampDescription,
+  extractDescriptionNearFileCode,
+  normalizeExtractedValue,
+} from "@/lib/ld/stamp-parsing";
 
 type LdData = {
   projectCode: string;
@@ -310,10 +315,6 @@ function waitForUiFrame() {
   });
 }
 
-function normalizeExtractedValue(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -383,57 +384,6 @@ function extractSheetNumberFromFileCode(fileCode: string): number | null {
   const value = Number(match[1]);
 
   return Number.isFinite(value) && value > 0 ? value : null;
-}
-
-function cleanDescriptionValue(value: string) {
-  const normalized = normalizeExtractedValue(value);
-
-  if (/^(PRANCHA|ARQUIVO)\b/i.test(normalized)) {
-    return "";
-  }
-
-  return normalized
-    .replace(/^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i, "")
-    .replace(
-      /\s+(?:IMP|DATA|ESCALA|REV|REVIS[ÃA]O|VISTO|DESENHO|FOLHA|N[°º]?\s*DA\s*FOLHA|PRANCHA|ARQUIVO|RESPONS[ÁA]VEL|CLIENTE|OBRA|FASE|DISCIPLINA)\s*[:\-]?[\s\S]*$/i,
-      "",
-    )
-    .replace(/\s*[,;:\-–—]+\s*$/g, "")
-    .trim();
-}
-
-// Fallback para carimbos de CAD em grade: os rótulos ("CONTEÚDO:") ficam numa
-// célula e os valores em outra, então ao linearizar o texto o valor do CONTEÚDO
-// se separa do rótulo e a extração por rótulo falha. Nesses selos o título
-// técnico da prancha aparece logo ANTES do código do arquivo (ex.: 040_26_est_
-// imp_001_a) e depois do último rótulo do carimbo — é isso que recortamos aqui.
-function extractDescriptionNearFileCode(text: string, fileCode: string) {
-  if (!fileCode) {
-    return "";
-  }
-
-  const normalized = normalizeExtractedValue(text);
-  const codePattern = new RegExp(fileCode.replace(/[_\-.]/g, "[ _\\-.]"), "i");
-  const match = codePattern.exec(normalized);
-
-  if (!match) {
-    return "";
-  }
-
-  const before = normalized.slice(0, match.index);
-  const boundary =
-    /(?:SEDES|OBSERVA[ÇC][ÕO]ES|ENDERE[ÇC]O|CLIENTE|RESPONS[ÁA]VEL\s+T[ÉE]CNICO|VISTO\s+DATA|SECRETARIA)\b/gi;
-  let start = 0;
-  let boundaryMatch: RegExpExecArray | null;
-
-  while ((boundaryMatch = boundary.exec(before)) !== null) {
-    start = boundaryMatch.index + boundaryMatch[0].length;
-  }
-
-  // Sem limitador reconhecido, evita puxar a página inteira: usa só o final.
-  const candidate = start > 0 ? before.slice(start) : before.slice(-120);
-
-  return cleanDescriptionValue(candidate);
 }
 
 function extractDisciplineFromPrancha(value: string) {
@@ -520,7 +470,7 @@ function parsePdfTextToRow(
   const sheet = normalizeSheetValue(rawSheet, referenceTotal);
   const file = extractFileCode(rawFile, sourceText);
   const description =
-    cleanDescriptionValue(rawDescription) || extractDescriptionNearFileCode(sourceText, file);
+    cleanStampDescription(rawDescription) || extractDescriptionNearFileCode(sourceText, file);
   const foundFields = {
     sheet: Boolean(parseSheet(sheet)),
     file: Boolean(file),
@@ -932,7 +882,7 @@ function mergeAiExtraction(
 ): PdfReadResult {
   const sheet = buildSheetFromVisualExtraction(extraction) || result.row.sheet;
   const visualFile = normalizeExtractedValue(extraction.arquivo ?? "");
-  const visualDescription = cleanDescriptionValue(extraction.conteudo ?? "");
+  const visualDescription = cleanStampDescription(extraction.conteudo ?? "");
   const file = extractFileCode(visualFile, visualFile) || result.row.file;
   const description = visualDescription || result.row.description;
   const readDiscipline =

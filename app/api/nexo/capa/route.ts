@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   let templateId: string;
   let tituloCapa: string | undefined;
   let volume: string | undefined;
-  let tomo = 0;
+  let numTomos = 1;
   let mes: string | undefined;
   let ano: string | undefined;
   try {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       templateId?: unknown;
       tituloCapa?: unknown;
       volume?: unknown;
-      tomo?: unknown;
+      numTomos?: unknown;
       mes?: unknown;
       ano?: unknown;
     };
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
     if (typeof body.volume === "string" && body.volume.trim()) {
       volume = body.volume.trim();
     }
-    if (typeof body.tomo === "number" && Number.isFinite(body.tomo)) {
-      tomo = Math.max(0, Math.floor(body.tomo));
+    if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
+      numTomos = Math.max(1, Math.floor(body.numTomos));
     }
     if (typeof body.mes === "string" && body.mes.trim()) mes = body.mes.trim();
     if (typeof body.ano === "string" && body.ano.trim()) ano = body.ano.trim();
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   let proposal;
   try {
-    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, tomo, mes, ano });
+    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos, mes, ano });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Falha ao montar a capa." },

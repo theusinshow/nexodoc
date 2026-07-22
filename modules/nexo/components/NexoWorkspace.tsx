@@ -428,7 +428,7 @@ interface CapaGenResult {
     disciplina: string;
     codigo: string;
     volume: string;
-    tomo: number;
+    tomos: number;
   };
   pdfError?: string;
   zipUrl: string;
@@ -477,8 +477,8 @@ function SelosPanel({
   const [capa, setCapa] = useState<CapaGenResult | null>(null);
   // Nº de tomos: decisão do engenheiro, compartilhada por LD e capa (projeto
   // grande -> divide). null = ainda não editado (=1).
-  // Tomo específico (0 = sem tomo). O engenheiro gera um tomo por vez.
-  const [tomo, setTomo] = useState(0);
+  // Nº de tomos: divide as folhas em N (decisão do engenheiro). Default 1.
+  const [numTomos, setNumTomos] = useState(1);
   // Volume da capa: null = usa o inferido do nome; string = engenheiro editou.
   // Afeta só a capa (o volume às vezes é trocado manualmente dentro do volume).
   const [volumeCapa, setVolumeCapa] = useState<string | null>(null);
@@ -528,7 +528,7 @@ function SelosPanel({
         body: JSON.stringify({
           selos,
           templateId,
-          tomo,
+          numTomos,
           ...(volumeCapa?.trim() ? { volume: volumeCapa.trim() } : {}),
           ...(mesCapa?.trim() ? { mes: mesCapa.trim() } : {}),
           ...(anoCapa?.trim() ? { ano: anoCapa.trim() } : {}),
@@ -582,7 +582,7 @@ function SelosPanel({
       const res = await fetch("/api/nexo/ld", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos, tituloLd, tomo }),
+        body: JSON.stringify({ selos, tituloLd, numTomos }),
       });
       const payload = (await res.json().catch(() => null)) as
         | {
@@ -833,23 +833,22 @@ function SelosPanel({
 
           <label className="block space-y-1.5">
             <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-              Tomo
+              Numero de tomos
             </span>
-            <select
-              value={tomo}
-              onChange={(e) => setTomo(parseInt(e.target.value, 10) || 0)}
-              className="flex w-40 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
-            >
-              <option value={0}>sem tomo</option>
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  Tomo {String(n).padStart(2, "0")}
-                </option>
-              ))}
-            </select>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={numTomos}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setNumTomos(Number.isFinite(n) && n >= 1 ? Math.min(99, n) : 1);
+              }}
+              className="flex w-24 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+            />
             <span className="block text-xs text-muted-foreground">
-              Gera ESTE tomo (a LD e a capa saem rotuladas &quot;TOMO 0N&quot;).
-              Voce gera um tomo por vez. Vale para LD e capa.
+              Divide as folhas em N tomos (a LD ganha uma secao por tomo; sai uma
+              capa por tomo). 1 = tomo unico. Vale para LD e capa.
             </span>
           </label>
 
@@ -987,11 +986,8 @@ function SelosPanel({
                 <p className="text-sm">
                   Capa <span className="font-medium">{capa.resumo.prefeitura}</span> ·{" "}
                   {capa.resumo.disciplina} · {capa.resumo.codigo} · vol {capa.resumo.volume}
-                  {capa.resumo.tomo > 0 && (
-                    <span className="tabular-nums">
-                      {" "}
-                      · TOMO {String(capa.resumo.tomo).padStart(2, "0")}
-                    </span>
+                  {capa.resumo.tomos > 1 && (
+                    <span className="tabular-nums"> · {capa.resumo.tomos} tomos</span>
                   )}
                   {capa.pdfError && (
                     <span className="text-[var(--status-warning)]"> · PDF indisponivel</span>

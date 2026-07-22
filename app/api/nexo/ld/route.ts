@@ -22,20 +22,20 @@ export async function POST(req: NextRequest) {
 
   let selos: SeloForLd[];
   let tituloLd: string | undefined;
-  let tomo = 0;
+  let numTomos = 1;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
       tituloLd?: unknown;
-      tomo?: unknown;
+      numTomos?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
     if (typeof body.tituloLd === "string" && body.tituloLd.trim()) {
       tituloLd = body.tituloLd.trim();
     }
-    if (typeof body.tomo === "number" && Number.isFinite(body.tomo)) {
-      tomo = Math.max(0, Math.floor(body.tomo));
+    if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
+      numTomos = Math.max(1, Math.floor(body.numTomos));
     }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum selo informado." }, { status: 400 });
   }
 
-  // Título e tomo são decisões do engenheiro; buildLdProposal compõe o sectionTitle.
-  const proposal = buildLdProposal(selos, { tomo, tituloLd });
+  // Título e divisão em tomos são decisões do engenheiro.
+  const proposal = buildLdProposal(selos, { numTomos, tituloLd });
   const result = await createLD(proposal.input);
 
   return NextResponse.json({

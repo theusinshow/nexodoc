@@ -76,10 +76,10 @@ function parseFirstJsonObject(text: string): unknown {
   }
 }
 
-/** Tomo específico: 0 = sem tomo; senão o número do tomo (1..99). */
-function clampTomo(v: unknown): number {
+/** Número de tomos (divide em N): default 1, limite 99. */
+function clampTomos(v: unknown): number {
   const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
-  if (!Number.isFinite(n) || n < 1) return 0;
+  if (!Number.isFinite(n) || n < 1) return 1;
   return Math.min(99, Math.floor(n));
 }
 
@@ -108,7 +108,7 @@ function normalizeProposals(
         params: {
           // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
           tituloLd: String(p.tituloLd ?? "").trim(),
-          tomo: clampTomo(p.tomo),
+          numTomos: clampTomos(p.numTomos),
         },
       });
     } else if (kind === "capa") {
@@ -134,7 +134,7 @@ function normalizeProposals(
           templateId,
           // só dígitos; senão "" (deriva do nome do arquivo no builder)
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
-          tomo: clampTomo(p.tomo),
+          numTomos: clampTomos(p.numTomos),
         },
       });
     }
@@ -173,8 +173,8 @@ REGRAS:
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
-- TOMO: se ele disser "tomo N" / "o tomo 6" (ele gera UM tomo por vez), use
-  tomo=N (LD e capa juntas). Se não mencionar tomo, use tomo=0.
+- TOMOS: se ele disser "dividir em N tomos" / "N tomos", use numTomos=N (divide
+  as folhas em N; LD e capa juntas). Se não mencionar, use numTomos=1.
 - Se o pedido não for sobre gerar LD/capa, responda conversando, com proposals: [].
 - Responda em português do Brasil, curto e direto.
 
@@ -199,9 +199,9 @@ Responda SOMENTE com um JSON válido nesta forma (sem texto fora do JSON):
   "reply": "texto curto afirmando os fatos e pedindo a confirmação/decisão",
   "proposals": [
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
-      "tituloLd": "", "tomo": 0 },
+      "tituloLd": "", "numTomos": 1 },
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
-      "volume": "", "tomo": 0 }
+      "volume": "", "numTomos": 1 }
   ]
 }
 Inclua no array proposals apenas os artefatos pedidos (pode ser 0, 1 ou 2).

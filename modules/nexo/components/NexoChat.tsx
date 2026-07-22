@@ -297,7 +297,7 @@ function LdCard({
   ldPreview?: LdPreviewData;
 }) {
   const [tituloLd, setTituloLd] = useState(params.tituloLd);
-  const [tomo, setTomo] = useState(params.tomo);
+  const [numTomos, setNumTomos] = useState(params.numTomos);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LdGenResult | null>(null);
@@ -306,7 +306,7 @@ function LdCard({
     setBusy(true);
     setError(null);
     try {
-      setResult(await postLd(selos, { tituloLd, tomo }));
+      setResult(await postLd(selos, { tituloLd, numTomos }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
     } finally {
@@ -330,8 +330,8 @@ function LdCard({
             />
           </label>
           <label className="block space-y-1">
-            <span className={LABEL_CLASS}>Tomo</span>
-            <TomoSelect value={tomo} onChange={setTomo} />
+            <span className={LABEL_CLASS}>Número de tomos</span>
+            <NumTomosField value={numTomos} onChange={setNumTomos} />
           </label>
         </div>
       )}
@@ -401,8 +401,8 @@ function FolhaPreview({ data }: { data: LdPreviewData }) {
   );
 }
 
-/** Seletor de tomo específico (0 = sem tomo). O engenheiro gera um por vez. */
-function TomoSelect({
+/** Campo de número de tomos (divide as folhas em N; 1 = tomo único). */
+function NumTomosField({
   value,
   onChange,
 }: {
@@ -410,18 +410,17 @@ function TomoSelect({
   onChange: (n: number) => void;
 }) {
   return (
-    <select
+    <input
+      type="number"
+      min={1}
+      max={99}
       value={value}
-      onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-      className={`${FIELD_CLASS} tabular-nums`}
-    >
-      <option value={0}>sem tomo</option>
-      {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
-        <option key={n} value={n}>
-          Tomo {String(n).padStart(2, "0")}
-        </option>
-      ))}
-    </select>
+      onChange={(e) => {
+        const n = parseInt(e.target.value, 10);
+        onChange(Number.isFinite(n) && n >= 1 ? Math.min(99, n) : 1);
+      }}
+      className={`${FIELD_CLASS} w-24 tabular-nums`}
+    />
   );
 }
 
@@ -452,7 +451,7 @@ function CapaCard({
 }) {
   const [templateId, setTemplateId] = useState(params.templateId);
   const [volume, setVolume] = useState(params.volume);
-  const [tomo, setTomo] = useState(params.tomo);
+  const [numTomos, setNumTomos] = useState(params.numTomos);
   const [mes, setMes] = useState("");
   const [ano, setAno] = useState("");
   const [busy, setBusy] = useState(false);
@@ -463,7 +462,7 @@ function CapaCard({
     setBusy(true);
     setError(null);
     try {
-      setResult(await postCapa(selos, { templateId, volume, tomo, mes, ano }));
+      setResult(await postCapa(selos, { templateId, volume, numTomos, mes, ano }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
     } finally {
@@ -501,8 +500,8 @@ function CapaCard({
               />
             </label>
             <label className="block flex-1 space-y-1">
-              <span className={LABEL_CLASS}>Tomo</span>
-              <TomoSelect value={tomo} onChange={setTomo} />
+              <span className={LABEL_CLASS}>Tomos</span>
+              <NumTomosField value={numTomos} onChange={setNumTomos} />
             </label>
           </div>
           <div className="flex gap-2">
@@ -541,9 +540,7 @@ function CapaCard({
       {result ? (
         <ResultLinks
           summary={`Capa ${result.resumo.prefeitura} · ${result.resumo.codigo} · vol ${result.resumo.volume}${
-            result.resumo.tomo > 0
-              ? ` · TOMO ${String(result.resumo.tomo).padStart(2, "0")}`
-              : ""
+            result.resumo.tomos > 1 ? ` · ${result.resumo.tomos} tomos` : ""
           }${result.pdfError ? " · PDF indisponível" : ""}`}
           files={[
             { label: "ZIP", url: result.zipUrl, name: result.zipName, primary: true },

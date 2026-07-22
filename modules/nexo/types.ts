@@ -130,8 +130,8 @@ export type NexoRole = "user" | "assistant";
 export interface NexoLdProposalParams {
   /** Título da seção (varia por projeto). Vazio = engenheiro decide. */
   tituloLd: string;
-  /** Tomo específico desta LD (0 = sem tomo). O engenheiro gera um por vez. */
-  tomo: number;
+  /** Divide as folhas em N tomos. Default 1. */
+  numTomos: number;
 }
 
 /** Parâmetros propostos para uma capa. Editáveis antes de gerar. */
@@ -140,8 +140,8 @@ export interface NexoCapaProposalParams {
   templateId: string;
   /** Volume arábico ("1","2"...); "" = deriva do nome do arquivo. */
   volume: string;
-  /** Tomo específico desta capa (0 = sem tomo). */
-  tomo: number;
+  /** Divide em N tomos (uma capa por tomo). Default 1. */
+  numTomos: number;
 }
 
 /**
