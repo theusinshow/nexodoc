@@ -92,6 +92,9 @@ export interface CapaOptions {
   /** arábico ("1","2"...); vazio/omitido = deriva do nome do arquivo. */
   volume?: string;
   numTomos?: number;
+  /** override do mês/ano da capa; vazio = mês/ano atual. */
+  mes?: string;
+  ano?: string;
 }
 
 export async function postCapa(
@@ -107,6 +110,8 @@ export async function postCapa(
       tituloCapa: opts.tituloCapa,
       numTomos: opts.numTomos ?? 1,
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
+      ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),
+      ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),
     }),
   });
   const payload = (await res.json().catch(() => null)) as

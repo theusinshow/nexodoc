@@ -27,6 +27,10 @@ export interface BuildCapaInput {
   volume?: string;
   /** Decisao do engenheiro: projeto grande dividido em N tomos. Default 1. */
   numTomos?: number;
+  /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
+  mes?: string;
+  /** Ano da capa (ex.: "2026"). Default = ano atual. */
+  ano?: string;
 }
 
 export interface CapaProposal {
@@ -177,9 +181,10 @@ export async function buildCapaProposal(
   // Tomos: decisao do engenheiro (projeto grande -> divide). Default 1.
   const numTomos = Math.max(1, Math.floor(input.numTomos ?? 1));
 
+  // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
-  const mes = MESES[now.getMonth()];
-  const ano = String(now.getFullYear());
+  const mes = input.mes?.trim() || MESES[now.getMonth()];
+  const ano = input.ano?.trim() || String(now.getFullYear());
 
   const generalData: GeneralData = {
     templateId: template.id,

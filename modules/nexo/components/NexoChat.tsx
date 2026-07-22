@@ -25,6 +25,7 @@ import {
   type LdGenResult,
   type CapaGenResult,
 } from "../lib/generate";
+import { MESES } from "@/modules/cover-generator/constants";
 
 interface LdPreviewData {
   rows: { sheet: string; file: string; description: string }[];
@@ -439,6 +440,8 @@ function CapaCard({
   const [tituloCapa, setTituloCapa] = useState(params.tituloCapa);
   const [volume, setVolume] = useState(params.volume);
   const [numTomos, setNumTomos] = useState(params.numTomos);
+  const [mes, setMes] = useState("");
+  const [ano, setAno] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CapaGenResult | null>(null);
@@ -447,7 +450,9 @@ function CapaCard({
     setBusy(true);
     setError(null);
     try {
-      setResult(await postCapa(selos, { templateId, tituloCapa, volume, numTomos }));
+      setResult(
+        await postCapa(selos, { templateId, tituloCapa, volume, numTomos, mes, ano }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
     } finally {
@@ -508,6 +513,36 @@ function CapaCard({
               />
             </label>
           </div>
+          <div className="flex gap-2">
+            <label className="block flex-1 space-y-1">
+              <span className={LABEL_CLASS}>Mês</span>
+              <select
+                value={mes}
+                onChange={(e) => setMes(e.target.value)}
+                className={FIELD_CLASS}
+              >
+                <option value="">atual</option>
+                {MESES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block flex-1 space-y-1">
+              <span className={LABEL_CLASS}>Ano</span>
+              <input
+                value={ano}
+                onChange={(e) => setAno(e.target.value)}
+                placeholder="atual"
+                inputMode="numeric"
+                className={`${FIELD_CLASS} tabular-nums`}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            A capa às vezes é de outro mês. Vazio = mês/ano atual.
+          </p>
         </div>
       )}
 

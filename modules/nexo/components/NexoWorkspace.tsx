@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
+import { sheetNumberFromFilename } from "@/server/nexo/parse-filename";
+import { MESES } from "@/modules/cover-generator/constants";
 import { NexoChat } from "./NexoChat";
 
 function formatBytes(bytes: number): string {
@@ -375,12 +377,19 @@ function FileChips({ found }: { found: NexoFileClassification }) {
   );
 }
 
-/** Número da folha de um selo (para ordenar a tabela); sem folha vai pro fim. */
-function seloFolhaOrder(r: SeloResult): number {
+/** Número da prancha de um selo: NOME do arquivo primeiro (autoritativo), OCR
+ *  como fallback. Usado para exibir e ordenar a tabela de leitura. */
+function seloSheetNumber(r: SeloResult): number | null {
+  const fromName = sheetNumberFromFilename(r.fileName);
+  if (fromName != null) return fromName;
   const ex = r.extraction;
   if (ex?.folha != null && Number.isFinite(ex.folha)) return ex.folha;
   const m = ex?.numeroFolha ? /(\d+)/.exec(ex.numeroFolha) : null;
-  return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function seloFolhaOrder(r: SeloResult): number {
+  return seloSheetNumber(r) ?? Number.MAX_SAFE_INTEGER;
 }
 
 function DossieRow({ label, value }: { label: string; value?: string }) {
@@ -439,19 +448,6 @@ function base64ToUrl(base64: string, mime: string): string {
   return URL.createObjectURL(new Blob([bytes], { type: mime }));
 }
 
-/** Palpite do título da LD a partir do que o selo trouxe (mais frequente). */
-function suggestTitulo(results: SeloResult[]): string {
-  const counts = new Map<string, number>();
-  for (const r of results) {
-    const t = r.extraction?.tituloSecao?.trim();
-    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
-  }
-  let best = "";
-  let bestN = 0;
-  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
-  return best;
-}
-
 function SelosPanel({
   results,
   setResults,
@@ -475,9 +471,14 @@ function SelosPanel({
   // Volume da capa: null = usa o inferido do nome; string = engenheiro editou.
   // Afeta só a capa (o volume às vezes é trocado manualmente dentro do volume).
   const [volumeCapa, setVolumeCapa] = useState<string | null>(null);
+  // Mês/ano da capa: null = usa o atual; string = engenheiro editou (a capa às
+  // vezes é de outro mês — trabalha em julho mas a capa é maio/junho).
+  const [mesCapa, setMesCapa] = useState<string | null>(null);
+  const [anoCapa, setAnoCapa] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
-  const tituloLd = tituloEditado ?? suggestTitulo(results);
+  // Título é decisão do engenheiro: começa em branco, ele preenche.
+  const tituloLd = tituloEditado ?? "";
 
   // Lista de prefeituras (templates de capa) — carrega uma vez.
   useEffect(() => {
@@ -509,6 +510,8 @@ function SelosPanel({
           tituloCapa: tituloLd,
           numTomos,
           ...(volumeCapa?.trim() ? { volume: volumeCapa.trim() } : {}),
+          ...(mesCapa?.trim() ? { mes: mesCapa.trim() } : {}),
+          ...(anoCapa?.trim() ? { ano: anoCapa.trim() } : {}),
         }),
       });
       const payload = (await res.json().catch(() => null)) as
@@ -680,8 +683,10 @@ function SelosPanel({
               {sortedResults.map((r, i) => (
                 <tr key={`${r.fileName}-${r.pageNumber}-${i}`} className="border-b border-border align-top">
                   <td className="px-3 py-2 font-mono text-xs tabular-nums whitespace-nowrap">
-                    {r.extraction?.numeroFolha ??
-                      (r.extraction?.folha != null ? String(r.extraction.folha) : "—")}
+                    {(() => {
+                      const n = seloSheetNumber(r);
+                      return n != null ? String(n).padStart(2, "0") : "—";
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.error ? (
@@ -831,6 +836,41 @@ function SelosPanel({
                 As vezes o volume e trocado manualmente; afeta so a capa.
               </span>
             </label>
+            <div className="flex gap-2">
+              <label className="block flex-1 space-y-1.5">
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  Mes (capa)
+                </span>
+                <select
+                  value={mesCapa ?? ""}
+                  onChange={(e) => setMesCapa(e.target.value || null)}
+                  className="flex w-full rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+                >
+                  <option value="">atual</option>
+                  {MESES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block flex-1 space-y-1.5">
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  Ano (capa)
+                </span>
+                <input
+                  value={anoCapa ?? ""}
+                  onChange={(e) => setAnoCapa(e.target.value || null)}
+                  placeholder="atual"
+                  inputMode="numeric"
+                  className="flex w-full rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+                />
+              </label>
+            </div>
+            <span className="block text-xs text-muted-foreground">
+              A capa as vezes e de outro mes (trabalha em julho, mas a capa e
+              maio/junho). Vazio = mes/ano atual.
+            </span>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-muted-foreground">
                 Usa o titulo acima e a obra/fase do selo.

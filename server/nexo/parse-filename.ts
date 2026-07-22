@@ -53,6 +53,23 @@ function normalize(value: string): string {
 }
 
 /**
+ * Número da prancha a partir do NOME do arquivo — AUTORITATIVO na convenção do
+ * escritório (<cod>_<disc>_<NNN>_<rev>, ex.: 040_26_est_imp_005_a -> 5). Mais
+ * confiável que o OCR do selo (que erra folha/total). É o último grupo de dígitos
+ * depois de descartar o código do projeto e um eventual "vol N". null se não houver.
+ */
+export function sheetNumberFromFilename(fileName: string): number | null {
+  const stem = normalize(fileName)
+    .replace(/\.[a-z0-9]+$/, "")
+    .replace(/[_ -]?assinado/g, "");
+  const afterCode = stem
+    .replace(/^\d{2,4}[_-]\d{2}(?!\d)/, "") // tira "040_26"
+    .replace(/vol[_ ]?\d+/g, ""); // tira "vol10" (raro em prancha)
+  const nums = [...afterCode.matchAll(/\d{1,3}/g)].map((m) => parseInt(m[0], 10));
+  return nums.length ? nums[nums.length - 1] : null;
+}
+
+/**
  * Codigo do projeto: NNN_NN / NNN-NN no INICIO do nome (nao o rodape da prancha).
  * Sem `\b` no fim: underscore e word-char, entao "040_26_vol" nunca casaria \b.
  */

@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
   let tituloCapa: string | undefined;
   let volume: string | undefined;
   let numTomos = 1;
+  let mes: string | undefined;
+  let ano: string | undefined;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -34,6 +36,8 @@ export async function POST(req: NextRequest) {
       tituloCapa?: unknown;
       volume?: unknown;
       numTomos?: unknown;
+      mes?: unknown;
+      ano?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     if (typeof body.templateId !== "string" || !body.templateId) {
@@ -50,6 +54,8 @@ export async function POST(req: NextRequest) {
     if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
       numTomos = Math.max(1, Math.floor(body.numTomos));
     }
+    if (typeof body.mes === "string" && body.mes.trim()) mes = body.mes.trim();
+    if (typeof body.ano === "string" && body.ano.trim()) ano = body.ano.trim();
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   let proposal;
   try {
-    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos });
+    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos, mes, ano });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Falha ao montar a capa." },
