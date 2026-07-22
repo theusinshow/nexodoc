@@ -31,28 +31,40 @@ export interface LdProposal {
   };
 }
 
+/** Todos os números (>0) que um selo carrega — base para o total de referência. */
+function seloNumbers(s: SeloForLd): number[] {
+  const out: number[] = [];
+  if (typeof s.total === "number") out.push(s.total);
+  if (typeof s.folha === "number") out.push(s.folha);
+  if (s.numeroFolha) {
+    for (const m of s.numeroFolha.matchAll(/\d+/g)) out.push(parseInt(m[0], 10));
+  }
+  return out.filter((n) => Number.isFinite(n) && n > 0);
+}
+
 /**
- * "1" -> "01/07"; mantém "NN/TT" quando já vier assim. Corrige a INVERSÃO folha↔total
- * (o OCR às vezes devolve "16/05" para a folha 5 de 16): a folha nunca excede o total,
- * então se n > t o par é desfeito. `numeroFolha` (formato PRANCHA) tem prioridade;
- * senão usa folha/total.
+ * "NN/TT" com o TOTAL fixado no total de referência da LD (todas as folhas de uma
+ * LD compartilham o mesmo total — regra do escritório). A folha vem do campo
+ * dedicado `folha` (mais confiável) e, na falta, do 1º número de `numeroFolha`.
+ * NÃO adivinha inversão folha↔total (isso perdia folhas quando o OCR lia o total
+ * baixo, ex.: "16/15" para a folha 16); a ambiguidade residual fica visível na
+ * pré-visualização para o engenheiro corrigir antes de gerar.
  */
-function normalizeSheet(numeroFolha: string | null, folha: number | null, total: number | null): string {
-  let n: number | null = null;
-  let t: number | null = null;
-  const m = numeroFolha ? /(\d+)\s*\/\s*(\d+)/.exec(numeroFolha) : null;
-  if (m) {
-    n = parseInt(m[1], 10);
-    t = parseInt(m[2], 10);
-  } else if (folha != null) {
-    n = folha;
-    t = total;
+function normalizeSheet(
+  numeroFolha: string | null,
+  folha: number | null,
+  referenceTotal: number,
+): string {
+  let n: number | null = folha != null && Number.isFinite(folha) ? folha : null;
+  if (n == null && numeroFolha) {
+    const m = /(\d+)/.exec(numeroFolha);
+    if (m) n = parseInt(m[1], 10);
   }
   if (n == null || Number.isNaN(n)) return "";
-  // Folha > total => veio invertido; desfaz.
-  if (t != null && !Number.isNaN(t) && t > 0 && n > t) [n, t] = [t, n];
-  if (t == null || Number.isNaN(t)) return String(n).padStart(2, "0");
-  return `${String(n).padStart(2, "0")}/${String(t).padStart(2, "0")}`;
+  if (referenceTotal > 0) {
+    return `${String(n).padStart(2, "0")}/${String(referenceTotal).padStart(2, "0")}`;
+  }
+  return String(n).padStart(2, "0");
 }
 
 function sheetOrder(sheet: string): number {
@@ -107,9 +119,15 @@ export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
   const cliente = mode(validos.map((s) => s.cliente));
   const fase = mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
 
+  // Total de referência: o MAIOR número visto entre todos os selos (a folha nunca
+  // excede o total, então o máximo global é o total da LD). Resiste ao total lido
+  // baixo em folhas isoladas; a pré-visualização mostra o resultado ao engenheiro.
+  const allNums = validos.flatMap(seloNumbers);
+  const referenceTotal = allNums.length ? Math.max(...allNums) : validos.length;
+
   const rows = validos
     .map((s) => ({
-      sheet: normalizeSheet(s.numeroFolha, s.folha, s.total),
+      sheet: normalizeSheet(s.numeroFolha, s.folha, referenceTotal),
       // Coluna ARQUIVOS = campo ARQUIVO do selo (código da prancha); só cai no
       // nome do PDF quando o selo não trouxe (ex.: PDF combinado sem esse campo).
       file: s.arquivo?.trim() || s.fileName,
@@ -118,11 +136,8 @@ export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
     }))
     .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
 
-  const referenceTotal =
-    Math.max(0, ...validos.map((s) => s.total ?? 0)) || rows.length || null;
-
   // Tomos: decisão do engenheiro. >1 divide as folhas em faixas balanceadas.
-  const total = referenceTotal ?? rows.length;
+  const total = referenceTotal || rows.length;
   const tomos =
     numTomos > 1 && total > 0 ? buildBalancedTomos(total, numTomos) : [];
 

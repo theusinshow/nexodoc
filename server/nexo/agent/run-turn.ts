@@ -92,9 +92,6 @@ function normalizeProposals(
   input: RunNexoAgentTurnInput,
 ): NexoAgentProposal[] {
   if (!Array.isArray(raw)) return [];
-  const tituloBase =
-    input.resumo.tituloSugerido?.trim() ||
-    `PROJETO ${input.resumo.disciplina}`.trim();
   const firstTemplateId = input.prefeituras[0]?.id ?? "";
 
   const out: NexoAgentProposal[] = [];
@@ -108,7 +105,8 @@ function normalizeProposals(
         kind: "ld",
         resumo: String(p.resumo ?? "").trim() || `LD ${input.resumo.disciplina}`,
         params: {
-          tituloLd: String(p.tituloLd ?? tituloBase).trim() || tituloBase,
+          // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
+          tituloLd: String(p.tituloLd ?? "").trim(),
           numTomos: clampTomos(p.numTomos),
         },
       });
@@ -133,7 +131,8 @@ function normalizeProposals(
           `Capa ${match?.nome ?? input.resumo.disciplina}`,
         params: {
           templateId,
-          tituloCapa: String(p.tituloCapa ?? tituloBase).trim() || tituloBase,
+          // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
+          tituloCapa: String(p.tituloCapa ?? "").trim(),
           // só dígitos; senão "" (deriva do nome do arquivo no builder)
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
           numTomos: clampTomos(p.numTomos),
@@ -169,10 +168,9 @@ REGRAS:
 - Para a capa, escolha o templateId da lista de prefeituras. Se o engenheiro não
   disse qual e há mais de uma, escolha a mais provável e peça confirmação no texto.
 - Se faltar prefeitura para a capa, proponha só a LD e comente no texto.
-- TÍTULO: é um título TÉCNICO da disciplina (ex.: "PROJETO ESTRUTURAL",
-  "PROJETO HIDROSSANITÁRIO"). NUNCA use nome de órgão/secretaria/prefeitura como
-  título. Se o título sugerido parecer uma secretaria (contém "SECRETARIA",
-  "PREFEITURA", "SEDES", "DEPARTAMENTO"), use "PROJETO <disciplina>" no lugar.
+- TÍTULO: é DECISÃO do engenheiro — NÃO adivinhe. Deixe SEMPRE vazio
+  ("tituloLd": "", "tituloCapa": "") e PERGUNTE no texto qual título ele quer
+  para a LD e para a capa (ex.: "Qual título você quer na LD e na capa?").
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).

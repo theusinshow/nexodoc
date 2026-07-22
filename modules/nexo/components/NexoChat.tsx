@@ -8,7 +8,6 @@ import {
   Download,
   Waypoints,
   Sparkles,
-  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +26,18 @@ import {
   type CapaGenResult,
 } from "../lib/generate";
 
+interface LdPreviewData {
+  rows: { sheet: string; file: string; description: string }[];
+  totalFolhas: number;
+  referenceTotal: number | null;
+}
+
 interface ChatMsg {
   id: string;
   role: "user" | "assistant";
   content: string;
   proposals?: NexoAgentProposal[];
+  ldPreview?: LdPreviewData;
 }
 
 interface NexoTemplateOption {
@@ -87,7 +93,7 @@ export function NexoChat({ selos }: { selos: SeloForLd[] }) {
         body: JSON.stringify({ message: text, history, selos }),
       });
       const payload = (await res.json().catch(() => null)) as
-        | { error?: string; turn?: NexoAgentTurn }
+        | { error?: string; turn?: NexoAgentTurn; ldPreview?: LdPreviewData }
         | null;
       if (!res.ok || !payload?.turn) {
         throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
@@ -99,6 +105,7 @@ export function NexoChat({ selos }: { selos: SeloForLd[] }) {
           role: "assistant",
           content: payload.turn!.reply,
           proposals: payload.turn!.proposals,
+          ldPreview: payload.ldPreview,
         },
       ]);
     } catch (err) {
@@ -143,6 +150,7 @@ export function NexoChat({ selos }: { selos: SeloForLd[] }) {
                   proposal={p}
                   selos={selos}
                   templates={templates}
+                  ldPreview={m.ldPreview}
                 />
               ))}
             </div>
@@ -219,18 +227,27 @@ function MessageBubble({
   );
 }
 
-/** Card de proposta: renderiza LD ou capa; edição opcional; gera no clique. */
+/** Card de proposta: renderiza LD ou capa; campos editáveis inline; gera no clique. */
 function ProposalCard({
   proposal,
   selos,
   templates,
+  ldPreview,
 }: {
   proposal: NexoAgentProposal;
   selos: SeloForLd[];
   templates: NexoTemplateOption[];
+  ldPreview?: LdPreviewData;
 }) {
   if (proposal.kind === "ld") {
-    return <LdCard resumo={proposal.resumo} params={proposal.params} selos={selos} />;
+    return (
+      <LdCard
+        resumo={proposal.resumo}
+        params={proposal.params}
+        selos={selos}
+        ldPreview={ldPreview}
+      />
+    );
   }
   return (
     <CapaCard
@@ -271,12 +288,13 @@ function LdCard({
   resumo,
   params,
   selos,
+  ldPreview,
 }: {
   resumo: string;
   params: NexoLdProposalParams;
   selos: SeloForLd[];
+  ldPreview?: LdPreviewData;
 }) {
-  const [editing, setEditing] = useState(false);
   const [tituloLd, setTituloLd] = useState(params.tituloLd);
   const [numTomos, setNumTomos] = useState(params.numTomos);
   const [busy, setBusy] = useState(false);
@@ -297,13 +315,16 @@ function LdCard({
 
   return (
     <CardShell title="LD" resumo={resumo}>
-      {editing ? (
+      {ldPreview && <FolhaPreview data={ldPreview} />}
+
+      {!result && (
         <div className="space-y-2">
           <label className="block space-y-1">
-            <span className={LABEL_CLASS}>Título da LD</span>
+            <span className={LABEL_CLASS}>Título da LD (você define)</span>
             <input
               value={tituloLd}
               onChange={(e) => setTituloLd(e.target.value)}
+              placeholder="ex.: PROJETO ESTRUTURAL - BLOCO B"
               className={FIELD_CLASS}
             />
           </label>
@@ -322,11 +343,6 @@ function LdCard({
             />
           </label>
         </div>
-      ) : (
-        <dl className="space-y-1 text-sm">
-          <Row label="Título" value={tituloLd} />
-          <Row label="Tomos" value={String(numTomos)} />
-        </dl>
       )}
 
       {result ? (
@@ -342,12 +358,7 @@ function LdCard({
           ]}
         />
       ) : (
-        <Actions
-          busy={busy}
-          editing={editing}
-          onToggleEdit={() => setEditing((v) => !v)}
-          onConfirm={confirm}
-        />
+        <GenerateButton busy={busy} onConfirm={confirm} />
       )}
       {error && (
         <p role="alert" className="text-xs text-destructive">
@@ -355,6 +366,61 @@ function LdCard({
         </p>
       )}
     </CardShell>
+  );
+}
+
+/** Pré-visualização das folhas que vão para a LD — deixa o engenheiro conferir
+ *  (ex.: uma folha que não chegou) antes de gerar. */
+function FolhaPreview({ data }: { data: LdPreviewData }) {
+  const faltando =
+    data.referenceTotal != null && data.totalFolhas < data.referenceTotal;
+  return (
+    <div className="rounded-md border border-border bg-[var(--nexodoc-recessed)]">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+        <span className={LABEL_CLASS}>
+          Folhas na LD ({data.totalFolhas}
+          {data.referenceTotal != null ? ` de ${data.referenceTotal}` : ""})
+        </span>
+        {faltando && (
+          <span className="font-mono text-[11px] text-[var(--status-warning)]">
+            faltam folhas?
+          </span>
+        )}
+      </div>
+      <div className="max-h-40 overflow-y-auto">
+        <table className="w-full text-xs">
+          <tbody>
+            {data.rows.map((r, i) => (
+              <tr key={`${r.sheet}-${i}`} className="border-b border-border/60 last:border-0">
+                <td className="whitespace-nowrap px-3 py-1 font-mono tabular-nums">
+                  {r.sheet || "—"}
+                </td>
+                <td className="px-3 py-1 text-muted-foreground">{r.description || "—"}</td>
+              </tr>
+            ))}
+            {data.rows.length === 0 && (
+              <tr>
+                <td className="px-3 py-2 text-muted-foreground">Nenhuma folha lida.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Botão único de geração (título/tomos já editáveis inline no card). */
+function GenerateButton({ busy, onConfirm }: { busy: boolean; onConfirm: () => void }) {
+  return (
+    <Button size="sm" onClick={onConfirm} disabled={busy}>
+      {busy ? (
+        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <FileText className="mr-1.5 h-3.5 w-3.5" />
+      )}
+      {busy ? "Gerando..." : "Confirmar e gerar"}
+    </Button>
   );
 }
 
@@ -369,7 +435,6 @@ function CapaCard({
   selos: SeloForLd[];
   templates: NexoTemplateOption[];
 }) {
-  const [editing, setEditing] = useState(false);
   const [templateId, setTemplateId] = useState(params.templateId);
   const [tituloCapa, setTituloCapa] = useState(params.tituloCapa);
   const [volume, setVolume] = useState(params.volume);
@@ -377,12 +442,6 @@ function CapaCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CapaGenResult | null>(null);
-
-  const prefeituraLabel =
-    (() => {
-      const t = templates.find((x) => x.id === templateId);
-      return t ? (t.grupo ?? t.nome) + (t.variante ? ` — ${t.variante}` : "") : templateId;
-    })();
 
   async function confirm() {
     setBusy(true);
@@ -398,7 +457,7 @@ function CapaCard({
 
   return (
     <CardShell title="Capa" resumo={resumo}>
-      {editing ? (
+      {!result && (
         <div className="space-y-2">
           <label className="block space-y-1">
             <span className={LABEL_CLASS}>Prefeitura</span>
@@ -416,10 +475,11 @@ function CapaCard({
             </select>
           </label>
           <label className="block space-y-1">
-            <span className={LABEL_CLASS}>Título da capa</span>
+            <span className={LABEL_CLASS}>Título da capa (você define)</span>
             <input
               value={tituloCapa}
               onChange={(e) => setTituloCapa(e.target.value)}
+              placeholder="ex.: PROJETO ESTRUTURAL"
               className={FIELD_CLASS}
             />
           </label>
@@ -449,13 +509,6 @@ function CapaCard({
             </label>
           </div>
         </div>
-      ) : (
-        <dl className="space-y-1 text-sm">
-          <Row label="Prefeitura" value={prefeituraLabel} />
-          <Row label="Título" value={tituloCapa} />
-          <Row label="Volume" value={volume || "auto"} />
-          <Row label="Tomos" value={String(numTomos)} />
-        </dl>
       )}
 
       {result ? (
@@ -472,13 +525,7 @@ function CapaCard({
           ]}
         />
       ) : (
-        <Actions
-          busy={busy}
-          editing={editing}
-          disabled={!templateId}
-          onToggleEdit={() => setEditing((v) => !v)}
-          onConfirm={confirm}
-        />
+        <GenerateButton busy={busy || !templateId} onConfirm={confirm} />
       )}
       {error && (
         <p role="alert" className="text-xs text-destructive">
@@ -489,45 +536,8 @@ function CapaCard({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-muted-foreground">{label}:</dt>
-      <dd className="min-w-0 flex-1 font-medium">{value || "—"}</dd>
-    </div>
-  );
-}
-
-function Actions({
-  busy,
-  editing,
-  disabled,
-  onToggleEdit,
-  onConfirm,
-}: {
-  busy: boolean;
-  editing: boolean;
-  disabled?: boolean;
-  onToggleEdit: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" onClick={onConfirm} disabled={busy || disabled}>
-        {busy ? (
-          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <FileText className="mr-1.5 h-3.5 w-3.5" />
-        )}
-        {busy ? "Gerando..." : "Confirmar e gerar"}
-      </Button>
-      <Button size="sm" variant="outline" onClick={onToggleEdit} disabled={busy}>
-        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-        {editing ? "Ocultar" : "Corrigir"}
-      </Button>
-    </div>
-  );
-}
+// Row/Actions removidos: os cards mostram os campos editáveis inline (título
+// sempre visível) e geram com GenerateButton.
 
 function ResultLinks({
   summary,

@@ -375,6 +375,14 @@ function FileChips({ found }: { found: NexoFileClassification }) {
   );
 }
 
+/** Número da folha de um selo (para ordenar a tabela); sem folha vai pro fim. */
+function seloFolhaOrder(r: SeloResult): number {
+  const ex = r.extraction;
+  if (ex?.folha != null && Number.isFinite(ex.folha)) return ex.folha;
+  const m = ex?.numeroFolha ? /(\d+)/.exec(ex.numeroFolha) : null;
+  return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+}
+
 function DossieRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex gap-2">
@@ -610,6 +618,12 @@ function SelosPanel({
 
   const okCount = results.filter((r) => r.extraction).length;
 
+  // A leitura é ~3 concorrente, então chega fora de ordem. Exibir por folha
+  // (a ordem que o engenheiro espera); erros/sem-folha vão para o fim.
+  const sortedResults = [...results].sort(
+    (a, b) => seloFolhaOrder(a) - seloFolhaOrder(b),
+  );
+
   return (
     <div className="rounded-md border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -663,7 +677,7 @@ function SelosPanel({
               </tr>
             </thead>
             <tbody>
-              {results.map((r, i) => (
+              {sortedResults.map((r, i) => (
                 <tr key={`${r.fileName}-${r.pageNumber}-${i}`} className="border-b border-border align-top">
                   <td className="px-3 py-2 font-mono text-xs tabular-nums whitespace-nowrap">
                     {r.extraction?.numeroFolha ??

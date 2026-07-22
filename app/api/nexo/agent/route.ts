@@ -78,9 +78,22 @@ export async function POST(req: NextRequest) {
     nome: (t.grupo ?? t.nome) + (t.variante ? ` — ${t.variante}` : ""),
   }));
 
+  // Pré-visualização determinística da LD: as folhas que vão para o documento,
+  // já ordenadas. Deixa o engenheiro conferir antes de gerar (ex.: uma folha que
+  // não chegou). Independe do que a IA propõe.
+  const ldPreview = {
+    rows: proposal.input.rows.map((r) => ({
+      sheet: r.sheet,
+      file: r.file,
+      description: r.description,
+    })),
+    totalFolhas: proposal.resumo.totalFolhas,
+    referenceTotal: proposal.input.referenceTotal ?? null,
+  };
+
   try {
     const turn = await runNexoAgentTurn({ message, history, resumo, prefeituras });
-    return NextResponse.json({ turn });
+    return NextResponse.json({ turn, ldPreview });
   } catch (err) {
     return NextResponse.json(
       {
