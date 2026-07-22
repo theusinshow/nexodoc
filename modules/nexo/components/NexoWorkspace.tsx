@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
-import { sheetNumberFromFilename, sheetNumberFromSelo } from "@/server/nexo/parse-filename";
+import { sheetNumberFromFilename, resolveSheetNumbers } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import type { AuditReport } from "@/lib/audit-report";
@@ -52,10 +52,10 @@ export function NexoWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
 
-  // SeloForLd[] (fileName + extração) que as rotas de geração/agente consomem.
+  // SeloForLd[] (fileName + pageNumber + extração) que as rotas consomem.
   const selos = seloResults
     .filter((r) => r.extraction)
-    .map((r) => ({ fileName: r.fileName, ...r.extraction! }));
+    .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction! }));
 
   // webkitdirectory nao e prop tipada no React; setar via atributo.
   useEffect(() => {
@@ -380,18 +380,17 @@ function FileChips({ found }: { found: NexoFileClassification }) {
   );
 }
 
-/** Número da prancha de um selo (fonte única): ARQUIVO do carimbo -> nome do
- *  upload -> OCR. Usado para exibir e ordenar a tabela de leitura. */
-function seloSheetNumber(r: SeloResult): number | null {
-  return sheetNumberFromSelo({
-    arquivo: r.extraction?.arquivo,
-    fileName: r.fileName,
-    folha: r.extraction?.folha,
-  });
-}
-
-function seloFolhaOrder(r: SeloResult): number {
-  return seloSheetNumber(r) ?? Number.MAX_SAFE_INTEGER;
+/** Folha resolvida (reconciliação por ordem de página) de cada resultado lido,
+ *  alinhada ao array `results`. Fonte única p/ exibir e ordenar a tabela. */
+function resolveReadFolhas(results: SeloResult[]): (number | null)[] {
+  return resolveSheetNumbers(
+    results.map((r) => ({
+      fileName: r.fileName,
+      pageNumber: r.pageNumber,
+      arquivo: r.extraction?.arquivo,
+      folha: r.extraction?.folha,
+    })),
+  );
 }
 
 function DossieRow({ label, value }: { label: string; value?: string }) {
@@ -524,7 +523,7 @@ function SelosPanel({
   async function gerarCapa() {
     const selos = results
       .filter((r) => r.extraction)
-      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+      .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction }));
     if (selos.length === 0 || !templateId) return;
     setCapaBusy(true);
     setError(null);
@@ -581,7 +580,7 @@ function SelosPanel({
   async function gerarLd() {
     const selos = results
       .filter((r) => r.extraction)
-      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+      .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction }));
     if (selos.length === 0) return;
     setLdBusy(true);
     setError(null);
@@ -631,7 +630,7 @@ function SelosPanel({
   async function conferir() {
     const selos = results
       .filter((r) => r.extraction)
-      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+      .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction }));
     if (selos.length === 0) return;
     setCheckBusy(true);
     setError(null);
@@ -756,11 +755,16 @@ function SelosPanel({
 
   const okCount = results.filter((r) => r.extraction).length;
 
+  // Folha resolvida (reconciliação por ordem de página) alinhada a `results`.
+  const readFolhas = resolveReadFolhas(results);
   // A leitura é ~3 concorrente, então chega fora de ordem. Exibir por folha
   // (a ordem que o engenheiro espera); erros/sem-folha vão para o fim.
-  const sortedResults = [...results].sort(
-    (a, b) => seloFolhaOrder(a) - seloFolhaOrder(b),
-  );
+  const sortedRows = results
+    .map((r, i) => ({ r, folha: readFolhas[i] }))
+    .sort(
+      (a, b) =>
+        (a.folha ?? Number.MAX_SAFE_INTEGER) - (b.folha ?? Number.MAX_SAFE_INTEGER),
+    );
 
   return (
     <div className="rounded-md border border-border bg-card">
@@ -815,13 +819,10 @@ function SelosPanel({
               </tr>
             </thead>
             <tbody>
-              {sortedResults.map((r, i) => (
+              {sortedRows.map(({ r, folha }, i) => (
                 <tr key={`${r.fileName}-${r.pageNumber}-${i}`} className="border-b border-border align-top">
                   <td className="px-3 py-2 font-mono text-xs tabular-nums whitespace-nowrap">
-                    {(() => {
-                      const n = seloSheetNumber(r);
-                      return n != null ? String(n).padStart(2, "0") : "—";
-                    })()}
+                    {folha != null ? String(folha).padStart(2, "0") : "—"}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.error ? (

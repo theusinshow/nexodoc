@@ -2,6 +2,7 @@ import {
   parseFilename,
   sheetNumberFromFilename,
   sheetNumberFromSelo,
+  resolveSheetNumbers,
 } from "./parse-filename";
 import type { SeloForLd } from "./build-ld-proposal";
 import { checkSeloFacts, type SeloFact, type LightCheckResult } from "./light-check-core";
@@ -78,5 +79,8 @@ export function runLightCheck(
   // Reservado para checagens template-aware futuras (órgão/prefeitura da capa).
   void opts;
   const validos = selos.filter((s) => s.fileName || s.arquivo);
-  return checkSeloFacts(validos.map(seloToFact));
+  // Folha RESOLVIDA (reconciliação por ordem de página) sobrescreve a do fato.
+  const resolved = resolveSheetNumbers(validos);
+  const facts = validos.map((s, i) => ({ ...seloToFact(s), sheet: resolved[i] }));
+  return checkSeloFacts(facts);
 }

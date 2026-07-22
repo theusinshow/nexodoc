@@ -1,0 +1,77 @@
+/**
+ * Reconciliação de folhas por ORDEM DE PÁGINA — núcleo PURO (sem imports), para
+ * ser testável com node cru.
+ *
+ * Problema: num PDF COMBINADO (várias pranchas no mesmo arquivo), o OCR do
+ * carimbo é instável e às vezes devolve o mesmo número (ex.: "16") para várias
+ * folhas. Mas as pranchas vêm EM ORDEM no PDF — a posição da página é 100%
+ * confiável. Quando os candidatos têm DUPLICATAS, reatribuímos a folha pela
+ * ordem da página, ancorando nas leituras boas (candidatos únicos): a folha
+ * cresce de 1 em 1 por página (modelo linear folha = página + offset). Isso
+ * também descarta capas/índice no começo (folha ≤ 0 -> null).
+ *
+ * Sem duplicatas (arquivos separados ou OCR limpo), mantém o candidato original.
+ */
+
+export interface SheetItem {
+  /** Número da página dentro do PDF (1-based). */
+  pageNumber: number;
+  /** Folha lida pelo OCR/carimbo/nome; null se desconhecida. */
+  candidate: number | null;
+}
+
+/** Valor mais frequente entre números. */
+function modeOf(values: number[]): number {
+  const counts = new Map<number, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best = 0;
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
+/**
+ * Reconcilia as folhas de UM arquivo (lista de páginas). Devolve a folha
+ * resolvida de cada item, alinhada à entrada.
+ */
+export function reconcileByPageOrder(items: SheetItem[]): (number | null)[] {
+  const result: (number | null)[] = items.map((it) => it.candidate);
+  if (items.length <= 1) return result;
+
+  const counts = new Map<number, number>();
+  for (const it of items) {
+    if (it.candidate != null) counts.set(it.candidate, (counts.get(it.candidate) ?? 0) + 1);
+  }
+  const hasDup = [...counts.values()].some((c) => c > 1);
+  if (!hasDup) return result;
+
+  // Índices ordenados pela página.
+  const order = items
+    .map((_, i) => i)
+    .sort((a, b) => items[a].pageNumber - items[b].pageNumber);
+
+  // Âncoras: candidatos ÚNICOS e positivos (leituras confiáveis).
+  const anchors = order.filter(
+    (i) =>
+      items[i].candidate != null &&
+      counts.get(items[i].candidate as number) === 1 &&
+      (items[i].candidate as number) > 0,
+  );
+
+  if (anchors.length === 0) {
+    // Sem âncora: rank puro por ordem de página (1..N).
+    let rank = 1;
+    for (const i of order) result[i] = rank++;
+    return result;
+  }
+
+  // Offset dominante (folha - página) entre as âncoras → modelo linear.
+  const offset = modeOf(
+    anchors.map((i) => (items[i].candidate as number) - items[i].pageNumber),
+  );
+  for (const i of order) {
+    const f = items[i].pageNumber + offset;
+    result[i] = f > 0 ? f : null;
+  }
+  return result;
+}

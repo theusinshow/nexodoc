@@ -1,4 +1,5 @@
 import { DISCIPLINA_LEXICON } from "./disciplinas";
+import { reconcileByPageOrder } from "./reconcile-sheets";
 
 /**
  * Parser filename-first do intake do Nexo (Fase 0). A convencao de nomes do
@@ -95,6 +96,46 @@ export function sheetNumberFromSelo(selo: {
     return selo.folha;
   }
   return null;
+}
+
+export interface SeloSheetInput {
+  fileName: string;
+  pageNumber?: number | null;
+  arquivo?: string | null;
+  folha?: number | null;
+}
+
+/**
+ * FOLHA RESOLVIDA de cada selo, com reconciliação por ordem de página. Agrupa por
+ * arquivo; num PDF combinado (várias páginas do mesmo arquivo) onde o OCR duplica
+ * a folha (ex.: "16" repetido), reatribui pela ORDEM DA PÁGINA (`reconcileByPageOrder`).
+ * Arquivos separados (1 página) mantêm a folha do carimbo/nome. É a FONTE ÚNICA da
+ * folha para a leitura, a LD e a conferência.
+ */
+export function resolveSheetNumbers(selos: SeloSheetInput[]): (number | null)[] {
+  const candidates = selos.map((s) =>
+    sheetNumberFromSelo({ arquivo: s.arquivo, fileName: s.fileName, folha: s.folha }),
+  );
+  const byFile = new Map<string, number[]>();
+  selos.forEach((s, i) => {
+    const key = s.fileName || "";
+    const arr = byFile.get(key);
+    if (arr) arr.push(i);
+    else byFile.set(key, [i]);
+  });
+
+  const result: (number | null)[] = [...candidates];
+  for (const idxs of byFile.values()) {
+    const items = idxs.map((i) => ({
+      pageNumber: selos[i].pageNumber ?? 1,
+      candidate: candidates[i],
+    }));
+    const resolved = reconcileByPageOrder(items);
+    idxs.forEach((i, k) => {
+      result[i] = resolved[k];
+    });
+  }
+  return result;
 }
 
 /**

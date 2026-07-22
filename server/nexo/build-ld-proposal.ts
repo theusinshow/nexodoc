@@ -1,7 +1,4 @@
-import {
-  parseFilename,
-  sheetNumberFromSelo,
-} from "./parse-filename";
+import { parseFilename, resolveSheetNumbers } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
 import { formatSheet, buildBalancedTomos, type Tomo } from "@/lib/ld/ld-rules";
 import { cleanStampDescription } from "@/lib/ld/stamp-parsing";
@@ -10,6 +7,8 @@ import type { CreateLDInput } from "./tools/create-ld";
 /** Um selo lido de uma prancha (subconjunto do StampExtraction que interessa aqui). */
 export interface SeloForLd {
   fileName: string;
+  /** Página do selo dentro do PDF (p/ reconciliar folha em PDF combinado). */
+  pageNumber?: number | null;
   disciplina: string | null;
   folha: number | null;
   total: number | null;
@@ -33,15 +32,6 @@ export interface LdProposal {
     obra: string;
     totalFolhas: number;
   };
-}
-
-/** Folha da prancha (fonte única): ARQUIVO do carimbo -> nome do upload -> OCR. */
-function seloSheet(s: SeloForLd): number | null {
-  return sheetNumberFromSelo({
-    arquivo: s.arquivo,
-    fileName: s.fileName,
-    folha: s.folha,
-  });
 }
 
 /** Parse do nome, preferindo o código do CARIMBO (per-prancha) ao nome do upload
@@ -144,15 +134,15 @@ export function buildLdProposal(
   const dominantTotal = modeNumber(
     validos.map((s) => s.total).filter((t): t is number => typeof t === "number"),
   );
-  const sheets = validos
-    .map(seloSheet)
-    .filter((n): n is number => n != null && n > 0);
+  // Folha RESOLVIDA (reconciliação por ordem de página em PDF combinado).
+  const resolvedSheets = resolveSheetNumbers(validos);
+  const sheets = resolvedSheets.filter((n): n is number => n != null && n > 0);
   const maxSheet = sheets.length ? Math.max(...sheets) : 0;
   const referenceTotal = Math.max(dominantTotal, maxSheet, validos.length);
 
   const rows = validos
-    .map((s) => {
-      const n = seloSheet(s);
+    .map((s, i) => {
+      const n = resolvedSheets[i];
       const sheet =
         n != null && n > 0
           ? referenceTotal > 0
