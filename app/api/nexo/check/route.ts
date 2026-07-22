@@ -1,0 +1,40 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+import { auth } from "@/auth";
+import { isNexoEnabled } from "@/lib/feature-flags";
+import { runLightCheck } from "@/server/nexo/light-check";
+import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+
+export const runtime = "nodejs";
+
+/**
+ * Conferência leve (light check): porta de qualidade determinística, SEM IA.
+ * Recebe os selos lidos das pranchas e confere se pranchas/LD/capa são
+ * internamente consistentes (código/obra/revisão/disciplina/sequência).
+ */
+export async function POST(req: NextRequest) {
+  if (!isNexoEnabled()) {
+    return NextResponse.json({ error: "Modulo Nexo desativado." }, { status: 404 });
+  }
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
+  let selos: SeloForLd[];
+  let templateId: string | undefined;
+  try {
+    const body = (await req.json()) as { selos?: unknown; templateId?: unknown };
+    if (!Array.isArray(body.selos)) throw new Error("selos ausente");
+    selos = body.selos as SeloForLd[];
+    if (typeof body.templateId === "string" && body.templateId.trim()) {
+      templateId = body.templateId.trim();
+    }
+  } catch {
+    return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
+  }
+
+  const result = runLightCheck(selos, { templateId });
+
+  return NextResponse.json({ result });
+}

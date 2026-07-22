@@ -17,3 +17,11 @@ export type {
 
 export { createLD } from "./create-ld";
 export type { CreateLDInput, CreateLDOutput } from "./create-ld";
+
+export { assembleVolume, orderVolumeParts } from "./assemble-volume";
+export type {
+  AssembleVolumeInput,
+  AssembleVolumeOutput,
+  VolumePart,
+  VolumePartRole,
+} from "./assemble-volume";
