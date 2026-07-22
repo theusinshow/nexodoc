@@ -74,10 +74,17 @@ A estrutura já modela **volumes**. Falta o nível **bloco/tomo** dentro do volu
 - [x] Módulo `modules/nexo` + rota `/nexo`, registrado na UI **como principal** (gated pela flag).
 - [ ] Layout do workspace: intake (upload) à esquerda, chat à direita. Sem autonomia ainda — só recebe arquivos e roteia.
 
-### Fase 2 — Agente + confirmação
-- [ ] Loop de tool-calling (Claude API) com as ferramentas da Fase 0.
-- [ ] Checkpoints estruturados **[Confirmar] / [Corrigir]** (cards, não texto solto).
-- [ ] Padrão afirma-fato/pergunta-decisão implementado.
+### Fase 2 — Agente + confirmação ← EM ANDAMENTO
+Decisão de rumo (2026-07-22, com o usuário): o app **não tem infra de tool-calling** (tudo single-shot + parse JSON; DeepSeek nem suporta tools, MiMo sem cliente). Em vez de construir o loop já, faseamos: **base agora, loop depois**. O "cérebro" fica isolado num ponto trocável, então subir pro loop de tool-calling é trocar uma peça, não reescrever.
+- [x] **Motor = roteador de intenção (Opção 1)**: 1 chamada de IA por turno em `server/nexo/agent/run-turn.ts` (`runNexoAgentTurn`). Recebe os FATOS determinísticos (via `buildLdProposal`) + prefeituras + conversa; devolve `NexoAgentTurn { reply, proposals }`. Reusa `executeOpenAiResponse` (flow `audit-chat`, gpt-5.5). Parse JSON tolerante; normaliza propostas (mapeia prefeitura→templateId, clampa tomos, defaults do selo). Degrada pro texto puro se o JSON falhar. **A IA nunca gera — só preenche parâmetros.**
+- [x] **Checkpoints = cards editáveis** (`modules/nexo/components/NexoChat.tsx`): cada proposta vira card com params + **[Confirmar e gerar] / [Corrigir]**. A geração (irreversível) só dispara no clique, via `postLd`/`postCapa` (`modules/nexo/lib/generate.ts`) → rotas determinísticas. Download inline no card.
+- [x] **Padrão afirma-fato/pergunta-decisão**: o prompt injeta os fatos lidos e proíbe re-perguntá-los; só pergunta o que é decisão (prefeitura, título, tomos). Rota `app/api/nexo/agent` guarda: sem selos → pede ler pranchas primeiro.
+- [x] Wiring: `NexoWorkspace` eleva os selos lidos (SelosPanel) pro chat; placeholder "Fase 2" trocado pelo `NexoChat`. `tsc`/`eslint`/`next build` verdes.
+- [ ] **FALTA validação E2E ao vivo** (precisa OpenAI + auth): conversar → propor → confirmar → baixar; conferir se a IA mapeia a prefeitura certa e respeita os fatos.
+- [ ] Futuro (limpeza): flow dedicado `nexo-agent` em `ai-providers` (hoje reusa `audit-chat`).
+
+### Fase 2b — subir pro loop de tool-calling (quando a Fase 3 justificar)
+- [ ] Loop de tool-calling OpenAI (estender/burlar `executeOpenAiResponse` p/ `tools` + rodadas da Responses API). Só OpenAI. Troca só o `run-turn.ts`.
 
 ### Fase 3 — Caminho encadeado completo
 - [ ] upload → propõe **LD + capa** (confirmando) → monta **volume** (regras de `volume-rules`) → **auditoria** automática → devolve ODT/PDF/ZIP + relatório.
