@@ -60,6 +60,39 @@ function mode(values: (string | null | undefined)[]): string {
  * que formatVolume espera (o valor cru, sem o prefixo "Vol. ", que o formatVolume
  * adiciona). Cobre alem de 10 para robustez; casos reais ficam em 1-10.
  */
+/** "II"/"iv" -> 2/4. 0 se não for romano válido. Tolerante a lixo em volta. */
+function romanToArabic(value: string): number {
+  const up = value.toUpperCase().replace(/[^IVXLCDM]/g, "");
+  if (!up) return 0;
+  const map: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+  let total = 0;
+  let prev = 0;
+  for (let i = up.length - 1; i >= 0; i--) {
+    const val = map[up[i]];
+    if (val < prev) total -= val;
+    else {
+      total += val;
+      prev = val;
+    }
+  }
+  return total;
+}
+
+/**
+ * Normaliza QUALQUER forma de volume para o número arábico cru: "3"/"vol 3"/
+ * "Volume 3"/"III" -> "3"; vazio -> "". Blinda contra o antigo colapso silencioso
+ * pra "I" quando chegava algo não-arábico. Dígito no texto vence (mais direto);
+ * senão tenta romano.
+ */
+function toArabicVolume(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  const digits = s.match(/\d+/);
+  if (digits) return String(parseInt(digits[0], 10));
+  const roman = romanToArabic(s);
+  return roman > 0 ? String(roman) : "";
+}
+
 function arabicToRoman(arabic: string): string {
   const n = parseInt(arabic, 10);
   if (!Number.isFinite(n) || n <= 0) return "I";
@@ -129,7 +162,10 @@ export async function buildCapaProposal(
 
   // Volume: override -> parseFilename (arabico) -> default. Converte p/ romano
   // quando o template pede; formatVolume so adiciona "Vol. ", nao converte.
-  const volumeArabic = (input.volume ?? mode(parsedList.map((p) => p.volume))) || "";
+  // Override do engenheiro -> nome do arquivo; qualquer forma vira arábico cru.
+  const volumeArabic = toArabicVolume(
+    input.volume ?? mode(parsedList.map((p) => p.volume)),
+  );
   let volumeValue: string;
   if (template.volumeFormat === "numeric") {
     volumeValue = volumeArabic || "1";

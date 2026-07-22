@@ -169,6 +169,15 @@ REGRAS:
 - Para a capa, escolha o templateId da lista de prefeituras. Se o engenheiro não
   disse qual e há mais de uma, escolha a mais provável e peça confirmação no texto.
 - Se faltar prefeitura para a capa, proponha só a LD e comente no texto.
+- TÍTULO: é um título TÉCNICO da disciplina (ex.: "PROJETO ESTRUTURAL",
+  "PROJETO HIDROSSANITÁRIO"). NUNCA use nome de órgão/secretaria/prefeitura como
+  título. Se o título sugerido parecer uma secretaria (contém "SECRETARIA",
+  "PREFEITURA", "SEDES", "DEPARTAMENTO"), use "PROJETO <disciplina>" no lugar.
+- VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
+  volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
+  não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
+- TOMOS: se ele disser "N tomos" / "divide em N", use numTomos=N (LD e capa
+  juntas). Senão numTomos=1.
 - Se o pedido não for sobre gerar LD/capa, responda conversando, com proposals: [].
 - Responda em português do Brasil, curto e direto.
 
