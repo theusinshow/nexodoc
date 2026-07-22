@@ -46,7 +46,13 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(body.parts)) throw new Error("parts ausente");
 
     parts = body.parts.map((raw, index) => {
-      const part = raw as { role?: unknown; name?: unknown; data?: unknown };
+      const part = raw as {
+        role?: unknown;
+        name?: unknown;
+        data?: unknown;
+        startPage?: unknown;
+        endPage?: unknown;
+      };
       if (
         typeof part.role !== "string" ||
         !VALID_ROLES.includes(part.role as VolumePartRole)
@@ -63,6 +69,8 @@ export async function POST(req: NextRequest) {
         role: part.role as VolumePartRole,
         name: part.name,
         buffer: Buffer.from(part.data, "base64"),
+        startPage: typeof part.startPage === "number" ? part.startPage : undefined,
+        endPage: typeof part.endPage === "number" ? part.endPage : undefined,
       };
     });
 

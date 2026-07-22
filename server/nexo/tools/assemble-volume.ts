@@ -25,6 +25,14 @@ export interface VolumePart {
   role: VolumePartRole;
   name: string;
   buffer: Buffer;
+  /**
+   * Intervalo de páginas (1-based) a incluir. Usado quando o PDF é COMBINADO
+   * (capa/separatriz/LD + pranchas no mesmo arquivo): passa só as páginas de
+   * prancha, evitando duplicar a capa/LD que já estão dentro. Ausente = arquivo
+   * inteiro.
+   */
+  startPage?: number;
+  endPage?: number;
 }
 
 export interface AssembleVolumeInput {
@@ -95,6 +103,25 @@ function buildRowFromParts(parts: VolumePart[]): {
     copy.set(part.buffer);
     fileBuffers.set(sourceFileId, copy.buffer);
 
+    const usaIntervalo =
+      typeof part.startPage === "number" &&
+      typeof part.endPage === "number" &&
+      part.startPage >= 1 &&
+      part.endPage >= part.startPage;
+    const selection = usaIntervalo
+      ? ({
+          sourceFileId,
+          sourceFileName: part.name,
+          mode: "page_range" as const,
+          startPage: part.startPage,
+          endPage: part.endPage,
+        })
+      : ({
+          sourceFileId,
+          sourceFileName: part.name,
+          mode: "entire_file" as const,
+        });
+
     return {
       id: `nexo-block-${index}`,
       title: part.name,
@@ -104,11 +131,7 @@ function buildRowFromParts(parts: VolumePart[]): {
         id: `nexo-slot-${index}`,
         type: "separator",
         label: part.name,
-        selection: {
-          sourceFileId,
-          sourceFileName: part.name,
-          mode: "entire_file",
-        },
+        selection,
         warnings: [],
       },
       documents: [],

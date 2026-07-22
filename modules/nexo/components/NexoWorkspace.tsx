@@ -663,8 +663,27 @@ function SelosPanel({
     setError(null);
     setVol(null);
     try {
+      // Páginas de PRANCHA por arquivo (as que têm folha na leitura). Num PDF
+      // COMBINADO (capa+separatriz+LD+pranchas), isso exclui a capa/LD internas —
+      // senão o volume duplica (capa, LD, ...capa, LD, pranchas).
+      const readFolhas = resolveReadFolhas(results);
+      const pranchaPagesByFile = new Map<string, number[]>();
+      results.forEach((r, i) => {
+        if (readFolhas[i] != null) {
+          const arr = pranchaPagesByFile.get(r.fileName);
+          if (arr) arr.push(r.pageNumber);
+          else pranchaPagesByFile.set(r.fileName, [r.pageNumber]);
+        }
+      });
+
       // Ordem canônica do escritório: CAPA -> SEPARATRIZ -> LD -> PRANCHAS.
-      const parts: { role: string; name: string; data: string }[] = [];
+      const parts: {
+        role: string;
+        name: string;
+        data: string;
+        startPage?: number;
+        endPage?: number;
+      }[] = [];
       if (capaPdf64) parts.push({ role: "capa", name: "capa.pdf", data: capaPdf64 });
 
       // Separatriz: folha simples com o nome da disciplina (gerada na hora).
@@ -698,7 +717,20 @@ function SelosPanel({
           (sheetNumberFromFilename(b.name) ?? 9999),
       );
       for (const f of ordered) {
-        parts.push({ role: "prancha", name: f.name, data: await fileToBase64(f) });
+        const data = await fileToBase64(f);
+        const pages = pranchaPagesByFile.get(f.name);
+        if (pages && pages.length > 0) {
+          // recorta no intervalo de pranchas (exclui capa/LD internas do combinado)
+          parts.push({
+            role: "prancha",
+            name: f.name,
+            data,
+            startPage: Math.min(...pages),
+            endPage: Math.max(...pages),
+          });
+        } else {
+          parts.push({ role: "prancha", name: f.name, data });
+        }
       }
       const res = await fetch("/api/nexo/volume", {
         method: "POST",
