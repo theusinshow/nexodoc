@@ -20,6 +20,8 @@ import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
 import { sheetNumberFromFilename, sheetNumberFromSelo } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
+import type { AuditReport } from "@/lib/audit-report";
+import { runMemorialAudit, type MemorialAuditLevel } from "../lib/audit";
 import { NexoChat } from "./NexoChat";
 
 function formatBytes(bytes: number): string {
@@ -496,7 +498,13 @@ function SelosPanel({
   const [ldPdf64, setLdPdf64] = useState<string | null>(null);
   const [vol, setVol] = useState<{ url: string; name: string; pageCount?: number } | null>(null);
   const [volBusy, setVolBusy] = useState(false);
+  // Auditoria do memorial (caso raro): reusa o motor /api/audit com gabarito auto.
+  const [memorialFile, setMemorialFile] = useState<File | null>(null);
+  const [auditLevel, setAuditLevel] = useState<MemorialAuditLevel>("standard");
+  const [audit, setAudit] = useState<AuditReport | null>(null);
+  const [auditBusy, setAuditBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  const memorialRef = useRef<HTMLInputElement>(null);
 
   // Título é decisão do engenheiro: começa em branco, ele preenche.
   const tituloLd = tituloEditado ?? "";
@@ -686,6 +694,37 @@ function SelosPanel({
       setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
     } finally {
       setVolBusy(false);
+    }
+  }
+
+  async function auditarMemorial() {
+    if (!memorialFile) return;
+    setAuditBusy(true);
+    setError(null);
+    setAudit(null);
+    try {
+      // Gabarito automático: obra do carimbo das pranchas + prefeitura do template.
+      const obras = new Map<string, number>();
+      for (const r of results) {
+        const o = r.extraction?.obra?.trim();
+        if (o) obras.set(o, (obras.get(o) ?? 0) + 1);
+      }
+      let obra = "";
+      let best = 0;
+      for (const [k, n] of obras) if (n > best) [obra, best] = [k, n];
+      const t = templates.find((x) => x.id === templateId);
+      const prefeitura = t ? (t.grupo ?? t.nome) : undefined;
+
+      const report = await runMemorialAudit(
+        memorialFile,
+        { obra: obra || undefined, prefeitura },
+        auditLevel,
+      );
+      setAudit(report);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
+    } finally {
+      setAuditBusy(false);
     }
   }
 
@@ -1133,8 +1172,113 @@ function SelosPanel({
               </div>
             )}
           </div>
+
+          {/* Auditoria do memorial (caso raro) — reusa o motor /api/audit */}
+          <div className="flex flex-col gap-3 border-t border-dashed border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  Auditoria do memorial
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Quando o memorial estiver pronto, audita contra a obra das
+                  pranchas (gabarito automatico). Motor completo da auditoria.
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <select
+                  value={auditLevel}
+                  onChange={(e) => setAuditLevel(e.target.value as MemorialAuditLevel)}
+                  className="rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-2 py-1 text-xs focus-visible:border-ring focus-visible:outline-none"
+                >
+                  <option value="standard">padrao</option>
+                  <option value="deep">profunda</option>
+                </select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => memorialRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  {memorialFile ? "Trocar" : "Anexar"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={auditarMemorial}
+                  disabled={auditBusy || !memorialFile}
+                >
+                  {auditBusy ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {auditBusy ? "Auditando..." : "Auditar"}
+                </Button>
+              </div>
+            </div>
+            <input
+              ref={memorialRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                setMemorialFile(e.target.files?.[0] ?? null);
+                setAudit(null);
+                e.target.value = "";
+              }}
+            />
+            {memorialFile && (
+              <p className="text-xs text-muted-foreground">
+                Memorial: <span className="font-medium">{memorialFile.name}</span>
+              </p>
+            )}
+
+            {audit && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={auditVerdictVariant(audit.status_geral)}>
+                    {audit.status_geral}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {audit.total_incongruencias} achado(s) · obra{" "}
+                    {audit.obra || "?"}
+                  </span>
+                </div>
+                {audit.conclusao && (
+                  <p className="text-sm text-muted-foreground">{audit.conclusao}</p>
+                )}
+                {audit.incongruencias.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {audit.incongruencias.slice(0, 8).map((f) => (
+                      <li key={f.id} className="text-xs">
+                        <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                          [{f.prioridade}]
+                        </span>{" "}
+                        {f.descricao}
+                      </li>
+                    ))}
+                    {audit.incongruencias.length > 8 && (
+                      <li className="text-xs text-muted-foreground">
+                        +{audit.incongruencias.length - 8} outro(s). Relatorio
+                        completo no modulo Auditoria.
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+/** status_geral da auditoria -> variante do Badge. */
+function auditVerdictVariant(
+  status: AuditReport["status_geral"],
+): "ok" | "warning" | "critical" {
+  if (status === "sem achados críticos") return "ok";
+  if (status === "com pontos de revisão") return "warning";
+  return "critical";
 }
