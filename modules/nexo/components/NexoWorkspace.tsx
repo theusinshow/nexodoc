@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
-import { sheetNumberFromFilename } from "@/server/nexo/parse-filename";
+import { sheetNumberFromFilename, sheetNumberFromSelo } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import { NexoChat } from "./NexoChat";
@@ -378,15 +378,14 @@ function FileChips({ found }: { found: NexoFileClassification }) {
   );
 }
 
-/** Número da prancha de um selo: NOME do arquivo primeiro (autoritativo), OCR
- *  como fallback. Usado para exibir e ordenar a tabela de leitura. */
+/** Número da prancha de um selo (fonte única): ARQUIVO do carimbo -> nome do
+ *  upload -> OCR. Usado para exibir e ordenar a tabela de leitura. */
 function seloSheetNumber(r: SeloResult): number | null {
-  const fromName = sheetNumberFromFilename(r.fileName);
-  if (fromName != null) return fromName;
-  const ex = r.extraction;
-  if (ex?.folha != null && Number.isFinite(ex.folha)) return ex.folha;
-  const m = ex?.numeroFolha ? /(\d+)/.exec(ex.numeroFolha) : null;
-  return m ? parseInt(m[1], 10) : null;
+  return sheetNumberFromSelo({
+    arquivo: r.extraction?.arquivo,
+    fileName: r.fileName,
+    folha: r.extraction?.folha,
+  });
 }
 
 function seloFolhaOrder(r: SeloResult): number {

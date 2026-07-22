@@ -1,4 +1,8 @@
-import { parseFilename, sheetNumberFromFilename } from "./parse-filename";
+import {
+  parseFilename,
+  sheetNumberFromFilename,
+  sheetNumberFromSelo,
+} from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
 import type { CreateLDInput } from "./tools/create-ld";
 
@@ -35,6 +39,8 @@ function seloNumbers(s: SeloForLd): number[] {
   const out: number[] = [];
   if (typeof s.total === "number") out.push(s.total);
   if (typeof s.folha === "number") out.push(s.folha);
+  const fromArquivo = s.arquivo ? sheetNumberFromFilename(s.arquivo) : null;
+  if (fromArquivo != null) out.push(fromArquivo);
   const fromName = sheetNumberFromFilename(s.fileName);
   if (fromName != null) out.push(fromName);
   if (s.numeroFolha) {
@@ -139,10 +145,10 @@ export function buildLdProposal(
 
   const rows = validos
     .map((s) => ({
-      // Folha do NOME do arquivo (autoritativo); OCR só como último recurso.
+      // Folha: ARQUIVO do carimbo -> nome do upload -> OCR (fonte única).
       sheet: normalizeSheet(
         s.numeroFolha,
-        sheetNumberFromFilename(s.fileName) ?? s.folha,
+        sheetNumberFromSelo({ arquivo: s.arquivo, fileName: s.fileName, folha: s.folha }),
         referenceTotal,
       ),
       // Coluna ARQUIVOS = campo ARQUIVO do selo (código da prancha); só cai no

@@ -1,4 +1,8 @@
-import { parseFilename, sheetNumberFromFilename } from "./parse-filename";
+import {
+  parseFilename,
+  sheetNumberFromFilename,
+  sheetNumberFromSelo,
+} from "./parse-filename";
 import type { SeloForLd } from "./build-ld-proposal";
 import { checkSeloFacts, type SeloFact, type LightCheckResult } from "./light-check-core";
 
@@ -27,6 +31,8 @@ function seloNumbers(s: SeloForLd): number[] {
   const out: number[] = [];
   if (typeof s.total === "number") out.push(s.total);
   if (typeof s.folha === "number") out.push(s.folha);
+  const fromArquivo = s.arquivo ? sheetNumberFromFilename(s.arquivo) : null;
+  if (fromArquivo != null) out.push(fromArquivo);
   const fromName = sheetNumberFromFilename(s.fileName);
   if (fromName != null) out.push(fromName);
   if (s.numeroFolha) {
@@ -41,14 +47,14 @@ function seloNumbers(s: SeloForLd): number[] {
  * do OCR só entra na falta.
  */
 export function seloToFact(s: SeloForLd): SeloFact {
-  const parsed = parseFilename(s.fileName);
-  const fromName = sheetNumberFromFilename(s.fileName);
-  const sheet =
-    fromName != null
-      ? fromName
-      : typeof s.folha === "number" && Number.isFinite(s.folha) && s.folha > 0
-        ? s.folha
-        : null;
+  // Prefere o código do CARIMBO (arquivo, per-prancha) — num PDF combinado o
+  // nome do upload é o do tomo/volume e não carrega revisão/folha por prancha.
+  const parsed = parseFilename(s.arquivo?.trim() || s.fileName);
+  const sheet = sheetNumberFromSelo({
+    arquivo: s.arquivo,
+    fileName: s.fileName,
+    folha: s.folha,
+  });
   return {
     label: s.fileName || s.arquivo || "(sem nome)",
     codigo: parsed.codigo,

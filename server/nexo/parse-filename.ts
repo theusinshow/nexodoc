@@ -64,9 +64,37 @@ export function sheetNumberFromFilename(fileName: string): number | null {
     .replace(/[_ -]?assinado/g, "");
   const afterCode = stem
     .replace(/^\d{2,4}[_-]\d{2}(?!\d)/, "") // tira "040_26"
-    .replace(/vol[_ ]?\d+/g, ""); // tira "vol10" (raro em prancha)
+    .replace(/vol[_ ]?\d+/g, "") // tira "vol10" (raro em prancha)
+    .replace(/tomo[_ ]?\d+/g, ""); // tira "tomo1" (PDF combinado por tomo)
   const nums = [...afterCode.matchAll(/\d{1,3}/g)].map((m) => parseInt(m[0], 10));
   return nums.length ? nums[nums.length - 1] : null;
+}
+
+/**
+ * FONTE ÚNICA da folha de uma prancha, na ordem de confiança correta:
+ *   1) campo ARQUIVO do CARIMBO (ex.: "040_26_est_imp_005_a") — carrega o número
+ *      da prancha mesmo quando o upload é um PDF COMBINADO por tomo/volume;
+ *   2) nome do arquivo enviado (quando as pranchas vêm como arquivos separados);
+ *   3) folha do OCR (último recurso, menos confiável).
+ * Espelha a lógica provada do módulo LD original (extractSheetNumberFromFileCode).
+ */
+export function sheetNumberFromSelo(selo: {
+  arquivo?: string | null;
+  fileName?: string | null;
+  folha?: number | null;
+}): number | null {
+  if (selo.arquivo) {
+    const n = sheetNumberFromFilename(selo.arquivo);
+    if (n != null) return n;
+  }
+  if (selo.fileName) {
+    const n = sheetNumberFromFilename(selo.fileName);
+    if (n != null) return n;
+  }
+  if (typeof selo.folha === "number" && Number.isFinite(selo.folha) && selo.folha > 0) {
+    return selo.folha;
+  }
+  return null;
 }
 
 /**
