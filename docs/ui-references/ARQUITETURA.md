@@ -386,3 +386,24 @@ O welcome (dashboard inicial) tem **4 cards de sugestão** (pré-opções contex
 - _Depois:_ fixar prefeituras/templates frequentes ("memória do escritório") no rail.
 
 **Impacto no plano:** o PR5 (shell) já monta o grid de 3 colunas + rail colapsável magro. Um **PR5.5** adiciona a persistência (IndexedDB) + o histórico no rail.
+
+---
+
+## Apêndice G — Área de prévia = canvas tipo FigJam (locked · substitui o "ArtifactBoard" da seção 4)
+
+A coluna central (prévia) é uma **tela infinita tipo FigJam**, não uma grade empilhada.
+
+**Motor:** `@xyflow/react` (React Flow) — nova dependência. Frames = **nós**; setas de sequência = **edges**; **pan + zoom** nativos; nós customizados = os `ArtifactFrame` (thumbnail via worker do react-pdf). Tematizar pro dark + liquid glass (nós glass, edges suaves).
+
+**O que mostra:**
+- Ordem do volume desenhada com setas: `CAPA → SEPARATRIZ → LD → pranchas`.
+- **Multidisciplina** (fluxo central) aparece de graça: `CAPA → [sep A → LD A → pranchas A] → [sep B → LD B → pranchas B] → …`.
+- **Invariante Artifact vs Attachment preservada:** as pranchas do usuário viram **UM nó leve** ("16 pranchas", stack), nunca N frames pesados. Só capa/separatriz/LD/volume ganham thumbnail real.
+- **Degrada:** flow de 1 artefato (só LD/só capa) = **um frame centralizado**, sem setas. Mesmo componente escala de 1 nó ao volume inteiro.
+- **Working→preview:** nós entram como **esqueleto na forma final** e revelam o thumbnail quando cada artefato fica pronto.
+
+**Drag (decisão do usuário): canvas vira EDITOR na v1.5.**
+- **v1:** canvas com **auto-layout + pan + zoom + setas**, sem arrastar (read-only).
+- **v1.5:** arrastar um frame **REORDENA o volume de verdade** — a nova ordem realimenta os parâmetros de montagem (`assembleVolume`). O canvas passa a ser o editor do volume. (Acopla canvas ↔ params de montagem; por isso depois do read-only estável.)
+
+**Impacto no plano:** o **PR5** monta o canvas React Flow (read-only, nós+edges+pan/zoom, glass) no lugar do ArtifactBoard empilhado. Um **PR (v1.5)** adiciona o drag-to-reorder ligado ao `assembleVolume`. Nova dep `@xyflow/react` a adicionar no PR5.
