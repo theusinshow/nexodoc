@@ -371,3 +371,18 @@ O welcome (dashboard inicial) tem **4 cards de sugestão** (pré-opções contex
 **Comportamento contextual (decisão #6):** ao soltar PDFs, os cards se re-rotulam/reordenam (ex.: "📦 Montar volume com estes 8 arquivos"; "🔍 Auditar este memorial" se um memorial for detectado). Clicar preenche o composer (editável) → dispara o slide welcome→active.
 
 **Fora do welcome:** só o **composer** (📎 anexar + ⬆️ enviar) e, durante a conversa, os **quick-replies** (pré-respostas da IA: chip fill=preenche / send=envia). Sem sidebar, sem command palette, sem formulários na v1.
+
+---
+
+## Apêndice F — Sidebar esquerda (locked · REVISA a decisão #7 "cromo lateral fora da v1")
+
+**O shell nasce em 3 COLUNAS** (nav esquerda + centro artefatos + chat direita), batendo com as refs Aetheris. A decisão #7 (cromo lateral fora da v1) é **abrandada só para o rail de histórico** — que é chrome esperado, não uma "segunda linguagem" (command palette/ProjectRail com features seguem FORA).
+
+**Abordagem B (escolhida):**
+- **Desde o PR5** o layout já é 3 colunas com o rail esquerdo **colapsável** (colapsa no welcome pra dar foco ao chat centralizado).
+- Na v1 o rail entra **magro**: **+ Nova conversa** e **⚙️ Config**. Sem histórico ainda.
+- O **histórico por data** (Hoje/Ontem/7 dias; cada item = um job: volume/LD/auditoria) chega **logo em seguida (v1.5)**, junto com a **persistência (IndexedDB)** — que sobe de v2 pra v1.5. Isso REVISA parcialmente a decisão #4 (efêmera): efêmera na v1, IndexedDB na v1.5.
+- O **slide** welcome→active acontece DENTRO da área principal (centro→direita); o rail fica estável.
+- _Depois:_ fixar prefeituras/templates frequentes ("memória do escritório") no rail.
+
+**Impacto no plano:** o PR5 (shell) já monta o grid de 3 colunas + rail colapsável magro. Um **PR5.5** adiciona a persistência (IndexedDB) + o histórico no rail.
