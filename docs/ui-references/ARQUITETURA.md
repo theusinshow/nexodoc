@@ -342,3 +342,16 @@ NexoIssue bus + RecoveryChips (recovery fechado/determinístico) + narração po
 7. A leitura de selo continua client-only (pdfjs+canvas, que pausa em aba de background e será tratada com detectar+narrar+auto-retomar na v1), ou você quer investir na migração para Web Worker/servidor já agora para eliminar a pausa de vez?
 8. Quando o LibreOffice está off, o ODT sozinho é entregável aceitável no fluxo do escritório (degradação narrada), ou o PDF é obrigatório e a ausência dele deve sempre bloquear a geração?
 
+
+---
+
+## Apêndice D — Decisões do usuário (perguntas RESOLVIDAS · locked)
+
+1. **Gatilho welcome→active:** o usuário **arrasta os PDFs** e **escolhe o que será feito** (opções contextuais no welcome); a escolha da ação **dispara o slide**. Anexo puro, sem escolher ação, NÃO desliza sozinho.
+2. **Prévia de volume:** **híbrido aceito** (thumbnail da capa + mapa estrutural "Capa p.1 · LD p.3-5 · Pranchas p.6-N" + contagem + Abrir).
+3. **Multi-disciplina:** **SIM, na v1 — e é o fluxo CENTRAL, não borda.** Projetos pequenos têm 2-3 pranchas por disciplina; o usuário junta VÁRIAS disciplinas de 2-3 pranchas num ÚNICO volume. Volume = capa do volume + POR disciplina (separatriz → LD → pranchas). ⚠️ O builder de volume CRUZANDO disciplinas sobe de prioridade (era PR6): é núcleo do "jogar PDFs → montar volume".
+4. **Persistência (decisão do dev):** v1 **EFÊMERA** (estado em memória; some no reload). Persistência/retomar-projeto (IndexedDB) fica pra v2 — prioriza chegar no reflow funcional rápido.
+5. **Navegadores:** **Chrome (principal) + Edge + Firefox.** View Transitions nativo é o caminho **primário** (Chrome/Edge); **fallback CSS transform** cobre o Firefox. Reduced-motion sempre respeitado.
+6. **Pré-opções do welcome:** **contextuais** (priorizadas se já há PDFs anexados). Ao clicar, **preenchem o composer (editável)** — mantém o controle na conversa/texto, não envia direto.
+7. **Leitura de selo:** segue **client-only** (pdfjs+canvas) na v1; pausa em background tratada com detectar+narrar+auto-retomar. Migração p/ Web Worker/servidor fica pra depois.
+8. **PDF:** é **sempre o alvo** (praticidade). LibreOffice off = **erro narrado**; ODT sozinho vira **fallback de emergência com aviso claro**, nunca o default silencioso.
