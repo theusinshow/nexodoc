@@ -14,7 +14,8 @@
  */
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { getAiConfiguration } from "@/lib/ai-providers";
-import type { NexoAgentProposal, NexoAgentTurn } from "@/modules/nexo/types";
+import type { NexoAgentTurn } from "@/modules/nexo/types";
+import { normalizeProposals } from "./normalize";
 
 /** Fatos objetivos extraídos dos selos (via buildLdProposal, determinístico). */
 export interface NexoAgentSelosResumo {
@@ -76,72 +77,6 @@ function parseFirstJsonObject(text: string): unknown {
   }
 }
 
-/** Número de tomos (divide em N): default 1, limite 99. */
-function clampTomos(v: unknown): number {
-  const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
-  if (!Number.isFinite(n) || n < 1) return 1;
-  return Math.min(99, Math.floor(n));
-}
-
-/**
- * Normaliza a saída crua do modelo em NexoAgentProposal[] confiável: descarta
- * kinds inválidos, mapeia a prefeitura para um templateId real, e preenche
- * defaults determinísticos (título do selo, tomos=1) quando a IA omite.
- */
-function normalizeProposals(
-  raw: unknown,
-  input: RunNexoAgentTurnInput,
-): NexoAgentProposal[] {
-  if (!Array.isArray(raw)) return [];
-  const firstTemplateId = input.prefeituras[0]?.id ?? "";
-
-  const out: NexoAgentProposal[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const p = item as Record<string, unknown>;
-    const kind = p.kind;
-
-    if (kind === "ld") {
-      out.push({
-        kind: "ld",
-        resumo: String(p.resumo ?? "").trim() || `LD ${input.resumo.disciplina}`,
-        params: {
-          // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
-          tituloLd: String(p.tituloLd ?? "").trim(),
-          numTomos: clampTomos(p.numTomos),
-        },
-      });
-    } else if (kind === "capa") {
-      // A IA pode devolver templateId direto ou o nome da prefeitura; mapear.
-      const wantedId = String(p.templateId ?? "").trim();
-      const wantedNome = String(p.prefeitura ?? "").trim().toLowerCase();
-      const match =
-        input.prefeituras.find((t) => t.id === wantedId) ??
-        (wantedNome
-          ? input.prefeituras.find((t) =>
-              t.nome.toLowerCase().includes(wantedNome),
-            )
-          : undefined);
-      const templateId = match?.id ?? (wantedId || firstTemplateId);
-      if (!templateId) continue; // sem prefeitura configurada, não propõe capa
-      const volumeRaw = String(p.volume ?? "").trim();
-      out.push({
-        kind: "capa",
-        resumo:
-          String(p.resumo ?? "").trim() ||
-          `Capa ${match?.nome ?? input.resumo.disciplina}`,
-        params: {
-          templateId,
-          // só dígitos; senão "" (deriva do nome do arquivo no builder)
-          volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
-          numTomos: clampTomos(p.numTomos),
-        },
-      });
-    }
-  }
-  return out;
-}
-
 function buildPrompt(input: RunNexoAgentTurnInput): string {
   const { resumo, prefeituras, history, message } = input;
   const prefLista =
@@ -163,9 +98,11 @@ REGRAS:
 - Afirme os fatos que já temos; NÃO os pergunte de novo.
 - Pergunte só o que é DECISÃO do engenheiro e ainda está indefinido (ex.: qual
   prefeitura, se o título muda, quantos tomos).
-- Se o pedido menciona LD, capa, ou "as duas / tudo", proponha o que couber.
-- Para a capa, escolha o templateId da lista de prefeituras. Se o engenheiro não
-  disse qual e há mais de uma, escolha a mais provável e peça confirmação no texto.
+- Proponha o que o pedido pede: "a LD" -> só ld; "a capa" -> só capa; "as duas",
+  "tudo", "os documentos", "cria a LD e a capa" -> ld E capa.
+- Para a capa, escolha o templateId da lista de prefeituras casando pelo NOME DA
+  CIDADE que o engenheiro citou (ex.: "Chapecó" -> o template de Chapecó). Se ele
+  não disse qual e há mais de uma, escolha a mais provável e peça confirmação.
 - Se faltar prefeitura para a capa, proponha só a LD e comente no texto.
 - TÍTULO DA LD: é DECISÃO do engenheiro — NÃO adivinhe. Deixe "tituloLd": "" e
   PERGUNTE no texto qual título ele quer na LD. A CAPA não tem título manual
@@ -249,5 +186,11 @@ export async function runNexoAgentTurn(
   const reply =
     String(parsed.reply ?? "").trim() ||
     "Segue a proposta abaixo — confira e confirme.";
-  return { reply, proposals: normalizeProposals(parsed.proposals, input) };
+  return {
+    reply,
+    proposals: normalizeProposals(parsed.proposals, {
+      disciplina: input.resumo.disciplina,
+      prefeituras: input.prefeituras,
+    }),
+  };
 }

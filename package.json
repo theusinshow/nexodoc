@@ -19,7 +19,8 @@
     "test:ld": "node scripts/test-ld-rules.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
-    "test:nexo:reconcile": "node scripts/test-nexo-reconcile.ts"
+    "test:nexo:reconcile": "node scripts/test-nexo-reconcile.ts",
+    "test:nexo:agent": "node scripts/test-nexo-agent.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
