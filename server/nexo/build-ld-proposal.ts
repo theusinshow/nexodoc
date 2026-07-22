@@ -17,6 +17,8 @@ export interface SeloForLd {
   arquivo: string | null;
   conteudo: string | null;
   cliente: string | null;
+  /** Secretaria/órgão emissor lido no cabeçalho do carimbo (p/ a capa). */
+  secretaria: string | null;
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;
@@ -96,6 +98,8 @@ function rowDisciplineLabel(s: SeloForLd): string {
 export interface BuildLdOptions {
   /** Divide as folhas em N tomos balanceados (decisão do engenheiro). Default 1. */
   numTomos?: number;
+  /** Tomo ESPECÍFICO (ex.: 4): a seção vira "... (TOMO 04)". 0 = usar numTomos. */
+  tomoNumero?: number;
   /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
   tituloLd?: string;
 }
@@ -111,7 +115,9 @@ export function buildLdProposal(
   selos: SeloForLd[],
   opts: BuildLdOptions = {},
 ): LdProposal {
-  const numTomos = Math.max(1, Math.floor(opts.numTomos ?? 1));
+  // Tomo específico (replicar 1 tomo) tem prioridade sobre dividir-em-N.
+  const tomoNumero = Math.max(0, Math.floor(opts.tomoNumero ?? 0));
+  const numTomos = tomoNumero > 0 ? 1 : Math.max(1, Math.floor(opts.numTomos ?? 1));
   const validos = selos.filter((s) => (s.fileName || s.arquivo) && isPranchaSelo(s));
 
   // Identidade: preferir o código do CARIMBO (per-prancha).
@@ -162,15 +168,23 @@ export function buildLdProposal(
     .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
 
   // Título da seção: manual (decisão) OU palpite do selo (descarta órgão/secretaria)
-  // OU "PROJETO <disciplina>". O "(TOMO N)" é anexado por tomo pelo ld-generation.
-  const sectionTitle =
+  // OU "PROJETO <disciplina>". Remove "(TOMO ...)" digitado; o tomo é anexado a
+  // seguir (específico) ou por faixa pelo ld-generation (dividir-em-N).
+  const tituloBase = (
     opts.tituloLd?.trim() ||
     mode(
       validos.map((s) =>
         s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
       ),
     ) ||
-    `PROJETO ${discLabel}`;
+    `PROJETO ${discLabel}`
+  )
+    .replace(/\s*\(\s*tomo[^)]*\)\s*$/i, "")
+    .trim();
+  const sectionTitle =
+    tomoNumero > 0
+      ? `${tituloBase} (TOMO ${String(tomoNumero).padStart(2, "0")})`
+      : tituloBase;
 
   // Tomos: divide as folhas em N faixas balanceadas (motor provado do módulo LD).
   const tomos: Tomo[] =

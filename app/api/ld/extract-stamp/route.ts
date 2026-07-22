@@ -20,6 +20,7 @@ type StampExtraction = {
   arquivo: string | null;
   conteudo: string | null;
   cliente: string | null;
+  secretaria: string | null;
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;
@@ -58,6 +59,10 @@ const extractionSchema = {
       type: ["string", "null"],
       description: "Órgão/cliente lido no cabeçalho ou rodapé da página, como PREFEITURA MUNICIPAL DE CRICIÚMA.",
     },
+    secretaria: {
+      type: ["string", "null"],
+      description: "Secretaria emissora lida no cabeçalho, como SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES. Não é a prefeitura/órgão.",
+    },
     obra: {
       type: ["string", "null"],
       description: "Nome da obra/projeto lido no cabeçalho ou rodapé da página.",
@@ -84,6 +89,7 @@ const extractionSchema = {
     "arquivo",
     "conteudo",
     "cliente",
+    "secretaria",
     "obra",
     "fase",
     "tituloSecao",
@@ -100,6 +106,7 @@ Extraia do selo da prancha:
 
 Extraia também do cabeçalho ou rodapé da página, quando visível ou presente no texto extraído:
 - Órgão/cliente
+- Secretaria emissora (linha própria no cabeçalho, ex.: SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES; não confundir com a prefeitura/órgão)
 - Nome da obra/projeto
 - Fase do projeto
 - Título técnico da seção/disciplina da LD
@@ -230,7 +237,7 @@ function buildTextPrompt(pdfText?: string) {
 
 O conteúdo abaixo foi extraído do PDF e pode estar fora de ordem por causa da diagramação.
 Identifique os valores associados aos rótulos do selo sem usar o nome do arquivo enviado.
-Para cliente, obra, fase e título da seção, procure também no cabeçalho, rodapé e linhas com LISTA DE DOCUMENTOS.
+Para cliente, secretaria, obra, fase e título da seção, procure também no cabeçalho, rodapé e linhas com LISTA DE DOCUMENTOS. A secretaria é uma linha própria do cabeçalho (ex.: SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES), diferente da prefeitura/órgão.
 
 TEXTO EXTRAÍDO:
 ${pdfText}`;
@@ -364,7 +371,7 @@ async function extractWithMimo(model: string, textPrompt: string, imageDataUrl?:
               type: "text",
               text: `${textPrompt}
 
-Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, numeroFolha, arquivo, conteudo, cliente, obra, fase, tituloSecao e confianca. Para campos não encontrados use null. Para confianca use "alta", "media" ou "baixa".`,
+Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, numeroFolha, arquivo, conteudo, cliente, secretaria, obra, fase, tituloSecao e confianca. Para campos não encontrados use null. Para confianca use "alta", "media" ou "baixa".`,
             },
           ],
         },

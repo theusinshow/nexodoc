@@ -25,8 +25,12 @@ export interface BuildCapaInput {
   tituloCapa?: string;
   /** Override opcional; senao vem do parseFilename (arabico). */
   volume?: string;
-  /** Divide em N tomos (uma capa por tomo, "(TOMO 0N)"). Default 1. */
+  /** Tomo ESPECÍFICO (ex.: 4 = "TOMO 04"), para replicar 1 tomo. 0 = usar numTomos. */
+  tomoNumero?: number;
+  /** Divide em N tomos (uma capa por tomo, "TOMO 0N"). Default 1. */
   numTomos?: number;
+  /** Override da secretaria; senao vem do carimbo -> padrão do template. */
+  secretaria?: string;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
   mes?: string;
   /** Ano da capa (ex.: "2026"). Default = ano atual. */
@@ -163,17 +167,26 @@ export async function buildCapaProposal(
   const revisao = mode(parsedList.map((p) => p.revisao));
   const nomeObra = mode(validos.map((s) => s.obra));
 
-  // Título da capa = título da LD, no formato "TIPO - FASE" (ex.: "PROJETO
-  // ESTRUTURAL CONCRETO - IMPLANTAÇÃO"). Separa: TIPO -> TITULO_CAPA (proeminente),
-  // FASE -> FASE. Sem "-", o título inteiro é o tipo e a fase vem do selo.
-  const tituloRaw = input.tituloCapa?.trim() || "";
-  const dash = tituloRaw.search(/\s[-–]\s/);
-  const tipoCapa = dash >= 0 ? tituloRaw.slice(0, dash).trim() : tituloRaw;
-  const faseFromTitulo =
-    dash >= 0 ? tituloRaw.slice(dash).replace(/^\s*[-–]\s*/, "").trim() : "";
-  const tituloCapaFinal = tipoCapa || disciplinaLabel(discCode) || "PROJETO";
-  const fase =
-    faseFromTitulo || mode(validos.map((s) => s.fase)) || template.defaults.fase;
+  // FASE (linha proeminente) = FASE DO PROJETO (ex.: "PROJETO EXECUTIVO"), padrão
+  // do template. NÃO é a etapa "IMPLANTAÇÃO" (essa faz parte do título).
+  const fase = template.defaults.fase;
+
+  // TITULO_CAPA = título da LD com TIPO e ETAPA em linhas separadas: o " - " vira
+  // quebra ("PROJETO ESTRUTURAL CONCRETO - IMPLANTAÇÃO" -> 2 linhas). O tomo NÃO
+  // entra aqui (vem do campo próprio); removemos qualquer "(TOMO ...)" digitado.
+  const tituloRaw = (input.tituloCapa?.trim() || "")
+    .replace(/\s*\(\s*tomo[^)]*\)\s*/i, "")
+    .trim();
+  const tituloCapaFinal =
+    (tituloRaw ? tituloRaw.replace(/\s[-–]\s/, "\n") : "") ||
+    disciplinaLabel(discCode) ||
+    "PROJETO";
+
+  // SECRETARIA: do CARIMBO (selo) -> override do engenheiro -> padrão do template.
+  const secretaria =
+    mode(validos.map((s) => s.secretaria)) ||
+    input.secretaria?.trim() ||
+    template.defaults.secretaria;
 
   // Volume: override -> parseFilename (arabico) -> default. Converte p/ romano
   // quando o template pede; formatVolume so adiciona "Vol. ", nao converte.
@@ -189,8 +202,10 @@ export async function buildCapaProposal(
     volumeValue = volumeArabic ? arabicToRoman(volumeArabic) : "I";
   }
 
-  // Divide em N tomos (uma capa por tomo). Default 1.
-  const numTomos = Math.max(1, Math.floor(input.numTomos ?? 1));
+  // Tomo ESPECÍFICO (replicar 1 tomo existente, ex.: "TOMO 04") tem prioridade
+  // sobre dividir-em-N. Senão, divide em N tomos (uma capa por tomo).
+  const tomoNumero = Math.max(0, Math.floor(input.tomoNumero ?? 0));
+  const numTomos = tomoNumero > 0 ? 1 : Math.max(1, Math.floor(input.numTomos ?? 1));
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
@@ -200,13 +215,14 @@ export async function buildCapaProposal(
   const generalData: GeneralData = {
     templateId: template.id,
     orgao: template.defaults.orgao,
-    secretaria: template.defaults.secretaria,
+    secretaria,
     nomeObra,
     fase,
     mes,
     ano,
     codigoInterno,
-    codigoExibido,
+    // Capa oficial mostra o código com underscore ("040_26"), não com traço.
+    codigoExibido: codigoInterno || codigoExibido,
     siglaArquivo: discCode,
     revisao,
   };
@@ -222,12 +238,13 @@ export async function buildCapaProposal(
     tomoList: [],
   };
 
-  const pages = generatePages(
-    [group],
-    undefined,
-    template.volumeFormat,
-    template.tomoFormat,
-  );
+  // Capa usa o tomo SEM parênteses ("TOMO 04"); a LD é que leva "(TOMO 04)".
+  const pages = generatePages([group], undefined, template.volumeFormat, "plain-padded");
+
+  // Tomo específico: força "TOMO 0N" na capa única (formatTomo esconde com 1 tomo).
+  if (tomoNumero > 0 && pages[0]) {
+    pages[0].tomo = `TOMO ${String(tomoNumero).padStart(2, "0")}`;
+  }
 
   return {
     generalData,

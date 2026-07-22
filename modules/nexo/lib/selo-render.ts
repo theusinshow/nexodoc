@@ -23,6 +23,7 @@ export interface StampExtraction {
   arquivo: string | null;
   conteudo: string | null;
   cliente: string | null;
+  secretaria: string | null;
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;

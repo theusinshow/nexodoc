@@ -480,6 +480,10 @@ function SelosPanel({
   // grande -> divide). null = ainda não editado (=1).
   // Nº de tomos: divide as folhas em N (decisão do engenheiro). Default 1.
   const [numTomos, setNumTomos] = useState(1);
+  // Tomo ESPECÍFICO (replicar 1 tomo, ex.: 4 = "TOMO 04"). 0 = usar numTomos.
+  const [tomoNumero, setTomoNumero] = useState(0);
+  // Nome da separatriz (nome completo da disciplina). Vazio = deriva do título.
+  const [separatrizNome, setSeparatrizNome] = useState("");
   // Volume da capa: null = usa o inferido do nome; string = engenheiro editou.
   // Afeta só a capa (o volume às vezes é trocado manualmente dentro do volume).
   const [volumeCapa, setVolumeCapa] = useState<string | null>(null);
@@ -536,6 +540,7 @@ function SelosPanel({
           selos,
           templateId,
           numTomos,
+          tomoNumero,
           // Título da capa = título da LD (devem coincidir).
           ...(tituloLd.trim() ? { tituloCapa: tituloLd.trim() } : {}),
           ...(volumeCapa?.trim() ? { volume: volumeCapa.trim() } : {}),
@@ -591,7 +596,7 @@ function SelosPanel({
       const res = await fetch("/api/nexo/ld", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos, tituloLd, numTomos }),
+        body: JSON.stringify({ selos, tituloLd, numTomos, tomoNumero }),
       });
       const payload = (await res.json().catch(() => null)) as
         | {
@@ -686,8 +691,13 @@ function SelosPanel({
       }[] = [];
       if (capaPdf64) parts.push({ role: "capa", name: "capa.pdf", data: capaPdf64 });
 
-      // Separatriz: folha simples com o nome da disciplina (gerada na hora).
-      const sepTitle = tituloLd.trim() || ld?.resumo.disciplina || "";
+      // Separatriz: folha simples com o NOME DA DISCIPLINA (nome próprio, ex.:
+      // "PROJETO DE ESTRUTURAS DE CONCRETO"), que difere do título da LD.
+      const sepTitle =
+        separatrizNome.trim() ||
+        tituloLd.trim().replace(/\s[-–]\s.*$/, "").trim() ||
+        ld?.resumo.disciplina ||
+        "";
       if (sepTitle) {
         try {
           const sepRes = await fetch("/api/nexo/separatriz", {
@@ -948,6 +958,45 @@ function SelosPanel({
             <span className="block text-xs text-muted-foreground">
               Divide as folhas em N tomos (a LD ganha uma secao por tomo; sai uma
               capa por tomo). 1 = tomo unico. Vale para LD e capa.
+            </span>
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+              Numero do tomo (especifico)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              value={tomoNumero}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setTomoNumero(Number.isFinite(n) && n >= 0 ? Math.min(99, n) : 0);
+              }}
+              className="flex w-24 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Para REPLICAR um tomo existente: diz qual e (ex.: 4) e sai &quot;TOMO
+              04&quot; na capa e &quot;(TOMO 04)&quot; na LD. 0 = usar &quot;numero de
+              tomos&quot; acima.
+            </span>
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+              Nome da separatriz
+            </span>
+            <input
+              type="text"
+              value={separatrizNome}
+              onChange={(e) => setSeparatrizNome(e.target.value)}
+              placeholder="ex.: PROJETO DE ESTRUTURAS DE CONCRETO"
+              className="flex w-full rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 py-1.5 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Nome completo da disciplina na folha separatriz (costuma diferir do
+              titulo da LD). Vazio = deriva do titulo. Usado ao montar volume.
             </span>
           </label>
 

@@ -46,6 +46,8 @@ export interface LdOptions {
   tituloLd?: string;
   /** Divide as folhas em N tomos. Default 1. */
   numTomos?: number;
+  /** Tomo específico (ex.: 4 = "(TOMO 04)"). 0 = usar numTomos. */
+  tomoNumero?: number;
 }
 
 export async function postLd(
@@ -59,6 +61,7 @@ export async function postLd(
       selos,
       tituloLd: opts.tituloLd,
       numTomos: opts.numTomos ?? 1,
+      tomoNumero: opts.tomoNumero ?? 0,
     }),
   });
   const payload = (await res.json().catch(() => null)) as
@@ -93,6 +96,10 @@ export interface CapaOptions {
   volume?: string;
   /** Divide em N tomos (uma capa por tomo). Default 1. */
   numTomos?: number;
+  /** Tomo específico (ex.: 4 = "TOMO 04"). 0 = usar numTomos. */
+  tomoNumero?: number;
+  /** override da secretaria; vazio = carimbo -> padrão do template. */
+  secretaria?: string;
   /** override do mês/ano da capa; vazio = mês/ano atual. */
   mes?: string;
   ano?: string;
@@ -109,7 +116,9 @@ export async function postCapa(
       selos,
       templateId: opts.templateId,
       numTomos: opts.numTomos ?? 1,
+      tomoNumero: opts.tomoNumero ?? 0,
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
+      ...(opts.secretaria?.trim() ? { secretaria: opts.secretaria.trim() } : {}),
       ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),
       ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),
     }),
