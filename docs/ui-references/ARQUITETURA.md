@@ -355,3 +355,19 @@ NexoIssue bus + RecoveryChips (recovery fechado/determinístico) + narração po
 6. **Pré-opções do welcome:** **contextuais** (priorizadas se já há PDFs anexados). Ao clicar, **preenchem o composer (editável)** — mantém o controle na conversa/texto, não envia direto.
 7. **Leitura de selo:** segue **client-only** (pdfjs+canvas) na v1; pausa em background tratada com detectar+narrar+auto-retomar. Migração p/ Web Worker/servidor fica pra depois.
 8. **PDF:** é **sempre o alvo** (praticidade). LibreOffice off = **erro narrado**; ODT sozinho vira **fallback de emergência com aviso claro**, nunca o default silencioso.
+
+---
+
+## Apêndice E — Cards do welcome (locked)
+
+O welcome (dashboard inicial) tem **4 cards de sugestão** (pré-opções contextuais que **preenchem o composer**, não executam):
+1. 📦 **Montar volume** — fluxo-mãe: ler selos → capa + separatriz + LD → volume (cruzando disciplinas).
+2. 📋 **Gerar LD** — só a lista de documentos.
+3. 🏛️ **Gerar capa** — só a capa.
+4. 🔍 **Auditar memorial** — memorial contra a obra.
+
+**Conferir** (conferência leve) e **Gerar separatriz** existem, mas **só por texto/dentro do fluxo** — não viram card em destaque.
+
+**Comportamento contextual (decisão #6):** ao soltar PDFs, os cards se re-rotulam/reordenam (ex.: "📦 Montar volume com estes 8 arquivos"; "🔍 Auditar este memorial" se um memorial for detectado). Clicar preenche o composer (editável) → dispara o slide welcome→active.
+
+**Fora do welcome:** só o **composer** (📎 anexar + ⬆️ enviar) e, durante a conversa, os **quick-replies** (pré-respostas da IA: chip fill=preenche / send=envia). Sem sidebar, sem command palette, sem formulários na v1.
