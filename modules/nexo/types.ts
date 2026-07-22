@@ -128,20 +128,20 @@ export type NexoRole = "user" | "assistant";
  * editáveis: o engenheiro confirma/corrige no card antes de gerar.
  */
 export interface NexoLdProposalParams {
-  /** Título da seção (varia por projeto; o "(TOMO X)" é anexado pela mecânica). */
+  /** Título da seção (varia por projeto). Vazio = engenheiro decide. */
   tituloLd: string;
-  /** Decisão do engenheiro: divide as folhas em N tomos. Default 1. */
-  numTomos: number;
+  /** Tomo específico desta LD (0 = sem tomo). O engenheiro gera um por vez. */
+  tomo: number;
 }
 
 /** Parâmetros propostos para uma capa. Editáveis antes de gerar. */
 export interface NexoCapaProposalParams {
   /** Template (prefeitura + variante) que fornece órgão/secretaria/formato. */
   templateId: string;
-  tituloCapa: string;
   /** Volume arábico ("1","2"...); "" = deriva do nome do arquivo. */
   volume: string;
-  numTomos: number;
+  /** Tomo específico desta capa (0 = sem tomo). */
+  tomo: number;
 }
 
 /**

@@ -1,6 +1,5 @@
 import { parseFilename, sheetNumberFromFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
-import { buildBalancedTomos } from "@/lib/ld/ld-rules";
 import type { CreateLDInput } from "./tools/create-ld";
 
 /** Um selo lido de uma prancha (subconjunto do StampExtraction que interessa aqui). */
@@ -98,12 +97,23 @@ function mode(values: (string | null | undefined)[]): string {
   return best;
 }
 
+export interface BuildLdOptions {
+  /** Tomo ESPECÍFICO desta LD (ex.: 6 -> título "... (TOMO 06)"); 0 = sem tomo. */
+  tomo?: number;
+  /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
+  tituloLd?: string;
+}
+
 /**
  * Monta uma proposta de LD a partir dos selos lidos das pranchas + o nome dos
  * arquivos (parser). Determinístico: o engenheiro revisa/confirma antes de gerar.
- * `numTomos` (decisão do engenheiro) divide as folhas em tomos balanceados.
+ * `tomo` (opcional) rotula a LD como um tomo específico (o engenheiro gera um por vez).
  */
-export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
+export function buildLdProposal(
+  selos: SeloForLd[],
+  opts: BuildLdOptions = {},
+): LdProposal {
+  const tomo = Math.max(0, Math.floor(opts.tomo ?? 0));
   const validos = selos.filter((s) => s.fileName);
 
   // Identidade: filename (código/revisão) + selo (obra/cliente/fase/disciplina).
@@ -143,10 +153,19 @@ export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
     }))
     .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
 
-  // Tomos: decisão do engenheiro. >1 divide as folhas em faixas balanceadas.
-  const total = referenceTotal || rows.length;
-  const tomos =
-    numTomos > 1 && total > 0 ? buildBalancedTomos(total, numTomos) : [];
+  // Título da seção: manual (decisão do engenheiro) OU palpite do selo (descarta
+  // captura de órgão/secretaria) OU "PROJETO <disciplina>". O "(TOMO 0N)" é
+  // anexado quando é um tomo específico.
+  const tituloBase =
+    opts.tituloLd?.trim() ||
+    mode(
+      validos.map((s) =>
+        s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
+      ),
+    ) ||
+    `PROJETO ${discLabel}`;
+  const sectionTitle =
+    tomo > 0 ? `${tituloBase} (TOMO ${String(tomo).padStart(2, "0")})` : tituloBase;
 
   const input: CreateLDInput = {
     ldData: {
@@ -154,19 +173,13 @@ export function buildLdProposal(selos: SeloForLd[], numTomos = 1): LdProposal {
       formattedCode: codigo,
       discipline: discLabel,
       revision: revisao,
-      // Título técnico da seção; descarta captura de órgão/secretaria pelo OCR.
-      sectionTitle:
-        mode(
-          validos.map((s) =>
-            s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
-          ),
-        ) || `PROJETO ${discLabel}`,
+      sectionTitle,
       client: cliente,
       workName: obra,
       phase: fase,
     },
     rows,
-    tomos,
+    tomos: [],
     referenceTotal,
     // Proposta: não bloqueia na geração; a UI mostra os avisos e o engenheiro decide.
     enforceValidation: false,

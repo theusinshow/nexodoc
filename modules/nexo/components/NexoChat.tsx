@@ -297,7 +297,7 @@ function LdCard({
   ldPreview?: LdPreviewData;
 }) {
   const [tituloLd, setTituloLd] = useState(params.tituloLd);
-  const [numTomos, setNumTomos] = useState(params.numTomos);
+  const [tomo, setTomo] = useState(params.tomo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LdGenResult | null>(null);
@@ -306,7 +306,7 @@ function LdCard({
     setBusy(true);
     setError(null);
     try {
-      setResult(await postLd(selos, { tituloLd, numTomos }));
+      setResult(await postLd(selos, { tituloLd, tomo }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
     } finally {
@@ -330,18 +330,8 @@ function LdCard({
             />
           </label>
           <label className="block space-y-1">
-            <span className={LABEL_CLASS}>Número de tomos</span>
-            <input
-              type="number"
-              min={1}
-              max={99}
-              value={numTomos}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                setNumTomos(Number.isFinite(n) && n >= 1 ? Math.min(99, n) : 1);
-              }}
-              className={`${FIELD_CLASS} w-24 tabular-nums`}
-            />
+            <span className={LABEL_CLASS}>Tomo</span>
+            <TomoSelect value={tomo} onChange={setTomo} />
           </label>
         </div>
       )}
@@ -411,6 +401,30 @@ function FolhaPreview({ data }: { data: LdPreviewData }) {
   );
 }
 
+/** Seletor de tomo específico (0 = sem tomo). O engenheiro gera um por vez. */
+function TomoSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+      className={`${FIELD_CLASS} tabular-nums`}
+    >
+      <option value={0}>sem tomo</option>
+      {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+        <option key={n} value={n}>
+          Tomo {String(n).padStart(2, "0")}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** Botão único de geração (título/tomos já editáveis inline no card). */
 function GenerateButton({ busy, onConfirm }: { busy: boolean; onConfirm: () => void }) {
   return (
@@ -437,9 +451,8 @@ function CapaCard({
   templates: NexoTemplateOption[];
 }) {
   const [templateId, setTemplateId] = useState(params.templateId);
-  const [tituloCapa, setTituloCapa] = useState(params.tituloCapa);
   const [volume, setVolume] = useState(params.volume);
-  const [numTomos, setNumTomos] = useState(params.numTomos);
+  const [tomo, setTomo] = useState(params.tomo);
   const [mes, setMes] = useState("");
   const [ano, setAno] = useState("");
   const [busy, setBusy] = useState(false);
@@ -450,9 +463,7 @@ function CapaCard({
     setBusy(true);
     setError(null);
     try {
-      setResult(
-        await postCapa(selos, { templateId, tituloCapa, volume, numTomos, mes, ano }),
-      );
+      setResult(await postCapa(selos, { templateId, volume, tomo, mes, ano }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
     } finally {
@@ -479,15 +490,6 @@ function CapaCard({
               ))}
             </select>
           </label>
-          <label className="block space-y-1">
-            <span className={LABEL_CLASS}>Título da capa (você define)</span>
-            <input
-              value={tituloCapa}
-              onChange={(e) => setTituloCapa(e.target.value)}
-              placeholder="ex.: PROJETO ESTRUTURAL"
-              className={FIELD_CLASS}
-            />
-          </label>
           <div className="flex gap-2">
             <label className="block flex-1 space-y-1">
               <span className={LABEL_CLASS}>Volume</span>
@@ -499,18 +501,8 @@ function CapaCard({
               />
             </label>
             <label className="block flex-1 space-y-1">
-              <span className={LABEL_CLASS}>Tomos</span>
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={numTomos}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  setNumTomos(Number.isFinite(n) && n >= 1 ? Math.min(99, n) : 1);
-                }}
-                className={`${FIELD_CLASS} tabular-nums`}
-              />
+              <span className={LABEL_CLASS}>Tomo</span>
+              <TomoSelect value={tomo} onChange={setTomo} />
             </label>
           </div>
           <div className="flex gap-2">
@@ -549,7 +541,9 @@ function CapaCard({
       {result ? (
         <ResultLinks
           summary={`Capa ${result.resumo.prefeitura} · ${result.resumo.codigo} · vol ${result.resumo.volume}${
-            result.resumo.tomos > 1 ? ` · ${result.resumo.tomos} tomos` : ""
+            result.resumo.tomo > 0
+              ? ` · TOMO ${String(result.resumo.tomo).padStart(2, "0")}`
+              : ""
           }${result.pdfError ? " · PDF indisponível" : ""}`}
           files={[
             { label: "ZIP", url: result.zipUrl, name: result.zipName, primary: true },

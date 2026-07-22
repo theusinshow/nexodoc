@@ -76,9 +76,10 @@ function parseFirstJsonObject(text: string): unknown {
   }
 }
 
-function clampTomos(v: unknown): number {
+/** Tomo específico: 0 = sem tomo; senão o número do tomo (1..99). */
+function clampTomo(v: unknown): number {
   const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
-  if (!Number.isFinite(n) || n < 1) return 1;
+  if (!Number.isFinite(n) || n < 1) return 0;
   return Math.min(99, Math.floor(n));
 }
 
@@ -107,7 +108,7 @@ function normalizeProposals(
         params: {
           // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
           tituloLd: String(p.tituloLd ?? "").trim(),
-          numTomos: clampTomos(p.numTomos),
+          tomo: clampTomo(p.tomo),
         },
       });
     } else if (kind === "capa") {
@@ -131,11 +132,9 @@ function normalizeProposals(
           `Capa ${match?.nome ?? input.resumo.disciplina}`,
         params: {
           templateId,
-          // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
-          tituloCapa: String(p.tituloCapa ?? "").trim(),
           // só dígitos; senão "" (deriva do nome do arquivo no builder)
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
-          numTomos: clampTomos(p.numTomos),
+          tomo: clampTomo(p.tomo),
         },
       });
     }
@@ -168,14 +167,14 @@ REGRAS:
 - Para a capa, escolha o templateId da lista de prefeituras. Se o engenheiro não
   disse qual e há mais de uma, escolha a mais provável e peça confirmação no texto.
 - Se faltar prefeitura para a capa, proponha só a LD e comente no texto.
-- TÍTULO: é DECISÃO do engenheiro — NÃO adivinhe. Deixe SEMPRE vazio
-  ("tituloLd": "", "tituloCapa": "") e PERGUNTE no texto qual título ele quer
-  para a LD e para a capa (ex.: "Qual título você quer na LD e na capa?").
+- TÍTULO DA LD: é DECISÃO do engenheiro — NÃO adivinhe. Deixe "tituloLd": "" e
+  PERGUNTE no texto qual título ele quer na LD. A CAPA não tem título manual
+  (obra e disciplina são automáticos) — não peça título de capa.
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
-- TOMOS: se ele disser "N tomos" / "divide em N", use numTomos=N (LD e capa
-  juntas). Senão numTomos=1.
+- TOMO: se ele disser "tomo N" / "o tomo 6" (ele gera UM tomo por vez), use
+  tomo=N (LD e capa juntas). Se não mencionar tomo, use tomo=0.
 - Se o pedido não for sobre gerar LD/capa, responda conversando, com proposals: [].
 - Responda em português do Brasil, curto e direto.
 
@@ -200,9 +199,9 @@ Responda SOMENTE com um JSON válido nesta forma (sem texto fora do JSON):
   "reply": "texto curto afirmando os fatos e pedindo a confirmação/decisão",
   "proposals": [
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
-      "tituloLd": "<título>", "numTomos": 1 },
+      "tituloLd": "", "tomo": 0 },
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
-      "tituloCapa": "<título>", "volume": "", "numTomos": 1 }
+      "volume": "", "tomo": 0 }
   ]
 }
 Inclua no array proposals apenas os artefatos pedidos (pode ser 0, 1 ou 2).

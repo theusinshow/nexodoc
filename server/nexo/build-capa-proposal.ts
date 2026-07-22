@@ -1,7 +1,7 @@
 import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
-import { generatePages } from "@/modules/cover-generator/hooks/helpers";
+import { generatePages, formatTomo } from "@/modules/cover-generator/hooks/helpers";
 import { formatDisplayCode } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { SeloForLd } from "./build-ld-proposal";
@@ -21,12 +21,12 @@ import type {
 export interface BuildCapaInput {
   selos: SeloForLd[];
   templateId: string;
-  /** Decisao editavel; default = rotulo da disciplina. */
+  /** Título técnico (opcional); default = rótulo da disciplina do template. */
   tituloCapa?: string;
   /** Override opcional; senao vem do parseFilename (arabico). */
   volume?: string;
-  /** Decisao do engenheiro: projeto grande dividido em N tomos. Default 1. */
-  numTomos?: number;
+  /** Tomo ESPECÍFICO desta capa (ex.: 6 = "(TOMO 06)"); 0/undefined = sem tomo. */
+  tomo?: number;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
   mes?: string;
   /** Ano da capa (ex.: "2026"). Default = ano atual. */
@@ -41,7 +41,7 @@ export interface CapaProposal {
     disciplina: string;
     codigo: string;
     volume: string;
-    tomos: number;
+    tomo: number;
     totalCapas: number;
   };
 }
@@ -178,8 +178,8 @@ export async function buildCapaProposal(
     volumeValue = volumeArabic ? arabicToRoman(volumeArabic) : "I";
   }
 
-  // Tomos: decisao do engenheiro (projeto grande -> divide). Default 1.
-  const numTomos = Math.max(1, Math.floor(input.numTomos ?? 1));
+  // Tomo específico desta capa (0 = sem tomo). O engenheiro gera um tomo por vez.
+  const tomo = Math.max(0, Math.floor(input.tomo ?? 0));
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
@@ -202,11 +202,13 @@ export async function buildCapaProposal(
 
   const group: CoverGroup = {
     id: "nexo-capa",
-    tituloCapa: input.tituloCapa ?? disciplinaLabel(discCode) ?? "PROJETO",
+    // Título técnico automático: obra vem em NOME_OBRA (do selo); aqui só a
+    // disciplina do template. O engenheiro não digita título de capa.
+    tituloCapa: input.tituloCapa?.trim() || disciplinaLabel(discCode) || "PROJETO",
     disciplina: discLabel,
     volume: volumeValue,
     tomoMode: "quantity",
-    tomoQuantity: numTomos,
+    tomoQuantity: 1,
     tomoList: [],
   };
 
@@ -217,6 +219,12 @@ export async function buildCapaProposal(
     template.tomoFormat,
   );
 
+  // Tomo específico: uma capa única rotulada "(TOMO 0N)". formatTomo esconde o
+  // rótulo quando há 1 tomo, então forçamos com total=2 para renderizar.
+  if (tomo > 0 && pages[0]) {
+    pages[0].tomo = formatTomo(String(tomo), 2, template.tomoFormat);
+  }
+
   return {
     generalData,
     pages,
@@ -225,7 +233,7 @@ export async function buildCapaProposal(
       disciplina: discLabel,
       codigo: codigoExibido,
       volume: volumeValue,
-      tomos: numTomos,
+      tomo,
       totalCapas: pages.length,
     },
   };
