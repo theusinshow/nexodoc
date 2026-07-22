@@ -536,6 +536,8 @@ function SelosPanel({
           selos,
           templateId,
           numTomos,
+          // Título da capa = título da LD (devem coincidir).
+          ...(tituloLd.trim() ? { tituloCapa: tituloLd.trim() } : {}),
           ...(volumeCapa?.trim() ? { volume: volumeCapa.trim() } : {}),
           ...(mesCapa?.trim() ? { mes: mesCapa.trim() } : {}),
           ...(anoCapa?.trim() ? { ano: anoCapa.trim() } : {}),
@@ -661,9 +663,34 @@ function SelosPanel({
     setError(null);
     setVol(null);
     try {
-      // Ordem canônica: capa -> LD (índice) -> pranchas (por folha).
+      // Ordem canônica do escritório: CAPA -> SEPARATRIZ -> LD -> PRANCHAS.
       const parts: { role: string; name: string; data: string }[] = [];
       if (capaPdf64) parts.push({ role: "capa", name: "capa.pdf", data: capaPdf64 });
+
+      // Separatriz: folha simples com o nome da disciplina (gerada na hora).
+      const sepTitle = tituloLd.trim() || ld?.resumo.disciplina || "";
+      if (sepTitle) {
+        try {
+          const sepRes = await fetch("/api/nexo/separatriz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: sepTitle,
+              codigo: ld?.resumo.codigo,
+              revisao: ld?.resumo.revisao,
+            }),
+          });
+          const sepPayload = (await sepRes.json().catch(() => null)) as
+            | { pdf?: { data: string } | null }
+            | null;
+          if (sepRes.ok && sepPayload?.pdf) {
+            parts.push({ role: "separatriz", name: "separatriz.pdf", data: sepPayload.pdf.data });
+          }
+        } catch {
+          /* separatriz é best-effort; volume segue sem ela */
+        }
+      }
+
       if (ldPdf64) parts.push({ role: "ld", name: "ld.pdf", data: ldPdf64 });
       const ordered = [...pranchaFiles].sort(
         (a, b) =>

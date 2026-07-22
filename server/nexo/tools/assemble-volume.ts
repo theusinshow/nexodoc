@@ -49,12 +49,13 @@ export interface AssembleVolumeOutput {
   pageCount?: number;
 }
 
-/** Peso de cada papel na ordem canonica do volume. */
+/** Peso de cada papel na ordem canonica do volume: capa -> separatriz -> LD ->
+ *  pranchas (a LD e o indice, vem ANTES das pranchas). */
 const CANONICAL_ROLE_ORDER: Record<VolumePartRole, number> = {
   capa: 0,
   separatriz: 1,
-  prancha: 2,
-  ld: 3,
+  ld: 2,
+  prancha: 3,
 };
 
 /**
