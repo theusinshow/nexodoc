@@ -25,6 +25,8 @@ export interface BuildCapaInput {
   tituloCapa?: string;
   /** Override opcional; senao vem do parseFilename (arabico). */
   volume?: string;
+  /** Decisao do engenheiro: projeto grande dividido em N tomos. Default 1. */
+  numTomos?: number;
 }
 
 export interface CapaProposal {
@@ -35,6 +37,7 @@ export interface CapaProposal {
     disciplina: string;
     codigo: string;
     volume: string;
+    tomos: number;
     totalCapas: number;
   };
 }
@@ -135,6 +138,9 @@ export async function buildCapaProposal(
     volumeValue = volumeArabic ? arabicToRoman(volumeArabic) : "I";
   }
 
+  // Tomos: decisao do engenheiro (projeto grande -> divide). Default 1.
+  const numTomos = Math.max(1, Math.floor(input.numTomos ?? 1));
+
   const now = new Date();
   const mes = MESES[now.getMonth()];
   const ano = String(now.getFullYear());
@@ -159,7 +165,7 @@ export async function buildCapaProposal(
     disciplina: discLabel,
     volume: volumeValue,
     tomoMode: "quantity",
-    tomoQuantity: 1,
+    tomoQuantity: numTomos,
     tomoList: [],
   };
 
@@ -178,6 +184,7 @@ export async function buildCapaProposal(
       disciplina: discLabel,
       codigo: codigoExibido,
       volume: volumeValue,
+      tomos: numTomos,
       totalCapas: pages.length,
     },
   };

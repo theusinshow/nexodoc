@@ -422,7 +422,13 @@ interface NexoTemplateOption {
 }
 
 interface CapaGenResult {
-  resumo: { prefeitura: string; disciplina: string; codigo: string; volume: string };
+  resumo: {
+    prefeitura: string;
+    disciplina: string;
+    codigo: string;
+    volume: string;
+    tomos: number;
+  };
   pdfError?: string;
   zipUrl: string;
   zipName: string;
@@ -466,6 +472,12 @@ function SelosPanel() {
   const [templateId, setTemplateId] = useState("");
   const [capaBusy, setCapaBusy] = useState(false);
   const [capa, setCapa] = useState<CapaGenResult | null>(null);
+  // Nº de tomos: decisão do engenheiro, compartilhada por LD e capa (projeto
+  // grande -> divide). null = ainda não editado (=1).
+  const [numTomos, setNumTomos] = useState(1);
+  // Volume da capa: null = usa o inferido do nome; string = engenheiro editou.
+  // Afeta só a capa (o volume às vezes é trocado manualmente dentro do volume).
+  const [volumeCapa, setVolumeCapa] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
   const tituloLd = tituloEditado ?? suggestTitulo(results);
@@ -494,7 +506,13 @@ function SelosPanel() {
       const res = await fetch("/api/nexo/capa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos, templateId, tituloCapa: tituloLd }),
+        body: JSON.stringify({
+          selos,
+          templateId,
+          tituloCapa: tituloLd,
+          numTomos,
+          ...(volumeCapa?.trim() ? { volume: volumeCapa.trim() } : {}),
+        }),
       });
       const payload = (await res.json().catch(() => null)) as
         | {
@@ -542,7 +560,7 @@ function SelosPanel() {
       const res = await fetch("/api/nexo/ld", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos, tituloLd }),
+        body: JSON.stringify({ selos, tituloLd, numTomos }),
       });
       const payload = (await res.json().catch(() => null)) as
         | {
@@ -709,6 +727,27 @@ function SelosPanel() {
             </span>
           </label>
 
+          <label className="block space-y-1.5">
+            <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+              Numero de tomos
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={numTomos}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setNumTomos(Number.isFinite(n) && n >= 1 ? Math.min(99, n) : 1);
+              }}
+              className="flex w-24 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Decisao do engenheiro (projeto grande -&gt; divide). Vale para a LD e a
+              capa: 1 = tomo unico.
+            </span>
+          </label>
+
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">
               {okCount} folhas prontas para virar LD.
@@ -774,6 +813,21 @@ function SelosPanel() {
                 ))}
               </select>
             </label>
+            <label className="block space-y-1.5">
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                Volume (capa)
+              </span>
+              <input
+                value={volumeCapa ?? ""}
+                onChange={(e) => setVolumeCapa(e.target.value)}
+                placeholder="auto (do nome do arquivo)"
+                className="flex w-32 rounded-sm border border-input bg-[var(--nexodoc-recessed)] px-3 text-sm tabular-nums transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20"
+              />
+              <span className="block text-xs text-muted-foreground">
+                Numero arabico (1, 2, ...). Vazio = usa o volume do nome do arquivo.
+                As vezes o volume e trocado manualmente; afeta so a capa.
+              </span>
+            </label>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-muted-foreground">
                 Usa o titulo acima e a obra/fase do selo.
@@ -793,6 +847,9 @@ function SelosPanel() {
                 <p className="text-sm">
                   Capa <span className="font-medium">{capa.resumo.prefeitura}</span> ·{" "}
                   {capa.resumo.disciplina} · {capa.resumo.codigo} · vol {capa.resumo.volume}
+                  {capa.resumo.tomos > 1 && (
+                    <span className="tabular-nums"> · {capa.resumo.tomos} tomos</span>
+                  )}
                   {capa.pdfError && (
                     <span className="text-[var(--status-warning)]"> · PDF indisponivel</span>
                   )}

@@ -22,12 +22,20 @@ export async function POST(req: NextRequest) {
 
   let selos: SeloForLd[];
   let tituloLd: string | undefined;
+  let numTomos = 1;
   try {
-    const body = (await req.json()) as { selos?: unknown; tituloLd?: unknown };
+    const body = (await req.json()) as {
+      selos?: unknown;
+      tituloLd?: unknown;
+      numTomos?: unknown;
+    };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
     if (typeof body.tituloLd === "string" && body.tituloLd.trim()) {
       tituloLd = body.tituloLd.trim();
+    }
+    if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
+      numTomos = Math.max(1, Math.floor(body.numTomos));
     }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
@@ -37,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum selo informado." }, { status: 400 });
   }
 
-  const proposal = buildLdProposal(selos);
+  const proposal = buildLdProposal(selos, numTomos);
   // Título da LD é uma DECISÃO (varia por projeto: "... - BLOCO B (TOMO X)").
   // O engenheiro edita/confirma; sobrescreve o palpite determinístico.
   if (tituloLd) proposal.input.ldData.sectionTitle = tituloLd;
