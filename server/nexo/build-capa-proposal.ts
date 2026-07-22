@@ -162,7 +162,18 @@ export async function buildCapaProposal(
 
   const revisao = mode(parsedList.map((p) => p.revisao));
   const nomeObra = mode(validos.map((s) => s.obra));
-  const fase = mode(validos.map((s) => s.fase)) || template.defaults.fase;
+
+  // Título da capa = título da LD, no formato "TIPO - FASE" (ex.: "PROJETO
+  // ESTRUTURAL CONCRETO - IMPLANTAÇÃO"). Separa: TIPO -> TITULO_CAPA (proeminente),
+  // FASE -> FASE. Sem "-", o título inteiro é o tipo e a fase vem do selo.
+  const tituloRaw = input.tituloCapa?.trim() || "";
+  const dash = tituloRaw.search(/\s[-–]\s/);
+  const tipoCapa = dash >= 0 ? tituloRaw.slice(0, dash).trim() : tituloRaw;
+  const faseFromTitulo =
+    dash >= 0 ? tituloRaw.slice(dash).replace(/^\s*[-–]\s*/, "").trim() : "";
+  const tituloCapaFinal = tipoCapa || disciplinaLabel(discCode) || "PROJETO";
+  const fase =
+    faseFromTitulo || mode(validos.map((s) => s.fase)) || template.defaults.fase;
 
   // Volume: override -> parseFilename (arabico) -> default. Converte p/ romano
   // quando o template pede; formatVolume so adiciona "Vol. ", nao converte.
@@ -202,9 +213,8 @@ export async function buildCapaProposal(
 
   const group: CoverGroup = {
     id: "nexo-capa",
-    // Título técnico automático: obra vem em NOME_OBRA (do selo); aqui só a
-    // disciplina do template. O engenheiro não digita título de capa.
-    tituloCapa: input.tituloCapa?.trim() || disciplinaLabel(discCode) || "PROJETO",
+    // TITULO_CAPA (slot proeminente) = o TIPO do projeto (do título da LD).
+    tituloCapa: tituloCapaFinal,
     disciplina: discLabel,
     volume: volumeValue,
     tomoMode: "quantity",
