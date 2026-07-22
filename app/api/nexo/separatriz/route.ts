@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
-import { generateSeparatrizes } from "@/server/nexo/tools/generate-separatrizes";
+import { buildSeparatrizOdt } from "@/server/nexo/tools/separatriz-template";
+import { convertOdtToPdf } from "@/server/pdf";
 
 export const runtime = "nodejs";
 
@@ -20,28 +21,22 @@ export async function POST(req: NextRequest) {
   }
 
   let title: string;
-  let codigo: string | undefined;
-  let revisao: string | undefined;
   try {
-    const body = (await req.json()) as {
-      title?: unknown;
-      codigo?: unknown;
-      revisao?: unknown;
-    };
+    const body = (await req.json()) as { title?: unknown };
     title = String(body.title ?? "").trim();
     if (!title) throw new Error("title ausente");
-    if (typeof body.codigo === "string" && body.codigo.trim()) codigo = body.codigo.trim();
-    if (typeof body.revisao === "string" && body.revisao.trim()) revisao = body.revisao.trim();
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
 
   try {
-    const result = await generateSeparatrizes({ titles: [title], codigo, revisao, includePdf: true });
+    // Preenche o TEMPLATE oficial da separatriz e converte p/ PDF.
+    const odt = await buildSeparatrizOdt(title);
+    const { pdfBuffer, error } = await convertOdtToPdf(odt);
     return NextResponse.json({
-      pdfError: result.pdfError,
-      pdf: result.pdf
-        ? { name: result.pdf.name, data: result.pdf.buffer.toString("base64") }
+      pdfError: error,
+      pdf: pdfBuffer
+        ? { name: "separatriz.pdf", data: pdfBuffer.toString("base64") }
         : null,
     });
   } catch (err) {
