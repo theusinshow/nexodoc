@@ -7,7 +7,6 @@ import {
   FileText,
   Trash2,
   Waypoints,
-  Send,
   Loader2,
   AlertTriangle,
   Layers,
@@ -18,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
+import { NexoChat } from "./NexoChat";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -41,8 +41,16 @@ export function NexoWorkspace() {
   const [dossie, setDossie] = useState<NexoDossieDraft | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Selos lidos das pranchas: elevado do SelosPanel para o chat do agente também
+  // enxergar (o agente propõe LD/capa a partir deles).
+  const [seloResults, setSeloResults] = useState<SeloResult[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
+
+  // SeloForLd[] (fileName + extração) que as rotas de geração/agente consomem.
+  const selos = seloResults
+    .filter((r) => r.extraction)
+    .map((r) => ({ fileName: r.fileName, ...r.extraction! }));
 
   // webkitdirectory nao e prop tipada no React; setar via atributo.
   useEffect(() => {
@@ -288,7 +296,7 @@ export function NexoWorkspace() {
 
         {/* Direita: selos (fluxo comum) + estrutura + conversa */}
         <div className="space-y-4">
-          <SelosPanel />
+          <SelosPanel results={seloResults} setResults={setSeloResults} />
           {dossie && dossie.volumes.length > 0 && (
             <div className="rounded-md border border-border bg-card">
               <div className="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -333,31 +341,7 @@ export function NexoWorkspace() {
             </div>
           )}
 
-          <div className="flex min-h-[280px] flex-col rounded-md border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-                Conversa
-              </span>
-              <Badge variant="warning">Fase 2</Badge>
-            </div>
-            <div className="flex flex-1 items-center justify-center">
-              <EmptyState
-                icon={Waypoints}
-                label="Motor do agente em construcao"
-                description="O intake ja le e estrutura seus arquivos. Quando o agente entrar (Fase 2), a conversa aqui vai propor LD, capas, volume e auditoria a partir do dossie, confirmando cada passo."
-              />
-            </div>
-            <div className="border-t border-border p-3">
-              <div className="flex items-center gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] px-3 py-2 opacity-60">
-                <input
-                  disabled
-                  placeholder="Ex.: cria as LDs e as capas e junta o volume..."
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                />
-                <Send className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </div>
-            </div>
-          </div>
+          <NexoChat selos={selos} />
         </div>
       </div>
     </div>
@@ -460,8 +444,13 @@ function suggestTitulo(results: SeloResult[]): string {
   return best;
 }
 
-function SelosPanel() {
-  const [results, setResults] = useState<SeloResult[]>([]);
+function SelosPanel({
+  results,
+  setResults,
+}: {
+  results: SeloResult[];
+  setResults: (r: SeloResult[]) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ldBusy, setLdBusy] = useState(false);

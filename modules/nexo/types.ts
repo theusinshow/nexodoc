@@ -123,8 +123,46 @@ export interface NexoDossieDraft {
 /** Papel de cada mensagem no chat do Nexo. */
 export type NexoRole = "user" | "assistant";
 
+/**
+ * Parâmetros que o agente PROPÕE para uma LD (nada gerado ainda). São decisões
+ * editáveis: o engenheiro confirma/corrige no card antes de gerar.
+ */
+export interface NexoLdProposalParams {
+  /** Título da seção (varia por projeto; o "(TOMO X)" é anexado pela mecânica). */
+  tituloLd: string;
+  /** Decisão do engenheiro: divide as folhas em N tomos. Default 1. */
+  numTomos: number;
+}
+
+/** Parâmetros propostos para uma capa. Editáveis antes de gerar. */
+export interface NexoCapaProposalParams {
+  /** Template (prefeitura + variante) que fornece órgão/secretaria/formato. */
+  templateId: string;
+  tituloCapa: string;
+  /** Volume arábico ("1","2"...); "" = deriva do nome do arquivo. */
+  volume: string;
+  numTomos: number;
+}
+
+/**
+ * Proposta estruturada do agente. O card renderiza os params (editáveis) e os
+ * botões [Confirmar e gerar] / [Corrigir]. A geração (irreversível) só acontece
+ * no clique, chamando as rotas determinísticas — a IA nunca gera o documento.
+ */
+export type NexoAgentProposal =
+  | { kind: "ld"; resumo: string; params: NexoLdProposalParams }
+  | { kind: "capa"; resumo: string; params: NexoCapaProposalParams };
+
+/** Um turno de resposta do agente: texto conversacional + propostas (0+). */
+export interface NexoAgentTurn {
+  reply: string;
+  proposals: NexoAgentProposal[];
+}
+
 export interface NexoMessage {
   id: string;
   role: NexoRole;
   content: string;
+  /** Propostas anexadas a uma mensagem do assistente (renderizam como cards). */
+  proposals?: NexoAgentProposal[];
 }
