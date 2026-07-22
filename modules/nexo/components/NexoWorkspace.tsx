@@ -19,6 +19,7 @@ import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
 import { sheetNumberFromFilename } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
+import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import { NexoChat } from "./NexoChat";
 
 function formatBytes(bytes: number): string {
@@ -448,6 +449,16 @@ function base64ToUrl(base64: string, mime: string): string {
   return URL.createObjectURL(new Blob([bytes], { type: mime }));
 }
 
+/** Lê um File como base64 cru (sem o prefixo data:...;base64,). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error(`Falha ao ler ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
 function SelosPanel({
   results,
   setResults,
@@ -476,6 +487,16 @@ function SelosPanel({
   // vezes é de outro mês — trabalha em julho mas a capa é maio/junho).
   const [mesCapa, setMesCapa] = useState<string | null>(null);
   const [anoCapa, setAnoCapa] = useState<string | null>(null);
+  // Conferência leve (auditoria do caso comum, sem memorial).
+  const [check, setCheck] = useState<LightCheckResult | null>(null);
+  const [checkBusy, setCheckBusy] = useState(false);
+  // Montar volume: precisa dos PDFs das partes. Guardamos os arquivos das
+  // pranchas + o base64 dos PDFs gerados (capa/LD) p/ concatenar no fim.
+  const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
+  const [capaPdf64, setCapaPdf64] = useState<string | null>(null);
+  const [ldPdf64, setLdPdf64] = useState<string | null>(null);
+  const [vol, setVol] = useState<{ url: string; name: string; pageCount?: number } | null>(null);
+  const [volBusy, setVolBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
   // Título é decisão do engenheiro: começa em branco, ele preenche.
@@ -541,6 +562,8 @@ function SelosPanel({
           ? base64ToUrl(payload.files.pdf.data, "application/pdf")
           : undefined,
       });
+      setCapaPdf64(payload.files.pdf?.data ?? null);
+      setVol(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
     } finally {
@@ -589,10 +612,81 @@ function SelosPanel({
           ? base64ToUrl(payload.files.pdf.data, "application/pdf")
           : undefined,
       });
+      setLdPdf64(payload.files.pdf?.data ?? null);
+      setVol(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
     } finally {
       setLdBusy(false);
+    }
+  }
+
+  async function conferir() {
+    const selos = results
+      .filter((r) => r.extraction)
+      .map((r) => ({ fileName: r.fileName, ...r.extraction }));
+    if (selos.length === 0) return;
+    setCheckBusy(true);
+    setError(null);
+    setCheck(null);
+    try {
+      const res = await fetch("/api/nexo/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selos }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; result?: LightCheckResult }
+        | null;
+      if (!res.ok || !payload?.result) {
+        throw new Error(payload?.error ?? "Falha na conferência.");
+      }
+      setCheck(payload.result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro na conferência.");
+    } finally {
+      setCheckBusy(false);
+    }
+  }
+
+  async function montarVolume() {
+    if (!capaPdf64 && !ldPdf64 && pranchaFiles.length === 0) return;
+    setVolBusy(true);
+    setError(null);
+    setVol(null);
+    try {
+      // Ordem canônica: capa -> LD (índice) -> pranchas (por folha).
+      const parts: { role: string; name: string; data: string }[] = [];
+      if (capaPdf64) parts.push({ role: "capa", name: "capa.pdf", data: capaPdf64 });
+      if (ldPdf64) parts.push({ role: "ld", name: "ld.pdf", data: ldPdf64 });
+      const ordered = [...pranchaFiles].sort(
+        (a, b) =>
+          (sheetNumberFromFilename(a.name) ?? 9999) -
+          (sheetNumberFromFilename(b.name) ?? 9999),
+      );
+      for (const f of ordered) {
+        parts.push({ role: "prancha", name: f.name, data: await fileToBase64(f) });
+      }
+      const res = await fetch("/api/nexo/volume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parts, fileName: "volume.pdf" }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; pdf?: { name: string; data: string } | null; pageCount?: number }
+        | null;
+      if (!res.ok || !payload?.pdf) {
+        throw new Error(payload?.error ?? "Falha ao montar o volume.");
+      }
+      setVol({
+        url: base64ToUrl(payload.pdf.data, "application/pdf"),
+        name: payload.pdf.name,
+        pageCount: payload.pageCount,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
+    } finally {
+      setVolBusy(false);
     }
   }
 
@@ -605,6 +699,9 @@ function SelosPanel({
     }
     setError(null);
     setResults([]);
+    setPranchaFiles(files); // guarda p/ montar o volume no fim
+    setCheck(null);
+    setVol(null);
     setBusy(true);
     try {
       const collected: SeloResult[] = [];
@@ -922,6 +1019,121 @@ function SelosPanel({
                       </a>
                     </Button>
                   )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Conferencia leve + montar volume (fecham o caso comum) */}
+          <div className="flex flex-col gap-3 border-t border-dashed border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  Conferencia leve
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Confere se as pranchas batem entre si (codigo/obra/revisao/folhas).
+                  Sem memorial.
+                </span>
+              </div>
+              <Button size="sm" variant="outline" onClick={conferir} disabled={checkBusy}>
+                {checkBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ScanLine className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {checkBusy ? "Conferindo..." : "Conferir"}
+              </Button>
+            </div>
+
+            {check && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      check.veredito === "critico"
+                        ? "critical"
+                        : check.veredito === "aviso"
+                          ? "warning"
+                          : "ok"
+                    }
+                  >
+                    {check.veredito === "critico"
+                      ? "🔴 Nao emitir"
+                      : check.veredito === "aviso"
+                        ? "🟡 Revisar"
+                        : "🟢 Consistente"}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {check.findings.length} achado(s)
+                  </span>
+                </div>
+                {check.findings.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {check.findings.map((f, i) => (
+                      <li key={i} className="text-xs">
+                        <span
+                          className={
+                            f.severidade === "critico"
+                              ? "font-medium text-destructive"
+                              : f.severidade === "aviso"
+                                ? "font-medium text-[var(--status-warning)]"
+                                : "font-medium text-muted-foreground"
+                          }
+                        >
+                          [{f.campo}]
+                        </span>{" "}
+                        {f.mensagem}
+                        {f.detalhe && (
+                          <span className="block pl-2 text-muted-foreground">
+                            {f.detalhe}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div>
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                  Montar volume
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Junta capa + LD + pranchas num PDF unico (ordem: capa, LD, folhas).
+                </span>
+              </div>
+              <Button
+                size="sm"
+                onClick={montarVolume}
+                disabled={volBusy || pranchaFiles.length === 0}
+              >
+                {volBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Layers className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {volBusy ? "Montando..." : "Montar volume"}
+              </Button>
+            </div>
+
+            {vol && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+                <p className="text-sm">
+                  Volume montado
+                  {vol.pageCount != null && (
+                    <span className="tabular-nums"> · {vol.pageCount} paginas</span>
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" asChild>
+                    <a href={vol.url} download={vol.name}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      PDF do volume
+                    </a>
+                  </Button>
                 </div>
               </div>
             )}
