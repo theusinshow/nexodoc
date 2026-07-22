@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { getCachedAiModelOverride } from "@/lib/ai-model-config";
 
 export type AiProvider = "openai" | "mimo" | "deepseek";
-export type AiProviderFlow = "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
+export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type ProviderFailureCategory =
@@ -164,6 +164,17 @@ function getFlowProvider(
   return fallback;
 }
 
+/**
+ * Provider do agente Nexo (carro-chefe). Default OPENAI (o provider "fiel") —
+ * NÃO herda o global barato, porque o agente precisa de JSON confiável para
+ * propor os parâmetros. Override explícito via NEXODOC_NEXO_PROVIDER=deepseek.
+ */
+function getNexoProvider(): "openai" | "deepseek" {
+  return getBackendValue("NEXODOC_NEXO_PROVIDER").toLowerCase() === "deepseek"
+    ? "deepseek"
+    : "openai";
+}
+
 function getProviderKeyConfigured(provider: "openai" | "deepseek") {
   return provider === "deepseek"
     ? isConfigured("DEEPSEEK_API_KEY")
@@ -216,6 +227,7 @@ export function getAiConfiguration() {
   const auditProvider = getFlowProvider("audit", globalProvider);
   const volumeProvider = getFlowProvider("volume", globalProvider);
   const ldProvider = getFlowProvider("ld", globalProvider);
+  const nexoProvider = getNexoProvider();
   // A auditoria e o chat pós-auditoria seguem auditProvider; volume e LD têm os
   // seus próprios. primaryProvider é apelido de auditProvider para o bloco de
   // auditoria abaixo (que domina esta função).
@@ -377,6 +389,16 @@ export function getAiConfiguration() {
         "audit-chat",
       ),
       keyConfigured: getProviderKeyConfigured(primaryProvider),
+    },
+    nexoAgent: {
+      provider: nexoProvider,
+      model: getProviderModel(
+        nexoProvider,
+        getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
+        ["DEEPSEEK_NEXO_MODEL", "DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_MODEL"],
+        "nexo-agent",
+      ),
+      keyConfigured: getProviderKeyConfigured(nexoProvider),
     },
     administrationUsage: {
       provider: "openai" as const,

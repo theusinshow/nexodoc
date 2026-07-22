@@ -119,6 +119,8 @@ function getProviderForFlow(flow: AiProviderFlow): Exclude<AiProvider, "mimo"> {
       return configuration.audit.provider;
     case "audit-chat":
       return configuration.auditChat.provider;
+    case "nexo-agent":
+      return configuration.nexoAgent.provider;
     case "ld-extraction":
       return configuration.ldExtraction.primary.provider;
     case "volume-suggestion":

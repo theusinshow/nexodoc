@@ -10,7 +10,7 @@ type TokenUsage = {
 };
 
 type RecordAiUsageArgs = {
-  flow: "audit" | "audit-chat" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
+  flow: "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
   aiTaskId?: string | null;
   taskId?: string | null;
   taskLabel?: string | null;

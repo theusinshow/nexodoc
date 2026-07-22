@@ -209,9 +209,9 @@ Inclua no array proposals apenas os artefatos pedidos (pode ser 0, 1 ou 2).
 export async function runNexoAgentTurn(
   input: RunNexoAgentTurnInput,
 ): Promise<NexoAgentTurn> {
-  const model = getAiConfiguration().auditChat.model;
+  const model = getAiConfiguration().nexoAgent.model;
   const ai = await executeOpenAiResponse({
-    flow: "audit-chat",
+    flow: "nexo-agent",
     model,
     operation: "nexo-agent-turn",
     metadata: {
