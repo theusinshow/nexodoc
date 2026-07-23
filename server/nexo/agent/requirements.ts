@@ -1,0 +1,311 @@
+/**
+ * Registro de REQUISITOS por artefato (§3 da ARQUITETURA.md — "Padrão
+ * texto-não-formulário com pré-respostas de IA").
+ *
+ * A máquina de "o que falta" é DETERMINÍSTICA e vive aqui: cada `NexoArtifactKind`
+ * declara os slots que precisa. Um slot é uma DECISÃO humana (`decision:true`) ou
+ * um default determinístico (`decision:false`). Fatos do dossiê/selos NUNCA viram
+ * slot — quando o valor é derivável dos fatos, `deriveFrom` o resolve e ele nunca
+ * é perguntado. A IA só entra depois: redige o `prompt` e enriquece as
+ * `suggestions` de linguagem (ex.: títulos). Aqui o `prompt` é um fallback curto
+ * e as `suggestions` são as determinísticas/base.
+ *
+ * FOLHA PURA para rodar no `node` cru (`test:nexo:slots`): SÓ `import type` — zero
+ * import de runtime (nem local nem `@/`). Segue a convenção dos demais arquivos
+ * testáveis por node (normalize/session-reducer/light-check-core): o
+ * type-stripping do node apaga os `import type` antes de resolver, então nada é
+ * carregado em runtime. Sem `new Date()`, sem `Math.random()`: tudo que depende de
+ * IO/estado externo (data de referência, resultado do casamento de prefeitura)
+ * chega JÁ COMPUTADO no `SlotFacts` pelo chamador. `matchPrefeitura`/`clampTomos`
+ * seguem FONTE ÚNICA em normalize.ts — o chamador (run-turn/route, que já importa
+ * normalize) os roda e injeta o resultado aqui.
+ */
+import type { DisciplinaKey, SlotId } from "@/modules/nexo/state/session-reducer";
+import type {
+  NexoArtifactKind,
+  NexoDossie,
+  NexoSlotSuggestion,
+} from "@/modules/nexo/types";
+import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+
+// ---------------------------------------------------------------------------
+// Contexto de fatos agregados que alimenta as regras determinísticas
+// ---------------------------------------------------------------------------
+
+/**
+ * Fatos agregados que as regras consomem para derivar/sugerir valores. Nenhum
+ * deles vira slot — são o gabarito determinístico.
+ *
+ * `templateMatch` chega JÁ COMPUTADO: o chamador (que importa normalize.ts) roda
+ * `matchPrefeitura` contra o município do dossiê e injeta o resultado — `resolvedId`
+ * (o id casado, quando único) e `plausibleCount` (quantas prefeituras casaram
+ * plausivelmente). Assim `matchPrefeitura` segue FONTE ÚNICA em normalize.ts e este
+ * arquivo continua folha pura (§3 "deriva de município do dossiê"). `mesAtual`
+ * (1-12) e `anoAtual` chegam prontos: a função é PURA e nunca chama `new Date()`.
+ */
+export interface SlotFacts {
+  dossie: NexoDossie;
+  seloSets: Record<DisciplinaKey, SeloForLd[]>;
+  prefeituras: { id: string; nome: string }[];
+  /**
+   * Casamento de prefeitura por município, PRÉ-COMPUTADO pelo chamador via
+   * `matchPrefeitura` (normalize.ts). `plausibleCount === 1` → casou uma só
+   * (`resolvedId` preenchido, pré-resolve o slot); `0` ou `>1` → ambíguo, vira slot.
+   */
+  templateMatch?: {
+    resolvedId: string | null;
+    plausibleCount: number;
+    /** Prefeituras plausíveis a oferecer como chips quando vira slot (opcional). */
+    plausibles?: { id: string; nome: string }[];
+  };
+  /** Mês de referência 1-12 (injetado — sem `new Date()` na função pura). */
+  mesAtual: number;
+  /** Ano de referência (injetado). */
+  anoAtual: number;
+}
+
+/**
+ * Definição de UM slot de um artefato.
+ * - `required`  : bloqueia `pronto` enquanto não resolvido.
+ * - `decision`  : true = decisão humana (título, nível); false = default
+ *   determinístico (numTomos/mes/ano) que o resolver preenche sozinho.
+ * - `deriveFrom`: valor determinístico a partir dos fatos, ou `null` se é preciso
+ *   perguntar. Fatos NUNCA viram slot: é aqui que eles se auto-resolvem.
+ * - `suggest`   : pré-respostas (chips). A 1ª é a recomendada — NUNCA
+ *   auto-commitada. `commit:"fill"` escreve no composer; `commit:"send"` envia.
+ * - `prompt`    : pergunta curta de fallback (a IA pode reescrever depois).
+ */
+export interface SlotDef {
+  id: SlotId;
+  taskKind: NexoArtifactKind;
+  required: boolean;
+  decision: boolean;
+  prompt: string;
+  deriveFrom(facts: SlotFacts): string | null;
+  suggest(facts: SlotFacts): NexoSlotSuggestion[];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers PUROS, mínimos e locais (folha pura — sem import de runtime). A lógica
+// de casamento de prefeitura NÃO vive aqui: chega pré-computada em
+// `facts.templateMatch` (matchPrefeitura segue fonte única em normalize.ts).
+// ---------------------------------------------------------------------------
+
+/** Valor mais frequente (não-vazio) entre os selos. */
+function mode(values: (string | null | undefined)[]): string {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    const s = v?.trim();
+    if (s) counts.set(s, (counts.get(s) ?? 0) + 1);
+  }
+  let best = "";
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) [best, bestN] = [k, n];
+  return best;
+}
+
+/** Texto que é órgão/secretaria (OCR), não título técnico — descartado como sugestão. */
+function isOrgaoLike(value: string): boolean {
+  return /\b(secretaria|prefeitura|municipal|munic[íi]pio|departamento|sedes|gabinete|funda[çc][ãa]o|governo)\b/i.test(
+    value,
+  );
+}
+
+/** Todos os selos da sessão (achatando os conjuntos por disciplina). */
+function allSelos(facts: SlotFacts): SeloForLd[] {
+  return Object.values(facts.seloSets).flat();
+}
+
+/** Rótulo da disciplina (upper) do dossiê, com fallback nos selos. */
+function disciplinaLabel(facts: SlotFacts): string {
+  const fromDossie = facts.dossie.disciplinas[0];
+  if (fromDossie && fromDossie.trim()) return fromDossie.trim().toUpperCase();
+  const fromSelo = mode(allSelos(facts).map((s) => s.disciplina));
+  return (fromSelo || "GERAL").toUpperCase();
+}
+
+/** Obra do dossiê, com fallback no modo dos selos. */
+function obraDe(facts: SlotFacts): string {
+  const fromDossie = facts.dossie.obra?.value?.trim();
+  if (fromDossie) return fromDossie;
+  return mode(allSelos(facts).map((s) => s.obra));
+}
+
+const MESES_PT = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Mês/ano anterior a (mês,ano). Janeiro volta pra dezembro do ano anterior. */
+function mesAnterior(mes: number, ano: number): { mes: number; ano: number } {
+  return mes <= 1 ? { mes: 12, ano: ano - 1 } : { mes: mes - 1, ano };
+}
+
+// ---------------------------------------------------------------------------
+// Slots reutilizáveis
+// ---------------------------------------------------------------------------
+
+/**
+ * `numTomos`: default determinístico "1", nunca bloqueia (`required:false`).
+ * Sugestões estáticas 1-4 como conveniência (`fill`). Sem `clampTomos` (folha
+ * pura sem import de runtime) — a normalização do valor digitado fica no chamador.
+ */
+function numTomosSlot(taskKind: NexoArtifactKind): SlotDef {
+  return {
+    id: "numTomos",
+    taskKind,
+    required: false,
+    decision: false,
+    prompt: "Dividir em quantos tomos?",
+    deriveFrom: () => "1", // default determinístico
+    suggest: () =>
+      [1, 2, 3, 4].map((n) => ({
+        label: n === 1 ? "1 tomo" : `${n} tomos`,
+        value: String(n),
+        commit: "fill" as const,
+      })),
+  };
+}
+
+/**
+ * `templateId`: usa o casamento de prefeitura JÁ COMPUTADO pelo chamador
+ * (`facts.templateMatch`, via `matchPrefeitura` em normalize.ts — fonte única).
+ * `plausibleCount === 1` → casou uma só, PRÉ-RESOLVIDO (nunca perguntado);
+ * `0` ou `>1` → ambíguo, vira slot (decisão humana). Sem `templateMatch`, também
+ * vira slot.
+ */
+function templateIdSlot(taskKind: NexoArtifactKind): SlotDef {
+  return {
+    id: "templateId",
+    taskKind,
+    required: true,
+    decision: true,
+    prompt: "De qual prefeitura é o modelo da capa?",
+    deriveFrom: (facts) => {
+      const m = facts.templateMatch;
+      return m && m.plausibleCount === 1 ? m.resolvedId : null;
+    },
+    suggest: (facts) => {
+      // Oferece as plausíveis pré-computadas; senão todas as prefeituras.
+      const plaus = facts.templateMatch?.plausibles;
+      const opts = plaus && plaus.length ? plaus : facts.prefeituras;
+      return opts.map((p) => ({
+        label: p.nome,
+        value: p.id,
+        commit: "fill" as const,
+      }));
+    },
+  };
+}
+
+/** `mes`: determinístico — mês de referência + anterior (`fill`). Não bloqueia. */
+function mesSlot(taskKind: NexoArtifactKind): SlotDef {
+  return {
+    id: "mes",
+    taskKind,
+    required: false,
+    decision: false,
+    prompt: "Qual mês vai na capa?",
+    deriveFrom: (facts) => String(facts.mesAtual),
+    suggest: (facts) => {
+      const prev = mesAnterior(facts.mesAtual, facts.anoAtual);
+      return [
+        { label: `${MESES_PT[facts.mesAtual - 1]} (atual)`, value: String(facts.mesAtual), commit: "fill" as const },
+        { label: MESES_PT[prev.mes - 1], value: String(prev.mes), commit: "fill" as const },
+      ];
+    },
+  };
+}
+
+/** `ano`: determinístico — ano de referência + anterior (`fill`). Não bloqueia. */
+function anoSlot(taskKind: NexoArtifactKind): SlotDef {
+  return {
+    id: "ano",
+    taskKind,
+    required: false,
+    decision: false,
+    prompt: "Qual ano vai na capa?",
+    deriveFrom: (facts) => String(facts.anoAtual),
+    suggest: (facts) => [
+      { label: `${facts.anoAtual} (atual)`, value: String(facts.anoAtual), commit: "fill" as const },
+      { label: String(facts.anoAtual - 1), value: String(facts.anoAtual - 1), commit: "fill" as const },
+    ],
+  };
+}
+
+/**
+ * `tituloLd`: DECISÃO do engenheiro (required, decision). Nunca auto-derivado —
+ * "título é decisão, nunca adivinhar" (por isso `deriveFrom` é sempre `null`; o
+ * palpite do selo entra só como SUGESTÃO, nunca auto-commitada). A IA reescreve
+ * essas suggestions com linguagem melhor no PR de wiring; aqui a base é
+ * determinística: título-lido do selo + `PROJETO <disciplina>` + variação c/ obra.
+ */
+const tituloLdSlot: SlotDef = {
+  id: "tituloLd",
+  taskKind: "ld",
+  required: true,
+  decision: true,
+  prompt: "Qual o título desta LD?",
+  deriveFrom: () => null,
+  suggest: (facts) => {
+    const disciplina = disciplinaLabel(facts);
+    const obra = obraDe(facts);
+    const doSelo = mode(
+      allSelos(facts).map((s) =>
+        s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
+      ),
+    );
+    // Ordem por confiança: título lido > genérico da disciplina > variação c/ obra.
+    const candidatos = [
+      doSelo,
+      `PROJETO ${disciplina}`,
+      obra ? `${disciplina} — ${obra}` : `MEMORIAL ${disciplina}`,
+    ];
+    const vistos = new Set<string>();
+    const out: NexoSlotSuggestion[] = [];
+    for (const c of candidatos) {
+      const v = c.trim();
+      const key = v.toLowerCase();
+      if (!v || vistos.has(key)) continue;
+      vistos.add(key);
+      out.push({ label: v, value: v, commit: "fill" });
+    }
+    return out.slice(0, 3);
+  },
+};
+
+/**
+ * `nivel` da auditoria: decisão required (standard|deep). Não auto-derivada — o
+ * usuário escolhe a profundidade; `standard` é a 1ª suggestion (recomendada,
+ * nunca auto-commitada). Escolha de valor discreto → `fill`.
+ */
+const nivelAuditoriaSlot: SlotDef = {
+  id: "nivel",
+  taskKind: "auditoria",
+  required: true,
+  decision: true,
+  prompt: "Qual a profundidade da auditoria?",
+  deriveFrom: () => null,
+  suggest: () => [
+    { label: "Padrão (recomendado)", value: "standard", commit: "fill" },
+    { label: "Profunda", value: "deep", commit: "fill" },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Registro
+// ---------------------------------------------------------------------------
+
+/**
+ * O QUE cada artefato precisa. `volume`/`conferencia` não têm decisão editável do
+ * usuário na v1 (§3) — resolvem prontos sem slots. As pré-condições de fluxo do
+ * volume (capa+separatriz+LD ready) vivem na guarda do reducer, não aqui.
+ */
+export const ARTIFACT_REQUIREMENTS: Record<NexoArtifactKind, SlotDef[]> = {
+  ld: [tituloLdSlot, numTomosSlot("ld")],
+  capa: [templateIdSlot("capa"), numTomosSlot("capa"), mesSlot("capa"), anoSlot("capa")],
+  separatriz: [templateIdSlot("separatriz"), numTomosSlot("separatriz")],
+  auditoria: [nivelAuditoriaSlot],
+  volume: [],
+  conferencia: [],
+};

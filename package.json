@@ -22,7 +22,8 @@
     "test:nexo:reconcile": "node scripts/test-nexo-reconcile.ts",
     "test:nexo:agent": "node scripts/test-nexo-agent.ts",
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",
-    "test:nexo:session": "node scripts/test-nexo-session.ts"
+    "test:nexo:session": "node scripts/test-nexo-session.ts",
+    "test:nexo:slots": "node scripts/test-nexo-slots.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
