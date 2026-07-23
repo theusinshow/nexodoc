@@ -224,6 +224,8 @@ Shadows remain limited to two structural tokens, used sparingly:
 
 **The Blur Rule.** Backdrop blur is permitted on **one** surface only: the dimming backdrop behind a modal. It is never applied to a card, panel, or any content surface — blurred surfaces are glassmorphism, which the system rejects.
 
+**Liquid Glass — ambient layer (scoped amendment, Nexo module only).** The Nexo conversational reflow (see `docs/ui-references/ARQUITETURA.md` §6, Appendix H) reverts the Blur Rule for a **closed list** of floating/immersive *chrome* surfaces — and nothing else: the modal dimming backdrop, the composer dock, the welcome wash, the assistant chat bubble (as a subtle wrapper), and the PDF viewer chrome. The rule that data is matte is **non-negotiable and unchanged**: cards, findings, tables, artifact frames, and the `ConfirmationCard` never carry blur. The "waterline" is literal — above it (chrome, the AI's own bubble) may be glass; below it (any data surface) is always matte. Glass uses only the derived `--glass-*` tokens (no new color), degrades to a solid `--card` where `backdrop-filter` is unsupported or `prefers-reduced-transparency: reduce`, and keeps text ≥4.5:1 via a high tint floor. This exception is deliberately narrow — premium is precision plus a few ambient moments, not glass everywhere.
+
 ## 5. Components
 
 ### State Matrix

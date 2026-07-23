@@ -186,8 +186,66 @@ export function NexoWorkspace() {
     );
   };
 
+  // Dropzone global (Apêndice H): arrastar PDFs para qualquer lugar da tela mostra
+  // um overlay e, ao soltar, alimenta o intake. Ref p/ o handler mais novo (evita
+  // closure velha sem re-assinar os listeners a cada render).
+  const [dragging, setDragging] = useState(false);
+  const addFilesRef = useRef(addFiles);
+  useEffect(() => {
+    addFilesRef.current = addFiles;
+  });
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth += 1;
+      setDragging(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDragging(false);
+      const fl = e.dataTransfer?.files;
+      if (fl && fl.length) addFilesRef.current(fl);
+    };
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, []);
+
   return (
     <ComposerControllerProvider>
+      {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
+      {dragging && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+          aria-hidden
+        >
+          <div className="nexo-glass flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-ring px-10 py-8 text-center">
+            <Upload className="h-8 w-8 text-primary" strokeWidth={1.5} />
+            <p className="text-sm font-medium">Solte os PDFs para o Nexo ler</p>
+          </div>
+        </div>
+      )}
+
       {/* Inputs de arquivo SEMPRE montados: welcome e stage compartilham os refs. */}
       <input
         ref={inputRef}
@@ -214,9 +272,16 @@ export function NexoWorkspace() {
       <NexoShell
         started={started}
         rail={<NexoRail onNewConversation={reset} />}
-        copilot={<NexoChat selos={selos} onSend={start} />}
+        copilot={
+          <NexoChat
+            selos={selos}
+            onSend={start}
+            variant={started ? "docked" : "hero"}
+            onAttach={() => inputRef.current?.click()}
+          />
+        }
         welcome={
-          <div className="flex flex-col items-center gap-6 py-6 text-center">
+          <div className="nexo-welcome-wash flex flex-col items-center gap-6 py-6 text-center">
             <NexoOrb state={loading ? "thinking" : "idle"} className="w-20" />
             <div className="space-y-1">
               <h2 className="text-2xl font-medium tracking-[-0.01em]">

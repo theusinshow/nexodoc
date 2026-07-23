@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, Waypoints, Sparkles } from "lucide-react";
+import { Loader2, Waypoints, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoAgentProposal, NexoAgentTurn, NexoSlotRequest } from "../types";
@@ -13,6 +14,7 @@ import {
   type NexoTemplateOption,
 } from "./ConfirmationCard";
 import { QuickReplyChips } from "./QuickReplyChips";
+import { NexoComposer } from "./NexoComposer";
 
 interface ChatMsg {
   id: string;
@@ -38,9 +40,14 @@ interface ChatMsg {
 export function NexoChat({
   selos,
   onSend,
+  variant = "docked",
+  onAttach,
 }: {
   selos: SeloForLd[];
   onSend?: () => void;
+  /** `hero` no welcome (só o composer visível); `docked` na conversa. */
+  variant?: "hero" | "docked";
+  onAttach?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -48,8 +55,9 @@ export function NexoChat({
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const registerComposer = useRegisterComposer();
+  const isHero = variant === "hero";
 
   useEffect(() => {
     fetch("/api/capas/templates")
@@ -128,8 +136,20 @@ export function NexoChat({
   const semSelos = selos.length === 0;
 
   return (
-    <div className="flex min-h-[280px] flex-col rounded-md border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div
+      className={cn(
+        "flex flex-col",
+        variant === "docked"
+          ? "min-h-[280px] rounded-md border border-border bg-card"
+          : "gap-3",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between border-b border-border px-4 py-3",
+          isHero && "hidden",
+        )}
+      >
         <div className="flex items-center gap-2">
           <Waypoints className="h-4 w-4 text-muted-foreground" aria-hidden />
           <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
@@ -143,7 +163,10 @@ export function NexoChat({
         ref={scrollRef}
         role="log"
         aria-label="Conversa com o Nexo"
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className={cn(
+          "flex-1 space-y-3 overflow-y-auto px-4 py-4",
+          isHero && "hidden",
+        )}
       >
         {messages.length === 0 ? (
           <EmptyState
@@ -151,7 +174,7 @@ export function NexoChat({
             label="Converse com o Nexo"
             description={
               semSelos
-                ? "Leia as pranchas acima e peça, por exemplo: “cria a LD e a capa dessas pranchas”."
+                ? "Anexe as pranchas de uma disciplina e peça, por exemplo: “cria a LD e a capa dessas pranchas”."
                 : "Selos lidos. Peça, por exemplo: “gera a LD e a capa da Prefeitura de Chapecó”."
             }
           />
@@ -188,36 +211,16 @@ export function NexoChat({
         </div>
       )}
 
-      <div className="border-t border-border p-3">
-        <div className="flex items-center gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] px-3 py-2 focus-within:border-ring">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            disabled={busy}
-            placeholder="Ex.: cria a LD e a capa dessas pranchas..."
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
-          />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={busy || !input.trim()}
-            aria-label="Enviar"
-            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Send className="h-4 w-4" aria-hidden />
-            )}
-          </button>
-        </div>
+      <div className={cn(variant === "docked" && "border-t border-border p-3")}>
+        <NexoComposer
+          variant={variant}
+          value={input}
+          onChange={setInput}
+          onSubmit={() => void send()}
+          busy={busy}
+          onAttach={onAttach}
+          inputRef={inputRef}
+        />
       </div>
     </div>
   );
@@ -237,7 +240,7 @@ function MessageBubble({
         className={
           isUser
             ? "max-w-[85%] rounded-md rounded-br-sm bg-primary/10 px-3 py-2 text-sm"
-            : "max-w-[85%] whitespace-pre-wrap rounded-md rounded-bl-sm bg-[var(--nexodoc-recessed)] px-3 py-2 text-sm"
+            : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-md rounded-bl-sm px-3 py-2 text-sm"
         }
       >
         <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>

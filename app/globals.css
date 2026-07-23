@@ -77,6 +77,16 @@
   --edge-highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
   /* Sombra de overlay Nivel 4: fio de luz + sombra estrutural (DESIGN.md secao 4). */
   --shadow-overlay: var(--edge-highlight), var(--shadow-panel);
+  /* Liquid Glass — camada ambiente (emenda escopada a DESIGN.md; §6 ARQUITETURA).
+     SO em chrome flutuante/imersivo: composer dock, backdrop de modal, wash do
+     welcome, bolha do assistente (involucro), chrome do viewer de PDF, orb.
+     PROIBIDO em card/finding/Table/ConfirmationCard — dado e SEMPRE matte.
+     Derivados dos tokens existentes, sem cor nova. */
+  --glass-blur: 12px;
+  --glass-tint: rgb(18 21 24 / 0.62); /* = --card (#121518) ~.62 */
+  --glass-tint-weak: rgb(18 21 24 / 0.42); /* involucro sutil (bolha do assistente) */
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.07); /* um degrau acima de --edge-highlight */
+  --glass-ring: rgb(91 218 198 / 0.14); /* = --ring (#5bdac6) ~.14 */
   /* Tokens de motion (DESIGN.md secao 5). */
   --duration-fast: 120ms;
   --duration-base: 180ms;
@@ -507,5 +517,83 @@ textarea {
   100% {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* ==========================================================================
+   Liquid Glass — camada ambiente (§6 da ARQUITETURA.md; Apêndice H).
+   O UNICO lugar com backdrop-filter fora do backdrop de modal. A "linha
+   d'agua": acima (chrome/bolha-de-IA) = vidro; abaixo (qualquer dado) = matte.
+   Degrada solido onde nao ha suporte OU o usuario pede menos transparencia
+   (piso de contraste AA preservado pelo tint alto).
+   ========================================================================== */
+
+.nexo-glass {
+  background: var(--glass-tint);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  box-shadow: var(--glass-edge);
+  border: 1px solid var(--border);
+}
+
+/* Involucro sutil (bolha do assistente): mesmo vidro, tint mais fraco. */
+.nexo-glass--weak {
+  background: var(--glass-tint-weak);
+}
+
+/* Anel teal de foco/enfase no chrome de vidro (composer dock). */
+.nexo-glass--ring {
+  box-shadow: var(--glass-edge), 0 0 0 1px var(--glass-ring);
+}
+
+/* Composer: anel teal ao focar (Apêndice H). O tint de vidro fica; só o anel entra. */
+.nexo-composer:focus-within {
+  box-shadow: var(--glass-edge), 0 0 0 1px var(--glass-ring);
+  border-color: var(--ring);
+}
+
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  .nexo-glass,
+  .nexo-glass--weak {
+    background: var(--card);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .nexo-glass,
+  .nexo-glass--weak {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Wash do welcome: blobs teal ambientais atras do vidro, pra ele ter o que
+   refratar e PARECER vidro (Apêndice H). transform/opacity-only, atras do
+   conteudo, sem capturar clique. */
+.nexo-welcome-wash {
+  position: relative;
+  isolation: isolate;
+}
+
+.nexo-welcome-wash::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 60%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 60% at 30% 20%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%),
+    radial-gradient(45% 55% at 75% 15%, color-mix(in srgb, var(--ring) 16%, transparent), transparent 70%);
+  filter: blur(48px);
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .nexo-welcome-wash::before {
+    display: none;
   }
 }
