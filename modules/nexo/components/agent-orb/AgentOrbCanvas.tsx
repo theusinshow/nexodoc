@@ -15,12 +15,14 @@ import type { AgentState } from "./agent-orb.types";
 export function AgentOrbCanvas({
   state,
   activity,
+  fileCount,
   hovered,
   reduced,
   visible,
 }: {
   state: AgentState;
   activity: number;
+  fileCount: number;
   hovered: boolean;
   reduced: boolean;
   visible: boolean;
@@ -37,6 +39,7 @@ export function AgentOrbCanvas({
       <AgentOrbScene
         state={state}
         activity={activity}
+        fileCount={fileCount}
         hovered={hovered}
         reduced={reduced}
       />

@@ -432,6 +432,16 @@ textarea {
   border: 0;
 }
 
+/* Nexo Core: o mesmo orb persiste (nó de continuidade) e só muda de tamanho entre
+   hero (welcome) e compact (active). A transição suaviza o resize — no Chrome/Edge
+   o slide roda via View Transition; aqui garante suavidade no Firefox/fallback.
+   `prefers-reduced-motion` zera via o reset global. */
+.nexo-agent-orb {
+  transition:
+    width var(--duration-shell) var(--ease-entrance),
+    height var(--duration-shell) var(--ease-entrance);
+}
+
 /* ==========================================================================
    Shell do Nexo (§1 da ARQUITETURA.md) — reflow welcome<->active.
    O layout e DERIVADO do latch `started` (nunca setado a mao). O no do copiloto

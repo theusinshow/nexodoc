@@ -39,6 +39,9 @@ const SOUL_LUMINOUS = "#eafffb"; // miolo branco-teal
 const SOUL_TEAL_BRIGHT = "#5bdac6"; // --ring (teal claro)
 const SOUL_TEAL_LIGHT = "#bff3ea"; // teal quase branco (2ª camada)
 
+// Satélites: máximo visual razoável (documentos no contexto viram pontos abstratos).
+const MAX_SATS = 6;
+
 // Vidro externo (Fresnel + deslocamento leve).
 const OrbSurfaceMaterial = shaderMaterial(
   {
@@ -81,18 +84,23 @@ declare module "@react-three/fiber" {
 export function AgentOrbScene({
   state,
   activity,
+  fileCount,
   hovered,
   reduced,
 }: {
   state: AgentState;
   activity: number;
+  fileCount: number;
   hovered: boolean;
   reduced: boolean;
 }) {
-  const outerRef = useRef<THREE.Group>(null); // escala (hover)
-  const spinRef = useRef<THREE.Group>(null); // rotação (vidro + wireframe)
+  const outerRef = useRef<THREE.Group>(null); // escala (hover + drag)
+  const spinRef = useRef<THREE.Group>(null); // rotação (vidro)
   const surfaceRef = useRef<THREE.ShaderMaterial>(null);
   const coreRef = useRef<THREE.ShaderMaterial>(null);
+  const satRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const ringMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const dragRef = useRef(0);
   const hoverRef = useRef(0);
   const cur = useRef<OrbVisualParams>(paramsForState("idle"));
   const target = useRef<OrbVisualParams>(paramsForState(state, activity));
@@ -146,13 +154,35 @@ export function AgentOrbScene({
     cu.uActivity.value = Math.max(0, Math.min(1, activity));
     cu.uPulse.value = c.pulse * breath;
 
+    // Drag: campo visual expande e o anel de drop-target aparece.
+    dragRef.current = d(dragRef.current, state === "dragging" ? 1 : 0, 8);
+    if (ringMatRef.current) ringMatRef.current.opacity = dragRef.current * 0.55;
+
     if (outerRef.current) {
       outerRef.current.scale.setScalar(
-        d(outerRef.current.scale.x, 1 + h * 0.03, 10),
+        d(outerRef.current.scale.x, 1 + h * 0.03 + dragRef.current * 0.05, 10),
       );
     }
     if (spinRef.current && !reduced) {
       spinRef.current.rotation.y += dt * c.spin;
+    }
+
+    // Satélites: pontos abstratos orbitando (nº = documentos no contexto).
+    const count = Math.max(0, Math.min(MAX_SATS, Math.round(fileCount)));
+    const tt = reduced ? 4.2 : time;
+    for (let i = 0; i < MAX_SATS; i++) {
+      const m = satRefs.current[i];
+      if (!m) continue;
+      m.visible = i < count;
+      if (!m.visible) continue;
+      const rad = 1.34 + 0.1 * Math.sin(i * 2.1);
+      const speed = 0.16 + (i % 3) * 0.05;
+      const ang = i * ((Math.PI * 2) / MAX_SATS) + tt * speed;
+      m.position.set(
+        Math.cos(ang) * rad,
+        Math.sin(ang) * rad * 0.62 + Math.sin(tt * 0.6 + i) * 0.05,
+        Math.sin(ang * 1.3) * rad * 0.22,
+      );
     }
   });
 
@@ -183,6 +213,40 @@ export function AgentOrbScene({
           />
         </mesh>
       </group>
+
+      {/* DROP-TARGET — anel que aparece ao arrastar um documento sobre a esfera. */}
+      <mesh renderOrder={2}>
+        <ringGeometry args={[1.3, 1.42, 72]} />
+        <meshBasicMaterial
+          ref={ringMatRef}
+          color={RIM_COLOR}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* SATÉLITES — documentos no contexto como pontos orbitais abstratos. */}
+      {Array.from({ length: MAX_SATS }).map((_, i) => (
+        <mesh
+          key={i}
+          ref={(el) => {
+            satRefs.current[i] = el;
+          }}
+          visible={false}
+          renderOrder={3}
+        >
+          <sphereGeometry args={[0.055, 16, 16]} />
+          <meshBasicMaterial
+            color={SOUL_TEAL_BRIGHT}
+            transparent
+            opacity={0.9}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }

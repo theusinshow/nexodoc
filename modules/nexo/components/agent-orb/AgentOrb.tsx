@@ -62,6 +62,7 @@ const AgentOrbCanvas = dynamic(
 export function AgentOrb({
   state = "idle",
   activity = 0,
+  fileCount = 0,
   size = "hero",
   interactive = true,
   onActivate,
@@ -98,7 +99,8 @@ export function AgentOrb({
           : undefined
       }
       className={cn(
-        "relative aspect-square shrink-0 select-none rounded-full outline-none",
+        // `nexo-agent-orb` anima o resize hero↔compact (persistência de layout).
+        "nexo-agent-orb relative aspect-square shrink-0 select-none rounded-full outline-none",
         isButton &&
           "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/25",
         className,
@@ -109,6 +111,7 @@ export function AgentOrb({
         <AgentOrbCanvas
           state={effectiveState}
           activity={activity}
+          fileCount={fileCount}
           hovered={hovered}
           reduced={reduced}
           visible={visible}
