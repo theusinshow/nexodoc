@@ -444,23 +444,8 @@ textarea {
   height: 100%;
   display: grid;
   gap: 1rem;
-  grid-template-rows: minmax(0, 1fr);
-}
-
-/* Welcome: sidebar | copiloto (centro, largura de leitura). Sem stage. */
-.nexo-shell--welcome {
   grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr);
-}
-
-.nexo-shell--welcome .nexo-shell__copilot {
-  width: 100%;
-  max-width: 760px;
-  justify-self: center;
-}
-
-/* Active: sidebar | stage (trabalho/canvas) | copiloto (chat docado). */
-.nexo-shell--active {
-  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr) var(--nexo-copilot-w);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .nexo-shell__sidebar {
@@ -468,23 +453,14 @@ textarea {
   height: 100%;
 }
 
-/* Nomes estaveis do FLIP: o browser anima transform+opacity do snapshot. */
-.nexo-shell__stage {
-  view-transition-name: nexo-stage;
-  min-width: 0;
-  height: 100%;
-}
-
-.nexo-shell__copilot {
-  view-transition-name: nexo-copilot;
+.nexo-shell__main {
   min-width: 0;
   height: 100%;
 }
 
 /* <1024px: 1 coluna, sidebar recolhe (drawer real fica pro passo de responsivo). */
 @media (max-width: 1024px) {
-  .nexo-shell--welcome,
-  .nexo-shell--active {
+  .nexo-shell {
     grid-template-columns: 1fr;
   }
 
@@ -493,42 +469,6 @@ textarea {
   }
 }
 
-/* Fallback para navegadores sem View Transitions (ex.: Firefox): o copiloto e o
-   stage entram com transform+opacity ao virar `active` — o `.nexo-shell--active`
-   e a classe que a decisao #7 preve como caminho primario onde nao ha VT. */
-@supports not (view-transition-name: none) {
-  .nexo-shell--active .nexo-shell__copilot {
-    animation: nexo-shell-copilot-in var(--duration-shell) var(--ease-entrance) both;
-  }
-
-  .nexo-shell--active .nexo-shell__stage {
-    animation: nexo-shell-stage-in var(--duration-shell) var(--ease-entrance) both;
-  }
-}
-
-@keyframes nexo-shell-copilot-in {
-  0% {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes nexo-shell-stage-in {
-  0% {
-    opacity: 0;
-    transform: translateX(-16px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 
 /* ==========================================================================
    Liquid Glass — camada ambiente (§6 da ARQUITETURA.md; Apêndice H).

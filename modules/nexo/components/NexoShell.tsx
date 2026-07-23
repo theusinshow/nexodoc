@@ -1,51 +1,27 @@
 "use client";
 
 /**
- * NexoShell (§1 + nova direção de layout 2026-07-23) — 3 colunas full-height,
- * DERIVADAS do latch `started`:
- * - sidebar: SEMPRE (col 1).
- * - stage (trabalho/canvas): só no active (col 2, centro).
- * - copiloto (orb + chat): SEMPRE — no welcome ocupa o centro (col 2, centralizado
- *   com largura de leitura); no active vai pra col 3 (direita).
- *
- * Invariante de continuidade (§1): sidebar e copiloto estão SEMPRE no DOM — só o
- * stage monta/desmonta. O slide (FLIP nativo via `view-transition-name`) reposiciona
- * o copiloto centro→direita preservando histórico/scroll/foco do chat.
+ * NexoShell — layout estilo ChatGPT (direção 2026-07-23): DUAS colunas full-height,
+ * sidebar (histórico) + main (coluna de chat centralizada). Sem slide, sem canvas
+ * na tela principal — o chat é o protagonista. As ferramentas/canvas vivem atrás
+ * de `NEXT_PUBLIC_NEXO_DEBUG` (fora daqui).
  */
 
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
-
 export function NexoShell({
-  started,
   sidebar,
-  stage,
-  copilot,
+  main,
 }: {
-  started: boolean;
   sidebar: ReactNode;
-  stage: ReactNode;
-  copilot: ReactNode;
+  main: ReactNode;
 }) {
   return (
-    <div
-      data-started={started}
-      className={cn(
-        "nexo-shell",
-        started ? "nexo-shell--active" : "nexo-shell--welcome",
-      )}
-    >
+    <div className="nexo-shell">
       <div className="nexo-shell__sidebar">{sidebar}</div>
-      {started && (
-        <main className="nexo-shell__stage" aria-label="Trabalho">
-          {stage}
-        </main>
-      )}
-      {/* SEMPRE montado — reposicionado centro→direita (invariante §1). */}
-      <aside className="nexo-shell__copilot" aria-label="Nexo">
-        {copilot}
-      </aside>
+      <main className="nexo-shell__main" aria-label="Nexo">
+        {main}
+      </main>
     </div>
   );
 }

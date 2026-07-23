@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   Layers,
 } from "lucide-react";
-import { flushSync } from "react-dom";
 import { ScanLine, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +30,11 @@ import {
   postAudit,
 } from "../lib/generate";
 import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
-import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
 import { ArtifactStoreProvider } from "../state/artifact-store";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
-import { NexoCopilot } from "./NexoCopilot";
+import { NexoChat } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
 
 function formatBytes(bytes: number): string {
@@ -165,34 +163,60 @@ export function NexoWorkspace() {
 
   const totalArquivos = folderCount || files.length;
 
-  // Latch do shell (§1): irreversível no primeiro pedido; `reset` (Nova conversa)
-  // volta ao welcome limpando o estado efêmero. Ambos animam pela macro-transição
-  // (flushSync p/ o browser tirar os snapshots antes/depois do FLIP).
-  const [started, setStarted] = useState(false);
-  const start = () => {
-    if (started) return;
-    runShellTransition(() => flushSync(() => setStarted(true)));
-  };
+  // Nova conversa: limpa o estado efêmero e REMONTA o chat (via convId → key).
+  const [convId, setConvId] = useState(0);
+  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  const [readProgress, setReadProgress] = useState({ done: 0, total: 0 });
+
+  // Leitura AUTOMÁTICA dos selos ao anexar/soltar PDFs — o chat usa `selos`.
+  // Substitui o passo manual "Ler pranchas" do antigo painel (agora chat-first).
+  async function readSelos(list: FileList | null) {
+    const pdfs = list ? Array.from(list).filter((f) => /\.pdf$/i.test(f.name)) : [];
+    if (pdfs.length === 0) return;
+    setError(null);
+    setReading(true);
+    setReadProgress({ done: 0, total: pdfs.length });
+    try {
+      const collected: SeloResult[] = [];
+      await extractSelosFromFiles(pdfs, (r) => {
+        collected.push(r);
+        setSeloResults([...collected]);
+        setReadProgress({ done: collected.length, total: pdfs.length });
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao ler as pranchas.");
+    } finally {
+      setReading(false);
+    }
+  }
+
   const reset = () => {
-    runShellTransition(() =>
-      flushSync(() => {
-        setStarted(false);
-        setFiles([]);
-        setFolderCount(0);
-        setDossie(null);
-        setSeloResults([]);
-        setError(null);
-      }),
-    );
+    setFiles([]);
+    setFolderCount(0);
+    setDossie(null);
+    setSeloResults([]);
+    setError(null);
+    setReading(false);
+    setConvId((c) => c + 1);
   };
 
-  // Dropzone global (Apêndice H): arrastar PDFs para qualquer lugar da tela mostra
-  // um overlay e, ao soltar, alimenta o intake. Ref p/ o handler mais novo (evita
-  // closure velha sem re-assinar os listeners a cada render).
+  const okCount = seloResults.filter((r) => r.extraction).length;
+  const readStatus = reading
+    ? { text: `Lendo pranchas… ${readProgress.done}/${readProgress.total}`, busy: true }
+    : okCount > 0
+      ? { text: `${okCount} folha(s) de selo lidas — pronto para gerar.`, busy: false }
+      : null;
+
+  // Ferramentas antigas (intake completo + SelosPanel + canvas) só com a flag dev.
+  const DEBUG = process.env.NEXT_PUBLIC_NEXO_DEBUG === "1";
+
+  // Dropzone global: soltar PDFs em qualquer lugar LÊ OS SELOS. Ref p/ o handler
+  // mais novo (evita closure velha sem re-assinar os listeners a cada render).
   const [dragging, setDragging] = useState(false);
-  const addFilesRef = useRef(addFiles);
+  const readSelosRef = useRef(readSelos);
   useEffect(() => {
-    addFilesRef.current = addFiles;
+    readSelosRef.current = readSelos;
   });
   useEffect(() => {
     let depth = 0;
@@ -217,7 +241,7 @@ export function NexoWorkspace() {
       depth = 0;
       setDragging(false);
       const fl = e.dataTransfer?.files;
-      if (fl && fl.length) addFilesRef.current(fl);
+      if (fl && fl.length) void readSelosRef.current(fl);
     };
     window.addEventListener("dragenter", onEnter);
     window.addEventListener("dragover", onOver);
@@ -269,20 +293,37 @@ export function NexoWorkspace() {
           e.target.value = "";
         }}
       />
+      {/* Anexar do composer (chat) → LÊ os selos direto (chat-first). */}
+      <input
+        ref={attachInputRef}
+        type="file"
+        accept="application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void readSelos(e.target.files);
+          e.target.value = "";
+        }}
+      />
 
       <NexoShell
-        started={started}
         sidebar={<NexoSidebar onNewConversation={reset} />}
-        copilot={
-          <NexoCopilot
-            started={started}
+        main={
+          <NexoChat
+            key={convId}
             selos={selos}
-            onSend={start}
-            onAttach={() => inputRef.current?.click()}
+            onAttach={() => attachInputRef.current?.click()}
+            readStatus={readStatus}
           />
         }
-        stage={
-          <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+      />
+
+      {DEBUG && (
+        <div className="fixed inset-y-0 right-0 z-40 flex w-[540px] max-w-[92vw] flex-col gap-4 overflow-y-auto border-l border-border bg-card p-4 shadow-[var(--shadow-overlay)]">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+            Ferramentas (dev)
+          </p>
+          <div className="flex h-full min-h-0 flex-col gap-4">
             <NexoCanvas />
             <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
             <div className="space-y-3">
@@ -443,8 +484,8 @@ export function NexoWorkspace() {
         </div>
       </div>
           </div>
-        }
-      />
+          </div>
+        )}
      </ArtifactStoreProvider>
     </ComposerControllerProvider>
   );
