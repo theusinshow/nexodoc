@@ -5,6 +5,14 @@
  * entrada (botões do painel e cards do chat) usarem exatamente o mesmo caminho.
  */
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+import type { LightCheckResult } from "@/server/nexo/light-check-core";
+import type { VolumePart } from "@/server/nexo/volume-parts";
+import type { AuditReport } from "@/lib/audit-report";
+import {
+  runMemorialAudit,
+  type MemorialAuditGabarito,
+  type MemorialAuditLevel,
+} from "./audit";
 
 export const ODT_MIME = "application/vnd.oasis.opendocument.text";
 
@@ -150,4 +158,127 @@ export async function postCapa(
       ? base64ToUrl(payload.files.pdf.data, "application/pdf")
       : undefined,
   };
+}
+
+/**
+ * Conferência leve (light check): porta de qualidade determinística, sem IA.
+ * Confere se pranchas/LD/capa são internamente consistentes. `templateId`
+ * (opcional) casa a prefeitura da capa. Devolve o veredito + achados.
+ */
+export async function postCheck(
+  selos: SeloForLd[],
+  templateId?: string,
+): Promise<LightCheckResult> {
+  const res = await fetch("/api/nexo/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      selos,
+      ...(templateId?.trim() ? { templateId: templateId.trim() } : {}),
+    }),
+  });
+  const payload = (await res.json().catch(() => null)) as
+    | { error?: string; result?: LightCheckResult }
+    | null;
+  if (!res.ok || !payload?.result) {
+    throw new Error(payload?.error ?? "Falha na conferência.");
+  }
+  return payload.result;
+}
+
+export interface SeparatrizGenResult {
+  /** aviso quando o LibreOffice está off (PDF pode faltar). */
+  pdfError?: string;
+  /** base64 cru do PDF — é o que entra como parte do volume. */
+  data: string;
+  name: string;
+  /** object URL para download/preview (não trafega o binário de novo). */
+  url: string;
+}
+
+/**
+ * Gera UMA folha separatriz (nome da disciplina no meio da página) para entrar
+ * no volume. A rota só usa o `title`; devolvemos o base64 (p/ compor o volume) e
+ * um object URL (p/ download). Lança se o PDF não veio (LibreOffice off) — o
+ * chamador que trata a separatriz como best-effort captura e segue sem ela.
+ */
+export async function postSeparatriz(title: string): Promise<SeparatrizGenResult> {
+  const res = await fetch("/api/nexo/separatriz", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  const payload = (await res.json().catch(() => null)) as
+    | {
+        error?: string;
+        pdfError?: string;
+        pdf?: { name: string; data: string } | null;
+      }
+    | null;
+  if (!res.ok || !payload?.pdf) {
+    throw new Error(payload?.error ?? "Falha ao gerar a separatriz.");
+  }
+  return {
+    pdfError: payload.pdfError,
+    data: payload.pdf.data,
+    name: payload.pdf.name,
+    url: base64ToUrl(payload.pdf.data, "application/pdf"),
+  };
+}
+
+export interface VolumeOptions {
+  /** nome do PDF final; default "volume.pdf" na rota. */
+  fileName?: string;
+  /** reordena canonicamente na rota; por padrão a ordem enviada é respeitada. */
+  reorder?: boolean;
+}
+
+export interface VolumeGenResult {
+  url: string;
+  name: string;
+  pageCount?: number;
+}
+
+/**
+ * Monta o volume final: recebe as partes JÁ na ordem canônica (use
+ * `buildVolumeParts`) como PDFs em base64, funde num único PDF e devolve object
+ * URL + contagem de páginas. A ordem enviada é respeitada (`reorder:false`).
+ */
+export async function postVolume(
+  parts: VolumePart[],
+  opts: VolumeOptions = {},
+): Promise<VolumeGenResult> {
+  const res = await fetch("/api/nexo/volume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      parts,
+      ...(opts.fileName?.trim() ? { fileName: opts.fileName.trim() } : {}),
+      ...(opts.reorder ? { reorder: true } : {}),
+    }),
+  });
+  const payload = (await res.json().catch(() => null)) as
+    | { error?: string; pdf?: { name: string; data: string } | null; pageCount?: number }
+    | null;
+  if (!res.ok || !payload?.pdf) {
+    throw new Error(payload?.error ?? "Falha ao montar o volume.");
+  }
+  return {
+    url: base64ToUrl(payload.pdf.data, "application/pdf"),
+    name: payload.pdf.name,
+    pageCount: payload.pageCount,
+  };
+}
+
+/**
+ * Auditoria do memorial (caso raro): centraliza o caminho da fachada reusando o
+ * motor completo (`runMemorialAudit` -> `/api/audit`) com gabarito automático.
+ * Devolve o AuditReport do motor existente.
+ */
+export async function postAudit(
+  memorial: File,
+  gabarito: MemorialAuditGabarito = {},
+  level: MemorialAuditLevel = "standard",
+): Promise<AuditReport> {
+  return runMemorialAudit(memorial, gabarito, level);
 }

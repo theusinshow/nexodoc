@@ -21,7 +21,16 @@ import { sheetNumberFromFilename, resolveSheetNumbers } from "@/server/nexo/pars
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import type { AuditReport } from "@/lib/audit-report";
-import { runMemorialAudit, type MemorialAuditLevel } from "../lib/audit";
+import type { MemorialAuditLevel } from "../lib/audit";
+import {
+  base64ToUrl,
+  ODT_MIME,
+  postCheck,
+  postSeparatriz,
+  postVolume,
+  postAudit,
+} from "../lib/generate";
+import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
 import { NexoChat } from "./NexoChat";
 
 function formatBytes(bytes: number): string {
@@ -440,15 +449,6 @@ interface CapaGenResult {
   pdfName?: string;
 }
 
-const ODT_MIME = "application/vnd.oasis.opendocument.text";
-
-function base64ToUrl(base64: string, mime: string): string {
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes], { type: mime }));
-}
-
 /** Lê um File como base64 cru (sem o prefixo data:...;base64,). */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -637,24 +637,14 @@ function SelosPanel({
   async function conferir() {
     const selos = results
       .filter((r) => r.extraction)
-      .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction }));
+      .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction! }));
     if (selos.length === 0) return;
     setCheckBusy(true);
     setError(null);
     setCheck(null);
     try {
-      const res = await fetch("/api/nexo/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selos }),
-      });
-      const payload = (await res.json().catch(() => null)) as
-        | { error?: string; result?: LightCheckResult }
-        | null;
-      if (!res.ok || !payload?.result) {
-        throw new Error(payload?.error ?? "Falha na conferência.");
-      }
-      setCheck(payload.result);
+      // Fachada única: mesma rota, mesmo parâmetro (selos), mesmo resultado.
+      setCheck(await postCheck(selos));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na conferência.");
     } finally {
@@ -681,83 +671,60 @@ function SelosPanel({
         }
       });
 
-      // Ordem canônica do escritório: CAPA -> SEPARATRIZ -> LD -> PRANCHAS.
-      const parts: {
-        role: string;
-        name: string;
-        data: string;
-        startPage?: number;
-        endPage?: number;
-      }[] = [];
-      if (capaPdf64) parts.push({ role: "capa", name: "capa.pdf", data: capaPdf64 });
-
       // Separatriz: folha simples com o NOME DA DISCIPLINA (nome próprio, ex.:
-      // "PROJETO DE ESTRUTURAS DE CONCRETO"), que difere do título da LD.
+      // "PROJETO DE ESTRUTURAS DE CONCRETO"), que difere do título da LD. É
+      // best-effort: se falhar (LibreOffice off etc.), o volume segue sem ela.
       const sepTitle =
         separatrizNome.trim() ||
         tituloLd.trim().replace(/\s[-–]\s.*$/, "").trim() ||
         ld?.resumo.disciplina ||
         "";
+      let separatriz: VolumePartSource | null = null;
       if (sepTitle) {
         try {
-          const sepRes = await fetch("/api/nexo/separatriz", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: sepTitle,
-              codigo: ld?.resumo.codigo,
-              revisao: ld?.resumo.revisao,
-            }),
-          });
-          const sepPayload = (await sepRes.json().catch(() => null)) as
-            | { pdf?: { data: string } | null }
-            | null;
-          if (sepRes.ok && sepPayload?.pdf) {
-            parts.push({ role: "separatriz", name: "separatriz.pdf", data: sepPayload.pdf.data });
-          }
+          const sep = await postSeparatriz(sepTitle);
+          separatriz = { name: "separatriz.pdf", data: sep.data };
         } catch {
           /* separatriz é best-effort; volume segue sem ela */
         }
       }
 
-      if (ldPdf64) parts.push({ role: "ld", name: "ld.pdf", data: ldPdf64 });
+      // Pranchas na ordem do escritório (por número de folha do nome), cada uma
+      // recortada no intervalo de pranchas (exclui capa/LD internas do combinado).
       const ordered = [...pranchaFiles].sort(
         (a, b) =>
           (sheetNumberFromFilename(a.name) ?? 9999) -
           (sheetNumberFromFilename(b.name) ?? 9999),
       );
+      const pranchas: VolumePartSource[] = [];
       for (const f of ordered) {
         const data = await fileToBase64(f);
         const pages = pranchaPagesByFile.get(f.name);
         if (pages && pages.length > 0) {
-          // recorta no intervalo de pranchas (exclui capa/LD internas do combinado)
-          parts.push({
-            role: "prancha",
+          pranchas.push({
             name: f.name,
             data,
             startPage: Math.min(...pages),
             endPage: Math.max(...pages),
           });
         } else {
-          parts.push({ role: "prancha", name: f.name, data });
+          pranchas.push({ name: f.name, data });
         }
       }
-      const res = await fetch("/api/nexo/volume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parts, fileName: "volume.pdf" }),
+
+      // Ordem canônica capa → separatriz → LD → pranchas (função PURA testável).
+      const parts = buildVolumeParts({
+        capa: capaPdf64 ? { name: "capa.pdf", data: capaPdf64 } : null,
+        disciplines: [
+          {
+            separatriz,
+            ld: ldPdf64 ? { name: "ld.pdf", data: ldPdf64 } : null,
+            pranchas,
+          },
+        ],
       });
-      const payload = (await res.json().catch(() => null)) as
-        | { error?: string; pdf?: { name: string; data: string } | null; pageCount?: number }
-        | null;
-      if (!res.ok || !payload?.pdf) {
-        throw new Error(payload?.error ?? "Falha ao montar o volume.");
-      }
-      setVol({
-        url: base64ToUrl(payload.pdf.data, "application/pdf"),
-        name: payload.pdf.name,
-        pageCount: payload.pageCount,
-      });
+
+      setVol(await postVolume(parts, { fileName: "volume.pdf" }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
     } finally {
@@ -783,7 +750,7 @@ function SelosPanel({
       const t = templates.find((x) => x.id === templateId);
       const prefeitura = t ? (t.grupo ?? t.nome) : undefined;
 
-      const report = await runMemorialAudit(
+      const report = await postAudit(
         memorialFile,
         { obra: obra || undefined, prefeitura },
         auditLevel,
