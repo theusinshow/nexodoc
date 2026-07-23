@@ -41,11 +41,14 @@ export function NexoChat({
   onSend,
   onAttach,
   readStatus,
+  onTurnStatus,
 }: {
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
   readStatus?: ReadStatus | null;
+  /** Reporta o estado do turno pro Nexo Core (analyzing/complete/error). */
+  onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -66,6 +69,11 @@ export function NexoChat({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
+
+  // Reporta o estado do turno pro Nexo Core (a esfera reage sem conhecer a IA).
+  useEffect(() => {
+    onTurnStatus?.({ thinking: busy, error: error != null });
+  }, [busy, error, onTurnStatus]);
 
   async function send(textArg?: string) {
     const text = (textArg ?? input).trim();

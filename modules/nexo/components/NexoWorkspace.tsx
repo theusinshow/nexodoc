@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Upload,
   FolderUp,
@@ -38,6 +38,7 @@ import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import { NexoCanvas } from "./NexoCanvas";
+import { useAgentState } from "./agent-orb/use-agent-state";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -270,6 +271,19 @@ export function NexoWorkspace() {
     };
   }, []);
 
+  // Sinais do app → estado visual do Nexo Core (a esfera reage sem conhecer a IA).
+  const [chatStatus, setChatStatus] = useState({ thinking: false, error: false });
+  const handleTurnStatus = useCallback(
+    (s: { thinking: boolean; error: boolean }) => setChatStatus(s),
+    [],
+  );
+  const agentState = useAgentState({
+    dragging,
+    reading,
+    thinking: chatStatus.thinking,
+    error: chatStatus.error,
+  });
+
   return (
     <ComposerControllerProvider>
      <ArtifactStoreProvider>
@@ -333,6 +347,9 @@ export function NexoWorkspace() {
             onSend={start}
             onAttach={() => attachInputRef.current?.click()}
             readStatus={readStatus}
+            agentState={agentState}
+            fileCount={okCount}
+            onTurnStatus={handleTurnStatus}
           />
         }
       />

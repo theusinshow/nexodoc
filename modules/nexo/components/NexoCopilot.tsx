@@ -11,7 +11,7 @@
 
 import { cn } from "@/lib/utils";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { AgentOrb } from "./agent-orb";
+import { AgentOrb, type AgentState } from "./agent-orb";
 import { NexoChat, type ReadStatus } from "./NexoChat";
 
 export function NexoCopilot({
@@ -20,12 +20,19 @@ export function NexoCopilot({
   onSend,
   onAttach,
   readStatus,
+  agentState = "idle",
+  fileCount = 0,
+  onTurnStatus,
 }: {
   started: boolean;
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
   readStatus?: ReadStatus | null;
+  /** Estado do Nexo Core (derivado dos sinais do app pelo NexoWorkspace). */
+  agentState?: AgentState;
+  fileCount?: number;
+  onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
   return (
     <div
@@ -35,7 +42,12 @@ export function NexoCopilot({
       )}
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">
-        <AgentOrb state="idle" size={started ? "compact" : "hero"} interactive />
+        <AgentOrb
+          state={agentState}
+          fileCount={fileCount}
+          size={started ? "compact" : "hero"}
+          interactive
+        />
         {!started && (
           <div className="space-y-1.5">
             <h2 className="text-2xl font-medium tracking-[-0.01em]">
@@ -60,6 +72,7 @@ export function NexoCopilot({
           onSend={onSend}
           onAttach={onAttach}
           readStatus={readStatus}
+          onTurnStatus={onTurnStatus}
         />
       </div>
     </div>
