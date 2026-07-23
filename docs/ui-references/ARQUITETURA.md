@@ -407,3 +407,16 @@ A coluna central (prévia) é uma **tela infinita tipo FigJam**, não uma grade 
 - **v1.5:** arrastar um frame **REORDENA o volume de verdade** — a nova ordem realimenta os parâmetros de montagem (`assembleVolume`). O canvas passa a ser o editor do volume. (Acopla canvas ↔ params de montagem; por isso depois do read-only estável.)
 
 **Impacto no plano:** o **PR5** monta o canvas React Flow (read-only, nós+edges+pan/zoom, glass) no lugar do ArtifactBoard empilhado. Um **PR (v1.5)** adiciona o drag-to-reorder ligado ao `assembleVolume`. Nova dep `@xyflow/react` a adicionar no PR5.
+
+---
+
+## Apêndice H — Linguagem visual premium (locked; orb 3D ADIADO)
+
+Sessão 2026-07-23 explorou o visual premium via protótipos interativos (companion do brainstorming, em `.superpowers/brainstorm/`, gitignored). Decisões:
+
+- **Linha d'água (glass):** vidro/transparência/motion vivem SÓ no **chrome ambiente** — composer dock, backdrop de modal/overlay, wash do welcome, bolha do assistente como invólucro. **Dado é sempre MATTE** (cards, frames, tabelas, ConfirmationCard) — nunca blur sobre o que se lê. Premium = **precisão + poucos momentos ambientais**, não glass em tudo. Reconcilia com a DESIGN.md ("Calibrated Instrument", que rejeita glassmorphism decorativo): a exceção é escopada ao ambiente.
+- **Motion (skill motion-design, personalidade Premium):** eases `power3.out`/`expo.out`, **sem overshoot**, durações 350-600ms. Welcome→active **coreografado**: welcome sai (`power2.in`) → stage entra da esquerda → copilot desliza da direita (contra-movimento) → frames em **stagger <500ms**. Orquestrar com **GSAP timelines** na implementação real. `prefers-reduced-motion` sempre encurta/desliga.
+- **Composer glass + dropzone:** composer dock com `backdrop-blur` + **ring teal no foco**; **dropzone visível** ("arraste os PDFs") + **overlay de tela cheia** no dragover; blobs teal ambientais atrás do vidro (pra ele ter o que refratar e *parecer* vidro).
+- **Orb-agente — CONCEITO aprovado, EXECUÇÃO ADIADA:** a visão é o orb SER o agente — fica acima, **"fala" a boas-vindas digitando** (typewriter) reagindo a cada caractere, e ao **selecionar vira pó e viaja pro header** (shared-element centro→canto). Reage a hover/seleção, e o mouse faz uma **curva 3D localizada** na borda. **A execução WebGL (partículas/pó/rim/fresnel via Three.js) ficou instável nos protótipos standalone → ADIADA pra sessão futura**, a ser feita com **R3F + r3f-shaders + r3f-postprocessing** (skills já no ambiente), não em HTML cru.
+- **v1 = orb SIMPLES:** glow teal estático/CSS (ou `NexoOrb` básico da seção 6), **sem** o sistema de partículas. O orb-3D-de-pó é enhancement pós-v1. Não bloqueia o reflow.
+- **Stack de motion/3D real:** GSAP (timelines) + R3F quando o orb voltar. As skills GSAP/Three.js/R3F foram instaladas nesta sessão.
