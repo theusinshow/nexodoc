@@ -6,10 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoAgentProposal, NexoAgentTurn, NexoSlotRequest } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import {
-  ComposerControllerProvider,
-  useRegisterComposer,
-} from "../state/composer-controller";
+import { useRegisterComposer } from "../state/composer-controller";
 import {
   ConfirmationCard,
   type LdPreviewData,
@@ -33,16 +30,18 @@ interface ChatMsg {
  * formulário. A geração — passo irreversível — só acontece ao clicar "Confirmar e
  * gerar" no card, que chama a rota determinística. Corrigir reabre o slot em
  * conversa (chips `alterar`, que escrevem no composer via ComposerController).
+ *
+ * O `ComposerControllerProvider` vive ACIMA (no NexoShell/NexoWorkspace), para os
+ * SuggestionCards do welcome também alcançarem o composer. `onSend` avisa o dono
+ * do shell no primeiro envio, latcheando `started` (welcome→active).
  */
-export function NexoChat({ selos }: { selos: SeloForLd[] }) {
-  return (
-    <ComposerControllerProvider>
-      <NexoChatInner selos={selos} />
-    </ComposerControllerProvider>
-  );
-}
-
-function NexoChatInner({ selos }: { selos: SeloForLd[] }) {
+export function NexoChat({
+  selos,
+  onSend,
+}: {
+  selos: SeloForLd[];
+  onSend?: () => void;
+}) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,6 +65,8 @@ function NexoChatInner({ selos }: { selos: SeloForLd[] }) {
   async function send(textArg?: string) {
     const text = (textArg ?? input).trim();
     if (!text || busy) return;
+    // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
+    onSend?.();
     setError(null);
     const userMsg: ChatMsg = { id: crypto.randomUUID(), role: "user", content: text };
     const history = messages.map((m) => ({ role: m.role, content: m.content }));

@@ -81,8 +81,12 @@
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-slow: 240ms;
+  /* Macro-transicao do shell do Nexo (welcome<->active). Espelhado em motion.ts. */
+  --duration-shell: 320ms;
   --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Largura da coluna do copiloto no layout active do Nexo. */
+  --nexo-copilot-w: 400px;
 }
 
 /* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as
@@ -415,4 +419,93 @@ textarea {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ==========================================================================
+   Shell do Nexo (§1 da ARQUITETURA.md) — reflow welcome<->active.
+   O layout e DERIVADO do latch `started` (nunca setado a mao). O no do copiloto
+   e montado UMA vez e apenas reposicionado: por isso `.nexo-shell__copilot` esta
+   sempre no DOM e so muda de area no grid. O slide e o FLIP nativo das View
+   Transitions (nomes estaveis abaixo); o fallback CSS cobre quem nao suporta.
+   ========================================================================== */
+
+.nexo-shell {
+  min-height: 60vh;
+}
+
+/* Welcome: coluna unica centralizada (§1 "topologia"). */
+.nexo-shell--welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.5rem;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+/* Active: rail | stage (trabalho) | copiloto (chat docado). */
+.nexo-shell--active {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) var(--nexo-copilot-w);
+  align-items: start;
+  gap: 1rem;
+}
+
+/* Nomes estaveis do FLIP: o browser anima transform+opacity do snapshot. */
+.nexo-shell__copilot {
+  view-transition-name: nexo-copilot;
+}
+
+.nexo-shell__stage {
+  view-transition-name: nexo-stage;
+  min-width: 0;
+}
+
+.nexo-shell__copilot {
+  min-width: 0;
+}
+
+/* <1024px: stage full-width, copiloto empilha embaixo (drawer real fica pro
+   passo de responsivo). Welcome identico em qualquer largura. */
+@media (max-width: 1024px) {
+  .nexo-shell--active {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fallback para navegadores sem View Transitions (ex.: Firefox): o copiloto e o
+   stage entram com transform+opacity ao virar `active` — o `.nexo-shell--active`
+   e a classe que a decisao #7 preve como caminho primario onde nao ha VT. */
+@supports not (view-transition-name: none) {
+  .nexo-shell--active .nexo-shell__copilot {
+    animation: nexo-shell-copilot-in var(--duration-shell) var(--ease-entrance) both;
+  }
+
+  .nexo-shell--active .nexo-shell__stage {
+    animation: nexo-shell-stage-in var(--duration-shell) var(--ease-entrance) both;
+  }
+}
+
+@keyframes nexo-shell-copilot-in {
+  0% {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes nexo-shell-stage-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

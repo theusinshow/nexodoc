@@ -6,11 +6,11 @@ import {
   FolderUp,
   FileText,
   Trash2,
-  Waypoints,
   Loader2,
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import { flushSync } from "react-dom";
 import { ScanLine, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,13 @@ import {
   postAudit,
 } from "../lib/generate";
 import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
+import { runShellTransition } from "../lib/motion";
+import { ComposerControllerProvider } from "../state/composer-controller";
 import { NexoChat } from "./NexoChat";
+import { NexoShell } from "./NexoShell";
+import { NexoRail } from "./NexoRail";
+import { NexoOrb } from "./NexoOrb";
+import { SuggestionCards } from "./SuggestionCards";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -159,72 +165,137 @@ export function NexoWorkspace() {
 
   const totalArquivos = folderCount || files.length;
 
+  // Latch do shell (§1): irreversível no primeiro pedido; `reset` (Nova conversa)
+  // volta ao welcome limpando o estado efêmero. Ambos animam pela macro-transição
+  // (flushSync p/ o browser tirar os snapshots antes/depois do FLIP).
+  const [started, setStarted] = useState(false);
+  const start = () => {
+    if (started) return;
+    runShellTransition(() => flushSync(() => setStarted(true)));
+  };
+  const reset = () => {
+    runShellTransition(() =>
+      flushSync(() => {
+        setStarted(false);
+        setFiles([]);
+        setFolderCount(0);
+        setDossie(null);
+        setSeloResults([]);
+        setError(null);
+      }),
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
-          <Waypoints className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-medium tracking-[-0.01em]">Nexo</h2>
-            <Badge variant="warning">Beta</Badge>
-          </div>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Solte os PDFs ou a pasta do projeto. O Nexo le e afirma o que detectou
-            (tipo, obra, disciplinas, volumes) para voce confirmar. A conversa que
-            orquestra LD, capas, volume e auditoria chega na proxima fase.
-          </p>
-        </div>
-      </div>
+    <ComposerControllerProvider>
+      {/* Inputs de arquivo SEMPRE montados: welcome e stage compartilham os refs. */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          addFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={dirRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) void classifyFolder(e.target.files);
+          e.target.value = "";
+        }}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-            Entrada
-          </p>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring"
-            >
-              <Upload className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
-              <span className="text-sm font-medium">Anexar PDFs</span>
-              <span className="text-xs text-muted-foreground">le identidade</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => dirRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring"
-            >
-              <FolderUp className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
-              <span className="text-sm font-medium">Anexar pasta</span>
-              <span className="text-xs text-muted-foreground">projeto inteiro</span>
-            </button>
+      <NexoShell
+        started={started}
+        rail={<NexoRail onNewConversation={reset} />}
+        copilot={<NexoChat selos={selos} onSend={start} />}
+        welcome={
+          <div className="flex flex-col items-center gap-6 py-6 text-center">
+            <NexoOrb state={loading ? "thinking" : "idle"} className="w-20" />
+            <div className="space-y-1">
+              <h2 className="text-2xl font-medium tracking-[-0.01em]">
+                O que vamos montar?
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Solte os PDFs do projeto e escolha uma ação — ou peça em texto no
+                campo abaixo.
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => inputRef.current?.click()}
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+                Anexar PDFs
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => dirRef.current?.click()}
+              >
+                <FolderUp className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+                Anexar pasta
+              </Button>
+            </div>
+            {loading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Lendo…
+              </div>
+            )}
+            {totalArquivos > 0 && !loading && (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono tabular-nums">{totalArquivos}</span>{" "}
+                arquivo(s) lidos{dossie?.obra ? ` · ${dossie.obra}` : ""}.
+              </p>
+            )}
+            {error && (
+              <div role="alert" className="text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <SuggestionCards
+              onPick={start}
+              fileCount={totalArquivos}
+              className="w-full"
+            />
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={dirRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) void classifyFolder(e.target.files);
-              e.target.value = "";
-            }}
-          />
+        }
+        stage={
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+            <div className="space-y-3">
+              <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+                Entrada
+              </p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring"
+                >
+                  <Upload className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+                  <span className="text-sm font-medium">Anexar PDFs</span>
+                  <span className="text-xs text-muted-foreground">le identidade</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dirRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring"
+                >
+                  <FolderUp className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+                  <span className="text-sm font-medium">Anexar pasta</span>
+                  <span className="text-xs text-muted-foreground">projeto inteiro</span>
+                </button>
+              </div>
 
           {error && (
             <div
@@ -355,10 +426,11 @@ export function NexoWorkspace() {
             </div>
           )}
 
-          <NexoChat selos={selos} />
         </div>
       </div>
-    </div>
+        }
+      />
+    </ComposerControllerProvider>
   );
 }
 
