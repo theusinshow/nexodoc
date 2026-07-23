@@ -401,3 +401,18 @@ textarea {
   animation: dropdown-expand var(--duration-base) var(--ease-entrance) both;
   transform-origin: top;
 }
+
+/* Acessível só a leitores de tela: visualmente oculto, mas presente no fluxo de
+   a11y (labels de <sr-only>Você|Nexo</sr-only>, live announcer). Pré-requisito
+   do reflow do Nexo (§10 da ARQUITETURA.md) — não existia no projeto. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

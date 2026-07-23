@@ -250,14 +250,19 @@ function ProposalCard({
       />
     );
   }
-  return (
-    <CapaCard
-      resumo={proposal.resumo}
-      params={proposal.params}
-      selos={selos}
-      templates={templates}
-    />
-  );
+  if (proposal.kind === "capa") {
+    return (
+      <CapaCard
+        resumo={proposal.resumo}
+        params={proposal.params}
+        selos={selos}
+        templates={templates}
+      />
+    );
+  }
+  // conferencia | volume | separatriz | auditoria: cards chegam no PR4
+  // (o agente ainda não emite esses kinds). Não renderiza nada por ora.
+  return null;
 }
 
 function CardShell({

@@ -43,15 +43,70 @@ export interface NexoDossie {
   artefatos: NexoArtifact[];
 }
 
-export type NexoArtifactKind = "ld" | "capa" | "separatriz" | "volume" | "auditoria";
+export type NexoArtifactKind =
+  | "ld"
+  | "capa"
+  | "separatriz"
+  | "volume"
+  | "auditoria"
+  | "conferencia";
 
-export interface NexoArtifact {
-  kind: NexoArtifactKind;
-  status: "proposto" | "confirmado" | "gerado" | "erro";
-  label: string;
-  /** URL/base64 do resultado quando gerado (odt/pdf/zip/relatorio). */
-  url?: string;
+/**
+ * Modelo único de problema/erro (C7/§7 da ARQUITETURA.md). Mínimo na v1; o
+ * vocabulário de `recovery` e a taxonomia de codes crescem no PR6.
+ */
+export type NexoIssueSeverity = "info" | "aviso" | "critico";
+export interface NexoIssue {
+  id: string;
+  scope: string;
+  severity: NexoIssueSeverity;
+  code: string;
+  title: string;
+  detail: string;
+  evidence?: string;
 }
+
+/**
+ * Prévia leve de um artefato gerado (§4). Detalhada no PR5 (worker react-pdf).
+ * PDFs anexados pelo usuário NUNCA têm preview (invariante Artifact vs Attachment).
+ */
+export interface ArtifactPreview {
+  objectUrl?: string;
+  pageNumber?: number;
+  variante?: "frame" | "volume";
+}
+
+/**
+ * Id determinístico cunhado pelo CLIENTE de campos ESTRUTURADOS
+ * (`${kind}:${codigo}:${revisao}:${disciplinaKey}`), nunca do resumo string.
+ */
+export type ArtifactId = string;
+
+/**
+ * Sub-máquina de estado por artefato (C2). `params`/`result` são `unknown` na v1
+ * (o PR2 tipa forte por kind: LD -> NexoLdProposalParams+LdGenResult; etc.).
+ * `generating` mantém `prevResult` para o download antigo seguir válido.
+ */
+export type NexoArtifactStatus =
+  | { status: "proposed"; params: unknown }
+  | { status: "generating"; params: unknown; prevResult?: unknown }
+  | { status: "ready"; params: unknown; result: unknown }
+  | { status: "error"; params: unknown; error: NexoIssue };
+
+export interface NexoArtifactMeta {
+  id: ArtifactId;
+  kind: NexoArtifactKind;
+  /** Mensagem do assistente que originou este artefato. */
+  messageId: string;
+  preview?: ArtifactPreview;
+}
+
+/**
+ * Artefato gerado pelo motor. Reescrito no PR0 (a forma inerte anterior —
+ * kind/status/label/url — não carregava id/params/result que estado, prévia e
+ * transições por artefato pressupõem).
+ */
+export type NexoArtifact = NexoArtifactMeta & NexoArtifactStatus;
 
 /**
  * Resultado da classificacao deterministica de UM arquivo no intake (sem IA).
@@ -144,19 +199,75 @@ export interface NexoCapaProposalParams {
   numTomos: number;
 }
 
+/** Parâmetros propostos para uma separatriz. */
+export interface NexoSeparatrizProposalParams {
+  /** Template (prefeitura) que fornece órgão/secretaria/formato. */
+  templateId: string;
+  /** Divide em N tomos. Default 1. */
+  numTomos: number;
+}
+
+/** Parâmetros propostos para a auditoria do memorial. */
+export interface NexoAuditoriaProposalParams {
+  /** Profundidade da análise. */
+  nivel: "standard" | "deep";
+}
+
 /**
- * Proposta estruturada do agente. O card renderiza os params (editáveis) e os
- * botões [Confirmar e gerar] / [Corrigir]. A geração (irreversível) só acontece
- * no clique, chamando as rotas determinísticas — a IA nunca gera o documento.
+ * Proposta estruturada do agente. O ConfirmationCard renderiza os params
+ * READ-ONLY + [Confirmar e gerar]; corrigir reabre o slot em conversa (C1).
+ * A geração (irreversível) só acontece no clique, chamando as rotas
+ * determinísticas — a IA nunca gera o documento.
+ *
+ * Estendido no PR0 (aditivo): conferencia | volume | separatriz | auditoria.
+ * `conferencia`/`volume` não têm decisão editável do usuário na v1.
  */
 export type NexoAgentProposal =
   | { kind: "ld"; resumo: string; params: NexoLdProposalParams }
-  | { kind: "capa"; resumo: string; params: NexoCapaProposalParams };
+  | { kind: "capa"; resumo: string; params: NexoCapaProposalParams }
+  | { kind: "separatriz"; resumo: string; params: NexoSeparatrizProposalParams }
+  | { kind: "auditoria"; resumo: string; params: NexoAuditoriaProposalParams }
+  | { kind: "conferencia"; resumo: string; params: Record<string, never> }
+  | { kind: "volume"; resumo: string; params: Record<string, never> };
 
-/** Um turno de resposta do agente: texto conversacional + propostas (0+). */
+/** fill = escreve no composer (usuário edita e envia); send = envia direto. */
+export type NexoSlotCommit = "fill" | "send";
+
+/** Pré-resposta (chip) de um slot. Renderiza abaixo da bolha, nunca formulário. */
+export interface NexoSlotSuggestion {
+  label: string;
+  value: string;
+  commit: NexoSlotCommit;
+}
+
+/**
+ * Pedido de UM slot faltante (§3). O SlotResolver determinístico decide O QUE
+ * falta; a IA só redige `prompt` e gera `suggestions`.
+ */
+export interface NexoSlotRequest {
+  slotId: string;
+  taskKind: NexoArtifactKind;
+  prompt: string;
+  optional: boolean;
+  suggestions: NexoSlotSuggestion[];
+}
+
+/** Valor de slot extraído do texto livre do usuário no turno. */
+export interface NexoSlotFill {
+  slotId: string;
+  value: string;
+}
+
+/**
+ * Um turno de resposta do agente: texto conversacional + propostas (0+).
+ * Estendido no PR0 (C3/§3): `slotRequest` (o que perguntar) e `slotFills`
+ * (o que o modelo entendeu do texto livre). Opcionais — degrada gracioso.
+ */
 export interface NexoAgentTurn {
   reply: string;
   proposals: NexoAgentProposal[];
+  slotRequest?: NexoSlotRequest;
+  slotFills?: NexoSlotFill[];
 }
 
 export interface NexoMessage {
