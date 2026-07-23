@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import { flushSync } from "react-dom";
 import { ScanLine, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +31,12 @@ import {
   postAudit,
 } from "../lib/generate";
 import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
+import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
 import { ArtifactStoreProvider } from "../state/artifact-store";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
-import { NexoChat } from "./NexoChat";
+import { NexoCopilot } from "./NexoCopilot";
 import { NexoCanvas } from "./NexoCanvas";
 
 function formatBytes(bytes: number): string {
@@ -191,14 +193,27 @@ export function NexoWorkspace() {
     }
   }
 
+  // Latch do shell: o 1º envio desliza welcome→active (chat vai pra direita, o
+  // canvas entra no centro). `reset` (Nova conversa) volta ao welcome. Ambos
+  // animam pela macro-transição (flushSync p/ o browser tirar os snapshots).
+  const [started, setStarted] = useState(false);
+  const start = () => {
+    if (started) return;
+    runShellTransition(() => flushSync(() => setStarted(true)));
+  };
   const reset = () => {
-    setFiles([]);
-    setFolderCount(0);
-    setDossie(null);
-    setSeloResults([]);
-    setError(null);
-    setReading(false);
-    setConvId((c) => c + 1);
+    runShellTransition(() =>
+      flushSync(() => {
+        setStarted(false);
+        setFiles([]);
+        setFolderCount(0);
+        setDossie(null);
+        setSeloResults([]);
+        setError(null);
+        setReading(false);
+        setConvId((c) => c + 1);
+      }),
+    );
   };
 
   const okCount = seloResults.filter((r) => r.extraction).length;
@@ -307,11 +322,15 @@ export function NexoWorkspace() {
       />
 
       <NexoShell
+        started={started}
         sidebar={<NexoSidebar onNewConversation={reset} />}
-        main={
-          <NexoChat
+        stage={<NexoCanvas pranchasCount={okCount} />}
+        copilot={
+          <NexoCopilot
             key={convId}
+            started={started}
             selos={selos}
+            onSend={start}
             onAttach={() => attachInputRef.current?.click()}
             readStatus={readStatus}
           />
@@ -324,7 +343,6 @@ export function NexoWorkspace() {
             Ferramentas (dev)
           </p>
           <div className="flex h-full min-h-0 flex-col gap-4">
-            <NexoCanvas />
             <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
             <div className="space-y-3">
               <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
