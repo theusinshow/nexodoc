@@ -119,4 +119,83 @@ test("normalizeProposals: ld + capa juntas", () => {
   assert.equal((r[1].params as { templateId: string }).templateId, "prefflor");
 });
 
+// --- PR4: novos kinds (separatriz | auditoria | conferencia | volume) -------
+
+test("normalizeProposals: separatriz casa prefeitura e clampa tomos", () => {
+  const r = normalizeProposals(
+    [{ kind: "separatriz", prefeitura: "chapeco", numTomos: 999 }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r.length, 1);
+  assert.equal(r[0].kind, "separatriz");
+  const params = r[0].params as { templateId: string; numTomos: number };
+  assert.equal(params.templateId, "prefchap");
+  assert.equal(params.numTomos, 99); // clampTomos limita a 99
+  // separatriz não tem volume (só templateId + numTomos).
+  assert.deepEqual(Object.keys(params).sort(), ["numTomos", "templateId"]);
+});
+
+test("normalizeProposals: separatriz sem match cai no 1o template", () => {
+  const r = normalizeProposals([{ kind: "separatriz", prefeitura: "xyz" }], {
+    disciplina: "EST",
+    prefeituras: PREFS,
+  });
+  assert.equal((r[0].params as { templateId: string }).templateId, "prefchap");
+});
+
+test("normalizeProposals: auditoria nivel 'deep' é preservado", () => {
+  const r = normalizeProposals([{ kind: "auditoria", nivel: "deep" }], {
+    disciplina: "EST",
+    prefeituras: PREFS,
+  });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].kind, "auditoria");
+  assert.equal((r[0].params as { nivel: string }).nivel, "deep");
+});
+
+test("normalizeProposals: auditoria nivel inválido/ausente -> 'standard'", () => {
+  const r = normalizeProposals(
+    [{ kind: "auditoria", nivel: "xyz" }, { kind: "auditoria" }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r.length, 2);
+  assert.equal((r[0].params as { nivel: string }).nivel, "standard");
+  assert.equal((r[1].params as { nivel: string }).nivel, "standard");
+});
+
+test("normalizeProposals: conferencia e volume normalizam com params vazio", () => {
+  const r = normalizeProposals(
+    [{ kind: "conferencia" }, { kind: "volume" }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r.length, 2);
+  assert.equal(r[0].kind, "conferencia");
+  assert.equal(r[1].kind, "volume");
+  assert.deepEqual(r[0].params, {});
+  assert.deepEqual(r[1].params, {});
+});
+
+test("normalizeProposals: kind desconhecido continua ignorado (degrada gracioso)", () => {
+  const r = normalizeProposals(
+    [{ kind: "separatriz", prefeitura: "Chapecó" }, { kind: "quimera" }, { kind: "volume" }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  // só separatriz + volume; "quimera" some.
+  assert.equal(r.length, 2);
+  assert.deepEqual(r.map((p) => p.kind), ["separatriz", "volume"]);
+});
+
+test("normalizeProposals: ld e capa seguem IDÊNTICOS (regressão)", () => {
+  const r = normalizeProposals(
+    [
+      { kind: "ld", tituloLd: "BLOCO B", numTomos: 2 },
+      { kind: "capa", prefeitura: "Criciúma", volume: "3", numTomos: 2 },
+    ],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r.length, 2);
+  assert.deepEqual(r[0].params, { tituloLd: "BLOCO B", numTomos: 2 });
+  assert.deepEqual(r[1].params, { templateId: "prefcri", volume: "3", numTomos: 2 });
+});
+
 console.log(`\n${passed} teste(s) passaram.`);

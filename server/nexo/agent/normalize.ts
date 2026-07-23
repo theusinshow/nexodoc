@@ -64,9 +64,16 @@ export function matchPrefeitura(
   return null;
 }
 
+/** Nível da auditoria: só "deep" é preservado; qualquer outra coisa → "standard". */
+function clampNivel(v: unknown): "standard" | "deep" {
+  return String(v ?? "").trim().toLowerCase() === "deep" ? "deep" : "standard";
+}
+
 /**
  * Normaliza `proposals` cru do modelo. `raw` pode ser qualquer coisa; retorna só
- * propostas válidas (ld/capa), com prefeitura mapeada e defaults aplicados.
+ * propostas válidas, com prefeitura mapeada e defaults aplicados. Kinds cobertos:
+ * ld | capa (INTOCADOS) + separatriz | auditoria | conferencia | volume (PR4,
+ * aditivo). Kinds desconhecidos são ignorados (degrada gracioso).
  */
 export function normalizeProposals(
   raw: unknown,
@@ -108,6 +115,46 @@ export function normalizeProposals(
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
           numTomos: clampTomos(p.numTomos),
         },
+      });
+    } else if (p.kind === "separatriz") {
+      // Mesma lógica de prefeitura/tomos da capa (reuso de matchPrefeitura/clampTomos).
+      const match = matchPrefeitura(
+        { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
+        ctx.prefeituras,
+      );
+      const templateId = match?.id ?? (String(p.templateId ?? "").trim() || firstTemplateId);
+      if (!templateId) continue; // sem prefeitura configurada, não propõe separatriz
+      out.push({
+        kind: "separatriz",
+        resumo:
+          String(p.resumo ?? "").trim() || `Separatriz ${match?.nome ?? ctx.disciplina}`,
+        params: {
+          templateId,
+          numTomos: clampTomos(p.numTomos),
+        },
+      });
+    } else if (p.kind === "auditoria") {
+      out.push({
+        kind: "auditoria",
+        resumo: String(p.resumo ?? "").trim() || `Auditoria ${ctx.disciplina}`,
+        params: {
+          // "deep" preservado; ausente/"xyz" → "standard".
+          nivel: clampNivel(p.nivel),
+        },
+      });
+    } else if (p.kind === "conferencia") {
+      // Sem decisão editável do usuário na v1: params vazio.
+      out.push({
+        kind: "conferencia",
+        resumo: String(p.resumo ?? "").trim() || `Conferência ${ctx.disciplina}`,
+        params: {},
+      });
+    } else if (p.kind === "volume") {
+      // Sem decisão editável do usuário na v1: params vazio.
+      out.push({
+        kind: "volume",
+        resumo: String(p.resumo ?? "").trim() || `Volume ${ctx.disciplina}`,
+        params: {},
       });
     }
   }
