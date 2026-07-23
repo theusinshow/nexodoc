@@ -23,8 +23,8 @@ import {
 } from "./use-agent-orb";
 
 const SIZE_PX: Record<NonNullable<AgentOrbProps["size"]>, number> = {
-  hero: 132,
-  compact: 80,
+  hero: 198,
+  compact: 120,
 };
 
 const STATE_LABEL: Record<AgentState, string> = {

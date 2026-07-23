@@ -1,10 +1,14 @@
 /**
  * GLSL do Nexo Core — inline (strings) porque o Turbopack não tem loader `.glsl`.
- * Linguagem: técnica/CAD, nada de neon/cyberpunk. Corpo escuro + aro Fresnel teal
- * discreto + facetas (derivadas de tela) + núcleo pulsante sutil + plano-scanner.
+ *
+ * Camadas (ref. esfera de vidro com "alma" fluida, à la Siri, mas na identidade
+ * NexoDoc — teal/luminoso, nada de arco-íris):
+ *  - CORE  : alma volumétrica (FBM com domain-warp) luminosa, aditiva.
+ *  - GLASS : esfera de vidro escura translúcida + Fresnel teal (a alma brilha através).
+ *  - SHELL : wireframe técnico fino (na Scene).
  */
 
-// Simplex noise 3D (Ashima Arts / Stefan Gustavson) — displacement procedural.
+// Simplex noise 3D (Ashima Arts / Stefan Gustavson).
 const SNOISE = /* glsl */ `
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
 vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
@@ -50,7 +54,14 @@ float snoise(vec3 v){
   m = m * m;
   return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
 }
+float fbm(vec3 p){
+  float v = 0.0; float a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * snoise(p); p *= 2.0; a *= 0.5; }
+  return v;
+}
 `;
+
+/* ---------------------------------------------------------------- GLASS ---- */
 
 export const surfaceVertexShader = /* glsl */ `
 uniform float uTime;
@@ -58,15 +69,13 @@ uniform float uDistort;
 uniform float uJitter;
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
-varying float vNoise;
 
 ${SNOISE}
 
 void main() {
-  // Deformação orgânica muito lenta + jitter breve no erro (quebra de malha).
-  float n = snoise(position * 1.7 + vec3(0.0, uTime * 0.14, uTime * 0.05));
-  float j = uJitter * 0.5 * snoise(position * 6.0 + uTime * 4.0);
-  vNoise = n;
+  // Ondulação de vidro muito leve + jitter breve no erro.
+  float n = snoise(position * 1.7 + vec3(0.0, uTime * 0.12, uTime * 0.04));
+  float j = uJitter * 0.4 * snoise(position * 6.0 + uTime * 4.0);
   vec3 displaced = position + normal * (n * uDistort + j);
   vec4 wp = modelMatrix * vec4(displaced, 1.0);
   vWorldPos = wp.xyz;
@@ -76,40 +85,109 @@ void main() {
 `;
 
 export const surfaceFragmentShader = /* glsl */ `
-uniform vec3 uColor;    // corpo escuro
+uniform vec3 uColor;    // tinta de vidro (escura)
 uniform vec3 uRimColor; // teal/luminoso
 uniform float uRim;
-uniform float uPulse;
 uniform float uScan;
 uniform float uTime;
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
-varying float vNoise;
 
 void main() {
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
+  float ndv = max(dot(viewDir, vNormalW), 0.0);
 
-  // Faceta técnica: normal por face via derivadas de tela (aspecto CAD/geodésico).
-  vec3 faceN = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
-  float facet = clamp(dot(faceN, viewDir), 0.0, 1.0);
-
-  // Corpo escuro com leve modelagem + tint teal mínimo pela deformação.
-  vec3 body = uColor * (0.22 + 0.4 * facet);
-  body += uRimColor * 0.05 * (vNoise * 0.5 + 0.5);
-
-  // Núcleo: luminosidade central pulsante (mais forte no miolo, 1 - fresnel).
-  float center = pow(max(dot(viewDir, vNormalW), 0.0), 2.0);
-  body += uRimColor * uPulse * center * 0.14;
-
-  // Fresnel (aro fino), nada excessivamente luminoso.
-  float fres = pow(1.0 - max(dot(viewDir, vNormalW), 0.0), 3.0);
+  // Fresnel amplo (corpo do vidro).
+  float fres = pow(1.0 - ndv, 2.2);
   vec3 rim = uRimColor * fres * uRim;
 
-  // Scanner técnico: banda horizontal atravessando a esfera (leitura).
-  float scanY = sin(uTime * 0.8) * 1.05;
-  float band = smoothstep(0.07, 0.0, abs(vWorldPos.y - scanY));
-  vec3 scan = uRimColor * band * uScan * 0.55;
+  // Aro DEFINIDO na silhueta — o contorno "inteiro" da bola de vidro.
+  // Expoente menor = anel mais ESPESSO.
+  float edgeRing = pow(1.0 - ndv, 4.5);
+  vec3 edge = mix(uRimColor, vec3(1.0), 0.35) * edgeRing;
 
-  gl_FragColor = vec4(body + rim + scan, 1.0);
+  // Sheen — reflexo suave de vidro pegando luz do alto-esquerda (glass feel).
+  vec3 lightDir = normalize(vec3(-0.55, 0.8, 0.5));
+  float sheen = pow(max(dot(vNormalW, lightDir), 0.0), 5.0);
+  vec3 glint = mix(uRimColor, vec3(1.0), 0.55) * sheen * 0.4;
+
+  // Corpo de vidro escuro translúcido (leve, pra a esfera ler INTEIRA).
+  vec3 body = uColor * 0.18;
+
+  // Scanner técnico (leitura): banda horizontal atravessando o vidro.
+  float scanY = sin(uTime * 0.8) * 1.05;
+  float band = smoothstep(0.06, 0.0, abs(vWorldPos.y - scanY));
+  vec3 scan = uRimColor * band * uScan * 0.5;
+
+  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85 + sheen * 0.28 + band * uScan * 0.4;
+  gl_FragColor = vec4(body + rim + edge + glint + scan, alpha);
+}
+`;
+
+/* ----------------------------------------------------------------- CORE ---- */
+
+export const coreVertexShader = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+/**
+ * "Alma" estilo Siri: lâminas/ribbons CURVAS (pinwheel ~5 pontas) saindo de um
+ * miolo branco brilhante, com gradiente teal→cyan→rosa. Duas camadas contra-
+ * rotativas defasadas dão o overlap sedoso. Braços DEFINIDOS (gaps escuros) para
+ * não virar massa luminosa. Warp de noise sutil = fluxo orgânico.
+ */
+export const coreFragmentShader = /* glsl */ `
+uniform float uTime;
+uniform float uActivity;
+uniform float uPulse;
+uniform vec3 uColorA; // teal
+uniform vec3 uColorB; // branco luminoso (miolo)
+uniform vec3 uColorC; // cyan
+uniform vec3 uColorD; // rosa/accent
+varying vec2 vUv;
+
+${SNOISE}
+
+void main() {
+  vec2 uv = (vUv - 0.5) * 2.0; // -1..1
+  float t = uTime * (0.5 + uActivity * 0.4);
+
+  // Warp orgânico sutil (fluxo sedoso, sem grão de fumaça).
+  vec2 warp = vec2(
+    snoise(vec3(uv * 0.9, t * 0.25)),
+    snoise(vec3(uv * 0.9 + 5.0, t * 0.25))
+  ) * 0.16;
+  vec2 q = uv + warp;
+  float r = length(q);
+  float ang = atan(q.y, q.x);
+
+  // Camada 1 — braços curvos (o twist +k*r encurva em pinwheel).
+  float a1 = ang + 2.1 * r + t * 0.55;
+  float blade1 = pow(max(cos(a1 * 2.5), 0.0), 2.2); // ~5 lâminas
+
+  // Camada 2 — contramão, defasada (overlap sedoso).
+  float a2 = ang - 2.6 * r - t * 0.45 + 1.3;
+  float blade2 = pow(max(cos(a2 * 2.0), 0.0), 2.6); // ~4 lâminas
+
+  // Envelope radial: some na borda (limiar perturbado por noise = borda irregular).
+  float env = smoothstep(1.0, 0.3, r);
+  blade1 *= env;
+  blade2 *= env;
+
+  // Miolo branco brilhante (pequeno e definido).
+  float core = smoothstep(0.34, 0.0, r);
+  float coreGlow = pow(core, 1.5) * (0.8 + 0.2 * uPulse);
+
+  // Cor: lâmina 1 teal→cyan pra fora; lâmina 2 accent (rosa); miolo branco.
+  vec3 c1 = mix(uColorA, uColorC, smoothstep(0.15, 0.9, r));
+  vec3 col = c1 * blade1 + uColorD * blade2 * 0.85 + uColorB * coreGlow;
+
+  float mask = smoothstep(1.0, 0.82, r);
+  float alpha = clamp(blade1 + blade2 * 0.85 + coreGlow, 0.0, 1.0) * mask;
+  gl_FragColor = vec4(col, alpha * (0.92 + uActivity * 0.08));
 }
 `;
