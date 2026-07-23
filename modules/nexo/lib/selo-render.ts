@@ -164,22 +164,19 @@ async function postExtractStamp(
   }
 }
 
-/** Le o selo de UMA pagina de UM PDF. */
+/** Le o selo de UMA pagina de um documento pdf.js JA ABERTO (sem re-parsear). */
 async function extractSeloFromPage(
-  pdfjs: PdfjsModule,
+  doc: { getPage: (n: number) => Promise<unknown> },
   file: File,
-  data: ArrayBuffer,
   pageNumber: number,
   pageCount: number,
 ): Promise<SeloResult> {
   try {
-    const doc = await pdfjs.getDocument({ data: data.slice(0) }).promise;
     const page = await doc.getPage(pageNumber);
     const [imageDataUrl, pdfText] = await Promise.all([
       renderSeloCrop(page as never),
       buildSeloText(page as never),
     ]);
-    await doc.destroy();
     const extraction = await postExtractStamp(imageDataUrl, pdfText, {
       fileName: file.name,
       pageNumber,
@@ -207,35 +204,34 @@ export async function extractSelosFromFiles(
   onResult?: (result: SeloResult) => void,
 ): Promise<SeloResult[]> {
   const pdfjs = await loadPdfjs();
+  const results: SeloResult[] = [];
 
-  // Enumera (arquivo, pagina) de todas as pranchas.
-  const jobs: { file: File; data: ArrayBuffer; pageNumber: number; pageCount: number }[] = [];
+  // Abre CADA arquivo UMA vez e itera as paginas do MESMO documento — sem
+  // re-parsear o PDF inteiro por pagina nem copiar o ArrayBuffer (data.slice(0))
+  // a cada pagina. Mantem <=MAX_CONCURRENT leituras de selo simultaneas.
   for (const file of files) {
     const data = await file.arrayBuffer();
-    const doc = await pdfjs.getDocument({ data: data.slice(0) }).promise;
+    const doc = await pdfjs.getDocument({ data }).promise;
     const pageCount = doc.numPages;
-    await doc.destroy();
-    for (let p = 1; p <= pageCount; p += 1) {
-      jobs.push({ file, data, pageNumber: p, pageCount });
+    try {
+      let cursor = 1;
+      const worker = async () => {
+        for (;;) {
+          const pageNumber = cursor;
+          cursor += 1;
+          if (pageNumber > pageCount) break;
+          const result = await extractSeloFromPage(doc, file, pageNumber, pageCount);
+          results.push(result);
+          onResult?.(result);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(MAX_CONCURRENT, pageCount) }, worker),
+      );
+    } finally {
+      await doc.destroy();
     }
   }
 
-  const results: SeloResult[] = [];
-  let cursor = 0;
-  async function worker() {
-    while (cursor < jobs.length) {
-      const job = jobs[cursor++];
-      const result = await extractSeloFromPage(
-        pdfjs,
-        job.file,
-        job.data,
-        job.pageNumber,
-        job.pageCount,
-      );
-      results.push(result);
-      onResult?.(result);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENT, jobs.length) }, worker));
   return results;
 }
