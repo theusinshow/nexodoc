@@ -11,7 +11,7 @@
 
 import { cn } from "@/lib/utils";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { NexoOrb } from "./NexoOrb";
+import { AgentOrb } from "./agent-orb";
 import { NexoChat, type ReadStatus } from "./NexoChat";
 
 export function NexoCopilot({
@@ -35,7 +35,7 @@ export function NexoCopilot({
       )}
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">
-        <NexoOrb state="idle" className={started ? "w-9" : "w-16"} />
+        <AgentOrb state="idle" size={started ? "compact" : "hero"} interactive />
         {!started && (
           <div className="space-y-1.5">
             <h2 className="text-2xl font-medium tracking-[-0.01em]">
