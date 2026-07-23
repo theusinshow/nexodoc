@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Cena do Nexo Core — CORE (alma) + GLASS (vidro) + SHELL (wireframe técnico).
+ * Cena do Nexo Core — CORE (alma/vortex) + GLASS (vidro) + satélites/anel de drop.
  * ÚNICO ponto com `useFrame`; animação por mutação direta de uniforms/transform
  * via REFS (zero re-render; ok pro React Compiler). Params fazem damping do atual
  * → alvo (o alvo vem do estado do agente). Sem luzes: shaders auto-iluminados.
@@ -112,7 +112,7 @@ export function AgentOrbScene({
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     invalidate();
-  }, [state, activity, hovered, reduced, invalidate]);
+  }, [state, activity, fileCount, hovered, reduced, invalidate]);
 
   useFrame((s, delta) => {
     const surf = surfaceRef.current;
@@ -131,7 +131,6 @@ export function AgentOrbScene({
     c.distortion = d(c.distortion, t.distortion + h * 0.015);
     c.pulse = d(c.pulse, t.pulse);
     c.rim = d(c.rim, t.rim + h * 0.18);
-    c.line = d(c.line, t.line + h * 0.12);
     c.scan = d(c.scan, t.scan);
     c.spin = d(c.spin, t.spin);
     c.jitter = d(c.jitter, t.jitter);
@@ -178,11 +177,14 @@ export function AgentOrbScene({
       const rad = 1.34 + 0.1 * Math.sin(i * 2.1);
       const speed = 0.16 + (i % 3) * 0.05;
       const ang = i * ((Math.PI * 2) / MAX_SATS) + tt * speed;
+      const z = Math.sin(ang * 1.3) * rad * 0.22;
       m.position.set(
         Math.cos(ang) * rad,
         Math.sin(ang) * rad * 0.62 + Math.sin(tt * 0.6 + i) * 0.05,
-        Math.sin(ang * 1.3) * rad * 0.22,
+        z,
       );
+      // Oclusão por profundidade: esmaece quando passa ATRÁS do vidro (z < 0).
+      (m.material as THREE.MeshBasicMaterial).opacity = z < 0 ? 0.28 : 0.9;
     }
   });
 
@@ -190,7 +192,7 @@ export function AgentOrbScene({
     <group ref={outerRef}>
       {/* CORE — a "alma"/vortex, num plano DE FRENTE pra câmera (não gira). */}
       <mesh renderOrder={-1}>
-        <planeGeometry args={[2.15, 2.15]} />
+        <planeGeometry args={[2.0, 2.0]} />
         <orbCoreMaterial
           ref={coreRef}
           key={OrbCoreMaterial.key}

@@ -3,9 +3,8 @@
  *
  * Camadas (ref. esfera de vidro com "alma" fluida, à la Siri, mas na identidade
  * NexoDoc — teal/luminoso, nada de arco-íris):
- *  - CORE  : alma volumétrica (FBM com domain-warp) luminosa, aditiva.
+ *  - CORE  : alma/vortex (lâminas curvas + FBM) luminosa, aditiva.
  *  - GLASS : esfera de vidro escura translúcida + Fresnel teal (a alma brilha através).
- *  - SHELL : wireframe técnico fino (na Scene).
  */
 
 // Simplex noise 3D (Ashima Arts / Stefan Gustavson).
@@ -135,19 +134,20 @@ void main() {
 `;
 
 /**
- * "Alma" estilo Siri: lâminas/ribbons CURVAS (pinwheel ~5 pontas) saindo de um
- * miolo branco brilhante, com gradiente teal→cyan→rosa. Duas camadas contra-
- * rotativas defasadas dão o overlap sedoso. Braços DEFINIDOS (gaps escuros) para
- * não virar massa luminosa. Warp de noise sutil = fluxo orgânico.
+ * "Alma" forma Siri, COR mono-teal (identidade NexoDoc): lâminas/ribbons CURVAS
+ * (pinwheel ~5 pontas) saindo de um miolo branco brilhante, gradiente teal →
+ * teal-claro → branco. Duas camadas contra-rotativas defasadas dão o overlap
+ * sedoso. Braços DEFINIDOS (gaps escuros) p/ não virar massa luminosa. Warp de
+ * noise sutil = fluxo orgânico.
  */
 export const coreFragmentShader = /* glsl */ `
 uniform float uTime;
 uniform float uActivity;
 uniform float uPulse;
-uniform vec3 uColorA; // teal
+uniform vec3 uColorA; // teal profundo
 uniform vec3 uColorB; // branco luminoso (miolo)
-uniform vec3 uColorC; // cyan
-uniform vec3 uColorD; // rosa/accent
+uniform vec3 uColorC; // teal claro
+uniform vec3 uColorD; // teal quase branco (2a camada)
 varying vec2 vUv;
 
 ${SNOISE}
@@ -173,8 +173,8 @@ void main() {
   float a2 = ang - 2.6 * r - t * 0.45 + 1.3;
   float blade2 = pow(max(cos(a2 * 2.0), 0.0), 2.6); // ~4 lâminas
 
-  // Envelope radial: some na borda (limiar perturbado por noise = borda irregular).
-  float env = smoothstep(1.0, 0.3, r);
+  // Envelope radial: some ANTES da borda (0.92) → o glow fica CONTIDO no vidro.
+  float env = smoothstep(0.92, 0.3, r);
   blade1 *= env;
   blade2 *= env;
 
@@ -182,11 +182,11 @@ void main() {
   float core = smoothstep(0.34, 0.0, r);
   float coreGlow = pow(core, 1.5) * (0.8 + 0.2 * uPulse);
 
-  // Cor: lâmina 1 teal→cyan pra fora; lâmina 2 accent (rosa); miolo branco.
+  // Cor mono-teal: lâmina 1 teal→teal-claro pra fora; lâmina 2 teal-branco; miolo branco.
   vec3 c1 = mix(uColorA, uColorC, smoothstep(0.15, 0.9, r));
   vec3 col = c1 * blade1 + uColorD * blade2 * 0.85 + uColorB * coreGlow;
 
-  float mask = smoothstep(1.0, 0.82, r);
+  float mask = smoothstep(0.95, 0.78, r);
   float alpha = clamp(blade1 + blade2 * 0.85 + coreGlow, 0.0, 1.0) * mask;
   gl_FragColor = vec4(col, alpha * (0.92 + uActivity * 0.08));
 }

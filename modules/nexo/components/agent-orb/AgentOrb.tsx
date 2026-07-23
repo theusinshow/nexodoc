@@ -74,16 +74,14 @@ export function AgentOrb({
   const [hovered, setHovered] = useState(false);
 
   const px = SIZE_PX[size];
-  // Hover só "eleva" o idle; estados de trabalho mandam sobre o hover.
-  const effectiveState: AgentState =
-    hovered && state === "idle" ? "hover" : state;
-
+  // Hover é uma reação FÍSICA amortecida (boost no Scene via `hovered`), não uma
+  // troca de estado — evita aplicar o realce em dobro. Estados de trabalho mandam.
   const isButton = interactive && Boolean(onActivate);
 
   return (
     <div
       role={isButton ? "button" : "img"}
-      aria-label={STATE_LABEL[effectiveState]}
+      aria-label={STATE_LABEL[state]}
       tabIndex={isButton ? 0 : undefined}
       onPointerEnter={interactive ? () => setHovered(true) : undefined}
       onPointerLeave={interactive ? () => setHovered(false) : undefined}
@@ -109,7 +107,7 @@ export function AgentOrb({
     >
       {webgl ? (
         <AgentOrbCanvas
-          state={effectiveState}
+          state={state}
           activity={activity}
           fileCount={fileCount}
           hovered={hovered}

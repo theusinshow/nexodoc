@@ -40,10 +40,8 @@ export interface OrbVisualParams {
   distortion: number;
   /** Glow pulsante do núcleo. */
   pulse: number;
-  /** Força do Fresnel (aro). */
+  /** Força do Fresnel (aro do vidro). */
   rim: number;
-  /** Opacidade das linhas técnicas (shell). */
-  line: number;
   /** Plano de leitura (scanner técnico) 0..1. */
   scan: number;
   /** Multiplicador de rotação lenta. */
@@ -54,7 +52,8 @@ export interface OrbVisualParams {
 
 /**
  * Alvos por estado. Coerente com engenharia/CAD: movimento lento, nada frenético.
- * `responding` soma `activity`. Fase 1 usa idle/hover; o resto entra na Fase 2.
+ * `responding` soma `activity` (reservado p/ streaming futuro; hoje o tradutor
+ * usa `analyzing`).
  */
 export function paramsForState(
   state: AgentState,
@@ -63,31 +62,30 @@ export function paramsForState(
   const a = Math.max(0, Math.min(1, activity));
   switch (state) {
     case "hover":
-      return { distortion: 0.09, pulse: 0.28, rim: 0.8, line: 0.5, scan: 0, spin: 0.22, jitter: 0 };
+      return { distortion: 0.09, pulse: 0.28, rim: 0.8, scan: 0, spin: 0.22, jitter: 0 };
     case "dragging":
-      return { distortion: 0.12, pulse: 0.4, rim: 0.95, line: 0.65, scan: 0, spin: 0.26, jitter: 0 };
+      return { distortion: 0.12, pulse: 0.4, rim: 0.95, scan: 0, spin: 0.26, jitter: 0 };
     case "uploading":
-      return { distortion: 0.11, pulse: 0.5, rim: 0.85, line: 0.55, scan: 0.35, spin: 0.3, jitter: 0 };
+      return { distortion: 0.11, pulse: 0.5, rim: 0.85, scan: 0.35, spin: 0.3, jitter: 0 };
     case "reading":
-      return { distortion: 0.08, pulse: 0.32, rim: 0.72, line: 0.55, scan: 1, spin: 0.2, jitter: 0 };
+      return { distortion: 0.08, pulse: 0.32, rim: 0.72, scan: 1, spin: 0.2, jitter: 0 };
     case "analyzing":
-      return { distortion: 0.17, pulse: 0.62, rim: 0.88, line: 0.72, scan: 0.25, spin: 0.36, jitter: 0 };
+      return { distortion: 0.17, pulse: 0.62, rim: 0.88, scan: 0.25, spin: 0.36, jitter: 0 };
     case "responding":
       return {
         distortion: 0.1 + a * 0.1,
         pulse: 0.35 + a * 0.4,
         rim: 0.8,
-        line: 0.55,
         scan: 0,
         spin: 0.28 + a * 0.12,
         jitter: 0,
       };
     case "complete":
-      return { distortion: 0.05, pulse: 0.7, rim: 0.92, line: 0.42, scan: 0, spin: 0.16, jitter: 0 };
+      return { distortion: 0.05, pulse: 0.7, rim: 0.92, scan: 0, spin: 0.16, jitter: 0 };
     case "error":
-      return { distortion: 0.14, pulse: 0.3, rim: 0.62, line: 0.5, scan: 0, spin: 0.1, jitter: 1 };
+      return { distortion: 0.14, pulse: 0.3, rim: 0.62, scan: 0, spin: 0.1, jitter: 1 };
     case "idle":
     default:
-      return { distortion: 0.06, pulse: 0.16, rim: 0.52, line: 0.26, scan: 0, spin: 0.15, jitter: 0 };
+      return { distortion: 0.06, pulse: 0.16, rim: 0.52, scan: 0, spin: 0.15, jitter: 0 };
   }
 }
