@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Waypoints, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Loader2, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoAgentProposal, NexoAgentTurn, NexoSlotRequest } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -27,26 +25,22 @@ interface ChatMsg {
 }
 
 /**
- * Chat do agente Nexo. O usuário conversa; o agente afirma os fatos dos selos e
- * devolve PROPOSTAS que renderizam como `ConfirmationCard` READ-ONLY (C1) — nunca
- * formulário. A geração — passo irreversível — só acontece ao clicar "Confirmar e
- * gerar" no card, que chama a rota determinística. Corrigir reabre o slot em
- * conversa (chips `alterar`, que escrevem no composer via ComposerController).
+ * Chat do agente Nexo — caixa delimitada (log + composer docado), sem cabeçalho
+ * próprio: a identidade (orb + saudação) vive acima, no NexoCopilot. O usuário
+ * conversa; o agente devolve PROPOSTAS como `ConfirmationCard` READ-ONLY (C1). A
+ * geração — irreversível — só no clique "Confirmar e gerar". Correção reabre o
+ * slot em conversa (chips `alterar` via ComposerController).
  *
- * O `ComposerControllerProvider` vive ACIMA (no NexoShell/NexoWorkspace), para os
- * SuggestionCards do welcome também alcançarem o composer. `onSend` avisa o dono
- * do shell no primeiro envio, latcheando `started` (welcome→active).
+ * `onSend` avisa o dono do shell no 1º envio (latcheia `started`). O
+ * `ComposerControllerProvider` vive acima (NexoWorkspace).
  */
 export function NexoChat({
   selos,
   onSend,
-  variant = "docked",
   onAttach,
 }: {
   selos: SeloForLd[];
   onSend?: () => void;
-  /** `hero` no welcome (só o composer visível); `docked` na conversa. */
-  variant?: "hero" | "docked";
   onAttach?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -57,7 +51,6 @@ export function NexoChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const registerComposer = useRegisterComposer();
-  const isHero = variant === "hero";
 
   useEffect(() => {
     fetch("/api/capas/templates")
@@ -117,8 +110,6 @@ export function NexoChat({
     registerComposer({
       fill: (text) => {
         setInput(text);
-        // Foca e leva o cursor ao FIM (as frases dos chips "alterar" são
-        // andaimes que o usuário completa — selecionar tudo apagaria o andaime).
         requestAnimationFrame(() => {
           const el = inputRef.current;
           if (!el) return;
@@ -136,37 +127,12 @@ export function NexoChat({
   const semSelos = selos.length === 0;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col",
-        variant === "docked"
-          ? "min-h-[280px] rounded-md border border-border bg-card"
-          : "gap-3",
-      )}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-between border-b border-border px-4 py-3",
-          isHero && "hidden",
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <Waypoints className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
-            Conversa
-          </span>
-        </div>
-        <Badge variant="warning">Beta</Badge>
-      </div>
-
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
       <div
         ref={scrollRef}
         role="log"
         aria-label="Conversa com o Nexo"
-        className={cn(
-          "flex-1 space-y-3 overflow-y-auto px-4 py-4",
-          isHero && "hidden",
-        )}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         {messages.length === 0 ? (
           <EmptyState
@@ -211,9 +177,9 @@ export function NexoChat({
         </div>
       )}
 
-      <div className={cn(variant === "docked" && "border-t border-border p-3")}>
+      <div className="border-t border-border p-3">
         <NexoComposer
-          variant={variant}
+          variant="docked"
           value={input}
           onChange={setInput}
           onSubmit={() => void send()}

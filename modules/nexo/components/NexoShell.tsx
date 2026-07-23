@@ -1,18 +1,16 @@
 "use client";
 
 /**
- * NexoShell (§1 da ARQUITETURA.md) — a topologia do reflow, DERIVADA do latch
- * `started` (nunca setada à mão). `started:false` = welcome (coluna única
- * centralizada); `true` = active (rail | stage | copiloto).
+ * NexoShell (§1 + nova direção de layout 2026-07-23) — 3 colunas full-height,
+ * DERIVADAS do latch `started`:
+ * - sidebar: SEMPRE (col 1).
+ * - stage (trabalho/canvas): só no active (col 2, centro).
+ * - copiloto (orb + chat): SEMPRE — no welcome ocupa o centro (col 2, centralizado
+ *   com largura de leitura); no active vai pra col 3 (direita).
  *
- * Invariante de continuidade (§1): o nó do copiloto (chat+composer) está SEMPRE
- * no DOM — só muda de área no layout. Por isso `copilot` é renderizado fora do
- * `if`; welcome-chrome, rail e stage é que montam/desmontam na transição. Assim o
- * slide (FLIP nativo, via `view-transition-name` no CSS) preserva histórico,
- * scroll e foco do copiloto.
- *
- * É PRESENTACIONAL: o latch e o `runShellTransition` vivem no dono do estado
- * (NexoWorkspace, que também detém os selos compartilhados por stage e copiloto).
+ * Invariante de continuidade (§1): sidebar e copiloto estão SEMPRE no DOM — só o
+ * stage monta/desmonta. O slide (FLIP nativo via `view-transition-name`) reposiciona
+ * o copiloto centro→direita preservando histórico/scroll/foco do chat.
  */
 
 import type { ReactNode } from "react";
@@ -21,14 +19,12 @@ import { cn } from "@/lib/utils";
 
 export function NexoShell({
   started,
-  welcome,
-  rail,
+  sidebar,
   stage,
   copilot,
 }: {
   started: boolean;
-  welcome: ReactNode;
-  rail: ReactNode;
+  sidebar: ReactNode;
   stage: ReactNode;
   copilot: ReactNode;
 }) {
@@ -40,14 +36,13 @@ export function NexoShell({
         started ? "nexo-shell--active" : "nexo-shell--welcome",
       )}
     >
-      {!started && <div className="nexo-shell__welcome">{welcome}</div>}
-      {started && <div className="nexo-shell__rail">{rail}</div>}
+      <div className="nexo-shell__sidebar">{sidebar}</div>
       {started && (
         <main className="nexo-shell__stage" aria-label="Trabalho">
           {stage}
         </main>
       )}
-      {/* SEMPRE montado — reposicionado, nunca desmontado (invariante §1). */}
+      {/* SEMPRE montado — reposicionado centro→direita (invariante §1). */}
       <aside className="nexo-shell__copilot" aria-label="Nexo">
         {copilot}
       </aside>

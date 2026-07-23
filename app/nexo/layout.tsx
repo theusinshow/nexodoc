@@ -12,7 +12,7 @@ export default function NexoLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppShell moduleName="Nexo" version="beta">
+    <AppShell moduleName="Nexo" version="beta" fullBleed>
       {children}
     </AppShell>
   );

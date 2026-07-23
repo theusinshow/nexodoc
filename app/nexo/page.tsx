@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { isNexoEnabled } from "@/lib/feature-flags";
-import { PageHeader } from "@/components/layout/page-header";
 import { NexoWorkspace } from "@/modules/nexo";
 
 export default async function NexoPage() {
@@ -25,14 +24,7 @@ export default async function NexoPage() {
     redirect("/login");
   }
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <PageHeader
-        backHref="/"
-        title="Nexo"
-        description="Assistente que orquestra LD, capas, volume e auditoria a partir dos PDFs do projeto. Em construcao: hoje aceita os arquivos; o agente chega na proxima fase."
-      />
-      <NexoWorkspace />
-    </div>
-  );
+  // Full-bleed: o NexoWorkspace gerencia o próprio layout de 3 colunas full-height
+  // (sidebar | stage | copiloto). O "voltar" mora na sidebar.
+  return <NexoWorkspace />;
 }

@@ -95,8 +95,9 @@
   --duration-shell: 320ms;
   --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
-  /* Largura da coluna do copiloto no layout active do Nexo. */
+  /* Larguras das colunas do shell do Nexo. */
   --nexo-copilot-w: 400px;
+  --nexo-sidebar-w: 240px;
 }
 
 /* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as
@@ -440,46 +441,55 @@ textarea {
    ========================================================================== */
 
 .nexo-shell {
-  min-height: 60vh;
-}
-
-/* Welcome: coluna unica centralizada (§1 "topologia"). */
-.nexo-shell--welcome {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 1.5rem;
-  max-width: 640px;
-  margin-inline: auto;
-}
-
-/* Active: rail | stage (trabalho) | copiloto (chat docado). */
-.nexo-shell--active {
+  height: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) var(--nexo-copilot-w);
-  align-items: start;
   gap: 1rem;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* Welcome: sidebar | copiloto (centro, largura de leitura). Sem stage. */
+.nexo-shell--welcome {
+  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr);
+}
+
+.nexo-shell--welcome .nexo-shell__copilot {
+  width: 100%;
+  max-width: 760px;
+  justify-self: center;
+}
+
+/* Active: sidebar | stage (trabalho/canvas) | copiloto (chat docado). */
+.nexo-shell--active {
+  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr) var(--nexo-copilot-w);
+}
+
+.nexo-shell__sidebar {
+  min-width: 0;
+  height: 100%;
 }
 
 /* Nomes estaveis do FLIP: o browser anima transform+opacity do snapshot. */
-.nexo-shell__copilot {
-  view-transition-name: nexo-copilot;
-}
-
 .nexo-shell__stage {
   view-transition-name: nexo-stage;
   min-width: 0;
+  height: 100%;
 }
 
 .nexo-shell__copilot {
+  view-transition-name: nexo-copilot;
   min-width: 0;
+  height: 100%;
 }
 
-/* <1024px: stage full-width, copiloto empilha embaixo (drawer real fica pro
-   passo de responsivo). Welcome identico em qualquer largura. */
+/* <1024px: 1 coluna, sidebar recolhe (drawer real fica pro passo de responsivo). */
 @media (max-width: 1024px) {
+  .nexo-shell--welcome,
   .nexo-shell--active {
     grid-template-columns: 1fr;
+  }
+
+  .nexo-shell__sidebar {
+    display: none;
   }
 }
 
@@ -546,7 +556,16 @@ textarea {
   box-shadow: var(--glass-edge), 0 0 0 1px var(--glass-ring);
 }
 
-/* Composer: anel teal ao focar (Apêndice H). O tint de vidro fica; só o anel entra. */
+/* Composer: superfície RAISED clara (o vidro puro some sobre o fundo quase-preto
+   do welcome, onde não há nada atrás pra refratar). Mantém a borda de --input
+   visível + o fio de luz; o backdrop-filter do .nexo-glass ainda refrata quando
+   há conteúdo atrás (log no docked). Anel teal ao focar (Apêndice H). */
+.nexo-composer {
+  background: var(--nexodoc-raised);
+  border-color: var(--input);
+  box-shadow: var(--glass-edge);
+}
+
 .nexo-composer:focus-within {
   box-shadow: var(--glass-edge), 0 0 0 1px var(--glass-ring);
   border-color: var(--ring);
@@ -581,15 +600,15 @@ textarea {
 .nexo-welcome-wash::before {
   content: "";
   position: absolute;
-  inset: -20% -10% auto -10%;
-  height: 60%;
+  inset: 0 -10%;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(40% 60% at 30% 20%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%),
-    radial-gradient(45% 55% at 75% 15%, color-mix(in srgb, var(--ring) 16%, transparent), transparent 70%);
-  filter: blur(48px);
-  opacity: 0.6;
+    radial-gradient(38% 42% at 50% 28%, color-mix(in srgb, var(--primary) 26%, transparent), transparent 72%),
+    radial-gradient(44% 40% at 28% 20%, color-mix(in srgb, var(--ring) 16%, transparent), transparent 72%),
+    radial-gradient(50% 45% at 74% 70%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 74%);
+  filter: blur(52px);
+  opacity: 0.85;
 }
 
 @media (prefers-reduced-transparency: reduce) {

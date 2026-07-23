@@ -34,11 +34,9 @@ import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-pa
 import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
 import { ArtifactStoreProvider } from "../state/artifact-store";
-import { NexoChat } from "./NexoChat";
 import { NexoShell } from "./NexoShell";
-import { NexoRail } from "./NexoRail";
-import { NexoOrb } from "./NexoOrb";
-import { SuggestionCards } from "./SuggestionCards";
+import { NexoSidebar } from "./NexoSidebar";
+import { NexoCopilot } from "./NexoCopilot";
 import { NexoCanvas } from "./NexoCanvas";
 
 function formatBytes(bytes: number): string {
@@ -274,71 +272,17 @@ export function NexoWorkspace() {
 
       <NexoShell
         started={started}
-        rail={<NexoRail onNewConversation={reset} />}
+        sidebar={<NexoSidebar onNewConversation={reset} />}
         copilot={
-          <NexoChat
+          <NexoCopilot
+            started={started}
             selos={selos}
             onSend={start}
-            variant={started ? "docked" : "hero"}
             onAttach={() => inputRef.current?.click()}
           />
         }
-        welcome={
-          <div className="nexo-welcome-wash flex flex-col items-center gap-6 py-6 text-center">
-            <NexoOrb state={loading ? "thinking" : "idle"} className="w-20" />
-            <div className="space-y-1">
-              <h2 className="text-2xl font-medium tracking-[-0.01em]">
-                O que vamos montar?
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Solte os PDFs do projeto e escolha uma ação — ou peça em texto no
-                campo abaixo.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
-                Anexar PDFs
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => dirRef.current?.click()}
-              >
-                <FolderUp className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
-                Anexar pasta
-              </Button>
-            </div>
-            {loading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                Lendo…
-              </div>
-            )}
-            {totalArquivos > 0 && !loading && (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-mono tabular-nums">{totalArquivos}</span>{" "}
-                arquivo(s) lidos{dossie?.obra ? ` · ${dossie.obra}` : ""}.
-              </p>
-            )}
-            {error && (
-              <div role="alert" className="text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            <SuggestionCards
-              onPick={start}
-              fileCount={totalArquivos}
-              className="w-full"
-            />
-          </div>
-        }
         stage={
-          <div className="space-y-4">
+          <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
             <NexoCanvas />
             <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
             <div className="space-y-3">

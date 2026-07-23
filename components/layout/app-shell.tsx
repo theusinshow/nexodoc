@@ -7,6 +7,12 @@ interface AppShellProps {
   /** Rotulo de versao opcional no canto direito do cabecalho. */
   version?: string;
   className?: string;
+  /**
+   * Full-bleed: o conteudo ocupa toda a largura e a altura restante abaixo do
+   * cabecalho (sem max-w nem padding). Para telas que gerenciam o proprio layout
+   * de colunas full-height (ex.: o shell conversacional do Nexo).
+   */
+  fullBleed?: boolean;
 }
 
 export function AppShell({
@@ -14,10 +20,17 @@ export function AppShell({
   moduleName,
   version,
   className,
+  fullBleed = false,
 }: AppShellProps) {
   return (
-    <div className={cn("min-h-dvh bg-background text-foreground", className)}>
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 px-5 py-3">
+    <div
+      className={cn(
+        "bg-background text-foreground",
+        fullBleed ? "flex h-dvh flex-col" : "min-h-dvh",
+        className,
+      )}
+    >
+      <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 px-5 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -31,7 +44,11 @@ export function AppShell({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
+      {fullBleed ? (
+        <main className="min-h-0 flex-1 px-4 py-4">{children}</main>
+      ) : (
+        <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
+      )}
     </div>
   );
 }
