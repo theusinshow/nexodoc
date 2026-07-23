@@ -8,6 +8,7 @@ import {
   runNexoAgentTurn,
   type NexoAgentPrefeitura,
 } from "@/server/nexo/agent/run-turn";
+import { buildSlotRequestForTurn } from "@/server/nexo/agent/slot-request";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const turn = await runNexoAgentTurn({ message, history, resumo, prefeituras });
-    return NextResponse.json({ turn, ldPreview });
+    // Pós-processamento determinístico: se ainda falta uma DECISÃO humana (ex.:
+    // título da LD), anexa o slotRequest com pré-respostas (§3). A IA não decide
+    // isto — o SlotResolver puro decide a partir dos params já propostos.
+    const now = new Date();
+    const slotRequest = buildSlotRequestForTurn(turn.proposals, {
+      selos,
+      disciplina: resumo.disciplina,
+      obra: resumo.obra,
+      prefeituras,
+      mesAtual: now.getMonth() + 1,
+      anoAtual: now.getFullYear(),
+    });
+    return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });
   } catch (err) {
     return NextResponse.json(
       {
