@@ -28,7 +28,10 @@ import {
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/nexodoc-pdf-engine.mjs";
+// O worker precisa casar com o pdfjs aninhado do react-pdf (5.4.296), NÃO o
+// engine do selo (5.7.284) — senão "API version does not match Worker version"
+// e nada renderiza. Usa a cópia do worker do próprio react-pdf.
+pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.react-pdf.mjs";
 
 interface PageAssetTrayProps {
   assets: PageAsset[];

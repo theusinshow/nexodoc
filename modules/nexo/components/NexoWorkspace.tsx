@@ -33,11 +33,13 @@ import {
 import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
 import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
+import { ArtifactStoreProvider } from "../state/artifact-store";
 import { NexoChat } from "./NexoChat";
 import { NexoShell } from "./NexoShell";
 import { NexoRail } from "./NexoRail";
 import { NexoOrb } from "./NexoOrb";
 import { SuggestionCards } from "./SuggestionCards";
+import { NexoCanvas } from "./NexoCanvas";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -233,6 +235,7 @@ export function NexoWorkspace() {
 
   return (
     <ComposerControllerProvider>
+     <ArtifactStoreProvider>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
       {dragging && (
         <div
@@ -335,7 +338,9 @@ export function NexoWorkspace() {
           </div>
         }
         stage={
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          <div className="space-y-4">
+            <NexoCanvas />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
             <div className="space-y-3">
               <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
                 Entrada
@@ -493,8 +498,10 @@ export function NexoWorkspace() {
 
         </div>
       </div>
+          </div>
         }
       />
+     </ArtifactStoreProvider>
     </ComposerControllerProvider>
   );
 }

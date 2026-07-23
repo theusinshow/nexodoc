@@ -45,6 +45,7 @@ import {
   type CapaGenResult,
 } from "../lib/generate";
 import { useComposer } from "../state/composer-controller";
+import { useArtifactStore } from "../state/artifact-store";
 
 /** Prévia determinística das folhas que vão para a LD (vem da rota /agent). */
 export interface LdPreviewData {
@@ -227,6 +228,7 @@ function LdConfirmation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LdGenResult | null>(null);
+  const { addArtifact } = useArtifactStore();
 
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
@@ -235,7 +237,16 @@ function LdConfirmation({
     setBusy(true);
     setError(null);
     try {
-      setResult(await postLd(selos, { tituloLd: titulo, numTomos: params.numTomos }));
+      const r = await postLd(selos, { tituloLd: titulo, numTomos: params.numTomos });
+      setResult(r);
+      addArtifact({
+        id: `ld:${r.resumo.codigo}:${r.resumo.revisao}`,
+        kind: "ld",
+        label: `LD ${r.resumo.disciplina}`,
+        detail: `${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
+        pdfUrl: r.pdfUrl,
+        pageNumber: 1,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
     } finally {
@@ -350,6 +361,7 @@ function CapaConfirmation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CapaGenResult | null>(null);
+  const { addArtifact } = useArtifactStore();
 
   const template = templates.find((t) => t.id === params.templateId);
   const prefeituraNome = template
@@ -363,13 +375,20 @@ function CapaConfirmation({
     setBusy(true);
     setError(null);
     try {
-      setResult(
-        await postCapa(selos, {
-          templateId: params.templateId,
-          volume: params.volume,
-          numTomos: params.numTomos,
-        }),
-      );
+      const r = await postCapa(selos, {
+        templateId: params.templateId,
+        volume: params.volume,
+        numTomos: params.numTomos,
+      });
+      setResult(r);
+      addArtifact({
+        id: `capa:${r.resumo.codigo}:${r.resumo.volume}`,
+        kind: "capa",
+        label: `Capa ${r.resumo.prefeitura}`,
+        detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
+        pdfUrl: r.pdfUrl,
+        pageNumber: 1,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
     } finally {
