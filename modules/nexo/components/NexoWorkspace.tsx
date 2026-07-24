@@ -17,7 +17,6 @@ import {
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
-import { NexoCanvas } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 
@@ -385,7 +384,6 @@ function NexoWorkspaceInner() {
             onDelete={conv.removeConversation}
           />
         }
-        stage={<NexoCanvas pranchasCount={okCount} />}
         copilot={
           <NexoCopilot
             key={convId}

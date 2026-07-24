@@ -126,69 +126,93 @@ export function NexoChat({
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Log aberto — sem "card" embrulhando (respiro). Coluna de leitura central. */}
       <div
         ref={scrollRef}
         role="log"
         aria-label="Conversa com o Nexo"
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className="min-h-0 flex-1 overflow-y-auto"
       >
-        {messages.map((m) => (
-          <div key={m.id} className="space-y-2">
-            <MessageBubble role={m.role} content={m.content} />
-            {m.proposals?.map((p, i) => (
-              <ConfirmationCard
-                key={`${m.id}-${i}`}
-                proposal={p}
-                selos={selos}
-                templates={templates}
-                ldPreview={m.ldPreview}
-                pranchaFiles={pranchaFiles}
-                memorialFile={memorialFile}
-              />
-            ))}
-            {m.slotRequest && (
-              <QuickReplyChips suggestions={m.slotRequest.suggestions} />
-            )}
-          </div>
-        ))}
-        {busy && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            Pensando…
-          </div>
-        )}
+        <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 py-6">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={
+                m.role === "user"
+                  ? "nexodoc-message-in flex flex-col items-end gap-2"
+                  : "nexodoc-message-in flex flex-col items-start gap-2"
+              }
+            >
+              {m.role === "assistant" && (
+                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
+                  Nexo
+                </span>
+              )}
+              <MessageBubble role={m.role} content={m.content} />
+              {m.proposals?.map((p, i) => (
+                <ConfirmationCard
+                  key={`${m.id}-${i}`}
+                  proposal={p}
+                  selos={selos}
+                  templates={templates}
+                  ldPreview={m.ldPreview}
+                  pranchaFiles={pranchaFiles}
+                  memorialFile={memorialFile}
+                />
+              ))}
+              {m.slotRequest && (
+                <QuickReplyChips suggestions={m.slotRequest.suggestions} />
+              )}
+            </div>
+          ))}
+          {busy && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Pensando…
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div role="alert" className="border-t border-border px-4 py-2 text-sm text-destructive">
-          {error}
+        <div className="mx-auto w-full max-w-[46rem] px-4">
+          <div role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
         </div>
       )}
 
-      <div className="border-t border-border p-3">
-        {readStatus && (
-          <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-            {readStatus.busy && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            )}
-            {readStatus.text}
-          </div>
-        )}
-        <NexoComposer
-          variant="docked"
-          value={input}
-          onChange={setInput}
-          onSubmit={() => void send()}
-          busy={busy}
-          onAttach={onAttach}
-          inputRef={inputRef}
-        />
+      {/* Composer = o único vidro "dock" do agente. */}
+      <div className="px-4 pb-6 pt-2">
+        <div className="mx-auto w-full max-w-[46rem]">
+          {readStatus && (
+            <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+              {readStatus.busy && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              )}
+              {readStatus.text}
+            </div>
+          )}
+          <NexoComposer
+            variant="docked"
+            value={input}
+            onChange={setInput}
+            onSubmit={() => void send()}
+            busy={busy}
+            onAttach={onAttach}
+            inputRef={inputRef}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
+/**
+ * Bolha da mensagem. Assistente = vidro fraco (chrome do agente); usuário =
+ * recessed matte (dado). Cantos assimétricos discretos, sem borda gritante.
+ */
 function MessageBubble({
   role,
   content,
@@ -198,17 +222,15 @@ function MessageBubble({
 }) {
   const isUser = role === "user";
   return (
-    <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div
-        className={
-          isUser
-            ? "max-w-[85%] rounded-md rounded-br-sm bg-primary/10 px-3 py-2 text-sm"
-            : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-md rounded-bl-sm px-3 py-2 text-sm"
-        }
-      >
-        <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
-        {content}
-      </div>
+    <div
+      className={
+        isUser
+          ? "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-sm text-foreground"
+          : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed"
+      }
+    >
+      <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
+      {content}
     </div>
   );
 }

@@ -457,20 +457,18 @@ textarea {
   grid-template-rows: minmax(0, 1fr);
 }
 
-/* Welcome: sidebar | chat centralizado (largura de leitura). Sem canvas. */
-.nexo-shell--welcome {
+/* Chat PROTAGONISTA (welcome e active): sidebar | chat centralizado (largura de
+   leitura). O canvas saiu do centro — vira painel sob demanda. A diferença
+   welcome↔active é só o orb (hero→compact) e a presença das mensagens. */
+.nexo-shell--welcome,
+.nexo-shell--active {
   grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr);
 }
 
-.nexo-shell--welcome .nexo-shell__copilot {
+.nexo-shell__copilot {
   width: 100%;
   max-width: 768px;
   justify-self: center;
-}
-
-/* Active: sidebar | canvas (centro) | copiloto (chat docado à direita). */
-.nexo-shell--active {
-  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr) var(--nexo-copilot-w);
 }
 
 .nexo-shell__sidebar {

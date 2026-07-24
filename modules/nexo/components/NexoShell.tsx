@@ -19,12 +19,10 @@ import { cn } from "@/lib/utils";
 export function NexoShell({
   started,
   sidebar,
-  stage,
   copilot,
 }: {
   started: boolean;
   sidebar: ReactNode;
-  stage: ReactNode;
   copilot: ReactNode;
 }) {
   return (
@@ -36,15 +34,11 @@ export function NexoShell({
       )}
     >
       <div className="nexo-shell__sidebar">{sidebar}</div>
-      {started && (
-        <main className="nexo-shell__stage" aria-label="Organização dos arquivos">
-          {stage}
-        </main>
-      )}
-      {/* SEMPRE montado — reposicionado centro→direita (invariante §1). */}
-      <aside className="nexo-shell__copilot" aria-label="Nexo">
+      {/* Chat protagonista — sempre no centro. O canvas (mapa do volume) volta
+          como painel sob demanda numa fase seguinte. */}
+      <main className="nexo-shell__copilot" aria-label="Nexo">
         {copilot}
-      </aside>
+      </main>
     </div>
   );
 }
