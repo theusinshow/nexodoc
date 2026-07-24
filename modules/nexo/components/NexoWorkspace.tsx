@@ -10,6 +10,10 @@ import { partitionByRole } from "../lib/attachments";
 import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
 import { ArtifactStoreProvider } from "../state/artifact-store";
+import {
+  ConversationStoreProvider,
+  useConversation,
+} from "../state/conversation-store";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
@@ -26,13 +30,30 @@ import { useAgentState } from "./agent-orb/use-agent-state";
  * geração toda mora no chat.
  */
 export function NexoWorkspace() {
+  // Providers: conversa (durável) > artefatos (canvas) > composer. O inner usa
+  // o store da conversa (fonte única de mensagens + selos, persistidos).
+  return (
+    <ConversationStoreProvider>
+      <ArtifactStoreProvider>
+        <ComposerControllerProvider>
+          <NexoWorkspaceInner />
+        </ComposerControllerProvider>
+      </ArtifactStoreProvider>
+    </ConversationStoreProvider>
+  );
+}
+
+function NexoWorkspaceInner() {
+  const conv = useConversation();
+  // Selos lidos (fonte única = store da conversa; persistem e restauram).
+  const seloResults = conv.seloResults;
+  const setSeloResults = conv.setSeloResults;
+
   const [files, setFiles] = useState<File[]>([]);
   const [folderCount, setFolderCount] = useState(0);
   const [dossie, setDossie] = useState<NexoDossieDraft | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Selos lidos das pranchas: o chat do agente propõe LD/capa a partir deles.
-  const [seloResults, setSeloResults] = useState<SeloResult[]>([]);
   // Pranchas originais retidas (bytes p/ montar o volume) e memorial anexado
   // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
   const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
@@ -181,7 +202,26 @@ export function NexoWorkspace() {
         setFiles([]);
         setFolderCount(0);
         setDossie(null);
-        setSeloResults([]);
+        conv.newConversation(); // limpa mensagens + selos no store durável
+        setPranchaFiles([]);
+        setMemorialFile(null);
+        setError(null);
+        setReading(false);
+        setConvId((c) => c + 1);
+      }),
+    );
+  };
+
+  // Trocar de conversa (histórico): carrega o registro e restaura o shell.
+  const selectConv = async (id: string) => {
+    const rec = await conv.selectConversation(id);
+    if (!rec) return;
+    runShellTransition(() =>
+      flushSync(() => {
+        setStarted(rec.messages.length > 0 || rec.seloResults.length > 0);
+        setFiles([]);
+        setFolderCount(0);
+        setDossie(null);
         setPranchaFiles([]);
         setMemorialFile(null);
         setError(null);
@@ -267,8 +307,7 @@ export function NexoWorkspace() {
   const agentContext = summarizeSelos(selos);
 
   return (
-    <ComposerControllerProvider>
-     <ArtifactStoreProvider>
+    <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
       {dragging && (
         <div
@@ -319,7 +358,15 @@ export function NexoWorkspace() {
 
       <NexoShell
         started={started}
-        sidebar={<NexoSidebar onNewConversation={reset} />}
+        sidebar={
+          <NexoSidebar
+            onNewConversation={reset}
+            conversations={conv.conversations}
+            activeId={conv.conversationId}
+            onSelect={selectConv}
+            onDelete={conv.removeConversation}
+          />
+        }
         stage={<NexoCanvas pranchasCount={okCount} />}
         copilot={
           <NexoCopilot
@@ -351,7 +398,6 @@ export function NexoWorkspace() {
           onRemoveFile={removeFile}
         />
       )}
-     </ArtifactStoreProvider>
-    </ComposerControllerProvider>
+    </>
   );
 }

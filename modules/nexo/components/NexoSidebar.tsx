@@ -1,23 +1,42 @@
 "use client";
 
 /**
- * Sidebar cheia do Nexo (nova direção de layout, 2026-07-23). Full-height,
- * sempre visível (welcome e active): topo = voltar + marca; meio = Nova conversa
- * + Histórico; base = Conta.
- *
- * Histórico é PLACEHOLDER nesta rodada (a persistência real — IndexedDB, itens por
- * data — é v1.5). O slot já existe pra não retrabalhar o layout depois.
+ * Sidebar cheia do Nexo. Topo = voltar + marca; meio = Nova conversa +
+ * Histórico (lista real, persistida no IndexedDB — item 4); base = Conta.
  */
 
 import Link from "next/link";
-import { ArrowLeft, Plus, Clock, User } from "lucide-react";
+import { ArrowLeft, Plus, Clock, User, Trash2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import type { ConversationSummary } from "../lib/nexo-db";
 import { NexoOrb } from "./NexoOrb";
+
+/** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
+function shortDate(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  return sameDay
+    ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
 
 export function NexoSidebar({
   onNewConversation,
+  conversations = [],
+  activeId,
+  onSelect,
+  onDelete,
 }: {
   onNewConversation?: () => void;
+  conversations?: ConversationSummary[];
+  activeId?: string;
+  onSelect?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <aside
@@ -51,18 +70,56 @@ export function NexoSidebar({
         Nova conversa
       </button>
 
-      {/* Histórico (placeholder até a persistência) */}
+      {/* Histórico */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 pt-1">
         <p className="flex items-center gap-1.5 px-1 font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground">
           <Clock className="h-3.5 w-3.5" aria-hidden />
           Histórico
         </p>
-        <div className="flex flex-1 items-center justify-center rounded-sm border border-dashed border-border px-3 text-center">
-          <p className="text-xs text-muted-foreground">
-            Sem histórico ainda. Suas conversas e volumes ficam salvos aqui em
-            breve.
-          </p>
-        </div>
+
+        {conversations.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-sm border border-dashed border-border px-3 text-center">
+            <p className="text-xs text-muted-foreground">
+              Sem histórico ainda. Suas conversas e volumes ficam salvos aqui.
+            </p>
+          </div>
+        ) : (
+          <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+            {conversations.map((c) => {
+              const active = c.id === activeId;
+              return (
+                <li key={c.id} className="group relative">
+                  <button
+                    type="button"
+                    onClick={() => onSelect?.(c.id)}
+                    aria-current={active ? "true" : undefined}
+                    className={cn(
+                      "flex w-full flex-col items-start gap-0.5 rounded-sm px-2.5 py-2 pr-8 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                      active
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    )}
+                  >
+                    <span className="w-full truncate text-sm">{c.title}</span>
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                      {shortDate(c.updatedAt)}
+                    </span>
+                  </button>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(c.id)}
+                      aria-label={`Apagar conversa ${c.title}`}
+                      className="absolute right-1.5 top-1.5 rounded-sm p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Conta */}

@@ -277,3 +277,28 @@ export interface NexoMessage {
   /** Propostas anexadas a uma mensagem do assistente (renderizam como cards). */
   proposals?: NexoAgentProposal[];
 }
+
+/**
+ * Prévia determinística das folhas que vão para a LD (vem da rota /agent). Vive
+ * aqui (tipo de domínio, serializável) para o chat, os cards e a persistência
+ * compartilharem sem acoplar a componentes.
+ */
+export interface LdPreviewData {
+  rows: { sheet: string; file: string; description: string }[];
+  totalFolhas: number;
+  referenceTotal: number | null;
+}
+
+/**
+ * Mensagem renderizada no chat do Nexo (log + cards). Serializável (JSON) — é o
+ * que a persistência guarda por conversa. Superset "de UI" do NexoMessage: além
+ * de role/content, carrega a `slotRequest` e a `ldPreview` do turno.
+ */
+export interface NexoChatMessage {
+  id: string;
+  role: NexoRole;
+  content: string;
+  proposals?: NexoAgentProposal[];
+  slotRequest?: NexoSlotRequest;
+  ldPreview?: LdPreviewData;
+}

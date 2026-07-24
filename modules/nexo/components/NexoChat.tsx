@@ -2,25 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { NexoAgentProposal, NexoAgentTurn, NexoSlotRequest } from "../types";
+import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
-import {
-  ConfirmationCard,
-  type LdPreviewData,
-  type NexoTemplateOption,
-} from "./ConfirmationCard";
+import { useConversation } from "../state/conversation-store";
+import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
 import { QuickReplyChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
-
-interface ChatMsg {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  proposals?: NexoAgentProposal[];
-  slotRequest?: NexoSlotRequest;
-  ldPreview?: LdPreviewData;
-}
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
@@ -56,7 +44,7 @@ export function NexoChat({
   /** Reporta o estado do turno pro Nexo Core (analyzing/complete/error). */
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const { messages, appendMessage } = useConversation();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,9 +75,9 @@ export function NexoChat({
     // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
     onSend?.();
     setError(null);
-    const userMsg: ChatMsg = { id: crypto.randomUUID(), role: "user", content: text };
+    const userMsg: NexoChatMessage = { id: crypto.randomUUID(), role: "user", content: text };
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
-    setMessages((prev) => [...prev, userMsg]);
+    appendMessage(userMsg);
     setInput("");
     setBusy(true);
     try {
@@ -104,17 +92,14 @@ export function NexoChat({
       if (!res.ok || !payload?.turn) {
         throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
       }
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: payload.turn!.reply,
-          proposals: payload.turn!.proposals,
-          slotRequest: payload.turn!.slotRequest,
-          ldPreview: payload.ldPreview,
-        },
-      ]);
+      appendMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: payload.turn.reply,
+        proposals: payload.turn.proposals,
+        slotRequest: payload.turn.slotRequest,
+        ldPreview: payload.ldPreview,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na conversa.");
     } finally {

@@ -38,7 +38,10 @@ import type {
   NexoLdProposalParams,
   NexoCapaProposalParams,
   NexoAuditoriaProposalParams,
+  LdPreviewData,
 } from "../types";
+
+export type { LdPreviewData };
 import {
   postLd,
   postCapa,
@@ -51,13 +54,6 @@ import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { useComposer } from "../state/composer-controller";
 import { useArtifactStore } from "../state/artifact-store";
-
-/** Prévia determinística das folhas que vão para a LD (vem da rota /agent). */
-export interface LdPreviewData {
-  rows: { sheet: string; file: string; description: string }[];
-  totalFolhas: number;
-  referenceTotal: number | null;
-}
 
 export interface NexoTemplateOption {
   id: string;
