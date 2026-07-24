@@ -154,45 +154,59 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     refreshList();
   }, [refreshList]);
 
-  // Persistência debounced: só grava conversa COM conteúdo (não cria registro vazio).
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Grava o snapshot atual AGORA (base do debounce E do flush ao trocar conversa).
+  const persistNow = useCallback(() => {
+    const s = snapshotRef.current;
+    if (s.messages.length === 0 && s.seloResults.length === 0 && s.results.length === 0) {
+      return;
+    }
+    const resultsMeta: StoredResultMeta[] = s.results.map((r) => ({
+      artifactId: r.artifactId,
+      kind: r.kind,
+      summary: r.summary,
+      ...(r.canvas ? { canvas: r.canvas } : {}),
+      files: r.files.map((f) => ({
+        label: f.label,
+        name: f.name,
+        mime: f.mime,
+        blobKey: f.blobKey,
+        ...(f.primary ? { primary: true } : {}),
+      })),
+      ...(r.payload !== undefined ? { payload: r.payload } : {}),
+    }));
+    const folderKey = deriveFolderKey(s.seloResults);
+    const rec: StoredConversation = {
+      id: s.conversationId,
+      title: s.title,
+      createdAt: s.createdAt,
+      updatedAt: Date.now(),
+      ...(folderKey ? { folderKey } : {}),
+      messages: s.messages,
+      seloResults: s.seloResults,
+      results: resultsMeta,
+    };
+    putConversation(rec)
+      .then(refreshList)
+      .catch(() => {});
+  }, [refreshList]);
+
+  // Debounce: grava 500ms após a última mudança.
   const schedulePersist = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      const s = snapshotRef.current;
-      if (s.messages.length === 0 && s.seloResults.length === 0 && s.results.length === 0) {
-        return;
-      }
-      const resultsMeta: StoredResultMeta[] = s.results.map((r) => ({
-        artifactId: r.artifactId,
-        kind: r.kind,
-        summary: r.summary,
-        ...(r.canvas ? { canvas: r.canvas } : {}),
-        files: r.files.map((f) => ({
-          label: f.label,
-          name: f.name,
-          mime: f.mime,
-          blobKey: f.blobKey,
-          ...(f.primary ? { primary: true } : {}),
-        })),
-        ...(r.payload !== undefined ? { payload: r.payload } : {}),
-      }));
-      const folderKey = deriveFolderKey(s.seloResults);
-      const rec: StoredConversation = {
-        id: s.conversationId,
-        title: s.title,
-        createdAt: s.createdAt,
-        updatedAt: Date.now(),
-        ...(folderKey ? { folderKey } : {}),
-        messages: s.messages,
-        seloResults: s.seloResults,
-        results: resultsMeta,
-      };
-      putConversation(rec)
-        .then(refreshList)
-        .catch(() => {});
-    }, PERSIST_DEBOUNCE_MS);
-  }, [refreshList]);
+    timerRef.current = setTimeout(persistNow, PERSIST_DEBOUNCE_MS);
+  }, [persistNow]);
+
+  // Flush: grava JÁ, antes de trocar/limpar a conversa. Sem isso, um debounce
+  // pendente seria CANCELADO e a última mudança se perderia (bug #1 da revisão).
+  const flushPersist = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    persistNow();
+  }, [persistNow]);
 
   const appendMessage = useCallback(
     (m: NexoChatMessage) => {
@@ -249,6 +263,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         const i = prev.findIndex((r) => r.artifactId === saved.artifactId);
         if (i === -1) return [...prev, saved];
         const next = [...prev];
+        // Regerar o mesmo artefato → revoga os URLs antigos antes de trocar (#4).
+        prev[i].files.forEach((f) => URL.revokeObjectURL(f.url));
         next[i] = saved;
         return next;
       });
@@ -263,7 +279,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   );
 
   const newConversation = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    flushPersist(); // grava a conversa atual antes de largar (#1)
     setConversationId(newId());
     setTitle("Nova conversa");
     setMessages([]);
@@ -274,11 +290,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       return [];
     });
     snapshotRef.current.createdAt = Date.now();
-  }, []);
+  }, [flushPersist]);
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      flushPersist(); // grava a conversa atual antes de trocar (#1)
       const rec = await getConversation(id);
       if (!rec) return null;
       // Reidrata os resultados: busca cada blob e cria URLs vivas.
@@ -318,7 +334,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [],
+    [flushPersist],
   );
 
   const removeConversation = useCallback(

@@ -50,27 +50,31 @@ export function NexoWorkspace() {
 
 function NexoWorkspaceInner() {
   const conv = useConversation();
-  const { addArtifact } = useArtifactStore();
+  const { replaceArtifacts } = useArtifactStore();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).
   const seloResults = conv.seloResults;
   const setSeloResults = conv.setSeloResults;
 
   // Espelha os resultados gerados (durável) no store do canvas — caminho único
-  // p/ geração ao vivo E restore. Dedup por id (addArtifact substitui).
+  // p/ geração ao vivo E restore. SUBSTITUI o conjunto (não acumula), então o
+  // canvas reflete só a conversa ATIVA — sem artefatos de conversas anteriores (#2).
   useEffect(() => {
-    for (const r of conv.results) {
-      if (!r.canvas) continue;
-      const pdf = r.files.find((f) => f.mime === "application/pdf");
-      addArtifact({
-        id: r.artifactId,
-        kind: r.kind,
-        label: r.canvas.label,
-        detail: r.canvas.detail,
-        pdfUrl: pdf?.url,
-        pageNumber: r.canvas.pageNumber ?? 1,
-      });
-    }
-  }, [conv.results, addArtifact]);
+    replaceArtifacts(
+      conv.results
+        .filter((r) => r.canvas)
+        .map((r) => {
+          const pdf = r.files.find((f) => f.mime === "application/pdf");
+          return {
+            id: r.artifactId,
+            kind: r.kind,
+            label: r.canvas!.label,
+            detail: r.canvas!.detail,
+            pdfUrl: pdf?.url,
+            pageNumber: r.canvas!.pageNumber ?? 1,
+          };
+        }),
+    );
+  }, [conv.results, replaceArtifacts]);
 
   const [files, setFiles] = useState<File[]>([]);
   const [folderCount, setFolderCount] = useState(0);

@@ -43,5 +43,8 @@ export function useRevealText(text: string, enabled: boolean): string {
     return () => clearInterval(id);
   }, [text, enabled]);
 
-  return shown;
+  // Quando `enabled` vira false (ex.: chegou a próxima resposta e o revealId
+  // mudou) o effect só faz cleanup — sem esta linha, `shown` ficaria travado no
+  // valor PARCIAL. Devolver `text` garante a resposta inteira. (Bug #3 da revisão.)
+  return enabled ? shown : text;
 }

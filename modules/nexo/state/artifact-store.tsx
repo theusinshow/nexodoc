@@ -39,6 +39,9 @@ export interface CanvasArtifact {
 interface ArtifactStoreValue {
   artifacts: CanvasArtifact[];
   addArtifact: (artifact: CanvasArtifact) => void;
+  /** SUBSTITUI todos os artefatos (espelho da conversa ativa; evita acumular
+   *  artefatos de conversas anteriores no canvas — bug #2 da revisão). */
+  replaceArtifacts: (artifacts: CanvasArtifact[]) => void;
 }
 
 const ArtifactStoreContext = createContext<ArtifactStoreValue | null>(null);
@@ -56,7 +59,14 @@ export function ArtifactStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const value = useMemo(() => ({ artifacts, addArtifact }), [artifacts, addArtifact]);
+  const replaceArtifacts = useCallback((list: CanvasArtifact[]) => {
+    setArtifacts(list);
+  }, []);
+
+  const value = useMemo(
+    () => ({ artifacts, addArtifact, replaceArtifacts }),
+    [artifacts, addArtifact, replaceArtifacts],
+  );
   return (
     <ArtifactStoreContext.Provider value={value}>
       {children}
@@ -68,7 +78,7 @@ export function ArtifactStoreProvider({ children }: { children: ReactNode }) {
 export function useArtifactStore(): ArtifactStoreValue {
   const ctx = useContext(ArtifactStoreContext);
   if (!ctx) {
-    return { artifacts: [], addArtifact: () => {} };
+    return { artifacts: [], addArtifact: () => {}, replaceArtifacts: () => {} };
   }
   return ctx;
 }
