@@ -1,8 +1,8 @@
 /**
- * Helpers de GERAÇÃO no cliente (compartilhados pelo SelosPanel e pelo chat do
- * agente). Chamam as rotas determinísticas — a geração é o passo irreversível
- * que só acontece após confirmação. Centralizados aqui para os dois pontos de
- * entrada (botões do painel e cards do chat) usarem exatamente o mesmo caminho.
+ * Helpers de GERAÇÃO no cliente (usados pelos cards do chat e pelo assembler de
+ * volume). Chamam as rotas determinísticas — a geração é o passo irreversível
+ * que só acontece após confirmação. Centralizados aqui para todos os pontos de
+ * entrada usarem exatamente o mesmo caminho.
  */
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
