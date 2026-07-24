@@ -18,6 +18,7 @@ import { Pencil, CornerDownLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Chip } from "@/components/ui/chip";
 import type { NexoAgentProposal, NexoSlotSuggestion } from "../types";
+import { nextStepsFor } from "../lib/next-steps";
 import { useComposer } from "../state/composer-controller";
 
 export function QuickReplyChips({
@@ -55,36 +56,10 @@ export function QuickReplyChips({
   );
 }
 
-/** Um próximo passo sugerido: rótulo + a frase que vai ao agente ao clicar. */
-interface NextStep {
-  label: string;
-  send: string;
-}
-
-/**
- * Próximos passos DETERMINÍSTICOS a partir do que a mensagem propôs, na ordem do
- * fluxo do escritório (ld → capa → conferência → volume). Cada clique manda uma
- * frase ao agente (reusa o mesmo caminho conversacional — a IA re-propõe). Sem IA
- * nova aqui. Vazio quando não há LD/capa proposta (nada a encadear).
- */
-export function nextStepsFor(proposals: NexoAgentProposal[] | undefined): NextStep[] {
-  const kinds = new Set((proposals ?? []).map((p) => p.kind));
-  if (!kinds.has("ld") && !kinds.has("capa")) return [];
-  const steps: NextStep[] = [];
-  if (kinds.has("ld") && !kinds.has("capa")) {
-    steps.push({ label: "Gerar a capa", send: "Gera a capa também" });
-  }
-  if (kinds.has("capa") && !kinds.has("ld")) {
-    steps.push({ label: "Gerar a LD", send: "Gera a LD também" });
-  }
-  steps.push({ label: "Conferir as folhas", send: "Confere as folhas" });
-  steps.push({ label: "Montar o volume", send: "Monta o volume" });
-  return steps;
-}
-
 /**
  * Ações de PRÓXIMO PASSO abaixo da resposta (só na última mensagem do assistente,
- * pra não poluir o histórico). Cada chip ENVIA a frase ao agente.
+ * pra não poluir o histórico). Cada chip ENVIA a frase ao agente. A lógica é
+ * pura (`nextStepsFor`, testável).
  */
 export function NextStepChips({
   proposals,

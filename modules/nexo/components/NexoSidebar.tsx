@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, Search, User, Trash2, Folder } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "../lib/nexo-db";
+import { groupConversations } from "../lib/group-conversations";
 import { NexoOrb } from "./NexoOrb";
 
 /** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
@@ -25,36 +26,6 @@ function shortDate(ts: number): string {
   return sameDay
     ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
-interface Group {
-  key: string | null;
-  items: ConversationSummary[];
-}
-
-/** Filtra por título e agrupa por pasta, preservando a ordem por recência. */
-function groupConversations(
-  conversations: ConversationSummary[],
-  query: string,
-): Group[] {
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? conversations.filter((c) => c.title.toLowerCase().includes(q))
-    : conversations;
-  const groups: Group[] = [];
-  const index = new Map<string, number>();
-  for (const c of filtered) {
-    const key = c.folderKey ?? null;
-    const mapKey = key ?? "__none__";
-    let gi = index.get(mapKey);
-    if (gi === undefined) {
-      gi = groups.length;
-      index.set(mapKey, gi);
-      groups.push({ key, items: [] });
-    }
-    groups[gi].items.push(c);
-  }
-  return groups;
 }
 
 export function NexoSidebar({
