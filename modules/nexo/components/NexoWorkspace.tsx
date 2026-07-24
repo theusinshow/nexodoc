@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
-import type { NexoDossieDraft } from "../types";
+import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
 import {
   extractSelosFromFiles,
   extractSeloFromImage,
@@ -241,6 +241,60 @@ function NexoWorkspaceInner() {
         collected.push(r);
         setSeloResults([...collected]);
         setReadProgress({ done: collected.length, total });
+      }
+
+      // Intake CONVERSACIONAL: o anexo vira uma mensagem no chat e o Nexo já
+      // devolve opções CLICÁVEIS do que fazer (sem o usuário precisar digitar).
+      const okSelos = collected.filter((r) => r.extraction);
+      if (okSelos.length > 0) {
+        const ctx = summarizeSelos(
+          okSelos.map((r) => ({
+            fileName: r.fileName,
+            arquivo: r.extraction?.arquivo ?? null,
+            disciplina: r.extraction?.disciplina ?? null,
+            obra: r.extraction?.obra ?? null,
+          })),
+        );
+        const names = [...pdfs, ...images].map((f) => f.name);
+        const nameStr =
+          names.length <= 2
+            ? names.join(", ")
+            : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+        const detail = [
+          ctx.disciplinas.join(", "),
+          ctx.codigo ? `código ${ctx.codigo}` : "",
+          ctx.obra ? `obra ${ctx.obra}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        const suggestions: NexoSlotSuggestion[] = [
+          { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
+          { label: "Só a LD", value: "cria a LD dessas pranchas", commit: "send" },
+          { label: "Conferir as folhas", value: "confere as folhas", commit: "send" },
+        ];
+        if (memorials.length > 0) {
+          suggestions.push({ label: "Auditar o memorial", value: "audita o memorial", commit: "send" });
+        }
+
+        start(); // welcome → active (mostra o chat com a mensagem do intake)
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "user",
+          content: `Anexei ${okSelos.length} folha(s) — ${nameStr}`,
+        });
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}. O que você quer que eu faça?`,
+          slotRequest: {
+            slotId: "intake",
+            taskKind: "ld",
+            prompt: "O que fazer com as pranchas anexadas",
+            optional: true,
+            suggestions,
+          },
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
