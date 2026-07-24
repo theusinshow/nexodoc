@@ -24,10 +24,11 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Layers } from "lucide-react";
+import { Waypoints, Layers, Maximize2, Pencil } from "lucide-react";
 
 import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
+import { useComposer } from "../state/composer-controller";
 import { ArtifactThumb } from "./ArtifactThumb";
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
@@ -41,20 +42,61 @@ const CANONICAL_RANK: Record<NexoArtifactKind, number> = {
 };
 const PRANCHAS_RANK = 3;
 
+/** Rótulo do artefato p/ a frase de edição no composer ("Altera <isto>: "). */
+const KIND_EDIT_LABEL: Partial<Record<NexoArtifactKind, string>> = {
+  capa: "a capa",
+  ld: "a LD",
+  separatriz: "a separatriz",
+  volume: "o volume",
+  conferencia: "a conferência",
+  auditoria: "a auditoria",
+};
+
 type ArtifactNodeData = CanvasArtifact & Record<string, unknown>;
 type StackNodeData = { count: number } & Record<string, unknown>;
 
+/**
+ * Nó de artefato. A MINIATURA abre o PDF em tamanho real (resolve o "não dá pra
+ * visualizar"); "Alterar no chat" pré-preenche o composer pra editar aquele
+ * documento em conversa (o agente re-propõe → regera → o canvas atualiza).
+ * `nodrag nopan` nos interativos p/ o React Flow não sequestrar o clique.
+ */
 function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
+  const composer = useComposer();
+  const editLabel = KIND_EDIT_LABEL[data.kind] ?? "o documento";
+
+  const openPreview = () => {
+    if (data.pdfUrl) window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
+  };
+  const editInChat = () => {
+    composer.fill(`Altera ${editLabel}: `);
+    composer.focus();
+  };
+
   return (
     <div className="w-[200px] overflow-hidden rounded-md border border-border bg-card">
-      <div className="aspect-[3/4] w-full overflow-hidden border-b border-border">
+      <button
+        type="button"
+        onClick={openPreview}
+        disabled={!data.pdfUrl}
+        aria-label={data.pdfUrl ? `Abrir ${data.label} em tamanho real` : String(data.label)}
+        className="nodrag nopan group relative block aspect-[3/4] w-full overflow-hidden border-b border-border enabled:cursor-zoom-in disabled:cursor-default"
+      >
         <ArtifactThumb
           pdfUrl={data.pdfUrl}
           pageNumber={data.pageNumber}
           kind={data.kind}
           width={200}
         />
-      </div>
+        {data.pdfUrl && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/55 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium shadow-[var(--shadow-panel)]">
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+              Ver
+            </span>
+          </span>
+        )}
+      </button>
       <div className="p-2">
         <p className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
           {data.label}
@@ -64,6 +106,14 @@ function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
             {data.detail}
           </p>
         )}
+        <button
+          type="button"
+          onClick={editInChat}
+          className="nodrag nopan mt-1.5 flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          <Pencil className="h-3 w-3" aria-hidden />
+          Alterar no chat
+        </button>
       </div>
       <Handle type="target" position={Position.Left} className="!opacity-0" />
       <Handle type="source" position={Position.Right} className="!opacity-0" />
