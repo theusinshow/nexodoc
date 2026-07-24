@@ -41,12 +41,18 @@ export function NexoChat({
   onSend,
   onAttach,
   readStatus,
+  pranchaFiles,
+  memorialFile,
   onTurnStatus,
 }: {
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
   readStatus?: ReadStatus | null;
+  /** Pranchas originais retidas (bytes p/ montar o volume). */
+  pranchaFiles: File[];
+  /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
+  memorialFile: File | null;
   /** Reporta o estado do turno pro Nexo Core (analyzing/complete/error). */
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
@@ -152,6 +158,8 @@ export function NexoChat({
                 selos={selos}
                 templates={templates}
                 ldPreview={m.ldPreview}
+                pranchaFiles={pranchaFiles}
+                memorialFile={memorialFile}
               />
             ))}
             {m.slotRequest && (

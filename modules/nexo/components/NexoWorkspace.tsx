@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
 import { summarizeSelos } from "../lib/agent-context";
+import { partitionByRole } from "../lib/attachments";
 import { sheetNumberFromFilename, resolveSheetNumbers } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
@@ -66,6 +67,10 @@ export function NexoWorkspace() {
   // Selos lidos das pranchas: elevado do SelosPanel para o chat do agente também
   // enxergar (o agente propõe LD/capa a partir deles).
   const [seloResults, setSeloResults] = useState<SeloResult[]>([]);
+  // Pranchas originais retidas (bytes p/ montar o volume) e memorial anexado
+  // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
+  const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
+  const [memorialFile, setMemorialFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
 
@@ -173,20 +178,26 @@ export function NexoWorkspace() {
   const [reading, setReading] = useState(false);
   const [readProgress, setReadProgress] = useState({ done: 0, total: 0 });
 
-  // Leitura AUTOMÁTICA dos selos ao anexar/soltar PDFs — o chat usa `selos`.
-  // Substitui o passo manual "Ler pranchas" do antigo painel (agora chat-first).
+  // Leitura AUTOMÁTICA ao anexar/soltar PDFs. Parte os anexos por tipo do nome:
+  // MEMORIAL (md_geral etc.) vai para a auditoria; PRANCHAS viram selos e ficam
+  // retidas (bytes p/ o volume). Substitui o passo manual "Ler pranchas".
   async function readSelos(list: FileList | null) {
     const pdfs = list ? Array.from(list).filter((f) => /\.pdf$/i.test(f.name)) : [];
     if (pdfs.length === 0) return;
+    const { memorials, pranchas } = partitionByRole(pdfs);
     setError(null);
+    if (memorials.length > 0) setMemorialFile(memorials[0]);
+    // Batelada só de memorial não mexe nos selos/pranchas já lidos.
+    if (pranchas.length === 0) return;
+    setPranchaFiles(pranchas);
     setReading(true);
-    setReadProgress({ done: 0, total: pdfs.length });
+    setReadProgress({ done: 0, total: pranchas.length });
     try {
       const collected: SeloResult[] = [];
-      await extractSelosFromFiles(pdfs, (r) => {
+      await extractSelosFromFiles(pranchas, (r) => {
         collected.push(r);
         setSeloResults([...collected]);
-        setReadProgress({ done: collected.length, total: pdfs.length });
+        setReadProgress({ done: collected.length, total: pranchas.length });
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao ler as pranchas.");
@@ -211,6 +222,8 @@ export function NexoWorkspace() {
         setFolderCount(0);
         setDossie(null);
         setSeloResults([]);
+        setPranchaFiles([]);
+        setMemorialFile(null);
         setError(null);
         setReading(false);
         setConvId((c) => c + 1);
@@ -219,10 +232,15 @@ export function NexoWorkspace() {
   };
 
   const okCount = seloResults.filter((r) => r.extraction).length;
-  const readStatus = reading
-    ? { text: `Lendo pranchas… ${readProgress.done}/${readProgress.total}`, busy: true }
+  const seloText = reading
+    ? `Lendo pranchas… ${readProgress.done}/${readProgress.total}`
     : okCount > 0
-      ? { text: `${okCount} folha(s) de selo lidas — pronto para gerar.`, busy: false }
+      ? `${okCount} folha(s) de selo lidas — pronto para gerar.`
+      : null;
+  const memoText = memorialFile ? `Memorial anexado: ${memorialFile.name}` : null;
+  const readStatus =
+    seloText || memoText
+      ? { text: [seloText, memoText].filter(Boolean).join(" · "), busy: reading }
       : null;
 
   // Ferramentas antigas (intake completo + SelosPanel + canvas) só com a flag dev.
@@ -354,6 +372,8 @@ export function NexoWorkspace() {
             agentState={agentState}
             fileCount={okCount}
             context={agentContext}
+            pranchaFiles={pranchaFiles}
+            memorialFile={memorialFile}
             onTurnStatus={handleTurnStatus}
           />
         }

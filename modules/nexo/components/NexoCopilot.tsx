@@ -27,6 +27,8 @@ export function NexoCopilot({
   agentState = "idle",
   fileCount = 0,
   context,
+  pranchaFiles,
+  memorialFile,
   onTurnStatus,
 }: {
   started: boolean;
@@ -39,6 +41,10 @@ export function NexoCopilot({
   fileCount?: number;
   /** Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb. */
   context: AgentContext;
+  /** Pranchas originais retidas (bytes p/ montar o volume no chat). */
+  pranchaFiles: File[];
+  /** Memorial anexado (arquivo distinto) — alimenta a auditoria no chat. */
+  memorialFile: File | null;
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
@@ -92,6 +98,8 @@ export function NexoCopilot({
           onSend={onSend}
           onAttach={onAttach}
           readStatus={readStatus}
+          pranchaFiles={pranchaFiles}
+          memorialFile={memorialFile}
           onTurnStatus={onTurnStatus}
         />
       </div>

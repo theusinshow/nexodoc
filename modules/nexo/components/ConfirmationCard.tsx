@@ -32,18 +32,23 @@ import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
+import type { AuditReport } from "@/lib/audit-report";
 import type {
   NexoAgentProposal,
   NexoLdProposalParams,
   NexoCapaProposalParams,
+  NexoAuditoriaProposalParams,
 } from "../types";
 import {
   postLd,
   postCapa,
   postCheck,
+  postAudit,
   type LdGenResult,
   type CapaGenResult,
 } from "../lib/generate";
+import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
+import { summarizeSelos } from "../lib/agent-context";
 import { useComposer } from "../state/composer-controller";
 import { useArtifactStore } from "../state/artifact-store";
 
@@ -81,11 +86,17 @@ export function ConfirmationCard({
   selos,
   templates,
   ldPreview,
+  pranchaFiles = [],
+  memorialFile = null,
 }: {
   proposal: NexoAgentProposal;
   selos: SeloForLd[];
   templates: NexoTemplateOption[];
   ldPreview?: LdPreviewData;
+  /** Pranchas originais retidas (bytes p/ montar o volume). */
+  pranchaFiles?: File[];
+  /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
+  memorialFile?: File | null;
 }) {
   switch (proposal.kind) {
     case "ld":
@@ -94,10 +105,19 @@ export function ConfirmationCard({
       return <CapaConfirmation params={proposal.params} resumo={proposal.resumo} selos={selos} templates={templates} />;
     case "conferencia":
       return <ConferenciaConfirmation resumo={proposal.resumo} selos={selos} />;
-    case "separatriz":
-    case "auditoria":
     case "volume":
-      return <DeferredConfirmation kind={proposal.kind} resumo={proposal.resumo} />;
+      return <VolumeConfirmation resumo={proposal.resumo} selos={selos} pranchaFiles={pranchaFiles} />;
+    case "auditoria":
+      return (
+        <AuditoriaConfirmation
+          resumo={proposal.resumo}
+          params={proposal.params}
+          selos={selos}
+          memorialFile={memorialFile}
+        />
+      );
+    case "separatriz":
+      return <DeferredConfirmation kind="separatriz" resumo={proposal.resumo} />;
     default:
       return null;
   }
@@ -545,29 +565,265 @@ function CheckResult({ result }: { result: LightCheckResult }) {
   );
 }
 
-/* ------------------------------------ Separatriz · Auditoria · Volume ------ */
+/* -------------------------------------------------------------- Volume ----- */
 
 /**
- * Kinds cuja geração plena depende de contexto que chega depois: a auditoria
- * precisa do memorial (composer do PR5); o volume precisa dos bytes das partes
- * no blobRegistry (PR5) e do cruzamento de disciplinas (PR6); a separatriz vive
- * dentro do fluxo de volume. Renderiza read-only e é honesto quanto ao próximo passo.
+ * Monta o volume juntando as partes JÁ geradas nesta conversa (capa + LD do
+ * artifact-store) com as pranchas originais retidas. Pré-condições honestas:
+ * sem pranchas, botão desabilitado. Capa/LD ausentes (não geradas ou sem PDF)
+ * simplesmente não entram — o card mostra o que será incluído.
+ */
+function VolumeConfirmation({
+  resumo,
+  selos,
+  pranchaFiles,
+}: {
+  resumo: string;
+  selos: SeloForLd[];
+  pranchaFiles: File[];
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ url: string; name: string; pageCount?: number } | null>(null);
+  const { artifacts, addArtifact } = useArtifactStore();
+
+  const capa = artifacts.find((a) => a.kind === "capa");
+  const ld = artifacts.find((a) => a.kind === "ld");
+  const semPranchas = pranchaFiles.length === 0;
+  // Disciplina p/ a separatriz (best-effort): do rótulo "LD <disciplina>".
+  const sepTitle = ld?.label.replace(/^LD\s+/i, "").trim() ?? "";
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      const capaPdf64 = capa?.pdfUrl ? await urlToBase64(capa.pdfUrl) : null;
+      const ldPdf64 = ld?.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
+      const r = await assembleVolume({
+        selos,
+        pranchaFiles,
+        capaPdf64,
+        ldPdf64,
+        separatrizTitle: sepTitle,
+      });
+      setResult(r);
+      const codigo = summarizeSelos(selos).codigo ?? "volume";
+      addArtifact({
+        id: `volume:${codigo}`,
+        kind: "volume",
+        label: "Volume",
+        detail: r.pageCount != null ? `${r.pageCount} páginas` : undefined,
+        pdfUrl: r.url,
+        pageNumber: 1,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <CardShell kind="volume" resumo={resumo}>
+      {!result && (
+        <>
+          <div className="space-y-1.5">
+            <PartRow label="Capa" ok={Boolean(capa?.pdfUrl)} />
+            <PartRow label="LD" ok={Boolean(ld?.pdfUrl)} />
+            <PartRow
+              label="Pranchas"
+              ok={!semPranchas}
+              detail={semPranchas ? "nenhuma" : `${pranchaFiles.length} arquivo(s)`}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Junta as partes num PDF único (ordem: capa · LD · folhas). As partes
+            sem PDF ficam de fora.
+          </p>
+          <div className="flex items-center gap-2">
+            <ConfirmButton
+              busy={busy}
+              disabled={semPranchas}
+              label="Montar volume"
+              busyLabel="Montando…"
+              onConfirm={confirm}
+            />
+            {semPranchas && (
+              <span className="text-xs text-muted-foreground">
+                Anexe as pranchas para montar o volume.
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {result && (
+        <ResultLinks
+          summary={`Volume montado${result.pageCount != null ? ` · ${result.pageCount} páginas` : ""}`}
+          files={[{ label: "PDF do volume", url: result.url, name: result.name, primary: true }]}
+        />
+      )}
+      <CardError message={error} />
+    </CardShell>
+  );
+}
+
+/** Uma linha de "parte presente" do volume (capa/LD/pranchas). */
+function PartRow({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className={`${LABEL_CLASS} w-24 shrink-0`}>{label}</span>
+      <span
+        className={
+          ok
+            ? "font-mono text-sm text-foreground"
+            : "font-mono text-sm italic text-muted-foreground"
+        }
+      >
+        {ok ? `✓ ${detail ?? "pronta"}` : `— ${detail ?? "sem PDF"}`}
+      </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ Auditoria ----- */
+
+/**
+ * Auditoria do memorial (caso raro) — reusa o motor completo `/api/audit` com
+ * gabarito automático (obra dos selos + prefeitura da capa gerada, se houver).
+ * Precisa do memorial anexado (o composer o separa das pranchas por tipo do nome).
+ */
+function AuditoriaConfirmation({
+  resumo,
+  params,
+  selos,
+  memorialFile,
+}: {
+  resumo: string;
+  params: NexoAuditoriaProposalParams;
+  selos: SeloForLd[];
+  memorialFile: File | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AuditReport | null>(null);
+  const { artifacts } = useArtifactStore();
+
+  const obra = summarizeSelos(selos).obra ?? undefined;
+  // Prefeitura best-effort: do rótulo "Capa <prefeitura>" do artefato de capa.
+  const prefeitura = artifacts
+    .find((a) => a.kind === "capa")
+    ?.label.replace(/^Capa\s+/i, "")
+    .trim();
+
+  async function confirm() {
+    if (!memorialFile) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await postAudit(memorialFile, { obra, prefeitura }, params.nivel);
+      setResult(r);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <CardShell kind="auditoria" resumo={resumo}>
+      {!result && (
+        <>
+          <div className="space-y-1.5">
+            <SummaryRow
+              label="Memorial"
+              value={memorialFile ? memorialFile.name : "arraste o PDF do memorial →"}
+              missing={!memorialFile}
+            />
+            <SummaryRow label="Obra (gabarito)" value={obra ?? "?"} />
+            <SummaryRow label="Nível" value={params.nivel === "deep" ? "profunda" : "padrão"} />
+          </div>
+          <div className="flex items-center gap-2">
+            <ConfirmButton
+              busy={busy}
+              disabled={!memorialFile}
+              label="Auditar"
+              busyLabel="Auditando…"
+              onConfirm={confirm}
+            />
+            {!memorialFile && (
+              <span className="text-xs text-muted-foreground">
+                Anexe o memorial (o Nexo o separa das pranchas).
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {result && <AuditResult report={result} />}
+      <CardError message={error} />
+    </CardShell>
+  );
+}
+
+function AuditResult({ report }: { report: AuditReport }) {
+  const variant =
+    report.status_geral === "sem achados críticos"
+      ? "ok"
+      : report.status_geral === "com pontos de revisão"
+        ? "warning"
+        : "critical";
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={variant}>{report.status_geral}</Badge>
+        <span className="text-xs text-muted-foreground">
+          {report.total_incongruencias} achado(s) · obra {report.obra || "?"}
+        </span>
+      </div>
+      {report.conclusao && (
+        <p className="text-sm text-muted-foreground">{report.conclusao}</p>
+      )}
+      {report.incongruencias.length > 0 && (
+        <ul className="space-y-1.5">
+          {report.incongruencias.slice(0, 8).map((f) => (
+            <li key={f.id} className="text-xs">
+              <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                [{f.prioridade}]
+              </span>{" "}
+              {f.descricao}
+            </li>
+          ))}
+          {report.incongruencias.length > 8 && (
+            <li className="text-xs text-muted-foreground">
+              +{report.incongruencias.length - 8} outro(s). Relatório completo no
+              módulo Auditoria.
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- Separatriz ------- */
+
+/**
+ * A separatriz vive dentro do fluxo de volume (é montada como parte dele) — não
+ * tem geração avulsa no chat. Read-only, honesto quanto ao próximo passo.
  */
 function DeferredConfirmation({
   kind,
   resumo,
 }: {
-  kind: "separatriz" | "auditoria" | "volume";
+  kind: "separatriz";
   resumo: string;
 }) {
-  const nota: Record<typeof kind, string> = {
-    separatriz: "A separatriz é montada dentro do fluxo do volume (PR5).",
-    auditoria: "Anexe o memorial no composer para auditar (PR5).",
-    volume: "Montar o volume junta as partes já geradas — chega no PR5.",
-  };
   return (
     <CardShell kind={kind} resumo={resumo}>
-      <p className="text-xs text-muted-foreground">{nota[kind]}</p>
+      <p className="text-xs text-muted-foreground">
+        A separatriz é montada dentro do fluxo do volume — peça “montar volume”.
+      </p>
       <Button size="sm" disabled>
         <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
         Confirmar e gerar

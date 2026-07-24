@@ -21,6 +21,7 @@
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
     "test:nexo:reconcile": "node scripts/test-nexo-reconcile.ts",
     "test:nexo:context": "node scripts/test-nexo-context.ts",
+    "test:nexo:attachments": "node scripts/test-nexo-attachments.ts",
     "test:nexo:agent": "node scripts/test-nexo-agent.ts",
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",
     "test:nexo:session": "node scripts/test-nexo-session.ts",
