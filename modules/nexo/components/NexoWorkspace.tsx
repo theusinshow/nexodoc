@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
-import type { NexoDossieDraft } from "../types";
+import type { NexoAgentProposal, NexoDossieDraft } from "../types";
 import {
   extractSelosFromFiles,
   extractSeloFromImage,
@@ -22,7 +22,7 @@ import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
-import { NexoCanvas } from "./NexoCanvas";
+import { NexoCanvas, type CanvasProposal } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 
@@ -376,6 +376,32 @@ function NexoWorkspaceInner() {
   // Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb.
   const agentContext = summarizeSelos(selos);
 
+  // Propostas atuais (última por kind, ordem canônica) → viram CARDS no CANVAS
+  // (não mais no chat; o chat é só diálogo). A ldPreview vem da mensagem da LD.
+  const canvasProposals = useMemo<CanvasProposal[]>(() => {
+    const byKind = new Map<NexoAgentProposal["kind"], CanvasProposal>();
+    for (const m of conv.messages) {
+      if (m.role !== "assistant" || !m.proposals) continue;
+      for (const p of m.proposals) {
+        byKind.set(p.kind, {
+          proposal: p,
+          ldPreview: p.kind === "ld" ? m.ldPreview : undefined,
+        });
+      }
+    }
+    const order: NexoAgentProposal["kind"][] = [
+      "ld",
+      "capa",
+      "separatriz",
+      "conferencia",
+      "volume",
+      "auditoria",
+    ];
+    return [...byKind.values()].sort(
+      (a, b) => order.indexOf(a.proposal.kind) - order.indexOf(b.proposal.kind),
+    );
+  }, [conv.messages]);
+
   return (
     <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
@@ -437,7 +463,15 @@ function NexoWorkspaceInner() {
             onDelete={conv.removeConversation}
           />
         }
-        stage={<NexoCanvas pranchasCount={okCount} />}
+        stage={
+          <NexoCanvas
+            pranchasCount={okCount}
+            proposals={canvasProposals}
+            selos={selos}
+            pranchaFiles={pranchaFiles}
+            memorialFile={memorialFile}
+          />
+        }
         copilot={
           <NexoCopilot
             key={convId}
@@ -449,8 +483,6 @@ function NexoWorkspaceInner() {
             agentState={agentState}
             fileCount={okCount}
             context={agentContext}
-            pranchaFiles={pranchaFiles}
-            memorialFile={memorialFile}
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             onTurnStatus={handleTurnStatus}

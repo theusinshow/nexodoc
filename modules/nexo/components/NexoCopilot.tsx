@@ -27,8 +27,6 @@ export function NexoCopilot({
   agentState = "idle",
   fileCount = 0,
   context,
-  pranchaFiles,
-  memorialFile,
   attachments,
   onRemoveAttachment,
   onTurnStatus,
@@ -43,10 +41,6 @@ export function NexoCopilot({
   fileCount?: number;
   /** Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb. */
   context: AgentContext;
-  /** Pranchas originais retidas (bytes p/ montar o volume no chat). */
-  pranchaFiles: File[];
-  /** Memorial anexado (arquivo distinto) — alimenta a auditoria no chat. */
-  memorialFile: File | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments: Attachment[];
   onRemoveAttachment?: (id: string) => void;
@@ -133,8 +127,6 @@ export function NexoCopilot({
           onSend={onSend}
           onAttach={onAttach}
           readStatus={readStatus}
-          pranchaFiles={pranchaFiles}
-          memorialFile={memorialFile}
           attachments={attachments}
           onRemoveAttachment={onRemoveAttachment}
           onTurnStatus={onTurnStatus}

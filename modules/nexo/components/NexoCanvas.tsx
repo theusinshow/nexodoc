@@ -11,7 +11,7 @@
  * nunca N frames pesados; só capa/separatriz/LD ganham miniatura real.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -24,11 +24,20 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Layers } from "lucide-react";
+import { Waypoints, Layers, FileStack } from "lucide-react";
 
-import type { NexoArtifactKind } from "../types";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+import type { NexoAgentProposal, NexoArtifactKind, LdPreviewData } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
 import { ArtifactThumb } from "./ArtifactThumb";
+import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
+
+/** Uma proposta atual + a prévia de folhas (LD) associada — vira card no canvas. */
+export interface CanvasProposal {
+  proposal: NexoAgentProposal;
+  ldPreview?: LdPreviewData;
+}
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
 const CANONICAL_RANK: Record<NexoArtifactKind, number> = {
@@ -92,7 +101,78 @@ function StackNode({ data }: NodeProps<Node<StackNodeData>>) {
 
 const nodeTypes = { artifact: ArtifactNode, stack: StackNode };
 
-export function NexoCanvas({ pranchasCount = 0 }: { pranchasCount?: number }) {
+/**
+ * CANVAS = área de trabalho dos artefatos (Apêndice G, redirecionamento
+ * 2026-07-24). O chat virou diálogo puro; aqui moram os DOCUMENTOS: cada
+ * proposta é um card (confere os parâmetros, gera, baixa) e o "Mapa do volume"
+ * (FigJam read-only) mostra o que já foi gerado com miniatura. Ordem canônica.
+ */
+export function NexoCanvas({
+  pranchasCount = 0,
+  proposals = [],
+  selos,
+  pranchaFiles = [],
+  memorialFile = null,
+}: {
+  pranchasCount?: number;
+  proposals?: CanvasProposal[];
+  selos: SeloForLd[];
+  pranchaFiles?: File[];
+  memorialFile?: File | null;
+}) {
+  const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
+  useEffect(() => {
+    fetch("/api/capas/templates")
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto rounded-md">
+      {/* Documentos: propostas → confirmar / gerar / baixar (o que se ACIONA). */}
+      <section className="min-h-0">
+        <h2 className="mb-3 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          <FileStack className="h-3.5 w-3.5" aria-hidden />
+          Documentos
+        </h2>
+        {proposals.length === 0 ? (
+          <EmptyState
+            className="py-10"
+            description="Peça no chat (ex.: “cria a LD e a capa”). As propostas aparecem aqui — você confere, gera e baixa cada documento."
+          />
+        ) : (
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
+            {proposals.map((cp, i) => (
+              <ConfirmationCard
+                key={`${cp.proposal.kind}-${i}`}
+                proposal={cp.proposal}
+                selos={selos}
+                templates={templates}
+                ldPreview={cp.ldPreview}
+                pranchaFiles={pranchaFiles}
+                memorialFile={memorialFile}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Mapa do volume: FigJam read-only do que já foi gerado (com miniatura). */}
+      <section className="shrink-0">
+        <h2 className="mb-2 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          <Waypoints className="h-3.5 w-3.5" aria-hidden />
+          Mapa do volume
+        </h2>
+        <div className="h-[300px]">
+          <VolumeMap pranchasCount={pranchasCount} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function VolumeMap({ pranchasCount = 0 }: { pranchasCount?: number }) {
   const { artifacts } = useArtifactStore();
 
   const { nodes, edges } = useMemo(() => {
@@ -143,7 +223,7 @@ export function NexoCanvas({ pranchasCount = 0 }: { pranchasCount?: number }) {
   }
 
   return (
-    <div className="h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
+    <div className="h-full w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
