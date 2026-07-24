@@ -64,18 +64,25 @@ export function AgentPopover({
     <div ref={rootRef} className="relative inline-flex">
       {anchor}
       {open ? (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label={label}
-          tabIndex={-1}
-          className={cn(
-            "nexodoc-enter absolute left-1/2 top-[calc(100%+8px)] z-50 w-64 -translate-x-1/2",
-            "rounded-lg border bg-[var(--nexodoc-panel)] p-3 shadow-lg shadow-black/20 outline-none",
-            panelClassName,
-          )}
-        >
-          {children}
+        // Posicionador (X estático — sobrevive ao reduced-motion) + painel animado.
+        <div className="absolute left-1/2 top-[calc(100%+10px)] z-50 -translate-x-1/2">
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label={label}
+            tabIndex={-1}
+            className={cn(
+              "nexo-popover relative w-[248px] rounded-xl border border-border bg-[var(--nexodoc-panel)] p-3.5 outline-none",
+              panelClassName,
+            )}
+          >
+            {/* Bico apontando para o orb (conexão visual, some a sensação de flutuar solto). */}
+            <span
+              aria-hidden
+              className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] border-l border-t border-border bg-[var(--nexodoc-panel)]"
+            />
+            {children}
+          </div>
         </div>
       ) : null}
     </div>

@@ -652,6 +652,26 @@ textarea {
   animation: nexo-status-pulse 1.8s var(--ease-feedback) infinite;
 }
 
+/* Popover de status do orb: entra com fade + scale + slideY da origem no topo.
+   Só transform/opacity (X fica no wrapper posicionador, então funciona com
+   reduced-motion). Sombra + edge = flutua acima do conteúdo, sem "misturar". */
+@keyframes nexo-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.nexo-popover {
+  transform-origin: top center;
+  animation: nexo-popover-in var(--duration-base) var(--ease-entrance) both;
+  box-shadow: var(--edge-highlight), 0 12px 32px -10px rgb(0 0 0 / 0.6);
+}
+
 @supports not (
   (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
 ) {
