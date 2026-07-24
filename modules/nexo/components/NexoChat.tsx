@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, X } from "lucide-react";
 import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
@@ -15,6 +15,15 @@ import { NexoComposer } from "./NexoComposer";
 export interface ReadStatus {
   text: string;
   busy: boolean;
+}
+
+/** Anexo com preview imediato: imagem (miniatura via `url`) ou PDF (ícone). */
+export interface Attachment {
+  id: string;
+  name: string;
+  kind: "image" | "pdf";
+  /** Object URL da miniatura (só imagens). */
+  url?: string;
 }
 
 /**
@@ -32,6 +41,8 @@ export function NexoChat({
   readStatus,
   pranchaFiles,
   memorialFile,
+  attachments = [],
+  onRemoveAttachment,
   onTurnStatus,
 }: {
   selos: SeloForLd[];
@@ -42,6 +53,9 @@ export function NexoChat({
   pranchaFiles: File[];
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
   memorialFile: File | null;
+  /** Anexos com preview imediato (imagem/PDF). */
+  attachments?: Attachment[];
+  onRemoveAttachment?: (id: string) => void;
   /** Reporta o estado do turno pro Nexo Core (analyzing/complete/error). */
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
@@ -211,6 +225,13 @@ export function NexoChat({
       {/* Composer = o único vidro "dock" do agente. */}
       <div className="px-4 pb-6 pt-2">
         <div className="mx-auto w-full max-w-[46rem]">
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2 px-1">
+              {attachments.map((a) => (
+                <AttachmentChip key={a.id} att={a} onRemove={onRemoveAttachment} />
+              ))}
+            </div>
+          )}
           {readStatus && (
             <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
               {readStatus.busy && (
@@ -230,6 +251,45 @@ export function NexoChat({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Chip de anexo com preview: miniatura da imagem ou ícone de PDF, removível. */
+function AttachmentChip({
+  att,
+  onRemove,
+}: {
+  att: Attachment;
+  onRemove?: (id: string) => void;
+}) {
+  return (
+    <div className="nexodoc-enter flex items-center gap-2 rounded-lg border border-border bg-[var(--nexodoc-recessed)] py-1 pl-1 pr-1.5">
+      {att.kind === "image" && att.url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={att.url}
+          alt={att.name}
+          className="h-8 w-8 rounded-md object-cover"
+        />
+      ) : (
+        <span className="flex h-8 w-7 items-center justify-center rounded-md border border-border bg-card">
+          <FileText className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        </span>
+      )}
+      <span className="max-w-[10rem] truncate font-mono text-[11px] text-foreground">
+        {att.name}
+      </span>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={() => onRemove(att.id)}
+          aria-label={`Remover ${att.name}`}
+          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      )}
     </div>
   );
 }

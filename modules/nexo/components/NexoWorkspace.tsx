@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
 import type { NexoDossieDraft } from "../types";
-import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
+import {
+  extractSelosFromFiles,
+  extractSeloFromImage,
+  type SeloResult,
+} from "../lib/selo-render";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import { runShellTransition } from "../lib/motion";
@@ -17,6 +21,7 @@ import {
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
+import type { Attachment } from "./NexoChat";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 
@@ -75,6 +80,8 @@ function NexoWorkspaceInner() {
   // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
   const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
   const [memorialFile, setMemorialFile] = useState<File | null>(null);
+  // Anexos com preview imediato (imagem = miniatura; PDF = ícone). Só visual.
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
 
@@ -176,29 +183,66 @@ function NexoWorkspaceInner() {
   const [reading, setReading] = useState(false);
   const [readProgress, setReadProgress] = useState({ done: 0, total: 0 });
 
-  // Leitura AUTOMÁTICA ao anexar/soltar PDFs. Parte os anexos por tipo do nome:
-  // MEMORIAL (md_geral etc.) vai para a auditoria; PRANCHAS viram selos e ficam
-  // retidas (bytes p/ o volume). Substitui o passo manual "Ler pranchas".
+  const isImageFile = (f: File) =>
+    /^image\//i.test(f.type) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name);
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => {
+      const a = prev.find((x) => x.id === id);
+      if (a?.url) URL.revokeObjectURL(a.url);
+      return prev.filter((x) => x.id !== id);
+    });
+  }
+
+  // Leitura AUTOMÁTICA ao anexar/soltar. PDFs: parte por tipo do nome — MEMORIAL
+  // (md_geral) → auditoria; PRANCHAS → selos + File[] retidas (volume). IMAGENS
+  // (foto de carimbo) → OCR de selo pela mesma rota. Preview imediato de tudo.
   async function readSelos(list: FileList | null) {
-    const pdfs = list ? Array.from(list).filter((f) => /\.pdf$/i.test(f.name)) : [];
-    if (pdfs.length === 0) return;
-    const { memorials, pranchas } = partitionByRole(pdfs);
+    const all = list ? Array.from(list) : [];
+    const pdfs = all.filter((f) => /\.pdf$/i.test(f.name));
+    const images = all.filter(isImageFile);
+    if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
+
+    // Preview imediato (imagem = miniatura; PDF = ícone).
+    const atts: Attachment[] = [
+      ...pdfs.map((f) => ({ id: crypto.randomUUID(), name: f.name, kind: "pdf" as const })),
+      ...images.map((f) => ({
+        id: crypto.randomUUID(),
+        name: f.name,
+        kind: "image" as const,
+        url: URL.createObjectURL(f),
+      })),
+    ];
+    setAttachments((prev) => [...prev, ...atts]);
+
+    const { memorials, pranchas } = partitionByRole(pdfs);
     if (memorials.length > 0) setMemorialFile(memorials[0]);
-    // Batelada só de memorial não mexe nos selos/pranchas já lidos.
-    if (pranchas.length === 0) return;
-    setPranchaFiles(pranchas);
+    // Batelada só de memorial não mexe nos selos.
+    if (pranchas.length === 0 && images.length === 0) return;
+    if (pranchas.length > 0) setPranchaFiles(pranchas);
+
     setReading(true);
-    setReadProgress({ done: 0, total: pranchas.length });
+    const total = pranchas.length + images.length;
+    setReadProgress({ done: 0, total });
     try {
-      const collected: SeloResult[] = [];
-      await extractSelosFromFiles(pranchas, (r) => {
+      // Pranchas começam uma leitura FRESCA; imagens avulsas APPENDam ao contexto.
+      const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
+      if (pranchas.length > 0) {
+        await extractSelosFromFiles(pranchas, (r) => {
+          collected.push(r);
+          setSeloResults([...collected]);
+          setReadProgress({ done: collected.length, total });
+        });
+      }
+      for (const img of images) {
+        const r = await extractSeloFromImage(img);
         collected.push(r);
         setSeloResults([...collected]);
-        setReadProgress({ done: collected.length, total: pranchas.length });
-      });
+        setReadProgress({ done: collected.length, total });
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao ler as pranchas.");
+      setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
     } finally {
       setReading(false);
     }
@@ -222,6 +266,10 @@ function NexoWorkspaceInner() {
         conv.newConversation(); // limpa mensagens + selos no store durável
         setPranchaFiles([]);
         setMemorialFile(null);
+        setAttachments((prev) => {
+          prev.forEach((a) => a.url && URL.revokeObjectURL(a.url));
+          return [];
+        });
         setError(null);
         setReading(false);
         setConvId((c) => c + 1);
@@ -241,6 +289,10 @@ function NexoWorkspaceInner() {
         setDossie(null);
         setPranchaFiles([]);
         setMemorialFile(null);
+        setAttachments((prev) => {
+          prev.forEach((a) => a.url && URL.revokeObjectURL(a.url));
+          return [];
+        });
         setError(null);
         setReading(false);
         setConvId((c) => c + 1);
@@ -333,7 +385,7 @@ function NexoWorkspaceInner() {
         >
           <div className="nexo-glass flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-ring px-10 py-8 text-center">
             <Upload className="h-8 w-8 text-primary" strokeWidth={1.5} />
-            <p className="text-sm font-medium">Solte os PDFs para o Nexo ler</p>
+            <p className="text-sm font-medium">Solte PDFs ou imagens para o Nexo ler</p>
           </div>
         </div>
       )}
@@ -360,11 +412,11 @@ function NexoWorkspaceInner() {
           e.target.value = "";
         }}
       />
-      {/* Anexar do composer (chat) → LÊ os selos direto (chat-first). */}
+      {/* Anexar do composer (chat) → LÊ os selos direto (PDF ou imagem de carimbo). */}
       <input
         ref={attachInputRef}
         type="file"
-        accept="application/pdf"
+        accept="application/pdf,image/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -397,6 +449,8 @@ function NexoWorkspaceInner() {
             context={agentContext}
             pranchaFiles={pranchaFiles}
             memorialFile={memorialFile}
+            attachments={attachments}
+            onRemoveAttachment={removeAttachment}
             onTurnStatus={handleTurnStatus}
           />
         }

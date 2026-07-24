@@ -16,7 +16,7 @@ import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
-import { NexoChat, type ReadStatus } from "./NexoChat";
+import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
 
 export function NexoCopilot({
   started,
@@ -29,6 +29,8 @@ export function NexoCopilot({
   context,
   pranchaFiles,
   memorialFile,
+  attachments,
+  onRemoveAttachment,
   onTurnStatus,
 }: {
   started: boolean;
@@ -45,6 +47,9 @@ export function NexoCopilot({
   pranchaFiles: File[];
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria no chat. */
   memorialFile: File | null;
+  /** Anexos com preview imediato (imagem/PDF). */
+  attachments: Attachment[];
+  onRemoveAttachment?: (id: string) => void;
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
@@ -124,6 +129,8 @@ export function NexoCopilot({
           readStatus={readStatus}
           pranchaFiles={pranchaFiles}
           memorialFile={memorialFile}
+          attachments={attachments}
+          onRemoveAttachment={onRemoveAttachment}
           onTurnStatus={onTurnStatus}
         />
       </div>

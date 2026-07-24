@@ -164,6 +164,41 @@ async function postExtractStamp(
   }
 }
 
+/** Lê um File como data URL (base64 com prefixo) — para imagens avulsas. */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error(`Falha ao ler ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Lê o selo de uma IMAGEM avulsa (ex.: foto de um carimbo) pela MESMA rota de OCR
+ * — a imagem já é o recorte, então não há render de PDF (pdfText vazio). Multimodal
+ * "do jeito do domínio": uma foto de carimbo vira dados de selo no contexto.
+ */
+export async function extractSeloFromImage(file: File): Promise<SeloResult> {
+  try {
+    const imageDataUrl = await fileToDataUrl(file);
+    const extraction = await postExtractStamp(imageDataUrl, "", {
+      fileName: file.name,
+      source: "image",
+      operation: "nexo-selo-image",
+    });
+    return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction };
+  } catch (err) {
+    return {
+      fileName: file.name,
+      pageNumber: 1,
+      pageCount: 1,
+      extraction: null,
+      error: err instanceof Error ? err.message : "Falha ao ler a imagem.",
+    };
+  }
+}
+
 /** Le o selo de UMA pagina de um documento pdf.js JA ABERTO (sem re-parsear). */
 async function extractSeloFromPage(
   doc: { getPage: (n: number) => Promise<unknown> },
