@@ -456,13 +456,48 @@ pediu neste turno). Se não houver nenhum, mande "proposals": [].
 NUNCA escreva JSON antes do texto. NUNCA repita o texto dentro do JSON.
 ```
 
-Ajustar também o `instructions` em `run-turn.ts:189-191`:
+- [ ] **Step 3b: Extrair o request comum aos dois caminhos**
+
+Os dois turnos (single-shot e transmitido) mandam exatamente o mesmo `request` e os
+mesmos `metadata`. Extrair antes de duplicar. Acrescentar em `run-turn.ts`, logo
+acima de `runNexoAgentTurn`:
 
 ```ts
-      instructions:
-        "Você é o Nexo: interpreta o pedido e propõe parâmetros de LD/capa. " +
-        "Nunca gera documentos. Responde em texto puro e só no FINAL abre uma " +
-        "cerca ```json com as propostas.",
+/** Request idêntico nos dois caminhos (single-shot e transmitido). */
+function buildTurnRequest(input: RunNexoAgentTurnInput, model: string) {
+  return {
+    model,
+    instructions:
+      "Você é o Nexo: interpreta o pedido e propõe parâmetros de LD/capa. " +
+      "Nunca gera documentos. Responde em texto puro e só no FINAL abre uma " +
+      "cerca ```json com as propostas.",
+    reasoning: { effort: getReasoningEffort() },
+    max_output_tokens: MAX_OUTPUT_TOKENS,
+    input: buildPrompt(input),
+  };
+}
+
+/** Metadados de telemetria idênticos nos dois caminhos. */
+function buildTurnMetadata(input: RunNexoAgentTurnInput) {
+  return {
+    disciplina: input.resumo.disciplina,
+    folhas: input.resumo.totalFolhas,
+    prefeituras: input.prefeituras.length,
+  };
+}
+```
+
+E trocar o corpo da chamada em `runNexoAgentTurn` (linhas 178-196) por:
+
+```ts
+  const model = getAiConfiguration().nexoAgent.model;
+  const ai = await executeOpenAiResponse({
+    flow: "nexo-agent",
+    model,
+    operation: "nexo-agent-turn",
+    metadata: buildTurnMetadata(input),
+    request: buildTurnRequest(input, model),
+  });
 ```
 
 - [ ] **Step 4: Usar o parser único e adicionar o turno transmitido**
@@ -537,21 +572,8 @@ export async function* runNexoAgentTurnStream(
       flow: "nexo-agent",
       model,
       operation: "nexo-agent-turn",
-      metadata: {
-        disciplina: input.resumo.disciplina,
-        folhas: input.resumo.totalFolhas,
-        prefeituras: input.prefeituras.length,
-      },
-      request: {
-        model,
-        instructions:
-          "Você é o Nexo: interpreta o pedido e propõe parâmetros de LD/capa. " +
-          "Nunca gera documentos. Responde em texto puro e só no FINAL abre uma " +
-          "cerca ```json com as propostas.",
-        reasoning: { effort: getReasoningEffort() },
-        max_output_tokens: MAX_OUTPUT_TOKENS,
-        input: buildPrompt(input),
-      },
+      metadata: buildTurnMetadata(input),
+      request: buildTurnRequest(input, model),
     },
     signal,
   );
