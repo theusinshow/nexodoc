@@ -46,6 +46,8 @@ export interface StoredConversation {
   title: string;
   createdAt: number;
   updatedAt: number;
+  /** Chave da pasta = código da obra (dos selos). Agrupa na sidebar. */
+  folderKey?: string;
   messages: NexoChatMessage[];
   seloResults: SeloResult[];
   results: StoredResultMeta[];
@@ -57,6 +59,7 @@ export interface ConversationSummary {
   title: string;
   updatedAt: number;
   createdAt: number;
+  folderKey?: string;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -113,7 +116,13 @@ export async function listConversations(): Promise<ConversationSummary[]> {
     tx.objectStore(STORE_CONVERSATIONS).getAll(),
   )) as StoredConversation[];
   return all
-    .map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, createdAt: c.createdAt }))
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: c.updatedAt,
+      createdAt: c.createdAt,
+      folderKey: c.folderKey,
+    }))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 

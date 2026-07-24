@@ -23,6 +23,7 @@ import {
 
 import type { SeloResult } from "../lib/selo-render";
 import type { NexoArtifactKind, NexoChatMessage } from "../types";
+import { summarizeSelos } from "../lib/agent-context";
 import {
   deleteConversation as dbDelete,
   getBlob,
@@ -108,6 +109,18 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+/** Chave da pasta = código da obra dominante dos selos (agrupa a sidebar). */
+function deriveFolderKey(seloResults: SeloResult[]): string | undefined {
+  if (seloResults.length === 0) return undefined;
+  const facts = seloResults.map((r) => ({
+    fileName: r.fileName,
+    arquivo: r.extraction?.arquivo ?? null,
+    disciplina: r.extraction?.disciplina ?? null,
+    obra: r.extraction?.obra ?? null,
+  }));
+  return summarizeSelos(facts).codigo ?? undefined;
+}
+
 export function ConversationStoreProvider({ children }: { children: ReactNode }) {
   const [conversationId, setConversationId] = useState<string>(() => newId());
   const [title, setTitle] = useState("Nova conversa");
@@ -164,11 +177,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         })),
         ...(r.payload !== undefined ? { payload: r.payload } : {}),
       }));
+      const folderKey = deriveFolderKey(s.seloResults);
       const rec: StoredConversation = {
         id: s.conversationId,
         title: s.title,
         createdAt: s.createdAt,
         updatedAt: Date.now(),
+        ...(folderKey ? { folderKey } : {}),
         messages: s.messages,
         seloResults: s.seloResults,
         results: resultsMeta,
