@@ -7,6 +7,7 @@ import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
 import { useRevealText } from "../lib/use-reveal-text";
+import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
 
@@ -38,6 +39,8 @@ export function NexoChat({
   onSend,
   onAttach,
   readStatus,
+  pranchaFiles,
+  memorialFile,
   attachments = [],
   onRemoveAttachment,
   onTurnStatus,
@@ -46,6 +49,10 @@ export function NexoChat({
   onSend?: () => void;
   onAttach?: () => void;
   readStatus?: ReadStatus | null;
+  /** Pranchas originais retidas (bytes p/ montar o volume). */
+  pranchaFiles: File[];
+  /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
+  memorialFile: File | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments?: Attachment[];
   onRemoveAttachment?: (id: string) => void;
@@ -56,6 +63,7 @@ export function NexoChat({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Id da resposta que chegou AO VIVO agora (revela com typewriter). Mensagens
@@ -63,6 +71,13 @@ export function NexoChat({
   // vez (o envio é bloqueado enquanto `busy`).
   const [revealId, setRevealId] = useState<string | null>(null);
   const registerComposer = useRegisterComposer();
+
+  useEffect(() => {
+    fetch("/api/capas/templates")
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -160,6 +175,17 @@ export function NexoChat({
                 content={m.content}
                 reveal={m.role === "assistant" && m.id === revealId}
               />
+              {m.proposals?.map((p, i) => (
+                <ConfirmationCard
+                  key={`${m.id}-${i}`}
+                  proposal={p}
+                  selos={selos}
+                  templates={templates}
+                  ldPreview={m.ldPreview}
+                  pranchaFiles={pranchaFiles}
+                  memorialFile={memorialFile}
+                />
+              ))}
               {m.slotRequest && (
                 <QuickReplyChips suggestions={m.slotRequest.suggestions} />
               )}
