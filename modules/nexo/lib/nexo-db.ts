@@ -36,6 +36,8 @@ export interface StoredResultMeta {
   /** Metadados leves p/ o canvas (miniatura). */
   canvas?: { label: string; detail?: string; pageNumber?: number };
   files: StoredFileMeta[];
+  /** Resultado JSON de análises SEM arquivo (conferência/auditoria). */
+  payload?: unknown;
 }
 
 /** Registro LEVE de uma conversa (sem blobs). */

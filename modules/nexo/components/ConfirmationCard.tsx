@@ -42,18 +42,42 @@ import type {
 } from "../types";
 
 export type { LdPreviewData };
-import {
-  postLd,
-  postCapa,
-  postCheck,
-  postAudit,
-  type LdGenResult,
-  type CapaGenResult,
-} from "../lib/generate";
+import { postLd, postCapa, postCheck, postAudit, ODT_MIME } from "../lib/generate";
 import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { useComposer } from "../state/composer-controller";
-import { useArtifactStore } from "../state/artifact-store";
+import { useConversation, type SavedResult } from "../state/conversation-store";
+
+const PDF_MIME = "application/pdf";
+
+/** Id determinístico do artefato (deriva dos selos + params, não do resultado). */
+function ldId(selos: SeloForLd[]): string {
+  const s = summarizeSelos(selos);
+  return `ld:${s.codigo ?? "x"}:${s.revisao ?? "x"}`;
+}
+function capaId(selos: SeloForLd[], volume: string): string {
+  const s = summarizeSelos(selos);
+  return `capa:${s.codigo ?? "x"}:${volume.trim() || "auto"}`;
+}
+function volumeId(selos: SeloForLd[]): string {
+  return `volume:${summarizeSelos(selos).codigo ?? "x"}`;
+}
+function conferenciaId(selos: SeloForLd[]): string {
+  return `conferencia:${summarizeSelos(selos).codigo ?? "x"}`;
+}
+function auditoriaId(selos: SeloForLd[]): string {
+  return `auditoria:${summarizeSelos(selos).codigo ?? "x"}`;
+}
+
+/** Mapeia os arquivos salvos p/ o formato do ResultLinks. */
+function toResultFiles(saved: SavedResult) {
+  return saved.files.map((f) => ({
+    label: f.label,
+    url: f.url,
+    name: f.name,
+    primary: f.primary,
+  }));
+}
 
 export interface NexoTemplateOption {
   id: string;
@@ -243,8 +267,9 @@ function LdConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<LdGenResult | null>(null);
-  const { addArtifact } = useArtifactStore();
+  const { getResult, saveResult } = useConversation();
+  const id = ldId(selos);
+  const saved = getResult(id);
 
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
@@ -254,14 +279,21 @@ function LdConfirmation({
     setError(null);
     try {
       const r = await postLd(selos, { tituloLd: titulo, numTomos: params.numTomos });
-      setResult(r);
-      addArtifact({
-        id: `ld:${r.resumo.codigo}:${r.resumo.revisao}`,
+      await saveResult({
+        artifactId: id,
         kind: "ld",
-        label: `LD ${r.resumo.disciplina}`,
-        detail: `${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
-        pdfUrl: r.pdfUrl,
-        pageNumber: 1,
+        summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas${
+          r.warnings.length ? ` · ${r.warnings.length} aviso(s)` : ""
+        }`,
+        canvas: {
+          label: `LD ${r.resumo.disciplina}`,
+          detail: `${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
+          pageNumber: 1,
+        },
+        files: [
+          { label: "ODT", name: r.odtName, mime: ODT_MIME, url: r.odtUrl },
+          ...(r.pdfUrl ? [{ label: "PDF", name: r.pdfName!, mime: PDF_MIME, url: r.pdfUrl }] : []),
+        ],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a LD.");
@@ -274,7 +306,7 @@ function LdConfirmation({
     <CardShell kind="ld" resumo={resumo}>
       {ldPreview && <FolhaPreview data={ldPreview} />}
 
-      {!result && (
+      {!saved && (
         <>
           <div className="space-y-1.5">
             <SummaryRow
@@ -303,19 +335,7 @@ function LdConfirmation({
         </>
       )}
 
-      {result && (
-        <ResultLinks
-          summary={`LD ${result.resumo.disciplina} · ${result.resumo.codigo} · rev ${result.resumo.revisao} · ${result.resumo.totalFolhas} folhas${
-            result.warnings.length ? ` · ${result.warnings.length} aviso(s)` : ""
-          }`}
-          files={[
-            { label: "ODT", url: result.odtUrl, name: result.odtName },
-            ...(result.pdfUrl
-              ? [{ label: "PDF", url: result.pdfUrl, name: result.pdfName! }]
-              : []),
-          ]}
-        />
-      )}
+      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
       <CardError message={error} />
     </CardShell>
   );
@@ -376,8 +396,9 @@ function CapaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CapaGenResult | null>(null);
-  const { addArtifact } = useArtifactStore();
+  const { getResult, saveResult } = useConversation();
+  const id = capaId(selos, params.volume);
+  const saved = getResult(id);
 
   const template = templates.find((t) => t.id === params.templateId);
   const prefeituraNome = template
@@ -396,14 +417,22 @@ function CapaConfirmation({
         volume: params.volume,
         numTomos: params.numTomos,
       });
-      setResult(r);
-      addArtifact({
-        id: `capa:${r.resumo.codigo}:${r.resumo.volume}`,
+      await saveResult({
+        artifactId: id,
         kind: "capa",
-        label: `Capa ${r.resumo.prefeitura}`,
-        detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
-        pdfUrl: r.pdfUrl,
-        pageNumber: 1,
+        summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}${
+          r.resumo.tomos > 1 ? ` · ${r.resumo.tomos} tomos` : ""
+        }${r.pdfError ? " · PDF indisponível" : ""}`,
+        canvas: {
+          label: `Capa ${r.resumo.prefeitura}`,
+          detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
+          pageNumber: 1,
+        },
+        files: [
+          { label: "ZIP", name: r.zipName, mime: "application/zip", url: r.zipUrl, primary: true },
+          { label: "ODT", name: r.odtName, mime: ODT_MIME, url: r.odtUrl },
+          ...(r.pdfUrl ? [{ label: "PDF", name: r.pdfName!, mime: PDF_MIME, url: r.pdfUrl }] : []),
+        ],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a capa.");
@@ -414,7 +443,7 @@ function CapaConfirmation({
 
   return (
     <CardShell kind="capa" resumo={resumo}>
-      {!result && (
+      {!saved && (
         <>
           <div className="space-y-1.5">
             <SummaryRow
@@ -447,20 +476,7 @@ function CapaConfirmation({
         </>
       )}
 
-      {result && (
-        <ResultLinks
-          summary={`Capa ${result.resumo.prefeitura} · ${result.resumo.codigo} · vol ${result.resumo.volume}${
-            result.resumo.tomos > 1 ? ` · ${result.resumo.tomos} tomos` : ""
-          }${result.pdfError ? " · PDF indisponível" : ""}`}
-          files={[
-            { label: "ZIP", url: result.zipUrl, name: result.zipName, primary: true },
-            { label: "ODT", url: result.odtUrl, name: result.odtName },
-            ...(result.pdfUrl
-              ? [{ label: "PDF", url: result.pdfUrl, name: result.pdfName! }]
-              : []),
-          ]}
-        />
-      )}
+      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
       <CardError message={error} />
     </CardShell>
   );
@@ -477,13 +493,22 @@ function ConferenciaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<LightCheckResult | null>(null);
+  const { getResult, saveResult } = useConversation();
+  const id = conferenciaId(selos);
+  const result = getResult(id)?.payload as LightCheckResult | undefined;
 
   async function confirm() {
     setBusy(true);
     setError(null);
     try {
-      setResult(await postCheck(selos));
+      const r = await postCheck(selos);
+      await saveResult({
+        artifactId: id,
+        kind: "conferencia",
+        summary: `Conferência — ${r.veredito}`,
+        files: [],
+        payload: r,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na conferência.");
     } finally {
@@ -580,21 +605,24 @@ function VolumeConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ url: string; name: string; pageCount?: number } | null>(null);
-  const { artifacts, addArtifact } = useArtifactStore();
+  const { results, getResult, saveResult } = useConversation();
+  const id = volumeId(selos);
+  const saved = getResult(id);
 
-  const capa = artifacts.find((a) => a.kind === "capa");
-  const ld = artifacts.find((a) => a.kind === "ld");
+  const capa = results.find((r) => r.kind === "capa");
+  const ld = results.find((r) => r.kind === "ld");
+  const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
+  const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
   const semPranchas = pranchaFiles.length === 0;
   // Disciplina p/ a separatriz (best-effort): do rótulo "LD <disciplina>".
-  const sepTitle = ld?.label.replace(/^LD\s+/i, "").trim() ?? "";
+  const sepTitle = ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ?? "";
 
   async function confirm() {
     setBusy(true);
     setError(null);
     try {
-      const capaPdf64 = capa?.pdfUrl ? await urlToBase64(capa.pdfUrl) : null;
-      const ldPdf64 = ld?.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
+      const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
+      const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
       const r = await assembleVolume({
         selos,
         pranchaFiles,
@@ -602,15 +630,16 @@ function VolumeConfirmation({
         ldPdf64,
         separatrizTitle: sepTitle,
       });
-      setResult(r);
-      const codigo = summarizeSelos(selos).codigo ?? "volume";
-      addArtifact({
-        id: `volume:${codigo}`,
+      await saveResult({
+        artifactId: id,
         kind: "volume",
-        label: "Volume",
-        detail: r.pageCount != null ? `${r.pageCount} páginas` : undefined,
-        pdfUrl: r.url,
-        pageNumber: 1,
+        summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
+        canvas: {
+          label: "Volume",
+          detail: r.pageCount != null ? `${r.pageCount} páginas` : undefined,
+          pageNumber: 1,
+        },
+        files: [{ label: "PDF do volume", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
@@ -621,11 +650,11 @@ function VolumeConfirmation({
 
   return (
     <CardShell kind="volume" resumo={resumo}>
-      {!result && (
+      {!saved && (
         <>
           <div className="space-y-1.5">
-            <PartRow label="Capa" ok={Boolean(capa?.pdfUrl)} />
-            <PartRow label="LD" ok={Boolean(ld?.pdfUrl)} />
+            <PartRow label="Capa" ok={Boolean(capaPdfUrl)} />
+            <PartRow label="LD" ok={Boolean(ldPdfUrl)} />
             <PartRow
               label="Pranchas"
               ok={!semPranchas}
@@ -653,12 +682,7 @@ function VolumeConfirmation({
         </>
       )}
 
-      {result && (
-        <ResultLinks
-          summary={`Volume montado${result.pageCount != null ? ` · ${result.pageCount} páginas` : ""}`}
-          files={[{ label: "PDF do volume", url: result.url, name: result.name, primary: true }]}
-        />
-      )}
+      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
       <CardError message={error} />
     </CardShell>
   );
@@ -702,14 +726,15 @@ function AuditoriaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AuditReport | null>(null);
-  const { artifacts } = useArtifactStore();
+  const { results, getResult, saveResult } = useConversation();
+  const id = auditoriaId(selos);
+  const result = getResult(id)?.payload as AuditReport | undefined;
 
   const obra = summarizeSelos(selos).obra ?? undefined;
-  // Prefeitura best-effort: do rótulo "Capa <prefeitura>" do artefato de capa.
-  const prefeitura = artifacts
-    .find((a) => a.kind === "capa")
-    ?.label.replace(/^Capa\s+/i, "")
+  // Prefeitura best-effort: do rótulo "Capa <prefeitura>" do resultado de capa.
+  const prefeitura = results
+    .find((r) => r.kind === "capa")
+    ?.canvas?.label.replace(/^Capa\s+/i, "")
     .trim();
 
   async function confirm() {
@@ -718,7 +743,13 @@ function AuditoriaConfirmation({
     setError(null);
     try {
       const r = await postAudit(memorialFile, { obra, prefeitura }, params.nivel);
-      setResult(r);
+      await saveResult({
+        artifactId: id,
+        kind: "auditoria",
+        summary: `Auditoria — ${r.status_geral}`,
+        files: [],
+        payload: r,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
     } finally {

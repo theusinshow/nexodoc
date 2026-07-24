@@ -9,7 +9,7 @@ import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
-import { ArtifactStoreProvider } from "../state/artifact-store";
+import { ArtifactStoreProvider, useArtifactStore } from "../state/artifact-store";
 import {
   ConversationStoreProvider,
   useConversation,
@@ -45,9 +45,27 @@ export function NexoWorkspace() {
 
 function NexoWorkspaceInner() {
   const conv = useConversation();
+  const { addArtifact } = useArtifactStore();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).
   const seloResults = conv.seloResults;
   const setSeloResults = conv.setSeloResults;
+
+  // Espelha os resultados gerados (durável) no store do canvas — caminho único
+  // p/ geração ao vivo E restore. Dedup por id (addArtifact substitui).
+  useEffect(() => {
+    for (const r of conv.results) {
+      if (!r.canvas) continue;
+      const pdf = r.files.find((f) => f.mime === "application/pdf");
+      addArtifact({
+        id: r.artifactId,
+        kind: r.kind,
+        label: r.canvas.label,
+        detail: r.canvas.detail,
+        pdfUrl: pdf?.url,
+        pageNumber: r.canvas.pageNumber ?? 1,
+      });
+    }
+  }, [conv.results, addArtifact]);
 
   const [files, setFiles] = useState<File[]>([]);
   const [folderCount, setFolderCount] = useState(0);

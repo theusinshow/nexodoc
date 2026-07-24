@@ -22,15 +22,49 @@ import {
 } from "react";
 
 import type { SeloResult } from "../lib/selo-render";
-import type { NexoChatMessage } from "../types";
+import type { NexoArtifactKind, NexoChatMessage } from "../types";
 import {
   deleteConversation as dbDelete,
+  getBlob,
   getConversation,
   listConversations,
+  putBlob,
   putConversation,
   type ConversationSummary,
   type StoredConversation,
+  type StoredResultMeta,
 } from "../lib/nexo-db";
+
+/** Um arquivo de resultado com object URL vivo (p/ download/preview). */
+export interface SavedFile {
+  label: string;
+  name: string;
+  mime: string;
+  url: string;
+  /** Chave no store de blobs (persistência/reidratação). */
+  blobKey: string;
+  primary?: boolean;
+}
+
+/** Resultado gerado (com URLs vivas) — reidratado do IndexedDB no restore. */
+export interface SavedResult {
+  artifactId: string;
+  kind: NexoArtifactKind;
+  summary: string;
+  canvas?: { label: string; detail?: string; pageNumber?: number };
+  files: SavedFile[];
+  payload?: unknown;
+}
+
+/** Entrada de `saveResult`: os arquivos vêm como object URLs (o card já os tem). */
+export interface SaveResultInput {
+  artifactId: string;
+  kind: NexoArtifactKind;
+  summary: string;
+  canvas?: { label: string; detail?: string; pageNumber?: number };
+  files: { label: string; name: string; mime: string; url: string; primary?: boolean }[];
+  payload?: unknown;
+}
 
 interface ConversationStoreValue {
   conversationId: string;
@@ -39,8 +73,14 @@ interface ConversationStoreValue {
   seloResults: SeloResult[];
   /** Lista de conversas (resumos), mais recentes primeiro. */
   conversations: ConversationSummary[];
+  /** Resultados gerados (com URLs vivas) — reidratados do IndexedDB no restore. */
+  results: SavedResult[];
   appendMessage: (m: NexoChatMessage) => void;
   setSeloResults: (r: SeloResult[]) => void;
+  /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
+  saveResult: (input: SaveResultInput) => Promise<void>;
+  /** Lê um resultado já gerado (nesta sessão ou restaurado). */
+  getResult: (artifactId: string) => SavedResult | undefined;
   newConversation: () => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
   selectConversation: (id: string) => Promise<StoredConversation | null>;
@@ -73,11 +113,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [title, setTitle] = useState("Nova conversa");
   const [messages, setMessages] = useState<NexoChatMessage[]>([]);
   const [seloResults, setSeloResultsState] = useState<SeloResult[]>([]);
+  const [results, setResults] = useState<SavedResult[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   // Snapshot mais novo p/ o persist debounced (evita closure velha). Sincronizado
   // num effect — o React Compiler proíbe tocar ref.current durante o render.
-  const snapshotRef = useRef({ conversationId, title, messages, seloResults, createdAt: 0 });
+  const snapshotRef = useRef({ conversationId, title, messages, seloResults, results, createdAt: 0 });
   useEffect(() => {
     snapshotRef.current = {
       ...snapshotRef.current,
@@ -85,6 +126,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       title,
       messages,
       seloResults,
+      results,
       createdAt: snapshotRef.current.createdAt || Date.now(),
     };
   });
@@ -105,7 +147,23 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       const s = snapshotRef.current;
-      if (s.messages.length === 0 && s.seloResults.length === 0) return;
+      if (s.messages.length === 0 && s.seloResults.length === 0 && s.results.length === 0) {
+        return;
+      }
+      const resultsMeta: StoredResultMeta[] = s.results.map((r) => ({
+        artifactId: r.artifactId,
+        kind: r.kind,
+        summary: r.summary,
+        ...(r.canvas ? { canvas: r.canvas } : {}),
+        files: r.files.map((f) => ({
+          label: f.label,
+          name: f.name,
+          mime: f.mime,
+          blobKey: f.blobKey,
+          ...(f.primary ? { primary: true } : {}),
+        })),
+        ...(r.payload !== undefined ? { payload: r.payload } : {}),
+      }));
       const rec: StoredConversation = {
         id: s.conversationId,
         title: s.title,
@@ -113,7 +171,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         updatedAt: Date.now(),
         messages: s.messages,
         seloResults: s.seloResults,
-        results: [],
+        results: resultsMeta,
       };
       putConversation(rec)
         .then(refreshList)
@@ -142,12 +200,60 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [schedulePersist],
   );
 
+  // Persiste os blobs de um resultado e o expõe reidratado (URLs vivas).
+  const saveResult = useCallback(
+    async (input: SaveResultInput) => {
+      const convId = snapshotRef.current.conversationId;
+      const files: SavedFile[] = [];
+      for (const f of input.files) {
+        const blobKey = `${convId}:${input.artifactId}:${f.label}`;
+        try {
+          const blob = await fetch(f.url).then((r) => r.blob());
+          await putBlob(blobKey, blob);
+        } catch {
+          /* persistência é best-effort; o download da sessão segue válido */
+        }
+        files.push({
+          label: f.label,
+          name: f.name,
+          mime: f.mime,
+          url: f.url,
+          blobKey,
+          ...(f.primary ? { primary: true } : {}),
+        });
+      }
+      const saved: SavedResult = {
+        artifactId: input.artifactId,
+        kind: input.kind,
+        summary: input.summary,
+        ...(input.canvas ? { canvas: input.canvas } : {}),
+        files,
+        ...(input.payload !== undefined ? { payload: input.payload } : {}),
+      };
+      setResults((prev) => {
+        const i = prev.findIndex((r) => r.artifactId === saved.artifactId);
+        if (i === -1) return [...prev, saved];
+        const next = [...prev];
+        next[i] = saved;
+        return next;
+      });
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  const getResult = useCallback(
+    (artifactId: string) => results.find((r) => r.artifactId === artifactId),
+    [results],
+  );
+
   const newConversation = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setConversationId(newId());
     setTitle("Nova conversa");
     setMessages([]);
     setSeloResultsState([]);
+    setResults([]);
     snapshotRef.current.createdAt = Date.now();
   }, []);
 
@@ -156,10 +262,36 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       if (timerRef.current) clearTimeout(timerRef.current);
       const rec = await getConversation(id);
       if (!rec) return null;
+      // Reidrata os resultados: busca cada blob e cria URLs vivas.
+      const restored: SavedResult[] = [];
+      for (const meta of rec.results) {
+        const files: SavedFile[] = [];
+        for (const fm of meta.files) {
+          const blob = await getBlob(fm.blobKey);
+          if (!blob) continue;
+          files.push({
+            label: fm.label,
+            name: fm.name,
+            mime: fm.mime,
+            url: URL.createObjectURL(blob),
+            blobKey: fm.blobKey,
+            ...(fm.primary ? { primary: true } : {}),
+          });
+        }
+        restored.push({
+          artifactId: meta.artifactId,
+          kind: meta.kind,
+          summary: meta.summary,
+          ...(meta.canvas ? { canvas: meta.canvas } : {}),
+          files,
+          ...(meta.payload !== undefined ? { payload: meta.payload } : {}),
+        });
+      }
       setConversationId(rec.id);
       setTitle(rec.title);
       setMessages(rec.messages);
       setSeloResultsState(rec.seloResults);
+      setResults(restored);
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
@@ -181,8 +313,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages,
       seloResults,
       conversations,
+      results,
       appendMessage,
       setSeloResults,
+      saveResult,
+      getResult,
       newConversation,
       selectConversation,
       removeConversation,
@@ -193,8 +328,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages,
       seloResults,
       conversations,
+      results,
       appendMessage,
       setSeloResults,
+      saveResult,
+      getResult,
       newConversation,
       selectConversation,
       removeConversation,
