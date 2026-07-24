@@ -182,6 +182,7 @@ function NexoWorkspaceInner() {
   const [convId, setConvId] = useState(0);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
+  const [readingMemorial, setReadingMemorial] = useState(false);
   const [readProgress, setReadProgress] = useState({ done: 0, total: 0 });
 
   const isImageFile = (f: File) =>
@@ -195,9 +196,105 @@ function NexoWorkspaceInner() {
     });
   }
 
+  // Lê a IDENTIDADE do memorial (obra/código/município) pelo conteúdo — reusa a
+  // classificação determinística da rota de intake (lê as primeiras páginas).
+  async function classifyMemorial(file: File): Promise<NexoDossieDraft | null> {
+    const form = new FormData();
+    form.append("files", file);
+    form.append("relPaths", JSON.stringify([""]));
+    const res = await fetch("/api/nexo/classify", { method: "POST", body: form });
+    if (!res.ok) return null;
+    const payload = (await res.json().catch(() => null)) as { dossie?: NexoDossieDraft } | null;
+    return payload?.dossie ?? null;
+  }
+
+  // Intake conversacional das PRANCHAS: o anexo vira mensagem + opções clicáveis.
+  function appendSelosIntake(okSelos: SeloResult[], files: File[], hasMemorial: boolean) {
+    const ctx = summarizeSelos(
+      okSelos.map((r) => ({
+        fileName: r.fileName,
+        arquivo: r.extraction?.arquivo ?? null,
+        disciplina: r.extraction?.disciplina ?? null,
+        obra: r.extraction?.obra ?? null,
+      })),
+    );
+    const names = files.map((f) => f.name);
+    const nameStr =
+      names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+    const detail = [
+      ctx.disciplinas.join(", "),
+      ctx.codigo ? `código ${ctx.codigo}` : "",
+      ctx.obra ? `obra ${ctx.obra}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const suggestions: NexoSlotSuggestion[] = [
+      { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
+      { label: "Só a LD", value: "cria a LD dessas pranchas", commit: "send" },
+      { label: "Conferir as folhas", value: "confere as folhas", commit: "send" },
+    ];
+    if (hasMemorial) {
+      suggestions.push({ label: "Auditar o memorial", value: "audita o memorial", commit: "send" });
+    }
+
+    start();
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `Anexei ${okSelos.length} folha(s) — ${nameStr}`,
+    });
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}. O que você quer que eu faça?`,
+      slotRequest: {
+        slotId: "intake",
+        taskKind: "ld",
+        prompt: "O que fazer com as pranchas anexadas",
+        optional: true,
+        suggestions,
+      },
+    });
+  }
+
+  // Intake conversacional do MEMORIAL: identifica e já propõe auditar/conferir.
+  function appendMemorialIntake(memorial: File, dossie: NexoDossieDraft | null) {
+    const detail = [
+      dossie?.obra,
+      dossie?.codigo ? `código ${dossie.codigo}` : "",
+      dossie?.municipio,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    start();
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `Anexei o memorial — ${memorial.name}`,
+    });
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `Li as primeiras páginas e confirmo: é o memorial descritivo${
+        detail ? ` — ${detail}` : ""
+      }. Quer que eu audite contra a obra das pranchas?`,
+      slotRequest: {
+        slotId: "memorial",
+        taskKind: "auditoria",
+        prompt: "O que fazer com o memorial",
+        optional: true,
+        suggestions: [
+          { label: "Auditar o memorial", value: "audita o memorial", commit: "send" },
+          { label: "Auditoria profunda", value: "audita o memorial em profundidade", commit: "send" },
+        ],
+      },
+    });
+  }
+
   // Leitura AUTOMÁTICA ao anexar/soltar. PDFs: parte por tipo do nome — MEMORIAL
-  // (md_geral) → auditoria; PRANCHAS → selos + File[] retidas (volume). IMAGENS
-  // (foto de carimbo) → OCR de selo pela mesma rota. Preview imediato de tudo.
+  // (md_geral) → identifica + propõe auditar; PRANCHAS → selos + File[] retidas
+  // (volume). IMAGENS (foto de carimbo) → OCR pela mesma rota. Preview imediato.
   async function readSelos(list: FileList | null) {
     const all = list ? Array.from(list) : [];
     const pdfs = all.filter((f) => /\.pdf$/i.test(f.name));
@@ -218,88 +315,54 @@ function NexoWorkspaceInner() {
     setAttachments((prev) => [...prev, ...atts]);
 
     const { memorials, pranchas } = partitionByRole(pdfs);
-    if (memorials.length > 0) setMemorialFile(memorials[0]);
-    // Batelada só de memorial não mexe nos selos.
-    if (pranchas.length === 0 && images.length === 0) return;
-    if (pranchas.length > 0) setPranchaFiles(pranchas);
+    const memorial = memorials[0] ?? null;
+    if (memorial) setMemorialFile(memorial);
 
-    setReading(true);
-    const total = pranchas.length + images.length;
-    setReadProgress({ done: 0, total });
-    try {
-      // Pranchas começam uma leitura FRESCA; imagens avulsas APPENDam ao contexto.
-      const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
-      if (pranchas.length > 0) {
-        await extractSelosFromFiles(pranchas, (r) => {
+    // Caso A: pranchas e/ou imagens → lê selos + intake das pranchas.
+    if (pranchas.length > 0 || images.length > 0) {
+      if (pranchas.length > 0) setPranchaFiles(pranchas);
+      setReading(true);
+      const total = pranchas.length + images.length;
+      setReadProgress({ done: 0, total });
+      try {
+        // Pranchas = leitura FRESCA; imagens avulsas APPENDam ao contexto.
+        const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
+        if (pranchas.length > 0) {
+          await extractSelosFromFiles(pranchas, (r) => {
+            collected.push(r);
+            setSeloResults([...collected]);
+            setReadProgress({ done: collected.length, total });
+          });
+        }
+        for (const img of images) {
+          const r = await extractSeloFromImage(img);
           collected.push(r);
           setSeloResults([...collected]);
           setReadProgress({ done: collected.length, total });
-        });
-      }
-      for (const img of images) {
-        const r = await extractSeloFromImage(img);
-        collected.push(r);
-        setSeloResults([...collected]);
-        setReadProgress({ done: collected.length, total });
-      }
-
-      // Intake CONVERSACIONAL: o anexo vira uma mensagem no chat e o Nexo já
-      // devolve opções CLICÁVEIS do que fazer (sem o usuário precisar digitar).
-      const okSelos = collected.filter((r) => r.extraction);
-      if (okSelos.length > 0) {
-        const ctx = summarizeSelos(
-          okSelos.map((r) => ({
-            fileName: r.fileName,
-            arquivo: r.extraction?.arquivo ?? null,
-            disciplina: r.extraction?.disciplina ?? null,
-            obra: r.extraction?.obra ?? null,
-          })),
-        );
-        const names = [...pdfs, ...images].map((f) => f.name);
-        const nameStr =
-          names.length <= 2
-            ? names.join(", ")
-            : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-        const detail = [
-          ctx.disciplinas.join(", "),
-          ctx.codigo ? `código ${ctx.codigo}` : "",
-          ctx.obra ? `obra ${ctx.obra}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-        const suggestions: NexoSlotSuggestion[] = [
-          { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
-          { label: "Só a LD", value: "cria a LD dessas pranchas", commit: "send" },
-          { label: "Conferir as folhas", value: "confere as folhas", commit: "send" },
-        ];
-        if (memorials.length > 0) {
-          suggestions.push({ label: "Auditar o memorial", value: "audita o memorial", commit: "send" });
         }
-
-        start(); // welcome → active (mostra o chat com a mensagem do intake)
-        conv.appendMessage({
-          id: crypto.randomUUID(),
-          role: "user",
-          content: `Anexei ${okSelos.length} folha(s) — ${nameStr}`,
-        });
-        conv.appendMessage({
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}. O que você quer que eu faça?`,
-          slotRequest: {
-            slotId: "intake",
-            taskKind: "ld",
-            prompt: "O que fazer com as pranchas anexadas",
-            optional: true,
-            suggestions,
-          },
-        });
+        const okSelos = collected.filter((r) => r.extraction);
+        if (okSelos.length > 0) {
+          appendSelosIntake(okSelos, [...pdfs, ...images], Boolean(memorial));
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
+      } finally {
+        setReading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
-    } finally {
-      setReading(false);
+      return;
+    }
+
+    // Caso B: só memorial → lê as primeiras páginas, identifica e propõe auditar.
+    if (memorial) {
+      setReadingMemorial(true);
+      try {
+        const dossie = await classifyMemorial(memorial);
+        appendMemorialIntake(memorial, dossie);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
+      } finally {
+        setReadingMemorial(false);
+      }
     }
   }
 
@@ -356,15 +419,19 @@ function NexoWorkspaceInner() {
   };
 
   const okCount = seloResults.filter((r) => r.extraction).length;
+  const busyReading = reading || readingMemorial;
   const seloText = reading
     ? `Lendo pranchas… ${readProgress.done}/${readProgress.total}`
-    : okCount > 0
-      ? `${okCount} folha(s) de selo lidas — pronto para gerar.`
-      : null;
-  const memoText = memorialFile ? `Memorial anexado: ${memorialFile.name}` : null;
+    : readingMemorial
+      ? "Lendo o memorial…"
+      : okCount > 0
+        ? `${okCount} folha(s) de selo lidas — pronto para gerar.`
+        : null;
+  const memoText =
+    memorialFile && !readingMemorial ? `Memorial anexado: ${memorialFile.name}` : null;
   const readStatus =
     seloText || memoText
-      ? { text: [seloText, memoText].filter(Boolean).join(" · "), busy: reading }
+      ? { text: [seloText, memoText].filter(Boolean).join(" · "), busy: busyReading }
       : null;
 
   // Ferramentas antigas (intake completo) só com a flag dev.
@@ -422,7 +489,7 @@ function NexoWorkspaceInner() {
   );
   const agentState = useAgentState({
     dragging,
-    reading,
+    reading: reading || readingMemorial,
     thinking: chatStatus.thinking,
     error: chatStatus.error,
   });
