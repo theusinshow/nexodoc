@@ -6,6 +6,7 @@ import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
+import { useApiUsage } from "../state/api-usage";
 import { useRevealText } from "../lib/use-reveal-text";
 import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
@@ -60,6 +61,7 @@ export function NexoChat({
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
   const { messages, appendMessage } = useConversation();
+  const { addTokens } = useApiUsage();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export function NexoChat({
       if (!res.ok || !payload?.turn) {
         throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
       }
+      addTokens(payload.turn.usage ?? 0); // consumo de IA deste turno
       const assistantId = crypto.randomUUID();
       setRevealId(assistantId); // recém-chegada → revela com typewriter
       appendMessage({

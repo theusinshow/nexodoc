@@ -38,6 +38,8 @@ export interface SeloResult {
   pageCount: number;
   extraction: StampExtraction | null;
   error?: string;
+  /** Tokens de IA gastos nesta leitura de selo (indicador de consumo). */
+  usage?: number;
 }
 
 type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -144,7 +146,7 @@ async function postExtractStamp(
   imageDataUrl: string,
   pdfText: string,
   metadata: Record<string, unknown>,
-): Promise<StampExtraction> {
+): Promise<{ extraction: StampExtraction; usage: number }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -158,7 +160,11 @@ async function postExtractStamp(
       const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       throw new Error(payload?.error ?? `Erro ${res.status} no OCR do selo.`);
     }
-    return (await res.json()) as StampExtraction;
+    const json = (await res.json()) as StampExtraction & {
+      usage?: { totalTokens?: number };
+    };
+    const usage = typeof json.usage?.totalTokens === "number" ? json.usage.totalTokens : 0;
+    return { extraction: json, usage };
   } finally {
     clearTimeout(timeout);
   }
@@ -182,12 +188,12 @@ function fileToDataUrl(file: File): Promise<string> {
 export async function extractSeloFromImage(file: File): Promise<SeloResult> {
   try {
     const imageDataUrl = await fileToDataUrl(file);
-    const extraction = await postExtractStamp(imageDataUrl, "", {
+    const { extraction, usage } = await postExtractStamp(imageDataUrl, "", {
       fileName: file.name,
       source: "image",
       operation: "nexo-selo-image",
     });
-    return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction };
+    return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction, usage };
   } catch (err) {
     return {
       fileName: file.name,
@@ -212,13 +218,13 @@ async function extractSeloFromPage(
       renderSeloCrop(page as never),
       buildSeloText(page as never),
     ]);
-    const extraction = await postExtractStamp(imageDataUrl, pdfText, {
+    const { extraction, usage } = await postExtractStamp(imageDataUrl, pdfText, {
       fileName: file.name,
       pageNumber,
       source: "visual",
       operation: "nexo-selo",
     });
-    return { fileName: file.name, pageNumber, pageCount, extraction };
+    return { fileName: file.name, pageNumber, pageCount, extraction, usage };
   } catch (err) {
     return {
       fileName: file.name,

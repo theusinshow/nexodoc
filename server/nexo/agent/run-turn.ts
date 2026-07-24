@@ -13,6 +13,7 @@
  * afirma fatos, pergunta decisões; nada irreversível sem confirmação.
  */
 import { executeOpenAiResponse } from "@/lib/ai-runner";
+import { extractTokenUsage } from "@/lib/ai-usage";
 import { getAiConfiguration } from "@/lib/ai-providers";
 import type { NexoAgentTurn } from "@/modules/nexo/types";
 import { normalizeProposals } from "./normalize";
@@ -194,6 +195,7 @@ export async function runNexoAgentTurn(
     },
   });
 
+  const usage = extractTokenUsage(ai.response).totalTokens;
   const text = ai.text || extractResponseText(ai.response);
   const parsed = parseFirstJsonObject(text) as {
     reply?: unknown;
@@ -201,7 +203,7 @@ export async function runNexoAgentTurn(
   } | null;
 
   if (!parsed) {
-    return { reply: text || "Não consegui interpretar o pedido.", proposals: [] };
+    return { reply: text || "Não consegui interpretar o pedido.", proposals: [], usage };
   }
 
   const reply =
@@ -213,5 +215,6 @@ export async function runNexoAgentTurn(
       disciplina: input.resumo.disciplina,
       prefeituras: input.prefeituras,
     }),
+    usage,
   };
 }

@@ -268,6 +268,8 @@ export interface NexoAgentTurn {
   proposals: NexoAgentProposal[];
   slotRequest?: NexoSlotRequest;
   slotFills?: NexoSlotFill[];
+  /** Tokens de IA consumidos neste turno (p/ o indicador sutil de consumo). */
+  usage?: number;
 }
 
 export interface NexoMessage {
