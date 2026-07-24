@@ -9,9 +9,13 @@
  * pequeno + chat docado alto (direita).
  */
 
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { AgentOrb, type AgentState } from "./agent-orb";
+import { AgentPopover } from "@/components/ui/agent-popover";
+import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
+import type { AgentContext } from "../lib/agent-context";
 import { NexoChat, type ReadStatus } from "./NexoChat";
 
 export function NexoCopilot({
@@ -22,6 +26,7 @@ export function NexoCopilot({
   readStatus,
   agentState = "idle",
   fileCount = 0,
+  context,
   onTurnStatus,
 }: {
   started: boolean;
@@ -32,8 +37,13 @@ export function NexoCopilot({
   /** Estado do Nexo Core (derivado dos sinais do app pelo NexoWorkspace). */
   agentState?: AgentState;
   fileCount?: number;
+  /** Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb. */
+  context: AgentContext;
   onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
 }) {
+  // Popover de status: clique no orb "espia a cabeça" do agente.
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
   return (
     <div
       className={cn(
@@ -42,12 +52,22 @@ export function NexoCopilot({
       )}
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">
-        <AgentOrb
-          state={agentState}
-          fileCount={fileCount}
-          size={started ? "compact" : "hero"}
-          interactive
-        />
+        <AgentPopover
+          open={popoverOpen}
+          onClose={() => setPopoverOpen(false)}
+          label="Status do Nexo"
+          anchor={
+            <AgentOrb
+              state={agentState}
+              fileCount={fileCount}
+              size={started ? "compact" : "hero"}
+              interactive
+              onActivate={() => setPopoverOpen((o) => !o)}
+            />
+          }
+        >
+          <AgentStatusPopover state={agentState} context={context} />
+        </AgentPopover>
         {!started && (
           <div className="space-y-1.5">
             <h2 className="text-2xl font-medium tracking-[-0.01em]">

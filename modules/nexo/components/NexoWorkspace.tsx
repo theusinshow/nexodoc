@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { NexoDossieDraft, NexoFileClassification } from "../types";
 import { extractSelosFromFiles, type SeloResult } from "../lib/selo-render";
+import { summarizeSelos } from "../lib/agent-context";
 import { sheetNumberFromFilename, resolveSheetNumbers } from "@/server/nexo/parse-filename";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
@@ -284,6 +285,9 @@ export function NexoWorkspace() {
     error: chatStatus.error,
   });
 
+  // Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb.
+  const agentContext = summarizeSelos(selos);
+
   return (
     <ComposerControllerProvider>
      <ArtifactStoreProvider>
@@ -349,6 +353,7 @@ export function NexoWorkspace() {
             readStatus={readStatus}
             agentState={agentState}
             fileCount={okCount}
+            context={agentContext}
             onTurnStatus={handleTurnStatus}
           />
         }
