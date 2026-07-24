@@ -54,7 +54,7 @@ export function NexoCopilot({
     <div
       className={cn(
         "flex h-full min-h-0 flex-col gap-3",
-        !started && "justify-center",
+        started ? "pt-[50px]" : "justify-center",
       )}
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">

@@ -574,9 +574,11 @@ textarea {
   box-shadow: var(--glass-edge);
 }
 
+/* Foco SUTIL: em vez do aro teal cru (border = --ring), um halo teal difuso
+   de baixa opacidade + uma borda levemente teal. Presença, não gritaria. */
 .nexo-composer:focus-within {
-  box-shadow: var(--glass-edge), 0 0 0 1px var(--glass-ring);
-  border-color: var(--ring);
+  box-shadow: var(--glass-edge), 0 0 0 3px rgb(91 218 198 / 0.1);
+  border-color: rgb(91 218 198 / 0.4);
 }
 
 @supports not (

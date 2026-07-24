@@ -24,7 +24,7 @@ import {
 
 const SIZE_PX: Record<NonNullable<AgentOrbProps["size"]>, number> = {
   hero: 198,
-  compact: 120,
+  compact: 148,
 };
 
 const STATE_LABEL: Record<AgentState, string> = {
