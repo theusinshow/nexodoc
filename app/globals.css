@@ -457,18 +457,21 @@ textarea {
   grid-template-rows: minmax(0, 1fr);
 }
 
-/* Chat PROTAGONISTA (welcome e active): sidebar | chat centralizado (largura de
-   leitura). O canvas saiu do centro — vira painel sob demanda. A diferença
-   welcome↔active é só o orb (hero→compact) e a presença das mensagens. */
-.nexo-shell--welcome,
-.nexo-shell--active {
+/* Welcome: sidebar | chat centralizado (largura de leitura), orb grande. */
+.nexo-shell--welcome {
   grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr);
 }
 
-.nexo-shell__copilot {
+.nexo-shell--welcome .nexo-shell__copilot {
   width: 100%;
   max-width: 768px;
   justify-self: center;
+}
+
+/* Active (após enviar): sidebar | CANVAS (centro, mapa do volume) | copiloto
+   (chat docado à direita, orb no topo). O chat DESLIZA centro→direita. */
+.nexo-shell--active {
+  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr) var(--nexo-copilot-w);
 }
 
 .nexo-shell__sidebar {
@@ -581,17 +584,17 @@ textarea {
   border-color: rgb(91 218 198 / 0.4);
 }
 
-/* Indicador de digitação ("Nexo está pensando") — 3 pontos escalonados. */
+/* Indicador de digitação ("Nexo está pensando") — 3 pontos SE MEXENDO (bounce). */
 @keyframes nexo-typing {
   0%,
-  60%,
+  70%,
   100% {
-    opacity: 0.28;
-    transform: translateY(0);
+    opacity: 0.3;
+    transform: translateY(0) scale(0.9);
   }
-  30% {
-    opacity: 0.9;
-    transform: translateY(-2px);
+  35% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1);
   }
 }
 
@@ -599,16 +602,54 @@ textarea {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--muted-foreground);
-  animation: nexo-typing 1.2s var(--ease-feedback) infinite;
+  background: var(--ring);
+  animation: nexo-typing 1.1s var(--ease-feedback) infinite;
 }
 
 .nexo-typing-dot:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: 0.16s;
 }
 
 .nexo-typing-dot:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.32s;
+}
+
+/* Reticência animada da tipografia abaixo do orb ("pensando" + . .. ...). */
+@keyframes nexo-ellipsis {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75%,
+  100% {
+    content: "...";
+  }
+}
+
+.nexo-ellipsis::after {
+  content: "";
+  animation: nexo-ellipsis 1.4s steps(1, end) infinite;
+}
+
+/* Pulso sutil do rótulo de estado enquanto o Nexo trabalha. */
+@keyframes nexo-status-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.nexo-status-working {
+  color: var(--ring);
+  animation: nexo-status-pulse 1.8s var(--ease-feedback) infinite;
 }
 
 @supports not (

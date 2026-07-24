@@ -61,13 +61,15 @@ export function NexoCopilot({
     agentState === "responding" ||
     agentState === "reading" ||
     agentState === "uploading";
+  // Base do rótulo SEM reticência — a "…" animada é adicionada no render quando
+  // está trabalhando (movimento = o Nexo está fazendo algo).
   const statusLabel =
     agentState === "error"
       ? "instabilidade"
       : agentState === "reading" || agentState === "uploading"
-        ? "lendo os selos…"
+        ? "lendo os selos"
         : working
-          ? "pensando…"
+          ? "pensando"
           : fileCount > 0
             ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
             : "pronto";
@@ -98,10 +100,14 @@ export function NexoCopilot({
         </AgentPopover>
         {started ? (
           <p
-            className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
+            className={cn(
+              "font-mono text-[11px] tracking-[0.04em]",
+              working ? "nexo-status-working" : "text-muted-foreground",
+            )}
             aria-live="polite"
           >
             {statusLabel}
+            {working && <span className="nexo-ellipsis" aria-hidden />}
           </p>
         ) : (
           <div className="space-y-1.5">
