@@ -268,7 +268,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setTitle("Nova conversa");
     setMessages([]);
     setSeloResultsState([]);
-    setResults([]);
+    // Revoga os object URLs dos resultados antes de largar (evita vazamento).
+    setResults((prev) => {
+      prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
+      return [];
+    });
     snapshotRef.current.createdAt = Date.now();
   }, []);
 
@@ -306,7 +310,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setTitle(rec.title);
       setMessages(rec.messages);
       setSeloResultsState(rec.seloResults);
-      setResults(restored);
+      // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
+      setResults((prev) => {
+        prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
+        return restored;
+      });
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
