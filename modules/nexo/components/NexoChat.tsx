@@ -8,7 +8,7 @@ import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
 import { useRevealText } from "../lib/use-reveal-text";
 import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
-import { QuickReplyChips } from "./QuickReplyChips";
+import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
 
 /** Status da leitura de selos (mostrado acima do composer). */
@@ -142,7 +142,7 @@ export function NexoChat({
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 py-6">
-          {messages.map((m) => (
+          {messages.map((m, idx) => (
             <div
               key={m.id}
               className={
@@ -174,6 +174,10 @@ export function NexoChat({
               ))}
               {m.slotRequest && (
                 <QuickReplyChips suggestions={m.slotRequest.suggestions} />
+              )}
+              {/* Próximos passos só na última resposta (não polui o histórico). */}
+              {idx === messages.length - 1 && m.role === "assistant" && !busy && (
+                <NextStepChips proposals={m.proposals} />
               )}
             </div>
           ))}

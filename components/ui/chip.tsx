@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
  * chip não usa glass — vidro fica pro chrome ambiente do PR5.
  *
  * Variantes por INTENÇÃO, não por cor:
- * - `suggest`: pré-resposta recomendada (a 1ª do slot). Tint teal discreto.
+ * - `suggest`: pré-resposta recomendada (a 1ª do slot). Só um FIO teal na borda —
+ *   nada de preenchimento/texto verde (preto-forward, verde só na ação primária).
  * - `default`: pré-resposta comum / opção de fluxo.
  * - `quiet`: correção ("alterar título") — mais apagado, secundário ao card.
  */
@@ -21,9 +22,9 @@ const chipVariants = cva(
     variants: {
       variant: {
         suggest:
-          "border-primary/25 bg-primary/8 text-primary hover:border-primary/45 hover:bg-primary/12",
+          "border-primary/30 bg-card text-foreground hover:border-primary/55 hover:bg-accent",
         default:
-          "border-border bg-card text-foreground hover:border-ring hover:bg-accent hover:text-accent-foreground",
+          "border-border bg-card text-foreground hover:border-[#33393e] hover:bg-accent hover:text-accent-foreground",
         quiet:
           "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
       },
