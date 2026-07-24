@@ -52,8 +52,15 @@ const KIND_EDIT_LABEL: Partial<Record<NexoArtifactKind, string>> = {
   auditoria: "a auditoria",
 };
 
+/** Info lida (por IA, do carimbo) de UMA prancha anexada — mostrada no canvas. */
+export interface PranchaInfo {
+  folha: number | null;
+  descricao: string;
+  disciplina: string;
+}
+
 type ArtifactNodeData = CanvasArtifact & Record<string, unknown>;
-type StackNodeData = { count: number } & Record<string, unknown>;
+type StackNodeData = { count: number; infos: PranchaInfo[] } & Record<string, unknown>;
 
 /**
  * Nó de artefato. A MINIATURA abre o PDF em tamanho real (resolve o "não dá pra
@@ -121,19 +128,44 @@ function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
   );
 }
 
-/** Pranchas do usuário = UM nó leve (stack + contagem), nunca N frames. */
+/**
+ * Pranchas anexadas = UM nó leve com a INFO lida do carimbo de cada folha (imagem
+ * PADRÃO = ícone, sem renderizar PDF). Mostra o que a IA leu (folha + descrição).
+ */
 function StackNode({ data }: NodeProps<Node<StackNodeData>>) {
+  const disciplina = data.infos.find((p) => p.disciplina)?.disciplina;
   return (
-    <div className="relative w-[180px]">
-      <div className="absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-md border border-border bg-card/70" />
-      <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-md border border-border bg-card/85" />
-      <div className="relative flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-md border border-border bg-card">
-        <Layers className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        <p className="font-mono text-sm font-medium tabular-nums">
-          {data.count} prancha{data.count === 1 ? "" : "s"}
-        </p>
-        <p className="text-[11px] text-muted-foreground">selos lidos</p>
+    <div className="w-[228px] overflow-hidden rounded-md border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-border bg-[var(--nexodoc-recessed)]">
+          <Layers className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] tabular-nums">
+            {data.count} prancha{data.count === 1 ? "" : "s"}
+          </p>
+          <p className="truncate text-[10px] text-muted-foreground">
+            selos lidos{disciplina ? ` · ${disciplina}` : ""}
+          </p>
+        </div>
       </div>
+      {data.infos.length > 0 && (
+        <div className="nowheel max-h-[210px] overflow-y-auto">
+          {data.infos.map((p, i) => (
+            <div
+              key={i}
+              className="flex gap-2 border-b border-border/50 px-2.5 py-1.5 last:border-0"
+            >
+              <span className="w-6 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                {p.folha != null ? String(p.folha).padStart(2, "0") : "—"}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[11px]" title={p.descricao}>
+                {p.descricao || "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       <Handle type="target" position={Position.Left} className="!opacity-0" />
       <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
@@ -142,7 +174,13 @@ function StackNode({ data }: NodeProps<Node<StackNodeData>>) {
 
 const nodeTypes = { artifact: ArtifactNode, stack: StackNode };
 
-export function NexoCanvas({ pranchasCount = 0 }: { pranchasCount?: number }) {
+export function NexoCanvas({
+  pranchasCount = 0,
+  pranchas = [],
+}: {
+  pranchasCount?: number;
+  pranchas?: PranchaInfo[];
+}) {
   const { artifacts } = useArtifactStore();
 
   const { nodes, edges } = useMemo(() => {
@@ -158,7 +196,7 @@ export function NexoCanvas({ pranchasCount = 0 }: { pranchasCount?: number }) {
         id: "pranchas",
         rank: PRANCHAS_RANK,
         type: "stack",
-        data: { count: pranchasCount },
+        data: { count: pranchasCount, infos: pranchas },
       });
     }
     items.sort((a, b) => a.rank - b.rank);
@@ -178,7 +216,7 @@ export function NexoCanvas({ pranchasCount = 0 }: { pranchasCount?: number }) {
       markerEnd: { type: MarkerType.ArrowClosed, color: "var(--ring)" },
     }));
     return { nodes, edges };
-  }, [artifacts, pranchasCount]);
+  }, [artifacts, pranchasCount, pranchas]);
 
   if (nodes.length === 0) {
     return (

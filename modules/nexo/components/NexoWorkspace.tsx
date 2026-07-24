@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
 import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
@@ -11,6 +11,7 @@ import {
 } from "../lib/selo-render";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
+import { resolveSheetNumbers } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import { ComposerControllerProvider } from "../state/composer-controller";
 import { ArtifactStoreProvider, useArtifactStore } from "../state/artifact-store";
@@ -22,7 +23,7 @@ import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
-import { NexoCanvas } from "./NexoCanvas";
+import { NexoCanvas, type PranchaInfo } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 
@@ -501,6 +502,26 @@ function NexoWorkspaceInner() {
   // Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb.
   const agentContext = summarizeSelos(selos);
 
+  // Info por prancha (folha + descrição lidas do carimbo pela IA) → canvas.
+  const pranchaInfos = useMemo<PranchaInfo[]>(() => {
+    const folhas = resolveSheetNumbers(
+      seloResults.map((r) => ({
+        fileName: r.fileName,
+        pageNumber: r.pageNumber,
+        arquivo: r.extraction?.arquivo,
+        folha: r.extraction?.folha,
+      })),
+    );
+    return seloResults
+      .map((r, i) => ({
+        folha: folhas[i],
+        descricao: (r.extraction?.conteudo || r.extraction?.tituloSecao || "").trim(),
+        disciplina: r.extraction?.disciplina ?? "",
+      }))
+      .filter((p) => p.folha != null || p.descricao)
+      .sort((a, b) => (a.folha ?? 9999) - (b.folha ?? 9999));
+  }, [seloResults]);
+
   return (
     <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
@@ -562,7 +583,7 @@ function NexoWorkspaceInner() {
             onDelete={conv.removeConversation}
           />
         }
-        stage={<NexoCanvas pranchasCount={okCount} />}
+        stage={<NexoCanvas pranchasCount={okCount} pranchas={pranchaInfos} />}
         copilot={
           <NexoCopilot
             key={convId}
