@@ -50,6 +50,23 @@ export function NexoCopilot({
   // Popover de status: clique no orb "espia a cabeça" do agente.
   const [popoverOpen, setPopoverOpen] = useState(false);
 
+  // Rótulo do estado do orb (o orb já anima; isto só nomeia). O "pensando" É o orb.
+  const working =
+    agentState === "analyzing" ||
+    agentState === "responding" ||
+    agentState === "reading" ||
+    agentState === "uploading";
+  const statusLabel =
+    agentState === "error"
+      ? "instabilidade"
+      : agentState === "reading" || agentState === "uploading"
+        ? "lendo os selos…"
+        : working
+          ? "pensando…"
+          : fileCount > 0
+            ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
+            : "pronto";
+
   return (
     <div
       className={cn(
@@ -74,7 +91,14 @@ export function NexoCopilot({
         >
           <AgentStatusPopover state={agentState} context={context} />
         </AgentPopover>
-        {!started && (
+        {started ? (
+          <p
+            className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
+            aria-live="polite"
+          >
+            {statusLabel}
+          </p>
+        ) : (
           <div className="space-y-1.5">
             <h2 className="text-2xl font-medium tracking-[-0.01em]">
               O que vamos montar?

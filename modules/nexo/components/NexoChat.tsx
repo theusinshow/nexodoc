@@ -6,6 +6,7 @@ import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
+import { useRevealText } from "../lib/use-reveal-text";
 import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
 import { QuickReplyChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
@@ -51,6 +52,10 @@ export function NexoChat({
   const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Id da resposta que chegou AO VIVO agora (revela com typewriter). Mensagens
+  // restauradas do histórico têm id != revealId → aparecem inteiras. Só uma por
+  // vez (o envio é bloqueado enquanto `busy`).
+  const [revealId, setRevealId] = useState<string | null>(null);
   const registerComposer = useRegisterComposer();
 
   useEffect(() => {
@@ -92,8 +97,10 @@ export function NexoChat({
       if (!res.ok || !payload?.turn) {
         throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
       }
+      const assistantId = crypto.randomUUID();
+      setRevealId(assistantId); // recém-chegada → revela com typewriter
       appendMessage({
-        id: crypto.randomUUID(),
+        id: assistantId,
         role: "assistant",
         content: payload.turn.reply,
         proposals: payload.turn.proposals,
@@ -149,7 +156,11 @@ export function NexoChat({
                   Nexo
                 </span>
               )}
-              <MessageBubble role={m.role} content={m.content} />
+              <MessageBubble
+                role={m.role}
+                content={m.content}
+                reveal={m.role === "assistant" && m.id === revealId}
+              />
               {m.proposals?.map((p, i) => (
                 <ConfirmationCard
                   key={`${m.id}-${i}`}
@@ -167,9 +178,19 @@ export function NexoChat({
             </div>
           ))}
           {busy && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              Pensando…
+            <div className="nexodoc-message-in flex flex-col items-start gap-2">
+              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
+                Nexo
+              </span>
+              <div
+                className="nexo-glass nexo-glass--weak flex items-center gap-1.5 rounded-2xl rounded-tl-md px-4 py-4"
+                role="status"
+                aria-label="Nexo está pensando"
+              >
+                <span className="nexo-typing-dot" aria-hidden />
+                <span className="nexo-typing-dot" aria-hidden />
+                <span className="nexo-typing-dot" aria-hidden />
+              </div>
             </div>
           )}
         </div>
@@ -216,11 +237,15 @@ export function NexoChat({
 function MessageBubble({
   role,
   content,
+  reveal = false,
 }: {
   role: "user" | "assistant";
   content: string;
+  /** Revela o texto progressivamente (só respostas recém-chegadas). */
+  reveal?: boolean;
 }) {
   const isUser = role === "user";
+  const shown = useRevealText(content, reveal);
   return (
     <div
       className={
@@ -230,7 +255,7 @@ function MessageBubble({
       }
     >
       <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
-      {content}
+      {shown}
     </div>
   );
 }
