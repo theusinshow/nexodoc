@@ -317,8 +317,8 @@ function MessageBubble({
     <div
       className={
         isUser
-          ? "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-sm text-foreground"
-          : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed"
+          ? "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-[15px] leading-[1.55] text-foreground"
+          : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-[15px] leading-[1.6] text-foreground"
       }
     >
       <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
