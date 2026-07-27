@@ -68,6 +68,14 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
   let totalCostUsd: number | null = null;
 
   for (const row of rows) {
+    // Item 4 (decisão fechada): filtra por CONSUMO, não por status. Uma chamada
+    // "failed" que já queimou tokens é gasto real e continua aqui; uma chamada
+    // que não queimou nada (sucesso ou falha) não gera fatia nem linha — ela só
+    // poluiria o popover com "· 0 ·" e roubaria uma cor do anel à toa.
+    if (row.totalTokens <= 0) {
+      continue;
+    }
+
     totalTokens += row.totalTokens;
     totalCostUsd = addCost(totalCostUsd, row.estimatedCostUsd);
 

@@ -77,6 +77,26 @@ test("lista vazia -> zeros, listas vazias e custo nulo", () => {
   assert.equal(r.totalCostUsd, null);
 });
 
+test("achado de 0 tokens nao gera fatia nem linha (falha sem custo)", () => {
+  const r = aggregateUsage([
+    { flow: "audit", model: "gpt-5.5", totalTokens: 0, estimatedCostUsd: null },
+    { flow: "nexo-agent", model: "gpt-5.5", totalTokens: 120, estimatedCostUsd: 0.01 },
+  ]);
+  assert.equal(r.porModelo.length, 1);
+  assert.equal(r.porModelo[0].totalTokens, 120);
+  assert.equal(r.porTarefa.length, 1);
+  assert.equal(r.porTarefa[0].flow, "nexo-agent");
+  assert.equal(r.totalTokens, 120);
+});
+
+test("falha que QUEIMOU tokens continua aparecendo (gasto real)", () => {
+  const r = aggregateUsage([
+    { flow: "audit", model: "gpt-5.5", totalTokens: 340, estimatedCostUsd: 0.02 },
+  ]);
+  assert.equal(r.porModelo.length, 1);
+  assert.equal(r.porModelo[0].totalTokens, 340);
+});
+
 test("flowLabel: fluxo desconhecido devolve o proprio flow", () => {
   assert.equal(flowLabel("nexo-agent"), "Turnos da conversa");
   assert.equal(flowLabel("fluxo-novo-qualquer"), "fluxo-novo-qualquer");
