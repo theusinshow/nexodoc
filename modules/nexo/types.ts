@@ -303,4 +303,6 @@ export interface NexoChatMessage {
   proposals?: NexoAgentProposal[];
   slotRequest?: NexoSlotRequest;
   ldPreview?: LdPreviewData;
+  /** Turno interrompido pelo usuário (texto parcial, sem propostas). */
+  interrupted?: boolean;
 }

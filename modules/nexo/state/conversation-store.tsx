@@ -22,7 +22,13 @@ import {
 } from "react";
 
 import type { SeloResult } from "../lib/selo-render";
-import type { NexoArtifactKind, NexoChatMessage } from "../types";
+import type {
+  LdPreviewData,
+  NexoAgentProposal,
+  NexoArtifactKind,
+  NexoChatMessage,
+  NexoSlotRequest,
+} from "../types";
 import { summarizeSelos } from "../lib/agent-context";
 import {
   deleteConversation as dbDelete,
@@ -77,6 +83,18 @@ interface ConversationStoreValue {
   /** Resultados gerados (com URLs vivas) — reidratados do IndexedDB no restore. */
   results: SavedResult[];
   appendMessage: (m: NexoChatMessage) => void;
+  /** Faz a última mensagem crescer (streaming). NÃO persiste — só memória. */
+  appendDelta: (id: string, text: string) => void;
+  /** Fecha o turno transmitido e persiste de uma vez. */
+  finalizeMessage: (
+    id: string,
+    patch: {
+      proposals?: NexoAgentProposal[];
+      slotRequest?: NexoSlotRequest;
+      ldPreview?: LdPreviewData;
+      interrupted?: boolean;
+    },
+  ) => void;
   setSeloResults: (r: SeloResult[]) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
@@ -220,6 +238,35 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [schedulePersist],
   );
 
+  // Crescimento por delta: mexe SÓ no estado em memória. Persistir a cada token
+  // viraria centenas de gravações no IndexedDB por resposta — o `finalizeMessage`
+  // grava uma vez, no fim.
+  const appendDelta = useCallback((id: string, text: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, content: m.content + text } : m)),
+    );
+  }, []);
+
+  const finalizeMessage = useCallback(
+    (
+      id: string,
+      patch: {
+        proposals?: NexoAgentProposal[];
+        slotRequest?: NexoSlotRequest;
+        ldPreview?: LdPreviewData;
+        interrupted?: boolean;
+      },
+    ) => {
+      setMessages((prev) => {
+        const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m));
+        setTitle((t) => deriveTitle(t, next, snapshotRef.current.seloResults));
+        return next;
+      });
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
   const setSeloResults = useCallback(
     (r: SeloResult[]) => {
       setSeloResultsState(r);
@@ -354,6 +401,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conversations,
       results,
       appendMessage,
+      appendDelta,
+      finalizeMessage,
       setSeloResults,
       saveResult,
       getResult,
@@ -369,6 +418,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conversations,
       results,
       appendMessage,
+      appendDelta,
+      finalizeMessage,
       setSeloResults,
       saveResult,
       getResult,
