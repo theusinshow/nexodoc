@@ -957,7 +957,31 @@ function VolumeConfirmation({
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
       const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
-      const separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
+
+      /*
+       * A separatriz é GARANTIDA aqui, não esperada.
+       *
+       * Ao promovê-la a artefato, ela passou a depender de o agente PROPOR
+       * `kind: "separatriz"` — coisa que ele só faz se pedirem explicitamente.
+       * O volume saía sem ela e ninguém percebia. Agora a montagem gera a que
+       * faltar e a REGISTRA como artefato, então ela continua visível no canvas
+       * e conferível: visibilidade sem perder a confiabilidade de antes.
+       */
+      let separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
+      if (!separatrizPdf64 && sepTitle) {
+        const sep = await postSeparatriz(sepTitle);
+        separatrizPdf64 = sep.data;
+        await saveResult({
+          artifactId: separatrizId(selos) + tomo.sufixo,
+          kind: "separatriz",
+          payload: { titulo: sepTitle, tomo: tomo.numero },
+          summary: `Separatriz ${sepTitle}`,
+          canvas: { label: "Separatriz", titulo: sepTitle, pageNumber: 1 },
+          files: [
+            { label: "PDF", name: sep.name, mime: PDF_MIME, url: sep.url, primary: true },
+          ],
+        });
+      }
       const r = await assembleVolume({
         // Só as folhas DESTE tomo entram no volume dele.
         selos: selosDoTomo,
@@ -1046,14 +1070,20 @@ function VolumeConfirmation({
           <div className="flex items-center gap-2">
             <ConfirmButton
               busy={busy}
-              disabled={semPranchas}
+              disabled={semPranchas || !capaPdfUrl || !ldPdfUrl}
               label="Montar volume"
               busyLabel="Montando…"
               onConfirm={confirm}
             />
-            {semPranchas && (
+            {/* Um volume sem capa ou sem LD não é entregável: antes ele montava
+                assim mesmo e o PDF saía incompleto sem aviso. */}
+            {(semPranchas || !capaPdfUrl || !ldPdfUrl) && (
               <span className="text-xs text-muted-foreground">
-                Anexe as pranchas para montar o volume.
+                {semPranchas
+                  ? "Anexe as pranchas para montar o volume."
+                  : !capaPdfUrl
+                    ? "Gere a capa deste tomo antes de montar."
+                    : "Gere a LD deste tomo antes de montar."}
               </span>
             )}
           </div>

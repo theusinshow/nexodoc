@@ -104,9 +104,19 @@ function NexoWorkspaceInner() {
   const dirRef = useRef<HTMLInputElement>(null);
 
   // SeloForLd[] (fileName + pageNumber + extração) que as rotas consomem.
-  const selos = seloResults
-    .filter((r) => r.extraction)
-    .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction! }));
+  /*
+   * MEMOIZADO de propósito: esta lista desce até o canvas e entra nas
+   * dependências do `useMemo` que monta os nós. Recalculada a cada render, ela
+   * recriava TODOS os nós continuamente — o React Flow remontava, a seleção se
+   * perdia e o popover de edição fechava no mesmo instante em que abria.
+   */
+  const selos = useMemo(
+    () =>
+      seloResults
+        .filter((r) => r.extraction)
+        .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction! })),
+    [seloResults],
+  );
 
   // webkitdirectory nao e prop tipada no React; setar via atributo.
   useEffect(() => {
