@@ -115,13 +115,16 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
           : "w-[200px] overflow-hidden rounded-md border border-border bg-card"
       }
     >
-      <button
-        type="button"
-        onClick={openPreview}
-        disabled={!data.pdfUrl}
-        aria-label={data.pdfUrl ? `Abrir ${data.label} em tamanho real` : String(data.label)}
-        className="nodrag nopan group relative block aspect-[3/4] w-full overflow-hidden border-b border-border enabled:cursor-zoom-in disabled:cursor-default"
-      >
+      {/*
+        A miniatura NÃO é um botão `nodrag`. No React Flow, `nodrag` desliga o
+        mesmo manipulador de ponteiro que faz a SELEÇÃO — e como a miniatura é
+        quase toda a área do nó, clicar nela (o alvo natural) nunca selecionava
+        nada. As ferramentas do nó, que dependem da seleção, simplesmente não
+        apareciam.
+
+        Agora clicar na miniatura SELECIONA, e abrir o PDF é um botão próprio.
+      */}
+      <div className="group relative block aspect-[3/4] w-full overflow-hidden border-b border-border">
         <ArtifactThumb
           pdfUrl={data.pdfUrl}
           pageNumber={data.pageNumber}
@@ -129,14 +132,19 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
           width={200}
         />
         {data.pdfUrl && (
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/55 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <span className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium shadow-[var(--shadow-panel)]">
+          <span className="absolute inset-0 flex items-center justify-center bg-background/55 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={openPreview}
+              aria-label={`Abrir ${data.label} em tamanho real`}
+              className="nodrag nopan flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium shadow-[var(--shadow-panel)] hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            >
               <Maximize2 className="h-3.5 w-3.5" aria-hidden />
               Ver
-            </span>
+            </button>
           </span>
         )}
-      </button>
+      </div>
       <div className="p-2">
         <p className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
           {data.label}
@@ -342,6 +350,17 @@ export function NexoCanvas({
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
 
+  /*
+   * Seleção CONTROLADA por nós.
+   *
+   * O React Flow só seleciona por clique dentro do XYDrag, e o XYDrag nem é
+   * criado quando o nó não é arrastável (`disabled: !isDraggable` no useDrag).
+   * Como a ordem do canvas é canônica — arrastar não faria sentido —, os nós
+   * seguem fixos e a seleção passa pelo `onNodeClick`. Sem isto, clicar num
+   * documento não fazia nada e as ferramentas do nó nunca apareciam.
+   */
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
+
   // Prefeituras: lista fechada do campo da capa no editor do nó.
   const [templates, setTemplates] = useState<{ id: string; nome: string }[]>([]);
   useEffect(() => {
@@ -411,6 +430,7 @@ export function NexoCanvas({
           position: { x: i * 260, y },
           data: it.data as Record<string, unknown>,
           draggable: false,
+          selected: it.id === selecionadoId,
         });
         if (i > 0) {
           edges.push({
@@ -438,7 +458,7 @@ export function NexoCanvas({
     });
 
     return { nodes, edges };
-  }, [artifacts, pranchasCount, pranchas, results, templates, selos]);
+  }, [artifacts, pranchasCount, pranchas, results, templates, selos, selecionadoId]);
 
   if (nodes.length === 0) {
     return (
@@ -466,6 +486,8 @@ export function NexoCanvas({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable
+        onNodeClick={(_, no) => setSelecionadoId(no.id)}
+        onPaneClick={() => setSelecionadoId(null)}
         panOnScroll
         zoomOnScroll
       >
