@@ -12,7 +12,7 @@
 import type { CampoEditavel } from "../components/EditorDoNo";
 import type { NexoArtifactKind } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { postCapa, postLd, ODT_MIME } from "./generate";
+import { postCapa, postLd, postSeparatriz, ODT_MIME } from "./generate";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
 import type { SaveResultInput, SavedResult } from "../state/conversation-store";
@@ -216,3 +216,108 @@ export async function aplicarEdicaoNoNo(args: {
 
 /** Só para o tipo do `results` não vazar para o componente. */
 export type { SavedResult };
+
+/* ------------------------------------------------- Geração em conjunto ----- */
+
+/** Um documento a gerar: o tipo, o tomo a que pertence e os params. */
+export interface ItemDoPlano {
+  kind: "capa" | "ld" | "separatriz";
+  /** 0 = documento único (sem divisão em tomos). */
+  tomoAtual: number;
+  tomoNumero: number;
+  sufixo: string;
+  params: Record<string, unknown>;
+  /** Rótulo curto para a barra de progresso ("Capa · TOMO 02"). */
+  rotulo: string;
+}
+
+/**
+ * Gera UM item do plano.
+ *
+ * A separatriz recebe o título PRONTO (o da capa do mesmo tomo) em vez de
+ * derivá-lo: derivar em dois lugares é como ela voltou a poder discordar da capa
+ * antes.
+ */
+export async function gerarItem(args: {
+  item: ItemDoPlano;
+  selos: SeloForLd[];
+  saveResult: (input: SaveResultInput) => Promise<void>;
+  /** Ids base (sem sufixo de tomo) dos três tipos. */
+  idsBase: { capa: string; ld: string; separatriz: string };
+  tituloDaSeparatriz: string;
+}): Promise<void> {
+  const { item, selos, saveResult } = args;
+  const p = item.params;
+  const num = (k: string, padrao: number) =>
+    typeof p[k] === "number" ? (p[k] as number) : padrao;
+  const txt = (k: string) => String(p[k] ?? "");
+
+  if (item.kind === "capa") {
+    const r = await postCapa(selos, {
+      templateId: txt("templateId"),
+      tituloCapa: txt("tituloCapa"),
+      volume: txt("volume"),
+      // Este card É um tomo: gera UMA capa, a daquele tomo.
+      numTomos: item.tomoAtual > 0 ? 1 : num("numTomos", 1),
+      tomoInicial: num("tomoInicial", 1),
+      tomoNumero: item.tomoAtual > 0 ? item.tomoNumero : 0,
+    });
+    await saveResult({
+      artifactId: args.idsBase.capa + item.sufixo,
+      kind: "capa",
+      payload: { ...p, tomo: item.tomoNumero },
+      summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}`,
+      canvas: {
+        label: `Capa ${r.resumo.prefeitura}`,
+        detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
+        titulo: txt("tituloCapa"),
+        pageNumber: 1,
+      },
+      files: [
+        { label: "ZIP", name: r.zipName, mime: "application/zip", url: r.zipUrl, primary: true },
+        { label: "ODT", name: r.odtName, mime: ODT_MIME, url: r.odtUrl },
+        ...(r.pdfUrl ? [{ label: "PDF", name: r.pdfName!, mime: PDF_MIME, url: r.pdfUrl }] : []),
+      ],
+    });
+    return;
+  }
+
+  if (item.kind === "ld") {
+    const r = await postLd(selos, {
+      tituloLd: txt("tituloLd"),
+      numTomos: num("numTomos", 1),
+      tomoInicial: num("tomoInicial", 1),
+      tomoAtual: item.tomoAtual,
+    });
+    await saveResult({
+      artifactId: args.idsBase.ld + item.sufixo,
+      kind: "ld",
+      payload: { ...p, tomo: item.tomoNumero },
+      summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
+      canvas: {
+        label: `LD ${r.resumo.disciplina}`,
+        detail: `${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
+        titulo: txt("tituloLd"),
+        pageNumber: 1,
+      },
+      files: [
+        { label: "ODT", name: r.odtName, mime: ODT_MIME, url: r.odtUrl },
+        ...(r.pdfUrl ? [{ label: "PDF", name: r.pdfName!, mime: PDF_MIME, url: r.pdfUrl }] : []),
+      ],
+    });
+    return;
+  }
+
+  // separatriz
+  const titulo = args.tituloDaSeparatriz.trim();
+  if (!titulo) return; // sem título não há separatriz — a capa manda nela
+  const sep = await postSeparatriz(titulo);
+  await saveResult({
+    artifactId: args.idsBase.separatriz + item.sufixo,
+    kind: "separatriz",
+    payload: { titulo, tomo: item.tomoNumero },
+    summary: `Separatriz ${titulo}`,
+    canvas: { label: "Separatriz", titulo, pageNumber: 1 },
+    files: [{ label: "PDF", name: sep.name, mime: PDF_MIME, url: sep.url, primary: true }],
+  });
+}

@@ -8,7 +8,12 @@ import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import { useRevealText } from "../lib/use-reveal-text";
-import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
+import {
+  ConfirmationCard,
+  idsBaseDosArtefatos,
+  type NexoTemplateOption,
+} from "./ConfirmationCard";
+import { PlanoDeGeracao } from "./PlanoDeGeracao";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
@@ -286,17 +291,31 @@ export function NexoChat({
                   interrompido
                 </span>
               )}
-              {m.proposals?.map((p, i) => (
-                <ConfirmationCard
-                  key={`${m.id}-${i}`}
-                  proposal={p}
+              {/* UM card para tudo que sai de capa/LD/separatriz — com tomos,
+                  cada proposta virava vários cards e a tela virava fila de
+                  botões iguais. Volume, auditoria e conferência seguem com card
+                  próprio: dependem de outra coisa ou são decisão à parte. */}
+              {m.proposals && m.proposals.length > 0 && (
+                <PlanoDeGeracao
+                  proposals={m.proposals}
                   selos={selos}
                   templates={templates}
-                  ldPreview={m.ldPreview}
-                  pranchaFiles={pranchaFiles}
-                  memorialFile={memorialFile}
+                  idsBase={idsBaseDosArtefatos(selos)}
                 />
-              ))}
+              )}
+              {m.proposals
+                ?.filter((p) => !["capa", "ld", "separatriz"].includes(p.kind))
+                .map((p, i) => (
+                  <ConfirmationCard
+                    key={`${m.id}-${i}`}
+                    proposal={p}
+                    selos={selos}
+                    templates={templates}
+                    ldPreview={m.ldPreview}
+                    pranchaFiles={pranchaFiles}
+                    memorialFile={memorialFile}
+                  />
+                ))}
               {m.slotRequest && (
                 <QuickReplyChips suggestions={m.slotRequest.suggestions} />
               )}

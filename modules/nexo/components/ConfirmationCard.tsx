@@ -189,6 +189,19 @@ function estadoDoArtefato(
     : "pendente";
 }
 
+/**
+ * Ids BASE (sem sufixo de tomo) dos três tipos que o plano gera. Exportado para
+ * o card do plano cunhar exatamente as mesmas chaves que os cards individuais —
+ * duas formas de cunhar id produziriam artefatos duplicados no canvas.
+ */
+export function idsBaseDosArtefatos(selos: SeloForLd[]) {
+  return {
+    capa: capaId(selos),
+    ld: ldId(selos),
+    separatriz: separatrizId(selos),
+  };
+}
+
 /** Mapeia os arquivos salvos p/ o formato do ResultLinks. */
 function toResultFiles(saved: SavedResult) {
   return saved.files.map((f) => ({
