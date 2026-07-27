@@ -2,7 +2,7 @@ import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
 import { generatePages } from "@/modules/cover-generator/hooks/helpers";
-import { formatDisplayCode } from "@/lib/cover-utils";
+import { formatDisplayCode, tomoLabels } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
 import type { SeloForLd } from "./build-ld-proposal";
 import type {
@@ -29,6 +29,11 @@ export interface BuildCapaInput {
   tomoNumero?: number;
   /** Divide em N tomos (uma capa por tomo, "TOMO 0N"). Default 1. */
   numTomos?: number;
+  /**
+   * A partir de qual tomo CONTAR (default 1). A numeração pertence ao VOLUME:
+   * se outra disciplina do mesmo volume já ocupou 01-03, aqui vem 4.
+   */
+  tomoInicial?: number;
   /** Override da secretaria; senao vem do carimbo -> padrão do template. */
   secretaria?: string;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
@@ -206,6 +211,12 @@ export async function buildCapaProposal(
   // sobre dividir-em-N. Senão, divide em N tomos (uma capa por tomo).
   const tomoNumero = Math.max(0, Math.floor(input.tomoNumero ?? 0));
   const numTomos = tomoNumero > 0 ? 1 : Math.max(1, Math.floor(input.numTomos ?? 1));
+  // Onde a contagem COMEÇA. A numeração é do volume, não do documento: se o
+  // "Concreto" já ocupou 01-03, o "Concreto Implantação" começa no 04.
+  const tomoInicial = Math.max(1, Math.floor(input.tomoInicial ?? 1) || 1);
+  // Contagem deslocada precisa da lista explícita — o modo "quantity" sempre
+  // começa no 01.
+  const tomosExplicitos = tomoInicial > 1 ? tomoLabels(numTomos, tomoInicial) : [];
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
@@ -233,9 +244,9 @@ export async function buildCapaProposal(
     tituloCapa: tituloCapaFinal,
     disciplina: discLabel,
     volume: volumeValue,
-    tomoMode: "quantity",
-    tomoQuantity: numTomos,
-    tomoList: [],
+    ...(tomosExplicitos.length > 0
+      ? { tomoMode: "list" as const, tomoQuantity: 1, tomoList: tomosExplicitos }
+      : { tomoMode: "quantity" as const, tomoQuantity: numTomos, tomoList: [] }),
   };
 
   // Capa usa o tomo SEM parênteses ("TOMO 04"); a LD é que leva "(TOMO 04)".
@@ -244,6 +255,13 @@ export async function buildCapaProposal(
   // Tomo específico: força "TOMO 0N" na capa única (formatTomo esconde com 1 tomo).
   if (tomoNumero > 0 && pages[0]) {
     pages[0].tomo = `TOMO ${String(tomoNumero).padStart(2, "0")}`;
+  }
+
+  // Mesma armadilha do `formatTomo` quando a contagem é deslocada: com UM tomo
+  // ele esconde o rótulo, mas "TOMO 04" sozinho tem de aparecer — é o que
+  // distingue este documento dos tomos 01-03 do mesmo volume.
+  if (tomosExplicitos.length === 1 && pages[0]) {
+    pages[0].tomo = `TOMO ${tomosExplicitos[0]}`;
   }
 
   return {

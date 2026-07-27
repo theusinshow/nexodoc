@@ -18,7 +18,7 @@
 import assert from "node:assert/strict";
 
 import { buildBalancedTomos } from "../lib/ld/ld-rules.ts";
-import { formatTomo } from "../lib/cover-utils.ts";
+import { formatTomo, tomoLabels } from "../lib/cover-utils.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -41,6 +41,33 @@ function capaTomoLabels(numTomos: number): string[] {
   );
   return tomos.map((t) => formatTomo(t, tomos.length));
 }
+
+// --- Tomo inicial: a contagem continua de onde a disciplina anterior parou ---
+
+/*
+ * Caso real: o VOLUME 6 (estrutural) já tem "Estrutural Concreto" nos tomos 01,
+ * 02 e 03. Ao acrescentar "Estrutural Concreto Implantação" com mais 2 tomos,
+ * eles precisam sair como 04 e 05 — a contagem NÃO reinicia, senão o volume
+ * fica com dois tomos 01 e dois 02.
+ */
+test("2 tomos a partir do 4 -> TOMO 04 e 05 (nao reinicia a contagem)", () => {
+  assert.deepEqual(tomoLabels(2, 4), ["04", "05"]);
+});
+
+test("sem tomo inicial -> comeca no 1, como sempre (regressao)", () => {
+  assert.deepEqual(tomoLabels(3), ["01", "02", "03"]);
+  assert.deepEqual(tomoLabels(1), ["01"]);
+});
+
+test("um tomo so, mas numerado: 1 tomo a partir do 4 -> ['04']", () => {
+  assert.deepEqual(tomoLabels(1, 4), ["04"]);
+});
+
+test("valores degenerados nao quebram (0, negativo, NaN) -> ['01']", () => {
+  assert.deepEqual(tomoLabels(0, 0), ["01"]);
+  assert.deepEqual(tomoLabels(-3, -7), ["01"]);
+  assert.deepEqual(tomoLabels(Number.NaN, Number.NaN), ["01"]);
+});
 
 // --- LD: divisão das folhas em N tomos --------------------------------------
 

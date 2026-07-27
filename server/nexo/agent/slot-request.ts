@@ -53,12 +53,14 @@ function slotsFromProposal(p: NexoAgentProposal): Record<SlotId, SlotState> {
     case "ld":
       put("tituloLd", p.params.tituloLd);
       put("numTomos", p.params.numTomos);
+      put("tomoInicial", p.params.tomoInicial);
       break;
     case "capa":
       put("templateId", p.params.templateId);
       put("tituloCapa", p.params.tituloCapa);
       put("volume", p.params.volume);
       put("numTomos", p.params.numTomos);
+      put("tomoInicial", p.params.tomoInicial);
       break;
     case "separatriz":
       put("templateId", p.params.templateId);

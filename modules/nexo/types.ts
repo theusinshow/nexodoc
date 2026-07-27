@@ -187,6 +187,11 @@ export interface NexoLdProposalParams {
   tituloLd: string;
   /** Divide as folhas em N tomos. Default 1. */
   numTomos: number;
+  /**
+   * A partir de qual tomo CONTAR. Default 1. A numeração pertence ao VOLUME:
+   * se outra disciplina do mesmo volume já ocupou os tomos 01-03, aqui vem 4.
+   */
+  tomoInicial: number;
 }
 
 /** Parâmetros propostos para uma capa. Editáveis antes de gerar. */
@@ -203,6 +208,11 @@ export interface NexoCapaProposalParams {
   volume: string;
   /** Divide em N tomos (uma capa por tomo). Default 1. */
   numTomos: number;
+  /**
+   * A partir de qual tomo CONTAR. Default 1. Precisa casar com o da LD, senão
+   * capa e lista de documentos discordam da numeração dentro do mesmo volume.
+   */
+  tomoInicial: number;
 }
 
 /** Parâmetros propostos para uma separatriz. */

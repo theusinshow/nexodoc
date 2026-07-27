@@ -117,8 +117,14 @@ REGRAS:
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
-- TOMOS: se ele disser "dividir em N tomos" / "N tomos", use numTomos=N (divide
-  as folhas em N; LD e capa juntas). Se não mencionar, use numTomos=1.
+- TOMOS — são DUAS coisas diferentes, não confunda:
+  - QUANTOS: "dividir em N tomos" / "mais 2 tomos" -> numTomos=N. Default 1.
+  - A PARTIR DE QUAL: a numeração é do VOLUME, não do documento. Se ele disser
+    "começando no 4", "o volume já tem 3 tomos", "continua do 4" -> tomoInicial=4.
+    Default 1. Ex.: "mais 2 tomos, o volume já tem 3" -> numTomos=2 E
+    tomoInicial=4 (sai TOMO 04 e TOMO 05, não 01 e 02).
+  Use os MESMOS numTomos e tomoInicial na LD e na capa — se divergirem, a lista
+  de documentos e a capa discordam da numeração dentro do mesmo volume.
 - EXTRAÇÃO MULTI-SLOT: extraia TODOS os valores de QUALQUER frase, mesmo juntos.
   Ex.: "bota 3 tomos e chama de Bloco B" -> numTomos:3 E tituloLd:"BLOCO B" na
   MESMA proposta. Não peça de novo o que já veio no texto; no reply, reconheça o
@@ -155,9 +161,9 @@ Formato da resposta, nesta ordem:
 {
   "proposals": [
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
-      "tituloLd": "", "numTomos": 1 },
+      "tituloLd": "", "numTomos": 1, "tomoInicial": 1 },
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
-      "tituloCapa": "", "volume": "", "numTomos": 1 },
+      "tituloCapa": "", "volume": "", "numTomos": 1, "tomoInicial": 1 },
     { "kind": "separatriz", "resumo": "Separatriz <prefeitura>",
       "templateId": "<id>", "numTomos": 1 },
     { "kind": "auditoria", "resumo": "Auditoria <disciplina>",

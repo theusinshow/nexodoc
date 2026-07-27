@@ -168,6 +168,36 @@ function numTomosSlot(taskKind: NexoArtifactKind): SlotDef {
 }
 
 /**
+ * `tomoInicial`: a partir de qual tomo contar. NÃO é required — o padrão 1 vale
+ * para a maioria dos documentos e não pode segurar a geração.
+ *
+ * Existe porque a numeração de tomos pertence ao VOLUME, não ao documento: num
+ * volume de estrutural onde "Concreto" já ocupou 01-03, os tomos de "Concreto
+ * Implantação" são 04 e 05. Sem isto a contagem reinicia e o volume fica com
+ * dois "TOMO 01".
+ *
+ * O sistema NÃO consegue derivar isso sozinho hoje: cada conversa é uma
+ * disciplina, e os tomos anteriores foram gerados em outra conversa. Por isso o
+ * default é 1 e as sugestões são só um atalho — quem sabe é o engenheiro.
+ */
+function tomoInicialSlot(taskKind: NexoArtifactKind): SlotDef {
+  return {
+    id: "tomoInicial",
+    taskKind,
+    required: false,
+    decision: true,
+    prompt: "A partir de qual tomo? (o volume já tem tomos de outra disciplina?)",
+    deriveFrom: () => "1", // default determinístico: começa no 1
+    suggest: () =>
+      [1, 2, 3, 4].map((n) => ({
+        label: n === 1 ? "Começa no 1" : `Começa no ${n}`,
+        value: String(n),
+        commit: "fill" as const,
+      })),
+  };
+}
+
+/**
  * `templateId`: usa o casamento de prefeitura JÁ COMPUTADO pelo chamador
  * (`facts.templateMatch`, via `matchPrefeitura` em normalize.ts — fonte única).
  * `plausibleCount === 1` → casou uma só, PRÉ-RESOLVIDO (nunca perguntado);
@@ -331,11 +361,12 @@ const nivelAuditoriaSlot: SlotDef = {
  * volume (capa+separatriz+LD ready) vivem na guarda do reducer, não aqui.
  */
 export const ARTIFACT_REQUIREMENTS: Record<NexoArtifactKind, SlotDef[]> = {
-  ld: [tituloLdSlot, numTomosSlot("ld")],
+  ld: [tituloLdSlot, numTomosSlot("ld"), tomoInicialSlot("ld")],
   capa: [
     templateIdSlot("capa"),
     tituloCapaSlot,
     numTomosSlot("capa"),
+    tomoInicialSlot("capa"),
     mesSlot("capa"),
     anoSlot("capa"),
   ],

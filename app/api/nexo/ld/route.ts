@@ -23,12 +23,14 @@ export async function POST(req: NextRequest) {
   let selos: SeloForLd[];
   let tituloLd: string | undefined;
   let numTomos = 1;
+  let tomoInicial = 1;
   let tomoNumero = 0;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
       tituloLd?: unknown;
       numTomos?: unknown;
+      tomoInicial?: unknown;
       tomoNumero?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
@@ -38,6 +40,9 @@ export async function POST(req: NextRequest) {
     }
     if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
       numTomos = Math.max(1, Math.floor(body.numTomos));
+    }
+    if (typeof body.tomoInicial === "number" && Number.isFinite(body.tomoInicial)) {
+      tomoInicial = Math.max(1, Math.floor(body.tomoInicial));
     }
     if (typeof body.tomoNumero === "number" && Number.isFinite(body.tomoNumero)) {
       tomoNumero = Math.max(0, Math.floor(body.tomoNumero));
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Título, tomo específico e divisão em tomos são decisões do engenheiro.
-  const proposal = buildLdProposal(selos, { numTomos, tomoNumero, tituloLd });
+  const proposal = buildLdProposal(selos, { numTomos, tomoInicial, tomoNumero, tituloLd });
   const result = await createLD(proposal.input);
 
   return NextResponse.json({

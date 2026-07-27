@@ -34,6 +34,17 @@ export function clampTomos(v: unknown): number {
 }
 
 /**
+ * A partir de qual tomo contar: default 1, limite 99. A numeração pertence ao
+ * VOLUME — se outra disciplina já ocupou os tomos 01-03, o próximo documento
+ * começa no 4 em vez de reiniciar e criar dois "TOMO 01" no mesmo volume.
+ */
+export function clampTomoInicial(v: unknown): number {
+  const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(99, Math.floor(n));
+}
+
+/**
  * Mapeia o que o modelo pediu (id direto OU nome da prefeitura, possivelmente com
  * acento faltando ou verboso como "prefeitura de chapecó") para um template real.
  * Ordem: id exato -> contém/está-contido -> token da cidade (>=3 letras). null se
@@ -94,6 +105,7 @@ export function normalizeProposals(
         params: {
           // Título é decisão do engenheiro: nunca adivinhar (fica vazio).
           tituloLd: String(p.tituloLd ?? "").trim(),
+          tomoInicial: clampTomoInicial(p.tomoInicial),
           numTomos: clampTomos(p.numTomos),
         },
       });
@@ -116,6 +128,7 @@ export function normalizeProposals(
           // só dígitos; senão "" (deriva do nome do arquivo no builder)
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
           numTomos: clampTomos(p.numTomos),
+          tomoInicial: clampTomoInicial(p.tomoInicial),
         },
       });
     } else if (p.kind === "separatriz") {

@@ -100,6 +100,12 @@ export interface BuildLdOptions {
   numTomos?: number;
   /** Tomo ESPECÍFICO (ex.: 4): a seção vira "... (TOMO 04)". 0 = usar numTomos. */
   tomoNumero?: number;
+  /**
+   * A partir de qual tomo CONTAR (default 1). A numeração pertence ao VOLUME:
+   * se outra disciplina do mesmo volume já ocupou 01-03, aqui vem 4. Precisa
+   * casar com o `tomoInicial` da capa, senão LD e capa discordam no volume.
+   */
+  tomoInicial?: number;
   /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
   tituloLd?: string;
 }
@@ -118,6 +124,7 @@ export function buildLdProposal(
   // Tomo específico (replicar 1 tomo) tem prioridade sobre dividir-em-N.
   const tomoNumero = Math.max(0, Math.floor(opts.tomoNumero ?? 0));
   const numTomos = tomoNumero > 0 ? 1 : Math.max(1, Math.floor(opts.numTomos ?? 1));
+  const tomoInicial = Math.max(1, Math.floor(opts.tomoInicial ?? 1) || 1);
   const validos = selos.filter((s) => (s.fileName || s.arquivo) && isPranchaSelo(s));
 
   // Identidade: preferir o código do CARIMBO (per-prancha).
@@ -181,16 +188,31 @@ export function buildLdProposal(
   )
     .replace(/\s*\(\s*tomo[^)]*\)\s*$/i, "")
     .trim();
+  // Tomo único, mas numerado: seja por tomo específico, seja por contagem
+  // deslocada (1 tomo começando no 04), a seção precisa dizer qual tomo é.
+  const tomoUnicoRotulado =
+    tomoNumero > 0 ? tomoNumero : numTomos === 1 && tomoInicial > 1 ? tomoInicial : 0;
   const sectionTitle =
-    tomoNumero > 0
-      ? `${tituloBase} (TOMO ${String(tomoNumero).padStart(2, "0")})`
+    tomoUnicoRotulado > 0
+      ? `${tituloBase} (TOMO ${String(tomoUnicoRotulado).padStart(2, "0")})`
       : tituloBase;
 
   // Tomos: divide as folhas em N faixas balanceadas (motor provado do módulo LD).
-  const tomos: Tomo[] =
+  const tomosBase: Tomo[] =
     numTomos > 1 && referenceTotal > 0
       ? buildBalancedTomos(referenceTotal, numTomos)
       : [];
+  // Contagem deslocada: as FAIXAS de folhas não mudam — só os rótulos avançam,
+  // porque a numeração é do volume. O motor do módulo LD sempre rotula a partir
+  // de 1, e não é mexido aqui (ele é compartilhado com a tela de LD).
+  const tomos: Tomo[] =
+    tomoInicial > 1
+      ? tomosBase.map((t, i) => ({
+          ...t,
+          id: tomoInicial + i,
+          title: `TOMO ${tomoInicial + i}`,
+        }))
+      : tomosBase;
 
   const input: CreateLDInput = {
     ldData: {

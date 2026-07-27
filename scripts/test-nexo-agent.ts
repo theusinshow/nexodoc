@@ -185,9 +185,10 @@ test("normalizeProposals: kind desconhecido continua ignorado (degrada gracioso)
   assert.deepEqual(r.map((p) => p.kind), ["separatriz", "volume"]);
 });
 
-// Trava a FORMA dos params de ld e capa. A capa ganhou `tituloCapa` quando o
-// título virou decisão do engenheiro (antes a capa não tinha título nenhum, e
-// pedir "altere o título da capa" não tinha onde pousar). Fora isso, intocados.
+// Trava a FORMA dos params de ld e capa. Dois campos entraram desde a versão
+// original: `tituloCapa` (a capa não tinha título nenhum, e pedir "altere o
+// título da capa" não tinha onde pousar) e `tomoInicial` nos dois (a numeração
+// de tomos é do VOLUME: se outra disciplina já ocupou 01-03, aqui começa no 4).
 test("normalizeProposals: forma dos params de ld e capa (regressão)", () => {
   const r = normalizeProposals(
     [
@@ -197,13 +198,44 @@ test("normalizeProposals: forma dos params de ld e capa (regressão)", () => {
     { disciplina: "EST", prefeituras: PREFS },
   );
   assert.equal(r.length, 2);
-  assert.deepEqual(r[0].params, { tituloLd: "BLOCO B", numTomos: 2 });
+  assert.deepEqual(r[0].params, {
+    tituloLd: "BLOCO B",
+    numTomos: 2,
+    tomoInicial: 1, // não veio → contagem começa no 1, como sempre
+  });
   assert.deepEqual(r[1].params, {
     templateId: "prefcri",
     tituloCapa: "", // não veio no pedido → decisão pendente, o Nexo pergunta
     volume: "3",
     numTomos: 2,
+    tomoInicial: 1,
   });
+});
+
+// O caso real: volume 6 já tem "Concreto" nos tomos 01-03; "Concreto
+// Implantação" entra com mais 2, que precisam sair como 04 e 05.
+test("normalizeProposals: tomoInicial atravessa ld e capa juntos", () => {
+  const r = normalizeProposals(
+    [
+      { kind: "ld", tituloLd: "X", numTomos: 2, tomoInicial: 4 },
+      { kind: "capa", prefeitura: "Criciúma", numTomos: 2, tomoInicial: 4 },
+    ],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal((r[0].params as { tomoInicial: number }).tomoInicial, 4);
+  assert.equal((r[1].params as { tomoInicial: number }).tomoInicial, 4);
+});
+
+test("normalizeProposals: tomoInicial invalido cai no 1 (nao quebra)", () => {
+  const r = normalizeProposals(
+    [
+      { kind: "ld", numTomos: 1, tomoInicial: 0 },
+      { kind: "ld", numTomos: 1, tomoInicial: "abc" },
+    ],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal((r[0].params as { tomoInicial: number }).tomoInicial, 1);
+  assert.equal((r[1].params as { tomoInicial: number }).tomoInicial, 1);
 });
 
 test("normalizeProposals: tituloCapa dito pelo engenheiro é copiado tal e qual", () => {

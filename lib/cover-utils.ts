@@ -43,6 +43,26 @@ export function formatMesAno(mes: string, ano: string): string {
   return `${mes}/${ano}`;
 }
 
+/**
+ * Rótulos dos tomos de um documento: `quantos` tomos contando A PARTIR de
+ * `inicial` (padrão 1), com dois dígitos.
+ *
+ * Existe porque a contagem de tomos é do VOLUME, não do documento. Num volume
+ * de estrutural onde "Concreto" já ocupou os tomos 01-03, os dois tomos de
+ * "Concreto Implantação" são 04 e 05 — reiniciar em 01 produziria dois tomos
+ * 01 no mesmo volume. Antes só existia "divida em N", que sempre recomeçava.
+ *
+ * Tolerante a lixo (0, negativo, NaN) porque o valor vem da conversa: cai no
+ * comportamento de sempre (um tomo, começando no 1) em vez de quebrar.
+ */
+export function tomoLabels(quantos: number, inicial: number = 1): string[] {
+  const n = Math.max(1, Math.floor(quantos) || 1);
+  const start = Math.max(1, Math.floor(inicial) || 1);
+  return Array.from({ length: n }, (_, i) =>
+    String(start + i).padStart(2, "0"),
+  );
+}
+
 export function formatTomo(
   tomoNumber: string,
   totalTomos: number,

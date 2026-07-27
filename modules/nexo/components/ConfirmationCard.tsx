@@ -86,6 +86,20 @@ function auditoriaId(selos: SeloForLd[]): string {
   return `auditoria:${summarizeSelos(selos).codigo ?? "x"}`;
 }
 
+/**
+ * Rótulo dos tomos no card. Com a contagem deslocada, "2" sozinho engana — o
+ * engenheiro precisa ver que sairão TOMO 04 e 05, não 01 e 02.
+ */
+function rotuloTomos(numTomos: number, tomoInicial: number): string {
+  if (tomoInicial <= 1) return String(numTomos);
+  const ultimo = tomoInicial + numTomos - 1;
+  const faixa =
+    numTomos === 1
+      ? String(tomoInicial).padStart(2, "0")
+      : `${String(tomoInicial).padStart(2, "0")}–${String(ultimo).padStart(2, "0")}`;
+  return `${numTomos} (TOMO ${faixa})`;
+}
+
 /** Mapeia os arquivos salvos p/ o formato do ResultLinks. */
 function toResultFiles(saved: SavedResult) {
   return saved.files.map((f) => ({
@@ -295,7 +309,11 @@ function LdConfirmation({
     setBusy(true);
     setError(null);
     try {
-      const r = await postLd(selos, { tituloLd: titulo, numTomos: params.numTomos });
+      const r = await postLd(selos, {
+        tituloLd: titulo,
+        numTomos: params.numTomos,
+        tomoInicial: params.tomoInicial,
+      });
       await saveResult({
         artifactId: id,
         kind: "ld",
@@ -340,6 +358,7 @@ function LdConfirmation({
               phrase={semTitulo ? "O título da LD é " : `Muda o título para ${titulo}`}
             />
             <AlterChip label="tomos" phrase="Divide em 2 tomos" />
+            <AlterChip label="tomo inicial" phrase="Começando no tomo " />
           </div>
           <div className="flex items-center gap-2">
             <ConfirmButton busy={busy} disabled={semTitulo} onConfirm={confirm} />
@@ -438,6 +457,7 @@ function CapaConfirmation({
         tituloCapa: params.tituloCapa,
         volume: params.volume,
         numTomos: params.numTomos,
+        tomoInicial: params.tomoInicial,
       });
       await saveResult({
         artifactId: id,
@@ -479,7 +499,7 @@ function CapaConfirmation({
               missing={semTitulo}
             />
             <SummaryRow label="Volume" value={params.volume.trim() || "auto (do arquivo)"} />
-            <SummaryRow label="Tomos" value={String(params.numTomos)} />
+            <SummaryRow label="Tomos" value={rotuloTomos(params.numTomos, params.tomoInicial)} />
             <SummaryRow label="Mês/ano" value="atual" />
           </div>
           <div className="flex flex-wrap gap-1.5">

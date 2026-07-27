@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   let tituloCapa: string | undefined;
   let volume: string | undefined;
   let numTomos = 1;
+  let tomoInicial = 1;
   let tomoNumero = 0;
   let secretaria: string | undefined;
   let mes: string | undefined;
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       tituloCapa?: unknown;
       volume?: unknown;
       numTomos?: unknown;
+      tomoInicial?: unknown;
       tomoNumero?: unknown;
       secretaria?: unknown;
       mes?: unknown;
@@ -58,6 +60,9 @@ export async function POST(req: NextRequest) {
     if (typeof body.numTomos === "number" && Number.isFinite(body.numTomos)) {
       numTomos = Math.max(1, Math.floor(body.numTomos));
     }
+    if (typeof body.tomoInicial === "number" && Number.isFinite(body.tomoInicial)) {
+      tomoInicial = Math.max(1, Math.floor(body.tomoInicial));
+    }
     if (typeof body.tomoNumero === "number" && Number.isFinite(body.tomoNumero)) {
       tomoNumero = Math.max(0, Math.floor(body.tomoNumero));
     }
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   let proposal;
   try {
-    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos, tomoNumero, secretaria, mes, ano });
+    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos, tomoInicial, tomoNumero, secretaria, mes, ano });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Falha ao montar a capa." },

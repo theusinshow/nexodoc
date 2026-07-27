@@ -54,6 +54,8 @@ export interface LdOptions {
   tituloLd?: string;
   /** Divide as folhas em N tomos. Default 1. */
   numTomos?: number;
+  /** A partir de qual tomo contar (default 1). A numeração é do VOLUME. */
+  tomoInicial?: number;
   /** Tomo específico (ex.: 4 = "(TOMO 04)"). 0 = usar numTomos. */
   tomoNumero?: number;
 }
@@ -69,6 +71,7 @@ export async function postLd(
       selos,
       tituloLd: opts.tituloLd,
       numTomos: opts.numTomos ?? 1,
+      tomoInicial: opts.tomoInicial ?? 1,
       tomoNumero: opts.tomoNumero ?? 0,
     }),
   });
@@ -106,6 +109,8 @@ export interface CapaOptions {
   volume?: string;
   /** Divide em N tomos (uma capa por tomo). Default 1. */
   numTomos?: number;
+  /** A partir de qual tomo contar (default 1). A numeração é do VOLUME. */
+  tomoInicial?: number;
   /** Tomo específico (ex.: 4 = "TOMO 04"). 0 = usar numTomos. */
   tomoNumero?: number;
   /** override da secretaria; vazio = carimbo -> padrão do template. */
@@ -126,6 +131,7 @@ export async function postCapa(
       selos,
       templateId: opts.templateId,
       numTomos: opts.numTomos ?? 1,
+      tomoInicial: opts.tomoInicial ?? 1,
       tomoNumero: opts.tomoNumero ?? 0,
       ...(opts.tituloCapa?.trim() ? { tituloCapa: opts.tituloCapa.trim() } : {}),
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
