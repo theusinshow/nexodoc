@@ -17,7 +17,7 @@
  */
 import assert from "node:assert/strict";
 
-import { buildBalancedTomos } from "../lib/ld/ld-rules.ts";
+import { buildBalancedTomos, faixasDosTomos } from "../lib/ld/ld-rules.ts";
 import { formatTomo, tomoLabels } from "../lib/cover-utils.ts";
 
 let passed = 0;
@@ -41,6 +41,56 @@ function capaTomoLabels(numTomos: number): string[] {
   );
   return tomos.map((t) => formatTomo(t, tomos.length));
 }
+
+// --- Fatia de folhas por tomo (cada tomo vira um volume) --------------------
+
+/*
+ * Cada tomo é um volume físico, com SUA fatia de folhas. As faixas precisam ser
+ * disjuntas e cobrir tudo: uma folha em dois tomos sai impressa duas vezes, e uma
+ * folha em nenhum some do projeto sem aviso.
+ */
+test("24 folhas em 2 tomos -> 1-12 e 13-24", () => {
+  assert.deepEqual(faixasDosTomos(24, 2), [
+    { inicio: 1, fim: 12 },
+    { inicio: 13, fim: 24 },
+  ]);
+});
+
+test("faixas sao disjuntas e cobrem TODAS as folhas", () => {
+  for (const [total, tomos] of [[24, 2], [25, 2], [23, 3], [7, 4], [100, 7]]) {
+    const faixas = faixasDosTomos(total, tomos);
+    const vistas: number[] = [];
+    for (const f of faixas) {
+      for (let n = f.inicio; n <= f.fim; n++) vistas.push(n);
+    }
+    assert.deepEqual(
+      vistas,
+      Array.from({ length: total }, (_, i) => i + 1),
+      `total=${total} tomos=${tomos}: cobertura exata e sem repetir`,
+    );
+  }
+});
+
+test("resto vai para os PRIMEIROS tomos (25 em 2 -> 13 e 12)", () => {
+  assert.deepEqual(faixasDosTomos(25, 2), [
+    { inicio: 1, fim: 13 },
+    { inicio: 14, fim: 25 },
+  ]);
+});
+
+test("1 tomo -> uma faixa com tudo", () => {
+  assert.deepEqual(faixasDosTomos(24, 1), [{ inicio: 1, fim: 24 }]);
+});
+
+test("mais tomos que folhas nao inventa faixa vazia", () => {
+  const faixas = faixasDosTomos(2, 5);
+  assert.equal(faixas.length, 2, "so ha folha para 2 tomos");
+  assert.deepEqual(faixas, [{ inicio: 1, fim: 1 }, { inicio: 2, fim: 2 }]);
+});
+
+test("sem folhas -> nenhuma faixa (nao quebra)", () => {
+  assert.deepEqual(faixasDosTomos(0, 3), []);
+});
 
 // --- Tomo inicial: a contagem continua de onde a disciplina anterior parou ---
 

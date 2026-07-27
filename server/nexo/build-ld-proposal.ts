@@ -1,6 +1,11 @@
 import { parseFilename, resolveSheetNumbers } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
-import { formatSheet, buildBalancedTomos, type Tomo } from "@/lib/ld/ld-rules";
+import {
+  formatSheet,
+  buildBalancedTomos,
+  faixasDosTomos,
+  type Tomo,
+} from "@/lib/ld/ld-rules";
 import { cleanStampDescription } from "@/lib/ld/stamp-parsing";
 import type { CreateLDInput } from "./tools/create-ld";
 
@@ -106,6 +111,12 @@ export interface BuildLdOptions {
    * casar com o `tomoInicial` da capa, senão LD e capa discordam no volume.
    */
   tomoInicial?: number;
+  /**
+   * QUAL dos `numTomos` esta LD é (1-based). Quando informado, a proposta traz
+   * SÓ as folhas daquele tomo — cada tomo é um volume físico com a sua fatia.
+   * 0 = documento único com todos os tomos como seções (comportamento antigo).
+   */
+  tomoAtual?: number;
   /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
   tituloLd?: string;
 }
@@ -125,6 +136,9 @@ export function buildLdProposal(
   const tomoNumero = Math.max(0, Math.floor(opts.tomoNumero ?? 0));
   const numTomos = tomoNumero > 0 ? 1 : Math.max(1, Math.floor(opts.numTomos ?? 1));
   const tomoInicial = Math.max(1, Math.floor(opts.tomoInicial ?? 1) || 1);
+  // Qual tomo esta LD é. Só vale com divisão real (numTomos > 1).
+  const tomoAtual =
+    numTomos > 1 ? Math.min(numTomos, Math.max(0, Math.floor(opts.tomoAtual ?? 0))) : 0;
   const validos = selos.filter((s) => (s.fileName || s.arquivo) && isPranchaSelo(s));
 
   // Identidade: preferir o código do CARIMBO (per-prancha).
@@ -153,7 +167,7 @@ export function buildLdProposal(
   const maxSheet = sheets.length ? Math.max(...sheets) : 0;
   const referenceTotal = Math.max(dominantTotal, maxSheet, validos.length);
 
-  const rows = validos
+  const todasAsLinhas = validos
     .map((s, i) => {
       const n = resolvedSheets[i];
       const sheet =
@@ -174,6 +188,20 @@ export function buildLdProposal(
     })
     .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
 
+  /*
+   * Fatia do tomo. Cada tomo é um volume físico: a LD do tomo 1 lista as folhas
+   * 1-12, a do tomo 2 lista 13-24.
+   *
+   * `referenceTotal` NÃO muda — continua sendo o total do conjunto. O selo
+   * impresso na prancha diz "05/24", e a LD do tomo 1 tem que continuar dizendo
+   * isso; trocar para "05/12" faria a lista discordar do próprio desenho.
+   */
+  const faixa =
+    tomoAtual > 0 ? faixasDosTomos(todasAsLinhas.length, numTomos)[tomoAtual - 1] : null;
+  const rows = faixa
+    ? todasAsLinhas.slice(faixa.inicio - 1, faixa.fim)
+    : todasAsLinhas;
+
   // Título da seção: manual (decisão) OU palpite do selo (descarta órgão/secretaria)
   // OU "PROJETO <disciplina>". Remove "(TOMO ...)" digitado; o tomo é anexado a
   // seguir (específico) ou por faixa pelo ld-generation (dividir-em-N).
@@ -191,15 +219,24 @@ export function buildLdProposal(
   // Tomo único, mas numerado: seja por tomo específico, seja por contagem
   // deslocada (1 tomo começando no 04), a seção precisa dizer qual tomo é.
   const tomoUnicoRotulado =
-    tomoNumero > 0 ? tomoNumero : numTomos === 1 && tomoInicial > 1 ? tomoInicial : 0;
+    tomoNumero > 0
+      ? tomoNumero
+      : // Este documento É um tomo: rotula com o número dele no volume.
+        tomoAtual > 0
+        ? tomoInicial + tomoAtual - 1
+        : numTomos === 1 && tomoInicial > 1
+          ? tomoInicial
+          : 0;
   const sectionTitle =
     tomoUnicoRotulado > 0
       ? `${tituloBase} (TOMO ${String(tomoUnicoRotulado).padStart(2, "0")})`
       : tituloBase;
 
   // Tomos: divide as folhas em N faixas balanceadas (motor provado do módulo LD).
+  // Seções internas por tomo só existem no documento ÚNICO (comportamento
+  // antigo). Quando esta LD já É um tomo, ela não se subdivide de novo.
   const tomosBase: Tomo[] =
-    numTomos > 1 && referenceTotal > 0
+    tomoAtual === 0 && numTomos > 1 && referenceTotal > 0
       ? buildBalancedTomos(referenceTotal, numTomos)
       : [];
   // Contagem deslocada: as FAIXAS de folhas não mudam — só os rótulos avançam,

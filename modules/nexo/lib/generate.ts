@@ -56,6 +56,8 @@ export interface LdOptions {
   numTomos?: number;
   /** A partir de qual tomo contar (default 1). A numeração é do VOLUME. */
   tomoInicial?: number;
+  /** QUAL dos numTomos esta LD é (1-based): traz só as folhas daquele tomo. */
+  tomoAtual?: number;
   /** Tomo específico (ex.: 4 = "(TOMO 04)"). 0 = usar numTomos. */
   tomoNumero?: number;
 }
@@ -72,6 +74,7 @@ export async function postLd(
       tituloLd: opts.tituloLd,
       numTomos: opts.numTomos ?? 1,
       tomoInicial: opts.tomoInicial ?? 1,
+      tomoAtual: opts.tomoAtual ?? 0,
       tomoNumero: opts.tomoNumero ?? 0,
     }),
   });

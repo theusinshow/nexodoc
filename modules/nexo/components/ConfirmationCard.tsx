@@ -17,7 +17,7 @@
  * blobRegistry/canvas) — PR5/PR6. Estado honesto, sem fingir.
  */
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   FileText,
   Layers,
@@ -52,6 +52,7 @@ import {
 } from "../lib/generate";
 import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
+import { faixasDosTomos } from "@/lib/ld/ld-rules";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
@@ -108,6 +109,57 @@ function rotuloTomos(numTomos: number, tomoInicial: number): string {
       ? String(tomoInicial).padStart(2, "0")
       : `${String(tomoInicial).padStart(2, "0")}–${String(ultimo).padStart(2, "0")}`;
   return `${numTomos} (TOMO ${faixa})`;
+}
+
+/**
+ * Os tomos de uma proposta, 1-based, com o número REAL no volume.
+ *
+ * Cada tomo é um volume físico: com 2 tomos saem 2 capas, 2 LDs, 2 separatrizes
+ * e 2 volumes — não um documento com duas partes dentro. Com um tomo devolve uma
+ * entrada com `atual: 0`, que é o modo "documento único" de sempre: as chaves
+ * dos artefatos ficam idênticas às de hoje e nada migra.
+ */
+function tomosDaProposta(
+  numTomos: number,
+  tomoInicial: number,
+): { atual: number; numero: number; sufixo: string }[] {
+  if (numTomos <= 1) return [{ atual: 0, numero: tomoInicial, sufixo: "" }];
+  return Array.from({ length: numTomos }, (_, i) => {
+    const numero = tomoInicial + i;
+    return {
+      atual: i + 1,
+      numero,
+      sufixo: `:t${String(numero).padStart(2, "0")}`,
+    };
+  });
+}
+
+/**
+ * Quantos tomos o volume tem, deduzido do que JÁ foi gerado.
+ *
+ * As propostas de `separatriz` e `volume` não têm params próprios — a divisão em
+ * tomos é decisão da LD e da capa. Em vez de duplicar o campo (e deixar os três
+ * discordarem), lemos o `numTomos`/`tomoInicial` do primeiro artefato gerado que
+ * os carrega. Sem nada gerado ainda, é um tomo só.
+ */
+/** Só o NÚMERO de tomos (a fatia precisa dele, não da lista). */
+function tomosDoVolumeTotal(selos: SeloForLd[], results: SavedResult[]): number {
+  return tomosDoVolume(selos, results).length;
+}
+
+function tomosDoVolume(
+  selos: SeloForLd[],
+  results: SavedResult[],
+): { atual: number; numero: number; sufixo: string }[] {
+  const comTomos = results.find(
+    (r) =>
+      (r.kind === "ld" || r.kind === "capa") &&
+      typeof (r.payload as { numTomos?: unknown })?.numTomos === "number",
+  );
+  const p = comTomos?.payload as
+    | { numTomos?: number; tomoInicial?: number }
+    | undefined;
+  return tomosDaProposta(p?.numTomos ?? 1, p?.tomoInicial ?? 1);
 }
 
 /** Os três estados de um artefato no card (§ "Estados das ações do Nexo"). */
@@ -186,15 +238,58 @@ export function ConfirmationCard({
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
   memorialFile?: File | null;
 }) {
+  const { results } = useConversation();
   switch (proposal.kind) {
     case "ld":
-      return <LdConfirmation params={proposal.params} resumo={proposal.resumo} selos={selos} ldPreview={ldPreview} />;
+      return (
+        <>
+          {tomosDaProposta(proposal.params.numTomos, proposal.params.tomoInicial).map(
+            (t) => (
+              <LdConfirmation
+                key={t.sufixo || "unico"}
+                params={proposal.params}
+                resumo={proposal.resumo}
+                selos={selos}
+                ldPreview={t.atual === 0 ? ldPreview : undefined}
+                tomo={t}
+              />
+            ),
+          )}
+        </>
+      );
     case "capa":
-      return <CapaConfirmation params={proposal.params} resumo={proposal.resumo} selos={selos} templates={templates} />;
+      return (
+        <>
+          {tomosDaProposta(proposal.params.numTomos, proposal.params.tomoInicial).map(
+            (t) => (
+              <CapaConfirmation
+                key={t.sufixo || "unico"}
+                params={proposal.params}
+                resumo={proposal.resumo}
+                selos={selos}
+                templates={templates}
+                tomo={t}
+              />
+            ),
+          )}
+        </>
+      );
     case "conferencia":
       return <ConferenciaConfirmation resumo={proposal.resumo} selos={selos} />;
     case "volume":
-      return <VolumeConfirmation resumo={proposal.resumo} selos={selos} pranchaFiles={pranchaFiles} />;
+      return (
+        <>
+          {tomosDoVolume(selos, results).map((t) => (
+            <VolumeConfirmation
+              key={t.sufixo || "unico"}
+              resumo={proposal.resumo}
+              selos={selos}
+              pranchaFiles={pranchaFiles}
+              tomo={t}
+            />
+          ))}
+        </>
+      );
     case "auditoria":
       return (
         <AuditoriaConfirmation
@@ -205,7 +300,18 @@ export function ConfirmationCard({
         />
       );
     case "separatriz":
-      return <SeparatrizConfirmation resumo={proposal.resumo} selos={selos} />;
+      return (
+        <>
+          {tomosDoVolume(selos, results).map((t) => (
+            <SeparatrizConfirmation
+              key={t.sufixo || "unico"}
+              resumo={proposal.resumo}
+              selos={selos}
+              tomo={t}
+            />
+          ))}
+        </>
+      );
     default:
       return null;
   }
@@ -224,12 +330,15 @@ function CardShell({
   resumo,
   children,
   estado = "proposta",
+  tomo = 0,
 }: {
   kind: NexoAgentProposal["kind"];
   resumo: string;
   children: ReactNode;
   /** Proposta / alteração pendente / aplicado — o card diz em que pé está. */
   estado?: EstadoArtefato;
+  /** Nº do tomo quando o volume é dividido; 0 = documento único. */
+  tomo?: number;
 }) {
   const meta = KIND_META[kind];
   const Icon = meta.icon;
@@ -239,6 +348,9 @@ function CardShell({
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         <span className={LABEL_CLASS}>
           {ESTADO_LABEL[estado]} · {meta.title}
+          {/* Com o volume dividido, cada card É um tomo — sem isto os cards
+              ficam idênticos e não dá pra saber qual é qual. */}
+          {tomo > 0 && ` · TOMO ${String(tomo).padStart(2, "0")}`}
         </span>
         {estado === "pendente" && (
           <span
@@ -347,21 +459,24 @@ function LdConfirmation({
   resumo,
   selos,
   ldPreview,
+  tomo,
 }: {
   params: NexoLdProposalParams;
   resumo: string;
   selos: SeloForLd[];
   ldPreview?: LdPreviewData;
+  tomo: { atual: number; numero: number; sufixo: string };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { getResult, saveResult } = useConversation();
-  const id = ldId(selos);
+  const id = ldId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
-  const estado = estadoDoArtefato(saved, params);
+  // O tomo entra na comparação: gerar o tomo 1 não deixa o tomo 2 "aplicado".
+  const estado = estadoDoArtefato(saved, { ...params, tomo: tomo.numero });
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
@@ -372,13 +487,14 @@ function LdConfirmation({
         tituloLd: titulo,
         numTomos: params.numTomos,
         tomoInicial: params.tomoInicial,
+        tomoAtual: tomo.atual,
       });
       await saveResult({
         artifactId: id,
         kind: "ld",
         // Params que originaram o resultado — o card compara para saber se a
         // proposta mudou desde a geração (ver estadoDoArtefato).
-        payload: params,
+        payload: { ...params, tomo: tomo.numero },
         summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas${
           r.warnings.length ? ` · ${r.warnings.length} aviso(s)` : ""
         }`,
@@ -401,7 +517,7 @@ function LdConfirmation({
   }
 
   return (
-    <CardShell kind="ld" resumo={resumo} estado={estado}>
+    <CardShell kind="ld" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
       {ldPreview && <FolhaPreview data={ldPreview} />}
 
       {podeGerar && (
@@ -504,16 +620,18 @@ function CapaConfirmation({
   resumo,
   selos,
   templates,
+  tomo,
 }: {
   params: NexoCapaProposalParams;
   resumo: string;
   selos: SeloForLd[];
   templates: NexoTemplateOption[];
+  tomo: { atual: number; numero: number; sufixo: string };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { getResult, saveResult, results } = useConversation();
-  const id = capaId(selos);
+  const id = capaId(selos) + tomo.sufixo;
   // Capa gerada antes da correção da chave: acha pelo prefixo antigo.
   const saved =
     getResult(id) ?? results.find((r) => r.artifactId.startsWith(capaIdLegado(selos)));
@@ -527,7 +645,7 @@ function CapaConfirmation({
   const semPrefeitura = params.templateId.trim() === "";
   // Título é decisão do engenheiro (igual ao da LD): sem ele, não gera.
   const semTitulo = params.tituloCapa.trim() === "";
-  const estado = estadoDoArtefato(saved, params);
+  const estado = estadoDoArtefato(saved, { ...params, tomo: tomo.numero });
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
@@ -538,8 +656,10 @@ function CapaConfirmation({
         templateId: params.templateId,
         tituloCapa: params.tituloCapa,
         volume: params.volume,
-        numTomos: params.numTomos,
+        // Este card É um tomo: gera UMA capa, a daquele tomo.
+        numTomos: tomo.atual > 0 ? 1 : params.numTomos,
         tomoInicial: params.tomoInicial,
+        tomoNumero: tomo.atual > 0 ? tomo.numero : 0,
       });
       await saveResult({
         artifactId: id,
@@ -547,7 +667,7 @@ function CapaConfirmation({
         // Guarda os params que ORIGINARAM este resultado. É o que deixa o card
         // saber, no próximo turno, que a proposta mudou e precisa ser regerada
         // — sem isto ele mostraria o download antigo achando que está em dia.
-        payload: params,
+        payload: { ...params, tomo: tomo.numero },
         summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}${
           r.resumo.tomos > 1 ? ` · ${r.resumo.tomos} tomos` : ""
         }${r.pdfError ? " · PDF indisponível" : ""}`,
@@ -571,7 +691,7 @@ function CapaConfirmation({
   }
 
   return (
-    <CardShell kind="capa" resumo={resumo} estado={estado}>
+    <CardShell kind="capa" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
       {podeGerar && (
         <>
           <div className="space-y-1.5">
@@ -753,20 +873,25 @@ function VolumeConfirmation({
   resumo,
   selos,
   pranchaFiles,
+  tomo,
 }: {
   resumo: string;
   selos: SeloForLd[];
   pranchaFiles: File[];
+  tomo: { atual: number; numero: number; sufixo: string };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult } = useConversation();
-  const id = volumeId(selos);
+  const id = volumeId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
-  const capa = results.find((r) => r.kind === "capa");
-  const ld = results.find((r) => r.kind === "ld");
-  const separatriz = results.find((r) => r.kind === "separatriz");
+  // As partes DESTE tomo: cada tomo é um volume físico com as suas.
+  const capa = results.find((r) => r.artifactId === capaId(selos) + tomo.sufixo);
+  const ld = results.find((r) => r.artifactId === ldId(selos) + tomo.sufixo);
+  const separatriz = results.find(
+    (r) => r.artifactId === separatrizId(selos) + tomo.sufixo,
+  );
   const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
   const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
   const sepPdfUrl = separatriz?.files.find((f) => f.mime === PDF_MIME)?.url;
@@ -783,10 +908,30 @@ function VolumeConfirmation({
    */
   const ldParams = ld?.payload as NexoLdProposalParams | undefined;
   const capaParams = capa?.payload as NexoCapaProposalParams | undefined;
+
+  /*
+   * As folhas DESTE tomo. Cada tomo é um volume físico com a sua fatia — antes
+   * o volume levava todas as folhas, e dois tomos produziam dois PDFs
+   * idênticos com o projeto inteiro dentro de cada.
+   *
+   * A fatia usa a mesma divisão balanceada da LD (faixasDosTomos), senão a
+   * lista de documentos e o volume discordariam sobre o que está lá dentro.
+   */
+  const selosDoTomo = useMemo(() => {
+    if (tomo.atual === 0) return selos;
+    const total = tomosDoVolumeTotal(selos, results);
+    const faixa = faixasDosTomos(selos.length, total)[tomo.atual - 1];
+    return faixa ? selos.slice(faixa.inicio - 1, faixa.fim) : selos;
+  }, [selos, results, tomo.atual]);
+
   const sepTitle =
     ldParams?.tituloLd?.trim() ||
     ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ||
     "";
+
+  // O volume não tem params próprios: o que o define são as partes deste tomo.
+  const estado = estadoDoArtefato(saved, { tomo: tomo.numero });
+  const podeGerar = estado !== "aplicado";
 
   async function confirm() {
     setBusy(true);
@@ -796,11 +941,15 @@ function VolumeConfirmation({
       const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
       const separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
       const r = await assembleVolume({
-        selos,
+        // Só as folhas DESTE tomo entram no volume dele.
+        selos: selosDoTomo,
         pranchaFiles,
         capaPdf64,
         ldPdf64,
         separatrizPdf64,
+        ...(tomo.atual > 0
+          ? { fileName: `volume-tomo-${String(tomo.numero).padStart(2, "0")}.pdf` }
+          : {}),
       });
       await saveResult({
         artifactId: id,
@@ -821,8 +970,8 @@ function VolumeConfirmation({
   }
 
   return (
-    <CardShell kind="volume" resumo={resumo}>
-      {!saved && (
+    <CardShell kind="volume" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
+      {podeGerar && (
         <>
           {/* O que vai para dentro do volume — as DECISÕES, antes das partes.
               Montar é irreversível na prática (o engenheiro manda o PDF), então
@@ -830,7 +979,7 @@ function VolumeConfirmation({
           <div className="space-y-1.5">
             <SummaryRow
               label="Folhas"
-              value={`${selos.length} folha${selos.length === 1 ? "" : "s"}`}
+              value={`${selosDoTomo.length} folha${selosDoTomo.length === 1 ? "" : "s"}`}
             />
             <SummaryRow
               label="Título"
@@ -1070,17 +1219,20 @@ function AuditResult({ report }: { report: AuditReport }) {
 function SeparatrizConfirmation({
   resumo,
   selos,
+  tomo,
 }: {
   resumo: string;
   selos: SeloForLd[];
+  tomo: { atual: number; numero: number; sufixo: string };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult } = useConversation();
-  const id = separatrizId(selos);
+  const id = separatrizId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
-  const ld = results.find((r) => r.kind === "ld");
+  // A LD DESTE tomo (com o volume dividido, cada tomo tem a sua).
+  const ld = results.find((r) => r.artifactId === ldId(selos) + tomo.sufixo);
   const ldParams = ld?.payload as NexoLdProposalParams | undefined;
   // Título da LD viva > o que ficou gravado quando esta separatriz foi gerada.
   const savedParams = saved?.payload as { titulo?: string } | undefined;
@@ -1088,7 +1240,7 @@ function SeparatrizConfirmation({
   const semTitulo = titulo === "";
   const ldSumiu = Boolean(saved) && !ld;
 
-  const estado = estadoDoArtefato(saved, { titulo });
+  const estado = estadoDoArtefato(saved, { titulo, tomo: tomo.numero });
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
@@ -1099,7 +1251,7 @@ function SeparatrizConfirmation({
       await saveResult({
         artifactId: id,
         kind: "separatriz",
-        payload: { titulo },
+        payload: { titulo, tomo: tomo.numero },
         summary: `Separatriz ${titulo}${r.pdfError ? " · PDF indisponível" : ""}`,
         canvas: { label: "Separatriz", detail: titulo, pageNumber: 1 },
         files: [{ label: "PDF", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
@@ -1112,7 +1264,7 @@ function SeparatrizConfirmation({
   }
 
   return (
-    <CardShell kind="separatriz" resumo={resumo} estado={estado}>
+    <CardShell kind="separatriz" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
       {podeGerar && (
         <>
           <div className="space-y-1.5">

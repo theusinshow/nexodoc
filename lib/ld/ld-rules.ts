@@ -66,6 +66,32 @@ export function buildBalancedQuantities(total: number, count: number) {
   return Array.from({ length: safeCount }, (_, index) => base + (index < remainder ? 1 : 0));
 }
 
+/**
+ * Faixas de folhas (1-based, inclusivas) de cada tomo.
+ *
+ * Cada tomo é um VOLUME FÍSICO com a sua fatia: a LD e o volume do tomo 1 levam
+ * as folhas 1-12, os do tomo 2 levam 13-24. Antes o número de tomos só virava
+ * seções dentro de um documento só, e o escritório recebia um PDF que precisava
+ * ser fatiado à mão.
+ *
+ * Deriva de `buildBalancedQuantities` — o mesmo balanceamento que a LD já usa —
+ * em vez de recalcular: dois algoritmos de divisão divergiriam com o tempo, e a
+ * divergência apareceria como folha repetida ou folha sumida.
+ */
+export function faixasDosTomos(
+  total: number,
+  count: number,
+): { inicio: number; fim: number }[] {
+  if (total <= 0) return [];
+
+  let cursor = 1;
+  return buildBalancedQuantities(total, count).map((quantity) => {
+    const faixa = { inicio: cursor, fim: cursor + quantity - 1 };
+    cursor = faixa.fim + 1;
+    return faixa;
+  });
+}
+
 export function buildTomosFromQuantities(total: number, quantities: number[]) {
   let nextSheet = 1;
 
