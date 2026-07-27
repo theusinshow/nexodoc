@@ -258,11 +258,14 @@ function SummaryRow({
   return (
     <div className="flex items-baseline gap-3">
       <span className={`${LABEL_CLASS} w-24 shrink-0`}>{label}</span>
+      {/* `whitespace-pre-line`: o título documental tem PARÁGRAFOS ("PROJETO
+          ESTRUTURAL CONCRETO / IMPLANTAÇÃO / TOMO 04"). Numa linha só o
+          engenheiro não consegue conferir se as quebras estão onde ele pediu. */}
       <span
         className={
           missing
-            ? "font-mono text-sm italic text-[var(--status-warning)]"
-            : "font-mono text-sm tabular-nums text-foreground"
+            ? "whitespace-pre-line font-mono text-sm italic text-[var(--status-warning)]"
+            : "whitespace-pre-line font-mono text-sm tabular-nums text-foreground"
         }
       >
         {value}

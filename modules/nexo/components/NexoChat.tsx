@@ -375,6 +375,7 @@ export function NexoChat({
               {readStatus.text}
             </div>
           )}
+          <TitulosLidos selos={selos} />
           <NexoComposer
             variant="docked"
             value={input}
@@ -388,6 +389,48 @@ export function NexoChat({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * O que foi LIDO como título em cada prancha, agrupado. O título documental
+ * ainda não é derivado sozinho — o engenheiro decide —, então mostrar o que o
+ * selo trouxe é o que explica de onde vem (ou por que falta) a sugestão.
+ *
+ * Agrupa por título em vez de listar 16 linhas iguais: o que interessa é ver se
+ * as pranchas concordam entre si. Duas linhas aqui já contam uma história — o
+ * lote tem folhas de seções diferentes.
+ */
+function TitulosLidos({ selos }: { selos: SeloForLd[] }) {
+  if (selos.length === 0) return null;
+
+  const porTitulo = new Map<string, number>();
+  for (const s of selos) {
+    const t = s.tituloSecao?.trim() || "";
+    porTitulo.set(t, (porTitulo.get(t) ?? 0) + 1);
+  }
+  const linhas = [...porTitulo.entries()].sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="mb-2 space-y-0.5 px-1">
+      {linhas.map(([titulo, folhas]) => (
+        <div key={titulo || "(vazio)"} className="flex items-baseline gap-2 text-xs">
+          <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+            {folhas} folha{folhas > 1 ? "s" : ""}
+          </span>
+          <span
+            className={
+              titulo
+                ? "truncate font-mono text-foreground"
+                : "truncate font-mono italic text-muted-foreground"
+            }
+            title={titulo || "sem título no selo"}
+          >
+            {titulo || "sem título no selo"}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
