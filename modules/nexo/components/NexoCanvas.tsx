@@ -30,6 +30,8 @@ import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
 import { useComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
+import { agruparPorTomo, tomoDoArtefato } from "../lib/results";
+import { faixasDosTomos } from "@/lib/ld/ld-rules";
 import { ArtifactThumb } from "./ArtifactThumb";
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
@@ -224,7 +226,34 @@ function StackNode({ data }: NodeProps<Node<StackNodeData>>) {
   );
 }
 
-const nodeTypes = { artifact: ArtifactNode, stack: StackNode };
+/**
+ * Rótulo da fileira: diz de que tomo é aquele volume. "Sem tomo" nomeia o que
+ * sobrou de uma divisão anterior — é resto, e o engenheiro precisa saber disso
+ * para excluir em vez de achar que faz parte.
+ */
+function RotuloNode({ data }: NodeProps<Node<{ tomo: number } & Record<string, unknown>>>) {
+  const ehResto = data.tomo === 0;
+  return (
+    <div className="w-[130px] text-right">
+      <p
+        className={
+          ehResto
+            ? "font-mono text-[11px] uppercase tracking-[0.07em] text-[var(--status-warning)]"
+            : "font-mono text-[11px] font-medium uppercase tracking-[0.07em] text-foreground"
+        }
+      >
+        {ehResto ? "Fora da divisão" : `Tomo ${String(data.tomo).padStart(2, "0")}`}
+      </p>
+      {ehResto && (
+        <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+          gerado antes de dividir
+        </p>
+      )}
+    </div>
+  );
+}
+
+const nodeTypes = { artifact: ArtifactNode, stack: StackNode, rotulo: RotuloNode };
 
 export function NexoCanvas({
   pranchasCount = 0,
@@ -237,36 +266,81 @@ export function NexoCanvas({
 
   const { nodes, edges } = useMemo(() => {
     type Item = { id: string; rank: number; type: "artifact" | "stack"; data: unknown };
-    const items: Item[] = artifacts.map((a) => ({
-      id: a.id,
-      rank: CANONICAL_RANK[a.kind] ?? 9,
-      type: "artifact",
-      data: a,
-    }));
-    if (pranchasCount > 0) {
-      items.push({
-        id: "pranchas",
-        rank: PRANCHAS_RANK,
-        type: "stack",
-        data: { count: pranchasCount, infos: pranchas },
-      });
-    }
-    items.sort((a, b) => a.rank - b.rank);
 
-    const nodes: Node[] = items.map((it, i) => ({
-      id: it.id,
-      type: it.type,
-      position: { x: i * 260, y: 0 },
-      data: it.data as Record<string, unknown>,
-      draggable: false,
-    }));
-    const edges: Edge[] = items.slice(1).map((it, i) => ({
-      id: `${items[i].id}->${it.id}`,
-      source: items[i].id,
-      target: it.id,
-      style: { stroke: "var(--ring)", strokeWidth: 1.5, opacity: 0.5 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: "var(--ring)" },
-    }));
+    /*
+     * UMA FILEIRA POR TOMO. Cada tomo é um volume físico (capa → separatriz →
+     * LD → suas folhas); desenhar tudo numa fileira só misturava três volumes
+     * distintos numa esteira única, e não dava para ver o que pertencia a quê.
+     *
+     * O grupo "sem tomo" fica por último: são artefatos gerados ANTES da divisão
+     * e que sobraram. Escondê-los faria o canvas mentir sobre o que existe.
+     */
+    const grupos = agruparPorTomo(artifacts);
+    const tomosReais = grupos.filter((g) => g.tomo > 0).length;
+
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    grupos.forEach((grupo, linha) => {
+      const items: Item[] = grupo.itens
+        .map((a) => ({
+          id: a.id,
+          rank: CANONICAL_RANK[a.kind] ?? 9,
+          type: "artifact" as const,
+          data: a as unknown,
+        }))
+        .sort((a, b) => a.rank - b.rank);
+
+      // A pilha de pranchas acompanha o tomo: cada volume leva a SUA fatia.
+      if (pranchasCount > 0) {
+        const faixa =
+          grupo.tomo > 0 && tomosReais > 1
+            ? faixasDosTomos(pranchas.length || pranchasCount, tomosReais)[grupo.tomo - 1]
+            : null;
+        const infos = faixa ? pranchas.slice(faixa.inicio - 1, faixa.fim) : pranchas;
+        const count = faixa ? faixa.fim - faixa.inicio + 1 : pranchasCount;
+        items.push({
+          id: grupo.tomo > 0 ? `pranchas:t${grupo.tomo}` : "pranchas",
+          rank: PRANCHAS_RANK,
+          type: "stack",
+          data: { count, infos },
+        });
+      }
+
+      const y = linha * 330;
+      items.forEach((it, i) => {
+        nodes.push({
+          id: it.id,
+          type: it.type,
+          position: { x: i * 260, y },
+          data: it.data as Record<string, unknown>,
+          draggable: false,
+        });
+        if (i > 0) {
+          edges.push({
+            id: `${items[i - 1].id}->${it.id}`,
+            source: items[i - 1].id,
+            target: it.id,
+            style: { stroke: "var(--ring)", strokeWidth: 1.5, opacity: 0.5 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "var(--ring)" },
+          });
+        }
+      });
+
+      // Rótulo da fileira. Só aparece quando há divisão — com um volume só ele
+      // seria ruído.
+      if (grupos.length > 1) {
+        nodes.push({
+          id: `rotulo:${grupo.tomo}`,
+          type: "rotulo",
+          position: { x: -150, y: y + 130 },
+          data: { tomo: grupo.tomo },
+          draggable: false,
+          selectable: false,
+        });
+      }
+    });
+
     return { nodes, edges };
   }, [artifacts, pranchasCount, pranchas]);
 

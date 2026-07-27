@@ -11,7 +11,11 @@
  */
 import assert from "node:assert/strict";
 
-import { removerResultado } from "../modules/nexo/lib/results.ts";
+import {
+  removerResultado,
+  tomoDoArtefato,
+  agruparPorTomo,
+} from "../modules/nexo/lib/results.ts";
 
 import {
   initNexoSession,
@@ -352,6 +356,44 @@ test("removerResultado: lista vazia devolve vazia", () => {
   const { restantes, removido } = removerResultado([] as ResultadoStub[], "x");
   assert.deepEqual(restantes, []);
   assert.equal(removido, null);
+});
+
+// --- Agrupamento por tomo (o canvas desenha uma fileira por tomo) -----------
+
+test("tomoDoArtefato: le o sufixo do id", () => {
+  assert.equal(tomoDoArtefato("capa:016:t02"), 2);
+  assert.equal(tomoDoArtefato("ld:016:a:t01"), 1);
+  assert.equal(tomoDoArtefato("volume:016"), 0, "sem sufixo = sem tomo");
+  assert.equal(tomoDoArtefato("capa:016:t12"), 12);
+});
+
+test("agruparPorTomo: uma fileira por tomo, em ordem", () => {
+  const g = agruparPorTomo([
+    { id: "ld:016:a:t02" },
+    { id: "capa:016:t01" },
+    { id: "ld:016:a:t01" },
+    { id: "capa:016:t02" },
+  ]);
+  assert.deepEqual(
+    g.map((x) => x.tomo),
+    [1, 2],
+  );
+  assert.equal(g[0].itens.length, 2);
+});
+
+test("agruparPorTomo: sobras da divisao anterior ficam por ULTIMO", () => {
+  const g = agruparPorTomo([{ id: "volume:016" }, { id: "capa:016:t01" }]);
+  assert.deepEqual(
+    g.map((x) => x.tomo),
+    [1, 0],
+    "o resto sem tomo nao pode abrir o canvas",
+  );
+});
+
+test("agruparPorTomo: sem tomo nenhum, uma fileira so", () => {
+  const g = agruparPorTomo([{ id: "capa:016" }, { id: "ld:016:a" }]);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].tomo, 0);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);
