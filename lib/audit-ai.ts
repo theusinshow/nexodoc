@@ -53,6 +53,7 @@ export async function executeAuditModelResponse(args: {
   request: AuditOpenAiRequest;
   timeoutMs?: number;
   metadata?: Record<string, string | number | boolean | null | undefined>;
+  conversationId?: string | null;
 }) {
   return executeOpenAiResponse({
     flow: "audit",
@@ -63,6 +64,7 @@ export async function executeAuditModelResponse(args: {
     request: args.request,
     timeoutMs: args.timeoutMs,
     metadata: args.metadata ?? {},
+    conversationId: args.conversationId,
   });
 }
 

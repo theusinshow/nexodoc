@@ -25,6 +25,7 @@ export async function runMemorialAudit(
   memorial: File,
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
+  conversationId?: string | null,
 ): Promise<AuditReport> {
   const form = new FormData();
   form.append(
@@ -42,6 +43,8 @@ export async function runMemorialAudit(
   if (gabarito.municipio?.trim()) {
     form.append("gabaritoMunicipio", gabarito.municipio.trim());
   }
+  // Carimba a conversa do Nexo no consumo de IA desta auditoria (anel de consumo).
+  if (conversationId) form.append("conversationId", conversationId);
 
   const res = await fetch("/api/audit", { method: "POST", body: form });
   const payload = (await res.json().catch(() => null)) as

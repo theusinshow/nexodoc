@@ -726,7 +726,7 @@ function AuditoriaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult } = useConversation();
+  const { results, getResult, saveResult, conversationId } = useConversation();
   const id = auditoriaId(selos);
   const result = getResult(id)?.payload as AuditReport | undefined;
 
@@ -742,7 +742,12 @@ function AuditoriaConfirmation({
     setBusy(true);
     setError(null);
     try {
-      const r = await postAudit(memorialFile, { obra, prefeitura }, params.nivel);
+      const r = await postAudit(
+        memorialFile,
+        { obra, prefeitura },
+        params.nivel,
+        conversationId,
+      );
       await saveResult({
         artifactId: id,
         kind: "auditoria",

@@ -279,6 +279,7 @@ export async function postAudit(
   memorial: File,
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
+  conversationId?: string | null,
 ): Promise<AuditReport> {
-  return runMemorialAudit(memorial, gabarito, level);
+  return runMemorialAudit(memorial, gabarito, level, conversationId);
 }

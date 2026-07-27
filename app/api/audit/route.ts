@@ -1768,6 +1768,7 @@ async function analyzeChunkWithModel(args: {
   fileName: string;
   fileType: string;
   chunk: AuditTextChunk;
+  conversationId?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "chunk");
   const result = await executeAuditModelResponse({
@@ -1795,6 +1796,7 @@ async function analyzeChunkWithModel(args: {
       analysisLevel: args.analysisLevel,
       auditMode: args.auditMode,
     },
+    conversationId: args.conversationId,
   });
   const text = result.text;
   const parsed = parseAuditModelJson(text);
@@ -1879,6 +1881,7 @@ async function analyzeIdentityWithModel(args: {
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
+  conversationId?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "identity");
   let parsed;
@@ -1905,6 +1908,7 @@ async function analyzeIdentityWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-identity");
   } catch (error) {
@@ -2036,6 +2040,7 @@ async function analyzeFileGloballyWithModel(args: {
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
+  conversationId?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
   let parsed;
@@ -2070,6 +2075,7 @@ async function analyzeFileGloballyWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
   } catch (error) {
@@ -2163,6 +2169,7 @@ async function analyzeDocumentCoherenceWithModel(args: {
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
+  conversationId?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
   let parsed;
@@ -2189,6 +2196,7 @@ async function analyzeDocumentCoherenceWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-coherence");
   } catch (error) {
@@ -2401,6 +2409,7 @@ async function validateFindingsWithModel(args: {
   learningContext: string;
   files: UploadedAuditFile[];
   findings: AuditFinding[];
+  conversationId?: string | null;
 }) {
   if (
     args.findings.length === 0 ||
@@ -2435,6 +2444,7 @@ async function validateFindingsWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     const parsed = parseRequiredAuditModelJson(result.text, "audit-validation");
     const decisions = new Map(
@@ -2521,6 +2531,7 @@ async function analyzeCrossDocumentsWithModel(args: {
   projectName: string;
   learningContext: string;
   files: UploadedAuditFile[];
+  conversationId?: string | null;
 }) {
   if (args.files.length < 2) {
     return { findings: [] as AuditFinding[], comparisons: [] as string[] };
@@ -2549,6 +2560,7 @@ async function analyzeCrossDocumentsWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-cross-document");
   } catch (error) {
@@ -2611,6 +2623,7 @@ async function refuteFindingsWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
   findings: AuditFinding[];
+  conversationId?: string | null;
 }) {
   // só faz sentido refutar achados de IA; regra nunca é refutada
   const aiFindings = args.findings.filter((finding) => finding.origem === "ia");
@@ -2646,6 +2659,7 @@ async function refuteFindingsWithModel(args: {
         analysisLevel: args.analysisLevel,
         auditMode: args.auditMode,
       },
+      conversationId: args.conversationId,
     });
     const parsed = parseRequiredAuditModelJson(result.text, "audit-refutation");
     const refuted = new Set(
@@ -2685,6 +2699,7 @@ async function deepAnalyzeFile(args: {
   auditTitle: string;
   gabarito?: AuditGabarito;
   file: UploadedAuditFile;
+  conversationId?: string | null;
 }) {
   const startedAt = Date.now();
   const mandatoryGuardFindings = deriveMandatoryIdentityGuardFindings(
@@ -2765,6 +2780,7 @@ async function deepAnalyzeFile(args: {
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
+        conversationId: args.conversationId,
       })
     : [];
   console.log(
@@ -2788,6 +2804,7 @@ async function deepAnalyzeFile(args: {
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
+        conversationId: args.conversationId,
       })
     : [];
   console.log(
@@ -2812,6 +2829,7 @@ async function deepAnalyzeFile(args: {
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         extracted: args.file.extracted,
+        conversationId: args.conversationId,
       })
     : [];
   if (shouldRunCoherencePass) {
@@ -2838,6 +2856,7 @@ async function deepAnalyzeFile(args: {
         fileName: args.file.file.name,
         fileType: args.file.fileType,
         chunk,
+        conversationId: args.conversationId,
       });
       console.log(
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,
@@ -2878,6 +2897,7 @@ async function deepAnalyzeFile(args: {
           fileType: args.file.fileType,
           extracted: args.file.extracted,
           findings: evidenceGate.kept,
+          conversationId: args.conversationId,
         })
       : evidenceGate.kept;
 
@@ -2917,6 +2937,11 @@ export async function POST(request: Request) {
     };
     const projectId = String(formData.get("projectId") ?? "").trim() || null;
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
+    const conversationIdRaw = formData.get("conversationId");
+    const conversationId =
+      typeof conversationIdRaw === "string" && conversationIdRaw.trim()
+        ? conversationIdRaw.trim()
+        : null;
     const requestMockMode = formData.get("mockMode") === "true";
     const fileTypes = formData.getAll("fileTypes").map((value) => String(value));
     const files = formData
@@ -3048,6 +3073,7 @@ export async function POST(request: Request) {
         auditTitle,
         gabarito,
         file,
+        conversationId,
       });
       allFindings.push(...findings);
     }
@@ -3077,6 +3103,7 @@ export async function POST(request: Request) {
           projectName,
           learningContext,
           files: uploadedFiles,
+          conversationId,
         })
       : { findings: [] as AuditFinding[], comparisons: [] as string[] };
     allFindings.push(...modelComparison.findings);
@@ -3097,6 +3124,7 @@ export async function POST(request: Request) {
       learningContext,
       files: uploadedFiles,
       findings: candidateFindings,
+      conversationId,
     });
     console.log(
       `[audit] validação semântica concluida com ${validatedFindings.length} achado(s) confirmado(s)`,
