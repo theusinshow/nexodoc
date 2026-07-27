@@ -100,6 +100,33 @@ function rotuloTomos(numTomos: number, tomoInicial: number): string {
   return `${numTomos} (TOMO ${faixa})`;
 }
 
+/** Os três estados de um artefato no card (§ "Estados das ações do Nexo"). */
+export type EstadoArtefato = "proposta" | "pendente" | "aplicado";
+
+/**
+ * Em que estado está o artefato, comparando os params que o engenheiro acabou de
+ * pedir com os que ORIGINARAM o resultado já gerado.
+ *
+ * Existe porque o id do artefato é estável de propósito (uma capa por conversa,
+ * atualizada no lugar). Sem esta comparação o card via "já existe resultado" e
+ * só oferecia o download — pedir "muda para o volume 6" mostrava o PDF do volume
+ * I como se estivesse em dia.
+ *
+ * Resultado antigo sem params guardados (gerado antes disto existir): não dá
+ * para provar que está em dia, então tratamos como PENDENTE — melhor oferecer
+ * um "gerar de novo" desnecessário do que esconder uma alteração pedida.
+ */
+function estadoDoArtefato(
+  saved: SavedResult | undefined,
+  params: unknown,
+): EstadoArtefato {
+  if (!saved) return "proposta";
+  if (saved.payload === undefined) return "pendente";
+  return JSON.stringify(saved.payload) === JSON.stringify(params)
+    ? "aplicado"
+    : "pendente";
+}
+
 /** Mapeia os arquivos salvos p/ o formato do ResultLinks. */
 function toResultFiles(saved: SavedResult) {
   return saved.files.map((f) => ({
@@ -176,14 +203,23 @@ export function ConfirmationCard({
 
 /* ---------------------------------------------------------------- Casca ---- */
 
+const ESTADO_LABEL: Record<EstadoArtefato, string> = {
+  proposta: "Proposta",
+  pendente: "Alteração pendente",
+  aplicado: "Aplicado",
+};
+
 function CardShell({
   kind,
   resumo,
   children,
+  estado = "proposta",
 }: {
   kind: NexoAgentProposal["kind"];
   resumo: string;
   children: ReactNode;
+  /** Proposta / alteração pendente / aplicado — o card diz em que pé está. */
+  estado?: EstadoArtefato;
 }) {
   const meta = KIND_META[kind];
   const Icon = meta.icon;
@@ -191,7 +227,15 @@ function CardShell({
     <div className="nexodoc-enter rounded-md border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <span className={LABEL_CLASS}>Proposta · {meta.title}</span>
+        <span className={LABEL_CLASS}>
+          {ESTADO_LABEL[estado]} · {meta.title}
+        </span>
+        {estado === "pendente" && (
+          <span
+            className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--status-warning)]"
+            aria-hidden
+          />
+        )}
       </div>
       <div className="space-y-3 p-3">
         <p className="text-sm text-muted-foreground">{resumo}</p>
@@ -304,6 +348,8 @@ function LdConfirmation({
 
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
+  const estado = estadoDoArtefato(saved, params);
+  const podeGerar = estado !== "aplicado";
 
   async function confirm() {
     setBusy(true);
@@ -317,6 +363,9 @@ function LdConfirmation({
       await saveResult({
         artifactId: id,
         kind: "ld",
+        // Params que originaram o resultado — o card compara para saber se a
+        // proposta mudou desde a geração (ver estadoDoArtefato).
+        payload: params,
         summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas${
           r.warnings.length ? ` · ${r.warnings.length} aviso(s)` : ""
         }`,
@@ -338,10 +387,10 @@ function LdConfirmation({
   }
 
   return (
-    <CardShell kind="ld" resumo={resumo}>
+    <CardShell kind="ld" resumo={resumo} estado={estado}>
       {ldPreview && <FolhaPreview data={ldPreview} />}
 
-      {!saved && (
+      {podeGerar && (
         <>
           <div className="space-y-1.5">
             <SummaryRow
@@ -349,7 +398,10 @@ function LdConfirmation({
               value={semTitulo ? "defina o título →" : titulo}
               missing={semTitulo}
             />
-            <SummaryRow label="Tomos" value={String(params.numTomos)} />
+            <SummaryRow
+              label="Tomos"
+              value={rotuloTomos(params.numTomos, params.tomoInicial)}
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             <AlterChip
@@ -361,7 +413,12 @@ function LdConfirmation({
             <AlterChip label="tomo inicial" phrase="Começando no tomo " />
           </div>
           <div className="flex items-center gap-2">
-            <ConfirmButton busy={busy} disabled={semTitulo} onConfirm={confirm} />
+            <ConfirmButton
+              busy={busy}
+              disabled={semTitulo}
+              onConfirm={confirm}
+              label={saved ? "Aplicar alteração" : undefined}
+            />
             {semTitulo && (
               <span className="text-xs text-muted-foreground">
                 O título é decisão sua — defina pela conversa.
@@ -371,7 +428,16 @@ function LdConfirmation({
         </>
       )}
 
-      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
+      {saved && (
+        <ResultLinks
+          summary={
+            estado === "pendente"
+              ? `Versão atual (antes da alteração) — ${saved.summary}`
+              : saved.summary
+          }
+          files={toResultFiles(saved)}
+        />
+      )}
       <CardError message={error} />
     </CardShell>
   );
@@ -447,6 +513,8 @@ function CapaConfirmation({
   const semPrefeitura = params.templateId.trim() === "";
   // Título é decisão do engenheiro (igual ao da LD): sem ele, não gera.
   const semTitulo = params.tituloCapa.trim() === "";
+  const estado = estadoDoArtefato(saved, params);
+  const podeGerar = estado !== "aplicado";
 
   async function confirm() {
     setBusy(true);
@@ -462,6 +530,10 @@ function CapaConfirmation({
       await saveResult({
         artifactId: id,
         kind: "capa",
+        // Guarda os params que ORIGINARAM este resultado. É o que deixa o card
+        // saber, no próximo turno, que a proposta mudou e precisa ser regerada
+        // — sem isto ele mostraria o download antigo achando que está em dia.
+        payload: params,
         summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}${
           r.resumo.tomos > 1 ? ` · ${r.resumo.tomos} tomos` : ""
         }${r.pdfError ? " · PDF indisponível" : ""}`,
@@ -484,8 +556,8 @@ function CapaConfirmation({
   }
 
   return (
-    <CardShell kind="capa" resumo={resumo}>
-      {!saved && (
+    <CardShell kind="capa" resumo={resumo} estado={estado}>
+      {podeGerar && (
         <>
           <div className="space-y-1.5">
             <SummaryRow
@@ -522,6 +594,7 @@ function CapaConfirmation({
               busy={busy}
               disabled={semPrefeitura || semTitulo}
               onConfirm={confirm}
+              label={saved ? "Aplicar alteração" : undefined}
             />
             {(semPrefeitura || semTitulo) && (
               <span className="text-xs text-muted-foreground">
@@ -534,7 +607,16 @@ function CapaConfirmation({
         </>
       )}
 
-      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
+      {saved && (
+        <ResultLinks
+          summary={
+            estado === "pendente"
+              ? `Versão atual (antes da alteração) — ${saved.summary}`
+              : saved.summary
+          }
+          files={toResultFiles(saved)}
+        />
+      )}
       <CardError message={error} />
     </CardShell>
   );
