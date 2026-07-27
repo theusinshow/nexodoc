@@ -11,7 +11,7 @@
  * os chips `fill` focarem/posicionarem o cursor aqui.
  */
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Paperclip, Send, Square } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ export function NexoComposer({
   variant,
   onAttach,
   inputRef,
+  trailing,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -36,6 +37,8 @@ export function NexoComposer({
   variant: "hero" | "docked";
   onAttach?: () => void;
   inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /** Peça opcional à esquerda do enviar (hoje: o anel de consumo). */
+  trailing?: ReactNode;
 }) {
   const isHero = variant === "hero";
   return (
@@ -75,6 +78,7 @@ export function NexoComposer({
           }
           className="max-h-32 min-h-9 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-sm leading-5 outline-none placeholder:text-muted-foreground"
         />
+        {trailing}
         {busy && onStop ? (
           <button
             type="button"

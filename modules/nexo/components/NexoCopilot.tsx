@@ -16,7 +16,6 @@ import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
-import { UsageArc } from "./UsageArc";
 import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
 
 export function NexoCopilot({
@@ -125,8 +124,6 @@ export function NexoCopilot({
             </p>
           </div>
         )}
-        {/* Consumo de IA da sessão — indicador sutil (só aparece se houve uso). */}
-        <UsageArc />
       </div>
 
       <div

@@ -47,6 +47,7 @@ import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
+import { useConversationUsage } from "../state/use-conversation-usage";
 
 const PDF_MIME = "application/pdf";
 
@@ -727,6 +728,7 @@ function AuditoriaConfirmation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult, conversationId } = useConversation();
+  const { refresh: refreshUsage } = useConversationUsage(conversationId);
   const id = auditoriaId(selos);
   const result = getResult(id)?.payload as AuditReport | undefined;
 
@@ -755,6 +757,7 @@ function AuditoriaConfirmation({
         files: [],
         payload: r,
       });
+      refreshUsage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
     } finally {

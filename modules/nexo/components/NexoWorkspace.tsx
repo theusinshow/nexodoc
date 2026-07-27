@@ -19,7 +19,6 @@ import {
   ConversationStoreProvider,
   useConversation,
 } from "../state/conversation-store";
-import { ApiUsageProvider, useApiUsage } from "../state/api-usage";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
@@ -41,13 +40,11 @@ export function NexoWorkspace() {
   // o store da conversa (fonte única de mensagens + selos, persistidos).
   return (
     <ConversationStoreProvider>
-      <ApiUsageProvider>
-        <ArtifactStoreProvider>
-          <ComposerControllerProvider>
-            <NexoWorkspaceInner />
-          </ComposerControllerProvider>
-        </ArtifactStoreProvider>
-      </ApiUsageProvider>
+      <ArtifactStoreProvider>
+        <ComposerControllerProvider>
+          <NexoWorkspaceInner />
+        </ComposerControllerProvider>
+      </ArtifactStoreProvider>
     </ConversationStoreProvider>
   );
 }
@@ -55,7 +52,6 @@ export function NexoWorkspace() {
 function NexoWorkspaceInner() {
   const conv = useConversation();
   const { replaceArtifacts } = useArtifactStore();
-  const { addTokens } = useApiUsage();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).
   const seloResults = conv.seloResults;
   const setSeloResults = conv.setSeloResults;
@@ -339,7 +335,6 @@ function NexoWorkspaceInner() {
         if (pranchas.length > 0) {
           await extractSelosFromFiles(pranchas, (r) => {
             collected.push(r);
-            addTokens(r.usage ?? 0); // consumo de IA da leitura do selo
             setSeloResults([...collected]);
             setReadProgress({ done: collected.length, total });
           }, conv.conversationId);
@@ -347,7 +342,6 @@ function NexoWorkspaceInner() {
         for (const img of images) {
           const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
-          addTokens(r.usage ?? 0);
           setSeloResults([...collected]);
           setReadProgress({ done: collected.length, total });
         }

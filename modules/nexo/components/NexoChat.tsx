@@ -6,11 +6,12 @@ import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
-import { useApiUsage } from "../state/api-usage";
+import { useConversationUsage } from "../state/use-conversation-usage";
 import { useRevealText } from "../lib/use-reveal-text";
 import { ConfirmationCard, type NexoTemplateOption } from "./ConfirmationCard";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { NexoComposer } from "./NexoComposer";
+import { UsageDonut } from "./UsageDonut";
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
@@ -66,7 +67,7 @@ export function NexoChat({
 }) {
   const { messages, conversationId, appendMessage, appendDelta, finalizeMessage } =
     useConversation();
-  const { addTokens } = useApiUsage();
+  const { data: usage, refresh: refreshUsage } = useConversationUsage(conversationId);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +150,6 @@ export function NexoChat({
         if (!res.ok || !payload?.turn) {
           throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
         }
-        addTokens(payload.turn.usage ?? 0); // consumo de IA deste turno
         setRevealId(assistantId); // sem streaming, o typewriter ainda vale
         appendMessage({
           id: assistantId,
@@ -197,7 +197,6 @@ export function NexoChat({
           if (event.type === "delta") {
             appendDelta(assistantId, event.text);
           } else if (event.type === "done") {
-            addTokens(event.usage ?? 0);
             finalizeMessage(assistantId, {
               proposals: event.proposals,
               ...(event.slotRequest ? { slotRequest: event.slotRequest } : {}),
@@ -221,6 +220,7 @@ export function NexoChat({
     } finally {
       abortRef.current = null;
       setBusy(false);
+      refreshUsage();
     }
   }
 
@@ -381,6 +381,7 @@ export function NexoChat({
             onChange={setInput}
             onSubmit={() => void send()}
             onStop={stop}
+            trailing={<UsageDonut data={usage} />}
             busy={busy}
             onAttach={onAttach}
             inputRef={inputRef}
