@@ -56,9 +56,25 @@ function ldId(selos: SeloForLd[]): string {
   const s = summarizeSelos(selos);
   return `ld:${s.codigo ?? "x"}:${s.revisao ?? "x"}`;
 }
-function capaId(selos: SeloForLd[], volume: string): string {
-  const s = summarizeSelos(selos);
-  return `capa:${s.codigo ?? "x"}:${volume.trim() || "auto"}`;
+/**
+ * Id da capa. Deriva SÓ do código da obra, como os outros artefatos — a capa é
+ * UMA por conversa e é ATUALIZADA no lugar quando muda volume, tomo ou título.
+ *
+ * Antes o volume entrava na chave. Isso fazia "altere a capa para VOL VI" gerar
+ * um id diferente do `capa:<codigo>:auto` original, e o canvas ficava com DUAS
+ * capas — editar virava criar.
+ */
+function capaId(selos: SeloForLd[]): string {
+  return `capa:${summarizeSelos(selos).codigo ?? "x"}`;
+}
+
+/**
+ * Prefixo das chaves ANTIGAS (`capa:<codigo>:<volume>`). Conversas gravadas
+ * antes da correção guardaram a capa com esse formato; sem isto elas voltariam
+ * do histórico como se nunca tivessem gerado capa nenhuma.
+ */
+function capaIdLegado(selos: SeloForLd[]): string {
+  return `capa:${summarizeSelos(selos).codigo ?? "x"}:`;
 }
 function volumeId(selos: SeloForLd[]): string {
   return `volume:${summarizeSelos(selos).codigo ?? "x"}`;
@@ -397,9 +413,11 @@ function CapaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult } = useConversation();
-  const id = capaId(selos, params.volume);
-  const saved = getResult(id);
+  const { getResult, saveResult, results } = useConversation();
+  const id = capaId(selos);
+  // Capa gerada antes da correção da chave: acha pelo prefixo antigo.
+  const saved =
+    getResult(id) ?? results.find((r) => r.artifactId.startsWith(capaIdLegado(selos)));
 
   const template = templates.find((t) => t.id === params.templateId);
   const prefeituraNome = template
