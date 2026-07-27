@@ -117,7 +117,7 @@ Teclado obrigatório: setas movem o separador (é um `separator` com
 | Excluir artefato que já sumiu | No-op silencioso (o card volta a PROPOSTA de qualquer forma) |
 | Volume montado sem separatriz | Sai sem ela, como hoje quando a geração falha |
 | `localStorage` indisponível | Splitter usa a largura padrão; nada quebra |
-| Conversa restaurada do histórico | Artefatos voltam como estão gravados; a separatriz antiga (gerada antes disto) não existe como resultado e o volume a regenera na montagem seguinte |
+| Conversa restaurada do histórico | Artefatos voltam como estão gravados. A separatriz de conversas antigas **não** existe como resultado, e o volume passa a sair **sem ela** até ser gerada — um clique no card, que agora fica visível na lista de partes marcado como ausente. Regenerá-la escondida na montagem manteria viva justamente o caminho invisível que causou o defeito do texto errado. |
 
 ## Testes
 

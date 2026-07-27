@@ -471,7 +471,15 @@ textarea {
 /* Active (após enviar): sidebar | CANVAS (centro, mapa do volume) | copiloto
    (chat docado à direita, orb no topo). O chat DESLIZA centro→direita. */
 .nexo-shell--active {
-  grid-template-columns: var(--nexo-sidebar-w) minmax(0, 1fr) var(--nexo-copilot-w);
+  grid-template-columns:
+    var(--nexo-sidebar-w) minmax(0, 1fr) 12px var(--nexo-copilot-w);
+}
+
+/* Coluna do separador arrastavel (ShellSplitter). Estreita de proposito: a alca
+   e o tracinho central; a coluna so precisa dar area de clique. */
+.nexo-shell__splitter {
+  min-width: 0;
+  height: 100%;
 }
 
 .nexo-shell__sidebar {

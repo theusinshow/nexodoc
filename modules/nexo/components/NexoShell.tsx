@@ -15,6 +15,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { ShellSplitter } from "./ShellSplitter";
 
 export function NexoShell({
   started,
@@ -44,6 +45,8 @@ export function NexoShell({
           {stage}
         </main>
       )}
+      {/* O separador só existe quando há canvas para dividir. */}
+      {started && <ShellSplitter />}
       <aside className="nexo-shell__copilot" aria-label="Nexo">
         {copilot}
       </aside>

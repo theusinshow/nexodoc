@@ -42,7 +42,14 @@ import type {
 } from "../types";
 
 export type { LdPreviewData };
-import { postLd, postCapa, postCheck, postAudit, ODT_MIME } from "../lib/generate";
+import {
+  postLd,
+  postCapa,
+  postCheck,
+  postAudit,
+  postSeparatriz,
+  ODT_MIME,
+} from "../lib/generate";
 import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { useComposer } from "../state/composer-controller";
@@ -81,6 +88,9 @@ function volumeId(selos: SeloForLd[]): string {
 }
 function conferenciaId(selos: SeloForLd[]): string {
   return `conferencia:${summarizeSelos(selos).codigo ?? "x"}`;
+}
+function separatrizId(selos: SeloForLd[]): string {
+  return `separatriz:${summarizeSelos(selos).codigo ?? "x"}`;
 }
 function auditoriaId(selos: SeloForLd[]): string {
   return `auditoria:${summarizeSelos(selos).codigo ?? "x"}`;
@@ -195,7 +205,7 @@ export function ConfirmationCard({
         />
       );
     case "separatriz":
-      return <DeferredConfirmation kind="separatriz" resumo={proposal.resumo} />;
+      return <SeparatrizConfirmation resumo={proposal.resumo} selos={selos} />;
     default:
       return null;
   }
@@ -754,8 +764,10 @@ function VolumeConfirmation({
 
   const capa = results.find((r) => r.kind === "capa");
   const ld = results.find((r) => r.kind === "ld");
+  const separatriz = results.find((r) => r.kind === "separatriz");
   const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
   const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
+  const sepPdfUrl = separatriz?.files.find((f) => f.mime === PDF_MIME)?.url;
   const semPranchas = pranchaFiles.length === 0;
   /*
    * Título da separatriz. Antes vinha do rótulo do canvas ("LD ESTRUTURAL"),
@@ -780,12 +792,13 @@ function VolumeConfirmation({
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
       const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
+      const separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
       const r = await assembleVolume({
         selos,
         pranchaFiles,
         capaPdf64,
         ldPdf64,
-        separatrizTitle: sepTitle,
+        separatrizPdf64,
       });
       await saveResult({
         artifactId: id,
@@ -838,7 +851,11 @@ function VolumeConfirmation({
 
           <div className="space-y-1.5">
             <PartRow label="Capa" ok={Boolean(capaPdfUrl)} />
-            <PartRow label="Separatriz" ok={Boolean(sepTitle)} detail={sepTitle || "sem título"} />
+            <PartRow
+              label="Separatriz"
+              ok={Boolean(sepPdfUrl)}
+              detail={sepPdfUrl ? sepTitle : "não gerada — peça a separatriz"}
+            />
             <PartRow label="LD" ok={Boolean(ldPdfUrl)} />
             <PartRow
               label="Pranchas"
@@ -1036,22 +1053,109 @@ function AuditResult({ report }: { report: AuditReport }) {
  * A separatriz vive dentro do fluxo de volume (é montada como parte dele) — não
  * tem geração avulsa no chat. Read-only, honesto quanto ao próximo passo.
  */
-function DeferredConfirmation({
-  kind,
+/**
+ * Separatriz — a folha que nomeia a disciplina dentro do volume.
+ *
+ * Antes ela nascia ESCONDIDA: `assembleVolume` a gerava na hora e usava o PDF
+ * sem guardar nada, então ela não tinha card, não aparecia no canvas e ninguém
+ * conferia o texto. Foi assim que ela saiu com a sigla crua da disciplina
+ * ("ESTRUTURAL") em vez do título do documento, e só se percebeu com o volume
+ * pronto. Agora é artefato como os outros: gerada antes, visível, conferível.
+ *
+ * O título NÃO é campo próprio — é o mesmo `tituloLd` já decidido na LD. Dois
+ * títulos para o mesmo documento divergiriam.
+ */
+function SeparatrizConfirmation({
   resumo,
+  selos,
 }: {
-  kind: "separatriz";
   resumo: string;
+  selos: SeloForLd[];
 }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { results, getResult, saveResult } = useConversation();
+  const id = separatrizId(selos);
+  const saved = getResult(id);
+
+  const ld = results.find((r) => r.kind === "ld");
+  const ldParams = ld?.payload as NexoLdProposalParams | undefined;
+  // Título da LD viva > o que ficou gravado quando esta separatriz foi gerada.
+  const savedParams = saved?.payload as { titulo?: string } | undefined;
+  const titulo = ldParams?.tituloLd?.trim() || savedParams?.titulo?.trim() || "";
+  const semTitulo = titulo === "";
+  const ldSumiu = Boolean(saved) && !ld;
+
+  const estado = estadoDoArtefato(saved, { titulo });
+  const podeGerar = estado !== "aplicado";
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await postSeparatriz(titulo);
+      await saveResult({
+        artifactId: id,
+        kind: "separatriz",
+        payload: { titulo },
+        summary: `Separatriz ${titulo}${r.pdfError ? " · PDF indisponível" : ""}`,
+        canvas: { label: "Separatriz", detail: titulo, pageNumber: 1 },
+        files: [{ label: "PDF", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar a separatriz.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <CardShell kind={kind} resumo={resumo}>
-      <p className="text-xs text-muted-foreground">
-        A separatriz é montada dentro do fluxo do volume — peça “montar volume”.
-      </p>
-      <Button size="sm" disabled>
-        <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-        Confirmar e gerar
-      </Button>
+    <CardShell kind="separatriz" resumo={resumo} estado={estado}>
+      {podeGerar && (
+        <>
+          <div className="space-y-1.5">
+            <SummaryRow
+              label="Título"
+              value={semTitulo ? "defina o título na LD →" : titulo}
+              missing={semTitulo}
+            />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <AlterChip label="título" phrase="Muda o título para " />
+          </div>
+          <div className="flex items-center gap-2">
+            <ConfirmButton
+              busy={busy}
+              disabled={semTitulo}
+              onConfirm={confirm}
+              label={saved ? "Aplicar alteração" : undefined}
+            />
+            {semTitulo && (
+              <span className="text-xs text-muted-foreground">
+                A separatriz usa o título da LD — defina lá primeiro.
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {ldSumiu && (
+        <p className="text-xs text-muted-foreground">
+          A LD que deu o título a esta separatriz não existe mais.
+        </p>
+      )}
+
+      {saved && (
+        <ResultLinks
+          summary={
+            estado === "pendente"
+              ? `Versão atual (antes da alteração) — ${saved.summary}`
+              : saved.summary
+          }
+          files={toResultFiles(saved)}
+        />
+      )}
+      <CardError message={error} />
     </CardShell>
   );
 }

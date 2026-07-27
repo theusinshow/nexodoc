@@ -30,6 +30,7 @@ import type {
   NexoSlotRequest,
 } from "../types";
 import { summarizeSelos } from "../lib/agent-context";
+import { removerResultado } from "../lib/results";
 import {
   deleteConversation as dbDelete,
   getBlob,
@@ -100,6 +101,12 @@ interface ConversationStoreValue {
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
   getResult: (artifactId: string) => SavedResult | undefined;
+  /**
+   * Remove um resultado gerado: some do canvas (o espelho é automático) e deixa
+   * de entrar no volume. O card volta ao estado de proposta, então regerar é um
+   * clique. Os blobs no IndexedDB ficam — o que importa é sair do estado.
+   */
+  removeResult: (artifactId: string) => void;
   newConversation: () => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
   selectConversation: (id: string) => Promise<StoredConversation | null>;
@@ -325,6 +332,20 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [results],
   );
 
+  const removeResult = useCallback(
+    (artifactId: string) => {
+      setResults((prev) => {
+        const { restantes, removido } = removerResultado(prev, artifactId);
+        // Revoga as URLs do que saiu: sem isto cada exclusão deixa um blob preso
+        // na memória da aba, e o vazamento é invisível.
+        removido?.files.forEach((f) => URL.revokeObjectURL(f.url));
+        return restantes;
+      });
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
   const newConversation = useCallback(() => {
     flushPersist(); // grava a conversa atual antes de largar (#1)
     setConversationId(newId());
@@ -406,6 +427,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       saveResult,
       getResult,
+      removeResult,
       newConversation,
       selectConversation,
       removeConversation,
@@ -423,6 +445,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       saveResult,
       getResult,
+      removeResult,
       newConversation,
       selectConversation,
       removeConversation,

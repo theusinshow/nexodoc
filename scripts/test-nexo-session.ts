@@ -11,6 +11,8 @@
  */
 import assert from "node:assert/strict";
 
+import { removerResultado } from "../modules/nexo/lib/results.ts";
+
 import {
   initNexoSession,
   mintArtifactId,
@@ -307,6 +309,49 @@ test("(j) AGENT_TURN_STARTED thinking, SUCCEEDED volta a idle", () => {
     turn: turn([]),
   });
   assert.equal(s2.turn.status, "idle");
+});
+
+// --- Remoção de artefato gerado --------------------------------------------
+
+/*
+ * Excluir um artefato tira SÓ ele. A ordem dos demais é o que o canvas desenha
+ * (capa → separatriz → LD → pranchas), então embaralhar aqui viraria um volume
+ * fora de padrão.
+ */
+type ResultadoStub = { artifactId: string; files: { url: string }[] };
+const listaDeResultados: ResultadoStub[] = [
+  { artifactId: "capa:040", files: [{ url: "blob:a" }] },
+  { artifactId: "ld:040:R0", files: [{ url: "blob:b" }] },
+  { artifactId: "volume:040", files: [{ url: "blob:c" }] },
+];
+
+test("removerResultado: tira so o alvo e preserva a ordem dos outros", () => {
+  const { restantes, removido } = removerResultado(listaDeResultados, "ld:040:R0");
+  assert.deepEqual(
+    restantes.map((r) => r.artifactId),
+    ["capa:040", "volume:040"],
+  );
+  assert.equal(removido?.artifactId, "ld:040:R0");
+});
+
+test("removerResultado: id inexistente nao altera nada e nao lanca", () => {
+  const { restantes, removido } = removerResultado(listaDeResultados, "nao-existe");
+  assert.equal(restantes.length, 3);
+  assert.equal(removido, null);
+});
+
+test("removerResultado: devolve o removido p/ o chamador revogar as URLs", () => {
+  const { removido } = removerResultado(listaDeResultados, "capa:040");
+  assert.deepEqual(
+    removido?.files.map((f) => f.url),
+    ["blob:a"],
+  );
+});
+
+test("removerResultado: lista vazia devolve vazia", () => {
+  const { restantes, removido } = removerResultado([] as ResultadoStub[], "x");
+  assert.deepEqual(restantes, []);
+  assert.equal(removido, null);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

@@ -16,11 +16,7 @@ import {
 } from "@/server/nexo/parse-filename";
 import { buildVolumeParts, type VolumePartSource } from "@/server/nexo/volume-parts";
 
-import {
-  postSeparatriz,
-  postVolume,
-  type VolumeGenResult,
-} from "./generate";
+import { postVolume, type VolumeGenResult } from "./generate";
 
 /** Lê um File como base64 cru (sem o prefixo data:...;base64,). */
 export function fileToBase64(file: File): Promise<string> {
@@ -50,8 +46,12 @@ export interface AssembleVolumeInput {
   capaPdf64: string | null;
   /** LD em base64 cru (ou null se não gerada). */
   ldPdf64: string | null;
-  /** Nome da separatriz; vazio = sem separatriz. Best-effort. */
-  separatrizTitle?: string;
+  /**
+   * Separatriz em base64 cru (ou null). Vem PRONTA de fora: ela é artefato de
+   * primeira classe, gerada e conferida antes da montagem. Antes nascia aqui
+   * dentro, invisível, e foi assim que saiu com o texto errado sem ninguém ver.
+   */
+  separatrizPdf64?: string | null;
   /** Nome do PDF final. */
   fileName?: string;
 }
@@ -85,19 +85,13 @@ function pranchaPagesByFile(selos: SeloForLd[]): Map<string, number[]> {
 export async function assembleVolume(
   input: AssembleVolumeInput,
 ): Promise<VolumeGenResult> {
-  const { selos, pranchaFiles, capaPdf64, ldPdf64, separatrizTitle, fileName } = input;
+  const { selos, pranchaFiles, capaPdf64, ldPdf64, separatrizPdf64, fileName } = input;
 
-  // Separatriz best-effort — falha (LibreOffice off) → volume segue sem ela.
-  let separatriz: VolumePartSource | null = null;
-  const sepTitle = separatrizTitle?.trim();
-  if (sepTitle) {
-    try {
-      const sep = await postSeparatriz(sepTitle);
-      separatriz = { name: "separatriz.pdf", data: sep.data };
-    } catch {
-      /* best-effort */
-    }
-  }
+  // Sem separatriz gerada, o volume sai sem ela — a ordem canônica só pula a
+  // parte ausente. O card da separatriz é quem torna isso visível.
+  const separatriz: VolumePartSource | null = separatrizPdf64
+    ? { name: "separatriz.pdf", data: separatrizPdf64 }
+    : null;
 
   // Pranchas na ordem do escritório (por nº de folha do nome), recortadas no
   // intervalo de pranchas (exclui capa/LD internas de um PDF combinado).

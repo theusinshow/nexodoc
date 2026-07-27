@@ -11,7 +11,7 @@
  * nunca N frames pesados; só capa/separatriz/LD ganham miniatura real.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -24,11 +24,12 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Layers, Maximize2, Pencil } from "lucide-react";
+import { Waypoints, Layers, Maximize2, Pencil, Trash2 } from "lucide-react";
 
 import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
 import { useComposer } from "../state/composer-controller";
+import { useConversation } from "../state/conversation-store";
 import { ArtifactThumb } from "./ArtifactThumb";
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
@@ -68,9 +69,14 @@ type StackNodeData = { count: number; infos: PranchaInfo[] } & Record<string, un
  * documento em conversa (o agente re-propõe → regera → o canvas atualiza).
  * `nodrag nopan` nos interativos p/ o React Flow não sequestrar o clique.
  */
-function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
+function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
   const composer = useComposer();
+  const { removeResult } = useConversation();
   const editLabel = KIND_EDIT_LABEL[data.kind] ?? "o documento";
+  // Confirmação INLINE, no próprio nó. Excluir aqui é reversível (o card volta a
+  // proposta e regerar é um clique), então um diálogo modal custaria mais
+  // atenção do que a decisão merece.
+  const [confirmando, setConfirmando] = useState(false);
 
   const openPreview = () => {
     if (data.pdfUrl) window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
@@ -81,7 +87,13 @@ function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
   };
 
   return (
-    <div className="w-[200px] overflow-hidden rounded-md border border-border bg-card">
+    <div
+      className={
+        selected
+          ? "w-[200px] overflow-hidden rounded-md border border-[var(--ring)] bg-card"
+          : "w-[200px] overflow-hidden rounded-md border border-border bg-card"
+      }
+    >
       <button
         type="button"
         onClick={openPreview}
@@ -113,14 +125,47 @@ function ArtifactNode({ data }: NodeProps<Node<ArtifactNodeData>>) {
             {data.detail}
           </p>
         )}
-        <button
-          type="button"
-          onClick={editInChat}
-          className="nodrag nopan mt-1.5 flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-        >
-          <Pencil className="h-3 w-3" aria-hidden />
-          Alterar no chat
-        </button>
+        <div className="mt-1.5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={editInChat}
+            className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            <Pencil className="h-3 w-3" aria-hidden />
+            Alterar no chat
+          </button>
+          {/* Só o nó SELECIONADO oferece excluir: a ação some do caminho de quem
+              está só olhando o mapa do volume. */}
+          {selected && !confirmando && (
+            <button
+              type="button"
+              onClick={() => setConfirmando(true)}
+              className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            >
+              <Trash2 className="h-3 w-3" aria-hidden />
+              Excluir
+            </button>
+          )}
+        </div>
+        {selected && confirmando && (
+          <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+            <span className="text-muted-foreground">Excluir?</span>
+            <button
+              type="button"
+              onClick={() => removeResult(data.id)}
+              className="nodrag nopan rounded-sm font-medium text-destructive underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            >
+              Sim
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmando(false)}
+              className="nodrag nopan rounded-sm text-muted-foreground underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            >
+              Não
+            </button>
+          </div>
+        )}
       </div>
       <Handle type="target" position={Position.Left} className="!opacity-0" />
       <Handle type="source" position={Position.Right} className="!opacity-0" />
@@ -243,7 +288,7 @@ export function NexoCanvas({
         maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={false}
+        elementsSelectable
         panOnScroll
         zoomOnScroll
       >
