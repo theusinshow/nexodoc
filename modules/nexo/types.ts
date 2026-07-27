@@ -193,6 +193,12 @@ export interface NexoLdProposalParams {
 export interface NexoCapaProposalParams {
   /** Template (prefeitura + variante) que fornece órgão/secretaria/formato. */
   templateId: string;
+  /**
+   * Título documental da capa. Vazio = engenheiro decide (o Nexo pergunta, como
+   * faz na LD). NUNCA derivado do nome do arquivo: a hierarquia é usuário > LD >
+   * selo > metadados, e o nome do arquivo não é título documental.
+   */
+  tituloCapa: string;
   /** Volume arábico ("1","2"...); "" = deriva do nome do arquivo. */
   volume: string;
   /** Divide em N tomos (uma capa por tomo). Default 1. */

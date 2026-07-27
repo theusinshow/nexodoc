@@ -100,6 +100,8 @@ export async function postLd(
 
 export interface CapaOptions {
   templateId: string;
+  /** Título documental da capa; vazio = o builder usa obra/disciplina do selo. */
+  tituloCapa?: string;
   /** arábico ("1","2"...); vazio/omitido = deriva do nome do arquivo. */
   volume?: string;
   /** Divide em N tomos (uma capa por tomo). Default 1. */
@@ -125,6 +127,7 @@ export async function postCapa(
       templateId: opts.templateId,
       numTomos: opts.numTomos ?? 1,
       tomoNumero: opts.tomoNumero ?? 0,
+      ...(opts.tituloCapa?.trim() ? { tituloCapa: opts.tituloCapa.trim() } : {}),
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
       ...(opts.secretaria?.trim() ? { secretaria: opts.secretaria.trim() } : {}),
       ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),

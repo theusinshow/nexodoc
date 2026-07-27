@@ -133,16 +133,53 @@ test("(b) LD com título em slots → pronto:true, sem nextMissing", () => {
   assert.equal(r.resolved.tituloLd, "BLOCO B");
 });
 
-// (c) capa, casou 1 prefeitura por município (plausibleCount:1) → pré-resolvido
-test("(c) capa, templateMatch.plausibleCount:1 → templateId pré-resolvido, pronto:true", () => {
+// (c) capa, casou 1 prefeitura por município (plausibleCount:1) → pré-resolvido.
+// MUDOU: o título da capa virou decisão do engenheiro (como o da LD), então a
+// prefeitura resolvida sozinha não deixa mais a capa pronta.
+test("(c) capa, templateMatch.plausibleCount:1 → templateId pré-resolvido", () => {
   const r = resolve({
     taskKind: "capa",
     facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
     slots: noSlots,
   });
   assert.equal(r.resolved.templateId, "prefflor", "casou por município");
-  assert.equal(r.pronto, true, "templateId não vira slot");
+  assert.equal(r.nextMissing?.slotId, "tituloCapa", "falta a decisão do título");
+  assert.equal(r.pronto, false);
+});
+
+// (c2) capa com o título decidido → aí sim pronta
+test("(c2) capa com tituloCapa decidido → pronto:true", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
+    slots: { tituloCapa: { value: "PROJETO ESTRUTURAL CONCRETO" } },
+  });
+  assert.equal(r.pronto, true);
   assert.equal(r.nextMissing, null);
+  assert.equal(r.resolved.tituloCapa, "PROJETO ESTRUTURAL CONCRETO");
+});
+
+// (c3) o título NUNCA é auto-derivado — o palpite entra só como sugestão, e o
+// nome do arquivo jamais vira título documental.
+test("(c3) capa: título do selo vira SUGESTÃO, nunca valor; arquivo nunca entra", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({
+      templateMatch: { resolvedId: "prefflor", plausibleCount: 1 },
+      seloSets: {
+        estrutural: [selo({ tituloSecao: "PROJETO ESTRUTURAL CONCRETO", arquivo: "EST-001" })],
+      },
+    }),
+    slots: noSlots,
+  });
+  assert.equal(r.resolved.tituloCapa, undefined, "não auto-commita o palpite");
+  const chips = r.nextMissing?.suggestions ?? [];
+  assert.ok(chips.length >= 2 && chips.length <= 3, "2-3 chips");
+  assert.equal(chips[0]?.value, "PROJETO ESTRUTURAL CONCRETO", "título lido primeiro");
+  assert.ok(
+    !chips.some((c) => /EST-001/i.test(c.value)),
+    "o nome do arquivo nunca é proposto como título",
+  );
 });
 
 // (d) capa, >1 prefeitura plausível (plausibleCount:2) → templateId vira slot
@@ -191,11 +228,12 @@ test("(d3) capa sem templateMatch → templateId vira slot", () => {
 
 // (e) numTomos default 1 nunca bloqueia (required:false)
 test("(e) numTomos default 1 nunca bloqueia; resolve pra '1' sozinho", () => {
-  // capa com templateId resolvido → o único required cai; numTomos não bloqueia.
+  // capa com os dois required resolvidos (prefeitura + título) → numTomos, que é
+  // opcional, não pode segurar o pronto sozinho.
   const r = resolve({
     taskKind: "capa",
     facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
-    slots: noSlots,
+    slots: { tituloCapa: { value: "PROJETO ESTRUTURAL" } },
   });
   assert.equal(r.pronto, true, "numTomos required:false não segura o pronto");
   assert.equal(r.resolved.numTomos, "1", "default determinístico");

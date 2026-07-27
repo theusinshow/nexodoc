@@ -240,6 +240,42 @@ function anoSlot(taskKind: NexoArtifactKind): SlotDef {
  * essas suggestions com linguagem melhor no PR de wiring; aqui a base é
  * determinística: título-lido do selo + `PROJETO <disciplina>` + variação c/ obra.
  */
+/**
+ * Candidatos a título documental, em ORDEM DE CONFIANÇA: o que foi lido do selo
+ * (a fonte estruturada) > genérico da disciplina > variação com a obra.
+ *
+ * O `arquivo` do selo NUNCA entra: nome de arquivo não é título documental, é
+ * como o arquivo foi salvo. Nomes de órgão também saem (`isOrgaoLike`) — a
+ * prefeitura vai no cabeçalho da capa, não no título.
+ *
+ * Compartilhado pela LD e pela capa: as duas fazem a MESMA pergunta sobre as
+ * MESMAS fontes, e duplicar a lista faria as duas divergirem com o tempo.
+ */
+function sugestoesDeTitulo(facts: SlotFacts): NexoSlotSuggestion[] {
+  const disciplina = disciplinaLabel(facts);
+  const obra = obraDe(facts);
+  const doSelo = mode(
+    allSelos(facts).map((s) =>
+      s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
+    ),
+  );
+  const candidatos = [
+    doSelo,
+    `PROJETO ${disciplina}`,
+    obra ? `${disciplina} — ${obra}` : `MEMORIAL ${disciplina}`,
+  ];
+  const vistos = new Set<string>();
+  const out: NexoSlotSuggestion[] = [];
+  for (const c of candidatos) {
+    const v = c.trim();
+    const key = v.toLowerCase();
+    if (!v || vistos.has(key)) continue;
+    vistos.add(key);
+    out.push({ label: v, value: v, commit: "fill" });
+  }
+  return out.slice(0, 3);
+}
+
 const tituloLdSlot: SlotDef = {
   id: "tituloLd",
   taskKind: "ld",
@@ -247,31 +283,24 @@ const tituloLdSlot: SlotDef = {
   decision: true,
   prompt: "Qual o título desta LD?",
   deriveFrom: () => null,
-  suggest: (facts) => {
-    const disciplina = disciplinaLabel(facts);
-    const obra = obraDe(facts);
-    const doSelo = mode(
-      allSelos(facts).map((s) =>
-        s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
-      ),
-    );
-    // Ordem por confiança: título lido > genérico da disciplina > variação c/ obra.
-    const candidatos = [
-      doSelo,
-      `PROJETO ${disciplina}`,
-      obra ? `${disciplina} — ${obra}` : `MEMORIAL ${disciplina}`,
-    ];
-    const vistos = new Set<string>();
-    const out: NexoSlotSuggestion[] = [];
-    for (const c of candidatos) {
-      const v = c.trim();
-      const key = v.toLowerCase();
-      if (!v || vistos.has(key)) continue;
-      vistos.add(key);
-      out.push({ label: v, value: v, commit: "fill" });
-    }
-    return out.slice(0, 3);
-  },
+  suggest: sugestoesDeTitulo,
+};
+
+/**
+ * `tituloCapa`: DECISÃO do engenheiro, pelas mesmas razões do título da LD.
+ *
+ * Antes a capa não tinha título nenhum — obra e disciplina vinham automáticos do
+ * selo, e pedir "altere o título da capa" não tinha onde pousar. Agora a capa
+ * pergunta, com os mesmos candidatos da LD, e o palpite nunca é auto-commitado.
+ */
+const tituloCapaSlot: SlotDef = {
+  id: "tituloCapa",
+  taskKind: "capa",
+  required: true,
+  decision: true,
+  prompt: "Qual o título desta capa?",
+  deriveFrom: () => null,
+  suggest: sugestoesDeTitulo,
 };
 
 /**
@@ -303,7 +332,13 @@ const nivelAuditoriaSlot: SlotDef = {
  */
 export const ARTIFACT_REQUIREMENTS: Record<NexoArtifactKind, SlotDef[]> = {
   ld: [tituloLdSlot, numTomosSlot("ld")],
-  capa: [templateIdSlot("capa"), numTomosSlot("capa"), mesSlot("capa"), anoSlot("capa")],
+  capa: [
+    templateIdSlot("capa"),
+    tituloCapaSlot,
+    numTomosSlot("capa"),
+    mesSlot("capa"),
+    anoSlot("capa"),
+  ],
   separatriz: [templateIdSlot("separatriz"), numTomosSlot("separatriz")],
   auditoria: [nivelAuditoriaSlot],
   volume: [],

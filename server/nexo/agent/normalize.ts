@@ -111,6 +111,8 @@ export function normalizeProposals(
           String(p.resumo ?? "").trim() || `Capa ${match?.nome ?? ctx.disciplina}`,
         params: {
           templateId,
+          // Título é DECISÃO: vazio quando a IA não recebeu um do engenheiro.
+          tituloCapa: String(p.tituloCapa ?? "").trim(),
           // só dígitos; senão "" (deriva do nome do arquivo no builder)
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
           numTomos: clampTomos(p.numTomos),

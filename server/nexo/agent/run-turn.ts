@@ -109,9 +109,11 @@ REGRAS:
   não disse qual e há mais de uma, escolha a mais provável e peça confirmação.
   A separatriz usa a MESMA escolha de prefeitura/tomos da capa.
 - Se faltar prefeitura para a capa/separatriz, proponha só a LD e comente no texto.
-- TÍTULO DA LD: é DECISÃO do engenheiro — NÃO adivinhe. Deixe "tituloLd": "" e
-  PERGUNTE no texto qual título ele quer na LD. A CAPA não tem título manual
-  (obra e disciplina são automáticos) — não peça título de capa.
+- TÍTULOS (LD e CAPA): são DECISÃO do engenheiro — NÃO adivinhe. Se ele não
+  disse, deixe "tituloLd": "" / "tituloCapa": "" e PERGUNTE no texto. Se ele
+  DISSE, copie EXATAMENTE o que ele escreveu, inclusive quando vier em várias
+  linhas — não misture com o título anterior, não complete, não reordene.
+  NUNCA use o nome do arquivo como título.
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
@@ -155,7 +157,7 @@ Formato da resposta, nesta ordem:
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
       "tituloLd": "", "numTomos": 1 },
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
-      "volume": "", "numTomos": 1 },
+      "tituloCapa": "", "volume": "", "numTomos": 1 },
     { "kind": "separatriz", "resumo": "Separatriz <prefeitura>",
       "templateId": "<id>", "numTomos": 1 },
     { "kind": "auditoria", "resumo": "Auditoria <disciplina>",

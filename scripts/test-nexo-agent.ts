@@ -185,7 +185,10 @@ test("normalizeProposals: kind desconhecido continua ignorado (degrada gracioso)
   assert.deepEqual(r.map((p) => p.kind), ["separatriz", "volume"]);
 });
 
-test("normalizeProposals: ld e capa seguem IDÊNTICOS (regressão)", () => {
+// Trava a FORMA dos params de ld e capa. A capa ganhou `tituloCapa` quando o
+// título virou decisão do engenheiro (antes a capa não tinha título nenhum, e
+// pedir "altere o título da capa" não tinha onde pousar). Fora isso, intocados.
+test("normalizeProposals: forma dos params de ld e capa (regressão)", () => {
   const r = normalizeProposals(
     [
       { kind: "ld", tituloLd: "BLOCO B", numTomos: 2 },
@@ -195,7 +198,31 @@ test("normalizeProposals: ld e capa seguem IDÊNTICOS (regressão)", () => {
   );
   assert.equal(r.length, 2);
   assert.deepEqual(r[0].params, { tituloLd: "BLOCO B", numTomos: 2 });
-  assert.deepEqual(r[1].params, { templateId: "prefcri", volume: "3", numTomos: 2 });
+  assert.deepEqual(r[1].params, {
+    templateId: "prefcri",
+    tituloCapa: "", // não veio no pedido → decisão pendente, o Nexo pergunta
+    volume: "3",
+    numTomos: 2,
+  });
+});
+
+test("normalizeProposals: tituloCapa dito pelo engenheiro é copiado tal e qual", () => {
+  const r = normalizeProposals(
+    [
+      {
+        kind: "capa",
+        prefeitura: "Criciúma",
+        tituloCapa: "PROJETO ESTRUTURAL CONCRETO\nIMPLANTAÇÃO",
+        volume: "6",
+      },
+    ],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(
+    (r[0].params as { tituloCapa: string }).tituloCapa,
+    "PROJETO ESTRUTURAL CONCRETO\nIMPLANTAÇÃO",
+    "título multilinha chega inteiro, sem mistura com o anterior",
+  );
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

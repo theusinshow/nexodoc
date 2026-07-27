@@ -426,6 +426,8 @@ function CapaConfirmation({
       ? "carregando…"
       : "";
   const semPrefeitura = params.templateId.trim() === "";
+  // Título é decisão do engenheiro (igual ao da LD): sem ele, não gera.
+  const semTitulo = params.tituloCapa.trim() === "";
 
   async function confirm() {
     setBusy(true);
@@ -433,6 +435,7 @@ function CapaConfirmation({
     try {
       const r = await postCapa(selos, {
         templateId: params.templateId,
+        tituloCapa: params.tituloCapa,
         volume: params.volume,
         numTomos: params.numTomos,
       });
@@ -470,6 +473,11 @@ function CapaConfirmation({
               value={semPrefeitura ? "escolha a prefeitura →" : prefeituraNome}
               missing={semPrefeitura}
             />
+            <SummaryRow
+              label="Título"
+              value={params.tituloCapa.trim() || "diga qual título →"}
+              missing={semTitulo}
+            />
             <SummaryRow label="Volume" value={params.volume.trim() || "auto (do arquivo)"} />
             <SummaryRow label="Tomos" value={String(params.numTomos)} />
             <SummaryRow label="Mês/ano" value="atual" />
@@ -480,15 +488,26 @@ function CapaConfirmation({
               highlight={semPrefeitura}
               phrase="A prefeitura é "
             />
+            <AlterChip
+              label="título"
+              highlight={semTitulo}
+              phrase="O título da capa é "
+            />
             <AlterChip label="volume" phrase="É o volume " />
             <AlterChip label="tomos" phrase="Divide em 2 tomos" />
             <AlterChip label="mês" phrase="A capa é de " />
           </div>
           <div className="flex items-center gap-2">
-            <ConfirmButton busy={busy} disabled={semPrefeitura} onConfirm={confirm} />
-            {semPrefeitura && (
+            <ConfirmButton
+              busy={busy}
+              disabled={semPrefeitura || semTitulo}
+              onConfirm={confirm}
+            />
+            {(semPrefeitura || semTitulo) && (
               <span className="text-xs text-muted-foreground">
-                A capa precisa da prefeitura — diga qual pela conversa.
+                {semPrefeitura
+                  ? "A capa precisa da prefeitura — diga qual pela conversa."
+                  : "Falta o título da capa — diga qual pela conversa."}
               </span>
             )}
           </div>
