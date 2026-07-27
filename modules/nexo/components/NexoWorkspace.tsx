@@ -353,36 +353,36 @@ function NexoWorkspaceInner() {
       try {
         /*
          * O total é em FOLHAS, não em arquivos: um PDF traz N pranchas, e cada
-         * uma vira um resultado. Antes o total era `pranchas.length`, então um
-         * PDF de 16 folhas mostrava "5/1" — e o `activity` do orb, que divide um
-         * pelo outro, saturava na primeira folha.
+         * uma vira um resultado.
          *
-         * O nº de folhas de um arquivo só é conhecido quando ele abre, então o
-         * total CRESCE conforme os arquivos são abertos (cada resultado traz o
-         * `pageCount` do seu). O `max` cobre o instante em que já lemos folhas de
-         * um arquivo e o seguinte ainda nem abriu.
+         * Ele é contado ANTES de começar a ler (`onTotalFolhas`), numa passada
+         * que só abre a estrutura dos PDFs. Antes o total crescia junto com o
+         * progresso — a tela mostrava "19 de 19", depois "20 de 20", e não havia
+         * como saber quando ia acabar.
          */
         // Pranchas = leitura FRESCA; imagens avulsas APPENDam ao contexto.
         const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
-        const folhasPorArquivo = new Map<string, number>();
-        const totalDeFolhas = () =>
-          Math.max(
-            [...folhasPorArquivo.values()].reduce((a, b) => a + b, 0) + images.length,
-            collected.length,
-          );
+        let totalDeFolhas = images.length;
         if (pranchas.length > 0) {
-          await extractSelosFromFiles(pranchas, (r) => {
-            collected.push(r);
-            folhasPorArquivo.set(r.fileName, r.pageCount);
-            setSeloResults([...collected]);
-            setReadProgress({ done: collected.length, total: totalDeFolhas() });
-          }, conv.conversationId);
+          await extractSelosFromFiles(
+            pranchas,
+            (r) => {
+              collected.push(r);
+              setSeloResults([...collected]);
+              setReadProgress({ done: collected.length, total: totalDeFolhas });
+            },
+            conv.conversationId,
+            (folhas) => {
+              totalDeFolhas = folhas + images.length;
+              setReadProgress({ done: collected.length, total: totalDeFolhas });
+            },
+          );
         }
         for (const img of images) {
           const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
           setSeloResults([...collected]);
-          setReadProgress({ done: collected.length, total: totalDeFolhas() });
+          setReadProgress({ done: collected.length, total: totalDeFolhas });
         }
         const okSelos = collected.filter((r) => r.extraction);
         if (okSelos.length > 0) {
@@ -475,7 +475,7 @@ function NexoWorkspaceInner() {
    */
   const seloText = reading
     ? readProgress.total === 0
-      ? "Abrindo os documentos…"
+      ? "Contando as folhas…"
       : `Lendo os selos — ${readProgress.done} de ${readProgress.total} folhas analisadas`
     : readingMemorial
       ? "Lendo o memorial…"

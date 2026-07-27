@@ -249,9 +249,37 @@ export async function extractSelosFromFiles(
   files: File[],
   onResult?: (result: SeloResult) => void,
   conversationId?: string | null,
+  onTotalFolhas?: (total: number) => void,
 ): Promise<SeloResult[]> {
   const pdfjs = await loadPdfjs();
   const results: SeloResult[] = [];
+
+  /*
+   * PRIMEIRA PASSADA: só conta as folhas.
+   *
+   * O nº de páginas de um PDF só se sabe abrindo, então antes o total CRESCIA
+   * junto com o progresso — com um arquivo por prancha virava "1 de 1", "2 de
+   * 2", "3 de 3", e o engenheiro não tinha como saber quando acabaria.
+   *
+   * Abrir duas vezes é barato: aqui o pdf.js só lê a ESTRUTURA do documento; o
+   * caro (renderizar a página para o OCR) acontece só na segunda passada.
+   */
+  if (onTotalFolhas) {
+    let totalFolhas = 0;
+    for (const file of files) {
+      try {
+        const data = await file.arrayBuffer();
+        const doc = await pdfjs.getDocument({ data }).promise;
+        totalFolhas += doc.numPages;
+        await doc.destroy();
+      } catch {
+        // Arquivo ilegível conta como uma folha: ele ainda vai virar um
+        // resultado com erro, e sumir do total faria a conta não fechar.
+        totalFolhas += 1;
+      }
+    }
+    onTotalFolhas(totalFolhas);
+  }
 
   // Abre CADA arquivo UMA vez e itera as paginas do MESMO documento — sem
   // re-parsear o PDF inteiro por pagina nem copiar o ArrayBuffer (data.slice(0))
