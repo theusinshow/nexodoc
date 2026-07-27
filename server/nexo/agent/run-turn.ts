@@ -12,11 +12,15 @@
  * Princípios (docs/nexo-roadmap.md): fato determinístico primeiro/IA por último;
  * afirma fatos, pergunta decisões; nada irreversível sem confirmação.
  */
-import { executeOpenAiResponse } from "@/lib/ai-runner";
+import {
+  executeOpenAiResponse,
+  executeOpenAiResponseStream,
+} from "@/lib/ai-runner";
 import { extractTokenUsage } from "@/lib/ai-usage";
-import { getAiConfiguration } from "@/lib/ai-providers";
-import type { NexoAgentTurn } from "@/modules/nexo/types";
+import { getAiConfiguration, getNexoProvider } from "@/lib/ai-providers";
+import type { NexoAgentProposal, NexoAgentTurn } from "@/modules/nexo/types";
 import { normalizeProposals } from "./normalize";
+import { createSplitState, pushChunk, endStream, parseTail } from "./split-stream";
 
 /** Fatos objetivos extraídos dos selos (via buildLdProposal, determinístico). */
 export interface NexoAgentSelosResumo {
@@ -63,19 +67,6 @@ function extractResponseText(response: unknown): string {
       .join("\n")
       .trim() ?? ""
   );
-}
-
-/** Fatia o primeiro objeto JSON do texto (tolerante a cercas ```json e prosa). */
-function parseFirstJsonObject(text: string): unknown {
-  const cleaned = text.replace(/```json/gi, "```").replace(/```/g, "");
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return null;
-  try {
-    return JSON.parse(cleaned.slice(start, end + 1));
-  } catch {
-    return null;
-  }
 }
 
 function buildPrompt(input: RunNexoAgentTurnInput): string {
@@ -146,9 +137,16 @@ ${hist}
 PEDIDO DO ENGENHEIRO:
 ${message}
 
-Responda SOMENTE com um JSON válido nesta forma (sem texto fora do JSON):
+Formato da resposta, nesta ordem:
+
+1) Primeiro escreva a resposta ao engenheiro em TEXTO PURO (sem JSON, sem cercas,
+   sem markdown) — curta e direta, afirmando os fatos e pedindo a confirmação ou
+   a decisão que falta.
+
+2) Depois, e SÓ depois, uma cerca com as propostas:
+
+\`\`\`json
 {
-  "reply": "texto curto afirmando os fatos e pedindo a confirmação/decisão",
   "proposals": [
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
       "tituloLd": "", "numTomos": 1 },
@@ -162,9 +160,35 @@ Responda SOMENTE com um JSON válido nesta forma (sem texto fora do JSON):
     { "kind": "volume", "resumo": "Volume <disciplina>" }
   ]
 }
+\`\`\`
+
 Inclua no array proposals apenas os artefatos pedidos (0+; só os que o engenheiro
-pediu neste turno).
+pediu neste turno). Se não houver nenhum, mande "proposals": [].
+NUNCA escreva JSON antes do texto. NUNCA repita o texto dentro do JSON.
 `.trim();
+}
+
+/** Request idêntico nos dois caminhos (single-shot e transmitido). */
+function buildTurnRequest(input: RunNexoAgentTurnInput, model: string) {
+  return {
+    model,
+    instructions:
+      "Você é o Nexo: interpreta o pedido e propõe parâmetros de LD/capa. " +
+      "Nunca gera documentos. Responde em texto puro e só no FINAL abre uma " +
+      "cerca ```json com as propostas.",
+    reasoning: { effort: getReasoningEffort() },
+    max_output_tokens: MAX_OUTPUT_TOKENS,
+    input: buildPrompt(input),
+  };
+}
+
+/** Metadados de telemetria idênticos nos dois caminhos. */
+function buildTurnMetadata(input: RunNexoAgentTurnInput) {
+  return {
+    disciplina: input.resumo.disciplina,
+    folhas: input.resumo.totalFolhas,
+    prefeituras: input.prefeituras.length,
+  };
 }
 
 /**
@@ -179,37 +203,98 @@ export async function runNexoAgentTurn(
     flow: "nexo-agent",
     model,
     operation: "nexo-agent-turn",
-    metadata: {
-      disciplina: input.resumo.disciplina,
-      folhas: input.resumo.totalFolhas,
-      prefeituras: input.prefeituras.length,
-    },
-    request: {
-      model,
-      instructions:
-        "Você é o Nexo: interpreta o pedido e propõe parâmetros de LD/capa. " +
-        "Nunca gera documentos. Responde SEMPRE com um único JSON válido.",
-      reasoning: { effort: getReasoningEffort() },
-      max_output_tokens: MAX_OUTPUT_TOKENS,
-      input: buildPrompt(input),
-    },
+    metadata: buildTurnMetadata(input),
+    request: buildTurnRequest(input, model),
   });
 
   const usage = extractTokenUsage(ai.response).totalTokens;
   const text = ai.text || extractResponseText(ai.response);
-  const parsed = parseFirstJsonObject(text) as {
-    reply?: unknown;
-    proposals?: unknown;
-  } | null;
 
-  if (!parsed) {
-    return { reply: text || "Não consegui interpretar o pedido.", proposals: [], usage };
-  }
-
+  const parsed = parseTail(text);
+  const prosa = text.split(/```/)[0]?.trim() ?? "";
   const reply =
-    String(parsed.reply ?? "").trim() ||
+    (parsed.reply ?? "").trim() ||
+    prosa ||
     "Segue a proposta abaixo — confira e confirme.";
   return {
+    reply,
+    proposals: normalizeProposals(parsed.proposals, {
+      disciplina: input.resumo.disciplina,
+      prefeituras: input.prefeituras,
+    }),
+    usage,
+  };
+}
+
+export type NexoTurnEvent =
+  | { type: "delta"; text: string }
+  | {
+      type: "done";
+      reply: string;
+      proposals: NexoAgentProposal[];
+      usage: number;
+    };
+
+/** O provider resolvido para o flow do Nexo consegue transmitir? */
+export function providerSupportsStreaming(): boolean {
+  return getNexoProvider() === "openai";
+}
+
+/**
+ * Turno TRANSMITIDO. A prosa sai em deltas conforme chega; as propostas só no
+ * fim (vêm na cauda JSON). Em qualquer falha de formato, degrada: se não houver
+ * cauda, o turno termina com o texto que apareceu e zero propostas.
+ */
+export async function* runNexoAgentTurnStream(
+  input: RunNexoAgentTurnInput,
+  signal?: AbortSignal,
+): AsyncGenerator<NexoTurnEvent, void, unknown> {
+  const model = getAiConfiguration().nexoAgent.model;
+  const state = createSplitState();
+  let visible = "";
+  let usage = 0;
+
+  const stream = executeOpenAiResponseStream(
+    {
+      flow: "nexo-agent",
+      model,
+      operation: "nexo-agent-turn",
+      metadata: buildTurnMetadata(input),
+      request: buildTurnRequest(input, model),
+    },
+    signal,
+  );
+
+  for await (const event of stream) {
+    if (event.type === "delta") {
+      const chunk = pushChunk(state, event.text);
+      if (chunk) {
+        visible += chunk;
+        yield { type: "delta", text: chunk };
+      }
+    } else {
+      usage = event.usage;
+    }
+  }
+
+  const { trailing, tail } = endStream(state);
+  if (trailing) {
+    visible += trailing;
+    yield { type: "delta", text: trailing };
+  }
+
+  const parsed = parseTail(tail);
+  // Rede de segurança: modelo mandou o JSON antigo inteiro (prosa vazia).
+  const reply =
+    visible.trim() ||
+    (parsed.reply ?? "").trim() ||
+    "Segue a proposta abaixo — confira e confirme.";
+  if (!visible.trim() && reply) {
+    yield { type: "delta", text: reply };
+  }
+
+  yield {
+    type: "done",
     reply,
     proposals: normalizeProposals(parsed.proposals, {
       disciplina: input.resumo.disciplina,

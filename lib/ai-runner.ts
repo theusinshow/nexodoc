@@ -23,7 +23,7 @@ import { getOpenAIClient } from "@/lib/openai";
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
 
-type ExecuteOpenAiResponseArgs = {
+export type ExecuteOpenAiResponseArgs = {
   flow: AiProviderFlow;
   model: string;
   operation: string;
@@ -348,5 +348,88 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
     throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+export type AiStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; text: string; usage: number };
+
+/**
+ * Variante TRANSMITIDA do runner. Só OpenAI (Responses API com `stream: true`);
+ * DeepSeek não entra aqui — quem chama usa `providerSupportsStreaming()` e cai
+ * no `executeOpenAiResponse` normal.
+ *
+ * Mantém a "prova de vida" no log e o registro de consumo, como o runner normal.
+ * `externalSignal` é o abortar do usuário (botão parar) — sem ele, parar seria
+ * só visual e o modelo seguiria gerando (e cobrando).
+ */
+export async function* executeOpenAiResponseStream(
+  args: ExecuteOpenAiResponseArgs,
+  externalSignal?: AbortSignal,
+): AsyncGenerator<AiStreamEvent, void, unknown> {
+  await refreshAiModelOverrideCache();
+
+  const provider = getProviderForFlow(args.flow);
+  if (provider !== "openai") {
+    throw new Error(`streaming indisponível para o provider ${provider}`);
+  }
+
+  const timeoutMs = args.timeoutMs ?? getDefaultTimeoutMs();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onAbort);
+  const startedAt = Date.now();
+
+  try {
+    const stream = await getOpenAIClient().responses.create(
+      { ...args.request, stream: true },
+      { signal: controller.signal },
+    );
+
+    let text = "";
+    let finalResponse: unknown = null;
+    for await (const event of stream as AsyncIterable<{
+      type?: string;
+      delta?: string;
+      response?: unknown;
+    }>) {
+      if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+        text += event.delta;
+        yield { type: "delta", text: event.delta };
+      } else if (event.type === "response.completed") {
+        finalResponse = event.response;
+      }
+    }
+
+    const durationMs = Date.now() - startedAt;
+    const usage = extractTokenUsage(finalResponse);
+    console.log(
+      `[ai] flow=${args.flow} op=${args.operation} provider=${provider} model=${args.model} status=OK-stream in=${usage.inputTokens} out=${usage.outputTokens} total=${usage.totalTokens} ${durationMs}ms`,
+    );
+    await recordAiUsage({
+      flow: args.flow,
+      provider,
+      model: args.model,
+      operation: args.operation,
+      response: finalResponse,
+      durationMs,
+      metadata: args.metadata,
+      userEmail: args.userEmail,
+    });
+
+    yield { type: "done", text, usage: usage.totalTokens };
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    const failure = classifyProviderFailure(provider, args.flow, args.model, error);
+    console.error(
+      `[ai] flow=${args.flow} op=${args.operation} provider=${provider} model=${args.model} status=FAILED-stream categoria=${failure.category} ${durationMs}ms :: ${String((error as { message?: string })?.message ?? error).slice(0, 200)}`,
+    );
+    recordProviderFailure(failure);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", onAbort);
   }
 }

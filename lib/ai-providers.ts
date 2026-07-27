@@ -169,7 +169,7 @@ function getFlowProvider(
  * NÃO herda o global barato, porque o agente precisa de JSON confiável para
  * propor os parâmetros. Override explícito via NEXODOC_NEXO_PROVIDER=deepseek.
  */
-function getNexoProvider(): "openai" | "deepseek" {
+export function getNexoProvider(): "openai" | "deepseek" {
   return getBackendValue("NEXODOC_NEXO_PROVIDER").toLowerCase() === "deepseek"
     ? "deepseek"
     : "openai";
