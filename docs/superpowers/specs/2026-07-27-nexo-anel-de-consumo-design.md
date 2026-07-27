@@ -56,18 +56,29 @@ conversationId String?
 (`lib/ai-runner.ts:26`) ganham o mesmo campo opcional, repassado até a gravação.
 Sendo opcional, todo chamador existente segue compilando e gravando `null`.
 
-O cliente manda `conversationId` no corpo das rotas que consomem IA a partir do
-Nexo. São quatro pontos de entrada:
+O cliente manda `conversationId` nas rotas que consomem IA a partir do Nexo. São
+**três** pontos de entrada — verificados no código, não presumidos:
 
-| Entrada | `flow` | Rótulo para o usuário |
-|---|---|---|
-| `app/api/nexo/agent/route.ts` | `nexo-agent` | Turnos da conversa |
-| `app/api/ld/extract-stamp/route.ts` | `ld-extraction` | Leitura de selos |
-| `lib/audit-ai.ts` | `audit` | Auditoria do memorial |
-| `modules/volume-builder/lib/ai/openai.ts` | `volume-analysis` | Análise de volume |
+| Entrada | `flow` | Rótulo para o usuário | Chamadas ao modelo |
+|---|---|---|---|
+| `app/api/nexo/agent/route.ts` | `nexo-agent` | Turnos da conversa | 2 (turno normal e transmitido) |
+| `app/api/ld/extract-stamp/route.ts` | `ld-extraction` | Leitura de selos | 2 (OpenAI e o fallback MiMo) |
+| `app/api/audit/route.ts` | `audit` | Auditoria do memorial | 7, todas via `executeAuditModelResponse` |
 
-As duas últimas são exatamente as que o arco de hoje ignora — incluí-las é o que
-torna o número honesto.
+A auditoria é a que o arco de hoje ignora — incluí-la é o que torna o número
+honesto. E ela sozinha responde por 7 dos 11 pontos de gravação. **Não é uma
+linha repetida sete vezes:** as sete chamadas vivem em funções de módulo
+separadas, cada uma com seu objeto `args`, nenhuma enxergando o escopo do
+`POST`. O `conversationId` atravessa oito funções (as sete mais a intermediária
+`deepAnalyzeFile`). É o pedaço mais caro do trabalho.
+
+**A análise de volume ficou de fora porque não existe neste caminho.** Nenhuma
+rota `/api/nexo/*` além do agente importa IA; o fluxo `volume-analysis` pertence
+ao módulo `/volumes`, fora da conversa. Uma versão anterior deste spec a listava
+por engano.
+
+**A auditoria vai por multipart**, não JSON (`modules/nexo/lib/audit.ts:46` monta
+um `FormData`), então ali o `conversationId` é um campo do form.
 
 **O eixo "tarefa" é o `flow`, não o `operation`.** `flow` é um enum estável que
 mapeia 1:1 no que o engenheiro percebe como tarefa; `operation` varia dentro do
@@ -169,7 +180,10 @@ caminhos e conferir que a soma do popover bate com as linhas da `AiUsageEvent`.
 
 ## Riscos
 
-**O maior risco é a plumbing de quatro pontos de entrada.** Se um deles não
+**O maior risco é a plumbing dos três pontos de entrada.** Se um deles não
 carimbar o `conversationId`, o anel volta a mentir por omissão — só que agora com
 mais autoridade, porque se apresenta como completo. A verificação manual acima
-existe para isto: é o único jeito de provar que os quatro caminhos chegam.
+existe para isto: é o único jeito de provar que os três caminhos chegam.
+
+O ponto mais fácil de errar é a auditoria: são sete chamadas na mesma rota, e
+esquecer uma produz um número quase certo, que é pior que um obviamente errado.
