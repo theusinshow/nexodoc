@@ -577,11 +577,19 @@ textarea {
   box-shadow: var(--glass-edge);
 }
 
-/* Foco SUTIL: em vez do aro teal cru (border = --ring), um halo teal difuso
-   de baixa opacidade + uma borda levemente teal. Presença, não gritaria. */
+/* Foco DISCRETO: sem halo colorido. O quadro só clareia a borda — quem escreve
+   já tem o cursor piscando; o anel teal virava neon num campo desta largura. */
 .nexo-composer:focus-within {
-  box-shadow: var(--glass-edge), 0 0 0 3px rgb(91 218 198 / 0.1);
-  border-color: rgb(91 218 198 / 0.4);
+  box-shadow: var(--glass-edge);
+  border-color: rgb(255 255 255 / 0.18);
+}
+
+/* O campo NÃO repete o anel do quadro: o composer inteiro é o campo. Sem isto,
+   a regra global de `textarea:focus-visible` desenha um segundo aro teal por
+   dentro — caixa dentro de caixa. */
+.nexo-composer textarea:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* Indicador de digitação ("Nexo está pensando") — 3 pontos SE MEXENDO (bounce). */

@@ -46,7 +46,7 @@ export function NexoComposer({
             type="button"
             onClick={onAttach}
             aria-label="Anexar PDFs"
-            className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
             <Paperclip className="h-4 w-4" aria-hidden />
           </button>
@@ -73,14 +73,14 @@ export function NexoComposer({
               ? "Peça em texto: “cria a LD e a capa dessas pranchas”…"
               : "Escreva para o Nexo…"
           }
-          className="max-h-32 min-h-9 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+          className="max-h-32 min-h-9 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-sm leading-5 outline-none placeholder:text-muted-foreground"
         />
         {busy && onStop ? (
           <button
             type="button"
             onClick={onStop}
             aria-label="Parar"
-            className="shrink-0 rounded-sm p-1.5 text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
             <Square className="h-4 w-4 fill-current" aria-hidden />
           </button>
@@ -90,7 +90,7 @@ export function NexoComposer({
             onClick={onSubmit}
             disabled={busy || !value.trim()}
             aria-label="Enviar"
-            className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <Send className="h-4 w-4" aria-hidden />
           </button>
