@@ -1769,6 +1769,7 @@ async function analyzeChunkWithModel(args: {
   fileType: string;
   chunk: AuditTextChunk;
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "chunk");
   const result = await executeAuditModelResponse({
@@ -1797,6 +1798,7 @@ async function analyzeChunkWithModel(args: {
       auditMode: args.auditMode,
     },
     conversationId: args.conversationId,
+    userEmail: args.userEmail,
   });
   const text = result.text;
   const parsed = parseAuditModelJson(text);
@@ -1882,6 +1884,7 @@ async function analyzeIdentityWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "identity");
   let parsed;
@@ -1909,6 +1912,7 @@ async function analyzeIdentityWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-identity");
   } catch (error) {
@@ -2041,6 +2045,7 @@ async function analyzeFileGloballyWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
   let parsed;
@@ -2076,6 +2081,7 @@ async function analyzeFileGloballyWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
   } catch (error) {
@@ -2170,6 +2176,7 @@ async function analyzeDocumentCoherenceWithModel(args: {
   fileType: string;
   extracted: ExtractedPdf;
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
   let parsed;
@@ -2197,6 +2204,7 @@ async function analyzeDocumentCoherenceWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-coherence");
   } catch (error) {
@@ -2410,6 +2418,7 @@ async function validateFindingsWithModel(args: {
   files: UploadedAuditFile[];
   findings: AuditFinding[];
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   if (
     args.findings.length === 0 ||
@@ -2445,6 +2454,7 @@ async function validateFindingsWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     const parsed = parseRequiredAuditModelJson(result.text, "audit-validation");
     const decisions = new Map(
@@ -2532,6 +2542,7 @@ async function analyzeCrossDocumentsWithModel(args: {
   learningContext: string;
   files: UploadedAuditFile[];
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   if (args.files.length < 2) {
     return { findings: [] as AuditFinding[], comparisons: [] as string[] };
@@ -2561,6 +2572,7 @@ async function analyzeCrossDocumentsWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-cross-document");
   } catch (error) {
@@ -2624,6 +2636,7 @@ async function refuteFindingsWithModel(args: {
   extracted: ExtractedPdf;
   findings: AuditFinding[];
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   // só faz sentido refutar achados de IA; regra nunca é refutada
   const aiFindings = args.findings.filter((finding) => finding.origem === "ia");
@@ -2660,6 +2673,7 @@ async function refuteFindingsWithModel(args: {
         auditMode: args.auditMode,
       },
       conversationId: args.conversationId,
+      userEmail: args.userEmail,
     });
     const parsed = parseRequiredAuditModelJson(result.text, "audit-refutation");
     const refuted = new Set(
@@ -2700,6 +2714,7 @@ async function deepAnalyzeFile(args: {
   gabarito?: AuditGabarito;
   file: UploadedAuditFile;
   conversationId?: string | null;
+  userEmail?: string | null;
 }) {
   const startedAt = Date.now();
   const mandatoryGuardFindings = deriveMandatoryIdentityGuardFindings(
@@ -2781,6 +2796,7 @@ async function deepAnalyzeFile(args: {
         fileType: args.file.fileType,
         extracted: args.file.extracted,
         conversationId: args.conversationId,
+        userEmail: args.userEmail,
       })
     : [];
   console.log(
@@ -2805,6 +2821,7 @@ async function deepAnalyzeFile(args: {
         fileType: args.file.fileType,
         extracted: args.file.extracted,
         conversationId: args.conversationId,
+        userEmail: args.userEmail,
       })
     : [];
   console.log(
@@ -2830,6 +2847,7 @@ async function deepAnalyzeFile(args: {
         fileType: args.file.fileType,
         extracted: args.file.extracted,
         conversationId: args.conversationId,
+        userEmail: args.userEmail,
       })
     : [];
   if (shouldRunCoherencePass) {
@@ -2857,6 +2875,7 @@ async function deepAnalyzeFile(args: {
         fileType: args.file.fileType,
         chunk,
         conversationId: args.conversationId,
+        userEmail: args.userEmail,
       });
       console.log(
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,
@@ -2898,6 +2917,7 @@ async function deepAnalyzeFile(args: {
           extracted: args.file.extracted,
           findings: evidenceGate.kept,
           conversationId: args.conversationId,
+          userEmail: args.userEmail,
         })
       : evidenceGate.kept;
 
@@ -2919,6 +2939,13 @@ export async function POST(request: Request) {
   try {
     await refreshAiModelOverrideCache();
     console.log("[audit] requisicao recebida");
+    // Sessão SEMPRE resolvida (hoisted), mesmo quando não há projectId (caminho
+    // do Nexo não manda projectId). Isto NÃO muda quem pode chamar a rota — a
+    // autenticação continua só sendo EXIGIDA no bloco `if (projectId)` abaixo,
+    // igual antes. O único uso do e-mail fora dali é telemetria (userEmail do
+    // AiUsageEvent), nunca gate de acesso.
+    const session = await auth();
+    const sessionEmail = session?.user?.email?.trim() || null;
     const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
@@ -2984,14 +3011,11 @@ export async function POST(request: Request) {
         return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
       }
 
-      const session = await auth();
-      const email = session?.user?.email?.trim();
-
-      if (!email) {
+      if (!sessionEmail) {
         return jsonError("Autenticacao necessaria para vincular auditoria ao projeto.", 401);
       }
 
-      auditActor = await getUserActor(normalizeEmail(email), session?.user?.name ?? null);
+      auditActor = await getUserActor(normalizeEmail(sessionEmail), session?.user?.name ?? null);
 
       try {
         await assertProjectAccess(projectId, auditActor);
@@ -3074,6 +3098,7 @@ export async function POST(request: Request) {
         gabarito,
         file,
         conversationId,
+        userEmail: sessionEmail,
       });
       allFindings.push(...findings);
     }
@@ -3104,6 +3129,7 @@ export async function POST(request: Request) {
           learningContext,
           files: uploadedFiles,
           conversationId,
+          userEmail: sessionEmail,
         })
       : { findings: [] as AuditFinding[], comparisons: [] as string[] };
     allFindings.push(...modelComparison.findings);
@@ -3125,6 +3151,7 @@ export async function POST(request: Request) {
       files: uploadedFiles,
       findings: candidateFindings,
       conversationId,
+      userEmail: sessionEmail,
     });
     console.log(
       `[audit] validação semântica concluida com ${validatedFindings.length} achado(s) confirmado(s)`,

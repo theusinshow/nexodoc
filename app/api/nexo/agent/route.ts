@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
+  // Extraído para uma const própria: `session.user.email` narrowed no closure
+  // do stream (abaixo) volta a "possibly undefined" pro TS através da borda de
+  // função — esta const carrega o narrowing sem depender da árvore de escopo.
+  const userEmail = session.user.email;
 
   let message: string;
   let history: ChatTurn[];
@@ -126,7 +130,14 @@ export async function POST(req: NextRequest) {
         };
         try {
           for await (const event of runNexoAgentTurnStream(
-            { message, history, resumo, prefeituras, conversationId },
+            {
+              message,
+              history,
+              resumo,
+              prefeituras,
+              conversationId,
+              userEmail,
+            },
             req.signal,
           )) {
             if (event.type === "delta") {
@@ -175,6 +186,7 @@ export async function POST(req: NextRequest) {
       resumo,
       prefeituras,
       conversationId,
+      userEmail,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });

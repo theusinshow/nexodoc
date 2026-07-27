@@ -98,6 +98,17 @@ export async function recordAiUsage(args: RecordAiUsageArgs) {
     return;
   }
 
+  // Os dois campos precisam viajar juntos: o endpoint do anel de consumo
+  // (`/api/nexo/usage`) filtra por `conversationId` E `userEmail` (é a única
+  // autorização que ele tem). Um evento com um e não o outro é gravado, mas
+  // NUNCA aparece no anel — silenciosamente. Este aviso torna essa classe de
+  // bug barulhenta em vez de invisível.
+  if (args.conversationId && !args.userEmail) {
+    console.warn(
+      `[ai-usage] flow=${args.flow} operation=${args.operation} tem conversationId sem userEmail — este evento nunca vai aparecer no anel de consumo do Nexo (o filtro exige os dois).`,
+    );
+  }
+
   const responseUsage = extractTokenUsage(args.response);
   const usage = {
     inputTokens: args.usage?.inputTokens ?? responseUsage.inputTokens,

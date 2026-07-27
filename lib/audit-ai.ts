@@ -54,6 +54,8 @@ export async function executeAuditModelResponse(args: {
   timeoutMs?: number;
   metadata?: Record<string, string | number | boolean | null | undefined>;
   conversationId?: string | null;
+  /** E-mail da sessão — viaja SEMPRE junto com `conversationId` (telemetria). */
+  userEmail?: string | null;
 }) {
   return executeOpenAiResponse({
     flow: "audit",
@@ -65,6 +67,7 @@ export async function executeAuditModelResponse(args: {
     timeoutMs: args.timeoutMs,
     metadata: args.metadata ?? {},
     conversationId: args.conversationId,
+    userEmail: args.userEmail,
   });
 }
 
