@@ -28,7 +28,8 @@
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",
     "test:nexo:session": "node scripts/test-nexo-session.ts",
     "test:nexo:slots": "node scripts/test-nexo-slots.ts",
-    "test:nexo:stream": "node scripts/test-nexo-stream.ts"
+    "test:nexo:stream": "node scripts/test-nexo-stream.ts",
+    "test:nexo:usage": "node scripts/test-nexo-usage.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
