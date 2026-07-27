@@ -728,7 +728,7 @@ function AuditoriaConfirmation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult, conversationId } = useConversation();
-  const { refresh: refreshUsage } = useConversationUsage(conversationId);
+  const { refresh: refreshUsage } = useConversationUsage();
   const id = auditoriaId(selos);
   const result = getResult(id)?.payload as AuditReport | undefined;
 

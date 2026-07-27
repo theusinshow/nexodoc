@@ -19,6 +19,10 @@ import {
   ConversationStoreProvider,
   useConversation,
 } from "../state/conversation-store";
+import {
+  ConversationUsageProvider,
+  useConversationUsage,
+} from "../state/use-conversation-usage";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
@@ -36,21 +40,28 @@ import { useAgentState } from "./agent-orb/use-agent-state";
  * geração toda mora no chat.
  */
 export function NexoWorkspace() {
-  // Providers: conversa (durável) > artefatos (canvas) > composer. O inner usa
-  // o store da conversa (fonte única de mensagens + selos, persistidos).
+  // Providers: conversa (durável) > consumo de IA (lê o conversationId da
+  // conversa) > artefatos (canvas) > composer. UMA instância de consumo,
+  // compartilhada entre NexoChat (o anel), ConfirmationCard (refresh pós-
+  // auditoria) e este workspace (refresh pós-leitura de selos) — item 2/3 da
+  // revisão: cada consumidor tinha seu próprio hook, e o refresh de um não
+  // movia o anel do outro.
   return (
     <ConversationStoreProvider>
-      <ArtifactStoreProvider>
-        <ComposerControllerProvider>
-          <NexoWorkspaceInner />
-        </ComposerControllerProvider>
-      </ArtifactStoreProvider>
+      <ConversationUsageProvider>
+        <ArtifactStoreProvider>
+          <ComposerControllerProvider>
+            <NexoWorkspaceInner />
+          </ComposerControllerProvider>
+        </ArtifactStoreProvider>
+      </ConversationUsageProvider>
     </ConversationStoreProvider>
   );
 }
 
 function NexoWorkspaceInner() {
   const conv = useConversation();
+  const { refresh: refreshUsage } = useConversationUsage();
   const { replaceArtifacts } = useArtifactStore();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).
   const seloResults = conv.seloResults;
@@ -353,6 +364,9 @@ function NexoWorkspaceInner() {
         setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
       } finally {
         setReading(false);
+        // Selo é o passo mais caro de tokens do fluxo (§3 da spec): o anel não
+        // pode ficar mudo até o próximo turno do chat.
+        refreshUsage();
       }
       return;
     }

@@ -67,7 +67,7 @@ export function NexoChat({
 }) {
   const { messages, conversationId, appendMessage, appendDelta, finalizeMessage } =
     useConversation();
-  const { data: usage, refresh: refreshUsage } = useConversationUsage(conversationId);
+  const { data: usage, refresh: refreshUsage } = useConversationUsage();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
