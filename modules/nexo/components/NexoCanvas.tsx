@@ -11,7 +11,7 @@
  * nunca N frames pesados; só capa/separatriz/LD ganham miniatura real.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -24,13 +24,18 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Layers, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { Waypoints, Layers, Maximize2, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
 
 import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
 import { useComposer } from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
 import { agruparPorTomo, tomoDoArtefato } from "../lib/results";
+import { orfaosAposDivisao } from "../lib/edicao";
+import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
+import { EditorDoNo } from "./EditorDoNo";
+import { AgentPopover } from "@/components/ui/agent-popover";
+import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { faixasDosTomos } from "@/lib/ld/ld-rules";
 import { ArtifactThumb } from "./ArtifactThumb";
 
@@ -67,7 +72,14 @@ export interface PranchaInfo {
   disciplina: string;
 }
 
-type ArtifactNodeData = CanvasArtifact & Record<string, unknown>;
+type ArtifactNodeData = CanvasArtifact & {
+  /** Só capa/LD/separatriz abrem editor; volume é derivado. */
+  editavel?: boolean;
+  params?: Record<string, unknown>;
+  templates?: { id: string; nome: string }[];
+  tomosExistentes?: number[];
+  selos?: SeloForLd[];
+} & Record<string, unknown>;
 type StackNodeData = { count: number; infos: PranchaInfo[] } & Record<string, unknown>;
 
 /**
@@ -78,7 +90,9 @@ type StackNodeData = { count: number; infos: PranchaInfo[] } & Record<string, un
  */
 function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
   const composer = useComposer();
-  const { removeResult } = useConversation();
+  const conv = useConversation();
+  const { removeResult } = conv;
+  const [editando, setEditando] = useState(false);
   const editLabel = KIND_EDIT_LABEL[data.kind] ?? "o documento";
   // Confirmação INLINE, no próprio nó. Excluir aqui é reversível (o card volta a
   // proposta e regerar é um clique), então um diálogo modal custaria mais
@@ -93,7 +107,7 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
     composer.focus();
   };
 
-  return (
+  const corpo = (
     <div
       className={
         selected
@@ -150,6 +164,16 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
           </button>
           {/* Só o nó SELECIONADO oferece excluir: a ação some do caminho de quem
               está só olhando o mapa do volume. */}
+          {selected && !confirmando && data.editavel && (
+            <button
+              type="button"
+              onClick={() => setEditando(true)}
+              className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            >
+              <SlidersHorizontal className="h-3 w-3" aria-hidden />
+              Editar aqui
+            </button>
+          )}
           {selected && !confirmando && (
             <button
               type="button"
@@ -184,6 +208,49 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
       <Handle type="target" position={Position.Left} className="!opacity-0" />
       <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
+  );
+
+  if (!data.editavel) return corpo;
+
+  return (
+    <AgentPopover
+      open={editando}
+      onClose={() => setEditando(false)}
+      label={`Editar ${data.kind}`}
+      panelClassName="w-[280px]"
+      anchor={corpo}
+    >
+      <EditorDoNo
+        kind={data.kind}
+        campos={camposDoArtefato({
+          kind: data.kind,
+          params: data.params,
+          templates: data.templates ?? [],
+          tomosExistentes: data.tomosExistentes ?? [],
+        })}
+        onCancelar={() => setEditando(false)}
+        onAplicar={async (valores, frase) => {
+          await aplicarEdicaoNoNo({
+            kind: data.kind,
+            artifactId: data.id,
+            valores,
+            paramsAntigos: data.params,
+            selos: data.selos ?? [],
+            saveResult: conv.saveResult,
+          });
+          // A frase vai para o HISTÓRICO: é o que faz o próximo turno do agente
+          // enxergar a decisão em vez de re-propor o valor antigo por cima.
+          if (frase) {
+            conv.appendMessage({
+              id: crypto.randomUUID(),
+              role: "user",
+              content: frase,
+            });
+          }
+          setEditando(false);
+        }}
+      />
+    </AgentPopover>
   );
 }
 
@@ -260,14 +327,29 @@ function RotuloNode({ data }: NodeProps<Node<{ tomo: number } & Record<string, u
 
 const nodeTypes = { artifact: ArtifactNode, stack: StackNode, rotulo: RotuloNode };
 
+const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
+
 export function NexoCanvas({
   pranchasCount = 0,
   pranchas = [],
+  selos = [],
 }: {
   pranchasCount?: number;
   pranchas?: PranchaInfo[];
+  /** Selos lidos — a regeneração pelo nó precisa deles. */
+  selos?: SeloForLd[];
 }) {
   const { artifacts } = useArtifactStore();
+  const { results } = useConversation();
+
+  // Prefeituras: lista fechada do campo da capa no editor do nó.
+  const [templates, setTemplates] = useState<{ id: string; nome: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/capas/templates")
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .catch(() => {});
+  }, []);
 
   const { nodes, edges } = useMemo(() => {
     type Item = { id: string; rank: number; type: "artifact" | "stack"; data: unknown };
@@ -292,7 +374,16 @@ export function NexoCanvas({
           id: a.id,
           rank: CANONICAL_RANK[a.kind] ?? 9,
           type: "artifact" as const,
-          data: a as unknown,
+          data: {
+            ...a,
+            editavel: EDITAVEIS.includes(a.kind),
+            params: results.find((r) => r.artifactId === a.id)?.payload as
+              | Record<string, unknown>
+              | undefined,
+            templates,
+            tomosExistentes: artifacts.map((x) => tomoDoArtefato(x.id)),
+            selos,
+          } as unknown,
         }))
         .sort((a, b) => a.rank - b.rank);
 
@@ -347,7 +438,7 @@ export function NexoCanvas({
     });
 
     return { nodes, edges };
-  }, [artifacts, pranchasCount, pranchas]);
+  }, [artifacts, pranchasCount, pranchas, results, templates, selos]);
 
   if (nodes.length === 0) {
     return (

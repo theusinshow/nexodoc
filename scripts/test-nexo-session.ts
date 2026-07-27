@@ -16,6 +16,10 @@ import {
   tomoDoArtefato,
   agruparPorTomo,
 } from "../modules/nexo/lib/results.ts";
+import {
+  descreverMudanca,
+  orfaosAposDivisao,
+} from "../modules/nexo/lib/edicao.ts";
 
 import {
   initNexoSession,
@@ -394,6 +398,77 @@ test("agruparPorTomo: sem tomo nenhum, uma fileira so", () => {
   const g = agruparPorTomo([{ id: "capa:016" }, { id: "ld:016:a" }]);
   assert.equal(g.length, 1);
   assert.equal(g[0].tomo, 0);
+});
+
+// --- Edição pelo canvas: a frase que vai para o histórico -------------------
+
+/*
+ * O que `descreverMudanca` devolve entra no histórico, e é dali que o agente
+ * re-propõe os params no turno seguinte. Uma frase que não descreva a alteração
+ * real faz o agente decidir sobre informação falsa — e o erro é INVISÍVEL,
+ * porque o documento regerado está certo.
+ */
+const ROTULOS = { tituloCapa: "título da capa", volume: "volume", mes: "mês" };
+
+test("descreverMudanca: um campo alterado gera a frase daquele campo", () => {
+  const f = descreverMudanca(
+    { tituloCapa: "A", volume: "1" },
+    { tituloCapa: "B", volume: "1" },
+    ROTULOS,
+  );
+  assert.equal(f, 'Alterei pelo canvas:\ntítulo da capa = "B"');
+});
+
+test("descreverMudanca: varios campos aparecem TODOS", () => {
+  const f = descreverMudanca(
+    { tituloCapa: "A", volume: "1" },
+    { tituloCapa: "B", volume: "6" },
+    ROTULOS,
+  );
+  assert.ok(f?.includes('título da capa = "B"'));
+  assert.ok(f?.includes('volume = "6"'), "o volume nao pode sumir da frase");
+});
+
+test("descreverMudanca: nada alterado -> null (nao polui o historico)", () => {
+  assert.equal(
+    descreverMudanca({ tituloCapa: "A" }, { tituloCapa: "A" }, ROTULOS),
+    null,
+  );
+  // Espaço em volta não é alteração.
+  assert.equal(
+    descreverMudanca({ tituloCapa: "A" }, { tituloCapa: "  A  " }, ROTULOS),
+    null,
+  );
+});
+
+test("descreverMudanca: titulo MULTILINHA sai inteiro, entre aspas", () => {
+  const titulo = "PROJETO ESTRUTURAL CONCRETO\nIMPLANTAÇÃO";
+  const f = descreverMudanca({ tituloCapa: "X" }, { tituloCapa: titulo }, ROTULOS);
+  assert.ok(
+    f?.includes(`título da capa = "${titulo}"`),
+    "a quebra de linha nao pode cortar o titulo ao meio",
+  );
+});
+
+test("descreverMudanca: campo fora dos rotulos e ignorado", () => {
+  const f = descreverMudanca({ segredo: "1" }, { segredo: "2" }, ROTULOS);
+  assert.equal(f, null, "so os campos com rotulo entram na frase");
+});
+
+test("orfaosAposDivisao: aumentar de 2 p/ 3 tomos nao orfana nada", () => {
+  assert.equal(orfaosAposDivisao([1, 1, 2, 2], 3, 1), 0);
+});
+
+test("orfaosAposDivisao: reduzir de 3 p/ 2 tomos orfana o tomo 3", () => {
+  assert.equal(orfaosAposDivisao([1, 2, 3, 3], 2, 1), 2, "os dois do tomo 3");
+});
+
+test("orfaosAposDivisao: dividir o que era unico orfana os sem-tomo", () => {
+  assert.equal(orfaosAposDivisao([0, 0, 0], 3, 1), 3);
+});
+
+test("orfaosAposDivisao: voltar para um tomo so orfana os numerados", () => {
+  assert.equal(orfaosAposDivisao([1, 2], 1, 1), 2);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

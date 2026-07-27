@@ -652,7 +652,13 @@ function NexoWorkspaceInner() {
             onDelete={conv.removeConversation}
           />
         }
-        stage={<NexoCanvas pranchasCount={okCount} pranchas={pranchaInfos} />}
+        stage={
+          <NexoCanvas
+            pranchasCount={okCount}
+            pranchas={pranchaInfos}
+            selos={selos}
+          />
+        }
         copilot={
           <NexoCopilot
             key={convId}
