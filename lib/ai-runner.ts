@@ -41,6 +41,8 @@ export type ExecuteOpenAiResponseArgs = {
   userEmail?: string | null;
   metadata?: Prisma.InputJsonValue;
   timeoutMs?: number;
+  /** Conversa do Nexo que originou a chamada (só o Nexo preenche). */
+  conversationId?: string | null;
 };
 
 type ResponseWithOutputText = {
@@ -304,6 +306,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       durationMs,
       metadata: args.metadata,
       userEmail: args.userEmail,
+      conversationId: args.conversationId,
     });
     await completeAiTask(aiTaskId, {
       outputSummary: outputText.slice(0, 2000),
@@ -339,6 +342,7 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       metadata: withFailureMetadata(args.metadata, failure.category),
       error,
       userEmail: args.userEmail,
+      conversationId: args.conversationId,
     });
     await failAiTask(aiTaskId, {
       error,
@@ -417,6 +421,7 @@ export async function* executeOpenAiResponseStream(
       durationMs,
       metadata: args.metadata,
       userEmail: args.userEmail,
+      conversationId: args.conversationId,
     });
 
     yield { type: "done", text, usage: usage.totalTokens };

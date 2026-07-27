@@ -24,6 +24,8 @@ type RecordAiUsageArgs = {
   metadata?: Prisma.InputJsonValue;
   error?: unknown;
   userEmail?: string | null;
+  /** Conversa do Nexo que originou a chamada (só o Nexo preenche). */
+  conversationId?: string | null;
 };
 
 const MODEL_PRICES_USD_PER_MILLION: Record<
@@ -126,6 +128,7 @@ export async function recordAiUsage(args: RecordAiUsageArgs) {
         metadata: args.metadata ?? undefined,
         error: args.error ? getErrorMessage(args.error) : null,
         userEmail: args.userEmail || null,
+        conversationId: args.conversationId || null,
       },
     });
   } catch (error) {

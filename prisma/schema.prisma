@@ -499,6 +499,7 @@ model AiUsageEvent {
   error        String?
   userId       String?
   userEmail    String?
+  conversationId String?
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   aiTask       AiTask?  @relation(fields: [aiTaskId], references: [id], onDelete: SetNull)
@@ -509,4 +510,5 @@ model AiUsageEvent {
   @@index([taskId, createdAt])
   @@index([userEmail, createdAt])
   @@index([model, createdAt])
+  @@index([conversationId])
 }
