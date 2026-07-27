@@ -120,6 +120,13 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
         <p className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
           {data.label}
         </p>
+        {/* Título DOCUMENTAL: o que sai impresso, e o que o engenheiro precisa
+            conferir de relance. `pre-line` porque ele tem parágrafos. */}
+        {data.titulo && (
+          <p className="mt-1 whitespace-pre-line text-[11px] leading-tight text-foreground">
+            {data.titulo}
+          </p>
+        )}
         {data.detail && (
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {data.detail}

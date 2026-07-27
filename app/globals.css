@@ -96,7 +96,7 @@
   --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
   /* Larguras das colunas do shell do Nexo. */
-  --nexo-copilot-w: 400px;
+  --nexo-copilot-w: 520px;
   --nexo-sidebar-w: 240px;
 }
 

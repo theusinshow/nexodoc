@@ -59,7 +59,7 @@ export interface SavedResult {
   artifactId: string;
   kind: NexoArtifactKind;
   summary: string;
-  canvas?: { label: string; detail?: string; pageNumber?: number };
+  canvas?: { label: string; detail?: string; titulo?: string; pageNumber?: number };
   files: SavedFile[];
   payload?: unknown;
 }
@@ -69,7 +69,7 @@ export interface SaveResultInput {
   artifactId: string;
   kind: NexoArtifactKind;
   summary: string;
-  canvas?: { label: string; detail?: string; pageNumber?: number };
+  canvas?: { label: string; detail?: string; titulo?: string; pageNumber?: number };
   files: { label: string; name: string; mime: string; url: string; primary?: boolean }[];
   payload?: unknown;
 }

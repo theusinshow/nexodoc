@@ -30,6 +30,12 @@ export interface CanvasArtifact {
   label: string;
   /** Resumo de uma linha (código · rev · folhas…). */
   detail?: string;
+  /**
+   * Título DOCUMENTAL do artefato (o que sai impresso). Fica separado do
+   * `label`, que é o tipo ("LD ESTRUTURAL"): é o título que o engenheiro
+   * decidiu, e é o que ele precisa conferir de relance no canvas.
+   */
+  titulo?: string;
   /** Object URL do PDF (miniatura). Ausente = sem PDF (degrada p/ ícone). */
   pdfUrl?: string;
   /** Página para a miniatura (capa = 1). */

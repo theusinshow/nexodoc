@@ -73,18 +73,26 @@ export function NextStepChips({
   if (steps.length === 0) return null;
 
   return (
-    <div className={cn("nexodoc-enter flex flex-wrap gap-1.5 pt-0.5", className)}>
-      {steps.map((s) => (
-        <Chip
-          key={s.label}
-          variant="default"
-          aria-label={`Enviar: ${s.label}`}
-          onClick={() => composer.send(s.send)}
-        >
-          <ArrowRight aria-hidden />
-          {s.label}
-        </Chip>
-      ))}
+    <div className={cn("nexodoc-enter flex flex-col gap-1 pt-1", className)}>
+      {/* Rotulo do grupo: sem ele os chips lem como botoes soltos no fim da
+          conversa, sem dizer que sao o CAMINHO sugerido. */}
+      <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
+        Próximo passo
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {steps.map((s, i) => (
+          <Chip
+            key={s.label}
+            // O primeiro e o recomendado, como ja acontece nas pre-respostas.
+            variant={i === 0 ? "suggest" : "default"}
+            aria-label={`Enviar: ${s.label}`}
+            onClick={() => composer.send(s.send)}
+          >
+            <ArrowRight aria-hidden />
+            {s.label}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }

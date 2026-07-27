@@ -385,6 +385,7 @@ function LdConfirmation({
         canvas: {
           label: `LD ${r.resumo.disciplina}`,
           detail: `${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
+          titulo,
           pageNumber: 1,
         },
         files: [
@@ -553,6 +554,7 @@ function CapaConfirmation({
         canvas: {
           label: `Capa ${r.resumo.prefeitura}`,
           detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
+          titulo: params.tituloCapa,
           pageNumber: 1,
         },
         files: [

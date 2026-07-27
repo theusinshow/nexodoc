@@ -81,6 +81,7 @@ function NexoWorkspaceInner() {
             kind: r.kind,
             label: r.canvas!.label,
             detail: r.canvas!.detail,
+            titulo: r.canvas!.titulo,
             pdfUrl: pdf?.url,
             pageNumber: r.canvas!.pageNumber ?? 1,
           };

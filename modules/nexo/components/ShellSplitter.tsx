@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 const CHAVE = "nexo:copilot-w";
-const PADRAO = 420;
+const PADRAO = 520;
 const MIN = 320; // abaixo disto o composer e os cards ficam apertados demais
 const MAX = 760; // acima disto o canvas deixa de caber como área de trabalho
 const PASSO = 24;

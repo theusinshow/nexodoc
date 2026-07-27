@@ -360,13 +360,7 @@ export function NexoChat({
       {/* Composer = o único vidro "dock" do agente. */}
       <div className="px-4 pb-6 pt-2">
         <div className="mx-auto w-full max-w-[46rem]">
-          {attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2 px-1">
-              {attachments.map((a) => (
-                <AttachmentChip key={a.id} att={a} onRemove={onRemoveAttachment} />
-              ))}
-            </div>
-          )}
+          <Anexos attachments={attachments} onRemove={onRemoveAttachment} />
           {readStatus && (
             <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
               {readStatus.busy && (
@@ -389,6 +383,48 @@ export function NexoChat({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Acima disto a lista vira uma parede de chips e some com a conversa. */
+const ANEXOS_VISIVEIS = 4;
+
+/**
+ * Anexos do turno. Um projeto real chega com dezenas de PDFs (uma prancha por
+ * arquivo), e listar todos empurrava a conversa inteira para fora da tela — a
+ * lista de arquivos virava a interface. Mostra os primeiros e resume o resto,
+ * com a lista completa a um clique.
+ */
+function Anexos({
+  attachments,
+  onRemove,
+}: {
+  attachments: Attachment[];
+  onRemove?: (id: string) => void;
+}) {
+  const [expandido, setExpandido] = useState(false);
+
+  if (attachments.length === 0) return null;
+
+  const excedente = attachments.length - ANEXOS_VISIVEIS;
+  const mostrados = expandido ? attachments : attachments.slice(0, ANEXOS_VISIVEIS);
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+      {mostrados.map((a) => (
+        <AttachmentChip key={a.id} att={a} onRemove={onRemove} />
+      ))}
+      {excedente > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpandido((v) => !v)}
+          aria-expanded={expandido}
+          className="rounded-lg border border-border bg-[var(--nexodoc-recessed)] px-2.5 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          {expandido ? "mostrar menos" : `+${excedente} arquivo${excedente > 1 ? "s" : ""}`}
+        </button>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ export interface StoredResultMeta {
   kind: NexoArtifactKind;
   summary: string;
   /** Metadados leves p/ o canvas (miniatura). */
-  canvas?: { label: string; detail?: string; pageNumber?: number };
+  canvas?: { label: string; detail?: string; titulo?: string; pageNumber?: number };
   files: StoredFileMeta[];
   /** Resultado JSON de análises SEM arquivo (conferência/auditoria). */
   payload?: unknown;
