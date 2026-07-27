@@ -146,6 +146,7 @@ async function postExtractStamp(
   imageDataUrl: string,
   pdfText: string,
   metadata: Record<string, unknown>,
+  conversationId?: string | null,
 ): Promise<{ extraction: StampExtraction; usage: number }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -153,7 +154,7 @@ async function postExtractStamp(
     const res = await fetch("/api/ld/extract-stamp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageDataUrl, pdfText, metadata }),
+      body: JSON.stringify({ imageDataUrl, pdfText, metadata, conversationId }),
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -185,14 +186,17 @@ function fileToDataUrl(file: File): Promise<string> {
  * — a imagem já é o recorte, então não há render de PDF (pdfText vazio). Multimodal
  * "do jeito do domínio": uma foto de carimbo vira dados de selo no contexto.
  */
-export async function extractSeloFromImage(file: File): Promise<SeloResult> {
+export async function extractSeloFromImage(
+  file: File,
+  conversationId?: string | null,
+): Promise<SeloResult> {
   try {
     const imageDataUrl = await fileToDataUrl(file);
     const { extraction, usage } = await postExtractStamp(imageDataUrl, "", {
       fileName: file.name,
       source: "image",
       operation: "nexo-selo-image",
-    });
+    }, conversationId);
     return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction, usage };
   } catch (err) {
     return {
@@ -211,6 +215,7 @@ async function extractSeloFromPage(
   file: File,
   pageNumber: number,
   pageCount: number,
+  conversationId?: string | null,
 ): Promise<SeloResult> {
   try {
     const page = await doc.getPage(pageNumber);
@@ -223,7 +228,7 @@ async function extractSeloFromPage(
       pageNumber,
       source: "visual",
       operation: "nexo-selo",
-    });
+    }, conversationId);
     return { fileName: file.name, pageNumber, pageCount, extraction, usage };
   } catch (err) {
     return {
@@ -243,6 +248,7 @@ async function extractSeloFromPage(
 export async function extractSelosFromFiles(
   files: File[],
   onResult?: (result: SeloResult) => void,
+  conversationId?: string | null,
 ): Promise<SeloResult[]> {
   const pdfjs = await loadPdfjs();
   const results: SeloResult[] = [];
@@ -261,7 +267,7 @@ export async function extractSelosFromFiles(
           const pageNumber = cursor;
           cursor += 1;
           if (pageNumber > pageCount) break;
-          const result = await extractSeloFromPage(doc, file, pageNumber, pageCount);
+          const result = await extractSeloFromPage(doc, file, pageNumber, pageCount, conversationId);
           results.push(result);
           onResult?.(result);
         }

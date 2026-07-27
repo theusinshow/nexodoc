@@ -342,10 +342,10 @@ function NexoWorkspaceInner() {
             addTokens(r.usage ?? 0); // consumo de IA da leitura do selo
             setSeloResults([...collected]);
             setReadProgress({ done: collected.length, total });
-          });
+          }, conv.conversationId);
         }
         for (const img of images) {
-          const r = await extractSeloFromImage(img);
+          const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
           addTokens(r.usage ?? 0);
           setSeloResults([...collected]);

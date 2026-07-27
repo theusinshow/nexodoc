@@ -160,6 +160,7 @@ type ExtractionTrackingContext = {
   userEmail?: string | null;
   hasImage: boolean;
   pdfTextChars: number;
+  conversationId?: string | null;
 };
 
 const CONTENT_FIELD_STOP_LABELS = [
@@ -287,6 +288,7 @@ async function extractWithOpenAi(
     model,
     operation: tracking.operation,
     userEmail: tracking.userEmail,
+    conversationId: tracking.conversationId,
     metadata: buildExtractionUsageMetadata(
       tracking.metadata,
       tracking.hasImage,
@@ -439,10 +441,15 @@ export async function POST(request: Request) {
     imageDataUrl?: unknown;
     pdfText?: unknown;
     metadata?: ExtractionMetadata;
+    conversationId?: unknown;
   };
   const imageDataUrl = isValidImageDataUrl(body.imageDataUrl) ? body.imageDataUrl : undefined;
   const pdfText = isValidPdfText(body.pdfText) ? body.pdfText : undefined;
   const metadata = body.metadata ?? {};
+  const conversationId =
+    typeof body.conversationId === "string" && body.conversationId.trim()
+      ? body.conversationId.trim()
+      : null;
   const operation =
     metadata.operation ??
     (imageDataUrl ? "ld-stamp-visual-extraction" : "ld-stamp-text-extraction");
@@ -469,6 +476,7 @@ export async function POST(request: Request) {
         userEmail: session.user.email,
         hasImage: Boolean(imageDataUrl),
         pdfTextChars: pdfText?.length ?? 0,
+        conversationId,
       },
     );
     const usage = extractTokenUsage(response);
@@ -516,6 +524,7 @@ export async function POST(request: Request) {
         response: payload,
         durationMs: Date.now() - startedAt,
         userEmail: session.user.email,
+        conversationId,
         metadata: buildExtractionUsageMetadata(
           metadata,
           Boolean(imageDataUrl),
