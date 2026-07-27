@@ -80,3 +80,8 @@ data/nexodoc-learnings.json
 .windsurf/
 # So os prompts de skill; .github segue livre p/ workflows de verdade.
 .github/prompts/
+
+# Prints e arquivos de trabalho dos testes de navegador. Ficam de fora porque
+# mostram o app carregado com as pranchas de docs/samples, que sao dados reais
+# e confidenciais de projeto -- o mesmo motivo daquela pasta ser ignorada.
+/scratchpad/
