@@ -338,23 +338,40 @@ function NexoWorkspaceInner() {
     if (pranchas.length > 0 || images.length > 0) {
       if (pranchas.length > 0) setPranchaFiles(pranchas);
       setReading(true);
-      const total = pranchas.length + images.length;
-      setReadProgress({ done: 0, total });
+      setReadProgress({ done: 0, total: 0 });
       try {
+        /*
+         * O total é em FOLHAS, não em arquivos: um PDF traz N pranchas, e cada
+         * uma vira um resultado. Antes o total era `pranchas.length`, então um
+         * PDF de 16 folhas mostrava "5/1" — e o `activity` do orb, que divide um
+         * pelo outro, saturava na primeira folha.
+         *
+         * O nº de folhas de um arquivo só é conhecido quando ele abre, então o
+         * total CRESCE conforme os arquivos são abertos (cada resultado traz o
+         * `pageCount` do seu). O `max` cobre o instante em que já lemos folhas de
+         * um arquivo e o seguinte ainda nem abriu.
+         */
         // Pranchas = leitura FRESCA; imagens avulsas APPENDam ao contexto.
         const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
+        const folhasPorArquivo = new Map<string, number>();
+        const totalDeFolhas = () =>
+          Math.max(
+            [...folhasPorArquivo.values()].reduce((a, b) => a + b, 0) + images.length,
+            collected.length,
+          );
         if (pranchas.length > 0) {
           await extractSelosFromFiles(pranchas, (r) => {
             collected.push(r);
+            folhasPorArquivo.set(r.fileName, r.pageCount);
             setSeloResults([...collected]);
-            setReadProgress({ done: collected.length, total });
+            setReadProgress({ done: collected.length, total: totalDeFolhas() });
           }, conv.conversationId);
         }
         for (const img of images) {
           const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
           setSeloResults([...collected]);
-          setReadProgress({ done: collected.length, total });
+          setReadProgress({ done: collected.length, total: totalDeFolhas() });
         }
         const okSelos = collected.filter((r) => r.extraction);
         if (okSelos.length > 0) {
@@ -439,8 +456,16 @@ function NexoWorkspaceInner() {
 
   const okCount = seloResults.filter((r) => r.extraction).length;
   const busyReading = reading || readingMemorial;
+  /*
+   * Fases da leitura, em linguagem de DOCUMENTO. "Abrindo" é o intervalo real
+   * entre o clique e a primeira folha voltar (o PDF sendo aberto e paginado):
+   * antes ficava mudo, parecendo travado. Depois disso, o que importa é quantas
+   * folhas já foram analisadas — não quantos arquivos, nem tokens.
+   */
   const seloText = reading
-    ? `Lendo pranchas… ${readProgress.done}/${readProgress.total}`
+    ? readProgress.total === 0
+      ? "Abrindo os documentos…"
+      : `Lendo os selos — ${readProgress.done} de ${readProgress.total} folhas analisadas`
     : readingMemorial
       ? "Lendo o memorial…"
       : okCount > 0

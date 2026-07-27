@@ -768,6 +768,7 @@ function VolumeConfirmation({
    * gerados antes disso existir.
    */
   const ldParams = ld?.payload as NexoLdProposalParams | undefined;
+  const capaParams = capa?.payload as NexoCapaProposalParams | undefined;
   const sepTitle =
     ldParams?.tituloLd?.trim() ||
     ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ||
@@ -808,8 +809,36 @@ function VolumeConfirmation({
     <CardShell kind="volume" resumo={resumo}>
       {!saved && (
         <>
+          {/* O que vai para dentro do volume — as DECISÕES, antes das partes.
+              Montar é irreversível na prática (o engenheiro manda o PDF), então
+              ele confere aqui em vez de descobrir no documento pronto. */}
+          <div className="space-y-1.5">
+            <SummaryRow
+              label="Folhas"
+              value={`${selos.length} folha${selos.length === 1 ? "" : "s"}`}
+            />
+            <SummaryRow
+              label="Título"
+              value={sepTitle || "defina o título na LD →"}
+              missing={!sepTitle}
+            />
+            {ldParams && (
+              <SummaryRow
+                label="Tomos"
+                value={rotuloTomos(ldParams.numTomos, ldParams.tomoInicial)}
+              />
+            )}
+            {capaParams && (
+              <SummaryRow
+                label="Volume"
+                value={capaParams.volume.trim() || "auto (do arquivo)"}
+              />
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <PartRow label="Capa" ok={Boolean(capaPdfUrl)} />
+            <PartRow label="Separatriz" ok={Boolean(sepTitle)} detail={sepTitle || "sem título"} />
             <PartRow label="LD" ok={Boolean(ldPdfUrl)} />
             <PartRow
               label="Pranchas"
@@ -818,9 +847,14 @@ function VolumeConfirmation({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Junta as partes num PDF único (ordem: capa · LD · folhas). As partes
-            sem PDF ficam de fora.
+            Junta as partes num PDF único (ordem: capa · separatriz · LD ·
+            folhas). As partes sem PDF ficam de fora.
           </p>
+          <div className="flex flex-wrap gap-1.5">
+            <AlterChip label="título" phrase="Muda o título para " />
+            <AlterChip label="tomos" phrase="Começando no tomo " />
+            <AlterChip label="volume" phrase="É o volume " />
+          </div>
           <div className="flex items-center gap-2">
             <ConfirmButton
               busy={busy}
