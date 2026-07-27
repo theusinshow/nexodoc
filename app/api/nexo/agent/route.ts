@@ -34,11 +34,13 @@ export async function POST(req: NextRequest) {
   let message: string;
   let history: ChatTurn[];
   let selos: SeloForLd[];
+  let conversationId: string | null;
   try {
     const body = (await req.json()) as {
       message?: unknown;
       history?: unknown;
       selos?: unknown;
+      conversationId?: unknown;
     };
     message = String(body.message ?? "").trim();
     if (!message) throw new Error("mensagem ausente");
@@ -48,6 +50,10 @@ export async function POST(req: NextRequest) {
           .map((t) => ({ role: t.role, content: String(t.content ?? "") }))
       : [];
     selos = Array.isArray(body.selos) ? (body.selos as SeloForLd[]) : [];
+    conversationId =
+      typeof body.conversationId === "string" && body.conversationId.trim()
+        ? body.conversationId.trim()
+        : null;
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -120,7 +126,7 @@ export async function POST(req: NextRequest) {
         };
         try {
           for await (const event of runNexoAgentTurnStream(
-            { message, history, resumo, prefeituras },
+            { message, history, resumo, prefeituras, conversationId },
             req.signal,
           )) {
             if (event.type === "delta") {
@@ -163,7 +169,13 @@ export async function POST(req: NextRequest) {
 
   // Caminho de sempre (não-SSE / provider sem streaming): resposta única.
   try {
-    const turn = await runNexoAgentTurn({ message, history, resumo, prefeituras });
+    const turn = await runNexoAgentTurn({
+      message,
+      history,
+      resumo,
+      prefeituras,
+      conversationId,
+    });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });
   } catch (err) {

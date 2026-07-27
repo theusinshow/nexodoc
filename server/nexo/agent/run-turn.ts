@@ -44,6 +44,8 @@ export interface RunNexoAgentTurnInput {
   history: { role: "user" | "assistant"; content: string }[];
   resumo: NexoAgentSelosResumo;
   prefeituras: NexoAgentPrefeitura[];
+  /** Conversa do Nexo, para amarrar o consumo (opcional: sem ela, não conta). */
+  conversationId?: string | null;
 }
 
 const MAX_OUTPUT_TOKENS = Number(process.env.NEXODOC_NEXO_MAX_OUTPUT_TOKENS ?? 900);
@@ -205,6 +207,7 @@ export async function runNexoAgentTurn(
     operation: "nexo-agent-turn",
     metadata: buildTurnMetadata(input),
     request: buildTurnRequest(input, model),
+    conversationId: input.conversationId,
   });
 
   const usage = extractTokenUsage(ai.response).totalTokens;
@@ -261,6 +264,7 @@ export async function* runNexoAgentTurnStream(
       operation: "nexo-agent-turn",
       metadata: buildTurnMetadata(input),
       request: buildTurnRequest(input, model),
+      conversationId: input.conversationId,
     },
     signal,
   );

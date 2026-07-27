@@ -64,7 +64,8 @@ export function NexoChat({
     responding: boolean;
   }) => void;
 }) {
-  const { messages, appendMessage, appendDelta, finalizeMessage } = useConversation();
+  const { messages, conversationId, appendMessage, appendDelta, finalizeMessage } =
+    useConversation();
   const { addTokens } = useApiUsage();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -134,7 +135,7 @@ export function NexoChat({
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
-        body: JSON.stringify({ message: text, history, selos }),
+        body: JSON.stringify({ message: text, history, selos, conversationId }),
         signal: controller.signal,
       });
 
