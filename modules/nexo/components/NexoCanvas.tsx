@@ -505,14 +505,18 @@ function CanvasInterno({
         <Controls showInteractive={false} />
         {/* Orientação: com fileiras por tomo, saber ONDE se está passou a
             importar mais que ampliar. */}
+        {/* Cores CRUAS, não tokens: o MiniMap pinta em SVG e nem sempre resolve
+            `var(--…)` ali. Sem `style`/`className` próprios — sobrescrever o
+            tamanho quebrava o dimensionamento interno e os nós não chegavam a
+            ser desenhados. */}
         <MiniMap
           pannable
           zoomable
-          nodeColor={(n) =>
-            n.type === "stack" ? "var(--input)" : "var(--ring)"
-          }
-          maskColor="rgb(6 8 10 / 0.6)"
-          className="!bg-[var(--nexodoc-panel)]"
+          nodeColor={(n) => (n.type === "stack" ? "#8e9ba3" : "#5bdac6")}
+          nodeStrokeColor="#5bdac6"
+          nodeBorderRadius={2}
+          bgColor="#1a1e21"
+          maskColor="rgb(6 8 10 / 0.7)"
         />
       </ReactFlow>
     </div>
