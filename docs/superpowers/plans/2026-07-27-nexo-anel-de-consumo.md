@@ -16,7 +16,7 @@
 - **React Compiler:** proibido tocar `ref.current` no corpo do render, e proibido `Date.now()`/`crypto.randomUUID()` no render. `setState` dentro de effect só via `rAF`/`setTimeout`.
 - **Nunca estimar custo no cliente.** `estimatedCostUsd` nulo vira "—" na tela. O único lugar que calcula preço é `lib/ai-usage.ts:73`.
 - **`conversationId` identifica, não autentica.** Toda consulta filtra também pelo `userEmail` da sessão.
-- **O anel é informação acessória:** qualquer falha (sem banco, endpoint fora) resulta em anel ausente, nunca em erro na cara do usuário.
+- **O anel é informação acessória:** qualquer falha (sem banco, consulta quebrada) resulta em anel ausente, nunca em erro na cara do usuário. Isto é sobre o que o usuário VÊ: os dois portões de entrada da rota — módulo desativado (404) e não autenticado (401) — seguem a convenção das rotas irmãs de `/api/nexo/*`, porque nenhum dos dois chega à tela (sem módulo não há barra; sem sessão não há app).
 - **Idioma:** todo texto de UI e comentário em português do Brasil, seguindo o tom dos arquivos vizinhos.
 - **Commits frequentes**, um por task, direto na `main` (preferência do usuário: sem branch/PR).
 - **Nunca usar `git add -A` neste repositório** — sempre listar os arquivos do commit.
