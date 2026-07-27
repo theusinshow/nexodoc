@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, FileText, X } from "lucide-react";
+import { Loader2, FileText, X, Copy, Check } from "lucide-react";
 import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
@@ -88,9 +88,14 @@ export function NexoChat({
       .catch(() => {});
   }, []);
 
+  // Só gruda no fim se o usuário JÁ estava no fim (margem de 64px p/ subpixel).
+  // Quem rolou pra cima pra reler não é arrancado de lá.
+  const [atBottom, setAtBottom] = useState(true);
+
   useEffect(() => {
+    if (!atBottom) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+  }, [messages, atBottom]);
 
   // `responding` = já chegou texto (o modelo saiu do raciocínio e está escrevendo).
   const responding = busy && messages[messages.length - 1]?.role === "assistant";
@@ -249,7 +254,11 @@ export function NexoChat({
         ref={scrollRef}
         role="log"
         aria-label="Conversa com o Nexo"
-        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 64);
+        }}
+        className="relative min-h-0 flex-1 overflow-y-auto"
       >
         <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 py-6">
           {messages.map((m, idx) => (
@@ -313,6 +322,20 @@ export function NexoChat({
             </div>
           )}
         </div>
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={() => {
+              const el = scrollRef.current;
+              if (!el) return;
+              el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+              setAtBottom(true);
+            }}
+            className="sticky bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-[var(--nexodoc-recessed)] px-3 py-1.5 text-xs text-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            ↓ novas mensagens
+          </button>
+        )}
       </div>
 
       {error && (
@@ -409,6 +432,7 @@ function AttachmentChip({
 /**
  * Bolha da mensagem. Assistente = vidro fraco (chrome do agente); usuário =
  * recessed matte (dado). Cantos assimétricos discretos, sem borda gritante.
+ * A resposta do Nexo ganha "copiar" no hover — o engenheiro cola no e-mail.
  */
 function MessageBubble({
   role,
@@ -417,21 +441,48 @@ function MessageBubble({
 }: {
   role: "user" | "assistant";
   content: string;
-  /** Revela o texto progressivamente (só respostas recém-chegadas). */
+  /** Revela o texto progressivamente (só no caminho SEM streaming). */
   reveal?: boolean;
 }) {
   const isUser = role === "user";
   const shown = useRevealText(content, reveal);
+  const [copied, setCopied] = useState(false);
+
+  // O "copiado" volta sozinho. setState em timeout (nunca no corpo do render).
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(id);
+  }, [copied]);
+
   return (
-    <div
-      className={
-        isUser
-          ? "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-[15px] leading-[1.55] text-foreground"
-          : "nexo-glass nexo-glass--weak max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-[15px] leading-[1.6] text-foreground"
-      }
-    >
-      <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
-      {shown}
+    <div className="group/msg relative max-w-[85%]">
+      <div
+        className={
+          isUser
+            ? "whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-[15px] leading-[1.55] text-foreground"
+            : "nexo-glass nexo-glass--weak whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-[15px] leading-[1.6] text-foreground"
+        }
+      >
+        <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
+        {shown}
+      </div>
+      {!isUser && content.trim() !== "" && (
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(content).then(() => setCopied(true));
+          }}
+          aria-label="Copiar resposta"
+          className="absolute -bottom-2 right-1 rounded-md border border-border bg-card px-1.5 py-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 group-hover/msg:opacity-100"
+        >
+          {copied ? (
+            <Check className="h-3 w-3" aria-hidden />
+          ) : (
+            <Copy className="h-3 w-3" aria-hidden />
+          )}
+        </button>
+      )}
     </div>
   );
 }
