@@ -51,7 +51,7 @@ export function NexoCopilot({
   /** Anexos com preview imediato (imagem/PDF). */
   attachments: Attachment[];
   onRemoveAttachment?: (id: string) => void;
-  onTurnStatus?: (s: { thinking: boolean; error: boolean }) => void;
+  onTurnStatus?: (s: { thinking: boolean; error: boolean; responding: boolean }) => void;
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
   const [popoverOpen, setPopoverOpen] = useState(false);

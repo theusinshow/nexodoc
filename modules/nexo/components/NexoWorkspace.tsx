@@ -493,9 +493,13 @@ function NexoWorkspaceInner() {
   }, []);
 
   // Sinais do app → estado visual do Nexo Core (a esfera reage sem conhecer a IA).
-  const [chatStatus, setChatStatus] = useState({ thinking: false, error: false });
+  const [chatStatus, setChatStatus] = useState({
+    thinking: false,
+    error: false,
+    responding: false,
+  });
   const handleTurnStatus = useCallback(
-    (s: { thinking: boolean; error: boolean }) => setChatStatus(s),
+    (s: { thinking: boolean; error: boolean; responding: boolean }) => setChatStatus(s),
     [],
   );
   const agentState = useAgentState({
