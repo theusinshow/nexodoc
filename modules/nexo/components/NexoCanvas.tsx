@@ -11,11 +11,14 @@
  * nunca N frames pesados; só capa/separatriz/LD ganham miniatura real.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
+  MiniMap,
+  useReactFlow,
   Handle,
   Position,
   MarkerType,
@@ -38,6 +41,7 @@ import { AgentPopover } from "@/components/ui/agent-popover";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { faixasDosTomos } from "@/lib/ld/ld-rules";
 import { ArtifactThumb } from "./ArtifactThumb";
+import { NavegacaoDoCanvas, type FileiraNavegavel } from "./NavegacaoDoCanvas";
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
 /*
@@ -337,7 +341,7 @@ const nodeTypes = { artifact: ArtifactNode, stack: StackNode, rotulo: RotuloNode
 
 const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
 
-export function NexoCanvas({
+function CanvasInterno({
   pranchasCount = 0,
   pranchas = [],
   selos = [],
@@ -370,7 +374,7 @@ export function NexoCanvas({
       .catch(() => {});
   }, []);
 
-  const { nodes, edges } = useMemo(() => {
+  const { nodes, edges, fileiras } = useMemo(() => {
     type Item = { id: string; rank: number; type: "artifact" | "stack"; data: unknown };
 
     /*
@@ -382,6 +386,7 @@ export function NexoCanvas({
      * e que sobraram. Escondê-los faria o canvas mentir sobre o que existe.
      */
     const grupos = agruparPorTomo(artifacts);
+    const fileiras: FileiraNavegavel[] = [];
     const tomosReais = grupos.filter((g) => g.tomo > 0).length;
 
     const nodes: Node[] = [];
@@ -443,6 +448,9 @@ export function NexoCanvas({
         }
       });
 
+      // A fileira também vira destino de navegação (barra e teclas 1-9).
+      fileiras.push({ tomo: grupo.tomo, ids: items.map((it) => it.id) });
+
       // Rótulo da fileira. Só aparece quando há divisão — com um volume só ele
       // seria ruído.
       if (grupos.length > 1) {
@@ -457,7 +465,7 @@ export function NexoCanvas({
       }
     });
 
-    return { nodes, edges };
+    return { nodes, edges, fileiras };
   }, [artifacts, pranchasCount, pranchas, results, templates, selos, selecionadoId]);
 
   if (nodes.length === 0) {
@@ -473,7 +481,9 @@ export function NexoCanvas({
   }
 
   return (
-    <div className="h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
+    <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
+      <NavegacaoDoCanvas fileiras={fileiras} />
+      <ReenquadrarAoCrescer quantidade={nodes.length} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -493,7 +503,58 @@ export function NexoCanvas({
       >
         <Background gap={20} size={1} color="var(--border)" />
         <Controls showInteractive={false} />
+        {/* Orientação: com fileiras por tomo, saber ONDE se está passou a
+            importar mais que ampliar. */}
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={(n) =>
+            n.type === "stack" ? "var(--input)" : "var(--ring)"
+          }
+          maskColor="rgb(6 8 10 / 0.6)"
+          className="!bg-[var(--nexodoc-panel)]"
+        />
       </ReactFlow>
     </div>
+  );
+}
+
+/**
+ * Reenquadra QUANDO NASCEM NÓS. Ao gerar documentos, os novos apareciam fora do
+ * enquadramento atual e o engenheiro tinha de sair procurando.
+ *
+ * A condição é estrita — só quando a QUANTIDADE aumenta. Reenquadrar a cada
+ * mudança de estado faria o canvas pular sob o cursor de quem está navegando,
+ * que é pior do que o problema original.
+ */
+function ReenquadrarAoCrescer({ quantidade }: { quantidade: number }) {
+  const fluxo = useReactFlow();
+  const anterior = useRef(quantidade);
+  useEffect(() => {
+    if (quantidade > anterior.current) {
+      const id = requestAnimationFrame(() =>
+        fluxo.fitView({ padding: 0.25, duration: 400 }),
+      );
+      anterior.current = quantidade;
+      return () => cancelAnimationFrame(id);
+    }
+    anterior.current = quantidade;
+  }, [quantidade, fluxo]);
+  return null;
+}
+
+/**
+ * O `useReactFlow` só funciona DENTRO de um provider, e navegar
+ * programaticamente (ir para um tomo, reenquadrar) depende dele.
+ */
+export function NexoCanvas(props: {
+  pranchasCount?: number;
+  pranchas?: PranchaInfo[];
+  selos?: SeloForLd[];
+}) {
+  return (
+    <ReactFlowProvider>
+      <CanvasInterno {...props} />
+    </ReactFlowProvider>
   );
 }

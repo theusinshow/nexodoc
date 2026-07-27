@@ -127,10 +127,13 @@ try {
     "separatriz aparece no canvas",
     (await page.getByText(/^Separatriz$/).count()) > 0,
   );
+  // Escopado aos NÓS: a barra de navegação também escreve "Tomo 01"/"Tomo 02",
+  // e contar a tela inteira daria 4 — falso negativo por causa do próprio teste.
+  const rotulosDeFileira = page.locator(".react-flow__node").getByText(/^Tomo 0\d$/);
   check(
     "canvas tem uma fileira por tomo",
-    (await page.getByText(/^Tomo 0\d$/).count()) === 2,
-    `${await page.getByText(/^Tomo 0\d$/).count()} rótulos`,
+    (await rotulosDeFileira.count()) === 2,
+    `${await rotulosDeFileira.count()} rótulos`,
   );
 
   // --- selecionar um nó: as ferramentas têm de FICAR -----------------------
@@ -166,6 +169,33 @@ try {
     );
   }
   await page.screenshot({ path: `${OUT}/nexo-4-canvas.png`, fullPage: true });
+
+  // --- navegação do canvas -------------------------------------------------
+  check("minimapa existe", (await page.locator(".react-flow__minimap").count()) > 0);
+
+  const barra = page.getByRole("button", { name: /^Tomo 0\d$/ });
+  check("barra de tomos aparece com mais de uma fileira", (await barra.count()) === 2);
+
+  // Prova que NAVEGOU, não só que o botão existe: o transform do viewport tem
+  // de mudar. Um teste que só clica passaria com o botão quebrado.
+  const viewport = page.locator(".react-flow__viewport");
+  const antes = await viewport.getAttribute("style");
+  await barra.nth(1).click();
+  await page.waitForTimeout(700);
+  const depois = await viewport.getAttribute("style");
+  check("clicar em TOMO 02 muda o enquadramento", antes !== depois);
+
+  // `0` reenquadra tudo — de novo comparando o viewport.
+  await page.locator(".react-flow__pane").click();
+  const antesDoZero = await viewport.getAttribute("style");
+  await page.keyboard.press("0");
+  await page.waitForTimeout(700);
+  check(
+    "tecla 0 reenquadra",
+    (await viewport.getAttribute("style")) !== antesDoZero,
+  );
+
+  await page.screenshot({ path: `${OUT}/nexo-5-navegacao.png`, fullPage: true });
 
   check("nenhum erro de runtime no console", errosDeConsole.length === 0,
     errosDeConsole.slice(0, 2).join(" | "));
