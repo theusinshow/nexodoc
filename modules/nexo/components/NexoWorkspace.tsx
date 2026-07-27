@@ -502,12 +502,37 @@ function NexoWorkspaceInner() {
     (s: { thinking: boolean; error: boolean; responding: boolean }) => setChatStatus(s),
     [],
   );
+  // Cadência do texto que chega: cada delta empurra pra 1, e decai no silêncio.
+  // Não existe "fração" no streaming (não se sabe o tamanho final da resposta).
+  const [replyPulse, setReplyPulse] = useState(0);
+  useEffect(() => {
+    if (!chatStatus.responding) {
+      // O reset é adiado (rAF): setState SÍNCRONO no corpo do effect encadeia
+      // renders — mesma regra do transiente em `use-agent-state`.
+      const raf = requestAnimationFrame(() => setReplyPulse(0));
+      return () => cancelAnimationFrame(raf);
+    }
+    const id = setInterval(() => {
+      setReplyPulse((p) => (p > 0.55 ? 0.35 : 0.85));
+    }, 420);
+    return () => clearInterval(id);
+  }, [chatStatus.responding]);
+
   const agentState = useAgentState({
     dragging,
     reading: reading || readingMemorial,
     thinking: chatStatus.thinking,
+    responding: chatStatus.responding,
     error: chatStatus.error,
   });
+
+  // Leitura = progresso REAL (done/total). Resposta = cadência do texto.
+  const orbActivity =
+    reading || readingMemorial
+      ? readProgress.total > 0
+        ? readProgress.done / readProgress.total
+        : 0
+      : replyPulse;
 
   // Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb.
   const agentContext = summarizeSelos(selos);
@@ -604,6 +629,7 @@ function NexoWorkspaceInner() {
             readStatus={readStatus}
             agentState={agentState}
             fileCount={okCount}
+            activity={orbActivity}
             context={agentContext}
             pranchaFiles={pranchaFiles}
             memorialFile={memorialFile}

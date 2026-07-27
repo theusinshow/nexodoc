@@ -6,7 +6,7 @@
  * terminar) e `error` (instabilidade curta), que voltam sozinhos pro fluxo. A
  * esfera não conhece IA/API; esta é a camada que a aplicação usa pra traduzir.
  *
- * Prioridade: error > dragging > reading > analyzing > complete > idle.
+ * Prioridade: error > dragging > reading > responding > analyzing > complete > idle.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +20,8 @@ export interface AgentSignals {
   reading?: boolean;
   /** Turno do agente em andamento (analisando). */
   thinking?: boolean;
+  /** Turno já está ESCREVENDO (primeiro delta chegou). */
+  responding?: boolean;
   /** Falha no turno/leitura. */
   error?: boolean;
 }
@@ -31,6 +33,7 @@ export function useAgentState({
   dragging,
   reading,
   thinking,
+  responding,
   error,
 }: AgentSignals): AgentState {
   const [transient, setTransient] = useState<null | "complete" | "error">(null);
@@ -66,6 +69,7 @@ export function useAgentState({
   if (transient === "error") return "error";
   if (dragging) return "dragging";
   if (reading) return "reading";
+  if (responding) return "responding";
   if (thinking) return "analyzing";
   if (transient === "complete") return "complete";
   return "idle";

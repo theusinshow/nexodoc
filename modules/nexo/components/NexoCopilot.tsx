@@ -27,6 +27,7 @@ export function NexoCopilot({
   readStatus,
   agentState = "idle",
   fileCount = 0,
+  activity = 0,
   context,
   pranchaFiles,
   memorialFile,
@@ -42,6 +43,8 @@ export function NexoCopilot({
   /** Estado do Nexo Core (derivado dos sinais do app pelo NexoWorkspace). */
   agentState?: AgentState;
   fileCount?: number;
+  /** Atividade real 0..1: progresso da leitura ou cadência do texto. */
+  activity?: number;
   /** Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb. */
   context: AgentContext;
   /** Pranchas originais retidas (bytes p/ montar o volume no chat). */
@@ -91,6 +94,7 @@ export function NexoCopilot({
             <AgentOrb
               state={agentState}
               fileCount={fileCount}
+              activity={activity}
               size={started ? "compact" : "hero"}
               interactive
               onActivate={() => setPopoverOpen((o) => !o)}

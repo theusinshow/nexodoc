@@ -52,8 +52,8 @@ export interface OrbVisualParams {
 
 /**
  * Alvos por estado. Coerente com engenharia/CAD: movimento lento, nada frenético.
- * `responding` soma `activity` (reservado p/ streaming futuro; hoje o tradutor
- * usa `analyzing`).
+ * `reading` usa `activity` como PROGRESSO da leitura (done/total); `responding`
+ * usa como CADÊNCIA do texto que chega.
  */
 export function paramsForState(
   state: AgentState,
@@ -68,7 +68,16 @@ export function paramsForState(
     case "uploading":
       return { distortion: 0.11, pulse: 0.5, rim: 0.85, scan: 0.35, spin: 0.3, jitter: 0 };
     case "reading":
-      return { distortion: 0.08, pulse: 0.32, rim: 0.72, scan: 1, spin: 0.2, jitter: 0 };
+      // `scan` acompanha o progresso real da leitura (0..1): o plano varre a
+      // esfera conforme as pranchas são lidas, em vez de varrer sempre igual.
+      return {
+        distortion: 0.08,
+        pulse: 0.32 + a * 0.18,
+        rim: 0.72,
+        scan: 0.35 + a * 0.65,
+        spin: 0.2,
+        jitter: 0,
+      };
     case "analyzing":
       return { distortion: 0.17, pulse: 0.62, rim: 0.88, scan: 0.25, spin: 0.36, jitter: 0 };
     case "responding":
