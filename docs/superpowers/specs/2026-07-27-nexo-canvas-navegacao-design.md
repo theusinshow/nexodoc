@@ -41,8 +41,14 @@ tem uma fileira por tomo, e o problema é saber onde se está.
 
 ## Escopo
 
-**1. Minimapa.** `<MiniMap />` no canto inferior direito, com cor por tipo de
-documento. Com 2-3 fileiras e 6+ nós, é o que dá noção de posição.
+**1. ~~Minimapa~~ — TENTADO E REMOVIDO.** `<MiniMap />` descarta todo nó cujo
+objeto não declare dimensões (`nodeHasDimensions(userNode)`), lendo-as do nó que
+passamos e não do interno já medido. Como os nós saem de um `useMemo` derivado e
+não voltam por `onNodesChange`, ele desenhava só a moldura e o retângulo do
+viewport — vazio. Corrigir exigiria fixar width/height em cada nó (passando a
+ditar o tamanho hoje dado pelo conteúdo) ou tornar os nós estado mutável, que é o
+que o Document State e "página como nó" fazem. **O minimapa volta no
+sub-projeto 3.** A orientação ficou toda com a barra de tomos.
 
 **2. Ir para o tomo.** Barra discreta no topo do canvas com um botão por fileira
 (`TOMO 01`, `TOMO 02`, `Fora da divisão`). Clicar enquadra aquela fileira. Some

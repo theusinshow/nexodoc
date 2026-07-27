@@ -17,7 +17,6 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
-  MiniMap,
   useReactFlow,
   Handle,
   Position,
@@ -503,21 +502,21 @@ function CanvasInterno({
       >
         <Background gap={20} size={1} color="var(--border)" />
         <Controls showInteractive={false} />
-        {/* Orientação: com fileiras por tomo, saber ONDE se está passou a
-            importar mais que ampliar. */}
-        {/* Cores CRUAS, não tokens: o MiniMap pinta em SVG e nem sempre resolve
-            `var(--…)` ali. Sem `style`/`className` próprios — sobrescrever o
-            tamanho quebrava o dimensionamento interno e os nós não chegavam a
-            ser desenhados. */}
-        <MiniMap
-          pannable
-          zoomable
-          nodeColor={(n) => (n.type === "stack" ? "#8e9ba3" : "#5bdac6")}
-          nodeStrokeColor="#5bdac6"
-          nodeBorderRadius={2}
-          bgColor="#1a1e21"
-          maskColor="rgb(6 8 10 / 0.7)"
-        />
+        {/*
+         * SEM MINIMAPA, de propósito — tentei e não funciona daqui.
+         *
+         * `MiniMapNode` descarta todo nó cujo objeto não declare dimensões
+         * (`nodeHasDimensions(userNode)`), e lê isso do nó QUE NÓS passamos, não
+         * do interno já medido. Como os nós aqui saem de um `useMemo` derivado e
+         * não voltam por `onNodesChange`, `measured` nunca chega neles: o
+         * minimapa desenhava só a moldura e o retângulo do viewport, vazio.
+         *
+         * As saídas seriam fixar width/height em cada nó — o que passaria a
+         * DITAR o tamanho real deles, hoje dado pelo conteúdo — ou tornar os nós
+         * estado mutável. A segunda é justamente o que o Document State e
+         * "página como nó" fazem; o minimapa volta lá, quando tiver como
+         * funcionar. A orientação por tomo fica com a `NavegacaoDoCanvas`.
+         */}
       </ReactFlow>
     </div>
   );

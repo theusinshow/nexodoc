@@ -171,7 +171,13 @@ try {
   await page.screenshot({ path: `${OUT}/nexo-4-canvas.png`, fullPage: true });
 
   // --- navegação do canvas -------------------------------------------------
-  check("minimapa existe", (await page.locator(".react-flow__minimap").count()) > 0);
+  // Não há minimapa: ele não consegue desenhar nós enquanto estes vierem de um
+  // `useMemo` derivado (o React Flow exige dimensões no objeto do nó). Checar
+  // que ele EXISTE passaria verde com o minimapa vazio — foi o que aconteceu.
+  check(
+    "minimapa não é renderizado (não funciona com nós derivados)",
+    (await page.locator(".react-flow__minimap").count()) === 0,
+  );
 
   const barra = page.getByRole("button", { name: /^Tomo 0\d$/ });
   check("barra de tomos aparece com mais de uma fileira", (await barra.count()) === 2);
