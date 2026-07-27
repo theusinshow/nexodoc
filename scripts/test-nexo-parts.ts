@@ -17,6 +17,7 @@ import {
   buildVolumeParts,
   type VolumePartSource,
 } from "../server/nexo/volume-parts.ts";
+import { removerVaziosAntesDoTitulo } from "../server/nexo/tools/separatriz-content.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -127,4 +128,57 @@ test("intervalo de páginas da prancha é propagado", () => {
   assert.equal(prancha.endPage, 214);
 });
 
-console.log(`\n${passed} teste(s) passaram.`);
+// --- Separatriz: a página em branco que sobrava no volume --------------------
+
+/*
+ * O template oficial da separatriz abre com um parágrafo VAZIO antes do título.
+ * O parágrafo do título declara `style:master-page-name`, e no ODF isso força
+ * quebra de página — então o vazio virava uma PÁGINA EM BRANCO inteira, que
+ * aparecia no volume montado logo depois da capa.
+ */
+test("separatriz: paragrafo vazio antes do titulo e removido", () => {
+  const xml =
+    '<office:body><office:text>' +
+    '<text:p text:style-name="P11"/>' +
+    '<text:p text:style-name="P13">{{TITULO}}</text:p>' +
+    '</office:text></office:body>';
+  const out = removerVaziosAntesDoTitulo(xml);
+  assert.ok(!out.includes('text:style-name="P11"'), "o vazio saiu");
+  assert.ok(out.includes("{{TITULO}}"), "o titulo continua la");
+});
+
+test("separatriz: vazio com tag aberta/fechada tambem sai", () => {
+  const xml =
+    '<office:body><office:text>' +
+    '<text:p text:style-name="P11"></text:p>' +
+    '<text:p text:style-name="P13">{{TITULO}}</text:p>' +
+    '</office:text></office:body>';
+  assert.ok(!removerVaziosAntesDoTitulo(xml).includes('"P11"'));
+});
+
+test("separatriz: paragrafo COM texto antes do titulo e preservado", () => {
+  const xml =
+    '<office:body><office:text>' +
+    '<text:p text:style-name="P11">PREFEITURA</text:p>' +
+    '<text:p text:style-name="P13">{{TITULO}}</text:p>' +
+    '</office:text></office:body>';
+  const out = removerVaziosAntesDoTitulo(xml);
+  assert.ok(out.includes("PREFEITURA"), "conteudo real nunca e descartado");
+});
+
+test("separatriz: vazio DEPOIS do titulo nao e tocado", () => {
+  const xml =
+    '<office:body><office:text>' +
+    '<text:p text:style-name="P13">{{TITULO}}</text:p>' +
+    '<text:p text:style-name="P11"/>' +
+    '</office:text></office:body>';
+  assert.ok(removerVaziosAntesDoTitulo(xml).includes('"P11"'));
+});
+
+test("separatriz: sem marcador, devolve o xml intacto", () => {
+  const xml = '<office:body><office:text><text:p text:style-name="P11"/></office:text></office:body>';
+  assert.equal(removerVaziosAntesDoTitulo(xml), xml);
+});
+
+console.log(`
+${passed} teste(s) passaram.`);

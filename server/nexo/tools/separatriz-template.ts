@@ -3,6 +3,8 @@ import path from "node:path";
 
 import JSZip from "jszip";
 
+import { removerVaziosAntesDoTitulo } from "./separatriz-content";
+
 /**
  * Preenche o TEMPLATE ODT oficial da separatriz (`templates/separatriz/
  * modelo-separatriz.odt`) — uma página limpa com o nome da disciplina em negrito,
@@ -42,7 +44,10 @@ export async function buildSeparatrizOdt(title: string): Promise<Buffer> {
   if (!contentFile) throw new Error("Template de separatriz sem content.xml.");
 
   const content = await contentFile.async("string");
-  const filled = content.replaceAll("{{TITULO}}", escapeXml(clean));
+  // Tira o parágrafo vazio que o template traz antes do título — ele virava uma
+  // página em branco no volume (ver separatriz-content.ts).
+  const enxuto = removerVaziosAntesDoTitulo(content);
+  const filled = enxuto.replaceAll("{{TITULO}}", escapeXml(clean));
   zip.file("content.xml", filled);
 
   const out = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });

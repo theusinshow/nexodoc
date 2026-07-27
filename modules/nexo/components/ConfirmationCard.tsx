@@ -754,8 +754,21 @@ function VolumeConfirmation({
   const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
   const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
   const semPranchas = pranchaFiles.length === 0;
-  // Disciplina p/ a separatriz (best-effort): do rótulo "LD <disciplina>".
-  const sepTitle = ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ?? "";
+  /*
+   * Título da separatriz. Antes vinha do rótulo do canvas ("LD ESTRUTURAL"),
+   * então a folha saía SEMPRE com a sigla crua da disciplina — o mesmo texto
+   * para "Estrutural Concreto" e "Estrutural Concreto Implantação", que é
+   * justamente o que a separatriz existe para distinguir dentro do volume.
+   *
+   * Agora usa o TÍTULO que o engenheiro decidiu na LD (guardado nos params do
+   * resultado), com o rótulo do canvas como último recurso para resultados
+   * gerados antes disso existir.
+   */
+  const ldParams = ld?.payload as NexoLdProposalParams | undefined;
+  const sepTitle =
+    ldParams?.tituloLd?.trim() ||
+    ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ||
+    "";
 
   async function confirm() {
     setBusy(true);
