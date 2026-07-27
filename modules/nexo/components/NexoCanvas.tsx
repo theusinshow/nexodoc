@@ -35,13 +35,18 @@ import { faixasDosTomos } from "@/lib/ld/ld-rules";
 import { ArtifactThumb } from "./ArtifactThumb";
 
 /** Ordem canônica do volume: define o x dos nós e a direção das setas. */
+/*
+ * Ordem da fileira. O VOLUME é o último: ele é o resultado de tudo que veio
+ * antes (capa → separatriz → LD → folhas), e vê-lo no meio sugere que ainda vem
+ * documento depois dele.
+ */
 const CANONICAL_RANK: Record<NexoArtifactKind, number> = {
   capa: 0,
   separatriz: 1,
   ld: 2,
-  volume: 5,
-  conferencia: 6,
-  auditoria: 7,
+  conferencia: 5,
+  auditoria: 6,
+  volume: 9,
 };
 const PRANCHAS_RANK = 3;
 

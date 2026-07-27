@@ -895,7 +895,6 @@ function VolumeConfirmation({
   const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
   const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
   const sepPdfUrl = separatriz?.files.find((f) => f.mime === PDF_MIME)?.url;
-  const semPranchas = pranchaFiles.length === 0;
   /*
    * Título da separatriz. Antes vinha do rótulo do canvas ("LD ESTRUTURAL"),
    * então a folha saía SEMPRE com a sigla crua da disciplina — o mesmo texto
@@ -924,7 +923,26 @@ function VolumeConfirmation({
     return faixa ? selos.slice(faixa.inicio - 1, faixa.fim) : selos;
   }, [selos, results, tomo.atual]);
 
+  /*
+   * Os ARQUIVOS deste tomo, não só os selos.
+   *
+   * `assembleVolume` itera sobre os `pranchaFiles` e, quando um arquivo não tem
+   * faixa de páginas nos selos recebidos, entra INTEIRO como fallback (o caso
+   * legítimo do arquivo cujo selo não foi lido). Com um PDF por prancha, fatiar
+   * só os selos não bastava: os 24 arquivos continuavam entrando, e o volume do
+   * tomo 02 saía com a LD certa (13-24) e as folhas 01-24. Filtrar os arquivos é
+   * o que de fato separa os documentos.
+   */
+  const pranchaFilesDoTomo = useMemo(() => {
+    if (tomo.atual === 0) return pranchaFiles;
+    const doTomo = new Set(selosDoTomo.map((s) => s.fileName));
+    return pranchaFiles.filter((f) => doTomo.has(f.name));
+  }, [pranchaFiles, selosDoTomo, tomo.atual]);
+
+  const semPranchas = pranchaFilesDoTomo.length === 0;
+
   const sepTitle =
+    capaParams?.tituloCapa?.trim() ||
     ldParams?.tituloLd?.trim() ||
     ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ||
     "";
@@ -943,7 +961,7 @@ function VolumeConfirmation({
       const r = await assembleVolume({
         // Só as folhas DESTE tomo entram no volume dele.
         selos: selosDoTomo,
-        pranchaFiles,
+        pranchaFiles: pranchaFilesDoTomo,
         capaPdf64,
         ldPdf64,
         separatrizPdf64,
@@ -1011,7 +1029,9 @@ function VolumeConfirmation({
             <PartRow
               label="Pranchas"
               ok={!semPranchas}
-              detail={semPranchas ? "nenhuma" : `${pranchaFiles.length} arquivo(s)`}
+              detail={
+                semPranchas ? "nenhuma" : `${pranchaFilesDoTomo.length} arquivo(s)`
+              }
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -1231,14 +1251,18 @@ function SeparatrizConfirmation({
   const id = separatrizId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
-  // A LD DESTE tomo (com o volume dividido, cada tomo tem a sua).
-  const ld = results.find((r) => r.artifactId === ldId(selos) + tomo.sufixo);
-  const ldParams = ld?.payload as NexoLdProposalParams | undefined;
-  // Título da LD viva > o que ficou gravado quando esta separatriz foi gerada.
+  /*
+   * O título da separatriz é o MESMO da capa do tomo. A separatriz e a capa
+   * nomeiam o mesmo documento dentro do volume — se divergissem, a folha de
+   * rosto diria uma coisa e a capa outra, no mesmo tomo.
+   */
+  const capa = results.find((r) => r.artifactId === capaId(selos) + tomo.sufixo);
+  const capaParams = capa?.payload as NexoCapaProposalParams | undefined;
+  // Título da capa viva > o que ficou gravado quando esta separatriz foi gerada.
   const savedParams = saved?.payload as { titulo?: string } | undefined;
-  const titulo = ldParams?.tituloLd?.trim() || savedParams?.titulo?.trim() || "";
+  const titulo = capaParams?.tituloCapa?.trim() || savedParams?.titulo?.trim() || "";
   const semTitulo = titulo === "";
-  const ldSumiu = Boolean(saved) && !ld;
+  const capaSumiu = Boolean(saved) && !capa;
 
   const estado = estadoDoArtefato(saved, { titulo, tomo: tomo.numero });
   const podeGerar = estado !== "aplicado";
@@ -1253,7 +1277,7 @@ function SeparatrizConfirmation({
         kind: "separatriz",
         payload: { titulo, tomo: tomo.numero },
         summary: `Separatriz ${titulo}${r.pdfError ? " · PDF indisponível" : ""}`,
-        canvas: { label: "Separatriz", detail: titulo, pageNumber: 1 },
+        canvas: { label: "Separatriz", titulo, pageNumber: 1 },
         files: [{ label: "PDF", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
       });
     } catch (err) {
@@ -1270,7 +1294,7 @@ function SeparatrizConfirmation({
           <div className="space-y-1.5">
             <SummaryRow
               label="Título"
-              value={semTitulo ? "defina o título na LD →" : titulo}
+              value={semTitulo ? "defina o título na capa →" : titulo}
               missing={semTitulo}
             />
           </div>
@@ -1286,16 +1310,16 @@ function SeparatrizConfirmation({
             />
             {semTitulo && (
               <span className="text-xs text-muted-foreground">
-                A separatriz usa o título da LD — defina lá primeiro.
+                A separatriz usa o título da capa — defina lá primeiro.
               </span>
             )}
           </div>
         </>
       )}
 
-      {ldSumiu && (
+      {capaSumiu && (
         <p className="text-xs text-muted-foreground">
-          A LD que deu o título a esta separatriz não existe mais.
+          A capa que deu o título a esta separatriz não existe mais.
         </p>
       )}
 
