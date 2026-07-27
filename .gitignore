@@ -58,3 +58,25 @@ data/nexodoc-learnings.json
 /docs/samples/*
 !/docs/samples/README.md
 .superpowers/
+
+# Config/skills de assistentes de IA — local de cada maquina, nao do projeto.
+# Sem isto um "git add -A" varre milhares de arquivos pra dentro do repo.
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
+# So os prompts de skill; .github segue livre p/ workflows de verdade.
+.github/prompts/
