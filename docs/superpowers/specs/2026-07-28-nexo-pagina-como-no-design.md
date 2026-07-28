@@ -187,6 +187,21 @@ uns 15 nós. O nó é texto puro, mas isso é palpite até medir. Plano: medir c
 folhas no navegador e, **só se engasgar**, ligar `onlyRenderVisibleElements` — que
 interage mal com `fitView`, então não entra preventivamente.
 
+**Medido em 2026-07-28** (200 folhas semeadas no IndexedDB, sem gastar IA;
+`scratchpad/medir-200-folhas.mjs`): 200 nós desenhados em ~410ms, pan de 2s a
+~60fps com o viewport de fato se movendo, seleção de uma folha em ~290ms, zero
+erros de runtime. **`onlyRenderVisibleElements` NÃO foi ligado** — o nó de texto
+puro aguentou.
+
+**Achado da medição, ainda em aberto:** com 200 folhas a grade fica com ~34 linhas
+(~2.200px de altura) e o `fitView` **não** enquadra o projeto inteiro — o
+`minZoom={0.3}` do canvas trava o afastamento e a grade sai pela borda de baixo.
+Ou seja, a promessa "a grade cresce em altura e o fitView continua enquadrando o
+projeto inteiro" vale para volumes normais, não para os de 200 folhas. As saídas
+são baixar o `minZoom` ou alargar a grade conforme a quantidade (mais colunas
+quando há muita folha). Decisão adiada: não é regressão — antes disso as folhas
+nem eram nós.
+
 **Perder o que a pilha dava.** A pilha mostrava contagem e disciplina dominante de
 um relance. A contagem vai para o rótulo do tomo; a disciplina dominante se perde,
 e isso é aceitável — ela não era usada para decidir nada.
