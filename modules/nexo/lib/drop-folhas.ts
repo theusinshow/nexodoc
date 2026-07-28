@@ -6,11 +6,20 @@
  * para o lugar, duas folhas com a mesma ordem — e um defeito desses só apareceria
  * no PDF montado.
  *
- * PURO: nenhum import de runtime.
+ * PURO: nenhum import de VALOR. Só `import type`, que é apagado em runtime — um
+ * import de valor com `.ts` faz o `tsc` do projeto falhar (TS5097), e sem o `.ts`
+ * o Node não resolve. Por isso a grade e a chave de ordenação chegam INJETADAS,
+ * do mesmo jeito que `folhas.ts` recebe `repartir`.
  */
 
-import { chaveDeOrdem, type Ajuste, type Folha, type FolhaId } from "./folhas.ts";
-import { COLUNAS_DA_GRADE, PASSO_X, PASSO_Y } from "./layout-canvas.ts";
+import type { Ajuste, Folha, FolhaId } from "./folhas.ts";
+
+/** As medidas da grade (`layout-canvas`), injetadas. */
+export interface GradeDoDrop {
+  colunas: number;
+  passoX: number;
+  passoY: number;
+}
 
 /** Uma fileira, como o canvas a desenhou: onde está e o que tem dentro. */
 export interface FileiraDoDrop {
@@ -39,15 +48,20 @@ function limitar(valor: number, minimo: number, maximo: number): number {
 export function alvoDoDrop(
   ponto: { x: number; y: number },
   fileiras: readonly FileiraDoDrop[],
+  grade: GradeDoDrop,
 ): { tomo: number; indice: number } | null {
   const fileira = fileiras.find(
     (f) => ponto.y >= f.topo && ponto.y < f.topo + f.altura,
   );
   if (!fileira) return null;
 
-  const coluna = limitar(Math.round((ponto.x - fileira.gradeX) / PASSO_X), 0, COLUNAS_DA_GRADE);
-  const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / PASSO_Y));
-  const indice = limitar(linha * COLUNAS_DA_GRADE + coluna, 0, fileira.folhas.length);
+  const coluna = limitar(
+    Math.round((ponto.x - fileira.gradeX) / grade.passoX),
+    0,
+    grade.colunas,
+  );
+  const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / grade.passoY));
+  const indice = limitar(linha * grade.colunas + coluna, 0, fileira.folhas.length);
   return { tomo: fileira.tomo, indice };
 }
 
@@ -80,14 +94,19 @@ export function ordensEntre(
 /**
  * O que escrever em `ajustes` por causa deste arrasto.
  *
- * `temDivisao` falso (uma fileira só) NÃO escreve `grupo`: sem divisão, gravar o
- * tomo seria inventar uma decisão que o usuário não tomou.
+ * CONGELA o palpite: toda folha sem `grupo` ganha o tomo em que já está. Sem isso,
+ * arrastar uma folha faz outra pular de tomo sozinha — a divisão automática
+ * reequilibra e puxa uma folha para a vaga que abriu.
+ *
+ * `divisaoAtual` nula (uma fileira só) NÃO escreve `grupo` nenhum: sem divisão,
+ * gravar o tomo seria inventar uma decisão que o usuário não tomou.
  */
 export function ajusteDoDrop(
   movidas: readonly Folha[],
   alvo: { tomo: number; indice: number },
   fileiraAlvo: readonly Folha[],
-  temDivisao: boolean,
+  divisaoAtual: readonly { tomo: number; folhas: readonly Folha[] }[] | null,
+  chaveDeOrdem: (f: Folha) => number,
 ): { id: FolhaId; patch: Ajuste }[] {
   if (movidas.length === 0) return [];
 
@@ -126,8 +145,26 @@ export function ajusteDoDrop(
   const proxima = indice < restantes.length ? chaveDeOrdem(restantes[indice]) : null;
   const ordens = ordensEntre(anterior, proxima, naOrdem.length);
 
-  return naOrdem.map((f, i) => ({
-    id: f.id,
-    patch: temDivisao ? { grupo: alvo.tomo, ordem: ordens[i] } : { ordem: ordens[i] },
-  }));
+  const patches = new Map<FolhaId, Ajuste>();
+
+  // Congela o palpite: quem não tem grupo ganha o tomo em que já está. Sem ordem
+  // — não se moveu, e inventar ordem para todo mundo fixaria o que não foi
+  // decidido.
+  if (divisaoAtual) {
+    for (const fileira of divisaoAtual) {
+      for (const f of fileira.folhas) {
+        if (f.grupo === undefined) patches.set(f.id, { grupo: fileira.tomo });
+      }
+    }
+  }
+
+  // As arrastadas vêm por último: elas mandam sobre o congelamento.
+  naOrdem.forEach((f, i) => {
+    patches.set(f.id, {
+      ...(divisaoAtual ? { grupo: alvo.tomo } : {}),
+      ordem: ordens[i],
+    });
+  });
+
+  return [...patches].map(([id, patch]) => ({ id, patch }));
 }
