@@ -45,6 +45,13 @@ export interface Folha extends SeloForLd {
   editado: boolean;
   grupo?: number;
   ordem?: number;
+  /**
+   * Posição na LEITURA, antes de qualquer ajuste. É a chave de ordenação quando
+   * não há `ordem` — e quem insere uma folha entre duas outras (o arrasto)
+   * precisa dela: o índice no array já projetado não serve, porque com uma folha
+   * reordenada os dois deixam de coincidir.
+   */
+  natural: number;
 }
 
 export function folhaId(selo: Pick<SeloForLd, "fileName" | "pageNumber">): FolhaId {
@@ -78,6 +85,7 @@ export function folhas(
       folha: {
         ...selo,
         id: folhaId(selo),
+        natural,
         conteudo: titulo ?? selo.conteudo,
         disciplina: disciplina ?? selo.disciplina,
         editado:
@@ -174,4 +182,13 @@ export function aplicarAjuste(
   if (Object.keys(combinado).length === 0) delete proximo[id];
   else proximo[id] = combinado;
   return proximo;
+}
+
+/**
+ * A chave de ordenação de uma folha: a `ordem` manual quando existe, senão a
+ * posição natural. É por esta chave que a projeção ordena — e é entre duas
+ * destas que uma folha arrastada tem de cair.
+ */
+export function chaveDeOrdem(f: Folha): number {
+  return f.ordem ?? f.natural;
 }

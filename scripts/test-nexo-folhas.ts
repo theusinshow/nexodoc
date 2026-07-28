@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 
 import {
   aplicarAjuste,
+  chaveDeOrdem,
   folhaId,
   folhas,
   gruposDasFolhas,
@@ -237,6 +238,24 @@ test("título só de espaços é tratado como ausente — não vira título em b
   const out = folhas(SELOS, ajustes);
   assert.equal(out[0].conteudo, SELOS[0].conteudo);
   assert.equal(out[0].editado, false);
+});
+
+// ---------------------------------------------------------------------------
+// A chave de ordenação, que o arrasto (4A) precisa enxergar
+// ---------------------------------------------------------------------------
+
+test("a folha carrega a posição natural da leitura", () => {
+  const out = folhas(SELOS, {});
+  assert.deepEqual(out.map((f) => f.natural), [0, 1, 2]);
+});
+
+test("chaveDeOrdem é `ordem` quando há, e a natural quando não há", () => {
+  const ajustes = aplicarAjuste({}, folhaId(SELOS[2]), { ordem: 0.5 });
+  const out = folhas(SELOS, ajustes);
+  // A reordenada vem em 2º e a chave dela é a `ordem` manual.
+  assert.deepEqual(out.map((f) => chaveDeOrdem(f)), [0, 0.5, 1]);
+  // A natural NÃO muda com a reordenação: é a posição na leitura.
+  assert.deepEqual(out.map((f) => f.natural), [0, 2, 1]);
 });
 
 console.log(`\n${passed} teste(s) OK`);
