@@ -102,6 +102,8 @@ interface ConversationStoreValue {
   setSeloResults: (r: SeloResult[]) => void;
   /** Acumula um ajuste numa folha. Campo `undefined` no patch DESFAZ aquele campo. */
   ajustarFolha: (id: FolhaId, patch: Ajuste) => void;
+  /** Vários ajustes numa tacada (um arrasto de seleção). Um `setState` só. */
+  ajustarFolhas: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
@@ -312,6 +314,22 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [schedulePersist],
   );
 
+  /*
+   * Um arrasto de 30 folhas são 30 ajustes. Chamar `ajustarFolha` num laço
+   * funcionaria — `aplicarAjuste` é puro e compõe —, mas seriam 30 renders e 30
+   * agendamentos de persistência para um único gesto.
+   */
+  const ajustarFolhas = useCallback(
+    (entradas: { id: FolhaId; patch: Ajuste }[]) => {
+      if (entradas.length === 0) return;
+      setAjustes((prev) =>
+        entradas.reduce((acc, e) => aplicarAjuste(acc, e.id, e.patch), prev),
+      );
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
   // Persiste os blobs de um resultado e o expõe reidratado (URLs vivas).
   const saveResult = useCallback(
     async (input: SaveResultInput) => {
@@ -459,6 +477,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       finalizeMessage,
       setSeloResults,
       ajustarFolha,
+      ajustarFolhas,
       saveResult,
       getResult,
       removeResult,
@@ -479,6 +498,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       finalizeMessage,
       setSeloResults,
       ajustarFolha,
+      ajustarFolhas,
       saveResult,
       getResult,
       removeResult,
