@@ -30,10 +30,7 @@ import type { Attachment } from "./NexoChat";
 import { NexoCanvas, type PranchaInfo } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
-import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
-
-/** Sem ajustes ainda: quem os escreve são os sub-projetos 3 e 4. */
-const SEM_AJUSTES: Readonly<Record<FolhaId, Ajuste>> = Object.freeze({});
+import { folhas, type FolhaId } from "../lib/folhas";
 
 /**
  * Workspace do Nexo (chat-first). "Anexar/soltar PDFs" LÊ os selos das pranchas
@@ -129,12 +126,12 @@ function NexoWorkspaceInner() {
    * mordeu: fatiar um caminho (`selos`) e esquecer o outro (`pranchaFiles`),
    * montando o volume com dados velhos.
    *
-   * Enquanto não há quem escreva ajustes, a projeção é a identidade — e é isso
-   * que o teste puro trava. `SEM_AJUSTES` é constante de módulo de propósito:
-   * um `{}` literal aqui recriaria o memo a cada render e remontaria todos os
-   * nós do canvas, que foi exatamente o bug do popover que fechava sozinho.
+   * `conv.ajustes` vem do `useState` do store, então é referência ESTÁVEL entre
+   * renders. Um objeto literal aqui recriaria o memo a cada render e remontaria
+   * todos os nós do canvas — que foi exatamente o bug do popover que fechava
+   * sozinho.
    */
-  const selos = useMemo(() => folhas(selosLidos, SEM_AJUSTES), [selosLidos]);
+  const selos = useMemo(() => folhas(selosLidos, conv.ajustes), [selosLidos, conv.ajustes]);
 
   // webkitdirectory nao e prop tipada no React; setar via atributo.
   useEffect(() => {

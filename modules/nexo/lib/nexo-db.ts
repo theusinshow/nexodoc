@@ -11,6 +11,7 @@
  *   registro leve. IndexedDB guarda Blob nativamente (sobrevive ao reload).
  */
 import type { SeloResult } from "./selo-render";
+import type { Ajuste, FolhaId } from "./folhas";
 import type { NexoArtifactKind, NexoChatMessage } from "../types";
 
 const DB_NAME = "nexo";
@@ -50,6 +51,12 @@ export interface StoredConversation {
   folderKey?: string;
   messages: NexoChatMessage[];
   seloResults: SeloResult[];
+  /**
+   * O que o usuário mudou à mão nas folhas (título etc.). OPCIONAL: conversas
+   * gravadas antes desta versão não têm o campo, e ausente = nenhum ajuste. Por
+   * isso não há migração de `DB_VERSION` — o registro é schemaless.
+   */
+  ajustes?: Record<FolhaId, Ajuste>;
   results: StoredResultMeta[];
 }
 

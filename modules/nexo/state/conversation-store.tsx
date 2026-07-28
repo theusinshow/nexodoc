@@ -30,6 +30,7 @@ import type {
   NexoSlotRequest,
 } from "../types";
 import { summarizeSelos } from "../lib/agent-context";
+import { aplicarAjuste, type Ajuste, type FolhaId } from "../lib/folhas";
 import { removerResultado } from "../lib/results";
 import {
   deleteConversation as dbDelete,
@@ -79,6 +80,8 @@ interface ConversationStoreValue {
   title: string;
   messages: NexoChatMessage[];
   seloResults: SeloResult[];
+  /** O que o usuário mudou à mão nas folhas. Vazio = a projeção é a identidade. */
+  ajustes: Record<FolhaId, Ajuste>;
   /** Lista de conversas (resumos), mais recentes primeiro. */
   conversations: ConversationSummary[];
   /** Resultados gerados (com URLs vivas) — reidratados do IndexedDB no restore. */
@@ -97,6 +100,8 @@ interface ConversationStoreValue {
     },
   ) => void;
   setSeloResults: (r: SeloResult[]) => void;
+  /** Acumula um ajuste numa folha. Campo `undefined` no patch DESFAZ aquele campo. */
+  ajustarFolha: (id: FolhaId, patch: Ajuste) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
@@ -151,12 +156,21 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [title, setTitle] = useState("Nova conversa");
   const [messages, setMessages] = useState<NexoChatMessage[]>([]);
   const [seloResults, setSeloResultsState] = useState<SeloResult[]>([]);
+  const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
   const [results, setResults] = useState<SavedResult[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   // Snapshot mais novo p/ o persist debounced (evita closure velha). Sincronizado
   // num effect — o React Compiler proíbe tocar ref.current durante o render.
-  const snapshotRef = useRef({ conversationId, title, messages, seloResults, results, createdAt: 0 });
+  const snapshotRef = useRef({
+    conversationId,
+    title,
+    messages,
+    seloResults,
+    ajustes,
+    results,
+    createdAt: 0,
+  });
   useEffect(() => {
     snapshotRef.current = {
       ...snapshotRef.current,
@@ -164,6 +178,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       title,
       messages,
       seloResults,
+      ajustes,
       results,
       createdAt: snapshotRef.current.createdAt || Date.now(),
     };
@@ -210,6 +225,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(folderKey ? { folderKey } : {}),
       messages: s.messages,
       seloResults: s.seloResults,
+      ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
       results: resultsMeta,
     };
     putConversation(rec)
@@ -278,6 +294,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     (r: SeloResult[]) => {
       setSeloResultsState(r);
       setTitle((t) => deriveTitle(t, snapshotRef.current.messages, r));
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
+   * ÚNICO escritor de ajustes. `aplicarAjuste` é puro e já testado: acumula sem
+   * mutar, e apaga a entrada quando o ajuste fica vazio — desfazer não pode
+   * deixar lixo ocupando o estado.
+   */
+  const ajustarFolha = useCallback(
+    (id: FolhaId, patch: Ajuste) => {
+      setAjustes((prev) => aplicarAjuste(prev, id, patch));
       schedulePersist();
     },
     [schedulePersist],
@@ -352,6 +381,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setTitle("Nova conversa");
     setMessages([]);
     setSeloResultsState([]);
+    setAjustes({});
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
     setResults((prev) => {
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -394,6 +424,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setTitle(rec.title);
       setMessages(rec.messages);
       setSeloResultsState(rec.seloResults);
+      // Conversa gravada antes deste campo existir não tem `ajustes`.
+      setAjustes(rec.ajustes ?? {});
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {
         prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -419,12 +451,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       title,
       messages,
       seloResults,
+      ajustes,
       conversations,
       results,
       appendMessage,
       appendDelta,
       finalizeMessage,
       setSeloResults,
+      ajustarFolha,
       saveResult,
       getResult,
       removeResult,
@@ -437,12 +471,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       title,
       messages,
       seloResults,
+      ajustes,
       conversations,
       results,
       appendMessage,
       appendDelta,
       finalizeMessage,
       setSeloResults,
+      ajustarFolha,
       saveResult,
       getResult,
       removeResult,
