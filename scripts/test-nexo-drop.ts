@@ -26,11 +26,7 @@ import {
   type FileiraDoDrop,
   type GradeDoDrop,
 } from "../modules/nexo/lib/drop-folhas.ts";
-import {
-  COLUNAS_DA_GRADE,
-  PASSO_X,
-  PASSO_Y,
-} from "../modules/nexo/lib/layout-canvas.ts";
+import { COLUNAS_MINIMAS, PASSO_X, PASSO_Y } from "../modules/nexo/lib/layout-canvas.ts";
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
 import { buildBalancedQuantities, faixasDosTomos } from "../lib/ld/ld-rules.ts";
 
@@ -70,11 +66,7 @@ const PROJETADAS = folhas(SELOS, {});
 
 // A grade e a chave chegam INJETADAS no módulo puro; o teste passa as de
 // produção — um dublê aqui só provaria que o parâmetro é chamado.
-const GRADE: GradeDoDrop = {
-  colunas: COLUNAS_DA_GRADE,
-  passoX: PASSO_X,
-  passoY: PASSO_Y,
-};
+const GRADE: GradeDoDrop = { passoX: PASSO_X, passoY: PASSO_Y };
 
 /** A divisão que estaria na tela: 3 folhas por tomo, como o automático faria. */
 const DIVISAO: { tomo: number; folhas: readonly Folha[] }[] = [
@@ -90,6 +82,7 @@ const FILEIRAS: FileiraDoDrop[] = [
     altura: 330,
     gradeX: 780,
     gradeY: 0,
+    colunas: COLUNAS_MINIMAS,
     folhas: PROJETADAS.slice(0, 3).map((f) => f.id),
   },
   {
@@ -98,6 +91,7 @@ const FILEIRAS: FileiraDoDrop[] = [
     altura: 330,
     gradeX: 780,
     gradeY: 330,
+    colunas: COLUNAS_MINIMAS,
     folhas: PROJETADAS.slice(3).map((f) => f.id),
   },
 ];

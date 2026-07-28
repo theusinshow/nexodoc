@@ -57,7 +57,7 @@ import {
 } from "../lib/drop-folhas";
 import {
   ALTURA_FOLHA,
-  COLUNAS_DA_GRADE,
+  colunasDaGrade,
   LARGURA_FOLHA,
   PASSO_X,
   PASSO_Y,
@@ -341,11 +341,7 @@ const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
  * As medidas da grade viajam INJETADAS até o módulo puro do drop: ele roda em
  * Node pelado no teste e não pode importar valor de outro módulo.
  */
-const GRADE: GradeDoDrop = {
-  colunas: COLUNAS_DA_GRADE,
-  passoX: PASSO_X,
-  passoY: PASSO_Y,
-};
+const GRADE: GradeDoDrop = { passoX: PASSO_X, passoY: PASSO_Y };
 
 function CanvasInterno({
   folhas = [],
@@ -541,8 +537,12 @@ function CanvasInterno({
 
       const gradeX = cursorX;
 
+      // A grade alarga conforme a quantidade: com 6 colunas fixas, um tomo de 200
+      // folhas virava 34 linhas e o `fitView` não dava conta do projeto inteiro.
+      const colunas = colunasDaGrade(daFileira.length);
+
       daFileira.forEach((f, i) => {
-        const p = posicaoNaGrade(i);
+        const p = posicaoNaGrade(i, colunas);
         const id = `folha:${f.id}`;
         nodes.push({
           id,
@@ -577,7 +577,7 @@ function CanvasInterno({
         if (i === daFileira.length - 1) anterior = id;
       });
 
-      if (daFileira.length > 0) cursorX += larguraDaGrade(daFileira.length) + 60;
+      if (daFileira.length > 0) cursorX += larguraDaGrade(daFileira.length, colunas) + 60;
 
       depois.forEach(empurrar);
 
@@ -592,6 +592,7 @@ function CanvasInterno({
         altura: alturaDaFileira(daFileira.length),
         gradeX,
         gradeY: y,
+        colunas,
         folhas: daFileira.map((f) => f.id),
       });
       folhasPorTomo.set(grupo.tomo, daFileira);

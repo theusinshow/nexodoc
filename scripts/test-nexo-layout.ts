@@ -8,10 +8,13 @@ import assert from "node:assert/strict";
 
 import {
   ALTURA_MINIMA_FILEIRA,
+  COLUNAS_MAXIMAS,
+  COLUNAS_MINIMAS,
   PASSO_X,
   PASSO_Y,
   alturaDaFileira,
   alturaDaGrade,
+  colunasDaGrade,
   larguraDaGrade,
   posicaoNaGrade,
   topoDasFileiras,
@@ -31,25 +34,52 @@ function test(name: string, fn: () => void) {
 }
 
 test("a grade preenche da esquerda para a direita e quebra na 7ª folha", () => {
-  assert.deepEqual(posicaoNaGrade(0), { x: 0, y: 0 });
-  assert.deepEqual(posicaoNaGrade(5), { x: 5 * PASSO_X, y: 0 });
-  assert.deepEqual(posicaoNaGrade(6), { x: 0, y: PASSO_Y });
-  assert.deepEqual(posicaoNaGrade(13), { x: PASSO_X, y: 2 * PASSO_Y });
+  assert.deepEqual(posicaoNaGrade(0, 6), { x: 0, y: 0 });
+  assert.deepEqual(posicaoNaGrade(5, 6), { x: 5 * PASSO_X, y: 0 });
+  assert.deepEqual(posicaoNaGrade(6, 6), { x: 0, y: PASSO_Y });
+  assert.deepEqual(posicaoNaGrade(13, 6), { x: PASSO_X, y: 2 * PASSO_Y });
 });
 
 test("largura para de crescer quando a linha enche", () => {
-  assert.equal(larguraDaGrade(0), 0);
-  assert.equal(larguraDaGrade(1), PASSO_X);
-  assert.equal(larguraDaGrade(6), 6 * PASSO_X);
-  assert.equal(larguraDaGrade(7), 6 * PASSO_X);
+  assert.equal(larguraDaGrade(0, 6), 0);
+  assert.equal(larguraDaGrade(1, 6), PASSO_X);
+  assert.equal(larguraDaGrade(6, 6), 6 * PASSO_X);
+  assert.equal(larguraDaGrade(7, 6), 6 * PASSO_X);
 });
 
 test("altura cresce por linha começada", () => {
-  assert.equal(alturaDaGrade(0), 0);
-  assert.equal(alturaDaGrade(1), PASSO_Y);
-  assert.equal(alturaDaGrade(6), PASSO_Y);
-  assert.equal(alturaDaGrade(7), 2 * PASSO_Y);
-  assert.equal(alturaDaGrade(200), 34 * PASSO_Y);
+  assert.equal(alturaDaGrade(0, 6), 0);
+  assert.equal(alturaDaGrade(1, 6), PASSO_Y);
+  assert.equal(alturaDaGrade(6, 6), PASSO_Y);
+  assert.equal(alturaDaGrade(7, 6), 2 * PASSO_Y);
+});
+
+// ---------------------------------------------------------------------------
+// Colunas variáveis: o que impede o tomo grande de virar uma coluna infinita
+// ---------------------------------------------------------------------------
+
+test("volume normal continua com 6 colunas", () => {
+  assert.equal(colunasDaGrade(0), COLUNAS_MINIMAS);
+  assert.equal(colunasDaGrade(1), COLUNAS_MINIMAS);
+  assert.equal(colunasDaGrade(12), COLUNAS_MINIMAS);
+  assert.equal(colunasDaGrade(36), COLUNAS_MINIMAS);
+});
+
+test("tomo grande alarga em vez de esticar para baixo", () => {
+  assert.equal(colunasDaGrade(200), 15);
+  // A grade fica com proporção de fileira, não de coluna: mais larga que alta.
+  const linhas = Math.ceil(200 / colunasDaGrade(200));
+  assert.ok(colunasDaGrade(200) >= linhas, `${colunasDaGrade(200)} colunas x ${linhas} linhas`);
+});
+
+test("a largura tem teto — fileira infinita seria o defeito inverso", () => {
+  assert.equal(colunasDaGrade(10000), COLUNAS_MAXIMAS);
+});
+
+test("com colunas variáveis, 200 folhas ocupam menos da metade da altura", () => {
+  const antes = alturaDaGrade(200, COLUNAS_MINIMAS);
+  const agora = alturaDaGrade(200, colunasDaGrade(200));
+  assert.ok(agora < antes / 2, `${agora} contra ${antes}`);
 });
 
 test("fileira pequena usa a altura mínima; a grande manda", () => {

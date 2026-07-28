@@ -16,7 +16,6 @@ import type { Ajuste, Folha, FolhaId } from "./folhas.ts";
 
 /** As medidas da grade (`layout-canvas`), injetadas. */
 export interface GradeDoDrop {
-  colunas: number;
   passoX: number;
   passoY: number;
 }
@@ -30,6 +29,12 @@ export interface FileiraDoDrop {
   /** Canto superior esquerdo da grade de folhas. */
   gradeX: number;
   gradeY: number;
+  /**
+   * Colunas que ESTA fileira desenhou. Varia por tomo: a grade alarga conforme a
+   * quantidade de folhas, então um número fixo aqui erraria a coluna do drop
+   * justamente nos tomos grandes.
+   */
+  colunas: number;
   /** Ids das folhas da fileira, na ordem em que estão desenhadas. */
   folhas: FolhaId[];
 }
@@ -104,10 +109,10 @@ export function alvoDoDrop(
   const coluna = limitar(
     Math.round((ponto.x - fileira.gradeX) / grade.passoX),
     0,
-    grade.colunas,
+    fileira.colunas,
   );
   const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / grade.passoY));
-  const indice = limitar(linha * grade.colunas + coluna, 0, fileira.folhas.length);
+  const indice = limitar(linha * fileira.colunas + coluna, 0, fileira.folhas.length);
   return { tomo: fileira.tomo, indice };
 }
 

@@ -10,8 +10,26 @@
  * PURO: nenhum import — roda em Node pelado no `scripts/test-nexo-layout.ts`.
  */
 
-/** Folhas por linha da grade. */
-export const COLUNAS_DA_GRADE = 6;
+/** Folhas por linha num volume normal. */
+export const COLUNAS_MINIMAS = 6;
+/** Teto: mais que isto e a fileira fica larga demais para ler de relance. */
+export const COLUNAS_MAXIMAS = 20;
+
+/**
+ * Quantas colunas a grade de um tomo usa.
+ *
+ * Fixar em 6 fazia um tomo de 200 folhas virar 34 linhas: quase 2.200px de altura
+ * numa fileira, e o `fitView` não conseguia enquadrar o projeto inteiro porque o
+ * `minZoom` do canvas trava o afastamento. A raiz da quantidade mantém a fileira
+ * com proporção de fileira — 200 folhas viram 15 colunas por 14 linhas.
+ */
+export function colunasDaGrade(quantidade: number): number {
+  if (quantidade <= 0) return COLUNAS_MINIMAS;
+  return Math.min(
+    COLUNAS_MAXIMAS,
+    Math.max(COLUNAS_MINIMAS, Math.ceil(Math.sqrt(quantidade))),
+  );
+}
 /** Largura do nó da folha. */
 export const LARGURA_FOLHA = 120;
 /** Altura do nó da folha. */
@@ -28,7 +46,7 @@ const FOLGA_DA_FILEIRA = 40;
 /** Posição da n-ésima folha dentro da grade do tomo (relativa à grade). */
 export function posicaoNaGrade(
   indice: number,
-  colunas: number = COLUNAS_DA_GRADE,
+  colunas: number,
 ): { x: number; y: number } {
   return {
     x: (indice % colunas) * PASSO_X,
@@ -39,7 +57,7 @@ export function posicaoNaGrade(
 /** Largura ocupada pela grade — para saber onde o nó seguinte começa. */
 export function larguraDaGrade(
   quantidade: number,
-  colunas: number = COLUNAS_DA_GRADE,
+  colunas: number = colunasDaGrade(quantidade),
 ): number {
   return Math.min(quantidade, colunas) * PASSO_X;
 }
@@ -47,7 +65,7 @@ export function larguraDaGrade(
 /** Altura ocupada pela grade: linha começada é linha inteira. */
 export function alturaDaGrade(
   quantidade: number,
-  colunas: number = COLUNAS_DA_GRADE,
+  colunas: number = colunasDaGrade(quantidade),
 ): number {
   return Math.ceil(quantidade / colunas) * PASSO_Y;
 }
