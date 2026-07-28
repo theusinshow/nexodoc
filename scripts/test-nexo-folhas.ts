@@ -21,7 +21,7 @@ import {
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
 // A divisão automática chega injetada. O teste passa a função REAL de produção —
 // um dublê aqui só provaria que o parâmetro é chamado.
-import { buildBalancedQuantities } from "../lib/ld/ld-rules.ts";
+import { buildBalancedQuantities, faixasDosTomos } from "../lib/ld/ld-rules.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -199,6 +199,44 @@ test("aplicarAjuste com campo vazio LIMPA o campo (desfazer a edição)", () => 
   });
   assert.equal("titulo" in depois["a.pdf#1"], false);
   assert.equal(depois["a.pdf#1"].grupo, 2);
+});
+
+// ---------------------------------------------------------------------------
+// A troca da divisão no canvas só é segura porque estas duas concordam
+// ---------------------------------------------------------------------------
+
+test("sem grupo manual, gruposDasFolhas divide igual a faixasDosTomos", () => {
+  const muitos = Array.from({ length: 24 }, (_, i) => selo("a.pdf", i + 1));
+  const projetadas = folhas(muitos, {});
+  const grupos = gruposDasFolhas(projetadas, 3, buildBalancedQuantities);
+  const faixas = faixasDosTomos(24, 3);
+
+  assert.equal(grupos.length, 3);
+  grupos.forEach((ids, i) => {
+    const esperado = projetadas.slice(faixas[i].inicio - 1, faixas[i].fim).map((f) => f.id);
+    assert.deepEqual(ids, esperado, `tomo ${i + 1} divergiu da faixa`);
+  });
+});
+
+test("desfazer: titulo undefined devolve o que o selo dizia e limpa `editado`", () => {
+  const id = folhaId(SELOS[0]);
+  const comAjuste = aplicarAjuste({}, id, { titulo: "TROCADO" });
+  assert.equal(folhas(SELOS, comAjuste)[0].conteudo, "TROCADO");
+  assert.equal(folhas(SELOS, comAjuste)[0].editado, true);
+
+  const desfeito = aplicarAjuste(comAjuste, id, { titulo: undefined });
+  // Ajuste vazio não pode sobrar ocupando o estado.
+  assert.deepEqual(desfeito, {});
+  assert.equal(folhas(SELOS, desfeito)[0].conteudo, SELOS[0].conteudo);
+  assert.equal(folhas(SELOS, desfeito)[0].editado, false);
+});
+
+test("título só de espaços é tratado como ausente — não vira título em branco na LD", () => {
+  const id = folhaId(SELOS[0]);
+  const ajustes = aplicarAjuste({}, id, { titulo: "   " });
+  const out = folhas(SELOS, ajustes);
+  assert.equal(out[0].conteudo, SELOS[0].conteudo);
+  assert.equal(out[0].editado, false);
 });
 
 console.log(`\n${passed} teste(s) OK`);
