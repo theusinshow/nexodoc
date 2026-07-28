@@ -103,10 +103,16 @@ interface FileiraDoDrop {
   folhas: FolhaId[];
 }
 
-/** Em que tomo e em que posição da grade o ponto caiu. */
+/**
+ * Em que tomo e em que posição da grade o ponto caiu. A geometria da grade chega
+ * INJETADA porque este módulo roda em Node pelado no teste, e import de runtime
+ * com `.ts` não compila — a mesma razão pela qual `folhas.ts` recebe `repartir`
+ * em vez de importá-lo.
+ */
 function alvoDoDrop(
   ponto: { x: number; y: number },
   fileiras: readonly FileiraDoDrop[],
+  grade: { colunas: number; passoX: number; passoY: number },
 ): { tomo: number; indice: number } | null;
 
 /** As ordens esparsas para `quantas` folhas soltas entre dois vizinhos. */
@@ -120,10 +126,16 @@ function ordensEntre(
 function ajusteDoDrop(
   movidas: readonly Folha[],
   alvo: { tomo: number; indice: number },
-  /** A projeção inteira, para achar os vizinhos e suas chaves de ordem. */
+  /** As folhas do tomo de destino, para achar os vizinhos e suas chaves. */
   fileiraAlvo: readonly Folha[],
-  /** Falso quando só há uma fileira: aí não se escreve `grupo`. */
-  temDivisao: boolean,
+  /**
+   * A divisão que está na tela. Congela o palpite: toda folha sem `grupo` ganha
+   * o tomo em que já está. `null` quando não há divisão (uma fileira só) — aí
+   * nenhum `grupo` é escrito.
+   */
+  divisaoAtual: readonly { tomo: number; folhas: readonly Folha[] }[] | null,
+  /** `chaveDeOrdem` de `folhas.ts`, injetada pelo mesmo motivo que `grade`. */
+  chave: (f: Folha) => number,
 ): { id: FolhaId; patch: Ajuste }[];
 ```
 
@@ -131,6 +143,43 @@ O canvas só reporta coordenada; a regra mora onde dá para testar. Ordem espars
 justamente o tipo de aritmética que erra em silêncio — folha que "volta" para o
 lugar, duas folhas com a mesma ordem —, e um defeito desses só apareceria no PDF
 montado.
+
+### Congelar o palpite no primeiro arrasto
+
+Medido durante a implementação, com 6 folhas em 2 tomos, arrastando a folha 1 do
+tomo 1 para o tomo 2:
+
+```
+antes    tomo 1: [1, 2, 3]     tomo 2: [4, 5, 6]
+depois   tomo 1: [2, 3, 4]     tomo 2: [1, 5, 6]
+```
+
+A folha 4 **voltou sozinha** para o tomo 1. A causa não é defeito de cálculo: só a
+folha arrastada ganha `grupo` fixo, e as outras continuam na divisão automática,
+que reequilibra os tomos e puxa uma folha para preencher a vaga.
+
+**Decisão do usuário: o primeiro arrasto CONGELA o palpite.** Toda folha ganha o
+`grupo` que já tinha na tela, e a partir daí só se move o que for movido à mão. É
+a leitura literal de "o grupo manda; o automático é só o palpite inicial" — o
+palpite vira ponto de partida no instante em que o usuário assume o comando.
+
+Fixar só o tomo de destino foi verificado e **não** resolve: as folhas restantes
+continuam se espalhando entre os tomos que sobraram.
+
+**Consequência assumida:** depois de congelado, pedir "agora em 3 tomos" não
+redivide mais nada — todas as folhas têm grupo fixo. Um "voltar ao automático"
+(apagar os `grupo` dos ajustes) é o par natural disso e fica no 4B.
+
+### O que a marca âmbar passa a significar
+
+Congelar escreve `grupo` em todas as folhas, e `editado` é verdadeiro para
+qualquer ajuste — então a marca de "corrigido à mão" acenderia no canvas inteiro
+depois do primeiro arrasto, mentindo sobre o que o usuário mexeu.
+
+A projeção passa a distinguir: `editado` continua sendo "tem algum ajuste", e
+`editadoTexto` diz se **título ou disciplina** foram trocados. O nó da folha usa
+`editadoTexto` — a marca existe para separar o que o sistema leu do que o usuário
+reescreveu, e posição não é leitura de carimbo.
 
 ### A regra da ordem
 

@@ -151,8 +151,22 @@ O módulo puro que traduz "soltei neste ponto" em "escreva isto em `ajustes`".
 - Modify: `package.json` (script `test:nexo:drop`)
 
 **Interfaces:**
-- Consumes: `Folha`, `FolhaId`, `Ajuste`, `chaveDeOrdem` de `./folhas`; `COLUNAS_DA_GRADE`, `PASSO_X`, `PASSO_Y` de `./layout-canvas`.
-- Produces: `FileiraDoDrop`, `alvoDoDrop(ponto, fileiras)`, `ordensEntre(anterior, proxima, quantas)`, `ajusteDoDrop(movidas, alvo, fileiraAlvo, temDivisao)`. A Task 4 usa `alvoDoDrop` e `ajusteDoDrop`.
+- Consumes: `Folha`, `FolhaId`, `Ajuste` de `./folhas` — **só como tipo** (`import type`), que é apagado em runtime. **Nada de import de valor:** `drop-folhas.ts` roda em `node` direto, e `import { x } from "./folhas.ts"` faz `npx tsc --noEmit` falhar com TS5097. É a mesma razão pela qual `folhas.ts` recebe `repartir` injetado em vez de importá-lo (ver o comentário no topo daquele arquivo). Por isso `chaveDeOrdem` e as medidas da grade chegam por parâmetro.
+- Produces: `FileiraDoDrop`, `GradeDoDrop`, `alvoDoDrop(ponto, fileiras, grade)`, `ordensEntre(anterior, proxima, quantas)`, `ajusteDoDrop(movidas, alvo, fileiraAlvo, divisaoAtual, chave)`. A Task 5 usa `alvoDoDrop` e `ajusteDoDrop`.
+
+**O congelamento — leia antes de escrever o código.** Só fixar o `grupo` da folha
+arrastada não basta: as outras continuam na divisão automática, que reequilibra os
+tomos e puxa uma folha de volta para a vaga aberta. Verificado com 6 folhas em 2
+tomos, arrastando a folha 1 do tomo 1 para o tomo 2:
+
+```
+antes    tomo 1: [1, 2, 3]     tomo 2: [4, 5, 6]
+depois   tomo 1: [2, 3, 4]     tomo 2: [1, 5, 6]      ← a folha 4 voltou sozinha
+```
+
+Por isso `ajusteDoDrop` recebe a divisão que está na tela e **congela o palpite**:
+toda folha sem `grupo` ganha o tomo em que já está. Depois disso, só se move o que
+for movido à mão.
 
 - [ ] **Step 1: Escrever o teste que falha**
 
@@ -169,14 +183,26 @@ Criar `scripts/test-nexo-drop.ts`:
  */
 import assert from "node:assert/strict";
 
-import { folhas, gruposDasFolhas, type Ajuste, type FolhaId } from "../modules/nexo/lib/folhas.ts";
+import {
+  chaveDeOrdem,
+  folhas,
+  gruposDasFolhas,
+  type Ajuste,
+  type Folha,
+  type FolhaId,
+} from "../modules/nexo/lib/folhas.ts";
 import {
   ajusteDoDrop,
   alvoDoDrop,
   ordensEntre,
   type FileiraDoDrop,
+  type GradeDoDrop,
 } from "../modules/nexo/lib/drop-folhas.ts";
-import { PASSO_X, PASSO_Y } from "../modules/nexo/lib/layout-canvas.ts";
+import {
+  COLUNAS_DA_GRADE,
+  PASSO_X,
+  PASSO_Y,
+} from "../modules/nexo/lib/layout-canvas.ts";
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
 import { buildBalancedQuantities } from "../lib/ld/ld-rules.ts";
 
@@ -213,6 +239,20 @@ function selo(fileName: string, pageNumber: number): SeloForLd {
 
 const SELOS: SeloForLd[] = [1, 2, 3, 4, 5, 6].map((n) => selo("a.pdf", n));
 const PROJETADAS = folhas(SELOS, {});
+
+// A grade e a chave chegam INJETADAS no módulo puro; o teste passa as de
+// produção — um dublê aqui só provaria que o parâmetro é chamado.
+const GRADE: GradeDoDrop = {
+  colunas: COLUNAS_DA_GRADE,
+  passoX: PASSO_X,
+  passoY: PASSO_Y,
+};
+
+/** A divisão que estaria na tela: 3 folhas por tomo, como o automático faria. */
+const DIVISAO: { tomo: number; folhas: readonly Folha[] }[] = [
+  { tomo: 1, folhas: PROJETADAS.slice(0, 3) },
+  { tomo: 2, folhas: PROJETADAS.slice(3) },
+];
 
 // Duas fileiras: tomo 1 com as 3 primeiras, tomo 2 com as 3 últimas.
 const FILEIRAS: FileiraDoDrop[] = [
@@ -272,66 +312,106 @@ test("lista vazia não produz ordem nenhuma", () => {
 
 test("acerta a fileira e a posição pela coordenada", () => {
   // Sobre a 2ª folha do tomo 1.
-  const alvo = alvoDoDrop({ x: 780 + PASSO_X, y: 10 }, FILEIRAS);
+  const alvo = alvoDoDrop({ x: 780 + PASSO_X, y: 10 }, FILEIRAS, GRADE);
   assert.deepEqual(alvo, { tomo: 1, indice: 1 });
 });
 
 test("cair na folga entre a grade e o volume ainda é a fileira", () => {
   // Bem à direita da grade, mas dentro da faixa vertical do tomo 2.
-  const alvo = alvoDoDrop({ x: 780 + 40 * PASSO_X, y: 400 }, FILEIRAS);
+  const alvo = alvoDoDrop({ x: 780 + 40 * PASSO_X, y: 400 }, FILEIRAS, GRADE);
   assert.equal(alvo?.tomo, 2);
   // Clampado ao fim da fileira, não a um índice inventado.
   assert.equal(alvo?.indice, 3);
 });
 
 test("a segunda linha da grade continua a contagem", () => {
-  const alvo = alvoDoDrop({ x: 780, y: PASSO_Y + 5 }, FILEIRAS);
+  const alvo = alvoDoDrop({ x: 780, y: PASSO_Y + 5 }, FILEIRAS, GRADE);
   assert.deepEqual(alvo, { tomo: 1, indice: 3 });
 });
 
 test("fora de qualquer fileira devolve null", () => {
-  assert.equal(alvoDoDrop({ x: 780, y: 5000 }, FILEIRAS), null);
+  assert.equal(alvoDoDrop({ x: 780, y: 5000 }, FILEIRAS, GRADE), null);
 });
 
 // ---------------------------------------------------------------------------
 // ajusteDoDrop — e o que a montagem faz com ele
 // ---------------------------------------------------------------------------
 
-test("mover uma folha para o outro tomo escreve grupo E ordem", () => {
+test("mover uma folha para o outro tomo escreve grupo E ordem nela", () => {
   const movida = PROJETADAS[0];
-  const destino = PROJETADAS.slice(3);
-  const patches = ajusteDoDrop([movida], { tomo: 2, indice: 1 }, destino, true);
-  assert.equal(patches.length, 1);
-  assert.equal(patches[0].id, movida.id);
-  assert.equal(patches[0].patch.grupo, 2);
-  assert.ok(typeof patches[0].patch.ordem === "number");
+  const patches = ajusteDoDrop(
+    [movida],
+    { tomo: 2, indice: 1 },
+    PROJETADAS.slice(3),
+    DIVISAO,
+    chaveDeOrdem,
+  );
+  const daMovida = patches.find((p) => p.id === movida.id);
+  assert.equal(daMovida?.patch.grupo, 2);
+  assert.ok(typeof daMovida?.patch.ordem === "number");
 });
 
-test("com uma fileira só, reordena sem escrever grupo", () => {
-  const patches = ajusteDoDrop([PROJETADAS[2]], { tomo: 1, indice: 0 }, PROJETADAS, false);
+test("congela o palpite: TODA folha sem grupo ganha o tomo em que já estava", () => {
+  const patches = ajusteDoDrop(
+    [PROJETADAS[0]],
+    { tomo: 2, indice: 1 },
+    PROJETADAS.slice(3),
+    DIVISAO,
+    chaveDeOrdem,
+  );
+  // As 6 folhas saem com grupo — a arrastada no destino, as outras onde estavam.
+  assert.equal(patches.length, 6);
+  const porId = new Map(patches.map((p) => [p.id, p.patch]));
+  assert.equal(porId.get("a.pdf#2")?.grupo, 1);
+  assert.equal(porId.get("a.pdf#3")?.grupo, 1);
+  assert.equal(porId.get("a.pdf#4")?.grupo, 2);
+  // Congelar não inventa ordem para quem não se moveu.
+  assert.equal(porId.get("a.pdf#2")?.ordem, undefined);
+});
+
+test("sem divisão (uma fileira só), reordena sem escrever grupo nenhum", () => {
+  const patches = ajusteDoDrop(
+    [PROJETADAS[2]],
+    { tomo: 1, indice: 0 },
+    PROJETADAS,
+    null,
+    chaveDeOrdem,
+  );
+  assert.equal(patches.length, 1);
   assert.equal(patches[0].patch.grupo, undefined);
   assert.ok(typeof patches[0].patch.ordem === "number");
 });
 
-test("O TESTE QUE AMARRA: a montagem coloca a folha no tomo e na posição do drop", () => {
+test("O TESTE QUE AMARRA: a folha vai para o tomo e a posição do drop, e NENHUMA outra se mexe", () => {
   const movida = PROJETADAS[0]; // 1ª folha, hoje no tomo 1
-  const destino = PROJETADAS.slice(3); // tomo 2
-  const patches = ajusteDoDrop([movida], { tomo: 2, indice: 1 }, destino, true);
+  const patches = ajusteDoDrop(
+    [movida],
+    { tomo: 2, indice: 1 }, // entre a 4 e a 5
+    PROJETADAS.slice(3),
+    DIVISAO,
+    chaveDeOrdem,
+  );
 
   const ajustes: Record<FolhaId, Ajuste> = {};
   for (const p of patches) ajustes[p.id] = p.patch;
 
-  const reprojetadas = folhas(SELOS, ajustes);
-  const grupos = gruposDasFolhas(reprojetadas, 2, buildBalancedQuantities);
-  // Saiu do tomo 1...
-  assert.equal(grupos[0].includes(movida.id), false);
-  // ...e entrou no tomo 2, na 2ª posição (índice 1) do destino.
-  assert.equal(grupos[1][1], movida.id);
+  const grupos = gruposDasFolhas(folhas(SELOS, ajustes), 2, buildBalancedQuantities);
+  // O tomo 1 perdeu SÓ a folha arrastada.
+  assert.deepEqual(grupos[0], ["a.pdf#2", "a.pdf#3"]);
+  // O tomo 2 recebeu ela entre a 4 e a 5, e não perdeu ninguém.
+  assert.deepEqual(grupos[1], ["a.pdf#4", "a.pdf#1", "a.pdf#5", "a.pdf#6"]);
 });
 
 test("soltar exatamente onde já estava não escreve ajuste nenhum", () => {
   const movidas = PROJETADAS.slice(0, 2);
-  const patches = ajusteDoDrop(movidas, { tomo: 1, indice: 0 }, PROJETADAS.slice(0, 3), true);
+  const patches = ajusteDoDrop(
+    movidas,
+    { tomo: 1, indice: 0 },
+    PROJETADAS.slice(0, 3),
+    DIVISAO,
+    chaveDeOrdem,
+  );
+  // Nem o congelamento: gesto sem efeito não escreve nada.
   assert.deepEqual(patches, []);
 });
 
@@ -340,9 +420,11 @@ test("mas mover UMA casa dentro da mesma fileira escreve", () => {
     [PROJETADAS[0]],
     { tomo: 1, indice: 2 },
     PROJETADAS.slice(0, 3),
-    true,
+    DIVISAO,
+    chaveDeOrdem,
   );
-  assert.equal(patches.length, 1);
+  const daMovida = patches.find((p) => p.id === "a.pdf#1");
+  assert.ok(typeof daMovida?.patch.ordem === "number");
 });
 
 console.log(`\n${passed} teste(s) do drop OK`);
@@ -366,11 +448,20 @@ Criar `modules/nexo/lib/drop-folhas.ts`:
  * para o lugar, duas folhas com a mesma ordem — e um defeito desses só apareceria
  * no PDF montado.
  *
- * PURO: nenhum import de runtime.
+ * PURO: nenhum import de VALOR. Só `import type`, que é apagado em runtime — um
+ * import de valor com `.ts` faz o `tsc` do projeto falhar (TS5097), e sem o `.ts`
+ * o Node não resolve. Por isso a grade e a chave de ordenação chegam INJETADAS,
+ * do mesmo jeito que `folhas.ts` recebe `repartir`.
  */
 
-import { chaveDeOrdem, type Ajuste, type Folha, type FolhaId } from "./folhas.ts";
-import { COLUNAS_DA_GRADE, PASSO_X, PASSO_Y } from "./layout-canvas.ts";
+import type { Ajuste, Folha, FolhaId } from "./folhas.ts";
+
+/** As medidas da grade (`layout-canvas`), injetadas. */
+export interface GradeDoDrop {
+  colunas: number;
+  passoX: number;
+  passoY: number;
+}
 
 /** Uma fileira, como o canvas a desenhou: onde está e o que tem dentro. */
 export interface FileiraDoDrop {
@@ -399,15 +490,20 @@ function limitar(valor: number, minimo: number, maximo: number): number {
 export function alvoDoDrop(
   ponto: { x: number; y: number },
   fileiras: readonly FileiraDoDrop[],
+  grade: GradeDoDrop,
 ): { tomo: number; indice: number } | null {
   const fileira = fileiras.find(
     (f) => ponto.y >= f.topo && ponto.y < f.topo + f.altura,
   );
   if (!fileira) return null;
 
-  const coluna = limitar(Math.round((ponto.x - fileira.gradeX) / PASSO_X), 0, COLUNAS_DA_GRADE);
-  const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / PASSO_Y));
-  const indice = limitar(linha * COLUNAS_DA_GRADE + coluna, 0, fileira.folhas.length);
+  const coluna = limitar(
+    Math.round((ponto.x - fileira.gradeX) / grade.passoX),
+    0,
+    grade.colunas,
+  );
+  const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / grade.passoY));
+  const indice = limitar(linha * grade.colunas + coluna, 0, fileira.folhas.length);
   return { tomo: fileira.tomo, indice };
 }
 
@@ -440,14 +536,19 @@ export function ordensEntre(
 /**
  * O que escrever em `ajustes` por causa deste arrasto.
  *
- * `temDivisao` falso (uma fileira só) NÃO escreve `grupo`: sem divisão, gravar o
- * tomo seria inventar uma decisão que o usuário não tomou.
+ * CONGELA o palpite: toda folha sem `grupo` ganha o tomo em que já está. Sem isso,
+ * arrastar uma folha faz outra pular de tomo sozinha — a divisão automática
+ * reequilibra e puxa uma folha para a vaga que abriu.
+ *
+ * `divisaoAtual` nula (uma fileira só) NÃO escreve `grupo` nenhum: sem divisão,
+ * gravar o tomo seria inventar uma decisão que o usuário não tomou.
  */
 export function ajusteDoDrop(
   movidas: readonly Folha[],
   alvo: { tomo: number; indice: number },
   fileiraAlvo: readonly Folha[],
-  temDivisao: boolean,
+  divisaoAtual: readonly { tomo: number; folhas: readonly Folha[] }[] | null,
+  chaveDeOrdem: (f: Folha) => number,
 ): { id: FolhaId; patch: Ajuste }[] {
   if (movidas.length === 0) return [];
 
@@ -486,17 +587,35 @@ export function ajusteDoDrop(
   const proxima = indice < restantes.length ? chaveDeOrdem(restantes[indice]) : null;
   const ordens = ordensEntre(anterior, proxima, naOrdem.length);
 
-  return naOrdem.map((f, i) => ({
-    id: f.id,
-    patch: temDivisao ? { grupo: alvo.tomo, ordem: ordens[i] } : { ordem: ordens[i] },
-  }));
+  const patches = new Map<FolhaId, Ajuste>();
+
+  // Congela o palpite: quem não tem grupo ganha o tomo em que já está. Sem ordem
+  // — não se moveu, e inventar ordem para todo mundo fixaria o que não foi
+  // decidido.
+  if (divisaoAtual) {
+    for (const fileira of divisaoAtual) {
+      for (const f of fileira.folhas) {
+        if (f.grupo === undefined) patches.set(f.id, { grupo: fileira.tomo });
+      }
+    }
+  }
+
+  // As arrastadas vêm por último: elas mandam sobre o congelamento.
+  naOrdem.forEach((f, i) => {
+    patches.set(f.id, {
+      ...(divisaoAtual ? { grupo: alvo.tomo } : {}),
+      ordem: ordens[i],
+    });
+  });
+
+  return [...patches].map(([id, patch]) => ({ id, patch }));
 }
 ```
 
 - [ ] **Step 4: Rodar e ver passar**
 
 Run: `node scripts/test-nexo-drop.ts`
-Expected: 13 linhas `ok` e `13 teste(s) do drop OK`.
+Expected: 15 linhas `ok` e `15 teste(s) do drop OK`.
 
 - [ ] **Step 5: Registrar o script no `package.json`**
 
@@ -511,7 +630,14 @@ Abaixo de `"test:nexo:layout"`:
 - [ ] **Step 6: Rodar pelo npm**
 
 Run: `npm run test:nexo:drop`
-Expected: `13 teste(s) do drop OK`.
+Expected: `15 teste(s) do drop OK`.
+
+- [ ] **Step 6b: Verificar tipos**
+
+Run: `npx tsc --noEmit`
+Expected: sem erros. **Se aparecer TS5097** ("An import path can only end with a
+'.ts' extension when allowImportingTsExtensions is enabled"), é sinal de que
+sobrou um import de VALOR no módulo — ele só pode ter `import type`.
 
 - [ ] **Step 7: Commit**
 
@@ -527,6 +653,84 @@ daria uma ordem no lugar de onde ela esta saindo.
 
 O teste que amarra tudo aplica o ajuste e confere que gruposDasFolhas devolve a
 folha no tomo e na posicao do drop.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+git push origin main
+```
+
+- [ ] **Step 8: A marca âmbar não pode acender no canvas inteiro**
+
+Congelar escreve `grupo` em todas as folhas, e `editado` é verdadeiro para
+qualquer ajuste — então a marca de "corrigido à mão" no nó acenderia em todas
+elas depois do primeiro arrasto, mentindo sobre o que o usuário mexeu.
+
+Escrever o teste primeiro, em `scripts/test-nexo-folhas.ts` (antes do
+`console.log` final):
+
+```ts
+test("editadoTexto separa texto reescrito de folha só remanejada", () => {
+  const so_arranjo = folhas(SELOS, { "a.pdf#1": { grupo: 2, ordem: 3.5 } });
+  assert.equal(so_arranjo[0].editado, true);
+  assert.equal(so_arranjo[0].editadoTexto, false);
+
+  const com_texto = folhas(SELOS, { "a.pdf#1": { titulo: "OUTRO" } });
+  assert.equal(com_texto[0].editadoTexto, true);
+
+  const disciplina = folhas(SELOS, { "a.pdf#1": { disciplina: "ESTRUTURAL" } });
+  assert.equal(disciplina[0].editadoTexto, true);
+});
+```
+
+- [ ] **Step 9: Rodar e ver falhar**
+
+Run: `npm run test:nexo:folhas`
+Expected: FALHA — `editadoTexto` é `undefined`, não `false`.
+
+- [ ] **Step 10: Separar os dois na projeção**
+
+Em `modules/nexo/lib/folhas.ts`, dentro de `interface Folha`, logo depois de
+`editado`:
+
+```ts
+  /**
+   * O TEXTO foi reescrito (título ou disciplina). Diferente de `editado`, que é
+   * verdadeiro para qualquer ajuste: depois que o primeiro arrasto congela a
+   * divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão" no canvas
+   * acenderia em todas, mentindo sobre o que o usuário mexeu. Posição não é
+   * leitura de carimbo.
+   */
+  editadoTexto: boolean;
+```
+
+E no objeto devolvido por `folhas()`, junto de `editado`:
+
+```ts
+        editadoTexto: titulo !== null || disciplina !== null,
+```
+
+- [ ] **Step 11: O nó da folha passa a usar a marca certa**
+
+Em `modules/nexo/components/FolhaNode.tsx`, o campo `editado` de `FolhaNodeData`
+continua com o mesmo nome (é a marca visual), mas quem o alimenta muda. Nada a
+mudar neste arquivo — a troca é no canvas, e ela entra na Task 4. Anotar no
+relatório que `NexoCanvas.tsx` ainda passa `editado: f.editado` e que a Task 4 tem
+de trocar para `f.editadoTexto`.
+
+- [ ] **Step 12: Rodar, verificar e commitar**
+
+Run: `npm run test:nexo:folhas && npx tsc --noEmit`
+Expected: os testes de antes mais o novo, e tipos limpos.
+
+```bash
+git add modules/nexo/lib/folhas.ts scripts/test-nexo-folhas.ts
+git commit -m "Nexo: a projecao separa texto reescrito de folha remanejada
+
+Congelar a divisao escreve grupo em TODA folha, e `editado` e verdadeiro pra
+qualquer ajuste -- entao a marca de corrigido-a-mao acenderia no canvas inteiro
+depois do primeiro arrasto, mentindo sobre o que o usuario mexeu.
+
+`editadoTexto` diz se titulo ou disciplina foram trocados. Posicao nao e leitura
+de carimbo.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 git push origin main
@@ -778,6 +982,23 @@ quem arrasta é o `draggable` de cada nó — os de documento já vêm com
 ```
 
 (na hora de empurrar o nó de folha, dentro do `daFileira.forEach`)
+
+- [ ] **Step 5b: A marca âmbar passa a ler `editadoTexto`**
+
+No `useMemo`, no `data` do nó de folha, trocar a linha:
+
+```ts
+            editado: f.editado,
+```
+
+por:
+
+```ts
+            // `editadoTexto`, não `editado`: depois que o primeiro arrasto congela
+            // a divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão"
+            // acenderia no canvas inteiro, mentindo sobre o que o usuário mexeu.
+            editado: f.editadoTexto,
+```
 
 - [ ] **Step 6: Verificar tipos, lint e build**
 
