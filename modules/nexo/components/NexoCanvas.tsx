@@ -417,6 +417,13 @@ function CanvasInterno({
       }
     }
     for (const f of folhas) if (f.grupo !== undefined) declarados.add(f.grupo);
+    /*
+     * Nenhum documento gerado ainda, mas há folhas lidas: uma fileira nasce
+     * mesmo assim. Sem isto o canvas ficava vazio entre "os selos foram lidos" e
+     * "algo foi gerado" — justamente a hora natural de conferir e corrigir os
+     * títulos, e a única em que não dava para mexer em nada.
+     */
+    if (artifacts.length === 0 && folhas.length > 0) declarados.add(1);
 
     const grupos = agruparPorTomo(artifacts, [...declarados]);
     const fileiras: FileiraNavegavel[] = [];
