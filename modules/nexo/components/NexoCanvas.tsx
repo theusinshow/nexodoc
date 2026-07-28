@@ -19,6 +19,7 @@ import {
   Background,
   Controls,
   useReactFlow,
+  useNodesState,
   Handle,
   Position,
   MarkerType,
@@ -40,6 +41,7 @@ import { EditorDoNo } from "./EditorDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha, type FolhaId } from "../lib/folhas";
+import type { FileiraDoDrop } from "../lib/drop-folhas";
 import {
   alturaDaFileira,
   larguraDaGrade,
@@ -323,17 +325,6 @@ function CanvasInterno({
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
 
-  /*
-   * Seleção CONTROLADA por nós.
-   *
-   * O React Flow só seleciona por clique dentro do XYDrag, e o XYDrag nem é
-   * criado quando o nó não é arrastável (`disabled: !isDraggable` no useDrag).
-   * Como a ordem do canvas é canônica — arrastar não faria sentido —, os nós
-   * seguem fixos e a seleção passa pelo `onNodeClick`. Sem isto, clicar num
-   * documento não fazia nada e as ferramentas do nó nunca apareciam.
-   */
-  const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-
   // Prefeituras: lista fechada do campo da capa no editor do nó.
   const [templates, setTemplates] = useState<{ id: string; nome: string }[]>([]);
   useEffect(() => {
@@ -354,7 +345,7 @@ function CanvasInterno({
     [onCorrigirFolha],
   );
 
-  const { nodes, edges, fileiras } = useMemo(() => {
+  const { nodes: derivados, edges, fileiras, fileirasDoDrop, folhasPorTomo } = useMemo(() => {
     type Item = { id: string; rank: number; type: "artifact"; data: unknown };
 
     /*
@@ -400,6 +391,8 @@ function CanvasInterno({
 
     const nodes: Node[] = [];
     const edges: Edge[] = [];
+    const fileirasDoDrop: FileiraDoDrop[] = [];
+    const folhasPorTomo = new Map<number, Folha[]>();
 
     grupos.forEach((grupo, linha) => {
       const items: Item[] = grupo.itens
@@ -439,7 +432,6 @@ function CanvasInterno({
           position: { x: cursorX, y },
           data: it.data as Record<string, unknown>,
           draggable: false,
-          selected: it.id === selecionadoId,
         });
         if (anterior) {
           edges.push({
@@ -457,6 +449,8 @@ function CanvasInterno({
 
       antes.forEach(empurrar);
 
+      const gradeX = cursorX;
+
       daFileira.forEach((f, i) => {
         const p = posicaoNaGrade(i);
         const id = `folha:${f.id}`;
@@ -468,13 +462,15 @@ function CanvasInterno({
             id: f.id,
             numero: numeros[f.id] ?? null,
             titulo: f.conteudo ?? "",
-            editado: f.editado,
+            // `editadoTexto`, não `editado`: depois que o primeiro arrasto congela
+            // a divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão"
+            // acenderia no canvas inteiro, mentindo sobre o que o usuário mexeu.
+            editado: f.editadoTexto,
             podeAbrir: arquivosDisponiveis?.has(f.fileName) ?? false,
             onAbrir: abrirFolha,
             onCorrigir: corrigirFolha,
           } satisfies FolhaNodeData,
-          draggable: false,
-          selected: id === selecionadoId,
+          draggable: true,
         });
         idsDaFileira.push(id);
         // Só a PRIMEIRA folha recebe a seta: uma seta por folha viraria 200
@@ -495,6 +491,21 @@ function CanvasInterno({
 
       depois.forEach(empurrar);
 
+      /*
+       * A geometria que o drop vai consultar. `gradeX` é o cursor de ANTES dos
+       * documentos que vêm depois da grade — por isso é capturado aqui e não
+       * recalculado: recalcular seria repetir a regra de layout em dois lugares.
+       */
+      fileirasDoDrop.push({
+        tomo: grupo.tomo,
+        topo: y,
+        altura: alturaDaFileira(daFileira.length),
+        gradeX,
+        gradeY: y,
+        folhas: daFileira.map((f) => f.id),
+      });
+      folhasPorTomo.set(grupo.tomo, daFileira);
+
       // A fileira também vira destino de navegação (barra e teclas 1-9).
       fileiras.push({ tomo: grupo.tomo, ids: idsDaFileira });
 
@@ -512,7 +523,7 @@ function CanvasInterno({
       }
     });
 
-    return { nodes, edges, fileiras };
+    return { nodes, edges, fileiras, fileirasDoDrop, folhasPorTomo };
   }, [
     artifacts,
     folhas,
@@ -522,8 +533,35 @@ function CanvasInterno({
     corrigirFolha,
     results,
     templates,
-    selecionadoId,
   ]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+
+  /*
+   * A DERIVAÇÃO é a verdade: posição, rótulo e conteúdo de cada nó saem dela.
+   * O estado existe porque janela de seleção e arrasto são coisas que o React
+   * Flow entrega por `onNodesChange` — com nós somente-leitura, nada disso chega.
+   *
+   * Reconciliar preserva o que é do USUÁRIO (quais nós estão selecionados).
+   * Trocar o array inteiro apagaria a seleção sempre que qualquer coisa mudasse —
+   * inclusive no meio de um gesto.
+   */
+  const reconciliar = useCallback((novos: Node[], atuais: Node[]): Node[] => {
+    const selecionados = new Set(atuais.filter((n) => n.selected).map((n) => n.id));
+    return novos.map((n) => (selecionados.has(n.id) ? { ...n, selected: true } : n));
+  }, []);
+
+  /*
+   * O `setState` é adiado por rAF porque `setState` SÍNCRONO no corpo do effect é
+   * barrado pelo lint do React Compiler — é o mesmo jeito que `use-agent-state`
+   * já usa.
+   */
+  useEffect(() => {
+    const raf = requestAnimationFrame(() =>
+      setNodes((atuais) => reconciliar(derivados, atuais)),
+    );
+    return () => cancelAnimationFrame(raf);
+  }, [derivados, reconciliar, setNodes]);
 
   if (nodes.length === 0) {
     return (
@@ -544,17 +582,25 @@ function CanvasInterno({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.3}
         maxZoom={1.5}
-        nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable
-        onNodeClick={(_, no) => setSelecionadoId(no.id)}
-        onPaneClick={() => setSelecionadoId(null)}
+        /*
+         * Botão esquerdo no vazio DESENHA A JANELA de seleção; a tela se move
+         * com o botão do meio, o direito, ou espaço + arrastar. É o gesto do
+         * AutoCAD, que foi o pedido — e a única coisa que muda de hábito.
+         * `selectionKeyCode={null}` evita que Shift+arrastar vire uma segunda
+         * janela: Shift é o que SOMA à seleção.
+         */
+        selectionOnDrag
+        selectionKeyCode={null}
+        panOnDrag={[1, 2]}
         panOnScroll
         zoomOnScroll
       >
