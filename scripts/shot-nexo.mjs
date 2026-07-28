@@ -147,6 +147,31 @@ try {
     `${await nosDeFolha.count()} nós de folha para ${QUANTAS} pranchas`,
   );
 
+  // --- janela de seleção (4A) ----------------------------------------------
+  // Arrastar no VAZIO tem de selecionar as folhas cobertas, e não panorar. O
+  // defeito silencioso aqui seria a janela existir mas não marcar nada.
+  const caixaDoCanvas = await page.locator(".react-flow__pane").boundingBox();
+  await page.mouse.move(caixaDoCanvas.x + 8, caixaDoCanvas.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(
+    caixaDoCanvas.x + caixaDoCanvas.width - 8,
+    caixaDoCanvas.y + caixaDoCanvas.height - 8,
+    { steps: 12 },
+  );
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const selecionadas = await page
+    .locator('.react-flow__node[data-id^="folha:"].selected')
+    .count();
+  check(
+    "janela de seleção marca as folhas cobertas",
+    selecionadas > 0,
+    `${selecionadas} folhas selecionadas`,
+  );
+  // Limpa a seleção para as checagens seguintes não herdarem 3 nós marcados.
+  await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });
+  await page.waitForTimeout(200);
+
   // --- selecionar um nó: as ferramentas têm de FICAR -----------------------
   // Este é o defeito que os nós remontando causavam: o botão piscava e sumia.
   // Clica no NÓ (wrapper do React Flow), não num texto qualquer: "Capa · TOMO
