@@ -650,6 +650,19 @@ function NexoWorkspaceInner() {
     [selos, pranchaFiles],
   );
 
+  /*
+   * Texto vazio DESFAZ o ajuste: `aplicarAjuste` apaga o campo quando o patch traz
+   * `undefined`, e a folha volta a mostrar o que o selo dizia. A projeção também
+   * trata string em branco como ausente — as duas defesas existem porque um título
+   * vazio na LD é pior do que um título errado: some do documento sem avisar.
+   */
+  const corrigirFolha = useCallback(
+    (id: FolhaId, titulo: string) => {
+      conv.ajustarFolha(id, { titulo: titulo.trim() ? titulo : undefined });
+    },
+    [conv],
+  );
+
   return (
     <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
@@ -717,6 +730,7 @@ function NexoWorkspaceInner() {
             numeros={numerosDasFolhas}
             arquivosDisponiveis={arquivosDisponiveis}
             onAbrirFolha={abrirFolha}
+            onCorrigirFolha={corrigirFolha}
           />
         }
         copilot={
