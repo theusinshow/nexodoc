@@ -104,6 +104,10 @@ interface ConversationStoreValue {
   ajustarFolha: (id: FolhaId, patch: Ajuste) => void;
   /** Vários ajustes numa tacada (um arrasto de seleção). Um `setState` só. */
   ajustarFolhas: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
+  /** Quantos tomos o usuário declarou pelo canvas (0 = nenhum além dos gerados). */
+  tomosDeclarados: number;
+  /** Declara um tomo a mais: a fileira nasce vazia e vira destino de arrasto. */
+  declararTomos: (n: number) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
@@ -159,6 +163,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [messages, setMessages] = useState<NexoChatMessage[]>([]);
   const [seloResults, setSeloResultsState] = useState<SeloResult[]>([]);
   const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
+  const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [results, setResults] = useState<SavedResult[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
@@ -170,6 +175,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     messages,
     seloResults,
     ajustes,
+    tomosDeclarados,
     results,
     createdAt: 0,
   });
@@ -181,6 +187,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages,
       seloResults,
       ajustes,
+      tomosDeclarados,
       results,
       createdAt: snapshotRef.current.createdAt || Date.now(),
     };
@@ -228,6 +235,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages: s.messages,
       seloResults: s.seloResults,
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
+      ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
       results: resultsMeta,
     };
     putConversation(rec)
@@ -330,6 +338,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [schedulePersist],
   );
 
+  /*
+   * O usuário declarou mais um tomo pelo canvas. Fica no durável porque a fileira
+   * vazia precisa sobreviver ao F5 — senão o destino do arrasto some junto com o
+   * recarregamento, e o tomo novo vira um clique que não durou nada.
+   */
+  const declararTomos = useCallback(
+    (n: number) => {
+      setTomosDeclarados((atual) => Math.max(atual, Math.max(0, Math.floor(n))));
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
   // Persiste os blobs de um resultado e o expõe reidratado (URLs vivas).
   const saveResult = useCallback(
     async (input: SaveResultInput) => {
@@ -400,6 +421,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setMessages([]);
     setSeloResultsState([]);
     setAjustes({});
+    setTomosDeclarados(0);
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
     setResults((prev) => {
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -444,6 +466,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResultsState(rec.seloResults);
       // Conversa gravada antes deste campo existir não tem `ajustes`.
       setAjustes(rec.ajustes ?? {});
+      setTomosDeclarados(rec.tomosDeclarados ?? 0);
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {
         prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -478,6 +501,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       ajustarFolha,
       ajustarFolhas,
+      tomosDeclarados,
+      declararTomos,
       saveResult,
       getResult,
       removeResult,
@@ -499,6 +524,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       ajustarFolha,
       ajustarFolhas,
+      tomosDeclarados,
+      declararTomos,
       saveResult,
       getResult,
       removeResult,

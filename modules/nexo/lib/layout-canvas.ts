@@ -38,8 +38,13 @@ export const ALTURA_FOLHA = 56;
 export const PASSO_X = 128;
 /** Altura do nó da folha + respiro. */
 export const PASSO_Y = 64;
-/** Altura de uma fileira sem folhas — o bastante para os nós de documento. */
-export const ALTURA_MINIMA_FILEIRA = 330;
+/**
+ * Altura de uma fileira sem folhas — o bastante para o nó de DOCUMENTO, que é o
+ * mais alto do canvas: miniatura 200×267 (aspecto 3/4) + rótulo + título de até
+ * três linhas + estado + ações. Com 330 as fileiras se sobrepunham e o título da
+ * LD ficava cortado pela fileira de baixo.
+ */
+export const ALTURA_MINIMA_FILEIRA = 430;
 /** Respiro entre a grade e a fileira seguinte. */
 const FOLGA_DA_FILEIRA = 40;
 

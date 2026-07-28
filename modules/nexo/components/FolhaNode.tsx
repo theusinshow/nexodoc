@@ -12,9 +12,12 @@
 
 import { useState } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { ExternalLink, Pencil } from "lucide-react";
 
 import { AgentPopover } from "@/components/ui/agent-popover";
+import { Button } from "@/components/ui/button";
 import type { FolhaId } from "../lib/folhas";
+import { AcaoDoNo } from "./AcaoDoNo";
 
 export type FolhaNodeData = {
   id: FolhaId;
@@ -60,29 +63,26 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           seriam ruído maior que o conteúdo. */}
       {selected && (
         <div className="mt-1 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!data.podeAbrir}
-            onClick={() => data.onAbrir(data.id)}
-            title={
+          <AcaoDoNo
+            icone={ExternalLink}
+            rotulo="Abrir"
+            ajuda={
               data.podeAbrir
-                ? "Abrir a página original"
-                : "Reanexe as pranchas para ver a página"
+                ? "Abre a página original desta prancha em outra aba."
+                : "Os PDFs anexados não ficam guardados. Reanexe as pranchas para ver a página."
             }
-            className="nodrag nopan rounded-sm text-[10px] text-muted-foreground transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-          >
-            Abrir
-          </button>
-          <button
-            type="button"
+            desabilitado={!data.podeAbrir}
+            onClick={() => data.onAbrir(data.id)}
+          />
+          <AcaoDoNo
+            icone={Pencil}
+            rotulo="Corrigir"
+            ajuda="Troca o título que a IA leu do carimbo. O texto novo sai na LD gerada depois."
             onClick={() => {
               setTexto(data.titulo);
               setCorrigindo(true);
             }}
-            className="nodrag nopan rounded-sm text-[10px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-          >
-            Corrigir
-          </button>
+          />
         </div>
       )}
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -117,19 +117,18 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           Vazio devolve o título que o selo dizia.
         </p>
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setCorrigindo(false)}
-            className="nodrag nopan rounded-sm text-[11px] text-muted-foreground"
+            className="nodrag nopan"
           >
             Cancelar
-          </button>
-          <button
-            type="submit"
-            className="nodrag nopan rounded-sm text-[11px] font-medium text-primary"
-          >
+          </Button>
+          <Button type="submit" size="sm" className="nodrag nopan">
             Aplicar
-          </button>
+          </Button>
         </div>
       </form>
     </AgentPopover>

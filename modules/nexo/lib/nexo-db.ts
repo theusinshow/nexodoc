@@ -57,6 +57,12 @@ export interface StoredConversation {
    * isso não há migração de `DB_VERSION` — o registro é schemaless.
    */
   ajustes?: Record<FolhaId, Ajuste>;
+  /**
+   * Quantos tomos o usuário declarou pelo canvas. Existe para a fileira do tomo
+   * novo nascer VAZIA, antes de haver documento nela — sem fileira não há para
+   * onde arrastar folha.
+   */
+  tomosDeclarados?: number;
   results: StoredResultMeta[];
 }
 

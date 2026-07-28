@@ -680,6 +680,13 @@ function NexoWorkspaceInner() {
    * corrigidos ficam, porque não são divisão — quem desfaz o agrupamento não
    * está pedindo para perder o texto que reescreveu.
    */
+  // "+ Tomo": declara a fileira nova. Ela nasce vazia — com a divisão congelada
+  // nenhuma folha migra sozinha para lá, e é o arrasto que a preenche.
+  const criarTomo = useCallback(
+    (proximo: number) => conv.declararTomos(proximo),
+    [conv],
+  );
+
   const voltarAoAutomatico = useCallback(() => {
     const comGrupo = selos.filter((f) => f.grupo !== undefined);
     if (comGrupo.length === 0) return;
@@ -756,6 +763,8 @@ function NexoWorkspaceInner() {
             onCorrigirFolha={corrigirFolha}
             onMoverFolhas={moverFolhas}
             onVoltarAoAutomatico={voltarAoAutomatico}
+            onCriarTomo={criarTomo}
+            tomosDeclarados={conv.tomosDeclarados}
           />
         }
         copilot={

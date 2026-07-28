@@ -29,7 +29,7 @@ import {
   type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Maximize2, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
+import { Waypoints, Maximize2, MessageSquare, Trash2, SlidersHorizontal } from "lucide-react";
 
 import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
@@ -39,7 +39,10 @@ import { agruparPorTomo, tomoDoArtefato } from "../lib/results";
 import { orfaosAposDivisao } from "../lib/edicao";
 import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { EditorDoNo } from "./EditorDoNo";
+import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import {
   chaveDeOrdem,
@@ -177,10 +180,17 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
           de novo. Sem isso, montar o volume entrega um PDF errado sem aviso.
         */}
         {data.desatualizado && (
-          <p className="mb-1 flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--status-warning)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--status-warning)]" aria-hidden />
-            Desatualizado
-          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="mb-1 inline-flex">
+                <Badge variant="warning">Desatualizado</Badge>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              As folhas deste tomo mudaram depois que este documento foi gerado.
+              Gere de novo antes de montar o volume.
+            </TooltipContent>
+          </Tooltip>
         )}
         <p className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
           {data.label}
@@ -197,36 +207,31 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
             {data.detail}
           </p>
         )}
-        <div className="mt-1.5 flex items-center gap-3">
-          <button
-            type="button"
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <AcaoDoNo
+            icone={MessageSquare}
+            rotulo="Alterar no chat"
+            ajuda="Escreve o pedido no chat para o Nexo refazer este documento em conversa."
             onClick={editInChat}
-            className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-          >
-            <Pencil className="h-3 w-3" aria-hidden />
-            Alterar no chat
-          </button>
-          {/* Só o nó SELECIONADO oferece excluir: a ação some do caminho de quem
-              está só olhando o mapa do volume. */}
+          />
+          {/* Só o nó SELECIONADO oferece editar e excluir: as ações somem do
+              caminho de quem está só olhando o mapa do volume. */}
           {selected && !confirmando && data.editavel && (
-            <button
-              type="button"
+            <AcaoDoNo
+              icone={SlidersHorizontal}
+              rotulo="Editar aqui"
+              ajuda="Abre os campos deste documento (título, prefeitura, nº de tomos) e o regera na hora."
               onClick={() => setEditando(true)}
-              className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            >
-              <SlidersHorizontal className="h-3 w-3" aria-hidden />
-              Editar aqui
-            </button>
+            />
           )}
           {selected && !confirmando && (
-            <button
-              type="button"
+            <AcaoDoNo
+              icone={Trash2}
+              rotulo="Excluir"
+              ajuda="Tira este documento do canvas e do volume. A proposta volta ao chat, então regerar é um clique."
+              tom="perigo"
               onClick={() => setConfirmando(true)}
-              className="nodrag nopan flex items-center gap-1 rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            >
-              <Trash2 className="h-3 w-3" aria-hidden />
-              Excluir
-            </button>
+            />
           )}
         </div>
         {selected && confirmando && (
@@ -351,6 +356,8 @@ function CanvasInterno({
   onCorrigirFolha,
   onMoverFolhas,
   onVoltarAoAutomatico,
+  onCriarTomo,
+  tomosDeclarados = 0,
 }: {
   /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
   folhas?: Folha[];
@@ -364,6 +371,10 @@ function CanvasInterno({
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   /** Apaga os tomos decididos à mão e devolve a divisão ao automático. */
   onVoltarAoAutomatico?: () => void;
+  /** Declara mais um tomo: a fileira nasce vazia e vira destino de arrasto. */
+  onCriarTomo?: (proximo: number) => void;
+  /** Tomos que o usuário declarou pelo canvas (fileiras que ainda estão vazias). */
+  tomosDeclarados?: number;
 }) {
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
@@ -420,6 +431,9 @@ function CanvasInterno({
      * títulos, e a única em que não dava para mexer em nada.
      */
     if (artifacts.length === 0 && folhas.length > 0) declarados.add(1);
+    // Os tomos criados pelo botão "+ Tomo": nascem vazios, e é justamente
+    // por existirem vazios que há para onde arrastar.
+    for (let t = 1; t <= Math.min(99, tomosDeclarados); t++) declarados.add(t);
 
     const grupos = agruparPorTomo(artifacts, [...declarados]);
     const fileiras: FileiraNavegavel[] = [];
@@ -624,6 +638,7 @@ function CanvasInterno({
     corrigirFolha,
     results,
     templates,
+    tomosDeclarados,
   ]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -705,6 +720,9 @@ function CanvasInterno({
     ],
   );
 
+  // O tomo que o "+ Tomo" vai criar: o próximo depois do maior que existe.
+  const maiorTomo = fileiras.reduce((maior, f) => Math.max(maior, f.tomo), 0);
+
   if (nodes.length === 0) {
     return (
       <div className="flex h-full min-h-[240px] w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card text-center">
@@ -721,8 +739,10 @@ function CanvasInterno({
     <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
       <NavegacaoDoCanvas
         fileiras={fileiras}
+        proximoTomo={maiorTomo + 1}
         temGrupoManual={folhas.some((f) => f.grupo !== undefined)}
         onVoltarAoAutomatico={onVoltarAoAutomatico}
+        onCriarTomo={onCriarTomo ? () => onCriarTomo(maiorTomo + 1) : undefined}
       />
       <ReenquadrarAoCrescer quantidade={nodes.length} />
       <ReactFlow
@@ -809,6 +829,8 @@ export function NexoCanvas(props: {
   onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   onVoltarAoAutomatico?: () => void;
+  onCriarTomo?: (proximo: number) => void;
+  tomosDeclarados?: number;
 }) {
   return (
     <ReactFlowProvider>
