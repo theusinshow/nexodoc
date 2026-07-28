@@ -43,6 +43,14 @@ export interface Folha extends SeloForLd {
   id: FolhaId;
   /** Algum campo veio de ajuste — a interface marca o que foi tocado à mão. */
   editado: boolean;
+  /**
+   * O TEXTO foi reescrito (título ou disciplina). Diferente de `editado`, que é
+   * verdadeiro para qualquer ajuste: depois que o primeiro arrasto congela a
+   * divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão" no canvas
+   * acenderia em todas, mentindo sobre o que o usuário mexeu. Posição não é
+   * leitura de carimbo.
+   */
+  editadoTexto: boolean;
   grupo?: number;
   ordem?: number;
   /**
@@ -90,6 +98,7 @@ export function folhas(
         disciplina: disciplina ?? selo.disciplina,
         editado:
           titulo !== null || disciplina !== null || grupo !== undefined || ordem !== undefined,
+        editadoTexto: titulo !== null || disciplina !== null,
         ...(grupo !== undefined ? { grupo } : {}),
         ...(ordem !== undefined ? { ordem } : {}),
       } satisfies Folha,

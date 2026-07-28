@@ -258,4 +258,21 @@ test("chaveDeOrdem é `ordem` quando há, e a natural quando não há", () => {
   assert.deepEqual(out.map((f) => f.natural), [0, 2, 1]);
 });
 
+test("editadoTexto separa texto reescrito de folha só remanejada", () => {
+  // Por id, não por índice: `ordem: 3.5` reordena a.pdf#1 para o FIM da projeção
+  // (as outras duas folhas de SELOS têm natural 1 e 2, ambos < 3.5) — indexar
+  // [0] pegaria a folha errada e derrubaria a asserção seguinte por um motivo
+  // que nada tem a ver com o que este teste quer provar.
+  const so_arranjo = folhas(SELOS, { "a.pdf#1": { grupo: 2, ordem: 3.5 } });
+  const arranjada = so_arranjo.find((f) => f.id === "a.pdf#1")!;
+  assert.equal(arranjada.editado, true);
+  assert.equal(arranjada.editadoTexto, false);
+
+  const com_texto = folhas(SELOS, { "a.pdf#1": { titulo: "OUTRO" } });
+  assert.equal(com_texto.find((f) => f.id === "a.pdf#1")!.editadoTexto, true);
+
+  const disciplina = folhas(SELOS, { "a.pdf#1": { disciplina: "ESTRUTURAL" } });
+  assert.equal(disciplina.find((f) => f.id === "a.pdf#1")!.editadoTexto, true);
+});
+
 console.log(`\n${passed} teste(s) OK`);
