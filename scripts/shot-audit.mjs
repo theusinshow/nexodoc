@@ -196,7 +196,7 @@ try {
   // O veredito é o herói do topo do resultado: é ele que diz que acabou.
   }
 
-  const veredito = page.getByText(/NÃO EMITIR|REVISAR|LIBERADO/i);
+  const veredito = page.getByText(/NÃO EMITIR|REVISAR|LIBERADO|ANÁLISE PARCIAL/i);
   await veredito.first().waitFor({ timeout: 900000 });
   check("a auditoria terminou e mostrou o veredito", true);
   await page.screenshot({ path: `${OUT}/audit-2-resultado.png`, fullPage: true });
@@ -267,6 +267,20 @@ try {
   );
   }
 
+  /*
+   * O AVISO de análise parcial. Só existe quando alguma passada aborta — e aborto
+   * é intermitente, então a rodada normal não o exercita. Com DEGRADAR=1 o teste
+   * inverte a expectativa: aí o veredito TEM de se rebaixar, e passar batido é a
+   * falha. É a única forma de saber que o aviso funciona antes de precisar dele.
+   */
+  const textoTopo = await page.locator("body").innerText();
+  const avisouParcial = /AN[ÁA]LISE PARCIAL/i.test(textoTopo);
+  if (process.env.DEGRADAR === "1") {
+    check("com passada abortada, o veredito se rebaixa a ANÁLISE PARCIAL", avisouParcial);
+  } else {
+    check("sem aborto, o veredito NÃO grita análise parcial", !avisouParcial);
+  }
+
   // --- os achados que este memorial COMPROVADAMENTE tem -------------------
   for (const identidade of IDENTIDADES_ERRADAS) {
     check(
@@ -278,7 +292,7 @@ try {
   // --- as duas camadas do resultado ---------------------------------------
   check(
     "o veredito de emissão está no topo",
-    /NÃO EMITIR|REVISAR|LIBERADO/i.test(texto),
+    /NÃO EMITIR|REVISAR|LIBERADO|ANÁLISE PARCIAL/i.test(texto),
   );
   check(
     "achado de regra vem com o selo de verificado",
@@ -330,7 +344,12 @@ try {
     await menuDoAchado.first().click();
     await page.waitForTimeout(500);
   }
-  const abrirPdf = page.getByRole("button", { name: /Abrir PDF|Ver no PDF/i });
+  /*
+   * `menuitem`, não `button`: o DropdownItem declara `role="menuitem"`, e com role
+   * explícito o getByRole("button") não casa. O recurso existia desde sempre; o
+   * seletor é que procurava o papel errado.
+   */
+  const abrirPdf = page.getByRole("menuitem", { name: /Abrir PDF|Ver no PDF/i });
   if ((await abrirPdf.count()) > 0) {
     await abrirPdf.first().click();
     await page.waitForTimeout(2500);

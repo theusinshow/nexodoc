@@ -1002,9 +1002,12 @@ export function AuditResult({
             // Borda 1px completa + tint de fundo (sem side-stripe, sem emoji),
             // usando os tokens de status reais do sistema.
             "mb-5 flex flex-col gap-1 rounded-sm border px-4 py-3",
+            // ⚠️ = análise parcial. Sem este caso, o aviso caía no `else` e era
+            // pintado de VERDE — a cor de "liberado" — bem no estado em que o
+            // veredito diz para NÃO usar o resultado.
             verdict.emoji === "🔴"
               ? "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)]"
-              : verdict.emoji === "🟡"
+              : verdict.emoji === "🟡" || verdict.emoji === "⚠️"
                 ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
                 : "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]",
           )}
@@ -1016,7 +1019,7 @@ export function AuditResult({
                 "size-2 shrink-0 rounded-full",
                 verdict.emoji === "🔴"
                   ? "bg-[var(--status-critical)]"
-                  : verdict.emoji === "🟡"
+                  : verdict.emoji === "🟡" || verdict.emoji === "⚠️"
                     ? "bg-[var(--status-warning)]"
                     : "bg-[var(--status-ok)]",
               )}
