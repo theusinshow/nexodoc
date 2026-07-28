@@ -19,6 +19,7 @@ import {
 import {
   ajusteDoDrop,
   alvoDoDrop,
+  assinaturaDoTomo,
   folhasDoTomo,
   ordensEntre,
   precisaRespeitarOrdem,
@@ -309,6 +310,36 @@ test("precisaRespeitarOrdem só é verdadeiro quando há ordem manual no tomo", 
   // O tomo que não contém a folha reordenada continua com o carimbo mandando.
   const semAReordenada = re.filter((f) => f.id !== "a.pdf#1");
   assert.equal(precisaRespeitarOrdem(semAReordenada), false);
+});
+
+// ---------------------------------------------------------------------------
+// A assinatura do tomo (sub-projeto 4B): quando o documento envelheceu
+// ---------------------------------------------------------------------------
+
+test("a assinatura NÃO muda quando nada mudou", () => {
+  // O teste que impede a marca de acender sozinha: uma marca que pisca à toa
+  // vira ruído, e aí ela não avisa quando importa.
+  const a = assinaturaDoTomo(PROJETADAS.slice(0, 3));
+  const b = assinaturaDoTomo(folhas(SELOS, {}).slice(0, 3));
+  assert.equal(a, b);
+});
+
+test("a assinatura muda quando uma folha entra ou sai do tomo", () => {
+  const base = assinaturaDoTomo(PROJETADAS.slice(0, 3));
+  assert.notEqual(base, assinaturaDoTomo(PROJETADAS.slice(0, 2)));
+  assert.notEqual(base, assinaturaDoTomo(PROJETADAS.slice(0, 4)));
+});
+
+test("a assinatura muda quando duas folhas trocam de ordem", () => {
+  const base = assinaturaDoTomo(PROJETADAS.slice(0, 3));
+  const trocadas = [PROJETADAS[1], PROJETADAS[0], PROJETADAS[2]];
+  assert.notEqual(base, assinaturaDoTomo(trocadas));
+});
+
+test("a assinatura muda quando o título de uma folha é corrigido", () => {
+  const base = assinaturaDoTomo(PROJETADAS.slice(0, 3));
+  const comTitulo = folhas(SELOS, { "a.pdf#1": { titulo: "OUTRO TITULO" } });
+  assert.notEqual(base, assinaturaDoTomo(comTitulo.slice(0, 3)));
 });
 
 console.log(`\n${passed} teste(s) do drop OK`);

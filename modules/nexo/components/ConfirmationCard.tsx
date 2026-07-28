@@ -54,7 +54,8 @@ import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
-import { folhasDoTomo } from "../lib/drop-folhas";
+import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
+import { opcoesDoTomo } from "../lib/editar-artefato";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
@@ -491,25 +492,34 @@ function LdConfirmation({
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
   // O tomo entra na comparação: gerar o tomo 1 não deixa o tomo 2 "aplicado".
-  const estado = estadoDoArtefato(saved, { ...params, tomo: tomo.numero });
+  const estado = estadoDoArtefato(saved, {
+    ...params,
+    tomo: tomo.numero,
+    folhas: assinaturaDoTomo(opcoesDoTomo(selos, params.numTomos, tomo.atual).doTomo),
+  });
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
     setBusy(true);
     setError(null);
     try {
+      // A MESMA decisão do plano e do canvas: quais folhas são deste tomo. Este
+      // caminho ficou de fora do sub-projeto 5 e voltava a fatiar por quantidade.
+      const { doTomo, opts } = opcoesDoTomo(selos, params.numTomos, tomo.atual);
       const r = await postLd(selos, {
         tituloLd: titulo,
         numTomos: params.numTomos,
         tomoInicial: params.tomoInicial,
         tomoAtual: tomo.atual,
+        ...opts,
       });
       await saveResult({
         artifactId: id,
         kind: "ld",
         // Params que originaram o resultado — o card compara para saber se a
-        // proposta mudou desde a geração (ver estadoDoArtefato).
-        payload: { ...params, tomo: tomo.numero },
+        // proposta mudou desde a geração (ver estadoDoArtefato). A assinatura das
+        // folhas entra junto: é ela que denuncia o documento envelhecido.
+        payload: { ...params, tomo: tomo.numero, folhas: assinaturaDoTomo(doTomo) },
         summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas${
           r.warnings.length ? ` · ${r.warnings.length} aviso(s)` : ""
         }`,
@@ -966,9 +976,23 @@ function VolumeConfirmation({
     ld?.canvas?.label.replace(/^LD\s+/i, "").trim() ||
     "";
 
-  // O volume não tem params próprios: o que o define são as partes deste tomo.
-  const estado = estadoDoArtefato(saved, { tomo: tomo.numero });
-  const podeGerar = estado !== "aplicado";
+  /*
+   * O volume não tem params próprios: o que o define são as partes deste tomo —
+   * e QUAIS FOLHAS entraram nele. Sem a assinatura, arrastar uma folha deixava
+   * este volume descrevendo um conjunto que não existe mais, em silêncio.
+   */
+  const estado = estadoDoArtefato(saved, {
+    tomo: tomo.numero,
+    folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
+  });
+  /*
+   * Montar de novo segue SEMPRE disponível: o volume é derivado das partes e
+   * refazê-lo é barato. Antes disto o `estado` era sempre "pendente" (o volume
+   * não gravava payload); agora ele grava, e travar o botão quando nada mudou
+   * seria uma mudança de comportamento que ninguém pediu. `estado` aqui serve à
+   * marca de desatualizado.
+   */
+  const podeGerar = true;
 
   async function confirm() {
     setBusy(true);
@@ -1015,6 +1039,9 @@ function VolumeConfirmation({
       await saveResult({
         artifactId: id,
         kind: "volume",
+        // Quais folhas entraram neste volume — é o que o canvas compara depois
+        // para saber que ele envelheceu.
+        payload: { tomo: tomo.numero, folhas: assinaturaDoTomo(selosDoTomo as Folha[]) },
         summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
         canvas: {
           label: "Volume",

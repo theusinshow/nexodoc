@@ -19,7 +19,16 @@ export interface FileiraNavegavel {
 
 const MARGEM = 0.25;
 
-export function NavegacaoDoCanvas({ fileiras }: { fileiras: FileiraNavegavel[] }) {
+export function NavegacaoDoCanvas({
+  fileiras,
+  temGrupoManual = false,
+  onVoltarAoAutomatico,
+}: {
+  fileiras: FileiraNavegavel[];
+  /** Alguma folha tem tomo decidido à mão — só aí faz sentido desfazer. */
+  temGrupoManual?: boolean;
+  onVoltarAoAutomatico?: () => void;
+}) {
   const fluxo = useReactFlow();
 
   const irPara = useCallback(
@@ -74,8 +83,9 @@ export function NavegacaoDoCanvas({ fileiras }: { fileiras: FileiraNavegavel[] }
     return () => window.removeEventListener("keydown", onKey);
   }, [fluxo, fileiras, irPara]);
 
-  // Com uma fileira só, a barra seria ruído: não há para onde navegar.
-  if (fileiras.length <= 1) return null;
+  // Com uma fileira só a barra seria ruído — mas o desfazer da divisão ainda
+  // pode ser necessário (arrastar tudo para um tomo só deixa uma fileira).
+  if (fileiras.length <= 1 && !temGrupoManual) return null;
 
   return (
     <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border bg-[var(--nexodoc-panel)] p-1 shadow-[var(--shadow-panel)]">
@@ -94,6 +104,22 @@ export function NavegacaoDoCanvas({ fileiras }: { fileiras: FileiraNavegavel[] }
           {f.tomo > 0 ? `Tomo ${String(f.tomo).padStart(2, "0")}` : "Fora da divisão"}
         </button>
       ))}
+      {/*
+        Desfaz a divisão desenhada à mão. Só aparece quando ela existe: o
+        primeiro arrasto CONGELA o palpite automático (toda folha ganha tomo
+        fixo), e sem este caminho de volta mudar "Nº de tomos" não redivide mais
+        nada. Apaga só o tomo — a ordem e os títulos corrigidos ficam.
+      */}
+      {temGrupoManual && onVoltarAoAutomatico && (
+        <button
+          type="button"
+          onClick={onVoltarAoAutomatico}
+          title="Apaga os tomos decididos à mão e volta à divisão automática. Ordem e títulos corrigidos ficam."
+          className="ml-1 rounded-sm border-l border-border pl-2 pr-1 py-1 font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          Voltar ao automático
+        </button>
+      )}
     </div>
   );
 }

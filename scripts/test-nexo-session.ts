@@ -385,6 +385,23 @@ test("agruparPorTomo: uma fileira por tomo, em ordem", () => {
   assert.equal(g[0].itens.length, 2);
 });
 
+test("agruparPorTomo: tomo DECLARADO nasce como fileira vazia", () => {
+  // O tomo 3 ainda nao tem documento nenhum, mas foi declarado em "N de tomos".
+  // Sem fileira nao ha para onde arrastar folha — e criar tomo novo virou isso.
+  const g = agruparPorTomo([{ id: "ld:016:a:t01" }, { id: "ld:016:a:t02" }], [1, 2, 3]);
+  assert.deepEqual(
+    g.map((x) => x.tomo),
+    [1, 2, 3],
+  );
+  assert.equal(g[2].itens.length, 0, "a fileira nova nasce vazia");
+});
+
+test("agruparPorTomo: declarar um tomo que ja existe nao o duplica", () => {
+  const g = agruparPorTomo([{ id: "ld:016:a:t01" }], [1]);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].itens.length, 1);
+});
+
 test("agruparPorTomo: sobras da divisao anterior ficam por ULTIMO", () => {
   const g = agruparPorTomo([{ id: "volume:016" }, { id: "capa:016:t01" }]);
   assert.deepEqual(

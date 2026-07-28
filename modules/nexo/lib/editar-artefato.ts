@@ -14,7 +14,7 @@ import type { NexoArtifactKind } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "./folhas";
-import { folhasDoTomo, precisaRespeitarOrdem } from "./drop-folhas";
+import { assinaturaDoTomo, folhasDoTomo, precisaRespeitarOrdem } from "./drop-folhas";
 import { postCapa, postLd, postSeparatriz, ODT_MIME } from "./generate";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
@@ -220,6 +220,42 @@ export async function aplicarEdicaoNoNo(args: {
 /** Só para o tipo do `results` não vazar para o componente. */
 export type { SavedResult };
 
+/* ------------------------------------------------------ Folhas do tomo ----- */
+
+/**
+ * O que a montagem precisa saber sobre UM tomo: quais folhas são dele, e as
+ * opções que fazem o servidor respeitar essa decisão em vez de refazer a divisão
+ * por quantidade.
+ *
+ * Fica aqui, e não no módulo puro, porque depende de `buildBalancedQuantities`
+ * (import de runtime). Existe num lugar só porque são DOIS caminhos de geração —
+ * o plano e o card avulso — e um deles ficar para trás é exatamente como o PDF
+ * volta a discordar do canvas.
+ */
+export function opcoesDoTomo(
+  selos: SeloForLd[],
+  numTomos: number,
+  tomoAtual: number,
+): {
+  doTomo: Folha[];
+  opts: { folhasDoTomo?: string[]; respeitarOrdem?: boolean };
+} {
+  if (tomoAtual <= 0) return { doTomo: [], opts: {} };
+  const projecao = selos as Folha[];
+  const divisao = gruposDasFolhas(projecao, numTomos, buildBalancedQuantities);
+  const doTomo = folhasDoTomo(projecao, divisao, tomoAtual);
+  if (doTomo.length === 0) return { doTomo, opts: {} };
+  return {
+    doTomo,
+    opts: {
+      folhasDoTomo: doTomo.map((f) => f.id),
+      // O carimbo continua mandando na ordem, salvo se o usuário reordenou
+      // alguma folha DESTE tomo.
+      respeitarOrdem: precisaRespeitarOrdem(doTomo),
+    },
+  };
+}
+
 /* ------------------------------------------------- Geração em conjunto ----- */
 
 /** Um documento a gerar: o tipo, o tomo a que pertence e os params. */
@@ -294,32 +330,24 @@ export async function gerarItem(args: {
      * Os selos vão INTEIROS mesmo assim: o total de referência do carimbo
      * ("05/24") é contado sobre o conjunto, e mandar só a fatia viraria "05/12".
      */
-    const doTomo =
-      item.tomoAtual > 0
-        ? folhasDoTomo(
-            selos as Folha[],
-            gruposDasFolhas(selos as Folha[], num("numTomos", 1), buildBalancedQuantities),
-            item.tomoAtual,
-          )
-        : [];
+    const { doTomo, opts } = opcoesDoTomo(selos, num("numTomos", 1), item.tomoAtual);
     const r = await postLd(selos, {
       tituloLd: txt("tituloLd"),
       numTomos: num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: item.tomoAtual,
-      ...(doTomo.length > 0
-        ? {
-            folhasDoTomo: doTomo.map((f) => f.id),
-            // O carimbo continua mandando na ordem, salvo se o usuário reordenou
-            // alguma folha DESTE tomo.
-            respeitarOrdem: precisaRespeitarOrdem(doTomo),
-          }
-        : {}),
+      ...opts,
     });
     await saveResult({
       artifactId: args.idsBase.ld + item.sufixo,
       kind: "ld",
-      payload: { ...p, tomo: item.tomoNumero },
+      /*
+       * A assinatura das folhas entra no payload: é comparando-a com a projeção
+       * atual que o nó descobre que envelheceu. Sem ela, arrastar uma folha (ou
+       * corrigir um título) deixaria esta LD descrevendo um conjunto que não
+       * existe mais, sem nada na tela avisando.
+       */
+      payload: { ...p, tomo: item.tomoNumero, folhas: assinaturaDoTomo(doTomo) },
       summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
       canvas: {
         label: `LD ${r.resumo.disciplina}`,

@@ -56,6 +56,24 @@ export function folhasDoTomo(
 }
 
 /**
+ * Assinatura das folhas de um tomo: quem são, em que ordem, com que título.
+ *
+ * Gravada no `payload` do documento no momento da geração e recalculada a partir
+ * da projeção na hora de comparar — é isso que faz o nó saber que envelheceu.
+ * O TÍTULO entra porque a LD imprime o título de cada folha: corrigir um deixa o
+ * PDF velho tanto quanto mover uma folha de tomo.
+ *
+ * O separador é o caractere de unidade (U+001F), que não existe em nome de
+ * arquivo nem em título de prancha. Juntar por um caractere comum deixaria a
+ * assinatura de duas folhas colidir com a de uma só, e a marca deixaria de
+ * acender exatamente quando devia.
+ */
+export function assinaturaDoTomo(doTomo: readonly Folha[]): string {
+  const SEP = "\u001f";
+  return doTomo.map((f) => `${f.id}${SEP}${f.conteudo ?? ""}`).join(SEP);
+}
+
+/**
  * Alguma folha deste tomo foi reordenada à mão?
  *
  * Quando não, a montagem deve continuar ordenando pelo número do carimbo — é o

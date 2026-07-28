@@ -675,6 +675,17 @@ function NexoWorkspaceInner() {
     [conv],
   );
 
+  /*
+   * Desfaz a divisão desenhada à mão. Apaga SÓ o `grupo`: a ordem e os títulos
+   * corrigidos ficam, porque não são divisão — quem desfaz o agrupamento não
+   * está pedindo para perder o texto que reescreveu.
+   */
+  const voltarAoAutomatico = useCallback(() => {
+    const comGrupo = selos.filter((f) => f.grupo !== undefined);
+    if (comGrupo.length === 0) return;
+    conv.ajustarFolhas(comGrupo.map((f) => ({ id: f.id, patch: { grupo: undefined } })));
+  }, [conv, selos]);
+
   return (
     <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
@@ -744,6 +755,7 @@ function NexoWorkspaceInner() {
             onAbrirFolha={abrirFolha}
             onCorrigirFolha={corrigirFolha}
             onMoverFolhas={moverFolhas}
+            onVoltarAoAutomatico={voltarAoAutomatico}
           />
         }
         copilot={

@@ -51,6 +51,7 @@ import {
 import {
   ajusteDoDrop,
   alvoDoDrop,
+  assinaturaDoTomo,
   type FileiraDoDrop,
   type GradeDoDrop,
 } from "../lib/drop-folhas";
@@ -102,6 +103,8 @@ type ArtifactNodeData = CanvasArtifact & {
   templates?: { id: string; nome: string }[];
   tomosExistentes?: number[];
   selos?: Folha[];
+  /** As folhas do tomo mudaram desde que este documento foi gerado. */
+  desatualizado?: boolean;
 } & Record<string, unknown>;
 
 /**
@@ -168,6 +171,17 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
         )}
       </div>
       <div className="p-2">
+        {/*
+          O documento não descreve mais as folhas que estão no canvas. Fica ANTES
+          do rótulo porque é a informação que decide o que fazer com o nó: gerar
+          de novo. Sem isso, montar o volume entrega um PDF errado sem aviso.
+        */}
+        {data.desatualizado && (
+          <p className="mb-1 flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--status-warning)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--status-warning)]" aria-hidden />
+            Desatualizado
+          </p>
+        )}
         <p className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
           {data.label}
         </p>
@@ -340,6 +354,7 @@ function CanvasInterno({
   onAbrirFolha,
   onCorrigirFolha,
   onMoverFolhas,
+  onVoltarAoAutomatico,
 }: {
   /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
   folhas?: Folha[];
@@ -351,6 +366,8 @@ function CanvasInterno({
   onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
   /** O arrasto terminou: escreva estes ajustes. */
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
+  /** Apaga os tomos decididos à mão e devolve a divisão ao automático. */
+  onVoltarAoAutomatico?: () => void;
 }) {
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
@@ -386,7 +403,22 @@ function CanvasInterno({
      * O grupo "sem tomo" fica por último: são artefatos gerados ANTES da divisão
      * e que sobraram. Escondê-los faria o canvas mentir sobre o que existe.
      */
-    const grupos = agruparPorTomo(artifacts);
+    /*
+     * Os tomos que EXISTEM mesmo sem documento dentro: os que o usuário declarou
+     * em "Nº de tomos" (gravado no payload de quem foi gerado) e aqueles para
+     * onde ele já arrastou folha. É isso que dá destino ao arrasto quando o tomo
+     * é novo — a fileira nasce vazia, e o gesto a preenche.
+     */
+    const declarados = new Set<number>();
+    for (const r of results) {
+      const n = (r.payload as { numTomos?: unknown } | undefined)?.numTomos;
+      if (typeof n === "number" && Number.isFinite(n)) {
+        for (let t = 1; t <= Math.min(99, Math.floor(n)); t++) declarados.add(t);
+      }
+    }
+    for (const f of folhas) if (f.grupo !== undefined) declarados.add(f.grupo);
+
+    const grupos = agruparPorTomo(artifacts, [...declarados]);
     const fileiras: FileiraNavegavel[] = [];
     const tomosReais = grupos.filter((g) => g.tomo > 0).length;
 
@@ -419,6 +451,26 @@ function CanvasInterno({
 
     const topos = topoDasFileiras(folhasPorFileira.map((fs) => alturaDaFileira(fs.length)));
 
+    /*
+     * Um documento envelheceu quando as folhas do tomo dele não são mais as que
+     * ele descreve. A assinatura foi gravada no `payload` na hora de gerar; aqui
+     * ela é recalculada a partir da projeção de agora. Só LD e volume listam
+     * folhas — capa e separatriz não envelhecem por isso.
+     */
+    const porTomo = new Map<number, Folha[]>();
+    grupos.forEach((g, i) => porTomo.set(g.tomo, folhasPorFileira[i]));
+    const estaDesatualizado = (id: string, kind: NexoArtifactKind): boolean => {
+      if (kind !== "ld" && kind !== "volume") return false;
+      const gravada = (
+        results.find((r) => r.artifactId === id)?.payload as { folhas?: unknown } | undefined
+      )?.folhas;
+      // Documento gerado antes desta versão não tem assinatura: não se inventa
+      // marca para ele — uma marca que acende à toa vira ruído que se ignora.
+      if (typeof gravada !== "string") return false;
+      const tomo = tomoDoArtefato(id);
+      return assinaturaDoTomo(porTomo.get(tomo) ?? folhas) !== gravada;
+    };
+
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     const fileirasDoDrop: FileiraDoDrop[] = [];
@@ -439,6 +491,7 @@ function CanvasInterno({
             templates,
             tomosExistentes: artifacts.map((x) => tomoDoArtefato(x.id)),
             selos: folhas,
+            desatualizado: estaDesatualizado(a.id, a.kind),
           } as unknown,
         }))
         .sort((a, b) => a.rank - b.rank);
@@ -658,7 +711,11 @@ function CanvasInterno({
 
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
-      <NavegacaoDoCanvas fileiras={fileiras} />
+      <NavegacaoDoCanvas
+        fileiras={fileiras}
+        temGrupoManual={folhas.some((f) => f.grupo !== undefined)}
+        onVoltarAoAutomatico={onVoltarAoAutomatico}
+      />
       <ReenquadrarAoCrescer quantidade={nodes.length} />
       <ReactFlow
         nodes={nodes}
@@ -743,6 +800,7 @@ export function NexoCanvas(props: {
   onAbrirFolha?: (id: FolhaId) => void;
   onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
+  onVoltarAoAutomatico?: () => void;
 }) {
   return (
     <ReactFlowProvider>

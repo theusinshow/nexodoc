@@ -55,8 +55,17 @@ export function tomoDoArtefato(artifactId: string): number {
  */
 export function agruparPorTomo<T extends { id: string }>(
   artefatos: T[],
+  /**
+   * Tomos que EXISTEM mesmo sem documento gerado: os que o usuário declarou em
+   * "Nº de tomos" e aqueles para onde ele já arrastou folha. Sem isto, um tomo
+   * novo não teria fileira — e sem fileira não há para onde arrastar.
+   */
+  tomosDeclarados: readonly number[] = [],
 ): { tomo: number; itens: T[] }[] {
   const grupos = new Map<number, T[]>();
+  for (const t of tomosDeclarados) {
+    if (t > 0 && !grupos.has(t)) grupos.set(t, []);
+  }
   for (const a of artefatos) {
     const t = tomoDoArtefato(a.id);
     const atual = grupos.get(t);
