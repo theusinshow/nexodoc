@@ -136,6 +136,17 @@ try {
     `${await rotulosDeFileira.count()} rótulos`,
   );
 
+  // --- folhas como nós -----------------------------------------------------
+  // Sub-projeto 3: a pilha única virou UM NÓ POR FOLHA. A contagem exata também
+  // pega o defeito inverso: com a folha caindo em duas fileiras, o React Flow
+  // veria id repetido e o número viria dobrado.
+  const nosDeFolha = page.locator('.react-flow__node[data-id^="folha:"]');
+  check(
+    "cada folha vira um nó do canvas",
+    (await nosDeFolha.count()) === QUANTAS,
+    `${await nosDeFolha.count()} nós de folha para ${QUANTAS} pranchas`,
+  );
+
   // --- selecionar um nó: as ferramentas têm de FICAR -----------------------
   // Este é o defeito que os nós remontando causavam: o botão piscava e sumia.
   // Clica no NÓ (wrapper do React Flow), não num texto qualquer: "Capa · TOMO

@@ -6,12 +6,13 @@
  * ordem canônica do volume (capa → separatriz → LD → pranchas), com setas de
  * sequência, pan + zoom. v1 = READ-ONLY (drag-to-reorder é v1.5).
  *
- * Linha d'água (Apêndice H): o frame de DADO é MATTE. Invariante Artifact vs
- * Attachment (§4): as pranchas do usuário viram UM nó leve (stack + contagem),
- * nunca N frames pesados; só capa/separatriz/LD ganham miniatura real.
+ * Linha d'água (Apêndice H): o frame de DADO é MATTE. As pranchas do usuário
+ * viram UM NÓ POR FOLHA (texto puro, sem miniatura) — a pilha única de antes não
+ * era manipulável, e o sub-projeto 4 precisa endereçar folha a folha. Só
+ * capa/separatriz/LD ganham miniatura real.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -26,7 +27,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Waypoints, Layers, Maximize2, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
+import { Waypoints, Maximize2, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
 
 import type { NexoArtifactKind } from "../types";
 import { useArtifactStore, type CanvasArtifact } from "../state/artifact-store";
@@ -37,8 +38,15 @@ import { orfaosAposDivisao } from "../lib/edicao";
 import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { EditorDoNo } from "./EditorDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
-import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { faixasDosTomos } from "@/lib/ld/ld-rules";
+import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { gruposDasFolhas, type Folha, type FolhaId } from "../lib/folhas";
+import {
+  alturaDaFileira,
+  larguraDaGrade,
+  posicaoNaGrade,
+  topoDasFileiras,
+} from "../lib/layout-canvas";
+import { FolhaNode, type FolhaNodeData } from "./FolhaNode";
 import { ArtifactThumb } from "./ArtifactThumb";
 import { NavegacaoDoCanvas, type FileiraNavegavel } from "./NavegacaoDoCanvas";
 
@@ -68,22 +76,14 @@ const KIND_EDIT_LABEL: Partial<Record<NexoArtifactKind, string>> = {
   auditoria: "a auditoria",
 };
 
-/** Info lida (por IA, do carimbo) de UMA prancha anexada — mostrada no canvas. */
-export interface PranchaInfo {
-  folha: number | null;
-  descricao: string;
-  disciplina: string;
-}
-
 type ArtifactNodeData = CanvasArtifact & {
   /** Só capa/LD/separatriz abrem editor; volume é derivado. */
   editavel?: boolean;
   params?: Record<string, unknown>;
   templates?: { id: string; nome: string }[];
   tomosExistentes?: number[];
-  selos?: SeloForLd[];
+  selos?: Folha[];
 } & Record<string, unknown>;
-type StackNodeData = { count: number; infos: PranchaInfo[] } & Record<string, unknown>;
 
 /**
  * Nó de artefato. A MINIATURA abre o PDF em tamanho real (resolve o "não dá pra
@@ -266,55 +266,13 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
 }
 
 /**
- * Pranchas anexadas = UM nó leve com a INFO lida do carimbo de cada folha (imagem
- * PADRÃO = ícone, sem renderizar PDF). Mostra o que a IA leu (folha + descrição).
- */
-function StackNode({ data }: NodeProps<Node<StackNodeData>>) {
-  const disciplina = data.infos.find((p) => p.disciplina)?.disciplina;
-  return (
-    <div className="w-[228px] overflow-hidden rounded-md border border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-border bg-[var(--nexodoc-recessed)]">
-          <Layers className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] tabular-nums">
-            {data.count} prancha{data.count === 1 ? "" : "s"}
-          </p>
-          <p className="truncate text-[10px] text-muted-foreground">
-            selos lidos{disciplina ? ` · ${disciplina}` : ""}
-          </p>
-        </div>
-      </div>
-      {data.infos.length > 0 && (
-        <div className="nowheel max-h-[210px] overflow-y-auto">
-          {data.infos.map((p, i) => (
-            <div
-              key={i}
-              className="flex gap-2 border-b border-border/50 px-2.5 py-1.5 last:border-0"
-            >
-              <span className="w-6 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
-                {p.folha != null ? String(p.folha).padStart(2, "0") : "—"}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[11px]" title={p.descricao}>
-                {p.descricao || "—"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      <Handle type="target" position={Position.Left} className="!opacity-0" />
-      <Handle type="source" position={Position.Right} className="!opacity-0" />
-    </div>
-  );
-}
-
-/**
  * Rótulo da fileira: diz de que tomo é aquele volume. "Sem tomo" nomeia o que
  * sobrou de uma divisão anterior — é resto, e o engenheiro precisa saber disso
  * para excluir em vez de achar que faz parte.
  */
-function RotuloNode({ data }: NodeProps<Node<{ tomo: number } & Record<string, unknown>>>) {
+function RotuloNode({
+  data,
+}: NodeProps<Node<{ tomo: number; folhas: number } & Record<string, unknown>>>) {
   const ehResto = data.tomo === 0;
   return (
     <div className="w-[130px] text-right">
@@ -327,6 +285,12 @@ function RotuloNode({ data }: NodeProps<Node<{ tomo: number } & Record<string, u
       >
         {ehResto ? "Fora da divisão" : `Tomo ${String(data.tomo).padStart(2, "0")}`}
       </p>
+      {/* A contagem era o que a pilha dava de relance; ela morreu, isto fica. */}
+      {data.folhas > 0 && (
+        <p className="mt-0.5 text-[10px] leading-tight tabular-nums text-muted-foreground">
+          {data.folhas} folha{data.folhas === 1 ? "" : "s"}
+        </p>
+      )}
       {ehResto && (
         <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
           gerado antes de dividir
@@ -336,19 +300,25 @@ function RotuloNode({ data }: NodeProps<Node<{ tomo: number } & Record<string, u
   );
 }
 
-const nodeTypes = { artifact: ArtifactNode, stack: StackNode, rotulo: RotuloNode };
+const nodeTypes = { artifact: ArtifactNode, rotulo: RotuloNode, folha: FolhaNode };
 
 const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
 
 function CanvasInterno({
-  pranchasCount = 0,
-  pranchas = [],
-  selos = [],
+  folhas = [],
+  numeros = {},
+  arquivosDisponiveis,
+  onAbrirFolha,
+  onCorrigirFolha,
 }: {
-  pranchasCount?: number;
-  pranchas?: PranchaInfo[];
-  /** Selos lidos — a regeneração pelo nó precisa deles. */
-  selos?: SeloForLd[];
+  /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
+  folhas?: Folha[];
+  /** Número da folha resolvido por `resolveSheetNumbers`, por id. */
+  numeros?: Record<FolhaId, number | null>;
+  /** Nomes de arquivo com bytes em memória — sem eles não dá para abrir a página. */
+  arquivosDisponiveis?: ReadonlySet<string>;
+  onAbrirFolha?: (id: FolhaId) => void;
+  onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
 }) {
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
@@ -373,8 +343,19 @@ function CanvasInterno({
       .catch(() => {});
   }, []);
 
+  /*
+   * Estáveis de propósito: eles entram no `data` de cada nó de folha, e uma
+   * função nova a cada render recriaria todos os nós — o mesmo defeito que fazia
+   * o popover fechar no instante em que abria.
+   */
+  const abrirFolha = useCallback((id: FolhaId) => onAbrirFolha?.(id), [onAbrirFolha]);
+  const corrigirFolha = useCallback(
+    (id: FolhaId, titulo: string) => onCorrigirFolha?.(id, titulo),
+    [onCorrigirFolha],
+  );
+
   const { nodes, edges, fileiras } = useMemo(() => {
-    type Item = { id: string; rank: number; type: "artifact" | "stack"; data: unknown };
+    type Item = { id: string; rank: number; type: "artifact"; data: unknown };
 
     /*
      * UMA FILEIRA POR TOMO. Cada tomo é um volume físico (capa → separatriz →
@@ -387,6 +368,35 @@ function CanvasInterno({
     const grupos = agruparPorTomo(artifacts);
     const fileiras: FileiraNavegavel[] = [];
     const tomosReais = grupos.filter((g) => g.tomo > 0).length;
+
+    /*
+     * A divisão sai de `gruposDasFolhas`, não mais de `faixasDosTomos`: ela
+     * respeita o `grupo` manual e só cai na divisão por quantidade quando não há
+     * nenhum. Sem grupo manual as duas dão o mesmo resultado — há teste para essa
+     * igualdade. Sem esta troca, arrastar uma folha (sub-projeto 4) faria ela
+     * voltar para o lugar, porque a tela continuaria dividindo por contagem.
+     */
+    const divisao =
+      tomosReais > 1 ? gruposDasFolhas(folhas, tomosReais, buildBalancedQuantities) : [];
+    const porId = new Map(folhas.map((f) => [f.id, f]));
+
+    // As folhas de cada fileira, decididas ANTES de posicionar: a altura da
+    // fileira depende de quantas folhas ela tem.
+    const folhasPorFileira = grupos.map((grupo) => {
+      // Com vários tomos, a folha pertence a UM tomo. A fileira "fora da divisão"
+      // não recebe folha nenhuma: id repetido em duas fileiras quebra o React
+      // Flow, e uma folha em dois volumes seria mentira sobre a montagem.
+      if (tomosReais > 1) {
+        return grupo.tomo > 0
+          ? (divisao[grupo.tomo - 1] ?? [])
+              .map((id) => porId.get(id))
+              .filter((f): f is Folha => f !== undefined)
+          : [];
+      }
+      return folhas;
+    });
+
+    const topos = topoDasFileiras(folhasPorFileira.map((fs) => alturaDaFileira(fs.length)));
 
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -405,50 +415,88 @@ function CanvasInterno({
               | undefined,
             templates,
             tomosExistentes: artifacts.map((x) => tomoDoArtefato(x.id)),
-            selos,
+            selos: folhas,
           } as unknown,
         }))
         .sort((a, b) => a.rank - b.rank);
 
-      // A pilha de pranchas acompanha o tomo: cada volume leva a SUA fatia.
-      if (pranchasCount > 0) {
-        const faixa =
-          grupo.tomo > 0 && tomosReais > 1
-            ? faixasDosTomos(pranchas.length || pranchasCount, tomosReais)[grupo.tomo - 1]
-            : null;
-        const infos = faixa ? pranchas.slice(faixa.inicio - 1, faixa.fim) : pranchas;
-        const count = faixa ? faixa.fim - faixa.inicio + 1 : pranchasCount;
-        items.push({
-          id: grupo.tomo > 0 ? `pranchas:t${grupo.tomo}` : "pranchas",
-          rank: PRANCHAS_RANK,
-          type: "stack",
-          data: { count, infos },
-        });
-      }
+      const y = topos[linha];
+      const daFileira = folhasPorFileira[linha];
 
-      const y = linha * 330;
-      items.forEach((it, i) => {
+      // A grade das folhas entra na posição canônica (depois da LD, antes do
+      // volume): os documentos antes dela, os de depois deslocados pela largura.
+      const antes = items.filter((it) => it.rank < PRANCHAS_RANK);
+      const depois = items.filter((it) => it.rank > PRANCHAS_RANK);
+
+      let cursorX = 0;
+      let anterior: string | null = null;
+      const idsDaFileira: string[] = [];
+
+      const empurrar = (it: Item) => {
         nodes.push({
           id: it.id,
           type: it.type,
-          position: { x: i * 260, y },
+          position: { x: cursorX, y },
           data: it.data as Record<string, unknown>,
           draggable: false,
           selected: it.id === selecionadoId,
         });
-        if (i > 0) {
+        if (anterior) {
           edges.push({
-            id: `${items[i - 1].id}->${it.id}`,
-            source: items[i - 1].id,
+            id: `${anterior}->${it.id}`,
+            source: anterior,
             target: it.id,
             style: { stroke: "var(--ring)", strokeWidth: 1.5, opacity: 0.5 },
             markerEnd: { type: MarkerType.ArrowClosed, color: "var(--ring)" },
           });
         }
+        anterior = it.id;
+        idsDaFileira.push(it.id);
+        cursorX += 260;
+      };
+
+      antes.forEach(empurrar);
+
+      daFileira.forEach((f, i) => {
+        const p = posicaoNaGrade(i);
+        const id = `folha:${f.id}`;
+        nodes.push({
+          id,
+          type: "folha",
+          position: { x: cursorX + p.x, y: y + p.y },
+          data: {
+            id: f.id,
+            numero: numeros[f.id] ?? null,
+            titulo: f.conteudo ?? "",
+            editado: f.editado,
+            podeAbrir: arquivosDisponiveis?.has(f.fileName) ?? false,
+            onAbrir: abrirFolha,
+            onCorrigir: corrigirFolha,
+          } satisfies FolhaNodeData,
+          draggable: false,
+          selected: id === selecionadoId,
+        });
+        idsDaFileira.push(id);
+        // Só a PRIMEIRA folha recebe a seta: uma seta por folha viraria 200
+        // linhas cruzando a grade, e a sequência já é dada pela leitura dela.
+        if (i === 0 && anterior) {
+          edges.push({
+            id: `${anterior}->${id}`,
+            source: anterior,
+            target: id,
+            style: { stroke: "var(--ring)", strokeWidth: 1.5, opacity: 0.5 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "var(--ring)" },
+          });
+        }
+        if (i === daFileira.length - 1) anterior = id;
       });
 
+      if (daFileira.length > 0) cursorX += larguraDaGrade(daFileira.length) + 60;
+
+      depois.forEach(empurrar);
+
       // A fileira também vira destino de navegação (barra e teclas 1-9).
-      fileiras.push({ tomo: grupo.tomo, ids: items.map((it) => it.id) });
+      fileiras.push({ tomo: grupo.tomo, ids: idsDaFileira });
 
       // Rótulo da fileira. Só aparece quando há divisão — com um volume só ele
       // seria ruído.
@@ -457,7 +505,7 @@ function CanvasInterno({
           id: `rotulo:${grupo.tomo}`,
           type: "rotulo",
           position: { x: -150, y: y + 130 },
-          data: { tomo: grupo.tomo },
+          data: { tomo: grupo.tomo, folhas: daFileira.length },
           draggable: false,
           selectable: false,
         });
@@ -465,7 +513,17 @@ function CanvasInterno({
     });
 
     return { nodes, edges, fileiras };
-  }, [artifacts, pranchasCount, pranchas, results, templates, selos, selecionadoId]);
+  }, [
+    artifacts,
+    folhas,
+    numeros,
+    arquivosDisponiveis,
+    abrirFolha,
+    corrigirFolha,
+    results,
+    templates,
+    selecionadoId,
+  ]);
 
   if (nodes.length === 0) {
     return (
@@ -551,9 +609,11 @@ function ReenquadrarAoCrescer({ quantidade }: { quantidade: number }) {
  * programaticamente (ir para um tomo, reenquadrar) depende dele.
  */
 export function NexoCanvas(props: {
-  pranchasCount?: number;
-  pranchas?: PranchaInfo[];
-  selos?: SeloForLd[];
+  folhas?: Folha[];
+  numeros?: Record<FolhaId, number | null>;
+  arquivosDisponiveis?: ReadonlySet<string>;
+  onAbrirFolha?: (id: FolhaId) => void;
+  onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
 }) {
   return (
     <ReactFlowProvider>

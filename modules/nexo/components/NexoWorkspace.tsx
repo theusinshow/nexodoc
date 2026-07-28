@@ -27,7 +27,7 @@ import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
-import { NexoCanvas, type PranchaInfo } from "./NexoCanvas";
+import { NexoCanvas } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { folhas, type FolhaId } from "../lib/folhas";
@@ -98,6 +98,14 @@ function NexoWorkspaceInner() {
   // Pranchas originais retidas (bytes p/ montar o volume) e memorial anexado
   // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
   const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
+  // Object URLs das pranchas abertas pelo canvas, um por arquivo.
+  const urlsDasPranchas = useRef(new Map<string, string>());
+  // Limpa as pranchas e os object URLs que elas geraram, sem vazar.
+  const limparPranchas = useCallback(() => {
+    urlsDasPranchas.current.forEach((url) => URL.revokeObjectURL(url));
+    urlsDasPranchas.current.clear();
+    setPranchaFiles([]);
+  }, []);
   const [memorialFile, setMemorialFile] = useState<File | null>(null);
   // Anexos com preview imediato (imagem = miniatura; PDF = ícone). Só visual.
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -444,7 +452,7 @@ function NexoWorkspaceInner() {
         setFolderCount(0);
         setDossie(null);
         conv.newConversation(); // limpa mensagens + selos no store durável
-        setPranchaFiles([]);
+        limparPranchas();
         setMemorialFile(null);
         setAttachments((prev) => {
           prev.forEach((a) => a.url && URL.revokeObjectURL(a.url));
@@ -467,7 +475,7 @@ function NexoWorkspaceInner() {
         setFiles([]);
         setFolderCount(0);
         setDossie(null);
-        setPranchaFiles([]);
+        limparPranchas();
         setMemorialFile(null);
         setAttachments((prev) => {
           prev.forEach((a) => a.url && URL.revokeObjectURL(a.url));
@@ -596,25 +604,51 @@ function NexoWorkspaceInner() {
   // Contexto derivado dos selos (o que o Nexo já entendeu) — popover do orb.
   const agentContext = summarizeSelos(selos);
 
-  // Info por prancha (folha + descrição lidas do carimbo pela IA) → canvas.
-  const pranchaInfos = useMemo<PranchaInfo[]>(() => {
-    const folhas = resolveSheetNumbers(
-      seloResults.map((r) => ({
-        fileName: r.fileName,
-        pageNumber: r.pageNumber,
-        arquivo: r.extraction?.arquivo,
-        folha: r.extraction?.folha,
+  // Número da folha (resolvido entre arquivos) por id — derivação dos selos, não
+  // ajuste: por isso mora aqui e não no módulo puro da projeção.
+  const numerosDasFolhas = useMemo(() => {
+    const resolvidos = resolveSheetNumbers(
+      selos.map((f) => ({
+        fileName: f.fileName,
+        pageNumber: f.pageNumber,
+        arquivo: f.arquivo,
+        folha: f.folha,
       })),
     );
-    return seloResults
-      .map((r, i) => ({
-        folha: folhas[i],
-        descricao: (r.extraction?.conteudo || r.extraction?.tituloSecao || "").trim(),
-        disciplina: r.extraction?.disciplina ?? "",
-      }))
-      .filter((p) => p.folha != null || p.descricao)
-      .sort((a, b) => (a.folha ?? 9999) - (b.folha ?? 9999));
-  }, [seloResults]);
+    const mapa: Record<FolhaId, number | null> = {};
+    selos.forEach((f, i) => {
+      mapa[f.id] = resolvidos[i] ?? null;
+    });
+    return mapa;
+  }, [selos]);
+
+  // Quais pranchas ainda têm bytes em memória. Numa conversa restaurada isto é
+  // vazio: os PDFs de ENTRADA não persistem, só os gerados.
+  const arquivosDisponiveis = useMemo(
+    () => new Set(pranchaFiles.map((f) => f.name)),
+    [pranchaFiles],
+  );
+
+  /*
+   * Object URL por ARQUIVO, retido num cache. Revogar logo depois do `open`
+   * mataria a aba antes de ela carregar o PDF; o cache é limpo no mesmo ponto em
+   * que `pranchaFiles` é zerado (nova conversa / trocar de conversa).
+   */
+  const abrirFolha = useCallback(
+    (id: FolhaId) => {
+      const folha = selos.find((f) => f.id === id);
+      if (!folha) return;
+      const file = pranchaFiles.find((f) => f.name === folha.fileName);
+      if (!file) return;
+      let url = urlsDasPranchas.current.get(file.name);
+      if (!url) {
+        url = URL.createObjectURL(file);
+        urlsDasPranchas.current.set(file.name, url);
+      }
+      window.open(`${url}#page=${folha.pageNumber ?? 1}`, "_blank", "noopener,noreferrer");
+    },
+    [selos, pranchaFiles],
+  );
 
   return (
     <>
@@ -679,9 +713,10 @@ function NexoWorkspaceInner() {
         }
         stage={
           <NexoCanvas
-            pranchasCount={okCount}
-            pranchas={pranchaInfos}
-            selos={selos}
+            folhas={selos}
+            numeros={numerosDasFolhas}
+            arquivosDisponiveis={arquivosDisponiveis}
+            onAbrirFolha={abrirFolha}
           />
         }
         copilot={
