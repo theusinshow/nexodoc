@@ -785,7 +785,10 @@ export function AuditResult({
   };
   // Item 12 — veredito de emissão só a partir dos achados sólidos.
   const verdict = report
-    ? getEmissionVerdict(report.incongruencias.filter((finding) => classifyFindingTier(finding) === "principal"))
+    ? getEmissionVerdict(
+        report.incongruencias.filter((finding) => classifyFindingTier(finding) === "principal"),
+        report.runtime?.passadas_incompletas ?? [],
+      )
     : null;
   const groupedReportFindings = report
     ? groupFindingsByImpact(report.incongruencias)

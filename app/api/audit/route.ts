@@ -491,7 +491,33 @@ function getDeepGlobalTimeoutMs() {
     return Math.min(480_000, Math.floor(value));
   }
 
-  return 300_000;
+  /*
+   * 480s, não 300s. Medido no 017-26 com o documento inteiro (78k tokens de
+   * entrada): 181s, 192s, 202s e um aborto aos 300s. A leitura global é a coisa
+   * mais valiosa da auditoria profunda; apertar o tempo dela troca qualidade por
+   * uma economia que ninguém pediu.
+   */
+  return 480_000;
+}
+
+/*
+ * A validação tem tempo PRÓPRIO, não o de bloco.
+ *
+ * Ela herdava `getChunkTimeoutMs()` — orçamento pensado para um capítulo curto —
+ * mas no Profundo recebe os achados de uma leitura do documento INTEIRO, que
+ * sozinha leva 180s+. Resultado medido no 017-26: `status=FAILED ... 120014ms ::
+ * Request was aborted` em toda auditoria profunda, ou seja, a passada que rebaixa
+ * achado incerto para "Sugestão" e filtra alucinação simplesmente não rodava
+ * justamente no modo que mais depende dela.
+ */
+function getValidationTimeoutMs(analysisLevel: AnalysisLevel) {
+  const value = Number(process.env.NEXODOC_VALIDATION_TIMEOUT_MS);
+
+  if (Number.isFinite(value) && value >= 60_000) {
+    return Math.min(480_000, Math.floor(value));
+  }
+
+  return analysisLevel === "deep" ? 300_000 : getChunkTimeoutMs();
 }
 
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
@@ -2046,6 +2072,8 @@ async function analyzeFileGloballyWithModel(args: {
   extracted: ExtractedPdf;
   conversationId?: string | null;
   userEmail?: string | null;
+  /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
+  degradacoes?: PassadaIncompleta[];
 }) {
   const model = getPrimaryModelName(args.analysisLevel, "global");
   let parsed;
@@ -2090,6 +2118,16 @@ async function analyzeFileGloballyWithModel(args: {
     // determinísticos (identidade, coerência) já valem sozinhos. Só registramos.
     const reason = (error as { message?: string })?.message ?? String(error);
     console.error(`[audit] ${args.fileName}: leitura global ignorada (${reason.slice(0, 160)})`);
+    /*
+     * Best-effort NÃO é silencioso. Sem este registro, uma auditoria em que a
+     * leitura do documento inteiro abortou chega na tela com a mesma cara de uma
+     * completa — e o veredito diz "pode emitir" apoiado numa análise que não
+     * aconteceu. Medido: aborto aos 300s no 017-26.
+     */
+    args.degradacoes?.push({
+      passada: "Leitura global do documento",
+      motivo: reason.slice(0, 160),
+    });
     return [];
   }
 
@@ -2434,7 +2472,7 @@ async function validateFindingsWithModel(args: {
       taskLabel: args.projectName || "Auditoria",
       model,
       operation: "audit-validation",
-      timeoutMs: getChunkTimeoutMs(),
+      timeoutMs: getValidationTimeoutMs(args.analysisLevel),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
@@ -2703,6 +2741,16 @@ async function refuteFindingsWithModel(args: {
   }
 }
 
+/**
+ * Uma passada da análise que não completou. A auditoria segue (as regras
+ * determinísticas valem sozinhas), mas o RESULTADO precisa dizer — senão o
+ * veredito afirma sobre uma leitura que não aconteceu.
+ */
+export interface PassadaIncompleta {
+  passada: string;
+  motivo: string;
+}
+
 async function deepAnalyzeFile(args: {
   auditId?: string | null;
   auditMode: AuditMode;
@@ -2715,6 +2763,8 @@ async function deepAnalyzeFile(args: {
   file: UploadedAuditFile;
   conversationId?: string | null;
   userEmail?: string | null;
+  /** Coletor: cada passada que abortar se registra aqui. */
+  degradacoes: PassadaIncompleta[];
 }) {
   const startedAt = Date.now();
   const mandatoryGuardFindings = deriveMandatoryIdentityGuardFindings(
@@ -2822,6 +2872,7 @@ async function deepAnalyzeFile(args: {
         extracted: args.file.extracted,
         conversationId: args.conversationId,
         userEmail: args.userEmail,
+        degradacoes: args.degradacoes,
       })
     : [];
   console.log(
@@ -3085,6 +3136,9 @@ export async function POST(request: Request) {
       }),
     );
     const allFindings: AuditFinding[] = [];
+    // Passadas que não completaram. Vai para o relatório: sem isso, uma auditoria
+    // degradada chega na tela com a mesma cara de uma completa.
+    const degradacoes: PassadaIncompleta[] = [];
 
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
@@ -3099,6 +3153,7 @@ export async function POST(request: Request) {
         file,
         conversationId,
         userEmail: sessionEmail,
+        degradacoes,
       });
       allFindings.push(...findings);
     }
@@ -3185,6 +3240,8 @@ export async function POST(request: Request) {
       tipo_auditoria: auditMode,
       tipo_documento: inferredDocumentType,
       runtime: {
+        // Quais passadas não completaram. O veredito lê isto para se rebaixar.
+        passadas_incompletas: degradacoes,
         nivel_analise: analysisLevel,
         motor_auditoria: auditEngine,
         regras_locais_ativas: isRuleBasedAuditEnabled(),

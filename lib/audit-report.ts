@@ -60,6 +60,11 @@ export type AuditReport = {
   tipo_auditoria: AuditMode;
   tipo_documento: string;
   runtime?: {
+    /**
+     * Passadas da análise que não completaram. Vazio = análise íntegra. É o que
+     * permite o veredito dizer que não pode ser usado para liberar.
+     */
+    passadas_incompletas?: { passada: string; motivo?: string }[];
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;
@@ -467,8 +472,27 @@ export type EmissionVerdict = {
   detail: string;
 };
 
-export function getEmissionVerdict(findings: AuditFinding[]): EmissionVerdict {
+export function getEmissionVerdict(
+  findings: AuditFinding[],
+  /**
+   * Passadas da análise que não completaram (timeout, aborto, erro de provider).
+   * Quando há alguma, o veredito NÃO pode ser usado para liberar: ele estaria
+   * afirmando sobre uma leitura que não aconteceu. Medido no 017-26 — a leitura
+   * global abortou aos 300s e o resultado chegou na tela indistinguível de uma
+   * auditoria completa.
+   */
+  passadasIncompletas: readonly { passada: string }[] = [],
+): EmissionVerdict {
   const groups = groupFindingsByImpact(findings);
+
+  if (passadasIncompletas.length > 0) {
+    const quais = passadasIncompletas.map((p) => p.passada).join("; ");
+    return {
+      emoji: "⚠️",
+      label: "ANÁLISE PARCIAL — NÃO USE PARA EMITIR",
+      detail: `Uma etapa da análise não completou (${quais}). Os achados abaixo valem, mas a ausência de outros não significa que não existam. Rode de novo antes de decidir.`,
+    };
+  }
 
   if (groups.critico_documental.length > 0) {
     return {
@@ -529,7 +553,7 @@ export function makeTextReport(report: AuditReport) {
   );
   const grouped = groupFindingsByImpact(principalFindings);
   const executiveSummary = buildExecutiveSummary(principalFindings);
-  const verdict = getEmissionVerdict(principalFindings);
+  const verdict = getEmissionVerdict(principalFindings, report.runtime?.passadas_incompletas ?? []);
   const deterministicFindings = principalFindings.filter((finding) => finding.origem === "regra");
   const findings =
     principalFindings.length === 0

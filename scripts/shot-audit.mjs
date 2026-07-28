@@ -26,6 +26,13 @@ const MEMORIAL =
   process.env.AUDIT_PDF ??
   "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
 const OBRA = "Centro Comunitário Primeira Linha";
+/*
+ * AUDIT_REUSE=1 reabre a ÚLTIMA auditoria do histórico em vez de rodar outra.
+ * As checagens de tela (camadas, selos, visor de PDF) não precisam de uma
+ * auditoria nova, e cada rodada de verdade custa ~110k tokens — consertar uma
+ * asserção de UI a esse preço é o que faz ninguém consertar.
+ */
+const REUSAR = process.env.AUDIT_REUSE === "1";
 const LOG_DEV = path.resolve(".next/dev/logs/next-development.log");
 
 /** As identidades reaproveitadas que ESTE memorial comprovadamente contém. */
@@ -85,6 +92,16 @@ try {
   }
   check("abriu /audit autenticado", page.url().includes("/audit"));
 
+  if (REUSAR) {
+    // Reabre a última auditoria concluída: as checagens de TELA não precisam de
+    // execução nova, e assim elas ficam baratas de consertar.
+    const itens = page.locator("aside button");
+    const alvo = page.getByRole("button", { name: /Memorial\s*·\s*(Padrão|Profundo)\s*·\s*conclu/i }).first();
+    await alvo.waitFor({ timeout: 20000 });
+    await alvo.click();
+    await page.waitForTimeout(2500);
+    check("reabriu a última auditoria do histórico", (await itens.count()) > 0);
+  } else {
   // Começa limpo: sem isto a tela pode estar exibindo uma auditoria restaurada do
   // histórico, e o teste mediria a rodada de ontem achando que é a de agora.
   const novaAuditoria = page.getByRole("button", { name: /Nova auditoria/i });
@@ -177,6 +194,8 @@ try {
   console.log("  … auditoria rodando (pode levar minutos e gasta token)");
 
   // O veredito é o herói do topo do resultado: é ele que diz que acabou.
+  }
+
   const veredito = page.getByText(/NÃO EMITIR|REVISAR|LIBERADO/i);
   await veredito.first().waitFor({ timeout: 900000 });
   check("a auditoria terminou e mostrou o veredito", true);
@@ -214,9 +233,11 @@ try {
   const texto = await page.locator("body").innerText();
 
   // --- A1: o documento INTEIRO chega na passada global ---------------------
-  const linhas = linhasDeIa(marcoLog);
+  const linhas = REUSAR ? [] : linhasDeIa(marcoLog);
+  if (REUSAR) console.log("  (modo reuso: as checagens de log são puladas)");
   const global = linhas.find((l) => l.includes("op=audit-global"));
   const entrada = global ? Number(/in=(\d+)/.exec(global)?.[1] ?? 0) : 0;
+  if (!REUSAR) {
   check(
     "a passada global rodou",
     Boolean(global),
@@ -227,6 +248,24 @@ try {
     entrada > 60000,
     `in=${entrada} tokens`,
   );
+
+  /*
+   * NENHUMA passada pode ter abortado. A validação — quem rebaixa achado incerto
+   * para "Sugestão" e filtra alucinação — falhava por timeout em toda auditoria
+   * Profunda, e a tela não dizia nada: o relatório saía inteiro, só que sem a
+   * camada que separa o que é sólido do que é palpite.
+   */
+  const abortadas = linhas.filter((l) => l.includes("status=FAILED"));
+  check(
+    "nenhuma passada da auditoria abortou",
+    abortadas.length === 0,
+    abortadas.map((l) => /op=([a-z-]+)/.exec(l)?.[1]).join(", "),
+  );
+  check(
+    "a validação rodou (é ela que separa achado sólido de sugestão)",
+    linhas.some((l) => l.includes("op=audit-validation") && l.includes("status=OK")),
+  );
+  }
 
   // --- os achados que este memorial COMPROVADAMENTE tem -------------------
   for (const identidade of IDENTIDADES_ERRADAS) {
@@ -245,10 +284,26 @@ try {
     "achado de regra vem com o selo de verificado",
     /Verificad/i.test(texto),
   );
+  /*
+   * A camada de sugestões só é renderizada quando ALGUM achado foi rebaixado a
+   * `tier === "sugestao"`. Exigi-la sempre era teste errado: numa auditoria em que
+   * a validação considerou tudo sólido, a ausência é o comportamento correto.
+   * O que precisa existir sempre é o VOCABULÁRIO de confiança — sem ele, o
+   * usuário não distingue o que é regra do que é palpite.
+   */
+  const temSugeridos = /◻\s*Sugerido/i.test(texto);
+  const temCamada = /Sugestões da IA/i.test(texto);
   check(
-    "a camada de sugestões da IA existe e é separada",
-    /Sugest(ão|ões)/i.test(texto),
+    "o vocabulário de confiança aparece nos achados",
+    /✔\s*Verificado/i.test(texto) || temSugeridos,
   );
+  /*
+   * A camada recolhível só nasce quando a validação REBAIXA algum achado. Não dá
+   * para exigir de fora: uma auditoria em que tudo é sólido não tem camada, e
+   * isso é correto. Fica como MEDIÇÃO — o número interessa para calibrar o
+   * quanto a validação está rebaixando.
+   */
+  console.log(`  camada "Sugestões da IA" presente: ${temCamada ? "sim" : "não (nada foi rebaixado)"}`);
 
   // --- o lixo que a supressão de meta/sumário tem de ter comido -----------
   check(
@@ -258,6 +313,23 @@ try {
   );
 
   // --- o visor de PDF ------------------------------------------------------
+  /*
+   * "Abrir PDF" vive dentro do menu `⋯` de cada achado desde o declutter da UI —
+   * procurar um botão visível reportava ausência de um recurso que existe.
+   */
+  /*
+   * Só em auditoria RECÉM-FEITA: o PDF não é guardado (decisão de projeto), então
+   * a reaberta do histórico não tem `pdfUrl` e o item nem é renderizado. Cobrar
+   * isso no reuso reprovaria o comportamento correto.
+   */
+  if (REUSAR) {
+    console.log("  (modo reuso: o visor de PDF não é testável — o arquivo não é guardado)");
+  } else {
+  const menuDoAchado = page.getByRole("button", { name: /Ações do achado/i });
+  if ((await menuDoAchado.count()) > 0) {
+    await menuDoAchado.first().click();
+    await page.waitForTimeout(500);
+  }
   const abrirPdf = page.getByRole("button", { name: /Abrir PDF|Ver no PDF/i });
   if ((await abrirPdf.count()) > 0) {
     await abrirPdf.first().click();
@@ -269,6 +341,7 @@ try {
     await page.screenshot({ path: `${OUT}/audit-3-visor.png`, fullPage: true });
   } else {
     check("existe o botão de abrir o PDF no achado", false, "botão não encontrado");
+  }
   }
 
   check("nenhum erro de runtime no console", erros.length === 0, erros[0] ?? "");
