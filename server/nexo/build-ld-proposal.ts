@@ -119,6 +119,23 @@ export interface BuildLdOptions {
   tomoAtual?: number;
   /** Título da seção (decisão do engenheiro). Vazio = palpite do selo. */
   tituloLd?: string;
+  /**
+   * Mantém a ordem em que as folhas chegaram, em vez de ordenar pelo número do
+   * carimbo. Só o CLIENTE sabe se o usuário reordenou alguma folha daquele tomo
+   * no canvas — por isso a decisão chega pronta, e o padrão continua sendo o
+   * carimbo mandar (comportamento validado à mão em todo projeto sem arrasto).
+   */
+  respeitarOrdem?: boolean;
+  /**
+   * Os ids (`arquivo#pagina`) das folhas DESTE tomo, decididos pelo canvas. Quando
+   * vem, manda: substitui a divisão por quantidade (`faixasDosTomos`), que ignora
+   * o grupo desenhado à mão.
+   *
+   * Os selos continuam chegando INTEIROS, e a filtragem acontece depois da
+   * contagem: `referenceTotal` é o total do conjunto, e o selo impresso na prancha
+   * diz "05/24" — a LD do tomo 1 tem de continuar dizendo isso.
+   */
+  folhasDoTomo?: string[];
 }
 
 /**
@@ -167,16 +184,19 @@ export function buildLdProposal(
   const maxSheet = sheets.length ? Math.max(...sheets) : 0;
   const referenceTotal = Math.max(dominantTotal, maxSheet, validos.length);
 
-  const todasAsLinhas = validos
-    .map((s, i) => {
-      const n = resolvedSheets[i];
-      const sheet =
-        n != null && n > 0
-          ? referenceTotal > 0
-            ? formatSheet(n, referenceTotal) // padding largura-do-total
-            : String(n).padStart(2, "0")
-          : "";
-      return {
+  // Cada linha viaja com o ID da folha (`arquivo#pagina`) até a hora de fatiar —
+  // é ele que liga a linha à decisão que o canvas tomou.
+  const todasAsLinhas = validos.map((s, i) => {
+    const n = resolvedSheets[i];
+    const sheet =
+      n != null && n > 0
+        ? referenceTotal > 0
+          ? formatSheet(n, referenceTotal) // padding largura-do-total
+          : String(n).padStart(2, "0")
+        : "";
+    return {
+      id: `${s.fileName}#${s.pageNumber ?? "?"}`,
+      row: {
         sheet,
         // Coluna ARQUIVOS = campo ARQUIVO do carimbo (código da prancha).
         file: s.arquivo?.trim() || s.fileName,
@@ -184,9 +204,19 @@ export function buildLdProposal(
         // do módulo LD original, agora compartilhado em lib/ld/stamp-parsing.
         description: cleanStampDescription(s.conteudo || s.tituloSecao || ""),
         readDiscipline: rowDisciplineLabel(s),
-      };
-    })
-    .sort((a, b) => sheetOrder(a.sheet) - sheetOrder(b.sheet));
+      },
+    };
+  });
+
+  /*
+   * Ordem das linhas. O padrão é o número do carimbo — é o que a LD sempre fez, e
+   * mudá-lo mexeria no resultado de todo projeto que nunca foi arrastado. Quando
+   * o usuário reordenou folhas no canvas, o cliente pede `respeitarOrdem` e a
+   * ordem em que os selos chegaram (a da projeção) é que vale.
+   */
+  if (!opts.respeitarOrdem) {
+    todasAsLinhas.sort((a, b) => sheetOrder(a.row.sheet) - sheetOrder(b.row.sheet));
+  }
 
   /*
    * Fatia do tomo. Cada tomo é um volume físico: a LD do tomo 1 lista as folhas
@@ -196,11 +226,19 @@ export function buildLdProposal(
    * impresso na prancha diz "05/24", e a LD do tomo 1 tem que continuar dizendo
    * isso; trocar para "05/12" faria a lista discordar do próprio desenho.
    */
+  const idsDoTomo = opts.folhasDoTomo?.length ? new Set(opts.folhasDoTomo) : null;
   const faixa =
-    tomoAtual > 0 ? faixasDosTomos(todasAsLinhas.length, numTomos)[tomoAtual - 1] : null;
-  const rows = faixa
-    ? todasAsLinhas.slice(faixa.inicio - 1, faixa.fim)
-    : todasAsLinhas;
+    !idsDoTomo && tomoAtual > 0
+      ? faixasDosTomos(todasAsLinhas.length, numTomos)[tomoAtual - 1]
+      : null;
+  const selecionadas = idsDoTomo
+    ? // O canvas decidiu quem é deste tomo. A ordem é a que já está em
+      // `todasAsLinhas`: carimbo por padrão, projeção quando `respeitarOrdem`.
+      todasAsLinhas.filter((l) => idsDoTomo.has(l.id))
+    : faixa
+      ? todasAsLinhas.slice(faixa.inicio - 1, faixa.fim)
+      : todasAsLinhas;
+  const rows = selecionadas.map((l) => l.row);
 
   // Título da seção: manual (decisão) OU palpite do selo (descarta órgão/secretaria)
   // OU "PROJETO <disciplina>". Remove "(TOMO ...)" digitado; o tomo é anexado a

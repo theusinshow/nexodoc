@@ -19,7 +19,9 @@ import {
 import {
   ajusteDoDrop,
   alvoDoDrop,
+  folhasDoTomo,
   ordensEntre,
+  precisaRespeitarOrdem,
   type FileiraDoDrop,
   type GradeDoDrop,
 } from "../modules/nexo/lib/drop-folhas.ts";
@@ -29,7 +31,7 @@ import {
   PASSO_Y,
 } from "../modules/nexo/lib/layout-canvas.ts";
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
-import { buildBalancedQuantities } from "../lib/ld/ld-rules.ts";
+import { buildBalancedQuantities, faixasDosTomos } from "../lib/ld/ld-rules.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -250,6 +252,63 @@ test("mas mover UMA casa dentro da mesma fileira escreve", () => {
   );
   const daMovida = patches.find((p) => p.id === "a.pdf#1");
   assert.ok(typeof daMovida?.patch.ordem === "number");
+});
+
+// ---------------------------------------------------------------------------
+// O que a MONTAGEM recebe (sub-projeto 5)
+// ---------------------------------------------------------------------------
+
+test("folhasDoTomo devolve as folhas daquele tomo, na ordem da projeção", () => {
+  const divisao = gruposDasFolhas(PROJETADAS, 2, buildBalancedQuantities);
+  const t1 = folhasDoTomo(PROJETADAS, divisao, 1);
+  const t2 = folhasDoTomo(PROJETADAS, divisao, 2);
+  assert.deepEqual(t1.map((f) => f.id), ["a.pdf#1", "a.pdf#2", "a.pdf#3"]);
+  assert.deepEqual(t2.map((f) => f.id), ["a.pdf#4", "a.pdf#5", "a.pdf#6"]);
+});
+
+test("NÃO-REGRESSÃO: sem ajuste, a divisão é a mesma que faixasDosTomos daria", () => {
+  const divisao = gruposDasFolhas(PROJETADAS, 2, buildBalancedQuantities);
+  const faixas = faixasDosTomos(PROJETADAS.length, 2);
+  for (let t = 1; t <= 2; t++) {
+    const pelaFaixa = PROJETADAS.slice(faixas[t - 1].inicio - 1, faixas[t - 1].fim);
+    assert.deepEqual(
+      folhasDoTomo(PROJETADAS, divisao, t).map((f) => f.id),
+      pelaFaixa.map((f) => f.id),
+      `tomo ${t} divergiu do que a montagem fazia antes`,
+    );
+  }
+});
+
+test("depois do arrasto, a montagem recebe a folha no tomo de destino", () => {
+  const patches = ajusteDoDrop(
+    [PROJETADAS[0]],
+    { tomo: 2, indice: 1 },
+    PROJETADAS.slice(3),
+    DIVISAO,
+    chaveDeOrdem,
+  );
+  const ajustes: Record<FolhaId, Ajuste> = {};
+  for (const p of patches) ajustes[p.id] = p.patch;
+
+  const re = folhas(SELOS, ajustes);
+  const divisao = gruposDasFolhas(re, 2, buildBalancedQuantities);
+  assert.deepEqual(
+    folhasDoTomo(re, divisao, 2).map((f) => f.id),
+    ["a.pdf#4", "a.pdf#1", "a.pdf#5", "a.pdf#6"],
+  );
+  assert.deepEqual(
+    folhasDoTomo(re, divisao, 1).map((f) => f.id),
+    ["a.pdf#2", "a.pdf#3"],
+  );
+});
+
+test("precisaRespeitarOrdem só é verdadeiro quando há ordem manual no tomo", () => {
+  assert.equal(precisaRespeitarOrdem(PROJETADAS), false);
+  const re = folhas(SELOS, { "a.pdf#1": { ordem: 3.5 } });
+  assert.equal(precisaRespeitarOrdem(re), true);
+  // O tomo que não contém a folha reordenada continua com o carimbo mandando.
+  const semAReordenada = re.filter((f) => f.id !== "a.pdf#1");
+  assert.equal(precisaRespeitarOrdem(semAReordenada), false);
 });
 
 console.log(`\n${passed} teste(s) do drop OK`);

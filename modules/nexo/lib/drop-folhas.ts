@@ -39,6 +39,34 @@ function limitar(valor: number, minimo: number, maximo: number): number {
 }
 
 /**
+ * As folhas de UM tomo, na ordem da projeção. É esta lista que vai para a
+ * montagem — antes o servidor refazia a divisão por quantidade, e o PDF saía com
+ * uma organização diferente da que o canvas mostrava.
+ *
+ * `divisao` é a saída de `gruposDasFolhas`, injetada pelo mesmo motivo de sempre:
+ * este módulo roda em Node pelado.
+ */
+export function folhasDoTomo(
+  projecao: readonly Folha[],
+  divisao: readonly (readonly FolhaId[])[],
+  tomo: number,
+): Folha[] {
+  const ids = new Set(divisao[tomo - 1] ?? []);
+  return projecao.filter((f) => ids.has(f.id));
+}
+
+/**
+ * Alguma folha deste tomo foi reordenada à mão?
+ *
+ * Quando não, a montagem deve continuar ordenando pelo número do carimbo — é o
+ * comportamento validado à mão, e mudá-lo mexeria no resultado de projetos que já
+ * estavam certos. Quando sim, a ordem desenhada manda naquele tomo.
+ */
+export function precisaRespeitarOrdem(doTomo: readonly Folha[]): boolean {
+  return doTomo.some((f) => f.ordem !== undefined);
+}
+
+/**
  * Em que tomo e em que posição da grade o ponto caiu. `null` quando cai fora de
  * qualquer fileira — soltar no vazio não inventa tomo (isso é o 4B).
  *

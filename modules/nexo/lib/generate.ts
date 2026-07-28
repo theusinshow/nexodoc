@@ -60,6 +60,14 @@ export interface LdOptions {
   tomoAtual?: number;
   /** Tomo específico (ex.: 4 = "(TOMO 04)"). 0 = usar numTomos. */
   tomoNumero?: number;
+  /**
+   * Ids (`arquivo#pagina`) das folhas deste tomo, decididos pelo canvas. Quando
+   * vem, substitui a divisão por quantidade — é o que faz o grupo arrastado à mão
+   * valer no PDF.
+   */
+  folhasDoTomo?: string[];
+  /** Mantém a ordem recebida em vez de ordenar pelo número do carimbo. */
+  respeitarOrdem?: boolean;
 }
 
 export async function postLd(
@@ -76,6 +84,8 @@ export async function postLd(
       tomoInicial: opts.tomoInicial ?? 1,
       tomoAtual: opts.tomoAtual ?? 0,
       tomoNumero: opts.tomoNumero ?? 0,
+      ...(opts.folhasDoTomo ? { folhasDoTomo: opts.folhasDoTomo } : {}),
+      ...(opts.respeitarOrdem ? { respeitarOrdem: true } : {}),
     }),
   });
   const payload = (await res.json().catch(() => null)) as

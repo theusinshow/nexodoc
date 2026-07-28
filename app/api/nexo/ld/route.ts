@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
   let tomoInicial = 1;
   let tomoAtual = 0;
   let tomoNumero = 0;
+  let respeitarOrdem = false;
+  let folhasDoTomo: string[] | undefined;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -34,6 +36,8 @@ export async function POST(req: NextRequest) {
       tomoInicial?: unknown;
       tomoAtual?: unknown;
       tomoNumero?: unknown;
+      respeitarOrdem?: unknown;
+      folhasDoTomo?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
@@ -52,6 +56,14 @@ export async function POST(req: NextRequest) {
     if (typeof body.tomoNumero === "number" && Number.isFinite(body.tomoNumero)) {
       tomoNumero = Math.max(0, Math.floor(body.tomoNumero));
     }
+    // Só quando o cliente PEDE: sem isso, o carimbo continua mandando na ordem.
+    respeitarOrdem = body.respeitarOrdem === true;
+    // A divisão decidida no canvas. Sem isto, o servidor cai na divisão por
+    // quantidade e o grupo arrastado à mão não chega ao PDF.
+    if (Array.isArray(body.folhasDoTomo)) {
+      const ids = body.folhasDoTomo.filter((v): v is string => typeof v === "string");
+      if (ids.length > 0) folhasDoTomo = ids;
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -61,7 +73,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Título, tomo específico e divisão em tomos são decisões do engenheiro.
-  const proposal = buildLdProposal(selos, { numTomos, tomoInicial, tomoAtual, tomoNumero, tituloLd });
+  const proposal = buildLdProposal(selos, {
+    numTomos,
+    tomoInicial,
+    tomoAtual,
+    tomoNumero,
+    tituloLd,
+    respeitarOrdem,
+    folhasDoTomo,
+  });
   const result = await createLD(proposal.input);
 
   return NextResponse.json({

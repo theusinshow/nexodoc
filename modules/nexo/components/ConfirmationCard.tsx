@@ -52,7 +52,9 @@ import {
 } from "../lib/generate";
 import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
-import { faixasDosTomos } from "@/lib/ld/ld-rules";
+import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { gruposDasFolhas, type Folha } from "../lib/folhas";
+import { folhasDoTomo } from "../lib/drop-folhas";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
@@ -926,14 +928,18 @@ function VolumeConfirmation({
    * o volume levava todas as folhas, e dois tomos produziam dois PDFs
    * idênticos com o projeto inteiro dentro de cada.
    *
-   * A fatia usa a mesma divisão balanceada da LD (faixasDosTomos), senão a
-   * lista de documentos e o volume discordariam sobre o que está lá dentro.
+   * A fatia usa a MESMA divisão da LD (`gruposDasFolhas`), senão a lista de
+   * documentos e o volume discordariam sobre o que está lá dentro. Era
+   * `faixasDosTomos` — divisão por quantidade, que ignora o grupo arrastado à
+   * mão e fazia o volume sair diferente do que o canvas mostrava.
    */
   const selosDoTomo = useMemo(() => {
     if (tomo.atual === 0) return selos;
     const total = tomosDoVolumeTotal(selos, results);
-    const faixa = faixasDosTomos(selos.length, total)[tomo.atual - 1];
-    return faixa ? selos.slice(faixa.inicio - 1, faixa.fim) : selos;
+    const projecao = selos as Folha[];
+    const divisao = gruposDasFolhas(projecao, total, buildBalancedQuantities);
+    const doTomo = folhasDoTomo(projecao, divisao, tomo.atual);
+    return doTomo.length > 0 ? doTomo : selos;
   }, [selos, results, tomo.atual]);
 
   /*

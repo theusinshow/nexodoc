@@ -12,6 +12,9 @@
 import type { CampoEditavel } from "../components/EditorDoNo";
 import type { NexoArtifactKind } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { gruposDasFolhas, type Folha } from "./folhas";
+import { folhasDoTomo, precisaRespeitarOrdem } from "./drop-folhas";
 import { postCapa, postLd, postSeparatriz, ODT_MIME } from "./generate";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
@@ -283,11 +286,35 @@ export async function gerarItem(args: {
   }
 
   if (item.kind === "ld") {
+    /*
+     * A divisão do tomo sai do CANVAS, não da contagem: `gruposDasFolhas`
+     * respeita o `grupo` arrastado à mão, e `faixasDosTomos` (que o servidor
+     * usava) o ignorava — o PDF saía com uma organização diferente da tela.
+     *
+     * Os selos vão INTEIROS mesmo assim: o total de referência do carimbo
+     * ("05/24") é contado sobre o conjunto, e mandar só a fatia viraria "05/12".
+     */
+    const doTomo =
+      item.tomoAtual > 0
+        ? folhasDoTomo(
+            selos as Folha[],
+            gruposDasFolhas(selos as Folha[], num("numTomos", 1), buildBalancedQuantities),
+            item.tomoAtual,
+          )
+        : [];
     const r = await postLd(selos, {
       tituloLd: txt("tituloLd"),
       numTomos: num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: item.tomoAtual,
+      ...(doTomo.length > 0
+        ? {
+            folhasDoTomo: doTomo.map((f) => f.id),
+            // O carimbo continua mandando na ordem, salvo se o usuário reordenou
+            // alguma folha DESTE tomo.
+            respeitarOrdem: precisaRespeitarOrdem(doTomo),
+          }
+        : {}),
     });
     await saveResult({
       artifactId: args.idsBase.ld + item.sufixo,
