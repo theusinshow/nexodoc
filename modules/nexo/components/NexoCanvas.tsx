@@ -26,6 +26,7 @@ import {
   type Node,
   type Edge,
   type NodeProps,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Waypoints, Maximize2, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
@@ -40,9 +41,25 @@ import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { EditorDoNo } from "./EditorDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
-import { gruposDasFolhas, type Folha, type FolhaId } from "../lib/folhas";
-import type { FileiraDoDrop } from "../lib/drop-folhas";
 import {
+  chaveDeOrdem,
+  gruposDasFolhas,
+  type Ajuste,
+  type Folha,
+  type FolhaId,
+} from "../lib/folhas";
+import {
+  ajusteDoDrop,
+  alvoDoDrop,
+  type FileiraDoDrop,
+  type GradeDoDrop,
+} from "../lib/drop-folhas";
+import {
+  ALTURA_FOLHA,
+  COLUNAS_DA_GRADE,
+  LARGURA_FOLHA,
+  PASSO_X,
+  PASSO_Y,
   alturaDaFileira,
   larguraDaGrade,
   posicaoNaGrade,
@@ -306,12 +323,23 @@ const nodeTypes = { artifact: ArtifactNode, rotulo: RotuloNode, folha: FolhaNode
 
 const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
 
+/*
+ * As medidas da grade viajam INJETADAS até o módulo puro do drop: ele roda em
+ * Node pelado no teste e não pode importar valor de outro módulo.
+ */
+const GRADE: GradeDoDrop = {
+  colunas: COLUNAS_DA_GRADE,
+  passoX: PASSO_X,
+  passoY: PASSO_Y,
+};
+
 function CanvasInterno({
   folhas = [],
   numeros = {},
   arquivosDisponiveis,
   onAbrirFolha,
   onCorrigirFolha,
+  onMoverFolhas,
 }: {
   /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
   folhas?: Folha[];
@@ -321,6 +349,8 @@ function CanvasInterno({
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
   onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
+  /** O arrasto terminou: escreva estes ajustes. */
+  onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
 }) {
   const { artifacts } = useArtifactStore();
   const { results } = useConversation();
@@ -563,6 +593,57 @@ function CanvasInterno({
     return () => cancelAnimationFrame(raf);
   }, [derivados, reconciliar, setNodes]);
 
+  /*
+   * Fim do arrasto: traduz a coordenada em ajuste. O ponto de referência é o
+   * CENTRO do nó arrastado, não o canto — soltar "em cima" de uma folha é o que o
+   * gesto quer dizer, e o canto fica meio nó à esquerda do que o olho mira.
+   */
+  const aoSoltar = useCallback<OnNodeDrag>(
+    (_, no, arrastados) => {
+      const centro = {
+        x: no.position.x + (no.measured?.width ?? LARGURA_FOLHA) / 2,
+        y: no.position.y + (no.measured?.height ?? ALTURA_FOLHA) / 2,
+      };
+      const alvo = alvoDoDrop(centro, fileirasDoDrop, GRADE);
+      // Sem alvo, nada muda: soltar no vazio não inventa tomo (isso é o 4B). A
+      // reconciliação devolve as folhas para a grade.
+      if (alvo) {
+        const ids = new Set(
+          arrastados.filter((n) => n.type === "folha").map((n) => String(n.data.id)),
+        );
+        const movidas = folhas.filter((f) => ids.has(f.id));
+        const destino = folhasPorTomo.get(alvo.tomo) ?? [];
+        /*
+         * A divisão que está na tela, para o módulo puro CONGELAR o palpite. Com
+         * uma fileira só ela é nula: sem divisão, gravar tomo seria inventar uma
+         * decisão que o usuário não tomou.
+         */
+        const comTomo = fileirasDoDrop.filter((f) => f.tomo > 0);
+        const divisaoAtual =
+          comTomo.length > 1
+            ? comTomo.map((f) => ({ tomo: f.tomo, folhas: folhasPorTomo.get(f.tomo) ?? [] }))
+            : null;
+        const patches = ajusteDoDrop(movidas, alvo, destino, divisaoAtual, chaveDeOrdem);
+        if (patches.length > 0) onMoverFolhas?.(patches);
+      }
+      /*
+       * Reconciliar SEMPRE, mesmo sem ajuste: o nó ficou na posição solta e só a
+       * derivação sabe a posição de grade. Sem isto, soltar fora deixaria a folha
+       * pendurada no vazio.
+       */
+      setNodes((atuais) => reconciliar(derivados, atuais));
+    },
+    [
+      fileirasDoDrop,
+      folhasPorTomo,
+      folhas,
+      onMoverFolhas,
+      derivados,
+      reconciliar,
+      setNodes,
+    ],
+  );
+
   if (nodes.length === 0) {
     return (
       <div className="flex h-full min-h-[240px] w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card text-center">
@@ -583,6 +664,7 @@ function CanvasInterno({
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onNodeDragStop={aoSoltar}
         nodeTypes={nodeTypes}
         colorMode="dark"
         fitView
@@ -660,6 +742,7 @@ export function NexoCanvas(props: {
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
   onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
+  onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
 }) {
   return (
     <ReactFlowProvider>

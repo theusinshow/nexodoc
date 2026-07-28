@@ -30,7 +30,7 @@ import type { Attachment } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
-import { folhas, type FolhaId } from "../lib/folhas";
+import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
 
 /**
  * Workspace do Nexo (chat-first). "Anexar/soltar PDFs" LÊ os selos das pranchas
@@ -663,6 +663,18 @@ function NexoWorkspaceInner() {
     [conv],
   );
 
+  /*
+   * O arrasto no canvas escreve `grupo` e `ordem`, e a montagem lê a projeção —
+   * então regerar sai na organização desenhada à mão. A lista chega inteira
+   * porque um arrasto de seleção grande não pode virar 30 gravações.
+   */
+  const moverFolhas = useCallback(
+    (entradas: { id: FolhaId; patch: Ajuste }[]) => {
+      conv.ajustarFolhas(entradas);
+    },
+    [conv],
+  );
+
   return (
     <>
       {/* Overlay de drag-and-drop (chrome imersivo → vidro permitido). */}
@@ -731,6 +743,7 @@ function NexoWorkspaceInner() {
             arquivosDisponiveis={arquivosDisponiveis}
             onAbrirFolha={abrirFolha}
             onCorrigirFolha={corrigirFolha}
+            onMoverFolhas={moverFolhas}
           />
         }
         copilot={

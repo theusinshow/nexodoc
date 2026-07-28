@@ -12,9 +12,13 @@
 
 /** Folhas por linha da grade. */
 export const COLUNAS_DA_GRADE = 6;
-/** Largura do nó da folha (120) + respiro. */
+/** Largura do nó da folha. */
+export const LARGURA_FOLHA = 120;
+/** Altura do nó da folha. */
+export const ALTURA_FOLHA = 56;
+/** Largura do nó da folha + respiro. */
 export const PASSO_X = 128;
-/** Altura do nó da folha (56) + respiro. */
+/** Altura do nó da folha + respiro. */
 export const PASSO_Y = 64;
 /** Altura de uma fileira sem folhas — o bastante para os nós de documento. */
 export const ALTURA_MINIMA_FILEIRA = 330;
