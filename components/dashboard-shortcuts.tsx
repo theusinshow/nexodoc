@@ -22,8 +22,9 @@ export function DashboardShortcuts({ isAdmin = false }: DashboardShortcutsProps)
       {
         key: "a",
         ctrl: true,
-        handler: () => router.push("/audit"),
-        description: "Ir para auditoria",
+        // A auditoria mora no Nexo; o atalho segue o produto, não a URL antiga.
+        handler: () => router.push("/nexo"),
+        description: "Ir para auditoria (Nexo)",
       },
       {
         key: "l",

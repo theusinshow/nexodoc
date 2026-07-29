@@ -52,17 +52,12 @@ const nexoModule: ModuleDef = {
 };
 
 const availableModules: readonly ModuleDef[] = [
-  {
-    title: "Conferência documental",
-    description:
-      "Analise memoriais, pranchas e volumes; compare evidências e identifique inconsistências.",
-    href: "/audit",
-    label: "Abrir conferência",
-    icon: BookOpenCheck,
-    emphasis: false,
-    status: "active",
-    shortcut: "Ctrl A",
-  },
+  /*
+   * "Conferência documental" saiu daqui: a auditoria mora no Nexo, e o card
+   * dele já a anuncia. Com a `/audit` redirecionando, os dois levariam ao mesmo
+   * lugar — dois caminhos para uma coisa só é como o produto ganha a fama de
+   * confuso. O atalho Ctrl+A continua existindo e aponta para o Nexo.
+   */
   {
     title: "Montagem de LDs",
     description:

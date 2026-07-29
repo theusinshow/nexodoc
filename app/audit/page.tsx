@@ -1,47 +1,27 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
-import { ChatWindow } from "@/components/chat-window";
-import { getUserAccess } from "@/lib/access-control";
-import { buildCallbackPath, redirectToLogin } from "@/lib/auth-redirect";
-import { getProjectContextForUser } from "@/lib/project-context";
-
+/**
+ * `/audit` foi APOSENTADA — a auditoria mora no Nexo.
+ *
+ * Durante um tempo houve duas telas para o mesmo motor, e elas divergiram: a de
+ * cá nunca ganhou progresso real, cancelar, gabarito completo nem retomada
+ * depois de um F5. Manter as duas significava que metade dos clientes veria a
+ * versão pior por acidente de link antigo.
+ *
+ * O redirecionamento preserva `?project=`: quem chegar por um link salvo cai no
+ * lugar certo em vez de numa página que some. O HISTÓRICO não se perde — as
+ * auditorias continuam no banco, e o painel administrativo (`/admin/audits`)
+ * segue listando tudo.
+ *
+ * O componente de relatório (`components/audit-result`) NÃO era exclusivo desta
+ * página: é o mesmo que o palco do Nexo monta. Por isso aposentar aqui não custa
+ * o visor de PDF, a matriz por disciplina nem as camadas de confiança.
+ */
 export default async function AuditPage({
   searchParams,
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
-  const params = await searchParams;
-  const session = await auth();
-
-  if (!session?.user) {
-    redirectToLogin(buildCallbackPath("/audit", params));
-  }
-
-  const access = await getUserAccess(session.user.email, session.user.name);
-
-  if (!access.isActive) {
-    redirect("/login");
-  }
-
-  const isMockMode = process.env.NEXODOC_MOCK_MODE === "true";
-  const allowDemoMode =
-    process.env.NODE_ENV !== "production" ||
-    process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true" ||
-    isMockMode;
-  const { project } = params;
-  const projectContext = await getProjectContextForUser(project, session.user);
-
-  return (
-    <ChatWindow
-      isMockMode={isMockMode}
-      allowDemoMode={allowDemoMode}
-      isAdmin={access.isAdmin}
-      userName={session.user.name}
-      userEmail={session.user.email}
-      userImage={session.user.image}
-      projectId={project}
-      projectContext={projectContext}
-    />
-  );
+  const { project } = await searchParams;
+  redirect(project ? `/nexo?project=${encodeURIComponent(project)}` : "/nexo");
 }
