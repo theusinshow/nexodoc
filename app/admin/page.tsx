@@ -93,6 +93,8 @@ function AdminMetric({
 }
 
 export default function AdminHomePage() {
+  /** O detalhe do cartão quando ainda não houve consulta — nunca um número. */
+  const semDados = "Aguardando consulta";
   const [token, setToken] = useState("");
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
@@ -175,12 +177,28 @@ export default function AdminHomePage() {
 
         <AdminError message={error} />
 
+        {/* O painel só fala quando tem o que dizer. */}
+        {!data && !loading && !error && (
+          <p className="border border-border bg-card p-3 text-sm text-muted-foreground">
+            Informe o token admin acima para carregar os números.
+          </p>
+        )}
+
+        {/*
+          ZERO NAO E "NAO SEI".
+          Antes, `data?.totals.audits ?? 0` pintava zero enquanto o painel nunca
+          tinha carregado (sem token, a API responde 401) — e o operador lia
+          "nenhuma auditoria" num banco com dezenas delas. O `loading ? "--"`
+          cobria só o instante da consulta, não o estado de nunca ter havido
+          consulta nenhuma. A tela de Uso e custos, ao lado, já fazia certo com
+          "--" e "Aguardando consulta"; aqui é a mesma regra.
+        */}
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <AdminMetric label="Usuários ativos" value={loading ? "--" : (data?.totals.activeUsers ?? 0)} detail={`${data?.totals.admins ?? 0} admin(s)`} icon={UsersRound} />
-          <AdminMetric label="Auditorias" value={loading ? "--" : (data?.totals.audits ?? 0)} detail={`${data?.totals.recentAudits ?? 0} nos últimos 7 dias`} icon={ListChecks} />
-          <AdminMetric label="Falhas" value={loading ? "--" : (data?.totals.failedAudits ?? 0)} detail="Auditorias com erro" icon={AlertTriangle} />
-          <AdminMetric label="LDs" value={loading ? "--" : (data?.totals.ldDrafts ?? 0)} detail={`${data?.totals.generatedLds ?? 0} gerada(s)`} icon={FileSpreadsheet} />
-          <AdminMetric label="Eventos LD" value={loading ? "--" : (data?.totals.ldEvents ?? 0)} detail={`${data?.totals.recentLds ?? 0} LD(s) recentes`} icon={Clock3} />
+          <AdminMetric label="Usuários ativos" value={data ? data.totals.activeUsers : "--"} detail={data ? `${data.totals.admins} admin(s)` : semDados} icon={UsersRound} />
+          <AdminMetric label="Auditorias" value={data ? data.totals.audits : "--"} detail={data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados} icon={ListChecks} />
+          <AdminMetric label="Falhas" value={data ? data.totals.failedAudits : "--"} detail={data ? "Auditorias com erro" : semDados} icon={AlertTriangle} />
+          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s)` : semDados} icon={FileSpreadsheet} />
+          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLds} LD(s) recentes` : semDados} icon={Clock3} />
         </section>
 
         <section className="grid gap-3 md:grid-cols-5">
@@ -214,7 +232,13 @@ export default function AdminHomePage() {
                   </p>
                 </div>
               ))}
+              {/*
+                "Nenhuma auditoria registrada" só quando o servidor DISSE isso.
+                Sem consulta, a lista vazia não afirma nada — e afirmar vazio é
+                o mesmo erro dos zeros, escrito por extenso.
+              */}
               {data && data.latestAudits.length === 0 ? <EmptyState description="Nenhuma auditoria registrada." className="py-10" /> : null}
+              {!data ? <EmptyState description="Aguardando consulta." className="py-10" /> : null}
             </div>
           </article>
 
@@ -235,6 +259,7 @@ export default function AdminHomePage() {
                 </div>
               ))}
               {data && data.latestLds.length === 0 ? <EmptyState description="Nenhuma LD registrada." className="py-10" /> : null}
+              {!data ? <EmptyState description="Aguardando consulta." className="py-10" /> : null}
             </div>
           </article>
         </section>
