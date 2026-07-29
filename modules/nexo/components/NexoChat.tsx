@@ -48,6 +48,7 @@ export function NexoChat({
   readStatus,
   pranchaFiles,
   memorialFile,
+  memorialFatos = null,
   attachments = [],
   onRemoveAttachment,
   onTurnStatus,
@@ -60,6 +61,16 @@ export function NexoChat({
   pranchaFiles: File[];
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
   memorialFile: File | null;
+  /**
+   * O que a classificação leu do memorial. Vai para o agente: sem isso ele não
+   * tem fatos numa conversa sem pranchas e recusa o turno.
+   */
+  memorialFatos?: {
+    fileName: string;
+    obra?: string | null;
+    municipio?: string | null;
+    codigo?: string | null;
+  } | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments?: Attachment[];
   onRemoveAttachment?: (id: string) => void;
@@ -141,7 +152,15 @@ export function NexoChat({
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
-        body: JSON.stringify({ message: text, history, selos, conversationId }),
+        body: JSON.stringify({
+          message: text,
+          history,
+          selos,
+          // Sem isto o agente não sabe que há um memorial na conversa, e a
+          // regra de fatos recusa o turno — que era o defeito original.
+          memorial: memorialFatos,
+          conversationId,
+        }),
         signal: controller.signal,
       });
 

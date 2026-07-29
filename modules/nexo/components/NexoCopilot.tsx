@@ -30,6 +30,7 @@ export function NexoCopilot({
   context,
   pranchaFiles,
   memorialFile,
+  memorialFatos = null,
   attachments,
   onRemoveAttachment,
   onTurnStatus,
@@ -50,6 +51,13 @@ export function NexoCopilot({
   pranchaFiles: File[];
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria no chat. */
   memorialFile: File | null;
+  /** O que a classificação leu do memorial — vai ao agente como fato. */
+  memorialFatos?: {
+    fileName: string;
+    obra?: string | null;
+    municipio?: string | null;
+    codigo?: string | null;
+  } | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments: Attachment[];
   onRemoveAttachment?: (id: string) => void;
@@ -139,6 +147,7 @@ export function NexoCopilot({
           readStatus={readStatus}
           pranchaFiles={pranchaFiles}
           memorialFile={memorialFile}
+          memorialFatos={memorialFatos}
           attachments={attachments}
           onRemoveAttachment={onRemoveAttachment}
           onTurnStatus={onTurnStatus}

@@ -781,6 +781,16 @@ function NexoWorkspaceInner() {
             context={agentContext}
             pranchaFiles={pranchaFiles}
             memorialFile={memorialFile}
+            memorialFatos={
+              memorialFile
+                ? {
+                    fileName: memorialFile.name,
+                    obra: dossie?.obra ?? null,
+                    municipio: dossie?.municipio ?? null,
+                    codigo: dossie?.codigo ?? null,
+                  }
+                : null
+            }
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             onTurnStatus={handleTurnStatus}
