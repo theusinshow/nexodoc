@@ -21,10 +21,17 @@ export const MARKERS = [
   "{{CODIGO_EXIBIDO}}",
 ] as const;
 
+/*
+ * Os meses vão IMPRESSOS na capa, pelo marcador `{{MES_ANO}}`.
+ *
+ * "MARCO" (sem cedilha) não é uma abreviação nem uma escolha de estilo: é um
+ * erro de português num documento entregue a uma prefeitura. Nenhuma coluna do
+ * banco guarda este valor, então corrigir não invalida rascunho nenhum.
+ */
 export const MESES = [
   "JANEIRO",
   "FEVEREIRO",
-  "MARCO",
+  "MARÇO",
   "ABRIL",
   "MAIO",
   "JUNHO",
