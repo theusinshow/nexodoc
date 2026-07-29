@@ -64,6 +64,24 @@ export interface StoredConversation {
    */
   tomosDeclarados?: number;
   results: StoredResultMeta[];
+  /**
+   * Auditoria disparada e ainda sem resultado NESTA conversa.
+   *
+   * A análise leva de 3 a 6 minutos e vivia presa à aba: um F5 ou uma troca de
+   * conversa matava a espera, e com ela os minutos de modelo já pagos — o
+   * servidor seguia trabalhando sozinho, sem ninguém para receber. Guardando o
+   * `auditId` (gerado pelo cliente ANTES de começar), dá para voltar e
+   * perguntar o que aconteceu.
+   *
+   * Opcional, como `ajustes`: registro é schemaless, ausente = nada em voo.
+   */
+  auditoriaPendente?: {
+    auditId: string;
+    artifactId: string;
+    nivel: "standard" | "deep";
+    arquivo: string;
+    inicioMs: number;
+  };
 }
 
 /** Resumo p/ a lista da sidebar (sem carregar mensagens/blobs). */
@@ -73,6 +91,14 @@ export interface ConversationSummary {
   updatedAt: number;
   createdAt: number;
   folderKey?: string;
+  /**
+   * Tem auditoria disparada e ainda sem resultado.
+   *
+   * Entra no resumo (e não só no registro completo) porque é lido ao ABRIR a
+   * aplicação, para decidir qual conversa retomar — carregar todas as conversas
+   * inteiras só para descobrir isso seria caro à toa.
+   */
+  temAuditoriaPendente?: boolean;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -135,6 +161,7 @@ export async function listConversations(): Promise<ConversationSummary[]> {
       updatedAt: c.updatedAt,
       createdAt: c.createdAt,
       folderKey: c.folderKey,
+      ...(c.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
     }))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }

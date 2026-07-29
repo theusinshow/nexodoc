@@ -67,7 +67,14 @@ export default function AuditPdfViewerInternal({ url, page, highlight }: AuditPd
         return textItem.str;
       }
 
-      pattern.lastIndex = 0;
+      /*
+       * Sem zerar `lastIndex` à mão: `String.replace` com regex global já o
+       * zera antes de casar, então a linha era morta — e mutava um valor vindo
+       * do `useMemo`, o que o React Compiler barra com razão. O `pattern` é
+       * compartilhado entre todos os itens de texto da página; se alguém
+       * trocar este `replace` por `exec` ou `test`, aí sim o estado do regex
+       * passa a atravessar chamadas e precisa de cuidado.
+       */
       return textItem.str.replace(pattern, "<mark>$1</mark>");
     },
     [pattern],

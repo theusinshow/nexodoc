@@ -41,6 +41,14 @@ export interface MemorialAuditOpcoes {
   onMarco?: EmitirMarco;
   /** Desiste da auditoria. O trabalho já pago no servidor segue até o fim. */
   signal?: AbortSignal;
+  /**
+   * Id escolhido pelo CLIENTE, antes de começar.
+   *
+   * É o que torna a auditoria reencontrável: guardado junto da conversa, permite
+   * voltar depois de um F5 e perguntar ao servidor o que aconteceu, em vez de
+   * jogar fora os minutos de modelo que já foram pagos.
+   */
+  auditId?: string;
 }
 
 export async function runMemorialAudit(
@@ -70,6 +78,7 @@ export async function runMemorialAudit(
   if (conversationId) form.append("conversationId", conversationId);
 
   if (opcoes.onMarco) form.append("stream", "1");
+  if (opcoes.auditId) form.append("auditId", opcoes.auditId);
 
   const res = await fetch("/api/audit", {
     method: "POST",
@@ -96,6 +105,51 @@ interface RespostaDaAuditoria {
   result?: string;
   report?: AuditReport;
   auditId?: string | null;
+}
+
+/** O que o servidor sabe sobre uma auditoria já disparada. */
+export type EstadoDaAuditoria =
+  | { situacao: "rodando" }
+  | { situacao: "pronta"; resultado: MemorialAuditResult }
+  | { situacao: "falhou"; motivo: string }
+  | { situacao: "irrecuperavel"; motivo: string };
+
+/**
+ * Pergunta ao servidor o que aconteceu com uma auditoria disparada antes.
+ *
+ * `irrecuperavel` é a resposta honesta para "não dá para saber": ambiente sem
+ * banco não guarda auditoria nenhuma, e id desconhecido não vai aparecer depois.
+ * Sem essa distinção a interface ficaria perguntando para sempre por algo que
+ * nunca chega.
+ */
+export async function consultarAuditoria(auditId: string): Promise<EstadoDaAuditoria> {
+  const res = await fetch(`/api/audits/${encodeURIComponent(auditId)}`);
+  if (res.status === 404) {
+    return { situacao: "irrecuperavel", motivo: "Auditoria não encontrada no servidor." };
+  }
+  const corpo = (await res.json().catch(() => null)) as
+    | { status?: string; report?: AuditReport | null; result?: string; error?: string | null }
+    | null;
+  if (!res.ok || !corpo) {
+    // Banco fora do ar é temporário: vale continuar tentando.
+    return { situacao: "rodando" };
+  }
+  if (corpo.status === "SEM_HISTORICO") {
+    return {
+      situacao: "irrecuperavel",
+      motivo: "Este ambiente não guarda histórico de auditoria.",
+    };
+  }
+  if (corpo.status === "COMPLETED" && corpo.report) {
+    return {
+      situacao: "pronta",
+      resultado: { report: corpo.report, texto: corpo.result ?? "", auditId },
+    };
+  }
+  if (corpo.status === "FAILED") {
+    return { situacao: "falhou", motivo: corpo.error ?? "A auditoria falhou no servidor." };
+  }
+  return { situacao: "rodando" };
 }
 
 /**

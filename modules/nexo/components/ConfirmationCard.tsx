@@ -1216,7 +1216,8 @@ function AuditoriaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, conversationId } = useConversation();
+  const { results, getResult, saveResult, conversationId, marcarAuditoriaPendente } =
+    useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
   const id = auditoriaId(selos, memorialFatos?.codigo);
@@ -1263,6 +1264,19 @@ function AuditoriaConfirmation({
      * que o agente está trabalhando.
      */
     const controle = new AbortController();
+    /*
+     * O id nasce AQUI, antes da chamada. É o que deixa a auditoria reencontrável:
+     * gravado junto da conversa, sobrevive a um F5 e à troca de conversa, e o
+     * palco volta e pergunta ao servidor o que aconteceu — em vez de descartar
+     * 3 a 6 minutos de modelo que já foram pagos.
+     */
+    const auditId = crypto.randomUUID();
+    marcarAuditoriaPendente({
+      auditId,
+      artifactId: id,
+      nivel: params.nivel,
+      arquivo: memorialFile.name,
+    });
     auditoria.iniciar({
       nivel: params.nivel,
       arquivo: memorialFile.name,
@@ -1274,7 +1288,7 @@ function AuditoriaConfirmation({
         { obra, prefeitura, municipio },
         params.nivel,
         conversationId,
-        { onMarco: auditoria.marcar, signal: controle.signal },
+        { onMarco: auditoria.marcar, signal: controle.signal, auditId },
       );
       await saveResult({
         artifactId: id,
@@ -1303,6 +1317,9 @@ function AuditoriaConfirmation({
     } finally {
       setBusy(false);
       auditoria.terminar();
+      // Fechou o ciclo nesta aba: não há mais o que reconectar. Se a aba morreu
+      // antes daqui, o bilhete fica e o palco assume ao voltar.
+      marcarAuditoriaPendente(null);
     }
   }
 

@@ -118,11 +118,23 @@ interface ConversationStoreValue {
    * clique. Os blobs no IndexedDB ficam — o que importa é sair do estado.
    */
   removeResult: (artifactId: string) => void;
+  /**
+   * A auditoria disparada e ainda sem resultado nesta conversa.
+   *
+   * Vive aqui, e não no store da auditoria, porque precisa ser DURÁVEL: é o que
+   * permite voltar depois de um F5 e perguntar ao servidor o que aconteceu, em
+   * vez de perder de 3 a 6 minutos de modelo já pagos.
+   */
+  auditoriaPendente: AuditoriaPendente | null;
+  marcarAuditoriaPendente: (p: Omit<AuditoriaPendente, "inicioMs"> | null) => void;
   newConversation: () => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
   selectConversation: (id: string) => Promise<StoredConversation | null>;
   removeConversation: (id: string) => Promise<void>;
 }
+
+/** O bilhete que permite reconectar a uma auditoria já em curso no servidor. */
+export type AuditoriaPendente = NonNullable<StoredConversation["auditoriaPendente"]>;
 
 const ConversationStoreContext = createContext<ConversationStoreValue | null>(null);
 
@@ -165,6 +177,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [results, setResults] = useState<SavedResult[]>([]);
+  const [auditoriaPendente, setAuditoriaPendente] =
+    useState<AuditoriaPendente | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   // Snapshot mais novo p/ o persist debounced (evita closure velha). Sincronizado
@@ -177,6 +191,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     ajustes,
     tomosDeclarados,
     results,
+    auditoriaPendente,
     createdAt: 0,
   });
   useEffect(() => {
@@ -189,6 +204,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       tomosDeclarados,
       results,
+      auditoriaPendente,
       createdAt: snapshotRef.current.createdAt || Date.now(),
     };
   });
@@ -204,13 +220,30 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   }, [refreshList]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
+  const jaPersistiu = useRef(false);
 
   // Grava o snapshot atual AGORA (base do debounce E do flush ao trocar conversa).
   const persistNow = useCallback(() => {
     const s = snapshotRef.current;
-    if (s.messages.length === 0 && s.seloResults.length === 0 && s.results.length === 0) {
+    const vazia =
+      s.messages.length === 0 &&
+      s.seloResults.length === 0 &&
+      s.results.length === 0 &&
+      // Uma auditoria em voo já é conteúdo: sem isto, a conversa que só disparou
+      // a análise não seria gravada, e o `auditId` para reconectar se perderia.
+      !s.auditoriaPendente;
+    /*
+     * A guarda existe para não CRIAR conversa vazia — não para impedir de
+     * ATUALIZAR uma que já está no disco. Sem a segunda metade, limpar o
+     * bilhete de uma conversa cujo único conteúdo era a auditoria não gravava
+     * nada: o bilhete ressuscitava no disco e todo F5 futuro reabria a mesma
+     * conversa, para sempre.
+     */
+    if (vazia && !jaPersistiu.current) {
       return;
     }
+    jaPersistiu.current = true;
     const resultsMeta: StoredResultMeta[] = s.results.map((r) => ({
       artifactId: r.artifactId,
       kind: r.kind,
@@ -236,6 +269,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       seloResults: s.seloResults,
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
+      ...(s.auditoriaPendente ? { auditoriaPendente: s.auditoriaPendente } : {}),
       results: resultsMeta,
     };
     putConversation(rec)
@@ -422,6 +456,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setSeloResultsState([]);
     setAjustes({});
     setTomosDeclarados(0);
+    setAuditoriaPendente(null);
+    // Conversa nova ainda não existe no disco: volta a valer a guarda de vazia.
+    jaPersistiu.current = false;
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
     setResults((prev) => {
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -460,6 +497,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           ...(meta.payload !== undefined ? { payload: meta.payload } : {}),
         });
       }
+      // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
+      jaPersistiu.current = true;
       setConversationId(rec.id);
       setTitle(rec.title);
       setMessages(rec.messages);
@@ -467,6 +506,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       // Conversa gravada antes deste campo existir não tem `ajustes`.
       setAjustes(rec.ajustes ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
+      // A auditoria em voo volta com a conversa — quem reconecta é o palco.
+      setAuditoriaPendente(rec.auditoriaPendente ?? null);
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {
         prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -484,6 +525,28 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       refreshList();
     },
     [refreshList],
+  );
+
+  const marcarAuditoriaPendente = useCallback(
+    // A hora é carimbada AQUI: `Date.now()` no corpo de um componente é chamada
+    // impura durante o render, e o lint do React Compiler barra — com razão.
+    (p: Omit<AuditoriaPendente, "inicioMs"> | null) => {
+      const valor = p ? { ...p, inicioMs: Date.now() } : null;
+      setAuditoriaPendente(valor);
+      /*
+       * Escreve no snapshot À MÃO antes de gravar.
+       *
+       * O snapshot só acompanha o estado num effect, depois do render — e a
+       * gravação aqui é imediata, sem debounce (um F5 no segundo seguinte ao
+       * clique não pode encontrar a conversa sem o bilhete). Sem esta linha as
+       * duas coisas corriam soltas: ao RESOLVER a auditoria, o flush gravava o
+       * valor velho e o bilhete ressuscitava, fazendo todo F5 futuro reabrir a
+       * mesma conversa para sempre.
+       */
+      snapshotRef.current = { ...snapshotRef.current, auditoriaPendente: valor };
+      flushPersist();
+    },
+    [flushPersist],
   );
 
   const value = useMemo<ConversationStoreValue>(
@@ -506,6 +569,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       saveResult,
       getResult,
       removeResult,
+      auditoriaPendente,
+      marcarAuditoriaPendente,
       newConversation,
       selectConversation,
       removeConversation,
@@ -529,6 +594,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       saveResult,
       getResult,
       removeResult,
+      auditoriaPendente,
+      marcarAuditoriaPendente,
       newConversation,
       selectConversation,
       removeConversation,

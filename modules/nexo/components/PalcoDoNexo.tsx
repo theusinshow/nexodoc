@@ -21,15 +21,19 @@ import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import { useAuditoria, type VistaDoPalco as Vista } from "../state/auditoria-store";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
+import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const { results } = useConversation();
   const { emCurso, escolha, escolherVista } = useAuditoria();
+  // Auditoria herdada de outra sessão (F5, troca de conversa): o palco volta a
+  // esperar por ela em vez de deixá-la morrer com a aba.
+  const reconexao = useReconectarAuditoria();
 
   const auditoria = results.find((r) => r.kind === "auditoria");
   const salvo = auditoria?.payload as MemorialAuditResult | undefined;
   const report = salvo?.report;
-  const temAuditoria = Boolean(emCurso || report);
+  const temAuditoria = Boolean(emCurso || reconexao.pendente || report);
 
   /*
    * A vista é DERIVADA, não sincronizada por effect.
@@ -45,7 +49,13 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
    * o parecer" da âncora usa a marca coringa `"*"`, que vale para a auditoria
    * que estiver na tela.
    */
-  const marca = emCurso ? `curso:${emCurso.inicioMs}` : report ? "pronta" : "vazio";
+  const marca = emCurso
+    ? `curso:${emCurso.inicioMs}`
+    : reconexao.pendente
+      ? `retomada:${reconexao.pendente.inicioMs}`
+      : report
+        ? "pronta"
+        : "vazio";
   const valeAgora = escolha && (escolha.marca === marca || escolha.marca === "*");
   const vista: Vista = valeAgora
     ? escolha.vista
@@ -93,6 +103,22 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 inicioMs={emCurso.inicioMs}
                 marcos={emCurso.marcos}
                 onCancelar={emCurso.cancelar}
+              />
+            </div>
+          ) : reconexao.pendente ? (
+            /*
+             * Retomada: sem marcos, porque o fluxo de eventos morreu junto com a
+             * conexão anterior. Inventar etapas para preencher a espera seria a
+             * animação que este módulo se recusa a fazer — a tela diz só o que
+             * sabe, e o resultado aparece quando o servidor terminar.
+             */
+            <div className="flex h-full items-start justify-center overflow-y-auto pt-6">
+              <AuditoriaEmCurso
+                nivel={reconexao.pendente.nivel}
+                arquivo={reconexao.pendente.arquivo}
+                inicioMs={reconexao.pendente.inicioMs}
+                marcos={[]}
+                retomada
               />
             </div>
           ) : report ? (

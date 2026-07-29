@@ -630,7 +630,16 @@ function NexoWorkspaceInner() {
     if (!rec) return;
     runShellTransition(() =>
       flushSync(() => {
-        setStarted(rec.messages.length > 0 || rec.seloResults.length > 0);
+        /*
+         * Auditoria em voo também "começa" a conversa. Sem isto o shell abria no
+         * layout de boas-vindas, que não tem palco — e a análise retomada não
+         * teria onde aparecer, mesmo tendo sido recuperada com sucesso.
+         */
+        setStarted(
+          rec.messages.length > 0 ||
+            rec.seloResults.length > 0 ||
+            Boolean(rec.auditoriaPendente),
+        );
         setFiles([]);
         setFolderCount(0);
         setDossie(null);
@@ -646,6 +655,26 @@ function NexoWorkspaceInner() {
       }),
     );
   };
+
+  /*
+   * Ao abrir, retoma a conversa que tem AUDITORIA EM VOO.
+   *
+   * O F5 caía numa conversa nova em branco: o bilhete com o `auditId` ficava
+   * gravado na conversa anterior e ninguém o lia — a análise seguia rodando no
+   * servidor sem ter para onde voltar, e os minutos de modelo já pagos iam para
+   * o lixo do mesmo jeito. Só se retoma quando há trabalho pago pendurado; nos
+   * outros casos abrir em branco continua sendo o certo.
+   */
+  const retomouRef = useRef(false);
+  useEffect(() => {
+    if (retomouRef.current) return;
+    const pendente = conv.conversations.find((c) => c.temAuditoriaPendente);
+    if (!pendente || pendente.id === conv.conversationId) return;
+    retomouRef.current = true;
+    void selectConv(pendente.id);
+    // `selectConv` é recriada a cada render; a guarda de reentrada é o `ref`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv.conversations, conv.conversationId]);
 
   const okCount = seloResults.filter((r) => r.extraction).length;
   const busyReading = reading || readingMemorial;

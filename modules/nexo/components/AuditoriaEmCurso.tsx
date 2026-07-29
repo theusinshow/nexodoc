@@ -52,6 +52,7 @@ export function AuditoriaEmCurso({
   inicioMs,
   marcos,
   onCancelar,
+  retomada = false,
 }: {
   nivel: "standard" | "deep";
   /** Nome do documento em análise. */
@@ -61,6 +62,13 @@ export function AuditoriaEmCurso({
   /** Os marcos relatados pelo motor, na ordem em que chegaram. */
   marcos: MarcoRecebido[];
   onCancelar?: () => void;
+  /**
+   * Auditoria herdada de outra sessão (F5, troca de conversa). Não há marcos:
+   * o fluxo de eventos morreu com a conexão anterior. Dizer isso é melhor do
+   * que reencenar as etapas por tempo, que é justamente o que esta tela
+   * deixou de fazer.
+   */
+  retomada?: boolean;
 }) {
   const [agora, setAgora] = useState(() => Date.now());
 
@@ -112,7 +120,9 @@ export function AuditoriaEmCurso({
       {etapas.length === 0 ? (
         // Antes do primeiro marco não há o que afirmar sobre o trabalho.
         <p className="px-4 py-4 text-[13px] text-muted-foreground">
-          Enviando o documento para análise…
+          {retomada
+            ? "Esta análise já estava rodando no servidor. O resultado aparece aqui quando ela terminar."
+            : "Enviando o documento para análise…"}
         </p>
       ) : (
         <ol className="divide-y divide-border/60">
@@ -171,6 +181,11 @@ export function AuditoriaEmCurso({
           <p className="text-[11px] leading-4 text-[var(--status-warning)]">
             Esta etapa passou do tempo previsto; pode voltar incompleta. A análise
             continua rodando no servidor.
+          </p>
+        ) : retomada ? (
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            Reconectada a uma análise já em curso — sem as etapas, que se perderam
+            com a conexão anterior.
           </p>
         ) : (
           <p className="text-[11px] leading-4 text-muted-foreground">
