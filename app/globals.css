@@ -500,6 +500,35 @@ textarea {
   height: 100%;
 }
 
+/* O recado de tela estreita fica no DOM sempre; quem o mostra e a media query
+   logo abaixo. Medir a janela no cliente pintaria a tela errada no primeiro
+   quadro. A regra base vem ANTES da media query de proposito: com a mesma
+   especificidade, a ultima do arquivo vence -- deixa-la depois esconderia o
+   aviso justamente nas larguras em que ele deve aparecer. */
+.nexo-shell__estreito {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.nexo-shell__estreito-titulo {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.nexo-shell__estreito-texto {
+  max-width: 32ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
 /* <1024px: 1 coluna, sidebar recolhe (drawer real fica pro passo de responsivo). */
 @media (max-width: 1024px) {
   .nexo-shell--welcome,
@@ -511,17 +540,21 @@ textarea {
     display: none;
   }
 
-  /* O palco e o separador saem de cena junto com a sidebar.
-     Empilhados numa coluna só, viravam uma faixa vazia acima do chat: o mapa do
-     volume ficava ilegivel e o seletor de vistas continuava ali, oferecendo
-     trocar para uma tela que ninguem estava vendo. Melhor nao existir do que
-     existir sem funcionar. O parecer completo pede largura; no celular o chat
-     ainda entrega o veredito e a contagem por impacto, que e o que decide. */
+  /* Abaixo de 1024px o Nexo NAO tenta caber: ele avisa.
+     O parecer da auditoria e o mapa do volume sao leitura lado a lado; espremer
+     os dois numa coluna entregaria ambos pela metade. Some tudo e fica so o
+     recado -- degradar em silencio faria a decisao parecer defeito. */
   .nexo-shell__stage,
-  .nexo-shell__splitter {
+  .nexo-shell__splitter,
+  .nexo-shell__copilot {
     display: none;
   }
+
+  .nexo-shell__estreito {
+    display: flex;
+  }
 }
+
 
 /* Fallback sem View Transitions (ex.: Firefox): canvas e copiloto entram com
    transform+opacity ao virar `active`. */

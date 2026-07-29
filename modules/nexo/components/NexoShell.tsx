@@ -50,6 +50,25 @@ export function NexoShell({
       <aside className="nexo-shell__copilot" aria-label="Nexo">
         {copilot}
       </aside>
+
+      {/*
+        Tela estreita: dizer, em vez de degradar em silêncio.
+
+        O Nexo é ferramenta de mesa — o parecer da auditoria e o mapa do volume
+        são leitura lado a lado, e espremê-los numa coluna entregaria os dois
+        pela metade. Antes desta tela, abaixo de 1024px a sidebar e o palco
+        simplesmente sumiam e sobrava o chat solto: parecia defeito, não
+        decisão. Fica no DOM sempre e é o CSS que decide mostrá-la, para não
+        depender de medir a janela no cliente (o que pisca na primeira pintura).
+      */}
+      <div className="nexo-shell__estreito" role="note">
+        <p className="nexo-shell__estreito-titulo">O Nexo pede uma tela maior</p>
+        <p className="nexo-shell__estreito-texto">
+          A auditoria e o mapa do volume são feitos para leitura lado a lado, a
+          partir de 1024px de largura. Abra num computador — as conversas e os
+          pareceres já auditados continuam aqui, esperando.
+        </p>
+      </div>
     </div>
   );
 }
