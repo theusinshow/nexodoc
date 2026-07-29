@@ -11,6 +11,7 @@ import {
   type NexoAgentPrefeitura,
 } from "@/server/nexo/agent/run-turn";
 import { buildSlotRequestForTurn } from "@/server/nexo/agent/slot-request";
+import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
 
 export const runtime = "nodejs";
 
@@ -38,12 +39,14 @@ export async function POST(req: NextRequest) {
   let message: string;
   let history: ChatTurn[];
   let selos: SeloForLd[];
+  let memorial: FatosDoMemorial | null;
   let conversationId: string | null;
   try {
     const body = (await req.json()) as {
       message?: unknown;
       history?: unknown;
       selos?: unknown;
+      memorial?: unknown;
       conversationId?: unknown;
     };
     message = String(body.message ?? "").trim();
@@ -54,6 +57,10 @@ export async function POST(req: NextRequest) {
           .map((t) => ({ role: t.role, content: String(t.content ?? "") }))
       : [];
     selos = Array.isArray(body.selos) ? (body.selos as SeloForLd[]) : [];
+    memorial =
+      body.memorial && typeof body.memorial === "object"
+        ? (body.memorial as FatosDoMemorial)
+        : null;
     conversationId =
       typeof body.conversationId === "string" && body.conversationId.trim()
         ? body.conversationId.trim()
@@ -62,28 +69,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
 
-  // Sem selos não há fatos: guarda determinística (afirma o próximo passo).
-  if (selos.length === 0) {
+  /*
+   * A recusa agora é sobre FATOS, não sobre selos. Um memorial não tem selo de
+   * prancha: exigir selos impedia auditar memorial pelo chat, que é o caminho
+   * principal do produto agora.
+   */
+  const fatos = fatosDaConversa(selos, memorial);
+  if (!fatos.temFatos) {
     return NextResponse.json({
       turn: {
         reply:
-          "Primeiro anexe as pranchas de uma disciplina e toque em “Ler pranchas”. " +
-          "Assim eu leio os selos e proponho a LD e a capa.",
+          "Anexe as pranchas de uma disciplina (eu leio os selos e proponho a LD e a capa) " +
+          "ou o memorial descritivo (eu audito contra a obra declarada).",
         proposals: [],
       },
     });
   }
 
-  // Fatos determinísticos a partir dos selos (mesma fonte da geração).
-  const proposal = buildLdProposal(selos);
-  const resumo = {
-    disciplina: proposal.resumo.disciplina,
-    codigo: proposal.resumo.codigo,
-    revisao: proposal.resumo.revisao,
-    obra: proposal.resumo.obra,
-    totalFolhas: proposal.resumo.totalFolhas,
-    tituloSugerido: proposal.input.ldData.sectionTitle,
-  };
+  /*
+   * Fatos determinísticos. Com pranchas, saem dos selos (mesma fonte da
+   * geração). Só com memorial, saem da classificação — o agente precisa saber
+   * sobre o que está falando, senão volta a inventar.
+   */
+  const proposal = fatos.temSelos ? buildLdProposal(selos) : null;
+  const resumo = proposal
+    ? {
+        disciplina: proposal.resumo.disciplina,
+        codigo: proposal.resumo.codigo,
+        revisao: proposal.resumo.revisao,
+        obra: proposal.resumo.obra,
+        totalFolhas: proposal.resumo.totalFolhas,
+        tituloSugerido: proposal.input.ldData.sectionTitle,
+      }
+    : {
+        disciplina: "",
+        codigo: memorial?.codigo ?? "",
+        revisao: "",
+        obra: fatos.gabarito.obra ?? "",
+        totalFolhas: 0,
+        tituloSugerido: "",
+      };
 
   const registry = await getTemplateRegistry();
   const prefeituras: NexoAgentPrefeitura[] = registry.map((t) => ({
@@ -94,15 +119,17 @@ export async function POST(req: NextRequest) {
   // Pré-visualização determinística da LD: as folhas que vão para o documento,
   // já ordenadas. Deixa o engenheiro conferir antes de gerar (ex.: uma folha que
   // não chegou). Independe do que a IA propõe.
-  const ldPreview = {
-    rows: proposal.input.rows.map((r) => ({
-      sheet: r.sheet,
-      file: r.file,
-      description: r.description,
-    })),
-    totalFolhas: proposal.resumo.totalFolhas,
-    referenceTotal: proposal.input.referenceTotal ?? null,
-  };
+  const ldPreview = proposal
+    ? {
+        rows: proposal.input.rows.map((r) => ({
+          sheet: r.sheet,
+          file: r.file,
+          description: r.description,
+        })),
+        totalFolhas: proposal.resumo.totalFolhas,
+        referenceTotal: proposal.input.referenceTotal ?? null,
+      }
+    : null;
 
   // Pós-processamento determinístico: se ainda falta uma DECISÃO humana (ex.:
   // título da LD), anexa o slotRequest com pré-respostas (§3). A IA não decide
