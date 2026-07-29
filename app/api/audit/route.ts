@@ -473,6 +473,35 @@ function getCoherenceMaxOutputTokens() {
 
 // Teto de saída da leitura global do Profundo, que agora lê o documento inteiro.
 // Precisa ser grande para caber a lista completa de achados sem truncar o JSON.
+/*
+ * Teto de saída da LEITURA GLOBAL, por nível.
+ *
+ * O Padrão usava `getMaxOutputTokens()` — 1800, o teto pensado para um BLOCO de
+ * capítulo — na passada que lê o documento inteiro. Num memorial de 132 páginas
+ * o JSON truncava, `parseRequiredAuditModelJson` rejeitava a resposta inteira e
+ * a etapa era descartada: a auditoria chegava como ANÁLISE PARCIAL.
+ *
+ * Medido no banco em 2026-07-29: das 25 auditorias concluídas com relatório, 8
+ * vieram parciais; 6 delas eram Padrão com "resposta inválida na etapa
+ * audit-global", todas no mesmo documento, em 77-94s — longe de qualquer
+ * timeout. O mesmo documento passava quando a saída cabia.
+ *
+ * Retentativa NÃO resolveria: truncar é determinístico, e tentar de novo com o
+ * mesmo teto trunca de novo. O que faltava era espaço para a resposta.
+ *
+ * O Padrão fica abaixo do Profundo de propósito: ele lê uma janela amostrada do
+ * documento, então devolve menos achados — e o teto é também um freio de custo.
+ */
+function getStandardGlobalMaxOutputTokens() {
+  const value = Number(process.env.NEXODOC_STANDARD_GLOBAL_MAX_OUTPUT_TOKENS);
+
+  if (Number.isFinite(value) && value >= 2000) {
+    return Math.min(16000, Math.floor(value));
+  }
+
+  return 8000;
+}
+
 function getDeepGlobalMaxOutputTokens() {
   const value = Number(process.env.NEXODOC_DEEP_GLOBAL_MAX_OUTPUT_TOKENS);
 
@@ -540,6 +569,17 @@ function getChunkConcurrency() {
   }
 
   return DEFAULT_CHUNK_CONCURRENCY;
+}
+
+/** Teto de tempo da leitura global no Padrão — os 120s dos blocos ficam curtos. */
+function getStandardGlobalTimeoutMs() {
+  const value = Number(process.env.NEXODOC_STANDARD_GLOBAL_TIMEOUT_MS);
+
+  if (Number.isFinite(value) && value >= 60_000) {
+    return Math.min(300_000, Math.floor(value));
+  }
+
+  return 180_000;
 }
 
 function getChunkTimeoutMs() {
@@ -2088,8 +2128,10 @@ async function analyzeFileGloballyWithModel(args: {
       // A leitura do documento INTEIRO com esforço alto é lenta; o timeout curto
       // dos blocos abortava a global no meio (aborto aos 120s no 017-26). No
       // Profundo damos folga maior.
+      // Com mais espaço de saída a resposta também demora mais; o teto de 120s
+      // dos blocos passa a ser apertado para uma passada que lê o documento.
       timeoutMs:
-        args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : getChunkTimeoutMs(),
+        args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : getStandardGlobalTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
@@ -2098,7 +2140,9 @@ async function analyzeFileGloballyWithModel(args: {
         // achados; o teto precisa ser alto, senão o JSON trunca e a etapa inteira
         // vira "resposta inválida" (0 achados). Provado no 017-26: 6000 truncou.
         max_output_tokens:
-          args.analysisLevel === "deep" ? getDeepGlobalMaxOutputTokens() : getMaxOutputTokens(),
+          args.analysisLevel === "deep"
+            ? getDeepGlobalMaxOutputTokens()
+            : getStandardGlobalMaxOutputTokens(),
         text: { format: auditFindingsResponseFormat },
         input: getGlobalFilePrompt(args),
       },
