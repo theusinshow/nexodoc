@@ -8,6 +8,7 @@
  * emitido com o nome/dados de OUTRA obra.
  */
 import type { AuditReport } from "@/lib/audit-report";
+import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
 
 export interface MemorialAuditGabarito {
   obra?: string;
@@ -35,11 +36,19 @@ export interface MemorialAuditResult {
  * a tela quebra ao contar os achados. O teste em `audit-contrato.test.ts` casa os
  * dois lados justamente porque `tsc` não vê através de um `as`.
  */
+export interface MemorialAuditOpcoes {
+  /** Recebe os marcos REAIS do motor. Passar isto liga o modo de fluxo. */
+  onMarco?: EmitirMarco;
+  /** Desiste da auditoria. O trabalho já pago no servidor segue até o fim. */
+  signal?: AbortSignal;
+}
+
 export async function runMemorialAudit(
   memorial: File,
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
   conversationId?: string | null,
+  opcoes: MemorialAuditOpcoes = {},
 ): Promise<MemorialAuditResult> {
   const form = new FormData();
   form.append(
@@ -60,11 +69,19 @@ export async function runMemorialAudit(
   // Carimba a conversa do Nexo no consumo de IA desta auditoria (anel de consumo).
   if (conversationId) form.append("conversationId", conversationId);
 
-  const res = await fetch("/api/audit", { method: "POST", body: form });
-  const payload = (await res.json().catch(() => null)) as
-    | { error?: string; result?: string; report?: AuditReport; auditId?: string | null }
-    | null;
-  if (!res.ok || !payload?.report) {
+  if (opcoes.onMarco) form.append("stream", "1");
+
+  const res = await fetch("/api/audit", {
+    method: "POST",
+    body: form,
+    signal: opcoes.signal,
+  });
+
+  const payload = opcoes.onMarco
+    ? await lerFluxo(res, opcoes.onMarco)
+    : ((await res.json().catch(() => null)) as RespostaDaAuditoria | null);
+
+  if (!payload?.report) {
     throw new Error(payload?.error ?? "Falha na auditoria do memorial.");
   }
   return {
@@ -72,4 +89,53 @@ export async function runMemorialAudit(
     texto: typeof payload.result === "string" ? payload.result : "",
     auditId: payload.auditId ?? null,
   };
+}
+
+interface RespostaDaAuditoria {
+  error?: string;
+  result?: string;
+  report?: AuditReport;
+  auditId?: string | null;
+}
+
+/**
+ * Lê o fluxo de eventos do motor: `marco` durante, `done`/`error` no fim.
+ *
+ * O corte é por linha em branco, não por pedaço da rede: um evento pode chegar
+ * partido em dois `read()`, e tratar cada pedaço como uma mensagem completa faz
+ * o `JSON.parse` explodir no meio de uma auditoria de seis minutos.
+ */
+async function lerFluxo(
+  res: Response,
+  onMarco: EmitirMarco,
+): Promise<RespostaDaAuditoria | null> {
+  const leitor = res.body?.getReader();
+  if (!leitor) return null;
+  const decodificador = new TextDecoder();
+  let sobra = "";
+  let final: RespostaDaAuditoria | null = null;
+
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    sobra += decodificador.decode(value, { stream: true });
+    const blocos = sobra.split("\n\n");
+    sobra = blocos.pop() ?? "";
+    for (const bloco of blocos) {
+      const evento = /^event: (.+)$/m.exec(bloco)?.[1]?.trim();
+      const dadosBrutos = /^data: (.*)$/m.exec(bloco)?.[1];
+      if (!evento || dadosBrutos === undefined) continue;
+      let dados: unknown;
+      try {
+        dados = JSON.parse(dadosBrutos);
+      } catch {
+        continue;
+      }
+      if (evento === "marco") onMarco(dados as MarcoDaAuditoria);
+      else if (evento === "done" || evento === "error") {
+        final = dados as RespostaDaAuditoria;
+      }
+    }
+  }
+  return final;
 }

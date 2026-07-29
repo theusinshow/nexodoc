@@ -34,7 +34,8 @@
     "test:nexo:layout": "node scripts/test-nexo-layout.ts",
     "test:nexo:drop": "node scripts/test-nexo-drop.ts",
     "test:nexo:fatos": "node scripts/test-nexo-fatos.ts",
-    "test:nexo:audit-contrato": "node scripts/test-nexo-audit-contrato.ts"
+    "test:nexo:audit-contrato": "node scripts/test-nexo-audit-contrato.ts",
+    "test:nexo:audit-marcos": "node scripts/test-nexo-audit-marcos.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

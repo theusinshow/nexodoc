@@ -1262,13 +1262,19 @@ function AuditoriaConfirmation({
      * durante os 3 a 6 minutos da análise, e o usuário não tem sinal nenhum de
      * que o agente está trabalhando.
      */
-    auditoria.iniciar({ nivel: params.nivel, arquivo: memorialFile.name });
+    const controle = new AbortController();
+    auditoria.iniciar({
+      nivel: params.nivel,
+      arquivo: memorialFile.name,
+      cancelar: () => controle.abort(),
+    });
     try {
       const r = await postAudit(
         memorialFile,
         { obra, prefeitura, municipio },
         params.nivel,
         conversationId,
+        { onMarco: auditoria.marcar, signal: controle.signal },
       );
       await saveResult({
         artifactId: id,
@@ -1288,7 +1294,12 @@ function AuditoriaConfirmation({
       });
       refreshUsage();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
+      // Desistir é escolha, não falha: um erro em vermelho depois de o próprio
+      // usuário cancelar acusaria o sistema de algo que ele não fez.
+      const cancelou = err instanceof DOMException && err.name === "AbortError";
+      if (!cancelou) {
+        setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
+      }
     } finally {
       setBusy(false);
       auditoria.terminar();

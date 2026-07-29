@@ -91,6 +91,8 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 nivel={emCurso.nivel}
                 arquivo={emCurso.arquivo}
                 inicioMs={emCurso.inicioMs}
+                marcos={emCurso.marcos}
+                onCancelar={emCurso.cancelar}
               />
             </div>
           ) : report ? (

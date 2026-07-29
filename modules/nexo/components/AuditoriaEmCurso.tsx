@@ -3,107 +3,45 @@
 /**
  * O que a auditoria está fazendo, enquanto faz.
  *
- * As etapas são as REAIS do motor (`app/api/audit/route.ts`), na ordem em que
- * acontecem — nada de animação inventada para parecer trabalho. O componente
- * antigo (`components/audit-progress.tsx`) dizia "Analisando blocos em paralelo"
- * no nível Profundo, onde os blocos da frente foram CORTADOS: descrevia trabalho
- * que não acontece, e com tempos de outra época (30s, quando a leitura global
- * sozinha leva 180-210s).
+ * Agora os marcos vêm do MOTOR (`/api/audit` em modo de fluxo), não de um
+ * cronômetro. Antes a etapa atual era estimada pelo tempo decorrido — e
+ * estimativa envelhece mal: em documento grande a barra passava do previsto e a
+ * interface não sabia dizer se estava perto do fim ou parada.
  *
- * HONESTIDADE: o cliente não recebe progresso do servidor — `/api/audit` é um
- * POST único que só responde no fim. Então a etapa atual é ESTIMADA pelo tempo
- * decorrido, e o componente diz isso em vez de fingir precisão. Quando passa do
- * previsto, ele avisa que está demorando mais que o normal em vez de deixar a
- * última etapa piscando para sempre.
+ * O que continua honesto por construção: as duas etapas longas (leitura do
+ * documento e validação) são UMA ida ao modelo, sem sinal interno. Delas o motor
+ * manda início, fim e o TETO de tempo — nunca porcentagem. Estourado o teto, o
+ * rodapé diz que passou do previsto, e o veredito ANÁLISE PARCIAL no fim
+ * confirma o que a interface já tinha preparado, em vez de contradizer um
+ * "quase pronto".
+ *
+ * As etapas listadas são as que aquele nível REALMENTE roda: no Profundo os
+ * blocos por capítulo não aparecem, porque lá eles são cortados e o documento é
+ * lido inteiro.
  */
 
 import { useEffect, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { NOME_DA_PASSADA, type PassadaDaAuditoria } from "@/lib/audit-progress";
+import { etapasDosMarcos, type MarcoRecebido } from "../lib/etapas-da-auditoria";
 import { cn } from "@/lib/utils";
 
-/** Uma etapa real do motor, com a duração típica medida no memorial de 132 páginas. */
-interface Etapa {
-  chave: string;
-  rotulo: string;
-  /** O que ela faz, em uma linha — some no modo compacto. */
-  detalhe: string;
-  /** Segundos típicos. Medidos em 2026-07-28 no 017-26 (Profundo). */
-  segundos: number;
-}
-
-/*
- * A ordem é a de `deepAnalyzeFile`: extração → regras determinísticas (guardas,
- * identidade intra-documento, coerência) → leitura global por IA → cerca de
- * evidência → validação → consolidação.
- */
-const ETAPAS_PROFUNDO: Etapa[] = [
-  {
-    chave: "extracao",
-    rotulo: "Lendo o documento",
-    detalhe: "Extrai o texto de todas as páginas do PDF.",
-    segundos: 12,
-  },
-  {
-    chave: "regras",
-    rotulo: "Conferindo identidade e coerência",
-    detalhe: "Regras determinísticas, sem IA: obra divergente, contradição entre capítulos.",
-    segundos: 4,
-  },
-  {
-    chave: "global",
-    rotulo: "Lendo o projeto inteiro",
-    detalhe: "Uma leitura da IA com o documento completo — é a etapa mais longa.",
-    segundos: 200,
-  },
-  {
-    chave: "evidencia",
-    rotulo: "Conferindo as evidências no texto",
-    detalhe: "Descarta achado que não se ancora em trecho real do documento.",
-    segundos: 3,
-  },
-  {
-    chave: "validacao",
-    rotulo: "Separando o sólido do sugerido",
-    detalhe: "Segunda passada: rebaixa o incerto em vez de apagá-lo.",
-    segundos: 130,
-  },
-  {
-    chave: "parecer",
-    rotulo: "Consolidando o parecer",
-    detalhe: "Ordena por impacto e fecha o veredito de emissão.",
-    segundos: 5,
-  },
-];
-
-/** No Padrão a IA lê uma amostra e os blocos por capítulo rodam. */
-const ETAPAS_PADRAO: Etapa[] = [
-  ETAPAS_PROFUNDO[0],
-  ETAPAS_PROFUNDO[1],
-  {
-    chave: "global",
-    rotulo: "Lendo o projeto",
-    detalhe: "Leitura da IA sobre a parte do documento que cabe na janela.",
-    segundos: 35,
-  },
-  {
-    chave: "blocos",
-    rotulo: "Lendo capítulo a capítulo",
-    detalhe: "Blocos em paralelo, para alcançar o que a leitura única não cobriu.",
-    segundos: 25,
-  },
-  ETAPAS_PROFUNDO[3],
-  ETAPAS_PROFUNDO[4],
-  ETAPAS_PROFUNDO[5],
-];
-
-function segundosDe(ms: number) {
-  return Math.max(0, Math.floor(ms / 1000));
-}
+/** O que cada passada faz, em uma linha. Só aparece na etapa em curso. */
+const DETALHE: Record<PassadaDaAuditoria, string> = {
+  extracao: "Extrai o texto de todas as páginas do PDF.",
+  regras: "Regras determinísticas, sem IA: obra divergente, contradição entre capítulos.",
+  global: "Uma leitura da IA sobre o documento — é a etapa mais longa.",
+  blocos: "Blocos por capítulo, para alcançar o que a leitura única não cobriu.",
+  evidencia: "Descarta achado que não se ancora em trecho real do documento.",
+  confronto: "Compara os documentos entre si — divergência de identidade entre arquivos.",
+  validacao: "Segunda passada: rebaixa o incerto em vez de apagá-lo.",
+  parecer: "Ordena por impacto e fecha o veredito de emissão.",
+};
 
 function formatarTempo(ms: number) {
-  const s = segundosDe(ms);
+  const s = Math.max(0, Math.floor(ms / 1000));
   if (s < 60) return `${s}s`;
   return `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`;
 }
@@ -112,6 +50,7 @@ export function AuditoriaEmCurso({
   nivel,
   arquivo,
   inicioMs,
+  marcos,
   onCancelar,
 }: {
   nivel: "standard" | "deep";
@@ -119,6 +58,8 @@ export function AuditoriaEmCurso({
   arquivo: string;
   /** `Date.now()` de quando começou. */
   inicioMs: number;
+  /** Os marcos relatados pelo motor, na ordem em que chegaram. */
+  marcos: MarcoRecebido[];
   onCancelar?: () => void;
 }) {
   const [agora, setAgora] = useState(() => Date.now());
@@ -128,21 +69,17 @@ export function AuditoriaEmCurso({
     return () => clearInterval(id);
   }, []);
 
-  const etapas = nivel === "deep" ? ETAPAS_PROFUNDO : ETAPAS_PADRAO;
   const decorrido = agora - inicioMs;
-  const total = etapas.reduce((s, e) => s + e.segundos, 0);
-  const passou = segundosDe(decorrido) > total;
+  const etapas = etapasDosMarcos(marcos);
+  const emCurso = etapas.find((e) => !e.concluida);
 
-  // Qual etapa o tempo decorrido alcança. É ESTIMATIVA — o componente diz isso.
-  let acumulado = 0;
-  let indiceAtual = etapas.length - 1;
-  for (let i = 0; i < etapas.length; i++) {
-    acumulado += etapas[i].segundos;
-    if (segundosDe(decorrido) < acumulado) {
-      indiceAtual = i;
-      break;
-    }
-  }
+  /*
+   * "Passou do previsto" só se afirma sobre uma etapa que declarou orçamento —
+   * e medindo o tempo DELA, não o da auditoria inteira. Somar tudo faria a tela
+   * acusar atraso em documento grande onde nada está atrasado.
+   */
+  const estourou =
+    emCurso?.orcamentoMs !== undefined && agora - emCurso.inicioMs > emCurso.orcamentoMs;
 
   return (
     <section
@@ -172,61 +109,72 @@ export function AuditoriaEmCurso({
         </div>
       </header>
 
-      <ol className="divide-y divide-border/60">
-        {etapas.map((etapa, i) => {
-          const feita = i < indiceAtual;
-          const atual = i === indiceAtual && !passou;
-          return (
-            <li
-              key={etapa.chave}
-              className={cn(
-                "flex gap-3 px-4 py-2.5 transition-colors duration-150",
-                atual && "bg-[var(--nexodoc-raised)]",
-              )}
-            >
-              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-                {feita ? (
-                  <Check className="size-3.5 text-[var(--status-ok)]" aria-hidden />
-                ) : atual ? (
-                  <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden />
-                ) : (
-                  <span className="size-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
+      {etapas.length === 0 ? (
+        // Antes do primeiro marco não há o que afirmar sobre o trabalho.
+        <p className="px-4 py-4 text-[13px] text-muted-foreground">
+          Enviando o documento para análise…
+        </p>
+      ) : (
+        <ol className="divide-y divide-border/60">
+          {etapas.map((etapa) => {
+            const atual = etapa === emCurso;
+            const contagem =
+              etapa.total !== undefined && etapa.indice !== undefined && !etapa.concluida
+                ? ` — ${etapa.indice} de ${etapa.total}`
+                : "";
+            return (
+              <li
+                key={etapa.passada}
+                className={cn(
+                  "flex gap-3 px-4 py-2.5 transition-colors duration-150",
+                  atual && "bg-[var(--nexodoc-raised)]",
                 )}
-              </span>
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "text-[13px] leading-5",
-                    atual ? "font-medium text-foreground" : feita ? "text-foreground/70" : "text-muted-foreground",
+              >
+                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                  {etapa.concluida ? (
+                    <Check className="size-3.5 text-[var(--status-ok)]" aria-hidden />
+                  ) : (
+                    <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden />
                   )}
-                >
-                  {etapa.rotulo}
-                </p>
-                {atual && (
-                  <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                    {etapa.detalhe}
+                </span>
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-[13px] leading-5",
+                      atual
+                        ? "font-medium text-foreground"
+                        : "text-foreground/70",
+                    )}
+                  >
+                    {NOME_DA_PASSADA[etapa.passada]}
+                    {contagem}
                   </p>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+                  {/*
+                    O detalhe é o FATO que o motor mediu ("132 páginas, 314848
+                    caracteres", "3 descartados por falta de evidência"). Só
+                    quando ele não existe é que cabe a frase genérica.
+                  */}
+                  {(atual || etapa.detalhe) && (
+                    <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                      {etapa.detalhe ?? DETALHE[etapa.passada]}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       <footer className="border-t border-border px-4 py-2.5">
-        {passou ? (
-          /*
-           * Passou do previsto: dizer isso é mais útil (e mais honesto) do que
-           * deixar a última etapa piscando como se ainda fosse rápido. A análise
-           * segue rodando no servidor — o usuário decide se espera.
-           */
+        {estourou ? (
           <p className="text-[11px] leading-4 text-[var(--status-warning)]">
-            Está levando mais que o normal. A análise continua rodando no servidor.
+            Esta etapa passou do tempo previsto; pode voltar incompleta. A análise
+            continua rodando no servidor.
           </p>
         ) : (
           <p className="text-[11px] leading-4 text-muted-foreground">
-            As etapas seguem a ordem real da análise. O tempo de cada uma varia com
-            o tamanho do documento.
+            As etapas são relatadas pelo motor conforme acontecem.
           </p>
         )}
       </footer>

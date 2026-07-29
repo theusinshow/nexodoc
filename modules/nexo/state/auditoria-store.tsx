@@ -14,10 +14,21 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
+import type { MarcoDaAuditoria } from "@/lib/audit-progress";
+/*
+ * O carimbo de chegada é do CLIENTE porque quem precisa dele é a tela: para
+ * dizer "esta etapa passou do orçamento" é preciso saber quando ela começou.
+ */
+import type { MarcoRecebido } from "../lib/etapas-da-auditoria";
+
 export interface AuditoriaEmCursoInfo {
   nivel: "standard" | "deep";
   arquivo: string;
   inicioMs: number;
+  /** Os marcos que o motor JÁ relatou, na ordem em que chegaram. */
+  marcos: MarcoRecebido[];
+  /** Existe enquanto der para desistir. */
+  cancelar?: () => void;
 }
 
 export type VistaDoPalco = "mapa" | "auditoria";
@@ -38,7 +49,9 @@ interface EscolhaDeVista {
 
 interface AuditoriaStoreValue {
   emCurso: AuditoriaEmCursoInfo | null;
-  iniciar: (info: Omit<AuditoriaEmCursoInfo, "inicioMs">) => void;
+  iniciar: (info: Omit<AuditoriaEmCursoInfo, "inicioMs" | "marcos">) => void;
+  /** Registra um marco vindo do motor. */
+  marcar: (marco: MarcoDaAuditoria) => void;
   terminar: () => void;
   escolha: EscolhaDeVista | null;
   escolherVista: (marca: string, vista: VistaDoPalco) => void;
@@ -51,8 +64,31 @@ const Ctx = createContext<AuditoriaStoreValue | null>(null);
 export function AuditoriaStoreProvider({ children }: { children: ReactNode }) {
   const [emCurso, setEmCurso] = useState<AuditoriaEmCursoInfo | null>(null);
 
-  const iniciar = useCallback((info: Omit<AuditoriaEmCursoInfo, "inicioMs">) => {
-    setEmCurso({ ...info, inicioMs: Date.now() });
+  const iniciar = useCallback(
+    (info: Omit<AuditoriaEmCursoInfo, "inicioMs" | "marcos">) => {
+      setEmCurso({ ...info, inicioMs: Date.now(), marcos: [] });
+    },
+    [],
+  );
+
+  const marcar = useCallback((cru: MarcoDaAuditoria) => {
+    const marco: MarcoRecebido = { ...cru, emMs: Date.now() };
+    setEmCurso((atual) => {
+      if (!atual) return atual;
+      /*
+       * Um marco de MESMA passada e mesmo estado substitui o anterior em vez de
+       * empilhar: os blocos relatam a cada conclusão ("3 de 8", "4 de 8") e sem
+       * isto a lista cresceria uma linha por bloco.
+       */
+      const i = atual.marcos.findIndex(
+        (m) => m.passada === marco.passada && m.estado === marco.estado,
+      );
+      const marcos =
+        i >= 0
+          ? atual.marcos.map((m, j) => (j === i ? marco : m))
+          : [...atual.marcos, marco];
+      return { ...atual, marcos };
+    });
   }, []);
 
   const terminar = useCallback(() => setEmCurso(null), []);
@@ -65,8 +101,8 @@ export function AuditoriaStoreProvider({ children }: { children: ReactNode }) {
   const verNoPalco = useCallback(() => setEscolha({ marca: "*", vista: "auditoria" }), []);
 
   const value = useMemo(
-    () => ({ emCurso, iniciar, terminar, escolha, escolherVista, verNoPalco }),
-    [emCurso, iniciar, terminar, escolha, escolherVista, verNoPalco],
+    () => ({ emCurso, iniciar, marcar, terminar, escolha, escolherVista, verNoPalco }),
+    [emCurso, iniciar, marcar, terminar, escolha, escolherVista, verNoPalco],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

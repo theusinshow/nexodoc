@@ -7,6 +7,7 @@ import {
   formatAuditLearningsForPrompt,
   listAuditLearnings,
 } from "@/lib/audit-learnings";
+import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
 import {
   makeTextReport,
   buildExecutiveSummary,
@@ -2765,8 +2766,12 @@ async function deepAnalyzeFile(args: {
   userEmail?: string | null;
   /** Coletor: cada passada que abortar se registra aqui. */
   degradacoes: PassadaIncompleta[];
+  /** Relata o progresso real, quando alguém está ouvindo. */
+  onMarco?: EmitirMarco;
 }) {
   const startedAt = Date.now();
+  const marco = (m: MarcoDaAuditoria) => args.onMarco?.(m);
+  marco({ passada: "regras", estado: "inicio" });
   const mandatoryGuardFindings = deriveMandatoryIdentityGuardFindings(
     args.file.extracted,
     args.file.file.name,
@@ -2829,6 +2834,24 @@ async function deepAnalyzeFile(args: {
     `[audit] ${args.file.file.name}: ${args.file.extracted.pageCount} paginas, ${args.file.extracted.charCount} caracteres, leitura de identidade, leitura global e ${chunks.length} blocos, concorrencia ${concurrency}, regras locais ${useRuleBasedFindings ? "ativas" : "desligadas"}`,
   );
 
+  /*
+   * As regras determinísticas já rodaram todas até aqui — guardas de capa,
+   * identidade intra-documento, coerência entre capítulos e as regras locais.
+   * São instantâneas e sem IA, e é honesto fechar a passada com a contagem: o
+   * número já existe, não é previsão.
+   */
+  marco({
+    passada: "regras",
+    estado: "fim",
+    detalhe: `${
+      mandatoryGuardFindings.length +
+      withinDocumentIdentityFindings.length +
+      coherenceFindings.length +
+      inferredIdentityFindings.length +
+      ruleBasedReviewFindings.length
+    } achado(s) por regra`,
+  });
+
   // Fase C — a identidade é da Camada 1 (guardas + regras determinísticas acima).
   // A passada de IA de identidade só roda sob flag explícito (benchmark).
   const shouldRunAiIdentityPass =
@@ -2858,6 +2881,24 @@ async function deepAnalyzeFile(args: {
   const globalStartedAt = Date.now();
   const shouldRunGlobalPass =
     !hasInferredIdentityConflict || process.env.NEXODOC_ALWAYS_RUN_GLOBAL_AI === "true";
+  if (shouldRunGlobalPass) {
+    /*
+     * A etapa longa. No Profundo é o documento INTEIRO numa ida só ao modelo;
+     * no Padrão, trechos amostrados. Não há sinal interno para relatar — é
+     * chamada atômica — então o que se manda é o tamanho real do que vai ser
+     * lido e o TETO de tempo. É o orçamento que deixa a interface dizer
+     * "passou do previsto" sem inventar uma barra de progresso.
+     */
+    marco({
+      passada: "global",
+      estado: "inicio",
+      detalhe:
+        args.analysisLevel === "deep"
+          ? `documento inteiro — ${args.file.extracted.charCount.toLocaleString("pt-BR")} caracteres`
+          : "trechos amostrados do documento",
+      orcamentoMs: args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : undefined,
+    });
+  }
   const globalFindings = shouldRunGlobalPass
     ? await analyzeFileGloballyWithModel({
         auditId: args.auditId,
@@ -2878,6 +2919,13 @@ async function deepAnalyzeFile(args: {
   console.log(
     `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
+  if (shouldRunGlobalPass) {
+    marco({
+      passada: "global",
+      estado: "fim",
+      detalhe: `${globalFindings.length} achado(s)`,
+    });
+  }
 
   // Passada de coerência — só faz sentido quando o documento é MAIOR que a janela
   // da leitura global (senão a global já leu tudo e a coerência seria redundante,
@@ -2907,6 +2955,13 @@ async function deepAnalyzeFile(args: {
     );
   }
 
+  // Blocos só existem no Padrão — no Profundo `chunkLimit` é 0 e a leitura
+  // global já cobriu o documento inteiro. Anunciar a passada aqui seria
+  // descrever trabalho que não vai acontecer.
+  if (chunks.length > 0) {
+    marco({ passada: "blocos", estado: "inicio", indice: 0, total: chunks.length });
+  }
+  let blocosFeitos = 0;
   const modelFindingGroups = await mapWithConcurrency(
     chunks,
     concurrency,
@@ -2931,6 +2986,15 @@ async function deepAnalyzeFile(args: {
       console.log(
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,
       );
+      // Contagem por CONCLUSÃO, não por índice: os blocos rodam em paralelo, e
+      // "bloco 7 de 8" com o 3 ainda aberto mentiria sobre o que falta.
+      blocosFeitos++;
+      marco({
+        passada: "blocos",
+        estado: "inicio",
+        indice: blocosFeitos,
+        total: chunks.length,
+      });
       return findings;
     },
   );
@@ -2940,8 +3004,19 @@ async function deepAnalyzeFile(args: {
     `[audit] ${args.file.file.name}: analise concluida em ${Math.round((Date.now() - startedAt) / 1000)}s com ${mandatoryGuardFindings.length + withinDocumentIdentityFindings.length + coherenceFindings.length + inferredIdentityFindings.length + ruleBasedReviewFindings.length + identityFindings.length + globalFindings.length + coherenceModelFindings.length + modelFindings.length} achado(s) antes de deduplicar`,
   );
 
+  if (chunks.length > 0) {
+    marco({
+      passada: "blocos",
+      estado: "fim",
+      detalhe: `${modelFindings.length} achado(s)`,
+      indice: chunks.length,
+      total: chunks.length,
+    });
+  }
+
   // Fase B — trava anti-alucinação: achados de IA (identidade/global/blocos)
   // só sobrevivem se o trecho citado existir de fato no texto extraído.
+  marco({ passada: "evidencia", estado: "inicio" });
   const aiFindings = [...identityFindings, ...globalFindings, ...coherenceModelFindings, ...modelFindings];
   const evidenceGate = filterGroundedFindings(aiFindings, args.file.extracted);
   if (evidenceGate.dropped.length > 0) {
@@ -2949,6 +3024,11 @@ async function deepAnalyzeFile(args: {
       `[audit] ${args.file.file.name}: ${evidenceGate.dropped.length} achado(s) de IA descartado(s) por falta de evidência no texto (anti-alucinação)`,
     );
   }
+  marco({
+    passada: "evidencia",
+    estado: "fim",
+    detalhe: `${evidenceGate.dropped.length} descartado(s) por falta de evidência`,
+  });
   if (evidenceGate.suppressed.length > 0) {
     console.log(
       `[audit] ${args.file.file.name}: ${evidenceGate.suppressed.length} achado(s) de IA suprimido(s) por ruído (meta-achado ou artefato de extração)`,
@@ -2982,10 +3062,23 @@ async function deepAnalyzeFile(args: {
   ]);
 }
 
-export async function POST(request: Request) {
+/**
+ * A auditoria em si. O `onMarco` é opcional — sem ele nada muda para quem chama.
+ *
+ * Separada do `POST` para que a mesma execução sirva às duas formas de resposta:
+ * o JSON único de sempre e o fluxo de eventos. Duplicar o motor para ter
+ * progresso seria criar duas auditorias que precisariam concordar uma com a
+ * outra para sempre.
+ */
+async function executarAuditoria(
+  request: Request,
+  formData: FormData,
+  onMarco?: EmitirMarco,
+) {
   const requestStartedAt = Date.now();
   let persistedAuditId: string | null = null;
   let requestedAnalysisLevel: AnalysisLevel = "standard";
+  const marco = (m: MarcoDaAuditoria) => onMarco?.(m);
 
   try {
     await refreshAiModelOverrideCache();
@@ -2997,7 +3090,6 @@ export async function POST(request: Request) {
     // AiUsageEvent), nunca gate de acesso.
     const session = await auth();
     const sessionEmail = session?.user?.email?.trim() || null;
-    const formData = await request.formData();
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
@@ -3111,6 +3203,7 @@ export async function POST(request: Request) {
       fileTypes,
     });
 
+    marco({ passada: "extracao", estado: "inicio" });
     const uploadedFiles = await Promise.all(
       files.map(async (file, index): Promise<UploadedAuditFile> => {
         const fileStartedAt = Date.now();
@@ -3120,6 +3213,13 @@ export async function POST(request: Request) {
         console.log(
           `[audit] texto extraido: ${file.name}, ${extracted.pageCount} paginas, ${extracted.charCount} caracteres em ${Math.round((Date.now() - fileStartedAt) / 1000)}s`,
         );
+        // O tamanho do documento só é FATO depois de extrair — é aqui, e não
+        // antes, que se pode dizer quantas páginas a auditoria vai ler.
+        marco({
+          passada: "extracao",
+          estado: "fim",
+          detalhe: `${extracted.pageCount} páginas, ${extracted.charCount.toLocaleString("pt-BR")} caracteres`,
+        });
 
         const fileType = fileTypes[index] ?? "não informado";
 
@@ -3154,6 +3254,7 @@ export async function POST(request: Request) {
         conversationId,
         userEmail: sessionEmail,
         degradacoes,
+        onMarco,
       });
       allFindings.push(...findings);
     }
@@ -3161,6 +3262,8 @@ export async function POST(request: Request) {
     // Camada 1 — confronto determinístico de identidade entre documentos.
     // Sempre ativo, sem IA, com evidência verificável. É o que pega troca de
     // município/endereço/obra entre arquivos do mesmo projeto.
+    // Com um arquivo só não há confronto — anunciar a passada seria teatro.
+    if (uploadedFiles.length > 1) marco({ passada: "confronto", estado: "inicio" });
     const ruleComparison = runCrossDocumentRules(
       uploadedFiles.map((file) => ({
         fileName: file.file.name,
@@ -3172,6 +3275,13 @@ export async function POST(request: Request) {
     console.log(
       `[audit] confronto determinístico entre documentos: ${ruleComparison.findings.length} divergência(s) de identidade`,
     );
+    if (uploadedFiles.length > 1) {
+      marco({
+        passada: "confronto",
+        estado: "fim",
+        detalhe: `${ruleComparison.findings.length} divergência(s)`,
+      });
+    }
 
     // Motor legado por IA: só quando explicitamente habilitado (benchmark).
     const modelComparison = isAiCrossDocumentEnabled()
@@ -3195,6 +3305,12 @@ export async function POST(request: Request) {
     console.log(
       `[audit] validação semântica iniciada com ${candidateFindings.length} achado(s) candidato(s)`,
     );
+    marco({
+      passada: "validacao",
+      estado: "inicio",
+      detalhe: `${candidateFindings.length} achado(s) a revisar`,
+      orcamentoMs: getValidationTimeoutMs(analysisLevel),
+    });
     const validatedFindings = await validateFindingsWithModel({
       auditId,
       auditMode,
@@ -3211,6 +3327,12 @@ export async function POST(request: Request) {
     console.log(
       `[audit] validação semântica concluida com ${validatedFindings.length} achado(s) confirmado(s)`,
     );
+    marco({
+      passada: "validacao",
+      estado: "fim",
+      detalhe: `${validatedFindings.length} achado(s) confirmado(s)`,
+    });
+    marco({ passada: "parecer", estado: "inicio" });
 
     const findings = sortAuditFindings(
       compactRepeatedIdentityFindings(
@@ -3369,4 +3491,74 @@ export async function POST(request: Request) {
       500,
     );
   }
+}
+
+/**
+ * A rota. Responde JSON como sempre — ou um fluxo de eventos, se pedirem.
+ *
+ * O progresso é ADITIVO: quem não manda `stream=1` (a tela `/audit`, qualquer
+ * integração de fora) recebe exatamente a mesma resposta de antes. Trocar o
+ * contrato para todo mundo obrigaria a mexer em dois clientes ao mesmo tempo
+ * para ganhar um recurso que só um deles usa.
+ *
+ * O fluxo sai na resposta do PRÓPRIO POST, e não num canal separado com um id:
+ * um canal à parte exigiria estado compartilhado entre requisições, que quebra
+ * assim que houver mais de uma instância servindo. Aqui os marcos viajam na
+ * mesma conexão do trabalho que os produz — se a conexão cai, cai tudo junto,
+ * que é a verdade.
+ */
+export async function POST(request: Request) {
+  const formData = await request.formData();
+  if (formData.get("stream") !== "1") {
+    return executarAuditoria(request, formData);
+  }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let aberto = true;
+      const enviar = (evento: string, dados: unknown) => {
+        if (!aberto) return;
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${evento}\ndata: ${JSON.stringify(dados)}\n\n`),
+          );
+        } catch {
+          // Cliente desistiu no meio: parar de escrever é o certo. O trabalho
+          // em curso segue até o fim porque já foi pago.
+          aberto = false;
+        }
+      };
+
+      try {
+        const resposta = await executarAuditoria(request, formData, (m) =>
+          enviar("marco", m),
+        );
+        const corpo = await resposta.json().catch(() => null);
+        enviar(resposta.ok ? "done" : "error", corpo ?? { error: "Resposta inválida." });
+      } catch (err) {
+        enviar("error", {
+          error: err instanceof Error ? err.message : "Falha na auditoria.",
+        });
+      } finally {
+        aberto = false;
+        try {
+          controller.close();
+        } catch {
+          // já fechado pelo cliente
+        }
+      }
+    },
+  });
+
+  return withCors(
+    new NextResponse(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    }),
+    request,
+  );
 }

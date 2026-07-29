@@ -12,6 +12,7 @@ import {
   runMemorialAudit,
   type MemorialAuditGabarito,
   type MemorialAuditLevel,
+  type MemorialAuditOpcoes,
   type MemorialAuditResult,
 } from "./audit";
 
@@ -303,6 +304,7 @@ export async function postAudit(
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
   conversationId?: string | null,
+  opcoes: MemorialAuditOpcoes = {},
 ): Promise<MemorialAuditResult> {
-  return runMemorialAudit(memorial, gabarito, level, conversationId);
+  return runMemorialAudit(memorial, gabarito, level, conversationId, opcoes);
 }
