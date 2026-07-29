@@ -31,6 +31,15 @@ export interface Attachment {
   kind: "image" | "pdf";
   /** Object URL da miniatura (só imagens). */
   url?: string;
+  /**
+   * Papel LIDO do nome do arquivo — e por isso corrigível à mão.
+   *
+   * A partição usa a convenção de nome (`md`/`memorial`). Um memorial batizado
+   * fora da convenção virava prancha, ia para o OCR de selo e a auditoria nunca
+   * era oferecida — sem erro, sem aviso, sem saída. Mostrar o papel e deixar
+   * trocá-lo é o que impede que um nome de arquivo tranque a função principal.
+   */
+  papel?: "memorial" | "prancha";
 }
 
 /**
@@ -51,6 +60,7 @@ export function NexoChat({
   memorialFatos = null,
   attachments = [],
   onRemoveAttachment,
+  onTrocarPapelAnexo,
   onTurnStatus,
 }: {
   selos: SeloForLd[];
@@ -68,12 +78,16 @@ export function NexoChat({
   memorialFatos?: {
     fileName: string;
     obra?: string | null;
+    /** Prefeitura/órgão emissor lido do próprio memorial. */
+    orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
   } | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments?: Attachment[];
   onRemoveAttachment?: (id: string) => void;
+  /** Corrige o papel lido do nome do arquivo (memorial ↔ prancha). */
+  onTrocarPapelAnexo?: (id: string) => void;
   /** Reporta o estado do turno pro Nexo Core (analyzing/responding/erro). */
   onTurnStatus?: (s: {
     thinking: boolean;
@@ -407,7 +421,11 @@ export function NexoChat({
       {/* Composer = o único vidro "dock" do agente. */}
       <div className="px-4 pb-6 pt-2">
         <div className="mx-auto w-full max-w-[46rem]">
-          <Anexos attachments={attachments} onRemove={onRemoveAttachment} />
+          <Anexos
+            attachments={attachments}
+            onRemove={onRemoveAttachment}
+            onTrocarPapel={onTrocarPapelAnexo}
+          />
           {readStatus && (
             <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
               {readStatus.busy && (
@@ -446,9 +464,11 @@ const ANEXOS_VISIVEIS = 4;
 function Anexos({
   attachments,
   onRemove,
+  onTrocarPapel,
 }: {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
+  onTrocarPapel?: (id: string) => void;
 }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -460,7 +480,12 @@ function Anexos({
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
       {mostrados.map((a) => (
-        <AttachmentChip key={a.id} att={a} onRemove={onRemove} />
+        <AttachmentChip
+          key={a.id}
+          att={a}
+          onRemove={onRemove}
+          onTrocarPapel={onTrocarPapel}
+        />
       ))}
       {excedente > 0 && (
         <button
@@ -522,10 +547,13 @@ function TitulosLidos({ selos }: { selos: SeloForLd[] }) {
 function AttachmentChip({
   att,
   onRemove,
+  onTrocarPapel,
 }: {
   att: Attachment;
   onRemove?: (id: string) => void;
+  onTrocarPapel?: (id: string) => void;
 }) {
+  const viraMemorial = att.papel === "prancha";
   return (
     <div className="nexodoc-enter flex items-center gap-2 rounded-lg border border-border bg-[var(--nexodoc-recessed)] py-1 pl-1 pr-1.5">
       {att.kind === "image" && att.url ? (
@@ -543,6 +571,25 @@ function AttachmentChip({
       <span className="max-w-[10rem] truncate font-mono text-[11px] text-foreground">
         {att.name}
       </span>
+      {att.papel && (
+        <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
+          {att.papel}
+        </span>
+      )}
+      {att.papel && onTrocarPapel && (
+        <button
+          type="button"
+          onClick={() => onTrocarPapel(att.id)}
+          title={
+            viraMemorial
+              ? "Tratar este PDF como o memorial (auditar)"
+              : "Tratar este PDF como prancha (ler o selo)"
+          }
+          className="rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          {viraMemorial ? "é o memorial" : "é prancha"}
+        </button>
+      )}
       {onRemove && (
         <button
           type="button"

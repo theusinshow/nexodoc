@@ -55,11 +55,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // O chamador pode declarar que o arquivo E o memorial, corrigindo o palpite
+  // do nome. Sem isso, arquivo fora da convencao volta sem identidade nenhuma.
+  const forcarMemorial = form.get("forcarMemorial") === "1";
+
   const inputs: ClassifyDocumentsInput[] = await Promise.all(
     files.map(async (file, index) => ({
       fileName: file.name,
       buffer: Buffer.from(await file.arrayBuffer()),
       relPath: relPaths[index] || undefined,
+      forcarMemorial,
     })),
   );
 

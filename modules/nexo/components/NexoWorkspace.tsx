@@ -67,6 +67,18 @@ export function NexoWorkspace() {
 
 function NexoWorkspaceInner() {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
+  // Os bytes de cada anexo, por id do chip — é o que permite REFAZER a leitura
+  // quando o papel lido do nome do arquivo é corrigido à mão.
+  const arquivosPorAnexo = useRef(new Map<string, File>());
+  /*
+   * Geração da leitura em curso. Corrigir o papel de um anexo INVALIDA a leitura
+   * anterior: sem isto, o OCR de selo disparado sobre um memorial mal nomeado
+   * seguia rodando depois da correção e despejava as 132 páginas do documento no
+   * contexto como se fossem pranchas. O estrago não era só desperdício — com
+   * selos falsos na conversa, o cartão passava a dizer "obra lida do carimbo das
+   * pranchas, fonte independente do memorial" sobre o próprio memorial.
+   */
+  const geracaoDaLeitura = useRef(0);
   const conv = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const { replaceArtifacts } = useArtifactStore();
@@ -245,6 +257,7 @@ function NexoWorkspaceInner() {
     /^image\//i.test(f.type) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name);
 
   function removeAttachment(id: string) {
+    arquivosPorAnexo.current.delete(id);
     setAttachments((prev) => {
       const a = prev.find((x) => x.id === id);
       if (a?.url) URL.revokeObjectURL(a.url);
@@ -252,12 +265,94 @@ function NexoWorkspaceInner() {
     });
   }
 
+  /**
+   * Corrige o papel de um PDF quando o nome do arquivo mentiu.
+   *
+   * A partição usa a convenção (`md`/`memorial`): um `ESCOLA_JOSE_GIASSI_REV_A.pdf`
+   * que é memorial vira prancha, entra no OCR de selo e a auditoria nunca é
+   * oferecida — sem erro e sem saída. Trocar o papel REFAZ a leitura pelo
+   * caminho certo, porque um rótulo novo sobre a leitura errada não muda nada:
+   * o que decide a auditoria é o que foi lido, não como o chip está escrito.
+   */
+  async function trocarPapelAnexo(id: string) {
+    const file = arquivosPorAnexo.current.get(id);
+    const att = attachments.find((a) => a.id === id);
+    if (!file || !att?.papel) return;
+    const viraMemorial = att.papel === "prancha";
+    setError(null);
+    /*
+     * Invalida a leitura em voo ANTES de qualquer coisa.
+     *
+     * Sem isto, o OCR disparado sobre o arquivo mal classificado continuava e
+     * seguia empurrando resultados: as páginas do memorial entravam no contexto
+     * como pranchas, e aí o cartão passava a anunciar "obra lida do carimbo das
+     * pranchas — fonte independente do memorial" sobre o próprio memorial. Uma
+     * independência que não existe é pior do que gabarito vazio.
+     */
+    geracaoDaLeitura.current++;
+    setReading(false);
+    setAttachments((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, papel: viraMemorial ? "memorial" : "prancha" } : a,
+      ),
+    );
+
+    if (viraMemorial) {
+      // Sai do conjunto de pranchas e some do contexto de selos: manter o selo
+      // de um documento que não é prancha sujaria a LD e o volume.
+      setPranchaFiles((prev) => prev.filter((f) => f.name !== file.name));
+      setSeloResults(seloResults.filter((r) => r.fileName !== file.name));
+      setMemorialFile(file);
+      setReadingMemorial(true);
+      try {
+        const lido = await classifyMemorial(file, true);
+        setDossie(lido);
+        appendMemorialIntake(file, lido);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
+      } finally {
+        setReadingMemorial(false);
+      }
+      return;
+    }
+
+    // Virou prancha: deixa de ser o memorial e passa pela leitura de selo.
+    setMemorialFile(null);
+    setDossie(null);
+    setPranchaFiles((prev) => [...prev, file]);
+    setReading(true);
+    setReadProgress({ done: 0, total: 0 });
+    try {
+      const colhidos: SeloResult[] = [...seloResults];
+      await extractSelosFromFiles(
+        [file],
+        (r) => {
+          colhidos.push(r);
+          setSeloResults([...colhidos]);
+          setReadProgress({ done: colhidos.length, total: colhidos.length });
+        },
+        conv.conversationId,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao ler o selo.");
+    } finally {
+      setReading(false);
+      refreshUsage();
+    }
+  }
+
   // Lê a IDENTIDADE do memorial (obra/código/município) pelo conteúdo — reusa a
   // classificação determinística da rota de intake (lê as primeiras páginas).
-  async function classifyMemorial(file: File): Promise<NexoDossieDraft | null> {
+  async function classifyMemorial(
+    file: File,
+    // Quando o papel foi corrigido À MÃO, o nome do arquivo não vale como
+    // palpite: sem isto a rota não lê o conteúdo e devolve identidade vazia.
+    forcarMemorial = false,
+  ): Promise<NexoDossieDraft | null> {
     const form = new FormData();
     form.append("files", file);
     form.append("relPaths", JSON.stringify([""]));
+    if (forcarMemorial) form.append("forcarMemorial", "1");
     const res = await fetch("/api/nexo/classify", { method: "POST", body: form });
     if (!res.ok) return null;
     const payload = (await res.json().catch(() => null)) as { dossie?: NexoDossieDraft } | null;
@@ -369,8 +464,20 @@ function NexoWorkspaceInner() {
     setError(null);
 
     // Preview imediato (imagem = miniatura; PDF = ícone).
+    const papelLido = new Set(partitionByRole(pdfs).memorials.map((f) => f.name));
     const atts: Attachment[] = [
-      ...pdfs.map((f) => ({ id: crypto.randomUUID(), name: f.name, kind: "pdf" as const })),
+      ...pdfs.map((f) => {
+        // Guarda o File por id: sem isso, corrigir o papel depois não teria com
+        // o que refazer a leitura — só repintaria o rótulo.
+        const id = crypto.randomUUID();
+        arquivosPorAnexo.current.set(id, f);
+        return {
+          id,
+          name: f.name,
+          kind: "pdf" as const,
+          papel: papelLido.has(f.name) ? ("memorial" as const) : ("prancha" as const),
+        };
+      }),
       ...images.map((f) => ({
         id: crypto.randomUUID(),
         name: f.name,
@@ -389,6 +496,9 @@ function NexoWorkspaceInner() {
       if (pranchas.length > 0) setPranchaFiles(pranchas);
       setReading(true);
       setReadProgress({ done: 0, total: 0 });
+      // Esta leitura vale enquanto ninguém corrigir o papel de um anexo.
+      const geracao = ++geracaoDaLeitura.current;
+      const atual = () => geracaoDaLeitura.current === geracao;
       try {
         /*
          * O total é em FOLHAS, não em arquivos: um PDF traz N pranchas, e cada
@@ -406,31 +516,53 @@ function NexoWorkspaceInner() {
           await extractSelosFromFiles(
             pranchas,
             (r) => {
+              if (!atual()) return;
               collected.push(r);
               setSeloResults([...collected]);
               setReadProgress({ done: collected.length, total: totalDeFolhas });
             },
             conv.conversationId,
             (folhas) => {
+              if (!atual()) return;
               totalDeFolhas = folhas + images.length;
               setReadProgress({ done: collected.length, total: totalDeFolhas });
             },
           );
         }
         for (const img of images) {
+          if (!atual()) break;
           const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
           setSeloResults([...collected]);
           setReadProgress({ done: collected.length, total: totalDeFolhas });
         }
+        // Leitura invalidada por uma correção de papel: nada dela entra no
+        // contexto, nem como mensagem, nem como selo.
+        if (!atual()) return;
         const okSelos = collected.filter((r) => r.extraction);
         if (okSelos.length > 0) {
           appendSelosIntake(okSelos, [...pdfs, ...images], Boolean(memorial));
         }
+        /*
+         * Vindo memorial junto das pranchas, ele TAMBÉM é classificado.
+         *
+         * Antes a classificação só rodava quando o memorial chegava sozinho — na
+         * conversa mista, a auditoria ia sem prefeitura e sem município. É o
+         * caso mais valioso justamente porque a obra do carimbo é fonte
+         * independente: o confronto entre as duas leituras é o que denuncia
+         * memorial reaproveitado de outro projeto.
+         */
+        if (memorial) {
+          setDossie(await classifyMemorial(memorial));
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
+        if (atual()) {
+          setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
+        }
       } finally {
-        setReading(false);
+        // Quem invalidou já assumiu o `reading` do próprio caminho — desligá-lo
+        // aqui apagaria o progresso da leitura nova.
+        if (atual()) setReading(false);
         // Selo é o passo mais caro de tokens do fluxo (§3 da spec): o anel não
         // pode ficar mudo até o próximo turno do chat.
         refreshUsage();
@@ -819,6 +951,11 @@ function NexoWorkspaceInner() {
                 ? {
                     fileName: memorialFile.name,
                     obra: dossie?.obra ?? null,
+                    // `orgao` é a PREFEITURA lida do próprio memorial. O cartão a
+                    // raspava do rótulo "Capa <x>" de um resultado de capa — que
+                    // numa conversa só de memorial nunca existe. Resultado: a
+                    // auditoria ia sem prefeitura e sem município tendo os dois.
+                    orgao: dossie?.orgao ?? null,
                     municipio: dossie?.municipio ?? null,
                     codigo: dossie?.codigo ?? null,
                   }
@@ -826,6 +963,7 @@ function NexoWorkspaceInner() {
             }
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
+            onTrocarPapelAnexo={trocarPapelAnexo}
             onTurnStatus={handleTurnStatus}
           />
         }

@@ -34,6 +34,7 @@ export function NexoCopilot({
   memorialFatos = null,
   attachments,
   onRemoveAttachment,
+  onTrocarPapelAnexo,
   onTurnStatus,
 }: {
   started: boolean;
@@ -56,12 +57,16 @@ export function NexoCopilot({
   memorialFatos?: {
     fileName: string;
     obra?: string | null;
+    /** Prefeitura/órgão emissor lido do próprio memorial. */
+    orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
   } | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments: Attachment[];
   onRemoveAttachment?: (id: string) => void;
+  /** Corrige o papel lido do nome do arquivo (memorial ↔ prancha). */
+  onTrocarPapelAnexo?: (id: string) => void;
   onTurnStatus?: (s: { thinking: boolean; error: boolean; responding: boolean }) => void;
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
@@ -164,6 +169,7 @@ export function NexoCopilot({
           memorialFatos={memorialFatos}
           attachments={attachments}
           onRemoveAttachment={onRemoveAttachment}
+          onTrocarPapelAnexo={onTrocarPapelAnexo}
           onTurnStatus={onTurnStatus}
         />
       </div>

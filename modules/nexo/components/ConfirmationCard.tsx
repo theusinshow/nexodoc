@@ -272,6 +272,7 @@ export function ConfirmationCard({
   /** O que a classificação leu do memorial — vira o gabarito quando não há selos. */
   memorialFatos?: {
     obra?: string | null;
+    orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
   } | null;
@@ -1208,6 +1209,7 @@ function AuditoriaConfirmation({
   memorialFile: File | null;
   memorialFatos?: {
     obra?: string | null;
+    orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
   } | null;
@@ -1232,11 +1234,24 @@ function AuditoriaConfirmation({
     memorialFatos ? { fileName: "", ...memorialFatos } : null,
   );
   const obra = fatos.gabarito.obra ?? undefined;
-  // Prefeitura best-effort: do rótulo "Capa <prefeitura>" do resultado de capa.
-  const prefeitura = results
+  /*
+   * A RÉGUA completa, das fontes que a conversa realmente tem.
+   *
+   * A prefeitura saía só do rótulo "Capa <x>" de um resultado de capa — que numa
+   * conversa de memorial sozinho nunca existe. E o município, que a rota aceita
+   * há tempos, simplesmente não era enviado. A auditoria rodava com um terço da
+   * régua tendo os três campos em mãos.
+   *
+   * A capa continua valendo como fonte, e vem PRIMEIRO: quando ela existe, a
+   * prefeitura foi escolhida pelo engenheiro, o que é mais forte do que o órgão
+   * lido do documento sob suspeita.
+   */
+  const prefeituraDaCapa = results
     .find((r) => r.kind === "capa")
     ?.canvas?.label.replace(/^Capa\s+/i, "")
     .trim();
+  const prefeitura = prefeituraDaCapa || memorialFatos?.orgao?.trim() || undefined;
+  const municipio = fatos.gabarito.municipio ?? undefined;
 
   async function confirm() {
     if (!memorialFile) return;
@@ -1251,7 +1266,7 @@ function AuditoriaConfirmation({
     try {
       const r = await postAudit(
         memorialFile,
-        { obra, prefeitura },
+        { obra, prefeitura, municipio },
         params.nivel,
         conversationId,
       );
@@ -1301,9 +1316,28 @@ function AuditoriaConfirmation({
               value={memorialFile ? memorialFile.name : "arraste o PDF do memorial →"}
               missing={!memorialFile}
             />
-            <SummaryRow label="Obra (gabarito)" value={obra ?? "?"} />
+            <SummaryRow label="Obra (gabarito)" value={obra ?? "—"} missing={!obra} />
+            <SummaryRow
+              label="Prefeitura"
+              value={prefeitura ?? "—"}
+              missing={!prefeitura}
+            />
+            <SummaryRow label="Município" value={municipio ?? "—"} missing={!municipio} />
             <SummaryRow label="Nível" value={params.nivel === "deep" ? "profunda" : "padrão"} />
           </div>
+          {/*
+            De ONDE veio a régua muda o peso do que a auditoria vai dizer. Obra
+            saída do CARIMBO é fonte independente do memorial — é ela que denuncia
+            texto reaproveitado. Saída do próprio memorial, a checagem confere o
+            documento consigo mesmo, e isso precisa estar dito.
+          */}
+          {obra && (
+            <p className="text-xs text-muted-foreground">
+              {fatos.gabarito.origem === "selos"
+                ? "Obra lida do carimbo das pranchas — fonte independente do memorial."
+                : "Obra lida do próprio memorial — sem prancha para confrontar."}
+            </p>
+          )}
           {parcial && (
             <p className="text-xs text-[var(--status-warning)]">
               A análise anterior voltou incompleta

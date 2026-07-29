@@ -13,6 +13,15 @@ export interface ClassifyDocumentsInput {
   buffer: Buffer;
   /** Caminho relativo (pastas) de upload de diretorio — enriquece volume/blocos. */
   relPath?: string;
+  /**
+   * Trata o arquivo como memorial mesmo que o NOME nao siga a convencao.
+   *
+   * A identidade (obra/orgao/municipio) so era extraida quando o nome dizia
+   * "memorial" — entao um `ESCOLA_JOSE_GIASSI_REV_A.pdf` ficava sem identidade
+   * nenhuma, e corrigir o papel na tela nao adiantava nada: a auditoria seguia
+   * sem regua. Quem sabe o papel e o usuario; o nome e so um palpite.
+   */
+  forcarMemorial?: boolean;
 }
 
 export interface ClassifyNamesInput {
@@ -84,9 +93,11 @@ export async function classifyDocuments(
   for (const file of files) {
     const parsed = parseFilename(file.fileName, file.relPath);
 
-    // Le conteudo apenas do memorial em escopo (identidade do projeto).
+    // Le conteudo apenas do memorial em escopo (identidade do projeto) — ou de
+    // quem o usuario declarou memorial, corrigindo o palpite do nome.
+    const ehMemorial = file.forcarMemorial || parsed.tipo === "memorial";
     let content: ContentIdentity | undefined;
-    if (!parsed.foraDeEscopo && parsed.tipo === "memorial") {
+    if (!parsed.foraDeEscopo && ehMemorial) {
       const extracted = await extractPdfText(file.buffer);
       const doc = classifyDocument(file.fileName, extracted, "memorial");
       content = {
@@ -102,7 +113,16 @@ export async function classifyDocuments(
       };
     }
 
-    arquivos.push(toClassification(file.fileName, file.relPath, parsed, content));
+    arquivos.push(
+      toClassification(
+        file.fileName,
+        file.relPath,
+        // O papel declarado tambem corrige o TIPO: senao o dossie diria
+        // "prancha" para o arquivo de que acabou de extrair a identidade.
+        file.forcarMemorial ? { ...parsed, tipo: "memorial" as const } : parsed,
+        content,
+      ),
+    );
   }
 
   return aggregate(arquivos);
