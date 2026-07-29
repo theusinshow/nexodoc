@@ -333,6 +333,7 @@ export function NexoChat({
                     ldPreview={m.ldPreview}
                     pranchaFiles={pranchaFiles}
                     memorialFile={memorialFile}
+                    memorialFatos={memorialFatos}
                   />
                 ))}
               {m.slotRequest && (

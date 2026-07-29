@@ -55,6 +55,7 @@ import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
 import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
+import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { opcoesDoTomo } from "../lib/editar-artefato";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
@@ -96,8 +97,15 @@ function conferenciaId(selos: SeloForLd[]): string {
 function separatrizId(selos: SeloForLd[]): string {
   return `separatriz:${summarizeSelos(selos).codigo ?? "x"}`;
 }
-function auditoriaId(selos: SeloForLd[]): string {
-  return `auditoria:${summarizeSelos(selos).codigo ?? "x"}`;
+/**
+ * Id do artefato de auditoria. O código sai dos selos quando há pranchas; numa
+ * conversa só de memorial ele vem da classificação do próprio documento — sem
+ * isso, toda auditoria sem prancha viraria o mesmo id ("auditoria:x") e uma
+ * sobrescreveria a outra.
+ */
+function auditoriaId(selos: SeloForLd[], codigoDoMemorial?: string | null): string {
+  const codigo = summarizeSelos(selos).codigo ?? codigoDoMemorial?.trim() ?? "x";
+  return `auditoria:${codigo}`;
 }
 
 /**
@@ -244,6 +252,7 @@ export function ConfirmationCard({
   ldPreview,
   pranchaFiles = [],
   memorialFile = null,
+  memorialFatos = null,
 }: {
   proposal: NexoAgentProposal;
   selos: SeloForLd[];
@@ -253,6 +262,12 @@ export function ConfirmationCard({
   pranchaFiles?: File[];
   /** Memorial anexado (arquivo distinto) — alimenta a auditoria. */
   memorialFile?: File | null;
+  /** O que a classificação leu do memorial — vira o gabarito quando não há selos. */
+  memorialFatos?: {
+    obra?: string | null;
+    municipio?: string | null;
+    codigo?: string | null;
+  } | null;
 }) {
   const { results } = useConversation();
   switch (proposal.kind) {
@@ -313,6 +328,7 @@ export function ConfirmationCard({
           params={proposal.params}
           selos={selos}
           memorialFile={memorialFile}
+          memorialFatos={memorialFatos}
         />
       );
     case "separatriz":
@@ -1172,20 +1188,37 @@ function AuditoriaConfirmation({
   params,
   selos,
   memorialFile,
+  memorialFatos = null,
 }: {
   resumo: string;
   params: NexoAuditoriaProposalParams;
   selos: SeloForLd[];
   memorialFile: File | null;
+  memorialFatos?: {
+    obra?: string | null;
+    municipio?: string | null;
+    codigo?: string | null;
+  } | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult, conversationId } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
-  const id = auditoriaId(selos);
+  const id = auditoriaId(selos, memorialFatos?.codigo);
   const result = getResult(id)?.payload as AuditReport | undefined;
 
-  const obra = summarizeSelos(selos).obra ?? undefined;
+  /*
+   * O GABARITO da auditoria: a obra do CARIMBO quando há pranchas (fonte
+   * independente do memorial), senão a que a classificação leu do próprio
+   * documento. Antes saía só de `summarizeSelos(selos)` — numa conversa só de
+   * memorial isso é vazio, e a auditoria rodava sem régua de identidade,
+   * comparando o documento consigo mesmo.
+   */
+  const fatos = fatosDaConversa(
+    selos,
+    memorialFatos ? { fileName: "", ...memorialFatos } : null,
+  );
+  const obra = fatos.gabarito.obra ?? undefined;
   // Prefeitura best-effort: do rótulo "Capa <prefeitura>" do resultado de capa.
   const prefeitura = results
     .find((r) => r.kind === "capa")

@@ -310,10 +310,16 @@ function NexoWorkspaceInner() {
 
   // Intake conversacional do MEMORIAL: identifica e já propõe auditar/conferir.
   function appendMemorialIntake(memorial: File, dossie: NexoDossieDraft | null) {
+    /*
+     * Só os campos que a classificação LÊ de fato: obra, órgão, município e
+     * código. O desenho falava também em endereço — o classificador não extrai
+     * endereço, e afirmar um dado que não foi lido é pior do que não mostrá-lo.
+     */
     const detail = [
       dossie?.obra,
-      dossie?.codigo ? `código ${dossie.codigo}` : "",
+      dossie?.orgao,
       dossie?.municipio,
+      dossie?.codigo ? `código ${dossie.codigo}` : "",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -326,9 +332,10 @@ function NexoWorkspaceInner() {
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "assistant",
-      content: `Li as primeiras páginas e confirmo: é o memorial descritivo${
-        detail ? ` — ${detail}` : ""
-      }. Quer que eu audite contra a obra das pranchas?`,
+      content:
+        `Li as primeiras páginas: é o memorial descritivo${detail ? ` — ${detail}` : ""}.\n\n` +
+        `Vou auditar usando essa obra como referência. Se o nome estiver errado, ` +
+        `me diga o correto — é ele que denuncia texto reaproveitado de outro projeto.`,
       slotRequest: {
         slotId: "memorial",
         taskKind: "auditoria",
@@ -337,6 +344,9 @@ function NexoWorkspaceInner() {
         suggestions: [
           { label: "Auditar o memorial", value: "audita o memorial", commit: "send" },
           { label: "Auditoria profunda", value: "audita o memorial em profundidade", commit: "send" },
+          // `fill` escreve no composer e deixa o cursor: corrigir a obra exige
+          // texto, e é a correção que transforma o gabarito em régua confiável.
+          { label: "A obra está errada", value: "a obra correta é ", commit: "fill" },
         ],
       },
     });
