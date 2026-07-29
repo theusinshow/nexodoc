@@ -1,14 +1,14 @@
 {
   "id": "prefsjose",
-  "nome": "Prefeitura Municipal de Sao Jose",
-  "grupo": "Prefeitura Municipal de Sao Jose",
-  "variante": "Padrao",
+  "nome": "Prefeitura Municipal de São José",
+  "grupo": "Prefeitura Municipal de São José",
+  "variante": "Padrão",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "plain-padded",
   "coverTitleMode": "items",
   "defaults": {
-    "orgao": "PREFEITURA MUNICIPAL DE SAO JOSE",
+    "orgao": "PREFEITURA MUNICIPAL DE SÃO JOSÉ",
     "secretaria": "",
     "fase": "PROJETO EXECUTIVO"
   },

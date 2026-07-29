@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 
+import { buildSeparatrizesFileName } from "@/lib/separatrizes-file-name";
 import { generateSeparatorOdtBuffer } from "@/server/odt/separator";
 import { convertOdtToPdf } from "@/server/pdf";
 
@@ -30,13 +31,8 @@ export interface GenerateSeparatrizesOutput {
   pdfError?: string;
 }
 
-function buildFileName(codigo: string, revisao: string, ext: string): string {
-  return (
-    [codigo.trim(), "separatrizes", revisao.trim()]
-      .filter((part) => part)
-      .join("_") + `.${ext}`
-  );
-}
+// Terceira cópia da mesma regra, agora compartilhada. Esta era a única correta.
+const buildFileName = buildSeparatrizesFileName;
 
 export async function generateSeparatrizes(
   input: GenerateSeparatrizesInput

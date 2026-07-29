@@ -1,14 +1,14 @@
 {
   "id": "pmcriciuma",
-  "nome": "Prefeitura Municipal de Criciuma",
-  "grupo": "Prefeitura Municipal de Criciuma",
-  "variante": "Padrao",
+  "nome": "Prefeitura Municipal de Criciúma",
+  "grupo": "Prefeitura Municipal de Criciúma",
+  "variante": "Padrão",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "numeric",
   "tomoFormat": "parenthesized-padded",
   "coverTitleMode": "volume-title-items",
   "defaults": {
-    "orgao": "PREFEITURA MUNICIPAL DE CRICIUMA",
+    "orgao": "PREFEITURA MUNICIPAL DE CRICIÚMA",
     "secretaria": "",
     "fase": "PROJETO EXECUTIVO"
   },

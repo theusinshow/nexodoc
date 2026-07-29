@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 
+import { buildSeparatrizesFileName } from "@/lib/separatrizes-file-name";
 import { generateSeparatorOdtBuffer } from "@/server/odt/separator";
 import { convertOdtToPdf } from "@/server/pdf";
 
@@ -10,13 +11,9 @@ interface GenerateRequest {
   revisao?: string;
 }
 
-function buildFileName(codigo: string, revisao: string, ext: string): string {
-  return (
-    [codigo.trim(), "separatrizes", revisao.trim()]
-      .filter((part) => part)
-      .join("_") + `.${ext}`
-  );
-}
+// A regra de nome mora em `lib/separatrizes-file-name` — havia três cópias dela,
+// e elas discordavam sobre o que fazer com revisão vazia.
+const buildFileName = buildSeparatrizesFileName;
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +37,15 @@ export async function POST(request: NextRequest) {
     }
 
     const codigo = body.codigo?.trim() || "";
-    const revisao = body.revisao?.trim() || "r";
+    /*
+     * Revisão vazia fica VAZIA.
+     *
+     * Aqui havia `|| "r"`, que produzia `separatrizes_r.odt` — um sufixo que não
+     * quer dizer nada e que a ferramenta do Nexo, gerando o mesmo documento, não
+     * colocava. Inventar uma revisão que o usuário não informou é afirmar algo
+     * sobre o documento em nome dele.
+     */
+    const revisao = body.revisao?.trim() || "";
 
     const odtFileName = buildFileName(codigo, revisao, "odt");
     const pdfFileName = buildFileName(codigo, revisao, "pdf");

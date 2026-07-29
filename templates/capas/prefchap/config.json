@@ -1,14 +1,14 @@
 {
   "id": "prefchap",
-  "nome": "Prefeitura Municipal de Chapeco",
-  "grupo": "Prefeitura Municipal de Chapeco",
-  "variante": "Padrao",
+  "nome": "Prefeitura Municipal de Chapecó",
+  "grupo": "Prefeitura Municipal de Chapecó",
+  "variante": "Padrão",
   "arquivoTemplate": "modelo-capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "parenthesized-padded",
   "coverTitleMode": "items",
   "defaults": {
-    "orgao": "PREFEITURA MUNICIPAL DE CHAPECO",
+    "orgao": "PREFEITURA MUNICIPAL DE CHAPECÓ",
     "secretaria": "SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO",
     "fase": "PROJETO EXECUTIVO"
   },

@@ -12,6 +12,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { buildSeparatrizesFileName } from "@/lib/separatrizes-file-name";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DisciplineQuickPick } from "@/modules/cover-generator/components/DisciplineQuickPick";
@@ -44,13 +45,15 @@ function base64ToObjectUrl(base64: string, mimeType: string) {
   return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
-function buildFileName(codigo: string, revisao: string, ext: string): string {
-  return (
-    [codigo.trim(), "separatrizes", revisao.trim() || "r"]
-      .filter(Boolean)
-      .join("_") + `.${ext}`
-  );
-}
+/*
+ * A PRÉVIA usa a mesma regra do servidor.
+ *
+ * Esta cópia tinha `revisao.trim() || "r"` e a do servidor não — então a tela
+ * podia anunciar um nome e o arquivo chegar com outro. Prever errado o nome do
+ * que se vai gerar é pequeno, mas é a mesma classe de erro de dizer qualquer
+ * outra coisa que não se sabe.
+ */
+const buildFileName = buildSeparatrizesFileName;
 
 export function SeparatorGeneratorFlow({
   initialTitles,

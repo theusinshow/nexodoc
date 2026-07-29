@@ -1,14 +1,14 @@
 {
   "id": "prefflor",
-  "nome": "Prefeitura Municipal de Florianopolis",
-  "grupo": "Prefeitura Municipal de Florianopolis",
-  "variante": "Padrao (capa + contracapa)",
+  "nome": "Prefeitura Municipal de Florianópolis",
+  "grupo": "Prefeitura Municipal de Florianópolis",
+  "variante": "Padrão (capa + contracapa)",
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "plain",
   "coverTitleMode": "items",
   "defaults": {
-    "orgao": "PREFEITURA MUNICIPAL DE FLORIANOPOLIS",
+    "orgao": "PREFEITURA MUNICIPAL DE FLORIANÓPOLIS",
     "secretaria": "",
     "fase": "PROJETO EXECUTIVO"
   },
