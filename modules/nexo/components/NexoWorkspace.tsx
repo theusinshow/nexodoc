@@ -303,10 +303,14 @@ function NexoWorkspaceInner() {
       setPranchaFiles((prev) => prev.filter((f) => f.name !== file.name));
       setSeloResults(seloResults.filter((r) => r.fileName !== file.name));
       setMemorialFile(file);
+      void conv.salvarMemorial(file);
       setReadingMemorial(true);
       try {
         const lido = await classifyMemorial(file, true);
         setDossie(lido);
+        // Os fatos vão para o disco junto do arquivo: retê-lo sem a identidade
+        // devolveria, na conversa restaurada, um "Auditar" com gabarito vazio.
+        conv.salvarDossieDoMemorial(lido);
         appendMemorialIntake(file, lido);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
@@ -318,6 +322,7 @@ function NexoWorkspaceInner() {
 
     // Virou prancha: deixa de ser o memorial e passa pela leitura de selo.
     setMemorialFile(null);
+    void conv.salvarMemorial(null);
     setDossie(null);
     setPranchaFiles((prev) => [...prev, file]);
     setReading(true);
@@ -489,7 +494,12 @@ function NexoWorkspaceInner() {
 
     const { memorials, pranchas } = partitionByRole(pdfs);
     const memorial = memorials[0] ?? null;
-    if (memorial) setMemorialFile(memorial);
+    if (memorial) {
+      setMemorialFile(memorial);
+      // Retido para poder auditar DE NOVO depois — inclusive numa conversa
+      // restaurada, que é onde o veredito parcial manda rodar outra vez.
+      void conv.salvarMemorial(memorial);
+    }
 
     // Caso A: pranchas e/ou imagens → lê selos + intake das pranchas.
     if (pranchas.length > 0 || images.length > 0) {
@@ -553,7 +563,9 @@ function NexoWorkspaceInner() {
          * memorial reaproveitado de outro projeto.
          */
         if (memorial) {
-          setDossie(await classifyMemorial(memorial));
+          const lidoDoMemorial = await classifyMemorial(memorial);
+          setDossie(lidoDoMemorial);
+          conv.salvarDossieDoMemorial(lidoDoMemorial);
         }
       } catch (err) {
         if (atual()) {
@@ -586,6 +598,9 @@ function NexoWorkspaceInner() {
          * o nome de outra obra.
          */
         setDossie(lido);
+        // E no disco, junto do arquivo — senão a conversa restaurada oferece
+        // auditar com o gabarito vazio, que é o mesmo defeito por outra porta.
+        conv.salvarDossieDoMemorial(lido);
         appendMemorialIntake(memorial, lido);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
@@ -654,6 +669,21 @@ function NexoWorkspaceInner() {
         setConvId((c) => c + 1);
       }),
     );
+    /*
+     * Traz de volta os BYTES do memorial, se esta conversa os reteve.
+     *
+     * Fora da transição do shell de propósito: é leitura assíncrona do
+     * IndexedDB, e prender o slide a ela deixaria a troca de conversa travada
+     * esperando um arquivo que nem sempre existe. O chip de anexo não volta —
+     * ele pertence ao momento do envio; o que volta é a capacidade de auditar
+     * de novo, que é a ordem que o veredito parcial dá.
+     */
+    const memorialRetido = await conv.recuperarMemorial();
+    if (memorialRetido) {
+      setMemorialFile(memorialRetido.file);
+      // A identidade volta junto: é ela que vira o gabarito da auditoria.
+      if (memorialRetido.dossie) setDossie(memorialRetido.dossie);
+    }
   };
 
   /*
@@ -671,7 +701,14 @@ function NexoWorkspaceInner() {
     const pendente = conv.conversations.find((c) => c.temAuditoriaPendente);
     if (!pendente || pendente.id === conv.conversationId) return;
     retomouRef.current = true;
-    void selectConv(pendente.id);
+    /*
+     * Adiado um quadro: `selectConv` mexe em vários estados de uma vez (é o
+     * mesmo caminho do clique na sidebar), e disparar isso no corpo do effect
+     * encadeia renders — o lint do React Compiler barra, com razão. Aqui não há
+     * pressa nenhuma: é a retomada de uma análise que já leva minutos.
+     */
+    const quadro = requestAnimationFrame(() => void selectConv(pendente.id));
+    return () => cancelAnimationFrame(quadro);
     // `selectConv` é recriada a cada render; a guarda de reentrada é o `ref`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv.conversations, conv.conversationId]);

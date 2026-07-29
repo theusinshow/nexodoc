@@ -27,6 +27,7 @@ import type {
   NexoAgentProposal,
   NexoArtifactKind,
   NexoChatMessage,
+  NexoDossieDraft,
   NexoSlotRequest,
 } from "../types";
 import { summarizeSelos } from "../lib/agent-context";
@@ -127,6 +128,18 @@ interface ConversationStoreValue {
    */
   auditoriaPendente: AuditoriaPendente | null;
   marcarAuditoriaPendente: (p: Omit<AuditoriaPendente, "inicioMs"> | null) => void;
+  /**
+   * Retém o PDF do memorial para que dê para auditar de novo depois.
+   *
+   * É a exceção à regra de que arquivos de entrada não persistem: sem ele, a
+   * conversa restaurada não consegue cumprir a ordem que o próprio veredito dá
+   * quando a análise volta parcial.
+   */
+  salvarMemorial: (file: File | null) => Promise<void>;
+  /** Guarda a identidade lida do memorial junto dele (obra/órgão/município). */
+  salvarDossieDoMemorial: (dossie: NexoDossieDraft | null) => void;
+  /** Devolve o memorial retido desta conversa: bytes e fatos. */
+  recuperarMemorial: () => Promise<{ file: File; dossie?: NexoDossieDraft } | null>;
   newConversation: () => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
   selectConversation: (id: string) => Promise<StoredConversation | null>;
@@ -179,6 +192,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [results, setResults] = useState<SavedResult[]>([]);
   const [auditoriaPendente, setAuditoriaPendente] =
     useState<AuditoriaPendente | null>(null);
+  const [memorialMeta, setMemorialMeta] =
+    useState<StoredConversation["memorial"] | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   // Snapshot mais novo p/ o persist debounced (evita closure velha). Sincronizado
@@ -192,6 +207,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     tomosDeclarados,
     results,
     auditoriaPendente,
+    memorialMeta,
     createdAt: 0,
   });
   useEffect(() => {
@@ -205,6 +221,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       tomosDeclarados,
       results,
       auditoriaPendente,
+      memorialMeta,
       createdAt: snapshotRef.current.createdAt || Date.now(),
     };
   });
@@ -270,6 +287,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
       ...(s.auditoriaPendente ? { auditoriaPendente: s.auditoriaPendente } : {}),
+      ...(s.memorialMeta ? { memorial: s.memorialMeta } : {}),
       results: resultsMeta,
     };
     putConversation(rec)
@@ -457,6 +475,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setAjustes({});
     setTomosDeclarados(0);
     setAuditoriaPendente(null);
+    setMemorialMeta(null);
     // Conversa nova ainda não existe no disco: volta a valer a guarda de vazia.
     jaPersistiu.current = false;
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
@@ -508,6 +527,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
       setAuditoriaPendente(rec.auditoriaPendente ?? null);
+      setMemorialMeta(rec.memorial ?? null);
+      /*
+       * O snapshot só acompanha o estado no próximo render, e o dono chama
+       * `recuperarMemorial()` logo em seguida — que lê do snapshot. Sem esta
+       * linha ele leria o memorial da conversa ANTERIOR.
+       */
+      snapshotRef.current = { ...snapshotRef.current, memorialMeta: rec.memorial ?? null };
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {
         prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -549,6 +575,48 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [flushPersist],
   );
 
+  const salvarMemorial = useCallback(
+    async (file: File | null) => {
+      const meta = file
+        ? { name: file.name, blobKey: `${snapshotRef.current.conversationId}:memorial` }
+        : null;
+      // Os bytes primeiro: gravar a referência antes do blob deixaria uma
+      // conversa apontando para um arquivo que não existe.
+      if (file && meta) await putBlob(meta.blobKey, file);
+      setMemorialMeta(meta);
+      // Mesmo motivo do bilhete da auditoria: o snapshot só acompanha o estado
+      // depois do render, e aqui a gravação é imediata.
+      snapshotRef.current = { ...snapshotRef.current, memorialMeta: meta };
+      flushPersist();
+    },
+    [flushPersist],
+  );
+
+  const salvarDossieDoMemorial = useCallback(
+    (dossie: NexoDossieDraft | null) => {
+      const atual = snapshotRef.current.memorialMeta;
+      // Sem memorial retido não há onde pendurar os fatos — e guardá-los soltos
+      // criaria um gabarito órfão, que sobreviveria a trocar de documento.
+      if (!atual) return;
+      const meta = { ...atual, ...(dossie ? { dossie } : {}) };
+      setMemorialMeta(meta);
+      snapshotRef.current = { ...snapshotRef.current, memorialMeta: meta };
+      flushPersist();
+    },
+    [flushPersist],
+  );
+
+  const recuperarMemorial = useCallback(async () => {
+    const meta = snapshotRef.current.memorialMeta;
+    if (!meta) return null;
+    const blob = await getBlob(meta.blobKey);
+    if (!blob) return null;
+    return {
+      file: new File([blob], meta.name, { type: blob.type || "application/pdf" }),
+      dossie: meta.dossie,
+    };
+  }, []);
+
   const value = useMemo<ConversationStoreValue>(
     () => ({
       conversationId,
@@ -571,6 +639,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       removeResult,
       auditoriaPendente,
       marcarAuditoriaPendente,
+      salvarMemorial,
+      salvarDossieDoMemorial,
+      recuperarMemorial,
       newConversation,
       selectConversation,
       removeConversation,
@@ -596,6 +667,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       removeResult,
       auditoriaPendente,
       marcarAuditoriaPendente,
+      salvarMemorial,
+      salvarDossieDoMemorial,
+      recuperarMemorial,
       newConversation,
       selectConversation,
       removeConversation,

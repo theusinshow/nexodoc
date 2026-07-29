@@ -12,7 +12,7 @@
  */
 import type { SeloResult } from "./selo-render";
 import type { Ajuste, FolhaId } from "./folhas";
-import type { NexoArtifactKind, NexoChatMessage } from "../types";
+import type { NexoArtifactKind, NexoChatMessage, NexoDossieDraft } from "../types";
 
 const DB_NAME = "nexo";
 const DB_VERSION = 1;
@@ -81,6 +81,32 @@ export interface StoredConversation {
     nivel: "standard" | "deep";
     arquivo: string;
     inicioMs: number;
+  };
+  /**
+   * O PDF do memorial, retido para PODER AUDITAR DE NOVO.
+   *
+   * Os arquivos de entrada são efêmeros por decisão de projeto — pranchas são
+   * muitas e pesadas, e não vale guardá-las. O memorial é a exceção: é um só, é
+   * o que a auditoria consome, e é justamente ele que falta quando o veredito
+   * volta "ANÁLISE PARCIAL — rode de novo" numa conversa restaurada. Sem os
+   * bytes, a única ordem que o sistema dá é a que ele impede de cumprir.
+   *
+   * Os bytes moram no store de blobs, sob `${convId}:memorial` — o prefixo faz
+   * `deleteConversation` limpá-los junto, sem código novo.
+   */
+  memorial?: {
+    name: string;
+    blobKey: string;
+    /**
+     * A identidade LIDA do memorial (obra, órgão, município, código).
+     *
+     * Vai junto porque reter só os bytes não basta: sem os fatos, a conversa
+     * restaurada oferece "Auditar" com o gabarito vazio, e a auditoria roda
+     * comparando o documento consigo mesmo — cega justamente para o erro que
+     * originou o produto. Reclassificar custaria uma leitura de PDF a cada
+     * restauração, para reobter um dado que já era conhecido.
+     */
+    dossie?: NexoDossieDraft;
   };
 }
 
