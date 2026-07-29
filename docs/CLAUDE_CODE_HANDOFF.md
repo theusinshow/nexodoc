@@ -83,7 +83,7 @@ Ha tambem um arquivo existente `docs/NexoDoc_contexto_principal.md`, mas este ha
 Rotas principais:
 
 - `app/page.tsx`: entrada/dashboard.
-- `app/audit/page.tsx`: workspace de auditoria.
+- `app/audit/page.tsx`: APOSENTADA (2026-07-29) — so redireciona para `/nexo`. A auditoria vive no Nexo.
 - `app/ld/page.tsx`: criador de LDs.
 - `app/ld/historico/page.tsx`: historico de LDs.
 - `app/capas/page.tsx`: gerador de capas.
@@ -122,7 +122,7 @@ Bibliotecas centrais:
 
 Componentes importantes:
 
-- `components/chat-window.tsx`: workspace principal da auditoria, incluindo selecao de intencao.
+- (REMOVIDO em 2026-07-29) `components/chat-window.tsx` era o workspace da `/audit`. A auditoria vive no Nexo: `modules/nexo/components/NexoWorkspace.tsx` e `PalcoDoNexo.tsx`.
 - `components/audit-result.tsx`: exibicao de resultado, evidencias e follow-up.
 - `components/audit-progress.tsx`: progresso de auditoria.
 - `components/ld/*`: workspace de LD.
@@ -135,7 +135,7 @@ Componentes importantes:
 
 ### 5.1 Auditoria
 
-Entrada: `/audit` e `app/api/audit/route.ts`.
+Entrada: `/nexo` (a `/audit` redireciona) e `app/api/audit/route.ts`.
 
 Responsabilidade:
 
@@ -168,7 +168,7 @@ Arquivos para mexer primeiro:
 - `lib/audit-ai.ts`
 - `lib/audit-rules.ts`
 - `lib/cross-document-audit.ts`
-- `components/chat-window.tsx`
+- `modules/nexo/components/PalcoDoNexo.tsx`
 - `components/audit-result.tsx`
 
 ### 5.2 LD / Lista de documentos
@@ -511,7 +511,7 @@ Contexto principal: NexoDoc e uma plataforma operacional para auditoria, LDs, ca
 Ambiente Windows: use comandos ancorados como:
 cmd /c "cd /d C:\Dev\trabalho\empresa\nexodoc && npm run build"
 
-Se mexer em auditoria, comece por app/api/audit/route.ts, lib/ai-providers.ts, lib/audit-ai.ts, lib/audit-rules.ts, lib/cross-document-audit.ts e components/chat-window.tsx.
+Se mexer em auditoria, comece por app/api/audit/route.ts, lib/ai-providers.ts, lib/audit-ai.ts, lib/audit-rules.ts, lib/cross-document-audit.ts e modules/nexo/components/PalcoDoNexo.tsx.
 Se mexer em volumes, valide /volumes e cuidado com app/api/volume/build/route.ts possivelmente ignorado pelo Git.
 Nao esconda erros reais de auth/quota/config da IA; fallback so para falhas estreitas como invalid_response em etapas auxiliares.
 ```
@@ -520,7 +520,7 @@ Nao esconda erros reais de auth/quota/config da IA; fallback so para falhas estr
 
 - Confirmar `git status --short`.
 - Ler o arquivo ou modulo antes de editar.
-- Fazer patches pequenos em arquivos grandes, especialmente `app/api/audit/route.ts` e `components/chat-window.tsx`.
+- Fazer patches pequenos em arquivos grandes, especialmente `app/api/audit/route.ts`.
 - Rodar pelo menos `npm run lint` ou `npm run build` conforme risco.
 - Separar problema real de ruido do ambiente PowerShell/Next lock.
 - Relatar claramente o que foi validado e o que nao foi.
