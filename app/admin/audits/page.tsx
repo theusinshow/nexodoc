@@ -83,6 +83,9 @@ function isErrorPayload(
   return "error" in payload;
 }
 
+/** Os status que a API aceita — a URL não manda um valor que o filtro ignora. */
+const STATUS_VALIDOS = ["PROCESSING", "COMPLETED", "FAILED", "CANCELED"];
+
 function getStatusClass(status: string) {
   if (status === "COMPLETED") {
     return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
@@ -102,7 +105,28 @@ export default function AdminAuditsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
+  /*
+   * O filtro pode vir na URL (`?status=FAILED`).
+   *
+   * É o que faz o cartão "Falhas" do painel cumprir o que promete: sem ler o
+   * parâmetro, o clique cairia na lista completa e quem administra teria que
+   * refazer o filtro à mão — o número apontaria para um lugar que não responde
+   * à pergunta que ele levantou.
+   *
+   * Lido num effect, e NÃO no inicializador do `useState`: o inicializador roda
+   * também no servidor, onde `window` não existe, e a hidratação mantém o valor
+   * que veio de lá. Foi exatamente o que aconteceu na primeira tentativa — o
+   * select chegava em "all" com a URL dizendo FAILED.
+   */
   const [status, setStatus] = useState("all");
+  useEffect(() => {
+    const vindo = new URLSearchParams(window.location.search).get("status")?.trim();
+    if (!vindo || !STATUS_VALIDOS.includes(vindo)) return;
+    // Adiado um quadro: `setState` no corpo do effect encadeia renders, e o
+    // lint do React Compiler barra. Um quadro de atraso aqui é invisível.
+    const quadro = requestAnimationFrame(() => setStatus(vindo));
+    return () => cancelAnimationFrame(quadro);
+  }, []);
   const [mode, setMode] = useState("all");
   const [userFilter, setUserFilter] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 
 import {
   ADMIN_TOKEN_STORAGE_KEY,
@@ -72,23 +73,57 @@ function AdminMetric({
   value,
   detail,
   icon: Icon,
+  href,
+  alerta = false,
 }: {
   label: string;
   value: number | string;
   detail: string;
   icon: typeof ShieldCheck;
+  /** Para onde o número leva. Sem isto, o cartão informa e abandona. */
+  href?: string;
+  alerta?: boolean;
 }) {
-  return (
-    <article className="border border-border bg-card p-4">
+  /*
+   * O número LEVA a algum lugar.
+   *
+   * "10 falhas" sem caminho para ver quais é uma métrica que informa e abandona:
+   * quem administra tem que sair, achar a tela certa e refazer o filtro à mão.
+   * Cada cartão agora aponta para a lista já filtrada.
+   */
+  const corpo = (
+    <>
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono text-xs uppercase text-muted-foreground">{label}</p>
-        <span className="flex size-9 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+        <span
+          className={cn(
+            "flex size-9 items-center justify-center rounded-md border",
+            // Falha só fica vermelha quando existe falha: pintar de alerta um
+            // zero treinaria o olho a ignorar a cor justamente quando importa.
+            alerta
+              ? "border-[var(--status-critical)]/30 bg-[var(--status-critical)]/10 text-[var(--status-critical)]"
+              : "border-primary/25 bg-primary/10 text-primary",
+          )}
+        >
           <Icon className="size-4" />
         </span>
       </div>
       <p className="mt-4 font-mono text-3xl font-semibold">{value}</p>
       <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
-    </article>
+    </>
+  );
+
+  if (!href) {
+    return <article className="border border-border bg-card p-4">{corpo}</article>;
+  }
+
+  return (
+    <Link
+      href={href}
+      className="block border border-border bg-card p-4 transition hover:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+    >
+      {corpo}
+    </Link>
   );
 }
 
@@ -99,12 +134,19 @@ export default function AdminHomePage() {
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  /*
+   * Só o que NÃO tem métrica em cima.
+   *
+   * Usuários, LDs e Auditorias saíram daqui: viraram destino dos próprios
+   * cartões de número, e antes apareciam três vezes na mesma tela — na barra de
+   * navegação, na faixa de métricas e nesta fileira. Repetir o mesmo caminho
+   * três vezes não é redundância útil, é ruído que faz a tela parecer maior do
+   * que é.
+   */
   const actions = useMemo(
     () => [
-      { href: "/admin/users", label: "Usuários", detail: "Adicionar, promover e desativar acessos", icon: UsersRound },
-      { href: "/admin/lds", label: "LDs", detail: "Histórico, status e operação de listas", icon: FileSpreadsheet },
-      { href: "/admin/audits", label: "Auditorias", detail: "Histórico de conferências documentais", icon: ListChecks },
       { href: "/admin/usage", label: "Consumo", detail: "Tokens, custos e modelos OpenAI", icon: BarChart3 },
+      { href: "/admin/quality", label: "Qualidade do motor", detail: "Compara Padrão e Profundo pelos achados revisados", icon: ShieldCheck },
       { href: "/admin/config", label: "Configuração", detail: "Chaves, modelos e limites sem expor valores", icon: Settings2 },
     ],
     [],
@@ -194,14 +236,14 @@ export default function AdminHomePage() {
           "--" e "Aguardando consulta"; aqui é a mesma regra.
         */}
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <AdminMetric label="Usuários ativos" value={data ? data.totals.activeUsers : "--"} detail={data ? `${data.totals.admins} admin(s)` : semDados} icon={UsersRound} />
-          <AdminMetric label="Auditorias" value={data ? data.totals.audits : "--"} detail={data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados} icon={ListChecks} />
-          <AdminMetric label="Falhas" value={data ? data.totals.failedAudits : "--"} detail={data ? "Auditorias com erro" : semDados} icon={AlertTriangle} />
-          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s)` : semDados} icon={FileSpreadsheet} />
-          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLds} LD(s) recentes` : semDados} icon={Clock3} />
+          <AdminMetric label="Usuários ativos" value={data ? data.totals.activeUsers : "--"} detail={data ? `${data.totals.admins} admin(s)` : semDados} icon={UsersRound} href="/admin/users" />
+          <AdminMetric label="Auditorias" value={data ? data.totals.audits : "--"} detail={data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados} icon={ListChecks} href="/admin/audits" />
+          <AdminMetric label="Falhas" value={data ? data.totals.failedAudits : "--"} detail={data ? "Auditorias com erro" : semDados} icon={AlertTriangle} href="/admin/audits?status=FAILED" alerta={Boolean(data && data.totals.failedAudits > 0)} />
+          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s)` : semDados} icon={FileSpreadsheet} href="/admin/lds" />
+          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLds} LD(s) recentes` : semDados} icon={Clock3} href="/admin/lds" />
         </section>
 
-        <section className="grid gap-3 md:grid-cols-5">
+        <section className="grid gap-3 md:grid-cols-3">
           {actions.map((action) => {
             const Icon = action.icon;
 
@@ -227,8 +269,15 @@ export default function AdminHomePage() {
                     <p className="truncate font-medium">{audit.title}</p>
                     <span className="font-mono text-xs text-muted-foreground">{audit.status}</span>
                   </div>
+                  {/*
+                    O projeto só aparece quando ACRESCENTA algo. Derivados da
+                    mesma obra, título e projeto viram a mesma frase duas vezes
+                    por linha — repetição que ocupa a largura onde caberiam
+                    dados de verdade.
+                  */}
                   <p className="truncate text-xs text-muted-foreground">
-                    {audit.projectName} · {audit.auditMode} · {audit.totalFindings} achado(s) · {formatDate(audit.createdAt)}
+                    {audit.projectName !== audit.title ? `${audit.projectName} · ` : ""}
+                    {audit.auditMode} · {audit.totalFindings} achado(s) · {formatDate(audit.createdAt)}
                   </p>
                 </div>
               ))}

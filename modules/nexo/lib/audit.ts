@@ -67,6 +67,18 @@ export async function runMemorialAudit(
   form.append("analysisLevel", level);
   form.append("files", memorial, memorial.name);
   form.append("fileTypes", "memorial");
+  /*
+   * IDENTIDADE da auditoria no histórico.
+   *
+   * O Nexo não mandava nada disso, e como ele é o único caminho hoje, TODA
+   * auditoria era gravada anônima: o painel administrativo listava dezenas de
+   * "Auditoria sem identificação · Projeto não informado", inútil para achar
+   * qualquer coisa. A obra já está aqui, no gabarito — só não estava sendo
+   * enviada. Sem obra, o nome do arquivo ainda é melhor que nada.
+   */
+  const obraGabarito = gabarito.obra?.trim();
+  form.append("auditTitle", obraGabarito || memorial.name);
+  if (obraGabarito) form.append("projectName", obraGabarito);
   if (gabarito.obra?.trim()) form.append("gabaritoObra", gabarito.obra.trim());
   if (gabarito.prefeitura?.trim()) {
     form.append("gabaritoPrefeitura", gabarito.prefeitura.trim());

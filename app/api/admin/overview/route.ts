@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
 
 export const runtime = "nodejs";
 
@@ -70,6 +71,10 @@ export async function GET(request: Request) {
       analysisLevel: true,
       createdAt: true,
       totalFindings: true,
+      // O relatório entra só para NOMEAR auditoria antiga, gravada antes de o
+      // Nexo enviar identidade. Sem ele, o histórico é uma lista de "sem
+      // identificação" — inútil para o que o histórico existe.
+      report: true,
     },
   });
   const latestLds = await prisma.ldDraft.findMany({
@@ -100,8 +105,12 @@ export async function GET(request: Request) {
       recentLds,
       ldEvents,
     },
-    latestAudits: latestAudits.map((audit) => ({
+    latestAudits: latestAudits.map(({ report, ...audit }) => ({
       ...audit,
+      // Resolvido no servidor para que todo consumidor veja o mesmo nome, e o
+      // `report` inteiro (que é grande) não viaje até a tela só por causa disso.
+      title: tituloDaAuditoria({ title: audit.title, report }),
+      projectName: projetoDaAuditoria({ projectName: audit.projectName, report }),
       createdAt: audit.createdAt.toISOString(),
     })),
     latestLds: latestLds.map((ld) => ({

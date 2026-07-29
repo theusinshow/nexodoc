@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
 
 export const runtime = "nodejs";
 
@@ -154,7 +155,18 @@ export async function GET(request: Request) {
 
   return withCors(
     NextResponse.json({
-      audits,
+      /*
+       * Nomeia as auditorias antigas a partir do relatório.
+       *
+       * Antes de o Nexo enviar identidade, tudo era gravado anônimo — o
+       * histórico virava dezenas de linhas iguais, impossível de usar para
+       * achar uma auditoria. Nada é reescrito no banco: só apresentado.
+       */
+      audits: audits.map((audit) => ({
+        ...audit,
+        title: tituloDaAuditoria(audit),
+        projectName: projetoDaAuditoria(audit),
+      })),
       generatedAt: new Date().toISOString(),
     }),
     request,
