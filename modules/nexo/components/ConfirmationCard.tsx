@@ -56,6 +56,7 @@ import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
 import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
+import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
@@ -1204,6 +1205,7 @@ function AuditoriaConfirmation({
   const [error, setError] = useState<string | null>(null);
   const { results, getResult, saveResult, conversationId } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
+  const auditoria = useAuditoria();
   const id = auditoriaId(selos, memorialFatos?.codigo);
   const result = getResult(id)?.payload as AuditReport | undefined;
 
@@ -1229,6 +1231,12 @@ function AuditoriaConfirmation({
     if (!memorialFile) return;
     setBusy(true);
     setError(null);
+    /*
+     * Avisa o PALCO. Sem isto o centro da tela segue mostrando o mapa do volume
+     * durante os 3 a 6 minutos da análise, e o usuário não tem sinal nenhum de
+     * que o agente está trabalhando.
+     */
+    auditoria.iniciar({ nivel: params.nivel, arquivo: memorialFile.name });
     try {
       const r = await postAudit(
         memorialFile,
@@ -1248,6 +1256,7 @@ function AuditoriaConfirmation({
       setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
     } finally {
       setBusy(false);
+      auditoria.terminar();
     }
   }
 

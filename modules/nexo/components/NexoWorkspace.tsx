@@ -28,6 +28,8 @@ import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
+import { PalcoDoNexo } from "./PalcoDoNexo";
+import { AuditoriaStoreProvider } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
@@ -52,7 +54,10 @@ export function NexoWorkspace() {
       <ConversationUsageProvider>
         <ArtifactStoreProvider>
           <ComposerControllerProvider>
-            <NexoWorkspaceInner />
+            {/* A auditoria em curso é do PALCO, não do cartão que a disparou. */}
+            <AuditoriaStoreProvider>
+              <NexoWorkspaceInner />
+            </AuditoriaStoreProvider>
           </ComposerControllerProvider>
         </ArtifactStoreProvider>
       </ConversationUsageProvider>
@@ -765,6 +770,8 @@ function NexoWorkspaceInner() {
           />
         }
         stage={
+          <PalcoDoNexo
+            mapa={
           <NexoCanvas
             folhas={selos}
             numeros={numerosDasFolhas}
@@ -775,6 +782,8 @@ function NexoWorkspaceInner() {
             onVoltarAoAutomatico={voltarAoAutomatico}
             onCriarTomo={criarTomo}
             tomosDeclarados={conv.tomosDeclarados}
+          />
+            }
           />
         }
         copilot={
