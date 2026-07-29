@@ -36,6 +36,7 @@ type OverviewResponse = {
     generatedLds: number;
     recentLds: number;
     ldEvents: number;
+    recentLdEvents: number;
   };
   latestAudits: Array<{
     id: string;
@@ -239,8 +240,8 @@ export default function AdminHomePage() {
           <AdminMetric label="Usuários ativos" value={data ? data.totals.activeUsers : "--"} detail={data ? `${data.totals.admins} admin(s)` : semDados} icon={UsersRound} href="/admin/users" />
           <AdminMetric label="Auditorias" value={data ? data.totals.audits : "--"} detail={data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados} icon={ListChecks} href="/admin/audits" />
           <AdminMetric label="Falhas" value={data ? data.totals.failedAudits : "--"} detail={data ? "Auditorias com erro" : semDados} icon={AlertTriangle} href="/admin/audits?status=FAILED" alerta={Boolean(data && data.totals.failedAudits > 0)} />
-          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s)` : semDados} icon={FileSpreadsheet} href="/admin/lds" />
-          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLds} LD(s) recentes` : semDados} icon={Clock3} href="/admin/lds" />
+          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s) · ${data.totals.recentLds} nos últimos 7 dias` : semDados} icon={FileSpreadsheet} href="/admin/lds" />
+          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLdEvents} nos últimos 7 dias` : semDados} icon={Clock3} href="/admin/lds" />
         </section>
 
         <section className="grid gap-3 md:grid-cols-3">

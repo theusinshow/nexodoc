@@ -47,6 +47,7 @@ export async function GET(request: Request) {
     generatedLds,
     recentLds,
     ldEvents,
+    recentLdEvents,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { isActive: true } }),
@@ -58,6 +59,13 @@ export async function GET(request: Request) {
     prisma.ldDraft.count({ where: { status: "GENERATED" } }),
     prisma.ldDraft.count({ where: { updatedAt: { gte: lastSevenDays } } }),
     prisma.ldDraftEvent.count(),
+    /*
+     * O cartao "Eventos LD" mostrava o total historico com o detalhe "N LD(s)
+     * recentes" embaixo — dois numeros sem relacao colados, e a tela lia como
+     * contradicao: "600 eventos · 0 recentes". Cada detalhe tem que qualificar
+     * o numero que esta em cima dele.
+     */
+    prisma.ldDraftEvent.count({ where: { createdAt: { gte: lastSevenDays } } }),
   ]);
   const latestAudits = await prisma.audit.findMany({
     take: 5,
@@ -104,6 +112,7 @@ export async function GET(request: Request) {
       generatedLds,
       recentLds,
       ldEvents,
+      recentLdEvents,
     },
     latestAudits: latestAudits.map(({ report, ...audit }) => ({
       ...audit,

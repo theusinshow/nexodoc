@@ -194,12 +194,47 @@ export async function PATCH(request: Request) {
     return jsonError("Usuário não encontrado.", 404);
   }
 
+  /*
+   * Atualização PARCIAL: só muda o que foi enviado.
+   *
+   * Antes, `role: parseRole(body?.role)` devolvia "USER" para campo ausente e
+   * `isActive` virava `true` por omissão — então um PATCH que só corrigia o
+   * NOME rebaixava o admin e reativava uma conta desativada, sem ninguém pedir.
+   * A tela mandava tudo junto e mascarava isso; qualquer outro cliente da API
+   * cairia na armadilha.
+   */
+  const novoPapel = body?.role === undefined ? current.role : parseRole(body.role);
+  const novoAtivo = body?.isActive === undefined ? current.isActive : body.isActive !== false;
+
+  /*
+   * O ÚLTIMO admin ativo não pode se apagar.
+   *
+   * Rebaixar ou desativar o único admin deixa o sistema sem ninguém capaz de
+   * administrá-lo — e a recuperação depende de mexer em variável de ambiente ou
+   * direto no banco, que é justamente o que um painel existe para evitar.
+   */
+  const vaiPerderAdmin =
+    current.role === "ADMIN" && current.isActive && (novoPapel !== "ADMIN" || !novoAtivo);
+
+  if (vaiPerderAdmin) {
+    const adminsAtivos = await getPrisma().user.count({
+      where: { role: "ADMIN", isActive: true },
+    });
+
+    if (adminsAtivos <= 1) {
+      return jsonError(
+        "Este é o último admin ativo. Promova outro usuário antes de rebaixar ou desativar este.",
+        409,
+      );
+    }
+  }
+
   const user = await getPrisma().user.update({
     where: { id },
     data: {
       name: normalizeName(body?.name, current.email),
-      role: parseRole(body?.role),
-      isActive: body?.isActive === false ? false : true,
+      role: novoPapel,
+      isActive: novoAtivo,
     },
     include: {
       _count: {

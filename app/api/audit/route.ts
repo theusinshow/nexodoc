@@ -3211,18 +3211,36 @@ async function executarAuditoria(
       return jsonError("Modo demo não está habilitado neste ambiente.", 403);
     }
 
-    let auditActor: ActorIdentity | null = null;
+    /*
+     * QUEM pediu a auditoria — sempre que der para saber.
+     *
+     * O ator só era resolvido dentro do `if (projectId)`. Como o Nexo não manda
+     * projeto (e virou o único caminho), TODA auditoria era gravada sem dono: o
+     * painel de usuários mostrava "0 auditorias" para todo mundo com dezenas
+     * delas no banco. Sem atribuição não há como responder "quem rodou isto?",
+     * que é a primeira pergunta de qualquer operação séria.
+     *
+     * Resolver o ator NÃO muda quem pode chamar a rota: a exigência de sessão
+     * e a checagem de acesso continuam valendo só para o caminho com projeto.
+     * Aqui, sem sessão ou sem banco, segue nulo como antes.
+     */
+    let auditActor: ActorIdentity | null =
+      sessionEmail && isDatabaseConfigured()
+        ? await getUserActor(normalizeEmail(sessionEmail), session?.user?.name ?? null).catch(
+            // Falhar em identificar o autor não pode impedir a auditoria — o
+            // trabalho vale mais que o crédito.
+            () => null,
+          )
+        : null;
 
     if (projectId) {
       if (!isDatabaseConfigured()) {
         return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
       }
 
-      if (!sessionEmail) {
+      if (!sessionEmail || !auditActor) {
         return jsonError("Autenticacao necessaria para vincular auditoria ao projeto.", 401);
       }
-
-      auditActor = await getUserActor(normalizeEmail(sessionEmail), session?.user?.name ?? null);
 
       try {
         await assertProjectAccess(projectId, auditActor);
