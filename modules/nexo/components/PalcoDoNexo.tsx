@@ -12,24 +12,23 @@
  * disciplina e as duas camadas de confiança — o que dá credibilidade ao parecer.
  */
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Map, ShieldCheck } from "lucide-react";
 
 import { AuditResult } from "@/components/audit-result";
-import type { AuditReport } from "@/lib/audit-report";
 import { Chip } from "@/components/ui/chip";
+import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
-import { useAuditoria } from "../state/auditoria-store";
+import { useAuditoria, type VistaDoPalco as Vista } from "../state/auditoria-store";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
-
-type Vista = "mapa" | "auditoria";
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const { results } = useConversation();
-  const { emCurso } = useAuditoria();
+  const { emCurso, escolha, escolherVista } = useAuditoria();
 
   const auditoria = results.find((r) => r.kind === "auditoria");
-  const report = auditoria?.payload as AuditReport | undefined;
+  const salvo = auditoria?.payload as MemorialAuditResult | undefined;
+  const report = salvo?.report;
   const temAuditoria = Boolean(emCurso || report);
 
   /*
@@ -41,11 +40,19 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
    * começa, a marca muda, a escolha antiga caduca e o palco volta a seguir o
    * trabalho. Um `useEffect` com setState faria o mesmo com renders em cascata —
    * e o lint do React Compiler barra, com razão.
+   *
+   * A escolha mora no store, e não aqui, porque o chat também a comanda: o "Ver
+   * o parecer" da âncora usa a marca coringa `"*"`, que vale para a auditoria
+   * que estiver na tela.
    */
   const marca = emCurso ? `curso:${emCurso.inicioMs}` : report ? "pronta" : "vazio";
-  const [escolha, setEscolha] = useState<{ marca: string; vista: Vista } | null>(null);
-  const vista: Vista = escolha?.marca === marca ? escolha.vista : temAuditoria ? "auditoria" : "mapa";
-  const escolher = (v: Vista) => setEscolha({ marca, vista: v });
+  const valeAgora = escolha && (escolha.marca === marca || escolha.marca === "*");
+  const vista: Vista = valeAgora
+    ? escolha.vista
+    : temAuditoria
+      ? "auditoria"
+      : "mapa";
+  const escolher = (v: Vista) => escolherVista(marca, v);
 
   const mostrandoAuditoria = vista === "auditoria" && temAuditoria;
 
@@ -88,7 +95,11 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
             </div>
           ) : report ? (
             <div className="h-full overflow-y-auto">
-              <AuditResult content="" report={report} />
+              <AuditResult
+                content={salvo?.texto ?? ""}
+                report={report}
+                auditId={salvo?.auditId ?? undefined}
+              />
             </div>
           ) : null
         ) : (

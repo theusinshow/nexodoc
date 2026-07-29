@@ -104,6 +104,8 @@ REGRAS:
     { "kind": "volume" } (sem campos).
   - "auditar"/"auditoria"/"revisar o memorial" -> { "kind": "auditoria" } com
     "nivel": "standard" (padrão) ou "deep" (só se ele pedir análise profunda).
+    NO TEXTO, chame os níveis de "padrão" e "profunda" — "standard"/"deep" são
+    valores do campo, não palavras para o engenheiro ler.
 - Para a capa, escolha o templateId da lista de prefeituras casando pelo NOME DA
   CIDADE que o engenheiro citou (ex.: "Chapecó" -> o template de Chapecó). Se ele
   não disse qual e há mais de uma, escolha a mais provável e peça confirmação.

@@ -510,6 +510,17 @@ textarea {
   .nexo-shell__sidebar {
     display: none;
   }
+
+  /* O palco e o separador saem de cena junto com a sidebar.
+     Empilhados numa coluna só, viravam uma faixa vazia acima do chat: o mapa do
+     volume ficava ilegivel e o seletor de vistas continuava ali, oferecendo
+     trocar para uma tela que ninguem estava vendo. Melhor nao existir do que
+     existir sem funcionar. O parecer completo pede largura; no celular o chat
+     ainda entrega o veredito e a contagem por impacto, que e o que decide. */
+  .nexo-shell__stage,
+  .nexo-shell__splitter {
+    display: none;
+  }
 }
 
 /* Fallback sem View Transitions (ex.: Firefox): canvas e copiloto entram com

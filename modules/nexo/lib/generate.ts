@@ -12,6 +12,7 @@ import {
   runMemorialAudit,
   type MemorialAuditGabarito,
   type MemorialAuditLevel,
+  type MemorialAuditResult,
 } from "./audit";
 
 export const ODT_MIME = "application/vnd.oasis.opendocument.text";
@@ -302,6 +303,6 @@ export async function postAudit(
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
   conversationId?: string | null,
-): Promise<AuditReport> {
+): Promise<MemorialAuditResult> {
   return runMemorialAudit(memorial, gabarito, level, conversationId);
 }

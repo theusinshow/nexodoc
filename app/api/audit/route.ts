@@ -3290,7 +3290,20 @@ export async function POST(request: Request) {
         tipo_documento: file.fileType,
         paginas: file.extracted.pageCount,
         caracteres_extraidos: file.extracted.charCount,
-        resumo: `Auditoria profunda com leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
+        /*
+         * O nível REAL da corrida, não um rótulo fixo.
+         *
+         * Esta frase dizia "Auditoria profunda" em toda auditoria, inclusive nas
+         * padrão — e ainda contava blocos recalculando o corte aqui, número que
+         * no nível profundo não corresponde a trabalho nenhum (lá o documento é
+         * lido inteiro, sem blocos). O relatório é a peça que sustenta uma
+         * decisão de emitir: descrever nele um esforço que não houve é o pior
+         * lugar do sistema para se estar errado.
+         */
+        resumo:
+          analysisLevel === "deep"
+            ? "Auditoria profunda: leitura de identidade e leitura do documento inteiro por IA."
+            : `Auditoria padrão: leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
       })),
       comparacoes: [...ruleComparison.comparisons, ...modelComparison.comparisons],
       incongruencias: findings,

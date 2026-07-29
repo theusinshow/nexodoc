@@ -16,6 +16,7 @@ import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
+import { useAuditoria } from "../state/auditoria-store";
 import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
 
 export function NexoCopilot({
@@ -66,6 +67,10 @@ export function NexoCopilot({
   // Popover de status: clique no orb "espia a cabeça" do agente.
   const [popoverOpen, setPopoverOpen] = useState(false);
 
+  // A auditoria não passa pelo turno do chat; sem ler o store, o orb ficaria
+  // dizendo "pronto" durante os minutos em que o agente está trabalhando.
+  const auditando = Boolean(useAuditoria().emCurso);
+
   // Rótulo do estado do orb (o orb já anima; isto só nomeia). O "pensando" É o orb.
   const working =
     agentState === "analyzing" ||
@@ -79,9 +84,13 @@ export function NexoCopilot({
       ? "instabilidade"
       : agentState === "reading" || agentState === "uploading"
         ? "lendo os selos"
-        : working
-          ? "pensando"
-          : fileCount > 0
+        : // A auditoria leva minutos: "pensando" por 6 minutos parece travado, e
+          // o orb dizia "pronto" o tempo todo porque não sabia da análise.
+          auditando
+          ? "auditando o memorial"
+          : working
+            ? "pensando"
+            : fileCount > 0
             ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
             : "pronto";
 
@@ -123,12 +132,17 @@ export function NexoCopilot({
           </p>
         ) : (
           <div className="space-y-1.5">
+            {/*
+              As DUAS entradas, nomeadas. A tela dizia só "montar" e falava só de
+              pranchas e selos — quem chegava com um memorial na mão não tinha
+              como saber que a auditoria, o carro-chefe, mora aqui.
+            */}
             <h2 className="text-2xl font-medium tracking-[-0.01em]">
-              O que vamos montar?
+              O que vamos montar — ou auditar?
             </h2>
             <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-              Solte os PDFs das pranchas e peça em texto — eu leio os selos,
-              proponho e monto.
+              Solte as pranchas e eu leio os selos, proponho e monto. Solte o
+              memorial e eu audito contra a obra declarada.
             </p>
           </div>
         )}

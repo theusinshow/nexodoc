@@ -81,7 +81,7 @@ export function NexoChat({
     responding: boolean;
   }) => void;
 }) {
-  const { messages, conversationId, appendMessage, appendDelta, finalizeMessage } =
+  const { messages, results, conversationId, appendMessage, appendDelta, finalizeMessage } =
     useConversation();
   const { data: usage, refresh: refreshUsage } = useConversationUsage();
   const [input, setInput] = useState("");
@@ -110,10 +110,18 @@ export function NexoChat({
   // Quem rolou pra cima pra reler não é arrancado de lá.
   const [atBottom, setAtBottom] = useState(true);
 
+  /*
+   * Rola também quando um RESULTADO chega, não só quando chega mensagem.
+   *
+   * A auditoria termina sem escrever no log: o cartão é que cresce. Sem os
+   * `results` aqui, o parecer nascia com o rodapé cortado na borda — e no caso
+   * parcial o que ficava escondido era justamente o "Rodar de novo", a ação que
+   * o veredito acabou de mandar executar.
+   */
   useEffect(() => {
     if (!atBottom) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, atBottom]);
+  }, [messages, results, atBottom]);
 
   // `responding` = já chegou texto (o modelo saiu do raciocínio e está escrevendo).
   const responding = busy && messages[messages.length - 1]?.role === "assistant";

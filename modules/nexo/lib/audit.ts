@@ -17,16 +17,30 @@ export interface MemorialAuditGabarito {
 
 export type MemorialAuditLevel = "standard" | "deep";
 
+export interface MemorialAuditResult {
+  /** O parecer estruturado — é o que a tela de relatório consome. */
+  report: AuditReport;
+  /** O mesmo parecer em texto corrido, para copiar/exportar. */
+  texto: string;
+  /** Id persistido; sem ele o feedback por achado não tem onde gravar. */
+  auditId: string | null;
+}
+
 /**
  * Roda a auditoria do memorial. `level` "deep" é mais completa (mais tokens).
- * Devolve o AuditReport do motor existente.
+ *
+ * CONTRATO: `/api/audit` responde `{ result, report, auditId }`, onde `result` é
+ * o relatório em TEXTO e `report` é o objeto. Ler `result` como se fosse o objeto
+ * — o que esta função fazia — grava uma string onde o relatório deveria estar, e
+ * a tela quebra ao contar os achados. O teste em `audit-contrato.test.ts` casa os
+ * dois lados justamente porque `tsc` não vê através de um `as`.
  */
 export async function runMemorialAudit(
   memorial: File,
   gabarito: MemorialAuditGabarito = {},
   level: MemorialAuditLevel = "standard",
   conversationId?: string | null,
-): Promise<AuditReport> {
+): Promise<MemorialAuditResult> {
   const form = new FormData();
   form.append(
     "message",
@@ -48,10 +62,14 @@ export async function runMemorialAudit(
 
   const res = await fetch("/api/audit", { method: "POST", body: form });
   const payload = (await res.json().catch(() => null)) as
-    | { error?: string; result?: AuditReport }
+    | { error?: string; result?: string; report?: AuditReport; auditId?: string | null }
     | null;
-  if (!res.ok || !payload?.result) {
+  if (!res.ok || !payload?.report) {
     throw new Error(payload?.error ?? "Falha na auditoria do memorial.");
   }
-  return payload.result;
+  return {
+    report: payload.report,
+    texto: typeof payload.result === "string" ? payload.result : "",
+    auditId: payload.auditId ?? null,
+  };
 }

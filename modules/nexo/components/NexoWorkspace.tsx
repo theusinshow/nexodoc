@@ -29,7 +29,7 @@ import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
 import { PalcoDoNexo } from "./PalcoDoNexo";
-import { AuditoriaStoreProvider } from "../state/auditoria-store";
+import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
@@ -66,6 +66,7 @@ export function NexoWorkspace() {
 }
 
 function NexoWorkspaceInner() {
+  const auditandoAgora = Boolean(useAuditoria().emCurso);
   const conv = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const { replaceArtifacts } = useArtifactStore();
@@ -441,8 +442,19 @@ function NexoWorkspaceInner() {
     if (memorial) {
       setReadingMemorial(true);
       try {
-        const dossie = await classifyMemorial(memorial);
-        appendMemorialIntake(memorial, dossie);
+        const lido = await classifyMemorial(memorial);
+        /*
+         * GUARDAR, e não só anunciar.
+         *
+         * A classificação era lida numa const local: o chat dizia "é o memorial
+         * do Centro Comunitário Primeira Linha" e, dois cliques depois, o cartão
+         * mostrava obra "?" — porque o estado seguia vazio. A auditoria então
+         * rodava SEM gabarito, comparando o documento consigo mesmo, cega
+         * exatamente para o erro que originou este produto: memorial emitido com
+         * o nome de outra obra.
+         */
+        setDossie(lido);
+        appendMemorialIntake(memorial, lido);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
       } finally {
@@ -603,7 +615,9 @@ function NexoWorkspaceInner() {
   const agentState = useAgentState({
     dragging,
     reading: reading || readingMemorial,
-    thinking: chatStatus.thinking,
+    // A auditoria roda fora do turno do chat, mas é trabalho do agente: sem
+    // isto a esfera fica parada em `idle` durante toda a análise.
+    thinking: chatStatus.thinking || auditandoAgora,
     responding: chatStatus.responding,
     error: chatStatus.error,
   });

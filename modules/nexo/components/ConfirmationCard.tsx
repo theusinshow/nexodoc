@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Loader2,
   Download,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,12 @@ import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
-import type { AuditReport } from "@/lib/audit-report";
+import {
+  getEmissionVerdict,
+  groupFindingsByImpact,
+  type AuditReport,
+} from "@/lib/audit-report";
+import type { MemorialAuditResult } from "../lib/audit";
 import type {
   NexoAgentProposal,
   NexoLdProposalParams,
@@ -862,12 +868,17 @@ function CheckResult({ result }: { result: LightCheckResult }) {
       : result.veredito === "aviso"
         ? "warning"
         : "ok";
+  /*
+   * Sem emoji no rótulo de status: quem carrega a cor é o `variant` do Badge, e
+   * o emoji além de violar o DESIGN.md duplicava o sinal — em preto e branco, ou
+   * num leitor de tela, "🔴" vira ruído e não informação.
+   */
   const label =
     result.veredito === "critico"
-      ? "🔴 Não emitir"
+      ? "Não emitir"
       : result.veredito === "aviso"
-        ? "🟡 Revisar"
-        : "🟢 Consistente";
+        ? "Revisar"
+        : "Consistente";
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
       <div className="flex items-center gap-2">
@@ -1207,7 +1218,7 @@ function AuditoriaConfirmation({
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
   const id = auditoriaId(selos, memorialFatos?.codigo);
-  const result = getResult(id)?.payload as AuditReport | undefined;
+  const result = getResult(id)?.payload as MemorialAuditResult | undefined;
 
   /*
    * O GABARITO da auditoria: a obra do CARIMBO quando há pranchas (fonte
@@ -1247,9 +1258,18 @@ function AuditoriaConfirmation({
       await saveResult({
         artifactId: id,
         kind: "auditoria",
-        summary: `Auditoria — ${r.status_geral}`,
+        summary: `Auditoria — ${r.report.status_geral}`,
         files: [],
+        /*
+         * O envelope inteiro, não só o relatório: o texto alimenta o Exportar e o
+         * `auditId` é o que dá onde gravar o feedback por achado. Guardar apenas
+         * o objeto perderia os dois na primeira restauração da conversa.
+         */
         payload: r,
+        canvas: {
+          label: "Auditoria",
+          detail: `${r.report.status_geral} · ${r.report.total_incongruencias} achado(s)`,
+        },
       });
       refreshUsage();
     } catch (err) {
@@ -1260,9 +1280,20 @@ function AuditoriaConfirmation({
     }
   }
 
+  /*
+   * Uma auditoria PARCIAL não é uma auditoria concluída.
+   *
+   * Quando uma passada aborta, o veredito rebaixa para "NÃO USE PARA EMITIR" e
+   * manda rodar de novo — mas o cartão escondia o botão assim que existia um
+   * resultado qualquer. A instrução mais importante do sistema era justamente a
+   * única que a interface não deixava cumprir.
+   */
+  const parcial = (result?.report.runtime?.passadas_incompletas?.length ?? 0) > 0;
+  const podeAuditar = !result || parcial;
+
   return (
     <CardShell kind="auditoria" resumo={resumo}>
-      {!result && (
+      {podeAuditar && (
         <>
           <div className="space-y-1.5">
             <SummaryRow
@@ -1273,11 +1304,31 @@ function AuditoriaConfirmation({
             <SummaryRow label="Obra (gabarito)" value={obra ?? "?"} />
             <SummaryRow label="Nível" value={params.nivel === "deep" ? "profunda" : "padrão"} />
           </div>
+          {parcial && (
+            <p className="text-xs text-[var(--status-warning)]">
+              A análise anterior voltou incompleta
+              {result?.report.runtime?.passadas_incompletas?.length
+                ? ` (${result.report.runtime.passadas_incompletas
+                    .map((p) => p.passada)
+                    .join(", ")})`
+                : ""}
+              . Rode de novo antes de decidir.
+            </p>
+          )}
+          {/*
+            Sem obra de referência a auditoria roda comparando o documento
+            consigo mesmo. Não bloqueia — mas diz, antes dos minutos gastos.
+          */}
+          {!obra && memorialFile && (
+            <p className="text-xs text-muted-foreground">
+              Sem obra de referência, a checagem de identidade fica mais fraca.
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <ConfirmButton
               busy={busy}
               disabled={!memorialFile}
-              label="Auditar"
+              label={parcial ? "Rodar de novo" : "Auditar"}
               busyLabel="Auditando…"
               onConfirm={confirm}
             />
@@ -1290,48 +1341,55 @@ function AuditoriaConfirmation({
         </>
       )}
 
-      {result && <AuditResult report={result} />}
+      {result && <AuditoriaAncora report={result.report} onVer={auditoria.verNoPalco} />}
       <CardError message={error} />
     </CardShell>
   );
 }
 
-function AuditResult({ report }: { report: AuditReport }) {
+/**
+ * A ÂNCORA no chat: veredito, contagem por impacto e o caminho para o parecer.
+ *
+ * Antes esta caixa listava 8 dos N achados como `[prioridade] descrição` e
+ * terminava em "relatório completo no módulo Auditoria" — apontando para a tela
+ * que o Nexo veio substituir. Era o pior dos dois mundos: prosa demais para o
+ * log da conversa, dado de menos para decidir emitir. O parecer legível é o do
+ * palco; aqui fica só o que uma linha de conversa precisa dizer.
+ */
+function AuditoriaAncora({
+  report,
+  onVer,
+}: {
+  report: AuditReport;
+  onVer: () => void;
+}) {
+  const verdict = getEmissionVerdict(
+    report.incongruencias,
+    report.runtime?.passadas_incompletas ?? [],
+  );
   const variant =
-    report.status_geral === "sem achados críticos"
-      ? "ok"
-      : report.status_geral === "com pontos de revisão"
-        ? "warning"
-        : "critical";
+    verdict.emoji === "🔴" ? "critical" : verdict.emoji === "🟢" ? "ok" : "warning";
+  const porImpacto = groupFindingsByImpact(report.incongruencias);
+
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={variant}>{report.status_geral}</Badge>
+        <Badge variant={variant}>{verdict.label}</Badge>
         <span className="text-xs text-muted-foreground">
           {report.total_incongruencias} achado(s) · obra {report.obra || "?"}
         </span>
       </div>
-      {report.conclusao && (
-        <p className="text-sm text-muted-foreground">{report.conclusao}</p>
-      )}
-      {report.incongruencias.length > 0 && (
-        <ul className="space-y-1.5">
-          {report.incongruencias.slice(0, 8).map((f) => (
-            <li key={f.id} className="text-xs">
-              <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                [{f.prioridade}]
-              </span>{" "}
-              {f.descricao}
-            </li>
-          ))}
-          {report.incongruencias.length > 8 && (
-            <li className="text-xs text-muted-foreground">
-              +{report.incongruencias.length - 8} outro(s). Relatório completo no
-              módulo Auditoria.
-            </li>
-          )}
-        </ul>
-      )}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>{porImpacto.critico_documental.length} crítico documental</span>
+        <span>{porImpacto.tecnico_contratual.length} técnico contratual</span>
+        <span>{porImpacto.revisao_editorial.length} revisão editorial</span>
+      </div>
+      <div>
+        <Chip onClick={onVer}>
+          <ShieldCheck aria-hidden />
+          Ver o parecer
+        </Chip>
+      </div>
     </div>
   );
 }

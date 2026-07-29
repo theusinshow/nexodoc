@@ -20,10 +20,30 @@ export interface AuditoriaEmCursoInfo {
   inicioMs: number;
 }
 
+export type VistaDoPalco = "mapa" | "auditoria";
+
+/**
+ * A vista escolhida à mão, junto da MARCA da auditoria em que foi escolhida.
+ *
+ * A marca é o que faz a escolha caducar: mandei mostrar o mapa durante uma
+ * análise, começou outra — o palco volta a seguir o trabalho em vez de esconder
+ * a auditoria nova atrás de uma decisão tomada sobre a antiga. A marca `"*"`
+ * vale para qualquer auditoria: é o "Ver o parecer" do chat, que por definição
+ * fala da auditoria que estiver na tela.
+ */
+interface EscolhaDeVista {
+  marca: string;
+  vista: VistaDoPalco;
+}
+
 interface AuditoriaStoreValue {
   emCurso: AuditoriaEmCursoInfo | null;
   iniciar: (info: Omit<AuditoriaEmCursoInfo, "inicioMs">) => void;
   terminar: () => void;
+  escolha: EscolhaDeVista | null;
+  escolherVista: (marca: string, vista: VistaDoPalco) => void;
+  /** Traz o parecer para o palco venha o pedido de onde vier (chat, atalho). */
+  verNoPalco: () => void;
 }
 
 const Ctx = createContext<AuditoriaStoreValue | null>(null);
@@ -37,7 +57,17 @@ export function AuditoriaStoreProvider({ children }: { children: ReactNode }) {
 
   const terminar = useCallback(() => setEmCurso(null), []);
 
-  const value = useMemo(() => ({ emCurso, iniciar, terminar }), [emCurso, iniciar, terminar]);
+  const [escolha, setEscolha] = useState<EscolhaDeVista | null>(null);
+  const escolherVista = useCallback(
+    (marca: string, vista: VistaDoPalco) => setEscolha({ marca, vista }),
+    [],
+  );
+  const verNoPalco = useCallback(() => setEscolha({ marca: "*", vista: "auditoria" }), []);
+
+  const value = useMemo(
+    () => ({ emCurso, iniciar, terminar, escolha, escolherVista, verNoPalco }),
+    [emCurso, iniciar, terminar, escolha, escolherVista, verNoPalco],
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
