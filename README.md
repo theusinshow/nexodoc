@@ -357,6 +357,26 @@ O painel `/admin` centraliza a visao operacional com metricas em tempo real, e `
 adicionar usuarios, promover admins, desativar acessos sem apagar historico e
 realizar operacoes em lote com selecao multipla.
 
+### Duas coisas que o modelo de acesso NAO faz
+
+Sao decisoes de projeto, nao defeitos — mas confiar no que elas nao fazem da uma
+falsa sensacao de controle. Estao aqui para nao serem descobertas tarde.
+
+**1. O token admin e um segredo COMPARTILHADO, sem atribuicao.**
+`NEXODOC_ADMIN_TOKEN` e o mesmo para todo mundo. As acoes em `/api/admin/*` nao
+registram QUEM as fez, e nao ha como revogar o acesso de uma pessoa sem trocar o
+token para todas. O token nao vai no bundle (e digitado na tela) e fica em
+`sessionStorage`, entao morre ao fechar a aba — mas quem o tiver, e admin.
+
+Nota: a PAGINA `/admin/*` e protegida por sessao em `app/admin/layout.tsx`
+(precisa de usuario ativo com papel de admin). O token protege a API, nao a tela.
+
+**2. Sair de `NEXODOC_ADMIN_EMAILS` NAO revoga o acesso.**
+`getUserAccess` promove a `ADMIN` no banco quem esta na variavel, e nunca
+rebaixa. Removida a pessoa da lista, o papel `ADMIN` continua gravado e ela segue
+entrando. Para revogar de fato, mude o papel em `/admin/users` (ou no banco) —
+e so entao tire da variavel, senao o proximo login promove de novo.
+
 Variaveis necessarias no Render:
 
 ```bash

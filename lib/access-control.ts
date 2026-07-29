@@ -21,6 +21,21 @@ export function isAdminEmail(email: string | null | undefined) {
   return getAdminEmails().has(normalizeEmail(email));
 }
 
+/**
+ * Resolve o acesso de um e-mail: ativo? admin? de onde veio essa resposta?
+ *
+ * ATENCAO — a promocao por ambiente e de MAO UNICA. Quem esta em
+ * `NEXODOC_ADMIN_EMAILS` e promovido a `ADMIN` no banco (`shouldForceEnvAdmin`
+ * abaixo), e nada aqui rebaixa. Tirar o e-mail da variavel NAO revoga o acesso:
+ * o papel ficou gravado e a pessoa continua entrando. Para revogar de verdade,
+ * mude o papel em `/admin/users` e so entao remova da variavel — na ordem
+ * inversa, o proximo login promove de novo.
+ *
+ * Isso e deliberado (a variavel e o bootstrap do primeiro admin, quando ainda
+ * nao ha ninguem para promover pela tela), mas e facil de confundir com um
+ * mecanismo de revogacao — e confiar nele como tal deixaria um acesso aberto
+ * achando que foi fechado.
+ */
 export async function getUserAccess(email: string | null | undefined, name?: string | null) {
   if (!email) {
     return {
