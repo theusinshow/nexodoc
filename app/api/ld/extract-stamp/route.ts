@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { mensagemDeTetoEstourado, verificarTetoMensal } from "@/lib/ai-budget";
 import { extractTokenUsage, recordAiUsage } from "@/lib/ai-usage";
 import {
   classifyProviderFailure,
@@ -435,6 +436,17 @@ export async function POST(request: Request) {
 
   if (!session?.user) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+  }
+
+  // A leitura de selo é o passo mais caro do fluxo de volume (um modelo por
+  // folha): sem teto aqui, a proteção da fatura teria um buraco do tamanho de
+  // um projeto inteiro.
+  const teto = await verificarTetoMensal({
+    userId: session.user.id ?? null,
+    userEmail: session.user.email ?? null,
+  });
+  if (teto.estourou) {
+    return NextResponse.json({ error: mensagemDeTetoEstourado(teto) }, { status: 402 });
   }
 
   const body = (await request.json()) as {

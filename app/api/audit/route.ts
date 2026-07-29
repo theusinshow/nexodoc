@@ -8,6 +8,7 @@ import {
   listAuditLearnings,
 } from "@/lib/audit-learnings";
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
+import { mensagemDeTetoEstourado, verificarTetoMensal } from "@/lib/ai-budget";
 import {
   makeTextReport,
   buildExecutiveSummary,
@@ -3182,6 +3183,25 @@ async function executarAuditoria(
       if (file.size > MAX_FILE_SIZE) {
         return jsonError(`O arquivo "${file.name}" excede o limite de 25 MB.`);
       }
+    }
+
+    /*
+     * Teto de gasto — barreira de ENTRADA, antes de qualquer token.
+     *
+     * Fica depois das validações de arquivo de propósito: recusar por limite
+     * um PDF que nem era válido confundiria a causa. E fica antes de
+     * `createPendingAudit` para não deixar registro de auditoria que nunca
+     * começou.
+     */
+    const teto = await verificarTetoMensal({
+      userId: session?.user?.id ?? null,
+      userEmail: sessionEmail,
+    });
+    if (teto.estourou) {
+      console.warn(
+        `[audit] recusada por teto mensal: US$ ${teto.gastoUsd.toFixed(2)} de US$ ${(teto.tetoUsd ?? 0).toFixed(2)}`,
+      );
+      return jsonError(mensagemDeTetoEstourado(teto), 402);
     }
 
     const canUseClientMock = process.env.NODE_ENV !== "production" ||

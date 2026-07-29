@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
+import { mensagemDeTetoEstourado, verificarTetoMensal } from "@/lib/ai-budget";
 import { isNexoEnabled } from "@/lib/feature-flags";
 import { getTemplateRegistry } from "@/server/templates/registry";
 import { buildLdProposal, type SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -30,6 +31,16 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
+  // O turno do agente também gasta modelo — menos que a auditoria, mas um laço
+  // acidental de conversa some com o mesmo orçamento.
+  const teto = await verificarTetoMensal({
+    userId: session.user.id ?? null,
+    userEmail: session.user.email ?? null,
+  });
+  if (teto.estourou) {
+    return NextResponse.json({ error: mensagemDeTetoEstourado(teto) }, { status: 402 });
   }
   // Extraído para uma const própria: `session.user.email` narrowed no closure
   // do stream (abaixo) volta a "possibly undefined" pro TS através da borda de
