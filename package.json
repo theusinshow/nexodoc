@@ -20,6 +20,7 @@
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
     "test:nexo:reconcile": "node scripts/test-nexo-reconcile.ts",
+    "test:nexo:correcao": "node scripts/test-nexo-correcao.ts",
     "test:nexo:context": "node scripts/test-nexo-context.ts",
     "test:nexo:attachments": "node scripts/test-nexo-attachments.ts",
     "test:nexo:next-steps": "node scripts/test-nexo-next-steps.ts",

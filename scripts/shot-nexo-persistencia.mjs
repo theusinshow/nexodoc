@@ -16,6 +16,7 @@
 // id). Use KEEP=1 para mantê-los e inspecionar à mão.
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
+import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
 import pg from "pg";
 
@@ -122,6 +123,56 @@ try {
   });
   const capaJson = await capa.json();
   check("capa gerada", capa.ok() && Boolean(capaJson.files?.odt), JSON.stringify(capaJson).slice(0, 200));
+
+  // --- a folha corrigida à mão vence o carimbo, PELA ROTA REAL --------------
+  /*
+   * A precedência é testada em unidade (`aplicarFolhaManual`), mas o que
+   * importa é ela sobreviver ao caminho inteiro: cliente → rota → buildLdProposal
+   * → resolveSheetNumbers → linha da LD. É aqui que uma fiação esquecida
+   * apareceria — e ela já apareceu em duas das três pontas.
+   *
+   * O selo diz que é a folha 1 (código `..._001_a`); a correção diz 7.
+   */
+  const ldCorrigida = await api.post(`${BASE}/api/nexo/ld`, {
+    data: {
+      selos: [
+        { ...SELOS[0], folhaManual: 7 },
+        SELOS[1],
+      ],
+      tituloLd: MARCADOR_TITULO,
+    },
+  });
+  const ldJson = await ldCorrigida.json();
+  check("LD gerada com folha corrigida", ldCorrigida.ok() && Boolean(ldJson.files), ldJson.error);
+
+  /*
+   * A prova é o DOCUMENTO, não o resumo: `totalFolhas` é a contagem de linhas
+   * (2), não o número da folha — conferir ali daria falso negativo. Abrimos o
+   * ODT e lemos as células.
+   *
+   * Sem correção o documento sai "01/02 | 02/02". Com a folha 1 corrigida para
+   * 7, sai "02/07 | 07/07": o número venceu o código do carimbo E puxou o total
+   * de referência, que é o comportamento certo — quem diz que existe uma folha
+   * 7 está dizendo que o conjunto tem ao menos 7.
+   */
+  let celulas = [];
+  if (ldJson.files?.odt) {
+    const zip = await JSZip.loadAsync(Buffer.from(ldJson.files.odt.data, "base64"));
+    const xml = await zip.file("content.xml").async("string");
+    celulas = [...xml.matchAll(/<text:p[^>]*>([^<]{1,12})<\/text:p>/g)]
+      .map((m) => m[1])
+      .filter((c) => /^\d{1,3}\/\d{1,3}$/.test(c));
+  }
+  check(
+    "o numero corrigido a mao venceu o codigo do carimbo",
+    celulas.includes("07/07"),
+    `celulas=${celulas.join(" | ")} (o selo dizia folha 1; a correcao disse 7)`,
+  );
+  check(
+    "o carimbo original nao sobreviveu a correcao",
+    !celulas.includes("01/02"),
+    celulas.join(" | "),
+  );
 
   // --- separatriz (LOTE: uma folha por disciplina) --------------------------
   const DISCIPLINAS = [MARCADOR_TITULO, "PROJETO DE CFTV", "PROJETO DE SPDA"];
