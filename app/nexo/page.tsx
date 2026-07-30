@@ -21,7 +21,7 @@ export default async function NexoPage() {
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   // Full-bleed: o NexoWorkspace gerencia o próprio layout de 3 colunas full-height

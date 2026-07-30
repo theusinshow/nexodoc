@@ -21,7 +21,7 @@ export default async function LdPage({
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   const { draft, project } = params;

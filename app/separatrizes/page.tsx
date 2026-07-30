@@ -25,7 +25,7 @@ export default async function SeparatrizesPage({ searchParams }: SeparatrizesPag
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   // Disciplinas pre-preenchidas (separadas por "|"), vindas do gerador de capas.

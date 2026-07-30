@@ -15,6 +15,7 @@ import {
 } from "./ConfirmationCard";
 import { PlanoDeGeracao } from "./PlanoDeGeracao";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
+import { useConexao } from "../lib/use-conexao";
 import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
 
@@ -98,6 +99,7 @@ export function NexoChat({
   const { messages, results, conversationId, appendMessage, appendDelta, finalizeMessage } =
     useConversation();
   const { data: usage, refresh: refreshUsage } = useConversationUsage();
+  const { online } = useConexao();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -445,6 +447,11 @@ export function NexoChat({
             busy={busy}
             onAttach={onAttach}
             inputRef={inputRef}
+            motivoDesabilitado={
+              online
+                ? undefined
+                : "Sem conexão — o que você escrever fica guardado, mas o envio espera a rede voltar."
+            }
           />
         </div>
       </div>

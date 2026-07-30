@@ -23,6 +23,7 @@ import {
   ConversationUsageProvider,
   useConversationUsage,
 } from "../state/use-conversation-usage";
+import { FaixaDeEstado } from "./FaixaDeEstado";
 import { NexoShell } from "./NexoShell";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
@@ -33,6 +34,7 @@ import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
+import { useConexao } from "../lib/use-conexao";
 
 /**
  * Workspace do Nexo (chat-first). "Anexar/soltar PDFs" LÊ os selos das pranchas
@@ -67,6 +69,7 @@ export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
 
 function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
+  const { online } = useConexao();
   // Os bytes de cada anexo, por id do chip — é o que permite REFAZER a leitura
   // quando o papel lido do nome do arquivo é corrigido à mão.
   const arquivosPorAnexo = useRef(new Map<string, File>());
@@ -969,6 +972,18 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
           e.target.value = "";
         }}
       />
+
+      {/*
+        Sem conexão: ÂMBAR, não coral. A rede volta, e o trabalho não se perdeu —
+        e é isso que a primeira frase diz. Falar da rede antes de falar do que
+        está em risco faz o engenheiro achar que perdeu o que escreveu.
+      */}
+      {!online && (
+        <FaixaDeEstado tipo="offline" titulo="Sem conexão">
+          O que você escreveu e os documentos já gerados estão guardados neste
+          navegador. Nada foi perdido — o envio volta sozinho quando a rede voltar.
+        </FaixaDeEstado>
+      )}
 
       <NexoShell
         started={started}

@@ -15,7 +15,7 @@ export default async function LdHistoryPage() {
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   return <LdHistoryWorkspace userName={session.user.name ?? "Usuário"} isAdmin={access.isAdmin} />;

@@ -36,7 +36,7 @@ export default async function FerramentasAntigasPage() {
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   return (

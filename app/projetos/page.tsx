@@ -18,7 +18,7 @@ export default async function ProjectsPage() {
   const access = await getUserAccess(session.user.email, session.user.name);
 
   if (!access.isActive) {
-    redirect("/login");
+    redirect("/sem-acesso");
   }
 
   if (!isDatabaseConfigured()) {
