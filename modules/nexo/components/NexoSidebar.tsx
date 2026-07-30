@@ -54,6 +54,8 @@ export function NexoSidebar({
   isAdmin?: boolean;
 }) {
   const [query, setQuery] = useState("");
+  /** Conversa aguardando confirmação de exclusão (uma por vez). */
+  const [confirmando, setConfirmando] = useState<string | null>(null);
   const groups = useMemo(
     () => groupConversations(conversations, query),
     [conversations, query],
@@ -111,8 +113,12 @@ export function NexoSidebar({
           </div>
         )}
         {noMatch && (
-          <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-            Nada encontrado para “{query}”.
+          /* Diz ONDE buscou. Só "nada encontrado" faz o engenheiro duvidar se
+             digitou errado, quando o problema pode ser o campo que não é
+             coberto pela busca. */
+          <p className="px-2 py-3 text-center text-xs leading-5 text-muted-foreground">
+            Nenhuma conversa com “{query}”.
+            <br />A busca cobre o título da obra e o código do projeto.
           </p>
         )}
         {groups.map((g) => (
@@ -157,16 +163,44 @@ export function NexoSidebar({
                         {shortDate(c.updatedAt)}
                       </span>
                     </button>
-                    {onDelete && (
-                      <button
-                        type="button"
-                        onClick={() => onDelete(c.id)}
-                        aria-label={`Apagar conversa ${c.title}`}
-                        className="absolute right-1.5 top-1.5 rounded-sm p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover/c:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    {onDelete &&
+                      (confirmando === c.id ? (
+                        /*
+                         * Confirmação INLINE, não modal (DESIGN.md: modal é o
+                         * último recurso). Apagar a conversa leva os documentos
+                         * gerados junto — um clique sem volta ao lado do nome
+                         * era perda de trabalho a um pixel de distância.
+                         */
+                        <span className="absolute right-1 top-1 flex items-center gap-1 rounded-sm border border-[var(--status-critical)]/40 bg-card px-1 py-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onDelete(c.id);
+                              setConfirmando(null);
+                            }}
+                            className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--status-critical)] hover:underline focus-visible:outline-none"
+                          >
+                            Apagar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmando(null)}
+                            aria-label="Cancelar"
+                            className="font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground focus-visible:outline-none"
+                          >
+                            Não
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmando(c.id)}
+                          aria-label={`Apagar conversa ${c.title}`}
+                          className="absolute right-1.5 top-1.5 rounded-sm p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover/c:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      ))}
                   </li>
                 );
               })}

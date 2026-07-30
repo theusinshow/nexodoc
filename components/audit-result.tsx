@@ -1154,14 +1154,20 @@ export function AuditResult({
       <div className="mt-5 grid gap-5">
         {view === "summary" ? (
           <>
+            {/*
+              Os cartões de métrica são CONTAGEM, não status: "7 achados" não é
+              bom nem ruim, e a severidade já está dita no badge do cabeçalho e
+              nas abas. Coloridos, eles competiam com o que realmente carrega
+              status na tela e gastavam o vocabulário de alarme numa soma.
+            */}
             <div className="grid divide-y rounded-sm border bg-[var(--nexodoc-recessed)] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
               <div className="px-4 py-3">
                 <p className="font-mono text-[11px] text-muted-foreground">Inconsistências críticas</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--status-critical)]">{criticalCount}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{criticalCount}</p>
               </div>
               <div className="px-4 py-3">
                 <p className="font-mono text-[11px] text-muted-foreground">Pontos de revisão</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--status-warning)]">{warningCount}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{warningCount}</p>
               </div>
             </div>
 

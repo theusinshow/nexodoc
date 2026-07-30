@@ -59,6 +59,34 @@ próximo passo destacados do fundo.
 **Falta do lote 4:** variantes do composer (herói/ancorado), estados do chip de
 anexo, overlay de arrastar, e o miolo das seis caixas.
 
+### Lote 5 — o canvas
+A folha ganhou **disciplina**: `05/08 · ARQ` com um fio de 2px no topo na cor da
+disciplina. A sigla é o portador primário e a cor é secundária — quem não
+distingue matiz continua lendo ARQ e EST. Oito cores para vinte e três códigos,
+agrupadas por família; o que não casa fica sem cor, porque sem cor é melhor que
+cor errada. O travessão da folha sem número saiu do cinza para rust: marca a
+ausência sem chamar de erro.
+
+### Lote 6 — shell e navegação
+- **Busca sem resultado** passou a dizer *onde* buscou ("a busca cobre o título
+  da obra e o código do projeto"). Só "nada encontrado" faz o engenheiro duvidar
+  se digitou errado.
+- **Apagar conversa pede confirmação**, inline (modal é último recurso). Apagar
+  leva os documentos gerados junto, e isso estava a um clique sem volta do nome
+  da conversa.
+
+### Lote 8 — auditoria
+Os cartões de métrica **perderam a cor de status**. É o anti-exemplo da própria
+folha: "7 achados" é contagem, não status — não é bom nem ruim até se saber a
+severidade, que já está no badge e nas abas. Coloridos, competiam com o que
+realmente carrega status e gastavam o vocabulário de alarme numa soma.
+
+### Lote 9 — estados transversais
+A matriz de vocabulário foi aplicada no lote 2 (é ela que decide âmbar, coral,
+azul, rust e legado). Os estados que ainda **não existem no software** — sem
+permissão, sessão expirada, offline — são funcionalidade a construir, não
+restilo: registrados aqui para não passarem por feitos.
+
 ## Divergências registradas (o repositório venceu)
 
 O handoff manda avisar em vez de "corrigir" o código quando a folha diverge das
