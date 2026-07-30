@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
+import { recordNexoArtifacts } from "@/lib/nexo-artifacts";
 import { buildSeparatrizOdt } from "@/server/nexo/tools/separatriz-template";
 import { convertOdtToPdf } from "@/server/pdf";
 
@@ -33,6 +34,31 @@ export async function POST(req: NextRequest) {
     // Preenche o TEMPLATE oficial da separatriz e converte p/ PDF.
     const odt = await buildSeparatrizOdt(title);
     const { pdfBuffer, error } = await convertOdtToPdf(odt);
+
+    /*
+     * A separatriz gerada entra no HISTÓRICO DO SERVIDOR — a tela
+     * /separatrizes nunca registrou nada, então aqui o Nexo passa a registrar
+     * o que ela deixava passar. Só quando o PDF saiu: sem LibreOffice não há
+     * documento, e registrar mesmo assim seria histórico de coisa que não
+     * aconteceu. `OTHER` porque o enum de artefatos não tem separatriz; o
+     * título é o que identifica a folha (é ele que aparece no meio da página).
+     */
+    if (pdfBuffer) {
+      await recordNexoArtifacts({
+        user: { email: session.user.email, name: session.user.name },
+        module: "separatrizes",
+        metadata: { artifactRole: "separatriz", titulo: title },
+        files: [
+          {
+            kind: "OTHER",
+            fileName: "separatriz.pdf",
+            mimeType: "application/pdf",
+            data: pdfBuffer,
+          },
+        ],
+      });
+    }
+
     return NextResponse.json({
       pdfError: error,
       pdf: pdfBuffer

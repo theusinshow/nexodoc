@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
+import { recordNexoArtifacts } from "@/lib/nexo-artifacts";
 import { buildCapaProposal } from "@/server/nexo/build-capa-proposal";
 import { generateCovers } from "@/server/nexo/tools/generate-covers";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -92,6 +93,53 @@ export async function POST(req: NextRequest) {
   const result = await generateCovers({
     generalData: proposal.generalData,
     pages: proposal.pages,
+  });
+
+  /*
+   * A capa gerada entra no HISTÓRICO DO SERVIDOR — mesmo passo já dado pela LD.
+   * Registramos os três arquivos (ODT, PDF quando o LibreOffice respondeu, ZIP)
+   * como a tela /capas registrava, com os fatos que identificam o documento:
+   * sem eles a linha no banco não diz de que obra ou de que tomo é a capa.
+   */
+  await recordNexoArtifacts({
+    user: { email: session.user.email, name: session.user.name },
+    module: "capas",
+    metadata: {
+      templateId: proposal.generalData.templateId,
+      prefeitura: proposal.resumo.prefeitura,
+      obra: proposal.generalData.nomeObra,
+      disciplina: proposal.resumo.disciplina,
+      codigo: proposal.resumo.codigo,
+      revisao: proposal.generalData.revisao,
+      volume: proposal.resumo.volume,
+      tomos: proposal.resumo.tomos,
+      pageCount: proposal.pages.length,
+      pdfGerado: Boolean(result.pdf),
+    },
+    files: [
+      {
+        kind: "COVER_ODT",
+        fileName: result.odt.name,
+        mimeType: "application/vnd.oasis.opendocument.text",
+        data: result.odt.buffer,
+      },
+      ...(result.pdf
+        ? [
+            {
+              kind: "COVER_PDF" as const,
+              fileName: result.pdf.name,
+              mimeType: "application/pdf",
+              data: result.pdf.buffer,
+            },
+          ]
+        : []),
+      {
+        kind: "COVER_ZIP",
+        fileName: result.zip.name,
+        mimeType: "application/zip",
+        data: result.zip.buffer,
+      },
+    ],
   });
 
   return NextResponse.json({

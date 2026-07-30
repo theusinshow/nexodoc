@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
+import { recordNexoArtifacts } from "@/lib/nexo-artifacts";
 import {
   assembleVolume,
   type VolumePart,
@@ -92,6 +93,36 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await assembleVolume({ parts, fileName, reorder });
+
+  /*
+   * O volume montado entra no HISTÓRICO DO SERVIDOR. Só quando a fusão deu
+   * certo: um volume registrado sem PDF seria registro de coisa que não
+   * aconteceu. As partes viram contagem por papel — é o que permite olhar a
+   * linha depois e saber se aquele volume levou capa e LD ou só pranchas.
+   */
+  if (result.pdf) {
+    await recordNexoArtifacts({
+      user: { email: session.user.email, name: session.user.name },
+      module: "volumes",
+      metadata: {
+        artifactRole: "assembled-volume",
+        pageCount: result.pageCount ?? null,
+        totalPartes: parts.length,
+        partes: VALID_ROLES.reduce<Record<string, number>>((acc, role) => {
+          acc[role] = parts.filter((part) => part.role === role).length;
+          return acc;
+        }, {}),
+      },
+      files: [
+        {
+          kind: "VOLUME_PDF",
+          fileName: result.pdf.name,
+          mimeType: "application/pdf",
+          data: result.pdf.buffer,
+        },
+      ],
+    });
+  }
 
   return NextResponse.json({
     pdf: result.pdf
