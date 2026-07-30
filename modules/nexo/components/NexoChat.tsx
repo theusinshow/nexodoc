@@ -16,6 +16,8 @@ import {
 import { PlanoDeGeracao } from "./PlanoDeGeracao";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { useConexao } from "../lib/use-conexao";
+import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-do-anexo";
+import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
 
@@ -96,8 +98,15 @@ export function NexoChat({
     responding: boolean;
   }) => void;
 }) {
-  const { messages, results, conversationId, appendMessage, appendDelta, finalizeMessage } =
-    useConversation();
+  const {
+    messages,
+    results,
+    conversationId,
+    seloResults: selosLidos,
+    appendMessage,
+    appendDelta,
+    finalizeMessage,
+  } = useConversation();
   const { data: usage, refresh: refreshUsage } = useConversationUsage();
   const { online } = useConexao();
   const [input, setInput] = useState("");
@@ -427,6 +436,8 @@ export function NexoChat({
             attachments={attachments}
             onRemove={onRemoveAttachment}
             onTrocarPapel={onTrocarPapelAnexo}
+            selosLidos={selosLidos}
+            lendo={Boolean(readStatus?.busy)}
           />
           {readStatus && (
             <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
@@ -472,10 +483,15 @@ function Anexos({
   attachments,
   onRemove,
   onTrocarPapel,
+  selosLidos = [],
+  lendo = false,
 }: {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
   onTrocarPapel?: (id: string) => void;
+  /** Selos já lidos — amarram resultado e anexo pelo nome do arquivo. */
+  selosLidos?: readonly SeloLido[];
+  lendo?: boolean;
 }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -492,6 +508,7 @@ function Anexos({
           att={a}
           onRemove={onRemove}
           onTrocarPapel={onTrocarPapel}
+          estado={estadoDoAnexo(a.name, selosLidos, lendo, siglaDaDisciplina)}
         />
       ))}
       {excedente > 0 && (
@@ -555,10 +572,12 @@ function AttachmentChip({
   att,
   onRemove,
   onTrocarPapel,
+  estado = { tipo: "nenhum" },
 }: {
   att: Attachment;
   onRemove?: (id: string) => void;
   onTrocarPapel?: (id: string) => void;
+  estado?: EstadoDoAnexo;
 }) {
   const viraMemorial = att.papel === "prancha";
   return (
@@ -578,7 +597,31 @@ function AttachmentChip({
       <span className="max-w-[10rem] truncate font-mono text-[11px] text-foreground">
         {att.name}
       </span>
-      {att.papel && (
+      {/*
+        O estado DESTE arquivo. O progresso agregado ("6 de 24 folhas") não
+        responde a pergunta que se faz olhando a tela com oito PDFs na fila:
+        este aqui já foi? deu certo?
+      */}
+      {estado.tipo === "na-fila" && (
+        <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground/70">
+          na fila
+        </span>
+      )}
+      {estado.tipo === "lido" && (
+        <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
+          {[estado.sigla, estado.folha].filter(Boolean).join(" · ")}
+        </span>
+      )}
+      {estado.tipo === "ilegivel" && (
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.07em]"
+          style={{ color: "var(--status-warning)" }}
+          title="O carimbo não pôde ser lido nesta prancha."
+        >
+          selo ilegível
+        </span>
+      )}
+      {att.papel && estado.tipo !== "lido" && (
         <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
           {att.papel}
         </span>

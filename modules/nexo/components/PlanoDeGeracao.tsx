@@ -111,7 +111,8 @@ export function PlanoDeGeracao({
 }) {
   const { saveResult, results } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+  /** O que falhou na última tentativa. Vazio = nada falhou. */
+  const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
 
   const itens = itensDoPlano(proposals);
   if (itens.length === 0) return null;
@@ -147,24 +148,42 @@ export function PlanoDeGeracao({
   ).length;
   const tudoGerado = jaGerados === itens.length;
 
+  /*
+   * UMA falha não derruba as outras.
+   *
+   * Antes, o `try` envolvia o laço inteiro: o modelo de uma prefeitura não
+   * responder no terceiro documento abortava o quarto, que não tinha nada a ver
+   * com isso. E a mensagem dizia só "erro ao gerar" — o engenheiro não sabia se
+   * tinha zero ou três arquivos na mão, então refazia tudo.
+   *
+   * Agora cada item é tentado, as falhas são colecionadas, e no fim o card diz
+   * o que falhou E o que sobreviveu.
+   */
   async function gerarTudo() {
-    setErro(null);
+    setFalhas([]);
+    const coletadas: { rotulo: string; motivo: string }[] = [];
     try {
       for (let i = 0; i < itens.length; i++) {
         setGerando(i);
-        await gerarItem({
-          item: itens[i],
-          selos,
-          saveResult,
-          idsBase,
-          // A separatriz herda o título da capa — nunca deriva o seu.
-          tituloDaSeparatriz: titulo,
-        });
+        try {
+          await gerarItem({
+            item: itens[i],
+            selos,
+            saveResult,
+            idsBase,
+            // A separatriz herda o título da capa — nunca deriva o seu.
+            tituloDaSeparatriz: titulo,
+          });
+        } catch (err) {
+          coletadas.push({
+            rotulo: itens[i].rotulo,
+            motivo: err instanceof Error ? err.message : "erro desconhecido",
+          });
+        }
       }
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao gerar.");
     } finally {
       setGerando(null);
+      setFalhas(coletadas);
     }
   }
 
@@ -261,10 +280,36 @@ export function PlanoDeGeracao({
           </p>
         )}
 
-        {erro && (
-          <p role="alert" className="text-xs text-destructive">
-            {erro}
-          </p>
+        {/*
+          A regra: falha parcial NUNCA se apresenta como falha total. Sem a
+          última frase, o engenheiro refaz trabalho que já está pronto — e
+          refazer é o que mais custa tempo neste fluxo.
+        */}
+        {falhas.length > 0 && !ocupado && (
+          <div
+            role="alert"
+            className="rounded-md border border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] p-3"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-[var(--status-critical)]">
+              {falhas.length === 1
+                ? `${falhas[0].rotulo} não foi gerada`
+                : `${falhas.length} documentos não foram gerados`}
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {falhas.map((f) => (
+                <li key={f.rotulo} className="text-xs leading-5 text-foreground">
+                  <span className="font-mono">{f.rotulo}</span> — {f.motivo}
+                </li>
+              ))}
+            </ul>
+            {itens.length - falhas.length > 0 && (
+              <p className="mt-2 text-xs leading-5 text-[var(--status-ok)]">
+                {itens.length - falhas.length === 1
+                  ? "O outro documento saiu normalmente."
+                  : `Os outros ${itens.length - falhas.length} documentos saíram normalmente.`}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

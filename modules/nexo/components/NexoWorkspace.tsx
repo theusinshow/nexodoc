@@ -119,6 +119,8 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   const [dossie, setDossie] = useState<NexoDossieDraft | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Formato recusado no último drop. Some sozinho: é aviso, não estado. */
+  const [recusa, setRecusa] = useState<string | null>(null);
   // Pranchas originais retidas (bytes p/ montar o volume) e memorial anexado
   // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
   const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
@@ -471,6 +473,27 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
     const all = list ? Array.from(list) : [];
     const pdfs = all.filter((f) => /\.pdf$/i.test(f.name));
     const images = all.filter(isImageFile);
+
+    /*
+     * ARQUIVO RECUSADO. Antes, soltar um .dwg não fazia NADA — sem aviso, sem
+     * erro, sem pista. O engenheiro concluía que o software tinha travado, e a
+     * verdade é que ele exportou do CAD e soltou o arquivo errado, que é um
+     * engano de dez segundos quando alguém avisa.
+     */
+    const recusados = all.filter((f) => !pdfs.includes(f) && !images.includes(f));
+    if (recusados.length > 0) {
+      const exts = [
+        ...new Set(
+          recusados.map((f) => (f.name.split(".").pop() ?? "").toUpperCase()),
+        ),
+      ].filter(Boolean);
+      setRecusa(
+        `${exts.join(", ") || "Este formato"} não é aceito. O Nexo lê o carimbo de PDF — exporte a prancha em PDF e solte de novo.`,
+      );
+    } else {
+      setRecusa(null);
+    }
+
     if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
 
@@ -936,7 +959,12 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         >
           <div className="nexo-glass flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-ring px-10 py-8 text-center">
             <Upload className="h-8 w-8 text-primary" strokeWidth={1.5} />
-            <p className="text-sm font-medium">Solte PDFs ou imagens para o Nexo ler</p>
+            <p className="text-sm font-medium">Solte as pranchas aqui</p>
+            {/* Diz o que aceita ANTES da recusa: a regra na hora de soltar evita
+                o erro em vez de explicá-lo depois. */}
+            <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-muted-foreground">
+              PDF ou imagem do carimbo
+            </p>
           </div>
         </div>
       )}
@@ -994,6 +1022,20 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         mesma aba. A garantia vem COM NÚMERO, porque "seu trabalho está salvo"
         sem contagem é a frase que todo software diz antes de perder tudo.
       */}
+      {recusa && (
+        <FaixaDeEstado
+          tipo="offline"
+          titulo="Formato não aceito"
+          acao={
+            <Button size="sm" variant="ghost" onClick={() => setRecusa(null)}>
+              Entendi
+            </Button>
+          }
+        >
+          {recusa}
+        </FaixaDeEstado>
+      )}
+
       {sessaoExpirada && online && (
         <FaixaDeEstado
           tipo="sessao"

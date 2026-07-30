@@ -56,8 +56,20 @@ próximo passo destacados do fundo.
 | **Caixa de confirmação** | A **borda inteira** passa a dizer o estado: âmbar quando o documento envelheceu, verde quando o que está na tela é o que foi gerado. Antes isso era um ponto de 1,5px no canto do cabeçalho — e "pendente" significa que o arquivo na mão do engenheiro está velho, o erro mais caro que esta tela comete |
 | **Bolhas** | Raio do sistema (8px) no lugar dos 16px de aplicativo de mensagem — era o único lugar que inventava outro raio. Corpo em 14px (15px não é degrau da escala). A bolha do usuário foi para superfície elevada: no fundo embutido ela parecia campo desabilitado. Medida de leitura em 62ch |
 
-**Falta do lote 4:** variantes do composer (herói/ancorado), estados do chip de
-anexo, overlay de arrastar, e o miolo das seis caixas.
+### Lote 4 — o resto (fechado)
+| Onde | O que mudou |
+|---|---|
+| **Caixa pendente** | Ganhou o miolo: valor antigo riscado → novo, "gerado há 42 min", e a frase de consequência escolhida pelo campo que mudou |
+| **Downloads** | Mostram o peso do arquivo — lido do blob que já era buscado para persistir |
+| **Botão de confirmar** | Âmbar quando responde a uma pendência (a contagem "2 de 4" já existia no plano) |
+| **Plano de geração** | Uma falha não derruba as outras: cada item é tentado, e o card diz o que falhou **e o que sobreviveu** |
+| **Chip de anexo** | Estado por arquivo: na fila · lido (`ARQ · 05/24`) · selo ilegível |
+| **Zona de solta** | Diz o que aceita antes de recusar; formato recusado ganhou aviso com o que fazer |
+| **Composer** | Desabilita com o motivo no placeholder; enviar acende em teal |
+
+**Já estava conforme:** variantes herói/ancorado do composer, contagem no botão
+do plano, e a regra dos 3 sugeridos — só o primeiro chip usa a variante
+`suggest`, que é mais conservador que o teto do sistema.
 
 ### Lote 5 — o canvas
 A folha ganhou **disciplina**: `05/08 · ARQ` com um fio de 2px no topo na cor da
