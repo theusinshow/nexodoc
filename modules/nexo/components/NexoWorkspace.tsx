@@ -42,7 +42,7 @@ import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
  * conversacional (caso raro). O antigo SelosPanel foi dissolvido (item 3): a
  * geração toda mora no chat.
  */
-export function NexoWorkspace() {
+export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
   // Providers: conversa (durável) > consumo de IA (lê o conversationId da
   // conversa) > artefatos (canvas) > composer. UMA instância de consumo,
   // compartilhada entre NexoChat (o anel), ConfirmationCard (refresh pós-
@@ -56,7 +56,7 @@ export function NexoWorkspace() {
           <ComposerControllerProvider>
             {/* A auditoria em curso é do PALCO, não do cartão que a disparou. */}
             <AuditoriaStoreProvider>
-              <NexoWorkspaceInner />
+              <NexoWorkspaceInner isAdmin={isAdmin} />
             </AuditoriaStoreProvider>
           </ComposerControllerProvider>
         </ArtifactStoreProvider>
@@ -65,7 +65,7 @@ export function NexoWorkspace() {
   );
 }
 
-function NexoWorkspaceInner() {
+function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
   // Os bytes de cada anexo, por id do chip — é o que permite REFAZER a leitura
   // quando o papel lido do nome do arquivo é corrigido à mão.
@@ -979,6 +979,7 @@ function NexoWorkspaceInner() {
             activeId={conv.conversationId}
             onSelect={selectConv}
             onDelete={conv.removeConversation}
+            isAdmin={isAdmin}
           />
         }
         stage={

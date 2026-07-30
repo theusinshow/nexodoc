@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 
 export const metadata: Metadata = {
-  title: "Nexo - NexoDoc",
-  description: "Assistente que orquestra os modulos do NexoDoc",
+  title: "Nexo",
+  description: "Assistente que produz LD, capas, separatrizes, volume e auditoria",
 };
 
 export default function NexoLayout({

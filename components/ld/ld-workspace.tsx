@@ -2257,7 +2257,7 @@ export function LdWorkspace({
         <div className="mx-auto flex max-w-[1800px] flex-col gap-5 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              NexoDoc
+              Nexo · ferramenta antiga
             </p>
             <h1 className="mt-2 text-2xl font-semibold text-foreground">
               Criador de Listas de Documentos
@@ -2723,7 +2723,7 @@ function LdForm({
           <div>
             <p className="font-medium">Confira os dados antes de avançar.</p>
             <p className="mt-1 text-muted-foreground">
-              O NexoDoc só preenche órgão, obra e fase quando encontra esses dados no rodapé/cabeçalho do PDF.
+              O Nexo só preenche órgão, obra e fase quando encontra esses dados no rodapé/cabeçalho do PDF.
               Se não encontrar, os campos ficam em branco para evitar siglas ou nomes de projeto incorretos.
             </p>
             {hasSuggestions ? (

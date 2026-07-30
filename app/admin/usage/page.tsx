@@ -268,7 +268,7 @@ export default function AdminUsagePage() {
       <AdminPageHeader
         icon={ShieldCheck}
         title="Uso e custos"
-        description="Painel operacional para acompanhar tokens, chamadas e gasto da conta OpenAI conectada ao NexoDoc."
+        description="Painel operacional para acompanhar tokens, chamadas e gasto da conta OpenAI conectada ao Nexo."
         actions={
           <AdminTokenForm
             token={token}
@@ -477,7 +477,7 @@ export default function AdminUsagePage() {
             <div>
               <h2 className="text-sm font-semibold">Uso interno por tarefa</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Eventos gravados pelo NexoDoc por fluxo, tarefa e chamada de IA.
+                Eventos gravados pelo Nexo por fluxo, tarefa e chamada de IA.
               </p>
             </div>
             {data?.internalUsage?.enabled ? (

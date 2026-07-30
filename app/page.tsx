@@ -2,15 +2,8 @@ import {
   ArrowRight,
   BookOpenCheck,
   Files,
-  FolderCog,
-  FolderKanban,
   Gauge,
   LayoutGrid,
-  Layers,
-  Layers3,
-  type LucideIcon,
-  TableProperties,
-  Waypoints,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,94 +18,14 @@ import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { isNexoEnabled } from "@/lib/feature-flags";
+import { legacyModules, projetosModule, type ModuleDef } from "@/lib/modules";
 
-type ModuleDef = {
-  title: string;
-  description: string;
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  emphasis: boolean;
-  status: "active" | "planned";
-  shortcut: string | null;
-  beta?: boolean;
-};
-
-const nexoModule: ModuleDef = {
-  title: "Nexo",
-  description:
-    "Solte os PDFs e diga o que precisa: o assistente orquestra LD, capas, volume e auditoria, sempre confirmando cada passo.",
-  href: "/nexo",
-  label: "Abrir Nexo",
-  icon: Waypoints,
-  emphasis: true,
-  status: "active",
-  shortcut: null,
-  beta: true,
-};
-
-const availableModules: readonly ModuleDef[] = [
-  /*
-   * "Conferência documental" saiu daqui: a auditoria mora no Nexo, e o card
-   * dele já a anuncia. Com a `/audit` redirecionando, os dois levariam ao mesmo
-   * lugar — dois caminhos para uma coisa só é como o produto ganha a fama de
-   * confuso. O atalho Ctrl+A continua existindo e aponta para o Nexo.
-   */
-  {
-    title: "Montagem de LDs",
-    description:
-      "Leia selos de pranchas, revise dados e gere Listas de Documentos organizadas por tomo.",
-    href: "/ld",
-    label: "Abrir montagem",
-    icon: TableProperties,
-    emphasis: false,
-    status: "active",
-    shortcut: "Ctrl L",
-  },
-  {
-    title: "Montagem de capas",
-    description:
-      "Gere capas padronizadas em ODT, PDF ou ZIP a partir de templates por prefeitura.",
-    href: "/capas",
-    label: "Abrir capas",
-    icon: FolderCog,
-    emphasis: false,
-    status: "active",
-    shortcut: null,
-  },
-  {
-    title: "Folhas separatrizes",
-    description:
-      "Gere folhas de separação de disciplinas para dividir os projetos dentro do volume.",
-    href: "/separatrizes",
-    label: "Abrir separatrizes",
-    icon: Layers,
-    emphasis: false,
-    status: "active",
-    shortcut: null,
-  },
-  {
-    title: "Projetos",
-    description:
-      "Acompanhe projetos, uploads, documentos, artefatos e eventos consolidados no banco.",
-    href: "/projetos",
-    label: "Abrir projetos",
-    icon: FolderKanban,
-    emphasis: true,
-    status: "active",
-    shortcut: null,
-  },
-  {
-    title: "Organização de volumes",
-    description: "Junção, ordenação e conferência final dos volumes de projeto.",
-    href: "/volumes",
-    label: "Abrir volumes",
-    icon: Layers3,
-    emphasis: false,
-    status: "active",
-    shortcut: null,
-  },
-];
+/*
+ * "Conferência documental" saiu da lista faz tempo: a auditoria mora no Nexo, e
+ * o card dele já a anuncia. Com a `/audit` redirecionando, os dois levariam ao
+ * mesmo lugar. O atalho Ctrl+A continua existindo e aponta para o Nexo.
+ */
+const availableModules: readonly ModuleDef[] = [...legacyModules, projetosModule];
 
 function ShortcutHint({ keys }: { keys: string }) {
   return (
@@ -129,7 +42,23 @@ function ShortcutHint({ keys }: { keys: string }) {
   );
 }
 
+/*
+ * A ENTRADA É O NEXO.
+ *
+ * Este painel listava seis módulos como se fossem seis produtos. Não são mais:
+ * o Nexo faz o trabalho e as telas de módulo único viraram legado (saída de
+ * emergência, em /ferramentas). Um menu com um item só é uma parada no caminho,
+ * então quem entra já entra trabalhando.
+ *
+ * O painel continua existindo INTEIRO para o caso da flag desligada — é o
+ * kill-switch do Nexo, e um kill-switch que leva a uma tela vazia não é
+ * kill-switch nenhum.
+ */
 export default async function DashboardPage() {
+  if (isNexoEnabled()) {
+    redirect("/nexo");
+  }
+
   const session = await auth();
 
   if (!session?.user) {
@@ -144,8 +73,7 @@ export default async function DashboardPage() {
 
   const isAdmin = access.isAdmin;
 
-  // Nexo (carro-chefe) entra na frente como principal quando a flag esta ligada.
-  const modules = isNexoEnabled() ? [nexoModule, ...availableModules] : availableModules;
+  const modules = availableModules;
   const primaryModule = modules.find((m) => m.emphasis) ?? modules[0];
   const secondaryModules = modules.filter((m) => m.title !== primaryModule.title);
   const PrimaryIcon = primaryModule.icon;
@@ -162,14 +90,14 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3">
             <Image
               src="/assets/logo.svg"
-              alt="NexoDoc"
+              alt="Nexo"
               width={40}
               height={40}
               priority
               className="size-10 rounded-sm object-cover"
             />
             <div>
-              <p className="font-mono text-sm font-semibold">NexoDoc</p>
+              <p className="font-mono text-sm font-semibold">Nexo</p>
               <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                 Plataforma documental
               </p>

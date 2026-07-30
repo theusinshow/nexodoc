@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 
 export const metadata: Metadata = {
-  title: "Gerador de Capas - NexoDoc",
+  title: "Gerador de Capas - Nexo",
   description: "Gerador de capas tecnicas padronizadas",
 };
 

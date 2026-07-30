@@ -1,8 +1,13 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   children: React.ReactNode;
-  /** Nome do modulo mostrado no breadcrumb do cabecalho (apos "NEXODOC /"). */
+  /**
+   * Nome do modulo mostrado no breadcrumb do cabecalho (apos "NEXO /"). Quando
+   * o modulo E o proprio Nexo, some — "NEXO / Nexo" nao diz nada a ninguem.
+   */
   moduleName: string;
   /** Rotulo de versao opcional no canto direito do cabecalho. */
   version?: string;
@@ -33,11 +38,18 @@ export function AppShell({
       <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 px-5 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              NEXODOC
-            </span>
-            <span className="text-muted-foreground/40">/</span>
-            <span className="font-mono text-sm font-semibold">{moduleName}</span>
+            <Link
+              href="/nexo"
+              className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              NEXO
+            </Link>
+            {moduleName.trim().toLowerCase() !== "nexo" && (
+              <>
+                <span className="text-muted-foreground/40">/</span>
+                <span className="font-mono text-sm font-semibold">{moduleName}</span>
+              </>
+            )}
           </div>
           {version && (
             <span className="font-mono text-xs text-muted-foreground">{version}</span>

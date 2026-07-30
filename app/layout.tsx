@@ -22,8 +22,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NexoDoc",
-  description: "Plataforma documental para projetos de engenharia",
+  title: "Nexo",
+  description: "Documentação de projetos de engenharia, do carimbo ao volume",
   icons: {
     icon: [{ url: "/assets/logo.svg", type: "image/svg+xml" }],
     shortcut: "/assets/logo.svg",

@@ -25,6 +25,7 @@ export default async function NexoPage() {
   }
 
   // Full-bleed: o NexoWorkspace gerencia o próprio layout de 3 colunas full-height
-  // (sidebar | stage | copiloto). O "voltar" mora na sidebar.
-  return <NexoWorkspace />;
+  // (sidebar | stage | copiloto). O resto do software (Projetos, admin,
+  // ferramentas antigas) mora no rodapé da sidebar — esta é a entrada.
+  return <NexoWorkspace isAdmin={access.isAdmin} />;
 }

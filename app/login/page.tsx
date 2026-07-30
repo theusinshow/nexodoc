@@ -60,15 +60,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="mb-10 flex flex-col items-center text-center nexodoc-enter">
           <Image
             src="/assets/logo.svg"
-            alt="NexoDoc"
+            alt="Nexo"
             width={48}
             height={48}
             priority
             className="size-12 rounded-sm object-cover"
           />
-          <h1 className="mt-4 font-mono text-xl font-semibold">NexoDoc</h1>
+          <h1 className="mt-4 font-mono text-xl font-semibold">Nexo</h1>
           <p className="mt-1 font-mono text-xs tracking-[0.15em] text-muted-foreground">
-            PLATAFORMA DOCUMENTAL
+            DOCUMENTAÇÃO DE PROJETOS
           </p>
         </div>
 

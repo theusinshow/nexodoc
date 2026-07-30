@@ -586,7 +586,7 @@ async function createFindingSnapshot(finding: StructuredFinding, index: number) 
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#0B0D0E"/>
   <rect x="40" y="40" width="${width - 80}" height="${height - 80}" rx="10" fill="#171B1D" stroke="rgba(230,235,233,0.14)"/>
-  <text x="76" y="88" fill="#8A9490" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="18">NexoDoc | evidência de auditoria</text>
+  <text x="76" y="88" fill="#8A9490" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="18">Nexo | evidência de auditoria</text>
   ${lines
     .map((line, lineIndex) => {
       const isTitle = lineIndex === 0;
@@ -1488,7 +1488,7 @@ export function AuditResult({
                         onChange={(event) => setMissingFindingNote(event.target.value)}
                         rows={2}
                         className="min-h-12 flex-1 resize-y rounded-md border bg-card px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
-                        placeholder="Descreva o erro não identificado pelo NexoDoc."
+                        placeholder="Descreva o erro não identificado pelo Nexo."
                       />
                       <Button
                         type="button"

@@ -8,7 +8,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, User, Trash2, Folder } from "lucide-react";
+import {
+  Folder,
+  FolderKanban,
+  Gauge,
+  Plus,
+  Search,
+  Trash2,
+  User,
+  Wrench,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "../lib/nexo-db";
@@ -34,12 +43,15 @@ export function NexoSidebar({
   activeId,
   onSelect,
   onDelete,
+  isAdmin = false,
 }: {
   onNewConversation?: () => void;
   conversations?: ConversationSummary[];
   activeId?: string;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
+  /** Mostra o painel admin no rodapé. Vem da sessão, no server. */
+  isAdmin?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const groups = useMemo(
@@ -54,21 +66,12 @@ export function NexoSidebar({
       aria-label="Navegação do Nexo"
       className="flex h-full w-full flex-col gap-3 border-r border-border/60 p-3"
     >
-      {/* Topo: voltar + marca */}
-      <div className="space-y-3">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          Painel de módulos
-        </Link>
-        <div className="flex items-center gap-2 px-1">
-          <NexoOrb className="w-5" />
-          <span className="font-mono text-sm font-semibold tracking-[-0.01em]">
-            Nexo
-          </span>
-        </div>
+      {/* Topo: marca. Não há mais "voltar": a entrada do software é esta tela. */}
+      <div className="flex items-center gap-2 px-1 py-1">
+        <NexoOrb className="w-5" />
+        <span className="font-mono text-sm font-semibold tracking-[-0.01em]">
+          Nexo
+        </span>
       </div>
 
       {/* Nova conversa */}
@@ -172,14 +175,43 @@ export function NexoSidebar({
         ))}
       </div>
 
-      {/* Conta */}
-      <button
-        type="button"
-        className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-      >
-        <User className="h-4 w-4 shrink-0" aria-hidden />
-        Conta
-      </button>
+      {/*
+        Rodapé: o resto do software. Projetos é destino de trabalho; ferramentas
+        antigas é saída de emergência e por isso vem menor e por último — visível
+        para quem procura, sem competir com o caminho bom.
+      */}
+      <div className="flex flex-col gap-0.5 border-t border-border/60 pt-2">
+        <Link
+          href="/projetos"
+          className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          <FolderKanban className="h-4 w-4 shrink-0" aria-hidden />
+          Projetos
+        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            <Gauge className="h-4 w-4 shrink-0" aria-hidden />
+            Painel admin
+          </Link>
+        )}
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          <User className="h-4 w-4 shrink-0" aria-hidden />
+          Conta
+        </button>
+        <Link
+          href="/ferramentas"
+          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        >
+          <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Ferramentas antigas
+        </Link>
+      </div>
     </aside>
   );
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 
 export const metadata: Metadata = {
-  title: "Folhas Separatrizes - NexoDoc",
+  title: "Folhas Separatrizes - Nexo",
   description: "Gerador de folhas separatrizes de disciplinas",
 };
 

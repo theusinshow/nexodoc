@@ -207,7 +207,7 @@ export default function AdminHomePage() {
       <AdminPageHeader
         icon={ShieldCheck}
         title="Centro de controle"
-        description="Operação do NexoDoc para piloto: usuários, histórico, LDs, consumo, qualidade e configuração."
+        description="Operação do Nexo para piloto: usuários, histórico, LDs, consumo, qualidade e configuração."
         actions={
           <AdminTokenForm
             token={token}
