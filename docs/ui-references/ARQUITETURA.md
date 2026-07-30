@@ -1,5 +1,14 @@
 # Nexo — Arquitetura do Frontend (Fase 3)
 
+> **A parte VISUAL deste documento mudou de casa.** Tokens, vidro, movimento,
+> orbe, primitivos e os padrões compostos do Nexo agora vivem no
+> [`DESIGN.md`](../../DESIGN.md), que virou o documento único de design —
+> antes a mesma regra existia aqui e lá, e as duas versões já discordavam (a do
+> vidro dizia coisas opostas conforme o trecho que se lia). Este documento
+> segue válido como **arquitetura**: contratos, máquina de estados, plano de
+> construção e decisões. Quando os dois divergirem, o DESIGN.md vence no que é
+> visual.
+
 > Gerado por um brainstorm multi-agente (18 subagentes: 2 fundamentar + 12 lentes + 3 críticos + 1 síntese). Documento vivo — a fonte da arquitetura do reflow conversacional. Ver referências em [chatbots/](chatbots/).
 
 ---

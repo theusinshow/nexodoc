@@ -181,8 +181,12 @@ mata `border-*` sem avisar).
 
 ## Ordem sugerida
 
-1. **Unificar** — um documento só, com o nome novo, absorvendo a parte de design
-   do `ARQUITETURA.md` e resolvendo as contradições acima.
+1. ~~**Unificar**~~ — **FEITO**. O `DESIGN.md` virou o documento único: nome novo,
+   parte de design do `ARQUITETURA.md` absorvida (que agora aponta para ele), e
+   as cinco contradições resolvidas — regra única do vidro ("linha d'água"),
+   movimento e layout documentados, escada do orbe definida, componentes do Nexo
+   especificados. As quatro vagas de cor entraram como vagas, sem valor: cor se
+   decide vendo, não escolhendo no escuro.
 2. **Fundamentos + orbe** — fechar tokens (incluindo as cores novas com papel) e
    a escada de reduções do orbe; daí sai a logo.
 3. **Catálogo visual dos 16 primitivos**, com os sete estados.

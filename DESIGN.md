@@ -1,6 +1,6 @@
 ---
-name: NexoDoc Audit Workspace
-description: Auditoria documental inteligente para projetos de engenharia civil
+name: Nexo
+description: Assistente que produz a documentação de projetos de engenharia — do carimbo ao volume
 colors:
   base-dark: "#0a0e11"
   panel-surface: "#121518"
@@ -67,6 +67,7 @@ typography:
 rounded:
   sm: "8px"
   DEFAULT: "8px"
+  xl: "12px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -74,6 +75,16 @@ spacing:
   lg: "16px"
   xl: "24px"
   gutter: "16px"
+motion:
+  duration-fast: "120ms"
+  duration-base: "180ms"
+  duration-slow: "240ms"
+  duration-shell: "320ms"
+  ease-feedback: "cubic-bezier(0.25, 1, 0.5, 1)"
+  ease-entrance: "cubic-bezier(0.22, 1, 0.36, 1)"
+layout:
+  sidebar-w: "240px"
+  copilot-w: "520px"
 components:
   button-primary:
     backgroundColor: "{colors.technical-teal}"
@@ -105,293 +116,531 @@ components:
     rounded: "{rounded.sm}"
 ---
 
-# Design System: NexoDoc Audit Workspace
+# Design System — Nexo
 
-## 1. Overview
+## 0. Como usar este documento
 
-**Creative North Star: "The Calibrated Instrument"**
+**Fonte única.** `app/globals.css` é a verdade executável: é o que o navegador
+obedece. Este documento é a lei que explica os tokens e diz onde cada um vale.
+Ferramenta de design é onde o sistema é desenhado, visto e explorado — uma
+decisão tomada lá só existe depois de entrar no CSS **e** aqui, no mesmo commit.
 
-NexoDoc is a precision tool for civil engineering document audits. Its visual language borrows from terminal interfaces and industrial measurement instruments: dark, restrained, information-dense, with a single technical accent. Every pixel earns its place. Color is used as a functional indicator, not decoration. Typography enforces discipline: proportional type for body text, monospace for data, labels, timestamps, and IDs.
+Este repositório já pagou caro por verdade duplicada (três cópias da regra do
+nome das separatrizes que discordavam entre si; duas listas de módulos). Um
+token que muda no desenho e não no CSS não é design system, é ficção.
 
-The system explicitly rejects: SaaS dashboard templates, purple or blue gradients, glassmorphism, oversized decorative cards, hero-metric templates with color-coded big numbers, and any ornamentation without purpose. Shadows are minimal and structural. Borders define surfaces; tonal layering conveys depth.
+**O que este documento absorveu.** A parte de design que vivia em
+`docs/ui-references/ARQUITETURA.md` (§1 shell, §6 animações e vidro, apêndices
+F/G/H) está aqui. Aquele documento segue válido como **arquitetura de frontend**
+— estados, contratos, plano de construção —, não como referência visual.
 
-**Key Characteristics:**
-- Dark-first, high-contrast operational environment
-- Restrained color strategy: tinted neutrals + one accent (teal) at less than 10% of any screen
-- Technical typography: IBM Plex Sans for reading, IBM Plex Mono for data integrity
-- 4px base grid; all spacing derived from multiples of 4
+---
 
-## 2. Colors
+## 1. Norte criativo — "O instrumento calibrado, com um agente dentro"
 
-The palette anchors on a near-black base tinted slightly cool. It separates color into three functional families that never overlap in meaning: **teal is interactive**, **the three signals are status**, and **rust/salmon is emphasis**. This separation is the core discipline — a teal element is always something you can act on; it is never a status.
+O Nexo produz a documentação de projetos de engenharia: lê o carimbo das
+pranchas, monta LD, capa, separatriz e volume, e audita o memorial. A linguagem
+visual vem de interfaces de terminal e de instrumentos industriais de medição:
+escura, contida, densa de informação, com um único acento técnico. Cada pixel
+justifica o lugar. Cor é indicador funcional, não decoração. A tipografia impõe
+disciplina: proporcional para texto, monoespaçada para dado, rótulo, código e
+horário.
 
-### Primary — Interactive (teal ramp)
-The teal ramp means one thing only: interactivity. Primary actions, current selection, focus, active data. Never a status, never decoration, never a passive fill. Occupies less than 10% of any given screen by design.
-- **Technical Teal** (`#00a693`): Primary actions, focus rings, active data selections, current navigation state. Buttons, selected chips, icon accents.
-- **Bright Teal** (`#5bdac6`): Focus ring glow, progress indicators, hover highlights on interactive teal elements.
-- **Luminous Teal** (`#7af7e1`): Brightest interactive tier — active data-selection highlight and high-emphasis interactive glow. (Formerly the OK-status color; status now owns its own green — see Signal.)
+Há uma segunda natureza, que o instrumento sozinho não explica: **existe um
+agente aqui dentro**, e ele precisa ter presença. É o que o orbe faz (§6). A
+tensão entre as duas — instrumento preciso e presença viva — se resolve por
+território, não por mistura: o ambiente pode respirar; o dado nunca.
 
-### Signal — Status (verde / âmbar / coral)
-The three signal colors mean status and nothing else. They are perceptually distinct so a finding's severity reads at a glance — the product's core job. They never appear on interactive controls.
-- **Signal OK** (`#6ee7a3`): Success / conforme / "sem problemas". A technical mint-green, deliberately outside the teal family so "approved" never reads as "clickable".
-- **Signal Warning** (`#e9b45c`): Attention / "ponto de atenção" / low-severity. A warm amber — caution without alarm.
-- **Signal Critical** (`#ff9285`): Problem / "problema de montagem" / error. A coral, clearly redder than amber. Firm without becoming an aggressive alarm-red.
+**O sistema rejeita:** templates de dashboard SaaS, gradientes roxos ou azuis,
+cartões decorativos grandes, métricas-herói coloridas, e qualquer ornamento sem
+função. Sombra é mínima e estrutural. Bordas definem superfícies; profundidade
+vem de camadas tonais.
 
-### Tertiary — Emphasis (rust / salmon)
-Reserved for emphasis states only, never status. Active "Profundo" analysis toggle, demo-mode accent, action callout cards.
-- **Rust Salmon** (`#dc7858`): Secondary emphasis, "Profundo" active state, demo toggle. Conveys weight without alarm.
-- **Salmon Pink** (`#ffb59e`): Softer emphasis tint, mock-mode indicators.
+**Características:**
+- Escuro por padrão, alto contraste, ambiente operacional.
+- Cor contida: neutros tingidos + um acento (teal) em menos de 10% de qualquer tela.
+- Tipografia técnica: IBM Plex Sans para ler, IBM Plex Mono para integridade do dado.
+- Grade base de 4px; todo espaçamento é múltiplo de 4.
 
-### Neutral
-- **Base Dark** (`#0a0e11`): Application background. The deepest surface; all panels float above it.
-- **Panel Surface** (`#121518`): Cards, sidebars, modal containers, header bars. One step above background.
-- **Recessed Dark** (`#06080a`): Input fields, textareas, segmented control backgrounds. Darker than background for inset effect.
-- **Raised Gray** (`#1a1e21`): Hover states, secondary panels, raised surfaces.
-- **On Surface** (`#e1e7ea`): Primary text, active content, foreground.
-- **Muted Gray** (`#8e9ba3`): Secondary text, metadata, inactive labels, helper copy.
-- **Border Divider** (`#23282c`): All structural borders and dividers.
-- **Destructive Coral** (`#ff9285`): Destructive action warnings (delete, discard). Shares the hue of Signal Critical on purpose — danger is one colour across the system, whether it's a status or an action.
+---
 
-### Canonical status tokens
+## 2. Cor
 
-Status colour is only ever consumed through these CSS variables — never a raw hex, never a Tailwind palette class (`bg-yellow-*`), never an invented name. There is no `--status-danger` or `--status-warn`; those don't exist and any reference to them is a bug.
+A paleta ancora num quase-preto levemente frio. Separa cor em famílias
+funcionais que **nunca se cruzam de significado**: **teal é interativo**, **os
+três sinais são status**, **rust/salmão é ênfase**. Essa separação é a
+disciplina central — um elemento teal é sempre algo em que se pode agir; nunca é
+um status.
 
-| Semantic | Text/border token | Background tint token |
-|----------|-------------------|-----------------------|
-| OK       | `--status-ok` `#6ee7a3`       | `--status-ok-bg` |
-| Warning  | `--status-warning` `#e9b45c`  | `--status-warning-bg` |
-| Critical | `--status-critical` `#ff9285` | `--status-critical-bg` |
+### Primária — interativo (rampa teal)
 
-The canonical badge pattern is `border-[var(--status-X)]/30 bg-[var(--status-X-bg)] text-[var(--status-X)]`, exposed as `<Badge variant="ok|warning|critical">`. Use the component; do not hand-roll status classes.
+Significa uma coisa só: interatividade. Ação primária, seleção atual, foco, dado
+ativo. Nunca status, nunca decoração, nunca preenchimento passivo. Menos de 10%
+de qualquer tela, por projeto.
 
-### Named Rules
-**The One Accent Rule.** Teal means interactive — primary buttons, current selection, focus indicators, active data. Only. It is never a status, never decoration, never a background fill, never on inactive states. "OK" is green, not teal.
+- **Technical Teal** (`#00a693`): ações primárias, anel de foco, seleção de dado ativo, estado atual de navegação.
+- **Bright Teal** (`#5bdac6`): brilho do anel de foco, indicadores de progresso, hover sobre elementos teal.
+- **Luminous Teal** (`#7af7e1`): degrau mais brilhante — realce de seleção e brilho interativo de alta ênfase.
 
-**The Signal Separation Rule.** The three signals (green/amber/coral) are perceptually distinct and reserved for status. Warning and Critical must never collapse toward the same hue — a reader distinguishes attention from problem at a glance, without reading the label.
+### Sinal — status (verde / âmbar / coral)
 
-**The Tertiary Discipline Rule.** Rust Salmon and Salmon Pink are reserved for emphasis states (deep analysis mode, demo) only. They are not status colours and do not appear in the identity logo, page backgrounds, or passive elements.
+As três cores de sinal significam status e nada mais. São perceptualmente
+distintas para que a severidade de um achado se leia num relance — o trabalho
+central do produto. Nunca aparecem em controles interativos.
 
-## 3. Typography
+- **Signal OK** (`#6ee7a3`): conforme, "sem problemas". Um verde-menta técnico, deliberadamente fora da família teal, para que "aprovado" nunca pareça "clicável".
+- **Signal Warning** (`#e9b45c`): "ponto de atenção", severidade baixa. Âmbar quente — cautela sem alarme.
+- **Signal Critical** (`#ff9285`): problema, erro. Coral, claramente mais vermelho que o âmbar. Firme sem virar alarme agressivo.
 
-**Display Font:** IBM Plex Sans (with system-ui fallback)
-**Label/Mono Font:** IBM Plex Mono (with ui-monospace fallback)
+### Terciária — ênfase (rust / salmão)
 
-**Character:** A disciplined engineering pairing from a single type family. IBM Plex Sans — designed by IBM for technical and data-dense contexts — provides an engineered, institutional neutrality for extended reading, deliberately away from the generic startup/AI-default sans. IBM Plex Mono, its sibling, signals technical precision: all audit codes, document IDs, timestamps, numerical data, and UI labels use it exclusively. Because both faces come from one family, their metrics and proportions are harmonised — the contrast between proportional body text and mono data reads as one calibrated system, not two fonts stitched together.
+Só estados de ênfase, nunca status. Análise "Profundo" ativa, acento de modo
+demo, cartões de chamada para ação.
 
-### Hierarchy
+- **Rust Salmon** (`#dc7858`) · **Salmon Pink** (`#ffb59e`).
 
-The IBM Plex Sans (proportional) ramp is a continuous scale with no gaps — every intermediate case has a named step, so no screen invents an off-scale size (`text-[11px]`, `text-[15px]`). Steps sit ~1.2–1.35× apart.
+### Neutros
 
-- **Display** (600, 40px, 1.1, -0.02em): Hero headlines. Login page main title only.
-- **Headline** (500, 24px, 1.2, -0.01em): Page titles, section headers (h2).
-- **Title** (500, 18px, 1.4): Card titles, component headers (h3).
-- **Subtitle** (500, 16px, 1.4): Sub-section headers, emphasized lead text, the step between a card title and body.
-- **Body** (400, 14px, 1.5): Reading text, descriptions, conclusions. Cap at 65–75ch.
-- **Caption** (400, 12px, 1.4, muted): Metadata, helper text, secondary annotations in IBM Plex Sans. The proportional counterpart to Mono Data — use it for prose-like meta, not for structured values.
+- **Base Dark** (`#0a0e11`): fundo da aplicação. A superfície mais profunda.
+- **Panel Surface** (`#121518`): cartões, barras laterais, modais, cabeçalhos.
+- **Recessed Dark** (`#06080a`): campos, textareas, fundo de controle segmentado. Mais escuro que o fundo, para parecer embutido.
+- **Raised Gray** (`#1a1e21`): hover, painéis secundários, superfícies elevadas.
+- **On Surface** (`#e1e7ea`): texto primário. · **Muted Gray** (`#8e9ba3`): texto secundário, metadado, rótulo inativo.
+- **Border Divider** (`#23282c`): toda borda estrutural.
+- **Destructive Coral** (`#ff9285`): ações destrutivas. Compartilha o tom do Signal Critical de propósito — perigo é uma cor só no sistema, seja status ou ação.
 
-Mono (IBM Plex Mono) runs on a parallel two-step axis for structured content:
+### Tokens canônicos de status
 
-- **Mono Label** (500, 12px, 1.0, letter-spacing 0.05em): UI labels, sidebar section headers, field names, tab labels, badge text. Micro-labels may drop to 11px, but never below.
-- **Mono Data** (400, 13px, 1.4): Numerical values, timestamps, status codes, file names, audit IDs.
+Cor de status só é consumida por estas variáveis — nunca hex cru, nunca classe
+de paleta do Tailwind (`bg-yellow-*`), nunca nome inventado. **Não existe**
+`--status-danger` nem `--status-warn`; qualquer referência a eles é bug.
 
-### Named Rules
-**The Mono Discipline Rule.** Any element that conveys structured data (timestamp, file name, document ID, finding count, elapsed time) must use IBM Plex Mono. IBM Plex Sans is reserved for headings, body paragraphs, and long-form conclusions.
+| Semântica | Texto/borda | Fundo |
+|-----------|-------------|-------|
+| OK | `--status-ok` `#6ee7a3` | `--status-ok-bg` |
+| Atenção | `--status-warning` `#e9b45c` | `--status-warning-bg` |
+| Crítico | `--status-critical` `#ff9285` | `--status-critical-bg` |
 
-**The Tabular Figures Rule.** All numeric data renders with tabular (monospaced) figures so counts, elapsed times, page numbers, and IDs align vertically in columns and never jitter as values change — numeric alignment is data integrity, not decoration. IBM Plex Mono is tabular by nature; IBM Plex Sans carries numeric data via its `tnum` feature (enabled globally). A number that can change or be compared is always tabular.
+O padrão canônico é `<Badge variant="ok|warning|critical">`. Use o componente;
+não escreva as classes à mão.
 
-## 4. Elevation
+### Vagas abertas — cores que ainda não existem
 
-NexoDoc conveys depth through **tonal layering and borders**, not shadows. In-page surfaces at each level are distinguished by background color alone. Borders are always 1px full-width; side-stripe borders are forbidden.
+Ampliar a paleta é bem-vindo **desde que cada cor nova ganhe um trabalho**. Cor
+sem função declarada é o que transforma sistema em paleta. Há quatro vagas com
+trabalho real hoje, e nenhuma tem valor decidido — os valores saem de ver
+renderizado, não de escolher no escuro:
 
-1. **Level 0 (Background):** `#0a0e11`. The base canvas.
-2. **Level 1 (Panels):** `#121518`. Cards, sidebars, header bars. Always bordered with `#23282c`.
-3. **Level 2 (Active/Hover):** Surface panels with a lighter border or background shift to `#1a1e21`.
-4. **Level 3 (Inputs):** `#06080a`. Inset fields sit below the background for a recessed appearance.
-5. **Level 4 (Overlay):** Dropdowns, popovers, tooltips, modals — surfaces that genuinely float *above* the page. Panel background (`#121518`) + 1px border + `shadow-subtle`. This is the only tier where shadow is structural rather than optional, because there is no tonal layering to separate a floating surface from arbitrary content behind it.
+1. **Informação / neutro-ativo** — avisos que não são status (dica, contexto que o agente oferece). Hoje viram `warning` por falta de opção, e diluem o significado do âmbar.
+2. **Legado / congelado** — as ferramentas antigas e o que não se deve evoluir. Hoje: nada; parecem iguais ao resto.
+3. **Disciplina (escala categórica)** — o canvas agrupa folhas por tomo e disciplina usando só borda. Precisa de uma escala que **nunca colida** com os três sinais.
+4. **Escala de dado (sequencial)** — donut de consumo e gráficos futuros. Não pode ser a rampa teal, que significa interatividade.
 
-### Edge highlight — depth without shadow
-
-Raised and interactive surfaces carry a **1px inner top highlight**, a hairline catching light from above. It reads as precision machining, not glass, and gives tactile depth while keeping every surface matte and shadowless.
-
-- `edge-highlight`: `inset 0 1px 0 rgb(255 255 255 / 0.04)` — applied to raised/interactive elements only: buttons, cards on hover, Level 4 overlays. **Never** on flat in-page panels at rest, recessed inputs, or passive strips.
-
-Shadows remain limited to two structural tokens, used sparingly:
-- `shadow-panel`: `0 1px 2px rgb(0 0 0 / 0.35)` — Panel edge definition when tonal layering alone is insufficient.
-- `shadow-subtle`: `0 1px 1px rgb(0 0 0 / 0.25)` — Minimal lift for Level 4 overlays.
-
-### Named Rules
-**The Flat-By-Default Rule.** In-page surfaces are flat at rest. Depth comes from borders and background contrast first, then the `edge-highlight` hairline on raised/interactive elements. Drop shadow is reserved for Level 4 overlays only.
-
-**The Blur Rule.** Backdrop blur is permitted on **one** surface only: the dimming backdrop behind a modal. It is never applied to a card, panel, or any content surface — blurred surfaces are glassmorphism, which the system rejects.
-
-**Liquid Glass — ambient layer (scoped amendment, Nexo module only).** The Nexo conversational reflow (see `docs/ui-references/ARQUITETURA.md` §6, Appendix H) reverts the Blur Rule for a **closed list** of floating/immersive *chrome* surfaces — and nothing else: the modal dimming backdrop, the composer dock, the welcome wash, the assistant chat bubble (as a subtle wrapper), and the PDF viewer chrome. The rule that data is matte is **non-negotiable and unchanged**: cards, findings, tables, artifact frames, and the `ConfirmationCard` never carry blur. The "waterline" is literal — above it (chrome, the AI's own bubble) may be glass; below it (any data surface) is always matte. Glass uses only the derived `--glass-*` tokens (no new color), degrades to a solid `--card` where `backdrop-filter` is unsupported or `prefers-reduced-transparency: reduce`, and keeps text ≥4.5:1 via a high tint floor. This exception is deliberately narrow — premium is precision plus a few ambient moments, not glass everywhere.
-
-## 5. Components
-
-### State Matrix
-
-Every interactive component defines the same seven states with the same vocabulary. If a component ships without one of these, it is incomplete. Consistency across the surface is the point — a hover means the same thing on a button as on a table row.
-
-| State | Treatment |
-|-------|-----------|
-| **Default** | The component at rest, per its own spec. Flat; depth from border + surface tone. |
-| **Hover** | Subtle tonal raise (surface → `#1a1e21`) or border shift toward `ring`; ghost elements move muted text → foreground. `--duration-fast`. Never a dramatic colour change. |
-| **Focus** | The single system ring only — border → `#5bdac6` + 3px ring at `/25`. Driven by `:focus-visible` (keyboard), never bare `:focus`. Identical on every component. |
-| **Active / pressed** | `translateY(1px)` press + slight background darken. `--duration-fast`. |
-| **Selected / current** | Teal border + filled background (`nav` active item, selected chip, selected row). Teal marks the current thing. |
-| **Disabled** | Opacity **50%**, `pointer-events: none`, no hover, default cursor. The one canonical disabled opacity — not 45% on one component and 50% on another. |
-| **Loading** | Component-scoped and layout-stable: a button keeps its width and swaps its label for an inline spinner ("Gerando…"); a content region shows a skeleton. Never a spinner parked over content, never a width jump. |
-| **Error** | Fields shift border to Signal Critical (coral) with critical helper text below — not a silent ring-colour change. Form-level errors use the Signal Critical vocabulary, never the empty-state treatment. |
+**Regra para admitir uma cor nova:** ela tem nome, tem trabalho declarado, tem
+token em `globals.css`, e passa no teste de não ser confundível com um sinal de
+status a três metros da tela.
 
-**Read-only ≠ disabled.** A read-only field shows its value at normal contrast with no edit affordance; a disabled field is dimmed to 50%. Never use disabled styling to convey "not editable right now".
+### Regras nomeadas
 
-### Buttons
-- **Shape:** `8px` border-radius. Monospace labels.
-- **Primary:** Solid `#00a693` background, dark text (`#06080a`). No gradients. Hover: 10% darker. Height: 40px (h-10) default, 36px (h-9) compact. Controls in a form row (button + input) share the 40px height so they align.
-- **Outline:** Transparent background, 1px border (`#23282c`), foreground text. Hover: border shifts to ring color, subtle background tint.
-- **Secondary:** Subtle background (`#1a1e21`), border, foreground text.
-- **Ghost:** Transparent, muted text. Hover: background tint + foreground text. Used for navigation, admin links, demo toggle.
-- **Focus:** All variants use `focus-visible:ring-3 focus-visible:ring-[var(--ring)]/25` with border transition to ring color.
+**Regra do acento único.** Teal significa interativo. Só. Nunca status, nunca
+decoração, nunca fundo, nunca em estado inativo. "OK" é verde, não teal.
 
-### Chips / Segmented Controls
-- **Style:** Dark recessed background (`#06080a`), 1px border (`#23282c`), 8px radius container. Mono labels at 12px.
-- **Selected:** Card background (`#121518`) with teal border (`#00a693`/30), medium weight.
-- **Unselected:** Transparent border, muted text. Hover shifts text to foreground.
-- **Special:** "Profundo" level uses Rust Salmon accent instead of teal when selected.
+**Regra da separação de sinais.** Os três sinais são perceptualmente distintos e
+reservados a status. Atenção e Crítico jamais podem convergir de matiz — quem lê
+distingue os dois sem ler o rótulo.
 
-### Cards / Containers
-- **Corner Style:** `8px` border-radius universally.
-- **Background:** `#121518` for content cards, transparent for background-level strips.
-- **Border:** 1px `#23282c`. Used consistently; no borderless floating elements.
-- **Internal Padding:** 12px (p-3) standard, 16px (p-4) for panels and sidebars.
+**Regra da disciplina terciária.** Rust e salmão são ênfase. Não são status e não
+aparecem em fundo de página nem em elemento passivo.
 
-### Inputs / Fields
-- **Style:** 1px border (`#2c3338`), recessed background (`#06080a`), 8px radius. Height: 40px (h-10) standard, 32px (h-8) compact.
-- **Focus:** The single system focus ring — border shifts to `#5bdac6`, plus a 3px ring in bright-teal at 25% opacity (`rgb(91 218 198 / 0.25)`). Identical on buttons, inputs, textareas, links; no component overrides it.
-- **Textarea:** Same treatment. Resizable vertically. Minimum height 5.5–12rem depending on context.
-- **Placeholder:** `text-muted-foreground` (gray-green).
+---
 
-### Navigation (Sidebar)
-- **Style:** 236px wide, `#121518` background, right border 1px. Logo + name at top, action buttons grouped with 4px gaps, collapsible status indicators, scrollable history list, fixed user footer at bottom.
-- **Active Item:** Teal border + filled background on current page. History items are transparent with hover highlight.
-- **User Area:** Fixed at sidebar bottom. Photo or initials (teal text on dark circle), name, email, sign-out icon button.
+## 3. Tipografia
 
-### Audit Result
-- **Header:** Status badge (colored border + background tint + mono label), finding/file/time summary line, next action as emphasized title, segmented tab bar below.
-- **Metrics Grid:** 2–4 column grid of compact cards (recessed background, mono labels, medium-weight values).
-- **Tabs:** Segmented control pattern (`bg-recessed`, 8px radius). Active: card bg + teal border. Inactive: transparent + muted text.
-- **Finding Card:** Single container with internal sections separated by borders, not nested cards. Evidence, conflict, and action are adjacent blocks distinguished by icon + label headers.
+**Texto:** IBM Plex Sans. **Rótulo e dado:** IBM Plex Mono. Uma família só, duas
+faces — as métricas são harmônicas, então o contraste entre texto proporcional e
+dado mono lê como um sistema calibrado, não como duas fontes costuradas.
 
-### Tooltip
-- **Style:** `max-w-xs`, border + card background, `shadow-subtle`, mono text at 12px. Fade + zoom entrance via `animate-in`.
-- **Trigger:** Wraps the target element via `asChild`. Delay 300ms before showing.
-- **Usage:** Compact buttons without visible labels (SignOut icon-only), technical terms that benefit from explanation.
+### Hierarquia
 
-### Keyboard Shortcuts
-- **Modal:** `modal-scale-in` entrance (200ms, scale + fade). Backdrop with `backdrop-blur-sm`. Dismiss via Esc or overlay click.
-- **Keycap style:** `h-6 min-w-[24px]`, `rounded` border, bg-muted, mono 11px text.
-- **Shortcuts:** `Ctrl+G` dashboard, `Ctrl+A` auditoria, `Ctrl+L` LD, `Ctrl+Shift+A` admin, `?` ajuda.
+A rampa proporcional é contínua, sem buracos: todo caso intermediário tem um
+degrau nomeado, para que nenhuma tela invente um tamanho fora da escala
+(`text-[11px]`, `text-[15px]`). Os degraus ficam ~1,2–1,35× entre si.
 
-### Data Tables
+- **Display** (600, 40px, 1.1, -0.02em): título-herói. Só a tela de login.
+- **Headline** (500, 24px, 1.2, -0.01em): título de página, cabeçalho de seção (h2).
+- **Title** (500, 18px, 1.4): título de cartão, cabeçalho de componente (h3).
+- **Subtitle** (500, 16px, 1.4): subseção, lead enfatizado.
+- **Body** (400, 14px, 1.5): texto de leitura, descrições, conclusões. Máx. 65–75ch.
+- **Caption** (400, 12px, 1.4, muted): metadado em prosa, texto de ajuda.
 
-Tables are a primary surface — this is an audit tool, so the default favours **seeing many rows at once**. Depth and separation come from borders, never zebra striping.
+Mono corre num eixo paralelo de dois degraus:
 
-- **Density:** compact by default — `px-3 py-2.5` cells, ~40px rows. A denser variant (`py-1.5`) exists for large datasets; a comfortable variant is the exception, not the default. Density is a table-level choice, applied uniformly to all its rows.
-- **Separation:** a 1px bottom border between rows (`#23282c`); the header carries a slightly firmer bottom border. **Horizontal rules only — no vertical column dividers** (they add grid noise the system rejects). No zebra striping.
-- **Header cells:** Mono Label — uppercase IBM Plex Mono, 11–12px, letter-spacing 0.05em, `muted-foreground`. (Corrects the shadcn default, which renders headers in the proportional face.) Header stays **sticky** on scroll for long tables, on the panel background.
-- **Numeric columns:** right-aligned, Mono Data, tabular figures, so digits line up and compare cleanly. Text columns left-aligned. A status column renders a `<Badge>`, not coloured text.
-- **Non-wrapping data:** IDs, codes, and timestamps (mono) never wrap; long prose cells may wrap. Truncate with ellipsis + tooltip when a mono value would overflow.
-- **Row states:** hover raises the row to `#1a1e21`; the selected row uses a subtle teal tint; keyboard focus is the system focus ring on the row. Disabled rows drop to `muted-foreground` with no hover.
-- **Loading & empty:** loading shows skeleton rows matching the column layout (never a spinner); an empty table uses the Empty State treatment inside the table body, not a bare "0 results".
+- **Mono Label** (500, 12px, 1.0, +0.05em): rótulos de UI, cabeçalhos de seção, nomes de campo, texto de badge. Microrrótulos podem cair a 11px, nunca abaixo.
+- **Mono Data** (400, 13px, 1.4): valores numéricos, horários, códigos, nomes de arquivo, IDs.
 
-### Iconography
+### Regras nomeadas
 
-Icons come from **`lucide-react` exclusively** — one line-based set, never mixed with another family. Line/outline only; no filled, duotone, or coloured icon styles. Icons clarify or label; they never decorate.
+**Regra da disciplina do mono.** Todo elemento que carrega dado estruturado
+(horário, nome de arquivo, código de documento, contagem, tempo decorrido) usa
+IBM Plex Mono. O Sans é para títulos, parágrafos e conclusões.
 
-- **Stroke:** `1.5` across the board (`strokeWidth={1.5}`), finer than the lucide default of 2 — reads as a precision instrument and holds up in dense, dark UI. Set once, globally; individual icons never override it.
-- **Size scale** (aligned to the 4px grid):
-  | Token | Size | Use |
-  |-------|------|-----|
-  | `size-3.5` | 14px | Dense inline, next to Mono Data |
-  | `size-4`   | 16px | **Default** — buttons, controls, most inline UI |
-  | `size-5`   | 20px | Emphasis, section headers |
-  | `size-6`   | 24px | Rare — large affordances, empty states |
-- **Colour:** icons inherit `currentColor`. Teal only when the icon *is* the interactive/active affordance; `muted-foreground` when passive; a **signal token** (`--status-ok/warning/critical`) when the icon carries status. Never a decorative colour.
-- **Alignment:** optically centred with adjacent text, `shrink-0` so they never squash, `gap-2` (8px) between icon and label — the same gap buttons use.
-- **Icon-only controls:** allowed only for universally-understood glyphs (close/X, chevrons, search) and always paired with a tooltip (see Tooltip). Everything else carries a visible label.
+**Regra dos algarismos tabulares.** Todo dado numérico usa algarismos tabulares
+para alinhar em coluna e não tremer quando o valor muda. Alinhamento numérico é
+integridade de dado, não enfeite. Um número que pode mudar ou ser comparado é
+sempre tabular.
 
-### Loading & Skeletons
+---
 
-Content that is loading is shown as a **skeleton of its eventual shape**, never a spinner parked in the middle of the screen. A skeleton reserves the layout so nothing jumps when data arrives.
+## 4. Elevação, vidro e a linha d'água
 
-- **Skeleton block:** recessed background (`#15191c`), 8px radius, sized and positioned to match the incoming element (a line of text is a short bar; a card is a card-shaped block). Group several to mirror the real structure.
-- **Shimmer:** a single subtle sweep reusing the system easing — low-contrast, slow, non-distracting. Never a bright pulse.
-- **Spinner scope:** a small inline spinner is allowed **only inside a button** during a pointed action ("Gerando…"). It never appears as the loading state for a content region — that is always a skeleton.
-- **Long determinate work:** the `audit-progress` bar remains the pattern for ongoing analysis with no known percentage.
+Profundidade vem de **camadas tonais e bordas**, não de sombra. Bordas são
+sempre 1px de largura inteira; borda lateral colorida como faixa é proibida.
 
-### Empty States
+1. **Nível 0 — fundo:** `#0a0e11`.
+2. **Nível 1 — painéis:** `#121518`. Cartões, barras, cabeçalhos. Sempre com borda `#23282c`.
+3. **Nível 2 — ativo/hover:** deslocamento para `#1a1e21` ou borda em direção ao anel.
+4. **Nível 3 — campos:** `#06080a`. Embutidos, abaixo do fundo.
+5. **Nível 4 — sobreposição:** dropdown, popover, tooltip, modal. Fundo de painel + borda 1px + `shadow-subtle`. É o único nível em que sombra é estrutural: não há camada tonal capaz de separar uma superfície flutuante de um conteúdo arbitrário atrás dela.
 
-An empty state **teaches the interface**; it never just says "nothing here". It occupies the content area calmly, within the existing surface vocabulary — no large illustration, no marketing tone.
+### Brilho de aresta — profundidade sem sombra
 
-- **Structure:** a short Mono Label naming the region, one line of Body (IBM Plex Sans, muted) explaining what will appear here and how to make it appear, and — when there is a next step — a single primary action.
-- **Placement:** centered in the content region or inside the panel that will hold the data, using border + muted text, not a decorated card.
-- **Restraint:** no oversized icons, no emoji, no hero copy. The tone is the same calibrated-instrument voice as the rest of the tool.
-- **Distinguish from error:** an empty state is neutral ("no findings yet"); a failure uses the Signal Critical vocabulary, not the empty-state treatment.
+Superfícies elevadas e interativas carregam **1px de brilho interno no topo**,
+um fio de luz vindo de cima. Lê como usinagem de precisão, não como vidro.
 
-### Animations
+- `--edge-highlight`: `inset 0 1px 0 rgb(255 255 255 / 0.04)`. Só em elevado/interativo: botões, cartão em hover, sobreposições de Nível 4. **Nunca** em painel plano em repouso, campo embutido ou faixa passiva.
 
-**Motion means state change, not decoration.** This is a work instrument used in long sessions, not a page you watch load. Motion earns its place only when it communicates something changing: a panel opening, a status flipping, work in progress, a control responding to touch. There are no orchestrated load sequences and no per-element entrance choreography.
+Sombras ficam em três tokens estruturais, usados com parcimônia:
 
-**Motion tokens** (no magic numbers):
-
-| Token | Value | Use |
+| Token | Valor | Uso |
 |-------|-------|-----|
-| `--duration-fast`    | `120ms` | Interaction feedback: hover, active press, focus. |
-| `--duration-base`    | `180ms` | Reveals, dropdowns, the single content reveal. |
-| `--duration-slow`    | `240ms` | Drawer, modal — larger surfaces travelling further. |
-| `--ease-feedback`    | `cubic-bezier(0.25, 1, 0.5, 1)` | Interaction feedback and exits. |
-| `--ease-entrance`    | `cubic-bezier(0.22, 1, 0.36, 1)` | Surfaces entering. |
+| `--shadow-panel` | `0 1px 2px rgb(0 0 0 / 0.35)` | Definição de aresta quando a camada tonal não basta. |
+| `--shadow-subtle` | `0 1px 1px rgb(0 0 0 / 0.25)` | Elevação mínima do Nível 4. |
+| `--shadow-overlay` | `--edge-highlight` + `--shadow-panel` | Sobreposição que também precisa do fio de luz. |
 
-Exits run at ~75% of the enter duration. Every animation uses **only `transform` and `opacity`** — never layout properties.
+### A linha d'água — a regra única do vidro
 
-**The canonical set** (one reveal, the rest functional):
-- **Content reveal:** a single `reveal` (`--duration-base`, fade + slideY 6px). Used once per newly-arrived block (an audit result, a message) — not cascaded across every child. Replaces the former five-way entrance vocabulary (`enter` / `message-in` / `file-in` / `result-in` / `section-reveal`), which read as "watch it load".
-- **Feedback:** hover/focus transitions at `--duration-fast`; active press is `translateY(1px)`. This is where the tool feels responsive — prioritise it over reveals.
-- **Progress:** `audit-progress` (1.4s, infinite translateX) and `status-pulse` (1.8s opacity) — legitimately continuous because they signal ongoing state.
-- **Drawer:** slide-in `--duration-slow` / exit faster; backdrop fades.
-- **Dropdown / Overlay:** `--duration-base`, scaleY from top origin (dropdown) or scale+fade (modal).
+Esta é a regra completa. Ela substitui a antiga proibição categórica de
+glassmorphism **e** a emenda escopada que a revertia em parte: as duas juntas
+faziam quem lesse rápido concluir o oposto do que vale.
 
-**Safety.** `prefers-reduced-motion: reduce` disables every animation. Motion is always an enhancement, never load-bearing for meaning.
+> **Acima da linha d'água — o cromo — pode ser vidro. Abaixo dela — o dado —
+> é sempre matte.**
 
-## 6. Do's and Don'ts
+**Cromo (lista fechada; nada entra sem alterar este documento):** o backdrop de
+escurecimento do modal, o dock do composer, o *wash* da tela de boas-vindas, a
+bolha do assistente (como invólucro), o cromo do visualizador de PDF e o orbe.
 
-### Do:
-- **Do** use the single system radius (8px) consistently. No other radius value should appear.
-- **Do** use IBM Plex Mono for all structured data: timestamps, file names, counts, IDs, status codes.
-- **Do** use IBM Plex Sans for body text, headings, and long-form conclusions.
-- **Do** separate sections with 1px full-width borders (`#23282c`), never with side-stripe accents.
-- **Do** keep Technical Teal to less than 10% of any screen surface.
-- **Do** use tonal layering (background color differentiation) to convey depth, not shadows.
-- **Do** keep the sidebar user avatar anchored at the bottom, outside the scrollable area.
-- **Do** label segmented controls (Tipo, Nível) with visible mono labels to the left of the control.
-- **Do** use the three signal colours (green/amber/coral) for status, and teal only for interactive elements.
-- **Do** consume status colour through `--status-ok/warning/critical` and the `<Badge variant>` component — never a raw hex or a Tailwind palette class.
-- **Do** show a skeleton of the eventual shape while a content region loads.
-- **Do** give numeric data tabular figures so columns align.
+**Dado (jamais):** cartões, achados de auditoria, tabelas, molduras de artefato,
+`ConfirmationCard`, miniaturas. Nunca borrar o que se lê.
 
-### Don't:
-- **Don't** use purple, blue, or neon gradients on any surface.
-- **Don't** apply glassmorphism (backdrop blur on cards).
-- **Don't** use `border-left` or `border-right` greater than 1px as a colored accent stripe.
-- **Don't** nest cards inside cards. Use border dividers within a single container.
-- **Don't** animate CSS layout properties (width, height, top, left). Use transform and opacity only.
-- **Don't** use gradient text (`background-clip: text`).
-- **Don't** create identical card grids (same-sized icon + heading + text repeated).
-- **Don't** turn the audit workspace into a landing page with hero sections or marketing copy.
-- **Don't** use emojis in the interface.
-- **Don't** make modals the first solution for any interaction. Exhaust inline alternatives first.
-- **Don't** use teal for a status, or a signal colour (green/amber/coral) on an interactive control — the families never cross.
-- **Don't** let Warning and Critical drift toward the same hue; they must be distinguishable at a glance without the label.
-- **Don't** reference `--status-danger` or `--status-warn` — they don't exist. The only status tokens are `--status-ok`, `--status-warning`, `--status-critical`.
-- **Don't** park a spinner in a content region; use a skeleton. Spinners live inside buttons only.
-- **Don't** blur a card or panel — backdrop blur is for the modal dimming backdrop alone.
+**Tokens** — derivados dos existentes, **nunca cor nova**:
+
+| Token | Valor |
+|-------|-------|
+| `--glass-blur` | `12px` |
+| `--glass-tint` | `rgb(18 21 24 / 0.62)` (= `--card` a ~62%) |
+| `--glass-tint-weak` | `rgb(18 21 24 / 0.52)` — bolha do assistente |
+| `--glass-edge` | `inset 0 1px 0 rgb(255 255 255 / 0.07)` — um degrau acima do `--edge-highlight` |
+| `--glass-ring` | `rgb(91 218 198 / 0.14)` (= `--ring` a ~14%) |
+
+**Implementação:** `<GlassPanel>` é o único lugar com `backdrop-filter` fora do
+backdrop do modal. Degrada para `--card` sólido quando `backdrop-filter` não é
+suportado ou quando `prefers-reduced-transparency: reduce`. O tint alto é piso de
+contraste: texto ≥4,5:1 mesmo com conteúdo rolando atrás.
+
+**Por quê essa fronteira:** premium é precisão mais alguns momentos ambientais —
+não vidro em tudo. Borrão sobre dado é o oposto do que este produto vende.
+
+---
+
+## 5. Movimento
+
+**Movimento significa mudança de estado, não decoração.** Isto é instrumento de
+trabalho usado em sessões longas, não uma página que se assiste carregar. Não há
+sequências de entrada coreografadas por elemento.
+
+| Token | Valor | Uso |
+|-------|-------|-----|
+| `--duration-fast` | `120ms` | Resposta de interação: hover, clique, foco. |
+| `--duration-base` | `180ms` | Revelações, dropdowns. |
+| `--duration-slow` | `240ms` | Drawer, modal — superfícies maiores. |
+| `--duration-shell` | `320ms` | Só a macrotransição do shell (boas-vindas ↔ ativo). |
+| `--ease-feedback` | `cubic-bezier(0.25, 1, 0.5, 1)` | Resposta e saídas. |
+| `--ease-entrance` | `cubic-bezier(0.22, 1, 0.36, 1)` | Superfícies entrando. |
+
+Saídas correm a ~75% da entrada. Toda animação usa **só `transform` e
+`opacity`** — nunca propriedade de layout.
+
+**Camada-fonte em JS:** `modules/nexo/lib/motion.ts` espelha os tokens e expõe
+`useReducedMotion()`. O gate em JS é necessário porque a media query CSS não
+desliga `startViewTransition` nem FLIP.
+
+**O conjunto canônico:**
+- **Revelação de conteúdo:** um único `reveal` (`--duration-base`, fade + 6px em Y), uma vez por bloco recém-chegado — nunca em cascata pelos filhos.
+- **Resposta:** transições de hover/foco em `--duration-fast`; clique é `translateY(1px)`. É aqui que a ferramenta parece responsiva; priorize isto sobre revelações.
+- **Progresso:** `audit-progress` (1,4s) e `status-pulse` (1,8s) — contínuos porque sinalizam estado em andamento.
+- **Drawer:** entra em `--duration-slow`, sai mais rápido; backdrop em fade.
+- **Sobreposição:** `--duration-base`, escala a partir do topo (dropdown) ou escala+fade (modal).
+
+**Coordenação com a macrotransição:** durante os ~320ms do shell, movimento
+contínuo (orbe, shimmer) é **congelado** — senão duplica no cross-fade do
+snapshot.
+
+**Segurança.** `prefers-reduced-motion: reduce` desliga toda animação. Movimento
+é sempre melhoria, nunca carrega significado sozinho.
+
+---
+
+## 6. O orbe — a presença do agente
+
+O orbe não é enfeite nem logotipo aplicado na tela: é **a representação visual do
+agente**, e a partir dela nasce a marca. É o único elemento do sistema autorizado
+a ser vivo.
+
+### A escada de reduções
+
+Não existe favicon com shader. O orbe precisa existir em três níveis, e os três
+têm de ser reconhecíveis como o **mesmo objeto** — é isso que transforma efeito
+em identidade.
+
+| Nível | O que é | Onde | Custo |
+|-------|---------|------|-------|
+| **Vivo (3D)** | React Three Fiber + shaders próprios (`modules/nexo/components/agent-orb/`) | Palco / entrada. Uma instância por tela, nunca duas. | Alto (three.js) |
+| **CSS** | Gradiente radial teal→luminous mascarado (`NexoOrb`) | Barra lateral, marca inline, bolhas | Zero |
+| **Achatado (SVG)** | Silhueta sem brilho nem gradiente dependente de fundo escuro | Logo, favicon, impressão, fundo claro | Zero |
+
+**Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
+a redução em CSS. Onde o fundo não é escuro, só a versão achatada.
+
+### Os estados
+
+O orbe **diz o que o agente está fazendo**. Um orbe que gira igual o tempo todo é
+decoração — e decoração o sistema rejeita na primeira página. Os estados reais
+(`use-agent-state.ts`), em ordem de prioridade:
+
+| Estado | Quando | Leitura |
+|--------|--------|---------|
+| `error` | falha no turno ou na leitura (transiente, 2,2s) | instabilidade curta, depois estabiliza |
+| `dragging` | arquivo sendo arrastado sobre a interface | atenção, receptivo |
+| `reading` | lendo os selos das pranchas | trabalho de entrada |
+| `responding` | já está escrevendo (primeiro delta chegou) | fala |
+| `analyzing` | turno em andamento | pensa |
+| `complete` | terminou sem erro (transiente, 1,2s) | pulso breve |
+| `idle` | em repouso | pronto |
+
+A esfera não conhece IA nem API: `useAgentState` traduz sinais da aplicação em
+estado visual. Manter essa separação é o que permite trocar o motor sem redesenhar
+a presença.
+
+**Cor:** a iridescência é só teal→luminous→neutro. Nunca rust, roxo ou neon — o
+orbe é grande, e romper aqui estoura o orçamento de 10% do acento.
+
+**Movimento reduzido:** com `prefers-reduced-motion`, o orbe congela num estado
+final legível — não em `0.01ms`, que produz um piscar.
+
+### Marca
+
+O logotipo é o **orbe achatado** mais a palavra "Nexo" em IBM Plex Sans 600. O
+símbolo sozinho serve de favicon e de avatar. O que não fazer: reproduzir o
+brilho do orbe 3D em tamanho pequeno (vira mancha), colorir fora da rampa teal,
+ou colocar o símbolo sobre fundo claro sem a versão achatada.
+
+---
+
+## 7. Componentes — matriz de estados e primitivos
+
+### A matriz de estados
+
+Todo componente interativo define os mesmos sete estados com o mesmo
+vocabulário. Componente que sobe sem um deles está incompleto — um hover
+significa a mesma coisa num botão e numa linha de tabela.
+
+| Estado | Tratamento |
+|--------|------------|
+| **Repouso** | Plano; profundidade por borda + tom de superfície. |
+| **Hover** | Elevação tonal sutil (→ `#1a1e21`) ou borda em direção ao anel; elementos ghost passam de muted para foreground. `--duration-fast`. Nunca uma mudança dramática de cor. |
+| **Foco** | O anel único do sistema — borda → `#5bdac6` + anel de 3px a 25%. Por `:focus-visible` (teclado), nunca `:focus` cru. Idêntico em todo componente. |
+| **Pressionado** | `translateY(1px)` + leve escurecimento. `--duration-fast`. |
+| **Selecionado / atual** | Borda teal + fundo preenchido. Teal marca a coisa atual. |
+| **Desabilitado** | Opacidade **50%**, `pointer-events: none`, sem hover. Uma opacidade canônica só — não 45% num componente e 50% noutro. |
+| **Carregando** | Escopado ao componente e estável no layout: o botão mantém a largura e troca o rótulo por um spinner inline ("Gerando…"); uma região de conteúdo mostra skeleton. Nunca spinner estacionado sobre conteúdo, nunca salto de largura. |
+| **Erro** | Campo muda a borda para Signal Critical com texto de ajuda crítico abaixo — não uma troca silenciosa de cor do anel. |
+
+**Somente-leitura ≠ desabilitado.** Campo somente-leitura mostra o valor em
+contraste normal, sem afordância de edição; campo desabilitado cai a 50%. Nunca
+use o estilo de desabilitado para dizer "não editável agora".
+
+### Os 16 primitivos
+
+`button` · `badge` · `card` · `chip` · `checkbox` · `input` · `label` ·
+`textarea` · `table` · `tooltip` · `separator` · `skeleton` · `dropdown` ·
+`empty-state` · `glass-panel` · `agent-popover`
+
+**Botões.** Raio 8px, rótulo em mono. *Primary:* fundo `#00a693` sólido, texto
+escuro; sem gradiente; hover 10% mais escuro; altura 40px (36px compacto) —
+controles numa mesma linha de formulário compartilham os 40px para alinhar.
+*Outline:* fundo transparente, borda 1px, texto foreground. *Secondary:* fundo
+`#1a1e21`. *Ghost:* transparente, texto muted; hover traz o foreground.
+
+**Chips / segmentados.** Fundo embutido `#06080a`, borda 1px, raio 8px, rótulo
+mono 12px. Selecionado: fundo de cartão com borda teal a 30%. O nível "Profundo"
+usa rust em vez de teal quando selecionado — é ênfase, não status.
+
+**Cartões.** Raio 8px, fundo `#121518`, borda 1px, padding 12px (16px em painéis).
+Sem elemento flutuante sem borda. **Nunca cartão dentro de cartão** — use
+divisores dentro de um contêiner só.
+
+**Campos.** Borda 1px `#2c3338`, fundo `#06080a`, raio 8px, altura 40px (32px
+compacto). Foco: o anel único. Textarea igual, redimensionável só na vertical.
+
+**Tooltip.** `max-w-xs`, fundo de cartão, `shadow-subtle`, mono 12px, atraso de
+300ms. Obrigatório em todo controle só-ícone.
+
+**Tabelas.** Superfície primária: o padrão favorece **ver muitas linhas de uma
+vez**. Densidade compacta por padrão (`px-3 py-2.5`, ~40px por linha).
+Separação por borda inferior de 1px — **só réguas horizontais**, sem divisor
+vertical, sem zebra. Cabeçalho em Mono Label maiúsculo, fixo no rolar. Colunas
+numéricas à direita, em Mono Data tabular. Coluna de status renderiza `<Badge>`,
+não texto colorido. Carregando: linhas de skeleton na forma das colunas. Vazia:
+o tratamento de estado vazio dentro do corpo da tabela, nunca um "0 resultados".
+
+**Skeletons.** Conteúdo carregando aparece como **esqueleto da forma final**,
+nunca spinner no meio da tela — o esqueleto reserva o layout para nada saltar
+quando o dado chega. Shimmer é uma varredura sutil e lenta, nunca um pulso
+brilhante. Spinner só dentro de botão.
+
+**Estados vazios.** Um estado vazio **ensina a interface**; nunca diz apenas
+"nada aqui". Estrutura: um Mono Label nomeando a região, uma linha de Body
+explicando o que vai aparecer ali e como fazer aparecer, e — quando há próximo
+passo — uma única ação primária. Sem ilustração grande, sem emoji, sem tom de
+marketing. Vazio é neutro; falha usa o vocabulário de Signal Critical.
+
+**Iconografia.** `lucide-react` exclusivamente, linha apenas, `strokeWidth={1.5}`
+global (mais fino que o padrão da biblioteca — lê como instrumento de precisão).
+Escala: 14px (inline denso), **16px padrão**, 20px (ênfase), 24px (raro). Cor por
+`currentColor`: teal só quando o ícone **é** a afordância interativa; muted
+quando passivo; token de sinal quando carrega status. Só-ícone é permitido
+apenas para glifos universais (fechar, chevron, busca) e sempre com tooltip.
+
+---
+
+## 8. Padrões compostos do Nexo
+
+Esta é a superfície principal do produto e a que menos tinha especificação. Os
+componentes existem em `modules/nexo/components/`; as regras abaixo são o
+contrato visual deles.
+
+**Shell de três colunas.** `barra lateral (240px) | palco | copiloto (520px)`,
+larguras em `--nexo-sidebar-w` e `--nexo-copilot-w`, com divisor arrastável. Dois
+modos: **boas-vindas** (orbe e composer centrados, sem palco) e **ativo** (as três
+colunas). A transição entre eles é a única que usa `--duration-shell`.
+
+**Barra lateral.** Marca (orbe CSS + "Nexo") no topo; nova conversa; busca;
+histórico agrupado em pastas por obra, recolhíveis; rodapé com o resto do
+software (Projetos, admin, conta) e, por último e menor, "Ferramentas antigas" —
+saída de emergência não compete com o caminho bom.
+
+**Composer.** Dock em `GlassPanel` com anel teal no foco. Duas variantes da
+**mesma instância**: herói (boas-vindas) e ancorado (ativo). Zona de solta
+visível e overlay de tela cheia no arrastar.
+
+**Bolhas.** Usuário: matte. Assistente: `GlassPanel` sutil **como invólucro** —
+mas todo dado dentro dela permanece matte, inclusive o cartão de confirmação.
+
+**Cartão de confirmação.** O padrão central do produto: proposta → parâmetros
+**somente-leitura** → [Confirmar e gerar] / [Corrigir] → resultado com downloads.
+Correção acontece **na conversa**, não em formulário dentro do cartão — é o que
+mantém o registro do que foi decidido. Três estados: *proposta* (ainda não
+gerado), *pendente* (params mudaram desde a geração — o documento envelheceu) e
+*aplicado*. O estado pendente precisa ser visível: documento velho passando por
+novo é o erro mais caro que esta tela pode cometer.
+
+**Chips de resposta rápida.** Pré-respostas abaixo da bolha, nunca formulário.
+Dois compromissos: *preencher* (escreve no composer, o engenheiro edita) e
+*enviar* (manda direto).
+
+**Canvas.** Nó de artefato (miniatura renderizada, ações no nó selecionado), nó
+de folha (texto puro — 200 folhas com miniatura viraria um trabalho sobre
+performance), fileiras por tomo, navegação e editor do nó. Marca de "corrigido à
+mão" só quando o **texto** foi reescrito, nunca por arrastar — posição não é
+leitura de carimbo.
+
+**Palco.** Auditoria em curso com progresso, cancelar e retomada após F5. Trabalho
+longo do servidor não pode parecer perdido porque a aba recarregou.
+
+**Consumo.** Donut de tokens e custo — dado, portanto matte, e numa escala de cor
+que não é a rampa teal.
+
+---
+
+## 9. Superfícies herdadas
+
+**Resultado de auditoria.** Cabeçalho com badge de status, resumo de
+achados/arquivos/tempo, próxima ação como título enfatizado, abas segmentadas.
+Grade de métricas em cartões compactos. Cartão de achado: um contêiner só, com
+seções internas separadas por borda — evidência, conflito e ação como blocos
+adjacentes, nunca cartões aninhados.
+
+**Ferramentas antigas** (`/ld`, `/capas`, `/separatrizes`, `/volumes`). Precisam
+dizer visualmente que são legado, sem parecer quebradas. Hoje: um rótulo no
+cabeçalho. Quando a vaga de cor "legado" for preenchida (§2), é aqui que ela
+entra.
+
+---
+
+## 10. Acessibilidade
+
+- **Foco visível** em tudo, com o anel único, por `:focus-visible`.
+- **Contraste** AA (≥4,5:1) para texto — inclusive sobre vidro, garantido pelo piso de tint.
+- **Alvo de toque** confortável; ícone sozinho sempre com rótulo acessível.
+- **Teclado**: navegação completa e os atalhos existentes (`Ctrl+G`, `Ctrl+A`, `Ctrl+L`, `Ctrl+Shift+A`, `?`).
+- **`prefers-reduced-motion`**: desliga animação; o orbe congela legível.
+- **`prefers-reduced-transparency`**: vidro vira sólido.
+- **`.sr-only`** canônica em `globals.css` para rótulos que só o leitor de tela precisa.
+
+---
+
+## 11. Faça e não faça
+
+### Faça
+- Use o raio único do sistema (8px). Nenhum outro valor deve aparecer.
+- Use IBM Plex Mono para todo dado estruturado: horário, nome de arquivo, contagem, ID, código.
+- Separe seções com borda de 1px em largura inteira, nunca com faixa lateral colorida.
+- Mantenha o teal abaixo de 10% da superfície de qualquer tela.
+- Use camadas tonais para profundidade, não sombra.
+- Consuma cor de status por `--status-*` e pelo `<Badge variant>`.
+- Mostre esqueleto da forma final enquanto uma região carrega.
+- Dê algarismos tabulares a todo dado numérico.
+- Deixe o orbe **dizer** o estado do agente.
+
+### Não faça
+- Não use roxo, azul ou gradiente neon em superfície nenhuma.
+- Não borre dado: vidro é só para o cromo da lista fechada (§4).
+- Não use borda lateral maior que 1px como faixa de acento.
+- Não aninhe cartão dentro de cartão.
+- Não anime propriedade de layout (width, height, top, left).
+- Não use texto com gradiente.
+- Não crie grades de cartões idênticos (mesmo ícone + título + texto repetidos).
+- Não use emoji na interface.
+- Não recorra a modal como primeira solução; esgote as alternativas inline.
+- Não use teal para status, nem cor de sinal em controle interativo.
+- Não deixe Atenção e Crítico convergirem de matiz.
+- Não referencie `--status-danger` nem `--status-warn` — não existem.
+- Não estacione spinner numa região de conteúdo; use esqueleto.
+- Não coloque dois orbes vivos na mesma tela.
+
+---
+
+## 12. Governança
+
+**Como mudar o sistema.** Toda mudança entra em `app/globals.css` **e** neste
+documento, no mesmo commit. Componente novo nasce com os sete estados da matriz.
+Token novo nasce com nome, valor e trabalho declarado.
+
+**A armadilha conhecida do CSS.** Regra escrita fora de `@layer` vence as
+utilities do Tailwind e mata `border-*` silenciosamente — já aconteceu neste
+projeto. Ao acrescentar CSS global, verifique a camada antes de culpar o
+componente.
+
+**O que fiscaliza.** Hoje: revisão humana e este documento. O sistema ainda não
+tem teste automático de contrato visual — quando tiver, ele mora aqui.
