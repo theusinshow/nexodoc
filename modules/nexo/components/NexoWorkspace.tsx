@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
+import { Button } from "@/components/ui/button";
 import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
 import {
   extractSelosFromFiles,
@@ -35,6 +36,7 @@ import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
 import { useConexao } from "../lib/use-conexao";
+import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
 
 /**
  * Workspace do Nexo (chat-first). "Anexar/soltar PDFs" LÊ os selos das pranchas
@@ -70,6 +72,7 @@ export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
 function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
   const { online } = useConexao();
+  const { expirada: sessaoExpirada, desdeMs } = useSessaoExpirada();
   // Os bytes de cada anexo, por id do chip — é o que permite REFAZER a leitura
   // quando o papel lido do nome do arquivo é corrigido à mão.
   const arquivosPorAnexo = useRef(new Map<string, File>());
@@ -982,6 +985,36 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         <FaixaDeEstado tipo="offline" titulo="Sem conexão">
           O que você escreveu e os documentos já gerados estão guardados neste
           navegador. Nada foi perdido — o envio volta sozinho quando a rede voltar.
+        </FaixaDeEstado>
+      )}
+
+      {/*
+        Sessão expirada: NUNCA devolve a um login zerado. Sessão longa é a norma
+        aqui — o engenheiro abre de manhã, sai para a obra, volta à tarde na
+        mesma aba. A garantia vem COM NÚMERO, porque "seu trabalho está salvo"
+        sem contagem é a frase que todo software diz antes de perder tudo.
+      */}
+      {sessaoExpirada && online && (
+        <FaixaDeEstado
+          tipo="sessao"
+          titulo="Sessão expirada"
+          acao={
+            <Button asChild size="sm" variant="outline">
+              <a href={`/login?callbackUrl=${encodeURIComponent("/nexo")}`}>
+                Entrar e continuar de onde parei
+              </a>
+            </Button>
+          }
+        >
+          Você ficou {duracaoLegivel(desdeMs)} sem atividade e o acesso caducou.{" "}
+          {conv.results.length > 0
+            ? `A conversa e ${
+                conv.results.length === 1
+                  ? "o documento já gerado continuam salvos"
+                  : `os ${conv.results.length} documentos já gerados continuam salvos`
+              }`
+            : "A conversa continua salva"}{" "}
+          neste navegador — entrar de novo devolve você a este mesmo ponto.
         </FaixaDeEstado>
       )}
 

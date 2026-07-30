@@ -4,6 +4,7 @@
  * que só acontece após confirmação. Centralizados aqui para todos os pontos de
  * entrada usarem exatamente o mesmo caminho.
  */
+import { conferirSessao } from "./sessao";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import type { VolumePart } from "@/server/nexo/volume-parts";
@@ -90,6 +91,7 @@ export async function postLd(
       ...(opts.respeitarOrdem ? { respeitarOrdem: true } : {}),
     }),
   });
+  conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
     | {
         error?: string;
@@ -155,6 +157,7 @@ export async function postCapa(
       ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),
     }),
   });
+  conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
     | {
         error?: string;
@@ -201,6 +204,7 @@ export async function postCheck(
       ...(templateId?.trim() ? { templateId: templateId.trim() } : {}),
     }),
   });
+  conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
     | { error?: string; result?: LightCheckResult }
     | null;
@@ -260,6 +264,7 @@ export async function postSeparatriz(
       ...(opts.revisao?.trim() ? { revisao: opts.revisao.trim() } : {}),
     }),
   });
+  conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
     | {
         error?: string;
@@ -334,6 +339,7 @@ export async function postVolume(
       ...(opts.reorder ? { reorder: true } : {}),
     }),
   });
+  conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
     | { error?: string; pdf?: { name: string; data: string } | null; pageCount?: number }
     | null;
