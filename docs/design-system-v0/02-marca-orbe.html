@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 2 — O orbe e a marca · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  .orb-stage { background:radial-gradient(520px 260px at 50% 30%, #0d2b28 0%, #0a0e11 72%); border-radius:var(--radius); padding:var(--sp-8); display:flex; align-items:center; justify-content:center; }
+  .state-cell { border:1px solid var(--border); border-radius:var(--radius); background:var(--card); overflow:hidden; }
+  .state-cell__top { display:flex; align-items:center; justify-content:center; height:120px; background:var(--nexodoc-recessed); }
+  .state-cell__meta { padding:var(--sp-3); border-top:1px solid var(--border); }
+  .state-cell__meta h4 { font-family:var(--font-mono); font-size:12px; letter-spacing:0.05em; text-transform:uppercase; color:var(--nexodoc-accent); margin-bottom:6px; }
+  .state-cell__meta p { font-size:12px; color:var(--muted-foreground); line-height:1.45; }
+  .state-cell__meta dl { display:grid; grid-template-columns:52px 1fr; gap:2px var(--sp-2); margin-top:var(--sp-2); font-size:11px; }
+  .state-cell__meta dt { font-family:var(--font-mono); letter-spacing:0.05em; text-transform:uppercase; color:var(--muted-foreground); }
+  .state-cell__meta dd { margin:0; color:var(--foreground); }
+  .logo-lockup { display:inline-flex; align-items:center; gap:10px; }
+  .logo-lockup .wm { font-size:22px; font-weight:600; letter-spacing:-0.01em; }
+  .light { background:#f2f4f5; color:#0a0e11; }
+  .breath { position:relative; display:inline-block; padding:24px; }
+  .breath::before { content:""; position:absolute; inset:0; border:1px dashed rgb(91 218 198 / 0.35); border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote2-main">
+
+    <header class="doc-head" data-od-id="lote2-header">
+      <span class="mono-label eyebrow">LOTE 2 DE 9 · IDENTIDADE</span>
+      <h1 class="t-display">O orbe é a presença do agente</h1>
+      <p>É a única coisa viva do sistema, e ele diz o que o agente está fazendo. Orbe que
+      gira igual o tempo todo é decoração — e decoração este sistema rejeita. A
+      iridescência é só teal → luminoso → neutro. Nunca rust, roxo ou neon.</p>
+    </header>
+
+    <!-- ==================== 1. ESCADA DE REDUCOES ==================== -->
+    <section class="block" id="reducoes" data-od-id="section-reductions">
+      <h2><span class="num">1</span>A escada de reduções</h2>
+      <p class="lede">O mesmo objeto em três níveis, reconhecíveis entre si. O que sobrevive
+      da esfera até a silhueta é a proporção do nó interno contra o anel — é isso que faz o
+      favicon de 16px ainda ser o orbe.</p>
+
+      <div class="grid g3" data-od-id="reduction-ladder">
+
+        <div class="cell">
+          <div class="cell__cap">A · VIVO<span>~200px · R3F</span></div>
+          <div class="orb-stage"><div class="orb orb--lg" data-state="idle" role="img" aria-label="Orbe vivo, estado ocioso"></div></div>
+          <div class="cell__note">
+            Esfera com profundidade e movimento contínuo. Centro do palco na tela de
+            boas-vindas e topo do copiloto. No produto é renderizada em R3F; a redução CSS
+            desta folha é a especificação de cor, brilho e ritmo.
+          </div>
+        </div>
+
+        <div class="cell">
+          <div class="cell__cap">B · PLANO<span>20–32px · CSS</span></div>
+          <div class="orb-stage" style="gap:var(--sp-6)">
+            <div class="orb" data-state="idle" style="--orb-size:32px" role="img" aria-label="Orbe plano 32px"></div>
+            <div class="orb" data-state="idle" style="--orb-size:24px" role="img" aria-label="Orbe plano 24px"></div>
+            <div class="orb orb--sm" data-state="idle" role="img" aria-label="Orbe plano 20px"></div>
+          </div>
+          <div class="cell__note">
+            Redução em gradiente radial, sem geometria 3D. Marca da barra lateral, avatar
+            do assistente na conversa, indicador inline de estado. O halo externo cai para
+            28% do diâmetro para não engordar a linha de texto.
+          </div>
+        </div>
+
+        <div class="cell">
+          <div class="cell__cap">C · ACHATADO<span>≥16px · SVG</span></div>
+          <div class="orb-stage" style="gap:var(--sp-6);background:var(--nexodoc-recessed)">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5" role="img" aria-label="Símbolo achatado 56px"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.75" role="img" aria-label="Símbolo achatado 24px"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="2" role="img" aria-label="Símbolo achatado 16px"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+          </div>
+          <div class="cell__note">
+            Silhueta vetorial, sem brilho, sem gradiente. Traço compensado por tamanho
+            (1,5 → 1,75 → 2) para o nó não fechar em 16px. É daqui que sai a logo, o
+            favicon e qualquer aplicação impressa.
+          </div>
+        </div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Usar o orbe vivo em 24px na barra lateral. O brilho vira uma mancha e o nó some — o que resta é um ponto verde. Abaixo de 40px o orbe é sempre o nível plano; abaixo de 20px é sempre o achatado.</p></div>
+    </section>
+
+    <!-- ==================== 2. OS SETE ESTADOS ==================== -->
+    <section class="block" id="estados" data-od-id="section-orb-states">
+      <h2><span class="num">2</span>Os sete estados</h2>
+      <p class="lede">Cada estado precisa de uma leitura clara e distinta — a de longe
+      (forma e brilho) e a de perto (ritmo). Um engenheiro que olha o orbe de canto de olho
+      tem que saber se o agente está lendo, pensando ou escrevendo.</p>
+
+      <div class="grid g4" data-od-id="orb-states">
+
+        <div class="state-cell">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="idle"></div></div>
+          <div class="state-cell__meta"><h4>idle · pronto</h4>
+            <p>Repouso atento. Rotação lenta e completa do nó, respiração de opacidade.</p>
+            <dl><dt>Forma</dt><dd>Nó estável, 1,00×</dd><dt>Brilho</dt><dd>Halo 28%, teal técnico</dd><dt>Ritmo</dt><dd>6s, ease-entrance, infinito</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="dragging"></div></div>
+          <div class="state-cell__meta"><h4>dragging · receptivo</h4>
+            <p>Arquivo sendo arrastado sobre a tela. O halo dobra e a borda acende: o orbe abre a guarda.</p>
+            <dl><dt>Forma</dt><dd>Nó desacelera, 1,00×</dd><dt>Brilho</dt><dd>Halo 50%, anel a 55%</dd><dt>Ritmo</dt><dd>2,4s — mais lento que idle</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="reading"></div></div>
+          <div class="state-cell__meta"><h4>reading · entrada</h4>
+            <p>Lendo os carimbos. Pulso vertical curto — trabalho mecânico entrando, uma prancha por vez.</p>
+            <dl><dt>Forma</dt><dd>±4% em Y, 0,97–1,03×</dd><dt>Brilho</dt><dd>Halo 28%, constante</dd><dt>Ritmo</dt><dd>900ms, ease-feedback</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="analyzing"></div></div>
+          <div class="state-cell__meta"><h4>analyzing · pensando</h4>
+            <p>Rotação contínua e linear do nó, sem variação de escala. Trabalho interno, sem entrada nem saída.</p>
+            <dl><dt>Forma</dt><dd>Rotação 360°, escala fixa</dd><dt>Brilho</dt><dd>Halo 28%, constante</dd><dt>Ritmo</dt><dd>2,4s, linear</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="responding"></div></div>
+          <div class="state-cell__meta"><h4>responding · escrevendo</h4>
+            <p>Pulso de escala rápido, no compasso do streaming. Casa com o cursor da bolha.</p>
+            <dl><dt>Forma</dt><dd>0,94–1,06×, sem rotação</dd><dt>Brilho</dt><dd>Opacidade 0,75–1,00</dd><dt>Ritmo</dt><dd>700ms, ease-feedback</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell" style="border-color:rgb(110 231 163 / 0.30)">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="complete"></div></div>
+          <div class="state-cell__meta"><h4>complete · transiente 1,2s</h4>
+            <p>Um anel se expande e some. Uma vez. Depois o orbe volta a <span class="mono">idle</span> — a confirmação não pode virar estado permanente.</p>
+            <dl><dt>Forma</dt><dd>Anel 1,0 → 1,5×</dd><dt>Brilho</dt><dd>Anel luminoso, opacidade → 0</dd><dt>Ritmo</dt><dd>1200ms, ease-entrance, 1×</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell" style="border-color:rgb(255 146 133 / 0.30)">
+          <div class="state-cell__top"><div class="orb orb--md" data-state="error"></div></div>
+          <div class="state-cell__meta"><h4>error · transiente 2,2s</h4>
+            <p>Instabilidade curta no eixo X, depois estabiliza. O anel vira coral — a única vez que o orbe sai do teal.</p>
+            <dl><dt>Forma</dt><dd>±3% em X, 4 ciclos</dd><dt>Brilho</dt><dd>Anel crítico a 45%</dd><dt>Ritmo</dt><dd>550ms × 4 = 2,2s</dd></dl>
+          </div>
+        </div>
+
+        <div class="state-cell" style="border-style:dashed">
+          <div class="state-cell__top" style="background:var(--muted)">
+            <div style="display:flex;gap:var(--sp-3);align-items:center">
+              <div class="orb" data-state="idle" style="--orb-size:28px"></div>
+              <div class="orb" data-state="reading" style="--orb-size:28px"></div>
+              <div class="orb" data-state="analyzing" style="--orb-size:28px"></div>
+              <div class="orb" data-state="responding" style="--orb-size:28px"></div>
+            </div>
+          </div>
+          <div class="state-cell__meta"><h4>a prova de distinção</h4>
+            <p>Os quatro estados persistentes lado a lado em 28px — o tamanho da barra
+            lateral. Se dois deles ficarem indistinguíveis aqui, a especificação falhou.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- congelados -->
+      <h3 class="sub">2.1 · A versão congelada de cada estado</h3>
+      <p class="lede">Com <span class="mono">prefers-reduced-motion</span> o orbe para — mas
+      continua dizendo o mesmo. Cada estado congela num quadro escolhido, não no primeiro:
+      o quadro que carrega mais informação de forma. Nada pisca; nada some.</p>
+
+      <div class="grid g6" data-od-id="orb-frozen">
+        <div class="cell"><div class="cell__cap">IDLE</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="idle" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Nó em repouso, halo normal.</div></div>
+        <div class="cell"><div class="cell__cap">DRAGGING</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="dragging" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Halo dobrado, anel aceso.</div></div>
+        <div class="cell"><div class="cell__cap">READING</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="reading" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Congela no ponto baixo do pulso.</div></div>
+        <div class="cell"><div class="cell__cap">ANALYZING</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="analyzing" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Nó a 140° — inconfundível com o idle.</div></div>
+        <div class="cell"><div class="cell__cap">RESPONDING</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="responding" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Congela expandido, 1,06×.</div></div>
+        <div class="cell"><div class="cell__cap">ERROR</div><div class="cell__body center" style="background:var(--nexodoc-recessed)"><div class="orb" data-state="error" data-frozen="true" style="--orb-size:56px"></div></div><div class="cell__note">Anel coral estático. <span class="mono">complete</span> não tem congelado: vira um badge no texto.</div></div>
+      </div>
+
+      <div class="rule-note"><strong>Com movimento reduzido, o estado também vai para texto.</strong>
+      O rótulo abaixo do orbe no copiloto deixa de ser opcional e passa a ser obrigatório
+      (<span class="mono">"lendo os selos · 6 de 8"</span>). Nenhuma informação do produto pode
+      existir só em movimento.</div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Trocar o orbe por um spinner quando o movimento está reduzido. Spinner diz "espere"; o orbe diz <em>o que está acontecendo</em>. Congelar preserva a informação; substituir por spinner joga fora.</p></div>
+    </section>
+
+    <!-- ==================== 3. A LOGO ==================== -->
+    <section class="block" id="logo" data-od-id="section-logo">
+      <h2><span class="num">3</span>A logo</h2>
+      <p class="lede">Símbolo achatado + a palavra "Nexo" em IBM Plex Sans 600. Nada mais.
+      Sem tagline dentro do lockup, sem moldura, sem sombra.</p>
+
+      <div class="grid g3" data-od-id="logo-variants">
+        <div class="cell"><div class="cell__cap">LOCKUP HORIZONTAL<span>PADRÃO</span></div>
+          <div class="cell__body center" style="min-height:120px">
+            <span class="logo-lockup">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+              <span class="wm">Nexo</span>
+            </span>
+          </div>
+          <div class="cell__note">Altura do símbolo = altura da caixa alta do "N". Distância = ½ da altura do símbolo.</div></div>
+
+        <div class="cell"><div class="cell__cap">EMPILHADO<span>ESPAÇO ESTREITO</span></div>
+          <div class="cell__body center" style="min-height:120px">
+            <span style="display:inline-flex;flex-direction:column;align-items:center;gap:8px">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+              <span style="font-size:18px;font-weight:600;letter-spacing:0.02em">Nexo</span>
+            </span>
+          </div>
+          <div class="cell__note">Só para tela de entrada e material impresso vertical.</div></div>
+
+        <div class="cell"><div class="cell__cap">SÍMBOLO ISOLADO<span>APP · AVATAR</span></div>
+          <div class="cell__body center" style="min-height:120px">
+            <span style="width:64px;height:64px;border-radius:var(--radius-xl);background:var(--nexodoc-recessed);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+            </span>
+          </div>
+          <div class="cell__note">Só quando "Nexo" já está dito por outro elemento na mesma tela.</div></div>
+      </div>
+
+      <h3 class="sub">3.1 · Favicon e aplicações</h3>
+      <div class="grid g4">
+        <div class="cell"><div class="cell__cap">FAVICON 16<span>ABA</span></div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="2.25"><circle cx="12" cy="12" r="10"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+        </div><div class="cell__note">Traço engorda para 2,25. Halo removido.</div></div>
+        <div class="cell"><div class="cell__cap">FAVICON 32<span>MARCADOR</span></div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.9"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+        </div><div class="cell__note">Traço 1,9.</div></div>
+        <div class="cell"><div class="cell__cap">APPLE TOUCH 180<span>ATALHO</span></div><div class="cell__body center">
+          <span style="width:72px;height:72px;border-radius:16px;background:#06080a;display:inline-flex;align-items:center;justify-content:center">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+          </span>
+        </div><div class="cell__note">Fundo <span class="mono">--nexodoc-recessed</span>, nunca transparente.</div></div>
+        <div class="cell"><div class="cell__cap">MONOCROMÁTICA<span>CARIMBO · FAX</span></div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <span class="logo-lockup" style="color:var(--foreground)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+            <span class="wm" style="font-size:18px">Nexo</span>
+          </span>
+        </div><div class="cell__note">Uma cor só, herdada do contexto.</div></div>
+      </div>
+
+      <div class="grid g3" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">FUNDO CLARO<span>PAPEL · PRANCHA</span></div>
+          <div class="cell__body center light" style="min-height:110px">
+            <span class="logo-lockup" style="color:#0a5f54">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg>
+              <span class="wm">Nexo</span>
+            </span>
+          </div>
+          <div class="cell__note">Sobre claro o teal escurece para <span class="mono">#0a5f54</span> — 6,9:1 sobre #f2f4f5. O <span class="mono">#5bdac6</span> daria 1,6:1 e sumiria na folha.</div></div>
+
+        <div class="cell"><div class="cell__cap">ÁREA DE RESPIRO<span>= ALTURA DO SÍMBOLO</span></div>
+          <div class="cell__body center" style="min-height:110px">
+            <span class="breath"><span class="logo-lockup"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg><span class="wm" style="font-size:18px">Nexo</span></span></span>
+          </div>
+          <div class="cell__note">Nada entra na moldura tracejada — nem borda de painel, nem outro rótulo.</div></div>
+
+        <div class="cell"><div class="cell__cap">TAMANHO MÍNIMO<span>LIMITE DURO</span></div>
+          <div class="cell__body col center" style="min-height:110px;gap:var(--sp-3)">
+            <span class="logo-lockup"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="2"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Zm0 0c1.9-2.6 3.6-3.9 5-3.9 1.7 0 2.8 1.6 2.8 3.9s-1.1 3.9-2.8 3.9c-1.4 0-3.1-1.3-5-3.9Z"/></svg><span style="font-size:13px;font-weight:600">Nexo</span></span>
+            <span class="mono-label dim">SÍMBOLO 16px · LOCKUP 13px</span>
+          </div>
+          <div class="cell__note">Abaixo disso, só o símbolo. Sem a palavra.</div></div>
+      </div>
+
+      <h3 class="sub">3.2 · O que não fazer com a logo</h3>
+      <div class="grid g3" data-od-id="logo-donts">
+        <div class="cell" style="border-color:rgb(255 146 133 / 0.30)"><div class="cell__cap" style="color:var(--status-critical)">NÃO RECOLORIR</div>
+          <div class="cell__body center"><span class="logo-lockup" style="color:var(--nexodoc-tertiary-strong)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Z"/></svg><span class="wm" style="font-size:18px">Nexo</span></span></div>
+          <div class="cell__note">Rust é ênfase, não marca. A logo é teal, monocromática ou <span class="mono">#0a5f54</span> no claro. Três opções, fim.</div></div>
+        <div class="cell" style="border-color:rgb(255 146 133 / 0.30)"><div class="cell__cap" style="color:var(--status-critical)">NÃO DEFORMAR</div>
+          <div class="cell__body center"><span class="logo-lockup"><svg width="40" height="22" viewBox="0 0 24 24" preserveAspectRatio="none" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Z"/></svg><span class="wm" style="font-size:18px;transform:scaleX(1.4);transform-origin:left">Nexo</span></span></div>
+          <div class="cell__note">O orbe é uma esfera. Esfera achatada não é o mesmo objeto.</div></div>
+        <div class="cell" style="border-color:rgb(255 146 133 / 0.30)"><div class="cell__cap" style="color:var(--status-critical)">NÃO ADICIONAR</div>
+          <div class="cell__body center"><span style="display:inline-flex;flex-direction:column;align-items:center;gap:2px"><span class="logo-lockup"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.75"><circle cx="12" cy="12" r="10.25"/><path d="M12 12c-1.9-2.6-3.6-3.9-5-3.9-1.7 0-2.8 1.6-2.8 3.9s1.1 3.9 2.8 3.9c1.4 0 3.1-1.3 5-3.9Z"/></svg><span class="wm" style="font-size:18px">Nexo</span></span><span class="t-caption dim">documentação inteligente</span></span></div>
+          <div class="cell__note">Tagline dentro do lockup, moldura, sombra, brilho externo: nenhum deles faz parte da marca.</div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

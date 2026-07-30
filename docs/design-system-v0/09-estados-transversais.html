@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 9 — Estados transversais · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  .pat { border:1px solid var(--border); border-radius:var(--radius); background:var(--card); overflow:hidden; }
+  .pat__cap { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3);
+              background:var(--muted); border-bottom:1px solid var(--border);
+              font-family:var(--font-mono); font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--muted-foreground); }
+  .pat__demo { padding:var(--sp-4); min-height:180px; display:flex; align-items:center; justify-content:center; background:var(--nexodoc-recessed); }
+  .pat__rule { padding:var(--sp-3) var(--sp-4); font-size:12px; line-height:1.55; color:var(--muted-foreground); border-top:1px solid var(--border); }
+  .pat__rule b { color:var(--foreground); font-weight:500; }
+  /* simulação das preferências de acessibilidade */
+  .sim[data-reduce-motion="true"] *, .sim[data-reduce-motion="true"] *::before, .sim[data-reduce-motion="true"] *::after {
+    animation:none !important; transition:none !important;
+  }
+  .sim[data-reduce-transparency="true"] .glass,
+  .sim[data-reduce-transparency="true"] .bubble--agent,
+  .sim[data-reduce-transparency="true"] .composer {
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important; background:var(--card) !important;
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote9-main">
+
+    <header class="doc-head" data-od-id="lote9-header">
+      <span class="mono-label eyebrow">LOTE 9 DE 9 · TRANSVERSAIS</span>
+      <h1 class="t-display">Os nove estados que valem para toda tela</h1>
+      <p>Uma página de padrões, com um exemplo real de cada. A regra que atravessa todos:
+      um estado vazio é <b style="color:var(--foreground);font-weight:500">neutro</b> e ensina
+      o que vai aparecer ali; uma falha usa o vocabulário do status crítico. Os dois nunca
+      se parecem.</p>
+    </header>
+
+    <div class="grid g2" style="margin-bottom:var(--sp-16)" data-od-id="empty-vs-fail">
+      <div class="cell" style="border-color:rgb(110 231 163 / .25)"><div class="cell__cap" style="color:var(--status-ok)">VAZIO · NEUTRO</div>
+        <div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:150px">
+          <div class="empty" style="background:transparent;border-style:dashed">
+            <span class="mono-label">ARTEFATOS DO PROJETO</span>
+            <p>Os documentos gerados aparecem aqui. Solte as pranchas em PDF para o Nexo ler os selos.</p>
+            <button class="btn btn--outline btn--sm">Soltar PDFs</button>
+          </div>
+        </div>
+        <div class="cell__note">Borda tracejada, fundo neutro, rótulo mono. Nada aconteceu de errado — só ainda não aconteceu nada.</div></div>
+      <div class="cell" style="border-color:rgb(255 146 133 / .30)"><div class="cell__cap" style="color:var(--status-critical)">FALHA · VOCABULÁRIO DO CRÍTICO</div>
+        <div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:150px">
+          <div class="empty" style="border-style:solid;border-color:rgb(255 146 133 / .30);background:var(--status-critical-bg)">
+            <span class="mono-label" style="color:var(--status-critical)">FALHA AO CARREGAR OS ARTEFATOS</span>
+            <p style="color:var(--foreground)">O servidor não respondeu em 30 s. Os documentos já gerados continuam salvos.</p>
+            <button class="btn btn--outline btn--sm">Tentar de novo</button>
+          </div>
+        </div>
+        <div class="cell__note">Borda sólida coral, fundo tingido, rótulo em coral. E sempre diz o que <em>sobreviveu</em>.</div></div>
+    </div>
+
+    <!-- ==================== OS NOVE ==================== -->
+    <section class="block" id="padroes" data-od-id="section-patterns">
+      <h2><span class="num">1</span>Os nove padrões</h2>
+
+      <div class="grid g2" style="gap:var(--sp-4)">
+
+        <!-- 1 vazio -->
+        <div class="pat"><div class="pat__cap"><span class="mono">01</span>VAZIO</div>
+          <div class="pat__demo">
+            <div class="empty" style="background:transparent"><span class="mono-label">HISTÓRICO</span><p>Sem histórico ainda. Suas conversas e volumes ficam salvos aqui.</p></div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> rótulo mono nomeando a região, uma linha dizendo o que vai aparecer e como fazer aparecer, no máximo uma ação. Sem ilustração, sem emoji, sem tom de marketing.</div></div>
+
+        <!-- 2 carregando -->
+        <div class="pat"><div class="pat__cap"><span class="mono">02</span>CARREGANDO</div>
+          <div class="pat__demo">
+            <div style="width:100%">
+              <div class="tbl-wrap" style="max-height:none"><table class="tbl tbl--dense">
+                <thead><tr><th style="width:72px">Prancha</th><th>Título do selo</th><th class="num" style="width:56px">Rev.</th></tr></thead>
+                <tbody>
+                  <tr><td><div class="sk sk--line" style="width:40px"></div></td><td><div class="sk sk--line" style="width:72%"></div></td><td><div class="sk sk--line" style="width:20px;margin-left:auto"></div></td></tr>
+                  <tr><td><div class="sk sk--line" style="width:40px"></div></td><td><div class="sk sk--line" style="width:56%"></div></td><td><div class="sk sk--line" style="width:20px;margin-left:auto"></div></td></tr>
+                  <tr><td><div class="sk sk--line" style="width:40px"></div></td><td><div class="sk sk--line" style="width:64%"></div></td><td><div class="sk sk--line" style="width:20px;margin-left:auto"></div></td></tr>
+                </tbody></table></div>
+            </div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> esqueleto na forma final — mesma altura de linha, mesmas larguras de coluna. <b>Nunca um spinner solto no meio da tela</b>: spinner não diz o que está vindo, e aqui o que está vindo é uma tabela.</div></div>
+
+        <!-- 3 erro de conteudo -->
+        <div class="pat"><div class="pat__cap"><span class="mono">03</span>ERRO DE CONTEÚDO</div>
+          <div class="pat__demo">
+            <div class="banner banner--critical" style="border:1px solid rgb(255 146 133 / .30);border-radius:var(--radius);width:100%">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+              <div style="flex:1"><strong>Não consegui ler o selo de 2 das 24 pranchas.</strong>
+                <span class="d">As pranchas 14 e 22 têm o carimbo cortado na margem. As outras 22 estão prontas.</span>
+                <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn--outline btn--sm">Ver as 2</button><button class="btn btn--ghost btn--sm">Seguir com 22</button></div></div>
+            </div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> o que falhou, por que falhou, e o que ainda funciona. Falha parcial nunca se apresenta como falha total — o engenheiro refaria trabalho que já está pronto.</div></div>
+
+        <!-- 4 erro de campo -->
+        <div class="pat"><div class="pat__cap"><span class="mono">04</span>ERRO DE CAMPO</div>
+          <div class="pat__demo">
+            <div style="width:100%;max-width:320px">
+              <label class="t-caption dim" style="display:block;margin-bottom:4px" for="e1">Tomo inicial</label>
+              <div class="field is-error" id="e1"><span class="affix">TOMO</span><input value="09" aria-label="Tomo inicial" aria-invalid="true" aria-describedby="e1h"></div>
+              <span class="field-help is-error" id="e1h">Só existem 2 tomos. O tomo inicial precisa estar entre 01 e 02.</span>
+            </div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> borda coral <b>e</b> texto de ajuda, sempre juntos, sempre embaixo do campo. Nunca só a cor do anel mudando — quem não distingue vermelho fica sem informação nenhuma.</div></div>
+
+        <!-- 5 offline -->
+        <div class="pat"><div class="pat__cap"><span class="mono">05</span>OFFLINE / SERVIDOR FORA</div>
+          <div class="pat__demo" style="flex-direction:column;gap:var(--sp-3)">
+            <div class="banner banner--warning" style="border:1px solid rgb(233 180 92 / .30);border-radius:var(--radius);width:100%">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.4a6 6 0 0 1 7 0M12 20h.01M2 2l20 20"/></svg>
+              <div style="flex:1"><strong>Sem conexão.</strong><span class="d">O que você escreveu está guardado neste navegador e vai quando a rede voltar. Nada foi perdido.</span></div>
+            </div>
+            <div class="composer is-disabled" style="width:100%"><input placeholder="Sem conexão — tentando reconectar…" aria-label="Mensagem" disabled></div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> âmbar, não coral — a rede volta, e o trabalho não se perdeu. A primeira frase é sobre o que o engenheiro tem em risco (nada), não sobre a rede.</div></div>
+
+        <!-- 6 sem permissao -->
+        <div class="pat"><div class="pat__cap"><span class="mono">06</span>SEM PERMISSÃO</div>
+          <div class="pat__demo">
+            <div class="banner banner--info" style="border:1px solid var(--signal-info-border);border-radius:var(--radius);width:100%">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <div style="flex:1"><strong>O painel admin é restrito.</strong><span class="d">Sua conta é de projetista. Quem administra o Nexo no escritório pode liberar.</span>
+                <div style="margin-top:8px"><button class="btn btn--outline btn--sm">Voltar ao Nexo</button></div></div>
+            </div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> informação, não falha. Nada quebrou e a conta é válida — este é o caso que mais claramente justifica a cor nova <span class="mono">--signal-info</span>. Diz sempre <em>quem</em> pode liberar.</div></div>
+
+        <!-- 7 sessao expirada -->
+        <div class="pat"><div class="pat__cap"><span class="mono">07</span>SESSÃO EXPIRADA</div>
+          <div class="pat__demo">
+            <div class="menu" style="width:100%;max-width:360px;padding:var(--sp-4);display:grid;gap:var(--sp-3)">
+              <span class="mono-label" style="color:var(--status-warning)">SESSÃO EXPIRADA</span>
+              <p class="t-body">Você ficou 8 horas sem atividade. Entre de novo — a conversa e os 12 artefatos do projeto 040-26 continuam salvos.</p>
+              <div class="field field--sm"><input type="password" value="········" aria-label="Senha"></div>
+              <button class="btn btn--primary btn--sm">Entrar e continuar de onde parei</button>
+            </div>
+          </div>
+          <div class="pat__rule"><b>Regra:</b> não devolve ao login zerado. Diz quanto tempo passou, garante o que sobreviveu <b>com número</b>, e volta ao mesmo lugar. Sessão longa é a norma neste produto.</div></div>
+
+        <!-- 8 movimento reduzido -->
+        <div class="pat"><div class="pat__cap"><span class="mono">08</span>MOVIMENTO REDUZIDO</div>
+          <div class="pat__demo sim" id="sim-motion" data-reduce-motion="true" style="flex-direction:column;gap:var(--sp-3)">
+            <div style="display:flex;gap:var(--sp-4);align-items:center">
+              <div class="orb" data-state="reading" data-frozen="true" style="--orb-size:52px"></div>
+              <div><span class="mono-label" style="color:var(--nexodoc-accent);display:block;margin-bottom:4px">LENDO OS SELOS · 6 DE 8</span>
+                <span class="t-caption dim">O rótulo deixa de ser opcional e passa a ser obrigatório.</span></div>
+            </div>
+            <button class="btn btn--outline btn--sm" id="tg-motion" aria-pressed="true">Movimento reduzido: ligado</button>
+          </div>
+          <div class="pat__rule"><b>O que congela:</b> o orbe (cada estado num quadro escolhido), o esqueleto (vira bloco estático), o cursor de streaming, a transição do shell, o spinner (vira barra determinada). <b>O que não muda:</b> nenhuma informação some — o que estava em movimento vira texto.</div></div>
+
+        <!-- 9 transparencia reduzida -->
+        <div class="pat"><div class="pat__cap"><span class="mono">09</span>TRANSPARÊNCIA REDUZIDA</div>
+          <div class="pat__demo sim" id="sim-glass" data-reduce-transparency="true" style="flex-direction:column;gap:var(--sp-3);background:radial-gradient(400px 180px at 40% 0%, #0d2b28, #06080a 72%)">
+            <div class="bubble bubble--agent t-body" style="width:100%">Li o selo de 8 pranchas. Cabe em dois tomos.</div>
+            <div class="composer" style="width:100%"><input placeholder="Escreva para o Nexo…" aria-label="Mensagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--nexodoc-accent)"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div>
+            <button class="btn btn--outline btn--sm" id="tg-glass" aria-pressed="true">Transparência reduzida: ligada</button>
+          </div>
+          <div class="pat__rule"><b>O que muda:</b> o blur cai e o tint vira <span class="mono">--card</span> sólido nas seis superfícies de vidro. <b>Por que a hierarquia continua de pé:</b> ela nunca dependeu do vidro — dependia da camada tonal e da borda de 1px.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== A MATRIZ ==================== -->
+    <section class="block" id="matriz" data-od-id="section-matrix">
+      <h2><span class="num">2</span>Quem usa qual vocabulário</h2>
+      <p class="lede">A tabela que resolve a dúvida de todo dia: este caso é âmbar, coral ou
+      azul? A pergunta certa não é "quão grave é" — é <b>o que está em risco para o
+      engenheiro</b>.</p>
+
+      <table class="spec" data-od-id="state-matrix">
+        <thead><tr><th style="width:190px">Situação</th><th style="width:130px">Vocabulário</th><th class="tok" style="width:180px">Token</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td>Região sem conteúdo ainda</td><td><span class="badge badge--secondary">NEUTRO</span></td><td class="tok">--muted / --border</td><td>Nada aconteceu de errado. O vazio ensina, não alarma.</td></tr>
+          <tr><td>Aguardando dado</td><td><span class="badge badge--secondary">NEUTRO</span></td><td class="tok">--secondary</td><td>Esqueleto na forma final. Espera não é problema.</td></tr>
+          <tr><td>Falhou e travou o trabalho</td><td><span class="badge badge--critical">CRÍTICO</span></td><td class="tok">--status-critical</td><td>O engenheiro não consegue seguir sem agir.</td></tr>
+          <tr><td>Campo inválido</td><td><span class="badge badge--critical">CRÍTICO</span></td><td class="tok">--status-critical</td><td>Impede o envio. Borda + texto de ajuda, sempre os dois.</td></tr>
+          <tr><td>Documento envelheceu</td><td><span class="badge badge--warning">ATENÇÃO</span></td><td class="tok">--status-warning</td><td>Funciona, mas o resultado na mão dele está errado.</td></tr>
+          <tr><td>Sem conexão</td><td><span class="badge badge--warning">ATENÇÃO</span></td><td class="tok">--status-warning</td><td>Reversível. Nada foi perdido — e isso é dito primeiro.</td></tr>
+          <tr><td>Passou do tempo previsto</td><td><span class="badge badge--warning">ATENÇÃO</span></td><td class="tok">--status-warning</td><td>Promessa quebrada, resultado ainda vindo.</td></tr>
+          <tr><td>Sessão expirada</td><td><span class="badge badge--warning">ATENÇÃO</span></td><td class="tok">--status-warning</td><td>Interrompe, mas o trabalho está salvo.</td></tr>
+          <tr><td>Sem permissão</td><td><span class="badge badge--info">INFORMAÇÃO</span></td><td class="tok">--signal-info</td><td>Nada quebrou. A conta é válida; a porta é que é outra.</td></tr>
+          <tr><td>Modo independente, retomada pós-F5, contexto do sistema</td><td><span class="badge badge--info">INFORMAÇÃO</span></td><td class="tok">--signal-info</td><td>Explica o estado do software sem pedir ação.</td></tr>
+          <tr><td>Valor ausente numa linha de resumo</td><td><span class="badge badge--emphasis">ÊNFASE</span></td><td class="tok">--nexodoc-tertiary</td><td>Marca sem julgar. Não é erro — ainda não foi dito.</td></tr>
+          <tr><td>Ferramenta antiga</td><td><span class="badge badge--legacy">LEGADO</span></td><td class="tok">--legacy</td><td>Funciona e não é o caminho novo. Nem status, nem desabilitado.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Usar âmbar para tudo que "não é bom nem ruim". Foi assim que a vaga de informação apareceu: quando modo independente, retomada pós-F5 e "o documento que você baixou está velho" compartilham a mesma cor, o engenheiro aprende a ignorar o âmbar — e o único aviso que realmente custa dinheiro passa despercebido.</p></div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+<script>
+(function () {
+  function toggle(btnId, simId, attr, onLabel, offLabel) {
+    var btn = document.getElementById(btnId);
+    var sim = document.getElementById(simId);
+    btn.addEventListener('click', function () {
+      var on = sim.getAttribute(attr) === 'true';
+      sim.setAttribute(attr, String(!on));
+      btn.setAttribute('aria-pressed', String(!on));
+      btn.textContent = !on ? onLabel : offLabel;
+    });
+  }
+  toggle('tg-motion', 'sim-motion', 'data-reduce-motion',
+         'Movimento reduzido: ligado', 'Movimento reduzido: desligado');
+  toggle('tg-glass', 'sim-glass', 'data-reduce-transparency',
+         'Transparência reduzida: ligada', 'Transparência reduzida: desligada');
+})();
+</script>
+</body>
+</html>

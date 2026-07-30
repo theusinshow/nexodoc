@@ -23,6 +23,28 @@
   --color-ring: var(--ring);
   --color-warning: var(--status-warning);
   --color-warning-soft: var(--status-warning-bg);
+  /* As quatro vagas de cor (ver :root). Mapeadas aqui para o Tailwind gerar as
+     utilities — sem isto, `bg-signal-info` e `border-discipline-arq` nao
+     existem, e o token so seria alcancavel por `var()` na mao. */
+  --color-signal-info: var(--signal-info);
+  --color-signal-info-bg: var(--signal-info-bg);
+  --color-signal-info-border: var(--signal-info-border);
+  --color-legacy: var(--legacy);
+  --color-legacy-bg: var(--legacy-bg);
+  --color-legacy-border: var(--legacy-border);
+  --color-discipline-arq: var(--discipline-arq);
+  --color-discipline-est: var(--discipline-est);
+  --color-discipline-hid: var(--discipline-hid);
+  --color-discipline-ele: var(--discipline-ele);
+  --color-discipline-pci: var(--discipline-pci);
+  --color-discipline-cli: var(--discipline-cli);
+  --color-discipline-ter: var(--discipline-ter);
+  --color-discipline-pai: var(--discipline-pai);
+  --color-data-1: var(--data-1);
+  --color-data-2: var(--data-2);
+  --color-data-3: var(--data-3);
+  --color-data-4: var(--data-4);
+  --color-data-5: var(--data-5);
   /* DESIGN.md: 8px e o unico raio do sistema. sm/md/lg colapsam nele de
      proposito; xl fica para o raro caso de container externo. */
   --radius-sm: var(--radius);
@@ -98,6 +120,56 @@
   /* Larguras das colunas do shell do Nexo. */
   --nexo-copilot-w: 520px;
   --nexo-sidebar-w: 240px;
+
+  /* ---------------------------------------------------------------------
+     As quatro vagas de cor do DESIGN.md secao 2, preenchidas pelo sistema de
+     design v0 (docs/design-system-v0/01-fundamentos.html). Cada uma existe
+     porque tem TRABALHO: cor sem funcao declarada vira paleta, nao sistema.
+     --------------------------------------------------------------------- */
+
+  /* INFORMACAO — aviso que NAO e status. Azul frio, fora das tres familias:
+     nao pode ser lido como "atencao" (ambar) nem como algo clicavel (teal).
+     Antes, tudo isso virava ambar por falta de opcao, e o ambar dizia menos. */
+  --signal-info: #7fb2e8;
+  --signal-info-bg: rgb(127 178 232 / 0.13);
+  --signal-info-border: rgb(127 178 232 / 0.3);
+
+  /* LEGADO — o que ainda funciona mas saiu do caminho principal (as telas
+     antigas). Roxo-acinzentado dessaturado: presente sem chamar, e longe o
+     bastante dos sinais para nunca parecer um estado de erro. */
+  --legacy: #9d94ab;
+  --legacy-bg: rgb(157 148 171 / 0.12);
+  --legacy-border: rgb(157 148 171 / 0.28);
+
+  /* DISCIPLINA — escala CATEGORICA do canvas (arquitetura, estrutural,
+     hidrossanitario, eletrica, incendio, climatizacao, terraplenagem,
+     paisagismo). Todas dessaturadas de proposito: sao rotulo de agrupamento,
+     nao status — nenhuma pode competir com ok/atencao/critico. */
+  --discipline-arq: #8fa9d0;
+  --discipline-est: #a79ac9;
+  --discipline-hid: #79b6c4;
+  --discipline-ele: #c9b47f;
+  --discipline-pci: #cf9a9a;
+  --discipline-cli: #c99ab8;
+  --discipline-ter: #c4a58f;
+  --discipline-pai: #a3bd8a;
+
+  /* DADO — escala SEQUENCIAL para donut e graficos. Azul, nunca teal: teal
+     significa interativo, e barra de grafico nao se clica. */
+  --data-1: #2f3a5c;
+  --data-2: #46578a;
+  --data-3: #6076b3;
+  --data-4: #8a9bd1;
+  --data-5: #b9c5e8;
+
+  /* Degrau mais brilhante da rampa teal (DESIGN.md secao 2), que so existia
+     como hex solto no orbe. */
+  --nexodoc-accent-luminous: #7af7e1;
+
+  /* Sombra de superficie que flutua ALTO (menu, popover sobre o canvas). Os
+     dois shadows antigos servem a aresta e ao lift minimo; esta separa de um
+     fundo arbitrario. */
+  --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.65);
 }
 
 /* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as

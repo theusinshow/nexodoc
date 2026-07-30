@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 8 — A auditoria · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  /* achado: UM contêiner, seções internas separadas por borda */
+  .find { background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+          box-shadow:var(--edge-highlight); overflow:hidden; }
+  .find__top { display:flex; align-items:center; gap:var(--sp-2); padding:10px var(--sp-4); border-bottom:1px solid var(--border); }
+  .find__top h4 { font-size:15px; font-weight:500; line-height:1.35; }
+  .find__sec { padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); }
+  .find__sec:last-child { border-bottom:0; }
+  .find__sec > .mono-label { color:var(--muted-foreground); display:block; margin-bottom:8px; }
+  .find[data-sev="critical"] { border-left:1px solid rgb(255 146 133 / .55); }
+  .find[data-sev="warning"]  { border-left:1px solid rgb(233 180 92 / .55); }
+  .find[data-sev="info"]     { border-left:1px solid var(--signal-info-border); }
+  .ev { background:var(--nexodoc-recessed); border:1px solid var(--border); border-radius:6px;
+        padding:var(--sp-3); font-family:var(--font-mono); font-size:12px; line-height:1.65; color:var(--muted-foreground); }
+  .ev mark { background:rgb(255 146 133 / .22); color:var(--foreground); padding:1px 2px; border-radius:2px;
+             box-shadow:inset 0 -1px 0 rgb(255 146 133 / .6); }
+  .ev mark.w { background:rgb(233 180 92 / .22); box-shadow:inset 0 -1px 0 rgb(233 180 92 / .6); }
+  .ev .src { display:block; margin-top:8px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:var(--muted-foreground); }
+  .seg { display:inline-flex; gap:2px; padding:3px; border-radius:var(--radius); background:var(--muted); border:1px solid var(--border); }
+  .seg button { border:0; background:none; cursor:pointer; color:var(--muted-foreground);
+                font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;
+                padding:6px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:6px;
+                transition:background-color var(--duration-fast) var(--ease-feedback), color var(--duration-fast) var(--ease-feedback); }
+  .seg button:hover { color:var(--foreground); }
+  .seg button[aria-selected="true"] { background:var(--secondary); color:var(--foreground); box-shadow:inset 0 -2px 0 var(--nexodoc-accent); }
+  .viewer { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--nexodoc-recessed); }
+  .viewer__chrome { display:flex; align-items:center; gap:var(--sp-2); padding:8px var(--sp-3);
+    background:var(--glass-tint); -webkit-backdrop-filter:blur(var(--glass-blur)); backdrop-filter:blur(var(--glass-blur));
+    border-bottom:1px solid var(--glass-ring); box-shadow:var(--glass-edge); }
+  .sheet { background:#e8ecee; color:#12161a; border-radius:2px; padding:18px; font-size:11px; line-height:1.6;
+           box-shadow:0 2px 12px rgb(0 0 0 / .5); }
+  .sheet mark { background:#ffd9a0; box-shadow:inset 0 -1px 0 #c98a2a; }
+  .steps { display:flex; gap:2px; }
+  .steps i { flex:1; height:3px; border-radius:2px; background:var(--secondary); }
+  .steps i.done { background:var(--primary); }
+  .steps i.now  { background:var(--nexodoc-accent); }
+  .prog { height:3px; border-radius:2px; background:var(--secondary); overflow:hidden; }
+  .prog b { display:block; height:100%; background:var(--primary); }
+  .prog--indet b { width:34%; animation:indet 1.4s var(--ease-feedback) infinite; }
+  @keyframes indet { 0%{transform:translateX(-100%)} 100%{transform:translateX(320%)} }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote8-main">
+
+    <header class="doc-head" data-od-id="lote8-header">
+      <span class="mono-label eyebrow">LOTE 8 DE 9 · AUDITORIA</span>
+      <h1 class="t-display">A superfície mais densa do produto</h1>
+      <p>O software compara o memorial descritivo com o projeto e lista incongruências. Cada
+      achado tem severidade, evidência e ação sugerida. É o que o engenheiro lê com mais
+      atenção — e o que mais precisa de hierarquia.</p>
+    </header>
+
+    <!-- ==================== PROGRESSO ==================== -->
+    <section class="block" id="progresso" data-od-id="section-progress">
+      <h2><span class="num">1</span>Barra de progresso da análise</h2>
+
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap">POR ETAPAS</div><div class="cell__body col">
+          <div class="steps" style="width:100%"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i></div>
+          <div style="display:flex;justify-content:space-between;width:100%;margin-top:10px">
+            <span class="mono-label" style="color:var(--nexodoc-accent)">3 · COTAS</span>
+            <span class="mono-data dim" style="font-size:11px">01:42 / ~03:00</span>
+          </div>
+          <p class="t-caption dim" style="margin-top:6px">1 Selos · 2 Áreas · <b style="color:var(--foreground);font-weight:500">3 Cotas</b> · 4 Materiais · 5 Consolidação</p>
+        </div><div class="cell__note">Cinco traços, um por etapa. O nome da etapa atual é a informação; a barra é o contexto.</div></div>
+
+        <div class="cell"><div class="cell__cap">INDETERMINADA</div><div class="cell__body col">
+          <div class="prog prog--indet" style="width:100%"><b></b></div>
+          <span class="mono-label dim" style="margin-top:10px">AGUARDANDO O MODELO</span>
+          <p class="t-caption dim" style="margin-top:6px">Só enquanto não há etapa. Assim que a primeira responde, vira determinada e não volta atrás.</p>
+        </div></div>
+
+        <div class="cell" style="border-color:rgb(233 180 92 / .35)"><div class="cell__cap" style="color:var(--status-warning)">PASSOU DO PREVISTO</div><div class="cell__body col">
+          <div class="steps" style="width:100%"><i class="done"></i><i class="done"></i><i class="done"></i><i style="background:var(--status-warning)"></i><i></i></div>
+          <div style="display:flex;justify-content:space-between;width:100%;margin-top:10px">
+            <span class="mono-label" style="color:var(--status-warning)">4 · MATERIAIS</span>
+            <span class="mono-data" style="font-size:11px;color:var(--status-warning)">04:38 / ~03:00</span>
+          </div>
+          <button class="btn btn--outline btn--sm" style="margin-top:10px;align-self:flex-start">Cancelar e ver o parcial</button>
+        </div><div class="cell__note">Oferece o parcial. Quatro minutos de análise não se joga fora por causa de uma estimativa.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== CABECALHO DO RESULTADO ==================== -->
+    <section class="block" id="resultado" data-od-id="section-result-header">
+      <h2><span class="num">2</span>Cabeçalho do resultado</h2>
+      <p class="lede">A próxima ação é o título. Não "Resultado da auditoria" — o que o
+      engenheiro precisa fazer agora.</p>
+
+      <div class="card" data-od-id="audit-header">
+        <div class="card__body" style="display:grid;gap:var(--sp-4)">
+          <div style="display:flex;align-items:flex-start;gap:var(--sp-4);flex-wrap:wrap">
+            <div style="flex:1;min-width:260px">
+              <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:8px">
+                <span class="badge badge--critical"><i class="dot"></i>2 CRÍTICOS</span>
+                <span class="mono-label dim">040-26 · MEMORIAL REV. 03</span>
+              </div>
+              <h3 class="t-headline">Corrija a cota do vão da Feira antes de fechar o volume</h3>
+              <p class="t-caption dim" style="margin-top:6px">7 achados · 24 pranchas + 42 páginas de memorial · 2 min 51 s · auditoria padrão</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn--outline btn--sm">Exportar achados</button>
+              <button class="btn btn--primary btn--sm">Abrir o crítico nº 1</button>
+            </div>
+          </div>
+
+          <div class="seg" role="tablist" style="align-self:flex-start" data-od-id="audit-tabs">
+            <button role="tab" aria-selected="true">Todos <span class="mono">7</span></button>
+            <button role="tab" aria-selected="false"><i class="dot" style="background:var(--status-critical)"></i>Críticos <span class="mono">2</span></button>
+            <button role="tab" aria-selected="false"><i class="dot" style="background:var(--status-warning)"></i>Atenção <span class="mono">4</span></button>
+            <button role="tab" aria-selected="false"><i class="dot" style="background:var(--signal-info)"></i>Informativos <span class="mono">1</span></button>
+          </div>
+
+          <div class="grid g4" style="gap:var(--sp-2)">
+            <div class="card" style="box-shadow:none"><div class="card__body" style="padding:var(--sp-3)">
+              <span class="mono-label dim" style="display:block;margin-bottom:6px">ACHADOS</span>
+              <span class="mono-data" style="font-size:22px">7</span></div></div>
+            <div class="card" style="box-shadow:none"><div class="card__body" style="padding:var(--sp-3)">
+              <span class="mono-label dim" style="display:block;margin-bottom:6px">PRANCHAS ENVOLVIDAS</span>
+              <span class="mono-data" style="font-size:22px">5 <span class="dim" style="font-size:13px">/ 24</span></span></div></div>
+            <div class="card" style="box-shadow:none"><div class="card__body" style="padding:var(--sp-3)">
+              <span class="mono-label dim" style="display:block;margin-bottom:6px">DISCIPLINAS</span>
+              <span class="mono-data" style="font-size:22px">3</span></div></div>
+            <div class="card" style="box-shadow:none"><div class="card__body" style="padding:var(--sp-3)">
+              <span class="mono-label dim" style="display:block;margin-bottom:6px">TEMPO</span>
+              <span class="mono-data" style="font-size:22px">2:51</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Colorir os quatro cartões de métrica. Eles são contagens, não status: "7 achados" não é bom nem ruim até se saber a severidade — que já está dita no badge acima e nas abas.</p></div>
+    </section>
+
+    <!-- ==================== CARTAO DE ACHADO ==================== -->
+    <section class="block" id="achados" data-od-id="section-findings">
+      <h2><span class="num">3</span>Cartão de achado</h2>
+      <p class="lede"><b>Um</b> contêiner com seções internas separadas por borda: evidência,
+      conflito e ação como blocos adjacentes. Nunca cartões aninhados — três molduras
+      empilhadas fariam o engenheiro procurar onde termina o achado.</p>
+
+      <div style="display:grid;gap:var(--sp-4)" data-od-id="finding-cards">
+
+        <!-- critico -->
+        <div class="find" data-sev="critical">
+          <div class="find__top">
+            <span class="badge badge--critical"><i class="dot"></i>CRÍTICO</span>
+            <h4>A cota do vão principal não bate com o memorial</h4>
+            <span class="mono-label dim" style="margin-left:auto">ARQ · 05/24</span>
+          </div>
+
+          <div class="find__sec">
+            <span class="mono-label">EVIDÊNCIA</span>
+            <div class="grid g2" style="gap:var(--sp-3)">
+              <div class="ev">…a cobertura metálica vence um vão livre de <mark>18,50 m</mark> entre os pilares P4 e P5, sem apoio intermediário…
+                <span class="src">MEMORIAL DESCRITIVO · PÁG. 12 · §4.2</span></div>
+              <div class="ev">COTA GERAL — EIXO P4/P5 &nbsp; <mark>16,80</mark>
+                <span class="src">PRANCHA 05/24 · PLANTA BAIXA — PAVIMENTO TÉRREO</span></div>
+            </div>
+          </div>
+
+          <div class="find__sec">
+            <span class="mono-label">CONFLITO</span>
+            <p class="t-body">Diferença de <span class="mono" style="color:var(--status-critical)">1,70 m</span> —
+            9,2% do vão declarado. O memorial dimensiona a treliça para 18,50 m; a prancha
+            executa 16,80 m. Uma das duas peças vai para a prefeitura errada.</p>
+          </div>
+
+          <div class="find__sec">
+            <span class="mono-label">AÇÃO SUGERIDA</span>
+            <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center">
+              <p class="t-body" style="flex:1;min-width:240px">Confirmar com o projetista estrutural qual cota vale e corrigir a peça vencida antes de montar o volume.</p>
+              <button class="btn btn--outline btn--sm">Abrir a prancha 05/24</button>
+              <button class="btn btn--outline btn--sm">Abrir o memorial pág. 12</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- atencao -->
+        <div class="find" data-sev="warning">
+          <div class="find__top">
+            <span class="badge badge--warning"><i class="dot"></i>ATENÇÃO</span>
+            <h4>Área construída declarada difere da soma das plantas</h4>
+            <span class="mono-label dim" style="margin-left:auto">ARQ · 01/24, 05/24, 06/24</span>
+          </div>
+          <div class="find__sec"><span class="mono-label">EVIDÊNCIA</span>
+            <div class="grid g2" style="gap:var(--sp-3)">
+              <div class="ev">…área construída total de <mark class="w">2.480,00 m²</mark>, distribuída em dois pavimentos…<span class="src">MEMORIAL · PÁG. 4 · §2.1</span></div>
+              <div class="ev">TÉRREO <mark class="w">1.312,40</mark> + SUPERIOR <mark class="w">1.190,60</mark> = 2.503,00 m²<span class="src">PRANCHAS 05/24 E 06/24 · QUADRO DE ÁREAS</span></div>
+            </div></div>
+          <div class="find__sec"><span class="mono-label">CONFLITO</span>
+            <p class="t-body">Diferença de <span class="mono" style="color:var(--status-warning)">23,00 m²</span> — 0,9%.
+            Dentro da tolerância de arredondamento usual, mas o quadro de áreas da prancha é o
+            que a prefeitura confere.</p></div>
+          <div class="find__sec"><span class="mono-label">AÇÃO SUGERIDA</span>
+            <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center">
+              <p class="t-body" style="flex:1;min-width:240px">Alinhar o memorial ao quadro de áreas, ou registrar a divergência na observação do protocolo.</p>
+              <button class="btn btn--outline btn--sm">Abrir o quadro de áreas</button>
+            </div></div>
+        </div>
+
+        <!-- informativo -->
+        <div class="find" data-sev="info">
+          <div class="find__top">
+            <span class="badge badge--info"><i class="dot"></i>INFORMATIVO</span>
+            <h4>O memorial cita uma disciplina que não veio no projeto</h4>
+            <span class="mono-label dim" style="margin-left:auto">CLI</span>
+          </div>
+          <div class="find__sec"><span class="mono-label">EVIDÊNCIA</span>
+            <div class="ev">…o sistema de climatização será detalhado em projeto específico, conforme prancha <mark class="w">CLI-01</mark>…<span class="src">MEMORIAL · PÁG. 31 · §7.4</span></div></div>
+          <div class="find__sec"><span class="mono-label">CONFLITO</span>
+            <p class="t-body">Nenhuma prancha de climatização foi anexada. Pode ser um projeto complementar entregue em separado — nesse caso não há erro.</p></div>
+          <div class="find__sec"><span class="mono-label">AÇÃO SUGERIDA</span>
+            <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center">
+              <p class="t-body" style="flex:1;min-width:240px">Confirmar se o projeto de climatização entra neste volume ou em protocolo próprio.</p>
+              <button class="btn btn--ghost btn--sm">Marcar como resolvido</button>
+            </div></div>
+        </div>
+      </div>
+
+      <div class="rule-note"><strong>Informativo é a vaga nova em uso.</strong> Antes, este
+      achado sairia em âmbar — e um "pode não ser erro" com a mesma cor de "23 m² de
+      diferença" ensina o engenheiro a ignorar o âmbar. É exatamente a diluição que
+      <span class="mono">--signal-info</span> existe para impedir.</div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Faixa lateral colorida grossa como acento no achado. O fio de 1px na borda esquerda já carrega a severidade; uma faixa de 4px vira a "AI dashboard tile" que o norte criativo rejeita, e rouba peso do badge que carrega a palavra.</p></div>
+    </section>
+
+    <!-- ==================== EVIDENCIA E VISUALIZADOR ==================== -->
+    <section class="block" id="evidencia" data-od-id="section-evidence">
+      <h2><span class="num">4</span>Evidência e visualizador</h2>
+
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">EVIDÊNCIA EXPORTÁVEL COMO IMAGEM<span>PARA O E-MAIL DO PROJETISTA</span></div>
+          <div class="cell__body col" style="background:var(--nexodoc-recessed);padding:var(--sp-4)">
+            <div class="sheet" style="width:100%">
+              <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;color:#5a6570;margin-bottom:10px">
+                <span>040-26 · MEMORIAL DESCRITIVO · PÁG. 12</span><span>REV. 03</span></div>
+              <p style="margin-bottom:8px"><b>4.2 Cobertura</b></p>
+              <p>A cobertura metálica vence um vão livre de <mark>18,50 m</mark> entre os pilares
+              P4 e P5, sem apoio intermediário, em treliça plana de banzos paralelos.</p>
+              <div style="margin-top:12px;padding-top:8px;border-top:1px solid #c8cfd3;font-family:var(--font-mono);font-size:9px;color:#5a6570;display:flex;justify-content:space-between">
+                <span>NEXO · ACHADO CRÍTICO 1 DE 7</span><span>30/07/2026 11:41</span></div>
+            </div>
+            <button class="btn btn--outline btn--sm" style="margin-top:var(--sp-3);align-self:flex-start">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Baixar como PNG</button>
+          </div>
+          <div class="cell__note">A imagem sai em fundo claro, com carimbo de origem e horário. Ela vai por e-mail para quem não usa o Nexo — e precisa se defender sozinha.</div></div>
+
+        <div class="cell"><div class="cell__cap">VISUALIZADOR DE PDF<span>O CROMO PODE TER VIDRO</span></div>
+          <div class="cell__body col" style="padding:var(--sp-3);background:var(--background)">
+            <div class="viewer" style="width:100%">
+              <div class="viewer__chrome">
+                <button class="btn btn--ghost btn--icon btn--sm" aria-label="Página anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m15 18-6-6 6-6"/></svg></button>
+                <span class="mono-data" style="font-size:12px">12 / 42</span>
+                <button class="btn btn--ghost btn--icon btn--sm" aria-label="Próxima página"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg></button>
+                <span class="sep--v"></span>
+                <div class="field field--sm" style="flex:1;min-width:0;height:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input value="vão livre" aria-label="Buscar no PDF" style="font-size:12px"><span class="affix">2 / 5</span></div>
+                <span class="sep--v"></span>
+                <button class="btn btn--ghost btn--icon btn--sm" aria-label="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+              </div>
+              <div style="padding:var(--sp-4);display:flex;justify-content:center">
+                <div class="sheet" style="width:100%;max-width:340px">
+                  <p style="margin-bottom:8px"><b>4.2 Cobertura</b></p>
+                  <p>A cobertura metálica vence um <mark>vão livre</mark> de 18,50 m entre os pilares P4 e P5, sem apoio intermediário.</p>
+                  <p style="margin-top:8px;color:#5a6570">4.3 Fechamentos laterais em painel metálico termoacústico…</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cell__note">O cromo é vidro — está acima da linha d'água. A <em>página</em> nunca é: ela é o documento que se lê.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== FEEDBACK ==================== -->
+    <section class="block" id="feedback" data-od-id="section-feedback">
+      <h2><span class="num">5</span>"O software não identificou este erro"</h2>
+      <p class="lede">Formulário curto. O engenheiro achou algo que a auditoria não achou —
+      esse é o dado mais valioso que este produto pode receber, e o formulário tem que caber
+      entre duas conferências de prancha.</p>
+
+      <div class="grid g2">
+        <div class="card">
+          <div class="card__head"><span class="mono-label">ACHADO NÃO IDENTIFICADO</span><span class="badge badge--secondary">040-26</span></div>
+          <div class="card__body" style="display:grid;gap:var(--sp-3)">
+            <div><label class="t-caption dim" style="display:block;margin-bottom:4px" for="f1">Onde está</label>
+              <div class="field field--sm" id="f1"><span class="affix">PRANCHA</span><input value="14/24" aria-label="Prancha"><span class="affix">MEMORIAL PÁG.</span><input value="27" aria-label="Página" style="max-width:48px"></div></div>
+            <div><label class="t-caption dim" style="display:block;margin-bottom:4px" for="f2">O que o Nexo deveria ter apontado</label>
+              <textarea class="field" id="f2" style="min-height:76px" aria-label="Descrição">O memorial fala em piso industrial polido e a prancha especifica granilite.</textarea></div>
+            <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Severidade que você daria</label>
+              <div class="seg"><button aria-selected="false"><i class="dot" style="background:var(--signal-info)"></i>Info</button><button aria-selected="true"><i class="dot" style="background:var(--status-warning)"></i>Atenção</button><button aria-selected="false"><i class="dot" style="background:var(--status-critical)"></i>Crítico</button></div></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn--ghost btn--sm">Cancelar</button><button class="btn btn--primary btn--sm">Enviar</button></div>
+          </div>
+        </div>
+
+        <div class="cell"><div class="cell__cap">DEPOIS DE ENVIAR</div>
+          <div class="cell__body col" style="padding:var(--sp-4)">
+            <div class="banner banner--ok" style="border:1px solid rgb(110 231 163 / .30);border-radius:var(--radius);width:100%">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m20 6-11 11-5-5"/></svg>
+              <div><strong>Registrado.</strong><span class="d">Vai para /admin/quality, comparado contra os achados revisados. Nada é enviado à prefeitura.</span></div>
+            </div>
+            <div class="anti" style="margin-top:var(--sp-4)"><span class="anti__tag">NÃO FAÇA</span>
+              <p>Pedir nota de 1 a 5, categoria e comentário livre. Três campos a mais e o
+              engenheiro fecha o formulário — e o produto perde exatamente a informação de
+              que mais precisa para melhorar o motor.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    seg.addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      seg.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', String(b === btn)); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

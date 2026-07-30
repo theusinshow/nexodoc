@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 1 — Fundamentos · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  .sw { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--card); }
+  .sw__chip { height:64px; }
+  .sw__meta { padding:var(--sp-2) var(--sp-3); border-top:1px solid var(--border); }
+  .sw__meta .name { font-size:13px; display:block; margin-bottom:2px; }
+  .sw__meta .tok { font-family:var(--font-mono); font-size:11px; color:var(--nexodoc-accent); letter-spacing:0.02em; }
+  .sw__meta .job { font-size:11px; color:var(--muted-foreground); display:block; margin-top:4px; line-height:1.4; }
+  .elev { border-radius:var(--radius); border:1px solid var(--border); height:96px; display:flex; align-items:flex-end; padding:var(--sp-3); }
+  .ticks { display:flex; align-items:flex-end; gap:2px; height:40px; }
+  .ticks i { display:block; width:1px; background:var(--nexodoc-grid); }
+  .motion-demo { height:40px; border-radius:6px; background:var(--secondary); border:1px solid var(--border); position:relative; overflow:hidden; }
+  .motion-demo b { position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:4px; background:var(--primary); }
+  .motion-demo b { left:8px; }
+  .motion-demo:hover b { transform:translateX(calc(100cqw - 46px)); }
+  .motion-demo { container-type:inline-size; }
+  .disc { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3); border:1px solid var(--border); border-radius:6px; background:var(--nexodoc-recessed); }
+  .disc i { width:10px; height:10px; border-radius:2px; flex:none; }
+  .disc .code { font-family:var(--font-mono); font-size:12px; letter-spacing:0.05em; }
+  .disc .nm { font-size:12px; color:var(--muted-foreground); margin-left:auto; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote1-main">
+
+    <header class="doc-head" data-od-id="lote1-header">
+      <span class="mono-label eyebrow">LOTE 1 DE 9 · FUNDAMENTOS</span>
+      <h1 class="t-display">Cor, tipo, grade, elevação, vidro, movimento, ícones</h1>
+      <p>Os sete grupos que todo o resto usa. Nada abaixo é decoração: cada valor tem um
+      trabalho definido e um lugar onde é proibido aparecer.</p>
+    </header>
+
+    <!-- ============================ 1. COR ============================ -->
+    <section class="block" id="cor" data-od-id="section-color">
+      <h2><span class="num">1</span>Cor</h2>
+      <p class="lede">Três famílias que nunca se cruzam de significado. Essa separação é a
+      regra mais importante do sistema — sem ela o engenheiro perde a pista de onde pode
+      agir e de onde algo está errado.</p>
+
+      <h3 class="sub">1.1 · Interativo — só isto significa "clicável"</h3>
+      <div class="grid g3" data-od-id="family-interactive">
+        <div class="sw"><div class="sw__chip" style="background:#00a693"></div><div class="sw__meta">
+          <span class="name">technical-teal</span><span class="tok">--primary · #00a693</span>
+          <span class="job">Preenchimento do botão primário. O único teal que carrega texto escuro por cima.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#5bdac6"></div><div class="sw__meta">
+          <span class="name">bright-teal</span><span class="tok">--ring · --nexodoc-accent · #5bdac6</span>
+          <span class="job">Anel de foco, borda ativa, link, ícone que É a ação. O teal que se lê como texto.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#7af7e1"></div><div class="sw__meta">
+          <span class="name">luminous-teal</span><span class="tok">--nexodoc-accent-luminous · #7af7e1</span>
+          <span class="job">Só brilho do orbe e ponto alto de gradiente. Nunca superfície, nunca texto de UI.</span></div></div>
+      </div>
+
+      <h3 class="sub">1.2 · Status — só isto significa estado</h3>
+      <div class="grid g3" data-od-id="family-status">
+        <div class="sw"><div class="sw__chip" style="background:#6ee7a3"></div><div class="sw__meta">
+          <span class="name">signal-ok</span><span class="tok">--status-ok · #6ee7a3</span>
+          <span class="job">"Aprovado", "gerado", "sem pendência". Verde-menta, jamais teal — para nunca parecer clicável.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#e9b45c"></div><div class="sw__meta">
+          <span class="name">signal-warning</span><span class="tok">--status-warning · #e9b45c</span>
+          <span class="job">Atenção real: o documento envelheceu, o selo veio sem título, passou do tempo previsto.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#ff9285"></div><div class="sw__meta">
+          <span class="name">signal-critical</span><span class="tok">--status-critical · --destructive · #ff9285</span>
+          <span class="job">Falha e destrutivo compartilham o tom de propósito: os dois param o engenheiro.</span></div></div>
+      </div>
+
+      <h3 class="sub">1.3 · Ênfase — nunca status, nunca fundo de página</h3>
+      <div class="grid g3" data-od-id="family-emphasis">
+        <div class="sw"><div class="sw__chip" style="background:#dc7858"></div><div class="sw__meta">
+          <span class="name">rust-salmon</span><span class="tok">--nexodoc-tertiary-strong · #dc7858</span>
+          <span class="job">O rótulo "faltando" numa linha de resumo. Marca, não julga.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#ffb59e"></div><div class="sw__meta">
+          <span class="name">salmon-pink</span><span class="tok">--nexodoc-tertiary · #ffb59e</span>
+          <span class="job">Valor ausente em texto. É a versão legível do rust sobre fundo escuro.</span></div></div>
+        <div class="sw"><div class="sw__chip" style="background:rgb(220 120 88 / 0.14)"></div><div class="sw__meta">
+          <span class="name">tertiary-bg</span><span class="tok">--nexodoc-tertiary-bg</span>
+          <span class="job">Fundo tingido a 14%. Nunca preenche uma área maior que uma linha de texto.</span></div></div>
+      </div>
+
+      <div class="anti">
+        <span class="anti__tag">NÃO FAÇA</span>
+        <p>Um badge "Aprovado" em teal. Ele passa a parecer um botão, e o engenheiro
+        tenta clicar num veredito. Aprovado é <span class="mono" style="color:var(--status-ok)">--status-ok</span>, sempre.</p>
+      </div>
+
+      <!-- ---------------- as 4 novas ---------------- -->
+      <h3 class="sub">1.4 · As quatro vagas novas</h3>
+      <p class="lede">Cada uma existe porque hoje algo está sendo dito com a cor errada — e
+      cor errada, neste produto, custa volume impresso errado entregue à prefeitura.</p>
+
+      <!-- a) informacao -->
+      <div class="card" style="margin-bottom:var(--sp-4)" data-od-id="new-color-info">
+        <div class="card__head"><span class="mono-label">NOVA 1 DE 4 · INFORMAÇÃO / NEUTRO-ATIVO</span><span class="badge badge--info">--signal-info</span></div>
+        <div class="card__body">
+          <div class="grid g3" style="margin-bottom:var(--sp-4)">
+            <div class="sw"><div class="sw__chip" style="background:#7fb2e8"></div><div class="sw__meta"><span class="name">signal-info</span><span class="tok">--signal-info · #7fb2e8</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:rgb(127 178 232 / 0.13)"></div><div class="sw__meta"><span class="name">fundo tingido</span><span class="tok">--signal-info-bg · 13%</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:rgb(127 178 232 / 0.30)"></div><div class="sw__meta"><span class="name">borda</span><span class="tok">--signal-info-border · 30%</span></div></div>
+          </div>
+          <p class="t-body dim prose" style="margin-bottom:var(--sp-3)"><strong style="color:var(--foreground);font-weight:500">Por quê:</strong>
+          hoje "o autosave está pronto", "modo independente" e "a leitura do selo é feita
+          por IA" saem em âmbar por falta de opção. Isso dilui o significado de atenção:
+          quando tudo é âmbar, âmbar não é nada. Informação é azul porque é o único lugar
+          do círculo cromático que nenhuma das três famílias ocupa, e porque a distância
+          para o âmbar é máxima.</p>
+          <div class="grid g2">
+            <div class="banner banner--info" style="border:1px solid var(--signal-info-border);border-radius:var(--radius)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <div><strong>Modo independente</strong><span class="d">Sem projeto vinculado. A LD não entra no console de nenhuma obra.</span></div>
+            </div>
+            <div class="banner banner--warning" style="border:1px solid rgb(233 180 92 / 0.30);border-radius:var(--radius)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+              <div><strong>7 pendências no selo</strong><span class="d">Sete pranchas sem título. A LD sai com linhas em branco.</span></div>
+            </div>
+          </div>
+          <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Usar <span class="mono">--signal-info</span> num botão. Azul não é interativo neste sistema — teal é. Informação informa e não pede clique.</p></div>
+        </div>
+      </div>
+
+      <!-- b) legado -->
+      <div class="card" style="margin-bottom:var(--sp-4)" data-od-id="new-color-legacy">
+        <div class="card__head"><span class="mono-label">NOVA 2 DE 4 · LEGADO / CONGELADO</span><span class="badge badge--legacy">--legacy</span></div>
+        <div class="card__body">
+          <div class="grid g3" style="margin-bottom:var(--sp-4)">
+            <div class="sw"><div class="sw__chip" style="background:#9d94ab"></div><div class="sw__meta"><span class="name">legacy</span><span class="tok">--legacy · #9d94ab</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:rgb(157 148 171 / 0.12)"></div><div class="sw__meta"><span class="name">fundo tingido</span><span class="tok">--legacy-bg · 12%</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:rgb(157 148 171 / 0.28)"></div><div class="sw__meta"><span class="name">borda</span><span class="tok">--legacy-border · 28%</span></div></div>
+          </div>
+          <p class="t-body dim prose" style="margin-bottom:var(--sp-3)"><strong style="color:var(--foreground);font-weight:500">Por quê:</strong>
+          as ferramentas antigas funcionam e às vezes precisam ser usadas — não podem
+          parecer quebradas nem proibidas. Cinza puro as faria parecer desabilitadas;
+          âmbar as faria parecer com defeito. Um violeta acinzentado de croma muito baixo
+          (0,045) é a única faixa de hue que nenhuma família reivindica: lê como
+          "arquivado", não como "avariado".</p>
+          <div class="grid g2">
+            <div style="border:1px solid var(--legacy-border);border-radius:var(--radius);background:var(--legacy-bg);padding:var(--sp-3) var(--sp-4)">
+              <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:6px">
+                <span class="badge badge--legacy">CONGELADO</span>
+                <span class="mono-label dim">NEXO · FERRAMENTA ANTIGA</span>
+              </div>
+              <h4 class="t-subtitle">Criador de Listas de Documentos</h4>
+              <p class="t-caption dim" style="margin-top:4px">Ainda funciona. O caminho novo é conversar com o Nexo.</p>
+            </div>
+            <div class="cell"><div class="cell__cap">A REGRA DE APLICAÇÃO</div><div class="cell__note" style="padding-top:var(--sp-3)">
+              O legado aparece como <em>moldura e selo</em> — nunca como recoloração do miolo.
+              O conteúdo da tela antiga continua com os tokens normais; só a casca diz que é legado.
+            </div></div>
+          </div>
+          <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Baixar a opacidade da tela legada inteira. O engenheiro precisa <em>ler</em> a tabela de revisão para trabalhar; opacidade reduzida em dado é o mesmo erro que borrar dado.</p></div>
+        </div>
+      </div>
+
+      <!-- c) disciplina -->
+      <div class="card" style="margin-bottom:var(--sp-4)" data-od-id="new-color-discipline">
+        <div class="card__head"><span class="mono-label">NOVA 3 DE 4 · DISCIPLINA · ESCALA CATEGÓRICA DE 8 PASSOS</span><span class="badge badge--secondary">--discipline-*</span></div>
+        <div class="card__body">
+          <div class="grid g4" style="margin-bottom:var(--sp-4)" data-od-id="discipline-scale">
+            <div class="disc"><i style="background:var(--discipline-arq)"></i><span class="code">ARQ</span><span class="nm">Arquitetura</span></div>
+            <div class="disc"><i style="background:var(--discipline-est)"></i><span class="code">EST</span><span class="nm">Estrutural</span></div>
+            <div class="disc"><i style="background:var(--discipline-hid)"></i><span class="code">HID</span><span class="nm">Hidrossanitário</span></div>
+            <div class="disc"><i style="background:var(--discipline-ele)"></i><span class="code">ELE</span><span class="nm">Elétrico</span></div>
+            <div class="disc"><i style="background:var(--discipline-pci)"></i><span class="code">PCI</span><span class="nm">Incêndio</span></div>
+            <div class="disc"><i style="background:var(--discipline-cli)"></i><span class="code">CLI</span><span class="nm">Climatização</span></div>
+            <div class="disc"><i style="background:var(--discipline-ter)"></i><span class="code">TER</span><span class="nm">Terraplenagem</span></div>
+            <div class="disc"><i style="background:var(--discipline-pai)"></i><span class="code">PAI</span><span class="nm">Paisagismo</span></div>
+          </div>
+          <p class="t-body dim prose" style="margin-bottom:var(--sp-3)"><strong style="color:var(--foreground);font-weight:500">Por quê e como não colidir:</strong>
+          um projeto tem 200 folhas de seis a oito disciplinas, e o canvas precisa deixar
+          o agrupamento visível de relance. A escala resolve a colisão com os três sinais
+          por <em>croma</em>, não por hue: todas as oito ficam em croma ~0,06 e lightness
+          ~0,74, enquanto ok/atenção/crítico vivem entre 0,12 e 0,18 de croma. Lado a lado,
+          disciplina lê como taxonomia empoeirada; status lê como sinal aceso.</p>
+          <div class="rule-note"><strong>O código mono de três letras é o portador primário.</strong>
+          A cor é a pista secundária. Nenhuma decisão do produto pode depender só da cor da
+          disciplina — é isso que torna a escala segura para daltonismo e para impressão em
+          preto e branco.</div>
+          <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-4)">
+            <div class="node-folha" style="border-top-color:var(--discipline-arq)"><span class="n">05/24 · ARQ</span><span class="t">Planta baixa — pavimento térreo</span></div>
+            <div class="node-folha" style="border-top-color:var(--discipline-est)"><span class="n">11/24 · EST</span><span class="t">Fôrmas — laje de cobertura</span></div>
+            <div class="node-folha" style="border-top-color:var(--discipline-hid)"><span class="n">17/24 · HID</span><span class="t">Água fria — térreo</span></div>
+            <div class="node-folha" style="border-top-color:var(--discipline-pci)"><span class="n">22/24 · PCI</span><span class="t">Rota de fuga</span></div>
+          </div>
+          <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Preencher o nó de folha inteiro com a cor da disciplina. Vira mosaico colorido — exatamente o "cartão decorativo" que o norte criativo rejeita. A cor entra como fio de 2px no topo.</p></div>
+        </div>
+      </div>
+
+      <!-- d) dado -->
+      <div class="card" style="margin-bottom:var(--sp-4)" data-od-id="new-color-data">
+        <div class="card__head"><span class="mono-label">NOVA 4 DE 4 · DADO · ESCALA SEQUENCIAL DE 5 PASSOS</span><span class="badge badge--secondary">--data-1…5</span></div>
+        <div class="card__body">
+          <div class="grid g5" style="margin-bottom:var(--sp-4)" data-od-id="data-scale">
+            <div class="sw"><div class="sw__chip" style="background:var(--data-1)"></div><div class="sw__meta"><span class="tok">--data-1 · #2f3a5c</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:var(--data-2)"></div><div class="sw__meta"><span class="tok">--data-2 · #46578a</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:var(--data-3)"></div><div class="sw__meta"><span class="tok">--data-3 · #6076b3</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:var(--data-4)"></div><div class="sw__meta"><span class="tok">--data-4 · #8a9bd1</span></div></div>
+            <div class="sw"><div class="sw__chip" style="background:var(--data-5)"></div><div class="sw__meta"><span class="tok">--data-5 · #b9c5e8</span></div></div>
+          </div>
+          <p class="t-body dim prose" style="margin-bottom:var(--sp-4)"><strong style="color:var(--foreground);font-weight:500">Por quê:</strong>
+          o donut de consumo e os gráficos do admin precisam de uma rampa ordenada. Se
+          fosse a rampa teal, cada fatia pareceria clicável e o significado de "interativo"
+          morreria no lugar onde ele mais precisa estar vivo — a tela de operação. A rampa
+          é de hue único (~265°) com lightness crescente: ordem legível também em escala
+          de cinza.</p>
+          <div class="grid g2" style="align-items:center">
+            <div class="cell"><div class="cell__cap">CONSUMO POR MODELO<span>ADMIN</span></div><div class="cell__body center">
+              <svg viewBox="0 0 42 42" width="120" height="120" role="img" aria-label="Donut de consumo por modelo">
+                <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--data-1)" stroke-width="6"></circle>
+                <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--data-5)" stroke-width="6" stroke-dasharray="46 54" stroke-dashoffset="25"></circle>
+                <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--data-4)" stroke-width="6" stroke-dasharray="27 73" stroke-dashoffset="-21"></circle>
+                <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--data-3)" stroke-width="6" stroke-dasharray="17 83" stroke-dashoffset="-48"></circle>
+              </svg>
+            </div></div>
+            <div>
+              <table class="spec">
+                <thead><tr><th>Modelo</th><th class="num">Tokens</th><th class="num">Custo</th></tr></thead>
+                <tbody>
+                  <tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--data-5);margin-right:8px"></i>gpt-5-vision</td><td class="num">4.812.006</td><td class="num">R$ 141,80</td></tr>
+                  <tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--data-4);margin-right:8px"></i>gpt-5-mini</td><td class="num">2.804.919</td><td class="num">R$ 38,42</td></tr>
+                  <tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--data-3);margin-right:8px"></i>embeddings</td><td class="num">1.771.230</td><td class="num">R$ 9,05</td></tr>
+                  <tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--data-1);margin-right:8px"></i>restante</td><td class="num">1.058.402</td><td class="num">R$ 4,11</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Colorir a fatia maior de teal "porque é a principal". A fatia não é clicável; teal ali é mentira.</p></div>
+        </div>
+      </div>
+
+      <!-- matriz de contraste -->
+      <h3 class="sub">1.5 · Matriz de contraste — medida, não estimada</h3>
+      <p class="lede">Todos os pares de texto/fundo em uso, calculados por WCAG 2.1 sobre os
+      dois fundos reais do sistema. O mínimo do produto é 4,5:1 para qualquer tamanho —
+      mais rigoroso que o AA, porque a sessão de trabalho dura horas.</p>
+
+      <table class="spec" data-od-id="contrast-matrix">
+        <thead>
+          <tr><th>Texto</th><th class="tok">Token</th><th class="num">sobre #0a0e11</th><th class="num">sobre #121518</th><th style="width:64px">AA</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="color:#e1e7ea">Texto principal</td><td class="tok">--foreground</td><td class="num">15,52</td><td class="num">14,64</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#8e9ba3">Texto secundário</td><td class="tok">--muted-foreground</td><td class="num">6,80</td><td class="num">6,41</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#5bdac6">Teal claro</td><td class="tok">--ring / --nexodoc-accent</td><td class="num">11,34</td><td class="num">10,69</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#00a693">Teal técnico</td><td class="tok">--primary</td><td class="num">6,34</td><td class="num">5,98</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#6ee7a3">Sinal ok</td><td class="tok">--status-ok</td><td class="num">12,57</td><td class="num">11,85</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#e9b45c">Sinal atenção</td><td class="tok">--status-warning</td><td class="num">10,29</td><td class="num">9,70</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#ff9285">Sinal crítico</td><td class="tok">--status-critical</td><td class="num">8,96</td><td class="num">8,45</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#ffb59e">Salmão (ênfase)</td><td class="tok">--nexodoc-tertiary</td><td class="num">11,41</td><td class="num">10,75</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#dc7858">Rust (ênfase)</td><td class="tok">--nexodoc-tertiary-strong</td><td class="num">6,35</td><td class="num">5,98</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#7fb2e8">Informação <span class="badge badge--info" style="margin-left:6px">NOVA</span></td><td class="tok">--signal-info</td><td class="num">8,71</td><td class="num">8,21</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#9d94ab">Legado <span class="badge badge--legacy" style="margin-left:6px">NOVA</span></td><td class="tok">--legacy</td><td class="num">6,69</td><td class="num">6,31</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+          <tr><td style="color:#79b6c4">Disciplina (a mais escura das 8) <span class="badge badge--secondary" style="margin-left:6px">NOVA</span></td><td class="tok">--discipline-hid</td><td class="num">8,59</td><td class="num">8,10</td><td><span class="badge badge--ok">PASSA</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="grid g2" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">TEXTO ESCURO SOBRE PREENCHIMENTO</div><div class="cell__body col">
+          <div style="background:#00a693;color:#06080a;padding:10px var(--sp-3);border-radius:6px;font-family:var(--font-mono);font-size:13px">Gerar os 4 &nbsp;·&nbsp; 6,57:1</div>
+          <div style="background:#ff9285;color:#2b0a08;padding:10px var(--sp-3);border-radius:6px;font-family:var(--font-mono);font-size:13px">Excluir conversa &nbsp;·&nbsp; 7,88:1</div>
+        </div></div>
+        <div class="cell"><div class="cell__cap">SOBRE VIDRO — O CASO DIFÍCIL</div>
+          <div class="cell__body col" style="background:linear-gradient(120deg,#0d1c1a,#0a0e11 60%)">
+            <div class="glass--weak" style="padding:var(--sp-3);border-radius:var(--radius);background:var(--glass-tint-weak);border:1px solid var(--glass-ring)">
+              <span class="t-body">Li os 8 selos. Todas as pranchas são de arquitetura.</span>
+            </div>
+          </div>
+          <div class="cell__note">Sobre vidro o contraste é medido contra o <em>pior fundo possível</em> da
+          tela — não contra a média. Por isso a bolha do assistente usa <span class="mono">--glass-tint-weak</span> (52%),
+          mais sólido que o cromo (62%): 12,9:1 no pior caso.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 2. TIPOGRAFIA ============================ -->
+    <section class="block" id="tipografia" data-od-id="section-type">
+      <h2><span class="num">2</span>Tipografia</h2>
+      <p class="lede">IBM Plex Sans para ler; IBM Plex Mono para dado estruturado — horário,
+      nome de arquivo, código, ID, contagem, rótulo de UI. Todo número é tabular, sem
+      exceção: coluna de contagem que dança entre linhas é erro de leitura esperando
+      acontecer.</p>
+
+      <div class="card" data-od-id="type-scale">
+        <div class="card__head"><span class="mono-label">OS 8 ESTILOS · EM TEXTO REAL DE ENGENHARIA</span><span class="mono-label">TAMANHO / PESO / TRACKING</span></div>
+        <div class="card__body" style="display:grid;gap:var(--sp-6)">
+
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-display">Revitalização da Feira</span>
+            <span class="mono-label dim">DISPLAY · 40/1.1/−0.02em/600</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-headline">Revitalização da Feira Municipal de Chapecó</span>
+            <span class="mono-label dim">HEADLINE · 24/1.2/−0.01em/500</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-title">Lista de Documentos — Tomo 01 de 02</span>
+            <span class="mono-label dim">TITLE · 18/1.4/500</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-subtitle">Prefeitura Municipal de Chapecó</span>
+            <span class="mono-label dim">SUBTITLE · 16/1.4/500</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-body prose">Li o selo de 8 pranchas. Todas são de arquitetura e o projeto cabe em dois tomos. Confirme o título antes de eu gerar — o título é decisão sua.</span>
+            <span class="mono-label dim">BODY · 14/1.5/400 · máx. 68ch</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="t-caption dim">8 folha(s) de selo lidas — pronto para gerar.</span>
+            <span class="mono-label dim">CAPTION · 12/1.4/400</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="mono-label">PROJETO · REVISÃO · TOMO</span>
+            <span class="mono-label dim">MONO-LABEL · 12/1.0/+0.05em/500</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:var(--sp-6);align-items:baseline">
+            <span class="mono-data">040-26 &nbsp; REV. 03 &nbsp; PRANCHA 05/24 &nbsp; 11:35</span>
+            <span class="mono-label dim">MONO-DATA · 13/1.4/400 · tabular</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g2" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">TABULAR — CERTO</div><div class="cell__body col" style="gap:2px">
+          <span class="mono-data">1.118</span><span class="mono-data">&nbsp;&nbsp;&nbsp;24</span><span class="mono-data">4.812</span>
+          <span class="cell__note" style="padding:var(--sp-2) 0 0">Os algarismos alinham na coluna. A contagem é conferível de relance.</span>
+        </div></div>
+        <div class="cell"><div class="cell__cap">PROPORCIONAL — ERRADO</div><div class="cell__body col" style="gap:2px">
+          <span class="mono-data" style="font-variant-numeric:proportional-nums;font-family:var(--font-sans)">1.118</span>
+          <span class="mono-data" style="font-variant-numeric:proportional-nums;font-family:var(--font-sans)">24</span>
+          <span class="mono-data" style="font-variant-numeric:proportional-nums;font-family:var(--font-sans)">4.812</span>
+          <span class="cell__note" style="padding:var(--sp-2) 0 0">A coluna dança. Numa tabela de 200 linhas, isso é onde o erro passa.</span>
+        </div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Nome de arquivo, código de obra ou horário em IBM Plex Sans. Mono não é enfeite — é o que diz "isto é dado literal, leia caractere a caractere".</p></div>
+    </section>
+
+    <!-- ============================ 3. ESPACO E GRADE ============================ -->
+    <section class="block" id="espaco" data-od-id="section-spacing">
+      <h2><span class="num">3</span>Espaçamento e grade</h2>
+      <p class="lede">Grade de 4px. Toda medida do sistema é múltipla dela — margem, altura de
+      linha de tabela, altura de controle. Não existe 5px, 7px, 13px.</p>
+
+      <div class="grid g6" style="margin-bottom:var(--sp-4)" data-od-id="spacing-scale">
+        <div class="cell"><div class="cell__cap">--sp-1<span>4</span></div><div class="cell__body"><div style="height:16px;width:4px;background:var(--primary)"></div></div></div>
+        <div class="cell"><div class="cell__cap">--sp-2<span>8</span></div><div class="cell__body"><div style="height:16px;width:8px;background:var(--primary)"></div></div></div>
+        <div class="cell"><div class="cell__cap">--sp-3<span>12</span></div><div class="cell__body"><div style="height:16px;width:12px;background:var(--primary)"></div></div></div>
+        <div class="cell"><div class="cell__cap">--sp-4<span>16</span></div><div class="cell__body"><div style="height:16px;width:16px;background:var(--primary)"></div></div></div>
+        <div class="cell"><div class="cell__cap">--sp-6<span>24</span></div><div class="cell__body"><div style="height:16px;width:24px;background:var(--primary)"></div></div></div>
+        <div class="cell"><div class="cell__cap">--sp-8<span>32</span></div><div class="cell__body"><div style="height:16px;width:32px;background:var(--primary)"></div></div></div>
+      </div>
+
+      <h3 class="sub">3.1 · Densidade — tabela contra cartão</h3>
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">TABELA · 40px POR LINHA, PADDING 12px<span>DENSO</span></div>
+          <div style="padding:0">
+            <table class="tbl">
+              <thead><tr><th>Prancha</th><th>Título</th><th class="num">Rev.</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">05/24</td><td>Planta baixa — pavimento térreo</td><td class="num">03</td></tr>
+                <tr><td class="mono">06/24</td><td>Planta de cobertura</td><td class="num">01</td></tr>
+                <tr><td class="mono">07/24</td><td>Cortes AA e BB</td><td class="num">02</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="cell__note">Densidade máxima é a regra aqui: 200 pranchas precisam caber na tela sem rolagem infinita.</div>
+        </div>
+        <div class="cell"><div class="cell__cap">CARTÃO · PADDING 16px, GAP 12px<span>RESPIRADO</span></div>
+          <div class="cell__body col">
+            <div class="card" style="width:100%">
+              <div class="card__head"><span class="mono-label">TOMO 01</span><span class="badge badge--ok">GERADO</span></div>
+              <div class="card__body">
+                <dl class="srow" style="margin-bottom:10px"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+                <dl class="srow"><dt>Folhas</dt><dd>8</dd></dl>
+              </div>
+            </div>
+          </div>
+          <div class="cell__note">O cartão carrega decisão, não varredura. Ali o espaço compra clareza.</div>
+        </div>
+      </div>
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Aplicar a densidade de cartão numa tabela. Uma LD de 200 linhas com 64px por linha vira 12.800px de rolagem — o engenheiro perde a visão de conjunto que é o motivo de existir da tabela.</p></div>
+    </section>
+
+    <!-- ============================ 4. ELEVACAO ============================ -->
+    <section class="block" id="elevacao" data-od-id="section-elevation">
+      <h2><span class="num">4</span>Elevação</h2>
+      <p class="lede">Profundidade vem de camada tonal e borda de 1px — não de sombra. Sombra só
+      em elemento que flutua de verdade. O fio de luz no topo (1px branco a 4%) faz a
+      superfície ler como peça usinada, não como vidro.</p>
+
+      <div class="grid g5" data-od-id="elevation-levels">
+        <div><div class="elev" style="background:#0a0e11"><span class="mono-label dim">FUNDO</span></div>
+          <p class="t-caption dim" style="margin-top:8px">--background<br>#0a0e11 · nível 0</p></div>
+        <div><div class="elev" style="background:#06080a"><span class="mono-label dim">EMBUTIDO</span></div>
+          <p class="t-caption dim" style="margin-top:8px">--nexodoc-recessed<br>#06080a · campo, poço</p></div>
+        <div><div class="elev" style="background:#121518;box-shadow:var(--edge-highlight)"><span class="mono-label dim">PAINEL</span></div>
+          <p class="t-caption dim" style="margin-top:8px">--card / --nexodoc-panel<br>#121518 · nível 1</p></div>
+        <div><div class="elev" style="background:#1a1e21;box-shadow:var(--edge-highlight)"><span class="mono-label dim">ELEVADO</span></div>
+          <p class="t-caption dim" style="margin-top:8px">--nexodoc-raised<br>#1a1e21 · nível 2</p></div>
+        <div><div class="elev" style="background:#1a1e21;box-shadow:var(--shadow-overlay),var(--shadow-float)"><span class="mono-label dim">FLUTUANTE</span></div>
+          <p class="t-caption dim" style="margin-top:8px">--shadow-overlay<br>a única com sombra</p></div>
+      </div>
+
+      <div class="grid g2" style="margin-top:var(--sp-6)">
+        <div class="cell"><div class="cell__cap">O FIO DE LUZ · COM<span>--edge-highlight</span></div>
+          <div class="cell__body center" style="background:var(--background)">
+            <div style="width:180px;height:56px;background:#1a1e21;border:1px solid var(--border);border-radius:var(--radius);box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.04)"></div>
+          </div>
+          <div class="cell__note">A aresta superior capta luz. Lê como metal fresado.</div></div>
+        <div class="cell"><div class="cell__cap">SEM O FIO<span>CHAPADO</span></div>
+          <div class="cell__body center" style="background:var(--background)">
+            <div style="width:180px;height:56px;background:#1a1e21;border:1px solid var(--border);border-radius:var(--radius)"></div>
+          </div>
+          <div class="cell__note">Mesma cor, mesma borda — e a peça some no fundo.</div></div>
+      </div>
+
+      <table class="spec" style="margin-top:var(--sp-4)">
+        <thead><tr><th>Token</th><th>Valor</th><th>Quem veste</th></tr></thead>
+        <tbody>
+          <tr><td class="tok">--edge-highlight</td><td class="mono" style="font-size:12px">inset 0 1px 0 rgb(255 255 255 / .04)</td><td>Cartão, botão primário/secundário, painel</td></tr>
+          <tr><td class="tok">--shadow-subtle</td><td class="mono" style="font-size:12px">0 1px 1px rgb(0 0 0 / .25)</td><td>Chip de anexo sobre o composer</td></tr>
+          <tr><td class="tok">--shadow-panel</td><td class="mono" style="font-size:12px">0 1px 2px rgb(0 0 0 / .35)</td><td>Base do overlay</td></tr>
+          <tr><td class="tok">--shadow-overlay</td><td class="mono" style="font-size:12px">edge-highlight + shadow-panel</td><td>Dropdown, popover, tooltip, modal</td></tr>
+        </tbody>
+      </table>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Sombra em cartão dentro do fluxo. Se ele não flutua sobre outra coisa, a sombra é ornamento — e ornamento sem função é rejeitado. Suba um degrau tonal.</p></div>
+    </section>
+
+    <!-- ============================ 5. VIDRO ============================ -->
+    <section class="block" id="vidro" data-od-id="section-glass">
+      <h2><span class="num">5</span>Vidro — a linha d'água</h2>
+      <p class="lede">Acima da linha está o cromo, e o cromo pode ter vidro. Abaixo dela está
+      o dado, e o dado é sempre matte. A lista de superfícies com direito a vidro é fechada:
+      backdrop de modal, dock do composer, wash da tela de boas-vindas, bolha do assistente,
+      cromo do visualizador de PDF, orbe. Mais nada.</p>
+
+      <div class="grid g2" data-od-id="glass-waterline">
+        <div class="cell" style="border-color:rgb(110 231 163 / 0.30)">
+          <div class="cell__cap" style="color:var(--status-ok)">CERTO · CROMO EM VIDRO, DADO MATTE<span>↑ ACIMA DA LINHA</span></div>
+          <div style="padding:var(--sp-4);background:radial-gradient(600px 200px at 30% 0%, #0d2b28 0%, #0a0e11 70%)">
+            <div class="bubble bubble--agent" style="margin-bottom:var(--sp-3)">
+              Li o selo de 8 pranchas. Vou gerar quatro documentos — confira antes.
+              <div class="confirm" style="margin-top:var(--sp-3)">
+                <div class="confirm__head"><span class="mono-label">VOU GERAR · 4 DOCUMENTOS</span></div>
+                <div class="confirm__body">
+                  <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+                  <dl class="srow"><dt>Tomos</dt><dd>2 (TOMO 01–02)</dd></dl>
+                </div>
+              </div>
+            </div>
+            <div class="composer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input placeholder="Escreva para o Nexo…" aria-label="Mensagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--nexodoc-accent)"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div>
+          </div>
+          <div class="cell__note">A bolha é invólucro — pode ser vidro. A caixa de confirmação dentro dela é dado — é matte, sempre.</div>
+        </div>
+
+        <div class="cell" style="border-color:rgb(255 146 133 / 0.30)">
+          <div class="cell__cap" style="color:var(--status-critical)">PROIBIDO · DADO BORRADO<span>↓ ABAIXO DA LINHA</span></div>
+          <div style="padding:var(--sp-4);background:radial-gradient(600px 200px at 30% 0%, #0d2b28 0%, #0a0e11 70%)">
+            <div class="bubble bubble--agent" style="margin-bottom:var(--sp-3)">
+              Li o selo de 8 pranchas. Vou gerar quatro documentos — confira antes.
+              <div style="margin-top:var(--sp-3);border-radius:var(--radius);background:var(--glass-tint);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--glass-ring);overflow:hidden">
+                <div class="confirm__head"><span class="mono-label">VOU GERAR · 4 DOCUMENTOS</span></div>
+                <div class="confirm__body">
+                  <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+                  <dl class="srow"><dt>Tomos</dt><dd>2 (TOMO 01–02)</dd></dl>
+                </div>
+              </div>
+            </div>
+            <div style="height:44px;border-radius:var(--radius);border:1px dashed var(--border)"></div>
+          </div>
+          <div class="cell__note">O que o engenheiro confirma tem que ser lido com absoluta certeza. Vidro sob dado troca legibilidade por efeito — e aqui o custo é volume impresso errado.</div>
+        </div>
+      </div>
+
+      <table class="spec" style="margin-top:var(--sp-4)" data-od-id="glass-tokens">
+        <thead><tr><th>Token</th><th>Valor</th><th>Onde</th></tr></thead>
+        <tbody>
+          <tr><td class="tok">--glass-blur</td><td class="mono" style="font-size:12px">12px</td><td>Todas as seis superfícies da lista</td></tr>
+          <tr><td class="tok">--glass-tint</td><td class="mono" style="font-size:12px">rgb(18 21 24 / 0.62)</td><td>Dock do composer, backdrop de modal, cromo do visualizador</td></tr>
+          <tr><td class="tok">--glass-tint-weak</td><td class="mono" style="font-size:12px">rgb(18 21 24 / 0.52)</td><td>Bolha do assistente — mais sólido para o texto contrastar</td></tr>
+          <tr><td class="tok">--glass-edge</td><td class="mono" style="font-size:12px">inset 0 1px 0 rgb(255 255 255 / 0.07)</td><td>Um degrau acima do fio de luz normal</td></tr>
+          <tr><td class="tok">--glass-ring</td><td class="mono" style="font-size:12px">rgb(91 218 198 / 0.14)</td><td>Borda de toda superfície de vidro</td></tr>
+        </tbody>
+      </table>
+
+      <div class="rule-note"><strong>Transparência reduzida:</strong> com
+      <span class="mono">prefers-reduced-transparency</span> o blur cai e o tint vira
+      <span class="mono">--card</span> sólido. A hierarquia continua de pé porque ela nunca
+      dependeu do vidro — dependia da camada tonal.</div>
+    </section>
+
+    <!-- ============================ 6. MOVIMENTO ============================ -->
+    <section class="block" id="movimento" data-od-id="section-motion">
+      <h2><span class="num">6</span>Movimento</h2>
+      <p class="lede">Movimento significa mudança de estado, não decoração. Só transform e
+      opacity. Sem coreografia de entrada por elemento. Só o orbe se move continuamente —
+      e ele se move porque está dizendo o que o agente está fazendo.</p>
+
+      <div class="grid g4" data-od-id="motion-durations">
+        <div class="cell"><div class="cell__cap">--duration-fast<span>120ms</span></div>
+          <div class="cell__body"><div class="motion-demo" style="width:100%"><b style="transition:transform 120ms var(--ease-feedback)"></b></div></div>
+          <div class="cell__note">Resposta de interação: hover, pressionado, anel de foco, troca de aba.</div></div>
+        <div class="cell"><div class="cell__cap">--duration-base<span>180ms</span></div>
+          <div class="cell__body"><div class="motion-demo" style="width:100%"><b style="transition:transform 180ms var(--ease-entrance)"></b></div></div>
+          <div class="cell__note">Revelação: tooltip, popover, dropdown, chip que entra na fila.</div></div>
+        <div class="cell"><div class="cell__cap">--duration-slow<span>240ms</span></div>
+          <div class="cell__body"><div class="motion-demo" style="width:100%"><b style="transition:transform 240ms var(--ease-entrance)"></b></div></div>
+          <div class="cell__note">Superfície grande: modal, gaveta, painel do copiloto abrindo.</div></div>
+        <div class="cell" style="border-color:rgb(0 166 147 / 0.35)"><div class="cell__cap">--duration-shell<span>320ms</span></div>
+          <div class="cell__body"><div class="motion-demo" style="width:100%"><b style="transition:transform 320ms var(--ease-entrance)"></b></div></div>
+          <div class="cell__note">Só a macrotransição do shell: boas-vindas ↔ ativo. Uma por sessão.</div></div>
+      </div>
+
+      <div class="grid g2" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">--ease-feedback<span>cubic-bezier(.25, 1, .5, 1)</span></div>
+          <div class="cell__body center"><svg viewBox="0 0 100 60" width="100%" height="70" preserveAspectRatio="none"><path d="M0 60 C25 0 50 0 100 0" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"/></svg></div>
+          <div class="cell__note">Sai rápido, chega macio. É a curva de tudo que responde ao dedo.</div></div>
+        <div class="cell"><div class="cell__cap">--ease-entrance<span>cubic-bezier(.22, 1, .36, 1)</span></div>
+          <div class="cell__body center"><svg viewBox="0 0 100 60" width="100%" height="70" preserveAspectRatio="none"><path d="M0 60 C22 0 36 0 100 0" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"/></svg></div>
+          <div class="cell__note">Freada longa. É a curva de tudo que aparece na tela.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Escalonar a entrada das linhas de uma tabela com atraso por índice. Numa LD de 200 linhas isso é meio segundo de dado dançando antes de poder ser lido — o oposto de "o dado nunca respira".</p></div>
+    </section>
+
+    <!-- ============================ 7. ICONES ============================ -->
+    <section class="block" id="icones" data-od-id="section-icons">
+      <h2><span class="num">7</span>Ícones</h2>
+      <p class="lede">Lucide, traço 1,5. Quatro tamanhos, e nenhum outro. A cor do ícone
+      obedece à mesma gramática do resto: teal só quando o ícone <em>é</em> a ação.</p>
+
+      <div class="grid g4" data-od-id="icon-sizes">
+        <div class="cell"><div class="cell__cap">14px<span>INLINE</span></div><div class="cell__body center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="cell__note">Dentro de texto corrido e de chip.</div></div>
+        <div class="cell"><div class="cell__cap">16px<span>PADRÃO</span></div><div class="cell__body center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="cell__note">Botão, item de menu, célula de tabela.</div></div>
+        <div class="cell"><div class="cell__cap">20px<span>NAVEGAÇÃO</span></div><div class="cell__body center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="cell__note">Rodapé da barra lateral, cabeçalho.</div></div>
+        <div class="cell"><div class="cell__cap">24px<span>MÁXIMO</span></div><div class="cell__body center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="cell__note">Zona de solta e estado vazio. Nunca passa disso.</div></div>
+      </div>
+
+      <h3 class="sub">7.1 · A regra de cor do ícone</h3>
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap" style="color:var(--nexodoc-accent)">TEAL · O ÍCONE É A AÇÃO</div><div class="cell__body">
+          <button class="btn btn--outline btn--sm"><svg viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg> Nova conversa</button>
+        </div><div class="cell__note">O sinal de mais <em>faz</em> a conversa nova. Teal é literal aqui.</div></div>
+        <div class="cell"><div class="cell__cap">CINZA · O ÍCONE É PASSIVO</div><div class="cell__body">
+          <span style="display:inline-flex;align-items:center;gap:8px;color:var(--muted-foreground);font-size:13px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 11:35
+          </span>
+        </div><div class="cell__note">O relógio rotula um horário. Não se clica num horário.</div></div>
+        <div class="cell"><div class="cell__cap" style="color:var(--status-warning)">SINAL · O ÍCONE CARREGA STATUS</div><div class="cell__body">
+          <span style="display:inline-flex;align-items:center;gap:8px;color:var(--status-warning);font-size:13px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg> 7 pendências
+          </span>
+        </div><div class="cell__note">Cor do sinal, e o número em mono ao lado. Nunca só a cor.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Ícone ao lado de todo título de seção. Ícone decorativo é ruído: dilui os ícones que carregam ação e status, que são os únicos que o engenheiro precisa achar rápido. E emoji nunca — em lugar nenhum da interface.</p></div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

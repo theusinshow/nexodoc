@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexo — sistema de design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="overview-main">
+
+    <header class="doc-head" data-od-id="overview-header">
+      <span class="mono-label eyebrow">SISTEMA DE DESIGN · 9 LOTES</span>
+      <h1 class="t-display">O instrumento calibrado,<br>com um agente dentro</h1>
+      <p>Duas naturezas que convivem por território, nunca por mistura: um instrumento
+      de precisão escuro e denso, e uma presença viva dentro dele. A regra que resolve
+      a tensão — <strong style="color:var(--foreground);font-weight:500">o ambiente pode respirar; o dado nunca</strong>.</p>
+    </header>
+
+    <!-- ================= ORBE + INVARIANTES ================= -->
+    <section class="block" id="invariantes" data-od-id="invariants">
+      <div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:var(--sp-12);align-items:center;margin-bottom:var(--sp-8)">
+        <div class="orb orb--lg" data-state="idle" aria-label="O orbe, presença do agente" role="img"></div>
+        <div>
+          <h2 style="border:0;padding:0;margin-bottom:var(--sp-4)" class="t-headline">O que não está aberto a redesenho</h2>
+          <div class="grid g2" style="gap:var(--sp-2)">
+            <div class="cell"><div class="cell__cap">GRAMÁTICA DE COR</div><div class="cell__note" style="padding-top:var(--sp-3)">Teal = interativo. Os três sinais = status. Rust = ênfase. As famílias nunca se cruzam de significado.</div></div>
+            <div class="cell"><div class="cell__cap">LINHA D'ÁGUA</div><div class="cell__note" style="padding-top:var(--sp-3)">Vidro só no cromo — lista fechada de 6 superfícies. Todo dado é matte.</div></div>
+            <div class="cell"><div class="cell__cap">GEOMETRIA</div><div class="cell__note" style="padding-top:var(--sp-3)">Grade de 4px. Raio 8px (12px só no maior). Profundidade tonal, não sombra.</div></div>
+            <div class="cell"><div class="cell__cap">TIPOGRAFIA E MARCA</div><div class="cell__note" style="padding-top:var(--sp-3)">IBM Plex Sans + Mono, 8 estilos. O orbe é a identidade.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rule-note" data-od-id="palette-share">
+        <strong>Teal ocupa menos de 10% de qualquer tela.</strong> É o orçamento que mantém
+        o significado de "clicável" intacto. Se o teal virar preenchimento passivo, o
+        engenheiro perde a única pista confiável de onde pode agir.
+      </div>
+    </section>
+
+    <!-- ================= PALETA RESUMO ================= -->
+    <section class="block" id="paleta" data-od-id="palette-strip">
+      <h2><span class="num">01</span>A paleta, em uma linha</h2>
+      <p class="lede">Dezessete valores fixos, já em produção, mais quatro vagas novas abertas no lote 1.</p>
+
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:var(--sp-2)" data-od-id="palette-swatches">
+        <!-- interativo -->
+        <div class="cell"><div style="height:56px;background:#00a693"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#00A693<span>INT</span></div></div>
+        <div class="cell"><div style="height:56px;background:#5bdac6"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#5BDAC6<span>INT</span></div></div>
+        <div class="cell"><div style="height:56px;background:#7af7e1"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#7AF7E1<span>INT</span></div></div>
+        <!-- status -->
+        <div class="cell"><div style="height:56px;background:#6ee7a3"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#6EE7A3<span>OK</span></div></div>
+        <div class="cell"><div style="height:56px;background:#e9b45c"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#E9B45C<span>ATN</span></div></div>
+        <div class="cell"><div style="height:56px;background:#ff9285"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#FF9285<span>CRT</span></div></div>
+        <!-- enfase -->
+        <div class="cell"><div style="height:56px;background:#dc7858"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#DC7858<span>ÊNF</span></div></div>
+        <div class="cell"><div style="height:56px;background:#ffb59e"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#FFB59E<span>ÊNF</span></div></div>
+        <!-- neutros -->
+        <div class="cell"><div style="height:56px;background:#0a0e11;border-bottom:1px solid var(--border)"></div><div class="cell__cap" style="border-bottom:0">#0A0E11<span>BG</span></div></div>
+        <div class="cell"><div style="height:56px;background:#121518;border-bottom:1px solid var(--border)"></div><div class="cell__cap" style="border-bottom:0">#121518<span>PNL</span></div></div>
+        <div class="cell"><div style="height:56px;background:#1a1e21;border-bottom:1px solid var(--border)"></div><div class="cell__cap" style="border-bottom:0">#1A1E21<span>ELV</span></div></div>
+        <div class="cell"><div style="height:56px;background:#e1e7ea"></div><div class="cell__cap" style="border-bottom:0;border-top:1px solid var(--border)">#E1E7EA<span>TXT</span></div></div>
+      </div>
+    </section>
+
+    <!-- ================= OS 9 LOTES ================= -->
+    <section class="block" id="lotes" data-od-id="lotes-index">
+      <h2><span class="num">02</span>Os nove lotes</h2>
+      <p class="lede">Cada lote depende do anterior: os fundamentos definem os primitivos,
+      que montam o chat, que monta as telas. A ordem não é sugestão.</p>
+
+      <div class="grid g2" data-od-id="lote-cards">
+
+        <a class="card lote" href="01-fundamentos.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-01">
+          <div class="card__head"><span class="mono-label">LOTE 1 · FUNDAMENTOS</span><span class="badge badge--default">BASE</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Cor, tipo, grade, elevação, vidro, movimento, ícones</h3>
+            <p class="t-caption dim">As três famílias organizadas, mais as quatro cores novas — informação, legado, disciplina (8 passos) e dado (5 passos) — e a matriz de contraste medida.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="02-marca-orbe.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-02">
+          <div class="card__head"><span class="mono-label">LOTE 2 · IDENTIDADE</span><span class="badge badge--secondary">MARCA</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">O orbe e a logo</h3>
+            <p class="t-caption dim">A escada de três reduções, os sete estados com suas versões congeladas, e a logo saída do orbe achatado.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="03-componentes-base.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-03">
+          <div class="card__head"><span class="mono-label">LOTE 3 · PRIMITIVOS</span><span class="badge badge--secondary">16 PEÇAS</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Os 16 componentes base</h3>
+            <p class="t-caption dim">Cada um com todas as variantes × oito estados. Componente sem os oito estados está incompleto.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="04-conversa.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-04">
+          <div class="card__head"><span class="mono-label">LOTE 4 · CONVERSA</span><span class="badge badge--default">CORAÇÃO</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Composer, bolhas e as seis caixas de confirmação</h3>
+            <p class="t-caption dim">O padrão central do produto: propor → parâmetros somente-leitura → confirmar → downloads. Em proposta, pendente e aplicado.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="05-canvas.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-05">
+          <div class="card__head"><span class="mono-label">LOTE 5 · CANVAS</span><span class="badge badge--secondary">PALCO</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">O quadro de artefatos e folhas</h3>
+            <p class="t-caption dim">Duzentas folhas em texto puro, arrastadas entre fileiras para decidir a divisão em tomos.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="06-shell-navegacao.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-06">
+          <div class="card__head"><span class="mono-label">LOTE 6 · ESTRUTURA</span><span class="badge badge--secondary">SHELL</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Shell, barra lateral e copiloto</h3>
+            <p class="t-caption dim">Boas-vindas ↔ ativo, a única macrotransição do sistema. Três colunas: 240px | palco | 520px.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="07-telas.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-07">
+          <div class="card__head"><span class="mono-label">LOTE 7 · TELAS</span><span class="badge badge--secondary">19 MOCKUPS</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">As telas completas</h3>
+            <p class="t-caption dim">/nexo, /login, /ferramentas, /projetos e as sete faces do painel admin — com cheia, vazia e carregando.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="08-auditoria.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-08">
+          <div class="card__head"><span class="mono-label">LOTE 8 · AUDITORIA</span><span class="badge badge--critical">MAIS DENSA</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Achados, evidência e o visualizador</h3>
+            <p class="t-caption dim">O memorial contra o projeto. Cada achado com severidade, evidência e ação — um contêiner, seções por borda.</p>
+          </div>
+        </a>
+
+        <a class="card lote" href="09-estados-transversais.html" style="text-decoration:none;color:inherit;display:block" data-od-id="lote-card-09">
+          <div class="card__head"><span class="mono-label">LOTE 9 · TRANSVERSAIS</span><span class="badge badge--secondary">9 ESTADOS</span></div>
+          <div class="card__body">
+            <h3 class="t-title" style="margin-bottom:6px">Vazio, carregando, erro, offline, reduzido</h3>
+            <p class="t-caption dim">Um vazio é neutro e ensina. Uma falha usa o vocabulário do crítico. Os dois nunca se parecem.</p>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ================= FECHAMENTO ================= -->
+    <section class="block" id="fechamento" data-od-id="closing-criteria">
+      <h2><span class="num">03</span>Os sete critérios de fechamento</h2>
+      <p class="lede">Cada lote é conferido contra esta lista antes do próximo. Ela vale para toda folha deste sistema.</p>
+
+      <table class="spec" data-od-id="closing-table">
+        <thead>
+          <tr><th style="width:36px" class="num">#</th><th>Critério</th><th style="width:180px">Onde se prova</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Tem os oito estados — ou justifica por escrito os que não se aplicam.</td><td class="tok">lote 3, 4, 5</td></tr>
+          <tr><td class="num">2</td><td>Teal só em coisa interativa; os três sinais só em status; rust só em ênfase.</td><td class="tok">lote 1</td></tr>
+          <tr><td class="num">3</td><td>Vidro só no cromo da lista fechada; todo dado matte.</td><td class="tok">lote 1 · §5</td></tr>
+          <tr><td class="num">4</td><td>Contraste de texto ≥ 4,5:1, medido — não estimado.</td><td class="tok">lote 1 · §1.4</td></tr>
+          <tr><td class="num">5</td><td>Comportamento definido em tela estreita.</td><td class="tok">lote 6, 7</td></tr>
+          <tr><td class="num">6</td><td>Nenhum valor solto: só tokens de cor, tamanho, raio e duração.</td><td class="tok">assets/nexo.css</td></tr>
+          <tr><td class="num">7</td><td>Cada componente vem com um anti-exemplo — o "não faça assim".</td><td class="tok">todos os lotes</td></tr>
+        </tbody>
+      </table>
+
+      <div class="anti" data-od-id="closing-anti">
+        <span class="anti__tag">NÃO FAÇA</span>
+        <p>Pedir "gere o sistema inteiro" numa tacada. O resultado é média — e média é o
+        oposto do que este sistema precisa ser. Um lote por vez, conferido contra os
+        sete critérios antes do seguinte.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

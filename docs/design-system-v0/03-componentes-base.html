@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 3 — Os 16 primitivos · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  /* matriz de estados: 8 colunas + rotulo da variante */
+  .mx { border:1px solid var(--border); border-radius:var(--radius); background:var(--card); overflow-x:auto; }
+  .mx__grid { display:grid; grid-template-columns:132px repeat(8, minmax(112px, 1fr)); min-width:1060px; }
+  .mx__h {
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--muted-foreground); padding:var(--sp-2) var(--sp-3);
+    background:var(--muted); border-bottom:1px solid var(--border);
+    position:sticky; top:0;
+  }
+  .mx__v {
+    font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em;
+    color:var(--foreground); padding:var(--sp-3);
+    border-bottom:1px solid var(--border); border-right:1px solid var(--border);
+    display:flex; align-items:center; background:var(--muted);
+  }
+  .mx__c {
+    padding:var(--sp-3); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:flex-start; gap:var(--sp-2);
+    min-height:64px;
+  }
+  .mx__grid > *:nth-last-child(-n+9) { border-bottom:0; }
+  .na { font-family:var(--font-mono); font-size:10px; letter-spacing:0.05em; color:var(--muted-foreground); opacity:0.55; }
+  .why { font-size:12px; color:var(--muted-foreground); line-height:1.5; margin-top:var(--sp-3); }
+  .why b { color:var(--foreground); font-weight:500; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote3-main">
+
+    <header class="doc-head" data-od-id="lote3-header">
+      <span class="mono-label eyebrow">LOTE 3 DE 9 · PRIMITIVOS</span>
+      <h1 class="t-display">Os 16 componentes base</h1>
+      <p>Cada um com todas as variantes × oito estados: repouso, hover, foco (teclado),
+      pressionado, selecionado, desabilitado, carregando, erro. Componente sem os oito
+      estados está incompleto — quando um não se aplica, a justificativa está escrita
+      embaixo da matriz.</p>
+    </header>
+
+    <div class="rule-note" data-od-id="invariants">
+      <strong>Invariantes deste lote.</strong> Raio 8px em tudo. O foco é sempre o
+      <em>mesmo</em> anel: borda <span class="mono">--ring</span> mais anel de 3px a 25%.
+      Desabilitado é sempre 50% de opacidade e nada mais. Rótulo de botão é sempre mono.
+    </div>
+
+    <!-- ==================== 1. BOTAO ==================== -->
+    <section class="block" id="botao" data-od-id="c-button">
+      <h2><span class="num">01</span>Botão</h2>
+      <p class="lede">Cinco variantes. Só o primário e o destrutivo carregam preenchimento —
+      e o destrutivo usa o mesmo tom do crítico de propósito: os dois param o engenheiro.</p>
+
+      <div class="mx"><div class="mx__grid">
+        <div class="mx__h"></div>
+        <div class="mx__h">Repouso</div><div class="mx__h">Hover</div><div class="mx__h">Foco</div>
+        <div class="mx__h">Pressionado</div><div class="mx__h">Selecionado</div><div class="mx__h">Desabilitado</div>
+        <div class="mx__h">Carregando</div><div class="mx__h">Erro</div>
+
+        <div class="mx__v">primário</div>
+        <div class="mx__c"><button class="btn btn--primary">Gerar os 4</button></div>
+        <div class="mx__c"><button class="btn btn--primary" style="background:#00bda7">Gerar os 4</button></div>
+        <div class="mx__c"><button class="btn btn--primary is-focus">Gerar os 4</button></div>
+        <div class="mx__c"><button class="btn btn--primary is-pressed">Gerar os 4</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><button class="btn btn--primary is-disabled">Gerar os 4</button></div>
+        <div class="mx__c"><button class="btn btn--primary" style="width:118px"><span class="spinner"></span>Gerando…</button></div>
+        <div class="mx__c"><button class="btn btn--primary is-error" style="background:var(--status-critical);color:var(--destructive-foreground)">Falhou · repetir</button></div>
+
+        <div class="mx__v">destrutivo</div>
+        <div class="mx__c"><button class="btn btn--destructive">Excluir</button></div>
+        <div class="mx__c"><button class="btn btn--destructive" style="background:#ffa79c">Excluir</button></div>
+        <div class="mx__c"><button class="btn btn--destructive is-focus">Excluir</button></div>
+        <div class="mx__c"><button class="btn btn--destructive is-pressed">Excluir</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><button class="btn btn--destructive is-disabled">Excluir</button></div>
+        <div class="mx__c"><button class="btn btn--destructive"><span class="spinner"></span>Excluindo…</button></div>
+        <div class="mx__c"><span class="na">= carregando + faixa</span></div>
+
+        <div class="mx__v">contorno</div>
+        <div class="mx__c"><button class="btn btn--outline">Conferir as folhas</button></div>
+        <div class="mx__c"><button class="btn btn--outline" style="background:var(--secondary);border-color:#3a4248">Conferir as folhas</button></div>
+        <div class="mx__c"><button class="btn btn--outline is-focus">Conferir</button></div>
+        <div class="mx__c"><button class="btn btn--outline is-pressed">Conferir</button></div>
+        <div class="mx__c"><button class="btn btn--outline is-selected">Conferir</button></div>
+        <div class="mx__c"><button class="btn btn--outline is-disabled">Conferir</button></div>
+        <div class="mx__c"><button class="btn btn--outline"><span class="spinner"></span>Conferindo…</button></div>
+        <div class="mx__c"><button class="btn btn--outline is-error">Erro na conferência</button></div>
+
+        <div class="mx__v">secundário</div>
+        <div class="mx__c"><button class="btn btn--secondary">Montar o volume</button></div>
+        <div class="mx__c"><button class="btn btn--secondary" style="background:#21262a">Montar o volume</button></div>
+        <div class="mx__c"><button class="btn btn--secondary is-focus">Montar</button></div>
+        <div class="mx__c"><button class="btn btn--secondary is-pressed">Montar</button></div>
+        <div class="mx__c"><button class="btn btn--secondary is-selected">Montar</button></div>
+        <div class="mx__c"><button class="btn btn--secondary is-disabled">Montar</button></div>
+        <div class="mx__c"><button class="btn btn--secondary"><span class="spinner"></span>Montando…</button></div>
+        <div class="mx__c"><button class="btn btn--secondary is-error">Erro</button></div>
+
+        <div class="mx__v">fantasma</div>
+        <div class="mx__c"><button class="btn btn--ghost">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost" style="background:var(--secondary);color:var(--foreground)">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost is-focus">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost is-pressed" style="background:var(--secondary)">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost is-selected">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost is-disabled">Cancelar</button></div>
+        <div class="mx__c"><button class="btn btn--ghost"><span class="spinner"></span>…</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+      </div></div>
+
+      <p class="why"><b>As ausências, justificadas.</b> Primário e destrutivo não têm
+      "selecionado" porque nunca vivem em grupo de escolha — são ação final, e ação final
+      não fica marcada. O fantasma não tem "erro" porque nunca é a ação que falha: ele é
+      sempre o escape (cancelar, fechar, descartar). O destrutivo em erro reusa o
+      carregando mais a faixa crítica da caixa — repetir a cor no botão faria dois vermelhos
+      competindo.</p>
+
+      <h3 class="sub">1.1 · Tamanhos</h3>
+      <div class="cell"><div class="cell__cap">40px PADRÃO · 36px COMPACTO · 44px GRANDE · SÓ-ÍCONE</div>
+        <div class="cell__body">
+          <button class="btn btn--primary">Gerar os 4</button>
+          <button class="btn btn--outline btn--sm">Corrigir</button>
+          <button class="btn btn--secondary btn--lg">Confirmar e gerar</button>
+          <button class="btn btn--outline btn--icon" aria-label="Excluir conversa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>
+          <button class="btn btn--ghost btn--icon btn--sm" aria-label="Mais opções"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+        </div>
+        <div class="cell__note">Carregando <b style="color:var(--foreground);font-weight:500">mantém a largura</b> e troca o rótulo pelo spinner. Botão que encolhe ao carregar reposiciona o que está do lado — e o engenheiro clica no lugar errado.</div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Dois botões primários na mesma caixa. Se há duas ações teal com o mesmo peso, o engenheiro não sabe qual é a decisão — e a decisão aqui gera arquivo. Uma primária por superfície.</p></div>
+    </section>
+
+    <!-- ==================== 2. BADGE ==================== -->
+    <section class="block" id="badge" data-od-id="c-badge">
+      <h2><span class="num">02</span>Badge</h2>
+      <p class="lede">Rótulo, não controle. Os três de status seguem o mesmo padrão: borda a
+      30%, fundo tingido a 13–14%, texto na cor do sinal.</p>
+
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap">AS SEIS VARIANTES</div><div class="cell__body">
+          <span class="badge badge--default">TOMO 01</span>
+          <span class="badge badge--secondary">RASCUNHO</span>
+          <span class="badge badge--outline">REV. 03</span>
+          <span class="badge badge--ok"><i class="dot"></i>GERADO</span>
+          <span class="badge badge--warning"><i class="dot"></i>PENDENTE</span>
+          <span class="badge badge--critical"><i class="dot"></i>FALHOU</span>
+        </div></div>
+        <div class="cell"><div class="cell__cap">MAIS AS DUAS NOVAS</div><div class="cell__body">
+          <span class="badge badge--info"><i class="dot"></i>INFORMATIVO</span>
+          <span class="badge badge--legacy">CONGELADO</span>
+          <span class="badge badge--emphasis">FALTANDO</span>
+        </div><div class="cell__note">Ênfase (rust) marca ausência de valor — nunca julga se é bom ou ruim.</div></div>
+        <div class="cell"><div class="cell__cap">ESTADOS QUE SE APLICAM</div><div class="cell__body col">
+          <div style="display:flex;gap:var(--sp-2);align-items:center"><span class="badge badge--ok">REPOUSO</span><span class="badge badge--ok is-disabled">DESABILITADO</span></div>
+          <div class="cell__note" style="padding:var(--sp-2) 0 0">Badge não tem hover, foco, pressionado, selecionado, carregando nem erro: <b style="color:var(--foreground);font-weight:500">não é interativo</b>. Se um badge precisou de hover, ele virou chip — troque o componente.</div>
+        </div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Badge clicável. É a maneira mais rápida de quebrar a gramática: o engenheiro passa a testar clique em todo rótulo de status, inclusive nos que não fazem nada.</p></div>
+    </section>
+
+    <!-- ==================== 3. CHIP ==================== -->
+    <section class="block" id="chip" data-od-id="c-chip">
+      <h2><span class="num">03</span>Chip</h2>
+      <p class="lede">Variantes por <em>intenção</em>, não por cor. O chip é sempre uma ação
+      de conversa — nunca um campo de formulário disfarçado.</p>
+
+      <div class="mx"><div class="mx__grid">
+        <div class="mx__h"></div>
+        <div class="mx__h">Repouso</div><div class="mx__h">Hover</div><div class="mx__h">Foco</div>
+        <div class="mx__h">Pressionado</div><div class="mx__h">Selecionado</div><div class="mx__h">Desabilitado</div>
+        <div class="mx__h">Carregando</div><div class="mx__h">Erro</div>
+
+        <div class="mx__v">sugerido</div>
+        <div class="mx__c"><button class="chip chip--suggest">Conferir as folhas</button></div>
+        <div class="mx__c"><button class="chip chip--suggest" style="border-color:var(--ring);background:#21262a">Conferir as folhas</button></div>
+        <div class="mx__c"><button class="chip chip--suggest is-focus" style="box-shadow:0 0 0 3px rgb(91 218 198 / .25);border-color:var(--ring)">Conferir</button></div>
+        <div class="mx__c"><button class="chip chip--suggest is-pressed">Conferir</button></div>
+        <div class="mx__c"><button class="chip chip--suggest is-selected" style="border-color:var(--ring);background:rgb(91 218 198 / .10)">Conferir</button></div>
+        <div class="mx__c"><button class="chip chip--suggest is-disabled">Conferir</button></div>
+        <div class="mx__c"><button class="chip chip--suggest"><span class="spinner"></span>…</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+
+        <div class="mx__v">comum</div>
+        <div class="mx__c"><button class="chip">Montar o volume</button></div>
+        <div class="mx__c"><button class="chip" style="background:#21262a;border-color:var(--input)">Montar o volume</button></div>
+        <div class="mx__c"><button class="chip is-focus" style="box-shadow:0 0 0 3px rgb(91 218 198 / .25);border-color:var(--ring)">Montar</button></div>
+        <div class="mx__c"><button class="chip is-pressed">Montar</button></div>
+        <div class="mx__c"><button class="chip is-selected" style="border-color:var(--ring)">Montar</button></div>
+        <div class="mx__c"><button class="chip is-disabled">Montar</button></div>
+        <div class="mx__c"><button class="chip"><span class="spinner"></span>…</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+
+        <div class="mx__v">silencioso</div>
+        <div class="mx__c"><button class="chip chip--quiet">Depois eu vejo</button></div>
+        <div class="mx__c"><button class="chip chip--quiet" style="background:var(--secondary);color:var(--foreground)">Depois eu vejo</button></div>
+        <div class="mx__c"><button class="chip chip--quiet is-focus" style="box-shadow:0 0 0 3px rgb(91 218 198 / .25);border-color:var(--ring)">Depois</button></div>
+        <div class="mx__c"><button class="chip chip--quiet is-pressed" style="background:var(--secondary)">Depois</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><button class="chip chip--quiet is-disabled">Depois</button></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+      </div></div>
+
+      <p class="why"><b>As ausências, justificadas.</b> Chip nunca falha sozinho: ele dispara
+      uma mensagem, e o erro aparece na conversa, não no chip. O silencioso não tem
+      "selecionado" nem "carregando" porque é sempre um descarte — some da tela no instante
+      do clique.</p>
+
+      <div class="grid g2" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">COMPROMISSO A · PREENCHE O CAMPO</div><div class="cell__body col">
+          <button class="chip chip--suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Trocar o título</button>
+          <div class="composer" style="margin-top:var(--sp-2)"><input value="Trocar o título para " aria-label="Mensagem"><span class="caret" style="position:static"></span></div>
+        </div><div class="cell__note">Ícone de lápis = o chip escreve para você editar. O envio continua sendo seu.</div></div>
+        <div class="cell"><div class="cell__cap">COMPROMISSO B · ENVIA DIRETO</div><div class="cell__body col">
+          <button class="chip chip--suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Conferir as folhas</button>
+          <div class="bubble bubble--user" style="margin-top:var(--sp-2);font-size:13px">Conferir as folhas</div>
+        </div><div class="cell__note">Seta = manda agora. Os dois compromissos <b style="color:var(--foreground);font-weight:500">nunca compartilham ícone</b>.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Um chip que abre formulário. Chip é fala; formulário é decisão estruturada. Misturar os dois faz o engenheiro perder o fio da conversa no meio de um campo.</p></div>
+    </section>
+
+    <!-- ==================== 4. CARTAO ==================== -->
+    <section class="block" id="cartao" data-od-id="c-card">
+      <h2><span class="num">04</span>Cartão</h2>
+      <p class="lede">Superfície de nível 1, matte, sempre. Nunca aninhado: divisão interna
+      se resolve com borda, não com outro cartão dentro.</p>
+
+      <div class="grid g3">
+        <div><div class="card"><div class="card__body"><h4 class="t-subtitle" style="margin-bottom:6px">Padrão</h4><p class="t-caption dim">Só corpo. Para conteúdo que já se explica.</p></div></div>
+          <p class="mono-label dim" style="margin-top:8px">SEM CABEÇALHO</p></div>
+        <div><div class="card"><div class="card__head"><span class="mono-label">TOMO 01 · LD</span><span class="badge badge--ok">GERADO</span></div><div class="card__body"><p class="t-caption dim">O cabeçalho carrega rótulo mono à esquerda e status à direita. Sempre nessa ordem.</p></div></div>
+          <p class="mono-label dim" style="margin-top:8px">COM CABEÇALHO</p></div>
+        <div><div class="card"><div class="card__head"><span class="mono-label">VOLUME 1</span></div>
+            <div class="card__body" style="padding-bottom:var(--sp-3)"><dl class="srow"><dt>Capa</dt><dd>1 pág.</dd></dl></div>
+            <div class="card__div"></div>
+            <div class="card__body" style="padding-block:var(--sp-3)"><dl class="srow"><dt>Separatriz</dt><dd>2 pág.</dd></dl></div>
+            <div class="card__div"></div>
+            <div class="card__body" style="padding-top:var(--sp-3)"><dl class="srow"><dt>Pranchas</dt><dd>24 pág.</dd></dl></div>
+          </div>
+          <p class="mono-label dim" style="margin-top:8px">COM DIVISORES INTERNOS</p></div>
+      </div>
+
+      <p class="why"><b>As ausências, justificadas.</b> Cartão é contêiner, não controle:
+      hover, foco, pressionado, carregando e erro pertencem ao que está <em>dentro</em> dele.
+      Ele só tem dois estados próprios — repouso e selecionado (borda <span class="mono">--ring</span>,
+      usado no canvas e na lista de projetos).</p>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Cartão dentro de cartão. Duas bordas paralelas a 8px de distância criam uma calha visual que não significa nada, e o segundo raio brigando com o primeiro denuncia template de dashboard.</p></div>
+    </section>
+
+    <!-- ==================== 5-8. CAMPOS ==================== -->
+    <section class="block" id="campos" data-od-id="c-fields">
+      <h2><span class="num">05–08</span>Campo, área de texto, rótulo e caixa de seleção</h2>
+      <p class="lede">Campo é poço: fundo <span class="mono">--nexodoc-recessed</span>, borda
+      <span class="mono">--input</span>. Erro nunca é só a cor do anel mudando — vem sempre
+      com o texto de ajuda embaixo.</p>
+
+      <div class="mx"><div class="mx__grid">
+        <div class="mx__h"></div>
+        <div class="mx__h">Repouso</div><div class="mx__h">Hover</div><div class="mx__h">Foco</div>
+        <div class="mx__h">Pressionado</div><div class="mx__h">Selecionado</div><div class="mx__h">Desabilitado</div>
+        <div class="mx__h">Carregando</div><div class="mx__h">Erro</div>
+
+        <div class="mx__v">campo 40px</div>
+        <div class="mx__c"><div class="field" style="width:100%"><input placeholder="Título do projeto" aria-label="Título"></div></div>
+        <div class="mx__c"><div class="field" style="width:100%;border-color:#3a4248"><input placeholder="Título do projeto" aria-label="Título"></div></div>
+        <div class="mx__c"><div class="field" style="width:100%;border-color:var(--ring);box-shadow:0 0 0 3px rgb(91 218 198 / .25)"><input value="PROJETO ARQ" aria-label="Título"><span class="caret" style="position:static"></span></div></div>
+        <div class="mx__c"><span class="na">= foco</span></div>
+        <div class="mx__c"><div class="field" style="width:100%"><input value="PROJETO ARQUITETÔNICO" aria-label="Título" style="background:rgb(91 218 198 / .18)"></div></div>
+        <div class="mx__c"><div class="field is-disabled" style="width:100%"><input value="Herdado da capa" aria-label="Título" disabled></div></div>
+        <div class="mx__c"><div class="field" style="width:100%"><span class="spinner" style="color:var(--muted-foreground)"></span><span class="dim" style="font-size:13px">Lendo o selo…</span></div></div>
+        <div class="mx__c" style="flex-direction:column;align-items:stretch;gap:4px"><div class="field is-error" style="width:100%"><input value="" placeholder="Obrigatório" aria-label="Título"></div><span class="field-help is-error">O título vai impresso na capa.</span></div>
+
+        <div class="mx__v">campo 32px<br>com afixo</div>
+        <div class="mx__c"><div class="field field--sm" style="width:100%"><span class="affix">TOMO</span><input value="01" aria-label="Tomo inicial"><span class="affix">/ 02</span></div></div>
+        <div class="mx__c"><div class="field field--sm" style="width:100%;border-color:#3a4248"><span class="affix">TOMO</span><input value="01" aria-label="Tomo"><span class="affix">/ 02</span></div></div>
+        <div class="mx__c"><div class="field field--sm" style="width:100%;border-color:var(--ring);box-shadow:0 0 0 3px rgb(91 218 198 / .25)"><span class="affix">TOMO</span><input value="01" aria-label="Tomo"></div></div>
+        <div class="mx__c"><span class="na">= foco</span></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><div class="field field--sm is-disabled" style="width:100%"><span class="affix">TOMO</span><input value="01" aria-label="Tomo" disabled></div></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c" style="flex-direction:column;align-items:stretch;gap:4px"><div class="field field--sm is-error" style="width:100%"><span class="affix">TOMO</span><input value="09" aria-label="Tomo"></div><span class="field-help is-error">Só existem 2 tomos.</span></div>
+
+        <div class="mx__v">área de texto</div>
+        <div class="mx__c"><textarea class="field" style="width:100%;min-height:56px" placeholder="Observação para o memorial" aria-label="Observação"></textarea></div>
+        <div class="mx__c"><textarea class="field" style="width:100%;min-height:56px;border-color:#3a4248" placeholder="Observação" aria-label="Observação"></textarea></div>
+        <div class="mx__c"><textarea class="field" style="width:100%;min-height:56px;border-color:var(--ring);box-shadow:0 0 0 3px rgb(91 218 198 / .25)" aria-label="Observação">A prancha 12 não</textarea></div>
+        <div class="mx__c"><span class="na">= foco</span></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><textarea class="field is-disabled" style="width:100%;min-height:56px" aria-label="Observação" disabled>Somente leitura</textarea></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c" style="flex-direction:column;align-items:stretch;gap:4px"><textarea class="field is-error" style="width:100%;min-height:44px" aria-label="Observação">…</textarea><span class="field-help is-error">Máx. 500 caracteres · 512</span></div>
+
+        <div class="mx__v">caixa de seleção</div>
+        <div class="mx__c"><span class="check"></span><span class="check check--on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m20 6-11 11-5-5"/></svg></span><span class="check check--mixed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14"/></svg></span></div>
+        <div class="mx__c"><span class="check" style="border-color:#3a4248"></span></div>
+        <div class="mx__c"><span class="check is-focus" style="border-color:var(--ring);box-shadow:0 0 0 3px rgb(91 218 198 / .25)"></span></div>
+        <div class="mx__c"><span class="check" style="transform:scale(.92);border-color:var(--ring)"></span></div>
+        <div class="mx__c"><span class="check check--on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m20 6-11 11-5-5"/></svg></span></div>
+        <div class="mx__c"><span class="check is-disabled"></span><span class="check check--on is-disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m20 6-11 11-5-5"/></svg></span></div>
+        <div class="mx__c"><span class="na">N/A</span></div>
+        <div class="mx__c"><span class="check" style="border-color:var(--status-critical)"></span></div>
+      </div></div>
+
+      <p class="why"><b>As ausências, justificadas.</b> Campo não tem "pressionado" — o clique
+      é o próprio foco. O campo compacto e a área de texto não têm "selecionado" (não vivem
+      em grupo) nem "carregando" (nunca esperam por rede: só o campo grande recebe leitura
+      de selo). A caixa de seleção não carrega — a persistência é otimista, e se falhar a
+      faixa de erro aparece acima da tabela, não dentro do quadradinho.</p>
+
+      <h3 class="sub">7 · Rótulo</h3>
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">SANS · PERGUNTA AO ENGENHEIRO</div><div class="cell__body col">
+          <label class="t-body" style="font-weight:500" for="ex1">Título que vai impresso na capa</label>
+          <div class="field" id="ex1"><input value="PROJETO ARQUITETÔNICO" aria-label="Título impresso"></div>
+        </div></div>
+        <div class="cell"><div class="cell__cap">MONO · NOMEIA DADO ESTRUTURADO</div><div class="cell__body col">
+          <dl class="srow"><dt>Prefeitura</dt><dd>Prefeitura Municipal de Chapecó</dd></dl>
+          <dl class="srow"><dt>Revisão</dt><dd>03</dd></dl>
+        </div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Marcar erro só com a borda vermelha. Quem não distingue vermelho fica sem informação nenhuma — e mesmo quem distingue não sabe <em>o que</em> corrigir. Borda coral e texto de ajuda andam juntos, sempre.</p></div>
+    </section>
+
+    <!-- ==================== 9. TABELA ==================== -->
+    <section class="block" id="tabela" data-od-id="c-table">
+      <h2><span class="num">09</span>Tabela</h2>
+      <p class="lede">A superfície primária deste produto. Compacta por padrão, ~40px por
+      linha, cabeçalho em mono maiúsculo fixo ao rolar, <b>só réguas horizontais</b> — sem
+      divisor vertical, sem zebra. Coluna numérica à direita em mono tabular; status em badge.</p>
+
+      <div class="tbl-wrap" data-od-id="table-full">
+        <table class="tbl">
+          <thead><tr><th style="width:88px">Prancha</th><th>Título do selo</th><th style="width:72px">Discipl.</th><th class="num" style="width:64px">Rev.</th><th style="width:110px">Situação</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">01/24</td><td>Situação e localização</td><td class="mono">ARQ</td><td class="num">03</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+            <tr aria-selected="true"><td class="mono">05/24</td><td>Planta baixa — pavimento térreo</td><td class="mono">ARQ</td><td class="num">03</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+            <tr><td class="mono">06/24</td><td>Planta de cobertura</td><td class="mono">ARQ</td><td class="num">01</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+            <tr><td class="mono">11/24</td><td>Fôrmas — laje de cobertura</td><td class="mono">EST</td><td class="num">02</td><td><span class="badge badge--warning"><i class="dot"></i>SEM TÍTULO</span></td></tr>
+            <tr><td class="mono">17/24</td><td>Água fria — térreo</td><td class="mono">HID</td><td class="num">01</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+            <tr><td class="mono">22/24</td><td>Rota de fuga</td><td class="mono">PCI</td><td class="num">04</td><td><span class="badge badge--critical"><i class="dot"></i>ILEGÍVEL</span></td></tr>
+            <tr><td class="mono">23/24</td><td>Detalhes de esquadrias</td><td class="mono">ARQ</td><td class="num">02</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+            <tr><td class="mono">24/24</td><td>Detalhes de escada</td><td class="mono">ARQ</td><td class="num">02</td><td><span class="badge badge--ok"><i class="dot"></i>LIDA</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid g2" style="margin-top:var(--sp-4)">
+        <div class="cell"><div class="cell__cap">CARREGANDO · SKELETON NA FORMA FINAL</div>
+          <div style="padding:0">
+            <table class="tbl">
+              <thead><tr><th style="width:88px">Prancha</th><th>Título do selo</th><th class="num" style="width:64px">Rev.</th></tr></thead>
+              <tbody>
+                <tr><td><div class="sk sk--line" style="width:44px"></div></td><td><div class="sk sk--line" style="width:72%"></div></td><td><div class="sk sk--line" style="width:22px;margin-left:auto"></div></td></tr>
+                <tr><td><div class="sk sk--line" style="width:44px"></div></td><td><div class="sk sk--line" style="width:56%"></div></td><td><div class="sk sk--line" style="width:22px;margin-left:auto"></div></td></tr>
+                <tr><td><div class="sk sk--line" style="width:44px"></div></td><td><div class="sk sk--line" style="width:64%"></div></td><td><div class="sk sk--line" style="width:22px;margin-left:auto"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="cell__note">Mesma altura de linha, mesmas larguras de coluna. Quando o dado chega, nada salta.</div></div>
+        <div class="cell"><div class="cell__cap">VAZIA · DENTRO DA MOLDURA</div>
+          <div style="padding:0">
+            <table class="tbl"><thead><tr><th style="width:88px">Prancha</th><th>Título do selo</th><th class="num" style="width:64px">Rev.</th></tr></thead></table>
+            <div class="empty" style="border:0;border-radius:0;background:transparent;padding:var(--sp-6)">
+              <span class="mono-label">PRANCHAS DO PROJETO</span>
+              <p>Cada prancha lida do carimbo vira uma linha aqui, com número, título e revisão.</p>
+              <button class="btn btn--outline btn--sm">Soltar PDFs</button>
+            </div>
+          </div>
+          <div class="cell__note">O cabeçalho fica. Ele é a promessa do que vai aparecer.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Zebra ou divisor vertical. Numa LD de 200 linhas a zebra vira ruído ótico e as réguas verticais fatiam o olho no meio da varredura horizontal — que é justamente como se lê uma lista de documentos.</p></div>
+    </section>
+
+    <!-- ==================== 10-13 ==================== -->
+    <section class="block" id="auxiliares" data-od-id="c-aux">
+      <h2><span class="num">10–13</span>Tooltip, separador, skeleton e menu suspenso</h2>
+
+      <h3 class="sub">10 · Tooltip — obrigatório em todo botão só-ícone</h3>
+      <div class="grid g4">
+        <div class="cell"><div class="cell__cap">ACIMA</div><div class="cell__body col center" style="gap:6px"><span class="tip">Excluir conversa <kbd>Del</kbd></span><button class="btn btn--outline btn--icon btn--sm" aria-label="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></div></div>
+        <div class="cell"><div class="cell__cap">ABAIXO</div><div class="cell__body col center" style="gap:6px"><button class="btn btn--outline btn--icon btn--sm" aria-label="Nova conversa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg></button><span class="tip">Nova conversa <kbd>⌘N</kbd></span></div></div>
+        <div class="cell"><div class="cell__cap">À ESQUERDA</div><div class="cell__body center" style="gap:6px"><span class="tip">Tela cheia</span><button class="btn btn--outline btn--icon btn--sm" aria-label="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button></div></div>
+        <div class="cell"><div class="cell__cap">À DIREITA</div><div class="cell__body center" style="gap:6px"><button class="btn btn--outline btn--icon btn--sm" aria-label="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><span class="tip">Buscar conversas <kbd>⌘K</kbd></span></div></div>
+      </div>
+      <p class="why"><b>Atraso de 300ms</b> na entrada, 0ms na saída, e nenhum atraso ao mover
+      entre dois botões vizinhos. Tooltip é o único componente que não tem estado próprio
+      além de aberto e fechado — ele <em>é</em> um estado de outro componente.</p>
+
+      <h3 class="sub">11 · Separador · 12 · Skeleton</h3>
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">HORIZONTAL E VERTICAL</div><div class="cell__body col">
+          <hr class="sep" style="margin:0">
+          <div style="display:flex;align-items:center;gap:var(--sp-3);font-size:13px" class="dim">Projetos <span class="sep--v"></span> Painel admin <span class="sep--v"></span> Conta</div>
+        </div></div>
+        <div class="cell"><div class="cell__cap">SEMPRE NA FORMA DO QUE VAI CHEGAR</div><div class="cell__body col">
+          <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
+            <div class="sk sk--thumb" style="width:52px"></div>
+            <div style="flex:1;display:grid;gap:6px"><div class="sk sk--line" style="width:60%"></div><div class="sk sk--line" style="width:88%"></div><div class="sk sk--line" style="width:40%"></div></div>
+          </div>
+          <div class="sk sk--block" style="margin-top:var(--sp-2)"></div>
+        </div><div class="cell__note">Linha, bloco, cartão, linha de tabela, miniatura. Nunca um spinner solto no meio da tela.</div></div>
+      </div>
+
+      <h3 class="sub">13 · Menu suspenso</h3>
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap">OS CINCO TIPOS DE ITEM</div><div class="cell__body center">
+          <div class="menu">
+            <div class="menu__item">Abrir no visualizador<span class="kbd">↵</span></div>
+            <div class="menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Corrigir o selo</div>
+            <div class="menu__item" aria-disabled="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Baixar PDF</div>
+            <div class="menu__sep"></div>
+            <div class="menu__item menu__item--danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Remover do tomo</div>
+          </div>
+        </div></div>
+        <div class="cell"><div class="cell__cap">ITEM EM HOVER E FOCO</div><div class="cell__body center">
+          <div class="menu">
+            <div class="menu__item" style="background:var(--secondary)">Abrir no visualizador<span class="kbd">↵</span></div>
+            <div class="menu__item" style="background:var(--secondary);box-shadow:inset 0 0 0 1px var(--ring)">Corrigir o selo</div>
+          </div>
+        </div><div class="cell__note">Hover e foco de teclado se distinguem: o foco carrega o anel; o hover, só o fundo.</div></div>
+        <div class="cell"><div class="cell__cap">DESABILITADO COM MOTIVO</div><div class="cell__body col center">
+          <div class="menu" style="min-width:auto">
+            <div class="menu__item" aria-disabled="true">Baixar PDF</div>
+          </div>
+          <span class="tip">O documento ainda não foi gerado</span>
+        </div><div class="cell__note">Item desabilitado sem motivo visível é uma porta trancada sem placa. O tooltip é obrigatório.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== 14-16 ==================== -->
+    <section class="block" id="superficies" data-od-id="c-surfaces">
+      <h2><span class="num">14–16</span>Estado vazio, painel de vidro e popover do agente</h2>
+
+      <h3 class="sub">14 · Estado vazio — ensina a interface</h3>
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap">NEUTRO</div><div style="padding:var(--sp-3)">
+          <div class="empty"><span class="mono-label">HISTÓRICO</span><p>Sem histórico ainda. Suas conversas e volumes ficam salvos aqui.</p></div>
+        </div><div class="cell__note">Rótulo mono nomeando a região + uma linha explicando. Nenhuma ação: aqui não há nada a fazer.</div></div>
+        <div class="cell"><div class="cell__cap">COM AÇÃO · NO MÁXIMO UMA</div><div style="padding:var(--sp-3)">
+          <div class="empty"><span class="mono-label">ARTEFATOS DO PROJETO</span><p>Os documentos gerados aparecem aqui. Solte as pranchas em PDF para o Nexo ler os selos.</p><button class="btn btn--outline btn--sm">Soltar PDFs</button></div>
+        </div><div class="cell__note">Uma ação, nunca duas. Duas viram menu, e menu num vazio é confissão de que a tela não sabe o que ela quer.</div></div>
+        <div class="cell" style="border-color:rgb(255 146 133 / 0.30)"><div class="cell__cap" style="color:var(--status-critical)">VAZIO ≠ FALHA</div><div style="padding:var(--sp-3)">
+          <div class="empty" style="border-style:solid;border-color:rgb(255 146 133 / .30);background:var(--status-critical-bg)">
+            <span class="mono-label" style="color:var(--status-critical)">FALHA AO CARREGAR</span>
+            <p style="color:var(--foreground)">Não consegui ler a lista de projetos. A conexão com o servidor caiu.</p>
+            <button class="btn btn--outline btn--sm">Tentar de novo</button></div>
+        </div><div class="cell__note">Um vazio é neutro e ensina; uma falha usa o vocabulário do crítico. Os dois nunca se parecem.</div></div>
+      </div>
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Ilustração ou emoji no estado vazio. O engenheiro está sob prazo de prefeitura; um desenho simpático ocupando 200px de tela é tempo roubado de quem precisa da instrução.</p></div>
+
+      <h3 class="sub">15 · Painel de vidro</h3>
+      <div class="grid g3" style="background:radial-gradient(500px 200px at 30% 0%, #0d2b28, #0a0e11 70%);padding:var(--sp-4);border-radius:var(--radius)">
+        <div class="glass" style="padding:var(--sp-4)"><span class="mono-label dim" style="display:block;margin-bottom:6px">TINT PADRÃO · 62%</span><p class="t-caption">Dock do composer, backdrop de modal, cromo do visualizador.</p></div>
+        <div class="glass glass--weak" style="padding:var(--sp-4)"><span class="mono-label dim" style="display:block;margin-bottom:6px">TINT FRACO · 52%</span><p class="t-caption">Bolha do assistente. Mais sólido para o texto contrastar.</p></div>
+        <div style="padding:var(--sp-4);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--edge-highlight)"><span class="mono-label dim" style="display:block;margin-bottom:6px">FALLBACK SÓLIDO</span><p class="t-caption">Sem suporte a blur, ou com transparência reduzida: vira <span class="mono">--card</span>.</p></div>
+      </div>
+
+      <h3 class="sub">16 · Popover do agente</h3>
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">ANCORADO AO NÓ · FORMULÁRIO CURTO</div><div class="cell__body center" style="background:var(--nexodoc-recessed);padding:var(--sp-6)">
+          <div style="position:relative">
+            <div class="node-folha" aria-selected="true"><span class="n">11/24 · EST</span><span class="t">Fôrmas — laje</span></div>
+            <div class="menu" style="position:absolute;left:0;top:52px;width:280px;padding:var(--sp-4);display:grid;gap:var(--sp-3)">
+              <span class="mono-label dim">CORRIGIR O SELO</span>
+              <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Número da prancha</label><div class="field field--sm"><input value="11/24" aria-label="Número da prancha"></div></div>
+              <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Título</label><div class="field field--sm"><input value="Fôrmas — laje de cobertura" aria-label="Título"></div></div>
+              <div class="banner banner--warning" style="border:1px solid rgb(233 180 92 / .30);border-radius:6px;padding:8px 10px;font-size:12px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div>3 documentos já gerados saem da divisão.</div>
+              </div>
+              <div style="display:flex;gap:var(--sp-2);justify-content:flex-end"><button class="btn btn--ghost btn--sm">Cancelar</button><button class="btn btn--primary btn--sm">Aplicar</button></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cell"><div class="cell__cap">ANCORADO AO ORBE · O QUE O AGENTE ESTÁ FAZENDO</div><div class="cell__body center" style="background:var(--nexodoc-recessed);padding:var(--sp-6)">
+          <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
+            <div class="orb" data-state="reading" style="--orb-size:40px"></div>
+            <div class="menu" style="width:260px;padding:var(--sp-3);display:grid;gap:8px">
+              <span class="mono-label" style="color:var(--nexodoc-accent)">LENDO OS SELOS</span>
+              <p class="t-caption dim">Prancha 6 de 8 · recorte e anotação dos campos PRANCHA, ARQUIVO e CONTEÚDO.</p>
+              <div style="height:3px;border-radius:2px;background:var(--secondary);overflow:hidden"><div style="width:75%;height:100%;background:var(--primary)"></div></div>
+              <div style="display:flex;justify-content:space-between"><span class="mono-data dim" style="font-size:11px">00:14 decorrido</span><button class="btn btn--ghost btn--sm" style="height:24px;padding:0 8px;font-size:11px">Cancelar</button></div>
+            </div>
+          </div>
+        </div><div class="cell__note">O popover do orbe é o par textual do estado — é ele que sustenta a informação quando o movimento está reduzido.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Popover com rolagem interna. Se o formulário não cabe em ~320px de altura, ele não era curto — é uma decisão, e decisão volta para a conversa.</p></div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

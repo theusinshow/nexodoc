@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 4 — A conversa · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  .stage { background:radial-gradient(700px 300px at 50% 0%, #0d2b28 0%, #0a0e11 68%); border-radius:var(--radius); border:1px solid var(--border); padding:var(--sp-6); }
+  .att { display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 10px; border-radius:6px;
+         background:var(--nexodoc-recessed); border:1px solid var(--border); box-shadow:var(--shadow-subtle);
+         font-family:var(--font-mono); font-size:11px; letter-spacing:0.02em; max-width:100%; }
+  .att svg { width:13px; height:13px; flex:none; color:var(--muted-foreground); }
+  .att .disc { font-size:10px; letter-spacing:0.05em; color:var(--muted-foreground); }
+  .att .prog { width:34px; height:2px; border-radius:2px; background:var(--secondary); overflow:hidden; }
+  .att .prog b { display:block; height:100%; background:var(--primary); }
+  .plan-row { display:grid; grid-template-columns:20px 1fr 92px; gap:var(--sp-3); align-items:center;
+              padding:9px var(--sp-4); border-bottom:1px solid var(--border); font-size:13px; }
+  .plan-row:last-child { border-bottom:0; }
+  .three { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:var(--sp-3); align-items:start; }
+  .three > figure { margin:0; }
+  .three figcaption { font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+                      color:var(--muted-foreground); margin-bottom:8px; display:flex; justify-content:space-between; }
+  @media (max-width:1100px){ .three { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote4-main">
+
+    <header class="doc-head" data-od-id="lote4-header">
+      <span class="mono-label eyebrow">LOTE 4 DE 9 · CONVERSA</span>
+      <h1 class="t-display">O coração do produto</h1>
+      <p>É a tela onde o engenheiro passa o dia. A bolha do assistente pode ser vidro sutil
+      como invólucro, mas todo dado dentro dela é matte. Chip nunca é formulário: é sempre
+      uma ação de conversa.</p>
+    </header>
+
+    <!-- ==================== ENTRADA ==================== -->
+    <section class="block" id="entrada" data-od-id="section-input">
+      <h2><span class="num">1</span>Entrada</h2>
+      <p class="lede">O composer é uma instância só, em duas variantes: herói (centrado na
+      tela de boas-vindas, com o orbe acima) e ancorado (rodapé, quando a conversa começou).
+      A transição entre elas é a macrotransição do shell — 320ms, uma por sessão.</p>
+
+      <div class="grid g2" data-od-id="composer-variants">
+        <div class="cell"><div class="cell__cap">VARIANTE HERÓI<span>BOAS-VINDAS</span></div>
+          <div class="stage" style="border:0;border-radius:0;text-align:center">
+            <div class="orb orb--md" data-state="idle" style="margin:0 auto var(--sp-6)"></div>
+            <h3 class="t-headline" style="margin-bottom:8px">O que vamos montar — ou auditar?</h3>
+            <p class="t-body dim" style="max-width:44ch;margin:0 auto var(--sp-6)">Solte as pranchas e eu leio os selos, proponho e monto. Solte o memorial e eu audito contra a obra declarada.</p>
+            <div class="composer composer--hero">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <input placeholder="Escreva para o Nexo…" aria-label="Mensagem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m22 2-7 20-4-9-9-4Z"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="cell"><div class="cell__cap">VARIANTE ANCORADO<span>CONVERSA ATIVA</span></div>
+          <div class="stage" style="border:0;border-radius:0;display:flex;flex-direction:column;justify-content:flex-end;min-height:340px;gap:var(--sp-3)">
+            <div class="bubble bubble--agent t-body">8 folha(s) de selo lidas — pronto para gerar.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip chip--suggest">Conferir as folhas</button><button class="chip">Montar o volume</button></div>
+            <div class="composer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <input placeholder="Escreva para o Nexo…" aria-label="Mensagem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--nexodoc-accent)"><path d="m22 2-7 20-4-9-9-4Z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sub">1.1 · Os seis estados do composer</h3>
+      <div class="grid g3" data-od-id="composer-states">
+        <div class="cell"><div class="cell__cap">VAZIO</div><div class="cell__body" style="background:var(--nexodoc-recessed)">
+          <div class="composer" style="width:100%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input placeholder="Escreva para o Nexo…" aria-label="Mensagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div>
+        </div><div class="cell__note">Botão de enviar em cinza: sem texto não há o que enviar.</div></div>
+
+        <div class="cell"><div class="cell__cap">DIGITANDO</div><div class="cell__body" style="background:var(--nexodoc-recessed)">
+          <div class="composer" style="width:100%;border-color:var(--ring);box-shadow:var(--glass-edge),0 0 0 3px rgb(91 218 198 / .18)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input value="Trocar o título para PROJETO" aria-label="Mensagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--nexodoc-accent)"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div>
+        </div><div class="cell__note">Enviar acende em teal. É a única mudança de cor.</div></div>
+
+        <div class="cell"><div class="cell__cap">COM ANEXOS</div><div class="cell__body col" style="background:var(--nexodoc-recessed)">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <span class="att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>ARQ-05.pdf<span class="disc">ARQ · 05/24</span></span>
+            <span class="att">+6</span>
+          </div>
+          <div class="composer" style="width:100%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input placeholder="Escreva ou envie assim mesmo" aria-label="Mensagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--nexodoc-accent)"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div>
+        </div><div class="cell__note">Anexos ficam acima do campo, nunca dentro dele.</div></div>
+
+        <div class="cell"><div class="cell__cap">ENVIANDO</div><div class="cell__body" style="background:var(--nexodoc-recessed)">
+          <div class="composer" style="width:100%;opacity:.75"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input value="Trocar o título para PROJETO" aria-label="Mensagem" disabled><span class="spinner" style="color:var(--nexodoc-accent)"></span></div>
+        </div><div class="cell__note">O texto permanece visível até a bolha aparecer — se falhar, ele volta editável.</div></div>
+
+        <div class="cell"><div class="cell__cap">DESABILITADO</div><div class="cell__body col" style="background:var(--nexodoc-recessed)">
+          <div class="composer is-disabled" style="width:100%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input placeholder="Aguardando o Nexo terminar…" aria-label="Mensagem" disabled></div>
+        </div><div class="cell__note">Placeholder explica o motivo. Campo desabilitado mudo é uma parede sem porta.</div></div>
+
+        <div class="cell"><div class="cell__cap" style="color:var(--status-critical)">ERRO</div><div class="cell__body col" style="background:var(--nexodoc-recessed)">
+          <div class="composer" style="width:100%;border-color:rgb(255 146 133 / .45)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><input value="Trocar o título para PROJETO" aria-label="Mensagem"><button class="btn btn--ghost btn--sm" style="height:28px">Reenviar</button></div>
+          <span class="field-help is-error" style="margin-top:6px">A mensagem não chegou. Seu texto está preservado.</span>
+        </div><div class="cell__note">A regra: erro de envio nunca apaga o que o engenheiro escreveu.</div></div>
+      </div>
+
+      <h3 class="sub">1.2 · Zona de solta</h3>
+      <div class="grid g4" data-od-id="dropzone">
+        <div class="cell"><div class="cell__cap">REPOUSO</div><div class="cell__body center" style="min-height:120px;background:var(--nexodoc-recessed)"><span class="t-caption dim">Nenhuma moldura visível. A tela inteira é a zona.</span></div></div>
+        <div class="cell" style="border-color:rgb(91 218 198 / .45)"><div class="cell__cap" style="color:var(--nexodoc-accent)">ARRASTANDO SOBRE A TELA</div>
+          <div class="cell__body center col" style="min-height:120px;background:rgb(0 166 147 / .07);border:1px dashed rgb(91 218 198 / .45);margin:var(--sp-2);border-radius:var(--radius)">
+            <div class="orb" data-state="dragging" style="--orb-size:36px"></div>
+            <span class="t-body" style="margin-top:8px">Solte as pranchas aqui</span>
+            <span class="mono-label dim" style="margin-top:4px">PDF · ATÉ 200 ARQUIVOS</span>
+          </div></div>
+        <div class="cell"><div class="cell__cap">SOLTANDO</div><div class="cell__body center col" style="min-height:120px;background:rgb(0 166 147 / .12)">
+          <div class="orb" data-state="reading" style="--orb-size:36px"></div><span class="t-caption dim" style="margin-top:8px">Enfileirando 8 arquivos…</span></div></div>
+        <div class="cell" style="border-color:rgb(255 146 133 / .35)"><div class="cell__cap" style="color:var(--status-critical)">ARQUIVO RECUSADO</div>
+          <div class="cell__body center col" style="min-height:120px;background:var(--status-critical-bg)">
+            <span class="badge badge--critical">.DWG NÃO ACEITO</span>
+            <span class="t-caption" style="margin-top:8px;color:var(--foreground);text-align:center">O Nexo lê o selo de PDF. Exporte a prancha em PDF e solte de novo.</span></div></div>
+      </div>
+
+      <h3 class="sub">1.3 · Chip de anexo</h3>
+      <div class="cell"><div class="cell__cap">OS SEIS ESTADOS · UM PDF DE PRANCHA MOSTRA DISCIPLINA E FOLHA</div>
+        <div class="cell__body" style="gap:var(--sp-2)">
+          <span class="att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ARQ-11.pdf<span class="disc">NA FILA</span></span>
+          <span class="att" style="border-color:rgb(91 218 198 / .35)"><span class="prog"><b style="width:62%"></b></span>ARQ-05.pdf<span class="disc">LENDO 62%</span></span>
+          <span class="att"><svg viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="1.5"><path d="m20 6-11 11-5-5"/></svg>ARQ-05.pdf<span class="disc">ARQ · 05/24</span></span>
+          <span class="att" style="border-color:rgb(255 146 133 / .40)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--status-critical)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>EST-11.pdf<span class="disc" style="color:var(--status-critical)">SELO ILEGÍVEL</span></span>
+          <span class="att" style="border-color:rgb(220 120 88 / .40)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-tertiary)" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>HID-17.pdf<span class="disc" style="color:var(--nexodoc-tertiary)">CORRIGIDO À MÃO</span></span>
+          <span class="att">PCI-22.pdf<button class="btn btn--ghost btn--icon btn--sm" style="width:20px;height:20px" aria-label="Remover anexo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>
+        </div>
+        <div class="cell__note">Enfileirado · lendo (com progresso) · lido · erro · corrigido à mão · removível. O
+        estado "corrigido à mão" usa rust porque é <em>ênfase</em>, não status: o valor não está
+        errado nem certo, ele veio de uma pessoa em vez do carimbo.</div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Barra de progresso de tela cheia ao soltar 200 PDFs. O engenheiro precisa continuar conversando enquanto a leitura roda — o progresso vive no chip de cada arquivo e no orbe, não bloqueando a tela.</p></div>
+    </section>
+
+    <!-- ==================== CONVERSA ==================== -->
+    <section class="block" id="conversa" data-od-id="section-conversation">
+      <h2><span class="num">2</span>Conversa</h2>
+
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">BOLHA DO USUÁRIO · MATTE, SEMPRE</div>
+          <div class="stage" style="border:0;border-radius:0;display:grid;gap:var(--sp-3)">
+            <div class="bubble bubble--user t-body" style="max-width:70%">Monta o volume.</div>
+            <div class="bubble bubble--user t-body" style="max-width:85%">Troca o título para PROJETO ARQUITETÔNICO — REVITALIZAÇÃO e refaz as duas capas. A prefeitura devolveu porque o nome não batia com o protocolo.</div>
+            <div class="bubble bubble--user t-body" style="max-width:80%">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+                <span class="att">ARQ-05.pdf<span class="disc">ARQ · 05/24</span></span>
+                <span class="att">EST-11.pdf<span class="disc">EST · 11/24</span></span>
+              </div>
+              Essas duas faltaram.
+            </div>
+          </div>
+          <div class="cell__note">Curta, longa e com anexos. Nunca vidro: o que o engenheiro escreveu é dado.</div></div>
+
+        <div class="cell"><div class="cell__cap">BOLHA DO ASSISTENTE · VIDRO SUTIL COMO INVÓLUCRO</div>
+          <div class="stage" style="border:0;border-radius:0;display:grid;gap:var(--sp-3)">
+            <div class="bubble bubble--agent t-body">Li o selo de 8 pranchas. Todas de arquitetura, revisões 01 a 03. Cabe em dois tomos<span class="caret"></span></div>
+            <div class="bubble bubble--agent t-body">Li o selo de 8 pranchas. Todas de arquitetura, revisões 01 a 03. Cabe em dois tomos — confirme o título antes de eu gerar, porque o título é decisão sua.</div>
+            <div class="bubble bubble--agent t-body" style="border-color:rgb(233 180 92 / .35)"><span class="mono-label" style="color:var(--status-warning);display:block;margin-bottom:6px">CANCELADO POR VOCÊ</span><span class="dim">Li o selo de 8 pranchas. Todas de arquitetura…</span></div>
+            <div class="bubble bubble--agent t-body" style="border-color:rgb(255 146 133 / .35)"><span class="mono-label" style="color:var(--status-critical);display:block;margin-bottom:6px">A RESPOSTA FALHOU</span>Perdi a conexão no meio da leitura. As 6 primeiras pranchas estão salvas. <button class="chip chip--suggest" style="margin-top:8px">Retomar da prancha 7</button></div>
+          </div>
+          <div class="cell__note">Escrevendo (com cursor) · completa · cancelada · erro.</div></div>
+      </div>
+
+      <h3 class="sub">2.1 · Chips de resposta rápida</h3>
+      <div class="cell"><div class="cell__cap">SUGERIDO · COMUM · SILENCIOSO<span>NUNCA MAIS DE 3 SUGERIDOS</span></div>
+        <div class="cell__body col" style="background:var(--nexodoc-recessed)">
+          <span class="mono-label dim">PRÓXIMO PASSO</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="chip chip--suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Conferir as folhas</button>
+            <button class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Montar o volume</button>
+            <button class="chip chip--quiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Trocar o título</button>
+          </div>
+        </div>
+        <div class="cell__note">O sugerido é o caminho que o agente recomenda — um fio teal na borda, nada mais.
+        Preenchimento teal num chip faria três botões primários competindo na mesma linha.</div>
+      </div>
+    </section>
+
+    <!-- ==================== PECAS COMPARTILHADAS ==================== -->
+    <section class="block" id="pecas" data-od-id="section-shared-pieces">
+      <h2><span class="num">3</span>As peças compartilhadas das caixas</h2>
+      <p class="lede">Desenhadas uma vez, valem para as seis caixas. O fluxo é sempre o mesmo:
+      o agente propõe → os parâmetros aparecem <b>somente para leitura</b> → o engenheiro
+      confirma e o documento é gerado → aparecem os downloads.</p>
+
+      <div class="rule-note"><strong>Corrigir nunca abre formulário dentro da caixa.</strong>
+      O chip de alterar reabre a decisão na conversa, com a fala do agente. A caixa é o
+      registro do que foi combinado — se ela virasse formulário, o engenheiro perderia o
+      rastro do que mudou e quando.</div>
+
+      <div class="grid g3" data-od-id="shared-pieces">
+        <div class="cell"><div class="cell__cap">MOLDURA COM SELO DE TOMO</div><div class="cell__body col">
+          <div class="confirm" style="width:100%"><div class="confirm__head">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span class="mono-label">VOU GERAR · 4 DOCUMENTOS</span><span class="badge badge--secondary" style="margin-left:auto">TOMO 01–02</span>
+          </div><div class="confirm__body"><span class="t-caption dim">…</span></div></div>
+        </div></div>
+
+        <div class="cell"><div class="cell__cap">LINHA DE RESUMO · E A VARIANTE "FALTANDO"</div><div class="cell__body col">
+          <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+          <dl class="srow"><dt>Prefeitura</dt><dd>Prefeitura Municipal de Chapecó</dd></dl>
+          <dl class="srow srow--missing"><dt>Volume</dt><dd>—</dd></dl>
+        </div><div class="cell__note">"Faltando" é rust: marca ausência sem julgar. Âmbar diria que está errado — não está, só não foi dito ainda.</div></div>
+
+        <div class="cell"><div class="cell__cap">CHIP DE ALTERAR</div><div class="cell__body col">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="chip chip--quiet" style="height:26px;font-size:11px">Alterar título</button>
+            <button class="chip chip--quiet" style="height:26px;font-size:11px">Alterar tomos</button>
+            <button class="chip chip--quiet" style="height:26px;font-size:11px">Alterar prefeitura</button>
+          </div>
+        </div><div class="cell__note">Silenciosos, sempre. Alterar não compete com confirmar.</div></div>
+
+        <div class="cell"><div class="cell__cap">BOTÃO DE CONFIRMAR · 3 ESTADOS</div><div class="cell__body col" style="gap:8px">
+          <button class="btn btn--primary" style="width:100%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Gerar os 4</button>
+          <button class="btn btn--primary" style="width:100%"><span class="spinner"></span>Gerando… 2 de 4</button>
+          <button class="btn btn--primary" style="width:100%;background:var(--status-warning);color:#2b1c05">Aplicar alteração e regerar</button>
+        </div><div class="cell__note">Repouso · ocupado · aplicar alteração. O terceiro é âmbar porque é resposta a um estado pendente, não uma ação nova.</div></div>
+
+        <div class="cell"><div class="cell__cap">FAIXA DE ERRO</div><div class="cell__body col" style="padding:0">
+          <div class="banner banner--critical" style="border-top:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+            <div><strong>A capa do TOMO 02 não foi gerada</strong><span class="d">O modelo da prefeitura de Chapecó não respondeu. Os outros 3 documentos saíram.</span></div>
+          </div>
+        </div><div class="cell__note">Sempre diz o que <em>sobreviveu</em>. Falha parcial que se apresenta como falha total faz o engenheiro refazer trabalho pronto.</div></div>
+
+        <div class="cell"><div class="cell__cap">BLOCO DE DOWNLOADS</div><div class="cell__body col" style="width:100%">
+          <div class="dl" style="width:100%">
+            <a class="dl__item dl__item--primary" href="#downloads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_VOLUME-01.pdf<span class="sz">18,4 MB</span></a>
+            <a class="dl__item" href="#downloads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_LD-TOMO-01.pdf<span class="sz">96 KB</span></a>
+            <a class="dl__item" href="#downloads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_LD-TOMO-01.xlsx<span class="sz">32 KB</span></a>
+          </div>
+        </div><div class="cell__note">O arquivo principal leva o fio teal. Os demais são iguais entre si — sem hierarquia inventada.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== AS SEIS CAIXAS ==================== -->
+    <section class="block" id="caixas" data-od-id="section-confirm-cards">
+      <h2><span class="num">4</span>As seis caixas × três estados</h2>
+      <p class="lede">Proposta (ainda não gerado) · <b style="color:var(--status-warning)">pendente</b>
+      (os parâmetros mudaram desde a geração — o documento na mão do engenheiro está velho)
+      · aplicado. O estado pendente é o erro mais caro que esta tela pode cometer, e por
+      isso é o único que muda a borda da moldura.</p>
+
+      <!-- 1. LD -->
+      <h3 class="sub">4.1 · Lista de Documentos</h3>
+      <div class="three" data-od-id="card-ld">
+        <figure><figcaption>Proposta<span>ESTADO 1</span></figcaption>
+          <div class="confirm" data-state="proposta">
+            <div class="confirm__head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="mono-label">VOU GERAR · LISTA DE DOCUMENTOS</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+              <dl class="srow"><dt>Tomos</dt><dd>2</dd></dl>
+              <dl class="srow"><dt>Tomo inicial</dt><dd>01</dd></dl>
+              <div class="tbl-wrap" style="max-height:120px;margin-top:4px">
+                <table class="tbl tbl--dense"><tbody>
+                  <tr><td class="mono" style="width:64px">01/24</td><td>Situação e localização</td><td class="num" style="width:44px">03</td></tr>
+                  <tr><td class="mono">05/24</td><td>Planta baixa — térreo</td><td class="num">03</td></tr>
+                  <tr><td class="mono">06/24</td><td>Planta de cobertura</td><td class="num">01</td></tr>
+                  <tr><td class="mono">07/24</td><td>Cortes AA e BB</td><td class="num">02</td></tr>
+                </tbody></table>
+              </div>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm">Gerar a LD</button><button class="chip chip--quiet" style="height:28px;font-size:11px">Alterar título</button><button class="chip chip--quiet" style="height:28px;font-size:11px">Alterar tomos</button></div>
+          </div>
+        </figure>
+
+        <figure><figcaption style="color:var(--status-warning)">Pendente<span>ESTADO 2</span></figcaption>
+          <div class="confirm" data-state="pendente">
+            <div class="confirm__head" style="background:var(--status-warning-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--status-warning)" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><span class="mono-label" style="color:var(--status-warning)">A LD QUE VOCÊ BAIXOU ESTÁ VELHA</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Título</dt><dd><span style="text-decoration:line-through;color:var(--muted-foreground)">PROJETO ARQUITETÔNICO</span><br>PROJETO ARQ. — REVITALIZAÇÃO</dd></dl>
+              <dl class="srow"><dt>Tomos</dt><dd>2</dd></dl>
+              <dl class="srow"><dt>Gerada em</dt><dd>11:35 · há 42 min</dd></dl>
+            </div>
+            <div class="banner banner--warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>O título mudou depois da geração.</strong><span class="d">Se este PDF já foi para a prefeitura, ele não bate com o protocolo atual.</span></div></div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm" style="background:var(--status-warning);color:#2b1c05">Aplicar e regerar</button><button class="chip chip--quiet" style="height:28px;font-size:11px">Manter a versão antiga</button></div>
+          </div>
+        </figure>
+
+        <figure><figcaption style="color:var(--status-ok)">Aplicado<span>ESTADO 3</span></figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><svg viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="1.5"><path d="m20 6-11 11-5-5"/></svg><span class="mono-label">LD GERADA</span><span class="badge badge--ok" style="margin-left:auto"><i class="dot"></i>TOMO 01–02</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Título</dt><dd>PROJETO ARQ. — REVITALIZAÇÃO</dd></dl>
+              <dl class="srow"><dt>Linhas</dt><dd>24</dd></dl>
+              <div class="dl" style="margin-top:4px">
+                <a class="dl__item dl__item--primary" href="#ld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_LD-TOMO-01.pdf<span class="sz">96 KB</span></a>
+                <a class="dl__item" href="#ld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_LD-TOMO-02.pdf<span class="sz">88 KB</span></a>
+              </div>
+            </div>
+          </div>
+        </figure>
+      </div>
+
+      <!-- 2. Capa -->
+      <h3 class="sub">4.2 · Capa</h3>
+      <div class="three" data-od-id="card-capa">
+        <figure><figcaption>Proposta</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU GERAR · CAPA</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO</dd></dl>
+              <dl class="srow"><dt>Prefeitura</dt><dd>Municipal de Chapecó</dd></dl>
+              <dl class="srow"><dt>Volume</dt><dd>1</dd></dl>
+              <dl class="srow"><dt>Tomos</dt><dd>2 (TOMO 01–02)</dd></dl>
+              <dl class="srow srow--missing"><dt>Mês</dt><dd>—</dd></dl>
+              <dl class="srow"><dt>Ano</dt><dd>2026</dd></dl>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm is-disabled">Gerar as 2 capas</button><span class="t-caption" style="color:var(--nexodoc-tertiary)">Falta o mês.</span></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-warning)">Pendente</figcaption>
+          <div class="confirm" data-state="pendente">
+            <div class="confirm__head" style="background:var(--status-warning-bg)"><span class="mono-label" style="color:var(--status-warning)">AS CAPAS ESTÃO VELHAS</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Prefeitura</dt><dd><span style="text-decoration:line-through;color:var(--muted-foreground)">Chapecó</span> São Miguel do Oeste</dd></dl>
+              <dl class="srow"><dt>Geradas em</dt><dd>09:12 · ontem</dd></dl>
+            </div>
+            <div class="banner banner--warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>A prefeitura mudou.</strong><span class="d">O modelo de capa é diferente por órgão — as duas capas precisam sair de novo.</span></div></div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm" style="background:var(--status-warning);color:#2b1c05">Aplicar e regerar</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-ok)">Aplicado</figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><span class="mono-label">CAPAS GERADAS</span><span class="badge badge--ok" style="margin-left:auto"><i class="dot"></i>2 DE 2</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Prefeitura</dt><dd>São Miguel do Oeste</dd></dl>
+              <div class="dl" style="margin-top:4px">
+                <a class="dl__item dl__item--primary" href="#capa">040-26_CAPA-TOMO-01.pdf<span class="sz">1,2 MB</span></a>
+                <a class="dl__item" href="#capa">040-26_CAPA-TOMO-02.pdf<span class="sz">1,2 MB</span></a>
+              </div>
+            </div>
+          </div>
+        </figure>
+      </div>
+
+      <!-- 3. Separatriz -->
+      <h3 class="sub">4.3 · Folha separatriz</h3>
+      <div class="three" data-od-id="card-separatriz">
+        <figure><figcaption>Proposta · herda da capa</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU GERAR · SEPARATRIZ</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Título</dt><dd>PROJETO ARQUITETÔNICO <span class="badge badge--secondary" style="margin-left:6px">DA CAPA</span></dd></dl>
+              <dl class="srow"><dt>Tomo</dt><dd>01</dd></dl>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm">Gerar a separatriz</button></div>
+          </div>
+        </figure>
+        <figure><figcaption>Proposta · em lote, por disciplina</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU GERAR · 4 SEPARATRIZES</span></div>
+            <div class="confirm__body" style="gap:6px">
+              <div class="disc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--nexodoc-recessed)"><i style="width:10px;height:10px;border-radius:2px;background:var(--discipline-arq)"></i><span class="mono" style="font-size:12px">ARQ</span><span class="t-caption dim" style="margin-left:auto">8 folhas</span></div>
+              <div class="disc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--nexodoc-recessed)"><i style="width:10px;height:10px;border-radius:2px;background:var(--discipline-est)"></i><span class="mono" style="font-size:12px">EST</span><span class="t-caption dim" style="margin-left:auto">6 folhas</span></div>
+              <div class="disc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--nexodoc-recessed)"><i style="width:10px;height:10px;border-radius:2px;background:var(--discipline-hid)"></i><span class="mono" style="font-size:12px">HID</span><span class="t-caption dim" style="margin-left:auto">6 folhas</span></div>
+              <div class="disc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--nexodoc-recessed)"><i style="width:10px;height:10px;border-radius:2px;background:var(--discipline-pci)"></i><span class="mono" style="font-size:12px">PCI</span><span class="t-caption dim" style="margin-left:auto">4 folhas</span></div>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm">Gerar as 4</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-ok)">Aplicado</figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><span class="mono-label">SEPARATRIZES GERADAS</span><span class="badge badge--ok" style="margin-left:auto"><i class="dot"></i>4 DE 4</span></div>
+            <div class="confirm__body"><div class="dl">
+              <a class="dl__item dl__item--primary" href="#sep">040-26_SEP-ARQ.pdf<span class="sz">64 KB</span></a>
+              <a class="dl__item" href="#sep">040-26_SEP-EST.pdf<span class="sz">64 KB</span></a>
+              <a class="dl__item" href="#sep">040-26_SEP-HID.pdf<span class="sz">64 KB</span></a>
+              <a class="dl__item" href="#sep">040-26_SEP-PCI.pdf<span class="sz">64 KB</span></a>
+            </div></div>
+          </div>
+        </figure>
+      </div>
+      <p class="why"><b>Por que a separatriz não tem "pendente" próprio:</b> ela herda o
+      título da capa. Quando a capa fica pendente, a separatriz entra na mesma caixa de
+      pendência — duas pendências separadas para o mesmo motivo fariam o engenheiro
+      confirmar duas vezes a mesma decisão.</p>
+
+      <!-- 4. Volume -->
+      <h3 class="sub">4.4 · Volume</h3>
+      <div class="three" data-od-id="card-volume">
+        <figure><figcaption>Proposta · uma linha por parte, na ordem</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU MONTAR · VOLUME 1 · TOMO 01</span></div>
+            <div style="border-top:1px solid var(--border)">
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">1</span><span>Capa</span><span class="num mono" style="font-size:12px">1 pág.</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">2</span><span>Separatriz — ARQ</span><span class="num mono" style="font-size:12px">1 pág.</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">3</span><span>Lista de Documentos</span><span class="num mono" style="font-size:12px">2 pág.</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">4</span><span>Pranchas 01–12</span><span class="num mono" style="font-size:12px">12 pág.</span></div>
+              <div class="plan-row" style="background:var(--muted)"><span></span><span class="mono-label">TOTAL</span><span class="num mono" style="font-size:12px;color:var(--foreground)">16 pág.</span></div>
+            </div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm">Montar o volume</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-warning)">Pendente</figcaption>
+          <div class="confirm" data-state="pendente">
+            <div class="confirm__head" style="background:var(--status-warning-bg)"><span class="mono-label" style="color:var(--status-warning)">O VOLUME MONTADO ESTÁ VELHO</span></div>
+            <div style="border-top:1px solid var(--border)">
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">1</span><span>Capa</span><span class="badge badge--warning">TROCADA</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">2</span><span>Separatriz — ARQ</span><span class="num mono dim" style="font-size:12px">1 pág.</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">3</span><span>Lista de Documentos</span><span class="badge badge--warning">REGERADA</span></div>
+              <div class="plan-row"><span class="mono dim" style="font-size:11px">4</span><span>Pranchas 01–12</span><span class="num mono dim" style="font-size:12px">12 pág.</span></div>
+            </div>
+            <div class="banner banner--warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>2 das 4 partes mudaram.</strong><span class="d">O PDF montado ainda contém a capa e a LD antigas.</span></div></div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm" style="background:var(--status-warning);color:#2b1c05">Remontar o volume</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-ok)">Aplicado</figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><span class="mono-label">VOLUME MONTADO</span><span class="badge badge--ok" style="margin-left:auto"><i class="dot"></i>16 PÁG.</span></div>
+            <div class="confirm__body"><div class="dl">
+              <a class="dl__item dl__item--primary" href="#vol"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>040-26_VOLUME-01_TOMO-01.pdf<span class="sz">18,4 MB</span></a>
+            </div></div>
+          </div>
+        </figure>
+      </div>
+
+      <!-- 5. Conferencia -->
+      <h3 class="sub">4.5 · Conferência</h3>
+      <div class="three" data-od-id="card-conferencia">
+        <figure><figcaption>Proposta</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU CONFERIR · 24 FOLHAS</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Escopo</dt><dd>Numeração, revisão e título do selo</dd></dl>
+              <dl class="srow"><dt>Folhas</dt><dd>24</dd></dl>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm">Conferir agora</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-warning)">Pendente</figcaption>
+          <div class="confirm" data-state="pendente">
+            <div class="confirm__head" style="background:var(--status-warning-bg)"><span class="mono-label" style="color:var(--status-warning)">A CONFERÊNCIA NÃO VALE MAIS</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Conferido em</dt><dd>10:04 · 24 folhas</dd></dl>
+              <dl class="srow"><dt>Agora</dt><dd>26 folhas (+2)</dd></dl>
+            </div>
+            <div class="banner banner--warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>Duas pranchas entraram depois.</strong><span class="d">O veredito "sem pendências" não cobre as folhas 25 e 26.</span></div></div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm" style="background:var(--status-warning);color:#2b1c05">Conferir de novo</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-ok)">Aplicado · veredito + achados</figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><span class="mono-label">CONFERÊNCIA CONCLUÍDA</span><span class="badge badge--warning" style="margin-left:auto"><i class="dot"></i>ATENÇÃO</span></div>
+            <div style="border-top:1px solid var(--border)">
+              <div class="plan-row"><span class="badge badge--warning" style="width:auto"><i class="dot"></i></span><span>Prancha 11 sem título no selo</span><span class="mono dim" style="font-size:11px">EST</span></div>
+              <div class="plan-row"><span class="badge badge--critical" style="width:auto"><i class="dot"></i></span><span>Prancha 22 ilegível — selo cortado</span><span class="mono dim" style="font-size:11px">PCI</span></div>
+              <div class="plan-row"><span class="badge badge--ok" style="width:auto"><i class="dot"></i></span><span>Numeração contínua de 01 a 24</span><span class="mono dim" style="font-size:11px">OK</span></div>
+            </div>
+          </div>
+        </figure>
+      </div>
+
+      <!-- 6. Auditoria -->
+      <h3 class="sub">4.6 · Auditoria do memorial</h3>
+      <div class="three" data-od-id="card-auditoria">
+        <figure><figcaption>Proposta</figcaption>
+          <div class="confirm">
+            <div class="confirm__head"><span class="mono-label">VOU AUDITAR · MEMORIAL × PROJETO</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Nível</dt><dd>Padrão <span class="badge badge--secondary" style="margin-left:6px">~3 MIN</span></dd></dl>
+              <dl class="srow"><dt>Memorial</dt><dd>MEMORIAL-DESCRITIVO.pdf · 42 pág.</dd></dl>
+              <dl class="srow"><dt>Projeto</dt><dd>24 pranchas · 4 disciplinas</dd></dl>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--primary btn--sm">Auditar</button><button class="chip chip--quiet" style="height:28px;font-size:11px">Usar auditoria profunda</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-warning)">Pendente</figcaption>
+          <div class="confirm" data-state="pendente">
+            <div class="confirm__head" style="background:var(--status-warning-bg)"><span class="mono-label" style="color:var(--status-warning)">O MEMORIAL FOI TROCADO</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Auditado</dt><dd>MEMORIAL-DESCRITIVO.pdf · rev. 02</dd></dl>
+              <dl class="srow"><dt>Atual</dt><dd>MEMORIAL-DESCRITIVO.pdf · rev. 03</dd></dl>
+            </div>
+            <div class="banner banner--warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><strong>Os 7 achados são da revisão 02.</strong><span class="d">Podem já ter sido corrigidos — ou podem ter virado outros.</span></div></div>
+            <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm" style="background:var(--status-warning);color:#2b1c05">Auditar a rev. 03</button></div>
+          </div>
+        </figure>
+        <figure><figcaption style="color:var(--status-ok)">Aplicado</figcaption>
+          <div class="confirm" data-state="aplicado">
+            <div class="confirm__head"><span class="mono-label">AUDITORIA CONCLUÍDA</span><span class="badge badge--critical" style="margin-left:auto"><i class="dot"></i>7 ACHADOS</span></div>
+            <div class="confirm__body">
+              <dl class="srow"><dt>Nível</dt><dd>Padrão</dd></dl>
+              <dl class="srow"><dt>Tempo</dt><dd>2 min 51 s</dd></dl>
+              <dl class="srow"><dt>Severidade</dt><dd><span class="badge badge--critical">2 CRÍT.</span> <span class="badge badge--warning">4 ATN.</span> <span class="badge badge--info">1 INFO</span></dd></dl>
+            </div>
+            <div class="confirm__foot"><button class="btn btn--outline btn--sm">Abrir os 7 achados</button></div>
+          </div>
+        </figure>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Deixar a caixa pendente parecida com a proposta. Elas são visualmente próximas porque o conteúdo é o mesmo — e é exatamente aí que mora o erro caro. A borda âmbar, o cabeçalho tingido e o verbo "aplicar e regerar" existem para tornar impossível confundi-las de relance.</p></div>
+    </section>
+
+    <!-- ==================== PLANO DE GERACAO ==================== -->
+    <section class="block" id="plano" data-od-id="section-plan">
+      <h2><span class="num">5</span>O plano de geração</h2>
+      <p class="lede">A lista do que será gerado, antes de confirmar em lote. Cada linha
+      passa por pendente → gerando → gerado, ou falhou.</p>
+
+      <div class="grid g2">
+        <div class="confirm" data-od-id="plan-before">
+          <div class="confirm__head"><span class="mono-label">PLANO · 4 DOCUMENTOS</span><span class="badge badge--secondary" style="margin-left:auto">ANTES DE CONFIRMAR</span></div>
+          <div style="border-top:1px solid var(--border)">
+            <div class="plan-row"><span class="check"></span><span>LD · TOMO 01</span><span class="mono-label dim">PENDENTE</span></div>
+            <div class="plan-row"><span class="check"></span><span>LD · TOMO 02</span><span class="mono-label dim">PENDENTE</span></div>
+            <div class="plan-row"><span class="check"></span><span>Capa · TOMO 01</span><span class="mono-label dim">PENDENTE</span></div>
+            <div class="plan-row"><span class="check"></span><span>Capa · TOMO 02</span><span class="mono-label dim">PENDENTE</span></div>
+          </div>
+          <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm">Gerar os 4</button></div>
+        </div>
+
+        <div class="confirm" data-od-id="plan-running">
+          <div class="confirm__head"><span class="mono-label">PLANO · 4 DOCUMENTOS</span><span class="badge badge--default" style="margin-left:auto">2 DE 4</span></div>
+          <div style="border-top:1px solid var(--border)">
+            <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="2"><path d="m20 6-11 11-5-5"/></svg><span>LD · TOMO 01</span><span class="mono-label" style="color:var(--status-ok)">GERADO</span></div>
+            <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="2"><path d="m20 6-11 11-5-5"/></svg><span>LD · TOMO 02</span><span class="mono-label" style="color:var(--status-ok)">GERADO</span></div>
+            <div class="plan-row"><span class="spinner" style="color:var(--nexodoc-accent);width:16px;height:16px"></span><span>Capa · TOMO 01</span><span class="mono-label" style="color:var(--nexodoc-accent)">GERANDO</span></div>
+            <div class="plan-row" style="opacity:.55"><span class="check"></span><span>Capa · TOMO 02</span><span class="mono-label dim">PENDENTE</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="confirm" style="margin-top:var(--sp-3)" data-od-id="plan-partial-fail">
+        <div class="confirm__head"><span class="mono-label">PLANO · 4 DOCUMENTOS</span><span class="badge badge--critical" style="margin-left:auto"><i class="dot"></i>1 FALHOU</span></div>
+        <div style="border-top:1px solid var(--border)">
+          <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="2"><path d="m20 6-11 11-5-5"/></svg><span>LD · TOMO 01</span><span class="mono-label" style="color:var(--status-ok)">GERADO</span></div>
+          <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="2"><path d="m20 6-11 11-5-5"/></svg><span>LD · TOMO 02</span><span class="mono-label" style="color:var(--status-ok)">GERADO</span></div>
+          <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" stroke-width="2"><path d="m20 6-11 11-5-5"/></svg><span>Capa · TOMO 01</span><span class="mono-label" style="color:var(--status-ok)">GERADO</span></div>
+          <div class="plan-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-critical)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span>Capa · TOMO 02</span><span class="mono-label" style="color:var(--status-critical)">FALHOU</span></div>
+        </div>
+        <div class="banner banner--critical"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div><strong>3 de 4 saíram.</strong><span class="d">Só a capa do TOMO 02 falhou — o modelo da prefeitura não respondeu. Repetir refaz só essa.</span></div></div>
+        <div class="confirm__foot" style="padding-top:var(--sp-4)"><button class="btn btn--primary btn--sm">Repetir a que falhou</button><button class="chip chip--quiet" style="height:28px;font-size:11px">Baixar os 3 prontos</button></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Marcar o plano inteiro como "falhou" quando uma linha falha. Regerar quatro documentos por causa de um é minutos perdidos e quatro downloads novos que o engenheiro precisa reconferir.</p></div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>

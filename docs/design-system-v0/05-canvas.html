@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lote 5 — O canvas · Nexo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/nexo.css">
+<style>
+  .art {
+    width:168px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--edge-highlight); overflow:hidden; cursor:pointer;
+    transition:border-color var(--duration-fast) var(--ease-feedback);
+  }
+  .art__thumb { aspect-ratio:3/4; background:var(--nexodoc-recessed); border-bottom:1px solid var(--border);
+                display:flex; align-items:center; justify-content:center; position:relative; }
+  .art__meta { padding:8px 10px; }
+  .art__meta .k { font-family:var(--font-mono); font-size:10px; letter-spacing:0.05em; color:var(--muted-foreground); display:block; }
+  .art__meta .t { font-size:12px; line-height:1.35; margin-top:2px; display:block; }
+  .art[aria-selected="true"] { border-color:var(--ring); box-shadow:var(--edge-highlight), 0 0 0 2px rgb(91 218 198 / .22); }
+  .art[data-state="desatualizado"] { border-color:rgb(233 180 92 / .5); }
+  .page { width:64%; height:82%; background:#e8ecee; border-radius:2px; box-shadow:0 1px 3px rgb(0 0 0 / .5); position:relative; }
+  .page i { position:absolute; left:8%; right:8%; height:2px; background:#b9c0c4; border-radius:1px; }
+  .row { border:1px solid var(--border); border-radius:var(--radius); background:var(--card); }
+  .row__lab { display:flex; align-items:center; gap:var(--sp-2); padding:8px var(--sp-3); border-bottom:1px solid var(--border); background:var(--muted); }
+  .row__body { padding:var(--sp-3); display:flex; gap:var(--sp-2); flex-wrap:wrap; min-height:76px; align-items:flex-start; }
+  .drop { border:1px dashed rgb(91 218 198 / .5); background:rgb(0 166 147 / .07); border-radius:6px; width:104px; min-height:42px; }
+  .ghost { opacity:.6; transform:rotate(-2deg); box-shadow:var(--shadow-float); }
+  .canvasbar { display:inline-flex; align-items:center; gap:2px; padding:4px; border-radius:var(--radius);
+               background:var(--nexodoc-raised); border:1px solid var(--border); box-shadow:var(--shadow-overlay); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <main class="doc-main" data-od-id="lote5-main">
+
+    <header class="doc-head" data-od-id="lote5-header">
+      <span class="mono-label eyebrow">LOTE 5 DE 9 · CANVAS</span>
+      <h1 class="t-display">O quadro de artefatos e folhas</h1>
+      <p>Depois de gerar, os documentos aparecem num quadro. As folhas são arrastadas entre
+      fileiras para decidir a divisão em tomos. Um projeto pode ter 200 folhas — o nó de
+      folha é texto puro, sem miniatura, <em>de propósito</em>: 200 miniaturas de PDF são
+      200 renderizações e uma tela que ninguém consegue varrer.</p>
+    </header>
+
+    <!-- ==================== NO DE ARTEFATO ==================== -->
+    <section class="block" id="artefato" data-od-id="section-artifact-node">
+      <h2><span class="num">1</span>Nó de artefato</h2>
+      <p class="lede">O documento gerado. Este sim tem miniatura: são poucos por projeto, e
+      reconhecer uma capa pela cara é mais rápido que ler o nome do arquivo.</p>
+
+      <div class="grid g5" data-od-id="artifact-states">
+        <div><div class="art"><div class="art__thumb"><div class="page"><i style="top:18%"></i><i style="top:30%;right:32%"></i><i style="top:64%"></i><i style="top:72%;right:44%"></i></div></div>
+          <div class="art__meta"><span class="k">CAPA · TOMO 01</span><span class="t">040-26_CAPA-TOMO-01.pdf</span></div></div>
+          <p class="mono-label dim" style="margin-top:8px">REPOUSO</p></div>
+
+        <div><div class="art" aria-selected="true"><div class="art__thumb"><div class="page"><i style="top:18%"></i><i style="top:30%;right:32%"></i><i style="top:64%"></i></div></div>
+          <div class="art__meta"><span class="k">LD · TOMO 01</span><span class="t">040-26_LD-TOMO-01.pdf</span></div></div>
+          <p class="mono-label dim" style="margin-top:8px">SELECIONADO</p></div>
+
+        <div><div class="art" data-state="desatualizado"><div class="art__thumb"><div class="page" style="opacity:.55"><i style="top:18%"></i><i style="top:30%;right:32%"></i></div>
+            <span class="badge badge--warning" style="position:absolute;left:8px;bottom:8px"><i class="dot"></i>VELHO</span></div>
+          <div class="art__meta"><span class="k">CAPA · TOMO 02</span><span class="t">040-26_CAPA-TOMO-02.pdf</span></div></div>
+          <p class="mono-label" style="margin-top:8px;color:var(--status-warning)">DESATUALIZADO</p></div>
+
+        <div><div class="art"><div class="art__thumb" style="flex-direction:column;gap:6px">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span class="mono-label dim" style="font-size:9px">SEM PRÉVIA</span></div>
+          <div class="art__meta"><span class="k">SEPARATRIZ · HID</span><span class="t">040-26_SEP-HID.pdf</span></div></div>
+          <p class="mono-label dim" style="margin-top:8px">SEM PRÉVIA</p></div>
+
+        <div><div class="art"><div class="art__thumb"><div class="sk" style="width:64%;height:82%;border-radius:2px"></div></div>
+          <div class="art__meta"><span class="k">VOLUME 1 · TOMO 02</span><span class="t"><span class="spinner" style="width:10px;height:10px;display:inline-block;vertical-align:-1px;color:var(--nexodoc-accent)"></span> montando…</span></div></div>
+          <p class="mono-label dim" style="margin-top:8px">GERANDO</p></div>
+      </div>
+
+      <h3 class="sub">1.1 · Os quatro estados da miniatura</h3>
+      <div class="grid g4">
+        <div class="cell"><div class="cell__cap">CARREGANDO</div><div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:120px"><div class="sk" style="width:66px;height:88px;border-radius:2px"></div></div><div class="cell__note">Skeleton com a proporção exata da folha A1 deitada. Nada salta quando renderiza.</div></div>
+        <div class="cell"><div class="cell__cap">RENDERIZADA</div><div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:120px"><div class="page" style="width:66px;height:88px"><i style="top:18%"></i><i style="top:30%;right:32%"></i><i style="top:64%"></i></div></div><div class="cell__note">Primeira página, 3:4, sem recorte.</div></div>
+        <div class="cell"><div class="cell__cap" style="color:var(--status-critical)">ERRO</div><div class="cell__body center col" style="background:var(--nexodoc-recessed);min-height:120px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--status-critical)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span class="t-caption" style="color:var(--status-critical);margin-top:6px">Falhou ao renderizar</span>
+          <button class="chip chip--quiet" style="height:24px;font-size:10px;margin-top:6px">Tentar de novo</button></div>
+          <div class="cell__note">O documento existe e baixa normalmente — só a prévia falhou. A distinção é dita em texto.</div></div>
+        <div class="cell"><div class="cell__cap">SEM PDF</div><div class="cell__body center col" style="background:var(--nexodoc-recessed);min-height:120px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <span class="mono-label dim" style="font-size:9px;margin-top:6px">SÓ XLSX</span></div>
+          <div class="cell__note">A LD em planilha não tem página para prever. Ícone, não moldura vazia.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== NO DE FOLHA ==================== -->
+    <section class="block" id="folha" data-od-id="section-sheet-node">
+      <h2><span class="num">2</span>Nó de folha</h2>
+      <p class="lede">Número da prancha e título, em mono. Nada mais. O fio de 2px no topo é
+      a disciplina — a única cor no nó, e ela é secundária ao código de três letras.</p>
+
+      <div class="grid g5" data-od-id="sheet-states">
+        <div class="cell"><div class="cell__cap">REPOUSO</div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <div class="node-folha"><span class="n">05/24 · ARQ</span><span class="t">Planta baixa — pavimento térreo</span></div></div></div>
+        <div class="cell"><div class="cell__cap">SELECIONADO</div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <div class="node-folha" aria-selected="true"><span class="n">05/24 · ARQ</span><span class="t">Planta baixa — pavimento térreo</span></div></div></div>
+        <div class="cell"><div class="cell__cap">CORRIGIDO À MÃO</div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <div class="node-folha" style="border-top-color:var(--discipline-est)"><span class="n">11/24 · EST <span style="color:var(--nexodoc-tertiary)">·</span></span><span class="t">Fôrmas — laje de cobertura</span></div></div>
+          <div class="cell__note">Um ponto rust ao lado do código. Marca discreta: o valor veio de uma pessoa, não do carimbo.</div></div>
+        <div class="cell"><div class="cell__cap">SEM NÚMERO</div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <div class="node-folha" style="border-top-color:var(--discipline-hid)"><span class="n" style="color:var(--nexodoc-tertiary)">—/24 · HID</span><span class="t">Água fria — térreo</span></div></div>
+          <div class="cell__note">O travessão em rust marca a ausência. A folha continua arrastável.</div></div>
+        <div class="cell"><div class="cell__cap">NÃO ABRÍVEL</div><div class="cell__body center" style="background:var(--nexodoc-recessed)">
+          <div class="node-folha" style="border-top-color:var(--discipline-pci);opacity:.5;cursor:not-allowed"><span class="n">22/24 · PCI</span><span class="t">Rota de fuga</span></div></div>
+          <div class="cell__note">50% de opacidade, como todo desabilitado do sistema. O motivo vem no tooltip.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Adicionar miniatura ao nó de folha "só para ficar mais bonito". Duzentas miniaturas fazem o navegador renderizar 200 PDFs, e a fileira de tomo vira uma parede de retângulos brancos indistinguíveis — o número da prancha é o que o engenheiro procura.</p></div>
+    </section>
+
+    <!-- ==================== FILEIRAS ==================== -->
+    <section class="block" id="fileiras" data-od-id="section-rows">
+      <h2><span class="num">3</span>Fileiras de tomo</h2>
+      <p class="lede">Cada fileira é um tomo. Arrastar uma folha entre fileiras é a maneira de
+      decidir a divisão — a operação mais frequente desta tela.</p>
+
+      <div class="grid gridfield" style="gap:var(--sp-3);padding:var(--sp-4);border-radius:var(--radius);border:1px solid var(--border)" data-od-id="rows-demo">
+
+        <div class="row">
+          <div class="row__lab"><span class="mono-label" style="color:var(--nexodoc-accent)">TOMO 01</span><span class="mono-label dim">12 FOLHAS · 01/24 – 12/24</span>
+            <button class="btn btn--ghost btn--icon btn--sm" style="margin-left:auto" aria-label="Opções do tomo 01"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>
+          <div class="row__body">
+            <div class="node-folha"><span class="n">01/24 · ARQ</span><span class="t">Situação e localização</span></div>
+            <div class="node-folha" aria-selected="true"><span class="n">05/24 · ARQ</span><span class="t">Planta baixa — térreo</span></div>
+            <div class="node-folha" aria-selected="true"><span class="n">06/24 · ARQ</span><span class="t">Planta de cobertura</span></div>
+            <div class="node-folha"><span class="n">07/24 · ARQ</span><span class="t">Cortes AA e BB</span></div>
+            <div class="node-folha" style="border-top-color:var(--discipline-est)"><span class="n">11/24 · EST</span><span class="t">Fôrmas — laje</span></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row__lab"><span class="mono-label">TOMO 02</span><span class="mono-label dim">RECEBENDO 2 FOLHAS</span></div>
+          <div class="row__body">
+            <div class="node-folha" style="border-top-color:var(--discipline-hid)"><span class="n">17/24 · HID</span><span class="t">Água fria — térreo</span></div>
+            <div class="drop"></div>
+            <div class="node-folha ghost" style="position:relative"><span class="n">05/24 · ARQ</span><span class="t">Planta baixa — térreo</span>
+              <span class="badge badge--default" style="position:absolute;top:-9px;right:-9px;height:18px;padding:0 6px;font-size:9px">2</span></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row__lab"><span class="mono-label dim">TOMO 03</span><span class="mono-label dim">VAZIO</span></div>
+          <div class="row__body" style="justify-content:center;align-items:center">
+            <span class="t-caption dim">Arraste folhas para cá, ou o tomo não entra no volume.</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="why"><b>A marca de seleção múltipla</b> é a mesma borda teal do nó selecionado —
+      não uma cor nova. O contador aparece só no fantasma arrastado, colado no canto superior
+      direito. <b>O alvo de solta</b> é uma lacuna tracejada com a largura exata do nó, aberta
+      na posição real onde a folha vai cair.</p>
+    </section>
+
+    <!-- ==================== ACOES E EDITOR ==================== -->
+    <section class="block" id="acoes" data-od-id="section-node-actions">
+      <h2><span class="num">4</span>Ações do nó e editor</h2>
+
+      <div class="grid g2">
+        <div class="cell"><div class="cell__cap">AÇÕES DO NÓ SELECIONADO</div>
+          <div class="cell__body col center" style="background:var(--nexodoc-recessed);gap:var(--sp-4);padding:var(--sp-6)">
+            <div class="canvasbar">
+              <button class="btn btn--ghost btn--sm">Abrir</button>
+              <span class="sep--v"></span>
+              <button class="btn btn--ghost btn--sm">Corrigir o selo</button>
+              <span class="sep--v"></span>
+              <button class="btn btn--ghost btn--sm">Mover para…</button>
+            </div>
+            <div class="canvasbar">
+              <button class="btn btn--ghost btn--sm is-disabled">Abrir</button>
+              <span class="sep--v"></span>
+              <button class="btn btn--ghost btn--sm">Corrigir o selo</button>
+              <span class="sep--v"></span>
+              <button class="btn btn--ghost btn--sm is-disabled">Mover para…</button>
+            </div>
+            <span class="tip">Sem PDF de origem — esta folha veio de um PDF único já separado</span>
+          </div>
+          <div class="cell__note">Ação desabilitada sempre carrega o motivo. Botão cinza mudo obriga o engenheiro a testar por tentativa.</div></div>
+
+        <div class="cell"><div class="cell__cap">EDITOR DO NÓ · POPOVER COM AVISO DE CUSTO</div>
+          <div class="cell__body center" style="background:var(--nexodoc-recessed);padding:var(--sp-6)">
+            <div class="menu" style="width:300px;padding:var(--sp-4);display:grid;gap:var(--sp-3)">
+              <span class="mono-label dim">CORRIGIR · 11/24 · EST</span>
+              <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Número da prancha</label><div class="field field--sm"><input value="11/24" aria-label="Número"></div></div>
+              <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Título do selo</label><div class="field field--sm"><input value="Fôrmas — laje de cobertura" aria-label="Título"></div></div>
+              <div><label class="t-caption dim" style="display:block;margin-bottom:4px">Disciplina</label><div class="field field--sm"><span class="affix" style="color:var(--discipline-est)">■</span><input value="EST — Estrutural" aria-label="Disciplina"></div></div>
+              <div class="banner banner--warning" style="border:1px solid rgb(233 180 92 / .30);border-radius:6px;padding:8px 10px;font-size:12px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div>3 documentos já gerados saem da divisão.</div>
+              </div>
+              <div style="display:flex;gap:var(--sp-2);justify-content:flex-end"><button class="btn btn--ghost btn--sm">Cancelar</button><button class="btn btn--primary btn--sm">Aplicar</button></div>
+            </div>
+          </div>
+          <div class="cell__note">O aviso de custo aparece <em>antes</em> de aplicar, e diz o número exato. "Isso pode afetar outros documentos" não é aviso — é desculpa.</div></div>
+      </div>
+    </section>
+
+    <!-- ==================== NAVEGACAO ==================== -->
+    <section class="block" id="navegacao" data-od-id="section-canvas-nav">
+      <h2><span class="num">5</span>Navegação do canvas</h2>
+
+      <div class="grid g3">
+        <div class="cell"><div class="cell__cap">IR ENTRE TOMOS</div><div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:96px">
+          <div class="canvasbar">
+            <button class="btn btn--ghost btn--icon btn--sm" aria-label="Tomo anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m15 18-6-6 6-6"/></svg></button>
+            <span class="mono-data" style="padding:0 10px;font-size:12px">TOMO 01 / 03</span>
+            <button class="btn btn--ghost btn--icon btn--sm" aria-label="Próximo tomo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div></div></div>
+        <div class="cell"><div class="cell__cap">CRIAR TOMO</div><div class="cell__body center" style="background:var(--nexodoc-recessed);min-height:96px">
+          <button class="btn btn--outline btn--sm"><svg viewBox="0 0 24 24" fill="none" stroke="var(--nexodoc-accent)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>Criar tomo 04</button></div></div>
+        <div class="cell"><div class="cell__cap">VOLTAR AO AUTOMÁTICO</div><div class="cell__body col center" style="background:var(--nexodoc-recessed);min-height:96px">
+          <button class="btn btn--ghost btn--sm">Voltar à divisão automática</button>
+          <span class="t-caption dim" style="margin-top:6px;text-align:center">Desfaz 6 movimentos manuais.</span></div>
+          <div class="cell__note">A contagem exata do que será desfeito. Sem ela, "voltar ao automático" é um botão de roleta.</div></div>
+      </div>
+
+      <div class="anti"><span class="anti__tag">NÃO FAÇA</span><p>Animar a reorganização das 200 folhas ao voltar para o automático. Meio segundo de nós voando é o dado respirando — e o dado nunca respira. A nova divisão aparece; o que muda é dito em texto acima da fileira.</p></div>
+    </section>
+
+  </main>
+</div>
+<script src="assets/nav.js"></script>
+</body>
+</html>
