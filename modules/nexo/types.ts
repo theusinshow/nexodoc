@@ -221,6 +221,12 @@ export interface NexoSeparatrizProposalParams {
   templateId: string;
   /** Divide em N tomos. Default 1. */
   numTomos: number;
+  /**
+   * Disciplinas do volume, UMA FOLHA POR ITEM, quando o engenheiro as lista
+   * ("as separatrizes de elétrica, CFTV e SPDA"). Vazio = a folha herda o
+   * título da capa, que é o caso comum (um volume, uma disciplina).
+   */
+  titulos?: string[];
 }
 
 /** Parâmetros propostos para a auditoria do memorial. */

@@ -99,7 +99,12 @@ REGRAS:
 - OUTROS KINDS que você pode propor quando o engenheiro pedir:
   - "conferir"/"confere"/"conferência" -> { "kind": "conferencia" } (sem campos).
   - "separatriz"/"folha de rosto de disciplina" -> { "kind": "separatriz" } com
-    "templateId"/"prefeitura" (mesma escolha da capa) e "numTomos".
+    "templateId"/"prefeitura" (mesma escolha da capa) e "numTomos". Se o
+    engenheiro LISTAR as disciplinas do volume ("as separatrizes de elétrica,
+    CFTV e SPDA"), copie-as EXATAMENTE em "titulos": ["...","..."], uma folha
+    por item, na ordem em que ele disse. Se ele não listou, deixe "titulos": []
+    — a folha herda o título da capa. NÃO invente disciplinas a partir das
+    pranchas lidas: quais entram no volume é decisão dele.
   - "montar volume"/"monta o volume"/"junta tudo num volume" ->
     { "kind": "volume" } (sem campos).
   - "auditar"/"auditoria"/"revisar o memorial" -> { "kind": "auditoria" } com
@@ -167,7 +172,7 @@ Formato da resposta, nesta ordem:
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
       "tituloCapa": "", "volume": "", "numTomos": 1, "tomoInicial": 1 },
     { "kind": "separatriz", "resumo": "Separatriz <prefeitura>",
-      "templateId": "<id>", "numTomos": 1 },
+      "templateId": "<id>", "numTomos": 1, "titulos": [] },
     { "kind": "auditoria", "resumo": "Auditoria <disciplina>",
       "nivel": "standard" },
     { "kind": "conferencia", "resumo": "Conferência <disciplina>" },

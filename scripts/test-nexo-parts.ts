@@ -17,7 +17,10 @@ import {
   buildVolumeParts,
   type VolumePartSource,
 } from "../server/nexo/volume-parts.ts";
-import { removerVaziosAntesDoTitulo } from "../server/nexo/tools/separatriz-content.ts";
+import {
+  removerVaziosAntesDoTitulo,
+  repetirBlocoDoTitulo,
+} from "../server/nexo/tools/separatriz-content.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -178,6 +181,64 @@ test("separatriz: vazio DEPOIS do titulo nao e tocado", () => {
 test("separatriz: sem marcador, devolve o xml intacto", () => {
   const xml = '<office:body><office:text><text:p text:style-name="P11"/></office:text></office:body>';
   assert.equal(removerVaziosAntesDoTitulo(xml), xml);
+});
+
+// --- Separatriz: uma folha por disciplina ------------------------------------
+
+/*
+ * O volume real tem várias disciplinas, cada uma com sua folha de rosto. Gerar
+ * uma de cada vez era o que ainda obrigava a abrir a tela /separatrizes.
+ */
+const LISTA_DO_TEMPLATE =
+  '<office:body><office:text>' +
+  '<text:list xml:id="list123" text:style-name="Numbering_20_1">' +
+  '<text:list-header><text:p text:style-name="P13">{{TITULO}}</text:p></text:list-header>' +
+  "</text:list>" +
+  "</office:text></office:body>";
+
+test("separatriz: uma disciplina preenche o marcador e nao duplica", () => {
+  const out = repetirBlocoDoTitulo(LISTA_DO_TEMPLATE, ["ELETRICA"]);
+  assert.equal(out.match(/ELETRICA/g)?.length, 1);
+  assert.ok(!out.includes("{{TITULO}}"), "o marcador foi preenchido");
+  assert.equal(out.match(/<text:list /g)?.length, 1, "sem bloco a mais");
+});
+
+test("separatriz: tres disciplinas viram tres blocos, na ordem", () => {
+  const out = repetirBlocoDoTitulo(LISTA_DO_TEMPLATE, ["ELETRICA", "CFTV", "SPDA"]);
+  assert.equal(out.match(/<text:list /g)?.length, 3, "um bloco por disciplina");
+  assert.ok(
+    out.indexOf("ELETRICA") < out.indexOf("CFTV") &&
+      out.indexOf("CFTV") < out.indexOf("SPDA"),
+    "a ordem pedida e a ordem das folhas",
+  );
+  assert.ok(!out.includes("{{TITULO}}"), "nenhum marcador sobrou");
+});
+
+test("separatriz: cada copia leva seu xml:id", () => {
+  const out = repetirBlocoDoTitulo(LISTA_DO_TEMPLATE, ["A", "B", "C"]);
+  const ids = out.match(/xml:id="[^"]*"/g) ?? [];
+  assert.equal(ids.length, 3);
+  assert.equal(new Set(ids).size, 3, "id repetido invalidaria o documento");
+});
+
+test("separatriz: o estilo do titulo vai junto em todas as folhas", () => {
+  // É o P13 que carrega o master-page — sem ele a folha nao quebra pagina.
+  const out = repetirBlocoDoTitulo(LISTA_DO_TEMPLATE, ["A", "B"]);
+  assert.equal(out.match(/text:style-name="P13"/g)?.length, 2);
+});
+
+test("separatriz: sem lista envolvente, repete o paragrafo", () => {
+  const xml =
+    '<office:body><office:text>' +
+    '<text:p text:style-name="P13">{{TITULO}}</text:p>' +
+    "</office:text></office:body>";
+  const out = repetirBlocoDoTitulo(xml, ["A", "B"]);
+  assert.equal(out.match(/text:style-name="P13"/g)?.length, 2);
+  assert.ok(out.indexOf("A") < out.indexOf("B"));
+});
+
+test("separatriz: lista vazia devolve o xml intacto", () => {
+  assert.equal(repetirBlocoDoTitulo(LISTA_DO_TEMPLATE, []), LISTA_DO_TEMPLATE);
 });
 
 console.log(`

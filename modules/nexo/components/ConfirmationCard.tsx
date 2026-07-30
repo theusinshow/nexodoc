@@ -43,6 +43,7 @@ import type {
   NexoAgentProposal,
   NexoLdProposalParams,
   NexoCapaProposalParams,
+  NexoSeparatrizProposalParams,
   NexoAuditoriaProposalParams,
   LdPreviewData,
 } from "../types";
@@ -54,6 +55,7 @@ import {
   postCheck,
   postAudit,
   postSeparatriz,
+  arquivosDaSeparatriz,
   ODT_MIME,
 } from "../lib/generate";
 import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
@@ -346,6 +348,7 @@ export function ConfirmationCard({
             <SeparatrizConfirmation
               key={t.sufixo || "unico"}
               resumo={proposal.resumo}
+              params={proposal.params}
               selos={selos}
               tomo={t}
             />
@@ -1041,17 +1044,22 @@ function VolumeConfirmation({
        */
       let separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
       if (!separatrizPdf64 && sepTitle) {
-        const sep = await postSeparatriz(sepTitle);
-        separatrizPdf64 = sep.data;
+        const ident = summarizeSelos(selos);
+        const sep = await postSeparatriz(sepTitle, {
+          codigo: ident.codigo ?? "",
+          revisao: ident.revisao ?? "",
+        });
+        // Sem LibreOffice não há PDF, e é o PDF que entra no volume: a folha
+        // fica registrada como artefato (o ODT existe) e a montagem segue sem
+        // ela, como já fazia. Perder o volume inteiro por causa disso seria pior.
+        separatrizPdf64 = sep.pdf?.data ?? null;
         await saveResult({
           artifactId: separatrizId(selos) + tomo.sufixo,
           kind: "separatriz",
           payload: { titulo: sepTitle, tomo: tomo.numero },
           summary: `Separatriz ${sepTitle}`,
           canvas: { label: "Separatriz", titulo: sepTitle, pageNumber: 1 },
-          files: [
-            { label: "PDF", name: sep.name, mime: PDF_MIME, url: sep.url, primary: true },
-          ],
+          files: arquivosDaSeparatriz(sep),
         });
       }
       const r = await assembleVolume({
@@ -1473,13 +1481,21 @@ function AuditoriaAncora({
  *
  * O título NÃO é campo próprio — é o mesmo `tituloLd` já decidido na LD. Dois
  * títulos para o mesmo documento divergiriam.
+ *
+ * A EXCEÇÃO é o volume de várias disciplinas: quando o engenheiro lista as
+ * disciplinas ("as separatrizes de elétrica, CFTV e SPDA"), o agente preenche
+ * `titulos` e a lista MANDA — ali ele não está nomeando a capa desta conversa,
+ * está pedindo as folhas de rosto do volume inteiro. Era o único uso que ainda
+ * exigia a tela `/separatrizes`.
  */
 function SeparatrizConfirmation({
   resumo,
+  params,
   selos,
   tomo,
 }: {
   resumo: string;
+  params: NexoSeparatrizProposalParams;
   selos: SeloForLd[];
   tomo: { atual: number; numero: number; sufixo: string };
 }) {
@@ -1498,25 +1514,44 @@ function SeparatrizConfirmation({
   const capaParams = capa?.payload as NexoCapaProposalParams | undefined;
   // Título da capa viva > o que ficou gravado quando esta separatriz foi gerada.
   const savedParams = saved?.payload as { titulo?: string } | undefined;
-  const titulo = capaParams?.tituloCapa?.trim() || savedParams?.titulo?.trim() || "";
-  const semTitulo = titulo === "";
-  const capaSumiu = Boolean(saved) && !capa;
+  const daCapa = capaParams?.tituloCapa?.trim() || savedParams?.titulo?.trim() || "";
+  // A lista pedida na conversa vence a herança da capa (ver o comentário acima).
+  const listados = (params.titulos ?? []).map((t: string) => t.trim()).filter(Boolean);
+  const titulos = listados.length > 0 ? listados : daCapa ? [daCapa] : [];
+  const titulo = titulos[0] ?? "";
+  const semTitulo = titulos.length === 0;
+  const capaSumiu = Boolean(saved) && !capa && listados.length === 0;
 
-  const estado = estadoDoArtefato(saved, { titulo, tomo: tomo.numero });
+  /*
+   * `titulos` só entra no payload quando há mais de uma disciplina: com uma só,
+   * a chave a mais faria toda separatriz já gerada parecer desatualizada — o
+   * estado do card é comparação literal do payload com os params.
+   */
+  const payload = {
+    titulo,
+    tomo: tomo.numero,
+    ...(titulos.length > 1 ? { titulos } : {}),
+  };
+  const estado = estadoDoArtefato(saved, payload);
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
     setBusy(true);
     setError(null);
     try {
-      const r = await postSeparatriz(titulo);
+      const ident = summarizeSelos(selos);
+      const r = await postSeparatriz(titulos, {
+        codigo: ident.codigo ?? "",
+        revisao: ident.revisao ?? "",
+      });
+      const quantas = r.folhas > 1 ? ` · ${r.folhas} folhas` : "";
       await saveResult({
         artifactId: id,
         kind: "separatriz",
-        payload: { titulo, tomo: tomo.numero },
-        summary: `Separatriz ${titulo}${r.pdfError ? " · PDF indisponível" : ""}`,
+        payload,
+        summary: `Separatriz ${titulo}${quantas}${r.pdfError ? " · PDF indisponível" : ""}`,
         canvas: { label: "Separatriz", titulo, pageNumber: 1 },
-        files: [{ label: "PDF", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
+        files: arquivosDaSeparatriz(r),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a separatriz.");
@@ -1530,14 +1565,22 @@ function SeparatrizConfirmation({
       {podeGerar && (
         <>
           <div className="space-y-1.5">
-            <SummaryRow
-              label="Título"
-              value={semTitulo ? "defina o título na capa →" : titulo}
-              missing={semTitulo}
-            />
+            {titulos.length > 1 ? (
+              <SummaryRow
+                label={`Disciplinas (${titulos.length} folhas)`}
+                value={titulos.join(" · ")}
+              />
+            ) : (
+              <SummaryRow
+                label="Título"
+                value={semTitulo ? "defina o título na capa →" : titulo}
+                missing={semTitulo}
+              />
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5">
             <AlterChip label="título" phrase="Muda o título para " />
+            <AlterChip label="disciplinas" phrase="As separatrizes são de " />
           </div>
           <div className="flex items-center gap-2">
             <ConfirmButton

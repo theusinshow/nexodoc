@@ -210,44 +210,97 @@ export async function postCheck(
   return payload.result;
 }
 
-export interface SeparatrizGenResult {
-  /** aviso quando o LibreOffice está off (PDF pode faltar). */
-  pdfError?: string;
-  /** base64 cru do PDF — é o que entra como parte do volume. */
-  data: string;
+/** Um arquivo gerado: base64 cru (p/ compor o volume) + object URL (p/ baixar). */
+export interface SeparatrizFile {
   name: string;
-  /** object URL para download/preview (não trafega o binário de novo). */
+  data: string;
   url: string;
 }
 
+export interface SeparatrizGenResult {
+  /** aviso quando o LibreOffice está off (o PDF pode faltar; o ODT não). */
+  pdfError?: string;
+  /** Quantas folhas saíram — uma por disciplina. */
+  folhas: number;
+  odt: SeparatrizFile;
+  /** Ausente quando o LibreOffice não respondeu. */
+  pdf?: SeparatrizFile;
+  zip: SeparatrizFile;
+}
+
+export interface SeparatrizOptions {
+  /** Código do projeto, para o nome do arquivo. Vazio = nome sem código. */
+  codigo?: string;
+  revisao?: string;
+}
+
 /**
- * Gera UMA folha separatriz (nome da disciplina no meio da página) para entrar
- * no volume. A rota só usa o `title`; devolvemos o base64 (p/ compor o volume) e
- * um object URL (p/ download). Lança se o PDF não veio (LibreOffice off) — o
- * chamador que trata a separatriz como best-effort captura e segue sem ela.
+ * Gera as folhas separatrizes (nome da disciplina no meio da página) que entram
+ * no volume. Aceita VÁRIAS disciplinas — uma folha para cada, na ordem dada —
+ * porque é assim que o volume real é: elétrica, CFTV, SPDA, cada uma com sua
+ * folha de rosto.
+ *
+ * NÃO lança quando falta o PDF: o ODT é documento de verdade, e recusar a
+ * entrega inteira porque o LibreOffice está off seria jogar fora o que deu
+ * certo. Quem precisa dos bytes do PDF (a montagem do volume) checa `pdf`.
  */
-export async function postSeparatriz(title: string): Promise<SeparatrizGenResult> {
+export async function postSeparatriz(
+  titulos: string | string[],
+  opts: SeparatrizOptions = {},
+): Promise<SeparatrizGenResult> {
+  const lista = (Array.isArray(titulos) ? titulos : [titulos])
+    .map((t) => t.trim())
+    .filter(Boolean);
   const res = await fetch("/api/nexo/separatriz", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({
+      titulos: lista,
+      ...(opts.codigo?.trim() ? { codigo: opts.codigo.trim() } : {}),
+      ...(opts.revisao?.trim() ? { revisao: opts.revisao.trim() } : {}),
+    }),
   });
   const payload = (await res.json().catch(() => null)) as
     | {
         error?: string;
         pdfError?: string;
+        folhas?: number;
+        odt?: { name: string; data: string };
         pdf?: { name: string; data: string } | null;
+        zip?: { name: string; data: string };
       }
     | null;
-  if (!res.ok || !payload?.pdf) {
+  if (!res.ok || !payload?.odt || !payload.zip) {
     throw new Error(payload?.error ?? "Falha ao gerar a separatriz.");
   }
+  const comUrl = (f: { name: string; data: string }, mime: string) => ({
+    name: f.name,
+    data: f.data,
+    url: base64ToUrl(f.data, mime),
+  });
   return {
     pdfError: payload.pdfError,
-    data: payload.pdf.data,
-    name: payload.pdf.name,
-    url: base64ToUrl(payload.pdf.data, "application/pdf"),
+    folhas: payload.folhas ?? lista.length,
+    odt: comUrl(payload.odt, ODT_MIME),
+    pdf: payload.pdf ? comUrl(payload.pdf, "application/pdf") : undefined,
+    zip: comUrl(payload.zip, "application/zip"),
   };
+}
+
+/**
+ * Os arquivos da separatriz no formato dos cards. ZIP como principal, igual à
+ * capa: é o pacote completo. O ODT vem junto porque é o único jeito de ajustar
+ * o texto sem refazer a folha — era o que ainda prendia o engenheiro à tela
+ * `/separatrizes`.
+ */
+export function arquivosDaSeparatriz(r: SeparatrizGenResult) {
+  return [
+    { label: "ZIP", name: r.zip.name, mime: "application/zip", url: r.zip.url, primary: true },
+    { label: "ODT", name: r.odt.name, mime: ODT_MIME, url: r.odt.url },
+    ...(r.pdf
+      ? [{ label: "PDF", name: r.pdf.name, mime: "application/pdf", url: r.pdf.url }]
+      : []),
+  ];
 }
 
 export interface VolumeOptions {

@@ -75,6 +75,24 @@ export function matchPrefeitura(
   return null;
 }
 
+/**
+ * Disciplinas listadas para as separatrizes: uma folha por item, na ordem dada.
+ * Aceita também uma string com quebras de linha ou vírgulas — é como o modelo
+ * às vezes devolve, e recusar isso viraria "pedi três e veio uma".
+ */
+function listaDeTitulos(v: unknown): string[] {
+  const brutos = Array.isArray(v)
+    ? v
+    : typeof v === "string"
+      ? v.split(/[\n;,]+/)
+      : [];
+  const limpos = brutos
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .filter(Boolean);
+  // Duplicata vira folha repetida no volume — o engenheiro não pediu duas.
+  return [...new Set(limpos)].slice(0, 200);
+}
+
 /** Nível da auditoria: só "deep" é preservado; qualquer outra coisa → "standard". */
 function clampNivel(v: unknown): "standard" | "deep" {
   return String(v ?? "").trim().toLowerCase() === "deep" ? "deep" : "standard";
@@ -146,6 +164,9 @@ export function normalizeProposals(
         params: {
           templateId,
           numTomos: clampTomos(p.numTomos),
+          // Lista só entra quando o engenheiro nomeou as disciplinas; vazia, a
+          // separatriz herda o título da capa (o comportamento de sempre).
+          titulos: listaDeTitulos(p.titulos),
         },
       });
     } else if (p.kind === "auditoria") {

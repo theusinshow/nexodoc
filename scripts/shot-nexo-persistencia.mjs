@@ -123,15 +123,35 @@ try {
   const capaJson = await capa.json();
   check("capa gerada", capa.ok() && Boolean(capaJson.files?.odt), JSON.stringify(capaJson).slice(0, 200));
 
-  // --- separatriz ----------------------------------------------------------
+  // --- separatriz (LOTE: uma folha por disciplina) --------------------------
+  const DISCIPLINAS = [MARCADOR_TITULO, "PROJETO DE CFTV", "PROJETO DE SPDA"];
   const sep = await api.post(`${BASE}/api/nexo/separatriz`, {
-    data: { title: MARCADOR_TITULO },
+    data: { titulos: DISCIPLINAS, codigo: MARCADOR_CODIGO, revisao: "a" },
   });
   const sepJson = await sep.json();
   check(
-    "separatriz gerada (PDF)",
-    sep.ok() && Boolean(sepJson.pdf),
+    "separatriz gerada (ODT+PDF)",
+    sep.ok() && Boolean(sepJson.odt) && Boolean(sepJson.pdf),
     sepJson.pdfError ?? JSON.stringify(sepJson).slice(0, 200),
+  );
+  check(
+    "nome do arquivo com codigo e revisao",
+    sepJson.odt?.name === "999-26_separatrizes_a.odt" &&
+      sepJson.pdf?.name === "999-26_separatrizes_a.pdf",
+    `${sepJson.odt?.name} / ${sepJson.pdf?.name}`,
+  );
+  // A prova do lote: 3 disciplinas TÊM de virar 3 folhas. Contar as páginas do
+  // PDF é o único jeito de saber que a quebra de página aconteteu de verdade —
+  // um ODT com os 3 títulos empilhados numa página só passaria em tudo o resto.
+  let paginasSep = null;
+  if (sepJson.pdf) {
+    const doc = await PDFDocument.load(Buffer.from(sepJson.pdf.data, "base64"));
+    paginasSep = doc.getPageCount();
+  }
+  check(
+    "uma folha por disciplina (3 paginas)",
+    paginasSep === DISCIPLINAS.length,
+    `paginas=${paginasSep}`,
   );
 
   // --- volume --------------------------------------------------------------
@@ -193,11 +213,13 @@ try {
       capaRows[0]?.metadata?.prefeitura?.toLowerCase().includes("chapec"),
     JSON.stringify(capaRows[0]?.metadata),
   );
+  const sepRows = porModulo("separatrizes");
   check(
-    "separatriz registrada",
-    porModulo("separatrizes").length === 1 &&
-      porModulo("separatrizes")[0].metadata?.titulo === MARCADOR_TITULO,
-    JSON.stringify(porModulo("separatrizes")[0]?.metadata),
+    "separatriz registrada (ODT+PDF, 3 folhas)",
+    sepRows.length === 2 &&
+      sepRows[0].metadata?.folhas === DISCIPLINAS.length &&
+      sepRows[0].metadata?.titulo === MARCADOR_TITULO,
+    `${sepRows.length} linha(s) :: ${JSON.stringify(sepRows[0]?.metadata)}`,
   );
   const volRows = porModulo("volumes");
   check(

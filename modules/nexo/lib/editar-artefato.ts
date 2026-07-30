@@ -15,7 +15,14 @@ import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "./folhas";
 import { assinaturaDoTomo, folhasDoTomo, precisaRespeitarOrdem } from "./drop-folhas";
-import { postCapa, postLd, postSeparatriz, ODT_MIME } from "./generate";
+import {
+  arquivosDaSeparatriz,
+  postCapa,
+  postLd,
+  postSeparatriz,
+  ODT_MIME,
+} from "./generate";
+import { summarizeSelos } from "./agent-context";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
 import type { SaveResultInput, SavedResult } from "../state/conversation-store";
@@ -366,13 +373,17 @@ export async function gerarItem(args: {
   // separatriz
   const titulo = args.tituloDaSeparatriz.trim();
   if (!titulo) return; // sem título não há separatriz — a capa manda nela
-  const sep = await postSeparatriz(titulo);
+  const ident = summarizeSelos(selos);
+  const sep = await postSeparatriz(titulo, {
+    codigo: ident.codigo ?? "",
+    revisao: ident.revisao ?? "",
+  });
   await saveResult({
     artifactId: args.idsBase.separatriz + item.sufixo,
     kind: "separatriz",
     payload: { titulo, tomo: item.tomoNumero },
     summary: `Separatriz ${titulo}`,
     canvas: { label: "Separatriz", titulo, pageNumber: 1 },
-    files: [{ label: "PDF", name: sep.name, mime: PDF_MIME, url: sep.url, primary: true }],
+    files: arquivosDaSeparatriz(sep),
   });
 }
