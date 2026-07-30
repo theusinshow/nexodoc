@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
@@ -69,12 +70,21 @@ export default async function FerramentasAntigasPage() {
             const Icon = module.icon;
 
             return (
-              <Card key={module.href} className="flex flex-col gap-4 p-5">
+              /* A cor de LEGADO vive só na casca — moldura, selo e rótulo.
+                 Nunca no miolo: a tela lá dentro funciona, e tingir o conteúdo
+                 a faria parecer quebrada. */
+              <Card
+                key={module.href}
+                className="flex flex-col gap-4 border-[var(--legacy-border)] p-5"
+              >
                 <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-[var(--nexodoc-recessed)] text-muted-foreground">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-[var(--legacy-border)] bg-[var(--legacy-bg)] text-[var(--legacy)]">
                     <Icon className="size-5" />
                   </div>
                   <div>
+                    <div className="mb-1.5">
+                      <Badge variant="legacy">Ferramenta antiga</Badge>
+                    </div>
                     <h2 className="text-lg font-semibold tracking-[-0.01em]">
                       {module.title}
                     </h2>

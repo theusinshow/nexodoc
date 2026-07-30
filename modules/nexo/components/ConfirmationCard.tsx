@@ -426,10 +426,12 @@ function SummaryRow({
       {/* `whitespace-pre-line`: o título documental tem PARÁGRAFOS ("PROJETO
           ESTRUTURAL CONCRETO / IMPLANTAÇÃO / TOMO 04"). Numa linha só o
           engenheiro não consegue conferir se as quebras estão onde ele pediu. */}
+      {/* Valor ausente é ÊNFASE, não status: marca sem julgar. Não é erro — só
+          ainda não foi dito. Em âmbar, "defina o título" parecia um defeito. */}
       <span
         className={
           missing
-            ? "whitespace-pre-line font-mono text-sm italic text-[var(--status-warning)]"
+            ? "whitespace-pre-line font-mono text-sm italic text-[var(--nexodoc-tertiary-strong)]"
             : "whitespace-pre-line font-mono text-sm tabular-nums text-foreground"
         }
       >

@@ -1,0 +1,92 @@
+/* =============================================================================
+   NEXO — as 4 vagas novas do lote 1, prontas para app/globals.css
+   Gerado pelo sistema de design em 2026-07-30.
+
+   NADA aqui altera um valor existente. São 19 tokens novos, em duas inserções:
+
+   BLOCO A  →  dentro do  :root { … }  já existente, no fim, antes do  }
+   BLOCO B  →  dentro do  @theme inline { … }  já existente, no fim, antes do  }
+               (obrigatório: sem isso o Tailwind v4 não gera bg-*/text-*/border-*)
+
+   Justificativa de cada família: 01-fundamentos.html §1.4
+   Contraste medido de cada uma: 01-fundamentos.html §1.5
+   ============================================================================= */
+
+
+/* ───────────────────────── BLOCO A · colar em :root ───────────────────────── */
+
+  /* 1/4 — INFORMAÇÃO. Aviso que NÃO é status.
+     Hoje "modo independente", "autosave pronto" e "retomada pós-F5" saem em
+     âmbar por falta de opção — e isso dilui o significado de atenção. */
+  --signal-info: #7fb2e8;
+  --signal-info-bg: rgb(127 178 232 / 0.13);
+  --signal-info-border: rgb(127 178 232 / 0.30);
+
+  /* 2/4 — LEGADO / CONGELADO. Ferramentas antigas: funcionam, não são o
+     caminho novo. Croma 0,045 — a única faixa de hue que nenhuma família
+     reivindica. Aplicar SÓ na casca (moldura, selo, rótulo), nunca no miolo. */
+  --legacy: #9d94ab;
+  --legacy-bg: rgb(157 148 171 / 0.12);
+  --legacy-border: rgb(157 148 171 / 0.28);
+
+  /* 3/4 — DISCIPLINA. Escala categórica de 8 passos para agrupar folhas.
+     Não colide com os 3 sinais por CROMA (~0,06 contra 0,12–0,18), não por hue.
+     O código mono de 3 letras é o portador primário; a cor é secundária —
+     nenhuma decisão do produto pode depender só dela. */
+  --discipline-arq: #8fa9d0; /* Arquitetura      */
+  --discipline-est: #a79ac9; /* Estrutural       */
+  --discipline-hid: #79b6c4; /* Hidrossanitário  */
+  --discipline-ele: #c9b47f; /* Elétrico         */
+  --discipline-pci: #cf9a9a; /* Incêndio (PPCI)  */
+  --discipline-cli: #c99ab8; /* Climatização     */
+  --discipline-ter: #c4a58f; /* Terraplenagem    */
+  --discipline-pai: #a3bd8a; /* Paisagismo       */
+
+  /* 4/4 — DADO. Escala sequencial de 5 passos para donut e gráficos.
+     Hue único (~265°) com lightness crescente: ordem legível em escala de
+     cinza. NÃO é a rampa teal, porque fatia de gráfico não é clicável. */
+  --data-1: #2f3a5c;
+  --data-2: #46578a;
+  --data-3: #6076b3;
+  --data-4: #8a9bd1;
+  --data-5: #b9c5e8;
+
+
+/* ─────────────────── BLOCO B · colar em @theme inline ─────────────────── */
+
+  --color-signal-info: var(--signal-info);
+  --color-signal-info-bg: var(--signal-info-bg);
+  --color-signal-info-border: var(--signal-info-border);
+
+  --color-legacy: var(--legacy);
+  --color-legacy-bg: var(--legacy-bg);
+  --color-legacy-border: var(--legacy-border);
+
+  --color-discipline-arq: var(--discipline-arq);
+  --color-discipline-est: var(--discipline-est);
+  --color-discipline-hid: var(--discipline-hid);
+  --color-discipline-ele: var(--discipline-ele);
+  --color-discipline-pci: var(--discipline-pci);
+  --color-discipline-cli: var(--discipline-cli);
+  --color-discipline-ter: var(--discipline-ter);
+  --color-discipline-pai: var(--discipline-pai);
+
+  --color-data-1: var(--data-1);
+  --color-data-2: var(--data-2);
+  --color-data-3: var(--data-3);
+  --color-data-4: var(--data-4);
+  --color-data-5: var(--data-5);
+
+
+/* ───────────────────────────── CONFERÊNCIA ─────────────────────────────
+   Contraste WCAG 2.1 sobre os dois fundos reais. Mínimo do produto: 4,5:1.
+
+   token                  sobre #0a0e11   sobre #121518
+   --signal-info               8,71            8,21
+   --legacy                    6,69            6,31
+   --discipline-hid (a pior)   8,59            8,10
+
+   As outras 7 disciplinas ficam acima de 8,6:1 nos dois fundos.
+   A rampa --data-* é só preenchimento de gráfico: texto por cima só a partir
+   de --data-1 e --data-2 com --foreground, ou --data-5 com #06080a.
+   ────────────────────────────────────────────────────────────────────── */

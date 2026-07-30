@@ -36,10 +36,15 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const [corrigindo, setCorrigindo] = useState(false);
   const [texto, setTexto] = useState(data.titulo);
 
+  /*
+   * "Corrigido à mão" é ÊNFASE, não status: o valor não está errado nem certo —
+   * ele veio de uma pessoa em vez do carimbo. Era âmbar, e âmbar aqui dizia
+   * "atenção, tem algo errado com esta folha", que é justamente o contrário.
+   */
   const borda = selected
     ? "border-[var(--ring)]"
     : data.editado
-      ? "border-[var(--status-warning)]"
+      ? "border-[var(--nexodoc-tertiary-strong)]"
       : "border-border";
 
   const corpo = (
@@ -50,7 +55,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         </span>
         {data.editado && (
           <span
-            className="h-1.5 w-1.5 rounded-full bg-[var(--status-warning)]"
+            className="h-1.5 w-1.5 rounded-full bg-[var(--nexodoc-tertiary-strong)]"
             title="corrigido à mão"
             aria-label="corrigido à mão"
           />

@@ -20,6 +20,17 @@ const badgeVariants = cva(
           "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
         critical:
           "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]",
+        /*
+         * INFORMAÇÃO não é status: explica o estado do software sem pedir ação
+         * (retomada pós-F5, sem permissão, contexto do sistema). Existe porque
+         * tudo isso saía em âmbar por falta de opção — e quando "seu documento
+         * está velho" divide a cor com "reconectei sozinho", o engenheiro
+         * aprende a ignorar o âmbar, e o aviso que custa dinheiro passa batido.
+         */
+        info: "border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] text-[var(--signal-info)]",
+        /* LEGADO: funciona e não é o caminho novo. Nem status, nem desabilitado. */
+        legacy:
+          "border-[var(--legacy-border)] bg-[var(--legacy-bg)] text-[var(--legacy)]",
       },
     },
     defaultVariants: {

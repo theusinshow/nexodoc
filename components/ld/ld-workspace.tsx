@@ -2256,7 +2256,7 @@ export function LdWorkspace({
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-5 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--legacy)]">
               Nexo · ferramenta antiga
             </p>
             <h1 className="mt-2 text-2xl font-semibold text-foreground">

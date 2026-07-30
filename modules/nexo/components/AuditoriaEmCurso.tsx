@@ -183,7 +183,10 @@ export function AuditoriaEmCurso({
             continua rodando no servidor.
           </p>
         ) : retomada ? (
-          <p className="text-[11px] leading-4 text-muted-foreground">
+          /* Retomada pós-F5 é INFORMAÇÃO: explica o estado do software sem
+             pedir ação. Em `muted` sumia, e o engenheiro não entendia por que
+             as etapas não apareciam. */
+          <p className="text-[11px] leading-4 text-[var(--signal-info)]">
             Reconectada a uma análise já em curso — sem as etapas, que se perderam
             com a conexão anterior.
           </p>

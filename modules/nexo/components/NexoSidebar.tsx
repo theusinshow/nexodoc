@@ -204,9 +204,11 @@ export function NexoSidebar({
           <User className="h-4 w-4 shrink-0" aria-hidden />
           Conta
         </button>
+        {/* Cor de legado no rótulo: presente sem chamar. Nem status, nem
+            desabilitado — a ferramenta funciona, só não é o caminho novo. */}
         <Link
           href="/ferramentas"
-          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-[var(--legacy)]/80 transition-colors hover:bg-accent hover:text-[var(--legacy)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
         >
           <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Ferramentas antigas
