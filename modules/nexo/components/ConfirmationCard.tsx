@@ -58,10 +58,22 @@ import {
   arquivosDaSeparatriz,
   ODT_MIME,
 } from "../lib/generate";
-import { assembleVolume, urlToBase64 } from "../lib/assemble-volume";
+import {
+  assembleVolume,
+  urlToBase64,
+  type BlocoDoVolume,
+} from "../lib/assemble-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
+import {
+  blocosDasFolhas,
+  misturaDisciplinas,
+  resumoDosBlocos,
+  type Bloco,
+} from "../lib/blocos";
+import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { corDaDisciplina } from "../lib/disciplina-cor";
 import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { useAuditoria } from "../state/auditoria-store";
@@ -635,6 +647,21 @@ function LdConfirmation({
 
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
+  /*
+   * ESTA LD COBRE VÁRIAS DISCIPLINAS?
+   *
+   * A proposta escolhe a disciplina MAJORITÁRIA das pranchas e usa o título
+   * dela. Num volume misto — que é a maioria dos volumes reais do escritório —
+   * isso põe as folhas das outras disciplinas sob um título que não é o delas,
+   * e o PDF sai assim, sem aviso. A regra do escritório é uma LD por
+   * disciplina; a montagem do volume já faz isso, e aqui se diz por quê, na
+   * hora em que o engenheiro olha a LD e estranha a contagem.
+   */
+  const blocos = useMemo(
+    () => blocosDasFolhas(selos as Folha[], codigoDaFolha, rotuloDoCodigo),
+    [selos],
+  );
+  const misto = misturaDisciplinas(blocos);
   // O tomo entra na comparação: gerar o tomo 1 não deixa o tomo 2 "aplicado".
   const paramsAtuais = {
     ...params,
@@ -713,6 +740,20 @@ function LdConfirmation({
               value={rotuloTomos(params.numTomos, params.tomoInicial)}
             />
           </div>
+          {misto && (
+            <div className="rounded-md border border-[var(--status-warning)]/40 bg-[var(--status-warning-bg)]/40 px-3 py-2 text-xs">
+              <p className="text-foreground">
+                As pranchas são de {blocos.filter((b) => b.codigo).length}{" "}
+                disciplinas: {resumoDosBlocos(blocos)}.
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Esta LD cobre todas sob o título{" "}
+                <span className="text-foreground">{titulo || "—"}</span>. Ao
+                montar o volume, cada disciplina ganha a sua separatriz e a sua
+                LD, como o escritório entrega.
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <AlterChip
               label="título"
@@ -1141,6 +1182,21 @@ function VolumeConfirmation({
 
   const semPranchas = pranchaFilesDoTomo.length === 0;
 
+  /*
+   * OS BLOCOS DO VOLUME — a regra do escritório, lida dos projetos reais: uma
+   * capa, e depois dela um bloco por disciplina (separatriz → LD → pranchas).
+   * O volume 10 de 040-26 tem uma capa e TRÊS separatrizes e TRÊS LDs.
+   *
+   * Até aqui o volume era montado como se fosse sempre de uma disciplina só: a
+   * proposta da LD escolhia a majoritária e as outras entravam caladas sob
+   * aquele título. Não faltava um aviso — o documento saía errado.
+   */
+  const blocos = useMemo(
+    () => blocosDasFolhas(selosDoTomo as Folha[], codigoDaFolha, rotuloDoCodigo),
+    [selosDoTomo],
+  );
+  const misto = misturaDisciplinas(blocos);
+
   const sepTitle =
     capaParams?.tituloCapa?.trim() ||
     ldParams?.tituloLd?.trim() ||
@@ -1181,33 +1237,118 @@ function VolumeConfirmation({
        * faltar e a REGISTRA como artefato, então ela continua visível no canvas
        * e conferível: visibilidade sem perder a confiabilidade de antes.
        */
-      let separatrizPdf64 = sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
-      if (!separatrizPdf64 && sepTitle) {
-        const ident = summarizeSelos(selos);
-        const sep = await postSeparatriz(sepTitle, {
-          codigo: ident.codigo ?? "",
-          revisao: ident.revisao ?? "",
-        });
-        // Sem LibreOffice não há PDF, e é o PDF que entra no volume: a folha
-        // fica registrada como artefato (o ODT existe) e a montagem segue sem
-        // ela, como já fazia. Perder o volume inteiro por causa disso seria pior.
-        separatrizPdf64 = sep.pdf?.data ?? null;
-        await saveResult({
-          artifactId: separatrizId(selos) + tomo.sufixo,
-          kind: "separatriz",
-          payload: { titulo: sepTitle, tomo: tomo.numero },
-          summary: `Separatriz ${sepTitle}`,
-          canvas: { label: "Separatriz", titulo: sepTitle, pageNumber: 1 },
-          files: arquivosDaSeparatriz(sep),
+      const ident = summarizeSelos(selos);
+      const porId = new Map((selosDoTomo as Folha[]).map((f) => [f.id, f]));
+
+      /*
+       * UM BLOCO POR DISCIPLINA. Com uma disciplina só, o laço roda uma vez e
+       * usa exatamente os artefatos já conferidos nesta conversa — a montagem
+       * de sempre, sem regra especial para o caso simples.
+       *
+       * Com várias, cada bloco precisa da SUA separatriz e da SUA LD. O que
+       * faltar é gerado aqui e REGISTRADO como artefato, seguindo o que já se
+       * fazia com a separatriz: é geração determinística (não custa modelo), e
+       * registrar mantém cada folha visível e conferível no canvas em vez de
+       * nascer escondida dentro do volume.
+       */
+      const montaveis: BlocoDoVolume[] = [];
+      for (const bloco of blocos) {
+        const unico = blocos.length === 1;
+        const chave = unico ? "" : `:${bloco.codigo || "sem"}`;
+        const doBloco = bloco.ids
+          .map((fid) => porId.get(fid))
+          .filter((f): f is Folha => f !== undefined);
+        const arquivos = new Set(doBloco.map((f) => f.fileName));
+        // O título do bloco é o da disciplina. Com um bloco só, continua sendo
+        // o que o engenheiro decidiu na LD — mudar isso reescreveria a capa de
+        // volumes que já saíram certos.
+        const titulo = unico ? sepTitle : bloco.rotulo.toUpperCase() || sepTitle;
+
+        let separatrizPdf64 = unico && sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
+        const sepDoBloco = unico
+          ? null
+          : results.find((r) => r.artifactId === separatrizId(selos) + chave + tomo.sufixo);
+        const sepUrlDoBloco = sepDoBloco?.files.find((f) => f.mime === PDF_MIME)?.url;
+        if (!separatrizPdf64 && sepUrlDoBloco) {
+          separatrizPdf64 = await urlToBase64(sepUrlDoBloco);
+        }
+        if (!separatrizPdf64 && titulo) {
+          const sep = await postSeparatriz(titulo, {
+            codigo: ident.codigo ?? "",
+            revisao: ident.revisao ?? "",
+          });
+          // Sem LibreOffice não há PDF, e é o PDF que entra no volume: a folha
+          // fica registrada como artefato (o ODT existe) e a montagem segue sem
+          // ela, como já fazia. Perder o volume inteiro por isso seria pior.
+          separatrizPdf64 = sep.pdf?.data ?? null;
+          await saveResult({
+            artifactId: separatrizId(selos) + chave + tomo.sufixo,
+            kind: "separatriz",
+            payload: { titulo, tomo: tomo.numero },
+            summary: `Separatriz ${titulo}`,
+            canvas: { label: "Separatriz", titulo, pageNumber: 1 },
+            files: arquivosDaSeparatriz(sep),
+          });
+        }
+
+        let ldDoBloco64 = unico ? ldPdf64 : null;
+        if (!unico) {
+          const artefato = results.find(
+            (r) => r.artifactId === ldId(selos) + chave + tomo.sufixo,
+          );
+          const url = artefato?.files.find((f) => f.mime === PDF_MIME)?.url;
+          if (url) ldDoBloco64 = await urlToBase64(url);
+          else {
+            /*
+             * `folhasDoTomo` leva os ids exatos do bloco: sem eles a rota
+             * dividiria por quantidade e a LD do bloco listaria folhas de
+             * outra disciplina. `respeitarOrdem` mantém a ordem do escritório.
+             */
+            const ld = await postLd(selosDoTomo, {
+              tituloLd: titulo,
+              folhasDoTomo: bloco.ids,
+              respeitarOrdem: true,
+            });
+            ldDoBloco64 = ld.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
+            await saveResult({
+              artifactId: ldId(selos) + chave + tomo.sufixo,
+              kind: "ld",
+              payload: {
+                tituloLd: titulo,
+                tomo: tomo.numero,
+                folhas: assinaturaDoTomo(doBloco),
+              },
+              summary: `LD ${titulo} · ${doBloco.length} folha(s)`,
+              canvas: { label: `LD ${titulo}`, titulo, pageNumber: 1 },
+              files: [
+                { label: "ODT", name: ld.odtName, mime: ODT_MIME, url: ld.odtUrl },
+                ...(ld.pdfUrl && ld.pdfName
+                  ? [
+                      {
+                        label: "PDF",
+                        name: ld.pdfName,
+                        mime: PDF_MIME,
+                        url: ld.pdfUrl,
+                        primary: true,
+                      },
+                    ]
+                  : []),
+              ],
+            });
+          }
+        }
+
+        montaveis.push({
+          selos: doBloco,
+          pranchaFiles: pranchaFilesDoTomo.filter((f) => arquivos.has(f.name)),
+          separatrizPdf64,
+          ldPdf64: ldDoBloco64,
         });
       }
+
       const r = await assembleVolume({
-        // Só as folhas DESTE tomo entram no volume dele.
-        selos: selosDoTomo,
-        pranchaFiles: pranchaFilesDoTomo,
         capaPdf64,
-        ldPdf64,
-        separatrizPdf64,
+        blocos: montaveis,
         ...(tomo.atual > 0
           ? { fileName: `volume-tomo-${String(tomo.numero).padStart(2, "0")}.pdf` }
           : {}),
@@ -1245,11 +1386,16 @@ function VolumeConfirmation({
               label="Folhas"
               value={`${selosDoTomo.length} folha${selosDoTomo.length === 1 ? "" : "s"}`}
             />
-            <SummaryRow
-              label="Título"
-              value={sepTitle || "defina o título na LD →"}
-              missing={!sepTitle}
-            />
+            {/* Mesma razão do plano: no volume misto o título é POR BLOCO, e
+                um título global aqui mandaria conferir um campo que não sai em
+                documento nenhum. */}
+            {!misto && (
+              <SummaryRow
+                label="Título"
+                value={sepTitle || "defina o título na LD →"}
+                missing={!sepTitle}
+              />
+            )}
             {ldParams && (
               <SummaryRow
                 label="Tomos"
@@ -1266,12 +1412,24 @@ function VolumeConfirmation({
 
           <div className="space-y-1.5">
             <PartRow label="Capa" ok={Boolean(capaPdfUrl)} />
-            <PartRow
-              label="Separatriz"
-              ok={Boolean(sepPdfUrl)}
-              detail={sepPdfUrl ? sepTitle : "não gerada — peça a separatriz"}
-            />
-            <PartRow label="LD" ok={Boolean(ldPdfUrl)} />
+            {/*
+              Com uma disciplina só, as partes seguem listadas uma a uma — é o
+              volume simples, e transformá-lo numa lista de um item seria
+              cerimônia. Com várias, o que importa é a SEQUÊNCIA de blocos: é
+              ela que o engenheiro precisa conferir antes de mandar o PDF.
+            */}
+            {misto ? (
+              <BlocosDoVolume blocos={blocos} />
+            ) : (
+              <>
+                <PartRow
+                  label="Separatriz"
+                  ok={Boolean(sepPdfUrl)}
+                  detail={sepPdfUrl ? sepTitle : "não gerada — peça a separatriz"}
+                />
+                <PartRow label="LD" ok={Boolean(ldPdfUrl)} />
+              </>
+            )}
             <PartRow
               label="Pranchas"
               ok={!semPranchas}
@@ -1281,8 +1439,9 @@ function VolumeConfirmation({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Junta as partes num PDF único (ordem: capa · separatriz · LD ·
-            folhas). As partes sem PDF ficam de fora.
+            {misto
+              ? "Junta as partes num PDF único: a capa e, depois dela, um bloco por disciplina (separatriz · LD · folhas). A separatriz e a LD que faltarem em cada bloco são geradas agora."
+              : "Junta as partes num PDF único (ordem: capa · separatriz · LD · folhas). As partes sem PDF ficam de fora."}
           </p>
           <div className="flex flex-wrap gap-1.5">
             <AlterChip label="título" phrase="Muda o título para " />
@@ -1292,14 +1451,16 @@ function VolumeConfirmation({
           <div className="flex items-center gap-2">
             <ConfirmButton
               busy={busy}
-              disabled={semPranchas || !capaPdfUrl || !ldPdfUrl}
+              disabled={semPranchas || !capaPdfUrl || (!misto && !ldPdfUrl)}
               label="Montar volume"
               busyLabel="Montando…"
               onConfirm={confirm}
             />
             {/* Um volume sem capa ou sem LD não é entregável: antes ele montava
-                assim mesmo e o PDF saía incompleto sem aviso. */}
-            {(semPranchas || !capaPdfUrl || !ldPdfUrl) && (
+                assim mesmo e o PDF saía incompleto sem aviso. No volume misto a
+                LD não é uma: são N, uma por bloco, e a montagem gera as que
+                faltarem — exigir a LD única aqui travaria o botão para sempre. */}
+            {(semPranchas || !capaPdfUrl || (!misto && !ldPdfUrl)) && (
               <span className="text-xs text-muted-foreground">
                 {semPranchas
                   ? "Anexe as pranchas para montar o volume."
@@ -1315,6 +1476,50 @@ function VolumeConfirmation({
       {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
       <CardError message={error} />
     </CardShell>
+  );
+}
+
+/**
+ * A SEQUÊNCIA DE BLOCOS de um volume de várias disciplinas.
+ *
+ * Numerada porque a ordem é o que se confere: o volume 3 de 040-26 é
+ * topografia → sondagem → geométrico → terraplenagem → drenagem →
+ * pavimentação, e um bloco fora de lugar é um volume devolvido pela
+ * prefeitura. A contagem de folhas vem junto porque é o outro erro comum —
+ * a disciplina que entrou com metade das pranchas.
+ */
+function BlocosDoVolume({ blocos }: { blocos: readonly Bloco[] }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className={`${LABEL_CLASS} w-24 shrink-0`}>Blocos</span>
+      <ol className="min-w-0 flex-1 space-y-0.5">
+        {blocos.map((bloco, i) => (
+          <li key={bloco.codigo || "sem"} className="flex items-baseline gap-2 text-xs">
+            <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
+            {/*
+              A cor é secundária à palavra, como no canvas: quem não distingue
+              matiz continua lendo "Drenagem". Disciplina fora das oito famílias
+              não ganha cor — sem cor é melhor que cor errada.
+            */}
+            <span
+              className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: corDaDisciplina(bloco.rotulo) ?? "var(--border)" }}
+              aria-hidden
+            />
+            <span
+              className={
+                bloco.rotulo ? "text-foreground" : "text-[var(--status-warning)]"
+              }
+            >
+              {bloco.rotulo || "Sem disciplina lida"}
+            </span>
+            <span className="text-muted-foreground">
+              · {bloco.ids.length} folha{bloco.ids.length === 1 ? "" : "s"}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

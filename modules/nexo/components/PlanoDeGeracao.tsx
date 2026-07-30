@@ -28,7 +28,15 @@ import type {
   NexoLdProposalParams,
 } from "../types";
 import { useConversation } from "../state/conversation-store";
-import { gerarItem, type ItemDoPlano } from "../lib/editar-artefato";
+import { gerarItem, opcoesDoTomo, type ItemDoPlano } from "../lib/editar-artefato";
+import {
+  blocosDasFolhas,
+  misturaDisciplinas,
+  resumoDosBlocos,
+  type Bloco,
+} from "../lib/blocos";
+import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import type { Folha } from "../lib/folhas";
 
 const LABEL_CLASS =
   "font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground";
@@ -44,42 +52,66 @@ const NOME: Record<KindDoPlano, string> = {
 };
 
 /**
- * Expande as propostas em itens concretos — um por tipo POR TOMO. É aqui que
- * "2 tomos" vira seis documentos, e é o número que o engenheiro precisa ver
- * antes de apertar o botão.
+ * Expande as propostas em itens concretos — um por tipo, POR TOMO e POR BLOCO.
+ *
+ * É aqui que "2 tomos" vira seis documentos, e é o número que o engenheiro
+ * precisa ver antes de apertar o botão. É aqui, também, que o volume de várias
+ * disciplinas deixa de sair errado: a proposta traz UMA LD (com a disciplina
+ * majoritária), e o escritório entrega uma LD e uma separatriz POR DISCIPLINA
+ * — o volume 10 de 040-26 tem três de cada, sob uma capa só.
+ *
+ * A capa não se multiplica por bloco: é uma por volume físico, e é ela que
+ * anuncia as disciplinas que vêm dentro.
+ *
+ * `blocos` vazio ou com um só = volume de disciplina única, e nada muda.
  */
-export function itensDoPlano(proposals: NexoAgentProposal[]): ItemDoPlano[] {
+export function itensDoPlano(
+  proposals: NexoAgentProposal[],
+  blocos: readonly Bloco[] = [],
+  selos: SeloForLd[] = [],
+): ItemDoPlano[] {
   const itens: ItemDoPlano[] = [];
+  const porBloco = misturaDisciplinas(blocos);
 
   for (const p of proposals) {
     if (!NO_PLANO.includes(p.kind as KindDoPlano)) continue;
+    const kind = p.kind as KindDoPlano;
     const params = p.params as Record<string, unknown>;
     const numTomos = typeof params.numTomos === "number" ? params.numTomos : 1;
     const tomoInicial =
       typeof params.tomoInicial === "number" ? params.tomoInicial : 1;
 
-    if (numTomos <= 1) {
-      itens.push({
-        kind: p.kind as KindDoPlano,
-        tomoAtual: 0,
-        tomoNumero: tomoInicial,
-        sufixo: "",
-        params,
-        rotulo: NOME[p.kind as KindDoPlano],
-      });
-      continue;
-    }
+    // A capa é do volume; a LD e a separatriz são do bloco.
+    const doTipo: (Bloco | undefined)[] =
+      porBloco && kind !== "capa" ? [...blocos] : [undefined];
 
-    for (let i = 0; i < numTomos; i++) {
+    for (let i = 0; i < Math.max(1, numTomos); i++) {
+      const temTomo = numTomos > 1;
       const numero = tomoInicial + i;
-      itens.push({
-        kind: p.kind as KindDoPlano,
-        tomoAtual: i + 1,
-        tomoNumero: numero,
-        sufixo: `:t${String(numero).padStart(2, "0")}`,
-        params,
-        rotulo: `${NOME[p.kind as KindDoPlano]} · TOMO ${String(numero).padStart(2, "0")}`,
-      });
+      const sufixoTomo = temTomo ? `:t${String(numero).padStart(2, "0")}` : "";
+      const tomoAtual = temTomo ? i + 1 : 0;
+      // As folhas deste tomo, para não anunciar o bloco que não tem nenhuma
+      // dentro dele — um item que não produz documento é uma linha mentirosa.
+      const doTomo = temTomo
+        ? new Set(opcoesDoTomo(selos, numTomos, tomoAtual).doTomo.map((f) => f.id))
+        : null;
+
+      for (const bloco of doTipo) {
+        if (bloco && doTomo && !bloco.ids.some((id) => doTomo.has(id))) continue;
+        const sufixoBloco = bloco ? `:${bloco.codigo || "sem"}` : "";
+        const nomeBloco = bloco ? ` · ${bloco.rotulo || "Sem disciplina"}` : "";
+        itens.push({
+          kind,
+          tomoAtual,
+          tomoNumero: numero,
+          sufixo: sufixoBloco + sufixoTomo,
+          params,
+          rotulo: `${NOME[kind]}${nomeBloco}${
+            temTomo ? ` · TOMO ${String(numero).padStart(2, "0")}` : ""
+          }`,
+          ...(bloco ? { bloco } : {}),
+        });
+      }
     }
   }
 
@@ -114,7 +146,16 @@ export function PlanoDeGeracao({
   /** O que falhou na última tentativa. Vazio = nada falhou. */
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
 
-  const itens = itensDoPlano(proposals);
+  /*
+   * OS BLOCOS DO VOLUME. A proposta do agente traz UMA LD, com a disciplina
+   * majoritária das pranchas; o escritório entrega uma LD e uma separatriz por
+   * disciplina. Sem isto, as folhas das outras disciplinas saíam sob um título
+   * que não é o delas — e o PDF ia embora assim, sem aviso.
+   */
+  const blocos = blocosDasFolhas(selos as Folha[], codigoDaFolha, rotuloDoCodigo);
+  const misto = misturaDisciplinas(blocos);
+
+  const itens = itensDoPlano(proposals, blocos, selos);
   if (itens.length === 0) return null;
 
   const capa = proposals.find((p) => p.kind === "capa")?.params as
@@ -131,7 +172,13 @@ export function PlanoDeGeracao({
   const numTomos = capa?.numTomos ?? ld?.numTomos ?? 1;
   const tomoInicial = capa?.tomoInicial ?? ld?.tomoInicial ?? 1;
 
-  const semTitulo = titulo === "";
+  /*
+   * Num volume misto sem capa no plano, o título global não é decisão nenhuma:
+   * cada LD e cada separatriz recebe o nome da SUA disciplina. Exigi-lo ali
+   * travaria o botão pedindo um dado que não vai a lugar nenhum. A capa, essa
+   * sim, continua precisando — o título dela é o do volume inteiro.
+   */
+  const semTitulo = titulo === "" && (Boolean(capa) || !misto);
   const semPrefeitura = Boolean(capa) && !capa?.templateId?.trim();
 
   // Já gerados: o card não some depois, ele muda de estado.
@@ -201,10 +248,18 @@ export function PlanoDeGeracao({
 
       <div className="space-y-3 p-3">
         <div className="space-y-1.5">
-          <Linha
-            rotulo="Título"
-            valor={semTitulo ? "diga qual título →" : titulo}
-          />
+          {/*
+            O título só aparece quando é DECISÃO. No volume misto sem capa,
+            cada LD e cada separatriz leva o nome da sua disciplina, e mostrar
+            um título global aqui faria o engenheiro conferir um campo que não
+            sai em documento nenhum.
+          */}
+          {(capa || !misto) && (
+            <Linha
+              rotulo="Título"
+              valor={semTitulo ? "diga qual título →" : titulo}
+            />
+          )}
           {capa && <Linha rotulo="Prefeitura" valor={prefeitura} />}
           {capa && (
             <Linha
@@ -223,7 +278,21 @@ export function PlanoDeGeracao({
             }
           />
           <Linha rotulo="Folhas" valor={`${selos.length}`} />
+          {misto && <Linha rotulo="Disciplinas" valor={resumoDosBlocos(blocos)} />}
         </div>
+
+        {/*
+          Por que são N documentos e não um. O engenheiro pediu "a LD" e vai
+          receber três — sem a frase, o número parece defeito.
+        */}
+        {misto && (
+          <p className="text-xs leading-5 text-muted-foreground">
+            As pranchas são de {blocos.filter((b) => b.codigo).length} disciplinas.
+            O volume leva uma capa e, depois dela, um bloco por disciplina — por
+            isso sai uma separatriz e uma LD para cada, como o escritório
+            entrega. O título de cada uma é o da sua disciplina.
+          </p>
+        )}
 
         {/* A lista do que sai. Com tomos, é o que torna visível que "2 tomos"
             significa seis documentos, e não dois. */}

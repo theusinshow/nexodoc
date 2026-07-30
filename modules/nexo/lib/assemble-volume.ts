@@ -37,21 +37,33 @@ export async function urlToBase64(objectUrl: string): Promise<string> {
   return btoa(bin);
 }
 
-export interface AssembleVolumeInput {
-  /** Selos lidos — dão as faixas de página das pranchas (PDF combinado). */
+/**
+ * Um BLOCO do volume: uma disciplina, com a sua separatriz, a sua LD e as suas
+ * pranchas. É a unidade que o escritório usa — o volume 10 de 040-26 tem uma
+ * capa e três blocos (his, inc, spd), cada um com separatriz e LD próprias.
+ * Volume de disciplina única é o caso de um bloco só.
+ */
+export interface BlocoDoVolume {
+  /** Selos DESTE bloco — dão as faixas de página das pranchas (PDF combinado). */
   selos: SeloForLd[];
-  /** PDFs originais das pranchas (na ordem do escritório, por nº de folha do nome). */
+  /** PDFs das pranchas deste bloco (na ordem do escritório, por nº de folha). */
   pranchaFiles: File[];
-  /** Capa em base64 cru (ou null se não gerada). */
-  capaPdf64: string | null;
-  /** LD em base64 cru (ou null se não gerada). */
-  ldPdf64: string | null;
+  /** LD do bloco em base64 cru (ou null se não gerada). */
+  ldPdf64?: string | null;
   /**
-   * Separatriz em base64 cru (ou null). Vem PRONTA de fora: ela é artefato de
-   * primeira classe, gerada e conferida antes da montagem. Antes nascia aqui
-   * dentro, invisível, e foi assim que saiu com o texto errado sem ninguém ver.
+   * Separatriz do bloco em base64 cru (ou null). Vem PRONTA de fora: ela é
+   * artefato de primeira classe, gerada e conferida antes da montagem. Antes
+   * nascia aqui dentro, invisível, e foi assim que saiu com o texto errado sem
+   * ninguém ver.
    */
   separatrizPdf64?: string | null;
+}
+
+export interface AssembleVolumeInput {
+  /** Capa em base64 cru (ou null se não gerada). UMA por volume, mesmo misto. */
+  capaPdf64: string | null;
+  /** Os blocos na ordem em que entram no volume. */
+  blocos: BlocoDoVolume[];
   /** Nome do PDF final. */
   fileName?: string;
 }
@@ -82,51 +94,71 @@ function pranchaPagesByFile(selos: SeloForLd[]): Map<string, number[]> {
   return byFile;
 }
 
-/** Monta o volume final a partir das partes já geradas. */
+/**
+ * Monta o volume final a partir das partes já geradas: uma capa, e depois dela
+ * um bloco por disciplina — separatriz → LD → pranchas, na ordem canônica.
+ */
 export async function assembleVolume(
   input: AssembleVolumeInput,
 ): Promise<VolumeGenResult> {
-  const { selos, pranchaFiles, capaPdf64, ldPdf64, separatrizPdf64, fileName } = input;
+  const { blocos, capaPdf64, fileName } = input;
 
-  // Sem separatriz gerada, o volume sai sem ela — a ordem canônica só pula a
-  // parte ausente. O card da separatriz é quem torna isso visível.
-  const separatriz: VolumePartSource | null = separatrizPdf64
-    ? { name: "separatriz.pdf", data: separatrizPdf64 }
-    : null;
+  /*
+   * O mesmo arquivo pode entrar em mais de um bloco: um PDF combinado do volume
+   * inteiro tem páginas de várias disciplinas. Ler os bytes uma vez por bloco
+   * seria ler o mesmo arquivo de 80 MB três vezes.
+   */
+  const bytes = new Map<File, Promise<string>>();
+  const base64De = (file: File): Promise<string> => {
+    const guardado = bytes.get(file);
+    if (guardado) return guardado;
+    const lendo = fileToBase64(file);
+    bytes.set(file, lendo);
+    return lendo;
+  };
 
-  // Pranchas na ordem do escritório (por nº de folha do nome), recortadas no
-  // intervalo de pranchas (exclui capa/LD internas de um PDF combinado).
-  const pages = pranchaPagesByFile(selos);
-  const ordered = [...pranchaFiles].sort(
-    (a, b) =>
-      (sheetNumberFromFilename(a.name) ?? 9999) -
-      (sheetNumberFromFilename(b.name) ?? 9999),
-  );
-  const pranchas: VolumePartSource[] = [];
-  for (const file of ordered) {
-    const data = await fileToBase64(file);
-    const range = pages.get(file.name);
-    if (range && range.length > 0) {
-      pranchas.push({
-        name: file.name,
-        data,
-        startPage: Math.min(...range),
-        endPage: Math.max(...range),
-      });
-    } else {
-      pranchas.push({ name: file.name, data });
+  const disciplines = [];
+  for (const bloco of blocos) {
+    // Sem separatriz gerada, o volume sai sem ela — a ordem canônica só pula a
+    // parte ausente. O card da separatriz é quem torna isso visível.
+    const separatriz: VolumePartSource | null = bloco.separatrizPdf64
+      ? { name: "separatriz.pdf", data: bloco.separatrizPdf64 }
+      : null;
+
+    // Pranchas na ordem do escritório (por nº de folha do nome), recortadas no
+    // intervalo de pranchas (exclui capa/LD internas de um PDF combinado).
+    const pages = pranchaPagesByFile(bloco.selos);
+    const ordered = [...bloco.pranchaFiles].sort(
+      (a, b) =>
+        (sheetNumberFromFilename(a.name) ?? 9999) -
+        (sheetNumberFromFilename(b.name) ?? 9999),
+    );
+    const pranchas: VolumePartSource[] = [];
+    for (const file of ordered) {
+      const data = await base64De(file);
+      const range = pages.get(file.name);
+      if (range && range.length > 0) {
+        pranchas.push({
+          name: file.name,
+          data,
+          startPage: Math.min(...range),
+          endPage: Math.max(...range),
+        });
+      } else {
+        pranchas.push({ name: file.name, data });
+      }
     }
+
+    disciplines.push({
+      separatriz,
+      ld: bloco.ldPdf64 ? { name: "ld.pdf", data: bloco.ldPdf64 } : null,
+      pranchas,
+    });
   }
 
   const parts = buildVolumeParts({
     capa: capaPdf64 ? { name: "capa.pdf", data: capaPdf64 } : null,
-    disciplines: [
-      {
-        separatriz,
-        ld: ldPdf64 ? { name: "ld.pdf", data: ldPdf64 } : null,
-        pranchas,
-      },
-    ],
+    disciplines,
   });
 
   return postVolume(parts, { fileName: fileName ?? "volume.pdf" });

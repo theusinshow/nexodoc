@@ -59,6 +59,16 @@ export interface Folha extends SeloForLd {
    * leitura de carimbo.
    */
   editadoTexto: boolean;
+  /**
+   * A DISCIPLINA veio de uma pessoa, não do carimbo.
+   *
+   * Precisa ser distinguível porque é ela que decide em que bloco a folha entra
+   * no volume, e a decisão automática prefere o NOME DO ARQUIVO ao carimbo (o
+   * arquivo é a convenção do escritório; o carimbo erra). Sem esta marca, quem
+   * corrigisse a disciplina à mão veria a folha voltar para o bloco de origem —
+   * a correção seria aceita e ignorada.
+   */
+  disciplinaManual: boolean;
   grupo?: number;
   ordem?: number;
   /**
@@ -124,6 +134,7 @@ export function folhas(
           ordem !== undefined,
         editadoTexto:
           titulo !== null || disciplina !== null || arquivo !== null || numero !== null,
+        disciplinaManual: disciplina !== null,
         ...(grupo !== undefined ? { grupo } : {}),
         ...(ordem !== undefined ? { ordem } : {}),
       } satisfies Folha,

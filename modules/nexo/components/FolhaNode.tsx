@@ -38,15 +38,53 @@ export type FolhaNodeData = {
   /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
   onCorrigir: (
     id: FolhaId,
-    patch: { titulo?: string; numero?: string; arquivo?: string },
+    patch: {
+      titulo?: string;
+      numero?: string;
+      arquivo?: string;
+      disciplina?: string;
+    },
   ) => void;
 } & Record<string, unknown>;
+
+/**
+ * As disciplinas do escritório, para a lista de sugestão do campo.
+ *
+ * É `datalist` e não `select`: a lista fechada recusaria a disciplina que o
+ * escritório ainda não catalogou, e a folha ficaria sem bloco por causa de um
+ * campo — o pior jeito de perder um documento.
+ */
+const DISCIPLINAS_SUGERIDAS = [
+  "Arquitetonico",
+  "Urbanismo",
+  "Paisagismo",
+  "Maquete",
+  "Fundacoes",
+  "Estrutural",
+  "Estrutura metalica",
+  "Eletrico",
+  "Cabeamento estruturado",
+  "CFTV",
+  "Hidrossanitario",
+  "Preventivo contra incendio",
+  "SPDA",
+  "Climatizacao",
+  "Gases medicinais",
+  "Topografia",
+  "Sondagem",
+  "Levantamento",
+  "Geometrico",
+  "Terraplenagem",
+  "Drenagem",
+  "Pavimentacao",
+];
 
 export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const [corrigindo, setCorrigindo] = useState(false);
   const [texto, setTexto] = useState(data.titulo);
   const [numero, setNumero] = useState("");
   const [arquivo, setArquivo] = useState("");
+  const [disciplina, setDisciplina] = useState("");
 
   /*
    * "Corrigido à mão" é ÊNFASE, não status: o valor não está errado nem certo —
@@ -123,11 +161,12 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           <AcaoDoNo
             icone={Pencil}
             rotulo="Corrigir"
-            ajuda="Corrige o que a IA leu do carimbo: nº da prancha, código do arquivo e título. Os valores novos saem na LD gerada depois."
+            ajuda="Corrige o que a IA leu do carimbo: nº da prancha, código do arquivo, disciplina e título. Os valores novos saem na LD gerada depois."
             onClick={() => {
               setTexto(data.titulo);
               setNumero(data.numero != null ? String(data.numero) : "");
               setArquivo(data.arquivo ?? "");
+              setDisciplina(data.disciplina ?? "");
               setCorrigindo(true);
             }}
           />
@@ -151,15 +190,15 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         className="flex flex-col gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          data.onCorrigir(data.id, { titulo: texto, numero, arquivo });
+          data.onCorrigir(data.id, { titulo: texto, numero, arquivo, disciplina });
           setCorrigindo(false);
         }}
       >
         {/*
-          Os três campos que o carimbo erra e que a tela antiga corrigia: o nº
-          da prancha, o código do arquivo e o título. Ficam aqui, no lugar onde
-          o engenheiro já corrigia o título — sem tela nova, e sem transformar o
-          cartão de confirmação em formulário.
+          Os campos que o carimbo erra e que a tela antiga corrigia: o nº da
+          prancha, o código do arquivo, a disciplina e o título. Ficam aqui, no
+          lugar onde o engenheiro já corrigia o título — sem tela nova, e sem
+          transformar o cartão de confirmação em formulário.
         */}
         <div className="flex gap-2">
           <label className="flex flex-1 flex-col gap-1">
@@ -187,6 +226,29 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             />
           </label>
         </div>
+        {/*
+          A DISCIPLINA decide em que bloco do volume a folha entra — e, com ela,
+          sob qual separatriz e em qual LD a prancha vai sair impressa. Era o
+          único campo do carimbo sem conserto: quando o OCR lia errado, a folha
+          ia para o bloco errado do volume e não havia onde dizer que não.
+        */}
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
+            Disciplina
+          </span>
+          <input
+            value={disciplina}
+            onChange={(e) => setDisciplina(e.target.value)}
+            list="nexo-disciplinas"
+            placeholder="Drenagem"
+            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 text-[11px]"
+          />
+          <datalist id="nexo-disciplinas">
+            {DISCIPLINAS_SUGERIDAS.map((d) => (
+              <option key={d} value={d} />
+            ))}
+          </datalist>
+        </label>
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
             Título
@@ -200,7 +262,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         </label>
         <p className="text-[10px] leading-4 text-muted-foreground">
           Campo vazio devolve o que o selo dizia. O nº posto aqui vence o carimbo
-          e o nome do arquivo.
+          e o nome do arquivo; a disciplina posta aqui manda no bloco do volume.
         </p>
         <div className="flex justify-end gap-2">
           <Button

@@ -995,11 +995,22 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
    * vazio na LD é pior do que um título errado: some do documento sem avisar.
    */
   const corrigirFolha = useCallback(
-    (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string }) => {
+    (
+      id: FolhaId,
+      patch: {
+        titulo?: string;
+        numero?: string;
+        arquivo?: string;
+        disciplina?: string;
+      },
+    ) => {
       const numero = Number(patch.numero);
       conv.ajustarFolha(id, {
         titulo: patch.titulo?.trim() ? patch.titulo : undefined,
         arquivo: patch.arquivo?.trim() ? patch.arquivo.trim() : undefined,
+        // A disciplina decide em que BLOCO do volume a folha entra. Vazia,
+        // volta a valer o nome do arquivo — que é a convenção do escritório.
+        disciplina: patch.disciplina?.trim() ? patch.disciplina.trim() : undefined,
         // Número inválido ou vazio LIMPA o ajuste — volta a valer o carimbo.
         numero: Number.isFinite(numero) && numero > 0 ? Math.trunc(numero) : undefined,
       });

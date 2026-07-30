@@ -275,6 +275,15 @@ export interface ItemDoPlano {
   params: Record<string, unknown>;
   /** Rótulo curto para a barra de progresso ("Capa · TOMO 02"). */
   rotulo: string;
+  /**
+   * O BLOCO (disciplina) deste documento, quando o volume mistura disciplinas.
+   *
+   * Ausente = o volume é de uma disciplina só, e o documento cobre tudo — o
+   * comportamento de sempre. Presente, a LD sai com o título e as folhas
+   * daquela disciplina, e a separatriz com o nome dela: é a regra do
+   * escritório, que emite uma de cada por disciplina dentro do volume.
+   */
+  bloco?: { codigo: string; rotulo: string; ids: string[] };
 }
 
 /**
@@ -338,12 +347,26 @@ export async function gerarItem(args: {
      * ("05/24") é contado sobre o conjunto, e mandar só a fatia viraria "05/12".
      */
     const { doTomo, opts } = opcoesDoTomo(selos, num("numTomos", 1), item.tomoAtual);
+    /*
+     * Com bloco, as folhas são as DELE — recortadas dentro do tomo quando há
+     * os dois. O título vira o da disciplina: é ele que sai impresso no
+     * cabeçalho da LD e tem de casar com a separatriz que abre o bloco.
+     */
+    const doBloco = item.bloco
+      ? doTomo.length > 0
+        ? doTomo.filter((f) => item.bloco!.ids.includes(f.id))
+        : (selos as Folha[]).filter((f) => item.bloco!.ids.includes(f.id))
+      : doTomo;
+    const titulo = item.bloco?.rotulo.toUpperCase() || txt("tituloLd");
     const r = await postLd(selos, {
-      tituloLd: txt("tituloLd"),
+      tituloLd: titulo,
       numTomos: num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: item.tomoAtual,
       ...opts,
+      ...(item.bloco
+        ? { folhasDoTomo: doBloco.map((f) => f.id), respeitarOrdem: true }
+        : {}),
     });
     await saveResult({
       artifactId: args.idsBase.ld + item.sufixo,
@@ -354,7 +377,12 @@ export async function gerarItem(args: {
        * corrigir um título) deixaria esta LD descrevendo um conjunto que não
        * existe mais, sem nada na tela avisando.
        */
-      payload: { ...p, tomo: item.tomoNumero, folhas: assinaturaDoTomo(doTomo) },
+      payload: {
+        ...p,
+        ...(item.bloco ? { tituloLd: titulo, bloco: item.bloco.codigo } : {}),
+        tomo: item.tomoNumero,
+        folhas: assinaturaDoTomo(doBloco),
+      },
       summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
       canvas: {
         label: `LD ${r.resumo.disciplina}`,
@@ -370,20 +398,24 @@ export async function gerarItem(args: {
     return;
   }
 
-  // separatriz
-  const titulo = args.tituloDaSeparatriz.trim();
-  if (!titulo) return; // sem título não há separatriz — a capa manda nela
+  // separatriz — com bloco, a folha nomeia a DISCIPLINA; senão herda a capa.
+  const tituloSep = item.bloco?.rotulo.toUpperCase() || args.tituloDaSeparatriz.trim();
+  if (!tituloSep) return; // sem título não há separatriz — a capa manda nela
   const ident = summarizeSelos(selos);
-  const sep = await postSeparatriz(titulo, {
+  const sep = await postSeparatriz(tituloSep, {
     codigo: ident.codigo ?? "",
     revisao: ident.revisao ?? "",
   });
   await saveResult({
     artifactId: args.idsBase.separatriz + item.sufixo,
     kind: "separatriz",
-    payload: { titulo, tomo: item.tomoNumero },
-    summary: `Separatriz ${titulo}`,
-    canvas: { label: "Separatriz", titulo, pageNumber: 1 },
+    payload: {
+      titulo: tituloSep,
+      tomo: item.tomoNumero,
+      ...(item.bloco ? { bloco: item.bloco.codigo } : {}),
+    },
+    summary: `Separatriz ${tituloSep}`,
+    canvas: { label: "Separatriz", titulo: tituloSep, pageNumber: 1 },
     files: arquivosDaSeparatriz(sep),
   });
 }
