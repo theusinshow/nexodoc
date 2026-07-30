@@ -17,14 +17,20 @@ import { cn } from "@/lib/utils";
  * - `quiet`: correção ("alterar título") — mais apagado, secundário ao card.
  */
 const chipVariants = cva(
-  "inline-flex min-h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 font-mono text-xs font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out outline-none focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-[3px] active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:opacity-70",
+  /* Transição pelos tokens de movimento (era `duration-150 ease-out`, solto). */
+  "inline-flex min-h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1 font-mono text-xs font-medium tracking-[0.02em] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-feedback)] outline-none focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-[3px] active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:opacity-70",
   {
     variants: {
       variant: {
+        /*
+         * Fundo `secondary` (#1a1e21), não `card`: o chip fica SOBRE a bolha e
+         * sobre o palco, e no fundo de cartão ele desaparecia dentro deles.
+         * O fio do sugerido usa o teal CLARO a 45% — o escuro a 30% não se via.
+         */
         suggest:
-          "border-primary/30 bg-card text-foreground hover:border-primary/55 hover:bg-accent",
+          "border-[var(--ring)]/45 bg-secondary text-foreground hover:border-[var(--ring)]/70 hover:bg-accent",
         default:
-          "border-border bg-card text-foreground hover:border-[#33393e] hover:bg-accent hover:text-accent-foreground",
+          "border-border bg-secondary text-foreground hover:border-input hover:bg-accent hover:text-accent-foreground",
         quiet:
           "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
       },

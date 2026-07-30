@@ -8,8 +8,15 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      // DESIGN.md: raio unico 4px (rounded-md), flat-by-default (sem sombra
-      // decorativa), profundidade por borda + tom de superficie.
+      /*
+       * DESIGN.md secao 4: raio unico (8px, rounded-md), FLAT POR PADRAO --
+       * profundidade vem de borda + tom de superficie, nunca de sombra.
+       *
+       * O CSS do sistema v0 poe `box-shadow: var(--edge-highlight)` no `.card`
+       * em repouso. NAO adotado: a regra do repositorio limita o fio de luz a
+       * superficie elevada ou interativa (botao, cartao em hover, sobreposicao)
+       * e o proibe em painel plano parado. Divergencia registrada no lote 3.
+       */
       "rounded-md border bg-card text-card-foreground",
       className
     )}

@@ -38,3 +38,27 @@ conversa semeada não tem:
 - **Retomada pós-F5** na auditoria: era cinza-apagado e virou azul de
   informação. Em `muted` sumia, e o engenheiro não entendia por que as etapas
   não apareciam.
+
+### Lote 3 — os primitivos
+| Onde | O que mudou |
+|---|---|
+| **Botão** | Rótulo em 13px + 0.02em (era 14px, fora da escala mono). Transição pelos tokens de movimento — era `duration-150 ease-out`, solto, e o botão respondia 30ms mais devagar que o resto da interface. Contorno passa a usar a borda de campo |
+| **Badge** | Mono Label de verdade: 11px, **caixa alta**, +0.05em, altura fixa de 22px. Era 12px em caixa mista, que é estilo de dado — e badge é rótulo. Aparece em toda tela |
+| **Chip** | Fundo `secondary` em vez de `card`: o chip fica sobre a bolha e sobre o palco, e no fundo de cartão sumia dentro deles. O fio do "sugerido" passou para o teal claro a 45% — o escuro a 30% não se via |
+| **Campo** | Transição pelos tokens |
+
+Visível nas capturas: os selos ("BETA", "ATIVO") em caixa alta, e os chips de
+próximo passo destacados do fundo.
+
+## Divergências registradas (o repositório venceu)
+
+O handoff manda avisar em vez de "corrigir" o código quando a folha diverge das
+regras já em produção. Aconteceu duas vezes:
+
+1. **`.card` com `edge-highlight` em repouso** (`assets/nexo.css`). Não adotado:
+   o `DESIGN.md` §4 limita o fio de luz a superfície elevada ou interativa
+   (botão, cartão em hover, sobreposição) e o proíbe em painel plano parado. Se
+   o sistema quiser mudar essa regra, a mudança é no DESIGN.md primeiro.
+2. **`.chip:hover` com `#21262a`** — hex solto, que o próprio critério 6 do
+   sistema proíbe ("nenhum valor solto"). Mantido `bg-accent`, que é o token
+   equivalente.
