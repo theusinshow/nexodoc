@@ -1,0 +1,78 @@
+/*
+ * TOKENS DO NEXO — cópia fiel do bloco :root de app/globals.css.
+ *
+ * Gerado em 2026-07-30. Esta é uma CÓPIA DE TRABALHO para a ferramenta de
+ * design: a verdade é o arquivo no repositório. Se um valor divergir, o
+ * globals.css vence.
+ *
+ * Ao devolver tokens da ferramenta, use EXATAMENTE estes nomes. Nome divergente
+ * vira trabalho de tradução e depois vira bug.
+ */
+:root {
+  --radius: 8px;
+  --background: #0a0e11;
+  --foreground: #e1e7ea;
+  --card: #121518;
+  --card-foreground: #e1e7ea;
+  --popover: #121518;
+  --popover-foreground: #e1e7ea;
+  --primary: #00a693;
+  --primary-foreground: #06080a;
+  --secondary: #1a1e21;
+  --secondary-foreground: #e1e7ea;
+  --muted: #15191c;
+  --muted-foreground: #8e9ba3;
+  --accent: #1a1e21;
+  --accent-foreground: #e1e7ea;
+  --destructive: #ff9285;
+  --destructive-foreground: #2b0a08;
+  --border: #23282c;
+  --input: #2c3338;
+  --ring: #5bdac6;
+  --nexodoc-surface: #121518;
+  --nexodoc-panel: #121518;
+  --nexodoc-panel-foreground: #e1e7ea;
+  --nexodoc-accent: #5bdac6;
+  --nexodoc-accent-foreground: #06080a;
+  --nexodoc-raised: #1a1e21;
+  --nexodoc-recessed: #06080a;
+  --nexodoc-grid: rgb(60 70 75 / 0.3);
+  --nexodoc-tertiary: #ffb59e;
+  --nexodoc-tertiary-strong: #dc7858;
+  --nexodoc-tertiary-bg: rgb(220 120 88 / 0.14);
+  /* Sinais de status: 3 familias distintas (verde/ambar/coral), separadas do
+     teal interativo e do rust de enfase. Ver DESIGN.md secao 2. */
+  --status-ok: #6ee7a3;
+  --status-ok-bg: rgb(110 231 163 / 0.13);
+  --status-warning: #e9b45c;
+  --status-warning-bg: rgb(233 180 92 / 0.14);
+  --status-critical: #ff9285;
+  --status-critical-bg: rgb(255 146 133 / 0.14);
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-subtle: 0 1px 1px rgb(0 0 0 / 0.25);
+  /* Fio de luz no topo de superficies elevadas/interativas (DESIGN.md secao 4). */
+  --edge-highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  /* Sombra de overlay Nivel 4: fio de luz + sombra estrutural (DESIGN.md secao 4). */
+  --shadow-overlay: var(--edge-highlight), var(--shadow-panel);
+  /* Liquid Glass — camada ambiente (emenda escopada a DESIGN.md; §6 ARQUITETURA).
+     SO em chrome flutuante/imersivo: composer dock, backdrop de modal, wash do
+     welcome, bolha do assistente (involucro), chrome do viewer de PDF, orb.
+     PROIBIDO em card/finding/Table/ConfirmationCard — dado e SEMPRE matte.
+     Derivados dos tokens existentes, sem cor nova. */
+  --glass-blur: 12px;
+  --glass-tint: rgb(18 21 24 / 0.62); /* = --card (#121518) ~.62 */
+  --glass-tint-weak: rgb(18 21 24 / 0.52); /* bolha do assistente — mais solida p/ o texto contrastar */
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.07); /* um degrau acima de --edge-highlight */
+  --glass-ring: rgb(91 218 198 / 0.14); /* = --ring (#5bdac6) ~.14 */
+  /* Tokens de motion (DESIGN.md secao 5). */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+  /* Macro-transicao do shell do Nexo (welcome<->active). Espelhado em motion.ts. */
+  --duration-shell: 320ms;
+  --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Larguras das colunas do shell do Nexo. */
+  --nexo-copilot-w: 520px;
+  --nexo-sidebar-w: 240px;
+}
