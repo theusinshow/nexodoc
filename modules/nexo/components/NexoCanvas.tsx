@@ -366,7 +366,7 @@ function CanvasInterno({
   /** Nomes de arquivo com bytes em memória — sem eles não dá para abrir a página. */
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
-  onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
+  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string }) => void;
   /** O arrasto terminou: escreva estes ajustes. */
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   /** Apaga os tomos decididos à mão e devolve a divisão ao automático. */
@@ -395,7 +395,7 @@ function CanvasInterno({
    */
   const abrirFolha = useCallback((id: FolhaId) => onAbrirFolha?.(id), [onAbrirFolha]);
   const corrigirFolha = useCallback(
-    (id: FolhaId, titulo: string) => onCorrigirFolha?.(id, titulo),
+    (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string }) => onCorrigirFolha?.(id, patch),
     [onCorrigirFolha],
   );
 
@@ -568,6 +568,7 @@ function CanvasInterno({
             total: f.total ?? null,
             titulo: f.conteudo ?? "",
             disciplina: f.disciplina,
+            arquivo: f.arquivo,
             // `editadoTexto`, não `editado`: depois que o primeiro arrasto congela
             // a divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão"
             // acenderia no canvas inteiro, mentindo sobre o que o usuário mexeu.
@@ -828,7 +829,7 @@ export function NexoCanvas(props: {
   numeros?: Record<FolhaId, number | null>;
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
-  onCorrigirFolha?: (id: FolhaId, titulo: string) => void;
+  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string }) => void;
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   onVoltarAoAutomatico?: () => void;
   onCriarTomo?: (proximo: number) => void;

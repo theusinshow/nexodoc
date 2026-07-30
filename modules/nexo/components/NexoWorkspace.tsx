@@ -950,6 +950,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         pageNumber: f.pageNumber,
         arquivo: f.arquivo,
         folha: f.folha,
+        folhaManual: f.folhaManual,
       })),
     );
     const mapa: Record<FolhaId, number | null> = {};
@@ -994,8 +995,14 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
    * vazio na LD é pior do que um título errado: some do documento sem avisar.
    */
   const corrigirFolha = useCallback(
-    (id: FolhaId, titulo: string) => {
-      conv.ajustarFolha(id, { titulo: titulo.trim() ? titulo : undefined });
+    (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string }) => {
+      const numero = Number(patch.numero);
+      conv.ajustarFolha(id, {
+        titulo: patch.titulo?.trim() ? patch.titulo : undefined,
+        arquivo: patch.arquivo?.trim() ? patch.arquivo.trim() : undefined,
+        // Número inválido ou vazio LIMPA o ajuste — volta a valer o carimbo.
+        numero: Number.isFinite(numero) && numero > 0 ? Math.trunc(numero) : undefined,
+      });
     },
     [conv],
   );

@@ -33,13 +33,20 @@ export type FolhaNodeData = {
   /** Falso na conversa restaurada: os bytes da prancha não persistem. */
   podeAbrir: boolean;
   onAbrir: (id: FolhaId) => void;
-  /** Título vazio DESFAZ o ajuste e devolve o que o selo dizia. */
-  onCorrigir: (id: FolhaId, titulo: string) => void;
+  /** Código da prancha (campo ARQUIVO do carimbo) — sai na coluna ARQUIVOS da LD. */
+  arquivo?: string | null;
+  /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
+  onCorrigir: (
+    id: FolhaId,
+    patch: { titulo?: string; numero?: string; arquivo?: string },
+  ) => void;
 } & Record<string, unknown>;
 
 export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const [corrigindo, setCorrigindo] = useState(false);
   const [texto, setTexto] = useState(data.titulo);
+  const [numero, setNumero] = useState("");
+  const [arquivo, setArquivo] = useState("");
 
   /*
    * "Corrigido à mão" é ÊNFASE, não status: o valor não está errado nem certo —
@@ -116,9 +123,11 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           <AcaoDoNo
             icone={Pencil}
             rotulo="Corrigir"
-            ajuda="Troca o título que a IA leu do carimbo. O texto novo sai na LD gerada depois."
+            ajuda="Corrige o que a IA leu do carimbo: nº da prancha, código do arquivo e título. Os valores novos saem na LD gerada depois."
             onClick={() => {
               setTexto(data.titulo);
+              setNumero(data.numero != null ? String(data.numero) : "");
+              setArquivo(data.arquivo ?? "");
               setCorrigindo(true);
             }}
           />
@@ -134,27 +143,64 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
     <AgentPopover
       open={corrigindo}
       onClose={() => setCorrigindo(false)}
-      label="Corrigir o título"
-      panelClassName="w-[260px]"
+      label="Corrigir a folha"
+      panelClassName="w-[280px]"
       anchor={corpo}
     >
       <form
         className="flex flex-col gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          data.onCorrigir(data.id, texto);
+          data.onCorrigir(data.id, { titulo: texto, numero, arquivo });
           setCorrigindo(false);
         }}
       >
-        <textarea
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          rows={3}
-          autoFocus
-          className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 text-[11px]"
-        />
-        <p className="text-[10px] text-muted-foreground">
-          Vazio devolve o título que o selo dizia.
+        {/*
+          Os três campos que o carimbo erra e que a tela antiga corrigia: o nº
+          da prancha, o código do arquivo e o título. Ficam aqui, no lugar onde
+          o engenheiro já corrigia o título — sem tela nova, e sem transformar o
+          cartão de confirmação em formulário.
+        */}
+        <div className="flex gap-2">
+          <label className="flex flex-1 flex-col gap-1">
+            <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
+              Nº da prancha
+            </span>
+            <input
+              value={numero}
+              onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              placeholder="—"
+              autoFocus
+              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px] tabular-nums"
+            />
+          </label>
+          <label className="flex flex-[2] flex-col gap-1">
+            <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
+              Código do arquivo
+            </span>
+            <input
+              value={arquivo}
+              onChange={(e) => setArquivo(e.target.value)}
+              placeholder="040_26_arq_005_a"
+              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px]"
+            />
+          </label>
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
+            Título
+          </span>
+          <textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            rows={3}
+            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 text-[11px]"
+          />
+        </label>
+        <p className="text-[10px] leading-4 text-muted-foreground">
+          Campo vazio devolve o que o selo dizia. O nº posto aqui vence o carimbo
+          e o nome do arquivo.
         </p>
         <div className="flex justify-end gap-2">
           <Button

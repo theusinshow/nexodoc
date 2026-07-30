@@ -68,6 +68,7 @@ function pranchaPagesByFile(selos: SeloForLd[]): Map<string, number[]> {
       pageNumber: s.pageNumber,
       arquivo: s.arquivo,
       folha: s.folha,
+      folhaManual: s.folhaManual,
     })),
   );
   const byFile = new Map<string, number[]>();

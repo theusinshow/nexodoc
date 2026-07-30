@@ -20,6 +20,34 @@ export interface SheetItem {
   candidate: number | null;
 }
 
+/**
+ * A CORREÇÃO À MÃO, aplicada por último sobre o resultado já reconciliado.
+ *
+ * Vence tudo — o código do carimbo, o nome do arquivo, o OCR e a reconciliação
+ * por ordem de página. A reconciliação é um MODELO e pode discordar de quem
+ * está olhando a prancha; entre o modelo e quem viu, ganha quem viu.
+ *
+ * Sem esse último passo a correção não teria efeito nenhum: a resolução prefere
+ * o campo ARQUIVO do carimbo, e é justamente quando ele está errado que alguém
+ * corrige. Correção que perde para o parser é pior que correção nenhuma — o
+ * engenheiro digita, vê o valor voltar, e para de confiar na tela.
+ *
+ * Valor ausente, zero ou negativo é IGNORADO: limpar o campo desfaz o ajuste e
+ * devolve o que o carimbo dizia.
+ */
+export function aplicarFolhaManual(
+  resolvidas: readonly (number | null)[],
+  manuais: readonly (number | null | undefined)[],
+): (number | null)[] {
+  return resolvidas.map((valor, i) => {
+    const manual = manuais[i];
+    if (typeof manual === "number" && Number.isFinite(manual) && manual > 0) {
+      return Math.trunc(manual);
+    }
+    return valor;
+  });
+}
+
 /** Valor mais frequente entre números. */
 function modeOf(values: number[]): number {
   const counts = new Map<number, number>();

@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 
-import { reconcileByPageOrder, type SheetItem } from "../server/nexo/reconcile-sheets.ts";
+import { aplicarFolhaManual, reconcileByPageOrder, type SheetItem } from "../server/nexo/reconcile-sheets.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -61,6 +61,37 @@ test("capa/índice antes das pranchas -> folha <= 0 vira null (offset negativo)"
 test("sem âncora (tudo duplicado) -> rank puro por página", () => {
   const r = reconcileByPageOrder(items([9, 9, 9, 9]));
   assert.deepEqual(r, [1, 2, 3, 4]);
+});
+
+// --- A correção À MÃO vence tudo --------------------------------------------
+
+/*
+ * O parser prefere o código do carimbo ao OCR, e a reconciliação por ordem de
+ * página reatribui os dois. Se a correção manual entrasse por qualquer um desses
+ * canais, ela perderia — o engenheiro digitaria o número e veria o valor voltar.
+ * Estes testes travam a precedência.
+ */
+test("folhaManual vence o que a resolução decidiu", () => {
+  assert.deepEqual(aplicarFolhaManual([5, 6, 7], [undefined, 12, undefined]), [5, 12, 7]);
+});
+
+test("folhaManual vence até a reatribuição por ordem de página", () => {
+  // PDF combinado com o OCR repetindo "16": a reconciliação reatribuiria tudo.
+  const reconciliadas = reconcileByPageOrder(items([16, 16, 16]));
+  const r = aplicarFolhaManual(reconciliadas, [undefined, undefined, 99]);
+  assert.equal(r[2], 99, "a folha corrigida à mão não pode ser reatribuída");
+});
+
+test("folhaManual inválido é ignorado (volta a valer o carimbo)", () => {
+  assert.deepEqual(aplicarFolhaManual([5], [0]), [5]);
+  assert.deepEqual(aplicarFolhaManual([5], [-3]), [5]);
+  assert.deepEqual(aplicarFolhaManual([5], [null]), [5]);
+  assert.deepEqual(aplicarFolhaManual([5], [undefined]), [5]);
+});
+
+test("folhaManual não inventa folha onde a resolução achou nada", () => {
+  // Null continua null sem correção — a folha some da LD, e é o certo.
+  assert.deepEqual(aplicarFolhaManual([null, null], [undefined, 3]), [null, 3]);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

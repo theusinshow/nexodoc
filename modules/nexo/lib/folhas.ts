@@ -32,6 +32,14 @@ export interface Ajuste {
   titulo?: string;
   /** "mudar classificação". */
   disciplina?: string;
+  /**
+   * Nº da prancha posto à mão. Vence o carimbo, o nome do arquivo e a
+   * reconciliação por ordem de página (`SeloSheetInput.folhaManual`) — quem
+   * digitou viu a prancha; o resto inferiu.
+   */
+  numero?: number;
+  /** Código da prancha (campo ARQUIVO do carimbo), que sai na coluna ARQUIVOS. */
+  arquivo?: string;
   /** O tomo que o usuário decidiu. Vence a divisão automática. */
   grupo?: number;
   /** Posição manual. Esparsa: mover uma folha não renumera as outras. */
@@ -86,6 +94,9 @@ export function folhas(
     const ajuste = ajustes[folhaId(selo)];
     const titulo = texto(ajuste?.titulo);
     const disciplina = texto(ajuste?.disciplina);
+    const arquivo = texto(ajuste?.arquivo);
+    const numero =
+      typeof ajuste?.numero === "number" && ajuste.numero > 0 ? ajuste.numero : null;
     const grupo = ajuste?.grupo;
     const ordem = ajuste?.ordem;
 
@@ -96,9 +107,23 @@ export function folhas(
         natural,
         conteudo: titulo ?? selo.conteudo,
         disciplina: disciplina ?? selo.disciplina,
+        arquivo: arquivo ?? selo.arquivo,
+        /*
+         * O número vai em CANAL PRÓPRIO (`folhaManual`), não sobrescrevendo
+         * `folha`: `folha` é o que o OCR leu, e a resolução prefere o código do
+         * carimbo a ele. Escrever ali faria a correção perder para o parser —
+         * o engenheiro digitaria e veria o valor voltar.
+         */
+        ...(numero !== null ? { folhaManual: numero } : {}),
         editado:
-          titulo !== null || disciplina !== null || grupo !== undefined || ordem !== undefined,
-        editadoTexto: titulo !== null || disciplina !== null,
+          titulo !== null ||
+          disciplina !== null ||
+          arquivo !== null ||
+          numero !== null ||
+          grupo !== undefined ||
+          ordem !== undefined,
+        editadoTexto:
+          titulo !== null || disciplina !== null || arquivo !== null || numero !== null,
         ...(grupo !== undefined ? { grupo } : {}),
         ...(ordem !== undefined ? { ordem } : {}),
       } satisfies Folha,

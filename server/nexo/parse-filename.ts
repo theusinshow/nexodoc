@@ -1,5 +1,5 @@
 import { DISCIPLINA_LEXICON } from "./disciplinas";
-import { reconcileByPageOrder } from "./reconcile-sheets";
+import { aplicarFolhaManual, reconcileByPageOrder } from "./reconcile-sheets";
 
 /**
  * Parser filename-first do intake do Nexo (Fase 0). A convencao de nomes do
@@ -103,6 +103,16 @@ export interface SeloSheetInput {
   pageNumber?: number | null;
   arquivo?: string | null;
   folha?: number | null;
+  /**
+   * Número posto À MÃO pelo engenheiro. VENCE tudo — o código do carimbo, o
+   * nome do arquivo, o OCR e a reconciliação por ordem de página.
+   *
+   * Sem esse canal, corrigir o número não teria efeito: a resolução prefere o
+   * campo ARQUIVO do carimbo, e é justamente quando ele está errado que alguém
+   * corrige. Uma correção que perde para o parser é pior que não existir — o
+   * engenheiro digita, vê o valor voltar, e para de confiar na tela.
+   */
+  folhaManual?: number | null;
 }
 
 /**
@@ -135,7 +145,13 @@ export function resolveSheetNumbers(selos: SeloSheetInput[]): (number | null)[] 
       result[i] = resolved[k];
     });
   }
-  return result;
+
+  // A correção à mão entra POR ÚLTIMO, por cima de tudo. A regra (e o porquê)
+  // mora no núcleo puro, que é onde ela pode ser testada com node cru.
+  return aplicarFolhaManual(
+    result,
+    selos.map((s) => s.folhaManual),
+  );
 }
 
 /**

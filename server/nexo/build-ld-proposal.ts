@@ -20,6 +20,11 @@ export interface SeloForLd {
   numeroFolha: string | null;
   /** Valor do campo ARQUIVO do selo (código da prancha) — vai na coluna ARQUIVOS. */
   arquivo: string | null;
+  /**
+   * Número da folha corrigido À MÃO no canvas. Vence o carimbo, o nome do
+   * arquivo e a reconciliação — ver `SeloSheetInput.folhaManual`.
+   */
+  folhaManual?: number | null;
   conteudo: string | null;
   cliente: string | null;
   /** Secretaria/órgão emissor lido no cabeçalho do carimbo (p/ a capa). */
