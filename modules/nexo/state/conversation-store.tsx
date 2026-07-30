@@ -54,6 +54,8 @@ export interface SavedFile {
   /** Chave no store de blobs (persistência/reidratação). */
   blobKey: string;
   primary?: boolean;
+  /** Tamanho em bytes, lido do blob no momento de salvar. */
+  sizeBytes?: number;
 }
 
 /** Resultado gerado (com URLs vivas) — reidratado do IndexedDB no restore. */
@@ -64,6 +66,8 @@ export interface SavedResult {
   canvas?: { label: string; detail?: string; titulo?: string; pageNumber?: number };
   files: SavedFile[];
   payload?: unknown;
+  /** Quando foi gerado — alimenta o "gerada há 42 min" do estado pendente. */
+  generatedAt?: number;
 }
 
 /** Entrada de `saveResult`: os arquivos vêm como object URLs (o card já os tem). */
@@ -272,8 +276,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         mime: f.mime,
         blobKey: f.blobKey,
         ...(f.primary ? { primary: true } : {}),
+        ...(f.sizeBytes !== undefined ? { sizeBytes: f.sizeBytes } : {}),
       })),
       ...(r.payload !== undefined ? { payload: r.payload } : {}),
+      ...(r.generatedAt !== undefined ? { generatedAt: r.generatedAt } : {}),
     }));
     const folderKey = deriveFolderKey(s.seloResults);
     const rec: StoredConversation = {
@@ -410,8 +416,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       const files: SavedFile[] = [];
       for (const f of input.files) {
         const blobKey = `${convId}:${input.artifactId}:${f.label}`;
+        // O tamanho sai do blob que já buscamos para persistir — nenhuma
+        // requisição a mais só para saber quantos KB o arquivo tem.
+        let sizeBytes: number | undefined;
         try {
           const blob = await fetch(f.url).then((r) => r.blob());
+          sizeBytes = blob.size;
           await putBlob(blobKey, blob);
         } catch {
           /* persistência é best-effort; o download da sessão segue válido */
@@ -423,6 +433,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           url: f.url,
           blobKey,
           ...(f.primary ? { primary: true } : {}),
+          ...(sizeBytes !== undefined ? { sizeBytes } : {}),
         });
       }
       const saved: SavedResult = {
@@ -432,6 +443,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         ...(input.canvas ? { canvas: input.canvas } : {}),
         files,
         ...(input.payload !== undefined ? { payload: input.payload } : {}),
+        generatedAt: Date.now(),
       };
       setResults((prev) => {
         const i = prev.findIndex((r) => r.artifactId === saved.artifactId);
@@ -505,6 +517,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
             url: URL.createObjectURL(blob),
             blobKey: fm.blobKey,
             ...(fm.primary ? { primary: true } : {}),
+            // Registro antigo não tem o tamanho gravado: o blob está aqui, então
+            // ele é lido agora em vez de a linha ficar sem o dado para sempre.
+            sizeBytes: fm.sizeBytes ?? blob.size,
           });
         }
         restored.push({
@@ -514,6 +529,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           ...(meta.canvas ? { canvas: meta.canvas } : {}),
           files,
           ...(meta.payload !== undefined ? { payload: meta.payload } : {}),
+          ...(meta.generatedAt !== undefined ? { generatedAt: meta.generatedAt } : {}),
         });
       }
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.

@@ -17,7 +17,7 @@
  * blobRegistry/canvas) — PR5/PR6. Estado honesto, sem fingir.
  */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   FileText,
   Layers,
@@ -66,6 +66,13 @@ import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
+import {
+  consequenciaDaMudanca,
+  haQuantoTempo,
+  mudancasDoArtefato,
+  tamanhoLegivel,
+  type MudancaDeParametro,
+} from "../lib/pendencia";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
@@ -229,6 +236,7 @@ function toResultFiles(saved: SavedResult) {
     url: f.url,
     name: f.name,
     primary: f.primary,
+    sizeBytes: f.sizeBytes,
   }));
 }
 
@@ -368,12 +376,72 @@ const ESTADO_LABEL: Record<EstadoArtefato, string> = {
   aplicado: "Aplicado",
 };
 
+/**
+ * O aviso do documento envelhecido: o que mudou, de quando é o arquivo que o
+ * engenheiro tem, e por que isso importa. Só aparece no estado pendente.
+ */
+function AvisoDePendencia({
+  kind,
+  mudancas,
+  geradoEm,
+}: {
+  kind: NexoAgentProposal["kind"];
+  mudancas: MudancaDeParametro[];
+  geradoEm?: number;
+}) {
+  /*
+   * O relógio fica no estado, não numa chamada durante o render: `Date.now()`
+   * no corpo do componente é impuro (o React pode re-renderizar quando quiser e
+   * o texto mudaria sozinho). E "há 42 min" precisa mesmo andar — o engenheiro
+   * deixa o card aberto enquanto trabalha, então atualizamos de minuto em minuto.
+   */
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (mudancas.length === 0) return null;
+  return (
+    <div className="border-b border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-3 py-2.5">
+      <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-[var(--status-warning)]">
+        O documento que você baixou está velho
+      </p>
+      <div className="mt-2 grid gap-1">
+        {mudancas.map((m) => (
+          <div key={m.campo} className="flex items-baseline gap-2 text-xs">
+            <span className={`${LABEL_CLASS} w-20 shrink-0`}>{m.campo}</span>
+            {/* O valor antigo riscado e o novo ao lado: sem os dois, "mudou" não
+                diz se a diferença importa. */}
+            <span className="font-mono text-muted-foreground line-through decoration-muted-foreground/50">
+              {m.antes}
+            </span>
+            <span aria-hidden className="text-muted-foreground">
+              →
+            </span>
+            <span className="font-mono text-foreground">{m.depois}</span>
+          </div>
+        ))}
+      </div>
+      {geradoEm !== undefined && (
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+          Gerado {haQuantoTempo(geradoEm, agora)}
+        </p>
+      )}
+      <p className="mt-1.5 text-xs leading-5 text-[var(--status-warning)]">
+        {consequenciaDaMudanca(kind, mudancas)}
+      </p>
+    </div>
+  );
+}
+
 function CardShell({
   kind,
   resumo,
   children,
   estado = "proposta",
   tomo = 0,
+  pendencia,
 }: {
   kind: NexoAgentProposal["kind"];
   resumo: string;
@@ -382,6 +450,8 @@ function CardShell({
   estado?: EstadoArtefato;
   /** Nº do tomo quando o volume é dividido; 0 = documento único. */
   tomo?: number;
+  /** O que mudou desde a geração + quando foi gerado (só no estado pendente). */
+  pendencia?: { mudancas: MudancaDeParametro[]; geradoEm?: number };
 }) {
   const meta = KIND_META[kind];
   const Icon = meta.icon;
@@ -420,6 +490,13 @@ function CardShell({
           />
         )}
       </div>
+      {estado === "pendente" && pendencia && (
+        <AvisoDePendencia
+          kind={kind}
+          mudancas={pendencia.mudancas}
+          geradoEm={pendencia.geradoEm}
+        />
+      )}
       <div className="space-y-3 p-3">
         <p className="text-sm text-muted-foreground">{resumo}</p>
         {children}
@@ -487,15 +564,33 @@ function ConfirmButton({
   label = "Confirmar e gerar",
   busyLabel = "Gerando…",
   onConfirm,
+  pendente,
 }: {
   busy: boolean;
   disabled?: boolean;
   label?: string;
   busyLabel?: string;
   onConfirm: () => void;
+  /** Responde a um documento envelhecido: o botão vira âmbar, não teal. */
+  pendente?: boolean;
 }) {
   return (
-    <Button size="sm" onClick={onConfirm} disabled={busy || disabled}>
+    <Button
+      size="sm"
+      onClick={onConfirm}
+      disabled={busy || disabled}
+      /*
+       * Âmbar quando é RESPOSTA a um estado pendente: teal significa "ação
+       * primária nova", e regerar não é ação nova — é consertar o que
+       * envelheceu. Mantê-lo teal fazia o card pendente parecer igual ao card
+       * de proposta, que é justamente a confusão que custa caro aqui.
+       */
+      className={
+        pendente && !busy
+          ? "border-[var(--status-warning)] bg-[var(--status-warning)] text-[#2b1d05] hover:bg-[var(--status-warning)]/90"
+          : undefined
+      }
+    >
       {busy ? (
         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
       ) : (
@@ -539,11 +634,16 @@ function LdConfirmation({
   const titulo = params.tituloLd.trim();
   const semTitulo = titulo === "";
   // O tomo entra na comparação: gerar o tomo 1 não deixa o tomo 2 "aplicado".
-  const estado = estadoDoArtefato(saved, {
+  const paramsAtuais = {
     ...params,
     tomo: tomo.numero,
     folhas: assinaturaDoTomo(opcoesDoTomo(selos, params.numTomos, tomo.atual).doTomo),
-  });
+  };
+  const estado = estadoDoArtefato(saved, paramsAtuais);
+  const pendencia = {
+    mudancas: mudancasDoArtefato(saved?.payload, paramsAtuais),
+    geradoEm: saved?.generatedAt,
+  };
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
@@ -589,7 +689,13 @@ function LdConfirmation({
   }
 
   return (
-    <CardShell kind="ld" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
+    <CardShell
+      kind="ld"
+      resumo={resumo}
+      estado={estado}
+      tomo={tomo.atual > 0 ? tomo.numero : 0}
+      pendencia={pendencia}
+    >
       {ldPreview && <FolhaPreview data={ldPreview} />}
 
       {podeGerar && (
@@ -717,7 +823,12 @@ function CapaConfirmation({
   const semPrefeitura = params.templateId.trim() === "";
   // Título é decisão do engenheiro (igual ao da LD): sem ele, não gera.
   const semTitulo = params.tituloCapa.trim() === "";
-  const estado = estadoDoArtefato(saved, { ...params, tomo: tomo.numero });
+  const paramsAtuais = { ...params, tomo: tomo.numero };
+  const estado = estadoDoArtefato(saved, paramsAtuais);
+  const pendencia = {
+    mudancas: mudancasDoArtefato(saved?.payload, paramsAtuais),
+    geradoEm: saved?.generatedAt,
+  };
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
@@ -763,7 +874,13 @@ function CapaConfirmation({
   }
 
   return (
-    <CardShell kind="capa" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
+    <CardShell
+      kind="capa"
+      resumo={resumo}
+      estado={estado}
+      tomo={tomo.atual > 0 ? tomo.numero : 0}
+      pendencia={pendencia}
+    >
       {podeGerar && (
         <>
           <div className="space-y-1.5">
@@ -1646,20 +1763,37 @@ function ResultLinks({
   files,
 }: {
   summary: string;
-  files: { label: string; url: string; name: string; primary?: boolean }[];
+  files: {
+    label: string;
+    url: string;
+    name: string;
+    primary?: boolean;
+    sizeBytes?: number;
+  }[];
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
       <p className="text-sm">{summary}</p>
       <div className="flex flex-wrap gap-2">
-        {files.map((f) => (
-          <Button key={f.label} size="sm" variant={f.primary ? "default" : "outline"} asChild>
-            <a href={f.url} download={f.name}>
-              <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              {f.label}
-            </a>
-          </Button>
-        ))}
+        {files.map((f) => {
+          /* O peso do arquivo é decisão prática: o engenheiro escolhe o que
+             anexa no e-mail da prefeitura por tamanho, e descobrir 18 MB só
+             depois de baixar é tarde. */
+          const peso = tamanhoLegivel(f.sizeBytes);
+          return (
+            <Button key={f.label} size="sm" variant={f.primary ? "default" : "outline"} asChild>
+              <a href={f.url} download={f.name}>
+                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                {f.label}
+                {peso && (
+                  <span className="ml-1.5 text-[11px] font-normal opacity-70">
+                    {peso}
+                  </span>
+                )}
+              </a>
+            </Button>
+          );
+        })}
       </div>
     </div>
   );

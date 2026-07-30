@@ -27,6 +27,8 @@ export interface StoredFileMeta {
   /** Chave no store de blobs: `${convId}:${artifactId}:${label}`. */
   blobKey: string;
   primary?: boolean;
+  /** Tamanho em bytes. Opcional: registros antigos não têm. */
+  sizeBytes?: number;
 }
 
 /** Metadados de um resultado gerado (sem os bytes). */
@@ -39,6 +41,15 @@ export interface StoredResultMeta {
   files: StoredFileMeta[];
   /** Resultado JSON de análises SEM arquivo (conferência/auditoria). */
   payload?: unknown;
+  /**
+   * QUANDO o documento foi gerado. É o que permite dizer "gerada há 42 min"
+   * quando os parâmetros mudam depois: sem isso, o card sabe que o arquivo na
+   * mão do engenheiro envelheceu, mas não sabe dizer de quando ele é — e "está
+   * velho" sem idade é um aviso que não ajuda a decidir.
+   *
+   * Opcional: registros gravados antes desta versão não têm (schemaless).
+   */
+  generatedAt?: number;
 }
 
 /** Registro LEVE de uma conversa (sem blobs). */
