@@ -85,6 +85,8 @@ export function NexoChat({
     orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
+    /** Endereço da caracterização da obra — distingue obras de mesmo nome. */
+    endereco?: string | null;
   } | null;
   /** Anexos com preview imediato (imagem/PDF). */
   attachments?: Attachment[];

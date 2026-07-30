@@ -285,6 +285,8 @@ export function ConfirmationCard({
     orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
+    /** Endereço da caracterização da obra — distingue obras de mesmo nome. */
+    endereco?: string | null;
   } | null;
 }) {
   const { results } = useConversation();
@@ -1357,6 +1359,8 @@ function AuditoriaConfirmation({
     orgao?: string | null;
     municipio?: string | null;
     codigo?: string | null;
+    /** Endereço da caracterização da obra — distingue obras de mesmo nome. */
+    endereco?: string | null;
   } | null;
 }) {
   const [busy, setBusy] = useState(false);
@@ -1398,6 +1402,7 @@ function AuditoriaConfirmation({
     .trim();
   const prefeitura = prefeituraDaCapa || memorialFatos?.orgao?.trim() || undefined;
   const municipio = fatos.gabarito.municipio ?? undefined;
+  const endereco = memorialFatos?.endereco?.trim() || "";
 
   async function confirm() {
     if (!memorialFile) return;
@@ -1496,6 +1501,17 @@ function AuditoriaConfirmation({
               missing={!prefeitura}
             />
             <SummaryRow label="Município" value={municipio ?? "—"} missing={!municipio} />
+            {/*
+              O ENDEREÇO vem da seção "Caracterização da obra" do memorial,
+              lido sem IA. É o campo que distingue duas obras de MESMO NOME — e
+              o programa de UBS produz exatamente isso: várias "Unidade Básica
+              de Saúde" no mesmo município. Nome não serve de gabarito ali;
+              endereço serve.
+
+              Só aparece quando existe: linha vazia num cartão de conferência é
+              ruído, e memorial de outro escritório pode não ter a seção.
+            */}
+            {endereco && <SummaryRow label="Endereço" value={endereco} />}
             <SummaryRow label="Nível" value={params.nivel === "deep" ? "profunda" : "padrão"} />
           </div>
           {/*

@@ -1,4 +1,8 @@
 import type { ExtractedPdf } from "@/lib/pdf-text";
+import {
+  lerCaracterizacaoDaObra,
+  type CaracterizacaoDaObra,
+} from "@/lib/caracterizacao-obra";
 import { extractIdentityFingerprint } from "./cross-document-audit";
 
 export type DocumentKind =
@@ -18,6 +22,14 @@ export type DocumentClassification = {
   codigo: string;
   orgao: string;
   revisao: string;
+  /**
+   * A caracterização da obra do memorial: endereço, bairro, áreas.
+   *
+   * O ENDEREÇO é o que distingue duas obras de mesmo nome — e o programa de
+   * UBS gera exatamente isso: várias "Unidade Básica de Saúde" por município.
+   * Nome de obra não serve de gabarito nesses casos; endereço serve.
+   */
+  caracterizacao?: CaracterizacaoDaObra;
   confianca: "alta" | "media" | "baixa";
   /** modo/nivel sugeridos para a auditoria (o operador pode sobrescrever) */
   auditMode: "memorial" | "volume";
@@ -160,15 +172,29 @@ export function classifyDocument(
   const auditMode: "memorial" | "volume" = tipo === "memorial" ? "memorial" : "volume";
   const analysisLevel: "standard" | "deep" = tipo === "memorial" ? "deep" : "standard";
 
+  /*
+   * Só no memorial: é o único documento que traz a seção "Caracterização da
+   * obra". Rodar em prancha ou orçamento seria gastar regex à toa e, pior,
+   * arriscar casar um trecho parecido fora de contexto.
+   */
+  const caracterizacao = tipo === "memorial" ? lerCaracterizacaoDaObra(text) : undefined;
+  if (caracterizacao?.endereco) {
+    sinais.push(`endereço lido da caracterização da obra: ${caracterizacao.endereco}`);
+  }
+
   return {
     fileName,
     tipo,
     tipoLabel: TIPO_LABEL[tipo],
     obra: identity.obra,
-    municipio: identity.municipio,
+    // O município da caracterização é mais confiável que o do timbre: o timbre
+    // diz quem CONTRATOU, a caracterização diz onde a obra FICA — e nem sempre
+    // são o mesmo município.
+    municipio: caracterizacao?.municipio || identity.municipio,
     codigo: identity.codigo,
     orgao: identity.orgao,
     revisao: identity.revisao,
+    ...(caracterizacao?.trecho ? { caracterizacao } : {}),
     confianca,
     auditMode,
     analysisLevel,

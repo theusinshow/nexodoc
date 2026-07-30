@@ -8,6 +8,8 @@
  * contrato estavel.
  */
 
+import type { CaracterizacaoDaObra } from "@/lib/caracterizacao-obra";
+
 /** Arquivo enviado pelo usuario, antes/depois de classificado. */
 export interface NexoInputFile {
   id: string;
@@ -139,6 +141,12 @@ export interface NexoFileClassification {
   confianca: "alta" | "media" | "baixa";
   precisaOcr: boolean;
   sinais: string[];
+  /**
+   * Caracterização da obra (só no memorial): endereço, bairro, município e
+   * áreas, lidos da seção 1.1 sem IA. O ENDEREÇO é o que distingue duas obras
+   * de mesmo nome — e o programa de UBS produz exatamente isso.
+   */
+  caracterizacao?: CaracterizacaoDaObra;
 }
 
 /** Contagem de documentos por papel dentro de um volume. */
@@ -167,6 +175,8 @@ export interface NexoDossieDraft {
   municipio?: string;
   codigo?: string;
   revisao?: string;
+  /** Endereço e áreas lidos do memorial — ver `NexoFileClassification`. */
+  caracterizacao?: CaracterizacaoDaObra;
   disciplinas: string[];
   /** Estrutura por volume (agrupa pranchas/capas/separatrizes). */
   volumes: NexoVolumeGroup[];

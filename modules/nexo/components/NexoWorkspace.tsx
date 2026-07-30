@@ -1225,6 +1225,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
                     orgao: dossie?.orgao ?? null,
                     municipio: dossie?.municipio ?? null,
                     codigo: dossie?.codigo ?? null,
+                    endereco: dossie?.caracterizacao?.endereco ?? null,
                   }
                 : null
             }

@@ -46,6 +46,8 @@ interface ContentIdentity {
   confianca: NexoFileClassification["confianca"];
   precisaOcr: boolean;
   sinais: string[];
+  /** Só o memorial tem: endereço, bairro e áreas da caracterização da obra. */
+  caracterizacao?: NexoFileClassification["caracterizacao"];
 }
 
 function toClassification(
@@ -110,6 +112,7 @@ export async function classifyDocuments(
         confianca: doc.confianca,
         precisaOcr: doc.precisaOcr,
         sinais: doc.sinais,
+        caracterizacao: doc.caracterizacao,
       };
     }
 
@@ -161,12 +164,21 @@ function aggregate(arquivos: NexoFileClassification[]): NexoDossieDraft {
 
   const { volumes, semVolume } = buildVolumes(emEscopo);
 
+  /*
+   * O ENDEREÇO vem SÓ do memorial, e do primeiro que tiver: é a seção
+   * "Caracterização da obra", que só existe lá. Não passa por
+   * `pickByConfidence` porque não é campo disputado entre arquivos — ou o
+   * memorial declara, ou ninguém declara.
+   */
+  const caracterizacao = arquivos.find((a) => a.caracterizacao?.endereco)?.caracterizacao;
+
   return {
     obra: pickByConfidence(arquivos, "obra"),
     orgao: pickByConfidence(arquivos, "orgao"),
     municipio: pickByConfidence(arquivos, "municipio"),
     codigo: pickByConfidence(arquivos, "codigo"),
     revisao: pickByConfidence(arquivos, "revisao"),
+    ...(caracterizacao ? { caracterizacao } : {}),
     disciplinas,
     volumes,
     semVolume,
