@@ -245,11 +245,24 @@ async function extractSeloFromPage(
  * Le os selos de todas as paginas de todas as pranchas anexadas, ~3 por vez.
  * `onResult` recebe cada resultado assim que fica pronto (feedback incremental).
  */
+/** Chave de uma folha já lida: `arquivo#pagina`. */
+export function chaveDaFolha(fileName: string, pageNumber: number): string {
+  return `${fileName}#${pageNumber}`;
+}
+
 export async function extractSelosFromFiles(
   files: File[],
   onResult?: (result: SeloResult) => void,
   conversationId?: string | null,
   onTotalFolhas?: (total: number) => void,
+  /**
+   * Folhas que NÃO devem ser lidas de novo (`chaveDaFolha`).
+   *
+   * É o que torna a retomada barata: ler o selo é uma chamada de modelo POR
+   * PÁGINA, então uma leitura que quebrou na 18ª de 24 custa 17 chamadas para
+   * recomeçar do zero. Com o conjunto, custa 7.
+   */
+  jaLidas?: ReadonlySet<string>,
 ): Promise<SeloResult[]> {
   const pdfjs = await loadPdfjs();
   const results: SeloResult[] = [];
@@ -295,6 +308,8 @@ export async function extractSelosFromFiles(
           const pageNumber = cursor;
           cursor += 1;
           if (pageNumber > pageCount) break;
+          // Já lida numa tentativa anterior: pula sem gastar a chamada.
+          if (jaLidas?.has(chaveDaFolha(file.name, pageNumber))) continue;
           const result = await extractSeloFromPage(doc, file, pageNumber, pageCount, conversationId);
           results.push(result);
           onResult?.(result);

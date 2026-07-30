@@ -8,6 +8,7 @@ import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
 import {
   extractSelosFromFiles,
   extractSeloFromImage,
+  chaveDaFolha,
   type SeloResult,
 } from "../lib/selo-render";
 import { summarizeSelos } from "../lib/agent-context";
@@ -121,6 +122,18 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   const [error, setError] = useState<string | null>(null);
   /** Formato recusado no último drop. Some sozinho: é aviso, não estado. */
   const [recusa, setRecusa] = useState<string | null>(null);
+  /**
+   * Leitura de selos que parou no meio. Guarda os ARQUIVOS para poder retomar —
+   * sem eles, "retomar" só poderia oferecer começar de novo, que é o custo que
+   * a retomada existe para evitar.
+   */
+  const [leituraIncompleta, setLeituraIncompleta] = useState<{
+    arquivos: File[];
+    imagens: File[];
+    lidas: number;
+    total: number;
+    motivo: string;
+  } | null>(null);
   // Pranchas originais retidas (bytes p/ montar o volume) e memorial anexado
   // (arquivo distinto — alimenta a auditoria). Partição por tipo do nome.
   const [pranchaFiles, setPranchaFiles] = useState<File[]>([]);
@@ -469,6 +482,24 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
   // Leitura AUTOMÁTICA ao anexar/soltar. PDFs: parte por tipo do nome — MEMORIAL
   // (md_geral) → identifica + propõe auditar; PRANCHAS → selos + File[] retidas
   // (volume). IMAGENS (foto de carimbo) → OCR pela mesma rota. Preview imediato.
+  /**
+   * Retoma a leitura de onde parou: relê SÓ as folhas que faltaram.
+   *
+   * O conjunto de já-lidas vem dos selos que estão no estado — cada um carrega
+   * o arquivo e a página, então a chave é exata. Sem isso, "tentar de novo"
+   * pagaria de novo por tudo que já deu certo.
+   */
+  async function retomarLeitura() {
+    const pendente = leituraIncompleta;
+    if (!pendente) return;
+    setLeituraIncompleta(null);
+    setError(null);
+    const jaLidas = new Set(
+      seloResults.map((r) => chaveDaFolha(r.fileName, r.pageNumber)),
+    );
+    await lerPranchas(pendente.arquivos, pendente.imagens, null, jaLidas);
+  }
+
   async function readSelos(list: FileList | null) {
     const all = list ? Array.from(list) : [];
     const pdfs = all.filter((f) => /\.pdf$/i.test(f.name));
@@ -532,13 +563,48 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
 
     // Caso A: pranchas e/ou imagens → lê selos + intake das pranchas.
     if (pranchas.length > 0 || images.length > 0) {
-      if (pranchas.length > 0) setPranchaFiles(pranchas);
-      setReading(true);
-      setReadProgress({ done: 0, total: 0 });
-      // Esta leitura vale enquanto ninguém corrigir o papel de um anexo.
-      const geracao = ++geracaoDaLeitura.current;
-      const atual = () => geracaoDaLeitura.current === geracao;
-      try {
+      await lerPranchas(pranchas, images, memorial);
+      return;
+    }
+
+    // Caso B: só memorial → lê as primeiras páginas, identifica e propõe auditar.
+    if (memorial) {
+      await lerSoMemorial(memorial);
+    }
+  }
+
+  /**
+   * A leitura dos selos, num lugar só — para o caminho normal e para a RETOMADA.
+   *
+   * `jaLidas` chega vazio na primeira vez e preenchido quando se retoma: as
+   * folhas ali dentro não são relidas, e cada uma delas é uma chamada de modelo
+   * que não acontece.
+   */
+  async function lerPranchas(
+    pranchas: File[],
+    images: File[],
+    memorial: File | null,
+    jaLidas?: ReadonlySet<string>,
+  ) {
+    const retomando = Boolean(jaLidas && jaLidas.size > 0);
+    if (pranchas.length > 0) setPranchaFiles(pranchas);
+    setReading(true);
+    // Esta leitura vale enquanto ninguém corrigir o papel de um anexo.
+    const geracao = ++geracaoDaLeitura.current;
+    const atual = () => geracaoDaLeitura.current === geracao;
+    /*
+     * Declarados FORA do `try` de propósito: é o `catch` que precisa saber
+     * quantas folhas entraram antes da falha, e é isso que a retomada usa.
+     * Dentro do bloco, esse número morria junto com o erro.
+     *
+     * Retomando, `collected` começa com o que já foi lido — senão o progresso
+     * voltaria a "0 de 24" numa leitura que já tem 17 folhas prontas.
+     */
+    const collected: SeloResult[] =
+      retomando || pranchas.length === 0 ? [...seloResults] : [];
+    let totalDeFolhas = images.length;
+    setReadProgress({ done: collected.length, total: 0 });
+    try {
         /*
          * O total é em FOLHAS, não em arquivos: um PDF traz N pranchas, e cada
          * uma vira um resultado.
@@ -549,8 +615,6 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
          * como saber quando ia acabar.
          */
         // Pranchas = leitura FRESCA; imagens avulsas APPENDam ao contexto.
-        const collected: SeloResult[] = pranchas.length > 0 ? [] : [...seloResults];
-        let totalDeFolhas = images.length;
         if (pranchas.length > 0) {
           await extractSelosFromFiles(
             pranchas,
@@ -566,6 +630,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
               totalDeFolhas = folhas + images.length;
               setReadProgress({ done: collected.length, total: totalDeFolhas });
             },
+            jaLidas,
           );
         }
         for (const img of images) {
@@ -580,7 +645,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         if (!atual()) return;
         const okSelos = collected.filter((r) => r.extraction);
         if (okSelos.length > 0) {
-          appendSelosIntake(okSelos, [...pdfs, ...images], Boolean(memorial));
+          appendSelosIntake(okSelos, [...pranchas, ...images], Boolean(memorial));
         }
         /*
          * Vindo memorial junto das pranchas, ele TAMBÉM é classificado.
@@ -598,7 +663,23 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         }
       } catch (err) {
         if (atual()) {
-          setError(err instanceof Error ? err.message : "Erro ao ler os anexos.");
+          const motivo = err instanceof Error ? err.message : "Erro ao ler os anexos.";
+          setError(motivo);
+          /*
+           * O QUE JÁ FOI LIDO NÃO SE PERDE.
+           *
+           * Ler o selo é uma chamada de modelo POR PÁGINA. Uma leitura de 24
+           * pranchas que quebra na 18ª custou 17 chamadas — recomeçar do zero
+           * as joga fora e cobra de novo. Guardamos os arquivos e o que já
+           * entrou para retomar exatamente de onde parou.
+           */
+          setLeituraIncompleta({
+            arquivos: pranchas,
+            imagens: images,
+            lidas: collected.length,
+            total: totalDeFolhas,
+            motivo,
+          });
         }
       } finally {
         // Quem invalidou já assumiu o `reading` do próprio caminho — desligá-lo
@@ -608,11 +689,11 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         // pode ficar mudo até o próximo turno do chat.
         refreshUsage();
       }
-      return;
-    }
+  }
 
-    // Caso B: só memorial → lê as primeiras páginas, identifica e propõe auditar.
-    if (memorial) {
+  /** Caso B: só memorial → lê as primeiras páginas e propõe auditar. */
+  async function lerSoMemorial(memorial: File) {
+    {
       setReadingMemorial(true);
       try {
         const lido = await classifyMemorial(memorial);
@@ -1022,6 +1103,28 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         mesma aba. A garantia vem COM NÚMERO, porque "seu trabalho está salvo"
         sem contagem é a frase que todo software diz antes de perder tudo.
       */}
+      {/*
+        LEITURA INCOMPLETA. Antes, o erro da leitura de selos só aparecia no
+        drawer de dev — na prática, invisível: o progresso parava e pronto. E
+        "tentar de novo" recomeçaria do zero, pagando outra vez por cada folha
+        que já tinha dado certo.
+      */}
+      {leituraIncompleta && (
+        <FaixaDeEstado
+          tipo="offline"
+          titulo="A leitura parou no meio"
+          acao={
+            <Button size="sm" variant="outline" onClick={() => void retomarLeitura()}>
+              Retomar da folha {leituraIncompleta.lidas + 1}
+            </Button>
+          }
+        >
+          {leituraIncompleta.lidas} de {leituraIncompleta.total} folhas já foram
+          lidas e estão salvas — retomar lê só as que faltam.{" "}
+          <span className="text-muted-foreground">{leituraIncompleta.motivo}</span>
+        </FaixaDeEstado>
+      )}
+
       {recusa && (
         <FaixaDeEstado
           tipo="offline"
