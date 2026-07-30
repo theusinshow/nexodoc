@@ -87,6 +87,15 @@ type AuditResultProps = {
   elapsedMs?: number;
   report?: AuditReport;
   pdfSources?: AuditPdfSource[];
+  /**
+   * Achados que o engenheiro já corrigiu no memorial (por `refId`).
+   *
+   * Vem de fora porque é PROGRESSO DE TRABALHO, não conteúdo do parecer: mora
+   * junto da conversa, sobrevive ao F5 e não altera o relatório — o achado
+   * continua existindo, só sai do caminho de quem já resolveu.
+   */
+  resolvidos?: ReadonlySet<string>;
+  onToggleResolvido?: (refId: string, resolvido: boolean) => void;
 };
 
 export type AuditPdfSource = {
@@ -743,6 +752,8 @@ export function AuditResult({
   elapsedMs,
   report,
   pdfSources = [],
+  resolvidos = new Set<string>(),
+  onToggleResolvido,
 }: AuditResultProps) {
   const [view, setView] = useState<"summary" | "findings" | "report">("summary");
   const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
@@ -1313,8 +1324,23 @@ export function AuditResult({
                           <span className="h-px flex-1 bg-border" />
                         </h5>
                       ) : null}
+                    {/*
+                      ACHADO RESOLVIDO = tarefa riscada da lista.
+                      O engenheiro trabalha com o software numa tela e o
+                      memorial na outra, corrigindo um a um. Sem marcar o que já
+                      foi, ele perde o lugar a cada rolagem — e relê achado que
+                      já resolveu, que é o desperdício mais banal desta tela.
+                      Verde + risco no título: some da leitura sem sumir da tela,
+                      porque desfazer tem que continuar possível.
+                    */}
                     <article
-                      className="overflow-hidden rounded-md border bg-card"
+                      data-resolvido={resolvidos.has(finding.refId ?? "") || undefined}
+                      className={cn(
+                        "overflow-hidden rounded-md border bg-card transition-colors",
+                        resolvidos.has(finding.refId ?? "")
+                          ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
+                          : "",
+                      )}
                     >
                       <div className="grid gap-4 border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
                         <div className="min-w-0">
@@ -1355,12 +1381,45 @@ export function AuditResult({
                               </span>
                             ) : null}
                           </div>
-                          <h4 className="text-base font-semibold leading-6 text-foreground">
+                          <h4
+                            className={cn(
+                              "text-base font-semibold leading-6 transition-colors",
+                              resolvidos.has(finding.refId ?? "")
+                                ? "text-muted-foreground line-through decoration-[var(--status-ok)]/60"
+                                : "text-foreground",
+                            )}
+                          >
                             {finding.title}
                           </h4>
                         </div>
 
-                        <div className="flex xl:justify-end">
+                        <div className="flex items-start gap-2 xl:justify-end">
+                          {/*
+                            O botão fica no CABEÇALHO do achado, ao lado do menu:
+                            é a ação que se repete 22 vezes numa revisão, e ela
+                            tem que estar sempre no mesmo lugar, sem rolar.
+                          */}
+                          {onToggleResolvido && finding.refId ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={resolvidos.has(finding.refId) ? "secondary" : "outline"}
+                              onClick={() =>
+                                onToggleResolvido(
+                                  finding.refId!,
+                                  !resolvidos.has(finding.refId!),
+                                )
+                              }
+                              className={
+                                resolvidos.has(finding.refId)
+                                  ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
+                                  : undefined
+                              }
+                            >
+                              <Check />
+                              {resolvidos.has(finding.refId) ? "Corrigido" : "Marcar corrigido"}
+                            </Button>
+                          ) : null}
                           <Dropdown
                             align="end"
                             trigger={({ open, toggle }) => (

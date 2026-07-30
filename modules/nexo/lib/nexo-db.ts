@@ -74,6 +74,16 @@ export interface StoredConversation {
    * onde arrastar folha.
    */
   tomosDeclarados?: number;
+  /**
+   * Achados de auditoria que o engenheiro já corrigiu, por `auditId`.
+   *
+   * É progresso de trabalho, não conteúdo do parecer — por isso vive fora do
+   * `results` e não altera o relatório. Sem persistir, fechar a aba no meio de
+   * uma revisão de 22 achados apagaria a única marca de onde ele parou.
+   *
+   * Opcional, como `ajustes`: registro é schemaless, ausente = nada resolvido.
+   */
+  achadosResolvidos?: Record<string, string[]>;
   results: StoredResultMeta[];
   /**
    * Auditoria disparada e ainda sem resultado NESTA conversa.

@@ -12,7 +12,7 @@
  * disciplina e as duas camadas de confiança — o que dá credibilidade ao parecer.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Map, ShieldCheck } from "lucide-react";
 
 import { AuditResult } from "@/components/audit-result";
@@ -24,7 +24,8 @@ import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
-  const { results, recuperarMemorial } = useConversation();
+  const { results, recuperarMemorial, achadosResolvidos, marcarAchadoResolvido } =
+    useConversation();
   const { emCurso, escolha, escolherVista } = useAuditoria();
   /*
    * O PDF DO MEMORIAL, para o achado poder ser conferido no documento.
@@ -61,6 +62,13 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const auditoria = results.find((r) => r.kind === "auditoria");
   const salvo = auditoria?.payload as MemorialAuditResult | undefined;
   const report = salvo?.report;
+  // Os corrigidos DESTA auditoria: a conversa pode ter mais de uma ao longo do
+  // tempo, e o progresso de uma não vale para a outra.
+  const auditIdAtual = salvo?.auditId ?? "";
+  const resolvidosDesta = useMemo(
+    () => new Set(auditIdAtual ? (achadosResolvidos[auditIdAtual] ?? []) : []),
+    [achadosResolvidos, auditIdAtual],
+  );
   const temAuditoria = Boolean(emCurso || reconexao.pendente || report);
 
   /*
@@ -156,6 +164,13 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 report={report}
                 auditId={salvo?.auditId ?? undefined}
                 pdfSources={memorialPdf ? [memorialPdf] : []}
+                resolvidos={resolvidosDesta}
+                onToggleResolvido={
+                  salvo?.auditId
+                    ? (refId, resolvido) =>
+                        marcarAchadoResolvido(salvo.auditId!, refId, resolvido)
+                    : undefined
+                }
               />
             </div>
           ) : null

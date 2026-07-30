@@ -113,6 +113,14 @@ interface ConversationStoreValue {
   tomosDeclarados: number;
   /** Declara um tomo a mais: a fileira nasce vazia e vira destino de arrasto. */
   declararTomos: (n: number) => void;
+  /**
+   * Achados de auditoria que o engenheiro já corrigiu no memorial, por
+   * `auditId`. É PROGRESSO DE TRABALHO, não conteúdo do parecer — por isso vive
+   * aqui e não dentro do resultado: o relatório continua íntegro, e o que muda
+   * é só o que já saiu da frente de quem está corrigindo.
+   */
+  achadosResolvidos: Record<string, string[]>;
+  marcarAchadoResolvido: (auditId: string, refId: string, resolvido: boolean) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
@@ -193,6 +201,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [seloResults, setSeloResultsState] = useState<SeloResult[]>([]);
   const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
+  const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
   const [results, setResults] = useState<SavedResult[]>([]);
   const [auditoriaPendente, setAuditoriaPendente] =
     useState<AuditoriaPendente | null>(null);
@@ -209,6 +218,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     seloResults,
     ajustes,
     tomosDeclarados,
+    achadosResolvidos,
     results,
     auditoriaPendente,
     memorialMeta,
@@ -223,6 +233,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       seloResults,
       ajustes,
       tomosDeclarados,
+      achadosResolvidos,
       results,
       auditoriaPendente,
       memorialMeta,
@@ -292,6 +303,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       seloResults: s.seloResults,
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
+      ...(Object.keys(s.achadosResolvidos).length > 0
+        ? { achadosResolvidos: s.achadosResolvidos }
+        : {}),
       ...(s.auditoriaPendente ? { auditoriaPendente: s.auditoriaPendente } : {}),
       ...(s.memorialMeta ? { memorial: s.memorialMeta } : {}),
       results: resultsMeta,
@@ -401,6 +415,29 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * vazia precisa sobreviver ao F5 — senão o destino do arrasto some junto com o
    * recarregamento, e o tomo novo vira um clique que não durou nada.
    */
+  /*
+   * Marcar/desmarcar é IDEMPOTENTE e nunca perde o resto: a lista de um
+   * `auditId` é reescrita sem tocar nas outras auditorias da mesma conversa.
+   * Desmarcar tem que continuar possível — quem risca item de lista erra, e
+   * uma marca sem volta faria o engenheiro evitar usá-la.
+   */
+  const marcarAchadoResolvido = useCallback(
+    (auditId: string, refId: string, resolvido: boolean) => {
+      if (!auditId || !refId) return;
+      setAchadosResolvidos((atual) => {
+        const lista = new Set(atual[auditId] ?? []);
+        if (resolvido) lista.add(refId);
+        else lista.delete(refId);
+        const proximo = { ...atual };
+        if (lista.size === 0) delete proximo[auditId];
+        else proximo[auditId] = [...lista];
+        return proximo;
+      });
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
   const declararTomos = useCallback(
     (n: number) => {
       setTomosDeclarados((atual) => Math.max(atual, Math.max(0, Math.floor(n))));
@@ -541,6 +578,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       // Conversa gravada antes deste campo existir não tem `ajustes`.
       setAjustes(rec.ajustes ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
+      setAchadosResolvidos(rec.achadosResolvidos ?? {});
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
       setAuditoriaPendente(rec.auditoriaPendente ?? null);
       setMemorialMeta(rec.memorial ?? null);
@@ -650,6 +688,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustarFolhas,
       tomosDeclarados,
       declararTomos,
+      achadosResolvidos,
+      marcarAchadoResolvido,
       saveResult,
       getResult,
       removeResult,
@@ -678,6 +718,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustarFolhas,
       tomosDeclarados,
       declararTomos,
+      achadosResolvidos,
+      marcarAchadoResolvido,
       saveResult,
       getResult,
       removeResult,
