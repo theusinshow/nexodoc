@@ -12,7 +12,7 @@
  * disciplina e as duas camadas de confiança — o que dá credibilidade ao parecer.
  */
 
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Map, ShieldCheck } from "lucide-react";
 
 import { AuditResult } from "@/components/audit-result";
@@ -24,8 +24,36 @@ import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
-  const { results } = useConversation();
+  const { results, recuperarMemorial } = useConversation();
   const { emCurso, escolha, escolherVista } = useAuditoria();
+  /*
+   * O PDF DO MEMORIAL, para o achado poder ser conferido no documento.
+   *
+   * O relatório já sabia abrir a página exata e grifar o trecho — mas só quando
+   * recebe `pdfSources`, e o palco nunca passava. Na prática o botão "ver no
+   * documento" não existia aqui: o achado era uma afirmação sem como conferir,
+   * que é justamente o que uma auditoria não pode ser.
+   *
+   * Os bytes vêm do memorial retido na conversa, então funciona também depois
+   * de um F5 — que é quando o engenheiro volta para revisar com calma.
+   */
+  const [memorialPdf, setMemorialPdf] = useState<
+    { name: string; url: string } | null
+  >(null);
+
+  useEffect(() => {
+    let url: string | null = null;
+    let vivo = true;
+    void recuperarMemorial().then((guardado) => {
+      if (!vivo || !guardado) return;
+      url = URL.createObjectURL(guardado.file);
+      setMemorialPdf({ name: guardado.file.name, url });
+    });
+    return () => {
+      vivo = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [recuperarMemorial]);
   // Auditoria herdada de outra sessão (F5, troca de conversa): o palco volta a
   // esperar por ela em vez de deixá-la morrer com a aba.
   const reconexao = useReconectarAuditoria();
@@ -127,6 +155,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 content={salvo?.texto ?? ""}
                 report={report}
                 auditId={salvo?.auditId ?? undefined}
+                pdfSources={memorialPdf ? [memorialPdf] : []}
               />
             </div>
           ) : null

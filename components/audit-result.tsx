@@ -58,7 +58,28 @@ const AuditPdfViewer = dynamic(() => import("@/components/audit-pdf-viewer-inter
   ),
 });
 
-type ActivePdf = { url: string; page: number; highlight?: string; label?: string };
+type ActivePdf = {
+  url: string;
+  page: number;
+  highlight?: string;
+  label?: string;
+  /** Gravidade do achado — pinta a marcação no documento. */
+  severity?: StructuredFinding["severity"];
+};
+
+/**
+ * A cor da marcação no PDF SEGUE A GRAVIDADE do achado.
+ *
+ * Amarelo para tudo tratava um erro que impede a emissão igual a um ponto de
+ * atenção — e é no documento aberto, com o trecho na frente, que essa diferença
+ * mais importa: é ali que o engenheiro decide se para a entrega ou anota para
+ * depois. Fundo tingido com texto escuro para o trecho seguir legível.
+ */
+const MARCACAO_POR_GRAVIDADE: Record<StructuredFinding["severity"], string> = {
+  critical: "[&_mark]:bg-[var(--status-critical)] [&_mark]:text-[#2b0a08]",
+  warning: "[&_mark]:bg-[var(--status-warning)] [&_mark]:text-[#2b1d05]",
+  ok: "[&_mark]:bg-[var(--status-ok)] [&_mark]:text-[#052b16]",
+};
 
 type AuditResultProps = {
   content: string;
@@ -966,6 +987,7 @@ export function AuditResult({
       page: getFirstPageNumber(finding.pagina) ?? 1,
       highlight: getHighlightNeedle(finding),
       label: finding.title,
+      severity: finding.severity,
     });
   }
 
@@ -991,7 +1013,12 @@ export function AuditResult({
               <X className="size-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3 [&_mark]:bg-yellow-300 [&_mark]:text-black">
+          <div
+            className={cn(
+              "flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3",
+              MARCACAO_POR_GRAVIDADE[activePdf.severity ?? "warning"],
+            )}
+          >
             <AuditPdfViewer url={activePdf.url} page={activePdf.page} highlight={activePdf.highlight} />
           </div>
         </div>
@@ -1404,6 +1431,26 @@ export function AuditResult({
                               <p className="font-mono text-xs uppercase text-muted-foreground">
                                 Evidência encontrada
                               </p>
+                              {/*
+                                VER NO DOCUMENTO fica AQUI, colado à evidência —
+                                não escondido no menu "⋯". É a ação que fecha o
+                                ciclo da auditoria: o achado deixa de ser uma
+                                afirmação e vira algo que se confere na página.
+                                Enterrada num kebab, ela simplesmente não existia
+                                para quem usa.
+                              */}
+                              {finding.pdfUrl ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="ml-auto h-7"
+                                  onClick={() => openInlinePdf(finding)}
+                                >
+                                  <ExternalLink className="size-3.5" />
+                                  Ver no documento
+                                </Button>
+                              ) : null}
                             </div>
                             <p className="text-sm leading-6 text-foreground">
                               <HighlightedEvidence
