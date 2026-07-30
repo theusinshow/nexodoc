@@ -50,6 +50,15 @@ conversa semeada não tem:
 Visível nas capturas: os selos ("BETA", "ATIVO") em caixa alta, e os chips de
 próximo passo destacados do fundo.
 
+### Lote 4 — a conversa (parcial)
+| Onde | O que mudou |
+|---|---|
+| **Caixa de confirmação** | A **borda inteira** passa a dizer o estado: âmbar quando o documento envelheceu, verde quando o que está na tela é o que foi gerado. Antes isso era um ponto de 1,5px no canto do cabeçalho — e "pendente" significa que o arquivo na mão do engenheiro está velho, o erro mais caro que esta tela comete |
+| **Bolhas** | Raio do sistema (8px) no lugar dos 16px de aplicativo de mensagem — era o único lugar que inventava outro raio. Corpo em 14px (15px não é degrau da escala). A bolha do usuário foi para superfície elevada: no fundo embutido ela parecia campo desabilitado. Medida de leitura em 62ch |
+
+**Falta do lote 4:** variantes do composer (herói/ancorado), estados do chip de
+anexo, overlay de arrastar, e o miolo das seis caixas.
+
 ## Divergências registradas (o repositório venceu)
 
 O handoff manda avisar em vez de "corrigir" o código quando a folha diverge das
@@ -62,3 +71,10 @@ regras já em produção. Aconteceu duas vezes:
 2. **`.chip:hover` com `#21262a`** — hex solto, que o próprio critério 6 do
    sistema proíbe ("nenhum valor solto"). Mantido `bg-accent`, que é o token
    equivalente.
+3. **Composer em vidro puro + anel teal no foco.** Mantido o que está em
+   `globals.css`, que documenta o porquê de duas tentativas anteriores: o vidro
+   puro **some** sobre o fundo quase-preto da tela de boas-vindas (não há nada
+   atrás para refratar), e o anel teal **virava neon** num campo dessa largura.
+   Hoje o composer usa superfície elevada com borda de campo, e o foco só
+   clareia a borda. Se o sistema quiser reverter, vale rever com a tela na
+   frente — as duas decisões vieram de ver, não de supor.

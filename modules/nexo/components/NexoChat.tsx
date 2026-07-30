@@ -631,12 +631,22 @@ function MessageBubble({
   }, [copied]);
 
   return (
-    <div className="group/msg relative max-w-[85%]">
+    // 62ch é a medida de leitura: linha mais longa cansa, e a conversa aqui
+    // carrega parágrafo técnico, não frase de chat.
+    <div className="group/msg relative max-w-[62ch]">
+      {/*
+       * Raio do sistema (8px), não os 16px arredondados de aplicativo de
+       * mensagem: o DESIGN.md tem UM raio, e a bolha era o único lugar que
+       * inventava outro. O corpo é Body (14px) — 15px não é degrau da escala.
+       *
+       * A bolha do usuário fica em `secondary`, superfície ELEVADA: é a fala
+       * dele, e no fundo embutido ela parecia um campo desabilitado.
+       */}
       <div
         className={
           isUser
-            ? "whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--nexodoc-recessed)] px-4 py-2.5 text-[15px] leading-[1.55] text-foreground"
-            : "nexo-glass nexo-glass--weak whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-3 text-[15px] leading-[1.6] text-foreground"
+            ? "whitespace-pre-wrap rounded-md border border-border bg-secondary px-4 py-2.5 text-sm leading-[1.55] text-foreground"
+            : "nexo-glass nexo-glass--weak whitespace-pre-wrap rounded-md px-4 py-3 text-sm leading-[1.55] text-foreground"
         }
       >
         <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>

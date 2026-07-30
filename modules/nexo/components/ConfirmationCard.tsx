@@ -385,8 +385,26 @@ function CardShell({
 }) {
   const meta = KIND_META[kind];
   const Icon = meta.icon;
+  /*
+   * A BORDA INTEIRA diz em que pé o documento está.
+   *
+   * Antes o estado vivia num ponto de 1,5px no canto do cabeçalho. "Pendente"
+   * significa que o arquivo na mão do engenheiro está velho — é o erro mais
+   * caro que esta tela pode cometer, e ele estava anunciado por um ponto que
+   * some no meio de quatro cards. Agora a moldura inteira muda: âmbar quando o
+   * documento envelheceu, verde quando o que está na tela é o que foi gerado.
+   */
+  const borda =
+    estado === "pendente"
+      ? "border-[var(--status-warning)]/45"
+      : estado === "aplicado"
+        ? "border-[var(--status-ok)]/30"
+        : "border-border";
   return (
-    <div className="nexodoc-enter rounded-md border border-border bg-card">
+    <div
+      data-state={estado}
+      className={`nexodoc-enter rounded-md border ${borda} bg-card`}
+    >
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         <span className={LABEL_CLASS}>
