@@ -49,8 +49,21 @@ export type InconsistencyPayload = {
 
 const templatePath = path.join(process.cwd(), "templates", "modelo_ld_empresa.odt");
 
+/**
+ * Nome base do arquivo da LD. Parte vazia não deixa separador pendurado.
+ *
+ * Era interpolação direta, então um projeto sem código detectado produzia
+ * `_arquitetonico_ld_a.odt` — com underscore na frente. Mesmo defeito que o
+ * `separatrizes_r.odt`: juntar pedaços sem conferir se existem. Na prática o
+ * código quase sempre vem do selo, o que é justamente o que torna isto fácil de
+ * não notar até chegar num projeto onde ele falta.
+ */
 export function buildBaseFileName(data: LdData) {
-  return `${data.projectCode}_${data.discipline}_ld_${data.revision}`.toLowerCase();
+  return [data.projectCode, data.discipline, "ld", data.revision]
+    .map((parte) => String(parte ?? "").trim())
+    .filter(Boolean)
+    .join("_")
+    .toLowerCase();
 }
 
 export function buildOdtFileName(data: LdData) {

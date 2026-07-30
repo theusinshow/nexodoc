@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
+import { saveLdDraft } from "@/lib/ld/ld-draft-store";
 import { buildLdProposal, type SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { createLD } from "@/server/nexo/tools/create-ld";
 
@@ -83,6 +85,51 @@ export async function POST(req: NextRequest) {
     folhasDoTomo,
   });
   const result = await createLD(proposal.input);
+
+  /*
+   * A LD gerada pelo Nexo entra no HISTÓRICO DO SERVIDOR.
+   *
+   * Até aqui, tudo que o Nexo produzia vivia só no IndexedDB do navegador:
+   * trocar de máquina, limpar o navegador ou abrir em outro computador e o
+   * trabalho desaparecia. A tela `/ld` sempre gravou em Postgres, com trilha de
+   * eventos por usuário — era ela, e não o Nexo, a única persistência real do
+   * produto. Isso também deixava o painel `/admin/lds` cego para tudo feito no
+   * Nexo, que hoje é o caminho principal.
+   *
+   * Gravamos DEPOIS de gerar e só quando gerou: um registro de LD que não
+   * produziu arquivo seria histórico de coisa que não aconteceu.
+   *
+   * A falha ao persistir NÃO derruba a resposta. O engenheiro já tem o
+   * documento em mãos; perder o download por causa da contabilidade seria
+   * trocar o produto pelo registro dele.
+   */
+  if (result.ok && result.files) {
+    const email = session.user.email?.trim().toLowerCase();
+    if (email) {
+      try {
+        await saveLdDraft({
+          user: { email, name: session.user.name ?? null },
+          payload: {
+            ldData: proposal.input.ldData as unknown as Prisma.InputJsonValue,
+            rows: proposal.input.rows as unknown as Prisma.InputJsonValue,
+            referenceTotal: proposal.input.referenceTotal ?? null,
+            uploadedFileCount: selos.length,
+            generatedFileNames: [
+              result.files.odt.name,
+              ...(result.files.pdf ? [result.files.pdf.name] : []),
+            ],
+            status: "GENERATED",
+          },
+        });
+      } catch (err) {
+        console.error(
+          `[nexo/ld] LD gerada mas NAO registrada no historico: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+  }
 
   return NextResponse.json({
     resumo: proposal.resumo,
