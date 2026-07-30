@@ -644,3 +644,25 @@ componente.
 
 **O que fiscaliza.** Hoje: revisão humana e este documento. O sistema ainda não
 tem teste automático de contrato visual — quando tiver, ele mora aqui.
+
+### Decisões que o sistema v0 propôs e NÃO valem (2026-07-30)
+
+O sistema de design produzido na ferramenta (`docs/design-system-v0/`) foi
+aplicado por inteiro, com quatro exceções. Estão aqui porque exceção que vive só
+na cabeça de quem implementou volta como "bug" na próxima revisão.
+
+1. **Fio de luz (`--edge-highlight`) no cartão em repouso.** O CSS entregue põe;
+   a §4 deste documento proíbe em painel plano parado. Vale a §4: o fio marca
+   superfície ELEVADA ou interativa, e se ele aparecer em tudo deixa de marcar
+   qualquer coisa.
+2. **`#21262a` no hover do chip.** Hex solto, que o próprio critério de aceite do
+   sistema proíbe. Vale o token `--accent`.
+3. **Composer em vidro puro com anel teal no foco.** Duas tentativas anteriores
+   já falharam por motivo observado: o vidro puro SOME sobre o fundo quase-preto
+   da tela de boas-vindas (não há nada atrás para refratar) e o anel teal VIRA
+   NEON num campo dessa largura. Vale o que está no `globals.css`: superfície
+   elevada com borda de campo, e o foco só clareando a borda.
+4. **Nó não-abrível a 50% de opacidade.** Depois de um F5 os bytes das pranchas
+   não voltam, então TODA folha fica não-abrível — o canvas inteiro a 50%
+   pareceria desabilitado estando perfeitamente funcional. A ação "Abrir"
+   continua desabilitada, com o motivo no tooltip.

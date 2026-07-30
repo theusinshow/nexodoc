@@ -64,7 +64,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             width={48}
             height={48}
             priority
-            className="size-12 rounded-sm object-cover"
+            className="size-12"
           />
           <h1 className="mt-4 font-mono text-xl font-semibold">Nexo</h1>
           <p className="mt-1 font-mono text-xs tracking-[0.15em] text-muted-foreground">

@@ -308,6 +308,36 @@ textarea {
   line-height: 1.5;
 }
 
+/*
+ * A MARCA reage ao mouse — e só a ele.
+ *
+ * Em repouso o símbolo fica parado: marca que se mexe sozinha vira decoração, e
+ * o único elemento autorizado a respirar continuamente aqui é o orbe do palco,
+ * que está dizendo o que o agente faz. No hover, o nó gira devagar — o mesmo
+ * movimento do estado `idle` do orbe vivo, na mesma direção e no mesmo ritmo,
+ * para as duas leituras serem reconhecidas como o mesmo objeto.
+ *
+ * Só o NÓ gira; o círculo é a esfera e fica parado. Girar os dois faria o
+ * símbolo parecer um spinner de carregamento, que é o oposto de uma marca.
+ */
+.nexo-logo__no {
+  transform-origin: 50% 50%;
+  transition: transform var(--duration-slow) var(--ease-entrance);
+}
+
+.nexo-logo:hover .nexo-logo__no,
+.nexo-logo:focus-visible .nexo-logo__no,
+a:hover .nexo-logo .nexo-logo__no,
+button:hover .nexo-logo .nexo-logo__no {
+  animation: nexo-logo-giro 6s linear infinite;
+}
+
+@keyframes nexo-logo-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

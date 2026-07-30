@@ -24,9 +24,19 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Nexo",
   description: "Documentação de projetos de engenharia, do carimbo ao volume",
+  /*
+   * O SVG é o ícone preferido (escala em qualquer densidade), mas os PNGs
+   * existem porque nem todo lugar resolve SVG: aba antiga, atalho na área de
+   * trabalho, e a tela de início do iOS — que usa o de 180.
+   */
   icons: {
-    icon: [{ url: "/assets/logo.svg", type: "image/svg+xml" }],
-    shortcut: "/assets/logo.svg",
+    icon: [
+      { url: "/assets/logo.svg", type: "image/svg+xml" },
+      { url: "/assets/logo-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/assets/logo-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/assets/logo-180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/assets/logo-32.png",
   },
 };
 
