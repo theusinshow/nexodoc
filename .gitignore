@@ -85,3 +85,15 @@ data/nexodoc-learnings.json
 # mostram o app carregado com as pranchas de docs/samples, que sao dados reais
 # e confidenciais de projeto -- o mesmo motivo daquela pasta ser ignorada.
 /scratchpad/
+
+# Estado de execucao da ferramenta de critica: PID, porta e um TOKEN, reescritos
+# a cada sessao. Nao e codigo nem configuracao -- e ruido que aparecia em todo
+# `git status` e entrava de carona em commit alheio. Token, ainda que so de
+# localhost, nao tem por que morar no historico.
+/.impeccable/live/
+
+# A entrega crua da ferramenta de design. A copia canonica vive em
+# docs/design-system-v0/, versionada e com cabecalho dizendo que e copia de
+# trabalho -- ter as duas seria a verdade duplicada que este repositorio ja
+# pagou caro para evitar.
+/design-system/
