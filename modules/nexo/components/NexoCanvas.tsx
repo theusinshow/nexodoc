@@ -565,7 +565,9 @@ function CanvasInterno({
           data: {
             id: f.id,
             numero: numeros[f.id] ?? null,
+            total: f.total ?? null,
             titulo: f.conteudo ?? "",
+            disciplina: f.disciplina,
             // `editadoTexto`, não `editado`: depois que o primeiro arrasto congela
             // a divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão"
             // acenderia no canvas inteiro, mentindo sobre o que o usuário mexeu.

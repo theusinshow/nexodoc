@@ -17,13 +17,18 @@ import { ExternalLink, Pencil } from "lucide-react";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { Button } from "@/components/ui/button";
 import type { FolhaId } from "../lib/folhas";
+import { corDaDisciplina, siglaDaDisciplina } from "../lib/disciplina-cor";
 import { AcaoDoNo } from "./AcaoDoNo";
 
 export type FolhaNodeData = {
   id: FolhaId;
   /** Número da folha resolvido (`resolveSheetNumbers`), ou null quando não há. */
   numero: number | null;
+  /** Total de folhas do conjunto — o "24" de "05/24". */
+  total?: number | null;
   titulo: string;
+  /** Disciplina lida do carimbo: vira a sigla e o fio de cor no topo. */
+  disciplina?: string | null;
   editado: boolean;
   /** Falso na conversa restaurada: os bytes da prancha não persistem. */
   podeAbrir: boolean;
@@ -47,12 +52,41 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
       ? "border-[var(--nexodoc-tertiary-strong)]"
       : "border-border";
 
+  const cor = corDaDisciplina(data.disciplina);
+  const sigla = siglaDaDisciplina(data.disciplina);
+  const semNumero = data.numero == null;
+
   const corpo = (
-    <div className={`w-[120px] overflow-hidden rounded-sm border ${borda} bg-card px-2 py-1.5`}>
+    <div className={`w-[120px] overflow-hidden rounded-sm border ${borda} bg-card`}>
+      {/*
+       * O fio de 2px no topo é a disciplina — a ÚNICA cor do nó, e secundária à
+       * sigla: quem não distingue matiz continua lendo "ARQ". Disciplina fora
+       * das oito famílias não ganha cor: sem cor é melhor que cor errada.
+       */}
+      <div
+        className="h-0.5 w-full"
+        style={{ background: cor ?? "transparent" }}
+        aria-hidden
+      />
+      <div className="px-2 py-1.5">
       <div className="flex items-center gap-1">
-        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-          {data.numero != null ? String(data.numero).padStart(2, "0") : "—"}
+        {/* O travessão em rust marca a AUSÊNCIA do número sem chamar de erro:
+            a folha continua arrastável e continua entrando no volume. */}
+        <span
+          className={`font-mono text-[10px] tabular-nums ${
+            semNumero
+              ? "text-[var(--nexodoc-tertiary-strong)]"
+              : "text-muted-foreground"
+          }`}
+        >
+          {semNumero ? "—" : String(data.numero).padStart(2, "0")}
+          {data.total ? `/${String(data.total).padStart(2, "0")}` : ""}
         </span>
+        {sigla && (
+          <span className="font-mono text-[10px] tracking-[0.05em] text-muted-foreground">
+            · {sigla}
+          </span>
+        )}
         {data.editado && (
           <span
             className="h-1.5 w-1.5 rounded-full bg-[var(--nexodoc-tertiary-strong)]"
@@ -92,6 +126,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
       )}
       <Handle type="target" position={Position.Left} className="!opacity-0" />
       <Handle type="source" position={Position.Right} className="!opacity-0" />
+      </div>
     </div>
   );
 
