@@ -325,6 +325,73 @@ try {
     );
   }
 
+  // --- CONFERÊNCIA: determinística e, depois, a do selo --------------------
+  // Aqui é onde o volume misto quebrava a conferência: cada disciplina numera
+  // as suas folhas de 1 a N, e conferir as 6 como uma sequência só acusava
+  // duplicatas (1 e 2, três vezes cada) num conjunto perfeitamente normal.
+  await composer.fill("Confere as folhas");
+  await composer.press("Enter");
+
+  const botaoConferir = page.getByRole("button", { name: /^Conferir$/i }).first();
+  await botaoConferir.waitFor({ timeout: 180000 });
+  await botaoConferir.click();
+  await page
+    .getByText(/achado\(s\)/i)
+    .first()
+    .waitFor({ timeout: 60000 });
+  await page.waitForTimeout(500);
+
+  const textoConf = await page.evaluate(() => document.body.innerText);
+  check(
+    "a conferência NÃO acusa folha duplicada (cada bloco numera do 1)",
+    !/duplicado/i.test(textoConf),
+    (textoConf.match(/.*duplicado.*/i) ?? [""])[0],
+  );
+  check(
+    "a conferência anuncia a composição do volume misto",
+    /3 disciplinas/i.test(textoConf),
+  );
+  check(
+    "o que ela acusa de sequência vem NOMEADO pelo bloco",
+    !/sequ/i.test(textoConf) ||
+      /(Hidrossanitario|Preventivo contra incendio|SPDA):/i.test(textoConf),
+  );
+  await page.screenshot({ path: `${OUT}/vivo-5-conferencia.png`, fullPage: true });
+
+  // A conferência do SELO: uma chamada de visão num modelo pequeno, sobre uma
+  // folha por disciplina. Custa pouco e responde a outra pergunta — para QUEM
+  // este volume está indo.
+  const botaoSelo = page.getByRole("button", { name: /Conferir o selo/i }).first();
+  await botaoSelo.waitFor({ timeout: 30000 });
+  check("o botão da conferência do selo está habilitado", await botaoSelo.isEnabled());
+  await botaoSelo.click();
+  await page
+    .getByText(/folha\(s\) conferida\(s\)/i)
+    .first()
+    .waitFor({ timeout: 180000 });
+
+  const textoSelo = await page.evaluate(() => document.body.innerText);
+  // O que a IA leu e o que a regra concluiu, na saída: um teste que só afirma
+  // "não deu crítico" passaria igual com o modelo devolvendo tudo vazio.
+  const trecho = textoSelo.slice(textoSelo.indexOf("Selo ·"));
+  console.log(`\n  conferência do selo:\n${trecho.slice(0, 700).replace(/^/gm, "    ")}`);
+
+  const amostras = textoSelo.match(/Selo · (\d+) folha\(s\) conferida\(s\)/i);
+  check(
+    "leu uma amostra de selos — uma folha por disciplina",
+    amostras != null && Number(amostras[1]) === DISCIPLINAS.length,
+    amostras ? `${amostras[1]} folha(s)` : "(não achei o resumo)",
+  );
+  // O gabarito é Chapecó e as pranchas SÃO de Chapecó: o achado crítico de
+  // órgão/brasão não pode aparecer. Se aparecer, ou a leitura está ruim ou a
+  // regra está apertada demais — os dois são defeito.
+  check(
+    "não acusa órgão nem brasão de outra prefeitura (as pranchas são de Chapecó)",
+    !/\[orgao\]/i.test(textoSelo) && !/Brasão de outro órgão/i.test(textoSelo),
+    (textoSelo.match(/.*(orgao|Brasão de outro).*/i) ?? [""])[0],
+  );
+  await page.screenshot({ path: `${OUT}/vivo-6-selo.png`, fullPage: true });
+
   check(
     "nenhum erro de runtime no console",
     errosDeConsole.length === 0,

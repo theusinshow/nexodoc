@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
+import type { SeloIdentityResult } from "@/server/nexo/selo-identity-core";
 import {
   getEmissionVerdict,
   groupFindingsByImpact,
@@ -73,6 +74,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { conferirIdentidadeDoSelo } from "../lib/selo-check";
 import { corDaDisciplina } from "../lib/disciplina-cor";
 import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
@@ -338,7 +340,14 @@ export function ConfirmationCard({
         </>
       );
     case "conferencia":
-      return <ConferenciaConfirmation resumo={proposal.resumo} selos={selos} />;
+      return (
+        <ConferenciaConfirmation
+          resumo={proposal.resumo}
+          selos={selos}
+          pranchaFiles={pranchaFiles}
+          templates={templates}
+        />
+      );
     case "volume":
       return (
         <>
@@ -994,15 +1003,35 @@ function CapaConfirmation({
 function ConferenciaConfirmation({
   resumo,
   selos,
+  pranchaFiles = [],
+  templates,
 }: {
   resumo: string;
   selos: SeloForLd[];
+  pranchaFiles?: File[];
+  templates: NexoTemplateOption[];
 }) {
   const [busy, setBusy] = useState(false);
+  const [busySelo, setBusySelo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult } = useConversation();
+  const { getResult, saveResult, results, conversationId } = useConversation();
   const id = conferenciaId(selos);
   const result = getResult(id)?.payload as LightCheckResult | undefined;
+  const identidade = getResult(`${id}:identidade`)?.payload as
+    | SeloIdentityResult
+    | undefined;
+
+  /*
+   * O GABARITO é a intenção DECLARADA — a prefeitura que o engenheiro escolheu
+   * para a capa —, nunca o que o selo diz. Inferir o alvo do próprio documento
+   * conferiria o selo contra ele mesmo: um volume inteiro com o brasão errado
+   * passaria, porque estaria coerentemente errado.
+   */
+  const templateIdDaCapa = results
+    .filter((r) => r.kind === "capa")
+    .map((r) => (r.payload as { templateId?: unknown } | undefined)?.templateId)
+    .find((t): t is string => typeof t === "string" && t.trim().length > 0);
+  const orgaoAlvo = templates.find((t) => t.id === templateIdDaCapa)?.nome ?? "";
 
   async function confirm() {
     setBusy(true);
@@ -1023,12 +1052,39 @@ function ConferenciaConfirmation({
     }
   }
 
+  async function conferirSelo() {
+    setBusySelo(true);
+    setError(null);
+    try {
+      const r = await conferirIdentidadeDoSelo({
+        selos,
+        pranchaFiles,
+        orgaoAlvo,
+        conversationId,
+      });
+      await saveResult({
+        artifactId: `${id}:identidade`,
+        kind: "conferencia",
+        summary: `Selo — ${r.result.veredito} · ${r.result.amostras} folha(s)`,
+        files: [],
+        payload: r.result,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro na conferência do selo.");
+    } finally {
+      setBusySelo(false);
+    }
+  }
+
+  const semPranchas = pranchaFiles.length === 0;
+
   return (
     <CardShell kind="conferencia" resumo={resumo}>
       {!result && (
         <>
           <p className="text-xs text-muted-foreground">
-            Confere se as pranchas batem entre si (código/obra/revisão/folhas). Sem memorial.
+            Confere se as pranchas batem entre si (código/obra/revisão/folhas), disciplina
+            por disciplina. Sem memorial e sem IA.
           </p>
           <ConfirmButton
             busy={busy}
@@ -1040,12 +1096,66 @@ function ConferenciaConfirmation({
       )}
 
       {result && <CheckResult result={result} />}
+
+      {/*
+        A conferência do SELO é o segundo passo, e é separada de propósito: ela
+        custa IA e responde a outra pergunta. A de cima pergunta se o volume
+        está íntegro; esta pergunta para QUEM ele está indo — foi um projeto
+        enviado com o brasão de outra prefeitura que a motivou.
+      */}
+      {result && (
+        <div className="space-y-2 border-t border-border pt-3">
+          {!identidade && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Confere o selo por dentro: endereço da obra, brasão e numeração da
+                prancha, contra{" "}
+                {orgaoAlvo ? (
+                  <span className="text-foreground">{orgaoAlvo}</span>
+                ) : (
+                  "a prefeitura da capa"
+                )}
+                . Lê uma folha por disciplina, num modelo pequeno.
+              </p>
+              <div className="flex items-center gap-2">
+                <ConfirmButton
+                  busy={busySelo}
+                  disabled={semPranchas || !orgaoAlvo}
+                  label="Conferir o selo"
+                  busyLabel="Lendo os selos…"
+                  onConfirm={conferirSelo}
+                />
+                {(semPranchas || !orgaoAlvo) && (
+                  <span className="text-xs text-muted-foreground">
+                    {semPranchas
+                      ? "Anexe as pranchas para conferir o selo."
+                      : "Gere a capa antes — é a prefeitura dela que serve de gabarito."}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
+          {identidade && (
+            <CheckResult
+              result={identidade}
+              titulo={`Selo · ${identidade.amostras} folha(s) conferida(s)`}
+            />
+          )}
+        </div>
+      )}
       <CardError message={error} />
     </CardShell>
   );
 }
 
-function CheckResult({ result }: { result: LightCheckResult }) {
+function CheckResult({
+  result,
+  titulo,
+}: {
+  result: LightCheckResult;
+  titulo?: string;
+}) {
   const variant =
     result.veredito === "critico"
       ? "critical"
@@ -1068,6 +1178,7 @@ function CheckResult({ result }: { result: LightCheckResult }) {
       <div className="flex items-center gap-2">
         <Badge variant={variant}>{label}</Badge>
         <span className="text-xs text-muted-foreground">
+          {titulo ? `${titulo} · ` : ""}
           {result.findings.length} achado(s)
         </span>
       </div>

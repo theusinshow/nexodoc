@@ -98,6 +98,27 @@ async function renderSeloCrop(page: {
   return cropCanvas.toDataURL("image/jpeg", 0.92);
 }
 
+/**
+ * O recorte do selo de UMA página, como JPEG data URL — o mesmo recorte que
+ * vai ao OCR na leitura.
+ *
+ * Existe para a CONFERÊNCIA DE IDENTIDADE (`selo-check.ts`) reusar exatamente
+ * o enquadramento provado. Recortar de novo por lá, com outras constantes,
+ * faria a conferência julgar uma região do papel diferente daquela de onde
+ * saíram os dados que ela confere.
+ */
+export async function recortarSelo(file: File, pageNumber: number): Promise<string> {
+  const pdfjs = await loadPdfjs();
+  const data = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data }).promise;
+  try {
+    const page = await doc.getPage(pageNumber);
+    return await renderSeloCrop(page as never);
+  } finally {
+    await doc.destroy();
+  }
+}
+
 interface TextItemLike {
   str?: string;
   transform?: number[];

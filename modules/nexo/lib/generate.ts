@@ -5,6 +5,8 @@
  * entrada usarem exatamente o mesmo caminho.
  */
 import { conferirSessao } from "./sessao";
+import { codigoDaFolha, rotuloDoCodigo } from "./disciplina-da-folha";
+import type { Folha } from "./folhas";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import type { VolumePart } from "@/server/nexo/volume-parts";
@@ -191,16 +193,32 @@ export async function postCapa(
  * Conferência leve (light check): porta de qualidade determinística, sem IA.
  * Confere se pranchas/LD/capa são internamente consistentes. `templateId`
  * (opcional) casa a prefeitura da capa. Devolve o veredito + achados.
+ *
+ * O BLOCO de cada folha vai junto, calculado AQUI com a mesma `codigoDaFolha`
+ * que decide o volume e o plano. É o que faz a conferência enxergar o volume
+ * como o escritório o emite — uma sequência de 1 a N POR DISCIPLINA. Sem isto,
+ * o volume 10 de 040-26 (his 1-11, inc 1-5, spd 1-4) era conferido como uma
+ * sequência única de 1 a 20, e um volume perfeito acusava nove folhas faltando
+ * e cinco duplicadas. Vai do cliente porque a correção manual da disciplina só
+ * existe aqui — o servidor nunca a vê.
  */
 export async function postCheck(
   selos: SeloForLd[],
   templateId?: string,
 ): Promise<LightCheckResult> {
+  const blocos = (selos as Folha[]).map((f) => codigoDaFolha(f));
+  const rotulos: Record<string, string> = {};
+  for (const codigo of blocos) {
+    if (codigo && !rotulos[codigo]) rotulos[codigo] = rotuloDoCodigo(codigo);
+  }
+
   const res = await fetch("/api/nexo/check", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       selos,
+      blocos,
+      rotulos,
       ...(templateId?.trim() ? { templateId: templateId.trim() } : {}),
     }),
   });
