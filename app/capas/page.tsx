@@ -61,8 +61,9 @@ export default async function CapasPage({ searchParams }: CapasPageProps) {
         description="Gere capas tecnicas padronizadas a partir de templates ODT. Modulo independente, com integracao opcional ao Criador de LDs."
       >
         <Button asChild variant="outline" size="sm">
-          <Link href="/ld">
-            Testar integracao LD
+          {/* A LD se faz no Nexo: a tela de montagem foi aposentada. */}
+          <Link href="/nexo">
+            Gerar a LD no Nexo
           </Link>
         </Button>
       </PageHeader>

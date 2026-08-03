@@ -1,10 +1,8 @@
 import {
   FolderCog,
   FolderKanban,
-  Layers,
   Layers3,
   type LucideIcon,
-  TableProperties,
   Waypoints,
 } from "lucide-react";
 
@@ -65,17 +63,6 @@ export const projetosModule: ModuleDef = {
  * Ver docs/nexo-paridade-telas.md.
  */
 export const legacyModules: readonly ModuleDef[] = [
-  {
-    title: "Montagem de LDs",
-    description:
-      "Leia selos de pranchas, revise dados e gere Listas de Documentos organizadas por tomo.",
-    href: "/ld",
-    label: "Abrir montagem",
-    icon: TableProperties,
-    emphasis: false,
-    status: "active",
-    shortcut: "Ctrl L",
-  },
   {
     title: "Montagem de capas",
     description:

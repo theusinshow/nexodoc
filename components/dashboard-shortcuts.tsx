@@ -29,8 +29,9 @@ export function DashboardShortcuts({ isAdmin = false }: DashboardShortcutsProps)
       {
         key: "l",
         ctrl: true,
-        handler: () => router.push("/ld"),
-        description: "Ir para montagem de LDs",
+        // A montagem de LDs saiu; o atalho aponta para onde ela é feita agora.
+        handler: () => router.push("/nexo"),
+        description: "Ir para o Nexo (LD, capa, volume)",
       },
       ...(isAdmin
         ? [
