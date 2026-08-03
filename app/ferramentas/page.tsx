@@ -53,19 +53,38 @@ export default async function FerramentasAntigasPage() {
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.03em]">
             Ferramentas antigas
           </h1>
+          {/*
+            O texto tinha de mudar junto com a lista. Ele dizia "use quando
+            precisar de um ajuste que o assistente ainda não faz, como corrigir
+            à mão o número de uma prancha" — e o número da prancha passou a se
+            corrigir no canvas do Nexo. Uma página que ensina um caminho que não
+            existe mais é pior do que uma página vazia.
+          */}
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            As telas de antes do Nexo, uma por documento. Continuam funcionando e
-            gerando os mesmos arquivos — use quando precisar de um ajuste que o
-            assistente ainda não faz, como corrigir à mão o número de uma prancha
-            que o carimbo entregou errado.
+            As telas de antes do Nexo, uma por documento. Eram cinco; restou uma.
+            LD, capas e separatrizes saíram quando o Nexo passou a corrigir tudo
+            que elas corrigiam — o nº da prancha, o código do arquivo, a
+            disciplina, o total de folhas e a identidade do projeto se ajustam no
+            canvas, sem sair da conversa.
           </p>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            No dia a dia, o caminho é o Nexo: é lá que o trabalho fica registrado
-            e conferido.
+            A mesa de volumes fica, e não por dívida: ela monta o projeto inteiro
+            a partir de PDFs soltos, enquanto o Nexo monta um volume do que ele
+            mesmo gerou. São trabalhos diferentes.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/*
+          Uma coluna quando há um cartão só: a grade de duas deixava metade da
+          linha vazia, e um vão desse tamanho lê como "faltou carregar".
+        */}
+        <div
+          className={
+            legacyModules.length > 1
+              ? "grid gap-4 sm:grid-cols-2"
+              : "grid max-w-xl gap-4"
+          }
+        >
           {legacyModules.map((module) => {
             const Icon = module.icon;
 

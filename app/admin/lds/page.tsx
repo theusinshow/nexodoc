@@ -12,6 +12,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 type LdRecord = {
@@ -156,7 +157,12 @@ export default function AdminLdsPage() {
       <AdminPageHeader
         icon={FileSpreadsheet}
         title="Operação de LDs"
-        description="Acompanhe listas em montagem, geradas e arquivadas por usuário. PDFs anexados não são armazenados."
+        /*
+         * "Em montagem" saiu com a tela de montagem: o rascunho contínuo era
+         * dela. O que chega aqui agora é LD GERADA, pelo Nexo — descrever um
+         * estado que não se produz mais faria o filtro parecer quebrado.
+         */
+        description="As LDs geradas, por usuário — é o registro do servidor, o mesmo que o Nexo alimenta. PDFs anexados não são armazenados."
         actions={
           <AdminTokenForm
             token={token}
@@ -238,7 +244,22 @@ export default function AdminLdsPage() {
                   <td className="px-3 py-3 text-right font-mono">{ld.rowCount}</td><td className="px-3 py-3 text-right font-mono">{ld.uploadedFileCount}</td><td className="px-3 py-3 text-right font-mono">{ld.tomoCount}</td><td className="px-3 py-3 text-right font-mono">{ld.eventCount}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">{formatDate(ld.updatedAt)}</td>
                 </tr>
-              )) : <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">Nenhuma LD encontrada.</td></tr>}
+              )) : (
+                /*
+                 * O vazio ENSINA (DESIGN.md): dizer só "nenhuma LD encontrada"
+                 * deixa o admin sem saber se o filtro está apertado, se ninguém
+                 * gerou nada ainda, ou se a tela quebrou.
+                 */
+                <tr>
+                  <td colSpan={9}>
+                    <EmptyState
+                      icon={FileSpreadsheet}
+                      label="Nenhuma LD"
+                      description="As listas geradas no Nexo aparecem aqui, com quem gerou e quantas pranchas entraram. Se você filtrou por código, obra ou usuário, limpe o filtro para ver todas."
+                    />
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>
