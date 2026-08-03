@@ -9,11 +9,12 @@ export type {
   GenerateCoversOutput,
 } from "./generate-covers";
 
-export { generateSeparatrizes } from "./generate-separatrizes";
-export type {
-  GenerateSeparatrizesInput,
-  GenerateSeparatrizesOutput,
-} from "./generate-separatrizes";
+/*
+ * `generateSeparatrizes` saiu com a tela `/separatrizes`. Ela montava o ODT EM
+ * CÓDIGO; o Nexo preenche o TEMPLATE oficial (`separatriz-template.ts`), que é
+ * o que faz a folha sair com a identidade visual do escritório. Manter as duas
+ * era manter dois resultados visuais possíveis para o mesmo documento.
+ */
 
 export { createLD } from "./create-ld";
 export type { CreateLDInput, CreateLDOutput } from "./create-ld";

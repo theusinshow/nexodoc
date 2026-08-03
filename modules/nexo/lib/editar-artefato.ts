@@ -459,24 +459,45 @@ export async function gerarItem(args: {
     return;
   }
 
-  // separatriz — com bloco, a folha nomeia a DISCIPLINA; senão herda a capa.
+  /*
+   * SEPARATRIZ. Três origens para o título, nesta ordem:
+   *
+   * 1. a LISTA que o engenheiro ditou na conversa ("as separatrizes de elétrica,
+   *    CFTV e SPDA") — um documento com uma folha por item. Ela manda porque ali
+   *    ele não está nomeando a capa desta conversa: está pedindo as folhas de
+   *    rosto do volume inteiro, inclusive de disciplinas que não estão anexadas.
+   *    Era o último uso que ainda obrigava a abrir a tela `/separatrizes`, e o
+   *    plano em lote — o caminho normal de gerar — a ignorava, pedindo um título
+   *    que já tinha sido dado;
+   * 2. o bloco, num volume misto: a folha nomeia a DISCIPLINA;
+   * 3. a capa, no caso comum de um volume, uma disciplina.
+   */
+  const listados = Array.isArray(p.titulos)
+    ? (p.titulos as unknown[]).map((t) => String(t ?? "").trim()).filter(Boolean)
+    : [];
   const tituloSep = item.bloco?.rotulo.toUpperCase() || args.tituloDaSeparatriz.trim();
-  if (!tituloSep) return; // sem título não há separatriz — a capa manda nela
+  const titulos = listados.length > 0 ? listados : tituloSep ? [tituloSep] : [];
+  if (titulos.length === 0) return; // sem título não há separatriz — a capa manda nela
   const ident = summarizeSelos(selos);
-  const sep = await postSeparatriz(tituloSep, {
-    codigo: ident.codigo ?? "",
-    revisao: ident.revisao ?? "",
+  const sep = await postSeparatriz(titulos, {
+    // O código corrigido à mão manda no nome do arquivo, como na capa e na LD.
+    codigo: args.identidade?.codigo ?? ident.codigo ?? "",
+    revisao: args.identidade?.revisao ?? ident.revisao ?? "",
   });
+  const quantas = titulos.length > 1 ? ` · ${titulos.length} folhas` : "";
   await saveResult({
     artifactId: args.idsBase.separatriz + item.sufixo,
     kind: "separatriz",
     payload: {
-      titulo: tituloSep,
+      titulo: titulos[0],
       tomo: item.tomoNumero,
+      // Só com mais de uma: a chave a mais faria toda separatriz já gerada
+      // parecer desatualizada (o estado do card compara o payload literalmente).
+      ...(titulos.length > 1 ? { titulos } : {}),
       ...(item.bloco ? { bloco: item.bloco.codigo } : {}),
     },
-    summary: `Separatriz ${tituloSep}`,
-    canvas: { label: "Separatriz", titulo: tituloSep, pageNumber: 1 },
+    summary: `Separatriz ${titulos[0]}${quantas}`,
+    canvas: { label: "Separatriz", titulo: titulos.join(" · "), pageNumber: 1 },
     files: arquivosDaSeparatriz(sep),
   });
 }

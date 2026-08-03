@@ -1408,8 +1408,9 @@ function VolumeConfirmation({
         }
         if (!separatrizPdf64 && titulo) {
           const sep = await postSeparatriz(titulo, {
-            codigo: ident.codigo ?? "",
-            revisao: ident.revisao ?? "",
+            // Como no card da separatriz: o código corrigido manda no nome.
+            codigo: identidade.codigo ?? ident.codigo ?? "",
+            revisao: identidade.revisao ?? ident.revisao ?? "",
           });
           // Sem LibreOffice não há PDF, e é o PDF que entra no volume: a folha
           // fica registrada como artefato (o ODT existe) e a montagem segue sem
@@ -1999,7 +2000,7 @@ function SeparatrizConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult } = useConversation();
+  const { results, getResult, saveResult, identidade } = useConversation();
   const id = separatrizId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -2037,10 +2038,16 @@ function SeparatrizConfirmation({
     setBusy(true);
     setError(null);
     try {
+      /*
+       * O nome do arquivo leva o código e a revisão CORRIGIDOS quando existem.
+       * Sem isto, a separatriz de um projeto cujo carimbo foi corrigido sairia
+       * com o código velho no nome — dentro do mesmo volume em que a capa e a LD
+       * já levam o novo.
+       */
       const ident = summarizeSelos(selos);
       const r = await postSeparatriz(titulos, {
-        codigo: ident.codigo ?? "",
-        revisao: ident.revisao ?? "",
+        codigo: identidade.codigo ?? ident.codigo ?? "",
+        revisao: identidade.revisao ?? ident.revisao ?? "",
       });
       const quantas = r.folhas > 1 ? ` · ${r.folhas} folhas` : "";
       await saveResult({

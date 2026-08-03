@@ -88,17 +88,6 @@ export const legacyModules: readonly ModuleDef[] = [
     shortcut: null,
   },
   {
-    title: "Folhas separatrizes",
-    description:
-      "Gere folhas de separação de disciplinas para dividir os projetos dentro do volume.",
-    href: "/separatrizes",
-    label: "Abrir separatrizes",
-    icon: Layers,
-    emphasis: false,
-    status: "active",
-    shortcut: null,
-  },
-  {
     title: "Organização de volumes",
     description: "Junção, ordenação e conferência final dos volumes de projeto.",
     href: "/volumes",

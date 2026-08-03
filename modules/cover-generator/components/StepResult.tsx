@@ -143,12 +143,7 @@ export function StepResult({
         : "Texto da capa / disciplinas";
 
   const disciplinas = collectDisciplines(pages, templateFields, coverTitleMode);
-  const separatrizHref =
-    disciplinas.length > 0
-      ? `/separatrizes?d=${encodeURIComponent(disciplinas.join("|"))}` +
-        `&codigo=${encodeURIComponent(codigoInterno)}` +
-        `&rev=${encodeURIComponent(revisao)}`
-      : "/separatrizes";
+  const separatrizHref = "/nexo";
 
   function toggleItem(index: number) {
     setCheckedItems((prev) => {
@@ -313,7 +308,11 @@ export function StepResult({
         </div>
       )}
 
-      {/* Atalho para separar as disciplinas dentro do volume */}
+      {/*
+        As separatrizes agora se pedem no Nexo, em conversa — a tela dedicada
+        saiu. O atalho leva para lá com as disciplinas já lidas destas capas,
+        que é a informação que ele tinha de útil.
+      */}
       <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
@@ -323,14 +322,16 @@ export function StepResult({
             <p className="text-sm font-medium">Folhas separatrizes</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {disciplinas.length > 0
-                ? `Gere uma folha de separacao por disciplina (${disciplinas.length}) para dividir o volume.`
-                : "Gere folhas de separacao de disciplinas para dividir o volume."}
+                ? `Peça no Nexo: "as separatrizes de ${disciplinas
+                    .slice(0, 3)
+                    .join(", ")}${disciplinas.length > 3 ? "…" : ""}" — uma folha por disciplina.`
+                : "Peça no Nexo as folhas de separação das disciplinas do volume."}
             </p>
           </div>
         </div>
         <Button variant="outline" asChild className="shrink-0">
           <Link href={separatrizHref}>
-            Gerar separatrizes
+            Abrir o Nexo
             <ArrowUpRight className="ml-1.5 h-4 w-4" />
           </Link>
         </Button>

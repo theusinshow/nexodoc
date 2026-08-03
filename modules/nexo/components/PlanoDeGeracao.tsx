@@ -26,6 +26,7 @@ import type {
   NexoAgentProposal,
   NexoCapaProposalParams,
   NexoLdProposalParams,
+  NexoSeparatrizProposalParams,
 } from "../types";
 import { useConversation } from "../state/conversation-store";
 import { gerarItem, opcoesDoTomo, type ItemDoPlano } from "../lib/editar-artefato";
@@ -178,7 +179,21 @@ export function PlanoDeGeracao({
    * travaria o botão pedindo um dado que não vai a lugar nenhum. A capa, essa
    * sim, continua precisando — o título dela é o do volume inteiro.
    */
-  const semTitulo = titulo === "" && (Boolean(capa) || !misto);
+  /*
+   * A LISTA de disciplinas ditada na conversa JÁ É o título — de cada folha.
+   * Sem esta exceção, pedir "as separatrizes de elétrica, CFTV e SPDA" travava o
+   * botão pedindo "diga qual título", que o engenheiro acabara de dizer três
+   * vezes. Era o defeito que mantinha a tela `/separatrizes` viva na prática.
+   */
+  const titulosDaSeparatriz = (
+    (proposals.find((p) => p.kind === "separatriz")?.params as
+      | NexoSeparatrizProposalParams
+      | undefined)?.titulos ?? []
+  )
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const separatrizListada = titulosDaSeparatriz.length > 0;
+  const semTitulo = titulo === "" && (Boolean(capa) || !misto) && !separatrizListada;
   const semPrefeitura = Boolean(capa) && !capa?.templateId?.trim();
 
   // Já gerados: o card não some depois, ele muda de estado.
@@ -260,10 +275,18 @@ export function PlanoDeGeracao({
             um título global aqui faria o engenheiro conferir um campo que não
             sai em documento nenhum.
           */}
-          {(capa || !misto) && (
+          {(capa || !misto) && !separatrizListada && (
             <Linha
               rotulo="Título"
               valor={semTitulo ? "diga qual título →" : titulo}
+            />
+          )}
+          {/* A lista ditada é o que sai impresso: uma folha por item, nesta
+              ordem. É o que o engenheiro confere antes de gerar. */}
+          {separatrizListada && (
+            <Linha
+              rotulo={`Disciplinas (${titulosDaSeparatriz.length} folhas)`}
+              valor={titulosDaSeparatriz.join(" · ")}
             />
           )}
           {capa && <Linha rotulo="Prefeitura" valor={prefeitura} />}
