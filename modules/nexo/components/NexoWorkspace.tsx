@@ -94,12 +94,30 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
    * pranchas, fonte independente do memorial" sobre o próprio memorial.
    */
   const geracaoDaLeitura = useRef(0);
+  /**
+   * A leitura em voo. Um segundo lote solto no meio da primeira leitura ESPERA
+   * a anterior terminar, em vez de correr junto com ela.
+   *
+   * Sem a fila, a segunda leitura bumpava a geração e invalidava a primeira: as
+   * folhas já lidas eram descartadas no meio do caminho, e cada uma delas é uma
+   * chamada de modelo que já foi paga.
+   */
+  const leituraEmVoo = useRef<Promise<void>>(Promise.resolve());
   const conv = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const { replaceArtifacts } = useArtifactStore();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).
   const seloResults = conv.seloResults;
   const setSeloResults = conv.setSeloResults;
+  /*
+   * Espelho dos selos para quem roda DEPOIS do render que o criou — a leitura
+   * enfileirada começa minutos após o drop, e a closure dela veria a lista de
+   * antes. É o mesmo motivo do `readSelosRef`.
+   */
+  const selosRef = useRef(seloResults);
+  useEffect(() => {
+    selosRef.current = seloResults;
+  });
 
   // Espelha os resultados gerados (durável) no store do canvas — caminho único
   // p/ geração ao vivo E restore. SUBSTITUI o conjunto (não acumula), então o
@@ -583,9 +601,22 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
       void conv.salvarMemorial(memorial);
     }
 
-    // Caso A: pranchas e/ou imagens → lê selos + intake das pranchas.
+    /*
+     * Caso A: pranchas e/ou imagens → lê selos + intake das pranchas.
+     *
+     * ENFILEIRADO. Soltar um segundo lote antes de o primeiro terminar é o que o
+     * engenheiro faz quando lembra da outra disciplina — e antes isso descartava
+     * a leitura em curso, jogando fora as folhas já pagas. Agora a segunda
+     * espera a primeira e SOMA a ela (ver `lerPranchas`).
+     */
     if (pranchas.length > 0 || images.length > 0) {
-      await lerPranchas(pranchas, images, memorial);
+      const anterior = leituraEmVoo.current;
+      const minha = (async () => {
+        await anterior.catch(() => {});
+        await lerPranchas(pranchas, images, memorial);
+      })();
+      leituraEmVoo.current = minha;
+      await minha;
       return;
     }
 
@@ -608,8 +639,33 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
     memorial: File | null,
     jaLidas?: ReadonlySet<string>,
   ) {
-    const retomando = Boolean(jaLidas && jaLidas.size > 0);
-    if (pranchas.length > 0) setPranchaFiles(pranchas);
+    /*
+     * O QUE JÁ FOI LIDO NUNCA É RELIDO — nem na retomada de uma leitura que
+     * quebrou, nem num segundo lote solto por cima do primeiro. Os dois casos
+     * são o mesmo: há folhas na conversa, e reler qualquer uma delas é pagar
+     * duas vezes pela mesma página.
+     *
+     * Vem de `selosRef` e não da closure porque a leitura enfileirada roda
+     * depois — a lista da closure seria a de antes do lote anterior.
+     */
+    const base =
+      jaLidas ??
+      new Set(selosRef.current.map((r) => chaveDaFolha(r.fileName, r.pageNumber)));
+    const retomando = base.size > 0;
+    jaLidas = base;
+    /*
+     * As pranchas SOMAM. Antes o segundo lote substituía o primeiro, e o
+     * engenheiro que soltasse HIS e depois INC ficava com os chips das duas
+     * disciplinas na tela e os selos de uma só — a montagem via meio volume.
+     * Dedup por nome: soltar o mesmo arquivo de novo não o duplica.
+     */
+    if (pranchas.length > 0) {
+      setPranchaFiles((prev) => {
+        if (!retomando) return pranchas;
+        const nomes = new Set(prev.map((f) => f.name));
+        return [...prev, ...pranchas.filter((f) => !nomes.has(f.name))];
+      });
+    }
     setReading(true);
     // Esta leitura vale enquanto ninguém corrigir o papel de um anexo.
     const geracao = ++geracaoDaLeitura.current;
@@ -623,7 +679,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
      * voltaria a "0 de 24" numa leitura que já tem 17 folhas prontas.
      */
     const collected: SeloResult[] =
-      retomando || pranchas.length === 0 ? [...seloResults] : [];
+      retomando || pranchas.length === 0 ? [...selosRef.current] : [];
     let totalDeFolhas = images.length;
     setReadProgress({ done: collected.length, total: 0 });
     try {
@@ -643,6 +699,13 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
             (r) => {
               if (!atual()) return;
               collected.push(r);
+              /*
+               * O espelho é atualizado AQUI, não pelo effect: o lote seguinte
+               * começa assim que este termina, e o effect só roda depois do
+               * render. Confiar nele deixava a base da soma uma ou duas folhas
+               * atrasada — e a folha que faltava sumia da conversa.
+               */
+              selosRef.current = [...collected];
               setSeloResults([...collected]);
               setReadProgress({ done: collected.length, total: totalDeFolhas });
             },
@@ -659,6 +722,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
           if (!atual()) break;
           const r = await extractSeloFromImage(img, conv.conversationId);
           collected.push(r);
+          selosRef.current = [...collected];
           setSeloResults([...collected]);
           setReadProgress({ done: collected.length, total: totalDeFolhas });
         }
