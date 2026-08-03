@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpenCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -100,17 +100,6 @@ export default async function FerramentasAntigasPage() {
                       <ArrowRight />
                     </Link>
                   </Button>
-                  {/* Idem: o histórico das LDs é do servidor, e quem o lê é o
-                      painel admin. */}
-                  {module.href === "/capas" ? (
-                    <Link
-                      href="/admin/lds"
-                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
-                    >
-                      <BookOpenCheck className="size-3.5" />
-                      Histórico de LDs
-                    </Link>
-                  ) : null}
                 </div>
               </Card>
             );

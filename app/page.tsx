@@ -1,10 +1,4 @@
-import {
-  ArrowRight,
-  BookOpenCheck,
-  Files,
-  Gauge,
-  LayoutGrid,
-} from "lucide-react";
+import { ArrowRight, Files, Gauge, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -216,17 +210,6 @@ export default async function DashboardPage() {
                         <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
                       </Link>
                     </Button>
-                    {/* O histórico das LDs vive no painel admin desde que a
-                        tela de montagem saiu — é o servidor que o guarda. */}
-                    {module.href === "/capas" ? (
-                      <Link
-                        href="/admin/lds"
-                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
-                      >
-                        <BookOpenCheck className="size-3.5" />
-                        Histórico de LDs
-                      </Link>
-                    ) : null}
                   </div>
                 </Card>
               );

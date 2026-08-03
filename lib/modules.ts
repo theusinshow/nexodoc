@@ -1,5 +1,4 @@
 import {
-  FolderCog,
   FolderKanban,
   Layers3,
   type LucideIcon,
@@ -53,27 +52,19 @@ export const projetosModule: ModuleDef = {
 };
 
 /**
- * As telas de módulo único, anteriores ao Nexo. Continuam funcionando e
- * continuam alcançáveis — mas saíram da entrada, porque duas maneiras de fazer
- * a mesma coisa é como o produto ganha a fama de confuso, e porque o caminho
- * bom passou a ser o outro.
+ * O que sobrou das telas de módulo único, anteriores ao Nexo.
  *
- * Não são para evoluir: existem como saída de emergência para o que o Nexo
- * ainda não sabe corrigir (o nº da prancha lido errado, por exemplo).
- * Ver docs/nexo-paridade-telas.md.
+ * Eram cinco; restou UMA. LD, capas e separatrizes foram aposentadas depois que
+ * o Nexo passou a corrigir tudo que elas corrigiam — a razão de existirem era
+ * ser a saída de emergência para o carimbo lido errado, e essa saída agora está
+ * no canvas (nº da prancha, código, disciplina, total de referência, identidade
+ * do projeto, criar e remover folha).
+ *
+ * `/volumes` fica, e não é dívida: a distância dela é de ESCOPO, não de
+ * paridade. A mesa monta o projeto inteiro a partir de PDFs soltos; o Nexo monta
+ * um volume do que ele mesmo gerou. Ver docs/nexo-paridade-telas.md.
  */
 export const legacyModules: readonly ModuleDef[] = [
-  {
-    title: "Montagem de capas",
-    description:
-      "Gere capas padronizadas em ODT, PDF ou ZIP a partir de templates por prefeitura.",
-    href: "/capas",
-    label: "Abrir capas",
-    icon: FolderCog,
-    emphasis: false,
-    status: "active",
-    shortcut: null,
-  },
   {
     title: "Organização de volumes",
     description: "Junção, ordenação e conferência final dos volumes de projeto.",

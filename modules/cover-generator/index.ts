@@ -14,8 +14,12 @@ export type {
   CoverPage,
   ModuleStep,
 } from "./types";
-export { CoverGeneratorFlow } from "./components/CoverGeneratorFlow";
-export { useCoverGenerator } from "./hooks/useCoverGenerator";
+/*
+ * A TELA saiu (a capa se faz no Nexo). O que fica deste módulo é o MOTOR:
+ * constantes, tipos e os helpers de formatação — `generatePages` monta as
+ * páginas da capa e é chamado por `build-capa-proposal.ts`. Eles nunca foram
+ * da tela; a tela é que era deles.
+ */
 export {
   formatVolume,
   formatMesAno,

@@ -19,7 +19,6 @@ const nextConfig: NextConfig = {
     "/api/nexo/ld": ["./templates/modelo_ld_empresa.odt"],
     "/api/nexo/separatriz": ["./templates/separatriz/**/*"],
     "/api/nexo/capa": ["./templates/**/*"],
-    "/api/capas/generate": ["./templates/**/*"],
   },
   images: {
     remotePatterns: [
