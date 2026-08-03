@@ -6,6 +6,7 @@
  */
 import { conferirSessao } from "./sessao";
 import { codigoDaFolha, rotuloDoCodigo } from "./disciplina-da-folha";
+import { limparIdentidade, type IdentidadeDoProjeto } from "./identidade";
 import type { Folha } from "./folhas";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
@@ -78,6 +79,11 @@ export interface LdOptions {
    * Vem da correção feita no canvas, por disciplina.
    */
   referenceTotal?: number;
+  /**
+   * A identidade do projeto corrigida à mão. A LD imprime a mesma obra, código e
+   * revisão que a capa — a correção vale nas duas.
+   */
+  identidade?: IdentidadeDoProjeto;
 }
 
 export async function postLd(
@@ -99,6 +105,8 @@ export async function postLd(
       ...(opts.referenceTotal && opts.referenceTotal > 0
         ? { referenceTotal: opts.referenceTotal }
         : {}),
+      // Sem `secretaria`: ela é da capa (a LD não a imprime).
+      ...limparIdentidade({ ...opts.identidade, secretaria: undefined }),
     }),
   });
   conferirSessao(res);
@@ -130,6 +138,12 @@ export async function postLd(
 
 export interface CapaOptions {
   templateId: string;
+  /**
+   * A identidade do projeto corrigida à mão (órgão, secretaria, obra, fase,
+   * código, revisão). É o ESCAPE de quando o carimbo mente — sem ele, a única
+   * saída era a tela `/capas`.
+   */
+  identidade?: IdentidadeDoProjeto;
   /** Título documental da capa; vazio = o builder usa obra/disciplina do selo. */
   tituloCapa?: string;
   /** arábico ("1","2"...); vazio/omitido = deriva do nome do arquivo. */
@@ -140,8 +154,6 @@ export interface CapaOptions {
   tomoInicial?: number;
   /** Tomo específico (ex.: 4 = "TOMO 04"). 0 = usar numTomos. */
   tomoNumero?: number;
-  /** override da secretaria; vazio = carimbo -> padrão do template. */
-  secretaria?: string;
   /** override do mês/ano da capa; vazio = mês/ano atual. */
   mes?: string;
   ano?: string;
@@ -162,7 +174,7 @@ export async function postCapa(
       tomoNumero: opts.tomoNumero ?? 0,
       ...(opts.tituloCapa?.trim() ? { tituloCapa: opts.tituloCapa.trim() } : {}),
       ...(opts.volume?.trim() ? { volume: opts.volume.trim() } : {}),
-      ...(opts.secretaria?.trim() ? { secretaria: opts.secretaria.trim() } : {}),
+      ...limparIdentidade(opts.identidade ?? {}),
       ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),
       ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),
     }),

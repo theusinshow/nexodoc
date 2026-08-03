@@ -25,6 +25,11 @@ import {
 import { summarizeSelos } from "./agent-context";
 import { codigoDaFolha } from "./disciplina-da-folha";
 import { totalDoConjunto } from "./totais";
+import {
+  CAMPOS_DA_IDENTIDADE,
+  ROTULOS_DA_IDENTIDADE,
+  type IdentidadeDoProjeto,
+} from "./identidade";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
 import type { SaveResultInput, SavedResult } from "../state/conversation-store";
@@ -39,8 +44,11 @@ export function camposDoArtefato(args: {
   templates: { id: string; nome: string }[];
   /** Tomos dos artefatos já gerados — base do aviso de órfãos. */
   tomosExistentes: number[];
+  /** A identidade já corrigida à mão (vazio = tudo vem do carimbo). */
+  identidade?: IdentidadeDoProjeto;
 }): CampoEditavel[] {
   const p = args.params ?? {};
+  const ident = args.identidade ?? {};
   const txt = (k: string) => String(p[k] ?? "");
   const num = (k: string, padrao: number) =>
     String(typeof p[k] === "number" ? p[k] : padrao);
@@ -87,6 +95,25 @@ export function camposDoArtefato(args: {
       },
       { chave: "mes", rotulo: "Mês", valor: txt("mes") },
       { chave: "ano", rotulo: "Ano", valor: txt("ano") },
+      /*
+       * O ESCAPE de quando o carimbo mente. Estes seis não são decisão — são
+       * fatos que o Nexo lê do selo e do nome do arquivo de propósito. Ficam
+       * recolhidos porque o carimbo acerta quase sempre, e abertos empurrariam
+       * para baixo os três campos que o engenheiro realmente confere.
+       *
+       * Valem para a CONVERSA, não para esta capa: a LD do mesmo volume imprime
+       * a mesma obra e o mesmo código.
+       */
+      ...CAMPOS_DA_IDENTIDADE.map((chave) => ({
+        chave,
+        rotulo: ROTULOS_DA_IDENTIDADE[chave],
+        valor: ident[chave] ?? "",
+        grupo: "Identidade do projeto",
+        ajudaDoGrupo:
+          "Só preencha quando o carimbo estiver errado. Em branco, vale o que o " +
+          "selo e o nome do arquivo dizem. O que você escrever aqui também sai na LD.",
+        ...(chave === "obra" ? { linhas: 2 } : {}),
+      })),
     ];
   }
 
@@ -154,6 +181,8 @@ export async function aplicarEdicaoNoNo(args: {
   saveResult: (input: SaveResultInput) => Promise<void>;
   /** Total de folhas por disciplina, corrigido à mão no canvas. */
   totais?: Record<string, number>;
+  /** Identidade do projeto corrigida à mão (órgão, obra, código, revisão…). */
+  identidade?: IdentidadeDoProjeto;
 }): Promise<boolean> {
   if (mudouADivisao(args.paramsAntigos, args.valores)) return false;
 
@@ -178,6 +207,7 @@ export async function aplicarEdicaoNoNo(args: {
       tomoNumero: tomo > 0 ? tomo : 0,
       mes: args.valores.mes,
       ano: args.valores.ano,
+      identidade: args.identidade,
     });
     await args.saveResult({
       artifactId: args.artifactId,
@@ -213,6 +243,7 @@ export async function aplicarEdicaoNoNo(args: {
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: tomo > 0 ? tomo - num("tomoInicial", 1) + 1 : 0,
       ...(referenceTotal ? { referenceTotal } : {}),
+      identidade: args.identidade,
     });
     await args.saveResult({
       artifactId: args.artifactId,
@@ -314,6 +345,8 @@ export async function gerarItem(args: {
   tituloDaSeparatriz: string;
   /** Total de folhas por disciplina, corrigido à mão no canvas. */
   totais?: Record<string, number>;
+  /** Identidade do projeto corrigida à mão (órgão, obra, código, revisão…). */
+  identidade?: IdentidadeDoProjeto;
 }): Promise<void> {
   const { item, selos, saveResult } = args;
   const p = item.params;
@@ -330,6 +363,7 @@ export async function gerarItem(args: {
       numTomos: item.tomoAtual > 0 ? 1 : num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoNumero: item.tomoAtual > 0 ? item.tomoNumero : 0,
+      identidade: args.identidade,
     });
     await saveResult({
       artifactId: args.idsBase.capa + item.sufixo,
@@ -389,6 +423,7 @@ export async function gerarItem(args: {
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: item.tomoAtual,
       ...(referenceTotal ? { referenceTotal } : {}),
+      identidade: args.identidade,
       ...opts,
       ...(item.bloco
         ? { folhasDoTomo: doBloco.map((f) => f.id), respeitarOrdem: true }

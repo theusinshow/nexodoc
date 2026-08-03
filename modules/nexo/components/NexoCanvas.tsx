@@ -38,6 +38,7 @@ import { useConversation } from "../state/conversation-store";
 import { agruparPorTomo, tomoDoArtefato } from "../lib/results";
 import { orfaosAposDivisao } from "../lib/edicao";
 import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
+import { aplicarIdentidade, separarIdentidade } from "../lib/identidade";
 import { EditorDoNo } from "./EditorDoNo";
 import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
@@ -276,17 +277,29 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
           params: data.params,
           templates: data.templates ?? [],
           tomosExistentes: data.tomosExistentes ?? [],
+          identidade: conv.identidade,
         })}
         onCancelar={() => setEditando(false)}
         onAplicar={async (valores, frase) => {
+          /*
+           * A identidade do projeto e os params DESTE documento vivem em lugares
+           * diferentes: ela é da conversa, eles são do artefato. Misturá-los faria
+           * a correção da obra durar até a próxima geração pelo plano, que
+           * reconstrói os params a partir da proposta do agente — aceita e
+           * revertida sem aviso.
+           */
+          const { identidade, resto } = separarIdentidade(valores);
+          const corrigida = aplicarIdentidade(conv.identidade, identidade);
+          if (Object.keys(identidade).length > 0) conv.corrigirIdentidade(identidade);
           await aplicarEdicaoNoNo({
             kind: data.kind,
             artifactId: data.id,
-            valores,
+            valores: resto,
             paramsAntigos: data.params,
             selos: data.selos ?? [],
             saveResult: conv.saveResult,
             totais: conv.totaisPorDisciplina,
+            identidade: corrigida,
           });
           // A frase vai para o HISTÓRICO: é o que faz o próximo turno do agente
           // enxergar a decisão em vez de re-propor o valor antigo por cima.

@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   let respeitarOrdem = false;
   let folhasDoTomo: string[] | undefined;
   let referenceTotal: number | undefined;
+  /** A identidade do projeto corrigida à mão — a MESMA que a capa recebe. */
+  const identidade: Record<string, string> = {};
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
       respeitarOrdem?: unknown;
       folhasDoTomo?: unknown;
       referenceTotal?: unknown;
-    };
+    } & Record<string, unknown>;
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
     if (typeof body.tituloLd === "string" && body.tituloLd.trim()) {
@@ -76,6 +78,12 @@ export async function POST(req: NextRequest) {
     ) {
       referenceTotal = Math.floor(body.referenceTotal);
     }
+    // A LD imprime a mesma obra/código/revisão que a capa: a correção vale nas
+    // duas, senão os dois documentos do mesmo volume discordam.
+    for (const chave of ["orgao", "obra", "fase", "codigo", "revisao"]) {
+      const valor = body[chave];
+      if (typeof valor === "string" && valor.trim()) identidade[chave] = valor.trim();
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -94,6 +102,7 @@ export async function POST(req: NextRequest) {
     respeitarOrdem,
     folhasDoTomo,
     referenceTotal,
+    ...identidade,
   });
   const result = await createLD(proposal.input);
 

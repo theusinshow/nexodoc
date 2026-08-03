@@ -12,6 +12,7 @@
  */
 import type { SeloResult } from "./selo-render";
 import type { Ajuste, FolhaId } from "./folhas";
+import type { IdentidadeDoProjeto } from "./identidade";
 import type { NexoArtifactKind, NexoChatMessage, NexoDossieDraft } from "../types";
 
 const DB_NAME = "nexo";
@@ -82,6 +83,14 @@ export interface StoredConversation {
    * Opcional, como `ajustes`.
    */
   totaisPorDisciplina?: Record<string, number>;
+  /**
+   * Órgão, secretaria, obra, fase, código e revisão ditos por uma pessoa — o
+   * escape de quando o carimbo mente. Vale para a conversa: capa e LD imprimem
+   * os mesmos fatos.
+   *
+   * Opcional, como `ajustes`.
+   */
+  identidade?: IdentidadeDoProjeto;
   /**
    * Quantos tomos o usuário declarou pelo canvas. Existe para a fileira do tomo
    * novo nascer VAZIA, antes de haver documento nela — sem fileira não há para

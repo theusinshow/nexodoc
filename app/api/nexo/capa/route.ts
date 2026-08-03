@@ -30,9 +30,10 @@ export async function POST(req: NextRequest) {
   let numTomos = 1;
   let tomoInicial = 1;
   let tomoNumero = 0;
-  let secretaria: string | undefined;
   let mes: string | undefined;
   let ano: string | undefined;
+  /** A identidade do projeto corrigida à mão — vence o carimbo. */
+  const identidade: Record<string, string> = {};
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -42,10 +43,9 @@ export async function POST(req: NextRequest) {
       numTomos?: unknown;
       tomoInicial?: unknown;
       tomoNumero?: unknown;
-      secretaria?: unknown;
       mes?: unknown;
       ano?: unknown;
-    };
+    } & Record<string, unknown>;
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     if (typeof body.templateId !== "string" || !body.templateId) {
       throw new Error("templateId ausente");
@@ -67,8 +67,9 @@ export async function POST(req: NextRequest) {
     if (typeof body.tomoNumero === "number" && Number.isFinite(body.tomoNumero)) {
       tomoNumero = Math.max(0, Math.floor(body.tomoNumero));
     }
-    if (typeof body.secretaria === "string" && body.secretaria.trim()) {
-      secretaria = body.secretaria.trim();
+    for (const chave of ["orgao", "secretaria", "obra", "fase", "codigo", "revisao"]) {
+      const valor = body[chave];
+      if (typeof valor === "string" && valor.trim()) identidade[chave] = valor.trim();
     }
     if (typeof body.mes === "string" && body.mes.trim()) mes = body.mes.trim();
     if (typeof body.ano === "string" && body.ano.trim()) ano = body.ano.trim();
@@ -82,7 +83,18 @@ export async function POST(req: NextRequest) {
 
   let proposal;
   try {
-    proposal = await buildCapaProposal({ selos, templateId, tituloCapa, volume, numTomos, tomoInicial, tomoNumero, secretaria, mes, ano });
+    proposal = await buildCapaProposal({
+      selos,
+      templateId,
+      tituloCapa,
+      volume,
+      numTomos,
+      tomoInicial,
+      tomoNumero,
+      mes,
+      ano,
+      ...identidade,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Falha ao montar a capa." },

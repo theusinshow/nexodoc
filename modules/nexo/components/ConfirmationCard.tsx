@@ -651,7 +651,7 @@ function LdConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, totaisPorDisciplina } = useConversation();
+  const { getResult, saveResult, totaisPorDisciplina, identidade } = useConversation();
   const id = ldId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -707,6 +707,8 @@ function LdConfirmation({
         tomoInicial: params.tomoInicial,
         tomoAtual: tomo.atual,
         ...(referenceTotal ? { referenceTotal } : {}),
+        // A LD imprime a mesma obra/código/revisão que a capa.
+        identidade,
         ...opts,
       });
       await saveResult({
@@ -871,7 +873,7 @@ function CapaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, results } = useConversation();
+  const { getResult, saveResult, results, identidade } = useConversation();
   const id = capaId(selos) + tomo.sufixo;
   // Capa gerada antes da correção da chave: acha pelo prefixo antigo.
   const saved =
@@ -906,6 +908,8 @@ function CapaConfirmation({
         numTomos: tomo.atual > 0 ? 1 : params.numTomos,
         tomoInicial: params.tomoInicial,
         tomoNumero: tomo.atual > 0 ? tomo.numero : 0,
+        // O escape de quando o carimbo mente (órgão, obra, código, revisão).
+        identidade,
       });
       await saveResult({
         artifactId: id,
@@ -1248,7 +1252,8 @@ function VolumeConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, totaisPorDisciplina } = useConversation();
+  const { results, getResult, saveResult, totaisPorDisciplina, identidade } =
+    useConversation();
   const id = volumeId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -1442,6 +1447,7 @@ function VolumeConfirmation({
               ...(totaisPorDisciplina[bloco.codigo]
                 ? { referenceTotal: totaisPorDisciplina[bloco.codigo] }
                 : {}),
+              identidade,
             });
             ldDoBloco64 = ld.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
             await saveResult({

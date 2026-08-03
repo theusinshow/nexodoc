@@ -151,6 +151,19 @@ export interface BuildLdOptions {
    * completo. Não havia canal para dizer que o carimbo mentiu; este é ele.
    */
   referenceTotal?: number;
+  /**
+   * A IDENTIDADE DO PROJETO dita por uma pessoa — os MESMOS campos que a capa
+   * recebe, e pelo mesmo motivo: capa e LD do mesmo volume imprimem a mesma
+   * obra, o mesmo código e a mesma revisão. Corrigir só num dos dois faria dois
+   * documentos do mesmo conjunto discordarem entre si.
+   *
+   * Vazio/ausente = "use o que o carimbo disse".
+   */
+  orgao?: string;
+  obra?: string;
+  fase?: string;
+  codigo?: string;
+  revisao?: string;
 }
 
 /**
@@ -173,19 +186,23 @@ export function buildLdProposal(
     numTomos > 1 ? Math.min(numTomos, Math.max(0, Math.floor(opts.tomoAtual ?? 0))) : 0;
   const validos = selos.filter((s) => (s.fileName || s.arquivo) && isPranchaSelo(s));
 
+  // A correção à mão vence o parser, campo a campo. Mesma regra da capa e do
+  // nº da folha: entre o que foi inferido e quem olhou a prancha, ganha quem viu.
+  const dito = (valor: string | undefined) => valor?.trim() || "";
+
   // Identidade: preferir o código do CARIMBO (per-prancha).
   const parsedList = validos.map(parseSelo);
-  const codigo = mode(parsedList.map((p) => p.codigo)) || "";
-  const revisao = mode(parsedList.map((p) => p.revisao)) || "a";
+  const codigo = dito(opts.codigo) || mode(parsedList.map((p) => p.codigo)) || "";
+  const revisao = dito(opts.revisao) || mode(parsedList.map((p) => p.revisao)) || "a";
 
   const discCode =
     mode(parsedList.flatMap((p) => p.disciplinas)) ||
     mode(validos.map((s) => s.disciplina)).toLowerCase();
   const discLabel = (disciplinaLabel(discCode) ?? (discCode || "GERAL")).toUpperCase();
 
-  const obra = mode(validos.map((s) => s.obra));
-  const cliente = mode(validos.map((s) => s.cliente));
-  const fase = mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
+  const obra = dito(opts.obra) || mode(validos.map((s) => s.obra));
+  const cliente = dito(opts.orgao) || mode(validos.map((s) => s.cliente));
+  const fase = dito(opts.fase) || mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
 
   // Total de referência ROBUSTO: total DOMINANTE (o /TT mais frequente — resiste a
   // um total mal-lido isolado) OU a maior folha real OU a contagem. NÃO é o max de

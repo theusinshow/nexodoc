@@ -141,7 +141,7 @@ export function PlanoDeGeracao({
   templates: { id: string; nome: string }[];
   idsBase: { capa: string; ld: string; separatriz: string };
 }) {
-  const { saveResult, results, totaisPorDisciplina } = useConversation();
+  const { saveResult, results, totaisPorDisciplina, identidade } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
@@ -223,6 +223,9 @@ export function PlanoDeGeracao({
             // O total corrigido à mão: este é o caminho NORMAL de gerar, então
             // é por aqui que a correção precisa chegar ao documento.
             totais: totaisPorDisciplina,
+            // O escape de quando o carimbo mente. Pelo mesmo motivo do total:
+            // este é o caminho normal de gerar.
+            identidade,
           });
         } catch (err) {
           coletadas.push({

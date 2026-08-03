@@ -32,6 +32,7 @@ import type {
 } from "../types";
 import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
+import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
 import { removerResultado } from "../lib/results";
 import {
   deleteConversation as dbDelete,
@@ -126,6 +127,14 @@ interface ConversationStoreValue {
   totaisPorDisciplina: Record<string, number>;
   /** Fixa (ou limpa, com `null`) o total de referência de uma disciplina. */
   definirTotal: (codigoDaDisciplina: string, total: number | null) => void;
+  /**
+   * Órgão, secretaria, obra, fase, código e revisão ditos por uma pessoa — o
+   * escape de quando o carimbo mente. Vale para a CONVERSA, não para um
+   * documento: capa e LD do mesmo volume imprimem os mesmos fatos.
+   */
+  identidade: IdentidadeDoProjeto;
+  /** Acumula a correção. Campo com string vazia DESFAZ aquele campo. */
+  corrigirIdentidade: (patch: Record<string, string>) => void;
   /** Quantos tomos o usuário declarou pelo canvas (0 = nenhum além dos gerados). */
   tomosDeclarados: number;
   /** Declara um tomo a mais: a fileira nasce vazia e vira destino de arrasto. */
@@ -219,6 +228,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
   const [avulsas, setAvulsas] = useState<FolhaId[]>([]);
   const [totaisPorDisciplina, setTotaisPorDisciplina] = useState<Record<string, number>>({});
+  const [identidade, setIdentidade] = useState<IdentidadeDoProjeto>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
   const [results, setResults] = useState<SavedResult[]>([]);
@@ -238,6 +248,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     ajustes,
     avulsas,
     totaisPorDisciplina,
+    identidade,
     tomosDeclarados,
     achadosResolvidos,
     results,
@@ -255,6 +266,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       avulsas,
       totaisPorDisciplina,
+      identidade,
       tomosDeclarados,
       achadosResolvidos,
       results,
@@ -329,6 +341,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(Object.keys(s.totaisPorDisciplina).length > 0
         ? { totaisPorDisciplina: s.totaisPorDisciplina }
         : {}),
+      ...(Object.keys(s.identidade).length > 0 ? { identidade: s.identidade } : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
       ...(Object.keys(s.achadosResolvidos).length > 0
         ? { achadosResolvidos: s.achadosResolvidos }
@@ -489,6 +502,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   );
 
   /*
+   * A identidade do projeto dita à mão. Acumula campo a campo (`aplicarIdentidade`
+   * é puro e testado): corrigir a obra não pode apagar o código corrigido antes,
+   * e limpar um campo devolve o que o carimbo dizia.
+   */
+  const corrigirIdentidade = useCallback(
+    (patch: Record<string, string>) => {
+      setIdentidade((atual) => aplicarIdentidade(atual, patch));
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
    * O usuário declarou mais um tomo pelo canvas. Fica no durável porque a fileira
    * vazia precisa sobreviver ao F5 — senão o destino do arrasto some junto com o
    * recarregamento, e o tomo novo vira um clique que não durou nada.
@@ -602,6 +628,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setAjustes({});
     setAvulsas([]);
     setTotaisPorDisciplina({});
+    setIdentidade({});
     setTomosDeclarados(0);
     setAuditoriaPendente(null);
     setMemorialMeta(null);
@@ -659,6 +686,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setAjustes(rec.ajustes ?? {});
       setAvulsas(rec.avulsas ?? []);
       setTotaisPorDisciplina(rec.totaisPorDisciplina ?? {});
+      setIdentidade(rec.identidade ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       setAchadosResolvidos(rec.achadosResolvidos ?? {});
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
@@ -773,6 +801,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       excluirFolhaAvulsa,
       totaisPorDisciplina,
       definirTotal,
+      identidade,
+      corrigirIdentidade,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,
@@ -808,6 +838,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       excluirFolhaAvulsa,
       totaisPorDisciplina,
       definirTotal,
+      identidade,
+      corrigirIdentidade,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,

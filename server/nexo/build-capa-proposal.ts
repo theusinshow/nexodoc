@@ -34,8 +34,20 @@ export interface BuildCapaInput {
    * se outra disciplina do mesmo volume já ocupou 01-03, aqui vem 4.
    */
   tomoInicial?: number;
-  /** Override da secretaria; senao vem do carimbo -> padrão do template. */
+  /**
+   * A IDENTIDADE DO PROJETO dita por uma pessoa. Vence o carimbo e o nome do
+   * arquivo — quem digitou olhou a prancha; o resto inferiu.
+   *
+   * Campo vazio/ausente = "use o que o carimbo disse", que é o comportamento de
+   * sempre. Ver `modules/nexo/lib/identidade.ts`.
+   */
+  orgao?: string;
+  /** Override da secretaria. Vence o carimbo (antes perdia — ver abaixo). */
   secretaria?: string;
+  obra?: string;
+  fase?: string;
+  codigo?: string;
+  revisao?: string;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
   mes?: string;
   /** Ano da capa (ex.: "2026"). Default = ano atual. */
@@ -164,17 +176,25 @@ export async function buildCapaProposal(
       return m ? `${m[1]}_${m[2]}` : "";
     }),
   );
-  const codigoInterno = codigoUnderscore || codigoFormatado;
+  /*
+   * A correção à mão entra em PRIMEIRO, em cada campo de identidade. É a mesma
+   * regra que vale para o nº da folha e para o total de referência: entre o que
+   * o parser inferiu e quem olhou a prancha, ganha quem olhou. Vazio = ausente,
+   * e aí tudo segue como sempre foi.
+   */
+  const dito = (valor: string | undefined) => valor?.trim() || "";
+
+  const codigoInterno = dito(input.codigo) || codigoUnderscore || codigoFormatado;
   const codigoExibido = codigoInterno
     ? formatDisplayCode(codigoInterno)
     : codigoFormatado;
 
-  const revisao = mode(parsedList.map((p) => p.revisao));
-  const nomeObra = mode(validos.map((s) => s.obra));
+  const revisao = dito(input.revisao) || mode(parsedList.map((p) => p.revisao));
+  const nomeObra = dito(input.obra) || mode(validos.map((s) => s.obra));
 
   // FASE (linha proeminente) = FASE DO PROJETO (ex.: "PROJETO EXECUTIVO"), padrão
   // do template. NÃO é a etapa "IMPLANTAÇÃO" (essa faz parte do título).
-  const fase = template.defaults.fase;
+  const fase = dito(input.fase) || template.defaults.fase;
 
   // TITULO_CAPA = título da LD com TIPO e ETAPA em linhas separadas: o " - " vira
   // quebra ("PROJETO ESTRUTURAL CONCRETO - IMPLANTAÇÃO" -> 2 linhas). O tomo NÃO
@@ -187,10 +207,18 @@ export async function buildCapaProposal(
     disciplinaLabel(discCode) ||
     "PROJETO";
 
-  // SECRETARIA: do CARIMBO (selo) -> override do engenheiro -> padrão do template.
+  /*
+   * SECRETARIA: correção à mão -> CARIMBO -> padrão do template.
+   *
+   * A ordem estava invertida: o carimbo vinha primeiro, então o override do
+   * engenheiro só valia quando o selo não trazia secretaria NENHUMA — ou seja,
+   * era ignorado exatamente no caso em que existe para servir, o de o carimbo
+   * trazer a secretaria ERRADA. Correção que perde para o parser é pior que
+   * correção nenhuma.
+   */
   const secretaria =
+    dito(input.secretaria) ||
     mode(validos.map((s) => s.secretaria)) ||
-    input.secretaria?.trim() ||
     template.defaults.secretaria;
 
   // Volume: override -> parseFilename (arabico) -> default. Converte p/ romano
@@ -225,7 +253,10 @@ export async function buildCapaProposal(
 
   const generalData: GeneralData = {
     templateId: template.id,
-    orgao: template.defaults.orgao,
+    // O órgão é o único que vem do TEMPLATE, não do carimbo: é a prefeitura
+    // escolhida. A correção continua valendo, para o caso do template com o
+    // nome desatualizado.
+    orgao: dito(input.orgao) || template.defaults.orgao,
     secretaria,
     nomeObra,
     fase,

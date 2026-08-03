@@ -32,6 +32,17 @@ export interface CampoEditavel {
   avisoAoMudar?: (valor: string) => string | null;
   /** Só leitura: a separatriz herda o título da capa e não o edita. */
   somenteLeitura?: boolean;
+  /**
+   * Agrupa o campo numa seção RECOLHIDA, com este título.
+   *
+   * Existe para os campos de identidade da capa (órgão, obra, código…): são o
+   * escape de quando o carimbo mente, e o carimbo acerta quase sempre. Abertos,
+   * seriam sete campos que ninguém precisa ler antes dos três que importam —
+   * e transformariam o popover no formulário que a arquitetura evita.
+   */
+  grupo?: string;
+  /** Ajuda do grupo, mostrada uma vez, quando ele é aberto. */
+  ajudaDoGrupo?: string;
 }
 
 const LABEL_CLASS =
@@ -84,12 +95,18 @@ export function EditorDoNo({
     }
   }
 
-  return (
-    <div className="nodrag nopan nowheel space-y-2.5">
-      <p className={LABEL_CLASS}>Editar {kind}</p>
+  // Os campos soltos vêm primeiro; cada grupo vira uma seção recolhida no fim.
+  const soltos = campos.filter((c) => !c.grupo);
+  const grupos: { titulo: string; ajuda?: string; campos: CampoEditavel[] }[] = [];
+  for (const c of campos) {
+    if (!c.grupo) continue;
+    const existente = grupos.find((g) => g.titulo === c.grupo);
+    if (existente) existente.campos.push(c);
+    else grupos.push({ titulo: c.grupo, ajuda: c.ajudaDoGrupo, campos: [c] });
+  }
 
-      {campos.map((c) => (
-        <label key={c.chave} className="block space-y-1">
+  const campo = (c: CampoEditavel) => (
+    <label key={c.chave} className="block space-y-1">
           <span className={LABEL_CLASS}>{c.rotulo}</span>
           {c.somenteLeitura ? (
             <p className="whitespace-pre-line rounded-sm border border-border bg-[var(--nexodoc-recessed)] px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
@@ -127,7 +144,27 @@ export function EditorDoNo({
               className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 font-mono text-[11px] outline-none"
             />
           )}
-        </label>
+    </label>
+  );
+
+  return (
+    <div className="nodrag nopan nowheel space-y-2.5">
+      <p className={LABEL_CLASS}>Editar {kind}</p>
+
+      {soltos.map(campo)}
+
+      {grupos.map((g) => (
+        <details key={g.titulo} className="rounded-sm border border-border">
+          <summary className="cursor-pointer list-none px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground">
+            {g.titulo}
+          </summary>
+          <div className="space-y-2 border-t border-border p-2">
+            {g.ajuda && (
+              <p className="text-[10px] leading-4 text-muted-foreground">{g.ajuda}</p>
+            )}
+            {g.campos.map(campo)}
+          </div>
+        </details>
       ))}
 
       {avisos.map((a) => (
