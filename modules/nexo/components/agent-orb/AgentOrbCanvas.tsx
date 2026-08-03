@@ -17,6 +17,7 @@ export function AgentOrbCanvas({
   activity,
   fileCount,
   hovered,
+  pressed,
   reduced,
   visible,
 }: {
@@ -24,6 +25,7 @@ export function AgentOrbCanvas({
   activity: number;
   fileCount: number;
   hovered: boolean;
+  pressed: boolean;
   reduced: boolean;
   visible: boolean;
 }) {
@@ -33,7 +35,17 @@ export function AgentOrbCanvas({
       dpr={[1, 1.75]}
       frameloop={frameloop}
       gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-      camera={{ position: [0, 0, 3.2], fov: 42 }}
+      /*
+       * A câmera enquadrava ±1,23 unidades (tan(21°)·3,2) e a órbita dos
+       * satélites vive a 1,34: eles eram CORTADOS pela borda da própria caixa
+       * quando passavam pelos lados, e o anel de estado sumia virando quatro
+       * arcos nos cantos. Recuar para 3,7 abre o quadro para ±1,42 e tudo cabe.
+       *
+       * A esfera fica proporcionalmente menor DENTRO do quadro — por isso a
+       * caixa em `AgentOrb` cresce na mesma medida (1,157×): o orbe aparece do
+       * mesmo tamanho na tela, com folga em volta em vez de tesoura.
+       */
+      camera={{ position: [0, 0, 3.7], fov: 42 }}
       style={{ width: "100%", height: "100%", pointerEvents: "none" }}
     >
       <AgentOrbScene
@@ -41,6 +53,7 @@ export function AgentOrbCanvas({
         activity={activity}
         fileCount={fileCount}
         hovered={hovered}
+        pressed={pressed}
         reduced={reduced}
       />
     </Canvas>

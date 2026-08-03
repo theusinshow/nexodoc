@@ -14,6 +14,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { AgentPopover } from "@/components/ui/agent-popover";
+import { useComposer } from "../state/composer-controller";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
 import { useAuditoria } from "../state/auditoria-store";
@@ -73,6 +74,25 @@ export function NexoCopilot({
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const composer = useComposer();
+
+  /*
+   * O CLIQUE NO ORBE TEM DUAS RESPOSTAS, porque tem duas situações.
+   *
+   * Com fatos lidos, ele abre o cartão — que é a razão de o cartão existir.
+   * SEM fatos, abrir o cartão era um beco: na tela de boas-vindas ele cobria a
+   * própria saudação para repetir, em letra menor, o convite que já estava
+   * escrito atrás dele ("solte os PDFs"). Duas vezes a mesma frase, uma delas
+   * tapando a outra.
+   *
+   * Então, vazio, o clique faz a coisa útil: leva o cursor para o campo. O orbe
+   * deixa de ser um enfeite clicável e vira a porta de entrada.
+   */
+  const temFatos = context.folhas > 0;
+  const ativarOrbe = () => {
+    if (temFatos) setPopoverOpen((o) => !o);
+    else composer.focus();
+  };
 
   // A auditoria não passa pelo turno do chat; sem ler o store, o orb ficaria
   // dizendo "pronto" durante os minutos em que o agente está trabalhando.
@@ -110,7 +130,7 @@ export function NexoCopilot({
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">
         <AgentPopover
-          open={popoverOpen}
+          open={popoverOpen && temFatos}
           onClose={() => setPopoverOpen(false)}
           label="Status do Nexo"
           anchor={
@@ -120,11 +140,17 @@ export function NexoCopilot({
               activity={activity}
               size={started ? "compact" : "hero"}
               interactive
-              onActivate={() => setPopoverOpen((o) => !o)}
+              onActivate={ativarOrbe}
             />
           }
         >
-          <AgentStatusPopover state={agentState} context={context} />
+          {/* O mesmo `activity` que move o orbe alimenta a barra do cartão: um
+              número só, duas leituras — a física e a numérica. */}
+          <AgentStatusPopover
+            state={agentState}
+            context={context}
+            progresso={activity}
+          />
         </AgentPopover>
         {started ? (
           <p
