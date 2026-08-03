@@ -1631,16 +1631,32 @@ git push
 
 ---
 
-## Teste ao vivo (usuário)
+## Teste ao vivo — FEITO em 2026-08-03
 
-Depois da Task 8, com `npm run dev` e OpenAI configurado, em `/nexo`:
+Os sete passos viraram `scripts/shot-nexo-streaming.mjs`, com asserção em cada
+um. Rodou verde: **21 checagens no modo encenado + 6 no modo ao vivo.**
 
-1. Anexar pranchas e pedir "cria a LD e a capa" — o texto deve **fluir**, não aparecer de uma vez.
-2. Conferir que **nenhuma chave ou crase** aparece na tela em momento algum.
-3. Apertar **parar** no meio — o texto parcial fica, marcado "interrompido", sem cards.
-4. Conferir que o **card de confirmação ainda aparece** num turno completo (as propostas vêm na cauda).
-5. Durante a leitura das pranchas, ver o **plano de varredura da esfera acompanhar** o `N/M`.
-6. Rolar pra cima durante uma resposta — não deve ser arrancado; deve aparecer "↓ novas mensagens".
-7. Desligar a internet e enviar — deve aparecer erro com **"Tentar de novo"** funcional.
+1. Anexar pranchas e pedir "cria a LD e a capa" — o texto deve **fluir**, não aparecer de uma vez. ✓
+2. Conferir que **nenhuma chave ou crase** aparece na tela em momento algum. ✓ (modo ao vivo)
+3. Apertar **parar** no meio — o texto parcial fica, marcado "interrompido", sem cards. ✓
+4. Conferir que o **card de confirmação ainda aparece** num turno completo (as propostas vêm na cauda). ✓
+5. Durante a leitura das pranchas, ver o **plano de varredura da esfera acompanhar** o `N/M`. ✓
+6. Rolar pra cima durante uma resposta — não deve ser arrancado; deve aparecer "↓ novas mensagens". ✓
+7. Desligar a internet e enviar — deve aparecer erro com **"Tentar de novo"** funcional. ✓
 
-**Se o silêncio inicial ainda passar de ~3s**, o lever seguinte é `NEXODOC_NEXO_REASONING_EFFORT`, não mais UI (registrado no spec).
+**Como o script não gasta token:** `window.fetch` é substituído por um servidor
+encenado — `/api/nexo/agent` devolve um SSE de verdade (ReadableStream, com
+atraso entre os pedaços e honrando o `AbortSignal`) e `/api/ld/extract-stamp`
+devolve um carimbo fabricado. Seis dos sete passos são comportamento do CLIENTE
+e não precisam do modelo, só de um servidor que transmita.
+
+O passo 2 é a exceção, e por isso tem modo próprio (`NEXO_STREAM_VIVO=1`): o
+corte da cauda acontece no SERVIDOR (`split-stream.ts`), e encenar o servidor
+provaria só o encenador. Nesse modo o carimbo continua fabricado (visão é o caro)
+e só o turno do agente vai ao modelo — **uma chamada, 2,8k tokens.**
+
+**Silêncio inicial MEDIDO: 2,77 s** (do Enter ao primeiro caractere na tela).
+Fica dentro da faixa que o spec previa (1,5–3 s) e **encosta no teto**. O lever
+registrado — `NEXODOC_NEXO_REASONING_EFFORT` — segue disponível e ainda não foi
+mexido; a decisão de puxá-lo é do usuário, porque troca latência por qualidade
+de raciocínio no turno.
