@@ -19,9 +19,11 @@ import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
 import { useAuditoria } from "../state/auditoria-store";
 import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
+import { SaudacaoDoNexo } from "./SaudacaoDoNexo";
 
 export function NexoCopilot({
   started,
+  nome,
   selos,
   onSend,
   onAttach,
@@ -39,6 +41,8 @@ export function NexoCopilot({
   onTurnStatus,
 }: {
   started: boolean;
+  /** Nome de quem está logado — a saudação usa o primeiro. */
+  nome?: string | null;
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
@@ -94,6 +98,19 @@ export function NexoCopilot({
     else composer.focus();
   };
 
+  /*
+   * O ORBE FALA A SAUDAÇÃO. Enquanto a frase se escreve, ele fica em
+   * `responding` — que é o estado de quem está produzindo texto, e é
+   * literalmente o que está acontecendo. Não é um estado inventado para a
+   * animação: é o mesmo que ele usa quando responde no chat.
+   *
+   * Só vale na tela de boas-vindas. Depois que a conversa começa, quem manda no
+   * orbe é o trabalho de verdade.
+   */
+  const [saudando, setSaudando] = useState(false);
+  const orbState: AgentState = !started && saudando ? "responding" : agentState;
+  const orbActivity = !started && saudando ? 0.5 : activity;
+
   // A auditoria não passa pelo turno do chat; sem ler o store, o orb ficaria
   // dizendo "pronto" durante os minutos em que o agente está trabalhando.
   const auditando = Boolean(useAuditoria().emCurso);
@@ -135,9 +152,9 @@ export function NexoCopilot({
           label="Status do Nexo"
           anchor={
             <AgentOrb
-              state={agentState}
+              state={orbState}
               fileCount={fileCount}
-              activity={activity}
+              activity={orbActivity}
               size={started ? "compact" : "hero"}
               interactive
               onActivate={ativarOrbe}
@@ -164,20 +181,13 @@ export function NexoCopilot({
             {working && <span className="nexo-ellipsis" aria-hidden />}
           </p>
         ) : (
-          <div className="space-y-1.5">
-            {/*
-              As DUAS entradas, nomeadas. A tela dizia só "montar" e falava só de
-              pranchas e selos — quem chegava com um memorial na mão não tinha
-              como saber que a auditoria, o carro-chefe, mora aqui.
-            */}
-            <h2 className="text-2xl font-medium tracking-[-0.01em]">
-              O que vamos montar — ou auditar?
-            </h2>
-            <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-              Solte as pranchas e eu leio os selos, proponho e monto. Solte o
-              memorial e eu audito contra a obra declarada.
-            </p>
-          </div>
+          /*
+            A ENTRADA. As DUAS portas continuam nomeadas — a tela dizia só
+            "montar" e falava só de pranchas, e quem chegava com um memorial na
+            mão não sabia que a auditoria mora aqui —, mas agora quem as nomeia é
+            o próprio Nexo, escrevendo.
+          */
+          <SaudacaoDoNexo nome={nome} onDigitando={setSaudando} />
         )}
       </div>
 

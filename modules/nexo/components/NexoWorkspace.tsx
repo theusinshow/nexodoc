@@ -55,7 +55,14 @@ import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
  * conversacional (caso raro). O antigo SelosPanel foi dissolvido (item 3): a
  * geração toda mora no chat.
  */
-export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
+export function NexoWorkspace({
+  isAdmin = false,
+  nome,
+}: {
+  isAdmin?: boolean;
+  /** Nome de quem está logado (da sessão) — a saudação da entrada usa o primeiro. */
+  nome?: string | null;
+}) {
   // Providers: conversa (durável) > consumo de IA (lê o conversationId da
   // conversa) > artefatos (canvas) > composer. UMA instância de consumo,
   // compartilhada entre NexoChat (o anel), ConfirmationCard (refresh pós-
@@ -69,7 +76,7 @@ export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
           <ComposerControllerProvider>
             {/* A auditoria em curso é do PALCO, não do cartão que a disparou. */}
             <AuditoriaStoreProvider>
-              <NexoWorkspaceInner isAdmin={isAdmin} />
+              <NexoWorkspaceInner isAdmin={isAdmin} nome={nome} />
             </AuditoriaStoreProvider>
           </ComposerControllerProvider>
         </ArtifactStoreProvider>
@@ -78,7 +85,13 @@ export function NexoWorkspace({ isAdmin = false }: { isAdmin?: boolean }) {
   );
 }
 
-function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
+function NexoWorkspaceInner({
+  isAdmin,
+  nome,
+}: {
+  isAdmin: boolean;
+  nome?: string | null;
+}) {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
   const { online } = useConexao();
   const { expirada: sessaoExpirada, desdeMs } = useSessaoExpirada();
@@ -1372,6 +1385,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
           <NexoCopilot
             key={convId}
             started={started}
+            nome={nome}
             selos={selos}
             onSend={start}
             onAttach={() => attachInputRef.current?.click()}
@@ -1421,3 +1435,4 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
     </>
   );
 }
+
