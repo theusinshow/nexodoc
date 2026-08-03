@@ -39,7 +39,18 @@ export function codigoDaFolha(folha: Folha): string {
   return escolherCodigo(
     {
       manual: folha.disciplinaManual ? (folha.disciplina ?? "") : "",
-      doNome: doNomeDoArquivo(folha.fileName),
+      /*
+       * A folha CRIADA À MÃO não tem arquivo — e o nome do arquivo é justamente
+       * a convenção de onde a disciplina sai. O código da prancha
+       * ("999_26_his_004_a"), que o engenheiro digita no popover, segue a mesma
+       * convenção e serve de nome para ela.
+       *
+       * O `||` é a ordem certa e não uma troca: para uma folha lida, `fileName`
+       * nunca é vazio, então nada muda para ela. Sem este alternativo, a folha
+       * criada à mão caía no bloco "sem disciplina" — saía do bloco da sua
+       * disciplina no volume e desligava o total corrigido daquele conjunto.
+       */
+      doNome: doNomeDoArquivo(folha.fileName || folha.arquivo?.trim() || ""),
       doCarimbo: folha.disciplina ?? "",
     },
     TABELAS,

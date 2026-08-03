@@ -23,6 +23,8 @@ import {
   ODT_MIME,
 } from "./generate";
 import { summarizeSelos } from "./agent-context";
+import { codigoDaFolha } from "./disciplina-da-folha";
+import { totalDoConjunto } from "./totais";
 import { orfaosAposDivisao } from "./edicao";
 import { tomoDoArtefato } from "./results";
 import type { SaveResultInput, SavedResult } from "../state/conversation-store";
@@ -150,6 +152,8 @@ export async function aplicarEdicaoNoNo(args: {
   paramsAntigos: Record<string, unknown> | undefined;
   selos: SeloForLd[];
   saveResult: (input: SaveResultInput) => Promise<void>;
+  /** Total de folhas por disciplina, corrigido à mão no canvas. */
+  totais?: Record<string, number>;
 }): Promise<boolean> {
   if (mudouADivisao(args.paramsAntigos, args.valores)) return false;
 
@@ -196,11 +200,19 @@ export async function aplicarEdicaoNoNo(args: {
   }
 
   if (args.kind === "ld") {
+    // Regerar pelo editor do nó também tem de levar o total corrigido: senão a
+    // mesma LD sairia numerada de um jeito pelo plano e de outro por aqui.
+    const referenceTotal = totalDoConjunto(
+      args.selos as Folha[],
+      args.totais ?? {},
+      codigoDaFolha,
+    );
     const r = await postLd(args.selos, {
       tituloLd: args.valores.tituloLd,
       numTomos: num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: tomo > 0 ? tomo - num("tomoInicial", 1) + 1 : 0,
+      ...(referenceTotal ? { referenceTotal } : {}),
     });
     await args.saveResult({
       artifactId: args.artifactId,
@@ -300,6 +312,8 @@ export async function gerarItem(args: {
   /** Ids base (sem sufixo de tomo) dos três tipos. */
   idsBase: { capa: string; ld: string; separatriz: string };
   tituloDaSeparatriz: string;
+  /** Total de folhas por disciplina, corrigido à mão no canvas. */
+  totais?: Record<string, number>;
 }): Promise<void> {
   const { item, selos, saveResult } = args;
   const p = item.params;
@@ -358,11 +372,23 @@ export async function gerarItem(args: {
         : (selos as Folha[]).filter((f) => item.bloco!.ids.includes(f.id))
       : doTomo;
     const titulo = item.bloco?.rotulo.toUpperCase() || txt("tituloLd");
+    /*
+     * O total corrigido à mão, das folhas que ESTA LD lista — o bloco quando há
+     * um, senão o tomo, senão tudo. Sem isto o plano em lote (o caminho normal
+     * de gerar) numeraria pelo carimbo mal lido, enquanto o card avulso e a
+     * conferência já usariam o número corrigido.
+     */
+    const referenceTotal = totalDoConjunto(
+      doBloco.length > 0 ? doBloco : (selos as Folha[]),
+      args.totais ?? {},
+      codigoDaFolha,
+    );
     const r = await postLd(selos, {
       tituloLd: titulo,
       numTomos: num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoAtual: item.tomoAtual,
+      ...(referenceTotal ? { referenceTotal } : {}),
       ...opts,
       ...(item.bloco
         ? { folhasDoTomo: doBloco.map((f) => f.id), respeitarOrdem: true }

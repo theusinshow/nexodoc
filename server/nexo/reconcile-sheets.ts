@@ -48,6 +48,34 @@ export function aplicarFolhaManual(
   });
 }
 
+/**
+ * O TOTAL DE REFERÊNCIA — o "24" de "05/24" — com a correção à mão por cima.
+ *
+ * Irmã de `aplicarFolhaManual`, e aqui pelo mesmo motivo: é uma regra de
+ * PRECEDÊNCIA, e regra de precedência sem teste é onde a correção silenciosamente
+ * deixa de valer. `build-ld-proposal.ts` e `light-check-core.ts` calculam este
+ * número separadamente (um numera a LD, o outro decide quantas folhas deveriam
+ * existir) — e os dois têm de chegar ao mesmo, senão a LD diz "05/11" enquanto a
+ * conferência cobra 21 folhas.
+ *
+ * O manual vence INCLUSIVE QUANDO É MENOR que o inferido. Tomar o máximo entre
+ * os dois pareceria conservador e seria o pior dos mundos: o caso que motiva a
+ * correção é justamente o OCR lendo o total A MAIS, e ali o conserto seria
+ * aceito e descartado — o engenheiro digitaria 11, veria 21 de volta, e pararia
+ * de confiar na tela.
+ *
+ * Valor ausente, zero ou negativo é IGNORADO: limpar o campo desfaz.
+ */
+export function totalDeReferencia(
+  inferido: number,
+  manual: number | null | undefined,
+): number {
+  if (typeof manual === "number" && Number.isFinite(manual) && manual > 0) {
+    return Math.trunc(manual);
+  }
+  return inferido;
+}
+
 /** Valor mais frequente entre números. */
 function modeOf(values: number[]): number {
   const counts = new Map<number, number>();

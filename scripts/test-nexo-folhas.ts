@@ -13,8 +13,10 @@ import assert from "node:assert/strict";
 import {
   aplicarAjuste,
   chaveDeOrdem,
+  ehAvulsa,
   folhaId,
   folhas,
+  folhasRemovidas,
   gruposDasFolhas,
   type Ajuste,
   type FolhaId,
@@ -273,6 +275,93 @@ test("editadoTexto separa texto reescrito de folha só remanejada", () => {
 
   const disciplina = folhas(SELOS, { "a.pdf#1": { disciplina: "ESTRUTURAL" } });
   assert.equal(disciplina.find((f) => f.id === "a.pdf#1")!.editadoTexto, true);
+});
+
+// ---------------------------------------------------------------------------
+// Remover: a folha sai de tudo, e volta inteira
+// ---------------------------------------------------------------------------
+
+test("folha removida some da projeção — e some de TODOS os documentos", () => {
+  const out = folhas(SELOS, { "a.pdf#2": { removida: true } });
+  assert.deepEqual(out.map((f) => f.id), ["a.pdf#1", "b.pdf#1"]);
+  // A projeção é o ponto único que LD, volume e conferência leem: sair daqui é
+  // sair dos três. Se este teste passar a listar a removida, os três regridem.
+  assert.equal(out.some((f) => f.id === "a.pdf#2"), false);
+});
+
+test("a folha removida continua listada para poder voltar", () => {
+  const removidas = folhasRemovidas(SELOS, { "a.pdf#2": { removida: true } });
+  assert.equal(removidas.length, 1);
+  assert.equal(removidas[0].id, "a.pdf#2");
+  // O rótulo tem de reconhecer a folha sem ela estar na tela.
+  assert.equal(removidas[0].rotulo, "a.pdf-2");
+});
+
+test("restaurar devolve a folha COM as correções que ela já tinha", () => {
+  let ajustes = aplicarAjuste({}, "a.pdf#2", { titulo: "PLANTA CORRIGIDA" });
+  ajustes = aplicarAjuste(ajustes, "a.pdf#2", { removida: true });
+  assert.equal(folhas(SELOS, ajustes).length, 2);
+
+  const restaurado = aplicarAjuste(ajustes, "a.pdf#2", { removida: undefined });
+  const out = folhas(SELOS, restaurado);
+  assert.equal(out.length, 3);
+  // O título corrigido sobreviveu à ida e à volta — remover não é apagar.
+  assert.equal(out.find((f) => f.id === "a.pdf#2")!.conteudo, "PLANTA CORRIGIDA");
+});
+
+test("a divisão em tomos não conta a folha removida", () => {
+  const out = folhas(SELOS, { "a.pdf#2": { removida: true } });
+  const grupos = gruposDasFolhas(out, 2, buildBalancedQuantities);
+  assert.equal(grupos.flat().length, 2);
+  assert.equal(grupos.flat().includes("a.pdf#2"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Adicionar: a prancha que não foi lida
+// ---------------------------------------------------------------------------
+
+test("folha avulsa entra na projeção, no fim da leitura", () => {
+  const out = folhas(SELOS, {}, ["manual#x"]);
+  assert.equal(out.length, 4);
+  assert.equal(out[3].id, "manual#x");
+  assert.equal(out[3].avulsa, true);
+  // Sem PDF por trás: é isso que a tela mostra, e o que mantém a folha fora do
+  // recorte de páginas do volume.
+  assert.equal(out[3].fileName, "");
+  assert.equal(out[3].pageNumber, null);
+  // E nenhuma folha lida vira avulsa por tabela.
+  assert.equal(out.slice(0, 3).every((f) => f.avulsa === false), true);
+});
+
+test("a folha avulsa é editada pelo MESMO mecanismo das outras", () => {
+  const out = folhas(
+    SELOS,
+    { "manual#x": { titulo: "PRANCHA QUE NAO VEIO", arquivo: "040_26_arq_009_a", numero: 9 } },
+    ["manual#x"],
+  );
+  const nova = out.find((f) => f.id === "manual#x")!;
+  assert.equal(nova.conteudo, "PRANCHA QUE NAO VEIO");
+  assert.equal(nova.arquivo, "040_26_arq_009_a");
+  // O número vai no canal que vence o parser, igual ao de uma folha lida.
+  assert.equal(nova.folhaManual, 9);
+});
+
+test("folha avulsa pode ser arrastada para um tomo como qualquer outra", () => {
+  const out = folhas(SELOS, { "manual#x": { grupo: 2 } }, ["manual#x"]);
+  const grupos = gruposDasFolhas(out, 2, buildBalancedQuantities);
+  assert.equal(grupos[1].includes("manual#x"), true);
+});
+
+test("avulsa removida não aparece na lista de restauração (não há selo por trás)", () => {
+  // A remoção dela é exclusão de verdade, feita fora da projeção — aqui só se
+  // garante que ela não vira um fantasma restaurável.
+  const removidas = folhasRemovidas(SELOS, { "manual#x": { removida: true } });
+  assert.equal(removidas.length, 0);
+});
+
+test("ehAvulsa distingue o id criado à mão do par arquivo#página", () => {
+  assert.equal(ehAvulsa("manual#abc"), true);
+  assert.equal(ehAvulsa("a.pdf#1"), false);
 });
 
 console.log(`\n${passed} teste(s) OK`);

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   let tomoNumero = 0;
   let respeitarOrdem = false;
   let folhasDoTomo: string[] | undefined;
+  let referenceTotal: number | undefined;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
       tomoNumero?: unknown;
       respeitarOrdem?: unknown;
       folhasDoTomo?: unknown;
+      referenceTotal?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
@@ -66,6 +68,14 @@ export async function POST(req: NextRequest) {
       const ids = body.folhasDoTomo.filter((v): v is string => typeof v === "string");
       if (ids.length > 0) folhasDoTomo = ids;
     }
+    // O total de folhas dito à mão. Vence o carimbo — ver `BuildLdOptions`.
+    if (
+      typeof body.referenceTotal === "number" &&
+      Number.isFinite(body.referenceTotal) &&
+      body.referenceTotal > 0
+    ) {
+      referenceTotal = Math.floor(body.referenceTotal);
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -83,6 +93,7 @@ export async function POST(req: NextRequest) {
     tituloLd,
     respeitarOrdem,
     folhasDoTomo,
+    referenceTotal,
   });
   const result = await createLD(proposal.input);
 

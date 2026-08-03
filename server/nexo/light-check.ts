@@ -86,6 +86,13 @@ export interface LightCheckOptions {
   blocos?: (string | null | undefined)[];
   /** Código do bloco → rótulo ("his" → "Hidrossanitario"), para as mensagens. */
   rotulos?: Record<string, string>;
+  /**
+   * Código do bloco → total de folhas dito à mão. Vence o carimbo.
+   *
+   * Vem do cliente pelo mesmo motivo que `blocos`: a correção mora no canvas, e
+   * é o mesmo número que a LD daquele bloco usa para numerar as folhas.
+   */
+  totais?: Record<string, number>;
 }
 
 /**
@@ -118,5 +125,5 @@ export function runLightCheck(
       (fato.disciplinas.length === 1 ? fato.disciplinas[0] : "");
     return { ...fato, sheet: resolved[i], bloco };
   });
-  return checkSeloFacts(facts, { rotulos: opts.rotulos });
+  return checkSeloFacts(facts, { rotulos: opts.rotulos, totais: opts.totais });
 }

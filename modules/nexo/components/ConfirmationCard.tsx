@@ -80,6 +80,7 @@ import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
+import { totalDoConjunto } from "../lib/totais";
 import {
   consequenciaDaMudanca,
   haQuantoTempo,
@@ -650,7 +651,7 @@ function LdConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult } = useConversation();
+  const { getResult, saveResult, totaisPorDisciplina } = useConversation();
   const id = ldId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -691,11 +692,21 @@ function LdConfirmation({
       // A MESMA decisão do plano e do canvas: quais folhas são deste tomo. Este
       // caminho ficou de fora do sub-projeto 5 e voltava a fatiar por quantidade.
       const { doTomo, opts } = opcoesDoTomo(selos, params.numTomos, tomo.atual);
+      /*
+       * O total corrigido à mão, quando este documento é de uma disciplina só.
+       * Vai pelas folhas DO TOMO quando há divisão — é delas que a LD fala.
+       */
+      const referenceTotal = totalDoConjunto(
+        (doTomo.length > 0 ? doTomo : (selos as Folha[])),
+        totaisPorDisciplina,
+        codigoDaFolha,
+      );
       const r = await postLd(selos, {
         tituloLd: titulo,
         numTomos: params.numTomos,
         tomoInicial: params.tomoInicial,
         tomoAtual: tomo.atual,
+        ...(referenceTotal ? { referenceTotal } : {}),
         ...opts,
       });
       await saveResult({
@@ -1014,7 +1025,8 @@ function ConferenciaConfirmation({
   const [busy, setBusy] = useState(false);
   const [busySelo, setBusySelo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, results, conversationId } = useConversation();
+  const { getResult, saveResult, results, conversationId, totaisPorDisciplina } =
+    useConversation();
   const id = conferenciaId(selos);
   const result = getResult(id)?.payload as LightCheckResult | undefined;
   const identidade = getResult(`${id}:identidade`)?.payload as
@@ -1037,7 +1049,13 @@ function ConferenciaConfirmation({
     setBusy(true);
     setError(null);
     try {
-      const r = await postCheck(selos);
+      /*
+       * Os totais corrigidos à mão vão junto: é o MESMO número que a LD de cada
+       * bloco usa para numerar. Sem eles a LD diria "05/11" e a conferência
+       * cobraria as 21 folhas do carimbo mal lido — dois documentos do mesmo
+       * conjunto discordando entre si, que é pior que o defeito original.
+       */
+      const r = await postCheck(selos, undefined, totaisPorDisciplina);
       await saveResult({
         artifactId: id,
         kind: "conferencia",
@@ -1230,7 +1248,7 @@ function VolumeConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult } = useConversation();
+  const { results, getResult, saveResult, totaisPorDisciplina } = useConversation();
   const id = volumeId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -1419,6 +1437,11 @@ function VolumeConfirmation({
               tituloLd: titulo,
               folhasDoTomo: bloco.ids,
               respeitarOrdem: true,
+              // A LD deste BLOCO fala de uma disciplina só: o total corrigido
+              // dela é o que vale, e é por isso que ele é guardado por código.
+              ...(totaisPorDisciplina[bloco.codigo]
+                ? { referenceTotal: totaisPorDisciplina[bloco.codigo] }
+                : {}),
             });
             ldDoBloco64 = ld.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
             await saveResult({

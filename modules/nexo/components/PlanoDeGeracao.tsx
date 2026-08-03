@@ -141,7 +141,7 @@ export function PlanoDeGeracao({
   templates: { id: string; nome: string }[];
   idsBase: { capa: string; ld: string; separatriz: string };
 }) {
-  const { saveResult, results } = useConversation();
+  const { saveResult, results, totaisPorDisciplina } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
@@ -220,6 +220,9 @@ export function PlanoDeGeracao({
             idsBase,
             // A separatriz herda o título da capa — nunca deriva o seu.
             tituloDaSeparatriz: titulo,
+            // O total corrigido à mão: este é o caminho NORMAL de gerar, então
+            // é por aqui que a correção precisa chegar ao documento.
+            totais: totaisPorDisciplina,
           });
         } catch (err) {
           coletadas.push({

@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { Plus, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw, Undo2 } from "lucide-react";
 
 import { Chip } from "@/components/ui/chip";
 import { Separator } from "@/components/ui/separator";
@@ -34,6 +34,9 @@ export function NavegacaoDoCanvas({
   onVoltarAoAutomatico,
   onCriarTomo,
   proximoTomo = 0,
+  onCriarFolha,
+  removidas = [],
+  onRestaurarFolhas,
 }: {
   fileiras: FileiraNavegavel[];
   /** Alguma folha tem tomo decidido à mão — só aí faz sentido desfazer. */
@@ -43,6 +46,11 @@ export function NavegacaoDoCanvas({
   onCriarTomo?: () => void;
   /** Qual tomo o botão vai criar — o rótulo diz o número, não "mais um". */
   proximoTomo?: number;
+  /** Cria uma folha sem PDF (prancha que não foi lida). */
+  onCriarFolha?: () => void;
+  /** As folhas tiradas do conjunto — ficam aqui para poderem voltar. */
+  removidas?: { id: string; rotulo: string }[];
+  onRestaurarFolhas?: () => void;
 }) {
   const fluxo = useReactFlow();
 
@@ -99,9 +107,16 @@ export function NavegacaoDoCanvas({
   }, [fluxo, fileiras, irPara]);
 
   const podeNavegar = fileiras.length > 1;
-  // Sem nada a navegar E sem nada a desfazer, a barra seria só ruído. O criar
-  // tomo sozinho não a justifica: sem divisão, não há tomo a criar.
-  if (!podeNavegar && !temGrupoManual) return null;
+  /*
+   * Sem nada a navegar, nada a desfazer, nenhuma folha a criar e nenhuma a
+   * restaurar, a barra seria só ruído. O criar TOMO sozinho não a justifica
+   * (sem divisão, não há tomo a criar) — mas o criar FOLHA sim: a prancha que
+   * não foi lida precisa de um lugar para nascer, e ele não pode depender de o
+   * volume já estar dividido em tomos.
+   */
+  if (!podeNavegar && !temGrupoManual && !onCriarFolha && removidas.length === 0) {
+    return null;
+  }
 
   return (
     <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-[var(--nexodoc-panel)] px-2 py-1.5 shadow-[var(--shadow-panel)]">
@@ -137,8 +152,25 @@ export function NavegacaoDoCanvas({
         </>
       )}
 
-      {(onCriarTomo || (temGrupoManual && onVoltarAoAutomatico)) && podeNavegar && (
-        <Separator orientation="vertical" className="mx-0.5 h-5" />
+      {(onCriarTomo || onCriarFolha || (temGrupoManual && onVoltarAoAutomatico)) &&
+        podeNavegar && <Separator orientation="vertical" className="mx-0.5 h-5" />}
+
+      {/* A folha que não foi lida. Nasce vazia e abre a correção na hora — sem
+          o código do arquivo ela não sai na LD, e é lá que ele se digita. */}
+      {onCriarFolha && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Chip onClick={onCriarFolha} className="min-h-7 px-2.5 py-0.5 text-[11px]">
+              <Plus aria-hidden />
+              Folha
+            </Chip>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Cria uma folha que não foi lida de PDF nenhum — a prancha que não veio
+            ou que ainda está sendo desenhada. Ela entra na LD e não entra no
+            volume montado.
+          </TooltipContent>
+        </Tooltip>
       )}
 
       {/* As duas ações MUDAM a organização — por isso vêm depois do divisor. */}
@@ -153,6 +185,35 @@ export function NavegacaoDoCanvas({
           <TooltipContent side="bottom">
             Cria a fileira desse tomo, vazia. Arraste folhas para dentro dela e
             depois gere os documentos dele.
+          </TooltipContent>
+        </Tooltip>
+      )}
+
+      {/*
+        A volta das removidas. Fica na barra, e não dentro de um menu, porque
+        remoção sem volta visível é o tipo de coisa que faz o engenheiro parar
+        de usar a ação: reler as pranchas custa uma chamada de modelo por página.
+      */}
+      {removidas.length > 0 && onRestaurarFolhas && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Chip
+              variant="quiet"
+              onClick={onRestaurarFolhas}
+              className="min-h-7 px-2.5 py-0.5 text-[11px]"
+            >
+              <Undo2 aria-hidden />
+              {removidas.length} removida{removidas.length === 1 ? "" : "s"}
+            </Chip>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Traz de volta {removidas.length === 1 ? "a folha" : "as folhas"} que
+            você tirou do conjunto, com as correções que já tinham:{" "}
+            {removidas
+              .slice(0, 4)
+              .map((r) => r.rotulo)
+              .join(", ")}
+            {removidas.length > 4 ? ` (+${removidas.length - 4})` : ""}.
           </TooltipContent>
         </Tooltip>
       )}

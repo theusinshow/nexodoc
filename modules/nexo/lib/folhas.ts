@@ -44,6 +44,15 @@ export interface Ajuste {
   grupo?: number;
   /** Posição manual. Esparsa: mover uma folha não renumera as outras. */
   ordem?: number;
+  /**
+   * A folha NÃO faz parte deste conjunto: sai da LD, do volume e da conferência.
+   *
+   * É ajuste, e não exclusão do array de selos, pela mesma razão que todo o
+   * resto: `selos` é o que a IA leu e não se reescreve. Assim a folha volta
+   * inteira — com título corrigido e tudo — quando a remoção foi engano, e
+   * reler as pranchas não ressuscita o que já se decidiu tirar.
+   */
+  removida?: boolean;
 }
 
 /** O selo com os ajustes já aplicados. É isto que a montagem lê. */
@@ -78,6 +87,33 @@ export interface Folha extends SeloForLd {
    * reordenada os dois deixam de coincidir.
    */
   natural: number;
+  /**
+   * A folha foi CRIADA À MÃO — não existe PDF por trás dela.
+   *
+   * Existe porque prancha que não foi lida não virava linha nenhuma, e não havia
+   * como criar uma: a única saída era abrir a tela antiga. Ela entra na LD (que é
+   * uma LISTA de documentos, e a prancha pode estar a caminho) e NÃO entra no
+   * volume — a montagem recorta páginas de arquivos reais, e não há página para
+   * recortar. Quem monta o volume vê a marca no nó.
+   */
+  avulsa: boolean;
+}
+
+/**
+ * Uma folha criada à mão. É SÓ UM ID: todo o conteúdo (nº, código, título,
+ * disciplina) mora no `Ajuste` daquele id, exatamente como numa folha lida.
+ *
+ * Guardar os campos aqui criaria um segundo lugar para editar folha, com as
+ * mesmas quatro chaves e regras de precedência ligeiramente diferentes — que é
+ * como duas verdades nascem. O popover "Corrigir" é um só.
+ */
+export type FolhaAvulsaId = FolhaId;
+
+/** Prefixo dos ids criados à mão. Não colide com `arquivo#pagina`. */
+export const PREFIXO_AVULSA = "manual#";
+
+export function ehAvulsa(id: FolhaId): boolean {
+  return id.startsWith(PREFIXO_AVULSA);
 }
 
 export function folhaId(selo: Pick<SeloForLd, "fileName" | "pageNumber">): FolhaId {
@@ -91,17 +127,50 @@ function texto(valor: string | undefined): string | null {
   return limpo ? limpo : null;
 }
 
+/** O selo que uma folha criada à mão não tem. Tudo vazio: o ajuste é que fala. */
+function seloVazio(): SeloForLd {
+  return {
+    fileName: "",
+    pageNumber: null,
+    disciplina: null,
+    folha: null,
+    total: null,
+    numeroFolha: null,
+    arquivo: null,
+    conteudo: null,
+    cliente: null,
+    secretaria: null,
+    obra: null,
+    fase: null,
+    tituloSecao: null,
+  };
+}
+
 /**
  * Aplica os ajustes sobre os selos e devolve as folhas na ordem final.
  * Ajuste órfão (prancha removida) é simplesmente ignorado: a prancha pode voltar,
  * e apagar o ajuste perderia a edição para sempre.
+ *
+ * `avulsas` são os ids criados à mão: entram no fim da leitura (é onde uma folha
+ * nova nasce) e daí em diante são folhas como as outras — arrastáveis,
+ * corrigíveis, removíveis.
+ *
+ * As REMOVIDAS não saem daqui: quem foi tirado do conjunto não pode aparecer na
+ * LD, no volume nem na conferência, e este é o ponto único por onde os três
+ * enxergam as folhas.
  */
 export function folhas(
   selos: readonly SeloForLd[],
   ajustes: Readonly<Record<FolhaId, Ajuste>>,
+  avulsas: readonly FolhaId[] = [],
 ): Folha[] {
-  const projetadas = selos.map((selo, natural) => {
-    const ajuste = ajustes[folhaId(selo)];
+  const fontes: { selo: SeloForLd; id: FolhaId; avulsa: boolean }[] = [
+    ...selos.map((selo) => ({ selo, id: folhaId(selo), avulsa: false })),
+    ...avulsas.map((id) => ({ selo: seloVazio(), id, avulsa: true })),
+  ];
+
+  const projetadas = fontes.map(({ selo, id, avulsa }, natural) => {
+    const ajuste = ajustes[id];
     const titulo = texto(ajuste?.titulo);
     const disciplina = texto(ajuste?.disciplina);
     const arquivo = texto(ajuste?.arquivo);
@@ -111,9 +180,11 @@ export function folhas(
     const ordem = ajuste?.ordem;
 
     return {
+      removida: ajuste?.removida === true,
       folha: {
         ...selo,
-        id: folhaId(selo),
+        id,
+        avulsa,
         natural,
         conteudo: titulo ?? selo.conteudo,
         disciplina: disciplina ?? selo.disciplina,
@@ -148,7 +219,7 @@ export function folhas(
    * não teria efeito visível, que é justamente o gesto que se quer.
    */
   return projetadas
-    .slice()
+    .filter((p) => !p.removida)
     .sort((a, b) => {
       const chaveA = a.folha.ordem ?? a.natural;
       const chaveB = b.folha.ordem ?? b.natural;
@@ -159,6 +230,30 @@ export function folhas(
       return a.natural - b.natural;
     })
     .map((p) => p.folha);
+}
+
+/**
+ * As folhas que foram TIRADAS do conjunto, na ordem da leitura.
+ *
+ * Existe para a tela poder oferecer a volta. Remoção que não se desfaz obriga a
+ * reler as pranchas inteiras — e reler custa uma chamada de modelo por página.
+ */
+export function folhasRemovidas(
+  selos: readonly SeloForLd[],
+  ajustes: Readonly<Record<FolhaId, Ajuste>>,
+): { id: FolhaId; rotulo: string }[] {
+  return selos
+    .map((selo) => ({ selo, id: folhaId(selo) }))
+    .filter(({ id }) => ajustes[id]?.removida === true)
+    .map(({ selo, id }) => ({
+      id,
+      // O rótulo é o que dá para reconhecer a folha sem ela estar na tela: o
+      // código do carimbo, senão o arquivo e a página.
+      rotulo:
+        texto(ajustes[id]?.arquivo) ??
+        selo.arquivo?.trim() ??
+        `${selo.fileName}${selo.pageNumber ? ` p.${selo.pageNumber}` : ""}`,
+    }));
 }
 
 /** Reparte N itens em `count` baldes equilibrados. É `buildBalancedQuantities`. */

@@ -286,6 +286,7 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
             paramsAntigos: data.params,
             selos: data.selos ?? [],
             saveResult: conv.saveResult,
+            totais: conv.totaisPorDisciplina,
           });
           // A frase vai para o HISTÓRICO: é o que faz o próximo turno do agente
           // enxergar a decisão em vez de re-propor o valor antigo por cima.
@@ -351,28 +352,42 @@ const GRADE: GradeDoDrop = { passoX: PASSO_X, passoY: PASSO_Y };
 function CanvasInterno({
   folhas = [],
   numeros = {},
+  totais = {},
   arquivosDisponiveis,
   onAbrirFolha,
   onCorrigirFolha,
+  onRemoverFolha,
   onMoverFolhas,
   onVoltarAoAutomatico,
   onCriarTomo,
+  onCriarFolha,
+  removidas = [],
+  onRestaurarFolhas,
   tomosDeclarados = 0,
 }: {
   /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
   folhas?: Folha[];
   /** Número da folha resolvido por `resolveSheetNumbers`, por id. */
   numeros?: Record<FolhaId, number | null>;
+  /** Total do conjunto por id — o carimbo, ou a correção da disciplina. */
+  totais?: Record<FolhaId, number | null>;
   /** Nomes de arquivo com bytes em memória — sem eles não dá para abrir a página. */
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
-  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string; disciplina?: string }) => void;
+  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; total?: string; arquivo?: string; disciplina?: string }) => void;
+  /** Tira a folha do conjunto (ou apaga, se ela foi criada à mão). */
+  onRemoverFolha?: (id: FolhaId) => void;
   /** O arrasto terminou: escreva estes ajustes. */
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   /** Apaga os tomos decididos à mão e devolve a divisão ao automático. */
   onVoltarAoAutomatico?: () => void;
   /** Declara mais um tomo: a fileira nasce vazia e vira destino de arrasto. */
   onCriarTomo?: (proximo: number) => void;
+  /** Cria uma folha sem PDF (prancha que não foi lida). */
+  onCriarFolha?: () => void;
+  /** As folhas tiradas do conjunto, para a barra oferecer a volta. */
+  removidas?: { id: FolhaId; rotulo: string }[];
+  onRestaurarFolhas?: () => void;
   /** Tomos que o usuário declarou pelo canvas (fileiras que ainda estão vazias). */
   tomosDeclarados?: number;
 }) {
@@ -400,11 +415,16 @@ function CanvasInterno({
       patch: {
         titulo?: string;
         numero?: string;
+        total?: string;
         arquivo?: string;
         disciplina?: string;
       },
     ) => onCorrigirFolha?.(id, patch),
     [onCorrigirFolha],
+  );
+  const removerFolha = useCallback(
+    (id: FolhaId) => onRemoverFolha?.(id),
+    [onRemoverFolha],
   );
 
   const { nodes: derivados, edges, fileiras, fileirasDoDrop, folhasPorTomo } = useMemo(() => {
@@ -573,7 +593,9 @@ function CanvasInterno({
           data: {
             id: f.id,
             numero: numeros[f.id] ?? null,
-            total: f.total ?? null,
+            // O total corrigido à mão (por disciplina) vence o do carimbo. A
+            // derivação é do dono, não daqui: o canvas não sabe de disciplina.
+            total: totais[f.id] ?? f.total ?? null,
             titulo: f.conteudo ?? "",
             disciplina: f.disciplina,
             arquivo: f.arquivo,
@@ -581,9 +603,14 @@ function CanvasInterno({
             // a divisão, TODA folha tem `grupo` — e a marca de "corrigido à mão"
             // acenderia no canvas inteiro, mentindo sobre o que o usuário mexeu.
             editado: f.editadoTexto,
-            podeAbrir: arquivosDisponiveis?.has(f.fileName) ?? false,
+            avulsa: f.avulsa,
+            // Folha criada à mão nunca tem página para abrir: `fileName` é vazio
+            // e o conjunto de arquivos disponíveis não a contém, mas ser
+            // explícito aqui evita depender desse acidente.
+            podeAbrir: !f.avulsa && (arquivosDisponiveis?.has(f.fileName) ?? false),
             onAbrir: abrirFolha,
             onCorrigir: corrigirFolha,
+            onRemover: removerFolha,
           } satisfies FolhaNodeData,
           draggable: true,
         });
@@ -644,9 +671,11 @@ function CanvasInterno({
     artifacts,
     folhas,
     numeros,
+    totais,
     arquivosDisponiveis,
     abrirFolha,
     corrigirFolha,
+    removerFolha,
     results,
     templates,
     tomosDeclarados,
@@ -754,6 +783,9 @@ function CanvasInterno({
         temGrupoManual={folhas.some((f) => f.grupo !== undefined)}
         onVoltarAoAutomatico={onVoltarAoAutomatico}
         onCriarTomo={onCriarTomo ? () => onCriarTomo(maiorTomo + 1) : undefined}
+        onCriarFolha={onCriarFolha}
+        removidas={removidas}
+        onRestaurarFolhas={onRestaurarFolhas}
       />
       <ReenquadrarAoCrescer quantidade={nodes.length} />
       <ReactFlow
@@ -835,12 +867,17 @@ function ReenquadrarAoCrescer({ quantidade }: { quantidade: number }) {
 export function NexoCanvas(props: {
   folhas?: Folha[];
   numeros?: Record<FolhaId, number | null>;
+  totais?: Record<FolhaId, number | null>;
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;
-  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; arquivo?: string; disciplina?: string }) => void;
+  onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; total?: string; arquivo?: string; disciplina?: string }) => void;
+  onRemoverFolha?: (id: FolhaId) => void;
   onMoverFolhas?: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
   onVoltarAoAutomatico?: () => void;
   onCriarTomo?: (proximo: number) => void;
+  onCriarFolha?: () => void;
+  removidas?: { id: FolhaId; rotulo: string }[];
+  onRestaurarFolhas?: () => void;
   tomosDeclarados?: number;
 }) {
   return (

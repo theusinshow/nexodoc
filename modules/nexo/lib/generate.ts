@@ -73,6 +73,11 @@ export interface LdOptions {
   folhasDoTomo?: string[];
   /** Mantém a ordem recebida em vez de ordenar pelo número do carimbo. */
   respeitarOrdem?: boolean;
+  /**
+   * Total de folhas do conjunto dito à mão — o "24" de "05/24". Vence o carimbo.
+   * Vem da correção feita no canvas, por disciplina.
+   */
+  referenceTotal?: number;
 }
 
 export async function postLd(
@@ -91,6 +96,9 @@ export async function postLd(
       tomoNumero: opts.tomoNumero ?? 0,
       ...(opts.folhasDoTomo ? { folhasDoTomo: opts.folhasDoTomo } : {}),
       ...(opts.respeitarOrdem ? { respeitarOrdem: true } : {}),
+      ...(opts.referenceTotal && opts.referenceTotal > 0
+        ? { referenceTotal: opts.referenceTotal }
+        : {}),
     }),
   });
   conferirSessao(res);
@@ -205,6 +213,12 @@ export async function postCapa(
 export async function postCheck(
   selos: SeloForLd[],
   templateId?: string,
+  /**
+   * Total de folhas por disciplina, corrigido à mão no canvas. Vai junto porque
+   * é o MESMO número que a LD daquele bloco usa: sem ele, a LD numeraria
+   * "05/11" e a conferência cobraria as 21 folhas do carimbo errado.
+   */
+  totais?: Record<string, number>,
 ): Promise<LightCheckResult> {
   const blocos = (selos as Folha[]).map((f) => codigoDaFolha(f));
   const rotulos: Record<string, string> = {};
@@ -219,6 +233,7 @@ export async function postCheck(
       selos,
       blocos,
       rotulos,
+      ...(totais && Object.keys(totais).length > 0 ? { totais } : {}),
       ...(templateId?.trim() ? { templateId: templateId.trim() } : {}),
     }),
   });

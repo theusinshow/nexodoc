@@ -1,9 +1,15 @@
 /**
  * Núcleo PURO da conferência leve do Nexo — a lógica de comparação sobre fatos já
- * parseados. SEM imports (nem do parser, nem de alias `@/`), de propósito: assim
- * `node` puro consegue carregá-lo e o smoke-test (`test:nexo:check`) roda sem o
- * resolver de módulos. O mapeamento selo->fato (que usa parse-filename) fica em
+ * parseados. Sem parser e sem alias `@/`, de propósito: assim `node` puro
+ * consegue carregá-lo e o smoke-test (`test:nexo:check`) roda sem o resolver de
+ * módulos. O mapeamento selo->fato (que usa parse-filename) fica em
  * `light-check.ts`, mantendo a FONTE ÚNICA das regras de nome.
+ *
+ * SEM IMPORTS mesmo — nem de outro módulo puro. Importar `./reconcile-sheets`
+ * exigiria a extensão `.ts` para o node cru achar o arquivo, e o `tsc` recusa
+ * extensão em import de valor. É por isso que a precedência do total manual
+ * aparece aqui em vez de vir de `totalDeReferencia`: as duas são guardadas
+ * contra divergência por um teste que carrega os dois módulos (`test:nexo:check`).
  */
 
 export type LightCheckSeverity = "critico" | "aviso" | "info";
@@ -96,6 +102,17 @@ function modeNumber(values: number[]): number {
 export interface CheckSeloFactsOptions {
   /** Código do bloco → rótulo de exibição ("his" → "Hidrossanitario"). */
   rotulos?: Record<string, string>;
+  /**
+   * Código do bloco → total de folhas DITO POR UMA PESSOA. Vence o carimbo.
+   *
+   * O total de referência é inferido do `/TT` dominante, e é ele que decide
+   * quantas folhas "deveriam" existir. Quando o OCR lê o total errado na maioria
+   * das pranchas, a inferência vira acusação: um bloco completo sai com folhas
+   * faltando, e o aviso ensina a ignorar o semáforo. Este é o canal para a
+   * correção — o mesmo número que a LD usa para numerar, para as duas não
+   * discordarem.
+   */
+  totais?: Record<string, number>;
 }
 
 /** Nome legível de um bloco, para as mensagens. */
@@ -280,7 +297,17 @@ export function checkSeloFacts(
       0,
       ...doBloco.map((f) => (f.sheet != null && f.sheet > 0 ? f.sheet : 0)),
     );
-    const referenceTotal = Math.max(dominantTotal, maxSheet, doBloco.length);
+    /*
+     * O total dito à mão MANDA, inclusive quando é menor que a inferência. A
+     * regra é a MESMA função que a LD usa, de propósito: se a LD numerasse
+     * "05/11" e a conferência cobrasse 21 folhas, o engenheiro veria os dois
+     * documentos do mesmo conjunto discordando entre si.
+     */
+    const totalManual = opts.totais?.[bloco.codigo];
+    const referenceTotal =
+      typeof totalManual === "number" && Number.isFinite(totalManual) && totalManual > 0
+        ? Math.trunc(totalManual)
+        : Math.max(dominantTotal, maxSheet, doBloco.length);
 
     const sheetCount = new Map<number, number>();
     for (const f of doBloco) {
@@ -325,10 +352,17 @@ export function checkSeloFacts(
       }
     }
     if (totalMismatch.length > 0) {
+      // Com total corrigido à mão, a divergência é ESPERADA — foi o motivo da
+      // correção. Chamá-la de "provável ruído de OCR" faria a conferência
+      // reclamar do conserto que ela mesma pediu.
+      const porque =
+        typeof totalManual === "number" && totalManual > 0
+          ? "o total foi corrigido à mão."
+          : "provável ruído de OCR.";
       findings.push({
         severidade: "info",
         campo: "total",
-        mensagem: `${prefixo(bloco.codigo)}Total lido no selo diverge do total de referência (${referenceTotal}) em ${totalMismatch.length} prancha(s) — provável ruído de OCR.`,
+        mensagem: `${prefixo(bloco.codigo)}Total lido no selo diverge do total de referência (${referenceTotal}) em ${totalMismatch.length} prancha(s) — ${porque}`,
         detalhe: joinNames(totalMismatch),
       });
     }

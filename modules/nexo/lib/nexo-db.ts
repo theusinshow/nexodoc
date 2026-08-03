@@ -69,6 +69,20 @@ export interface StoredConversation {
    */
   ajustes?: Record<FolhaId, Ajuste>;
   /**
+   * Ids das folhas criadas à mão (prancha que não foi lida). Só os ids: o
+   * conteúdo delas mora em `ajustes`, como o de qualquer folha.
+   *
+   * Opcional, como `ajustes`.
+   */
+  avulsas?: FolhaId[];
+  /**
+   * Total de folhas de cada disciplina, dito por uma pessoa — o "24" de "05/24".
+   * Chave = código de três letras do escritório (`his`, `arq`…).
+   *
+   * Opcional, como `ajustes`.
+   */
+  totaisPorDisciplina?: Record<string, number>;
+  /**
    * Quantos tomos o usuário declarou pelo canvas. Existe para a fileira do tomo
    * novo nascer VAZIA, antes de haver documento nela — sem fileira não há para
    * onde arrastar folha.

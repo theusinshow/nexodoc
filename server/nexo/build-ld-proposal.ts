@@ -1,4 +1,5 @@
 import { parseFilename, resolveSheetNumbers } from "./parse-filename";
+import { totalDeReferencia } from "./reconcile-sheets";
 import { disciplinaLabel } from "./disciplinas";
 import {
   formatSheet,
@@ -141,6 +142,15 @@ export interface BuildLdOptions {
    * diz "05/24" — a LD do tomo 1 tem de continuar dizendo isso.
    */
   folhasDoTomo?: string[];
+  /**
+   * Total de folhas do conjunto, dito por uma pessoa. Vence o carimbo.
+   *
+   * O cálculo abaixo é robusto, mas é INFERÊNCIA: quando o OCR lê "21" onde
+   * está "11" na maioria das pranchas, o dominante fica errado e a LD passa a
+   * numerar "05/21" — e a conferência acusa dez folhas faltando num conjunto
+   * completo. Não havia canal para dizer que o carimbo mentiu; este é ele.
+   */
+  referenceTotal?: number;
 }
 
 /**
@@ -187,7 +197,12 @@ export function buildLdProposal(
   const resolvedSheets = resolveSheetNumbers(validos);
   const sheets = resolvedSheets.filter((n): n is number => n != null && n > 0);
   const maxSheet = sheets.length ? Math.max(...sheets) : 0;
-  const referenceTotal = Math.max(dominantTotal, maxSheet, validos.length);
+  // A precedência (manual vence a inferência, inclusive para menos) mora no
+  // módulo puro, que é onde ela pode ser testada com node cru.
+  const referenceTotal = totalDeReferencia(
+    Math.max(dominantTotal, maxSheet, validos.length),
+    opts.referenceTotal,
+  );
 
   // Cada linha viaja com o ID da folha (`arquivo#pagina`) até a hora de fatiar —
   // é ele que liga a linha à decisão que o canvas tomou.

@@ -35,7 +35,15 @@ import { PalcoDoNexo } from "./PalcoDoNexo";
 import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
-import { folhas, type Ajuste, type FolhaId } from "../lib/folhas";
+import {
+  ehAvulsa,
+  folhas,
+  folhasRemovidas,
+  type Ajuste,
+  type Folha,
+  type FolhaId,
+} from "../lib/folhas";
+import { codigoDaFolha } from "../lib/disciplina-da-folha";
 import { useConexao } from "../lib/use-conexao";
 import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
 
@@ -178,7 +186,21 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
    * todos os nós do canvas — que foi exatamente o bug do popover que fechava
    * sozinho.
    */
-  const selos = useMemo(() => folhas(selosLidos, conv.ajustes), [selosLidos, conv.ajustes]);
+  const selos = useMemo(
+    () => folhas(selosLidos, conv.ajustes, conv.avulsas),
+    [selosLidos, conv.ajustes, conv.avulsas],
+  );
+
+  /*
+   * As folhas tiradas do conjunto. Saem da projeção (não entram em documento
+   * nenhum) mas continuam existindo aqui, para a barra do canvas poder
+   * desfazer — remoção sem volta obrigaria a reler as pranchas, e reler custa
+   * uma chamada de modelo por página.
+   */
+  const removidas = useMemo(
+    () => folhasRemovidas(selosLidos, conv.ajustes),
+    [selosLidos, conv.ajustes],
+  );
 
   // webkitdirectory nao e prop tipada no React; setar via atributo.
   useEffect(() => {
@@ -960,6 +982,25 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
     return mapa;
   }, [selos]);
 
+  /*
+   * O TOTAL que cada folha exibe — o "/24" de "05/24".
+   *
+   * Sai do carimbo, mas a correção à mão vence, e ela é guardada por
+   * DISCIPLINA: quem digita "11" numa folha está corrigindo o conjunto, e as
+   * outras folhas daquela disciplina têm de mudar junto na tela. Sem esta
+   * derivação a correção valia no documento gerado e não aparecia em nó nenhum
+   * — o engenheiro digitava, via o número velho de volta e não tinha como
+   * saber que a correção pegou.
+   */
+  const totaisDasFolhas = useMemo(() => {
+    const mapa: Record<FolhaId, number | null> = {};
+    for (const f of selos) {
+      const doBloco = conv.totaisPorDisciplina[codigoDaFolha(f)];
+      mapa[f.id] = typeof doBloco === "number" && doBloco > 0 ? doBloco : (f.total ?? null);
+    }
+    return mapa;
+  }, [selos, conv.totaisPorDisciplina]);
+
   // Quais pranchas ainda têm bytes em memória. Numa conversa restaurada isto é
   // vazio: os PDFs de ENTRADA não persistem, só os gerados.
   const arquivosDisponiveis = useMemo(
@@ -1000,6 +1041,7 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
       patch: {
         titulo?: string;
         numero?: string;
+        total?: string;
         arquivo?: string;
         disciplina?: string;
       },
@@ -1014,9 +1056,56 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
         // Número inválido ou vazio LIMPA o ajuste — volta a valer o carimbo.
         numero: Number.isFinite(numero) && numero > 0 ? Math.trunc(numero) : undefined,
       });
+
+      /*
+       * O TOTAL não é da folha: é do conjunto. Todas as pranchas de uma
+       * disciplina imprimem o mesmo "/24", então corrigi-lo numa vale para
+       * todas — e é por disciplina que ele viaja até a LD e a conferência.
+       *
+       * Escrito DEPOIS do ajuste, e lendo a disciplina do patch: quem corrige
+       * as duas coisas na mesma janela está dizendo "esta folha é de drenagem, e
+       * drenagem tem 11 folhas" — gravar o total na disciplina velha poria o
+       * número no bloco errado.
+       */
+      if (patch.total !== undefined) {
+        const folha = selos.find((f) => f.id === id);
+        const codigo = patch.disciplina?.trim()
+          ? codigoDaFolha({ ...folha, disciplina: patch.disciplina.trim() } as Folha)
+          : folha
+            ? codigoDaFolha(folha)
+            : "";
+        const total = Number(patch.total);
+        conv.definirTotal(
+          codigo,
+          Number.isFinite(total) && total > 0 ? Math.trunc(total) : null,
+        );
+      }
+    },
+    [conv, selos],
+  );
+
+  /*
+   * Remover uma folha lida é AJUSTE (`removida`), e ela volta pela barra do
+   * canvas; remover uma criada à mão a apaga de vez, porque não há selo por trás
+   * para restaurar. Os dois gestos são o mesmo botão — o nó sabe qual é qual e
+   * diz isso na confirmação.
+   */
+  const removerFolha = useCallback(
+    (id: FolhaId) => {
+      if (ehAvulsa(id)) conv.excluirFolhaAvulsa(id);
+      else conv.ajustarFolha(id, { removida: true });
     },
     [conv],
   );
+
+  const criarFolha = useCallback(() => {
+    conv.criarFolhaAvulsa();
+  }, [conv]);
+
+  const restaurarFolhas = useCallback(() => {
+    if (removidas.length === 0) return;
+    conv.ajustarFolhas(removidas.map((r) => ({ id: r.id, patch: { removida: undefined } })));
+  }, [conv, removidas]);
 
   /*
    * O arrasto no canvas escreve `grupo` e `ordem`, e a montagem lê a projeção —
@@ -1201,10 +1290,15 @@ function NexoWorkspaceInner({ isAdmin }: { isAdmin: boolean }) {
             numeros={numerosDasFolhas}
             arquivosDisponiveis={arquivosDisponiveis}
             onAbrirFolha={abrirFolha}
+            totais={totaisDasFolhas}
             onCorrigirFolha={corrigirFolha}
+            onRemoverFolha={removerFolha}
             onMoverFolhas={moverFolhas}
             onVoltarAoAutomatico={voltarAoAutomatico}
             onCriarTomo={criarTomo}
+            onCriarFolha={criarFolha}
+            removidas={removidas}
+            onRestaurarFolhas={restaurarFolhas}
             tomosDeclarados={conv.tomosDeclarados}
           />
             }

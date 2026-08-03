@@ -26,12 +26,15 @@ export async function POST(req: NextRequest) {
   /** Bloco (disciplina) de cada selo e os rótulos — calculados no cliente. */
   let blocos: string[] | undefined;
   let rotulos: Record<string, string> | undefined;
+  /** Total de folhas por bloco dito à mão — vence o carimbo. */
+  let totais: Record<string, number> | undefined;
   try {
     const body = (await req.json()) as {
       selos?: unknown;
       templateId?: unknown;
       blocos?: unknown;
       rotulos?: unknown;
+      totais?: unknown;
     };
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
@@ -48,11 +51,21 @@ export async function POST(req: NextRequest) {
         ),
       );
     }
+    if (body.totais && typeof body.totais === "object" && !Array.isArray(body.totais)) {
+      totais = Object.fromEntries(
+        Object.entries(body.totais as Record<string, unknown>)
+          .filter(
+            (entry): entry is [string, number] =>
+              typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] > 0,
+          )
+          .map(([k, v]) => [k, Math.trunc(v)]),
+      );
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
 
-  const result = runLightCheck(selos, { templateId, blocos, rotulos });
+  const result = runLightCheck(selos, { templateId, blocos, rotulos, totais });
 
   return NextResponse.json({ result });
 }

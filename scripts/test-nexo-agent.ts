@@ -131,8 +131,14 @@ test("normalizeProposals: separatriz casa prefeitura e clampa tomos", () => {
   const params = r[0].params as { templateId: string; numTomos: number };
   assert.equal(params.templateId, "prefchap");
   assert.equal(params.numTomos, 99); // clampTomos limita a 99
-  // separatriz não tem volume (só templateId + numTomos).
-  assert.deepEqual(Object.keys(params).sort(), ["numTomos", "templateId"]);
+  /*
+   * Separatriz não tem volume. Tem `titulos` desde a paridade com a tela antiga
+   * (`93f1a03`): a lista de disciplinas ditada pelo engenheiro, uma folha por
+   * item. Vazia aqui, porque este caso não lista nenhuma — e vazia significa
+   * "herda o título da capa", que é o comportamento de sempre.
+   */
+  assert.deepEqual(Object.keys(params).sort(), ["numTomos", "templateId", "titulos"]);
+  assert.deepEqual((params as { titulos: string[] }).titulos, []);
 });
 
 test("normalizeProposals: separatriz sem match cai no 1o template", () => {

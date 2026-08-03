@@ -31,7 +31,7 @@ import type {
   NexoSlotRequest,
 } from "../types";
 import { summarizeSelos } from "../lib/agent-context";
-import { aplicarAjuste, type Ajuste, type FolhaId } from "../lib/folhas";
+import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { removerResultado } from "../lib/results";
 import {
   deleteConversation as dbDelete,
@@ -109,6 +109,23 @@ interface ConversationStoreValue {
   ajustarFolha: (id: FolhaId, patch: Ajuste) => void;
   /** Vários ajustes numa tacada (um arrasto de seleção). Um `setState` só. */
   ajustarFolhas: (entradas: { id: FolhaId; patch: Ajuste }[]) => void;
+  /** Ids das folhas criadas à mão. O conteúdo delas mora em `ajustes`. */
+  avulsas: FolhaId[];
+  /** Cria uma folha sem PDF por trás e devolve o id (para abrir a correção). */
+  criarFolhaAvulsa: () => FolhaId;
+  /** Apaga uma folha criada à mão — some junto com o ajuste dela. */
+  excluirFolhaAvulsa: (id: FolhaId) => void;
+  /**
+   * Total de folhas de cada disciplina, dito por uma pessoa — o "24" de "05/24".
+   *
+   * Por DISCIPLINA porque é assim que o escritório numera: cada uma vai de 1 a N.
+   * Sem este canal, o total saía do carimbo dominante, e um OCR que lesse "21"
+   * onde estava "11" fazia a conferência acusar dez folhas faltando num volume
+   * completo — e não havia onde dizer que o carimbo mentiu.
+   */
+  totaisPorDisciplina: Record<string, number>;
+  /** Fixa (ou limpa, com `null`) o total de referência de uma disciplina. */
+  definirTotal: (codigoDaDisciplina: string, total: number | null) => void;
   /** Quantos tomos o usuário declarou pelo canvas (0 = nenhum além dos gerados). */
   tomosDeclarados: number;
   /** Declara um tomo a mais: a fileira nasce vazia e vira destino de arrasto. */
@@ -200,6 +217,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [messages, setMessages] = useState<NexoChatMessage[]>([]);
   const [seloResults, setSeloResultsState] = useState<SeloResult[]>([]);
   const [ajustes, setAjustes] = useState<Record<FolhaId, Ajuste>>({});
+  const [avulsas, setAvulsas] = useState<FolhaId[]>([]);
+  const [totaisPorDisciplina, setTotaisPorDisciplina] = useState<Record<string, number>>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
   const [results, setResults] = useState<SavedResult[]>([]);
@@ -217,6 +236,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     messages,
     seloResults,
     ajustes,
+    avulsas,
+    totaisPorDisciplina,
     tomosDeclarados,
     achadosResolvidos,
     results,
@@ -232,6 +253,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages,
       seloResults,
       ajustes,
+      avulsas,
+      totaisPorDisciplina,
       tomosDeclarados,
       achadosResolvidos,
       results,
@@ -302,6 +325,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       messages: s.messages,
       seloResults: s.seloResults,
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),
+      ...(s.avulsas.length > 0 ? { avulsas: s.avulsas } : {}),
+      ...(Object.keys(s.totaisPorDisciplina).length > 0
+        ? { totaisPorDisciplina: s.totaisPorDisciplina }
+        : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
       ...(Object.keys(s.achadosResolvidos).length > 0
         ? { achadosResolvidos: s.achadosResolvidos }
@@ -405,6 +432,57 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setAjustes((prev) =>
         entradas.reduce((acc, e) => aplicarAjuste(acc, e.id, e.patch), prev),
       );
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
+   * A folha que não foi lida — porque o PDF não veio, ou porque a prancha ainda
+   * está sendo desenhada. Nasce VAZIA, e o popover "Corrigir" (o mesmo das
+   * outras) é quem a preenche: assim existe um lugar só para editar folha.
+   *
+   * O id é gerado aqui, no manipulador, e não no render: `crypto.randomUUID` no
+   * corpo do componente é justamente o que o React Compiler barra.
+   */
+  const criarFolhaAvulsa = useCallback((): FolhaId => {
+    const id = `${PREFIXO_AVULSA}${newId()}`;
+    setAvulsas((prev) => [...prev, id]);
+    schedulePersist();
+    return id;
+  }, [schedulePersist]);
+
+  /*
+   * Folha criada à mão se apaga de vez — não há selo por trás para "restaurar",
+   * e guardá-la removida deixaria um fantasma na lista de restauração.
+   */
+  const excluirFolhaAvulsa = useCallback(
+    (id: FolhaId) => {
+      setAvulsas((prev) => prev.filter((x) => x !== id));
+      setAjustes((prev) => {
+        if (!prev[id]) return prev;
+        const proximo = { ...prev };
+        delete proximo[id];
+        return proximo;
+      });
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
+   * O total de referência dito por uma pessoa. `null` limpa e devolve o carimbo —
+   * a mesma regra de todo campo do popover: vazio desfaz.
+   */
+  const definirTotal = useCallback(
+    (codigoDaDisciplina: string, total: number | null) => {
+      const chave = codigoDaDisciplina.trim().toLowerCase();
+      setTotaisPorDisciplina((atual) => {
+        const proximo = { ...atual };
+        if (total === null || !Number.isFinite(total) || total <= 0) delete proximo[chave];
+        else proximo[chave] = Math.trunc(total);
+        return proximo;
+      });
       schedulePersist();
     },
     [schedulePersist],
@@ -522,6 +600,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setMessages([]);
     setSeloResultsState([]);
     setAjustes({});
+    setAvulsas([]);
+    setTotaisPorDisciplina({});
     setTomosDeclarados(0);
     setAuditoriaPendente(null);
     setMemorialMeta(null);
@@ -577,6 +657,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResultsState(rec.seloResults);
       // Conversa gravada antes deste campo existir não tem `ajustes`.
       setAjustes(rec.ajustes ?? {});
+      setAvulsas(rec.avulsas ?? []);
+      setTotaisPorDisciplina(rec.totaisPorDisciplina ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       setAchadosResolvidos(rec.achadosResolvidos ?? {});
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
@@ -686,6 +768,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       ajustarFolha,
       ajustarFolhas,
+      avulsas,
+      criarFolhaAvulsa,
+      excluirFolhaAvulsa,
+      totaisPorDisciplina,
+      definirTotal,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,
@@ -716,6 +803,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setSeloResults,
       ajustarFolha,
       ajustarFolhas,
+      avulsas,
+      criarFolhaAvulsa,
+      excluirFolhaAvulsa,
+      totaisPorDisciplina,
+      definirTotal,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,

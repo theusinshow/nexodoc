@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { Button } from "@/components/ui/button";
@@ -35,16 +35,21 @@ export type FolhaNodeData = {
   onAbrir: (id: FolhaId) => void;
   /** Código da prancha (campo ARQUIVO do carimbo) — sai na coluna ARQUIVOS da LD. */
   arquivo?: string | null;
+  /** Criada à mão: não há PDF por trás dela, então ela não entra no volume. */
+  avulsa?: boolean;
   /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
   onCorrigir: (
     id: FolhaId,
     patch: {
       titulo?: string;
       numero?: string;
+      total?: string;
       arquivo?: string;
       disciplina?: string;
     },
   ) => void;
+  /** Tira a folha do conjunto (ou apaga de vez, se ela foi criada à mão). */
+  onRemover: (id: FolhaId) => void;
 } & Record<string, unknown>;
 
 /**
@@ -81,8 +86,10 @@ const DISCIPLINAS_SUGERIDAS = [
 
 export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const [corrigindo, setCorrigindo] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   const [texto, setTexto] = useState(data.titulo);
   const [numero, setNumero] = useState("");
+  const [total, setTotal] = useState("");
   const [arquivo, setArquivo] = useState("");
   const [disciplina, setDisciplina] = useState("");
 
@@ -100,6 +107,13 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const cor = corDaDisciplina(data.disciplina);
   const sigla = siglaDaDisciplina(data.disciplina);
   const semNumero = data.numero == null;
+  /*
+   * Folha criada à mão SEM código não sai na LD: a proposta descarta o selo que
+   * não tem nem arquivo nem nome, e o código é a única coisa que uma folha sem
+   * PDF tem para se identificar. Uma linha que o engenheiro criou e não aparece
+   * no documento é pior do que não ter podido criá-la — então isto é dito no nó.
+   */
+  const semCodigo = data.avulsa === true && !data.arquivo?.trim();
 
   const corpo = (
     <div className={`w-[120px] overflow-hidden rounded-sm border ${borda} bg-card`}>
@@ -143,17 +157,35 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
       <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight" title={data.titulo}>
         {data.titulo || "—"}
       </p>
+      {/*
+        A folha sem PDF é DIFERENTE das outras e precisa parecer diferente: ela
+        entra na lista de documentos e não entra no volume montado. Quem for
+        montar tem de saber disso olhando, não descobrindo no PDF final.
+      */}
+      {data.avulsa && (
+        <p
+          className={
+            semCodigo
+              ? "mt-1 font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--status-warning)]"
+              : "mt-1 font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground"
+          }
+        >
+          {semCodigo ? "sem código · não sai na LD" : "sem PDF · só na LD"}
+        </p>
+      )}
       {/* As ações só no nó SELECIONADO: com 200 folhas na tela, botões em todas
           seriam ruído maior que o conteúdo. */}
-      {selected && (
-        <div className="mt-1 flex items-center gap-2">
+      {selected && !confirmando && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <AcaoDoNo
             icone={ExternalLink}
             rotulo="Abrir"
             ajuda={
-              data.podeAbrir
-                ? "Abre a página original desta prancha em outra aba."
-                : "Os PDFs anexados não ficam guardados. Reanexe as pranchas para ver a página."
+              data.avulsa
+                ? "Esta folha foi criada à mão: não existe PDF para abrir."
+                : data.podeAbrir
+                  ? "Abre a página original desta prancha em outra aba."
+                  : "Os PDFs anexados não ficam guardados. Reanexe as pranchas para ver a página."
             }
             desabilitado={!data.podeAbrir}
             onClick={() => data.onAbrir(data.id)}
@@ -161,15 +193,57 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           <AcaoDoNo
             icone={Pencil}
             rotulo="Corrigir"
-            ajuda="Corrige o que a IA leu do carimbo: nº da prancha, código do arquivo, disciplina e título. Os valores novos saem na LD gerada depois."
+            ajuda="Corrige o que a IA leu do carimbo: nº da prancha, total do conjunto, código do arquivo, disciplina e título. Os valores novos saem na LD gerada depois."
             onClick={() => {
               setTexto(data.titulo);
               setNumero(data.numero != null ? String(data.numero) : "");
+              setTotal(data.total != null ? String(data.total) : "");
               setArquivo(data.arquivo ?? "");
               setDisciplina(data.disciplina ?? "");
               setCorrigindo(true);
             }}
           />
+          <AcaoDoNo
+            icone={Trash2}
+            rotulo="Remover"
+            ajuda={
+              data.avulsa
+                ? "Apaga esta folha criada à mão. Ela não veio de PDF nenhum, então não há o que restaurar."
+                : "Tira esta folha da LD, do volume e da conferência. Dá para trazer de volta pela barra do canvas."
+            }
+            tom="perigo"
+            onClick={() => setConfirmando(true)}
+          />
+        </div>
+      )}
+      {/*
+        Confirmação INLINE, no próprio nó — o mesmo padrão do nó de artefato.
+        Remover é reversível (ou, na folha criada à mão, é desfazer o que a
+        própria pessoa criou há pouco), então um modal custaria mais atenção do
+        que a decisão vale.
+      */}
+      {selected && confirmando && (
+        <div className="mt-1 flex items-center gap-2 text-[10px]">
+          <span className="text-muted-foreground">
+            {data.avulsa ? "Apagar?" : "Remover?"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmando(false);
+              data.onRemover(data.id);
+            }}
+            className="nodrag nopan rounded-sm font-medium text-destructive underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            Sim
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmando(false)}
+            className="nodrag nopan rounded-sm text-muted-foreground underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            Não
+          </button>
         </div>
       )}
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -190,7 +264,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         className="flex flex-col gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          data.onCorrigir(data.id, { titulo: texto, numero, arquivo, disciplina });
+          data.onCorrigir(data.id, { titulo: texto, numero, total, arquivo, disciplina });
           setCorrigindo(false);
         }}
       >
@@ -214,18 +288,38 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
               className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px] tabular-nums"
             />
           </label>
-          <label className="flex flex-[2] flex-col gap-1">
+          {/*
+            O TOTAL é o "/24" do carimbo — e é ele que diz quantas folhas
+            deveriam existir. Sai do total dominante lido pela IA, e quando o
+            OCR erra na maioria das pranchas a conferência acusa folhas
+            faltando num conjunto completo. Vale para a DISCIPLINA inteira,
+            porque é assim que o carimbo é impresso: todas as folhas de uma
+            disciplina dizem o mesmo total.
+          */}
+          <label className="flex flex-1 flex-col gap-1">
             <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
-              Código do arquivo
+              de (total)
             </span>
             <input
-              value={arquivo}
-              onChange={(e) => setArquivo(e.target.value)}
-              placeholder="040_26_arq_005_a"
-              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px]"
+              value={total}
+              onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              placeholder="—"
+              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px] tabular-nums"
             />
           </label>
         </div>
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
+            Código do arquivo
+          </span>
+          <input
+            value={arquivo}
+            onChange={(e) => setArquivo(e.target.value)}
+            placeholder="040_26_arq_005_a"
+            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px]"
+          />
+        </label>
         {/*
           A DISCIPLINA decide em que bloco do volume a folha entra — e, com ela,
           sob qual separatriz e em qual LD a prancha vai sair impressa. Era o
@@ -263,6 +357,9 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         <p className="text-[10px] leading-4 text-muted-foreground">
           Campo vazio devolve o que o selo dizia. O nº posto aqui vence o carimbo
           e o nome do arquivo; a disciplina posta aqui manda no bloco do volume.
+          O <strong className="font-medium text-foreground">total</strong> vale
+          para a disciplina inteira — é ele que diz quantas folhas deveriam
+          existir, na LD e na conferência.
         </p>
         <div className="flex justify-end gap-2">
           <Button

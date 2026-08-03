@@ -34,6 +34,7 @@
     "test:nexo:stream": "node scripts/test-nexo-stream.ts",
     "test:nexo:usage": "node scripts/test-nexo-usage.ts",
     "test:nexo:folhas": "node scripts/test-nexo-folhas.ts",
+    "test:nexo:totais": "node scripts/test-nexo-totais.ts",
     "test:nexo:blocos": "node scripts/test-nexo-blocos.ts",
     "test:nexo:layout": "node scripts/test-nexo-layout.ts",
     "test:nexo:drop": "node scripts/test-nexo-drop.ts",

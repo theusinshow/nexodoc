@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 
 import { checkSeloFacts, type SeloFact } from "../server/nexo/light-check-core.ts";
+import { totalDeReferencia } from "../server/nexo/reconcile-sheets.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -112,6 +113,44 @@ test("total do selo divergente (OCR) sozinho -> info, veredito ok", () => {
   );
 });
 
+/* ------------------------------------ Total de referência corrigido à mão ---- */
+
+/** O conjunto completo, mas com o carimbo lido a MAIS ("de 21" em vez de 11). */
+function totalLidoAMais(): SeloFact[] {
+  return [1, 2, 3].map((n) =>
+    fact({ sheet: n, totalLido: 21, numeros: [21, n] }),
+  );
+}
+
+test("carimbo com total lido a mais acusa folhas faltando num conjunto completo", () => {
+  // O defeito que a correção existe para consertar. Este teste trava o
+  // comportamento ANTIGO de propósito: sem ele não dá para provar que a correção
+  // muda alguma coisa.
+  const r = checkSeloFacts(totalLidoAMais());
+  const seq = r.findings.find((x) => x.campo === "sequencia");
+  assert.ok(seq, "esperava o aviso de sequência");
+  assert.match(seq.mensagem, /1\.\.21/);
+  assert.equal(r.veredito, "aviso");
+});
+
+test("o total corrigido à mão apaga as folhas faltando inventadas", () => {
+  const r = checkSeloFacts(totalLidoAMais(), { totais: { "": 3 } });
+  assert.equal(
+    r.findings.some((x) => x.campo === "sequencia"),
+    false,
+    "com o total certo, não faltam folhas",
+  );
+  assert.equal(r.veredito, "ok");
+});
+
+test("com total corrigido, a divergência do carimbo é explicada — não chamada de ruído", () => {
+  const r = checkSeloFacts(totalLidoAMais(), { totais: { "": 3 } });
+  const total = r.findings.find((x) => x.campo === "total");
+  assert.ok(total, "esperava o achado info de total");
+  assert.equal(total.severidade, "info");
+  assert.match(total.mensagem, /corrigido à mão/);
+});
+
 /* ----------------------------------------------- Volume de vários blocos ---- */
 
 const ROTULOS = {
@@ -133,6 +172,52 @@ function bloco(codigo: string, quantas: number): SeloFact[] {
     }),
   );
 }
+
+test("a conferência e a LD aplicam a MESMA precedência de total", () => {
+  /*
+   * As duas calculam o total de referência separadamente: a LD por
+   * `totalDeReferencia` (em `reconcile-sheets`), a conferência inline no núcleo
+   * puro — que não pode importar aquele módulo, porque o `tsc` recusa a extensão
+   * `.ts` num import de valor e sem ela o node cru não acha o arquivo.
+   *
+   * Este teste é a corda entre as duas. Se uma mudar sozinha, ele quebra — e o
+   * estrago que ele evita é a LD numerar "05/11" enquanto a conferência cobra 21
+   * folhas do mesmo conjunto.
+   */
+  const casos: [number, number | null | undefined, number][] = [
+    [11, undefined, 11], // sem correção, vale a inferência
+    [21, 11, 11], // correção vence
+    [40, 2, 2], // vence inclusive para MENOS
+    [11, 0, 11], // zero é limpar o campo
+    [11, -5, 11],
+  ];
+  for (const [inferido, manual, esperado] of casos) {
+    assert.equal(totalDeReferencia(inferido, manual), esperado, `LD: ${inferido}/${manual}`);
+
+    // A conferência não expõe o número; ela o mostra na mensagem de sequência.
+    // Um bloco com UMA folha (nº 1) e o total inferido forçado pelo carimbo.
+    const facts = [fact({ sheet: 1, totalLido: inferido, numeros: [inferido, 1] })];
+    const r = checkSeloFacts(facts, manual == null ? {} : { totais: { "": manual } });
+    const seq = r.findings.find((x) => x.campo === "sequencia");
+    const cobrado = seq ? Number(/1\.\.(\d+)/.exec(seq.mensagem)?.[1]) : 1;
+    assert.equal(cobrado, esperado, `conferência: ${inferido}/${manual}`);
+  }
+});
+
+test("o total corrigido é POR BLOCO — corrigir um não mexe no outro", () => {
+  // his com o carimbo lido a mais; inc correto. Corrigir his não pode fazer inc
+  // passar a cobrar folhas que ele não tem.
+  const facts = [
+    ...bloco("his", 3).map((f) => ({ ...f, totalLido: 21, numeros: [21, f.sheet as number] })),
+    ...bloco("inc", 2),
+  ];
+  const r = checkSeloFacts(facts, { totais: { his: 3 }, rotulos: ROTULOS });
+  assert.equal(
+    r.findings.some((x) => x.campo === "sequencia"),
+    false,
+    `não deveria faltar folha: ${r.findings.map((f) => f.mensagem).join(" | ")}`,
+  );
+});
 
 /** O volume 10 de 040-26, como está no disco: his 1-11, inc 1-5, spd 1-4. */
 function volume10(): SeloFact[] {
