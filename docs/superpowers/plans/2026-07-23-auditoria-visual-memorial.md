@@ -21,9 +21,14 @@
 > 4. `ArtifactThumb` NÃO tinha o `onReady` que o Apêndice A assumia. Existe agora
 >    como `onTextLayer` — entrega itens + viewport sem desenhar a camada no DOM.
 >
+> **A fila de K `<Document>` NÃO é necessária** (medido em `62ac3c8`): com achado
+> em 122 das 132 páginas, 6,6s até a última miniatura e 60 MB de heap — o pdfjs
+> só parseia a página pedida. Rode `node scripts/shot-audit-canvas-escala.mjs [N]`
+> antes de assumir o contrário. A medição achou outra coisa: 4 colunas fixas
+> viravam torre, e as colunas passaram a sair de `colunasDaGrade`.
+>
 > **Falta do Apêndice A:** `FindingCardNode`, `RecurringStackNode`, as linhas
-> card↔página com hover que acende o par, o drawer do parecer completo, e a fila
-> de K `<Document>` simultâneos (hoje um por página com achado, sem medição).
+> card↔página com hover que acende o par, e o drawer do parecer completo.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
