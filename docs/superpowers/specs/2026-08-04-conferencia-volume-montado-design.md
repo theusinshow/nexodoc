@@ -111,9 +111,15 @@ interface PaginaEsperada {
   folha?: number | null;           // nº da prancha esperado naquela página
   total?: number | null;           // o /TT esperado do bloco
   codigo?: string | null;          // campo ARQUIVO, quando a família imprime
-  titulo?: string | null;          // CONTEÚDO esperado (vem da linha da LD)
+  titulo?: string | null;          // CONTEÚDO esperado
 }
 ```
+
+`folha`, `codigo` e `titulo` vêm das **linhas da LD daquele bloco** — o
+`CreateLDInput.rows` que a montagem já tem em mãos, e que é a mesma fonte que
+imprimiu a LD encadernada. Usar a LD como gabarito é deliberado: é o documento
+que promete o conteúdo do volume, e conferir o volume contra a promessa é
+exatamente o que se quer.
 
 PURO e sem imports, no mesmo padrão de `volume-parts.ts`, para rodar em node cru.
 
@@ -156,8 +162,18 @@ falha transitória, e a página que falha **não some** — vira `erro`.
 É aritmética sobre o plano, então é a única dimensão que emite crítico com
 confiança total.
 
-- `pageCount` do PDF final ≠ soma das páginas esperadas → **crítico**;
-- a sequência de papéis lida ≠ a ordem canônica do plano → **crítico**.
+- `pageCount` do PDF final ≠ soma das páginas esperadas → **crítico**.
+- **Papel trocado**: o plano diz o que cada página deveria ser, e a leitura diz o
+  que ela parece. A prova é a presença do carimbo, via `classificarPagina` /
+  contagem de âncoras — não uma leitura de papel pelo modelo, que não existe.
+  Página que o plano diz `prancha` e que chega **sem carimbo nenhum** →
+  **crítico** (a faixa recortada trouxe capa ou índice para dentro do bloco).
+  Página que o plano diz `capa`, `separatriz` ou `ld` e que chega **com carimbo
+  de prancha** → **crítico** (a parte errada entrou naquela posição).
+- A ordem canônica em si não precisa ser reconferida: ela é produzida por
+  `buildVolumeParts`, que é puro e já travado por `test:nexo:parts`. O que pode
+  dar errado da montagem para o PDF é a FAIXA de páginas de cada parte, e é isso
+  que as duas regras acima pegam.
 
 ### 5.2 Conteúdo, página a página
 
