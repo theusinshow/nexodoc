@@ -199,6 +199,49 @@ try {
   // Nenhum achado pode ter sobrado sem trecho: no 017_26 os cinco ancoram.
   check("nenhum achado ficou 'sem trecho'", !/sem trecho/i.test(corpo));
 
+  // --- Card, linha e o par que acende ---------------------------------------
+  const cards = page.locator('.react-flow__node[data-id^="a-"]');
+  check(`cada achado virou card (achou ${await cards.count()})`, (await cards.count()) === ACHADOS.length);
+  const linhas = page.locator(".react-flow__edge");
+  check(`cada card está ligado à sua página (achou ${await linhas.count()})`, (await linhas.count()) === ACHADOS.length);
+
+  // O card diz O QUÊ — sem ele a vista dependia do tooltip do pin, que some
+  // quando o cursor sai.
+  check("o card mostra o tipo do achado", /Ocupação divergente/i.test(corpo));
+
+  // A opacidade vive no CARD, não no invólucro que o React Flow cria — medir o
+  // invólucro dava 1 sempre, e a asserção passaria com o destaque quebrado.
+  const opacidade = (loc) =>
+    loc.locator("> div").first().evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
+
+  const primeiro = cards.first();
+  const segundo = cards.nth(1);
+  await primeiro.hover();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/c3-par-aceso.png` });
+  const opAceso = await opacidade(primeiro);
+  const opApagado = await opacidade(segundo);
+  check("o card sob o cursor fica aceso", opAceso > 0.9, `${opAceso}`);
+  check("os outros apagam", opApagado < 0.5, `${opApagado}`);
+
+  /*
+   * Acender o par NÃO pode remontar os PDFs: o destaque passa pelos dados dos
+   * nós, então um erro aqui faria cada hover recarregar todas as miniaturas.
+   */
+  const canvasesAntes = await page.locator("canvas.react-pdf__Page__canvas").count();
+  await segundo.hover();
+  await page.waitForTimeout(800);
+  const canvasesDepois = await page.locator("canvas.react-pdf__Page__canvas").count();
+  check(
+    "passar o cursor não remonta as miniaturas",
+    canvasesAntes === canvasesDepois && canvasesDepois === ACHADOS.length,
+    `${canvasesAntes} → ${canvasesDepois}`,
+  );
+
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(400);
+  check("saindo do card, tudo volta a acender", (await opacidade(segundo)) > 0.9);
+
   check("nenhum erro de runtime", erros.length === 0, erros[0] ?? "");
 } catch (e) {
   falhas++;

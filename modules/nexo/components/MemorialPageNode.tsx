@@ -17,9 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { locateTermOnPage, type PinPosition } from "@/server/nexo/audit/locate-term";
 import type { AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
+import { LARGURA_PAGINA } from "../lib/layout-auditoria";
 import { ArtifactThumb } from "./ArtifactThumb";
-
-export const LARGURA_PAGINA = 200;
 
 export type AchadoNaPagina = {
   id: string;
@@ -134,8 +133,8 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
         )}
       </div>
 
-      <Handle type="target" position={Position.Left} className="!opacity-0" />
-      <Handle type="source" position={Position.Right} className="!opacity-0" />
+      {/* Os cards dos achados ficam ABAIXO da página: a linha sai por baixo. */}
+      <Handle type="source" position={Position.Bottom} className="!opacity-0" />
     </div>
   );
 }

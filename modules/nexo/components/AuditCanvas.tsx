@@ -2,88 +2,156 @@
 
 /**
  * A auditoria vista NO DOCUMENTO: cada página com achado vira um nó com a
- * miniatura real e os achados marcados no trecho.
+ * miniatura real, os achados marcados no trecho e, logo abaixo, um card por
+ * achado ligado à sua página. Passar o cursor acende o par e apaga o resto.
  *
- * Primeira fatia do PR7 (spec 2026-07-23). Aqui só o eixo das PÁGINAS — os cards
- * de achado ligados por linha e a pilha dos recorrentes vêm na fatia seguinte.
- * O modelo já vem pronto de `buildAuditGraph`: esta camada não decide severidade,
- * nem veredito, nem o que é recorrente. Só desenha.
+ * O modelo já vem pronto de `buildAuditGraph` e a geometria de
+ * `layoutDaAuditoria`: esta camada não decide severidade, veredito, recorrência
+ * nem posição. Só desenha.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
   Controls,
+  type Edge,
   type Node,
+  type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import type { AuditReport } from "@/lib/audit-report";
-import { buildAuditGraph } from "@/server/nexo/audit/build-audit-graph";
-import { colunasDaGrade } from "../lib/layout-canvas";
-import {
-  MemorialPageNode,
-  LARGURA_PAGINA,
-  type MemorialPageNodeData,
-} from "./MemorialPageNode";
+import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
+import { layoutDaAuditoria } from "../lib/layout-auditoria";
+import { MemorialPageNode, type MemorialPageNodeData } from "./MemorialPageNode";
+import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
+import { RotuloDoCanvas, type RotuloDoCanvasData } from "./RotuloDoCanvas";
 
-const nodeTypes = { paginaMemorial: MemorialPageNode };
+const nodeTypes = {
+  paginaMemorial: MemorialPageNode,
+  achado: FindingCardNode,
+  rotulo: RotuloDoCanvas,
+};
 
-/** Grade: a página é 3/4, então o passo vertical carrega a altura + o rodapé. */
-const PASSO_X = LARGURA_PAGINA + 40;
-const PASSO_Y = Math.round(LARGURA_PAGINA * (4 / 3)) + 70;
+const COR_DA_LINHA: Record<AuditSeverity, string> = {
+  critico: "var(--status-critical)",
+  tecnico: "var(--status-warning)",
+  editorial: "var(--muted-foreground)",
+};
 
-function CanvasInterno({
-  report,
-  pdfUrl,
-}: {
-  report: AuditReport;
-  pdfUrl?: string;
-}) {
+const idDaPagina = (pagina: number) => `p${pagina}`;
+const idDoAchado = (achado: string) => `a-${achado}`;
+
+function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: string }) {
   const grafo = useMemo(() => buildAuditGraph(report), [report]);
+  /*
+   * O achado sob o cursor. Mora aqui, e não em CSS, porque o par a acender é
+   * dinâmico: qual página combina com qual card só se sabe do grafo.
+   */
+  const [emDestaque, setEmDestaque] = useState<string | null>(null);
 
-  const nodes = useMemo<Node<MemorialPageNodeData>[]>(() => {
-    const porId = new Map(grafo.findingNodes.map((f) => [f.id, f]));
-    /*
-     * Colunas pela RAIZ da quantidade, como a grade das folhas. Com 4 colunas
-     * fixas, um memorial com achado em 122 páginas virava uma torre de 31 linhas
-     * que o enquadramento não fechava — medido em shot-audit-canvas-escala.mjs.
-     */
-    const colunas = colunasDaGrade(grafo.pageNodes.length);
-    return grafo.pageNodes.map((pagina, i) => ({
-      id: `p${pagina.pageNumber}`,
+  const layout = useMemo(
+    () =>
+      layoutDaAuditoria({
+        paginas: grafo.pageNodes,
+        semPagina: grafo.unplaced.map((a) => a.id),
+      }),
+    [grafo],
+  );
+
+  const nodes = useMemo<Node[]>(() => {
+    const porId = new Map([...grafo.findingNodes, ...grafo.unplaced].map((f) => [f.id, f]));
+
+    const paginas: Node<MemorialPageNodeData>[] = grafo.pageNodes.map((pagina) => ({
+      id: idDaPagina(pagina.pageNumber),
       type: "paginaMemorial",
-      position: { x: (i % colunas) * PASSO_X, y: Math.floor(i / colunas) * PASSO_Y },
+      position: layout.paginas[pagina.pageNumber],
       data: {
         pdfUrl,
         pageNumber: pagina.pageNumber,
+        emDestaque,
         achados: pagina.findingIds.flatMap((id) => {
-          const achado = porId.get(id);
-          return achado
+          const a = porId.get(id);
+          return a
             ? [
                 {
-                  id: achado.id,
-                  severity: achado.severity,
-                  tipo: achado.tipo,
-                  evidencia: achado.evidencia,
-                  termoBusca: achado.termoBusca,
+                  id: a.id,
+                  severity: a.severity,
+                  tipo: a.tipo,
+                  evidencia: a.evidencia,
+                  termoBusca: a.termoBusca,
                 },
               ]
             : [];
         }),
       },
     }));
-  }, [grafo, pdfUrl]);
 
-  if (grafo.pageNodes.length === 0) {
+    const cards: Node<FindingCardNodeData>[] = [...grafo.findingNodes, ...grafo.unplaced].map(
+      (achado) => ({
+        id: idDoAchado(achado.id),
+        type: "achado",
+        position: layout.achados[achado.id],
+        data: {
+          achadoId: achado.id,
+          severity: achado.severity,
+          tier: achado.tier,
+          tipo: achado.tipo,
+          evidencia: achado.evidencia,
+          pageNumber: achado.pageNumber,
+          emDestaque,
+        },
+      }),
+    );
+
+    const rotulos: Node<RotuloDoCanvasData>[] = layout.topoSemPagina
+      ? [
+          {
+            id: "rotulo-sem-pagina",
+            type: "rotulo",
+            position: { x: layout.topoSemPagina.x, y: layout.topoSemPagina.y - 30 },
+            data: {
+              texto: `Sem página localizada (${grafo.unplaced.length})`,
+              ajuda: "A auditoria apontou estes achados sem dizer em que página estão.",
+            },
+          },
+        ]
+      : [];
+
+    return [...paginas, ...cards, ...rotulos];
+  }, [grafo, layout, pdfUrl, emDestaque]);
+
+  const edges = useMemo<Edge[]>(
+    () =>
+      grafo.findingNodes.map((achado) => {
+        const aceso = !emDestaque || emDestaque === achado.id;
+        return {
+          id: `e-${achado.id}`,
+          source: idDaPagina(achado.pageNumber as number),
+          target: idDoAchado(achado.id),
+          style: {
+            stroke: COR_DA_LINHA[achado.severity],
+            strokeWidth: emDestaque === achado.id ? 2 : 1,
+            opacity: aceso ? 0.8 : 0.15,
+          },
+        };
+      }),
+    [grafo, emDestaque],
+  );
+
+  const acender: NodeMouseHandler = (_, node) => {
+    const dados = node.data as { achadoId?: string };
+    if (dados.achadoId) setEmDestaque(dados.achadoId);
+  };
+  const apagar = () => setEmDestaque(null);
+
+  if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <p className="text-sm text-muted-foreground">
-          {grafo.findingNodes.length === 0 && grafo.unplaced.length === 0
-            ? "Nenhum achado para mostrar no documento."
-            : "Os achados desta auditoria não trazem página — veja o parecer."}
+          Nenhum achado para mostrar no documento.
         </p>
       </div>
     );
@@ -107,7 +175,10 @@ function CanvasInterno({
 
       <ReactFlow
         nodes={nodes}
+        edges={edges}
         nodeTypes={nodeTypes}
+        onNodeMouseEnter={acender}
+        onNodeMouseLeave={apagar}
         colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.2 }}
