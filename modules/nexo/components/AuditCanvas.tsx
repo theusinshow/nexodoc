@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 
 import type { AuditReport } from "@/lib/audit-report";
 import { buildAuditGraph } from "@/server/nexo/audit/build-audit-graph";
+import { colunasDaGrade } from "../lib/layout-canvas";
 import {
   MemorialPageNode,
   LARGURA_PAGINA,
@@ -31,7 +32,6 @@ import {
 const nodeTypes = { paginaMemorial: MemorialPageNode };
 
 /** Grade: a página é 3/4, então o passo vertical carrega a altura + o rodapé. */
-const COLUNAS = 4;
 const PASSO_X = LARGURA_PAGINA + 40;
 const PASSO_Y = Math.round(LARGURA_PAGINA * (4 / 3)) + 70;
 
@@ -46,10 +46,16 @@ function CanvasInterno({
 
   const nodes = useMemo<Node<MemorialPageNodeData>[]>(() => {
     const porId = new Map(grafo.findingNodes.map((f) => [f.id, f]));
+    /*
+     * Colunas pela RAIZ da quantidade, como a grade das folhas. Com 4 colunas
+     * fixas, um memorial com achado em 122 páginas virava uma torre de 31 linhas
+     * que o enquadramento não fechava — medido em shot-audit-canvas-escala.mjs.
+     */
+    const colunas = colunasDaGrade(grafo.pageNodes.length);
     return grafo.pageNodes.map((pagina, i) => ({
       id: `p${pagina.pageNumber}`,
       type: "paginaMemorial",
-      position: { x: (i % COLUNAS) * PASSO_X, y: Math.floor(i / COLUNAS) * PASSO_Y },
+      position: { x: (i % colunas) * PASSO_X, y: Math.floor(i / colunas) * PASSO_Y },
       data: {
         pdfUrl,
         pageNumber: pagina.pageNumber,
@@ -105,7 +111,13 @@ function CanvasInterno({
         colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
+        /*
+         * O piso do zoom é o que decide se a vista cabe: com 0.2, o pior caso
+         * (achado em quase toda página) ficava com 78 nós fora do quadro. Quem
+         * quiser ler uma página aproxima; quem abre precisa ver o tamanho do
+         * problema.
+         */
+        minZoom={0.08}
         maxZoom={2}
         nodesConnectable={false}
         nodesDraggable={false}
