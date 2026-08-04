@@ -305,6 +305,58 @@ try {
   check("e a pilha continua contando as ocorrências", /×2/.test(await page.locator("body").innerText()));
   await page.emulateMedia({ reducedMotion: "no-preference" });
 
+  // --- O parecer por cima, sem largar o documento ---------------------------
+  const miniaturasAntes = await page.locator("canvas.react-pdf__Page__canvas").count();
+  await page.getByRole("button", { name: /Ver parecer completo/i }).click();
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/c6-parecer-no-drawer.png` });
+
+  const drawer = page.getByRole("dialog", { name: /Parecer completo/i });
+  check("o drawer abre com o parecer", (await drawer.count()) === 1);
+  check(
+    "e traz o parecer de verdade, não um resumo",
+    /RESULTADO DA AUDITORIA|Centro Comunitário Primeira Linha/i.test(await drawer.innerText()),
+  );
+
+  /*
+   * A razão de o drawer existir: ler o parecer NÃO pode custar as miniaturas.
+   * Trocar de vista pelo chip desmonta o canvas e refaz todas — com 122
+   * páginas seriam ~13s a cada consulta, e o enquadramento se perde junto.
+   */
+  const miniaturasComDrawer = await page.locator("canvas.react-pdf__Page__canvas").count();
+  check(
+    "abrir o parecer não desmonta o documento",
+    miniaturasComDrawer === miniaturasAntes && miniaturasAntes === ACHADOS.length,
+    `${miniaturasAntes} → ${miniaturasComDrawer}`,
+  );
+
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  check("Esc fecha o parecer", (await drawer.count()) === 0);
+  check(
+    "e o documento continua lá, intacto",
+    (await page.locator("canvas.react-pdf__Page__canvas").count()) === ACHADOS.length,
+  );
+
+  // --- O custo de sair da vista para ler o parecer --------------------------
+  /*
+   * O chip TROCA a vista: o canvas desmonta e, na volta, cada miniatura é
+   * refeita do zero. Medido aqui para o drawer não ser opinião.
+   */
+  const miniaturas = page.locator("canvas.react-pdf__Page__canvas");
+  await page.getByRole("button", { name: /^Parecer$/i }).first().click();
+  await page.waitForTimeout(600);
+  const durante = await miniaturas.count();
+  const t1 = Date.now();
+  await page.getByRole("button", { name: /No documento/i }).first().click();
+  await miniaturas.first().waitFor({ timeout: 30000 }).catch(() => {});
+  while (Date.now() - t1 < 30000 && (await miniaturas.count()) < ACHADOS.length) {
+    await page.waitForTimeout(200);
+  }
+  console.log(
+    `       ida e volta pelo chip: ${((Date.now() - t1) / 1000).toFixed(1)}s para refazer ${await miniaturas.count()} miniaturas (no parecer sobravam ${durante})`,
+  );
+
   check("nenhum erro de runtime", erros.length === 0, erros[0] ?? "");
 } catch (e) {
   falhas++;

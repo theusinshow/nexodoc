@@ -110,6 +110,26 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const [noDocumento, setNoDocumento] = useState(false);
   const podeVerNoDocumento = Boolean(report && memorialPdf);
 
+  /*
+   * O MESMO parecer nas duas vistas: inteiro quando é a vista, e dentro do
+   * drawer quando o canvas está na frente. Escrito uma vez só — duas cópias
+   * divergiriam no primeiro ajuste de props.
+   */
+  const parecer = report ? (
+    <AuditResult
+      content={salvo?.texto ?? ""}
+      report={report}
+      auditId={salvo?.auditId ?? undefined}
+      pdfSources={memorialPdf ? [memorialPdf] : []}
+      resolvidos={resolvidosDesta}
+      onToggleResolvido={
+        salvo?.auditId
+          ? (refId, resolvido) => marcarAchadoResolvido(salvo.auditId!, refId, resolvido)
+          : undefined
+      }
+    />
+  ) : null;
+
   return (
     <div className="relative flex h-full w-full flex-col">
       {/*
@@ -192,24 +212,10 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
           ) : report ? (
             noDocumento ? (
               <div className="h-full">
-                <AuditCanvas report={report} pdfUrl={memorialPdf?.url} />
+                <AuditCanvas report={report} pdfUrl={memorialPdf?.url} parecer={parecer} />
               </div>
             ) : (
-            <div className="h-full overflow-y-auto">
-              <AuditResult
-                content={salvo?.texto ?? ""}
-                report={report}
-                auditId={salvo?.auditId ?? undefined}
-                pdfSources={memorialPdf ? [memorialPdf] : []}
-                resolvidos={resolvidosDesta}
-                onToggleResolvido={
-                  salvo?.auditId
-                    ? (refId, resolvido) =>
-                        marcarAchadoResolvido(salvo.auditId!, refId, resolvido)
-                    : undefined
-                }
-              />
-            </div>
+              <div className="h-full overflow-y-auto">{parecer}</div>
             )
           ) : null
         ) : (

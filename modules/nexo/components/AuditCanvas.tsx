@@ -10,7 +10,7 @@
  * nem posição. Só desenha.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -21,7 +21,9 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { FileText, X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import type { AuditReport } from "@/lib/audit-report";
 import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { layoutDaAuditoria } from "../lib/layout-auditoria";
@@ -47,8 +49,32 @@ const idDaPagina = (pagina: number) => `p${pagina}`;
 const idDoAchado = (achado: string) => `a-${achado}`;
 const idDaPilha = (grupo: string) => `g-${grupo}`;
 
-function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: string }) {
+function CanvasInterno({
+  report,
+  pdfUrl,
+  parecer,
+}: {
+  report: AuditReport;
+  pdfUrl?: string;
+  parecer?: ReactNode;
+}) {
   const grafo = useMemo(() => buildAuditGraph(report), [report]);
+  /*
+   * O parecer completo entra POR CIMA, não no lugar: trocar de vista desmonta o
+   * canvas, e na volta cada miniatura é refeita do zero — 1,1s com 5 páginas,
+   * e o enquadramento se perde junto (medido em shot-audit-canvas.mjs). Quem
+   * confere um achado no texto e volta ao documento faz isso o tempo todo.
+   */
+  const [parecerAberto, setParecerAberto] = useState(false);
+
+  useEffect(() => {
+    if (!parecerAberto) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setParecerAberto(false);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [parecerAberto]);
   /*
    * Os achados acesos. Mora aqui, e não em CSS, porque o par a acender é
    * dinâmico: qual página combina com qual card só se sabe do grafo. É uma
@@ -214,6 +240,51 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
         </span>
       </div>
 
+      {parecer && (
+        <>
+          <div className="absolute right-2 top-2 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setParecerAberto((v) => !v)}
+              aria-expanded={parecerAberto}
+            >
+              <FileText aria-hidden />
+              {parecerAberto ? "Fechar o parecer" : "Ver parecer completo"}
+            </Button>
+          </div>
+
+          {parecerAberto && (
+            <div
+              role="dialog"
+              aria-label="Parecer completo da auditoria"
+              /*
+               * `max-w-[85%]`: o palco é estreito (o chat divide a tela), e a
+               * 520px o drawer cobria tudo — lido como troca de vista, que é
+               * justamente o que ele existe para evitar. Sobrando uma faixa do
+               * documento, fica claro que ele continua ali, intacto.
+               */
+              className="absolute inset-y-0 right-0 z-20 flex w-[520px] max-w-[85%] flex-col border-l border-border bg-card shadow-[var(--shadow-overlay)]"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                  Parecer completo
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setParecerAberto(false)}
+                  aria-label="Fechar o parecer"
+                >
+                  <X aria-hidden />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">{parecer}</div>
+            </div>
+          )}
+        </>
+      )}
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -243,7 +314,12 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
   );
 }
 
-export function AuditCanvas(props: { report: AuditReport; pdfUrl?: string }) {
+export function AuditCanvas(props: {
+  report: AuditReport;
+  pdfUrl?: string;
+  /** O parecer textual, montado só quando o drawer abre. */
+  parecer?: ReactNode;
+}) {
   return (
     <ReactFlowProvider>
       <CanvasInterno {...props} />
