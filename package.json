@@ -34,6 +34,8 @@
     "test:nexo:stream": "node scripts/test-nexo-stream.ts",
     "test:nexo:usage": "node scripts/test-nexo-usage.ts",
     "test:nexo:folhas": "node scripts/test-nexo-folhas.ts",
+    "test:nexo:texto-cad": "node scripts/test-nexo-texto-cad.ts",
+    "test:nexo:selo-regiao": "node scripts/test-nexo-selo-regiao.ts",
     "test:nexo:totais": "node scripts/test-nexo-totais.ts",
     "test:nexo:identidade": "node scripts/test-nexo-identidade.ts",
     "test:nexo:saudacao": "node scripts/test-nexo-saudacao.ts",

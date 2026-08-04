@@ -118,9 +118,13 @@ O campo CONTEÚDO sempre existe no selo.
 
 Para cliente, obra, fase e título da seção, use apenas texto presente na página.
 Não reescreva textos.
-Não corrija ortografia.
 Não resuma.
 Não complete informação ausente.
+
+A IMAGEM É A AUTORIDADE quando ela discordar do texto extraído.
+O texto de algumas pranchas vem de fonte sem mapa de caracteres e é recuperado antes de chegar aqui: as letras saem certas, mas os ACENTOS podem estar trocados (por exemplo "CHAPECI" ou "CHAPECÏ" onde a imagem mostra "CHAPECÓ", "REVITALIZAdO" onde a imagem mostra "REVITALIZAÇÃO"). Nesses campos, escreva o que a IMAGEM mostra, com a acentuação correta.
+Fora dos acentos, não corrija ortografia.
+Trechos marcados [ilegivel] não puderam ser recuperados: não os copie, e leia aquele campo pela imagem. Se nem pela imagem der, retorne null.
 Copie o campo CONTEÚDO exatamente como aparece, exceto por juntar quebras de linha.
 O campo CONTEÚDO/DESCRIÇÃO deve conter apenas a descrição técnica da prancha.
 Não inclua rótulos ou valores de campos vizinhos do carimbo no CONTEÚDO, como IMP, DATA, ESCALA, REV, REVISÃO, VISTO, DESENHO, FOLHA, PRANCHA, ARQUIVO, RESPONSÁVEL ou CLIENTE.
@@ -153,6 +157,14 @@ type ExtractionMetadata = {
   pageNumber?: number;
   cropMode?: string;
   source?: "text" | "visual";
+  /**
+   * Quantos rótulos do carimbo o cliente achou para MEDIR o recorte do selo.
+   * Zero significa que ele caiu no quadrante de reserva — e é exatamente essa
+   * a leitura que merece desconfiança quando um campo sair errado. Sem o número
+   * na telemetria, não há como saber, depois do fato, se a folha foi lida do
+   * carimbo ou de um pedaço de desenho.
+   */
+  ancoras?: number;
 };
 
 type ExtractionTrackingContext = {
@@ -237,9 +249,12 @@ function buildTextPrompt(pdfText?: string) {
 
   return `${systemPrompt}
 
-O conteúdo abaixo foi extraído do PDF e pode estar fora de ordem por causa da diagramação.
+O conteúdo abaixo foi extraído do PDF em ORDEM DE LEITURA: uma linha do carimbo por linha de texto, da esquerda para a direita.
+A seção REGIÃO DO SELO é o recorte do carimbo — é dela que saem PRANCHA, ARQUIVO e CONTEÚDO, e é ela que a imagem mostra.
+A seção PÁGINA COMPLETA vem depois e serve só para os campos que às vezes moram fora do carimbo (órgão, obra, fase).
+Um rótulo e o seu valor podem cair na mesma linha ("ESCALA: INDICADA DATA: JUNHO/2026 ARQUIVO: 040_26_est_imp_001_a") ou o valor pode vir na linha seguinte ao rótulo.
 Identifique os valores associados aos rótulos do selo sem usar o nome do arquivo enviado.
-Para cliente, secretaria, obra, fase e título da seção, procure também no cabeçalho, rodapé e linhas com LISTA DE DOCUMENTOS. A secretaria é uma linha própria do cabeçalho (ex.: SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES), diferente da prefeitura/órgão.
+A secretaria é uma linha própria do cabeçalho (ex.: SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES), diferente da prefeitura/órgão.
 
 TEXTO EXTRAÍDO:
 ${pdfText}`;
@@ -256,6 +271,7 @@ function buildExtractionUsageMetadata(
     pageNumber: metadata.pageNumber,
     cropMode: metadata.cropMode,
     source: metadata.source ?? (hasImage ? "visual" : "text"),
+    ancoras: metadata.ancoras,
     hasImage,
     pdfTextChars,
     ...extra,

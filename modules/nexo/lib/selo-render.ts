@@ -2,17 +2,44 @@
  * Leitura de selo (carimbo) de pranchas — CLIENT-ONLY (usa canvas do browser).
  *
  * Espelha a logica provada do modulo LD (components/ld/ld-workspace.tsx): renderiza
- * o recorte do selo (canto inferior direito) + monta o texto posicional, e POSTa
- * para a rota existente /api/ld/extract-stamp (que ja faz auth + OpenAI->MiMo +
- * telemetria). Mantido isolado de proposito: o Nexo nao depende de refatorar o LD.
+ * o recorte do selo + monta o texto posicional, e POSTa para a rota existente
+ * /api/ld/extract-stamp (que ja faz auth + OpenAI->MiMo + telemetria). Mantido
+ * isolado de proposito: o Nexo nao depende de refatorar o LD.
+ *
+ * O QUE VAI AO MODELO é decidido por três módulos puros, e não mais por
+ * constantes chutadas:
+ *
+ *   - `selo-regiao`  onde fica o carimbo (medido pelas âncoras) e o que a
+ *                    página é (prancha, capa, índice);
+ *   - `texto-cad`    o texto de fonte quebrada, recuperado antes de sair daqui;
+ *   - `textoPorPosicao`  a ordem de leitura, linha a linha.
+ *
+ * Antes, o recorte fixo entregava 228 itens de tabela de lajes rotulados como
+ * "região do selo", com o carimbo perdido no meio; agora entrega ~33, que são o
+ * carimbo. A medida está provada em `scripts/test-nexo-selo-regiao.ts` e nos
+ * arquivos reais de `docs/samples/040-26`.
  */
 
-// Recorte normalizado do selo (canto inf. direito), escala de render e limites.
-const SELO_CROP = { x: 0.52, y: 0.5, width: 0.47, height: 0.48 };
+import {
+  acharCaixaDoSelo,
+  classificarPagina,
+  textoPorPosicao,
+  valeLerComoPrancha,
+  type Caixa,
+  type ItemPosicionado,
+  type TipoDePagina,
+} from "@/server/nexo/selo-regiao";
+import { repararTextoCad } from "@/server/nexo/texto-cad";
+
 const RENDER_SCALE = 2;
 const MAX_IMAGE_EDGE = 2400;
 const MAX_TEXT_CHARS = 24000;
-const REQUEST_TIMEOUT_MS = 30000;
+/**
+ * Prancha A0 pesa para renderizar e o modelo às vezes demora. Trinta segundos
+ * derrubavam leitura boa, e folha derrubada SUMIA do conjunto sem erro — era o
+ * "pulou prancha". Ver `postExtractStamp`, que ainda tenta de novo.
+ */
+const REQUEST_TIMEOUT_MS = 60000;
 const MAX_CONCURRENT = 3;
 
 export interface StampExtraction {
@@ -38,8 +65,44 @@ export interface SeloResult {
   pageCount: number;
   extraction: StampExtraction | null;
   error?: string;
+  /**
+   * A página foi PULADA de propósito: não é prancha (capa, separatriz, índice).
+   *
+   * Diferente de `error`, e a diferença importa na tela: pular capa é o
+   * comportamento certo e não pede nada de ninguém; falhar ao ler uma prancha
+   * pede uma segunda tentativa. Sem distinguir os dois, ou a capa vira alarme,
+   * ou a falha vira silêncio — e o silêncio é o defeito que se está consertando.
+   */
+  ignorada?: TipoDePagina;
   /** Tokens de IA gastos nesta leitura de selo (indicador de consumo). */
   usage?: number;
+}
+
+/**
+ * O selo de uma folha que NÃO pôde ser lida: todos os campos vazios.
+ *
+ * Existe para a folha continuar existindo. Antes, a página cuja leitura falhava
+ * era filtrada fora e sumia — a conversa dizia "Li 14 folha(s)" de um PDF de 16
+ * e ninguém ficava sabendo das duas. Com a casca vazia, a folha aparece no
+ * canvas, a contagem fecha, o número dela ainda sai do nome do arquivo e da
+ * ordem da página, e quem estiver olhando pode corrigir o resto à mão — que é
+ * exatamente o que o popover "Corrigir" já sabe fazer.
+ */
+export function seloNaoLido(): StampExtraction {
+  return {
+    disciplina: null,
+    folha: null,
+    total: null,
+    numeroFolha: null,
+    arquivo: null,
+    conteudo: null,
+    cliente: null,
+    secretaria: null,
+    obra: null,
+    fase: null,
+    tituloSecao: null,
+    confianca: "baixa",
+  };
 }
 
 type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -58,13 +121,25 @@ async function loadPdfjs(): Promise<PdfjsModule> {
   return pdfjsPromise;
 }
 
-/** Renderiza a pagina em escala 2, recorta a regiao do selo e devolve um JPEG data URL. */
-async function renderSeloCrop(page: {
-  getViewport: (o: { scale: number }) => { width: number; height: number };
-  render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => {
-    promise: Promise<void>;
-  };
-}): Promise<string> {
+/**
+ * Renderiza a pagina em escala 2, recorta a CAIXA DO CARIMBO e devolve um JPEG
+ * data URL.
+ *
+ * A caixa chega pronta, medida pelas âncoras do texto. Com o recorte fixo de
+ * antes, o carimbo ocupava cerca de um sexto da imagem enviada — o modelo
+ * gastava resolução com desenho, e o campo de numeração, que é onde ele mais
+ * erra, chegava minúsculo. Recortando a caixa medida, a mesma aresta máxima de
+ * pixels cobre só o carimbo.
+ */
+async function renderSeloCrop(
+  page: {
+    getViewport: (o: { scale: number }) => { width: number; height: number };
+    render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => {
+      promise: Promise<void>;
+    };
+  },
+  caixa: Caixa,
+): Promise<string> {
   const viewport = page.getViewport({ scale: RENDER_SCALE });
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = Math.ceil(viewport.width);
@@ -73,15 +148,17 @@ async function renderSeloCrop(page: {
   if (!pageCtx) throw new Error("Canvas 2D indisponivel.");
   await page.render({ canvasContext: pageCtx, viewport }).promise;
 
-  const cropX = Math.floor(SELO_CROP.x * pageCanvas.width);
-  const cropY = Math.floor(SELO_CROP.y * pageCanvas.height);
-  const cropW = Math.min(
-    Math.ceil(SELO_CROP.width * pageCanvas.width),
-    pageCanvas.width - cropX,
+  const cropX = Math.floor(caixa.x0 * pageCanvas.width);
+  const cropY = Math.floor(caixa.y0 * pageCanvas.height);
+  // O arredondamento pode estourar a borda em 1px; `drawImage` com origem fora
+  // do canvas devolve imagem vazia, e uma imagem vazia é uma folha ilegível.
+  const cropW = Math.max(
+    1,
+    Math.min(Math.ceil((caixa.x1 - caixa.x0) * pageCanvas.width), pageCanvas.width - cropX),
   );
-  const cropH = Math.min(
-    Math.ceil(SELO_CROP.height * pageCanvas.height),
-    pageCanvas.height - cropY,
+  const cropH = Math.max(
+    1,
+    Math.min(Math.ceil((caixa.y1 - caixa.y0) * pageCanvas.height), pageCanvas.height - cropY),
   );
 
   const longest = Math.max(cropW, cropH);
@@ -113,7 +190,11 @@ export async function recortarSelo(file: File, pageNumber: number): Promise<stri
   const doc = await pdfjs.getDocument({ data }).promise;
   try {
     const page = await doc.getPage(pageNumber);
-    return await renderSeloCrop(page as never);
+    // A caixa é medida aqui também, e pelo mesmo caminho: é o que garante que a
+    // conferência de identidade julgue exatamente o pedaço de papel de onde
+    // saíram os dados que ela confere.
+    const { caixa } = await analisarPagina(page as never);
+    return await renderSeloCrop(page as never, caixa);
   } finally {
     await doc.destroy();
   }
@@ -122,48 +203,132 @@ export async function recortarSelo(file: File, pageNumber: number): Promise<stri
 interface TextItemLike {
   str?: string;
   transform?: number[];
+  fontName?: string;
 }
 
-/** Texto posicional das regioes do selo (do mais especifico ao geral), cap 24000. */
-async function buildSeloText(page: {
+interface PaginaPdf {
   getViewport: (o: { scale: number }) => {
     width: number;
     height: number;
     convertToViewportPoint: (x: number, y: number) => number[];
   };
   getTextContent: () => Promise<{ items: unknown[] }>;
-}): Promise<string> {
+}
+
+/** O que se sabe de uma página ANTES de gastar uma chamada de modelo com ela. */
+export interface PaginaAnalisada {
+  tipo: TipoDePagina;
+  caixa: Caixa;
+  /** Quantas âncoras do carimbo foram achadas; 0 = a caixa é a de reserva. */
+  ancoras: number;
+  /** O texto do carimbo, em ordem de leitura, pronto para o modelo. */
+  texto: string;
+}
+
+/** Aviso que acompanha o texto quando houve fonte quebrada nesta página. */
+const AVISO_RECUPERADO =
+  "AVISO: parte do texto desta pagina veio de fonte sem mapa de caracteres e foi RECUPERADA por deslocamento. " +
+  "As letras estao certas; os ACENTOS podem estar trocados (ex.: \"CHAPECI\" onde se le \"CHAPECO\", \"REVITALIZAdO\" onde se le \"REVITALIZACAO\"). " +
+  "Onde o texto discordar da imagem, vale a IMAGEM. Trechos marcados [ilegivel] nao puderam ser recuperados: leia esse campo pela imagem.";
+
+/**
+ * Lê a página SEM gastar modelo: recupera o texto, mede a caixa do carimbo,
+ * classifica o papel e monta o texto em ordem de leitura.
+ *
+ * Tudo aqui é determinístico e barato — é o que permite decidir se vale a pena
+ * chamar o modelo antes de chamá-lo.
+ */
+export async function analisarPagina(page: PaginaPdf): Promise<PaginaAnalisada> {
   const viewport = page.getViewport({ scale: 1 });
   const content = await page.getTextContent();
   const w = viewport.width;
   const h = viewport.height;
 
-  const selo: string[] = [];
-  const ampliada: string[] = [];
-  const completa: string[] = [];
-
+  const brutos: { item: TextItemLike; texto: string; fonte: string }[] = [];
   for (const raw of content.items) {
     const item = raw as TextItemLike;
     const str = typeof item.str === "string" ? item.str.trim() : "";
     if (!str || !item.transform) continue;
-    const [vx, vy] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-    const nx = vx / w;
-    const ny = vy / h;
-    completa.push(str);
-    if (nx >= 0.45 && ny >= 0.45) ampliada.push(str);
-    if (nx >= 0.55 && ny >= 0.55) selo.push(str);
+    brutos.push({ item, texto: item.str as string, fonte: item.fontName ?? "" });
   }
 
-  const text = [
-    `REGIAO DO SELO:\n${selo.join(" ")}`,
-    `REGIAO AMPLIADA:\n${ampliada.join(" ")}`,
-    `PAGINA COMPLETA:\n${completa.join(" ")}`,
-  ].join("\n\n");
+  // O reparo vem PRIMEIRO: as âncoras do carimbo e o código da prancha podem
+  // estar dentro do que a fonte quebrada escreveu.
+  const { textos, marcaveis, fontesQuebradas } = repararTextoCad(brutos);
+  const marcados = new Set(marcaveis);
 
-  return text.slice(0, MAX_TEXT_CHARS);
+  const itens: ItemPosicionado[] = brutos.map((b, i) => {
+    const [vx, vy] = viewport.convertToViewportPoint(
+      b.item.transform![4],
+      b.item.transform![5],
+    );
+    return {
+      texto: marcados.has(i) ? "[ilegivel]" : textos[i].trim(),
+      x: vx / w,
+      y: vy / h,
+    };
+  });
+
+  const tipo = classificarPagina({ largura: w, altura: h, itens });
+  const { caixa, ancoras } = acharCaixaDoSelo(itens);
+
+  /*
+   * Duas regiões, e nesta ordem. O SELO é a caixa medida — é dele que saem
+   * PRANCHA, ARQUIVO e CONTEÚDO. A PÁGINA COMPLETA fica depois porque órgão,
+   * obra e fase às vezes moram no cabeçalho, fora do carimbo; e fica DEPOIS
+   * para que, se o corte por tamanho vier, ele coma o geral e não o específico.
+   */
+  const partes = [
+    ...(fontesQuebradas.length > 0 ? [AVISO_RECUPERADO] : []),
+    `REGIAO DO SELO${ancoras > 0 ? " (medida pelos rotulos do carimbo)" : " (aproximada: nenhum rotulo encontrado)"}:\n${textoPorPosicao(itens, caixa)}`,
+    `PAGINA COMPLETA:\n${textoPorPosicao(itens, { x0: 0, y0: 0, x1: 1, y1: 1 })}`,
+  ];
+
+  return { tipo, caixa, ancoras, texto: partes.join("\n\n").slice(0, MAX_TEXT_CHARS) };
 }
 
+/**
+ * Falha que vale uma segunda tentativa: timeout, rede caída, indisponibilidade
+ * momentânea do provedor. Teto estourado (402) e não-autenticado (401) não
+ * entram — tentar de novo só gasta tempo e dá a mesma resposta.
+ */
+function valeTentarDeNovo(erro: unknown): boolean {
+  if (erro instanceof DOMException && erro.name === "AbortError") return true;
+  const msg = erro instanceof Error ? erro.message : "";
+  return /Erro (429|500|502|503|504)|Failed to fetch|NetworkError|load failed/i.test(msg);
+}
+
+/**
+ * Uma folha que falha ao ler não pode SUMIR — era o "pulou prancha". A defesa
+ * tem duas camadas, e as duas são necessárias:
+ *
+ *   1. AQUI, uma segunda tentativa. Prancha A0 com três leituras simultâneas
+ *      esbarrava no timeout de 30s, e um esbarrão custava a folha inteira.
+ *   2. Em `extractSeloFromPage`, a folha entra no conjunto MESMO ASSIM, com o
+ *      erro à mostra — porque a segunda tentativa também pode falhar, e aí a
+ *      folha tem de aparecer na tela para alguém decidir o que fazer.
+ */
+const TENTATIVAS = 2;
+
 async function postExtractStamp(
+  imageDataUrl: string,
+  pdfText: string,
+  metadata: Record<string, unknown>,
+  conversationId?: string | null,
+): Promise<{ extraction: StampExtraction; usage: number }> {
+  let ultimo: unknown;
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    try {
+      return await postExtractStampUmaVez(imageDataUrl, pdfText, metadata, conversationId);
+    } catch (err) {
+      ultimo = err;
+      if (tentativa === TENTATIVAS || !valeTentarDeNovo(err)) break;
+    }
+  }
+  throw ultimo;
+}
+
+async function postExtractStampUmaVez(
   imageDataUrl: string,
   pdfText: string,
   metadata: Record<string, unknown>,
@@ -240,15 +405,22 @@ async function extractSeloFromPage(
 ): Promise<SeloResult> {
   try {
     const page = await doc.getPage(pageNumber);
-    const [imageDataUrl, pdfText] = await Promise.all([
-      renderSeloCrop(page as never),
-      buildSeloText(page as never),
-    ]);
-    const { extraction, usage } = await postExtractStamp(imageDataUrl, pdfText, {
+    // A análise é determinística e barata, e decide se vale gastar o modelo:
+    // capa, separatriz e índice saem daqui sem custar uma chamada.
+    const { tipo, caixa, ancoras, texto } = await analisarPagina(page as never);
+    if (!valeLerComoPrancha(tipo)) {
+      return { fileName: file.name, pageNumber, pageCount, extraction: null, ignorada: tipo };
+    }
+
+    const imageDataUrl = await renderSeloCrop(page as never, caixa);
+    const { extraction, usage } = await postExtractStamp(imageDataUrl, texto, {
       fileName: file.name,
       pageNumber,
       source: "visual",
       operation: "nexo-selo",
+      // Telemetria do que mudou: dá para ver, na fatura, se a caixa foi medida
+      // ou se caiu na de reserva — e em quais arquivos.
+      ancoras,
     }, conversationId);
     return { fileName: file.name, pageNumber, pageCount, extraction, usage };
   } catch (err) {

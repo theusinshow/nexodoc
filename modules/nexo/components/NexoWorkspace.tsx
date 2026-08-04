@@ -9,6 +9,7 @@ import {
   extractSelosFromFiles,
   extractSeloFromImage,
   chaveDaFolha,
+  seloNaoLido,
   type SeloResult,
 } from "../lib/selo-render";
 import { summarizeSelos } from "../lib/agent-context";
@@ -205,8 +206,24 @@ function NexoWorkspaceInner({
   const selosLidos = useMemo(
     () =>
       seloResults
-        .filter((r) => r.extraction)
-        .map((r) => ({ fileName: r.fileName, pageNumber: r.pageNumber, ...r.extraction! })),
+        /*
+         * A folha que FALHOU entra assim mesmo, com o selo vazio.
+         *
+         * Filtrá-la fora era o "pulou prancha": a página cuja leitura caía no
+         * timeout desaparecia do conjunto, sem erro na tela, e a conversa
+         * anunciava "Li 14 folha(s)" de um PDF de 16. Aqui a folha existe, a
+         * contagem fecha, e o popover "Corrigir" resolve o resto.
+         *
+         * A página IGNORADA continua de fora, e é o oposto: capa, separatriz e
+         * índice não são folha nenhuma, e inventar linha para elas na LD seria
+         * o defeito na direção contrária.
+         */
+        .filter((r) => r.extraction ?? (r.error && !r.ignorada))
+        .map((r) => ({
+          fileName: r.fileName,
+          pageNumber: r.pageNumber,
+          ...(r.extraction ?? seloNaoLido()),
+        })),
     [seloResults],
   );
 
@@ -444,7 +461,19 @@ function NexoWorkspaceInner({
   }
 
   // Intake conversacional das PRANCHAS: o anexo vira mensagem + opções clicáveis.
-  function appendSelosIntake(okSelos: SeloResult[], files: File[], hasMemorial: boolean) {
+  function appendSelosIntake(
+    okSelos: SeloResult[],
+    files: File[],
+    hasMemorial: boolean,
+    /**
+     * O que NÃO virou folha lida. Chega separado porque a mensagem é o único
+     * lugar em que o engenheiro fica sabendo — e antes ela contava só os
+     * acertos: "Li 14 folha(s)" de um PDF de 16, sem uma palavra sobre as
+     * outras duas. Uma contagem que só conta o que deu certo é a forma mais
+     * cara de esconder um defeito.
+     */
+    naoLidas: { falhas: SeloResult[]; ignoradas: SeloResult[] } = { falhas: [], ignoradas: [] },
+  ) {
     const ctx = summarizeSelos(
       okSelos.map((r) => ({
         fileName: r.fileName,
@@ -473,6 +502,29 @@ function NexoWorkspaceInner({
       suggestions.push({ label: "Auditar o memorial", value: "audita o memorial", commit: "send" });
     }
 
+    /*
+     * As duas ressalvas dizem coisas diferentes e por isso não se juntam. A
+     * capa pulada é o comportamento CERTO e só precisa ser transparente; a
+     * folha que falhou é um problema, ela está no canvas em branco, e a frase
+     * tem de dizer o que fazer com ela.
+     */
+    const ressalvas: string[] = [];
+    if (naoLidas.ignoradas.length > 0) {
+      ressalvas.push(
+        `${naoLidas.ignoradas.length} página(s) não são prancha (capa, separatriz ou índice) e ficaram de fora`,
+      );
+    }
+    if (naoLidas.falhas.length > 0) {
+      const quais = naoLidas.falhas
+        .slice(0, 3)
+        .map((r) => `${r.fileName} p.${r.pageNumber}`)
+        .join(", ");
+      ressalvas.push(
+        `${naoLidas.falhas.length} folha(s) não deram para ler (${quais}${naoLidas.falhas.length > 3 ? " …" : ""}) — estão no canvas em branco, dá para corrigir à mão ou tentar de novo`,
+      );
+    }
+    const ressalva = ressalvas.length > 0 ? ` ${ressalvas.join("; ")}.` : "";
+
     start();
     conv.appendMessage({
       id: crypto.randomUUID(),
@@ -482,7 +534,7 @@ function NexoWorkspaceInner({
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "assistant",
-      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}. O que você quer que eu faça?`,
+      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}.${ressalva} O que você quer que eu faça?`,
       slotRequest: {
         slotId: "intake",
         taskKind: "ld",
@@ -748,8 +800,14 @@ function NexoWorkspaceInner({
         // contexto, nem como mensagem, nem como selo.
         if (!atual()) return;
         const okSelos = collected.filter((r) => r.extraction);
-        if (okSelos.length > 0) {
-          appendSelosIntake(okSelos, [...pranchas, ...images], Boolean(memorial));
+        const naoLidas = {
+          falhas: collected.filter((r) => !r.extraction && !r.ignorada),
+          ignoradas: collected.filter((r) => r.ignorada),
+        };
+        // Basta UMA folha ter falhado para a mensagem valer: o caso ruim é
+        // justamente o das zero leituras boas, em que antes não se dizia nada.
+        if (okSelos.length > 0 || naoLidas.falhas.length > 0) {
+          appendSelosIntake(okSelos, [...pranchas, ...images], Boolean(memorial), naoLidas);
         }
         /*
          * Vindo memorial junto das pranchas, ele TAMBÉM é classificado.
