@@ -21,9 +21,18 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { FileText, X } from "lucide-react";
+import { FileText, MapPin, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import {
+  COR_DA_SEVERIDADE,
+  MOLDURA_DE_SINAL,
+  PONTO_DE_SINAL,
+  statusDoVeredito,
+} from "@/lib/audit-status";
 import type { AuditReport } from "@/lib/audit-report";
 import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { layoutDaAuditoria } from "../lib/layout-auditoria";
@@ -37,12 +46,6 @@ const nodeTypes = {
   achado: FindingCardNode,
   pilha: RecurringStackNode,
   rotulo: RotuloDoCanvas,
-};
-
-const COR_DA_LINHA: Record<AuditSeverity, string> = {
-  critico: "var(--status-critical)",
-  tecnico: "var(--status-warning)",
-  editorial: "var(--muted-foreground)",
 };
 
 const idDaPagina = (pagina: number) => `p${pagina}`;
@@ -176,7 +179,7 @@ function CanvasInterno({
 
   const edges = useMemo<Edge[]>(() => {
     const estilo = (severity: AuditSeverity, aceso: boolean) => ({
-      stroke: COR_DA_LINHA[severity],
+      stroke: COR_DA_SEVERIDADE[severity],
       strokeWidth: aceso && acesos ? 2 : 1,
       opacity: aceso ? 0.8 : 0.15,
     });
@@ -216,10 +219,12 @@ function CanvasInterno({
 
   if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center">
-        <p className="text-sm text-muted-foreground">
-          Nenhum achado para mostrar no documento.
-        </p>
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={MapPin}
+          label="Nada a marcar no documento"
+          description="Esta vista mostra as páginas do memorial em que a auditoria encontrou algo. Como não há achados, não há o que marcar — o parecer completo continua no chip ao lado."
+        />
       </div>
     );
   }
@@ -228,15 +233,29 @@ function CanvasInterno({
     <div className="relative h-full w-full">
       {/*
         O veredito acompanha a vista: quem está olhando as páginas não devia ter
-        de voltar ao parecer pra saber se o documento pode ser emitido.
+        de voltar ao parecer pra saber se o documento pode ser emitido. Mesmo
+        vocabulário da tela textual — ponto de status e moldura de 1px, nunca o
+        emoji do relatório (DESIGN.md §11).
       */}
-      <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 rounded-md border border-border bg-card/90 px-2.5 py-1.5 shadow-[var(--shadow-panel)] backdrop-blur">
-        <span aria-hidden>{grafo.verdict.emoji}</span>
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
+      <div
+        className={cn(
+          // min-h-9 = a altura do botão compacto ao lado: os dois flutuam sobre
+          // o canvas na mesma faixa, e alturas diferentes desalinhavam a linha.
+          "pointer-events-none absolute left-2 top-2 z-10 flex min-h-9 items-center gap-2 rounded-md border px-3",
+          MOLDURA_DE_SINAL[statusDoVeredito(grafo.verdict)],
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn("size-2 shrink-0 rounded-full", PONTO_DE_SINAL[statusDoVeredito(grafo.verdict)])}
+        />
+        <span className="font-mono text-xs font-medium uppercase tracking-[0.05em]">
           {grafo.verdict.label}
         </span>
-        <span className="text-[11px] text-muted-foreground">
-          {grafo.pageNodes.length} página(s) com achado
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {grafo.pageNodes.length === 1
+            ? "1 página com achado"
+            : `${grafo.pageNodes.length} páginas com achado`}
         </span>
       </div>
 
@@ -270,14 +289,21 @@ function CanvasInterno({
                 <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                   Parecer completo
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setParecerAberto(false)}
-                  aria-label="Fechar o parecer"
-                >
-                  <X aria-hidden />
-                </Button>
+                {/* Só-ícone exige tooltip (DESIGN.md §7), mesmo sendo glifo
+                    universal. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setParecerAberto(false)}
+                      aria-label="Fechar o parecer"
+                    >
+                      <X aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Fechar o parecer (Esc)</TooltipContent>
+                </Tooltip>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">{parecer}</div>
             </div>

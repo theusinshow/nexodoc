@@ -17,9 +17,10 @@ import { colunasDaGrade } from "./layout-canvas.ts";
 export const LARGURA_PAGINA = 200;
 /** Miniatura 3/4 (200×267) + rodapé com o número da página + bordas. */
 export const ALTURA_PAGINA = 305;
-export const ALTURA_CARTAO = 72;
+/** Tipo + evidência em duas linhas + a página do achado, com respiro de 8px. */
+export const ALTURA_CARTAO = 92;
 /** Altura do card + respiro entre cards. */
-export const PASSO_CARTAO = 80;
+export const PASSO_CARTAO = 100;
 /** A pilha é mais alta que o card: as camadas empilhadas transbordam embaixo. */
 export const ALTURA_PILHA = 96;
 export const PASSO_PILHA = 116;

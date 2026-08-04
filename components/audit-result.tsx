@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
+import { MOLDURA_DE_SINAL, PONTO_DE_SINAL, statusDoVeredito } from "@/lib/audit-status";
 import {
   classifyFindingDiscipline,
   classifyFindingErrorType,
@@ -1038,16 +1039,10 @@ export function AuditResult({
         <div
           className={cn(
             // Borda 1px completa + tint de fundo (sem side-stripe, sem emoji),
-            // usando os tokens de status reais do sistema.
+            // usando os tokens de status reais do sistema. A tradução do
+            // veredito mora em lib/audit-status.ts — o canvas lê a mesma.
             "mb-5 flex flex-col gap-1 rounded-sm border px-4 py-3",
-            // ⚠️ = análise parcial. Sem este caso, o aviso caía no `else` e era
-            // pintado de VERDE — a cor de "liberado" — bem no estado em que o
-            // veredito diz para NÃO usar o resultado.
-            verdict.emoji === "🔴"
-              ? "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)]"
-              : verdict.emoji === "🟡" || verdict.emoji === "⚠️"
-                ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
-                : "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]",
+            MOLDURA_DE_SINAL[statusDoVeredito(verdict)],
           )}
         >
           <p className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -1055,11 +1050,7 @@ export function AuditResult({
               aria-hidden
               className={cn(
                 "size-2 shrink-0 rounded-full",
-                verdict.emoji === "🔴"
-                  ? "bg-[var(--status-critical)]"
-                  : verdict.emoji === "🟡" || verdict.emoji === "⚠️"
-                    ? "bg-[var(--status-warning)]"
-                    : "bg-[var(--status-ok)]",
+                PONTO_DE_SINAL[statusDoVeredito(verdict)],
               )}
             />
             {verdict.label}

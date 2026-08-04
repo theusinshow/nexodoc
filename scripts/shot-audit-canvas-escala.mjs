@@ -206,7 +206,7 @@ try {
 
   await page.waitForTimeout(2000);
   const heapDepois = await heapAgora();
-  const pins = await page.locator('[aria-label*="na página"]').count();
+  const pins = await page.locator("[data-pin]").count();
   await page.screenshot({ path: `${OUT}/e1-escala-${casos.length}.png` });
 
   const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;

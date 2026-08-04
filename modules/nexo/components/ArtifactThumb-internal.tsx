@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { FileText, Layers, ScanLine, AlertTriangle } from "lucide-react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import type { NexoArtifactKind } from "../types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.react-pdf.mjs";
@@ -79,10 +81,17 @@ export default function ArtifactThumbInternal({
     );
   }
 
+  /*
+   * Esqueleto da forma final enquanto o pdfjs abre e desenha (DESIGN.md §7):
+   * numa vista com dezenas de páginas, `loading={null}` deixava uma parede de
+   * caixas vazias por segundos, indistinguível de erro.
+   */
+  const esqueleto = <Skeleton className="h-full w-full rounded-none" />;
+
   return (
     <Document
       file={pdfUrl}
-      loading={null}
+      loading={esqueleto}
       error={null}
       noData={null}
       onLoadError={() => setFailed(true)}
@@ -93,7 +102,7 @@ export default function ArtifactThumbInternal({
         width={width}
         renderTextLayer={false}
         renderAnnotationLayer={false}
-        loading={null}
+        loading={esqueleto}
         onRenderError={() => setFailed(true)}
         onLoadSuccess={
           onTextLayer

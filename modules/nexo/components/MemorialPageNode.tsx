@@ -15,6 +15,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { COR_DA_SEVERIDADE } from "@/lib/audit-status";
 import { locateTermOnPage, type PinPosition } from "@/server/nexo/audit/locate-term";
 import type { AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { LARGURA_PAGINA } from "../lib/layout-auditoria";
@@ -38,12 +39,6 @@ export type MemorialPageNodeData = {
    */
   acesos?: string[] | null;
 } & Record<string, unknown>;
-
-const COR_DO_PIN: Record<AuditSeverity, string> = {
-  critico: "var(--status-critical)",
-  tecnico: "var(--status-warning)",
-  editorial: "var(--muted-foreground)",
-};
 
 export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPageNodeData>>) {
   const [pinos, setPinos] = useState<Record<string, PinPosition>>({});
@@ -91,34 +86,30 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
           if (!pos) return null;
           const aceso = !data.acesos || data.acesos.includes(achado.id);
           return (
-            <Tooltip key={achado.id}>
-              <TooltipTrigger asChild>
-                <span
-                  className="nodrag nopan absolute block h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-opacity"
-                  style={{
-                    left: `${pos.xPct * 100}%`,
-                    top: `${pos.yPct * 100}%`,
-                    backgroundColor: COR_DO_PIN[achado.severity],
-                    opacity: aceso ? 1 : 0.25,
-                  }}
-                  aria-label={`${achado.tipo} na página ${data.pageNumber}`}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[260px]">
-                <span className="font-medium">{achado.tipo}</span>
-                {achado.evidencia && (
-                  <span className="mt-0.5 block text-muted-foreground">
-                    “{achado.evidencia}”
-                  </span>
-                )}
-              </TooltipContent>
-            </Tooltip>
+            /*
+             * O pin é MARCA, não conteúdo: o card logo abaixo já diz tipo,
+             * evidência e página, e acender um acende o outro. Duplicar isso no
+             * leitor de tela encheria a árvore de acessibilidade com 122 rótulos
+             * repetidos, empurrando o texto que importa para longe.
+             */
+            <span
+              key={achado.id}
+              aria-hidden
+              data-pin={achado.id}
+              className="pointer-events-none absolute block size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-opacity"
+              style={{
+                left: `${pos.xPct * 100}%`,
+                top: `${pos.yPct * 100}%`,
+                backgroundColor: COR_DA_SEVERIDADE[achado.severity],
+                opacity: aceso ? 1 : 0.25,
+              }}
+            />
           );
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-2 p-2">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <p className="font-mono text-xs font-medium uppercase tabular-nums tracking-[0.05em]">
           p. {data.pageNumber}
         </p>
         {semPino.length > 0 && (

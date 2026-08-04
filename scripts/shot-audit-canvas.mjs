@@ -167,14 +167,16 @@ try {
   await chipDoc.first().click();
 
   // As miniaturas são PDF de verdade: renderizar 5 páginas leva alguns segundos.
-  const pins = page.locator('[aria-label*="na página"]');
+  // O pin é marca visual: fora da árvore de acessibilidade (o card diz tudo),
+  // então o gancho é o `data-pin` — nunca o rótulo.
+  const pins = page.locator("[data-pin]");
   await pins.first().waitFor({ timeout: 60000 }).catch(() => {});
   await page.waitForTimeout(4000);
   await page.screenshot({ path: `${OUT}/c2-no-documento.png` });
 
   const corpo = await page.locator("body").innerText();
   check("o veredito acompanha a vista", /NÃO EMITIR/i.test(corpo), corpo.slice(0, 200));
-  check("uma página por achado distinto", /5 página\(s\) com achado/i.test(corpo));
+  check("uma página por achado distinto", /5 páginas com achado/i.test(corpo));
 
   const quantosPins = await pins.count();
   check(`os 5 achados viraram pin (achou ${quantosPins})`, quantosPins === ACHADOS.length);
@@ -279,7 +281,15 @@ try {
     .evaluate((el) => getComputedStyle(el).animationPlayState);
   check("o cursor pausa o ciclo da pilha", pausado === "paused", pausado);
   const listaDePaginas = await pilhas.first().innerText();
-  check("e abre a lista das páginas", /112/.test(listaDePaginas) && /114/.test(listaDePaginas), listaDePaginas);
+  check("a pilha diz em que páginas o erro está", /112/.test(listaDePaginas) && /114/.test(listaDePaginas), listaDePaginas);
+
+  // Nem emoji na interface, nem o rótulo do veredito perdido: o canvas usa o
+  // mesmo ponto de status da tela textual (DESIGN.md §11).
+  check(
+    "o veredito aparece sem emoji",
+    !/[🔴🟡🟢⚠️]/u.test(corpo) && /NÃO EMITIR/i.test(corpo),
+    (corpo.match(/[🔴🟡🟢⚠️]/gu) ?? []).join(""),
+  );
 
   /*
    * Quem pede menos movimento recebe a pilha PARADA — e ainda assim inteira: o
