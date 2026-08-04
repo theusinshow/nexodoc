@@ -10,7 +10,7 @@
  * load/render) — nunca quebra o canvas.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { FileText, Layers, ScanLine, AlertTriangle } from "lucide-react";
 
@@ -27,11 +27,27 @@ const KIND_ICON: Record<NexoArtifactKind, typeof FileText> = {
   auditoria: AlertTriangle,
 };
 
+/**
+ * Camada de texto da página, em unidades do PDF. É o que a auditoria visual usa
+ * pra ancorar o pin do achado no trecho (ver server/nexo/audit/locate-term.ts).
+ * Tipado estruturalmente de propósito: a miniatura não conhece a auditoria.
+ */
+export interface ThumbTextLayer {
+  items: { str: string; transform: number[]; width: number; height: number }[];
+  viewport: { width: number; height: number };
+}
+
 export interface ArtifactThumbProps {
   pdfUrl?: string;
   pageNumber?: number;
   width?: number;
   kind: NexoArtifactKind;
+  /**
+   * Dispara uma vez por página renderizada com a camada de texto. Opcional: quem
+   * só quer a imagem não paga o getTextContent. A camada de texto NÃO é
+   * desenhada no DOM — sai daqui como dado, e quem chamou desenha por cima.
+   */
+  onTextLayer?: (layer: ThumbTextLayer) => void;
 }
 
 export default function ArtifactThumbInternal({
@@ -39,8 +55,20 @@ export default function ArtifactThumbInternal({
   pageNumber = 1,
   width = 200,
   kind,
+  onTextLayer,
 }: ArtifactThumbProps) {
   const [failed, setFailed] = useState(false);
+  // O onLoadSuccess do react-pdf reroda em re-render; a extração é assíncrona e
+  // pode voltar depois do nó sumir do canvas. Estes dois guardam contra entregar
+  // texto duas vezes, ou pra um componente que já morreu.
+  const entregue = useRef<string | null>(null);
+  const vivo = useRef(true);
+  useEffect(() => {
+    vivo.current = true;
+    return () => {
+      vivo.current = false;
+    };
+  }, []);
 
   if (!pdfUrl || failed) {
     const Icon = KIND_ICON[kind] ?? FileText;
@@ -67,6 +95,31 @@ export default function ArtifactThumbInternal({
         renderAnnotationLayer={false}
         loading={null}
         onRenderError={() => setFailed(true)}
+        onLoadSuccess={
+          onTextLayer
+            ? async (page) => {
+                const chave = `${pdfUrl}#${pageNumber}`;
+                if (entregue.current === chave) return;
+                entregue.current = chave;
+                try {
+                  const texto = await page.getTextContent();
+                  if (!vivo.current) return;
+                  const vp = page.getViewport({ scale: 1 });
+                  onTextLayer({
+                    // O textContent mistura itens de texto com marcações
+                    // estruturais (sem `str`); só o texto ancora pin.
+                    items: texto.items.filter(
+                      (item): item is Extract<typeof item, { str: string }> => "str" in item,
+                    ),
+                    viewport: { width: vp.width, height: vp.height },
+                  });
+                } catch {
+                  // Página sem camada de texto (PDF escaneado) não é erro: a
+                  // auditoria cai no badge de página e a miniatura segue válida.
+                }
+              }
+            : undefined
+        }
       />
     </Document>
   );

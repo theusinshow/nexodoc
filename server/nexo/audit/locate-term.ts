@@ -27,10 +27,11 @@ export interface PinPosition {
   yPct: number; // 0..1 a partir do TOPO (y do PDF já invertido)
 }
 
-// Mínimo de caracteres para um item CONTIDO no termo servir de âncora. Itens
-// curtos da camada de texto ("de", "da", "e") aparecem na página inteira: casar
-// com eles põe o pin em qualquer lugar, e pin errado é pior que pin nenhum.
+// Quanto do trecho um item precisa cobrir para servir de âncora sozinho.
+// Itens curtos da camada de texto ("de", "unidade") aparecem na página inteira:
+// ancorar neles põe o pin em qualquer lugar, e pin errado é pior que pin nenhum.
 const MIN_ANCHOR_LENGTH = 3;
+const MIN_ANCHOR_COVERAGE = 0.5;
 
 function norm(value: string): string {
   return value
@@ -53,28 +54,58 @@ function termNeedle(termo: string): string {
   return words.length >= 4 ? words : n;
 }
 
+function pinOf(item: TextItem, pageWidth: number, pageHeight: number): PinPosition {
+  return {
+    xPct: clamp01(item.transform[4] / pageWidth),
+    yPct: clamp01(1 - item.transform[5] / pageHeight),
+  };
+}
+
 export function locateTermOnPage(input: LocateInput): PinPosition | null {
   const { items, pageWidth, pageHeight, termo } = input;
   const needle = termNeedle(termo);
   if (!needle || pageWidth <= 0 || pageHeight <= 0) return null;
 
-  for (const it of items) {
-    const hay = norm(it.str);
-    if (!hay) continue;
-    // Ou o item contém o trecho, ou o item é o COMEÇO do trecho — a camada de
-    // texto quebra a frase da esquerda pra direita, então o primeiro pedaço é
-    // prefixo do termo. Qualquer outro "contido" é coincidência.
-    const casa =
-      hay.includes(needle) ||
-      (hay.length >= MIN_ANCHOR_LENGTH && needle.startsWith(hay));
-    if (casa) {
-      const x = it.transform[4];
-      const y = it.transform[5];
-      return {
-        xPct: clamp01(x / pageWidth),
-        yPct: clamp01(1 - y / pageHeight),
-      };
+  const uteis = items
+    .map((item) => ({ item, texto: norm(item.str) }))
+    .filter((i) => i.texto.length > 0);
+
+  // 1) O trecho cabe dentro de UM item — a âncora mais precisa que existe.
+  for (const { item, texto } of uteis) {
+    if (texto.includes(needle)) return pinOf(item, pageWidth, pageHeight);
+  }
+
+  // 2) O trecho está QUEBRADO entre itens vizinhos. Medido no 017_26: o pdfjs
+  //    devolve "unidade básica de saúde" em pedaços, e sem esta passada o pin
+  //    simplesmente não existia para 1 em cada 5 achados reais. Junta os itens
+  //    na ordem de leitura e ancora no pedaço onde o trecho COMEÇA.
+  const inicios: number[] = [];
+  let juntado = "";
+  for (const { texto } of uteis) {
+    if (juntado.length > 0) juntado += " ";
+    inicios.push(juntado.length);
+    juntado += texto;
+  }
+  const at = juntado.indexOf(needle);
+  if (at >= 0) {
+    let idx = 0;
+    // Último item que começa em ou antes do casamento = onde o trecho começa.
+    while (idx + 1 < inicios.length && inicios[idx + 1] <= at) idx++;
+    return pinOf(uteis[idx].item, pageWidth, pageHeight);
+  }
+
+  // 3) Último recurso: o item é o COMEÇO do trecho (a evidência é mais longa que
+  //    o que está escrito na página). Só vale se o item cobrir metade do trecho —
+  //    a primeira palavra sozinha ("Rua", "unidade") repete na página inteira.
+  for (const { item, texto } of uteis) {
+    if (
+      texto.length >= MIN_ANCHOR_LENGTH &&
+      texto.length >= needle.length * MIN_ANCHOR_COVERAGE &&
+      needle.startsWith(texto)
+    ) {
+      return pinOf(item, pageWidth, pageHeight);
     }
   }
+
   return null;
 }

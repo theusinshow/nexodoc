@@ -85,6 +85,32 @@ test("itens em branco são ignorados", () => {
   assert.equal(pos, null);
 });
 
+// Medido no memorial real 017_26: o pdfjs devolve "unidade básica de saúde"
+// picado em itens. Sem juntar os vizinhos, 1 em cada 5 achados reais ficava sem
+// pin. O pin cai no pedaço onde o trecho COMEÇA.
+test("trecho quebrado entre itens ancora no primeiro pedaço", () => {
+  const items = [
+    item("Cabeçalho", 40, 770),
+    item("unidade", 100, 500),
+    item("básica", 160, 500),
+    item("de saúde", 220, 500),
+  ];
+  const pos = locateTermOnPage({ items, ...PAGE, termo: "unidade básica de saúde" });
+  assert.ok(pos);
+  assert.ok(Math.abs(pos!.xPct - 100 / 600) < 0.01);
+  assert.ok(Math.abs(pos!.yPct - (1 - 500 / 800)) < 0.01);
+});
+
+// A junção não pode inventar casamento onde o texto não existe: pedaços de
+// palavras diferentes não formam o trecho só por estarem lado a lado.
+test("juntar vizinhos não inventa casamento", () => {
+  const items = [item("unidade", 100, 500), item("de", 160, 500), item("ensino", 200, 500)];
+  assert.equal(
+    locateTermOnPage({ items, ...PAGE, termo: "unidade básica de saúde" }),
+    null,
+  );
+});
+
 // Coordenada fora da página (PDF com transform estranho) não pode gerar pin
 // negativo nem > 1: a UI posiciona com percentual e sairia do quadro.
 test("percentual fica preso entre 0 e 1", () => {
