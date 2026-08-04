@@ -1,5 +1,30 @@
 # Auditoria Visual de Memorial — Implementation Plan
 
+> **ESTADO EM 2026-08-04 — Fase 1 FEITA + primeira fatia da UI FEITA.**
+>
+> | O quê | Commit | Prova |
+> |---|---|---|
+> | Task 1 `buildAuditGraph` | `4ef3c92` | `npm run test:nexo:audit-graph` (11) |
+> | Task 2 `locateTermOnPage` | `27fa428` | `npm run test:nexo:locate-term` (10) |
+> | Pin contra PDF real + `onTextLayer` | `d2c97f5` | `node scripts/pin-real-pdf.ts "<memorial>"` (5/5) |
+> | Nó de página + vista "No documento" | `b583cc7` | `node scripts/shot-audit-canvas.mjs` |
+>
+> **Desvios do plano, todos com teste:**
+> 1. `getEmissionVerdict` ganhou 2º argumento desde 23/07 — o grafo repassa
+>    `runtime.passadas_incompletas`, senão o canvas diria LIBERADO onde a tela
+>    textual diz "análise parcial".
+> 2. `locateTermOnPage` tem três passadas, não uma: item inteiro → itens vizinhos
+>    juntados (o pdfjs pica a frase; era 4/5 no memorial real) → prefixo que cobre
+>    metade do trecho. A regra `needle.includes(hay)` do plano ancorava em "de".
+> 3. `allowImportingTsExtensions` no `tsconfig.json`: sem isso o módulo não podia
+>    compilar e ser testável em node cru ao mesmo tempo.
+> 4. `ArtifactThumb` NÃO tinha o `onReady` que o Apêndice A assumia. Existe agora
+>    como `onTextLayer` — entrega itens + viewport sem desenhar a camada no DOM.
+>
+> **Falta do Apêndice A:** `FindingCardNode`, `RecurringStackNode`, as linhas
+> card↔página com hover que acende o par, o drawer do parecer completo, e a fila
+> de K `<Document>` simultâneos (hoje um por página com achado, sem medição).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Construir o núcleo determinístico da vista visual da auditoria de memorial (deriva do `AuditReport` o modelo de grafo do canvas e a posição dos pins), pronto para a camada de UI React Flow consumir quando o PR5 existir.
