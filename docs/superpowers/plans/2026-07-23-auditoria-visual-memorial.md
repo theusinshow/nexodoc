@@ -27,8 +27,14 @@
 > antes de assumir o contrário. A medição achou outra coisa: 4 colunas fixas
 > viravam torre, e as colunas passaram a sair de `colunasDaGrade`.
 >
-> **Falta do Apêndice A:** `FindingCardNode`, `RecurringStackNode`, as linhas
-> card↔página com hover que acende o par, e o drawer do parecer completo.
+> **`FindingCardNode` + linhas + hover FEITOS** (`90acc80`): card abaixo da sua
+> página (não em coluna à parte — com 30 achados as linhas viravam teia), grade em
+> `modules/nexo/lib/layout-auditoria.ts` (puro, 8 testes), bloco "sem página" com
+> rótulo, e selo de "Sugestão" no achado que a validação rebaixou. Custo: 13,1s no
+> pior caso de 122 páginas (era 6,6s sem cards); ~30 achados abrem em 2,5s.
+>
+> **Falta do Apêndice A:** `RecurringStackNode` (pilha dos recorrentes em ciclo,
+> congelada em `prefers-reduced-motion`) e o drawer do parecer completo.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
