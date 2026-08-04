@@ -38,9 +38,15 @@
 > abrindo a lista, congelado em `prefers-reduced-motion`. O destaque virou LISTA
 > de ids — a pilha acende todas as páginas do erro de uma vez.
 >
-> **Falta do Apêndice A:** só o drawer do parecer completo ("Ver relatório
-> completo" reusando `makeTextReport`/`audit-result.tsx`). Hoje o parecer está a
-> um clique, no chip "Parecer" ao lado de "No documento".
+> **Drawer do parecer FEITO** (`49875d0`) — e com isso o **Apêndice A está
+> completo**. Motivo medido: trocar de vista pelo chip desmonta o canvas (as
+> miniaturas somem e voltar custa 1,1s com 5 páginas, ~13s com 122, perdendo o
+> enquadramento). O drawer entra por cima, com o canvas montado atrás; Esc fecha.
+>
+> **O que o PR7 NÃO fez, e ficou fora de propósito:** o canvas não virou a tela
+> principal do resultado — segue como a segunda vista, no chip "No documento",
+> com o parecer textual no padrão. Inverter isso é decisão de produto, não dívida
+> técnica.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
