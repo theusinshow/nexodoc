@@ -263,6 +263,7 @@ function CanvasInterno({
         <>
           <div className="absolute right-2 top-2 z-10">
             <Button
+              data-tour="abrir-parecer"
               variant="outline"
               size="sm"
               onClick={() => setParecerAberto((v) => !v)}

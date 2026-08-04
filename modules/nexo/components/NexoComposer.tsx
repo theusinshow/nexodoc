@@ -48,7 +48,10 @@ export function NexoComposer({
 }) {
   const isHero = variant === "hero";
   return (
-    <GlassPanel className="nexo-composer">
+    // `data-tour`: âncora do passo a passo guiado. É atributo de dado, não de
+    // estilo — o tour aponta para o controle de verdade, e o seletor não quebra
+    // quando as classes mudam.
+    <GlassPanel className="nexo-composer" data-tour="composer">
       <div className="flex items-end gap-2 p-2">
         {onAttach && (
           <button

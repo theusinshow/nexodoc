@@ -15,6 +15,7 @@
 // Por isso o padrão é 3 pranchas — o suficiente para a interface, troco em
 // token. Ajuste com NEXO_SHOT_PRANCHAS.
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import path from "node:path";
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
@@ -51,6 +52,7 @@ page.on("pageerror", (e) => errosDeConsole.push(String(e)));
 
 try {
   // --- login ---------------------------------------------------------------
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.getByRole("button", { name: /Entrar como dev/i }).click();

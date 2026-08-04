@@ -32,6 +32,11 @@ import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
 import { PalcoDoNexo } from "./PalcoDoNexo";
+import { TourDoNexo } from "./TourDoNexo";
+import { criarProjetoExemplo, ID_CONVERSA_EXEMPLO } from "../lib/projeto-exemplo";
+
+/** Marca de quem já viu o passo a passo. Local ao navegador, como a conversa. */
+const CHAVE_TOUR_VISTO = "nexo:tour-visto";
 import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
@@ -904,6 +909,72 @@ function NexoWorkspaceInner({
    * o lixo do mesmo jeito. Só se retoma quando há trabalho pago pendurado; nos
    * outros casos abrir em branco continua sendo o certo.
    */
+  /*
+   * O TOUR GUIADO — o primeiro contato de quem nunca abriu o produto.
+   *
+   * Ele roda sobre um PROJETO DE EXEMPLO semeado, porque na tela vazia não há o
+   * que apontar: sem selo lido, sem documento gerado, sem parecer, os balões
+   * falariam de coisas invisíveis. Ao sair, o exemplo é apagado e a tela volta
+   * limpa — quem chegou para trabalhar não herda a obra fictícia na sidebar.
+   */
+  const [tourAtivo, setTourAtivo] = useState(false);
+  const iniciarTour = useCallback(async () => {
+    const id = await criarProjetoExemplo();
+    // `selectConv` é o MESMO caminho do clique na sidebar: o exemplo entra na
+    // tela como qualquer conversa restaurada, e o `started` vem do registro.
+    await selectConv(id);
+    setTourAtivo(true);
+    // `selectConv` é recriada a cada render; o disparo é único por guarda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const encerrarTour = useCallback(() => {
+    setTourAtivo(false);
+    try {
+      window.localStorage.setItem(CHAVE_TOUR_VISTO, "1");
+    } catch {
+      // Navegador sem storage (aba anônima restrita): o tour volta a aparecer,
+      // e isso é melhor do que quebrar a tela por causa de uma preferência.
+    }
+    /*
+     * A ORDEM é o que faz isto funcionar, e ela não é nada óbvia.
+     *
+     * `reset()` grava a conversa atual antes de largá-la (o flush que existe
+     * para não perder a última mensagem) — e roda dentro de uma view transition,
+     * cujo callback o navegador chama DEPOIS, quando já tirou o instantâneo da
+     * tela. Então apagar o exemplo primeiro não adianta: a gravação atrasada o
+     * ressuscitava, e o tour terminava com a obra fictícia ainda na sidebar.
+     *
+     * Sair do exemplo primeiro (`newConversation`, síncrono), apagar em seguida
+     * e só então animar a volta resolve: quando o flush da transição rodar, a
+     * conversa ativa já é a nova e vazia, que a guarda do store não grava.
+     */
+    void (async () => {
+      conv.newConversation();
+      await new Promise((r) => setTimeout(r, 0));
+      await conv.removeConversation(ID_CONVERSA_EXEMPLO);
+      reset();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Primeiro acesso: ninguém pede o tour: ele se oferece uma vez só.
+  const tourRef = useRef(false);
+  useEffect(() => {
+    if (tourRef.current) return;
+    tourRef.current = true;
+    let jaViu = true;
+    try {
+      jaViu = window.localStorage.getItem(CHAVE_TOUR_VISTO) === "1";
+    } catch {
+      jaViu = true;
+    }
+    if (jaViu || conv.conversations.length > 0) return;
+    const quadro = requestAnimationFrame(() => void iniciarTour());
+    return () => cancelAnimationFrame(quadro);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv.conversations.length]);
+
   const retomouRef = useRef(false);
   useEffect(() => {
     if (retomouRef.current) return;
@@ -1347,6 +1418,8 @@ function NexoWorkspaceInner({
         </FaixaDeEstado>
       )}
 
+      {tourAtivo && <TourDoNexo aoSair={encerrarTour} />}
+
       <NexoShell
         started={started}
         sidebar={
@@ -1357,6 +1430,7 @@ function NexoWorkspaceInner({
             onSelect={selectConv}
             onDelete={conv.removeConversation}
             isAdmin={isAdmin}
+            onVerTour={iniciarTour}
           />
         }
         stage={

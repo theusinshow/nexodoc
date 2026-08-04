@@ -1037,6 +1037,7 @@ export function AuditResult({
       ) : null}
       {verdict ? (
         <div
+          data-tour="veredito-parecer"
           className={cn(
             // Borda 1px completa + tint de fundo (sem side-stripe, sem emoji),
             // usando os tokens de status reais do sistema. A tradução do

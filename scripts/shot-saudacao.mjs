@@ -9,6 +9,7 @@
 //   npm run dev                    (noutro terminal)
 //   node scripts/shot-saudacao.mjs
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
@@ -52,6 +53,8 @@ async function comRelogio(iso, rotulo) {
     if (/hydrat|did not match|Text content does not match/i.test(t)) problemas.push(t);
   });
   page.on("pageerror", (e) => problemas.push(String(e)));
+
+  await pularTourGuiado(page);
 
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {

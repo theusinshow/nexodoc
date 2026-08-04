@@ -13,6 +13,7 @@
 //
 //   node scripts/shot-audit-canvas-escala.mjs [quantas=30]
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
@@ -68,6 +69,7 @@ const erros = [];
 page.on("pageerror", (e) => erros.push(String(e)));
 
 try {
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.getByRole("button", { name: /Entrar como dev/i }).click();

@@ -12,6 +12,7 @@
 // O contexto do Playwright é limpo: a conversa semeada morre com ele e não
 // aparece no navegador do engenheiro.
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -68,6 +69,7 @@ const page = await context.newPage();
 
 try {
   // --- login (a tela, antes de entrar) -------------------------------------
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.waitForTimeout(600);

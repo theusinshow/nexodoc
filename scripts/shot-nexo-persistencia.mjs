@@ -15,6 +15,7 @@
 // Os registros de teste são APAGADOS no fim (só os que este script criou, por
 // id). Use KEEP=1 para mantê-los e inspecionar à mão.
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import { readFileSync } from "node:fs";
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
@@ -101,6 +102,7 @@ let criados = [];
 
 try {
   // --- login (dev) ---------------------------------------------------------
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.getByRole("button", { name: /Entrar como dev/i }).click();

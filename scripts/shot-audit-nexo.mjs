@@ -10,6 +10,7 @@
 //
 // CUSTA IA DE VERDADE: auditoria Profunda de um memorial de 132 páginas.
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -66,6 +67,8 @@ page.on("pageerror", (e) => erros.push(String(e)));
 
 try {
   const marcoLog = totalDeLinhas();
+
+  await pularTourGuiado(page);
 
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {

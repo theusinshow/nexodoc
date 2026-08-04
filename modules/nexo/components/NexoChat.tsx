@@ -324,6 +324,9 @@ export function NexoChat({
           {messages.map((m, idx) => (
             <div
               key={m.id}
+              // Âncora do tour guiado: a resposta do Nexo é onde ele conta o
+              // que leu dos selos.
+              data-tour={m.role === "assistant" ? "resposta" : undefined}
               className={
                 m.role === "user"
                   ? "nexodoc-message-in flex flex-col items-end gap-2"

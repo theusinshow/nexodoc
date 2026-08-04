@@ -145,7 +145,10 @@ export function NexoCopilot({
         started ? "pt-[50px]" : "justify-center",
       )}
     >
-      <div className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center">
+      <div
+        data-tour="orbe"
+        className="flex shrink-0 flex-col items-center gap-2 pt-1 text-center"
+      >
         <AgentPopover
           open={popoverOpen && temFatos}
           onClose={() => setPopoverOpen(false)}

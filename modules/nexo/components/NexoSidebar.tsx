@@ -13,6 +13,7 @@ import {
   FolderKanban,
   Gauge,
   Plus,
+  Compass,
   Search,
   Trash2,
   User,
@@ -44,6 +45,7 @@ export function NexoSidebar({
   onSelect,
   onDelete,
   isAdmin = false,
+  onVerTour,
 }: {
   onNewConversation?: () => void;
   conversations?: ConversationSummary[];
@@ -52,6 +54,8 @@ export function NexoSidebar({
   onDelete?: (id: string) => void;
   /** Mostra o painel admin no rodapé. Vem da sessão, no server. */
   isAdmin?: boolean;
+  /** Reabre o passo a passo guiado. Ausente = a entrada não aparece. */
+  onVerTour?: () => void | Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   /** Conversa aguardando confirmação de exclusão (uma por vez). */
@@ -238,6 +242,16 @@ export function NexoSidebar({
           <User className="h-4 w-4 shrink-0" aria-hidden />
           Conta
         </button>
+        {onVerTour && (
+          <button
+            type="button"
+            onClick={() => void onVerTour()}
+            className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            <Compass className="h-4 w-4 shrink-0" aria-hidden />
+            Como funciona
+          </button>
+        )}
         {/* Cor de legado no rótulo: presente sem chamar. Nem status, nem
             desabilitado — a ferramenta funciona, só não é o caminho novo. */}
         <Link

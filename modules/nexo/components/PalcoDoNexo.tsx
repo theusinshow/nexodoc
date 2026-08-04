@@ -139,6 +139,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
       {temAuditoria && (
         <div className="flex shrink-0 items-center gap-1 px-1 pb-2">
           <Chip
+            data-tour="chip-mapa"
             variant={mostrandoAuditoria ? "quiet" : "default"}
             onClick={() => escolher("mapa")}
             className="min-h-7 px-2.5 py-0.5 text-[11px]"
@@ -147,6 +148,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
             Mapa do volume
           </Chip>
           <Chip
+            data-tour="chip-auditoria"
             variant={mostrandoAuditoria ? "default" : "quiet"}
             onClick={() => escolher("auditoria")}
             className="min-h-7 px-2.5 py-0.5 text-[11px]"
@@ -169,6 +171,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 Parecer
               </Chip>
               <Chip
+                data-tour="chip-no-documento"
                 variant={noDocumento ? "default" : "quiet"}
                 onClick={() => setNoDocumento(true)}
                 className="min-h-7 px-2.5 py-0.5 text-[11px]"
@@ -181,7 +184,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" data-tour="palco">
         {mostrandoAuditoria ? (
           emCurso ? (
             <div className="flex h-full items-start justify-center overflow-y-auto pt-6">

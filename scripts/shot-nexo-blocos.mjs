@@ -12,6 +12,7 @@
 //   npm run dev                       (noutro terminal)
 //   node scripts/shot-nexo-blocos.mjs
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import { mkdirSync } from "node:fs";
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
@@ -64,6 +65,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 
 try {
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.getByRole("button", { name: /Entrar como dev/i }).click();
@@ -113,6 +115,8 @@ try {
     });
     return convId;
   }, SELOS);
+
+  await pularTourGuiado(page);
 
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   await page.getByText("QA — blocos", { exact: false }).first().click();

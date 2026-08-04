@@ -15,6 +15,7 @@
 //   npm run dev                          (noutro terminal)
 //   node scripts/shot-nexo-separatriz.mjs
 import { chromium } from "playwright";
+import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -125,6 +126,7 @@ const errosDeConsole = [];
 page.on("pageerror", (e) => errosDeConsole.push(String(e)));
 
 try {
+  await pularTourGuiado(page);
   await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
   if (page.url().includes("/login")) {
     await page.getByRole("button", { name: /Entrar como dev/i }).click();
