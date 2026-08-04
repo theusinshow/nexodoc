@@ -13,13 +13,14 @@
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Map, ShieldCheck } from "lucide-react";
+import { FileText, Map, MapPin, ShieldCheck } from "lucide-react";
 
 import { AuditResult } from "@/components/audit-result";
 import { Chip } from "@/components/ui/chip";
 import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import { useAuditoria, type VistaDoPalco as Vista } from "../state/auditoria-store";
+import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 
@@ -101,6 +102,13 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const escolher = (v: Vista) => escolherVista(marca, v);
 
   const mostrandoAuditoria = vista === "auditoria" && temAuditoria;
+  /*
+   * Parecer × documento. Local, e não no store, porque é uma preferência de
+   * leitura do momento — não decide o que o palco mostra, só como. Só existe com
+   * o PDF do memorial em mãos: sem os bytes, o canvas seria uma grade de ícones.
+   */
+  const [noDocumento, setNoDocumento] = useState(false);
+  const podeVerNoDocumento = Boolean(report && memorialPdf);
 
   return (
     <div className="relative flex h-full w-full flex-col">
@@ -126,6 +134,30 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
             <ShieldCheck aria-hidden />
             Auditoria
           </Chip>
+
+          {/* Duas leituras do MESMO parecer: a lista, e os achados sobre as
+              páginas do memorial. Só aparece com a auditoria na tela. */}
+          {mostrandoAuditoria && podeVerNoDocumento && (
+            <>
+              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              <Chip
+                variant={noDocumento ? "quiet" : "default"}
+                onClick={() => setNoDocumento(false)}
+                className="min-h-7 px-2.5 py-0.5 text-[11px]"
+              >
+                <FileText aria-hidden />
+                Parecer
+              </Chip>
+              <Chip
+                variant={noDocumento ? "default" : "quiet"}
+                onClick={() => setNoDocumento(true)}
+                className="min-h-7 px-2.5 py-0.5 text-[11px]"
+              >
+                <MapPin aria-hidden />
+                No documento
+              </Chip>
+            </>
+          )}
         </div>
       )}
 
@@ -158,6 +190,11 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
               />
             </div>
           ) : report ? (
+            noDocumento ? (
+              <div className="h-full">
+                <AuditCanvas report={report} pdfUrl={memorialPdf?.url} />
+              </div>
+            ) : (
             <div className="h-full overflow-y-auto">
               <AuditResult
                 content={salvo?.texto ?? ""}
@@ -173,6 +210,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 }
               />
             </div>
+            )
           ) : null
         ) : (
           mapa
