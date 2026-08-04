@@ -199,11 +199,27 @@ try {
   // Nenhum achado pode ter sobrado sem trecho: no 017_26 os cinco ancoram.
   check("nenhum achado ficou 'sem trecho'", !/sem trecho/i.test(corpo));
 
-  // --- Card, linha e o par que acende ---------------------------------------
+  // --- Card, pilha, linha e o par que acende --------------------------------
+  /*
+   * "Centro Dia do Idoso" aparece nas páginas 112 e 114 com a mesma evidência:
+   * é UM erro espalhado, e vira pilha. Sobram três achados soltos, com card.
+   */
+  const RECORRENTES = 2;
+  const SOLTOS = ACHADOS.length - RECORRENTES;
+
   const cards = page.locator('.react-flow__node[data-id^="a-"]');
-  check(`cada achado virou card (achou ${await cards.count()})`, (await cards.count()) === ACHADOS.length);
+  check(`os achados soltos viraram card (achou ${await cards.count()})`, (await cards.count()) === SOLTOS);
+
+  const pilhas = page.locator('.react-flow__node[data-id^="g-"]');
+  check(`o erro repetido virou UMA pilha (achou ${await pilhas.count()})`, (await pilhas.count()) === 1);
+  check("a pilha conta as ocorrências", /×2/.test(corpo), corpo.slice(0, 200));
+
+  // 3 linhas de card + 2 linhas da pilha (uma por página onde o erro aparece).
   const linhas = page.locator(".react-flow__edge");
-  check(`cada card está ligado à sua página (achou ${await linhas.count()})`, (await linhas.count()) === ACHADOS.length);
+  check(
+    `cada achado está ligado à sua página (achou ${await linhas.count()})`,
+    (await linhas.count()) === SOLTOS + RECORRENTES,
+  );
 
   // O card diz O QUÊ — sem ele a vista dependia do tooltip do pin, que some
   // quando o cursor sai.
@@ -241,6 +257,53 @@ try {
   await page.mouse.move(5, 5);
   await page.waitForTimeout(400);
   check("saindo do card, tudo volta a acender", (await opacidade(segundo)) > 0.9);
+
+  // A pilha acende o GRUPO: os pins das duas páginas do erro repetido, e nenhum
+  // outro. Um destaque que acendesse só um deles negaria o próprio motivo da
+  // pilha existir.
+  await pilhas.first().hover();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/c4-pilha-acesa.png` });
+  const acesos = await pins.evaluateAll(
+    (els) => els.filter((el) => Number.parseFloat(getComputedStyle(el).opacity) > 0.9).length,
+  );
+  check(`a pilha acende as ${RECORRENTES} páginas do erro (acesos ${acesos})`, acesos === RECORRENTES);
+
+  // O cursor pausa o ciclo — sem isso, ler a lista de páginas seria perseguir
+  // uma camada em movimento.
+  // Medir por posição não serve: o React Flow injeta o conector como último
+  // filho do nó, e era ELE que respondia "running" — a camada é marcada.
+  const pausado = await pilhas
+    .first()
+    .locator('[data-pilha="topo"]')
+    .evaluate((el) => getComputedStyle(el).animationPlayState);
+  check("o cursor pausa o ciclo da pilha", pausado === "paused", pausado);
+  const listaDePaginas = await pilhas.first().innerText();
+  check("e abre a lista das páginas", /112/.test(listaDePaginas) && /114/.test(listaDePaginas), listaDePaginas);
+
+  /*
+   * Quem pede menos movimento recebe a pilha PARADA — e ainda assim inteira: o
+   * ×N e a lista continuam lá. O repouso do desenho já é o estado legível, então
+   * congelar não tira informação nenhuma.
+   */
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(600);
+  const ciclo = await pilhas
+    .first()
+    .locator('[data-pilha="topo"]')
+    .evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { duracao: cs.animationDuration, repeticoes: cs.animationIterationCount };
+    });
+  check(
+    "com menos movimento, o ciclo congela",
+    Number.parseFloat(ciclo.duracao) < 0.001 && ciclo.repeticoes === "1",
+    JSON.stringify(ciclo),
+  );
+  await page.screenshot({ path: `${OUT}/c5-pilha-congelada.png` });
+  check("e a pilha continua contando as ocorrências", /×2/.test(await page.locator("body").innerText()));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   check("nenhum erro de runtime", erros.length === 0, erros[0] ?? "");
 } catch (e) {

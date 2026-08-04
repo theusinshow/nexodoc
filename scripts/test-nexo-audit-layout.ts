@@ -125,4 +125,65 @@ test("muitas páginas ficam quadradas, não em torre", () => {
   assert.ok(linhas <= l.colunas + 1, `${linhas} linhas para ${l.colunas} colunas`);
 });
 
+// --- Pilhas dos recorrentes --------------------------------------------------
+
+test("quem está em grupo não ganha card na coluna da página", () => {
+  const l = layoutDaAuditoria({
+    paginas: [
+      { pageNumber: 12, findingIds: ["R1", "S1"] },
+      { pageNumber: 88, findingIds: ["R2"] },
+    ],
+    semPagina: [],
+    grupos: [{ id: "grp-R1", findingIds: ["R1", "R2"] }],
+  });
+  assert.equal(l.achados.R1, undefined);
+  assert.equal(l.achados.R2, undefined);
+  assert.ok(l.achados.S1, "o achado solto continua com card");
+  assert.ok(l.grupos["grp-R1"], "o grupo ganhou pilha");
+});
+
+test("a pilha fica ACIMA da grade das páginas", () => {
+  const l = layoutDaAuditoria({
+    paginas: [{ pageNumber: 12, findingIds: ["R1"] }],
+    semPagina: [],
+    grupos: [{ id: "grp-R1", findingIds: ["R1"] }],
+  });
+  assert.ok(
+    l.grupos["grp-R1"].y < l.paginas[12].y,
+    `pilha em ${l.grupos["grp-R1"].y}, página em ${l.paginas[12].y}`,
+  );
+});
+
+test("sem grupo, a grade continua começando no topo", () => {
+  const l = layoutDaAuditoria({
+    paginas: [{ pageNumber: 12, findingIds: ["A"] }],
+    semPagina: [],
+    grupos: [],
+  });
+  assert.equal(l.paginas[12].y, 0);
+  assert.deepEqual(l.grupos, {});
+});
+
+test("a página que só tinha achado recorrente encolhe para a miniatura", () => {
+  const comGrupo = layoutDaAuditoria({
+    paginas: [
+      { pageNumber: 1, findingIds: ["R1"] },
+      { pageNumber: 2, findingIds: ["R2"] },
+      { pageNumber: 3, findingIds: ["R3"] },
+      { pageNumber: 4, findingIds: ["R4"] },
+      { pageNumber: 5, findingIds: ["R5"] },
+      { pageNumber: 6, findingIds: ["R6"] },
+      { pageNumber: 7, findingIds: ["R7"] },
+    ],
+    semPagina: [],
+    grupos: [{ id: "g", findingIds: ["R1", "R2", "R3", "R4", "R5", "R6", "R7"] }],
+  });
+  // A 7ª cai na segunda linha; sem card nenhum, a primeira linha é só miniatura.
+  const alturaDaLinha = comGrupo.paginas[7].y - comGrupo.paginas[1].y;
+  assert.ok(
+    alturaDaLinha < ALTURA_PAGINA + PASSO_CARTAO,
+    `linha de ${alturaDaLinha} — devia caber só a miniatura`,
+  );
+});
+
 console.log(`\n${passed} testes ok`);

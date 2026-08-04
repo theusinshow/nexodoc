@@ -27,11 +27,13 @@ import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-a
 import { layoutDaAuditoria } from "../lib/layout-auditoria";
 import { MemorialPageNode, type MemorialPageNodeData } from "./MemorialPageNode";
 import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
+import { RecurringStackNode, type RecurringStackNodeData } from "./RecurringStackNode";
 import { RotuloDoCanvas, type RotuloDoCanvasData } from "./RotuloDoCanvas";
 
 const nodeTypes = {
   paginaMemorial: MemorialPageNode,
   achado: FindingCardNode,
+  pilha: RecurringStackNode,
   rotulo: RotuloDoCanvas,
 };
 
@@ -43,20 +45,23 @@ const COR_DA_LINHA: Record<AuditSeverity, string> = {
 
 const idDaPagina = (pagina: number) => `p${pagina}`;
 const idDoAchado = (achado: string) => `a-${achado}`;
+const idDaPilha = (grupo: string) => `g-${grupo}`;
 
 function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: string }) {
   const grafo = useMemo(() => buildAuditGraph(report), [report]);
   /*
-   * O achado sob o cursor. Mora aqui, e não em CSS, porque o par a acender é
-   * dinâmico: qual página combina com qual card só se sabe do grafo.
+   * Os achados acesos. Mora aqui, e não em CSS, porque o par a acender é
+   * dinâmico: qual página combina com qual card só se sabe do grafo. É uma
+   * LISTA porque a pilha de um recorrente acende várias páginas de uma vez.
    */
-  const [emDestaque, setEmDestaque] = useState<string | null>(null);
+  const [acesos, setAcesos] = useState<string[] | null>(null);
 
   const layout = useMemo(
     () =>
       layoutDaAuditoria({
         paginas: grafo.pageNodes,
         semPagina: grafo.unplaced.map((a) => a.id),
+        grupos: grafo.recurringGroups,
       }),
     [grafo],
   );
@@ -71,7 +76,7 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
       data: {
         pdfUrl,
         pageNumber: pagina.pageNumber,
-        emDestaque,
+        acesos,
         achados: pagina.findingIds.flatMap((id) => {
           const a = porId.get(id);
           return a
@@ -89,8 +94,10 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
       },
     }));
 
-    const cards: Node<FindingCardNodeData>[] = [...grafo.findingNodes, ...grafo.unplaced].map(
-      (achado) => ({
+    // Quem está numa pilha não ganha card: `layout.achados` nem lhe dá posição.
+    const cards: Node<FindingCardNodeData>[] = [...grafo.findingNodes, ...grafo.unplaced]
+      .filter((achado) => layout.achados[achado.id])
+      .map((achado) => ({
         id: idDoAchado(achado.id),
         type: "achado",
         position: layout.achados[achado.id],
@@ -101,10 +108,28 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
           tipo: achado.tipo,
           evidencia: achado.evidencia,
           pageNumber: achado.pageNumber,
-          emDestaque,
+          acesos,
         },
-      }),
-    );
+      }));
+
+    const pilhas: Node<RecurringStackNodeData>[] = grafo.recurringGroups.map((grupo) => {
+      const primeiro = porId.get(grupo.findingIds[0]);
+      return {
+        id: idDaPilha(grupo.id),
+        type: "pilha",
+        position: layout.grupos[grupo.id],
+        data: {
+          grupoId: grupo.id,
+          achadoIds: grupo.findingIds,
+          severity: grupo.severity,
+          tipo: grupo.tipo,
+          evidencia: primeiro?.evidencia ?? "",
+          count: grupo.count,
+          pages: grupo.pages,
+          acesos,
+        },
+      };
+    });
 
     const rotulos: Node<RotuloDoCanvasData>[] = layout.topoSemPagina
       ? [
@@ -120,32 +145,48 @@ function CanvasInterno({ report, pdfUrl }: { report: AuditReport; pdfUrl?: strin
         ]
       : [];
 
-    return [...paginas, ...cards, ...rotulos];
-  }, [grafo, layout, pdfUrl, emDestaque]);
+    return [...paginas, ...cards, ...pilhas, ...rotulos];
+  }, [grafo, layout, pdfUrl, acesos]);
 
-  const edges = useMemo<Edge[]>(
-    () =>
-      grafo.findingNodes.map((achado) => {
-        const aceso = !emDestaque || emDestaque === achado.id;
-        return {
-          id: `e-${achado.id}`,
-          source: idDaPagina(achado.pageNumber as number),
-          target: idDoAchado(achado.id),
-          style: {
-            stroke: COR_DA_LINHA[achado.severity],
-            strokeWidth: emDestaque === achado.id ? 2 : 1,
-            opacity: aceso ? 0.8 : 0.15,
-          },
-        };
-      }),
-    [grafo, emDestaque],
-  );
+  const edges = useMemo<Edge[]>(() => {
+    const estilo = (severity: AuditSeverity, aceso: boolean) => ({
+      stroke: COR_DA_LINHA[severity],
+      strokeWidth: aceso && acesos ? 2 : 1,
+      opacity: aceso ? 0.8 : 0.15,
+    });
+
+    // Achado solto: da sua página para o card, logo abaixo.
+    const dosCards = grafo.findingNodes
+      .filter((achado) => layout.achados[achado.id])
+      .map((achado) => ({
+        id: `e-${achado.id}`,
+        source: idDaPagina(achado.pageNumber as number),
+        target: idDoAchado(achado.id),
+        style: estilo(achado.severity, !acesos || acesos.includes(achado.id)),
+      }));
+
+    // Recorrente: UMA linha da pilha para cada página onde o erro aparece — é o
+    // desenho que mostra o alcance dele.
+    const dasPilhas = grafo.recurringGroups.flatMap((grupo) => {
+      const aceso = !acesos || grupo.findingIds.some((id) => acesos.includes(id));
+      return grupo.pages.map((pagina) => ({
+        id: `e-${grupo.id}-p${pagina}`,
+        source: idDaPilha(grupo.id),
+        target: idDaPagina(pagina),
+        style: estilo(grupo.severity, aceso),
+      }));
+    });
+
+    return [...dosCards, ...dasPilhas];
+  }, [grafo, layout, acesos]);
 
   const acender: NodeMouseHandler = (_, node) => {
-    const dados = node.data as { achadoId?: string };
-    if (dados.achadoId) setEmDestaque(dados.achadoId);
+    const dados = node.data as { achadoId?: string; achadoIds?: string[] };
+    // A pilha acende o grupo inteiro; o card acende só ele.
+    if (dados.achadoIds) setAcesos(dados.achadoIds);
+    else if (dados.achadoId) setAcesos([dados.achadoId]);
   };
-  const apagar = () => setEmDestaque(null);
+  const apagar = () => setAcesos(null);
 
   if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {
     return (

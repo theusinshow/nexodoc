@@ -25,8 +25,8 @@ export type FindingCardNodeData = {
   evidencia: string;
   /** Página do achado; ausente no bloco "sem página localizada". */
   pageNumber?: number | null;
-  /** Achado sob o cursor no canvas: null = ninguém, id = acende só ele. */
-  emDestaque?: string | null;
+  /** Ids acesos; null = todos acesos. */
+  acesos?: string[] | null;
 } & Record<string, unknown>;
 
 const COR: Record<AuditSeverity, string> = {
@@ -36,7 +36,7 @@ const COR: Record<AuditSeverity, string> = {
 };
 
 export function FindingCardNode({ data }: NodeProps<Node<FindingCardNodeData>>) {
-  const aceso = !data.emDestaque || data.emDestaque === data.achadoId;
+  const aceso = !data.acesos || data.acesos.includes(data.achadoId);
 
   return (
     <div

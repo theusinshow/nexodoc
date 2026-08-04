@@ -32,8 +32,11 @@ export type MemorialPageNodeData = {
   pdfUrl?: string;
   pageNumber: number;
   achados: AchadoNaPagina[];
-  /** Achado sob o cursor no canvas — acende o par card↔página. */
-  emDestaque?: string | null;
+  /**
+   * Ids acesos; null = todos acesos. É lista, e não um id só, porque a pilha dos
+   * recorrentes acende de uma vez todas as páginas em que o erro aparece.
+   */
+  acesos?: string[] | null;
 } & Record<string, unknown>;
 
 const COR_DO_PIN: Record<AuditSeverity, string> = {
@@ -86,7 +89,7 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
         {data.achados.map((achado) => {
           const pos = pinos[achado.id];
           if (!pos) return null;
-          const aceso = !data.emDestaque || data.emDestaque === achado.id;
+          const aceso = !data.acesos || data.acesos.includes(achado.id);
           return (
             <Tooltip key={achado.id}>
               <TooltipTrigger asChild>
@@ -133,7 +136,9 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
         )}
       </div>
 
-      {/* Os cards dos achados ficam ABAIXO da página: a linha sai por baixo. */}
+      {/* Os cards ficam ABAIXO (a linha sai por baixo); as pilhas dos
+          recorrentes ficam ACIMA (a linha chega por cima). */}
+      <Handle type="target" position={Position.Top} className="!opacity-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0" />
     </div>
   );
