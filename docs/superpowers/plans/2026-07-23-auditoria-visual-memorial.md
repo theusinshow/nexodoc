@@ -33,8 +33,14 @@
 > rótulo, e selo de "Sugestão" no achado que a validação rebaixou. Custo: 13,1s no
 > pior caso de 122 páginas (era 6,6s sem cards); ~30 achados abrem em 2,5s.
 >
-> **Falta do Apêndice A:** `RecurringStackNode` (pilha dos recorrentes em ciclo,
-> congelada em `prefers-reduced-motion`) e o drawer do parecer completo.
+> **`RecurringStackNode` FEITO** (`d53a2be`): pilha na faixa de cima (a manchete
+> não vai para o fim), badge ×N, uma linha por página, ciclo que o cursor pausa
+> abrindo a lista, congelado em `prefers-reduced-motion`. O destaque virou LISTA
+> de ids — a pilha acende todas as páginas do erro de uma vez.
+>
+> **Falta do Apêndice A:** só o drawer do parecer completo ("Ver relatório
+> completo" reusando `makeTextReport`/`audit-result.tsx`). Hoje o parecer está a
+> um clique, no chip "Parecer" ao lado de "No documento".
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
