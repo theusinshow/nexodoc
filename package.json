@@ -43,6 +43,7 @@
     "test:nexo:fatos": "node scripts/test-nexo-fatos.ts",
     "test:nexo:audit-contrato": "node scripts/test-nexo-audit-contrato.ts",
     "test:nexo:audit-marcos": "node scripts/test-nexo-audit-marcos.ts",
+    "test:nexo:audit-graph": "node scripts/test-nexo-audit-graph.ts",
     "test:ai-budget": "node scripts/test-ai-budget.ts",
     "test:audit-identity": "node scripts/test-audit-identity.ts"
   },
