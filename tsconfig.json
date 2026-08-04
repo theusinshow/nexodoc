@@ -9,6 +9,10 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Os módulos puros de server/nexo/audit/ são importados pelos testes que
+    // rodam em node cru (type-stripping), e o node exige o especificador com
+    // extensão. Sem isto o tsc recusa o mesmo import que o teste precisa.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
