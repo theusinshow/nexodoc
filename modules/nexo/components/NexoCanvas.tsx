@@ -40,6 +40,7 @@ import { agruparPorTomo, tomoDoArtefato } from "../lib/results";
 import { orfaosAposDivisao } from "../lib/edicao";
 import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { aplicarIdentidade, separarIdentidade } from "../lib/identidade";
+import { summarizeSelos } from "../lib/agent-context";
 import { EditorDoNo } from "./EditorDoNo";
 import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
@@ -286,6 +287,18 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
             ? `TOMO ${String(data.tomo).padStart(2, "0")}`
             : ""
         }
+        /*
+         * O que o CARIMBO diz, para o frame desenhar a capa cheia. Os campos de
+         * identidade chegam vazios (vazio = "vale o selo"), e num desenho do
+         * documento isso se lia como capa sem obra e sem código.
+         */
+        derivadosDaCapa={(() => {
+          const ident = summarizeSelos(data.selos ?? []);
+          return {
+            obra: conv.identidade.obra ?? ident.obra ?? "",
+            codigo: conv.identidade.codigo ?? ident.codigo ?? "",
+          };
+        })()}
         campos={camposDoArtefato({
           kind: data.kind,
           params: data.params,

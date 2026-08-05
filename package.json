@@ -39,6 +39,7 @@
     "test:nexo:volume-check": "node scripts/test-nexo-volume-check.ts",
     "test:nexo:totais": "node scripts/test-nexo-totais.ts",
     "test:nexo:identidade": "node scripts/test-nexo-identidade.ts",
+    "test:nexo:capa-linhas": "node scripts/test-nexo-capa-linhas.ts",
     "test:nexo:saudacao": "node scripts/test-nexo-saudacao.ts",
     "test:nexo:blocos": "node scripts/test-nexo-blocos.ts",
     "test:nexo:layout": "node scripts/test-nexo-layout.ts",

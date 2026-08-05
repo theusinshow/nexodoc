@@ -4,6 +4,7 @@ import { disciplinaLabel } from "./disciplinas";
 import { generatePages } from "@/modules/cover-generator/hooks/helpers";
 import { formatDisplayCode, tomoLabels } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
+import { textoEmLinhasDaCapa } from "./capa-linhas";
 import type { SeloForLd } from "./build-ld-proposal";
 import type {
   GeneralData,
@@ -217,7 +218,18 @@ export async function buildCapaProposal(
     : codigoFormatado;
 
   const revisao = dito(input.revisao) || mode(parsedList.map((p) => p.revisao));
-  const nomeObra = dito(input.obra) || mode(validos.map((s) => s.obra));
+  /*
+   * A OBRA sai em LINHAS, como o título — e não saía.
+   *
+   * O carimbo escreve "REFORMA E AMPLIAÇÃO - EMEB RUBENS DE ARRUDA RAMOS" numa
+   * linha só porque a célula dele é uma linha só. A capa que este escritório
+   * emite tem duas, e o gerador só quebrava onde havia Enter: como o valor vinha
+   * do selo, nunca havia Enter, e a obra saía numa tira única. Quem corrige à
+   * mão continua mandando — `linhasDaCapa` respeita o Enter digitado.
+   */
+  const nomeObra = textoEmLinhasDaCapa(
+    dito(input.obra) || mode(validos.map((s) => s.obra)),
+  );
 
   // FASE (linha proeminente) = FASE DO PROJETO (ex.: "PROJETO EXECUTIVO"), padrão
   // do template. NÃO é a etapa "IMPLANTAÇÃO" (essa faz parte do título).
@@ -230,9 +242,7 @@ export async function buildCapaProposal(
     .replace(/\s*\(\s*tomo[^)]*\)\s*/i, "")
     .trim();
   const tituloCapaFinal =
-    (tituloRaw ? tituloRaw.replace(/\s[-–]\s/, "\n") : "") ||
-    disciplinaLabel(discCode) ||
-    "PROJETO";
+    textoEmLinhasDaCapa(tituloRaw) || disciplinaLabel(discCode) || "PROJETO";
 
   /*
    * SECRETARIA: correção à mão -> CARIMBO -> padrão do template.

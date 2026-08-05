@@ -18,9 +18,26 @@
  * lista de rótulo/valor escondia isso.
  */
 
+import { linhasDaCapa } from "@/server/nexo/capa-linhas";
 import type { CampoEditavel } from "./EditorDoNo";
 
 const LABEL = "font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground";
+
+/**
+ * O que o carimbo já diz, para os campos que são ESCAPE e não decisão.
+ *
+ * Obra e código chegam ao editor VAZIOS de propósito: em branco significa "vale
+ * o que o selo disse", e é assim que se desfaz uma correção. Numa lista de
+ * rótulo/valor isso se lê bem. Num frame que desenha a capa, não: a capa
+ * aparecia sem obra e sem código, como se o documento fosse sair em branco.
+ *
+ * Aqui eles entram como texto FANTASMA — cinza, no lugar certo, já quebrado nas
+ * linhas em que vai sair impresso. Digitar por cima é que vira correção.
+ */
+export interface DerivadosDaCapa {
+  obra?: string;
+  codigo?: string;
+}
 
 /** As chaves que o frame desenha; o resto continua na lista abaixo dele. */
 export const CHAVES_DO_FRAME = ["obra", "bairro", "volume", "tituloCapa", "mes", "ano"];
@@ -68,7 +85,7 @@ export function FrameDaCapa({
   valores,
   onChange,
   prefeitura,
-  codigo,
+  derivados,
   tomo,
 }: {
   campos: CampoEditavel[];
@@ -76,13 +93,19 @@ export function FrameDaCapa({
   onChange: (chave: string, valor: string) => void;
   /** Cabeçalho fixo, do template escolhido — não se edita aqui. */
   prefeitura: string;
-  /** Código do projeto, derivado. Aparece porque sai impresso. */
-  codigo: string;
+  /** O que o carimbo já diz, para desenhar a capa cheia em vez de vazia. */
+  derivados: DerivadosDaCapa;
   /** Rótulo do tomo, derivado da divisão. */
   tomo: string;
 }) {
   const de = (chave: string) => campos.find((c) => c.chave === chave);
   const valor = (chave: string) => valores[chave] ?? "";
+
+  // O código impresso é a correção, se houver; senão o do carimbo.
+  const codigo = valor("codigo").trim() || derivados.codigo?.trim() || "";
+  const codigoDoCarimbo = !valor("codigo").trim() && Boolean(derivados.codigo?.trim());
+  // A obra fantasma sai nas MESMAS linhas que o gerador vai imprimir.
+  const obraDoCarimbo = linhasDaCapa(derivados.obra).join("\n");
 
   return (
     <div className="rounded-md border border-border bg-[var(--nexodoc-recessed)] p-4">
@@ -99,13 +122,13 @@ export function FrameDaCapa({
 
       <div className="space-y-2.5">
         <div className="space-y-1">
-          <span className={LABEL}>Obra — cada Enter é uma linha</span>
+          <span className={LABEL}>Obra</span>
           <Campo
             campo={de("obra")}
             valor={valor("obra")}
             onChange={(v) => onChange("obra", v)}
             linhas={2}
-            placeholder={"REFORMA E AMPLIAÇÃO\nEMEB RUBENS DE ARRUDA RAMOS"}
+            placeholder={obraDoCarimbo || "nome da obra"}
             className="text-sm font-semibold"
           />
         </div>
@@ -116,7 +139,7 @@ export function FrameDaCapa({
             campo={de("bairro")}
             valor={valor("bairro")}
             onChange={(v) => onChange("bairro", v)}
-            placeholder="BAIRRO JARDIM MARISTELA"
+            placeholder="bairro (opcional)"
             className="text-xs italic"
           />
         </div>
@@ -133,7 +156,7 @@ export function FrameDaCapa({
             />
           </div>
           <div className="flex-1 space-y-1">
-            <span className={LABEL}>Disciplinas — cada Enter é uma linha</span>
+            <span className={LABEL}>Disciplinas</span>
             <Campo
               campo={de("tituloCapa")}
               valor={valor("tituloCapa")}
@@ -154,7 +177,8 @@ export function FrameDaCapa({
             </span>
           )}
           <span className="font-mono text-[10px] text-muted-foreground">
-            {codigo || "—"} <span className="opacity-60">· do carimbo</span>
+            {codigo || "—"}
+            {codigoDoCarimbo && <span className="opacity-60"> · do carimbo</span>}
           </span>
         </div>
 
@@ -180,6 +204,12 @@ export function FrameDaCapa({
             />
           </div>
         </div>
+
+        {/* A dica vive AQUI, uma vez, e não dentro de cada rótulo: "Obra — cada
+            Enter é uma linha" quebrava em duas linhas e encavalava o campo. */}
+        <p className="pt-0.5 text-center text-[10px] leading-4 text-muted-foreground">
+          Em obra e disciplinas, cada Enter é uma linha impressa.
+        </p>
       </div>
     </div>
   );

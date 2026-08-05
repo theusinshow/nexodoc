@@ -19,7 +19,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NexoArtifactKind } from "../types";
 import { descreverMudanca, type RotulosDeCampo } from "../lib/edicao";
-import { CHAVES_DO_FRAME, FrameDaCapa } from "./FrameDaCapa";
+import { CHAVES_DO_FRAME, FrameDaCapa, type DerivadosDaCapa } from "./FrameDaCapa";
 
 /** Um campo do editor. `linhas > 1` vira textarea (título tem parágrafos). */
 export interface CampoEditavel {
@@ -56,6 +56,7 @@ export function EditorDoNo({
   onCancelar,
   prefeituraDoTemplate,
   rotuloDoTomo,
+  derivadosDaCapa,
 }: {
   kind: NexoArtifactKind;
   campos: CampoEditavel[];
@@ -63,6 +64,12 @@ export function EditorDoNo({
   prefeituraDoTemplate?: string;
   /** "TOMO 01", derivado da divisão. Só para desenhar o frame. */
   rotuloDoTomo?: string;
+  /**
+   * O que o carimbo já diz (obra, código). Sem isto o frame desenha a capa
+   * VAZIA nesses campos — eles chegam em branco de propósito, porque branco
+   * significa "vale o selo".
+   */
+  derivadosDaCapa?: DerivadosDaCapa;
   /**
    * Aplica: recebe os valores novos e a FRASE para o histórico (`null` quando
    * nada mudou). Quem chama regenera o artefato e escreve a mensagem.
@@ -193,7 +200,7 @@ export function EditorDoNo({
           valores={valores}
           onChange={(chave, v) => setValores((atual) => ({ ...atual, [chave]: v }))}
           prefeitura={prefeituraDoTemplate ?? ""}
-          codigo={valores.codigo ?? ""}
+          derivados={derivadosDaCapa ?? {}}
           tomo={rotuloDoTomo ?? ""}
         />
       )}
