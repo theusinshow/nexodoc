@@ -17,7 +17,14 @@
  * blobRegistry/canvas) — PR5/PR6. Estado honesto, sem fingir.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   FileText,
   Layers,
@@ -362,18 +369,13 @@ export function ConfirmationCard({
       );
     case "volume":
       return (
-        <>
-          {tomosDoVolume(selos, results).map((t) => (
-            <VolumeConfirmation
-              key={t.sufixo || "unico"}
-              resumo={proposal.resumo}
-              selos={selos}
-              pranchaFiles={pranchaFiles}
-              templates={templates}
-              tomo={t}
-            />
-          ))}
-        </>
+        <VolumesDoConjunto
+          tomos={tomosDoVolume(selos, results)}
+          resumo={proposal.resumo}
+          selos={selos}
+          pranchaFiles={pranchaFiles}
+          templates={templates}
+        />
       );
     case "auditoria":
       return (
@@ -1358,18 +1360,125 @@ async function conferirVolume(args: {
  * sem pranchas, botão desabilitado. Capa/LD ausentes (não geradas ou sem PDF)
  * simplesmente não entram — o card mostra o que será incluído.
  */
+/**
+ * Os volumes do conjunto — um card por tomo, e um botão que monta todos.
+ *
+ * Montar de um em um é o gesto certo para um volume; para seis é trabalho
+ * braçal que a máquina devia fazer. O laço é SEQUENCIAL e cada tomo é tentado
+ * dentro do seu próprio `try`: a montagem carrega dezenas de megabytes por
+ * volume, e um tomo que falha não pode levar os outros junto nem deixar o
+ * engenheiro sem saber quantos PDFs tem na mão. É a mesma regra do
+ * `gerarTudo` do plano, pelo mesmo motivo.
+ */
+function VolumesDoConjunto({
+  tomos,
+  ...props
+}: {
+  tomos: { atual: number; numero: number; sufixo: string }[];
+  resumo: string;
+  selos: SeloForLd[];
+  pranchaFiles: File[];
+  templates: NexoTemplateOption[];
+}) {
+  const montadores = useRef(new Map<string, () => Promise<string | null>>());
+  const registrar = useCallback(
+    (chave: string, montar: (() => Promise<string | null>) | null) => {
+      if (montar) montadores.current.set(chave, montar);
+      else montadores.current.delete(chave);
+    },
+    [],
+  );
+  const [montando, setMontando] = useState<number | null>(null);
+  const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
+
+  async function montarTodos() {
+    setFalhas([]);
+    const coletadas: { rotulo: string; motivo: string }[] = [];
+    try {
+      for (let i = 0; i < tomos.length; i++) {
+        const chave = tomos[i].sufixo || "unico";
+        const montar = montadores.current.get(chave);
+        if (!montar) continue;
+        setMontando(i);
+        const rotulo = `TOMO ${String(tomos[i].numero).padStart(2, "0")}`;
+        try {
+          const motivo = await montar();
+          if (motivo) coletadas.push({ rotulo, motivo });
+        } catch (err) {
+          // Rede de segurança: o card devolve o motivo em vez de lançar, mas um
+          // erro fora do `try` dele (render, por exemplo) não pode parar o laço.
+          coletadas.push({
+            rotulo,
+            motivo: err instanceof Error ? err.message : "erro desconhecido",
+          });
+        }
+      }
+    } finally {
+      setMontando(null);
+      setFalhas(coletadas);
+    }
+  }
+
+  return (
+    <>
+      {tomos.length > 1 && (
+        <div className="flex flex-col gap-1.5">
+          <ConfirmButton
+            busy={montando !== null}
+            label={`Montar os ${tomos.length} volumes`}
+            busyLabel={
+              montando !== null
+                ? `Montando ${montando + 1} de ${tomos.length}…`
+                : "Montando…"
+            }
+            onConfirm={montarTodos}
+          />
+          {falhas.length > 0 && (
+            <p className="text-xs text-[var(--destructive)]">
+              {falhas.length} volume(s) não montaram:{" "}
+              {falhas.map((f) => `${f.rotulo} (${f.motivo})`).join("; ")}. Os outros
+              estão prontos.
+            </p>
+          )}
+        </div>
+      )}
+      {tomos.map((t) => (
+        <VolumeConfirmation
+          key={t.sufixo || "unico"}
+          {...props}
+          tomo={t}
+          chave={t.sufixo || "unico"}
+          registrar={registrar}
+        />
+      ))}
+    </>
+  );
+}
+
 function VolumeConfirmation({
   resumo,
   selos,
   pranchaFiles,
   templates,
   tomo,
+  chave,
+  registrar,
 }: {
   resumo: string;
   selos: SeloForLd[];
   pranchaFiles: File[];
   templates: NexoTemplateOption[];
   tomo: { atual: number; numero: number; sufixo: string };
+  /** Identidade deste card para o pai; ausente = card solto, sem "montar todos". */
+  chave?: string;
+  /**
+   * Entrega ao pai a função que monta ESTE tomo. Ela devolve o MOTIVO da falha
+   * (ou `null` quando deu certo) em vez de lançar — ver `confirm`.
+   */
+  registrar?: (
+    chave: string,
+    montar: (() => Promise<string | null>) | null,
+  ) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1678,12 +1787,37 @@ function VolumeConfirmation({
         },
         files: [{ label: "PDF do volume", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
       });
+      return null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao montar o volume.");
+      const motivo = err instanceof Error ? err.message : "Erro ao montar o volume.";
+      setError(motivo);
+      /*
+       * O motivo VOLTA em vez de virar exceção. O botão individual liga
+       * `onClick={onConfirm}` e deixa a promessa solta: lançar daqui viraria
+       * rejeição não tratada no console a cada falha. O pai, que precisa contar
+       * quais tomos falharam no "montar todos", lê o retorno.
+       */
+      return motivo;
     } finally {
       setBusy(false);
     }
   }
+
+  /*
+   * O pai (`VolumesDoConjunto`) dispara ESTA montagem quando o engenheiro pede
+   * todos os volumes de uma vez. O ref carrega sempre a versão atual de
+   * `confirm`: registrar a função direto congelaria os selos e os artefatos do
+   * primeiro render, e o botão montaria o conjunto de antes.
+   */
+  const confirmRef = useRef<() => Promise<string | null>>(() => Promise.resolve(null));
+  useEffect(() => {
+    confirmRef.current = confirm;
+  });
+  useEffect(() => {
+    if (!registrar || !chave) return;
+    registrar(chave, () => confirmRef.current());
+    return () => registrar(chave, null);
+  }, [registrar, chave]);
 
   return (
     <CardShell kind="volume" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
