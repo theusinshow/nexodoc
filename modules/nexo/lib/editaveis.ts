@@ -23,12 +23,24 @@ export interface Editavel {
   url: string;
 }
 
+/** As pastas do ZIP, uma por tipo de documento. */
+const PASTA: Record<string, string> = {
+  capa: "capas",
+  ld: "lds",
+  separatriz: "separatrizes",
+};
+
 /**
- * Os editáveis de um conjunto de resultados, sem repetição de nome.
+ * Os editáveis de um conjunto de resultados, agrupados POR TIPO.
  *
- * Dois tomos geram "ld.odt" e "ld.odt": num ZIP, o segundo apagaria o primeiro
- * em silêncio. O desempate usa o RÓTULO do card (que já carrega o tomo), e só
- * cai no sufixo numérico quando nem isso basta.
+ * O ZIP sai com `capas/`, `lds/` e `separatrizes/` em vez de trinta arquivos
+ * soltos na raiz: quem abre isso vai atrás de "as capas" ou "as LDs", nunca de
+ * um documento específico no meio da pilha.
+ *
+ * Nome repetido não apaga arquivo em silêncio. Dois tomos geram "ld.odt" e
+ * "ld.odt"; o desempate usa o RÓTULO do card, que já carrega o tomo, e só cai
+ * no sufixo numérico quando nem isso basta. Agrupar por pasta reduz as colisões
+ * mas não as elimina — dois tomos põem duas LDs na MESMA pasta.
  */
 export function editaveisDosResultados(results: readonly SavedResult[]): Editavel[] {
   const saida: Editavel[] = [];
@@ -37,8 +49,9 @@ export function editaveisDosResultados(results: readonly SavedResult[]): Editave
   for (const r of results) {
     for (const f of r.files ?? []) {
       if (f.mime !== ODT_MIME) continue;
+      const pasta = PASTA[r.kind] ?? "outros";
       const rotulo = (r.summary ?? "").trim();
-      let nome = f.name;
+      let nome = `${pasta}/${f.name}`;
       if (usados.has(nome)) {
         const ponto = nome.lastIndexOf(".");
         const base = ponto > 0 ? nome.slice(0, ponto) : nome;
@@ -46,7 +59,7 @@ export function editaveisDosResultados(results: readonly SavedResult[]): Editave
         const marca = rotulo ? rotulo.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 40) : "";
         nome = marca ? `${base}--${marca}${ext}` : `${base}-${usados.get(nome)! + 1}${ext}`;
       }
-      usados.set(f.name, (usados.get(f.name) ?? 0) + 1);
+      usados.set(`${pasta}/${f.name}`, (usados.get(`${pasta}/${f.name}`) ?? 0) + 1);
       // O nome desempatado também precisa entrar no mapa, senão dois cards com o
       // MESMO rótulo voltariam a colidir.
       usados.set(nome, (usados.get(nome) ?? 0) + 1);

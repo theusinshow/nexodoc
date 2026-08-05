@@ -109,6 +109,7 @@ import {
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { baixarEditaveis, editaveisDosResultados } from "../lib/editaveis";
+import { nomeDoVolume } from "../lib/nome-do-volume";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
 const PDF_MIME = "application/pdf";
@@ -1789,9 +1790,7 @@ function VolumeConfirmation({
       const r = await assembleVolume({
         capaPdf64,
         blocos: montaveis,
-        ...(tomo.atual > 0
-          ? { fileName: `volume-tomo-${String(tomo.numero).padStart(2, "0")}.pdf` }
-          : {}),
+        fileName: nomeDoVolume(selosDoTomo, identidade, tomo),
       });
 
       /*

@@ -85,6 +85,28 @@ function mode(values: (string | null | undefined)[]): string {
  * que formatVolume espera (o valor cru, sem o prefixo "Vol. ", que o formatVolume
  * adiciona). Cobre alem de 10 para robustez; casos reais ficam em 1-10.
  */
+/**
+ * O MÊS da capa, sempre por extenso — venha ele como for.
+ *
+ * A capa imprime "JUNHO"; o chat trafega "6". Os dois formatos existem por bons
+ * motivos (o chip do slot manda um número, o campo do editor aceita o nome), e
+ * enquanto o campo não chegava até aqui a divergência era invisível. Assim que
+ * ele passou a chegar, a capa saiu com um "6" no lugar da data.
+ *
+ * A conversão mora AQUI, no dono do campo, e não em cada chamador: é o único
+ * ponto por onde os dois caminhos (plano em lote e editor do nó) passam.
+ *
+ * Nome desconhecido volta como veio, em maiúsculas: se alguém escrever
+ * "JUN/2026" à mão, imprimir isso é melhor do que descartar em silêncio.
+ */
+function normalizarMes(valor: string | undefined): string {
+  const bruto = valor?.trim();
+  if (!bruto) return "";
+  const n = Number(bruto);
+  if (Number.isInteger(n) && n >= 1 && n <= 12) return MESES[n - 1];
+  return bruto.toUpperCase();
+}
+
 /** "II"/"iv" -> 2/4. 0 se não for romano válido. Tolerante a lixo em volta. */
 function romanToArabic(value: string): number {
   const up = value.toUpperCase().replace(/[^IVXLCDM]/g, "");
@@ -248,7 +270,7 @@ export async function buildCapaProposal(
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
   const now = new Date();
-  const mes = input.mes?.trim() || MESES[now.getMonth()];
+  const mes = normalizarMes(input.mes) || MESES[now.getMonth()];
   const ano = input.ano?.trim() || String(now.getFullYear());
 
   const generalData: GeneralData = {
