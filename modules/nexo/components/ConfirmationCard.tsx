@@ -109,6 +109,10 @@ import {
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { baixarEditaveis, editaveisDosResultados } from "../lib/editaveis";
+import {
+  gerarEditaveisConsolidados,
+  parametrosDaEntrega,
+} from "../lib/editaveis-consolidados";
 import { nomeDoVolume } from "../lib/nome-do-volume";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
@@ -1392,22 +1396,43 @@ function VolumesDoConjunto({
   );
   const [montando, setMontando] = useState<number | null>(null);
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
-  const { results } = useConversation();
+  const { results, identidade } = useConversation();
   const [baixando, setBaixando] = useState(false);
   const [erroDoZip, setErroDoZip] = useState<string | null>(null);
 
   /*
    * Os EDITÁVEIS do conjunto — capa, LD e separatriz de todos os tomos. O PDF é
-   * o que se envia; o ODT é o que se conserta, e junta-los um a um num volume de
+   * o que se envia; o ODT é o que se conserta, e juntá-los um a um num volume de
    * seis tomos são dezenas de cliques.
    */
   const editaveis = useMemo(() => editaveisDosResultados(results), [results]);
+  const selosDaConversa = props.selos;
+  const identidadeDaConversa = identidade;
 
   async function baixarTodosOsEditaveis() {
     setBaixando(true);
     setErroDoZip(null);
     try {
-      await baixarEditaveis(editaveis, "editaveis-do-volume.zip");
+      /*
+       * Os TRÊS CONSOLIDADOS vão na raiz do ZIP: uma capa com uma página por
+       * tomo, uma LD com os tomos como seções, uma separatriz. É o que se abre
+       * no LibreOffice para mexer numa vírgula — vinte arquivos soltos, não.
+       *
+       * Os por-tomo continuam nas pastas: eles são o que entrou DENTRO de cada
+       * volume, e conferir o que foi encadernado é outra necessidade.
+       */
+      const params = parametrosDaEntrega(results);
+      const { editaveis: consolidados, falhas } = await gerarEditaveisConsolidados({
+        selos: selosDaConversa,
+        params,
+        identidade: identidadeDaConversa,
+      });
+      await baixarEditaveis([...consolidados, ...editaveis], "editaveis-do-volume.zip");
+      if (falhas.length > 0) {
+        setErroDoZip(
+          `O ZIP saiu, mas ${falhas.length} consolidado(s) não foram gerados: ${falhas.join("; ")}. Os por-tomo estão lá.`,
+        );
+      }
     } catch (err) {
       setErroDoZip(err instanceof Error ? err.message : "Falha ao juntar os editáveis.");
     } finally {
@@ -1480,8 +1505,8 @@ function VolumesDoConjunto({
             onClick={baixarTodosOsEditaveis}
           >
             {baixando
-              ? "Juntando…"
-              : `Baixar os ${editaveis.length} editáveis (ODT)`}
+              ? "Gerando os consolidados…"
+              : "Baixar os editáveis (3 ODTs + por tomo)"}
           </Button>
           {erroDoZip && (
             <p className="text-xs text-[var(--destructive)]">{erroDoZip}</p>
