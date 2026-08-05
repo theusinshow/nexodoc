@@ -45,6 +45,7 @@ import {
   ehAvulsa,
   folhas,
   folhasRemovidas,
+  ordenarPorPagina,
   type Ajuste,
   type Folha,
   type FolhaId,
@@ -205,7 +206,15 @@ function NexoWorkspaceInner({
    */
   const selosLidos = useMemo(
     () =>
-      seloResults
+      /*
+       * A ORDEM DO PAPEL entra AQUI, e não na leitura.
+       *
+       * Aqui é o ponto único por onde todo mundo enxerga as folhas, então
+       * ordenar neste lugar conserta o canvas, a divisão em tomos e a montagem
+       * de uma vez — e também as conversas JÁ SALVAS com a ordem embaralhada,
+       * que uma correção lá na leitura não alcançaria.
+       */
+      ordenarPorPagina(seloResults)
         /*
          * A folha que FALHOU entra assim mesmo, com o selo vazio.
          *

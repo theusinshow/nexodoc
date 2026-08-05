@@ -121,6 +121,39 @@ export function folhaId(selo: Pick<SeloForLd, "fileName" | "pageNumber">): Folha
   return `${selo.fileName}#${selo.pageNumber ?? "?"}`;
 }
 
+/**
+ * Põe os selos na ORDEM DO PAPEL: arquivo por arquivo, página por página.
+ *
+ * A leitura roda com três chamadas simultâneas e empilha cada resultado quando
+ * ele CHEGA, não quando ele pertence. Bastava a página 7 responder antes da 6
+ * para a folha 7 nascer antes; e a página que estoura o timeout volta um minuto
+ * depois e aterrissa dez posições abaixo — foi assim que um projeto de 71
+ * pranchas apareceu com 05, 07, 08, 10, 09 e a folha 06 lá embaixo, depois da 16.
+ *
+ * Isso não é detalhe de exibição: o índice nesta lista é o `natural` da folha, e
+ * `natural` é a chave de ordenação de tudo o que vem depois — o canvas, a divisão
+ * em tomos e a montagem quando o usuário arrasta alguma folha. A ordem de uma
+ * prancha é uma propriedade do PAPEL, e não do instante em que a rede respondeu.
+ *
+ * A ordem dos ARQUIVOS é a de chegada, não alfabética: quem soltou `est` antes de
+ * `arq` quer o volume nessa ordem, e ordenar por nome inverteria a decisão de
+ * quem largou os arquivos na tela.
+ */
+export function ordenarPorPagina<T extends { fileName: string; pageNumber?: number | null }>(
+  itens: readonly T[],
+): T[] {
+  const ordemDoArquivo = new Map<string, number>();
+  for (const item of itens) {
+    if (!ordemDoArquivo.has(item.fileName)) ordemDoArquivo.set(item.fileName, ordemDoArquivo.size);
+  }
+  return [...itens].sort((a, b) => {
+    const arquivoA = ordemDoArquivo.get(a.fileName) ?? 0;
+    const arquivoB = ordemDoArquivo.get(b.fileName) ?? 0;
+    if (arquivoA !== arquivoB) return arquivoA - arquivoB;
+    return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
+  });
+}
+
 /** Texto que só conta como ajuste se tiver conteúdo — evita título em branco na LD. */
 function texto(valor: string | undefined): string | null {
   const limpo = valor?.trim();

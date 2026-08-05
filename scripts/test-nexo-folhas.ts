@@ -18,6 +18,7 @@ import {
   folhas,
   folhasRemovidas,
   gruposDasFolhas,
+  ordenarPorPagina,
   type Ajuste,
   type FolhaId,
 } from "../modules/nexo/lib/folhas.ts";
@@ -63,6 +64,53 @@ const SELOS: SeloForLd[] = [
   selo("a.pdf", 2),
   selo("b.pdf", 1, { disciplina: "ESTRUTURAL" }),
 ];
+
+// ---------------------------------------------------------------------------
+// A ORDEM DO PAPEL — a leitura chega fora de ordem, a projeção conserta
+// ---------------------------------------------------------------------------
+
+test("a ordem de CHEGADA não vira a ordem das folhas", () => {
+  /*
+   * A assinatura real do defeito, colhida num projeto de 71 pranchas: três
+   * leituras simultâneas fazem a 07 chegar antes da 06, e a página que estourou
+   * o timeout volta um minuto depois e aterrissa muito abaixo.
+   */
+  const comoChegou = [7, 8, 10, 9, 6].map((n) => selo("est.pdf", n));
+  assert.deepEqual(
+    ordenarPorPagina(comoChegou).map((s) => s.pageNumber),
+    [6, 7, 8, 9, 10],
+  );
+});
+
+test("a ordem dos ARQUIVOS é a de chegada, não alfabética", () => {
+  // Quem soltou `est` antes de `arq` quer o volume nessa ordem; ordenar por
+  // nome inverteria a decisão de quem largou os arquivos na tela.
+  const comoChegou = [
+    selo("est.pdf", 2),
+    selo("arq.pdf", 1),
+    selo("est.pdf", 1),
+  ];
+  assert.deepEqual(
+    ordenarPorPagina(comoChegou).map((s) => [s.fileName, s.pageNumber]),
+    [
+      ["est.pdf", 1],
+      ["est.pdf", 2],
+      ["arq.pdf", 1],
+    ],
+  );
+});
+
+test("selo sem página (PDF de uma folha só) não quebra a ordenação", () => {
+  const semPagina = [
+    { ...selo("b.pdf", 1), pageNumber: null },
+    selo("a.pdf", 1),
+  ];
+  assert.equal(ordenarPorPagina(semPagina).length, 2);
+});
+
+test("ordenar é IDEMPOTENTE: a lista já certa não se mexe", () => {
+  assert.deepEqual(ordenarPorPagina(SELOS), SELOS);
+});
 
 // ---------------------------------------------------------------------------
 // A garantia de não-regressão
