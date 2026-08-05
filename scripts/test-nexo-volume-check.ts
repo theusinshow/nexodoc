@@ -12,6 +12,12 @@ import {
   type PaginaEsperada,
   type ParteDoPlano,
 } from "../server/nexo/volume-plano.ts";
+import {
+  checkVolumeMontado,
+  type AlvoDoVolume,
+  type LeituraDaPagina,
+  type VolumeCheckResult,
+} from "../server/nexo/volume-check-core.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -171,6 +177,90 @@ test("parte de zero páginas não ocupa lugar no volume", () => {
   );
   assert.deepEqual(plano.map((p) => p.pagina), [1, 2]);
   assert.deepEqual(plano.map((p) => p.papel), ["prancha", "prancha"]);
+});
+
+// ---------------------------------------------------------------------------
+// Task 3 — estrutura
+// ---------------------------------------------------------------------------
+
+const ALVO: AlvoDoVolume = { orgao: "Prefeitura Municipal de Chapecó", pageCount: 11 };
+
+/**
+ * O achado daquele campo, ou explode. Existe em vez de `assert.ok(f)` porque as
+ * funções de asserção do node não estreitam o tipo de forma confiável aqui — e
+ * um teste que não compila não protege nada.
+ */
+function achado(r: VolumeCheckResult, campo: string, filtro?: RegExp) {
+  const f = r.findings.find(
+    (x) => x.campo === campo && (!filtro || filtro.test(x.mensagem)),
+  );
+  if (!f) {
+    throw new Error(
+      `esperava um achado de "${campo}"${filtro ? ` casando ${filtro}` : ""}; achados: ${JSON.stringify(r.findings, null, 2)}`,
+    );
+  }
+  return f;
+}
+
+function semAchado(r: VolumeCheckResult, campo: string) {
+  const f = r.findings.find((x) => x.campo === campo);
+  if (f) throw new Error(`não esperava achado de "${campo}": ${JSON.stringify(f)}`);
+}
+
+/** Leitura de uma página que bate exatamente com o gabarito. */
+function leituraPerfeita(p: PaginaEsperada): LeituraDaPagina {
+  const prancha = p.papel === "prancha";
+  return {
+    pagina: p.pagina,
+    temCarimbo: prancha,
+    numeracaoTexto: prancha && p.folha ? `${p.folha}/${p.total}` : "",
+    folha: p.folha,
+    total: p.total,
+    codigo: p.codigo ?? "",
+    titulo: p.titulo ?? "",
+    disciplina: prancha ? p.bloco.toUpperCase() : "",
+    orgao: prancha ? "PREFEITURA MUNICIPAL DE CHAPECO" : "",
+    obra: prancha ? "REVITALIZACAO DA FEIRA MUNICIPAL" : "",
+  };
+}
+
+const PLANO = montarPlanoDePaginas(PARTES, BLOCOS);
+const LEITURA_OK = PLANO.map(leituraPerfeita);
+
+/** A leitura completa, com uma página trocada. */
+function comPagina(pagina: number, patch: Partial<LeituraDaPagina>): LeituraDaPagina[] {
+  return LEITURA_OK.map((l) => (l.pagina === pagina ? { ...l, ...patch } : l));
+}
+
+test("volume perfeito dá ok e não inventa achado", () => {
+  const r = checkVolumeMontado(PLANO, LEITURA_OK, ALVO);
+  assert.equal(r.veredito, "ok", JSON.stringify(r.findings, null, 2));
+  assert.equal(r.paginasConferidas, 11);
+});
+
+test("pageCount diferente do plano é crítico", () => {
+  const r = checkVolumeMontado(PLANO, LEITURA_OK, { ...ALVO, pageCount: 12 });
+  assert.equal(achado(r, "paginas").severidade, "critico");
+  assert.equal(r.veredito, "critico");
+});
+
+test("página que deveria ser prancha e chega sem carimbo é crítico", () => {
+  // A faixa recortada trouxe capa ou índice para dentro do bloco.
+  const r = checkVolumeMontado(PLANO, comPagina(5, { temCarimbo: false }), ALVO);
+  const f = achado(r, "papel");
+  assert.equal(f.severidade, "critico");
+  assert.match(f.detalhe ?? "", /p\.5/);
+});
+
+test("página que deveria ser LD e chega com carimbo de prancha é crítico", () => {
+  const r = checkVolumeMontado(PLANO, comPagina(3, { temCarimbo: true }), ALVO);
+  assert.equal(achado(r, "papel").severidade, "critico");
+});
+
+test("página não lida não vira acusação de papel trocado", () => {
+  // Sem leitura não há prova de nada; acusar seria inventar defeito.
+  const r = checkVolumeMontado(PLANO, comPagina(5, { temCarimbo: false, erro: "timeout" }), ALVO);
+  semAchado(r, "papel");
 });
 
 console.log(`\n${passed} teste(s) ok`);
