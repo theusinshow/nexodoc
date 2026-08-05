@@ -94,6 +94,27 @@ function juntar(itens: string[], max = 6): string {
   return `${itens.slice(0, max).join(", ")} (+${itens.length - max})`;
 }
 
+/** minúsculas, sem acento, sem pontuação — para comparar disciplina e obra. */
+function normalizar(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Valor mais frequente entre números; 0 quando não há nenhum. */
+function moda(valores: number[]): { valor: number; vezes: number } {
+  const contas = new Map<number, number>();
+  for (const v of valores) contas.set(v, (contas.get(v) ?? 0) + 1);
+  let valor = 0;
+  let vezes = 0;
+  for (const [k, n] of contas) if (n > vezes) [valor, vezes] = [k, n];
+  return { valor, vezes };
+}
+
 export function checkVolumeMontado(
   esperado: readonly PaginaEsperada[],
   lido: readonly LeituraDaPagina[],
@@ -148,6 +169,145 @@ export function checkVolumeMontado(
       mensagem: `${carimboAMais.length} página(s) trazem carimbo de prancha onde deveria haver outra parte.`,
       detalhe: juntar(carimboAMais),
     });
+  }
+
+  // --- Conteúdo, página a página --------------------------------------------
+  const pranchas = esperado.filter((p) => p.papel === "prancha");
+  const blocosDoPlano = [...new Set(pranchas.map((p) => p.bloco))];
+
+  for (const bloco of blocosDoPlano) {
+    const doBloco = pranchas.filter((p) => p.bloco === bloco);
+    const rotulo = bloco ? bloco.toUpperCase() : "Sem disciplina";
+
+    /*
+     * A FAIXA DESLOCADA vem primeiro porque ela EXPLICA as divergências
+     * individuais. Quando metade ou mais das páginas do bloco erram pelo MESMO
+     * valor, não são N leituras ruins: é uma faixa recortada errada, e reportar
+     * página por página esconderia a causa atrás do sintoma.
+     */
+    const desvios: number[] = [];
+    const divergentes: string[] = [];
+    let comparaveis = 0;
+    for (const p of doBloco) {
+      const l = porPagina.get(p.pagina);
+      if (!l || l.erro || p.folha == null || l.folha == null) continue;
+      comparaveis++;
+      if (l.folha !== p.folha) {
+        desvios.push(l.folha - p.folha);
+        divergentes.push(`p.${p.pagina}: selo diz ${l.folha}, esperado ${p.folha}`);
+      }
+    }
+
+    const { valor: desvio, vezes } = moda(desvios);
+    /*
+     * DUAS condições, e o piso de 2 é tão necessário quanto a proporção. Num
+     * bloco de duas folhas, uma leitura ruim é metade do bloco — e só a
+     * proporção a promoveria a "faixa recortada errada", que é justamente o
+     * crítico falso que esta regra existe para evitar. Uma página concordando
+     * consigo mesma não é padrão nenhum; padrão começa em duas.
+     */
+    const sistematico =
+      comparaveis > 0 && desvio !== 0 && vezes >= 2 && vezes >= Math.ceil(comparaveis / 2);
+
+    if (sistematico) {
+      findings.push({
+        severidade: "critico",
+        campo: "faixa",
+        mensagem: `${rotulo}: ${vezes} de ${comparaveis} folha(s) deslocadas em ${desvio > 0 ? "+" : ""}${desvio} — a faixa de páginas deste bloco foi recortada errada.`,
+        detalhe: juntar(divergentes),
+      });
+    } else if (divergentes.length > 0) {
+      findings.push({
+        severidade: "aviso",
+        campo: "numeracao",
+        mensagem: `${rotulo}: a numeração do carimbo discorda do esperado em ${divergentes.length} página(s).`,
+        detalhe: juntar(divergentes),
+      });
+    }
+
+    // --- Presença e duplicata dentro do bloco (CRÍTICO) ---------------------
+    const esperadas = doBloco
+      .map((p) => p.folha)
+      .filter((n): n is number => n != null);
+    const contagem = new Map<number, number>();
+    for (const p of doBloco) {
+      const l = porPagina.get(p.pagina);
+      if (!l || l.erro || l.folha == null) continue;
+      contagem.set(l.folha, (contagem.get(l.folha) ?? 0) + 1);
+    }
+
+    /*
+     * Faixa deslocada já explica a ausência e a duplicata inteiras: com o bloco
+     * corrido em +1, TODA folha some e TODA folha aparece fora do lugar. Somar
+     * os três achados sobre a mesma causa entulha a tela e esconde o conserto.
+     */
+    if (!sistematico && contagem.size > 0) {
+      /*
+       * A FALTA é INFERIDA da leitura, e por isso cede ao aviso de numeração.
+       * Uma página lida como "7" onde se esperava "2" faz a folha 2 parecer
+       * ausente — mas ela está ali, com o número mal lido, e a página existe
+       * (senão a contagem ou o carimbo já teriam acusado, que são as provas
+       * estruturais e confiáveis). Emitir crítico de falta em cima de um aviso
+       * de leitura seria dizer duas coisas sobre o mesmo fato, e escolher a
+       * mais alarmante das duas.
+       */
+      if (divergentes.length === 0) {
+        const faltando = esperadas.filter((n) => !contagem.has(n));
+        if (faltando.length > 0) {
+          findings.push({
+            severidade: "critico",
+            campo: "sequencia",
+            mensagem: `${rotulo}: folha(s) faltando no volume: ${faltando.join(", ")}.`,
+            detalhe: `A LD deste bloco promete ${esperadas.length} folha(s).`,
+          });
+        }
+      }
+      /*
+       * A DUPLICATA é OBSERVADA: duas páginas afirmando ser a mesma folha é um
+       * fato sobre o documento, não uma dedução sobre o que falta. Ela vale
+       * mesmo com ruído de leitura em volta.
+       */
+      const duplicadas = [...contagem.entries()]
+        .filter(([, n]) => n > 1)
+        .map(([n]) => n)
+        .sort((a, b) => a - b);
+      if (duplicadas.length > 0) {
+        findings.push({
+          severidade: "critico",
+          campo: "sequencia",
+          mensagem: `${rotulo}: folha(s) duplicada(s) no volume: ${duplicadas.join(", ")}.`,
+          detalhe: duplicadas
+            .map((n) => `folha ${n} aparece ${contagem.get(n)}x`)
+            .join(" | "),
+        });
+      }
+    }
+
+    // --- Disciplina: a prancha caiu no bloco certo? (CRÍTICO) ---------------
+    const foraDoBloco: string[] = [];
+    for (const p of doBloco) {
+      const l = porPagina.get(p.pagina);
+      if (!l || l.erro || !l.disciplina.trim() || !bloco) continue;
+      const lida = normalizar(l.disciplina);
+      const doPlano = normalizar(bloco);
+      /*
+       * O carimbo escreve a sigla ("EST") ou o nome ("ESTRUTURAL"); o plano tem
+       * o código do bloco ("est"). Prefixo cobre os dois sem exigir uma tabela
+       * de rótulos aqui dentro — e tabela de rótulos num núcleo puro seria uma
+       * segunda verdade sobre nomes de disciplina, que já moram em `disciplinas.ts`.
+       */
+      if (!lida.startsWith(doPlano) && !doPlano.startsWith(lida)) {
+        foraDoBloco.push(`p.${p.pagina}: carimbo diz "${l.disciplina}"`);
+      }
+    }
+    if (foraDoBloco.length > 0) {
+      findings.push({
+        severidade: "critico",
+        campo: "disciplina",
+        mensagem: `${rotulo}: ${foraDoBloco.length} página(s) de outra disciplina dentro deste bloco.`,
+        detalhe: juntar(foraDoBloco),
+      });
+    }
   }
 
   let veredito: Veredito = "ok";

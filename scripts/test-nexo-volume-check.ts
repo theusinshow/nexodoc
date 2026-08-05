@@ -263,4 +263,71 @@ test("página não lida não vira acusação de papel trocado", () => {
   semAchado(r, "papel");
 });
 
+// ---------------------------------------------------------------------------
+// Task 4 — conteúdo página a página
+// ---------------------------------------------------------------------------
+
+test("numeração divergente numa página isolada é AVISO, não crítico", () => {
+  // Leitura erra. Um crítico aqui ensinaria a ignorar o semáforo.
+  const r = checkVolumeMontado(PLANO, comPagina(6, { folha: 7 }), ALVO);
+  assert.equal(achado(r, "numeracao").severidade, "aviso");
+  assert.equal(r.veredito, "aviso");
+});
+
+test("uma leitura ruim num bloco de duas folhas NÃO vira faixa deslocada", () => {
+  // Metade do bloco, mas uma página só: padrão começa em duas. Sem este piso,
+  // um bloco pequeno transforma todo ruído de OCR em crítico.
+  const r = checkVolumeMontado(PLANO, comPagina(6, { folha: 7 }), ALVO);
+  semAchado(r, "faixa");
+});
+
+test("bloco inteiro deslocado com o MESMO offset é CRÍTICO", () => {
+  // Não é ruído: é a faixa recortada errada. As 3 folhas do arq lidas como 2,3,4.
+  const lido = LEITURA_OK.map((l) =>
+    l.pagina >= 9 && l.pagina <= 11 && l.folha != null ? { ...l, folha: l.folha + 1 } : l,
+  );
+  const r = checkVolumeMontado(PLANO, lido, ALVO);
+  const f = achado(r, "faixa");
+  assert.equal(f.severidade, "critico");
+  assert.match(f.mensagem, /ARQ/i);
+});
+
+test("a faixa deslocada NÃO gera também falta e duplicata da mesma causa", () => {
+  const lido = LEITURA_OK.map((l) =>
+    l.pagina >= 9 && l.pagina <= 11 && l.folha != null ? { ...l, folha: l.folha + 1 } : l,
+  );
+  const r = checkVolumeMontado(PLANO, lido, ALVO);
+  semAchado(r, "sequencia");
+});
+
+test("folha esperada ausente do volume é crítico", () => {
+  const r = checkVolumeMontado(
+    PLANO,
+    comPagina(10, { folha: null, numeracaoTexto: "" }),
+    ALVO,
+  );
+  assert.equal(achado(r, "sequencia", /faltando/i).severidade, "critico");
+});
+
+test("folha duplicada dentro do bloco é crítico", () => {
+  const r = checkVolumeMontado(PLANO, comPagina(10, { folha: 1 }), ALVO);
+  assert.equal(achado(r, "sequencia", /duplicad/i).severidade, "critico");
+});
+
+test("disciplina lida diferente do bloco em que a página caiu é crítico", () => {
+  const r = checkVolumeMontado(PLANO, comPagina(5, { disciplina: "ARQ" }), ALVO);
+  assert.equal(achado(r, "disciplina").severidade, "critico");
+});
+
+test("o carimbo por extenso casa com o código do bloco", () => {
+  // "ESTRUTURAL" no carimbo, "est" no plano: é a mesma disciplina.
+  const r = checkVolumeMontado(PLANO, comPagina(5, { disciplina: "ESTRUTURAL" }), ALVO);
+  semAchado(r, "disciplina");
+});
+
+test("disciplina em branco não acusa nada (o carimbo nem sempre traz)", () => {
+  const r = checkVolumeMontado(PLANO, comPagina(5, { disciplina: "" }), ALVO);
+  semAchado(r, "disciplina");
+});
+
 console.log(`\n${passed} teste(s) ok`);
