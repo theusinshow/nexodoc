@@ -353,6 +353,44 @@ export function arquivosDaSeparatriz(r: SeparatrizGenResult) {
   ];
 }
 
+/** O que a rota de conferência devolve por página. `null` = o modelo não leu. */
+export interface LeituraDoCarimbo {
+  pagina: number;
+  numeracaoTexto: string;
+  folha: number | null;
+  total: number | null;
+  codigo: string;
+  titulo: string;
+  disciplina: string;
+  orgao: string;
+  obra: string;
+  erro?: string;
+}
+
+/**
+ * Manda um lote de recortes de carimbo do volume MONTADO e devolve as leituras.
+ *
+ * Um lote por chamada, e a rota limita o tamanho: o que liga cada leitura à sua
+ * página é a ORDEM das imagens, e lote grande demais faz o modelo perdê-la.
+ */
+export async function postVolumeCheck(
+  paginas: { pagina: number; imageDataUrl: string }[],
+  conversationId?: string | null,
+): Promise<LeituraDoCarimbo[]> {
+  const res = await fetch("/api/nexo/volume-check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paginas, conversationId }),
+  });
+  conferirSessao(res);
+  if (!res.ok) {
+    const p = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(p?.error ?? "Falha ao conferir o volume.");
+  }
+  const json = (await res.json()) as { leituras: LeituraDoCarimbo[] };
+  return json.leituras;
+}
+
 export interface VolumeOptions {
   /** nome do PDF final; default "volume.pdf" na rota. */
   fileName?: string;
