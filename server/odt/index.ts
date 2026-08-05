@@ -239,11 +239,19 @@ function paragraphXmlValue(value: string, styleName: string): string {
     .join("");
 }
 
+/**
+ * Ajustes de espaçamento e corpo do template de Criciúma.
+ *
+ * ATENÇÃO: a primeira troca casa uma STRING EXATA do `content.xml`. Mexer no ODT
+ * sem atualizar aqui faz esta função virar no-op EM SILÊNCIO — a capa sai com o
+ * espaçamento original e ninguém vê erro nenhum. Foi o que aconteceu quando o
+ * `{{BAIRRO}}` entrou entre o nome da obra e os espaçadores.
+ */
 function tuneCriciumaTemplateXml(contentXml: string): string {
   return contentXml
     .replace(
-      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/>",
-      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/>"
+      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"PBAIRRO\">{{BAIRRO}}</text:p><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/>",
+      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"PBAIRRO\">{{BAIRRO}}</text:p><text:p text:style-name=\"P7\"/>"
     )
     .replaceAll('fo:font-size="25pt"', 'fo:font-size="16pt"')
     .replaceAll('style:font-size-asian="25pt"', 'style:font-size-asian="16pt"')
