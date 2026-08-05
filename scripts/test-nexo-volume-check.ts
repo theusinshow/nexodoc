@@ -417,4 +417,72 @@ test("família de código repetido com a contagem certa não acusa", () => {
   semAchado(checkVolumeMontado(PLANO, lido, ALVO), "ld");
 });
 
+// ---------------------------------------------------------------------------
+// Task 6 — identidade e leitura parcial
+// ---------------------------------------------------------------------------
+
+test("órgão de outra prefeitura no volume é crítico", () => {
+  const r = checkVolumeMontado(
+    PLANO,
+    comPagina(9, { orgao: "PREFEITURA MUNICIPAL DE CRICIUMA" }),
+    ALVO,
+  );
+  assert.equal(achado(r, "orgao").severidade, "critico");
+  assert.equal(r.veredito, "critico");
+});
+
+test("as palavras comuns a toda prefeitura não fazem dois órgãos casarem", () => {
+  // "Prefeitura Municipal de" é de todas; sem tirá-las, Criciúma passaria.
+  const r = checkVolumeMontado(
+    PLANO,
+    comPagina(9, { orgao: "Prefeitura Municipal de Criciúma" }),
+    ALVO,
+  );
+  assert.equal(achado(r, "orgao").severidade, "critico");
+});
+
+test("órgão em branco não acusa: o carimbo nem sempre traz", () => {
+  semAchado(checkVolumeMontado(PLANO, comPagina(9, { orgao: "" }), ALVO), "orgao");
+});
+
+test("obra divergente entre páginas do volume é crítico", () => {
+  const r = checkVolumeMontado(
+    PLANO,
+    comPagina(9, { obra: "AMPLIACAO DA ESCOLA MUNICIPAL" }),
+    ALVO,
+  );
+  assert.equal(achado(r, "obra").severidade, "critico");
+});
+
+test("acento e caixa não fazem a obra divergir de si mesma", () => {
+  const r = checkVolumeMontado(
+    PLANO,
+    comPagina(9, { obra: "Revitalização da Feira Municipal" }),
+    ALVO,
+  );
+  semAchado(r, "obra");
+});
+
+test("página que não deu para ler vira achado E impede o ok", () => {
+  const r = checkVolumeMontado(PLANO, comPagina(6, { erro: "tempo esgotado" }), ALVO);
+  achado(r, "leitura");
+  assert.notEqual(r.veredito, "ok", "conferência parcial não aprova");
+});
+
+test("página que nem chegou na leitura também conta como não conferida", () => {
+  const r = checkVolumeMontado(PLANO, LEITURA_OK.slice(0, 9), {
+    ...ALVO,
+    pageCount: 11,
+  });
+  assert.match(achado(r, "leitura").mensagem, /2 de 11/);
+  assert.notEqual(r.veredito, "ok");
+});
+
+test("nada lido: não aprova e diz por quê", () => {
+  const r = checkVolumeMontado(PLANO, [], ALVO);
+  assert.notEqual(r.veredito, "ok");
+  assert.equal(r.paginasConferidas, 0);
+  achado(r, "leitura");
+});
+
 console.log(`\n${passed} teste(s) ok`);

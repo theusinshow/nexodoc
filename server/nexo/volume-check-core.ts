@@ -105,6 +105,47 @@ function normalizar(valor: string): string {
     .trim();
 }
 
+/**
+ * Palavras que todo nome de prefeitura carrega e que, por isso, não identificam
+ * ninguém. Mesma lista e mesma razão de `selo-identity-core.ts`: sem tirá-las,
+ * "Prefeitura Municipal de Chapecó" e "Prefeitura Municipal de Criciúma"
+ * casariam em três das quatro palavras — e a conferência aprovaria justamente o
+ * erro que ela existe para pegar. Duplicada aqui porque núcleo puro não importa.
+ */
+const VAZIAS = new Set([
+  "prefeitura",
+  "municipal",
+  "municipio",
+  "de",
+  "do",
+  "da",
+  "dos",
+  "das",
+  "e",
+  "estado",
+  "governo",
+  "secretaria",
+  "obras",
+  "planejamento",
+  "urbanismo",
+  "desenvolvimento",
+]);
+
+/** O que RESTA de um nome de órgão depois de tirar o que é comum a todos. */
+function nucleo(valor: string): string[] {
+  return normalizar(valor)
+    .split(" ")
+    .filter((p) => p.length > 2 && !VAZIAS.has(p));
+}
+
+/** Dois nomes de órgão apontam para o mesmo município? `null` = não dá para dizer. */
+function mesmoOrgao(a: string, b: string): boolean | null {
+  const na = nucleo(a);
+  const nb = nucleo(b);
+  if (na.length === 0 || nb.length === 0) return null;
+  return na.some((p) => nb.includes(p));
+}
+
 /** Valor mais frequente entre números; 0 quando não há nenhum. */
 function moda(valores: number[]): { valor: number; vezes: number } {
   const contas = new Map<number, number>();
@@ -383,6 +424,60 @@ export function checkVolumeMontado(
         });
       }
     }
+  }
+
+  // --- Identidade: para QUEM este volume está indo (CRÍTICO) -----------------
+  const outroOrgao = lido.filter(
+    (l) => !l.erro && l.orgao.trim() && mesmoOrgao(l.orgao, alvo.orgao) === false,
+  );
+  if (outroOrgao.length > 0) {
+    findings.push({
+      severidade: "critico",
+      campo: "orgao",
+      mensagem: `${outroOrgao.length} página(s) do volume apontam outro órgão que não ${alvo.orgao}.`,
+      detalhe: juntar(outroOrgao.map((l) => `p.${l.pagina}: "${l.orgao}"`)),
+    });
+  }
+
+  const obras = new Map<string, number[]>();
+  for (const l of lido) {
+    if (l.erro) continue;
+    const chave = normalizar(l.obra);
+    if (!chave) continue;
+    if (!obras.has(chave)) obras.set(chave, []);
+    obras.get(chave)!.push(l.pagina);
+  }
+  if (obras.size > 1) {
+    findings.push({
+      severidade: "critico",
+      campo: "obra",
+      mensagem: `Nomes de obra divergentes dentro do volume (${obras.size} versões) — prancha de outro projeto encadernada junto.`,
+      detalhe: [...obras.entries()]
+        .map(([obra, pgs]) => `"${obra}": ${juntar(pgs.map((p) => `p.${p}`))}`)
+        .join(" | "),
+    });
+  }
+
+  /*
+   * --- Leitura parcial (AVISO, e trava o "ok") -----------------------------
+   *
+   * Mesma regra do auditor: análise parcial não aprova. O veredito "ok" afirma
+   * que o volume foi conferido, e ele não foi — dizer "ok" sobre um documento
+   * que não se olhou inteiro é a única saída pior do que não conferir.
+   */
+  const naoLidas = lido.filter((l) => l.erro);
+  const faltantes = esperado.filter((p) => !porPagina.has(p.pagina));
+  const semConferir = naoLidas.length + faltantes.length;
+  if (semConferir > 0) {
+    findings.push({
+      severidade: "aviso",
+      campo: "leitura",
+      mensagem: `${semConferir} de ${esperado.length} página(s) não puderam ser conferidas — o veredito fala só do resto.`,
+      detalhe: juntar([
+        ...naoLidas.map((l) => `p.${l.pagina}: ${l.erro}`),
+        ...faltantes.map((p) => `p.${p.pagina}: não lida`),
+      ]),
+    });
   }
 
   let veredito: Veredito = "ok";
