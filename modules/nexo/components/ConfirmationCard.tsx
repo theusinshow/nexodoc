@@ -108,6 +108,7 @@ import {
 } from "../lib/pendencia";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
+import { baixarEditaveis, editaveisDosResultados } from "../lib/editaveis";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
 const PDF_MIME = "application/pdf";
@@ -1390,6 +1391,28 @@ function VolumesDoConjunto({
   );
   const [montando, setMontando] = useState<number | null>(null);
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
+  const { results } = useConversation();
+  const [baixando, setBaixando] = useState(false);
+  const [erroDoZip, setErroDoZip] = useState<string | null>(null);
+
+  /*
+   * Os EDITÁVEIS do conjunto — capa, LD e separatriz de todos os tomos. O PDF é
+   * o que se envia; o ODT é o que se conserta, e junta-los um a um num volume de
+   * seis tomos são dezenas de cliques.
+   */
+  const editaveis = useMemo(() => editaveisDosResultados(results), [results]);
+
+  async function baixarTodosOsEditaveis() {
+    setBaixando(true);
+    setErroDoZip(null);
+    try {
+      await baixarEditaveis(editaveis, "editaveis-do-volume.zip");
+    } catch (err) {
+      setErroDoZip(err instanceof Error ? err.message : "Falha ao juntar os editáveis.");
+    } finally {
+      setBaixando(false);
+    }
+  }
 
   async function montarTodos() {
     setFalhas([]);
@@ -1439,6 +1462,28 @@ function VolumesDoConjunto({
               {falhas.map((f) => `${f.rotulo} (${f.motivo})`).join("; ")}. Os outros
               estão prontos.
             </p>
+          )}
+        </div>
+      )}
+      {/*
+        Os EDITÁVEIS, num ZIP só. Fica fora do `tomos.length > 1` porque juntar
+        capa, LD e separatriz num arquivo já vale para um volume — e é onde o
+        engenheiro vai quando precisa mexer numa vírgula no LibreOffice.
+      */}
+      {editaveis.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={baixando}
+            onClick={baixarTodosOsEditaveis}
+          >
+            {baixando
+              ? "Juntando…"
+              : `Baixar os ${editaveis.length} editáveis (ODT)`}
+          </Button>
+          {erroDoZip && (
+            <p className="text-xs text-[var(--destructive)]">{erroDoZip}</p>
           )}
         </div>
       )}
