@@ -102,13 +102,60 @@ export function endStream(state: SplitState): { trailing: string; tail: string }
  * Lê a cauda. Tolerante a cercas e a prosa em volta. Devolve `reply` quando o
  * modelo mandou o JSON antigo inteiro (rede de segurança do formato velho).
  */
+/**
+ * Escapa quebras de linha CRUAS dentro das strings do JSON.
+ *
+ * O prompt manda o modelo copiar o título "inclusive quando vier em várias
+ * linhas" — e uma quebra de linha crua dentro de uma string é JSON INVÁLIDO.
+ * O `JSON.parse` estourava, o `catch` devolvia `proposals: null`, e a proposta
+ * inteira sumia sem uma palavra na tela: o engenheiro pedia
+ *
+ *   Alterar o título da capa para:
+ *   PROJETO ESTRUTURAL CONCRETO
+ *   (TOMO XX)
+ *
+ * e o software simplesmente não fazia nada. Instruir o modelo a escapar ajuda,
+ * mas prompt é conselho; isto é garantia.
+ *
+ * Só toca no que está DENTRO de string (respeitando a barra invertida), para
+ * não mexer na formatação do JSON em volta.
+ */
+export function escaparQuebrasEmStrings(json: string): string {
+  let saida = "";
+  let dentroDeString = false;
+  let escapado = false;
+  for (const c of json) {
+    if (escapado) {
+      saida += c;
+      escapado = false;
+      continue;
+    }
+    if (c === "\\") {
+      saida += c;
+      escapado = dentroDeString;
+      continue;
+    }
+    if (c === '"') {
+      dentroDeString = !dentroDeString;
+      saida += c;
+      continue;
+    }
+    if (dentroDeString && (c === "\n" || c === "\r" || c === "\t")) {
+      saida += c === "\n" ? "\\n" : c === "\r" ? "\\r" : "\\t";
+      continue;
+    }
+    saida += c;
+  }
+  return saida;
+}
+
 export function parseTail(tail: string): { reply: string | null; proposals: unknown } {
   const cleaned = tail.replace(/```json/gi, "```").replace(/```/g, "");
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return { reply: null, proposals: null };
   try {
-    const parsed = JSON.parse(cleaned.slice(start, end + 1)) as {
+    const parsed = JSON.parse(escaparQuebrasEmStrings(cleaned.slice(start, end + 1))) as {
       reply?: unknown;
       proposals?: unknown;
     };

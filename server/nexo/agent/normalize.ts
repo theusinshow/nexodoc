@@ -147,6 +147,17 @@ export function normalizeProposals(
           volume: /^\d+$/.test(volumeRaw) ? volumeRaw : "",
           numTomos: clampTomos(p.numTomos),
           tomoInicial: clampTomoInicial(p.tomoInicial),
+          /*
+           * MÊS e ANO da capa. Existiam como slots desde sempre e eram
+           * DESCARTADOS aqui: o engenheiro pedia a data no chat, o resolver
+           * preenchia o slot, e a proposta saía sem os campos — a capa era
+           * gerada com a data corrente e o pedido sumia sem aviso.
+           *
+           * Vazio continua significando "use o padrão do builder", que é o
+           * comportamento de quem não pediu data nenhuma.
+           */
+          mes: String(p.mes ?? "").trim(),
+          ano: String(p.ano ?? "").trim(),
         },
       });
     } else if (p.kind === "separatriz") {

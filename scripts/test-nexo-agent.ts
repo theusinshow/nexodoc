@@ -215,7 +215,31 @@ test("normalizeProposals: forma dos params de ld e capa (regressão)", () => {
     volume: "3",
     numTomos: 2,
     tomoInicial: 1,
+    // Não vieram no pedido → a capa sai com a data corrente, que é o que quem
+    // não pediu data espera. O campo existir é o que faz o pedido CHEGAR.
+    mes: "",
+    ano: "",
   });
+});
+
+test("normalizeProposals: a DATA pedida chega nos params da capa", () => {
+  // O defeito real: o engenheiro pedia "muda a data para maio de 2026", o slot
+  // era preenchido, e a proposta saía sem os campos — a capa vinha com a data
+  // de hoje e o pedido sumia sem aviso.
+  const r = normalizeProposals(
+    [{ kind: "capa", prefeitura: "Criciúma", mes: "5", ano: "2026" }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r[0].params.mes, "5");
+  assert.equal(r[0].params.ano, "2026");
+});
+
+test("normalizeProposals: título de VÁRIAS LINHAS chega inteiro", () => {
+  const r = normalizeProposals(
+    [{ kind: "capa", prefeitura: "Criciúma", tituloCapa: "PROJETO ESTRUTURAL CONCRETO\n(TOMO 02)" }],
+    { disciplina: "EST", prefeituras: PREFS },
+  );
+  assert.equal(r[0].params.tituloCapa, "PROJETO ESTRUTURAL CONCRETO\n(TOMO 02)");
 });
 
 // O caso real: volume 6 já tem "Concreto" nos tomos 01-03; "Concreto

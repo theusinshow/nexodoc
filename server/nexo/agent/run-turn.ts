@@ -121,6 +121,13 @@ REGRAS:
   DISSE, copie EXATAMENTE o que ele escreveu, inclusive quando vier em várias
   linhas — não misture com o título anterior, não complete, não reordene.
   NUNCA use o nome do arquivo como título.
+  Num título de VÁRIAS LINHAS, escreva a quebra como \\n dentro da string JSON
+  (ex.: "tituloCapa": "PROJETO ESTRUTURAL CONCRETO\\n(TOMO 02)"). Quebra de linha
+  crua dentro de uma string quebra o JSON.
+- DATA DA CAPA (só capa): se o engenheiro pedir a data ("capa de março", "põe
+  maio de 2026", "muda a data para junho"), preencha "mes" com o NÚMERO do mês
+  ("3") e "ano" com o ano ("2026"). Se ele não pedir, deixe os dois "" — o
+  sistema usa a data corrente. Se ele pedir só o mês, preencha só o mês.
 - VOLUME (só capa): se o engenheiro disser o volume ("volume 3", "vol 2", "no
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
@@ -170,7 +177,8 @@ Formato da resposta, nesta ordem:
     { "kind": "ld", "resumo": "LD <disciplina> · <código> · N folhas",
       "tituloLd": "", "numTomos": 1, "tomoInicial": 1 },
     { "kind": "capa", "resumo": "Capa <prefeitura>", "templateId": "<id>",
-      "tituloCapa": "", "volume": "", "numTomos": 1, "tomoInicial": 1 },
+      "tituloCapa": "", "volume": "", "numTomos": 1, "tomoInicial": 1,
+      "mes": "", "ano": "" },
     { "kind": "separatriz", "resumo": "Separatriz <prefeitura>",
       "templateId": "<id>", "numTomos": 1, "titulos": [] },
     { "kind": "auditoria", "resumo": "Auditoria <disciplina>",

@@ -61,6 +61,10 @@ function slotsFromProposal(p: NexoAgentProposal): Record<SlotId, SlotState> {
       put("volume", p.params.volume);
       put("numTomos", p.params.numTomos);
       put("tomoInicial", p.params.tomoInicial);
+      // Sem estes dois, a data que o engenheiro já deu era perguntada de novo a
+      // cada turno — e a resposta não tinha para onde ir.
+      put("mes", p.params.mes);
+      put("ano", p.params.ano);
       break;
     case "separatriz":
       put("templateId", p.params.templateId);

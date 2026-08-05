@@ -223,6 +223,17 @@ export interface NexoCapaProposalParams {
    * capa e lista de documentos discordam da numeração dentro do mesmo volume.
    */
   tomoInicial: number;
+  /**
+   * MÊS e ANO impressos na capa. Vazio = a data corrente, que é o que quem não
+   * pediu data nenhuma espera.
+   *
+   * Existiam como slots do agente desde sempre e não tinham onde aterrissar: o
+   * engenheiro pedia "muda a data para maio", o resolver preenchia o slot, e a
+   * proposta saía sem os campos. A capa vinha com a data de hoje e o pedido
+   * sumia sem aviso.
+   */
+  mes: string;
+  ano: string;
 }
 
 /** Parâmetros propostos para uma separatriz. */

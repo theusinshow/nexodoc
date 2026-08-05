@@ -363,6 +363,14 @@ export async function gerarItem(args: {
       numTomos: item.tomoAtual > 0 ? 1 : num("numTomos", 1),
       tomoInicial: num("tomoInicial", 1),
       tomoNumero: item.tomoAtual > 0 ? item.tomoNumero : 0,
+      /*
+       * A DATA tem de passar por aqui também. O editor do nó já a mandava, mas
+       * este é o caminho do PLANO EM LOTE — o jeito normal de gerar. A capa
+       * saía com a data corrente por mais que o engenheiro a tivesse pedido no
+       * chat, e ele só descobria abrindo o documento.
+       */
+      mes: txt("mes"),
+      ano: txt("ano"),
       identidade: args.identidade,
     });
     await saveResult({

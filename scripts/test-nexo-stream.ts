@@ -76,4 +76,46 @@ test("parseTail: cauda inválida não explode", () => {
   assert.deepEqual(parseTail(""), { reply: null, proposals: null });
 });
 
+// ---------------------------------------------------------------------------
+// TÍTULO DE VÁRIAS LINHAS — o pedido que sumia sem aviso
+// ---------------------------------------------------------------------------
+
+test("título com quebra de linha CRUA não derruba a proposta", () => {
+  /*
+   * O caso real: o engenheiro pediu o título da capa em duas linhas, o modelo
+   * obedeceu ao prompt e escreveu a quebra crua, e uma quebra crua dentro de
+   * string é JSON inválido. `JSON.parse` estourava, o catch devolvia
+   * `proposals: null`, e o pedido sumia sem uma palavra na tela.
+   */
+  const cauda = '```json\n{"proposals":[{"kind":"capa","tituloCapa":"PROJETO ESTRUTURAL CONCRETO\n(TOMO 02)"}]}\n```';
+  const parsed = parseTail(cauda);
+  assert.deepEqual(parsed.proposals, [
+    { kind: "capa", tituloCapa: "PROJETO ESTRUTURAL CONCRETO\n(TOMO 02)" },
+  ]);
+});
+
+test("a quebra JÁ escapada continua funcionando", () => {
+  const cauda = '{"proposals":[{"kind":"capa","tituloCapa":"LINHA 1\\nLINHA 2"}]}';
+  assert.deepEqual(parseTail(cauda).proposals, [
+    { kind: "capa", tituloCapa: "LINHA 1\nLINHA 2" },
+  ]);
+});
+
+test("barra invertida escapada não confunde o detector de string", () => {
+  const cauda = '{"proposals":[{"kind":"ld","tituloLd":"A\\\\"}]}';
+  assert.deepEqual(parseTail(cauda).proposals, [{ kind: "ld", tituloLd: "A\\" }]);
+});
+
+test("a formatação FORA das strings não é tocada", () => {
+  const cauda = '{\n  "proposals": [\n    { "kind": "ld" }\n  ]\n}';
+  assert.deepEqual(parseTail(cauda).proposals, [{ kind: "ld" }]);
+});
+
+test("tab e retorno de carro crus também são salvos", () => {
+  const cauda = '{"proposals":[{"kind":"capa","tituloCapa":"A\tB\r\nC"}]}';
+  assert.deepEqual(parseTail(cauda).proposals, [
+    { kind: "capa", tituloCapa: "A\tB\r\nC" },
+  ]);
+});
+
 console.log(`\n${passed} teste(s) do separador de fluxo OK.`);
