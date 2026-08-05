@@ -2,7 +2,7 @@ import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel } from "./disciplinas";
 import { generatePages } from "@/modules/cover-generator/hooks/helpers";
-import { formatDisplayCode, tomoLabels } from "@/lib/cover-utils";
+import { formatDisplayCode, formatTomo, tomoLabels } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
 import { textoEmLinhasDaCapa } from "./capa-linhas";
 import type { SeloForLd } from "./build-ld-proposal";
@@ -326,19 +326,36 @@ export async function buildCapaProposal(
       : { tomoMode: "quantity" as const, tomoQuantity: numTomos, tomoList: [] }),
   };
 
-  // Capa usa o tomo SEM parênteses ("TOMO 04"); a LD é que leva "(TOMO 04)".
-  const pages = generatePages([group], undefined, template.volumeFormat, "plain-padded");
+  /*
+   * O FORMATO DO TOMO É DO TEMPLATE, não uma constante.
+   *
+   * Aqui estava fixo em "plain-padded" ("TOMO 04"), com o comentário de que a
+   * capa não leva parênteses e a LD sim. As capas que este escritório emite à
+   * mão dizem o contrário: em `docs/samples/116-25` (Criciúma) o tomo sai
+   * "(TOMO 01)" e "(TOMO 02)", e o `config.json` da prefeitura já pedia
+   * `parenthesized-padded` — o campo existia, estava certo, e era ignorado.
+   * Cada prefeitura declara o seu (Florianópolis, por exemplo, pede "TOMO 1").
+   */
+  const formatoDoTomo = template.tomoFormat ?? "plain-padded";
+  const pages = generatePages([group], undefined, template.volumeFormat, formatoDoTomo);
 
-  // Tomo específico: força "TOMO 0N" na capa única (formatTomo esconde com 1 tomo).
+  /*
+   * Rótulo OBRIGATÓRIO de um tomo avulso. `formatTomo` esconde o rótulo quando
+   * o total é 1, o que está certo para um volume indiviso e errado aqui: este
+   * documento é UM tomo de vários, e o rótulo é o que o distingue dos irmãos.
+   * O total 2 é o mínimo que o obriga a aparecer.
+   */
+  const rotuloDoTomo = (n: string | number) => formatTomo(String(n), 2, formatoDoTomo);
+
   if (tomoNumero > 0 && pages[0]) {
-    pages[0].tomo = `TOMO ${String(tomoNumero).padStart(2, "0")}`;
+    pages[0].tomo = rotuloDoTomo(tomoNumero);
   }
 
-  // Mesma armadilha do `formatTomo` quando a contagem é deslocada: com UM tomo
-  // ele esconde o rótulo, mas "TOMO 04" sozinho tem de aparecer — é o que
-  // distingue este documento dos tomos 01-03 do mesmo volume.
+  // Mesma armadilha quando a contagem é deslocada: com UM tomo o rótulo sumiria,
+  // mas "(TOMO 04)" sozinho tem de aparecer — é o que distingue este documento
+  // dos tomos 01-03 do mesmo volume.
   if (tomosExplicitos.length === 1 && pages[0]) {
-    pages[0].tomo = `TOMO ${tomosExplicitos[0]}`;
+    pages[0].tomo = rotuloDoTomo(tomosExplicitos[0]);
   }
 
   return {

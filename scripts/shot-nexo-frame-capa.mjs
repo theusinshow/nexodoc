@@ -102,7 +102,9 @@ await context.addInitScript(
                     templateId: window.__TEMPLATE,
                     tituloCapa: "PROJETO HIDROSSANITARIO",
                     volume: "1",
-                    numTomos: 1,
+                    // DOIS tomos: é com mais de um que o rótulo do tomo
+                    // aparece, e o formato dele é o que se quer conferir.
+                    numTomos: 2,
                     tomoInicial: 1,
                   },
                 },
@@ -145,12 +147,20 @@ try {
   }
   await page.waitForLoadState("networkidle").catch(() => {});
 
+  /*
+   * CRICIÚMA de propósito, e não "o primeiro template da lista": é o único com
+   * `{{BAIRRO}}` e com `coverTitleMode: volume-title-items` (a 1ª linha do
+   * título entra em "VOLUME N – ", as demais descem alinhadas à direita). Com
+   * o primeiro da lista o teste media outro documento e acusava falta de
+   * bairro num template que nunca teve o campo.
+   */
   const template = await page.evaluate(async () => {
     const r = await fetch("/api/capas/templates").then((x) => x.json());
-    window.__TEMPLATE = r.templates?.[0]?.id ?? "";
+    const alvo = (r.templates ?? []).find((t) => t.id === "pmcriciuma");
+    window.__TEMPLATE = alvo?.id ?? "";
     return window.__TEMPLATE;
   });
-  check("há uma prefeitura configurada para gerar a capa", Boolean(template), template);
+  check("o template de Criciúma está configurado", template === "pmcriciuma", template);
 
   const [seletor] = await Promise.all([
     page.waitForEvent("filechooser"),
@@ -261,6 +271,95 @@ try {
   check("a geração leva o bairro", enviado?.bairro === BAIRRO, JSON.stringify(enviado?.bairro));
 
   await page.screenshot({ path: `${OUT}/3-aplicado.png`, fullPage: true });
+
+  // =========================================================================
+  // O PDF QUE SAI — a única prova que vale
+  // =========================================================================
+  console.log("\nO documento gerado");
+  const emBase64 = await page.evaluate(async (marcador) => {
+    const db = await new Promise((res) => {
+      const req = indexedDB.open("nexo", 1);
+      req.onsuccess = () => res(req.result);
+    });
+    const todas = await new Promise((res) => {
+      const tx = db.transaction("conversations", "readonly");
+      const r = tx.objectStore("conversations").getAll();
+      r.onsuccess = () => res(r.result ?? []);
+    });
+    const atual = todas.find((c) => JSON.stringify(c).includes(marcador));
+    const capa = (atual?.results ?? []).find((r) => r.kind === "capa");
+    const pdf = (capa?.files ?? []).find((f) => f.mime === "application/pdf");
+    if (!pdf?.blobKey) return null;
+    // O arquivo não fica na conversa: ela guarda só a CHAVE, e o blob vive
+    // noutro store. Ler a conversa e esperar uma url devolvia null calado.
+    const registro = await new Promise((res) => {
+      const tx = db.transaction("result_blobs", "readonly");
+      const r = tx.objectStore("result_blobs").get(pdf.blobKey);
+      r.onsuccess = () => res(r.result ?? null);
+      r.onerror = () => res(null);
+    });
+    const blob = registro?.blob ?? registro?.value ?? registro;
+    if (!(blob instanceof Blob)) return null;
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin);
+  }, MARCADOR);
+
+  check("a capa gerada tem um PDF para conferir", Boolean(emBase64));
+
+  if (emBase64) {
+    // Fica em disco: quando uma linha some da capa, ler o PDF vale mais que
+    // qualquer asserção — foi assim que a data ausente apareceu.
+    fs.writeFileSync(`${OUT}/capa-gerada.pdf`, Buffer.from(emBase64, "base64"));
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const doc = await pdfjs.getDocument({
+      data: new Uint8Array(Buffer.from(emBase64, "base64")),
+      useSystemFonts: true,
+    }).promise;
+    const conteudo = await (await doc.getPage(1)).getTextContent();
+    // Uma linha impressa por coordenada Y — é assim que se vê "duas linhas".
+    const porLinha = new Map();
+    for (const it of conteudo.items) {
+      if (!it.str.trim()) continue;
+      const y = Math.round(it.transform[5]);
+      porLinha.set(y, (porLinha.get(y) ?? "") + it.str);
+    }
+    const linhas = [...porLinha.entries()].sort((a, b) => b[0] - a[0]).map(([, t]) => t.trim());
+    console.log(linhas.map((l) => `      | ${l}`).join("\n"));
+
+    check(
+      "a OBRA sai em duas linhas no PDF",
+      linhas.includes("REFORMA E AMPLIACAO") &&
+        linhas.some((l) => l.startsWith(`EMEB ${MARCADOR}`)),
+      JSON.stringify(linhas.slice(0, 8)),
+    );
+    // A fonte do modelo perde os espaços na extração; comparar sem eles.
+    const semEspaco = (s) => s.replace(/\s+/g, "");
+    const contem = (t) => linhas.some((l) => semEspaco(l) === semEspaco(t));
+
+    check(
+      "a OBRA não sai DUPLICADA (os dois marcadores dividem as linhas)",
+      linhas.filter((l) => l === "REFORMA E AMPLIACAO").length === 1,
+      JSON.stringify(linhas),
+    );
+    check(
+      "as três DISCIPLINAS saem uma por linha",
+      linhas.some((l) => /VOLUME1?.?–?PROJETODEURBANIZACAO/.test(semEspaco(l))) &&
+        contem("PROJETO DE PAISAGISMO") &&
+        contem("MAQUETE ELETRONICA"),
+      JSON.stringify(linhas),
+    );
+    check("o BAIRRO sai na capa", contem(BAIRRO), JSON.stringify(linhas));
+    // O config de Criciúma pede `parenthesized-padded`, e o construtor fixava
+    // "plain-padded" — as capas feitas à mão em docs/samples/116-25 dizem "(TOMO 01)".
+    check(
+      "o TOMO sai no formato que o template pede",
+      linhas.some((l) => /^\(TOMO0\d\)$/.test(l.replace(/\s+/g, ""))),
+      JSON.stringify(linhas.filter((l) => /TOMO/i.test(l))),
+    );
+  }
+
   check("nenhum erro de runtime no console", errosDeConsole.length === 0, errosDeConsole[0] ?? "");
 } catch (err) {
   falhas++;

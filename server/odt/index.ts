@@ -11,8 +11,6 @@ import { escapeXml, formatMesAno, formatDisplayCode } from "@/lib/cover-utils";
 import type { GeneralData, CoverPage } from "@/modules/cover-generator/types";
 import { getTemplateOdtPath } from "@/server/templates/registry";
 
-const CRICIUMA_TEMPLATE_ID = "pmcriciuma";
-
 export interface GenerateOdtInput {
   templateId?: string;
   generalData: GeneralData;
@@ -98,10 +96,21 @@ async function fillExistingOdt(
     throw new Error("Template ODT invalido: content.xml nao encontrado");
   }
 
-  let contentXml = await contentXmlFile.async("string");
-  if (templateId === CRICIUMA_TEMPLATE_ID) {
-    contentXml = tuneCriciumaTemplateXml(contentXml);
-  }
+  /*
+   * O TEMPLATE MANDA, INTEIRO.
+   *
+   * Havia aqui um `tuneCriciumaTemplateXml` que remendava o XML do modelo em
+   * tempo de execução por casamento EXATO de string: apagava dois parágrafos
+   * vazios e trocava 25pt por 16pt. Isso torna o arquivo que se abre no
+   * LibreOffice diferente do que sai impresso — e, pior, o remendo vira no-op
+   * SILENCIOSO assim que alguém salva o modelo (o LibreOffice reescreve o XML,
+   * renumera estilos e a string deixa de casar). Foi o que aconteceu: o modelo
+   * novo de Criciúma já traz 16pt e não tem mais o estilo que o remendo
+   * procurava, então ele não fazia nada havia tempo.
+   *
+   * Agora o que se vê no modelo é o que sai. Ajuste de layout se faz no ODT.
+   */
+  const contentXml = await contentXmlFile.async("string");
   const templateBody = extractOfficeText(contentXml);
 
   const replacements: Record<string, string> = {
@@ -129,14 +138,10 @@ async function fillExistingOdt(
     let block = templateBody.innerXml;
 
     for (const [marker, value] of Object.entries(replacements)) {
-      if (templateId === CRICIUMA_TEMPLATE_ID && marker === "{{NOME_OBRA}}") {
-        block = block.replaceAll(marker, criciumaProjectNameXmlValue(value));
-      } else {
-        block = block.replaceAll(marker, markerXmlValue(value));
-      }
+      block = distribuirNosMarcadores(block, marker, value);
     }
 
-    block = replaceTitleMarkers(block, page.tituloCapa, templateId);
+    block = distribuirNosMarcadores(block, "{{TITULO_CAPA}}", page.tituloCapa);
     block = block.replaceAll("{{DISCIPLINA}}", markerXmlValue(page.disciplina));
     block = block.replaceAll("{{TOMO}}", markerXmlValue(page.tomo));
     block = block.replaceAll("{{VOLUME}}", markerXmlValue(page.volume));
@@ -189,73 +194,51 @@ function markerXmlValue(value: string): string {
   return escapeXml(value).replace(/\n/g, "<text:line-break/>");
 }
 
-function replaceTitleMarkers(block: string, value: string, templateId: string): string {
-  if (templateId !== CRICIUMA_TEMPLATE_ID) {
-    return block.replaceAll("{{TITULO_CAPA}}", markerXmlValue(value));
-  }
-
-  const lines = value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const volumeTitle = lines[0] ?? "";
-  const detailTitle = lines.slice(1).join("\n");
-
-  return block
-    .replace("{{TITULO_CAPA}}", markerXmlValue(volumeTitle))
-    .replaceAll("{{TITULO_CAPA}}", paragraphXmlValue(detailTitle, "P9"));
-}
-
-function criciumaProjectNameXmlValue(value: string): string {
-  const lines = value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length <= 1) {
-    return markerXmlValue(lines[0] ?? "");
-  }
-
-  return `${escapeXml(lines[0])}</text:p>${lines
-    .slice(1)
-    .map((line) => `<text:p text:style-name="P13">${escapeXml(line)}</text:p>`)
-    .join("")}<text:p text:style-name="P7">`;
-}
-
-function paragraphXmlValue(value: string, styleName: string): string {
-  const lines = value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length === 0) return "";
-
-  return lines
-    .map((line, index) =>
-      index === 0
-        ? escapeXml(line)
-        : `</text:p><text:p text:style-name="${styleName}">${escapeXml(line)}`
-    )
-    .join("");
-}
-
 /**
- * Ajustes de espaçamento e corpo do template de Criciúma.
+ * O MARCADOR REPETIDO DIVIDE O VALOR EM LINHAS.
  *
- * ATENÇÃO: a primeira troca casa uma STRING EXATA do `content.xml`. Mexer no ODT
- * sem atualizar aqui faz esta função virar no-op EM SILÊNCIO — a capa sai com o
- * espaçamento original e ninguém vê erro nenhum. Foi o que aconteceu quando o
- * `{{BAIRRO}}` entrou entre o nome da obra e os espaçadores.
+ * Um campo que sai em várias linhas — o nome da obra, o título com as
+ * disciplinas — pode aparecer mais de uma vez no modelo, cada ocorrência num
+ * parágrafo seu. É assim que o padrão da empresa desenha a capa: a 1ª linha do
+ * nome da obra num parágrafo, a 2ª no seguinte, o bairro logo abaixo.
+ *
+ * Com `replaceAll`, os dois parágrafos recebiam o nome INTEIRO e a obra saía
+ * duplicada na capa. Aqui cada ocorrência recebe a sua linha, e a ÚLTIMA recebe
+ * o que sobrar — assim nada é perdido quando o texto tem mais linhas do que o
+ * modelo previu. Ocorrência sem linha correspondente fica vazia, que é o
+ * parágrafo em branco que o modelo já desenhava.
+ *
+ * Com UMA ocorrência o comportamento é o de sempre: o valor inteiro, com as
+ * quebras viram `<text:line-break/>`.
+ *
+ * Substituiu duas funções específicas de Criciúma que fixavam NOMES DE ESTILO
+ * ("P9", "P13") no código. Nome de estilo é numeração interna do LibreOffice:
+ * ele renumera ao salvar, e o "P9" que era alinhado à direita passou a ser
+ * centralizado no modelo novo — o código escreveria no estilo errado sem que
+ * nada acusasse. Herdar o estilo do parágrafo do modelo não tem esse problema.
  */
-function tuneCriciumaTemplateXml(contentXml: string): string {
-  return contentXml
-    .replace(
-      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"PBAIRRO\">{{BAIRRO}}</text:p><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/><text:p text:style-name=\"P7\"/>",
-      "{{NOME_OBRA}}</text:p><text:p text:style-name=\"PBAIRRO\">{{BAIRRO}}</text:p><text:p text:style-name=\"P7\"/>"
-    )
-    .replaceAll('fo:font-size="25pt"', 'fo:font-size="16pt"')
-    .replaceAll('style:font-size-asian="25pt"', 'style:font-size-asian="16pt"')
-    .replaceAll('style:font-size-complex="25pt"', 'style:font-size-complex="16pt"');
+function distribuirNosMarcadores(
+  block: string,
+  marcador: string,
+  valor: string,
+): string {
+  const partes = block.split(marcador);
+  const quantos = partes.length - 1;
+  if (quantos <= 0) return block;
+  if (quantos === 1) return block.replaceAll(marcador, markerXmlValue(valor));
+
+  const linhas = valor
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let saida = partes[0];
+  for (let i = 0; i < quantos; i++) {
+    const conteudo =
+      i === quantos - 1 ? linhas.slice(i).join("\n") : (linhas[i] ?? "");
+    saida += markerXmlValue(conteudo) + partes[i + 1];
+  }
+  return saida;
 }
 
 function extractOfficeText(contentXml: string): {
