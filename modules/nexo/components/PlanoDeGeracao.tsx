@@ -37,6 +37,8 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { summarizeSelos } from "../lib/agent-context";
+import { MESES_PT } from "@/server/nexo/agent/requirements";
 import type { Folha } from "../lib/folhas";
 
 const LABEL_CLASS =
@@ -174,6 +176,27 @@ export function PlanoDeGeracao({
   const tomoInicial = capa?.tomoInicial ?? ld?.tomoInicial ?? 1;
 
   /*
+   * A IDENTIDADE DO PROJETO no resumo. Antes o card mostrava título, prefeitura,
+   * volume, tomos e folhas — e faltava justamente o que responde "é o projeto
+   * certo?": a obra, o código e a data que vai impressa. O engenheiro só via
+   * esses três abrindo o PDF, que é tarde demais para descobrir que a data está
+   * errada em seis capas.
+   *
+   * O que foi corrigido à mão (`identidade`) vem primeiro; senão vale o carimbo.
+   */
+  const doSelo = summarizeSelos(selos);
+  const obra = identidade.obra?.trim() || doSelo.obra || "";
+  const codigo = identidade.codigo?.trim() || doSelo.codigo || "";
+  const dataDaCapa = (() => {
+    const mes = capa?.mes?.trim();
+    const ano = capa?.ano?.trim();
+    if (!mes && !ano) return "";
+    const n = Number(mes);
+    const nome = Number.isFinite(n) && n >= 1 && n <= 12 ? MESES_PT[n - 1] : mes;
+    return [nome, ano].filter(Boolean).join("/");
+  })();
+
+  /*
    * Num volume misto sem capa no plano, o título global não é decisão nenhuma:
    * cada LD e cada separatriz recebe o nome da SUA disciplina. Exigi-lo ali
    * travaria o botão pedindo um dado que não vai a lugar nenhum. A capa, essa
@@ -289,7 +312,18 @@ export function PlanoDeGeracao({
               valor={titulosDaSeparatriz.join(" · ")}
             />
           )}
+          {/* A identidade vem ANTES dos parâmetros: é ela que responde "é o
+              projeto certo?", e essa pergunta precede qualquer decisão sobre
+              como dividi-lo. */}
+          {obra && <Linha rotulo="Obra" valor={obra} />}
+          {codigo && <Linha rotulo="Código" valor={codigo} />}
           {capa && <Linha rotulo="Prefeitura" valor={prefeitura} />}
+          {capa && (
+            <Linha
+              rotulo="Data da capa"
+              valor={dataDaCapa || "auto (mês corrente)"}
+            />
+          )}
           {capa && (
             <Linha
               rotulo="Volume"

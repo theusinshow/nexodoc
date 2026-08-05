@@ -141,7 +141,8 @@ function obraDe(facts: SlotFacts): string {
   return mode(allSelos(facts).map((s) => s.obra));
 }
 
-const MESES_PT = [
+/** Exportado para o resumo do plano imprimir a data da capa por extenso. */
+export const MESES_PT = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
@@ -377,6 +378,33 @@ const nivelAuditoriaSlot: SlotDef = {
   ],
 };
 
+/**
+ * `volume`: o número do volume no conjunto do escritório ("VOLUME 05").
+ *
+ * Era o buraco do diálogo: o campo existe na capa, o builder o deriva do NOME DO
+ * ARQUIVO quando vazio, e ninguém nunca era perguntado. Num projeto cujo arquivo
+ * não carrega o volume, a capa saía sem ele e só se descobria abrindo o PDF.
+ *
+ * NÃO é required — a derivação pelo nome acerta na maioria e não pode segurar a
+ * geração. E não tem `deriveFrom`: o número que o builder deduz do arquivo já
+ * cobre o caso comum, e cravar aqui um palpite diferente criaria duas fontes
+ * para o mesmo campo.
+ */
+const volumeSlot: SlotDef = {
+  id: "volume",
+  taskKind: "capa",
+  required: false,
+  decision: true,
+  prompt: "Qual o número do volume?",
+  deriveFrom: () => null,
+  suggest: () =>
+    [1, 2, 3, 4].map((n) => ({
+      label: `Volume ${n}`,
+      value: String(n),
+      commit: "fill" as const,
+    })),
+};
+
 // ---------------------------------------------------------------------------
 // Registro
 // ---------------------------------------------------------------------------
@@ -388,9 +416,17 @@ const nivelAuditoriaSlot: SlotDef = {
  */
 export const ARTIFACT_REQUIREMENTS: Record<NexoArtifactKind, SlotDef[]> = {
   ld: [tituloLdSlot, numTomosSlot("ld"), tomoInicialSlot("ld")],
+  /*
+   * A ORDEM importa: `resolveSlots` pergunta o PRIMEIRO que falta, então esta
+   * lista é o roteiro da conversa. Ela vai do que não dá para adivinhar (a
+   * prefeitura, o título) para o que quase sempre se deriva sozinho (a data) —
+   * assim as perguntas que só o engenheiro responde vêm primeiro, e as que o
+   * sistema resolve sozinho raramente chegam a ser feitas.
+   */
   capa: [
     templateIdSlot("capa"),
     tituloCapaSlot,
+    volumeSlot,
     numTomosSlot("capa"),
     tomoInicialSlot("capa"),
     mesSlot("capa"),
