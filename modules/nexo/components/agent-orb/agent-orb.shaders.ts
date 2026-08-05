@@ -113,12 +113,24 @@ void main() {
   // Corpo de vidro escuro translúcido (leve, pra a esfera ler INTEIRA).
   vec3 body = uColor * 0.18;
 
-  // Scanner técnico (leitura): banda horizontal atravessando o vidro.
-  float scanY = sin(uTime * 0.8) * 1.05;
-  float band = smoothstep(0.06, 0.0, abs(vWorldPos.y - scanY));
-  vec3 scan = uRimColor * band * uScan * 0.5;
+  /*
+   * Scanner técnico (leitura): banda horizontal atravessando o vidro.
+   *
+   * É o único sinal de que o Nexo está LENDO as pranchas, e ele quase não
+   * aparecia: uma banda de 0.06 a meia intensidade some no brilho do próprio
+   * vidro. Mais larga, mais forte e um pouco mais lenta — a passagem tem de ser
+   * vista de relance, sem que se precise procurar por ela. O núcleo mais
+   * quente dentro da banda larga é o que dá a leitura de "linha", em vez de
+   * virar um borrão que pulsa.
+   */
+  float scanY = sin(uTime * 0.55) * 1.05;
+  float dist = abs(vWorldPos.y - scanY);
+  float band = smoothstep(0.16, 0.0, dist);
+  float nucleo = smoothstep(0.045, 0.0, dist);
+  vec3 scan = uRimColor * (band * 0.75 + nucleo * 0.85) * uScan;
 
-  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85 + sheen * 0.28 + band * uScan * 0.4;
+  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85 + sheen * 0.28
+    + (band * 0.45 + nucleo * 0.5) * uScan;
   gl_FragColor = vec4(body + rim + edge + glint + scan, alpha);
 }
 `;

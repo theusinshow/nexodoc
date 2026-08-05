@@ -29,17 +29,33 @@ export function useRevealText(text: string, enabled: boolean): string {
       });
       return () => cancelAnimationFrame(raf);
     }
-    // ~140 passos no máximo: curto = rápido, longo = ~2s.
+    /*
+     * O RITMO da escrita. Antes eram ~140 passos a 16ms — dois segundos e meio
+     * no texto longo, mas com passos GRANDES: numa frase de 400 caracteres cada
+     * tique cuspia três letras de uma vez, e o olho lê isso como tremor, não
+     * como alguém escrevendo.
+     *
+     * Agora o passo é sempre de UMA letra e quem se ajusta é o intervalo, com
+     * um piso: frase curta escreve devagar de verdade, frase longa acelera até
+     * o piso e não além. O movimento fica contínuo e legível em vez de rápido e
+     * picotado — que é a diferença entre parecer vivo e parecer travado.
+     */
     let i = 0;
-    const step = Math.max(1, Math.round(text.length / 140));
+    const DURACAO_ALVO_MS = 2600;
+    const INTERVALO_MIN_MS = 18;
+    const INTERVALO_MAX_MS = 55;
+    const intervalo = Math.min(
+      INTERVALO_MAX_MS,
+      Math.max(INTERVALO_MIN_MS, Math.round(DURACAO_ALVO_MS / Math.max(1, text.length))),
+    );
     const id = setInterval(() => {
-      i = Math.min(text.length, i + step);
+      i = Math.min(text.length, i + 1);
       setShown(text.slice(0, i));
       if (i >= text.length) {
         clearInterval(id);
         doneRef.current = true;
       }
-    }, 16);
+    }, intervalo);
     return () => clearInterval(id);
   }, [text, enabled]);
 
