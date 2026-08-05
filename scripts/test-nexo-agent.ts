@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 
 import {
+  casarPrefeituraDoCarimbo,
   clampTomos,
   matchPrefeitura,
   normalizeProposals,
@@ -232,6 +233,51 @@ test("normalizeProposals: a DATA pedida chega nos params da capa", () => {
   );
   assert.equal(r[0].params.mes, "5");
   assert.equal(r[0].params.ano, "2026");
+});
+
+// ---------------------------------------------------------------------------
+// A prefeitura sai do CARIMBO — o campo que já era lido e não servia para nada
+// ---------------------------------------------------------------------------
+
+const selosDe = (cliente: string | null, quantas = 3) =>
+  Array.from({ length: quantas }, () => ({ cliente }));
+
+test("o órgão do carimbo escolhe o template sozinho", () => {
+  // O caso real: 71 folhas dizendo "PREFEITURA MUNICIPAL DE CRICIÚMA", e o
+  // Nexo perguntando de qual prefeitura era.
+  const r = casarPrefeituraDoCarimbo(selosDe("PREFEITURA MUNICIPAL DE CRICIÚMA"), PREFS);
+  assert.equal(r?.resolvedId, "prefcri");
+  assert.equal(r?.plausibleCount, 1);
+});
+
+test("o órgão DOMINANTE vence: uma folha mal lida não arrasta o volume", () => {
+  const selos = [
+    ...selosDe("PREFEITURA MUNICIPAL DE CRICIÚMA", 9),
+    { cliente: "PREFEITURA DE FLORIANÓPOLIS" },
+  ];
+  assert.equal(casarPrefeituraDoCarimbo(selos, PREFS)?.resolvedId, "prefcri");
+});
+
+test("casando com MAIS DE UM template, continua sendo pergunta", () => {
+  // Mesma cidade com variantes: quem decide para quem o volume vai é uma pessoa.
+  const r = casarPrefeituraDoCarimbo(selosDe("PREFEITURA MUNICIPAL DE CRICIÚMA"), [
+    { id: "pmcriciuma", nome: "Criciúma — Padrão" },
+    { id: "pmcriciuma2", nome: "Criciúma — Obras" },
+  ]);
+  assert.equal(r?.resolvedId, null);
+  assert.equal(r?.plausibleCount, 2);
+  assert.equal(r?.plausibles?.length, 2, "as duas viram chips");
+});
+
+test("carimbo sem órgão não inventa prefeitura", () => {
+  assert.equal(casarPrefeituraDoCarimbo(selosDe(null), PREFS), undefined);
+  assert.equal(casarPrefeituraDoCarimbo([], PREFS), undefined);
+});
+
+test("órgão que não casa com template nenhum vira pergunta, não erro", () => {
+  const r = casarPrefeituraDoCarimbo(selosDe("PREFEITURA DE ALGUM LUGAR"), PREFS);
+  assert.equal(r?.resolvedId, null);
+  assert.equal(r?.plausibleCount, 0);
 });
 
 test("normalizeProposals: título de VÁRIAS LINHAS chega inteiro", () => {

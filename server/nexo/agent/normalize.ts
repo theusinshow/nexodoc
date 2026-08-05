@@ -76,6 +76,55 @@ export function matchPrefeitura(
 }
 
 /**
+ * A prefeitura que os SELOS apontam, casada contra os templates configurados.
+ *
+ * O campo `cliente` do carimbo é lido em toda prancha ("PREFEITURA MUNICIPAL DE
+ * CRICIÚMA") e não era usado para NADA na escolha do template: o slot pedia a
+ * prefeitura em toda conversa, mesmo com 71 folhas dizendo qual era. O mecanismo
+ * existia (`templateMatch` em `SlotFacts`), estava testado e documentado — só
+ * nunca havia sido calculado em produção.
+ *
+ * O valor DOMINANTE é o que vale. Uma folha com o órgão mal lido não pode
+ * arrastar o volume inteiro, e prancha intrusa de outra prefeitura é assunto da
+ * conferência de identidade, não deste palpite.
+ *
+ * `plausibleCount` é quem decide: 1 resolve sozinho; 0 ou mais de 1 continuam
+ * sendo PERGUNTA. Quando o carimbo casa com mais de um template (a mesma cidade
+ * com variantes), a decisão é humana — ela diz para QUEM o volume vai, e é o
+ * erro que este produto existe para impedir.
+ */
+export function casarPrefeituraDoCarimbo(
+  selos: { cliente?: string | null }[],
+  prefeituras: AgentPrefeitura[],
+):
+  | { resolvedId: string | null; plausibleCount: number; plausibles?: AgentPrefeitura[] }
+  | undefined {
+  const contagem = new Map<string, number>();
+  for (const s of selos) {
+    const cliente = s.cliente?.trim();
+    if (cliente) contagem.set(cliente, (contagem.get(cliente) ?? 0) + 1);
+  }
+  let dominante = "";
+  let maior = 0;
+  for (const [nome, n] of contagem) {
+    if (n > maior) {
+      dominante = nome;
+      maior = n;
+    }
+  }
+  if (!dominante) return undefined;
+
+  const plausiveis = prefeituras.filter(
+    (p) => matchPrefeitura({ nome: dominante }, [p]) !== null,
+  );
+  return {
+    resolvedId: plausiveis.length === 1 ? plausiveis[0].id : null,
+    plausibleCount: plausiveis.length,
+    ...(plausiveis.length > 0 ? { plausibles: plausiveis } : {}),
+  };
+}
+
+/**
  * Disciplinas listadas para as separatrizes: uma folha por item, na ordem dada.
  * Aceita também uma string com quebras de linha ou vírgulas — é como o modelo
  * às vezes devolve, e recusar isso viraria "pedi três e veio uma".

@@ -23,6 +23,9 @@ import type { SlotId, SlotState } from "@/modules/nexo/state/session-reducer";
 
 import { ARTIFACT_REQUIREMENTS, type SlotFacts } from "./requirements";
 import { resolveSlots } from "./slot-resolver";
+// O casamento cidade→template mora em `normalize.ts`, junto de `matchPrefeitura`
+// que é a sua única dependência — e lá ele roda em node cru, com teste.
+import { casarPrefeituraDoCarimbo } from "./normalize";
 
 export interface SlotRequestContext {
   /** Selos crus lidos das pranchas (base das sugestões de título). */
@@ -108,6 +111,20 @@ export function buildSlotRequestForTurn(
     },
     seloSets: { [key]: ctx.selos },
     prefeituras: ctx.prefeituras,
+    /*
+     * O ÓRGÃO QUE O CARIMBO JÁ DISSE escolhe o template.
+     *
+     * `templateMatch` era consumido por `templateIdSlot`, testado, documentado —
+     * e nunca calculado em produção. Sem ele, `deriveFrom` devolvia null e a
+     * prefeitura virava pergunta obrigatória em TODA conversa, mesmo com o selo
+     * de 71 pranchas gritando "PREFEITURA MUNICIPAL DE CRICIÚMA".
+     *
+     * O casamento é `matchPrefeitura`, o mesmo que a proposta do agente usa —
+     * fonte única. Casou UMA: resolve sozinho. Casou nenhuma ou mais de uma:
+     * continua sendo pergunta, com as plausíveis como chips. Ambiguidade aqui é
+     * o caso do volume ir para a prefeitura errada, e ele não se adivinha.
+     */
+    templateMatch: casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras),
     mesAtual: ctx.mesAtual,
     anoAtual: ctx.anoAtual,
     tomosSugeridos: ctx.tomosSugeridos,
