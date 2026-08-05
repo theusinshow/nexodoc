@@ -28,6 +28,8 @@ const MARCADOR = "QA AUTOMATICO FRAME CAPA";
 /** O carimbo escreve a obra numa tira só, com " - " no meio. */
 const OBRA_DO_CARIMBO = `REFORMA E AMPLIACAO - EMEB ${MARCADOR}`;
 const OBRA_EM_DUAS_LINHAS = `REFORMA E AMPLIACAO\nEMEB ${MARCADOR}`;
+/** O outro caso: uma linha só, com o bairro tendo de ficar colado nela. */
+const OBRA_DE_UMA_LINHA = `UBS RENASCER ${MARCADOR}`;
 /** O que o engenheiro digita no frame: três disciplinas, três linhas. */
 const TITULO_TRES_LINHAS =
   "PROJETO DE URBANIZACAO\nPROJETO DE PAISAGISMO\nMAQUETE ELETRONICA";
@@ -276,7 +278,35 @@ try {
   // O PDF QUE SAI — a única prova que vale
   // =========================================================================
   console.log("\nO documento gerado");
-  const emBase64 = await page.evaluate(async (marcador) => {
+
+  /**
+   * As linhas impressas da capa gerada — texto e Y — lidas do PDF que o
+   * servidor devolveu. É a única prova que vale: o DOM já passou verde com o
+   * documento errado. Salva o arquivo em disco para inspeção à mão.
+   */
+  async function lerCapaGerada(destino) {
+    const b64 = await pegarPdfDaCapa();
+    if (!b64) return null;
+    fs.writeFileSync(destino, Buffer.from(b64, "base64"));
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const doc = await pdfjs.getDocument({
+      data: new Uint8Array(Buffer.from(b64, "base64")),
+      useSystemFonts: true,
+    }).promise;
+    const conteudo = await (await doc.getPage(1)).getTextContent();
+    // Uma linha impressa por coordenada Y — é assim que se vê "duas linhas".
+    const porLinha = new Map();
+    for (const it of conteudo.items) {
+      if (!it.str.trim()) continue;
+      const y = Math.round(it.transform[5]);
+      porLinha.set(y, (porLinha.get(y) ?? "") + it.str);
+    }
+    return [...porLinha.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([y, texto]) => ({ y, texto: texto.trim() }));
+  }
+
+  const pegarPdfDaCapa = () => page.evaluate(async (marcador) => {
     const db = await new Promise((res) => {
       const req = indexedDB.open("nexo", 1);
       req.onsuccess = () => res(req.result);
@@ -306,27 +336,12 @@ try {
     return btoa(bin);
   }, MARCADOR);
 
-  check("a capa gerada tem um PDF para conferir", Boolean(emBase64));
+  const impressas = await lerCapaGerada(`${OUT}/capa-gerada.pdf`);
+  check("a capa gerada tem um PDF para conferir", impressas !== null);
 
-  if (emBase64) {
-    // Fica em disco: quando uma linha some da capa, ler o PDF vale mais que
-    // qualquer asserção — foi assim que a data ausente apareceu.
-    fs.writeFileSync(`${OUT}/capa-gerada.pdf`, Buffer.from(emBase64, "base64"));
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const doc = await pdfjs.getDocument({
-      data: new Uint8Array(Buffer.from(emBase64, "base64")),
-      useSystemFonts: true,
-    }).promise;
-    const conteudo = await (await doc.getPage(1)).getTextContent();
-    // Uma linha impressa por coordenada Y — é assim que se vê "duas linhas".
-    const porLinha = new Map();
-    for (const it of conteudo.items) {
-      if (!it.str.trim()) continue;
-      const y = Math.round(it.transform[5]);
-      porLinha.set(y, (porLinha.get(y) ?? "") + it.str);
-    }
-    const linhas = [...porLinha.entries()].sort((a, b) => b[0] - a[0]).map(([, t]) => t.trim());
-    console.log(linhas.map((l) => `      | ${l}`).join("\n"));
+  if (impressas) {
+    const linhas = impressas.map((l) => l.texto);
+    console.log(impressas.map((l) => `      | y=${l.y} ${l.texto}`).join("\n"));
 
     check(
       "a OBRA sai em duas linhas no PDF",
@@ -351,12 +366,62 @@ try {
       JSON.stringify(linhas),
     );
     check("o BAIRRO sai na capa", contem(BAIRRO), JSON.stringify(linhas));
+    /*
+     * A capa é de UMA página. Uma capa que vira duas entra no volume calada e
+     * desloca todas as pranchas — e foi o que aconteceu enquanto o modelo tinha
+     * espaço a mais: a data e a linha da PROSUL caíam na página 2.
+     */
+    check(
+      "a capa cabe em UMA página (a linha da PROSUL não caiu para a 2ª)",
+      linhas.some((l) => /Projetos, Supervis/.test(l)),
+      JSON.stringify(linhas.slice(-3)),
+    );
     // O config de Criciúma pede `parenthesized-padded`, e o construtor fixava
     // "plain-padded" — as capas feitas à mão em docs/samples/116-25 dizem "(TOMO 01)".
     check(
       "o TOMO sai no formato que o template pede",
       linhas.some((l) => /^\(TOMO0\d\)$/.test(l.replace(/\s+/g, ""))),
       JSON.stringify(linhas.filter((l) => /TOMO/i.test(l))),
+    );
+  }
+
+  // =========================================================================
+  // A OBRA DE UMA LINHA SÓ — o bairro tem de continuar colado nela
+  // =========================================================================
+  console.log("\nObra de uma linha só");
+  await noDaCapa.click();
+  await page.getByRole("button", { name: /Editar aqui/i }).first().click();
+  const dialogo2 = page.getByRole("dialog");
+  await dialogo2.waitFor({ timeout: 5000 });
+  await dialogo2.getByLabel("Obra", { exact: true }).fill(OBRA_DE_UMA_LINHA);
+  await dialogo2.getByRole("button", { name: /Aplicar/i }).click();
+  await page.waitForTimeout(5000);
+  await page.screenshot({ path: `${OUT}/4-obra-uma-linha.png`, fullPage: true });
+
+  const linhasCurtas = await lerCapaGerada(`${OUT}/capa-uma-linha.pdf`);
+  check("a capa de obra curta tem PDF", linhasCurtas !== null);
+
+  if (linhasCurtas) {
+    console.log(linhasCurtas.map((l) => `      | y=${l.y} ${l.texto}`).join("\n"));
+    const obra = linhasCurtas.find((l) => l.texto === OBRA_DE_UMA_LINHA);
+    const bairro = linhasCurtas.find(
+      (l) => l.texto.replace(/\s+/g, "") === BAIRRO.replace(/\s+/g, ""),
+    );
+    check(
+      "a obra curta sai UMA vez só (nada de duplicata nos dois marcadores)",
+      linhasCurtas.filter((l) => l.texto === OBRA_DE_UMA_LINHA).length === 1,
+      JSON.stringify(linhasCurtas.map((l) => l.texto)),
+    );
+    /*
+     * A prova de que a linha em branco não ficou: no caso de DUAS linhas o
+     * bairro vem ~13pt abaixo da última linha da obra. Um parágrafo vazio
+     * sobrando empurraria isso para ~30pt.
+     */
+    const folga = obra && bairro ? obra.y - bairro.y : -1;
+    check(
+      "o bairro continua logo abaixo da obra (sem linha em branco no meio)",
+      folga > 0 && folga <= 22,
+      `folga=${folga}pt`,
     );
   }
 
