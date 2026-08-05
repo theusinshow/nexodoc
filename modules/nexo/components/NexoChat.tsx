@@ -686,9 +686,15 @@ function MessageBubble({
   }, [copied]);
 
   return (
-    // 62ch é a medida de leitura: linha mais longa cansa, e a conversa aqui
-    // carrega parágrafo técnico, não frase de chat.
-    <div className="group/msg relative max-w-[62ch]">
+    /*
+     * 72ch. A medida de leitura clássica vai de 66 a 75 caracteres, e 62 estava
+     * abaixo dela — apertado o bastante para a primeira resposta, que carrega o
+     * nome da obra por extenso, quebrar em três linhas numa caixa estreita. O
+     * limite continua existindo (linha longa cansa, e aqui se lê parágrafo
+     * técnico, não frase de chat); ele só parou de ser mais severo do que a
+     * tipografia pede.
+     */
+    <div className="group/msg relative max-w-[72ch]">
       {/*
        * Raio do sistema (8px), não os 16px arredondados de aplicativo de
        * mensagem: o DESIGN.md tem UM raio, e a bolha era o único lugar que

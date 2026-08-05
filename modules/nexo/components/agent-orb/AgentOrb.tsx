@@ -34,13 +34,15 @@ import {
  * COMPACT continua fixo: ali ele divide a coluna com o chat, e um tamanho que
  * variasse com a janela mexeria na altura útil da conversa a cada resize.
  *
- * Os números cresceram 1,157× quando a câmera recuou (ver `AgentOrbCanvas`): a
- * caixa é maior, a ESFERA aparece do mesmo tamanho, e o que antes era cortado
- * pela borda — satélites e anéis — agora tem folga para existir.
+ * Os números crescem junto com o recuo da câmera (ver `AgentOrbCanvas`): a caixa
+ * é maior, a ESFERA aparece do mesmo tamanho, e o que antes era cortado pela
+ * borda — satélites e anéis — tem folga para existir. Foram 1,157× no primeiro
+ * recuo e mais 1,149× no segundo, quando ficou claro que a margem de 0,08 não
+ * cabia o halo do satélite.
  */
 const SIZE_CSS: Record<NonNullable<AgentOrbProps["size"]>, string> = {
-  hero: "clamp(194px, 24vh, 268px)",
-  compact: "172px",
+  hero: "clamp(223px, 27.6vh, 308px)",
+  compact: "198px",
 };
 
 const STATE_LABEL: Record<AgentState, string> = {

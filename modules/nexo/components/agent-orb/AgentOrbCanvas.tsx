@@ -39,13 +39,19 @@ export function AgentOrbCanvas({
        * A câmera enquadrava ±1,23 unidades (tan(21°)·3,2) e a órbita dos
        * satélites vive a 1,34: eles eram CORTADOS pela borda da própria caixa
        * quando passavam pelos lados, e o anel de estado sumia virando quatro
-       * arcos nos cantos. Recuar para 3,7 abre o quadro para ±1,42 e tudo cabe.
+       * arcos nos cantos. Recuar para 3,7 abriu o quadro para ±1,42.
+       *
+       * Não bastou. Sobrava 0,08 de margem para o CENTRO do satélite, e satélite
+       * tem raio e tem brilho: no primeiro projeto grande eles continuavam
+       * batendo numa parede invisível e sumindo de repente — sem borda desenhada,
+       * só a tesoura. Em 4,25 o quadro vai a ±1,63 e a margem passa a 0,29, que
+       * cabe o ponto e o halo dele.
        *
        * A esfera fica proporcionalmente menor DENTRO do quadro — por isso a
-       * caixa em `AgentOrb` cresce na mesma medida (1,157×): o orbe aparece do
-       * mesmo tamanho na tela, com folga em volta em vez de tesoura.
+       * caixa em `AgentOrb` cresce na mesma medida (1,149× desta vez): o orbe
+       * aparece do mesmo tamanho na tela, com folga em volta em vez de corte.
        */
-      camera={{ position: [0, 0, 3.7], fov: 42 }}
+      camera={{ position: [0, 0, 4.25], fov: 42 }}
       style={{ width: "100%", height: "100%", pointerEvents: "none" }}
     >
       <AgentOrbScene
