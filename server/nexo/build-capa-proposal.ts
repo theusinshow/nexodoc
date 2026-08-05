@@ -291,8 +291,16 @@ export async function buildCapaProposal(
     mes,
     ano,
     codigoInterno,
-    // Capa oficial mostra o código com underscore ("040_26"), não com traço.
-    codigoExibido: codigoInterno || codigoExibido,
+    /*
+     * A capa imprime o código com TRAÇO ("084-25"), não com underscore.
+     *
+     * O underscore é a convenção do NOME DE ARQUIVO (`084_25_est_tomo1.pdf`), e
+     * `codigoInterno` a carrega por isso. Imprimi-lo assim na capa era vazar
+     * nome de arquivo para dentro do documento — e `formatDisplayCode`, que
+     * existe exatamente para essa tradução, estava sendo calculado e descartado
+     * na linha seguinte.
+     */
+    codigoExibido,
     siglaArquivo: discCode,
     revisao,
   };

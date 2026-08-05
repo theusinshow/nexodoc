@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, FileText, X, Copy, Check } from "lucide-react";
+import { Loader2, FileText, X, Copy, Check, ArrowDown } from "lucide-react";
 import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { useRegisterComposer } from "../state/composer-controller";
@@ -138,17 +138,22 @@ export function NexoChat({
   const [atBottom, setAtBottom] = useState(true);
 
   /*
-   * Rola também quando um RESULTADO chega, não só quando chega mensagem.
+   * A CONVERSA NÃO PULA PARA O FIM SOZINHA.
    *
-   * A auditoria termina sem escrever no log: o cartão é que cresce. Sem os
-   * `results` aqui, o parecer nascia com o rodapé cortado na borda — e no caso
-   * parcial o que ficava escondido era justamente o "Rodar de novo", a ação que
-   * o veredito acabou de mandar executar.
+   * Antes, toda mensagem e todo resultado arrastavam a vista para baixo enquanto
+   * o Nexo escrevia — quem estava lendo a proposta anterior perdia a linha, e
+   * uma resposta longa passava correndo. A leitura é em ORDEM: quem quer o fim
+   * pede o fim, pelo botão abaixo.
+   *
+   * A exceção é a mensagem do PRÓPRIO usuário: mandar algo e não ver o que
+   * mandou aparecer é a única situação em que ficar parado parece defeito.
    */
+  const ultima = messages[messages.length - 1];
+  const ultimaEhDoUsuario = ultima?.role === "user";
   useEffect(() => {
-    if (!atBottom) return;
+    if (!ultimaEhDoUsuario) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, results, atBottom]);
+  }, [messages.length, ultimaEhDoUsuario]);
 
   // `responding` = já chegou texto (o modelo saiu do raciocínio e está escrevendo).
   const responding = busy && messages[messages.length - 1]?.role === "assistant";
@@ -400,18 +405,28 @@ export function NexoChat({
             </div>
           )}
         </div>
+        {/*
+          IR PARA AS ÚLTIMAS MENSAGENS. Discreto de propósito: ele fica sobre a
+          conversa o tempo todo em que há algo abaixo, e um botão de contraste
+          alto nessa posição competiria com o que está sendo lido. Ganha nitidez
+          no hover, que é quando alguém o está procurando.
+        */}
         {!atBottom && (
           <button
             type="button"
+            aria-label="Ir para as últimas mensagens"
             onClick={() => {
               const el = scrollRef.current;
               if (!el) return;
               el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
               setAtBottom(true);
             }}
-            className="sticky bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-[var(--nexodoc-recessed)] px-3 py-1.5 text-xs text-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="sticky bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/50 bg-[var(--nexodoc-recessed)]/70 py-1.5 pl-1.5 pr-3 text-xs text-muted-foreground/70 opacity-70 backdrop-blur transition-all hover:border-border hover:bg-[var(--nexodoc-recessed)] hover:text-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
-            ↓ novas mensagens
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current">
+              <ArrowDown className="h-3 w-3" aria-hidden />
+            </span>
+            ir para as últimas mensagens
           </button>
         )}
       </div>

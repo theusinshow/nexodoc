@@ -70,7 +70,8 @@ const extractionSchema = {
     },
     fase: {
       type: ["string", "null"],
-      description: "Fase do projeto lida no cabeçalho ou rodapé, como PROJETO EXECUTIVO.",
+      description:
+        "Fase do projeto, como PROJETO EXECUTIVO, PROJETO BÁSICO ou ANTEPROJETO. NUNCA o valor da ESCALA (ex.: INDICADA, 1:50) nem a DATA. Se a folha não trouxer a fase, devolva null.",
     },
     tituloSecao: {
       type: ["string", "null"],
@@ -238,8 +239,47 @@ function sanitizeStampExtraction(extraction: StampExtraction): StampExtraction {
   return {
     ...extraction,
     disciplina,
+    fase: faseValida(extraction.fase),
     conteudo: cleanExtractedContentField(extraction.conteudo),
   };
+}
+
+/**
+ * A FASE do projeto, ou `null` quando o que veio é valor de outro campo.
+ *
+ * No carimbo, "ESCALA: INDICADA" fica a duas linhas de onde a fase estaria, e o
+ * modelo levou "INDICADA" para o campo `fase`. Isso saiu impresso no RODAPÉ DE
+ * TODA PÁGINA da LD entregue — "PREFEITURA … – 084-25 – REFORMA E AMPLIAÇÃO …
+ * – INDICADA – LISTA DE DOCUMENTOS".
+ *
+ * A regra é NEGATIVA de propósito: recusa o que comprovadamente não é fase
+ * (escala, data, revisão) em vez de exigir uma lista fechada de fases válidas.
+ * Um escritório que escreva "PROJETO LEGAL" ou "AS BUILT" continua passando; o
+ * preço de uma lista positiva seria zerar a fase de quem usa um nome que não
+ * previmos, e aí o rodapé sairia vazio em vez de errado.
+ *
+ * Nulo aqui não deixa buraco: `buildLdProposal` cai em "PROJETO EXECUTIVO".
+ */
+function faseValida(valor: string | null): string | null {
+  const bruto = valor?.trim();
+  if (!bruto) return null;
+  const normalizado = bruto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+  // Escala: "INDICADA", "1:50", "1/25", "SEM ESCALA", "S/ESC".
+  if (/^indicada?$/.test(normalizado)) return null;
+  if (/^\d+\s*[:/]\s*\d+$/.test(normalizado)) return null;
+  if (/^(s\/?\s*esc|sem\s+escala)/.test(normalizado)) return null;
+  // Data: "JUNHO/2026", "JUN/26", "06/2026".
+  if (/^[a-z]{3,10}\s*\/\s*\d{2,4}$/.test(normalizado)) return null;
+  if (/^\d{1,2}\s*\/\s*\d{2,4}$/.test(normalizado)) return null;
+  // Rótulo do carimbo lido como valor.
+  if (["escala", "data", "rev", "revisao", "visto", "fase", "prancha"].includes(normalizado)) {
+    return null;
+  }
+  return bruto;
 }
 
 function buildTextPrompt(pdfText?: string) {
