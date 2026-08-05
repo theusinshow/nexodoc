@@ -14,6 +14,7 @@
   },
   "campos": [
     "NOME_OBRA",
+    "BAIRRO",
     "TITULO_CAPA",
     "TOMO",
     "VOLUME",

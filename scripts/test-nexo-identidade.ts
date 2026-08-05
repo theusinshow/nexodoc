@@ -49,11 +49,18 @@ test("limparIdentidade fica só com o que tem conteúdo, aparado", () => {
   });
 });
 
-test("os seis campos são os da capa — nenhum a mais entra", () => {
+test("os campos são os da capa — nenhum a mais entra", () => {
+  /*
+   * `bairro` entrou como subtítulo da obra: é dado da OBRA, vale para a conversa
+   * inteira como o nome e o código, e só sai nos templates de capa que trazem
+   * `{{BAIRRO}}`. Foi o único campo que separava a capa feita à mão do
+   * escritório do template que já existia.
+   */
   assert.deepEqual([...CAMPOS_DA_IDENTIDADE], [
     "orgao",
     "secretaria",
     "obra",
+    "bairro",
     "fase",
     "codigo",
     "revisao",

@@ -48,6 +48,11 @@ export interface BuildCapaInput {
   fase?: string;
   codigo?: string;
   revisao?: string;
+  /**
+   * Bairro da obra, subtítulo da capa. Só sai nos templates que trazem
+   * `{{BAIRRO}}`; nos outros é ignorado sem erro.
+   */
+  bairro?: string;
   /** Mes da capa (ex.: "JUNHO"); as vezes difere do mes atual. Default = mes atual. */
   mes?: string;
   /** Ano da capa (ex.: "2026"). Default = ano atual. */
@@ -281,6 +286,7 @@ export async function buildCapaProposal(
     orgao: dito(input.orgao) || template.defaults.orgao,
     secretaria,
     nomeObra,
+    bairro: dito(input.bairro),
     fase,
     mes,
     ano,

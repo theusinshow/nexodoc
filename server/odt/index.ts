@@ -109,6 +109,15 @@ async function fillExistingOdt(
     "{{SECRETARIA}}": generalData.secretaria,
     "{{NOME_OBRA}}": generalData.nomeObra,
     "{{FASE}}": generalData.fase,
+    /*
+     * BAIRRO — subtítulo da obra, entre o nome e o volume.
+     *
+     * Opcional como `{{ORGAO}}` e `{{SECRETARIA}}`: o template que não tiver o
+     * marcador simplesmente não o usa, e o template que tiver com o campo vazio
+     * imprime linha em branco em vez de "{{BAIRRO}}" — que é o que aconteceria
+     * se o marcador não estivesse nesta tabela.
+     */
+    "{{BAIRRO}}": generalData.bairro ?? "",
     "{{MES_ANO}}": mesAno,
     "{{CODIGO_EXIBIDO}}": codigoExibido,
   };

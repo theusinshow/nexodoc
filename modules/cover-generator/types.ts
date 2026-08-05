@@ -19,6 +19,14 @@ export interface GeneralData {
   orgao: string;
   secretaria: string;
   nomeObra: string;
+  /**
+   * Subtítulo da obra, entre o nome e o volume ("BAIRRO JARDIM MARISTELA").
+   *
+   * Opcional: só os templates que trazem `{{BAIRRO}}` no ODT o imprimem. Foi o
+   * único campo que separava a capa feita à mão do escritório do template que
+   * já existia — todo o resto do layout já batia.
+   */
+  bairro?: string;
   fase: string;
   mes: string;
   ano: string;

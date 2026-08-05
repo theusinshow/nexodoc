@@ -67,7 +67,9 @@ export async function POST(req: NextRequest) {
     if (typeof body.tomoNumero === "number" && Number.isFinite(body.tomoNumero)) {
       tomoNumero = Math.max(0, Math.floor(body.tomoNumero));
     }
-    for (const chave of ["orgao", "secretaria", "obra", "fase", "codigo", "revisao"]) {
+    // `bairro` viaja junto da identidade: é um dado da OBRA, e vale para a
+    // conversa inteira como a obra e o código valem.
+    for (const chave of ["orgao", "secretaria", "obra", "bairro", "fase", "codigo", "revisao"]) {
       const valor = body[chave];
       if (typeof valor === "string" && valor.trim()) identidade[chave] = valor.trim();
     }

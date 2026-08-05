@@ -27,6 +27,13 @@ export interface IdentidadeDoProjeto {
   secretaria?: string;
   /** Nome da obra, como sai impresso na capa e na LD. */
   obra?: string;
+  /**
+   * Bairro da obra, subtítulo da capa ("BAIRRO JARDIM MARISTELA").
+   *
+   * É da OBRA, não do documento: vale para a conversa inteira, como o nome da
+   * obra e o código. Só sai nos templates de capa que trazem `{{BAIRRO}}`.
+   */
+  bairro?: string;
   /** Fase do projeto ("PROJETO EXECUTIVO"). */
   fase?: string;
   /** Código do projeto ("040_26"). */
@@ -40,6 +47,7 @@ export const CAMPOS_DA_IDENTIDADE = [
   "orgao",
   "secretaria",
   "obra",
+  "bairro",
   "fase",
   "codigo",
   "revisao",
@@ -52,6 +60,7 @@ export const ROTULOS_DA_IDENTIDADE: Record<CampoDaIdentidade, string> = {
   orgao: "Órgão",
   secretaria: "Secretaria",
   obra: "Obra",
+  bairro: "Bairro",
   fase: "Fase",
   codigo: "Código",
   revisao: "Revisão",
