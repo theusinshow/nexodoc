@@ -115,6 +115,32 @@ function moda(valores: number[]): { valor: number; vezes: number } {
   return { valor, vezes };
 }
 
+/**
+ * As linhas da LD como ela foi IMPRESSA no volume.
+ *
+ * O gabarito do plano vem das linhas ATUAIS da LD; esta leitura vem do papel que
+ * está encadernado. As duas discordarem é exatamente o caso que se quer pegar:
+ * o volume montado com uma LD gerada antes de alguém mexer nas folhas.
+ *
+ * O parse é por FORMA DA LINHA, ancorado na numeração, e não por posição de
+ * coluna: o texto extraído já chega linha a linha, e a âncora sobrevive a uma
+ * coluna mudar de largura ou a um cabeçalho a mais.
+ */
+export function parseLinhasDaLd(texto: string): LinhaDaLdImpressa[] {
+  const linhas: LinhaDaLdImpressa[] = [];
+  for (const bruta of texto.split("\n")) {
+    const limpa = bruta.replace(/\s+/g, " ").trim();
+    const m = /^(\d{1,3}\s*\/\s*\d{1,3})\s+(\S+)\s*(.*)$/.exec(limpa);
+    if (!m) continue;
+    linhas.push({
+      sheet: m[1].replace(/\s+/g, ""),
+      file: m[2],
+      description: m[3].trim(),
+    });
+  }
+  return linhas;
+}
+
 export function checkVolumeMontado(
   esperado: readonly PaginaEsperada[],
   lido: readonly LeituraDaPagina[],
@@ -307,6 +333,55 @@ export function checkVolumeMontado(
         mensagem: `${rotulo}: ${foraDoBloco.length} página(s) de outra disciplina dentro deste bloco.`,
         detalhe: juntar(foraDoBloco),
       });
+    }
+
+    /*
+     * --- A LD IMPRESSA × as pranchas que vieram depois dela (CRÍTICO) -------
+     *
+     * A LD é o documento que PROMETE o conteúdo do volume. Ela discordar do que
+     * está encadernado logo abaixo é o defeito que não tem meio-termo: quem
+     * recebe confere pela lista, e uma lista errada é pior do que lista nenhuma.
+     *
+     * Compara por CÓDIGO quando o bloco tem um código distinto por folha; quando
+     * a família imprime o mesmo em todas (`arq` escreve "040_26_arq_a" nas três),
+     * o código não separa nada e a comparação cai na CONTAGEM.
+     */
+    const paginaDaLd = esperado.find((p) => p.papel === "ld" && p.bloco === bloco);
+    const leituraDaLd = paginaDaLd ? porPagina.get(paginaDaLd.pagina) : undefined;
+    const impressa = leituraDaLd?.linhasDaLd;
+    if (impressa && impressa.length > 0) {
+      const codigosDoPlano = doBloco
+        .map((p) => p.codigo?.trim())
+        .filter((c): c is string => Boolean(c));
+      const distintos = new Set(codigosDoPlano).size;
+
+      if (distintos > 1 && distintos === codigosDoPlano.length) {
+        const naLd = new Set(impressa.map((l) => l.file.trim().toLowerCase()));
+        const noVolume = new Set(codigosDoPlano.map((c) => c.toLowerCase()));
+        const soNaLd = [...naLd].filter((c) => !noVolume.has(c));
+        const soNoVolume = [...noVolume].filter((c) => !naLd.has(c));
+        if (soNaLd.length > 0 || soNoVolume.length > 0) {
+          findings.push({
+            severidade: "critico",
+            campo: "ld",
+            mensagem: `${rotulo}: a LD encadernada não bate com as pranchas do volume.`,
+            detalhe: [
+              soNaLd.length > 0 ? `na LD e ausentes do volume: ${juntar(soNaLd)}` : "",
+              soNoVolume.length > 0 ? `no volume e ausentes da LD: ${juntar(soNoVolume)}` : "",
+              "provável LD gerada antes da última mudança nas folhas.",
+            ]
+              .filter(Boolean)
+              .join(" | "),
+          });
+        }
+      } else if (impressa.length !== doBloco.length) {
+        findings.push({
+          severidade: "critico",
+          campo: "ld",
+          mensagem: `${rotulo}: a LD encadernada lista ${impressa.length} folha(s), mas o volume traz ${doBloco.length}.`,
+          detalhe: "provável LD gerada antes da última mudança nas folhas.",
+        });
+      }
     }
   }
 

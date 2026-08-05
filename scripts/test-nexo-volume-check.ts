@@ -14,8 +14,10 @@ import {
 } from "../server/nexo/volume-plano.ts";
 import {
   checkVolumeMontado,
+  parseLinhasDaLd,
   type AlvoDoVolume,
   type LeituraDaPagina,
+  type LinhaDaLdImpressa,
   type VolumeCheckResult,
 } from "../server/nexo/volume-check-core.ts";
 
@@ -328,6 +330,91 @@ test("o carimbo por extenso casa com o código do bloco", () => {
 test("disciplina em branco não acusa nada (o carimbo nem sempre traz)", () => {
   const r = checkVolumeMontado(PLANO, comPagina(5, { disciplina: "" }), ALVO);
   semAchado(r, "disciplina");
+});
+
+// ---------------------------------------------------------------------------
+// Task 5 — a LD impressa × o volume
+// ---------------------------------------------------------------------------
+
+/** Texto de uma página de LD como sai da extração posicional: linha a linha. */
+const TEXTO_LD_EST = [
+  "LISTA DE DOCUMENTOS",
+  "FOLHA ARQUIVOS DESCRIÇÃO",
+  "01/02 040_26_est_001_a FORMAS PISO",
+  "02/02 040_26_est_002_a FORMAS TOPO",
+].join("\n");
+
+test("lê as linhas da LD impressa", () => {
+  assert.deepEqual(parseLinhasDaLd(TEXTO_LD_EST), [
+    { sheet: "01/02", file: "040_26_est_001_a", description: "FORMAS PISO" },
+    { sheet: "02/02", file: "040_26_est_002_a", description: "FORMAS TOPO" },
+  ]);
+});
+
+test("o cabeçalho e o título da LD não viram linha", () => {
+  assert.equal(parseLinhasDaLd("LISTA DE DOCUMENTOS\nFOLHA ARQUIVOS DESCRIÇÃO").length, 0);
+});
+
+test("a numeração pode vir com espaços em volta da barra", () => {
+  assert.deepEqual(parseLinhasDaLd("01 / 16 040_26_arq_a IMPLANTACAO"), [
+    { sheet: "01/16", file: "040_26_arq_a", description: "IMPLANTACAO" },
+  ]);
+});
+
+/** A LD do bloco `est` é a página 3; é ela que carrega as linhas impressas. */
+function comLdImpressa(linhas: LinhaDaLdImpressa[]): LeituraDaPagina[] {
+  return comPagina(3, { linhasDaLd: linhas });
+}
+
+test("LD impressa que bate com as pranchas não acusa nada", () => {
+  const r = checkVolumeMontado(PLANO, comLdImpressa(parseLinhasDaLd(TEXTO_LD_EST)), ALVO);
+  semAchado(r, "ld");
+  assert.equal(r.veredito, "ok", JSON.stringify(r.findings, null, 2));
+});
+
+test("LD VELHA (lista folha que não está no volume) é crítico", () => {
+  const velha = parseLinhasDaLd(`${TEXTO_LD_EST}\n03/03 040_26_est_003_a DETALHES`);
+  const r = checkVolumeMontado(PLANO, comLdImpressa(velha), ALVO);
+  const f = achado(r, "ld");
+  assert.equal(f.severidade, "critico");
+  assert.match(f.detalhe ?? "", /040_26_est_003_a/);
+});
+
+test("LD que não lista uma prancha presente é crítico", () => {
+  const curta = parseLinhasDaLd("01/02 040_26_est_001_a FORMAS PISO");
+  const r = checkVolumeMontado(PLANO, comLdImpressa(curta), ALVO);
+  assert.equal(achado(r, "ld").severidade, "critico");
+});
+
+test("bloco sem LD impressa legível não acusa (não dá para comparar)", () => {
+  const r = checkVolumeMontado(PLANO, LEITURA_OK, ALVO);
+  semAchado(r, "ld");
+});
+
+test("família de código repetido cai na CONTAGEM, não no código", () => {
+  // `arq` imprime "040_26_arq_a" nas três folhas: o código não separa nada.
+  // A LD do arq é a página 8; com duas linhas para três pranchas, acusa.
+  const lido = comPagina(8, {
+    linhasDaLd: parseLinhasDaLd(
+      ["01/03 040_26_arq_a IMPLANTACAO", "02/03 040_26_arq_a PLANTA TERREO"].join("\n"),
+    ),
+  });
+  const f = achado(checkVolumeMontado(PLANO, lido, ALVO), "ld");
+  assert.equal(f.severidade, "critico");
+  assert.match(f.mensagem, /2 folha\(s\).*3/);
+});
+
+test("família de código repetido com a contagem certa não acusa", () => {
+  const lido = comPagina(8, {
+    linhasDaLd: parseLinhasDaLd(
+      [
+        "01/03 040_26_arq_a IMPLANTACAO",
+        "02/03 040_26_arq_a PLANTA TERREO",
+        "03/03 040_26_arq_a CORTES",
+      ].join("\n"),
+    ),
+  });
+  semAchado(checkVolumeMontado(PLANO, lido, ALVO), "ld");
 });
 
 console.log(`\n${passed} teste(s) ok`);
