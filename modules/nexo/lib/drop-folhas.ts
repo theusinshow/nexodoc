@@ -117,6 +117,40 @@ export function alvoDoDrop(
 }
 
 /**
+ * ONDE DESENHAR a barra de inserção — a fresta em que a folha vai cair.
+ *
+ * O inverso de `alvoDoDrop`: ele traduz coordenada em índice, esta traduz índice
+ * de volta em coordenada. Existe porque o arrasto era CEGO — o canvas só sabia o
+ * destino ao SOLTAR, e até lá quem arrastava não tinha como saber entre quais
+ * duas folhas ia parar. Num tomo de quinze pranchas isso é adivinhação, e o
+ * gesto tinha de ser desfeito e refeito até acertar.
+ *
+ * Devolve o canto superior da fresta e a altura de uma folha. `null` quando o
+ * ponteiro não está sobre fileira nenhuma — soltar no vazio não move nada, e a
+ * barra não deve prometer o que não vai acontecer.
+ *
+ * A fresta do FIM de uma linha cheia cai na borda direita da última coluna, e
+ * não no começo da linha de baixo: é onde o olho espera a emenda, e é o mesmo
+ * lugar que `alvoDoDrop` já escolhe ao arredondar a coluna para cima.
+ */
+export function posicaoDaFresta(
+  alvo: { tomo: number; indice: number },
+  fileiras: readonly FileiraDoDrop[],
+  grade: GradeDoDrop,
+  alturaDaFolha: number,
+): { x: number; y: number; altura: number } | null {
+  const fileira = fileiras.find((f) => f.tomo === alvo.tomo);
+  if (!fileira || fileira.colunas <= 0) return null;
+  const linha = Math.floor(alvo.indice / fileira.colunas);
+  const coluna = alvo.indice % fileira.colunas;
+  return {
+    x: fileira.gradeX + coluna * grade.passoX,
+    y: fileira.gradeY + linha * grade.passoY,
+    altura: alturaDaFolha,
+  };
+}
+
+/**
  * As ordens esparsas para `quantas` folhas soltas entre dois vizinhos. Reparte o
  * intervalo em partes iguais, preservando a ordem relativa de quem foi junto.
  *

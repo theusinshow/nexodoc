@@ -19,6 +19,7 @@ import {
 import {
   ajusteDoDrop,
   alvoDoDrop,
+  posicaoDaFresta,
   assinaturaDoTomo,
   folhasDoTomo,
   ordensEntre,
@@ -153,6 +154,50 @@ test("a segunda linha da grade continua a contagem", () => {
 
 test("fora de qualquer fileira devolve null", () => {
   assert.equal(alvoDoDrop({ x: 780, y: 5000 }, FILEIRAS, GRADE), null);
+});
+
+// ---------------------------------------------------------------------------
+// posicaoDaFresta — onde a barra de inserção é desenhada
+// ---------------------------------------------------------------------------
+
+const ALTURA_DA_FOLHA = 96;
+
+test("a fresta do começo cai na borda esquerda da grade", () => {
+  const p = posicaoDaFresta({ tomo: 1, indice: 0 }, FILEIRAS, GRADE, ALTURA_DA_FOLHA);
+  assert.deepEqual(p, { x: 780, y: 0, altura: ALTURA_DA_FOLHA });
+});
+
+test("a fresta anda um passo por folha", () => {
+  const p = posicaoDaFresta({ tomo: 1, indice: 2 }, FILEIRAS, GRADE, ALTURA_DA_FOLHA);
+  assert.equal(p?.x, 780 + 2 * PASSO_X);
+  assert.equal(p?.y, 0);
+});
+
+test("a fresta segue a fileira do tomo, não a primeira", () => {
+  const p = posicaoDaFresta({ tomo: 2, indice: 1 }, FILEIRAS, GRADE, ALTURA_DA_FOLHA);
+  assert.equal(p?.y, 330, "tem de cair na fileira do tomo 2");
+  assert.equal(p?.x, 780 + PASSO_X);
+});
+
+test("passando da última coluna, a fresta desce uma linha", () => {
+  const indice = COLUNAS_MINIMAS; // primeira posição da segunda linha
+  const p = posicaoDaFresta({ tomo: 1, indice }, FILEIRAS, GRADE, ALTURA_DA_FOLHA);
+  assert.equal(p?.x, 780);
+  assert.equal(p?.y, PASSO_Y);
+});
+
+test("é o INVERSO de alvoDoDrop: o que se mira é onde a barra aparece", () => {
+  // A garantia que importa: a barra não pode prometer uma fresta e o solto
+  // escolher outra. Mirar a fresta desenhada tem de devolver o mesmo índice.
+  for (const indice of [0, 1, 2]) {
+    const p = posicaoDaFresta({ tomo: 1, indice }, FILEIRAS, GRADE, ALTURA_DA_FOLHA)!;
+    const devolta = alvoDoDrop({ x: p.x, y: p.y + 5 }, FILEIRAS, GRADE);
+    assert.deepEqual(devolta, { tomo: 1, indice }, `fresta ${indice}`);
+  }
+});
+
+test("tomo que não está na tela não desenha barra", () => {
+  assert.equal(posicaoDaFresta({ tomo: 99, indice: 0 }, FILEIRAS, GRADE, ALTURA_DA_FOLHA), null);
 });
 
 // ---------------------------------------------------------------------------

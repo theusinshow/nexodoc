@@ -23,6 +23,7 @@ import {
   Handle,
   Position,
   MarkerType,
+  ViewportPortal,
   type Node,
   type Edge,
   type NodeProps,
@@ -55,6 +56,7 @@ import {
 import {
   ajusteDoDrop,
   alvoDoDrop,
+  posicaoDaFresta,
   assinaturaDoTomo,
   type FileiraDoDrop,
   type GradeDoDrop,
@@ -727,12 +729,43 @@ function CanvasInterno({
    * CENTRO do nó arrastado, não o canto — soltar "em cima" de uma folha é o que o
    * gesto quer dizer, e o canto fica meio nó à esquerda do que o olho mira.
    */
+  /**
+   * A FRESTA sob o ponteiro, enquanto o arrasto acontece.
+   *
+   * Sem ela o gesto era cego: o destino só existia ao SOLTAR, e até lá quem
+   * arrastava não tinha como saber entre quais duas folhas ia parar. Num tomo de
+   * quinze pranchas isso é adivinhação — soltava-se para descobrir, e desfazia-se
+   * para tentar de novo.
+   */
+  const [fresta, setFresta] = useState<{ x: number; y: number; altura: number } | null>(
+    null,
+  );
+
+  const centroDoNo = useCallback(
+    (no: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }) => ({
+      x: no.position.x + (no.measured?.width ?? LARGURA_FOLHA) / 2,
+      y: no.position.y + (no.measured?.height ?? ALTURA_FOLHA) / 2,
+    }),
+    [],
+  );
+
+  const aoArrastar = useCallback<OnNodeDrag>(
+    (_, no) => {
+      if (no.type !== "folha") return;
+      const alvo = alvoDoDrop(centroDoNo(no), fileirasDoDrop, GRADE);
+      setFresta(
+        alvo ? posicaoDaFresta(alvo, fileirasDoDrop, GRADE, ALTURA_FOLHA) : null,
+      );
+    },
+    [centroDoNo, fileirasDoDrop],
+  );
+
   const aoSoltar = useCallback<OnNodeDrag>(
     (_, no, arrastados) => {
-      const centro = {
-        x: no.position.x + (no.measured?.width ?? LARGURA_FOLHA) / 2,
-        y: no.position.y + (no.measured?.height ?? ALTURA_FOLHA) / 2,
-      };
+      // A barra some ANTES de qualquer coisa: ela descreve uma intenção, e a
+      // intenção acabou de virar (ou não) um ajuste.
+      setFresta(null);
+      const centro = centroDoNo(no);
       const alvo = alvoDoDrop(centro, fileirasDoDrop, GRADE);
       // Sem alvo, nada muda: soltar no vazio não inventa tomo (isso é o 4B). A
       // reconciliação devolve as folhas para a grade.
@@ -763,6 +796,7 @@ function CanvasInterno({
       setNodes((atuais) => reconciliar(derivados, atuais));
     },
     [
+      centroDoNo,
       fileirasDoDrop,
       folhasPorTomo,
       folhas,
@@ -805,6 +839,7 @@ function CanvasInterno({
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onNodeDrag={aoArrastar}
         onNodeDragStop={aoSoltar}
         nodeTypes={nodeTypes}
         colorMode="dark"
@@ -828,6 +863,32 @@ function CanvasInterno({
         zoomOnScroll
       >
         <Background gap={20} size={1} color="var(--border)" />
+        {/*
+         * A BARRA DE INSERÇÃO. Vive num `ViewportPortal` porque precisa das
+         * coordenadas do FLUXO, não da tela: ela tem de acompanhar zoom e
+         * deslocamento junto com as folhas, senão aponta para a fresta errada
+         * assim que alguém aproxima a vista.
+         *
+         * Não captura ponteiro: está no meio de um arrasto, e roubar o evento
+         * mataria o gesto que ela existe para ajudar.
+         */}
+        {fresta && (
+          <ViewportPortal>
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                transform: `translate(${fresta.x - 3}px, ${fresta.y}px)`,
+                width: 6,
+                height: fresta.altura,
+                pointerEvents: "none",
+                zIndex: 5,
+              }}
+            >
+              <div className="h-full w-full rounded-full bg-[var(--primary)] shadow-[0_0_10px_2px_var(--primary)]" />
+            </div>
+          </ViewportPortal>
+        )}
         <Controls showInteractive={false} />
         {/*
          * SEM MINIMAPA, de propósito — tentei e não funciona daqui.
