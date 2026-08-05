@@ -367,14 +367,19 @@ try {
     );
     check("o BAIRRO sai na capa", contem(BAIRRO), JSON.stringify(linhas));
     /*
-     * A capa é de UMA página. Uma capa que vira duas entra no volume calada e
-     * desloca todas as pranchas — e foi o que aconteceu enquanto o modelo tinha
-     * espaço a mais: a data e a linha da PROSUL caíam na página 2.
+     * A CAPACIDADE DO MODELO, no caso mais pesado: duas linhas de obra e três
+     * disciplinas. Uma capa que vira duas páginas entra no volume calada e
+     * desloca todas as pranchas, então isto é checagem, não curiosidade.
+     *
+     * Medido neste modelo: 2 obra + 1 disciplina termina em y=88 (folga 20pt);
+     * 1 obra + 3 disciplinas em y=68 (no limite); 2 obra + 3 disciplinas
+     * transborda. O teto é obra + disciplinas <= 4 linhas.
      */
     check(
-      "a capa cabe em UMA página (a linha da PROSUL não caiu para a 2ª)",
+      "obra de 2 linhas + 3 disciplinas cabe em uma página",
       linhas.some((l) => /Projetos, Supervis/.test(l)),
-      JSON.stringify(linhas.slice(-3)),
+      "a linha da PROSUL caiu para a página 2 — faltam ~18pt, um parágrafo " +
+        "vazio a menos entre o {{BAIRRO}} e a linha do VOLUME",
     );
     // O config de Criciúma pede `parenthesized-padded`, e o construtor fixava
     // "plain-padded" — as capas feitas à mão em docs/samples/116-25 dizem "(TOMO 01)".
@@ -422,6 +427,34 @@ try {
       "o bairro continua logo abaixo da obra (sem linha em branco no meio)",
       folga > 0 && folga <= 22,
       `folga=${folga}pt`,
+    );
+  }
+
+  // =========================================================================
+  // ATÉ ONDE O MODELO AGUENTA
+  // =========================================================================
+  /*
+   * O transbordo não é do modelo em si: é da SOMA de linhas. Duas linhas de
+   * obra com TRÊS disciplinas estoura; com UMA, cabe. Medir os dois diz ao
+   * engenheiro qual combinação é segura, em vez de "o modelo está apertado".
+   */
+  console.log("\nDuas linhas de obra com UMA disciplina (o caso do 084-25)");
+  await noDaCapa.click();
+  await page.getByRole("button", { name: /Editar aqui/i }).first().click();
+  const dialogo3 = page.getByRole("dialog");
+  await dialogo3.waitFor({ timeout: 5000 });
+  await dialogo3.getByLabel("Obra", { exact: true }).fill(OBRA_EM_DUAS_LINHAS);
+  await dialogo3.getByLabel("Título", { exact: true }).fill("PROJETO ESTRUTURAL CONCRETO");
+  await dialogo3.getByRole("button", { name: /Aplicar/i }).click();
+  await page.waitForTimeout(5000);
+
+  const umaDisciplina = await lerCapaGerada(`${OUT}/capa-duas-linhas-uma-disciplina.pdf`);
+  if (umaDisciplina) {
+    console.log(umaDisciplina.map((l) => `      | y=${l.y} ${l.texto}`).join("\n"));
+    check(
+      "obra de 2 linhas + 1 disciplina cabe em uma página",
+      umaDisciplina.some((l) => /Projetos, Supervis/.test(l.texto)),
+      JSON.stringify(umaDisciplina.map((l) => l.texto).slice(-3)),
     );
   }
 
