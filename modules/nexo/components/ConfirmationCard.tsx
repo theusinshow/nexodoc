@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
-import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
+import { buildLdProposal, type SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
 import type { SeloIdentityResult } from "@/server/nexo/selo-identity-core";
 import {
@@ -75,6 +75,16 @@ import {
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { conferirIdentidadeDoSelo } from "../lib/selo-check";
+import { lerVolumeMontado } from "../lib/volume-leitura";
+import {
+  montarPlanoDePaginas,
+  type BlocoDoPlano,
+  type ParteDoPlano,
+} from "@/server/nexo/volume-plano";
+import {
+  checkVolumeMontado,
+  type VolumeCheckResult,
+} from "@/server/nexo/volume-check-core";
 import { corDaDisciplina } from "../lib/disciplina-cor";
 import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
@@ -358,6 +368,7 @@ export function ConfirmationCard({
               resumo={proposal.resumo}
               selos={selos}
               pranchaFiles={pranchaFiles}
+              templates={templates}
               tomo={t}
             />
           ))}
@@ -1234,6 +1245,121 @@ function CheckResult({
 /* -------------------------------------------------------------- Volume ----- */
 
 /**
+ * Um achado que explica por que a conferência do volume não pôde acontecer.
+ * Vira AVISO, e não silêncio: o volume está pronto, e quem o receber precisa
+ * saber que ninguém o conferiu.
+ */
+function conferenciaNaoRodou(motivo: string, detalhe?: string): VolumeCheckResult {
+  return {
+    veredito: "aviso",
+    paginasConferidas: 0,
+    findings: [{ severidade: "aviso", campo: "leitura", mensagem: motivo, detalhe }],
+  };
+}
+
+/**
+ * Confere o volume recém-montado contra o plano que o gerou.
+ *
+ * O passo delicado é ligar cada PARTE devolvida pela montagem ao seu BLOCO: o
+ * servidor devolve papel, nome e páginas, mas não a disciplina. Em vez de
+ * reconstituir por contagem — que erra em silêncio se alguma parte for pulada —,
+ * a lista de papéis é remontada aqui pela MESMA regra de `buildVolumeParts`
+ * (parte sem dados não entra) e CONFERIDA contra o que voltou. Discordou, não se
+ * chuta: a conferência não roda e diz por quê. Atribuir páginas ao bloco errado
+ * produziria achados apontando para a disciplina errada, que é pior do que não
+ * conferir.
+ */
+async function conferirVolume(args: {
+  r: { url: string; pageCount?: number; partes?: { role: string; name: string; paginas: number }[] };
+  montaveis: BlocoDoVolume[];
+  blocos: { codigo: string; ids: string[] }[];
+  capaPdf64: string | null;
+  selosDoTomo: Folha[];
+  totaisPorDisciplina: Record<string, number>;
+  orgaoAlvo: string;
+  conversationId?: string | null;
+}): Promise<VolumeCheckResult> {
+  try {
+    const devolvidas = args.r.partes ?? [];
+    if (devolvidas.length === 0) {
+      return conferenciaNaoRodou(
+        "O volume foi montado, mas a montagem não informou as páginas de cada parte.",
+      );
+    }
+
+    // A ordem canônica, remontada com a mesma regra de `buildVolumeParts`.
+    const esperadas: { papel: ParteDoPlano["papel"]; bloco: string }[] = [];
+    if (args.capaPdf64) esperadas.push({ papel: "capa", bloco: "" });
+    args.montaveis.forEach((m, i) => {
+      const bloco = args.blocos[i]?.codigo ?? "";
+      if (m.separatrizPdf64) esperadas.push({ papel: "separatriz", bloco });
+      if (m.ldPdf64) esperadas.push({ papel: "ld", bloco });
+      for (const _ of m.pranchaFiles) esperadas.push({ papel: "prancha", bloco });
+    });
+
+    const alinhado =
+      esperadas.length === devolvidas.length &&
+      esperadas.every((e, i) => e.papel === devolvidas[i].role);
+    if (!alinhado) {
+      return conferenciaNaoRodou(
+        "O volume foi montado, mas não deu para saber a que disciplina cada página pertence.",
+        `esperava [${esperadas.map((e) => e.papel).join(", ")}]; a montagem devolveu [${devolvidas.map((d) => d.role).join(", ")}]`,
+      );
+    }
+
+    const partes: ParteDoPlano[] = devolvidas.map((d, i) => ({
+      papel: esperadas[i].papel,
+      nome: d.name,
+      paginas: d.paginas,
+      bloco: esperadas[i].bloco,
+    }));
+
+    /*
+     * O gabarito de cada bloco são as linhas da LD dele — a MESMA chamada que
+     * gerou a LD encadernada, com os mesmos parâmetros. Recalcular aqui em vez
+     * de guardar as linhas evita uma segunda verdade sobre o que a LD diz.
+     */
+    const blocosDoPlano: BlocoDoPlano[] = args.montaveis.map((m, i) => {
+      const codigo = args.blocos[i]?.codigo ?? "";
+      const proposta = buildLdProposal(args.selosDoTomo, {
+        folhasDoTomo: args.blocos[i]?.ids,
+        respeitarOrdem: true,
+        ...(args.totaisPorDisciplina[codigo]
+          ? { referenceTotal: args.totaisPorDisciplina[codigo] }
+          : {}),
+      });
+      return {
+        codigo,
+        folhas: proposta.input.rows.map((linha) => ({
+          folha: parseInt(linha.sheet.split("/")[0] ?? "", 10) || null,
+          total: parseInt(linha.sheet.split("/")[1] ?? "", 10) || null,
+          codigo: linha.file || null,
+          titulo: linha.description || null,
+        })),
+      };
+    });
+
+    const esperado = montarPlanoDePaginas(partes, blocosDoPlano);
+    const lido = await lerVolumeMontado({
+      pdfBase64: await urlToBase64(args.r.url),
+      esperado,
+      conversationId: args.conversationId,
+    });
+    return checkVolumeMontado(esperado, lido, {
+      orgao: args.orgaoAlvo,
+      pageCount: args.r.pageCount ?? esperado.length,
+    });
+  } catch (err) {
+    // Conferência que falha NÃO derruba a montagem: o volume está pronto e é
+    // dele que o engenheiro precisa. O que não pode é a falha sumir.
+    return conferenciaNaoRodou(
+      "O volume foi montado, mas a conferência não pôde rodar.",
+      err instanceof Error ? err.message : "erro desconhecido",
+    );
+  }
+}
+
+/**
  * Monta o volume juntando as partes JÁ geradas nesta conversa (capa + LD do
  * artifact-store) com as pranchas originais retidas. Pré-condições honestas:
  * sem pranchas, botão desabilitado. Capa/LD ausentes (não geradas ou sem PDF)
@@ -1243,19 +1369,31 @@ function VolumeConfirmation({
   resumo,
   selos,
   pranchaFiles,
+  templates,
   tomo,
 }: {
   resumo: string;
   selos: SeloForLd[];
   pranchaFiles: File[];
+  templates: NexoTemplateOption[];
   tomo: { atual: number; numero: number; sufixo: string };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, totaisPorDisciplina, identidade } =
-    useConversation();
+  const {
+    results,
+    getResult,
+    saveResult,
+    totaisPorDisciplina,
+    identidade,
+    conversationId,
+  } = useConversation();
   const id = volumeId(selos) + tomo.sufixo;
   const saved = getResult(id);
+  /** A conferência do volume gravada junto com o PDF, quando já rodou. */
+  const conferenciaDoVolume = (
+    saved?.payload as { conferencia?: VolumeCheckResult } | undefined
+  )?.conferencia;
 
   // As partes DESTE tomo: cada tomo é um volume físico com as suas.
   const capa = results.find((r) => r.artifactId === capaId(selos) + tomo.sufixo);
@@ -1354,6 +1492,20 @@ function VolumeConfirmation({
    * marca de desatualizado.
    */
   const podeGerar = true;
+
+  /*
+   * O GABARITO da identidade é a intenção DECLARADA, nunca o que o selo diz.
+   * Primeiro o órgão corrigido à mão; senão a prefeitura escolhida para a capa.
+   * Inferir o alvo do próprio documento conferiria o selo contra ele mesmo, e
+   * um volume inteiro coerentemente errado passaria.
+   */
+  const templateIdDaCapa = (capa?.payload as { templateId?: unknown } | undefined)
+    ?.templateId;
+  const orgaoAlvo =
+    identidade.orgao?.trim() ||
+    (typeof templateIdDaCapa === "string"
+      ? (templates.find((t) => t.id === templateIdDaCapa)?.nome ?? "")
+      : "");
 
   async function confirm() {
     setBusy(true);
@@ -1494,12 +1646,37 @@ function VolumeConfirmation({
           ? { fileName: `volume-tomo-${String(tomo.numero).padStart(2, "0")}.pdf` }
           : {}),
       });
+
+      /*
+       * A CONFERÊNCIA DO VOLUME roda SOZINHA, logo depois de montar.
+       *
+       * Não fica atrás de um botão porque montar é irreversível na prática — o
+       * engenheiro manda o PDF —, e conferência que depende de alguém lembrar
+       * de clicar é conferência que não existe. E NÃO bloqueia o download: quem
+       * decide o que fazer com o volume é ele; travar um PDF já gerado só o
+       * empurraria a montar de novo às cegas.
+       */
+      const conferencia = await conferirVolume({
+        r,
+        montaveis,
+        blocos,
+        capaPdf64,
+        selosDoTomo: selosDoTomo as Folha[],
+        totaisPorDisciplina,
+        orgaoAlvo,
+        conversationId,
+      });
+
       await saveResult({
         artifactId: id,
         kind: "volume",
         // Quais folhas entraram neste volume — é o que o canvas compara depois
         // para saber que ele envelheceu.
-        payload: { tomo: tomo.numero, folhas: assinaturaDoTomo(selosDoTomo as Folha[]) },
+        payload: {
+          tomo: tomo.numero,
+          folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
+          conferencia,
+        },
         summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
         canvas: {
           label: "Volume",
@@ -1615,6 +1792,12 @@ function VolumeConfirmation({
       )}
 
       {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
+      {/* A conferência do volume montado, logo abaixo do PDF. Crítico pinta o
+          semáforo, e o link de baixar continua acima, ativo: quem decide o que
+          fazer com o volume é o engenheiro. */}
+      {conferenciaDoVolume && (
+        <CheckResult result={conferenciaDoVolume} titulo="Volume montado" />
+      )}
       <CardError message={error} />
     </CardShell>
   );
