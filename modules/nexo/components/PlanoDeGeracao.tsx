@@ -291,6 +291,31 @@ export function PlanoDeGeracao({
       </div>
 
       <div className="space-y-3 p-3">
+        {/*
+         * PARA QUEM VAI. A prefeitura estava numa linha igual às outras, e é o
+         * único campo aqui cujo erro custa o projeto inteiro — foi um volume
+         * enviado com o brasão de outra prefeitura que originou este produto.
+         * Ela sai da lista e ganha peso próprio, no topo, antes de qualquer
+         * parâmetro.
+         */}
+        {capa && (
+          <div className="flex items-baseline justify-between gap-3 rounded-md border border-border bg-[var(--nexodoc-recessed)] px-3 py-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+              Vai para
+            </span>
+            <span
+              className={
+                "text-right text-sm font-medium leading-snug " +
+                (prefeitura === "escolha a prefeitura"
+                  ? "text-[var(--status-warning)]"
+                  : "text-foreground")
+              }
+            >
+              {prefeitura}
+            </span>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           {/*
             O título só aparece quando é DECISÃO. No volume misto sem capa,
@@ -317,7 +342,6 @@ export function PlanoDeGeracao({
               como dividi-lo. */}
           {obra && <Linha rotulo="Obra" valor={obra} />}
           {codigo && <Linha rotulo="Código" valor={codigo} />}
-          {capa && <Linha rotulo="Prefeitura" valor={prefeitura} />}
           {capa && (
             <Linha
               rotulo="Data da capa"

@@ -345,7 +345,16 @@ function sugestoesDeTitulo(facts: SlotFacts): NexoSlotSuggestion[] {
     const key = v.toLowerCase();
     if (!v || vistos.has(key)) continue;
     vistos.add(key);
-    out.push({ label: v, value: v, commit: "fill" });
+    /*
+     * O PRIMEIRO candidato — o título lido do próprio selo — vai a UM CLIQUE
+     * (`send`); os outros escrevem no composer para serem editados (`fill`).
+     *
+     * O título continua sendo decisão humana: clicar é decidir. O que muda é
+     * que o caso padrão, em que o carimbo já traz o título certo, deixa de
+     * cobrar que se reescreva à mão o que o Nexo acabou de mostrar. "Nunca
+     * auto-commitado" segue valendo — nenhum título entra sem alguém clicar.
+     */
+    out.push({ label: v, value: v, commit: out.length === 0 ? "send" : "fill" });
   }
   return out.slice(0, 3);
 }

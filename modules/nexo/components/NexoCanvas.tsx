@@ -878,14 +878,30 @@ function CanvasInterno({
               aria-hidden
               style={{
                 position: "absolute",
-                transform: `translate(${fresta.x - 3}px, ${fresta.y}px)`,
-                width: 6,
-                height: fresta.altura,
+                /*
+                 * A barra é uma CARETA de inserção, com folga acima e abaixo da
+                 * folha: uma linha da altura exata do nó se confunde com a borda
+                 * do vizinho, e era por isso que ela parecia não estar
+                 * funcionando. As pontas passam do cartão e não deixam dúvida.
+                 */
+                transform: `translate(${fresta.x - 5}px, ${fresta.y - 8}px)`,
+                width: 10,
+                height: fresta.altura + 16,
                 pointerEvents: "none",
-                zIndex: 5,
+                /*
+                 * Acima dos nós. O React Flow dá z-index próprio a cada nó e o
+                 * arrastado sobe ainda mais; com z-index baixo, a barra ficava
+                 * ATRÁS das folhas — desenhada, e invisível.
+                 */
+                zIndex: 1500,
               }}
             >
-              <div className="h-full w-full rounded-full bg-[var(--primary)] shadow-[0_0_10px_2px_var(--primary)]" />
+              <div className="relative h-full w-full">
+                <div className="absolute inset-x-[3px] inset-y-0 rounded-full bg-[var(--primary)] shadow-[0_0_12px_3px_var(--primary)]" />
+                {/* As duas pontas: leem como "entra aqui", não como borda. */}
+                <div className="absolute -top-px left-0 h-[10px] w-full rounded-full bg-[var(--primary)]" />
+                <div className="absolute -bottom-px left-0 h-[10px] w-full rounded-full bg-[var(--primary)]" />
+              </div>
             </div>
           </ViewportPortal>
         )}

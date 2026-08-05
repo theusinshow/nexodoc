@@ -119,9 +119,18 @@ test("(a) LD sem título → nextMissing tituloLd (required, 2-3 chips), pronto:
   assert.equal(r.nextMissing!.optional, false);
   const n = r.nextMissing!.suggestions.length;
   assert.ok(n >= 2 && n <= 3, `esperava 2-3 suggestions, veio ${n}`);
-  // 1ª suggestion = título lido do selo (recomendada), commit fill, nunca vazia.
+  /*
+   * A 1ª é o título LIDO DO SELO e vai a UM CLIQUE (`send`); as outras escrevem
+   * no composer para serem editadas (`fill`). O caso padrão — o carimbo já traz
+   * o título certo — deixa de cobrar que se reescreva à mão o que o Nexo acabou
+   * de mostrar. "Nunca auto-commitado" segue valendo: clicar é decidir.
+   */
   assert.equal(r.nextMissing!.suggestions[0].value, "PROJETO ESTRUTURAL");
-  assert.equal(r.nextMissing!.suggestions[0].commit, "fill");
+  assert.equal(r.nextMissing!.suggestions[0].commit, "send");
+  assert.ok(
+    r.nextMissing!.suggestions.slice(1).every((s) => s.commit === "fill"),
+    "só a recomendada é de um clique",
+  );
 });
 
 // (b) LD com título em slots → pronto:true
