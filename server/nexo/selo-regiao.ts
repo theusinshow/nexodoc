@@ -187,6 +187,108 @@ export function textoPorPosicao(itens: readonly ItemPosicionado[], caixa: Caixa)
   return linhas.join("\n");
 }
 
+/**
+ * Compara rótulo de carimbo IGNORANDO o acento — inclusive o acento quebrado.
+ *
+ * Na família EST o exportador mangala os acentos: "CONTEÚDO" chega como
+ * "CONTEdDO" depois do reparo (ver `texto-cad.ts`), e um regex com `[ÚU]` não
+ * casa. Reduzindo tudo a letras ASCII maiúsculas, a comparação passa a ser por
+ * ESQUELETO da palavra, com um curinga onde o acento estava.
+ */
+function esqueleto(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+}
+
+/** `CONTEUDO`, `CONTEDDO`, `CONTEFDO` — o acento vira curinga. */
+const ESQUELETO_CONTEUDO = /^CONTE.DO$/;
+
+/** Rótulos que FECHAM a célula de um campo. */
+const ESQUELETOS_DE_ROTULO = new Set([
+  "PRANCHA",
+  "ARQUIVO",
+  "ESCALA",
+  "DATA",
+  "REV",
+  "REVISAO",
+  "DISCIPLINA",
+  "CLIENTE",
+  "OBRA",
+  "VISTO",
+  "RESPONSAVELTECNICOPROJETO",
+  "RESPONSAVELTECNICOEXECUCAO",
+  "OBSERVACOES",
+]);
+
+function ehRotulo(texto: string): boolean {
+  const e = esqueleto(texto);
+  return ESQUELETOS_DE_ROTULO.has(e) || ESQUELETO_CONTEUDO.test(e);
+}
+
+/** Altura máxima da célula quando não há rótulo abaixo para fechá-la. */
+const ALTURA_DA_CELULA = 0.035;
+/** Folga para casar itens na "mesma linha" do rótulo. */
+const MESMA_LINHA = 0.008;
+
+/**
+ * O valor do campo CONTEÚDO do carimbo, lido pela GEOMETRIA da grade.
+ *
+ * O CONTEÚDO é o título técnico da prancha — o que vai para a coluna DESCRIÇÃO
+ * da LD. Ele vinha SÓ do modelo, e num projeto real de 71 pranchas 5 voltaram
+ * vazias. Aqui ele passa a ter uma fonte determinística: quem sabe onde o valor
+ * está é o desenho do carimbo, não a interpretação de um texto linearizado.
+ *
+ * A célula do valor é o retângulo que começa no rótulo e termina no PRÓXIMO
+ * RÓTULO — à direita, na mesma faixa; abaixo, na mesma coluna. Os dois limites
+ * são necessários porque as duas famílias diagramam diferente: em `arq` o valor
+ * fica na MESMA LINHA do rótulo ("CONTEÚDO: IMPLANTAÇÃO TÉRREO..."), e em `est`
+ * fica na linha DE BAIXO. Sem o limite de baixo, a leitura engolia a linha
+ * seguinte inteira e devolvia "...PLANTA DE FORMAS PISO ESTRUTURAL
+ * 040_26_est_bl.a_bl.b_001_a" — título e código grudados.
+ *
+ * Devolve "" quando não há rótulo ou a célula está vazia. Quem decide o que
+ * fazer com o vazio é quem chama: aqui não se inventa título.
+ */
+export function conteudoDoSelo(itens: readonly ItemPosicionado[]): string {
+  const rotulo = itens.find((i) => ESQUELETO_CONTEUDO.test(esqueleto(i.texto)));
+  if (!rotulo) return "";
+
+  let limiteX = 1;
+  let limiteY = rotulo.y + ALTURA_DA_CELULA;
+  for (const item of itens) {
+    if (item === rotulo || !ehRotulo(item.texto)) continue;
+    // Fecha pela direita: rótulo na mesma faixa vertical, mais à direita.
+    if (item.x > rotulo.x && Math.abs(item.y - rotulo.y) <= MESMA_LINHA) {
+      limiteX = Math.min(limiteX, item.x);
+    }
+    // Fecha por baixo: rótulo abaixo, começando na mesma coluna ou à direita.
+    if (item.y > rotulo.y + MESMA_LINHA && item.x >= rotulo.x - 0.01) {
+      limiteY = Math.min(limiteY, item.y);
+    }
+  }
+
+  const naCelula = itens
+    .filter(
+      (i) =>
+        i !== rotulo &&
+        !ehRotulo(i.texto) &&
+        i.x >= rotulo.x - 0.005 &&
+        i.x < limiteX - 0.005 &&
+        i.y >= rotulo.y - MESMA_LINHA &&
+        i.y < limiteY - 0.002,
+    )
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+
+  return naCelula
+    .map((i) => i.texto.trim())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export type TipoDePagina = "prancha" | "indice" | "capa" | "outra";
 
 /** Índice é uma LISTA de pranchas: muitos códigos distintos e nenhum carimbo. */

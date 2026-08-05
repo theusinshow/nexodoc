@@ -23,6 +23,7 @@
 import {
   acharCaixaDoSelo,
   classificarPagina,
+  conteudoDoSelo,
   textoPorPosicao,
   valeLerComoPrancha,
   type Caixa,
@@ -169,6 +170,16 @@ export interface PaginaAnalisada {
   ancoras: number;
   /** O texto do carimbo, em ordem de leitura, pronto para o modelo. */
   texto: string;
+  /**
+   * O CONTEÚDO lido pela GEOMETRIA da grade — determinístico, sem IA.
+   *
+   * Existe porque num projeto real de 71 pranchas o modelo devolveu 5 títulos
+   * vazios, e o título é a coluna DESCRIÇÃO da LD. Medido nas amostras, a
+   * geometria acerta 45 de 45. Não substitui o modelo: ele lê da IMAGEM e por
+   * isso acerta os acentos que a fonte quebrada mangala aqui ("PAGINAdO" onde
+   * se lê "PAGINAÇÃO"). Entra só quando o modelo não trouxe nada.
+   */
+  conteudo: string;
 }
 
 /** Aviso que acompanha o texto quando houve fonte quebrada nesta página. */
@@ -230,7 +241,13 @@ export async function analisarPagina(page: PaginaPdf): Promise<PaginaAnalisada> 
     `PAGINA COMPLETA:\n${textoPorPosicao(itens, { x0: 0, y0: 0, x1: 1, y1: 1 })}`,
   ];
 
-  return { tipo, caixa, ancoras, texto: partes.join("\n\n").slice(0, MAX_TEXT_CHARS) };
+  return {
+    tipo,
+    caixa,
+    ancoras,
+    texto: partes.join("\n\n").slice(0, MAX_TEXT_CHARS),
+    conteudo: conteudoDoSelo(itens),
+  };
 }
 
 /**
@@ -353,7 +370,7 @@ async function extractSeloFromPage(
     const page = await doc.getPage(pageNumber);
     // A análise é determinística e barata, e decide se vale gastar o modelo:
     // capa, separatriz e índice saem daqui sem custar uma chamada.
-    const { tipo, caixa, ancoras, texto } = await analisarPagina(page as never);
+    const { tipo, caixa, ancoras, texto, conteudo } = await analisarPagina(page as never);
     if (!valeLerComoPrancha(tipo)) {
       return { fileName: file.name, pageNumber, pageCount, extraction: null, ignorada: tipo };
     }
@@ -368,7 +385,19 @@ async function extractSeloFromPage(
       // ou se caiu na de reserva — e em quais arquivos.
       ancoras,
     }, conversationId);
-    return { fileName: file.name, pageNumber, pageCount, extraction, usage };
+    /*
+     * O TÍTULO NÃO PODE FICAR VAZIO quando o carimbo tem um.
+     *
+     * A geometria do carimbo sabe onde o CONTEÚDO está e não depende de o modelo
+     * associar rótulo e valor numa grade — que foi exatamente onde ele falhou em
+     * 5 de 71 pranchas reais. O modelo continua mandando quando trouxe algo: ele
+     * lê da imagem e acerta acento, que é onde a geometria erra na família EST.
+     */
+    const completada =
+      extraction && !extraction.conteudo?.trim() && conteudo
+        ? { ...extraction, conteudo }
+        : extraction;
+    return { fileName: file.name, pageNumber, pageCount, extraction: completada, usage };
   } catch (err) {
     return {
       fileName: file.name,

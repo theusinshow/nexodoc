@@ -21,6 +21,7 @@ import {
   CAIXA_FALLBACK,
   acharCaixaDoSelo,
   classificarPagina,
+  conteudoDoSelo,
   dentro,
   textoPorPosicao,
   valeLerComoPrancha,
@@ -171,6 +172,60 @@ test("o texto fora da caixa não entra", () => {
     { x0: 0.75, y0: 0.85, x1: 1, y1: 1 },
   );
   assert.equal(texto, "ARQUIVO:");
+});
+
+// ---------------------------------------------------------------------------
+// O CONTEÚDO pela geometria da grade
+// ---------------------------------------------------------------------------
+
+test("família est: o valor está na linha DE BAIXO do rótulo", () => {
+  const itens = [
+    ...CARIMBO_A0,
+    it("BLOCO A E BLOCO B: PLANTA DE FORMAS PISO", 0.795, 0.962),
+    it("EST", 0.96, 0.962), // o valor do PRANCHA, na célula ao lado
+    it("INDICADA", 0.83, 0.98), // o valor do ESCALA, na célula de baixo
+  ];
+  assert.equal(conteudoDoSelo(itens), "BLOCO A E BLOCO B: PLANTA DE FORMAS PISO");
+});
+
+test("família arq: o valor está na MESMA linha do rótulo", () => {
+  const itens = [
+    ...CARIMBO_A0,
+    it("IMPLANTAÇÃO TÉRREO - EIXOS E SETORIZAÇÃO", 0.82, 0.95),
+    it("ARQ", 0.96, 0.962),
+  ];
+  assert.equal(conteudoDoSelo(itens), "IMPLANTAÇÃO TÉRREO - EIXOS E SETORIZAÇÃO");
+});
+
+test("a célula fecha antes do código do arquivo — título e código não grudam", () => {
+  // O defeito medido: sem o limite de baixo, saía "...FORMAS PISO ESTRUTURAL
+  // 040_26_est_bl.a_bl.b_001_a".
+  const itens = [
+    ...CARIMBO_A0,
+    it("BLOCO A E BLOCO B: CORTES", 0.795, 0.962),
+    it("040_26_est_bl.a_bl.b_004_a", 0.88, 0.985),
+    it("ESTRUTURAL", 0.93, 0.985),
+  ];
+  assert.equal(conteudoDoSelo(itens), "BLOCO A E BLOCO B: CORTES");
+});
+
+test("rótulo com acento QUEBRADO ainda é reconhecido", () => {
+  // Na família EST o exportador entrega "CONTEdDO" — e era por isso que as 14
+  // pranchas de est_met voltavam sem título nenhum.
+  const itens = [
+    it("CONTEdDO:", 0.79, 0.95),
+    it("PRANCHA:", 0.95, 0.95),
+    it("PERSPECTIVA GERAL E CORTE LONGITUDINAL", 0.795, 0.962),
+  ];
+  assert.equal(conteudoDoSelo(itens), "PERSPECTIVA GERAL E CORTE LONGITUDINAL");
+});
+
+test("sem rótulo CONTEÚDO, devolve vazio — não inventa título", () => {
+  assert.equal(conteudoDoSelo(CORPO_DO_DESENHO), "");
+});
+
+test("célula vazia devolve vazio", () => {
+  assert.equal(conteudoDoSelo(CARIMBO_A0), "");
 });
 
 // ---------------------------------------------------------------------------
