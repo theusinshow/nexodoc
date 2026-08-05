@@ -67,6 +67,66 @@ export function buildBalancedQuantities(total: number, count: number) {
 }
 
 /**
+ * A divisão em tomos que o escritório usa: ~12 pranchas por tomo, nunca menos de
+ * 9, nunca mais de 15, e o mais parelho possível.
+ *
+ * O número de tomos era sempre 1 até alguém digitar outro, e num projeto de 71
+ * pranchas isso significa um volume único impossível de encadernar. A conta é
+ * simples e ninguém deveria ter de fazê-la de cabeça toda vez.
+ *
+ * A busca é exaustiva sobre o número de tomos porque o espaço é minúsculo (no
+ * máximo `total` candidatos) e a regra é mais fácil de conferir assim do que
+ * numa fórmula fechada. Ganha quem fica mais perto de `ALVO`; empatou, ganha o
+ * mais parelho; empatou de novo, ganha o de menos tomos — menos volumes é menos
+ * capa, menos separatriz e menos encadernação.
+ */
+export const TOMO_ALVO = 12;
+export const TOMO_MINIMO = 9;
+export const TOMO_MAXIMO = 15;
+
+export function sugerirNumeroDeTomos(totalDeFolhas: number): number {
+  const total = Math.max(0, Math.trunc(totalDeFolhas));
+  // Cabe num tomo só: não há divisão a sugerir, mesmo abaixo do mínimo — um
+  // projeto de 5 pranchas é um tomo de 5, não meio tomo.
+  if (total <= TOMO_MAXIMO) return 1;
+
+  let melhor = 0;
+  let melhorNota: [number, number, number] | null = null;
+  for (let tomos = 1; tomos <= total; tomos++) {
+    const baldes = buildBalancedQuantities(total, tomos);
+    const menor = Math.min(...baldes);
+    const maior = Math.max(...baldes);
+    if (menor < TOMO_MINIMO || maior > TOMO_MAXIMO) continue;
+    const nota: [number, number, number] = [
+      Math.abs(total / tomos - TOMO_ALVO), // perto do alvo
+      maior - menor, // parelho
+      tomos, // menos volumes
+    ];
+    // Comparação campo a campo. `nota < melhorNota` em array compara STRING em
+    // JavaScript ("10" < "9"), e o desempate sairia trocado sem avisar.
+    const ganha =
+      !melhorNota ||
+      nota[0] < melhorNota[0] - 1e-9 ||
+      (Math.abs(nota[0] - melhorNota[0]) < 1e-9 &&
+        (nota[1] < melhorNota[1] ||
+          (nota[1] === melhorNota[1] && nota[2] < melhorNota[2])));
+    if (ganha) {
+      melhorNota = nota;
+      melhor = tomos;
+    }
+  }
+  if (melhor > 0) return melhor;
+
+  /*
+   * Nenhuma divisão respeita os dois limites — acontece logo acima do máximo
+   * (16 folhas: 1 tomo estoura 15, 2 tomos dão 8 e 8, abaixo do mínimo). Aí
+   * vale o MÁXIMO, que é limite de encadernação: um tomo magro se encaderna, um
+   * tomo gordo demais não fecha.
+   */
+  return Math.ceil(total / TOMO_MAXIMO);
+}
+
+/**
  * Faixas de folhas (1-based, inclusivas) de cada tomo.
  *
  * Cada tomo é um VOLUME FÍSICO com a sua fatia: a LD e o volume do tomo 1 levam

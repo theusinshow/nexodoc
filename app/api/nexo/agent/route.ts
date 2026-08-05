@@ -12,6 +12,7 @@ import {
   type NexoAgentPrefeitura,
 } from "@/server/nexo/agent/run-turn";
 import { buildSlotRequestForTurn } from "@/server/nexo/agent/slot-request";
+import { sugerirNumeroDeTomos } from "@/lib/ld/ld-rules";
 import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
 
 export const runtime = "nodejs";
@@ -153,6 +154,9 @@ export async function POST(req: NextRequest) {
     prefeituras,
     mesAtual: now.getMonth() + 1,
     anoAtual: now.getFullYear(),
+    // A divisão em tomos é computada AQUI porque `sugerirNumeroDeTomos` é import
+    // de runtime e os módulos do agente são folhas puras.
+    tomosSugeridos: sugerirNumeroDeTomos(selos.length),
   };
 
   const wantsStream = (req.headers.get("accept") ?? "").includes("text/event-stream");
@@ -175,6 +179,7 @@ export async function POST(req: NextRequest) {
               prefeituras,
               conversationId,
               userEmail,
+              tomosSugeridos: slotContext.tomosSugeridos,
             },
             req.signal,
           )) {
@@ -225,6 +230,7 @@ export async function POST(req: NextRequest) {
       prefeituras,
       conversationId,
       userEmail,
+      tomosSugeridos: slotContext.tomosSugeridos,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });

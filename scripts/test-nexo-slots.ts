@@ -83,6 +83,9 @@ function facts(over: Partial<SlotFacts> = {}): SlotFacts {
     prefeituras: PREFS,
     mesAtual: 7,
     anoAtual: 2026,
+    // Sem folhas no contexto, a divisão recomendada é 1 — é o que a rota
+    // injetaria (`sugerirNumeroDeTomos(0)`).
+    tomosSugeridos: 1,
     ...over,
   };
 }
@@ -240,10 +243,42 @@ test("(e) numTomos default 1 nunca bloqueia; resolve pra '1' sozinho", () => {
   // e o SlotDef de numTomos é mesmo opcional no registro.
   const def = ARTIFACT_REQUIREMENTS.capa.find((d) => d.id === "numTomos");
   assert.ok(def && def.required === false && def.decision === false);
-  // suggestions estáticas 1-4, todas fill.
   const sug = def!.suggest(facts());
-  assert.deepEqual(sug.map((s) => s.value), ["1", "2", "3", "4"]);
+  assert.equal(sug[0].value, "1", "a 1ª sugestão é a recomendada");
   assert.ok(sug.every((s) => s.commit === "fill"));
+});
+
+// (e2) o default deixou de ser 1: passou a ser a divisão RECOMENDADA
+test("(e2) numTomos resolve para a divisão recomendada, não para 1", () => {
+  /*
+   * O caso real: 71 pranchas caíam em "1 tomo" até alguém digitar outro número —
+   * um volume único que não se encaderna. `sugerirNumeroDeTomos(71)` dá 6, e é
+   * esse número que a rota injeta.
+   */
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({
+      templateMatch: { resolvedId: "prefflor", plausibleCount: 1 },
+      tomosSugeridos: 6,
+    }),
+    slots: { tituloCapa: { value: "PROJETO ESTRUTURAL" } },
+  });
+  assert.equal(r.pronto, true, "continua sem segurar o pronto");
+  assert.equal(r.resolved.numTomos, "6");
+});
+
+test("(e3) os chips oferecem o recomendado primeiro e os vizinhos depois", () => {
+  const def = ARTIFACT_REQUIREMENTS.capa.find((d) => d.id === "numTomos")!;
+  const sug = def.suggest(facts({ tomosSugeridos: 6 }));
+  assert.equal(sug[0].value, "6", "o recomendado abre a lista");
+  // Os vizinhos são onde a discordância cai; "1 tomo" continua alcançável.
+  assert.deepEqual(sug.map((s) => s.value), ["6", "5", "7", "1"]);
+});
+
+test("(e4) recomendação 1 não oferece chip de zero tomos", () => {
+  const def = ARTIFACT_REQUIREMENTS.capa.find((d) => d.id === "numTomos")!;
+  const sug = def.suggest(facts({ tomosSugeridos: 1 }));
+  assert.ok(sug.every((s) => Number(s.value) >= 1), sug.map((s) => s.value).join(","));
 });
 
 // (f) auditoria → nivel com suggestions standard/deep

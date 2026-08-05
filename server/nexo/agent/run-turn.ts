@@ -48,6 +48,12 @@ export interface RunNexoAgentTurnInput {
   conversationId?: string | null;
   /** E-mail da sessão — viaja SEMPRE junto com `conversationId` (telemetria). */
   userEmail?: string | null;
+  /**
+   * Em quantos tomos as folhas em contexto deveriam ser divididas. Chega pronto
+   * da rota (`sugerirNumeroDeTomos`): o modelo REPETE o número, não o calcula —
+   * conta de cabeça é onde ele inventa.
+   */
+  tomosSugeridos?: number;
 }
 
 const MAX_OUTPUT_TOKENS = Number(process.env.NEXODOC_NEXO_MAX_OUTPUT_TOKENS ?? 900);
@@ -75,6 +81,12 @@ function extractResponseText(response: unknown): string {
 
 function buildPrompt(input: RunNexoAgentTurnInput): string {
   const { resumo, prefeituras, history, message } = input;
+  /*
+   * A divisão recomendada é FATO, e entra na lista de fatos: o modelo não a
+   * calcula, só a repete. Vem injetada pela rota (`sugerirNumeroDeTomos`), pelo
+   * mesmo motivo dos outros números — a regra tem um dono só.
+   */
+  const tomosSugeridos = Math.max(1, input.tomosSugeridos ?? 1);
   const prefLista =
     prefeituras.map((t) => `- id="${t.id}" · ${t.nome}`).join("\n") ||
     "(nenhuma prefeitura configurada)";
@@ -132,7 +144,11 @@ REGRAS:
   volume 4"), coloque só o NÚMERO arábico no campo "volume" (ex.: "3"). Se ele
   não disser, deixe "volume": "" (o sistema deriva do nome do arquivo).
 - TOMOS — são DUAS coisas diferentes, não confunda:
-  - QUANTOS: "dividir em N tomos" / "mais 2 tomos" -> numTomos=N. Default 1.
+  - QUANTOS: "dividir em N tomos" / "mais 2 tomos" -> numTomos=N. Quando ele NÃO
+    disser, use a DIVISÃO RECOMENDADA dos fatos abaixo (o escritório encaderna
+    ~12 pranchas por tomo, nunca menos de 9, nunca mais de 15) e DIGA no texto
+    que dividiu assim — ex.: "são 71 folhas, dividi em 6 tomos de ~12". Não
+    invente outra divisão nem deixe 1 tomo num projeto grande.
   - A PARTIR DE QUAL: a numeração é do VOLUME, não do documento. Se ele disser
     "começando no 4", "o volume já tem 3 tomos", "continua do 4" -> tomoInicial=4.
     Default 1. Ex.: "mais 2 tomos, o volume já tem 3" -> numTomos=2 E
@@ -152,6 +168,7 @@ FATOS JÁ LIDOS DOS SELOS (não pergunte de novo):
 - Código: ${resumo.codigo || "?"} · Revisão: ${resumo.revisao || "?"}
 - Obra: ${resumo.obra || "?"}
 - Nº de folhas: ${resumo.totalFolhas}
+- Divisão recomendada: ${tomosSugeridos} tomo(s) — o escritório encaderna ~12 pranchas por tomo
 - Título sugerido (do selo): ${resumo.tituloSugerido || "(nenhum)"}
 
 PREFEITURAS DISPONÍVEIS (use o id no templateId):

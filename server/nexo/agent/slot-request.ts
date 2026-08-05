@@ -36,6 +36,12 @@ export interface SlotRequestContext {
   /** Mês/ano de referência, injetados pela rota (função pura não chama `new Date`). */
   mesAtual: number;
   anoAtual: number;
+  /**
+   * Divisão em tomos recomendada para as folhas em contexto. Injetada pela rota
+   * pelo mesmo motivo da data: a regra vive em `sugerirNumeroDeTomos`
+   * (`lib/ld/ld-rules`), que é import de runtime, e este arquivo é puro.
+   */
+  tomosSugeridos: number;
 }
 
 /**
@@ -104,6 +110,7 @@ export function buildSlotRequestForTurn(
     prefeituras: ctx.prefeituras,
     mesAtual: ctx.mesAtual,
     anoAtual: ctx.anoAtual,
+    tomosSugeridos: ctx.tomosSugeridos,
   };
 
   for (const p of proposals) {

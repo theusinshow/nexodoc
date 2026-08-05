@@ -62,6 +62,16 @@ export interface SlotFacts {
   mesAtual: number;
   /** Ano de referência (injetado). */
   anoAtual: number;
+  /**
+   * Em quantos tomos as folhas em contexto DEVERIAM ser divididas — ~12 por
+   * tomo, nunca menos de 9, nunca mais de 15, o mais parelho possível.
+   *
+   * Chega INJETADO pelo mesmo motivo de `mesAtual`: a regra mora em
+   * `sugerirNumeroDeTomos` (`lib/ld/ld-rules`), que é import de RUNTIME, e este
+   * arquivo é folha pura. Duplicar a conta aqui seria criar uma segunda verdade
+   * sobre a divisão do volume.
+   */
+  tomosSugeridos: number;
 }
 
 /**
@@ -157,13 +167,29 @@ function numTomosSlot(taskKind: NexoArtifactKind): SlotDef {
     required: false,
     decision: false,
     prompt: "Dividir em quantos tomos?",
-    deriveFrom: () => "1", // default determinístico
-    suggest: () =>
-      [1, 2, 3, 4].map((n) => ({
+    /*
+     * O default deixou de ser 1 e passou a ser a DIVISÃO RECOMENDADA.
+     *
+     * Um projeto de 71 pranchas caía em "1 tomo" até alguém digitar outro
+     * número — um volume único que não se encaderna. A conta (~12 por tomo,
+     * entre 9 e 15) é sempre a mesma e ninguém deveria ter de fazê-la de cabeça.
+     * Continua sendo um palpite: os chips abaixo oferecem os vizinhos, e o
+     * engenheiro troca com um clique.
+     */
+    deriveFrom: (facts) => String(Math.max(1, facts.tomosSugeridos)),
+    suggest: (facts) => {
+      const recomendado = Math.max(1, facts.tomosSugeridos);
+      // O recomendado PRIMEIRO (a 1ª sugestão é a recomendada, por contrato), e
+      // depois os vizinhos — que é onde a discordância costuma cair.
+      const vizinhos = [recomendado, recomendado - 1, recomendado + 1, 1].filter(
+        (n, i, todos) => n >= 1 && todos.indexOf(n) === i,
+      );
+      return vizinhos.slice(0, 4).map((n) => ({
         label: n === 1 ? "1 tomo" : `${n} tomos`,
         value: String(n),
         commit: "fill" as const,
-      })),
+      }));
+    },
   };
 }
 

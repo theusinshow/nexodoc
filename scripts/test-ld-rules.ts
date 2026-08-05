@@ -17,8 +17,11 @@ import {
   compareBySheet,
   formatSheet,
   parseSheet,
+  sugerirNumeroDeTomos,
   updateTomoQuantity,
   validateRows,
+  TOMO_MAXIMO,
+  TOMO_MINIMO,
   type ReviewRow,
 } from "../lib/ld/ld-rules.ts";
 
@@ -215,6 +218,68 @@ check("quantidade zero ou negativa vira 1", () => {
   const tomos = updateTomoQuantity(buildBalancedTomos(10, 2), 10, 0, 0);
   assert.equal(tomos[0].quantity, 1);
   assert.equal(somaDosTomos(tomos), 10);
+});
+
+// ---------------------------------------------------------------------------
+// sugerirNumeroDeTomos — ~12 por tomo, nunca <9, nunca >15, o mais parelho
+// ---------------------------------------------------------------------------
+
+check("o projeto real de 71 pranchas vira 6 tomos de ~12", () => {
+  assert.equal(sugerirNumeroDeTomos(71), 6);
+  assert.deepEqual(buildBalancedQuantities(71, 6), [12, 12, 12, 12, 12, 11]);
+});
+
+check("o que cabe num tomo só continua sendo um tomo só", () => {
+  // Inclusive abaixo do mínimo: um projeto de 5 pranchas é um tomo de 5, não
+  // meio tomo. O mínimo governa a DIVISÃO, não o tamanho do projeto.
+  for (const total of [1, 5, 9, 12, 15]) {
+    assert.equal(sugerirNumeroDeTomos(total), 1, `${total} folhas`);
+  }
+});
+
+check("nenhuma sugestão estoura o máximo de encadernação", () => {
+  // O limite que não pode ser violado: tomo gordo demais não fecha.
+  for (let total = 1; total <= 300; total++) {
+    const baldes = buildBalancedQuantities(total, sugerirNumeroDeTomos(total));
+    assert.ok(
+      Math.max(...baldes) <= TOMO_MAXIMO,
+      `${total} folhas -> [${baldes.join(",")}]`,
+    );
+  }
+});
+
+check("acima do que cabe num tomo, respeita o mínimo sempre que existe divisão", () => {
+  /*
+   * A exceção é a faixa logo acima do máximo (16 a 17 folhas): 1 tomo estoura
+   * 15, 2 tomos dão menos de 9, e não há divisão que sirva. Ali vale o máximo,
+   * que é o limite físico.
+   */
+  for (let total = 18; total <= 300; total++) {
+    const baldes = buildBalancedQuantities(total, sugerirNumeroDeTomos(total));
+    assert.ok(
+      Math.min(...baldes) >= TOMO_MINIMO,
+      `${total} folhas -> [${baldes.join(",")}]`,
+    );
+  }
+});
+
+check("as sugestões ficam parelhas: no máximo uma folha de diferença", () => {
+  for (let total = 1; total <= 300; total++) {
+    const baldes = buildBalancedQuantities(total, sugerirNumeroDeTomos(total));
+    assert.ok(
+      Math.max(...baldes) - Math.min(...baldes) <= 1,
+      `${total} folhas -> [${baldes.join(",")}]`,
+    );
+  }
+});
+
+check("desempate por MENOS tomos: 24 vira 2x12, não 3x8", () => {
+  assert.equal(sugerirNumeroDeTomos(24), 2);
+  assert.deepEqual(buildBalancedQuantities(24, 2), [12, 12]);
+});
+
+check("total zero não quebra", () => {
+  assert.equal(sugerirNumeroDeTomos(0), 1);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);
