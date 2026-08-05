@@ -113,7 +113,7 @@ import {
   gerarEditaveisConsolidados,
   parametrosDaEntrega,
 } from "../lib/editaveis-consolidados";
-import { nomeDoVolume } from "../lib/nome-do-volume";
+import { metadadosDoVolume, nomeDoVolume } from "../lib/nome-do-volume";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
 const PDF_MIME = "application/pdf";
@@ -1816,6 +1816,7 @@ function VolumeConfirmation({
         capaPdf64,
         blocos: montaveis,
         fileName: nomeDoVolume(selosDoTomo, identidade, tomo),
+        metadados: metadadosDoVolume(selosDoTomo, identidade, tomo, sepTitle),
       });
 
       /*

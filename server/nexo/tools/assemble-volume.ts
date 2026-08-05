@@ -45,6 +45,26 @@ export interface AssembleVolumeInput {
    * lista `parts` e respeitada.
    */
   reorder?: boolean;
+  /**
+   * Propriedades do PDF final. Ausente = o documento sai com o que a biblioteca
+   * de fusão escreve, que é o nome dela — ver a montagem.
+   */
+  metadados?: MetadadosDoVolume;
+}
+
+/**
+ * O que vai nas PROPRIEDADES do PDF entregue. Tudo opcional: campo que o
+ * chamador não soube preencher fica de fora, porque metadado inventado é pior
+ * do que metadado ausente.
+ */
+export interface MetadadosDoVolume {
+  /** "084-25 — Projeto Estrutural em Concreto — Tomo 01". */
+  titulo?: string;
+  /** O escritório emissor. */
+  autor?: string;
+  /** A obra. */
+  assunto?: string;
+  palavrasChave?: string[];
 }
 
 export interface GeneratedFile {
@@ -217,12 +237,31 @@ export async function assembleVolume(
   try {
     const { row, fileBuffers } = buildRowFromParts(orderedParts);
     const mergedBytes = await buildRowPdf(row, fileBuffers);
-    const buffer = Buffer.from(mergedBytes);
+    let buffer = Buffer.from(mergedBytes);
 
     let pageCount: number | undefined;
     try {
       const merged = await PDFDocument.load(buffer);
       pageCount = merged.getPageCount();
+      /*
+       * METADADOS. O volume saía com Producer e Creator "pdf-lib" — o nome da
+       * biblioteca, num documento que vai para uma prefeitura. Quem abre as
+       * propriedades do PDF não tem por que ficar sabendo com que ferramenta ele
+       * foi grampeado; tem de ver de que projeto ele é.
+       *
+       * Preenchido SÓ com o que o chamador soube dizer: campo em branco fica de
+       * fora, porque metadado inventado é pior do que metadado ausente.
+       */
+      const meta = input.metadados;
+      if (meta) {
+        if (meta.titulo) merged.setTitle(meta.titulo);
+        if (meta.autor) merged.setAuthor(meta.autor);
+        if (meta.assunto) merged.setSubject(meta.assunto);
+        if (meta.palavrasChave?.length) merged.setKeywords(meta.palavrasChave);
+        merged.setCreator("NexoDoc");
+        merged.setProducer("NexoDoc");
+        buffer = Buffer.from(await merged.save());
+      }
     } catch {
       pageCount = undefined;
     }

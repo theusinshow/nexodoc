@@ -54,6 +54,46 @@ function disciplinaDominante(selos: readonly SeloForLd[]): string {
   return melhor;
 }
 
+/**
+ * As PROPRIEDADES do PDF do volume, montadas do que a conversa já sabe.
+ *
+ * O volume saía com Producer e Creator "pdf-lib" — o nome da biblioteca de
+ * fusão, num documento entregue a uma prefeitura. Quem abre as propriedades do
+ * arquivo tem de ver de que projeto ele é, não com que ferramenta foi grampeado.
+ *
+ * O NÚMERO DOCUMENTAL vai com traço ("084-25"), que é a forma de leitura; o
+ * underscore é a convenção do nome de arquivo e fica no nome do arquivo. Campo
+ * que a conversa não soube dizer fica de fora: metadado inventado é pior do que
+ * metadado ausente.
+ */
+export function metadadosDoVolume(
+  selosDoTomo: readonly SeloForLd[],
+  identidade: { codigo?: string; obra?: string; orgao?: string },
+  tomo: { atual: number; numero: number },
+  tituloDoVolume: string,
+): { titulo?: string; autor?: string; assunto?: string; palavrasChave?: string[] } {
+  const doSelo = summarizeSelos(selosDoTomo as SeloForLd[]);
+  const codigo = (identidade.codigo?.trim() || doSelo.codigo || "").replace(/_/g, "-");
+  const obra = identidade.obra?.trim() || doSelo.obra || "";
+  const disciplina = disciplinaDominante(selosDoTomo);
+  const tomoParte =
+    tomo.atual > 0 ? `Tomo ${String(tomo.numero).padStart(2, "0")}` : "";
+
+  const titulo = [codigo, tituloDoVolume.trim(), tomoParte].filter(Boolean).join(" — ");
+
+  /*
+   * O AUTOR é quem EMITE, e o carimbo não traz esse campo separado — o que ele
+   * traz é o órgão a quem o volume se destina. Deixar o destinatário no campo
+   * "Autor" seria trocar os papéis nas propriedades do arquivo, então ele fica
+   * VAZIO até existir um campo de escritório emissor de onde puxá-lo.
+   */
+  return {
+    ...(titulo ? { titulo } : {}),
+    ...(obra ? { assunto: obra } : {}),
+    palavrasChave: [codigo, disciplina, obra].filter(Boolean),
+  };
+}
+
 export function nomeDoVolume(
   selosDoTomo: readonly SeloForLd[],
   identidade: { codigo?: string },

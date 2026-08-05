@@ -25,6 +25,7 @@ import {
   classificarPagina,
   conteudoDoSelo,
   textoPorPosicao,
+  tituloDaPrancha,
   valeLerComoPrancha,
   type Caixa,
   type ItemPosicionado,
@@ -175,11 +176,20 @@ export interface PaginaAnalisada {
    *
    * Existe porque num projeto real de 71 pranchas o modelo devolveu 5 títulos
    * vazios, e o título é a coluna DESCRIÇÃO da LD. Medido nas amostras, a
-   * geometria acerta 45 de 45. Não substitui o modelo: ele lê da IMAGEM e por
-   * isso acerta os acentos que a fonte quebrada mangala aqui ("PAGINAdO" onde
-   * se lê "PAGINAÇÃO"). Entra só quando o modelo não trouxe nada.
+   * geometria acerta 45 de 45. Quem decide entre ela e o modelo é
+   * `tituloDaPrancha`: a geometria conhece a BORDA da célula (e por isso corta
+   * o campo vizinho que o modelo cola no fim), o modelo conhece o ACENTO.
    */
   conteudo: string;
+  /**
+   * Esta página teve texto vindo de FONTE QUEBRADA (sem mapa de caracteres).
+   *
+   * É o que decide quem vence no título: com a fonte sã, a geometria é a
+   * transcrição fiel do documento; com ela quebrada, os caracteres lidos não
+   * valem ("PAGINAdO" por "PAGINAÇÃO") e o modelo, que leu da imagem, é a
+   * leitura melhor.
+   */
+  textoRecuperado: boolean;
 }
 
 /** Aviso que acompanha o texto quando houve fonte quebrada nesta página. */
@@ -247,6 +257,7 @@ export async function analisarPagina(page: PaginaPdf): Promise<PaginaAnalisada> 
     ancoras,
     texto: partes.join("\n\n").slice(0, MAX_TEXT_CHARS),
     conteudo: conteudoDoSelo(itens),
+    textoRecuperado: fontesQuebradas.length > 0,
   };
 }
 
@@ -370,7 +381,8 @@ async function extractSeloFromPage(
     const page = await doc.getPage(pageNumber);
     // A análise é determinística e barata, e decide se vale gastar o modelo:
     // capa, separatriz e índice saem daqui sem custar uma chamada.
-    const { tipo, caixa, ancoras, texto, conteudo } = await analisarPagina(page as never);
+    const { tipo, caixa, ancoras, texto, conteudo, textoRecuperado } =
+      await analisarPagina(page as never);
     if (!valeLerComoPrancha(tipo)) {
       return { fileName: file.name, pageNumber, pageCount, extraction: null, ignorada: tipo };
     }
@@ -386,17 +398,21 @@ async function extractSeloFromPage(
       ancoras,
     }, conversationId);
     /*
-     * O TÍTULO NÃO PODE FICAR VAZIO quando o carimbo tem um.
+     * O TÍTULO é decidido entre as DUAS leituras — ver `tituloDaPrancha`.
      *
-     * A geometria do carimbo sabe onde o CONTEÚDO está e não depende de o modelo
-     * associar rótulo e valor numa grade — que foi exatamente onde ele falhou em
-     * 5 de 71 pranchas reais. O modelo continua mandando quando trouxe algo: ele
-     * lê da imagem e acerta acento, que é onde a geometria erra na família EST.
+     * Antes a geometria só entrava quando o modelo devolvia vazio, e por isso o
+     * título contaminado passava batido: "ESCADA 01: DETALHAMENTO GERAL EST"
+     * chegou assim à lista entregue, com o "EST" da célula vizinha pendurado.
+     * Quem sabe onde a célula do CONTEÚDO termina é a geometria; o modelo só
+     * decide acento, e só quando as duas dizem a mesma coisa.
      */
-    const completada =
-      extraction && !extraction.conteudo?.trim() && conteudo
-        ? { ...extraction, conteudo }
-        : extraction;
+    const completada = extraction
+      ? {
+          ...extraction,
+          conteudo:
+            tituloDaPrancha(extraction.conteudo, conteudo, { textoRecuperado }) || null,
+        }
+      : extraction;
     return { fileName: file.name, pageNumber, pageCount, extraction: completada, usage };
   } catch (err) {
     return {

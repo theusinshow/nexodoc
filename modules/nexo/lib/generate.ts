@@ -396,6 +396,16 @@ export interface VolumeOptions {
   fileName?: string;
   /** reordena canonicamente na rota; por padrão a ordem enviada é respeitada. */
   reorder?: boolean;
+  /**
+   * Propriedades do PDF. Sem elas o volume sai com Producer/Creator "pdf-lib" —
+   * o nome da biblioteca, num documento que vai para a prefeitura.
+   */
+  metadados?: {
+    titulo?: string;
+    autor?: string;
+    assunto?: string;
+    palavrasChave?: string[];
+  };
 }
 
 export interface VolumeGenResult {
@@ -427,6 +437,7 @@ export async function postVolume(
       parts,
       ...(opts.fileName?.trim() ? { fileName: opts.fileName.trim() } : {}),
       ...(opts.reorder ? { reorder: true } : {}),
+      ...(opts.metadados ? { metadados: opts.metadados } : {}),
     }),
   });
   conferirSessao(res);

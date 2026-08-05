@@ -289,6 +289,70 @@ export function conteudoDoSelo(itens: readonly ItemPosicionado[]): string {
     .trim();
 }
 
+/** Sem acento, sem pontuação, minúsculo — para comparar duas leituras do mesmo texto. */
+function semAcento(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * O TÍTULO DEFINITIVO da prancha, decidido entre duas leituras do mesmo campo.
+ *
+ * A GEOMETRIA manda em QUAIS PALAVRAS são o título: ela sabe onde a célula do
+ * CONTEÚDO termina, e o modelo não. Foi assim que "ESCADA 01: DETALHAMENTO
+ * GERAL" virou "...GERAL EST" na lista entregue — "EST" é o valor da célula
+ * vizinha, e um texto linearizado não tem como saber disso.
+ *
+ * O MODELO manda nos ACENTOS, e só quando as duas leituras dizem a MESMA COISA.
+ * Ele lê da imagem e acerta o que a fonte quebrada da família EST estraga
+ * ("PAGINAdO" onde se lê "PAGINAÇÃO"). Fora desse caso, ele não opina: título é
+ * transcrição, não redação, e um modelo que "melhora" o texto inventa um
+ * documento que não existe.
+ *
+ * Nada é reescrito livremente: o resultado é sempre UMA das duas leituras
+ * inteiras, nunca uma mistura. Erro de português que está na prancha continua na
+ * lista — "ARMAÇAO POSITIAVA" é como o projetista escreveu, e corrigir em
+ * silêncio faria a lista discordar do desenho que ela indexa.
+ */
+export function tituloDaPrancha(
+  doModelo: string | null,
+  daGeometria: string,
+  opcoes: { textoRecuperado?: boolean } = {},
+): string {
+  const modelo = (doModelo ?? "").replace(/\s+/g, " ").trim();
+  const geo = daGeometria.replace(/\s+/g, " ").trim();
+
+  if (!geo) return modelo;
+  if (!modelo) return geo;
+
+  /*
+   * A geometria diz QUANTAS palavras o título tem — ela conhece a borda da
+   * célula. O que passa disso no texto do modelo é célula vizinha, e sai fora.
+   */
+  const palavrasGeo = geo.split(" ").filter(Boolean).length;
+  const cortado = modelo.split(" ").slice(0, palavrasGeo).join(" ");
+
+  /*
+   * FONTE QUEBRADA nesta página: os caracteres que a geometria leu não são
+   * confiáveis — o exportador troca "Ç" por "d" e "Á" por "È", e nenhuma conta
+   * desfaz isso. Ali o modelo, que leu da IMAGEM, é a transcrição melhor, e
+   * fica com ele até a borda que a geometria marcou.
+   */
+  if (opcoes.textoRecuperado) return cortado;
+
+  /*
+   * FONTE SÃ: a geometria é o documento sem intermediário nenhum, e é ela que
+   * vale — inclusive quando o modelo "melhoraria" o texto. Erro de português do
+   * projetista fica como está: a lista indexa o desenho, e corrigir em silêncio
+   * faria os dois discordarem sem ninguém ver.
+   */
+  return geo;
+}
+
 export type TipoDePagina = "prancha" | "indice" | "capa" | "outra";
 
 /** Índice é uma LISTA de pranchas: muitos códigos distintos e nenhum carimbo. */

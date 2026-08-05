@@ -66,6 +66,13 @@ export interface AssembleVolumeInput {
   blocos: BlocoDoVolume[];
   /** Nome do PDF final. */
   fileName?: string;
+  /** Propriedades do PDF — ver `metadadosDoVolume`. */
+  metadados?: {
+    titulo?: string;
+    autor?: string;
+    assunto?: string;
+    palavrasChave?: string[];
+  };
 }
 
 /**
@@ -101,7 +108,7 @@ function pranchaPagesByFile(selos: SeloForLd[]): Map<string, number[]> {
 export async function assembleVolume(
   input: AssembleVolumeInput,
 ): Promise<VolumeGenResult> {
-  const { blocos, capaPdf64, fileName } = input;
+  const { blocos, capaPdf64, fileName, metadados } = input;
 
   /*
    * O mesmo arquivo pode entrar em mais de um bloco: um PDF combinado do volume
@@ -161,5 +168,8 @@ export async function assembleVolume(
     disciplines,
   });
 
-  return postVolume(parts, { fileName: fileName ?? "volume.pdf" });
+  return postVolume(parts, {
+    fileName: fileName ?? "volume.pdf",
+    ...(metadados ? { metadados } : {}),
+  });
 }

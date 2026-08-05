@@ -23,6 +23,7 @@ import {
   classificarPagina,
   conteudoDoSelo,
   dentro,
+  tituloDaPrancha,
   textoPorPosicao,
   valeLerComoPrancha,
   type ItemPosicionado,
@@ -226,6 +227,73 @@ test("sem rótulo CONTEÚDO, devolve vazio — não inventa título", () => {
 
 test("célula vazia devolve vazio", () => {
   assert.equal(conteudoDoSelo(CARIMBO_A0), "");
+});
+
+// ---------------------------------------------------------------------------
+// O título entre as duas leituras — a geometria diz QUAIS palavras, o modelo
+// diz COMO se acentuam
+// ---------------------------------------------------------------------------
+
+test("o campo vizinho colado pelo modelo é cortado", () => {
+  // O caso real da lista entregue: "EST" é o valor da célula ao lado.
+  assert.equal(
+    tituloDaPrancha("ESCADA 01: DETALHAMENTO GERAL EST", "ESCADA 01: DETALHAMENTO GERAL"),
+    "ESCADA 01: DETALHAMENTO GERAL",
+  );
+});
+
+test("com fonte QUEBRADA, o modelo vence: ele leu da imagem", () => {
+  // O exportador troca "Ç" por "d"; nenhuma conta desfaz isso no texto.
+  assert.equal(
+    tituloDaPrancha("PAGINAÇÃO DAS TELHAS", "PAGINAdO DAS TELHAS", {
+      textoRecuperado: true,
+    }),
+    "PAGINAÇÃO DAS TELHAS",
+  );
+});
+
+test("com fonte quebrada, o corte da célula vizinha CONTINUA valendo", () => {
+  assert.equal(
+    tituloDaPrancha("PAGINAÇÃO DAS TELHAS MET", "PAGINAdO DAS TELHAS", {
+      textoRecuperado: true,
+    }),
+    "PAGINAÇÃO DAS TELHAS",
+  );
+});
+
+test("erro de português do PROJETISTA não é corrigido", () => {
+  /*
+   * "POSITIAVA" está assim na prancha. A lista indexa o desenho: corrigir aqui
+   * faria os dois discordarem, e o erro sumiria sem ninguém ver.
+   */
+  const original = "SETOR EDUCATIVO 02: ARMAÇAO POSITIAVA DAS LAJES";
+  assert.equal(tituloDaPrancha(original, original), original);
+});
+
+test("modelo que ENGOLE letra perde para a geometria (fonte sã)", () => {
+  // "ARMÇÃO" foi o que o modelo devolveu na lista entregue; a prancha diz
+  // "ARMAÇÃO", e a geometria a leu certa.
+  assert.equal(
+    tituloDaPrancha("ARMÇÃO NEGATIVA DAS LAJES", "ARMAÇÃO NEGATIVA DAS LAJES"),
+    "ARMAÇÃO NEGATIVA DAS LAJES",
+  );
+  assert.equal(
+    tituloDaPrancha("OUTRO TEXTO QUALQUER", "ARMAÇÃO NEGATIVA DAS LAJES"),
+    "ARMAÇÃO NEGATIVA DAS LAJES",
+  );
+});
+
+test("sem geometria, o modelo passa; sem modelo, a geometria passa", () => {
+  assert.equal(tituloDaPrancha("SÓ O MODELO", ""), "SÓ O MODELO");
+  assert.equal(tituloDaPrancha(null, "SÓ A GEOMETRIA"), "SÓ A GEOMETRIA");
+  assert.equal(tituloDaPrancha(null, ""), "");
+});
+
+test("espaços repetidos são normalizados, palavras não são tocadas", () => {
+  assert.equal(
+    tituloDaPrancha("  ESCADA   01:  CORTES  ", "ESCADA 01: CORTES"),
+    "ESCADA 01: CORTES",
+  );
 });
 
 // ---------------------------------------------------------------------------
