@@ -28,6 +28,7 @@ export const AI_MODEL_FLOW_DEFINITIONS = [
   { id: "audit-chat", label: "Chat pós-auditoria" },
   { id: "volume-analysis", label: "Volumes - validação da montagem" },
   { id: "volume-suggestion", label: "Volumes - sugestão de montagem" },
+  { id: "volume-conferencia", label: "Volumes - conferência do volume montado" },
   { id: "ld-primary", label: "LD - leitura principal" },
   { id: "ld-fallback", label: "LD - fallback" },
   { id: "deepseek-provider", label: "DeepSeek - configuração" },

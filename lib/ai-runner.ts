@@ -127,6 +127,8 @@ function getProviderForFlow(flow: AiProviderFlow): Exclude<AiProvider, "mimo"> {
       return configuration.ldExtraction.primary.provider;
     case "volume-suggestion":
       return configuration.volumeSuggestion.provider;
+    case "volume-conferencia":
+      return configuration.volumeConferencia.provider;
     case "volume-analysis":
     default:
       return configuration.volumeAnalysis.provider;

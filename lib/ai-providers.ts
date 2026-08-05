@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { getCachedAiModelOverride } from "@/lib/ai-model-config";
 
 export type AiProvider = "openai" | "mimo" | "deepseek";
-export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion";
+export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type ProviderFailureCategory =
@@ -40,6 +40,12 @@ const DEFAULT_LD_OPENAI_MODEL = "gpt-5.5";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.5";
 const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.4-mini";
+/**
+ * A conferência do volume montado lê um recorte de carimbo por página, e são
+ * MUITAS páginas. Um modelo mini dá conta de copiar campo de carimbo, e o
+ * flow é configurável no painel — trocar por `nano` é um clique, sem código.
+ */
+const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-5.4-mini";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 
 const statusStore = globalThis as typeof globalThis & {
@@ -424,6 +430,17 @@ export function getAiConfiguration() {
           DEFAULT_VOLUME_SUGGESTION_MODEL,
         ["DEEPSEEK_VOLUME_SUGGESTION_MODEL", "DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
         "volume-suggestion",
+      ),
+      keyConfigured: getProviderKeyConfigured(volumeProvider),
+    },
+    volumeConferencia: {
+      provider: volumeProvider,
+      model: getProviderModel(
+        volumeProvider,
+        getBackendValue("NEXODOC_VOLUME_CONFERENCIA_MODEL") ||
+          DEFAULT_VOLUME_CONFERENCIA_MODEL,
+        ["DEEPSEEK_VOLUME_CONFERENCIA_MODEL"],
+        "volume-conferencia",
       ),
       keyConfigured: getProviderKeyConfigured(volumeProvider),
     },
