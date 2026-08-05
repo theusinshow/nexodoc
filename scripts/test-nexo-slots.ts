@@ -158,8 +158,39 @@ test("(c2) capa com tituloCapa decidido → pronto:true", () => {
     slots: { tituloCapa: { value: "PROJETO ESTRUTURAL CONCRETO" } },
   });
   assert.equal(r.pronto, true);
-  assert.equal(r.nextMissing, null);
   assert.equal(r.resolved.tituloCapa, "PROJETO ESTRUTURAL CONCRETO");
+  /*
+   * `pronto` e `nextMissing` deixaram de andar juntos. Com os required todos
+   * resolvidos, o volume e a data ainda são PERGUNTADOS — sem travar o botão.
+   * Antes eles sumiam em silêncio, e a capa saía com a data de hoje mesmo
+   * depois de alguém pedir outra na conversa.
+   */
+  assert.equal(r.nextMissing?.slotId, "volume");
+  assert.equal(r.nextMissing?.optional, true, "perguntável não bloqueia");
+});
+
+test("(c2b) o perguntável NUNCA passa na frente de um required", () => {
+  // Sem título, a conversa tem de cuidar do título — não da data.
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
+    slots: noSlots,
+  });
+  assert.equal(r.nextMissing?.slotId, "tituloCapa");
+  assert.equal(r.pronto, false);
+});
+
+test("(c2c) respondido o volume, a vez é da data — e o gerar segue liberado", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
+    slots: {
+      tituloCapa: { value: "PROJETO ESTRUTURAL" },
+      volume: { value: "5" },
+    },
+  });
+  assert.equal(r.pronto, true);
+  assert.equal(r.nextMissing?.slotId, "mes");
 });
 
 // (c3) o título NUNCA é auto-derivado — o palpite entra só como sugestão, e o
@@ -303,8 +334,17 @@ test("(f2) auditoria com nivel em slots → pronto:true", () => {
   assert.equal(r.resolved.nivel, "deep");
 });
 
-// (g) mês/ano determinísticos: resolvem pra referência + suggestions atual/anterior
-test("(g) capa: mês/ano resolvem pra referência; suggestions = atual + anterior", () => {
+// (g) a data é PERGUNTADA, não auto-resolvida — e os chips trazem o padrão
+test("(g) capa: a data NÃO se auto-resolve; ela é perguntada", () => {
+  /*
+   * Era o defeito: `mes`/`ano` derivavam do relógio, o resolvedor os dava por
+   * resolvidos e eles nunca viravam pergunta. A capa saía com a data de hoje —
+   * inclusive depois de o engenheiro PEDIR outra data na conversa.
+   *
+   * Agora ficam em aberto até serem perguntados. Quem ignorar continua levando
+   * o mês corrente, que é o padrão do BUILDER quando o campo chega vazio: a
+   * derivação mudou de lugar, não sumiu.
+   */
   const r = resolve({
     taskKind: "capa",
     facts: facts({
@@ -312,13 +352,33 @@ test("(g) capa: mês/ano resolvem pra referência; suggestions = atual + anterio
       mesAtual: 7,
       anoAtual: 2026,
     }),
-    slots: noSlots,
+    slots: { tituloCapa: { value: "X" }, volume: { value: "5" } },
   });
-  assert.equal(r.resolved.mes, "7");
-  assert.equal(r.resolved.ano, "2026");
+  assert.equal(r.resolved.mes, undefined, "não se auto-resolve mais");
+  assert.equal(r.nextMissing?.slotId, "mes", "vira pergunta");
+  assert.equal(r.pronto, true, "e mesmo assim não trava o gerar");
+
+  // Os chips continuam oferecendo o mês corrente e o anterior — o padrão fica
+  // a um clique, que é o que torna a pergunta barata.
   const mesDef = ARTIFACT_REQUIREMENTS.capa.find((d) => d.id === "mes")!;
   const sug = mesDef.suggest(facts({ mesAtual: 7, anoAtual: 2026 }));
   assert.deepEqual(sug.map((s) => s.value), ["7", "6"]); // julho + junho
+});
+
+test("(g3) a data DITA pelo engenheiro é respeitada e não é perguntada de novo", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
+    slots: {
+      tituloCapa: { value: "X" },
+      volume: { value: "5" },
+      mes: { value: "3" },
+      ano: { value: "2026" },
+    },
+  });
+  assert.equal(r.resolved.mes, "3");
+  assert.equal(r.resolved.ano, "2026");
+  assert.equal(r.nextMissing, null, "nada mais a perguntar");
 });
 
 // (g2) virada de janeiro: mês anterior é dezembro do ano anterior

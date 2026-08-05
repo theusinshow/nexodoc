@@ -53,6 +53,20 @@ export function resolveSlots(input: ResolveSlotsInput): ResolveSlotsResult {
   const defs = input.requirements[input.taskKind] ?? [];
   const resolved: Record<SlotId, string> = {};
   const faltantesRequired: SlotDef[] = [];
+  /*
+   * TERCEIRA CATEGORIA: pergunta, mas não trava.
+   *
+   * Antes só havia dois estados — required (bloqueia e é perguntado) e o resto
+   * (some em silêncio). A data da capa caía no segundo: era derivada do mês
+   * corrente e NUNCA perguntada, então o engenheiro que quisesse outra data só
+   * descobria abrindo o PDF. Torná-la required resolveria isso e criaria pior:
+   * duas perguntas obrigatórias em todo projeto, inclusive naqueles em que o
+   * padrão já estava certo.
+   *
+   * Estes são perguntados quando não há required pendente, e o botão de gerar
+   * continua liberado — quem ignorar leva o padrão, que o resumo mostra.
+   */
+  const faltantesOpcionais: SlotDef[] = [];
 
   for (const def of defs) {
     // 1) o usuário já preencheu (override explícito vence o default derivado).
@@ -67,17 +81,22 @@ export function resolveSlots(input: ResolveSlotsInput): ResolveSlotsResult {
       resolved[def.id] = derived;
       continue;
     }
-    // 3) faltante. Só os required bloqueiam / viram nextMissing.
+    // 3) faltante: o required bloqueia; o "perguntável" só entra na fila.
     if (def.required) faltantesRequired.push(def);
+    else if (def.perguntarSeFaltar) faltantesOpcionais.push(def);
   }
 
-  const first = faltantesRequired[0] ?? null;
+  /*
+   * O REQUIRED vem primeiro, sempre. Perguntar a data antes do título faria a
+   * conversa cuidar do acessório enquanto o essencial segue em aberto.
+   */
+  const first = faltantesRequired[0] ?? faltantesOpcionais[0] ?? null;
   const nextMissing: NexoSlotRequest | null = first
     ? {
         slotId: first.id,
         taskKind: first.taskKind,
         prompt: first.prompt,
-        optional: !first.required, // sempre false aqui (só required entram)
+        optional: !first.required,
         suggestions: first.suggest(input.facts),
       }
     : null;
@@ -85,6 +104,8 @@ export function resolveSlots(input: ResolveSlotsInput): ResolveSlotsResult {
   return {
     resolved,
     nextMissing,
+    // `pronto` continua sendo só sobre os REQUIRED: o perguntável não segura
+    // a geração, senão ele seria required com outro nome.
     pronto: faltantesRequired.length === 0,
   };
 }

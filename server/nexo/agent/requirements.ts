@@ -84,12 +84,18 @@ export interface SlotFacts {
  * - `suggest`   : pré-respostas (chips). A 1ª é a recomendada — NUNCA
  *   auto-commitada. `commit:"fill"` escreve no composer; `commit:"send"` envia.
  * - `prompt`    : pergunta curta de fallback (a IA pode reescrever depois).
+ * - `perguntarSeFaltar`: não-required que MESMO ASSIM é perguntado quando não
+ *   há valor — depois de todos os required. É a terceira categoria: sem ela, o
+ *   não-required sem `deriveFrom` sumia em silêncio, e foi assim que a data da
+ *   capa nunca chegou a ser perguntada. Não segura o botão de gerar.
  */
 export interface SlotDef {
   id: SlotId;
   taskKind: NexoArtifactKind;
   required: boolean;
   decision: boolean;
+  /** Não-required que é perguntado mesmo assim, depois dos required. */
+  perguntarSeFaltar?: boolean;
   prompt: string;
   deriveFrom(facts: SlotFacts): string | null;
   suggest(facts: SlotFacts): NexoSlotSuggestion[];
@@ -255,15 +261,25 @@ function templateIdSlot(taskKind: NexoArtifactKind): SlotDef {
   };
 }
 
-/** `mes`: determinístico — mês de referência + anterior (`fill`). Não bloqueia. */
+/**
+ * `mes`: PERGUNTADO, mas não bloqueia.
+ *
+ * Antes tinha `deriveFrom` devolvendo o mês corrente, o que o auto-resolvia e o
+ * fazia nunca chegar a ser pergunta. A capa saía com a data de hoje e o
+ * engenheiro só descobria abrindo o PDF — inclusive depois de PEDIR outra data
+ * na conversa. Sem o `deriveFrom`, ele entra na fila do perguntável; quem
+ * ignorar continua levando o mês corrente, que é o padrão do builder quando o
+ * campo chega vazio.
+ */
 function mesSlot(taskKind: NexoArtifactKind): SlotDef {
   return {
     id: "mes",
     taskKind,
     required: false,
-    decision: false,
+    decision: true,
+    perguntarSeFaltar: true,
     prompt: "Qual mês vai na capa?",
-    deriveFrom: (facts) => String(facts.mesAtual),
+    deriveFrom: () => null,
     suggest: (facts) => {
       const prev = mesAnterior(facts.mesAtual, facts.anoAtual);
       return [
@@ -274,15 +290,16 @@ function mesSlot(taskKind: NexoArtifactKind): SlotDef {
   };
 }
 
-/** `ano`: determinístico — ano de referência + anterior (`fill`). Não bloqueia. */
+/** `ano`: perguntado junto da data, pelo mesmo motivo do mês. Não bloqueia. */
 function anoSlot(taskKind: NexoArtifactKind): SlotDef {
   return {
     id: "ano",
     taskKind,
     required: false,
-    decision: false,
+    decision: true,
+    perguntarSeFaltar: true,
     prompt: "Qual ano vai na capa?",
-    deriveFrom: (facts) => String(facts.anoAtual),
+    deriveFrom: () => null,
     suggest: (facts) => [
       { label: `${facts.anoAtual} (atual)`, value: String(facts.anoAtual), commit: "fill" as const },
       { label: String(facts.anoAtual - 1), value: String(facts.anoAtual - 1), commit: "fill" as const },
@@ -386,15 +403,17 @@ const nivelAuditoriaSlot: SlotDef = {
  * não carrega o volume, a capa saía sem ele e só se descobria abrindo o PDF.
  *
  * NÃO é required — a derivação pelo nome acerta na maioria e não pode segurar a
- * geração. E não tem `deriveFrom`: o número que o builder deduz do arquivo já
- * cobre o caso comum, e cravar aqui um palpite diferente criaria duas fontes
- * para o mesmo campo.
+ * geração —, mas é PERGUNTADO: sem isso ele sumiria em silêncio, que é
+ * exatamente o defeito que se está consertando. E não tem `deriveFrom`: o
+ * número que o builder deduz do arquivo já cobre o caso comum, e cravar aqui um
+ * palpite diferente criaria duas fontes para o mesmo campo.
  */
 const volumeSlot: SlotDef = {
   id: "volume",
   taskKind: "capa",
   required: false,
   decision: true,
+  perguntarSeFaltar: true,
   prompt: "Qual o número do volume?",
   deriveFrom: () => null,
   suggest: () =>
