@@ -181,6 +181,26 @@ export function getNexoProvider(): "openai" | "deepseek" {
     : "openai";
 }
 
+/**
+ * Provider da CONFERÊNCIA DO VOLUME MONTADO. Default OPENAI — NÃO herda
+ * `NEXODOC_VOLUME_PROVIDER`, pelo mesmo motivo de `getNexoProvider`.
+ *
+ * O grupo "volume" é documentado no README como o barato (`analise/sugestao de
+ * volumes`, tipicamente DeepSeek), e essas duas tarefas são de TEXTO. A
+ * conferência não é: ela lê um recorte de carimbo, e visão é REQUISITO, não
+ * preferência. Herdar o grupo barato fez a conferência morrer em toda página no
+ * primeiro projeto real — 15 de 18 páginas com "precisa de um modelo com
+ * visão", que é uma configuração razoável derrubando um recurso inteiro.
+ *
+ * Quem quiser mesmo apontar para outro provider tem o override explícito, e aí
+ * o portão da rota avisa em vez de devolver leitura vazia.
+ */
+export function getConferenciaVolumeProvider(): "openai" | "deepseek" {
+  return getBackendValue("NEXODOC_VOLUME_CONFERENCIA_PROVIDER").toLowerCase() === "deepseek"
+    ? "deepseek"
+    : "openai";
+}
+
 function getProviderKeyConfigured(provider: "openai" | "deepseek") {
   return provider === "deepseek"
     ? isConfigured("DEEPSEEK_API_KEY")
@@ -234,6 +254,9 @@ export function getAiConfiguration() {
   const volumeProvider = getFlowProvider("volume", globalProvider);
   const ldProvider = getFlowProvider("ld", globalProvider);
   const nexoProvider = getNexoProvider();
+  // Visão é REQUISITO da conferência do volume: ela não segue o grupo "volume",
+  // que é o barato e cuida de tarefas de texto. Ver `getConferenciaVolumeProvider`.
+  const conferenciaVolumeProvider = getConferenciaVolumeProvider();
   // A auditoria e o chat pós-auditoria seguem auditProvider; volume e LD têm os
   // seus próprios. primaryProvider é apelido de auditProvider para o bloco de
   // auditoria abaixo (que domina esta função).
@@ -434,15 +457,15 @@ export function getAiConfiguration() {
       keyConfigured: getProviderKeyConfigured(volumeProvider),
     },
     volumeConferencia: {
-      provider: volumeProvider,
+      provider: conferenciaVolumeProvider,
       model: getProviderModel(
-        volumeProvider,
+        conferenciaVolumeProvider,
         getBackendValue("NEXODOC_VOLUME_CONFERENCIA_MODEL") ||
           DEFAULT_VOLUME_CONFERENCIA_MODEL,
         ["DEEPSEEK_VOLUME_CONFERENCIA_MODEL"],
         "volume-conferencia",
       ),
-      keyConfigured: getProviderKeyConfigured(volumeProvider),
+      keyConfigured: getProviderKeyConfigured(conferenciaVolumeProvider),
     },
     ldExtraction: {
       primary: {

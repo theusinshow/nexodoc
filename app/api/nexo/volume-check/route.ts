@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "A conferencia do volume precisa de um modelo com visao. Aponte o provedor de volumes para openai.",
+          "A conferencia do volume precisa de um modelo com visao. Remova NEXODOC_VOLUME_CONFERENCIA_PROVIDER=deepseek do ambiente (o padrao ja e openai).",
       },
       { status: 503 },
     );
