@@ -6,8 +6,10 @@
 import assert from "node:assert/strict";
 
 import {
+  alinharPartes,
   montarPlanoDePaginas,
   paginasDaParte,
+  papeisEsperados,
   type BlocoDoPlano,
   type PaginaEsperada,
   type ParteDoPlano,
@@ -483,6 +485,103 @@ test("nada lido: não aprova e diz por quê", () => {
   assert.notEqual(r.veredito, "ok");
   assert.equal(r.paginasConferidas, 0);
   achado(r, "leitura");
+});
+
+// ---------------------------------------------------------------------------
+// Task 9 (núcleo) — ligar cada parte devolvida pela montagem ao seu bloco
+// ---------------------------------------------------------------------------
+
+/** O volume de dois blocos: capa + (sep · LD · 1 arquivo) + (sep · LD · 1). */
+const BLOCOS_MONTADOS = [
+  { codigo: "est", temSeparatriz: true, temLd: true, pranchas: 1 },
+  { codigo: "arq", temSeparatriz: true, temLd: true, pranchas: 1 },
+];
+
+test("os papéis esperados saem na ordem canônica, com o bloco de cada um", () => {
+  assert.deepEqual(papeisEsperados(true, BLOCOS_MONTADOS), [
+    { papel: "capa", bloco: "" },
+    { papel: "separatriz", bloco: "est" },
+    { papel: "ld", bloco: "est" },
+    { papel: "prancha", bloco: "est" },
+    { papel: "separatriz", bloco: "arq" },
+    { papel: "ld", bloco: "arq" },
+    { papel: "prancha", bloco: "arq" },
+  ]);
+});
+
+test("bloco sem separatriz nem LD não reserva lugar para elas", () => {
+  assert.deepEqual(
+    papeisEsperados(false, [
+      { codigo: "est", temSeparatriz: false, temLd: false, pranchas: 2 },
+    ]),
+    [
+      { papel: "prancha", bloco: "est" },
+      { papel: "prancha", bloco: "est" },
+    ],
+  );
+});
+
+test("alinha as partes devolvidas com os papéis esperados", () => {
+  const esperadas = papeisEsperados(true, BLOCOS_MONTADOS);
+  const devolvidas = esperadas.map((e, i) => ({
+    role: e.papel,
+    name: `${e.papel}-${i}.pdf`,
+    paginas: e.papel === "prancha" ? 3 : 1,
+  }));
+  const partes = alinharPartes(esperadas, devolvidas);
+  assert.ok(partes, "devia alinhar");
+  assert.deepEqual(
+    partes.map((p) => [p.papel, p.bloco, p.paginas]),
+    [
+      ["capa", "", 1],
+      ["separatriz", "est", 1],
+      ["ld", "est", 1],
+      ["prancha", "est", 3],
+      ["separatriz", "arq", 1],
+      ["ld", "arq", 1],
+      ["prancha", "arq", 3],
+    ],
+  );
+});
+
+test("quantidade diferente NÃO é chutada: devolve null", () => {
+  const esperadas = papeisEsperados(true, BLOCOS_MONTADOS);
+  const devolvidas = esperadas
+    .slice(0, -1)
+    .map((e) => ({ role: e.papel, name: "x.pdf", paginas: 1 }));
+  assert.equal(alinharPartes(esperadas, devolvidas), null);
+});
+
+test("papel fora de ordem NÃO é chutado: devolve null", () => {
+  // O caso que importa: uma parte pulada desloca todas as seguintes, e sem
+  // esta trava as páginas do arq seriam conferidas contra a LD do est.
+  const esperadas = papeisEsperados(true, BLOCOS_MONTADOS);
+  const devolvidas = esperadas.map((e) => ({
+    role: e.papel,
+    name: "x.pdf",
+    paginas: 1,
+  }));
+  devolvidas[2].role = "prancha"; // era a LD do est
+  assert.equal(alinharPartes(esperadas, devolvidas), null);
+});
+
+test("do alinhamento sai um plano com a disciplina certa em cada página", () => {
+  const esperadas = papeisEsperados(false, [
+    { codigo: "est", temSeparatriz: false, temLd: false, pranchas: 1 },
+    { codigo: "arq", temSeparatriz: false, temLd: false, pranchas: 1 },
+  ]);
+  const partes = alinharPartes(esperadas, [
+    { role: "prancha", name: "est.pdf", paginas: 2 },
+    { role: "prancha", name: "arq.pdf", paginas: 3 },
+  ]);
+  assert.ok(partes);
+  const plano = montarPlanoDePaginas(partes, BLOCOS);
+  assert.deepEqual(
+    plano.map((p) => p.bloco),
+    ["est", "est", "arq", "arq", "arq"],
+  );
+  // E cada página herda a folha que a LD DAQUELE bloco promete.
+  assert.deepEqual(plano.map((p) => p.folha), [1, 2, 1, 2, 3]);
 });
 
 console.log(`\n${passed} teste(s) ok`);

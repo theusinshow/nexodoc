@@ -77,9 +77,10 @@ import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { conferirIdentidadeDoSelo } from "../lib/selo-check";
 import { lerVolumeMontado } from "../lib/volume-leitura";
 import {
+  alinharPartes,
   montarPlanoDePaginas,
+  papeisEsperados,
   type BlocoDoPlano,
-  type ParteDoPlano,
 } from "@/server/nexo/volume-plano";
 import {
   checkVolumeMontado,
@@ -1287,32 +1288,24 @@ async function conferirVolume(args: {
       );
     }
 
-    // A ordem canônica, remontada com a mesma regra de `buildVolumeParts`.
-    const esperadas: { papel: ParteDoPlano["papel"]; bloco: string }[] = [];
-    if (args.capaPdf64) esperadas.push({ papel: "capa", bloco: "" });
-    args.montaveis.forEach((m, i) => {
-      const bloco = args.blocos[i]?.codigo ?? "";
-      if (m.separatrizPdf64) esperadas.push({ papel: "separatriz", bloco });
-      if (m.ldPdf64) esperadas.push({ papel: "ld", bloco });
-      for (const _ of m.pranchaFiles) esperadas.push({ papel: "prancha", bloco });
-    });
-
-    const alinhado =
-      esperadas.length === devolvidas.length &&
-      esperadas.every((e, i) => e.papel === devolvidas[i].role);
-    if (!alinhado) {
+    // A ordem canônica, remontada e CONFERIDA no núcleo puro — a regra e as
+    // suas travas moram lá, onde node cru as testa.
+    const esperadas = papeisEsperados(
+      Boolean(args.capaPdf64),
+      args.montaveis.map((m, i) => ({
+        codigo: args.blocos[i]?.codigo ?? "",
+        temSeparatriz: Boolean(m.separatrizPdf64),
+        temLd: Boolean(m.ldPdf64),
+        pranchas: m.pranchaFiles.length,
+      })),
+    );
+    const partes = alinharPartes(esperadas, devolvidas);
+    if (!partes) {
       return conferenciaNaoRodou(
         "O volume foi montado, mas não deu para saber a que disciplina cada página pertence.",
         `esperava [${esperadas.map((e) => e.papel).join(", ")}]; a montagem devolveu [${devolvidas.map((d) => d.role).join(", ")}]`,
       );
     }
-
-    const partes: ParteDoPlano[] = devolvidas.map((d, i) => ({
-      papel: esperadas[i].papel,
-      nome: d.name,
-      paginas: d.paginas,
-      bloco: esperadas[i].bloco,
-    }));
 
     /*
      * O gabarito de cada bloco são as linhas da LD dele — a MESMA chamada que

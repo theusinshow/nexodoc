@@ -64,6 +64,67 @@ export interface ParteDoPlano {
   bloco?: string;
 }
 
+/** Uma parte como a montagem a devolveu: papel, nome e páginas — sem o bloco. */
+export interface ParteDevolvida {
+  role: string;
+  name: string;
+  paginas: number;
+}
+
+/**
+ * Liga cada parte devolvida pela montagem ao seu BLOCO.
+ *
+ * O servidor devolve papel, nome e páginas, mas não a disciplina — e é a
+ * disciplina que diz a qual LD aquela página deve obedecer. Reconstituir isso
+ * por contagem erraria em silêncio se alguma parte fosse pulada (`pushPart`
+ * ignora parte sem dados), e uma atribuição errada produz achados apontando
+ * para a disciplina errada — pior do que não conferir.
+ *
+ * Por isso a lista de papéis esperados é remontada pela MESMA regra de
+ * `buildVolumeParts` e CONFERIDA contra o que voltou. Discordou, devolve `null`:
+ * quem chama diz que não deu para conferir, em vez de chutar.
+ */
+export function alinharPartes(
+  esperadas: readonly { papel: PapelDaPagina; bloco: string }[],
+  devolvidas: readonly ParteDevolvida[],
+): ParteDoPlano[] | null {
+  if (esperadas.length !== devolvidas.length) return null;
+  for (let i = 0; i < esperadas.length; i++) {
+    if (esperadas[i].papel !== devolvidas[i].role) return null;
+  }
+  return devolvidas.map((d, i) => ({
+    papel: esperadas[i].papel,
+    nome: d.name,
+    paginas: d.paginas,
+    bloco: esperadas[i].bloco,
+  }));
+}
+
+/**
+ * Os papéis que a montagem DEVERIA ter produzido, na ordem canônica de
+ * `buildVolumeParts`: a capa (quando existe) e, por bloco, separatriz → LD →
+ * uma parte por arquivo de prancha. Parte ausente não entra — é a mesma regra
+ * de `pushPart`, e é ela que o alinhamento confere.
+ */
+export function papeisEsperados(
+  temCapa: boolean,
+  blocos: readonly {
+    codigo: string;
+    temSeparatriz: boolean;
+    temLd: boolean;
+    pranchas: number;
+  }[],
+): { papel: PapelDaPagina; bloco: string }[] {
+  const saida: { papel: PapelDaPagina; bloco: string }[] = [];
+  if (temCapa) saida.push({ papel: "capa", bloco: "" });
+  for (const b of blocos) {
+    if (b.temSeparatriz) saida.push({ papel: "separatriz", bloco: b.codigo });
+    if (b.temLd) saida.push({ papel: "ld", bloco: b.codigo });
+    for (let i = 0; i < b.pranchas; i++) saida.push({ papel: "prancha", bloco: b.codigo });
+  }
+  return saida;
+}
+
 /** O gabarito de UMA página do PDF final. */
 export interface PaginaEsperada {
   /** 1-based no volume final. */
