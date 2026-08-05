@@ -19,6 +19,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NexoArtifactKind } from "../types";
 import { descreverMudanca, type RotulosDeCampo } from "../lib/edicao";
+import { CHAVES_DO_FRAME, FrameDaCapa } from "./FrameDaCapa";
 
 /** Um campo do editor. `linhas > 1` vira textarea (título tem parágrafos). */
 export interface CampoEditavel {
@@ -53,9 +54,15 @@ export function EditorDoNo({
   campos,
   onAplicar,
   onCancelar,
+  prefeituraDoTemplate,
+  rotuloDoTomo,
 }: {
   kind: NexoArtifactKind;
   campos: CampoEditavel[];
+  /** Cabeçalho da capa, do template escolhido. Só para desenhar o frame. */
+  prefeituraDoTemplate?: string;
+  /** "TOMO 01", derivado da divisão. Só para desenhar o frame. */
+  rotuloDoTomo?: string;
   /**
    * Aplica: recebe os valores novos e a FRASE para o histórico (`null` quando
    * nada mudou). Quem chama regenera o artefato e escreve a mensagem.
@@ -147,13 +154,53 @@ export function EditorDoNo({
     </label>
   );
 
+  /*
+   * A CAPA é editada com a FORMA da capa, não como lista de rótulo/valor.
+   *
+   * O que se confere numa capa é o arranjo — quantas linhas tem a obra, se o
+   * bairro ficou embaixo dela, se a disciplina tem três linhas. Uma lista de
+   * campos esconde exatamente isso, e escondia também que dois desses campos são
+   * MULTILINHA (cada Enter vira uma linha impressa).
+   *
+   * Os campos que o frame desenha saem da lista; o resto (prefeitura, tomos,
+   * identidade) continua abaixo, onde sempre esteve.
+   */
+  const usaFrame = kind === "capa";
+  const noFrame = usaFrame
+    ? soltos.filter((c) => CHAVES_DO_FRAME.includes(c.chave))
+    : [];
+  const foraDoFrame = usaFrame
+    ? soltos.filter((c) => !CHAVES_DO_FRAME.includes(c.chave))
+    : soltos;
+  const identidade = campos.filter((c) => c.grupo);
+  const camposDoFrame = [...noFrame, ...identidade.filter((c) => CHAVES_DO_FRAME.includes(c.chave))];
+  const gruposVisiveis = usaFrame
+    ? grupos
+        .map((g) => ({
+          ...g,
+          campos: g.campos.filter((c) => !CHAVES_DO_FRAME.includes(c.chave)),
+        }))
+        .filter((g) => g.campos.length > 0)
+    : grupos;
+
   return (
     <div className="nodrag nopan nowheel space-y-2.5">
       <p className={LABEL_CLASS}>Editar {kind}</p>
 
-      {soltos.map(campo)}
+      {usaFrame && (
+        <FrameDaCapa
+          campos={camposDoFrame}
+          valores={valores}
+          onChange={(chave, v) => setValores((atual) => ({ ...atual, [chave]: v }))}
+          prefeitura={prefeituraDoTemplate ?? ""}
+          codigo={valores.codigo ?? ""}
+          tomo={rotuloDoTomo ?? ""}
+        />
+      )}
 
-      {grupos.map((g) => (
+      {foraDoFrame.map(campo)}
+
+      {gruposVisiveis.map((g) => (
         <details key={g.titulo} className="rounded-sm border border-border">
           <summary className="cursor-pointer list-none px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground">
             {g.titulo}

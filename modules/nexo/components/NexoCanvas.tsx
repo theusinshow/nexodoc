@@ -269,11 +269,23 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
       open={editando}
       onClose={() => setEditando(false)}
       label={`Editar ${data.kind}`}
-      panelClassName="w-[280px]"
+      // A capa é editada num FRAME com a forma do documento; ele precisa de mais
+      // largura do que a lista de campos que havia antes.
+      panelClassName={data.kind === "capa" ? "w-[360px]" : "w-[280px]"}
       anchor={corpo}
     >
       <EditorDoNo
         kind={data.kind}
+        prefeituraDoTemplate={
+          (data.templates ?? []).find(
+            (t) => t.id === String((data.params as { templateId?: unknown })?.templateId ?? ""),
+          )?.nome
+        }
+        rotuloDoTomo={
+          typeof data.tomo === "number" && data.tomo > 0
+            ? `TOMO ${String(data.tomo).padStart(2, "0")}`
+            : ""
+        }
         campos={camposDoArtefato({
           kind: data.kind,
           params: data.params,
