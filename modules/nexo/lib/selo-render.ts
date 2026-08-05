@@ -418,6 +418,66 @@ export function chaveDaFolha(fileName: string, pageNumber: number): string {
   return `${fileName}#${pageNumber}`;
 }
 
+/**
+ * Preenche o TÍTULO das folhas que estão sem ele, pela geometria do carimbo.
+ *
+ * Custa ZERO: não abre o modelo, só relê o texto do PDF que já está na mão.
+ *
+ * Existe porque a leitura de selo nunca relê uma página já lida — é a economia
+ * que torna a retomada barata, e ela também congela o que foi lido com um
+ * defeito antigo. Num projeto real de 71 pranchas, sete folhas ficaram sem
+ * título porque foram lidas antes de a geometria existir, e a única saída era
+ * pagar 71 chamadas de novo ou corrigir sete títulos à mão.
+ *
+ * Só toca no que está VAZIO. O que o modelo leu fica como está — ele lê da
+ * imagem e acerta os acentos que a fonte quebrada mangala aqui.
+ */
+export async function preencherTitulosFaltantes(
+  files: File[],
+  resultados: SeloResult[],
+): Promise<number> {
+  const faltantes = resultados.filter(
+    (r) => r.extraction && !r.extraction.conteudo?.trim(),
+  );
+  if (faltantes.length === 0) return 0;
+
+  const pdfjs = await loadPdfjs();
+  const porNome = new Map(files.map((f) => [f.name, f]));
+  let preenchidos = 0;
+
+  // Agrupa por arquivo: abrir um PDF de 18 MB uma vez por folha seria lento à
+  // toa quando as sete folhas moram no mesmo documento.
+  const porArquivo = new Map<string, SeloResult[]>();
+  for (const r of faltantes) {
+    const lista = porArquivo.get(r.fileName);
+    if (lista) lista.push(r);
+    else porArquivo.set(r.fileName, [r]);
+  }
+
+  for (const [nome, doArquivo] of porArquivo) {
+    const file = porNome.get(nome);
+    if (!file) continue;
+    const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+    try {
+      for (const r of doArquivo) {
+        try {
+          const page = await doc.getPage(r.pageNumber);
+          const { conteudo } = await analisarPagina(page as never);
+          if (conteudo && r.extraction) {
+            r.extraction = { ...r.extraction, conteudo };
+            preenchidos++;
+          }
+        } catch {
+          // Uma página que não abre não pode parar as outras seis.
+        }
+      }
+    } finally {
+      await doc.destroy();
+    }
+  }
+  return preenchidos;
+}
+
 export async function extractSelosFromFiles(
   files: File[],
   onResult?: (result: SeloResult) => void,

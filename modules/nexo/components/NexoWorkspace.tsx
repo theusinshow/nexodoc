@@ -9,6 +9,7 @@ import {
   extractSelosFromFiles,
   extractSeloFromImage,
   chaveDaFolha,
+  preencherTitulosFaltantes,
   seloNaoLido,
   type SeloResult,
 } from "../lib/selo-render";
@@ -808,6 +809,28 @@ function NexoWorkspaceInner({
         // Leitura invalidada por uma correção de papel: nada dela entra no
         // contexto, nem como mensagem, nem como selo.
         if (!atual()) return;
+
+        /*
+         * O TÍTULO QUE FALTOU é preenchido pela geometria do carimbo, de graça.
+         *
+         * O modelo erra o campo CONTEÚDO em algumas folhas de todo projeto
+         * grande — no primeiro real, sete de 71 —, e título vazio é linha vazia
+         * na coluna DESCRIÇÃO da LD. Aqui os arquivos ainda estão em mãos e o
+         * texto já foi lido: custa uma releitura de texto, nenhuma chamada de
+         * modelo.
+         */
+        if (pranchas.length > 0) {
+          try {
+            const n = await preencherTitulosFaltantes(pranchas, collected);
+            if (n > 0 && atual()) {
+              selosRef.current = [...collected];
+              setSeloResults([...collected]);
+            }
+          } catch {
+            // Preencher é um bônus: falhar aqui não pode derrubar a leitura
+            // inteira, que já custou uma chamada por página.
+          }
+        }
         const okSelos = collected.filter((r) => r.extraction);
         const naoLidas = {
           falhas: collected.filter((r) => !r.extraction && !r.ignorada),
@@ -1062,6 +1085,35 @@ function NexoWorkspaceInner({
 
   const okCount = seloResults.filter((r) => r.extraction).length;
   const busyReading = reading || readingMemorial;
+
+  /*
+   * Folhas SEM TÍTULO, e o conserto de graça.
+   *
+   * O preenchimento por geometria roda sozinho ao fim de toda leitura nova, mas
+   * uma conversa lida ANTES dele existir fica congelada: `jaLidas` nunca relê
+   * uma página, que é o que torna a retomada barata. Sem esta saída, a única
+   * seria pagar uma chamada de modelo por página outra vez.
+   */
+  const semTitulo = seloResults.filter(
+    (r) => r.extraction && !r.extraction.conteudo?.trim(),
+  ).length;
+  const [preenchendo, setPreenchendo] = useState(false);
+
+  async function preencherTitulos() {
+    setPreenchendo(true);
+    try {
+      const copia = seloResults.map((r) => ({ ...r }));
+      const n = await preencherTitulosFaltantes(pranchaFiles, copia);
+      if (n > 0) {
+        selosRef.current = copia;
+        setSeloResults(copia);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não deu para ler os títulos.");
+    } finally {
+      setPreenchendo(false);
+    }
+  }
   /*
    * Fases da leitura, em linguagem de DOCUMENTO. "Abrindo" é o intervalo real
    * entre o clique e a primeira folha voltar (o PDF sendo aberto e paginado):
@@ -1075,7 +1127,13 @@ function NexoWorkspaceInner({
     : readingMemorial
       ? "Lendo o memorial…"
       : okCount > 0
-        ? `${okCount} folha(s) de selo lidas — pronto para gerar.`
+        ? /*
+           * Título faltando é linha vazia na coluna DESCRIÇÃO da LD — o
+           * engenheiro precisa saber ANTES de gerar, não ao abrir o PDF.
+           */
+          semTitulo > 0
+          ? `${okCount} folha(s) lidas · ${semTitulo} sem título`
+          : `${okCount} folha(s) de selo lidas — pronto para gerar.`
         : null;
   const memoText =
     memorialFile && !readingMemorial ? `Memorial anexado: ${memorialFile.name}` : null;
@@ -1444,6 +1502,33 @@ function NexoWorkspaceInner({
           {leituraIncompleta.lidas} de {leituraIncompleta.total} folhas já foram
           lidas e estão salvas — retomar lê só as que faltam.{" "}
           <span className="text-muted-foreground">{leituraIncompleta.motivo}</span>
+        </FaixaDeEstado>
+      )}
+
+      {/*
+        TÍTULO FALTANDO. Toda leitura nova já preenche sozinha; esta faixa é para
+        a conversa que foi lida ANTES disso existir e ficou congelada — `jaLidas`
+        nunca relê uma página, e é essa economia que tornaria o conserto caro.
+        O botão custa ZERO: lê o texto do PDF, não chama modelo nenhum.
+      */}
+      {semTitulo > 0 && !busyReading && pranchaFiles.length > 0 && (
+        <FaixaDeEstado
+          tipo="documento"
+          titulo={`${semTitulo} folha(s) sem título`}
+          acao={
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={preenchendo}
+              onClick={() => void preencherTitulos()}
+            >
+              {preenchendo ? "Lendo…" : "Preencher pelo carimbo"}
+            </Button>
+          }
+        >
+          Título vazio vira linha vazia na coluna DESCRIÇÃO da LD. O carimbo
+          dessas folhas tem o título — dá para lê-lo direto do PDF, sem gastar
+          leitura de IA.
         </FaixaDeEstado>
       )}
 

@@ -14,9 +14,9 @@
  */
 
 import type { ReactNode } from "react";
-import { CloudOff, Info, Clock } from "lucide-react";
+import { CloudOff, Info, Clock, FileWarning } from "lucide-react";
 
-export type TipoDeFaixa = "offline" | "sessao" | "permissao";
+export type TipoDeFaixa = "offline" | "sessao" | "permissao" | "documento";
 
 const ESTILO: Record<
   TipoDeFaixa,
@@ -39,6 +39,17 @@ const ESTILO: Record<
     fundo: "var(--signal-info-bg)",
     borda: "var(--signal-info)",
     icone: Info,
+  },
+  /*
+   * Algo no DOCUMENTO precisa de atenção — título faltando, campo em branco.
+   * Âmbar como os outros avisos, mas com ícone de arquivo: não é a conexão nem
+   * a sessão que está ruim, é o material.
+   */
+  documento: {
+    cor: "var(--status-warning)",
+    fundo: "var(--status-warning-bg)",
+    borda: "var(--status-warning)",
+    icone: FileWarning,
   },
 };
 
