@@ -38,3 +38,106 @@ export function paginasDaParte(
   const fim = Math.min(totalDoDocumento, Math.trunc(endPage ?? totalDoDocumento));
   return Math.max(0, fim - inicio + 1);
 }
+
+/** O que a LD promete de UMA folha. */
+export interface FolhaEsperada {
+  folha: number | null;
+  total: number | null;
+  /** Campo ARQUIVO. Nem toda família imprime o número da folha nele. */
+  codigo: string | null;
+  /** CONTEÚDO — a descrição técnica da prancha. */
+  titulo: string | null;
+}
+
+/** Um bloco (disciplina) e as folhas que a LD dele lista, em ordem. */
+export interface BlocoDoPlano {
+  codigo: string;
+  folhas: FolhaEsperada[];
+}
+
+/** Uma parte já montada, com quantas páginas ela contribuiu. */
+export interface ParteDoPlano {
+  papel: PapelDaPagina;
+  nome: string;
+  paginas: number;
+  /** Código do bloco a que a parte pertence; a capa do volume não tem. */
+  bloco?: string;
+}
+
+/** O gabarito de UMA página do PDF final. */
+export interface PaginaEsperada {
+  /** 1-based no volume final. */
+  pagina: number;
+  papel: PapelDaPagina;
+  /** "" para a capa do volume, que não pertence a bloco nenhum. */
+  bloco: string;
+  folha: number | null;
+  total: number | null;
+  codigo: string | null;
+  titulo: string | null;
+}
+
+/**
+ * Achata as partes em páginas e casa cada página de prancha com a folha que a
+ * LD promete naquela posição.
+ *
+ * O gabarito de folha/código/título vem das LINHAS DA LD daquele bloco — a
+ * mesma fonte que imprimiu a LD encadernada. É deliberado: a LD é o documento
+ * que PROMETE o conteúdo do volume, e conferir o volume contra a promessa é
+ * exatamente o que se quer.
+ *
+ * As folhas do bloco são consumidas EM ORDEM, uma por página de prancha. Não é
+ * casamento por código porque o código não identifica a folha em toda família:
+ * `est` imprime `040_26_est_001_a`, `arq` imprime `040_26_arq_a` em todas. A
+ * posição é o único eixo que vale nas duas.
+ *
+ * Página de prancha sem folha correspondente na LD sai com tudo `null` — este
+ * módulo DESCREVE, não julga. Acusar sobra ou falta é trabalho de
+ * `volume-check-core.ts`, que é onde a severidade mora.
+ */
+export function montarPlanoDePaginas(
+  partes: readonly ParteDoPlano[],
+  blocos: readonly BlocoDoPlano[],
+): PaginaEsperada[] {
+  const folhasPorBloco = new Map<string, FolhaEsperada[]>();
+  for (const bloco of blocos) folhasPorBloco.set(bloco.codigo, [...bloco.folhas]);
+  const consumido = new Map<string, number>();
+
+  const plano: PaginaEsperada[] = [];
+  let pagina = 0;
+
+  for (const parte of partes) {
+    const bloco = parte.bloco ?? "";
+    for (let i = 0; i < parte.paginas; i++) {
+      pagina++;
+      if (parte.papel !== "prancha") {
+        plano.push({
+          pagina,
+          papel: parte.papel,
+          bloco,
+          folha: null,
+          total: null,
+          codigo: null,
+          titulo: null,
+        });
+        continue;
+      }
+
+      const usadas = consumido.get(bloco) ?? 0;
+      const esperada = folhasPorBloco.get(bloco)?.[usadas] ?? null;
+      consumido.set(bloco, usadas + 1);
+
+      plano.push({
+        pagina,
+        papel: "prancha",
+        bloco,
+        folha: esperada?.folha ?? null,
+        total: esperada?.total ?? null,
+        codigo: esperada?.codigo ?? null,
+        titulo: esperada?.titulo ?? null,
+      });
+    }
+  }
+
+  return plano;
+}
