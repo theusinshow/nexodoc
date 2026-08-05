@@ -364,6 +364,13 @@ export interface VolumeGenResult {
   url: string;
   name: string;
   pageCount?: number;
+  /**
+   * Quantas páginas cada parte contribuiu, na ORDEM em que entraram no PDF.
+   * É o que permite montar a expectativa por página e conferir o volume depois
+   * de pronto — sem isto, saber que a página 9 deveria ser a folha 3 do bloco
+   * de estrutura exigiria recontar tudo no browser.
+   */
+  partes?: { role: string; name: string; paginas: number }[];
 }
 
 /**
@@ -386,7 +393,12 @@ export async function postVolume(
   });
   conferirSessao(res);
   const payload = (await res.json().catch(() => null)) as
-    | { error?: string; pdf?: { name: string; data: string } | null; pageCount?: number }
+    | {
+        error?: string;
+        pdf?: { name: string; data: string } | null;
+        pageCount?: number;
+        partes?: { role: string; name: string; paginas: number }[];
+      }
     | null;
   if (!res.ok || !payload?.pdf) {
     throw new Error(payload?.error ?? "Falha ao montar o volume.");
@@ -395,6 +407,7 @@ export async function postVolume(
     url: base64ToUrl(payload.pdf.data, "application/pdf"),
     name: payload.pdf.name,
     pageCount: payload.pageCount,
+    partes: payload.partes,
   };
 }
 

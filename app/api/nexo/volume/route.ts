@@ -130,5 +130,8 @@ export async function POST(req: NextRequest) {
       : null,
     error: result.error,
     pageCount: result.pageCount,
+    // Quantas páginas cada parte contribuiu — é o alicerce da conferência do
+    // volume montado, que precisa saber QUAL página deveria ser qual folha.
+    partes: result.partes,
   });
 }

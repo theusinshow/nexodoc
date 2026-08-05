@@ -1,5 +1,6 @@
 import { PDFDocument } from "pdf-lib";
 
+import { paginasDaParte } from "@/server/nexo/volume-plano";
 import { buildRowPdf } from "@/modules/volume-builder/lib/volume/assembly-builder";
 import type {
   AssemblyRow,
@@ -51,10 +52,27 @@ export interface GeneratedFile {
   buffer: Buffer;
 }
 
+/**
+ * Quantas páginas cada parte contribuiu para o PDF final, na ordem em que
+ * entraram. É o que permite dizer, depois, QUAL página do volume deveria ser
+ * qual folha — a conferência do volume montado se apoia inteira nisto.
+ *
+ * Calculado aqui porque a montagem já carrega toda parte com pdf-lib para
+ * validar: contar é de graça neste ponto, e refazer a conta no cliente
+ * significaria pdf-lib no bundle do browser para reproduzir um número que o
+ * servidor já tinha em mãos.
+ */
+export interface PartePaginada {
+  role: VolumePartRole;
+  name: string;
+  paginas: number;
+}
+
 export interface AssembleVolumeOutput {
   pdf: GeneratedFile | null;
   error?: string;
   pageCount?: number;
+  partes?: PartePaginada[];
 }
 
 /** Peso de cada papel na ordem canonica do volume: capa -> separatriz -> LD ->
@@ -164,14 +182,21 @@ export async function assembleVolume(
   }
 
   // Valida cada parte como PDF antes de fundir, para reportar QUAL parte falhou
-  // (buildRowPdf lancaria sem identificar a parte).
+  // (buildRowPdf lancaria sem identificar a parte). De carona, conta quantas
+  // paginas cada uma contribui: o documento ja esta carregado aqui, e essa
+  // contagem e o alicerce da conferencia do volume montado.
+  const paginasPorParte = new Map<VolumePart, number>();
   for (const part of parts) {
     if (!part || !Buffer.isBuffer(part.buffer) || part.buffer.byteLength === 0) {
       const label = part?.name ? `"${part.name}"` : "sem nome";
       return { pdf: null, error: `Parte ${label} nao contem um PDF valido.` };
     }
     try {
-      await PDFDocument.load(part.buffer);
+      const doc = await PDFDocument.load(part.buffer);
+      paginasPorParte.set(
+        part,
+        paginasDaParte(doc.getPageCount(), part.startPage, part.endPage),
+      );
     } catch {
       return {
         pdf: null,
@@ -207,7 +232,13 @@ export async function assembleVolume(
       ? rawName
       : `${rawName}.pdf`;
 
-    return { pdf: { name, buffer }, pageCount };
+    const partes: PartePaginada[] = orderedParts.map((part) => ({
+      role: part.role,
+      name: part.name,
+      paginas: paginasPorParte.get(part) ?? 0,
+    }));
+
+    return { pdf: { name, buffer }, pageCount, partes };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido na montagem.";

@@ -49,7 +49,15 @@ O plano por página precisa saber quantas páginas cada parte contribuiu. A rota
 montagem **já carrega toda parte com `pdf-lib`** para validar — a contagem é de
 graça ali, e obtê-la no cliente exigiria pdf-lib no bundle do browser.
 
+> **Correção aplicada na execução (2026-08-05).** A versão original desta tarefa
+> mandava testar `assembleVolume` em node cru. Não roda: `assemble-volume.ts`
+> importa `buildRowPdf` pelo alias `@/`, que o node não resolve — o mesmo motivo
+> pelo qual os núcleos deste repo não têm imports. A aritmética que pode errar é
+> a da FAIXA de páginas, e é ela que vai para o núcleo puro (`paginasDaParte`) e
+> ganha teste. `assembleVolume` só a consome.
+
 **Files:**
+- Create: `server/nexo/volume-plano.ts` (só `paginasDaParte`; a Task 2 completa o módulo)
 - Modify: `server/nexo/tools/assemble-volume.ts`
 - Modify: `app/api/nexo/volume/route.ts`
 - Modify: `modules/nexo/lib/generate.ts` (tipo `VolumeGenResult`)
