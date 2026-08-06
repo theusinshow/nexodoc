@@ -92,6 +92,15 @@ export interface StoredConversation {
    */
   identidade?: IdentidadeDoProjeto;
   /**
+   * As DECISÕES do engenheiro sobre o documento (título, volume, data, tomos,
+   * prefeitura), com o valor do agente que cada uma substituiu.
+   *
+   * Vive na conversa, e não na mensagem, porque a mensagem é do turno: uma
+   * edição guardada ali morreria no turno seguinte, quando o agente
+   * respondesse e nascesse uma proposta nova. Ver [[decisoes.ts]].
+   */
+  decisoes?: Record<string, { valor: string; sobre: string }>;
+  /**
    * Quantos tomos o usuário declarou pelo canvas. Existe para a fileira do tomo
    * novo nascer VAZIA, antes de haver documento nela — sem fileira não há para
    * onde arrastar folha.

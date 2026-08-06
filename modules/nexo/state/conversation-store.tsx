@@ -33,6 +33,7 @@ import type {
 import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
+import { anotarDecisao, type DecisoesDoProjeto } from "../lib/decisoes";
 import { removerResultado } from "../lib/results";
 import {
   deleteConversation as dbDelete,
@@ -135,6 +136,20 @@ interface ConversationStoreValue {
   identidade: IdentidadeDoProjeto;
   /** Acumula a correção. Campo com string vazia DESFAZ aquele campo. */
   corrigirIdentidade: (patch: Record<string, string>) => void;
+  /**
+   * As DECISÕES do documento (título, volume, data, tomos, prefeitura). Ao
+   * contrário da identidade, o agente PROPÕE estes campos a cada turno — por
+   * isso cada decisão guarda o valor dele que ela substituiu. Ver [[decisoes.ts]].
+   */
+  decisoes: DecisoesDoProjeto;
+  /** Decide um campo. Vazio DESFAZ, como na identidade. */
+  decidir: (campo: string, valor: string, propostoPeloAgente: string) => void;
+  /**
+   * Guarda as decisões que sobreviveram ao turno. Obrigatório depois de
+   * mesclar: uma decisão que perdeu para o agente e continuasse guardada
+   * voltaria a vencer quando ele repetisse o valor novo.
+   */
+  guardarDecisoesVivas: (vivas: DecisoesDoProjeto) => void;
   /** Quantos tomos o usuário declarou pelo canvas (0 = nenhum além dos gerados). */
   tomosDeclarados: number;
   /** Declara um tomo a mais: a fileira nasce vazia e vira destino de arrasto. */
@@ -229,6 +244,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [avulsas, setAvulsas] = useState<FolhaId[]>([]);
   const [totaisPorDisciplina, setTotaisPorDisciplina] = useState<Record<string, number>>({});
   const [identidade, setIdentidade] = useState<IdentidadeDoProjeto>({});
+  const [decisoes, setDecisoes] = useState<DecisoesDoProjeto>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
   const [results, setResults] = useState<SavedResult[]>([]);
@@ -249,6 +265,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     avulsas,
     totaisPorDisciplina,
     identidade,
+    decisoes,
     tomosDeclarados,
     achadosResolvidos,
     results,
@@ -267,6 +284,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       avulsas,
       totaisPorDisciplina,
       identidade,
+      decisoes,
       tomosDeclarados,
       achadosResolvidos,
       results,
@@ -342,6 +360,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         ? { totaisPorDisciplina: s.totaisPorDisciplina }
         : {}),
       ...(Object.keys(s.identidade).length > 0 ? { identidade: s.identidade } : {}),
+      ...(Object.keys(s.decisoes).length > 0 ? { decisoes: s.decisoes } : {}),
       ...(s.tomosDeclarados > 0 ? { tomosDeclarados: s.tomosDeclarados } : {}),
       ...(Object.keys(s.achadosResolvidos).length > 0
         ? { achadosResolvidos: s.achadosResolvidos }
@@ -509,6 +528,32 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const corrigirIdentidade = useCallback(
     (patch: Record<string, string>) => {
       setIdentidade((atual) => aplicarIdentidade(atual, patch));
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
+   * Uma decisão do engenheiro sobre o documento. Guarda junto o que o agente
+   * propunha na hora — é esse par que deixa a mescla saber, no turno seguinte,
+   * se o agente mudou de ideia ou apenas repetiu o mesmo valor.
+   */
+  const decidir = useCallback(
+    (campo: string, valor: string, propostoPeloAgente: string) => {
+      setDecisoes((atual) => anotarDecisao(atual, campo, valor, propostoPeloAgente));
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
+   * As decisões que sobreviveram ao turno. Guardar de volta é obrigatório: uma
+   * decisão que perdeu para o agente e continuasse guardada voltaria a vencer
+   * no turno seguinte, quando ele repetisse o valor novo.
+   */
+  const guardarDecisoesVivas = useCallback(
+    (vivas: DecisoesDoProjeto) => {
+      setDecisoes(vivas);
       schedulePersist();
     },
     [schedulePersist],
@@ -687,6 +732,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setAvulsas(rec.avulsas ?? []);
       setTotaisPorDisciplina(rec.totaisPorDisciplina ?? {});
       setIdentidade(rec.identidade ?? {});
+      setDecisoes(rec.decisoes ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       setAchadosResolvidos(rec.achadosResolvidos ?? {});
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
@@ -803,6 +849,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       definirTotal,
       identidade,
       corrigirIdentidade,
+      decisoes,
+      decidir,
+      guardarDecisoesVivas,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,
@@ -840,6 +889,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       definirTotal,
       identidade,
       corrigirIdentidade,
+      decisoes,
+      decidir,
+      guardarDecisoesVivas,
       tomosDeclarados,
       declararTomos,
       achadosResolvidos,
