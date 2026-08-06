@@ -11,8 +11,13 @@ export default function NexoLayout({
 }: {
   children: React.ReactNode;
 }) {
+  /*
+   * Sem `version`: o rótulo "beta" ficava no alto da tela o tempo todo,
+   * ocupando o canto oposto à marca com uma informação que não muda e sobre a
+   * qual ninguém age. Cromo permanente tem de ganhar o lugar que ocupa.
+   */
   return (
-    <AppShell moduleName="Nexo" version="beta" fullBleed>
+    <AppShell moduleName="Nexo" fullBleed>
       {children}
     </AppShell>
   );

@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "../lib/nexo-db";
 import { groupConversations } from "../lib/group-conversations";
-import { NexoOrb } from "./NexoOrb";
+import { LogoNexo } from "@/components/brand/logo-nexo";
 
 /** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
 function shortDate(ts: number): string {
@@ -46,6 +46,7 @@ export function NexoSidebar({
   onDelete,
   isAdmin = false,
   onVerTour,
+  trabalhando = false,
 }: {
   onNewConversation?: () => void;
   conversations?: ConversationSummary[];
@@ -56,6 +57,12 @@ export function NexoSidebar({
   isAdmin?: boolean;
   /** Reabre o passo a passo guiado. Ausente = a entrada não aparece. */
   onVerTour?: () => void | Promise<void>;
+  /**
+   * O agente está trabalhando (lendo selos, pensando, respondendo, auditando).
+   * A marca respira enquanto isso — é o único movimento contínuo daqui, e ele
+   * significa estado, não decoração.
+   */
+  trabalhando?: boolean;
 }) {
   const [query, setQuery] = useState("");
   /** Conversa aguardando confirmação de exclusão (uma por vez). */
@@ -72,12 +79,39 @@ export function NexoSidebar({
       aria-label="Navegação do Nexo"
       className="flex h-full w-full flex-col gap-3 border-r border-border/60 p-3"
     >
-      {/* Topo: marca. Não há mais "voltar": a entrada do software é esta tela. */}
+      {/*
+        Topo: a marca. Não há mais "voltar" — a entrada do software é esta tela.
+        E ela DIZ O QUE O AGENTE ESTÁ FAZENDO.
+
+        A §6 é clara: "em repouso ela fica PARADA; marca que se mexe sozinha
+        vira decoração". Um laço permanente aqui seria isso. Mas o orbe é a
+        presença do agente, e movimento que carrega ESTADO é o trabalho dele,
+        não enfeite — a mesma regra da §5.
+
+        Vale mais aqui do que no palco: a barra lateral está sempre visível,
+        enquanto o orbe grande sai de vista quando se rola a conversa ou se olha
+        o canvas. Trabalhando, ela respira; parada, fica parada.
+      */}
       <div className="flex items-center gap-2 px-1 py-1">
-        <NexoOrb className="w-5" />
+        <span
+          className={cn(
+            "inline-flex",
+            trabalhando && "nexodoc-status-pulse",
+          )}
+          title={trabalhando ? "O Nexo está trabalhando" : undefined}
+        >
+          <LogoNexo size={20} />
+        </span>
         <span className="font-mono text-sm font-semibold tracking-[-0.01em]">
           Nexo
         </span>
+        {/* O que ele está fazendo, em texto — movimento nunca carrega
+            significado sozinho (§5, acessibilidade). */}
+        {trabalhando && (
+          <span className="sr-only" role="status">
+            O Nexo está trabalhando
+          </span>
+        )}
       </div>
 
       {/* Nova conversa */}
@@ -140,22 +174,28 @@ export function NexoSidebar({
         )}
         {groups.map((g) => (
           <details key={g.key ?? "__none__"} open className="group/f">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 [&::-webkit-details-marker]:hidden">
+            {/*
+              A pasta é o CÓDIGO DA OBRA, e é por ele que se procura. Sai em
+              Mono Label maiúsculo — o degrau que a §3 reserva para rótulo de
+              região —, e o ícone de pasta saiu: o chevron e o recuo já dizem
+              que é um grupo, e dois glifos para o mesmo trabalho é ruído numa
+              coluna de 240px.
+            */}
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 [&::-webkit-details-marker]:hidden">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
-                className="h-3 w-3 shrink-0 transition-transform duration-200 group-open/f:rotate-90"
+                strokeWidth="1.5"
+                className="h-3 w-3 shrink-0 transition-transform duration-[var(--duration-fast)] group-open/f:rotate-90"
                 aria-hidden
               >
                 <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <Folder className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-              <span className="flex-1 truncate font-mono text-[11px] tracking-[0.02em]">
+              <span className="flex-1 truncate font-mono text-[11px] font-medium uppercase tracking-[0.05em]">
                 {g.key ?? "Sem pasta"}
               </span>
-              <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70">
+              <span className="font-mono text-[11px] tabular-nums text-muted-foreground/60">
                 {g.items.length}
               </span>
             </summary>
@@ -169,55 +209,94 @@ export function NexoSidebar({
                       onClick={() => onSelect?.(c.id)}
                       aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-1.5 pr-8 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                        /*
+                         * Uma linha, não duas. O título e a data disputavam
+                         * altura numa coluna de 240px, e a data ficava a 9,5px
+                         * — abaixo do piso de 11px que a §3 estabelece, e fora
+                         * da escala como o título a 12,5px.
+                         *
+                         * Lado a lado, a lista mostra quase o dobro de
+                         * conversas, que é o trabalho dela: achar a de ontem.
+                         */
+                        "flex w-full items-baseline gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
                         active
                           ? "bg-accent text-foreground"
                           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
-                      <span className="w-full truncate text-[12.5px]">{c.title}</span>
-                      <span className="font-mono text-[9.5px] tabular-nums text-muted-foreground/70">
+                      <span className="min-w-0 flex-1 truncate text-xs">{c.title}</span>
+                      <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/60">
                         {shortDate(c.updatedAt)}
                       </span>
                     </button>
-                    {onDelete &&
-                      (confirmando === c.id ? (
-                        /*
-                         * Confirmação INLINE, não modal (DESIGN.md: modal é o
-                         * último recurso). Apagar a conversa leva os documentos
-                         * gerados junto — um clique sem volta ao lado do nome
-                         * era perda de trabalho a um pixel de distância.
-                         */
-                        <span className="absolute right-1 top-1 flex items-center gap-1 rounded-sm border border-[var(--status-critical)]/40 bg-card px-1 py-0.5">
+                    {onDelete && confirmando !== c.id && (
+                      /*
+                       * O gatilho fica SEMPRE presente, a 0 de opacidade só
+                       * enquanto o ponteiro não chega. Revelar por hover apenas
+                       * o tornava inalcançável no toque, onde não existe hover
+                       * — e a §7 pede afordância consistente, não escondida.
+                       * Aparece também no foco do teclado e quando a linha está
+                       * ativa, que é onde a mão costuma estar.
+                       */
+                      <button
+                        type="button"
+                        onClick={() => setConfirmando(c.id)}
+                        aria-label={`Apagar conversa ${c.title}`}
+                        className={cn(
+                          "absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground",
+                          "transition-[opacity,color] duration-[var(--duration-fast)]",
+                          "hover:text-[var(--status-critical)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                          "opacity-0 group-hover/c:opacity-100 focus-visible:opacity-100",
+                          active && "opacity-60",
+                        )}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      </button>
+                    )}
+                    {onDelete && confirmando === c.id && (
+                      /*
+                       * A confirmação SUBSTITUI a linha, não flutua sobre ela.
+                       * Antes era uma tarja no canto, por cima do título da
+                       * conversa que se está prestes a apagar — justamente o
+                       * que se precisa ler para decidir. Agora o nome fica
+                       * visível acima, e a pergunta ocupa o seu próprio espaço.
+                       *
+                       * Inline e não modal: a §11 manda esgotar as alternativas
+                       * antes do modal, e apagar uma conversa não merece parar
+                       * a tela inteira. Mas leva os documentos gerados junto —
+                       * por isso pergunta.
+                       */
+                      /*
+                       * EMPILHADO, não lado a lado: numa coluna de 240px a
+                       * frase e dois botões na mesma linha não cabem — o texto
+                       * quebrava em cinco linhas e passava por cima do
+                       * "Cancelar". Só apareceu no print.
+                       */
+                      <div className="mt-0.5 space-y-1.5 rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] px-2 py-2">
+                        <p className="text-[11px] leading-4 text-muted-foreground">
+                          Apagar leva os documentos gerados junto.
+                        </p>
+                        <span className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmando(null)}
+                            className="rounded-sm px-1.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                          >
+                            Cancelar
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
                               onDelete(c.id);
                               setConfirmando(null);
                             }}
-                            className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--status-critical)] hover:underline focus-visible:outline-none"
+                            className="rounded-sm border border-[var(--status-critical)]/40 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors hover:bg-[var(--status-critical)]/10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                           >
                             Apagar
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmando(null)}
-                            aria-label="Cancelar"
-                            className="font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground focus-visible:outline-none"
-                          >
-                            Não
-                          </button>
                         </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmando(c.id)}
-                          aria-label={`Apagar conversa ${c.title}`}
-                          className="absolute right-1.5 top-1.5 rounded-sm p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover/c:opacity-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      ))}
+                      </div>
+                    )}
                   </li>
                 );
               })}

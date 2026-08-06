@@ -1583,6 +1583,12 @@ function NexoWorkspaceInner({
             onDelete={conv.removeConversation}
             isAdmin={isAdmin}
             onVerTour={iniciarTour}
+            /*
+             * A marca da barra lateral respira enquanto o agente trabalha. Ela
+             * está sempre visível, e o orbe grande não: sai de vista quando se
+             * rola a conversa ou se olha o canvas.
+             */
+            trabalhando={agentState !== "idle" && agentState !== "complete"}
           />
         }
         stage={
