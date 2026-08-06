@@ -94,8 +94,19 @@ export function lerLayoutDoModelo(contentXml: string): ParagrafoDoModelo[] {
   const inicio = contentXml.indexOf("<office:body");
   const corpoXml = inicio >= 0 ? contentXml.slice(inicio) : contentXml;
 
+  /*
+   * O AUTO-FECHADO VEM PRIMEIRO, e o de abertura recusa terminar em "/".
+   *
+   * `<text:p text:style-name="P5"/>` casa com um padrão ingênuo de tag de
+   * ABERTURA (`[^>]*` engole o "/"), e aí o espaçador devora tudo até o
+   * próximo `</text:p>`: três parágrafos viram um, com o estilo do espaçador.
+   * O modelo de Criciúma tem espaçadores logo antes do nome da obra, então o
+   * frame sairia com o alinhamento errado e sem as linhas em branco.
+   */
   const paragrafos =
-    corpoXml.match(/<text:p\b[^>]*>[\s\S]*?<\/text:p>|<text:p\b[^>]*\/>/g) ?? [];
+    corpoXml.match(
+      /<text:p\b[^>]*\/>|<text:p\b[^>]*(?<!\/)>[\s\S]*?<\/text:p>/g,
+    ) ?? [];
 
   return paragrafos.map((bruto, indice) => {
     const nomeDoEstilo = /text:style-name="([^"]+)"/.exec(bruto)?.[1] ?? "";

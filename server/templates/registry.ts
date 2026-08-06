@@ -1,6 +1,8 @@
-import { readdir, readFile, access } from "fs/promises";
+import { readdir, readFile, access, stat } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+
+import { lerLayoutDoModelo, type ParagrafoDoModelo } from "@/server/odt/layout";
 
 export interface TemplateConfigFile {
   id: string;
@@ -81,4 +83,38 @@ export async function getTemplateOdtPath(templateId: string): Promise<string | n
   }
 
   return null;
+}
+
+/**
+ * O layout do modelo, com cache CHAVEADO PELA DATA DO ARQUIVO.
+ *
+ * O `cachedTemplates` acima nunca invalida, e isso não morde porque o ODT é
+ * lido fresco a cada geração. Pendurar o layout no mesmo cache faria uma edição
+ * no modelo exigir reiniciar o servidor — e quem edita o modelo é o engenheiro,
+ * no meio do trabalho. A data de modificação resolve sem cerimônia, e mantém
+ * verdadeira a regra de que o MODELO manda.
+ */
+const cachedLayouts = new Map<
+  string,
+  { mtimeMs: number; layout: ParagrafoDoModelo[] }
+>();
+
+export async function getTemplateLayout(
+  templateId: string,
+): Promise<ParagrafoDoModelo[] | null> {
+  const odtPath = await getTemplateOdtPath(templateId);
+  if (!odtPath) return null;
+
+  const { mtimeMs } = await stat(odtPath);
+  const guardado = cachedLayouts.get(templateId);
+  if (guardado && guardado.mtimeMs === mtimeMs) return guardado.layout;
+
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(await readFile(odtPath));
+  const arquivo = zip.file("content.xml");
+  if (!arquivo) return null;
+
+  const layout = lerLayoutDoModelo(await arquivo.async("string"));
+  cachedLayouts.set(templateId, { mtimeMs, layout });
+  return layout;
 }

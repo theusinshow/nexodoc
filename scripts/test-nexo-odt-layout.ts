@@ -85,6 +85,26 @@ test("parágrafo vazio aparece no layout, sem partes", () => {
   assert.deepEqual(l[0].partes, []);
 });
 
+test("o espaçador auto-fechado NÃO engole o parágrafo seguinte", () => {
+  /*
+   * `<text:p .../>` casa com o padrão de tag de ABERTURA se o leitor for
+   * ingênuo, e aí o espaçador engole tudo até o próximo `</text:p>` — três
+   * parágrafos viram um, com o estilo do espaçador. O modelo de Criciúma tem
+   * espaçadores antes do nome da obra, então isso não é hipótese.
+   */
+  const l = lerLayoutDoModelo(
+    corpo(
+      '<text:p text:style-name="P6"/><text:p text:style-name="P6"/><text:p text:style-name="P11">{{NOME_OBRA}}</text:p>',
+    ),
+  );
+  assert.equal(l.length, 3, "os dois espaçadores e o parágrafo têm de ser três");
+  assert.deepEqual(l[0].partes, []);
+  assert.deepEqual(l[1].partes, []);
+  assert.deepEqual(l[2].partes, [{ tipo: "marcador", nome: "NOME_OBRA" }]);
+  // O estilo tem de ser o DO PARÁGRAFO, não o do espaçador que veio antes.
+  assert.equal(l[2].alinhamento, "end");
+});
+
 test("a ordem de impressão é preservada no índice", () => {
   const l = lerLayoutDoModelo(
     corpo(
