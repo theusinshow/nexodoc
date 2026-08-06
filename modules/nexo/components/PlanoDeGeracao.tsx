@@ -39,6 +39,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { summarizeSelos } from "../lib/agent-context";
 import { MESES_PT } from "@/server/nexo/agent/requirements";
 import type { Folha } from "../lib/folhas";
@@ -319,6 +320,24 @@ export function PlanoDeGeracao({
    *
    * O que foi corrigido à mão (`identidade`) vem primeiro; senão vale o carimbo.
    */
+  /*
+   * O TÍTULO SUGERIDO, do léxico de disciplinas.
+   *
+   * A disciplina de cada folha sai do nome do arquivo e do carimbo, e o nome
+   * padrão de cada uma é fonte única desde [[disciplinas.ts]] — então o título
+   * da capa deixou de ser uma pergunta sem resposta e virou fato derivado com
+   * override, como a obra e o código.
+   *
+   * UMA LINHA POR DISCIPLINA, que é como as capas reais de volume misto são
+   * escritas (116-25: urbanização / paisagismo / maquete). Num volume de uma
+   * disciplina só, sai uma linha.
+   */
+  const tituloSugerido = blocos
+    .filter((b) => b.codigo)
+    .map((b) => nomeNaCapa(b.codigo) ?? b.rotulo.toUpperCase())
+    .filter(Boolean)
+    .join("\n");
+
   const doSelo = summarizeSelos(selos);
   const obra = identidade.obra?.trim() || doSelo.obra || "";
   const codigo = identidade.codigo?.trim() || doSelo.codigo || "";
@@ -352,7 +371,19 @@ export function PlanoDeGeracao({
     .map((t) => t.trim())
     .filter(Boolean);
   const separatrizListada = titulosDaSeparatriz.length > 0;
-  const semTitulo = titulo === "" && (Boolean(capa) || !misto) && !separatrizListada;
+  /*
+   * Falta título só quando NÃO HÁ COMO SABER.
+   *
+   * Antes, título vazio travava o botão e mandava responder pela conversa. Com
+   * o léxico de disciplinas, um volume cuja disciplina foi lida JÁ TEM nome —
+   * o construtor cai nele sozinho. Travar aí seria pedir uma decisão que o
+   * sistema já tomou, e é decisão que o engenheiro só confirmaria.
+   */
+  const semTitulo =
+    titulo === "" &&
+    tituloSugerido === "" &&
+    (Boolean(capa) || !misto) &&
+    !separatrizListada;
   const semPrefeitura = Boolean(capa) && !capa?.templateId?.trim();
 
   // Já gerados: o card não some depois, ele muda de estado.
@@ -537,6 +568,9 @@ export function PlanoDeGeracao({
               // Já quebrada nas linhas em que vai sair impressa — o carimbo
               // escreve "A - B" numa tira só, e a capa tem duas linhas.
               NOME_OBRA: textoEmLinhasDaCapa(obra),
+              // O nome padrão da disciplina lida — é o que sai se ninguém
+              // digitar nada, então é o que o campo deve mostrar apagado.
+              TITULO_CAPA: tituloSugerido,
               CODIGO_EXIBIDO: codigo,
               MES_ANO: dataDaCapa || "mês corrente",
               VOLUME: capa?.volume?.trim() || "do arquivo",
@@ -578,6 +612,13 @@ export function PlanoDeGeracao({
             : (
                 <BlocoDaLd
                   titulo={mesclado.valores.tituloLd ?? ""}
+                  /* O nome de DOCUMENTO da disciplina — o que sai impresso se
+                     ninguém digitar. É o longo, diferente do da capa. */
+                  sugestao={
+                    blocos.find((b) => b.codigo)
+                      ? (nomeNoDocumento(blocos.find((b) => b.codigo)!.codigo) ?? "")
+                      : ""
+                  }
                   onTitulo={(v) => decidir("tituloLd", v, paramsDoAgente.tituloLd)}
                   codigo={codigo}
                   revisao={revisao}

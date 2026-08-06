@@ -1,6 +1,6 @@
 import { parseFilename, resolveSheetNumbers } from "./parse-filename";
 import { totalDeReferencia } from "./reconcile-sheets";
-import { disciplinaLabel } from "./disciplinas";
+import { disciplinaLabel, nomeNoDocumento } from "./disciplinas";
 import {
   formatSheet,
   buildBalancedTomos,
@@ -277,11 +277,26 @@ export function buildLdProposal(
       : todasAsLinhas;
   const rows = selecionadas.map((l) => l.row);
 
-  // Título da seção: manual (decisão) OU palpite do selo (descarta órgão/secretaria)
-  // OU "PROJETO <disciplina>". Remove "(TOMO ...)" digitado; o tomo é anexado a
-  // seguir (específico) ou por faixa pelo ld-generation (dividir-em-N).
+  /*
+   * Título da seção, em ordem de autoridade:
+   *
+   *   1. o que o engenheiro DISSE — decisão, e decisão não se adivinha;
+   *   2. o NOME PADRÃO da disciplina, do léxico ([[disciplinas.ts]]);
+   *   3. o palpite do selo (descartando órgão/secretaria);
+   *   4. "PROJETO <rótulo de tela>", que é o último recurso.
+   *
+   * O nome padrão passou à frente do palpite do selo quando os nomes viraram
+   * fonte única: ele é o que o escritório IMPRIME, lido de 91 capas e
+   * separatrizes reais. O `tituloSecao` sai de OCR e varia de projeto para
+   * projeto — serve para disciplina que o léxico não conhece, não para
+   * contradizer o padrão.
+   *
+   * Remove "(TOMO ...)" digitado; o tomo é anexado a seguir (específico) ou por
+   * faixa pelo ld-generation (dividir-em-N).
+   */
   const tituloBase = (
     opts.tituloLd?.trim() ||
+    nomeNoDocumento(discCode) ||
     mode(
       validos.map((s) =>
         s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,

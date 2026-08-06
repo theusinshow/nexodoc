@@ -18,6 +18,7 @@ import type { LdPreviewData } from "../types";
 
 export function BlocoDaLd({
   titulo,
+  sugestao = "",
   onTitulo,
   somenteLeitura,
   codigo,
@@ -26,6 +27,12 @@ export function BlocoDaLd({
   totalFolhas,
 }: {
   titulo: string;
+  /**
+   * O nome padrão da disciplina lida — o que sai impresso se ninguém digitar.
+   * Entra como texto FANTASMA: vazio continua significando "use o padrão", e é
+   * assim que se desfaz uma escolha.
+   */
+  sugestao?: string;
   onTitulo: (valor: string) => void;
   /** Num volume misto o título é o da disciplina — não se digita. */
   somenteLeitura?: boolean;
@@ -54,7 +61,7 @@ export function BlocoDaLd({
         <input
           aria-label="Título da LD"
           value={titulo}
-          placeholder="título da lista de documentos"
+          placeholder={sugestao || "título da lista de documentos"}
           onChange={(e) => onTitulo(e.target.value)}
           className="w-full rounded-sm border border-dashed border-border bg-transparent px-2 py-1.5 text-sm font-medium outline-none focus:border-solid focus:border-[var(--ring)]"
         />

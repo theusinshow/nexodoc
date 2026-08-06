@@ -196,17 +196,31 @@ try {
   // ---------------------------------------------------------------------
   // O NOME QUE VAI IMPRESSO é o de DOCUMENTO, não o de tela.
   // ---------------------------------------------------------------------
+  // ---------------------------------------------------------------------
+  // O TÍTULO JÁ VEM SUGERIDO, do léxico — não é mais pergunta.
+  // ---------------------------------------------------------------------
+  console.log("\nA sugestão de título");
+  const campoTitulo = cartao.getByLabel("Título", { exact: true }).first();
+  const sugerido = await campoTitulo.getAttribute("placeholder");
+  check(
+    "a capa sugere UMA LINHA POR DISCIPLINA, com o nome de capa de cada uma",
+    sugerido === "PROJETO HIDROSSANITÁRIO\nPROJETO PREVENTIVO\nPROJETO SPDA",
+    JSON.stringify(sugerido),
+  );
+  check(
+    "o campo começa VAZIO (vazio = use o padrão)",
+    (await campoTitulo.inputValue()) === "",
+    JSON.stringify(await campoTitulo.inputValue()),
+  );
+
+  const botao = page.getByRole("button", { name: /Gerar os? \d+/i }).first();
+  check(
+    "o botão NÃO trava por falta de título — a disciplina já o resolve",
+    await botao.isEnabled(),
+  );
+
   console.log("\nO nome que chega ao documento");
-  /*
-   * A CAPA precisa de título — ela é do volume inteiro, e num volume misto não
-   * há disciplina única de onde derivá-lo. O botão travado até aqui é o
-   * comportamento certo; preencher no frame é o caminho normal.
-   */
-  await cartao
-    .getByLabel("Título", { exact: true })
-    .first()
-    .fill("PROJETO HIDROSSANITÁRIO\nPROJETO PREVENTIVO\nPROJETO SPDA");
-  await page.getByRole("button", { name: /Gerar os? \d+/i }).first().click();
+  await botao.click();
   await page.getByText(/Gerado · \d+ documentos?/i).first().waitFor({ timeout: 240000 });
 
   const titulos = await page.evaluate(() => window.__TITULOS ?? null);
