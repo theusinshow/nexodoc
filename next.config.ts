@@ -19,6 +19,16 @@ const nextConfig: NextConfig = {
     "/api/nexo/ld": ["./templates/modelo_ld_empresa.odt"],
     "/api/nexo/separatriz": ["./templates/separatriz/**/*"],
     "/api/nexo/capa": ["./templates/**/*"],
+    /*
+     * A LISTA DE PREFEITURAS também lê o disco, e não estava aqui.
+     *
+     * Ela sempre leu os `config.json`; desde que passou a devolver o LAYOUT do
+     * modelo (o frame do documento se desenha a partir dele), lê os `.odt`
+     * também. Sem esta entrada, em produção a rota devolveria a lista vazia ou
+     * `layout: []` — e o card cairia para a lista de rótulo/valor sem nada
+     * acusar, funcionando perfeitamente na máquina de quem programou.
+     */
+    "/api/capas/templates": ["./templates/capas/**/*"],
   },
   images: {
     remotePatterns: [
