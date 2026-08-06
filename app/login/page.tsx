@@ -1,8 +1,8 @@
-import { ArrowRight, FileSearch, LockKeyhole, ShieldCheck } from "lucide-react";
-import Image from "next/image";
+import { Terminal } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { LogoNexo } from "@/components/brand/logo-nexo";
 import { Button } from "@/components/ui/button";
 import { normalizeAuthCallbackPath } from "@/lib/auth-redirect";
 import {
@@ -11,11 +11,24 @@ import {
   isDevAuthEnabled,
 } from "@/lib/dev-auth";
 
+export const metadata = {
+  title: "Entrar - Nexo",
+};
+
 type LoginPageProps = {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 };
 
-function GoogleMark() {
+/**
+ * O "G" do Google fica COLORIDO, e é a única cor fora do sistema em toda a tela.
+ *
+ * A §2 proíbe azul, e esta é a exceção que se assume: a marca é de terceiro e
+ * serve de sinal de confiança — repintá-la na rampa teal a transformaria num
+ * botão qualquer com um símbolo estranho, além de contrariar a diretriz de uso
+ * do próprio Google. Ela vive em 16px dentro do botão; o orçamento de cor da
+ * §2 governa a paleta do sistema, não o logotipo de quem autentica.
+ */
+function MarcaDoGoogle() {
   return (
     <svg aria-hidden="true" className="size-4" viewBox="0 0 18 18">
       <path
@@ -38,6 +51,20 @@ function GoogleMark() {
   );
 }
 
+/**
+ * A PORTA — primeira tela do software e a única antes da credencial.
+ *
+ * O momento desta tela é a MARCA, não um cartão de venda: o degrau Display
+ * (40px) da §3 existe só aqui, e a §6 define o logotipo como o orbe achatado
+ * mais a palavra. Abaixo dele, um cartão com UMA ação.
+ *
+ * Saíram daqui a lista de vantagens ("sessão protegida", "PDFs processados") e
+ * o cadeado num quadrado teal. As duas frases eram tom de landing page, que a
+ * PRODUCT.md rejeita, e o cadeado gastava o acento interativo num enfeite
+ * parado — a §2 reserva o teal para o que se clica, e nesta tela o que se
+ * clica é o botão. O texto que sobrou é o que evita a surpresa seguinte: a
+ * conta precisa estar liberada, e há uma tela dizendo quem libera.
+ */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const { callbackUrl, error } = await searchParams;
@@ -50,97 +77,78 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12 text-foreground sm:px-6">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-15 [background-image:linear-gradient(var(--nexodoc-grid)_1px,transparent_1px),linear-gradient(90deg,var(--nexodoc-grid)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)]"
-      />
-
-      <div className="relative w-full max-w-[420px]">
-        <div className="mb-10 flex flex-col items-center text-center nexodoc-enter">
-          <Image
-            src="/assets/logo.svg"
-            alt="Nexo"
-            width={48}
-            height={48}
-            priority
-            className="size-12"
-          />
-          <h1 className="mt-4 font-mono text-xl font-semibold">Nexo</h1>
-          <p className="mt-1 font-mono text-xs tracking-[0.15em] text-muted-foreground">
-            DOCUMENTAÇÃO DE PROJETOS
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 py-12 text-foreground">
+      {/* Um reveal só, no bloco inteiro. A §5 não coreografa entrada por
+          elemento: isto é uma porta, não uma página que se assiste carregar. */}
+      <div className="nexodoc-enter w-full max-w-[400px]">
+        <div className="flex flex-col items-center text-center">
+          {/* O símbolo é decorativo AO LADO da palavra: sem o aria-hidden o
+              leitor de tela anuncia "Nexo" duas vezes seguidas. */}
+          <span aria-hidden="true">
+            <LogoNexo size={48} interativa={false} />
+          </span>
+          <h1 className="mt-5 text-[40px] font-semibold leading-[1.1] tracking-[-0.02em]">
+            Nexo
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-balance text-muted-foreground">
+            Documentação de projetos de engenharia — do carimbo ao volume.
           </p>
         </div>
 
-        <div className="nexodoc-enter rounded-sm border bg-card p-6 sm:p-8">
-          <div className="flex size-10 items-center justify-center rounded-sm border border-primary/20 bg-primary/5 text-primary">
-            <LockKeyhole className="size-5" />
-          </div>
-
-          <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">
-            Acessar workspace
+        <div className="mt-8 rounded-md border bg-card p-6">
+          <h2 className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-foreground">
+            Entrar
           </h2>
-          <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-            Entre com sua conta Google autorizada para acessar os módulos documentais.
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Use a conta Google do escritório. Se ela ainda não estiver liberada,
+            a tela seguinte diz quem libera.
           </p>
 
           {error ? (
-            <div className="mt-5 rounded-sm border border-destructive/25 bg-destructive/8 px-3 py-2.5 text-sm text-destructive">
+            <p
+              role="alert"
+              className="mt-4 rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] px-3 py-2.5 text-sm leading-6 text-[var(--status-critical)]"
+            >
               Não foi possível autenticar com o Google. Tente novamente.
-            </div>
+            </p>
           ) : null}
 
           <form
-            className="mt-6"
+            className="mt-5"
             action={async () => {
               "use server";
               await signIn("google", { redirectTo });
             }}
           >
-            <Button type="submit" size="lg" className="w-full justify-between px-5">
-              <span className="flex items-center gap-3">
-                <GoogleMark />
-                Continuar com Google
-              </span>
-              <ArrowRight className="size-4" />
+            <Button type="submit" className="w-full">
+              <MarcaDoGoogle />
+              Continuar com Google
             </Button>
           </form>
 
           {canUseDevAuth ? (
-            <form
-              className="mt-3"
-              action={async () => {
-                "use server";
-                await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
-              }}
-            >
-              <Button type="submit" variant="outline" size="lg" className="w-full justify-between px-5">
-                <span className="flex items-center gap-3">
-                  <ShieldCheck className="size-4" />
+            /* Atalho de desenvolvimento, separado por régua de 1px em largura
+               inteira (§11) — não por faixa lateral nem por cor. O e-mail fica
+               FORA do botão: espremido lá dentro ele era truncado, e um dado
+               que não se lê inteiro não é dado. */
+            <div className="mt-5 border-t pt-5">
+              <form
+                action={async () => {
+                  "use server";
+                  await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
+                }}
+              >
+                <Button type="submit" variant="outline" className="w-full">
+                  <Terminal strokeWidth={1.5} />
                   Entrar como dev
-                </span>
-                <span className="max-w-[180px] truncate font-mono text-xs text-muted-foreground">
-                  {devUser?.email}
-                </span>
-              </Button>
-            </form>
+                </Button>
+              </form>
+              <p className="mt-2 truncate text-center font-mono text-[13px] text-muted-foreground">
+                {devUser?.email}
+              </p>
+            </div>
           ) : null}
-
-          <div className="mt-6 space-y-2 border-t pt-5 text-sm text-muted-foreground">
-            <p className="flex items-center gap-2">
-              <ShieldCheck className="size-4 shrink-0 text-primary" />
-              Sessão protegida e acesso único por identidade Google.
-            </p>
-            <p className="flex items-center gap-2">
-              <FileSearch className="size-4 shrink-0 text-primary" />
-              PDFs processados para conferência documental técnica.
-            </p>
-          </div>
         </div>
-
-        <p className="mt-6 text-center font-mono text-xs text-muted-foreground">
-          ACESSO RESTRITO / NEXODOC
-        </p>
       </div>
     </main>
   );
