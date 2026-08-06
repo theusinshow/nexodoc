@@ -553,19 +553,25 @@ export function PlanoDeGeracao({
          */}
         {proposals.some((p) => p.kind === "ld") &&
           (misto
-            ? blocos
-                .filter((b) => b.codigo)
-                .map((b) => (
-                  <BlocoDaLd
-                    key={b.codigo}
-                    titulo={(b.rotulo || "Sem disciplina").toUpperCase()}
-                    onTitulo={() => {}}
-                    somenteLeitura
-                    codigo={codigo}
-                    revisao={revisao}
-                    totalFolhas={b.ids.length}
-                  />
-                ))
+            ? /*
+               * TODOS os blocos, inclusive o "sem disciplina".
+               *
+               * Filtrar por `codigo` mostrava 3 LDs enquanto o plano gerava 4:
+               * `itensDoPlano` percorre a lista inteira, e as folhas cuja
+               * disciplina não foi lida também viram um bloco. Esconder esse
+               * bloco é esconder justamente o que precisa de conferência.
+               */
+              blocos.map((b) => (
+                <BlocoDaLd
+                  key={b.codigo || "sem-disciplina"}
+                  titulo={(b.rotulo || "Sem disciplina").toUpperCase()}
+                  onTitulo={() => {}}
+                  somenteLeitura
+                  codigo={codigo}
+                  revisao={revisao}
+                  totalFolhas={b.ids.length}
+                />
+              ))
             : (
                 <BlocoDaLd
                   titulo={mesclado.valores.tituloLd ?? ""}
