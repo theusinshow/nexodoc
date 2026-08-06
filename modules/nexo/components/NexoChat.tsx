@@ -20,6 +20,7 @@ import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
+import { ZonaDeSolta } from "./ZonaDeSolta";
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
@@ -57,6 +58,7 @@ export function NexoChat({
   selos,
   onSend,
   onAttach,
+  arrastando = false,
   readStatus,
   pranchaFiles,
   memorialFile,
@@ -69,6 +71,8 @@ export function NexoChat({
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
+  /** Arrasto em curso: a zona de solta sai do caminho do overlay de tela cheia. */
+  arrastando?: boolean;
   readStatus?: ReadStatus | null;
   /** Pranchas originais retidas (bytes p/ montar o volume). */
   pranchaFiles: File[];
@@ -334,6 +338,20 @@ export function NexoChat({
         }}
         className="relative min-h-0 flex-1 overflow-y-auto"
       >
+        {/*
+         * O LOG VAZIO É A ZONA DE SOLTA.
+         *
+         * O shell já reservava esta altura na entrada e ela ficava em branco —
+         * ~40% da tela dizendo nada, enquanto o subtítulo mandava "solte as
+         * pranchas" e a única afordância era um clipe de 12px no rodapé. A
+         * DESIGN.md §8 pede zona de solta VISÍVEL; ela vive aqui, e some sozinha
+         * quando a primeira mensagem chega, sem deslocar o composer.
+         */}
+        {messages.length === 0 && (
+          <div className="mx-auto h-full max-w-[46rem] px-4 py-6">
+            <ZonaDeSolta onAnexar={onAttach} arrastando={arrastando} />
+          </div>
+        )}
         <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 py-6">
           {messages.map((m, idx) => (
             <div

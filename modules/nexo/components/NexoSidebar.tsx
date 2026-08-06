@@ -110,9 +110,22 @@ export function NexoSidebar({
       {/* Histórico agrupado por pasta */}
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {empty && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border/60 px-3 text-center">
-            <p className="text-xs text-muted-foreground">
-              Sem histórico ainda. Suas conversas e volumes ficam salvos aqui.
+          /*
+           * ESTADO VAZIO conforme a DESIGN.md §7: um Mono Label nomeando a
+           * região e uma linha dizendo o que vai aparecer ali. Sem ação —
+           * aqui não há nada a fazer, e ação inventada num vazio é confissão
+           * de que a tela não sabe o que quer.
+           *
+           * Antes era `flex-1` centralizado: a caixa esticava ~590px para
+           * caber uma frase, e o rótulo da região tinha sumido na
+           * implementação. Agora ela ocupa o que o conteúdo pede.
+           */
+          <div className="space-y-1.5 rounded-md border border-dashed border-border/60 px-3 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
+              Histórico
+            </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Suas conversas e volumes ficam salvos aqui.
             </p>
           </div>
         )}

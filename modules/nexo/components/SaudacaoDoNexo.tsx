@@ -14,6 +14,12 @@
  * O typewriter é o `useRevealText` — o MESMO que revela a resposta do agente no
  * chat. Um segundo typewriter divergiria do primeiro na primeira vez que alguém
  * mexesse na cadência.
+ *
+ * Havia aqui um subtítulo explicando as duas portas ("solte as pranchas… solte
+ * o memorial…"). Ele saiu quando a ZONA DE SOLTA passou a existir: os dois
+ * diziam a mesma coisa com palavras diferentes, e a zona diz no lugar em que se
+ * age. A segunda linha da saudação já nomeia as duas portas — "montar ou
+ * auditar?" — então nada se perdeu.
  */
 
 import { useEffect, useState } from "react";
@@ -97,20 +103,6 @@ function FraseEscrita({
           />
         )}
       </h2>
-      {/*
-        O subtítulo entra DEPOIS, e por fade — não por escrita. Duas coisas
-        digitando ao mesmo tempo brigam pelo olho; o herói escreve, o apoio
-        acompanha.
-      */}
-      <p
-        className={
-          "mx-auto max-w-sm text-sm text-muted-foreground transition-opacity duration-500 ease-out " +
-          (digitando ? "opacity-0" : "opacity-100")
-        }
-      >
-        Solte as pranchas e eu leio os selos, proponho e monto. Solte o memorial
-        e eu audito contra a obra declarada.
-      </p>
     </>
   );
 }

@@ -27,6 +27,7 @@ export function NexoCopilot({
   selos,
   onSend,
   onAttach,
+  arrastando = false,
   readStatus,
   agentState = "idle",
   fileCount = 0,
@@ -46,6 +47,8 @@ export function NexoCopilot({
   selos: SeloForLd[];
   onSend?: () => void;
   onAttach?: () => void;
+  /** Arrasto em curso: a zona de solta cede a vez ao overlay de tela cheia. */
+  arrastando?: boolean;
   readStatus?: ReadStatus | null;
   /** Estado do Nexo Core (derivado dos sinais do app pelo NexoWorkspace). */
   agentState?: AgentState;
@@ -204,6 +207,7 @@ export function NexoCopilot({
           selos={selos}
           onSend={onSend}
           onAttach={onAttach}
+          arrastando={arrastando}
           readStatus={readStatus}
           pranchaFiles={pranchaFiles}
           memorialFile={memorialFile}

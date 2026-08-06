@@ -1615,6 +1615,7 @@ function NexoWorkspaceInner({
             selos={selos}
             onSend={start}
             onAttach={() => attachInputRef.current?.click()}
+            arrastando={dragging}
             readStatus={readStatus}
             agentState={agentState}
             fileCount={okCount}
