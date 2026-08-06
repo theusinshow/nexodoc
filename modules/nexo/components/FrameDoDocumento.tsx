@@ -49,11 +49,23 @@ export function FrameDoDocumento({
   layout,
   campos,
   valores,
+  derivados = {},
   onChange,
 }: {
   layout: ParagrafoDoModelo[];
   campos: CampoDoFrame[];
+  /** Só o que foi DECIDIDO à mão. Vazio significa "vale o carimbo". */
   valores: Record<string, string>;
+  /**
+   * O que o carimbo/arquivo/divisão já dizem, por marcador. Entra como texto
+   * FANTASMA nos campos editáveis, nunca como valor.
+   *
+   * Como valor, o campo não podia ser apagado: limpar devolvia "" ao estado, o
+   * derivado reaparecia no mesmo render, e o controle brigava com quem digitava.
+   * Fantasma preserva a regra "vazio = vale o carimbo" e ainda mostra o texto
+   * já quebrado nas linhas em que vai sair impresso.
+   */
+  derivados?: Record<string, string>;
   onChange: (marcador: string, valor: string) => void;
 }) {
   const campoDe = (marcador: string) => campos.find((c) => c.marcador === marcador);
@@ -130,7 +142,7 @@ export function FrameDoDocumento({
                     className="font-mono text-[10px] text-muted-foreground"
                     title={`${rotulo} · ${campo.derivadoDe}`}
                   >
-                    {valores[parte.nome] || "—"}
+                    {valores[parte.nome] || derivados[parte.nome] || "—"}
                     <span className="opacity-60"> · {campo.derivadoDe}</span>
                   </span>
                 );
@@ -152,7 +164,7 @@ export function FrameDoDocumento({
                   aria-label={rotulo}
                   rows={linhas}
                   value={valores[parte.nome] ?? ""}
-                  placeholder={campo?.placeholder}
+                  placeholder={derivados[parte.nome] || campo?.placeholder}
                   onChange={(e) => onChange(parte.nome, e.target.value)}
                   className={`${comum} resize-none leading-snug ${forma}`}
                 />
@@ -161,7 +173,7 @@ export function FrameDoDocumento({
                   key={chave}
                   aria-label={rotulo}
                   value={valores[parte.nome] ?? ""}
-                  placeholder={campo?.placeholder}
+                  placeholder={derivados[parte.nome] || campo?.placeholder}
                   onChange={(e) => onChange(parte.nome, e.target.value)}
                   className={`${comum} ${forma}`}
                 />

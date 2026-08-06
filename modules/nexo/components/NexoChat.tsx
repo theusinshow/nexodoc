@@ -352,7 +352,13 @@ export function NexoChat({
             <ZonaDeSolta onAnexar={onAttach} arrastando={arrastando} />
           </div>
         )}
-        <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 py-6">
+        {/*
+          O respiro do fim (`pb-16`) existe para o botão "ir para as últimas
+          mensagens": ele é sticky no rodapé do log e ficava POR CIMA da última
+          bolha, que é justamente a que se está tentando ler. Sem a folga, o
+          atalho para chegar ao fim atrapalhava quem já estava chegando lá.
+        */}
+        <div className="mx-auto flex max-w-[46rem] flex-col gap-7 px-4 pb-16 pt-6">
           {messages.map((m, idx) => (
             <div
               key={m.id}

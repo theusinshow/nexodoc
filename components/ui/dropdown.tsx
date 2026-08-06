@@ -3,6 +3,10 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  medirLugarDaSobreposicao,
+  type LugarDaSobreposicao,
+} from "./posicao-da-sobreposicao";
 
 type TriggerState = { open: boolean; toggle: () => void };
 type PanelState = { close: () => void };
@@ -23,6 +27,29 @@ export function Dropdown({
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const [lugar, setLugar] = React.useState<LugarDaSobreposicao | null>(null);
+
+  /*
+   * ONDE O MENU CABE.
+   *
+   * Este primitivo abria SEMPRE para baixo, sem teto de altura — o mesmo padrão
+   * que fez um popover do canvas descer para fora da janela mostrando só o
+   * cabeçalho, com os itens no DOM e toda asserção passando verde. Aqui morde
+   * no menu de ações de um achado do fim de uma lista longa, e dentro de um
+   * cartão `overflow-hidden` morde independentemente da posição na janela.
+   *
+   * O deslocamento horizontal não se aplica: o menu alinha pela borda do
+   * gatilho (`left-0`/`right-0`), não pelo centro dele.
+   */
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    function medir() {
+      if (ref.current) setLugar(medirLugarDaSobreposicao(ref.current, null));
+    }
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [open]);
 
   React.useEffect(() => {
     if (!open) {
@@ -55,8 +82,12 @@ export function Dropdown({
       {open ? (
         <div
           role="menu"
+          style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
           className={cn(
-            "nexodoc-enter absolute top-[calc(100%+4px)] z-50 min-w-[180px] rounded-md border bg-[var(--nexodoc-panel)] p-1 shadow-lg shadow-black/20",
+            "nexodoc-enter absolute z-50 min-w-[180px] overflow-y-auto overscroll-contain rounded-md border bg-[var(--nexodoc-panel)] p-1 shadow-lg shadow-black/20",
+            lugar?.lado === "acima"
+              ? "bottom-[calc(100%+4px)]"
+              : "top-[calc(100%+4px)]",
             align === "end" ? "right-0" : "left-0",
             panelClassName,
           )}

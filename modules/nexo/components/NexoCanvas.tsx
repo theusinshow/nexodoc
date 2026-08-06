@@ -42,6 +42,7 @@ import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { aplicarIdentidade, separarIdentidade } from "../lib/identidade";
 import { summarizeSelos } from "../lib/agent-context";
 import type { ParagrafoDoModelo } from "@/server/odt/layout";
+import { textoEmLinhasDaCapa } from "@/server/nexo/capa-linhas";
 import { EditorDoNo } from "./EditorDoNo";
 import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
@@ -297,7 +298,16 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
         derivadosDoNo={(() => {
           const ident = summarizeSelos(data.selos ?? []);
           return {
-            NOME_OBRA: conv.identidade.obra ?? ident.obra ?? "",
+            /*
+             * A obra chega JÁ QUEBRADA nas linhas em que será impressa. O
+             * carimbo a escreve numa tira só ("A - B") porque a célula dele é
+             * uma linha; a capa tem duas. Mostrar a tira aqui faria o frame
+             * dizer uma coisa e o PDF sair outra — o defeito que ele existe
+             * para não cometer. Mesma regra da geração: [[capa-linhas.ts]].
+             */
+            NOME_OBRA: textoEmLinhasDaCapa(
+              conv.identidade.obra ?? ident.obra ?? "",
+            ),
             CODIGO_EXIBIDO: conv.identidade.codigo ?? ident.codigo ?? "",
             TOMO:
               typeof data.tomo === "number" && data.tomo > 0

@@ -213,6 +213,23 @@ try {
     JSON.stringify({ caixa, janela }),
   );
 
+  /*
+   * E CABE NO CANVAS, que é quem realmente corta.
+   *
+   * O React Flow é `overflow: hidden` e termina bem antes da borda da tela: um
+   * painel que "cabe na janela" pode ser cortado ali mesmo, em silêncio. Medir
+   * só contra a janela era a metade da conta que faltava.
+   */
+  const canvas = await page.locator(".react-flow").first().boundingBox();
+  check(
+    "o painel do frame cabe DENTRO do canvas (que é quem recorta)",
+    caixa !== null &&
+      canvas !== null &&
+      caixa.x >= canvas.x - 1 &&
+      caixa.x + caixa.width <= canvas.x + canvas.width + 1,
+    JSON.stringify({ caixa, canvas }),
+  );
+
   const obra = dialogo.getByLabel("Obra", { exact: true });
   const disciplinas = dialogo.getByLabel("Título", { exact: true });
   const bairro = dialogo.getByLabel("Bairro", { exact: true });
@@ -221,12 +238,22 @@ try {
   check("o frame desenha o campo do BAIRRO", (await bairro.count()) === 1);
   check("o frame desenha o campo das DISCIPLINAS", (await disciplinas.count()) === 1);
 
-  // A falha nº 1: a obra aparecia vazia e sem fantasma, como capa em branco.
+  /*
+   * A falha nº 1: a obra aparecia vazia, como capa em branco. Ela vem como
+   * texto FANTASMA — nunca como valor. Como valor, o campo não podia ser
+   * apagado (limpar devolvia "" e o derivado reaparecia no mesmo render), e
+   * vazio é justamente o que significa "vale o carimbo".
+   */
   const fantasma = await obra.getAttribute("placeholder");
   check(
     "a obra do carimbo aparece no frame, JÁ QUEBRADA nas linhas que vão sair",
     fantasma === OBRA_EM_DUAS_LINHAS,
     JSON.stringify(fantasma),
+  );
+  check(
+    "o campo da obra começa VAZIO (vazio = vale o carimbo)",
+    (await obra.inputValue()) === "",
+    JSON.stringify(await obra.inputValue()),
   );
 
   // Obra e bairro saem do grupo recolhido: estão desenhados no frame agora.

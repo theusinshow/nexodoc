@@ -214,12 +214,18 @@ export function EditorDoNo({
         <FrameDoDocumento
           layout={layout ?? []}
           campos={CAMPOS_DO_FRAME}
+          /*
+           * Só o que foi DECIDIDO à mão. O derivado vai separado, como texto
+           * fantasma: misturado ao valor, o campo não podia ser apagado —
+           * limpar devolvia "" e o derivado reaparecia no mesmo render.
+           */
           valores={Object.fromEntries(
             Object.entries(MARCADOR_DA_CHAVE).map(([chave, marcador]) => [
               marcador,
-              valores[chave] || (derivadosDoNo?.[marcador] ?? ""),
+              valores[chave] ?? "",
             ]),
           )}
+          derivados={derivadosDoNo ?? {}}
           onChange={(marcador, v) => {
             const chave = CHAVE_DO_MARCADOR[marcador];
             if (chave) setValores((atual) => ({ ...atual, [chave]: v }));

@@ -55,14 +55,15 @@ const DERIVADOS = new Set(
 );
 
 /**
- * O valor que cada marcador mostra: a correção à mão vence; senão o param do
- * documento; senão o derivado do carimbo/arquivo/divisão. Vazio significa
- * "ainda não decidido", e é o que acende o campo no frame.
+ * O que foi DECIDIDO por marcador: a correção à mão, ou o param do documento.
+ *
+ * O derivado do carimbo NÃO entra aqui — ele viaja separado, como texto
+ * fantasma. Misturado ao valor, o campo não podia ser apagado: limpar devolvia
+ * "" ao estado e o derivado reaparecia no mesmo render, com o controle brigando
+ * com quem digitava. E vazio é justamente o que significa "vale o carimbo".
  */
 export function valoresDoFrame(args: {
   identidade: IdentidadeDoProjeto;
-  /** Chaveado por NOME DE MARCADOR ("CODIGO_EXIBIDO"), não por nome de campo. */
-  derivados: Record<string, string>;
   params: Record<string, string>;
 }): Record<string, string> {
   const out: Record<string, string> = {};
@@ -71,9 +72,7 @@ export function valoresDoFrame(args: {
     const doParam = DOS_PARAMS[campo.marcador];
     out[campo.marcador] =
       (daIdentidade ? (args.identidade[daIdentidade] ?? "").trim() : "") ||
-      (doParam ? (args.params[doParam] ?? "").trim() : "") ||
-      args.derivados[campo.marcador] ||
-      "";
+      (doParam ? (args.params[doParam] ?? "").trim() : "");
   }
   return out;
 }

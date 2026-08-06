@@ -1328,13 +1328,21 @@ export function AuditResult({
                     <article
                       data-resolvido={resolvidos.has(finding.refId ?? "") || undefined}
                       className={cn(
-                        "overflow-hidden rounded-md border bg-card transition-colors",
+                        /*
+                         * SEM `overflow-hidden`: o menu de ações deste achado é
+                         * filho daqui, e o recorte o cortava INDEPENDENTEMENTE
+                         * da posição na janela — o cartão é mais curto que o
+                         * menu. O arredondamento que o `overflow` garantia
+                         * agora é do cabeçalho, que é o único filho com fundo
+                         * próprio encostando na borda.
+                         */
+                        "rounded-md border bg-card transition-colors",
                         resolvidos.has(finding.refId ?? "")
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",
                       )}
                     >
-                      <div className="grid gap-4 border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
+                      <div className="grid gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
                         <div className="min-w-0">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">

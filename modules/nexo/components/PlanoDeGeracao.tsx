@@ -49,6 +49,7 @@ import {
   valoresDoFrame,
 } from "../lib/campos-do-frame";
 import { mesclarDecisoes } from "../lib/decisoes";
+import { textoEmLinhasDaCapa } from "@/server/nexo/capa-linhas";
 import type { ParagrafoDoModelo } from "@/server/odt/layout";
 
 const LABEL_CLASS =
@@ -526,21 +527,23 @@ export function PlanoDeGeracao({
           <FrameDoDocumento
             layout={layoutDoModelo}
             campos={CAMPOS_DO_FRAME}
-            valores={valoresDoFrame({
-              identidade,
-              derivados: {
-                NOME_OBRA: obra,
-                CODIGO_EXIBIDO: codigo,
-                MES_ANO: dataDaCapa || "mês corrente",
-                VOLUME: capa?.volume?.trim() || "do arquivo",
-                TOMO:
-                  numTomos > 1
-                    ? `TOMO ${String(tomoInicial).padStart(2, "0")}…`
-                    : "",
-                DISCIPLINA: misto ? resumoDosBlocos(blocos) : "",
-              },
-              params: mesclado.valores,
-            })}
+            valores={valoresDoFrame({ identidade, params: mesclado.valores })}
+            /*
+             * O que o carimbo, o arquivo e a divisão já dizem — texto fantasma
+             * nos campos editáveis, valor nos derivados. Nunca valor de campo:
+             * ali ele impediria apagar.
+             */
+            derivados={{
+              // Já quebrada nas linhas em que vai sair impressa — o carimbo
+              // escreve "A - B" numa tira só, e a capa tem duas linhas.
+              NOME_OBRA: textoEmLinhasDaCapa(obra),
+              CODIGO_EXIBIDO: codigo,
+              MES_ANO: dataDaCapa || "mês corrente",
+              VOLUME: capa?.volume?.trim() || "do arquivo",
+              TOMO:
+                numTomos > 1 ? `TOMO ${String(tomoInicial).padStart(2, "0")}…` : "",
+              DISCIPLINA: misto ? resumoDosBlocos(blocos) : "",
+            }}
             onChange={aoEditarNoFrame}
           />
         ) : null}

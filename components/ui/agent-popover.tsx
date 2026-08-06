@@ -3,6 +3,10 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  medirLugarDaSobreposicao,
+  type LugarDaSobreposicao,
+} from "./posicao-da-sobreposicao";
 
 /**
  * Popover de STATUS controlado, ancorado ao gatilho. Irmão do `Dropdown`
@@ -42,14 +46,12 @@ export function AgentPopover({
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const [lugar, setLugar] = React.useState<{
-    lado: "abaixo" | "acima";
-    alturaMax: number;
-  } | null>(null);
+  const [lugar, setLugar] = React.useState<LugarDaSobreposicao | null>(null);
 
   /*
-   * De que lado cabe. Mede a ÂNCORA (não o painel): o painel já está preso ao
-   * lado antigo quando a medição roda, e usá-lo faria a decisão oscilar.
+   * Onde cabe. Mede a ÂNCORA (não a posição do painel): o painel já está preso
+   * ao lugar antigo quando a medição roda, e usá-lo faria a decisão oscilar.
+   * Do painel sai só a LARGURA, que não muda com o deslocamento.
    */
   React.useLayoutEffect(() => {
     if (!open) return;
@@ -57,20 +59,7 @@ export function AgentPopover({
     function medir() {
       const raiz = rootRef.current;
       if (!raiz) return;
-      const r = raiz.getBoundingClientRect();
-      const MARGEM = 16;
-      const BICO = 10;
-      const abaixo = window.innerHeight - r.bottom - MARGEM - BICO;
-      const acima = r.top - MARGEM - BICO;
-      // A escala do React Flow: o rect vem em pixels de TELA, o max-height é
-      // aplicado em pixels LOCAIS. Sem converter, o painel encolhe com o zoom.
-      const escala = raiz.offsetHeight > 0 ? r.height / raiz.offsetHeight : 1;
-      const lado = abaixo >= acima ? "abaixo" : "acima";
-      const espaco = Math.max(abaixo, acima);
-      setLugar({
-        lado,
-        alturaMax: Math.max(160, espaco / (escala || 1)),
-      });
+      setLugar(medirLugarDaSobreposicao(raiz, panelRef.current));
     }
 
     medir();
@@ -112,6 +101,15 @@ export function AgentPopover({
       {open ? (
         // Posicionador (X estático — sobrevive ao reduced-motion) + painel animado.
         <div
+          /*
+           * O DESLOCAMENTO HORIZONTAL entra aqui, no posicionador. Ancorado num
+           * nó perto da borda do canvas, o painel centrado no gatilho vazava
+           * 180px para o lado e o `overflow: hidden` do React Flow o cortava —
+           * o mesmo defeito silencioso do eixo vertical, um eixo ao lado.
+           */
+          style={
+            lugar ? { transform: `translateX(calc(-50% + ${lugar.deslocX}px))` } : undefined
+          }
           className={cn(
             "absolute left-1/2 z-50 -translate-x-1/2",
             lugar?.lado === "acima"
@@ -122,9 +120,16 @@ export function AgentPopover({
           {/* Bico apontando para a âncora (conexão visual, some a sensação de
               flutuar solto). Vive FORA do painel porque ele agora rola: dentro,
               o `overflow` o cortaria e ainda pediria barra horizontal. Segue o
-              lado escolhido — do contrário apontaria para o vazio ao subir. */}
+              lado escolhido — do contrário apontaria para o vazio ao subir.
+              O deslocamento do painel é DESCONTADO dele: o bico aponta para o
+              gatilho, não para o painel que se afastou. */}
           <span
             aria-hidden
+            style={
+              lugar
+                ? { transform: `translateX(calc(-50% - ${lugar.deslocX}px)) rotate(45deg)` }
+                : undefined
+            }
             className={cn(
               "absolute left-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-[var(--nexodoc-panel)]",
               lugar?.lado === "acima"
