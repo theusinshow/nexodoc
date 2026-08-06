@@ -157,6 +157,15 @@ export interface CapaOptions {
   /** override do mês/ano da capa; vazio = mês/ano atual. */
   mes?: string;
   ano?: string;
+  /**
+   * Marcadores que o MODELO tem e o Nexo não conhece, preenchidos à mão no
+   * frame do documento. Chaveados pelo nome, sem as chaves.
+   *
+   * Existem para a promessa "o modelo manda" ser inteira: acrescentar um
+   * `{{RESPONSAVEL}}` ao ODT faz o campo aparecer no frame, e é por aqui que o
+   * valor chega ao documento em vez de sair literal.
+   */
+  extras?: Record<string, string>;
 }
 
 export async function postCapa(
@@ -177,6 +186,9 @@ export async function postCapa(
       ...limparIdentidade(opts.identidade ?? {}),
       ...(opts.mes?.trim() ? { mes: opts.mes.trim() } : {}),
       ...(opts.ano?.trim() ? { ano: opts.ano.trim() } : {}),
+      ...(opts.extras && Object.keys(opts.extras).length > 0
+        ? { extras: opts.extras }
+        : {}),
     }),
   });
   conferirSessao(res);

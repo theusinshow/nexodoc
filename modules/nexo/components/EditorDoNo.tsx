@@ -19,7 +19,22 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NexoArtifactKind } from "../types";
 import { descreverMudanca, type RotulosDeCampo } from "../lib/edicao";
-import { CHAVES_DO_FRAME, FrameDaCapa, type DerivadosDaCapa } from "./FrameDaCapa";
+import { FrameDoDocumento } from "./FrameDoDocumento";
+import { CAMPOS_DO_FRAME, DA_IDENTIDADE, DOS_PARAMS } from "../lib/campos-do-frame";
+import type { ParagrafoDoModelo } from "@/server/odt/layout";
+
+/*
+ * Chave do campo do editor → marcador do modelo. O editor do nó fala em
+ * `obra`/`codigo`; o frame fala em `{{NOME_OBRA}}`/`{{CODIGO_EXIBIDO}}`. O mapa
+ * sai das mesmas tabelas que a geração usa — duas listas divergiriam.
+ */
+const MARCADOR_DA_CHAVE: Record<string, string> = Object.fromEntries([
+  ...Object.entries(DA_IDENTIDADE).map(([marcador, chave]) => [chave, marcador]),
+  ...Object.entries(DOS_PARAMS).map(([marcador, chave]) => [chave, marcador]),
+]);
+const CHAVE_DO_MARCADOR: Record<string, string> = Object.fromEntries(
+  Object.entries(MARCADOR_DA_CHAVE).map(([chave, marcador]) => [marcador, chave]),
+);
 
 /** Um campo do editor. `linhas > 1` vira textarea (título tem parágrafos). */
 export interface CampoEditavel {
@@ -54,22 +69,23 @@ export function EditorDoNo({
   campos,
   onAplicar,
   onCancelar,
-  prefeituraDoTemplate,
-  rotuloDoTomo,
-  derivadosDaCapa,
+  layout,
+  derivadosDoNo,
 }: {
   kind: NexoArtifactKind;
   campos: CampoEditavel[];
-  /** Cabeçalho da capa, do template escolhido. Só para desenhar o frame. */
-  prefeituraDoTemplate?: string;
-  /** "TOMO 01", derivado da divisão. Só para desenhar o frame. */
-  rotuloDoTomo?: string;
   /**
-   * O que o carimbo já diz (obra, código). Sem isto o frame desenha a capa
-   * VAZIA nesses campos — eles chegam em branco de propósito, porque branco
-   * significa "vale o selo".
+   * A ESTRUTURA do modelo ODT da prefeitura deste documento. Vazia (ou ausente)
+   * = sem frame, e o editor cai na lista de campos. É o mesmo componente do
+   * card "Vou gerar": dois frames divergiriam.
    */
-  derivadosDaCapa?: DerivadosDaCapa;
+  layout?: ParagrafoDoModelo[];
+  /**
+   * O que o carimbo já diz, por MARCADOR. Sem isto o frame desenha a capa vazia
+   * nesses campos — eles chegam em branco de propósito, porque branco significa
+   * "vale o selo".
+   */
+  derivadosDoNo?: Record<string, string>;
   /**
    * Aplica: recebe os valores novos e a FRASE para o histórico (`null` quando
    * nada mudou). Quem chama regenera o artefato e escreve a mensagem.
@@ -172,36 +188,42 @@ export function EditorDoNo({
    * Os campos que o frame desenha saem da lista; o resto (prefeitura, tomos,
    * identidade) continua abaixo, onde sempre esteve.
    */
-  const usaFrame = kind === "capa";
-  const noFrame = usaFrame
-    ? soltos.filter((c) => CHAVES_DO_FRAME.includes(c.chave))
-    : [];
-  const foraDoFrame = usaFrame
-    ? soltos.filter((c) => !CHAVES_DO_FRAME.includes(c.chave))
-    : soltos;
-  const identidade = campos.filter((c) => c.grupo);
-  const camposDoFrame = [...noFrame, ...identidade.filter((c) => CHAVES_DO_FRAME.includes(c.chave))];
-  const gruposVisiveis = usaFrame
-    ? grupos
-        .map((g) => ({
-          ...g,
-          campos: g.campos.filter((c) => !CHAVES_DO_FRAME.includes(c.chave)),
-        }))
-        .filter((g) => g.campos.length > 0)
-    : grupos;
+  const usaFrame = kind === "capa" && (layout?.length ?? 0) > 0;
+
+  /** Os marcadores que o modelo realmente desenha nesta prefeitura. */
+  const desenhados = new Set(
+    usaFrame
+      ? (layout ?? [])
+          .flatMap((p) => p.partes)
+          .flatMap((x) => (x.tipo === "marcador" ? [x.nome] : []))
+      : [],
+  );
+  const noFrame = (c: CampoEditavel) =>
+    usaFrame && desenhados.has(MARCADOR_DA_CHAVE[c.chave] ?? "");
+
+  const foraDoFrame = soltos.filter((c) => !noFrame(c));
+  const gruposVisiveis = grupos
+    .map((g) => ({ ...g, campos: g.campos.filter((c) => !noFrame(c)) }))
+    .filter((g) => g.campos.length > 0);
 
   return (
     <div className="nodrag nopan nowheel space-y-2.5">
       <p className={LABEL_CLASS}>Editar {kind}</p>
 
       {usaFrame && (
-        <FrameDaCapa
-          campos={camposDoFrame}
-          valores={valores}
-          onChange={(chave, v) => setValores((atual) => ({ ...atual, [chave]: v }))}
-          prefeitura={prefeituraDoTemplate ?? ""}
-          derivados={derivadosDaCapa ?? {}}
-          tomo={rotuloDoTomo ?? ""}
+        <FrameDoDocumento
+          layout={layout ?? []}
+          campos={CAMPOS_DO_FRAME}
+          valores={Object.fromEntries(
+            Object.entries(MARCADOR_DA_CHAVE).map(([chave, marcador]) => [
+              marcador,
+              valores[chave] || (derivadosDoNo?.[marcador] ?? ""),
+            ]),
+          )}
+          onChange={(marcador, v) => {
+            const chave = CHAVE_DO_MARCADOR[marcador];
+            if (chave) setValores((atual) => ({ ...atual, [chave]: v }));
+          }}
         />
       )}
 

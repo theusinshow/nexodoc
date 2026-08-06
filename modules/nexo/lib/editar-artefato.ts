@@ -347,6 +347,11 @@ export async function gerarItem(args: {
   totais?: Record<string, number>;
   /** Identidade do projeto corrigida à mão (órgão, obra, código, revisão…). */
   identidade?: IdentidadeDoProjeto;
+  /**
+   * Marcadores que o engenheiro acrescentou ao MODELO e o Nexo não conhece.
+   * Só a capa os usa — a LD e a separatriz têm modelo próprio.
+   */
+  extras?: Record<string, string>;
 }): Promise<void> {
   const { item, selos, saveResult } = args;
   const p = item.params;
@@ -372,6 +377,9 @@ export async function gerarItem(args: {
       mes: txt("mes"),
       ano: txt("ano"),
       identidade: args.identidade,
+      ...(args.extras && Object.keys(args.extras).length > 0
+        ? { extras: args.extras }
+        : {}),
     });
     await saveResult({
       artifactId: args.idsBase.capa + item.sufixo,

@@ -45,6 +45,14 @@ export interface SlotRequestContext {
    * (`lib/ld/ld-rules`), que é import de runtime, e este arquivo é puro.
    */
   tomosSugeridos: number;
+  /**
+   * O que o engenheiro já decidiu no FRAME do documento (título, volume, data,
+   * tomos, prefeitura). Entra como slot PREENCHIDO.
+   *
+   * Sem isto o Nexo volta a perguntar no chat o título que ele acabou de
+   * digitar no card — o oposto do que o frame existe para fazer.
+   */
+  decisoes?: Record<string, string>;
 }
 
 /**
@@ -131,10 +139,17 @@ export function buildSlotRequestForTurn(
   };
 
   for (const p of proposals) {
+    const slots = slotsFromProposal(p);
+    // A decisão do engenheiro vale como resposta dada: ela vem do frame, onde
+    // ele acabou de digitar o campo que o resolvedor pediria de novo aqui.
+    for (const [id, valor] of Object.entries(ctx.decisoes ?? {})) {
+      const limpo = valor.trim();
+      if (limpo) slots[id] = { value: limpo };
+    }
     const { nextMissing } = resolveSlots({
       taskKind: p.kind,
       facts,
-      slots: slotsFromProposal(p),
+      slots,
       requirements: ARTIFACT_REQUIREMENTS,
     });
     if (nextMissing) return nextMissing;

@@ -41,6 +41,7 @@ import { orfaosAposDivisao } from "../lib/edicao";
 import { camposDoArtefato, aplicarEdicaoNoNo } from "../lib/editar-artefato";
 import { aplicarIdentidade, separarIdentidade } from "../lib/identidade";
 import { summarizeSelos } from "../lib/agent-context";
+import type { ParagrafoDoModelo } from "@/server/odt/layout";
 import { EditorDoNo } from "./EditorDoNo";
 import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
@@ -107,7 +108,8 @@ type ArtifactNodeData = CanvasArtifact & {
   /** Só capa/LD/separatriz abrem editor; volume é derivado. */
   editavel?: boolean;
   params?: Record<string, unknown>;
-  templates?: { id: string; nome: string }[];
+  /** `layout` é a estrutura do modelo ODT — é dela que o frame se desenha. */
+  templates?: { id: string; nome: string; layout?: ParagrafoDoModelo[] }[];
   tomosExistentes?: number[];
   selos?: Folha[];
   /** As folhas do tomo mudaram desde que este documento foi gerado. */
@@ -277,26 +279,30 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
     >
       <EditorDoNo
         kind={data.kind}
-        prefeituraDoTemplate={
+        /*
+         * O MESMO frame do card "Vou gerar", desenhado a partir do modelo desta
+         * prefeitura. Dois frames divergiriam — e o antigo, em CSS fixo, passou
+         * a mentir no dia em que o modelo ganhou duas linhas de nome de obra.
+         */
+        layout={
           (data.templates ?? []).find(
             (t) => t.id === String((data.params as { templateId?: unknown })?.templateId ?? ""),
-          )?.nome
-        }
-        rotuloDoTomo={
-          typeof data.tomo === "number" && data.tomo > 0
-            ? `TOMO ${String(data.tomo).padStart(2, "0")}`
-            : ""
+          )?.layout ?? []
         }
         /*
-         * O que o CARIMBO diz, para o frame desenhar a capa cheia. Os campos de
-         * identidade chegam vazios (vazio = "vale o selo"), e num desenho do
-         * documento isso se lia como capa sem obra e sem código.
+         * O que o CARIMBO diz, por marcador. Os campos de identidade chegam
+         * vazios (vazio = "vale o selo"), e num desenho do documento isso se
+         * lia como capa sem obra e sem código.
          */
-        derivadosDaCapa={(() => {
+        derivadosDoNo={(() => {
           const ident = summarizeSelos(data.selos ?? []);
           return {
-            obra: conv.identidade.obra ?? ident.obra ?? "",
-            codigo: conv.identidade.codigo ?? ident.codigo ?? "",
+            NOME_OBRA: conv.identidade.obra ?? ident.obra ?? "",
+            CODIGO_EXIBIDO: conv.identidade.codigo ?? ident.codigo ?? "",
+            TOMO:
+              typeof data.tomo === "number" && data.tomo > 0
+                ? `TOMO ${String(data.tomo).padStart(2, "0")}`
+                : "",
           };
         })()}
         campos={camposDoArtefato({

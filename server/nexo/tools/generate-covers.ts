@@ -20,6 +20,12 @@ export interface GenerateCoversInput {
   pages: CoverPage[];
   includePdf?: boolean;
   persist?: { projectId: string; userEmail: string; userName?: string | null };
+  /**
+   * Marcadores que o modelo tem e o Nexo não conhece, preenchidos à mão no
+   * frame do documento. Sem este repasse, um `{{RESPONSAVEL}}` acrescentado ao
+   * ODT sairia literal na capa.
+   */
+  extras?: Record<string, string>;
 }
 
 export interface GeneratedFile {
@@ -64,6 +70,7 @@ export async function generateCovers(
     templateId: generalData.templateId,
     generalData,
     pages,
+    ...(input.extras ? { extras: input.extras } : {}),
   });
 
   let pdfBuffer: Buffer | null = null;

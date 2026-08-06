@@ -18,10 +18,20 @@ export interface GenerateOdtInput {
   templateId?: string;
   generalData: GeneralData;
   pages: CoverPage[];
+  /**
+   * Marcadores que o MODELO tem e o Nexo não conhece, chaveados pelo nome sem
+   * as chaves (`RESPONSAVEL`, não `{{RESPONSAVEL}}`).
+   *
+   * O modelo é de quem o mantém: acrescentar um `{{RESPONSAVEL}}` ao ODT tem de
+   * bastar. Sem este canal o marcador novo sairia LITERAL na capa — e o frame
+   * teria oferecido um campo que não vai a lugar nenhum, o que é pior do que
+   * não oferecer.
+   */
+  extras?: Record<string, string>;
 }
 
 export async function generateOdtBuffer(input: GenerateOdtInput): Promise<Buffer> {
-  const { templateId, generalData, pages } = input;
+  const { templateId, generalData, pages, extras } = input;
 
   const mesAno = formatMesAno(generalData.mes, generalData.ano);
   const codigoExibido = generalData.codigoExibido || formatDisplayCode(generalData.codigoInterno);
@@ -36,7 +46,8 @@ export async function generateOdtBuffer(input: GenerateOdtInput): Promise<Buffer
       generalData,
       mesAno,
       codigoExibido,
-      pages
+      pages,
+      extras ?? {}
     );
   }
 
@@ -90,7 +101,8 @@ async function fillExistingOdt(
   generalData: GeneralData,
   mesAno: string,
   codigoExibido: string,
-  pages: CoverPage[]
+  pages: CoverPage[],
+  extras: Record<string, string>
 ): Promise<Buffer> {
   const zip = await JSZip.loadAsync(templateBuffer);
 
@@ -150,6 +162,17 @@ async function fillExistingOdt(
       page.tituloCapa,
       markerXmlValue,
     );
+
+    /*
+     * MARCADORES QUE O MODELO TEM E O NEXO NÃO CONHECE.
+     *
+     * Vêm DEPOIS dos conhecidos, para nunca sobrescrever um deles por engano.
+     * Sem este canal, um `{{RESPONSAVEL}}` acrescentado ao ODT seria impresso
+     * literal na capa.
+     */
+    for (const [nome, valor] of Object.entries(extras)) {
+      block = distribuirNosMarcadores(block, `{{${nome}}}`, valor, markerXmlValue);
+    }
     block = block.replaceAll("{{DISCIPLINA}}", markerXmlValue(page.disciplina));
     block = block.replaceAll("{{TOMO}}", markerXmlValue(page.tomo));
     block = block.replaceAll("{{VOLUME}}", markerXmlValue(page.volume));

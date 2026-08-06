@@ -17,6 +17,21 @@ import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos
 
 export const runtime = "nodejs";
 
+/**
+ * As decisões do frame, saneadas: só pares string→string não-vazios.
+ *
+ * O corpo vem do cliente e entra como SLOT PREENCHIDO — um valor estranho aqui
+ * viraria uma resposta que ninguém deu.
+ */
+function lerDecisoes(bruto: unknown): Record<string, string> {
+  if (!bruto || typeof bruto !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [chave, valor] of Object.entries(bruto as Record<string, unknown>)) {
+    if (typeof valor === "string" && valor.trim()) out[chave] = valor.trim();
+  }
+  return out;
+}
+
 type ChatTurn = { role: "user" | "assistant"; content: string };
 
 /**
@@ -53,6 +68,7 @@ export async function POST(req: NextRequest) {
   let selos: SeloForLd[];
   let memorial: FatosDoMemorial | null;
   let conversationId: string | null;
+  let decisoes: Record<string, string>;
   try {
     const body = (await req.json()) as {
       message?: unknown;
@@ -60,6 +76,7 @@ export async function POST(req: NextRequest) {
       selos?: unknown;
       memorial?: unknown;
       conversationId?: unknown;
+      decisoes?: unknown;
     };
     message = String(body.message ?? "").trim();
     if (!message) throw new Error("mensagem ausente");
@@ -77,6 +94,7 @@ export async function POST(req: NextRequest) {
       typeof body.conversationId === "string" && body.conversationId.trim()
         ? body.conversationId.trim()
         : null;
+    decisoes = lerDecisoes(body.decisoes);
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -157,6 +175,12 @@ export async function POST(req: NextRequest) {
     // A divisão em tomos é computada AQUI porque `sugerirNumeroDeTomos` é import
     // de runtime e os módulos do agente são folhas puras.
     tomosSugeridos: sugerirNumeroDeTomos(selos.length),
+    /*
+     * O que o engenheiro já decidiu no frame do documento. Sem isto o
+     * resolvedor pede de novo, no chat, o título que ele acabou de digitar no
+     * card — que é o oposto do que o frame existe para fazer.
+     */
+    decisoes,
   };
 
   const wantsStream = (req.headers.get("accept") ?? "").includes("text/event-stream");

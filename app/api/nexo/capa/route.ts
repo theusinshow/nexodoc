@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
   let ano: string | undefined;
   /** A identidade do projeto corrigida à mão — vence o carimbo. */
   const identidade: Record<string, string> = {};
+  /**
+   * Marcadores que o modelo tem e o Nexo não conhece, preenchidos no frame.
+   * Chaveados pelo NOME do marcador, sem as chaves.
+   */
+  const extras: Record<string, string> = {};
   try {
     const body = (await req.json()) as {
       selos?: unknown;
@@ -75,6 +80,15 @@ export async function POST(req: NextRequest) {
     }
     if (typeof body.mes === "string" && body.mes.trim()) mes = body.mes.trim();
     if (typeof body.ano === "string" && body.ano.trim()) ano = body.ano.trim();
+    // Só nome de marcador válido entra: o valor vai direto para o XML do
+    // documento, e um nome estranho aqui viraria substituição inesperada.
+    if (body.extras && typeof body.extras === "object") {
+      for (const [nome, valor] of Object.entries(body.extras as Record<string, unknown>)) {
+        if (/^[A-Z_][A-Z0-9_]*$/.test(nome) && typeof valor === "string" && valor.trim()) {
+          extras[nome] = valor.trim();
+        }
+      }
+    }
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -107,6 +121,7 @@ export async function POST(req: NextRequest) {
   const result = await generateCovers({
     generalData: proposal.generalData,
     pages: proposal.pages,
+    ...(Object.keys(extras).length > 0 ? { extras } : {}),
   });
 
   /*

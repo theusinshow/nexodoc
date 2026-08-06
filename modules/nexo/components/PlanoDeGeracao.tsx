@@ -23,11 +23,13 @@ import { FileText, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type {
+  LdPreviewData,
   NexoAgentProposal,
   NexoCapaProposalParams,
   NexoLdProposalParams,
   NexoSeparatrizProposalParams,
 } from "../types";
+import { BlocoDaLd } from "./BlocoDaLd";
 import { useConversation } from "../state/conversation-store";
 import { gerarItem, opcoesDoTomo, type ItemDoPlano } from "../lib/editar-artefato";
 import {
@@ -182,9 +184,16 @@ export function PlanoDeGeracao({
   selos,
   templates,
   idsBase,
+  ldPreview,
 }: {
   proposals: NexoAgentProposal[];
   selos: SeloForLd[];
+  /**
+   * A prévia determinística das folhas, que o servidor manda a cada turno.
+   * Estava órfã: quem a desenhava deixou de receber propostas de LD quando
+   * este card assumiu o caminho de capa/LD/separatriz.
+   */
+  ldPreview?: LdPreviewData;
   /** `layout` é a estrutura do modelo ODT — é dela que o frame se desenha. */
   templates: { id: string; nome: string; layout?: ParagrafoDoModelo[] }[];
   idsBase: { capa: string; ld: string; separatriz: string };
@@ -312,6 +321,7 @@ export function PlanoDeGeracao({
   const doSelo = summarizeSelos(selos);
   const obra = identidade.obra?.trim() || doSelo.obra || "";
   const codigo = identidade.codigo?.trim() || doSelo.codigo || "";
+  const revisao = identidade.revisao?.trim() || doSelo.revisao || "";
   const dataDaCapa = (() => {
     const mes = capa?.mes?.trim();
     const ano = capa?.ano?.trim();
@@ -374,6 +384,22 @@ export function PlanoDeGeracao({
     templates.find((t) => t.id === mesclado.valores.templateId)?.layout ?? [];
 
   /*
+   * Os marcadores que o engenheiro acrescentou ao modelo e o Nexo não conhece.
+   * Ficam guardados como decisão (é onde o frame os põe) e só os que o modelo
+   * REALMENTE desenha são enviados — uma decisão órfã de um modelo antigo não
+   * pode virar substituição num modelo novo.
+   */
+  const marcadoresDoModelo = new Set(
+    layoutDoModelo
+      .flatMap((p) => p.partes)
+      .flatMap((x) => (x.tipo === "marcador" ? [x.nome] : [])),
+  );
+  const extras: Record<string, string> = {};
+  for (const [campo, d] of Object.entries(decisoes)) {
+    if (marcadoresDoModelo.has(campo) && d.valor) extras[campo] = d.valor;
+  }
+
+  /*
    * Editar no frame é DECIDIR, e cada campo vai para o seu dono: identidade
    * para a conversa (regra própria — vazio significa "vale o carimbo"), o resto
    * para as decisões, que guardam junto o que o agente propunha. Misturá-los
@@ -415,6 +441,9 @@ export function PlanoDeGeracao({
             // O escape de quando o carimbo mente. Pelo mesmo motivo do total:
             // este é o caminho normal de gerar.
             identidade,
+            // Os marcadores que o engenheiro acrescentou ao modelo. Sem eles,
+            // o campo que o frame ofereceu sairia literal no documento.
+            extras,
           });
         } catch (err) {
           coletadas.push({
@@ -515,6 +544,38 @@ export function PlanoDeGeracao({
             onChange={aoEditarNoFrame}
           />
         ) : null}
+
+        {/*
+         * A LD, EMPILHADA — nada atrás de aba. Num volume misto é uma por
+         * disciplina, e o título de cada uma é o da SUA disciplina (herdado,
+         * não digitado): mostrar um campo editável ali seria oferecer uma
+         * decisão que a geração ignora.
+         */}
+        {proposals.some((p) => p.kind === "ld") &&
+          (misto
+            ? blocos
+                .filter((b) => b.codigo)
+                .map((b) => (
+                  <BlocoDaLd
+                    key={b.codigo}
+                    titulo={(b.rotulo || "Sem disciplina").toUpperCase()}
+                    onTitulo={() => {}}
+                    somenteLeitura
+                    codigo={codigo}
+                    revisao={revisao}
+                    totalFolhas={b.ids.length}
+                  />
+                ))
+            : (
+                <BlocoDaLd
+                  titulo={mesclado.valores.tituloLd ?? ""}
+                  onTitulo={(v) => decidir("tituloLd", v, paramsDoAgente.tituloLd)}
+                  codigo={codigo}
+                  revisao={revisao}
+                  preview={ldPreview}
+                  totalFolhas={selos.length}
+                />
+              ))}
 
         {/*
          * O QUE O FRAME NÃO DESENHA porque não sai impresso na capa: a divisão

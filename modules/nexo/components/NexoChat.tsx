@@ -105,6 +105,7 @@ export function NexoChat({
     results,
     conversationId,
     seloResults: selosLidos,
+    decisoes,
     appendMessage,
     appendDelta,
     finalizeMessage,
@@ -200,6 +201,14 @@ export function NexoChat({
           // regra de fatos recusa o turno — que era o defeito original.
           memorial: memorialFatos,
           conversationId,
+          /*
+           * O que o engenheiro decidiu no frame do documento. Sem isto o
+           * resolvedor de slots pergunta de novo, no chat, o título que ele
+           * acabou de digitar no card.
+           */
+          decisoes: Object.fromEntries(
+            Object.entries(decisoes).map(([campo, d]) => [campo, d.valor]),
+          ),
         }),
         signal: controller.signal,
       });
@@ -363,6 +372,9 @@ export function NexoChat({
                   selos={selos}
                   templates={templates}
                   idsBase={idsBaseDosArtefatos(selos)}
+                  /* A prévia das folhas voltava do servidor todo turno e não
+                     tinha para onde ir desde que este card assumiu a LD. */
+                  ldPreview={m.ldPreview}
                 />
               )}
               {m.proposals
