@@ -40,6 +40,14 @@ import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { summarizeSelos } from "../lib/agent-context";
 import { MESES_PT } from "@/server/nexo/agent/requirements";
 import type { Folha } from "../lib/folhas";
+import { FrameDoDocumento } from "./FrameDoDocumento";
+import {
+  CAMPOS_DO_FRAME,
+  separarParaGerar,
+  valoresDoFrame,
+} from "../lib/campos-do-frame";
+import { mesclarDecisoes } from "../lib/decisoes";
+import type { ParagrafoDoModelo } from "@/server/odt/layout";
 
 const LABEL_CLASS =
   "font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground";
@@ -121,6 +129,42 @@ export function itensDoPlano(
   return itens;
 }
 
+/**
+ * Um número do VOLUME — quantos tomos, a partir de qual.
+ *
+ * Não sai impresso na capa (o tomo daquele documento sai; a divisão, não), por
+ * isso não é campo do frame. Mas é decisão, e estava só como texto: mudar a
+ * divisão obrigava a pedir pelo chat.
+ */
+function CampoDoVolume({
+  rotulo,
+  valor,
+  onChange,
+  ajuda,
+}: {
+  rotulo: string;
+  valor: string;
+  onChange: (valor: string) => void;
+  ajuda: string;
+}) {
+  return (
+    <label className="flex items-baseline justify-between gap-3">
+      <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+        {rotulo}
+      </span>
+      <span className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground/70">{ajuda}</span>
+        <input
+          value={valor}
+          inputMode="numeric"
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+          className="w-12 rounded-sm border border-dashed border-border bg-transparent px-1.5 py-0.5 text-right font-mono text-[11px] outline-none focus:border-solid focus:border-[var(--ring)]"
+        />
+      </span>
+    </label>
+  );
+}
+
 /** Uma linha do resumo das decisões. */
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
@@ -141,10 +185,20 @@ export function PlanoDeGeracao({
 }: {
   proposals: NexoAgentProposal[];
   selos: SeloForLd[];
-  templates: { id: string; nome: string }[];
+  /** `layout` é a estrutura do modelo ODT — é dela que o frame se desenha. */
+  templates: { id: string; nome: string; layout?: ParagrafoDoModelo[] }[];
   idsBase: { capa: string; ld: string; separatriz: string };
 }) {
-  const { saveResult, results, totaisPorDisciplina, identidade } = useConversation();
+  const {
+    saveResult,
+    results,
+    totaisPorDisciplina,
+    identidade,
+    corrigirIdentidade,
+    decisoes,
+    decidir,
+    guardarDecisoesVivas,
+  } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
@@ -158,13 +212,84 @@ export function PlanoDeGeracao({
   const blocos = blocosDasFolhas(selos as Folha[], codigoDaFolha, rotuloDoCodigo);
   const misto = misturaDisciplinas(blocos);
 
-  const itens = itensDoPlano(proposals, blocos, selos);
-  if (itens.length === 0) return null;
-
-  const capa = proposals.find((p) => p.kind === "capa")?.params as
+  const capaCrua = proposals.find((p) => p.kind === "capa")?.params as
     | NexoCapaProposalParams
     | undefined;
-  const ld = proposals.find((p) => p.kind === "ld")?.params as
+  const ldCrua = proposals.find((p) => p.kind === "ld")?.params as
+    | NexoLdProposalParams
+    | undefined;
+
+  /*
+   * O QUE O AGENTE PROPÔS NESTE TURNO, e o que vale DEPOIS das decisões do
+   * engenheiro. A mescla guarda junto o valor do agente que cada decisão
+   * substituiu — é isso que faz a edição sobreviver ao próximo turno do chat
+   * sem impedir que ele mude de ideia. Ver [[decisoes.ts]].
+   */
+  const paramsDoAgente: Record<string, string> = {
+    templateId: capaCrua?.templateId ?? "",
+    tituloCapa: capaCrua?.tituloCapa ?? "",
+    tituloLd: ldCrua?.tituloLd ?? "",
+    volume: capaCrua?.volume ?? "",
+    mes: capaCrua?.mes ?? "",
+    ano: capaCrua?.ano ?? "",
+    numTomos: String(capaCrua?.numTomos ?? ldCrua?.numTomos ?? 1),
+    tomoInicial: String(capaCrua?.tomoInicial ?? ldCrua?.tomoInicial ?? 1),
+  };
+  const mesclado = mesclarDecisoes(decisoes, paramsDoAgente);
+
+  const inteiro = (v: string | undefined, padrao: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : padrao;
+  };
+
+  /*
+   * As propostas COM as decisões aplicadas. A mescla precisa acontecer aqui, e
+   * não só na hora de gerar, porque `numTomos` decide QUANTOS documentos o card
+   * lista — trocar 6 tomos por 4 tem de mudar a lista na hora, não só o PDF.
+   */
+  const propostas: NexoAgentProposal[] = proposals.map((p) => {
+    if (p.kind === "capa") {
+      return {
+        ...p,
+        params: {
+          ...p.params,
+          templateId: mesclado.valores.templateId ?? "",
+          tituloCapa: mesclado.valores.tituloCapa ?? "",
+          volume: mesclado.valores.volume ?? "",
+          mes: mesclado.valores.mes ?? "",
+          ano: mesclado.valores.ano ?? "",
+          numTomos: inteiro(mesclado.valores.numTomos, 1),
+          tomoInicial: inteiro(mesclado.valores.tomoInicial, 1),
+        },
+      };
+    }
+    if (p.kind === "ld") {
+      return {
+        ...p,
+        params: {
+          ...p.params,
+          tituloLd: mesclado.valores.tituloLd ?? "",
+          numTomos: inteiro(mesclado.valores.numTomos, 1),
+          tomoInicial: inteiro(mesclado.valores.tomoInicial, 1),
+        },
+      };
+    }
+    if (p.kind === "separatriz") {
+      return {
+        ...p,
+        params: { ...p.params, numTomos: inteiro(mesclado.valores.numTomos, 1) },
+      };
+    }
+    return p;
+  });
+
+  const itens = itensDoPlano(propostas, blocos, selos);
+  if (itens.length === 0) return null;
+
+  const capa = propostas.find((p) => p.kind === "capa")?.params as
+    | NexoCapaProposalParams
+    | undefined;
+  const ld = propostas.find((p) => p.kind === "ld")?.params as
     | NexoLdProposalParams
     | undefined;
 
@@ -244,7 +369,33 @@ export function PlanoDeGeracao({
    * Agora cada item é tentado, as falhas são colecionadas, e no fim o card diz
    * o que falhou E o que sobreviveu.
    */
+  /** A estrutura do modelo da prefeitura escolhida. Vazia = sem frame. */
+  const layoutDoModelo =
+    templates.find((t) => t.id === mesclado.valores.templateId)?.layout ?? [];
+
+  /*
+   * Editar no frame é DECIDIR, e cada campo vai para o seu dono: identidade
+   * para a conversa (regra própria — vazio significa "vale o carimbo"), o resto
+   * para as decisões, que guardam junto o que o agente propunha. Misturá-los
+   * faria a correção da obra durar só até a próxima geração pelo plano.
+   */
+  function aoEditarNoFrame(marcador: string, valor: string) {
+    const { identidade: ident, params, extras } = separarParaGerar({
+      [marcador]: valor,
+    });
+    if (Object.keys(ident).length > 0) corrigirIdentidade(ident);
+    for (const [campo, v] of Object.entries(params)) {
+      decidir(campo, v, paramsDoAgente[campo] ?? "");
+    }
+    // Marcador que o modelo tem e o Nexo não conhece: guardado como decisão,
+    // e entregue à geração pelo canal de extras.
+    for (const [campo, v] of Object.entries(extras)) decidir(campo, v, "");
+  }
+
   async function gerarTudo() {
+    // As decisões que sobreviveram a este turno. Sem guardar de volta, uma que
+    // perdeu para o agente voltaria a vencer quando ele repetisse o valor novo.
+    guardarDecisoesVivas(mesclado.vivas);
     setFalhas([]);
     const coletadas: { rotulo: string; motivo: string }[] = [];
     try {
@@ -303,31 +454,82 @@ export function PlanoDeGeracao({
             <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
               Vai para
             </span>
-            <span
-              className={
-                "text-right text-sm font-medium leading-snug " +
-                (prefeitura === "escolha a prefeitura"
-                  ? "text-[var(--status-warning)]"
-                  : "text-foreground")
-              }
-            >
-              {prefeitura}
-            </span>
+            {/*
+             * Sem prefeitura escolhida não há modelo, e sem modelo não há frame.
+             * O seletor entra AQUI, no mesmo lugar onde a resposta aparece —
+             * mandar escolher pela conversa foi o que fez o engenheiro não achar
+             * a decisão da última vez.
+             */}
+            {semPrefeitura ? (
+              <select
+                aria-label="Prefeitura"
+                value=""
+                onChange={(e) => decidir("templateId", e.target.value, "")}
+                className="rounded-sm border border-[var(--status-warning)]/40 bg-transparent px-2 py-1 text-sm text-[var(--status-warning)] outline-none"
+              >
+                <option value="">escolha a prefeitura</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-right text-sm font-medium leading-snug text-foreground">
+                {prefeitura}
+              </span>
+            )}
           </div>
         )}
 
+        {/*
+         * O CARD É O DOCUMENTO.
+         *
+         * Aqui havia uma lista de rótulo/valor que terminava em "Falta o título
+         * — diga qual pela conversa": o produto mandava escrever num chat um
+         * campo que podia estar ali, na forma em que vai sair impresso. O frame
+         * se desenha a partir do modelo ODT, então editar o modelo basta.
+         *
+         * Modelo ilegível (ou prefeitura ainda não escolhida) cai na lista de
+         * sempre — degradar é melhor que sumir.
+         */}
+        {layoutDoModelo.length > 0 ? (
+          <FrameDoDocumento
+            layout={layoutDoModelo}
+            campos={CAMPOS_DO_FRAME}
+            valores={valoresDoFrame({
+              identidade,
+              derivados: {
+                NOME_OBRA: obra,
+                CODIGO_EXIBIDO: codigo,
+                MES_ANO: dataDaCapa || "mês corrente",
+                VOLUME: capa?.volume?.trim() || "do arquivo",
+                TOMO:
+                  numTomos > 1
+                    ? `TOMO ${String(tomoInicial).padStart(2, "0")}…`
+                    : "",
+                DISCIPLINA: misto ? resumoDosBlocos(blocos) : "",
+              },
+              params: mesclado.valores,
+            })}
+            onChange={aoEditarNoFrame}
+          />
+        ) : null}
+
+        {/*
+         * O QUE O FRAME NÃO DESENHA porque não sai impresso na capa: a divisão
+         * em tomos e o tamanho do conjunto. São decisões sobre o VOLUME, não
+         * sobre o documento — por isso ficam abaixo dele, e não dentro.
+         */}
         <div className="space-y-1.5">
-          {/*
-            O título só aparece quando é DECISÃO. No volume misto sem capa,
-            cada LD e cada separatriz leva o nome da sua disciplina, e mostrar
-            um título global aqui faria o engenheiro conferir um campo que não
-            sai em documento nenhum.
-          */}
-          {(capa || !misto) && !separatrizListada && (
-            <Linha
-              rotulo="Título"
-              valor={semTitulo ? "diga qual título →" : titulo}
-            />
+          {/* Sem modelo não há frame: o título volta a ser linha, para não
+              sumir junto. */}
+          {layoutDoModelo.length === 0 && (capa || !misto) && !separatrizListada && (
+            <Linha rotulo="Título" valor={titulo || "—"} />
+          )}
+          {layoutDoModelo.length === 0 && obra && <Linha rotulo="Obra" valor={obra} />}
+          {layoutDoModelo.length === 0 && codigo && (
+            <Linha rotulo="Código" valor={codigo} />
           )}
           {/* A lista ditada é o que sai impresso: uma folha por item, nesta
               ordem. É o que o engenheiro confere antes de gerar. */}
@@ -337,33 +539,26 @@ export function PlanoDeGeracao({
               valor={titulosDaSeparatriz.join(" · ")}
             />
           )}
-          {/* A identidade vem ANTES dos parâmetros: é ela que responde "é o
-              projeto certo?", e essa pergunta precede qualquer decisão sobre
-              como dividi-lo. */}
-          {obra && <Linha rotulo="Obra" valor={obra} />}
-          {codigo && <Linha rotulo="Código" valor={codigo} />}
-          {capa && (
-            <Linha
-              rotulo="Data da capa"
-              valor={dataDaCapa || "auto (mês corrente)"}
-            />
-          )}
-          {capa && (
-            <Linha
-              rotulo="Volume"
-              valor={capa.volume?.trim() || "auto (do arquivo)"}
-            />
-          )}
-          <Linha
-            rotulo="Tomos"
-            valor={
+          <CampoDoVolume
+            rotulo="Nº de tomos"
+            valor={String(numTomos)}
+            onChange={(v) => decidir("numTomos", v, paramsDoAgente.numTomos)}
+            ajuda={
               numTomos > 1
-                ? `${numTomos} (TOMO ${String(tomoInicial).padStart(2, "0")}–${String(
+                ? `TOMO ${String(tomoInicial).padStart(2, "0")}–${String(
                     tomoInicial + numTomos - 1,
-                  ).padStart(2, "0")})`
-                : "1"
+                  ).padStart(2, "0")}`
+                : "documento único"
             }
           />
+          {numTomos > 1 && (
+            <CampoDoVolume
+              rotulo="Tomo inicial"
+              valor={String(tomoInicial)}
+              onChange={(v) => decidir("tomoInicial", v, paramsDoAgente.tomoInicial)}
+              ajuda="de onde a contagem começa neste volume"
+            />
+          )}
           <Linha rotulo="Folhas" valor={`${selos.length}`} />
           {misto && <Linha rotulo="Disciplinas" valor={resumoDosBlocos(blocos)} />}
         </div>
@@ -421,11 +616,16 @@ export function PlanoDeGeracao({
                 ? "Gerar de novo"
                 : `Gerar os ${itens.length}`}
           </Button>
+          {/*
+           * Antes aqui dizia "diga qual pela conversa" — mandando escrever num
+           * chat um campo que agora está no card, aceso, na forma em que sai
+           * impresso. A frase aponta para o campo, não para outro lugar.
+           */}
           {(semTitulo || semPrefeitura) && (
             <span className="text-xs text-muted-foreground">
-              {semTitulo
-                ? "Falta o título — diga qual pela conversa."
-                : "Falta a prefeitura — diga qual pela conversa."}
+              {semPrefeitura
+                ? "Escolha a prefeitura acima."
+                : "Falta o título — preencha no documento acima."}
             </span>
           )}
         </div>

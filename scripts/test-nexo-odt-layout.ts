@@ -105,6 +105,23 @@ test("o espaçador auto-fechado NÃO engole o parágrafo seguinte", () => {
   assert.equal(l[2].alinhamento, "end");
 });
 
+test("TÍTULO (<text:h>) também é linha impressa", () => {
+  /*
+   * O ODF usa `<text:h>` para títulos, e o modelo de Criciúma põe ali o
+   * "Governo do Município de Criciúma" do cabeçalho. Um leitor que só procura
+   * `<text:p>` desenha a capa SEM essa linha — e o frame passa a mostrar menos
+   * do que o PDF, que é a mentira que este leitor existe para não contar.
+   */
+  const l = lerLayoutDoModelo(
+    corpo(
+      '<text:h text:style-name="P6" text:outline-level="1">GOVERNO DO MUNICÍPIO</text:h><text:p text:style-name="P6">{{NOME_OBRA}}</text:p>',
+    ),
+  );
+  assert.equal(l.length, 2);
+  assert.deepEqual(l[0].partes, [{ tipo: "texto", valor: "GOVERNO DO MUNICÍPIO" }]);
+  assert.equal(l[0].alinhamento, "center");
+});
+
 test("a ordem de impressão é preservada no índice", () => {
   const l = lerLayoutDoModelo(
     corpo(

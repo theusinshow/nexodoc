@@ -95,17 +95,18 @@ export function lerLayoutDoModelo(contentXml: string): ParagrafoDoModelo[] {
   const corpoXml = inicio >= 0 ? contentXml.slice(inicio) : contentXml;
 
   /*
-   * O AUTO-FECHADO VEM PRIMEIRO, e o de abertura recusa terminar em "/".
+   * PARÁGRAFO **E TÍTULO**. O ODF usa `<text:h>` para títulos, e o modelo de
+   * Criciúma põe ali o "Governo do Município de Criciúma" do cabeçalho — ler
+   * só `<text:p>` desenhava a capa sem essa linha.
    *
+   * O AUTO-FECHADO VEM PRIMEIRO, e o de abertura recusa terminar em "/":
    * `<text:p text:style-name="P5"/>` casa com um padrão ingênuo de tag de
    * ABERTURA (`[^>]*` engole o "/"), e aí o espaçador devora tudo até o
-   * próximo `</text:p>`: três parágrafos viram um, com o estilo do espaçador.
-   * O modelo de Criciúma tem espaçadores logo antes do nome da obra, então o
-   * frame sairia com o alinhamento errado e sem as linhas em branco.
+   * próximo fechamento — três parágrafos viram um, com o estilo do espaçador.
    */
   const paragrafos =
     corpoXml.match(
-      /<text:p\b[^>]*\/>|<text:p\b[^>]*(?<!\/)>[\s\S]*?<\/text:p>/g,
+      /<text:(?:p|h)\b[^>]*\/>|<text:(p|h)\b[^>]*(?<!\/)>[\s\S]*?<\/text:\1>/g,
     ) ?? [];
 
   return paragrafos.map((bruto, indice) => {
@@ -114,8 +115,8 @@ export function lerLayoutDoModelo(contentXml: string): ParagrafoDoModelo[] {
     // As tags de DENTRO saem antes da busca por marcador: é o que enxerga o
     // marcador que o LibreOffice partiu em spans.
     const texto = bruto
-      .replace(/^<text:p\b[^>]*>/, "")
-      .replace(/<\/text:p>$/, "")
+      .replace(/^<text:(?:p|h)\b[^>]*>/, "")
+      .replace(/<\/text:(?:p|h)>$/, "")
       .replace(/<[^>]*>/g, "");
 
     return {
