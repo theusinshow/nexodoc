@@ -407,7 +407,7 @@ em identidade.
 |-------|---------|------|-------|
 | **Vivo (3D)** | React Three Fiber + shaders próprios (`modules/nexo/components/agent-orb/`) | Palco / entrada. Uma instância por tela, nunca duas. | Alto (three.js) |
 | **CSS** | Gradiente radial teal→luminous mascarado (`NexoOrb`) | Barra lateral, marca inline, bolhas | Zero |
-| **Achatado (SVG)** | Silhueta sem brilho nem gradiente dependente de fundo escuro | Logo, favicon, impressão, fundo claro | Zero |
+| **Estático (SVG)** | Esfera de vidro com o nó aceso dentro, **afinada por tamanho** (`components/brand/logo-nexo.tsx`) | Logo, favicon, impressão, fundo claro | Zero |
 
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
 a redução em CSS. Onde o fundo não é escuro, só a versão achatada.
@@ -440,10 +440,35 @@ final legível — não em `0.01ms`, que produz um piscar.
 
 ### Marca
 
-O logotipo é o **orbe achatado** mais a palavra "Nexo" em IBM Plex Sans 600. O
-símbolo sozinho serve de favicon e de avatar. O que não fazer: reproduzir o
-brilho do orbe 3D em tamanho pequeno (vira mancha), colorir fora da rampa teal,
-ou colocar o símbolo sobre fundo claro sem a versão achatada.
+O logotipo é o **orbe estático** — esfera de vidro escura com o nó aceso dentro
+— mais a palavra "Nexo" em IBM Plex Sans 600. O símbolo sozinho serve de favicon
+e de avatar.
+
+### A afinação por tamanho (2026-08-06)
+
+Antes, a marca era uma **silhueta em traço**, sem brilho nem gradiente, e esta
+seção proibia "reproduzir o brilho do orbe 3D em tamanho pequeno (vira mancha)".
+A proibição estava certa sobre o sintoma e errada sobre a causa: o que vira
+mancha não é o vidro, é o vidro DESENHADO IGUAL em todo tamanho.
+
+O logotipo passa a ser o orbe com corpo, luz de aresta e nó aceso — o mesmo
+objeto que o palco mostra, parado. O que o faz sobreviver aos 16px é a
+**afinação**: quanto menor, mais o corpo clareia e mais o nó pesa. Aos 16px quem
+carrega a leitura é o nó e o anel, não o volume do vidro, que naquele tamanho
+ninguém enxerga de todo jeito.
+
+**A regra que não se quebra:** o bordo da esfera NUNCA chega ao preto do fundo
+(`#0a0e11`). Esfera escura sobre fundo escuro perde a silhueta, e o que sobra é
+o desenho de linha que esta marca veio substituir — aconteceu aos 48px na tela
+de login, com a faixa "grande" começando cedo demais.
+
+Três faixas, em `logo-nexo.tsx`: **≥96px** (herói, vidro profundo) · **40–95px**
+(interface) · **<40px** (favicon e ícone inline). O `public/assets/logo.svg`
+carrega a faixa pequena, porque é onde ele vive; mudou lá, mude aqui.
+
+**O que continua proibido:** colorir fora da rampa teal (o orbe é grande, e
+romper aqui estoura o orçamento de 10% do acento) e usar a faixa grande em
+tamanho pequeno.
 
 ---
 
