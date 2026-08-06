@@ -62,6 +62,71 @@ test("matchPrefeitura: sem correspondência -> null", () => {
   assert.equal(matchPrefeitura({ nome: "joinville" }, PREFS), null);
 });
 
+/*
+ * OS NOMES REAIS, como estão nos config.json. O fixture curto acima ("Criciúma",
+ * "Florianópolis") escondia dois defeitos que só aparecem com o nome completo,
+ * porque todos eles compartilham as palavras "prefeitura" e "municipal".
+ */
+const REAIS: AgentPrefeitura[] = [
+  { id: "prefchap", nome: "Prefeitura Municipal de Chapecó" },
+  { id: "pmcriciuma", nome: "Prefeitura Municipal de Criciúma" },
+  { id: "prefflor", nome: "Prefeitura Municipal de Florianópolis" },
+  { id: "prefsjose", nome: "Prefeitura Municipal de São José" },
+];
+
+/** O rodapé que sai impresso em TODA prancha deste escritório. */
+const ENDERECO_DA_PROSUL =
+  "Rua Saldanha Marinho, 116 - Edifício Liberal Center - 3º andar - Centro - " +
+  "Florianópolis - SC Fone/Fax: (48) 3027-2730";
+
+test("matchPrefeitura: o ENDEREÇO do escritório não é prefeitura nenhuma", () => {
+  /*
+   * O defeito que mandou um volume de CRICIÚMA sair como Florianópolis: a regra
+   * de token casava "florianopolis" em qualquer lugar do texto, e a PROSUL fica
+   * em Florianópolis — o endereço dela está em todas as 71 pranchas.
+   */
+  assert.equal(matchPrefeitura({ nome: ENDERECO_DA_PROSUL }, REAIS), null);
+});
+
+test("matchPrefeitura: nome real casa a prefeitura certa", () => {
+  assert.equal(
+    matchPrefeitura({ nome: "PREFEITURA MUNICIPAL DE CRICIÚMA" }, REAIS)?.id,
+    "pmcriciuma",
+  );
+});
+
+test("casarPrefeituraDoCarimbo: nome real resolve UMA, não fica ambíguo", () => {
+  /*
+   * Com os nomes completos, "prefeitura" e "municipal" são tokens de TODAS —
+   * então todas eram plausíveis, `plausibleCount` nunca era 1, e o casamento
+   * pelo carimbo nunca resolvia nada. O default silencioso decidia no lugar dele.
+   */
+  const r = casarPrefeituraDoCarimbo(
+    [{ cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA" }, { cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA" }],
+    REAIS,
+  );
+  assert.equal(r?.plausibleCount, 1);
+  assert.equal(r?.resolvedId, "pmcriciuma");
+});
+
+test("normalizeProposals: sem prefeitura reconhecida NÃO inventa a primeira", () => {
+  /*
+   * `templateId` preenchido faz o slot chegar "já respondido", e a pergunta
+   * nunca acontece. Um palpite aqui é o volume indo para a prefeitura errada
+   * sem ninguém ver — o erro que este produto existe para impedir.
+   */
+  const r = normalizeProposals(
+    [{ kind: "capa", prefeitura: ENDERECO_DA_PROSUL, tituloCapa: "PROJETO ESTRUTURAL" }],
+    { disciplina: "Estrutural", prefeituras: REAIS },
+  );
+  assert.equal(r.length, 1, "a proposta não pode sumir — ela vira pergunta");
+  assert.equal(
+    (r[0].params as { templateId: string }).templateId,
+    "",
+    "prefeitura incerta tem de ficar VAZIA, para virar pergunta",
+  );
+});
+
 test("normalizeProposals: ld com defaults (titulo vazio, tomos 1)", () => {
   const r = normalizeProposals([{ kind: "ld" }], {
     disciplina: "EST",
@@ -85,12 +150,18 @@ test("normalizeProposals: capa mapeia prefeitura pelo nome", () => {
   assert.equal(params.numTomos, 4);
 });
 
-test("normalizeProposals: capa sem match cai no 1o template", () => {
+test("normalizeProposals: capa sem match fica SEM prefeitura, para perguntar", () => {
+  /*
+   * Este teste afirmava o contrário — "cai no 1o template" — e o defeito que
+   * ele protegia mandou um volume de Criciúma sair inteiro como Florianópolis,
+   * sem uma pergunta sequer. Palpite de prefeitura não é conveniência: é o
+   * documento indo para o município errado.
+   */
   const r = normalizeProposals([{ kind: "capa", prefeitura: "xyz" }], {
     disciplina: "EST",
     prefeituras: PREFS,
   });
-  assert.equal((r[0].params as { templateId: string }).templateId, "prefchap");
+  assert.equal((r[0].params as { templateId: string }).templateId, "");
 });
 
 test("normalizeProposals: volume não-numérico vira vazio", () => {

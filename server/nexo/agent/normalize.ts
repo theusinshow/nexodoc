@@ -50,6 +50,29 @@ export function clampTomoInicial(v: unknown): number {
  * Ordem: id exato -> contém/está-contido -> token da cidade (>=3 letras). null se
  * não casar.
  */
+/**
+ * Palavras que TODA prefeitura tem no nome e por isso não distinguem nenhuma.
+ *
+ * Sem esta lista, "prefeitura" era token de todas: qualquer texto contendo a
+ * palavra casava com a primeira da lista, e no `casarPrefeituraDoCarimbo` — que
+ * testa uma a uma — TODAS ficavam plausíveis. `plausibleCount` nunca era 1, o
+ * casamento pelo carimbo nunca resolvia, e o palpite silencioso decidia.
+ */
+const GENERICOS = new Set([
+  "prefeitura",
+  "municipal",
+  "municipio",
+  "governo",
+  "estado",
+  "secretaria",
+  "padrao",
+]);
+
+/** O texto está NOMEANDO um órgão, ou é só uma frase que cita uma cidade? */
+function nomeiaOrgao(w: string): boolean {
+  return /\b(prefeitura|municipio|governo)\b/.test(w);
+}
+
 export function matchPrefeitura(
   wanted: { id?: string; nome?: string },
   prefeituras: AgentPrefeitura[],
@@ -67,10 +90,21 @@ export function matchPrefeitura(
     const tn = norm(t.nome);
     if (tn && (tn.includes(w) || w.includes(tn))) return t;
   }
-  // 2) algum token da cidade (>=3 letras) aparece no pedido.
+  /*
+   * 2) O NOME DA CIDADE aparece no pedido — e só o nome da cidade, porque as
+   * palavras institucionais são de todas.
+   *
+   * Exige também que o texto NOMEIE UM ÓRGÃO. Um volume de Criciúma saiu como
+   * Florianópolis porque o endereço do escritório — "Rua Saldanha Marinho...
+   * Centro - Florianópolis - SC" — está impresso nas 71 pranchas, e citar a
+   * cidade bastava para casar. Endereço não é cliente.
+   */
+  if (!nomeiaOrgao(w)) return null;
   for (const t of prefeituras) {
-    const tokens = norm(t.nome).split(/[^a-z0-9]+/).filter((x) => x.length >= 3);
-    if (tokens.some((tok) => w.includes(tok))) return t;
+    const cidade = norm(t.nome)
+      .split(/[^a-z0-9]+/)
+      .filter((x) => x.length >= 3 && !GENERICOS.has(x));
+    if (cidade.length > 0 && cidade.some((tok) => w.includes(tok))) return t;
   }
   return null;
 }
@@ -181,8 +215,22 @@ export function normalizeProposals(
         { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
         ctx.prefeituras,
       );
-      const templateId = match?.id ?? (String(p.templateId ?? "").trim() || firstTemplateId);
-      if (!templateId) continue; // sem prefeitura configurada, não propõe capa
+      /*
+       * PREFEITURA INCERTA FICA VAZIA — e vazia vira PERGUNTA.
+       *
+       * Aqui havia um `|| firstTemplateId`: quando nada casava, a proposta saía
+       * com a PRIMEIRA prefeitura configurada. O slot chegava "já respondido",
+       * a pergunta nunca acontecia, e o volume era gerado para o município
+       * errado sem ninguém ver. Aconteceu: um volume de Criciúma saiu inteiro
+       * como Florianópolis, e a correção teve de ser feita à mão.
+       *
+       * Um palpite aqui é o erro que este produto existe para impedir. Sem
+       * certeza, quem decide é o engenheiro.
+       */
+      const templateId = match?.id ?? String(p.templateId ?? "").trim();
+      // Sem prefeitura CONFIGURADA não há capa possível; sem prefeitura
+      // ESCOLHIDA há — ela é a pergunta.
+      if (ctx.prefeituras.length === 0) continue;
       const volumeRaw = String(p.volume ?? "").trim();
       out.push({
         kind: "capa",
