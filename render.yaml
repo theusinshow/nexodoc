@@ -1,9 +1,74 @@
+# O Nexo na Render — UM serviço, com Node e LibreOffice no mesmo container.
+#
+# O arranjo anterior era Vercel (app) + Render (só a conversão de PDF). Foi
+# trocado por dois motivos concretos, não por gosto:
+#
+# 1. nenhuma rota declara `maxDuration`, e a auditoria profunda roda 24 blocos
+#    com 5 em paralelo — função serverless morre no meio;
+# 2. as rotas leem os modelos ODT do disco por `process.cwd()`, e um empacotador
+#    que não rastreia esses arquivos gera um deploy que falha SÓ em produção.
+#
+# O serviço `nexodoc-converter` continua declarado no fim, comentado: quem
+# preferir o arranjo separado o reativa sem reescrever nada.
+
 services:
   - type: web
-    name: nexodoc-converter
-    env: docker
+    name: nexodoc
+    runtime: docker
     region: oregon
-    plan: free
+    plan: starter # o free hiberna, e a primeira visita do dia paga o cold start
     branch: main
-    rootDir: render-service
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/saude
+    autoDeploy: true
+    envVars:
+      # ---------------------------------------------------------------- banco
+      # A URL do Neon. `fromDatabase` não serve: o banco é externo à Render.
+      - key: DATABASE_URL
+        sync: false
+
+      # ----------------------------------------------------------------- auth
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_GOOGLE_ID
+        sync: false
+      - key: AUTH_GOOGLE_SECRET
+        sync: false
+      # Obrigatório atrás do proxy da Render. Sem isto o callback do Google volta
+      # para localhost e o login falha em produção com um erro que não explica.
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      - key: NEXODOC_ADMIN_EMAILS
+        sync: false
+
+      # ------------------------------------------------------------------- IA
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NEXODOC_AI_PROVIDER
+        value: openai
+
+      # ---------------------------------------------------------------- flags
+      # NEXT_PUBLIC_* é embutida na COMPILAÇÃO. Aqui ela vale para o runtime; o
+      # que decide o pacote é o `ARG` do Dockerfile, que já vem `true`.
+      - key: NEXT_PUBLIC_NEXO_ENABLED
+        value: "true"
+      # O atalho de login de desenvolvimento NUNCA em produção.
+      - key: NEXODOC_DEV_AUTH
+        value: "false"
+
+      # ------------------------------------------------------------------ PDF
+      # Vazia de propósito: o LibreOffice vive no próprio container
+      # (`LIBREOFFICE_PATH` sai do Dockerfile). Preencher isto só faz sentido no
+      # arranjo separado, com o serviço abaixo reativado.
+      - key: DOCUMENT_CONVERTER_URL
+        sync: false
+
+  # O conversor separado, para quem preferir o arranjo antigo.
+  # - type: web
+  #   name: nexodoc-converter
+  #   runtime: docker
+  #   region: oregon
+  #   plan: free
+  #   branch: main
+  #   rootDir: render-service
+  #   dockerfilePath: ./Dockerfile

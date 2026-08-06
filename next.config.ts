@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
      * acusar, funcionando perfeitamente na máquina de quem programou.
      */
     "/api/capas/templates": ["./templates/capas/**/*"],
+    /*
+     * A CHECAGEM DE SAÚDE existe justamente para acusar modelo faltando no
+     * pacote. Se ela mesma ficar de fora do rastreio, acusa a própria ausência e
+     * o container nunca sobe — o alarme tocaria por causa do alarme.
+     */
+    "/api/saude": ["./templates/capas/**/*"],
   },
   images: {
     remotePatterns: [

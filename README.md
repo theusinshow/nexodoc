@@ -48,66 +48,36 @@ Ainda fora do escopo atual:
 - Tailwind CSS;
 - shadcn/ui;
 - OpenAI API;
-- Vercel (frontend);
-- Render (API backend + conversao PDF).
+- Render, UM container Docker com Node e LibreOffice juntos (`Dockerfile` na raiz);
+- Neon Postgres.
+
+> **Deploy: a autoridade e [`docs/deploy.md`](docs/deploy.md).** Onde este README
+> divergir, vale aquele arquivo. O arranjo Vercel(app) + Render(API) foi
+> aposentado -- rota sem `maxDuration` nao cabe em funcao serverless, e os
+> modelos ODT sao lidos do disco por `process.cwd()`.
 
 ## Conversao ODT para PDF
 
-A Vercel nao suporta binarios nativos como LibreOffice. A conversao de ODT para PDF
-e delegada ao Render, que roda LibreOffice headless via Docker.
+O conversor tenta nesta ordem:
 
-**Arquitetura:**
-
-```text
-Vercel                         Render
-------                         ------
-Usuario clica "Baixar"
-       |
-       v
-POST /api/capas/generate  -->  (se DOCUMENT_CONVERTER_URL configurada)
-ou                              |
-POST /api/ld/generate-package   v
-       |                  POST /convert (multipart: file=document.odt)
-       |                        |
-       |                  LibreOffice --headless --convert-to pdf
-       |                        |
-       |                  <--  application/pdf (binary)
-       |
-       v
-Resposta JSON com base64: { odt, pdf?, zip }
-```
-
-**Variavel necessaria na Vercel:**
+1. `DOCUMENT_CONVERTER_URL` -- um servico separado, expondo `/convert`;
+2. `LIBREOFFICE_PATH` -- o binario local. **E o caminho de producao hoje:** o
+   container define `/usr/bin/soffice`, e em desenvolvimento aponte para o seu
+   `soffice.exe`;
+3. sem nenhum dos dois o PDF volta `null` -- ODT e ZIP ainda funcionam, e e
+   exatamente esse o silencio que `/api/saude` acusa (campo `conversorPdf`).
 
 ```bash
-DOCUMENT_CONVERTER_URL=https://nexodoc-converter.onrender.com/convert
-```
-
-**Variavel opcional para desenvolvimento local:**
-
-```bash
+# desenvolvimento no Windows
 LIBREOFFICE_PATH=C:\Program Files\LibreOffice\program\soffice.exe
 ```
 
-O conversor tenta nesta ordem:
-1. `DOCUMENT_CONVERTER_URL` (Render) -- producao
-2. `LIBREOFFICE_PATH` (fallback local) -- apenas desenvolvimento
-3. Sem nenhum dos dois, o PDF retorna `null` (ODT e ZIP ainda funcionam)
+Sem `fonts-dejavu` e `fonts-liberation` instaladas, o LibreOffice substitui a
+fonte, a largura do carimbo muda e o documento deixa de bater com o modelo. O
+`Dockerfile` ja instala as duas.
 
-**Deploy do servico Render:**
-
-O servico fica em `render-service/`. Para fazer deploy:
-
-1. Crie um novo Web Service no Render apontando para o repo
-2. Root Directory: `render-service`
-3. Build Command: `npm install`
-4. Start Command: `npm start`
-5. Plano: Free para teste, pago para producao (Free desliga apos inatividade)
-
-**Nota sobre Render Free:**
-O plano gratuito do Render suspende o servico apos 15 minutos de inatividade.
-Na primeira requisicao apos suspensao, a inicializacao demora ~30-60s (cold start).
-Para producao, use plano pago para manter o servico sempre ativo.
+**O servico separado**, para quem preferir o arranjo antigo: o codigo esta em
+`render-service/`, e o servico esta declarado comentado no fim do `render.yaml`.
 
 ## Documentacao
 
@@ -316,19 +286,10 @@ Em desenvolvimento, variaveis de provedor presentes em `.env.local` sao autorita
 
 Se uma chave `MIMO_API_KEY` foi compartilhada em conversa, ticket ou qualquer canal fora do backend, considere-a exposta: revogue-a no provedor, gere uma nova chave e substitua-a em `.env.local` e nos ambientes de deploy antes de testar a LD.
 
-Para deploy dividido, use:
-
-- Vercel para o frontend;
-- Render para o backend, rodando este mesmo projeto como Web Service;
-- `NEXT_PUBLIC_API_URL` na Vercel apontando para a URL do Render;
-- `NEXODOC_ALLOWED_ORIGINS` no Render contendo os dominios da Vercel autorizados a chamar `/api/audit`.
-
-Exemplo:
-
-```bash
-NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
-NEXODOC_ALLOWED_ORIGINS=https://nexodoc.vercel.app
-```
+`NEXT_PUBLIC_API_URL` e `NEXODOC_ALLOWED_ORIGINS` sobraram do deploy dividido e
+hoje devem ficar **vazias**: com uma origem so, elas nao tem o que fazer. Mesmo
+no arranjo separado elas afetavam apenas `/api/audit` e `/api/volume`, nunca o
+Nexo. Ver [`docs/deploy.md`](docs/deploy.md).
 
 ## Paineis administrativos
 
@@ -386,12 +347,7 @@ OPENAI_ADMIN_KEY=chave_admin_da_openai
 
 `OPENAI_ADMIN_KEY` deve ser uma chave admin da organizacao OpenAI com acesso aos endpoints de Usage/Costs. Ela nao deve ser exposta no frontend.
 
-Na Vercel, mantenha apenas:
-
-```bash
-NEXT_PUBLIC_API_URL=https://nexodoc-api.onrender.com
-NEXODOC_ADMIN_EMAILS=voce@empresa.com
-```
+`NEXODOC_ADMIN_EMAILS` vai no mesmo servico (nao ha mais dois).
 
 ## Banco de dados e historico
 
