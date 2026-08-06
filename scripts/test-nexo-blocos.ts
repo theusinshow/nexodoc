@@ -260,7 +260,9 @@ test("o volume numa linha", () => {
   ];
   assert.equal(
     resumoDosBlocos(blocosDe(folhas(selos, {}))),
-    "Hidrossanitario (1) · Preventivo contra incendio (1)",
+    // Com acento desde 2026-08-06: o rótulo de tela é texto que a pessoa lê, e
+    // a interface mostrava "Hidrossanitario". Ver [[disciplinas.ts]].
+    "Hidrossanitário (1) · Preventivo contra incêndio (1)",
   );
 });
 
@@ -284,7 +286,13 @@ test("fundir dois blocos numa separatriz só", () => {
     fundidos.map((b) => b.codigo),
     ["gmt", "dre"],
   );
-  assert.equal(fundidos[0].rotulo, "Geometrico e Terraplenagem");
+  /*
+   * O rótulo de TELA do bloco fundido é a junção mecânica. O nome que vai
+   * IMPRESSO na separatriz é outro — "PROJETO DE GEOMETRIA E TERRAPLENAGEM" —
+   * e mora em `NOME_DO_PAR`, porque nome de par é nome próprio, não a soma dos
+   * dois. Ver [[disciplinas.ts]].
+   */
+  assert.equal(fundidos[0].rotulo, "Geométrico e Terraplenagem");
   assert.equal(fundidos[0].ids.length, 2);
   // A drenagem não se move: fundir dois blocos não reordena o resto do volume.
   assert.equal(fundidos[1].ids.length, 1);

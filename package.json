@@ -43,6 +43,7 @@
     "test:nexo:odt-marcadores": "node scripts/test-nexo-odt-marcadores.ts",
     "test:nexo:odt-layout": "node scripts/test-nexo-odt-layout.ts",
     "test:nexo:decisoes": "node scripts/test-nexo-decisoes.ts",
+    "test:nexo:disciplinas": "node scripts/test-nexo-disciplinas.ts",
     "qa:nexo:frame-no-card": "node scripts/shot-nexo-frame-no-card.mjs",
     "test:nexo:saudacao": "node scripts/test-nexo-saudacao.ts",
     "test:nexo:blocos": "node scripts/test-nexo-blocos.ts",

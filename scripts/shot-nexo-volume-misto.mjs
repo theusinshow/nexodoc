@@ -79,6 +79,16 @@ await context.addInitScript((marcador) => {
       );
     }
 
+    if (url.includes("/api/nexo/ld") || url.includes("/api/nexo/separatriz")) {
+      // O que vai IMPRESSO: o nome de documento da disciplina, não o de tela.
+      const chave = url.includes("/api/nexo/ld") ? "ld" : "separatriz";
+      window.__TITULOS = window.__TITULOS ?? { ld: [], separatriz: [] };
+      try {
+        const c = JSON.parse(init.body ?? "{}");
+        window.__TITULOS[chave].push(c.tituloLd ?? c.titulos?.[0] ?? "");
+      } catch {}
+    }
+
     if (url.includes("/api/nexo/agent")) {
       const enc = new TextEncoder();
       return new Response(
@@ -182,6 +192,48 @@ try {
     (await cartao.getByText(/Lista de documentos/i).count()) === 3,
     String(await cartao.getByText(/Lista de documentos/i).count()),
   );
+
+  // ---------------------------------------------------------------------
+  // O NOME QUE VAI IMPRESSO é o de DOCUMENTO, não o de tela.
+  // ---------------------------------------------------------------------
+  console.log("\nO nome que chega ao documento");
+  /*
+   * A CAPA precisa de título — ela é do volume inteiro, e num volume misto não
+   * há disciplina única de onde derivá-lo. O botão travado até aqui é o
+   * comportamento certo; preencher no frame é o caminho normal.
+   */
+  await cartao
+    .getByLabel("Título", { exact: true })
+    .first()
+    .fill("PROJETO HIDROSSANITÁRIO\nPROJETO PREVENTIVO\nPROJETO SPDA");
+  await page.getByRole("button", { name: /Gerar os? \d+/i }).first().click();
+  await page.getByText(/Gerado · \d+ documentos?/i).first().waitFor({ timeout: 240000 });
+
+  const titulos = await page.evaluate(() => window.__TITULOS ?? null);
+  console.log("   LD:", JSON.stringify(titulos?.ld));
+  console.log("   separatriz:", JSON.stringify(titulos?.separatriz));
+
+  /*
+   * O defeito que isto fecha: a LD de um volume misto ia para o cliente com o
+   * rótulo de CHIP — "HIDROSSANITARIO", sem acento — em vez do nome que o
+   * escritório imprime.
+   */
+  for (const [sigla, esperado] of [
+    ["his", "PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS"],
+    ["inc", "PROJETO PREVENTIVO CONTRA INCÊNDIO"],
+    ["spd", "PROJETO DE SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS"],
+  ]) {
+    check(
+      `a LD de ${sigla} leva o nome de documento`,
+      (titulos?.ld ?? []).includes(esperado),
+      JSON.stringify(titulos?.ld),
+    );
+    check(
+      `a separatriz de ${sigla} leva o nome de documento`,
+      (titulos?.separatriz ?? []).includes(esperado),
+      JSON.stringify(titulos?.separatriz),
+    );
+  }
 
   check("nenhum erro de runtime no console", errosDeConsole.length === 0, errosDeConsole[0] ?? "");
 } catch (err) {

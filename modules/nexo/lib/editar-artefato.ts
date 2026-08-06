@@ -24,6 +24,7 @@ import {
 } from "./generate";
 import { summarizeSelos } from "./agent-context";
 import { codigoDaFolha } from "./disciplina-da-folha";
+import { nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { totalDoConjunto } from "./totais";
 import {
   CAMPOS_DA_IDENTIDADE,
@@ -421,7 +422,18 @@ export async function gerarItem(args: {
         ? doTomo.filter((f) => item.bloco!.ids.includes(f.id))
         : (selos as Folha[]).filter((f) => item.bloco!.ids.includes(f.id))
       : doTomo;
-    const titulo = item.bloco?.rotulo.toUpperCase() || txt("tituloLd");
+    /*
+     * O nome de DOCUMENTO, não o de tela.
+     *
+     * Aqui saía `bloco.rotulo.toUpperCase()` — o rótulo dos chips e do canvas.
+     * A LD de um volume misto ia para o cliente escrita "HIDROSSANITARIO", sem
+     * acento, quando o escritório imprime "PROJETO DE INSTALAÇÕES
+     * HIDROSSANITÁRIAS". Nome de tela não é nome de documento.
+     */
+    const titulo =
+      (item.bloco ? nomeNoDocumento(item.bloco.codigo) : "") ||
+      item.bloco?.rotulo.toUpperCase() ||
+      txt("tituloLd");
     /*
      * O total corrigido à mão, das folhas que ESTA LD lista — o bloco quando há
      * um, senão o tomo, senão tudo. Sem isto o plano em lote (o caminho normal
@@ -491,7 +503,11 @@ export async function gerarItem(args: {
   const listados = Array.isArray(p.titulos)
     ? (p.titulos as unknown[]).map((t) => String(t ?? "").trim()).filter(Boolean)
     : [];
-  const tituloSep = item.bloco?.rotulo.toUpperCase() || args.tituloDaSeparatriz.trim();
+  // Mesma regra da LD: a separatriz leva o nome de DOCUMENTO da disciplina.
+  const tituloSep =
+    (item.bloco ? nomeNoDocumento(item.bloco.codigo) : "") ||
+    item.bloco?.rotulo.toUpperCase() ||
+    args.tituloDaSeparatriz.trim();
   const titulos = listados.length > 0 ? listados : tituloSep ? [tituloSep] : [];
   if (titulos.length === 0) return; // sem título não há separatriz — a capa manda nela
   const ident = summarizeSelos(selos);

@@ -1,6 +1,6 @@
 import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
-import { disciplinaLabel } from "./disciplinas";
+import { disciplinaLabel, nomeNaCapa } from "./disciplinas";
 import { generatePages } from "@/modules/cover-generator/hooks/helpers";
 import { formatDisplayCode, formatTomo, tomoLabels } from "@/lib/cover-utils";
 import { MESES } from "@/modules/cover-generator/constants";
@@ -241,8 +241,14 @@ export async function buildCapaProposal(
   const tituloRaw = (input.tituloCapa?.trim() || "")
     .replace(/\s*\(\s*tomo[^)]*\)\s*/i, "")
     .trim();
+  /*
+   * Sem título dito, a capa cai no NOME DE CAPA da disciplina — que é o curto
+   * ("PROJETO HIDROSSANITÁRIO"), não o de tela ("Hidrossanitário") nem o de
+   * documento ("PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS"), que é o da
+   * separatriz. Os três registros vivem em [[disciplinas.ts]].
+   */
   const tituloCapaFinal =
-    textoEmLinhasDaCapa(tituloRaw) || disciplinaLabel(discCode) || "PROJETO";
+    textoEmLinhasDaCapa(tituloRaw) || nomeNaCapa(discCode) || "PROJETO";
 
   /*
    * SECRETARIA: correção à mão -> CARIMBO -> padrão do template.
