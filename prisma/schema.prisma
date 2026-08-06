@@ -512,3 +512,43 @@ model AiUsageEvent {
   @@index([model, createdAt])
   @@index([conversationId])
 }
+
+/// A CONVERSA DO NEXO, no servidor.
+///
+/// Ate agora ela vivia so no IndexedDB do navegador de quem usa. Trocar de
+/// maquina perdia o trabalho, limpar dados do site perdia o trabalho sem aviso,
+/// e -- o que mais pesa num beta -- nao havia como olhar o que o testador fez.
+///
+/// `data` guarda o `StoredConversation` inteiro como JSON, e isso e deliberado:
+/// esse registro ja e schemaless por projeto (campo novo entra opcional e
+/// registro velho segue valido, ver modules/nexo/lib/nexo-db.ts). Normalizar
+/// mensagem, selo, ajuste, decisao e achado em tabelas trocaria essa
+/// propriedade por uma migracao a cada campo novo -- e o Nexo ainda ganha campo
+/// toda semana. As colunas de fora sao so as que a LISTA precisa ler sem abrir
+/// o JSON.
+///
+/// O que NAO esta aqui: os bytes dos ODT/PDF/ZIP gerados. Nao ha provedor de
+/// armazenamento (NEXODOC_STORAGE_PROVIDER=none), entao eles seguem no
+/// navegador. Ao abrir noutra maquina a conversa volta inteira e os arquivos
+/// nao -- e isso precisa APARECER, nao sumir em silencio.
+///
+/// A chave e o uuid que o cliente ja gera. O dono e o e-mail, como no resto das
+/// rotas do Nexo (`session.user.email`), sem FK: o `User` do Postgres so e
+/// criado na camada de escrita de artefatos, e uma conversa nao pode depender
+/// disso para ser salva.
+model NexoConversation {
+  id        String   @id
+  userEmail String
+  title     String
+  folderKey String?
+  createdAt DateTime
+  updatedAt DateTime
+  /// Coluna, e nao um `data->>`: e o unico campo do miolo que a LISTA precisa,
+  /// e puxar o JSON inteiro de cem conversas para desenhar a barra lateral
+  /// arrastaria megabytes por um booleano.
+  auditoriaPendente Boolean @default(false)
+  data      Json
+  syncedAt  DateTime @default(now())
+
+  @@index([userEmail, updatedAt])
+}

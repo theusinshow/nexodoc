@@ -7,7 +7,7 @@ funcionando não precisa esperar a migração das conversas:
 | Passo | Entrega | Situação |
 |---|---|---|
 | **1. Um container no ar** | link que abre, loga e gera documento | pronto para subir |
-| **2. Conversas no servidor** | o trabalho sobrevive ao navegador do testador | pendente |
+| **2. Conversas no servidor** | o trabalho sobrevive ao navegador do testador | feito e provado |
 
 ---
 
@@ -119,7 +119,7 @@ têm o que fazer — e mesmo no arranjo separado só afetavam `/api/audit` e
 
 ### O problema, em uma frase
 
-Hoje a conversa inteira vive no `IndexedDB` do navegador do testador
+Até 2026-08-06 a conversa inteira vivia no `IndexedDB` do navegador do testador
 (`modules/nexo/lib/nexo-db.ts`, banco `nexo`, stores `conversations` e
 `result_blobs`). O Postgres nunca vê nada dela: só contabilidade de tokens
 (`AiUsageEvent`, que guarda o `conversationId` como rótulo solto, sem chave
@@ -145,7 +145,9 @@ model NexoConversation {
   folderKey String?
   createdAt DateTime
   updatedAt DateTime
+  auditoriaPendente Boolean       // coluna, para a lista não abrir o JSON
   data      Json                  // o StoredConversation, sem os bytes
+  syncedAt  DateTime
   @@index([userEmail, updatedAt])
 }
 ```
@@ -156,8 +158,9 @@ seguem válidos (o próprio `nexo-db.ts` documenta isso). Normalizar mensagem,
 selo, ajuste, decisão e achado em tabelas trocaria essa propriedade por uma
 migração a cada campo novo, e o Nexo ainda está ganhando campo toda semana.
 
-O `IndexedDB` **fica**, como cache local e como resposta offline. O servidor
-passa a ser a fonte da verdade, e `updatedAt` resolve o empate.
+O `IndexedDB` **fica**, e não como detalhe: é ele que sustenta o F5 e o trabalho
+sem rede. O servidor é o que faz a conversa atravessar máquinas, e `updatedAt`
+resolve o empate entre os dois.
 
 ### Os bytes ficam de fora, e isso precisa aparecer
 
@@ -167,28 +170,68 @@ servidor.
 
 Então, ao abrir numa segunda máquina, a conversa volta inteira — mensagens,
 selos, ajustes, identidade, decisões — mas **os arquivos gerados não**. O código
-atual já lida com isso do jeito silencioso: `selectConversation` pula o arquivo
-cujo blob não existe (`conversation-store.tsx:701`). Silêncio aqui é o mesmo
-defeito de sempre: parece que funcionou. O artefato precisa aparecer como
-"gerado neste dia, arquivo não está nesta máquina — gerar de novo", e não
-sumir.
+lidava com isso do jeito silencioso: `selectConversation` pulava o arquivo cujo
+blob não existe, e o artefato aparecia mudo. Agora a ausência sobe como
+`bytesAusentes` e vira texto no card.
 
-### Ordem de execução
+**Quando isto deixará de ser verdade:** no dia em que houver um provedor de
+armazenamento (S3, R2, o disco do container). Aí `saveResult` manda os bytes
+junto e a marca some sozinha. Não é para agora — o volume montado de uma obra
+real passa de 100 MB, e essa conta precisa de decisão antes de código.
 
-1. Model + migração (`prisma migrate dev`, versionada — o `db:push` era do
-   piloto interno).
-2. `app/api/nexo/conversas/route.ts`: `GET` lista os resumos do usuário, `PUT`
-   grava o registro. Auth pelo padrão da casa: `const session = await auth()` e
-   401 sem `session.user`, com o **e-mail** como identificador.
-3. `conversation-store.tsx`: o `persistNow` (que já tem debounce de 500ms e um
-   `flushPersist` para os momentos críticos) passa a gravar nos dois lados. O
-   servidor é best-effort na ida — falha de rede não pode travar o trabalho — mas
-   a falha precisa ser visível, não engolida.
-4. `refreshList` funde as duas listas por `updatedAt`.
-5. O artefato sem bytes locais ganha o estado descrito acima.
+### O que ficou construído
 
-### O que provar antes de dizer que funcionou
+| Peça | Onde |
+|---|---|
+| Tabela e migração | `prisma/schema.prisma`, `prisma/migrations/20260806120000_nexo_conversation/` |
+| Regras puras (validar, medir, fundir) | `server/nexo/conversa-remota.ts` |
+| Rotas | `app/api/nexo/conversas/route.ts` (GET lista, PUT grava) e `[id]/route.ts` (GET um, DELETE) |
+| Camada de rede do cliente | `modules/nexo/lib/nexo-sync.ts` |
+| Fiação | `modules/nexo/state/conversation-store.tsx` |
 
-Não é asserção de DOM. É: gerar um volume numa janela, abrir a mesma conta numa
-janela anônima e ver a conversa lá — com o artefato marcado como "não está nesta
-máquina", não sumido.
+Como funciona, em quatro frases:
+
+- **o disco primeiro, sempre.** O `persistNow` grava no IndexedDB e só então
+  manda ao servidor. O IndexedDB é o que faz um F5 não perder nada e o que
+  funciona sem rede; o servidor é o que faz o trabalho sobreviver a trocar de
+  máquina;
+- **a lista é fundida, nunca substituída** (`fundirListas`). O mais novo vence
+  por `updatedAt`, empate resolve para o local, e **ausência no servidor jamais
+  vira ordem de apagar o local** — é indistinguível de "ainda não subiu";
+- **abrir prefere o disco.** Só vai ao servidor quando a conversa não está aqui,
+  e o que vem desce para o disco na hora;
+- **a lista lê colunas, não o JSON.** `title`, `folderKey`, datas e
+  `auditoriaPendente` são colunas de verdade; desenhar a barra lateral não
+  arrasta megabytes.
+
+### As três coisas que aparecem na tela
+
+Todas existem por causa do mesmo defeito recorrente deste projeto: falhar em
+silêncio parece ter dado certo.
+
+1. **Falha ao sincronizar** vira um aviso âmbar na barra lateral, e o texto diz
+   as duas coisas: "salvo nesta máquina, mas não no servidor". Sucesso não
+   desenha nada — gravar é o esperado, e o esperado não merece pixel.
+2. **Conversa que veio do servidor** leva uma nuvem cinza ao lado da hora.
+3. **Artefato sem os bytes locais** diz "gerado em outra máquina — gere de novo
+   para baixar", em vez de aparecer mudo. O `ResultLinks` recebe o resultado
+   inteiro justamente para que nenhum dos quatro lugares que o chamam consiga
+   esquecer o aviso.
+
+### O que foi provado, e como
+
+`node scripts/shot-nexo-conversa-servidor.mjs` (= `npm run
+qa:nexo:conversa-servidor`) roda **duas sessões de navegador separadas**, com o
+IndexedDB da segunda virgem — que é o que "outra máquina" significa. Não gasta
+token: nenhuma chamada de modelo, e o envio é disparado pelo gesto real ("Nova
+conversa" faz o flush da conversa atual), não por uma chamada à rota. As 12
+verificações passam, e a linha do banco é apagada no fim.
+
+Complementando, `node scripts/test-nexo-conversa-remota.ts` prova as 22 regras
+puras sem banco, sem rede e sem tela — inclusive a que mais custaria caro: a
+fusão não perde conversa.
+
+**O que NÃO está provado no navegador:** o texto "gerado em outra máquina". A
+condição que o dispara está provada (o registro atravessa, o blob não), mas o
+render em si depende de um card de proposta na conversa, que o teste não
+fabrica.

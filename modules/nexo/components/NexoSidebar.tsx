@@ -9,6 +9,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Cloud,
+  CloudOff,
   Folder,
   FolderKanban,
   Gauge,
@@ -22,6 +24,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "../lib/nexo-db";
+import type { EstadoDaSincronizacao } from "../lib/nexo-sync";
 import { groupConversations } from "../lib/group-conversations";
 import { LogoNexo } from "@/components/brand/logo-nexo";
 
@@ -47,9 +50,12 @@ export function NexoSidebar({
   isAdmin = false,
   onVerTour,
   trabalhando = false,
+  sincronizacao,
 }: {
   onNewConversation?: () => void;
   conversations?: ConversationSummary[];
+  /** Última ida ao servidor. Só desenha algo quando falhou. */
+  sincronizacao?: EstadoDaSincronizacao;
   activeId?: string;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -225,6 +231,19 @@ export function NexoSidebar({
                       )}
                     >
                       <span className="min-w-0 flex-1 truncate text-xs">{c.title}</span>
+                      {/*
+                        Veio de outra máquina. A conversa abre inteira, mas os
+                        ODT/PDF/ZIP gerados não vieram junto — eles moram no
+                        navegador que os gerou. Cinza, não teal: é estado, e
+                        teal aqui significaria que se pode clicar (§ cor).
+                      */}
+                      {c.soNoServidor && (
+                        <Cloud
+                          className="h-3 w-3 shrink-0 self-center text-muted-foreground/50"
+                          strokeWidth={1.5}
+                          aria-label="Do servidor: os arquivos gerados não estão nesta máquina"
+                        />
+                      )}
                       <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/60">
                         {shortDate(c.updatedAt)}
                       </span>
@@ -304,6 +323,33 @@ export function NexoSidebar({
           </details>
         ))}
       </div>
+
+      {/*
+        A SINCRONIZAÇÃO SÓ APARECE QUANDO FALHA.
+
+        Um selo verde de "salvo" a cada tecla seria ruído: gravar é o esperado,
+        e o esperado não merece pixel. O que merece é a diferença que ninguém
+        adivinha — o trabalho está no disco DESTA máquina e não subiu. Por isso
+        o texto diz as duas coisas: o que está garantido e o que não está.
+
+        Amarelo de atenção, não vermelho: nada se perdeu.
+      */}
+      {sincronizacao?.estado === "falhou" && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 px-2.5 py-2"
+        >
+          <CloudOff
+            className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--status-warning)]"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+          <span className="text-[11px] leading-snug text-muted-foreground">
+            Salvo nesta máquina, mas não no servidor.
+            <span className="block text-muted-foreground/70">{sincronizacao.motivo}</span>
+          </span>
+        </div>
+      )}
 
       {/*
         Rodapé: o resto do software. Projetos é destino de trabalho; ferramentas

@@ -178,6 +178,14 @@ export interface ConversationSummary {
    * inteiras só para descobrir isso seria caro à toa.
    */
   temAuditoriaPendente?: boolean;
+  /**
+   * Está no servidor e NÃO neste disco — veio de outra máquina.
+   *
+   * Ela abre normalmente, mas os arquivos gerados (ODT/PDF/ZIP) não vêm junto:
+   * os bytes moram no `result_blobs` do navegador que os gerou, e não há
+   * provedor de armazenamento no servidor. A lista precisa poder dizer isso.
+   */
+  soNoServidor?: boolean;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;

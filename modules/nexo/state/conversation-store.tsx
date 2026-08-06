@@ -46,6 +46,14 @@ import {
   type StoredConversation,
   type StoredResultMeta,
 } from "../lib/nexo-db";
+import {
+  apagarNoServidor,
+  gravarNoServidor,
+  lerDoServidor,
+  listarNoServidor,
+  type EstadoDaSincronizacao,
+} from "../lib/nexo-sync";
+import { fundirListas } from "@/server/nexo/conversa-remota";
 
 /** Um arquivo de resultado com object URL vivo (p/ download/preview). */
 export interface SavedFile {
@@ -70,6 +78,18 @@ export interface SavedResult {
   payload?: unknown;
   /** Quando foi gerado — alimenta o "gerada há 42 min" do estado pendente. */
   generatedAt?: number;
+  /**
+   * O artefato foi gerado, mas os BYTES não estão nesta máquina.
+   *
+   * Acontece quando a conversa veio do servidor: o registro atravessa a rede,
+   * os arquivos não — eles vivem no `result_blobs` do navegador que os gerou, e
+   * não há provedor de armazenamento (`NEXODOC_STORAGE_PROVIDER=none`).
+   *
+   * O código antes disto PULAVA o arquivo sem blob, e o artefato aparecia
+   * simplesmente sem nada para baixar. Silêncio aqui é o defeito de sempre:
+   * parece que funcionou. Com a marca, a tela pode dizer "gerar de novo".
+   */
+  bytesAusentes?: boolean;
 }
 
 /** Entrada de `saveResult`: os arquivos vêm como object URLs (o card já os tem). */
@@ -91,6 +111,14 @@ interface ConversationStoreValue {
   ajustes: Record<FolhaId, Ajuste>;
   /** Lista de conversas (resumos), mais recentes primeiro. */
   conversations: ConversationSummary[];
+  /**
+   * Como foi a última ida ao servidor.
+   *
+   * "desligada" é o normal de uma instalação sem banco. "falhou" precisa
+   * aparecer na tela: o trabalho está a salvo no disco desta máquina, mas NÃO
+   * subiu — e é justamente essa diferença que o testador não tem como adivinhar.
+   */
+  sincronizacao: EstadoDaSincronizacao;
   /** Resultados gerados (com URLs vivas) — reidratados do IndexedDB no restore. */
   results: SavedResult[];
   appendMessage: (m: NexoChatMessage) => void;
@@ -294,15 +322,43 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     };
   });
 
+  /*
+   * A lista do SERVIDOR, guardada à parte.
+   *
+   * `refreshList` roda depois de toda gravação (ou seja, o tempo todo) e precisa
+   * continuar barato: ele relê o disco e funde com o que o servidor disse por
+   * último. Ir à rede a cada tecla seria absurdo — quem vai ao servidor é o
+   * `refreshRemote`, na montagem e depois de apagar.
+   */
+  const remotasRef = useRef<ConversationSummary[]>([]);
+  const [sincronizacao, setSincronizacao] = useState<EstadoDaSincronizacao>({
+    estado: "desligada",
+  });
+
   const refreshList = useCallback(() => {
     listConversations()
-      .then(setConversations)
+      .then((locais) => setConversations(fundirListas(locais, remotasRef.current)))
       .catch(() => {});
   }, []);
 
+  const refreshRemote = useCallback(() => {
+    listarNoServidor()
+      .then(({ conversas, sincronizando }) => {
+        remotasRef.current = conversas;
+        if (!sincronizando) setSincronizacao({ estado: "desligada" });
+        refreshList();
+      })
+      .catch(() => {
+        // Lista remota indisponível não é erro de tela: o histórico local
+        // continua inteiro. O que NÃO pode é a gravação falhar em silêncio —
+        // isso o `persistNow` reporta.
+      });
+  }, [refreshList]);
+
   useEffect(() => {
     refreshList();
-  }, [refreshList]);
+    refreshRemote();
+  }, [refreshList, refreshRemote]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
@@ -369,9 +425,25 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(s.memorialMeta ? { memorial: s.memorialMeta } : {}),
       results: resultsMeta,
     };
+    /*
+     * O DISCO PRIMEIRO, SEMPRE.
+     *
+     * O IndexedDB é a gravação que vale no instante: é síncrono o bastante,
+     * funciona sem rede e é o que faz um F5 não perder nada. O servidor vem
+     * depois, e é o que faz o trabalho sobreviver a trocar de máquina.
+     */
     putConversation(rec)
       .then(refreshList)
       .catch(() => {});
+
+    gravarNoServidor(rec).then((estado) => {
+      /*
+       * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
+       * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
+       * modo de falhar caro deste projeto é o que parece ter dado certo.
+       */
+      setSincronizacao(estado);
+    });
   }, [refreshList]);
 
   // Debounce: grava 500ms após a última mudança.
@@ -690,15 +762,35 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
       flushPersist(); // grava a conversa atual antes de trocar (#1)
-      const rec = await getConversation(id);
+      /*
+       * Disco primeiro; servidor só se não estiver aqui.
+       *
+       * Nessa ordem porque o disco tem os BYTES dos artefatos e o servidor não.
+       * Preferir o servidor por ser "a fonte da verdade" trocaria uma conversa
+       * completa por uma sem arquivos — e a diferença entre as duas versões é
+       * resolvida na lista, por `updatedAt`, não aqui.
+       */
+      let rec = await getConversation(id);
+      if (!rec) {
+        rec = await lerDoServidor(id);
+        // Veio de outra máquina: desce para este disco, senão toda reabertura
+        // pagaria a rede de novo e um F5 offline a perderia.
+        if (rec) await putConversation(rec).catch(() => {});
+      }
       if (!rec) return null;
       // Reidrata os resultados: busca cada blob e cria URLs vivas.
       const restored: SavedResult[] = [];
       for (const meta of rec.results) {
         const files: SavedFile[] = [];
+        let faltouByte = false;
         for (const fm of meta.files) {
           const blob = await getBlob(fm.blobKey);
-          if (!blob) continue;
+          if (!blob) {
+            // NÃO some: a marca sobe para o resultado e a tela diz que o
+            // arquivo não está nesta máquina.
+            faltouByte = true;
+            continue;
+          }
           files.push({
             label: fm.label,
             name: fm.name,
@@ -719,6 +811,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           files,
           ...(meta.payload !== undefined ? { payload: meta.payload } : {}),
           ...(meta.generatedAt !== undefined ? { generatedAt: meta.generatedAt } : {}),
+          ...(faltouByte ? { bytesAusentes: true } : {}),
         });
       }
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
@@ -759,8 +852,16 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     async (id: string) => {
       await dbDelete(id);
       refreshList();
+      /*
+       * O servidor é apagado depois, e a falha não desfaz nada: a pessoa mandou
+       * sumir e o local já sumiu. `refreshRemote` conta a verdade em seguida —
+       * se a rede tiver caído, a conversa volta na lista marcada como do
+       * servidor, e uma nova tentativa a apaga.
+       */
+      await apagarNoServidor(id);
+      refreshRemote();
     },
-    [refreshList],
+    [refreshList, refreshRemote],
   );
 
   const marcarAuditoriaPendente = useCallback(
@@ -835,6 +936,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       seloResults,
       ajustes,
       conversations,
+      sincronizacao,
       results,
       appendMessage,
       appendDelta,
@@ -875,6 +977,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       seloResults,
       ajustes,
       conversations,
+      sincronizacao,
       results,
       appendMessage,
       appendDelta,

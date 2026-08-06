@@ -828,7 +828,7 @@ function LdConfirmation({
               ? `Versão atual (antes da alteração) — ${saved.summary}`
               : saved.summary
           }
-          files={toResultFiles(saved)}
+          saved={saved}
         />
       )}
       <CardError message={error} />
@@ -1025,7 +1025,7 @@ function CapaConfirmation({
               ? `Versão atual (antes da alteração) — ${saved.summary}`
               : saved.summary
           }
-          files={toResultFiles(saved)}
+          saved={saved}
         />
       )}
       <CardError message={error} />
@@ -1988,7 +1988,7 @@ function VolumeConfirmation({
         </>
       )}
 
-      {saved && <ResultLinks summary={saved.summary} files={toResultFiles(saved)} />}
+      {saved && <ResultLinks summary={saved.summary} saved={saved} />}
       {/* A conferência do volume montado, logo abaixo do PDF. Crítico pinta o
           semáforo, e o link de baixar continua acima, ativo: quem decide o que
           fazer com o volume é o engenheiro. */}
@@ -2496,7 +2496,7 @@ function SeparatrizConfirmation({
               ? `Versão atual (antes da alteração) — ${saved.summary}`
               : saved.summary
           }
-          files={toResultFiles(saved)}
+          saved={saved}
         />
       )}
       <CardError message={error} />
@@ -2506,22 +2506,33 @@ function SeparatrizConfirmation({
 
 /* ------------------------------------------------------------- Downloads ---- */
 
-function ResultLinks({
-  summary,
-  files,
-}: {
-  summary: string;
-  files: {
-    label: string;
-    url: string;
-    name: string;
-    primary?: boolean;
-    sizeBytes?: number;
-  }[];
-}) {
+/**
+ * Os links de download de um artefato já gerado.
+ *
+ * Recebe o resultado inteiro, e não só a lista de arquivos, de propósito: a
+ * marca `bytesAusentes` mora nele, e um parâmetro à parte seria esquecido em um
+ * dos quatro lugares que chamam isto — que é exatamente como um aviso
+ * importante some.
+ */
+function ResultLinks({ summary, saved }: { summary: string; saved: SavedResult }) {
+  const files = toResultFiles(saved);
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
       <p className="text-sm">{summary}</p>
+      {/*
+        O ARTEFATO EXISTE, OS BYTES NÃO ESTÃO AQUI.
+
+        Acontece com conversa aberta noutra máquina: o registro atravessa a
+        rede, os arquivos não — eles ficam no navegador que os gerou. Antes
+        disto o arquivo simplesmente não aparecia, e um card sem botão de baixar
+        parece defeito. Dizer o que houve e o que fazer custa duas linhas.
+      */}
+      {saved.bytesAusentes && (
+        <p className="text-xs leading-snug text-[var(--status-warning)]">
+          Gerado em outra máquina — os arquivos não estão neste navegador. Gere
+          de novo para baixar.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         {files.map((f) => {
           /* O peso do arquivo é decisão prática: o engenheiro escolhe o que
