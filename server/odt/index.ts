@@ -10,6 +10,9 @@ import {
 import { escapeXml, formatMesAno, formatDisplayCode } from "@/lib/cover-utils";
 import type { GeneralData, CoverPage } from "@/modules/cover-generator/types";
 import { getTemplateOdtPath } from "@/server/templates/registry";
+// A regra do marcador vive num módulo PURO para poder ser testada em node cru:
+// este arquivo importa por alias `@/`, que o node pelado não resolve.
+import { distribuirNosMarcadores } from "./marcadores";
 
 export interface GenerateOdtInput {
   templateId?: string;
@@ -138,10 +141,15 @@ async function fillExistingOdt(
     let block = templateBody.innerXml;
 
     for (const [marker, value] of Object.entries(replacements)) {
-      block = distribuirNosMarcadores(block, marker, value);
+      block = distribuirNosMarcadores(block, marker, value, markerXmlValue);
     }
 
-    block = distribuirNosMarcadores(block, "{{TITULO_CAPA}}", page.tituloCapa);
+    block = distribuirNosMarcadores(
+      block,
+      "{{TITULO_CAPA}}",
+      page.tituloCapa,
+      markerXmlValue,
+    );
     block = block.replaceAll("{{DISCIPLINA}}", markerXmlValue(page.disciplina));
     block = block.replaceAll("{{TOMO}}", markerXmlValue(page.tomo));
     block = block.replaceAll("{{VOLUME}}", markerXmlValue(page.volume));
@@ -192,109 +200,6 @@ async function fillExistingOdt(
 
 function markerXmlValue(value: string): string {
   return escapeXml(value).replace(/\n/g, "<text:line-break/>");
-}
-
-/**
- * O MARCADOR REPETIDO DIVIDE O VALOR EM LINHAS.
- *
- * Um campo que sai em várias linhas — o nome da obra, o título com as
- * disciplinas — pode aparecer mais de uma vez no modelo, cada ocorrência num
- * parágrafo seu. É assim que o padrão da empresa desenha a capa: a 1ª linha do
- * nome da obra num parágrafo, a 2ª no seguinte, o bairro logo abaixo.
- *
- * Com `replaceAll`, os dois parágrafos recebiam o nome INTEIRO e a obra saía
- * duplicada na capa. Aqui cada ocorrência recebe a sua linha, e a ÚLTIMA recebe
- * o que sobrar — assim nada é perdido quando o texto tem mais linhas do que o
- * modelo previu.
- *
- * E a ocorrência que não recebe nada SOME COM O PARÁGRAFO. O modelo desenha o
- * caso de duas linhas de obra; numa obra de uma linha só, deixar o 2º parágrafo
- * vazio abriria uma linha em branco exatamente entre a obra e o bairro — e a
- * regra da capa é que o bairro venha logo abaixo do nome. Vale para qualquer
- * campo opcional: sem bairro, não sobra a linha dele.
- *
- * Só colapsa o parágrafo que existia SÓ para aquele marcador. Um parágrafo com
- * texto fixo em volta ("VOLUME {{VOLUME}} – {{TITULO_CAPA}}") fica onde está, e
- * os espaçadores que o modelo desenha de propósito não são tocados — eles não
- * têm marcador nenhum.
- *
- * Com UMA ocorrência o comportamento é o de sempre: o valor inteiro, com as
- * quebras viram `<text:line-break/>`.
- *
- * Substituiu duas funções específicas de Criciúma que fixavam NOMES DE ESTILO
- * ("P9", "P13") no código. Nome de estilo é numeração interna do LibreOffice:
- * ele renumera ao salvar, e o "P9" que era alinhado à direita passou a ser
- * centralizado no modelo novo — o código escreveria no estilo errado sem que
- * nada acusasse. Herdar o estilo do parágrafo do modelo não tem esse problema.
- */
-function distribuirNosMarcadores(
-  block: string,
-  marcador: string,
-  valor: string,
-): string {
-  const partes = block.split(marcador);
-  const quantos = partes.length - 1;
-  if (quantos <= 0) return block;
-
-  const linhas = valor
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const conteudoDe = (i: number) =>
-    quantos === 1
-      ? valor
-      : i === quantos - 1
-        ? linhas.slice(i).join("\n")
-        : (linhas[i] ?? "");
-
-  let saida = partes[0];
-  for (let i = 0; i < quantos; i++) {
-    const conteudo = conteudoDe(i);
-    const resto = partes[i + 1];
-
-    if (!conteudo.trim()) {
-      const semParagrafo = colapsarParagrafoDoMarcador(saida, resto);
-      if (semParagrafo !== null) {
-        saida = semParagrafo;
-        continue;
-      }
-    }
-    saida += markerXmlValue(conteudo) + resto;
-  }
-  return saida;
-}
-
-/** Há texto de verdade aqui, fora das tags? */
-function temTextoVisivel(xml: string): boolean {
-  return xml.replace(/<[^>]*>/g, "").trim().length > 0;
-}
-
-/**
- * Remove o `<text:p>` que envolvia um marcador sem conteúdo, devolvendo o XML
- * já emendado — ou `null` quando não dá para colapsar com segurança.
- *
- * Recusa colapsar se sobrou texto visível dentro do parágrafo (o marcador
- * dividia espaço com texto fixo) ou se as tags não fecham como esperado. Recusar
- * é sempre seguro: cai no comportamento antigo, de deixar o parágrafo vazio.
- */
-function colapsarParagrafoDoMarcador(
-  antes: string,
-  depois: string,
-): string | null {
-  const FECHA = "</text:p>";
-  const abre = antes.lastIndexOf("<text:p");
-  const fecha = depois.indexOf(FECHA);
-  if (abre < 0 || fecha < 0) return null;
-
-  // O parágrafo tem de ser aberto DEPOIS do último fechamento: senão o que
-  // achamos é um ancestral, e apagá-lo levaria junto conteúdo alheio.
-  if (antes.lastIndexOf(FECHA) > abre) return null;
-
-  if (temTextoVisivel(antes.slice(abre)) || temTextoVisivel(depois.slice(0, fecha))) {
-    return null;
-  }
-  return antes.slice(0, abre) + depois.slice(fecha + FECHA.length);
 }
 
 function extractOfficeText(contentXml: string): {
