@@ -82,9 +82,17 @@ export function KeyboardShortcutsHelp() {
         closing ? "backdrop-fade-out" : "backdrop-fade-in bg-black/60 backdrop-blur-sm",
       )}
     >
+      {/*
+        TETO DE ALTURA COM ROLAGEM POR DENTRO.
+        Sem ele, o modo de falha é o pior possível: um filho de flex
+        centralizado transborda IGUALMENTE em cima e embaixo, e o topo fica
+        inalcançável por rolagem. Hoje a lista de atalhos é curta e cabe — mas
+        ela cresce, e quando crescer o defeito aparece numa janela baixa, não
+        aqui. O `flex flex-col` mantém o cabeçalho fixo e faz só a lista rolar.
+      */}
       <div
         className={cn(
-          "mx-4 w-full max-w-md rounded-md border border-border bg-card p-6 shadow-[var(--shadow-overlay)]",
+          "mx-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md border border-border bg-card p-6 shadow-[var(--shadow-overlay)]",
           closing ? "animate-out fade-out-0 zoom-out-95" : "modal-scale-in",
         )}
         role="dialog"
@@ -105,7 +113,9 @@ export function KeyboardShortcutsHelp() {
             <span aria-hidden="true">&times;</span>
           </Button>
         </div>
-        <div className="mt-4 divide-y divide-border">
+        {/* Só a LISTA rola: o cabeçalho com o botão de fechar fica sempre à
+            mão, que é o oposto de um modal cujo topo some. */}
+        <div className="mt-4 min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain">
           {GLOBAL_SHORTCUTS.map((shortcut) => (
             <div
               key={shortcut.description}
