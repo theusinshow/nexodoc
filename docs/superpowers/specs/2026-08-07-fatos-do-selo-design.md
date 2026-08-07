@@ -16,8 +16,11 @@ quatro slots estão marcados `decision: true` em
 fato. É a classificação que está errada, não o mecanismo.
 
 O mecanismo para consertar já existe: `deriveFrom(facts)` resolve um slot a
-partir dos fatos e ele nunca chega a ser perguntado. Três dos quatro campos já
-têm a fonte disponível; só a data não é lida hoje.
+partir dos fatos e ele nunca chega a ser perguntado.
+
+**A prefeitura já usa esse mecanismo e está resolvida** (ver Peça 2). Sobram
+três: título de capa, título de LD e data. Os dois títulos têm a fonte pronta e
+só precisam ser ligados; a data é a única que ainda não é lida do carimbo.
 
 ## Decisões
 
@@ -55,18 +58,28 @@ A única das quatro que exige mexer no que vai ao modelo.
 **Custo: nenhuma chamada nova.** É um campo a mais na chamada de visão que já
 roda uma vez por prancha.
 
-### Peça 2 — prefeitura pelo órgão do selo
+### Peça 2 — prefeitura: JÁ IMPLEMENTADA, nada a fazer
 
-`matchPrefeitura` (`server/nexo/agent/normalize.ts`) já resolve texto livre para
-um template e já tem a guarda necessária: exige que o texto **nomeie um órgão**
-(`prefeitura|municipio|governo`).
+Correção a uma leitura errada da primeira versão deste spec: a prefeitura **já é
+resolvida pelo carimbo**. `casarPrefeituraDoCarimbo`
+(`server/nexo/agent/normalize.ts:130`) conta o campo `cliente` de todas as
+folhas, casa o valor dominante contra os templates via `matchPrefeitura`, e é
+chamada em produção no único caminho que monta `SlotFacts`
+(`slot-request.ts:135`).
 
-Mudança: `SlotFacts.templateMatch` passa a ser computado também a partir do
-`orgao`/`cliente` dos selos, não apenas do município do dossiê do memorial. O
-memorial mantém prioridade quando existir — ele é a fonte mais específica.
+Quando ela ainda pergunta, é por um destes motivos — e todos são o
+comportamento correto, não defeito:
 
-`matchPrefeitura` continua como FONTE ÚNICA; o chamador (`run-turn`/rota) roda e
-injeta o resultado, preservando `requirements.ts` como folha pura.
+- **Nenhuma folha trouxe `cliente`** → `undefined` → pergunta;
+- **`plausibleCount === 0`**: o texto não casou com template nenhum, ou não
+  passou em `nomeiaOrgao`;
+- **`plausibleCount > 1`**: a mesma cidade tem variantes de template. A decisão
+  é humana de propósito — ela diz para QUEM o volume vai, que é o erro que este
+  produto existe para impedir.
+
+**Ação desta peça: nenhuma mudança de código.** Se o slot continuar aparecendo
+depois das Peças 1 e 3, o diagnóstico é olhar qual dos três casos ocorreu, com
+os selos reais em mãos. Incluir isso na verificação final.
 
 ### Peça 3 — títulos pela disciplina
 
@@ -79,15 +92,21 @@ vazio. A capacidade existe e está bloqueada atrás de um slot `required`.
 
 Ambos deixam de ser `required`.
 
-### Peça 4 — o bloco de fatos no card
+### Peça 4 — o card: quase tudo já existe
 
-No card de confirmação que já existe, acima do botão de gerar: cada fato com seu
-valor, a origem (`selo, 24 folhas` / `disciplina` / `memorial`) e uma ação de
-editar que reabre o slot correspondente. Campo divergente ganha marca e a
-contagem de quem discorda.
+Segunda correção à primeira versão deste spec. **O card já afirma e já deixa
+editável.** `FrameDoDocumento` desenha o modelo ODT e recebe `derivados` como
+texto FANTASMA nos campos (`PlanoDeGeracao.tsx:558-577`) — `TITULO_CAPA` já vem
+de `tituloSugerido`, que já usa `nomeNaCapa`; `MES_ANO` já vem de `dataDaCapa`.
+O fantasma preserva a regra "vazio = vale o carimbo", então digitar por cima
+vence o derivado sem que o controle brigue com quem digita.
 
-Editar um fato preenche o slot à mão — o caminho que já existe hoje —, e a
-edição vence a derivação, como acontece com a identidade do projeto.
+Não há bloco novo a construir. Com as Peças 1 e 3, esses campos passam a ser
+alimentados pelo selo em vez de ficarem vazios.
+
+**O que falta é só a marca de divergência**: dizer, no próprio fantasma da data,
+quantas folhas discordam do valor dominante. Sem ela, a folha intrusa entra sem
+ninguém ver — que é o custo de afirmar em vez de perguntar.
 
 ## O que continua sendo perguntado
 
@@ -120,8 +139,9 @@ afrouxada ao passar a ler o órgão do selo.
 - Divergência: maioria vence e o campo sai marcado.
 - Regressão da cicatriz: sem data em nenhum selo, a capa continua caindo no mês
   corrente e o slot continua perguntável.
-- Guarda do endereço: selo cujo único texto casável é o endereço da PROSUL não
-  resolve `templateId`.
+- Guarda do endereço: **já coberta** por `scripts/test-nexo-agent.ts:88`, que
+  afirma que o endereço da PROSUL não casa prefeitura nenhuma. Não escrever de
+  novo; só garantir que continua verde.
 
 ## Fora de escopo
 
