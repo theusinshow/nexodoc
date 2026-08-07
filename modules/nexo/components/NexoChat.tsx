@@ -677,23 +677,42 @@ function AttachmentChip({
           selo ilegível
         </span>
       )}
-      {att.papel && estado.tipo !== "lido" && (
+      {/*
+        O PAPEL só aparece quando NÃO há como trocá-lo. Com o botão ao lado, os
+        dois juntos davam "PRANCHA  é o memorial" — um estado e uma ação
+        encostados, sem nada distinguindo qual era qual. O verbo do botão já diz
+        o papel atual por oposição.
+      */}
+      {att.papel && estado.tipo !== "lido" && !onTrocarPapel && (
         <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
           {att.papel}
         </span>
       )}
-      {att.papel && onTrocarPapel && (
+      {/*
+        O CONVITE SOME QUANDO O CARIMBO FOI LIDO.
+
+        Carimbo lido é a prova de que o PDF é prancha — perguntar ali se ele é o
+        memorial é oferecer uma dúvida que o próprio documento já resolveu. Fica
+        de pé enquanto a folha está na fila e quando o selo sai ilegível, que é
+        justamente quando a dúvida existe: memorial é texto, e um memorial
+        batizado fora da convenção cai no OCR e nunca chega à auditoria.
+
+        Antes ele aparecia SEMPRE, inclusive na folha já lida com sucesso — e
+        escrito no indicativo ("é o memorial"), que se lê como afirmação do
+        estado e não como o convite que é.
+      */}
+      {att.papel && onTrocarPapel && estado.tipo !== "lido" && (
         <button
           type="button"
           onClick={() => onTrocarPapel(att.id)}
           title={
             viraMemorial
-              ? "Tratar este PDF como o memorial (auditar)"
+              ? "Tratar este PDF como o memorial (auditar em vez de ler o selo)"
               : "Tratar este PDF como prancha (ler o selo)"
           }
-          className="rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
         >
-          {viraMemorial ? "é o memorial" : "é prancha"}
+          {viraMemorial ? "tratar como memorial" : "tratar como prancha"}
         </button>
       )}
       {onRemove && (
