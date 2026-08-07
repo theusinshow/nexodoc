@@ -106,7 +106,8 @@ uniform vec3 uRimColor; // teal/luminoso
 uniform float uRim;
 uniform float uScan;
 uniform float uTime;
-uniform float uBrilho;  // força do reflexo especular (0 = sem vidro)
+uniform float uBrilho;    // força do reflexo especular (0 = sem vidro)
+uniform float uEspessura; // parede da casca (0 = disco com aro · 1 = vidro grosso)
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
 
@@ -122,6 +123,30 @@ void main() {
   // Expoente menor = anel mais ESPESSO.
   float edgeRing = pow(1.0 - ndv, 4.5);
   vec3 edge = mix(uRimColor, vec3(1.0), 0.35) * edgeRing;
+
+  /*
+   * A PAREDE — o que faz a esfera ter CASCA, e não ser um disco com aro.
+   *
+   * Uma linha só na silhueta lê como contorno desenhado. Vidro de espessura
+   * real mostra DUAS bordas: a de fora e a de dentro, com um vão mais escuro
+   * entre elas — é o vão que o olho interpreta como material. Sem ele não
+   * adianta engrossar o aro: fica aro grosso, não parede.
+   *
+   * A variavel "borda" vai de 0 no centro a 1 na silhueta. A linha interna
+   * nasce em "limite" e caminha para dentro conforme a espessura cresce.
+   */
+  float borda = 1.0 - ndv;
+  float limite = 1.0 - uEspessura * 0.42;
+  float aroInterno =
+    smoothstep(limite - 0.09, limite, borda)
+    * (1.0 - smoothstep(limite, limite + 0.07, borda));
+  float vao =
+    smoothstep(limite + 0.02, limite + 0.12, borda)
+    * (1.0 - smoothstep(0.90, 0.99, borda));
+
+  vec3 parede = mix(uRimColor, vec3(1.0), 0.5) * aroInterno * 0.55 * uEspessura;
+  // O vão ESCURECE: material entre as duas superfícies absorve.
+  float absorcao = vao * 0.5 * uEspessura;
 
   /*
    * O REFLEXO — o que faz o olho ler "vidro" em vez de "esfera colorida".
@@ -163,8 +188,13 @@ void main() {
 
   float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85
     + (sheen * 0.28 + ponto * 0.7) * uBrilho
-    + (band * 0.45 + nucleo * 0.5) * uScan;
-  gl_FragColor = vec4(body + rim + edge + glint + scan, alpha);
+    + (band * 0.45 + nucleo * 0.5) * uScan
+    + (aroInterno * 0.5 + absorcao * 0.65);
+
+  vec3 cor = body + rim + edge + glint + scan + parede;
+  // A absorção tira luz do que está ATRÁS do vão, sem apagar as duas bordas.
+  cor *= (1.0 - absorcao * 0.8);
+  gl_FragColor = vec4(cor + parede * 0.4, alpha);
 }
 `;
 
@@ -193,6 +223,7 @@ uniform vec3 uColorA; // teal profundo
 uniform vec3 uColorB; // branco luminoso (miolo)
 uniform vec3 uColorC; // teal claro
 uniform vec3 uColorD; // teal quase branco (2a camada)
+uniform float uOndaDaAlma; // irregularidade da borda da alma (0 = recorte exato)
 varying vec2 vUv;
 
 ${SNOISE}
@@ -218,8 +249,22 @@ void main() {
   float a2 = ang - 2.6 * r - t * 0.45 + 1.3;
   float blade2 = pow(max(cos(a2 * 2.0), 0.0), 2.6); // ~4 lâminas
 
-  // Envelope radial: some ANTES da borda (0.92) → o glow fica CONTIDO no vidro.
-  float env = smoothstep(0.92, 0.3, r);
+  /*
+   * A BORDA IRREGULAR VOLTOU — agora aqui, que é o lugar dela.
+   *
+   * O envelope era um círculo exato (0.92 fixo), então a alma tinha recorte de
+   * moeda: o conteúdo mais vivo do orbe terminava na régua. Quando a casca era
+   * ondulada isso não aparecia — a irregularidade estava no vidro, e o olho
+   * atribuía a vida à silhueta inteira. Com a casca lisa, o corte perfeito da
+   * alma ficou exposto.
+   *
+   * A ondulação anda com o ÂNGULO e com o tempo: a alma respira contra o vidro
+   * sem que o vidro se mexa. É a leitura que a referência tem — casca de vidro
+   * limpa, conteúdo orgânico dentro.
+   */
+  float ondaDaBorda = snoise(vec3(cos(ang) * 1.6, sin(ang) * 1.6, t * 0.22));
+  float raioDaAlma = 0.92 + ondaDaBorda * uOndaDaAlma;
+  float env = smoothstep(raioDaAlma, 0.3, r);
   blade1 *= env;
   blade2 *= env;
 

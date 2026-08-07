@@ -119,7 +119,10 @@ export function BancadaDoOrbe() {
       `// modules/nexo/components/agent-orb/AgentOrbScene.tsx\n` +
       `export const CORES_DO_ORBE: CoresDoOrbe = {\n${linhas}\n};\n\n` +
       `export const VIDRO_DO_ORBE: VidroDoOrbe = {\n` +
-      `  esfera: ${vidro.esfera},\n  brilho: ${vidro.brilho},\n};\n\n` +
+      `  esfera: ${vidro.esfera},\n` +
+      `  brilho: ${vidro.brilho},\n` +
+      `  espessura: ${vidro.espessura},\n` +
+      `  ondaDaAlma: ${vidro.ondaDaAlma},\n};\n\n` +
       (manual
         ? `// Parâmetros afinados na bancada (estado "${estado}"):\n` +
           `// ${JSON.stringify(emUso)}\n` +
@@ -293,23 +296,37 @@ export function BancadaDoOrbe() {
                 {vidro.esfera.toFixed(2)}
               </span>
             </label>
-            <label className="mt-2 flex items-center gap-2 text-sm">
-              <span className="w-[150px] text-muted-foreground">Reflexo</span>
-              <input
-                type="range"
-                min={0}
-                max={2}
-                step={0.01}
-                value={vidro.brilho}
-                onChange={(e) =>
-                  setVidro((v) => ({ ...v, brilho: Number(e.target.value) }))
-                }
-                className="flex-1"
-              />
-              <span className="w-10 text-right font-mono text-xs tabular-nums">
-                {vidro.brilho.toFixed(2)}
-              </span>
-            </label>
+            {(
+              [
+                ["brilho", "Reflexo", 2],
+                ["espessura", "Espessura da parede", 1],
+                ["ondaDaAlma", "Borda irregular da alma", 0.2],
+              ] as const
+            ).map(([chave, rotulo, max]) => (
+              <label key={chave} className="mt-2 flex items-center gap-2 text-sm">
+                <span className="w-[150px] text-muted-foreground">{rotulo}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={max}
+                  step={0.01}
+                  value={vidro[chave]}
+                  onChange={(e) =>
+                    setVidro((v) => ({ ...v, [chave]: Number(e.target.value) }))
+                  }
+                  className="flex-1"
+                />
+                <span className="w-10 text-right font-mono text-xs tabular-nums">
+                  {vidro[chave].toFixed(2)}
+                </span>
+              </label>
+            ))}
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              A <strong>espessura</strong> nasce de duas bordas com um vão escuro
+              entre elas — é o vão que o olho lê como material. Engrossar o aro
+              sozinho dá aro grosso, não parede. A <strong>borda irregular</strong>{" "}
+              é a ondulação que a casca tinha antes, devolvida à alma.
+            </p>
           </section>
 
           <section>

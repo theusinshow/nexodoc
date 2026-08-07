@@ -64,17 +64,31 @@ export const CORES_DO_ORBE: CoresDoOrbe = {
   laminaClara: "#bff3ea",
 };
 
-/** O vidro: o quanto a casca é esfera, e quanto reflexo ela tem. */
+/** O vidro: o quanto a casca é esfera, quanto reflete, e quão grossa parece. */
 export interface VidroDoOrbe {
   /** 0 = casca ondulada (como era até 2026-08-07) · 1 = esfera perfeita. */
   esfera: number;
   /** Força do reflexo especular. 0 apaga o vidro e sobra gás. */
   brilho: number;
+  /**
+   * Espessura da parede. 0 = uma linha só na silhueta, que lê como contorno
+   * desenhado; acima disso nasce a segunda borda, por dentro, com um vão mais
+   * escuro entre as duas — é o vão que o olho lê como material.
+   */
+  espessura: number;
+  /**
+   * Irregularidade da borda da ALMA (não do vidro). O envelope dela era um
+   * círculo exato, e com a casca lisa esse recorte de moeda ficou exposto.
+   * É a ondulação que a casca tinha antes, devolvida ao lugar certo.
+   */
+  ondaDaAlma: number;
 }
 
 export const VIDRO_DO_ORBE: VidroDoOrbe = {
   esfera: 1,
   brilho: 1,
+  espessura: 0.55,
+  ondaDaAlma: 0.06,
 };
 
 const BODY_COLOR = CORES_DO_ORBE.corpo;
@@ -106,6 +120,7 @@ const OrbSurfaceMaterial = shaderMaterial(
      */
     uEsfera: VIDRO_DO_ORBE.esfera,
     uBrilho: VIDRO_DO_ORBE.brilho,
+    uEspessura: VIDRO_DO_ORBE.espessura,
   },
   surfaceVertexShader,
   surfaceFragmentShader,
@@ -122,6 +137,7 @@ const OrbCoreMaterial = shaderMaterial(
     uColorB: new THREE.Color(SOUL_LUMINOUS),
     uColorC: new THREE.Color(SOUL_TEAL_BRIGHT),
     uColorD: new THREE.Color(SOUL_TEAL_LIGHT),
+    uOndaDaAlma: VIDRO_DO_ORBE.ondaDaAlma,
   },
   coreVertexShader,
   coreFragmentShader,
@@ -224,7 +240,12 @@ export function AgentOrbScene({
     if (sup) {
       sup.uniforms.uEsfera.value = v.esfera;
       sup.uniforms.uBrilho.value = v.brilho;
+      sup.uniforms.uEspessura.value = v.espessura;
     }
+    // A onda da borda é da ALMA, mas mora no mesmo painel: quem afina a casca
+    // precisa ver as duas juntas, senão ajusta uma contra a outra às cegas.
+    const alma = coreRef.current;
+    if (alma) alma.uniforms.uOndaDaAlma.value = v.ondaDaAlma;
     invalidate();
   }, [vidro, invalidate]);
   const gl = useThree((s) => s.gl);
