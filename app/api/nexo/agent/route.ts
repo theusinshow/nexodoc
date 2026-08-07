@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
   const resumo = proposal
     ? {
         disciplina: proposal.resumo.disciplina,
+        disciplinaCode: proposal.resumo.disciplinaCode,
         codigo: proposal.resumo.codigo,
         revisao: proposal.resumo.revisao,
         obra: proposal.resumo.obra,
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
       }
     : {
         disciplina: "",
+        disciplinaCode: "",
         codigo: memorial?.codigo ?? "",
         revisao: "",
         obra: fatos.gabarito.obra ?? "",
@@ -168,6 +170,9 @@ export async function POST(req: NextRequest) {
   const slotContext = {
     selos,
     disciplina: resumo.disciplina,
+    // O rótulo é para mostrar; o CÓDIGO é a chave do léxico que deriva os
+    // títulos. Mandar só o rótulo daria título vazio em silêncio.
+    disciplinaCode: resumo.disciplinaCode,
     obra: resumo.obra,
     prefeituras,
     mesAtual: now.getMonth() + 1,

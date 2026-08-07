@@ -37,6 +37,8 @@ export interface SlotRequestContext {
   selos: SeloForLd[];
   /** Disciplina detectada (chave do seloSet + rótulo). */
   disciplina: string;
+  /** Código canônico de três letras ("est") — a chave do léxico de disciplinas. */
+  disciplinaCode?: string;
   /** Obra detectada (entra no dossiê mínimo). */
   obra: string;
   /** Prefeituras configuradas (chips de templateId, se faltar). */
@@ -148,9 +150,17 @@ export function buildSlotRequestForTurn(
      * o software inventar um valor.
      */
     dataDoSelo: dataDominante(ctx.selos.map((s) => s.data)) ?? undefined,
+    /*
+     * O CÓDIGO, não o rótulo. `ctx.disciplina` é "ESTRUTURAL" (de UI) e
+     * `nomeNaCapa("ESTRUTURAL")` devolve undefined — passá-lo aqui daria título
+     * vazio em SILÊNCIO, com o slot voltando a perguntar como se nada tivesse
+     * mudado. A chave do léxico é o código de três letras.
+     */
     titulos: (() => {
-      const capa = nomeNaCapa(ctx.disciplina);
-      const ld = nomeNoDocumento(ctx.disciplina);
+      const code = (ctx.disciplinaCode ?? "").trim();
+      if (!code) return undefined;
+      const capa = nomeNaCapa(code);
+      const ld = nomeNoDocumento(code);
       return capa && ld ? { capa, ld } : undefined;
     })(),
     mesAtual: ctx.mesAtual,

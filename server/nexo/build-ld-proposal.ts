@@ -48,7 +48,16 @@ export interface LdProposal {
   input: CreateLDInput;
   /** Diagnóstico p/ a UI: o que foi inferido e de onde. */
   resumo: {
+    /** Rótulo de UI, em maiúsculas ("ESTRUTURAL"). Para mostrar, não para consultar. */
     disciplina: string;
+    /**
+     * O CÓDIGO canônico de três letras ("est") — a chave do léxico.
+     *
+     * Existe separado porque `disciplina` é o rótulo e não serve de chave:
+     * `nomeNaCapa("ESTRUTURAL")` devolve undefined, e quem passasse o rótulo
+     * ganharia silenciosamente um título vazio.
+     */
+    disciplinaCode: string;
     codigo: string;
     revisao: string;
     obra: string;
@@ -372,6 +381,7 @@ export function buildLdProposal(
     input,
     resumo: {
       disciplina: discLabel,
+      disciplinaCode: discCode,
       codigo,
       revisao,
       obra,

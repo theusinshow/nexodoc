@@ -127,4 +127,20 @@ test("código desconhecido devolve undefined, não um nome inventado", () => {
   assert.equal(nomeDoPar("xyz", "abc"), undefined);
 });
 
+/*
+ * A CHAVE É O CÓDIGO, NUNCA O RÓTULO.
+ *
+ * `resumo.disciplina` do `buildLdProposal` é o rótulo de UI em maiúsculas
+ * ("ESTRUTURAL"); a chave do léxico é o código de três letras ("est"). Passar o
+ * rótulo devolve undefined — e quem derivasse o título da capa a partir dele
+ * ganharia um título VAZIO em silêncio, com o slot voltando a perguntar como se
+ * a derivação nem existisse. Foi o que aconteceu ao ligar `titulos` em
+ * `slot-request.ts`, e é por isso que `resumo` carrega `disciplinaCode` à parte.
+ */
+test("o rótulo NÃO serve de chave — só o código", () => {
+  assert.equal(nomeNaCapa("est"), "PROJETO ESTRUTURAL CONCRETO");
+  assert.equal(nomeNaCapa("ESTRUTURAL"), undefined, "rótulo não é chave");
+  assert.equal(nomeNaCapa("Estrutural"), undefined);
+});
+
 console.log(`\n${passed} teste(s) ok.`);
