@@ -1128,18 +1128,31 @@ function NexoWorkspaceInner({
       ? "Lendo o memorial…"
       : okCount > 0
         ? /*
-           * Título faltando é linha vazia na coluna DESCRIÇÃO da LD — o
-           * engenheiro precisa saber ANTES de gerar, não ao abrir o PDF.
+           * O QUE FALTOU NÃO MORA AQUI.
+           *
+           * Havia um "· N sem título" nesta linha. Título faltando é linha
+           * vazia na coluna DESCRIÇÃO da LD e precisa mesmo ser visto antes de
+           * gerar — só que não daqui: esta faixa é sobre o AVANÇO, some quando
+           * a leitura acaba, e não diz QUAL folha nem deixa agir sobre ela.
+           *
+           * Quem mostra isso é a lista de títulos logo abaixo (`TitulosLidos`,
+           * que já marca "sem título no selo" em itálico) e o canvas, onde a
+           * folha existe como objeto e pode ser corrigida.
            */
-          semTitulo > 0
-          ? `${okCount} folha(s) lidas · ${semTitulo} sem título`
-          : `${okCount} folha(s) de selo lidas — pronto para gerar.`
+          `${okCount} folha(s) de selo lidas — pronto para gerar.`
         : null;
   const memoText =
     memorialFile && !readingMemorial ? `Memorial anexado: ${memorialFile.name}` : null;
   const readStatus =
     seloText || memoText
-      ? { text: [seloText, memoText].filter(Boolean).join(" · "), busy: busyReading }
+      ? {
+          text: [seloText, memoText].filter(Boolean).join(" · "),
+          busy: busyReading,
+          // Os números crus vão junto: a barra desenha um retângulo por folha,
+          // e reparsear a frase para achá-los seria inventar um segundo dono.
+          done: readProgress.done,
+          total: readProgress.total,
+        }
       : null;
 
   // Ferramentas antigas (intake completo) só com a flag dev.

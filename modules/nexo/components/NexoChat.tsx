@@ -20,12 +20,17 @@ import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
+import { BarraDeLeitura } from "./BarraDeLeitura";
 import { ZonaDeSolta } from "./ZonaDeSolta";
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
   text: string;
   busy: boolean;
+  /** Folhas já analisadas — alimenta a barra segmentada. */
+  done?: number;
+  /** Folhas do lote. 0 enquanto os PDFs ainda estão sendo contados. */
+  total?: number;
 }
 
 /** Anexo com preview imediato: imagem (miniatura via `url`) ou PDF (ícone). */
@@ -496,11 +501,24 @@ export function NexoChat({
             lendo={Boolean(readStatus?.busy)}
           />
           {readStatus && (
-            <div className="mb-2 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-              {readStatus.busy && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <div className="mb-2 space-y-1.5 px-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {readStatus.busy && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                )}
+                {readStatus.text}
+              </div>
+              {/*
+                A barra só enquanto se LÊ. Depois de pronta ela seria uma fita
+                cheia dizendo o que a frase acima já diz, ocupando a linha que o
+                próximo passo vai usar.
+              */}
+              {readStatus.busy && (readStatus.total ?? 0) > 0 && (
+                <BarraDeLeitura
+                  done={readStatus.done ?? 0}
+                  total={readStatus.total ?? 0}
+                />
               )}
-              {readStatus.text}
             </div>
           )}
           <TitulosLidos selos={selos} />
