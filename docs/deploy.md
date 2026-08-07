@@ -294,6 +294,32 @@ apagar. O mesmo vale para o serviço `nexodoc-converter`, que deixa de ter funç
 **8. Domínio** — opcional para o beta, mas o link é o que circula. Ver a seção
 seguinte.
 
+### Se o deploy sair com "Exited with status 1 while running your code"
+
+Isso NÃO é build quebrada — a imagem montou e o container morreu ao subir. O boot
+é `npx prisma migrate deploy && npm run start`, então quase sempre é a primeira
+metade.
+
+Aconteceu na primeira tentativa (2026-08-07) por dois defeitos do `Dockerfile`,
+ambos corrigidos:
+
+1. **`prisma.config.ts` não era copiado para o estágio final.** O
+   `schema.prisma` declara o datasource **sem `url`** — ela sai só desse arquivo.
+   Sem ele: `Error: The datasource.url property is required in your Prisma config
+   file`, exit 1, e o `&&` derruba o boot inteiro. Reproduzido escondendo o
+   arquivo localmente, e o erro é idêntico.
+2. **Não existia `.dockerignore`.** O `COPY . .` jogava o `node_modules` do
+   Windows por cima do que o `npm ci` instalou no Linux, e mandava o `.env.local`
+   para dentro da imagem. O build ainda passava — a cópia mescla diretório e os
+   pacotes nativos de Linux sobrevivem onde o Windows não tem equivalente. Quebra
+   só na hora de rodar, que é o pior lugar para quebrar.
+
+**Como ler o próximo:** a aba **Logs** mostra a saída do container, não a da
+build. A primeira linha vermelha depois de `Running 'sh -c npx prisma migrate
+deploy && npm run start'` é a causa. Se falar em `datasource`, é configuração do
+Prisma; se falar em módulo não encontrado, é arquivo que não foi copiado para o
+estágio `runner`.
+
 ### Custo
 
 Plano `starter` da Render: US$ 7/mês. O `free` hiberna aos 15 minutos e cobra

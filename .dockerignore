@@ -1,0 +1,44 @@
+# O que NÃO entra na imagem.
+#
+# Sem este arquivo, o `COPY . .` do estágio de build joga o `node_modules` da
+# máquina de quem programou POR CIMA do que o `npm ci` instalou no Linux —
+# binário de Windows dentro de container. Pior: o build ainda passa, porque a
+# cópia mescla diretório e os pacotes nativos de Linux sobrevivem onde o Windows
+# não tem equivalente. Quebra só na hora de rodar.
+#
+# E leva junto o `.env.local`, ou seja, suas chaves ficam gravadas na imagem.
+
+node_modules
+.next
+out
+build
+
+# Segredos. As variáveis vêm do painel da Render, não de arquivo.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.github
+
+# Coisas de desenvolvimento que não têm o que fazer em produção.
+scripts
+tests
+test-results
+playwright-report
+docs
+backups
+*.log
+.vscode
+.idea
+.claude
+README.md
+
+# O conversor separado tem Dockerfile próprio; não faz parte desta imagem.
+render-service
+
+# O que NUNCA pode entrar aqui: `prisma/`, `templates/`, `public/` e os arquivos
+# de configuração da raiz. `templates/` são os modelos ODT lidos do disco em
+# tempo de execução, e `prisma.config.ts` é de onde sai a URL do banco — o
+# `schema.prisma` não tem `url` nenhuma.
