@@ -134,6 +134,43 @@ para lá que o `${semTitulo} sem título` da linha 1135 tem de migrar. Aviso em
 barra de progresso não tem o que se faça a respeito, e a barra some quando a
 leitura acaba, levando o aviso junto.
 
+### 3. Identificação da prefeitura: usar o logo, não só o texto
+
+O casamento existe e roda em produção — `casarPrefeituraDoCarimbo`
+(`server/nexo/agent/normalize.ts:130`) conta o campo `cliente` de todas as
+folhas e casa o dominante via `matchPrefeitura` (linha 76). Mas usa **uma
+evidência só: o texto**. O brasão está impresso na prancha e não é olhado.
+
+O dado já tem schema pronto: `logoPresente` e `logoOrgao`
+(`app/api/nexo/selo-check/route.ts:60-81`). O que falta é que ele só existe na
+**conferência de identidade**, que roda depois da montagem e sobre uma amostra de
+até 4 folhas. Na leitura inicial não há campo de logo nenhum — `extract-stamp`
+não menciona logo em lugar algum. Levar esses dois campos para o `extract-stamp`
+e usá-los como segunda evidência no casamento é o caminho, e não custa chamada
+nova: entra na mesma leitura de visão que já roda por prancha.
+
+**Duas armadilhas que o desenho tem de respeitar:**
+
+A prancha tem **dois logos** — o da prefeitura e o da PROSUL. `logoOrgao` já foi
+escrito para isso: atribui o brasão pelo que está **escrito** nele ou colado a
+ele, e devolve `null` quando há brasão sem nome legível, em vez de tentar
+reconhecer o desenho. Manter essa regra ao mover o campo; um reconhecedor de
+imagem "adivinhando" o brasão é exatamente o erro que a conferência existe para
+pegar.
+
+`nomeiaOrgao` (linha 72) exige que o texto diga `prefeitura|municipio|governo`.
+**Não afrouxar.** Ela existe porque o endereço do escritório —
+`Rua Saldanha Marinho... Centro - Florianópolis - SC` — está impresso nas 71
+pranchas de um projeto real, e citar a cidade bastava para casar: um volume de
+Criciúma saiu como Florianópolis. Coberto por `scripts/test-nexo-agent.ts:88`.
+
+**Antes de mexer, instrumentar.** Quando o slot `templateId` é perguntado, hoje
+não se sabe qual dos três casos ocorreu: `cliente` ausente em todas as folhas,
+`plausibleCount === 0` (não casou nada), ou `plausibleCount > 1` (variantes da
+mesma cidade — esse é decisão humana de propósito e deve continuar perguntando).
+Os três pedem correções diferentes; sem saber qual acontece nos projetos deste
+escritório, a melhoria é chute.
+
 ## Perguntas em aberto
 - Persistência do dossiê: memória de sessão vs. gravar em `Projeto` no banco?
 - Modelo/custo por sessão (extração de PDF grande + tool-calling encadeado).
