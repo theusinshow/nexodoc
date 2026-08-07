@@ -34,10 +34,20 @@ services:
         sync: false
       - key: AUTH_GOOGLE_SECRET
         sync: false
-      # Obrigatório atrás do proxy da Render. Sem isto o callback do Google volta
-      # para localhost e o login falha em produção com um erro que não explica.
       - key: AUTH_TRUST_HOST
         value: "true"
+      # A URL PÚBLICA do serviço, e ela NÃO é opcional.
+      #
+      # `AUTH_TRUST_HOST` sozinho não resolve atrás do proxy da Render: ele lê o
+      # `x-forwarded-proto` (por isso o esquema sai certo), mas a Render não
+      # repassa o host original, e sobra o `Host` interno. O Auth.js conclui que
+      # mora em `https://localhost:10000` e manda ISSO ao Google como
+      # `redirect_uri` — que recusa com `redirect_uri_mismatch`, num erro que não
+      # explica nada. Aconteceu no primeiro deploy.
+      #
+      # Sem barra no fim. Ao trocar por domínio próprio, troque aqui também.
+      - key: AUTH_URL
+        sync: false
       - key: NEXODOC_ADMIN_EMAILS
         sync: false
 

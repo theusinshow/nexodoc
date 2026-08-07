@@ -277,7 +277,23 @@ montada de verdade. O que dá para adiantar sem Docker já foi adiantado:
 **4. Liberar o redirect no Google Cloud.**
 Credenciais → o cliente OAuth → **Authorized redirect URIs** →
 `https://<host-da-render>/api/auth/callback/google`. Guarde o de localhost
-também. Sem isto o login volta para localhost e o erro não explica nada.
+também.
+
+**4b. `AUTH_URL` — a que quase passou batido.** Precisa valer a URL pública do
+serviço, sem barra no fim. `AUTH_TRUST_HOST=true` **não** substitui: ele lê o
+`x-forwarded-proto` (por isso o esquema sai certo), mas a Render não repassa o
+host original, e sobra o `Host` interno. O Auth.js conclui que mora em
+`https://localhost:10000` e manda isso ao Google como `redirect_uri`, que recusa
+com `redirect_uri_mismatch` — erro que não diz onde procurar.
+
+Dá para conferir **sem tentar logar**, e vale o hábito:
+
+```
+GET /api/auth/providers
+```
+
+O campo `callbackUrl` tem que mostrar o host público. Se mostrar
+`localhost:10000`, o login está quebrado mesmo que a tela abra.
 
 **5. Conferir `/api/saude`** — precisa dizer `ok: true` e listar as 4
 prefeituras.
