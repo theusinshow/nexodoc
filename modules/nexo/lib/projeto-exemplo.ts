@@ -160,6 +160,9 @@ function selosDoExemplo(): SeloResult[] {
     obra: "Escola Municipal Vila Nova",
     fase: "Projeto Executivo",
     tituloSecao: null,
+    // Data fixa: o exemplo não pode depender do relógio, senão a capa que ele
+    // gera muda de mês sozinha e o passo a passo deixa de bater com a tela.
+    data: "MARCO/2026",
     confianca: "alta" as const,
   };
   const folhas: { disciplina: string; folha: number; conteudo: string }[] = [

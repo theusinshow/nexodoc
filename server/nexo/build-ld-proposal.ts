@@ -33,6 +33,15 @@ export interface SeloForLd {
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;
+  /**
+   * Texto do campo DATA do carimbo, como impresso ("JUNHO/2026", "JUN/26").
+   *
+   * Cru de propósito: quem interpreta é `parseDataDoSelo` (`data-do-selo.ts`),
+   * e guardar o texto original deixa a leitura conferível quando a data sair
+   * errada. Opcional porque nem todo caminho que monta um selo passa pela
+   * leitura de carimbo (retomada de conversa, projeto de exemplo, fixtures).
+   */
+  data?: string | null;
 }
 
 export interface LdProposal {

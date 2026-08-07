@@ -56,6 +56,8 @@ export interface StampExtraction {
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;
+  /** Texto do campo DATA do carimbo, como impresso. Interpretado por `parseDataDoSelo`. */
+  data: string | null;
   confianca: "alta" | "media" | "baixa";
   provider?: string;
   model?: string;
@@ -103,6 +105,7 @@ export function seloNaoLido(): StampExtraction {
     obra: null,
     fase: null,
     tituloSecao: null,
+    data: null,
     confianca: "baixa",
   };
 }

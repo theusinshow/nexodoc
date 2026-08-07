@@ -25,6 +25,7 @@ type StampExtraction = {
   obra: string | null;
   fase: string | null;
   tituloSecao: string | null;
+  data: string | null;
   confianca: "alta" | "media" | "baixa";
 };
 
@@ -77,6 +78,11 @@ const extractionSchema = {
       type: ["string", "null"],
       description: "Título técnico da seção ou disciplina da LD, como PROJETO ESTRUTURAL CONCRETO.",
     },
+    data: {
+      type: ["string", "null"],
+      description:
+        "Valor do campo DATA do carimbo, exatamente como impresso (ex.: JUNHO/2026, JUN/26, 06/2026). NUNCA a ESCALA (ex.: 1:50) nem a REVISÃO. null se não aparecer.",
+    },
     confianca: {
       type: "string",
       enum: ["alta", "media", "baixa"],
@@ -95,6 +101,7 @@ const extractionSchema = {
     "obra",
     "fase",
     "tituloSecao",
+    "data",
     "confianca",
   ],
 } as const;
@@ -105,6 +112,7 @@ Extraia do selo da prancha:
 - PRANCHA
 - ARQUIVO
 - CONTEÚDO
+- DATA
 
 Extraia também do cabeçalho ou rodapé da página, quando visível ou presente no texto extraído:
 - Órgão/cliente
@@ -130,6 +138,7 @@ Copie o campo CONTEÚDO exatamente como aparece, exceto por juntar quebras de li
 O campo CONTEÚDO/DESCRIÇÃO deve conter apenas a descrição técnica da prancha.
 Não inclua rótulos ou valores de campos vizinhos do carimbo no CONTEÚDO, como IMP, DATA, ESCALA, REV, REVISÃO, VISTO, DESENHO, FOLHA, PRANCHA, ARQUIVO, RESPONSÁVEL ou CLIENTE.
 Se o texto visual estiver próximo desses campos, pare o CONTEÚDO antes do primeiro rótulo vizinho.
+O campo DATA é a data de emissão da prancha, impressa no carimbo. Copie como está, sem reescrever nem completar o ano. NÃO confunda com ESCALA (ex.: 1:50, INDICADA) nem com REVISÃO. Se o carimbo não trouxer data, devolva null.
 Para disciplina, use somente siglas reais de disciplina/projeto. Se a leitura sugerir IMP, DATA, ESCALA, REV, VISTO, ARQUIVO ou outro rótulo do carimbo, retorne disciplina como null.
 
 Responda apenas em JSON.
