@@ -66,16 +66,33 @@ export const surfaceVertexShader = /* glsl */ `
 uniform float uTime;
 uniform float uDistort;
 uniform float uJitter;
+uniform float uEsfera; // 0 = casca ondulada (como era) · 1 = esfera perfeita
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
 
 ${SNOISE}
 
+/*
+ * A CASCA E A ALMA DEIXARAM DE COMPARTILHAR A ONDULAÇÃO.
+ *
+ * O deslocamento procedural entrava aqui, no VIDRO, e a silhueta saía irregular
+ * — de perto lê como bolha viva, mas em tamanho de marca lê como batata: a
+ * borda muda de raio, o círculo não fecha, e o olho registra "desenho torto"
+ * antes de registrar qualquer outra coisa.
+ *
+ * Numa esfera de vidro de verdade, a casca é lisa e o que se mexe é o conteúdo
+ * dentro dela. uEsfera amortece a deformação do vidro sem tocar na alma: a alma
+ * continua respirando exatamente como antes, agora vista ATRAVÉS de uma casca
+ * que não se mexe.
+ *
+ * O jitter do estado de erro sobrevive, e de propósito: erro é a única hora em
+ * que o vidro DEVE tremer.
+ */
 void main() {
-  // Ondulação de vidro muito leve + jitter breve no erro.
   float n = snoise(position * 1.7 + vec3(0.0, uTime * 0.12, uTime * 0.04));
   float j = uJitter * 0.4 * snoise(position * 6.0 + uTime * 4.0);
-  vec3 displaced = position + normal * (n * uDistort + j);
+  float onda = n * uDistort * (1.0 - uEsfera);
+  vec3 displaced = position + normal * (onda + j);
   vec4 wp = modelMatrix * vec4(displaced, 1.0);
   vWorldPos = wp.xyz;
   vNormalW = normalize(mat3(modelMatrix) * normal);
@@ -89,6 +106,7 @@ uniform vec3 uRimColor; // teal/luminoso
 uniform float uRim;
 uniform float uScan;
 uniform float uTime;
+uniform float uBrilho;  // força do reflexo especular (0 = sem vidro)
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
 
@@ -105,10 +123,24 @@ void main() {
   float edgeRing = pow(1.0 - ndv, 4.5);
   vec3 edge = mix(uRimColor, vec3(1.0), 0.35) * edgeRing;
 
-  // Sheen — reflexo suave de vidro pegando luz do alto-esquerda (glass feel).
+  /*
+   * O REFLEXO — o que faz o olho ler "vidro" em vez de "esfera colorida".
+   *
+   * Havia só um brilho largo (expoente 5), que espalha luz pela casca inteira e
+   * some junto com o resto. Vidro de verdade tem DOIS: um ponto duro, pequeno e
+   * quase branco, onde a luz bate; e um halo largo em volta dele. É o ponto duro
+   * que dá superfície — sem ele a esfera parece de gás.
+   *
+   * A luz vem do alto-esquerda, uma só, fixa. Duas fontes começariam a parecer
+   * estúdio de produto, e a §5 pede vidro só acima da linha d'água.
+   */
   vec3 lightDir = normalize(vec3(-0.55, 0.8, 0.5));
-  float sheen = pow(max(dot(vNormalW, lightDir), 0.0), 5.0);
-  vec3 glint = mix(uRimColor, vec3(1.0), 0.55) * sheen * 0.4;
+  float lambert = max(dot(vNormalW, lightDir), 0.0);
+  float halo = pow(lambert, 5.0);
+  float ponto = pow(lambert, 48.0);
+  vec3 glint = mix(uRimColor, vec3(1.0), 0.55) * halo * 0.4 * uBrilho
+    + vec3(1.0) * ponto * 0.9 * uBrilho;
+  float sheen = halo;
 
   // Corpo de vidro escuro translúcido (leve, pra a esfera ler INTEIRA).
   vec3 body = uColor * 0.18;
@@ -129,7 +161,8 @@ void main() {
   float nucleo = smoothstep(0.045, 0.0, dist);
   vec3 scan = uRimColor * (band * 0.75 + nucleo * 0.85) * uScan;
 
-  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85 + sheen * 0.28
+  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85
+    + (sheen * 0.28 + ponto * 0.7) * uBrilho
     + (band * 0.45 + nucleo * 0.5) * uScan;
   gl_FragColor = vec4(body + rim + edge + glint + scan, alpha);
 }

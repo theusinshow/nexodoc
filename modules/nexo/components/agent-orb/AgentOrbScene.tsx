@@ -64,6 +64,19 @@ export const CORES_DO_ORBE: CoresDoOrbe = {
   laminaClara: "#bff3ea",
 };
 
+/** O vidro: o quanto a casca é esfera, e quanto reflexo ela tem. */
+export interface VidroDoOrbe {
+  /** 0 = casca ondulada (como era até 2026-08-07) · 1 = esfera perfeita. */
+  esfera: number;
+  /** Força do reflexo especular. 0 apaga o vidro e sobra gás. */
+  brilho: number;
+}
+
+export const VIDRO_DO_ORBE: VidroDoOrbe = {
+  esfera: 1,
+  brilho: 1,
+};
+
 const BODY_COLOR = CORES_DO_ORBE.corpo;
 const RIM_COLOR = CORES_DO_ORBE.aro;
 const SOUL_TEAL = CORES_DO_ORBE.almaProfunda;
@@ -84,6 +97,15 @@ const OrbSurfaceMaterial = shaderMaterial(
     uRimColor: new THREE.Color(RIM_COLOR),
     uRim: 0.6,
     uScan: 0,
+    /*
+     * A CASCA É UMA ESFERA. O que se mexe é a alma, dentro dela.
+     *
+     * Enquanto a ondulação entrava no vidro, a silhueta mudava de raio e o
+     * círculo não fechava — de perto lê como bolha viva, em tamanho de marca lê
+     * como batata. Numa esfera de vidro de verdade a casca é lisa.
+     */
+    uEsfera: VIDRO_DO_ORBE.esfera,
+    uBrilho: VIDRO_DO_ORBE.brilho,
   },
   surfaceVertexShader,
   surfaceFragmentShader,
@@ -121,6 +143,7 @@ export function AgentOrbScene({
   pressed,
   reduced,
   cores,
+  vidro,
   ajuste,
 }: {
   state: AgentState;
@@ -136,6 +159,8 @@ export function AgentOrbScene({
    * ver, em vez de editar constante, recarregar e tentar lembrar como era.
    */
   cores?: Partial<CoresDoOrbe>;
+  /** Casca e reflexo fora do padrão. Mesma regra das cores: só a bancada. */
+  vidro?: Partial<VidroDoOrbe>;
   /**
    * Parâmetros fora do padrão, no lugar do que `paramsForState` daria. Mesma
    * regra: só a bancada. Sem isto, os controles seriam sobrescritos a cada
@@ -191,6 +216,17 @@ export function AgentOrbScene({
     }
     invalidate();
   }, [cores, invalidate]);
+
+  // Mesmo motivo das cores: uniform lido só na criação do material.
+  useEffect(() => {
+    const v = { ...VIDRO_DO_ORBE, ...vidro };
+    const sup = surfaceRef.current;
+    if (sup) {
+      sup.uniforms.uEsfera.value = v.esfera;
+      sup.uniforms.uBrilho.value = v.brilho;
+    }
+    invalidate();
+  }, [vidro, invalidate]);
   const gl = useThree((s) => s.gl);
   useEffect(() => {
     invalidate();

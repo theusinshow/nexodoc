@@ -6,7 +6,9 @@ import { Canvas } from "@react-three/fiber";
 import {
   AgentOrbScene,
   CORES_DO_ORBE,
+  VIDRO_DO_ORBE,
   type CoresDoOrbe,
+  type VidroDoOrbe,
 } from "@/modules/nexo/components/agent-orb/AgentOrbScene";
 import {
   paramsForState,
@@ -65,6 +67,7 @@ const FUNDOS = [
 
 export function BancadaDoOrbe() {
   const [cores, setCores] = useState<CoresDoOrbe>({ ...CORES_DO_ORBE });
+  const [vidro, setVidro] = useState<VidroDoOrbe>({ ...VIDRO_DO_ORBE });
   const [estado, setEstado] = useState<AgentState>("analyzing");
   const [atividade, setAtividade] = useState(0.7);
   const [manual, setManual] = useState(false);
@@ -95,6 +98,12 @@ export function BancadaDoOrbe() {
     [chaveDasCores],
   );
 
+  const chaveDoVidro = JSON.stringify(vidro);
+  const vidroProp = useMemo(
+    () => JSON.parse(chaveDoVidro) as VidroDoOrbe,
+    [chaveDoVidro],
+  );
+
   const chaveDoAjuste = manual ? JSON.stringify(ajuste) : "";
   const ajusteProp = useMemo(
     () => (chaveDoAjuste ? (JSON.parse(chaveDoAjuste) as OrbVisualParams) : undefined),
@@ -109,6 +118,8 @@ export function BancadaDoOrbe() {
     const texto =
       `// modules/nexo/components/agent-orb/AgentOrbScene.tsx\n` +
       `export const CORES_DO_ORBE: CoresDoOrbe = {\n${linhas}\n};\n\n` +
+      `export const VIDRO_DO_ORBE: VidroDoOrbe = {\n` +
+      `  esfera: ${vidro.esfera},\n  brilho: ${vidro.brilho},\n};\n\n` +
       (manual
         ? `// Parâmetros afinados na bancada (estado "${estado}"):\n` +
           `// ${JSON.stringify(emUso)}\n` +
@@ -118,7 +129,7 @@ export function BancadaDoOrbe() {
     void navigator.clipboard.writeText(texto);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1800);
-  }, [cores, manual, estado, emUso]);
+  }, [cores, vidro, manual, estado, emUso]);
 
   const salvarPng = useCallback(() => {
     const canvas = palco.current?.querySelector("canvas");
@@ -160,6 +171,7 @@ export function BancadaDoOrbe() {
                 pressed={false}
                 reduced={false}
                 cores={coresProp}
+                vidro={vidroProp}
                 ajuste={ajusteProp}
               />
             </Canvas>
@@ -212,6 +224,7 @@ export function BancadaDoOrbe() {
                       pressed={false}
                       reduced={false}
                       cores={coresProp}
+                      vidro={vidroProp}
                       ajuste={ajusteProp}
                     />
                   </Canvas>
@@ -251,6 +264,52 @@ export function BancadaDoOrbe() {
                 </label>
               ))}
             </div>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              O vidro
+            </h2>
+            <p className="mb-3 text-xs leading-5 text-muted-foreground">
+              A casca deixou de compartilhar a ondulação da alma. Em 1, ela é uma
+              esfera limpa e o movimento fica todo dentro — que é o que separa
+              &ldquo;bolha viva&rdquo; de &ldquo;batata&rdquo; em tamanho de marca.
+              Puxe para 0 para ver como era.
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="w-[150px] text-muted-foreground">Esfera perfeita</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={vidro.esfera}
+                onChange={(e) =>
+                  setVidro((v) => ({ ...v, esfera: Number(e.target.value) }))
+                }
+                className="flex-1"
+              />
+              <span className="w-10 text-right font-mono text-xs tabular-nums">
+                {vidro.esfera.toFixed(2)}
+              </span>
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <span className="w-[150px] text-muted-foreground">Reflexo</span>
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.01}
+                value={vidro.brilho}
+                onChange={(e) =>
+                  setVidro((v) => ({ ...v, brilho: Number(e.target.value) }))
+                }
+                className="flex-1"
+              />
+              <span className="w-10 text-right font-mono text-xs tabular-nums">
+                {vidro.brilho.toFixed(2)}
+              </span>
+            </label>
           </section>
 
           <section>
@@ -348,6 +407,7 @@ export function BancadaDoOrbe() {
               type="button"
               onClick={() => {
                 setCores({ ...CORES_DO_ORBE });
+                setVidro({ ...VIDRO_DO_ORBE });
                 setManual(false);
                 setAjuste(paramsForState(estado, atividade));
               }}
