@@ -25,6 +25,28 @@ Todo template de capa usa estes marcadores dentro do ODT:
   modelo tiver capa + contracapa (duas paginas fisicas), cada capa vira duas
   paginas — foi assim que o modelo de Florianopolis foi montado.
 
+## Ao editar um modelo no LibreOffice
+
+O marcador tem de ser **texto normal**, digitado no parágrafo. Não use
+`Inserir > Campo` nem cole um marcador por cima de um campo já existente: o
+LibreOffice grava isso como campo do ODF e o marcador passa a aparecer duas
+vezes no XML, no atributo e no conteúdo.
+
+```xml
+<text:user-defined text:name="{{NOME_OBRA}}">{{NOME_OBRA}}</text:user-defined>
+```
+
+O gerador desembrulha esses campos antes de substituir
+(`desembrulharCamposDeUsuario`), então um modelo assim continua funcionando —
+mas o modelo fica mais difícil de conferir, porque o `unzip | grep` abaixo passa
+a contar cada marcador duas vezes. Prefira texto puro.
+
+Cuidado também com o inverso: ao salvar, o LibreOffice pode **resolver** o campo
+e trocá-lo pelo valor. Foi o que aconteceu com o `{{FASE}}` de Florianópolis,
+que virou o texto fixo `PROJETO EXECUTIVO`. Depois de salvar um modelo, confira
+os marcadores com o comando da seção `campos` e ajuste o `config.json` se algum
+tiver sumido.
+
 ## Estrutura de pastas
 
 ```text

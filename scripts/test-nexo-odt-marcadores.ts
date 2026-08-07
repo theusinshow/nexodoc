@@ -17,7 +17,10 @@
  */
 import assert from "node:assert/strict";
 
-import { distribuirNosMarcadores } from "../server/odt/marcadores.ts";
+import {
+  desembrulharCamposDeUsuario,
+  distribuirNosMarcadores,
+} from "../server/odt/marcadores.ts";
 
 /** Escape neutro: o teste é sobre a estrutura, não sobre entidades XML. */
 const cru = (v: string) => v;
@@ -114,6 +117,39 @@ test("o escape injetado é aplicado ao valor", () => {
     distribuirNosMarcadores(bloco, "{{X}}", "a&b", (v) => v.replace("&", "&amp;")),
     P("P6", "a&amp;b"),
   );
+});
+
+/*
+ * CAMPO DE USUÁRIO DO ODF ENGOLIA O MARCADOR.
+ *
+ * O LibreOffice grava `{{NOME_OBRA}}` como `<text:user-defined>` quando alguém
+ * salva o modelo por lá — e aí o marcador aparece DUAS vezes: no atributo
+ * `text:name` e no conteúdo. `distribuirNosMarcadores` contava as duas como
+ * ocorrências repetidas, mandava a 1ª linha para o ATRIBUTO e, não sobrando
+ * linha para a 2ª, colapsava o parágrafo inteiro. Resultado: a capa de
+ * Florianópolis saía sem nome da obra, sem mês/ano e sem código.
+ */
+const UD = (nome: string) =>
+  `<text:user-defined style:data-style-name="N0" text:name="${nome}">${nome}</text:user-defined>`;
+
+test("campo de usuário vira texto puro antes da substituição", () => {
+  assert.equal(
+    desembrulharCamposDeUsuario(P("P4", UD("{{NOME_OBRA}}"))),
+    P("P4", "{{NOME_OBRA}}"),
+  );
+});
+
+test("marcador dentro de campo de usuário recebe o valor (não some)", () => {
+  const bloco = desembrulharCamposDeUsuario(P("P4", UD("{{NOME_OBRA}}")));
+  assert.equal(
+    distribuirNosMarcadores(bloco, "{{NOME_OBRA}}", "RUA TESTE", cru),
+    P("P4", "RUA TESTE"),
+  );
+});
+
+test("desembrulhar preserva o XML que não é campo de usuário", () => {
+  const bloco = P("P9", "{{TITULO_CAPA}}");
+  assert.equal(desembrulharCamposDeUsuario(bloco), bloco);
 });
 
 console.log(`\n${passed} teste(s) ok.`);

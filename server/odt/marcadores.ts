@@ -10,6 +10,32 @@
  * `@/lib/cover-utils`, que o node cru não resolve.
  */
 
+/**
+ * CAMPO DE USUÁRIO DO ODF VIRA TEXTO PURO.
+ *
+ * O LibreOffice grava um marcador como `<text:user-defined text:name="{{X}}">
+ * {{X}}</text:user-defined>` — um CAMPO, não texto — assim que alguém abre o
+ * modelo e salva por lá. O marcador passa então a aparecer DUAS vezes no XML: no
+ * atributo `text:name` e no conteúdo do elemento.
+ *
+ * Para `distribuirNosMarcadores` isso é indistinguível do marcador repetido de
+ * propósito em dois parágrafos: ele mandava a 1ª linha do valor para dentro do
+ * ATRIBUTO e, não sobrando linha para a 2ª ocorrência, COLAPSAVA o parágrafo. A
+ * capa de Florianópolis saiu sem nome da obra, sem mês/ano e sem código — e o
+ * modelo parecia certo, porque o marcador continuava lá ao abrir o ODT.
+ *
+ * Desembrulhar antes de substituir resolve na raiz: o elemento some, sobra o
+ * texto que estava dentro dele, e o marcador volta a ser uma ocorrência só. Vale
+ * para qualquer modelo, o que importa porque o modelo é de quem o mantém — e
+ * salvá-lo no LibreOffice não pode quebrar a capa em silêncio.
+ */
+export function desembrulharCamposDeUsuario(xml: string): string {
+  return xml.replace(
+    /<text:user-defined\b[^>]*>([\s\S]*?)<\/text:user-defined>/g,
+    (_todo, dentro: string) => dentro,
+  );
+}
+
 /** Há texto de verdade aqui, fora das tags? */
 function temTextoVisivel(xml: string): boolean {
   return xml.replace(/<[^>]*>/g, "").trim().length > 0;

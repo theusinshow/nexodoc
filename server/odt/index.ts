@@ -12,7 +12,7 @@ import type { GeneralData, CoverPage } from "@/modules/cover-generator/types";
 import { getTemplateOdtPath } from "@/server/templates/registry";
 // A regra do marcador vive num módulo PURO para poder ser testada em node cru:
 // este arquivo importa por alias `@/`, que o node pelado não resolve.
-import { distribuirNosMarcadores } from "./marcadores";
+import { desembrulharCamposDeUsuario, distribuirNosMarcadores } from "./marcadores";
 
 export interface GenerateOdtInput {
   templateId?: string;
@@ -148,9 +148,17 @@ async function fillExistingOdt(
 
   const pageBlocks: string[] = [];
 
+  /*
+   * Os marcadores que o LibreOffice transformou em CAMPO voltam a ser texto
+   * antes de qualquer substituição — senão o `text:name` conta como uma segunda
+   * ocorrência do marcador e o parágrafo é colapsado. Uma vez só, fora do laço:
+   * o corpo é o mesmo para todas as páginas.
+   */
+  const corpoDoModelo = desembrulharCamposDeUsuario(templateBody.innerXml);
+
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
-    let block = templateBody.innerXml;
+    let block = corpoDoModelo;
 
     for (const [marker, value] of Object.entries(replacements)) {
       block = distribuirNosMarcadores(block, marker, value, markerXmlValue);
