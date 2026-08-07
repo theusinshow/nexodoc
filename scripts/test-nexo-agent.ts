@@ -109,6 +109,96 @@ test("casarPrefeituraDoCarimbo: nome real resolve UMA, não fica ambíguo", () =
   assert.equal(r?.resolvedId, "pmcriciuma");
 });
 
+/*
+ * O BRASÃO É A SEGUNDA EVIDÊNCIA.
+ *
+ * O carimbo traz o nome escrito E o brasão. Usar só o texto deixa o casamento
+ * refém de uma leitura: carimbo apagado, grafia estranha ou campo `cliente`
+ * ausente e a prefeitura vira pergunta com o brasão bem ali na folha.
+ */
+test("logo resolve quando o texto do cliente não veio", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [
+      { cliente: null, logoOrgao: "PREFEITURA MUNICIPAL DE CHAPECÓ" },
+      { cliente: "", logoOrgao: "PREFEITURA MUNICIPAL DE CHAPECÓ" },
+    ],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId, "prefchap");
+  assert.equal(r?.motivo, "so-logo");
+});
+
+test("texto e logo concordando resolvem com o motivo registrado", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [
+      { cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA", logoOrgao: "PREFEITURA DE CRICIÚMA" },
+      { cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA", logoOrgao: "PREFEITURA DE CRICIÚMA" },
+    ],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId, "pmcriciuma");
+  assert.equal(r?.motivo, "texto-e-logo");
+});
+
+/*
+ * O CASO QUE ESTE MÓDULO EXISTE PARA PEGAR: o volume com o brasão de outra
+ * prefeitura. Resolver sozinho aqui aprovaria no escuro exatamente o acidente
+ * mais caro — a decisão de PARA QUEM o volume vai é humana.
+ */
+test("texto e logo DIVERGINDO não resolvem — viram pergunta", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [
+      { cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA", logoOrgao: "PREFEITURA MUNICIPAL DE CHAPECÓ" },
+      { cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA", logoOrgao: "PREFEITURA MUNICIPAL DE CHAPECÓ" },
+    ],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId, null, "não escolhe entre o texto e o brasão");
+  assert.equal(r?.motivo, "divergem");
+  assert.equal(r?.plausibleCount, 2, "oferece os dois como opção");
+});
+
+test("o endereço da PROSUL não vira prefeitura nem vindo do logo", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [{ cliente: null, logoOrgao: ENDERECO_DA_PROSUL }],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId ?? null, null);
+});
+
+/*
+ * INSTRUMENTAÇÃO: quando o slot volta a perguntar, o motivo diz qual dos casos
+ * ocorreu. Sem isso, "perguntou de novo" é indistinguível de "não leu nada".
+ */
+test("sem evidência nenhuma, o motivo diz que não houve leitura", () => {
+  const r = casarPrefeituraDoCarimbo([{ cliente: null, logoOrgao: null }], REAIS);
+  assert.equal(r?.motivo, "sem-evidencia");
+  assert.equal(r?.resolvedId ?? null, null);
+});
+
+test("variante ambígua continua sendo pergunta, com o motivo próprio", () => {
+  const DUAS: AgentPrefeitura[] = [
+    { id: "prefflor-a", nome: "Prefeitura Municipal de Florianópolis" },
+    { id: "prefflor-b", nome: "Prefeitura Municipal de Florianópolis — Obras" },
+  ];
+  const r = casarPrefeituraDoCarimbo(
+    [{ cliente: "PREFEITURA MUNICIPAL DE FLORIANÓPOLIS", logoOrgao: null }],
+    DUAS,
+  );
+  assert.equal(r?.resolvedId, null);
+  assert.equal(r?.motivo, "ambiguo");
+  assert.equal(r?.plausibleCount, 2);
+});
+
+test("selo sem o campo de logo continua funcionando como antes", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [{ cliente: "PREFEITURA MUNICIPAL DE CRICIÚMA" }],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId, "pmcriciuma");
+  assert.equal(r?.motivo, "so-texto");
+});
+
 test("normalizeProposals: sem prefeitura reconhecida NÃO inventa a primeira", () => {
   /*
    * `templateId` preenchido faz o slot chegar "já respondido", e a pergunta
@@ -340,9 +430,23 @@ test("casando com MAIS DE UM template, continua sendo pergunta", () => {
   assert.equal(r?.plausibles?.length, 2, "as duas viram chips");
 });
 
+/*
+ * MUDOU O RETORNO, não o comportamento: antes devolvia `undefined` quando não
+ * havia órgão nenhum; agora devolve o objeto com `motivo: "sem-evidencia"`. O
+ * que importa segue igual — `resolvedId` null e `plausibleCount` 0 mantêm o slot
+ * como pergunta —, e o motivo é justamente o que faltava para distinguir
+ * "não li nada" de "li e não casou".
+ */
 test("carimbo sem órgão não inventa prefeitura", () => {
-  assert.equal(casarPrefeituraDoCarimbo(selosDe(null), PREFS), undefined);
-  assert.equal(casarPrefeituraDoCarimbo([], PREFS), undefined);
+  const semOrgao = casarPrefeituraDoCarimbo(selosDe(null), PREFS);
+  assert.equal(semOrgao?.resolvedId ?? null, null);
+  assert.equal(semOrgao?.plausibleCount, 0);
+  assert.equal(semOrgao?.motivo, "sem-evidencia");
+
+  const semSelos = casarPrefeituraDoCarimbo([], PREFS);
+  assert.equal(semSelos?.resolvedId ?? null, null);
+  assert.equal(semSelos?.plausibleCount, 0);
+  assert.equal(semSelos?.motivo, "sem-evidencia");
 });
 
 test("órgão que não casa com template nenhum vira pergunta, não erro", () => {

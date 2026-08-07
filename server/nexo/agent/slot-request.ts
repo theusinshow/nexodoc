@@ -114,6 +114,25 @@ export function buildSlotRequestForTurn(
   if (proposals.length === 0) return undefined;
 
   const key = ctx.disciplina.trim() || "GERAL";
+  const casamento = casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras);
+
+  /*
+   * POR QUE A PREFEITURA FOI (ou não) RESOLVIDA — no log do servidor.
+   *
+   * "Perguntou a prefeitura de novo" era indistinguível de "não leu órgão
+   * nenhum", "leu e não casou com template" e "casou com dois". As três pedem
+   * correções diferentes, e sem o motivo a próxima melhoria seria palpite.
+   *
+   * Só quando NÃO resolve: o caso bom não precisa de linha de log, e um log por
+   * turno em conversa longa vira ruído que ninguém lê.
+   */
+  if (casamento && !casamento.resolvedId) {
+    console.info(
+      `[nexo] prefeitura não resolvida — motivo=${casamento.motivo} ` +
+        `plausiveis=${casamento.plausibleCount} folhas=${ctx.selos.length}`,
+    );
+  }
+
   const facts: SlotFacts = {
     dossie: {
       id: "",
@@ -138,8 +157,11 @@ export function buildSlotRequestForTurn(
      * fonte única. Casou UMA: resolve sozinho. Casou nenhuma ou mais de uma:
      * continua sendo pergunta, com as plausíveis como chips. Ambiguidade aqui é
      * o caso do volume ir para a prefeitura errada, e ele não se adivinha.
+     *
+     * Duas evidências desde então: o nome escrito e o BRASÃO. Divergirem entre
+     * si também é pergunta — ver `casarPrefeituraDoCarimbo`.
      */
-    templateMatch: casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras),
+    templateMatch: casamento,
     /*
      * A DATA e os TÍTULOS que o carimbo já respondeu.
      *

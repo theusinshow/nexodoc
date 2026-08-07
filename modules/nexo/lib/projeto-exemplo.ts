@@ -163,6 +163,9 @@ function selosDoExemplo(): SeloResult[] {
     // Data fixa: o exemplo não pode depender do relógio, senão a capa que ele
     // gera muda de mês sozinha e o passo a passo deixa de bater com a tela.
     data: "MARCO/2026",
+    // O brasão concorda com o `cliente` — é o caso normal, e é o que faz o
+    // exemplo resolver a prefeitura sozinho, sem perguntar.
+    logoOrgao: "Prefeitura Municipal de Criciuma",
     confianca: "alta" as const,
   };
   const folhas: { disciplina: string; folha: number; conteudo: string }[] = [

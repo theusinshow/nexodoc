@@ -26,6 +26,7 @@ type StampExtraction = {
   fase: string | null;
   tituloSecao: string | null;
   data: string | null;
+  logoOrgao: string | null;
   confianca: "alta" | "media" | "baixa";
 };
 
@@ -83,6 +84,11 @@ const extractionSchema = {
       description:
         "Valor do campo DATA do carimbo, exatamente como impresso (ex.: JUNHO/2026, JUN/26, 06/2026). NUNCA a ESCALA (ex.: 1:50) nem a REVISÃO. null se não aparecer.",
     },
+    logoOrgao: {
+      type: ["string", "null"],
+      description:
+        "A quem pertence o BRASÃO/logotipo de órgão público da página, segundo o que está ESCRITO nele ou imediatamente ao lado (ex.: PREFEITURA MUNICIPAL DE CHAPECÓ). Não adivinhe pelo desenho: se houver brasão sem nome legível, devolva null. O logotipo da empresa projetista NÃO é órgão — ignore-o.",
+    },
     confianca: {
       type: "string",
       enum: ["alta", "media", "baixa"],
@@ -102,6 +108,7 @@ const extractionSchema = {
     "fase",
     "tituloSecao",
     "data",
+    "logoOrgao",
     "confianca",
   ],
 } as const;
@@ -120,6 +127,7 @@ Extraia também do cabeçalho ou rodapé da página, quando visível ou presente
 - Nome da obra/projeto
 - Fase do projeto
 - Título técnico da seção/disciplina da LD
+- A quem pertence o BRASÃO/logotipo de órgão público (campo logoOrgao)
 
 O campo PRANCHA sempre existe no selo.
 O campo ARQUIVO sempre existe no selo.
@@ -139,6 +147,7 @@ O campo CONTEÚDO/DESCRIÇÃO deve conter apenas a descrição técnica da pranc
 Não inclua rótulos ou valores de campos vizinhos do carimbo no CONTEÚDO, como IMP, DATA, ESCALA, REV, REVISÃO, VISTO, DESENHO, FOLHA, PRANCHA, ARQUIVO, RESPONSÁVEL ou CLIENTE.
 Se o texto visual estiver próximo desses campos, pare o CONTEÚDO antes do primeiro rótulo vizinho.
 O campo DATA é a data de emissão da prancha, impressa no carimbo. Copie como está, sem reescrever nem completar o ano. NÃO confunda com ESCALA (ex.: 1:50, INDICADA) nem com REVISÃO. Se o carimbo não trouxer data, devolva null.
+O campo logoOrgao é a quem pertence o BRASÃO de órgão público, pelo que está ESCRITO nele ou colado a ele. Nunca deduza pelo desenho: brasão sem nome legível é null. A prancha costuma trazer DOIS logotipos — o do órgão contratante e o da empresa projetista. Só o do órgão entra aqui; o da projetista é null.
 Para disciplina, use somente siglas reais de disciplina/projeto. Se a leitura sugerir IMP, DATA, ESCALA, REV, VISTO, ARQUIVO ou outro rótulo do carimbo, retorne disciplina como null.
 
 Responda apenas em JSON.

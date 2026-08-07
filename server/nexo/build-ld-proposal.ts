@@ -42,6 +42,15 @@ export interface SeloForLd {
    * leitura de carimbo (retomada de conversa, projeto de exemplo, fixtures).
    */
   data?: string | null;
+  /**
+   * A quem pertence o BRASÃO de órgão público da folha, pelo que está escrito
+   * nele — nunca deduzido do desenho, e nunca o logotipo da projetista.
+   *
+   * Segunda evidência da prefeitura, ao lado de `cliente`. Ver
+   * `casarPrefeituraDoCarimbo`: quando os dois discordam, o volume não resolve
+   * sozinho — brasão trocado é o acidente que o produto existe para pegar.
+   */
+  logoOrgao?: string | null;
 }
 
 export interface LdProposal {

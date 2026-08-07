@@ -58,6 +58,8 @@ export interface StampExtraction {
   tituloSecao: string | null;
   /** Texto do campo DATA do carimbo, como impresso. Interpretado por `parseDataDoSelo`. */
   data: string | null;
+  /** A quem pertence o brasão de órgão público, pelo que está escrito nele. */
+  logoOrgao: string | null;
   confianca: "alta" | "media" | "baixa";
   provider?: string;
   model?: string;
@@ -106,6 +108,7 @@ export function seloNaoLido(): StampExtraction {
     fase: null,
     tituloSecao: null,
     data: null,
+    logoOrgao: null,
     confianca: "baixa",
   };
 }

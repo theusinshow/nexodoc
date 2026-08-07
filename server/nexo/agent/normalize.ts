@@ -127,16 +127,12 @@ export function matchPrefeitura(
  * com variantes), a decisão é humana — ela diz para QUEM o volume vai, e é o
  * erro que este produto existe para impedir.
  */
-export function casarPrefeituraDoCarimbo(
-  selos: { cliente?: string | null }[],
-  prefeituras: AgentPrefeitura[],
-):
-  | { resolvedId: string | null; plausibleCount: number; plausibles?: AgentPrefeitura[] }
-  | undefined {
+/** O valor mais frequente de um campo entre as folhas; "" se nenhuma trouxe. */
+function dominanteEntreOsSelos(valores: (string | null | undefined)[]): string {
   const contagem = new Map<string, number>();
-  for (const s of selos) {
-    const cliente = s.cliente?.trim();
-    if (cliente) contagem.set(cliente, (contagem.get(cliente) ?? 0) + 1);
+  for (const v of valores) {
+    const t = v?.trim();
+    if (t) contagem.set(t, (contagem.get(t) ?? 0) + 1);
   }
   let dominante = "";
   let maior = 0;
@@ -146,16 +142,98 @@ export function casarPrefeituraDoCarimbo(
       maior = n;
     }
   }
-  if (!dominante) return undefined;
+  return dominante;
+}
 
-  const plausiveis = prefeituras.filter(
-    (p) => matchPrefeitura({ nome: dominante }, [p]) !== null,
+/** Os templates que casam com este texto. Vazio quando não casa nenhum. */
+function plausiveisPara(
+  texto: string,
+  prefeituras: AgentPrefeitura[],
+): AgentPrefeitura[] {
+  if (!texto) return [];
+  return prefeituras.filter((p) => matchPrefeitura({ nome: texto }, [p]) !== null);
+}
+
+/**
+ * POR QUE resolveu, ou por que não. É a instrumentação do casamento.
+ *
+ * Sem isto, "a prefeitura foi perguntada de novo" é indistinguível de "o carimbo
+ * não foi lido", de "não casou com template nenhum" e de "casou com dois" — três
+ * causas que pedem correções diferentes. O motivo não muda o comportamento;
+ * existe para que a próxima melhoria seja dirigida por fato e não por palpite.
+ */
+export type MotivoDoCasamento =
+  | "texto-e-logo"
+  | "so-texto"
+  | "so-logo"
+  | "divergem"
+  | "ambiguo"
+  | "sem-evidencia";
+
+export function casarPrefeituraDoCarimbo(
+  selos: { cliente?: string | null; logoOrgao?: string | null }[],
+  prefeituras: AgentPrefeitura[],
+):
+  | {
+      resolvedId: string | null;
+      plausibleCount: number;
+      plausibles?: AgentPrefeitura[];
+      motivo: MotivoDoCasamento;
+    }
+  | undefined {
+  /*
+   * DUAS EVIDÊNCIAS: o nome escrito e o brasão.
+   *
+   * O texto sozinho deixava o casamento refém de uma leitura — carimbo apagado
+   * ou campo `cliente` ausente e a prefeitura virava pergunta com o brasão
+   * impresso ali na folha. O brasão vem de `logoOrgao`, que é lido do que está
+   * ESCRITO nele, nunca do desenho.
+   */
+  const doTexto = plausiveisPara(
+    dominanteEntreOsSelos(selos.map((s) => s.cliente)),
+    prefeituras,
   );
-  return {
-    resolvedId: plausiveis.length === 1 ? plausiveis[0].id : null,
-    plausibleCount: plausiveis.length,
-    ...(plausiveis.length > 0 ? { plausibles: plausiveis } : {}),
-  };
+  const doLogo = plausiveisPara(
+    dominanteEntreOsSelos(selos.map((s) => s.logoOrgao)),
+    prefeituras,
+  );
+
+  const unico = (lista: AgentPrefeitura[]) => (lista.length === 1 ? lista[0] : null);
+  const textoUnico = unico(doTexto);
+  const logoUnico = unico(doLogo);
+
+  const responde = (
+    resolvedId: string | null,
+    plausibles: AgentPrefeitura[],
+    motivo: MotivoDoCasamento,
+  ) => ({
+    resolvedId,
+    plausibleCount: plausibles.length,
+    ...(plausibles.length > 0 ? { plausibles } : {}),
+    motivo,
+  });
+
+  if (textoUnico && logoUnico) {
+    /*
+     * DIVERGIR NÃO É EMPATAR — é o acidente que este produto existe para
+     * impedir: o volume que sai com o brasão de outra prefeitura. Escolher um
+     * dos dois aqui aprovaria no escuro exatamente esse caso. Vira pergunta,
+     * com os dois oferecidos.
+     */
+    if (textoUnico.id !== logoUnico.id) {
+      return responde(null, [textoUnico, logoUnico], "divergem");
+    }
+    return responde(textoUnico.id, [textoUnico], "texto-e-logo");
+  }
+
+  if (textoUnico) return responde(textoUnico.id, doTexto, "so-texto");
+  if (logoUnico) return responde(logoUnico.id, doLogo, "so-logo");
+
+  // Nenhum dos dois resolveu sozinho. Ambíguo (casou vários) e sem-evidência
+  // (não casou nada) pedem correções diferentes, e por isso são motivos distintos.
+  const plausiveis = doTexto.length > 0 ? doTexto : doLogo;
+  if (plausiveis.length > 1) return responde(null, plausiveis, "ambiguo");
+  return responde(null, [], "sem-evidencia");
 }
 
 /**
