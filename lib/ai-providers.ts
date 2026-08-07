@@ -36,7 +36,21 @@ type ProviderErrorShape = {
 
 const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.5";
 const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.5";
-const DEFAULT_LD_OPENAI_MODEL = "gpt-5.5";
+/**
+ * LEITURA DE SELO — o padrão é o mini, e isso é decisão, não economia cega.
+ *
+ * É **uma chamada com visão por prancha**, e um volume real tem dezenas. O
+ * modelo aqui só COPIA campo de carimbo; quem julga o que foi lido é regra
+ * determinística (`server/nexo/selo-identity-core.ts`). Modelo maior não
+ * melhora o veredito, só multiplica tempo e custo.
+ *
+ * O padrão era `gpt-5.5` enquanto o uso de verdade rodava em `gpt-5.4-mini`
+ * pelo `.env.local`. Quem subiu para produção sem repetir a variável ganhou o
+ * modelo grande sem pedir, e o sintoma foi "está demorando muito para escanear
+ * as pranchas" — o software funcionando, só que lento e caro. Padrão que não
+ * é o valor validado em uso é armadilha.
+ */
+const DEFAULT_LD_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.5";
 const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.4-mini";

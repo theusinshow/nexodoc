@@ -52,10 +52,58 @@ services:
         sync: false
 
       # ------------------------------------------------------------------- IA
+      #
+      # ESTAS VARIÁVEIS NÃO SÃO OPCIONAIS, e o motivo é chato: os padrões
+      # escritos no código NÃO são os valores que foram afinados em uso. Quem
+      # ajustou modelo no `.env.local` e não repetiu aqui volta ao padrão do
+      # código sem nenhum aviso — o software funciona, só que mais lento e mais
+      # caro. Foi o que aconteceu no primeiro teste em produção: a leitura de
+      # selo rodou em `gpt-5.5` porque `NEXODOC_LD_OPENAI_MODEL` não estava
+      # posta, e é UMA CHAMADA POR PRANCHA.
+      #
+      # Regra: mexeu em modelo no `.env.local`, mexe aqui também.
       - key: OPENAI_API_KEY
         sync: false
       - key: NEXODOC_AI_PROVIDER
         value: openai
+
+      # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
+      # prancha, e um volume real tem dezenas. O mini dá conta de copiar campo
+      # de carimbo — quem julga o que foi lido é regra determinística, não o
+      # modelo. Trocar isto por `gpt-5.5` multiplica tempo e custo sem melhorar
+      # o veredito.
+      - key: NEXODOC_LD_OPENAI_MODEL
+        value: gpt-5.4-mini
+
+      # A conferência de identidade do selo: uma chamada só, sobre uma amostra.
+      - key: NEXODOC_SELO_CHECK_MODEL
+        value: gpt-5.4-mini
+
+      # Organização de volumes.
+      - key: NEXODOC_VOLUME_ANALYSIS_MODEL
+        value: gpt-5.5
+      - key: NEXODOC_VOLUME_SUGGESTION_MODEL
+        value: gpt-5.4-mini
+
+      # Auditoria de memorial. Os três controles de vazão importam mais aqui do
+      # que o modelo: são eles que decidem se uma auditoria profunda termina.
+      - key: OPENAI_MODEL
+        value: gpt-5.5
+      - key: NEXODOC_MAX_CHUNKS_PER_FILE
+        value: "24"
+      - key: NEXODOC_CHUNK_CONCURRENCY
+        value: "5"
+      - key: NEXODOC_CHUNK_TIMEOUT_MS
+        value: "120000"
+      - key: NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS
+        value: "1800"
+
+      # O DeepSeek fica DESLIGADO em produção de propósito: ele exige
+      # `DEEPSEEK_API_KEY`, e um provider ligado sem chave falha na hora de
+      # gerar, não na hora de subir. Para ligar, ponha a chave e só então mude
+      # os overrides por fluxo.
+      - key: NEXODOC_ENABLE_DEEPSEEK
+        value: "false"
 
       # ---------------------------------------------------------------- flags
       # NEXT_PUBLIC_* é embutida na COMPILAÇÃO. Aqui ela vale para o runtime; o
