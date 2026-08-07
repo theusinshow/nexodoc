@@ -40,6 +40,7 @@ import {
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
+import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
 import { MESES_PT } from "@/server/nexo/agent/requirements";
 import type { Folha } from "../lib/folhas";
@@ -342,13 +343,26 @@ export function PlanoDeGeracao({
   const obra = identidade.obra?.trim() || doSelo.obra || "";
   const codigo = identidade.codigo?.trim() || doSelo.codigo || "";
   const revisao = identidade.revisao?.trim() || doSelo.revisao || "";
+  /*
+   * QUANTAS FOLHAS DISCORDAM da data que vai sair impressa.
+   *
+   * O preço de afirmar em vez de perguntar: a data agora vem do carimbo
+   * dominante, e sem esta marca a prancha intrusa — de outro mês, de outro
+   * projeto — entraria no volume sem ninguém ver. Aparece no FANTASMA do campo,
+   * onde a data já está sendo conferida, e não num painel à parte que ninguém
+   * abre.
+   */
+  const divergenciaDaData = dataDominante(selos.map((s) => s.data))?.divergentes ?? 0;
   const dataDaCapa = (() => {
     const mes = capa?.mes?.trim();
     const ano = capa?.ano?.trim();
     if (!mes && !ano) return "";
     const n = Number(mes);
     const nome = Number.isFinite(n) && n >= 1 && n <= 12 ? MESES_PT[n - 1] : mes;
-    return [nome, ano].filter(Boolean).join("/");
+    const base = [nome, ano].filter(Boolean).join("/");
+    return divergenciaDaData > 0
+      ? `${base} · ${divergenciaDaData} folha(s) com outra data`
+      : base;
   })();
 
   /*
