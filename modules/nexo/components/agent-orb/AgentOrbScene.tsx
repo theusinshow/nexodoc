@@ -82,13 +82,20 @@ export interface VidroDoOrbe {
    * É a ondulação que a casca tinha antes, devolvida ao lugar certo.
    */
   ondaDaAlma: number;
+  /**
+   * O quanto o CORPO do vidro some. As bordas, a parede e o reflexo não entram:
+   * vidro fino não é vidro apagado — se o contorno afinasse junto, a esfera
+   * deixaria de fechar e viraria mancha.
+   */
+  translucidez: number;
 }
 
 export const VIDRO_DO_ORBE: VidroDoOrbe = {
   esfera: 1,
   brilho: 1,
-  espessura: 0.55,
+  espessura: 0.4,
   ondaDaAlma: 0.06,
+  translucidez: 0.55,
 };
 
 const BODY_COLOR = CORES_DO_ORBE.corpo;
@@ -121,6 +128,7 @@ const OrbSurfaceMaterial = shaderMaterial(
     uEsfera: VIDRO_DO_ORBE.esfera,
     uBrilho: VIDRO_DO_ORBE.brilho,
     uEspessura: VIDRO_DO_ORBE.espessura,
+    uTranslucidez: VIDRO_DO_ORBE.translucidez,
   },
   surfaceVertexShader,
   surfaceFragmentShader,
@@ -241,6 +249,7 @@ export function AgentOrbScene({
       sup.uniforms.uEsfera.value = v.esfera;
       sup.uniforms.uBrilho.value = v.brilho;
       sup.uniforms.uEspessura.value = v.espessura;
+      sup.uniforms.uTranslucidez.value = v.translucidez;
     }
     // A onda da borda é da ALMA, mas mora no mesmo painel: quem afina a casca
     // precisa ver as duas juntas, senão ajusta uma contra a outra às cegas.

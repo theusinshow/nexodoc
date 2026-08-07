@@ -107,7 +107,8 @@ uniform float uRim;
 uniform float uScan;
 uniform float uTime;
 uniform float uBrilho;    // força do reflexo especular (0 = sem vidro)
-uniform float uEspessura; // parede da casca (0 = disco com aro · 1 = vidro grosso)
+uniform float uEspessura;   // parede da casca (0 = disco com aro · 1 = vidro grosso)
+uniform float uTranslucidez; // 0 = como era · 1 = corpo quase invisível
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
 
@@ -167,8 +168,16 @@ void main() {
     + vec3(1.0) * ponto * 0.9 * uBrilho;
   float sheen = halo;
 
-  // Corpo de vidro escuro translúcido (leve, pra a esfera ler INTEIRA).
-  vec3 body = uColor * 0.18;
+  /*
+   * TRANSLUCIDEZ — afina o CORPO, nunca as bordas.
+   *
+   * Vidro fino não é vidro apagado: as duas bordas e o reflexo continuam
+   * inteiros, e o que some é a tinta do meio. Se a translucidez comesse o
+   * contorno junto, a esfera deixaria de fechar e viraria mancha — que é
+   * exatamente o problema que a casca lisa acabou de resolver.
+   */
+  float opacidade = 1.0 - uTranslucidez * 0.78;
+  vec3 body = uColor * 0.18 * opacidade;
 
   /*
    * Scanner técnico (leitura): banda horizontal atravessando o vidro.
@@ -186,7 +195,10 @@ void main() {
   float nucleo = smoothstep(0.045, 0.0, dist);
   vec3 scan = uRimColor * (band * 0.75 + nucleo * 0.85) * uScan;
 
-  float alpha = 0.14 + fres * 0.55 + edgeRing * 0.85
+  // O fresnel largo é "corpo" e afina junto; aro, parede e reflexo ficam.
+  float alpha = 0.14 * opacidade
+    + fres * 0.55 * mix(1.0, 0.5, uTranslucidez)
+    + edgeRing * 0.85
     + (sheen * 0.28 + ponto * 0.7) * uBrilho
     + (band * 0.45 + nucleo * 0.5) * uScan
     + (aroInterno * 0.5 + absorcao * 0.65);

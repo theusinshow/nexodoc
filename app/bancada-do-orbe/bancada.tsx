@@ -122,7 +122,8 @@ export function BancadaDoOrbe() {
       `  esfera: ${vidro.esfera},\n` +
       `  brilho: ${vidro.brilho},\n` +
       `  espessura: ${vidro.espessura},\n` +
-      `  ondaDaAlma: ${vidro.ondaDaAlma},\n};\n\n` +
+      `  ondaDaAlma: ${vidro.ondaDaAlma},\n` +
+      `  translucidez: ${vidro.translucidez},\n};\n\n` +
       (manual
         ? `// Parâmetros afinados na bancada (estado "${estado}"):\n` +
           `// ${JSON.stringify(emUso)}\n` +
@@ -301,6 +302,7 @@ export function BancadaDoOrbe() {
                 ["brilho", "Reflexo", 2],
                 ["espessura", "Espessura da parede", 1],
                 ["ondaDaAlma", "Borda irregular da alma", 0.2],
+                ["translucidez", "Translucidez", 1],
               ] as const
             ).map(([chave, rotulo, max]) => (
               <label key={chave} className="mt-2 flex items-center gap-2 text-sm">
