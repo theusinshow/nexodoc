@@ -98,12 +98,15 @@ Decisão de rumo (2026-07-22, com o usuário): o app **não tem infra de tool-ca
 
 `NEXT_PUBLIC_NEXO_ENABLED=true` liga o módulo (aparece como principal na home e a rota `/nexo` funciona). Ausente/qualquer-outro-valor = desligado (produção segura por padrão). Definido em `.env.local` para dev.
 
-## Backlog de UI da leitura (anotado em 2026-08-07, durante uso real)
+## Backlog de UI da leitura (anotado e RESOLVIDO em 2026-08-07)
+
+**Os três foram implementados.** O que segue é o registro do que se viu em uso
+real e do porquê de cada correção — vale mais do que a lista de tarefas.
 
 Levantado com um projeto de verdade em mãos (`013_26_est_geral.pdf`, 5 folhas).
 Nada disso bloqueia o fluxo — são correções de leitura da tela.
 
-### 1. O chip "é o memorial" não se lê como ação
+### 1. O chip "é o memorial" não se lê como ação — FEITO
 
 `modules/nexo/components/NexoChat.tsx:696`. É um **botão** que troca o papel do
 arquivo (prancha ↔ memorial), mas está desenhado como rótulo: 10px, cor
@@ -117,7 +120,7 @@ Pode ser (a) o memorial é sempre um documento de texto, e o convite só deveria
 aparecer em PDF sem carimbo; ou (b) o rótulo deveria ser texto puro, sem cara de
 link. Perguntar qual antes de mexer.
 
-### 2. A faixa de progresso da leitura
+### 2. A faixa de progresso da leitura — FEITO
 
 `modules/nexo/components/NexoWorkspace.tsx:1123-1136`. Hoje é uma linha de texto:
 `Lendo os selos — 0 de 5 folhas analisadas`.
@@ -134,7 +137,7 @@ para lá que o `${semTitulo} sem título` da linha 1135 tem de migrar. Aviso em
 barra de progresso não tem o que se faça a respeito, e a barra some quando a
 leitura acaba, levando o aviso junto.
 
-### 3. Identificação da prefeitura: usar o logo, não só o texto
+### 3. Identificação da prefeitura: usar o logo, não só o texto — FEITO
 
 O casamento existe e roda em produção — `casarPrefeituraDoCarimbo`
 (`server/nexo/agent/normalize.ts:130`) conta o campo `cliente` de todas as
