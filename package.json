@@ -46,6 +46,8 @@
     "test:nexo:disciplinas": "node scripts/test-nexo-disciplinas.ts",
     "test:nexo:conversa-remota": "node scripts/test-nexo-conversa-remota.ts",
     "qa:nexo:frame-no-card": "node scripts/shot-nexo-frame-no-card.mjs",
+    "telas": "node scripts/shot-telas-do-produto.mjs",
+    "telas:sem-acesso": "node scripts/shot-sem-acesso.mjs",
     "qa:nexo:conversa-servidor": "node scripts/shot-nexo-conversa-servidor.mjs",
     "test:nexo:saudacao": "node scripts/test-nexo-saudacao.ts",
     "test:nexo:blocos": "node scripts/test-nexo-blocos.ts",
