@@ -40,6 +40,7 @@
     "test:nexo:totais": "node scripts/test-nexo-totais.ts",
     "test:nexo:identidade": "node scripts/test-nexo-identidade.ts",
     "test:nexo:capa-linhas": "node scripts/test-nexo-capa-linhas.ts",
+    "test:nexo:data-do-selo": "node scripts/test-nexo-data-do-selo.ts",
     "test:nexo:odt-marcadores": "node scripts/test-nexo-odt-marcadores.ts",
     "test:nexo:odt-layout": "node scripts/test-nexo-odt-layout.ts",
     "test:nexo:decisoes": "node scripts/test-nexo-decisoes.ts",
