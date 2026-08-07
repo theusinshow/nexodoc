@@ -103,8 +103,9 @@ function resolve(args: {
 
 // --- casos ------------------------------------------------------------------
 
-// (a) LD sem título → nextMissing = tituloLd required com 2-3 suggestions
-test("(a) LD sem título → nextMissing tituloLd (required, 2-3 chips), pronto:false", () => {
+// (a) LD sem disciplina de onde derivar → tituloLd é PERGUNTADO, mas não trava:
+//     o título virou fato derivado do léxico; sem léxico, volta a ser pergunta.
+test("(a) LD sem título derivável → tituloLd perguntável (2-3 chips), não bloqueia", () => {
   const r = resolve({
     taskKind: "ld",
     facts: facts({
@@ -112,11 +113,11 @@ test("(a) LD sem título → nextMissing tituloLd (required, 2-3 chips), pronto:
     }),
     slots: noSlots,
   });
-  assert.equal(r.pronto, false);
+  assert.equal(r.pronto, true, "título não trava mais a geração");
   assert.ok(r.nextMissing, "esperava um nextMissing");
   assert.equal(r.nextMissing!.slotId, "tituloLd");
   assert.equal(r.nextMissing!.taskKind, "ld");
-  assert.equal(r.nextMissing!.optional, false);
+  assert.equal(r.nextMissing!.optional, true);
   const n = r.nextMissing!.suggestions.length;
   assert.ok(n >= 2 && n <= 3, `esperava 2-3 suggestions, veio ${n}`);
   /*
@@ -145,18 +146,20 @@ test("(b) LD com título em slots → pronto:true, sem nextMissing", () => {
   assert.equal(r.resolved.tituloLd, "BLOCO B");
 });
 
-// (c) capa, casou 1 prefeitura por município (plausibleCount:1) → pré-resolvido.
-// MUDOU: o título da capa virou decisão do engenheiro (como o da LD), então a
-// prefeitura resolvida sozinha não deixa mais a capa pronta.
-test("(c) capa, templateMatch.plausibleCount:1 → templateId pré-resolvido", () => {
+// (c) capa, casou 1 prefeitura (plausibleCount:1) → pré-resolvido.
+// MUDOU DE NOVO: o título voltou a ser fato (derivado do léxico de disciplinas),
+// então a prefeitura casada já deixa a capa PRONTA. Sem `titulos` no contexto o
+// título ainda é perguntado — mas como perguntável, sem travar o botão.
+test("(c) capa, templateMatch.plausibleCount:1 → templateId pré-resolvido e pronta", () => {
   const r = resolve({
     taskKind: "capa",
     facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
     slots: noSlots,
   });
   assert.equal(r.resolved.templateId, "prefflor", "casou por município");
-  assert.equal(r.nextMissing?.slotId, "tituloCapa", "falta a decisão do título");
-  assert.equal(r.pronto, false);
+  assert.equal(r.nextMissing?.slotId, "tituloCapa");
+  assert.equal(r.nextMissing?.optional, true, "pergunta, mas não trava");
+  assert.equal(r.pronto, true);
 });
 
 // (c2) capa com o título decidido → aí sim pronta
@@ -179,13 +182,18 @@ test("(c2) capa com tituloCapa decidido → pronto:true", () => {
 });
 
 test("(c2b) o perguntável NUNCA passa na frente de um required", () => {
-  // Sem título, a conversa tem de cuidar do título — não da data.
+  /*
+   * A prefeitura é o único required da capa desde que o título virou fato
+   * derivado. Sem casamento, é dela que a conversa cuida — não do título nem
+   * da data, que são perguntáveis.
+   */
   const r = resolve({
     taskKind: "capa",
-    facts: facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } }),
+    facts: facts({ templateMatch: { resolvedId: null, plausibleCount: 0 } }),
     slots: noSlots,
   });
-  assert.equal(r.nextMissing?.slotId, "tituloCapa");
+  assert.equal(r.nextMissing?.slotId, "templateId");
+  assert.equal(r.nextMissing?.optional, false);
   assert.equal(r.pronto, false);
 });
 
@@ -409,12 +417,17 @@ test("(h) volume/conferencia sem slots → pronto:true, nextMissing null", () =>
   }
 });
 
-// (i) fato NUNCA vira slot: título é decisão (deriveFrom null), mas prefeitura
-//     casada é fato pré-computado (deriveFrom resolve) — a assimetria do §3.
-test("(i) título nunca auto-deriva (decisão); prefeitura casada auto-resolve (fato)", () => {
+// (i) FATO NUNCA VIRA SLOT — e o título passou para o lado dos fatos: ele sai do
+//     léxico de disciplinas, não do gosto de quem monta o volume. Sem léxico de
+//     onde derivar, ninguém adivinha: volta a ser pergunta.
+test("(i) título deriva do léxico (fato); sem léxico não é adivinhado", () => {
   const tituloDef = ARTIFACT_REQUIREMENTS.ld.find((d) => d.id === "tituloLd")!;
-  assert.equal(tituloDef.deriveFrom(facts()), null, "título nunca é adivinhado");
-  assert.equal(tituloDef.decision, true);
+  assert.equal(
+    tituloDef.deriveFrom(facts({ titulos: { capa: "PROJETO ESTRUTURAL", ld: "PROJETO DE ESTRUTURAS" } })),
+    "PROJETO DE ESTRUTURAS",
+  );
+  assert.equal(tituloDef.deriveFrom(facts()), null, "sem léxico, não inventa");
+  assert.equal(tituloDef.decision, false, "é fato, não decisão");
   const tpl = ARTIFACT_REQUIREMENTS.capa.find((d) => d.id === "templateId")!;
   assert.equal(
     tpl.deriveFrom(facts({ templateMatch: { resolvedId: "prefflor", plausibleCount: 1 } })),
@@ -436,6 +449,75 @@ test("(j) separatriz com plausibleCount:1 → templateId pré-resolvido, pronto:
   });
   assert.equal(r.resolved.templateId, "prefflor");
   assert.equal(r.pronto, true);
+});
+
+// --- fatos do selo: título e data deixam de ser pergunta ---------------------
+
+// (k) o caso que motivou a mudança: o carimbo já respondeu as três coisas.
+test("(k) capa com data e título derivados → não sobra pergunta nenhuma", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({
+      templateMatch: { resolvedId: "prefflor", plausibleCount: 1 },
+      dataDoSelo: { mes: 8, ano: 2026, folhas: 24, divergentes: 0 },
+      titulos: { capa: "PROJETO ESTRUTURAL", ld: "PROJETO DE ESTRUTURAS" },
+    }),
+    // O `volume` é decisão de verdade e continua sendo perguntado; preenchê-lo
+    // isola o que este teste mede — que os três FATOS não perguntam mais.
+    slots: { volume: { value: "5" } },
+  });
+  assert.equal(r.resolved.tituloCapa, "PROJETO ESTRUTURAL");
+  assert.equal(r.resolved.mes, "8");
+  assert.equal(r.resolved.ano, "2026");
+  assert.equal(r.resolved.templateId, "prefflor");
+  assert.equal(r.pronto, true);
+  assert.equal(r.nextMissing, null, "nada a perguntar: o selo respondeu tudo");
+});
+
+// (l) os dois títulos são registros DIFERENTES do mesmo léxico.
+test("(l) LD deriva o título de documento, não o de capa", () => {
+  const r = resolve({
+    taskKind: "ld",
+    facts: facts({
+      titulos: { capa: "PROJETO ESTRUTURAL", ld: "PROJETO DE ESTRUTURAS" },
+    }),
+    slots: noSlots,
+  });
+  assert.equal(r.resolved.tituloLd, "PROJETO DE ESTRUTURAS");
+  assert.equal(r.pronto, true);
+});
+
+// (m) a CICATRIZ: sem data no selo, ninguém inventa uma — o campo volta à fila.
+test("(m) sem data no selo, mês e ano continuam perguntáveis", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({
+      templateMatch: { resolvedId: "prefflor", plausibleCount: 1 },
+      titulos: { capa: "PROJETO ESTRUTURAL", ld: "X" },
+    }),
+    slots: { volume: { value: "5" } },
+  });
+  assert.equal(r.resolved.mes, undefined, "não deriva do relógio");
+  assert.equal(r.resolved.ano, undefined);
+  assert.equal(r.pronto, true, "mas não trava a geração");
+  assert.equal(r.nextMissing?.slotId, "mes");
+  assert.equal(r.nextMissing?.optional, true);
+});
+
+// (n) quem digita manda: a correção à mão vence o que veio do carimbo.
+test("(n) o valor dito à mão vence o derivado do selo", () => {
+  const r = resolve({
+    taskKind: "capa",
+    facts: facts({
+      templateMatch: { resolvedId: "prefflor", plausibleCount: 1 },
+      dataDoSelo: { mes: 8, ano: 2026, folhas: 24, divergentes: 0 },
+      titulos: { capa: "PROJETO ESTRUTURAL", ld: "X" },
+    }),
+    slots: { mes: { value: "3" }, tituloCapa: { value: "PROJETO DE DRENAGEM" } },
+  });
+  assert.equal(r.resolved.mes, "3");
+  assert.equal(r.resolved.tituloCapa, "PROJETO DE DRENAGEM");
+  assert.equal(r.resolved.ano, "2026", "o ano não dito continua vindo do selo");
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

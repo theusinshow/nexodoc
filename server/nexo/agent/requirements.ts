@@ -58,6 +58,26 @@ export interface SlotFacts {
     /** Prefeituras plausíveis a oferecer como chips quando vira slot (opcional). */
     plausibles?: { id: string; nome: string }[];
   };
+  /**
+   * A data que o CARIMBO traz, dominante entre as folhas — já computada pelo
+   * chamador (`dataDominante`, de `data-do-selo.ts`).
+   *
+   * Ausente quando nenhuma folha trouxe data legível OU quando houve EMPATE.
+   * Nos dois casos o campo volta a ser perguntável, em vez de a capa sair com
+   * uma data escolhida no cara ou coroa. Ver a cicatriz em `mesSlot`.
+   */
+  dataDoSelo?: { mes: number; ano: number; folhas: number; divergentes: number };
+  /**
+   * Os títulos derivados da DISCIPLINA, já computados pelo chamador
+   * (`nomeNaCapa`/`nomeNoDocumento`, de `disciplinas.ts`).
+   *
+   * Chegam injetados pelo mesmo motivo de `templateMatch` e `tomosSugeridos`:
+   * este arquivo é folha pura e `disciplinas.ts` é import de runtime. São dois
+   * registros DIFERENTES do mesmo léxico — a capa diz "PROJETO ESTRUTURAL", o
+   * documento diz "PROJETO DE ESTRUTURAS" —, e trocá-los faria a capa e a
+   * separatriz do mesmo volume discordarem.
+   */
+  titulos?: { capa: string; ld: string };
   /** Mês de referência 1-12 (injetado — sem `new Date()` na função pura). */
   mesAtual: number;
   /** Ano de referência (injetado). */
@@ -262,24 +282,34 @@ function templateIdSlot(taskKind: NexoArtifactKind): SlotDef {
 }
 
 /**
- * `mes`: PERGUNTADO, mas não bloqueia.
+ * `mes`: derivado do CARIMBO; perguntado quando o carimbo não disser.
  *
- * Antes tinha `deriveFrom` devolvendo o mês corrente, o que o auto-resolvia e o
- * fazia nunca chegar a ser pergunta. A capa saía com a data de hoje e o
- * engenheiro só descobria abrindo o PDF — inclusive depois de PEDIR outra data
- * na conversa. Sem o `deriveFrom`, ele entra na fila do perguntável; quem
- * ignorar continua levando o mês corrente, que é o padrão do builder quando o
- * campo chega vazio.
+ * A cicatriz: este `deriveFrom` já devolveu o mês CORRENTE, o que o
+ * auto-resolvia e o fazia nunca chegar a ser pergunta. A capa saía com a data de
+ * hoje e o engenheiro só descobria abrindo o PDF — inclusive depois de PEDIR
+ * outra data na conversa. O `deriveFrom` foi então removido, e a data virou
+ * pergunta em todo projeto.
+ *
+ * Agora ele volta, com a diferença que importa: a fonte é o DOCUMENTO, não o
+ * relógio. Um volume montado hoje com pranchas de junho sai JUNHO — que é o que
+ * o carimbo diz, e o que o engenheiro conferiria à mão de qualquer jeito.
+ *
+ * As duas condições andam JUNTAS e não podem ser separadas: derivar do selo
+ * SEM exibir repetiria o defeito original com outra fonte. Quem exibe é o
+ * `FrameDoDocumento`, que mostra a data como texto fantasma no campo em que ela
+ * vai sair impressa. Sem data no carimbo (ou com empate entre folhas), volta a
+ * ser perguntável e o builder cai no mês corrente.
  */
 function mesSlot(taskKind: NexoArtifactKind): SlotDef {
   return {
     id: "mes",
     taskKind,
     required: false,
-    decision: true,
+    decision: false,
     perguntarSeFaltar: true,
     prompt: "Qual mês vai na capa?",
-    deriveFrom: () => null,
+    deriveFrom: (facts) =>
+      facts.dataDoSelo ? String(facts.dataDoSelo.mes) : null,
     suggest: (facts) => {
       const prev = mesAnterior(facts.mesAtual, facts.anoAtual);
       return [
@@ -290,16 +320,17 @@ function mesSlot(taskKind: NexoArtifactKind): SlotDef {
   };
 }
 
-/** `ano`: perguntado junto da data, pelo mesmo motivo do mês. Não bloqueia. */
+/** `ano`: mesma fonte e mesmas regras do mês — os dois saem da mesma leitura. */
 function anoSlot(taskKind: NexoArtifactKind): SlotDef {
   return {
     id: "ano",
     taskKind,
     required: false,
-    decision: true,
+    decision: false,
     perguntarSeFaltar: true,
     prompt: "Qual ano vai na capa?",
-    deriveFrom: () => null,
+    deriveFrom: (facts) =>
+      facts.dataDoSelo ? String(facts.dataDoSelo.ano) : null,
     suggest: (facts) => [
       { label: `${facts.anoAtual} (atual)`, value: String(facts.anoAtual), commit: "fill" as const },
       { label: String(facts.anoAtual - 1), value: String(facts.anoAtual - 1), commit: "fill" as const },
@@ -359,30 +390,51 @@ function sugestoesDeTitulo(facts: SlotFacts): NexoSlotSuggestion[] {
   return out.slice(0, 3);
 }
 
+/**
+ * `tituloLd`: FATO derivado da disciplina, não decisão.
+ *
+ * Era `required` + `deriveFrom: () => null`, e por isso a conversa cobrava um
+ * título antes de qualquer coisa — mesmo com o léxico de disciplinas sabendo
+ * exatamente como aquela LD se chama, e mesmo com o carimbo de 24 pranchas
+ * dizendo a disciplina. Perguntar o que já se sabe é o oposto de "afirma fatos,
+ * pergunta decisões".
+ *
+ * Continua PERGUNTÁVEL quando não há disciplina de onde derivar, e quem quiser
+ * outro título digita por cima: o valor dito à mão vence o derivado, como em
+ * todo slot. O que deixou de existir é a cobrança no caso padrão.
+ */
 const tituloLdSlot: SlotDef = {
   id: "tituloLd",
   taskKind: "ld",
-  required: true,
-  decision: true,
+  required: false,
+  decision: false,
+  perguntarSeFaltar: true,
   prompt: "Qual o título desta LD?",
-  deriveFrom: () => null,
+  deriveFrom: (facts) => facts.titulos?.ld ?? null,
   suggest: sugestoesDeTitulo,
 };
 
 /**
- * `tituloCapa`: DECISÃO do engenheiro, pelas mesmas razões do título da LD.
+ * `tituloCapa`: FATO derivado da disciplina, pelas mesmas razões da LD.
  *
- * Antes a capa não tinha título nenhum — obra e disciplina vinham automáticos do
- * selo, e pedir "altere o título da capa" não tinha onde pousar. Agora a capa
- * pergunta, com os mesmos candidatos da LD, e o palpite nunca é auto-commitado.
+ * Usa o registro de CAPA do léxico ("PROJETO ESTRUTURAL"), que é mais curto que
+ * o de documento usado pela LD ("PROJETO DE ESTRUTURAS"). Os dois saem da mesma
+ * disciplina e não podem ser trocados: é o que mantém a capa e a separatriz do
+ * mesmo volume falando a mesma língua.
+ *
+ * VOLUME MISTO: a regra de juntar uma linha por disciplina vive no card
+ * (`PlanoDeGeracao`, via `derivados.TITULO_CAPA`), que conhece os blocos. Este
+ * slot deriva de UMA disciplina; no misto, o card manda. Não duplicar a junção
+ * aqui — o dia em que a regra mudar, ela tem de mudar num lugar só.
  */
 const tituloCapaSlot: SlotDef = {
   id: "tituloCapa",
   taskKind: "capa",
-  required: true,
-  decision: true,
+  required: false,
+  decision: false,
+  perguntarSeFaltar: true,
   prompt: "Qual o título desta capa?",
-  deriveFrom: () => null,
+  deriveFrom: (facts) => facts.titulos?.capa ?? null,
   suggest: sugestoesDeTitulo,
 };
 

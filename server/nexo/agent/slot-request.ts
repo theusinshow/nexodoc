@@ -26,6 +26,11 @@ import { resolveSlots } from "./slot-resolver";
 // O casamento cidade→template mora em `normalize.ts`, junto de `matchPrefeitura`
 // que é a sua única dependência — e lá ele roda em node cru, com teste.
 import { casarPrefeituraDoCarimbo } from "./normalize";
+// A data mora num módulo puro só dela; o léxico de disciplinas é a FONTE ÚNICA
+// dos três nomes de cada disciplina. Os dois são import de runtime, e por isso
+// entram aqui e não em `requirements.ts`, que é folha pura.
+import { dataDominante } from "@/server/nexo/data-do-selo";
+import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 
 export interface SlotRequestContext {
   /** Selos crus lidos das pranchas (base das sugestões de título). */
@@ -133,6 +138,21 @@ export function buildSlotRequestForTurn(
      * o caso do volume ir para a prefeitura errada, e ele não se adivinha.
      */
     templateMatch: casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras),
+    /*
+     * A DATA e os TÍTULOS que o carimbo já respondeu.
+     *
+     * Computados aqui pelo mesmo motivo de `templateMatch`: `requirements.ts` é
+     * folha pura e não pode importar runtime. `undefined` quando não há o que
+     * derivar — nenhuma folha com data legível, empate entre folhas, ou
+     * disciplina desconhecida —, e aí o slot volta a ser perguntável em vez de
+     * o software inventar um valor.
+     */
+    dataDoSelo: dataDominante(ctx.selos.map((s) => s.data)) ?? undefined,
+    titulos: (() => {
+      const capa = nomeNaCapa(ctx.disciplina);
+      const ld = nomeNoDocumento(ctx.disciplina);
+      return capa && ld ? { capa, ld } : undefined;
+    })(),
     mesAtual: ctx.mesAtual,
     anoAtual: ctx.anoAtual,
     tomosSugeridos: ctx.tomosSugeridos,
