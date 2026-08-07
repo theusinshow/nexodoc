@@ -32,13 +32,13 @@ export const runtime = "nodejs";
  * volume com o logo trocado, que é o acidente que este módulo existe para
  * impedir.
  *
- * LEVE de propósito: um modelo mini, uma única chamada, e uma AMOSTRA de
+ * LEVE de propósito: o modelo barato, uma única chamada, e uma AMOSTRA de
  * folhas (o brasão e o endereço são do volume inteiro — a prancha intrusa é
  * pega pelo texto, na conferência determinística). Não se gasta visão em 200
  * páginas para descobrir de quem é o brasão.
  */
 
-const MODELO_PADRAO = "gpt-5.4-mini";
+const MODELO_PADRAO = "gpt-5.6-luna";
 /** Teto de amostras: o custo tem de ser previsível, e o brasão não muda. */
 const MAX_AMOSTRAS = 4;
 

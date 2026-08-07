@@ -1,6 +1,7 @@
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const AI_MODEL_OPTIONS = [
+  "gpt-5.6-luna",
   "gpt-5.5",
   "gpt-5.5-pro",
   "gpt-5.4",

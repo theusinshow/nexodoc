@@ -212,7 +212,7 @@ Os provedores e modelos de IA sao resolvidos somente no backend, em um ponto cen
 | Criador de LDs, principal | `NEXODOC_AI_PROVIDER` | `NEXODOC_LD_OPENAI_MODEL` ou `DEEPSEEK_LD_MODEL` | `OPENAI_API_KEY` ou `DEEPSEEK_API_KEY` |
 | Criador de LDs, fallback | MiMo | `MIMO_MODEL` | `MIMO_API_KEY` |
 
-O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.5` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.5` e leitura ampliada. Para rotinas de menor custo/latencia, use overrides pontuais com `gpt-5.4-mini`, como em `NEXODOC_VOLUME_SUGGESTION_MODEL`. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
+O app oferece dois niveis de analise: `Padrao`, para rotina com `gpt-5.5` e leitura limitada, e `Profundo`, para revisao final com `gpt-5.5` e leitura ampliada. Para rotinas de menor custo/latencia, use overrides pontuais com `gpt-5.6-luna`, como em `NEXODOC_VOLUME_SUGGESTION_MODEL`. Em particular, alterar apenas `OPENAI_MODEL` nao altera o modelo da auditoria padrao: configure `OPENAI_STANDARD_MODEL` para esse fluxo.
 
 Para reduzir custo, as variaveis `NEXODOC_AUDIT_*` permitem trocar apenas uma etapa interna da auditoria. Se uma delas ficar vazia, o app usa o modelo base do respectivo nivel (`OPENAI_STANDARD_MODEL` ou `OPENAI_DEEP_MODEL`). As variaveis sem o nivel, como `NEXODOC_AUDIT_CHUNK_MODEL`, tambem sao aceitas como fallback comum para padrao e profundo.
 
