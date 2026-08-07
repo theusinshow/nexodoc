@@ -32,12 +32,44 @@ import {
 // Identidade NexoDoc: TUDO teal (forma estilo Siri, mas monocromático teal →
 // luminoso, sem arco-íris). O miolo é branco-teal; as lâminas variam de teal
 // profundo (--primary) a teal claro (--ring), dando profundidade sem sair da marca.
-const BODY_COLOR = "#0c1518";
-const RIM_COLOR = "#5bdac6";
-const SOUL_TEAL = "#00a693"; // --primary (teal profundo)
-const SOUL_LUMINOUS = "#eafffb"; // miolo branco-teal
-const SOUL_TEAL_BRIGHT = "#5bdac6"; // --ring (teal claro)
-const SOUL_TEAL_LIGHT = "#bff3ea"; // teal quase branco (2ª camada)
+/**
+ * As seis cores do orbe, num lugar só.
+ *
+ * Estavam como constantes soltas. Viraram objeto exportado porque afinar a
+ * marca é trabalho de OLHO, não de palpite: a bancada (`/bancada-do-orbe`, só
+ * em desenvolvimento) escreve valores aqui em tempo real para se poder decidir
+ * vendo. O que roda em produção continua sendo exatamente este objeto.
+ */
+export interface CoresDoOrbe {
+  /** Tinta do vidro externo (escura). */
+  corpo: string;
+  /** Aro do vidro — o Fresnel que desenha a borda. */
+  aro: string;
+  /** Alma, teal profundo (`uColorA`). */
+  almaProfunda: string;
+  /** Miolo branco-teal, o ponto mais luminoso (`uColorB`). */
+  miolo: string;
+  /** Alma, teal claro (`uColorC`). */
+  almaClara: string;
+  /** Segunda camada de lâmina, teal quase branco (`uColorD`). */
+  laminaClara: string;
+}
+
+export const CORES_DO_ORBE: CoresDoOrbe = {
+  corpo: "#0c1518",
+  aro: "#5bdac6",
+  almaProfunda: "#00a693", // --primary
+  miolo: "#eafffb",
+  almaClara: "#5bdac6", // --ring
+  laminaClara: "#bff3ea",
+};
+
+const BODY_COLOR = CORES_DO_ORBE.corpo;
+const RIM_COLOR = CORES_DO_ORBE.aro;
+const SOUL_TEAL = CORES_DO_ORBE.almaProfunda;
+const SOUL_LUMINOUS = CORES_DO_ORBE.miolo;
+const SOUL_TEAL_BRIGHT = CORES_DO_ORBE.almaClara;
+const SOUL_TEAL_LIGHT = CORES_DO_ORBE.laminaClara;
 
 // Satélites: máximo visual razoável (documentos no contexto viram pontos abstratos).
 const MAX_SATS = 6;
@@ -88,6 +120,8 @@ export function AgentOrbScene({
   hovered,
   pressed,
   reduced,
+  cores,
+  ajuste,
 }: {
   state: AgentState;
   activity: number;
@@ -96,6 +130,18 @@ export function AgentOrbScene({
   /** Botão do mouse pressionado sobre o orbe — reconhecimento do toque. */
   pressed: boolean;
   reduced: boolean;
+  /**
+   * Cores fora do padrão. SÓ a bancada de ajuste usa isto; o produto não passa
+   * nada e recebe `CORES_DO_ORBE`. Existe para que afinar a marca seja mexer e
+   * ver, em vez de editar constante, recarregar e tentar lembrar como era.
+   */
+  cores?: Partial<CoresDoOrbe>;
+  /**
+   * Parâmetros fora do padrão, no lugar do que `paramsForState` daria. Mesma
+   * regra: só a bancada. Sem isto, os controles seriam sobrescritos a cada
+   * quadro pelo amortecimento em direção ao alvo do estado.
+   */
+  ajuste?: Partial<OrbVisualParams>;
 }) {
   const outerRef = useRef<THREE.Group>(null); // escala (hover + drag + press)
   const tiltRef = useRef<THREE.Group>(null); // inclinação que segue o ponteiro
@@ -119,10 +165,32 @@ export function AgentOrbScene({
   const target = useRef<OrbVisualParams>(paramsForState(state, activity));
 
   useEffect(() => {
-    target.current = paramsForState(state, activity);
-  }, [state, activity]);
+    target.current = { ...paramsForState(state, activity), ...ajuste };
+  }, [state, activity, ajuste]);
 
   const invalidate = useThree((s) => s.invalidate);
+
+  /*
+   * As cores vivem em `uniforms`, que o R3F só lê na criação do material. Trocar
+   * a prop não redesenharia nada — por isso o efeito escreve direto no uniform.
+   * No produto isto roda uma vez, com os valores padrão, e nunca mais.
+   */
+  useEffect(() => {
+    const c = { ...CORES_DO_ORBE, ...cores };
+    const sup = surfaceRef.current;
+    const alma = coreRef.current;
+    if (sup) {
+      sup.uniforms.uColor.value.set(c.corpo);
+      sup.uniforms.uRimColor.value.set(c.aro);
+    }
+    if (alma) {
+      alma.uniforms.uColorA.value.set(c.almaProfunda);
+      alma.uniforms.uColorB.value.set(c.miolo);
+      alma.uniforms.uColorC.value.set(c.almaClara);
+      alma.uniforms.uColorD.value.set(c.laminaClara);
+    }
+    invalidate();
+  }, [cores, invalidate]);
   const gl = useThree((s) => s.gl);
   useEffect(() => {
     invalidate();
