@@ -98,6 +98,42 @@ Decisão de rumo (2026-07-22, com o usuário): o app **não tem infra de tool-ca
 
 `NEXT_PUBLIC_NEXO_ENABLED=true` liga o módulo (aparece como principal na home e a rota `/nexo` funciona). Ausente/qualquer-outro-valor = desligado (produção segura por padrão). Definido em `.env.local` para dev.
 
+## Backlog de UI da leitura (anotado em 2026-08-07, durante uso real)
+
+Levantado com um projeto de verdade em mãos (`013_26_est_geral.pdf`, 5 folhas).
+Nada disso bloqueia o fluxo — são correções de leitura da tela.
+
+### 1. O chip "é o memorial" não se lê como ação
+
+`modules/nexo/components/NexoChat.tsx:696`. É um **botão** que troca o papel do
+arquivo (prancha ↔ memorial), mas está desenhado como rótulo: 10px, cor
+`muted-foreground`, `underline decoration-dotted`. Colado ao chip `NA FILA
+PRANCHA`, o anexo mostra dois textos seguidos — um que é estado, outro que é
+ação — sem nada distinguindo os dois. Quem lê não sabe se está sendo informado
+de que o arquivo É o memorial, ou convidado a torná-lo memorial.
+
+Ponto levantado junto, a confirmar antes de implementar: **"memorial só texto"**.
+Pode ser (a) o memorial é sempre um documento de texto, e o convite só deveria
+aparecer em PDF sem carimbo; ou (b) o rótulo deveria ser texto puro, sem cara de
+link. Perguntar qual antes de mexer.
+
+### 2. A faixa de progresso da leitura
+
+`modules/nexo/components/NexoWorkspace.tsx:1123-1136`. Hoje é uma linha de texto:
+`Lendo os selos — 0 de 5 folhas analisadas`.
+
+**Trocar por uma barra segmentada: um retângulo por prancha.** A referência que o
+engenheiro desenhou tem duas escalas — poucos segmentos largos para lotes
+pequenos, muitos quadradinhos estreitos para lotes grandes —, então a régua
+precisa se adaptar à contagem em vez de ter largura fixa por folha. Um volume
+real vai de 5 a 200 folhas.
+
+**O erro sai daqui.** A faixa mostra só o avanço. Folha que falhou ou veio sem
+título é assunto do canvas, onde dá para ver QUAL folha e agir sobre ela — e é
+para lá que o `${semTitulo} sem título` da linha 1135 tem de migrar. Aviso em
+barra de progresso não tem o que se faça a respeito, e a barra some quando a
+leitura acaba, levando o aviso junto.
+
 ## Perguntas em aberto
 - Persistência do dossiê: memória de sessão vs. gravar em `Projeto` no banco?
 - Modelo/custo por sessão (extração de PDF grande + tool-calling encadeado).
