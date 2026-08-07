@@ -235,3 +235,67 @@ fusão não perde conversa.
 condição que o dispara está provada (o registro atravessa, o blob não), mas o
 render em si depende de um card de proposta na conversa, que o teste não
 fabrica.
+
+---
+
+## O passo a passo, do jeito operacional
+
+Nada aqui começa do zero. Levantado e conferido em 2026-08-07.
+
+### O que JÁ existe (não recriar)
+
+| Coisa | Situação |
+|---|---|
+| **Neon Postgres** | de pé em `sa-east-1`, string **pooled**, schema em dia — 5 migrações aplicadas, incluindo `20260806120000_nexo_conversation` |
+| **App Google OAuth** | `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET` já emitidos |
+| **`AUTH_SECRET`, `OPENAI_API_KEY`, `NEXODOC_ADMIN_EMAILS`** | já existem |
+| **Conta Render** | existe (o serviço do conversor antigo mora nela) |
+| **Código** | `Dockerfile`, `render.yaml`, `/api/saude` e as conversas no servidor, tudo na `main` |
+
+Uma dúvida antecipada e resolvida: **`prisma migrate deploy` funciona pela URL
+pooled do Neon.** Prisma Migrate costuma exigir conexão direta por causa do
+advisory lock, e o normal seria precisar de uma `DIRECT_URL` só para migrar.
+Testado contra o banco de verdade: passa. Não há segunda URL para configurar.
+
+### O que FALTA
+
+**1. Criar o serviço na Render.**
+New → Blueprint → apontar para o repositório → ele lê o `render.yaml` e propõe o
+serviço `nexodoc`. É um serviço **novo**; o conversor antigo não vira ele.
+
+**2. Preencher as cinco variáveis marcadas `sync: false`:**
+`DATABASE_URL` (a mesma string pooled do `.env.local`), `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `OPENAI_API_KEY`, `NEXODOC_ADMIN_EMAILS`.
+`AUTH_SECRET` a Render gera sozinha. `DOCUMENT_CONVERTER_URL` fica **vazia** — o
+LibreOffice está dentro do container.
+
+**3. Deixar a primeira build rodar (~10 min).**
+Não há Docker nesta máquina, então esta é a primeira vez que a imagem é
+montada de verdade. O que dá para adiantar sem Docker já foi adiantado:
+`npm run build` passa localmente, e é o estágio que costuma quebrar.
+
+**4. Liberar o redirect no Google Cloud.**
+Credenciais → o cliente OAuth → **Authorized redirect URIs** →
+`https://<host-da-render>/api/auth/callback/google`. Guarde o de localhost
+também. Sem isto o login volta para localhost e o erro não explica nada.
+
+**5. Conferir `/api/saude`** — precisa dizer `ok: true` e listar as 4
+prefeituras.
+
+**6. Gerar uma capa pela interface e ABRIR o PDF.** É a única prova de que o
+LibreOffice e as fontes chegaram inteiros no container. Rodar a checagem de
+saúde não substitui isto.
+
+**7. Decidir o que fazer com o que sobrou do arranjo antigo.** Se ainda existir
+projeto na Vercel apontando para esta `main`, ele vai continuar publicando uma
+versão que não roda direito, num link que talvez já esteja com alguém. Pausar ou
+apagar. O mesmo vale para o serviço `nexodoc-converter`, que deixa de ter função.
+
+**8. Domínio** — opcional para o beta, mas o link é o que circula. Ver a seção
+seguinte.
+
+### Custo
+
+Plano `starter` da Render: US$ 7/mês. O `free` hiberna aos 15 minutos e cobra
+30-60s de cold start da primeira visita do dia. Neon tem camada gratuita que
+aguenta um beta.
