@@ -185,6 +185,16 @@
   }
 }
 
+/* Daqui ate o fim do bloco: RESET DE ELEMENTO, e por isso vive em @layer base.
+   Fora de camada estas regras venciam TODAS as utilities do Tailwind (que vivem
+   em @layer utilities), independentemente de especificidade -- foi o que obrigou
+   o `:not([type="checkbox"]):not([type="radio"])` do min-height la embaixo. Em
+   @layer base a ordem correta se restabelece: utility ganha do reset.
+
+   O conteudo abaixo NAO foi reindentado de proposito, para o diff desta mudanca
+   de risco mostrar apenas as chaves da camada e nada mais. */
+@layer base {
+
 /* Scrollbar */
 * {
   scrollbar-width: thin;
@@ -307,6 +317,17 @@ textarea {
 textarea {
   line-height: 1.5;
 }
+
+}
+/* fim do @layer base */
+
+/* Daqui ate o fim do arquivo: COMPONENTES do produto (.nexo-*, .nexodoc-*, e as
+   animacoes que eles usam), e por isso vivem em @layer components. Mesma razao
+   do bloco base: sem camada, uma classe destas vencia qualquer utility aplicada
+   no mesmo elemento, o que tornava imprevisivel ajustar uma tela pelo JSX.
+
+   Tambem nao reindentado, pelo mesmo motivo. */
+@layer components {
 
 /*
  * A MARCA reage ao mouse — e só a ele.
@@ -907,3 +928,6 @@ button:hover .nexo-logo .nexo-logo__no {
     display: none;
   }
 }
+
+}
+/* fim do @layer components */
