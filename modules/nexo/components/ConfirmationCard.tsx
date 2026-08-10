@@ -98,6 +98,10 @@ import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
+import {
+  estadoDoArtefato,
+  type EstadoArtefato,
+} from "../lib/estado-do-artefato";
 import { totalDoConjunto } from "../lib/totais";
 import {
   consequenciaDaMudanca,
@@ -228,32 +232,13 @@ function tomosDoVolume(
   return tomosDaProposta(p?.numTomos ?? 1, p?.tomoInicial ?? 1);
 }
 
-/** Os três estados de um artefato no card (§ "Estados das ações do Nexo"). */
-export type EstadoArtefato = "proposta" | "pendente" | "aplicado";
-
-/**
- * Em que estado está o artefato, comparando os params que o engenheiro acabou de
- * pedir com os que ORIGINARAM o resultado já gerado.
- *
- * Existe porque o id do artefato é estável de propósito (uma capa por conversa,
- * atualizada no lugar). Sem esta comparação o card via "já existe resultado" e
- * só oferecia o download — pedir "muda para o volume 6" mostrava o PDF do volume
- * I como se estivesse em dia.
- *
- * Resultado antigo sem params guardados (gerado antes disto existir): não dá
- * para provar que está em dia, então tratamos como PENDENTE — melhor oferecer
- * um "gerar de novo" desnecessário do que esconder uma alteração pedida.
+/*
+ * `estadoDoArtefato` mudou-se para `../lib/estado-do-artefato`: o plano em lote
+ * precisava dela e não podia importar um componente de 2.500 linhas para pegar
+ * uma comparação de dez. O re-export mantém quem já importava daqui.
  */
-function estadoDoArtefato(
-  saved: SavedResult | undefined,
-  params: unknown,
-): EstadoArtefato {
-  if (!saved) return "proposta";
-  if (saved.payload === undefined) return "pendente";
-  return JSON.stringify(saved.payload) === JSON.stringify(params)
-    ? "aplicado"
-    : "pendente";
-}
+export type { EstadoArtefato };
+export { estadoDoArtefato };
 
 /**
  * Ids BASE (sem sufixo de tomo) dos três tipos que o plano gera. Exportado para

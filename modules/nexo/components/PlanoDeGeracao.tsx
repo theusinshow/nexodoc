@@ -18,7 +18,7 @@
  */
 
 import { useState } from "react";
-import { FileText, Loader2, Check } from "lucide-react";
+import { FileText, Loader2, Check, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -31,7 +31,13 @@ import type {
 } from "../types";
 import { BlocoDaLd } from "./BlocoDaLd";
 import { useConversation } from "../state/conversation-store";
-import { gerarItem, opcoesDoTomo, type ItemDoPlano } from "../lib/editar-artefato";
+import {
+  gerarItem,
+  opcoesDoTomo,
+  payloadDoItem,
+  type ItemDoPlano,
+} from "../lib/editar-artefato";
+import { estadoDoArtefato } from "../lib/estado-do-artefato";
 import {
   blocosDasFolhas,
   misturaDisciplinas,
@@ -400,18 +406,35 @@ export function PlanoDeGeracao({
     !separatrizListada;
   const semPrefeitura = Boolean(capa) && !capa?.templateId?.trim();
 
-  // Já gerados: o card não some depois, ele muda de estado.
-  const jaGerados = itens.filter((it) =>
-    results.some(
-      (r) =>
-        r.artifactId ===
-        (it.kind === "capa"
-          ? idsBase.capa
-          : it.kind === "ld"
-            ? idsBase.ld
-            : idsBase.separatriz) + it.sufixo,
-    ),
-  ).length;
+  /*
+   * O ESTADO DE CADA ITEM — não a contagem de ids existentes.
+   *
+   * Aqui só se perguntava se o `artifactId` já estava em `results`. Como o id é
+   * ESTÁVEL de propósito (uma capa por conversa, atualizada no lugar), mudar o
+   * título, a prefeitura ou a data depois de gerar mantinha o card dizendo
+   * "Gerado", com os checks verdes, enquanto o PDF no canvas envelhecia. O
+   * volume seguia para a prefeitura com o documento errado e nada na tela
+   * avisava. A DESIGN.md § "Estados das ações do Nexo" chama isso de o erro
+   * mais caro desta tela.
+   *
+   * `estadoDoArtefato` compara o payload que ORIGINOU o resultado com o de
+   * agora, e `payloadDoItem` é a MESMA função que a geração usa para gravar —
+   * duas formas de montar o payload fariam todo artefato nascer pendente.
+   */
+  const estados = itens.map((it) => {
+    const artifactId =
+      (it.kind === "capa"
+        ? idsBase.capa
+        : it.kind === "ld"
+          ? idsBase.ld
+          : idsBase.separatriz) + it.sufixo;
+    return estadoDoArtefato(
+      results.find((r) => r.artifactId === artifactId),
+      payloadDoItem({ item: it, selos, tituloDaSeparatriz: titulo }),
+    );
+  });
+  const jaGerados = estados.filter((e) => e === "aplicado").length;
+  const pendentes = estados.filter((e) => e === "pendente").length;
   const tudoGerado = jaGerados === itens.length;
 
   /*
@@ -510,9 +533,19 @@ export function PlanoDeGeracao({
     <div className="nexodoc-enter rounded-md border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <FileText className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <span className={LABEL_CLASS}>
-          {tudoGerado ? "Gerado" : "Vou gerar"} · {itens.length} documento
-          {itens.length > 1 ? "s" : ""}
+        <span
+          className={
+            pendentes > 0
+              ? `${LABEL_CLASS} text-[var(--status-warning)]`
+              : LABEL_CLASS
+          }
+        >
+          {pendentes > 0
+            ? "Alteração pendente"
+            : tudoGerado
+              ? "Gerado"
+              : "Vou gerar"}{" "}
+          · {itens.length} documento{itens.length > 1 ? "s" : ""}
         </span>
       </div>
 
@@ -705,7 +738,11 @@ export function PlanoDeGeracao({
             significa seis documentos, e não dois. */}
         <ul className="space-y-0.5">
           {itens.map((it, i) => {
-            const feito = i < (gerando ?? (tudoGerado ? itens.length : jaGerados));
+            /*
+             * O check era POSICIONAL (`i < contagem`): com o item 0 velho e o 1
+             * em dia, o verde ia para o errado. Agora cada linha diz o seu.
+             */
+            const estado = estados[i];
             return (
               <li
                 key={`${it.kind}${it.sufixo}`}
@@ -713,12 +750,22 @@ export function PlanoDeGeracao({
               >
                 {gerando === i ? (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                ) : feito ? (
+                ) : estado === "aplicado" ? (
                   <Check className="h-3 w-3 text-[var(--status-ok)]" aria-hidden />
+                ) : estado === "pendente" ? (
+                  <RefreshCw
+                    className="h-3 w-3 text-[var(--status-warning)]"
+                    aria-hidden
+                  />
                 ) : (
                   <span className="h-3 w-3" aria-hidden />
                 )}
                 {it.rotulo}
+                {estado === "pendente" && gerando !== i && (
+                  <span className="text-[var(--status-warning)]">
+                    · alteração pendente
+                  </span>
+                )}
               </li>
             );
           })}
@@ -737,9 +784,15 @@ export function PlanoDeGeracao({
             )}
             {ocupado
               ? `Gerando ${(gerando ?? 0) + 1} de ${itens.length}…`
-              : tudoGerado
-                ? "Gerar de novo"
-                : `Gerar os ${itens.length}`}
+              : pendentes > 0
+                ? /*
+                   * O verbo diz o que está em jogo. "Gerar de novo" soa
+                   * opcional; o documento no canvas está velho.
+                   */
+                  `Atualizar ${pendentes} documento${pendentes > 1 ? "s" : ""}`
+                : tudoGerado
+                  ? "Gerar de novo"
+                  : `Gerar os ${itens.length}`}
           </Button>
           {/*
            * Antes aqui dizia "diga qual pela conversa" — mandando escrever num
@@ -754,6 +807,19 @@ export function PlanoDeGeracao({
             </span>
           )}
         </div>
+
+        {/*
+         * A frase de "prontos" NÃO pode aparecer com alteração pendente: era
+         * exatamente ela que dava a confiança errada para fechar o volume.
+         */}
+        {pendentes > 0 && !ocupado && (
+          <p className="text-xs text-[var(--status-warning)]">
+            {pendentes === 1
+              ? "Um documento foi gerado antes desta alteração e ainda está com os valores antigos."
+              : `${pendentes} documentos foram gerados antes desta alteração e ainda estão com os valores antigos.`}{" "}
+            O que está no canvas não vale até atualizar.
+          </p>
+        )}
 
         {tudoGerado && !ocupado && (
           <p className="text-xs text-muted-foreground">

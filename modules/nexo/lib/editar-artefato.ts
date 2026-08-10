@@ -13,8 +13,25 @@ import type { CampoEditavel } from "../components/EditorDoNo";
 import type { NexoArtifactKind } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
-import { gruposDasFolhas, type Folha } from "./folhas";
-import { assinaturaDoTomo, folhasDoTomo, precisaRespeitarOrdem } from "./drop-folhas";
+import { type Folha } from "./folhas";
+/*
+ * `opcoesDoTomo`, `payloadDoItem` e `ItemDoPlano` mudaram-se para
+ * `./payload-do-item`, que só usa caminhos relativos: os testes da casa rodam
+ * `node scripts/*.ts` direto e não resolvem o alias `@/` que este arquivo usa.
+ * Reexportados aqui para não mexer em quem já importava daqui.
+ */
+import {
+  folhasDoItem,
+  opcoesDoTomo,
+  payloadDoItem,
+  type ItemDoPlano,
+} from "./payload-do-item";
+export {
+  folhasDoItem,
+  opcoesDoTomo,
+  payloadDoItem,
+  type ItemDoPlano,
+};
 import {
   arquivosDaSeparatriz,
   postCapa,
@@ -283,52 +300,7 @@ export type { SavedResult };
  * o plano e o card avulso — e um deles ficar para trás é exatamente como o PDF
  * volta a discordar do canvas.
  */
-export function opcoesDoTomo(
-  selos: SeloForLd[],
-  numTomos: number,
-  tomoAtual: number,
-): {
-  doTomo: Folha[];
-  opts: { folhasDoTomo?: string[]; respeitarOrdem?: boolean };
-} {
-  if (tomoAtual <= 0) return { doTomo: [], opts: {} };
-  const projecao = selos as Folha[];
-  const divisao = gruposDasFolhas(projecao, numTomos, buildBalancedQuantities);
-  const doTomo = folhasDoTomo(projecao, divisao, tomoAtual);
-  if (doTomo.length === 0) return { doTomo, opts: {} };
-  return {
-    doTomo,
-    opts: {
-      folhasDoTomo: doTomo.map((f) => f.id),
-      // O carimbo continua mandando na ordem, salvo se o usuário reordenou
-      // alguma folha DESTE tomo.
-      respeitarOrdem: precisaRespeitarOrdem(doTomo),
-    },
-  };
-}
-
 /* ------------------------------------------------- Geração em conjunto ----- */
-
-/** Um documento a gerar: o tipo, o tomo a que pertence e os params. */
-export interface ItemDoPlano {
-  kind: "capa" | "ld" | "separatriz";
-  /** 0 = documento único (sem divisão em tomos). */
-  tomoAtual: number;
-  tomoNumero: number;
-  sufixo: string;
-  params: Record<string, unknown>;
-  /** Rótulo curto para a barra de progresso ("Capa · TOMO 02"). */
-  rotulo: string;
-  /**
-   * O BLOCO (disciplina) deste documento, quando o volume mistura disciplinas.
-   *
-   * Ausente = o volume é de uma disciplina só, e o documento cobre tudo — o
-   * comportamento de sempre. Presente, a LD sai com o título e as folhas
-   * daquela disciplina, e a separatriz com o nome dela: é a regra do
-   * escritório, que emite uma de cada por disciplina dentro do volume.
-   */
-  bloco?: { codigo: string; rotulo: string; ids: string[] };
-}
 
 /**
  * Gera UM item do plano.
@@ -385,7 +357,7 @@ export async function gerarItem(args: {
     await saveResult({
       artifactId: args.idsBase.capa + item.sufixo,
       kind: "capa",
-      payload: { ...p, tomo: item.tomoNumero },
+      payload: payloadDoItem({ item, selos, tituloDaSeparatriz: args.tituloDaSeparatriz })!,
       summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}`,
       canvas: {
         label: `Capa ${r.resumo.prefeitura}`,
@@ -466,12 +438,7 @@ export async function gerarItem(args: {
        * corrigir um título) deixaria esta LD descrevendo um conjunto que não
        * existe mais, sem nada na tela avisando.
        */
-      payload: {
-        ...p,
-        ...(item.bloco ? { tituloLd: titulo, bloco: item.bloco.codigo } : {}),
-        tomo: item.tomoNumero,
-        folhas: assinaturaDoTomo(doBloco),
-      },
+      payload: payloadDoItem({ item, selos, tituloDaSeparatriz: args.tituloDaSeparatriz })!,
       summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas`,
       canvas: {
         label: `LD ${r.resumo.disciplina}`,
@@ -520,14 +487,7 @@ export async function gerarItem(args: {
   await saveResult({
     artifactId: args.idsBase.separatriz + item.sufixo,
     kind: "separatriz",
-    payload: {
-      titulo: titulos[0],
-      tomo: item.tomoNumero,
-      // Só com mais de uma: a chave a mais faria toda separatriz já gerada
-      // parecer desatualizada (o estado do card compara o payload literalmente).
-      ...(titulos.length > 1 ? { titulos } : {}),
-      ...(item.bloco ? { bloco: item.bloco.codigo } : {}),
-    },
+    payload: payloadDoItem({ item, selos, tituloDaSeparatriz: args.tituloDaSeparatriz })!,
     summary: `Separatriz ${titulos[0]}${quantas}`,
     canvas: { label: "Separatriz", titulo: titulos.join(" · "), pageNumber: 1 },
     files: arquivosDaSeparatriz(sep),
