@@ -32,6 +32,8 @@ const MODEL_PRICES_USD_PER_MILLION: Record<
   string,
   { input: number; cachedInput: number; output: number }
 > = {
+  "gpt-5.6-sol": { input: 5, cachedInput: 0.5, output: 30 },
+  "gpt-5.6-terra": { input: 2, cachedInput: 0.2, output: 12 },
   "gpt-5.5": { input: 5, cachedInput: 0.5, output: 30 },
   "gpt-5.5-pro": { input: 30, cachedInput: 30, output: 180 },
   "gpt-5.4": { input: 2.5, cachedInput: 0.25, output: 15 },
@@ -80,11 +82,15 @@ function estimateOpenAiCostUsd(model: string, usage: TokenUsage) {
   }
 
   const uncachedInput = Math.max(0, usage.inputTokens - usage.cachedTokens);
+  const usesLongContextPricing =
+    (model === "gpt-5.6-sol" || model === "gpt-5.6-terra") && usage.inputTokens > 272_000;
+  const inputMultiplier = usesLongContextPricing ? 2 : 1;
+  const outputMultiplier = usesLongContextPricing ? 1.5 : 1;
 
   return (
-    (uncachedInput * price.input +
-      usage.cachedTokens * price.cachedInput +
-      usage.outputTokens * price.output) /
+    (uncachedInput * price.input * inputMultiplier +
+      usage.cachedTokens * price.cachedInput * inputMultiplier +
+      usage.outputTokens * price.output * outputMultiplier) /
     1_000_000
   );
 }

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 import { executeOpenAiResponse, getProviderFailureStatus } from "@/lib/ai-runner";
 import type { AuditReport } from "@/lib/audit-report";
-import { classifyProviderFailure, getAiConfiguration } from "@/lib/ai-providers";
+import {
+  classifyProviderFailure,
+  getAiConfiguration,
+  getAuditExecutionProfile,
+} from "@/lib/ai-providers";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 
 export const runtime = "nodejs";
@@ -157,6 +161,11 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let executionProfile: {
+    provider: "openai" | "deepseek";
+    model: string;
+  } = getAiConfiguration().auditChat;
+
   try {
     await refreshAiModelOverrideCache();
     const body = (await request.json()) as {
@@ -180,9 +189,15 @@ export async function POST(request: Request) {
           .filter((turn) => turn.role === "user" || turn.role === "assistant")
           .slice(-6)
       : [];
-    const model = getAiConfiguration().auditChat.model;
+    const auditMode = body.report.tipo_auditoria === "volume" ? "volume" : "memorial";
+    const analysisLevel = body.report.runtime?.nivel_analise === "deep" ? "deep" : "standard";
+    if (auditMode === "memorial") {
+      executionProfile = getAuditExecutionProfile({ auditMode, analysisLevel });
+    }
+    const model = executionProfile.model;
     const aiResponse = await executeOpenAiResponse({
       flow: "audit-chat",
+      providerOverride: executionProfile.provider,
       taskId: body.auditId,
       taskLabel: body.report.obra || body.report.arquivo || "Pós-auditoria",
       model,
@@ -190,6 +205,8 @@ export async function POST(request: Request) {
       metadata: {
         findings: body.report.incongruencias.length,
         historyTurns: history.length,
+        auditMode,
+        analysisLevel,
       },
       request: {
         model,
@@ -207,11 +224,10 @@ export async function POST(request: Request) {
 
     return withCors(NextResponse.json({ answer }), request);
   } catch (error) {
-    const configuration = getAiConfiguration().auditChat;
     const failure = classifyProviderFailure(
-      configuration.provider,
+      executionProfile.provider,
       "audit-chat",
-      configuration.model,
+      executionProfile.model,
       error,
     );
     if (failure.category !== "unknown") {
