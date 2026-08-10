@@ -1,5 +1,18 @@
 # NexoDoc Audit Workspace - Design system
 
+> **SUPERSEDIDO — documento histórico, não use como especificação.**
+>
+> A fonte de verdade do design system é a [`DESIGN.md`](../DESIGN.md) na raiz, e o que
+> está efetivamente escrito em `app/globals.css`. Onde este arquivo contradiz a
+> `DESIGN.md`, a `DESIGN.md` está certa.
+>
+> Trechos daqui já são sabidamente antigos — o raio de 4px, por exemplo, foi para 8px.
+> Mantido porque registra as decisões *iniciais* e o porquê delas, o que às vezes explica
+> uma escolha que hoje parece arbitrária.
+>
+> Marcado na Fase 0 da refatoração de UI/UX, quando havia três fontes concorrentes de
+> verdade sobre o design (esta, a `docs/05-interface-ui.md` e o app `design-system/`).
+
 Este documento consolida as decisoes iniciais do design system do NexoDoc.
 
 O objetivo e manter a experiencia principal em formato de chat, mas com uma estrutura visual de bancada tecnica para auditoria documental.

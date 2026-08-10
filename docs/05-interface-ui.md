@@ -1,5 +1,17 @@
 # NexoDoc - Interface UI
 
+> **SUPERSEDIDO — documento histórico, não use como especificação.**
+>
+> A fonte de verdade do design é a [`DESIGN.md`](../DESIGN.md) na raiz. Este arquivo
+> descreve rotas e telas de uma organização anterior do produto, de antes de o Nexo virar
+> a entrada única — a `§10`, por exemplo, declara atalhos "disponíveis em qualquer página
+> autenticada" que hoje só existem no painel legado (item P1-14 do plano de refatoração).
+>
+> Mantido como registro da direção visual original, que continua valendo em espírito:
+> ferramenta de trabalho para engenharia, não landing page comercial.
+>
+> Marcado na Fase 0 da refatoração de UI/UX.
+
 ## 1. Direcao visual
 
 A interface do NexoDoc deve ser limpa, tecnica e profissional.
