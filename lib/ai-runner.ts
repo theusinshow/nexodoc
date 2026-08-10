@@ -25,6 +25,7 @@ type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
 
 export type ExecuteOpenAiResponseArgs = {
   flow: AiProviderFlow;
+  providerOverride?: Exclude<AiProvider, "mimo">;
   model: string;
   operation: string;
   request: OpenAiResponseCreateParams;
@@ -46,6 +47,17 @@ export type ExecuteOpenAiResponseArgs = {
 };
 
 type ResponseWithOutputText = {
+  status?: string | null;
+  incomplete_details?: {
+    reason?: string | null;
+  } | null;
+  output?: Array<{
+    type?: string;
+    content?: Array<{
+      type?: string;
+      refusal?: string | null;
+    }>;
+  }>;
   output_text?: string | null;
 };
 
@@ -107,8 +119,40 @@ export function getProviderFailureStatus(category: string) {
   }
 }
 
+function createResponseEnvelopeError(reason: string, message: string) {
+  const error = new Error(`${reason}: ${message}`) as Error & {
+    code?: string;
+    type?: string;
+  };
+  error.code = reason;
+  error.type = "invalid_response";
+  return error;
+}
+
 function extractOutputText(response: unknown) {
   const candidate = response as ResponseWithOutputText;
+  const incompleteReason = candidate.incomplete_details?.reason?.trim();
+
+  if (candidate.status === "incomplete") {
+    const reason =
+      incompleteReason === "max_output_tokens"
+        ? "incomplete_max_output_tokens"
+        : incompleteReason === "content_filter"
+          ? "content_filter"
+          : `incomplete_${incompleteReason || "unknown"}`;
+    throw createResponseEnvelopeError(reason, "A resposta do modelo não foi concluída.");
+  }
+
+  const refusal = candidate.output
+    ?.flatMap((item) => item.content ?? [])
+    .find((content) => content.type === "refusal");
+
+  if (refusal) {
+    throw createResponseEnvelopeError(
+      "refusal",
+      refusal.refusal?.trim() || "O modelo recusou a solicitação.",
+    );
+  }
 
   return candidate.output_text?.trim() ?? "";
 }
@@ -251,7 +295,7 @@ function extractDeepSeekText(response: unknown) {
 export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
   await refreshAiModelOverrideCache();
 
-  const provider = getProviderForFlow(args.flow);
+  const provider = args.providerOverride ?? getProviderForFlow(args.flow);
   const timeoutMs = args.timeoutMs ?? getDefaultTimeoutMs();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -376,7 +420,7 @@ export async function* executeOpenAiResponseStream(
 ): AsyncGenerator<AiStreamEvent, void, unknown> {
   await refreshAiModelOverrideCache();
 
-  const provider = getProviderForFlow(args.flow);
+  const provider = args.providerOverride ?? getProviderForFlow(args.flow);
   if (provider !== "openai") {
     throw new Error(`streaming indisponível para o provider ${provider}`);
   }

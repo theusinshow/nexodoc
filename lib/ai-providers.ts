@@ -7,6 +7,8 @@ export type AiProvider = "openai" | "mimo" | "deepseek";
 export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
+export type AuditMode = "memorial" | "volume";
+export type AuditExecutionRole = AuditModelRole | "validation";
 export type ProviderFailureCategory =
   | "quota_billing"
   | "authentication"
@@ -36,6 +38,8 @@ type ProviderErrorShape = {
 
 const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.5";
 const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.5";
+const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-5.6-terra";
+const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
 /**
  * O MODELO BARATO DO SISTEMA — usado por tudo que só COPIA campo de carimbo.
  *
@@ -534,6 +538,69 @@ export function getAuditValidationModel(analysisLevel: AuditAnalysisLevel) {
   return analysisLevel === "deep"
     ? configuration.deepValidationModel
     : configuration.standardValidationModel;
+}
+
+export function getAuditExecutionProfile(args: {
+  auditMode: AuditMode;
+  analysisLevel: AuditAnalysisLevel;
+  role?: AuditExecutionRole;
+}) {
+  const configuration = getAiConfiguration().audit;
+  const currentModel =
+    args.role === "validation"
+      ? args.analysisLevel === "deep"
+        ? configuration.deepValidationModel
+        : configuration.standardValidationModel
+      : args.role
+        ? args.analysisLevel === "deep"
+          ? configuration.deepRoleModels[args.role]
+          : configuration.standardRoleModels[args.role]
+        : args.analysisLevel === "deep"
+          ? configuration.deepModel
+          : configuration.standardModel;
+
+  if (args.auditMode !== "memorial") {
+    return {
+      provider: configuration.provider,
+      model: currentModel,
+    } as const;
+  }
+
+  if (configuration.provider !== "openai") {
+    return {
+      provider: configuration.provider,
+      model: currentModel,
+    } as const;
+  }
+
+  if (args.analysisLevel === "standard") {
+    return {
+      provider: "openai" as const,
+      model:
+        getCachedAiModelOverride("audit-memorial-standard") ||
+        getBackendValue("NEXODOC_AUDIT_MEMORIAL_STANDARD_MODEL") ||
+        DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL,
+    };
+  }
+
+  const baseOverride = getCachedAiModelOverride("audit-memorial-deep");
+  const roleOverride =
+    args.role === "global"
+      ? getCachedAiModelOverride("audit-memorial-deep-global") ||
+        getBackendValue("NEXODOC_AUDIT_MEMORIAL_DEEP_GLOBAL_MODEL")
+      : args.role === "validation"
+        ? getCachedAiModelOverride("audit-memorial-deep-validation") ||
+          getBackendValue("NEXODOC_AUDIT_MEMORIAL_DEEP_VALIDATION_MODEL")
+        : undefined;
+
+  return {
+    provider: "openai" as const,
+    model:
+      roleOverride ||
+      baseOverride ||
+      getBackendValue("NEXODOC_AUDIT_MEMORIAL_DEEP_MODEL") ||
+      DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL,
+  };
 }
 
 export function classifyProviderFailure(
