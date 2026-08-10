@@ -35,10 +35,7 @@ import {
 import {
   classifyProviderFailure,
   createInvalidProviderResponseError,
-  getAiConfiguration,
-  getAuditModel,
-  getAuditTaskModel,
-  getAuditValidationModel,
+  getAuditExecutionProfile,
   recordProviderFailure,
   type AuditModelRole,
 } from "@/lib/ai-providers";
@@ -305,11 +302,29 @@ export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
-function getReasoningEffort(analysisLevel: AnalysisLevel) {
+function getReasoningEffort(analysisLevel: AnalysisLevel, auditMode: AuditMode) {
   const effort =
     analysisLevel === "deep"
       ? process.env.OPENAI_DEEP_REASONING_EFFORT ?? process.env.OPENAI_REASONING_EFFORT
       : process.env.OPENAI_STANDARD_REASONING_EFFORT;
+
+  if (auditMode === "memorial" && analysisLevel === "deep") {
+    if (effort === "minimal") {
+      return "none";
+    }
+
+    if (
+      effort === "none" ||
+      effort === "low" ||
+      effort === "medium" ||
+      effort === "high" ||
+      effort === "xhigh"
+    ) {
+      return effort;
+    }
+
+    return DEFAULT_REASONING_EFFORT;
+  }
 
   if (
     effort === "none" ||
@@ -325,16 +340,28 @@ function getReasoningEffort(analysisLevel: AnalysisLevel) {
   return analysisLevel === "deep" ? DEFAULT_REASONING_EFFORT : "medium";
 }
 
-function getPrimaryModelName(analysisLevel: AnalysisLevel, role?: AuditModelRole) {
-  if (role) {
-    return getAuditTaskModel(analysisLevel, role);
-  }
-
-  return getAuditModel(analysisLevel);
+function getPrimaryExecutionProfile(
+  auditMode: AuditMode,
+  analysisLevel: AnalysisLevel,
+  role?: AuditModelRole,
+) {
+  return getAuditExecutionProfile({ auditMode, analysisLevel, role });
 }
 
-function getValidationModelName(analysisLevel: AnalysisLevel) {
-  return getAuditValidationModel(analysisLevel);
+function getPrimaryModelName(
+  auditMode: AuditMode,
+  analysisLevel: AnalysisLevel,
+  role?: AuditModelRole,
+) {
+  return getPrimaryExecutionProfile(auditMode, analysisLevel, role).model;
+}
+
+function getValidationExecutionProfile(auditMode: AuditMode, analysisLevel: AnalysisLevel) {
+  return getAuditExecutionProfile({ auditMode, analysisLevel, role: "validation" });
+}
+
+function getValidationModelName(auditMode: AuditMode, analysisLevel: AnalysisLevel) {
+  return getValidationExecutionProfile(auditMode, analysisLevel).model;
 }
 
 function isRuleBasedAuditEnabled() {
@@ -1839,18 +1866,20 @@ async function analyzeChunkWithModel(args: {
   conversationId?: string | null;
   userEmail?: string | null;
 }) {
-  const model = getPrimaryModelName(args.analysisLevel, "chunk");
+  const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "chunk");
+  const model = profile.model;
   const result = await executeAuditModelResponse({
     taskId: args.auditId,
     taskLabel: args.fileName,
     model,
+    providerOverride: profile.provider,
     operation: "audit-chunk",
     timeoutMs: getChunkTimeoutMs(),
     request: {
       model,
       instructions: getAuditorPrompt(args.auditMode),
       reasoning: {
-        effort: getReasoningEffort(args.analysisLevel),
+        effort: getReasoningEffort(args.analysisLevel, args.auditMode),
       },
       max_output_tokens: getMaxOutputTokens(),
       text: { format: auditFindingsResponseFormat },
@@ -1954,7 +1983,8 @@ async function analyzeIdentityWithModel(args: {
   conversationId?: string | null;
   userEmail?: string | null;
 }) {
-  const model = getPrimaryModelName(args.analysisLevel, "identity");
+  const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "identity");
+  const model = profile.model;
   let parsed;
 
   try {
@@ -1962,12 +1992,13 @@ async function analyzeIdentityWithModel(args: {
       taskId: args.auditId,
       taskLabel: args.fileName,
       model,
+      providerOverride: profile.provider,
       operation: "audit-identity",
       timeoutMs: getChunkTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         max_output_tokens: getMaxOutputTokens(),
         text: { format: auditFindingsResponseFormat },
         input: getIdentityAuditPrompt(args),
@@ -2117,7 +2148,8 @@ async function analyzeFileGloballyWithModel(args: {
   /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
   degradacoes?: PassadaIncompleta[];
 }) {
-  const model = getPrimaryModelName(args.analysisLevel, "global");
+  const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "global");
+  const model = profile.model;
   let parsed;
 
   try {
@@ -2125,6 +2157,7 @@ async function analyzeFileGloballyWithModel(args: {
       taskId: args.auditId,
       taskLabel: args.fileName,
       model,
+      providerOverride: profile.provider,
       operation: "audit-global",
       // A leitura do documento INTEIRO com esforço alto é lenta; o timeout curto
       // dos blocos abortava a global no meio (aborto aos 120s no 017-26). No
@@ -2136,7 +2169,7 @@ async function analyzeFileGloballyWithModel(args: {
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         // Com o documento inteiro, a leitura global do Profundo devolve MUITOS
         // achados; o teto precisa ser alto, senão o JSON trunca e a etapa inteira
         // vira "resposta inválida" (0 achados). Provado no 017-26: 6000 truncou.
@@ -2262,7 +2295,8 @@ async function analyzeDocumentCoherenceWithModel(args: {
   conversationId?: string | null;
   userEmail?: string | null;
 }) {
-  const model = getPrimaryModelName(args.analysisLevel, "global");
+  const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "global");
+  const model = profile.model;
   let parsed;
 
   try {
@@ -2270,12 +2304,13 @@ async function analyzeDocumentCoherenceWithModel(args: {
       taskId: args.auditId,
       taskLabel: args.fileName,
       model,
+      providerOverride: profile.provider,
       operation: "audit-coherence",
       timeoutMs: getChunkTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         max_output_tokens: getCoherenceMaxOutputTokens(),
         text: { format: auditFindingsResponseFormat },
         input: getCoherencePrompt(args),
@@ -2511,18 +2546,21 @@ async function validateFindingsWithModel(args: {
     return args.findings;
   }
 
+  const profile = getValidationExecutionProfile(args.auditMode, args.analysisLevel);
+
   try {
-    const model = getValidationModelName(args.analysisLevel);
+    const model = profile.model;
     const result = await executeAuditModelResponse({
       taskId: args.auditId,
       taskLabel: args.projectName || "Auditoria",
       model,
+      providerOverride: profile.provider,
       operation: "audit-validation",
       timeoutMs: getValidationTimeoutMs(args.analysisLevel),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         // Uma decisão por achado; com o doc inteiro a lista cresce (26 no 017-26)
         // e o teto fixo de 2600 truncava o JSON → validação inteira descartada.
         // Escala com o nº de achados.
@@ -2602,11 +2640,10 @@ async function validateFindingsWithModel(args: {
       })
       .filter((finding): finding is AuditFinding => Boolean(finding));
   } catch (error) {
-    const provider = getAiConfiguration().audit.provider;
     const failure = classifyProviderFailure(
-      provider,
+      profile.provider,
       "audit",
-      getValidationModelName(args.analysisLevel),
+      profile.model,
       error,
     );
     if (failure.category !== "unknown") {
@@ -2632,7 +2669,8 @@ async function analyzeCrossDocumentsWithModel(args: {
     return { findings: [] as AuditFinding[], comparisons: [] as string[] };
   }
 
-  const model = getPrimaryModelName(args.analysisLevel, "crossDocument");
+  const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "crossDocument");
+  const model = profile.model;
   let parsed;
 
   try {
@@ -2640,12 +2678,13 @@ async function analyzeCrossDocumentsWithModel(args: {
       taskId: args.auditId,
       taskLabel: args.projectName || "Auditoria",
       model,
+      providerOverride: profile.provider,
       operation: "audit-cross-document",
       timeoutMs: getChunkTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         max_output_tokens: getMaxOutputTokens(),
         text: { format: auditCrossDocumentResponseFormat },
         input: getCrossDocumentPrompt(args),
@@ -2729,18 +2768,21 @@ async function refuteFindingsWithModel(args: {
     return args.findings;
   }
 
+  const profile = getValidationExecutionProfile(args.auditMode, args.analysisLevel);
+
   try {
-    const model = getValidationModelName(args.analysisLevel);
+    const model = profile.model;
     const result = await executeAuditModelResponse({
       taskId: args.auditId,
       taskLabel: args.fileName,
       model,
+      providerOverride: profile.provider,
       operation: "audit-refutation",
       timeoutMs: getChunkTimeoutMs(),
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
-        reasoning: { effort: getReasoningEffort(args.analysisLevel) },
+        reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
         max_output_tokens: Math.max(getMaxOutputTokens(), 2600),
         text: { format: auditRefutationResponseFormat },
         input: getRefutationPrompt({
@@ -3122,6 +3164,7 @@ async function executarAuditoria(
 ) {
   const requestStartedAt = Date.now();
   let persistedAuditId: string | null = null;
+  let requestedAuditMode: AuditMode = "memorial";
   let requestedAnalysisLevel: AnalysisLevel = "standard";
   const marco = (m: MarcoDaAuditoria) => onMarco?.(m);
 
@@ -3139,6 +3182,7 @@ async function executarAuditoria(
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
     const auditEngine = parseAuditEngine(formData.get("auditEngine"));
+    requestedAuditMode = auditMode;
     requestedAnalysisLevel = analysisLevel;
     const projectName = String(formData.get("projectName") ?? "").trim();
     const auditTitle = String(formData.get("auditTitle") ?? "").trim();
@@ -3449,28 +3493,28 @@ async function executarAuditoria(
         nivel_analise: analysisLevel,
         motor_auditoria: auditEngine,
         regras_locais_ativas: isRuleBasedAuditEnabled(),
-        provedor_principal: getAiConfiguration().audit.provider,
-        provedor_validacao: getAiConfiguration().audit.provider,
-        modelo_principal: getPrimaryModelName(analysisLevel),
-        modelo_validacao: getValidationModelName(analysisLevel),
+        provedor_principal: getPrimaryExecutionProfile(auditMode, analysisLevel).provider,
+        provedor_validacao: getValidationExecutionProfile(auditMode, analysisLevel).provider,
+        modelo_principal: getPrimaryModelName(auditMode, analysisLevel),
+        modelo_validacao: getValidationModelName(auditMode, analysisLevel),
         segunda_ia:
           auditEngine === "dual"
             ? {
                 ativa: true,
-                modelo: getValidationModelName(analysisLevel),
+                modelo: getValidationModelName(auditMode, analysisLevel),
                 papel: "validacao_semantica",
                 observacao:
                   "Modo comparativo: a segunda IA revisou, rebaixou ou removeu achados candidatos antes do relatório final.",
               }
             : undefined,
         modelos_operacionais: {
-          identidade: getPrimaryModelName(analysisLevel, "identity"),
-          leitura_global: getPrimaryModelName(analysisLevel, "global"),
-          blocos: getPrimaryModelName(analysisLevel, "chunk"),
-          comparacao_arquivos: getPrimaryModelName(analysisLevel, "crossDocument"),
-          validacao: getValidationModelName(analysisLevel),
+          identidade: getPrimaryModelName(auditMode, analysisLevel, "identity"),
+          leitura_global: getPrimaryModelName(auditMode, analysisLevel, "global"),
+          blocos: getPrimaryModelName(auditMode, analysisLevel, "chunk"),
+          comparacao_arquivos: getPrimaryModelName(auditMode, analysisLevel, "crossDocument"),
+          validacao: getValidationModelName(auditMode, analysisLevel),
         },
-        esforco_raciocinio: getReasoningEffort(analysisLevel),
+        esforco_raciocinio: getReasoningEffort(analysisLevel, auditMode),
         duracao_ms: Date.now() - requestStartedAt,
         arquivos: uploadedFiles.length,
         gerado_em: new Date().toISOString(),
@@ -3532,11 +3576,11 @@ async function executarAuditoria(
       request,
     );
   } catch (error) {
-    const provider = getAiConfiguration().audit.provider;
+    const profile = getPrimaryExecutionProfile(requestedAuditMode, requestedAnalysisLevel);
     const failure = classifyProviderFailure(
-      provider,
+      profile.provider,
       "audit",
-      getPrimaryModelName(requestedAnalysisLevel),
+      profile.model,
       error,
     );
     if (failure.category !== "unknown") {

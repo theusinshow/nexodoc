@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   classifyProviderFailure,
   getAiConfiguration,
+  getAuditExecutionProfile,
   getLastProviderFailures,
   getSecretFingerprint,
   recordProviderFailure,
@@ -97,9 +98,56 @@ async function buildConfigPayload() {
   await refreshAiModelOverrideCache({ force: true });
 
   const ai = getAiConfiguration();
+  const memorialStandard = getAuditExecutionProfile({
+    auditMode: "memorial",
+    analysisLevel: "standard",
+  });
+  const memorialDeep = getAuditExecutionProfile({
+    auditMode: "memorial",
+    analysisLevel: "deep",
+  });
+  const memorialDeepGlobal = getAuditExecutionProfile({
+    auditMode: "memorial",
+    analysisLevel: "deep",
+    role: "global",
+  });
+  const memorialDeepValidation = getAuditExecutionProfile({
+    auditMode: "memorial",
+    analysisLevel: "deep",
+    role: "validation",
+  });
+  const openAiKeyConfigured = getSecretFingerprint("OPENAI_API_KEY").configured;
   const savedModelConfigs = await listAiModelConfigs();
   const savedByFlowId = Object.fromEntries(savedModelConfigs.map((config) => [config.flowId, config]));
   const aiFlows = [
+    {
+      id: "audit-memorial-standard",
+      label: "Auditoria normal de memorial",
+      provider: memorialStandard.provider,
+      model: memorialStandard.model,
+      keyConfigured: openAiKeyConfigured,
+    },
+    {
+      id: "audit-memorial-deep",
+      label: "Auditoria profunda de memorial",
+      provider: memorialDeep.provider,
+      model: memorialDeep.model,
+      keyConfigured: openAiKeyConfigured,
+    },
+    {
+      id: "audit-memorial-deep-global",
+      label: "Auditoria profunda de memorial - leitura global",
+      provider: memorialDeepGlobal.provider,
+      model: memorialDeepGlobal.model,
+      keyConfigured: openAiKeyConfigured,
+    },
+    {
+      id: "audit-memorial-deep-validation",
+      label: "Auditoria profunda de memorial - validação",
+      provider: memorialDeepValidation.provider,
+      model: memorialDeepValidation.model,
+      keyConfigured: openAiKeyConfigured,
+    },
     {
       id: "audit-standard",
       label: "Auditoria padrão",

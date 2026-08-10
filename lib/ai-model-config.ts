@@ -1,6 +1,8 @@
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const AI_MODEL_OPTIONS = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
   "gpt-5.6-luna",
   "gpt-5.5",
   "gpt-5.5-pro",
@@ -14,6 +16,10 @@ export const AI_MODEL_OPTIONS = [
 ] as const;
 
 export const AI_MODEL_FLOW_DEFINITIONS = [
+  { id: "audit-memorial-standard", label: "Auditoria normal de memorial" },
+  { id: "audit-memorial-deep", label: "Auditoria profunda de memorial" },
+  { id: "audit-memorial-deep-global", label: "Auditoria profunda de memorial - leitura global" },
+  { id: "audit-memorial-deep-validation", label: "Auditoria profunda de memorial - validação" },
   { id: "audit-standard", label: "Auditoria padrão" },
   { id: "audit-standard-identity", label: "Auditoria padrão - identidade" },
   { id: "audit-standard-global", label: "Auditoria padrão - leitura global" },

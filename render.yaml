@@ -89,6 +89,14 @@ services:
       # que o modelo: são eles que decidem se uma auditoria profunda termina.
       - key: OPENAI_MODEL
         value: gpt-5.5
+      - key: NEXODOC_AUDIT_MEMORIAL_STANDARD_MODEL
+        value: gpt-5.6-terra
+      - key: NEXODOC_AUDIT_MEMORIAL_DEEP_MODEL
+        value: gpt-5.6-sol
+      - key: NEXODOC_AUDIT_MEMORIAL_DEEP_GLOBAL_MODEL
+        value: gpt-5.6-sol
+      - key: NEXODOC_AUDIT_MEMORIAL_DEEP_VALIDATION_MODEL
+        value: gpt-5.6-sol
       - key: NEXODOC_MAX_CHUNKS_PER_FILE
         value: "24"
       - key: NEXODOC_CHUNK_CONCURRENCY

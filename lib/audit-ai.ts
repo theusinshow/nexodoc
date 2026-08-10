@@ -49,6 +49,7 @@ export async function executeAuditModelResponse(args: {
   taskId?: string | null;
   taskLabel?: string | null;
   model: string;
+  providerOverride?: Parameters<typeof executeOpenAiResponse>[0]["providerOverride"];
   operation: string;
   request: AuditOpenAiRequest;
   timeoutMs?: number;
@@ -59,6 +60,7 @@ export async function executeAuditModelResponse(args: {
 }) {
   return executeOpenAiResponse({
     flow: "audit",
+    providerOverride: args.providerOverride,
     taskId: args.taskId,
     taskLabel: args.taskLabel,
     model: args.model,
