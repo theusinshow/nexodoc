@@ -144,7 +144,9 @@ export function AgentPopover({
             tabIndex={-1}
             style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
             className={cn(
-              "nexo-popover relative w-[248px] overflow-y-auto overscroll-contain rounded-xl border border-border bg-[var(--nexodoc-panel)] p-3.5 outline-none",
+              /* Sobreposicao: chanfro de 6 como o dropdown e o tooltip. A seta
+                 (irma acima) fica em 2px, dentro do teto de 4px das excecoes. */
+              "nexo-popover nx-edge-6 w-[248px] overflow-y-auto overscroll-contain p-3.5 outline-none [--nx-fill:var(--nexodoc-panel)]",
               panelClassName,
             )}
           >

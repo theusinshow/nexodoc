@@ -64,10 +64,21 @@ typography:
     fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.4
+# A geometria do sistema é o CHANFRO, não o raio. Corte em superior esquerdo +
+# inferior direito, sempre — nunca nos quatro cantos, nunca no par oposto. Os
+# valores abaixo são o TAMANHO DO CORTE, e substituem o raio que tinham antes.
+# Fonte: docs/superpowers/specs/2026-08-11-chanfro-como-sistema-design.md
+cut:
+  4: "controles flutuantes"
+  5: "item de lista, badge"
+  6: "botão 32/36, nó, chip"
+  7: "botão 40, campo"
+  8: "cartão, palco, botão 44"
+# Raio sobrevive em três lugares e só neles: campo tracejado do carimbo e estado
+# vazio tracejado (4px — tracejado não sobrevive ao recorte), formas redondas
+# (orbe, avatar, indicador de estado) e a ilustração da tela de login.
 rounded:
-  sm: "8px"
-  DEFAULT: "8px"
-  xl: "12px"
+  dashed: "4px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -484,7 +495,7 @@ significa a mesma coisa num botão e numa linha de tabela.
 |--------|------------|
 | **Repouso** | Plano; profundidade por borda + tom de superfície. |
 | **Hover** | Elevação tonal sutil (→ `#1a1e21`) ou borda em direção ao anel; elementos ghost passam de muted para foreground. `--duration-fast`. Nunca uma mudança dramática de cor. |
-| **Foco** | O anel único do sistema — borda → `#5bdac6` + anel de 3px a 25%. Por `:focus-visible` (teclado), nunca `:focus` cru. Idêntico em todo componente. |
+| **Foco** | O anel único do sistema, **desenhado POR DENTRO do chanfro**: a moldura vira `#5bdac6` e o miolo recua de 1px para 3px, seguindo o corte. Por `:focus-visible` (teclado), nunca `:focus` cru. Idêntico em todo componente. Em superfície recortada, `outline` e `box-shadow` externo são **cortados** pelo `clip-path` — um anel por fora deixaria o controle sem foco visível nenhum, e por isso o ring global de `box-shadow` se desliga ali. **Miolo transparente não mascara:** variante sem forma (fantasma, chip quieto, item de lista) precisa de miolo opaco no foco, senão o teal preenche o controle inteiro. |
 | **Pressionado** | `translateY(1px)` + leve escurecimento. `--duration-fast`. |
 | **Selecionado / atual** | Borda teal + fundo preenchido. Teal marca a coisa atual. |
 | **Desabilitado** | Opacidade **50%**, `pointer-events: none`, sem hover. Uma opacidade canônica só — não 45% num componente e 50% noutro. |
@@ -501,22 +512,43 @@ use o estilo de desabilitado para dizer "não editável agora".
 `textarea` · `table` · `tooltip` · `separator` · `skeleton` · `dropdown` ·
 `empty-state` · `glass-panel` · `agent-popover`
 
-**Botões.** Raio 8px, rótulo em mono. *Primary:* fundo `#00a693` sólido, texto
-escuro; sem gradiente; hover 10% mais escuro; altura 40px (36px compacto) —
-controles numa mesma linha de formulário compartilham os 40px para alinhar.
-*Outline:* fundo transparente, borda 1px, texto foreground. *Secondary:* fundo
-`#1a1e21`. *Ghost:* transparente, texto muted; hover traz o foreground.
+**O contorno é uma CAMADA, não uma borda.** `clip-path` não aceita `border`:
+nas duas diagonais ela seria cortada. Onde havia `border: 1px solid var(--border)`
+agora o **fundo do elemento é a cor da borda** e um `::before` recortado a 1px é
+o miolo (`.nx-edge-*` em `globals.css`; as cores entram por `--nx-edge` e
+`--nx-fill`). Superfície sem contorno continua sendo uma forma só (`.nx-cut-*`) —
+não crie a camada sem necessidade. Campo nativo (`input`, `textarea`) é a única
+exceção que ainda usa wrapper de verdade: ele não renderiza `::before`.
 
-**Chips / segmentados.** Fundo embutido `#06080a`, borda 1px, raio 8px, rótulo
-mono 12px. Selecionado: fundo de cartão com borda teal a 30%. O nível "Profundo"
-usa rust em vez de teal quando selecionado — é ênfase, não status.
+**Botões.** Corte 8/7/6, rótulo em mono 600 caixa alta (`0.06em`). Três alturas:
+**44** (ação de turno), **40** (padrão), **32** (denso). *Primary:* `#00a693`
+chapado, texto escuro, hover a `#00bda7`, pressionado a `#00877a` — nunca
+enfraquecer o botão no hover. *Outline / Secondary:* moldura `#2c3338`, miolo
+`#121518` / `#1a1e21`, mais o marcador de canto no hover. *Ghost:* sem forma,
+texto muted, **miolo opaco no foco**. Hover traz a lâmina: `skewX(-30deg)`, 160%
+de largura, 300ms — e ela não anima sob `prefers-reduced-motion`.
 
-**Cartões.** Raio 8px, fundo `#121518`, borda 1px, padding 12px (16px em painéis).
-Sem elemento flutuante sem borda. **Nunca cartão dentro de cartão** — use
-divisores dentro de um contêiner só.
+**Chips / segmentados.** Corte 6, rótulo mono 12px. Era pílula (`rounded-full`)
+até a spec do chanfro: duas geometrias competindo na mesma tela não são um
+sistema. O nível "Profundo" usa rust em vez de teal quando selecionado — é
+ênfase, não status.
 
-**Campos.** Borda 1px `#2c3338`, fundo `#06080a`, raio 8px, altura 40px (32px
-compacto). Foco: o anel único. Textarea igual, redimensionável só na vertical.
+**Cartões.** Corte 8, fundo `#121518`, padding 12px (16px em painéis). Com
+contorno usa a camada; chapado (`flat`) é uma forma só. Sem elemento flutuante
+sem borda. **Nunca cartão dentro de cartão** — use divisores dentro de um
+contêiner só.
+
+**Campos.** Corte 7 no wrapper, moldura `#2c3338`, miolo `#06080a`, altura 40px
+(32px compacto). Foco: o anel único, por dentro. Textarea igual.
+
+**Badge.** Corte 5 e **sem** camada de contorno: as variantes têm fundo e borda
+translúcidos, e numa camada o miolo comporia sobre a cor da borda em vez de
+sobre a página — toda variante de status mudaria de cor.
+
+**Elevação de sobreposição.** `box-shadow` externo morre no recorte, e `filter`
+no próprio elemento também (é aplicado **antes** do `clip-path`). A sombra tem
+de vir de `filter: drop-shadow()` num **pai não recortado** (`.nx-elev`), onde
+ela segue a silhueta chanfrada do filho.
 
 **Tooltip.** `max-w-xs`, fundo de cartão, `shadow-subtle`, mono 12px, atraso de
 300ms. Obrigatório em todo controle só-ícone.
@@ -628,7 +660,7 @@ entra.
 ## 11. Faça e não faça
 
 ### Faça
-- Use o raio único do sistema (8px). Nenhum outro valor deve aparecer.
+- Use o chanfro do sistema, sempre em superior esquerdo + inferior direito, pelas classes `.nx-cut-*` / `.nx-edge-*`. Nunca escreva `clip-path` à mão num componente: o valor vem de um lugar só.
 - Use IBM Plex Mono para todo dado estruturado: horário, nome de arquivo, contagem, ID, código.
 - Separe seções com borda de 1px em largura inteira, nunca com faixa lateral colorida.
 - Mantenha o teal abaixo de 10% da superfície de qualquer tela.

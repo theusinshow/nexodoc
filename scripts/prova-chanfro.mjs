@@ -290,6 +290,62 @@ if (!lateral) {
   );
 }
 
+// --- 11. Criterio 05: com prefers-reduced-motion, nada desliza ---
+const ctxParado = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  reducedMotion: "reduce",
+});
+const pgParado = await ctxParado.newPage();
+await pgParado.goto(`${BASE}/bancada-do-chanfro`, { waitUntil: "domcontentloaded" });
+if (pgParado.url().includes("/login")) {
+  await pgParado.getByRole("button", { name: /Entrar como dev/i }).click();
+  await pgParado.goto(`${BASE}/bancada-do-chanfro`, { waitUntil: "domcontentloaded" });
+}
+await pgParado.locator('[data-prova="btn-lg"]').hover();
+await pgParado.waitForTimeout(400);
+const parado = await pgParado.evaluate(() => {
+  const s = getComputedStyle(document.querySelector('[data-prova="btn-lg"]'), "::after");
+  const l = getComputedStyle(document.querySelector('[data-prova="btn-loading"]'), "::after");
+  return { laminaHover: s.display, laminaLoading: l.display, animacao: l.animationName };
+});
+conferir("movimento reduzido: a lamina do hover nao existe", parado.laminaHover === "none", `veio ${parado.laminaHover}`);
+conferir(
+  "movimento reduzido: carregando fica estatico",
+  parado.laminaLoading === "none" && parado.animacao === "none",
+  `display=${parado.laminaLoading} animation=${parado.animacao}`,
+);
+await ctxParado.close();
+
+// --- 12. Criterio 07: contraste AA (>= 4.5) do rotulo na primaria, em repouso
+//     e sob a lamina. O rotulo e texto pequeno (12px), entao vale o limite alto.
+function luminancia([r, g, b]) {
+  const f = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+function razao(a, b) {
+  const [x, y] = [luminancia(a), luminancia(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+const cores = await page.evaluate(() => {
+  const raiz = getComputedStyle(document.documentElement);
+  return {
+    texto: raiz.getPropertyValue("--primary-foreground").trim(),
+    repouso: raiz.getPropertyValue("--primary").trim(),
+    hover: raiz.getPropertyValue("--primary-hover").trim(),
+    blade: raiz.getPropertyValue("--blade").trim(),
+  };
+});
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+// A lamina e --blade a 50% sobre --primary-hover: a mistura e a media.
+const misturaBlade = hex(cores.hover).map((c, i) => Math.round((c + hex(cores.blade)[i]) / 2));
+const rRepouso = razao(hex(cores.texto), hex(cores.repouso));
+const rLamina = razao(hex(cores.texto), misturaBlade);
+conferir(`contraste do rotulo em repouso (${rRepouso.toFixed(2)}:1)`, rRepouso >= 4.5, "precisa de 4.5");
+conferir(`contraste do rotulo sob a lamina (${rLamina.toFixed(2)}:1)`, rLamina >= 4.5, "precisa de 4.5");
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);
