@@ -2,21 +2,35 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+/**
+ * Campo com chanfro — a UNICA exceção que ainda usa wrapper de verdade.
+ *
+ * `input` nativo nao renderiza `::before`, entao a camada de contorno nao cabe
+ * dentro dele como cabe no Button e no Card. O wrapper `.nx-edge-7` desenha a
+ * borda, o miolo e o anel de foco (por `:has(:focus-visible)`, que ve o foco do
+ * filho); o campo por dentro fica transparente e sem borda.
+ *
+ * `className` vai para o WRAPPER: e ele que ocupa espaco no layout. Para mexer
+ * no campo em si, use `inputClassName`.
+ */
+function Input({
+  className,
+  inputClassName,
+  type,
+  ...props
+}: React.ComponentProps<"input"> & { inputClassName?: string }) {
   return (
-    <input
-      type={type}
-      data-slot="input"
-      className={cn(
-        // h-10 explicito: alinha com o Button (min-h-10) em linhas de form; o
-        // min-height:2.5rem global ja forcava 40px, entao o h-9 era classe morta.
-        // Fundo recessed (#06080a) da o efeito inset da DESIGN.md; focus ring
-        // unificado com o Button (ring-[3px] /25).
-        "h-10 w-full min-w-0 border border-input bg-[var(--nexodoc-recessed)] px-3 py-1 text-sm transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-feedback)] outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        className,
-      )}
-      {...props}
-    />
+    <div className={cn("nx-edge-7 h-10 [--nx-edge:var(--input)] [--nx-fill:var(--nexodoc-recessed)]", className)}>
+      <input
+        type={type}
+        data-slot="input"
+        className={cn(
+          "size-full min-w-0 border-0 bg-transparent px-3 py-1 text-sm outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+          inputClassName,
+        )}
+        {...props}
+      />
+    </div>
   );
 }
 

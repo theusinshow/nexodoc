@@ -292,10 +292,19 @@ samp {
   font-family: var(--font-mono);
 }
 
+/* Campo dentro de wrapper `.nx-edge-*` nao tem forma propria: o chanfro e a
+   borda vivem no wrapper. Fora dele (campo solto, de terceiro), 4px continuam. */
 input,
 select,
 textarea {
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
+}
+
+.nx-edge-5 :is(input, select, textarea),
+.nx-edge-6 :is(input, select, textarea),
+.nx-edge-7 :is(input, select, textarea),
+.nx-edge-8 :is(input, select, textarea) {
+  border-radius: 0;
 }
 
 ::selection {
@@ -1375,6 +1384,13 @@ button:hover .nexo-logo .nexo-logo__no {
 }
 :is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible))::before {
   inset: 3px;
+}
+
+/* Campo DENTRO de wrapper chanfrado: quem mostra o foco e o wrapper, entao o
+   ring global do @layer base (que mira `input`, e a classe esta no wrapper, nao
+   nele) tem que se calar aqui -- senao aparece um retangulo por cima do chanfro. */
+:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8) :is(input, select, textarea):focus-visible {
+  box-shadow: none;
 }
 
 /* A LAMINA. Camada inclinada a 30 graus que entra pela direita e sai pela

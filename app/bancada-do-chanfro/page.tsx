@@ -8,6 +8,8 @@
  */
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export const metadata = { title: "Bancada do chanfro" };
 
@@ -72,6 +74,11 @@ export default function BancadaDoChanfro() {
         <Card data-prova="card-flat" flat className="w-56 p-4 text-sm text-muted-foreground">
           cartão chapado
         </Card>
+      </section>
+
+      <section className="flex flex-col gap-4" data-prova="campos">
+        <Input data-prova="input" placeholder="campo de texto" className="w-64" />
+        <Textarea data-prova="textarea" placeholder="area de texto" className="w-64" />
       </section>
     </main>
   );

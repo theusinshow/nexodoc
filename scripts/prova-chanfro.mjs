@@ -140,6 +140,28 @@ conferir("card chapado recortado", cartoes.flat.clip.includes("polygon"), `veio 
 // Camada externa sem necessidade e desperdicio: chapado e uma div so.
 conferir("card chapado NAO tem camada", cartoes.flat.antes === "none", "criou ::before a toa");
 
+// --- 6. Campo: wrapper real, porque input nativo nao renderiza ::before ---
+await page.locator('[data-prova="input"]').focus();
+await page.waitForTimeout(300);
+const campo = await page.evaluate(() => {
+  const el = document.querySelector('[data-prova="input"]');
+  const wrap = el.closest(".nx-edge-7");
+  return {
+    temWrapper: Boolean(wrap),
+    clip: wrap ? getComputedStyle(wrap).clipPath : "sem wrapper",
+    raioDoCampo: getComputedStyle(el).borderTopLeftRadius,
+    sombraDoCampo: getComputedStyle(el).boxShadow,
+    focoNoWrapper: wrap ? getComputedStyle(wrap).backgroundColor : null,
+    insetDoMiolo: wrap ? getComputedStyle(wrap, "::before").insetBlockStart : null,
+  };
+});
+conferir("campo tem wrapper recortado", campo.temWrapper && campo.clip.includes("polygon"), `veio ${campo.clip}`);
+conferir("campo sem raio proprio", campo.raioDoCampo === "0px", `veio ${campo.raioDoCampo}`);
+// Se o ring global sobrevivesse aqui, ele apareceria como retangulo FORA do chanfro.
+conferir("campo sem ring de box-shadow", campo.sombraDoCampo === "none", `veio ${campo.sombraDoCampo}`);
+conferir("o foco do campo acende o wrapper", campo.focoNoWrapper === "rgb(91, 218, 198)", `veio ${campo.focoNoWrapper}`);
+conferir("o miolo do campo recua no foco", campo.insetDoMiolo === "3px", `veio ${campo.insetDoMiolo}`);
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);
