@@ -1,0 +1,100 @@
+/**
+ * PROVA: o chanfro existe, tem contorno e mostra foco.
+ *
+ * Tres coisas que uma asserção de DOM nao pega e que ja quebraram este projeto:
+ *   - `clip-path` que nao aplicou volta "none", nao volta erro;
+ *   - o miolo do contorno pintado ATRAS do fundo some sem avisar;
+ *   - o anel de foco recortado deixa o controle sem foco visivel nenhum.
+ * Por isso tudo aqui e medido no estilo computado, nao no markup.
+ *
+ * Nao gasta token: nao dispara nenhuma chamada de IA.
+ */
+import { chromium } from "playwright";
+
+const BASE = process.env.BASE ?? "http://localhost:3000";
+
+const falhas = [];
+function conferir(nome, condicao, detalhe) {
+  if (condicao) {
+    console.log(`OK    ${nome}`);
+  } else {
+    falhas.push(`${nome} — ${detalhe}`);
+    console.log(`FALHA ${nome} — ${detalhe}`);
+  }
+}
+
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const page = await context.newPage();
+
+await page.goto(`${BASE}/bancada-do-chanfro`, { waitUntil: "domcontentloaded" });
+if (page.url().includes("/login")) {
+  await page.getByRole("button", { name: /Entrar como dev/i }).click();
+  await page.goto(`${BASE}/bancada-do-chanfro`, { waitUntil: "domcontentloaded" });
+}
+await page.waitForLoadState("networkidle").catch(() => {});
+
+// --- 1. Os seis cortes aplicaram ---
+for (const n of [4, 5, 6, 7, 8, 12]) {
+  const clip = await page.evaluate(
+    (sel) => getComputedStyle(document.querySelector(sel)).clipPath,
+    `[data-prova="cut-${n}"]`,
+  );
+  conferir(
+    `nx-cut-${n} aplica clip-path`,
+    clip.includes("polygon") && clip.includes(`${n}px`),
+    `veio "${clip}"`,
+  );
+}
+
+// --- 2. O contorno e uma camada visivel, nao uma borda ---
+for (const n of [5, 6, 7, 8]) {
+  const m = await page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    const fora = getComputedStyle(el);
+    const dentro = getComputedStyle(el, "::before");
+    return {
+      clipFora: fora.clipPath,
+      clipDentro: dentro.clipPath,
+      bgFora: fora.backgroundColor,
+      bgDentro: dentro.backgroundColor,
+      inset: dentro.insetBlockStart || dentro.top,
+      z: dentro.zIndex,
+      isolation: fora.isolation,
+      conteudo: dentro.content,
+    };
+  }, `[data-prova="edge-${n}"]`);
+
+  conferir(`nx-edge-${n}: o ::before existe`, m.conteudo !== "none", `content=${m.conteudo}`);
+  conferir(`nx-edge-${n}: ambas as formas recortadas`, m.clipFora.includes("polygon") && m.clipDentro.includes("polygon"), `fora=${m.clipFora} dentro=${m.clipDentro}`);
+  conferir(`nx-edge-${n}: borda e miolo tem cores diferentes`, m.bgFora !== m.bgDentro, `ambos ${m.bgFora}`);
+  conferir(`nx-edge-${n}: miolo a 1px`, m.inset === "1px", `veio ${m.inset}`);
+  // Sem isolation, o z-index -1 cai ATRAS do fundo e o miolo some.
+  conferir(`nx-edge-${n}: miolo abaixo do conteudo e acima do fundo`, m.z === "-1" && m.isolation === "isolate", `z=${m.z} isolation=${m.isolation}`);
+}
+
+// --- 3. O foco e por dentro, e o ring global se desligou ---
+// Chegar pelo TECLADO, nao por .focus(): foco programatico num <button> nao casa
+// `:focus-visible` no Chromium, e a medida passaria verde sem nada estar em foco.
+await page.locator('[data-prova="foco-antes"]').focus();
+await page.keyboard.press("Tab");
+const focado = await page.evaluate(() => document.activeElement?.dataset?.prova);
+conferir("o Tab chegou no alvo", focado === "foco-alvo", `foco em "${focado}"`);
+// O miolo TRANSICIONA de 1px para 3px em --duration-fast. Medir no instante do
+// Tab pega o valor de partida, e a falha parece do CSS quando e do relogio.
+await page.waitForTimeout(300);
+const foco = await page.evaluate(() => {
+  const el = document.querySelector('[data-prova="foco-alvo"]');
+  const fora = getComputedStyle(el);
+  const dentro = getComputedStyle(el, "::before");
+  return { bg: fora.backgroundColor, sombra: fora.boxShadow, inset: dentro.insetBlockStart || dentro.top };
+});
+conferir("foco: o miolo recua para 3px", foco.inset === "3px", `veio ${foco.inset}`);
+conferir("foco: a moldura vira --ring", foco.bg === "rgb(91, 218, 198)", `veio ${foco.bg}`);
+// Se o ring global sobrevivesse, ele seria recortado e o foco sumiria.
+conferir("foco: o ring global de box-shadow se desligou", foco.sombra === "none", `veio ${foco.sombra}`);
+
+await browser.close();
+console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
+if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);
+process.exit(falhas.length ? 1 : 0);

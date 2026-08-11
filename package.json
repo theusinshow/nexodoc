@@ -65,7 +65,8 @@
     "test:nexo:tour": "node scripts/test-nexo-tour.ts",
     "test:ai-budget": "node scripts/test-ai-budget.ts",
     "test:audit-identity": "node scripts/test-audit-identity.ts",
-    "test:nexo:plano-pendente": "node scripts/test-nexo-plano-pendente.ts"
+    "test:nexo:plano-pendente": "node scripts/test-nexo-plano-pendente.ts",
+    "test:chanfro": "node scripts/prova-chanfro.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

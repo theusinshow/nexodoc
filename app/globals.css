@@ -122,6 +122,28 @@
   --nexo-sidebar-w: 240px;
 
   /* ---------------------------------------------------------------------
+     O CHANFRO (docs/superpowers/specs/2026-08-11-chanfro-como-sistema-design.md)
+     Corte em superior esquerdo + inferior direito, sempre. O tamanho e o mesmo
+     do raio que ele substitui. Os seis poligonos vivem so aqui: componente que
+     escrever `clip-path` na mao quebra o criterio 02.
+     --------------------------------------------------------------------- */
+  --cut-4: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  --cut-5: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  --cut-6: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  --cut-7: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  --cut-8: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --cut-12: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+
+  /* Os tres degraus do teal interativo. Substituem o `hover:bg-primary/90`, que
+     ENFRAQUECIA o botao no hover em vez de reagir a ele. */
+  --primary-hover: #00bda7;
+  --primary-active: #00877a;
+  --blade: #7af7e1;
+  --blade-on-primary: rgb(122 247 225 / 0.5);
+  --blade-on-secondary: rgb(0 166 147 / 0.2);
+  --blade-on-destructive: rgb(255 255 255 / 0.28);
+
+  /* ---------------------------------------------------------------------
      As quatro vagas de cor do DESIGN.md secao 2, preenchidas pelo sistema de
      design v0 (docs/design-system-v0/01-fundamentos.html). Cada uma existe
      porque tem TRABALHO: cor sem funcao declarada vira paleta, nao sistema.
@@ -286,14 +308,17 @@ textarea {
 }
 
 a:focus-visible,
-button:focus-visible,
+button:not([class*="nx-cut-"]):not([class*="nx-edge-"]):focus-visible,
 summary:focus-visible,
-input:focus-visible,
+input:not([class*="nx-cut-"]):not([class*="nx-edge-"]):focus-visible,
 select:focus-visible,
-textarea:focus-visible {
+textarea:not([class*="nx-cut-"]):not([class*="nx-edge-"]):focus-visible {
   border-color: var(--ring);
-  /* Ring unico do sistema: 3px em bright-teal /25, igual aos primitivos
-     Button/Input/Textarea. */
+  /* Ring unico do sistema: 3px em bright-teal /25, para o que AINDA nao tem
+     chanfro. Em elemento recortado este box-shadow e CORTADO -- o controle
+     ficaria sem foco visivel nenhum. Quem tem chanfro usa o anel por dentro do
+     `.nx-edge-*`, e por isso sai daqui pelo `:not()`. Mesmo idioma do
+     `:not([type="checkbox"])` do min-height la embaixo. */
   box-shadow: 0 0 0 3px rgb(91 218 198 / 0.25);
 }
 
@@ -357,6 +382,42 @@ button:hover .nexo-logo .nexo-logo__no {
   to {
     transform: rotate(360deg);
   }
+}
+
+.nexo-logo__vortex-tri,
+.nexo-logo__star-pinch {
+  transform-origin: 50px 50px;
+  transition: transform 0.5s ease;
+}
+
+.nexo-logo--animated .nexo-logo__vortex-tri,
+.nexo-logo:hover .nexo-logo__vortex-tri {
+  animation: nexo-vortex-tri-spin 14s linear infinite;
+}
+
+.nexo-logo--animated .nexo-logo__star-pinch,
+.nexo-logo:hover .nexo-logo__star-pinch {
+  animation: nexo-star-pinch-pulse 2.5s ease-in-out infinite alternate;
+}
+
+.nexo-logo--animated .nexo-logo__scan-line {
+  animation: nexo-scan-sweep 4s ease-in-out infinite alternate;
+}
+
+@keyframes nexo-vortex-tri-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nexo-star-pinch-pulse {
+  0% { transform: scale(0.82) rotate(0deg); opacity: 0.75; }
+  100% { transform: scale(1.18) rotate(45deg); opacity: 1; }
+}
+
+@keyframes nexo-scan-sweep {
+  0% { transform: translateY(-12px); opacity: 0.2; }
+  50% { opacity: 0.85; }
+  100% { transform: translateY(12px); opacity: 0.2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -474,6 +535,333 @@ button:hover .nexo-logo .nexo-logo__no {
 
 .nexodoc-status-pulse {
   animation: nexodoc-status-pulse 1.8s var(--ease-feedback) infinite;
+}
+
+.login-split-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(420px, 42vw) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.login-auth-panel {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: var(--background);
+  border-right: 1px solid var(--border);
+}
+
+.login-auth-content {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-brand-lockup {
+  text-align: left;
+}
+
+.login-title {
+  margin-top: 22px;
+  font-size: 42px;
+  line-height: 1.05;
+  font-weight: 560;
+  letter-spacing: 0;
+  color: var(--foreground);
+}
+
+.login-lead,
+.login-copy {
+  color: var(--muted-foreground);
+}
+
+.login-lead {
+  margin-top: 12px;
+  max-width: 36ch;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  font-weight: 450;
+  color: rgb(225 231 234 / 0.72);
+}
+
+.login-auth-block {
+  margin-top: 44px;
+}
+
+.login-kicker {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(225 231 234 / 0.82);
+}
+
+.login-copy {
+  margin-top: 8px;
+  max-width: 44ch;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+.login-error {
+  margin-top: 16px;
+  border: 1px solid rgb(255 146 133 / 0.3);
+  border-radius: var(--radius);
+  background: var(--status-critical-bg);
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--status-critical);
+}
+
+.login-form {
+  margin-top: 20px;
+}
+
+.login-access-note {
+  margin-top: 10px;
+  max-width: 46ch;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.login-dev-auth {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.login-dev-email {
+  margin-top: 8px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.login-media-panel {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(6 8 10 / 0.28), rgb(6 8 10 / 0.68)),
+    radial-gradient(60% 58% at 64% 26%, rgb(91 218 198 / 0.18), transparent 72%),
+    radial-gradient(54% 52% at 30% 72%, rgb(255 181 158 / 0.12), transparent 76%),
+    var(--nexodoc-recessed);
+}
+
+.login-media-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--nexodoc-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--nexodoc-grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(90deg, transparent, black 18%, black 82%, transparent);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.login-media-poster {
+  position: relative;
+  z-index: 1;
+  width: min(860px, 100%);
+  aspect-ratio: 16 / 10;
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-float), var(--edge-highlight);
+}
+
+.login-media-chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--nexodoc-raised);
+}
+
+.login-media-chrome span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--input);
+}
+
+.login-media-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) minmax(220px, 30%);
+}
+
+.login-media-sidebar,
+.login-media-report {
+  min-width: 0;
+  background: var(--background);
+}
+
+.login-media-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border-right: 1px solid var(--border);
+}
+
+.login-media-sidebar span {
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+}
+
+.login-media-sidebar .is-active {
+  border-color: rgb(91 218 198 / 0.42);
+  background: rgb(0 166 147 / 0.16);
+}
+
+.login-media-canvas {
+  position: relative;
+  min-width: 0;
+  background:
+    linear-gradient(var(--nexodoc-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--nexodoc-grid) 1px, transparent 1px),
+    var(--nexodoc-recessed);
+  background-size: 32px 32px;
+}
+
+.login-media-node,
+.login-media-thread {
+  position: absolute;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--nexodoc-panel);
+  box-shadow: var(--shadow-subtle);
+}
+
+.login-media-node--source {
+  width: 28%;
+  height: 18%;
+  left: 10%;
+  top: 18%;
+}
+
+.login-media-node--review {
+  width: 36%;
+  height: 22%;
+  left: 40%;
+  top: 34%;
+  border-color: rgb(91 218 198 / 0.36);
+}
+
+.login-media-node--volume {
+  width: 26%;
+  height: 18%;
+  left: 18%;
+  bottom: 16%;
+}
+
+.login-media-thread {
+  width: 46%;
+  height: 1px;
+  left: 27%;
+  top: 48%;
+  border: 0;
+  border-top: 1px solid rgb(91 218 198 / 0.28);
+  background: transparent;
+  transform: rotate(16deg);
+  transform-origin: left;
+}
+
+.login-media-report {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-left: 1px solid var(--border);
+}
+
+.login-media-report span {
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+}
+
+.login-media-report span:nth-child(2) {
+  border-color: rgb(110 231 163 / 0.24);
+  background: var(--status-ok-bg);
+}
+
+.login-media-report span:nth-child(3) {
+  border-color: rgb(233 180 92 / 0.24);
+  background: var(--status-warning-bg);
+}
+
+.login-narrow-notice {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .login-split-shell {
+    display: flex;
+    min-height: 100dvh;
+  }
+
+  .login-auth-panel,
+  .login-media-panel {
+    display: none;
+  }
+
+  .login-narrow-notice {
+    width: 100%;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px 24px;
+    background: var(--background);
+  }
+
+  .login-narrow-title {
+    margin-top: 20px;
+    max-width: 12ch;
+    font-size: 36px;
+    line-height: 1.1;
+    font-weight: 560;
+    letter-spacing: 0;
+    color: var(--foreground);
+  }
+
+  .login-narrow-copy {
+    margin-top: 12px;
+    max-width: 40ch;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
 }
 
 /* Sidebar drawer mobile */
@@ -926,6 +1314,125 @@ button:hover .nexo-logo .nexo-logo__no {
 @media (prefers-reduced-transparency: reduce) {
   .nexo-welcome-wash::before {
     display: none;
+  }
+}
+
+/* =====================================================================
+   O CHANFRO — duas familias, uma geometria.
+
+   `.nx-cut-*`  superficie chapada: uma forma so.
+   `.nx-edge-*` superficie com contorno: o fundo do elemento E a borda, e o
+                `::before` recortado a 1px E o miolo.
+
+   Por que `isolation: isolate` + `z-index: -1` e nao uma regra em `> *`:
+   o -1 sozinho cairia atras do fundo do proprio elemento e o miolo sumiria;
+   o `isolation` faz o elemento virar contexto de empilhamento, entao o -1
+   passa a significar "acima do meu fundo, abaixo do meu conteudo". Com
+   `> *` em vez disso, no de texto solto (sem elemento em volta) ficaria
+   embaixo do miolo.
+   ===================================================================== */
+.nx-cut-4 { clip-path: var(--cut-4); }
+.nx-cut-5 { clip-path: var(--cut-5); }
+.nx-cut-6 { clip-path: var(--cut-6); }
+.nx-cut-7 { clip-path: var(--cut-7); }
+.nx-cut-8 { clip-path: var(--cut-8); }
+.nx-cut-12 { clip-path: var(--cut-12); }
+
+.nx-edge-5,
+.nx-edge-6,
+.nx-edge-7,
+.nx-edge-8 {
+  position: relative;
+  isolation: isolate;
+  background: var(--nx-edge, var(--border));
+}
+
+.nx-edge-5::before,
+.nx-edge-6::before,
+.nx-edge-7::before,
+.nx-edge-8::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--nx-fill, var(--card));
+  transition:
+    inset var(--duration-fast) var(--ease-feedback),
+    background-color var(--duration-fast) var(--ease-feedback);
+}
+
+.nx-edge-5, .nx-edge-5::before { clip-path: var(--cut-5); }
+.nx-edge-6, .nx-edge-6::before { clip-path: var(--cut-6); }
+.nx-edge-7, .nx-edge-7::before { clip-path: var(--cut-7); }
+.nx-edge-8, .nx-edge-8::before { clip-path: var(--cut-8); }
+
+/* O ANEL DE FOCO E POR DENTRO. `outline` e `box-shadow` externo sao recortados
+   pelo clip-path -- um anel por fora exigiria inflar a caixa ou envolver todo
+   focalizavel. Aqui a moldura que ja existe vira teal e o miolo recua 2px.
+   `:has(:focus-visible)` cobre o wrapper de campo, onde o foco esta no filho. */
+:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible)) {
+  background: var(--ring);
+}
+:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible))::before {
+  inset: 3px;
+}
+
+/* A LAMINA. Camada inclinada a 30 graus que entra pela direita e sai pela
+   esquerda. Quem quiser lamina seta `--nx-blade`; sem isso `.nx-ctl` nao pinta
+   nada e continua servindo so como gancho. */
+.nx-ctl::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 0;
+  width: 160%;
+  z-index: -1;
+  background: var(--nx-blade, transparent);
+  transform: skewX(-30deg) translateX(120%);
+  transition: transform 300ms var(--ease-feedback);
+  pointer-events: none;
+}
+.nx-ctl:hover:not(:disabled)::after {
+  transform: skewX(-30deg) translateX(-14%);
+}
+.nx-ctl[data-loading="true"]::after {
+  background: var(--nx-blade, transparent);
+  opacity: 0.6;
+  animation: nx-lamina 1.8s linear infinite;
+}
+@keyframes nx-lamina {
+  from { transform: skewX(-30deg) translateX(120%); }
+  to { transform: skewX(-30deg) translateX(-160%); }
+}
+
+/* O PONTO DE CANTO, so na secundaria: na primaria chapada nao ha contraste para
+   ele. Vai como segunda camada de background do miolo -- o ::after ja e a
+   lamina, e um terceiro pseudo-elemento nao existe. O ::before esta a 1px da
+   borda, entao `top 1px right 1px` da os 2px que a spec pede. */
+.nx-dot:hover:not(:disabled)::before {
+  background:
+    linear-gradient(var(--ring), var(--ring)) no-repeat top 1px right 1px / 4px 4px,
+    var(--nx-fill, var(--card));
+}
+
+/* ELEVACAO DE SOBREPOSICAO RECORTADA. `box-shadow` externo e cortado pelo
+   clip-path, e `filter` no proprio elemento tambem (filter e aplicado ANTES do
+   recorte). A sombra tem que vir de um PAI nao recortado -- ai o drop-shadow
+   segue a silhueta chanfrada do filho, que e exatamente o que se quer. */
+.nx-elev {
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.28)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.35));
+}
+
+/* Nada desliza. A lamina some em vez de correr, e o hover vira troca de fundo. */
+@media (prefers-reduced-motion: reduce) {
+  .nx-ctl::after,
+  .nx-ctl[data-loading="true"]::after {
+    display: none;
+    animation: none;
+  }
+  :is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8)::before {
+    transition: none;
   }
 }
 
