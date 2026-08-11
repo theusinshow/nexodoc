@@ -322,8 +322,20 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
 
   await startAiTask(aiTaskId, { provider, model: args.model });
 
+  /*
+   * Fora do `try` de propósito: a resposta pode CHEGAR e ainda assim a chamada
+   * falhar — é o que acontece quando ela vem truncada ou recusada, e o
+   * `extractOutputText` estoura logo abaixo. Nesse caso o `usage` já está aqui,
+   * medido, e o caminho de erro precisa alcançá-lo.
+   *
+   * Sem isto, toda truncagem entrava no caixa como custo ZERO: os tokens foram
+   * queimados e cobrados, e o teto mensal (que soma `estimatedCostUsd` de todos
+   * os eventos) ficava cego justo para o gasto que não produziu nada.
+   */
+  let response: unknown;
+
   try {
-    const response =
+    response =
       provider === "deepseek"
         ? await executeDeepSeekChatCompletion(args, controller.signal)
         : await getOpenAIClient().responses.create(args.request, {
@@ -384,6 +396,9 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
       model: args.model,
       operation: args.operation,
       status: "failed",
+      // `undefined` quando a chamada nem chegou a responder (credencial, quota,
+      // aborto): ali zero é o número honesto, não uma lacuna.
+      response,
       durationMs,
       metadata: withFailureMetadata(args.metadata, failure.category),
       error,
@@ -431,6 +446,12 @@ export async function* executeOpenAiResponseStream(
   const onAbort = () => controller.abort();
   externalSignal?.addEventListener("abort", onAbort);
   const startedAt = Date.now();
+  /*
+   * Fora do `try` pelo mesmo motivo do runner normal: um stream que morre no
+   * meio já queimou tokens, e o evento terminal que os declara pode ter chegado
+   * antes da falha. Guardado aqui, o caminho de erro alcança o número.
+   */
+  let finalResponse: unknown = null;
 
   try {
     const stream = await getOpenAIClient().responses.create(
@@ -439,7 +460,6 @@ export async function* executeOpenAiResponseStream(
     );
 
     let text = "";
-    let finalResponse: unknown = null;
     for await (const event of stream as AsyncIterable<{
       type?: string;
       delta?: string;
@@ -448,7 +468,14 @@ export async function* executeOpenAiResponseStream(
       if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
         text += event.delta;
         yield { type: "delta", text: event.delta };
-      } else if (event.type === "response.completed") {
+      } else if (
+        // Todo evento terminal carrega o `usage` — inclusive os que não são
+        // sucesso. Só `completed` era lido, então stream truncado ou recusado
+        // perdia a medição junto com o texto.
+        event.type === "response.completed" ||
+        event.type === "response.incomplete" ||
+        event.type === "response.failed"
+      ) {
         finalResponse = event.response;
       }
     }
@@ -478,6 +505,25 @@ export async function* executeOpenAiResponseStream(
       `[ai] flow=${args.flow} op=${args.operation} provider=${provider} model=${args.model} status=FAILED-stream categoria=${failure.category} ${durationMs}ms :: ${String((error as { message?: string })?.message ?? error).slice(0, 200)}`,
     );
     recordProviderFailure(failure);
+    /*
+     * O stream que falha também precisa aparecer no caixa. Antes não gravava
+     * NADA: a conversa cancelada ou estourada sumia da contabilidade inteira,
+     * não só dos tokens. Zero fica só quando o evento terminal não chegou —
+     * aborto do usuário, tipicamente, onde não existe número para gravar.
+     */
+    await recordAiUsage({
+      flow: args.flow,
+      provider,
+      model: args.model,
+      operation: args.operation,
+      status: "failed",
+      response: finalResponse,
+      durationMs,
+      metadata: withFailureMetadata(args.metadata, failure.category),
+      error,
+      userEmail: args.userEmail,
+      conversationId: args.conversationId,
+    });
     throw error;
   } finally {
     clearTimeout(timeout);
