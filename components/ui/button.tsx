@@ -42,9 +42,11 @@ const buttonVariants = cva(
         google:
           "font-sans text-sm font-medium normal-case tracking-normal text-background [--nx-edge:var(--foreground)] [--nx-fill:var(--foreground)]",
         /* Sem forma: so texto. A camada continua existindo (transparente) para o
-           anel de foco ter onde aparecer. */
+           anel de foco ter onde aparecer -- mas o miolo TEM de ficar opaco no
+           foco: transparente ele nao mascara nada, e o botao virava um bloco
+           teal solido com o rotulo cinza por cima, em vez de um anel. */
         ghost:
-          "text-muted-foreground [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)]",
+          "text-muted-foreground [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]",
       },
       size: {
         lg: "nx-edge-8 h-11 px-[22px] text-[12px]",

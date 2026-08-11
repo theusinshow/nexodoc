@@ -124,7 +124,7 @@ export function NexoSidebar({
       <button
         type="button"
         onClick={onNewConversation}
-        className="flex items-center gap-2 rounded-md bg-[var(--nexodoc-recessed)] px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        className="nx-edge-6 flex items-center gap-2 px-2.5 py-2 text-sm text-foreground transition-colors focus-visible:outline-none [--nx-edge:var(--nexodoc-recessed)] [--nx-fill:var(--nexodoc-recessed)] hover:[--nx-edge:var(--accent)] hover:[--nx-fill:var(--accent)]"
       >
         <Plus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         Nova conversa
@@ -134,16 +134,22 @@ export function NexoSidebar({
       {!empty && (
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground"
+            /* z-10: o wrapper do campo vem DEPOIS no DOM e tambem e posicionado,
+               entao sem isto ele pinta por cima da lupa e ela some. */
+            className="pointer-events-none absolute left-2.5 top-2 z-10 h-3.5 w-3.5 text-muted-foreground"
             aria-hidden
           />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar conversas…"
-            aria-label="Buscar conversas"
-            className="h-8 w-full rounded-md bg-[var(--nexodoc-recessed)] pl-8 pr-2 font-mono text-xs text-foreground outline-none transition-[box-shadow,border-color] placeholder:font-sans placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/20"
-          />
+          {/* Wrapper pela mesma razao do primitivo Input: campo nativo nao
+              renderiza ::before, entao a camada de contorno mora fora. */}
+          <div className="nx-edge-6 h-8 w-full [--nx-edge:var(--nexodoc-recessed)] [--nx-fill:var(--nexodoc-recessed)]">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar conversas…"
+              aria-label="Buscar conversas"
+              className="size-full border-0 bg-transparent pl-8 pr-2 font-mono text-xs text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
       )}
 
@@ -160,7 +166,10 @@ export function NexoSidebar({
            * caber uma frase, e o rótulo da região tinha sumido na
            * implementação. Agora ela ocupa o que o conteúdo pede.
            */
-          <div className="space-y-1.5 rounded-md border border-dashed border-border/60 px-3 py-3">
+          /* Raio de 4px, nao chanfro: tracejado nao sobrevive ao recorte (a
+             borda sumiria nas duas diagonais). Mesmo tratamento que a spec da
+             aos campos tracejados do carimbo. */
+          <div className="space-y-1.5 rounded-[4px] border border-dashed border-border/60 px-3 py-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
               Histórico
             </p>
@@ -187,7 +196,11 @@ export function NexoSidebar({
               que é um grupo, e dois glifos para o mesmo trabalho é ruído numa
               coluna de 240px.
             */}
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 [&::-webkit-details-marker]:hidden">
+            {/* `.nx-edge-5` com tokens transparentes: sem forma em repouso, mas
+                com o anel de foco POR DENTRO de graca. `.nx-cut-*` sozinho
+                desligaria o ring global sem por nada no lugar, e um focalizavel
+                sem foco visivel e regressao de acessibilidade. */}
+            <summary className="nx-edge-5 flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)] [&::-webkit-details-marker]:hidden">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -224,10 +237,12 @@ export function NexoSidebar({
                          * Lado a lado, a lista mostra quase o dobro de
                          * conversas, que é o trabalho dela: achar a de ontem.
                          */
-                        "flex w-full items-baseline gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                        /* Item de lista: corte 5. SO O ATIVO tem fundo -- o
+                           inativo fica transparente e ganha fundo no hover. */
+                        "nx-edge-5 flex w-full items-baseline gap-2 py-1.5 pl-2.5 pr-8 text-left transition-colors focus-visible:outline-none [--nx-edge:transparent]",
                         active
-                          ? "bg-accent text-foreground"
-                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                          ? "text-foreground [--nx-fill:var(--accent)]"
+                          : "text-muted-foreground [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)]",
                       )}
                     >
                       <span className="min-w-0 flex-1 truncate text-xs">{c.title}</span>
@@ -262,9 +277,10 @@ export function NexoSidebar({
                         onClick={() => setConfirmando(c.id)}
                         aria-label={`Apagar conversa ${c.title}`}
                         className={cn(
-                          "absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground",
+                          "nx-edge-4 absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground",
+                          "[--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)]",
                           "transition-[opacity,color] duration-[var(--duration-fast)]",
-                          "hover:text-[var(--status-critical)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                          "hover:text-[var(--status-critical)] focus-visible:outline-none",
                           "opacity-0 group-hover/c:opacity-100 focus-visible:opacity-100",
                           active && "opacity-60",
                         )}
@@ -291,7 +307,10 @@ export function NexoSidebar({
                        * quebrava em cinco linhas e passava por cima do
                        * "Cancelar". Só apareceu no print.
                        */
-                      <div className="mt-0.5 space-y-1.5 rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] px-2 py-2">
+                      /* Sem camada de contorno, pela mesma razao do badge: borda
+                         E fundo translucidos nao sobrevivem a composicao em
+                         duas formas -- o miolo pintaria sobre a cor da borda. */
+                      <div className="nx-cut-6 mt-0.5 space-y-1.5 border-0 bg-[var(--status-critical-bg)] px-2 py-2">
                         <p className="text-[11px] leading-4 text-muted-foreground">
                           Apagar leva os documentos gerados junto.
                         </p>
@@ -299,7 +318,7 @@ export function NexoSidebar({
                           <button
                             type="button"
                             onClick={() => setConfirmando(null)}
-                            className="rounded-sm px-1.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                            className="nx-edge-5 px-1.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground"
                           >
                             Cancelar
                           </button>
@@ -309,7 +328,7 @@ export function NexoSidebar({
                               onDelete(c.id);
                               setConfirmando(null);
                             }}
-                            className="rounded-sm border border-[var(--status-critical)]/40 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors hover:bg-[var(--status-critical)]/10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                            className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
                           >
                             Apagar
                           </button>

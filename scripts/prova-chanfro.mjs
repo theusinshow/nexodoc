@@ -121,6 +121,29 @@ const laminaHover = await page.evaluate(
 );
 conferir("a lamina se move no hover", laminaHover !== laminaRepouso, `parada em ${laminaHover}`);
 
+/* O MIOLO DO FANTASMA TEM DE FICAR OPACO NO FOCO.
+   Variante transparente e o unico caso em que o anel por dentro pode falhar em
+   silencio: se o ::before continuar transparente, ele nao mascara nada e a
+   moldura teal preenche o botao inteiro -- vira um bloco solido com o rotulo
+   cinza por cima (contraste reprovado), em vez de um anel. Nenhuma medida de
+   clip-path pega isso; so a opacidade do miolo. */
+await page.locator('[data-prova="btn-secondary"]').focus();
+await page.keyboard.press("Tab");
+await page.waitForTimeout(300);
+const fantasma = await page.evaluate(() => {
+  const el = document.querySelector('[data-prova="btn-ghost"]');
+  return {
+    focado: document.activeElement?.dataset?.prova,
+    miolo: getComputedStyle(el, "::before").backgroundColor,
+  };
+});
+conferir("o Tab chegou no botao fantasma", fantasma.focado === "btn-ghost", `foco em "${fantasma.focado}"`);
+conferir(
+  "fantasma em foco: o miolo e opaco (nao vaza o teal)",
+  !/rgba\([^)]*,\s*0\)/.test(fantasma.miolo) && fantasma.miolo !== "transparent",
+  `miolo ${fantasma.miolo}`,
+);
+
 // --- 5. Cartao: com contorno vira camada, chapado continua uma forma so ---
 const cartoes = await page.evaluate(() => {
   const ler = (p) => {
@@ -229,6 +252,41 @@ if (nos.length === 0) {
     "nenhum no guardou raio",
     nos.every((n) => n.raio === "0px"),
     `com raio: ${nos.filter((n) => n.raio !== "0px").map((n) => n.raio).join(", ")}`,
+  );
+}
+
+// --- 10. Barra lateral: nova conversa e busca em 6, itens em 5 ---
+const lateral = await page.evaluate(() => {
+  const raiz = document.querySelector('aside[aria-label="Navegação do Nexo"]') ?? document.querySelector("aside");
+  if (!raiz) return null;
+  const itens = [...raiz.querySelectorAll("a, button, summary")];
+  return itens.slice(0, 14).map((el) => ({
+    texto: (el.textContent ?? "").trim().slice(0, 24),
+    clip: getComputedStyle(el).clipPath,
+    raio: getComputedStyle(el).borderTopLeftRadius,
+  }));
+});
+/* A lupa da busca: o wrapper do campo vem depois dela no DOM e tambem e
+   posicionado, entao sem z-index ele pinta por cima e o icone desaparece --
+   sem erro, sem aviso, e nenhuma medida de clip-path acusa. */
+const lupa = await page.evaluate(() => {
+  const svg = document.querySelector('aside svg.lucide-search, aside .lucide-search');
+  if (!svg) return null;
+  const r = svg.getBoundingClientRect();
+  return { z: getComputedStyle(svg).zIndex, largura: Math.round(r.width) };
+});
+if (lupa) {
+  conferir("a lupa da busca nao ficou atras do campo", lupa.z !== "auto", `z-index ${lupa.z}`);
+}
+
+if (!lateral) {
+  conferir("a barra lateral existe", false, "nem aside rotulado nem <aside>");
+} else {
+  const comRaio = lateral.filter((i) => i.raio !== "0px" && !i.clip.includes("polygon"));
+  conferir(
+    `nenhum dos ${lateral.length} controles da lateral guardou raio`,
+    comRaio.length === 0,
+    `sobraram: ${comRaio.map((i) => `"${i.texto}" ${i.raio}`).join(", ")}`,
   );
 }
 

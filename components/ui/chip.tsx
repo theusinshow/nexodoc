@@ -34,8 +34,10 @@ const chipVariants = cva(
           "text-foreground [--nx-edge:rgb(91_218_198/0.45)] [--nx-fill:var(--secondary)] hover:[--nx-edge:rgb(91_218_198/0.7)] hover:[--nx-fill:var(--accent)]",
         default:
           "text-foreground [--nx-edge:var(--border)] [--nx-fill:var(--secondary)] hover:[--nx-edge:var(--input)] hover:[--nx-fill:var(--accent)]",
+        /* O miolo fica OPACO no foco: transparente ele nao mascara o teal da
+           moldura, e o chip vira um bloco cheio em vez de um anel. */
         quiet:
-          "text-muted-foreground [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-edge:var(--border)] hover:[--nx-fill:var(--accent)]",
+          "text-muted-foreground [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-edge:var(--border)] hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]",
       },
     },
     defaultVariants: {
