@@ -162,6 +162,25 @@ conferir("campo sem ring de box-shadow", campo.sombraDoCampo === "none", `veio $
 conferir("o foco do campo acende o wrapper", campo.focoNoWrapper === "rgb(91, 218, 198)", `veio ${campo.focoNoWrapper}`);
 conferir("o miolo do campo recua no foco", campo.insetDoMiolo === "3px", `veio ${campo.insetDoMiolo}`);
 
+// --- 7. Chip e badge ---
+const chipeBadge = await page.evaluate(() => {
+  const ler = (p) => {
+    const el = document.querySelector(`[data-prova="${p}"]`);
+    const s = getComputedStyle(el);
+    return { clip: s.clipPath, raio: s.borderTopLeftRadius, borda: s.borderTopWidth, antes: getComputedStyle(el, "::before").content };
+  };
+  return { chip: ler("chip"), badge: ler("badge"), badgeOk: ler("badge-ok") };
+});
+conferir("chip com corte 6", chipeBadge.chip.clip.includes("6px"), `veio ${chipeBadge.chip.clip}`);
+conferir("chip perdeu a pilula", chipeBadge.chip.raio === "0px", `veio ${chipeBadge.chip.raio}`);
+conferir("chip com contorno em camada", chipeBadge.chip.antes !== "none", "sem ::before");
+conferir("badge com corte 5", chipeBadge.badge.clip.includes("5px"), `veio ${chipeBadge.badge.clip}`);
+/* Badge e uma forma so: as 10 variantes tem fundo E borda TRANSLUCIDOS, e numa
+   camada o miolo comporia sobre a cor da borda em vez de sobre a pagina --
+   toda variante de status mudaria de cor. */
+conferir("badge NAO usa camada", chipeBadge.badge.antes === "none", "criou ::before");
+conferir("badge sem borda", chipeBadge.badgeOk.borda === "0px", `veio ${chipeBadge.badgeOk.borda}`);
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);

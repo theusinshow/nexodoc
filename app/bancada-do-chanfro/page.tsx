@@ -8,6 +8,8 @@
  */
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -79,6 +81,13 @@ export default function BancadaDoChanfro() {
       <section className="flex flex-col gap-4" data-prova="campos">
         <Input data-prova="input" placeholder="campo de texto" className="w-64" />
         <Textarea data-prova="textarea" placeholder="area de texto" className="w-64" />
+      </section>
+
+      <section className="flex flex-wrap items-center gap-4" data-prova="chips">
+        <Chip data-prova="chip">chip padrão</Chip>
+        <Chip data-prova="chip-suggest" variant="suggest">sugerido</Chip>
+        <Badge data-prova="badge">badge</Badge>
+        <Badge data-prova="badge-ok" variant="ok">ok</Badge>
       </section>
     </main>
   );
