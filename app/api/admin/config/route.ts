@@ -323,8 +323,9 @@ async function buildConfigPayload() {
       maxChunksPerFile: Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE ?? 24),
       chunkConcurrency: Number(process.env.NEXODOC_CHUNK_CONCURRENCY ?? 5),
       chunkTimeoutMs: Number(process.env.NEXODOC_CHUNK_TIMEOUT_MS ?? 120000),
-      deepChunkMaxOutputTokens: Number(
-        process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ?? 1800,
+      deepChunkMaxOutputTokens: Math.max(
+        6000,
+        Number(process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ?? 6000),
       ),
     },
     secrets: {

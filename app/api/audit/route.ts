@@ -36,6 +36,7 @@ import {
   classifyProviderFailure,
   createInvalidProviderResponseError,
   getAuditExecutionProfile,
+  isInvalidProviderResponseError,
   recordProviderFailure,
   type AuditModelRole,
 } from "@/lib/ai-providers";
@@ -60,7 +61,8 @@ export const runtime = "nodejs";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 1800;
+// Piso, não sugestão: ver `getMaxOutputTokens`. Era 1800 e truncava.
+const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 6000;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
@@ -411,13 +413,17 @@ function parseRequiredAuditModelJson(text: string, operation: string) {
   return parsed;
 }
 
+/*
+ * Envelope quebrado = etapa descartável.
+ *
+ * Media só `code === "invalid_response"` — o código do JSON ilegível. Mas a
+ * resposta TRUNCADA chega com `code=incomplete_max_output_tokens` (o tipo é que
+ * vale "invalid_response"), e a recusa com `code=refusal`. Nenhuma das duas
+ * casava, então a etapa relançava e a auditoria inteira morria por causa de um
+ * bloco. Foi o que derrubou o 084_25_est_md.pdf duas vezes em 11/08/2026.
+ */
 function isInvalidAuditModelResponse(error: unknown) {
-  const candidate = error as { code?: string; message?: string };
-
-  return (
-    candidate?.code === "invalid_response" ||
-    String(candidate?.message ?? "").toLowerCase().includes("resposta inválida")
-  );
+  return isInvalidProviderResponseError(error);
 }
 
 function getChunkPrompt(args: {
@@ -479,11 +485,31 @@ ${args.chunk.text}
 `.trim();
 }
 
+/*
+ * Teto de saída de um BLOCO (e da leitura de identidade).
+ *
+ * Os 1800 originais vinham de quando a saída era só texto. Hoje o teto é
+ * COMPARTILHADO com os tokens de raciocínio, e o Padrão roda com esforço
+ * "medium": um bloco denso queima os 1800 pensando e devolve `output_text`
+ * vazio, com `incomplete_max_output_tokens`.
+ *
+ * Medido no 084_25_est_md.pdf em 11/08/2026: dois blocos responderam em 3s com
+ * 217 e 257 tokens de saída, e um terceiro gastou 24s para entregar ZERO —
+ * raciocínio comeu o teto inteiro. Duas tentativas seguidas, mesmo bloco.
+ *
+ * Subir o teto não sobe a conta sozinho: `max_output_tokens` é limite, não
+ * compra. Quem paga caro é a truncagem — 1800 tokens cobrados por uma resposta
+ * que não chegou. O piso é aplicado sobre a variável de ambiente de propósito,
+ * porque os 1800 estão gravados no .env e no render.yaml.
+ */
 function getMaxOutputTokens() {
-  return Number(
-    process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS ??
-      DEFAULT_CHUNK_MAX_OUTPUT_TOKENS,
-  );
+  const value = Number(process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS);
+
+  if (Number.isFinite(value) && value > DEFAULT_CHUNK_MAX_OUTPUT_TOKENS) {
+    return Math.min(16000, Math.floor(value));
+  }
+
+  return DEFAULT_CHUNK_MAX_OUTPUT_TOKENS;
 }
 
 // A passada de coerência lê o documento inteiro e pode devolver vários achados
@@ -1865,38 +1891,72 @@ async function analyzeChunkWithModel(args: {
   chunk: AuditTextChunk;
   conversationId?: string | null;
   userEmail?: string | null;
+  /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
+  degradacoes?: PassadaIncompleta[];
 }) {
   const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "chunk");
   const model = profile.model;
-  const result = await executeAuditModelResponse({
-    taskId: args.auditId,
-    taskLabel: args.fileName,
-    model,
-    providerOverride: profile.provider,
-    operation: "audit-chunk",
-    timeoutMs: getChunkTimeoutMs(),
-    request: {
+  let result;
+
+  try {
+    result = await executeAuditModelResponse({
+      taskId: args.auditId,
+      taskLabel: args.fileName,
       model,
-      instructions: getAuditorPrompt(args.auditMode),
-      reasoning: {
-        effort: getReasoningEffort(args.analysisLevel, args.auditMode),
+      providerOverride: profile.provider,
+      operation: "audit-chunk",
+      timeoutMs: getChunkTimeoutMs(),
+      request: {
+        model,
+        instructions: getAuditorPrompt(args.auditMode),
+        reasoning: {
+          effort: getReasoningEffort(args.analysisLevel, args.auditMode),
+        },
+        max_output_tokens: getMaxOutputTokens(),
+        text: { format: auditFindingsResponseFormat },
+        input: getChunkPrompt(args),
       },
-      max_output_tokens: getMaxOutputTokens(),
-      text: { format: auditFindingsResponseFormat },
-      input: getChunkPrompt(args),
-    },
-    metadata: {
-      fileName: args.fileName,
-      fileType: args.fileType,
-      chunkId: args.chunk.id,
-      startPage: args.chunk.startPage,
-      endPage: args.chunk.endPage,
-      analysisLevel: args.analysisLevel,
-      auditMode: args.auditMode,
-    },
-    conversationId: args.conversationId,
-    userEmail: args.userEmail,
-  });
+      metadata: {
+        fileName: args.fileName,
+        fileType: args.fileType,
+        chunkId: args.chunk.id,
+        startPage: args.chunk.startPage,
+        endPage: args.chunk.endPage,
+        analysisLevel: args.analysisLevel,
+        auditMode: args.auditMode,
+      },
+      conversationId: args.conversationId,
+      userEmail: args.userEmail,
+    });
+  } catch (error) {
+    /*
+     * ERA A ÚNICA PASSADA SEM REDE. Identidade, global, coerência, comparação
+     * entre documentos e refutação já degradavam; o bloco não, e um bloco
+     * truncado levava a auditoria inteira junto — o engenheiro perdia os 60s de
+     * trabalho já feito e recebia uma mensagem sobre modelo indisponível.
+     *
+     * Engolimos o que é DAQUELE bloco: envelope quebrado (truncado, recusado,
+     * ilegível) e estouro de tempo. Credencial, quota e modelo inexistente
+     * continuam subindo — ali insistir nos outros blocos só queima tempo para
+     * falhar igual no fim.
+     */
+    const category = classifyProviderFailure(profile.provider, "audit", model, error).category;
+
+    if (!isInvalidAuditModelResponse(error) && category !== "timeout") {
+      throw error;
+    }
+
+    const reason = (error as { message?: string })?.message ?? String(error);
+    console.error(
+      `[audit] ${args.fileName}: bloco ${args.chunk.startPage}-${args.chunk.endPage} ignorado (${reason.slice(0, 160)})`,
+    );
+    args.degradacoes?.push({
+      passada: `Bloco de páginas ${args.chunk.startPage}-${args.chunk.endPage}`,
+      motivo: reason.slice(0, 160),
+    });
+    return [];
+  }
+
   const text = result.text;
   const parsed = parseAuditModelJson(text);
 
@@ -3069,6 +3129,7 @@ async function deepAnalyzeFile(args: {
         chunk,
         conversationId: args.conversationId,
         userEmail: args.userEmail,
+        degradacoes: args.degradacoes,
       });
       console.log(
         `[audit] ${args.file.file.name}: bloco ${index + 1}/${chunks.length} concluido em ${Math.round((Date.now() - chunkStartedAt) / 1000)}s com ${findings.length} achado(s)`,

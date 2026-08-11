@@ -2,6 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { getCachedAiModelOverride } from "@/lib/ai-model-config";
+import {
+  classifyProviderErrorCategory,
+  isInvalidProviderResponseError,
+  type ProviderFailureCategory,
+} from "@/lib/ai-failure-policy";
+
+export { isInvalidProviderResponseError };
+export type { ProviderFailureCategory };
 
 export type AiProvider = "openai" | "mimo" | "deepseek";
 export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
@@ -9,15 +17,6 @@ export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type AuditMode = "memorial" | "volume";
 export type AuditExecutionRole = AuditModelRole | "validation";
-export type ProviderFailureCategory =
-  | "quota_billing"
-  | "authentication"
-  | "timeout"
-  | "rate_limit"
-  | "invalid_response"
-  | "configuration"
-  | "model_unavailable"
-  | "unknown";
 
 export type SafeProviderFailure = {
   provider: AiProvider;
@@ -26,14 +25,6 @@ export type SafeProviderFailure = {
   category: ProviderFailureCategory;
   message: string;
   occurredAt: string;
-};
-
-type ProviderErrorShape = {
-  status?: number;
-  code?: string;
-  type?: string;
-  name?: string;
-  message?: string;
 };
 
 /**
@@ -654,27 +645,7 @@ export function classifyProviderFailure(
   model: string,
   error: unknown,
 ) {
-  const candidate = error as ProviderErrorShape;
-  const status = candidate.status;
-  const rawCode = `${candidate.code ?? ""} ${candidate.type ?? ""}`.toLowerCase();
-  const rawMessage = `${candidate.message ?? ""}`.toLowerCase();
-  let category: ProviderFailureCategory = "unknown";
-
-  if (rawCode.includes("insufficient_quota") || rawMessage.includes("insufficient_quota") || rawMessage.includes("billing")) {
-    category = "quota_billing";
-  } else if (status === 401 || status === 403 || rawCode.includes("invalid_api_key") || rawMessage.includes("api key")) {
-    category = "authentication";
-  } else if (candidate.name === "AbortError" || rawMessage.includes("timeout") || rawMessage.includes("tempo limite")) {
-    category = "timeout";
-  } else if (status === 429) {
-    category = "rate_limit";
-  } else if (rawCode === "invalid_response" || rawMessage.includes("resposta inválida")) {
-    category = "invalid_response";
-  } else if (rawCode === "configuration" || rawMessage.includes("não configurada")) {
-    category = "configuration";
-  } else if (status === 404 || rawMessage.includes("model") || rawMessage.includes("modelo")) {
-    category = "model_unavailable";
-  }
+  const category = classifyProviderErrorCategory(error);
 
   return {
     provider,
