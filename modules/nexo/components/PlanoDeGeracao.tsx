@@ -551,6 +551,24 @@ export function PlanoDeGeracao({
 
       <div className="space-y-3 p-3">
         {/*
+         * O AVISO ANDA COM O RÓTULO.
+         *
+         * Ele nasceu no rodapé, ao lado do botão. Com a prefeitura escolhida, o
+         * frame do documento é alto: a captura mostrou o aviso em y=1083 numa
+         * janela de 1000 — no DOM, fora da tela. Um aviso que exige rolar para
+         * ser lido não avisa. Aqui ele entra logo abaixo do cabeçalho que diz
+         * "Alteração pendente", que é o que o engenheiro vê primeiro.
+         */}
+        {pendentes > 0 && !ocupado && (
+          <p className="text-xs leading-5 text-[var(--status-warning)]">
+            {pendentes === 1
+              ? "Um documento foi gerado antes desta alteração e ainda está com os valores antigos."
+              : `${pendentes} documentos foram gerados antes desta alteração e ainda estão com os valores antigos.`}{" "}
+            O que está no canvas não vale até atualizar.
+          </p>
+        )}
+
+        {/*
          * PARA QUEM VAI. A prefeitura estava numa linha igual às outras, e é o
          * único campo aqui cujo erro custa o projeto inteiro — foi um volume
          * enviado com o brasão de outra prefeitura que originou este produto.
@@ -807,19 +825,6 @@ export function PlanoDeGeracao({
             </span>
           )}
         </div>
-
-        {/*
-         * A frase de "prontos" NÃO pode aparecer com alteração pendente: era
-         * exatamente ela que dava a confiança errada para fechar o volume.
-         */}
-        {pendentes > 0 && !ocupado && (
-          <p className="text-xs text-[var(--status-warning)]">
-            {pendentes === 1
-              ? "Um documento foi gerado antes desta alteração e ainda está com os valores antigos."
-              : `${pendentes} documentos foram gerados antes desta alteração e ainda estão com os valores antigos.`}{" "}
-            O que está no canvas não vale até atualizar.
-          </p>
-        )}
 
         {tudoGerado && !ocupado && (
           <p className="text-xs text-muted-foreground">
