@@ -6,6 +6,8 @@
  * classe muda de nome, e asserção por posição no DOM quebra quando alguém
  * insere uma linha acima.
  */
+import { Button } from "@/components/ui/button";
+
 export const metadata = { title: "Bancada do chanfro" };
 
 const CORTES = [4, 5, 6, 7, 8, 12] as const;
@@ -51,6 +53,15 @@ export default function BancadaDoChanfro() {
         >
           foco por dentro
         </button>
+      </section>
+
+      <section className="flex flex-wrap items-center gap-4" data-prova="botoes">
+        <Button data-prova="btn-lg" size="lg">Confirmar e gerar</Button>
+        <Button data-prova="btn-default">Corrigir</Button>
+        <Button data-prova="btn-sm" size="sm">Denso</Button>
+        <Button data-prova="btn-secondary" variant="secondary">Secundária</Button>
+        <Button data-prova="btn-ghost" variant="ghost">Cancelar</Button>
+        <Button data-prova="btn-loading" loading>Gerando</Button>
       </section>
     </main>
   );

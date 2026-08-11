@@ -4,36 +4,53 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/*
+ * O chanfro (docs/superpowers/specs/2026-08-11-chanfro-como-sistema-design.md).
+ *
+ * Tres camadas, nenhuma delas markup -- condicao para o `asChild` do Radix
+ * continuar funcionando, ja que o Slot nao aceita filho extra:
+ *   elemento   a cor da borda; vira --ring no :focus-visible
+ *   ::before   o miolo; recua de 1px para 3px no foco; carrega o ponto de canto
+ *   ::after    a lamina
+ * Tudo isso vive em `.nx-edge-*` / `.nx-ctl` / `.nx-dot` no globals.css. Aqui so
+ * escolhemos o corte e passamos as cores por --nx-edge / --nx-fill / --nx-blade.
+ *
+ * O `min-h-10` da base SAIU: era ele que apagava a hierarquia de tamanho, e sem
+ * isso as tres alturas nao coexistem numa mesma tela (criterio 04).
+ *
+ * A fonte e IBM Plex Mono (`font-mono`), nao Geist -- o handoff cita Geist
+ * porque e o tipo do documento de design, e a spec fecha que tipografia nao muda.
+ */
 const buttonVariants = cva(
-  /*
-   * Rótulo em Mono Data (13px + 0.02em), não em 14px: a escala mono do sistema
-   * tem dois degraus (rótulo 12, dado 13) e 14 não é nenhum deles.
-   *
-   * A transição usa os TOKENS de movimento. Antes era `duration-150 ease-out`,
-   * dois valores soltos que ninguém conseguia mudar em um lugar só — e o botão
-   * respondia 30ms mais devagar que todo o resto da interface.
-   */
-  "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-mono text-[13px] font-medium tracking-[0.02em] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-feedback)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 outline-none focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-[3px]",
+  "nx-ctl relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap border-0 font-mono font-semibold uppercase tracking-[0.06em] outline-none transition-[background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-feedback)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4",
   {
     variants: {
       variant: {
+        /* Repouso CHAPADO: a moldura tem a mesma cor do miolo, entao nao se ve
+           contorno nenhum -- mas a camada existe, e e ela que vira o anel de
+           foco. Substitui o `hover:bg-primary/90`, que enfraquecia o botao. */
         default:
-          "border border-primary bg-primary text-primary-foreground shadow-[var(--edge-highlight)] hover:bg-primary/90",
+          "text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.22)] [--nx-edge:var(--primary)] [--nx-fill:var(--primary)] [--nx-blade:var(--blade-on-primary)] hover:[--nx-edge:var(--primary-hover)] hover:[--nx-fill:var(--primary-hover)] active:shadow-[inset_0_2px_3px_rgb(0_0_0/0.35)] active:[--nx-edge:var(--primary-active)] active:[--nx-fill:var(--primary-active)]",
         destructive:
-          "border border-destructive/35 bg-destructive text-[var(--destructive-foreground)] hover:bg-destructive/90 focus-visible:ring-destructive/20",
-        /* Borda de CAMPO (#2c3338), não a estrutural (#23282c): o contorno
-           precisa se ler como controle, e a borda de painel some no escuro. */
+          "text-[var(--destructive-foreground)] [--nx-edge:var(--destructive)] [--nx-fill:var(--destructive)] [--nx-blade:var(--blade-on-destructive)]",
+        /* Secundaria e outline sao a mesma camada com miolos diferentes:
+           #2c3338 (--input) por fora, #1a1e21 (--secondary) ou --card por dentro. */
         outline:
-          "border border-input bg-card text-foreground hover:border-ring hover:bg-accent hover:text-accent-foreground",
+          "nx-dot text-foreground [--nx-edge:var(--input)] [--nx-fill:var(--card)] [--nx-blade:var(--blade-on-secondary)] hover:[--nx-edge:var(--ring)]",
         secondary:
-          "border border-ring/35 bg-secondary text-secondary-foreground shadow-[var(--edge-highlight)] hover:border-ring hover:bg-accent",
-        ghost: "border border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+          "nx-dot text-secondary-foreground [--nx-edge:var(--input)] [--nx-fill:var(--secondary)] [--nx-blade:var(--blade-on-secondary)] hover:[--nx-edge:var(--ring)]",
+        google:
+          "font-sans text-sm font-medium normal-case tracking-normal text-background [--nx-edge:var(--foreground)] [--nx-fill:var(--foreground)]",
+        /* Sem forma: so texto. A camada continua existindo (transparente) para o
+           anel de foco ter onde aparecer. */
+        ghost:
+          "text-muted-foreground [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)]",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 px-3 text-xs",
-        lg: "h-11 px-6",
-        icon: "size-10",
+        lg: "nx-edge-8 h-11 px-[22px] text-[12px]",
+        default: "nx-edge-7 h-10 px-[18px] text-[12px]",
+        sm: "nx-edge-6 h-8 px-[14px] text-[11px]",
+        icon: "nx-edge-7 size-10 px-0",
       },
     },
     defaultVariants: {
@@ -48,17 +65,28 @@ function Button({
   variant,
   size,
   asChild = false,
+  loading = false,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    /* Carregando nao tem spinner: a lamina entra em laco e o fundo desce um
+       degrau. Um spinner dentro de forma recortada briga com o chanfro. */
+    loading?: boolean;
   }) {
   const Comp = asChild ? Slot : "button";
 
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-loading={loading ? "true" : undefined}
+      disabled={disabled ?? (loading || undefined)}
+      className={cn(
+        buttonVariants({ variant, size }),
+        loading && "[--nx-edge:var(--primary-active)] [--nx-fill:var(--primary-active)]",
+        className,
+      )}
       {...props}
     />
   );

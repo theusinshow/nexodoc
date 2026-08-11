@@ -94,6 +94,33 @@ conferir("foco: a moldura vira --ring", foco.bg === "rgb(91, 218, 198)", `veio $
 // Se o ring global sobrevivesse, ele seria recortado e o foco sumiria.
 conferir("foco: o ring global de box-shadow se desligou", foco.sombra === "none", `veio ${foco.sombra}`);
 
+// --- 4. As tres alturas coexistem e o CSS global nao forca 40px ---
+const alturas = await page.evaluate(() =>
+  ["btn-lg", "btn-default", "btn-sm"].map((p) => {
+    const el = document.querySelector(`[data-prova="${p}"]`);
+    return { p, h: Math.round(el.getBoundingClientRect().height), clip: getComputedStyle(el).clipPath };
+  }),
+);
+conferir("botao 44 (size lg)", alturas[0].h === 44, `veio ${alturas[0].h}px`);
+conferir("botao 40 (size default)", alturas[1].h === 40, `veio ${alturas[1].h}px`);
+conferir("botao 32 (size sm)", alturas[2].h === 32, `veio ${alturas[2].h}px`);
+for (const { p, clip } of alturas) {
+  conferir(`${p} recortado`, clip.includes("polygon"), `veio ${clip}`);
+}
+
+// A lamina so aparece no hover -- em repouso ela esta fora da caixa.
+const laminaRepouso = await page.evaluate(
+  () => getComputedStyle(document.querySelector('[data-prova="btn-lg"]'), "::after").transform,
+);
+conferir("lamina existe como matriz de transformacao", laminaRepouso.startsWith("matrix"), `veio ${laminaRepouso}`);
+
+await page.locator('[data-prova="btn-lg"]').hover();
+await page.waitForTimeout(400);
+const laminaHover = await page.evaluate(
+  () => getComputedStyle(document.querySelector('[data-prova="btn-lg"]'), "::after").transform,
+);
+conferir("a lamina se move no hover", laminaHover !== laminaRepouso, `parada em ${laminaHover}`);
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);
