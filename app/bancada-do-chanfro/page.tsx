@@ -7,6 +7,7 @@
  * insere uma linha acima.
  */
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export const metadata = { title: "Bancada do chanfro" };
 
@@ -62,6 +63,15 @@ export default function BancadaDoChanfro() {
         <Button data-prova="btn-secondary" variant="secondary">Secundária</Button>
         <Button data-prova="btn-ghost" variant="ghost">Cancelar</Button>
         <Button data-prova="btn-loading" loading>Gerando</Button>
+      </section>
+
+      <section className="flex flex-wrap gap-4" data-prova="cartoes">
+        <Card data-prova="card" className="w-56 p-4 text-sm text-muted-foreground">
+          cartão com contorno
+        </Card>
+        <Card data-prova="card-flat" flat className="w-56 p-4 text-sm text-muted-foreground">
+          cartão chapado
+        </Card>
       </section>
     </main>
   );

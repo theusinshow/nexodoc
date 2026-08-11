@@ -121,6 +121,25 @@ const laminaHover = await page.evaluate(
 );
 conferir("a lamina se move no hover", laminaHover !== laminaRepouso, `parada em ${laminaHover}`);
 
+// --- 5. Cartao: com contorno vira camada, chapado continua uma forma so ---
+const cartoes = await page.evaluate(() => {
+  const ler = (p) => {
+    const el = document.querySelector(`[data-prova="${p}"]`);
+    return {
+      clip: getComputedStyle(el).clipPath,
+      raio: getComputedStyle(el).borderTopLeftRadius,
+      antes: getComputedStyle(el, "::before").content,
+    };
+  };
+  return { card: ler("card"), flat: ler("card-flat") };
+});
+conferir("card recortado", cartoes.card.clip.includes("polygon"), `veio ${cartoes.card.clip}`);
+conferir("card sem raio", cartoes.card.raio === "0px", `veio ${cartoes.card.raio}`);
+conferir("card com contorno tem a camada", cartoes.card.antes !== "none", "sem ::before");
+conferir("card chapado recortado", cartoes.flat.clip.includes("polygon"), `veio ${cartoes.flat.clip}`);
+// Camada externa sem necessidade e desperdicio: chapado e uma div so.
+conferir("card chapado NAO tem camada", cartoes.flat.antes === "none", "criou ::before a toa");
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);

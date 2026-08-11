@@ -30,7 +30,9 @@ function GlassPanel({
     <Comp
       data-slot="glass-panel"
       className={cn(
-        "nexo-glass rounded-md",
+        /* Uma forma so: `.nexo-glass` ja pinta fundo, backdrop-filter e o
+           --glass-edge, que e `inset` e portanto sobrevive ao recorte. */
+        "nexo-glass nx-cut-8",
         variant === "weak" && "nexo-glass--weak",
         ring && "nexo-glass--ring",
         className,
