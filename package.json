@@ -67,6 +67,7 @@
     "test:audit-identity": "node scripts/test-audit-identity.ts",
     "test:nexo:plano-pendente": "node scripts/test-nexo-plano-pendente.ts",
     "test:chanfro": "node scripts/prova-chanfro.mjs",
+    "test:ld-editavel": "node scripts/prova-ld-editavel.mjs",
     "qa:nexo:plano-pendente": "node scripts/shot-plano-pendente.mjs"
   },
   "dependencies": {

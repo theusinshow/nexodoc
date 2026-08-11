@@ -30,6 +30,7 @@ import type {
   NexoSeparatrizProposalParams,
 } from "../types";
 import { BlocoDaLd } from "./BlocoDaLd";
+import { ResultLinks } from "./ResultLinks";
 import { useConversation } from "../state/conversation-store";
 import {
   gerarItem,
@@ -421,18 +422,28 @@ export function PlanoDeGeracao({
    * agora, e `payloadDoItem` é a MESMA função que a geração usa para gravar —
    * duas formas de montar o payload fariam todo artefato nascer pendente.
    */
-  const estados = itens.map((it) => {
+  /*
+   * O resultado salvo de cada item, guardado (e não descartado como antes): é
+   * dele que saem os DOWNLOADS. O ODT já estava no IndexedDB desde sempre — o
+   * gerador da LD produz ODT primeiro e deriva o PDF dele —, mas este card não
+   * oferecia arquivo nenhum, e o único caminho até o editável passava por
+   * montar um volume. Nada aqui gera: só desenha o que já existe.
+   */
+  const salvosDosItens = itens.map((it) => {
     const artifactId =
       (it.kind === "capa"
         ? idsBase.capa
         : it.kind === "ld"
           ? idsBase.ld
           : idsBase.separatriz) + it.sufixo;
-    return estadoDoArtefato(
-      results.find((r) => r.artifactId === artifactId),
-      payloadDoItem({ item: it, selos, tituloDaSeparatriz: titulo }),
-    );
+    return results.find((r) => r.artifactId === artifactId);
   });
+  const estados = itens.map((it, i) =>
+    estadoDoArtefato(
+      salvosDosItens[i],
+      payloadDoItem({ item: it, selos, tituloDaSeparatriz: titulo }),
+    ),
+  );
   const jaGerados = estados.filter((e) => e === "aplicado").length;
   const pendentes = estados.filter((e) => e === "pendente").length;
   const tudoGerado = jaGerados === itens.length;
@@ -754,35 +765,48 @@ export function PlanoDeGeracao({
 
         {/* A lista do que sai. Com tomos, é o que torna visível que "2 tomos"
             significa seis documentos, e não dois. */}
-        <ul className="space-y-0.5">
+        <ul className="space-y-1.5">
           {itens.map((it, i) => {
             /*
              * O check era POSICIONAL (`i < contagem`): com o item 0 velho e o 1
              * em dia, o verde ia para o errado. Agora cada linha diz o seu.
              */
             const estado = estados[i];
+            const salvo = salvosDosItens[i];
             return (
-              <li
-                key={`${it.kind}${it.sufixo}`}
-                className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
-              >
-                {gerando === i ? (
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                ) : estado === "aplicado" ? (
-                  <Check className="h-3 w-3 text-[var(--status-ok)]" aria-hidden />
-                ) : estado === "pendente" ? (
-                  <RefreshCw
-                    className="h-3 w-3 text-[var(--status-warning)]"
-                    aria-hidden
-                  />
-                ) : (
-                  <span className="h-3 w-3" aria-hidden />
-                )}
-                {it.rotulo}
-                {estado === "pendente" && gerando !== i && (
-                  <span className="text-[var(--status-warning)]">
-                    · alteração pendente
-                  </span>
+              <li key={`${it.kind}${it.sufixo}`} className="flex flex-col gap-1.5">
+                <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                  {gerando === i ? (
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  ) : estado === "aplicado" ? (
+                    <Check className="h-3 w-3 text-[var(--status-ok)]" aria-hidden />
+                  ) : estado === "pendente" ? (
+                    <RefreshCw
+                      className="h-3 w-3 text-[var(--status-warning)]"
+                      aria-hidden
+                    />
+                  ) : (
+                    <span className="h-3 w-3" aria-hidden />
+                  )}
+                  {it.rotulo}
+                  {estado === "pendente" && gerando !== i && (
+                    <span className="text-[var(--status-warning)]">
+                      · alteração pendente
+                    </span>
+                  )}
+                </span>
+                {/*
+                  OS ARQUIVOS, ONDE O ENGENHEIRO ESTÁ OLHANDO.
+
+                  Só em "aplicado", e isso é a regra e não um descuido: item
+                  pendente é aquele cujo payload mudou DEPOIS de gerar, e
+                  oferecer o arquivo velho ali desfaria o trabalho de fazer o
+                  card parar de dizer "Gerado" para documento que envelheceu —
+                  a LD errada sairia para a prefeitura com um botão verde ao
+                  lado. Quem quiser o arquivo antigo regera.
+                */}
+                {estado === "aplicado" && salvo && !ocupado && (
+                  <ResultLinks saved={salvo} />
                 )}
               </li>
             );

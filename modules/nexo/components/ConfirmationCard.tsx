@@ -107,7 +107,6 @@ import {
   consequenciaDaMudanca,
   haQuantoTempo,
   mudancasDoArtefato,
-  tamanhoLegivel,
   type MudancaDeParametro,
 } from "../lib/pendencia";
 import { useComposer } from "../state/composer-controller";
@@ -118,6 +117,7 @@ import {
   parametrosDaEntrega,
 } from "../lib/editaveis-consolidados";
 import { metadadosDoVolume, nomeDoVolume } from "../lib/nome-do-volume";
+import { ResultLinks } from "./ResultLinks";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
 const PDF_MIME = "application/pdf";
@@ -251,17 +251,6 @@ export function idsBaseDosArtefatos(selos: SeloForLd[]) {
     ld: ldId(selos),
     separatriz: separatrizId(selos),
   };
-}
-
-/** Mapeia os arquivos salvos p/ o formato do ResultLinks. */
-function toResultFiles(saved: SavedResult) {
-  return saved.files.map((f) => ({
-    label: f.label,
-    url: f.url,
-    name: f.name,
-    primary: f.primary,
-    sizeBytes: f.sizeBytes,
-  }));
 }
 
 export interface NexoTemplateOption {
@@ -2489,56 +2478,5 @@ function SeparatrizConfirmation({
   );
 }
 
-/* ------------------------------------------------------------- Downloads ---- */
-
-/**
- * Os links de download de um artefato já gerado.
- *
- * Recebe o resultado inteiro, e não só a lista de arquivos, de propósito: a
- * marca `bytesAusentes` mora nele, e um parâmetro à parte seria esquecido em um
- * dos quatro lugares que chamam isto — que é exatamente como um aviso
- * importante some.
- */
-function ResultLinks({ summary, saved }: { summary: string; saved: SavedResult }) {
-  const files = toResultFiles(saved);
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
-      <p className="text-sm">{summary}</p>
-      {/*
-        O ARTEFATO EXISTE, OS BYTES NÃO ESTÃO AQUI.
-
-        Acontece com conversa aberta noutra máquina: o registro atravessa a
-        rede, os arquivos não — eles ficam no navegador que os gerou. Antes
-        disto o arquivo simplesmente não aparecia, e um card sem botão de baixar
-        parece defeito. Dizer o que houve e o que fazer custa duas linhas.
-      */}
-      {saved.bytesAusentes && (
-        <p className="text-xs leading-snug text-[var(--status-warning)]">
-          Gerado em outra máquina — os arquivos não estão neste navegador. Gere
-          de novo para baixar.
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {files.map((f) => {
-          /* O peso do arquivo é decisão prática: o engenheiro escolhe o que
-             anexa no e-mail da prefeitura por tamanho, e descobrir 18 MB só
-             depois de baixar é tarde. */
-          const peso = tamanhoLegivel(f.sizeBytes);
-          return (
-            <Button key={f.label} size="sm" variant={f.primary ? "default" : "outline"} asChild>
-              <a href={f.url} download={f.name}>
-                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                {f.label}
-                {peso && (
-                  <span className="ml-1.5 text-[11px] font-normal opacity-70">
-                    {peso}
-                  </span>
-                )}
-              </a>
-            </Button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+/* Downloads: `ResultLinks` mora em ./ResultLinks.tsx — o card do PLANO também
+   precisa dele, e duplicar teria deixado o aviso de bytes ausentes para trás. */
