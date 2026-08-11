@@ -259,8 +259,10 @@ if (nos.length === 0) {
 const lateral = await page.evaluate(() => {
   const raiz = document.querySelector('aside[aria-label="Navegação do Nexo"]') ?? document.querySelector("aside");
   if (!raiz) return null;
+  /* SEM corte em N: a versao anterior media so os 14 primeiros e nunca chegava
+     nos links do rodape -- que estavam redondos e passaram verde. */
   const itens = [...raiz.querySelectorAll("a, button, summary")];
-  return itens.slice(0, 14).map((el) => ({
+  return itens.map((el) => ({
     texto: (el.textContent ?? "").trim().slice(0, 24),
     clip: getComputedStyle(el).clipPath,
     raio: getComputedStyle(el).borderTopLeftRadius,
@@ -288,6 +290,47 @@ if (!lateral) {
     comRaio.length === 0,
     `sobraram: ${comRaio.map((i) => `"${i.texto}" ${i.raio}`).join(", ")}`,
   );
+}
+
+/* --- 10b. Criterio 06: a /nexo INTEIRA, e nao so os alvos que eu lembrei.
+   Varre todo elemento visivel e acusa raio maior que 4px que nao seja circulo
+   nem forma recortada. E o portao que pega o que uma lista de arquivos escrita
+   a mao esquece -- foi assim que o copiloto apareceu. */
+const redondos = await page.evaluate(() => {
+  const fora = [];
+  const todos = document.querySelectorAll("body *");
+  for (const el of todos) {
+    const s = getComputedStyle(el);
+    if (s.display === "none" || s.visibility === "hidden") continue;
+    const r = parseFloat(s.borderTopLeftRadius) || 0;
+    if (r <= 4) continue;
+    if (s.clipPath && s.clipPath !== "none") continue;
+    // Formas redondas sao excecao declarada (orbe, avatar, indicador).
+    const caixa = el.getBoundingClientRect();
+    const ehCirculo =
+      s.borderTopLeftRadius.includes("%") ||
+      r >= Math.min(caixa.width, caixa.height) / 2 - 0.5;
+    if (ehCirculo) continue;
+    // Tracejado nao sobrevive ao recorte: 4px e a excecao, ja filtrada acima.
+    if (s.borderTopStyle === "dashed") continue;
+    fora.push(`${el.tagName.toLowerCase()}.${(el.className || "").toString().split(" ")[0]} ${s.borderTopLeftRadius}`);
+  }
+  return {
+    fora: [...new Set(fora)],
+    total: todos.length,
+    temConversa: Boolean(document.querySelector('[data-slot="message"], .nexodoc-message-in')),
+  };
+});
+conferir(
+  `criterio 06: nenhum raio > 4px sobrou na /nexo (${redondos.total} elementos varridos)`,
+  redondos.fora.length === 0,
+  `${redondos.fora.length}: ${redondos.fora.slice(0, 8).join(" | ")}`,
+);
+/* A varredura so ve o que esta RENDERIZADO. Numa /nexo sem conversa nao existe
+   bolha de mensagem, cartao de anexo nem botao de copiar -- dizer isso alto
+   evita que "passou" seja lido como "cobriu tudo". */
+if (!redondos.temConversa) {
+  console.log("AVISO  /nexo sem conversa: bolhas, anexos e o botao de copiar nao foram varridos");
 }
 
 // --- 11. Criterio 05: com prefers-reduced-motion, nada desliza ---

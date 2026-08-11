@@ -356,7 +356,7 @@ export function NexoSidebar({
       {sincronizacao?.estado === "falhou" && (
         <div
           role="status"
-          className="flex items-start gap-2 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 px-2.5 py-2"
+          className="nx-cut-6 flex items-start gap-2 border-0 bg-[var(--status-warning)]/5 px-2.5 py-2"
         >
           <CloudOff
             className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--status-warning)]"
@@ -378,7 +378,7 @@ export function NexoSidebar({
       <div className="flex flex-col gap-0.5 border-t border-border/60 pt-2">
         <Link
           href="/projetos"
-          className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="nx-edge-5 flex items-center gap-2 px-2.5 py-2 text-sm text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
         >
           <FolderKanban className="h-4 w-4 shrink-0" aria-hidden />
           Projetos
@@ -386,7 +386,7 @@ export function NexoSidebar({
         {isAdmin && (
           <Link
             href="/admin"
-            className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nx-edge-5 flex items-center gap-2 px-2.5 py-2 text-sm text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
           >
             <Gauge className="h-4 w-4 shrink-0" aria-hidden />
             Painel admin
@@ -394,7 +394,7 @@ export function NexoSidebar({
         )}
         <button
           type="button"
-          className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="nx-edge-5 flex items-center gap-2 px-2.5 py-2 text-sm text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
         >
           <User className="h-4 w-4 shrink-0" aria-hidden />
           Conta
@@ -403,7 +403,7 @@ export function NexoSidebar({
           <button
             type="button"
             onClick={() => void onVerTour()}
-            className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nx-edge-5 flex items-center gap-2 px-2.5 py-2 text-sm text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
           >
             <Compass className="h-4 w-4 shrink-0" aria-hidden />
             Como funciona
@@ -413,7 +413,7 @@ export function NexoSidebar({
             desabilitado — a ferramenta funciona, só não é o caminho novo. */}
         <Link
           href="/ferramentas"
-          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-[var(--legacy)]/80 transition-colors hover:bg-accent hover:text-[var(--legacy)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="nx-edge-5 flex items-center gap-2 px-2.5 py-1.5 text-xs text-[var(--legacy)]/80 transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-[var(--legacy)] hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
         >
           <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Ferramentas antigas

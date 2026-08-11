@@ -58,7 +58,7 @@ export function NexoComposer({
             type="button"
             onClick={onAttach}
             aria-label="Anexar PDFs"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nx-edge-6 flex h-9 w-9 shrink-0 items-center justify-center text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
           >
             <Paperclip className="h-4 w-4" aria-hidden />
           </button>
@@ -101,7 +101,7 @@ export function NexoComposer({
             type="button"
             onClick={onStop}
             aria-label="Parar"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nx-edge-6 flex h-9 w-9 shrink-0 items-center justify-center text-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]"
           >
             <Square className="h-4 w-4 fill-current" aria-hidden />
           </button>
@@ -117,10 +117,10 @@ export function NexoComposer({
             disabled={busy || !value.trim() || Boolean(motivoDesabilitado)}
             aria-label="Enviar"
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:opacity-40 disabled:hover:bg-transparent",
+              "nx-edge-6 flex h-9 w-9 shrink-0 items-center justify-center transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] disabled:opacity-40 disabled:hover:[--nx-fill:transparent]",
               value.trim() && !busy && !motivoDesabilitado
-                ? "text-primary hover:bg-accent"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                ? "text-primary hover:[--nx-fill:var(--accent)]"
+                : "text-muted-foreground hover:text-foreground hover:[--nx-fill:var(--accent)]",
             )}
           >
             <Send className="h-4 w-4" aria-hidden />

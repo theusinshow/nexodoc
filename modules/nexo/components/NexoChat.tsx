@@ -435,7 +435,7 @@ export function NexoChat({
                 Nexo
               </span>
               <div
-                className="nexo-glass nexo-glass--weak flex items-center gap-1.5 rounded-2xl rounded-tl-md px-4 py-4"
+                className="nexo-glass nexo-glass--weak nx-cut-8 flex items-center gap-1.5 px-4 py-4"
                 role="status"
                 aria-label="Nexo está pensando"
               >
@@ -462,7 +462,9 @@ export function NexoChat({
               el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
               setAtBottom(true);
             }}
-            className="sticky bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/50 bg-[var(--nexodoc-recessed)]/70 py-1.5 pl-1.5 pr-3 text-xs text-muted-foreground/70 opacity-70 backdrop-blur transition-all hover:border-border hover:bg-[var(--nexodoc-recessed)] hover:text-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            /* Era pilula. O anel interno de 5px continua redondo -- ele e um
+               indicador, nao um controle. */
+            className="nx-edge-5 sticky bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 py-1.5 pl-1.5 pr-3 text-xs text-muted-foreground/70 opacity-70 backdrop-blur transition-all focus-visible:outline-none [--nx-edge:var(--border)] [--nx-fill:var(--nexodoc-recessed)] hover:text-foreground hover:opacity-100"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current">
               <ArrowDown className="h-3 w-3" aria-hidden />
@@ -476,13 +478,15 @@ export function NexoChat({
         <div className="mx-auto w-full max-w-[46rem] px-4">
           <div
             role="alert"
-            className="mb-2 flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive"
+            /* Sem camada, pela mesma razao do badge: borda E fundo translucidos
+               nao compoem em duas formas. */
+            className="nx-cut-6 mb-2 flex items-center justify-between gap-3 border-0 bg-destructive/8 px-3 py-2 text-sm text-destructive"
           >
             <span>{error}</span>
             <button
               type="button"
               onClick={retry}
-              className="shrink-0 rounded-sm px-2 py-1 text-xs font-medium underline underline-offset-2 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              className="nx-edge-5 shrink-0 px-2 py-1 text-xs font-medium underline underline-offset-2 focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)]"
             >
               Tentar de novo
             </button>
@@ -590,7 +594,7 @@ function Anexos({
           type="button"
           onClick={() => setExpandido((v) => !v)}
           aria-expanded={expandido}
-          className="rounded-lg border border-border bg-[var(--nexodoc-recessed)] px-2.5 py-2 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="nx-edge-6 px-2.5 py-2 font-mono text-[11px] text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:var(--border)] [--nx-fill:var(--nexodoc-recessed)] hover:text-foreground"
         >
           {expandido ? "mostrar menos" : `+${excedente} arquivo${excedente > 1 ? "s" : ""}`}
         </button>
@@ -655,16 +659,16 @@ function AttachmentChip({
 }) {
   const viraMemorial = att.papel === "prancha";
   return (
-    <div className="nexodoc-enter flex items-center gap-2 rounded-lg border border-border bg-[var(--nexodoc-recessed)] py-1 pl-1 pr-1.5">
+    <div className="nexodoc-enter nx-edge-6 flex items-center gap-2 py-1 pl-1 pr-1.5 [--nx-fill:var(--nexodoc-recessed)]">
       {att.kind === "image" && att.url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={att.url}
           alt={att.name}
-          className="h-8 w-8 rounded-md object-cover"
+          className="nx-cut-5 h-8 w-8 object-cover"
         />
       ) : (
-        <span className="flex h-8 w-7 items-center justify-center rounded-md border border-border bg-card">
+        <span className="nx-edge-5 flex h-8 w-7 items-center justify-center">
           <FileText className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         </span>
       )}
@@ -738,7 +742,7 @@ function AttachmentChip({
           type="button"
           onClick={() => onRemove(att.id)}
           aria-label={`Remover ${att.name}`}
-          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="nx-edge-4 p-0.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-destructive focus-visible:[--nx-fill:var(--accent)]"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -794,8 +798,8 @@ function MessageBubble({
       <div
         className={
           isUser
-            ? "whitespace-pre-wrap rounded-md border border-border bg-secondary px-4 py-2.5 text-sm leading-[1.55] text-foreground"
-            : "nexo-glass nexo-glass--weak whitespace-pre-wrap rounded-md px-4 py-3 text-sm leading-[1.55] text-foreground"
+            ? "nx-edge-8 whitespace-pre-wrap px-4 py-2.5 text-sm leading-[1.55] text-foreground [--nx-fill:var(--secondary)]"
+            : "nexo-glass nexo-glass--weak nx-cut-8 whitespace-pre-wrap px-4 py-3 text-sm leading-[1.55] text-foreground"
         }
       >
         <span className="sr-only">{isUser ? "Você" : "Nexo"}: </span>
@@ -808,7 +812,7 @@ function MessageBubble({
             void navigator.clipboard.writeText(content).then(() => setCopied(true));
           }}
           aria-label="Copiar resposta"
-          className="absolute -bottom-2 right-1 rounded-md border border-border bg-card px-1.5 py-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 group-hover/msg:opacity-100"
+          className="nx-edge-5 absolute -bottom-2 right-1 px-1.5 py-1 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none hover:text-foreground group-hover/msg:opacity-100"
         >
           {copied ? (
             <Check className="h-3 w-3" aria-hidden />

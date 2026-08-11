@@ -35,7 +35,10 @@ export function ZonaDeSolta({
   return (
     <div
       className={
-        "flex h-full flex-col items-center justify-center gap-4 rounded-md " +
+        /* Raio de 4px, nao chanfro: tracejado nao sobrevive ao recorte (a borda
+           sumiria nas duas diagonais). Mesmo tratamento que a spec da aos campos
+           tracejados do carimbo e ao estado vazio da lateral. */
+        "flex h-full flex-col items-center justify-center gap-4 rounded-[4px] " +
         "border border-dashed border-border px-6 text-center " +
         "transition-colors duration-[var(--duration-fast)] " +
         (arrastando ? "opacity-0" : "hover:border-[var(--ring)]/40")
