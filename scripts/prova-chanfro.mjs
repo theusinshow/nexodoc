@@ -202,6 +202,36 @@ conferir("item do menu com corte 5", menu.clipItem.includes("5px"), `veio ${menu
 conferir("o painel largou o box-shadow", menu.sombraPainel === "none", `veio ${menu.sombraPainel}`);
 conferir("a elevacao veio do pai por drop-shadow", menu.filtroDoPai.includes("drop-shadow"), `veio ${menu.filtroDoPai}`);
 
+// --- 9. Os nos do palco ---
+await page.goto(`${BASE}/nexo`, { waitUntil: "domcontentloaded" });
+if (page.url().includes("/login")) {
+  await page.getByRole("button", { name: /Entrar como dev/i }).click();
+  await page.waitForURL(/\/nexo/, { timeout: 30_000 }).catch(() => {});
+}
+await page.waitForLoadState("networkidle").catch(() => {});
+
+const nos = await page.evaluate(() => {
+  const alvos = [...document.querySelectorAll(".react-flow__node")];
+  return alvos.slice(0, 6).map((n) => {
+    const forma = n.firstElementChild ?? n;
+    return { clip: getComputedStyle(forma).clipPath, raio: getComputedStyle(forma).borderTopLeftRadius };
+  });
+});
+if (nos.length === 0) {
+  console.log("AVISO  nenhum no no palco -- semeie o estado antes de medir (ver scripts/shot-nexo-blocos.mjs)");
+} else {
+  conferir(
+    `os ${nos.length} nos medidos estao recortados`,
+    nos.every((n) => n.clip.includes("polygon")),
+    `sem recorte: ${nos.filter((n) => !n.clip.includes("polygon")).length}`,
+  );
+  conferir(
+    "nenhum no guardou raio",
+    nos.every((n) => n.raio === "0px"),
+    `com raio: ${nos.filter((n) => n.raio !== "0px").map((n) => n.raio).join(", ")}`,
+  );
+}
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);

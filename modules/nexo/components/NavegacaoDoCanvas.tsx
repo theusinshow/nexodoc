@@ -119,7 +119,11 @@ export function NavegacaoDoCanvas({
   }
 
   return (
-    <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-[var(--nexodoc-panel)] px-2 py-1.5 shadow-[var(--shadow-panel)]">
+    /* EXCECAO da spec: corte 4 no CONJUNTO, nao em cada botao. O pai carrega a
+       elevacao porque box-shadow externo morre no recorte, e `filter` no proprio
+       elemento seria cortado junto (filter e aplicado antes de clip-path). */
+    <div className="nx-elev absolute left-1/2 top-3 z-10 -translate-x-1/2">
+      <div className="nx-edge-4 flex items-center gap-2 px-2 py-1.5 [--nx-fill:var(--nexodoc-panel)]">
       {podeNavegar && (
         <>
           <span className="pl-0.5 font-mono text-[10px] uppercase tracking-[0.09em] text-muted-foreground">
@@ -236,6 +240,7 @@ export function NavegacaoDoCanvas({
           </TooltipContent>
         </Tooltip>
       )}
+      </div>
     </div>
   );
 }

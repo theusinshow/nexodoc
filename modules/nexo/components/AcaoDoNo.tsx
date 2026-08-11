@@ -45,7 +45,7 @@ export function AcaoDoNo({
           className={cn(
             // `nodrag nopan`: sem isso o React Flow sequestra o clique e o botão
             // vira alça de arrasto do nó.
-            "nodrag nopan inline-flex min-h-6 items-center gap-1 rounded-sm px-1 font-mono text-[10px]",
+            "nodrag nopan nx-cut-6 inline-flex min-h-6 items-center gap-1 px-1 font-mono text-[10px]",
             "transition-colors duration-150 ease-out outline-none",
             "focus-visible:ring-[3px] focus-visible:ring-ring/25",
             "disabled:cursor-not-allowed disabled:opacity-40",

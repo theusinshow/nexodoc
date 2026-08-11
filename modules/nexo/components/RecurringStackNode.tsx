@@ -54,7 +54,7 @@ export function RecurringStackNode({ data }: NodeProps<Node<RecurringStackNodeDa
         <div
           key={i}
           aria-hidden
-          className="absolute inset-0 rounded-md border border-border bg-card"
+          className="absolute inset-0 nx-edge-6"
           style={{
             animation: `nexodoc-pilha-ciclo ${DURACAO_S}s linear infinite`,
             animationDelay: `-${((i + 1) * DURACAO_S) / CAMADAS}s`,
@@ -67,7 +67,7 @@ export function RecurringStackNode({ data }: NodeProps<Node<RecurringStackNodeDa
         // Marca a camada da frente: o portão precisa medir o ciclo nela, e
         // contar filhos pegava o conector que o React Flow injeta no nó.
         data-pilha="topo"
-        className="absolute inset-0 overflow-hidden rounded-md border border-border bg-card"
+        className="absolute inset-0 overflow-hidden nx-edge-6"
         style={{
           animation: `nexodoc-pilha-ciclo ${DURACAO_S}s linear infinite`,
           animationPlayState: aberta ? "paused" : "running",

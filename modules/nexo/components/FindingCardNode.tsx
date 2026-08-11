@@ -36,7 +36,7 @@ export function FindingCardNode({ data }: NodeProps<Node<FindingCardNodeData>>) 
 
   return (
     <div
-      className="overflow-hidden rounded-md border border-border bg-card transition-opacity"
+      className="nx-edge-6 overflow-hidden transition-opacity"
       style={{ width: LARGURA_PAGINA, height: ALTURA_CARTAO, opacity: aceso ? 1 : 0.3 }}
     >
       <div className="flex h-full flex-col gap-1 px-3 py-2">

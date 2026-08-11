@@ -52,8 +52,8 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
     <div
       className={
         selected
-          ? "overflow-hidden rounded-md border border-[var(--ring)] bg-card"
-          : "overflow-hidden rounded-md border border-border bg-card"
+          ? "nx-edge-6 overflow-hidden [--nx-edge:var(--ring)]"
+          : "nx-edge-6 overflow-hidden [--nx-edge:var(--border)]"
       }
       style={{ width: LARGURA_PAGINA }}
     >

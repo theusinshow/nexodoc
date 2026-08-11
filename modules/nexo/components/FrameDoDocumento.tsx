@@ -88,7 +88,7 @@ export function FrameDoDocumento({
   const jaDesenhados = new Set<string>();
 
   return (
-    <div className="rounded-md border border-border bg-[var(--nexodoc-recessed)] p-4">
+    <div className="nx-edge-8 p-4 [--nx-fill:var(--nexodoc-recessed)]">
       {layout.map((paragrafo) => {
         if (paragrafo.partes.length === 0) return null;
 
@@ -123,7 +123,10 @@ export function FrameDoDocumento({
                   <span
                     key={chave}
                     role="alert"
-                    className="rounded-sm border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] text-destructive"
+                    /* Sem camada de contorno, pela mesma razao do badge: borda
+                       E fundo sao translucidos, e numa camada o miolo comporia
+                       sobre a cor da borda em vez de sobre a pagina. */
+                    className="nx-cut-5 border-0 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] text-destructive"
                   >
                     {parte.bruto} — marcador quebrado, conserte no modelo
                   </span>
@@ -153,7 +156,10 @@ export function FrameDoDocumento({
 
               const linhas = campo?.linhas ?? ocorrencias.get(parte.nome) ?? 1;
               const comum =
-                "min-w-0 flex-1 rounded-sm border border-dashed border-border bg-transparent px-1.5 py-1 outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-solid focus:border-[var(--ring)] focus:bg-[var(--nexodoc-panel)]";
+                /* EXCECAO da spec do chanfro: campo tracejado do carimbo fica com raio de
+       4px e borda tracejada. Tracejado nao sobrevive ao recorte, e aqui o
+       tracejado e PAPEL, nao interface. O painel que os contem tem chanfro. */
+    "min-w-0 flex-1 rounded-[4px] border border-dashed border-border bg-transparent px-1.5 py-1 outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-solid focus:border-[var(--ring)] focus:bg-[var(--nexodoc-panel)]";
               const forma = `${classeDeCorpo(paragrafo.corpo)} ${
                 ALINHAMENTO[paragrafo.alinhamento]
               }`;

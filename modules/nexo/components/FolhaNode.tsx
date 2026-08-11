@@ -98,11 +98,13 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
    * ele veio de uma pessoa em vez do carimbo. Era âmbar, e âmbar aqui dizia
    * "atenção, tem algo errado com esta folha", que é justamente o contrário.
    */
+  /* A cor do contorno vira --nx-edge: com chanfro, a borda e o FUNDO do
+     elemento e o miolo e o ::before -- `border` seria cortada nas diagonais. */
   const borda = selected
-    ? "border-[var(--ring)]"
+    ? "[--nx-edge:var(--ring)]"
     : data.editado
-      ? "border-[var(--nexodoc-tertiary-strong)]"
-      : "border-border";
+      ? "[--nx-edge:var(--nexodoc-tertiary-strong)]"
+      : "[--nx-edge:var(--border)]";
 
   const cor = corDaDisciplina(data.disciplina);
   const sigla = siglaDaDisciplina(data.disciplina);
@@ -116,7 +118,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const semCodigo = data.avulsa === true && !data.arquivo?.trim();
 
   const corpo = (
-    <div className={`w-[120px] overflow-hidden rounded-sm border ${borda} bg-card`}>
+    <div className={`nx-edge-6 w-[120px] overflow-hidden ${borda}`}>
       {/*
        * O fio de 2px no topo é a disciplina — a ÚNICA cor do nó, e secundária à
        * sigla: quem não distingue matiz continua lendo "ARQ". Disciplina fora
@@ -233,14 +235,14 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
               setConfirmando(false);
               data.onRemover(data.id);
             }}
-            className="nodrag nopan rounded-sm font-medium text-destructive underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nodrag nopan font-medium text-destructive underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
             Sim
           </button>
           <button
             type="button"
             onClick={() => setConfirmando(false)}
-            className="nodrag nopan rounded-sm text-muted-foreground underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="nodrag nopan text-muted-foreground underline underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
             Não
           </button>
@@ -279,14 +281,18 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
               Nº da prancha
             </span>
-            <input
-              value={numero}
-              onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder="—"
-              autoFocus
-              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px] tabular-nums"
-            />
+            {/* Wrapper pela mesma razao do primitivo Input: campo nativo nao
+                renderiza ::before, entao a camada de contorno mora fora. */}
+            <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
+              <input
+                value={numero}
+                onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                placeholder="—"
+                autoFocus
+                className="nodrag nopan w-full border-0 bg-transparent p-1.5 font-mono text-[11px] tabular-nums outline-none"
+              />
+            </div>
           </label>
           {/*
             O TOTAL é o "/24" do carimbo — e é ele que diz quantas folhas
@@ -300,25 +306,29 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
               de (total)
             </span>
-            <input
-              value={total}
-              onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder="—"
-              className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px] tabular-nums"
-            />
+            <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
+              <input
+                value={total}
+                onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                placeholder="—"
+                className="nodrag nopan w-full border-0 bg-transparent p-1.5 font-mono text-[11px] tabular-nums outline-none"
+              />
+            </div>
           </label>
         </div>
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
             Código do arquivo
           </span>
-          <input
-            value={arquivo}
-            onChange={(e) => setArquivo(e.target.value)}
-            placeholder="040_26_arq_005_a"
-            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 font-mono text-[11px]"
-          />
+          <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
+            <input
+              value={arquivo}
+              onChange={(e) => setArquivo(e.target.value)}
+              placeholder="040_26_arq_005_a"
+              className="nodrag nopan w-full border-0 bg-transparent p-1.5 font-mono text-[11px] outline-none"
+            />
+          </div>
         </label>
         {/*
           A DISCIPLINA decide em que bloco do volume a folha entra — e, com ela,
@@ -330,13 +340,15 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
             Disciplina
           </span>
-          <input
-            value={disciplina}
-            onChange={(e) => setDisciplina(e.target.value)}
-            list="nexo-disciplinas"
-            placeholder="Drenagem"
-            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 text-[11px]"
-          />
+          <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
+            <input
+              value={disciplina}
+              onChange={(e) => setDisciplina(e.target.value)}
+              list="nexo-disciplinas"
+              placeholder="Drenagem"
+              className="nodrag nopan w-full border-0 bg-transparent p-1.5 text-[11px] outline-none"
+            />
+          </div>
           <datalist id="nexo-disciplinas">
             {DISCIPLINAS_SUGERIDAS.map((d) => (
               <option key={d} value={d} />
@@ -347,12 +359,14 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           <span className="font-mono text-[9px] uppercase tracking-[0.07em] text-muted-foreground">
             Título
           </span>
-          <textarea
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            rows={3}
-            className="nodrag nopan w-full rounded-sm border border-border bg-background p-1.5 text-[11px]"
-          />
+          <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              rows={3}
+              className="nodrag nopan w-full resize-none border-0 bg-transparent p-1.5 text-[11px] outline-none"
+            />
+          </div>
         </label>
         <p className="text-[10px] leading-4 text-muted-foreground">
           Campo vazio devolve o que o selo dizia. O nº posto aqui vence o carimbo

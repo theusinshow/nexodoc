@@ -300,6 +300,7 @@ textarea {
   border-radius: 4px;
 }
 
+.nx-edge-4 :is(input, select, textarea),
 .nx-edge-5 :is(input, select, textarea),
 .nx-edge-6 :is(input, select, textarea),
 .nx-edge-7 :is(input, select, textarea),
@@ -1347,6 +1348,7 @@ button:hover .nexo-logo .nexo-logo__no {
 .nx-cut-8 { clip-path: var(--cut-8); }
 .nx-cut-12 { clip-path: var(--cut-12); }
 
+.nx-edge-4,
 .nx-edge-5,
 .nx-edge-6,
 .nx-edge-7,
@@ -1356,6 +1358,7 @@ button:hover .nexo-logo .nexo-logo__no {
   background: var(--nx-edge, var(--border));
 }
 
+.nx-edge-4::before,
 .nx-edge-5::before,
 .nx-edge-6::before,
 .nx-edge-7::before,
@@ -1370,6 +1373,7 @@ button:hover .nexo-logo .nexo-logo__no {
     background-color var(--duration-fast) var(--ease-feedback);
 }
 
+.nx-edge-4, .nx-edge-4::before { clip-path: var(--cut-4); }
 .nx-edge-5, .nx-edge-5::before { clip-path: var(--cut-5); }
 .nx-edge-6, .nx-edge-6::before { clip-path: var(--cut-6); }
 .nx-edge-7, .nx-edge-7::before { clip-path: var(--cut-7); }
@@ -1379,17 +1383,17 @@ button:hover .nexo-logo .nexo-logo__no {
    pelo clip-path -- um anel por fora exigiria inflar a caixa ou envolver todo
    focalizavel. Aqui a moldura que ja existe vira teal e o miolo recua 2px.
    `:has(:focus-visible)` cobre o wrapper de campo, onde o foco esta no filho. */
-:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible)) {
+:is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ring);
 }
-:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible))::before {
+:is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8):is(:focus-visible, :has(:focus-visible))::before {
   inset: 3px;
 }
 
 /* Campo DENTRO de wrapper chanfrado: quem mostra o foco e o wrapper, entao o
    ring global do @layer base (que mira `input`, e a classe esta no wrapper, nao
    nele) tem que se calar aqui -- senao aparece um retangulo por cima do chanfro. */
-:is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8) :is(input, select, textarea):focus-visible {
+:is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8) :is(input, select, textarea):focus-visible {
   box-shadow: none;
 }
 
@@ -1432,6 +1436,13 @@ button:hover .nexo-logo .nexo-logo__no {
     var(--nx-fill, var(--card));
 }
 
+/* EXCECAO da spec: o bloco de zoom do React Flow recebe o corte no CONJUNTO,
+   nao em cada botao. E componente de terceiro sem controle de markup, entao a
+   forma vem daqui e nao de className. */
+.react-flow__controls {
+  clip-path: var(--cut-4);
+}
+
 /* ELEVACAO DE SOBREPOSICAO RECORTADA. `box-shadow` externo e cortado pelo
    clip-path, e `filter` no proprio elemento tambem (filter e aplicado ANTES do
    recorte). A sombra tem que vir de um PAI nao recortado -- ai o drop-shadow
@@ -1447,7 +1458,7 @@ button:hover .nexo-logo .nexo-logo__no {
     display: none;
     animation: none;
   }
-  :is(.nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8)::before {
+  :is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8)::before {
     transition: none;
   }
 }
