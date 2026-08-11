@@ -91,6 +91,9 @@ data/nexodoc-learnings.json
 # -- o script as refaz a cada investigacao -- e sem esta regra reapareciam em
 # todo `git status`, prontas para entrar de carona em commit alheio.
 /prova-css-rodada-*.png
+# Capturas dos portoes de UI: prova de uma rodada, nao artefato do projeto.
+# Regravadas a cada execucao e pesadas -- versiona-las so engorda o historico.
+/docs/provas/
 
 # Estado de execucao da ferramenta de critica: PID, porta e um TOKEN, reescritos
 # a cada sessao. Nao e codigo nem configuracao -- e ruido que aparecia em todo

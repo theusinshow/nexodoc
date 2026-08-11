@@ -66,10 +66,13 @@ import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
 export function NexoWorkspace({
   isAdmin = false,
   nome,
+  email,
 }: {
   isAdmin?: boolean;
   /** Nome de quem está logado (da sessão) — a saudação da entrada usa o primeiro. */
   nome?: string | null;
+  /** E-mail da sessão — o bloco da conta, no rodapé da barra lateral. */
+  email?: string | null;
 }) {
   // Providers: conversa (durável) > consumo de IA (lê o conversationId da
   // conversa) > artefatos (canvas) > composer. UMA instância de consumo,
@@ -84,7 +87,7 @@ export function NexoWorkspace({
           <ComposerControllerProvider>
             {/* A auditoria em curso é do PALCO, não do cartão que a disparou. */}
             <AuditoriaStoreProvider>
-              <NexoWorkspaceInner isAdmin={isAdmin} nome={nome} />
+              <NexoWorkspaceInner isAdmin={isAdmin} nome={nome} email={email} />
             </AuditoriaStoreProvider>
           </ComposerControllerProvider>
         </ArtifactStoreProvider>
@@ -96,9 +99,11 @@ export function NexoWorkspace({
 function NexoWorkspaceInner({
   isAdmin,
   nome,
+  email,
 }: {
   isAdmin: boolean;
   nome?: string | null;
+  email?: string | null;
 }) {
   const auditandoAgora = Boolean(useAuditoria().emCurso);
   const { online } = useConexao();
@@ -1596,6 +1601,10 @@ function NexoWorkspaceInner({
             onDelete={conv.removeConversation}
             isAdmin={isAdmin}
             onVerTour={iniciarTour}
+            /* O bloco da conta, no rodapé: nome e e-mail vêm da SESSÃO, pelo
+               servidor. Sem sessão o bloco não renderiza. */
+            nome={nome}
+            email={email}
             sincronizacao={conv.sincronizacao}
             /*
              * A marca da barra lateral respira enquanto o agente trabalha. Ela

@@ -179,6 +179,26 @@ test("a remota mais nova vence, e deixa de ser 'só no servidor'", () => {
   assert.equal(out[0].soNoServidor, false);
 });
 
+test("o tipo do disco sobrevive quando a remota vence sem tipo", () => {
+  // A listagem do servidor le so as colunas de fora, e `tipo` nao e uma delas.
+  // Sem a guarda, toda auditoria editada noutra maquina voltaria para a secao
+  // de montagem na proxima sincronizacao.
+  const out = fundirListas(
+    [resumo({ id: "a", updatedAt: 10, tipo: "auditoria" })],
+    [resumo({ id: "a", updatedAt: 20 })],
+  );
+  assert.equal(out[0].tipo, "auditoria");
+  assert.equal(out[0].soNoServidor, false);
+});
+
+test("o tipo que a remota traz vence o do disco", () => {
+  const out = fundirListas(
+    [resumo({ id: "a", updatedAt: 10, tipo: "volume" })],
+    [resumo({ id: "a", updatedAt: 20, tipo: "auditoria" })],
+  );
+  assert.equal(out[0].tipo, "auditoria");
+});
+
 test("a local mais nova vence", () => {
   const out = fundirListas(
     [resumo({ id: "a", title: "novo", updatedAt: 30 })],

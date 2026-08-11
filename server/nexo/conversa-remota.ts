@@ -17,6 +17,15 @@ export interface ResumoDaConversa {
   createdAt: number;
   updatedAt: number;
   folderKey?: string;
+  /**
+   * A seção da sidebar: montagem de volume ou auditoria de memorial.
+   *
+   * A lista do SERVIDOR não traz este campo — ele vive dentro do JSON da
+   * conversa, e a listagem lê só as colunas de fora. Por isso `fundirListas`
+   * preserva o que o disco local já sabia em vez de deixar a conversa saltar de
+   * seção sozinha depois de uma sincronização.
+   */
+  tipo?: "volume" | "auditoria";
   temAuditoriaPendente?: boolean;
   /** Verdadeiro quando o registro veio do servidor e não existe neste disco. */
   soNoServidor?: boolean;
@@ -33,6 +42,7 @@ export interface RegistroDaConversa {
   createdAt: number;
   updatedAt: number;
   folderKey?: string;
+  tipo?: "volume" | "auditoria";
   auditoriaPendente?: unknown;
   [campo: string]: unknown;
 }
@@ -106,6 +116,7 @@ export function resumoDoRegistro(r: RegistroDaConversa): ResumoDaConversa {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     ...(r.folderKey ? { folderKey: r.folderKey } : {}),
+    ...(r.tipo ? { tipo: r.tipo } : {}),
     ...(r.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
   };
 }
@@ -143,7 +154,19 @@ export function fundirListas(
     }
     // Empate resolve para o local: é o que a pessoa tem na frente.
     if (r.updatedAt > local.updatedAt) {
-      porId.set(r.id, { ...r, soNoServidor: false });
+      /*
+       * O `tipo` do local sobrevive quando o remoto não tem nenhum.
+       *
+       * A listagem do servidor devolve só as colunas de fora, e `tipo` não é
+       * uma delas — sem esta linha, toda conversa editada noutra máquina
+       * voltaria para "Montagem de volumes" na próxima sincronização, e uma
+       * auditoria saltaria de seção sem ninguém ter mexido nela.
+       */
+      porId.set(r.id, {
+        ...r,
+        ...(r.tipo ? {} : local.tipo ? { tipo: local.tipo } : {}),
+        soNoServidor: false,
+      });
     }
   }
 

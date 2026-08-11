@@ -20,6 +20,20 @@ const DB_VERSION = 1;
 const STORE_CONVERSATIONS = "conversations";
 const STORE_BLOBS = "result_blobs";
 
+/**
+ * QUAL DOS DOIS TRABALHOS a conversa é.
+ *
+ * A lista da sidebar misturava os dois: uma conversa que montou um volume e uma
+ * que auditou um memorial eram a mesma linha cinza. Sem este campo não há como
+ * separá-las, e separá-las é o ponto — quem passa a manhã auditando não quer
+ * caçar a auditoria de ontem no meio de trinta montagens.
+ *
+ * DERIVADO, nunca escolhido: ver `derivarTipoDeTrabalho` em
+ * [[tipo-de-trabalho.ts]]. O campo é reavaliado a cada gravação, então a
+ * conversa se corrige sozinha assim que produzir algo.
+ */
+export type TipoDeTrabalho = "volume" | "auditoria";
+
 /** Metadados de um arquivo gerado (o Blob mora no store `result_blobs`). */
 export interface StoredFileMeta {
   label: string;
@@ -61,6 +75,14 @@ export interface StoredConversation {
   updatedAt: number;
   /** Chave da pasta = código da obra (dos selos). Agrupa na sidebar. */
   folderKey?: string;
+  /**
+   * Montagem de volume ou auditoria de memorial — a SEÇÃO da sidebar.
+   *
+   * Opcional, como `ajustes`: conversas gravadas antes deste campo não têm, e
+   * ausente cai em "volume" na leitura. Não há migração em massa de propósito —
+   * o registro é corrigido na próxima vez que a conversa for aberta e gravada.
+   */
+  tipo?: TipoDeTrabalho;
   messages: NexoChatMessage[];
   seloResults: SeloResult[];
   /**
@@ -171,6 +193,14 @@ export interface ConversationSummary {
   createdAt: number;
   folderKey?: string;
   /**
+   * A seção da sidebar. Entra no resumo porque a lista se desenha só com ele —
+   * abrir cada conversa para descobrir de que tipo ela é derrotaria o propósito
+   * do resumo leve.
+   *
+   * Ausente = "volume" na leitura (registro antigo). Ver [[TipoDeTrabalho]].
+   */
+  tipo?: TipoDeTrabalho;
+  /**
    * Tem auditoria disparada e ainda sem resultado.
    *
    * Entra no resumo (e não só no registro completo) porque é lido ao ABRIR a
@@ -248,6 +278,7 @@ export async function listConversations(): Promise<ConversationSummary[]> {
       updatedAt: c.updatedAt,
       createdAt: c.createdAt,
       folderKey: c.folderKey,
+      ...(c.tipo ? { tipo: c.tipo } : {}),
       ...(c.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
     }))
     .sort((a, b) => b.updatedAt - a.updatedAt);

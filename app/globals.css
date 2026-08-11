@@ -119,7 +119,12 @@
   --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
   /* Larguras das colunas do shell do Nexo. */
   --nexo-copilot-w: 520px;
-  --nexo-sidebar-w: 240px;
+  /* 240px era a largura em que a lista ficou ilegível: o título da conversa
+     cabia a 12px e a hora a 11px, e a coluna inteira virou letra miúda. Subir a
+     escala do texto exige subir a coluna junto, senão o título trunca em cinco
+     caracteres. Se 300px apertar o palco em 1366, o corte certo é AQUI — nunca
+     o tamanho do texto. */
+  --nexo-sidebar-w: 300px;
 
   /* ---------------------------------------------------------------------
      O CHANFRO (docs/superpowers/specs/2026-08-11-chanfro-como-sistema-design.md)
@@ -162,6 +167,13 @@
   --legacy: #9d94ab;
   --legacy-bg: rgb(157 148 171 / 0.12);
   --legacy-border: rgb(157 148 171 / 0.28);
+
+  /* TIPO DE TRABALHO — a barra de 2px que marca o item da sidebar (montagem de
+     volume x auditoria de memorial). Cinza e teal-acinzentado, nunca o teal
+     vivo: dentro da lista o tipo JA esta dito pelo cabecalho da secao, e ali a
+     barra e lembrete periferico. Teal continua reservado ao que se clica. */
+  --nexo-marca-volume: #5a666e;
+  --nexo-marca-auditoria: #3f6d68;
 
   /* DISCIPLINA — escala CATEGORICA do canvas (arquitetura, estrutural,
      hidrossanitario, eletrica, incendio, climatizacao, terraplenagem,

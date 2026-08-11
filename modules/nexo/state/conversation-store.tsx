@@ -35,6 +35,7 @@ import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
 import { anotarDecisao, type DecisoesDoProjeto } from "../lib/decisoes";
 import { removerResultado } from "../lib/results";
+import { derivarTipoDeTrabalho } from "../lib/tipo-de-trabalho";
 import {
   deleteConversation as dbDelete,
   getBlob,
@@ -402,12 +403,26 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(r.generatedAt !== undefined ? { generatedAt: r.generatedAt } : {}),
     }));
     const folderKey = deriveFolderKey(s.seloResults);
+    /*
+     * A SEÇÃO da sidebar, derivada na mesma passada que a pasta e o título.
+     *
+     * Reavaliada a cada gravação de propósito: a conversa que começa vazia cai
+     * em "volume" e se corrige sozinha no instante em que anexa um memorial ou
+     * dispara a auditoria — sem migração e sem ninguém escolher nada.
+     */
+    const tipo = derivarTipoDeTrabalho({
+      results: s.results,
+      auditoriaPendente: s.auditoriaPendente,
+      memorial: s.memorialMeta,
+      seloResults: s.seloResults,
+    });
     const rec: StoredConversation = {
       id: s.conversationId,
       title: s.title,
       createdAt: s.createdAt,
       updatedAt: Date.now(),
       ...(folderKey ? { folderKey } : {}),
+      tipo,
       messages: s.messages,
       seloResults: s.seloResults,
       ...(Object.keys(s.ajustes).length > 0 ? { ajustes: s.ajustes } : {}),

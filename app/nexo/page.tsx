@@ -27,6 +27,13 @@ export default async function NexoPage() {
   // Full-bleed: o NexoWorkspace gerencia o próprio layout de 3 colunas full-height
   // (sidebar | stage | copiloto). O resto do software (Projetos, admin,
   // ferramentas antigas) mora no rodapé da sidebar — esta é a entrada.
-  // O nome vem da SESSÃO (servidor): a saudação da entrada usa o primeiro.
-  return <NexoWorkspace isAdmin={access.isAdmin} nome={session.user.name} />;
+  // O nome vem da SESSÃO (servidor): a saudação da entrada usa o primeiro, e o
+  // bloco da conta (rodapé da barra lateral) usa nome + e-mail.
+  return (
+    <NexoWorkspace
+      isAdmin={access.isAdmin}
+      nome={session.user.name}
+      email={session.user.email}
+    />
+  );
 }
