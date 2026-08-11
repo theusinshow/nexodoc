@@ -80,19 +80,29 @@ export function Dropdown({
     <div ref={ref} className="relative">
       {trigger({ open, toggle: () => setOpen((value) => !value) })}
       {open ? (
+        /* O pai existe SO para a sombra: `filter` no painel recortado seria
+           cortado junto (filter e aplicado ANTES de clip-path), e `box-shadow`
+           externo idem. Num pai nao recortado, o drop-shadow segue a silhueta
+           chanfrada do filho -- que e exatamente o que se quer. */
         <div
-          role="menu"
-          style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
           className={cn(
-            "nexodoc-enter absolute z-50 min-w-[180px] overflow-y-auto overscroll-contain rounded-md border bg-[var(--nexodoc-panel)] p-1 shadow-lg shadow-black/20",
+            "nx-elev absolute z-50",
             lugar?.lado === "acima"
               ? "bottom-[calc(100%+4px)]"
               : "top-[calc(100%+4px)]",
             align === "end" ? "right-0" : "left-0",
-            panelClassName,
           )}
         >
-          {children({ close: () => setOpen(false) })}
+          <div
+            role="menu"
+            style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
+            className={cn(
+              "nexodoc-enter nx-edge-6 min-w-[180px] overflow-y-auto overscroll-contain p-1 [--nx-fill:var(--nexodoc-panel)]",
+              panelClassName,
+            )}
+          >
+            {children({ close: () => setOpen(false) })}
+          </div>
         </div>
       ) : null}
     </div>
@@ -108,7 +118,7 @@ export function DropdownItem({
       type="button"
       role="menuitem"
       className={cn(
-        "flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm text-foreground outline-none transition-colors hover:bg-[var(--nexodoc-raised)] focus-visible:bg-[var(--nexodoc-raised)] disabled:pointer-events-none disabled:opacity-50",
+        "nx-cut-5 flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-foreground outline-none transition-colors hover:bg-[var(--nexodoc-raised)] focus-visible:bg-[var(--nexodoc-raised)] disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       {...props}

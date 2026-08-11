@@ -181,6 +181,27 @@ conferir("badge com corte 5", chipeBadge.badge.clip.includes("5px"), `veio ${chi
 conferir("badge NAO usa camada", chipeBadge.badge.antes === "none", "criou ::before");
 conferir("badge sem borda", chipeBadge.badgeOk.borda === "0px", `veio ${chipeBadge.badgeOk.borda}`);
 
+// --- 8. Sobreposicao: chanfro no painel, corte 5 no item, elevacao por filter ---
+await page.locator('[data-prova="dd-trigger"]').click();
+await page.waitForSelector('[role="menu"]');
+const menu = await page.evaluate(() => {
+  const painel = document.querySelector('[role="menu"]');
+  const item = document.querySelector('[data-prova="dd-item"]');
+  return {
+    clipPainel: getComputedStyle(painel).clipPath,
+    sombraPainel: getComputedStyle(painel).boxShadow,
+    filtroDoPai: getComputedStyle(painel.parentElement).filter,
+    clipItem: getComputedStyle(item).clipPath,
+  };
+});
+conferir("painel do menu com corte 6", menu.clipPainel.includes("6px"), `veio ${menu.clipPainel}`);
+conferir("item do menu com corte 5", menu.clipItem.includes("5px"), `veio ${menu.clipItem}`);
+/* box-shadow externo em elemento recortado e cortado junto: a elevacao some sem
+   erro nenhum. Ela precisa vir de drop-shadow num pai NAO recortado -- `filter`
+   e aplicado ANTES de `clip-path`, entao no proprio elemento seria cortada. */
+conferir("o painel largou o box-shadow", menu.sombraPainel === "none", `veio ${menu.sombraPainel}`);
+conferir("a elevacao veio do pai por drop-shadow", menu.filtroDoPai.includes("drop-shadow"), `veio ${menu.filtroDoPai}`);
+
 await browser.close();
 console.log(`\n=== ${falhas.length === 0 ? "PASSOU" : `${falhas.length} FALHA(S)`} ===`);
 if (falhas.length) for (const f of falhas) console.log(`  · ${f}`);

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Bancada do chanfro — todo corte e toda camada numa tela só.
  *
@@ -5,15 +7,17 @@
  * Cada elemento carrega `data-prova` porque asserção por classe quebra quando a
  * classe muda de nome, e asserção por posição no DOM quebra quando alguém
  * insere uma linha acima.
+ *
+ * É componente de cliente (e por isso sem `metadata`): o Dropdown tem estado de
+ * aberto/fechado, e a prova precisa abri-lo para medir o painel.
  */
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
+import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-
-export const metadata = { title: "Bancada do chanfro" };
 
 const CORTES = [4, 5, 6, 7, 8, 12] as const;
 const CAMADAS = [5, 6, 7, 8] as const;
@@ -88,6 +92,23 @@ export default function BancadaDoChanfro() {
         <Chip data-prova="chip-suggest" variant="suggest">sugerido</Chip>
         <Badge data-prova="badge">badge</Badge>
         <Badge data-prova="badge-ok" variant="ok">ok</Badge>
+      </section>
+
+      <section className="flex flex-wrap gap-4" data-prova="sobreposicoes">
+        <Dropdown
+          trigger={({ toggle }) => (
+            <Button data-prova="dd-trigger" variant="secondary" onClick={toggle}>
+              Abrir menu
+            </Button>
+          )}
+        >
+          {() => (
+            <>
+              <DropdownItem data-prova="dd-item">Exportar</DropdownItem>
+              <DropdownItem>Duplicar</DropdownItem>
+            </>
+          )}
+        </Dropdown>
       </section>
     </main>
   );
