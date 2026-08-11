@@ -51,20 +51,6 @@ function MarcaDoGoogle() {
   );
 }
 
-/**
- * A PORTA — primeira tela do software e a única antes da credencial.
- *
- * O momento desta tela é a MARCA, não um cartão de venda: o degrau Display
- * (40px) da §3 existe só aqui, e a §6 define o logotipo como o orbe achatado
- * mais a palavra. Abaixo dele, um cartão com UMA ação.
- *
- * Saíram daqui a lista de vantagens ("sessão protegida", "PDFs processados") e
- * o cadeado num quadrado teal. As duas frases eram tom de landing page, que a
- * PRODUCT.md rejeita, e o cadeado gastava o acento interativo num enfeite
- * parado — a §2 reserva o teal para o que se clica, e nesta tela o que se
- * clica é o botão. O texto que sobrou é o que evita a surpresa seguinte: a
- * conta precisa estar liberada, e há uma tela dizendo quem libera.
- */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const { callbackUrl, error } = await searchParams;
@@ -77,79 +63,120 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 py-12 text-foreground">
-      {/* Um reveal só, no bloco inteiro. A §5 não coreografa entrada por
-          elemento: isto é uma porta, não uma página que se assiste carregar. */}
-      <div className="nexodoc-enter w-full max-w-[400px]">
-        <div className="flex flex-col items-center text-center">
-          {/* O símbolo é decorativo AO LADO da palavra: sem o aria-hidden o
-              leitor de tela anuncia "Nexo" duas vezes seguidas. */}
-          <span aria-hidden="true">
-            <LogoNexo size={48} interativa={false} />
-          </span>
-          <h1 className="mt-5 text-[40px] font-semibold leading-[1.1] tracking-[-0.02em]">
-            Nexo
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-balance text-muted-foreground">
-            Documentação de projetos de engenharia — do carimbo ao volume.
-          </p>
-        </div>
-
-        <div className="mt-8 rounded-md border bg-card p-6">
-          <h2 className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-foreground">
-            Entrar
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Use a conta Google do escritório. Se ela ainda não estiver liberada,
-            a tela seguinte diz quem libera.
-          </p>
-
-          {error ? (
-            <p
-              role="alert"
-              className="mt-4 rounded-md border border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] px-3 py-2.5 text-sm leading-6 text-[var(--status-critical)]"
-            >
-              Não foi possível autenticar com o Google. Tente novamente.
+    <main className="login-split-shell bg-background text-foreground">
+      <section className="login-auth-panel" aria-labelledby="login-title">
+        <div className="nexodoc-enter login-auth-content">
+          <div className="login-brand-lockup">
+            <span aria-hidden="true">
+              <LogoNexo size={48} interativa={false} />
+            </span>
+            <h1 id="login-title" className="login-title">
+              Entre no Nexo
+            </h1>
+            <p className="login-lead">
+              Documentação de projetos de engenharia, do carimbo ao volume.
             </p>
-          ) : null}
+          </div>
 
-          <form
-            className="mt-5"
-            action={async () => {
-              "use server";
-              await signIn("google", { redirectTo });
-            }}
-          >
-            <Button type="submit" className="w-full">
-              <MarcaDoGoogle />
-              Continuar com Google
-            </Button>
-          </form>
+          <div className="login-auth-block">
+            <h2 className="login-kicker">Entrar</h2>
+            <p className="login-copy">
+              Use a conta Google do escritório. Depois da autenticação, o Nexo
+              confere se essa conta está liberada para acessar o ambiente.
+            </p>
 
-          {canUseDevAuth ? (
-            /* Atalho de desenvolvimento, separado por régua de 1px em largura
-               inteira (§11) — não por faixa lateral nem por cor. O e-mail fica
-               FORA do botão: espremido lá dentro ele era truncado, e um dado
-               que não se lê inteiro não é dado. */
-            <div className="mt-5 border-t pt-5">
-              <form
-                action={async () => {
-                  "use server";
-                  await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
-                }}
-              >
-                <Button type="submit" variant="outline" className="w-full">
-                  <Terminal strokeWidth={1.5} />
-                  Entrar como dev
-                </Button>
-              </form>
-              <p className="mt-2 truncate text-center font-mono text-[13px] text-muted-foreground">
-                {devUser?.email}
+            {error ? (
+              <p role="alert" className="login-error">
+                Não foi possível autenticar com o Google. Tente novamente.
               </p>
-            </div>
-          ) : null}
+            ) : null}
+
+            <form
+              className="login-form"
+              action={async () => {
+                "use server";
+                await signIn("google", { redirectTo });
+              }}
+            >
+              <Button
+                type="submit"
+                variant="google"
+                size="lg"
+                className="w-full"
+                aria-describedby="login-access-note"
+              >
+                <MarcaDoGoogle />
+                Entrar com Google
+              </Button>
+            </form>
+
+            <p id="login-access-note" className="login-access-note">
+              Se a conta ainda não estiver liberada, a próxima tela informa quem
+              pode autorizar o acesso.
+            </p>
+
+            {canUseDevAuth ? (
+              <div className="login-dev-auth">
+                <form
+                  action={async () => {
+                    "use server";
+                    await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
+                  }}
+                >
+                  <Button type="submit" variant="outline" className="w-full">
+                    <Terminal strokeWidth={1.5} />
+                    Entrar como dev
+                  </Button>
+                </form>
+                <p className="login-dev-email">{devUser?.email}</p>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
+
+      <aside className="login-media-panel" aria-label="Prévia do Nexo">
+        <div className="login-media-poster" aria-hidden="true">
+          <div className="login-media-chrome">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="login-media-workspace">
+            <div className="login-media-sidebar">
+              <span className="is-active" />
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="login-media-canvas">
+              <div className="login-media-node login-media-node--source" />
+              <div className="login-media-node login-media-node--review" />
+              <div className="login-media-node login-media-node--volume" />
+              <div className="login-media-thread" />
+            </div>
+            <div className="login-media-report">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section className="login-narrow-notice" aria-labelledby="login-narrow-title">
+        <span aria-hidden="true">
+          <LogoNexo size={48} interativa={false} />
+        </span>
+        <h1 id="login-narrow-title" className="login-narrow-title">
+          Use o Nexo no desktop
+        </h1>
+        <p className="login-narrow-copy">
+          A análise técnica de PDFs, o mapa do volume e a revisão lado a lado
+          exigem uma tela maior.
+        </p>
+      </section>
     </main>
   );
 }
