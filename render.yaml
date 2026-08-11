@@ -68,27 +68,63 @@ services:
         value: openai
 
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
-      # prancha, e um volume real tem dezenas. O mini dá conta de copiar campo
-      # de carimbo — quem julga o que foi lido é regra determinística, não o
-      # modelo. Trocar isto por `gpt-5.5` multiplica tempo e custo sem melhorar
-      # o veredito.
+      # prancha, e um volume real tem dezenas — o custo daqui escala com o
+      # tamanho do volume, não com o número de auditorias.
+      #
+      # Rodou em `gpt-5.4-mini` até 11/08/2026. Passou a `gpt-5.6-luna`, que
+      # ganha nas DUAS pontas e por isso não há troca a ponderar aqui:
+      #
+      #   gpt-5.6-luna   $0,20 entrada / $1,20 saída por 1M
+      #   gpt-5.4-mini   $0,75 entrada / $4,50 saída por 1M
+      #
+      # O Luna é 3,75x mais barato E é o tier que a própria OpenAI indica para
+      # extração e classificação — que é exatamente o que se faz aqui: o modelo
+      # só COPIA campo de carimbo, quem julga é regra determinística.
+      #
+      # CUIDADO ao "economizar" nesta chave: `mini` e `nano` PARECEM as opções
+      # baratas pelo nome, e neste caso custam mais que o Luna. Confira a tabela
+      # de preços antes de trocar, não o sufixo do nome.
       - key: NEXODOC_LD_OPENAI_MODEL
-        value: gpt-5.4-mini
+        value: gpt-5.6-luna
 
       # A conferência de identidade do selo: uma chamada só, sobre uma amostra.
       - key: NEXODOC_SELO_CHECK_MODEL
-        value: gpt-5.4-mini
+        value: gpt-5.6-luna
 
-      # Organização de volumes.
+      # Organização de volumes: análise e sugestão no mesmo modelo.
       - key: NEXODOC_VOLUME_ANALYSIS_MODEL
-        value: gpt-5.5
+        value: gpt-5.6-terra
       - key: NEXODOC_VOLUME_SUGGESTION_MODEL
-        value: gpt-5.4-mini
+        value: gpt-5.6-terra
+
+      # CONVERSA — agente Nexo e chat pós-auditoria. Rápido e barato de
+      # propósito: os dois respondem sobre material que JÁ foi julgado, então
+      # pagam por latência baixa, não por deliberação.
+      #
+      # Chaves próprias porque `OPENAI_MODEL` é TAMBÉM o fallback da auditoria
+      # profunda — baixar o modelo da conversa por ela levava a auditoria junto,
+      # sem aviso.
+      - key: NEXODOC_NEXO_MODEL
+        value: gpt-5.6-terra
+      - key: NEXODOC_AUDIT_CHAT_MODEL
+        value: gpt-5.6-terra
+      - key: NEXODOC_NEXO_REASONING_EFFORT
+        value: low
+      - key: NEXODOC_CHAT_REASONING_EFFORT
+        value: low
 
       # Auditoria de memorial. Os três controles de vazão importam mais aqui do
       # que o modelo: são eles que decidem se uma auditoria profunda termina.
+      #
+      # `OPENAI_MODEL` sobrou para a auditoria genérica (não-memorial): é o
+      # fallback de `OPENAI_DEEP_MODEL`. Desde que a conversa ganhou chave
+      # própria, mexer aqui NÃO afeta mais o chat nem o agente.
+      #
+      # Saiu de `gpt-5.5` em 11/08/2026: o `terra` iguala o 5.5 nos benchmarks
+      # da OpenAI por $2/$12 contra $5/$30. O 5.5 custava o mesmo que o `sol` —
+      # preço de fronteira por geração anterior.
       - key: OPENAI_MODEL
-        value: gpt-5.5
+        value: gpt-5.6-terra
       - key: NEXODOC_AUDIT_MEMORIAL_STANDARD_MODEL
         value: gpt-5.6-terra
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_MODEL

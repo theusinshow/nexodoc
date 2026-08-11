@@ -36,8 +36,23 @@ type ProviderErrorShape = {
   message?: string;
 };
 
-const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.5";
-const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.5";
+/**
+ * AUDITORIA GENÉRICA (não-memorial). Os dois níveis e os seus doze papéis.
+ *
+ * Rodavam em `gpt-5.5` até 11/08/2026 — resíduo de quando a geração 5.6 ainda
+ * não existia, não escolha de critério. O `terra` iguala o 5.5 nos benchmarks
+ * de inteligência da própria OpenAI e custa $2/$12 contra $5/$30: 2,5x menos
+ * pela mesma capacidade declarada. O `gpt-5.5` ainda custava o MESMO que o
+ * `sol`, que é o topo da geração seguinte — era pagar preço de fronteira por
+ * geração anterior.
+ *
+ * Nota de contexto: hoje este caminho é frio. `modules/nexo/lib/audit.ts` manda
+ * `auditMode` fixo em "memorial", então toda auditoria que passa pelo Nexo usa
+ * os modelos de memorial. A troca aqui não economiza nada agora — ela evita que
+ * ligar o modo volume um dia comece a gastar no tier mais caro sem decisão.
+ */
+const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.6-terra";
+const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.6-terra";
 const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-5.6-terra";
 const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
 /**
@@ -57,8 +72,34 @@ const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
  */
 const DEFAULT_LD_OPENAI_MODEL = "gpt-5.6-luna";
 const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
-const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.5";
-const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.6-luna";
+/**
+ * CONVERSA — agente Nexo e chat pós-auditoria.
+ *
+ * Os dois liam `OPENAI_MODEL` direto, e essa variável é TAMBÉM o fallback da
+ * auditoria profunda (`OPENAI_DEEP_MODEL || OPENAI_MODEL`). Baixar o modelo da
+ * conversa mexendo nela levava a auditoria junto, sem aviso — um knob que
+ * governa duas coisas que não se parecem. Daí `NEXODOC_NEXO_MODEL` e
+ * `NEXODOC_AUDIT_CHAT_MODEL`, que ainda caem em `OPENAI_MODEL` quando não
+ * definidas, para não quebrar quem já configurou pelo jeito antigo.
+ *
+ * Conversa quer RESPOSTA RÁPIDA e barata, não raciocínio profundo: o `terra`
+ * ($2/$12 por 1M) com `effort` baixo é o ponto certo. O `sol`/`gpt-5.5`
+ * ($5/$30) paga por deliberação que ninguém espera num chat.
+ */
+const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-terra";
+/**
+ * Organização de volumes — análise e sugestão no MESMO modelo, de propósito.
+ *
+ * As duas tarefas são de texto e olham o mesmo material; separá-las em modelos
+ * diferentes fazia a sugestão propor uma montagem que a análise depois
+ * reprovava, e o usuário via o software discordar de si mesmo.
+ *
+ * O padrão acompanha o valor em uso (`.env.example` e `render.yaml`): padrão
+ * que não é o valor validado é armadilha — ver o comentário do modelo de LD
+ * logo acima, que descreve o estrago quando os dois se separam.
+ */
+const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.6-terra";
+const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.6-terra";
 /**
  * A conferência do volume montado lê um recorte de carimbo por página, e são
  * MUITAS páginas. O modelo barato dá conta de copiar campo de carimbo, e o
@@ -432,7 +473,9 @@ export function getAiConfiguration() {
       provider: primaryProvider,
       model: getProviderModel(
         primaryProvider,
-        getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
+        getBackendValue("NEXODOC_AUDIT_CHAT_MODEL") ||
+          getBackendValue("OPENAI_MODEL") ||
+          DEFAULT_CONVERSATION_MODEL,
         ["DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
         "audit-chat",
       ),
@@ -442,7 +485,9 @@ export function getAiConfiguration() {
       provider: nexoProvider,
       model: getProviderModel(
         nexoProvider,
-        getBackendValue("OPENAI_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
+        getBackendValue("NEXODOC_NEXO_MODEL") ||
+          getBackendValue("OPENAI_MODEL") ||
+          DEFAULT_CONVERSATION_MODEL,
         ["DEEPSEEK_NEXO_MODEL", "DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_MODEL"],
         "nexo-agent",
       ),

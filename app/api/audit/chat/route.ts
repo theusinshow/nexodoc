@@ -75,6 +75,16 @@ function extractResponseText(response: unknown) {
   );
 }
 
+/**
+ * O chat responde SOBRE UM RELATÓRIO QUE JÁ EXISTE — os achados foram julgados
+ * na auditoria, aqui o modelo só explica e localiza. Isso não pede deliberação,
+ * pede resposta rápida: o padrão saiu de `medium` para `low` em 11/08/2026,
+ * pelo mesmo motivo que o agente Nexo já nascia em `low`.
+ *
+ * Suba para `medium` em `NEXODOC_CHAT_REASONING_EFFORT` se as respostas
+ * começarem a errar a leitura do relatório — o sintoma é resposta rápida e
+ * errada, não resposta lenta.
+ */
 function getReasoningEffort() {
   const effort = process.env.NEXODOC_CHAT_REASONING_EFFORT;
 
@@ -89,7 +99,7 @@ function getReasoningEffort() {
     return effort;
   }
 
-  return "medium";
+  return "low";
 }
 
 function compactReport(report: AuditReport) {
