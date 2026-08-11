@@ -86,6 +86,12 @@ data/nexodoc-learnings.json
 # e confidenciais de projeto -- o mesmo motivo daquela pasta ser ignorada.
 /scratchpad/
 
+# Mesma razao, mas na RAIZ: a prova de CSS grava uma captura por rodada que
+# falha (prova-css-no-login.mjs), e elas mostram a tela logada. Sao descartaveis
+# -- o script as refaz a cada investigacao -- e sem esta regra reapareciam em
+# todo `git status`, prontas para entrar de carona em commit alheio.
+/prova-css-rodada-*.png
+
 # Estado de execucao da ferramenta de critica: PID, porta e um TOKEN, reescritos
 # a cada sessao. Nao e codigo nem configuracao -- e ruido que aparecia em todo
 # `git status` e entrava de carona em commit alheio. Token, ainda que so de
