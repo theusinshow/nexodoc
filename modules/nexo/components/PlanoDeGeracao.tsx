@@ -17,7 +17,7 @@
  * segue para a prefeitura, então tem confirmação própria depois da conferência.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FileText, Loader2, Check, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { tituloDoSelo } from "../lib/titulo-do-selo";
 import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
@@ -244,10 +245,24 @@ export function PlanoDeGeracao({
    * substituiu — é isso que faz a edição sobreviver ao próximo turno do chat
    * sem impedir que ele mude de ideia. Ver [[decisoes.ts]].
    */
+  /*
+   * O TÍTULO QUE O CARIMBO JÁ SABE.
+   *
+   * O campo OBRA do selo é o nome do empreendimento — o mesmo título que a capa
+   * e a LD pedem. Ele já é lido em toda prancha, e mesmo assim o engenheiro
+   * digitava no chat uma informação que o documento trazia.
+   *
+   * Entra como degrau ABAIXO do agente: se o agente propôs um título (porque foi
+   * pedido na conversa), ele vence; e as decisões do engenheiro vencem os dois,
+   * porque `mesclarDecisoes` roda depois. Carimbos que discordam não preenchem —
+   * `tituloDoSelo` devolve vazio no empate, e vazio vira pergunta.
+   */
+  const tituloDoCarimbo = useMemo(() => tituloDoSelo(selos), [selos]);
+
   const paramsDoAgente: Record<string, string> = {
     templateId: capaCrua?.templateId ?? "",
-    tituloCapa: capaCrua?.tituloCapa ?? "",
-    tituloLd: ldCrua?.tituloLd ?? "",
+    tituloCapa: capaCrua?.tituloCapa?.trim() || tituloDoCarimbo.valor,
+    tituloLd: ldCrua?.tituloLd?.trim() || tituloDoCarimbo.valor,
     volume: capaCrua?.volume ?? "",
     mes: capaCrua?.mes ?? "",
     ano: capaCrua?.ano ?? "",
@@ -313,6 +328,20 @@ export function PlanoDeGeracao({
     | undefined;
 
   const titulo = capa?.tituloCapa?.trim() || ld?.tituloLd?.trim() || "";
+
+  /*
+   * O título em uso VEIO do carimbo (ninguém o pediu nem digitou)?
+   *
+   * Preenchimento automático que não se anuncia é pior que campo vazio: vai para
+   * a capa impressa sem ninguém ter olhado. A nota diz de onde veio e com quanto
+   * apoio, e a divergência aparece junto — é o mesmo tratamento que a data já
+   * recebe logo abaixo.
+   */
+  const tituloVeioDoCarimbo =
+    tituloDoCarimbo.valor !== "" &&
+    titulo === tituloDoCarimbo.valor &&
+    !capaCrua?.tituloCapa?.trim() &&
+    !ldCrua?.tituloLd?.trim();
   const prefeitura =
     templates.find((t) => t.id === capa?.templateId)?.nome ??
     (capa ? "escolha a prefeitura" : "");
@@ -713,6 +742,17 @@ export function PlanoDeGeracao({
               sumir junto. */}
           {layoutDoModelo.length === 0 && (capa || !misto) && !separatrizListada && (
             <Linha rotulo="Título" valor={titulo || "—"} />
+          )}
+          {/* Fora do `layoutDoModelo.length === 0`: com modelo o título vive no
+              frame, e a procedência tem de aparecer nos dois casos. */}
+          {tituloVeioDoCarimbo && (
+            <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
+              Título lido do carimbo de {tituloDoCarimbo.apoio} folha(s)
+              {tituloDoCarimbo.divergentes > 0
+                ? ` · ${tituloDoCarimbo.divergentes} folha(s) dizem outra coisa`
+                : ""}
+              {" — se estiver errado, corrija pelo chat."}
+            </p>
           )}
           {layoutDoModelo.length === 0 && obra && <Linha rotulo="Obra" valor={obra} />}
           {layoutDoModelo.length === 0 && codigo && (

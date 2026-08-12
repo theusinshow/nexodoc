@@ -30,6 +30,7 @@
     "test:nexo:selo-cache": "node scripts/test-nexo-selo-cache.ts",
     "test:nexo:tipo": "node scripts/test-nexo-tipo.ts",
     "test:nexo:volumes-prontos": "node scripts/test-nexo-volumes-prontos.ts",
+    "test:nexo:titulo-do-selo": "node scripts/test-nexo-titulo-do-selo.ts",
     "test:nexo:agent": "node scripts/test-nexo-agent.ts",
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",
     "test:nexo:pre-volume": "node scripts/test-nexo-pre-volume.ts",
