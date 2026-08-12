@@ -30,6 +30,7 @@
     "test:nexo:tipo": "node scripts/test-nexo-tipo.ts",
     "test:nexo:agent": "node scripts/test-nexo-agent.ts",
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",
+    "test:nexo:pre-volume": "node scripts/test-nexo-pre-volume.ts",
     "test:nexo:session": "node scripts/test-nexo-session.ts",
     "test:nexo:slots": "node scripts/test-nexo-slots.ts",
     "test:nexo:stream": "node scripts/test-nexo-stream.ts",

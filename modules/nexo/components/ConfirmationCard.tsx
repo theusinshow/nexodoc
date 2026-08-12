@@ -71,6 +71,7 @@ import {
   urlToBase64,
   type BlocoDoVolume,
 } from "../lib/assemble-volume";
+import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
@@ -1232,6 +1233,15 @@ function CheckResult({
  * Vira AVISO, e não silêncio: o volume está pronto, e quem o receber precisa
  * saber que ninguém o conferiu.
  */
+/**
+ * O motivo de bloqueio nasce em minúscula porque o "montar todos" o encaixa no
+ * meio de uma frase ("TOMO 02 (sem as pranchas…)"). Sozinho, ao lado do botão,
+ * ele é a frase inteira — e frase começa com maiúscula.
+ */
+function maiuscula(frase: string): string {
+  return frase.charAt(0).toLocaleUpperCase("pt-BR") + frase.slice(1);
+}
+
 function conferenciaNaoRodou(motivo: string, detalhe?: string): VolumeCheckResult {
   return {
     veredito: "aviso",
@@ -1616,6 +1626,20 @@ function VolumeConfirmation({
   );
   const misto = misturaDisciplinas(blocos);
 
+  /*
+   * O QUE IMPEDE ESTE VOLUME DE SER MONTADO — uma verdade só, consultada pelo
+   * botão (para travar) e por `confirm` (para não montar). Antes a regra morava
+   * no `disabled`, e o "Montar os N volumes" — que chama `confirm` direto —
+   * passava por baixo dela: numa conversa retomada, sem os bytes das pranchas,
+   * ele entregava volumes com capa, separatriz e LD e nada dentro.
+   */
+  const motivoDeBloqueio = motivoParaNaoMontar({
+    temCapa: Boolean(capaPdfUrl),
+    temLd: Boolean(ldPdfUrl),
+    misto,
+    pranchas: pranchaFilesDoTomo.length,
+  });
+
   const sepTitle =
     capaParams?.tituloCapa?.trim() ||
     ldParams?.tituloLd?.trim() ||
@@ -1655,6 +1679,19 @@ function VolumeConfirmation({
       : "");
 
   async function confirm() {
+    /*
+     * A PRÉ-CONDIÇÃO É VERIFICADA AQUI, e não só no botão.
+     *
+     * `montarTodos` chama esta função pelo ref, sem passar por botão nenhum: o
+     * `disabled` do card não a alcança. Enquanto a trava viveu lá, o lote
+     * montava o tomo cujas pranchas não estavam em mãos e devolvia um PDF com
+     * capa, separatriz e LD e nada dentro. O motivo VOLTA como string — o
+     * contrato que o pai já lê para listar os volumes que não montaram.
+     */
+    if (motivoDeBloqueio) {
+      setError(motivoDeBloqueio);
+      return motivoDeBloqueio;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -1940,22 +1977,18 @@ function VolumeConfirmation({
           <div className="flex items-center gap-2">
             <ConfirmButton
               busy={busy}
-              disabled={semPranchas || !capaPdfUrl || (!misto && !ldPdfUrl)}
+              disabled={Boolean(motivoDeBloqueio)}
               label="Montar volume"
               busyLabel="Montando…"
               onConfirm={confirm}
             />
-            {/* Um volume sem capa ou sem LD não é entregável: antes ele montava
-                assim mesmo e o PDF saía incompleto sem aviso. No volume misto a
-                LD não é uma: são N, uma por bloco, e a montagem gera as que
-                faltarem — exigir a LD única aqui travaria o botão para sempre. */}
-            {(semPranchas || !capaPdfUrl || (!misto && !ldPdfUrl)) && (
+            {/* Um volume sem prancha, sem capa ou sem LD não é entregável: antes
+                ele montava assim mesmo e o PDF saía incompleto sem aviso. A
+                regra é a MESMA que `confirm` aplica — repetir a condição aqui
+                foi o que deixou o caminho em lote passar por baixo dela. */}
+            {motivoDeBloqueio && (
               <span className="text-xs text-muted-foreground">
-                {semPranchas
-                  ? "Anexe as pranchas para montar o volume."
-                  : !capaPdfUrl
-                    ? "Gere a capa deste tomo antes de montar."
-                    : "Gere a LD deste tomo antes de montar."}
+                {maiuscula(motivoDeBloqueio)}.
               </span>
             )}
           </div>
