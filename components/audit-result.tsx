@@ -757,7 +757,17 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     acao: finding.sugestao_correcao,
     categoria: finding.categoria ?? finding.capitulo,
     referencia: finding.referencia_comparada ?? finding.descricao,
-    impacto: finding.impacto ?? classifyFindingImpact(finding),
+    /*
+     * FONTE ÚNICA da faixa. Era `finding.impacto ?? classify(...)`, que prefere
+     * o valor gravado — enquanto o veredito passa por `groupFindingsByImpact`,
+     * que sempre reclassifica. As duas contagens divergiam na mesma tela: o
+     * cartão NÃO EMITIR dizia "3 incongruências críticas" e a matriz mostrava 2.
+     * Numa tela que decide emissão, dois números para a mesma pergunta é pior
+     * que qualquer um dos dois estar errado.
+     * `classifyFindingImpact` já respeita a faixa declarada; o que ele acrescenta
+     * são as sobreposições determinísticas que precisam vencê-la.
+     */
+    impacto: classifyFindingImpact(finding),
     origem: finding.origem,
     confianca: finding.confianca,
     tier: classifyFindingTier(finding),
@@ -882,10 +892,36 @@ export function AuditResult({
       (disciplineFilter.size === 0 || disciplineFilter.has(findingDiscipline(finding))) &&
       (errorTypeFilter.size === 0 || errorTypeFilter.has(findingErrorType(finding))),
   );
-  // Ordena por disciplina para agrupar visualmente (headers inseridos na troca).
-  const groupedPrincipal = [...filteredPrincipal].sort(
-    (a, b) => disciplineOrder.indexOf(findingDiscipline(a)) - disciplineOrder.indexOf(findingDiscipline(b)),
-  );
+  /*
+   * Agrupamento primário: FAIXA DE IMPACTO, não disciplina.
+   *
+   * A matriz agrupava por disciplina, e a faixa aparecia só como etiqueta dentro
+   * do cartão. Quem abria a tela via "Geral / Documental (8)" primeiro e tinha
+   * de garimpar os bloqueadores espalhados por todos os grupos. A primeira
+   * pergunta de quem vai emitir não é "de que disciplina é", é "o que me impede
+   * de entregar isto hoje" — e a lista tem de responder isso na ordem.
+   *
+   * Disciplina e tipo continuam existindo: como filtro (acima) e como etiqueta
+   * no cartão, que é o papel natural deles. Nada de informação se perdeu; mudou
+   * o eixo de leitura.
+   *
+   * Dentro da faixa, a ordem secundária continua sendo a disciplina, para que
+   * achados do mesmo capítulo fiquem vizinhos e o engenheiro corrija em lote.
+   */
+  const impactOrder = IMPACT_SECTIONS.map((section) => section.key);
+  const groupedPrincipal = [...filteredPrincipal].sort((a, b) => {
+    const porFaixa =
+      impactOrder.indexOf(findingImpactBucket(a)) - impactOrder.indexOf(findingImpactBucket(b));
+
+    if (porFaixa !== 0) {
+      return porFaixa;
+    }
+
+    return disciplineOrder.indexOf(findingDiscipline(a)) - disciplineOrder.indexOf(findingDiscipline(b));
+  });
+  const impactCount = (impact: FindingImpact) =>
+    filteredPrincipal.filter((finding) => findingImpactBucket(finding) === impact).length;
+  // Continua alimentando os chips de filtro por disciplina.
   const disciplineCount = (discipline: FindingDiscipline) =>
     filteredPrincipal.filter((finding) => findingDiscipline(finding) === discipline).length;
   const toggleFrom = <T,>(set: Set<T>, value: T) => {
@@ -1386,16 +1422,41 @@ export function AuditResult({
                   ) : null}
                   {groupedPrincipal.map((finding, index) => {
                     const disciplina = findingDiscipline(finding);
-                    const showDisciplineHeader =
-                      index === 0 || findingDiscipline(groupedPrincipal[index - 1]) !== disciplina;
+                    const faixa = findingImpactBucket(finding);
+                    const secao = IMPACT_SECTIONS.find((item) => item.key === faixa);
+                    const showImpactHeader =
+                      index === 0 || findingImpactBucket(groupedPrincipal[index - 1]) !== faixa;
                     return (
                     <Fragment key={`${finding.raw}-matrix-${index}`}>
-                      {showDisciplineHeader ? (
-                        <h5 className="mt-2 flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                          <span className="h-px flex-1 bg-border" />
-                          {getDisciplineLabel(disciplina)} ({disciplineCount(disciplina)})
-                          <span className="h-px flex-1 bg-border" />
-                        </h5>
+                      {showImpactHeader && secao ? (
+                        /*
+                         * O cabeçalho da faixa é o marcador de leitura da tela.
+                         * O bloqueador ganha o tom destrutivo porque é o único
+                         * que interrompe a entrega; os outros dois ficam
+                         * discretos de propósito, para não competirem com ele.
+                         */
+                        <div
+                          data-faixa={faixa}
+                          className="mt-4 first:mt-0 flex flex-col gap-1 border-l-2 pl-3"
+                          style={{
+                            borderColor:
+                              faixa === "critico_documental"
+                                ? "var(--destructive)"
+                                : "var(--border)",
+                          }}
+                        >
+                          <h5
+                            className={cn(
+                              "font-mono text-[11px] font-semibold uppercase tracking-wider",
+                              faixa === "critico_documental"
+                                ? "text-destructive"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {secao.title} ({impactCount(faixa)})
+                          </h5>
+                          <p className="text-xs text-muted-foreground">{secao.hint}</p>
+                        </div>
                       ) : null}
                     {/*
                       ACHADO RESOLVIDO = tarefa riscada da lista.
@@ -1407,6 +1468,9 @@ export function AuditResult({
                       porque desfazer tem que continuar possível.
                     */}
                     <article
+                      // Faixa no DOM: é o que permite provar a ORDEM da lista no
+                      // navegador sem depender do texto do cabeçalho.
+                      data-impacto={faixa}
                       data-resolvido={resolvidos.has(finding.refId ?? "") || undefined}
                       className={cn(
                         /*
