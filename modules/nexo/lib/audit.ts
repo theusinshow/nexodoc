@@ -36,6 +36,24 @@ export interface MemorialAuditResult {
  * a tela quebra ao contar os achados. O teste em `audit-contrato.test.ts` casa os
  * dois lados justamente porque `tsc` não vê através de um `as`.
  */
+/**
+ * A CONEXÃO caiu — a auditoria não.
+ *
+ * Existe para separar dois fracassos que a tela tratava igual: "o motor falhou"
+ * (acabou, e está gravado como FAILED) e "perdi o fio" (o servidor continua
+ * analisando e vai gravar o parecer). No segundo caso o bilhete de retomada tem
+ * de FICAR — apagá-lo joga fora minutos de modelo já pagos e obriga a rodar de
+ * novo, que foi o que aconteceu em 12/08/2026.
+ */
+export class AuditoriaDesconectada extends Error {
+  constructor() {
+    super(
+      "A conexão com o servidor caiu, mas a análise continua lá. O resultado aparece aqui sozinho quando terminar.",
+    );
+    this.name = "AuditoriaDesconectada";
+  }
+}
+
 export interface MemorialAuditOpcoes {
   /** Recebe os marcos REAIS do motor. Passar isto liga o modo de fluxo. */
   onMarco?: EmitirMarco;
@@ -92,15 +110,33 @@ export async function runMemorialAudit(
   if (opcoes.onMarco) form.append("stream", "1");
   if (opcoes.auditId) form.append("auditId", opcoes.auditId);
 
-  const res = await fetch("/api/audit", {
-    method: "POST",
-    body: form,
-    signal: opcoes.signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/audit", {
+      method: "POST",
+      body: form,
+      signal: opcoes.signal,
+    });
+  } catch (err) {
+    // Desistência do usuário passa direto: quem trata `AbortError` é quem chamou.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new AuditoriaDesconectada();
+  }
 
   const payload = opcoes.onMarco
     ? await lerFluxo(res, opcoes.onMarco)
     : ((await res.json().catch(() => null)) as RespostaDaAuditoria | null);
+
+  /*
+   * FLUXO CORTADO ≠ AUDITORIA FALHADA.
+   *
+   * Em modo de fluxo, um `payload` nulo significa que o corpo acabou sem `done`
+   * nem `error` — a conexão caiu no meio. O servidor NÃO parou: ele termina e
+   * grava o parecer (foi assim que uma análise de 39 achados ficou pronta no
+   * banco enquanto a tela mostrava "network error"). Quem chamou precisa saber
+   * a diferença para GUARDAR o bilhete de retomada em vez de jogá-lo fora.
+   */
+  if (opcoes.onMarco && payload === null) throw new AuditoriaDesconectada();
 
   if (!payload?.report) {
     throw new Error(payload?.error ?? "Falha na auditoria do memorial.");

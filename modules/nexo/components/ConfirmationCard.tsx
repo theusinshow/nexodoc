@@ -46,7 +46,7 @@ import {
   groupFindingsByImpact,
   type AuditReport,
 } from "@/lib/audit-report";
-import type { MemorialAuditResult } from "../lib/audit";
+import { AuditoriaDesconectada, type MemorialAuditResult } from "../lib/audit";
 import type {
   NexoAgentProposal,
   NexoLdProposalParams,
@@ -2213,6 +2213,8 @@ function AuditoriaConfirmation({
       arquivo: memorialFile.name,
       cancelar: () => controle.abort(),
     });
+    /** A saída foi perda de conexão? Decide se o bilhete sobrevive ao `finally`. */
+    let desconectou = false;
     try {
       const r = await postAudit(
         memorialFile,
@@ -2242,6 +2244,21 @@ function AuditoriaConfirmation({
       // Desistir é escolha, não falha: um erro em vermelho depois de o próprio
       // usuário cancelar acusaria o sistema de algo que ele não fez.
       const cancelou = err instanceof DOMException && err.name === "AbortError";
+      /*
+       * CONEXÃO CAÍDA: o bilhete FICA.
+       *
+       * O `finally` limpava o bilhete em toda saída, e o comentário dele valia
+       * só para o fim limpo. Conexão cortada não é ciclo fechado: o servidor
+       * segue analisando e grava o parecer, mas sem o bilhete ninguém mais sabe
+       * qual é. Em 12/08/2026 uma auditoria de 39 achados terminou no banco
+       * enquanto a tela dizia "network error" — e o único ponteiro para ela
+       * tinha sido apagado aqui.
+       *
+       * Guardado o bilhete, o palco reconecta sozinho (ver
+       * [[use-reconectar-auditoria.ts]]): ele pergunta ao servidor a cada 5s e
+       * transforma o resultado em artefato quando ficar pronto.
+       */
+      desconectou = err instanceof AuditoriaDesconectada;
       if (!cancelou) {
         setError(err instanceof Error ? err.message : "Erro na auditoria do memorial.");
       }
@@ -2249,8 +2266,9 @@ function AuditoriaConfirmation({
       setBusy(false);
       auditoria.terminar();
       // Fechou o ciclo nesta aba: não há mais o que reconectar. Se a aba morreu
-      // antes daqui, o bilhete fica e o palco assume ao voltar.
-      marcarAuditoriaPendente(null);
+      // antes daqui — ou se a conexão caiu com a análise em curso —, o bilhete
+      // fica e o palco assume.
+      if (!desconectou) marcarAuditoriaPendente(null);
     }
   }
 

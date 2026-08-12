@@ -3771,6 +3771,29 @@ export async function POST(request: Request) {
         }
       };
 
+      /*
+       * BATIMENTO A CADA 15s.
+       *
+       * O fluxo só escrevia quando um marco chegava, e numa auditoria profunda o
+       * silêncio entre marcos passa de dois minutos (`NEXODOC_CHUNK_TIMEOUT_MS`
+       * sozinho vale 120s). Proxy nenhum segura conexão ociosa tanto tempo: o da
+       * Render cortava, e o navegador mostrava "network error" enquanto a
+       * análise SEGUIA rodando no servidor — o pior par possível, porque a
+       * pessoa reenvia e paga o modelo de novo enquanto a primeira ainda anda.
+       *
+       * Linha de comentário SSE (`:`): o leitor do cliente descarta bloco sem
+       * `event:`/`data:` (ver `lerFluxo`), e o EventSource padrão também. Só
+       * serve para haver byte trafegando.
+       */
+      const batimento = setInterval(() => {
+        if (!aberto) return;
+        try {
+          controller.enqueue(encoder.encode(": ping\n\n"));
+        } catch {
+          aberto = false;
+        }
+      }, 15000);
+
       try {
         const resposta = await executarAuditoria(request, formData, (m) =>
           enviar("marco", m),
@@ -3782,6 +3805,7 @@ export async function POST(request: Request) {
           error: err instanceof Error ? err.message : "Falha na auditoria.",
         });
       } finally {
+        clearInterval(batimento);
         aberto = false;
         try {
           controller.close();
@@ -3798,6 +3822,12 @@ export async function POST(request: Request) {
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
+        /*
+         * Proxy nenhum deve BUFFERIZAR isto. Um intermediário que segura a saída
+         * até encher o buffer anula tanto os marcos quanto o batimento — a
+         * conexão volta a parecer ociosa mesmo com o servidor escrevendo.
+         */
+        "X-Accel-Buffering": "no",
       },
     }),
     request,
