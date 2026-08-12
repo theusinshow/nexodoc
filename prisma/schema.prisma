@@ -547,6 +547,13 @@ model NexoConversation {
   /// e puxar o JSON inteiro de cem conversas para desenhar a barra lateral
   /// arrastaria megabytes por um booleano.
   auditoriaPendente Boolean @default(false)
+  /// Mesma razao da coluna acima: a barra lateral separa "Montagem de volumes"
+  /// de "Auditorias", e o tipo vive dentro do `data`. Sem coluna, a lista do
+  /// servidor nao consegue tipar e TODA conversa cai em "volume" -- e num
+  /// primeiro acesso, noutro navegador ou com o cache limpo, o disco local nao
+  /// esta la para corrigir. Nulo nos registros gravados antes desta coluna;
+  /// `tipoDoResumo` aplica o padrao.
+  tipo      String?
   data      Json
   syncedAt  DateTime @default(now())
 

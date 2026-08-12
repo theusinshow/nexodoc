@@ -62,6 +62,7 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         auditoriaPendente: true,
+        tipo: true,
       },
     });
 
@@ -71,6 +72,9 @@ export async function GET() {
       createdAt: l.createdAt.getTime(),
       updatedAt: l.updatedAt.getTime(),
       ...(l.folderKey ? { folderKey: l.folderKey } : {}),
+      // Só "volume"/"auditoria" viram tipo: a coluna é String e um valor
+      // estranho no banco não pode virar uma terceira seção na barra lateral.
+      ...(l.tipo === "volume" || l.tipo === "auditoria" ? { tipo: l.tipo } : {}),
       ...(l.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
     }));
 
@@ -132,6 +136,7 @@ export async function PUT(req: NextRequest) {
       createdAt: new Date(resumo.createdAt),
       updatedAt: new Date(resumo.updatedAt),
       auditoriaPendente: resumo.temAuditoriaPendente === true,
+      tipo: resumo.tipo ?? null,
       data: r as never,
       syncedAt: new Date(),
     };

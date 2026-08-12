@@ -135,4 +135,29 @@ test("as contagens são do total e ignoram busca e recorte", () => {
   assert.deepEqual(contarPorTipo(lista), { tudo: 4, volume: 3, auditoria: 1 });
 });
 
+// --- a lista do servidor precisa saber tipar (12/08/2026) --------------------
+// A coluna `tipo` entrou no NexoConversation porque a listagem lê só as colunas
+// de fora: sem ela, num primeiro acesso / outro navegador / cache limpo TODA
+// conversa vinha sem tipo e caía em "volume". A barra lateral mostrava
+// "AUDITORIAS 0" com auditorias na lista.
+
+test("resumo do servidor SEM tipo cai no padrão (registro antigo)", () => {
+  assert.equal(tipoDoResumo({}), "volume");
+});
+
+test("resumo do servidor COM tipo é respeitado", () => {
+  assert.equal(tipoDoResumo({ tipo: "auditoria" }), "auditoria");
+});
+
+test("conversa só do servidor, tipada, conta como auditoria", () => {
+  // É o caso que a coluna conserta: sem disco local para corrigir o tipo.
+  const soDoServidor: ConversationSummary[] = [
+    { id: "a", title: "Memorial 063-26", updatedAt: 3, createdAt: 1, tipo: "auditoria" },
+    { id: "b", title: "Volume 040-26", updatedAt: 2, createdAt: 1, tipo: "volume" },
+    { id: "c", title: "Conversa antiga sem tipo", updatedAt: 1, createdAt: 1 },
+  ];
+
+  assert.deepEqual(contarPorTipo(soDoServidor), { tudo: 3, volume: 2, auditoria: 1 });
+});
+
 console.log(`\n${passed} testes ok`);
