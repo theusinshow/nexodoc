@@ -336,7 +336,23 @@ function getReasoningEffort(analysisLevel: AnalysisLevel, auditMode: AuditMode) 
       return effort;
     }
 
-    return DEFAULT_REASONING_EFFORT;
+    /*
+     * Memorial no Profundo: `medium`, não `high`.
+     *
+     * Medido no 063_26_md_geral_a.pdf (73 páginas, 173k chars) em 12/08/2026,
+     * com o prompt de "pecar pelo excesso":
+     *   high   -> abortou em 480s; abortou de novo em 900s; 0 achado de IA.
+     *   medium -> 258s, 35 achados de IA, out=13.893 de 16.000.
+     *
+     * Não é economia: o `high` simplesmente não converge quando a passada lê o
+     * documento inteiro e o pedido é exaustivo. Subir o teto de tempo já falhou
+     * duas vezes; quem quiser `high` precisa antes dividir a leitura global em
+     * duas passadas por faixa de impacto, não dar mais minutos.
+     *
+     * `OPENAI_DEEP_REASONING_EFFORT=high` continua funcionando para quem quiser
+     * tentar — em documento pequeno o `high` termina normalmente.
+     */
+    return "medium";
   }
 
   if (
