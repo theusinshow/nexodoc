@@ -185,7 +185,36 @@ export function parseFindingImpact(value: unknown): FindingImpact | undefined {
   return FINDING_IMPACTS.find((impact) => impact === normalized);
 }
 
+/*
+ * Marcador de template deixado no texto final: XXXX, ____, [ ], <preencher>.
+ *
+ * É o único sinal forte o bastante para VENCER a faixa declarada pelo modelo.
+ * Medido no 063-26 (12/08/2026): o modelo achou os seis "XXXX" da página 6 —
+ * escopo, topografia, rua de acesso, área do terreno e área construída — e os
+ * declarou "tecnico_contratual". Documento com campo de preenchimento em branco
+ * não é ponto de conferência para o responsável técnico: é minuta, e não se
+ * emite. Aqui a evidência é literal e não admite leitura alternativa, então a
+ * regra ganha do julgamento do modelo.
+ *
+ * Repare que a busca é na EVIDÊNCIA (texto citado do documento), não na prosa do
+ * achado: é o que impede um achado que apenas *fala sobre* preenchimento de
+ * subir de faixa sem ter o marcador de verdade.
+ */
+function hasTemplatePlaceholder(finding: AuditFinding) {
+  const quoted = [finding.evidencia ?? "", finding.termo_busca ?? ""].join(" ");
+
+  return (
+    /\bx{4,}\b/i.test(quoted) ||
+    /_{4,}/.test(quoted) ||
+    /<\s*(preencher|inserir|informar)\b/i.test(quoted)
+  );
+}
+
 export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
+  if (hasTemplatePlaceholder(finding)) {
+    return "critico_documental";
+  }
+
   // O que o modelo declarou vence a heurística: ele leu o achado inteiro, a
   // heurística só vê tipo/categoria. Achado de regra continua sendo classificado
   // aqui porque a regra não declara faixa.
@@ -436,9 +465,13 @@ export function getImpactLabel(impact: FindingImpact) {
 }
 
 export function withFindingImpact(finding: AuditFinding): AuditFinding {
+  // Sempre reclassifica: `classifyFindingImpact` já respeita a faixa declarada
+  // pelo modelo, e é ele quem aplica as sobreposições determinísticas que TÊM de
+  // vencer essa declaração (marcador de template). Manter o `??` aqui fazia a
+  // sobreposição existir na função e nunca chegar ao agrupamento.
   return {
     ...finding,
-    impacto: finding.impacto ?? classifyFindingImpact(finding),
+    impacto: classifyFindingImpact(finding),
   };
 }
 

@@ -241,6 +241,164 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(utilityFinding);
   }
 
+  // 7) Memória de cálculo da carga de incêndio que não fecha.
+  for (const loadFinding of runFireLoadArithmeticRule(extracted, fileName, nextId)) {
+    findings.push(loadFinding);
+  }
+
+  return findings;
+}
+
+// --- Regra 7: aritmética da carga de incêndio --------------------------------
+
+/*
+ * Por que isto é REGRA e não instrução de prompt.
+ *
+ * O prompt do auditor passou a exigir conferência aritmética em 12/08/2026. No
+ * 063-26 o modelo recebeu a tabela extraída LIMPA — massa, potencial e produto,
+ * todos legíveis — e mesmo assim não conferiu: zero achados sobre a tabela cujo
+ * total declarado (3.309) não bate nem com a soma das linhas escritas (3.084)
+ * nem com o cálculo correto (3.127,29 → 3,69 MJ/m², e não os 3,91 declarados).
+ * Antes disso, com o prompt antigo, o motor chegou a responder que "a extração
+ * não permite validar a estrutura da tabela".
+ *
+ * Multiplicar duas colunas e somar é fato objetivo. Fato objetivo é regra; a IA
+ * fica com o contexto. Uma multiplicação nunca "quase acerta", então a confiança
+ * é alta e o achado é bloqueador: memorial de incêndio com memória de cálculo
+ * errada não pode ser emitido, mesmo que a classificação final não mude.
+ */
+
+/** "3.309" -> 3309 ; "99,27" -> 99.27 ; "2.680,29" -> 2680.29 */
+function parseNumeroBr(raw: string): number | null {
+  const canonical = raw
+    .trim()
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const value = Number(canonical);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatNumeroBr(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+type LinhaDaCarga = { massa: number; potencial: number; produtoEscrito: number };
+
+/*
+ * Linha da tabela: "<descrição> <massa> <potencial> <produto>".
+ * O pdfjs entrega a página como uma linha só, então o casamento é pelos TRÊS
+ * números consecutivos no fim do item, não por quebra de linha. Exige potencial
+ * inteiro de 2-3 dígitos (MJ/kg tabelado) para não pescar trio de números solto.
+ */
+const LINHA_CARGA = /([\d.]+,\d+|\d+)\s+(\d{1,3})\s+([\d.]+,\d+|\d+)(?=\s|$)/g;
+
+function runFireLoadArithmeticRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+
+  for (const page of extracted.pages) {
+    if (!/potencial\s+calor[íi]fico/i.test(page.text)) {
+      continue;
+    }
+
+    const totalMatch = /Valor\s+total\s+do\s+potencial\s+calor[íi]fico[^\d]{0,30}([\d.]+,\d+|[\d.]+)/i.exec(
+      page.text,
+    );
+
+    if (!totalMatch) {
+      continue;
+    }
+
+    const totalDeclarado = parseNumeroBr(totalMatch[1]);
+
+    if (totalDeclarado === null) {
+      continue;
+    }
+
+    // Só o trecho da tabela: entre o cabeçalho e o "Valor total".
+    const inicio = page.text.search(/Potencial\s+calor[íi]fico/i);
+    const corpo = page.text.slice(inicio, totalMatch.index);
+    const linhas: LinhaDaCarga[] = [];
+
+    LINHA_CARGA.lastIndex = 0;
+    for (const match of corpo.matchAll(LINHA_CARGA)) {
+      const massa = parseNumeroBr(match[1]);
+      const potencial = parseNumeroBr(match[2]);
+      const produtoEscrito = parseNumeroBr(match[3]);
+
+      if (massa === null || potencial === null || produtoEscrito === null) {
+        continue;
+      }
+
+      linhas.push({ massa, potencial, produtoEscrito });
+    }
+
+    if (linhas.length < 2) {
+      continue;
+    }
+
+    const errosDeLinha = linhas.filter(
+      (linha) => Math.abs(linha.massa * linha.potencial - linha.produtoEscrito) > 0.5,
+    );
+    const somaEscrita = linhas.reduce((total, linha) => total + linha.produtoEscrito, 0);
+    const somaCorreta = linhas.reduce((total, linha) => total + linha.massa * linha.potencial, 0);
+    const somaNaoFecha = Math.abs(somaEscrita - totalDeclarado) > 1;
+
+    if (errosDeLinha.length === 0 && !somaNaoFecha) {
+      continue;
+    }
+
+    const detalheLinhas = errosDeLinha
+      .map(
+        (linha) =>
+          `${formatNumeroBr(linha.massa)} × ${formatNumeroBr(linha.potencial)} = ${formatNumeroBr(
+            linha.massa * linha.potencial,
+          )}, e não ${formatNumeroBr(linha.produtoEscrito)}`,
+      )
+      .join("; ");
+
+    const areaMatch = /[ÁA]rea\s+considerada[^\d]{0,40}([\d.]+,\d+|[\d.]+)/i.exec(page.text);
+    const area = areaMatch ? parseNumeroBr(areaMatch[1]) : null;
+    const especificaMatch = /Carga\s+de\s+inc[êe]ndio\s+espec[íi]fica[^\d]{0,30}([\d.]+,\d+|[\d.]+)/i.exec(
+      page.text,
+    );
+    const especificaDeclarada = especificaMatch ? parseNumeroBr(especificaMatch[1]) : null;
+
+    const partesConflito = [
+      errosDeLinha.length > 0 ? `${errosDeLinha.length} linha(s) com produto errado: ${detalheLinhas}` : null,
+      somaNaoFecha
+        ? `a soma das linhas escritas é ${formatNumeroBr(somaEscrita)}, mas o total declarado é ${formatNumeroBr(totalDeclarado)}`
+        : null,
+      `refazendo as contas a partir das massas e potenciais da própria tabela, o total é ${formatNumeroBr(somaCorreta)}`,
+      area && especificaDeclarada
+        ? `o que dá ${formatNumeroBr(somaCorreta / area)} MJ/m², e não os ${formatNumeroBr(especificaDeclarada)} MJ/m² declarados`
+        : null,
+    ].filter(Boolean);
+
+    findings.push(
+      makeFinding(nextId(), {
+        arquivo: fileName,
+        prioridade: "Alta",
+        impacto: "critico_documental",
+        pagina: String(page.page),
+        capitulo: "Projeto preventivo contra incêndio",
+        local: "Memória de cálculo da carga de incêndio",
+        tipo: "Memória de cálculo da carga de incêndio não fecha",
+        descricao: `A tabela de carga de incêndio da página ${page.page} não fecha: ${
+          errosDeLinha.length > 0 ? "há produto de linha incorreto" : "o total não corresponde às linhas"
+        } e o total declarado não corresponde ao cálculo.`,
+        evidencia: snippet(page.text, totalMatch.index, 220),
+        termo_busca: "Valor total do potencial calorífico",
+        conflito: `${partesConflito.join("; ")}.`,
+        sugestao_correcao:
+          "Refazer a memória de cálculo com os produtos e o somatório corretos e atualizar a carga específica resultante. Ainda que a classificação final não mude, a memória apresentada precisa ser aritmeticamente correta.",
+      }),
+    );
+  }
+
   return findings;
 }
 

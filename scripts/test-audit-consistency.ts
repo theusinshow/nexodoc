@@ -31,6 +31,7 @@ import {
   getFindingAssurance,
   makeTextReport,
   parseFindingImpact,
+  withFindingImpact,
   type AuditFinding,
   type AuditReport,
 } from "../lib/audit-report.ts";
@@ -745,6 +746,93 @@ check("campo não preenchido (XXXX) é crítico, não editorial", () => {
     evidencia: "“área total do terreno é de XXXX m²”; “área construída de XXXX m²”",
   });
   assert.equal(classifyFindingImpact(finding), "critico_documental");
+});
+
+check("marcador de template vence a faixa declarada pelo modelo", () => {
+  // Medido no 063-26: o modelo achou os seis XXXX e os chamou de técnico.
+  const finding = mkReportFinding({
+    tipo: "Campos de template não preenchidos",
+    categoria: "completude documental",
+    evidencia: "“A área total do terreno é de XXXX m²”; “uma área construída de XXXX m²”",
+    impacto: "tecnico_contratual",
+  });
+  assert.equal(classifyFindingImpact(finding), "critico_documental");
+  // e a sobreposição precisa CHEGAR ao agrupamento, não morrer na função
+  assert.equal(withFindingImpact(finding).impacto, "critico_documental");
+});
+
+check("achado que só FALA de preenchimento não sobe de faixa", () => {
+  // sem marcador literal na evidência, a declaração do modelo continua valendo
+  const finding = mkReportFinding({
+    tipo: "Campo a confirmar",
+    categoria: "completude documental",
+    evidencia: "O responsável deve preencher a matrícula do imóvel antes da emissão.",
+    impacto: "tecnico_contratual",
+  });
+  assert.equal(classifyFindingImpact(finding), "tecnico_contratual");
+});
+
+check("aritmética da carga de incêndio: pega linha errada e total que não fecha", () => {
+  // Números literais da página 58 do 063-26.
+  const doc = {
+    pages: [
+      {
+        page: 58,
+        text:
+          "Material Massa mi [kg] Potencial calorífico específico Hi [MJ/kg] Potencial calorífico por material mi x Hi [MJ] " +
+          "Carpete da cancha de bocha (poliéster) 99,27 27 2862 Madeira (Cabos de vassouras) 2 19 19 " +
+          "Algodão (Panos de limpeza) 1 18 18 Papel (Estoque de papel toalha) 3 17 17 " +
+          "Polipropileno/Plástico (Baldes) 5 43 43 Álcool Etílico (Desinfetantes) 5 25 125 " +
+          "Valor total do potencial calorífico [MJ]: 3.309 Área considerada para cálculo [m²]: 846,90 " +
+          "Carga de incêndio específica [MJ/m²]: 3,91",
+      },
+    ],
+    text: "",
+    pageCount: 1,
+    charCount: 600,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "063_26_md_geral_a.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((finding) => /carga de inc/i.test(finding.tipo));
+
+  assert.equal(findings.length, 1, "a tabela que não fecha tem de virar achado");
+  assert.equal(findings[0].impacto, "critico_documental");
+  // as quatro linhas erradas e os dois totais têm de estar no conflito
+  assert.match(findings[0].conflito, /4 linha\(s\)/);
+  assert.match(findings[0].conflito, /3\.084/);
+  assert.match(findings[0].conflito, /3\.309/);
+  assert.match(findings[0].conflito, /3\.127,29/);
+  assert.match(findings[0].conflito, /3,69 MJ\/m²/);
+});
+
+check("aritmética: tabela que FECHA não gera achado", () => {
+  const doc = {
+    pages: [
+      {
+        page: 10,
+        text:
+          "Material Massa mi [kg] Potencial calorífico específico Hi [MJ/kg] Potencial calorífico mi x Hi [MJ] " +
+          "Madeira 2 19 38 Papel 3 17 51 " +
+          "Valor total do potencial calorífico [MJ]: 89 Área considerada para cálculo [m²]: 100,00",
+      },
+    ],
+    text: "",
+    pageCount: 1,
+    charCount: 200,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "ok.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((finding) => /carga de inc/i.test(finding.tipo));
+
+  assert.equal(findings.length, 0, "tabela correta não pode gerar falso positivo");
 });
 
 check("norma desatualizada continua técnica, não crítica", () => {

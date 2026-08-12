@@ -578,22 +578,29 @@ function getDeepGlobalMaxOutputTokens() {
   return 16000;
 }
 
-// A leitura global do Profundo lê o documento inteiro com esforço alto e devolve
-// bastante saída — precisa de bem mais que os 120s dos blocos. Teto de 8 min.
+// A leitura global do Profundo lê o documento inteiro e devolve bastante saída —
+// precisa de bem mais que os 120s dos blocos. Teto de 15 min.
 function getDeepGlobalTimeoutMs() {
   const value = Number(process.env.NEXODOC_DEEP_GLOBAL_TIMEOUT_MS);
 
   if (Number.isFinite(value) && value >= 120_000) {
-    return Math.min(480_000, Math.floor(value));
+    return Math.min(900_000, Math.floor(value));
   }
 
   /*
-   * 480s, não 300s. Medido no 017-26 com o documento inteiro (78k tokens de
-   * entrada): 181s, 192s, 202s e um aborto aos 300s. A leitura global é a coisa
-   * mais valiosa da auditoria profunda; apertar o tempo dela troca qualidade por
-   * uma economia que ninguém pediu.
+   * 900s, não 480s. O 480 foi medido no 017-26 com o prompt antigo (78k tokens
+   * de entrada, cap de 30 achados): 181s, 192s, 202s.
+   *
+   * Em 12/08/2026 o prompt passou a pedir muito mais por passada — peque pelo
+   * excesso, cap de 60, conferência aritmética de toda tabela e sumário contra
+   * corpo. No 063-26 (48k tokens de entrada, MENOS que o 017-26) a passada bateu
+   * exatamente nos 480s e foi abortada: a auditoria voltou com 0 achado de IA e
+   * US$ ~0,60 queimados. Não foi o documento que cresceu, foi o pedido.
+   *
+   * Quem aperta este número troca a leitura global inteira por uma economia que
+   * ninguém pediu — e o custo do aborto é o mesmo do sucesso.
    */
-  return 480_000;
+  return 900_000;
 }
 
 /*
