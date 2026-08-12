@@ -308,7 +308,219 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(marcaFinding);
   }
 
+  // 10) Referência a item que não existe no documento.
+  for (const refFinding of runBrokenCrossReferenceRule(extracted, fileName, nextId)) {
+    findings.push(refFinding);
+  }
+
+  // 11) Parágrafo repetido literalmente.
+  for (const dupFinding of runDuplicateParagraphRule(extracted, fileName, nextId)) {
+    findings.push(dupFinding);
+  }
+
   return findings;
+}
+
+// --- Regra 10: referência cruzada quebrada -----------------------------------
+
+/*
+ * "conforme item 3.6.3" quando 3.6.3 não existe em lugar nenhum do documento.
+ *
+ * A verificação NÃO tenta reconstruir a árvore de capítulos — parsear título a
+ * partir do texto do pdfjs é frágil, e regra frágil vira falso positivo. Basta
+ * perguntar se o número referenciado aparece em ALGUM outro lugar: se "3.6.3" só
+ * existe dentro da própria remissão, a remissão aponta para o vazio. É
+ * conservador de propósito (um item que existe, mesmo mal formatado, não acusa).
+ */
+const REMISSAO = /\b(?:conforme|ver|vide|previsto\s+no|descrito\s+no|indicado\s+no)\s+(?:o\s+)?(?:item|subitem|se[çc][ãa]o|cap[íi]tulo)\s+(\d+(?:\.\d+){1,4})/gi;
+
+function runBrokenCrossReferenceRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const quebradas: { page: number; alvo: string; trecho: string }[] = [];
+  const vistos = new Set<string>();
+
+  for (const page of extracted.pages) {
+    REMISSAO.lastIndex = 0;
+
+    for (const match of page.text.matchAll(REMISSAO)) {
+      const alvo = match[1];
+
+      if (vistos.has(alvo)) {
+        continue;
+      }
+
+      /*
+       * Remissão a item de norma EXTERNA não é remissão interna. No 116-25:
+       * "Conforme descrito no item 5.11.10 da Norma Técnica N-321.0002" — o item
+       * está na norma da concessionária, não no memorial, e cobrá-lo aqui era
+       * falso positivo. Mesmo caso de "itens 17.5 e 17.6 desta norma
+       * regulamentadora" (NR-10), que é problema de citação, não de remissão.
+       */
+      const depois = page.text.slice(
+        (match.index ?? 0) + match[0].length,
+        (match.index ?? 0) + match[0].length + 60,
+      );
+
+      if (
+        /^\s*d[aeo]s?\s+(norma|nbr|nr\b|in\b|instru|abnt|lei|decreto|portaria|resolu|n-\d)/i.test(depois) ||
+        /^\s*desta\s+norma/i.test(depois)
+      ) {
+        continue;
+      }
+
+      // Conta quantas vezes o número aparece no documento inteiro. A própria
+      // remissão conta 1; qualquer outra ocorrência (o título do item, outra
+      // remissão) já basta para considerar que o alvo existe.
+      const ocorrencias = extracted.text.split(alvo).length - 1;
+
+      if (ocorrencias > 1) {
+        continue;
+      }
+
+      vistos.add(alvo);
+      quebradas.push({
+        page: page.page,
+        alvo,
+        trecho: snippet(page.text, match.index ?? 0, 90).replace(/\s+/g, " ").trim(),
+      });
+    }
+  }
+
+  if (quebradas.length === 0) {
+    return [];
+  }
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Media/Alta",
+      impacto: "tecnico_contratual",
+      pagina: [...new Set(quebradas.map((q) => q.page))].sort((a, b) => a - b).join(", "),
+      capitulo: "Remissões internas",
+      local: "referência a item do próprio memorial",
+      tipo: "Remissão a item inexistente",
+      descricao: `${quebradas.length} remissão(ões) apontam para itens que não aparecem em nenhum outro ponto do documento: ${quebradas
+        .map((q) => q.alvo)
+        .join(", ")}.`,
+      evidencia: quebradas.map((q) => `p. ${q.page}: "${q.trecho}"`).join(" | "),
+      termo_busca: quebradas[0].alvo,
+      conflito:
+        "O item referenciado não existe no documento — quem for executar não tem para onde ir, e a exigência fica sem conteúdo.",
+      sugestao_correcao:
+        "Corrigir a numeração da remissão para o item correto ou incluir o item que ficou faltando.",
+      confianca: "media",
+    }),
+  ];
+}
+
+// --- Regra 11: parágrafo repetido --------------------------------------------
+
+/*
+ * Duplicação editorial: o mesmo parágrafo escrito duas vezes. No 063-26 o item
+ * 3.6.3.2 repete quase palavra por palavra o parágrafo sobre manutenção dos
+ * azulejos tipo tijolinho.
+ *
+ * Cuidados que evitam o falso positivo óbvio — memorial repete MUITA coisa de
+ * propósito:
+ *  - só parágrafos longos (>= 180 caracteres): frase curta se repete à toa;
+ *  - as ocorrências têm de estar na MESMA página;
+ *  - comparação normalizada (caixa, acento, espaço), porque o pdfjs quebra
+ *    palavra e a repetição raramente é byte a byte.
+ *
+ * A janela é o que separa defeito de convenção, e foi apertada em duas medições:
+ *  - sem janela, o 08-controle-limpo acusava 7 parágrafos. Memorial repete
+ *    cláusula geral entre seções distantes de propósito ("os revestimentos
+ *    deverão ser executados estritamente de acordo com o projeto", págs. 28 e
+ *    30, 29 e 56) — é o estilo do documento, não erro;
+ *  - com janela de 1 página ainda sobrava o 05-par-memorial, onde a cláusula de
+ *    mão de obra especializada cai nas págs. 30 e 31. Vizinhança não distingue
+ *    boilerplate de descuido.
+ *
+ * Mesma página é o corte que sobrou de pé: o mesmo parágrafo escrito duas vezes
+ * na mesma página é escorregão de edição, não convenção. Troca recall por
+ * precisão de propósito — duplicação que atravessa a quebra de página escapa.
+ */
+const MIN_PARAGRAFO = 180;
+const MAX_DISTANCIA_DE_PAGINAS = 0;
+
+function normalizarParagrafo(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function runDuplicateParagraphRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const grupos = new Map<string, { paginas: number[]; amostra: string }>();
+
+  for (const page of extracted.pages) {
+    // Frase como unidade: o pdfjs entrega a página como uma linha só, então
+    // quebrar por ponto final é o que mais se aproxima de "parágrafo".
+    for (const bruto of page.text.split(/(?<=\.)\s+/)) {
+      const normalizado = normalizarParagrafo(bruto);
+
+      if (normalizado.length < MIN_PARAGRAFO) {
+        continue;
+      }
+
+      const atual = grupos.get(normalizado);
+
+      if (atual) {
+        atual.paginas.push(page.page);
+        continue;
+      }
+
+      grupos.set(normalizado, {
+        paginas: [page.page],
+        amostra: bruto.replace(/\s+/g, " ").trim().slice(0, 160),
+      });
+    }
+  }
+
+  const repetidos = [...grupos.values()].filter((grupo) => {
+    if (grupo.paginas.length < 2) {
+      return false;
+    }
+
+    const espalhamento = Math.max(...grupo.paginas) - Math.min(...grupo.paginas);
+    return espalhamento <= MAX_DISTANCIA_DE_PAGINAS;
+  });
+
+  if (repetidos.length === 0) {
+    return [];
+  }
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Baixa/Media",
+      impacto: "revisao_editorial",
+      pagina: [...new Set(repetidos.flatMap((r) => r.paginas))].sort((a, b) => a - b).join(", "),
+      capitulo: "Revisão editorial",
+      local: "parágrafo repetido",
+      tipo: "Parágrafo duplicado no mesmo documento",
+      descricao: `${repetidos.length} parágrafo(s) longo(s) aparecem mais de uma vez no documento.`,
+      evidencia: repetidos
+        .slice(0, 3)
+        .map((r) => `p. ${[...new Set(r.paginas)].join(" e ")}: "${r.amostra}…"`)
+        .join(" | "),
+      termo_busca: repetidos[0].amostra.slice(0, 60),
+      conflito:
+        "O mesmo texto aparece repetido; se as duas ocorrências forem intencionais, uma delas deve ser remissão à outra.",
+      sugestao_correcao:
+        "Eliminar a repetição ou substituí-la por remissão ao item onde o texto já está.",
+      confianca: "media",
+    }),
+  ];
 }
 
 // --- Regra 9: marca sem "ou similar" ----------------------------------------

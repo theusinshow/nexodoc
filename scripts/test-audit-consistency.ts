@@ -491,6 +491,97 @@ check("material das ferragens contraditório vira achado de regra", () => {
   assert.equal(findings[0].pagina, "28 e 29");
 });
 
+check("remissão a item inexistente vira achado", () => {
+  const doc = {
+    pages: [{ page: 40, text: "O acabamento será executado conforme item 3.9.7 deste memorial, com os cuidados usuais." }],
+    text: "",
+    pageCount: 1,
+    charCount: 90,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({ fileName: "x.pdf", fileType: "memorial", extracted: doc })
+    .filter((f) => /Remiss/i.test(f.tipo));
+
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].descricao, /3\.9\.7/);
+});
+
+check("remissão a item que EXISTE não gera achado", () => {
+  const doc = {
+    pages: [
+      { page: 40, text: "O acabamento será executado conforme item 3.9.7 deste memorial." },
+      { page: 41, text: "3.9.7 Pintura acrílica sobre massa corrida, aplicada em duas demãos." },
+    ],
+    text: "",
+    pageCount: 2,
+    charCount: 140,
+  };
+  doc.text = doc.pages.map((p) => p.text).join("\n");
+
+  const findings = runDocumentCoherenceRules({ fileName: "x.pdf", fileType: "memorial", extracted: doc })
+    .filter((f) => /Remiss/i.test(f.tipo));
+
+  assert.equal(findings.length, 0);
+});
+
+check("remissão a item de norma EXTERNA não é remissão interna", () => {
+  // Caso real do 116-25: "item 5.11.10 da Norma Técnica N-321.0002" está na
+  // norma da concessionária, não no memorial. Era falso positivo.
+  const doc = {
+    pages: [{ page: 101, text: "Conforme descrito no item 5.11.10 da Norma Técnica N-321.0002, em uma subestação unitária." }],
+    text: "",
+    pageCount: 1,
+    charCount: 95,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({ fileName: "x.pdf", fileType: "memorial", extracted: doc })
+    .filter((f) => /Remiss/i.test(f.tipo));
+
+  assert.equal(findings.length, 0);
+});
+
+check("parágrafo duplicado na MESMA página vira achado", () => {
+  const paragrafo =
+    "A tinta deverá ter acabamento fosco, sem cheiro, menos respingos e de fácil lavagem, e deverá ser aplicada em duas ou quantas demãos forem necessárias para completa cobertura da superfície preparada.";
+  const doc = {
+    pages: [{ page: 32, text: `${paragrafo} Outro texto qualquer no meio. ${paragrafo}` }],
+    text: "",
+    pageCount: 1,
+    charCount: 460,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({ fileName: "x.pdf", fileType: "memorial", extracted: doc })
+    .filter((f) => /duplicado/i.test(f.tipo));
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].impacto, "revisao_editorial");
+});
+
+check("cláusula repetida em páginas DIFERENTES é convenção, não achado", () => {
+  // 05-par-memorial repete a cláusula de mão de obra especializada nas págs. 30
+  // e 31. Memorial repete cláusula geral entre seções de propósito.
+  const paragrafo =
+    "Os serviços de revestimento deverão ser executados exclusivamente por mão de obra especializada, com suficiente experiência no manuseio e aplicação dos materiais especificados neste memorial descritivo.";
+  const doc = {
+    pages: [
+      { page: 30, text: paragrafo },
+      { page: 31, text: paragrafo },
+    ],
+    text: "",
+    pageCount: 2,
+    charCount: 420,
+  };
+  doc.text = doc.pages.map((p) => p.text).join("\n");
+
+  const findings = runDocumentCoherenceRules({ fileName: "x.pdf", fileType: "memorial", extracted: doc })
+    .filter((f) => /duplicado/i.test(f.tipo));
+
+  assert.equal(findings.length, 0);
+});
+
 check("marca sem 'ou similar' vira achado (padrão do escritório / Lei 14.133)", () => {
   const doc = {
     pages: [

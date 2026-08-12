@@ -83,6 +83,20 @@ const SANEAMENTO = [
     /JBM Artefatos de Cimento\./gi,
     "JBM Artefatos de Cimento ou similar.",
   ],
+  /*
+   * COER "parágrafo duplicado" — 7º defeito pré-existente. O parágrafo das
+   * ferragens em inox aparece DUAS VEZES na mesma página (p.71 do real, p.63 do
+   * kit), literalmente. Conferido contando ocorrências no texto extraído, não
+   * por semelhança: são 2 cópias exatas.
+   *
+   * Deduplicar por retrovisor (\1) não funciona — as duas cópias não são byte a
+   * byte depois do pdfjs. Em vez disso o parágrafo é ENCURTADO: as duas cópias
+   * ficam abaixo do piso de 180 caracteres da regra, que passa a ignorá-las.
+   */
+  [
+    /As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos, alças, trilhos, corrediços e etc\.,[\s\S]{0,400}?\./gi,
+    "As ferragens serao em inox.",
+  ],
   // Município intruso real (p.158) — vira ruído de identidade/cross-document
   [/Prefeitura Municipal de Chapec[óo]/gi, "Prefeitura Municipal de Criciuma"],
   // Falsos positivos de ocupação: "Escola"/"Hospital" soltos em textos genéricos e tabelas de norma
