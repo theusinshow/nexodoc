@@ -13,9 +13,9 @@
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { FileText, Map, MapPin, ShieldCheck } from "lucide-react";
+import { FileText, ListChecks, Map, MapPin, ShieldCheck, SquareStack } from "lucide-react";
 
-import { AuditResult } from "@/components/audit-result";
+import { AuditResult, type AuditView } from "@/components/audit-result";
 import { Chip } from "@/components/ui/chip";
 import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
@@ -23,6 +23,16 @@ import { useAuditoria, type VistaDoPalco as Vista } from "../state/auditoria-sto
 import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
+
+/**
+ * As três vistas de LISTA do parecer. A quarta ("No documento") entra ao lado
+ * delas na barra, mas não vive aqui: ela troca de componente, não de aba.
+ */
+const VISTAS_DO_PARECER: { valor: AuditView; rotulo: string; Icone: typeof FileText }[] = [
+  { valor: "summary", rotulo: "Resumo", Icone: SquareStack },
+  { valor: "findings", rotulo: "Achados", Icone: ListChecks },
+  { valor: "report", rotulo: "Relatório", Icone: FileText },
+];
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   const { results, recuperarMemorial, achadosResolvidos, marcarAchadoResolvido } =
@@ -109,26 +119,53 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
    */
   const [noDocumento, setNoDocumento] = useState(false);
   const podeVerNoDocumento = Boolean(report && memorialPdf);
+  /*
+   * A vista do parecer sobe para cá: as quatro vistas da auditoria (Resumo,
+   * Achados, Relatório, No documento) são irmãs numa barra só. Antes eram dois
+   * seletores empilhados — chips grandes aqui, um controle de 12px dentro do
+   * parecer —, e o de baixo se lia como filtro da lista, não como troca de vista.
+   */
+  const [vistaDoParecer, setVistaDoParecer] = useState<AuditView>("summary");
+  const totalDeAchados = report?.incongruencias.length ?? 0;
 
   /*
    * O MESMO parecer nas duas vistas: inteiro quando é a vista, e dentro do
    * drawer quando o canvas está na frente. Escrito uma vez só — duas cópias
    * divergiriam no primeiro ajuste de props.
    */
-  const parecer = report ? (
-    <AuditResult
-      content={salvo?.texto ?? ""}
-      report={report}
-      auditId={salvo?.auditId ?? undefined}
-      pdfSources={memorialPdf ? [memorialPdf] : []}
-      resolvidos={resolvidosDesta}
-      onToggleResolvido={
-        salvo?.auditId
-          ? (refId, resolvido) => marcarAchadoResolvido(salvo.auditId!, refId, resolvido)
-          : undefined
-      }
-    />
-  ) : null;
+  /*
+   * O `!` de `salvo.auditId!` vivia dentro do JSX; com o parecer virando função
+   * reaproveitada, a asserção passou a morar num fecho que o React Compiler não
+   * consegue provar estável — e ele desistia de otimizar o palco inteiro. Aqui o
+   * id é lido uma vez e a função só existe quando ele existe.
+   */
+  const aoAlternarResolvido = useMemo(() => {
+    const id = salvo?.auditId;
+    if (!id) return undefined;
+    return (refId: string, resolvido: boolean) => marcarAchadoResolvido(id, refId, resolvido);
+  }, [salvo?.auditId, marcarAchadoResolvido]);
+
+  const parecerCom = (opts: { controlado: boolean; achadoEmFoco?: string }) =>
+    report ? (
+      <AuditResult
+        content={salvo?.texto ?? ""}
+        report={report}
+        auditId={salvo?.auditId ?? undefined}
+        pdfSources={memorialPdf ? [memorialPdf] : []}
+        resolvidos={resolvidosDesta}
+        onToggleResolvido={aoAlternarResolvido}
+        /*
+         * Na vista inteira quem manda na aba é a BARRA aqui de cima; dentro do
+         * drawer do canvas não há barra por perto, então o parecer volta a ser
+         * dono da própria vista e desenha o controle segmentado.
+         */
+        view={opts.controlado ? vistaDoParecer : undefined}
+        onViewChange={opts.controlado ? setVistaDoParecer : undefined}
+        achadoEmFoco={opts.achadoEmFoco}
+      />
+    ) : null;
+
+  const parecer = parecerCom({ controlado: true });
 
   return (
     <div className="relative flex h-full w-full flex-col">
@@ -157,29 +194,67 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
             Auditoria
           </Chip>
 
-          {/* Duas leituras do MESMO parecer: a lista, e os achados sobre as
-              páginas do memorial. Só aparece com a auditoria na tela. */}
-          {mostrandoAuditoria && podeVerNoDocumento && (
-            <>
-              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+        </div>
+      )}
+
+      {/*
+        A BARRA DE VISTAS — o segundo degrau, e só ele.
+        Quatro leituras do MESMO parecer, irmãs entre si: três da lista e uma
+        sobre as páginas do memorial. Fica abaixo do módulo e acima do conteúdo,
+        que é onde uma troca de vista se lê como troca de vista.
+
+        `flex-wrap` e não breakpoint de janela: aqui o palco é estreito mesmo com
+        a janela larga (ver o parecer, que já apanhou disso).
+      */}
+      {mostrandoAuditoria && report && (
+        <div
+          /*
+           * GRUPO DE BOTÕES, não `role="tablist"`. A ARIA de abas promete
+           * navegação por setas, `aria-controls` e um `tabpanel` do outro lado —
+           * anunciar "aba" sem entregar isso é pior para quem usa leitor de tela
+           * do que o botão honesto que isto é. `aria-pressed` diz o que importa:
+           * qual vista está ligada.
+           */
+          role="group"
+          aria-label="Vistas da auditoria"
+          className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border/60 px-1 pb-2"
+        >
+          {VISTAS_DO_PARECER.map((v) => {
+            const ativa = !noDocumento && vistaDoParecer === v.valor;
+            return (
               <Chip
-                variant={noDocumento ? "quiet" : "default"}
-                onClick={() => setNoDocumento(false)}
-                className="min-h-7 px-2.5 py-0.5 text-[11px]"
+                key={v.valor}
+                aria-pressed={ativa}
+                variant={ativa ? "default" : "quiet"}
+                onClick={() => {
+                  setNoDocumento(false);
+                  setVistaDoParecer(v.valor);
+                }}
+                className="min-h-8 px-3 text-xs"
               >
-                <FileText aria-hidden />
-                Parecer
+                <v.Icone aria-hidden />
+                {v.rotulo}
+                {/* A contagem mora na aba que a governa: é o número que decide
+                    se vale abrir a lista, e ele estava enterrado no subtítulo. */}
+                {v.valor === "findings" && totalDeAchados > 0 && (
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    {totalDeAchados}
+                  </span>
+                )}
               </Chip>
-              <Chip
-                data-tour="chip-no-documento"
-                variant={noDocumento ? "default" : "quiet"}
-                onClick={() => setNoDocumento(true)}
-                className="min-h-7 px-2.5 py-0.5 text-[11px]"
-              >
-                <MapPin aria-hidden />
-                No documento
-              </Chip>
-            </>
+            );
+          })}
+          {podeVerNoDocumento && (
+            <Chip
+              aria-pressed={noDocumento}
+              data-tour="chip-no-documento"
+              variant={noDocumento ? "default" : "quiet"}
+              onClick={() => setNoDocumento(true)}
+              className="min-h-8 px-3 text-xs"
+            >
+              <MapPin aria-hidden />
+              No documento
+            </Chip>
           )}
         </div>
       )}
@@ -215,7 +290,12 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
           ) : report ? (
             noDocumento ? (
               <div className="h-full">
-                <AuditCanvas report={report} pdfUrl={memorialPdf?.url} parecer={parecer} />
+                <AuditCanvas
+                  report={report}
+                  pdfUrl={memorialPdf?.url}
+                  // Montado no clique, já no achado que a pessoa apontou.
+                  parecer={(achadoEmFoco) => parecerCom({ controlado: false, achadoEmFoco })}
+                />
               </div>
             ) : (
               <div className="h-full overflow-y-auto">{parecer}</div>

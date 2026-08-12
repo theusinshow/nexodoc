@@ -15,7 +15,9 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { COR_DA_SEVERIDADE } from "@/lib/audit-status";
+import { useRealce } from "./audit-canvas-realce";
 import { locateTermOnPage, type PinPosition } from "@/server/nexo/audit/locate-term";
 import type { AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { LARGURA_PAGINA } from "../lib/layout-auditoria";
@@ -33,14 +35,16 @@ export type MemorialPageNodeData = {
   pdfUrl?: string;
   pageNumber: number;
   achados: AchadoNaPagina[];
-  /**
-   * Ids acesos; null = todos acesos. É lista, e não um id só, porque a pilha dos
-   * recorrentes acende de uma vez todas as páginas em que o erro aparece.
-   */
-  acesos?: string[] | null;
 } & Record<string, unknown>;
 
 export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPageNodeData>>) {
+  /*
+   * O que está aceso vem do CONTEXTO, não de `data`. Enfiado nos dados, cada
+   * movimento do ponteiro recriava os 32 nós e o React Flow redesenhava as 28
+   * miniaturas de PDF junto — ver [[audit-canvas-realce.tsx]].
+   */
+  const { acesos } = useRealce();
+  const temAceso = acesos.length > 0 && data.achados.some((a) => acesos.includes(a.id));
   const [pinos, setPinos] = useState<Record<string, PinPosition>>({});
   // Distingue "ainda não li a camada de texto" de "li e não achei o trecho": sem
   // isso o rodapé acusaria achado sem pin enquanto o PDF ainda carrega.
@@ -49,12 +53,15 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
   const semPino = lido ? data.achados.filter((a) => !pinos[a.id]) : [];
 
   return (
+    /*
+     * A página com um achado aceso ganha o mesmo contorno do card que a acendeu
+     * — é o par que se enxerga. Nada escurece: o realce é aditivo.
+     */
     <div
-      className={
-        selected
-          ? "nx-edge-6 overflow-hidden [--nx-edge:var(--ring)]"
-          : "nx-edge-6 overflow-hidden [--nx-edge:var(--border)]"
-      }
+      className={cn(
+        "nx-edge-6 overflow-hidden transition-[--nx-edge]",
+        selected || temAceso ? "[--nx-edge:var(--ring)]" : "[--nx-edge:var(--border)]",
+      )}
       style={{ width: LARGURA_PAGINA }}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden border-b border-border">
@@ -84,7 +91,7 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
         {data.achados.map((achado) => {
           const pos = pinos[achado.id];
           if (!pos) return null;
-          const aceso = !data.acesos || data.acesos.includes(achado.id);
+          const aceso = acesos.includes(achado.id);
           return (
             /*
              * O pin é MARCA, não conteúdo: o card logo abaixo já diz tipo,
@@ -92,16 +99,24 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
              * leitor de tela encheria a árvore de acessibilidade com 122 rótulos
              * repetidos, empurrando o texto que importa para longe.
              */
+            /*
+             * O pin ACESO cresce e ganha um halo; o apagado fica como sempre
+             * esteve. Antes era o contrário — o não-aceso caía para 25%, e com
+             * dezenas de pins a tela inteira piscava a cada movimento.
+             */
             <span
               key={achado.id}
               aria-hidden
               data-pin={achado.id}
-              className="pointer-events-none absolute block size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-opacity"
+              data-aceso={aceso ? "" : undefined}
+              className={cn(
+                "pointer-events-none absolute block size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-transform",
+                aceso && "scale-150 ring-2 ring-[var(--ring)]",
+              )}
               style={{
                 left: `${pos.xPct * 100}%`,
                 top: `${pos.yPct * 100}%`,
                 backgroundColor: COR_DA_SEVERIDADE[achado.severity],
-                opacity: aceso ? 1 : 0.25,
               }}
             />
           );

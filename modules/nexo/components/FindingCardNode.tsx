@@ -2,12 +2,15 @@
 
 /**
  * Card de UM achado no canvas da auditoria. Fica logo abaixo da página a que
- * pertence, ligado a ela por uma linha — passar o cursor acende o par e apaga o
- * resto (Modelo 2 do spec).
+ * pertence, ligado a ela por uma linha — passar o cursor REALÇA o par, e clicar
+ * abre o achado inteiro no parecer.
  *
  * O card diz O QUÊ; o pin na miniatura diz ONDE. Sem o card, a vista dependia do
  * tooltip do pin, que some quando o cursor sai — e um achado que só existe
  * enquanto o mouse está parado em cima não é uma leitura, é um esconde-esconde.
+ *
+ * O hover NÃO apaga mais o resto da cena (era o Modelo 2 do spec, o holofote):
+ * ver a razão medida em [[audit-canvas-realce.tsx]].
  */
 
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
@@ -18,6 +21,7 @@ import { cn } from "@/lib/utils";
 import type { AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import type { FindingTier } from "@/lib/audit-report";
 import { LARGURA_PAGINA, ALTURA_CARTAO } from "../lib/layout-auditoria";
+import { useAceso } from "./audit-canvas-realce";
 
 export type FindingCardNodeData = {
   achadoId: string;
@@ -27,17 +31,26 @@ export type FindingCardNodeData = {
   evidencia: string;
   /** Página do achado; ausente no bloco "sem página localizada". */
   pageNumber?: number | null;
-  /** Ids acesos; null = todos acesos. */
-  acesos?: string[] | null;
 } & Record<string, unknown>;
 
 export function FindingCardNode({ data }: NodeProps<Node<FindingCardNodeData>>) {
-  const aceso = !data.acesos || data.acesos.includes(data.achadoId);
+  const aceso = useAceso(data.achadoId);
 
   return (
+    /*
+     * O aceso GANHA contorno; o resto continua como estava. É a inversão que
+     * tirou o piscar: antes o destaque era feito escurecendo os outros 44 cards,
+     * então mover o ponteiro apagava e reacendia a tela inteira.
+     *
+     * `cursor-pointer` porque o card agora abre o achado no parecer — afordância
+     * antes do clique, não depois.
+     */
     <div
-      className="nx-edge-6 overflow-hidden transition-opacity"
-      style={{ width: LARGURA_PAGINA, height: ALTURA_CARTAO, opacity: aceso ? 1 : 0.3 }}
+      className={cn(
+        "nx-edge-6 cursor-pointer overflow-hidden transition-[--nx-edge,box-shadow]",
+        aceso ? "[--nx-edge:var(--ring)]" : "hover:[--nx-edge:var(--muted-foreground)]",
+      )}
+      style={{ width: LARGURA_PAGINA, height: ALTURA_CARTAO }}
     >
       <div className="flex h-full flex-col gap-1 px-3 py-2">
         <div className="flex items-center gap-1.5">

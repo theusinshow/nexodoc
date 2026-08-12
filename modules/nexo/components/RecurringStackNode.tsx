@@ -21,6 +21,7 @@ import { PONTO_DA_SEVERIDADE } from "@/lib/audit-status";
 import { cn } from "@/lib/utils";
 import type { AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { LARGURA_PAGINA, ALTURA_PILHA } from "../lib/layout-auditoria";
+import { useAlgumAceso } from "./audit-canvas-realce";
 
 export type RecurringStackNodeData = {
   grupoId: string;
@@ -30,8 +31,6 @@ export type RecurringStackNodeData = {
   evidencia: string;
   count: number;
   pages: number[];
-  /** Ids acesos; null = todos acesos. */
-  acesos?: string[] | null;
 } & Record<string, unknown>;
 
 /** Três camadas bastam para ler "pilha"; o número exato está no ×N. */
@@ -40,12 +39,14 @@ const DURACAO_S = 6;
 
 export function RecurringStackNode({ data }: NodeProps<Node<RecurringStackNodeData>>) {
   const [aberta, setAberta] = useState(false);
-  const aceso = !data.acesos || data.acesos.some((id) => data.achadoIds.includes(id));
+  // Aceso = alguma das páginas deste erro está em foco. Ver o porquê de vir do
+  // contexto em [[audit-canvas-realce.tsx]].
+  const aceso = useAlgumAceso(data.achadoIds);
 
   return (
     <div
-      className="relative"
-      style={{ width: LARGURA_PAGINA, height: ALTURA_PILHA, opacity: aceso ? 1 : 0.3 }}
+      className={cn("relative cursor-pointer", aceso && "[--nx-edge:var(--ring)]")}
+      style={{ width: LARGURA_PAGINA, height: ALTURA_PILHA }}
       onMouseEnter={() => setAberta(true)}
       onMouseLeave={() => setAberta(false)}
     >

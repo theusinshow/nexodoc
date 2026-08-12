@@ -40,6 +40,7 @@ import { MemorialPageNode, type MemorialPageNodeData } from "./MemorialPageNode"
 import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
 import { RecurringStackNode, type RecurringStackNodeData } from "./RecurringStackNode";
 import { RotuloDoCanvas, type RotuloDoCanvasData } from "./RotuloDoCanvas";
+import { RealceContext } from "./audit-canvas-realce";
 
 const nodeTypes = {
   paginaMemorial: MemorialPageNode,
@@ -59,7 +60,14 @@ function CanvasInterno({
 }: {
   report: AuditReport;
   pdfUrl?: string;
-  parecer?: ReactNode;
+  /**
+   * O parecer, montado sob demanda — recebe o achado que deve aparecer em foco.
+   *
+   * É função e não `ReactNode` porque o canvas decide o foco no clique, e um nó
+   * pronto vindo de fora não teria como saber disso. Continua montando só quando
+   * o drawer abre.
+   */
+  parecer?: (achadoEmFoco?: string) => ReactNode;
 }) {
   const grafo = useMemo(() => buildAuditGraph(report), [report]);
   /*
@@ -69,6 +77,13 @@ function CanvasInterno({
    * confere um achado no texto e volta ao documento faz isso o tempo todo.
    */
   const [parecerAberto, setParecerAberto] = useState(false);
+  /*
+   * O achado que o clique mandou abrir. Vai para o parecer, que rola até ele e o
+   * destaca — o card no canvas mostra o resumo, e a decisão (conflito, ação,
+   * marcar corrigido) mora no cartão completo. Duplicar isso aqui criaria uma
+   * segunda apresentação do mesmo achado para manter em dia.
+   */
+  const [achadoEmFoco, setAchadoEmFoco] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!parecerAberto) return;
@@ -82,8 +97,11 @@ function CanvasInterno({
    * Os achados acesos. Mora aqui, e não em CSS, porque o par a acender é
    * dinâmico: qual página combina com qual card só se sabe do grafo. É uma
    * LISTA porque a pilha de um recorrente acende várias páginas de uma vez.
+   *
+   * Vazio = ninguém aceso, e NÃO "todos apagados": o realce hoje é aditivo.
+   * Desce aos nós por contexto — ver [[audit-canvas-realce.tsx]].
    */
-  const [acesos, setAcesos] = useState<string[] | null>(null);
+  const [acesos, setAcesos] = useState<readonly string[]>([]);
 
   const layout = useMemo(
     () =>
@@ -105,7 +123,6 @@ function CanvasInterno({
       data: {
         pdfUrl,
         pageNumber: pagina.pageNumber,
-        acesos,
         achados: pagina.findingIds.flatMap((id) => {
           const a = porId.get(id);
           return a
@@ -137,7 +154,6 @@ function CanvasInterno({
           tipo: achado.tipo,
           evidencia: achado.evidencia,
           pageNumber: achado.pageNumber,
-          acesos,
         },
       }));
 
@@ -155,7 +171,6 @@ function CanvasInterno({
           evidencia: primeiro?.evidencia ?? "",
           count: grupo.count,
           pages: grupo.pages,
-          acesos,
         },
       };
     });
@@ -175,13 +190,27 @@ function CanvasInterno({
       : [];
 
     return [...paginas, ...cards, ...pilhas, ...rotulos];
-  }, [grafo, layout, pdfUrl, acesos]);
+    /*
+     * SEM `acesos` nas dependências, de propósito. Enquanto ele estava aqui,
+     * cada movimento do ponteiro recriava os 32 objetos de nó e o React Flow
+     * redesenhava a cena inteira — 28 miniaturas de PDF incluídas. O aceso desce
+     * por contexto agora.
+     */
+  }, [grafo, layout, pdfUrl]);
 
   const edges = useMemo<Edge[]>(() => {
+    /*
+     * A linha do achado aceso ENGROSSA; as outras ficam como sempre estiveram.
+     * Antes as não-acesas caíam para 0,15 — com 56 arestas, passar o ponteiro
+     * por um card apagava 21 de uma vez, e era isso que piscava.
+     */
     const estilo = (severity: AuditSeverity, aceso: boolean) => ({
       stroke: COR_DA_SEVERIDADE[severity],
-      strokeWidth: aceso && acesos ? 2 : 1,
-      opacity: aceso ? 0.8 : 0.15,
+      strokeWidth: aceso ? 2.5 : 1,
+      // 0,8 é a MESMA opacidade de repouso de sempre: o realce acrescenta ao
+      // par (cor cheia e traço grosso) e não tira de ninguém. Baixar as outras
+      // para 0,45 seria repetir o apagão, só que mais educado.
+      opacity: aceso ? 1 : 0.8,
     });
 
     // Achado solto: da sua página para o card, logo abaixo.
@@ -191,13 +220,13 @@ function CanvasInterno({
         id: `e-${achado.id}`,
         source: idDaPagina(achado.pageNumber as number),
         target: idDoAchado(achado.id),
-        style: estilo(achado.severity, !acesos || acesos.includes(achado.id)),
+        style: estilo(achado.severity, acesos.includes(achado.id)),
       }));
 
     // Recorrente: UMA linha da pilha para cada página onde o erro aparece — é o
     // desenho que mostra o alcance dele.
     const dasPilhas = grafo.recurringGroups.flatMap((grupo) => {
-      const aceso = !acesos || grupo.findingIds.some((id) => acesos.includes(id));
+      const aceso = grupo.findingIds.some((id) => acesos.includes(id));
       return grupo.pages.map((pagina) => ({
         id: `e-${grupo.id}-p${pagina}`,
         source: idDaPilha(grupo.id),
@@ -215,7 +244,31 @@ function CanvasInterno({
     if (dados.achadoIds) setAcesos(dados.achadoIds);
     else if (dados.achadoId) setAcesos([dados.achadoId]);
   };
-  const apagar = () => setAcesos(null);
+  const apagar = () => setAcesos([]);
+
+  /*
+   * CLICAR NO ACHADO ABRE O ACHADO.
+   *
+   * O card do canvas é um resumo — tipo, trecho e página. O que decide o que
+   * fazer (o conflito, a ação recomendada, marcar corrigido) mora no cartão do
+   * parecer, e antes não havia caminho do desenho até ele: quem via o problema
+   * na página tinha de abrir o parecer e caçar o mesmo achado na lista de 45.
+   *
+   * A pilha abre o PRIMEIRO do grupo: são o mesmo erro repetido, e o cartão traz
+   * as páginas todas.
+   */
+  const abrirAchado: NodeMouseHandler = (_, node) => {
+    const dados = node.data as { achadoId?: string; achadoIds?: string[] };
+    const id = dados.achadoId ?? dados.achadoIds?.[0];
+    if (!id) return;
+    setAchadoEmFoco(id);
+    setParecerAberto(true);
+  };
+
+  const realce = useMemo(
+    () => ({ acesos, acender: (ids: readonly string[]) => setAcesos(ids), apagar }),
+    [acesos],
+  );
 
   if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {
     return (
@@ -230,6 +283,7 @@ function CanvasInterno({
   }
 
   return (
+    <RealceContext.Provider value={realce}>
     <div className="relative h-full w-full">
       {/*
         O veredito acompanha a vista: quem está olhando as páginas não devia ter
@@ -306,7 +360,9 @@ function CanvasInterno({
                   <TooltipContent side="left">Fechar o parecer (Esc)</TooltipContent>
                 </Tooltip>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">{parecer}</div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {parecer(achadoEmFoco)}
+              </div>
             </div>
           )}
         </>
@@ -318,6 +374,7 @@ function CanvasInterno({
         nodeTypes={nodeTypes}
         onNodeMouseEnter={acender}
         onNodeMouseLeave={apagar}
+        onNodeClick={abrirAchado}
         colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.2 }}
@@ -338,14 +395,15 @@ function CanvasInterno({
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
+    </RealceContext.Provider>
   );
 }
 
 export function AuditCanvas(props: {
   report: AuditReport;
   pdfUrl?: string;
-  /** O parecer textual, montado só quando o drawer abre. */
-  parecer?: ReactNode;
+  /** O parecer textual, montado só quando o drawer abre, no achado em foco. */
+  parecer?: (achadoEmFoco?: string) => ReactNode;
 }) {
   return (
     <ReactFlowProvider>
