@@ -114,8 +114,21 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(
       makeFinding(nextId(), {
         arquivo: fileName,
-        prioridade: "Media/Alta",
-        impacto: "tecnico_contratual",
+        prioridade: "Alta",
+        /*
+         * Bloqueador, não "ponto de conferência" (mudou em 12/08/2026).
+         *
+         * A faixa técnica é para o que exige DECISÃO de um responsável técnico
+         * antes de executar — falta uma informação, alguém decide. Aqui não
+         * falta informação: o documento diz duas coisas que se anulam, e quem
+         * ler não consegue aplicar nenhuma das duas. Um contrato que se
+         * contradiz sobre qual peça prevalece não é conferível, é defeituoso.
+         *
+         * Chamada de negócio, e reversível: se a preferência for que só
+         * incompletude segure a emissão, basta voltar para tecnico_contratual
+         * aqui e no teste correspondente.
+         */
+        impacto: "critico_documental",
         pagina: `${projetosPrevalecem.page} e ${especificacoesPrevalecem.page}`,
         capitulo: "Condições gerais / hierarquia documental",
         local: "regra de prevalência entre documentos",
@@ -244,6 +257,50 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
   // 7) Memória de cálculo da carga de incêndio que não fecha.
   for (const loadFinding of runFireLoadArithmeticRule(extracted, fileName, nextId)) {
     findings.push(loadFinding);
+  }
+
+  /*
+   * 8) Material das ferragens declarado de duas formas incompatíveis.
+   *
+   * "do mesmo material das esquadrias" (que o próprio documento define como
+   * alumínio anodizado) × "todas as ferragens em Inox". Uma coisa ou outra.
+   *
+   * Por que virou regra: no 063-26 o modelo passou batido nas duas passadas,
+   * e o motivo é visível na extração — a página 29 tem NOVE frases contendo
+   * "ferragens", e a contradição está enterrada num bloco denso de boilerplate.
+   * Não é falha de leitura, é atenção em região densa; e é exatamente o ponto
+   * cego que as regras existem para cobrir (mesmo formato da regra 1, que casa
+   * duas frases opostas).
+   */
+  const ferragensComoEsquadria = findFirst(
+    extracted,
+    /ferragens[\s\S]{0,120}?do\s+mesmo\s+material\s+das\s+esquadrias/i,
+  );
+  const ferragensInox = findFirst(
+    extracted,
+    /ferragens\s+em\s+[ai]nox|todas\s+as\s+ferragens\s+em\s+[ai]nox/i,
+  );
+
+  if (ferragensComoEsquadria && ferragensInox) {
+    findings.push(
+      makeFinding(nextId(), {
+        arquivo: fileName,
+        prioridade: "Media/Alta",
+        impacto: "tecnico_contratual",
+        pagina: `${ferragensComoEsquadria.page} e ${ferragensInox.page}`,
+        capitulo: "Esquadrias e ferragens",
+        local: "material das ferragens",
+        tipo: "Material das ferragens contraditório",
+        descricao:
+          "O memorial especifica o material das ferragens de duas formas incompatíveis: em um trecho elas acompanham o material das esquadrias, em outro devem ser todas em inox.",
+        evidencia: `Pág. ${ferragensComoEsquadria.page}: "${ferragensComoEsquadria.evidence.trim()}" | Pág. ${ferragensInox.page}: "${ferragensInox.evidence.trim()}"`,
+        termo_busca: "do mesmo material das esquadrias",
+        conflito:
+          "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        sugestao_correcao:
+          "Definir um único material para as ferragens das portas de alumínio e uniformizar as duas seções, conferindo com o detalhamento das esquadrias.",
+      }),
+    );
   }
 
   return findings;

@@ -272,6 +272,12 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     scope.includes("preenchimento") ||
     scope.includes("template") ||
     scope.includes("minuta") ||
+    // Prevalência documental contraditória: o documento diz duas coisas que se
+    // anulam e nenhuma pode ser aplicada. Casado pelo ESCOPO (tipo+categoria),
+    // não pelo haystack — "hierarquia" solto na prosa também descreve numeração
+    // de itens fora de ordem, que é editorial.
+    scope.includes("prevalenc") ||
+    scope.includes("hierarquia documental") ||
     // "reaproveitado"/"resíduo" NÃO entram: o tipo "Trecho reaproveitado / norma
     // suspeita" é usado pelo modelo em achados que só citam identidade na prosa,
     // e classificá-los como críticos foi falso positivo antes (teste em

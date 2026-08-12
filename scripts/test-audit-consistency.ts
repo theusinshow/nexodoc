@@ -443,13 +443,69 @@ check("achado de redação com 'Calculo' na evidência é editorial, não técni
   assert.equal(classifyFindingImpact(finding), "revisao_editorial");
 });
 
-check("hierarquia documental é técnico/contratual", () => {
+check("hierarquia documental contraditória é BLOQUEADORA (mudou em 12/08/2026)", () => {
+  // Era técnico/contratual. A faixa técnica é para o que exige decisão de um
+  // responsável antes de executar; aqui não falta informação — o documento diz
+  // duas coisas que se anulam e nenhuma pode ser aplicada.
   const finding = mkFinding({
     tipo: "Hierarquia documental contraditória",
     local: "regra de prevalência entre documentos",
     conflito: "projetos prevalecem x especificações prevalecem",
   });
-  assert.equal(classifyFindingImpact(finding), "tecnico_contratual");
+  assert.equal(classifyFindingImpact(finding), "critico_documental");
+});
+
+check("'hierarquia' de numeração continua editorial, não bloqueadora", () => {
+  // A escalada casa por escopo ("hierarquia documental"/"prevalência"), não pela
+  // palavra solta: numeração fora de ordem também se descreve como hierarquia.
+  const finding = mkFinding({
+    tipo: "Numeração de subitens fora de ordem",
+    categoria: "redação",
+    conflito: "a hierarquia dos subitens não segue o capítulo",
+  });
+  assert.equal(classifyFindingImpact(finding), "revisao_editorial");
+});
+
+check("material das ferragens contraditório vira achado de regra", () => {
+  // Enterrado num bloco com nove frases sobre "ferragens" na p.29 do 063-26;
+  // o modelo passou batido nas duas passadas.
+  const doc = {
+    pages: [
+      { page: 28, text: "As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias." },
+      { page: 29, text: "Portas em Alumínio deverão ter todas as ferragens em Inox e fixadas por parafusos também em inox." },
+    ],
+    text: "",
+    pageCount: 2,
+    charCount: 220,
+  };
+  doc.text = doc.pages.map((p) => p.text).join("\n");
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "063_26_md_geral_a.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((f) => /ferragens/i.test(f.tipo));
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].impacto, "tecnico_contratual");
+  assert.equal(findings[0].pagina, "28 e 29");
+});
+
+check("ferragens só em inox, sem a outra ponta, NÃO gera achado", () => {
+  const doc = {
+    pages: [{ page: 29, text: "Portas em Alumínio deverão ter todas as ferragens em Inox." }],
+    text: "Portas em Alumínio deverão ter todas as ferragens em Inox.",
+    pageCount: 1,
+    charCount: 60,
+  };
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "ok.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((f) => /ferragens/i.test(f.tipo));
+
+  assert.equal(findings.length, 0, "uma ponta só não é contradição");
 });
 
 check("nome de obra divergente é crítico documental", () => {
