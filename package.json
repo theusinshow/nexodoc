@@ -62,6 +62,7 @@
     "test:nexo:layout": "node scripts/test-nexo-layout.ts",
     "test:nexo:drop": "node scripts/test-nexo-drop.ts",
     "test:nexo:fatos": "node scripts/test-nexo-fatos.ts",
+    "test:nexo:audit-delta": "node scripts/test-nexo-audit-delta.ts",
     "test:nexo:audit-desconexao": "node scripts/test-nexo-audit-desconexao.ts",
     "test:nexo:audit-contrato": "node scripts/test-nexo-audit-contrato.ts",
     "test:nexo:audit-marcos": "node scripts/test-nexo-audit-marcos.ts",

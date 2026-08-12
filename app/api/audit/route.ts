@@ -54,6 +54,7 @@ import {
   type UploadedAuditFile,
 } from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
+import { impressaoDosCapitulos } from "@/lib/audit-fingerprint";
 import {
   isLocalityPhrase,
   runCrossDocumentRules,
@@ -3632,6 +3633,22 @@ async function executarAuditoria(
         esforco_raciocinio: getReasoningEffort(analysisLevel, auditMode),
         duracao_ms: Date.now() - requestStartedAt,
         arquivos: uploadedFiles.length,
+        /*
+         * A IMPRESSÃO DIGITAL POR CAPÍTULO — o que permite, na próxima
+         * auditoria do mesmo memorial, dizer O QUE MUDOU.
+         *
+         * Vai no relatório (JSON schemaless) e não numa coluna: é dado DA
+         * auditoria, acompanha o registro para onde ele for, e não custa
+         * migração. São ~64 bytes de hash por capítulo.
+         *
+         * Guardado sempre, inclusive no profundo — que hoje nem fatia o
+         * documento (lê inteiro). O corte por capítulo aqui serve para
+         * COMPARAR, não para dividir o trabalho.
+         */
+        impressao: uploadedFiles.map((file) => ({
+          arquivo: file.file.name,
+          capitulos: impressaoDosCapitulos(chunkPdfByChapter(file.extracted)),
+        })),
         gerado_em: new Date().toISOString(),
       },
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,

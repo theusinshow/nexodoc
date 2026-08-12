@@ -1,6 +1,24 @@
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AnalysisLevel } from "@/lib/analysis-level";
 
+/**
+ * Um capítulo do documento, reduzido ao que identifica o CONTEÚDO dele.
+ *
+ * Mora aqui, e não em [[audit-fingerprint.ts]], porque é forma do parecer: o
+ * módulo que calcula hash importa `node:crypto`, e o relatório é lido também
+ * pelo navegador. Tipo no lado de cá, cálculo no lado de lá.
+ */
+export type CapituloImpresso = {
+  titulo: string;
+  startPage: number;
+  endPage: number;
+  chars: number;
+  /** sha-256 do texto normalizado do capítulo. */
+  hash: string;
+};
+
+export type ImpressaoDoArquivo = { arquivo: string; capitulos: CapituloImpresso[] };
+
 export type FindingPriority = "Alta" | "Media/Alta" | "Media" | "Baixa/Media" | "Baixa";
 export type FindingConfidence = "alta" | "media" | "baixa";
 export type FindingImpact = "critico_documental" | "tecnico_contratual" | "revisao_editorial";
@@ -89,6 +107,15 @@ export type AuditReport = {
     duracao_ms?: number;
     arquivos?: number;
     gerado_em?: string;
+    /**
+     * A IMPRESSÃO DIGITAL DO DOCUMENTO, capítulo a capítulo (sha-256 do texto).
+     *
+     * É o que permite a PRÓXIMA auditoria do mesmo memorial dizer o que mudou —
+     * e, na etapa seguinte, mandar ao modelo só isso. Ausente nos pareceres
+     * gravados antes de 12/08/2026: quem compara precisa tratar a falta como
+     * "não dá para comparar", nunca como "nada mudou". Ver [[audit-fingerprint.ts]].
+     */
+    impressao?: ImpressaoDoArquivo[];
   };
   obra: string;
   codigo: string;
