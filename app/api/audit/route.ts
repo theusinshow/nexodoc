@@ -759,7 +759,9 @@ function cleanIdentityCandidate(value: string) {
 function isLikelyProjectIdentity(value: string) {
   const normalized = normalizeLoose(value);
 
-  if (isLocalityPhrase(normalized)) {
+  // valor CRU: `isLocalityPhrase` usa a caixa para separar "na cidade de
+  // Criciúma" (localidade) de "Cidade do Autista" (obra real).
+  if (isLocalityPhrase(value)) {
     return false;
   }
 
@@ -798,7 +800,7 @@ function isLikelyProjectIdentity(value: string) {
 function shouldKeepIdentityCandidate(field: string, value: string) {
   const normalized = normalizeLoose(value);
 
-  if (isLocalityPhrase(normalized)) {
+  if (isLocalityPhrase(value)) {
     return false;
   }
 

@@ -683,10 +683,36 @@ check("localidade em frase técnica NÃO é nome de obra (falso positivo nº 1 d
   assert.equal(isLocalityPhrase("cidade de Criciúma"), true);
   assert.equal(isLocalityPhrase("Município de Içara"), true);
   assert.equal(isLocalityPhrase("distrito do Rio Maina"), true);
-  // obras cujo nome só COMEÇA com a palavra continuam sendo identidade
-  assert.equal(isLocalityPhrase("Centro Comunitário Primeira Linha"), false);
+  // "Cidade" é ambíguo e a CAIXA decide: existe a obra real "Cidade do Autista".
+  assert.equal(isLocalityPhrase("Cidade do Autista"), false);
   assert.equal(isLocalityPhrase("Cidade Alta"), false);
+  assert.equal(isLocalityPhrase("Centro Comunitário Primeira Linha"), false);
   assert.equal(isLocalityPhrase("Reforma da Cancha de Bocha"), false);
+});
+
+check("gabarito x documento: localidade não gera achado, obra estranha gera (063-26 real)", () => {
+  // Trechos literais do 063_26_md_geral_a.pdf. Antes do conserto a regra
+  // devolvia 2 achados: a página 56 (real) e a página 38 (falso positivo).
+  const source = makeSource("063_26_md_geral_a.pdf", "memorial", [
+    "REFORMA DA CANCHA DE BOCHA DO PARQUE DOS IMIGRANTES - CRICIUMA/SC",
+    "localizado na edificação Cancha de Bocha, na cidade de Criciúma/SC . O objetivo deste documento é discriminar especificações, detalhamentos e serviços para a Estrutura em Concreto",
+    "Da Classificação quanto a Ocupação O imóvel Centro Comunitário Primeira Linha , localizado no município de Criciúma – Santa Catarina, foi classificada quanto a sua ocupação",
+  ]);
+
+  const findings = runWithinDocumentIdentityRules(source, {
+    gabaritoObra: "Reforma da Cancha de Bocha do Parque dos Imigrantes",
+  });
+
+  assert.equal(
+    findings.some((finding) => /cidade de Criciúma/i.test(finding.termo_busca ?? "")),
+    false,
+    "localidade em frase corrente não pode virar achado de identidade",
+  );
+  assert.equal(
+    findings.some((finding) => /Centro Comunitário Primeira Linha/i.test(finding.termo_busca ?? "")),
+    true,
+    "resíduo real de outro projeto tem de continuar sendo pego",
+  );
 });
 
 check("impacto declarado pelo modelo tem precedência sobre a heurística", () => {

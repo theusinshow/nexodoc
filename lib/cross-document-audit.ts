@@ -241,14 +241,21 @@ function resolveAssertedValue(mentions: IdentityMention[]): AssertedValue | null
  * "cidade" mas não vem seguido de preposição, então continua passando.
  */
 export function isLocalityPhrase(value: string) {
-  const normalized = value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  const stripped = trimmed.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-  return /^(cidade|municipio|localidade|bairro|distrito|comarca)\s+d[eoa]s?\s+\S/.test(normalized);
+  // "município/bairro/distrito de X" nunca nomeia equipamento: barra em qualquer caixa.
+  if (/^(municipio|localidade|bairro|distrito|comarca)\s+d[eoa]s?\s+\S/i.test(stripped)) {
+    return true;
+  }
+
+  /*
+   * "cidade" é ambíguo e a caixa é que decide. Existe a obra real "Cidade do
+   * Autista" (coberta por teste próprio), e por isso "Cidade" está no
+   * FACILITY_PATTERN. Já "na cidade de Criciúma/SC" vem em minúscula no meio da
+   * frase — é localidade, não equipamento.
+   */
+  return /^cidade\s+d[eoa]s?\s+\S/.test(stripped);
 }
 
 export function extractIdentityFingerprint(source: CrossDocumentSource): IdentityFingerprint {
@@ -466,6 +473,14 @@ function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[]
       const canonical = facilityCanonical(hasName ? `${type} ${name}` : type);
 
       if (!canonical || canonical.length < 3) {
+        continue;
+      }
+
+      // "Cidade" está no FACILITY_PATTERN ao lado de UBS/Creche/Hospital, então
+      // "na cidade de Criciúma/SC" era colhido como menção a equipamento e ia
+      // brigar com o gabarito. Um nome próprio como "Cidade Alta" não vem
+      // seguido de preposição e continua passando.
+      if (isLocalityPhrase(display)) {
         continue;
       }
 
