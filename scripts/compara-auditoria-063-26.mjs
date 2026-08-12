@@ -109,4 +109,13 @@ const naoCasados = textos.filter(({ texto }) => !ALVOS.some((a) => a.termos.some
 console.log(`--- ACHADOS FORA DO GABARITO: ${naoCasados.length} (novos ou ruído — ler à mão) ---`);
 for (const { f } of naoCasados) {
   console.log(`  · [${f.impacto ?? "?"}] pág. ${f.pagina} — ${f.tipo}`);
+
+  // `--detalhe` imprime evidência e conflito. Contar achado não diz se o motor
+  // melhorou: 36 achados podem ser 8 defeitos novos ou 8 ruídos novos, e a única
+  // forma de saber é ler o que ele cita do documento.
+  if (process.argv.includes("--detalhe")) {
+    console.log(`      evid: ${(f.evidencia ?? "").replace(/\s+/g, " ").slice(0, 240)}`);
+    console.log(`      conf: ${(f.conflito ?? "").replace(/\s+/g, " ").slice(0, 240)}`);
+    console.log("");
+  }
 }
