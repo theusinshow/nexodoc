@@ -17,6 +17,8 @@ export type ModelFinding = {
   conflito?: string;
   sugestao_correcao?: string;
   confianca?: string;
+  /** faixa de consequência declarada pelo modelo; validada por parseFindingImpact */
+  impacto?: string;
 };
 
 export type ValidationDecision = {

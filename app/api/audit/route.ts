@@ -15,6 +15,7 @@ import {
   classifyFindingImpact,
   normalizeConfidence,
   normalizePriority,
+  parseFindingImpact,
   sortAuditFindings,
   type AuditFinding,
   type AuditReport,
@@ -53,7 +54,11 @@ import {
   type UploadedAuditFile,
 } from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
-import { runCrossDocumentRules, runWithinDocumentIdentityRules } from "@/lib/cross-document-audit";
+import {
+  isLocalityPhrase,
+  runCrossDocumentRules,
+  runWithinDocumentIdentityRules,
+} from "@/lib/cross-document-audit";
 import { runDocumentCoherenceRules } from "@/lib/audit-coherence";
 import { filterGroundedFindings } from "@/lib/audit-verify";
 
@@ -103,6 +108,11 @@ const auditFindingModelSchema = {
     conflito: { type: "string" },
     sugestao_correcao: { type: "string" },
     confianca: { type: "string" },
+    // Faixa de consequência declarada pelo próprio modelo. Antes era só inferida
+    // por palavra-chave em audit-report.ts, o que jogava "completude documental"
+    // (os campos XXXX) em revisao_editorial e sumia com ele do topo do relatório.
+    // A inferência continua existindo como fallback quando vier vazio/inválido.
+    impacto: { type: "string" },
   },
   required: [
     "prioridade",
@@ -119,6 +129,7 @@ const auditFindingModelSchema = {
     "conflito",
     "sugestao_correcao",
     "confianca",
+    "impacto",
   ],
 };
 
@@ -473,7 +484,8 @@ Responda APENAS JSON válido:
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",
-      "confianca": "alta|media|baixa"
+      "confianca": "alta|media|baixa",
+      "impacto": "critico_documental|tecnico_contratual|revisao_editorial"
     }
   ]
 }
@@ -746,6 +758,11 @@ function cleanIdentityCandidate(value: string) {
 
 function isLikelyProjectIdentity(value: string) {
   const normalized = normalizeLoose(value);
+
+  if (isLocalityPhrase(normalized)) {
+    return false;
+  }
+
   const words = normalized.split(/\s+/).filter(Boolean);
   const startsAsNamedEntity =
     /^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
@@ -780,6 +797,11 @@ function isLikelyProjectIdentity(value: string) {
 
 function shouldKeepIdentityCandidate(field: string, value: string) {
   const normalized = normalizeLoose(value);
+
+  if (isLocalityPhrase(normalized)) {
+    return false;
+  }
+
   const words = normalized.split(/\s+/).filter(Boolean);
   const startsAsNamedEntity =
     /^(centro|cidade|ubs|unidade|escola|creche|ginasio|gin[aá]sio|reforma)\b/i.test(
@@ -1629,6 +1651,10 @@ function modelFindingToAuditFinding(
     conflito: String(finding.conflito ?? "não informado"),
     sugestao_correcao: String(finding.sugestao_correcao ?? "revisar o trecho indicado"),
     confianca: normalizeConfidence(finding.confianca),
+    // O modelo agora declara a faixa. `parseFindingImpact` devolve undefined
+    // quando vem vazio ou fora do vocabulário, e aí a inferência por palavra-chave
+    // de audit-report.ts assume — o campo é uma melhora, não uma dependência.
+    ...(parseFindingImpact(finding.impacto) ? { impacto: parseFindingImpact(finding.impacto)! } : {}),
   };
 }
 
@@ -2132,11 +2158,11 @@ function getGlobalFilePrompt(args: {
   return `
 ${modeInstruction}
 
-Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Use a identidade predominante do documento (obra, município, órgão, disciplina) apenas como referência para julgar coerência técnica — NÃO a audite nem a reafirme. Procure incongruências internas, capítulos incoerentes, normas suspeitas, cálculos simples inconsistentes, escopo ambíguo e problemas editoriais relevantes.
+Esta etapa deve funcionar como uma análise livre do documento inteiro, não como checklist de termos. Use a identidade predominante do documento (obra, município, órgão, disciplina) como referência para julgar coerência. Procure incongruências internas, capítulos incoerentes, normas suspeitas, contas inconsistentes, escopo ambíguo, promessas não cumpridas e problemas editoriais.
 
-A identidade documental (nome da obra, código, município, bairro, endereço, proprietário, órgão, cliente) já é auditada por regras determinísticas próprias. NÃO gere achado de "obra divergente", "município divergente", "capa x corpo" ou "trecho de outra obra": isso é responsabilidade da camada determinística e reafirmá-lo aqui só gera duplicidade e falso positivo.
+A identidade documental também é auditada por regras determinísticas próprias, que comparam o documento contra o gabarito informado. Elas pegam o que casa com o gabarito; NÃO pegam texto pertencente a um TERCEIRO empreendimento que nunca foi declarado. Por isso: quando encontrar nome de obra, bloco, unidade ou elemento construtivo que não pertence a este empreendimento e não aparece na caracterização (ex.: um nome de prédio estranho, um bloco que não existe no programa, uma torre que ninguém descreveu), GERE O ACHADO. Se a camada determinística já tiver apontado o mesmo trecho, a deduplicação posterior resolve — perder o resíduo é muito pior que repeti-lo.
 
-IGNORE O SUMÁRIO / ÍNDICE. Linhas de título seguidas de pontilhado e número de página (ex.: "12.6 Quadro geral ....... 122") são apenas o índice do documento. NÃO gere achados sobre títulos repetidos, numeração, hierarquia ou grafia que apareçam SÓ no sumário — audite o corpo técnico. Nunca reclame de "recorte", "página fornecida", "reprocessar" ou de não conseguir auditar a partir do sumário: você recebeu o documento; audite o conteúdo real.
+SUMÁRIO / ÍNDICE. Linhas de título seguidas de pontilhado e número de página (ex.: "12.6 Quadro geral ....... 122") são o índice. Não gere achado sobre grafia ou espaçamento que exista SÓ no índice. Mas CONFIRA O ÍNDICE CONTRA O CORPO: se os capítulos listados no sumário não forem os capítulos que o documento realmente tem, ou se as páginas indicadas não corresponderem, isso é achado crítico de documento não finalizado — reporte com os dois lados (o que o sumário diz x o que o corpo traz). Nunca reclame de "recorte", "página fornecida" ou "reprocessar": você recebeu o documento inteiro; audite o conteúdo real.
 
 Em memoriais, confira explicitamente antes de responder:
 - construcao nova x trechos de reforma/adequacao (escopo ambíguo);
@@ -2149,9 +2175,11 @@ Priorize pelo impacto:
 - Media/Alta: divergência técnica/contratual que pode afetar emissão, contratação ou revisão formal.
 - Media ou menor: redação, formatação, duplicidade e pontos de conferência editoriais.
 
-Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo.
+Preencha "impacto" em TODO achado, pela consequência para quem vai emitir: "critico_documental" (impede emitir), "tecnico_contratual" (exige decisão de responsável técnico antes de executar) ou "revisao_editorial" (não muda decisão técnica). A prioridade mede urgência; o impacto decide em qual seção do relatório o achado aparece. Norma desatualizada, edição normativa divergente e premissa de enquadramento não demonstrada são "tecnico_contratual", não crítico.
 
-Retorne no MÁXIMO os 30 achados mais relevantes, priorizando os que mais comprometem a emissão. Não infle a lista com detalhes secundários — é melhor 15 achados sólidos que 40 com ruído.
+Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo — mas registre o achado.
+
+PEQUE PELO EXCESSO: reporte todo defeito real que encontrar, inclusive acabamento, esquadria, ferragem, parágrafo duplicado e erro de redação, mesmo quando já houver achado grave no documento. Não omita achado por ser secundário; a classificação por impacto é que organiza a lista. Consolide ocorrências repetidas do MESMO defeito em um único achado que cite todas as páginas e todas as ocorrências. Teto de 60 achados.
 
 Projeto informado pelo usuário: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
@@ -2180,7 +2208,8 @@ Responda APENAS JSON válido:
       "referencia_comparada": "identidade predominante ou trecho comparado, quando existir",
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",
-      "confianca": "alta|media|baixa"
+      "confianca": "alta|media|baixa",
+      "impacto": "critico_documental|tecnico_contratual|revisao_editorial"
     }
   ]
 }

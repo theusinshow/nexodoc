@@ -94,6 +94,32 @@ export function isMetaAuditFinding(finding: AuditFinding) {
     ].join(" "),
   );
 
+  /*
+   * Exceção: divergência REAL entre o sumário e o corpo é defeito do documento,
+   * não queixa do pipeline. Vários padrões abaixo ("nao corresponde ao conteudo",
+   * "com base no sumario") casavam com ela e a apagavam — foi o que sumiu com o
+   * sumário incompatível do 063-26, que era o achado crítico do arquivo.
+   * O sinal de que é defeito do documento: o achado compara o índice com os
+   * capítulos/páginas do corpo. O sinal de que é queixa do pipeline: o achado
+   * fala do que RECEBEU para ler ("trecho auditado", "página auditada", "recorte",
+   * "apenas a chamada no sumário"). Na presença de qualquer marcador de mecânica
+   * a exceção não vale e a supressão segue valendo.
+   */
+  const isPipelineComplaint =
+    /(trecho|pagina|paginas) auditad/.test(scope) ||
+    /chamada no sumario/.test(scope) ||
+    /com base (apenas )?no sumario/.test(scope) ||
+    /recorte|reprocessar|fornecid|disponibilizar|solicitad/.test(scope) ||
+    /nao (e|eh) possivel auditar/.test(scope);
+
+  if (
+    !isPipelineComplaint &&
+    /(sumario|indice)/.test(scope) &&
+    /(capitulo|pagina|corpo|documento real|numeracao)/.test(scope)
+  ) {
+    return false;
+  }
+
   return (
     /trecho auditado/.test(scope) ||
     /pagina auditada nao contem/.test(scope) ||

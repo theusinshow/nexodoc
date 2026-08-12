@@ -408,42 +408,123 @@ function splitFindings(findings: string): StructuredFinding[] {
     }));
 }
 
+/*
+ * Seções do texto exportado, em ordem de decisão: primeiro o que IMPEDE emitir,
+ * depois o que exige responsável técnico, depois o acabamento de texto.
+ *
+ * A lista era plana e numerada de 1 a N. Com a regra de pecar pelo excesso ela
+ * cresce bastante, e sem separação o engenheiro lê "edição de norma divergente"
+ * com o mesmo peso de "campo XXXX não preenchido". O agrupamento é o que torna
+ * o excesso utilizável.
+ */
+const IMPACT_SECTIONS = [
+  {
+    key: "critico_documental" as const,
+    title: "BLOQUEIA A EMISSÃO",
+    hint: "Corrigir antes de gerar o documento.",
+  },
+  {
+    key: "tecnico_contratual" as const,
+    title: "EXIGE DECISÃO TÉCNICA",
+    hint: "Não impede gerar, mas precisa de aceite do responsável antes de executar.",
+  },
+  {
+    key: "revisao_editorial" as const,
+    title: "REVISÃO DE TEXTO",
+    hint: "Não muda decisão técnica.",
+  },
+];
+
+function findingImpactBucket(finding: StructuredFinding) {
+  if (finding.impacto) {
+    return finding.impacto;
+  }
+
+  // Achado sem faixa declarada: severidade é o único sinal disponível.
+  return finding.severity === "critical" ? "critico_documental" : "revisao_editorial";
+}
+
+function formatFindingBlock(finding: StructuredFinding, position: number) {
+  return [
+    `${position}. ${finding.title}`,
+    finding.documento ? `Documento: ${finding.documento}` : null,
+    finding.pagina ? `Página: ${finding.pagina}` : null,
+    finding.local ? `Local: ${finding.local}` : null,
+    finding.evidencia ? `Evidência: ${finding.evidencia}` : null,
+    finding.termoBusca ? `Termo de busca: ${finding.termoBusca}` : null,
+    finding.conflito ? `Conflito: ${finding.conflito}` : null,
+    finding.acao ? `Ação recomendada: ${finding.acao}` : null,
+    finding.categoria ? `Categoria: ${finding.categoria}` : null,
+    finding.referencia ? `Referência comparada: ${finding.referencia}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function buildFindingsText(findings: StructuredFinding[]) {
   if (findings.length === 0) {
     return "Nenhum achado encontrado.";
   }
 
-  return findings
-    .map((finding, index) => {
-      return [
-        `${index + 1}. ${finding.title}`,
-        finding.documento ? `Documento: ${finding.documento}` : null,
-        finding.pagina ? `Página: ${finding.pagina}` : null,
-        finding.local ? `Local: ${finding.local}` : null,
-        finding.evidencia ? `Evidência: ${finding.evidencia}` : null,
-        finding.termoBusca ? `Termo de busca: ${finding.termoBusca}` : null,
-        finding.conflito ? `Conflito: ${finding.conflito}` : null,
-        finding.acao ? `Ação recomendada: ${finding.acao}` : null,
-        finding.categoria ? `Categoria: ${finding.categoria}` : null,
-        finding.referencia ? `Referência comparada: ${finding.referencia}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-    })
-    .join("\n\n");
+  // Numeração contínua entre as seções: o achado 14 é o achado 14 em qualquer
+  // lugar que se cite, inclusive na lista de ações.
+  let position = 0;
+
+  const sections = IMPACT_SECTIONS.map((section) => {
+    const bucket = findings.filter((finding) => findingImpactBucket(finding) === section.key);
+
+    if (bucket.length === 0) {
+      return null;
+    }
+
+    const blocks = bucket.map((finding) => formatFindingBlock(finding, (position += 1)));
+
+    return [`## ${section.title} (${bucket.length})`, section.hint, "", blocks.join("\n\n")].join(
+      "\n",
+    );
+  }).filter(Boolean);
+
+  return sections.join("\n\n");
 }
 
+/**
+ * Ações na mesma ordem das seções: as que destravam a emissão primeiro.
+ * Continua deduplicando, mas agora dentro da faixa — a mesma ação sugerida para
+ * um bloqueador e para um ponto editorial fica no bloqueador.
+ */
 function buildActionsText(findings: StructuredFinding[]) {
-  const actions = findings
-    .map((finding) => finding.acao)
-    .filter((value): value is string => Boolean(value));
-  const uniqueActions = [...new Set(actions.map((action) => action.trim()).filter(Boolean))];
+  const seen = new Set<string>();
+  const sections: string[] = [];
+  let position = 0;
 
-  if (uniqueActions.length === 0) {
+  for (const section of IMPACT_SECTIONS) {
+    const actions: string[] = [];
+
+    for (const finding of findings) {
+      if (findingImpactBucket(finding) !== section.key) {
+        continue;
+      }
+
+      const action = finding.acao?.trim();
+
+      if (!action || seen.has(action)) {
+        continue;
+      }
+
+      seen.add(action);
+      actions.push(`${(position += 1)}. ${action}`);
+    }
+
+    if (actions.length > 0) {
+      sections.push([`## ${section.title}`, actions.join("\n")].join("\n"));
+    }
+  }
+
+  if (sections.length === 0) {
     return "Nenhuma ação recomendada identificada.";
   }
 
-  return uniqueActions.map((action, index) => `${index + 1}. ${action}`).join("\n");
+  return sections.join("\n\n");
 }
 
 function getFirstAction(findings: StructuredFinding[]) {

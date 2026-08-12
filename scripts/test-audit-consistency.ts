@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 
 import {
   extractIdentityFingerprint,
+  isLocalityPhrase,
   runCrossDocumentRules,
   runWithinDocumentIdentityRules,
   type CrossDocumentSource,
@@ -29,6 +30,7 @@ import {
   getEmissionVerdict,
   getFindingAssurance,
   makeTextReport,
+  parseFindingImpact,
   type AuditFinding,
   type AuditReport,
 } from "../lib/audit-report.ts";
@@ -671,6 +673,74 @@ check("tipo de erro: identidade, norma, quantitativo, escopo, especificação", 
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Área total construída divergente", categoria: "Quantitativos e áreas" })), "quantitativo");
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Responsabilidade de terraplenagem divergente", categoria: "Escopo / responsabilidades" })), "escopo");
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Contradição de material", categoria: "Especificação de materiais" })), "especificacao");
+});
+
+// --- 12. Revisão de 12/08/2026: parar de esconder achado -----------------------
+// Cada teste abaixo trava uma perda medida na comparação com auditoria externa
+// do 063_26_md_geral_a.pdf. Ver lib/auditor-prompt.ts para o contexto completo.
+
+check("localidade em frase técnica NÃO é nome de obra (falso positivo nº 1 do 063-26)", () => {
+  assert.equal(isLocalityPhrase("cidade de Criciúma"), true);
+  assert.equal(isLocalityPhrase("Município de Içara"), true);
+  assert.equal(isLocalityPhrase("distrito do Rio Maina"), true);
+  // obras cujo nome só COMEÇA com a palavra continuam sendo identidade
+  assert.equal(isLocalityPhrase("Centro Comunitário Primeira Linha"), false);
+  assert.equal(isLocalityPhrase("Cidade Alta"), false);
+  assert.equal(isLocalityPhrase("Reforma da Cancha de Bocha"), false);
+});
+
+check("impacto declarado pelo modelo tem precedência sobre a heurística", () => {
+  // tipo/categoria puxariam para editorial; o modelo leu o achado inteiro e disse crítico
+  const finding = mkReportFinding({
+    tipo: "Duplicação de parágrafo",
+    categoria: "redação",
+    impacto: "critico_documental",
+  });
+  assert.equal(classifyFindingImpact(finding), "critico_documental");
+});
+
+check("impacto inválido cai na heurística em vez de quebrar", () => {
+  const finding = mkReportFinding({
+    tipo: "Referência normativa desatualizada",
+    categoria: "Normas técnicas",
+    impacto: "urgentissimo" as never,
+  });
+  assert.equal(classifyFindingImpact(finding), "tecnico_contratual");
+  assert.equal(parseFindingImpact("urgentissimo"), undefined);
+  assert.equal(parseFindingImpact("Critico Documental"), "critico_documental");
+});
+
+check("campo não preenchido (XXXX) é crítico, não editorial", () => {
+  // Antes caía no fallback e virava revisao_editorial: foi assim que os seis
+  // XXXX da página 6 do 063-26 sumiram do topo do relatório.
+  const finding = mkReportFinding({
+    tipo: "Documento não finalizado",
+    categoria: "completude documental",
+    evidencia: "“área total do terreno é de XXXX m²”; “área construída de XXXX m²”",
+  });
+  assert.equal(classifyFindingImpact(finding), "critico_documental");
+});
+
+check("norma desatualizada continua técnica, não crítica", () => {
+  // O pedido é classificar melhor o excesso, não promover tudo a bloqueador.
+  const finding = mkReportFinding({
+    tipo: "Edições normativas divergentes",
+    categoria: "compatibilização normativa",
+    evidencia: "“ABNT NBR 7199:2016” e “ABNT NBR 7199:2025”",
+  });
+  assert.equal(classifyFindingImpact(finding), "tecnico_contratual");
+});
+
+check("sumário incompatível com o corpo NÃO é suprimido como meta-achado", () => {
+  const finding = mkFinding({
+    origem: "ia",
+    tipo: "Sumário incompatível com o corpo do documento",
+    conflito:
+      "O sumário lista o capítulo 1 como Projeto Elétrico, mas o capítulo 1 do corpo é Apresentação; as páginas indicadas estão deslocadas.",
+    sugestao_correcao: "Regerar o sumário a partir dos capítulos reais do documento.",
+    termo_busca: "1 PROJETO ELÉTRICO",
+  });
+  assert.equal(isMetaAuditFinding(finding), false);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

@@ -169,7 +169,30 @@ function normalizeForMatch(value: string) {
     .toLowerCase();
 }
 
+const FINDING_IMPACTS: FindingImpact[] = [
+  "critico_documental",
+  "tecnico_contratual",
+  "revisao_editorial",
+];
+
+/**
+ * Lê a faixa declarada pelo modelo. Devolve undefined para valor ausente ou fora
+ * do vocabulário — nesse caso `classifyFindingImpact` cai na inferência por
+ * palavra-chave, que é o comportamento antigo.
+ */
+export function parseFindingImpact(value: unknown): FindingImpact | undefined {
+  const normalized = normalizeForMatch(String(value ?? "")).replace(/[\s-]+/g, "_");
+  return FINDING_IMPACTS.find((impact) => impact === normalized);
+}
+
 export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
+  // O que o modelo declarou vence a heurística: ele leu o achado inteiro, a
+  // heurística só vê tipo/categoria. Achado de regra continua sendo classificado
+  // aqui porque a regra não declara faixa.
+  if (finding.impacto && FINDING_IMPACTS.includes(finding.impacto)) {
+    return finding.impacto;
+  }
+
   // Escopo = a auto-classificação do achado (tipo + categoria). Não inclui o
   // "local" nem a evidência: locais como "Sumário" ou "Título do capítulo"
   // contaminam a decisão (um achado técnico localizado no sumário não é
@@ -204,6 +227,32 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
     scope.includes("logradouro") ||
     scope.includes("bairro") ||
     scope.includes("ubs")
+  ) {
+    return "critico_documental";
+  }
+
+  // 1b) Documento não finalizado — campo em branco, marcador de template (XXXX,
+  //     ___), sumário que não bate com o corpo, resíduo textual de outro
+  //     empreendimento. Impede emitir tanto quanto trocar o nome da obra.
+  //     Antes isto caía no fallback e virava "revisao_editorial": foi assim que
+  //     os seis XXXX da página 6 do 063-26 sumiram do topo do relatório.
+  if (
+    scope.includes("completude") ||
+    scope.includes("nao finalizad") ||
+    scope.includes("nao preenchid") ||
+    scope.includes("preenchimento") ||
+    scope.includes("template") ||
+    scope.includes("minuta") ||
+    // "reaproveitado"/"resíduo" NÃO entram: o tipo "Trecho reaproveitado / norma
+    // suspeita" é usado pelo modelo em achados que só citam identidade na prosa,
+    // e classificá-los como críticos foi falso positivo antes (teste em
+    // scripts/test-audit-consistency.ts). Reaproveitamento real chega pelo campo
+    // `impacto` declarado, que tem precedência no topo desta função.
+    scope.includes("sumario") ||
+    scope.includes("indice") ||
+    /\bxxxx+\b/.test(haystack) ||
+    haystack.includes("campo em branco") ||
+    haystack.includes("nao preenchid")
   ) {
     return "critico_documental";
   }

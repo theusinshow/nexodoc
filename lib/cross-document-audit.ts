@@ -226,6 +226,31 @@ function resolveAssertedValue(mentions: IdentityMention[]): AssertedValue | null
   };
 }
 
+/*
+ * "cidade de Criciúma", "município de Içara" — localidade dentro de frase técnica
+ * corrente, NÃO nome de obra.
+ *
+ * A palavra "cidade" está na lista de entidades nomeadas do auditor (existem
+ * obras "Cidade Alta"), e por isso o trecho "localizado na edificação Cancha de
+ * Bocha, na cidade de Criciúma/SC" virava candidato a identidade e era acusado
+ * de divergir do gabarito. Foi o falso positivo nº 1 do 063-26 (12/08/2026), e
+ * a ação recomendada mandava trocar a localidade pelo nome da obra — teria
+ * estragado o documento.
+ *
+ * O nome de uma obra nunca COMEÇA com "cidade de"; "Cidade Alta" começa com
+ * "cidade" mas não vem seguido de preposição, então continua passando.
+ */
+export function isLocalityPhrase(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return /^(cidade|municipio|localidade|bairro|distrito|comarca)\s+d[eoa]s?\s+\S/.test(normalized);
+}
+
 export function extractIdentityFingerprint(source: CrossDocumentSource): IdentityFingerprint {
   const fields: Partial<Record<IdentityFieldKey, AssertedValue>> = {};
 
