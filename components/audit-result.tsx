@@ -1481,13 +1481,26 @@ export function AuditResult({
                          * agora é do cabeçalho, que é o único filho com fundo
                          * próprio encostando na borda.
                          */
-                        "rounded-md border bg-card transition-colors",
+                        /*
+                         * `@container`: as duas grades internas decidiam o
+                         * número de colunas por `xl:`, que mede a JANELA. Dentro
+                         * do Nexo o parecer divide a tela com a conversa e fica
+                         * com ~528px — mas a janela de 1440px acionava o `xl:`
+                         * assim mesmo, e uma grade de 2 colunas com mínimo de
+                         * 16rem forçava 922px de conteúdo numa caixa de 544px.
+                         * O texto era cortado na borda direita.
+                         *
+                         * Medido antes: clientWidth 544 × scrollWidth 922.
+                         * Breakpoint de container mede a caixa, que é o que
+                         * manda aqui.
+                         */
+                        "@container rounded-md border bg-card transition-colors",
                         resolvidos.has(finding.refId ?? "")
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",
                       )}
                     >
-                      <div className="grid gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4 xl:grid-cols-[minmax(18rem,1fr)_auto] xl:items-start">
+                      <div className="grid gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4 @min-[40rem]:grid-cols-[minmax(18rem,1fr)_auto] @min-[40rem]:items-start">
                         <div className="min-w-0">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -1538,7 +1551,7 @@ export function AuditResult({
                           </h4>
                         </div>
 
-                        <div className="flex items-start gap-2 xl:justify-end">
+                        <div className="flex items-start gap-2 @min-[40rem]:justify-end">
                           {/*
                             O botão fica no CABEÇALHO do achado, ao lado do menu:
                             é a ação que se repete 22 vezes numa revisão, e ela
@@ -1620,7 +1633,7 @@ export function AuditResult({
                         </div>
                       </div>
 
-                      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]">
+                      <div className="grid gap-4 p-4 @min-[40rem]:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]">
                         <div className="grid content-start gap-2">
                           <FindingField label="Documento" value={finding.documento} />
                           <FindingField label="Página provável" value={finding.pagina} />
