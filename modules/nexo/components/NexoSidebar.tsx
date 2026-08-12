@@ -30,6 +30,7 @@ import {
   Cloud,
   CloudOff,
   Compass,
+  CopyPlus,
   FileSearch,
   FolderKanban,
   Gauge,
@@ -126,6 +127,8 @@ export function NexoSidebar({
   activeId,
   onSelect,
   onDelete,
+  onDeleteFolder,
+  onDuplicate,
   isAdmin = false,
   onVerTour,
   onPreferencias,
@@ -141,6 +144,15 @@ export function NexoSidebar({
   activeId?: string;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
+  /**
+   * Apaga uma PASTA inteira. Recebe os ids do grupo que a barra desenhou —
+   * exatamente os que estão à vista, e não uma chave para o dono reconsultar:
+   * o mesmo código de obra existe nas duas seções, e apagar por chave levaria
+   * junto a auditoria que ninguém mandou apagar.
+   */
+  onDeleteFolder?: (ids: string[]) => void;
+  /** Nova conversa a partir de uma existente (leva os selos, não a história). */
+  onDuplicate?: (id: string) => void;
   /** Mostra o painel admin no rodapé. Vem da sessão, no server. */
   isAdmin?: boolean;
   /** Reabre o passo a passo guiado. Ausente = a entrada não aparece. */
@@ -165,8 +177,17 @@ export function NexoSidebar({
   trabalhando?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  /** Conversa aguardando confirmação de exclusão (uma por vez). */
-  const [confirmando, setConfirmando] = useState<string | null>(null);
+  /**
+   * O que aguarda confirmação de exclusão — UMA por vez, conversa ou pasta.
+   *
+   * O tipo entra na chave porque as duas confirmações dividem o mesmo estado:
+   * armar a pasta desarma o item, e vice-versa. Duas perguntas abertas ao mesmo
+   * tempo numa coluna estreita seriam duas chances de clicar na errada.
+   */
+  const [confirmando, setConfirmando] = useState<{
+    tipo: "conversa" | "pasta";
+    id: string;
+  } | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("tudo");
   /** Seções recolhidas à mão. Ausente do conjunto = aberta. */
   const [recolhidas, setRecolhidas] = useState<Set<TipoDeTrabalho>>(
@@ -506,7 +527,17 @@ export function NexoSidebar({
                 )}
 
                 {!recolhida &&
-                  grupos.map((g) => (
+                  grupos.map((g) => {
+                    /*
+                     * A pasta só existe DENTRO da seção: o mesmo código de obra
+                     * aparece em montagem e em auditoria, e as duas são pastas
+                     * diferentes para quem trabalha. Por isso a chave da
+                     * confirmação leva o tipo junto.
+                     */
+                    const idDaPasta = `${s.tipo}:${g.key ?? "__none__"}`;
+                    const confirmandoPasta =
+                      confirmando?.tipo === "pasta" && confirmando.id === idDaPasta;
+                    return (
                     <details key={g.key ?? "__none__"} open className="group/f">
                       {/*
                         A pasta é o CÓDIGO DA OBRA, e é por ele que se procura.
@@ -520,18 +551,138 @@ export function NexoSidebar({
                           `.nx-cut-*` sozinho desligaria o ring global sem por
                           nada no lugar, e um focalizavel sem foco visivel e
                           regressao de acessibilidade. */}
-                      <summary className="nx-edge-5 flex cursor-pointer list-none items-center gap-1.5 px-2 py-2 pl-3 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)] [&::-webkit-details-marker]:hidden">
+                      <summary
+                        /*
+                         * `group/s` é do SUMMARY, não do `<details>`: com
+                         * `group-hover/f` os botões da pasta apareciam ao passar
+                         * o ponteiro por qualquer conversa lá de dentro.
+                         *
+                         * Confirmando, o clique não pode dobrar a pasta — a
+                         * pergunta mora aqui dentro, e recolher o grupo a
+                         * levaria embora no meio da decisão.
+                         */
+                        onClick={(e) => {
+                          if (confirmandoPasta) e.preventDefault();
+                        }}
+                        className="nx-edge-5 group/s relative flex cursor-pointer list-none items-center gap-1.5 px-2 py-2 pl-3 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)] [&::-webkit-details-marker]:hidden"
+                      >
                         <ChevronRight
-                          className="h-3 w-3 shrink-0 transition-transform duration-[var(--duration-fast)] group-open/f:rotate-90"
+                          className={cn(
+                            "h-3 w-3 shrink-0 transition-transform duration-[var(--duration-fast)] group-open/f:rotate-90",
+                            confirmandoPasta && "invisible",
+                          )}
                           strokeWidth={1.5}
                           aria-hidden
                         />
-                        <span className="flex-1 truncate font-mono text-[11.5px] font-medium uppercase tracking-[0.05em]">
-                          {g.key ?? "Sem pasta"}
-                        </span>
-                        <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground/70">
-                          {g.items.length}
-                        </span>
+                        {confirmandoPasta && onDeleteFolder ? (
+                          /*
+                           * A pergunta ocupa a linha da pasta, como a da
+                           * conversa ocupa a dela. Dentro do `<summary>` e não
+                           * abaixo dele porque o `<details>` pode estar
+                           * fechado — e uma confirmação escondida dentro de um
+                           * grupo recolhido seria um botão de apagar sem
+                           * pergunta.
+                           *
+                           * A CONTAGEM ESTÁ NA FRASE. É a diferença entre esta
+                           * pergunta e a de uma conversa só, e é o único dado
+                           * que dimensiona o estrago.
+                           */
+                          <span className="nx-cut-6 flex-1 space-y-1.5 border-0 bg-[var(--status-critical-bg)] px-2 py-1.5">
+                            <span className="block text-[11.5px] normal-case leading-4 text-muted-foreground">
+                              Apagar {g.key ?? "as conversas sem pasta"}
+                              {g.key ? ` e as ${g.items.length} conversas dentro dela` : ` (${g.items.length})`},
+                              com os documentos gerados.
+                            </span>
+                            <span className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setConfirmando(null);
+                                }}
+                                className="nx-edge-5 px-1.5 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  onDeleteFolder(g.items.map((c) => c.id));
+                                  setConfirmando(null);
+                                }}
+                                /*
+                                       * O MIOLO PRECISA SER OPACO.
+                                       *
+                                       * `--status-critical-bg` é translúcido, e
+                                       * o `::before` do `.nx-edge-*` compõe
+                                       * sobre o fundo do próprio elemento — que
+                                       * é a BORDA, salmão cheio. O resultado era
+                                       * um bloco salmão com o texto salmão por
+                                       * cima: o botão mais perigoso da coluna
+                                       * sem rótulo legível. A mistura devolve a
+                                       * mesma cor pretendida, só que opaca.
+                                       */
+                                      className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:color-mix(in_oklab,var(--status-critical)_16%,var(--card))]"
+                              >
+                                Apagar
+                              </button>
+                            </span>
+                          </span>
+                        ) : (
+                          <>
+                            <span className="flex-1 truncate font-mono text-[11.5px] font-medium uppercase tracking-[0.05em]">
+                              {g.key ?? "Sem pasta"}
+                            </span>
+                            {/*
+                              A contagem SAI enquanto os botões entram. Não há
+                              largura para os dois numa coluna de 300px, e
+                              reservar espaço fixo para ações que quase nunca
+                              aparecem encolheria o nome da obra o tempo todo.
+                            */}
+                            <span
+                              className={cn(
+                                "font-mono text-[11.5px] tabular-nums text-muted-foreground/70 transition-opacity duration-[var(--duration-fast)]",
+                                (onDeleteFolder || onDuplicate) &&
+                                  "group-hover/s:opacity-0 group-focus-within/s:opacity-0",
+                              )}
+                            >
+                              {g.items.length}
+                            </span>
+                            {(onDuplicate || onDeleteFolder) && (
+                              <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover/s:opacity-100 group-focus-within/s:opacity-100">
+                                {onDuplicate && g.items.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      // A mais RECENTE do grupo: é dela que se
+                                      // continua o trabalho da obra.
+                                      onDuplicate(g.items[0].id);
+                                    }}
+                                    aria-label={`Nova conversa a partir da mais recente de ${g.key ?? "sem pasta"}`}
+                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground focus-visible:[--nx-fill:var(--accent)]"
+                                  >
+                                    <CopyPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                  </button>
+                                )}
+                                {onDeleteFolder && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setConfirmando({ tipo: "pasta", id: idDaPasta });
+                                    }}
+                                    aria-label={`Apagar a pasta ${g.key ?? "Sem pasta"} inteira`}
+                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-[var(--status-critical)] focus-visible:[--nx-fill:var(--accent)]"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                  </button>
+                                )}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </summary>
                       <ul className="flex flex-col gap-px py-0.5 pl-3">
                         {g.items.map((c) => {
@@ -592,11 +743,45 @@ export function NexoSidebar({
                                     aria-label="Do servidor: os arquivos gerados não estão nesta máquina"
                                   />
                                 )}
-                                <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-muted-foreground/70">
+                                {/*
+                                  A hora dá lugar às ações no hover — mesma
+                                  troca do cabeçalho da pasta. Com duas ações,
+                                  o espaço reservado à direita teria de dobrar,
+                                  e ele sairia do título.
+                                */}
+                                <span
+                                  className={cn(
+                                    "shrink-0 font-mono text-[11.5px] tabular-nums text-muted-foreground/70 transition-opacity duration-[var(--duration-fast)]",
+                                    onDuplicate && "group-hover/c:opacity-0",
+                                  )}
+                                >
                                   {shortDate(c.updatedAt)}
                                 </span>
                               </button>
-                              {onDelete && confirmando !== c.id && (
+                              {onDuplicate && confirmando?.id !== c.id && (
+                                /*
+                                 * NOVA A PARTIR DESTA. Leva os selos já lidos e
+                                 * o memorial retido; não leva as mensagens nem
+                                 * os documentos gerados. É o que evita subir e
+                                 * reler as mesmas 200 pranchas para montar o
+                                 * volume seguinte da mesma obra.
+                                 */
+                                <button
+                                  type="button"
+                                  onClick={() => onDuplicate(c.id)}
+                                  aria-label={`Nova conversa a partir de ${c.title}`}
+                                  className={cn(
+                                    "nx-edge-4 absolute right-8 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground",
+                                    "[--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)]",
+                                    "transition-[opacity,color] duration-[var(--duration-fast)]",
+                                    "hover:text-foreground focus-visible:outline-none",
+                                    "opacity-0 group-hover/c:opacity-100 focus-visible:opacity-100",
+                                  )}
+                                >
+                                  <CopyPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                </button>
+                              )}
+                              {onDelete && confirmando?.id !== c.id && (
                                 /*
                                  * O gatilho fica SEMPRE presente, a 0 de
                                  * opacidade só enquanto o ponteiro não chega.
@@ -609,7 +794,7 @@ export function NexoSidebar({
                                  */
                                 <button
                                   type="button"
-                                  onClick={() => setConfirmando(c.id)}
+                                  onClick={() => setConfirmando({ tipo: "conversa", id: c.id })}
                                   aria-label={`Apagar conversa ${c.title}`}
                                   className={cn(
                                     "nx-edge-4 absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground",
@@ -623,7 +808,9 @@ export function NexoSidebar({
                                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                                 </button>
                               )}
-                              {onDelete && confirmando === c.id && (
+                              {onDelete &&
+                                confirmando?.tipo === "conversa" &&
+                                confirmando.id === c.id && (
                                 /*
                                  * A confirmação SUBSTITUI a linha, não flutua
                                  * sobre ela. Antes era uma tarja no canto, por
@@ -668,7 +855,19 @@ export function NexoSidebar({
                                         onDelete(c.id);
                                         setConfirmando(null);
                                       }}
-                                      className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
+                                      /*
+                                       * O MIOLO PRECISA SER OPACO.
+                                       *
+                                       * `--status-critical-bg` é translúcido, e
+                                       * o `::before` do `.nx-edge-*` compõe
+                                       * sobre o fundo do próprio elemento — que
+                                       * é a BORDA, salmão cheio. O resultado era
+                                       * um bloco salmão com o texto salmão por
+                                       * cima: o botão mais perigoso da coluna
+                                       * sem rótulo legível. A mistura devolve a
+                                       * mesma cor pretendida, só que opaca.
+                                       */
+                                      className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:color-mix(in_oklab,var(--status-critical)_16%,var(--card))]"
                                     >
                                       Apagar
                                     </button>
@@ -680,7 +879,8 @@ export function NexoSidebar({
                         })}
                       </ul>
                     </details>
-                  ))}
+                    );
+                  })}
               </div>
             );
           })}

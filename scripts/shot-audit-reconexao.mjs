@@ -53,7 +53,7 @@ try {
   const convId = await page.evaluate(async (auditId) => {
     const convId = `qa-reconexao-${auditId.slice(0, 8)}`;
     const db = await new Promise((res, rej) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     });
@@ -101,7 +101,7 @@ try {
   // reabriria esta conversa para sempre.
   const aindaPendente = await page.evaluate(async (convId) => {
     const db = await new Promise((res) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
     });
     const rec = await new Promise((res) => {

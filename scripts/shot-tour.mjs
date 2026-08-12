@@ -121,7 +121,7 @@ try {
 
   const sobrouNoBanco = await page.evaluate(async () => {
     const db = await new Promise((res) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
     });
     const rec = await new Promise((res) => {

@@ -75,7 +75,7 @@ try {
   const convId = await page.evaluate(async (selos) => {
     const convId = "qa-blocos";
     const db = await new Promise((res, rej) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     });
@@ -166,7 +166,7 @@ try {
   // Limpa a conversa de QA — o banco local é o mesmo em que se trabalha.
   await page.evaluate(async (convId) => {
     const db = await new Promise((res) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
     });
     await new Promise((res) => {

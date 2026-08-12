@@ -13,6 +13,11 @@ import {
   seloNaoLido,
   type SeloResult,
 } from "../lib/selo-render";
+import {
+  consultarCache,
+  guardarNoCache,
+  type ArquivoInedito,
+} from "../lib/selo-cache";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import { resolveSheetNumbers } from "@/server/nexo/parse-filename";
@@ -488,6 +493,14 @@ function NexoWorkspaceInner({
      * cara de esconder um defeito.
      */
     naoLidas: { falhas: SeloResult[]; ignoradas: SeloResult[] } = { falhas: [], ignoradas: [] },
+    /**
+     * Quantas folhas vieram do CACHE, sem chamada de modelo.
+     *
+     * Aparece na mensagem porque economia silenciosa é o mesmo defeito das
+     * auditorias parciais silenciosas: se a leitura vier estranha, é preciso
+     * poder saber que ela não foi feita agora — e de onde veio.
+     */
+    reaproveitadas = 0,
   ) {
     const ctx = summarizeSelos(
       okSelos.map((r) => ({
@@ -539,6 +552,10 @@ function NexoWorkspaceInner({
       );
     }
     const ressalva = ressalvas.length > 0 ? ` ${ressalvas.join("; ")}.` : "";
+    const reuso =
+      reaproveitadas > 0
+        ? ` ${reaproveitadas} folha(s) vieram de leitura anterior dos mesmos arquivos — não foram lidas de novo.`
+        : "";
 
     start();
     conv.appendMessage({
@@ -549,7 +566,7 @@ function NexoWorkspaceInner({
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "assistant",
-      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}.${ressalva} O que você quer que eu faça?`,
+      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
       slotRequest: {
         slotId: "intake",
         taskKind: "ld",
@@ -766,6 +783,13 @@ function NexoWorkspaceInner({
     const collected: SeloResult[] =
       retomando || pranchas.length === 0 ? [...selosRef.current] : [];
     let totalDeFolhas = images.length;
+    /*
+     * O que o cache devolveu e o que sobrou para ler de verdade. Fora do `try`
+     * porque a gravação do cache, lá no fim, precisa das chaves calculadas aqui
+     * — recalculá-las seria reler cada PDF inteiro só para achar o sha.
+     */
+    let ineditos: ArquivoInedito[] = [];
+    let reaproveitadas = 0;
     setReadProgress({ done: collected.length, total: 0 });
     try {
         /*
@@ -779,8 +803,34 @@ function NexoWorkspaceInner({
          */
         // Pranchas = leitura FRESCA; imagens avulsas APPENDam ao contexto.
         if (pranchas.length > 0) {
+          /*
+           * O CACHE PRIMEIRO. Arquivo cujo conteúdo já foi lido por esta versão
+           * do leitor volta inteiro daqui: nem abre o pdf.js, nem gasta uma
+           * chamada por página. Ver [[selo-cache.ts]].
+           */
+          const doCache = await consultarCache(pranchas);
+          if (!atual()) return;
+          ineditos = doCache.ineditos;
+          for (const { results } of doCache.acertos) {
+            for (const r of results) {
+              // A folha que a conversa JÁ tem não volta duas vezes (retomada,
+              // segundo lote do mesmo arquivo).
+              if (base.has(chaveDaFolha(r.fileName, r.pageNumber))) continue;
+              collected.push(r);
+              reaproveitadas++;
+            }
+          }
+          if (reaproveitadas > 0) {
+            selosRef.current = [...collected];
+            setSeloResults([...collected]);
+            totalDeFolhas = collected.length + images.length;
+            setReadProgress({ done: collected.length, total: totalDeFolhas });
+          }
+        }
+        const paraLer = ineditos.map((i) => i.file);
+        if (paraLer.length > 0) {
           await extractSelosFromFiles(
-            pranchas,
+            paraLer,
             (r) => {
               if (!atual()) return;
               collected.push(r);
@@ -797,7 +847,10 @@ function NexoWorkspaceInner({
             conv.conversationId,
             (folhas) => {
               if (!atual()) return;
-              totalDeFolhas = folhas + images.length;
+              // `folhas` conta só o que vai ser lido agora: as reaproveitadas
+              // já estão em `collected` e precisam entrar no total, senão o
+              // progresso passaria de 100% ("232 de 32").
+              totalDeFolhas = folhas + images.length + reaproveitadas;
               setReadProgress({ done: collected.length, total: totalDeFolhas });
             },
             jaLidas,
@@ -835,6 +888,12 @@ function NexoWorkspaceInner({
             // Preencher é um bônus: falhar aqui não pode derrubar a leitura
             // inteira, que já custou uma chamada por página.
           }
+          /*
+           * GUARDA o que acabou de ser lido — depois do preenchimento de
+           * título, para o cache reter a versão boa, e não a que ficaria sem
+           * DESCRIÇÃO na LD para sempre.
+           */
+          await guardarNoCache(ineditos, collected);
         }
         const okSelos = collected.filter((r) => r.extraction);
         const naoLidas = {
@@ -844,7 +903,13 @@ function NexoWorkspaceInner({
         // Basta UMA folha ter falhado para a mensagem valer: o caso ruim é
         // justamente o das zero leituras boas, em que antes não se dizia nada.
         if (okSelos.length > 0 || naoLidas.falhas.length > 0) {
-          appendSelosIntake(okSelos, [...pranchas, ...images], Boolean(memorial), naoLidas);
+          appendSelosIntake(
+            okSelos,
+            [...pranchas, ...images],
+            Boolean(memorial),
+            naoLidas,
+            reaproveitadas,
+          );
         }
         /*
          * Vindo memorial junto das pranchas, ele TAMBÉM é classificado.
@@ -927,14 +992,14 @@ function NexoWorkspaceInner({
     if (started) return;
     runShellTransition(() => flushSync(() => setStarted(true)));
   };
-  const reset = () => {
+  const reset = (opts?: { descartar?: boolean }) => {
     runShellTransition(() =>
       flushSync(() => {
         setStarted(false);
         setFiles([]);
         setFolderCount(0);
         setDossie(null);
-        conv.newConversation(); // limpa mensagens + selos no store durável
+        conv.newConversation(opts); // limpa mensagens + selos no store durável
         limparPranchas();
         setMemorialFile(null);
         setAttachments((prev) => {
@@ -993,6 +1058,31 @@ function NexoWorkspaceInner({
       // A identidade volta junto: é ela que vira o gabarito da auditoria.
       if (memorialRetido.dossie) setDossie(memorialRetido.dossie);
     }
+  };
+
+  /*
+   * Apagar a PASTA inteira, do cabeçalho do grupo na barra lateral.
+   *
+   * Se a conversa aberta estava no meio, a tela volta ao começo — seguir
+   * mostrando o canvas de uma conversa que não existe mais em lugar nenhum
+   * seria uma tela que mente. E volta DESCARTANDO a gravação pendente: o flush
+   * de sempre escreveria de volta, meio segundo depois, o que se acabou de
+   * mandar apagar.
+   */
+  const apagarPasta = async (ids: string[]) => {
+    const levouAAtiva = ids.includes(conv.conversationId);
+    await conv.removeConversations(ids);
+    if (levouAAtiva) reset({ descartar: true });
+  };
+
+  /*
+   * Nova conversa A PARTIR de outra. O registro nasce no disco com os selos já
+   * lidos, e a tela o abre pelo MESMO caminho do clique no histórico — sem um
+   * segundo jeito de restaurar o shell, que é onde os dois divergiriam.
+   */
+  const duplicarConv = async (id: string) => {
+    const novo = await conv.duplicarConversa(id);
+    if (novo) await selectConv(novo);
   };
 
   /*
@@ -1599,6 +1689,8 @@ function NexoWorkspaceInner({
             activeId={conv.conversationId}
             onSelect={selectConv}
             onDelete={conv.removeConversation}
+            onDeleteFolder={apagarPasta}
+            onDuplicate={duplicarConv}
             isAdmin={isAdmin}
             onVerTour={iniciarTour}
             /* O bloco da conta, no rodapé: nome e e-mail vêm da SESSÃO, pelo

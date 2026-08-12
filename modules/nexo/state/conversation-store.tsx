@@ -222,10 +222,22 @@ interface ConversationStoreValue {
   salvarDossieDoMemorial: (dossie: NexoDossieDraft | null) => void;
   /** Devolve o memorial retido desta conversa: bytes e fatos. */
   recuperarMemorial: () => Promise<{ file: File; dossie?: NexoDossieDraft } | null>;
-  newConversation: () => void;
+  /**
+   * Zera a conversa em memória. `descartar` larga a gravação pendente em vez de
+   * cumpri-la — é o que impede uma conversa recém-apagada de voltar ao disco.
+   */
+  newConversation: (opts?: { descartar?: boolean }) => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
   selectConversation: (id: string) => Promise<StoredConversation | null>;
   removeConversation: (id: string) => Promise<void>;
+  /** Apaga uma pasta inteira: as conversas do grupo, numa tacada. */
+  removeConversations: (ids: readonly string[]) => Promise<void>;
+  /**
+   * Copia uma conversa sem a história dela: os selos já lidos e o memorial
+   * retido seguem, as mensagens e os documentos gerados não. É o que evita
+   * subir e reler as mesmas pranchas para começar o volume seguinte da obra.
+   */
+  duplicarConversa: (id: string) => Promise<string | null>;
 }
 
 /** O bilhete que permite reconectar a uma auditoria já em curso no servidor. */
@@ -751,8 +763,23 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [schedulePersist],
   );
 
-  const newConversation = useCallback(() => {
-    flushPersist(); // grava a conversa atual antes de largar (#1)
+  /**
+   * Larga a gravação pendente SEM gravar.
+   *
+   * Só existe para um caso: a conversa aberta acabou de ser apagada. O flush
+   * normal a escreveria de volta no disco meio segundo depois — apagada da
+   * lista, viva no banco, e de volta na próxima sincronização.
+   */
+  const descartarPendente = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const newConversation = useCallback((opts?: { descartar?: boolean }) => {
+    if (opts?.descartar) descartarPendente();
+    else flushPersist(); // grava a conversa atual antes de largar (#1)
     setConversationId(newId());
     setTitle("Nova conversa");
     setMessages([]);
@@ -772,7 +799,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       return [];
     });
     snapshotRef.current.createdAt = Date.now();
-  }, [flushPersist]);
+  }, [flushPersist, descartarPendente]);
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
@@ -877,6 +904,82 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       refreshRemote();
     },
     [refreshList, refreshRemote],
+  );
+
+  /**
+   * Apaga uma PASTA inteira — as conversas que a sidebar mostrou naquele grupo.
+   *
+   * Não é um laço de `removeConversation` por dois motivos. O disco primeiro e
+   * a lista UMA vez no fim: refrescar por conversa redesenharia a barra sete
+   * vezes, e cada redesenho reordena o que a pessoa está olhando. E o servidor
+   * em paralelo, depois — sete idas em fila somariam sete latências para um
+   * trabalho que já sumiu daqui.
+   */
+  const removeConversations = useCallback(
+    async (ids: readonly string[]) => {
+      if (ids.length === 0) return;
+      for (const id of ids) await dbDelete(id).catch(() => {});
+      refreshList();
+      await Promise.all(ids.map((id) => apagarNoServidor(id).catch(() => {})));
+      refreshRemote();
+    },
+    [refreshList, refreshRemote],
+  );
+
+  /**
+   * Cria uma conversa NOVA a partir de outra: leva o que custou para descobrir,
+   * deixa o que é história.
+   *
+   * VAI: selos lidos, ajustes de folha, avulsas, totais, identidade, decisões,
+   * a pasta — e o memorial retido, com os bytes copiados para a chave nova.
+   * FICA: mensagens, documentos gerados, achados resolvidos e a auditoria em
+   * voo. Levar as mensagens faria a conversa começar ecoando a si mesma, e os
+   * artefatos apontariam para blobs de outra conversa — a exclusão de uma
+   * arrastaria os arquivos da outra junto.
+   *
+   * Devolve o id novo; quem chama restaura a tela pelo caminho de sempre.
+   */
+  const duplicarConversa = useCallback(
+    async (id: string): Promise<string | null> => {
+      flushPersist(); // a conversa atual vai para o disco antes de largarmos ela
+      const rec = (await getConversation(id)) ?? (await lerDoServidor(id));
+      if (!rec) return null;
+      const novoId = newId();
+      const agora = Date.now();
+      let memorial = rec.memorial;
+      if (memorial) {
+        // Os bytes são COPIADOS, não referenciados: `deleteConversation` varre
+        // por prefixo de id, então apagar a original levaria junto o memorial
+        // da cópia se as duas dividissem a mesma chave.
+        const blob = await getBlob(memorial.blobKey).catch(() => null);
+        if (blob) {
+          const blobKey = `${novoId}:memorial`;
+          await putBlob(blobKey, blob);
+          memorial = { ...memorial, blobKey };
+        } else {
+          memorial = undefined;
+        }
+      }
+      const novo: StoredConversation = {
+        ...rec,
+        id: novoId,
+        createdAt: agora,
+        updatedAt: agora,
+        messages: [],
+        results: [],
+      };
+      delete novo.auditoriaPendente;
+      delete novo.achadosResolvidos;
+      delete novo.memorial;
+      if (memorial) novo.memorial = memorial;
+      await putConversation(novo);
+      refreshList();
+      // O servidor também: uma cópia que ninguém tocar nunca dispararia o
+      // `persistNow`, e só existiria nesta máquina.
+      gravarNoServidor(novo).then(setSincronizacao);
+      return novoId;
+    },
+    [flushPersist, refreshList],
   );
 
   const marcarAuditoriaPendente = useCallback(
@@ -984,6 +1087,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       newConversation,
       selectConversation,
       removeConversation,
+      removeConversations,
+      duplicarConversa,
     }),
     [
       conversationId,
@@ -1025,6 +1130,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       newConversation,
       selectConversation,
       removeConversation,
+      removeConversations,
+      duplicarConversa,
     ],
   );
 

@@ -88,7 +88,11 @@ try {
   // do campo `tipo` existir, que é o critério 08.
   await page.evaluate(async (selos) => {
     const db = await new Promise((res, rej) => {
-      const req = indexedDB.open("nexo", 1);
+      // SEM VERSÃO de propósito: abre a que existir. Fixar `1` aqui fazia o
+      // semeador morrer com VersionError assim que a aplicação subiu o banco
+      // para a v2 (o store do cache de leitura) — a semeadura roda DEPOIS de a
+      // página abrir, então quem manda na versão é a aplicação, não o teste.
+      const req = indexedDB.open("nexo");
       // Num contexto novo o banco ainda não existe: abrir sem criar os stores
       // devolveria um banco VAZIO, e a transação seguinte morreria com
       // "object store not found". Espelha o `openDb` da aplicação.

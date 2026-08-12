@@ -219,7 +219,7 @@ try {
   await page
     .evaluate(async (marcador) => {
       const db = await new Promise((res) => {
-        const req = indexedDB.open("nexo", 1);
+        const req = indexedDB.open("nexo");
         req.onsuccess = () => res(req.result);
       });
       const todas = await new Promise((res) => {

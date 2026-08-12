@@ -91,7 +91,7 @@ try {
   await pageA.evaluate(
     async ([id, titulo]) => {
       const db = await new Promise((res, rej) => {
-        const r = indexedDB.open("nexo", 1);
+        const r = indexedDB.open("nexo");
         r.onsuccess = () => res(r.result);
         r.onerror = () => rej(r.error);
       });
@@ -203,7 +203,7 @@ try {
   const vazio = await pageB.evaluate(
     () =>
       new Promise((res) => {
-        const r = indexedDB.open("nexo", 1);
+        const r = indexedDB.open("nexo");
         r.onsuccess = () => {
           const tx = r.result.transaction("conversations", "readonly");
           const c = tx.objectStore("conversations").count();
@@ -247,7 +247,7 @@ try {
   const estado = await pageB.evaluate(
     ([id]) =>
       new Promise((res) => {
-        const r = indexedDB.open("nexo", 1);
+        const r = indexedDB.open("nexo");
         r.onsuccess = () => {
           const tx = r.result.transaction(["conversations", "result_blobs"], "readonly");
           const c = tx.objectStore("conversations").get(id);

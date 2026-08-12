@@ -4,11 +4,14 @@
  * por cima. Guarda o DURÁVEL de cada conversa; os arquivos de ENTRADA
  * (pranchas/memorial) NÃO entram aqui (decisão: só os gerados persistem).
  *
- * Dois stores (v1):
+ * Três stores:
  * - `conversations` (LEVE, keyPath id): metadados + mensagens + selos + META dos
  *   resultados. Tudo JSON — a lista da sidebar carrega rápido, sem blobs.
  * - `result_blobs` (keyPath key): os Blobs dos documentos gerados, fora do
  *   registro leve. IndexedDB guarda Blob nativamente (sobrevive ao reload).
+ * - `selo_cache` (v2, keyPath key): o que já foi LIDO de cada arquivo, por
+ *   checksum. Não é o arquivo — é o resultado da leitura dele, que custou uma
+ *   chamada de modelo por página. Ver [[selo-cache.ts]].
  */
 import type { SeloResult } from "./selo-render";
 import type { Ajuste, FolhaId } from "./folhas";
@@ -16,9 +19,20 @@ import type { IdentidadeDoProjeto } from "./identidade";
 import type { NexoArtifactKind, NexoChatMessage, NexoDossieDraft } from "../types";
 
 const DB_NAME = "nexo";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_CONVERSATIONS = "conversations";
 const STORE_BLOBS = "result_blobs";
+const STORE_SELO_CACHE = "selo_cache";
+
+/**
+ * Teto do cache de leitura, em ARQUIVOS.
+ *
+ * Uma entrada é o texto lido de um PDF: ~1 KB por folha, ou seja, um projeto
+ * inteiro de 200 pranchas custa menos que um único PDF. O teto não existe para
+ * economizar espaço — existe para o store não crescer sem fim numa máquina que
+ * vê milhares de projetos ao longo de anos. Poda pelo mais VELHO a entrar.
+ */
+const TETO_SELO_CACHE = 2000;
 
 /**
  * QUAL DOS DOIS TRABALHOS a conversa é.
@@ -233,6 +247,12 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_BLOBS)) {
         db.createObjectStore(STORE_BLOBS, { keyPath: "key" });
       }
+      // v2. O índice por `savedAt` é o que torna a poda barata: sem ele,
+      // descartar os mais velhos exigiria ler o store inteiro na memória.
+      if (!db.objectStoreNames.contains(STORE_SELO_CACHE)) {
+        const store = db.createObjectStore(STORE_SELO_CACHE, { keyPath: "key" });
+        store.createIndex("savedAt", "savedAt");
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error ?? new Error("IndexedDB indisponível."));
@@ -319,6 +339,63 @@ export async function getBlob(key: string): Promise<Blob | null> {
     | { key: string; blob: Blob }
     | undefined;
   return rec?.blob ?? null;
+}
+
+/**
+ * O que já foi lido de UM arquivo — a entrada do cache de leitura.
+ *
+ * A chave carrega a VERSÃO DO LEITOR junto do checksum (ver [[selo-cache.ts]]):
+ * mudou o prompt, o modelo ou o recorte, a chave muda, o acerto deixa de
+ * existir e o arquivo é relido sozinho. É o que impede o cache de servir para
+ * sempre uma leitura feita por um leitor que já foi corrigido.
+ */
+export interface SeloCacheEntry {
+  /** `${sha256 do arquivo}:${versão do leitor}`. */
+  key: string;
+  /** Só para depurar: o mesmo conteúdo pode chegar com outro nome. */
+  fileName: string;
+  pageCount: number;
+  results: SeloResult[];
+  savedAt: number;
+}
+
+/** Lê várias entradas do cache de uma vez (uma transação só). */
+export async function getSeloCache(
+  keys: readonly string[],
+): Promise<Map<string, SeloCacheEntry>> {
+  const achados = new Map<string, SeloCacheEntry>();
+  if (keys.length === 0) return achados;
+  const db = await openDb();
+  const tx = db.transaction(STORE_SELO_CACHE, "readonly");
+  const store = tx.objectStore(STORE_SELO_CACHE);
+  const lidos = await Promise.all(keys.map((k) => reqToPromise(store.get(k))));
+  for (const rec of lidos) {
+    const entry = rec as SeloCacheEntry | undefined;
+    if (entry) achados.set(entry.key, entry);
+  }
+  return achados;
+}
+
+/** Grava uma entrada e poda o excedente mais velho. */
+export async function putSeloCache(entry: SeloCacheEntry): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(STORE_SELO_CACHE, "readwrite");
+  const store = tx.objectStore(STORE_SELO_CACHE);
+  store.put(entry);
+  const total = await reqToPromise(store.count());
+  const excedente = total - TETO_SELO_CACHE;
+  if (excedente > 0) {
+    let restam = excedente;
+    const cursorReq = store.index("savedAt").openCursor();
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor || restam <= 0) return;
+      cursor.delete();
+      restam--;
+      cursor.continue();
+    };
+  }
+  await txDone(tx);
 }
 
 /** Resolve quando a transação commita (ou rejeita no erro/abort). */

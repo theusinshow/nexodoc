@@ -83,7 +83,7 @@ try {
       const bin = Uint8Array.from(atob(pdfB64), (c) => c.charCodeAt(0));
       const blob = new Blob([bin], { type: "application/pdf" });
       const db = await new Promise((res, rej) => {
-        const req = indexedDB.open("nexo", 1);
+        const req = indexedDB.open("nexo");
         req.onsuccess = () => res(req.result);
         req.onerror = () => rej(req.error);
       });

@@ -90,7 +90,7 @@ try {
   // registro que a aplicação grava sozinha ao conversar.
   const convId = await page.evaluate(async (selos) => {
     const db = await new Promise((res, rej) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     });

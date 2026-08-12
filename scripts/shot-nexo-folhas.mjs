@@ -247,7 +247,7 @@ try {
   // A correção tem de sobreviver ao F5 — ela mora no IndexedDB da conversa.
   const guardado = await page.evaluate(async () => {
     const db = await new Promise((res) => {
-      const req = indexedDB.open("nexo", 1);
+      const req = indexedDB.open("nexo");
       req.onsuccess = () => res(req.result);
     });
     const todas = await new Promise((res) => {
@@ -345,7 +345,7 @@ try {
   const apagadas = await page
     .evaluate(async (marcador) => {
       const db = await new Promise((res) => {
-        const req = indexedDB.open("nexo", 1);
+        const req = indexedDB.open("nexo");
         req.onsuccess = () => res(req.result);
       });
       const todas = await new Promise((res) => {
