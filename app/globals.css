@@ -550,9 +550,22 @@ button:hover .nexo-logo .nexo-logo__no {
 .nexodoc-enter,
 .nexodoc-message-in,
 .nexodoc-file-in,
+/* `backwards`, NAO `both`.
+
+   `both` inclui o `forwards`, que deixa o ultimo quadro colado no elemento para
+   sempre -- e o ultimo quadro daqui tem `transform: translateY(0)`. Transform
+   diferente de `none` faz o elemento virar BLOCO DE CONTENCAO: todo
+   `position: fixed` descendente passa a se ancorar nele em vez de na janela.
+
+   Foi assim que o visor de PDF do parecer aparecia "la no topo do site": ele e
+   fixo, mas o parecer inteiro era o quadro de referencia dele, e quem clicava
+   num achado do fim da lista tinha de rolar tudo para cima para ver a pagina.
+
+   Sem o `forwards` o estado final volta a ser o do proprio elemento -- opacidade
+   1 e transform nenhum, exatamente o que o keyframe terminava desenhando. */
 .nexodoc-result-in,
 .nexodoc-section-reveal {
-  animation: nexodoc-reveal var(--duration-base) var(--ease-entrance) both;
+  animation: nexodoc-reveal var(--duration-base) var(--ease-entrance) backwards;
 }
 
 .nexodoc-status-pulse {

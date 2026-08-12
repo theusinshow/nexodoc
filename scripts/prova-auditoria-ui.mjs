@@ -167,6 +167,50 @@ try {
   await aba(/^Relatório/i).click();
   await page.waitForTimeout(700);
   const emRelatorio = await page.locator("[data-achado]").count();
+  /*
+   * O VISOR DE PDF DO ÚLTIMO ACHADO.
+   *
+   * Ele é `position: fixed`, e fixo promete a JANELA como referência. Mas a
+   * animação de entrada do parecer terminava com `transform: translateY(0)`
+   * colado (`animation-fill-mode: both`), e transform faz o elemento virar
+   * bloco de contenção — o visor passava a se ancorar no TOPO DO PARECER. Quem
+   * clicava num achado do fim da lista tinha de rolar tudo para cima.
+   *
+   * A asserção é geométrica de propósito: "o painel existe no DOM" passava
+   * verde o tempo todo, inclusive com ele mil pixels acima da janela.
+   */
+  await aba(/^Achados/i).click();
+  await page.waitForTimeout(700);
+  const verNoDocumento = page.getByRole("button", { name: /ver no documento/i });
+  const quantosBotoes = await verNoDocumento.count();
+  if (quantosBotoes > 0) {
+    const ultimo = verNoDocumento.nth(quantosBotoes - 1);
+    await ultimo.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    await ultimo.click();
+    await page.waitForTimeout(2500);
+    const visor = page.locator("text=/PDF · página/i").first();
+    const caixa = await visor.boundingBox().catch(() => null);
+    const janela = page.viewportSize();
+    const dentro =
+      caixa !== null && caixa.y >= 0 && caixa.y < janela.height && caixa.x < janela.width;
+    console.log("\n  VISOR DE PDF NO ÚLTIMO ACHADO (o fim da lista):");
+    console.log(`    botões 'Ver no documento': ${quantosBotoes}`);
+    console.log(
+      `    topo do visor:             y=${caixa ? Math.round(caixa.y) : "sem caixa"} (janela 0..${janela.height})`,
+    );
+    console.log(
+      dentro
+        ? "    → dentro da janela: abre onde o olho está."
+        : "    → FORA DA JANELA: é preciso rolar para achar o visor.",
+    );
+    await page.screenshot({ path: `${OUT}/piscando-4-visor-ultimo-achado.png` });
+    await page.keyboard.press("Escape").catch(() => {});
+    const fechar = page.getByRole("button", { name: /fechar/i }).first();
+    if ((await fechar.count()) > 0) await fechar.click().catch(() => {});
+    await page.waitForTimeout(400);
+  }
+
   await aba(/^Resumo/i).click();
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${OUT}/piscando-0-barra-de-vistas.png` });

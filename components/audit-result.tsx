@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,26 @@ type AuditResultProps = {
    */
   resolvidos?: ReadonlySet<string>;
   onToggleResolvido?: (refId: string, resolvido: boolean) => void;
+  /**
+   * A vista, quando quem manda é de fora (a barra de vistas do palco).
+   *
+   * Ausente, o parecer continua dono da própria vista e desenha o controle
+   * segmentado — é assim que ele funciona dentro do drawer do canvas, onde não
+   * há barra por perto. Duas fontes para a mesma decisão criariam o clássico:
+   * clicar na barra e a aba interna continuar mostrando outra coisa.
+   */
+  view?: AuditView;
+  onViewChange?: (view: AuditView) => void;
+  /**
+   * Achado a mostrar em foco (`refId`): a vista vai para Achados, a lista rola
+   * até ele e ele pisca uma vez. É o que liga o clique no card do canvas ao
+   * cartão completo — sem isto, quem vê o problema na página tem de caçá-lo
+   * numa lista de 45.
+   */
+  achadoEmFoco?: string;
 };
+
+export type AuditView = "summary" | "findings" | "report";
 
 export type AuditPdfSource = {
   name: string;
@@ -846,13 +866,69 @@ export function AuditResult({
   pdfSources = [],
   resolvidos = new Set<string>(),
   onToggleResolvido,
+  view: viewDeFora,
+  onViewChange,
+  achadoEmFoco,
 }: AuditResultProps) {
-  const [view, setView] = useState<"summary" | "findings" | "report">("summary");
+  const [viewLocal, setViewLocal] = useState<AuditView>("summary");
+  // Controlado por fora (barra de vistas do palco) ou dono da própria vista
+  // (drawer do canvas, onde o controle segmentado continua desenhado).
+  const controlado = viewDeFora !== undefined;
+  const view = controlado ? viewDeFora : viewLocal;
+  const setView = (v: AuditView) => (controlado ? onViewChange?.(v) : setViewLocal(v));
+  /*
+   * O ACHADO PEDIDO DE FORA vira vista, DURANTE O RENDER.
+   *
+   * É o ajuste de estado por mudança de prop que o React documenta — e não um
+   * efeito: `setState` dentro de efeito para isto renderiza a vista errada por
+   * um quadro (e o lint do React Compiler barra, com razão).
+   *
+   * `focoAnterior` é o que torna a mudança um EVENTO e não uma trava: sem ele o
+   * parecer voltaria para Achados a cada render enquanto o foco existisse, e
+   * quem clicasse em Resumo não conseguiria sair de lá.
+   */
+  /*
+   * Nasce VAZIO, e não com o valor atual: o parecer do drawer é montado JÁ com
+   * o achado pedido, então iniciá-lo com o próprio foco fazia a comparação
+   * empatar no primeiro render — a vista continuava em Resumo e o cartão nunca
+   * aparecia. O clique abria um drawer que parecia ignorar o clique.
+   */
+  const [focoAnterior, setFocoAnterior] = useState<string | undefined>(undefined);
+  if (achadoEmFoco !== focoAnterior) {
+    setFocoAnterior(achadoEmFoco);
+    // Só o caso NÃO controlado: o foco vem do clique no canvas, e ali o parecer
+    // mora no drawer, dono da própria vista.
+    if (achadoEmFoco && !controlado) setViewLocal("findings");
+  }
+
+  // A rolagem é sincronizar com o DOM — aí sim, efeito. Roda depois de a lista
+  // existir, senão não há elemento a alcançar.
+  useEffect(() => {
+    if (!achadoEmFoco || view !== "findings") return;
+    const alvo = document.querySelector(`[data-achado="${CSS.escape(achadoEmFoco)}"]`);
+    /*
+     * `start`, não `center`: centralizar deixava o CABEÇALHO do cartão — o
+     * título, as etiquetas e o anel de foco — acima da dobra, e quem clicou caía
+     * no meio dos campos sem enxergar em qual achado tinha chegado.
+     */
+    alvo?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [achadoEmFoco, view]);
+
   const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
   const [activePdf, setActivePdf] = useState<ActivePdf | null>(null);
+  /*
+   * O portal precisa do `document`, que não existe no servidor.
+   *
+   * Basta a checagem direta, sem marca de "já montei": o visor só existe depois
+   * de alguém CLICAR, e no servidor `activePdf` é sempre nulo — os dois lados
+   * renderizam a mesma coisa (nada), então não há divergência de hidratação a
+   * temer. Um `useState` + `useEffect` aqui seria um render a mais em toda
+   * montagem do parecer para responder a uma pergunta que o ambiente já responde.
+   */
+  const temDocument = typeof document !== "undefined";
   const [disciplineFilter, setDisciplineFilter] = useState<Set<FindingDiscipline>>(new Set());
   const [errorTypeFilter, setErrorTypeFilter] = useState<Set<FindingErrorType>>(new Set());
   const parsed = parseAuditResult(content);
@@ -1122,7 +1198,16 @@ export function AuditResult({
 
   return (
     <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
-      {activePdf ? (
+      {/*
+        O VISOR VAI PARA O `body`, por portal.
+        `position: fixed` promete a JANELA como referência, e qualquer ancestral
+        com transform, filtro ou containment quebra essa promessa em silêncio —
+        foi o que aconteceu com a animação de entrada do parecer, e voltaria a
+        acontecer na primeira transição de shell que o palco ganhasse. No body
+        não há ancestral a quebrar nada.
+      */}
+      {activePdf && temDocument
+        ? createPortal(
         <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[560px] flex-col border-l bg-card shadow-2xl">
           <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
             <div className="min-w-0">
@@ -1150,8 +1235,10 @@ export function AuditResult({
           >
             <AuditPdfViewer url={activePdf.url} page={activePdf.page} highlight={activePdf.highlight} />
           </div>
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
       {verdict ? (
         <div
           data-tour="veredito-parecer"
@@ -1180,37 +1267,48 @@ export function AuditResult({
       ) : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            Resultado da auditoria
-          </p>
+          {/*
+            O TÍTULO E AS ABAS SÓ EXISTEM SEM A BARRA DE VISTAS.
+            Com ela na tela, "Resultado da auditoria" repetia o chip logo acima e
+            o controle segmentado era um segundo seletor de vista a 12px, do lado
+            de um de 14 — dois níveis para a mesma decisão, e o de baixo lido
+            como filtro. A contagem continua aqui: ela informa, não navega.
+          */}
+          {!controlado && (
+            <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              Resultado da auditoria
+            </p>
+          )}
           <span className="mt-1 block font-mono text-xs text-muted-foreground">
             {findings.length} achado{findings.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
             {elapsed ? ` · ${elapsed}` : ""}
           </span>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <div className="flex rounded-sm bg-[var(--nexodoc-recessed)] p-0.5">
-              {([
-                { value: "summary" as const, label: "Resumo" },
-                { value: "findings" as const, label: "Achados" },
-                { value: "report" as const, label: "Relatório" },
-              ]).map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setView(tab.value)}
-                  className={cn(
-                    "rounded-sm px-2.5 py-1 font-mono text-xs outline-none transition-colors",
-                    view === tab.value
-                      ? "border border-ring/30 bg-card font-medium text-foreground"
-                      : "border border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          {!controlado && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <div className="flex rounded-sm bg-[var(--nexodoc-recessed)] p-0.5">
+                {([
+                  { value: "summary" as const, label: "Resumo" },
+                  { value: "findings" as const, label: "Achados" },
+                  { value: "report" as const, label: "Relatório" },
+                ]).map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setView(tab.value)}
+                    className={cn(
+                      "rounded-sm px-2.5 py-1 font-mono text-xs outline-none transition-colors",
+                      view === tab.value
+                        ? "border border-ring/30 bg-card font-medium text-foreground"
+                        : "border border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-start gap-2 sm:justify-end">
@@ -1471,6 +1569,10 @@ export function AuditResult({
                       // Faixa no DOM: é o que permite provar a ORDEM da lista no
                       // navegador sem depender do texto do cabeçalho.
                       data-impacto={faixa}
+                      // A âncora do achado: é por ela que o clique no canvas
+                      // encontra este cartão para rolar até ele.
+                      data-achado={finding.refId || undefined}
+                      data-em-foco={finding.refId && finding.refId === achadoEmFoco ? "" : undefined}
                       data-resolvido={resolvidos.has(finding.refId ?? "") || undefined}
                       className={cn(
                         /*
@@ -1498,6 +1600,14 @@ export function AuditResult({
                         resolvidos.has(finding.refId ?? "")
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",
+                        /*
+                         * VINDO DO CANVAS, o cartão precisa se identificar: a
+                         * lista rola até aqui, e sem uma marca a pessoa cai no
+                         * meio de 45 cartões iguais sem saber qual é o dela. O
+                         * anel fica enquanto o foco durar, e sai no próximo
+                         * clique — não é estado permanente.
+                         */
+                        "data-[em-foco]:ring-2 data-[em-foco]:ring-[var(--ring)] data-[em-foco]:ring-offset-2 data-[em-foco]:ring-offset-[var(--background)]",
                       )}
                     >
                       <div className="grid gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4 @min-[40rem]:grid-cols-[minmax(18rem,1fr)_auto] @min-[40rem]:items-start">
