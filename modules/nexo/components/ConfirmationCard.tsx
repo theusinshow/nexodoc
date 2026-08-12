@@ -47,6 +47,7 @@ import {
   type AuditReport,
 } from "@/lib/audit-report";
 import { AuditoriaDesconectada, type MemorialAuditResult } from "../lib/audit";
+import { useDeltaDoMemorial } from "./use-delta-do-memorial";
 import type {
   NexoAgentProposal,
   NexoLdProposalParams,
@@ -2185,6 +2186,29 @@ function AuditoriaConfirmation({
   const municipio = fatos.gabarito.municipio ?? undefined;
   const endereco = memorialFatos?.endereco?.trim() || "";
 
+  /*
+   * O QUE MUDOU DESDE A ÚLTIMA AUDITORIA DESTE MEMORIAL.
+   *
+   * Uma auditoria profunda do 063-26 são 196 mil caracteres numa chamada só,
+   * 258s medidos. Quando o memorial volta com um volume novo, a pergunta antes
+   * de disparar é "quanto disso já foi lido?" — e ela custava, até aqui, uma
+   * auditoria inteira para ser respondida. A comparação é de texto, não de IA:
+   * nenhuma chamada de modelo (ver [[audit-fingerprint.ts]]).
+   *
+   * A base é a última auditoria DESTA conversa: é onde o memorial anterior foi
+   * lido, e comparar com a de outra conversa arriscaria emparelhar revisões
+   * diferentes que convivem.
+   */
+  const auditoriaAnterior = results
+    .filter((r) => r.kind === "auditoria" && r.artifactId !== id)
+    .map((r) => (r.payload as MemorialAuditResult | undefined)?.auditId)
+    .filter((a): a is string => Boolean(a))
+    .at(-1);
+  const delta = useDeltaDoMemorial(
+    result ? null : memorialFile,
+    result ? null : (auditoriaAnterior ?? null),
+  );
+
   async function confirm() {
     if (!memorialFile) return;
     setBusy(true);
@@ -2325,6 +2349,66 @@ function AuditoriaConfirmation({
                 ? "Obra lida do carimbo das pranchas — fonte independente do memorial."
                 : "Obra lida do próprio memorial — sem prancha para confrontar."}
             </p>
+          )}
+          {/*
+            O COMPARATIVO COM A ÚLTIMA AUDITORIA — antes de gastar, não depois.
+            A frase evita adjetivo: diz quantos capítulos e quanto do texto já
+            foi lido, e nomeia o que entrou. É com esse nome que a pessoa
+            reconhece o volume que ela mesma acrescentou.
+          */}
+          {delta.estado === "pronto" && delta.dados.comparavel && delta.dados.delta && (
+            <div className="nx-cut-6 border-0 bg-[var(--nexodoc-recessed)] px-3 py-2">
+              <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                Comparado à auditoria de{" "}
+                {new Date(delta.dados.base?.quando ?? "").toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-foreground">
+                {delta.dados.resumo}
+                {typeof delta.dados.fracaoJaLida === "number" && (
+                  <>
+                    {" — "}
+                    <span className="tabular-nums">
+                      {Math.round(delta.dados.fracaoJaLida * 100)}%
+                    </span>{" "}
+                    do texto já foi lido antes
+                  </>
+                )}
+                .
+              </p>
+              {(delta.dados.delta.titulosNovos.length > 0 ||
+                delta.dados.delta.titulosAlterados.length > 0) && (
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {delta.dados.delta.titulosNovos.length > 0 && (
+                    <>Entrou: {delta.dados.delta.titulosNovos.slice(0, 3).join("; ")}
+                    {delta.dados.delta.titulosNovos.length > 3
+                      ? ` +${delta.dados.delta.titulosNovos.length - 3}`
+                      : ""}
+                    . </>
+                  )}
+                  {delta.dados.delta.titulosAlterados.length > 0 && (
+                    <>Mudou: {delta.dados.delta.titulosAlterados.slice(0, 3).join("; ")}
+                    {delta.dados.delta.titulosAlterados.length > 3
+                      ? ` +${delta.dados.delta.titulosAlterados.length - 3}`
+                      : ""}
+                    .</>
+                  )}
+                </p>
+              )}
+              {/*
+                A promessa que ainda NÃO existe fica dita como não existente. A
+                auditoria segue lendo o documento inteiro; o que esta caixa faz
+                hoje é informar a decisão, não baratear a corrida.
+              */}
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground/80">
+                A auditoria ainda lê o documento inteiro — esta comparação serve
+                para você decidir se vale rodar de novo.
+              </p>
+            </div>
           )}
           {parcial && (
             <p className="text-xs text-[var(--status-warning)]">

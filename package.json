@@ -78,6 +78,7 @@
     "prova:barra": "node scripts/prova-barra-lateral.mjs",
     "prova:pasta": "node scripts/prova-pasta-e-reuso.mjs",
     "prova:cache": "node scripts/prova-cache-de-leitura.mjs",
+    "prova:delta": "node scripts/prova-delta-do-memorial.mjs",
     "prova:auditoria": "node scripts/prova-auditoria-ui.mjs",
     "test:ld-editavel": "node scripts/prova-ld-editavel.mjs",
     "qa:nexo:plano-pendente": "node scripts/shot-plano-pendente.mjs"
