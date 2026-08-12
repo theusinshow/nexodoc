@@ -80,14 +80,55 @@ export async function baixarEditaveis(
   editaveis: readonly Editavel[],
   nomeDoZip: string,
 ): Promise<number> {
-  if (editaveis.length === 0) return 0;
+  return baixarArquivosEmZip(editaveis, nomeDoZip);
+}
+
+/**
+ * Junta arquivos quaisquer num ZIP e dispara o download.
+ *
+ * Genérico porque os VOLUMES montados precisam do mesmo empacotamento e têm o
+ * mesmo formato ({nome, url}) — o que muda é só o que entra.
+ *
+ * Falha de leitura NÃO gera ZIP parcial. Os bytes dos artefatos vivem como
+ * object URL no navegador: numa conversa reaberta noutra máquina, ou com o cache
+ * limpo, a URL morre e o arquivo some sem erro visível. Entregar um ZIP com sete
+ * dos oito volumes é o pior desfecho possível aqui, porque ninguém confere a
+ * contagem antes de mandar para a prefeitura. Então tudo é lido ANTES de zipar,
+ * e uma falha aborta com os nomes do que faltou.
+ */
+export async function baixarArquivosEmZip(
+  arquivos: readonly Editavel[],
+  nomeDoZip: string,
+): Promise<number> {
+  if (arquivos.length === 0) return 0;
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
 
-  for (const e of editaveis) {
-    const resposta = await fetch(e.url);
-    if (!resposta.ok) throw new Error(`Falha ao ler ${e.nome}.`);
-    zip.file(e.nome, await resposta.blob());
+  const lidos: { nome: string; blob: Blob }[] = [];
+  const faltando: string[] = [];
+
+  for (const a of arquivos) {
+    try {
+      const resposta = await fetch(a.url);
+      if (!resposta.ok) {
+        faltando.push(a.nome);
+        continue;
+      }
+      lidos.push({ nome: a.nome, blob: await resposta.blob() });
+    } catch {
+      // object URL revogado (recarregou a página, outra máquina, cache limpo)
+      faltando.push(a.nome);
+    }
+  }
+
+  if (faltando.length > 0) {
+    throw new Error(
+      `${faltando.length} arquivo(s) não estão disponíveis neste navegador e precisam ser gerados de novo aqui: ${faltando.join(", ")}. Nada foi baixado.`,
+    );
+  }
+
+  for (const l of lidos) {
+    zip.file(l.nome, l.blob);
   }
 
   const blob = await zip.generateAsync({ type: "blob" });
@@ -104,5 +145,5 @@ export async function baixarEditaveis(
     // grande — segurá-lo na memória depois do download é vazamento puro.
     URL.revokeObjectURL(url);
   }
-  return editaveis.length;
+  return lidos.length;
 }

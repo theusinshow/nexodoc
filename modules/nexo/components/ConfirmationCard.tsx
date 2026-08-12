@@ -112,7 +112,8 @@ import {
 } from "../lib/pendencia";
 import { useComposer } from "../state/composer-controller";
 import { useConversation, type SavedResult } from "../state/conversation-store";
-import { baixarEditaveis, editaveisDosResultados } from "../lib/editaveis";
+import { baixarArquivosEmZip, baixarEditaveis, editaveisDosResultados } from "../lib/editaveis";
+import { todosOsVolumesProntos, volumesProntosDosResultados } from "../lib/volumes-prontos";
 import {
   gerarEditaveisConsolidados,
   parametrosDaEntrega,
@@ -1393,6 +1394,31 @@ function VolumesDoConjunto({
   const selosDaConversa = props.selos;
   const identidadeDaConversa = identidade;
 
+  /*
+   * Os VOLUMES montados. O "baixar todos" é o espelho do "montar todos": seis
+   * tomos são seis downloads, e quem entrega para a prefeitura quer o conjunto.
+   *
+   * A trava vive AQUI, na montagem, e não no botão — mesma decisão do commit que
+   * tirou a trava do botão de montar. Quem sabe se o conjunto está completo é
+   * quem conhece os tomos planejados; o botão só obedece.
+   */
+  const volumesProntos = useMemo(() => volumesProntosDosResultados(results), [results]);
+  const conjuntoCompleto = todosOsVolumesProntos(volumesProntos, tomos.length);
+  const [baixandoVolumes, setBaixandoVolumes] = useState(false);
+  const [erroDosVolumes, setErroDosVolumes] = useState<string | null>(null);
+
+  async function baixarTodosOsVolumes() {
+    setBaixandoVolumes(true);
+    setErroDosVolumes(null);
+    try {
+      await baixarArquivosEmZip(volumesProntos, "volumes-montados.zip");
+    } catch (err) {
+      setErroDosVolumes(err instanceof Error ? err.message : "Falha ao juntar os volumes.");
+    } finally {
+      setBaixandoVolumes(false);
+    }
+  }
+
   async function baixarTodosOsEditaveis() {
     setBaixando(true);
     setErroDoZip(null);
@@ -1472,6 +1498,28 @@ function VolumesDoConjunto({
               {falhas.map((f) => `${f.rotulo} (${f.motivo})`).join("; ")}. Os outros
               estão prontos.
             </p>
+          )}
+          {/*
+            BAIXAR TODOS, logo abaixo do montar todos — é o passo seguinte na
+            mesma tarefa. Só destrava com o conjunto COMPLETO: meia entrega é o
+            erro que ninguém confere antes de mandar para a prefeitura.
+            Desabilitado dá o número em vez de ficar mudo: "faltam 2" diz o que
+            fazer, um botão cinza não diz nada.
+          */}
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!conjuntoCompleto || baixandoVolumes || montando !== null}
+            onClick={baixarTodosOsVolumes}
+          >
+            {baixandoVolumes
+              ? "Juntando os volumes…"
+              : conjuntoCompleto
+                ? `Baixar os ${volumesProntos.length} volumes`
+                : `Baixar todos — faltam ${tomos.length - volumesProntos.length} de ${tomos.length}`}
+          </Button>
+          {erroDosVolumes && (
+            <p className="text-xs text-[var(--destructive)]">{erroDosVolumes}</p>
           )}
         </div>
       )}
