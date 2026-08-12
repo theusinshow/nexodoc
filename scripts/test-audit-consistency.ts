@@ -491,6 +491,77 @@ check("material das ferragens contraditório vira achado de regra", () => {
   assert.equal(findings[0].pagina, "28 e 29");
 });
 
+check("marca sem 'ou similar' vira achado (padrão do escritório / Lei 14.133)", () => {
+  const doc = {
+    pages: [
+      { page: 27, text: "Protótipo comercial: Piso de concreto 40x40cm – JBM Artefatos de Cimento. 4.3.3 Piso Tátil" },
+    ],
+    text: "",
+    pageCount: 1,
+    charCount: 120,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "116_25.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((f) => /[Mm]arca/.test(f.tipo));
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].impacto, "critico_documental");
+});
+
+check("marca COM 'ou similar' não gera achado", () => {
+  const doc = {
+    pages: [
+      { page: 26, text: "Tipo comercial: azulejo 20 x 20 cm, cor Branco, brilho / Eliane ou similar. Assentamento conforme projeto." },
+    ],
+    text: "",
+    pageCount: 1,
+    charCount: 110,
+  };
+  doc.text = doc.pages[0].text;
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "063_26.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((f) => /[Mm]arca/.test(f.tipo));
+
+  assert.equal(findings.length, 0);
+});
+
+check("marca cuja ressalva cai na página seguinte NÃO é acusada", () => {
+  // Caso real do 063-26: a barra de apoio da p.35 termina no rodapé e o
+  // "/ Deca ou similar." abre a p.36. Com janela presa à página, era falso positivo.
+  const doc = {
+    pages: [
+      {
+        page: 35,
+        text:
+          "Tipo comercial: Barra de lateral fixa 30 cm Conforto Aço Polido, Cód. " +
+          "REFORMA DA CANCHA DE BOCHA DO PARQUE DOS IMIGRANTES – PROJETO EXECUTIVO - " +
+          "P:\\cad\\pmcriciuma\\063_26\\relator\\063_26_md_geral_a.odm Cap.3 – Pág.35 " +
+          "Direitos Autorais – Lei 9.610/98 – art. 7º, itens X e XI (art. 1), § Único.",
+      },
+      { page: 36, text: "3 – PROJETO ARQUITETÔNICO 2373.I.030.POL / Deca ou similar . Para as portas de acesso" },
+    ],
+    text: "",
+    pageCount: 2,
+    charCount: 500,
+  };
+  doc.text = doc.pages.map((p) => p.text).join("\n");
+
+  const findings = runDocumentCoherenceRules({
+    fileName: "063_26.pdf",
+    fileType: "memorial",
+    extracted: doc,
+  }).filter((f) => /[Mm]arca/.test(f.tipo));
+
+  assert.equal(findings.length, 0, "a ressalva na página seguinte vale para a especificação");
+});
+
 check("ferragens só em inox, sem a outra ponta, NÃO gera achado", () => {
   const doc = {
     pages: [{ page: 29, text: "Portas em Alumínio deverão ter todas as ferragens em Inox." }],

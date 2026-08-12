@@ -72,6 +72,17 @@ const SANEAMENTO = [
     /do mesmo material das esquadrias/gi,
     "conforme especificacao de cada esquadria",
   ],
+  /*
+   * COER "marca sem ou similar" — 6º defeito pré-existente, descoberto no mesmo
+   * dia. O memorial real fecha a marca do ladrilho hidráulico ("– JBM Artefatos
+   * de Cimento.", seguido direto da seção 4.3.3) enquanto todas as outras
+   * especificações trazem "ou similar". É não conformidade com a Lei 14.133 num
+   * documento que já foi a produção.
+   */
+  [
+    /JBM Artefatos de Cimento\./gi,
+    "JBM Artefatos de Cimento ou similar.",
+  ],
   // Município intruso real (p.158) — vira ruído de identidade/cross-document
   [/Prefeitura Municipal de Chapec[óo]/gi, "Prefeitura Municipal de Criciuma"],
   // Falsos positivos de ocupação: "Escola"/"Hospital" soltos em textos genéricos e tabelas de norma

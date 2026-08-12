@@ -303,7 +303,115 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     );
   }
 
+  // 9) Marca especificada sem "ou similar" — obra pública não admite marca fechada.
+  for (const marcaFinding of runBrandWithoutSimilarRule(extracted, fileName, nextId)) {
+    findings.push(marcaFinding);
+  }
+
   return findings;
+}
+
+// --- Regra 9: marca sem "ou similar" ----------------------------------------
+
+/*
+ * Em obra pública não se especifica marca: a Lei 14.133/2021 (art. 41) veda a
+ * preferência por marca salvo justificativa técnica registrada. O padrão do
+ * escritório é escrever sempre "<marca> ou similar".
+ *
+ * A âncora NÃO é uma lista de marcas — é a convenção do próprio memorial. O
+ * escritório declara produto sob "Tipo comercial:" / "Protótipo comercial:", e
+ * no 063-26 quase todas as ocorrências já trazem "ou similar" ("Eliane ou
+ * similar", "Suvinil ou similar", "Optimirror (Saint-Gobain Glass) ou similar").
+ * Conferir a convenção contra ela mesma dá precisão alta e zero manutenção de
+ * dicionário — uma lista de marcas envelheceria e deixaria passar o resto.
+ *
+ * Consolidado: um achado com TODAS as ocorrências, não um por marca.
+ */
+
+/** aceita "ou similar", "ou equivalente", "ou de qualidade equivalente" */
+const RESSALVA_DE_SIMILAR = /\bou\s+(?:similar|equivalente|de\s+qualidade\s+equivalente)/i;
+
+/** onde o escritório declara produto comercial */
+const DECLARACAO_COMERCIAL = /(?:prot[óo]tipo|tipo)\s+comercial\s*:?\s+/gi;
+
+/*
+ * Quanto texto depois da declaração ainda pertence à mesma especificação.
+ *
+ * 420, e não 220, porque a janela precisa atravessar a quebra de página: o
+ * rodapé do memorial sozinho tem ~200 caracteres (nome da obra, caminho do
+ * .odm, aviso de direitos autorais). No 063-26 a barra de apoio da p.35 termina
+ * exatamente no rodapé e o "/ Deca ou similar." está na primeira linha da p.36 —
+ * com janela curta e presa à página, isso virava falso positivo.
+ */
+const ALCANCE_DA_RESSALVA = 420;
+
+function runBrandWithoutSimilarRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const semRessalva: { page: number; trecho: string }[] = [];
+
+  extracted.pages.forEach((page, indice) => {
+    DECLARACAO_COMERCIAL.lastIndex = 0;
+
+    // A especificação pode continuar na página seguinte; a janela acompanha.
+    const continuacao = extracted.pages[indice + 1]?.text ?? "";
+
+    for (const match of page.text.matchAll(DECLARACAO_COMERCIAL)) {
+      const inicio = (match.index ?? 0) + match[0].length;
+      const janela = (page.text.slice(inicio) + " " + continuacao).slice(0, ALCANCE_DA_RESSALVA);
+
+      // Corta na PRÓXIMA declaração comercial: sem isso, um "ou similar" do item
+      // seguinte cobriria indevidamente o item atual.
+      const proxima = janela.search(/(?:prot[óo]tipo|tipo)\s+comercial/i);
+      const escopo = proxima >= 0 ? janela.slice(0, proxima) : janela;
+
+      if (RESSALVA_DE_SIMILAR.test(escopo)) {
+        continue;
+      }
+
+      const trecho = escopo.replace(/\s+/g, " ").trim().slice(0, 90);
+
+      if (trecho.length >= 4) {
+        semRessalva.push({ page: page.page, trecho });
+      }
+    }
+  });
+
+  if (semRessalva.length === 0) {
+    return [];
+  }
+
+  const paginas = [...new Set(semRessalva.map((item) => item.page))].sort((a, b) => a - b);
+  const amostra = semRessalva
+    .slice(0, 8)
+    .map((item) => `p. ${item.page}: "${item.trecho}"`)
+    .join("; ");
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Alta",
+      /*
+       * Bloqueador: marca fechada em memorial de obra pública é não conformidade
+       * legal, não ponto de conferência técnica. Vai a licitação assim e vira
+       * impugnação. Reversível aqui se o escritório preferir tratar como técnico.
+       */
+      impacto: "critico_documental",
+      pagina: paginas.join(", "),
+      capitulo: "Especificação de materiais",
+      local: "declaração de produto comercial",
+      tipo: "Marca especificada sem a ressalva 'ou similar'",
+      descricao: `${semRessalva.length} especificação(ões) de produto comercial não trazem "ou similar" nem "ou equivalente". Em obra pública a marca não pode ser fechada sem justificativa técnica registrada (Lei 14.133/2021, art. 41).`,
+      evidencia: amostra,
+      termo_busca: "tipo comercial",
+      conflito:
+        'O próprio memorial adota o padrão "<marca> ou similar" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.',
+      sugestao_correcao:
+        'Acrescentar "ou similar" (ou "ou equivalente") após a marca em cada ocorrência listada. Se alguma marca for realmente exclusiva, registrar a justificativa técnica exigida pelo art. 41 no próprio memorial.',
+    }),
+  ];
 }
 
 // --- Regra 7: aritmética da carga de incêndio --------------------------------
