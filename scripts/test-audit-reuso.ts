@@ -14,8 +14,10 @@ import {
   capituloDoAchado,
   paginaDoAchado,
   reancorarPorAritmetica,
+  reancorarPorTermo,
 } from "../lib/audit-reuso.ts";
 import type { CapituloImpresso } from "../lib/audit-report.ts";
+import type { ExtractedPdfPage } from "../lib/pdf-text.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -101,6 +103,31 @@ test("página fora da faixa antiga não é reancorada", () => {
   const agora = cap("3 - FUNDACOES", 23, 27, "hf");
   assert.equal(reancorarPorAritmetica("40", antes, agora), null);
   assert.equal(reancorarPorAritmetica("sem página", antes, agora), null);
+});
+
+const PAGINAS: ExtractedPdfPage[] = [
+  { page: 1, text: "Memorial descritivo da obra." },
+  { page: 2, text: "As fundacoes serao em estacas escavadas de 40cm." },
+  { page: 3, text: "Concreto  fck   25   MPa para todas as pecas." },
+];
+
+test("termo encontrado devolve a página em que está", () => {
+  assert.equal(reancorarPorTermo("estacas escavadas", PAGINAS), 2);
+});
+
+test("espaço em excesso não impede o encontro", () => {
+  // O texto do PDF vem com espaçamento irregular; o termo do achado, não.
+  assert.equal(reancorarPorTermo("fck 25 MPa", PAGINAS), 3);
+});
+
+test("acento e caixa não impedem o encontro", () => {
+  assert.equal(reancorarPorTermo("FUNDAÇÕES SERÃO", PAGINAS), 2);
+});
+
+test("termo ausente devolve null — quem chama decide o que fazer", () => {
+  assert.equal(reancorarPorTermo("laje nervurada", PAGINAS), null);
+  assert.equal(reancorarPorTermo(undefined, PAGINAS), null);
+  assert.equal(reancorarPorTermo("   ", PAGINAS), null);
 });
 
 console.log(`\n${passed} verificações de reuso passaram.`);

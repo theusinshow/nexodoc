@@ -6,6 +6,7 @@
  * para ler o que mudou — quem decide o que mudou é este arquivo.
  */
 import type { CapituloImpresso } from "./audit-report.ts";
+import type { ExtractedPdfPage } from "./pdf-text.ts";
 
 /**
  * A página de um achado é texto livre no parecer ("7", "11 e 14", "pág. 5").
@@ -51,4 +52,36 @@ export function reancorarPorAritmetica(
   if (n < antes.startPage || n > antes.endPage) return null;
   if (agora.endPage - agora.startPage !== antes.endPage - antes.startPage) return null;
   return n + (agora.startPage - antes.startPage);
+}
+
+/**
+ * Normalização para BUSCA — e só para busca. Aqui, ao contrário do hash da
+ * impressão digital, tirar acento e caixa é o certo: o termo foi escrito pelo
+ * modelo e o texto veio do pdf.js, e os dois divergem em acentuação e
+ * espaçamento sem que o trecho seja outro.
+ */
+function paraBusca(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Onde está o termo no documento NOVO. Usado quando a aritmética não serve —
+ * capítulo que passou a ocupar outro número de páginas.
+ *
+ * Devolve `null` quando não acha: o chamador trata isso promovendo o capítulo
+ * para releitura, que é o lado seguro (gastar, não perder).
+ */
+export function reancorarPorTermo(
+  termo: string | undefined,
+  paginas: readonly ExtractedPdfPage[],
+): number | null {
+  const alvo = paraBusca(termo ?? "");
+  if (!alvo) return null;
+  const encontrada = paginas.find((p) => paraBusca(p.text).includes(alvo));
+  return encontrada ? encontrada.page : null;
 }
