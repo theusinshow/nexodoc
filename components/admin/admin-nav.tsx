@@ -17,17 +17,33 @@ import { KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * A ORDEM É A DO DONO, não a de quando as telas nasceram.
+ *
+ * Era: Visão geral, Usuários, LDs, Auditorias, Consumo, Qualidade, Config — e
+ * com `VISIBLE_COUNT = 4` os três últimos ficavam escondidos atrás de "Mais".
+ * Consumo e Qualidade são o que se abre TODO DIA (quanto gastei, o motor está
+ * melhorando?); Usuários e LDs são o que se abre uma vez por mês. Estavam
+ * exatamente ao contrário.
+ */
 const adminLinks = [
   { href: "/admin", label: "Visão geral", icon: Gauge },
-  { href: "/admin/users", label: "Usuários", icon: UsersRound },
-  { href: "/admin/lds", label: "LDs", icon: FileSpreadsheet },
-  { href: "/admin/audits", label: "Auditorias", icon: ListChecks },
   { href: "/admin/usage", label: "Consumo", icon: BarChart3 },
   { href: "/admin/quality", label: "Qualidade", icon: ShieldCheck },
+  { href: "/admin/audits", label: "Auditorias", icon: ListChecks },
+  { href: "/admin/lds", label: "LDs", icon: FileSpreadsheet },
+  { href: "/admin/users", label: "Usuários", icon: UsersRound },
   { href: "/admin/config", label: "Config", icon: Settings2 },
 ] as const;
 
-const VISIBLE_COUNT = 4;
+/**
+ * Espaço do botão "Mais" mais o vão. Reservado só quando ele vai existir.
+ *
+ * Fixo porque o botão é de largura conhecida e não muda com os dados — medi-lo
+ * exigiria renderizá-lo para decidir se ele deve existir, que é circular.
+ */
+const LARGURA_DO_MAIS = 92;
+const VAO = 8;
 
 function AdminNavLink({
   href,
@@ -57,11 +73,20 @@ function AdminNavLink({
       tabIndex={tabIndex}
       aria-selected={ariaSelected}
       onKeyDown={onKeyDown}
+      // A medição da barra encontra os links por este atributo — nunca por
+      // `querySelector("a")`, que pegaria o "Voltar" junto.
+      data-nav-link
       className={cn(
-        "inline-flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-sm transition",
+        /*
+         * Corte 6: a medida de botão de 36px e de chip (§5). O ativo usa borda
+         * teal + miolo preenchido, que é a linha "selecionado / atual" da
+         * matriz do §7 — teal marca a coisa atual, e é a única coisa desta
+         * barra que pode ser teal.
+         */
+        "nx-edge-6 inline-flex h-9 shrink-0 items-center gap-2 px-3 font-mono text-[12px] tracking-[0.02em] transition-colors",
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "text-foreground [--nx-edge:var(--primary)] [--nx-fill:var(--secondary)]"
+          : "text-muted-foreground [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)]",
         className,
       )}
     >
@@ -101,9 +126,73 @@ export function AdminNav() {
     };
   }, []);
 
+  /*
+   * QUANTOS LINKS CABEM — medido, não decidido por número redondo.
+   *
+   * Era `VISIBLE_COUNT = 4`: num monitor de 1500px os sete links cabiam
+   * folgados e três deles ficavam escondidos atrás de "Mais" — entre eles
+   * Consumo e Qualidade, que são o check diário de quem paga a conta. Uma
+   * constante escondendo o que o dono mais abre.
+   *
+   * A medição roda depois do primeiro quadro, com todos visíveis: é ali que as
+   * larguras reais existem. Elas ficam num ref porque não mudam (os rótulos são
+   * estáticos) — reduzir a lista não pode apagar a memória de quanto cada item
+   * ocupa, senão a barra nunca voltaria a crescer ao alargar a janela.
+   */
+  const barraRef = useRef<HTMLDivElement>(null);
+  const largurasRef = useRef<number[]>([]);
+  // O tipo é explícito porque `adminLinks` é `as const`: sem ele o TypeScript
+  // infere o literal `7` e recusa qualquer contagem medida.
+  const [quantosCabem, setQuantosCabem] = useState<number>(adminLinks.length);
+
+  useEffect(() => {
+    const barra = barraRef.current;
+    if (!barra) return;
+
+    function medir() {
+      const el = barraRef.current;
+      if (!el) return;
+
+      const itens = Array.from(el.querySelectorAll<HTMLElement>("[data-nav-link]"));
+      if (itens.length === adminLinks.length) {
+        largurasRef.current = itens.map((i) => i.offsetWidth);
+      }
+      const larguras = largurasRef.current;
+      if (larguras.length !== adminLinks.length) return;
+
+      const voltar =
+        el.querySelector<HTMLElement>("[data-nav-voltar]")?.offsetWidth ?? 0;
+      let disponivel = el.clientWidth - voltar - VAO;
+
+      let cabem = 0;
+      for (const largura of larguras) {
+        if (disponivel - (largura + VAO) < 0) break;
+        disponivel -= largura + VAO;
+        cabem++;
+      }
+
+      // Se sobrou link de fora, o "Mais" passa a existir — e ele também ocupa
+      // lugar. Tira um a um até o botão caber junto.
+      if (cabem < adminLinks.length) {
+        while (cabem > 0 && disponivel < LARGURA_DO_MAIS + VAO) {
+          cabem--;
+          disponivel += larguras[cabem] + VAO;
+        }
+      }
+
+      setQuantosCabem(cabem);
+    }
+
+    // rAF: `setState` síncrono no corpo do efeito é render em cascata, e o
+    // ResizeObserver dispara uma vez na observação inicial.
+    const ro = new ResizeObserver(() => requestAnimationFrame(medir));
+    ro.observe(barra);
+    return () => ro.disconnect();
+  }, []);
+
   const isActive = (href: string) => pathname === href;
-  const visibleLinks = adminLinks.slice(0, VISIBLE_COUNT);
-  const overflowLinks = adminLinks.slice(VISIBLE_COUNT);
+  const visibleLinks = adminLinks.slice(0, quantosCabem);
+  const overflowLinks = adminLinks.slice(quantosCabem);
   const hasOverflowDropdown = overflowLinks.length > 0;
   const activeOverflow = overflowLinks.some((link) => isActive(link.href));
 
@@ -128,11 +217,12 @@ export function AdminNav() {
       aria-label="Navegação administrativa"
       className="sticky top-0 z-40 border-b border-border bg-background/95 px-5 py-2 backdrop-blur"
     >
-      <div className="mx-auto flex max-w-[1500px] items-center gap-2">
+      <div ref={barraRef} className="mx-auto flex max-w-[1500px] items-center gap-2">
         <Link
           href="/"
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="nx-edge-6 inline-flex h-9 shrink-0 items-center gap-2 px-3 font-mono text-[12px] tracking-[0.02em] text-muted-foreground transition-colors [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)]"
           aria-label="Voltar para o dashboard"
+          data-nav-voltar
         >
           <ArrowLeft className="size-4" />
           <span className="hidden sm:inline">Voltar</span>
@@ -165,18 +255,28 @@ export function AdminNav() {
                 }
               }}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-sm transition",
+                "nx-edge-6 inline-flex h-9 shrink-0 items-center gap-2 px-3 font-mono text-[12px] tracking-[0.02em] transition-colors",
                 activeOverflow
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "text-foreground [--nx-edge:var(--primary)] [--nx-fill:var(--secondary)]"
+                  : "text-muted-foreground [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)]",
               )}
             >
               Mais
               <ChevronDown className={cn("size-3.5 transition-transform", dropdownOpen && "rotate-180")} />
             </button>
             {dropdownOpen ? (
+              /*
+                A ELEVAÇÃO VAI NUM PAI NÃO RECORTADO.
+                `box-shadow` externo não sobrevive ao `clip-path` — morre nas
+                diagonais do chanfro. `filter: drop-shadow` no pai contorna a
+                forma recortada do filho. É a mesma solução do `dropdown.tsx`.
+              */
+              <div
+                className="absolute right-0 top-full z-50 mt-1 min-w-[180px]"
+                style={{ filter: "drop-shadow(0 8px 24px rgb(0 0 0 / 0.45))" }}
+              >
               <div className={cn(
-                "absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-[var(--shadow-overlay)]",
+                "nx-edge-6 p-1 [--nx-edge:var(--border)] [--nx-fill:var(--card)]",
                 dropdownClosing ? "animate-out fade-out-0 zoom-out-95" : "dropdown-expand",
               )}>
                 {overflowLinks.map((link) => (
@@ -188,16 +288,17 @@ export function AdminNav() {
                     onClick={closeDropdown}
                     onKeyDown={(e) => handleTabKeyDown(e, overflowLinks)}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition",
+                      "nx-cut-5 flex items-center gap-2 px-3 py-2 font-mono text-[12px] tracking-[0.02em] transition-colors",
                       isActive(link.href)
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
                     )}
                   >
                     <link.icon className="size-4" />
                     {link.label}
                   </Link>
                 ))}
+              </div>
               </div>
             ) : null}
           </div>
