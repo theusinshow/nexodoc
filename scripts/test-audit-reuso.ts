@@ -10,7 +10,11 @@
  */
 import assert from "node:assert/strict";
 
-import { capituloDoAchado, paginaDoAchado } from "../lib/audit-reuso.ts";
+import {
+  capituloDoAchado,
+  paginaDoAchado,
+  reancorarPorAritmetica,
+} from "../lib/audit-reuso.ts";
 import type { CapituloImpresso } from "../lib/audit-report.ts";
 
 let passed = 0;
@@ -69,6 +73,34 @@ test("título repetido não confunde — quem decide é a página", () => {
 test("página fora de qualquer faixa devolve null", () => {
   assert.equal(capituloDoAchado("99", CAPITULOS), null);
   assert.equal(capituloDoAchado("", CAPITULOS), null);
+});
+
+test("capítulo que andou junto: a página do achado anda o mesmo tanto", () => {
+  // Entrou um capítulo antes dele; o capítulo em si é idêntico (mesmo hash) e
+  // ocupa o mesmo número de páginas. Tudo depois andou +3.
+  const antes = cap("3 - FUNDACOES", 20, 24, "hf");
+  const agora = cap("3 - FUNDACOES", 23, 27, "hf");
+  assert.equal(reancorarPorAritmetica("21", antes, agora), 24);
+  assert.equal(reancorarPorAritmetica("20", antes, agora), 23);
+});
+
+test("capítulo parado devolve a mesma página", () => {
+  const c = cap("3 - FUNDACOES", 20, 24, "hf");
+  assert.equal(reancorarPorAritmetica("22", c, c), 22);
+});
+
+test("capítulo que passou a ocupar outro número de páginas NÃO usa aritmética", () => {
+  // Mesmo texto, mas as quebras internas mudaram: a soma uniforme mentiria.
+  const antes = cap("3 - FUNDACOES", 20, 24, "hf");
+  const agora = cap("3 - FUNDACOES", 23, 28, "hf");
+  assert.equal(reancorarPorAritmetica("21", antes, agora), null);
+});
+
+test("página fora da faixa antiga não é reancorada", () => {
+  const antes = cap("3 - FUNDACOES", 20, 24, "hf");
+  const agora = cap("3 - FUNDACOES", 23, 27, "hf");
+  assert.equal(reancorarPorAritmetica("40", antes, agora), null);
+  assert.equal(reancorarPorAritmetica("sem página", antes, agora), null);
 });
 
 console.log(`\n${passed} verificações de reuso passaram.`);

@@ -31,3 +31,24 @@ export function capituloDoAchado(
   if (n === null) return null;
   return capitulos.find((c) => n >= c.startPage && n <= c.endPage) ?? null;
 }
+
+/**
+ * Capítulo casado por HASH é byte a byte idêntico. Se ele ocupa o mesmo número
+ * de páginas antes e agora, tudo dentro dele andou o mesmo tanto, e a âncora é
+ * uma soma — sem busca e sem token. É o caso que motivou o projeto: entrou um
+ * capítulo no meio e o resto do documento desceu junto.
+ *
+ * Se o número de páginas MUDOU, as quebras internas se moveram e a soma
+ * uniforme mentiria. Devolve `null` para quem chama tentar o caminho seguinte.
+ */
+export function reancorarPorAritmetica(
+  pagina: string,
+  antes: CapituloImpresso,
+  agora: CapituloImpresso,
+): number | null {
+  const n = paginaDoAchado(pagina);
+  if (n === null) return null;
+  if (n < antes.startPage || n > antes.endPage) return null;
+  if (agora.endPage - agora.startPage !== antes.endPage - antes.startPage) return null;
+  return n + (agora.startPage - antes.startPage);
+}
