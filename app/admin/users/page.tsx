@@ -44,6 +44,51 @@ function statusClass(isActive: boolean) {
     : "border-destructive/30 bg-background text-destructive";
 }
 
+/**
+ * A confirmação do LOTE — a mesma pergunta, no lugar da barra de ações.
+ *
+ * Substituir a barra em vez de abrir por cima é o que garante que a pergunta
+ * apareça exatamente onde o clique aconteceu, e que não haja como confirmar sem
+ * ter lido: os botões de ação somem enquanto ela está na tela.
+ *
+ * Coral na borda e no confirmar: dar ou tirar acesso é ação destrutiva no
+ * sentido do sistema (`--status-critical` é a cor de perigo, seja status ou
+ * ação — o §2 diz isso explicitamente).
+ */
+function CartaoDeConfirmacao({
+  pergunta,
+  onConfirmar,
+  onCancelar,
+}: {
+  pergunta: string;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  return (
+    <div
+      role="alertdialog"
+      aria-label={pergunta}
+      className="nx-edge-8 flex flex-wrap items-center gap-3 p-3 [--nx-edge:var(--status-critical)]"
+    >
+      <p className="min-w-0 flex-1 text-sm">{pergunta}</p>
+      <button
+        type="button"
+        onClick={onConfirmar}
+        className="nx-edge-7 inline-flex h-10 items-center px-4 font-mono text-[12px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
+      >
+        Confirmar
+      </button>
+      <button
+        type="button"
+        onClick={onCancelar}
+        className="nx-edge-7 inline-flex h-10 items-center px-4 font-mono text-[12px] text-muted-foreground transition-colors [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground"
+      >
+        Cancelar
+      </button>
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const [token, setToken] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -56,6 +101,25 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  /**
+   * A ação de privilégio esperando confirmação. `null` = nenhuma.
+   *
+   * "Tornar admin" era UM CLIQUE, e em lote também — sem confirmação, sem
+   * volta, na tela mais sensível do produto. Isso viola o princípio 3 ("nada
+   * irreversível sem confirmação") exatamente onde ele mais importa: promover
+   * alguém dá acesso ao painel de custo, à configuração de provedores e à
+   * capacidade de promover outros.
+   *
+   * Cartão inline, não `confirm()` nativo: o diálogo do navegador não sabe o
+   * nome de quem vai ser promovido, e o nome é a única coisa que impede o
+   * clique distraído na linha errada.
+   */
+  const [confirmando, setConfirmando] = useState<{
+    escopo: "linha" | "lote";
+    id?: string;
+    rotulo: string;
+    aplicar: () => void;
+  } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
 
@@ -292,8 +356,17 @@ export default function AdminUsersPage() {
           <Button type="submit" disabled={loading}>Filtrar</Button>
         </form>
 
-        {someSelected ? (
-          <div className="flex flex-wrap items-center gap-2 border border-primary/30 bg-card p-3">
+        {someSelected && confirmando?.escopo === "lote" ? (
+          <CartaoDeConfirmacao
+            pergunta={confirmando.rotulo}
+            onConfirmar={() => {
+              confirmando.aplicar();
+              setConfirmando(null);
+            }}
+            onCancelar={() => setConfirmando(null)}
+          />
+        ) : someSelected ? (
+          <div className="nx-edge-8 flex flex-wrap items-center gap-2 p-3 [--nx-edge:var(--primary)]">
             <span className="font-mono text-xs text-muted-foreground">
               {selectedIds.size} selecionado(s)
             </span>
@@ -301,7 +374,13 @@ export default function AdminUsersPage() {
               type="button"
               size="sm"
               disabled={batchBusy}
-              onClick={() => void batchUpdateUsers({ role: "ADMIN" })}
+              onClick={() =>
+                setConfirmando({
+                  escopo: "lote",
+                  rotulo: `Dar acesso de admin a ${selectedIds.size} pessoa(s)? Elas passam a ver custo, configuração de provedores, e a poder promover outras.`,
+                  aplicar: () => void batchUpdateUsers({ role: "ADMIN" }),
+                })
+              }
             >
               <ShieldCheck className="size-3.5" />
               Tornar admins
@@ -311,7 +390,13 @@ export default function AdminUsersPage() {
               variant="outline"
               size="sm"
               disabled={batchBusy}
-              onClick={() => void batchUpdateUsers({ isActive: false })}
+              onClick={() =>
+                setConfirmando({
+                  escopo: "lote",
+                  rotulo: `Desativar ${selectedIds.size} pessoa(s)? Elas perdem o acesso ao produto imediatamente.`,
+                  aplicar: () => void batchUpdateUsers({ isActive: false }),
+                })
+              }
             >
               <X className="size-3.5" />
               Desativar
@@ -384,15 +469,60 @@ export default function AdminUsersPage() {
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">{formatDate(user.updatedAt)}</td>
                   <td className="px-3 py-3">
                     <div className="flex justify-end gap-2">
+                      {confirmando?.escopo === "linha" && confirmando.id === user.id ? (
+                        /*
+                          A confirmação nasce NA LINHA, e não num diálogo por
+                          cima: é a linha que diz de quem se está falando, e
+                          tirar a pergunta de perto do nome é como se confirma a
+                          pessoa errada.
+                        */
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {confirmando.rotulo}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              confirmando.aplicar();
+                              setConfirmando(null);
+                            }}
+                            className="nx-edge-6 inline-flex h-9 items-center px-3 font-mono text-[11px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmando(null)}
+                            className="nx-edge-6 inline-flex h-9 items-center px-3 font-mono text-[11px] text-muted-foreground [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
                       <button
                         type="button"
-                        onClick={() => void saveUser({ ...user, role: user.role === "ADMIN" ? "USER" : "ADMIN" })}
+                        onClick={() =>
+                          setConfirmando({
+                            escopo: "linha",
+                            id: user.id,
+                            rotulo:
+                              user.role === "ADMIN"
+                                ? `Tirar o admin de ${user.name || user.email}?`
+                                : `Dar admin a ${user.name || user.email}?`,
+                            aplicar: () =>
+                              void saveUser({
+                                ...user,
+                                role: user.role === "ADMIN" ? "USER" : "ADMIN",
+                              }),
+                          })
+                        }
                         disabled={busyId === user.id}
-                        className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-xs transition hover:bg-muted disabled:opacity-50"
+                        className="nx-edge-6 inline-flex h-9 items-center gap-1 px-3 font-mono text-[11px] text-muted-foreground transition-colors [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)] disabled:opacity-50"
                       >
                         <ShieldCheck className="size-3.5" />
                         {user.role === "ADMIN" ? "Tornar usuário" : "Tornar admin"}
                       </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => void saveUser({ ...user, isActive: !user.isActive })}

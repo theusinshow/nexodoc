@@ -18,7 +18,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, KeyRound, RefreshCcw } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -64,6 +64,19 @@ export function AdminPageHeader({
   );
 }
 
+/**
+ * O TOKEN COLAPSA DEPOIS DE ENTRAR.
+ *
+ * O campo de senha ocupava o melhor lugar das SETE telas, para sempre: a
+ * primeira coisa que se via em todo header do admin era um input de senha, dez
+ * vezes por dia, para uma sessão que já estava aberta no `sessionStorage`.
+ *
+ * O que o estado recolhido AFIRMA é só o que se sabe: "há um token nesta
+ * sessão". Ele não diz que o token é válido — quem diz isso é a tela, que
+ * mostra `AdminError` quando não é, e aí o botão "trocar" está ali do lado.
+ * Afirmar validade que não se apurou seria a mesma mentira que o produto
+ * inteiro evita.
+ */
 export function AdminTokenForm({
   token,
   loading,
@@ -79,8 +92,66 @@ export function AdminTokenForm({
   children?: ReactNode;
   gridClassName?: string;
 }) {
+  const [editando, setEditando] = useState(false);
+
+  function sair() {
+    onTokenChange("");
+    setEditando(true);
+    try {
+      sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    } catch {
+      // `sessionStorage` pode estar bloqueado (modo restrito do navegador). O
+      // token já saiu do estado, que é o que importa nesta aba.
+    }
+  }
+
+  if (token && !editando) {
+    /*
+      O RECOLHIDO CONTINUA SENDO UM FORM, e continua carregando os `children`.
+      Algumas telas passam ali controles que NÃO são de autenticação — o
+      seletor de período do consumo, por exemplo. Sumir com eles junto do campo
+      de senha seria trocar um problema por outro pior: o campo estorva, mas o
+      seletor de período é o controle principal daquela tela.
+    */
+    return (
+      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
+        <span className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <KeyRound className="size-3.5" aria-hidden />
+            sessão admin
+          </span>
+          <span aria-hidden className="text-border">·</span>
+          <button
+            type="button"
+            onClick={() => setEditando(true)}
+            className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            trocar
+          </button>
+          <span aria-hidden className="text-border">·</span>
+          <button
+            type="button"
+            onClick={sair}
+            className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            sair
+          </button>
+        </span>
+        {children}
+      </form>
+    );
+  }
+
   return (
-    <form onSubmit={onSubmit} className="nx-edge-8 flex w-full flex-col gap-2 p-3 lg:w-[460px]">
+    <form
+      onSubmit={(e) => {
+        // Recolhe ao enviar: quem acabou de digitar o token não precisa de um
+        // campo de senha aberto na tela pelo resto da sessão.
+        setEditando(false);
+        onSubmit(e);
+      }}
+      className="nx-edge-8 flex w-full flex-col gap-2 p-3 lg:w-[460px]"
+    >
       <label className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
         Token admin
       </label>

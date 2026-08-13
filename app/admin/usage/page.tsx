@@ -20,6 +20,7 @@ import {
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ESCALA_DE_DADO as escalaDeDado } from "@/modules/nexo/lib/escala-de-dado";
 
 type AdminUsageResponse = {
   range: {
@@ -348,7 +349,7 @@ export default function AdminUsagePage() {
               <div>
                 <h2 className="text-sm font-semibold">Uso diario</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Barras azuis mostram tokens; linha de custo aparece em USD.
+                  Cada barra é um dia: a altura são os tokens. O custo aparece em USD.
                 </p>
               </div>
               {data ? (
@@ -376,11 +377,22 @@ export default function AdminUsagePage() {
                   >
                     <div className="flex flex-1 items-end rounded-md border bg-[var(--nexodoc-recessed)] p-1">
                       <div
+                        /*
+                          A BARRA SAI DO TEAL.
+                          Era `bg-primary/80` — teal, que significa INTERATIVO
+                          (§2, Regra do Acento Único). Barra de gráfico não se
+                          clica. É a mesma violação que o anel de consumo tinha,
+                          e a rampa `--data-*` existe exatamente para isto.
+
+                          O rótulo dizia "barras azuis" enquanto elas eram teal:
+                          o texto descrevia o que o desenho deveria ser. Agora
+                          descreve o que ele é.
+                        */
                         className={cn(
-                          "w-full rounded-sm bg-primary/80 transition-[height]",
+                          "nx-cut-4 w-full transition-[height]",
                           !usageDay && "opacity-20",
                         )}
-                        style={{ height: tokenHeight }}
+                        style={{ height: tokenHeight, background: escalaDeDado[0] }}
                         title={
                           usageDay
                             ? `${formatNumber(tokenValue)} tokens`
