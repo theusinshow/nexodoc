@@ -436,8 +436,25 @@ decoração — e decoração o sistema rejeita na primeira página. Os estados 
 | `reading` | lendo os selos das pranchas | trabalho de entrada |
 | `responding` | já está escrevendo (primeiro delta chegou) | fala |
 | `analyzing` | turno em andamento | pensa |
+| `auditing` | auditoria de memorial em curso (minutos, fora do turno de chat) | percorre um documento longo |
 | `complete` | terminou sem erro (transiente, 1,2s) | pulso breve |
 | `idle` | em repouso | pronto |
+
+**Sobre `auditing`.** Ele fica **abaixo** de `analyzing` de propósito: um turno
+de chat ao vivo assume a esfera, e a auditoria a retoma ao terminar — quem
+digitou uma pergunta agora espera resposta agora, e o palco já mostra a análise
+correndo. A distinção visual é a **varredura**: contínua, de baixo para cima
+(`uScanMode = 1` no shader de superfície), contra o vaivém senoidal de
+`reading`. Ler um lote de selos é mesmo um ir e vir entre folhas; auditar um
+memorial percorre capítulos, e uma banda que volta diria que o agente
+reconsidera o que já passou.
+
+Antes de existir, a auditoria entrava como `thinking`. Isso tirava a esfera do
+`idle` — que era o problema conhecido —, mas com a cara errada: `analyzing` é o
+gesto de um turno de segundos, e sustentá-lo por seis minutos lê como
+travamento. `hover` e `uploading` saíram da tabela no mesmo movimento: a máquina
+nunca produziu nenhum dos dois (hover é reação física, upload e leitura são o
+mesmo gesto), e estado inalcançável no enum é promessa que o produto não cumpre.
 
 A esfera não conhece IA nem API: `useAgentState` traduz sinais da aplicação em
 estado visual. Manter essa separação é o que permite trocar o motor sem redesenhar

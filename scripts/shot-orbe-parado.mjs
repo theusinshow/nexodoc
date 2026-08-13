@@ -15,7 +15,8 @@
 //   node scripts/shot-orbe-parado.mjs
 //   node scripts/shot-orbe-parado.mjs --estado=complete --lado=2048 --quadros=12
 //
-// Estados: idle hover dragging uploading reading analyzing responding complete error
+// Estados: idle dragging reading analyzing responding complete error
+// (a fonte é AGENT_STATES em agent-orb.types.ts — se divergir, o script mente)
 import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";

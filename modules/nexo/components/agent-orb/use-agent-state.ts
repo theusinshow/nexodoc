@@ -6,7 +6,8 @@
  * terminar) e `error` (instabilidade curta), que voltam sozinhos pro fluxo. A
  * esfera não conhece IA/API; esta é a camada que a aplicação usa pra traduzir.
  *
- * Prioridade: error > dragging > reading > responding > analyzing > complete > idle.
+ * Prioridade: error > dragging > reading > responding > analyzing > auditing >
+ * complete > idle.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +23,12 @@ export interface AgentSignals {
   thinking?: boolean;
   /** Turno já está ESCREVENDO (primeiro delta chegou). */
   responding?: boolean;
+  /**
+   * Auditoria de memorial em curso. Trabalho do agente que NÃO passa pelo turno
+   * do chat e dura minutos, não segundos — por isso tem estado próprio, em vez
+   * de entrar como `thinking`.
+   */
+  auditing?: boolean;
   /** Falha no turno/leitura. */
   error?: boolean;
 }
@@ -34,6 +41,7 @@ export function useAgentState({
   reading,
   thinking,
   responding,
+  auditing,
   error,
 }: AgentSignals): AgentState {
   const [transient, setTransient] = useState<null | "complete" | "error">(null);
@@ -71,6 +79,15 @@ export function useAgentState({
   if (reading) return "reading";
   if (responding) return "responding";
   if (thinking) return "analyzing";
+  /*
+   * A auditoria fica ABAIXO do turno de chat, e não acima.
+   *
+   * Ela é o trabalho mais longo do produto, mas quem digitou uma pergunta agora
+   * espera resposta agora — e durante esses segundos é a resposta que precisa
+   * da cara do agente. A auditoria continua correndo, o palco continua a
+   * mostrando, e o orbe a retoma assim que o turno fecha.
+   */
+  if (auditing) return "auditing";
   if (transient === "complete") return "complete";
   return "idle";
 }

@@ -164,6 +164,11 @@ Chips renderizam **abaixo** da bolha (nunca formulário), `reveal` uma vez.
 - **Tokens** derivados dos existentes (nunca cor nova): `--glass-blur:12px`, `--glass-tint` (=`--card`~.62), `--glass-edge` (um degrau acima de `--edge-highlight`), `--glass-ring` (=`--ring`~.14). **Sem WebGL shader, sem ESLint rule na v1** (over-build).
 - **`<GlassPanel>`** — único lugar com `backdrop-filter` fora do modal. `@supports not(backdrop-filter)` → `bg-card` sólido; `prefers-reduced-transparency` → sólido. Tint alto = piso de contraste AA (texto ≥4.5:1 sobre o scroll passando atrás).
 - **`<NexoOrb state='idle'|'thinking'|'responding'>`** — radial-gradient teal→luminous mascarado (padrão proto-orb já no código), `status-pulse` existente, conic-gradient girando (transform only). Peça central do welcome, mini-indicador no header depois. Iridescência **só teal→luminous→neutro** (nunca rust/roxo/neon; respeita teal <10%). `reduced-motion` → congela em estado-final legível (não 0.01ms).
+  > **Como ficou (2026-08-13):** o `NexoOrb` foi apagado sem nunca ter sido
+  > usado — o produto foi direto para o orbe 3D (`AgentOrb`), e a redução em CSS
+  > que este item descreve virou `agent-orb/OrbGlow.tsx`, hoje o fallback sem
+  > WebGL e o placeholder do Canvas. Onde este documento diz `NexoOrb`, leia
+  > `AgentOrb` (vivo) ou `OrbGlow` (redução CSS), conforme o degrau do §6.
 
 **Resolvendo a "bolha glassy" (ref Voxa) sem virar letra morta:** a bolha do assistente é `GlassPanel` sutil **como involucro** (tint fraco) mesmo quando contém proposta — mas o `ConfirmationCard`/dado **dentro** dela permanece matte. A "linha de água": acima (moldura/chrome/bolha-de-IA) = vidro; abaixo (qualquer artefato de dado) = matte. Assim o efeito aparece com frequência, sem blur em dado.
 

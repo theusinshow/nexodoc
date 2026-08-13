@@ -105,6 +105,7 @@ uniform vec3 uColor;    // tinta de vidro (escura)
 uniform vec3 uRimColor; // teal/luminoso
 uniform float uRim;
 uniform float uScan;
+uniform float uScanMode; // 0 = vaivém (leitura) · 1 = percurso (auditoria)
 uniform float uTime;
 uniform float uBrilho;    // força do reflexo especular (0 = sem vidro)
 uniform float uEspessura;   // parede da casca (0 = disco com aro · 1 = vidro grosso)
@@ -189,7 +190,21 @@ void main() {
    * quente dentro da banda larga é o que dá a leitura de "linha", em vez de
    * virar um borrão que pulsa.
    */
-  float scanY = sin(uTime * 0.55) * 1.05;
+  /*
+   * DUAS VARREDURAS, uma constante.
+   *
+   * O vaivém (modo 0) sobe e desce, e é o certo para o estado "reading": ler os
+   * selos de um lote é mesmo um ir e vir entre folhas. A auditoria não é — ela
+   * percorre capítulos, do começo ao fim, e uma banda que volta diria que o
+   * agente está reconsiderando o que já passou.
+   *
+   * No modo 1 a banda nasce embaixo, sobe e recomeça. O intervalo é 2,2 e não
+   * 2,1: a esfera vai de -1,05 a +1,05, e a folga nas pontas é o que deixa a
+   * banda entrar e sair inteira, em vez de aparecer já cortada na borda.
+   */
+  float scanY = uScanMode > 0.5
+    ? mod(uTime * 0.35, 2.2) - 1.1
+    : sin(uTime * 0.55) * 1.05;
   float dist = abs(vWorldPos.y - scanY);
   float band = smoothstep(0.16, 0.0, dist);
   float nucleo = smoothstep(0.045, 0.0, dist);

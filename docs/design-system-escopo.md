@@ -45,7 +45,7 @@ Hoje ele já existe em dois níveis, sem regra de quando usar cada um:
 - `modules/nexo/components/agent-orb/` — orbe **completo**: React Three Fiber +
   shaders próprios, com estados de agente (`use-agent-state.ts`). ~26 KB de
   código + three.js.
-- `NexoOrb.tsx` — redução em CSS (gradiente radial), usada como marca na sidebar.
+- `agent-orb/OrbGlow.tsx` — redução em CSS (gradiente radial): fallback sem WebGL e placeholder do Canvas. (Era `NexoOrb.tsx`, apagado em 2026-08-13 — apesar do que esta linha dizia, ele não tinha um único uso; a marca da sidebar sempre foi o SVG estático.)
 
 A direção pede uma **escada de reduções**, porque o orbe completo não cabe em
 todo lugar (não existe favicon com shader):

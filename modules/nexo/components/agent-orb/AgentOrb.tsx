@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 
 import { cn } from "@/lib/utils";
 import type { AgentOrbProps, AgentState } from "./agent-orb.types";
+import { OrbGlow } from "./OrbGlow";
 import {
   useReducedMotionPref,
   usePageVisible,
@@ -47,30 +48,14 @@ const SIZE_CSS: Record<NonNullable<AgentOrbProps["size"]>, string> = {
 
 const STATE_LABEL: Record<AgentState, string> = {
   idle: "Nexo",
-  hover: "Nexo",
   dragging: "Nexo — solte os documentos aqui",
-  uploading: "Nexo — enviando documentos",
   reading: "Nexo — lendo documentos",
   analyzing: "Nexo — analisando",
+  auditing: "Nexo — auditando o memorial",
   responding: "Nexo — respondendo",
   complete: "Nexo — análise concluída",
   error: "Nexo — instabilidade",
 };
-
-/** Glow teal em CSS — fallback (sem WebGL) e placeholder enquanto o Canvas carrega. */
-function OrbGlow() {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-[16%] rounded-full"
-      style={{
-        background:
-          "radial-gradient(circle at 40% 35%, #5bdac6 0%, #00a693 46%, color-mix(in srgb, #00a693 24%, transparent) 70%, transparent 100%)",
-        boxShadow: "0 0 24px color-mix(in srgb, #00a693 40%, transparent)",
-      }}
-    />
-  );
-}
 
 const AgentOrbCanvas = dynamic(
   () => import("./AgentOrbCanvas").then((m) => m.AgentOrbCanvas),

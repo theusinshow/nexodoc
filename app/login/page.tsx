@@ -68,7 +68,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="nexodoc-enter login-auth-content">
           <div className="login-brand-lockup">
             <span aria-hidden="true">
-              <LogoNexo size={48} interativa={false} />
+              <LogoNexo size={48} />
             </span>
             <h1 id="login-title" className="login-title">
               Entre no Nexo
@@ -167,7 +167,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <section className="login-narrow-notice" aria-labelledby="login-narrow-title">
         <span aria-hidden="true">
-          <LogoNexo size={48} interativa={false} />
+          <LogoNexo size={48} />
         </span>
         <h1 id="login-narrow-title" className="login-narrow-title">
           Use o Nexo no desktop

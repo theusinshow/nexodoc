@@ -4,16 +4,47 @@
  * aplicação converte eventos reais nesses estados.
  */
 
+/**
+ * Os estados VISUAIS do agente.
+ *
+ * `hover` e `uploading` saíram daqui, e a saída conserta uma mentira do enum:
+ * a máquina (`use-agent-state.ts`) nunca produziu nenhum dos dois.
+ *
+ * `hover` é reação FÍSICA — passar o mouse entra por `hovered` e é amortecido
+ * no Scene, somado ao estado real. Tê-lo também como estado permitia aplicar o
+ * realce em dobro, e a bancada o oferecia no seletor como se a aplicação
+ * pudesse chegar lá.
+ *
+ * `uploading` nunca teve sinal próprio: enviar e ler acontecem no mesmo gesto,
+ * e o que o usuário vê acontecer é a leitura. O `NexoCopilot` já tratava os
+ * dois como um caso só em todo lugar que perguntava.
+ */
 export type AgentState =
   | "idle"
-  | "hover"
   | "dragging"
-  | "uploading"
   | "reading"
   | "analyzing"
+  | "auditing"
   | "responding"
   | "complete"
   | "error";
+
+/**
+ * A lista, na ordem de prioridade da máquina. É a FONTE ÚNICA: a bancada monta
+ * o seletor a partir daqui, então estado novo aparece lá sem trabalho extra.
+ * Antes era uma lista escrita à mão em `bancada.tsx` — e ela já divergia deste
+ * arquivo, oferecendo dois estados que não existiam.
+ */
+export const AGENT_STATES: readonly AgentState[] = [
+  "error",
+  "dragging",
+  "reading",
+  "responding",
+  "analyzing",
+  "auditing",
+  "complete",
+  "idle",
+] as const;
 
 export interface AgentOrbProps {
   /** Estado do agente (a app mapeia eventos reais → este enum). */
@@ -61,12 +92,8 @@ export function paramsForState(
 ): OrbVisualParams {
   const a = Math.max(0, Math.min(1, activity));
   switch (state) {
-    case "hover":
-      return { distortion: 0.09, pulse: 0.28, rim: 0.8, scan: 0, spin: 0.22, jitter: 0 };
     case "dragging":
       return { distortion: 0.12, pulse: 0.4, rim: 0.95, scan: 0, spin: 0.26, jitter: 0 };
-    case "uploading":
-      return { distortion: 0.11, pulse: 0.5, rim: 0.85, scan: 0.35, spin: 0.3, jitter: 0 };
     case "reading":
       // `scan` acompanha o progresso real da leitura (0..1): o plano varre a
       // esfera conforme as pranchas são lidas, em vez de varrer sempre igual.
@@ -80,6 +107,21 @@ export function paramsForState(
       };
     case "analyzing":
       return { distortion: 0.17, pulse: 0.62, rim: 0.88, scan: 0.25, spin: 0.36, jitter: 0 };
+    /*
+     * AUDITAR não é PENSAR, e a diferença tem de estar na cara.
+     *
+     * A auditoria já movia o orbe: o workspace injetava o "auditando" no sinal
+     * de `thinking` desde que alguém notou que a esfera dizia "pronto" durante
+     * os seis minutos da análise. Só que ela o movia com o vocabulário do chat
+     * — `analyzing`, que é a cara de um turno de segundos. Seis minutos naquele
+     * ritmo não leem como trabalho longo; leem como travamento.
+     *
+     * Aqui a distorção é BAIXA e o giro é FIRME: a esfera não se agita, ela
+     * percorre. Quem carrega a leitura é a varredura, que neste estado sobe
+     * sempre na mesma direção (`uScanMode`) em vez de ir e vir.
+     */
+    case "auditing":
+      return { distortion: 0.09, pulse: 0.4, rim: 0.78, scan: 1, spin: 0.3, jitter: 0 };
     case "responding":
       return {
         distortion: 0.1 + a * 0.1,

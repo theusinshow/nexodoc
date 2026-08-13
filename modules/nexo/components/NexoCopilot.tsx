@@ -17,7 +17,6 @@ import { AgentPopover } from "@/components/ui/agent-popover";
 import { useComposer } from "../state/composer-controller";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
-import { useAuditoria } from "../state/auditoria-store";
 import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
 import { SaudacaoDoNexo } from "./SaudacaoDoNexo";
 
@@ -114,32 +113,34 @@ export function NexoCopilot({
   const orbState: AgentState = !started && saudando ? "responding" : agentState;
   const orbActivity = !started && saudando ? 0.5 : activity;
 
-  // A auditoria não passa pelo turno do chat; sem ler o store, o orb ficaria
-  // dizendo "pronto" durante os minutos em que o agente está trabalhando.
-  const auditando = Boolean(useAuditoria().emCurso);
-
-  // Rótulo do estado do orb (o orb já anima; isto só nomeia). O "pensando" É o orb.
+  /*
+   * O RÓTULO LÊ O ESTADO, e não mais o store da auditoria.
+   *
+   * Havia aqui um `useAuditoria().emCurso` só para o texto: o estado visual não
+   * sabia distinguir auditoria de turno de chat, então o rótulo consertava por
+   * fora o que a máquina não dizia. Com `auditing` no enum, a informação chega
+   * pelo mesmo caminho de todo o resto — e as duas leituras (a cara e o nome)
+   * não têm mais como divergir, que era o risco de manter duas fontes.
+   */
   const working =
     agentState === "analyzing" ||
     agentState === "responding" ||
     agentState === "reading" ||
-    agentState === "uploading";
+    agentState === "auditing";
   // Base do rótulo SEM reticência — a "…" animada é adicionada no render quando
   // está trabalhando (movimento = o Nexo está fazendo algo).
   const statusLabel =
     agentState === "error"
       ? "instabilidade"
-      : agentState === "reading" || agentState === "uploading"
+      : agentState === "reading"
         ? "lendo os selos"
-        : // A auditoria leva minutos: "pensando" por 6 minutos parece travado, e
-          // o orb dizia "pronto" o tempo todo porque não sabia da análise.
-          auditando
+        : agentState === "auditing"
           ? "auditando o memorial"
           : working
             ? "pensando"
             : fileCount > 0
-            ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
-            : "pronto";
+              ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
+              : "pronto";
 
   return (
     <div

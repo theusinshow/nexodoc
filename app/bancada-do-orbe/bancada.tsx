@@ -10,25 +10,23 @@ import {
   type CoresDoOrbe,
   type VidroDoOrbe,
 } from "@/modules/nexo/components/agent-orb/AgentOrbScene";
-import { LogoNexo } from "@/components/brand/logo-nexo";
 import { cn } from "@/lib/utils";
 import {
+  AGENT_STATES,
   paramsForState,
   type AgentState,
   type OrbVisualParams,
 } from "@/modules/nexo/components/agent-orb/agent-orb.types";
 
-const ESTADOS: AgentState[] = [
-  "idle",
-  "hover",
-  "dragging",
-  "uploading",
-  "reading",
-  "analyzing",
-  "responding",
-  "complete",
-  "error",
-];
+/*
+ * A LISTA VEM DO TIPO, e não daqui.
+ *
+ * Era uma cópia escrita à mão, e ela já tinha divergido: oferecia `hover` e
+ * `uploading` no seletor, dois estados que a máquina do agente nunca produz. A
+ * bancada existe para afinar o que o produto mostra — mostrar o que ele não
+ * mostra é pior do que não mostrar nada, porque se afina no vazio.
+ */
+const ESTADOS: readonly AgentState[] = AGENT_STATES;
 
 const ROTULO_DA_COR: Record<keyof CoresDoOrbe, string> = {
   corpo: "Vidro (tinta escura)",
@@ -440,163 +438,6 @@ export function BancadaDoOrbe() {
         </div>
       </div>
 
-      {/* ------------------------------------------------------ SEÇÃO DO LOGOTIPO SIRI-ORB */}
-      <section className="mt-12 border-t pt-8">
-        <header className="mb-6">
-          <h2 className="text-xl font-semibold">Identidade Visual do Logotipo (Siri-Orb)</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Comparação da variante 3D Fluida estilo Siri (Vidro + Ondas iridescentes + Nó) vs Clássica, em modo Estático e Motion.
-          </p>
-        </header>
-
-        <LogoShowcase />
-      </section>
     </main>
   );
 }
-
-function LogoShowcase() {
-  const [motionActive, setMotionActive] = useState(true);
-  const [variant, setVariant] = useState<
-    "orb-static" | "minimal-vortex" | "fluid-siri" | "node"
-  >("orb-static");
-
-  return (
-    <div className="space-y-8 rounded-lg border bg-card p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={motionActive}
-              onChange={(e) => setMotionActive(e.target.checked)}
-              className="rounded border"
-            />
-            Motion Ativo (Ondas contínuas)
-          </label>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Estilo:</span>
-            <button
-              type="button"
-              onClick={() => setVariant("orb-static")}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium border transition-colors",
-                variant === "orb-static"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              Orbe Estático do Agente
-            </button>
-            <button
-              type="button"
-              onClick={() => setVariant("minimal-vortex")}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium border transition-colors",
-                variant === "minimal-vortex"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              Vórtice Minimalista
-            </button>
-            <button
-              type="button"
-              onClick={() => setVariant("fluid-siri")}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium border transition-colors",
-                variant === "fluid-siri"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              Fluido Siri 3D
-            </button>
-            <button
-              type="button"
-              onClick={() => setVariant("node")}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium border transition-colors",
-                variant === "node"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              Nó Clássico
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Escala de tamanhos em fundos diferentes */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Fundo Escuro do App */}
-        <div className="space-y-4 rounded-lg bg-[#0a0e11] p-6 text-white border border-border/30">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Fundo App / Dark (#0a0e11)
-            </span>
-            <span className="text-xs text-muted-foreground">Passe o mouse para testar hover</span>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-6 pt-2">
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={16} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-muted-foreground">16px (Favicon)</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={24} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-muted-foreground">24px (Header)</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={32} variant={variant} animated={motionActive} comPalavra />
-              <span className="text-[10px] text-muted-foreground">32px (Marca)</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={48} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-muted-foreground">48px (Login)</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={120} variant={variant} animated={motionActive} comPalavra />
-              <span className="text-[10px] text-muted-foreground">120px (Hero)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Fundo Claro / Papel */}
-        <div className="space-y-4 rounded-lg bg-[#ffffff] p-6 text-slate-900 border border-slate-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Fundo Claro / Impressão (#ffffff)
-            </span>
-            <span className="text-xs text-slate-400">Passe o mouse para testar hover</span>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-6 pt-2">
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={16} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-slate-500">16px</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={24} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-slate-500">24px</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={32} variant={variant} animated={motionActive} comPalavra />
-              <span className="text-[10px] text-slate-500">32px</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={48} variant={variant} animated={motionActive} />
-              <span className="text-[10px] text-slate-500">48px</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <LogoNexo size={120} variant={variant} animated={motionActive} comPalavra />
-              <span className="text-[10px] text-slate-500">120px (Hero)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-

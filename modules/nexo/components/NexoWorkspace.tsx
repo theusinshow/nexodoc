@@ -1326,10 +1326,17 @@ function NexoWorkspaceInner({
   const agentState = useAgentState({
     dragging,
     reading: reading || readingMemorial,
-    // A auditoria roda fora do turno do chat, mas é trabalho do agente: sem
-    // isto a esfera fica parada em `idle` durante toda a análise.
-    thinking: chatStatus.thinking || auditandoAgora,
+    thinking: chatStatus.thinking,
     responding: chatStatus.responding,
+    /*
+     * A auditoria SAIU de `thinking` e ganhou sinal próprio.
+     *
+     * Ela entrava ali porque a esfera ficava parada em `idle` durante toda a
+     * análise — o que resolvia o silêncio, mas com a cara errada: `analyzing` é
+     * o gesto de um turno de segundos, e sustentá-lo por seis minutos lê como
+     * travamento, não como trabalho longo. `auditing` percorre.
+     */
+    auditing: auditandoAgora,
     error: chatStatus.error,
   });
 

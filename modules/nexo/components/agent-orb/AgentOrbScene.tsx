@@ -118,6 +118,7 @@ const OrbSurfaceMaterial = shaderMaterial(
     uRimColor: new THREE.Color(RIM_COLOR),
     uRim: 0.6,
     uScan: 0,
+    uScanMode: 0,
     /*
      * A CASCA É UMA ESFERA. O que se mexe é a alma, dentro dela.
      *
@@ -339,6 +340,13 @@ export function AgentOrbScene({
     su.uDistort.value = c.distortion * 0.35;
     su.uRim.value = c.rim;
     su.uScan.value = c.scan;
+    /*
+     * Sem damping, de propósito: isto é uma CHAVE, não uma intensidade.
+     * Amortecer produziria um meio-modo que não é nem vaivém nem percurso — e a
+     * troca só acontece junto com a troca de estado, onde o `scan` já está
+     * subindo do zero e cobre a mudança.
+     */
+    su.uScanMode.value = state === "auditing" ? 1 : 0;
     su.uJitter.value = c.jitter;
 
     // Alma.

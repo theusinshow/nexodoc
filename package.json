@@ -81,7 +81,9 @@
     "prova:delta": "node scripts/prova-delta-do-memorial.mjs",
     "prova:auditoria": "node scripts/prova-auditoria-ui.mjs",
     "test:ld-editavel": "node scripts/prova-ld-editavel.mjs",
-    "qa:nexo:plano-pendente": "node scripts/shot-plano-pendente.mjs"
+    "qa:nexo:plano-pendente": "node scripts/shot-plano-pendente.mjs",
+    "prova:bancada": "node scripts/prova-bancada-do-orbe.mjs",
+    "prova:varredura": "node scripts/prova-varredura-da-auditoria.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -20,11 +20,10 @@ type Tone = "idle" | "active" | "ok" | "error";
 
 const STATE_UI: Record<AgentState, { label: string; tone: Tone; pulse: boolean }> = {
   idle: { label: "Em espera", tone: "idle", pulse: false },
-  hover: { label: "Em espera", tone: "idle", pulse: false },
   dragging: { label: "Solte os PDFs", tone: "active", pulse: true },
-  uploading: { label: "Enviando", tone: "active", pulse: true },
   reading: { label: "Lendo os carimbos", tone: "active", pulse: true },
   analyzing: { label: "Pensando", tone: "active", pulse: true },
+  auditing: { label: "Auditando o memorial", tone: "active", pulse: true },
   responding: { label: "Respondendo", tone: "active", pulse: true },
   complete: { label: "Pronto", tone: "ok", pulse: false },
   error: { label: "Instabilidade", tone: "error", pulse: false },
