@@ -1048,7 +1048,7 @@ export default function AdminConfigPage() {
               </span>
               <input
                 value={metaFp}
-                placeholder="10"
+                placeholder="ex.: 10"
                 inputMode="decimal"
                 disabled={!data || savingMetas}
                 onChange={(event) => {
@@ -1064,7 +1064,7 @@ export default function AdminConfigPage() {
               </span>
               <input
                 value={metaCobertura}
-                placeholder="40"
+                placeholder="ex.: 40"
                 inputMode="decimal"
                 disabled={!data || savingMetas}
                 onChange={(event) => {
@@ -1141,7 +1141,7 @@ export default function AdminConfigPage() {
               </span>
               <input
                 value={cambio}
-                placeholder="5,42"
+                placeholder="ex.: 5,42"
                 inputMode="decimal"
                 disabled={!data || savingCambio}
                 onChange={(event) => {

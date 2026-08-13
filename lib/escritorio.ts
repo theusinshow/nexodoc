@@ -40,18 +40,26 @@ export const ESCRITORIO_VAZIO: DadosDoEscritorio = {
   crea: "",
 };
 
-/** Os campos, na ordem em que o admin os mostra. */
+/**
+ * Os campos, na ordem em que o admin os mostra.
+ *
+ * O exemplo entra na tela com o prefixo "ex.:" — sem ele, um campo VAZIO com o
+ * placeholder "Eng. Fulano de Tal" lê como campo PREENCHIDO à distância, e o
+ * estado que mais importa aqui é justamente "não declarado". O mesmo vale para
+ * a cotação e as metas: um "5,42" apagado no campo é indistinguível de uma
+ * cotação declarada para quem passa o olho.
+ */
 export const CAMPOS_DO_ESCRITORIO = [
-  { chave: "nome", rotulo: "Nome do escritório", exemplo: "Engeplan Engenharia Ltda" },
+  { chave: "nome", rotulo: "Nome do escritório", exemplo: "ex.: Engeplan Engenharia Ltda" },
   {
     chave: "enderecoImpresso",
     rotulo: "Endereço impresso nas pranchas",
-    exemplo: "Rua Saldanha Marinho, 89, Centro - Florianópolis - SC",
+    exemplo: "ex.: Rua Saldanha Marinho, 89, Centro - Florianópolis - SC",
   },
-  { chave: "municipio", rotulo: "Município do escritório", exemplo: "Florianópolis" },
-  { chave: "uf", rotulo: "UF", exemplo: "SC" },
-  { chave: "responsavelTecnico", rotulo: "Responsável técnico", exemplo: "Eng. Fulano de Tal" },
-  { chave: "crea", rotulo: "CREA", exemplo: "CREA/SC 123456-7" },
+  { chave: "municipio", rotulo: "Município do escritório", exemplo: "ex.: Florianópolis" },
+  { chave: "uf", rotulo: "UF", exemplo: "ex.: SC" },
+  { chave: "responsavelTecnico", rotulo: "Responsável técnico", exemplo: "ex.: Eng. Fulano de Tal" },
+  { chave: "crea", rotulo: "CREA", exemplo: "ex.: CREA/SC 123456-7" },
 ] as const satisfies readonly { chave: keyof DadosDoEscritorio; rotulo: string; exemplo: string }[];
 
 const LIMITE = 200;
