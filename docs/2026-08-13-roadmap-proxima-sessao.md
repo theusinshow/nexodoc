@@ -5,6 +5,71 @@ Diagnóstico completo em [`2026-08-13-fila-de-tarefas-e-diagnostico.md`](./2026-
 
 ---
 
+## EXECUTADO — 13/08/2026, mesmo dia
+
+As nove etapas foram feitas na ordem prevista, um commit cada, direto na `main`.
+O que segue abaixo é o plano como foi escrito; esta seção é o que ele virou.
+
+**Em cinco das nove, o diagnóstico do plano estava errado — e reproduzir antes
+de consertar foi o que mostrou isso.** Vale mais que a lista:
+
+| # | Tarefa | Commit | O que se achou de fato |
+|---|---|---|---|
+| 1 | Chat esticado | `b2cae94` | Não era o chat. `data-com-barra` era sempre `true`, e com a barra devolvendo `null` o `:empty` a tirava do grid — as colunas caíam na linha `auto`, sem teto. **Copiloto de 8140px** numa janela de 900, composer em `y=8078`. Introduzido em `91bcc9d`, na sessão anterior. |
+| 2 | Extração de texto | `5167f2d` | **Não é kerning** — o pdf.js rejunta trechos colados sozinho. Ele corta item na troca de fonte no meio da palavra, e era a extração que inventava o espaço com `join(" ")`. |
+| 3 | Granularidade | `9b06c62` | O prompt fazia à mão, e pior, a agregação que `buildAuditGraph` já faz em pilhas. E o filtro que deveria receber os achados de texto classificava pela `evidencia` — as palavras *do memorial*, não a natureza do defeito. |
+| 4 | Disciplina por cabeçalho | `7cc616b` | Nenhum parser novo: `getPageChapter` já existia. O miolo é a continuidade — capítulo novo **zera**, senão a primeira disciplina contamina o documento inteiro. |
+| 5 | Validação de achados | `0150d6c` | Metade já existia. `resolvido` virou coluna própria, não um quarto veredito: emendá-lo no enum obrigaria a escolher entre registrar o julgamento e registrar o progresso. |
+| 6 | Matriz de severidade | `9b881c5` | Consequência define a faixa, certeza move dentro dela e nunca para fora. É essa regra que impede a matriz de virar o "esconder achado" de 12/08. |
+| 7 | Visualizador de PDF | `58ffbc8` | Confirmado o palpite do plano: não faltava leitor. Medido num memorial de 12 folhas com 3 achados — **9 páginas inalcançáveis**, porque os únicos destinos eram os pins. |
+| 8 | Canvas | `715725a` | **A queixa não era do canvas.** A aba prometia `Achados 6` e a lista entregava 4: os dois rebaixados estão na seção de sugestões. Rótulo falando de outro conjunto, não divergência de estado. |
+| 9 | Re-auditoria | `0a09588` | `results.find(...)` pegava a **primeira** auditoria. Reauditar gravava o parecer novo e a tela seguia exibindo o velho — pior que invisível, porque afirmava com confiança o resultado errado. |
+
+### Verificação
+
+Testes em node **163** · portões de navegador **7/7** · `tsc` e `eslint .` limpos.
+Sete portões novos entraram no repositório, todos sem gastar token:
+`prova:chat-esticado`, `prova:texto-do-pdf`, `prova:validacao-do-achado`,
+`prova:visor-do-pdf`, `prova:achados-nao-somem`, `prova:reauditoria`, mais os
+testes puros `test:texto-do-pdf`, `test:disciplina-da-pagina`,
+`test:severidade` e `test:diff-de-pareceres`.
+
+A migração `20260813210000_audit_feedback_resolvido` foi aplicada no Neon de
+produção em 13/08/2026, fora de deploy, com o banco confirmando em seguida
+`Database schema is up to date!`.
+
+### O que NÃO foi feito, e por quê
+
+- **Etapa 0 não rodou** — não houve caso de auditoria perdida com título. Sem o
+  dado, ela não roda, como o próprio plano previa.
+- **`planejarReuso` continua sem consumidor.** O planejador de auditoria
+  incremental está completo em `lib/audit-reuso.ts`, com vinte testes, e a rota
+  importa dali apenas `VERSAO_AUDITOR`. Ligá-lo seria a entrega maior da Etapa
+  9 — e depende de ler a impressão digital do parecer anterior no Postgres, que
+  é o caminho que a Etapa 0 existia para entender. Versionar em cima dele agora
+  é construir no escuro.
+- **Duas metades ficaram sem prova empírica**, e está dito nos commits: as
+  mudanças de prompt da Etapa 3 (só uma auditoria paga comprovam) e a ida ao
+  Postgres da Etapa 5 (provada por contrato, com a rota interceptada).
+- **O canvas não segue os filtros da lista.** Ele responde uma pergunta
+  espacial — *onde* no documento — e filtrar um mapa esconde a distribuição que
+  se foi olhar. Compartilhar o estado exigiria levá-lo ao palco: outro passo.
+- **Rolagem contínua no visor de PDF**, pelo custo de memória sem
+  virtualização. As setas cobrem o que ela resolveria de fato, que é ler a
+  folha vizinha.
+
+### Duas armadilhas pagas nesta sessão
+
+1. **A porta 3000 estava tomada por um `next dev` de 17 horas** — a armadilha
+   nº 1 deste documento, viva. Morto antes de qualquer medição.
+2. **Um portão passou à toa.** A primeira `prova:texto-do-pdf` montava o PDF
+   separando os pedaços só por kerning, e o pdf.js os rejuntava: "antes" e
+   "depois" saíam idênticos. Agora o fixture troca de fonte no meio da palavra
+   e a **primeira asserção confere que ele ainda reproduz o defeito**. Portão
+   que não pode falhar não é portão.
+
+---
+
 ## Como abrir a sessão
 
 Cole isto como primeira mensagem:
