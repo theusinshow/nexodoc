@@ -166,7 +166,24 @@ export function AdminTokenForm({
           <input
             type="password"
             value={token}
-            onChange={(event) => onTokenChange(event.target.value)}
+            onChange={(event) => {
+              /*
+               * DIGITAR É EDITAR — e sem esta linha o campo sumia na PRIMEIRA
+               * TECLA.
+               *
+               * O recolhimento é `token && !editando`, e `editando` nascia
+               * `false`. O primeiro caractere tornava `token` verdadeiro, a
+               * condição fechava, e o formulário virava "sessão admin · trocar
+               * · sair" com um caractere só dentro. Não havia como digitar o
+               * token à mão em nenhuma das 7 telas do admin.
+               *
+               * O recolhido continua servindo ao caso para o qual foi feito: o
+               * token restaurado do `sessionStorage`, que chega sem ninguém
+               * digitar, e o `onSubmit`, que recolhe depois de enviar.
+               */
+              setEditando(true);
+              onTokenChange(event.target.value);
+            }}
             placeholder="NEXODOC_ADMIN_TOKEN"
             className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none"
           />
