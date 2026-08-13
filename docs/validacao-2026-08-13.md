@@ -25,7 +25,7 @@ hoje), e **dispensar o tour apaga o projeto de exemplo**.
 ---
 
 
-**Branch:** `theusinshow/kmi-adititonals` (10 commits à frente da `main`).
+**Branch:** `theusinshow/kmi-adititonals`.
 **Para quem:** o mantenedor, noutra máquina, conferindo à mão.
 
 Este documento existe porque a sessão que produziu as mudanças descobriu, do
@@ -68,7 +68,7 @@ AUTH_SECRET=<qualquer coisa local>
 npm run test:admin
 ```
 
-Cinco suítes, 48 casos: escritório, câmbio + custo por obra, meta + série
+Cinco suítes, 50 casos: escritório, câmbio + custo por obra, meta + série
 semanal, faixa de atenção, linha de status.
 
 **2. O que precisa do servidor no ar** (navegador, sem gastar token):
@@ -91,7 +91,7 @@ Noutro terminal:
 npm run prova:admin
 ```
 
-Quatro provas, 28 conferências. O `NEXODOC_DEV_AUTH_EMAIL` **tem de ser o mesmo**
+Três provas, 21 conferências. O `NEXODOC_DEV_AUTH_EMAIL` **tem de ser o mesmo**
 do `NEXODOC_ADMIN_EMAILS`, senão o `/admin` responde tela de não-admin sem dizer
 por quê.
 
@@ -109,11 +109,11 @@ Com `DATABASE_URL` apontando para uma base de teste, aplique as três migraçõe
 novas antes de abrir as telas:
 
 ```bash
-npm run db:migrate    # EscritorioConfig, CambioConfig, MetaQualidadeConfig
+npm run db:migrate    # CambioConfig, MetaQualidadeConfig
 ```
 
-Depois refaça o passo 2 **com o banco ligado**: os botões "Salvar dados do
-escritório", "Declarar cotação" e "Declarar metas" saem de desabilitado, e é aí
+Depois refaça o passo 2 **com o banco ligado**: os botões "Declarar cotação" e
+"Declarar metas" saem de desabilitado, e é aí
 que se confere a gravação de verdade (salvar, recarregar a página, ver se o
 valor voltou e se o selo virou "declarado no painel").
 
@@ -223,30 +223,29 @@ por compilador e leitura.
 - [ ] **`/admin/usage`**: as barras do uso diário são **azuis**, e o texto abaixo
       não fala mais em "barras azuis" descrevendo barras teal.
 
-## 5. Escritório emissor — `/admin/config` (A.9a)
+## 5. Escritório emissor — CONSTANTE, sem tela (A.9a)
 
-**Estado de confiança:** o núcleo tem prova em node cru
-(`npm run test:escritorio`, 10 casos) e a tela foi aberta no navegador
-(`npm run prova:escritorio`, 10 conferências — precisa do servidor no ar com as
-variáveis do escritório; o cabeçalho do script traz a linha pronta).
+**Estado de confiança:** prova em node cru (`npm run test:escritorio`, 12 casos),
+dois deles contra a constante real. **Não há tela para conferir — e é o ponto.**
 
-O que a regra faz: declarado o escritório, a linha dele é **subtraída** do texto
-antes do casamento cidade→template. Sem escritório declarado, nada muda.
+O que a regra faz: a linha do escritório é **subtraída** do texto antes do
+casamento cidade→template. O que sobra é o que fala do cliente.
 
-- [ ] A seção **Escritório emissor** é a primeira da tela, com os 6 campos.
-- [ ] O selo à direita diz `não declarado` (azul-informação) numa base limpa.
-- [ ] Sem `DATABASE_URL`: o botão fica **desabilitado** e o motivo aparece ao
-      lado — não some sem explicação.
-- [ ] Preencher só o município, sem UF: aparece o aviso e o salvar trava.
-- [ ] Endereço impresso sem município: idem. Tudo **vazio** é válido.
-- [ ] Com banco: salvar → o selo vira `declarado no painel` e aparece `salvo`.
-- [ ] Sem banco, dá para semear pelo ambiente:
-      `NEXODOC_ESCRITORIO_NOME`, `_ENDERECO`, `_MUNICIPIO`, `_UF`,
-      `_RESPONSAVEL`, `_CREA` — o selo passa a dizer `vindo do ambiente`.
+Isto foi formulário no admin durante seis horas, em 13/08. Saiu por um argumento
+do mantenedor que derruba o desenho: **o escritório é um só** — o produto é feito
+para a PROSUL. E formulário tem um defeito fatal para este dado: enquanto ninguém
+preenchesse, a subtração não acontecia e o modo de falha continuava solto.
+Constante em `lib/escritorio.ts` protege desde o primeiro boot.
 
-**A prova que interessa** (precisa de pranchas reais): um lote cujo carimbo
-traga o endereço do escritório junto do órgão. Com o escritório declarado, a
-prefeitura tem de casar pelo **cliente**, não pela cidade do escritório.
+- [ ] `/admin/config` **não tem mais** seção de escritório.
+- [ ] Um lote cujo carimbo traga o órgão do cliente **e** o endereço da PROSUL
+      resolve pelo **cliente**, sem virar pergunta. É a prova que precisa de
+      pranchas reais.
+- [ ] Mudança de endereço = commit na constante. `NEXODOC_ESCRITORIO_*` continua
+      sobrepondo, para o dia em que mudar antes de haver deploy.
+- [ ] **Responsável técnico e CREA saíram**: não são do escritório, são de quem
+      assina *aquele* projeto, e podem mudar por disciplina. Congelá-los numa
+      constante arriscaria imprimir capa com o engenheiro errado.
 
 ## 6. Câmbio e custo por obra — `/admin/config` + `/admin/usage` (A.7)
 

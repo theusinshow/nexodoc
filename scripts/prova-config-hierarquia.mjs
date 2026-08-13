@@ -38,6 +38,39 @@ if (page.url().includes("/login")) {
   await page.goto(`${BASE}/admin/config`, { waitUntil: "domcontentloaded" });
 }
 await page.waitForLoadState("networkidle").catch(() => {});
+
+/*
+ * --- 0. O PORTÃO: o campo de token tem de sobreviver a quem o usa ---
+ *
+ * Duas regressões reais moram aqui, as duas encontradas à mão em 13/08:
+ * o campo sumia na PRIMEIRA TECLA (não havia como entrar no admin), e o token
+ * RECUSADO também recolhia o formulário — "Acesso admin negado" sem campo para
+ * corrigir. As duas passavam por `tsc` e `eslint` sem um ruído.
+ */
+const campoDoToken = page.locator('input[type="password"]').first();
+await campoDoToken.click();
+await page.keyboard.type("t");
+await page.waitForTimeout(200);
+conferir(
+  "o campo do token não some ao digitar",
+  (await page.locator('input[type="password"]').count()) === 1,
+  "o formulário recolheu no primeiro caractere",
+);
+
+await page.locator('input[type="password"]').first().fill("token-errado");
+await page.locator("form button[type=submit]").first().click();
+await page.waitForTimeout(1200);
+conferir(
+  "token recusado mantém o campo aberto para corrigir",
+  (await page.locator('input[type="password"]').count()) === 1,
+  "o formulário recolheu mesmo com o acesso negado",
+);
+conferir(
+  "e o motivo da recusa aparece na tela",
+  await page.getByText(/Acesso admin negado/i).first().isVisible(),
+  "a mensagem de recusa não apareceu",
+);
+
 await page.locator('input[type="password"]').first().fill(TOKEN);
 await page.locator("form button[type=submit]").first().click();
 await page.waitForTimeout(1200);
@@ -70,7 +103,7 @@ conferir(
 const faixa = await page.getByText(linhaDaFaixa).first().boundingBox();
 const primeiraSecao = Math.min(
   await alturaDe("Painel de provedores IA"),
-  await alturaDe("Escritório emissor"),
+  await alturaDe("Metas de qualidade"),
 );
 conferir(
   "a faixa vem ANTES de qualquer seção",
@@ -81,18 +114,18 @@ conferir(
 // --- 2. A hierarquia: operação antes de declaração antes de referência ---
 const provedores = await alturaDe("Painel de provedores IA");
 const modelos = await alturaDe("Editor de modelos por fluxo");
-const escritorio = await alturaDe("Escritório emissor");
+const primeiraDeclaracao = await alturaDe("Metas de qualidade");
 const runtime = await alturaDe("Runtime");
 
 conferir(
   "provedores e modelos vêm antes das declarações",
-  Math.max(provedores, modelos) < escritorio,
-  `provedores=${provedores} modelos=${modelos} escritório=${escritorio}`,
+  Math.max(provedores, modelos) < primeiraDeclaracao,
+  `provedores=${provedores} modelos=${modelos} declaração=${primeiraDeclaracao}`,
 );
 conferir(
   "a referência (Runtime) fica por último",
-  runtime > escritorio,
-  `runtime=${runtime} escritório=${escritorio}`,
+  runtime > primeiraDeclaracao,
+  `runtime=${runtime} declaração=${primeiraDeclaracao}`,
 );
 
 // --- 3. A última falha tem UMA fonte ---

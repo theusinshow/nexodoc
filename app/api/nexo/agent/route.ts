@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
    * como Florianópolis. Nunca lança: sem escritório declarado, o casamento é o
    * de sempre (`lib/escritorio.ts`).
    */
-  const escritorio = await carregarEscritorio();
+  const escritorio = carregarEscritorio();
   const prefeituras: NexoAgentPrefeitura[] = registry.map((t) => ({
     id: t.id,
     nome: (t.grupo ?? t.nome) + (t.variante ? ` — ${t.variante}` : ""),

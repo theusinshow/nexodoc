@@ -1,0 +1,11 @@
+-- A tabela do escritorio sai, seis horas depois de entrar.
+--
+-- O motivo veio do mantenedor, e derruba o desenho anterior: o escritorio e UM
+-- SO -- o produto e feito para ele. Formulario para dado que nunca muda tem um
+-- defeito fatal aqui: enquanto ninguem preenchesse, a subtracao do endereco nao
+-- acontecia e o modo de falha Criciuma/Florianopolis continuava solto. Virou
+-- constante em `lib/escritorio.ts`, que protege desde o primeiro boot.
+--
+-- Seguro: a tabela nasceu hoje e nunca recebeu linha (a tela ficou desabilitada
+-- por falta de DATABASE_URL durante toda a validacao, e depois foi removida).
+DROP TABLE IF EXISTS "EscritorioConfig";

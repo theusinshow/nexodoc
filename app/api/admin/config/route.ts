@@ -18,7 +18,6 @@ import {
 } from "@/lib/ai-model-config";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { isDatabaseConfigured } from "@/lib/db";
-import { carregarEscritorioComOrigem, salvarEscritorio } from "@/lib/escritorio-config";
 import { carregarCotacaoComOrigem, salvarCotacao } from "@/lib/cambio-config";
 import { carregarMetasComOrigem, salvarMetas } from "@/lib/meta-qualidade-config";
 
@@ -339,7 +338,6 @@ async function buildConfigPayload() {
       openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
       adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
     },
-    escritorio: await carregarEscritorioComOrigem(),
     /*
      * O CÂMBIO NASCE AQUI, não em `/admin/usage`. Cotação é configuração: quem
      * a declara assume a responsabilidade pelo número, e isso não pertence à
@@ -386,37 +384,9 @@ export async function PATCH(request: Request) {
     flowId?: string;
     model?: string;
     notes?: string;
-    escritorio?: unknown;
     cambio?: unknown;
     metas?: unknown;
   } | null;
-
-  /*
-   * OS DADOS DO ESCRITÓRIO não são um fluxo de IA: entram antes da exigência de
-   * `flowId`, que é a chave dos overrides de modelo.
-   */
-  if (body?.action === "escritorio") {
-    if (!isDatabaseConfigured()) {
-      return jsonError(
-        request,
-        "DATABASE_URL não configurada; não é possível salvar os dados do escritório.",
-        500,
-      );
-    }
-    try {
-      await salvarEscritorio({ dados: body.escritorio, updatedBy: "admin" });
-      return withCors(
-        NextResponse.json({ ok: true, action: "escritorio", config: await buildConfigPayload() }),
-        request,
-      );
-    } catch (error) {
-      return jsonError(
-        request,
-        error instanceof Error ? error.message : "Não foi possível salvar os dados do escritório.",
-        400,
-      );
-    }
-  }
 
   if (body?.action === "cambio") {
     if (!isDatabaseConfigured()) {

@@ -93,11 +93,10 @@
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",
-    "prova:escritorio": "node scripts/prova-escritorio.mjs",
     "prova:cambio": "node scripts/prova-cambio.mjs",
     "prova:meta-qualidade": "node scripts/prova-meta-qualidade.mjs",
     "prova:config": "node scripts/prova-config-hierarquia.mjs",
-    "prova:admin": "npm run prova:escritorio && npm run prova:cambio && npm run prova:meta-qualidade && npm run prova:config",
+    "prova:admin": "npm run prova:cambio && npm run prova:meta-qualidade && npm run prova:config",
     "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts"
   },

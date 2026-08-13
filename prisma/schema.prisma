@@ -479,22 +479,7 @@ model AiModelConfig {
   @@index([model])
 }
 
-/// Os dados de QUEM EMITE — nome, endereço impresso nas pranchas, CREA.
-/// Linha única: `id` é sempre "escritorio". O sistema opera sem a linha (é o
-/// estado de antes desta tabela); ver `lib/escritorio.ts` para o porquê de o
-/// endereço ser dado de sistema e não preferência de tela.
-model EscritorioConfig {
-  id                 String   @id @default("escritorio")
-  nome               String   @default("")
-  enderecoImpresso   String   @default("")
-  municipio          String   @default("")
-  uf                 String   @default("")
-  responsavelTecnico String   @default("")
-  crea               String   @default("")
-  updatedBy          String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-}
+
 
 /// A cotação do dólar DECLARADA à mão, com data e autor.
 /// Linha única: `id` é sempre "cambio". Não é buscada de API de propósito —

@@ -17,7 +17,7 @@
  */
 
 export interface DadosDoEscritorio {
-  /** Como o escritório se chama impresso ("Engeplan Engenharia Ltda"). */
+  /** Como o escritório se chama impresso. */
   nome: string;
   /** A linha de endereço COMO SAI IMPRESSA na prancha, sem reordenar. */
   enderecoImpresso: string;
@@ -25,10 +25,6 @@ export interface DadosDoEscritorio {
   municipio: string;
   /** UF em duas letras. */
   uf: string;
-  /** Quem assina tecnicamente. */
-  responsavelTecnico: string;
-  /** O registro no conselho ("CREA/SC 123456-7"). */
-  crea: string;
 }
 
 export const ESCRITORIO_VAZIO: DadosDoEscritorio = {
@@ -36,31 +32,38 @@ export const ESCRITORIO_VAZIO: DadosDoEscritorio = {
   enderecoImpresso: "",
   municipio: "",
   uf: "",
-  responsavelTecnico: "",
-  crea: "",
 };
 
 /**
- * Os campos, na ordem em que o admin os mostra.
+ * O ESCRITÓRIO DESTE SOFTWARE.
  *
- * O exemplo entra na tela com o prefixo "ex.:" — sem ele, um campo VAZIO com o
- * placeholder "Eng. Fulano de Tal" lê como campo PREENCHIDO à distância, e o
- * estado que mais importa aqui é justamente "não declarado". O mesmo vale para
- * a cotação e as metas: um "5,42" apagado no campo é indistinguível de uma
- * cotação declarada para quem passa o olho.
+ * Este produto é feito para um escritório só, e o emissor é sempre o mesmo. Era
+ * campo de formulário até 13/08 — e formulário tem um defeito fatal para o que
+ * este dado faz: **enquanto ninguém preenchesse, a subtração não acontecia** e o
+ * modo de falha continuava solto. Constante protege por padrão, no primeiro
+ * boot, sem depender de alguém lembrar.
+ *
+ * Mudar de endereço passa a ser um commit. É honesto: acontece uma vez por
+ * década, e o `.env` continua servindo de escape para o dia em que acontecer
+ * antes de um deploy (`NEXODOC_ESCRITORIO_*`).
+ *
+ * NÃO ENTRAM AQUI o responsável técnico e o CREA. Não são do escritório: são de
+ * quem assina AQUELE projeto, e podem mudar por disciplina. Congelá-los numa
+ * constante arriscaria imprimir capa com o engenheiro errado — o tipo de erro
+ * que este produto existe para impedir, não para cometer.
  */
-export const CAMPOS_DO_ESCRITORIO = [
-  { chave: "nome", rotulo: "Nome do escritório", exemplo: "ex.: Engeplan Engenharia Ltda" },
-  {
-    chave: "enderecoImpresso",
-    rotulo: "Endereço impresso nas pranchas",
-    exemplo: "ex.: Rua Saldanha Marinho, 89, Centro - Florianópolis - SC",
-  },
-  { chave: "municipio", rotulo: "Município do escritório", exemplo: "ex.: Florianópolis" },
-  { chave: "uf", rotulo: "UF", exemplo: "ex.: SC" },
-  { chave: "responsavelTecnico", rotulo: "Responsável técnico", exemplo: "ex.: Eng. Fulano de Tal" },
-  { chave: "crea", rotulo: "CREA", exemplo: "ex.: CREA/SC 123456-7" },
-] as const satisfies readonly { chave: keyof DadosDoEscritorio; rotulo: string; exemplo: string }[];
+export const ESCRITORIO: DadosDoEscritorio = {
+  nome: "PROSUL",
+  /*
+   * O que casa de fato é o LOGRADOURO ("rua saldanha marinho"): é a parte que
+   * sobrevive a um carimbo lido pela metade, e é ela que carrega o município
+   * que confundia o casamento. Número e complemento entram por completude, e
+   * variação neles não quebra a subtração.
+   */
+  enderecoImpresso: "Rua Saldanha Marinho, 110, Centro - Florianópolis - SC",
+  municipio: "Florianópolis",
+  uf: "SC",
+};
 
 const LIMITE = 200;
 
@@ -86,8 +89,6 @@ export function normalizarDadosDoEscritorio(bruto: unknown): DadosDoEscritorio {
     enderecoImpresso: texto(fonte.enderecoImpresso),
     municipio: texto(fonte.municipio),
     uf: texto(fonte.uf).toUpperCase(),
-    responsavelTecnico: texto(fonte.responsavelTecnico),
-    crea: texto(fonte.crea),
   };
 }
 
@@ -198,7 +199,5 @@ export function marcadoresDoEscritorio(
   const marcadores: Record<string, string> = {};
   if (dados.nome) marcadores.ESCRITORIO = dados.nome;
   if (dados.enderecoImpresso) marcadores.ESCRITORIO_ENDERECO = dados.enderecoImpresso;
-  if (dados.responsavelTecnico) marcadores.RESPONSAVEL = dados.responsavelTecnico;
-  if (dados.crea) marcadores.CREA = dados.crea;
   return marcadores;
 }

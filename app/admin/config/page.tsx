@@ -20,12 +20,6 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
-import {
-  CAMPOS_DO_ESCRITORIO,
-  ESCRITORIO_VAZIO,
-  validarDadosDoEscritorio,
-  type DadosDoEscritorio,
-} from "@/lib/escritorio";
 import { TUDO_EM_ORDEM, resumoDeAtencao } from "@/lib/atencao-do-admin";
 import {
   normalizarMetas,
@@ -87,15 +81,6 @@ type AdminConfigResponse = {
     statusStorage: string;
   };
   limits: Record<string, number>;
-  /**
-   * Quem EMITE: o dado que o casamento cidade→template precisa saber para não
-   * ler o endereço do escritório como cliente (ver `lib/escritorio.ts`).
-   */
-  escritorio: {
-    dados: DadosDoEscritorio;
-    origem: "banco" | "ambiente" | "nenhuma";
-    databaseConfigured: boolean;
-  };
   /** A cotação que o `/admin/usage` usa para mostrar ≈ R$ (nasce aqui, §A.7). */
   cambio: {
     cotacao: CotacaoDeclarada;
@@ -263,9 +248,6 @@ export default function AdminConfigPage() {
   const [savingFlowId, setSavingFlowId] = useState("");
   const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
   const [connectivityTest, setConnectivityTest] = useState<ConnectivityTestResult | null>(null);
-  const [escritorio, setEscritorio] = useState<DadosDoEscritorio>(ESCRITORIO_VAZIO);
-  const [savingEscritorio, setSavingEscritorio] = useState(false);
-  const [escritorioSalvo, setEscritorioSalvo] = useState(false);
   const [metaFp, setMetaFp] = useState("");
   const [metaCobertura, setMetaCobertura] = useState("");
   const [savingMetas, setSavingMetas] = useState(false);
@@ -274,7 +256,6 @@ export default function AdminConfigPage() {
   const [savingCambio, setSavingCambio] = useState(false);
   const [cambioSalvo, setCambioSalvo] = useState(false);
   const apiUrl = getApiUrl();
-  const errosDoEscritorio = validarDadosDoEscritorio(escritorio);
   const errosDoCambio = validarCotacao(normalizarCotacao({ valor: cambio }));
   const itensDeAtencao = data
     ? resumoDeAtencao({
@@ -320,8 +301,6 @@ export default function AdminConfigPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setData(payload);
-      setEscritorio(payload.escritorio?.dados ?? ESCRITORIO_VAZIO);
-      setEscritorioSalvo(false);
       // Cotação zerada é "não declarada": o campo fica VAZIO, e não "0".
       setCambio(payload.cambio?.cotacao.valor ? String(payload.cambio.cotacao.valor) : "");
       setCambioSalvo(false);
@@ -390,53 +369,6 @@ export default function AdminConfigPage() {
       );
     } finally {
       setIsTestingProvider(false);
-    }
-  }
-
-  async function salvarDadosDoEscritorio() {
-    const trimmedToken = token.trim();
-
-    if (!trimmedToken) {
-      setError("Informe o token admin.");
-      return;
-    }
-
-    setSavingEscritorio(true);
-    setEscritorioSalvo(false);
-    setError("");
-
-    try {
-      const response = await fetch(`${apiUrl}/api/admin/config`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${trimmedToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action: "escritorio", escritorio }),
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as ConfigPatchResponse | { error?: string };
-
-      if (!response.ok || isPatchErrorPayload(payload)) {
-        throw new Error(
-          isPatchErrorPayload(payload) && payload.error
-            ? payload.error
-            : "Não foi possível salvar os dados do escritório.",
-        );
-      }
-
-      const config = payload.config;
-      setData(config);
-      setEscritorio(config.escritorio?.dados ?? ESCRITORIO_VAZIO);
-      setEscritorioSalvo(true);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Não foi possível salvar os dados do escritório.",
-      );
-    } finally {
-      setSavingEscritorio(false);
     }
   }
 
@@ -671,7 +603,7 @@ export default function AdminConfigPage() {
 
         {/*
           A FAIXA DE ATENÇÃO abre a tela. Só entra o que impede o produto de
-          funcionar agora — o opcional (escritório, cotação, metas) fica de fora
+          funcionar agora — o opcional (cotação, metas) fica de fora
           de propósito: faixa que lista pendência que ninguém precisa resolver é
           faixa que se aprende a ignorar. Ver `lib/atencao-do-admin.ts`.
         */}
@@ -922,105 +854,13 @@ export default function AdminConfigPage() {
 
         {/*
           A HIERARQUIA DA TELA: primeiro o que exige acao (provedores,
-          modelos), depois o que se DECLARA uma vez e fica valendo (escritorio,
-          metas, cotacao), por ultimo a referencia (runtime, limites, chaves).
+          modelos), depois o que se DECLARA uma vez e fica valendo (metas, cotacao),
+          por ultimo a referencia (runtime, limites, chaves).
 
           As tres declaracoes estavam no topo porque foram acrescentadas nesta
           ordem, nao porque merecem a primeira dobra: quem abre esta tela quase
           sempre abre por causa de algo quebrado.
         */}
-
-        <section className="rounded-sm border bg-card p-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Escritório emissor</h2>
-              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                Quem assina as pranchas — não quem as recebe. O endereço impresso na
-                folha já fez um volume de Criciúma sair como Florianópolis: declarado
-                aqui, ele deixa de ser lido como cliente no casamento com o template
-                de capa, e alimenta os marcadores que o modelo ODT tiver.
-              </p>
-            </div>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 font-mono text-[11px] ${
-                data?.escritorio.origem === "banco"
-                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                  : "border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] text-[var(--signal-info)]"
-              }`}
-            >
-              {data?.escritorio.origem === "banco"
-                ? "declarado no painel"
-                : data?.escritorio.origem === "ambiente"
-                  ? "vindo do ambiente"
-                  : "não declarado"}
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {CAMPOS_DO_ESCRITORIO.map((campo) => (
-              <label key={campo.chave} className="flex flex-col gap-1">
-                <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-                  {campo.rotulo}
-                </span>
-                <input
-                  value={escritorio[campo.chave]}
-                  placeholder={campo.exemplo}
-                  disabled={!data || savingEscritorio}
-                  onChange={(event) => {
-                    const valor = event.target.value;
-                    setEscritorioSalvo(false);
-                    setEscritorio((atual) => ({ ...atual, [campo.chave]: valor }));
-                  }}
-                  className="min-h-9 w-full rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
-                />
-              </label>
-            ))}
-          </div>
-
-          {errosDoEscritorio.length > 0 ? (
-            <ul className="mt-3 space-y-1">
-              {errosDoEscritorio.map((erro) => (
-                <li
-                  key={erro}
-                  className="font-mono text-[11px] text-[var(--status-warning)]"
-                >
-                  {erro}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                !data ||
-                !data.escritorio.databaseConfigured ||
-                savingEscritorio ||
-                errosDoEscritorio.length > 0
-              }
-              onClick={() => void salvarDadosDoEscritorio()}
-            >
-              {savingEscritorio ? <Loader2 className="animate-spin" /> : <Save />}
-              Salvar dados do escritório
-            </Button>
-            {!data ? (
-              <span className="text-xs text-muted-foreground">
-                Informe o token admin para editar.
-              </span>
-            ) : !data.escritorio.databaseConfigured ? (
-              <span className="font-mono text-[11px] text-[var(--status-warning)]">
-                sem DATABASE_URL — só leitura do que veio do ambiente
-              </span>
-            ) : escritorioSalvo ? (
-              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
-                <CheckCircle2 className="size-3.5" /> salvo
-              </span>
-            ) : null}
-          </div>
-        </section>
 
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">

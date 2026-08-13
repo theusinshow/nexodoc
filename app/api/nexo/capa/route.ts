@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
    * abaixo de quem está olhando a folha. Marcador que o modelo não tem continua
    * sendo ignorado por `server/odt`.
    */
-  const doEscritorio = marcadoresDoEscritorio(await carregarEscritorio());
+  const doEscritorio = marcadoresDoEscritorio(carregarEscritorio());
   const extrasFinais = { ...doEscritorio, ...extras };
 
   const result = await generateCovers({
