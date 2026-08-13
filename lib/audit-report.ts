@@ -52,6 +52,12 @@ export type AuditFinding = {
   evidencia: string;
   termo_busca?: string;
   categoria?: string;
+  /**
+   * Disciplina LIDA do cabeçalho da página onde o trecho está — fato, não
+   * inferência. Vazia quando a página não trazia cabeçalho reconhecível; aí a
+   * classificação cai na varredura do texto do achado.
+   */
+  disciplina?: FindingDiscipline;
   referencia_comparada?: string;
   conflito: string;
   sugestao_correcao: string;
@@ -474,16 +480,43 @@ const DISCIPLINE_RULES: Array<{ key: FindingDiscipline; pattern: RegExp }> = [
   { key: "arquitetura", pattern: /\b(?:arquitetonic|bancada|granito|esquadria|telha|cobertura|revestimento|pintura|forro|porta de vidro|grade)/ },
 ];
 
-export function classifyFindingDiscipline(finding: AuditFinding): FindingDiscipline {
-  const haystack = findingHaystack(finding);
+/**
+ * A disciplina que um texto qualquer denuncia, ou `null` se nenhum vocabulário
+ * casar. Separada de `classifyFindingDiscipline` porque o cabeçalho da página
+ * usa o MESMO vocabulário sobre outro texto — e duas listas de palavras de
+ * disciplina no repositório acabariam discordando.
+ */
+export function disciplinaDoTexto(texto: string): FindingDiscipline | null {
+  const alvo = normalizeForMatch(texto);
 
   for (const rule of DISCIPLINE_RULES) {
-    if (rule.pattern.test(haystack)) {
+    if (rule.pattern.test(alvo)) {
       return rule.key;
     }
   }
 
-  return "geral";
+  return null;
+}
+
+/**
+ * De que disciplina é o achado.
+ *
+ * A DECLARADA VENCE. Ela vem do cabeçalho da página onde o trecho está — fato
+ * objetivo, lido por regra no servidor (`lib/disciplina-da-pagina.ts`). A
+ * inferência abaixo é o que sobra quando a página não tem cabeçalho: ela varre
+ * a prosa do achado, inclusive a `evidencia`, que são as palavras do memorial e
+ * não a natureza do defeito — um achado do capítulo de elétrica cuja frase
+ * citada mencione granito era classificado como arquitetura.
+ *
+ * Mesma ordem de `impacto`: o que foi apurado tem precedência sobre o que foi
+ * adivinhado.
+ */
+export function classifyFindingDiscipline(finding: AuditFinding): FindingDiscipline {
+  if (finding.disciplina) {
+    return finding.disciplina;
+  }
+
+  return disciplinaDoTexto(findingHaystack(finding)) ?? "geral";
 }
 
 /*

@@ -67,7 +67,15 @@ export type AuditTextChunk = {
   text: string;
 };
 
-function getPageChapter(text: string) {
+/**
+ * O CABEÇALHO em vigor nesta página — o título de capítulo que ela traz, ou "".
+ *
+ * Exportado porque tem dois consumidores e uma verdade só: o corte em blocos
+ * logo abaixo, e a disciplina do achado (`lib/disciplina-da-pagina.ts`). Ter
+ * duas noções de "de que capítulo é esta página" no mesmo repositório seria
+ * garantir que um dia elas discordassem sobre a mesma folha.
+ */
+export function getPageChapter(text: string) {
   const normalized = text.replace(/\s+/g, " ");
   const match =
     normalized.match(/(?:^|\s)(\d{1,2})\s+[–-]?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s/]{5,80})/) ??

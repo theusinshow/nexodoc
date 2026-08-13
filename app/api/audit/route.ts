@@ -20,6 +20,7 @@ import {
   type AuditFinding,
   type AuditReport,
 } from "@/lib/audit-report";
+import { disciplinaDoAchado, disciplinaPorPagina } from "@/lib/disciplina-da-pagina";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { isDatabaseConfigured } from "@/lib/db";
 import {
@@ -3493,15 +3494,47 @@ async function executarAuditoria(
     });
     marco({ passada: "parecer", estado: "inicio" });
 
+    /*
+     * A DISCIPLINA DE CADA ACHADO SAI DA PÁGINA DELE, e não da prosa.
+     *
+     * Está escrita no cabeçalho do capítulo em que o trecho mora — fato
+     * objetivo, e por isso regra e não IA. A classificação da tela varria o
+     * texto do achado inteiro, `evidencia` incluída: um achado do capítulo de
+     * elétrica cuja frase citada mencionasse "bancada em granito" era arquivado
+     * como arquitetura e sumia do filtro de quem revisava a elétrica.
+     *
+     * O mapa é por ARQUIVO porque a auditoria compara documentos, e a página 12
+     * de um não é a página 12 do outro. O `mapaUnico` cobre o achado que não
+     * carimba `arquivo`: com um documento só não há a quem confundir, e sem ele
+     * a auditoria de arquivo único — a comum — não ganharia disciplina nenhuma.
+     */
+    const disciplinaPorArquivo = new Map(
+      uploadedFiles.map((file) => [file.file.name, disciplinaPorPagina(file.extracted.pages)]),
+    );
+    const mapaUnico =
+      uploadedFiles.length === 1
+        ? disciplinaPorArquivo.get(uploadedFiles[0].file.name)
+        : undefined;
+
     const findings = sortAuditFindings(
       compactRepeatedIdentityFindings(
         filterFalsePositiveIdentityFindings(dedupeFindings(validatedFindings)),
       ),
     ).map(
-      (finding, index) => ({
-        ...finding,
-        id: `INC-${String(index + 1).padStart(3, "0")}`,
-      }),
+      (finding, index) => {
+        const mapa =
+          (finding.arquivo ? disciplinaPorArquivo.get(finding.arquivo) : undefined) ?? mapaUnico;
+        const disciplina =
+          finding.disciplina ?? (mapa ? disciplinaDoAchado(finding.pagina, mapa) : undefined);
+
+        return {
+          ...finding,
+          id: `INC-${String(index + 1).padStart(3, "0")}`,
+          // Ausente quando a página não tem cabeçalho: é o que preserva o
+          // fallback da inferência em vez de afirmar "geral" sem base.
+          ...(disciplina ? { disciplina } : {}),
+        };
+      },
     );
     console.log(
       `[audit] requisicao concluida em ${Math.round((Date.now() - requestStartedAt) / 1000)}s com ${findings.length} achado(s)`,
