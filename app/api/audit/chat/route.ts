@@ -6,6 +6,7 @@ import {
   classifyProviderFailure,
   getAiConfiguration,
   getAuditExecutionProfile,
+  type AiProvider,
 } from "@/lib/ai-providers";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 
@@ -172,7 +173,7 @@ export function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   let executionProfile: {
-    provider: "openai" | "deepseek";
+    provider: AiProvider;
     model: string;
   } = getAiConfiguration().auditChat;
 

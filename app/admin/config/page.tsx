@@ -96,13 +96,12 @@ type AdminConfigResponse = {
   secrets: Record<string, boolean>;
   secretFingerprints?: {
     openaiApiKey?: SecretFingerprint;
-    deepseekApiKey?: SecretFingerprint;
     openaiAdminKey?: SecretFingerprint;
   };
   generatedAt: string;
 };
 
-type AiProvider = "openai" | "deepseek" | "mimo";
+type AiProvider = "openai";
 
 type SecretFingerprint = {
   configured: boolean;
@@ -159,27 +158,11 @@ function ConfigurationStatus({ configured }: { configured: boolean }) {
   );
 }
 
-function getProviderLabel(provider: AiProvider) {
-  if (provider === "deepseek") {
-    return "DeepSeek";
-  }
-
-  if (provider === "mimo") {
-    return "MiMo";
-  }
-
+function getProviderLabel(_provider: AiProvider) {
   return "OpenAI";
 }
 
-function getProviderClass(provider: AiProvider) {
-  if (provider === "deepseek") {
-    return "border-primary/30 bg-primary/10 text-[var(--nexodoc-accent)]";
-  }
-
-  if (provider === "mimo") {
-    return "border-[var(--nexodoc-tertiary)]/30 bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]";
-  }
-
+function getProviderClass(_provider: AiProvider) {
   return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
 }
 
@@ -1129,12 +1112,6 @@ export default function AdminConfigPage() {
                 <ConfigRow
                   label="OPENAI_API_KEY fingerprint"
                   value={formatFingerprint(data.secretFingerprints.openaiApiKey)}
-                />
-              ) : null}
-              {data?.secretFingerprints?.deepseekApiKey ? (
-                <ConfigRow
-                  label="DEEPSEEK_API_KEY fingerprint"
-                  value={formatFingerprint(data.secretFingerprints.deepseekApiKey)}
                 />
               ) : null}
               {data?.secretFingerprints?.openaiAdminKey ? (

@@ -31,9 +31,7 @@ export async function callOpenAI(
 
   if (!isAIConfigured()) {
     throw new Error(
-      configuration.provider === "deepseek"
-        ? "DeepSeek nao configurado. Defina DEEPSEEK_API_KEY."
-        : "OpenAI nao configurada. Defina OPENAI_API_KEY.",
+      "OpenAI nao configurada. Defina OPENAI_API_KEY.",
     );
   }
 

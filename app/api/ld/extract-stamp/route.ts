@@ -6,7 +6,6 @@ import {
   classifyProviderFailure,
   createInvalidProviderResponseError,
   getAiConfiguration,
-  getMimoApiKey,
   recordProviderFailure,
   type SafeProviderFailure,
 } from "@/lib/ai-providers";
@@ -403,79 +402,6 @@ async function extractWithOpenAi(
   }
 }
 
-function parseMimoOutput(content: string | null | undefined) {
-  const json = content?.match(/\{[\s\S]*\}/)?.[0];
-
-  if (!json) {
-    throw createInvalidProviderResponseError();
-  }
-
-  try {
-    return JSON.parse(json) as StampExtraction;
-  } catch {
-    throw createInvalidProviderResponseError();
-  }
-}
-
-async function extractWithMimo(model: string, textPrompt: string, imageDataUrl?: string) {
-  const apiKey = getMimoApiKey();
-
-  if (!apiKey) {
-    throw new Error("MIMO_API_KEY não configurada no backend.");
-  }
-
-  const response = await fetch("https://api.xiaomimimo.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": apiKey,
-    },
-    body: JSON.stringify({
-      model,
-      max_completion_tokens: 1024,
-      thinking: { type: "disabled" },
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...(imageDataUrl
-              ? [{
-                  type: "image_url",
-                  image_url: { url: imageDataUrl },
-                }]
-              : []),
-            {
-              type: "text",
-              text: `${textPrompt}
-
-Retorne estritamente um objeto JSON com as chaves disciplina, folha, total, numeroFolha, arquivo, conteudo, cliente, secretaria, obra, fase, tituloSecao e confianca. Para campos não encontrados use null. Para confianca use "alta", "media" ou "baixa".`,
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  const payload = (await response.json().catch(() => null)) as {
-    error?: { message?: string; code?: string } | string;
-    choices?: Array<{ message?: { content?: string } }>;
-  } | null;
-
-  if (!response.ok) {
-    const providerMessage =
-      typeof payload?.error === "string" ? payload.error : payload?.error?.message;
-    const providerError = new Error(providerMessage ?? "Falha ao chamar o fallback MiMo.") as Error & ProviderError;
-    providerError.status = response.status;
-    providerError.code = typeof payload?.error === "object" ? payload.error.code : undefined;
-    throw providerError;
-  }
-
-  return {
-    parsed: sanitizeStampExtraction(parseMimoOutput(payload?.choices?.[0]?.message?.content)),
-    payload,
-  };
-}
-
 function getFailureStatus(failure: SafeProviderFailure) {
   switch (failure.category) {
     case "authentication":
@@ -592,88 +518,22 @@ export async function POST(request: Request) {
     recordProviderFailure(primaryFailure);
   }
 
-  if (configuration.fallback.keyConfigured) {
-    try {
-      const startedAt = Date.now();
-      const { parsed, payload } = await extractWithMimo(
-        configuration.fallback.model,
-        textPrompt,
-        imageDataUrl,
-      );
-      await recordAiUsage({
-        flow: "ld-extraction",
-        taskId: metadata.taskId,
-        taskLabel: metadata.taskLabel,
-        provider: "mimo",
-        model: configuration.fallback.model,
-        operation,
-        response: payload,
-        durationMs: Date.now() - startedAt,
-        userEmail: session.user.email,
-        conversationId,
-        metadata: buildExtractionUsageMetadata(
-          metadata,
-          Boolean(imageDataUrl),
-          pdfText?.length ?? 0,
-          {
-            fallbackReason: primaryFailure.category,
-          },
-        ),
-      });
-
-      const usage = extractTokenUsage(payload);
-
-      return NextResponse.json({
-        ...parsed,
-        provider: "mimo",
-        model: configuration.fallback.model,
-        usage: {
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          totalTokens: usage.totalTokens,
-        },
-        fallbackReason: primaryFailure.message,
-        attempts: [
-          asAttempt(primaryFailure),
-          {
-            provider: "mimo",
-            model: configuration.fallback.model,
-            status: "succeeded",
-          },
-        ],
-      });
-    } catch (mimoError) {
-      const mimoFailure = classifyProviderFailure(
-        "mimo",
-        "ld-extraction",
-        configuration.fallback.model,
-        mimoError,
-      );
-      recordProviderFailure(mimoFailure);
-
-      return NextResponse.json(
-        {
-          error: `${primaryFailure.message} ${mimoFailure.message}`,
-          attempts: [asAttempt(primaryFailure), asAttempt(mimoFailure)],
-        },
-        { status: getFailureStatus(mimoFailure) },
-      );
-    }
-  }
-
+  /*
+   * Havia aqui um fallback para o MiMo quando a leitura primária falhava. Ele
+   * saiu com a centralização na OpenAI (13/08/2026) — a última chamada ao MiMo
+   * é de 26/06/2026, e um fallback que ninguém exercita há sete semanas é uma
+   * promessa de resiliência que nunca foi conferida.
+   *
+   * A CONSEQUÊNCIA É REAL e está escrita aqui para não surpreender: falha da
+   * primária agora é falha da rota. Em compensação ela é ALTA — antes, uma
+   * queda da OpenAI virava leitura do MiMo com qualidade diferente e o volume
+   * saía misturado sem ninguém notar. Errar barulhento é melhor que acertar
+   * pela metade em silêncio.
+   */
   return NextResponse.json(
     {
-      error: `${primaryFailure.message} O fallback MiMo não está configurado no backend.`,
-      attempts: [
-        asAttempt(primaryFailure),
-        {
-          provider: "mimo",
-          model: configuration.fallback.model,
-          status: "not_configured",
-          category: "configuration",
-          message: "A chave de MiMo não está configurada no backend.",
-        },
-      ],
+      error: primaryFailure.message,
+      attempts: [asAttempt(primaryFailure)],
     },
     { status: getFailureStatus(primaryFailure) },
   );

@@ -55,12 +55,21 @@ import {
 } from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
 import { impressaoDosCapitulos } from "@/lib/audit-fingerprint";
+import { VERSAO_AUDITOR } from "@/lib/audit-reuso";
 import {
   isLocalityPhrase,
   runCrossDocumentRules,
   runWithinDocumentIdentityRules,
 } from "@/lib/cross-document-audit";
 import { runDocumentCoherenceRules } from "@/lib/audit-coherence";
+import {
+  auditValidationResponseFormat,
+  buildDocumentContext,
+  buildFindingCandidateList,
+  buildValidationContext,
+  getFindingValidationPrompt,
+  getGlobalContextChars,
+} from "@/lib/audit-validation-prompt";
 import { filterGroundedFindings } from "@/lib/audit-verify";
 
 export const runtime = "nodejs";
@@ -74,10 +83,6 @@ const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
 const DEFAULT_CHUNK_CONCURRENCY = 3;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
-const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
-// Teto do nível Profundo: grande o bastante para o memorial inteiro caber numa
-// leitura só (memoriais reais têm ~300k chars; damos folga para os maiores).
-const DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS = 700_000;
 
 type AuditEngine = "single" | "dual";
 
@@ -151,6 +156,46 @@ const auditFindingsResponseFormat = {
   },
 };
 
+/**
+ * SÓ DA LEITURA GLOBAL — e é por isso que existe um formato separado.
+ *
+ * O `auditFindingsResponseFormat` acima é compartilhado por quatro passadas
+ * (blocos, identidade, global e coerência). No modo `strict` da OpenAI todo
+ * campo declarado é obrigatório: acrescentar a síntese lá dentro obrigaria a
+ * passada de BLOCO, que vê um pedaço do documento, e a de IDENTIDADE, que vê
+ * uma amostra, a resumir capítulos que elas não leram.
+ *
+ * A síntese só faz sentido em quem recebe o documento inteiro.
+ */
+const auditGlobalResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_global",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      findings: {
+        type: "array",
+        items: auditFindingModelSchema,
+      },
+      sintese: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            capitulo: { type: "string" },
+            resumo: { type: "string" },
+          },
+          required: ["capitulo", "resumo"],
+        },
+      },
+    },
+    required: ["findings", "sintese"],
+  },
+};
+
 const auditCrossDocumentResponseFormat = {
   type: "json_schema" as const,
   name: "audit_cross_document",
@@ -169,53 +214,6 @@ const auditCrossDocumentResponseFormat = {
       },
     },
     required: ["comparisons", "findings"],
-  },
-};
-
-const auditValidationResponseFormat = {
-  type: "json_schema" as const,
-  name: "audit_validation",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      decisions: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            source_id: { type: "string" },
-            acao: { type: "string", enum: ["confirmar", "rebaixar", "remover"] },
-            prioridade: { type: "string" },
-            impacto: {
-              type: "string",
-              enum: ["critico_documental", "tecnico_contratual", "revisao_editorial"],
-            },
-            tipo: { type: "string" },
-            descricao: { type: "string" },
-            conflito: { type: "string" },
-            sugestao_correcao: { type: "string" },
-            confianca: { type: "string" },
-            motivo: { type: "string" },
-          },
-          required: [
-            "source_id",
-            "acao",
-            "prioridade",
-            "impacto",
-            "tipo",
-            "descricao",
-            "conflito",
-            "sugestao_correcao",
-            "confianca",
-            "motivo",
-          ],
-        },
-      },
-    },
-    required: ["decisions"],
   },
 };
 
@@ -575,6 +573,21 @@ function getCoherenceMaxOutputTokens() {
  * O Padrão fica abaixo do Profundo de propósito: ele lê uma janela amostrada do
  * documento, então devolve menos achados — e o teto é também um freio de custo.
  */
+/*
+ * OS PADRÕES CARREGAM +6.000 DE FOLGA PARA A SÍNTESE POR CAPÍTULO.
+ *
+ * A leitura global passa a devolver, além dos achados, uma linha por capítulo —
+ * e os memoriais reais têm de 33 a 148 capítulos (medido em 12/08/2026), o que
+ * dá até ~6.000 tokens só de síntese. Sem a folga, somá-la ao mesmo teto faz o
+ * JSON truncar, e truncar aqui derruba os ACHADOS junto: a etapa inteira vira
+ * "resposta inválida" com zero achados. Foi o que aconteceu no 017-26 com 6.000.
+ *
+ * `max_output_tokens` é teto, não meta: subir não custa nada em auditoria que
+ * não usa o espaço.
+ *
+ * Quem sobrescrever pelas variáveis de ambiente está assumindo o número — e
+ * precisa lembrar desta folga, senão volta a truncar.
+ */
 function getStandardGlobalMaxOutputTokens() {
   const value = Number(process.env.NEXODOC_STANDARD_GLOBAL_MAX_OUTPUT_TOKENS);
 
@@ -582,7 +595,7 @@ function getStandardGlobalMaxOutputTokens() {
     return Math.min(16000, Math.floor(value));
   }
 
-  return 8000;
+  return 14000;
 }
 
 function getDeepGlobalMaxOutputTokens() {
@@ -592,7 +605,7 @@ function getDeepGlobalMaxOutputTokens() {
     return Math.min(32000, Math.floor(value));
   }
 
-  return 16000;
+  return 22000;
 }
 
 // A leitura global do Profundo lê o documento inteiro e devolve bastante saída —
@@ -686,37 +699,6 @@ function getChunkTimeoutMs() {
 // forte, como quem cola o PDF todo no ChatGPT). Antes amostrava ~90k chars (~1/5
 // de um memorial), então a IA nunca via a metade de trás e só sobrava o sumário.
 // O gpt-5.5 comporta ~300k+ chars com folga. Padrão segue amostrado (velocidade/custo).
-function getGlobalContextChars(analysisLevel: AnalysisLevel = "standard") {
-  const value = Number(process.env.NEXODOC_GLOBAL_CONTEXT_CHARS);
-
-  if (Number.isFinite(value) && value >= 40_000) {
-    return Math.min(1_200_000, Math.floor(value));
-  }
-
-  return analysisLevel === "deep" ? DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS : DEFAULT_GLOBAL_CONTEXT_CHARS;
-}
-
-function buildDocumentContext(extracted: ExtractedPdf, analysisLevel: AnalysisLevel = "standard") {
-  const maxChars = getGlobalContextChars(analysisLevel);
-
-  if (extracted.text.length <= maxChars) {
-    return extracted.text;
-  }
-
-  const headChars = Math.floor(maxChars * 0.38);
-  const tailChars = Math.floor(maxChars * 0.42);
-  const middleChars = maxChars - headChars - tailChars;
-  const middleStart = Math.max(0, Math.floor((extracted.text.length - middleChars) / 2));
-
-  return [
-    extracted.text.slice(0, headChars),
-    "\n\n--- RECORTE INTERMEDIARIO DO DOCUMENTO ---\n\n",
-    extracted.text.slice(middleStart, middleStart + middleChars),
-    "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
-    extracted.text.slice(-tailChars),
-  ].join("");
-}
-
 const IDENTITY_CONTEXT_PATTERN =
   /\b(obra|identifica[cç][aã]o|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|nome|memorial descritivo|projeto preventivo|ppci|constru[cç][aã]o|reforma|adequa[cç][aã]o)\b/gi;
 
@@ -2242,6 +2224,14 @@ Responda APENAS JSON válido:
 
 Se não encontrar erro relevante, retorne {"findings":[]}.
 
+Além dos achados, devolva em "sintese" UMA LINHA por capítulo do documento.
+Não descreva o assunto do capítulo — registre o que ele AFIRMA: sistema
+estrutural, resistências, dimensões, quem executa o quê, normas declaradas. É
+isso que uma revisão futura pode contradizer, e é para isso que a linha serve.
+Use no campo "capitulo" o título do capítulo exatamente como aparece no
+documento. Se o documento não tiver capítulos identificáveis, devolve
+"sintese":[].
+
 TEXTO DO DOCUMENTO:
 ${buildDocumentContext(args.extracted, args.analysisLevel)}
 `.trim();
@@ -2262,6 +2252,13 @@ async function analyzeFileGloballyWithModel(args: {
   userEmail?: string | null;
   /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
   degradacoes?: PassadaIncompleta[];
+  /**
+   * Coletor da síntese por capítulo, no mesmo idioma do `degradacoes` acima: a
+   * leitura global tem duas saídas e só uma delas é o valor de retorno. Fica
+   * vazio quando a passada falha, que é best-effort — e vazio aqui significa
+   * "não há mapa deste arquivo", nunca "o documento não tem capítulos".
+   */
+  sintese?: { capitulo: string; resumo: string }[];
 }) {
   const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "global");
   const model = profile.model;
@@ -2292,7 +2289,7 @@ async function analyzeFileGloballyWithModel(args: {
           args.analysisLevel === "deep"
             ? getDeepGlobalMaxOutputTokens()
             : getStandardGlobalMaxOutputTokens(),
-        text: { format: auditFindingsResponseFormat },
+        text: { format: auditGlobalResponseFormat },
         input: getGlobalFilePrompt(args),
       },
       metadata: {
@@ -2306,6 +2303,11 @@ async function analyzeFileGloballyWithModel(args: {
       userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
+    for (const item of parsed?.sintese ?? []) {
+      if (item?.capitulo && item?.resumo) {
+        args.sintese?.push({ capitulo: String(item.capitulo), resumo: String(item.resumo) });
+      }
+    }
   } catch (error) {
     // A leitura global é best-effort: se falhar (timeout, aborto, resposta
     // inválida, erro de provider), a auditoria NÃO pode ser perdida — os achados
@@ -2532,113 +2534,8 @@ function normalizeImpactDecision(value: string | undefined) {
   return undefined;
 }
 
-function buildValidationContext(files: UploadedAuditFile[]) {
-  let remainingCharacters = 90_000;
-
-  return files
-    .map((file) => {
-      const text = buildDocumentContext(file.extracted).slice(0, Math.min(remainingCharacters, 45_000));
-      remainingCharacters -= text.length;
-
-      return [
-        `ARQUIVO: ${file.file.name}`,
-        `TIPO: ${file.fileType}`,
-        `PÁGINAS: ${file.extracted.pageCount}`,
-        `TEXTO DE CONTEXTO:`,
-        text,
-      ].join("\n");
-    })
-    .join("\n\n---\n\n");
-}
-
-function buildFindingCandidateList(findings: AuditFinding[]) {
-  return findings
-    .slice(0, 40)
-    .map((finding) => {
-      return [
-        `ID: ${finding.id}`,
-        `Arquivo: ${finding.arquivo ?? "não informado"}`,
-        `Origem: ${finding.origem ?? "não informada"}`,
-        `Prioridade atual: ${finding.prioridade}`,
-        `Impacto atual: ${finding.impacto ?? classifyFindingImpact(finding)}`,
-        `Página: ${finding.pagina}`,
-        `Capítulo: ${finding.capitulo}`,
-        `Tipo: ${finding.tipo}`,
-        `Descrição: ${finding.descricao}`,
-        `Evidência: ${finding.evidencia}`,
-        `Conflito: ${finding.conflito}`,
-        `Ação atual: ${finding.sugestao_correcao}`,
-      ].join("\n");
-    })
-    .join("\n\n");
-}
-
 function isMandatoryGuardFinding(finding: AuditFinding) {
   return finding.id.startsWith("GUARDA-");
-}
-
-function getFindingValidationPrompt(args: {
-  auditMode: AuditMode;
-  userMessage: string;
-  projectName: string;
-  learningContext: string;
-  files: UploadedAuditFile[];
-  findings: AuditFinding[];
-}) {
-  return `
-Você é a camada final de validação semântica do NexoDoc. Revise os achados candidatos abaixo como um auditor documental sênior, com julgamento parecido com uma boa análise manual.
-
-Sua tarefa não é procurar novos erros. Sua tarefa é validar os candidatos:
-- confirmar achado real;
-- rebaixar gravidade quando for apenas ponto técnico/editorial;
-- remover falso positivo.
-
-Regra de gravidade:
-- critico_documental: somente quando houver troca real de obra, município, endereço, órgão, cliente, código, disciplina ou documento pertencente a outro projeto.
-- tecnico_contratual: numeração incoerente, sumário duplicado, linguagem técnica possivelmente reaproveitada, norma/cálculo/hierarquia que exige conferência.
-- revisao_editorial: grafia, padronização, redação e detalhes sem impacto técnico direto.
-
-Não mantenha como crítico:
-- rodapé/cabeçalho repetido com a identidade correta;
-- frase técnica longa apenas próxima do rodapé;
-- menção histórica ou contexto da reforma;
-- termo genérico como unidade, saúde, fiscalização, infraestrutura, aterro ou população atendida sem troca real da obra.
-
-Se o candidato for útil mas exagerado, use "acao": "rebaixar" e ajuste prioridade/impacto/conflito.
-Se for falso positivo, use "acao": "remover".
-Se estiver correto, use "acao": "confirmar".
-
-Projeto informado: ${args.projectName || "não informado"}
-Modo: ${args.auditMode}
-Solicitação do usuário: ${args.userMessage}
-
-Aprendizados ativos do escritório, usados como preferência de auditoria, não como evidência:
-${args.learningContext}
-
-Responda APENAS JSON válido:
-{
-  "decisions": [
-    {
-      "source_id": "ID do achado candidato",
-      "acao": "confirmar|rebaixar|remover",
-      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
-      "impacto": "critico_documental|tecnico_contratual|revisao_editorial",
-      "tipo": "tipo ajustado, se necessário",
-      "descricao": "descrição ajustada, se necessário",
-      "conflito": "por que é erro real, ponto de revisão ou falso positivo",
-      "sugestao_correcao": "ação objetiva",
-      "confianca": "alta|media|baixa",
-      "motivo": "justificativa curta da decisão"
-    }
-  ]
-}
-
-ACHADOS CANDIDATOS:
-${buildFindingCandidateList(args.findings)}
-
-CONTEXTO DO DOCUMENTO:
-${buildValidationContext(args.files)}
-`.trim();
 }
 
 async function validateFindingsWithModel(args: {
@@ -2968,6 +2865,8 @@ async function deepAnalyzeFile(args: {
   userEmail?: string | null;
   /** Coletor: cada passada que abortar se registra aqui. */
   degradacoes: PassadaIncompleta[];
+  /** Coletor: o mapa por capítulo que a leitura global deixa, por arquivo. */
+  sinteses?: Map<string, { capitulo: string; resumo: string }[]>;
   /** Relata o progresso real, quando alguém está ouvindo. */
   onMarco?: EmitirMarco;
 }) {
@@ -3101,6 +3000,7 @@ async function deepAnalyzeFile(args: {
       orcamentoMs: args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : undefined,
     });
   }
+  const sinteseDesteArquivo: { capitulo: string; resumo: string }[] = [];
   const globalFindings = shouldRunGlobalPass
     ? await analyzeFileGloballyWithModel({
         auditId: args.auditId,
@@ -3116,8 +3016,10 @@ async function deepAnalyzeFile(args: {
         conversationId: args.conversationId,
         userEmail: args.userEmail,
         degradacoes: args.degradacoes,
+        sintese: sinteseDesteArquivo,
       })
     : [];
+  args.sinteses?.set(args.file.file.name, sinteseDesteArquivo);
   console.log(
     `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
@@ -3481,6 +3383,9 @@ async function executarAuditoria(
     // Passadas que não completaram. Vai para o relatório: sem isso, uma auditoria
     // degradada chega na tela com a mesma cara de uma completa.
     const degradacoes: PassadaIncompleta[] = [];
+    // O mapa por capítulo que cada leitura global deixa, para a reauditoria
+    // seguinte não precisar reler o documento inteiro.
+    const sinteses = new Map<string, { capitulo: string; resumo: string }[]>();
 
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
@@ -3496,6 +3401,7 @@ async function executarAuditoria(
         conversationId,
         userEmail: sessionEmail,
         degradacoes,
+        sinteses,
         onMarco,
       });
       allFindings.push(...findings);
@@ -3649,6 +3555,38 @@ async function executarAuditoria(
           arquivo: file.file.name,
           capitulos: impressaoDosCapitulos(chunkPdfByChapter(file.extracted)),
         })),
+        /*
+         * Sem isto a impressão digital não serve para reaproveitar achado: ela
+         * diz que o TEXTO é o mesmo, não que o auditor que o leu é o mesmo.
+         * Herdar achado produzido por um prompt anterior é servir leitura
+         * vencida — a mesma regra do cache de leitura de selo.
+         */
+        versao_auditor: VERSAO_AUDITOR,
+        /*
+         * O modelo devolve o TÍTULO do capítulo; o reuso precisa do HASH, que é
+         * o que sobrevive a capítulo inserido no meio. O casamento é aqui, e é
+         * por título normalizado porque é o único elo que o modelo tem.
+         *
+         * Título que não casa com capítulo nenhum é DESCARTADO: síntese sem
+         * hash não serve para reuso e ainda inflaria a contagem, fazendo o mapa
+         * parecer mais completo do que é.
+         */
+        sintese: uploadedFiles.map((file) => {
+          const capitulos = impressaoDosCapitulos(chunkPdfByChapter(file.extracted));
+          const hashPorTitulo = new Map(
+            capitulos.map((c) => [c.titulo.trim().toLowerCase(), c.hash]),
+          );
+
+          return {
+            arquivo: file.file.name,
+            capitulos: (sinteses.get(file.file.name) ?? [])
+              .map((s) => ({
+                hash: hashPorTitulo.get(s.capitulo.trim().toLowerCase()) ?? "",
+                resumo: s.resumo,
+              }))
+              .filter((s) => s.hash),
+          };
+        }),
         gerado_em: new Date().toISOString(),
       },
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,

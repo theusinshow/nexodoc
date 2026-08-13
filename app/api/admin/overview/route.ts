@@ -130,7 +130,13 @@ export async function GET(request: Request) {
   ]);
 
   const ai = getAiConfiguration();
-  const fluxos = [ai.audit, ai.auditChat, ai.ldExtraction.primary, ai.ldExtraction.fallback];
+  /*
+   * Os fluxos que hoje existem. Havia um `ldExtraction.fallback` aqui até a
+   * `main` unificar o provedor ("o software passa a ter um provedor só, e os
+   * dois que sobravam já estavam mortos") — contar um fluxo morto faria o
+   * veredito acusar chave faltando para sempre.
+   */
+  const fluxos = [ai.audit, ai.auditChat, ai.ldExtraction.primary];
   const status = statusDoSistema(
     {
       fluxosComChave: fluxos.filter((fluxo) => fluxo.keyConfigured).length,

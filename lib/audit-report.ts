@@ -1,3 +1,4 @@
+import type { AiProvider } from "@/lib/ai-providers";
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AnalysisLevel } from "@/lib/analysis-level";
 
@@ -18,6 +19,22 @@ export type CapituloImpresso = {
 };
 
 export type ImpressaoDoArquivo = { arquivo: string; capitulos: CapituloImpresso[] };
+
+/**
+ * A síntese por capítulo, chaveada pelo HASH — não pelo índice nem pelo título.
+ * É o hash que sobrevive a capítulo inserido no meio, e é por hash que o
+ * casamento da impressão digital já funciona.
+ *
+ * Serve para a reauditoria barata: os capítulos que não mudaram não vão ao
+ * modelo em texto integral, vão como uma linha cada. Sem isso, a leitura que
+ * recebe só o delta não teria como notar que o capítulo novo contradiz um que
+ * ficou parado — e a passada de validação não cobre isso, porque ela só julga
+ * candidatos que já existem.
+ */
+export type SinteseDoArquivo = {
+  arquivo: string;
+  capitulos: { hash: string; resumo: string }[];
+};
 
 export type FindingPriority = "Alta" | "Media/Alta" | "Media" | "Baixa/Media" | "Baixa";
 export type FindingConfidence = "alta" | "media" | "baixa";
@@ -86,8 +103,8 @@ export type AuditReport = {
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;
-    provedor_principal?: "openai" | "deepseek";
-    provedor_validacao?: "openai" | "deepseek";
+    provedor_principal?: AiProvider;
+    provedor_validacao?: AiProvider;
     modelo_principal?: string;
     modelo_validacao?: string;
     segunda_ia?: {
@@ -116,6 +133,25 @@ export type AuditReport = {
      * "não dá para comparar", nunca como "nada mudou". Ver [[audit-fingerprint.ts]].
      */
     impressao?: ImpressaoDoArquivo[];
+    /**
+     * Qual auditor produziu este parecer. Impressão e síntese só são
+     * reaproveitáveis por um auditor da MESMA versão — achado herdado de um
+     * prompt anterior é leitura vencida. Ausente (todo parecer anterior a
+     * 13/08/2026) significa incomparável, nunca "compatível".
+     */
+    versao_auditor?: number;
+    sintese?: SinteseDoArquivo[];
+    /**
+     * Preenchido só quando a auditoria usou o caminho barato. A ausência dele
+     * significa leitura completa — nunca "não sei".
+     */
+    reauditoria?: {
+      base_audit_id: string;
+      capitulos_lidos: number;
+      capitulos_herdados: number;
+      achados_herdados: number;
+      promovidos_sem_ancora: string[];
+    };
   };
   obra: string;
   codigo: string;

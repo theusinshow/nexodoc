@@ -11,7 +11,27 @@ import {
 export { isInvalidProviderResponseError };
 export type { ProviderFailureCategory };
 
-export type AiProvider = "openai" | "mimo" | "deepseek";
+/**
+ * UM PROVEDOR SÓ, DE PROPÓSITO (13/08/2026).
+ *
+ * O projeto teve três: OpenAI, MiMo (fallback de visão da LD) e DeepSeek
+ * (alternativa barata por fluxo). Os dois últimos foram removidos porque já
+ * estavam mortos e ninguém sabia: a última chamada ao MiMo é de 26/06/2026, e a
+ * do DeepSeek é de 20/07/2026 — 88 chamadas seguidas que FALHARAM todas, com
+ * `DEEPSEEK_MODEL=deepseek-v4-flash(1)`, um nome inválido nascido do sufixo de
+ * arquivo duplicado que o navegador põe em "arquivo (1).pdf". O nome quebrado
+ * ainda era oferecido no dropdown do painel.
+ *
+ * Manter provedor desligado custa mais do que parece: cada função de modelo
+ * carregava um par de listas (`openAiModelNames`/`deepSeekModelNames`), cada
+ * fluxo tinha um `*_PROVIDER` para escolher errado, e a conferência do volume
+ * já morreu uma vez inteira por herdar o grupo "barato" sem visão.
+ *
+ * O tipo continua existindo — e não vira `string` — para que a telemetria
+ * histórica (167 eventos MiMo, 100 DeepSeek) siga legível e para que voltar a
+ * ter dois provedores um dia seja uma mudança de tipo, não uma arqueologia.
+ */
+export type AiProvider = "openai";
 export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
@@ -62,7 +82,6 @@ const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
  * no default E no `.env.local` juntos.
  */
 const DEFAULT_LD_OPENAI_MODEL = "gpt-5.6-luna";
-const DEFAULT_LD_MIMO_MODEL = "mimo-v2.5";
 /**
  * CONVERSA — agente Nexo e chat pós-auditoria.
  *
@@ -97,7 +116,6 @@ const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.6-terra";
  * flow é configurável no painel — trocar de modelo é um clique, sem código.
  */
 const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-5.6-luna";
-const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;
@@ -167,123 +185,33 @@ export function getSecretFingerprint(name: string) {
   };
 }
 
-export function getMimoApiKey() {
-  return getBackendValue("MIMO_API_KEY");
-}
-
-export function getDeepSeekApiKey() {
-  return getBackendValue("DEEPSEEK_API_KEY");
-}
-
-export function getDeepSeekBaseUrl() {
-  return getBackendValue("DEEPSEEK_BASE_URL") || "https://api.deepseek.com";
-}
-
 export function getOpenAiAdminKey() {
   return getBackendValue("OPENAI_ADMIN_KEY");
 }
 
-function getPrimaryAiProvider(): "openai" | "deepseek" {
-  const provider = (
-    getBackendValue("NEXODOC_AI_PROVIDER") ||
-    getBackendValue("NEXODOC_PRIMARY_AI_PROVIDER")
-  ).toLowerCase();
-
-  if (provider === "deepseek") {
-    return "deepseek";
-  }
-
-  return "openai";
-}
-
-// Provider por fluxo: permite, por exemplo, auditoria no OpenAI e LD/Volumes na
-// DeepSeek. Cai no provider global (NEXODOC_AI_PROVIDER) quando não sobrescrito.
-function getFlowProvider(
-  flow: "audit" | "volume" | "ld",
-  fallback: "openai" | "deepseek",
-): "openai" | "deepseek" {
-  const key =
-    flow === "audit"
-      ? "NEXODOC_AUDIT_PROVIDER"
-      : flow === "volume"
-        ? "NEXODOC_VOLUME_PROVIDER"
-        : "NEXODOC_LD_PROVIDER";
-  const value = getBackendValue(key).toLowerCase();
-
-  if (value === "deepseek") {
-    return "deepseek";
-  }
-
-  if (value === "openai") {
-    return "openai";
-  }
-
-  return fallback;
-}
-
 /**
- * Provider do agente Nexo (carro-chefe). Default OPENAI (o provider "fiel") —
- * NÃO herda o global barato, porque o agente precisa de JSON confiável para
- * propor os parâmetros. Override explícito via NEXODOC_NEXO_PROVIDER=deepseek.
+ * Existia um provider por fluxo (`NEXODOC_AUDIT_PROVIDER`, `_VOLUME_`, `_LD_`,
+ * `_NEXO_`, `_VOLUME_CONFERENCIA_`) para poder rodar auditoria na OpenAI e o
+ * resto no barato. Com um provedor só, essas variáveis viraram cinco maneiras
+ * de escrever "openai" — e uma delas já derrubou um recurso inteiro: a
+ * conferência do volume herdou o grupo "barato", que não tem visão, e morreu em
+ * 15 de 18 páginas no primeiro projeto real.
  */
-export function getNexoProvider(): "openai" | "deepseek" {
-  return getBackendValue("NEXODOC_NEXO_PROVIDER").toLowerCase() === "deepseek"
-    ? "deepseek"
-    : "openai";
+const AI_PROVIDER = "openai" as const;
+
+function getProviderKeyConfigured() {
+  return isConfigured("OPENAI_API_KEY");
 }
 
-/**
- * Provider da CONFERÊNCIA DO VOLUME MONTADO. Default OPENAI — NÃO herda
- * `NEXODOC_VOLUME_PROVIDER`, pelo mesmo motivo de `getNexoProvider`.
- *
- * O grupo "volume" é documentado no README como o barato (`analise/sugestao de
- * volumes`, tipicamente DeepSeek), e essas duas tarefas são de TEXTO. A
- * conferência não é: ela lê um recorte de carimbo, e visão é REQUISITO, não
- * preferência. Herdar o grupo barato fez a conferência morrer em toda página no
- * primeiro projeto real — 15 de 18 páginas com "precisa de um modelo com
- * visão", que é uma configuração razoável derrubando um recurso inteiro.
- *
- * Quem quiser mesmo apontar para outro provider tem o override explícito, e aí
- * o portão da rota avisa em vez de devolver leitura vazia.
- */
-export function getConferenciaVolumeProvider(): "openai" | "deepseek" {
-  return getBackendValue("NEXODOC_VOLUME_CONFERENCIA_PROVIDER").toLowerCase() === "deepseek"
-    ? "deepseek"
-    : "openai";
-}
-
-function getProviderKeyConfigured(provider: "openai" | "deepseek") {
-  return provider === "deepseek"
-    ? isConfigured("DEEPSEEK_API_KEY")
-    : isConfigured("OPENAI_API_KEY");
-}
-
-function getDeepSeekModel(names: string[]) {
-  return firstBackendValue(names) || getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL;
-}
-
-function getProviderModel(
-  provider: "openai" | "deepseek",
-  openAiModel: string,
-  deepSeekModelNames: string[] = [],
-  flowId?: string,
-) {
+function getProviderModel(openAiModel: string, flowId?: string) {
   const override = flowId ? getCachedAiModelOverride(flowId) : "";
 
-  if (override) {
-    return override;
-  }
-
-  return provider === "deepseek"
-    ? getDeepSeekModel(deepSeekModelNames)
-    : openAiModel;
+  return override || openAiModel;
 }
 
 function getProviderRoleModel(args: {
-  provider: "openai" | "deepseek";
   baseModel: string;
   openAiModelNames: string[];
-  deepSeekModelNames: string[];
   flowId?: string;
 }) {
   const override = args.flowId ? getCachedAiModelOverride(args.flowId) : "";
@@ -292,154 +220,102 @@ function getProviderRoleModel(args: {
     return override;
   }
 
-  if (args.provider === "deepseek") {
-    return getDeepSeekModel(args.deepSeekModelNames) || args.baseModel;
-  }
-
   return firstBackendValue(args.openAiModelNames) || args.baseModel;
 }
 
 export function getAiConfiguration() {
-  const globalProvider = getPrimaryAiProvider();
-  const auditProvider = getFlowProvider("audit", globalProvider);
-  const volumeProvider = getFlowProvider("volume", globalProvider);
-  const ldProvider = getFlowProvider("ld", globalProvider);
-  const nexoProvider = getNexoProvider();
-  // Visão é REQUISITO da conferência do volume: ela não segue o grupo "volume",
-  // que é o barato e cuida de tarefas de texto. Ver `getConferenciaVolumeProvider`.
-  const conferenciaVolumeProvider = getConferenciaVolumeProvider();
-  // A auditoria e o chat pós-auditoria seguem auditProvider; volume e LD têm os
-  // seus próprios. primaryProvider é apelido de auditProvider para o bloco de
-  // auditoria abaixo (que domina esta função).
-  const primaryProvider = auditProvider;
-  const auditStandardModel =
-    getProviderModel(
-      primaryProvider,
-      getBackendValue("OPENAI_STANDARD_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
-      ["DEEPSEEK_AUDIT_STANDARD_MODEL", "DEEPSEEK_AUDIT_MODEL"],
-      "audit-standard",
-    );
-  const auditDeepModel =
-    getProviderModel(
-      primaryProvider,
-      getBackendValue("OPENAI_DEEP_MODEL") ||
-        getBackendValue("OPENAI_MODEL") ||
-        DEFAULT_AUDIT_DEEP_MODEL,
-      ["DEEPSEEK_AUDIT_DEEP_MODEL", "DEEPSEEK_AUDIT_MODEL"],
-      "audit-deep",
-    );
-  const auditStandardValidationModel =
-    getProviderModel(
-      primaryProvider,
-      getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel,
-      [
-        "DEEPSEEK_AUDIT_STANDARD_VALIDATION_MODEL",
-        "DEEPSEEK_AUDIT_VALIDATION_MODEL",
-        "DEEPSEEK_AUDIT_MODEL",
-      ],
-      "audit-standard-validation",
-    );
-  const auditDeepValidationModel =
-    getProviderModel(
-      primaryProvider,
-      getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
-        getBackendValue("OPENAI_VALIDATION_MODEL") ||
-        auditDeepModel,
-      [
-        "DEEPSEEK_AUDIT_DEEP_VALIDATION_MODEL",
-        "DEEPSEEK_AUDIT_VALIDATION_MODEL",
-        "DEEPSEEK_AUDIT_MODEL",
-      ],
-      "audit-deep-validation",
-    );
+  const auditStandardModel = getProviderModel(
+    getBackendValue("OPENAI_STANDARD_MODEL") || DEFAULT_AUDIT_STANDARD_MODEL,
+    "audit-standard",
+  );
+  const auditDeepModel = getProviderModel(
+    getBackendValue("OPENAI_DEEP_MODEL") ||
+      getBackendValue("OPENAI_MODEL") ||
+      DEFAULT_AUDIT_DEEP_MODEL,
+    "audit-deep",
+  );
+  const auditStandardValidationModel = getProviderModel(
+    getBackendValue("OPENAI_STANDARD_VALIDATION_MODEL") || auditStandardModel,
+    "audit-standard-validation",
+  );
+  const auditDeepValidationModel = getProviderModel(
+    getBackendValue("OPENAI_DEEP_VALIDATION_MODEL") ||
+      getBackendValue("OPENAI_VALIDATION_MODEL") ||
+      auditDeepModel,
+    "audit-deep-validation",
+  );
   const standardRoleModels = {
     identity: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditStandardModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_STANDARD_IDENTITY_MODEL",
         "NEXODOC_AUDIT_IDENTITY_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_IDENTITY_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-standard-identity",
     }),
     global: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditStandardModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_STANDARD_GLOBAL_MODEL",
         "NEXODOC_AUDIT_GLOBAL_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_GLOBAL_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-standard-global",
     }),
     chunk: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditStandardModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_STANDARD_CHUNK_MODEL",
         "NEXODOC_AUDIT_CHUNK_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_CHUNK_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-standard-chunk",
     }),
     crossDocument: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditStandardModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL",
         "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_STANDARD_CROSS_DOCUMENT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-standard-cross-document",
     }),
   };
   const deepRoleModels = {
     identity: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditDeepModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_DEEP_IDENTITY_MODEL",
         "NEXODOC_AUDIT_IDENTITY_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_IDENTITY_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-deep-identity",
     }),
     global: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditDeepModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_DEEP_GLOBAL_MODEL",
         "NEXODOC_AUDIT_GLOBAL_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_GLOBAL_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-deep-global",
     }),
     chunk: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditDeepModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_DEEP_CHUNK_MODEL",
         "NEXODOC_AUDIT_CHUNK_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_CHUNK_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-deep-chunk",
     }),
     crossDocument: getProviderRoleModel({
-      provider: primaryProvider,
       baseModel: auditDeepModel,
       openAiModelNames: [
         "NEXODOC_AUDIT_DEEP_CROSS_DOCUMENT_MODEL",
         "NEXODOC_AUDIT_CROSS_DOCUMENT_MODEL",
       ],
-      deepSeekModelNames: ["DEEPSEEK_AUDIT_DEEP_CROSS_DOCUMENT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
       flowId: "audit-deep-cross-document",
     }),
   };
 
   return {
     audit: {
-      provider: primaryProvider,
+      provider: AI_PROVIDER,
       standardModel: auditStandardModel,
       standardValidationModel: auditStandardValidationModel,
       deepModel: auditDeepModel,
@@ -458,31 +334,27 @@ export function getAiConfiguration() {
           ...deepRoleModels,
         },
       },
-      keyConfigured: getProviderKeyConfigured(primaryProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     auditChat: {
-      provider: primaryProvider,
+      provider: AI_PROVIDER,
       model: getProviderModel(
-        primaryProvider,
         getBackendValue("NEXODOC_AUDIT_CHAT_MODEL") ||
           getBackendValue("OPENAI_MODEL") ||
           DEFAULT_CONVERSATION_MODEL,
-        ["DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_AUDIT_MODEL"],
         "audit-chat",
       ),
-      keyConfigured: getProviderKeyConfigured(primaryProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     nexoAgent: {
-      provider: nexoProvider,
+      provider: AI_PROVIDER,
       model: getProviderModel(
-        nexoProvider,
         getBackendValue("NEXODOC_NEXO_MODEL") ||
           getBackendValue("OPENAI_MODEL") ||
           DEFAULT_CONVERSATION_MODEL,
-        ["DEEPSEEK_NEXO_MODEL", "DEEPSEEK_AUDIT_CHAT_MODEL", "DEEPSEEK_MODEL"],
         "nexo-agent",
       ),
-      keyConfigured: getProviderKeyConfigured(nexoProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     administrationUsage: {
       provider: "openai" as const,
@@ -490,66 +362,40 @@ export function getAiConfiguration() {
       keyConfigured: isConfigured("OPENAI_ADMIN_KEY"),
     },
     volumeAnalysis: {
-      provider: volumeProvider,
+      provider: AI_PROVIDER,
       model: getProviderModel(
-        volumeProvider,
         getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") || DEFAULT_VOLUME_ANALYSIS_MODEL,
-        ["DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
         "volume-analysis",
       ),
-      keyConfigured: getProviderKeyConfigured(volumeProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     volumeSuggestion: {
-      provider: volumeProvider,
+      provider: AI_PROVIDER,
       model: getProviderModel(
-        volumeProvider,
         getBackendValue("NEXODOC_VOLUME_SUGGESTION_MODEL") ||
           getBackendValue("NEXODOC_VOLUME_ANALYSIS_MODEL") ||
           DEFAULT_VOLUME_SUGGESTION_MODEL,
-        ["DEEPSEEK_VOLUME_SUGGESTION_MODEL", "DEEPSEEK_VOLUME_ANALYSIS_MODEL"],
         "volume-suggestion",
       ),
-      keyConfigured: getProviderKeyConfigured(volumeProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     volumeConferencia: {
-      provider: conferenciaVolumeProvider,
+      provider: AI_PROVIDER,
       model: getProviderModel(
-        conferenciaVolumeProvider,
-        getBackendValue("NEXODOC_VOLUME_CONFERENCIA_MODEL") ||
-          DEFAULT_VOLUME_CONFERENCIA_MODEL,
-        ["DEEPSEEK_VOLUME_CONFERENCIA_MODEL"],
+        getBackendValue("NEXODOC_VOLUME_CONFERENCIA_MODEL") || DEFAULT_VOLUME_CONFERENCIA_MODEL,
         "volume-conferencia",
       ),
-      keyConfigured: getProviderKeyConfigured(conferenciaVolumeProvider),
+      keyConfigured: getProviderKeyConfigured(),
     },
     ldExtraction: {
       primary: {
-        provider: ldProvider,
+        provider: AI_PROVIDER,
         model: getProviderModel(
-          ldProvider,
           getBackendValue("NEXODOC_LD_OPENAI_MODEL") || DEFAULT_LD_OPENAI_MODEL,
-          ["DEEPSEEK_LD_MODEL"],
           "ld-primary",
         ),
-        keyConfigured: getProviderKeyConfigured(ldProvider),
+        keyConfigured: getProviderKeyConfigured(),
       },
-      fallback: {
-        provider: "mimo" as const,
-        model: getCachedAiModelOverride("ld-fallback") || getBackendValue("MIMO_MODEL") || DEFAULT_LD_MIMO_MODEL,
-        keyConfigured: isConfigured("MIMO_API_KEY"),
-      },
-    },
-    deepseek: {
-      provider: "deepseek" as const,
-      enabled: getBackendValue("NEXODOC_ENABLE_DEEPSEEK") === "true",
-      model: getCachedAiModelOverride("deepseek-provider") || getBackendValue("DEEPSEEK_MODEL") || DEFAULT_DEEPSEEK_MODEL,
-      baseUrl: getDeepSeekBaseUrl(),
-      keyConfigured: isConfigured("DEEPSEEK_API_KEY"),
-      placeholderOnly: false,
-      note:
-        globalProvider === "deepseek"
-          ? "DeepSeek configurado como provider global padrão."
-          : "DeepSeek disponivel; defina NEXODOC_AI_PROVIDER=deepseek (global) ou NEXODOC_LD_PROVIDER/NEXODOC_VOLUME_PROVIDER (por fluxo).",
     },
   };
 }
@@ -602,13 +448,12 @@ export function getAuditExecutionProfile(args: {
     } as const;
   }
 
-  if (configuration.provider !== "openai") {
-    return {
-      provider: configuration.provider,
-      model: currentModel,
-    } as const;
-  }
-
+  /*
+   * Havia aqui um desvio para "provider != openai": o modo memorial tem os seus
+   * próprios modelos, e só fazia sentido aplicá-los quando o provedor era a
+   * OpenAI. Com um provedor só, a condição nunca é verdadeira — e uma condição
+   * que nunca dispara é pior que código morto, porque parece cobrir um caso.
+   */
   if (args.analysisLevel === "standard") {
     return {
       provider: "openai" as const,
@@ -658,8 +503,9 @@ export function classifyProviderFailure(
 }
 
 export function getSafeProviderMessage(provider: AiProvider, category: ProviderFailureCategory) {
-  const name =
-    provider === "openai" ? "OpenAI" : provider === "mimo" ? "MiMo" : "DeepSeek";
+  // O parâmetro sobrevive à remoção dos outros provedores porque a assinatura é
+  // pública e o nome aparece na mensagem que o usuário lê.
+  const name = provider === "openai" ? "OpenAI" : provider;
 
   switch (category) {
     case "quota_billing":
