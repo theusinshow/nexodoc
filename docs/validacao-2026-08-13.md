@@ -1,0 +1,149 @@
+# Checklist de validação — o que mudou em 2026-08-13
+
+**Branch:** `theusinshow/kmi-adititonals` (10 commits à frente da `main`).
+**Para quem:** o mantenedor, noutra máquina, conferindo à mão.
+
+Este documento existe porque a sessão que produziu as mudanças descobriu, do
+jeito ruim, que **`tsc` e `eslint` passam limpos com o servidor caindo na
+inicialização** — nenhum dos dois executa o módulo. O que está marcado como
+"nunca aberto" abaixo é literal.
+
+## Antes de começar
+
+```bash
+git fetch origin
+git checkout theusinshow/kmi-adititonals
+npm ci
+npx prisma generate      # sem isto, centenas de erros de tipo que não são reais
+npm run dev
+```
+
+**Confira o `.env.local`.** Duas variáveis que barram tela sem dizer por quê:
+
+| Variável | Sem ela |
+|---|---|
+| `NEXT_PUBLIC_NEXO_ENABLED=true` | `/nexo` faz kill-switch e some para `/` |
+| `NEXODOC_ADMIN_EMAILS=<seu e-mail>` | `/admin` te trata como não-admin quando não há banco |
+
+As provas automáticas, se quiser rodar antes:
+
+```bash
+npm run test:nexo:escala && npm run test:nexo:enquadramento \
+  && npm run test:nexo:pins && npm run prova:tokens && npm run prova:glossario
+```
+
+---
+
+## 1. Orbe — `/bancada-do-orbe` (não pede login)
+
+**Estado de confiança:** visto rodando, com prova em PNG.
+
+- [ ] O seletor lista **9 estados**. `auditing` e `waiting` existem; `hover` e
+      `uploading` **não** (a máquina nunca os produziu — estavam no enum mentindo).
+- [ ] A seção "Identidade Visual do Logotipo" **sumiu** (3 variantes aposentadas
+      foram cortadas).
+- [ ] Existe um controle **Ritmo do respiro** no painel de parâmetros.
+- [ ] `waiting` × `idle`: mesma esfera, **metade da cadência**. Olhe por ~10s.
+- [ ] `auditing`: a banda de varredura **sobe sempre** e recomeça no pé — nunca
+      desce. (`npm run prova:varredura` mede isso: 139→323, quebra, 79→138.)
+- [ ] `reading` com atividade ~0,7: **arco no aro** fechando ~70% da volta.
+- [ ] `error`: **batimento duplo** no miolo. Nenhuma cor nova — a lei prende o
+      orbe à rampa teal, então o erro se diz por ritmo.
+- [ ] Recarregar a página: o **boot** — miolo acende do zero (~600ms), aro entra
+      atrasado, giro nasce alto e assenta.
+
+## 2. Login — `/login`
+
+- [ ] Orbe **vivo** no painel da direita, acima do poster do workspace.
+- [ ] Nenhum salto de layout quando o Canvas termina de carregar.
+- [ ] O logotipo do cabeçalho continua sendo o **SVG estático** (a 48px o WebGL
+      vira borrão — é por isso que o orbe vivo não foi para lá).
+
+## 3. Nexo — `/nexo`
+
+**Estado de confiança:** o orbe foi visto; **o visor de folha nunca foi aberto**
+(ele derrubava o servidor até o commit `0d9e9c1`).
+
+- [ ] **Anel de consumo** no rodapé da conversa: **azul**, não teal. Era
+      `var(--ring)` — teal significa interativo, e fatia de gráfico não se clica.
+- [ ] Focar o campo de texto: o **aro do orbe sobe** um pouco. Focar com o mouse
+      em cima **não** dobra o efeito.
+- [ ] Deixar o campo vazio por **6s** depois de uma resposta: o orbe entra em
+      espera (respiro longo) e o rótulo diz **"aguardando você"**, sem reticência
+      animada — esperar não é trabalhar.
+- [ ] Digitar qualquer caractere: volta ao estado real.
+
+### O visor de folha (modo selo) — o que mais precisa de olho
+
+Solte PDFs de prancha. **Sem chave de IA a leitura de selo falha** — e é
+esperado: as folhas entram no canvas com selo vazio, e o **Abrir** funciona
+mesmo assim.
+
+- [ ] Clicar **Abrir** num nó: a folha abre **enquadrada no carimbo**, não no
+      topo da página.
+- [ ] `←` `→` andam folha a folha **mantendo** o enquadramento.
+- [ ] `S` alterna selo ↔ folha inteira. `Esc` fecha.
+- [ ] Numa prancha sem âncoras de carimbo: mostra a **página inteira** e diz
+      "carimbo não localizado nesta folha" em azul-informação. Ausência nunca
+      vira conflito.
+
+### Pins de achado no parecer
+
+Precisa de uma auditoria concluída (**exige IA e banco** — pode não rodar
+nesta máquina).
+
+- [ ] Abrir "Ver no documento" num achado: **régua de pins** na margem esquerda.
+- [ ] Cor por gravidade; o pin da página aberta **cresce** (3px→5px) em vez de
+      mudar de cor.
+- [ ] Achado sem página provável **não** vira pin.
+- [ ] Clicar num pin leva à página.
+
+## 4. Admin — `/admin` (token: o do seu `.env.local`)
+
+**Estado de confiança: NENHUMA destas telas foi aberta.** Tudo aqui passou por
+compilador e leitura, nunca pelo olho. É o item que mais merece atenção.
+
+- [ ] **Chanfro** em cartões, campos e nav — o admin deixa de parecer outro
+      produto.
+- [ ] Métrica com **algarismo tabular**: uma fileira de quatro cartões alinha em
+      coluna (antes "1.204" e "87" dançavam).
+- [ ] **Nav com os 7 links** visíveis num monitor largo. Estreite a janela: o
+      "Mais" só aparece quando de fato não cabe.
+- [ ] Ordem: Visão geral, **Consumo, Qualidade**, Auditorias, LDs, Usuários,
+      Config. (Consumo e Qualidade estavam escondidos atrás de "Mais".)
+- [ ] **Token recolhido**: `sessão admin · trocar · sair` no lugar do campo de
+      senha. Em `/admin/usage`, o **seletor de período continua ali** — ele não é
+      controle de autenticação e não pode sumir junto.
+- [ ] `trocar` reabre o campo; `sair` limpa a sessão.
+- [ ] **`/admin/users`**: "Tornar admin" pede confirmação **nomeando a pessoa**,
+      na própria linha. Em lote, a pergunta **substitui** a barra de ações.
+- [ ] A pergunta diz a **consequência** ("passam a ver custo, configuração de
+      provedores, e a poder promover outras"), não a operação.
+- [ ] **`/admin/usage`**: as barras do uso diário são **azuis**, e o texto abaixo
+      não fala mais em "barras azuis" descrevendo barras teal.
+
+## 5. Léxico e cor — espalhado
+
+- [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
+      "Relatório", dentro do próprio parecer).
+- [ ] **`/projetos`** e **`/projetos/[id]`**: "Arquivos enviados" no lugar de
+      "Uploads"; "conferir" no lugar de "validar".
+
+---
+
+## O que sabidamente NÃO funciona nesta validação
+
+- Leitura de selo, auditoria, geração de documento — **exigem chave de IA**.
+- Qualquer tela que consulte banco — **exige `DATABASE_URL`**.
+- Isso não invalida o checklist: quase tudo acima é interface, e a interface
+  responde sem os dois.
+
+## O que ainda não foi feito
+
+Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
+e `...-admin-aprovado.md` (A.4, A.6, A.7, A.8, A.9a, A.9b, A.10).
+
+O próximo recomendado é **A.9a** — dados do escritório (nome, endereço impresso
+nas pranchas, CREA). Não é preferência: o endereço impresso em toda prancha é o
+modo de falha que produziu o bug Criciúma/Florianópolis, e hoje ele é implícito
+no sistema.
