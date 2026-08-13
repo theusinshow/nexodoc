@@ -271,7 +271,10 @@ async function summarizeInternalUsage(startTime: number) {
         totalTokens: 0,
         estimatedCostUsd: 0,
         requests: 0,
+        unpricedRequests: 0,
+        unpricedTokens: 0,
       },
+      unpricedModels: [],
       flows: [],
       tasks: [],
       aiTasks: [],
@@ -303,6 +306,15 @@ async function summarizeInternalUsage(startTime: number) {
       take: 100,
     }),
   ]);
+  /*
+   * `estimatedCostUsd ?? 0` some com o que não tem preço. Modelo fora da tabela
+   * não custa zero — custa uma quantia que ninguém sabe, e somar zero afirma o
+   * contrário. Enquanto o `gpt-5.6-luna` esteve fora da tabela, 402 chamadas e
+   * 2,36 M de tokens entraram no painel como se fossem de graça.
+   *
+   * A soma continua ignorando o desconhecido (não há o que somar), mas agora
+   * ele é CONTADO à parte, para o total poder se anunciar como parcial.
+   */
   const totals = events.reduce(
     (total, event) => ({
       inputTokens: total.inputTokens + event.inputTokens,
@@ -311,6 +323,9 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: total.totalTokens + event.totalTokens,
       estimatedCostUsd: total.estimatedCostUsd + (event.estimatedCostUsd ?? 0),
       requests: total.requests + 1,
+      unpricedRequests: total.unpricedRequests + (event.estimatedCostUsd === null ? 1 : 0),
+      unpricedTokens:
+        total.unpricedTokens + (event.estimatedCostUsd === null ? event.totalTokens : 0),
     }),
     {
       inputTokens: 0,
@@ -319,8 +334,13 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: 0,
       estimatedCostUsd: 0,
       requests: 0,
+      unpricedRequests: 0,
+      unpricedTokens: 0,
     },
   );
+  const unpricedModels = [
+    ...new Set(events.filter((event) => event.estimatedCostUsd === null).map((event) => event.model)),
+  ].sort();
   const byFlow = new Map<
     string,
     {
@@ -330,6 +350,7 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: number;
       estimatedCostUsd: number;
       requests: number;
+      unpricedRequests: number;
     }
   >();
   const byTask = new Map<
@@ -343,6 +364,7 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: number;
       estimatedCostUsd: number;
       requests: number;
+      unpricedRequests: number;
     }
   >();
 
@@ -354,6 +376,7 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: 0,
       estimatedCostUsd: 0,
       requests: 0,
+      unpricedRequests: 0,
     };
     const taskKey =
       event.aiTaskId ?? event.taskId ?? `${event.flow}:${event.taskLabel ?? event.operation}`;
@@ -366,6 +389,7 @@ async function summarizeInternalUsage(startTime: number) {
       totalTokens: 0,
       estimatedCostUsd: 0,
       requests: 0,
+      unpricedRequests: 0,
     };
 
     for (const target of [flow, task]) {
@@ -374,6 +398,7 @@ async function summarizeInternalUsage(startTime: number) {
       target.totalTokens += event.totalTokens;
       target.estimatedCostUsd += event.estimatedCostUsd ?? 0;
       target.requests += 1;
+      target.unpricedRequests += event.estimatedCostUsd === null ? 1 : 0;
     }
 
     byFlow.set(event.flow, flow);
@@ -383,6 +408,7 @@ async function summarizeInternalUsage(startTime: number) {
   return {
     enabled: true,
     totals,
+    unpricedModels,
     flows: [...byFlow.values()].sort((a, b) => b.totalTokens - a.totalTokens),
     tasks: [...byTask.values()].sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 50),
     aiTasks: aiTasks.map((task) => ({

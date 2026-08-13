@@ -74,7 +74,10 @@ type AdminUsageResponse = {
       totalTokens: number;
       estimatedCostUsd: number;
       requests: number;
+      unpricedRequests: number;
+      unpricedTokens: number;
     };
+    unpricedModels: string[];
     flows: Array<{
       flow: string;
       inputTokens: number;
@@ -82,6 +85,7 @@ type AdminUsageResponse = {
       totalTokens: number;
       estimatedCostUsd: number;
       requests: number;
+      unpricedRequests: number;
     }>;
     tasks: Array<{
       taskId: string;
@@ -92,6 +96,7 @@ type AdminUsageResponse = {
       totalTokens: number;
       estimatedCostUsd: number;
       requests: number;
+      unpricedRequests: number;
     }>;
     recentEvents: Array<{
       id: string;
@@ -482,10 +487,30 @@ export default function AdminUsagePage() {
             </div>
             {data?.internalUsage?.enabled ? (
               <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 font-mono text-xs text-muted-foreground">
-                {formatNumber(data.internalUsage.totals.requests)} eventos · {formatUsd(data.internalUsage.totals.estimatedCostUsd)}
+                {formatNumber(data.internalUsage.totals.requests)} eventos ·{" "}
+                {data.internalUsage.totals.unpricedRequests > 0 ? "≥ " : ""}
+                {formatUsd(data.internalUsage.totals.estimatedCostUsd)}
               </span>
             ) : null}
           </div>
+
+          {/*
+            O total só pode se anunciar como fechado quando TODO evento tem
+            preço. Sem este aviso, um modelo fora da tabela vira desconto: foi o
+            que aconteceu com o `gpt-5.6-luna`, cujas chamadas somavam zero e
+            faziam a conta parecer menor do que era.
+          */}
+          {data?.internalUsage?.enabled && data.internalUsage.totals.unpricedRequests > 0 ? (
+            <p className="mt-3 rounded-md border border-[var(--nexodoc-warning-border,var(--border))] bg-[var(--nexodoc-recessed)] px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Total parcial.</span>{" "}
+              {formatNumber(data.internalUsage.totals.unpricedRequests)} de{" "}
+              {formatNumber(data.internalUsage.totals.requests)} chamadas não têm preço na tabela e
+              entram como zero ({formatNumber(data.internalUsage.totals.unpricedTokens)} tokens fora
+              da conta). Sem preço não é de graça — some o modelo em{" "}
+              <span className="font-mono">lib/ai-precos.ts</span>:{" "}
+              <span className="font-mono">{data.internalUsage.unpricedModels.join(", ")}</span>.
+            </p>
+          ) : null}
 
           {!data?.internalUsage?.enabled ? (
             <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
@@ -502,11 +527,15 @@ export default function AdminUsagePage() {
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-mono text-sm font-medium">{flow.flow}</p>
                       <span className="font-mono text-xs text-muted-foreground">
+                        {flow.unpricedRequests > 0 ? "≥ " : ""}
                         {formatUsd(flow.estimatedCostUsd)}
                       </span>
                     </div>
                     <p className="mt-1 font-mono text-xs text-muted-foreground">
                       {formatNumber(flow.totalTokens)} tokens · {formatNumber(flow.requests)} chamadas
+                      {flow.unpricedRequests > 0
+                        ? ` · ${formatNumber(flow.unpricedRequests)} sem preço`
+                        : ""}
                     </p>
                   </div>
                 ))}

@@ -1,3 +1,4 @@
+import { normalizeAiModelName, validateAiModelName } from "@/lib/ai-model-name";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const AI_MODEL_OPTIONS = [
@@ -71,27 +72,7 @@ export function isKnownAiModelFlow(flowId: string): flowId is AiModelFlowId {
   return Boolean(getFlowDefinition(flowId));
 }
 
-export function normalizeAiModelName(model: string) {
-  return model.trim();
-}
-
-export function validateAiModelName(model: string) {
-  const normalized = normalizeAiModelName(model);
-
-  if (!normalized) {
-    return "Informe um modelo.";
-  }
-
-  if (normalized.length > 120) {
-    return "Modelo muito longo.";
-  }
-
-  if (!/^[a-zA-Z0-9._:()/-]+$/.test(normalized)) {
-    return "Use apenas letras, números, ponto, hífen, barra, dois-pontos, parênteses ou underline.";
-  }
-
-  return "";
-}
+export { looksLikeApiSecret, normalizeAiModelName, validateAiModelName } from "@/lib/ai-model-name";
 
 function setModelConfigCache(rows: AiModelOverride[]) {
   modelConfigStore.__nexodocAiModelOverrides = {
