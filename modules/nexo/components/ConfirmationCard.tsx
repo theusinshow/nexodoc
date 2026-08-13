@@ -2233,6 +2233,7 @@ function AuditoriaConfirmation({
       arquivo: memorialFile.name,
     });
     auditoria.iniciar({
+      conversationId,
       nivel: params.nivel,
       arquivo: memorialFile.name,
       cancelar: () => controle.abort(),

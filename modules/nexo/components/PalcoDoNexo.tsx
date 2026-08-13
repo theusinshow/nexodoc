@@ -19,7 +19,11 @@ import { AuditResult, type AuditView } from "@/components/audit-result";
 import { Chip } from "@/components/ui/chip";
 import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
-import { useAuditoria, type VistaDoPalco as Vista } from "../state/auditoria-store";
+import {
+  auditoriaDaConversa,
+  useAuditoria,
+  type VistaDoPalco as Vista,
+} from "../state/auditoria-store";
 import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
@@ -35,9 +39,20 @@ const VISTAS_DO_PARECER: { valor: AuditView; rotulo: string; Icone: typeof FileT
 ];
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
-  const { results, recuperarMemorial, achadosResolvidos, marcarAchadoResolvido } =
-    useConversation();
-  const { emCurso, escolha, escolherVista } = useAuditoria();
+  const {
+    results,
+    recuperarMemorial,
+    achadosResolvidos,
+    marcarAchadoResolvido,
+    conversationId,
+  } = useConversation();
+  const { emCurso: emCursoGlobal, escolha, escolherVista } = useAuditoria();
+  /*
+   * Só a auditoria DESTA conversa. O store guarda uma auditoria por vez para o
+   * aplicativo inteiro; trocar de conversa no meio de uma análise trazia o
+   * progresso alheio para o palco da conversa nova. Ver `auditoriaDaConversa`.
+   */
+  const emCurso = auditoriaDaConversa(emCursoGlobal, conversationId);
   /*
    * O PDF DO MEMORIAL, para o achado poder ser conferido no documento.
    *

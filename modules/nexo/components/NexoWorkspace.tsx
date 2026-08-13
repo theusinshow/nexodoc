@@ -82,7 +82,11 @@ function useEsperandoVoce(silencio: boolean, reduced: boolean): boolean {
 
   return esperando;
 }
-import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
+import {
+  AuditoriaStoreProvider,
+  auditoriaDaConversa,
+  useAuditoria,
+} from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { useReducedMotionPref } from "./agent-orb/use-agent-orb";
@@ -165,7 +169,7 @@ function NexoWorkspaceInner({
   nome?: string | null;
   email?: string | null;
 }) {
-  const auditandoAgora = Boolean(useAuditoria().emCurso);
+  const { emCurso: auditoriaEmCurso } = useAuditoria();
   const { online } = useConexao();
   const { expirada: sessaoExpirada, desdeMs } = useSessaoExpirada();
   // Os bytes de cada anexo, por id do chip — é o que permite REFAZER a leitura
@@ -190,6 +194,15 @@ function NexoWorkspaceInner({
    */
   const leituraEmVoo = useRef<Promise<void>>(Promise.resolve());
   const conv = useConversation();
+  /*
+   * Auditar "agora" é auditar NESTA conversa. O store guarda uma auditoria por
+   * vez para o aplicativo inteiro, e sem o filtro a conversa nova herdava o
+   * estado de trabalho da anterior. Fica aqui, e não junto do `useAuditoria`,
+   * porque depende do `conv`. Ver `auditoriaDaConversa`.
+   */
+  const auditandoAgora = Boolean(
+    auditoriaDaConversa(auditoriaEmCurso, conv.conversationId),
+  );
   const { refresh: refreshUsage } = useConversationUsage();
   const { replaceArtifacts } = useArtifactStore();
   // Selos lidos (fonte única = store da conversa; persistem e restauram).

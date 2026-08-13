@@ -22,6 +22,14 @@ import type { MarcoDaAuditoria } from "@/lib/audit-progress";
 import type { MarcoRecebido } from "../lib/etapas-da-auditoria";
 
 export interface AuditoriaEmCursoInfo {
+  /**
+   * De QUAL conversa é esta auditoria.
+   *
+   * Sem isto o `emCurso` é global de verdade: trocar de conversa no meio de uma
+   * análise levava o progresso junto e o exibia sobre a conversa nova, que não
+   * pediu nada. No palco passava; numa barra sempre visível, não passa.
+   */
+  conversationId: string;
   nivel: "standard" | "deep";
   arquivo: string;
   inicioMs: number;
@@ -112,4 +120,18 @@ export function useAuditoria(): AuditoriaStoreValue {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuditoria fora do AuditoriaStoreProvider");
   return ctx;
+}
+
+/**
+ * A auditoria em curso SE ela for desta conversa — senão, nada.
+ *
+ * Um helper e não um filtro dentro do provider: o store guarda o fato, e cada
+ * tela decide o que fazer com ele. Assim a retomada pós-F5, que é por conversa
+ * e vive no `conversation-store`, continua sendo o outro caminho legítimo.
+ */
+export function auditoriaDaConversa(
+  emCurso: AuditoriaEmCursoInfo | null,
+  conversationId: string,
+): AuditoriaEmCursoInfo | null {
+  return emCurso && emCurso.conversationId === conversationId ? emCurso : null;
 }
