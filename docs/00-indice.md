@@ -1,6 +1,11 @@
 # NexoDoc - Indice da documentacao
 
-Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do MVP.
+Este indice organiza a documentacao do NexoDoc.
+
+Os documentos numerados abaixo sao os do DESENHO INICIAL, escritos antes do MVP
+existir. Eles continuam valendo como registro da intencao, mas nao descrevem o
+software de hoje: para o estado implementado, use as fontes listadas em "Fonte
+de verdade". Esta pasta tem mais arquivos do que este indice lista.
 
 ## Documentos principais
 
