@@ -55,6 +55,7 @@ import {
 } from "@/lib/audit-persistence";
 import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
 import { impressaoDosCapitulos } from "@/lib/audit-fingerprint";
+import { VERSAO_AUDITOR } from "@/lib/audit-reuso";
 import {
   isLocalityPhrase,
   runCrossDocumentRules,
@@ -3470,6 +3471,13 @@ async function executarAuditoria(
           arquivo: file.file.name,
           capitulos: impressaoDosCapitulos(chunkPdfByChapter(file.extracted)),
         })),
+        /*
+         * Sem isto a impressão digital não serve para reaproveitar achado: ela
+         * diz que o TEXTO é o mesmo, não que o auditor que o leu é o mesmo.
+         * Herdar achado produzido por um prompt anterior é servir leitura
+         * vencida — a mesma regra do cache de leitura de selo.
+         */
+        versao_auditor: VERSAO_AUDITOR,
         gerado_em: new Date().toISOString(),
       },
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
