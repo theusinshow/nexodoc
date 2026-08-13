@@ -12,8 +12,10 @@
  */
 import { chromium } from "playwright";
 
+import { temBanco, tokenDoAdmin } from "./token-do-admin.mjs";
+
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const TOKEN = process.env.NEXODOC_ADMIN_TOKEN ?? "teste-local";
+const TOKEN = tokenDoAdmin();
 
 const falhas = [];
 function conferir(nome, condicao, detalhe) {
@@ -46,17 +48,26 @@ const alturaDe = async (texto) => {
   return caixa?.y ?? Number.POSITIVE_INFINITY;
 };
 
-// --- 1. A faixa de atenção existe e diz o que está quebrado ---
+/*
+ * --- 1. A faixa de atenção existe e diz o estado REAL da instância ---
+ *
+ * Com banco, a faixa fala de chave e de incidente; sem banco, fala da falta do
+ * banco; e numa instância sadia ela diz que não há nada a fazer. Os três são
+ * comportamento correto — o que não pode é a faixa não existir.
+ */
+const linhaDaFaixa = temBanco()
+  ? /nada exigindo ação|fluxo\(s\) sem chave|incidente\(s\) de provedor|modelo de espaço reservado/i
+  : /sem DATABASE_URL — nada do que se declara/i;
+
 conferir(
-  "sem DATABASE_URL, a faixa avisa que nada é gravado",
-  await page.getByText(/sem DATABASE_URL — nada do que se declara/i).isVisible(),
+  temBanco()
+    ? "a faixa resume o estado da instância"
+    : "sem DATABASE_URL, a faixa avisa que nada é gravado",
+  await page.getByText(linhaDaFaixa).first().isVisible(),
   "a faixa não apareceu",
 );
 
-const faixa = await page
-  .getByText(/sem DATABASE_URL — nada do que se declara/i)
-  .first()
-  .boundingBox();
+const faixa = await page.getByText(linhaDaFaixa).first().boundingBox();
 const primeiraSecao = Math.min(
   await alturaDe("Painel de provedores IA"),
   await alturaDe("Escritório emissor"),

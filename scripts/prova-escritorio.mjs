@@ -20,8 +20,10 @@
  */
 import { chromium } from "playwright";
 
+import { temBanco, tokenDoAdmin } from "./token-do-admin.mjs";
+
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const TOKEN = process.env.NEXODOC_ADMIN_TOKEN ?? "teste-local";
+const TOKEN = tokenDoAdmin();
 
 const falhas = [];
 function conferir(nome, condicao, detalhe) {
@@ -111,31 +113,56 @@ await page.getByText("vindo do ambiente").waitFor({ timeout: 15000 }).catch(() =
 const valor = async (rotulo) =>
   page.locator(`label:has-text("${rotulo}") input`).first().inputValue();
 
-conferir(
-  "o selo diz que o dado veio do ambiente",
-  await page.getByText("vindo do ambiente").isVisible(),
-  "selo de origem não apareceu",
-);
-conferir(
-  "o nome do escritório chegou do ambiente",
-  (await valor("Nome do escritório")) === "Engeplan Engenharia Ltda",
-  `veio "${await valor("Nome do escritório")}"`,
-);
-conferir(
-  "o endereço impresso chegou do ambiente",
-  (await valor("Endereço impresso nas pranchas")).includes("Saldanha Marinho"),
-  `veio "${await valor("Endereço impresso nas pranchas")}"`,
-);
-conferir("a UF chega em maiúscula", (await valor("UF")) === "SC", `veio "${await valor("UF")}"`);
+/*
+ * A PROVA SE ADAPTA AO AMBIENTE. Com o escritório semeado, confere os valores;
+ * sem semente, confere o estado NÃO DECLARADO — que é o de qualquer máquina
+ * nova, e o estado em que a subtração do endereço simplesmente não acontece.
+ */
+const NOME_SEMEADO = (process.env.NEXODOC_ESCRITORIO_NOME ?? "").trim();
 
-// --- 6. Sem banco, o salvar trava E diz por quê (não some em silêncio) ---
+if (NOME_SEMEADO) {
+  conferir(
+    "o selo diz que o dado veio do ambiente",
+    await page.getByText("vindo do ambiente").isVisible(),
+    "selo de origem não apareceu",
+  );
+  conferir(
+    "o nome do escritório chegou do ambiente",
+    (await valor("Nome do escritório")) === NOME_SEMEADO,
+    `veio "${await valor("Nome do escritório")}"`,
+  );
+  conferir(
+    "o endereço impresso chegou do ambiente",
+    (await valor("Endereço impresso nas pranchas")).length > 0,
+    "o endereço veio vazio",
+  );
+  conferir("a UF chega em maiúscula", (await valor("UF")) === "SC", `veio "${await valor("UF")}"`);
+} else {
+  conferir(
+    "sem escritório no ambiente, os campos nascem vazios",
+    (await valor("Nome do escritório")) === "" &&
+      (await valor("Endereço impresso nas pranchas")) === "",
+    "algum campo veio preenchido",
+  );
+  conferir(
+    "e o selo diz 'não declarado'",
+    await page.getByText("não declarado", { exact: true }).first().isVisible(),
+    "o selo de 'não declarado' não apareceu",
+  );
+}
+
+// --- 6. O salvar segue o BANCO: travado sem ele, clicável com ele ---
 const salvar = page.getByRole("button", { name: /Salvar dados do escritório/i });
-conferir("o salvar está desabilitado sem DATABASE_URL", await salvar.isDisabled(), "estava clicável");
-conferir(
-  "o motivo do bloqueio está escrito ao lado",
-  await page.getByText("sem DATABASE_URL").first().isVisible(),
-  "o motivo não apareceu",
-);
+if (temBanco()) {
+  conferir("com DATABASE_URL, o salvar fica disponível", await salvar.isEnabled(), "seguia travado");
+} else {
+  conferir("sem DATABASE_URL, o salvar trava", await salvar.isDisabled(), "estava clicável");
+  conferir(
+    "e o motivo do bloqueio está escrito ao lado",
+    await page.getByText("sem DATABASE_URL").first().isVisible(),
+    "o motivo não apareceu",
+  );
+}
 
 // --- 7. A validação fala antes de tentar salvar ---
 await page.locator('label:has-text("UF") input').first().fill("SCC");

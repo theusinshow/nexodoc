@@ -17,8 +17,10 @@
  */
 import { chromium } from "playwright";
 
+import { tokenDoAdmin } from "./token-do-admin.mjs";
+
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const TOKEN = process.env.NEXODOC_ADMIN_TOKEN ?? "teste-local";
+const TOKEN = tokenDoAdmin();
 
 const falhas = [];
 function conferir(nome, condicao, detalhe) {
@@ -61,18 +63,43 @@ await page.locator("form button[type=submit]").first().click();
 await page.waitForLoadState("networkidle").catch(() => {});
 await page.waitForTimeout(600);
 
+/*
+ * A PROVA SE ADAPTA AO AMBIENTE EM QUE RODA.
+ *
+ * Antes ela exigia a cotação semeada por `NEXODOC_CAMBIO_USD_BRL` e falhava
+ * contra um `.env.local` de verdade, que não tem essa variável. Prova que só
+ * passa num ambiente grita à toa, e alarme falso ensina a ignorar alarme: aqui
+ * ela confere o estado DECLARADO quando há semente, e o estado NÃO DECLARADO
+ * quando não há — os dois são comportamentos que precisam estar certos.
+ */
+const SEMEADA = (process.env.NEXODOC_CAMBIO_USD_BRL ?? "").trim();
 const campo = page.locator('label:has-text("Reais por US$ 1") input').first();
-conferir(
-  "o campo traz a cotação declarada no ambiente",
-  (await campo.inputValue()) === "5.42",
-  `veio "${await campo.inputValue()}"`,
-);
-conferir(
-  "o selo diz a cotação e de quando ela é",
-  (await page.getByText(/cotação declarada/i).first().isVisible()) &&
-    (await page.getByText(/5,42/).first().isVisible()),
-  "a procedência não apareceu",
-);
+
+if (SEMEADA) {
+  const esperado = SEMEADA.replace(",", ".");
+  conferir(
+    "o campo traz a cotação declarada no ambiente",
+    (await campo.inputValue()) === esperado,
+    `veio "${await campo.inputValue()}", esperado "${esperado}"`,
+  );
+  conferir(
+    "o selo diz a cotação e de quando ela é",
+    (await page.getByText(/cotação declarada/i).first().isVisible()) &&
+      (await page.getByText(SEMEADA.replace(".", ",")).first().isVisible()),
+    "a procedência não apareceu",
+  );
+} else {
+  conferir(
+    "sem cotação no ambiente, o campo nasce VAZIO (não zero)",
+    (await campo.inputValue()) === "",
+    `veio "${await campo.inputValue()}"`,
+  );
+  conferir(
+    "e o selo diz que ela não foi declarada",
+    await page.getByText(/não declarada/i).first().isVisible(),
+    "o selo de 'não declarada' não apareceu",
+  );
+}
 
 // --- 3. A validação recusa o dedo escorregado antes de salvar ---
 await campo.fill("5420");

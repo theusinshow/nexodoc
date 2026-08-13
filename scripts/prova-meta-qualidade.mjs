@@ -16,8 +16,10 @@
  */
 import { chromium } from "playwright";
 
+import { temBanco, tokenDoAdmin } from "./token-do-admin.mjs";
+
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const TOKEN = process.env.NEXODOC_ADMIN_TOKEN ?? "teste-local";
+const TOKEN = tokenDoAdmin();
 
 const falhas = [];
 function conferir(nome, condicao, detalhe) {
@@ -61,22 +63,46 @@ conferir(
 
 const campoFp = page.locator('label:has-text("Falso positivo, no máximo") input').first();
 const campoCob = page.locator('label:has-text("Cobertura de revisão, no mínimo") input').first();
-conferir(
-  "as metas do ambiente chegam nos campos",
-  (await campoFp.inputValue()) === "10" && (await campoCob.inputValue()) === "40",
-  `fp="${await campoFp.inputValue()}" cobertura="${await campoCob.inputValue()}"`,
-);
-conferir(
-  "o selo confirma que há metas declaradas",
-  await page.getByText("metas declaradas", { exact: true }).isVisible(),
-  "o selo não apareceu",
-);
 
-// --- 2. Sem banco, declarar trava e diz por quê ---
+/*
+ * Adapta-se ao ambiente: com metas semeadas confere os valores; sem elas,
+ * confere o estado que o A.8 existe para tornar visível — "meta não declarada,
+ * o painel não julga".
+ */
+const FP_SEMEADO = (process.env.NEXODOC_META_FALSO_POSITIVO ?? "").trim();
+
+if (FP_SEMEADO) {
+  conferir(
+    "as metas do ambiente chegam nos campos",
+    (await campoFp.inputValue()) === FP_SEMEADO,
+    `fp="${await campoFp.inputValue()}" cobertura="${await campoCob.inputValue()}"`,
+  );
+  conferir(
+    "o selo confirma que há metas declaradas",
+    await page.getByText("metas declaradas", { exact: true }).isVisible(),
+    "o selo não apareceu",
+  );
+} else {
+  conferir(
+    "sem metas no ambiente, os campos nascem vazios",
+    (await campoFp.inputValue()) === "" && (await campoCob.inputValue()) === "",
+    `fp="${await campoFp.inputValue()}" cobertura="${await campoCob.inputValue()}"`,
+  );
+  conferir(
+    "e o selo diz que o painel NÃO julga",
+    await page.getByText(/meta não declarada — o painel não julga/i).isVisible(),
+    "o selo não apareceu",
+  );
+}
+
+// --- 2. O botão de declarar segue o banco ---
+const declarar = page.getByRole("button", { name: /Declarar metas/i });
 conferir(
-  "o botão de declarar trava sem DATABASE_URL",
-  await page.getByRole("button", { name: /Declarar metas/i }).isDisabled(),
-  "seguia clicável",
+  temBanco()
+    ? "com DATABASE_URL, declarar metas fica disponível"
+    : "sem DATABASE_URL, declarar metas trava",
+  temBanco() ? await declarar.isEnabled() : await declarar.isDisabled(),
+  temBanco() ? "seguia travado" : "seguia clicável",
 );
 
 // --- 3. O painel de Quality abre e não inventa julgamento ---
