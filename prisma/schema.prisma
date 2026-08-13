@@ -291,18 +291,35 @@ model Audit {
   @@index([status, createdAt])
 }
 
+/// O que o engenheiro decidiu sobre um achado. Duas perguntas DIFERENTES na
+/// mesma linha, e é de propósito que sejam colunas separadas:
+///
+///  - `verdict`: o achado procede? (procedente / falso positivo / severidade
+///    errada). É um julgamento sobre a AUDITORIA, e alimenta o benchmark;
+///  - `resolvedAt`: já foi corrigido no memorial? É o estado do TRABALHO.
+///
+/// Um achado procedente e já corrigido é o caso normal — as duas coisas valem
+/// ao mesmo tempo. Ter emendado "resolvido" como um quarto valor do enum teria
+/// forçado escolher entre registrar o julgamento e registrar o progresso, e
+/// marcar como corrigido apagaria a avaliação que alimenta o benchmark.
+///
+/// Por isso `verdict` passou a ser opcional: marcar corrigido sem julgar é
+/// legítimo, e era o único caminho que a coluna obrigatória bloqueava.
 model AuditFeedback {
-  id           String               @id @default(cuid())
+  id           String                @id @default(cuid())
   auditId      String
   targetKey    String
   findingId    String?
   findingLabel String?
   page         String?
-  verdict      AuditFeedbackVerdict
-  note         String               @default("")
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  audit        Audit                @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  verdict      AuditFeedbackVerdict?
+  /// Quando foi marcado como corrigido. Nulo = não corrigido — o instante fica
+  /// registrado porque "quando" é a pergunta seguinte de quem revisa em dupla.
+  resolvedAt   DateTime?
+  note         String                @default("")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  audit        Audit                 @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   @@unique([auditId, targetKey])
   @@index([auditId, createdAt])

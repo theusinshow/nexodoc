@@ -76,11 +76,24 @@ export async function POST(
     findingLabel?: string;
     page?: string;
     verdict?: string;
+    /** Corrigido no memorial. Independente do veredito — ver o schema. */
+    resolved?: boolean;
     note?: string;
   };
   const verdict = parseVerdict(body.verdict);
+  const temResolvido = typeof body.resolved === "boolean";
 
-  if (!verdict) {
+  /*
+   * DUAS PERGUNTAS, UMA ROTA. O veredito julga a auditoria ("procede?"); o
+   * `resolved` conta o trabalho ("já corrigi?"). Vir só um dos dois é o caso
+   * comum — quem marca corrigido não está, com isso, avaliando o motor.
+   * Recusar só quando não vier nenhum: aí a requisição não pede nada.
+   */
+  if (!verdict && !temResolvido) {
+    return jsonError("Informe a avaliação do achado ou se ele foi corrigido.");
+  }
+
+  if (body.verdict !== undefined && !verdict) {
     return jsonError("Classificação de feedback inválida.");
   }
 
@@ -104,6 +117,7 @@ export async function POST(
     return jsonError("Informe o achado avaliado.");
   }
 
+  const resolvedAt = temResolvido ? (body.resolved ? new Date() : null) : undefined;
   const data = {
     auditId: id,
     targetKey,
@@ -111,6 +125,7 @@ export async function POST(
     findingLabel: String(body.findingLabel ?? "").trim().slice(0, 160) || null,
     page: String(body.page ?? "").trim().slice(0, 80) || null,
     verdict,
+    resolvedAt: resolvedAt ?? null,
     note,
   };
 
@@ -120,11 +135,19 @@ export async function POST(
       : await getPrisma().auditFeedback.upsert({
           where: { auditId_targetKey: { auditId: id, targetKey } },
           create: data,
+          /*
+           * SÓ SOBRESCREVE O QUE VEIO. A linha é uma só por achado e guarda as
+           * duas decisões; um `update` cego zeraria o veredito toda vez que
+           * alguém marcasse corrigido, e apagaria a marca de corrigido toda vez
+           * que alguém julgasse o achado. `undefined` é o que o Prisma entende
+           * por "não toque nesta coluna" — diferente de `null`, que apaga.
+           */
           update: {
             findingLabel: data.findingLabel,
             page: data.page,
-            verdict: data.verdict,
-            note: data.note,
+            ...(verdict ? { verdict } : {}),
+            ...(resolvedAt !== undefined ? { resolvedAt } : {}),
+            ...(body.note !== undefined ? { note } : {}),
           },
         });
 

@@ -187,8 +187,26 @@ type FeedbackVerdict =
 type SavedFeedback = {
   id: string;
   findingId: string | null;
-  verdict: FeedbackVerdict;
+  /** Nulo quando a linha só registra "corrigido", sem julgar o achado. */
+  verdict: FeedbackVerdict | null;
+  /** Instante da correção; nulo = não corrigido. */
+  resolvedAt: string | null;
   note: string;
+};
+
+/**
+ * O nome curto de cada veredito na etiqueta do cartão. Curto de propósito: ela
+ * divide a linha com disciplina, tipo de erro e referência, e "Falso positivo
+ * segundo o engenheiro" empurraria as outras para uma segunda linha.
+ *
+ * `MISSING_FINDING` não aparece: ele não avalia um achado da lista, avalia o
+ * que a lista não tem — e por isso não pertence a cartão nenhum.
+ */
+const VEREDITO_LABEL: Record<FeedbackVerdict, string> = {
+  CONFIRMED: "Procedente",
+  FALSE_POSITIVE: "Falso positivo",
+  WRONG_SEVERITY: "Severidade errada",
+  MISSING_FINDING: "",
 };
 
 function getFeedbackEndpoint(auditId: string) {
@@ -929,6 +947,22 @@ export function AuditResult({
   }, [achadoEmFoco, view]);
 
   const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
+  /*
+   * OS CORRIGIDOS QUE O BANCO CONHECE.
+   *
+   * O `resolvidos` que chega por prop vem da conversa, no IndexedDB desta
+   * máquina — e era a única memória que a marcação tinha. Quem revisasse metade
+   * do parecer no escritório e abrisse em casa recomeçava do zero.
+   *
+   * Os dois se somam em vez de um sobrescrever o outro, e a razão é a ordem dos
+   * fatos: a prop já está lá na primeira pintura, a resposta do banco chega
+   * depois. Deixar o servidor mandar apagaria a marca local durante o voo da
+   * requisição; deixar o local mandar ignoraria o que veio da outra máquina.
+   * Somar acerta os dois, e a marcação mantém as duas pontas em dia.
+   */
+  const [resolvidosNoServidor, setResolvidosNoServidor] = useState<ReadonlySet<string>>(
+    new Set<string>(),
+  );
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
@@ -1111,13 +1145,21 @@ export function AuditResult({
         }
 
         const payload = (await response.json()) as { feedback?: SavedFeedback[] };
+        const linhas = (payload.feedback ?? []).filter((item) => item.findingId);
         const saved = Object.fromEntries(
-          (payload.feedback ?? [])
-            .filter((item) => item.findingId)
-            .map((item) => [item.findingId as string, item.verdict]),
+          linhas
+            .filter((item) => item.verdict)
+            .map((item) => [item.findingId as string, item.verdict as FeedbackVerdict]),
         );
 
         setFeedbackByFinding(saved);
+        setResolvidosNoServidor(
+          new Set(
+            linhas
+              .filter((item) => item.resolvedAt)
+              .map((item) => item.findingId as string),
+          ),
+        );
       } catch {
         // O relatório continua utilizável mesmo sem carregar avaliação.
       }
@@ -1125,6 +1167,55 @@ export function AuditResult({
 
     void loadFeedback();
   }, [auditId]);
+
+  /** Corrigido aqui OU corrigido em outra máquina — ver `resolvidosNoServidor`. */
+  const estaResolvido = (refId: string | undefined) =>
+    Boolean(refId) && (resolvidos.has(refId!) || resolvidosNoServidor.has(refId!));
+
+  /**
+   * Marca (ou desmarca) o achado como corrigido nos DOIS lugares.
+   *
+   * A conversa continua sendo quem responde na hora — é local, não espera rede,
+   * e é dela que sai o risco no título. O banco é o que faz a decisão
+   * sobreviver a trocar de máquina. Se a gravação falhar, a marca local fica de
+   * pé: perder o trabalho da sessão por causa de uma rede instável seria pior
+   * que ficar sem a cópia durável, e o aviso diz o que aconteceu.
+   */
+  async function alternarResolvido(finding: StructuredFinding, resolvido: boolean) {
+    const refId = finding.refId;
+    if (!refId) return;
+
+    onToggleResolvido?.(refId, resolvido);
+    setResolvidosNoServidor((atual) => {
+      const proximo = new Set(atual);
+      if (resolvido) proximo.add(refId);
+      else proximo.delete(refId);
+      return proximo;
+    });
+
+    if (!auditId) return;
+
+    try {
+      const response = await fetch(getFeedbackEndpoint(auditId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingId: refId,
+          findingLabel: finding.title,
+          page: finding.pagina,
+          resolved: resolvido,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("marcação não gravada");
+      }
+    } catch {
+      setFeedbackNotice(
+        "Corrigido marcado nesta máquina, mas não foi possível gravar no histórico.",
+      );
+    }
+  }
 
   async function saveFindingFeedback(
     finding: StructuredFinding,
@@ -1673,7 +1764,7 @@ export function AuditResult({
                       // encontra este cartão para rolar até ele.
                       data-achado={finding.refId || undefined}
                       data-em-foco={finding.refId && finding.refId === achadoEmFoco ? "" : undefined}
-                      data-resolvido={resolvidos.has(finding.refId ?? "") || undefined}
+                      data-resolvido={estaResolvido(finding.refId) || undefined}
                       className={cn(
                         /*
                          * SEM `overflow-hidden`: o menu de ações deste achado é
@@ -1697,7 +1788,7 @@ export function AuditResult({
                          * manda aqui.
                          */
                         "@container rounded-md border bg-card transition-colors",
-                        resolvidos.has(finding.refId ?? "")
+                        estaResolvido(finding.refId)
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",
                         /*
@@ -1748,11 +1839,40 @@ export function AuditResult({
                                 Ref. {finding.refId}
                               </span>
                             ) : null}
+                            {/*
+                              O VEREDITO, quando já houver um.
+
+                              Ele era gravado e só reaparecia como um botão
+                              aceso lá embaixo, dentro do bloco de avaliação —
+                              e quem rolava a lista relia como pendente um
+                              achado que já tinha julgado falso positivo. A
+                              etiqueta fica junto das outras porque a pergunta
+                              "isto ainda me diz respeito?" se responde no
+                              cabeçalho, antes de abrir o cartão.
+
+                              "Corrigido" NÃO entra aqui: ele já se anuncia no
+                              risco do título e na moldura verde, e repetir a
+                              mesma informação numa terceira marca só rouba
+                              espaço das que não têm outro lugar.
+                            */}
+                            {finding.refId && feedbackByFinding[finding.refId] ? (
+                              <span
+                                data-veredito={feedbackByFinding[finding.refId]}
+                                className={cn(
+                                  "rounded-md border px-2 py-1 font-mono text-xs",
+                                  feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                    ? "border-muted-foreground/30 text-muted-foreground line-through"
+                                    : "border-[var(--status-ok)]/30 text-[var(--status-ok)]",
+                                )}
+                              >
+                                {VEREDITO_LABEL[feedbackByFinding[finding.refId]]}
+                              </span>
+                            ) : null}
                           </div>
                           <h4
                             className={cn(
                               "text-base font-semibold leading-6 transition-colors",
-                              resolvidos.has(finding.refId ?? "")
+                              estaResolvido(finding.refId)
                                 ? "text-muted-foreground line-through decoration-[var(--status-ok)]/60"
                                 : "text-foreground",
                             )}
@@ -1771,21 +1891,18 @@ export function AuditResult({
                             <Button
                               type="button"
                               size="sm"
-                              variant={resolvidos.has(finding.refId) ? "secondary" : "outline"}
+                              variant={estaResolvido(finding.refId) ? "secondary" : "outline"}
                               onClick={() =>
-                                onToggleResolvido(
-                                  finding.refId!,
-                                  !resolvidos.has(finding.refId!),
-                                )
+                                void alternarResolvido(finding, !estaResolvido(finding.refId))
                               }
                               className={
-                                resolvidos.has(finding.refId)
+                                estaResolvido(finding.refId)
                                   ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
                                   : undefined
                               }
                             >
                               <Check />
-                              {resolvidos.has(finding.refId) ? "Corrigido" : "Marcar corrigido"}
+                              {estaResolvido(finding.refId) ? "Corrigido" : "Marcar corrigido"}
                             </Button>
                           ) : null}
                           <Dropdown
