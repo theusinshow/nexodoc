@@ -476,6 +476,8 @@ NÃO reporte divergência de identidade documental — nome da obra, unidade, mu
 
 Se o trecho for sumário/índice (títulos com pontilhado e número de página), NÃO gere achados sobre ele — títulos repetidos, numeração ou grafia do índice não são defeitos. Nunca reclame de "recorte", "página fornecida" ou de não conseguir auditar a partir do sumário.
 
+UMA OCORRÊNCIA, UM ACHADO. Grafia, concordância, pontuação e palavra trocada se corrigem uma a uma, em lugares diferentes do texto: cada uma é um achado com a SUA "pagina", o SEU trecho em "evidencia", o SEU "termo_busca" e a SUA "sugestao_correcao". NUNCA junte várias numa frase só ("pág. 8 ...; pág. 23 ...; pág. 35 ..."): assim ninguém consegue abrir, localizar no PDF nem marcar como resolvida uma ocorrência isolada. Junte num achado só quando UMA decisão resolver todas de uma vez (convenção de unidade, nomenclatura, regra de prevalência). Em achado de texto, escreva "categoria": "Ortografia / Redação".
+
 Projeto informado: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
 Tipo informado: ${args.fileType}
@@ -497,6 +499,7 @@ Responda APENAS JSON válido:
       "descricao": "descrição objetiva",
       "evidencia": "texto encontrado",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
+      "categoria": "categoria do achado (use \"Ortografia / Redação\" nos de texto)",
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",
       "confianca": "alta|media|baixa",
@@ -2187,7 +2190,15 @@ Preencha "impacto" em TODO achado, pela consequência para quem vai emitir: "cri
 
 Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo — mas registre o achado.
 
-PEQUE PELO EXCESSO: reporte todo defeito real que encontrar, inclusive acabamento, esquadria, ferragem, parágrafo duplicado e erro de redação, mesmo quando já houver achado grave no documento. Não omita achado por ser secundário; a classificação por impacto é que organiza a lista. Consolide ocorrências repetidas do MESMO defeito em um único achado que cite todas as páginas e todas as ocorrências. Teto de 60 achados.
+PEQUE PELO EXCESSO: reporte todo defeito real que encontrar, inclusive acabamento, esquadria, ferragem, parágrafo duplicado e erro de redação, mesmo quando já houver achado grave no documento. Não omita achado por ser secundário; a classificação por impacto é que organiza a lista.
+
+UMA OCORRÊNCIA, UM ACHADO — quando a correção é feita ocorrência por ocorrência. Grafia, concordância, pontuação, palavra trocada, parágrafo duplicado: cada uma se corrige num lugar diferente do texto, então cada uma é um achado com a SUA "pagina", o SEU trecho em "evidencia", o SEU "termo_busca" e a SUA "sugestao_correcao". NUNCA junte várias numa frase só ("pág. 8 ...; pág. 23 ...; pág. 35 ..."): quem revisa não consegue abrir, localizar no PDF nem marcar como resolvida uma ocorrência que está enterrada dentro de um texto corrido. Ocorrências parecidas do mesmo defeito voltam a aparecer juntas na tela — isso é trabalho do software, não seu.
+
+CONSOLIDE apenas quando UMA decisão resolve todas as ocorrências de uma vez: regra de prevalência documental, norma adotada, convenção de unidade, nomenclatura de bloco. Aí sim um único achado, citando as páginas onde a decisão se aplica.
+
+Em achado de texto, escreva "categoria": "Ortografia / Redação". É por esse nome que a tela separa revisão de texto de divergência técnica.
+
+Teto de 60 achados, no máximo 30 deles com impacto "revisao_editorial". Havendo mais ocorrências de texto que isso, reporte as de menor número de página primeiro. NUNCA descarte achado técnico para caber ocorrência de texto.
 
 Projeto informado pelo usuário: ${args.projectName || "não informado"}
 Arquivo: ${args.fileName}
@@ -2212,7 +2223,7 @@ Responda APENAS JSON válido:
       "descricao": "descrição objetiva",
       "evidencia": "texto encontrado",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
-      "categoria": "categoria do achado",
+      "categoria": "categoria do achado (use \"Ortografia / Redação\" nos de texto)",
       "referencia_comparada": "identidade predominante ou trecho comparado, quando existir",
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",

@@ -486,20 +486,61 @@ export function classifyFindingDiscipline(finding: AuditFinding): FindingDiscipl
   return "geral";
 }
 
+/*
+ * A ORDEM É PRIORIDADE, e `editorial` subiu para logo depois de `identidade`.
+ *
+ * Ele era o último, e por isso quase nunca ganhava: um achado de grafia cujo
+ * tipo é "Grafia de área construída" casava antes em `quantitativo` (`area`), e
+ * um sobre a redação de uma citação de norma casava em `norma`. O achado ia
+ * para o balde errado e sumia do filtro "Redação / editorial" — justamente o
+ * filtro que existe para separar revisão de texto de divergência técnica.
+ *
+ * `identidade` fica na frente porque grafia do NOME DA OBRA não é revisão de
+ * texto: é o documento falando de outro empreendimento.
+ */
 const ERROR_TYPE_RULES: Array<{ key: FindingErrorType; pattern: RegExp }> = [
   { key: "identidade", pattern: /\b(?:identidade|nome de obra|nome da obra|obra\/unidade|ocupacao divergente|reaproveit|gabarito|outra obra)/ },
+  { key: "editorial", pattern: /\b(?:redac|grafia|ortograf|formata|editorial|acentua|concordanc|pontuac|digitac|portugues|palavra trocada|paragrafo duplicad)/ },
   { key: "norma", pattern: /\b(?:norma|nbr|abnt|nr ?18|iso \d|vigencia|desatualiz|instituiu)/ },
+  { key: "escopo", pattern: /\b(?:escopo|responsabilidad|hierarquia|prevalenc|contratual|precedencia)/ },
   { key: "quantitativo", pattern: /\b(?:area|unidade|quantitativ|populacao|vaga|dimens)/ },
   { key: "especificacao", pattern: /\b(?:material|especifica|bancada|grade|granito|inox|bacia|caixa acoplada|valvula)/ },
-  { key: "escopo", pattern: /\b(?:escopo|responsabilidad|hierarquia|prevalenc|contratual|precedencia)/ },
-  { key: "editorial", pattern: /\b(?:redac|grafia|ortograf|formata|editorial|acentua)/ },
 ];
 
+/**
+ * De que NATUREZA é o defeito — o que alimenta os chips de filtro do parecer.
+ *
+ * LIA O TEXTO ERRADO. A busca varria o `findingHaystack`, que inclui a
+ * `evidencia` e o `capitulo` — e esses dois não são o auditor descrevendo o
+ * defeito, são as PALAVRAS DO MEMORIAL. Um erro de grafia cuja frase citada
+ * mencionasse "área", "norma" ou "bancada" virava quantitativo, norma ou
+ * especificação; o filtro de revisão de texto ficava vazio numa auditoria cheia
+ * de erros de texto.
+ *
+ * É a mesma distinção que `classifyFindingImpact` já fazia logo acima, entre o
+ * ESCOPO do achado e a prosa em volta. Aqui ela chega em duas passadas:
+ *
+ *  1. o rótulo que o próprio auditor deu ao defeito (`tipo` + `categoria`);
+ *  2. só então a descrição do conflito e a correção proposta — que ainda falam
+ *     do defeito, ao contrário da citação.
+ *
+ * A `evidencia` não entra em nenhuma das duas.
+ */
 export function classifyFindingErrorType(finding: AuditFinding): FindingErrorType {
-  const haystack = findingHaystack(finding);
+  const escopo = normalizeForMatch([finding.tipo, finding.categoria ?? ""].join(" "));
 
   for (const rule of ERROR_TYPE_RULES) {
-    if (rule.pattern.test(haystack)) {
+    if (rule.pattern.test(escopo)) {
+      return rule.key;
+    }
+  }
+
+  const descricao = normalizeForMatch(
+    [finding.descricao, finding.conflito, finding.sugestao_correcao].join(" "),
+  );
+
+  for (const rule of ERROR_TYPE_RULES) {
+    if (rule.pattern.test(descricao)) {
       return rule.key;
     }
   }

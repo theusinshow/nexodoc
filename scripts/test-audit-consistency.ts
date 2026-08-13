@@ -894,6 +894,59 @@ check("tipo de erro: identidade, norma, quantitativo, escopo, especificação", 
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Contradição de material", categoria: "Especificação de materiais" })), "especificacao");
 });
 
+// --- tipo de erro: a evidência não decide a natureza do defeito ---------------
+/*
+ * A busca varria o haystack inteiro — `evidencia` e `capitulo` incluídos —, e
+ * esses dois são as palavras DO MEMORIAL, não a descrição do defeito. Erro de
+ * grafia numa frase que falasse de área virava "quantitativo", e o filtro
+ * "Redação / editorial" ficava vazio numa auditoria cheia de erro de texto.
+ */
+check("tipo de erro: achado de texto é editorial mesmo citando área/norma/bancada", () => {
+  assert.equal(
+    classifyFindingErrorType(
+      mkReportFinding({
+        tipo: "Erro de grafia",
+        categoria: "Ortografia / Redação",
+        evidencia: "a area de servico recebe bancada em granito conforme norma NBR 15575",
+        capitulo: "12 - QUANTITATIVOS E AREAS",
+      }),
+    ),
+    "editorial",
+  );
+});
+
+check("tipo de erro: grafia DENTRO do tipo vence quantitativo", () => {
+  // "Grafia de área construída" casava em /area/ antes de chegar em /grafia/.
+  assert.equal(
+    classifyFindingErrorType(mkReportFinding({ tipo: "Grafia de área construída", categoria: "" })),
+    "editorial",
+  );
+});
+
+check("tipo de erro: grafia do NOME DA OBRA continua identidade, não editorial", () => {
+  // Não é revisão de texto: é o documento falando de outro empreendimento.
+  assert.equal(
+    classifyFindingErrorType(
+      mkReportFinding({ tipo: "Grafia do nome da obra divergente", categoria: "Identidade documental" }),
+    ),
+    "identidade",
+  );
+});
+
+check("tipo de erro: sem escopo conclusivo, a DESCRIÇÃO decide — nunca a citação", () => {
+  assert.equal(
+    classifyFindingErrorType(
+      mkReportFinding({
+        tipo: "Inconsistência",
+        categoria: "",
+        conflito: "erro de concordância verbal no período",
+        evidencia: "as vagas de estacionamento dimensionadas conforme a NBR 9050",
+      }),
+    ),
+    "editorial",
+  );
+});
+
 // --- 12. Revisão de 12/08/2026: parar de esconder achado -----------------------
 // Cada teste abaixo trava uma perda medida na comparação com auditoria externa
 // do 063_26_md_geral_a.pdf. Ver lib/auditor-prompt.ts para o contexto completo.
