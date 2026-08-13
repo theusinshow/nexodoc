@@ -55,6 +55,33 @@ export const PAGINA_INTEIRA: Enquadramento = { escala: 1, x: 0, y: 0 };
  * `origem` do transform é o canto superior esquerdo — é o que torna a conta
  * `escala · ponto + deslocamento`, sem termo de correção.
  */
+/**
+ * Teto de densidade de render. Quatro: acima disso a tela ganha pouco e a
+ * memória do canvas cresce ao quadrado — uma prancha A0 a 8× passa de 100
+ * megapixels, e o navegador devolve canvas em branco em vez de erro.
+ */
+export const DENSIDADE_MAXIMA = 4;
+
+/**
+ * EM QUE DENSIDADE RASTERIZAR a página para que o carimbo seja LEGÍVEL.
+ *
+ * O visor rasterizava numa largura fixa e depois ampliava por CSS. Ampliar
+ * bitmap não cria detalhe: enquadrar o carimbo a 3× entregava o carimbo borrado
+ * — e um carimbo que não se lê derruba a razão de existir do modo selo, que é
+ * justamente conferir o carimbo.
+ *
+ * A correção é pedir ao pdfjs mais PIXEL, não mais tamanho: o layout continua
+ * em pixels de CSS (o enquadramento não muda), só a densidade do canvas sobe
+ * junto com o zoom.
+ */
+export function densidadeDeRender(escala: number, dpr = 1): number {
+  const base = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+  const desejada = (Number.isFinite(escala) && escala > 0 ? escala : 1) * base;
+  // Nunca abaixo da densidade da tela: a folha inteira (escala 1) já precisa
+  // do dpr do monitor para não sair borrada num display retina.
+  return Math.min(DENSIDADE_MAXIMA, Math.max(base, desejada));
+}
+
 export function enquadrarSelo(
   caixa: CaixaNormalizada,
   pagina: { largura: number; altura: number },

@@ -6,7 +6,9 @@
 import assert from "node:assert/strict";
 
 import {
+  DENSIDADE_MAXIMA,
   PAGINA_INTEIRA,
+  densidadeDeRender,
   enquadrarSelo,
 } from "../modules/nexo/lib/enquadramento-do-selo.ts";
 
@@ -85,6 +87,33 @@ test("A0 e A1 dao enquadramentos diferentes, e os dois cabem", () => {
 test("a escala tem teto: carimbo minusculo nao vira raster gigante", () => {
   const e = enquadrarSelo({ x0: 0.98, y0: 0.98, x1: 1, y1: 1 }, A0, QUADRO);
   assert.ok(e.escala <= 6, `escala ${e.escala} passou do teto`);
+});
+
+/*
+ * DENSIDADE DE RENDER — o carimbo enquadrado tem de ser LEGÍVEL.
+ *
+ * O visor rasterizava numa largura fixa e ampliava por CSS: o carimbo abria
+ * enquadrado e borrado. Ampliar bitmap não cria detalhe, e um carimbo que não
+ * se lê derruba a razão de existir do modo selo.
+ */
+test("a densidade acompanha o zoom do enquadramento", () => {
+  assert.equal(densidadeDeRender(3, 1), 3);
+  assert.equal(densidadeDeRender(2, 2), 4);
+});
+
+test("nunca abaixo da densidade da tela", () => {
+  assert.equal(densidadeDeRender(1, 2), 2, "num retina, a folha inteira já precisa de 2x");
+  assert.equal(densidadeDeRender(0.5, 2), 2);
+});
+
+test("tem teto: o canvas cresce ao quadrado e o navegador devolve branco", () => {
+  assert.equal(densidadeDeRender(6, 2), DENSIDADE_MAXIMA);
+  assert.equal(densidadeDeRender(99, 1), DENSIDADE_MAXIMA);
+});
+
+test("entrada torta não produz densidade inválida", () => {
+  assert.equal(densidadeDeRender(Number.NaN, Number.NaN), 1);
+  assert.equal(densidadeDeRender(0, 0), 1);
 });
 
 console.log(`\n${passed} teste(s) ok`);

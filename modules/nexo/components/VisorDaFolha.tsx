@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   PAGINA_INTEIRA,
+  densidadeDeRender,
   enquadrarSelo,
   type CaixaNormalizada,
   type Enquadramento,
@@ -183,6 +184,21 @@ export function VisorDaFolha({
     );
   }, [modoSelo, caixa, pagina, quadro]);
 
+  /*
+   * A densidade acompanha o enquadramento. Recalcular aqui (e não dentro do
+   * `Page`) mantém a regra num módulo puro, com teste em node cru — e faz o
+   * canvas ser rasterizado de novo só quando o zoom muda de fato: alternar
+   * selo/folha, trocar de folha, redimensionar a janela.
+   */
+  const densidade = useMemo(
+    () =>
+      densidadeDeRender(
+        enquadramento.escala,
+        typeof window === "undefined" ? 1 : window.devicePixelRatio,
+      ),
+    [enquadramento.escala],
+  );
+
   const semGeometria = modoSelo && pagina !== null && caixa === null;
 
   if (!folha) return null;
@@ -265,9 +281,16 @@ export function VisorDaFolha({
                 </p>
               }
             >
+              {/*
+                `devicePixelRatio` acompanha o ZOOM, não só o monitor.
+                Sem isto o canvas nascia com 1100px de largura e o carimbo era
+                ampliado por CSS — bitmap esticado, texto ilegível justamente no
+                único lugar que o modo selo existe para mostrar.
+              */}
               <Page
                 pageNumber={folha.pageNumber}
                 width={LARGURA_BASE}
+                devicePixelRatio={densidade}
                 onLoadSuccess={aoCarregarPagina}
                 renderAnnotationLayer={false}
               />
