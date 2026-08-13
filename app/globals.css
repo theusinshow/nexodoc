@@ -968,11 +968,78 @@ textarea {
    Transitions (nomes estaveis abaixo); o fallback CSS cobre quem nao suporta.
    ========================================================================== */
 
+/* O `row-gap: 0` NAO e detalhe: com `gap: 1rem` valendo tambem para linhas, a
+   barra do topo escondida (`:empty`) deixaria 1rem de vao no lugar dela -- o
+   vao que o estado vazio existe para nao ter. As colunas seguem com o mesmo
+   respiro de antes; a barra traz o proprio padding e a propria borda. */
 .nexo-shell {
   height: 100%;
   display: grid;
-  gap: 1rem;
+  column-gap: 1rem;
+  row-gap: 0;
   grid-template-rows: minmax(0, 1fr);
+}
+
+/* A barra do topo atravessa as colunas: ela fala da conversa, nao de uma area.
+   A linha so nasce quando ha barra montada, e some de vez quando o componente
+   decide nao renderizar nada. */
+.nexo-shell[data-com-barra="true"] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.nexo-shell__barra {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.nexo-shell__barra:empty {
+  display: none;
+}
+
+.nexo-barra {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  font-size: 0.8125rem;
+}
+
+.nexo-barra__obra {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.nexo-barra__orgao,
+.nexo-barra__etapa {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+
+.nexo-barra__rotulo {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.nexo-barra__codigo {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
 }
 
 /* Welcome: sidebar | chat centralizado (largura de leitura), orb grande. */
@@ -1062,6 +1129,7 @@ textarea {
      O parecer da auditoria e o mapa do volume sao leitura lado a lado; espremer
      os dois numa coluna entregaria ambos pela metade. Some tudo e fica so o
      recado -- degradar em silencio faria a decisao parecer defeito. */
+  .nexo-shell__barra,
   .nexo-shell__stage,
   .nexo-shell__splitter,
   .nexo-shell__copilot {

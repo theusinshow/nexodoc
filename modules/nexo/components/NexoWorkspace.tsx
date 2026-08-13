@@ -38,6 +38,7 @@ import {
 } from "../state/use-conversation-usage";
 import { FaixaDeEstado } from "./FaixaDeEstado";
 import { NexoShell } from "./NexoShell";
+import { BarraDoNexo } from "./BarraDoNexo";
 import { NexoSidebar } from "./NexoSidebar";
 import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
@@ -1839,6 +1840,7 @@ function NexoWorkspaceInner({
 
       <NexoShell
         started={started}
+        barra={<BarraDoNexo />}
         sidebar={
           <NexoSidebar
             onNewConversation={reset}

@@ -35,27 +35,39 @@ export function AppShell({
         className,
       )}
     >
-      <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 px-5 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/nexo"
-              className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              NEXO
-            </Link>
-            {moduleName.trim().toLowerCase() !== "nexo" && (
-              <>
-                <span className="text-muted-foreground/40">/</span>
-                <span className="font-mono text-sm font-semibold">{moduleName}</span>
-              </>
+      {/*
+        Em fullBleed o cabecalho NAO existe.
+
+        Quem usa fullBleed e o shell conversacional do Nexo, e la a barra lateral
+        ja carrega marca, navegacao e conta — repetir isso no topo poria a palavra
+        "Nexo" duas vezes a 40px de distancia e daria dois donos ao menu da conta.
+        O topo do Nexo tem barra propria (`BarraDoNexo`), que vive DENTRO dos
+        providers e por isso alcanca a conversa ativa; deste header, que e irmao
+        acima deles, nenhum hook do Nexo e alcancavel.
+      */}
+      {!fullBleed && (
+        <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 px-5 py-3">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/nexo"
+                className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                NEXO
+              </Link>
+              {moduleName.trim().toLowerCase() !== "nexo" && (
+                <>
+                  <span className="text-muted-foreground/40">/</span>
+                  <span className="font-mono text-sm font-semibold">{moduleName}</span>
+                </>
+              )}
+            </div>
+            {version && (
+              <span className="font-mono text-xs text-muted-foreground">{version}</span>
             )}
           </div>
-          {version && (
-            <span className="font-mono text-xs text-muted-foreground">{version}</span>
-          )}
-        </div>
-      </header>
+        </header>
+      )}
       {fullBleed ? (
         <main className="min-h-0 flex-1 px-4 py-4">{children}</main>
       ) : (

@@ -19,11 +19,19 @@ import { ShellSplitter } from "./ShellSplitter";
 
 export function NexoShell({
   started,
+  barra,
   sidebar,
   stage,
   copilot,
 }: {
   started: boolean;
+  /**
+   * A faixa do topo. O componente lá dentro decide não existir (devolve `null`)
+   * quando não há obra lida nem auditoria rodando — por isso a linha do grid
+   * some sozinha pelo `:empty`, e não por uma condição aqui: o dado que decide
+   * mora dentro dos providers, fora do alcance deste componente.
+   */
+  barra?: ReactNode;
   sidebar: ReactNode;
   stage: ReactNode;
   copilot: ReactNode;
@@ -31,11 +39,15 @@ export function NexoShell({
   return (
     <div
       data-started={started}
+      data-com-barra={Boolean(barra)}
       className={cn(
         "nexo-shell",
         started ? "nexo-shell--active" : "nexo-shell--welcome",
       )}
     >
+      {/* A barra atravessa as colunas: ela fala da conversa inteira, não de
+          uma das três áreas. */}
+      {barra && <div className="nexo-shell__barra">{barra}</div>}
       <div className="nexo-shell__sidebar">{sidebar}</div>
       {/* Canvas (mapa do volume) entra no centro ao ativar; o chat desliza p/ a
           direita (FLIP via view-transition-name). Continuidade §1: o copiloto
