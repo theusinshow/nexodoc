@@ -84,6 +84,7 @@ export function AdminTokenForm({
   onSubmit,
   children,
   gridClassName = "sm:grid-cols-[1fr_auto]",
+  autenticado = true,
 }: {
   token: string;
   loading: boolean;
@@ -91,6 +92,15 @@ export function AdminTokenForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   children?: ReactNode;
   gridClassName?: string;
+  /**
+   * O token FUNCIONOU (a tela recebeu dados). Sem isto, o recolhimento
+   * acontecia no envio, desse certo ou não: token recusado deixava a pessoa
+   * olhando "Acesso admin negado" com o campo fechado, e para tentar de novo
+   * era preciso adivinhar que o caminho é o link "trocar".
+   *
+   * O padrão é `true` para não mudar o comportamento de quem não passa a prop.
+   */
+  autenticado?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
 
@@ -105,7 +115,7 @@ export function AdminTokenForm({
     }
   }
 
-  if (token && !editando) {
+  if (token && !editando && autenticado) {
     /*
       O RECOLHIDO CONTINUA SENDO UM FORM, e continua carregando os `children`.
       Algumas telas passam ali controles que NÃO são de autenticação — o

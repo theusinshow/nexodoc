@@ -659,6 +659,7 @@ export default function AdminConfigPage() {
         actions={
           <AdminTokenForm
             token={token}
+            autenticado={Boolean(data)}
             loading={isLoading}
             onTokenChange={setToken}
             onSubmit={handleSubmit}

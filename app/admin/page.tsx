@@ -217,6 +217,7 @@ export default function AdminHomePage() {
         actions={
           <AdminTokenForm
             token={token}
+            autenticado={Boolean(data)}
             loading={loading}
             onTokenChange={setToken}
             onSubmit={submit}

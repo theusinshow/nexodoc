@@ -92,6 +92,12 @@ function CartaoDeConfirmacao({
 export default function AdminUsersPage() {
   const [token, setToken] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
+  /*
+   * O TOKEN FOI ACEITO? Lista vazia nao responde: "nenhum resultado" e "nunca
+   * carregou" sao o mesmo array. Sem esta flag, o campo de token se recolhia
+   * mesmo com o acesso negado.
+   */
+  const [carregou, setCarregou] = useState(false);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
@@ -214,9 +220,11 @@ export default function AdminUsersPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setUsers(payload?.users ?? []);
+      setCarregou(true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Não foi possível carregar usuários.");
       setUsers([]);
+      setCarregou(false);
     } finally {
       setLoading(false);
     }
@@ -307,6 +315,7 @@ export default function AdminUsersPage() {
         actions={
           <AdminTokenForm
             token={token}
+            autenticado={carregou}
             loading={loading}
             onTokenChange={setToken}
             onSubmit={submitFilters}

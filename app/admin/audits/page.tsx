@@ -101,6 +101,12 @@ function getStatusClass(status: string) {
 export default function AdminAuditsPage() {
   const [token, setToken] = useState("");
   const [audits, setAudits] = useState<AuditListItem[]>([]);
+  /*
+   * O TOKEN FOI ACEITO? Lista vazia nao responde: "nenhum resultado" e "nunca
+   * carregou" sao o mesmo array. Sem esta flag, o campo de token se recolhia
+   * mesmo com o acesso negado.
+   */
+  const [carregou, setCarregou] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -240,9 +246,11 @@ export default function AdminAuditsPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
       setToken(trimmedToken);
       setAudits(payload.audits);
+      setCarregou(true);
       setSelected(new Set());
     } catch (requestError) {
       setAudits([]);
+      setCarregou(false);
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -279,6 +287,7 @@ export default function AdminAuditsPage() {
         actions={
           <AdminTokenForm
             token={token}
+            autenticado={carregou}
             loading={isLoading}
             onTokenChange={setToken}
             onSubmit={handleSubmit}

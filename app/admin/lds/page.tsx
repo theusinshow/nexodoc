@@ -45,6 +45,12 @@ function statusClass(status: LdRecord["status"]) {
 export default function AdminLdsPage() {
   const [token, setToken] = useState("");
   const [lds, setLds] = useState<LdRecord[]>([]);
+  /*
+   * O TOKEN FOI ACEITO? Lista vazia nao responde: "nenhum resultado" e "nunca
+   * carregou" sao o mesmo array. Sem esta flag, o campo de token se recolhia
+   * mesmo com o acesso negado.
+   */
+  const [carregou, setCarregou] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [user, setUser] = useState("");
@@ -133,9 +139,11 @@ export default function AdminLdsPage() {
       sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken.trim());
       setToken(nextToken.trim());
       setLds(payload?.lds ?? []);
+      setCarregou(true);
       setSelected(new Set());
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Não foi possível carregar LDs.");
+      setCarregou(false);
     } finally {
       setLoading(false);
     }
@@ -166,6 +174,7 @@ export default function AdminLdsPage() {
         actions={
           <AdminTokenForm
             token={token}
+            autenticado={carregou}
             loading={loading}
             onTokenChange={setToken}
             onSubmit={submit}

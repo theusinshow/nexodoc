@@ -81,7 +81,28 @@ conferir(
   "o formulário recolheu no primeiro caractere",
 );
 
-// --- 4. Com o token, o ambiente aparece nos campos ---
+/*
+ * --- 4. TOKEN RECUSADO NÃO RECOLHE O CAMPO ---
+ *
+ * Encontrado pelo mantenedor validando à mão: digitar uma letra e apertar Enter
+ * devolvia "Acesso admin negado" com o formulário já recolhido, e para tentar
+ * de novo era preciso adivinhar que o caminho é o link "trocar".
+ */
+await page.locator('input[type="password"]').first().fill("token-errado");
+await page.locator("form button[type=submit]").first().click();
+await page.waitForTimeout(1200);
+conferir(
+  "token recusado mantém o campo aberto para corrigir",
+  (await page.locator('input[type="password"]').count()) === 1,
+  "o formulário recolheu mesmo com o acesso negado",
+);
+conferir(
+  "e o motivo da recusa aparece na tela",
+  await page.getByText(/Acesso admin negado/i).first().isVisible(),
+  "a mensagem de recusa não apareceu",
+);
+
+// --- 5. Com o token certo, o ambiente aparece nos campos ---
 await page.locator('input[type="password"]').first().fill(TOKEN);
 await page.locator("form button[type=submit]").first().click();
 await page.waitForLoadState("networkidle").catch(() => {});
@@ -107,7 +128,7 @@ conferir(
 );
 conferir("a UF chega em maiúscula", (await valor("UF")) === "SC", `veio "${await valor("UF")}"`);
 
-// --- 5. Sem banco, o salvar trava E diz por quê (não some em silêncio) ---
+// --- 6. Sem banco, o salvar trava E diz por quê (não some em silêncio) ---
 const salvar = page.getByRole("button", { name: /Salvar dados do escritório/i });
 conferir("o salvar está desabilitado sem DATABASE_URL", await salvar.isDisabled(), "estava clicável");
 conferir(
@@ -116,7 +137,7 @@ conferir(
   "o motivo não apareceu",
 );
 
-// --- 6. A validação fala antes de tentar salvar ---
+// --- 7. A validação fala antes de tentar salvar ---
 await page.locator('label:has-text("UF") input').first().fill("SCC");
 await page.waitForTimeout(150);
 conferir(
