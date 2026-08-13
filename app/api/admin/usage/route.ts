@@ -476,8 +476,40 @@ export async function GET(request: Request) {
     return jsonError(request, "Acesso admin negado.", 401);
   }
 
+  /*
+   * SEM A CHAVE ADMIN DA OPENAI, A PÁGINA NÃO MORRE INTEIRA.
+   *
+   * Aqui havia um 500 que derrubava a resposta toda. Só que metade desta tela
+   * não depende da OpenAI: o consumo interno e o CUSTO POR OBRA saem do nosso
+   * próprio banco, e a cotação sai da configuração. Recusar tudo por causa de
+   * uma chave que serve só à fatura do provedor é esconder o dado que existe
+   * por causa do dado que falta — e some justamente com a resposta a "quanto
+   * custou entregar este projeto", que é a pergunta do escritório.
+   *
+   * A parte que depende da chave volta vazia e DIZ que está vazia.
+   */
   if (!openAIAdminKey) {
-    return jsonError(request, "OPENAI_ADMIN_KEY não configurada.", 500);
+    const days = getDays(request);
+    const endTime = Math.floor(Date.now() / 1000);
+    const startTime = endTime - days * 24 * 60 * 60;
+    const [internalUsage, cotacao] = await Promise.all([
+      summarizeInternalUsage(startTime),
+      carregarCotacao(),
+    ]);
+
+    return withCors(
+      NextResponse.json({
+        range: { days, startTime, endTime },
+        usage: { daily: [], models: [], totals: { inputTokens: 0, outputTokens: 0, cachedTokens: 0, requests: 0 } },
+        costs: { daily: [], lineItems: [], total: { amount: 0, currency: "usd" } },
+        semChaveDaOpenAi:
+          "OPENAI_ADMIN_KEY não configurada: a fatura do provedor não pode ser consultada. O consumo interno e o custo por obra abaixo vêm do banco e não dependem dela.",
+        internalUsage,
+        cotacao,
+        generatedAt: new Date().toISOString(),
+      }),
+      request,
+    );
   }
 
   try {

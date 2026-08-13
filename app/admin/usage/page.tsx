@@ -75,6 +75,11 @@ type AdminUsageResponse = {
   };
   /** A cotação declarada em `/admin/config`; ausente = tela em dólar. */
   cotacao?: CotacaoDeclarada;
+  /**
+   * Preenchido quando falta `OPENAI_ADMIN_KEY`: a fatura do provedor não vem,
+   * mas o consumo interno e o custo por obra (que saem do banco) vêm.
+   */
+  semChaveDaOpenAi?: string;
   internalUsage?: {
     enabled: boolean;
     /** Consumo agrupado por obra (pasta da conversa). Ver `lib/custo-por-obra.ts`. */
@@ -330,6 +335,16 @@ export default function AdminUsagePage() {
           de "quase certo" que este produto recusa em documento — não teria por
           que aceitar no próprio painel.
         */}
+        {/*
+          A falta da chave da OpenAI é AVISO, não erro: o que depende dela vem
+          vazio, o que vem do banco continua na tela.
+        */}
+        {data?.semChaveDaOpenAi ? (
+          <p className="rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-3 py-2 font-mono text-[11px] text-[var(--signal-info)]">
+            {data.semChaveDaOpenAi}
+          </p>
+        ) : null}
+
         <p className="font-mono text-[11px] text-muted-foreground">
           {procedenciaDaCotacao(cotacao, new Date())}
           {" · "}
