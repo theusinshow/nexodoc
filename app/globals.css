@@ -977,23 +977,46 @@ textarea {
   display: grid;
   column-gap: 1rem;
   row-gap: 0;
-  grid-template-rows: minmax(0, 1fr);
-}
-
-/* A barra do topo atravessa as colunas: ela fala da conversa, nao de uma area.
-   A linha so nasce quando ha barra montada, e some de vez quando o componente
-   decide nao renderizar nada. */
-.nexo-shell[data-com-barra="true"] {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+/* A barra do topo atravessa as colunas: ela fala da conversa, nao de uma area.
+   A linha existe SEMPRE e a barra e colocada nela A MAO -- as duas coisas
+   juntas, e nao por acaso.
+
+   O ARRANJO ANTERIOR ESTICAVA O CHAT ATE 8000px. As linhas so viravam duas sob
+   `[data-com-barra="true"]`, e as areas nao declaravam linha nenhuma: quem as
+   punha na segunda era o auto-placement, contando com a barra ocupar a
+   primeira. So que `.nexo-shell__barra:empty` a tira do fluxo do grid -- e o
+   componente devolve `null` sempre que nao ha obra lida nem auditoria, que e o
+   caso comum. Sem ninguem na linha 1, as colunas caiam nela; `auto` nao tem
+   teto; o copiloto crescia com o historico da conversa, o log parava de rolar
+   por dentro (`scrollHeight === clientHeight`) e o composer descia junto, fora
+   da janela. Medido: 8140px de copiloto numa janela de 900, composer em
+   y=8078.
+
+   O `auto` vazio nao custa nada: sem item, a linha mede zero, e o `row-gap: 0`
+   logo acima garante que ela nao deixe vao. Por isso o `[data-com-barra]`
+   sumiu -- ele existia so para alternar esta regra, e alternar era o defeito. */
 .nexo-shell__barra {
+  grid-row: 1;
   grid-column: 1 / -1;
   min-width: 0;
 }
 
 .nexo-shell__barra:empty {
   display: none;
+}
+
+/* As areas moram na linha 2, dita e nao deduzida. Enquanto a colocacao fosse
+   implicita, qualquer componente que decidisse nao renderizar mudaria a altura
+   do shell inteiro -- e foi exatamente o que aconteceu. */
+.nexo-shell__sidebar,
+.nexo-shell__stage,
+.nexo-shell__splitter,
+.nexo-shell__copilot,
+.nexo-shell__estreito {
+  grid-row: 2;
 }
 
 .nexo-barra {

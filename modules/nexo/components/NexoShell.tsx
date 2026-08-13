@@ -27,9 +27,13 @@ export function NexoShell({
   started: boolean;
   /**
    * A faixa do topo. O componente lá dentro decide não existir (devolve `null`)
-   * quando não há obra lida nem auditoria rodando — por isso a linha do grid
-   * some sozinha pelo `:empty`, e não por uma condição aqui: o dado que decide
-   * mora dentro dos providers, fora do alcance deste componente.
+   * quando não há obra lida nem auditoria rodando — por isso quem a esconde é o
+   * `:empty` do CSS, e não uma condição aqui: o dado que decide mora dentro dos
+   * providers, fora do alcance deste componente.
+   *
+   * A linha do grid, porém, existe sempre, e as áreas declaram morar na
+   * segunda. Fazer a linha aparecer e sumir era o que esticava o chat: sem
+   * barra, as colunas caíam na linha `auto` e cresciam com o histórico.
    */
   barra?: ReactNode;
   sidebar: ReactNode;
@@ -39,7 +43,6 @@ export function NexoShell({
   return (
     <div
       data-started={started}
-      data-com-barra={Boolean(barra)}
       className={cn(
         "nexo-shell",
         started ? "nexo-shell--active" : "nexo-shell--welcome",

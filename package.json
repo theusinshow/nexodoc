@@ -97,6 +97,7 @@
     "prova:bancada": "node scripts/prova-bancada-do-orbe.mjs",
     "prova:varredura": "node scripts/prova-varredura-da-auditoria.mjs",
     "prova:barra-do-nexo": "node scripts/prova-barra-do-nexo.mjs",
+    "prova:chat-esticado": "node scripts/prova-chat-esticado.mjs",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",
