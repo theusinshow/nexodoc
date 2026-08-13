@@ -22,6 +22,11 @@ Este indice organiza a documentacao inicial do NexoDoc antes da implementacao do
 16. [Roadmap software solido, IA e UI](C:/Dev/trabalho/empresa/nexodoc/docs/16-roadmap-software-solido-ia-ui.md)
 17. [Roadmap de agentes de IA e economia de tokens](C:/Dev/trabalho/empresa/nexodoc/docs/17-roadmap-agentes-ia-economia.md)
 
+## Propostas de evolução (2026-08)
+
+- [Propostas de evolução UX/UI](propostas-evolucao-ux-ui.md) — transversais e por tela, numeradas (1.1–2.29). Status: em avaliação.
+- [Evolução do Orbe — Nexo Core](propostas-orbe.md) — 10 propostas (O.1–O.10). Status: aprovadas para execução, ordem na Parte 3.
+
 ## Fonte de verdade
 
 O arquivo [NexoDoc_contexto_principal.md](C:/Dev/trabalho/empresa/nexodoc/docs/NexoDoc_contexto_principal.md) registra o contexto inicial do produto. Para o estado implementado, use o README, o roadmap e a bateria de testes.
