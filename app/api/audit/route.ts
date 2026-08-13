@@ -533,6 +533,21 @@ function getCoherenceMaxOutputTokens() {
  * O Padrão fica abaixo do Profundo de propósito: ele lê uma janela amostrada do
  * documento, então devolve menos achados — e o teto é também um freio de custo.
  */
+/*
+ * OS PADRÕES CARREGAM +6.000 DE FOLGA PARA A SÍNTESE POR CAPÍTULO.
+ *
+ * A leitura global passa a devolver, além dos achados, uma linha por capítulo —
+ * e os memoriais reais têm de 33 a 148 capítulos (medido em 12/08/2026), o que
+ * dá até ~6.000 tokens só de síntese. Sem a folga, somá-la ao mesmo teto faz o
+ * JSON truncar, e truncar aqui derruba os ACHADOS junto: a etapa inteira vira
+ * "resposta inválida" com zero achados. Foi o que aconteceu no 017-26 com 6.000.
+ *
+ * `max_output_tokens` é teto, não meta: subir não custa nada em auditoria que
+ * não usa o espaço.
+ *
+ * Quem sobrescrever pelas variáveis de ambiente está assumindo o número — e
+ * precisa lembrar desta folga, senão volta a truncar.
+ */
 function getStandardGlobalMaxOutputTokens() {
   const value = Number(process.env.NEXODOC_STANDARD_GLOBAL_MAX_OUTPUT_TOKENS);
 
@@ -540,7 +555,7 @@ function getStandardGlobalMaxOutputTokens() {
     return Math.min(16000, Math.floor(value));
   }
 
-  return 8000;
+  return 14000;
 }
 
 function getDeepGlobalMaxOutputTokens() {
@@ -550,7 +565,7 @@ function getDeepGlobalMaxOutputTokens() {
     return Math.min(32000, Math.floor(value));
   }
 
-  return 16000;
+  return 22000;
 }
 
 // A leitura global do Profundo lê o documento inteiro e devolve bastante saída —
