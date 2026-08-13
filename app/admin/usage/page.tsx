@@ -19,6 +19,13 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import {
+  COTACAO_NAO_DECLARADA,
+  formatarReais,
+  procedenciaDaCotacao,
+  type CotacaoDeclarada,
+} from "@/lib/cambio";
+import type { CustoDaObra } from "@/lib/custo-por-obra";
 import { cn } from "@/lib/utils";
 import { ESCALA_DE_DADO as escalaDeDado } from "@/modules/nexo/lib/escala-de-dado";
 
@@ -66,8 +73,14 @@ type AdminUsageResponse = {
       currency: string;
     }>;
   };
+  /** A cotação declarada em `/admin/config`; ausente = tela em dólar. */
+  cotacao?: CotacaoDeclarada;
   internalUsage?: {
     enabled: boolean;
+    /** Consumo agrupado por obra (pasta da conversa). Ver `lib/custo-por-obra.ts`. */
+    obras?: CustoDaObra[];
+    /** O teto de eventos lidos, dito em voz alta quando bate. */
+    amostra?: { eventos: number; limite: number; truncado: boolean };
     totals: {
       inputTokens: number;
       outputTokens: number;
@@ -194,6 +207,8 @@ export default function AdminUsagePage() {
   const [isLoading, setIsLoading] = useState(false);
   const apiUrl = getApiUrl();
   const maxDailyValue = getMaxDailyValue(data);
+  const cotacao = data?.cotacao ?? COTACAO_NAO_DECLARADA;
+  const obras = data?.internalUsage?.obras ?? [];
   const totalTokens = useMemo(() => {
     if (!data) {
       return 0;
@@ -308,6 +323,20 @@ export default function AdminUsagePage() {
 
         <AdminError message={error} />
 
+        {/*
+          A PROCEDÊNCIA DO REAL, acima de tudo que ele toca. Um número
+          convertido sem dizer por qual cotação e de quando é exatamente o tipo
+          de "quase certo" que este produto recusa em documento — não teria por
+          que aceitar no próprio painel.
+        */}
+        <p className="font-mono text-[11px] text-muted-foreground">
+          {procedenciaDaCotacao(cotacao, new Date())}
+          {" · "}
+          <a href="/admin/config" className="underline underline-offset-4 hover:text-foreground">
+            declarar em Configurações
+          </a>
+        </p>
+
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={Coins}
@@ -317,7 +346,17 @@ export default function AdminUsagePage() {
                 ? formatCurrency(data.costs.total.amount, data.costs.total.currency)
                 : "--"
             }
-            detail={`Últimos ${days} dias`}
+            /*
+             * O REAL VEM COLADO NO DÓLAR, nunca no lugar dele: a fatura é em
+             * dólar e continua sendo o número auditável. Sem cotação declarada,
+             * `formatarReais` devolve "" e a linha volta a ser só o período —
+             * é assim que a tela evita inventar um real.
+             */
+            detail={
+              data && formatarReais(data.costs.total.amount, cotacao)
+                ? `${formatarReais(data.costs.total.amount, cotacao)} · últimos ${days} dias`
+                : `Últimos ${days} dias`
+            }
           />
           <MetricCard
             icon={Sigma}
@@ -487,6 +526,97 @@ export default function AdminUsagePage() {
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
+              <h2 className="text-sm font-semibold">Custo por obra</h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                O mesmo consumo, cortado pela pergunta que o escritório faz:
+                quanto custou entregar este projeto. A obra é a pasta da conversa;
+                conversa fora de pasta conta como obra de uma conversa só.
+              </p>
+            </div>
+            {data?.internalUsage?.amostra?.truncado ? (
+              /*
+                O TETO DITO EM VOZ ALTA. A leitura de eventos para em 500 desde
+                antes desta tabela; uma tabela por obra montada sobre amostra sem
+                avisar leria como o período inteiro — e alguém precificaria em
+                cima dela.
+              */
+              <span className="rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2 py-1 font-mono text-[11px] text-[var(--signal-info)]">
+                amostra: os {data.internalUsage.amostra.limite} eventos mais recentes
+              </span>
+            ) : null}
+          </div>
+
+          {!data?.internalUsage?.enabled ? (
+            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+              Sem DATABASE_URL: o consumo por obra vem dos eventos gravados no banco.
+            </p>
+          ) : obras.length === 0 ? (
+            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+              Nenhum consumo registrado no período.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-hidden rounded-sm border">
+              <div className="grid grid-cols-[1.6fr_0.6fr_0.7fr_0.9fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+                <span>Obra</span>
+                <span className="text-right">Conversas</span>
+                <span className="text-right">Tokens</span>
+                <span className="text-right">Custo</span>
+              </div>
+              {obras.map((obra) => {
+                const semObra =
+                  obra.origem === "sem-vinculo" || obra.origem === "conversa-removida";
+                return (
+                  <div
+                    key={obra.chave}
+                    className="grid grid-cols-[1.6fr_0.6fr_0.7fr_0.9fr] items-baseline gap-3 border-b px-3 py-3 text-sm last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <p
+                        className={cn(
+                          "truncate",
+                          // A linha sem obra é informação, não alarme: fica
+                          // apagada, nunca em cor de status.
+                          semObra ? "text-muted-foreground" : "text-foreground",
+                        )}
+                      >
+                        {obra.obra}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                        {obra.origem === "pasta"
+                          ? "pasta"
+                          : obra.origem === "conversa"
+                            ? "conversa avulsa"
+                            : obra.origem === "conversa-removida"
+                              ? "a conversa não existe mais"
+                              : "consumo sem conversa (auditoria fora do Nexo, manutenção)"}
+                        {" · "}
+                        {formatNumber(obra.requests)} chamada(s)
+                      </p>
+                    </div>
+                    <span className="text-right font-mono text-xs text-muted-foreground">
+                      {obra.conversas || "--"}
+                    </span>
+                    <span className="text-right font-mono text-xs text-muted-foreground">
+                      {formatNumber(obra.totalTokens)}
+                    </span>
+                    <span className="text-right font-mono text-xs text-foreground">
+                      {formatUsd(obra.estimatedCostUsd)}
+                      {formatarReais(obra.estimatedCostUsd, cotacao) ? (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {formatarReais(obra.estimatedCostUsd, cotacao)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
               <h2 className="text-sm font-semibold">Uso interno por tarefa</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Eventos gravados pelo Nexo por fluxo, tarefa e chamada de IA.
@@ -494,7 +624,11 @@ export default function AdminUsagePage() {
             </div>
             {data?.internalUsage?.enabled ? (
               <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 font-mono text-xs text-muted-foreground">
-                {formatNumber(data.internalUsage.totals.requests)} eventos · {formatUsd(data.internalUsage.totals.estimatedCostUsd)}
+                {formatNumber(data.internalUsage.totals.requests)} eventos ·{" "}
+                {formatUsd(data.internalUsage.totals.estimatedCostUsd)}
+                {formatarReais(data.internalUsage.totals.estimatedCostUsd, cotacao)
+                  ? ` · ${formatarReais(data.internalUsage.totals.estimatedCostUsd, cotacao)}`
+                  : ""}
               </span>
             ) : null}
           </div>

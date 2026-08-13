@@ -19,6 +19,7 @@ import {
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { isDatabaseConfigured } from "@/lib/db";
 import { carregarEscritorioComOrigem, salvarEscritorio } from "@/lib/escritorio-config";
+import { carregarCotacaoComOrigem, salvarCotacao } from "@/lib/cambio-config";
 
 export const runtime = "nodejs";
 
@@ -338,6 +339,12 @@ async function buildConfigPayload() {
       adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
     },
     escritorio: await carregarEscritorioComOrigem(),
+    /*
+     * O CÂMBIO NASCE AQUI, não em `/admin/usage`. Cotação é configuração: quem
+     * a declara assume a responsabilidade pelo número, e isso não pertence à
+     * tela que só lê o consumo.
+     */
+    cambio: await carregarCotacaoComOrigem(),
     secretFingerprints: {
       openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
       deepseekApiKey: getSecretFingerprint("DEEPSEEK_API_KEY"),
@@ -375,6 +382,7 @@ export async function PATCH(request: Request) {
     model?: string;
     notes?: string;
     escritorio?: unknown;
+    cambio?: unknown;
   } | null;
 
   /*
@@ -399,6 +407,29 @@ export async function PATCH(request: Request) {
       return jsonError(
         request,
         error instanceof Error ? error.message : "Não foi possível salvar os dados do escritório.",
+        400,
+      );
+    }
+  }
+
+  if (body?.action === "cambio") {
+    if (!isDatabaseConfigured()) {
+      return jsonError(
+        request,
+        "DATABASE_URL não configurada; não é possível salvar a cotação.",
+        500,
+      );
+    }
+    try {
+      await salvarCotacao({ valor: body.cambio, declaradaPor: "admin" });
+      return withCors(
+        NextResponse.json({ ok: true, action: "cambio", config: await buildConfigPayload() }),
+        request,
+      );
+    } catch (error) {
+      return jsonError(
+        request,
+        error instanceof Error ? error.message : "Não foi possível salvar a cotação.",
         400,
       );
     }

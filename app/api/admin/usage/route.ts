@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getOpenAiAdminKey } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { carregarCotacao } from "@/lib/cambio-config";
+import { custoPorObra } from "@/lib/custo-por-obra";
 
 export const runtime = "nodejs";
 
@@ -272,6 +274,8 @@ async function summarizeInternalUsage(startTime: number) {
         estimatedCostUsd: 0,
         requests: 0,
       },
+      obras: [],
+      amostra: { eventos: 0, limite: 500, truncado: false },
       flows: [],
       tasks: [],
       aiTasks: [],
@@ -380,9 +384,33 @@ async function summarizeInternalUsage(startTime: number) {
     byTask.set(taskKey, task);
   }
 
+  /*
+   * CUSTO POR OBRA — a junção que ninguém tinha feito.
+   *
+   * O vínculo já existia (`AiUsageEvent.conversationId`); faltava perguntar à
+   * conversa a que pasta ela pertence. Só as conversas citadas pelos eventos
+   * são buscadas — não a tabela inteira.
+   */
+  const idsDeConversa = [
+    ...new Set(events.map((e) => e.conversationId).filter((id): id is string => Boolean(id))),
+  ];
+  const conversas = idsDeConversa.length
+    ? await getPrisma().nexoConversation.findMany({
+        where: { id: { in: idsDeConversa } },
+        select: { id: true, title: true, folderKey: true },
+      })
+    : [];
+
   return {
     enabled: true,
     totals,
+    obras: custoPorObra(events, conversas),
+    /*
+     * O TETO APARECE. `take: 500` é antigo e continua valendo, mas uma tabela
+     * por obra montada sobre uma amostra sem dizer que é amostra leria como o
+     * mês inteiro — e alguém precificaria em cima disso.
+     */
+    amostra: { eventos: events.length, limite: 500, truncado: events.length >= 500 },
     flows: [...byFlow.values()].sort((a, b) => b.totalTokens - a.totalTokens),
     tasks: [...byTask.values()].sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 50),
     aiTasks: aiTasks.map((task) => ({
@@ -480,6 +508,10 @@ export async function GET(request: Request) {
       ),
       summarizeInternalUsage(startTime),
     ]);
+    // A cotacao viaja junto do consumo: a tela nao pode converter sem dizer de
+    // quando e o numero, e buscar em duas chamadas abriria a janela em que uma
+    // chega e a outra nao.
+    const cotacao = await carregarCotacao();
 
     return withCors(
       NextResponse.json({
@@ -491,6 +523,7 @@ export async function GET(request: Request) {
         usage: summarizeUsage(usageBuckets),
         costs: summarizeCosts(costBuckets),
         internalUsage,
+        cotacao,
         generatedAt: new Date().toISOString(),
       }),
       request,

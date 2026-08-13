@@ -496,6 +496,17 @@ model EscritorioConfig {
   updatedAt          DateTime @updatedAt
 }
 
+/// A cotação do dólar DECLARADA à mão, com data e autor.
+/// Linha única: `id` é sempre "cambio". Não é buscada de API de propósito —
+/// ver o docblock de `lib/cambio.ts`. Sem a linha, o painel fica em dólar.
+model CambioConfig {
+  id           String   @id @default("cambio")
+  valor        Float    @default(0)
+  declaradaEm  DateTime @default(now())
+  declaradaPor String   @default("")
+  updatedAt    DateTime @updatedAt
+}
+
 model AiUsageEvent {
   id           String   @id @default(cuid())
   flow         String

@@ -26,6 +26,12 @@ import {
   validarDadosDoEscritorio,
   type DadosDoEscritorio,
 } from "@/lib/escritorio";
+import {
+  normalizarCotacao,
+  procedenciaDaCotacao,
+  validarCotacao,
+  type CotacaoDeclarada,
+} from "@/lib/cambio";
 
 type AdminConfigResponse = {
   runtime: {
@@ -81,6 +87,12 @@ type AdminConfigResponse = {
    */
   escritorio: {
     dados: DadosDoEscritorio;
+    origem: "banco" | "ambiente" | "nenhuma";
+    databaseConfigured: boolean;
+  };
+  /** A cotação que o `/admin/usage` usa para mostrar ≈ R$ (nasce aqui, §A.7). */
+  cambio: {
+    cotacao: CotacaoDeclarada;
     origem: "banco" | "ambiente" | "nenhuma";
     databaseConfigured: boolean;
   };
@@ -226,8 +238,12 @@ export default function AdminConfigPage() {
   const [escritorio, setEscritorio] = useState<DadosDoEscritorio>(ESCRITORIO_VAZIO);
   const [savingEscritorio, setSavingEscritorio] = useState(false);
   const [escritorioSalvo, setEscritorioSalvo] = useState(false);
+  const [cambio, setCambio] = useState("");
+  const [savingCambio, setSavingCambio] = useState(false);
+  const [cambioSalvo, setCambioSalvo] = useState(false);
   const apiUrl = getApiUrl();
   const errosDoEscritorio = validarDadosDoEscritorio(escritorio);
+  const errosDoCambio = validarCotacao(normalizarCotacao({ valor: cambio }));
 
   async function loadConfig(nextToken = token) {
     const trimmedToken = nextToken.trim();
@@ -264,6 +280,9 @@ export default function AdminConfigPage() {
       setData(payload);
       setEscritorio(payload.escritorio?.dados ?? ESCRITORIO_VAZIO);
       setEscritorioSalvo(false);
+      // Cotação zerada é "não declarada": o campo fica VAZIO, e não "0".
+      setCambio(payload.cambio?.cotacao.valor ? String(payload.cambio.cotacao.valor) : "");
+      setCambioSalvo(false);
       setModelDrafts(
         Object.fromEntries(
           payload.modelSettings.flows.map((flow) => [
@@ -373,6 +392,52 @@ export default function AdminConfigPage() {
       );
     } finally {
       setSavingEscritorio(false);
+    }
+  }
+
+  async function salvarCotacaoNoAdmin() {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+      setError("Informe o token admin.");
+      return;
+    }
+
+    setSavingCambio(true);
+    setCambioSalvo(false);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/config`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${trimmedToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "cambio", cambio }),
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as ConfigPatchResponse | { error?: string };
+
+      if (!response.ok || isPatchErrorPayload(payload)) {
+        throw new Error(
+          isPatchErrorPayload(payload) && payload.error
+            ? payload.error
+            : "Não foi possível salvar a cotação.",
+        );
+      }
+
+      setData(payload.config);
+      setCambio(
+        payload.config.cambio?.cotacao.valor ? String(payload.config.cambio.cotacao.valor) : "",
+      );
+      setCambioSalvo(true);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "Não foi possível salvar a cotação.",
+      );
+    } finally {
+      setSavingCambio(false);
     }
   }
 
@@ -602,6 +667,85 @@ export default function AdminConfigPage() {
               </span>
             ) : null}
           </div>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Cotação do dólar</h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                A fatura do provedor é em dólar; a decisão de rodar (ou não) é em
+                real. A cotação é <strong>declarada</strong>, não buscada: cotação
+                que se busca envelhece em silêncio, e o número que precifica o
+                trabalho é o do contador, não o do mercado à vista. Todo valor
+                convertido sai com &quot;≈&quot; e com a data desta declaração.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2.5 py-1 font-mono text-[11px] text-[var(--signal-info)]">
+              {data
+                ? procedenciaDaCotacao(data.cambio.cotacao, new Date())
+                : "cotação não declarada — os valores ficam em dólar"}
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                Reais por US$ 1
+              </span>
+              <input
+                value={cambio}
+                placeholder="5,42"
+                inputMode="decimal"
+                disabled={!data || savingCambio}
+                onChange={(event) => {
+                  setCambioSalvo(false);
+                  setCambio(event.target.value);
+                }}
+                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
+              />
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                !data || !data.cambio.databaseConfigured || savingCambio || errosDoCambio.length > 0
+              }
+              onClick={() => void salvarCotacaoNoAdmin()}
+            >
+              {savingCambio ? <Loader2 className="animate-spin" /> : <Save />}
+              Declarar cotação
+            </Button>
+            {!data ? (
+              <span className="text-xs text-muted-foreground">
+                Informe o token admin para declarar.
+              </span>
+            ) : !data.cambio.databaseConfigured ? (
+              <span className="font-mono text-[11px] text-[var(--status-warning)]">
+                sem DATABASE_URL — só leitura do que veio do ambiente
+              </span>
+            ) : cambioSalvo ? (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
+                <CheckCircle2 className="size-3.5" /> declarada agora
+              </span>
+            ) : null}
+          </div>
+
+          {errosDoCambio.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {errosDoCambio.map((erro) => (
+                <li key={erro} className="font-mono text-[11px] text-[var(--status-warning)]">
+                  {erro}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            Campo vazio apaga a cotação — e o consumo volta a aparecer só em dólar,
+            que é melhor que um real com procedência inventada.
+          </p>
         </section>
 
         <section className="rounded-sm border bg-card p-4">

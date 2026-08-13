@@ -164,7 +164,37 @@ antes do casamento cidade→template. Sem escritório declarado, nada muda.
 traga o endereço do escritório junto do órgão. Com o escritório declarado, a
 prefeitura tem de casar pelo **cliente**, não pela cidade do escritório.
 
-## 6. Léxico e cor — espalhado
+## 6. Câmbio e custo por obra — `/admin/config` + `/admin/usage` (A.7)
+
+**Estado de confiança:** conversão e agrupamento com prova em node cru
+(`npm run test:cambio`, 13 casos); as telas foram abertas
+(`npm run prova:cambio`, 7 conferências). **A tabela por obra com linhas de
+verdade nunca foi vista** — exige banco com consumo gravado.
+
+A cotação é **declarada**, não buscada: cotação buscada envelhece em silêncio, e
+o número que precifica o trabalho é o do contador, não o do mercado à vista.
+
+- [ ] `/admin/config`: seção **Cotação do dólar**, com o selo dizendo de quando
+      é o número (`cotação declarada há 3 dias: R$ 5,42 por US$ 1`).
+- [ ] Digitar `5,42` **com vírgula** funciona. `5420` é recusado na hora.
+- [ ] Campo vazio apaga a cotação — e o consumo volta a ficar só em dólar.
+- [ ] Cotação com mais de 30 dias: o selo acrescenta **"vale revisar"**.
+- [ ] `/admin/usage`: a **linha de procedência** aparece no topo, com link para
+      Configurações, **mesmo quando a consulta à OpenAI falha**.
+- [ ] Cartão **Gasto**: o `≈ R$` aparece colado no dólar, nunca no lugar dele.
+- [ ] Sem cotação declarada: **nenhum real na tela** — nem `R$ 0,00`.
+- [ ] Seção **Custo por obra**: a obra é a pasta da conversa; conversa fora de
+      pasta vira obra de uma conversa só.
+- [ ] Consumo **sem conversa** e de **conversa apagada** aparecem como linhas
+      próprias, no fim da tabela, apagados. A soma da tabela tem de bater com o
+      total do período — é por isso que eles não somem.
+- [ ] Com mais de 500 eventos no período, aparece o selo **"amostra: os 500
+      eventos mais recentes"**. Sem ele, a tabela leria como o mês inteiro.
+
+O item "barras azuis" do A.7 **já estava feito** num commit anterior desta
+branch (as barras são azuis e o texto não fala mais em teal).
+
+## 7. Léxico e cor — espalhado
 
 - [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
       "Relatório", dentro do próprio parecer).
@@ -183,12 +213,15 @@ prefeitura tem de casar pelo **cliente**, não pela cidade do escritório.
 ## O que ainda não foi feito
 
 Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
-e `...-admin-aprovado.md` (A.4, A.6, A.7, A.8, A.9b, A.10).
+e `...-admin-aprovado.md` (A.4, A.6, A.8, A.9b, A.10).
 
-O **A.9a saiu** — é a seção 5 acima. O próximo da ordem do spec é o **A.7**
-(Usage: consertar o "barras azuis", ≈ R$ com câmbio configurável, custo por
-obra), lembrando que o custo por obra pode exigir schema, e que o campo de
-câmbio nasce em `/admin/config`, não em `usage`.
+O **A.9a** (seção 5) e o **A.7** (seção 6) saíram. O próximo da ordem do spec é
+o **A.8** — Quality com série semanal e meta declarada.
+
+Uma ressalva do A.7 que ficou registrada: a spec previa que o custo por obra
+pudesse exigir schema. **Não exigiu.** `AiUsageEvent.conversationId` já era
+gravado e a conversa já carrega a pasta — era uma junção que ninguém tinha
+feito. O que entrou de schema foi só a cotação (`CambioConfig`).
 
 Fica registrado o que o A.9a **não** fez: a cidade do escritório continua sendo
 casável como cliente quando aparece sozinha, e é de propósito — apagá-la

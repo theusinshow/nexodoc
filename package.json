@@ -24,6 +24,7 @@
     "test:nexo:correcao": "node scripts/test-nexo-correcao.ts",
     "test:caracterizacao": "node scripts/test-caracterizacao.ts",
     "test:escritorio": "node scripts/test-escritorio.ts",
+    "test:cambio": "node scripts/test-cambio.ts",
     "test:nexo:context": "node scripts/test-nexo-context.ts",
     "test:nexo:attachments": "node scripts/test-nexo-attachments.ts",
     "test:nexo:next-steps": "node scripts/test-nexo-next-steps.ts",
@@ -89,6 +90,7 @@
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",
     "prova:escritorio": "node scripts/prova-escritorio.mjs",
+    "prova:cambio": "node scripts/prova-cambio.mjs",
     "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts"
   },
