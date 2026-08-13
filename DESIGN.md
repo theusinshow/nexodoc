@@ -235,21 +235,37 @@ de paleta do Tailwind (`bg-yellow-*`), nunca nome inventado. **Não existe**
 O padrão canônico é `<Badge variant="ok|warning|critical">`. Use o componente;
 não escreva as classes à mão.
 
-### Vagas abertas — cores que ainda não existem
+### As cores de vocabulário
 
-Ampliar a paleta é bem-vindo **desde que cada cor nova ganhe um trabalho**. Cor
-sem função declarada é o que transforma sistema em paleta. Há quatro vagas com
-trabalho real hoje, e nenhuma tem valor decidido — os valores saem de ver
-renderizado, não de escolher no escuro:
+Além dos três sinais, o sistema tem cinco famílias com trabalho declarado. Elas
+nasceram como **vagas abertas** — cor com função pensada e valor por decidir — e
+foram preenchidas uma a uma. Nenhuma pode ser confundida com um sinal de status
+a três metros da tela; é essa a prova que todas passaram.
 
-1. **Informação / neutro-ativo** — avisos que não são status (dica, contexto que o agente oferece). Hoje viram `warning` por falta de opção, e diluem o significado do âmbar.
-2. **Legado / congelado** — as ferramentas antigas e o que não se deve evoluir. Hoje: nada; parecem iguais ao resto.
-3. **Disciplina (escala categórica)** — o canvas agrupa folhas por tomo e disciplina usando só borda. Precisa de uma escala que **nunca colida** com os três sinais.
-4. **Escala de dado (sequencial)** — donut de consumo e gráficos futuros. Não pode ser a rampa teal, que significa interatividade.
+| Família | Token | Valor | Trabalho | Quem consome |
+|---------|-------|-------|----------|--------------|
+| **Informação / neutro-ativo** | `--signal-info` · `--signal-info-bg` · `--signal-info-border` | `#7fb2e8` | aviso que **não** é status: dica, contexto que o agente oferece. Antes disto tudo virava âmbar, e o âmbar dizia menos | `<Badge variant="info">`, `AuditoriaEmCurso`, `FaixaDeEstado`, `aviso-sem-acesso` |
+| **Legado / congelado** | `--legacy` · `--legacy-bg` · `--legacy-border` | `#9d94ab` | o que ainda funciona mas saiu do caminho principal. Roxo-acinzentado dessaturado: presente sem chamar, e longe demais dos sinais para parecer erro | `<Badge variant="legacy">`, `app/ferramentas/`, `NexoSidebar` |
+| **Tipo de trabalho** | `--nexo-marca-volume` · `--nexo-marca-auditoria` | `#5a666e` · `#3f6d68` | a barra de 2px do item da sidebar (montagem × auditoria). Cinza e teal-**acinzentado**, nunca o teal vivo: dentro da lista o tipo já está dito pelo cabeçalho da seção, e ali a barra é lembrete periférico | `NexoSidebar` |
+| **Disciplina (categórica)** | `--discipline-arq` · `--discipline-est` · `--discipline-hid` · `--discipline-ele` · `--discipline-pci` · `--discipline-cli` · `--discipline-ter` · `--discipline-pai` | oito tons dessaturados | agrupar folhas no canvas por disciplina. **A sigla mono de três letras é o portador primário; a cor é secundária** — nenhuma decisão do produto pode depender só do matiz | `modules/nexo/lib/disciplina-cor.ts` |
+| **Escala de dado (sequencial)** | `--data-1` · `--data-2` · `--data-3` · `--data-4` · `--data-5` | rampa azul, do escuro ao claro | donut de consumo e gráficos futuros. Azul, **nunca** teal: teal significa interativo, e fatia de gráfico não se clica | `modules/nexo/lib/escala-de-dado.ts` |
+
+São **oito cores de disciplina para vinte e três códigos** do léxico do
+escritório, e isso é de propósito: agrupar por família (tudo que é terra numa
+cor, tudo que é instalação elétrica noutra) mantém a escala legível. O código
+que não casa fica **sem cor** — inventar um tom para cada um faria a escala
+competir com os três sinais, que é exatamente o que ela não pode fazer.
+
+A escala de dado **espalha** em vez de sequenciar: duas fatias pegam os extremos
+da rampa, três pegam extremos + meio. Pegar degraus vizinhos daria dois azuis
+quase iguais num anel de 2,5px de traço. Acima de cinco fatias, o excedente sai
+para `--border` — repetir um degrau mentiria (dois valores diferentes com a
+mesma cor), e inventar um sexto azul é ampliar a paleta sem trabalho declarado.
 
 **Regra para admitir uma cor nova:** ela tem nome, tem trabalho declarado, tem
-token em `globals.css`, e passa no teste de não ser confundível com um sinal de
-status a três metros da tela.
+token em `globals.css`, tem consumidor nomeado nesta tabela, e passa no teste de
+não ser confundível com um sinal de status a três metros da tela.
+`npm run prova:tokens` recusa o commit que esquecer a tabela.
 
 ### Regras nomeadas
 
@@ -769,8 +785,21 @@ utilities do Tailwind e mata `border-*` silenciosamente — já aconteceu neste
 projeto. Ao acrescentar CSS global, verifique a camada antes de culpar o
 componente.
 
-**O que fiscaliza.** Hoje: revisão humana e este documento. O sistema ainda não
-tem teste automático de contrato visual — quando tiver, ele mora aqui.
+**O que fiscaliza.** Revisão humana, este documento, e provas que saem com
+código 1:
+
+| Prova | O que recusa |
+|-------|--------------|
+| `npm run prova:tokens` | token de vocabulário em `globals.css` que não esteja nomeado no §2 |
+| `npm run prova:glossario` | string de interface que use palavra fora do léxico do §13 |
+| `npm run prova:bancada` | bancada do orbe quebrada, ou seletor divergindo de `AGENT_STATES` |
+| `npm run test:nexo:escala` | degrau da escala de dado pintado com cor de interatividade |
+
+Contrato visual — geometria, estado, contraste — ainda é revisão humana.
+
+O fiscal dos tokens olha **só do CSS para o documento**, nunca o contrário: este
+documento cita `--status-danger` de propósito, como exemplo do que *não* existe,
+e a checagem reversa acusaria o próprio contra-exemplo.
 
 ### Decisões que o sistema v0 propôs e NÃO valem (2026-07-30)
 
@@ -793,3 +822,40 @@ na cabeça de quem implementou volta como "bug" na próxima revisão.
    não voltam, então TODA folha fica não-abrível — o canvas inteiro a 50%
    pareceria desabilitado estando perfeitamente funcional. A ação "Abrir"
    continua desabilitada, com o motivo no tooltip.
+
+---
+
+## 13. O léxico do ofício
+
+O software fala a língua de quem o usa. Não é preferência de estilo: o
+engenheiro que lê "arquivo processado com sucesso" descobre que está diante de
+mais um SaaS — e o que ele precisava saber, quantas folhas foram lidas, não está
+escrito em lugar nenhum.
+
+| O produto diz | Nunca diz | Porque |
+|---------------|-----------|--------|
+| **lote** | batch, conjunto de arquivos | é como se conta o trabalho: um lote de pranchas chega junto e se lê junto |
+| **folha** / **prancha** | página, item, documento | folha é a unidade do volume; página é do PDF |
+| **tomo** | volume parcial, parte | tomo é o volume físico que vai encadernado |
+| **selo** / **carimbo** | cabeçalho, metadados | é o retângulo do canto inferior direito, e é dele que sai tudo |
+| **memorial** | documento de texto | tem nome próprio no ofício |
+| **LD** | lista, índice, sumário | lista de documentos, e o escritório a chama assim |
+| **separatriz** | divisória, capa de seção | idem |
+| **conferir** / **conferência** | validar, validação | conferência é o que a prefeitura faz; o Nexo oferece antes |
+| **parecer** | relatório, report | o que sai da auditoria é um parecer técnico |
+| **achado** | issue, problema encontrado, erro | achado tem gravidade e evidência; erro não |
+| **ler** / **leitura** | processar, upload, importar | o que o software faz com uma prancha é ler o selo dela |
+| **gerar** | exportar, criar, produzir | gerar é determinístico e tem parâmetro; exportar é o que o navegador faz |
+
+**Mensagem de conclusão diz o que ficou pronto, não que deu certo.** "12 folhas
+lidas · 2 sem selo" no lugar de "processamento concluído com sucesso": a
+primeira responde o que fazer agora, a segunda pede que se procure.
+
+**O que o léxico não governa.** Nome de símbolo, chave de objeto e coluna de
+banco continuam como estão — `project.uploads` é o modelo de dados do Prisma e
+não aparece para ninguém. Renomear schema é migração, não microcopy.
+
+`npm run prova:glossario` varre as strings de interface e recusa as palavras da
+coluna do meio. Comentário de código fica **fora** da varredura: explicar o que
+o produto não diz exige escrever a palavra, e um fiscal que acusa a própria
+documentação é desligado na primeira semana.

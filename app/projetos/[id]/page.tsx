@@ -112,7 +112,7 @@ export default async function ProjectDetailPage({
     {
       label: "Volumes",
       action: "Montar volume",
-      description: "Classificar arquivos, organizar paginas, validar e exportar o volume.",
+      description: "Classificar arquivos, organizar paginas, conferir e exportar o volume.",
       href: `/volumes?project=${project.id}`,
       icon: Layers3,
       completed: hasVolumeOutput,
@@ -148,7 +148,7 @@ export default async function ProjectDetailPage({
 
       <section className="grid gap-3 md:grid-cols-4">
         <Metric label="Documentos" value={project._count.documents} />
-        <Metric label="Uploads" value={project._count.uploads} />
+        <Metric label="Arquivos enviados" value={project._count.uploads} />
         <Metric label="Artefatos" value={project._count.artifacts} />
         <Metric label="Eventos" value={project._count.events} />
       </section>
@@ -217,8 +217,8 @@ export default async function ProjectDetailPage({
 
       <div className="grid gap-6 xl:grid-cols-2">
         <DataTable
-          title="Uploads"
-          empty="Nenhum upload registrado."
+          title="Arquivos enviados"
+          empty="Nenhum arquivo enviado ainda."
           headers={["Arquivo", "Modulo", "Origem", "Tamanho", "Data"]}
           rows={project.uploads.map((upload) => [
             upload.fileName,

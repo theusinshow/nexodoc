@@ -13,16 +13,10 @@ import { useState } from "react";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import type { UsageSummary } from "@/server/nexo/usage/aggregate";
 
+import { fatiasDaEscala } from "../lib/escala-de-dado";
+
 const R = 7;
 const CIRC = 2 * Math.PI * R;
-
-/** Escala do teal do sistema — distinção, não semântica. 2 a 4 modelos na prática. */
-const SLICE_COLORS = [
-  "var(--ring)",
-  "rgb(91 218 198 / 0.55)",
-  "rgb(91 218 198 / 0.3)",
-  "var(--input)",
-];
 
 function abreviar(tokens: number): string {
   if (tokens < 1000) return String(tokens);
@@ -39,6 +33,17 @@ export function UsageDonut({ data }: { data: UsageSummary | null }) {
 
   if (!data || data.totalTokens <= 0) return null;
 
+  /*
+   * As cores saem da ESCALA DE DADO, e não de uma lista local.
+   *
+   * A lista daqui era a rampa teal, sob um comentário que assumia o desvio:
+   * "distinção, não semântica". Só que o sistema não permite essa distinção —
+   * teal significa interativo (§2, Regra do Acento Único), e fatia de gráfico
+   * não se clica. Este anel fica no rodapé da conversa, ao lado de coisas que
+   * SE clicam: quem aprendeu a regra ali mesmo, desaprendia aqui.
+   */
+  const cores = fatiasDaEscala(data.porModelo.length);
+
   // Cada fatia começa onde a anterior terminou (rotação -90 põe o zero no topo).
   // Acumula via `reduce` puro (sem mutar variável de fora) — o compilador do
   // React exige que o corpo do componente não reatribua estado entre iterações.
@@ -48,7 +53,9 @@ export function UsageDonut({ data }: { data: UsageSummary | null }) {
     const anterior = acc[acc.length - 1];
     const offset = anterior ? anterior.offset + anterior.len : 0;
     const len = (m.totalTokens / data.totalTokens) * CIRC;
-    return [...acc, { ...m, len, offset, color: SLICE_COLORS[i] ?? "var(--input)" }];
+    // Sem `??` de reserva: `fatiasDaEscala` devolve exatamente um item por
+    // modelo, e um fallback silencioso é como o teal voltaria sem ninguém ver.
+    return [...acc, { ...m, len, offset, color: cores[i] }];
   }, []);
 
   return (

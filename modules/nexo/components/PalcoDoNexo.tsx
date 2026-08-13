@@ -31,7 +31,7 @@ import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 const VISTAS_DO_PARECER: { valor: AuditView; rotulo: string; Icone: typeof FileText }[] = [
   { valor: "summary", rotulo: "Resumo", Icone: SquareStack },
   { valor: "findings", rotulo: "Achados", Icone: ListChecks },
-  { valor: "report", rotulo: "Relatório", Icone: FileText },
+  { valor: "report", rotulo: "Parecer", Icone: FileText },
 ];
 
 export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {

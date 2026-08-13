@@ -69,7 +69,7 @@ export default async function ProjectsPage() {
       <PageHeader
         backHref="/"
         title="Projetos"
-        description="Base consolidada de projetos, documentos, uploads, artefatos e eventos gerados pelos modulos."
+        description="Base consolidada de projetos, documentos, arquivos, artefatos e eventos gerados pelos modulos."
       />
 
       <ProjectConsole initialProjects={projects.map(serializeProject)} />
