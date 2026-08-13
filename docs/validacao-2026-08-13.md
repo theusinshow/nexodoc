@@ -35,7 +35,66 @@ NEXODOC_DEV_AUTH_EMAIL=dev@nexodoc.local   # tem de ser o MESMO de ADMIN_EMAILS
 AUTH_SECRET=<qualquer coisa local>
 ```
 
-As provas automáticas, se quiser rodar antes:
+## A validação em três comandos
+
+**1. O que não precisa de nada** (regras puras, node cru, ~5s):
+
+```bash
+npm run test:admin
+```
+
+Cinco suítes, 48 casos: escritório, câmbio + custo por obra, meta + série
+semanal, faixa de atenção, linha de status.
+
+**2. O que precisa do servidor no ar** (navegador, sem gastar token):
+
+```bash
+NEXODOC_ADMIN_TOKEN=teste-local NEXODOC_ADMIN_EMAILS=dev@nexodoc.local \
+NEXODOC_DEV_AUTH=true NEXODOC_DEV_AUTH_EMAIL=dev@nexodoc.local \
+AUTH_SECRET=qualquer-coisa-local NEXT_PUBLIC_NEXO_ENABLED=true \
+NEXODOC_CAMBIO_USD_BRL=5,42 \
+NEXODOC_META_FALSO_POSITIVO=10 NEXODOC_META_COBERTURA=40 \
+NEXODOC_ESCRITORIO_NOME="Engeplan Engenharia Ltda" \
+NEXODOC_ESCRITORIO_ENDERECO="Rua Saldanha Marinho, 89, Centro - Florianópolis - SC" \
+NEXODOC_ESCRITORIO_MUNICIPIO="Florianópolis" NEXODOC_ESCRITORIO_UF=SC \
+npm run dev
+```
+
+Noutro terminal:
+
+```bash
+npm run prova:admin
+```
+
+Quatro provas, 28 conferências. O `NEXODOC_DEV_AUTH_EMAIL` **tem de ser o mesmo**
+do `NEXODOC_ADMIN_EMAILS`, senão o `/admin` responde tela de não-admin sem dizer
+por quê.
+
+**3. O que só o banco prova.** Três coisas ficam de fora dos comandos acima
+porque dependem de dado gravado, e é onde o seu olho vale mais que qualquer
+asserção:
+
+| O quê | Onde | Precisa de |
+|---|---|---|
+| Tabela de custo por obra com linhas reais | `/admin/usage` | consumo gravado |
+| Série semanal com semanas reais | `/admin/quality` | auditorias julgadas |
+| Linha de status da home | `/admin` | banco (a rota exige) |
+
+Com `DATABASE_URL` apontando para uma base de teste, aplique as três migrações
+novas antes de abrir as telas:
+
+```bash
+npm run db:migrate    # EscritorioConfig, CambioConfig, MetaQualidadeConfig
+```
+
+Depois refaça o passo 2 **com o banco ligado**: os botões "Salvar dados do
+escritório", "Declarar cotação" e "Declarar metas" saem de desabilitado, e é aí
+que se confere a gravação de verdade (salvar, recarregar a página, ver se o
+valor voltou e se o selo virou "declarado no painel").
+
+---
+
+As provas antigas, se quiser rodar antes:
 
 ```bash
 npm run test:nexo:escala && npm run test:nexo:enquadramento \

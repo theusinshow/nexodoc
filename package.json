@@ -28,6 +28,7 @@
     "test:meta-qualidade": "node scripts/test-meta-qualidade.ts",
     "test:atencao": "node scripts/test-atencao.ts",
     "test:status-do-sistema": "node scripts/test-status-do-sistema.ts",
+    "test:admin": "npm run test:escritorio && npm run test:cambio && npm run test:meta-qualidade && npm run test:atencao && npm run test:status-do-sistema",
     "test:nexo:context": "node scripts/test-nexo-context.ts",
     "test:nexo:attachments": "node scripts/test-nexo-attachments.ts",
     "test:nexo:next-steps": "node scripts/test-nexo-next-steps.ts",
@@ -96,6 +97,7 @@
     "prova:cambio": "node scripts/prova-cambio.mjs",
     "prova:meta-qualidade": "node scripts/prova-meta-qualidade.mjs",
     "prova:config": "node scripts/prova-config-hierarquia.mjs",
+    "prova:admin": "npm run prova:escritorio && npm run prova:cambio && npm run prova:meta-qualidade && npm run prova:config",
     "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts"
   },
