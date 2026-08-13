@@ -20,6 +20,7 @@ import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { isDatabaseConfigured } from "@/lib/db";
 import { carregarEscritorioComOrigem, salvarEscritorio } from "@/lib/escritorio-config";
 import { carregarCotacaoComOrigem, salvarCotacao } from "@/lib/cambio-config";
+import { carregarMetasComOrigem, salvarMetas } from "@/lib/meta-qualidade-config";
 
 export const runtime = "nodejs";
 
@@ -345,6 +346,10 @@ async function buildConfigPayload() {
      * tela que só lê o consumo.
      */
     cambio: await carregarCotacaoComOrigem(),
+    // As metas do painel de Quality nascem aqui pela mesma razao do cambio:
+    // declarar um criterio e responsabilidade de quem configura, nao da tela
+    // que so mede.
+    metaQualidade: await carregarMetasComOrigem(),
     secretFingerprints: {
       openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
       deepseekApiKey: getSecretFingerprint("DEEPSEEK_API_KEY"),
@@ -383,6 +388,7 @@ export async function PATCH(request: Request) {
     notes?: string;
     escritorio?: unknown;
     cambio?: unknown;
+    metas?: unknown;
   } | null;
 
   /*
@@ -430,6 +436,25 @@ export async function PATCH(request: Request) {
       return jsonError(
         request,
         error instanceof Error ? error.message : "Não foi possível salvar a cotação.",
+        400,
+      );
+    }
+  }
+
+  if (body?.action === "metas") {
+    if (!isDatabaseConfigured()) {
+      return jsonError(request, "DATABASE_URL não configurada; não é possível salvar as metas.", 500);
+    }
+    try {
+      await salvarMetas({ metas: body.metas, declaradaPor: "admin" });
+      return withCors(
+        NextResponse.json({ ok: true, action: "metas", config: await buildConfigPayload() }),
+        request,
+      );
+    } catch (error) {
+      return jsonError(
+        request,
+        error instanceof Error ? error.message : "Não foi possível salvar as metas.",
         400,
       );
     }

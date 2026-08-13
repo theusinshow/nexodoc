@@ -507,6 +507,18 @@ model CambioConfig {
   updatedAt    DateTime @updatedAt
 }
 
+/// As metas do painel de Quality, declaradas à mão.
+/// Linha única ("meta-qualidade"). Sem meta de fábrica: um número chutado aqui
+/// faria o painel aprovar e reprovar sozinho — ver `lib/meta-de-qualidade.ts`.
+model MetaQualidadeConfig {
+  id               String   @id @default("meta-qualidade")
+  falsoPositivoMax Float    @default(0)
+  coberturaMin     Float    @default(0)
+  declaradaEm      DateTime @default(now())
+  declaradaPor     String   @default("")
+  updatedAt        DateTime @updatedAt
+}
+
 model AiUsageEvent {
   id           String   @id @default(cuid())
   flow         String

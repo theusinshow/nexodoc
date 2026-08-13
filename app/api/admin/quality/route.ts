@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { carregarMetasComOrigem } from "@/lib/meta-qualidade-config";
+import { serieSemanal, tendenciaDoFalsoPositivo } from "@/lib/meta-de-qualidade";
 import type { Prisma } from "@prisma/client";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const runtime = "nodejs";
+
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
@@ -21,6 +24,8 @@ type AuditQualitySource = {
   totalFindings: number;
   elapsedMs: number | null;
   report: Prisma.JsonValue | null;
+  /** Quando a auditoria rodou — é o eixo da série semanal (A.8). */
+  createdAt: Date;
   feedback: Array<{ verdict: FeedbackVerdict }>;
 };
 
@@ -206,6 +211,7 @@ export async function GET(request: Request) {
       totalFindings: true,
       elapsedMs: true,
       report: true,
+      createdAt: true,
       feedback: {
         select: {
           verdict: true,
@@ -233,8 +239,25 @@ export async function GET(request: Request) {
     models.set(model, modelBucket);
   }
 
+  /*
+   * A SÉRIE e a META viajam junto do resto: a tela precisa dos três no mesmo
+   * render para dizer "12,4%, meta 10%, caindo 3 pontos". Separá-los abriria a
+   * janela em que a taxa chega e a meta não, e um número sem régua ao lado é
+   * exatamente o que este painel era antes.
+   */
+  const serie = serieSemanal(
+    audits.map((audit) => ({
+      createdAt: audit.createdAt.toISOString(),
+      totalFindings: audit.totalFindings,
+      veredictos: audit.feedback.map((entrada) => entrada.verdict),
+    })),
+  );
+
   return withCors(
     NextResponse.json({
+      meta: await carregarMetasComOrigem(),
+      serie,
+      tendencia: tendenciaDoFalsoPositivo(serie),
       overview: finishBucket(overview),
       levels: [...levels.values()].map(finishBucket),
       models: [...models.values()]

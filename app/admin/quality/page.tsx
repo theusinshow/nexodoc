@@ -16,6 +16,14 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import {
+  METAS_NAO_DECLARADAS,
+  situacaoDaCobertura,
+  situacaoDoFalsoPositivo,
+  type MetasDeQualidade,
+  type SemanaDeQualidade,
+  type SituacaoContraMeta,
+} from "@/lib/meta-de-qualidade";
 
 type QualityBucket = {
   key: string;
@@ -39,6 +47,16 @@ type QualityResponse = {
   overview: QualityBucket;
   levels: QualityBucket[];
   models: QualityBucket[];
+  /** As metas declaradas em Configurações. Ausentes = painel não julga (A.8). */
+  meta?: {
+    metas: MetasDeQualidade;
+    origem: "banco" | "ambiente" | "nenhuma";
+    databaseConfigured: boolean;
+  };
+  /** Semanas com auditoria, da mais antiga para a mais recente. */
+  serie?: SemanaDeQualidade[];
+  /** Diferença em pontos entre as duas últimas semanas julgadas. */
+  tendencia?: number | null;
   generatedAt: string;
 };
 
@@ -56,6 +74,28 @@ function formatPercent(value: number | null) {
 
 function formatSeconds(value: number | null) {
   return value === null ? "--" : `${Math.max(1, Math.round(value / 1000))}s`;
+}
+
+/** "semana de 10/08" — a segunda-feira, que é como o escritório fala da semana. */
+function formatWeek(semana: string) {
+  const data = new Date(`${semana}T00:00:00Z`);
+  if (Number.isNaN(data.getTime())) return semana;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "UTC",
+  }).format(data);
+}
+
+/**
+ * A cor de uma célula contra a meta. SEM META NÃO PINTA: colorir sem régua
+ * declarada seria o painel inventando o próprio critério — e "sem-meta" não é
+ * aprovação, é ausência de julgamento.
+ */
+function corDaSituacao(situacao: SituacaoContraMeta) {
+  if (situacao === "dentro") return "text-[var(--status-ok)]";
+  if (situacao === "fora") return "text-[var(--status-warning)]";
+  return "text-muted-foreground";
 }
 
 function isErrorPayload(
@@ -215,6 +255,9 @@ export default function AdminQualityPage() {
   }, []);
 
   const overview = data?.overview;
+  const metas: MetasDeQualidade = data?.meta?.metas ?? METAS_NAO_DECLARADAS;
+  const serie = data?.serie ?? [];
+  const tendencia = data?.tendencia ?? null;
 
   return (
     <AdminPageShell maxWidth="max-w-[1300px]">
@@ -259,6 +302,84 @@ export default function AdminQualityPage() {
             value={overview ? formatNumber(overview.missingFinding) : "--"}
             detail={overview ? `${formatPercent(overview.reviewCoverage)} das auditorias foram rotuladas` : "Indicador de cobertura"}
           />
+        </section>
+
+        {/*
+          A SÉRIE SEMANAL — tabela mono, nunca gráfico decorativo (spec do A.8).
+          Uma foto do mês não distingue "12% e caindo" de "12% e subindo", e as
+          duas pedem decisões opostas.
+        */}
+        <section className="overflow-hidden rounded-md border bg-card">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold">Semana a semana</h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                A taxa divide pelos achados <strong>julgados</strong>, não pelos
+                gerados: dividir pelo total faria a taxa cair sempre que alguém
+                deixasse de revisar — melhora aparente por preguiça. Semana sem
+                auditoria não vira linha.
+              </p>
+            </div>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {metas.falsoPositivoMax > 0
+                ? `meta: falso positivo ≤ ${metas.falsoPositivoMax}%`
+                : "meta não declarada"}
+              {metas.coberturaMin > 0 ? ` · cobertura ≥ ${metas.coberturaMin}%` : ""}
+              {" · "}
+              <a href="/admin/config" className="underline underline-offset-4 hover:text-foreground">
+                declarar
+              </a>
+            </span>
+          </div>
+
+          {serie.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              Sem auditoria concluída no histórico — a série aparece a partir da primeira.
+            </p>
+          ) : (
+            <div>
+              <div className="grid grid-cols-[0.9fr_0.6fr_0.7fr_0.8fr_0.8fr] border-b bg-[var(--nexodoc-recessed)] px-4 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+                <span>Semana</span>
+                <span className="text-right">Auditorias</span>
+                <span className="text-right">Achados</span>
+                <span className="text-right">Falso positivo</span>
+                <span className="text-right">Cobertura</span>
+              </div>
+              {serie.map((semana) => {
+                const fp = situacaoDoFalsoPositivo(semana.taxaFalsoPositivo, metas);
+                const cob = situacaoDaCobertura(semana.cobertura, metas);
+                return (
+                  <div
+                    key={semana.semana}
+                    className="grid grid-cols-[0.9fr_0.6fr_0.7fr_0.8fr_0.8fr] items-baseline gap-2 border-b px-4 py-2.5 text-sm last:border-b-0"
+                  >
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatWeek(semana.semana)}
+                    </span>
+                    <span className="text-right font-mono text-xs text-muted-foreground">
+                      {formatNumber(semana.auditorias)}
+                    </span>
+                    <span className="text-right font-mono text-xs text-muted-foreground">
+                      {formatNumber(semana.achados)}
+                    </span>
+                    <span className={`text-right font-mono text-xs ${corDaSituacao(fp)}`}>
+                      {formatPercent(semana.taxaFalsoPositivo)}
+                    </span>
+                    <span className={`text-right font-mono text-xs ${corDaSituacao(cob)}`}>
+                      {formatPercent(semana.cobertura)}
+                    </span>
+                  </div>
+                );
+              })}
+              {tendencia !== null ? (
+                <p className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                  {tendencia === 0
+                    ? "falso positivo estável entre as duas últimas semanas julgadas"
+                    : `falso positivo ${tendencia < 0 ? "caiu" : "subiu"} ${Math.abs(tendencia).toLocaleString("pt-BR")} ponto(s) na última semana julgada`}
+                </p>
+              ) : null}
+            </div>
+          )}
         </section>
 
         {overview && overview.reviewedAudits < 10 ? (

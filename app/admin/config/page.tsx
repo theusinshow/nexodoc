@@ -27,6 +27,11 @@ import {
   type DadosDoEscritorio,
 } from "@/lib/escritorio";
 import {
+  normalizarMetas,
+  validarMetas,
+  type MetasDeQualidade,
+} from "@/lib/meta-de-qualidade";
+import {
   normalizarCotacao,
   procedenciaDaCotacao,
   validarCotacao,
@@ -93,6 +98,12 @@ type AdminConfigResponse = {
   /** A cotação que o `/admin/usage` usa para mostrar ≈ R$ (nasce aqui, §A.7). */
   cambio: {
     cotacao: CotacaoDeclarada;
+    origem: "banco" | "ambiente" | "nenhuma";
+    databaseConfigured: boolean;
+  };
+  /** As metas que o `/admin/quality` usa para julgar as taxas (§A.8). */
+  metaQualidade: {
+    metas: MetasDeQualidade;
     origem: "banco" | "ambiente" | "nenhuma";
     databaseConfigured: boolean;
   };
@@ -238,12 +249,19 @@ export default function AdminConfigPage() {
   const [escritorio, setEscritorio] = useState<DadosDoEscritorio>(ESCRITORIO_VAZIO);
   const [savingEscritorio, setSavingEscritorio] = useState(false);
   const [escritorioSalvo, setEscritorioSalvo] = useState(false);
+  const [metaFp, setMetaFp] = useState("");
+  const [metaCobertura, setMetaCobertura] = useState("");
+  const [savingMetas, setSavingMetas] = useState(false);
+  const [metasSalvas, setMetasSalvas] = useState(false);
   const [cambio, setCambio] = useState("");
   const [savingCambio, setSavingCambio] = useState(false);
   const [cambioSalvo, setCambioSalvo] = useState(false);
   const apiUrl = getApiUrl();
   const errosDoEscritorio = validarDadosDoEscritorio(escritorio);
   const errosDoCambio = validarCotacao(normalizarCotacao({ valor: cambio }));
+  const errosDasMetas = validarMetas(
+    normalizarMetas({ falsoPositivoMax: metaFp, coberturaMin: metaCobertura }),
+  );
 
   async function loadConfig(nextToken = token) {
     const trimmedToken = nextToken.trim();
@@ -283,6 +301,9 @@ export default function AdminConfigPage() {
       // Cotação zerada é "não declarada": o campo fica VAZIO, e não "0".
       setCambio(payload.cambio?.cotacao.valor ? String(payload.cambio.cotacao.valor) : "");
       setCambioSalvo(false);
+      setMetaFp(payload.metaQualidade?.metas.falsoPositivoMax ? String(payload.metaQualidade.metas.falsoPositivoMax) : "");
+      setMetaCobertura(payload.metaQualidade?.metas.coberturaMin ? String(payload.metaQualidade.metas.coberturaMin) : "");
+      setMetasSalvas(false);
       setModelDrafts(
         Object.fromEntries(
           payload.modelSettings.flows.map((flow) => [
@@ -392,6 +413,52 @@ export default function AdminConfigPage() {
       );
     } finally {
       setSavingEscritorio(false);
+    }
+  }
+
+  async function salvarMetasNoAdmin() {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+      setError("Informe o token admin.");
+      return;
+    }
+
+    setSavingMetas(true);
+    setMetasSalvas(false);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/config`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${trimmedToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "metas",
+          metas: { falsoPositivoMax: metaFp, coberturaMin: metaCobertura },
+        }),
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as ConfigPatchResponse | { error?: string };
+
+      if (!response.ok || isPatchErrorPayload(payload)) {
+        throw new Error(
+          isPatchErrorPayload(payload) && payload.error
+            ? payload.error
+            : "Não foi possível salvar as metas.",
+        );
+      }
+
+      setData(payload.config);
+      setMetasSalvas(true);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "Não foi possível salvar as metas.",
+      );
+    } finally {
+      setSavingMetas(false);
     }
   }
 
@@ -667,6 +734,99 @@ export default function AdminConfigPage() {
               </span>
             ) : null}
           </div>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Metas de qualidade</h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                O painel de Quality mostra as taxas; sem meta declarada ele não as
+                julga — e não inventa uma. Declarada aqui, ela vira a régua da
+                série semanal: dentro fica verde, fora fica âmbar, e o que não tem
+                meta continua sem cor.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2.5 py-1 font-mono text-[11px] text-[var(--signal-info)]">
+              {data && (data.metaQualidade.metas.falsoPositivoMax > 0 ||
+                data.metaQualidade.metas.coberturaMin > 0)
+                ? "metas declaradas"
+                : "meta não declarada — o painel não julga"}
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                Falso positivo, no máximo (%)
+              </span>
+              <input
+                value={metaFp}
+                placeholder="10"
+                inputMode="decimal"
+                disabled={!data || savingMetas}
+                onChange={(event) => {
+                  setMetasSalvas(false);
+                  setMetaFp(event.target.value);
+                }}
+                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                Cobertura de revisão, no mínimo (%)
+              </span>
+              <input
+                value={metaCobertura}
+                placeholder="40"
+                inputMode="decimal"
+                disabled={!data || savingMetas}
+                onChange={(event) => {
+                  setMetasSalvas(false);
+                  setMetaCobertura(event.target.value);
+                }}
+                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
+              />
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                !data ||
+                !data.metaQualidade.databaseConfigured ||
+                savingMetas ||
+                errosDasMetas.length > 0
+              }
+              onClick={() => void salvarMetasNoAdmin()}
+            >
+              {savingMetas ? <Loader2 className="animate-spin" /> : <Save />}
+              Declarar metas
+            </Button>
+            {!data ? (
+              <span className="text-xs text-muted-foreground">
+                Informe o token admin para declarar.
+              </span>
+            ) : !data.metaQualidade.databaseConfigured ? (
+              <span className="font-mono text-[11px] text-[var(--status-warning)]">
+                sem DATABASE_URL — só leitura do que veio do ambiente
+              </span>
+            ) : metasSalvas ? (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
+                <CheckCircle2 className="size-3.5" /> declaradas agora
+              </span>
+            ) : null}
+          </div>
+
+          {errosDasMetas.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {errosDasMetas.map((erro) => (
+                <li key={erro} className="font-mono text-[11px] text-[var(--status-warning)]">
+                  {erro}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
 
         <section className="rounded-sm border bg-card p-4">

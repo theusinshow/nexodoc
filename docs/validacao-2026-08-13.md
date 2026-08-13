@@ -194,7 +194,31 @@ o número que precifica o trabalho é o do contador, não o do mercado à vista.
 O item "barras azuis" do A.7 **já estava feito** num commit anterior desta
 branch (as barras são azuis e o texto não fala mais em teal).
 
-## 7. Léxico e cor — espalhado
+## 7. Meta e série semanal — `/admin/quality` (A.8)
+
+**Estado de confiança:** meta e série com prova em node cru
+(`npm run test:meta-qualidade`, 10 casos) e a seção de metas aberta no navegador
+(`npm run prova:meta-qualidade`, 5 conferências). **A série com semanas de
+verdade nunca foi vista** — exige banco com auditorias julgadas.
+
+- [ ] `/admin/config`: seção **Metas de qualidade**, com os dois campos.
+- [ ] Sem meta: o selo diz **"meta não declarada — o painel não julga"**, e
+      nenhuma célula da série ganha cor. Sem meta não é aprovação.
+- [ ] `/admin/quality`: seção **Semana a semana**, tabela mono (sem gráfico
+      decorativo — o `DESIGN.md` proíbe métrica-herói).
+- [ ] Com meta declarada: dentro fica verde, fora fica âmbar.
+- [ ] A taxa de falso positivo divide pelos achados **julgados**. Confira num
+      período em que alguém deixou de revisar: a taxa não pode melhorar por isso.
+- [ ] Semana sem auditoria **não vira linha** — férias não é queda de qualidade.
+- [ ] A linha de tendência só aparece com **duas** semanas julgadas; com uma, não
+      há seta nenhuma (em vez de uma seta plana que ninguém mediu).
+
+Fica registrado o que o A.8 **não** entregou: a taxa **por regra de auditoria**
+(texto da 2.25 original). O feedback guarda `targetKey`/`findingId`, mas não a
+regra que gerou o achado — os achados têm `origem: "regra" | "ia"` dentro do
+relatório, e cruzar as duas coisas é trabalho próprio, não um ajuste de tela.
+
+## 8. Léxico e cor — espalhado
 
 - [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
       "Relatório", dentro do próprio parecer).
@@ -213,10 +237,13 @@ branch (as barras são azuis e o texto não fala mais em teal).
 ## O que ainda não foi feito
 
 Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
-e `...-admin-aprovado.md` (A.4, A.6, A.8, A.9b, A.10).
+e `...-admin-aprovado.md` (A.4, A.6, A.9b, A.10).
 
-O **A.9a** (seção 5) e o **A.7** (seção 6) saíram. O próximo da ordem do spec é
-o **A.8** — Quality com série semanal e meta declarada.
+O **A.9a** (seção 5), o **A.7** (seção 6) e o **A.8** (seção 7) saíram. O próximo
+da ordem do spec é o **A.6** — Config com hierarquia de atenção, fundindo a
+"última falha" que hoje aparece duplicada. Vale notar que a tela de Config
+ganhou três seções novas nesta rodada, o que torna o A.6 mais necessário do que
+era quando foi escrito.
 
 Uma ressalva do A.7 que ficou registrada: a spec previa que o custo por obra
 pudesse exigir schema. **Não exigiu.** `AiUsageEvent.conversationId` já era
