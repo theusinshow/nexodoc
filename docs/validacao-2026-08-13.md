@@ -1,5 +1,30 @@
 # Checklist de validação — o que mudou em 2026-08-13
 
+## RESULTADO (validado à mão em 13/08, com banco e chave de IA reais)
+
+Tudo abaixo foi conferido pelo mantenedor no navegador, contra o `.env.local` de
+produção. **Cinco defeitos apareceram durante a validação** — nenhum deles tinha
+sido pego por `tsc`, por `eslint` ou pelas provas:
+
+| # | Defeito | Como apareceu |
+|---|---|---|
+| 1 | O campo do token sumia na **primeira tecla** — não dava para entrar no admin à mão em nenhuma das 7 telas | abrindo `/admin/config` pela primeira vez |
+| 2 | Token **recusado** também recolhia o campo: "Acesso admin negado" sem campo para corrigir | digitando uma letra e apertando Enter |
+| 3 | O carimbo abria enquadrado e **ilegível** — raster ampliado por CSS | abrindo uma prancha real de Chapecó |
+| 4 | Falta de `OPENAI_ADMIN_KEY` derrubava a **página inteira** do consumo, escondendo o custo por obra, que vem do banco | ligando o `.env.local` real |
+| 5 | As provas exigiam o ambiente semeado do autor e falhavam **sem defeito nenhum** | rodando contra o `.env.local` real |
+
+O padrão dos cinco: cada um só aparece **na tela, com dado de verdade**. É a
+mesma lição da abertura deste documento — compilador e linter não executam a
+tela, e prova escrita contra um ambiente inventado não vale contra o real.
+
+Também ficou registrado, sem virar tarefa: a tabela de **custo por obra** degrada
+para custo por conversa quando as auditorias não estão em pasta de obra (é o caso
+hoje), e **dispensar o tour apaga o projeto de exemplo**.
+
+---
+
+
 **Branch:** `theusinshow/kmi-adititonals` (10 commits à frente da `main`).
 **Para quem:** o mantenedor, noutra máquina, conferindo à mão.
 
