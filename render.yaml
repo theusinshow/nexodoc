@@ -50,6 +50,21 @@ services:
         sync: false
       - key: NEXODOC_ADMIN_EMAILS
         sync: false
+      # O TOKEN DO PAINEL ADMIN — e ele não é opcional.
+      #
+      # Faltava aqui, e a consequência é silenciosa do pior jeito: as SETE telas
+      # do `/admin` respondem "NEXODOC_ADMIN_TOKEN não configurado" e ninguém
+      # entra. Não é erro de acesso negado, é a variável ausente — e a mensagem
+      # só aparece depois de digitar um token que jamais seria aceito.
+      #
+      # Descoberto em 13/08/2026, tentando confirmar em produção o trabalho de
+      # admin que tinha acabado de subir: o painel estava inacessível desde
+      # sempre, e o `render.yaml` não registrava que a variável existia.
+      #
+      # `sync: false`: o valor vive no painel da Render (é segredo), e esta
+      # linha existe para que a próxima pessoa saiba que ele precisa estar lá.
+      - key: NEXODOC_ADMIN_TOKEN
+        sync: false
 
       # ------------------------------------------------------------------- IA
       #
