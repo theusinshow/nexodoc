@@ -25,6 +25,16 @@ npm run dev
 | `NEXT_PUBLIC_NEXO_ENABLED=true` | `/nexo` faz kill-switch e some para `/` |
 | `NEXODOC_ADMIN_EMAILS=<seu e-mail>` | `/admin` te trata como não-admin quando não há banco |
 
+Para abrir o `/admin` numa máquina sem banco e sem Google, faltam mais três — e
+sem elas o login não oferece atalho nenhum e o `/admin` devolve tela de
+não-admin, sem dizer por quê:
+
+```
+NEXODOC_DEV_AUTH=true
+NEXODOC_DEV_AUTH_EMAIL=dev@nexodoc.local   # tem de ser o MESMO de ADMIN_EMAILS
+AUTH_SECRET=<qualquer coisa local>
+```
+
 As provas automáticas, se quiser rodar antes:
 
 ```bash
