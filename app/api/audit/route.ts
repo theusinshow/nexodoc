@@ -61,6 +61,14 @@ import {
   runWithinDocumentIdentityRules,
 } from "@/lib/cross-document-audit";
 import { runDocumentCoherenceRules } from "@/lib/audit-coherence";
+import {
+  auditValidationResponseFormat,
+  buildDocumentContext,
+  buildFindingCandidateList,
+  buildValidationContext,
+  getFindingValidationPrompt,
+  getGlobalContextChars,
+} from "@/lib/audit-validation-prompt";
 import { filterGroundedFindings } from "@/lib/audit-verify";
 
 export const runtime = "nodejs";
@@ -74,10 +82,6 @@ const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
 const DEFAULT_CHUNK_CONCURRENCY = 3;
 const DEFAULT_CHUNK_TIMEOUT_MS = 120_000;
-const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
-// Teto do nível Profundo: grande o bastante para o memorial inteiro caber numa
-// leitura só (memoriais reais têm ~300k chars; damos folga para os maiores).
-const DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS = 700_000;
 
 type AuditEngine = "single" | "dual";
 
@@ -169,53 +173,6 @@ const auditCrossDocumentResponseFormat = {
       },
     },
     required: ["comparisons", "findings"],
-  },
-};
-
-const auditValidationResponseFormat = {
-  type: "json_schema" as const,
-  name: "audit_validation",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      decisions: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            source_id: { type: "string" },
-            acao: { type: "string", enum: ["confirmar", "rebaixar", "remover"] },
-            prioridade: { type: "string" },
-            impacto: {
-              type: "string",
-              enum: ["critico_documental", "tecnico_contratual", "revisao_editorial"],
-            },
-            tipo: { type: "string" },
-            descricao: { type: "string" },
-            conflito: { type: "string" },
-            sugestao_correcao: { type: "string" },
-            confianca: { type: "string" },
-            motivo: { type: "string" },
-          },
-          required: [
-            "source_id",
-            "acao",
-            "prioridade",
-            "impacto",
-            "tipo",
-            "descricao",
-            "conflito",
-            "sugestao_correcao",
-            "confianca",
-            "motivo",
-          ],
-        },
-      },
-    },
-    required: ["decisions"],
   },
 };
 
@@ -686,37 +643,6 @@ function getChunkTimeoutMs() {
 // forte, como quem cola o PDF todo no ChatGPT). Antes amostrava ~90k chars (~1/5
 // de um memorial), então a IA nunca via a metade de trás e só sobrava o sumário.
 // O gpt-5.5 comporta ~300k+ chars com folga. Padrão segue amostrado (velocidade/custo).
-function getGlobalContextChars(analysisLevel: AnalysisLevel = "standard") {
-  const value = Number(process.env.NEXODOC_GLOBAL_CONTEXT_CHARS);
-
-  if (Number.isFinite(value) && value >= 40_000) {
-    return Math.min(1_200_000, Math.floor(value));
-  }
-
-  return analysisLevel === "deep" ? DEFAULT_DEEP_GLOBAL_CONTEXT_CHARS : DEFAULT_GLOBAL_CONTEXT_CHARS;
-}
-
-function buildDocumentContext(extracted: ExtractedPdf, analysisLevel: AnalysisLevel = "standard") {
-  const maxChars = getGlobalContextChars(analysisLevel);
-
-  if (extracted.text.length <= maxChars) {
-    return extracted.text;
-  }
-
-  const headChars = Math.floor(maxChars * 0.38);
-  const tailChars = Math.floor(maxChars * 0.42);
-  const middleChars = maxChars - headChars - tailChars;
-  const middleStart = Math.max(0, Math.floor((extracted.text.length - middleChars) / 2));
-
-  return [
-    extracted.text.slice(0, headChars),
-    "\n\n--- RECORTE INTERMEDIARIO DO DOCUMENTO ---\n\n",
-    extracted.text.slice(middleStart, middleStart + middleChars),
-    "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
-    extracted.text.slice(-tailChars),
-  ].join("");
-}
-
 const IDENTITY_CONTEXT_PATTERN =
   /\b(obra|identifica[cç][aã]o|localiza[cç][aã]o|endere[cç]o|propriet[aá]rio|nome|memorial descritivo|projeto preventivo|ppci|constru[cç][aã]o|reforma|adequa[cç][aã]o)\b/gi;
 
@@ -2532,113 +2458,8 @@ function normalizeImpactDecision(value: string | undefined) {
   return undefined;
 }
 
-function buildValidationContext(files: UploadedAuditFile[]) {
-  let remainingCharacters = 90_000;
-
-  return files
-    .map((file) => {
-      const text = buildDocumentContext(file.extracted).slice(0, Math.min(remainingCharacters, 45_000));
-      remainingCharacters -= text.length;
-
-      return [
-        `ARQUIVO: ${file.file.name}`,
-        `TIPO: ${file.fileType}`,
-        `PÁGINAS: ${file.extracted.pageCount}`,
-        `TEXTO DE CONTEXTO:`,
-        text,
-      ].join("\n");
-    })
-    .join("\n\n---\n\n");
-}
-
-function buildFindingCandidateList(findings: AuditFinding[]) {
-  return findings
-    .slice(0, 40)
-    .map((finding) => {
-      return [
-        `ID: ${finding.id}`,
-        `Arquivo: ${finding.arquivo ?? "não informado"}`,
-        `Origem: ${finding.origem ?? "não informada"}`,
-        `Prioridade atual: ${finding.prioridade}`,
-        `Impacto atual: ${finding.impacto ?? classifyFindingImpact(finding)}`,
-        `Página: ${finding.pagina}`,
-        `Capítulo: ${finding.capitulo}`,
-        `Tipo: ${finding.tipo}`,
-        `Descrição: ${finding.descricao}`,
-        `Evidência: ${finding.evidencia}`,
-        `Conflito: ${finding.conflito}`,
-        `Ação atual: ${finding.sugestao_correcao}`,
-      ].join("\n");
-    })
-    .join("\n\n");
-}
-
 function isMandatoryGuardFinding(finding: AuditFinding) {
   return finding.id.startsWith("GUARDA-");
-}
-
-function getFindingValidationPrompt(args: {
-  auditMode: AuditMode;
-  userMessage: string;
-  projectName: string;
-  learningContext: string;
-  files: UploadedAuditFile[];
-  findings: AuditFinding[];
-}) {
-  return `
-Você é a camada final de validação semântica do NexoDoc. Revise os achados candidatos abaixo como um auditor documental sênior, com julgamento parecido com uma boa análise manual.
-
-Sua tarefa não é procurar novos erros. Sua tarefa é validar os candidatos:
-- confirmar achado real;
-- rebaixar gravidade quando for apenas ponto técnico/editorial;
-- remover falso positivo.
-
-Regra de gravidade:
-- critico_documental: somente quando houver troca real de obra, município, endereço, órgão, cliente, código, disciplina ou documento pertencente a outro projeto.
-- tecnico_contratual: numeração incoerente, sumário duplicado, linguagem técnica possivelmente reaproveitada, norma/cálculo/hierarquia que exige conferência.
-- revisao_editorial: grafia, padronização, redação e detalhes sem impacto técnico direto.
-
-Não mantenha como crítico:
-- rodapé/cabeçalho repetido com a identidade correta;
-- frase técnica longa apenas próxima do rodapé;
-- menção histórica ou contexto da reforma;
-- termo genérico como unidade, saúde, fiscalização, infraestrutura, aterro ou população atendida sem troca real da obra.
-
-Se o candidato for útil mas exagerado, use "acao": "rebaixar" e ajuste prioridade/impacto/conflito.
-Se for falso positivo, use "acao": "remover".
-Se estiver correto, use "acao": "confirmar".
-
-Projeto informado: ${args.projectName || "não informado"}
-Modo: ${args.auditMode}
-Solicitação do usuário: ${args.userMessage}
-
-Aprendizados ativos do escritório, usados como preferência de auditoria, não como evidência:
-${args.learningContext}
-
-Responda APENAS JSON válido:
-{
-  "decisions": [
-    {
-      "source_id": "ID do achado candidato",
-      "acao": "confirmar|rebaixar|remover",
-      "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
-      "impacto": "critico_documental|tecnico_contratual|revisao_editorial",
-      "tipo": "tipo ajustado, se necessário",
-      "descricao": "descrição ajustada, se necessário",
-      "conflito": "por que é erro real, ponto de revisão ou falso positivo",
-      "sugestao_correcao": "ação objetiva",
-      "confianca": "alta|media|baixa",
-      "motivo": "justificativa curta da decisão"
-    }
-  ]
-}
-
-ACHADOS CANDIDATOS:
-${buildFindingCandidateList(args.findings)}
-
-CONTEXTO DO DOCUMENTO:
-${buildValidationContext(args.files)}
-`.trim();
 }
 
 async function validateFindingsWithModel(args: {

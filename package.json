@@ -27,6 +27,7 @@
     "test:nexo:attachments": "node scripts/test-nexo-attachments.ts",
     "test:nexo:next-steps": "node scripts/test-nexo-next-steps.ts",
     "test:nexo:group": "node scripts/test-nexo-group.ts",
+    "medir:validacao": "node scripts/medir-validacao-sol-vs-terra.ts",
     "test:ai:precos": "node scripts/test-ai-precos.ts",
     "test:nexo:selo-cache": "node scripts/test-nexo-selo-cache.ts",
     "test:nexo:tipo": "node scripts/test-nexo-tipo.ts",
