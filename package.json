@@ -30,6 +30,7 @@
     "medir:validacao": "node scripts/medir-validacao-sol-vs-terra.ts",
     "test:ai:precos": "node scripts/test-ai-precos.ts",
     "test:audit:reuso": "node scripts/test-audit-reuso.ts",
+    "test:audit:mapa": "node scripts/test-audit-mapa.ts",
     "test:nexo:selo-cache": "node scripts/test-nexo-selo-cache.ts",
     "test:nexo:tipo": "node scripts/test-nexo-tipo.ts",
     "test:nexo:volumes-prontos": "node scripts/test-nexo-volumes-prontos.ts",

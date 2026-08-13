@@ -13,7 +13,11 @@
  * Nada aqui mudou de comportamento na extração — as funções foram movidas
  * palavra por palavra.
  */
-import { classifyFindingImpact, type AuditFinding } from "./audit-report.ts";
+import {
+  classifyFindingImpact,
+  type AuditFinding,
+  type CapituloImpresso,
+} from "./audit-report.ts";
 import type { AnalysisLevel } from "./analysis-level.ts";
 import type { ExtractedPdf } from "./pdf-text.ts";
 
@@ -94,6 +98,38 @@ export function buildValidationContext(files: ValidationContextFile[]) {
       ].join("\n");
     })
     .join("\n\n---\n\n");
+}
+
+/**
+ * O MAPA COMPRIMIDO dos capítulos que não mudaram, para a reauditoria barata.
+ *
+ * Mora aqui, ao lado do `buildValidationContext`, porque são irmãos: os dois
+ * comprimem o documento para caber num prompt que não pode recebê-lo inteiro.
+ *
+ * Existe por um motivo só: sem ele, a leitura que recebe apenas o delta não tem
+ * como notar que o capítulo novo do metálico contradiz a fundação do capítulo 3.
+ * A passada de validação não cobre isso — o prompt dela diz, literalmente, que a
+ * tarefa dela não é procurar erros novos.
+ *
+ * Capítulo SEM síntese entra assim mesmo, só com título e páginas: omiti-lo
+ * faria o modelo achar que o documento é menor do que é, e um capítulo
+ * invisível não pode ser contradito.
+ */
+export function buildMapaDosIguais(
+  capitulos: readonly CapituloImpresso[],
+  sintese: readonly { hash: string; resumo: string }[],
+): string {
+  if (capitulos.length === 0) return "";
+
+  const porHash = new Map(sintese.map((s) => [s.hash, s.resumo]));
+
+  return capitulos
+    .map((c) => {
+      const resumo = porHash.get(c.hash);
+      const cabeca = `${c.titulo || "(sem título)"} [p. ${c.startPage}-${c.endPage}]`;
+      return resumo ? `${cabeca}: ${resumo}` : cabeca;
+    })
+    .join("\n");
 }
 
 export function buildFindingCandidateList(findings: AuditFinding[]) {
