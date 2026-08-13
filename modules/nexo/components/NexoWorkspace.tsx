@@ -95,6 +95,8 @@ import {
   type FolhaId,
 } from "../lib/folhas";
 import { codigoDaFolha } from "../lib/disciplina-da-folha";
+import { siglaDaDisciplina } from "../lib/disciplina-cor";
+import { VisorDaFolha } from "./VisorDaFolha";
 import { useConexao } from "../lib/use-conexao";
 import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
 
@@ -1465,20 +1467,58 @@ function NexoWorkspaceInner({
    * mataria a aba antes de ela carregar o PDF; o cache é limpo no mesmo ponto em
    * que `pranchaFiles` é zerado (nova conversa / trocar de conversa).
    */
+  /**
+   * As folhas que o visor pode percorrer, na ordem do canvas.
+   *
+   * Só as que têm bytes nesta máquina: depois de um F5 os `File` não voltam, e
+   * uma seta que anda para uma folha impossível de abrir seria pior do que uma
+   * seta que não anda até lá.
+   */
+  const folhasNoVisor = useMemo(
+    () =>
+      selos.flatMap((f) => {
+        const file = pranchaFiles.find((p) => p.name === f.fileName);
+        if (!file) return [];
+        /*
+         * O `File` viaja, não a object URL.
+         *
+         * Criar a URL aqui seria efeito colateral dentro de um `useMemo` — o
+         * lint do React Compiler barra, e com razão: um memo pode ser
+         * descartado e recalculado, e cada recálculo vazaria um blob que
+         * ninguém revoga. Quem exibe é quem cria e revoga, no efeito.
+         */
+        return [
+          {
+            id: f.id,
+            file,
+            pageNumber: f.pageNumber ?? 1,
+            numero: f.numeroFolha ?? undefined,
+            // `conteudo` é o campo CONTEÚDO do carimbo — o que o nó do canvas
+            // mostra como título da folha. É por ele que se reconhece a prancha.
+            titulo: f.conteudo ?? undefined,
+            sigla: siglaDaDisciplina(f.disciplina),
+            fileName: f.fileName,
+          },
+        ];
+      }),
+    [selos, pranchaFiles],
+  );
+
+  /**
+   * Qual folha o visor está mostrando. `null` = fechado.
+   *
+   * ABRIR DEIXOU DE SER "ABRIR UMA ABA". A aba do navegador entregava o PDF
+   * inteiro e devolvia o trabalho: achar o carimbo numa A0, dar zoom, conferir,
+   * voltar, repetir — vinte vezes num lote de vinte folhas. O visor abre no
+   * carimbo e as setas mantêm o enquadramento.
+   */
+  const [folhaNoVisor, setFolhaNoVisor] = useState<FolhaId | null>(null);
+
   const abrirFolha = useCallback(
     (id: FolhaId) => {
-      const folha = selos.find((f) => f.id === id);
-      if (!folha) return;
-      const file = pranchaFiles.find((f) => f.name === folha.fileName);
-      if (!file) return;
-      let url = urlsDasPranchas.current.get(file.name);
-      if (!url) {
-        url = URL.createObjectURL(file);
-        urlsDasPranchas.current.set(file.name, url);
-      }
-      window.open(`${url}#page=${folha.pageNumber ?? 1}`, "_blank", "noopener,noreferrer");
+      if (folhasNoVisor.some((f) => f.id === id)) setFolhaNoVisor(id);
     },
-    [selos, pranchaFiles],
+    [folhasNoVisor],
   );
 
   /*
@@ -1750,6 +1790,24 @@ function NexoWorkspaceInner({
       )}
 
       {tourAtivo && <TourDoNexo aoSair={encerrarTour} />}
+
+      {/*
+        O VISOR fica FORA do shell, e é proposital: ele cobre a tela inteira
+        enquanto se confere um lote, e pendurá-lo dentro do palco o faria
+        disputar espaço com o canvas que acabou de ser usado para abri-lo.
+      */}
+      {folhaNoVisor !== null &&
+        (() => {
+          const i = folhasNoVisor.findIndex((f) => f.id === folhaNoVisor);
+          if (i < 0) return null;
+          return (
+            <VisorDaFolha
+              folhas={folhasNoVisor}
+              indiceInicial={i}
+              onFechar={() => setFolhaNoVisor(null)}
+            />
+          );
+        })()}
 
       <NexoShell
         started={started}

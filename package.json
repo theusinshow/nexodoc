@@ -86,7 +86,8 @@
     "prova:varredura": "node scripts/prova-varredura-da-auditoria.mjs",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
-    "prova:glossario": "node scripts/prova-glossario.mjs"
+    "prova:glossario": "node scripts/prova-glossario.mjs",
+    "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
