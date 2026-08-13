@@ -108,6 +108,19 @@ const SOUL_TEAL_LIGHT = CORES_DO_ORBE.laminaClara;
 // Satélites: máximo visual razoável (documentos no contexto viram pontos abstratos).
 const MAX_SATS = 6;
 
+/*
+ * O BOOT ACONTECE UMA VEZ POR CARREGAMENTO, e a flag é de MÓDULO por isso.
+ *
+ * O orbe REMONTA ao trocar de tela — o shell desmonta a árvore no welcome ↔
+ * active, e o login tem a sua própria instância. Um boot por montagem
+ * transformaria navegar num pisca-pisca, e o "liga como instrumento" só
+ * significa alguma coisa se acontecer quando o instrumento de fato liga.
+ *
+ * Recarregar a página zera o módulo e o boot volta. É o correto: um F5 é um
+ * carregamento novo, e o gesto de ligar pertence a ele.
+ */
+let jaLigou = false;
+
 // Vidro externo (Fresnel + deslocamento leve).
 const OrbSurfaceMaterial = shaderMaterial(
   {
@@ -166,6 +179,7 @@ export function AgentOrbScene({
   fileCount,
   hovered,
   pressed,
+  ouvindo = false,
   reduced,
   cores,
   vidro,
@@ -177,6 +191,8 @@ export function AgentOrbScene({
   hovered: boolean;
   /** Botão do mouse pressionado sobre o orbe — reconhecimento do toque. */
   pressed: boolean;
+  /** Cursor no composer: o agente "presta atenção" enquanto você escreve. */
+  ouvindo?: boolean;
   reduced: boolean;
   /**
    * Cores fora do padrão. SÓ a bancada de ajuste usa isto; o produto não passa
@@ -205,8 +221,22 @@ export function AgentOrbScene({
   const dragRef = useRef(0);
   const hoverRef = useRef(0);
   const pressRef = useRef(0);
+  /** Quanto do realce de "estou ouvindo" já entrou (0..1). */
+  const ouvidoRef = useRef(0);
+  /** Fase acumulada do respiro — ver o porquê no `useFrame`. */
+  const breathPhase = useRef(0);
+  const progressoRef = useRef<THREE.Mesh>(null);
+  const progressoMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  /** Fração do arco de leitura já fechada (0..1), amortecida. */
+  const progressoRef01 = useRef(0);
+  /** 0 → 1 na primeira montagem da sessão; já nasce em 1 nas seguintes. */
+  const bootRef = useRef(jaLigou || reduced ? 1 : 0);
   /** Escala de cada satélite (0..1): eles NASCEM, não aparecem prontos. */
   const satScale = useRef<number[]>(Array.from({ length: MAX_SATS }, () => 0));
+  /** Instante de nascimento de cada satélite. -1 = não nasceu; -2 = já assentou. */
+  const satNasceu = useRef<number[]>(Array.from({ length: MAX_SATS }, () => -1));
+  /** Quantos satélites havia no quadro anterior — serve para detectar rajada. */
+  const contagemAnterior = useRef(0);
   /** Progresso do anel de conclusão (0 = parado; sobe até 1 e some). */
   const pulsoRef01 = useRef(0);
   /** Ponteiro relativo ao centro do orbe, em -1..1. Escrito no listener. */
@@ -217,6 +247,12 @@ export function AgentOrbScene({
   useEffect(() => {
     target.current = { ...paramsForState(state, activity), ...ajuste };
   }, [state, activity, ajuste]);
+
+  // A marca de "já ligou nesta sessão" só é posta DEPOIS de montar, para que a
+  // primeira instância ainda veja `false` no seu próprio `useRef` inicial.
+  useEffect(() => {
+    jaLigou = true;
+  }, []);
 
   const invalidate = useThree((s) => s.invalidate);
 
@@ -261,7 +297,7 @@ export function AgentOrbScene({
   const gl = useThree((s) => s.gl);
   useEffect(() => {
     invalidate();
-  }, [state, activity, fileCount, hovered, pressed, reduced, invalidate]);
+  }, [state, activity, fileCount, hovered, pressed, ouvindo, reduced, invalidate]);
 
   /*
    * O ORBE ACOMPANHA QUEM CHEGA PERTO.
@@ -323,22 +359,67 @@ export function AgentOrbScene({
     hoverRef.current = d(hoverRef.current, hovered ? 1 : 0, 8);
     const h = hoverRef.current;
 
+    /*
+     * O ORBE OUVE A DIGITAÇÃO.
+     *
+     * O aro sobe menos que no hover (0,10 contra 0,18) de propósito: o hover é
+     * "você tocou em mim" e a escuta é "estou aqui enquanto você escreve" — a
+     * segunda não pode gritar mais alto que a primeira.
+     *
+     * A soma tem TETO no valor do hover. Focar o campo com o mouse parado sobre
+     * o orbe é o caso comum, não o raro, e dois realces empilhados estouram o
+     * aro — que é o mesmo erro que fez `hover` sair do enum de estados.
+     */
+    ouvidoRef.current = d(ouvidoRef.current, ouvindo ? 1 : 0, 8);
+    const realce = Math.min(0.18, h * 0.18 + ouvidoRef.current * 0.1);
+
     c.distortion = d(c.distortion, t.distortion + h * 0.015);
     c.pulse = d(c.pulse, t.pulse);
-    c.rim = d(c.rim, t.rim + h * 0.18);
+    c.rim = d(c.rim, t.rim + realce);
     c.scan = d(c.scan, t.scan);
     c.spin = d(c.spin, t.spin);
     c.jitter = d(c.jitter, t.jitter);
+    // Damping BAIXO no ritmo do respiro (3 contra os 6 dos demais): a mudança
+    // de cadência tem de ser percebida como transição, não como corte.
+    c.breathRate = d(c.breathRate, t.breathRate, 3);
 
     const time = s.clock.elapsedTime;
-    const breath = reduced ? 1 : 0.85 + 0.15 * Math.sin(time * 1.5);
+    /** Atividade real 0..1 — progresso da leitura ou cadência da resposta. */
+    const ativ = Math.max(0, Math.min(1, activity));
+
+    /*
+     * O INSTRUMENTO LIGA: miolo acende de zero em ~600ms, aro sobe com atraso.
+     *
+     * O atraso do aro é o que separa "liga e então acende" de um fade comum —
+     * é a mesma diferença entre uma lâmpada e um equipamento com fonte. E o
+     * giro nasce alto e assenta, que é o volante grande parando.
+     *
+     * Com `reduced`, `bootRef` já nasce em 1: nada anima, e não há piscar.
+     */
+    bootRef.current = reduced
+      ? 1
+      : THREE.MathUtils.damp(bootRef.current, 1, 5, dt);
+    const boot = bootRef.current;
+    const bootAro = Math.max(0, (boot - 0.25) / 0.75);
+
+    /*
+     * A FASE DO RESPIRO É INTEGRADA, e não calculada de `time * taxa`.
+     *
+     * Multiplicar o relógio pela taxa faz a fase SALTAR quando a taxa muda:
+     * `time` já vale centenas de segundos, e meia unidade de diferença joga o
+     * seno para outro ponto qualquer do ciclo. O miolo daria um pulo no
+     * instante exato em que o agente passasse a esperar — o oposto do que este
+     * estado está tentando dizer.
+     */
+    breathPhase.current += dt * c.breathRate;
+    const breath = reduced ? 1 : 0.85 + 0.15 * Math.sin(breathPhase.current);
 
     // Vidro externo.
     const su = surf.uniforms;
     if (!reduced) su.uTime.value += dt;
     // Casca de vidro ondula bem menos que o valor de estado → borda limpa/inteira.
     su.uDistort.value = c.distortion * 0.35;
-    su.uRim.value = c.rim;
+    su.uRim.value = c.rim * bootAro;
     su.uScan.value = c.scan;
     /*
      * Sem damping, de propósito: isto é uma CHAVE, não uma intensidade.
@@ -349,15 +430,64 @@ export function AgentOrbScene({
     su.uScanMode.value = state === "auditing" ? 1 : 0;
     su.uJitter.value = c.jitter;
 
+    /*
+     * O ERRO SE DIZ POR RITMO, porque não pode se dizer por cor.
+     *
+     * A lei do §6 prende o orbe à rampa teal — inclusive no erro. Tingir o aro
+     * de coral foi considerado e recusado: seria cor de STATUS num elemento
+     * INTERATIVO, e romperia a iridescência que é a identidade da marca. Sobra
+     * o tempo, e o tempo basta.
+     *
+     * Duas contrações rápidas e uma pausa: é sístole-diástole, e o corpo lê
+     * isso como "algo errado" antes de a cabeça ler o rótulo. O `jitter`
+     * continua — ele é a textura da instabilidade; isto é a frase.
+     */
+    const batida = (x: number, centro: number) =>
+      Math.exp(-Math.pow((x - centro) / 0.09, 2));
+    const pulsoDoErro =
+      state === "error" && !reduced
+        ? 0.25 + 0.75 * (batida(time % 1.6, 0) + 0.7 * batida(time % 1.6, 0.18))
+        : 1;
+
     // Alma.
     const cu = core.uniforms;
     if (!reduced) cu.uTime.value += dt;
-    cu.uActivity.value = Math.max(0, Math.min(1, activity));
-    cu.uPulse.value = c.pulse * breath;
+    cu.uActivity.value = ativ;
+    cu.uPulse.value = c.pulse * breath * pulsoDoErro * boot;
 
     // Drag: campo visual expande e o anel de drop-target aparece.
     dragRef.current = d(dragRef.current, state === "dragging" ? 1 : 0, 8);
     if (ringMatRef.current) ringMatRef.current.opacity = dragRef.current * 0.55;
+
+    /*
+     * O ARO MEDE A LEITURA.
+     *
+     * O `scan` já dizia que o Nexo está lendo, mas uma banda que atravessa é
+     * textura, não medida: com 23 pranchas ou com 200 ela varre igual, e "falta
+     * quanto?" continuava sem resposta na esfera. O arco responde — e responde
+     * em FRAÇÃO, que é o que faz 200 folhas caberem no mesmo desenho de 23.
+     *
+     * O RECORTE É DE ÍNDICE, não shader e não geometria nova. `ringGeometry`
+     * gera os índices em sequência angular a partir de `thetaStart`, então
+     * cortar o draw range deixa um arco contíguo — de graça. Recriar a
+     * geometria a cada folha lida seria alocar e descartar buffers 200 vezes
+     * numa leitura grande.
+     */
+    const lendo = state === "reading";
+    progressoRef01.current = d(progressoRef01.current, lendo ? ativ : 0, 5);
+    const pr = progressoRef.current;
+    const pm = progressoMatRef.current;
+    if (pr && pm) {
+      const frac = progressoRef01.current;
+      pm.opacity = d(pm.opacity, lendo && frac > 0.001 ? 0.8 : 0, 6);
+      pr.visible = pm.opacity > 0.01;
+      if (pr.visible) {
+        const total = pr.geometry.index?.count ?? 0;
+        // Múltiplo de 3: o corte tem de cair em fronteira de triângulo, senão o
+        // último some inteiro em vez de o arco crescer liso.
+        pr.geometry.setDrawRange(0, Math.floor((total * frac) / 3) * 3);
+      }
+    }
 
     /*
      * PRESS: o orbe afunda ao ser tocado e volta ao soltar. É o reconhecimento
@@ -378,7 +508,8 @@ export function AgentOrbScene({
       );
     }
     if (spinRef.current && !reduced) {
-      spinRef.current.rotation.y += dt * c.spin;
+      // O giro nasce alto e assenta no alvo — volante grande parando.
+      spinRef.current.rotation.y += dt * c.spin * (1 + (1 - boot) * 3);
     }
 
     /*
@@ -403,7 +534,7 @@ export function AgentOrbScene({
       // Desacelera saindo (ease-out): o anel dispara e assenta.
       const eased = 1 - Math.pow(1 - p, 3);
       pulsoRef.current.visible = true;
-      // Teto 1,30 → raio 1,38, dentro do quadro (±1,42). Um anel que termina
+      // Teto 1,30 → raio 1,38, dentro do quadro (±1,63). Um anel que termina
       // fora da moldura vira quatro arcos nos cantos, que foi o que aconteceu.
       pulsoRef.current.scale.setScalar(0.92 + eased * 0.38);
       pulsoMatRef.current.opacity = (1 - eased) * 0.5;
@@ -428,7 +559,7 @@ export function AgentOrbScene({
      */
     const count = Math.max(0, Math.min(MAX_SATS, Math.round(fileCount)));
     const tt = reduced ? 4.2 : time;
-    const ativ = Math.max(0, Math.min(1, activity));
+    const rajada = count - contagemAnterior.current > 3;
     for (let i = 0; i < MAX_SATS; i++) {
       const m = satRefs.current[i];
       if (!m) continue;
@@ -436,10 +567,31 @@ export function AgentOrbScene({
       // Nascer é mais lento que sumir: a chegada precisa ser vista, a saída não.
       satScale.current[i] = d(satScale.current[i], alvo, alvo === 1 ? 7 : 12);
       const s = satScale.current[i];
+
+      /*
+       * A CERIMÔNIA É PARA UMA FOLHA, NÃO PARA CINQUENTA.
+       *
+       * Uma prancha chegando sozinha merece ser vista chegando — o overshoot é
+       * o "recebido" que nenhum texto precisa dizer. Cinquenta chegando juntas
+       * com overshoot viram pipoca, e o lote grande é o caso COMUM deste
+       * produto, não o raro. Acima de três de uma vez, elas só assentam.
+       */
+      if (alvo === 1 && satNasceu.current[i] === -1) {
+        satNasceu.current[i] = rajada || reduced ? -2 : time;
+      }
+      if (alvo === 0) satNasceu.current[i] = -1;
+
       m.visible = s > 0.02;
       if (!m.visible) continue;
-      m.scale.setScalar(s);
-      // 1,28 + 0,08 → no máximo 1,36, com folga para o quadro de ±1,42.
+
+      let escala = s;
+      if (satNasceu.current[i] >= 0) {
+        const idade = (time - satNasceu.current[i]) / 0.35;
+        if (idade >= 1) satNasceu.current[i] = -2;
+        else escala = s * (1 + 0.18 * Math.sin(idade * Math.PI));
+      }
+      m.scale.setScalar(escala);
+      // 1,28 + 0,08 → no máximo 1,36, com folga para o quadro de ±1,63.
       const rad = (1.28 + 0.08 * Math.sin(i * 2.1)) * (1 - h * 0.05);
       const speed = (0.16 + (i % 3) * 0.05) * (1 + ativ * 0.5);
       const ang = i * ((Math.PI * 2) / MAX_SATS) + tt * speed;
@@ -456,6 +608,7 @@ export function AgentOrbScene({
        */
       (m.material as THREE.MeshBasicMaterial).opacity = (z < 0 ? 0.34 : 1) * s;
     }
+    contagemAnterior.current = count;
   });
 
   return (
@@ -489,6 +642,26 @@ export function AgentOrbScene({
           </mesh>
         </group>
       </group>
+
+      {/* PROGRESSO DA LEITURA — arco que fecha 360° conforme as folhas entram.
+          Raio 1,14-1,17: fora da silhueta (1,0), dentro do anel de drop (1,3) e
+          com folga no quadro de ±1,63. Começa no topo (thetaStart = π/2).
+
+          MALHA PRÓPRIA, e não o material do drop-target: raio diferente,
+          significado diferente. Materiais compartilhados é como dois sinais
+          passam a se apagar um ao outro sem ninguém entender por quê. */}
+      <mesh ref={progressoRef} renderOrder={2} visible={false}>
+        <ringGeometry args={[1.14, 1.17, 96, 1, Math.PI / 2, Math.PI * 2]} />
+        <meshBasicMaterial
+          ref={progressoMatRef}
+          color={RIM_COLOR}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
 
       {/* DROP-TARGET — anel que aparece ao arrastar um documento sobre a esfera. */}
       <mesh renderOrder={2}>

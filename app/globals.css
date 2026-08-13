@@ -619,6 +619,17 @@ textarea {
   color: var(--muted-foreground);
 }
 
+/* O orbe vivo acima do poster do workspace: a alma primeiro, o que ela faz
+   logo abaixo. `align-items: center` mantem os dois no mesmo eixo, e o gap e
+   generoso de proposito -- colados, o orbe leria como parte da moldura falsa. */
+.login-media-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  min-width: 0;
+}
+
 .login-media-panel {
   position: relative;
   min-width: 0;

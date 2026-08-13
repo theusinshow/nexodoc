@@ -7,7 +7,7 @@
  * esfera não conhece IA/API; esta é a camada que a aplicação usa pra traduzir.
  *
  * Prioridade: error > dragging > reading > responding > analyzing > auditing >
- * complete > idle.
+ * complete > waiting > idle.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +29,12 @@ export interface AgentSignals {
    * de entrar como `thinking`.
    */
   auditing?: boolean;
+  /**
+   * O agente perguntou e a resposta não veio. Derivado pelo dono (ver
+   * `useEsperandoVoce` no NexoWorkspace) porque depende de coisas que a esfera
+   * não pode conhecer: o teor da última mensagem e o conteúdo do composer.
+   */
+  waiting?: boolean;
   /** Falha no turno/leitura. */
   error?: boolean;
 }
@@ -42,6 +48,7 @@ export function useAgentState({
   thinking,
   responding,
   auditing,
+  waiting,
   error,
 }: AgentSignals): AgentState {
   const [transient, setTransient] = useState<null | "complete" | "error">(null);
@@ -89,5 +96,11 @@ export function useAgentState({
    */
   if (auditing) return "auditing";
   if (transient === "complete") return "complete";
+  /*
+   * Depois do pulso de conclusão, e não antes: terminar e passar a bola são
+   * dois momentos, e o pulso é o que marca o primeiro. Trocados, o "pronto"
+   * sumiria dentro da espera e o turno acabaria sem nunca ter sido celebrado.
+   */
+  if (waiting) return "waiting";
   return "idle";
 }

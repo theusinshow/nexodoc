@@ -29,6 +29,7 @@ export function NexoCopilot({
   arrastando = false,
   readStatus,
   agentState = "idle",
+  ouvindo = false,
   fileCount = 0,
   activity = 0,
   context,
@@ -51,6 +52,8 @@ export function NexoCopilot({
   readStatus?: ReadStatus | null;
   /** Estado do Nexo Core (derivado dos sinais do app pelo NexoWorkspace). */
   agentState?: AgentState;
+  /** Cursor no composer: o orbe levanta o aro enquanto você escreve. */
+  ouvindo?: boolean;
   fileCount?: number;
   /** Atividade real 0..1: progresso da leitura ou cadência do texto. */
   activity?: number;
@@ -136,11 +139,15 @@ export function NexoCopilot({
         ? "lendo os selos"
         : agentState === "auditing"
           ? "auditando o memorial"
-          : working
-            ? "pensando"
-            : fileCount > 0
-              ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
-              : "pronto";
+          : // Fora do grupo `working` de propósito: esperar não é trabalhar, e a
+            // reticência animada diria que o Nexo está fazendo alguma coisa.
+            agentState === "waiting"
+            ? "aguardando você"
+              : working
+                ? "pensando"
+                : fileCount > 0
+                  ? `${fileCount} folha${fileCount > 1 ? "s" : ""} no contexto`
+                  : "pronto";
 
   return (
     <div
@@ -160,6 +167,7 @@ export function NexoCopilot({
           anchor={
             <AgentOrb
               state={orbState}
+              ouvindo={ouvindo}
               fileCount={fileCount}
               activity={orbActivity}
               size={started ? "compact" : "hero"}

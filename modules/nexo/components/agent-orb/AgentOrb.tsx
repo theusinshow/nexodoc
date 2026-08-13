@@ -54,6 +54,7 @@ const STATE_LABEL: Record<AgentState, string> = {
   auditing: "Nexo — auditando o memorial",
   responding: "Nexo — respondendo",
   complete: "Nexo — análise concluída",
+  waiting: "Nexo — aguardando você",
   error: "Nexo — instabilidade",
 };
 
@@ -68,6 +69,7 @@ export function AgentOrb({
   fileCount = 0,
   size = "hero",
   interactive = true,
+  ouvindo = false,
   onActivate,
   className,
 }: AgentOrbProps) {
@@ -132,6 +134,7 @@ export function AgentOrb({
           fileCount={fileCount}
           hovered={hovered}
           pressed={pressed}
+          ouvindo={ouvindo}
           reduced={reduced}
           visible={visible}
         />

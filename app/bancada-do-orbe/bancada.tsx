@@ -45,6 +45,9 @@ const FAIXA: Record<keyof OrbVisualParams, [number, number]> = {
   scan: [0, 1],
   spin: [0, 1],
   jitter: [0, 0.6],
+  // 1,5 é o repouso (~4s de ida e volta) e 0,75 é a espera. A faixa vai até 3
+  // para dar onde errar: o ponto em que o respiro vira ofego é informação.
+  breathRate: [0.25, 3],
 };
 
 const ROTULO_DO_PARAMETRO: Record<keyof OrbVisualParams, string> = {
@@ -54,6 +57,7 @@ const ROTULO_DO_PARAMETRO: Record<keyof OrbVisualParams, string> = {
   scan: "Plano de leitura",
   spin: "Rotação",
   jitter: "Instabilidade",
+  breathRate: "Ritmo do respiro",
 };
 
 /* Fundos de prova. Um logo só está pronto quando sobrevive aos três — e o
@@ -130,7 +134,35 @@ export function BancadaDoOrbe() {
           `// Para virar padrão, ajuste o caso "${estado}" em paramsForState().\n`
         : "");
 
-    void navigator.clipboard.writeText(texto);
+    /*
+     * O SNIPPET SOZINHO NÃO BASTA.
+     *
+     * Ele diz o valor novo e cala o MOTIVO — e o motivo é a única coisa que a
+     * próxima pessoa não consegue deduzir olhando a tela. Afinação que fica só
+     * na cabeça de quem ajustou é a verdade duplicada que o §12 pune: daqui a
+     * seis meses o número está lá, ninguém sabe por que, e ninguém ousa mexer.
+     *
+     * A data sai do clique, nunca do render: ler relógio durante o render é
+     * erro de hidratação, e este arquivo já paga esse preço em outro lugar.
+     *
+     * O `motivo:` sai VAZIO de propósito. Uma linha em branco num texto colado
+     * cobra preenchimento melhor do que um placeholder plausível, que é o tipo
+     * de coisa que sobrevive até a revisão e vira documentação falsa.
+     */
+    const cores_ = (Object.keys(ROTULO_DA_COR) as (keyof CoresDoOrbe)[])
+      .map((k) => `${k} ${cores[k]}`)
+      .join(" · ");
+
+    const changelog =
+      `\n<!-- DESIGN.md §6 — colar na seção de afinação -->\n` +
+      `**${new Date().toISOString().slice(0, 10)}** — orbe afinado na bancada.\n` +
+      `- cores: ${cores_}\n` +
+      `- vidro: esfera ${vidro.esfera} · brilho ${vidro.brilho} · espessura ` +
+      `${vidro.espessura} · onda ${vidro.ondaDaAlma} · translucidez ${vidro.translucidez}\n` +
+      (manual ? `- params (${estado}): ${JSON.stringify(emUso)}\n` : "") +
+      `- motivo: \n`;
+
+    void navigator.clipboard.writeText(texto + changelog);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1800);
   }, [cores, vidro, manual, estado, emUso]);

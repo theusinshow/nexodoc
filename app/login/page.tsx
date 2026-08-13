@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
 import { LogoNexo } from "@/components/brand/logo-nexo";
+import { AgentOrb } from "@/modules/nexo/components/agent-orb";
 import { Button } from "@/components/ui/button";
 import { normalizeAuthCallbackPath } from "@/lib/auth-redirect";
 import {
@@ -136,30 +137,50 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </section>
 
       <aside className="login-media-panel" aria-label="Prévia do Nexo">
-        <div className="login-media-poster" aria-hidden="true">
-          <div className="login-media-chrome">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="login-media-workspace">
-            <div className="login-media-sidebar">
-              <span className="is-active" />
+        {/*
+          A ALMA ACESA NA PORTA DE ENTRADA.
+
+          O §6 já previa o orbe 3D em "Palco / entrada", e o login É a entrada —
+          era a única tela do produto que mostrava uma FOTO do orbe onde cabia o
+          orbe. Aqui, e não no lockup da marca: a 48px o WebGL vira borrão (é o
+          que a fileira de 16/32/64 da bancada existe para provar), e o SVG tem
+          afinação por tamanho justamente para sobreviver ali. Cada degrau da
+          escada de reduções no lugar que é dele.
+
+          `interactive={false}` porque não há o que ativar: sem `onActivate` o
+          componente já vira `role="img"`, e um hover aceso prometeria um clique
+          que não existe. Sem WebGL, o próprio `AgentOrb` cai no `OrbGlow`.
+
+          Um orbe vivo por tela: esta é a única instância do login (o lockup e o
+          aviso de tela estreita usam o SVG estático).
+        */}
+        <div className="login-media-stack">
+          <AgentOrb size="compact" state="idle" interactive={false} />
+          <div className="login-media-poster" aria-hidden="true">
+            <div className="login-media-chrome">
               <span />
               <span />
               <span />
             </div>
-            <div className="login-media-canvas">
-              <div className="login-media-node login-media-node--source" />
-              <div className="login-media-node login-media-node--review" />
-              <div className="login-media-node login-media-node--volume" />
-              <div className="login-media-thread" />
-            </div>
-            <div className="login-media-report">
-              <span />
-              <span />
-              <span />
-              <span />
+            <div className="login-media-workspace">
+              <div className="login-media-sidebar">
+                <span className="is-active" />
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="login-media-canvas">
+                <div className="login-media-node login-media-node--source" />
+                <div className="login-media-node login-media-node--review" />
+                <div className="login-media-node login-media-node--volume" />
+                <div className="login-media-thread" />
+              </div>
+              <div className="login-media-report">
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
           </div>
         </div>

@@ -26,6 +26,12 @@ const STATE_UI: Record<AgentState, { label: string; tone: Tone; pulse: boolean }
   auditing: { label: "Auditando o memorial", tone: "active", pulse: true },
   responding: { label: "Respondendo", tone: "active", pulse: true },
   complete: { label: "Pronto", tone: "ok", pulse: false },
+  /*
+   * Tom de repouso e SEM pulso: a espera não é trabalho do agente, é trabalho
+   * seu. O pulso do cartão significa "algo acontecendo lá dentro", e aqui não
+   * há — o respiro longo do orbe já diz o que precisa ser dito.
+   */
+  waiting: { label: "Aguardando você", tone: "idle", pulse: false },
   error: { label: "Instabilidade", tone: "error", pulse: false },
 };
 

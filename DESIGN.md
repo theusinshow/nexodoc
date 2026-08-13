@@ -438,6 +438,7 @@ decoração — e decoração o sistema rejeita na primeira página. Os estados 
 | `analyzing` | turno em andamento | pensa |
 | `auditing` | auditoria de memorial em curso (minutos, fora do turno de chat) | percorre um documento longo |
 | `complete` | terminou sem erro (transiente, 1,2s) | pulso breve |
+| `waiting` | o agente falou e a resposta não veio em 6s | a bola está com você |
 | `idle` | em repouso | pronto |
 
 **Sobre `auditing`.** Ele fica **abaixo** de `analyzing` de propósito: um turno
@@ -455,6 +456,58 @@ gesto de um turno de segundos, e sustentá-lo por seis minutos lê como
 travamento. `hover` e `uploading` saíram da tabela no mesmo movimento: a máquina
 nunca produziu nenhum dos dois (hover é reação física, upload e leitura são o
 mesmo gesto), e estado inalcançável no enum é promessa que o produto não cumpre.
+
+**Sobre `waiting`.** Ele fica **abaixo** de `complete`: terminar e passar a bola
+são dois momentos, e o pulso de conclusão é o que marca o primeiro — trocados, o
+"pronto" sumiria dentro da espera. Os **seis segundos** de silêncio antes de
+entrar não são estética: sem atraso, o estado piscaria no fim de todo turno, no
+vão entre o último caractere do agente e a primeira tecla do humano. A distinção
+visual é a **cadência**: `breathRate` entrou em `OrbVisualParams` e `waiting` usa
+metade do ritmo de repouso (0,75 contra 1,5). O rótulo do cartão **não pulsa** —
+esperar não é trabalho do agente, é trabalho de quem está lendo.
+
+A fase do respiro é **integrada** (`fase += dt · taxa`) e não calculada de
+`tempo · taxa`: com o relógio já valendo centenas de segundos, mudar a taxa
+jogaria o seno para outro ponto qualquer do ciclo, e o miolo daria um pulo no
+instante exato em que o agente passasse a esperar.
+
+### Reações físicas (não são estados)
+
+Duas coisas mexem no orbe sem passar pela máquina, porque não são o que o agente
+está fazendo — são o que **você** está fazendo:
+
+| Reação | Prop | Efeito |
+|--------|------|--------|
+| Ponteiro sobre o orbe | `hovered` | aro +0,18, escala +3%, órbita dos satélites aperta |
+| Cursor no composer | `ouvindo` | aro +0,10 — "estou ouvindo" |
+
+Os dois **somam com teto** no valor do hover: focar o campo com o mouse parado
+sobre o orbe é o caso comum, e dois realces empilhados estouram o aro.
+
+### O que o aro mede
+
+Durante `reading`, um arco de 1px (raio 1,14–1,17, começando no topo) fecha 360°
+conforme as folhas entram. A banda de `scan` já dizia que o Nexo está lendo, mas
+banda é textura, não medida: com 23 pranchas ou com 200 ela varre igual, e
+"falta quanto?" continuava sem resposta na esfera. O arco é **fração**, e é isso
+que faz 200 folhas caberem no mesmo desenho de 23.
+
+### O erro, e por que ele não tem cor
+
+`error` é **batimento duplo** (duas contrações rápidas + pausa, ciclo de 1,6s)
+somado ao `jitter` que já existia. Tingir o aro de coral foi considerado e
+**recusado**: seria cor de status num elemento interativo, e romperia a
+iridescência teal que é a identidade. A lei prende o orbe à rampa — então a
+expressão do erro é temporal, não cromática. O corpo lê ritmo antes de a cabeça
+ler rótulo.
+
+### O boot
+
+Uma vez por **carregamento** (flag de módulo, não de instância): o miolo acende
+de zero em ~600ms, o aro sobe com atraso, e o giro nasce alto e assenta. O
+atraso do aro é o que separa "liga e então acende" de um fade comum. Navegar
+entre telas **não** re-liga — o orbe remonta o tempo todo no welcome ↔ active, e
+um boot por montagem viraria pisca-pisca. Um F5 re-liga, e é o correto.
 
 A esfera não conhece IA nem API: `useAgentState` traduz sinais da aplicação em
 estado visual. Manter essa separação é o que permite trocar o motor sem redesenhar

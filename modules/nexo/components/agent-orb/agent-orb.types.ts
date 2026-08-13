@@ -27,6 +27,7 @@ export type AgentState =
   | "auditing"
   | "responding"
   | "complete"
+  | "waiting"
   | "error";
 
 /**
@@ -43,6 +44,7 @@ export const AGENT_STATES: readonly AgentState[] = [
   "analyzing",
   "auditing",
   "complete",
+  "waiting",
   "idle",
 ] as const;
 
@@ -57,6 +59,14 @@ export interface AgentOrbProps {
   size?: "hero" | "compact";
   /** Reage a hover/click (drop-target chega na Fase 3). */
   interactive?: boolean;
+  /**
+   * O cursor está no composer. O aro sobe um pouco — "estou ouvindo".
+   *
+   * É reação FÍSICA, como o hover, e por isso entra como prop em vez de virar
+   * estado: o agente não muda o que está fazendo porque alguém pôs o cursor no
+   * campo, e um estado diria que mudou.
+   */
+  ouvindo?: boolean;
   /** Abre o menu do agente (arquitetura pronta; conteúdo é da UI). */
   onActivate?: () => void;
   className?: string;
@@ -79,6 +89,15 @@ export interface OrbVisualParams {
   spin: number;
   /** Instabilidade (erro) 0..1. */
   jitter: number;
+  /**
+   * Ciclos por segundo do respiro do miolo. 1,5 é o repouso do produto (~4s de
+   * ida e volta) e vale para quase tudo; `waiting` usa metade.
+   *
+   * Virou parâmetro quando a espera precisou de ritmo próprio: a diferença
+   * entre "o agente está parado" e "o agente está esperando VOCÊ" não cabe em
+   * brilho nem em cor — cabe em cadência, que é como o corpo lê espera.
+   */
+  breathRate: number;
 }
 
 /**
@@ -93,7 +112,7 @@ export function paramsForState(
   const a = Math.max(0, Math.min(1, activity));
   switch (state) {
     case "dragging":
-      return { distortion: 0.12, pulse: 0.4, rim: 0.95, scan: 0, spin: 0.26, jitter: 0 };
+      return { distortion: 0.12, pulse: 0.4, rim: 0.95, scan: 0, spin: 0.26, jitter: 0, breathRate: 1.5 };
     case "reading":
       // `scan` acompanha o progresso real da leitura (0..1): o plano varre a
       // esfera conforme as pranchas são lidas, em vez de varrer sempre igual.
@@ -104,9 +123,10 @@ export function paramsForState(
         scan: 0.35 + a * 0.65,
         spin: 0.2,
         jitter: 0,
+        breathRate: 1.5,
       };
     case "analyzing":
-      return { distortion: 0.17, pulse: 0.62, rim: 0.88, scan: 0.25, spin: 0.36, jitter: 0 };
+      return { distortion: 0.17, pulse: 0.62, rim: 0.88, scan: 0.25, spin: 0.36, jitter: 0, breathRate: 1.5 };
     /*
      * AUDITAR não é PENSAR, e a diferença tem de estar na cara.
      *
@@ -121,7 +141,7 @@ export function paramsForState(
      * sempre na mesma direção (`uScanMode`) em vez de ir e vir.
      */
     case "auditing":
-      return { distortion: 0.09, pulse: 0.4, rim: 0.78, scan: 1, spin: 0.3, jitter: 0 };
+      return { distortion: 0.09, pulse: 0.4, rim: 0.78, scan: 1, spin: 0.3, jitter: 0, breathRate: 1.5 };
     case "responding":
       return {
         distortion: 0.1 + a * 0.1,
@@ -130,13 +150,28 @@ export function paramsForState(
         scan: 0,
         spin: 0.28 + a * 0.12,
         jitter: 0,
+        breathRate: 1.5,
       };
     case "complete":
-      return { distortion: 0.05, pulse: 0.7, rim: 0.92, scan: 0, spin: 0.16, jitter: 0 };
+      return { distortion: 0.05, pulse: 0.7, rim: 0.92, scan: 0, spin: 0.16, jitter: 0, breathRate: 1.5 };
     case "error":
-      return { distortion: 0.14, pulse: 0.3, rim: 0.62, scan: 0, spin: 0.1, jitter: 1 };
+      return { distortion: 0.14, pulse: 0.3, rim: 0.62, scan: 0, spin: 0.1, jitter: 1, breathRate: 1.5 };
+    /*
+     * A BOLA ESTÁ COM VOCÊ.
+     *
+     * Metade dos turnos deste produto termina com o agente perguntando — é o
+     * princípio 2 do produto: afirma fatos, pergunta decisões. E o orbe só
+     * sabia falar do próprio trabalho: em repouso, "terminei e espero você" e
+     * "não há nada acontecendo" tinham exatamente a mesma cara.
+     *
+     * O aro um pouco acima do idle é o que diz "ainda estou aqui"; o respiro
+     * pela metade é o que diz "sem pressa". Nenhum dos dois é trabalho, e por
+     * isso o rótulo do cartão não pulsa: esperar não é fazer.
+     */
+    case "waiting":
+      return { distortion: 0.05, pulse: 0.22, rim: 0.62, scan: 0, spin: 0.12, jitter: 0, breathRate: 0.75 };
     case "idle":
     default:
-      return { distortion: 0.06, pulse: 0.16, rim: 0.52, scan: 0, spin: 0.15, jitter: 0 };
+      return { distortion: 0.06, pulse: 0.16, rim: 0.52, scan: 0, spin: 0.15, jitter: 0, breathRate: 1.5 };
   }
 }

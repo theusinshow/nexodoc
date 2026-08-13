@@ -28,9 +28,16 @@ export function NexoComposer({
   inputRef,
   trailing,
   motivoDesabilitado,
+  onFoco,
 }: {
   value: string;
   onChange: (v: string) => void;
+  /**
+   * O cursor entrou ou saiu do campo. O orbe usa isto para levantar o aro
+   * enquanto se escreve — "estou ouvindo". Não é estado do composer: ele não
+   * guarda nada, só avisa.
+   */
+  onFoco?: (focado: boolean) => void;
   onSubmit: () => void;
   /** Aborta o turno em andamento (o enviar vira parar enquanto `busy`). */
   onStop?: () => void;
@@ -67,6 +74,8 @@ export function NexoComposer({
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => onFoco?.(true)}
+          onBlur={() => onFoco?.(false)}
           onInput={(e) => {
             // Auto-grow: zera e reassume a altura do conteúdo (o max-h corta).
             const el = e.currentTarget;

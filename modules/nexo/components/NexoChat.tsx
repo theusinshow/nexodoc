@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, FileText, X, Copy, Check, ArrowDown } from "lucide-react";
 import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
-import { useRegisterComposer } from "../state/composer-controller";
+import {
+  useRegisterComposer,
+  usePublicarFocoDoComposer,
+} from "../state/composer-controller";
 import { useConversation } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import { useRevealText } from "../lib/use-reveal-text";
@@ -132,6 +135,13 @@ export function NexoChat({
   // vez (o envio é bloqueado enquanto `busy`).
   const [revealId, setRevealId] = useState<string | null>(null);
   const registerComposer = useRegisterComposer();
+  const publicarFoco = usePublicarFocoDoComposer();
+  /*
+   * O FOCO É REF, não estado: ele só existe para ser publicado junto com o
+   * texto, e guardá-lo em `useState` re-renderizaria o chat inteiro a cada
+   * entrada e saída do cursor — sem nada nesta árvore mudar de aparência.
+   */
+  const focadoRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   // Última mensagem do usuário — o "tentar de novo" reenvia esta.
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -188,6 +198,9 @@ export function NexoChat({
     appendMessage(userMsg);
     setLastSent(text);
     setInput("");
+    // O campo esvaziou por um caminho que não passa pelo `onChange` — sem isto,
+    // o orbe continuaria achando que há texto escrito depois de enviado.
+    publicarFoco({ focado: focadoRef.current, temTexto: false });
     setBusy(true);
 
     const assistantId = crypto.randomUUID();
@@ -529,7 +542,14 @@ export function NexoChat({
           <NexoComposer
             variant="docked"
             value={input}
-            onChange={setInput}
+            onChange={(v) => {
+              setInput(v);
+              publicarFoco({ focado: focadoRef.current, temTexto: v.trim().length > 0 });
+            }}
+            onFoco={(focado) => {
+              focadoRef.current = focado;
+              publicarFoco({ focado, temTexto: input.trim().length > 0 });
+            }}
             onSubmit={() => void send()}
             onStop={stop}
             trailing={<UsageDonut data={usage} />}

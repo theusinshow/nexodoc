@@ -18,6 +18,7 @@ export function AgentOrbCanvas({
   fileCount,
   hovered,
   pressed,
+  ouvindo = false,
   reduced,
   visible,
 }: {
@@ -26,6 +27,8 @@ export function AgentOrbCanvas({
   fileCount: number;
   hovered: boolean;
   pressed: boolean;
+  /** Cursor no composer — o aro sobe um pouco. */
+  ouvindo?: boolean;
   reduced: boolean;
   visible: boolean;
 }) {
@@ -60,6 +63,7 @@ export function AgentOrbCanvas({
         fileCount={fileCount}
         hovered={hovered}
         pressed={pressed}
+        ouvindo={ouvindo}
         reduced={reduced}
       />
     </Canvas>

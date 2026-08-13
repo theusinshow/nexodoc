@@ -22,7 +22,10 @@ import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import { resolveSheetNumbers } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
-import { ComposerControllerProvider } from "../state/composer-controller";
+import {
+  ComposerControllerProvider,
+  useComposerFoco,
+} from "../state/composer-controller";
 import { ArtifactStoreProvider, useArtifactStore } from "../state/artifact-store";
 import {
   ConversationStoreProvider,
@@ -44,9 +47,44 @@ import { criarProjetoExemplo, ID_CONVERSA_EXEMPLO } from "../lib/projeto-exemplo
 
 /** Marca de quem já viu o passo a passo. Local ao navegador, como a conversa. */
 const CHAVE_TOUR_VISTO = "nexo:tour-visto";
+
+/** Quanto o silêncio precisa durar para virar espera. */
+const SEGUNDOS_ATE_ESPERAR = 6;
+
+/**
+ * "O agente falou e ninguém respondeu" — o sinal de `waiting` do orbe.
+ *
+ * OS SEIS SEGUNDOS não são estética. Sem atraso, o estado piscaria no fim de
+ * toda resposta, no vão entre o último caractere do agente e a primeira tecla
+ * do humano — e um estado que aparece em todo turno não distingue nada. Espera
+ * só é espera quando dura.
+ *
+ * A CONDIÇÃO É DERIVADA, nunca guardada. Um booleano "eu perguntei" obrigaria
+ * todo caminho de saída a limpá-lo — enviar, cancelar, trocar de conversa,
+ * recarregar —, e o caminho que alguém esquecesse deixaria o orbe presoem
+ * espera para sempre. Derivar custa um efeito e não tem como envelhecer.
+ */
+function useEsperandoVoce(silencio: boolean, reduced: boolean): boolean {
+  const [esperando, setEsperando] = useState(false);
+
+  useEffect(() => {
+    if (!silencio || reduced) {
+      // O `setState` é adiado num rAF: síncrono no corpo do efeito, ele é
+      // render em cascata, e o lint do React Compiler barra com razão. É a
+      // mesma solução que `use-agent-state.ts` usa para os transientes.
+      const raf = requestAnimationFrame(() => setEsperando(false));
+      return () => cancelAnimationFrame(raf);
+    }
+    const id = setTimeout(() => setEsperando(true), SEGUNDOS_ATE_ESPERAR * 1000);
+    return () => clearTimeout(id);
+  }, [silencio, reduced]);
+
+  return esperando;
+}
 import { AuditoriaStoreProvider, useAuditoria } from "../state/auditoria-store";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
+import { useReducedMotionPref } from "./agent-orb/use-agent-orb";
 import {
   ehAvulsa,
   folhas,
@@ -1297,6 +1335,9 @@ function NexoWorkspaceInner({
     };
   }, []);
 
+  const { focado: composerFocado, temTexto: composerTemTexto } = useComposerFoco();
+  const reducedMotion = useReducedMotionPref();
+
   // Sinais do app → estado visual do Nexo Core (a esfera reage sem conhecer a IA).
   const [chatStatus, setChatStatus] = useState({
     thinking: false,
@@ -1323,6 +1364,19 @@ function NexoWorkspaceInner({
     return () => clearInterval(id);
   }, [chatStatus.responding]);
 
+  const esperandoVoce = useEsperandoVoce(
+    started &&
+      !chatStatus.thinking &&
+      !chatStatus.responding &&
+      !chatStatus.error &&
+      !reading &&
+      !readingMemorial &&
+      !auditandoAgora &&
+      !dragging &&
+      !composerTemTexto,
+    reducedMotion,
+  );
+
   const agentState = useAgentState({
     dragging,
     reading: reading || readingMemorial,
@@ -1337,6 +1391,16 @@ function NexoWorkspaceInner({
      * travamento, não como trabalho longo. `auditing` percorre.
      */
     auditing: auditandoAgora,
+    /*
+     * A espera é o silêncio DEPOIS de a conversa ter começado.
+     *
+     * `started` é o que impede o orbe de "esperar" na tela de boas-vindas, onde
+     * ninguém perguntou nada ainda — ali o repouso é repouso mesmo. Depois do
+     * primeiro turno, todo silêncio com o campo vazio é a bola no seu campo:
+     * neste produto o agente termina afirmando fatos e perguntando decisões, e
+     * é por isso que não é preciso ler a última mensagem para saber disso.
+     */
+    waiting: esperandoVoce,
     error: chatStatus.error,
   });
 
@@ -1746,6 +1810,7 @@ function NexoWorkspaceInner({
             arrastando={dragging}
             readStatus={readStatus}
             agentState={agentState}
+            ouvindo={composerFocado}
             fileCount={okCount}
             activity={orbActivity}
             context={agentContext}
