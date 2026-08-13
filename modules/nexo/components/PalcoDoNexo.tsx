@@ -17,6 +17,7 @@ import { FileText, ListChecks, Map, MapPin, ShieldCheck, SquareStack } from "luc
 
 import { AuditResult, type AuditView } from "@/components/audit-result";
 import { classifyFindingTier } from "@/lib/audit-report";
+import { compararPareceres, resumoDoDiff } from "@/lib/diff-de-pareceres";
 import { Chip } from "@/components/ui/chip";
 import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
@@ -86,9 +87,45 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   // esperar por ela em vez de deixá-la morrer com a aba.
   const reconexao = useReconectarAuditoria();
 
-  const auditoria = results.find((r) => r.kind === "auditoria");
+  /*
+   * A AUDITORIA QUE O PALCO MOSTRA É A MAIS RECENTE.
+   *
+   * Era `results.find(...)` — a PRIMEIRA da lista. E `saveResult` acrescenta um
+   * artefato novo a cada auditoria, sem substituir o anterior: reauditar um
+   * memorial corrigido gravava o parecer novo e o palco continuava exibindo o
+   * velho. Reproduzido com duas auditorias semeadas na mesma conversa, a nova
+   * com dois achados e a velha com cinco: a tela mostrava os cinco. A
+   * reauditoria era invisível — e pior que invisível, porque a tela afirmava
+   * com confiança o resultado errado.
+   *
+   * `generatedAt` é o critério, e não a posição no vetor: regerar um artefato
+   * existente o substitui NO LUGAR, mantendo a posição antiga e atualizando o
+   * carimbo. O `ConfirmationCard` já tratava "a última auditoria desta
+   * conversa" como a base do delta; agora as duas telas concordam sobre qual é.
+   */
+  const auditorias = useMemo(
+    () =>
+      results
+        .filter((r) => r.kind === "auditoria")
+        .slice()
+        .sort((a, b) => (a.generatedAt ?? 0) - (b.generatedAt ?? 0)),
+    [results],
+  );
+  const auditoria = auditorias.at(-1);
   const salvo = auditoria?.payload as MemorialAuditResult | undefined;
   const report = salvo?.report;
+  /*
+   * O PARECER DE ANTES, quando existe. É o que permite dizer o que o trabalho
+   * de correção mudou, em vez de entregar a lista nova como se fosse a primeira.
+   */
+  const reportAnterior = (auditorias.at(-2)?.payload as MemorialAuditResult | undefined)?.report;
+  const diffDoParecer = useMemo(
+    () =>
+      report && reportAnterior
+        ? resumoDoDiff(compararPareceres({ anterior: reportAnterior, atual: report }))
+        : "",
+    [report, reportAnterior],
+  );
   // Os corrigidos DESTA auditoria: a conversa pode ter mais de uma ao longo do
   // tempo, e o progresso de uma não vale para a outra.
   const auditIdAtual = salvo?.auditId ?? "";
@@ -299,6 +336,25 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
               <MapPin aria-hidden />
               No documento
             </Chip>
+          )}
+          {/*
+            O QUE MUDOU DESDE A AUDITORIA ANTERIOR.
+
+            Só aparece quando existe uma anterior nesta conversa — numa primeira
+            auditoria não há com o que comparar, e uma faixa dizendo "0 saíram"
+            seria ruído com cara de dado. Fica na barra de vistas, ao lado da
+            contagem, porque responde à mesma pergunta que ela: quanto trabalho
+            sobrou. Sem ela, o parecer da segunda rodada chega com cara de
+            primeira, e o esforço de correção não aparece em lugar nenhum.
+          */}
+          {diffDoParecer && (
+            <span
+              data-diff-do-parecer
+              className="ml-auto truncate font-mono text-[11px] text-muted-foreground"
+              title="Comparado com a auditoria anterior desta conversa"
+            >
+              {diffDoParecer}
+            </span>
           )}
         </div>
       )}
