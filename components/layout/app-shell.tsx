@@ -1,78 +1,36 @@
-import Link from "next/link";
-
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   children: React.ReactNode;
-  /**
-   * Nome do modulo mostrado no breadcrumb do cabecalho (apos "NEXO /"). Quando
-   * o modulo E o proprio Nexo, some — "NEXO / Nexo" nao diz nada a ninguem.
-   */
-  moduleName: string;
-  /** Rotulo de versao opcional no canto direito do cabecalho. */
-  version?: string;
   className?: string;
-  /**
-   * Full-bleed: o conteudo ocupa toda a largura e a altura restante abaixo do
-   * cabecalho (sem max-w nem padding). Para telas que gerenciam o proprio layout
-   * de colunas full-height (ex.: o shell conversacional do Nexo).
-   */
-  fullBleed?: boolean;
 }
 
-export function AppShell({
-  children,
-  moduleName,
-  version,
-  className,
-  fullBleed = false,
-}: AppShellProps) {
+/**
+ * A moldura do Nexo: fundo, cor e a altura da janela. Nada mais.
+ *
+ * ELA TINHA UM CABEÇALHO — "NEXO / <modulo>" e um rótulo de versão. Ele saiu
+ * junto com as props `moduleName` e `version` que só serviam a ele.
+ *
+ * Duas razões. A primeira é que ele não tinha mais o que dizer: em `/nexo` o
+ * breadcrumb se escondia (o módulo É o Nexo) e sobrava a palavra "NEXO" sozinha
+ * numa faixa de 48px, enquanto a barra lateral já mostra a marca, a navegação e
+ * a conta — melhor e no lugar certo. A segunda é que ele não tinha COMO dizer:
+ * os providers do Nexo vivem dentro do `children`, e deste componente, que é
+ * irmão acima deles, nenhum hook da conversa é alcançável.
+ *
+ * O topo do Nexo agora é a `BarraDoNexo`, uma linha do `NexoShell` — de dentro
+ * dos providers ela lê a conversa ativa e diz de qual obra é o trabalho.
+ *
+ * `/volumes` e as demais telas nunca passaram por aqui: cada uma traz o próprio
+ * cabeçalho (ver `ProjectContextStrip`). Este componente tem um consumidor só,
+ * `app/nexo/layout.tsx`, e é por isso que o cabeçalho condicional foi removido
+ * em vez de mantido atrás de um sinal — um ramo que nada alcança é uma decisão
+ * antiga esperando ser tomada de novo por engano.
+ */
+export function AppShell({ children, className }: AppShellProps) {
   return (
-    <div
-      className={cn(
-        "bg-background text-foreground",
-        fullBleed ? "flex h-dvh flex-col" : "min-h-dvh",
-        className,
-      )}
-    >
-      {/*
-        Em fullBleed o cabecalho NAO existe.
-
-        Quem usa fullBleed e o shell conversacional do Nexo, e la a barra lateral
-        ja carrega marca, navegacao e conta — repetir isso no topo poria a palavra
-        "Nexo" duas vezes a 40px de distancia e daria dois donos ao menu da conta.
-        O topo do Nexo tem barra propria (`BarraDoNexo`), que vive DENTRO dos
-        providers e por isso alcanca a conversa ativa; deste header, que e irmao
-        acima deles, nenhum hook do Nexo e alcancavel.
-      */}
-      {!fullBleed && (
-        <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 px-5 py-3">
-          <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/nexo"
-                className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                NEXO
-              </Link>
-              {moduleName.trim().toLowerCase() !== "nexo" && (
-                <>
-                  <span className="text-muted-foreground/40">/</span>
-                  <span className="font-mono text-sm font-semibold">{moduleName}</span>
-                </>
-              )}
-            </div>
-            {version && (
-              <span className="font-mono text-xs text-muted-foreground">{version}</span>
-            )}
-          </div>
-        </header>
-      )}
-      {fullBleed ? (
-        <main className="min-h-0 flex-1 px-4 py-4">{children}</main>
-      ) : (
-        <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
-      )}
+    <div className={cn("flex h-dvh flex-col bg-background text-foreground", className)}>
+      <main className="min-h-0 flex-1 px-4 py-4">{children}</main>
     </div>
   );
 }

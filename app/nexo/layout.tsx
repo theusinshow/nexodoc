@@ -12,13 +12,9 @@ export default function NexoLayout({
   children: React.ReactNode;
 }) {
   /*
-   * Sem `version`: o rótulo "beta" ficava no alto da tela o tempo todo,
-   * ocupando o canto oposto à marca com uma informação que não muda e sobre a
-   * qual ninguém age. Cromo permanente tem de ganhar o lugar que ocupa.
+   * O `AppShell` é só a moldura: fundo, cor e altura da janela. O cabeçalho que
+   * ele tinha saiu — o topo do Nexo é a `BarraDoNexo`, que vive dentro dos
+   * providers e por isso sabe de qual obra é a conversa aberta.
    */
-  return (
-    <AppShell moduleName="Nexo" fullBleed>
-      {children}
-    </AppShell>
-  );
+  return <AppShell>{children}</AppShell>;
 }
