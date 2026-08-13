@@ -101,6 +101,7 @@
     "prova:validacao-do-achado": "node scripts/prova-validacao-do-achado.mjs",
     "test:texto-do-pdf": "node scripts/test-texto-do-pdf.ts",
     "test:disciplina-da-pagina": "node scripts/test-disciplina-da-pagina.ts",
+    "test:severidade": "node scripts/test-severidade.ts",
     "prova:texto-do-pdf": "node scripts/prova-texto-do-pdf.ts",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",

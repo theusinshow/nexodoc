@@ -169,6 +169,8 @@ type StructuredFinding = {
   assurance?: string;
   disciplina?: FindingDiscipline;
   tipoErro?: FindingErrorType;
+  /** Por que esta faixa — ver `lib/severidade.ts`. */
+  severityReason?: string;
   pdfUrl?: string;
   raw: string;
 };
@@ -820,6 +822,9 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
      * são as sobreposições determinísticas que precisam vencê-la.
      */
     impacto: classifyFindingImpact(finding),
+    // A frase que explica a faixa. Vazia em parecer gravado antes da matriz —
+    // a etiqueta simplesmente não ganha explicação, em vez de inventar uma.
+    severityReason: finding.severity_reason,
     origem: finding.origem,
     confianca: finding.confianca,
     tier: classifyFindingTier(finding),
@@ -829,6 +834,7 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
+      finding.severity_reason ? `Motivo da severidade: ${finding.severity_reason}` : "",
       `Página: ${finding.pagina}`,
       `Capítulo: ${finding.capitulo}`,
       `Local: ${finding.local}`,
@@ -838,7 +844,11 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
       `Ação recomendada: ${finding.sugestao_correcao}`,
       `Impacto: ${getImpactLabel(finding.impacto ?? classifyFindingImpact(finding))}`,
       `Confiança: ${finding.confianca}`,
-    ].join("\n"),
+    ]
+      // Parecer antigo não tem motivo de severidade: sem o filtro, a cópia do
+      // achado sairia com uma linha em branco no meio.
+      .filter(Boolean)
+      .join("\n"),
   };
 }
 
@@ -1807,10 +1817,25 @@ export function AuditResult({
                             <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
                               Achado {index + 1}
                             </span>
+                            {/*
+                              O MOTIVO DA SEVERIDADE VIAJA COM A ETIQUETA.
+
+                              A faixa é derivada de consequência × certeza
+                              (`lib/severidade.ts`), e um critério que ninguém
+                              consegue ler é um critério que ninguém consegue
+                              contestar — foi assim que quatro regras de calar
+                              sobreviveram até agosto. A frase fica no `title`
+                              porque ela explica uma decisão já tomada: quem
+                              concorda não precisa lê-la, e quem estranha a
+                              alcança sem sair do cartão.
+                            */}
                             <span
+                              title={finding.severityReason}
+                              data-motivo-severidade={finding.severityReason || undefined}
                               className={cn(
                                 "rounded-md border px-2 py-1 font-mono text-xs font-medium",
                                 getSeverityClass(finding.severity),
+                                finding.severityReason ? "cursor-help" : "",
                               )}
                             >
                               {finding.impacto

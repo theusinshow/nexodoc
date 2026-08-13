@@ -21,6 +21,7 @@ import {
   type AuditReport,
 } from "@/lib/audit-report";
 import { disciplinaDoAchado, disciplinaPorPagina } from "@/lib/disciplina-da-pagina";
+import { severidadeDoAchado } from "@/lib/severidade";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { isDatabaseConfigured } from "@/lib/db";
 import {
@@ -3526,10 +3527,24 @@ async function executarAuditoria(
           (finding.arquivo ? disciplinaPorArquivo.get(finding.arquivo) : undefined) ?? mapaUnico;
         const disciplina =
           finding.disciplina ?? (mapa ? disciplinaDoAchado(finding.pagina, mapa) : undefined);
+        /*
+         * A PRIORIDADE PASSA A SER DERIVADA, e não mais o campo livre que o
+         * modelo preenchia — dois achados idênticos em documentos diferentes
+         * saíam com prioridades diferentes. A matriz cruza consequência e
+         * certeza, que o achado já declara, e escreve a frase que explica a
+         * conta.
+         *
+         * Ela CLASSIFICA e nada mais: nenhum achado é removido, filtrado ou
+         * recolhido aqui. A regra da faixa (`lib/severidade.ts`) é o que impede
+         * "apertar a severidade" de virar, de novo, esconder achado.
+         */
+        const severidade = severidadeDoAchado(finding);
 
         return {
           ...finding,
           id: `INC-${String(index + 1).padStart(3, "0")}`,
+          prioridade: severidade.prioridade,
+          severity_reason: severidade.motivo,
           // Ausente quando a página não tem cabeçalho: é o que preserva o
           // fallback da inferência em vez de afirmar "geral" sem base.
           ...(disciplina ? { disciplina } : {}),

@@ -44,6 +44,16 @@ export type AuditFinding = {
   id: string;
   arquivo?: string;
   prioridade: FindingPriority;
+  /**
+   * POR QUE esta prioridade — a frase que a matriz de severidade escreve
+   * (`lib/severidade.ts`), nomeando consequência e certeza. Existe para o
+   * critério ser discutível: dá para discordar de uma frase escrita; de um
+   * número que ninguém explica, não.
+   *
+   * Opcional porque parecer antigo não tem: gravados antes desta versão são
+   * lidos sem ela, e a tela apenas não mostra a explicação.
+   */
+  severity_reason?: string;
   pagina: string;
   capitulo: string;
   local: string;
