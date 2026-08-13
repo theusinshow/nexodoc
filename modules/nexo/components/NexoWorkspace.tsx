@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,21 @@ import {
 } from "../lib/folhas";
 import { codigoDaFolha } from "../lib/disciplina-da-folha";
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
-import { VisorDaFolha } from "./VisorDaFolha";
+/*
+ * O VISOR SÓ NO CLIENTE — react-pdf não sobrevive ao SSR.
+ *
+ * "use client" não impede a pré-renderização no servidor: o Next executa o
+ * módulo lá para produzir o HTML inicial, e o `pdfjs` estoura em
+ * `DOMMatrix is not defined` antes de qualquer componente montar. Não é erro de
+ * tela — é o servidor de desenvolvimento caindo na inicialização.
+ *
+ * É a mesma razão pela qual `audit-result.tsx` carrega o visor da auditoria
+ * assim. Duas telas, um motivo só.
+ */
+const VisorDaFolha = dynamic(
+  () => import("./VisorDaFolha").then((m) => m.VisorDaFolha),
+  { ssr: false },
+);
 import { useConexao } from "../lib/use-conexao";
 import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
 
