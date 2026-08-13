@@ -240,7 +240,27 @@ a hierarquia é conferida por **coordenada**, não por ordem no arquivo).
 - [ ] As duas linhas de procedência do status (de onde vem, quanto dura)
       sobreviveram, agora no cabeçalho do painel de provedores.
 
-## 9. Léxico e cor — espalhado
+## 9. Linha de status na home — `/admin` (A.4)
+
+**Estado de confiança:** veredito com prova em node cru
+(`npm run test:status-do-sistema`, 9 casos). **A linha nunca foi vista no
+navegador** — a home exige `DATABASE_URL`, como a tabela por obra e a série
+semanal.
+
+A 2.24 (trocar cartões por tabela mono) fica **retirada**, como o spec já
+mandava: era rearranjo. O que faltava era veredito, não layout.
+
+- [ ] A linha abre a home:
+      `operacional · 3 auditorias/24h · sem falhas de provedor · ≈ R$ 14,20 no mês`.
+- [ ] **Parado** (vermelho) quando não há chave de provedor nenhuma — e o motivo
+      aparece embaixo.
+- [ ] **Degradado** (âmbar) com auditoria falhada nas últimas 24h, incidente de
+      provedor, ou fluxo sem chave. O veredito é conservador: qualquer dúvida
+      rebaixa.
+- [ ] Sem cotação declarada, o custo sai em **US$** — não some, nem vira R$ 0,00.
+- [ ] Sem consumo no mês, a parcela de custo **não aparece** (nulo não é zero).
+
+## 10. Léxico e cor — espalhado
 
 - [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
       "Relatório", dentro do próprio parecer).
@@ -259,14 +279,11 @@ a hierarquia é conferida por **coordenada**, não por ordem no arquivo).
 ## O que ainda não foi feito
 
 Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
-e `...-admin-aprovado.md` (A.4, A.9b, A.10).
+e `...-admin-aprovado.md` (A.9b, A.10).
 
-Saíram **A.9a** (seção 5), **A.7** (seção 6), **A.8** (seção 7) e **A.6**
-(seção 8). Do admin restam:
+Saíram **A.9a** (seção 5), **A.7** (seção 6), **A.8** (seção 7), **A.6**
+(seção 8) e **A.4** (seção 9). Do admin restam:
 
-- **A.4** — a linha de status derivada na home. Agora ela tem de onde sair: o
-  R$ do mês existe (A.7) e a faixa de atenção do Config já resolve metade do
-  problema (`lib/atencao-do-admin.ts` é reutilizável).
 - **A.9b** — preferências da pessoa (acabamento).
 - **A.10** — trilha, que continua **desaconselhada** até haver auth por pessoa:
   sem atribuição verificável ela produz aparência de trilha, e alguém vai

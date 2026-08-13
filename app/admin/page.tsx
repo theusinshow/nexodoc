@@ -25,6 +25,12 @@ import {
 } from "@/components/admin/admin-page-shell";
 
 type OverviewResponse = {
+  /** O veredito derivado do estado do sistema (A.4). */
+  status?: {
+    veredito: "operacional" | "degradado" | "parado";
+    linha: string;
+    motivo: string;
+  };
   totals: {
     users: number;
     activeUsers: number;
@@ -219,6 +225,33 @@ export default function AdminHomePage() {
       />
 
         <AdminError message={error} />
+
+        {/*
+          A LINHA DE STATUS abre a home (A.4). Um veredito, não um cartão: a
+          home já tinha as contagens e deixava a conclusão por conta de quem
+          olhava. A cor sai dos tokens de status — nada de métrica-herói
+          colorida, que o DESIGN.md proíbe.
+        */}
+        {data?.status ? (
+          <section className="border border-border bg-card px-4 py-3">
+            <p
+              className={
+                data.status.veredito === "parado"
+                  ? "font-mono text-xs text-[var(--status-critical)]"
+                  : data.status.veredito === "degradado"
+                    ? "font-mono text-xs text-[var(--status-warning)]"
+                    : "font-mono text-xs text-[var(--status-ok)]"
+              }
+            >
+              {data.status.linha}
+            </p>
+            {data.status.motivo ? (
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                {data.status.motivo}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {/* O painel só fala quando tem o que dizer. */}
         {!data && !loading && !error && (
