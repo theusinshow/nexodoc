@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pinsDoDocumento } from "@/lib/pins-do-parecer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import { MOLDURA_DE_SINAL, PONTO_DE_SINAL, statusDoVeredito } from "@/lib/audit-status";
@@ -77,6 +78,19 @@ type ActivePdf = {
  * mais importa: é ali que o engenheiro decide se para a entrega ou anota para
  * depois. Fundo tingido com texto escuro para o trecho seguir legível.
  */
+/**
+ * A cor do pin na margem SEGUE A GRAVIDADE, pelos tokens canônicos.
+ *
+ * É status — o único lugar do sistema em que cor de sinal é obrigatória. A
+ * margem inteira se lê num relance: três corais e um âmbar dizem o tamanho do
+ * problema antes de qualquer texto ser lido.
+ */
+const COR_DO_PIN: Record<StructuredFinding["severity"], string> = {
+  critical: "var(--status-critical)",
+  warning: "var(--status-warning)",
+  ok: "var(--status-ok)",
+};
+
 const MARCACAO_POR_GRAVIDADE: Record<StructuredFinding["severity"], string> = {
   critical: "[&_mark]:bg-[var(--status-critical)] [&_mark]:text-[#2b0a08]",
   warning: "[&_mark]:bg-[var(--status-warning)] [&_mark]:text-[#2b1d05]",
@@ -919,6 +933,12 @@ export function AuditResult({
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
   const [activePdf, setActivePdf] = useState<ActivePdf | null>(null);
+  /**
+   * Quantas páginas tem o documento aberto. Zero enquanto o PDF carrega — e aí
+   * a régua não existe, o que é o certo: sem o tamanho, "página 12" não diz se
+   * é o meio ou o fim.
+   */
+  const [paginasDoAberto, setPaginasDoAberto] = useState(0);
   /*
    * O portal precisa do `document`, que não existe no servidor.
    *
@@ -1187,6 +1207,9 @@ export function AuditResult({
       return;
     }
 
+    // Trocar de documento zera a régua: o número de páginas é do PDF, e o
+    // próximo `onNumPages` é quem a reconstrói.
+    setPaginasDoAberto((atual) => (source.url === activePdf?.url ? atual : 0));
     setActivePdf({
       url: source.url,
       page: getFirstPageNumber(finding.pagina) ?? 1,
@@ -1195,6 +1218,26 @@ export function AuditResult({
       severity: finding.severity,
     });
   }
+
+  /*
+   * OS ACHADOS DO DOCUMENTO ABERTO, na ordem das páginas.
+   *
+   * Só os deste documento: um parecer cruza memorial, pranchas e LD, e pin de
+   * achado alheio apontaria para uma página que não é a dele. Achado sem página
+   * provável não entra — ele existe e está no parecer; a margem apenas não sabe
+   * onde pô-lo, e inventar uma posição seria afirmar o que ninguém apurou.
+   */
+  const pinsDaMargem = pinsDoDocumento(
+    findingsWithPdf.map((f, i) => ({
+      chave: f.refId ?? `achado-${i}`,
+      pagina: f.pagina,
+      pdfUrl: f.pdfUrl,
+      severity: f.severity,
+      title: f.title,
+    })),
+    activePdf?.url ?? "",
+    paginasDoAberto,
+  );
 
   return (
     <article className="nexodoc-result-in w-full rounded-sm border bg-card p-5 sm:p-6">
@@ -1227,13 +1270,70 @@ export function AuditResult({
               <X className="size-4" />
             </button>
           </div>
-          <div
-            className={cn(
-              "flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3",
-              MARCACAO_POR_GRAVIDADE[activePdf.severity ?? "warning"],
+          <div className="flex min-h-0 flex-1">
+            {/*
+              A MARGEM DE ACHADOS.
+
+              O visor abria a página de UM achado e calava sobre o resto: com
+              onze achados no mesmo memorial, conferir era voltar ao parecer,
+              clicar no próximo, ler, voltar. A régua diz de uma vez quantos
+              problemas o documento tem e onde estão — é o padrão de revisão que
+              todo mundo já conhece, e ele existe porque funciona.
+
+              12px de largura: é margem, não coluna. Só aparece quando há pin.
+            */}
+            {pinsDaMargem.length > 0 && (
+              <div
+                className="relative w-3 shrink-0 border-r bg-[var(--nexodoc-recessed)]"
+                role="list"
+                aria-label={`${pinsDaMargem.length} achado(s) neste documento`}
+              >
+                {pinsDaMargem.map((pin) => {
+                  const atual = pin.page === activePdf.page;
+                  return (
+                    <button
+                      key={pin.chave}
+                      type="button"
+                      role="listitem"
+                      title={`Página ${pin.page} · ${pin.title}`}
+                      aria-label={`Ir para a página ${pin.page}: ${pin.title}`}
+                      onClick={() =>
+                        setActivePdf((a) => (a ? { ...a, page: pin.page, severity: pin.severity } : a))
+                      }
+                      style={{ top: `${pin.top * 100}%` }}
+                      className={cn(
+                        "absolute left-0 h-[3px] w-full -translate-y-1/2 outline-none transition-all",
+                        // O pin da página aberta cresce em vez de mudar de cor:
+                        // a cor já está dizendo a gravidade, e dois significados
+                        // na mesma cor é como um sinal deixa de significar.
+                        atual && "h-[5px]",
+                        "focus-visible:ring-1 focus-visible:ring-ring",
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className="block size-full"
+                        style={{ background: COR_DO_PIN[pin.severity] }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          >
-            <AuditPdfViewer url={activePdf.url} page={activePdf.page} highlight={activePdf.highlight} />
+
+            <div
+              className={cn(
+                "min-w-0 flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3",
+                MARCACAO_POR_GRAVIDADE[activePdf.severity ?? "warning"],
+              )}
+            >
+              <AuditPdfViewer
+                url={activePdf.url}
+                page={activePdf.page}
+                highlight={activePdf.highlight}
+                onNumPages={setPaginasDoAberto}
+              />
+            </div>
           </div>
         </div>,
             document.body,

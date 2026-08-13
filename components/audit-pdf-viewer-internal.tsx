@@ -21,12 +21,23 @@ type AuditPdfViewerInternalProps = {
   url: string;
   page: number;
   highlight?: string;
+  /**
+   * Quantas páginas o documento tem — sobe para o dono montar a régua de
+   * achados na margem. A posição de um pin é uma FRAÇÃO do documento, e só
+   * quem abriu o PDF sabe o tamanho dele.
+   */
+  onNumPages?: (n: number) => void;
 };
 
 // Visor embutido de PDF da auditoria (item 2): renderiza a página exata do achado
 // e destaca o termo de busca. O pdfjs quebra o texto em vários spans, então o
 // destaque casa por fragmento — o suficiente para o olho localizar o trecho.
-export default function AuditPdfViewerInternal({ url, page, highlight }: AuditPdfViewerInternalProps) {
+export default function AuditPdfViewerInternal({
+  url,
+  page,
+  highlight,
+  onNumPages,
+}: AuditPdfViewerInternalProps) {
   const [numPages, setNumPages] = useState(0);
   const needle = (highlight ?? "").trim();
 
@@ -85,7 +96,10 @@ export default function AuditPdfViewerInternal({ url, page, highlight }: AuditPd
   return (
     <Document
       file={url}
-      onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
+      onLoadSuccess={(pdf) => {
+        setNumPages(pdf.numPages);
+        onNumPages?.(pdf.numPages);
+      }}
       loading={
         <div className="p-3">
           <Skeleton className="mx-auto h-[70vh] w-full max-w-[560px]" />

@@ -87,7 +87,8 @@
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",
-    "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts"
+    "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
+    "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
