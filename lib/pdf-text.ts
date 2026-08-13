@@ -1,3 +1,5 @@
+import { textoDosItens, type ItemDeTexto } from "./texto-do-pdf.ts";
+
 export type ExtractedPdfPage = {
   page: number;
   text: string;
@@ -21,14 +23,22 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
     const page = await document.getPage(pageNumber);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => {
-        return "str" in item && typeof item.str === "string" ? item.str : "";
-      })
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+    /*
+     * JUNTAR ITEM COM ITEM USANDO UM ESPAÇO ERA O DEFEITO. O pdf.js corta um
+     * item novo quando o estado do texto muda — trocar de fonte no meio de uma
+     * palavra, o que memorial faz o tempo todo, devolve `["r", "espingos"]`
+     * encostados. O espaço saía daqui, não do arquivo, e o memorial chegava ao
+     * auditor escrito "r espingos".
+     *
+     * Quem decide agora é a medida do vão, em `lib/texto-do-pdf.ts` — a mesma
+     * função que o localizador do pin usa, para a evidência e o pin não lerem a
+     * página de dois jeitos.
+     */
+    const itens = content.items.filter(
+      (item): item is typeof item & ItemDeTexto =>
+        "str" in item && typeof item.str === "string",
+    );
+    const text = textoDosItens(itens).replace(/\s+/g, " ").trim();
 
     pages.push({
       page: pageNumber,

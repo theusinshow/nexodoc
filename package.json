@@ -98,6 +98,8 @@
     "prova:varredura": "node scripts/prova-varredura-da-auditoria.mjs",
     "prova:barra-do-nexo": "node scripts/prova-barra-do-nexo.mjs",
     "prova:chat-esticado": "node scripts/prova-chat-esticado.mjs",
+    "test:texto-do-pdf": "node scripts/test-texto-do-pdf.ts",
+    "prova:texto-do-pdf": "node scripts/prova-texto-do-pdf.ts",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",

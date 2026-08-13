@@ -6,6 +6,10 @@
  * Puro (sem pdf.js, sem DOM): recebe os itens já extraídos e devolve percentual.
  */
 
+// Caminho relativo COM extensão, e não o alias `@/`: este módulo é carregado
+// por `node` cru no `test:nexo:locate-term`, que não tem resolvedor de alias.
+import { separadorEntreItens } from "../../../lib/texto-do-pdf.ts";
+
 // Item da camada de texto do pdf.js (subconjunto usado). transform[4]=x,
 // transform[5]=y na origem inferior-esquerda do PDF.
 export interface TextItem {
@@ -79,12 +83,20 @@ export function locateTermOnPage(input: LocateInput): PinPosition | null {
   //    devolve "unidade básica de saúde" em pedaços, e sem esta passada o pin
   //    simplesmente não existia para 1 em cada 5 achados reais. Junta os itens
   //    na ordem de leitura e ancora no pedaço onde o trecho COMEÇA.
+  //
+  //    A COSTURA É A MESMA DA EXTRAÇÃO, e tem de ser. A evidência que chega
+  //    aqui foi lida pelo modelo no texto montado por `textoDosItens`; se este
+  //    laço juntasse tudo com espaço como antes, ele procuraria "r espingos"
+  //    numa página onde a evidência diz "respingos", e o achado perderia o pin
+  //    justamente nas palavras que a Etapa 2 consertou.
   const inicios: number[] = [];
   let juntado = "";
-  for (const { texto } of uteis) {
-    if (juntado.length > 0) juntado += " ";
+  let anterior: TextItem | null = null;
+  for (const { item, texto } of uteis) {
+    if (anterior) juntado += separadorEntreItens(anterior, item);
     inicios.push(juntado.length);
     juntado += texto;
+    anterior = item;
   }
   const at = juntado.indexOf(needle);
   if (at >= 0) {
