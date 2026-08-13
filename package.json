@@ -55,6 +55,7 @@
     "test:nexo:totais": "node scripts/test-nexo-totais.ts",
     "test:nexo:identidade": "node scripts/test-nexo-identidade.ts",
     "test:nexo:contexto-barra": "node scripts/test-nexo-contexto-da-barra.ts",
+    "test:nexo:resumo-auditoria": "node scripts/test-nexo-resumo-da-auditoria.ts",
     "test:nexo:capa-linhas": "node scripts/test-nexo-capa-linhas.ts",
     "test:nexo:data-do-selo": "node scripts/test-nexo-data-do-selo.ts",
     "test:nexo:barra": "node scripts/test-nexo-barra-leitura.ts",
