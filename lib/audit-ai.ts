@@ -45,6 +45,13 @@ export type AuditModelJson = {
   comparisons?: string[];
   decisions?: ValidationDecision[];
   verdicts?: RefutationVerdict[];
+  /**
+   * Uma linha por capítulo, com o que ele AFIRMA. Só a leitura global devolve
+   * isto — é a única passada que recebe o documento inteiro. Alimenta a
+   * reauditoria barata: os capítulos que não mudaram vão ao modelo como uma
+   * linha cada, em vez de em texto integral.
+   */
+  sintese?: { capitulo?: string; resumo?: string }[];
 };
 
 export async function executeAuditModelResponse(args: {

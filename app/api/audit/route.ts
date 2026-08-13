@@ -156,6 +156,46 @@ const auditFindingsResponseFormat = {
   },
 };
 
+/**
+ * SÓ DA LEITURA GLOBAL — e é por isso que existe um formato separado.
+ *
+ * O `auditFindingsResponseFormat` acima é compartilhado por quatro passadas
+ * (blocos, identidade, global e coerência). No modo `strict` da OpenAI todo
+ * campo declarado é obrigatório: acrescentar a síntese lá dentro obrigaria a
+ * passada de BLOCO, que vê um pedaço do documento, e a de IDENTIDADE, que vê
+ * uma amostra, a resumir capítulos que elas não leram.
+ *
+ * A síntese só faz sentido em quem recebe o documento inteiro.
+ */
+const auditGlobalResponseFormat = {
+  type: "json_schema" as const,
+  name: "audit_global",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      findings: {
+        type: "array",
+        items: auditFindingModelSchema,
+      },
+      sintese: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            capitulo: { type: "string" },
+            resumo: { type: "string" },
+          },
+          required: ["capitulo", "resumo"],
+        },
+      },
+    },
+    required: ["findings", "sintese"],
+  },
+};
+
 const auditCrossDocumentResponseFormat = {
   type: "json_schema" as const,
   name: "audit_cross_document",
@@ -2184,6 +2224,14 @@ Responda APENAS JSON válido:
 
 Se não encontrar erro relevante, retorne {"findings":[]}.
 
+Além dos achados, devolva em "sintese" UMA LINHA por capítulo do documento.
+Não descreva o assunto do capítulo — registre o que ele AFIRMA: sistema
+estrutural, resistências, dimensões, quem executa o quê, normas declaradas. É
+isso que uma revisão futura pode contradizer, e é para isso que a linha serve.
+Use no campo "capitulo" o título do capítulo exatamente como aparece no
+documento. Se o documento não tiver capítulos identificáveis, devolve
+"sintese":[].
+
 TEXTO DO DOCUMENTO:
 ${buildDocumentContext(args.extracted, args.analysisLevel)}
 `.trim();
@@ -2204,6 +2252,13 @@ async function analyzeFileGloballyWithModel(args: {
   userEmail?: string | null;
   /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
   degradacoes?: PassadaIncompleta[];
+  /**
+   * Coletor da síntese por capítulo, no mesmo idioma do `degradacoes` acima: a
+   * leitura global tem duas saídas e só uma delas é o valor de retorno. Fica
+   * vazio quando a passada falha, que é best-effort — e vazio aqui significa
+   * "não há mapa deste arquivo", nunca "o documento não tem capítulos".
+   */
+  sintese?: { capitulo: string; resumo: string }[];
 }) {
   const profile = getPrimaryExecutionProfile(args.auditMode, args.analysisLevel, "global");
   const model = profile.model;
@@ -2234,7 +2289,7 @@ async function analyzeFileGloballyWithModel(args: {
           args.analysisLevel === "deep"
             ? getDeepGlobalMaxOutputTokens()
             : getStandardGlobalMaxOutputTokens(),
-        text: { format: auditFindingsResponseFormat },
+        text: { format: auditGlobalResponseFormat },
         input: getGlobalFilePrompt(args),
       },
       metadata: {
@@ -2248,6 +2303,11 @@ async function analyzeFileGloballyWithModel(args: {
       userEmail: args.userEmail,
     });
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
+    for (const item of parsed?.sintese ?? []) {
+      if (item?.capitulo && item?.resumo) {
+        args.sintese?.push({ capitulo: String(item.capitulo), resumo: String(item.resumo) });
+      }
+    }
   } catch (error) {
     // A leitura global é best-effort: se falhar (timeout, aborto, resposta
     // inválida, erro de provider), a auditoria NÃO pode ser perdida — os achados
@@ -2805,6 +2865,8 @@ async function deepAnalyzeFile(args: {
   userEmail?: string | null;
   /** Coletor: cada passada que abortar se registra aqui. */
   degradacoes: PassadaIncompleta[];
+  /** Coletor: o mapa por capítulo que a leitura global deixa, por arquivo. */
+  sinteses?: Map<string, { capitulo: string; resumo: string }[]>;
   /** Relata o progresso real, quando alguém está ouvindo. */
   onMarco?: EmitirMarco;
 }) {
@@ -2938,6 +3000,7 @@ async function deepAnalyzeFile(args: {
       orcamentoMs: args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : undefined,
     });
   }
+  const sinteseDesteArquivo: { capitulo: string; resumo: string }[] = [];
   const globalFindings = shouldRunGlobalPass
     ? await analyzeFileGloballyWithModel({
         auditId: args.auditId,
@@ -2953,8 +3016,10 @@ async function deepAnalyzeFile(args: {
         conversationId: args.conversationId,
         userEmail: args.userEmail,
         degradacoes: args.degradacoes,
+        sintese: sinteseDesteArquivo,
       })
     : [];
+  args.sinteses?.set(args.file.file.name, sinteseDesteArquivo);
   console.log(
     `[audit] ${args.file.file.name}: leitura global ${shouldRunGlobalPass ? "concluida" : "pulada"} em ${Math.round((Date.now() - globalStartedAt) / 1000)}s com ${globalFindings.length} achado(s)`,
   );
@@ -3318,6 +3383,9 @@ async function executarAuditoria(
     // Passadas que não completaram. Vai para o relatório: sem isso, uma auditoria
     // degradada chega na tela com a mesma cara de uma completa.
     const degradacoes: PassadaIncompleta[] = [];
+    // O mapa por capítulo que cada leitura global deixa, para a reauditoria
+    // seguinte não precisar reler o documento inteiro.
+    const sinteses = new Map<string, { capitulo: string; resumo: string }[]>();
 
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
@@ -3333,6 +3401,7 @@ async function executarAuditoria(
         conversationId,
         userEmail: sessionEmail,
         degradacoes,
+        sinteses,
         onMarco,
       });
       allFindings.push(...findings);
@@ -3493,6 +3562,31 @@ async function executarAuditoria(
          * vencida — a mesma regra do cache de leitura de selo.
          */
         versao_auditor: VERSAO_AUDITOR,
+        /*
+         * O modelo devolve o TÍTULO do capítulo; o reuso precisa do HASH, que é
+         * o que sobrevive a capítulo inserido no meio. O casamento é aqui, e é
+         * por título normalizado porque é o único elo que o modelo tem.
+         *
+         * Título que não casa com capítulo nenhum é DESCARTADO: síntese sem
+         * hash não serve para reuso e ainda inflaria a contagem, fazendo o mapa
+         * parecer mais completo do que é.
+         */
+        sintese: uploadedFiles.map((file) => {
+          const capitulos = impressaoDosCapitulos(chunkPdfByChapter(file.extracted));
+          const hashPorTitulo = new Map(
+            capitulos.map((c) => [c.titulo.trim().toLowerCase(), c.hash]),
+          );
+
+          return {
+            arquivo: file.file.name,
+            capitulos: (sinteses.get(file.file.name) ?? [])
+              .map((s) => ({
+                hash: hashPorTitulo.get(s.capitulo.trim().toLowerCase()) ?? "",
+                resumo: s.resumo,
+              }))
+              .filter((s) => s.hash),
+          };
+        }),
         gerado_em: new Date().toISOString(),
       },
       obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
