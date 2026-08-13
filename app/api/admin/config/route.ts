@@ -260,23 +260,6 @@ async function buildConfigPayload() {
       model: ai.ldExtraction.primary.model,
       keyConfigured: ai.ldExtraction.primary.keyConfigured,
     },
-    {
-      id: "ld-fallback",
-      label: "LD - fallback",
-      provider: ai.ldExtraction.fallback.provider,
-      model: ai.ldExtraction.fallback.model,
-      keyConfigured: ai.ldExtraction.fallback.keyConfigured,
-    },
-    {
-      id: "deepseek-provider",
-      label: "DeepSeek - configuração",
-      provider: ai.deepseek.provider,
-      model: ai.deepseek.model,
-      keyConfigured: ai.deepseek.keyConfigured,
-      enabled: ai.deepseek.enabled,
-      placeholderOnly: ai.deepseek.placeholderOnly,
-      note: ai.deepseek.note,
-    },
   ];
 
   return {
@@ -331,14 +314,11 @@ async function buildConfigPayload() {
     secrets: {
       primaryApiKeyConfigured: ai.audit.keyConfigured,
       openaiApiKeyConfigured: getSecretFingerprint("OPENAI_API_KEY").configured,
-      mimoApiKeyConfigured: ai.ldExtraction.fallback.keyConfigured,
-      deepseekApiKeyConfigured: ai.deepseek.keyConfigured,
       openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
       adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
     },
     secretFingerprints: {
       openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
-      deepseekApiKey: getSecretFingerprint("DEEPSEEK_API_KEY"),
       openaiAdminKey: getSecretFingerprint("OPENAI_ADMIN_KEY"),
     },
     generatedAt: new Date().toISOString(),
@@ -434,9 +414,7 @@ export async function POST(request: Request) {
   if (!ai.auditChat.keyConfigured) {
     return jsonError(
       request,
-      ai.auditChat.provider === "deepseek"
-        ? "DEEPSEEK_API_KEY não configurada."
-        : "OPENAI_API_KEY não configurada.",
+      "OPENAI_API_KEY não configurada.",
       500,
     );
   }
@@ -489,9 +467,7 @@ export async function POST(request: Request) {
           rawType: rawError.type,
           rawName: rawError.name,
           rawMessage: rawError.message?.slice(0, 500),
-          keyFingerprint: getSecretFingerprint(
-            ai.auditChat.provider === "deepseek" ? "DEEPSEEK_API_KEY" : "OPENAI_API_KEY",
-          ),
+          keyFingerprint: getSecretFingerprint("OPENAI_API_KEY"),
           testedAt: new Date().toISOString(),
         },
         { status: failure.category === "authentication" ? 401 : 503 },

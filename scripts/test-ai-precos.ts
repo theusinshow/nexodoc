@@ -95,7 +95,7 @@ test("nome de modelo não aceita chave de API — uma já foi parar no banco", (
 });
 
 test("os modelos de verdade continuam passando na validação", () => {
-  for (const model of ["gpt-5.6-luna", "gpt-5.6-terra", "deepseek-v4-flash(1)", "mimo-v2.5"]) {
+  for (const model of ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.4-mini"]) {
     assert.equal(validateAiModelName(model), "", `rejeitou ${model}`);
   }
 });

@@ -64,8 +64,6 @@ services:
       # Regra: mexeu em modelo no `.env.local`, mexe aqui também.
       - key: OPENAI_API_KEY
         sync: false
-      - key: NEXODOC_AI_PROVIDER
-        value: openai
 
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
       # prancha, e um volume real tem dezenas — o custo daqui escala com o
@@ -141,13 +139,6 @@ services:
         value: "120000"
       - key: NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS
         value: "6000"
-
-      # O DeepSeek fica DESLIGADO em produção de propósito: ele exige
-      # `DEEPSEEK_API_KEY`, e um provider ligado sem chave falha na hora de
-      # gerar, não na hora de subir. Para ligar, ponha a chave e só então mude
-      # os overrides por fluxo.
-      - key: NEXODOC_ENABLE_DEEPSEEK
-        value: "false"
 
       # ---------------------------------------------------------------- flags
       # NEXT_PUBLIC_* é embutida na COMPILAÇÃO. Aqui ela vale para o runtime; o

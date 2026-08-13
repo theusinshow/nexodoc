@@ -39,12 +39,12 @@ test("soma tokens por modelo, maior primeiro", () => {
 test("mesma tarefa com dois modelos vira DUAS linhas", () => {
   const r = aggregateUsage([
     { flow: "ld-extraction", model: "gpt-5-mini", totalTokens: 200, estimatedCostUsd: null },
-    { flow: "ld-extraction", model: "mimo-vl", totalTokens: 80, estimatedCostUsd: null },
+    { flow: "ld-extraction", model: "modelo-sem-preco", totalTokens: 80, estimatedCostUsd: null },
   ]);
   assert.equal(r.porTarefa.length, 2);
   assert.deepEqual(
     r.porTarefa.map((t) => t.model),
-    ["gpt-5-mini", "mimo-vl"],
+    ["gpt-5-mini", "modelo-sem-preco"],
   );
   // O rótulo da tarefa se repete — é a troca de modelo que se quer ver.
   assert.equal(r.porTarefa[0].label, "Leitura de selos");
@@ -53,7 +53,7 @@ test("mesma tarefa com dois modelos vira DUAS linhas", () => {
 
 test("custo: nenhum evento com preço -> total nulo (nao zero)", () => {
   const r = aggregateUsage([
-    { flow: "audit", model: "mimo-vl", totalTokens: 10, estimatedCostUsd: null },
+    { flow: "audit", model: "modelo-sem-preco", totalTokens: 10, estimatedCostUsd: null },
   ]);
   assert.equal(r.totalCostUsd, null);
   assert.equal(r.porModelo[0].costUsd, null);

@@ -1,3 +1,4 @@
+import type { AiProvider } from "@/lib/ai-providers";
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AnalysisLevel } from "@/lib/analysis-level";
 
@@ -86,8 +87,8 @@ export type AuditReport = {
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;
-    provedor_principal?: "openai" | "deepseek";
-    provedor_validacao?: "openai" | "deepseek";
+    provedor_principal?: AiProvider;
+    provedor_validacao?: AiProvider;
     modelo_principal?: string;
     modelo_validacao?: string;
     segunda_ia?: {

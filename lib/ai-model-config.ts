@@ -1,6 +1,14 @@
 import { normalizeAiModelName, validateAiModelName } from "@/lib/ai-model-name";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
+/**
+ * Só modelos da OpenAI: o projeto centralizou num provedor em 13/08/2026.
+ *
+ * A lista carregava `deepseek-v4-flash(1)` — nome INVÁLIDO, com o sufixo de
+ * arquivo duplicado colado por engano, que a API do DeepSeek recusou nas 88
+ * chamadas que recebeu. Um dropdown que oferece uma opção sempre quebrada é
+ * pior que não oferecer nada: quem escolhe não tem como saber.
+ */
 export const AI_MODEL_OPTIONS = [
   "gpt-5.6-sol",
   "gpt-5.6-terra",
@@ -10,10 +18,6 @@ export const AI_MODEL_OPTIONS = [
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.4-nano",
-  "deepseek-chat",
-  "deepseek-v4-pro",
-  "deepseek-v4-flash(1)",
-  "mimo-v2.5",
 ] as const;
 
 export const AI_MODEL_FLOW_DEFINITIONS = [
@@ -38,8 +42,6 @@ export const AI_MODEL_FLOW_DEFINITIONS = [
   { id: "volume-suggestion", label: "Volumes - sugestão de montagem" },
   { id: "volume-conferencia", label: "Volumes - conferência do volume montado" },
   { id: "ld-primary", label: "LD - leitura principal" },
-  { id: "ld-fallback", label: "LD - fallback" },
-  { id: "deepseek-provider", label: "DeepSeek - configuração" },
 ] as const;
 
 export type AiModelFlowId = (typeof AI_MODEL_FLOW_DEFINITIONS)[number]["id"];

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { estimateOpenAiCostUsd } from "@/lib/ai-precos";
+import type { AiProvider } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export { estimateOpenAiCostUsd, isModelPriceKnown } from "@/lib/ai-precos";
@@ -17,7 +18,7 @@ type RecordAiUsageArgs = {
   aiTaskId?: string | null;
   taskId?: string | null;
   taskLabel?: string | null;
-  provider: "openai" | "mimo" | "deepseek";
+  provider: AiProvider;
   model: string;
   operation: string;
   status?: "success" | "failed";

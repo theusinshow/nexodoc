@@ -3,7 +3,7 @@
  *
  * Espelha a logica provada do modulo LD (components/ld/ld-workspace.tsx): renderiza
  * o recorte do selo + monta o texto posicional, e POSTa para a rota existente
- * /api/ld/extract-stamp (que ja faz auth + OpenAI->MiMo + telemetria). Mantido
+ * /api/ld/extract-stamp (que ja faz auth + telemetria). Mantido
  * isolado de proposito: o Nexo nao depende de refatorar o LD.
  *
  * O QUE VAI AO MODELO é decidido por três módulos puros, e não mais por

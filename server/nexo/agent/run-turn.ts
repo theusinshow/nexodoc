@@ -17,7 +17,7 @@ import {
   executeOpenAiResponseStream,
 } from "@/lib/ai-runner";
 import { extractTokenUsage } from "@/lib/ai-usage";
-import { getAiConfiguration, getNexoProvider } from "@/lib/ai-providers";
+import { getAiConfiguration } from "@/lib/ai-providers";
 import type { NexoAgentProposal, NexoAgentTurn } from "@/modules/nexo/types";
 import { normalizeProposals } from "./normalize";
 import { createSplitState, pushChunk, endStream, parseTail } from "./split-stream";
@@ -281,9 +281,16 @@ export type NexoTurnEvent =
       usage: number;
     };
 
-/** O provider resolvido para o flow do Nexo consegue transmitir? */
+/**
+ * O provider resolvido para o flow do Nexo consegue transmitir?
+ *
+ * Desde 13/08/2026 há um provedor só (OpenAI) e a resposta é sempre sim. A
+ * função continua existindo, e a rota continua consultando, porque ela é o
+ * ponto onde a degradação para o caminho não-transmitido está escrita: quem
+ * voltar a ter um provedor sem streaming muda aqui, não no meio da rota.
+ */
 export function providerSupportsStreaming(): boolean {
-  return getNexoProvider() === "openai";
+  return true;
 }
 
 /**
