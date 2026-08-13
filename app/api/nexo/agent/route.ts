@@ -14,6 +14,7 @@ import {
 import { buildSlotRequestForTurn } from "@/server/nexo/agent/slot-request";
 import { sugerirNumeroDeTomos } from "@/lib/ld/ld-rules";
 import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
+import { carregarEscritorio } from "@/lib/escritorio-config";
 
 export const runtime = "nodejs";
 
@@ -143,6 +144,13 @@ export async function POST(req: NextRequest) {
       };
 
   const registry = await getTemplateRegistry();
+  /*
+   * QUEM EMITE, para não ser lido como quem recebe. O endereço do escritório
+   * está impresso em toda prancha, e foi ele que fez um volume de Criciúma sair
+   * como Florianópolis. Nunca lança: sem escritório declarado, o casamento é o
+   * de sempre (`lib/escritorio.ts`).
+   */
+  const escritorio = await carregarEscritorio();
   const prefeituras: NexoAgentPrefeitura[] = registry.map((t) => ({
     id: t.id,
     nome: (t.grupo ?? t.nome) + (t.variante ? ` — ${t.variante}` : ""),
@@ -175,6 +183,7 @@ export async function POST(req: NextRequest) {
     disciplinaCode: resumo.disciplinaCode,
     obra: resumo.obra,
     prefeituras,
+    escritorio,
     mesAtual: now.getMonth() + 1,
     anoAtual: now.getFullYear(),
     // A divisão em tomos é computada AQUI porque `sugerirNumeroDeTomos` é import
@@ -206,6 +215,7 @@ export async function POST(req: NextRequest) {
               history,
               resumo,
               prefeituras,
+              escritorio,
               conversationId,
               userEmail,
               tomosSugeridos: slotContext.tomosSugeridos,
@@ -257,6 +267,7 @@ export async function POST(req: NextRequest) {
       history,
       resumo,
       prefeituras,
+      escritorio,
       conversationId,
       userEmail,
       tomosSugeridos: slotContext.tomosSugeridos,

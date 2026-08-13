@@ -18,6 +18,7 @@ import {
 } from "@/lib/ai-model-config";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { isDatabaseConfigured } from "@/lib/db";
+import { carregarEscritorioComOrigem, salvarEscritorio } from "@/lib/escritorio-config";
 
 export const runtime = "nodejs";
 
@@ -336,6 +337,7 @@ async function buildConfigPayload() {
       openaiAdminKeyConfigured: ai.administrationUsage.keyConfigured,
       adminTokenConfigured: Boolean(process.env.NEXODOC_ADMIN_TOKEN),
     },
+    escritorio: await carregarEscritorioComOrigem(),
     secretFingerprints: {
       openaiApiKey: getSecretFingerprint("OPENAI_API_KEY"),
       deepseekApiKey: getSecretFingerprint("DEEPSEEK_API_KEY"),
@@ -372,7 +374,36 @@ export async function PATCH(request: Request) {
     flowId?: string;
     model?: string;
     notes?: string;
+    escritorio?: unknown;
   } | null;
+
+  /*
+   * OS DADOS DO ESCRITÓRIO não são um fluxo de IA: entram antes da exigência de
+   * `flowId`, que é a chave dos overrides de modelo.
+   */
+  if (body?.action === "escritorio") {
+    if (!isDatabaseConfigured()) {
+      return jsonError(
+        request,
+        "DATABASE_URL não configurada; não é possível salvar os dados do escritório.",
+        500,
+      );
+    }
+    try {
+      await salvarEscritorio({ dados: body.escritorio, updatedBy: "admin" });
+      return withCors(
+        NextResponse.json({ ok: true, action: "escritorio", config: await buildConfigPayload() }),
+        request,
+      );
+    } catch (error) {
+      return jsonError(
+        request,
+        error instanceof Error ? error.message : "Não foi possível salvar os dados do escritório.",
+        400,
+      );
+    }
+  }
+
   const action = body?.action === "reset" ? "reset" : "save";
   const flowId = String(body?.flowId ?? "").trim();
 

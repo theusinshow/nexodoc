@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
+import { carregarEscritorio } from "@/lib/escritorio-config";
+import { marcadoresDoEscritorio } from "@/lib/escritorio";
 import { isNexoEnabled } from "@/lib/feature-flags";
 import { recordNexoArtifacts } from "@/lib/nexo-artifacts";
 import { buildCapaProposal } from "@/server/nexo/build-capa-proposal";
@@ -118,10 +120,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  /*
+   * OS DADOS DO ESCRITÓRIO ALIMENTAM OS MARCADORES DELE — mas por baixo.
+   *
+   * O modelo que tem `{{CREA}}` ou `{{RESPONSAVEL}}` deixava o engenheiro
+   * redigitar o mesmo dado a cada capa. Agora ele vem do que está declarado no
+   * admin, e SÓ onde o engenheiro não respondeu: a precedência do produto é
+   * engenheiro > agente > carimbo > vazio, e o escritório entra como carimbo —
+   * abaixo de quem está olhando a folha. Marcador que o modelo não tem continua
+   * sendo ignorado por `server/odt`.
+   */
+  const doEscritorio = marcadoresDoEscritorio(await carregarEscritorio());
+  const extrasFinais = { ...doEscritorio, ...extras };
+
   const result = await generateCovers({
     generalData: proposal.generalData,
     pages: proposal.pages,
-    ...(Object.keys(extras).length > 0 ? { extras } : {}),
+    ...(Object.keys(extrasFinais).length > 0 ? { extras: extrasFinais } : {}),
   });
 
   /*

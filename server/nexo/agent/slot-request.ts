@@ -26,6 +26,7 @@ import { resolveSlots } from "./slot-resolver";
 // O casamento cidade→template mora em `normalize.ts`, junto de `matchPrefeitura`
 // que é a sua única dependência — e lá ele roda em node cru, com teste.
 import { casarPrefeituraDoCarimbo } from "./normalize";
+import type { DadosDoEscritorio } from "@/lib/escritorio";
 // A data mora num módulo puro só dela; o léxico de disciplinas é a FONTE ÚNICA
 // dos três nomes de cada disciplina. Os dois são import de runtime, e por isso
 // entram aqui e não em `requirements.ts`, que é folha pura.
@@ -43,6 +44,11 @@ export interface SlotRequestContext {
   obra: string;
   /** Prefeituras configuradas (chips de templateId, se faltar). */
   prefeituras: { id: string; nome: string }[];
+  /**
+   * Quem EMITE — o endereço impresso na prancha, que não é o cliente. Injetado
+   * pela rota (vem do banco/ambiente); ausente, o casamento é o de sempre.
+   */
+  escritorio?: DadosDoEscritorio;
   /** Mês/ano de referência, injetados pela rota (função pura não chama `new Date`). */
   mesAtual: number;
   anoAtual: number;
@@ -114,7 +120,7 @@ export function buildSlotRequestForTurn(
   if (proposals.length === 0) return undefined;
 
   const key = ctx.disciplina.trim() || "GERAL";
-  const casamento = casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras);
+  const casamento = casarPrefeituraDoCarimbo(ctx.selos, ctx.prefeituras, ctx.escritorio);
 
   /*
    * POR QUE A PREFEITURA FOI (ou não) RESOLVIDA — no log do servidor.

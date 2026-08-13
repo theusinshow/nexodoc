@@ -20,6 +20,7 @@ import { extractTokenUsage } from "@/lib/ai-usage";
 import { getAiConfiguration, getNexoProvider } from "@/lib/ai-providers";
 import type { NexoAgentProposal, NexoAgentTurn } from "@/modules/nexo/types";
 import { normalizeProposals } from "./normalize";
+import type { DadosDoEscritorio } from "@/lib/escritorio";
 import { createSplitState, pushChunk, endStream, parseTail } from "./split-stream";
 
 /** Fatos objetivos extraídos dos selos (via buildLdProposal, determinístico). */
@@ -54,6 +55,12 @@ export interface RunNexoAgentTurnInput {
    * conta de cabeça é onde ele inventa.
    */
   tomosSugeridos?: number;
+  /**
+   * Quem EMITE. O modelo às vezes devolve como "prefeitura" a linha do carimbo
+   * inteira, endereço do escritório junto — e é o casamento, não o modelo, que
+   * tem de saber separar. Ausente: comportamento anterior, intacto.
+   */
+  escritorio?: DadosDoEscritorio;
 }
 
 const MAX_OUTPUT_TOKENS = Number(process.env.NEXODOC_NEXO_MAX_OUTPUT_TOKENS ?? 900);
@@ -267,6 +274,7 @@ export async function runNexoAgentTurn(
     proposals: normalizeProposals(parsed.proposals, {
       disciplina: input.resumo.disciplina,
       prefeituras: input.prefeituras,
+      escritorio: input.escritorio,
     }),
     usage,
   };
@@ -347,6 +355,7 @@ export async function* runNexoAgentTurnStream(
     proposals: normalizeProposals(parsed.proposals, {
       disciplina: input.resumo.disciplina,
       prefeituras: input.prefeituras,
+      escritorio: input.escritorio,
     }),
     usage,
   };

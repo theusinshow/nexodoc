@@ -100,8 +100,15 @@ nesta máquina).
 
 ## 4. Admin — `/admin` (token: o do seu `.env.local`)
 
-**Estado de confiança: NENHUMA destas telas foi aberta.** Tudo aqui passou por
-compilador e leitura, nunca pelo olho. É o item que mais merece atenção.
+**Estado de confiança: nenhuma destas telas tinha sido aberta**, e abrir a
+primeira já cobrou o preço — ver o defeito abaixo. O resto continua conferido só
+por compilador e leitura.
+
+- [ ] **Digitar o token à mão funciona.** Estava quebrado: o recolhimento do
+      token (`token && !editando`) fechava no PRIMEIRO caractere digitado, e o
+      campo sumia com uma letra dentro — em todas as 7 telas. `tsc` e `eslint`
+      passavam limpos. Corrigido em `admin-page-shell.tsx` (digitar agora conta
+      como editar) e travado por `npm run prova:escritorio`.
 
 - [ ] **Chanfro** em cartões, campos e nav — o admin deixa de parecer outro
       produto.
@@ -122,7 +129,32 @@ compilador e leitura, nunca pelo olho. É o item que mais merece atenção.
 - [ ] **`/admin/usage`**: as barras do uso diário são **azuis**, e o texto abaixo
       não fala mais em "barras azuis" descrevendo barras teal.
 
-## 5. Léxico e cor — espalhado
+## 5. Escritório emissor — `/admin/config` (A.9a)
+
+**Estado de confiança:** o núcleo tem prova em node cru
+(`npm run test:escritorio`, 10 casos) e a tela foi aberta no navegador
+(`npm run prova:escritorio`, 10 conferências — precisa do servidor no ar com as
+variáveis do escritório; o cabeçalho do script traz a linha pronta).
+
+O que a regra faz: declarado o escritório, a linha dele é **subtraída** do texto
+antes do casamento cidade→template. Sem escritório declarado, nada muda.
+
+- [ ] A seção **Escritório emissor** é a primeira da tela, com os 6 campos.
+- [ ] O selo à direita diz `não declarado` (azul-informação) numa base limpa.
+- [ ] Sem `DATABASE_URL`: o botão fica **desabilitado** e o motivo aparece ao
+      lado — não some sem explicação.
+- [ ] Preencher só o município, sem UF: aparece o aviso e o salvar trava.
+- [ ] Endereço impresso sem município: idem. Tudo **vazio** é válido.
+- [ ] Com banco: salvar → o selo vira `declarado no painel` e aparece `salvo`.
+- [ ] Sem banco, dá para semear pelo ambiente:
+      `NEXODOC_ESCRITORIO_NOME`, `_ENDERECO`, `_MUNICIPIO`, `_UF`,
+      `_RESPONSAVEL`, `_CREA` — o selo passa a dizer `vindo do ambiente`.
+
+**A prova que interessa** (precisa de pranchas reais): um lote cujo carimbo
+traga o endereço do escritório junto do órgão. Com o escritório declarado, a
+prefeitura tem de casar pelo **cliente**, não pela cidade do escritório.
+
+## 6. Léxico e cor — espalhado
 
 - [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
       "Relatório", dentro do próprio parecer).
@@ -141,9 +173,14 @@ compilador e leitura, nunca pelo olho. É o item que mais merece atenção.
 ## O que ainda não foi feito
 
 Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
-e `...-admin-aprovado.md` (A.4, A.6, A.7, A.8, A.9a, A.9b, A.10).
+e `...-admin-aprovado.md` (A.4, A.6, A.7, A.8, A.9b, A.10).
 
-O próximo recomendado é **A.9a** — dados do escritório (nome, endereço impresso
-nas pranchas, CREA). Não é preferência: o endereço impresso em toda prancha é o
-modo de falha que produziu o bug Criciúma/Florianópolis, e hoje ele é implícito
-no sistema.
+O **A.9a saiu** — é a seção 5 acima. O próximo da ordem do spec é o **A.7**
+(Usage: consertar o "barras azuis", ≈ R$ com câmbio configurável, custo por
+obra), lembrando que o custo por obra pode exigir schema, e que o campo de
+câmbio nasce em `/admin/config`, não em `usage`.
+
+Fica registrado o que o A.9a **não** fez: a cidade do escritório continua sendo
+casável como cliente quando aparece sozinha, e é de propósito — apagá-la
+destruiria o trabalho feito PARA a prefeitura da própria cidade. O caso
+"escritório e cliente na mesma cidade" segue sendo pergunta ao engenheiro.

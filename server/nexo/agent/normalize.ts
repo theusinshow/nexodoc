@@ -4,6 +4,11 @@
  * modelo em NexoAgentProposal[] confiável: mapeia a prefeitura (tolerante a
  * acento/variação), preenche defaults e limita valores. O run-turn.ts consome.
  */
+import {
+  ESCRITORIO_VAZIO,
+  textoSemOEscritorio,
+  type DadosDoEscritorio,
+} from "../../../lib/escritorio.ts";
 import type { NexoAgentProposal } from "@/modules/nexo/types";
 
 export interface AgentPrefeitura {
@@ -14,6 +19,12 @@ export interface AgentPrefeitura {
 export interface NormalizeContext {
   disciplina: string;
   prefeituras: AgentPrefeitura[];
+  /**
+   * Quem EMITE. Opcional porque o sistema rodou sem isto até aqui: sem
+   * escritório declarado, `textoSemOEscritorio` devolve o texto como estava e o
+   * casamento é exatamente o de antes.
+   */
+  escritorio?: DadosDoEscritorio;
 }
 
 /** minúsculas + sem acento + espaço colapsado. */
@@ -76,13 +87,22 @@ function nomeiaOrgao(w: string): boolean {
 export function matchPrefeitura(
   wanted: { id?: string; nome?: string },
   prefeituras: AgentPrefeitura[],
+  escritorio: DadosDoEscritorio = ESCRITORIO_VAZIO,
 ): AgentPrefeitura | null {
   const wantedId = (wanted.id ?? "").trim();
   if (wantedId) {
     const byId = prefeituras.find((t) => t.id === wantedId);
     if (byId) return byId;
   }
-  const w = norm(wanted.nome ?? "");
+  /*
+   * O ENDEREÇO DO EMISSOR SAI ANTES DE CASAR.
+   *
+   * `nomeiaOrgao` (abaixo) segura o caso comum deduzindo o escritório por
+   * ausência. Declarado o escritório, a dedução vira fato: a linha dele é
+   * subtraída e o que sobra é o que fala do cliente. Sem escritório declarado
+   * isto é `norm()` e nada mais — ver `lib/escritorio.ts`.
+   */
+  const w = textoSemOEscritorio(wanted.nome ?? "", escritorio);
   if (!w) return null;
 
   // 1) o nome do template contém o pedido, ou o pedido contém o nome.
@@ -149,9 +169,12 @@ function dominanteEntreOsSelos(valores: (string | null | undefined)[]): string {
 function plausiveisPara(
   texto: string,
   prefeituras: AgentPrefeitura[],
+  escritorio: DadosDoEscritorio,
 ): AgentPrefeitura[] {
   if (!texto) return [];
-  return prefeituras.filter((p) => matchPrefeitura({ nome: texto }, [p]) !== null);
+  return prefeituras.filter(
+    (p) => matchPrefeitura({ nome: texto }, [p], escritorio) !== null,
+  );
 }
 
 /**
@@ -173,6 +196,7 @@ export type MotivoDoCasamento =
 export function casarPrefeituraDoCarimbo(
   selos: { cliente?: string | null; logoOrgao?: string | null }[],
   prefeituras: AgentPrefeitura[],
+  escritorio: DadosDoEscritorio = ESCRITORIO_VAZIO,
 ):
   | {
       resolvedId: string | null;
@@ -192,10 +216,12 @@ export function casarPrefeituraDoCarimbo(
   const doTexto = plausiveisPara(
     dominanteEntreOsSelos(selos.map((s) => s.cliente)),
     prefeituras,
+    escritorio,
   );
   const doLogo = plausiveisPara(
     dominanteEntreOsSelos(selos.map((s) => s.logoOrgao)),
     prefeituras,
+    escritorio,
   );
 
   const unico = (lista: AgentPrefeitura[]) => (lista.length === 1 ? lista[0] : null);
@@ -292,6 +318,7 @@ export function normalizeProposals(
       const match = matchPrefeitura(
         { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
         ctx.prefeituras,
+        ctx.escritorio ?? ESCRITORIO_VAZIO,
       );
       /*
        * PREFEITURA INCERTA FICA VAZIA — e vazia vira PERGUNTA.
@@ -340,6 +367,7 @@ export function normalizeProposals(
       const match = matchPrefeitura(
         { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
         ctx.prefeituras,
+        ctx.escritorio ?? ESCRITORIO_VAZIO,
       );
       const templateId = match?.id ?? (String(p.templateId ?? "").trim() || firstTemplateId);
       if (!templateId) continue; // sem prefeitura configurada, não propõe separatriz
