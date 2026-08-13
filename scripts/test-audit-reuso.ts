@@ -13,10 +13,12 @@ import assert from "node:assert/strict";
 import {
   capituloDoAchado,
   paginaDoAchado,
+  planejarReuso,
   reancorarPorAritmetica,
   reancorarPorTermo,
+  VERSAO_AUDITOR,
 } from "../lib/audit-reuso.ts";
-import type { CapituloImpresso } from "../lib/audit-report.ts";
+import type { AuditFinding, CapituloImpresso } from "../lib/audit-report.ts";
 import type { ExtractedPdfPage } from "../lib/pdf-text.ts";
 
 let passed = 0;
@@ -128,6 +130,124 @@ test("termo ausente devolve null — quem chama decide o que fazer", () => {
   assert.equal(reancorarPorTermo("laje nervurada", PAGINAS), null);
   assert.equal(reancorarPorTermo(undefined, PAGINAS), null);
   assert.equal(reancorarPorTermo("   ", PAGINAS), null);
+});
+
+const achado = (
+  id: string,
+  pagina: string,
+  origem: "ia" | "regra",
+  termo?: string,
+): AuditFinding => ({
+  id,
+  pagina,
+  capitulo: "irrelevante",
+  local: "",
+  tipo: "t",
+  descricao: "d",
+  evidencia: "e",
+  conflito: "c",
+  sugestao_correcao: "s",
+  prioridade: "Media",
+  confianca: "alta",
+  origem,
+  termo_busca: termo,
+});
+
+// Antes: dois capítulos. Agora: entrou um capítulo novo antes do segundo.
+const A1 = cap("1 - GENERALIDADES", 1, 3, "hA");
+const A2 = cap("2 - FUNDACOES", 4, 8, "hB");
+const N1 = cap("1 - GENERALIDADES", 1, 3, "hA");
+const NOVO = cap("1.5 - METALICO", 4, 6, "hNOVO");
+const N2 = cap("2 - FUNDACOES", 7, 11, "hB");
+
+const DELTA_SIMPLES = {
+  iguais: [N1, N2],
+  alterados: [],
+  novos: [NOVO],
+  sumidos: [],
+};
+
+test("achado de capítulo igual é herdado com a página reancorada", () => {
+  const plano = planejarReuso({
+    delta: DELTA_SIMPLES,
+    capitulosAntes: [A1, A2],
+    achadosAntes: [achado("INC-1", "5", "ia")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: VERSAO_AUDITOR,
+  });
+  assert.equal(plano.achadosHerdados.length, 1);
+  assert.equal(plano.achadosHerdados[0].pagina, "8"); // 5 + (7-4)
+  assert.deepEqual(
+    plano.capitulosParaLer.map((c) => c.hash),
+    ["hNOVO"],
+  );
+});
+
+test("achado de REGRA nunca é herdado — as regras reprocessam de graça", () => {
+  const plano = planejarReuso({
+    delta: DELTA_SIMPLES,
+    capitulosAntes: [A1, A2],
+    achadosAntes: [achado("INC-1", "5", "regra")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: VERSAO_AUDITOR,
+  });
+  assert.equal(plano.achadosHerdados.length, 0);
+});
+
+test("achado de capítulo que SUMIU não entra no parecer novo", () => {
+  const plano = planejarReuso({
+    delta: { iguais: [N1], alterados: [], novos: [], sumidos: [A2] },
+    capitulosAntes: [A1, A2],
+    achadosAntes: [achado("INC-1", "5", "ia")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: VERSAO_AUDITOR,
+  });
+  assert.equal(plano.achadosHerdados.length, 0);
+});
+
+test("sem âncora, o capítulo inteiro volta a ser lido", () => {
+  // Capítulo igual que passou a ocupar mais páginas (aritmética recusa) e cujo
+  // achado não tem termo de busca: não há como reancorar.
+  const antes = cap("2 - FUNDACOES", 4, 8, "hB");
+  const agora = cap("2 - FUNDACOES", 7, 12, "hB");
+  const plano = planejarReuso({
+    delta: { iguais: [agora], alterados: [], novos: [], sumidos: [] },
+    capitulosAntes: [antes],
+    achadosAntes: [achado("INC-1", "5", "ia")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: VERSAO_AUDITOR,
+  });
+  assert.equal(plano.achadosHerdados.length, 0);
+  assert.deepEqual(
+    plano.capitulosParaLer.map((c) => c.hash),
+    ["hB"],
+  );
+  assert.deepEqual(plano.promovidos, [{ titulo: "2 - FUNDACOES", motivo: "sem-ancora" }]);
+});
+
+test("versão do auditor diferente: nada é herdado e tudo é lido", () => {
+  const plano = planejarReuso({
+    delta: DELTA_SIMPLES,
+    capitulosAntes: [A1, A2],
+    achadosAntes: [achado("INC-1", "5", "ia")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: VERSAO_AUDITOR - 1,
+  });
+  assert.equal(plano.achadosHerdados.length, 0);
+  assert.equal(plano.capitulosParaLer.length, 3);
+  assert.deepEqual(plano.hashesHerdados, []);
+});
+
+test("parecer sem versão gravada é tratado como incomparável", () => {
+  const plano = planejarReuso({
+    delta: DELTA_SIMPLES,
+    capitulosAntes: [A1, A2],
+    achadosAntes: [achado("INC-1", "5", "ia")],
+    paginasAgora: PAGINAS,
+    versaoAnterior: undefined,
+  });
+  assert.equal(plano.achadosHerdados.length, 0);
+  assert.equal(plano.capitulosParaLer.length, 3);
 });
 
 console.log(`\n${passed} verificações de reuso passaram.`);
