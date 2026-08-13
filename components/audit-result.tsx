@@ -5,6 +5,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   Copy,
@@ -14,7 +16,9 @@ import {
   FileText,
   LayoutList,
   MapPin,
+  Minus,
   MoreHorizontal,
+  Plus,
   Search,
   Wrench,
   X,
@@ -210,6 +214,21 @@ const VEREDITO_LABEL: Record<FeedbackVerdict, string> = {
   WRONG_SEVERITY: "Severidade errada",
   MISSING_FINDING: "",
 };
+
+/**
+ * Os degraus de zoom da gaveta. Lista fixa em vez de um passo contínuo: são os
+ * valores em que a página cai bem na largura de 560px, e um `+` que muda de
+ * 100% para 103% é um controle que parece quebrado.
+ *
+ * O teto de 3× não é enfeite: a página é rasterizada na largura pedida, e um
+ * memorial de 80 folhas com o canvas em 1560px de largura pesa na memória de
+ * quem só queria ler uma linha.
+ */
+const ZOOMS = [0.75, 1, 1.25, 1.5, 2, 3];
+
+const zoomSeguinte = (atual: number) => ZOOMS.find((z) => z > atual) ?? ZOOMS[ZOOMS.length - 1];
+const zoomAnterior = (atual: number) =>
+  [...ZOOMS].reverse().find((z) => z < atual) ?? ZOOMS[0];
 
 function getFeedbackEndpoint(auditId: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
@@ -984,6 +1003,13 @@ export function AuditResult({
    */
   const [paginasDoAberto, setPaginasDoAberto] = useState(0);
   /*
+   * O ZOOM DA GAVETA. Mora aqui, e não dentro do visor, porque quem desenha os
+   * controles é o cabeçalho da gaveta — e porque ele tem de sobreviver à troca
+   * de página: quem aumentou para ler um trecho miúdo quer continuar em 150%
+   * ao pular para o achado seguinte, senão o controle vira trabalho repetido.
+   */
+  const [zoomDoPdf, setZoomDoPdf] = useState(1);
+  /*
    * O portal precisa do `document`, que não existe no servidor.
    *
    * Basta a checagem direta, sem marca de "já montei": o visor só existe depois
@@ -1371,6 +1397,127 @@ export function AuditResult({
               <X className="size-4" />
             </button>
           </div>
+          {/*
+            A BARRA DE NAVEGAÇÃO DO DOCUMENTO.
+
+            O visor abria a página do achado e o resto do documento não existia:
+            os únicos destinos eram os pins da margem, um por achado. Medido num
+            memorial de 12 páginas com 3 achados — NOVE PÁGINAS INALCANÇÁVEIS.
+            E ler a página anterior é metade do trabalho de conferir um achado:
+            um trecho contraditório quase sempre se explica no parágrafo de
+            antes, que mora na folha de antes.
+
+            O zoom pela mesma razão prática: a página inteira cabe na gaveta a
+            520px, o que responde "onde está o trecho" e não responde "o que ele
+            diz" — corpo 10 numa A4 reduzida a 87% é conferência a olho apertado.
+          */}
+          <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Página anterior"
+                disabled={activePdf.page <= 1}
+                onClick={() =>
+                  setActivePdf((a) => (a ? { ...a, page: Math.max(1, a.page - 1) } : a))
+                }
+                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              {/*
+                Campo e não só setas: num memorial de 80 folhas, chegar à página
+                47 com o botão de "próxima" é quarenta e seis cliques. O `form`
+                existe para o Enter valer — é como se digita número de página em
+                qualquer leitor, e sem ele o campo pareceria quebrado.
+              */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const campo = e.currentTarget.elements.namedItem("pagina");
+                  const alvo = Number.parseInt(
+                    campo instanceof HTMLInputElement ? campo.value : "",
+                    10,
+                  );
+                  if (!Number.isFinite(alvo)) return;
+                  const limite = paginasDoAberto || alvo;
+                  setActivePdf((a) =>
+                    a ? { ...a, page: Math.min(Math.max(1, alvo), limite) } : a,
+                  );
+                }}
+                className="flex items-center gap-1"
+              >
+                {/*
+                  `key` na página, e o campo é NÃO CONTROLADO de propósito. Ele
+                  precisa mostrar a página atual quando ela muda por outro
+                  caminho (as setas, um pin da margem) e, ao mesmo tempo, deixar
+                  digitar "1" antes de "12" sem saltar para a folha 1 no meio da
+                  digitação. Remontar quando a página muda resolve os dois sem um
+                  efeito de sincronia — que é onde este tipo de campo costuma
+                  ganhar um defeito de piscar.
+                */}
+                <input
+                  key={activePdf.page}
+                  name="pagina"
+                  defaultValue={String(activePdf.page)}
+                  onFocus={(e) => e.currentTarget.select()}
+                  inputMode="numeric"
+                  aria-label="Ir para a página"
+                  className="w-12 rounded-sm border bg-transparent px-1 py-0.5 text-center font-mono text-xs outline-none focus-visible:border-ring"
+                />
+              </form>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                de {paginasDoAberto || "?"}
+              </span>
+              <button
+                type="button"
+                aria-label="Próxima página"
+                disabled={paginasDoAberto > 0 && activePdf.page >= paginasDoAberto}
+                onClick={() =>
+                  setActivePdf((a) =>
+                    a
+                      ? { ...a, page: Math.min(paginasDoAberto || a.page + 1, a.page + 1) }
+                      : a,
+                  )
+                }
+                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Diminuir zoom"
+                disabled={zoomDoPdf <= ZOOMS[0]}
+                onClick={() => setZoomDoPdf((z) => zoomAnterior(z))}
+                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+              >
+                <Minus className="size-4" />
+              </button>
+              {/*
+                O número é BOTÃO: clicar volta a 100%. É o gesto de desfazer de
+                quem se perdeu no zoom, e ele não merece um controle próprio.
+              */}
+              <button
+                type="button"
+                onClick={() => setZoomDoPdf(1)}
+                aria-label="Zoom de 100%"
+                className="min-w-12 rounded-sm px-1 py-0.5 text-center font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
+              >
+                {Math.round(zoomDoPdf * 100)}%
+              </button>
+              <button
+                type="button"
+                aria-label="Aumentar zoom"
+                disabled={zoomDoPdf >= ZOOMS[ZOOMS.length - 1]}
+                onClick={() => setZoomDoPdf((z) => zoomSeguinte(z))}
+                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+          </div>
           <div className="flex min-h-0 flex-1">
             {/*
               A MARGEM DE ACHADOS.
@@ -1432,6 +1579,7 @@ export function AuditResult({
                 url={activePdf.url}
                 page={activePdf.page}
                 highlight={activePdf.highlight}
+                zoom={zoomDoPdf}
                 onNumPages={setPaginasDoAberto}
               />
             </div>

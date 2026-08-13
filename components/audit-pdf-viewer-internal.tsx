@@ -17,10 +17,20 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * A largura de uma página em 100%. 520px numa gaveta de 560 é a página inteira
+ * à vista, que é o enquadramento certo para "onde está o trecho". Para LER o
+ * trecho é que existe o zoom — e é por isso que ele multiplica este número em
+ * vez de substituí-lo.
+ */
+export const LARGURA_BASE_DA_PAGINA = 520;
+
 type AuditPdfViewerInternalProps = {
   url: string;
   page: number;
   highlight?: string;
+  /** Multiplicador da largura da página. 1 = a página inteira na gaveta. */
+  zoom?: number;
   /**
    * Quantas páginas o documento tem — sobe para o dono montar a régua de
    * achados na margem. A posição de um pin é uma FRAÇÃO do documento, e só
@@ -36,6 +46,7 @@ export default function AuditPdfViewerInternal({
   url,
   page,
   highlight,
+  zoom = 1,
   onNumPages,
 }: AuditPdfViewerInternalProps) {
   const [numPages, setNumPages] = useState(0);
@@ -114,7 +125,7 @@ export default function AuditPdfViewerInternal({
     >
       <Page
         pageNumber={safePage}
-        width={520}
+        width={Math.round(LARGURA_BASE_DA_PAGINA * zoom)}
         customTextRenderer={textRenderer}
         renderAnnotationLayer={false}
         className="shadow-sm"
