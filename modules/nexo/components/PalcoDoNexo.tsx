@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FileText, ListChecks, Map, MapPin, ShieldCheck, SquareStack } from "lucide-react";
 
 import { AuditResult, type AuditView } from "@/components/audit-result";
+import { classifyFindingTier } from "@/lib/audit-report";
 import { Chip } from "@/components/ui/chip";
 import type { MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
@@ -141,7 +142,35 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
    * parecer —, e o de baixo se lia como filtro da lista, não como troca de vista.
    */
   const [vistaDoParecer, setVistaDoParecer] = useState<AuditView>("summary");
-  const totalDeAchados = report?.incongruencias.length ?? 0;
+  /*
+   * A CONTAGEM DA ABA CONTA O QUE A LISTA MOSTRA.
+   *
+   * Era `incongruencias.length`, o total cru. Só que a lista tem duas camadas
+   * desde o item 2: os achados sólidos ficam nela e os que a validação rebaixou
+   * vão para a seção recolhível "Sugestões da IA". Reproduzido com seis achados
+   * semeados, dois deles de confiança baixa: a aba prometia SEIS e a lista
+   * entregava QUATRO. Quem confere um parecer conta os cartões, não acha os
+   * dois que faltam, e conclui que o software perdeu achado.
+   *
+   * Não era divergência de estado, era o rótulo falando de outro conjunto — e a
+   * tela já pagou por isso uma vez, quando o cartão de veredito dizia "3
+   * críticas" e a matriz mostrava 2.
+   *
+   * `classifyFindingTier` é a MESMA função que a lista usa para decidir a
+   * camada. Contar por qualquer outro critério traria a divergência de volta
+   * pela porta dos fundos.
+   */
+  /*
+   * Dentro de um `useMemo` não por custo, e sim porque `classifyFindingTier` é
+   * opaca para o React Compiler: chamá-la solta sobre `report.incongruencias`
+   * — que vem do mesmo `salvo` de onde sai o `auditIdAtual` — fazia ele
+   * desistir de memoizar o conjunto de resolvidos logo acima.
+   */
+  const totalDeAchados = useMemo(
+    () =>
+      report?.incongruencias.filter((a) => classifyFindingTier(a) === "principal").length ?? 0,
+    [report],
+  );
 
   /*
    * O MESMO parecer nas duas vistas: inteiro quando é a vista, e dentro do

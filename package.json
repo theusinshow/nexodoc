@@ -100,6 +100,7 @@
     "prova:chat-esticado": "node scripts/prova-chat-esticado.mjs",
     "prova:validacao-do-achado": "node scripts/prova-validacao-do-achado.mjs",
     "prova:visor-do-pdf": "node scripts/prova-visor-do-pdf.mjs",
+    "prova:achados-nao-somem": "node scripts/prova-achados-nao-somem.mjs",
     "test:texto-do-pdf": "node scripts/test-texto-do-pdf.ts",
     "test:disciplina-da-pagina": "node scripts/test-disciplina-da-pagina.ts",
     "test:severidade": "node scripts/test-severidade.ts",

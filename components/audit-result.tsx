@@ -1021,6 +1021,14 @@ export function AuditResult({
   const temDocument = typeof document !== "undefined";
   const [disciplineFilter, setDisciplineFilter] = useState<Set<FindingDiscipline>>(new Set());
   const [errorTypeFilter, setErrorTypeFilter] = useState<Set<FindingErrorType>>(new Set());
+  /*
+   * GRAVIDADE era o filtro que faltava dos três. Disciplina responde "de quem é
+   * isto" e tipo responde "que espécie de erro é" — nenhum dos dois responde a
+   * primeira pergunta de quem vai emitir, que é "o que me impede de entregar
+   * hoje". As faixas já organizavam a lista em seções; o que não havia era como
+   * ficar só com uma delas num parecer de quarenta achados.
+   */
+  const [impactFilter, setImpactFilter] = useState<Set<FindingImpact>>(new Set());
   const parsed = parseAuditResult(content);
   const status = getStatusVariant(report?.status_geral ?? parsed.status);
   const StatusIcon = status.icon;
@@ -1053,10 +1061,14 @@ export function AuditResult({
   ] as FindingErrorType[]).filter((type) =>
     principalFindingsWithPdf.some((finding) => findingErrorType(finding) === type),
   );
+  const presentImpacts = IMPACT_SECTIONS.map((s) => s.key).filter((impact) =>
+    principalFindingsWithPdf.some((finding) => findingImpactBucket(finding) === impact),
+  );
   const filteredPrincipal = principalFindingsWithPdf.filter(
     (finding) =>
       (disciplineFilter.size === 0 || disciplineFilter.has(findingDiscipline(finding))) &&
-      (errorTypeFilter.size === 0 || errorTypeFilter.has(findingErrorType(finding))),
+      (errorTypeFilter.size === 0 || errorTypeFilter.has(findingErrorType(finding))) &&
+      (impactFilter.size === 0 || impactFilter.has(findingImpactBucket(finding))),
   );
   /*
    * Agrupamento primário: FAIXA DE IMPACTO, não disciplina.
@@ -1807,8 +1819,29 @@ export function AuditResult({
                   </p>
                 </div>
 
-                {presentDisciplines.length > 1 || presentErrorTypes.length > 1 ? (
+                {presentDisciplines.length > 1 ||
+                presentErrorTypes.length > 1 ||
+                presentImpacts.length > 1 ? (
                   <div className="space-y-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Gravidade</span>
+                      {presentImpacts.map((impact) => (
+                        <button
+                          key={impact}
+                          type="button"
+                          data-filtro-gravidade={impact}
+                          onClick={() => setImpactFilter((current) => toggleFrom(current, impact))}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            impactFilter.has(impact)
+                              ? "border-ring bg-card text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {getImpactLabel(impact)} ({impactCount(impact)})
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Disciplina</span>
                       {presentDisciplines.map((discipline) => (
@@ -1844,12 +1877,13 @@ export function AuditResult({
                           {getErrorTypeLabel(type)}
                         </button>
                       ))}
-                      {disciplineFilter.size > 0 || errorTypeFilter.size > 0 ? (
+                      {disciplineFilter.size > 0 || errorTypeFilter.size > 0 || impactFilter.size > 0 ? (
                         <button
                           type="button"
                           onClick={() => {
                             setDisciplineFilter(new Set());
                             setErrorTypeFilter(new Set());
+                            setImpactFilter(new Set());
                           }}
                           className="ml-1 rounded-full px-2 py-1 font-mono text-[11px] text-primary outline-none hover:underline focus-visible:underline"
                         >
