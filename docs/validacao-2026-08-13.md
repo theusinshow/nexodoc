@@ -218,7 +218,29 @@ Fica registrado o que o A.8 **não** entregou: a taxa **por regra de auditoria**
 regra que gerou o achado — os achados têm `origem: "regra" | "ia"` dentro do
 relatório, e cruzar as duas coisas é trabalho próprio, não um ajuste de tela.
 
-## 8. Léxico e cor — espalhado
+## 8. Hierarquia do Config — `/admin/config` (A.6)
+
+**Estado de confiança:** faixa com prova em node cru (`npm run test:atencao`, 6
+casos) e a ordem medida no navegador (`npm run prova:config`, 6 conferências —
+a hierarquia é conferida por **coordenada**, não por ordem no arquivo).
+
+- [ ] A **faixa de atenção** abre a tela, acima de qualquer seção.
+- [ ] Instância saudável: uma linha verde dizendo que **não há nada a fazer** —
+      silêncio ali seria ambíguo.
+- [ ] Sem `DATABASE_URL`: linha crítica dizendo que **nada é gravado e o
+      histórico não persiste** (a consequência maior, não só a de tela).
+- [ ] Escritório/cotação/metas **não declarados NÃO entram na faixa**. São
+      opcionais; listá-los ensinaria a ignorar a faixa.
+- [ ] Ordem das seções: **atenção → provedores e modelos → declarações →
+      referência** (Runtime, Limites, Chaves).
+- [ ] A seção **"Últimos incidentes de provedor" sumiu**: era a segunda lista do
+      mesmo `lastFailures` já mostrado na coluna "Última falha".
+- [ ] A coluna "Última falha" agora mostra **quando** (`há 12 min`) — nenhuma das
+      duas listas mostrava, e sem isso não dá para saber se ainda importa.
+- [ ] As duas linhas de procedência do status (de onde vem, quanto dura)
+      sobreviveram, agora no cabeçalho do painel de provedores.
+
+## 9. Léxico e cor — espalhado
 
 - [ ] **`/nexo`**, barra do parecer: a terceira vista chama-se **"Parecer"** (era
       "Relatório", dentro do próprio parecer).
@@ -237,13 +259,18 @@ relatório, e cruzar as duas coisas é trabalho próprio, não um ajuste de tela
 ## O que ainda não foi feito
 
 Ver `docs/superpowers/specs/2026-08-13-propostas-ux-ui-aprovadas.md` (lotes 2–12)
-e `...-admin-aprovado.md` (A.4, A.6, A.9b, A.10).
+e `...-admin-aprovado.md` (A.4, A.9b, A.10).
 
-O **A.9a** (seção 5), o **A.7** (seção 6) e o **A.8** (seção 7) saíram. O próximo
-da ordem do spec é o **A.6** — Config com hierarquia de atenção, fundindo a
-"última falha" que hoje aparece duplicada. Vale notar que a tela de Config
-ganhou três seções novas nesta rodada, o que torna o A.6 mais necessário do que
-era quando foi escrito.
+Saíram **A.9a** (seção 5), **A.7** (seção 6), **A.8** (seção 7) e **A.6**
+(seção 8). Do admin restam:
+
+- **A.4** — a linha de status derivada na home. Agora ela tem de onde sair: o
+  R$ do mês existe (A.7) e a faixa de atenção do Config já resolve metade do
+  problema (`lib/atencao-do-admin.ts` é reutilizável).
+- **A.9b** — preferências da pessoa (acabamento).
+- **A.10** — trilha, que continua **desaconselhada** até haver auth por pessoa:
+  sem atribuição verificável ela produz aparência de trilha, e alguém vai
+  confiar nela.
 
 Uma ressalva do A.7 que ficou registrada: a spec previa que o custo por obra
 pudesse exigir schema. **Não exigiu.** `AiUsageEvent.conversationId` já era

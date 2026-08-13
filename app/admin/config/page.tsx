@@ -26,6 +26,7 @@ import {
   validarDadosDoEscritorio,
   type DadosDoEscritorio,
 } from "@/lib/escritorio";
+import { TUDO_EM_ORDEM, resumoDeAtencao } from "@/lib/atencao-do-admin";
 import {
   normalizarMetas,
   validarMetas,
@@ -217,6 +218,22 @@ function getFailureForFlow(
   return failures?.find((failure) => failure.flow === runtimeFlow && failure.provider === provider);
 }
 
+/**
+ * Quando o incidente aconteceu, em linguagem de quem esta olhando agora. A
+ * memoria de incidentes e da INSTANCIA (reiniciar limpa), entao a idade e o
+ * unico jeito de saber se a falha ainda diz respeito ao estado atual.
+ */
+function formatarQuando(iso: string) {
+  const quando = new Date(iso);
+  if (Number.isNaN(quando.getTime())) return "";
+  const minutos = Math.floor((Date.now() - quando.getTime()) / 60000);
+  if (minutos < 1) return "agora";
+  if (minutos < 60) return `ha ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `ha ${horas} h`;
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(quando);
+}
+
 function formatFingerprint(fingerprint?: SecretFingerprint) {
   if (!fingerprint?.configured) {
     return "ausente";
@@ -259,6 +276,13 @@ export default function AdminConfigPage() {
   const apiUrl = getApiUrl();
   const errosDoEscritorio = validarDadosDoEscritorio(escritorio);
   const errosDoCambio = validarCotacao(normalizarCotacao({ valor: cambio }));
+  const itensDeAtencao = data
+    ? resumoDeAtencao({
+        fluxos: data.aiFlows,
+        falhas: data.aiHealth.lastFailures,
+        databaseConfigured: data.modelSettings.databaseConfigured,
+      })
+    : [];
   const errosDasMetas = validarMetas(
     normalizarMetas({ falsoPositivoMax: metaFp, coberturaMin: metaCobertura }),
   );
@@ -644,6 +668,267 @@ export default function AdminConfigPage() {
 
         <AdminError message={error} />
 
+        {/*
+          A FAIXA DE ATENÇÃO abre a tela. Só entra o que impede o produto de
+          funcionar agora — o opcional (escritório, cotação, metas) fica de fora
+          de propósito: faixa que lista pendência que ninguém precisa resolver é
+          faixa que se aprende a ignorar. Ver `lib/atencao-do-admin.ts`.
+        */}
+        {data ? (
+          <section className="rounded-sm border bg-card px-4 py-3">
+            {itensDeAtencao.length === 0 ? (
+              <p className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
+                <CheckCircle2 className="size-3.5" />
+                {TUDO_EM_ORDEM}
+              </p>
+            ) : (
+              <ul className="grid gap-1.5">
+                {itensDeAtencao.map((item) => (
+                  <li
+                    key={item.chave}
+                    className={`inline-flex items-start gap-1.5 font-mono text-[11px] ${
+                      item.gravidade === "critico"
+                        ? "text-[var(--status-critical)]"
+                        : "text-[var(--status-warning)]"
+                    }`}
+                  >
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    {item.texto}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Editor de modelos por fluxo</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Salva somente nomes de modelos no banco. Chaves continuam protegidas no ambiente do backend.
+              </p>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs ${
+                data?.modelSettings.databaseConfigured
+                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
+              }`}
+            >
+              {data?.modelSettings.databaseConfigured ? (
+                <CheckCircle2 className="size-3.5" />
+              ) : (
+                <AlertTriangle className="size-3.5" />
+              )}
+              {data?.modelSettings.databaseConfigured ? "persistência ativa" : "sem DATABASE_URL"}
+            </span>
+          </div>
+
+          <datalist id="nexodoc-ai-model-options">
+            {data?.modelSettings.options.map((model) => <option key={model} value={model} />)}
+          </datalist>
+
+          <div className="mt-4 overflow-hidden rounded-sm border">
+            <div className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+              <span>Fluxo</span>
+              <span>Provider</span>
+              <span>Efetivo</span>
+              <span>Override</span>
+              <span>Ações</span>
+            </div>
+            {data?.modelSettings.flows.map((flow) => {
+              const draft = (modelDrafts[flow.flowId] ?? flow.overrideModel) || flow.effectiveModel;
+              const isSaving = savingFlowId === flow.flowId;
+              const changed = draft.trim() !== (flow.overrideModel || flow.effectiveModel);
+
+              return (
+                <div
+                  key={flow.flowId}
+                  className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{flow.label}</p>
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                      {flow.hasOverride
+                        ? `override salvo${flow.updatedAt ? ` em ${new Date(flow.updatedAt).toLocaleString("pt-BR")}` : ""}`
+                        : "usando padrão/env"}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
+                  >
+                    {getProviderLabel(flow.provider)}
+                  </span>
+                  <span className="break-all font-mono text-xs text-foreground">{flow.effectiveModel || "--"}</span>
+                  <input
+                    list="nexodoc-ai-model-options"
+                    value={draft}
+                    onChange={(event) =>
+                      setModelDrafts((current) => ({
+                        ...current,
+                        [flow.flowId]: event.target.value,
+                      }))
+                    }
+                    disabled={!data.modelSettings.databaseConfigured || isSaving}
+                    className="min-h-9 w-full rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary"
+                    aria-label={`Modelo para ${flow.label}`}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!data.modelSettings.databaseConfigured || isSaving || (!changed && flow.hasOverride)}
+                      onClick={() => saveModelOverride(flow.flowId)}
+                      title="Salvar modelo"
+                    >
+                      {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!data.modelSettings.databaseConfigured || isSaving || !flow.hasOverride}
+                      onClick={() => resetModelOverride(flow.flowId)}
+                      title="Voltar ao padrão/env"
+                    >
+                      <RotateCcw />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {!data ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">
+                Informe o token admin para editar modelos.
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="rounded-sm border bg-card p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Painel de provedores IA</h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                Provedor ativo, modelo, chave e última falha conhecida por fluxo. Não executa chamadas externas ao carregar.
+              </p>
+              {/*
+                As duas linhas de procedência vieram da seção "Últimos
+                incidentes", que foi removida por duplicar esta tabela. Elas não
+                eram redundantes — dizem de onde vem o status e por quanto tempo
+                ele dura — e sumir com elas junto teria sido trocar duplicata
+                por perda.
+              */}
+              {data ? (
+                <p className="mt-2 max-w-2xl font-mono text-[11px] text-muted-foreground">
+                  {data.aiHealth.note} {data.aiHealth.statusStorage}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {data?.runtime.primaryProvider ? (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 font-mono text-xs font-medium ${getProviderClass(data.runtime.primaryProvider)}`}
+                >
+                  <Activity className="size-3.5" />
+                  principal: {getProviderLabel(data.runtime.primaryProvider)}
+                </span>
+              ) : null}
+              <span className="font-mono text-xs text-muted-foreground">
+                {connectivityTest
+                  ? `conectividade: ${connectivityTest.ok ? "ok" : connectivityTest.category ?? "falha"}`
+                  : "conectividade: não testada"}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-sm border">
+            <div className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
+              <span>Fluxo</span>
+              <span>Provider</span>
+              <span>Modelo</span>
+              <span>Status</span>
+              <span>Última falha</span>
+            </div>
+            {data?.aiFlows.map((flow) => {
+              const failure = getFailureForFlow(data.aiHealth.lastFailures, flow.id, flow.provider);
+              const isReady = flow.keyConfigured && !flow.placeholderOnly;
+
+              return (
+                <div
+                  key={flow.id}
+                  className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{flow.label}</p>
+                    {flow.note ? <p className="mt-1 text-xs text-muted-foreground">{flow.note}</p> : null}
+                  </div>
+                  <span
+                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
+                  >
+                    {getProviderLabel(flow.provider)}
+                  </span>
+                  <span className="break-all font-mono text-xs text-foreground">{flow.model || "--"}</span>
+                  <span
+                    className={`inline-flex w-fit items-center gap-1.5 rounded-sm border px-2 py-1 text-xs ${
+                      isReady
+                        ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
+                        : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
+                    }`}
+                  >
+                    {isReady ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+                    {isReady ? "pronto" : flow.keyConfigured ? "atenção" : "sem chave"}
+                  </span>
+                  {/*
+                    A ÚNICA FONTE DA ÚLTIMA FALHA.
+                    Havia uma segunda, no fim da página ("Últimos incidentes de
+                    provedor"), listando exatamente os mesmos `lastFailures`.
+                    Duas listas do mesmo fato divergem no dia em que alguém
+                    mexer numa só — e obrigam a ler a tela inteira para saber se
+                    são o mesmo incidente ou dois. Ficou a que está ao lado do
+                    fluxo, que é onde se age. A HORA veio junto: nenhuma das
+                    duas a mostrava, e sem ela não dá para saber se o incidente
+                    ainda importa.
+                  */}
+                  <div className="min-w-0">
+                    {failure ? (
+                      <>
+                        <p className="font-mono text-xs text-[var(--status-warning)]">
+                          {failure.category}
+                          <span className="ml-1.5 text-muted-foreground">
+                            {formatarQuando(failure.occurredAt)}
+                          </span>
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground" title={failure.message}>
+                          {failure.message}
+                        </p>
+                      </>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">sem falhas registradas</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!data ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">
+                Informe o token admin para carregar os provedores.
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        {/*
+          A HIERARQUIA DA TELA: primeiro o que exige acao (provedores,
+          modelos), depois o que se DECLARA uma vez e fica valendo (escritorio,
+          metas, cotacao), por ultimo a referencia (runtime, limites, chaves).
+
+          As tres declaracoes estavam no topo porque foram acrescentadas nesta
+          ordem, nao porque merecem a primeira dobra: quem abre esta tela quase
+          sempre abre por causa de algo quebrado.
+        */}
+
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -908,193 +1193,6 @@ export default function AdminConfigPage() {
           </p>
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Editor de modelos por fluxo</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Salva somente nomes de modelos no banco. Chaves continuam protegidas no ambiente do backend.
-              </p>
-            </div>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs ${
-                data?.modelSettings.databaseConfigured
-                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
-              }`}
-            >
-              {data?.modelSettings.databaseConfigured ? (
-                <CheckCircle2 className="size-3.5" />
-              ) : (
-                <AlertTriangle className="size-3.5" />
-              )}
-              {data?.modelSettings.databaseConfigured ? "persistência ativa" : "sem DATABASE_URL"}
-            </span>
-          </div>
-
-          <datalist id="nexodoc-ai-model-options">
-            {data?.modelSettings.options.map((model) => <option key={model} value={model} />)}
-          </datalist>
-
-          <div className="mt-4 overflow-hidden rounded-sm border">
-            <div className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
-              <span>Fluxo</span>
-              <span>Provider</span>
-              <span>Efetivo</span>
-              <span>Override</span>
-              <span>Ações</span>
-            </div>
-            {data?.modelSettings.flows.map((flow) => {
-              const draft = (modelDrafts[flow.flowId] ?? flow.overrideModel) || flow.effectiveModel;
-              const isSaving = savingFlowId === flow.flowId;
-              const changed = draft.trim() !== (flow.overrideModel || flow.effectiveModel);
-
-              return (
-                <div
-                  key={flow.flowId}
-                  className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground">{flow.label}</p>
-                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      {flow.hasOverride
-                        ? `override salvo${flow.updatedAt ? ` em ${new Date(flow.updatedAt).toLocaleString("pt-BR")}` : ""}`
-                        : "usando padrão/env"}
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
-                  >
-                    {getProviderLabel(flow.provider)}
-                  </span>
-                  <span className="break-all font-mono text-xs text-foreground">{flow.effectiveModel || "--"}</span>
-                  <input
-                    list="nexodoc-ai-model-options"
-                    value={draft}
-                    onChange={(event) =>
-                      setModelDrafts((current) => ({
-                        ...current,
-                        [flow.flowId]: event.target.value,
-                      }))
-                    }
-                    disabled={!data.modelSettings.databaseConfigured || isSaving}
-                    className="min-h-9 w-full rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary"
-                    aria-label={`Modelo para ${flow.label}`}
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!data.modelSettings.databaseConfigured || isSaving || (!changed && flow.hasOverride)}
-                      onClick={() => saveModelOverride(flow.flowId)}
-                      title="Salvar modelo"
-                    >
-                      {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!data.modelSettings.databaseConfigured || isSaving || !flow.hasOverride}
-                      onClick={() => resetModelOverride(flow.flowId)}
-                      title="Voltar ao padrão/env"
-                    >
-                      <RotateCcw />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-            {!data ? (
-              <div className="px-3 py-6 text-sm text-muted-foreground">
-                Informe o token admin para editar modelos.
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="rounded-sm border bg-card p-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Painel de provedores IA</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Provedor ativo, modelo, chave e última falha conhecida por fluxo. Não executa chamadas externas ao carregar.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {data?.runtime.primaryProvider ? (
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 font-mono text-xs font-medium ${getProviderClass(data.runtime.primaryProvider)}`}
-                >
-                  <Activity className="size-3.5" />
-                  principal: {getProviderLabel(data.runtime.primaryProvider)}
-                </span>
-              ) : null}
-              <span className="font-mono text-xs text-muted-foreground">
-                {connectivityTest
-                  ? `conectividade: ${connectivityTest.ok ? "ok" : connectivityTest.category ?? "falha"}`
-                  : "conectividade: não testada"}
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-sm border">
-            <div className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
-              <span>Fluxo</span>
-              <span>Provider</span>
-              <span>Modelo</span>
-              <span>Status</span>
-              <span>Última falha</span>
-            </div>
-            {data?.aiFlows.map((flow) => {
-              const failure = getFailureForFlow(data.aiHealth.lastFailures, flow.id, flow.provider);
-              const isReady = flow.keyConfigured && !flow.placeholderOnly;
-
-              return (
-                <div
-                  key={flow.id}
-                  className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] items-center gap-3 border-b px-3 py-3 text-sm last:border-b-0"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{flow.label}</p>
-                    {flow.note ? <p className="mt-1 text-xs text-muted-foreground">{flow.note}</p> : null}
-                  </div>
-                  <span
-                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
-                  >
-                    {getProviderLabel(flow.provider)}
-                  </span>
-                  <span className="break-all font-mono text-xs text-foreground">{flow.model || "--"}</span>
-                  <span
-                    className={`inline-flex w-fit items-center gap-1.5 rounded-sm border px-2 py-1 text-xs ${
-                      isReady
-                        ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                        : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
-                    }`}
-                  >
-                    {isReady ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
-                    {isReady ? "pronto" : flow.keyConfigured ? "atenção" : "sem chave"}
-                  </span>
-                  <div className="min-w-0">
-                    {failure ? (
-                      <>
-                        <p className="font-mono text-xs text-[var(--status-warning)]">{failure.category}</p>
-                        <p className="truncate text-xs text-muted-foreground">{failure.message}</p>
-                      </>
-                    ) : (
-                      <span className="font-mono text-xs text-muted-foreground">sem falhas registradas</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {!data ? (
-              <div className="px-3 py-6 text-sm text-muted-foreground">
-                Informe o token admin para carregar os provedores.
-              </div>
-            ) : null}
-          </div>
-        </section>
 
         <section className="rounded-sm border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1208,34 +1306,6 @@ export default function AdminConfigPage() {
           </article>
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
-          <h2 className="text-sm font-semibold">Últimos incidentes de provedor</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {data?.aiHealth.note ?? "Carregue a configuração para consultar os status."}
-          </p>
-          {data?.aiHealth.lastFailures.length ? (
-            <div className="mt-4 grid gap-2">
-              {data.aiHealth.lastFailures.map((failure) => (
-                <div
-                  key={`${failure.flow}-${failure.provider}`}
-                  className="grid gap-2 rounded-sm border border-[var(--status-warning)]/30 bg-background p-3 text-sm md:grid-cols-[1.2fr_1fr_1fr_2fr]"
-                >
-                  <span className="font-medium">{failure.flow}</span>
-                  <span className="font-mono uppercase">{failure.provider}</span>
-                  <span className="font-mono text-[var(--status-warning)]">{failure.category}</span>
-                  <span className="text-muted-foreground">{failure.message}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 rounded-sm border bg-background px-3 py-4 text-sm text-muted-foreground">
-              Nenhum erro de provedor registrado nesta instância.
-            </p>
-          )}
-          {data ? (
-            <p className="mt-3 text-xs text-muted-foreground">{data.aiHealth.statusStorage}</p>
-          ) : null}
-        </section>
     </AdminPageShell>
   );
 }
