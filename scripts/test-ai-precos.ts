@@ -100,4 +100,17 @@ test("os modelos de verdade continuam passando na validação", () => {
   }
 });
 
+test("nome com parêntese é recusado — foi por aí que o '(1)' entrou", () => {
+  // O sufixo de "arquivo (1).pdf" colado no campo de modelo. Passava na
+  // validação e falhava em TODA chamada contra a API: 88 seguidas.
+  assert.notEqual(validateAiModelName("deepseek-v4-flash(1)"), "");
+  assert.notEqual(validateAiModelName("gpt-5.6-terra (1)"), "");
+  assert.notEqual(validateAiModelName("gpt-5.6-terra(cópia)"), "");
+});
+
+test("modelo AFINADO continua passando — os dois-pontos não podem cair junto", () => {
+  assert.equal(validateAiModelName("ft:gpt-4.1-2025-04-14:acme::abc123"), "");
+  assert.equal(validateAiModelName("org/gpt-5.6-terra"), "");
+});
+
 console.log(`\n${passed} verificações de preço passaram.`);

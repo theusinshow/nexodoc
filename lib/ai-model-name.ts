@@ -39,8 +39,18 @@ export function validateAiModelName(model: string) {
     return "Modelo muito longo.";
   }
 
-  if (!/^[a-zA-Z0-9._:()/-]+$/.test(normalized)) {
-    return "Use apenas letras, números, ponto, hífen, barra, dois-pontos, parênteses ou underline.";
+  /*
+   * SEM PARÊNTESES. Eles estavam nesta lista e foi por essa fresta que o
+   * `deepseek-v4-flash(1)` entrou: o "(1)" é o sufixo que o navegador põe em
+   * "arquivo (1).pdf", colado por engano no campo de modelo. O painel aceitou,
+   * o valor foi para o `.env` e para o dropdown, e 88 chamadas seguidas
+   * falharam contra a API sem que ninguém visse.
+   *
+   * Os DOIS-PONTOS ficam: modelo afinado da OpenAI tem id no formato
+   * `ft:gpt-4.1-2025-04-14:acme::abc123`, e recusá-lo quebraria um caso real.
+   */
+  if (!/^[a-zA-Z0-9._:/-]+$/.test(normalized)) {
+    return "Use apenas letras, números, ponto, hífen, barra, dois-pontos ou underline.";
   }
 
   if (looksLikeApiSecret(normalized)) {
