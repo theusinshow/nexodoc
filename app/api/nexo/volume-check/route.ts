@@ -98,6 +98,26 @@ const schema = {
   },
 } as const;
 
+/*
+ * NÃO INFLE ESTE TEXTO PARA TENTAR GANHAR CACHE. Medido em 13/08/2026.
+ *
+ * Esta operação aparece como o pior caso do painel: 188 chamadas, 1,2 M de
+ * tokens de entrada e cache ZERO em 45 dias. A causa é estrutural — a única
+ * parte estável do prompt são estas instruções (417 chars, ~104 tokens), e o
+ * corte mínimo da OpenAI para cachear prefixo é da ordem de 1.024. Tudo o que
+ * vem depois (a lista de páginas e os recortes de carimbo) muda a cada chamada.
+ *
+ * A "correção" óbvia seria engordar este bloco até passar do corte. A conta diz
+ * que não vale: hoje são ~6.479 tokens por chamada; com ~920 tokens de enchimento
+ * seriam ~7.399, dos quais 1.024 a 10% do preço — efetivo ~6.477. Ganho de 0,03%,
+ * em troca de 920 tokens de ruído num prompt cuja única função é dizer "copie o
+ * que está escrito, não deduza". Pior leitura para economizar nada.
+ *
+ * O cache que existe no projeto (audit-global 35-45%, nexo-selo 16%) NÃO vem de
+ * prefixo compartilhado: vem de repetir a MESMA chamada — reauditar o mesmo
+ * documento, reler a mesma prancha. Esse é o caminho que rende, e quem cuida
+ * dele é o cache por checksum da leitura de selo e a etapa 2 do delta.
+ */
 const INSTRUCOES = `Você lê carimbos (selos) de pranchas de projeto de engenharia.
 
 Para CADA imagem recebida, devolva o que está ESCRITO nela. Nada mais.
