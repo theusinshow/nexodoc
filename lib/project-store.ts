@@ -44,24 +44,36 @@ export async function getUserActor(email: string, name?: string | null): Promise
   };
 }
 
+/**
+ * QUEM ALCANCA ESTE PROJETO — e a resposta e uma so: quem e membro ATIVO do
+ * escritorio dono dele.
+ *
+ * Havia um `OR` com `ownerEmail`, e ele era a ultima sobrevivencia do modelo
+ * antigo dentro do codigo de acesso. O eixo de posse mudou de PESSOA para
+ * ESCRITORIO justamente para o Victor enxergar o projeto do Milton; `ownerEmail`
+ * ficou como REGISTRO de quem cadastrou, e nao como titulo de propriedade.
+ *
+ * O buraco aparecia no dia da demissao: tira-se a pessoa do escritorio, ela
+ * perde tudo — menos os projetos em que o e-mail dela esta escrito como
+ * criadora. A chave velha ainda girava, e remover o vinculo nao fechava a porta.
+ *
+ * Quem cadastrou continua alcancando o proprio projeto pelo ramo que sobrou,
+ * porque cadastrar exige ser da coordenacao do escritorio. O unico acesso que
+ * este corte elimina e o de quem NAO e mais membro.
+ */
 export async function assertProjectAccess(projectId: string, actor: ActorIdentity) {
   return getPrisma().project.findFirstOrThrow({
     where: {
       id: projectId,
       deletedAt: null,
-      OR: [
-        { ownerEmail: actor.email },
-        {
-          organization: {
-            members: {
-              some: {
-                email: actor.email,
-                status: "ACTIVE",
-              },
-            },
+      organization: {
+        members: {
+          some: {
+            email: actor.email,
+            status: "ACTIVE",
           },
         },
-      ],
+      },
     },
   });
 }

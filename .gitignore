@@ -7,9 +7,16 @@ out/
 next-env.d.ts
 
 # Build outputs
-dist/
-build/
-coverage/
+#
+# ANCORADAS NA RAIZ (`/build/`, e nao `build/`), porque a forma solta casa com
+# QUALQUER diretorio de mesmo nome em QUALQUER profundidade -- e foi o que
+# aconteceu: `build/` engoliu `app/api/volume/build/`, uma ROTA. O arquivo nunca
+# entrou no git, e por isso nunca chegou na Render: `/api/volume/build`
+# respondia 404 em producao enquanto a irma `/api/volume/analyze` respondia 405.
+# Montar volume estava quebrado no ar, e ninguem tinha como ver isso no diff.
+/dist/
+/build/
+/coverage/
 
 # Environment variables
 .env
@@ -48,7 +55,10 @@ temp/
 .cache/
 
 # Local artifacts
-uploads/
+#
+# `/uploads/` ancorada pelo mesmo motivo que as de build: solta, ela engolia
+# `app/api/projects/[id]/uploads/`, que tambem nunca chegou em producao.
+/uploads/
 backups/
 *.local
 .nexodoc-learnings.json
