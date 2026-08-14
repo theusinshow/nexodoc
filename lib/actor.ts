@@ -92,3 +92,31 @@ export function resolveActor(input: ResolveActorInput): Actor {
     isPlatformAdmin: access.isAdmin,
   };
 }
+
+export type PlatformAdmin = { email: string };
+
+/**
+ * A OUTRA PORTA: `/api/admin/*`.
+ *
+ * Não passa por `resolveActor` de propósito. Administrador de plataforma pode
+ * não ser membro de escritório nenhum — e `resolveActor` recusa exatamente esse
+ * caso, com 403. Usar o portão do escritório aqui trancaria o mantenedor fora
+ * do próprio painel no dia em que ele não estivesse na PROSUL.
+ *
+ * São perguntas diferentes: "de que escritório você é?" e "você opera esta
+ * plataforma?". Um portão só teria que responder as duas, e responderia mal as
+ * duas.
+ */
+export function resolvePlatformAdmin(
+  access: { email: string; isActive: boolean; isAdmin: boolean } | null,
+): PlatformAdmin {
+  if (!access?.email) {
+    throw new AccessDenied(401, "Entre para continuar.");
+  }
+
+  if (!access.isActive || !access.isAdmin) {
+    throw new AccessDenied(403, "Acesso administrativo negado.");
+  }
+
+  return { email: access.email };
+}

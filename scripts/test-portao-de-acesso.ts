@@ -12,7 +12,7 @@
 // plataforma que ganha escritório de brinde por ser admin.
 import assert from "node:assert/strict";
 
-import { AccessDenied, resolveActor } from "../lib/actor.ts";
+import { AccessDenied, resolveActor, resolvePlatformAdmin } from "../lib/actor.ts";
 
 const membroAtivo = {
   userId: "u1",
@@ -78,5 +78,29 @@ const semConta = resolveActor({
 });
 assert.equal(semConta.userId, null);
 assert.equal(semConta.organizationId, "org-prosul");
+
+// ---------------------------------------------------------------------------
+// O PORTÃO DE PLATAFORMA, que é outra pergunta.
+
+function recusaAdmin(
+  entrada: Parameters<typeof resolvePlatformAdmin>[0],
+  status: 401 | 403,
+) {
+  assert.throws(
+    () => resolvePlatformAdmin(entrada),
+    (err: unknown) => err instanceof AccessDenied && err.status === status,
+  );
+}
+
+recusaAdmin(null, 401);
+recusaAdmin(acessoOk, 403);
+recusaAdmin({ ...acessoOk, isActive: false, isAdmin: true }, 403);
+
+// E o caso que justifica o portão existir separado: admin de plataforma SEM
+// escritório nenhum. `resolveActor` recusa isto com 403 — e recusar aqui
+// trancaria o mantenedor fora do proprio painel.
+const admin = resolvePlatformAdmin({ ...acessoOk, isAdmin: true });
+assert.equal(admin.email, "victor@prosul.com");
+recusa({ access: { ...acessoOk, isAdmin: true }, member: null }, 403);
 
 console.log("OK  portao de acesso");

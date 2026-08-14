@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { AccessDenied, resolveActor, type Actor } from "@/lib/actor";
+import {
+  AccessDenied,
+  resolveActor,
+  resolvePlatformAdmin,
+  type Actor,
+  type PlatformAdmin,
+} from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 function normalizeEmail(value: string) {
@@ -146,6 +152,26 @@ export async function requireActor(): Promise<Actor> {
   });
 
   return resolveActor({ access, member });
+}
+
+/**
+ * O PORTÃO DA PLATAFORMA, para `/api/admin/*`.
+ *
+ * NÃO substitui o `NEXODOC_ADMIN_TOKEN` que aquelas rotas já exigem — soma-se a
+ * ele. Hoje o token é a única barreira da API administrativa: as PÁGINAS de
+ * `/admin` checam `isAdmin` da sessão (`app/admin/layout.tsx`), mas as ROTAS
+ * checam só o Bearer. Quem tiver o token entra sem sessão nenhuma, e o token
+ * mora no `sessionStorage` do navegador de quem o digitou.
+ *
+ * Com os dois, são dois fatores independentes: uma sessão de administrador e um
+ * segredo digitado. Perder um não abre a porta.
+ */
+export async function requirePlatformAdmin(): Promise<PlatformAdmin> {
+  const session = await auth();
+  const email = session?.user?.email ?? null;
+  const access = email ? await getUserAccess(email, session?.user?.name) : null;
+
+  return resolvePlatformAdmin(access ?? null);
 }
 
 /**
