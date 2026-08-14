@@ -15,6 +15,7 @@
     "db:restore": "node scripts/db-restore.mjs",
     "db:check-env": "node scripts/check-env.mjs",
     "seed:dev": "node scripts/seed-desenvolvimento.ts",
+    "convidar": "node scripts/convidar.ts",
     "diag:cc": "node scripts/diagnostico-de-centros-de-custo.ts",
     "backfill:escritorio": "node scripts/backfill-escritorio.ts",
     "test:portao": "node scripts/test-portao-de-acesso.ts",
