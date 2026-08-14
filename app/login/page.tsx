@@ -117,19 +117,48 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </p>
 
             {canUseDevAuth ? (
+              /*
+                DOIS ATORES, e é por isso que há um campo aqui.
+
+                O acesso dev entrava sempre como o e-mail do ambiente, um só.
+                Testar trabalho em conjunto — alguém atribui, outro alguém
+                resolve — exige duas pessoas ao mesmo tempo, e reiniciar o
+                servidor no meio do teste para trocar de identidade não é
+                testar: é encenar duas sessões que nunca coexistiram.
+
+                Em branco, continua valendo o e-mail do ambiente. Só aparece
+                quando `isDevAuthEnabled()`, que é falso em produção.
+              */
               <div className="login-dev-auth">
                 <form
-                  action={async () => {
+                  action={async (formData: FormData) => {
                     "use server";
-                    await signIn(DEV_AUTH_PROVIDER_ID, { redirectTo });
+                    const email = String(formData.get("email") ?? "").trim();
+                    await signIn(DEV_AUTH_PROVIDER_ID, {
+                      redirectTo,
+                      ...(email ? { email } : {}),
+                    });
                   }}
                 >
+                  <label className="sr-only" htmlFor="login-dev-email-input">
+                    E-mail
+                  </label>
+                  <input
+                    id="login-dev-email-input"
+                    name="email"
+                    type="email"
+                    autoComplete="off"
+                    placeholder={devUser?.email ?? "e-mail"}
+                    className="login-dev-email-input"
+                  />
                   <Button type="submit" variant="outline" className="w-full">
                     <Terminal strokeWidth={1.5} />
                     Entrar como dev
                   </Button>
                 </form>
-                <p className="login-dev-email">{devUser?.email}</p>
+                <p className="login-dev-email">
+                  Em branco entra como {devUser?.email}
+                </p>
               </div>
             ) : null}
           </div>

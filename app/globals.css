@@ -606,6 +606,30 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+/* Campo de identidade do acesso dev. Existe para encenar duas pessoas ao mesmo
+   tempo, e some junto com o bloco em produção. */
+.login-dev-email-input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.login-dev-email-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.login-dev-email-input:focus-visible {
+  outline: 2px solid var(--ring, var(--primary));
+  outline-offset: 1px;
+}
+
 .login-dev-email {
   margin-top: 8px;
   overflow: hidden;

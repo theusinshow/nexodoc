@@ -68,4 +68,55 @@ const membro = await prisma.organizationMember.upsert({
 });
 
 console.log(`OK  ${email} e ADMIN ativo da ${org.name} (membro ${membro.id})`);
+
+/*
+ * O ELENCO, para haver o que clicar.
+ *
+ * Milton coordena, Victor é projetista, Ana foi convidada e nunca entrou — os
+ * três estados que a tela precisa saber mostrar. Nenhum deles tem `User`: é de
+ * propósito, e é o ponto. O vínculo com o escritório existe antes da conta, e é
+ * o que vai permitir atribuir um achado ao Victor antes do primeiro login dele.
+ */
+const ELENCO = [
+  { email: "milton@prosul.com", name: "Milton", role: "ADMIN" as const, status: "ACTIVE" as const },
+  { email: "victor@prosul.com", name: "Victor", role: "MEMBER" as const, status: "ACTIVE" as const },
+  { email: "ana@prosul.com", name: "Ana", role: "MEMBER" as const, status: "INVITED" as const },
+];
+
+for (const pessoa of ELENCO) {
+  await prisma.organizationMember.upsert({
+    where: { organizationId_email: { organizationId: ORG, email: pessoa.email } },
+    create: { organizationId: ORG, ...pessoa },
+    update: { role: pessoa.role, status: pessoa.status },
+  });
+  console.log(`    ${pessoa.email.padEnd(22)} ${pessoa.role.padEnd(7)} ${pessoa.status}`);
+}
+
+/*
+ * Centro de custo + prefeitura, que é como a PROSUL identifica projeto:
+ * `code` é o CC, `client` é a prefeitura.
+ */
+const PROJETOS = [
+  { code: "063-26", name: "Memorial descritivo — Cancha de Bocha", client: "CRICIÚMA" },
+  { code: "099-25", name: "Reforma da UBS Central", client: "CRICIÚMA" },
+  { code: "040-26", name: "Ampliação da escola municipal", client: "IÇARA" },
+];
+
+for (const projeto of PROJETOS) {
+  await prisma.project.upsert({
+    where: { ownerEmail_code: { ownerEmail: "milton@prosul.com", code: projeto.code } },
+    create: {
+      ...projeto,
+      organizationId: ORG,
+      ownerEmail: "milton@prosul.com",
+      ownerName: "Milton",
+    },
+    update: { organizationId: ORG },
+  });
+  console.log(`    ${projeto.code}  ${projeto.client.padEnd(10)} ${projeto.name}`);
+}
+
+console.log(
+  `\nOK  ${ELENCO.length + 1} membros e ${PROJETOS.length} projetos na ${org.name}.`,
+);
 process.exit(0);
