@@ -84,6 +84,8 @@ export async function getUserAccess(email: string | null | undefined, name?: str
       },
     });
 
+    await ativarConvitePendente(created.id, normalizedEmail);
+
     return {
       email: normalizedEmail,
       isActive: created.isActive,
@@ -105,12 +107,42 @@ export async function getUserAccess(email: string | null | undefined, name?: str
         })
       : existing;
 
+  await ativarConvitePendente(user.id, normalizedEmail);
+
   return {
     email: normalizedEmail,
     isActive: envAdmin || user.isActive,
     isAdmin: envAdmin || user.role === "ADMIN",
     source: envAdmin ? "env" as const : "database" as const,
   };
+}
+
+/**
+ * O convite espera a pessoa; o primeiro login o confirma.
+ *
+ * Não há tela de "aceitar convite" de propósito: para um escritório, o aceite
+ * já aconteceu fora do sistema, quando contrataram. O que falta é ligar o
+ * vínculo à conta — e o momento em que a conta passa a existir é este.
+ *
+ * `updateMany` e não `update` porque um mesmo e-mail pode ter vínculo em mais
+ * de um escritório no futuro, e nenhum deles deve ficar pendurado.
+ */
+async function ativarConvitePendente(userId: string, email: string) {
+  await getPrisma().organizationMember.updateMany({
+    where: { email, status: "INVITED" },
+    data: { userId, status: "ACTIVE" },
+  });
+
+  /*
+   * E religa o `userId` de quem já estava ACTIVE sem conta — o caso de quem foi
+   * criado pelo backfill a partir de um projeto antigo, cujo dono nunca tinha
+   * `User`. Sem isto, `actor.userId` seguiria nulo para sempre, e a auditoria
+   * gravada por essa pessoa ficaria sem autor.
+   */
+  await getPrisma().organizationMember.updateMany({
+    where: { email, userId: null },
+    data: { userId },
+  });
 }
 
 /**
