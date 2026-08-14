@@ -478,6 +478,28 @@ textarea {
   }
 }
 
+/* A aura do orbe no painel da raiz respira. E a AURA que respira, e nunca o
+   orbe: escalar o proprio simbolo faria a marca mudar de tamanho sozinha na
+   primeira tela do produto. */
+@keyframes nx-respira {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="nx-respira"] {
+    animation: none !important;
+  }
+}
+
 /* Todas as classes de entrada colapsam no reveal unico, com tokens de motion.
    Os nomes sao mantidos por compatibilidade com os componentes existentes. */
 .nexodoc-enter,

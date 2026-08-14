@@ -171,7 +171,21 @@ check("dizendo de quem veio", /victor/i.test(homeDoMilton), homeDoMilton.slice(0
 //
 // Sem esta asserção, o link ficava apontando para o Nexo genérico e a home
 // prometia um caminho que não existia. Foi assim por três commits.
-await pMilton.getByRole("link", { name: /abrir/i }).first().click();
+//
+// O SELETOR mudou em 14/08 e a asserção NÃO. A home virou o painel de projetos
+// (`Nexo - Painel v2`), onde não há um botão "Abrir": o cartão do projeto abre
+// num acordeão e cada achado é a própria linha clicável. O que esta prova mede
+// continua sendo o mesmo — que o caminho da home cai na AUDITORIA de quem
+// enviou, e não no Nexo genérico.
+// GARANTE ABERTO, e não alterna: o painel já abre sozinho o projeto que mais
+// espera, e um clique cego fechava justamente o cartão que a prova queria ler.
+const achadoNaHome = pMilton.locator("main section a[href*='auditoria=']").first();
+
+if ((await achadoNaHome.count()) === 0) {
+  await pMilton.locator("main section button[aria-expanded='false']").first().click();
+}
+
+await achadoNaHome.click();
 await pMilton.waitForURL(/auditoria=/, { timeout: 20000 });
 await pMilton.waitForLoadState("networkidle");
 await pMilton.waitForTimeout(3500);
@@ -361,10 +375,29 @@ check("sem pendencia, a home nao mostra COM VOCE", !/COM VOC/i.test(semPendencia
  */
 const linkParaONexo = await pSemNada.locator('a[href="/nexo"]').count();
 check("e oferece um link para o Nexo", linkParaONexo > 0, `${linkParaONexo} link(s)`);
+/*
+ * DESTAQUE MEDIDO, e não procurado como palavra.
+ *
+ * Esta asserção procurava o texto "abrir nexo" — o rótulo do cartão de módulo
+ * enfatizado. Em 14/08 a home virou o painel de projetos e o cartão deixou de
+ * existir: o caminho para o Nexo passou a ser o ORBE, que não tem rótulo nenhum.
+ *
+ * Trocar o texto procurado por outro texto repetiria o erro que o comentário
+ * acima descreve. O que "em destaque" quer dizer é TAMANHO, então é o tamanho
+ * que se mede: entre os caminhos para o Nexo na tela, o maior tem que ser
+ * grande de verdade, e não a marca de 20px do cabeçalho.
+ */
+const caixasDoNexo = await pSemNada.locator('a[href="/nexo"]').evaluateAll((links) =>
+  links.map((l) => {
+    const r = l.getBoundingClientRect();
+    return Math.min(r.width, r.height);
+  }),
+);
+const maiorCaminho = Math.max(0, ...caixasDoNexo);
 check(
-  "com o cartao em destaque, e nao perdido na lista",
-  /abrir nexo/i.test(semPendencia),
-  semPendencia.replace(/\s+/g, " ").slice(0, 140),
+  "com o caminho em destaque, e nao perdido na lista",
+  maiorCaminho >= 160,
+  `maior lado menor: ${Math.round(maiorCaminho)}px`,
 );
 
 await prisma.auditFeedback.deleteMany({ where: { auditId: AUDIT_ID } });

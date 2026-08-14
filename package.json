@@ -132,7 +132,8 @@
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts",
     "db:backup:json": "node scripts/backup-json.mjs",
     "db:reset-trabalho": "node scripts/reset-trabalho.mjs",
-    "prova:automatico": "node scripts/prova-escritorio-automatico.mjs"
+    "prova:automatico": "node scripts/prova-escritorio-automatico.mjs",
+    "shot:painel": "node scripts/shot-painel.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
