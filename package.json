@@ -14,6 +14,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "db:restore": "node scripts/db-restore.mjs",
     "db:check-env": "node scripts/check-env.mjs",
+    "test:portao": "node scripts/test-portao-de-acesso.ts",
     "test:audit": "node scripts/test-audit-consistency.ts",
     "test:audit:metrics": "node scripts/audit-precision-recall.ts",
     "test:ld": "node scripts/test-ld-rules.ts",
