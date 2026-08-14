@@ -3,6 +3,17 @@
 //   node scripts/backfill-escritorio.ts            (ensaio, não grava)
 //   node scripts/backfill-escritorio.ts --gravar   (grava)
 //
+// SUPERADO PELA MIGRATION `20260814015000_escritorio_passo_2`.
+//
+// Isto aqui era o passo 2, rodado à mão. Não podia continuar sendo: o Dockerfile
+// encadeia `prisma migrate deploy && npm run start`, e não existe momento entre
+// a migração e o início do aplicativo em que alguém rode um script. O portão
+// exige vínculo ativo com escritório — o aplicativo subiria recusando todo
+// mundo, inclusive o mantenedor.
+//
+// Continua útil para conferir o estado ou consertar um banco onde a migration
+// tenha sido revertida à mão. Não é mais parte do caminho de deploy.
+//
 // ENSAIO POR PADRÃO. Um backfill que grava sem pedir é um que roda por engano —
 // e este cria vínculos de acesso: rodá-lo no banco errado dá a estranhos a
 // chave do escritório.

@@ -23,10 +23,12 @@
 > membros primeiro, depois a conversão das rotas restantes, que assim fica
 > verificável a cada família em vez de no escuro.
 >
-> **Restrição de deploy que o plano não registrava:** em produção são DOIS
-> deploys, nesta ordem — primeiro o backfill de membros, depois o código do
-> portão. Juntos, há uma janela em que o aplicativo já recusa e ainda não tem a
-> quem aceitar.
+> **Restrição de deploy — RESOLVIDA em 14/08.** O plano dizia "dois deploys,
+> nesta ordem". Isso era impossível: o `Dockerfile:87` encadeia
+> `prisma migrate deploy && npm run start`, e não há momento entre os dois em que
+> alguém rode um script. O backfill virou a migration
+> `20260814015000_escritorio_passo_2`, e o banco fica consistente ANTES de o
+> processo web existir. Não há janela.
 
 ## Global Constraints
 
