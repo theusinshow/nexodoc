@@ -300,10 +300,25 @@ await pSemNada.waitForTimeout(800);
 
 const semPendencia = await pSemNada.locator("body").innerText();
 check("sem pendencia, a home nao mostra COM VOCE", !/COM VOC/i.test(semPendencia));
+
+/*
+ * O CAMINHO PARA O NEXO, medido como LINK e não como palavra.
+ *
+ * A versão anterior desta asserção procurava /nexo|auditoria|projetos/ no texto
+ * da página — e passava verde enquanto o aplicativo estava quebrado: a palavra
+ * "Nexo" aparece no cabeçalho de toda tela. Quando o redirect da raiz saiu, a
+ * home ficou sem NENHUM caminho para a ferramenta principal, e esta prova não
+ * viu. Foi o usuário que viu.
+ *
+ * Uma asserção que não consegue ficar vermelha é pior que asserção nenhuma:
+ * ela dá confiança sem dar cobertura.
+ */
+const linkParaONexo = await pSemNada.locator('a[href="/nexo"]').count();
+check("e oferece um link para o Nexo", linkParaONexo > 0, `${linkParaONexo} link(s)`);
 check(
-  "e oferece o caminho para trabalhar",
-  /nexo|auditoria|projetos/i.test(semPendencia),
-  semPendencia.replace(/\s+/g, " ").slice(0, 120),
+  "com o cartao em destaque, e nao perdido na lista",
+  /abrir nexo/i.test(semPendencia),
+  semPendencia.replace(/\s+/g, " ").slice(0, 140),
 );
 
 await prisma.auditFeedback.deleteMany({ where: { auditId: AUDIT_ID } });

@@ -12,14 +12,33 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
-import { legacyModules, projetosModule, type ModuleDef } from "@/lib/modules";
+import { isNexoEnabled } from "@/lib/feature-flags";
+import { legacyModules, nexoModule, projetosModule, type ModuleDef } from "@/lib/modules";
 
 /*
  * "Conferência documental" saiu da lista faz tempo: a auditoria mora no Nexo, e
- * o card dele já a anuncia. Com a `/audit` redirecionando, os dois levariam ao
- * mesmo lugar. O atalho Ctrl+A continua existindo e aponta para o Nexo.
+ * o card dele já a anuncia. O atalho Ctrl+A continua existindo e aponta para o
+ * Nexo.
+ *
+ * O NEXO PRECISOU VOLTAR À LISTA, e a falta dele foi uma regressão real.
+ *
+ * Esta página só era vista quando a flag do Nexo estava DESLIGADA — a raiz
+ * redirecionava para `/nexo` antes de chegar aqui. Quando o redirect saiu, para
+ * a home poder mostrar as pendências, ela passou a ser a primeira tela de todo
+ * mundo. E como a lista era a de um mundo sem Nexo, quem entrava sem pendência
+ * nenhuma ficava sem NENHUM caminho para a ferramenta principal, a não ser
+ * digitar a URL.
+ *
+ * Ele entra primeiro e com `emphasis`, que é o que o torna o cartão grande: sem
+ * pendência, começar uma auditoria é a coisa mais provável que a pessoa quer
+ * fazer. Com a flag desligada ele some, e a lista volta a ser a de antes — que
+ * é o ponto do kill-switch.
  */
-const availableModules: readonly ModuleDef[] = [...legacyModules, projetosModule];
+function modulosVisiveis(): readonly ModuleDef[] {
+  return isNexoEnabled()
+    ? [nexoModule, ...legacyModules, projetosModule]
+    : [...legacyModules, projetosModule];
+}
 
 function ShortcutHint({ keys }: { keys: string }) {
   return (
@@ -70,7 +89,7 @@ export default async function DashboardPage() {
 
   const isAdmin = access.isAdmin;
 
-  const modules = availableModules;
+  const modules = modulosVisiveis();
   const primaryModule = modules.find((m) => m.emphasis) ?? modules[0];
   const secondaryModules = modules.filter((m) => m.title !== primaryModule.title);
   const PrimaryIcon = primaryModule.icon;
