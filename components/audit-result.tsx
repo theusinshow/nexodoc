@@ -53,6 +53,11 @@ import {
   type FindingImpact,
   type FindingTier,
 } from "@/lib/audit-report";
+import {
+  ehMultiPagina,
+  paginasDoAchado,
+  rotuloDePaginas,
+} from "@/lib/paginas-do-achado";
 import { cn } from "@/lib/utils";
 
 // Visor de PDF só no cliente (react-pdf não faz SSR).
@@ -165,6 +170,13 @@ type StructuredFinding = {
   conflito?: string;
   acao?: string;
   categoria?: string;
+  /**
+   * O FATO OBSERVÁVEL. Existia no parecer (`descricao`) e a tela nunca o
+   * mostrava: ele entrava só como reserva de `referencia`, e como
+   * `referencia_comparada` quase sempre vem preenchida, a descrição não
+   * aparecia em lugar nenhum. Agora é "O que está errado".
+   */
+  descricao?: string;
   referencia?: string;
   impacto?: FindingImpact;
   origem?: "regra" | "ia";
@@ -854,7 +866,16 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     conflito: finding.conflito,
     acao: finding.sugestao_correcao,
     categoria: finding.categoria ?? finding.capitulo,
-    referencia: finding.referencia_comparada ?? finding.descricao,
+    /*
+     * OS DOIS CAMPOS SEPARADOS, e não um caindo no outro.
+     *
+     * Era `referencia_comparada ?? descricao`, e o `??` escondia a descrição
+     * sempre que houvesse referência — que é quase sempre, porque as regras a
+     * preenchem. A tela mostrava um só texto onde o parecer traz dois, e o fato
+     * observável não aparecia em canto nenhum.
+     */
+    descricao: finding.descricao,
+    referencia: finding.referencia_comparada,
     /*
      * FONTE ÚNICA da faixa. Era `finding.impacto ?? classify(...)`, que prefere
      * o valor gravado — enquanto o veredito passa por `groupFindingsByImpact`,
@@ -894,6 +915,91 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
       .filter(Boolean)
       .join("\n"),
   };
+}
+
+/**
+ * Um dos três textos do achado.
+ *
+ * Eles ganharam RÓTULO PRÓPRIO — "O que está errado", "Por que importa", "O que
+ * fazer" — no lugar do nome técnico do campo. O leitor não precisa saber que o
+ * banco chama aquilo de `conflito`; precisa saber que pergunta aquele parágrafo
+ * responde. Ver `docs/superpowers/specs/2026-08-14-tela-de-achados-design.md`.
+ */
+function BlocoDeTexto({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="grid gap-1">
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {titulo}
+      </p>
+      <p className="max-w-[70ch] text-sm leading-6 text-foreground">{children}</p>
+    </section>
+  );
+}
+
+/**
+ * OS TRECHOS DE CADA PÁGINA, recolhidos.
+ *
+ * Só aparece no achado que vive em mais de um lugar. A lista de achados precisa
+ * ser varrível: numa auditoria de 30 achados, quatro linhas de trecho em cada um
+ * viram 120 linhas e ninguém acha nada. O trecho é para depois que a pessoa já
+ * escolheu aquele achado.
+ *
+ * HOJE O TRECHO DE CADA PÁGINA NÃO EXISTE no parecer — o motor devolve UMA
+ * evidência por achado, não uma por ocorrência. Então o que se abre é honesto
+ * sobre isso: mostra a evidência que existe e diz onde estão as outras, em vez
+ * de inventar quatro citações que ninguém escreveu.
+ */
+function TrechosDoAchado({
+  paginas,
+  evidencia,
+  termo,
+  aoAbrirPagina,
+}: {
+  paginas: number[];
+  evidencia?: string;
+  termo?: string;
+  aoAbrirPagina?: () => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+
+  if (paginas.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex w-fit items-center gap-2 font-mono text-[11px] tracking-[0.04em] text-primary hover:text-[var(--nexodoc-accent)]"
+      >
+        <ChevronRight
+          className={cn("size-3 transition-transform", aberto ? "rotate-90" : "")}
+        />
+        {aberto ? "esconder os trechos" : "ver os trechos de cada página"}
+      </button>
+
+      {aberto ? (
+        <div className="nx-cut-7 bg-[var(--nexodoc-recessed)] px-3.5 py-1">
+          <div className="flex items-baseline gap-3.5 border-b border-border/60 py-2.5">
+            <span className="w-14 shrink-0 font-mono text-[11px] tracking-[0.04em] text-primary">
+              pág. {paginas[0]}
+            </span>
+            <span className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
+              <HighlightedEvidence text={evidencia} needle={termo} />
+            </span>
+          </div>
+          <p className="py-2.5 text-xs leading-5 text-muted-foreground">
+            O mesmo problema aparece também nas páginas{" "}
+            <span className="font-mono text-foreground">{paginas.slice(1).join(", ")}</span>. O
+            parecer guarda uma evidência por achado, não uma por página
+            {aoAbrirPagina ? " — abra o documento para conferir cada uma." : "."}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function SectionCard({
@@ -1552,7 +1658,12 @@ export function AuditResult({
     }
   }
 
-  function openInlinePdf(finding: StructuredFinding) {
+  /*
+   * `pagina` opcional: a fita de páginas manda o número EXATO em que clicaram.
+   * Sem ela, o visor continua abrindo na primeira do achado, que é o que todo
+   * o resto da tela faz — a fita é o único lugar que conhece as outras.
+   */
+  function openInlinePdf(finding: StructuredFinding, pagina?: number) {
     const source = findPdfSource(finding, pdfSources);
 
     if (!source) {
@@ -1564,7 +1675,7 @@ export function AuditResult({
     setPaginasDoAberto((atual) => (source.url === activePdf?.url ? atual : 0));
     setActivePdf({
       url: source.url,
-      page: getFirstPageNumber(finding.pagina) ?? 1,
+      page: pagina ?? getFirstPageNumber(finding.pagina) ?? 1,
       highlight: getHighlightNeedle(finding),
       label: finding.title,
       severity: finding.severity,
@@ -1974,47 +2085,184 @@ export function AuditResult({
         {view === "summary" ? (
           <>
             {/*
-              Os cartões de métrica são CONTAGEM, não status: "7 achados" não é
-              bom nem ruim, e a severidade já está dita no badge do cabeçalho e
-              nas abas. Coloridos, eles competiam com o que realmente carrega
-              status na tela e gastavam o vocabulário de alarme numa soma.
+              AS TRÊS FAIXAS, e não duas contagens.
+
+              O resumo mostrava "Inconsistências críticas" e "Pontos de revisão"
+              — DUAS caixas, enquanto a lista de achados sempre separou o parecer
+              em TRÊS faixas. Quem lia o resumo e descia para a lista encontrava
+              uma seção que o resumo não havia mencionado, e as contagens não
+              fechavam com nada.
+
+              São CONTAGEM, e não status: continuam sem cor de alarme, com uma
+              exceção declarada — o bloqueador, que é o único que interrompe a
+              entrega, e é a resposta à única pergunta que o resumo precisa
+              responder ("dá para emitir hoje?").
+
+              E cada faixa LEVA para a lista já filtrada: era informação sem
+              saída, e a pessoa tinha que descer e refazer o filtro à mão.
             */}
-            <div className="grid divide-y rounded-sm border bg-[var(--nexodoc-recessed)] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="px-4 py-3">
-                <p className="font-mono text-[11px] text-muted-foreground">Inconsistências críticas</p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{criticalCount}</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="font-mono text-[11px] text-muted-foreground">Pontos de revisão</p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{warningCount}</p>
-              </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {IMPACT_SECTIONS.map((secao) => {
+                const quantos = impactCount(secao.key);
+                const bloqueia = secao.key === "critico_documental";
+
+                return (
+                  <button
+                    key={secao.key}
+                    type="button"
+                    data-faixa-resumo={secao.key}
+                    disabled={quantos === 0}
+                    onClick={() => {
+                      setImpactFilter(new Set([secao.key]));
+                      setView("findings");
+                    }}
+                    className={cn(
+                      "nx-cut-6 flex flex-col gap-1 bg-[var(--nexodoc-recessed)] p-4 text-left transition-colors",
+                      quantos > 0
+                        ? "cursor-pointer hover:bg-[var(--nexodoc-raised)]"
+                        : "cursor-default opacity-60",
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "font-mono text-[11px] font-semibold uppercase tracking-[0.1em]",
+                        bloqueia && quantos > 0 ? "text-destructive" : "text-muted-foreground",
+                      )}
+                    >
+                      {secao.title}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-2xl font-semibold tabular-nums",
+                        bloqueia && quantos > 0 ? "text-destructive" : "text-foreground",
+                      )}
+                    >
+                      {quantos}
+                    </p>
+                    <p className="text-xs leading-5 text-muted-foreground">{secao.hint}</p>
+                  </button>
+                );
+              })}
             </div>
+
+            {/*
+              A ANÁLISE PARCIAL É ASSUNTO DO RESUMO, e não só do veredito.
+
+              Quando uma passada não completa, o parecer vale menos do que
+              parece — e isso já rebaixa o veredito lá em cima. Mas quem abre o
+              resumo para decidir emissão precisa ver O QUE ficou de fora, e não
+              apenas que "não dá para liberar". A informação existia no dado e
+              não existia na tela.
+            */}
+            {runtime?.passadas_incompletas?.length ? (
+              <div className="nx-cut-6 bg-[var(--status-warning-bg)]/60 p-4">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--status-warning)]">
+                  A análise não completou
+                </p>
+                <p className="mt-1.5 text-sm leading-6 text-foreground">
+                  {runtime.passadas_incompletas.length === 1
+                    ? "Uma passada não terminou, então este parecer não cobre o documento inteiro."
+                    : `${runtime.passadas_incompletas.length} passadas não terminaram, então este parecer não cobre o documento inteiro.`}
+                </p>
+                <ul className="mt-2 grid gap-1">
+                  {runtime.passadas_incompletas.map((passada, i) => (
+                    <li
+                      key={`${passada.passada}-${i}`}
+                      className="font-mono text-xs text-muted-foreground"
+                    >
+                      {passada.passada}
+                      {passada.motivo ? ` — ${passada.motivo}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="grid gap-4 lg:grid-cols-2">
+              {/*
+                O ARQUIVO VIRA FICHA, e deixa de ser uma linha com barras.
+                `nome | tipo | 12 páginas | 48000 caracteres` obrigava a pessoa a
+                separar quatro dados com o olho. Aqui o nome é o título, os
+                números são etiquetas e o resumo é o parágrafo — a mesma
+                informação, sem trabalho de leitura.
+              */}
               <SectionCard title="Arquivos analisados" icon={FileText}>
-                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
-                  {report
-                    ? report.arquivos_analisados
-                        .map((item) => {
-                          return `${item.arquivo} | ${item.tipo_documento} | ${item.paginas ?? "-"} páginas | ${item.caracteres_extraidos ?? "-"} caracteres\n${item.resumo}`;
-                        })
-                        .join("\n\n")
-                    : parsed.files || "Sem informação específica."}
-                </pre>
+                {report && report.arquivos_analisados.length > 0 ? (
+                  <ul className="grid gap-3">
+                    {report.arquivos_analisados.map((item, i) => (
+                      <li key={`${item.arquivo}-${i}`} className="grid gap-1.5 border-b pb-3 last:border-0 last:pb-0">
+                        <p className="font-mono text-sm text-foreground [overflow-wrap:anywhere]">
+                          {item.arquivo}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="secondary" className="font-mono text-[11px]">
+                            {item.tipo_documento}
+                          </Badge>
+                          {item.paginas ? (
+                            <Badge variant="secondary" className="font-mono text-[11px]">
+                              {item.paginas} {item.paginas === 1 ? "página" : "páginas"}
+                            </Badge>
+                          ) : null}
+                          {item.caracteres_extraidos ? (
+                            <Badge variant="secondary" className="font-mono text-[11px]">
+                              {item.caracteres_extraidos.toLocaleString("pt-BR")} caracteres
+                            </Badge>
+                          ) : null}
+                        </div>
+                        {item.resumo ? (
+                          <p className="text-sm leading-6 text-muted-foreground">{item.resumo}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {parsed.files || "Sem informação específica."}
+                  </p>
+                )}
               </SectionCard>
+
+              {/*
+                COMPARAÇÃO É LISTA, e era um `pre` com hífens no começo da linha
+                — um marcador desenhado à mão, que não quebra alinhado quando o
+                texto passa de uma linha.
+              */}
               <SectionCard title="Comparações" icon={LayoutList}>
-                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
-                  {report
-                    ? report.comparacoes.map((item) => `- ${item}`).join("\n")
-                    : parsed.comparisons || "Sem comparação específica."}
-                </pre>
+                {report && report.comparacoes.length > 0 ? (
+                  <ul className="grid gap-2">
+                    {report.comparacoes.map((item, i) => (
+                      <li key={`${item.slice(0, 24)}-${i}`} className="flex gap-2.5">
+                        <span
+                          aria-hidden
+                          className="nx-cut-4 mt-2 size-1.5 shrink-0 bg-primary"
+                        />
+                        <span className="text-sm leading-6 text-foreground">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {parsed.comparisons || "Sem comparação específica."}
+                  </p>
+                )}
               </SectionCard>
             </div>
 
+            {/*
+              A CONCLUSÃO É PROSA, e `pre` a renderizava em bloco travado, com as
+              quebras do modelo virando quebras de tela. Largura de leitura
+              limitada: linha de 140 caracteres ninguém lê até o fim.
+            */}
             <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
-                {report?.conclusao || parsed.conclusion || "Sem conclusão identificada."}
-              </pre>
+              <div className="grid max-w-[75ch] gap-3">
+                {(report?.conclusao || parsed.conclusion || "Sem conclusão identificada.")
+                  .split(/\n{2,}/)
+                  .map((paragrafo, i) => (
+                    <p key={`conclusao-${i}`} className="text-sm leading-6 text-foreground">
+                      {paragrafo.trim()}
+                    </p>
+                  ))}
+              </div>
             </SectionCard>
           </>
         ) : null}
@@ -2116,6 +2364,10 @@ export function AuditResult({
                   ) : null}
                   {groupedPrincipal.map((finding, index) => {
                     const disciplina = findingDiscipline(finding);
+                    const paginas = paginasDoAchado({
+                      pagina: finding.pagina,
+                      referencia: finding.referencia,
+                    });
                     const faixa = findingImpactBucket(finding);
                     const secao = IMPACT_SECTIONS.find((item) => item.key === faixa);
                     const showImpactHeader =
@@ -2152,6 +2404,153 @@ export function AuditResult({
                           <p className="text-xs text-muted-foreground">{secao.hint}</p>
                         </div>
                       ) : null}
+                    {/*
+                      AS AÇÕES SAEM DE DENTRO DO CARTÃO e viram uma barra
+                      acima dele.
+
+                      É a organização do desenho "Nexo - Achados", e o ganho é
+                      de leitura: no cabeçalho, os botões disputavam a linha
+                      com as etiquetas e o título ficava sem largura. Separadas,
+                      a identidade do achado (o que é, onde dói) ocupa o cartão
+                      inteiro e o que se FAZ com ele fica em cima, no mesmo
+                      lugar em todos os cartões.
+
+                      A forma do desenho, não: ele recorta as ações como aba
+                      (canto superior esquerdo E direito), e o chanfro desta
+                      casa é sempre superior-esquerdo + inferior-direito.
+                    */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5">
+                        {/*
+                          O botão fica no CABEÇALHO do achado, ao lado do menu:
+                          é a ação que se repete 22 vezes numa revisão, e ela
+                          tem que estar sempre no mesmo lugar, sem rolar.
+                        */}
+                        {/*
+                          "MARCAR CORRIGIDO" SOME quando o achado foi encerrado
+                          de outro jeito.
+
+                          Ele reflete `resolvedAt`, e os TRÊS desfechos marcam
+                          essa coluna — então um achado assumido como decisão
+                          técnica aparecia com a tarja "Decisão técnica" ao
+                          lado de um botão dizendo "Corrigido". As duas coisas
+                          se contradizem, e a contradição estava exatamente
+                          sobre o que o registro precisa deixar claro: se o
+                          documento foi mexido ou se o risco foi assumido.
+                        */}
+                        {onToggleResolvido &&
+                        finding.refId &&
+                        (!desfechoPorAchado[finding.refId] ||
+                          desfechoPorAchado[finding.refId].kind === "FIXED_IN_DOC") ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={estaResolvido(finding.refId) ? "secondary" : "outline"}
+                            onClick={() =>
+                              void alternarResolvido(finding, !estaResolvido(finding.refId))
+                            }
+                            className={
+                              estaResolvido(finding.refId)
+                                ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
+                                : undefined
+                            }
+                          >
+                            <Check />
+                            {estaResolvido(finding.refId) ? "Corrigido" : "Marcar corrigido"}
+                          </Button>
+                        ) : null}
+                        {/*
+                          DECISÃO TÉCNICA — o terceiro desfecho.
+
+                          Fica ao lado de "Marcar corrigido" e não dentro do
+                          menu de três pontos: é uma decisão que se assume, e
+                          esconder uma decisão que alguém vai ter que defender
+                          depois é o contrário do que a tela deve fazer.
+
+                          O primeiro clique abre o campo da nota; o segundo
+                          grava. Sem nota o botão não fecha nada — e o
+                          servidor recusa também, que é onde a regra vale.
+                        */}
+                        {finding.refId && !desfechoPorAchado[finding.refId] ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                              escrevendoRisco === finding.refId &&
+                              !notaDoRisco[finding.refId]?.trim()
+                            }
+                            onClick={() => {
+                              if (escrevendoRisco !== finding.refId) {
+                                setEscrevendoRisco(finding.refId!);
+                                return;
+                              }
+
+                              void salvarDesfecho(
+                                finding,
+                                index,
+                                "ACCEPTED_RISK",
+                                notaDoRisco[finding.refId!],
+                              );
+                            }}
+                          >
+                            {escrevendoRisco === finding.refId
+                              ? "Registrar decisão"
+                              : "Decisão técnica"}
+                          </Button>
+                        ) : null}
+                        <Dropdown
+                          align="end"
+                          trigger={({ open, toggle }) => (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="size-8"
+                              onClick={toggle}
+                              aria-expanded={open}
+                              aria-label="Ações do achado"
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          )}
+                        >
+                          {({ close }) => (
+                            <>
+                              {finding.pdfUrl ? (
+                                <DropdownItem
+                                  onClick={() => {
+                                    openInlinePdf(finding);
+                                    close();
+                                  }}
+                                >
+                                  <ExternalLink className="size-4" />
+                                  Abrir PDF
+                                </DropdownItem>
+                              ) : null}
+                              {finding.termoBusca ? (
+                                <DropdownItem
+                                  onClick={() => {
+                                    void navigator.clipboard.writeText(finding.termoBusca ?? "");
+                                    close();
+                                  }}
+                                >
+                                  <Copy className="size-4" />
+                                  Copiar termo
+                                </DropdownItem>
+                              ) : null}
+                              <DropdownItem
+                                onClick={() => {
+                                  void createFindingSnapshot(finding, index);
+                                  close();
+                                }}
+                              >
+                                <Eye className="size-4" />
+                                Print do achado
+                              </DropdownItem>
+                            </>
+                          )}
+                        </Dropdown>
+                    </div>
                     {/*
                       ACHADO RESOLVIDO = tarefa riscada da lista.
                       O engenheiro trabalha com o software numa tela e o
@@ -2206,8 +2605,8 @@ export function AuditResult({
                         "data-[em-foco]:ring-2 data-[em-foco]:ring-[var(--ring)] data-[em-foco]:ring-offset-2 data-[em-foco]:ring-offset-[var(--background)]",
                       )}
                     >
-                      <div className="grid gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4 @min-[40rem]:grid-cols-[minmax(18rem,1fr)_auto] @min-[40rem]:items-start">
-                        <div className="min-w-0">
+                      <div className="flex flex-wrap items-start gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4">
+                        <div className="min-w-0 flex-1">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
                               Achado {index + 1}
@@ -2251,9 +2650,22 @@ export function AuditResult({
                             <span className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono text-xs text-[var(--nexodoc-accent)]">
                               {getDisciplineLabel(disciplina)}
                             </span>
-                            <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
-                              {getErrorTypeLabel(findingErrorType(finding))}
-                            </span>
+                            {/*
+                              A ETIQUETA DE TIPO SÓ APARECE QUANDO DIZ ALGO NOVO.
+
+                              O título do achado É o tipo (`title: finding.tipo`
+                              em `reportFindingToStructured`), então a etiqueta
+                              escrevia "Quantitativo" a dois centímetros de um
+                              título "Quantitativo". Com a reorganização isso
+                              ficou impossível de não ver — a etiqueta e o título
+                              passaram a ser vizinhos diretos.
+                            */}
+                            {getErrorTypeLabel(findingErrorType(finding)).toLowerCase() !==
+                            (finding.title ?? "").trim().toLowerCase() ? (
+                              <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                                {getErrorTypeLabel(findingErrorType(finding))}
+                              </span>
+                            ) : null}
                             {finding.refId ? (
                               <label className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
                                 <input
@@ -2336,138 +2748,25 @@ export function AuditResult({
                           </h4>
                         </div>
 
-                        <div className="flex items-start gap-2 @min-[40rem]:justify-end">
-                          {/*
-                            O botão fica no CABEÇALHO do achado, ao lado do menu:
-                            é a ação que se repete 22 vezes numa revisão, e ela
-                            tem que estar sempre no mesmo lugar, sem rolar.
-                          */}
-                          {/*
-                            "MARCAR CORRIGIDO" SOME quando o achado foi encerrado
-                            de outro jeito.
+                        {/*
+                          "4 PÁGINAS" NO LUGAR DE "PÁGINA 8".
 
-                            Ele reflete `resolvedAt`, e os TRÊS desfechos marcam
-                            essa coluna — então um achado assumido como decisão
-                            técnica aparecia com a tarja "Decisão técnica" ao
-                            lado de um botão dizendo "Corrigido". As duas coisas
-                            se contradizem, e a contradição estava exatamente
-                            sobre o que o registro precisa deixar claro: se o
-                            documento foi mexido ou se o risco foi assumido.
-                          */}
-                          {onToggleResolvido &&
-                          finding.refId &&
-                          (!desfechoPorAchado[finding.refId] ||
-                            desfechoPorAchado[finding.refId].kind === "FIXED_IN_DOC") ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={estaResolvido(finding.refId) ? "secondary" : "outline"}
-                              onClick={() =>
-                                void alternarResolvido(finding, !estaResolvido(finding.refId))
-                              }
-                              className={
-                                estaResolvido(finding.refId)
-                                  ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
-                                  : undefined
-                              }
-                            >
-                              <Check />
-                              {estaResolvido(finding.refId) ? "Corrigido" : "Marcar corrigido"}
-                            </Button>
-                          ) : null}
-                          {/*
-                            DECISÃO TÉCNICA — o terceiro desfecho.
+                          É a mudança mais barata desta tela e a que mais muda o
+                          comportamento de quem lê: avisa, ANTES de qualquer
+                          texto, que corrigir um lugar não encerra o assunto. As
+                          outras páginas já eram calculadas pelas regras e
+                          morriam num `||` — ver [[../lib/paginas-do-achado]].
 
-                            Fica ao lado de "Marcar corrigido" e não dentro do
-                            menu de três pontos: é uma decisão que se assume, e
-                            esconder uma decisão que alguém vai ter que defender
-                            depois é o contrário do que a tela deve fazer.
-
-                            O primeiro clique abre o campo da nota; o segundo
-                            grava. Sem nota o botão não fecha nada — e o
-                            servidor recusa também, que é onde a regra vale.
-                          */}
-                          {finding.refId && !desfechoPorAchado[finding.refId] ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={
-                                escrevendoRisco === finding.refId &&
-                                !notaDoRisco[finding.refId]?.trim()
-                              }
-                              onClick={() => {
-                                if (escrevendoRisco !== finding.refId) {
-                                  setEscrevendoRisco(finding.refId!);
-                                  return;
-                                }
-
-                                void salvarDesfecho(
-                                  finding,
-                                  index,
-                                  "ACCEPTED_RISK",
-                                  notaDoRisco[finding.refId!],
-                                );
-                              }}
-                            >
-                              {escrevendoRisco === finding.refId
-                                ? "Registrar decisão"
-                                : "Decisão técnica"}
-                            </Button>
-                          ) : null}
-                          <Dropdown
-                            align="end"
-                            trigger={({ open, toggle }) => (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8"
-                                onClick={toggle}
-                                aria-expanded={open}
-                                aria-label="Ações do achado"
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </Button>
-                            )}
-                          >
-                            {({ close }) => (
-                              <>
-                                {finding.pdfUrl ? (
-                                  <DropdownItem
-                                    onClick={() => {
-                                      openInlinePdf(finding);
-                                      close();
-                                    }}
-                                  >
-                                    <ExternalLink className="size-4" />
-                                    Abrir PDF
-                                  </DropdownItem>
-                                ) : null}
-                                {finding.termoBusca ? (
-                                  <DropdownItem
-                                    onClick={() => {
-                                      void navigator.clipboard.writeText(finding.termoBusca ?? "");
-                                      close();
-                                    }}
-                                  >
-                                    <Copy className="size-4" />
-                                    Copiar termo
-                                  </DropdownItem>
-                                ) : null}
-                                <DropdownItem
-                                  onClick={() => {
-                                    void createFindingSnapshot(finding, index);
-                                    close();
-                                  }}
-                                >
-                                  <Eye className="size-4" />
-                                  Print do achado
-                                </DropdownItem>
-                              </>
-                            )}
-                          </Dropdown>
-                        </div>
+                          Achado de um lugar só continua dizendo "página 8", em
+                          cinza: sem isso, 90% dos cartões ganhariam um enfeite.
+                        */}
+                        <Badge
+                          variant={ehMultiPagina(paginas) ? "ok" : "secondary"}
+                          className="shrink-0 gap-1.5 font-mono text-xs"
+                        >
+                          <FileText className="size-3.5" />
+                          {rotuloDePaginas(paginas, finding.pagina)}
+                        </Badge>
                       </div>
 
                       {/*
@@ -2506,19 +2805,106 @@ export function AuditResult({
                         </div>
                       ) : null}
 
-                      <div className="grid gap-4 p-4 @min-[40rem]:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]">
-                        <div className="grid content-start gap-2">
-                          <FindingField label="Documento" value={finding.documento} />
-                          <FindingField label="Página provável" value={finding.pagina} />
-                          <FindingField label="Local" value={finding.local} />
-                          <FindingField label="Categoria" value={finding.categoria} />
+                      {/*
+                        A EXPLICAÇÃO OCUPA A COLUNA LARGA, e os metadados vão
+                        para a lateral. Era o contrário: `Documento / Página /
+                        Local / Categoria` ficavam na coluna da esquerda e o
+                        texto que a pessoa precisa LER ficava espremido à
+                        direita. Organização do desenho "Nexo - Achados".
+
+                        A ordem dos três textos responde três perguntas
+                        diferentes, nesta sequência: o que é o fato, o que ele
+                        custa, e o que fazer com ele.
+                      */}
+                      <div className="grid gap-4 p-4 @min-[46rem]:grid-cols-[minmax(0,1.4fr)_minmax(15rem,0.6fr)]">
+                        <div className="grid content-start gap-4">
+                          <BlocoDeTexto titulo="O que está errado">
+                            {finding.descricao ||
+                              finding.title ||
+                              "Fato não detalhado no resultado."}
+                          </BlocoDeTexto>
+
+                          <BlocoDeTexto titulo="Por que importa">
+                            {finding.conflito ||
+                              finding.referencia ||
+                              "Consequência não detalhada no resultado."}
+                          </BlocoDeTexto>
+
+                          {/*
+                            "O QUE FAZER" É O ÚNICO COM FUNDO PRÓPRIO. Os outros
+                            dois descrevem; este pede uma ação, e é o que a
+                            pessoa procura quando volta ao cartão pela segunda
+                            vez.
+                          */}
+                          <section className="nx-cut-6 bg-[var(--status-warning-bg)]/70 p-3">
+                            <div className="mb-1.5 flex items-center gap-2 text-[var(--status-warning)]">
+                              <Wrench className="size-4" />
+                              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                O que fazer
+                              </p>
+                            </div>
+                            <p className="max-w-[68ch] text-sm leading-6 text-[var(--status-warning)]">
+                              {finding.acao || "Ação recomendada não identificada."}
+                            </p>
+                          </section>
+
+                          <TrechosDoAchado
+                            paginas={paginas}
+                            evidencia={finding.evidencia}
+                            termo={getHighlightNeedle(finding)}
+                            aoAbrirPagina={finding.pdfUrl ? () => openInlinePdf(finding) : undefined}
+                          />
                         </div>
 
-                        <div className="grid gap-3">
-                          <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
-                            <div className="mb-2 flex items-center gap-2">
-                              <Search className="size-4 text-primary" />
-                              <p className="font-mono text-xs uppercase text-muted-foreground">
+                        <div className="grid content-start gap-3">
+                          {/*
+                            ONDE APARECE — a fita de páginas. Cada número abre o
+                            documento. Some no achado de uma página só: a
+                            etiqueta do cabeçalho já disse tudo.
+                          */}
+                          {ehMultiPagina(paginas) ? (
+                            <section className="nx-cut-6 bg-[var(--nexodoc-recessed)] p-3">
+                              <p className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                Onde aparece
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {paginas.map((numero, ordem) => (
+                                  <button
+                                    key={`${finding.refId ?? index}-pag-${numero}`}
+                                    type="button"
+                                    disabled={!finding.pdfUrl}
+                                    onClick={() => openInlinePdf(finding, numero)}
+                                    className={cn(
+                                      "nx-cut-5 px-2.5 py-1 font-mono text-xs transition-colors",
+                                      ordem === 0
+                                        ? "bg-[var(--status-ok-bg)] font-semibold text-[var(--status-ok)]"
+                                        : "bg-[var(--nexodoc-raised)] text-muted-foreground",
+                                      finding.pdfUrl
+                                        ? "cursor-pointer hover:text-foreground"
+                                        : "cursor-default",
+                                    )}
+                                  >
+                                    <span className="mr-1 text-[10px] uppercase tracking-wider opacity-70">
+                                      pág.
+                                    </span>
+                                    {numero}
+                                  </button>
+                                ))}
+                              </div>
+                            </section>
+                          ) : null}
+
+                          <section className="nx-cut-6 min-w-0 bg-[var(--nexodoc-recessed)] p-3">
+                            {/*
+                              `flex-wrap` porque esta linha DESCEU para a coluna
+                              estreita: o rótulo e o botão "Ver no documento" não
+                              encolhem, e lado a lado mediam 1013px dentro de
+                              580. Sem a quebra, o cartão inteiro passava a rolar
+                              na horizontal dentro do palco do Nexo.
+                            */}
+                            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                              <Search className="size-4 shrink-0 text-primary" />
+                              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                 Evidência encontrada
                               </p>
                               {/*
@@ -2534,7 +2920,15 @@ export function AuditResult({
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  className="ml-auto h-7"
+                                  /*
+                                    SEM `ml-auto`. Numa linha que quebra, a
+                                    margem automática resolvia para o espaço
+                                    livre da linha inteira e inflava o
+                                    `scrollWidth` do botão — o cartão passava a
+                                    rolar 1041px dentro de 636 sem que nada
+                                    parecesse largo na tela. `gap` já separa.
+                                  */
+                                  className="h-7 shrink-0"
                                   onClick={() => openInlinePdf(finding)}
                                 >
                                   <ExternalLink className="size-3.5" />
@@ -2550,35 +2944,41 @@ export function AuditResult({
                             </p>
                           </section>
 
-                          <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-3">
-                            <p className="font-mono text-xs uppercase text-muted-foreground">
-                              Conflito / por que importa
-                            </p>
-                            <p className="mt-2 text-sm leading-6 text-foreground">
-                              {finding.conflito ||
-                                finding.referencia ||
-                                "Conflito não detalhado no resultado."}
-                            </p>
+                          {/*
+                            OS METADADOS DESCEM PARA A LATERAL. Eles respondem
+                            "onde eu confiro", e não "o que está errado" — quem
+                            precisa deles já decidiu que vai olhar o documento.
+                            "Página provável" saiu: a fita acima diz melhor, e
+                            com todas as páginas em vez de uma.
+                          */}
+                          <section className="grid content-start gap-2 border-t pt-3">
+                            <FindingField label="Documento" value={finding.documento} />
+                            <FindingField label="Local" value={finding.local} />
+                            <FindingField label="Categoria" value={finding.categoria} />
                           </section>
+                        </div>
+                      </div>
 
-                          <section className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)]/70 p-3 text-[var(--status-warning)]">
-                            <div className="mb-2 flex items-center gap-2">
-                              <Wrench className="size-4" />
-                              <p className="font-mono text-xs uppercase">
-                                Ação recomendada
-                              </p>
-                            </div>
-                            <p className="text-sm leading-6">
-                              {finding.acao || "Ação recomendada não identificada."}
-                            </p>
-                          </section>
+                      {/*
+                        O VEREDITO SOBRE O ACHADO vira o rodapé do cartão, e uma
+                        PERGUNTA em vez de um rótulo.
 
-                          {auditId && finding.refId ? (
-                            <section className="rounded-md border bg-card p-3">
-                              <p className="font-mono text-xs uppercase text-muted-foreground">
-                                Avaliar achado
+                        Ele era uma caixa chamada "Avaliar achado" espremida na
+                        coluna estreita, embaixo de tudo. Duas coisas mudam com
+                        isso: ele deixa de disputar espaço com a evidência, e
+                        "Esse achado está certo?" diz o que os três botões
+                        querem — o rótulo antigo descrevia a função, não o
+                        pedido.
+
+                        É o que alimenta o benchmark do motor, então o lugar
+                        dele na tela decide quanto dado a gente tem.
+                      */}
+                      {auditId && finding.refId ? (
+                        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--status-ok)]/20 bg-[var(--status-ok-bg)]/25 px-4 py-3">
+                              <p className="text-sm font-medium text-foreground">
+                                Esse achado está certo?
                               </p>
-                              <div className="mt-2 flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-2">
                                 <Button
                                   type="button"
                                   size="sm"
@@ -2610,10 +3010,8 @@ export function AuditResult({
                                   Gravidade errada
                                 </Button>
                               </div>
-                            </section>
-                          ) : null}
                         </div>
-                      </div>
+                      ) : null}
                     </article>
                     </Fragment>
                     );

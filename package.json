@@ -133,7 +133,9 @@
     "db:backup:json": "node scripts/backup-json.mjs",
     "db:reset-trabalho": "node scripts/reset-trabalho.mjs",
     "prova:automatico": "node scripts/prova-escritorio-automatico.mjs",
-    "shot:painel": "node scripts/shot-painel.mjs"
+    "shot:painel": "node scripts/shot-painel.mjs",
+    "test:paginas": "node scripts/test-paginas-do-achado.ts",
+    "shot:achado": "node scripts/shot-cartao-de-achado.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
