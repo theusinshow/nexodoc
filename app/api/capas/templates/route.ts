@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
 import { getTemplateRegistry, getTemplateLayout } from "@/server/templates/registry";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export async function GET() {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   try {
     const registry = await getTemplateRegistry();
     /*

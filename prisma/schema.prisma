@@ -25,6 +25,17 @@ enum AuditFeedbackVerdict {
   MISSING_FINDING
 }
 
+/// COMO o achado foi encerrado. É eixo diferente do `verdict`, que julga a IA:
+/// um achado pode ser PROCEDENTE (verdict) e ter sido encerrado como decisão
+/// técnica assumida (resolutionKind). Fundir os dois obrigaria escolher entre
+/// registrar o julgamento e registrar o desfecho — que é exatamente o erro que
+/// o comentário de `AuditFeedback` explica ter sido evitado antes.
+enum FindingResolutionKind {
+  FIXED_IN_DOC
+  FALSE_POSITIVE
+  ACCEPTED_RISK
+}
+
 enum LdDraftStatus {
   DRAFT
   GENERATED
@@ -168,11 +179,20 @@ model OrganizationMember {
 
 model Project {
   id          String        @id @default(cuid())
-  organizationId String?
+  /// O DONO. Era `ownerEmail`; passou a ser o escritorio, e por isso deixou de
+  /// aceitar nulo: projeto sem escritorio nao tem quem o libere para emissao.
+  organizationId String
   ownerId     String?
+  /// Quem CRIOU o projeto — que deixou de ser quem é dono dele. O dono passou a
+  /// ser o escritório (`organizationId`); isto aqui é registro, não posse, e é
+  /// por isso que nenhuma consulta filtra por ele.
+  createdById String?
   ownerEmail  String
   ownerName   String?
-  code        String        @default("")
+  /// O CENTRO DE CUSTO — "099-25". Perdeu o `@default("")` porque virou
+  /// identidade: e por ele que a auditoria acha o projeto a que pertence, e um
+  /// vazio casaria com qualquer documento sem codigo legivel.
+  code        String
   name        String
   client      String        @default("")
   description String        @default("")
@@ -181,7 +201,10 @@ model Project {
   updatedAt   DateTime      @updatedAt
   archivedAt  DateTime?
   deletedAt   DateTime?
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  /// `Restrict`, e nao `SetNull`: com o escritorio sendo dono, apagar a
+  /// organizacao deixaria projeto orfao — que e exatamente o estado que este
+  /// trabalho eliminou.
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   audits      Audit[]
   ldDrafts    LdDraft[]
@@ -191,9 +214,10 @@ model Project {
   events      ProjectEvent[]
   aiTasks     AiTask[]
 
-  @@unique([ownerEmail, code])
+  /// O codigo do projeto e unico no ESCRITORIO, e era unico por dono: dois
+  /// projetistas podiam cadastrar "099-25" cada um, e o banco achava normal.
+  @@unique([organizationId, code])
   @@index([organizationId, updatedAt])
-  @@index([ownerEmail, updatedAt])
   @@index([status, updatedAt])
   @@index([archivedAt])
   @@index([deletedAt])
@@ -316,6 +340,20 @@ model AuditFeedback {
   /// Quando foi marcado como corrigido. Nulo = não corrigido — o instante fica
   /// registrado porque "quando" é a pergunta seguinte de quem revisa em dupla.
   resolvedAt   DateTime?
+  /// A identidade do achado ENTRE VERSÕES (`chaveEntreVersoes`), gravada no
+  /// instante do envio. O `targetKey` guarda `finding:INC-014`, e o `INC-014` é
+  /// POSICIONAL: na reauditoria o mesmo achado vira `INC-009` sem nada ter
+  /// acontecido com ele. Sem isto, a linhagem entre pareceres não teria como
+  /// reencontrar esta pendência — e o dado só faltaria muitos meses depois.
+  fingerprint    String?
+  /// A QUEM foi enviado. E-mail, e não id de usuário: dá para mandar trabalho a
+  /// quem ainda não entrou no sistema, e é no primeiro dia que a coordenação
+  /// mais distribui. Mesmo motivo do convite em `OrganizationMember`.
+  assigneeEmail  String?
+  assignedById   String?
+  assignedAt     DateTime?
+  resolutionKind FindingResolutionKind?
+  resolvedById   String?
   note         String                @default("")
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
@@ -324,6 +362,8 @@ model AuditFeedback {
   @@unique([auditId, targetKey])
   @@index([auditId, createdAt])
   @@index([verdict, createdAt])
+  /// A consulta da home: o que está comigo e ainda não foi resolvido.
+  @@index([assigneeEmail, resolvedAt])
 }
 
 model AuditFile {

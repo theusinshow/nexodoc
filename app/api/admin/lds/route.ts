@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
 
@@ -19,11 +20,13 @@ function getArrayLength(value: Prisma.JsonValue) {
 }
 
 export async function GET(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+  /*
+   * O PORTAO DE PLATAFORMA + o token, em [[lib/admin-gate.ts]]. Antes daqui a
+   * checagem era so o Bearer: quem tivesse o token entrava sem sessao alguma.
+   */
+  const portao = await checkAdminRequest(request);
 
-  if (!adminToken) return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  if (getBearerToken(request) !== adminToken) return jsonError("Acesso admin negado.", 401);
-  if (!isDatabaseConfigured()) return jsonError("DATABASE_URL não configurada.", 500);
+  if (!portao.ok) return jsonError(portao.message, portao.status);
 
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim();
@@ -92,11 +95,13 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+  /*
+   * O PORTAO tambem no DELETE. Esta era a segunda copia da checagem no mesmo
+   * arquivo, e so o token -- numa rota que APAGA em lote.
+   */
+  const portao = await checkAdminRequest(request);
 
-  if (!adminToken) return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  if (getBearerToken(request) !== adminToken) return jsonError("Acesso admin negado.", 401);
-  if (!isDatabaseConfigured()) return jsonError("DATABASE_URL não configurada.", 500);
+  if (!portao.ok) return jsonError(portao.message, portao.status);
 
   try {
     const body = (await request.json().catch(() => null)) as { ids?: string[] } | null;

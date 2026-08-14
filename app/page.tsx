@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { DashboardShortcuts } from "@/components/dashboard-shortcuts";
+import { FilaDoUsuario } from "@/components/home/fila-do-usuario";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,32 @@ import { Card } from "@/components/ui/card";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { isNexoEnabled } from "@/lib/feature-flags";
-import { legacyModules, projetosModule, type ModuleDef } from "@/lib/modules";
+import { legacyModules, nexoModule, projetosModule, type ModuleDef } from "@/lib/modules";
 
 /*
  * "Conferência documental" saiu da lista faz tempo: a auditoria mora no Nexo, e
- * o card dele já a anuncia. Com a `/audit` redirecionando, os dois levariam ao
- * mesmo lugar. O atalho Ctrl+A continua existindo e aponta para o Nexo.
+ * o card dele já a anuncia. O atalho Ctrl+A continua existindo e aponta para o
+ * Nexo.
+ *
+ * O NEXO PRECISOU VOLTAR À LISTA, e a falta dele foi uma regressão real.
+ *
+ * Esta página só era vista quando a flag do Nexo estava DESLIGADA — a raiz
+ * redirecionava para `/nexo` antes de chegar aqui. Quando o redirect saiu, para
+ * a home poder mostrar as pendências, ela passou a ser a primeira tela de todo
+ * mundo. E como a lista era a de um mundo sem Nexo, quem entrava sem pendência
+ * nenhuma ficava sem NENHUM caminho para a ferramenta principal, a não ser
+ * digitar a URL.
+ *
+ * Ele entra primeiro e com `emphasis`, que é o que o torna o cartão grande: sem
+ * pendência, começar uma auditoria é a coisa mais provável que a pessoa quer
+ * fazer. Com a flag desligada ele some, e a lista volta a ser a de antes — que
+ * é o ponto do kill-switch.
  */
-const availableModules: readonly ModuleDef[] = [...legacyModules, projetosModule];
+function modulosVisiveis(): readonly ModuleDef[] {
+  return isNexoEnabled()
+    ? [nexoModule, ...legacyModules, projetosModule]
+    : [...legacyModules, projetosModule];
+}
 
 function ShortcutHint({ keys }: { keys: string }) {
   return (
@@ -37,22 +56,25 @@ function ShortcutHint({ keys }: { keys: string }) {
 }
 
 /*
- * A ENTRADA É O NEXO.
+ * A ENTRADA DEIXOU DE SER O NEXO — e o motivo antigo continua valendo.
  *
- * Este painel listava seis módulos como se fossem seis produtos. Não são mais:
- * o Nexo faz o trabalho e as telas de módulo único viraram legado (saída de
- * emergência, em /ferramentas). Um menu com um item só é uma parada no caminho,
- * então quem entra já entra trabalhando.
+ * O que estava escrito aqui: "este painel listava seis módulos como se fossem
+ * seis produtos... um menu com um item só é uma parada no caminho, então quem
+ * entra já entra trabalhando". Continua verdade, e é POR ISSO que esta home não
+ * é um menu: ela mostra o que está esperando por você, e some quando não há
+ * nada — a `FilaDoUsuario` não renderiza seção vazia.
  *
- * O painel continua existindo INTEIRO para o caso da flag desligada — é o
- * kill-switch do Nexo, e um kill-switch que leva a uma tela vazia não é
- * kill-switch nenhum.
+ * O PREÇO, assumido: quem nunca recebe achado ganha um clique a mais até o
+ * Nexo. A alternativa — redirecionar só quando não há pendência — faria a
+ * entrada do produto mudar de lugar dependendo do dia, o que é pior do que um
+ * clique.
+ *
+ * O painel de módulos abaixo da fila deixou de ser só o kill-switch da flag e
+ * passou a ser visto todo dia — antes, com o redirect, ninguém o via com o Nexo
+ * ligado. Ele continua servindo de saída de emergência quando a flag cai, e
+ * agora também de caminho para quem chegou sem pendência nenhuma.
  */
 export default async function DashboardPage() {
-  if (isNexoEnabled()) {
-    redirect("/nexo");
-  }
-
   const session = await auth();
 
   if (!session?.user) {
@@ -67,7 +89,7 @@ export default async function DashboardPage() {
 
   const isAdmin = access.isAdmin;
 
-  const modules = availableModules;
+  const modules = modulosVisiveis();
   const primaryModule = modules.find((m) => m.emphasis) ?? modules[0];
   const secondaryModules = modules.filter((m) => m.title !== primaryModule.title);
   const PrimaryIcon = primaryModule.icon;
@@ -119,6 +141,13 @@ export default async function DashboardPage() {
       </header>
 
       <div className="relative mx-auto flex max-w-7xl flex-col gap-9 px-5 py-8 sm:px-7 lg:py-12">
+        {/*
+          O QUE EXIGE AÇÃO SUA vem primeiro, acima de qualquer coisa que o
+          produto tenha a dizer sobre si mesmo. Quando não há pendência, este
+          componente não renderiza nada e a tela é a de antes.
+        */}
+        <FilaDoUsuario />
+
         <section className="max-w-3xl nexodoc-enter">
           <div className="inline-flex items-center gap-2 border border-primary/30 bg-primary/8 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--nexodoc-accent)]">
             <LayoutGrid className="size-3.5" />

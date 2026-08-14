@@ -22,10 +22,22 @@ import {
   resumoDoDelta,
 } from "@/lib/audit-fingerprint";
 import type { AuditReport, ImpressaoDoArquivo } from "@/lib/audit-report";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   const sessao = await auth();
   const userEmail = sessao?.user?.email;
   if (!userEmail) {

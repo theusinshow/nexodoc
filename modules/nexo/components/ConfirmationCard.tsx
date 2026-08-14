@@ -47,6 +47,7 @@ import {
   type AuditReport,
 } from "@/lib/audit-report";
 import { AuditoriaDesconectada, type MemorialAuditResult } from "../lib/audit";
+import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
 import { useDeltaDoMemorial } from "./use-delta-do-memorial";
 import type {
   NexoAgentProposal,
@@ -2213,6 +2214,29 @@ function AuditoriaConfirmation({
     if (!memorialFile) return;
     setBusy(true);
     setError(null);
+
+    /*
+     * O ENDEREÇO ANTES DO TRABALHO.
+     *
+     * `/api/audit` passou a exigir projeto — parecer sem projeto não tem fila,
+     * nem gate de emissão, nem a quem atribuir achado. Resolver AQUI, e não
+     * depois da resposta do servidor, é o que impede a pessoa de esperar de 3 a
+     * 6 minutos de análise para então descobrir que o centro de custo não estava
+     * cadastrado.
+     *
+     * O código já vem do documento (`memorialFatos.codigo`), então no caso
+     * normal isto não pergunta nada.
+     */
+    const destino = await resolverProjetoDaAuditoria(memorialFatos?.codigo, undefined, {
+      prefeitura,
+      obra,
+    });
+
+    if (destino.tipo !== "achado") {
+      setError(fraseDoImpasse(destino));
+      setBusy(false);
+      return;
+    }
     /*
      * Avisa o PALCO. Sem isto o centro da tela segue mostrando o mapa do volume
      * durante os 3 a 6 minutos da análise, e o usuário não tem sinal nenhum de
@@ -2246,7 +2270,12 @@ function AuditoriaConfirmation({
         { obra, prefeitura, municipio },
         params.nivel,
         conversationId,
-        { onMarco: auditoria.marcar, signal: controle.signal, auditId },
+        {
+          onMarco: auditoria.marcar,
+          signal: controle.signal,
+          auditId,
+          projectId: destino.projeto.id,
+        },
       );
       await saveResult({
         artifactId: id,

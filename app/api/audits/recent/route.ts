@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,17 @@ function getLimit(request: Request) {
 }
 
 export async function GET(request: Request) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   if (!isRecentHistoryEnabled()) {
     return NextResponse.json(
       {

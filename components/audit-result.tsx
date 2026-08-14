@@ -198,7 +198,17 @@ type SavedFeedback = {
   /** Instante da correção; nulo = não corrigido. */
   resolvedAt: string | null;
   note: string;
+  /** Com quem o achado está. Nulo = não foi enviado a ninguém. */
+  assigneeEmail: string | null;
+  /** O nome dessa pessoa, quando o escritório o conhece; senão, o e-mail. */
+  assigneeName: string | null;
+  /** COMO foi encerrado — ver [[lib/desfecho-do-achado.ts]]. */
+  resolutionKind: DesfechoDoAchado | null;
+  /** Quem encerrou, já resolvido em nome pela rota. */
+  resolvedByName: string | null;
 };
+
+type DesfechoDoAchado = "FIXED_IN_DOC" | "FALSE_POSITIVE" | "ACCEPTED_RISK";
 
 /**
  * O nome curto de cada veredito na etiqueta do cartão. Curto de propósito: ela
@@ -213,6 +223,21 @@ const VEREDITO_LABEL: Record<FeedbackVerdict, string> = {
   FALSE_POSITIVE: "Falso positivo",
   WRONG_SEVERITY: "Severidade errada",
   MISSING_FINDING: "",
+};
+
+/**
+ * O nome curto de cada desfecho. Curto pelo mesmo motivo do veredito: divide a
+ * linha do cabeçalho com disciplina e tipo de erro.
+ *
+ * "Falso positivo" aparece nos DOIS mapas de propósito — como veredito, ele
+ * julga a IA; como desfecho, ele encerra o trabalho. É a mesma palavra dita de
+ * dois lugares diferentes, e o cartão nunca mostra as duas ao mesmo tempo
+ * porque o desfecho já grava o veredito.
+ */
+const DESFECHO_LABEL: Record<DesfechoDoAchado, string> = {
+  FIXED_IN_DOC: "Corrigido",
+  FALSE_POSITIVE: "Falso positivo",
+  ACCEPTED_RISK: "Decisão técnica",
 };
 
 /**
@@ -992,6 +1017,31 @@ export function AuditResult({
   const [resolvidosNoServidor, setResolvidosNoServidor] = useState<ReadonlySet<string>>(
     new Set<string>(),
   );
+  /** Com quem cada achado está, enquanto não é resolvido. */
+  const [atribuidoPor, setAtribuidoPor] = useState<Record<string, string>>({});
+  /** Como cada achado foi encerrado, e por quem. */
+  const [desfechoPorAchado, setDesfechoPorAchado] = useState<
+    Record<string, { kind: DesfechoDoAchado; por: string | null }>
+  >({});
+  /*
+   * A nota da decisão técnica, por achado, enquanto está sendo escrita. O
+   * servidor recusa sem ela (`lib/desfecho-do-achado.ts`); o campo aqui é o que
+   * torna possível escrevê-la sem sair do cartão.
+   */
+  const [notaDoRisco, setNotaDoRisco] = useState<Record<string, string>>({});
+  const [escrevendoRisco, setEscrevendoRisco] = useState<string>("");
+  /*
+   * A SELEÇÃO EM LOTE, no mesmo padrão de `/admin/users`: caixa por linha, barra
+   * de ação que só aparece com seleção, e nada de diálogo por cima. Quem revê o
+   * memorial marca os cinco erros de PPCI e manda todos de uma vez — mandar um
+   * a um seriam cinco viagens e cinco chances de metade chegar.
+   */
+  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set<string>());
+  const [destinatario, setDestinatario] = useState("");
+  const [membros, setMembros] = useState<
+    { email: string; name: string | null; status: string }[]
+  >([]);
+  const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
@@ -1201,6 +1251,28 @@ export function AuditResult({
         );
 
         setFeedbackByFinding(saved);
+        setAtribuidoPor(
+          Object.fromEntries(
+            linhas
+              // Com quem ESTÁ é diferente de quem resolveu: assim que o achado
+              // fecha, ele deixa de estar com alguém e passa a ter desfecho.
+              .filter((item) => item.assigneeEmail && !item.resolvedAt)
+              .map((item) => [
+                item.findingId as string,
+                item.assigneeName ?? (item.assigneeEmail as string),
+              ]),
+          ),
+        );
+        setDesfechoPorAchado(
+          Object.fromEntries(
+            linhas
+              .filter((item) => item.resolutionKind)
+              .map((item) => [
+                item.findingId as string,
+                { kind: item.resolutionKind as DesfechoDoAchado, por: item.resolvedByName },
+              ]),
+          ),
+        );
         setResolvidosNoServidor(
           new Set(
             linhas
@@ -1262,6 +1334,147 @@ export function AuditResult({
       setFeedbackNotice(
         "Corrigido marcado nesta máquina, mas não foi possível gravar no histórico.",
       );
+    }
+  }
+
+  /*
+   * QUEM PODE RECEBER: os membros do escritório, inclusive quem foi convidado e
+   * nunca entrou. Mandar trabalho a quem ainda não logou é o caso do primeiro
+   * dia, e esconder essa pessoa da lista tornaria o convite inútil justamente
+   * quando ele mais serve.
+   */
+  useEffect(() => {
+    let vivo = true;
+
+    fetch("/api/organizacao/membros")
+      .then((r) => (r.ok ? r.json() : { membros: [] }))
+      .then((d) => {
+        if (vivo) setMembros(d.membros ?? []);
+      })
+      .catch(() => {
+        if (vivo) setMembros([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  function alternarSelecao(refId: string) {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(refId)) proximo.delete(refId);
+      else proximo.add(refId);
+      return proximo;
+    });
+  }
+
+  async function enviarSelecionados() {
+    if (!auditId || !destinatario || selecionados.size === 0) {
+      return;
+    }
+
+    setEnviando(true);
+    setFeedbackNotice("");
+
+    try {
+      const response = await fetch(`/api/audits/${encodeURIComponent(auditId)}/atribuir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingIds: [...selecionados],
+          assigneeEmail: destinatario,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { atribuidos?: number; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Não foi possível enviar.");
+      }
+
+      setAtribuidoPor((atual) => {
+        const proximo = { ...atual };
+        for (const id of selecionados) proximo[id] = destinatario;
+        return proximo;
+      });
+      setSelecionados(new Set());
+      setDestinatario("");
+      setFeedbackNotice(
+        `${payload?.atribuidos ?? 0} achado(s) enviado(s). Aparecem na home de quem recebeu.`,
+      );
+    } catch (error) {
+      setFeedbackNotice(error instanceof Error ? error.message : "Não foi possível enviar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  /**
+   * O DESFECHO, na mesma rota do veredito — porque é a mesma linha do banco.
+   *
+   * A regra que vale é a do SERVIDOR (`lib/desfecho-do-achado.ts`): decisão
+   * técnica sem nota é recusada lá. O botão desabilitado aqui é cortesia, e não
+   * garantia — quem chamar a rota à mão encontra a mesma recusa.
+   */
+  async function salvarDesfecho(
+    finding: StructuredFinding,
+    index: number,
+    resolutionKind: DesfechoDoAchado,
+    note?: string,
+  ) {
+    if (!auditId) {
+      return;
+    }
+
+    const findingId = finding.refId ?? `achado-${index + 1}`;
+    setFeedbackSavingKey(findingId);
+    setFeedbackNotice("");
+
+    try {
+      const response = await fetch(getFeedbackEndpoint(auditId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingId,
+          findingLabel: finding.title,
+          page: finding.pagina,
+          resolutionKind,
+          note,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Não foi possível registrar o desfecho.");
+      }
+
+      /*
+       * A tela reflete o que acabou de acontecer sem recarregar tudo: o achado
+       * deixa de estar COM alguém e passa a ter desfecho. O nome de quem
+       * resolveu fica nulo até a próxima leitura — é você, e a tela não precisa
+       * dizer o seu nome de volta para você.
+       */
+      setAtribuidoPor((atual) => {
+        const proximo = { ...atual };
+        delete proximo[findingId];
+        return proximo;
+      });
+      setDesfechoPorAchado((atual) => ({
+        ...atual,
+        [findingId]: { kind: resolutionKind, por: null },
+      }));
+      setResolvidosNoServidor((atual) => new Set([...atual, findingId]));
+      setEscrevendoRisco("");
+      setFeedbackNotice("Desfecho registrado.");
+    } catch (error) {
+      setFeedbackNotice(
+        error instanceof Error ? error.message : "Não foi possível registrar o desfecho.",
+      );
+    } finally {
+      setFeedbackSavingKey("");
     }
   }
 
@@ -2042,8 +2255,43 @@ export function AuditResult({
                               {getErrorTypeLabel(findingErrorType(finding))}
                             </span>
                             {finding.refId ? (
-                              <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                              <label className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={selecionados.has(finding.refId)}
+                                  onChange={() => alternarSelecao(finding.refId!)}
+                                  aria-label={`Selecionar ${finding.refId} para enviar`}
+                                  className="size-3.5 accent-primary"
+                                />
                                 Ref. {finding.refId}
+                              </label>
+                            ) : null}
+                            {/*
+                              COM QUEM ESTÁ. Aparece enquanto o achado é
+                              pendência de alguém, e sai quando ele fecha —
+                              trocado pela tarja do desfecho, logo abaixo.
+                            */}
+                            {finding.refId && atribuidoPor[finding.refId] ? (
+                              <span className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs text-[var(--status-warning)]">
+                                com {atribuidoPor[finding.refId]}
+                              </span>
+                            ) : null}
+                            {/*
+                              O DESFECHO FICA, e é a tarja que mais importa para
+                              quem NÃO está com o achado.
+
+                              É aqui que quem enviou descobre o que aconteceu:
+                              não existe lista "enviados por mim" em lugar
+                              nenhum, de propósito. Se a tarja de "com fulano"
+                              apenas sumisse ao resolver, quem delegou ficaria
+                              sem resposta e perguntaria por fora do sistema.
+                            */}
+                            {finding.refId && desfechoPorAchado[finding.refId] ? (
+                              <span className="rounded-md border border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] px-2 py-1 font-mono text-xs text-[var(--status-ok)]">
+                                {DESFECHO_LABEL[desfechoPorAchado[finding.refId].kind]}
+                                {desfechoPorAchado[finding.refId].por
+                                  ? ` · ${desfechoPorAchado[finding.refId].por}`
+                                  : ""}
                               </span>
                             ) : null}
                             {/*
@@ -2094,7 +2342,22 @@ export function AuditResult({
                             é a ação que se repete 22 vezes numa revisão, e ela
                             tem que estar sempre no mesmo lugar, sem rolar.
                           */}
-                          {onToggleResolvido && finding.refId ? (
+                          {/*
+                            "MARCAR CORRIGIDO" SOME quando o achado foi encerrado
+                            de outro jeito.
+
+                            Ele reflete `resolvedAt`, e os TRÊS desfechos marcam
+                            essa coluna — então um achado assumido como decisão
+                            técnica aparecia com a tarja "Decisão técnica" ao
+                            lado de um botão dizendo "Corrigido". As duas coisas
+                            se contradizem, e a contradição estava exatamente
+                            sobre o que o registro precisa deixar claro: se o
+                            documento foi mexido ou se o risco foi assumido.
+                          */}
+                          {onToggleResolvido &&
+                          finding.refId &&
+                          (!desfechoPorAchado[finding.refId] ||
+                            desfechoPorAchado[finding.refId].kind === "FIXED_IN_DOC") ? (
                             <Button
                               type="button"
                               size="sm"
@@ -2110,6 +2373,46 @@ export function AuditResult({
                             >
                               <Check />
                               {estaResolvido(finding.refId) ? "Corrigido" : "Marcar corrigido"}
+                            </Button>
+                          ) : null}
+                          {/*
+                            DECISÃO TÉCNICA — o terceiro desfecho.
+
+                            Fica ao lado de "Marcar corrigido" e não dentro do
+                            menu de três pontos: é uma decisão que se assume, e
+                            esconder uma decisão que alguém vai ter que defender
+                            depois é o contrário do que a tela deve fazer.
+
+                            O primeiro clique abre o campo da nota; o segundo
+                            grava. Sem nota o botão não fecha nada — e o
+                            servidor recusa também, que é onde a regra vale.
+                          */}
+                          {finding.refId && !desfechoPorAchado[finding.refId] ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                escrevendoRisco === finding.refId &&
+                                !notaDoRisco[finding.refId]?.trim()
+                              }
+                              onClick={() => {
+                                if (escrevendoRisco !== finding.refId) {
+                                  setEscrevendoRisco(finding.refId!);
+                                  return;
+                                }
+
+                                void salvarDesfecho(
+                                  finding,
+                                  index,
+                                  "ACCEPTED_RISK",
+                                  notaDoRisco[finding.refId!],
+                                );
+                              }}
+                            >
+                              {escrevendoRisco === finding.refId
+                                ? "Registrar decisão"
+                                : "Decisão técnica"}
                             </Button>
                           ) : null}
                           <Dropdown
@@ -2166,6 +2469,42 @@ export function AuditResult({
                           </Dropdown>
                         </div>
                       </div>
+
+                      {/*
+                        A JUSTIFICATIVA DA DECISÃO TÉCNICA, na largura inteira do
+                        cartão e não espremida na linha dos botões: quem assume
+                        um risco precisa de espaço para dizer por quê, e o texto
+                        curto que caberia ali seria o que ninguém consegue
+                        defender depois.
+                      */}
+                      {finding.refId && escrevendoRisco === finding.refId ? (
+                        <div className="border-t border-border p-4">
+                          <label
+                            htmlFor={`nota-risco-${finding.refId}`}
+                            className="mb-2 block font-mono text-xs uppercase text-muted-foreground"
+                          >
+                            Por que este risco está sendo assumido
+                          </label>
+                          <textarea
+                            id={`nota-risco-${finding.refId}`}
+                            value={notaDoRisco[finding.refId] ?? ""}
+                            onChange={(event) =>
+                              setNotaDoRisco((atual) => ({
+                                ...atual,
+                                [finding.refId!]: event.target.value,
+                              }))
+                            }
+                            rows={3}
+                            autoFocus
+                            placeholder="Ex.: aprovado pelo corpo de bombeiros em 12/08, ata anexada ao processo."
+                            className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground outline-none focus:border-primary"
+                          />
+                          <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+                            Fica registrada com o seu nome e a data. Sem ela, a decisão não é
+                            gravada.
+                          </p>
+                        </div>
+                      ) : null}
 
                       <div className="grid gap-4 p-4 @min-[40rem]:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]">
                         <div className="grid content-start gap-2">
@@ -2307,6 +2646,65 @@ export function AuditResult({
                       <p className="mt-2 font-mono text-xs text-muted-foreground">{feedbackNotice}</p>
                     ) : null}
                   </section>
+                ) : null}
+
+                {/*
+                  A BARRA DE ENVIO, grudada no rodapé da lista.
+
+                  Mesmo padrão de `/admin/users`: aparece só quando há seleção, e
+                  fica onde a mão já está — a alternativa seria um diálogo por
+                  cima, que tira os achados da vista justamente quando a pessoa
+                  precisa conferir quais marcou.
+                */}
+                {selecionados.size > 0 ? (
+                  <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-[var(--nexodoc-recessed)] px-4 py-3 shadow-lg">
+                    <span className="font-mono text-xs text-foreground">
+                      {selecionados.size} {selecionados.size === 1 ? "achado" : "achados"}
+                    </span>
+
+                    <label htmlFor="destinatario-do-envio" className="sr-only">
+                      Enviar para
+                    </label>
+                    <select
+                      id="destinatario-do-envio"
+                      value={destinatario}
+                      onChange={(event) => setDestinatario(event.target.value)}
+                      className="h-9 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-primary"
+                    >
+                      <option value="">Enviar para…</option>
+                      {membros.map((m) => (
+                        <option key={m.email} value={m.email}>
+                          {m.name ?? m.email}
+                          {m.status === "INVITED" ? " (convidado)" : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!destinatario || enviando}
+                      onClick={() => void enviarSelecionados()}
+                      /*
+                        O rótulo visível é "Enviar", curto porque a barra já diz
+                        quantos e para quem. Mas a página TEM outro "Enviar" — o
+                        do chat do Nexo —, e para quem navega por leitor de tela
+                        os dois seriam a mesma palavra solta.
+                      */
+                      aria-label="Enviar achados selecionados"
+                    >
+                      {enviando ? "Enviando…" : "Enviar"}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelecionados(new Set())}
+                      aria-label="Limpar seleção"
+                      className="ml-auto font-mono text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Limpar
+                    </button>
+                  </div>
                 ) : null}
 
                 {suggestionFindings.length > 0 ? (

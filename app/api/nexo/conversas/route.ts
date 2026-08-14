@@ -9,6 +9,7 @@ import {
   type RegistroDaConversa,
   type ResumoDaConversa,
 } from "@/server/nexo/conversa-remota";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -36,12 +37,21 @@ async function guarda() {
   if (!isNexoEnabled()) {
     return { erro: NextResponse.json({ error: "Modulo Nexo desativado." }, { status: 404 }) };
   }
-  const session = await auth();
-  const userEmail = session?.user?.email;
-  if (!session?.user || !userEmail) {
-    return { erro: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) };
+  /*
+   * O PORTAO no lugar da checagem de sessao.
+   *
+   * Aqui deu para trocar de vez, e nao somar: a guarda so precisava do e-mail,
+   * e o ator ja o traz garantido. `requireActor` recusa quem nao e membro ativo
+   * de escritorio -- pergunta que "tem sessao?" nunca fez.
+   */
+  try {
+    const actor = await requireActor();
+    return { userEmail: actor.email };
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return { erro: negado };
+    throw err;
   }
-  return { userEmail };
 }
 
 export async function GET() {

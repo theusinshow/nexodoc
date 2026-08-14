@@ -1,35 +1,24 @@
 import { NextResponse } from "next/server";
 import type { Prisma, UserRole } from "@prisma/client";
 
-import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { checkAdminRequest } from "@/lib/admin-gate";
+import { getPrisma } from "@/lib/db";
 
 export const runtime = "nodejs";
-
-function getBearerToken(request: Request) {
-  const header = request.headers.get("authorization") ?? "";
-  return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function ensureAdmin(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+/**
+ * A regra mora em [[../../../../lib/admin-gate.ts]]. Aqui fica só a tradução
+ * para o formato de erro desta rota — antes, a checagem estava copiada aqui e
+ * em mais seis lugares, e só exigia o token: sessão não era pedida.
+ */
+async function ensureAdmin(request: Request) {
+  const veredito = await checkAdminRequest(request);
 
-  if (!adminToken) {
-    return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  }
-
-  if (getBearerToken(request) !== adminToken) {
-    return jsonError("Acesso admin negado.", 401);
-  }
-
-  if (!isDatabaseConfigured()) {
-    return jsonError("DATABASE_URL não configurada.", 500);
-  }
-
-  return null;
+  return veredito.ok ? null : jsonError(veredito.message, veredito.status);
 }
 
 function normalizeEmail(value: unknown) {
@@ -78,6 +67,28 @@ function getFilters(request: Request): Prisma.UserWhereInput {
   return where;
 }
 
+/**
+ * O VINCULO COM O ESCRITORIO, ao lado da conta.
+ *
+ * Sao dois eixos, e e bom que sejam: "tem conta no sistema" nao e "e do
+ * escritorio". Conta desativada nao entra em lugar nenhum; membro removido da
+ * PROSUL continua com conta e continua sem ver projeto dela.
+ *
+ * Esta tela mostra os dois porque e daqui que o mantenedor libera alguem -- e
+ * ver so um deles foi o que fez o primeiro teste de verdade terminar num 403
+ * correto e sem saida visivel.
+ */
+async function vinculoDoEscritorio(email: string) {
+  const membro = await getPrisma().organizationMember.findFirst({
+    where: { email },
+    select: { role: true, status: true, organizationId: true },
+  });
+
+  return membro
+    ? { role: membro.role, status: membro.status, organizationId: membro.organizationId }
+    : null;
+}
+
 async function serializeUser(user: {
   id: string;
   name: string;
@@ -89,9 +100,10 @@ async function serializeUser(user: {
   _count?: { audits: number; sessions: number };
 }) {
   const prisma = getPrisma();
-  const [ldDraftCount, ldGeneratedCount] = await Promise.all([
+  const [ldDraftCount, ldGeneratedCount, escritorio] = await Promise.all([
     prisma.ldDraft.count({ where: { userEmail: user.email } }),
     prisma.ldDraft.count({ where: { userEmail: user.email, status: "GENERATED" } }),
+    vinculoDoEscritorio(user.email),
   ]);
 
   return {
@@ -100,6 +112,7 @@ async function serializeUser(user: {
     email: user.email,
     role: user.role,
     isActive: user.isActive,
+    escritorio,
     auditCount: user._count?.audits ?? 0,
     sessionCount: user._count?.sessions ?? 0,
     ldDraftCount,
@@ -110,7 +123,7 @@ async function serializeUser(user: {
 }
 
 export async function GET(request: Request) {
-  const adminError = ensureAdmin(request);
+  const adminError = await ensureAdmin(request);
   if (adminError) return adminError;
 
   const users = await getPrisma().user.findMany({
@@ -134,7 +147,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const adminError = ensureAdmin(request);
+  const adminError = await ensureAdmin(request);
   if (adminError) return adminError;
 
   const body = (await request.json().catch(() => null)) as
@@ -176,7 +189,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const adminError = ensureAdmin(request);
+  const adminError = await ensureAdmin(request);
   if (adminError) return adminError;
 
   const body = (await request.json().catch(() => null)) as

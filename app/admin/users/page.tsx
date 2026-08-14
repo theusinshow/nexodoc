@@ -24,6 +24,8 @@ type AdminUser = {
   sessionCount: number;
   ldDraftCount: number;
   ldGeneratedCount: number;
+  /** Vinculo com o escritorio. `null` = tem conta, e nao e da PROSUL. */
+  escritorio: { role: "OWNER" | "ADMIN" | "MEMBER"; status: "ACTIVE" | "INVITED" | "DISABLED"; organizationId: string } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -36,6 +38,27 @@ function roleClass(role: AdminUser["role"]) {
   return role === "ADMIN"
     ? "border-primary/30 bg-primary/10 text-primary"
     : "border-border bg-muted text-muted-foreground";
+}
+
+/*
+ * O SELO DO ESCRITORIO tem tres leituras, e elas nao sao graus da mesma coisa:
+ * fora (nao e da PROSUL), convidado (liberado, ainda nao entrou) e dentro. O
+ * convidado usa a cor de atencao de proposito -- e um estado de espera, e quem
+ * olha a lista precisa distinguir "nao liberei" de "liberei e ele nao entrou".
+ */
+function escritorioClass(vinculo: AdminUser["escritorio"]) {
+  if (!vinculo) return "border-border bg-background text-muted-foreground";
+  if (vinculo.status !== "ACTIVE") {
+    return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
+  }
+  return "border-primary/30 bg-primary/10 text-primary";
+}
+
+function escritorioLabel(vinculo: AdminUser["escritorio"]) {
+  if (!vinculo) return "—";
+  if (vinculo.status === "INVITED") return "CONVIDADO";
+  if (vinculo.status === "DISABLED") return "DESLIGADO";
+  return vinculo.role;
 }
 
 function statusClass(isActive: boolean) {
@@ -160,6 +183,49 @@ export default function AdminUsersPage() {
       setSelectedIds(new Set(users.map((u) => u.id)));
     }
   }, [allSelected, users]);
+
+  /**
+   * LIBERAR ou REMOVER do escritório, num clique no próprio selo.
+   *
+   * Sem confirmação de propósito: liberar cria um convite (a pessoa ainda
+   * precisa entrar), e remover não apaga conta nem dado — os dois são
+   * reversíveis pelo mesmo clique. Confirmação aqui seria cerimônia para uma
+   * ação que se desfaz sozinha, e ensinaria a ignorar as confirmações que
+   * importam, como a de desativar a conta.
+   */
+  async function alternarEscritorio(user: AdminUser) {
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/users/escritorio", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          acao: user.escritorio ? "remover" : "liberar",
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        escritorio?: AdminUser["escritorio"];
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Não foi possível mudar o vínculo com o escritório.");
+      }
+
+      setUsers((current) =>
+        current.map((u) =>
+          u.id === user.id ? { ...u, escritorio: payload?.escritorio ?? null } : u,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao mudar o vínculo.");
+    }
+  }
 
   async function batchUpdateUsers(updates: Partial<Pick<AdminUser, "role" | "isActive">>) {
     if (selectedIds.size === 0) return;
@@ -447,6 +513,7 @@ export default function AdminUsersPage() {
                 <th className="px-3 py-3">Usuário</th>
                 <th className="px-3 py-3">Papel</th>
                 <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3">Escritório</th>
                 <th className="px-3 py-3 text-right">Auditorias</th>
                 <th className="px-3 py-3 text-right">LDs</th>
                 <th className="px-3 py-3 text-right">Geradas</th>
@@ -472,6 +539,23 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", roleClass(user.role))}>{user.role}</span></td>
                   <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(user.isActive))}>{user.isActive ? "ATIVO" : "DESATIVADO"}</span></td>
+                  <td className="px-3 py-3">
+                    <button
+                      type="button"
+                      onClick={() => void alternarEscritorio(user)}
+                      title={
+                        user.escritorio
+                          ? "Remover do escritório"
+                          : "Liberar na PROSUL (nasce como convidado)"
+                      }
+                      className={cn(
+                        "border px-2 py-1 font-mono text-xs transition hover:opacity-80",
+                        escritorioClass(user.escritorio),
+                      )}
+                    >
+                      {escritorioLabel(user.escritorio)}
+                    </button>
+                  </td>
                   <td className="px-3 py-3 text-right font-mono">{user.auditCount}</td>
                   <td className="px-3 py-3 text-right font-mono">{user.ldDraftCount}</td>
                   <td className="px-3 py-3 text-right font-mono">{user.ldGeneratedCount}</td>
@@ -544,7 +628,7 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                 </tr>
-              )) : <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>}
+              )) : <tr><td colSpan={10} className="p-10 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>}
             </tbody>
           </table>
         </section>

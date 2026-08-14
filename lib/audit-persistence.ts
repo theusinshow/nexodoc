@@ -1,3 +1,16 @@
+/**
+ * A GRAVAÇÃO da auditoria, fora da rota.
+ *
+ * É AQUI que a materialização dos achados vai se pendurar quando a revisão
+ * colaborativa começar: o `FindingOccurrence` nasce do relatório no instante em
+ * que a auditoria fecha, e esse instante é `persistCompletedAudit`. Está escrito
+ * porque `app/api/audit/route.ts` tem 3.849 linhas e é o pior lugar do
+ * repositório para plantar domínio novo — a tentação de fazê-lo lá é real, e
+ * quem chegar depois merece encontrar o endereço certo antes de escolher errado.
+ *
+ * Ver `docs/superpowers/specs/2026-08-13-substrato-de-escritorio-design.md`,
+ * Parte C.3, e a Fase 0 de `docs/arquitetura-revisao-colaborativa.md`.
+ */
 import type { Prisma } from "@prisma/client";
 
 import type { AnalysisLevel } from "@/lib/analysis-level";

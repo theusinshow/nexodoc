@@ -28,6 +28,7 @@ import {
 } from "../state/auditoria-store";
 import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
+import type { AberturaPorLink } from "./use-abrir-auditoria-por-link";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
 
 /**
@@ -40,7 +41,21 @@ const VISTAS_DO_PARECER: { valor: AuditView; rotulo: string; Icone: typeof FileT
   { valor: "report", rotulo: "Parecer", Icone: FileText },
 ];
 
-export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
+export function PalcoDoNexo({
+  mapa,
+  /*
+   * O ESTADO DA AUDITORIA PEDIDA POR LINK vem de fora, e não de um gancho aqui.
+   *
+   * O palco só monta quando há conversa; quem chega por `/nexo?auditoria=<id>`
+   * pela primeira vez chega numa tela vazia, e o gancho aqui nunca rodava — o
+   * pedido ao servidor não chegava a sair. Ele mora em [[NexoWorkspace.tsx]],
+   * que está sempre montado, e o palco só desenha o que ele apurou.
+   */
+  aberturaPorLink,
+}: {
+  mapa: ReactNode;
+  aberturaPorLink: AberturaPorLink;
+}) {
   const {
     results,
     recuperarMemorial,
@@ -86,6 +101,7 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
   // Auditoria herdada de outra sessão (F5, troca de conversa): o palco volta a
   // esperar por ela em vez de deixá-la morrer com a aba.
   const reconexao = useReconectarAuditoria();
+
 
   /*
    * A AUDITORIA QUE O PALCO MOSTRA É A MAIS RECENTE.
@@ -133,7 +149,9 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
     () => new Set(auditIdAtual ? (achadosResolvidos[auditIdAtual] ?? []) : []),
     [achadosResolvidos, auditIdAtual],
   );
-  const temAuditoria = Boolean(emCurso || reconexao.pendente || report);
+  const temAuditoria = Boolean(
+    emCurso || reconexao.pendente || report || aberturaPorLink.carregando || aberturaPorLink.falha,
+  );
 
   /*
    * A vista é DERIVADA, não sincronizada por effect.
@@ -370,6 +388,25 @@ export function PalcoDoNexo({ mapa }: { mapa: ReactNode }) {
                 marcos={emCurso.marcos}
                 onCancelar={emCurso.cancelar}
               />
+            </div>
+          ) : aberturaPorLink.carregando || aberturaPorLink.falha ? (
+            /*
+             * A auditoria pedida por link, enquanto vem do servidor ou quando
+             * não veio. Uma tela em branco depois de clicar em ABRIR na home
+             * seria a pior resposta possível: a pessoa não saberia se o link
+             * está quebrado, se ela não tem acesso, ou se é só demora.
+             */
+            <div className="flex h-full items-start justify-center overflow-y-auto pt-10">
+              <div className="max-w-md text-center">
+                <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  {aberturaPorLink.carregando ? "Abrindo a auditoria" : "Não deu para abrir"}
+                </p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {aberturaPorLink.carregando
+                    ? "Buscando o parecer no servidor."
+                    : aberturaPorLink.falha}
+                </p>
+              </div>
             </div>
           ) : reconexao.pendente ? (
             /*

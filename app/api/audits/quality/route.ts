@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,17 @@ function isQualityEnabled() {
 }
 
 export async function GET() {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   if (!isQualityEnabled() || !isDatabaseConfigured()) {
     return NextResponse.json({ enabled: false, total: 0, confirmed: 0, falsePositive: 0, wrongSeverity: 0, missingFinding: 0 });
   }

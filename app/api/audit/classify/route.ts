@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { extractPdfText } from "@/lib/pdf-text";
 import { classifyDocument, type DocumentClassification } from "@/lib/audit-classify";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,17 @@ function isPdf(file: File) {
  * para o cartão de confirmação da tela de auditoria. Não chama IA, não persiste.
  */
 export async function POST(request: Request) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   let formData: FormData;
 
   try {

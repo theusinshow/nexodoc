@@ -20,6 +20,7 @@ import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { isDatabaseConfigured } from "@/lib/db";
 import { carregarCotacaoComOrigem, salvarCotacao } from "@/lib/cambio-config";
 import { carregarMetasComOrigem, salvarMetas } from "@/lib/meta-qualidade-config";
+import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
 
@@ -82,18 +83,14 @@ export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
-function getAdminAuthError(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+async function getAdminAuthError(request: Request) {
+  /*
+   * O PORTAO DE PLATAFORMA + o token, em [[lib/admin-gate.ts]]. Antes daqui a
+   * checagem era so o Bearer: quem tivesse o token entrava sem sessao alguma.
+   */
+  const portao = await checkAdminRequest(request);
 
-  if (!adminToken) {
-    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  }
-
-  if (getBearerToken(request) !== adminToken) {
-    return jsonError(request, "Acesso admin negado.", 401);
-  }
-
-  return null;
+  return portao.ok ? null : jsonError(request, portao.message, portao.status);
 }
 
 async function buildConfigPayload() {
@@ -338,7 +335,7 @@ async function buildConfigPayload() {
 }
 
 export async function GET(request: Request) {
-  const authError = getAdminAuthError(request);
+  const authError = await getAdminAuthError(request);
 
   if (authError) {
     return authError;
@@ -353,7 +350,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authError = getAdminAuthError(request);
+  const authError = await getAdminAuthError(request);
 
   if (authError) {
     return authError;
@@ -459,7 +456,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authError = getAdminAuthError(request);
+  const authError = await getAdminAuthError(request);
 
   if (authError) {
     return authError;

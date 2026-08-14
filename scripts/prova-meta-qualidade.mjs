@@ -18,7 +18,17 @@ import { chromium } from "playwright";
 
 import { temBanco, tokenDoAdmin } from "./token-do-admin.mjs";
 
-const BASE = process.env.BASE ?? "http://localhost:3000";
+/*
+ * DUAS GRAFIAS, e as duas valem.
+ *
+ * O resto das provas le `SHOT_BASE`; estas tres liam so `BASE`. Quem rodasse a
+ * suite com `SHOT_BASE` apontando para outra porta via estas tres baterem
+ * silenciosamente no servidor da 3000 -- que numa maquina com mais de um
+ * worktree e OUTRO aplicativo, com outro banco e outro token. O sintoma era uma
+ * falha de tela ("a faixa nao apareceu") que nao falava de porta nenhuma, e
+ * custou horas de investigacao contra o aplicativo errado.
+ */
+const BASE = process.env.BASE ?? process.env.SHOT_BASE ?? "http://localhost:3000";
 const TOKEN = tokenDoAdmin();
 
 const falhas = [];

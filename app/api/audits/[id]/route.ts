@@ -11,6 +11,8 @@
  */
 import { NextResponse } from "next/server";
 
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import type { AuditReport } from "@/lib/audit-report";
 
@@ -37,9 +39,43 @@ export async function GET(
     return NextResponse.json({ status: "SEM_HISTORICO" });
   }
 
+  /*
+   * O PARECER É DO ESCRITÓRIO, e esta rota não perguntava nada: quem tivesse o
+   * id lia a auditoria inteira, sem sessão. O id é gerado pelo cliente antes de
+   * começar, então não é segredo nem finge ser.
+   */
+  let actor: Actor;
   try {
-    const audit = await getPrisma().audit.findUnique({
-      where: { id },
+    actor = await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
+  try {
+    const audit = await getPrisma().audit.findFirst({
+      where: {
+        id,
+        OR: [
+          { project: { organizationId: actor.organizationId } },
+          /*
+           * O LEGADO. Auditoria do Nexo anterior a este trabalho não tem projeto
+           * (`projectId` nulo), e ela precisa continuar legível: escopar só por
+           * organização a tornaria invisível para quem a rodou, o que é apagar
+           * histórico pela porta dos fundos.
+           *
+           * A condição é estreita de propósito — SEM projeto E de quem está
+           * pedindo. Auditoria órfã de outra pessoa continua fora.
+           *
+           * E o `userId` do ator PRECISA existir para esta cláusula entrar. A
+           * rota antiga não exigia sessão, então gravou auditoria com `userId`
+           * nulo; um ator sem conta (convidado recém-ativado) casaria nulo com
+           * nulo e leria TODAS elas. Sem id, sem cláusula.
+           */
+          ...(actor.userId ? [{ projectId: null, userId: actor.userId }] : []),
+        ],
+      },
       select: { status: true, report: true, result: true, error: true },
     });
 

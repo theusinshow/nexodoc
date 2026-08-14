@@ -23,6 +23,8 @@ import {
 import { disciplinaDoAchado, disciplinaPorPagina } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
 import { isDatabaseConfigured } from "@/lib/db";
 import {
   assertProjectAccess,
@@ -3202,13 +3204,31 @@ async function executarAuditoria(
   try {
     await refreshAiModelOverrideCache();
     console.log("[audit] requisicao recebida");
-    // Sessão SEMPRE resolvida (hoisted), mesmo quando não há projectId (caminho
-    // do Nexo não manda projectId). Isto NÃO muda quem pode chamar a rota — a
-    // autenticação continua só sendo EXIGIDA no bloco `if (projectId)` abaixo,
-    // igual antes. O único uso do e-mail fora dali é telemetria (userEmail do
-    // AiUsageEvent), nunca gate de acesso.
+    /*
+     * O PORTÃO ANTES DE TUDO.
+     *
+     * A autenticação só era exigida dentro do `if (projectId)` mais abaixo — e
+     * o Nexo, que virou o único caminho, não manda projeto. Na prática, a rota
+     * que mais gasta modelo do produto rodava sem exigir sessão, e gravava
+     * parecer sem dono e sem escritório. É o chão onde nenhum achado atribuível
+     * poderia nascer.
+     *
+     * O `catch` é próprio, e fica aqui em vez de cair no `catch` geral do fim:
+     * aquele classifica falha de PROVEDOR e grava auditoria fracassada. Recusa
+     * de acesso não é auditoria que falhou — não deve virar 500 nem deixar
+     * rastro de uma execução que nunca começou.
+     */
+    let actor: Actor;
+    try {
+      actor = await requireActor();
+    } catch (err) {
+      const negado = accessDeniedResponse(err);
+      if (negado) return withCors(negado, request);
+      throw err;
+    }
+
     const session = await auth();
-    const sessionEmail = session?.user?.email?.trim() || null;
+    const sessionEmail = actor.email;
     const message = String(formData.get("message") ?? "").trim();
     const auditMode = parseAuditMode(formData.get("auditMode"));
     const analysisLevel = parseAnalysisLevel(formData.get("analysisLevel"));
@@ -3226,6 +3246,26 @@ async function executarAuditoria(
       endereco: String(formData.get("gabaritoEndereco") ?? "").trim() || undefined,
     };
     const projectId = String(formData.get("projectId") ?? "").trim() || null;
+
+    /*
+     * SEM PROJETO NÃO AUDITA.
+     *
+     * O caminho anônimo existia porque o Nexo — que virou o único caminho — não
+     * mandava `projectId`, e era ele que produzia parecer sem dono, sem
+     * escritório e sem endereço. É o chão onde nenhum achado atribuível pode
+     * nascer: a fila do Victor, o gate de emissão e a linhagem entre versões
+     * são todos POR PROJETO.
+     *
+     * A auditoria antiga, gravada sem projeto, continua legível — isso é do
+     * portão de LEITURA (`app/api/audits/[id]`), e não daqui. A regra é de
+     * entrada, e olha para a frente.
+     */
+    if (!projectId) {
+      return jsonError(
+        "Informe o projeto desta auditoria: todo parecer pertence a um centro de custo.",
+      );
+    }
+
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
     const conversationIdRaw = formData.get("conversationId");
     const conversationId =
@@ -3287,41 +3327,39 @@ async function executarAuditoria(
     }
 
     /*
-     * QUEM pediu a auditoria — sempre que der para saber.
+     * QUEM pediu a auditoria.
      *
-     * O ator só era resolvido dentro do `if (projectId)`. Como o Nexo não manda
-     * projeto (e virou o único caminho), TODA auditoria era gravada sem dono: o
-     * painel de usuários mostrava "0 auditorias" para todo mundo com dezenas
-     * delas no banco. Sem atribuição não há como responder "quem rodou isto?",
-     * que é a primeira pergunta de qualquer operação séria.
-     *
-     * Resolver o ator NÃO muda quem pode chamar a rota: a exigência de sessão
-     * e a checagem de acesso continuam valendo só para o caminho com projeto.
-     * Aqui, sem sessão ou sem banco, segue nulo como antes.
+     * O ator já passou pelo portão acima, então "sem sessão" deixou de ser um
+     * caso aqui. O que resta é resolver o `User` pelo e-mail: o portão devolve
+     * o `userId` do VÍNCULO com o escritório, que é nulo enquanto o convidado
+     * não tiver conta, e a auditoria quer o id de quem a rodou.
      */
-    let auditActor: ActorIdentity | null =
-      sessionEmail && isDatabaseConfigured()
-        ? await getUserActor(normalizeEmail(sessionEmail), session?.user?.name ?? null).catch(
-            // Falhar em identificar o autor não pode impedir a auditoria — o
-            // trabalho vale mais que o crédito.
-            () => null,
-          )
-        : null;
+    let auditActor: ActorIdentity | null = isDatabaseConfigured()
+      ? await getUserActor(normalizeEmail(sessionEmail), actor.name ?? session?.user?.name ?? null).catch(
+          // Falhar em identificar o autor não pode impedir a auditoria — o
+          // trabalho vale mais que o crédito.
+          () => null,
+        )
+      : null;
 
-    if (projectId) {
-      if (!isDatabaseConfigured()) {
-        return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
-      }
+    if (!isDatabaseConfigured()) {
+      return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
+    }
 
-      if (!sessionEmail || !auditActor) {
-        return jsonError("Autenticacao necessaria para vincular auditoria ao projeto.", 401);
-      }
-
-      try {
-        await assertProjectAccess(projectId, auditActor);
-      } catch {
-        return jsonError("Projeto nao encontrado.", 404);
-      }
+    /*
+     * O `if (projectId)` que existia aqui deixou de ser condicional: o projeto
+     * agora é exigido lá em cima, e este bloco vale sempre. Era ele que
+     * guardava a autenticação da rota, e por isso o caminho sem projeto passava
+     * sem sessão nenhuma.
+     */
+    try {
+      await assertProjectAccess(projectId, auditActor ?? {
+        id: actor.userId,
+        email: actor.email,
+        name: actor.name,
+      });
+    } catch {
+      return jsonError("Projeto nao encontrado.", 404);
     }
 
     const useMockMode = isMockModeEnabled() || (requestMockMode && canUseClientMock);

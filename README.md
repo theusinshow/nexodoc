@@ -487,6 +487,39 @@ Acesse:
 http://localhost:3000
 ```
 
+### Banco local
+
+Sem banco, as rotas respondem 503 e as provas que tocam Postgres nao tem o que
+medir — e por isso `scripts/prova-validacao-do-achado.mjs` intercepta a rota em
+vez de gravar. Para ter um de verdade nesta maquina:
+
+```powershell
+winget install --id PostgreSQL.PostgreSQL.17 --exact --silent `
+  --accept-package-agreements --accept-source-agreements
+```
+
+O servico `postgresql-x64-17` sobe sozinho, com o superusuario `postgres` e senha
+`postgres`. Depois, crie a role e a base que `lib/db.ts` ja usa por padrao — as
+credenciais nao sao escolha, sao as que estao embutidas la:
+
+```powershell
+$psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
+$env:PGPASSWORD = "postgres"
+& $psql -U postgres -h localhost -c "CREATE ROLE nexodoc LOGIN PASSWORD 'nexodoc' CREATEDB;"
+& $psql -U postgres -h localhost -c "CREATE DATABASE nexodoc OWNER nexodoc;"
+```
+
+E entao, com `DATABASE_URL="postgresql://nexodoc:nexodoc@localhost:5432/nexodoc"`
+no `.env`:
+
+```bash
+npm run db:migrate
+```
+
+Producao e outra coisa: e Neon (ver `render.yaml`), e ensaio de migracao se faz
+em BRANCH do Neon, nao em dump restaurado aqui — a copia sai instantanea e o
+dado real nao viaja.
+
 ## Verificacoes
 
 Comandos usados para validar a base:

@@ -44,6 +44,7 @@ import { NexoCopilot } from "./NexoCopilot";
 import type { Attachment } from "./NexoChat";
 import { NexoCanvas } from "./NexoCanvas";
 import { PalcoDoNexo } from "./PalcoDoNexo";
+import { useAbrirAuditoriaPorLink } from "./use-abrir-auditoria-por-link";
 import { TourDoNexo } from "./TourDoNexo";
 import { criarProjetoExemplo, ID_CONVERSA_EXEMPLO } from "../lib/projeto-exemplo";
 
@@ -1056,11 +1057,38 @@ function NexoWorkspaceInner({
   // Latch do shell: o 1º envio desliza welcome→active (chat vai pra direita, o
   // canvas entra no centro). `reset` (Nova conversa) volta ao welcome. Ambos
   // animam pela macro-transição (flushSync p/ o browser tirar os snapshots).
+  /*
+   * A AUDITORIA PEDIDA POR LINK — `/nexo?auditoria=<id>`, o ABRIR da home.
+   *
+   * Fica AQUI, e não no palco: o palco só monta depois que a saudação sai, e
+   * quem chega por link na primeira vez chega justamente na saudação. Lá, o
+   * pedido ao servidor não chegava nem a sair.
+   */
+  const aberturaPorLink = useAbrirAuditoriaPorLink(
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("auditoria"),
+  );
+
   const [started, setStarted] = useState(false);
   const start = () => {
     if (started) return;
     runShellTransition(() => flushSync(() => setStarted(true)));
   };
+
+  /*
+   * QUEM CHEGA POR LINK JÁ COMEÇOU.
+   *
+   * `started` sai do "Boa noite" para o palco, e normalmente é o primeiro envio
+   * que o liga. Quem abre `/nexo?auditoria=<id>` vindo da home nunca digita
+   * nada — sem isto, o parecer ficava gravado na conversa e a tela continuava
+   * na saudação, como se o link não tivesse feito nada.
+   */
+  useEffect(() => {
+    if (aberturaPorLink.abriu && !started) {
+      runShellTransition(() => flushSync(() => setStarted(true)));
+    }
+  }, [aberturaPorLink.abriu, started]);
   const reset = (opts?: { descartar?: boolean }) => {
     runShellTransition(() =>
       flushSync(() => {
@@ -1223,7 +1251,23 @@ function NexoWorkspaceInner({
     } catch {
       jaViu = true;
     }
-    if (jaViu || conv.conversations.length > 0) return;
+    /*
+     * QUEM CHEGA POR LINK NÃO QUER TOUR.
+     *
+     * `/nexo?auditoria=<id>` é o ABRIR da home: a pessoa clicou numa pendência
+     * dela e veio ver um parecer específico. O tour se oferece a quem nunca
+     * abriu o produto — e no primeiro login de alguém que recebeu achados as
+     * duas condições são verdadeiras ao mesmo tempo.
+     *
+     * Sem esta linha, o tour vence a corrida: ele semeia o projeto de exemplo
+     * de imediato, enquanto a auditoria pedida ainda está vindo do servidor. O
+     * link levava ao passeio guiado, e a pendência sumia.
+     */
+    const pediramUmaAuditoria =
+      typeof window !== "undefined" &&
+      Boolean(new URLSearchParams(window.location.search).get("auditoria"));
+
+    if (jaViu || pediramUmaAuditoria || conv.conversations.length > 0) return;
     const quadro = requestAnimationFrame(() => void iniciarTour());
     return () => cancelAnimationFrame(quadro);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1867,6 +1911,7 @@ function NexoWorkspaceInner({
         }
         stage={
           <PalcoDoNexo
+            aberturaPorLink={aberturaPorLink}
             mapa={
           <NexoCanvas
             folhas={selos}

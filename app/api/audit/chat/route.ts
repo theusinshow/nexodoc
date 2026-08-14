@@ -9,6 +9,7 @@ import {
   type AiProvider,
 } from "@/lib/ai-providers";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -172,6 +173,17 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   let executionProfile: {
     provider: AiProvider;
     model: string;
