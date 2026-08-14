@@ -151,6 +151,32 @@ export async function POST(request: Request) {
     );
   }
 
+  let actorDoEscritorio: Actor;
+  try {
+    actorDoEscritorio = await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
+  /*
+   * A ALÇADA. Cadastrar projeto é ato de coordenação, não de projetista.
+   *
+   * É o cadastro que define o centro de custo, e centro de custo errado manda a
+   * auditoria — e, depois, os achados atribuídos — para a fila de outro
+   * projeto. Ninguém percebe até alguém receber uma pendência que não é dele.
+   *
+   * O admin de plataforma passa junto para não ficar trancado fora do sistema
+   * que administra.
+   */
+  if (actorDoEscritorio.orgRole === "MEMBER" && !actorDoEscritorio.isPlatformAdmin) {
+    return NextResponse.json(
+      { error: "Só a coordenação do escritório cadastra projeto." },
+      { status: 403 },
+    );
+  }
+
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const name = getStringField(payload?.name);
 
@@ -160,17 +186,27 @@ export async function POST(request: Request) {
 
   const prisma = getPrisma();
   const actor = await getUserActor(user.email, user.name);
-  const organizationId = getStringField(payload?.organizationId) || null;
+
+  /*
+   * O ESCRITÓRIO VEM DO ATOR, e vinha do corpo da requisição.
+   *
+   * `organizationId` era lido do payload: o cliente dizia de que escritório era
+   * o projeto que estava criando. Com uma organização só isso não tinha efeito
+   * visível, e é justamente por isso que passaria despercebido até o dia em que
+   * houvesse duas.
+   */
+  const organizationId = actorDoEscritorio.organizationId;
   const code = normalizeProjectCode(getStringField(payload?.code));
 
   if (!code) {
-    return NextResponse.json({ error: "Informe o codigo do projeto." }, { status: 400 });
+    return NextResponse.json({ error: "Informe o centro de custo do projeto." }, { status: 400 });
   }
 
   const project = await prisma.$transaction(async (tx) => {
     const createdProject = await tx.project.create({
       data: {
         organizationId,
+        createdById: actorDoEscritorio.userId ?? actor.id ?? undefined,
         ownerId: actor.id ?? undefined,
         ownerEmail: user.email,
         ownerName: user.name,

@@ -104,7 +104,7 @@ const PROJETOS = [
 
 for (const projeto of PROJETOS) {
   await prisma.project.upsert({
-    where: { ownerEmail_code: { ownerEmail: "milton@prosul.com", code: projeto.code } },
+    where: { organizationId_code: { organizationId: ORG, code: projeto.code } },
     create: {
       ...projeto,
       organizationId: ORG,

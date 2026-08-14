@@ -95,11 +95,13 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+  /*
+   * O PORTAO tambem no DELETE. Esta era a segunda copia da checagem no mesmo
+   * arquivo, e so o token -- numa rota que APAGA em lote.
+   */
+  const portao = await checkAdminRequest(request);
 
-  if (!adminToken) return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  if (getBearerToken(request) !== adminToken) return jsonError("Acesso admin negado.", 401);
-  if (!isDatabaseConfigured()) return jsonError("DATABASE_URL não configurada.", 500);
+  if (!portao.ok) return jsonError(portao.message, portao.status);
 
   try {
     const body = (await request.json().catch(() => null)) as { ids?: string[] } | null;

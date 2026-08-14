@@ -168,7 +168,9 @@ model OrganizationMember {
 
 model Project {
   id          String        @id @default(cuid())
-  organizationId String?
+  /// O DONO. Era `ownerEmail`; passou a ser o escritorio, e por isso deixou de
+  /// aceitar nulo: projeto sem escritorio nao tem quem o libere para emissao.
+  organizationId String
   ownerId     String?
   /// Quem CRIOU o projeto — que deixou de ser quem é dono dele. O dono passou a
   /// ser o escritório (`organizationId`); isto aqui é registro, não posse, e é
@@ -176,7 +178,10 @@ model Project {
   createdById String?
   ownerEmail  String
   ownerName   String?
-  code        String        @default("")
+  /// O CENTRO DE CUSTO — "099-25". Perdeu o `@default("")` porque virou
+  /// identidade: e por ele que a auditoria acha o projeto a que pertence, e um
+  /// vazio casaria com qualquer documento sem codigo legivel.
+  code        String
   name        String
   client      String        @default("")
   description String        @default("")
@@ -185,7 +190,10 @@ model Project {
   updatedAt   DateTime      @updatedAt
   archivedAt  DateTime?
   deletedAt   DateTime?
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  /// `Restrict`, e nao `SetNull`: com o escritorio sendo dono, apagar a
+  /// organizacao deixaria projeto orfao — que e exatamente o estado que este
+  /// trabalho eliminou.
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   audits      Audit[]
   ldDrafts    LdDraft[]
@@ -195,9 +203,10 @@ model Project {
   events      ProjectEvent[]
   aiTasks     AiTask[]
 
-  @@unique([ownerEmail, code])
+  /// O codigo do projeto e unico no ESCRITORIO, e era unico por dono: dois
+  /// projetistas podiam cadastrar "099-25" cada um, e o banco achava normal.
+  @@unique([organizationId, code])
   @@index([organizationId, updatedAt])
-  @@index([ownerEmail, updatedAt])
   @@index([status, updatedAt])
   @@index([archivedAt])
   @@index([deletedAt])

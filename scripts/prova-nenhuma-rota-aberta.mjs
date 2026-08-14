@@ -52,6 +52,94 @@ function check(nome, ok, detalhe = "") {
   }
 }
 
+/*
+ * POR HANDLER, e não por arquivo.
+ *
+ * A primeira versão perguntava se o PORTÃO aparecia no arquivo. Isso deixou
+ * passar um caso real: `app/api/projects/route.ts` tinha o portão no `GET` e
+ * não no `POST` — e o `POST` era o que criava projeto lendo `organizationId` do
+ * corpo da requisição. Um handler protegido servia de álibi para o vizinho
+ * aberto.
+ *
+ * `OPTIONS` fica de fora: é o preflight de CORS, o navegador não manda cookie
+ * nele, e exigir sessão ali quebraria a chamada seguinte sem proteger nada.
+ */
+const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+
+function corposDosHandlers(fonte) {
+  const achados = [];
+
+  for (const metodo of METODOS) {
+    const marca = `export async function ${metodo}`;
+    let de = fonte.indexOf(marca);
+
+    while (de !== -1) {
+      // pula a lista de parâmetros contando parênteses: as assinaturas trazem
+      // tipos aninhados como `{ params }: { params: Promise<{ id: string }> }`.
+      let i = fonte.indexOf("(", de);
+      let prof = 0;
+      while (i < fonte.length) {
+        if (fonte[i] === "(") prof += 1;
+        else if (fonte[i] === ")" && --prof === 0) break;
+        i += 1;
+      }
+
+      const abre = fonte.indexOf("{", i);
+      let fim = abre;
+      prof = 0;
+      while (fim < fonte.length) {
+        if (fonte[fim] === "{") prof += 1;
+        else if (fonte[fim] === "}" && --prof === 0) break;
+        fim += 1;
+      }
+
+      achados.push({ metodo, corpo: fonte.slice(abre, fim + 1) });
+      de = fonte.indexOf(marca, fim);
+    }
+  }
+
+  return achados;
+}
+
+/*
+ * Guardas locais contam.
+ *
+ * Extrair a checagem para uma função no mesmo arquivo (`ensureAdmin`, `guarda`,
+ * `executarAuditoria`) é boa prática, não fuga: é o que impede a sétima cópia
+ * de sair diferente das outras seis. Exigir a chamada literal dentro de cada
+ * handler premiaria a duplicação — e duplicação é exatamente a origem do
+ * problema que esta prova existe para pegar.
+ *
+ * Um nível de indireção basta. Guarda que chama guarda que chama portão é
+ * indireção demais para uma regra de acesso: quem precisar disso que escreva o
+ * porquê e acrescente o nível aqui, deliberadamente.
+ */
+function guardasLocais(fonte) {
+  const nomes = new Set();
+  const declaracao = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+
+  let m;
+  while ((m = declaracao.exec(fonte)) !== null) {
+    if (METODOS.includes(m[1])) continue;
+
+    const abre = fonte.indexOf("{", declaracao.lastIndex);
+    if (abre === -1) continue;
+
+    let fim = abre;
+    let prof = 0;
+    while (fim < fonte.length) {
+      if (fonte[fim] === "{") prof += 1;
+      else if (fonte[fim] === "}" && --prof === 0) break;
+      fim += 1;
+    }
+
+    const corpo = fonte.slice(abre, fim + 1);
+    if (PORTOES.some((portao) => corpo.includes(portao))) nomes.add(m[1]);
+  }
+
+  return [...nomes];
+}
+
 function rotas(dir) {
   const achadas = [];
   for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -72,8 +160,20 @@ for (const rota of encontradas) {
   }
 
   const fonte = fs.readFileSync(rota, "utf8");
-  const temPortao = PORTOES.some((portao) => fonte.includes(portao));
-  check(rota, temPortao, "não passa por portão nenhum");
+  const handlers = corposDosHandlers(fonte);
+
+  if (handlers.length === 0) {
+    check(rota, false, "nenhum handler exportado reconhecido");
+    continue;
+  }
+
+  const guardas = guardasLocais(fonte).map((nome) => `${nome}(`);
+  const aceitos = [...PORTOES, ...guardas];
+
+  for (const { metodo, corpo } of handlers) {
+    const temPortao = aceitos.some((marca) => corpo.includes(marca));
+    check(`${rota} ${metodo}`, temPortao, "não passa por portão nenhum");
+  }
 }
 
 /*
