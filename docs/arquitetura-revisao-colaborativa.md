@@ -1318,6 +1318,18 @@ Fase 0 tem onde nascer.
    responsável como `User` tornaria impossível atribuir um achado ao Victor
    antes do primeiro login dele.
 
+**A fatia fina foi construída em 14/08/2026, e SEM `FindingOccurrence`** — ver
+`docs/superpowers/specs/2026-08-14-fila-de-achados-design.md`. O achado vira
+pendência quando alguém o envia a alguém, e a linha é a de `AuditFeedback`, que
+já é única por `(auditId, targetKey)`. Materializar todo achado de toda
+auditoria serve ao GATE DE EMISSÃO e às métricas por projeto — e os dois
+continuam dependendo dessa materialização, que não foi feita.
+
+O que existe hoje: enviar achados a alguém do escritório, a home mostrando o que
+está com você agrupado por projeto, e três desfechos (`FIXED_IN_DOC`,
+`FALSE_POSITIVE`, `ACCEPTED_RISK` com nota obrigatória). Sem validação, sem
+`WorkSession`, sem notificação em canal próprio — a notificação é a própria home.
+
 **Onde a Fase 0 se pendura:** `persistCompletedAudit`, em
 `lib/audit-persistence.ts`. O `FindingOccurrence` nasce do relatório no instante
 em que a auditoria fecha, e esse é o instante. Não dentro de
