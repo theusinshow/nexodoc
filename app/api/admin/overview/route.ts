@@ -5,6 +5,7 @@ import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
 import { getAiConfiguration, getLastProviderFailures } from "@/lib/ai-providers";
 import { carregarCotacao } from "@/lib/cambio-config";
 import { statusDoSistema } from "@/lib/status-do-sistema";
+import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
 
@@ -17,14 +18,14 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function ensureAdmin(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+async function ensureAdmin(request: Request) {
+  /*
+   * O PORTAO DE PLATAFORMA + o token, em [[lib/admin-gate.ts]]. Antes daqui a
+   * checagem era so o Bearer: quem tivesse o token entrava sem sessao alguma.
+   */
+  const portao = await checkAdminRequest(request);
 
-  if (!adminToken) return jsonError("NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  if (getBearerToken(request) !== adminToken) return jsonError("Acesso admin negado.", 401);
-  if (!isDatabaseConfigured()) return jsonError("DATABASE_URL não configurada.", 500);
-
-  return null;
+  return portao.ok ? null : jsonError(portao.message, portao.status);
 }
 
 function sinceDate(days: number) {
@@ -34,7 +35,7 @@ function sinceDate(days: number) {
 }
 
 export async function GET(request: Request) {
-  const adminError = ensureAdmin(request);
+  const adminError = await ensureAdmin(request);
   if (adminError) return adminError;
 
   const prisma = getPrisma();

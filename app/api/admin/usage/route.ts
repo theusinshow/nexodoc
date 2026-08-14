@@ -3,6 +3,7 @@ import { getOpenAiAdminKey } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { carregarCotacao } from "@/lib/cambio-config";
 import { custoPorObra } from "@/lib/custo-por-obra";
+import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
 
@@ -491,16 +492,17 @@ export function OPTIONS(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const adminToken = process.env.NEXODOC_ADMIN_TOKEN?.trim();
+  /*
+   * O PORTAO DE PLATAFORMA + o token, em [[lib/admin-gate.ts]]. Antes daqui a
+   * checagem era so o Bearer: quem tivesse o token entrava sem sessao alguma.
+   */
+  const portao = await checkAdminRequest(request);
+
+  if (!portao.ok) {
+    return jsonError(request, portao.message, portao.status);
+  }
+
   const openAIAdminKey = getOpenAiAdminKey();
-
-  if (!adminToken) {
-    return jsonError(request, "NEXODOC_ADMIN_TOKEN não configurado.", 500);
-  }
-
-  if (getBearerToken(request) !== adminToken) {
-    return jsonError(request, "Acesso admin negado.", 401);
-  }
 
   /*
    * SEM A CHAVE ADMIN DA OPENAI, A PÁGINA NÃO MORRE INTEIRA.

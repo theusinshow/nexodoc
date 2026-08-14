@@ -20,6 +20,22 @@ import path from "node:path";
 
 const RAIZ = "app/api";
 
+/*
+ * OS PORTÕES RECONHECIDOS, e são dois — porque são duas perguntas.
+ *
+ * `requireActor` responde "de que escritório você é?". `requirePlatformAdmin`
+ * responde "você opera esta plataforma?", e é o de `/api/admin/*`: quem
+ * administra a plataforma pode não ser membro de escritório nenhum, e o portão
+ * do escritório recusaria justamente essa pessoa — trancando o mantenedor fora
+ * do próprio painel.
+ *
+ * `checkAdminRequest` é o embrulho que soma o portão de plataforma ao token, e
+ * é o que as rotas administrativas chamam de fato. Está aqui porque a lista é
+ * de PORTÕES, não de funções — quem acrescentar um terceiro portão acrescenta
+ * o nome aqui, e essa é a decisão que esta prova quer ver explícita.
+ */
+const PORTOES = ["requireActor(", "requirePlatformAdmin(", "checkAdminRequest("];
+
 // Rota deliberadamente pública. Cada uma com o motivo escrito — entrada nesta
 // lista é decisão, e decisão sem motivo escrito volta a ser esquecimento.
 const PUBLICAS = new Map([
@@ -55,18 +71,8 @@ for (const rota of encontradas) {
     continue;
   }
 
-  /*
-   * DOIS PORTÕES, e a rota escolhe um.
-   *
-   * `requireActor` responde "de que escritório você é?"; `requirePlatformAdmin`
-   * responde "você opera esta plataforma?". São perguntas diferentes, e
-   * `/api/admin/*` precisa da segunda: administrador de plataforma pode não ser
-   * membro de escritório nenhum, e o portão do escritório recusaria justamente
-   * ele. Exigir o portão errado ali trancaria o mantenedor fora do painel.
-   */
   const fonte = fs.readFileSync(rota, "utf8");
-  const temPortao =
-    fonte.includes("requireActor(") || fonte.includes("requirePlatformAdmin(");
+  const temPortao = PORTOES.some((portao) => fonte.includes(portao));
   check(rota, temPortao, "não passa por portão nenhum");
 }
 
