@@ -18,11 +18,9 @@
 // e este cria vínculos de acesso: rodá-lo no banco errado dá a estranhos a
 // chave do escritório.
 //
-// A ORDEM IMPORTA, e é por isso que este script existe antes do portão estar
-// completo: `requireActor` recusa quem não é membro de escritório nenhum. Sem
-// os membros que este script cria, TODA rota fechada responde 403 — inclusive
-// para quem já usava o sistema ontem. Em produção são dois deploys, nesta
-// ordem: primeiro o backfill, depois o código do portão.
+// O parágrafo que estava aqui dizia "em produção são dois deploys, nesta ordem".
+// Estava errado, e é o motivo de este script ter deixado de ser o caminho: o
+// Dockerfile não permite dois. A migration faz o mesmo, no lugar certo.
 import nextEnv from "@next/env";
 
 nextEnv.loadEnvConfig(process.cwd());
