@@ -68,7 +68,39 @@ export async function GET(
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json({ feedback, enabled: true });
+  /*
+   * O NOME de quem resolveu, junto da linha.
+   *
+   * A tarja do cartão é onde QUEM ENVIOU descobre o que aconteceu com o achado
+   * que delegou — não há lista "enviados por mim" em lugar nenhum. "Corrigido"
+   * sozinho não responde a pergunta que essa pessoa tem, que é "por quem".
+   *
+   * Uma consulta para todos, e não uma por linha: um parecer com quarenta
+   * achados resolvidos pela mesma pessoa seriam quarenta idas ao banco pelo
+   * mesmo nome.
+   */
+  const idsDeQuemResolveu = [
+    ...new Set(feedback.map((f) => f.resolvedById).filter((x): x is string => Boolean(x))),
+  ];
+
+  const nomes = new Map<string, string>();
+
+  if (idsDeQuemResolveu.length > 0) {
+    const usuarios = await getPrisma().user.findMany({
+      where: { id: { in: idsDeQuemResolveu } },
+      select: { id: true, name: true, email: true },
+    });
+
+    for (const u of usuarios) nomes.set(u.id, u.name || u.email);
+  }
+
+  return NextResponse.json({
+    feedback: feedback.map((f) => ({
+      ...f,
+      resolvedByName: f.resolvedById ? (nomes.get(f.resolvedById) ?? null) : null,
+    })),
+    enabled: true,
+  });
 }
 
 export async function POST(
