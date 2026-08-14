@@ -3246,6 +3246,26 @@ async function executarAuditoria(
       endereco: String(formData.get("gabaritoEndereco") ?? "").trim() || undefined,
     };
     const projectId = String(formData.get("projectId") ?? "").trim() || null;
+
+    /*
+     * SEM PROJETO NÃO AUDITA.
+     *
+     * O caminho anônimo existia porque o Nexo — que virou o único caminho — não
+     * mandava `projectId`, e era ele que produzia parecer sem dono, sem
+     * escritório e sem endereço. É o chão onde nenhum achado atribuível pode
+     * nascer: a fila do Victor, o gate de emissão e a linhagem entre versões
+     * são todos POR PROJETO.
+     *
+     * A auditoria antiga, gravada sem projeto, continua legível — isso é do
+     * portão de LEITURA (`app/api/audits/[id]`), e não daqui. A regra é de
+     * entrada, e olha para a frente.
+     */
+    if (!projectId) {
+      return jsonError(
+        "Informe o projeto desta auditoria: todo parecer pertence a um centro de custo.",
+      );
+    }
+
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
     const conversationIdRaw = formData.get("conversationId");
     const conversationId =
@@ -3322,20 +3342,24 @@ async function executarAuditoria(
         )
       : null;
 
-    if (projectId) {
-      if (!isDatabaseConfigured()) {
-        return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
-      }
+    if (!isDatabaseConfigured()) {
+      return jsonError("DATABASE_URL nao configurada para vincular projeto.", 503);
+    }
 
-      try {
-        await assertProjectAccess(projectId, auditActor ?? {
-          id: actor.userId,
-          email: actor.email,
-          name: actor.name,
-        });
-      } catch {
-        return jsonError("Projeto nao encontrado.", 404);
-      }
+    /*
+     * O `if (projectId)` que existia aqui deixou de ser condicional: o projeto
+     * agora é exigido lá em cima, e este bloco vale sempre. Era ele que
+     * guardava a autenticação da rota, e por isso o caminho sem projeto passava
+     * sem sessão nenhuma.
+     */
+    try {
+      await assertProjectAccess(projectId, auditActor ?? {
+        id: actor.userId,
+        email: actor.email,
+        name: actor.name,
+      });
+    } catch {
+      return jsonError("Projeto nao encontrado.", 404);
     }
 
     const useMockMode = isMockModeEnabled() || (requestMockMode && canUseClientMock);

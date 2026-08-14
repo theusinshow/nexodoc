@@ -67,6 +67,15 @@ export interface MemorialAuditOpcoes {
    * jogar fora os minutos de modelo que já foram pagos.
    */
   auditId?: string;
+  /**
+   * O PROJETO da auditoria. Obrigatorio desde que `/api/audit` passou a exigi-lo:
+   * parecer sem projeto nao tem fila, gate de emissao nem a quem atribuir achado.
+   *
+   * Opcional no TIPO porque quem resolve o endereco e quem chama — ver
+   * [[projeto-da-auditoria.ts]] —, e a rota recusa por conta propria se vier
+   * vazio. Duas guardas, e a do servidor e a que vale.
+   */
+  projectId?: string;
 }
 
 export async function runMemorialAudit(
@@ -109,6 +118,7 @@ export async function runMemorialAudit(
 
   if (opcoes.onMarco) form.append("stream", "1");
   if (opcoes.auditId) form.append("auditId", opcoes.auditId);
+  if (opcoes.projectId) form.append("projectId", opcoes.projectId);
 
   let res: Response;
   try {
