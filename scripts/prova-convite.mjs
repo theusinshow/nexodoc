@@ -106,6 +106,73 @@ check(
   `status ${depois?.status}`,
 );
 
+// --- A OUTRA PORTA: o painel de plataforma.
+//
+// Quem opera a plataforma libera pelo /admin/users, e quem coordena o escritório
+// convida pela rota da organização. São portas diferentes para a MESMA regra —
+// e o que esta parte mede é justamente que produzem o mesmo estado. Se um dia
+// divergirem, alguém vai liberar por uma porta e ficar sem entender por que a
+// outra não vê.
+const PELO_PAINEL = "dora@prosul.com";
+await prisma.organizationMember.deleteMany({ where: { email: PELO_PAINEL } });
+
+const TOKEN = process.env.NEXODOC_ADMIN_TOKEN?.trim() || "teste-local";
+const comoAdmin = {
+  Authorization: `Bearer ${TOKEN}`,
+  "Content-Type": "application/json",
+};
+
+/*
+ * QUEM ABRE ESTA PORTA É OUTRO ATOR.
+ *
+ * O Milton é `ADMIN` do ESCRITÓRIO — coordena a PROSUL, e não opera a
+ * plataforma. `/api/admin/*` exige administrador de PLATAFORMA, e recusá-lo com
+ * 403 é o comportamento certo: são dois eixos, e o painel não é do cliente.
+ *
+ * Sem e-mail, o login dev entra como o do ambiente, que é quem está em
+ * `NEXODOC_ADMIN_EMAILS`.
+ */
+const ctxPlataforma = await browser.newContext({ baseURL: BASE });
+const pPlataforma = await ctxPlataforma.newPage();
+pPlataforma.setDefaultTimeout(25000);
+await entrarComo(pPlataforma, "");
+
+const negadoAoEscritorio = await pMilton.request.post("/api/admin/users/escritorio", {
+  headers: comoAdmin,
+  data: { email: PELO_PAINEL, acao: "liberar" },
+});
+check(
+  "ADMIN do escritorio nao opera o painel da plataforma",
+  negadoAoEscritorio.status() === 403,
+  `status ${negadoAoEscritorio.status()}`,
+);
+
+const liberou = await pPlataforma.request.post("/api/admin/users/escritorio", {
+  headers: comoAdmin,
+  data: { email: PELO_PAINEL, acao: "liberar" },
+});
+check("o painel libera no escritorio", liberou.status() === 201, `status ${liberou.status()}`);
+
+const peloPainel = await prisma.organizationMember.findFirst({ where: { email: PELO_PAINEL } });
+check(
+  "e o estado e o MESMO que o da rota da organizacao",
+  peloPainel?.status === "INVITED" && peloPainel?.userId === null,
+  `status=${peloPainel?.status} userId=${peloPainel?.userId}`,
+);
+
+// Sem o token do admin, a porta do painel não abre — mesmo com sessão válida.
+const semToken = await pPlataforma.request.post("/api/admin/users/escritorio", {
+  data: { email: PELO_PAINEL, acao: "liberar" },
+});
+check("sem o token do admin, o painel recusa", semToken.status() === 401, `status ${semToken.status()}`);
+
+const removeu = await pPlataforma.request.post("/api/admin/users/escritorio", {
+  headers: comoAdmin,
+  data: { email: PELO_PAINEL, acao: "remover" },
+});
+const sumiu = await prisma.organizationMember.count({ where: { email: PELO_PAINEL } });
+check("e remove o vinculo sem apagar a conta", removeu.ok() && sumiu === 0, `${sumiu} vinculo(s)`);
+
 await browser.close();
 console.log(falhas === 0 ? "\nOK  convite" : `\n${falhas} falha(s)`);
 process.exit(falhas === 0 ? 0 : 1);

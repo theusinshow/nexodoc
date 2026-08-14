@@ -67,6 +67,28 @@ function getFilters(request: Request): Prisma.UserWhereInput {
   return where;
 }
 
+/**
+ * O VINCULO COM O ESCRITORIO, ao lado da conta.
+ *
+ * Sao dois eixos, e e bom que sejam: "tem conta no sistema" nao e "e do
+ * escritorio". Conta desativada nao entra em lugar nenhum; membro removido da
+ * PROSUL continua com conta e continua sem ver projeto dela.
+ *
+ * Esta tela mostra os dois porque e daqui que o mantenedor libera alguem -- e
+ * ver so um deles foi o que fez o primeiro teste de verdade terminar num 403
+ * correto e sem saida visivel.
+ */
+async function vinculoDoEscritorio(email: string) {
+  const membro = await getPrisma().organizationMember.findFirst({
+    where: { email },
+    select: { role: true, status: true, organizationId: true },
+  });
+
+  return membro
+    ? { role: membro.role, status: membro.status, organizationId: membro.organizationId }
+    : null;
+}
+
 async function serializeUser(user: {
   id: string;
   name: string;
@@ -78,9 +100,10 @@ async function serializeUser(user: {
   _count?: { audits: number; sessions: number };
 }) {
   const prisma = getPrisma();
-  const [ldDraftCount, ldGeneratedCount] = await Promise.all([
+  const [ldDraftCount, ldGeneratedCount, escritorio] = await Promise.all([
     prisma.ldDraft.count({ where: { userEmail: user.email } }),
     prisma.ldDraft.count({ where: { userEmail: user.email, status: "GENERATED" } }),
+    vinculoDoEscritorio(user.email),
   ]);
 
   return {
@@ -89,6 +112,7 @@ async function serializeUser(user: {
     email: user.email,
     role: user.role,
     isActive: user.isActive,
+    escritorio,
     auditCount: user._count?.audits ?? 0,
     sessionCount: user._count?.sessions ?? 0,
     ldDraftCount,
