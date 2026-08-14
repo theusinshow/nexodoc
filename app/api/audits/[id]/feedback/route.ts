@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
+import {
+  DesfechoInvalido,
+  gravacaoDoDesfecho,
+  type GravacaoDoDesfecho,
+} from "@/lib/desfecho-do-achado";
 
 export const runtime = "nodejs";
 
@@ -72,8 +78,9 @@ export async function POST(
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -101,10 +108,37 @@ export async function POST(
     verdict?: string;
     /** Corrigido no memorial. Independente do veredito — ver o schema. */
     resolved?: boolean;
+    /** COMO foi encerrado — ver [[lib/desfecho-do-achado.ts]]. */
+    resolutionKind?: string;
     note?: string;
   };
   const verdict = parseVerdict(body.verdict);
   const temResolvido = typeof body.resolved === "boolean";
+
+  /*
+   * O DESFECHO é a terceira coisa que esta rota grava — e ela continua sendo
+   * UMA rota porque tudo mora na MESMA LINHA. Uma rota separada para resolver
+   * faria duas escritas concorrentes no mesmo registro, e a última a chegar
+   * apagaria o que a outra tinha acabado de decidir.
+   *
+   * Quem julga se o desfecho é válido é o núcleo puro, e não esta rota: a regra
+   * da nota obrigatória precisa valer para qualquer caminho que grave, e ter
+   * teste que roda sem banco.
+   */
+  let desfecho: GravacaoDoDesfecho | null = null;
+
+  if (body.resolutionKind !== undefined) {
+    try {
+      desfecho = gravacaoDoDesfecho({
+        desfecho: String(body.resolutionKind),
+        note: typeof body.note === "string" ? body.note : undefined,
+        agora: new Date(),
+      });
+    } catch (err) {
+      if (err instanceof DesfechoInvalido) return jsonError(err.motivo);
+      throw err;
+    }
+  }
 
   /*
    * DUAS PERGUNTAS, UMA ROTA. O veredito julga a auditoria ("procede?"); o
@@ -112,8 +146,8 @@ export async function POST(
    * comum — quem marca corrigido não está, com isso, avaliando o motor.
    * Recusar só quando não vier nenhum: aí a requisição não pede nada.
    */
-  if (!verdict && !temResolvido) {
-    return jsonError("Informe a avaliação do achado ou se ele foi corrigido.");
+  if (!verdict && !temResolvido && !desfecho) {
+    return jsonError("Informe a avaliação do achado, o desfecho, ou se ele foi corrigido.");
   }
 
   if (body.verdict !== undefined && !verdict) {
@@ -147,9 +181,17 @@ export async function POST(
     findingId: findingId || null,
     findingLabel: String(body.findingLabel ?? "").trim().slice(0, 160) || null,
     page: String(body.page ?? "").trim().slice(0, 80) || null,
-    verdict,
-    resolvedAt: resolvedAt ?? null,
-    note,
+    /*
+     * O DESFECHO VENCE, quando vem. Ele já embute o veredito no caso do falso
+     * positivo, e sua nota já foi aparada e validada pelo núcleo puro — usar o
+     * `note` cru aqui desfaria a validação que acabou de acontecer.
+     */
+    verdict: desfecho?.verdict ?? verdict,
+    resolvedAt: desfecho ? desfecho.resolvedAt : (resolvedAt ?? null),
+    note: desfecho ? desfecho.note : note,
+    ...(desfecho
+      ? { resolutionKind: desfecho.resolutionKind, resolvedById: actor.userId }
+      : {}),
   };
 
   const feedback =
@@ -171,6 +213,20 @@ export async function POST(
             ...(verdict ? { verdict } : {}),
             ...(resolvedAt !== undefined ? { resolvedAt } : {}),
             ...(body.note !== undefined ? { note } : {}),
+            /*
+             * O desfecho sobrescreve por último, e de propósito: quando ele vem,
+             * é a decisão mais recente sobre o achado. A nota só é gravada se o
+             * desfecho trouxe uma — senão apagaria a que já estava lá.
+             */
+            ...(desfecho
+              ? {
+                  resolutionKind: desfecho.resolutionKind,
+                  resolvedAt: desfecho.resolvedAt,
+                  resolvedById: actor.userId,
+                  ...(desfecho.verdict ? { verdict: desfecho.verdict } : {}),
+                  ...(desfecho.note ? { note: desfecho.note } : {}),
+                }
+              : {}),
           },
         });
 
