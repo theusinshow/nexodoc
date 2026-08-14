@@ -18,6 +18,8 @@
     "diag:cc": "node scripts/diagnostico-de-centros-de-custo.ts",
     "backfill:escritorio": "node scripts/backfill-escritorio.ts",
     "test:portao": "node scripts/test-portao-de-acesso.ts",
+    "test:resolucao": "node scripts/test-resolucao-de-projeto.ts",
+    "prova:rotas": "node scripts/prova-nenhuma-rota-aberta.mjs",
     "test:audit": "node scripts/test-audit-consistency.ts",
     "test:audit:metrics": "node scripts/audit-precision-recall.ts",
     "test:ld": "node scripts/test-ld-rules.ts",
