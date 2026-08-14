@@ -1707,7 +1707,25 @@ git commit -m "auditoria: sem projeto nao audita, e o Nexo diz qual e"
 
 ---
 
-## Task 14: `lib/audit-store.ts`, para o achado não nascer numa rota de 3.849 linhas
+## Task 14: ~~`lib/audit-store.ts`~~ — DESNECESSÁRIA, já existia
+
+> **Corrigido na execução (13/08/2026).** `lib/audit-persistence.ts` já existe,
+> com 198 linhas, e já faz exatamente o que esta tarefa mandava criar:
+> `createPendingAudit`, `persistCompletedAudit`, `persistFailedAudit`. A rota
+> **não** grava a auditoria inline — eu é que presumi isso ao escrever o plano,
+> sem ter procurado.
+>
+> Criar `lib/audit-store.ts` seria um segundo módulo com a mesma
+> responsabilidade, e dois lugares para gravar auditoria é pior do que a rota
+> gigante que a tarefa queria evitar.
+>
+> **O que foi feito no lugar, e é a única parte que valia:** o cabeçalho de
+> `lib/audit-persistence.ts` agora diz que `persistCompletedAudit` é o gancho da
+> materialização de `FindingOccurrence`. A tentação de plantar isso dentro da
+> rota é real, e quem chegar depois merece achar o endereço certo antes de
+> escolher o errado.
+
+## Task 14 (original): `lib/audit-store.ts`, para o achado não nascer numa rota de 3.849 linhas
 
 **Files:**
 - Create: `lib/audit-store.ts`

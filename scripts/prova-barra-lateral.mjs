@@ -13,9 +13,31 @@
 // deixaria passar — tamanho computado do texto, caixa contra a janela, e se o
 // menu que "abre para cima" realmente cabe na tela.
 import { chromium } from "playwright";
+import nextEnv from "@next/env";
 import { pularTourGuiado } from "./lib/sessao-de-teste.mjs";
 import fs from "node:fs";
 import path from "node:path";
+
+/*
+ * O SERVIDOR TAMBÉM CONTA, desde que esta máquina passou a ter banco.
+ *
+ * A prova semeia seis conversas no IndexedDB e confere que a barra mostra seis.
+ * Isso valia quando não havia `DATABASE_URL` aqui: sem banco, `/api/nexo/conversas`
+ * devolvia lista vazia e a semeadura era tudo que existia. Com banco, a barra
+ * sincroniza o que já está gravado e o total passa a incluir conversas de
+ * execuções anteriores — a prova quebrava sem que nada da barra tivesse mudado.
+ *
+ * Limpar antes é o que devolve a determinação: a asserção é sobre o que ESTA
+ * prova semeou, e não sobre o histórico da máquina.
+ */
+nextEnv.loadEnvConfig(process.cwd());
+
+if (process.env.DATABASE_URL) {
+  const { getPrisma, isDatabaseConfigured } = await import("../lib/db.ts");
+  if (isDatabaseConfigured()) {
+    await getPrisma().nexoConversation.deleteMany({});
+  }
+}
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = process.env.PROVA_OUT ?? "docs/provas/barra-lateral";
