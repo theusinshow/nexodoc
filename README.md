@@ -487,11 +487,40 @@ Acesse:
 http://localhost:3000
 ```
 
-### Banco local
+### Banco de desenvolvimento
 
 Sem banco, as rotas respondem 503 e as provas que tocam Postgres nao tem o que
 medir — e por isso `scripts/prova-validacao-do-achado.mjs` intercepta a rota em
-vez de gravar. Para ter um de verdade nesta maquina:
+vez de gravar.
+
+**O que nao serve: apontar o `.env.local` para `neondb`.** Aquele e o banco de
+PRODUCAO. Ate 14/08/2026 era exatamente o que estava configurado, e o resultado
+foi conta de desenvolvimento (`dev@nexodoc.local`) virando ADMIN do escritorio
+no banco do ar. A guarda do `seed:dev` e `NODE_ENV`, e ela nao ve problema
+nenhum quando a maquina e de dev e so o BANCO e de producao.
+
+#### Sem direito de administrador na maquina — banco separado no mesmo Neon
+
+Foi o caminho adotado. Nao instala nada, e a role `neondb_owner` ja tem
+`CREATEDB`:
+
+```bash
+# CREATE DATABASE nao passa pelo pooler: tire o "-pooler" do host para esta
+# chamada, e so para ela.
+psql "<DATABASE_URL sem -pooler>" -c "CREATE DATABASE nexodoc_dev"
+```
+
+Depois, no `.env.local`, `DATABASE_URL` aponta para `/nexodoc_dev` e a URL de
+producao fica na linha comentada logo abaixo. Entao:
+
+```bash
+npx prisma migrate deploy && npm run seed:dev
+```
+
+Isolamento de DADO, que era o problema. Nao e isolamento de COMPUTE: o Neon e o
+mesmo, e consulta pesada em dev divide processador com producao.
+
+#### Com direito de administrador — Postgres nesta maquina
 
 ```powershell
 winget install --id PostgreSQL.PostgreSQL.17 --exact --silent `
@@ -510,11 +539,19 @@ $env:PGPASSWORD = "postgres"
 ```
 
 E entao, com `DATABASE_URL="postgresql://nexodoc:nexodoc@localhost:5432/nexodoc"`
-no `.env`:
+**no `.env.local`, e nao no `.env`**: o Next da precedencia ao `.env.local`, e
+uma URL de producao esquecida la venceria a de desenvolvimento sem avisar.
 
 ```bash
 npm run db:migrate
 ```
+
+#### Backup antes de mexer
+
+`npm run db:backup` usa `pg_dump`, que pode nao existir na maquina — e le
+`DATABASE_URL` do shell, nao do `.env.local`. Quando ele nao rodar, use
+`npm run db:backup:json`, que passa por Prisma e carrega o env do Next. Nao
+guarda schema nem indices, so as linhas; e o suficiente para desfazer um reset.
 
 Producao e outra coisa: e Neon (ver `render.yaml`), e ensaio de migracao se faz
 em BRANCH do Neon, nao em dump restaurado aqui — a copia sai instantanea e o
