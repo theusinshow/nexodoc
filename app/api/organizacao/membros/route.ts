@@ -30,7 +30,7 @@ export async function GET() {
 
     const membros = await getPrisma().organizationMember.findMany({
       where: { organizationId: actor.organizationId },
-      select: { id: true, email: true, name: true, role: true, status: true },
+      select: { id: true, email: true, name: true, role: true, status: true, grupo: true },
       orderBy: [{ role: "asc" }, { email: "asc" }],
     });
 

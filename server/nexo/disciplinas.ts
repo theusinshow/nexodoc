@@ -26,6 +26,30 @@
  * individual E um nome de par.
  */
 
+/**
+ * OS GRUPOS TÉCNICOS do escritório — quem responde pela disciplina.
+ *
+ * Vieram da tabela que o escritório padronizou (`docs/samples/`, 14/08/2026).
+ * `orcamento` e `diretoria` não têm disciplina nenhuma: existem porque há GENTE
+ * neles, e o grupo também classifica pessoa.
+ */
+export type GrupoTecnico =
+  | "arquitetura"
+  | "estrutural"
+  | "complementares"
+  | "orcamento"
+  | "externo"
+  | "diretoria";
+
+export const GRUPOS_TECNICOS: Record<GrupoTecnico, string> = {
+  arquitetura: "Arquitetura",
+  estrutural: "Estrutural",
+  complementares: "Complementares",
+  orcamento: "Orçamento",
+  externo: "Externo",
+  diretoria: "Diretoria",
+};
+
 export interface NomesDaDisciplina {
   /** Chips, canvas, resumo — o nome curto de tela. */
   ui: string;
@@ -33,58 +57,79 @@ export interface NomesDaDisciplina {
   capa: string;
   /** A SEPARATRIZ e o título da LD. */
   documento: string;
+  /** Quem responde por ela. */
+  grupo: GrupoTecnico;
+  /**
+   * AS EXCEÇÕES, e não três "sim" repetidos dezesseis vezes.
+   *
+   * A tabela do escritório traz `tem_ld`, `tem_separatriz` e `tem_capa` por
+   * disciplina — e hoje elas carregam UMA regra só: sondagem não tem lista de
+   * documentos. Escrever `temLd: true` em quinze linhas para marcar uma
+   * exceção esconde justamente a exceção, que é o que alguém precisa enxergar
+   * ao ler a tabela.
+   *
+   * Quando surgir a segunda, ela entra do mesmo jeito — como negativa explícita.
+   */
+  semLd?: true;
+  semSeparatriz?: true;
+  semCapa?: true;
 }
 
 export const DISCIPLINAS: Record<string, NomesDaDisciplina> = {
   // ---------------------------------------------------- Arquitetura / estrutura
-  arq: { ui: "Arquitetônico", capa: "PROJETO ARQUITETÔNICO", documento: "PROJETO ARQUITETÔNICO" },
-  urb: { ui: "Urbanismo", capa: "PROJETO DE URBANIZAÇÃO", documento: "PROJETO DE URBANIZAÇÃO" },
-  psg: { ui: "Paisagismo", capa: "PROJETO DE PAISAGISMO", documento: "PROJETO DE PAISAGISMO" },
-  mqt: { ui: "Maquete", capa: "MAQUETE ELETRÔNICA", documento: "MAQUETE ELETRÔNICA" },
-  fnd: { ui: "Fundações", capa: "PROJETO DE FUNDAÇÕES", documento: "PROJETO DE FUNDAÇÕES" },
-  est: { ui: "Estrutural", capa: "PROJETO ESTRUTURAL CONCRETO", documento: "PROJETO ESTRUTURAL CONCRETO" },
-  met: { ui: "Estrutura metálica", capa: "PROJETO ESTRUTURAL METÁLICO", documento: "PROJETO ESTRUTURAL METÁLICO" },
+  arq: { ui: "Arquitetônico", capa: "PROJETO ARQUITETÔNICO", documento: "PROJETO ARQUITETÔNICO", grupo: "arquitetura" },
+  urb: { ui: "Urbanismo", capa: "PROJETO DE URBANIZAÇÃO", documento: "PROJETO DE URBANIZAÇÃO", grupo: "arquitetura" },
+  psg: { ui: "Paisagismo", capa: "PROJETO DE PAISAGISMO", documento: "PROJETO DE PAISAGISMO", grupo: "arquitetura" },
+  mqt: { ui: "Maquete", capa: "MAQUETE ELETRÔNICA", documento: "MAQUETE ELETRÔNICA", grupo: "arquitetura" },
+  fnd: { ui: "Fundações", capa: "PROJETO DE FUNDAÇÕES", documento: "PROJETO DE FUNDAÇÕES", grupo: "estrutural" },
+  est: { ui: "Estrutural", capa: "PROJETO ESTRUTURAL CONCRETO", documento: "PROJETO ESTRUTURAL CONCRETO", grupo: "estrutural" },
+  met: { ui: "Estrutura metálica", capa: "PROJETO ESTRUTURAL METÁLICO", documento: "PROJETO ESTRUTURAL METÁLICO", grupo: "estrutural" },
 
   // ------------------------------------------------------------------ Instalações
-  elt: { ui: "Elétrico", capa: "PROJETO ELÉTRICO", documento: "PROJETO DE INSTALAÇÕES ELÉTRICAS" },
-  ele: { ui: "Elétrico", capa: "PROJETO ELÉTRICO", documento: "PROJETO DE INSTALAÇÕES ELÉTRICAS" },
+  elt: { ui: "Elétrico", capa: "PROJETO ELÉTRICO", documento: "PROJETO DE INSTALAÇÕES ELÉTRICAS", grupo: "complementares" },
+  ele: { ui: "Elétrico", capa: "PROJETO ELÉTRICO", documento: "PROJETO DE INSTALAÇÕES ELÉTRICAS", grupo: "complementares" },
   cab: {
     ui: "Cabeamento estruturado",
     capa: "PROJETO DE CABEAMENTO ESTRUTURADO",
     documento: "PROJETO DE INSTALAÇÕES DE CABEAMENTO ESTRUTURADO",
+    grupo: "complementares",
   },
-  cft: { ui: "CFTV", capa: "PROJETO DE CFTV", documento: "PROJETO DE CFTV" },
-  cftv: { ui: "CFTV", capa: "PROJETO DE CFTV", documento: "PROJETO DE CFTV" },
+  cft: { ui: "CFTV", capa: "PROJETO DE CFTV", documento: "PROJETO DE CFTV", grupo: "complementares" },
+  cftv: { ui: "CFTV", capa: "PROJETO DE CFTV", documento: "PROJETO DE CFTV", grupo: "complementares" },
   his: {
     ui: "Hidrossanitário",
     capa: "PROJETO HIDROSSANITÁRIO",
     documento: "PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS",
+    grupo: "complementares",
   },
   inc: {
     ui: "Preventivo contra incêndio",
     capa: "PROJETO PREVENTIVO",
     documento: "PROJETO PREVENTIVO CONTRA INCÊNDIO",
+    grupo: "complementares",
   },
   spd: {
     ui: "SPDA",
     capa: "PROJETO SPDA",
     documento: "PROJETO DE SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS",
+    grupo: "complementares",
   },
-  cli: { ui: "Climatização", capa: "PROJETO DE CLIMATIZAÇÃO", documento: "PROJETO DE CLIMATIZAÇÃO" },
-  gme: { ui: "Gases medicinais", capa: "PROJETO DE GASES MEDICINAIS", documento: "PROJETO DE GASES MEDICINAIS" },
+  cli: { ui: "Climatização", capa: "PROJETO DE CLIMATIZAÇÃO", documento: "PROJETO DE CLIMATIZAÇÃO", grupo: "externo" },
+  gme: { ui: "Gases medicinais", capa: "PROJETO DE GASES MEDICINAIS", documento: "PROJETO DE GASES MEDICINAIS", grupo: "complementares" },
 
   // ---------------------------------------------------------------- Terra / infra
-  top: { ui: "Topografia", capa: "LEVANTAMENTO TOPOGRÁFICO", documento: "LEVANTAMENTO TOPOGRÁFICO" },
-  snd: { ui: "Sondagem", capa: "SONDAGEM", documento: "SONDAGEM" },
+  top: { ui: "Topografia", capa: "LEVANTAMENTO TOPOGRÁFICO", documento: "LEVANTAMENTO TOPOGRÁFICO", grupo: "externo" },
+  snd: { ui: "Sondagem", capa: "SONDAGEM", documento: "SONDAGEM", grupo: "externo", semLd: true },
   lev: {
     ui: "Levantamento",
     capa: "LEVANTAMENTO ARQUITETÔNICO",
     documento: "PROJETO DE LEVANTAMENTO ARQUITETÔNICO",
+    grupo: "arquitetura",
   },
-  gmt: { ui: "Geométrico", capa: "DESENHO GEOMÉTRICO", documento: "DESENHO GEOMÉTRICO" },
-  ter: { ui: "Terraplenagem", capa: "PROJETO DE TERRAPLENAGEM", documento: "PROJETO DE TERRAPLENAGEM" },
-  dre: { ui: "Drenagem", capa: "PROJETO DE DRENAGEM", documento: "PROJETO DE DRENAGEM" },
-  pav: { ui: "Pavimentação", capa: "PROJETO DE PAVIMENTAÇÃO", documento: "PROJETO DE PAVIMENTAÇÃO" },
+  gmt: { ui: "Geométrico", capa: "DESENHO GEOMÉTRICO", documento: "DESENHO GEOMÉTRICO", grupo: "externo" },
+  ter: { ui: "Terraplenagem", capa: "PROJETO DE TERRAPLENAGEM", documento: "PROJETO DE TERRAPLENAGEM", grupo: "externo" },
+  dre: { ui: "Drenagem", capa: "PROJETO DE DRENAGEM", documento: "PROJETO DE DRENAGEM", grupo: "externo" },
+  pav: { ui: "Pavimentação", capa: "PROJETO DE PAVIMENTAÇÃO", documento: "PROJETO DE PAVIMENTAÇÃO", grupo: "externo" },
 };
 
 /**
@@ -135,4 +180,74 @@ export function nomeNaCapa(code: string): string | undefined {
 /** Como a disciplina sai na SEPARATRIZ e no título da LD. */
 export function nomeNoDocumento(code: string): string | undefined {
   return DISCIPLINAS[code.toLowerCase()]?.documento;
+}
+
+/**
+ * OITO CÓDIGOS SEM GRUPO NA TABELA DO ESCRITÓRIO, e o grupo deles aqui é
+ * INFERÊNCIA MINHA — não decisão de quem assina o projeto.
+ *
+ * A tabela padronizada traz 16 dos 24 códigos do léxico. Os que faltam foram
+ * classificados por família óbvia (`fnd` com estrutural) ou por serem alias de
+ * um código que a tabela já traz (`ele` = `elt`, `cftv` = `cft`).
+ *
+ * Está registrado porque a diferença importa no dia em que alguém discordar:
+ * um grupo vindo da tabela é decisão do escritório; um daqui é chute educado, e
+ * corrigir o segundo não contraria ninguém.
+ */
+export const GRUPO_INFERIDO = new Set(["ele", "cftv", "gme", "fnd", "lev", "gmt", "ter", "pav"]);
+
+/** De que grupo técnico é esta disciplina. */
+export function grupoDaDisciplina(code: string): GrupoTecnico | undefined {
+  return DISCIPLINAS[code.toLowerCase()]?.grupo;
+}
+
+/**
+ * A disciplina gera lista de documentos?
+ *
+ * Desconhecida responde SIM: o léxico não é exaustivo — chega código novo em
+ * nome de arquivo antes de alguém cadastrá-lo — e o custo dos dois erros é
+ * assimétrico. Gerar uma LD a mais é uma aba que se fecha; deixar de gerar a de
+ * uma disciplina real é um documento faltando no volume entregue.
+ */
+export function temLd(code: string): boolean {
+  return DISCIPLINAS[code.toLowerCase()]?.semLd !== true;
+}
+
+/** A disciplina tem separatriz? Mesma regra do `temLd`. */
+export function temSeparatriz(code: string): boolean {
+  return DISCIPLINAS[code.toLowerCase()]?.semSeparatriz !== true;
+}
+
+/** A disciplina tem capa? Mesma regra do `temLd`. */
+export function temCapa(code: string): boolean {
+  return DISCIPLINAS[code.toLowerCase()]?.semCapa !== true;
+}
+
+/**
+ * Da disciplina do ACHADO (`FindingDiscipline`, que é o vocabulário da
+ * auditoria) para o grupo técnico.
+ *
+ * São dois vocabulários mesmo, e juntá-los seria pior: o do achado é derivado
+ * de texto e tem dez valores largos ("hidrossanitario"); o do léxico é o código
+ * de três letras que aparece no nome do arquivo. Este mapa é a ponte, e ela é
+ * pequena o bastante para ser lida de uma vez.
+ *
+ * `geral` NÃO tem grupo, e é o caso mais comum: a disciplina do achado sai de
+ * varredura de texto e cai em `geral` quando nada casa. Quem consome isto
+ * precisa continuar funcionando sem grupo.
+ */
+export function grupoDaDisciplinaDoAchado(disciplina: string): GrupoTecnico | undefined {
+  const mapa: Record<string, GrupoTecnico> = {
+    arquitetura: "arquitetura",
+    paisagismo: "arquitetura",
+    acessibilidade: "arquitetura",
+    estrutural: "estrutural",
+    hidrossanitario: "complementares",
+    eletrico: "complementares",
+    ppci: "complementares",
+    cabeamento: "complementares",
+    terraplenagem: "externo",
+  };
+
+  return mapa[disciplina];
 }

@@ -167,6 +167,15 @@ model OrganizationMember {
   name           String?
   role           OrganizationRole         @default(MEMBER)
   status         OrganizationMemberStatus @default(ACTIVE)
+  /// O GRUPO TÉCNICO da pessoa — arquitetura, estrutural, complementares,
+  /// orçamento, externo, diretoria. Texto, e não enum: a lista é do ESCRITÓRIO
+  /// (`server/nexo/disciplinas.ts`), e um enum no banco exigiria migration toda
+  /// vez que a PROSUL criasse uma equipe.
+  ///
+  /// Nulo é estado legítimo: quem foi convidado à mão não declara grupo, e a
+  /// tela que usa isto — a lista de quem recebe um achado — apenas deixa de
+  /// ordenar por afinidade. Nunca esconde ninguém.
+  grupo          String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)

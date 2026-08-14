@@ -58,6 +58,10 @@ import {
   paginasDoAchado,
   rotuloDePaginas,
 } from "@/lib/paginas-do-achado";
+import {
+  GRUPOS_TECNICOS,
+  grupoDaDisciplinaDoAchado,
+} from "@/server/nexo/disciplinas";
 import { cn } from "@/lib/utils";
 
 // Visor de PDF só no cliente (react-pdf não faz SSR).
@@ -1145,7 +1149,7 @@ export function AuditResult({
   const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set<string>());
   const [destinatario, setDestinatario] = useState("");
   const [membros, setMembros] = useState<
-    { email: string; name: string | null; status: string }[]
+    { email: string; name: string | null; status: string; grupo?: string | null }[]
   >([]);
   const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
@@ -1253,6 +1257,32 @@ export function AuditResult({
 
     return disciplineOrder.indexOf(findingDiscipline(a)) - disciplineOrder.indexOf(findingDiscipline(b));
   });
+  /*
+   * O GRUPO TÉCNICO DOS ACHADOS SELECIONADOS — para a lista de quem recebe
+   * começar por quem responde pela disciplina.
+   *
+   * SÓ QUANDO OS SELECIONADOS CONCORDAM. Enviar em lote é comum, e quatro
+   * achados de disciplinas diferentes não têm um dono só: sugerir o grupo do
+   * primeiro seria palpite disfarçado de ajuda, e o palpite erraria em três dos
+   * quatro. Discordando, a lista fica na ordem normal.
+   */
+  const grupoDoEnvio = (() => {
+    if (selecionados.size === 0) return undefined;
+
+    const grupos = new Set(
+      [...filteredPrincipal, ...suggestionFindings]
+        .filter((f) => f.refId && selecionados.has(f.refId))
+        .map((f) => grupoDaDisciplinaDoAchado(findingDiscipline(f))),
+    );
+
+    if (grupos.size !== 1) return undefined;
+
+    return [...grupos][0];
+  })();
+
+  const membrosDoGrupo = grupoDoEnvio ? membros.filter((m) => m.grupo === grupoDoEnvio) : [];
+  const membrosDeFora = grupoDoEnvio ? membros.filter((m) => m.grupo !== grupoDoEnvio) : membros;
+
   const impactCount = (impact: FindingImpact) =>
     filteredPrincipal.filter((finding) => findingImpactBucket(finding) === impact).length;
   // Continua alimentando os chips de filtro por disciplina.
@@ -3070,12 +3100,47 @@ export function AuditResult({
                       className="h-9 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-primary"
                     >
                       <option value="">Enviar para…</option>
-                      {membros.map((m) => (
-                        <option key={m.email} value={m.email}>
-                          {m.name ?? m.email}
-                          {m.status === "INVITED" ? " (convidado)" : ""}
-                        </option>
-                      ))}
+                      {/*
+                        QUEM RESPONDE PELA DISCIPLINA VEM PRIMEIRO — e ninguém
+                        some da lista.
+
+                        Achado de hidrossanitário é de complementares, e caçar o
+                        nome certo numa lista de 31 pessoas é o atrito que esta
+                        ordenação tira. FILTRAR seria o caminho óbvio e seria
+                        errado: a disciplina do achado sai de varredura de texto
+                        e cai em "geral" quando nada casa — com filtro, esses
+                        achados mostrariam uma lista vazia e não haveria como
+                        enviar nada.
+
+                        Sem grupo reconhecido, a ordem é a que veio do servidor.
+                      */}
+                      {grupoDoEnvio ? (
+                        <>
+                          <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
+                            {membrosDoGrupo.map((m) => (
+                              <option key={m.email} value={m.email}>
+                                {m.name ?? m.email}
+                                {m.status === "INVITED" ? " (convidado)" : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Resto do escritório">
+                            {membrosDeFora.map((m) => (
+                              <option key={m.email} value={m.email}>
+                                {m.name ?? m.email}
+                                {m.status === "INVITED" ? " (convidado)" : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </>
+                      ) : (
+                        membros.map((m) => (
+                          <option key={m.email} value={m.email}>
+                            {m.name ?? m.email}
+                            {m.status === "INVITED" ? " (convidado)" : ""}
+                          </option>
+                        ))
+                      )}
                     </select>
 
                     <Button
