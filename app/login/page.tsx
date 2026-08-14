@@ -148,7 +148,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                     name="email"
                     type="email"
                     autoComplete="off"
-                    placeholder={devUser?.email ?? "e-mail"}
+                    placeholder="entrar como outra pessoa"
                     className="login-dev-email-input"
                   />
                   <Button type="submit" variant="outline" className="w-full">
