@@ -13,8 +13,20 @@ import {
 import { validateBatchAssembly } from "@/modules/volume-builder/lib/volume/volume-validator";
 import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export async function POST(request: NextRequest) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   try {
     await refreshAiModelOverrideCache();
     const body = await request.json();

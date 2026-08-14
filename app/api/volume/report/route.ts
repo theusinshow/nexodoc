@@ -9,8 +9,20 @@ import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/vol
 import { generateMarkdownReport } from "@/modules/volume-builder/lib/pdf/generate-markdown-report";
 import { generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
 import { volumeOptions, withVolumeCors } from "@/app/api/volume/_shared/cors";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export async function POST(request: NextRequest) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   try {
     const body = await request.json();
 

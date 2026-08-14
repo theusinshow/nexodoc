@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { deleteAuditLearning, updateAuditLearning } from "@/lib/audit-learnings";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,17 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   try {
     const { id } = await context.params;
     const body = (await request.json()) as Record<string, unknown>;
@@ -78,6 +90,17 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   const { id } = await context.params;
   const deleted = await deleteAuditLearning(id);
 

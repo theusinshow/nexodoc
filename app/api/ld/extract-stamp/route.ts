@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai-providers";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 type StampExtraction = {
   disciplina: string | null;
@@ -430,6 +431,17 @@ function asAttempt(failure: SafeProviderFailure) {
 }
 
 export async function POST(request: Request) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   await refreshAiModelOverrideCache();
 
   const session = await auth();

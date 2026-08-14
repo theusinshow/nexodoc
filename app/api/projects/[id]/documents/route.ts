@@ -5,6 +5,7 @@ import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { assertProjectAccess, createProjectDocument, getUserActor, normalizeEmail } from "@/lib/project-store";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,21 @@ export async function GET(
 
   if (!user) {
     return NextResponse.json({ error: "Autenticacao necessaria." }, { status: 401 });
+  }
+
+  /*
+   * O PORTAO, DEPOIS da identidade.
+   *
+   * `getUserIdentity` continua porque o resto do arquivo usa `user.email` para
+   * falar com `lib/project-store.ts`, e ela estreita o tipo. Mas ela so
+   * respondia "tem sessao?" -- pertencer a um escritorio nunca foi perguntado.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
   }
 
   if (!isDatabaseConfigured()) {
@@ -86,6 +102,21 @@ export async function POST(
 
   if (!user) {
     return NextResponse.json({ error: "Autenticacao necessaria." }, { status: 401 });
+  }
+
+  /*
+   * O PORTAO, DEPOIS da identidade.
+   *
+   * `getUserIdentity` continua porque o resto do arquivo usa `user.email` para
+   * falar com `lib/project-store.ts`, e ela estreita o tipo. Mas ela so
+   * respondia "tem sessao?" -- pertencer a um escritorio nunca foi perguntado.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
   }
 
   if (!isDatabaseConfigured()) {

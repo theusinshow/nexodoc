@@ -2,6 +2,7 @@ import { AuditFeedbackVerdict } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,17 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   if (!isFeedbackEnabled() || !isDatabaseConfigured()) {
     return NextResponse.json({ feedback: [], enabled: false });
   }
@@ -57,6 +69,17 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  /*
+   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   if (!isFeedbackEnabled()) {
     return jsonError("Feedback público desabilitado neste ambiente.", 403);
   }
