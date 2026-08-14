@@ -154,19 +154,35 @@ try {
    * barra MANDA — clicar em cada aba troca o conteúdo — e que não sobrou um
    * segundo seletor de vista dentro do parecer, que era a hierarquia dupla.
    */
+  /*
+   * "PARECER", e não "Relatório": a vista foi renomeada em 13/08/2026 (commit
+   * 9074032, o do léxico) e esta prova ficou para trás — ela procurava um botão
+   * que não existe mais e morria no clique, sem chegar em nenhuma das medidas
+   * seguintes. Não estava no `prova:tudo`, então ninguém viu.
+   *
+   * E a prova PASSA A EXIGIR as quatro, em vez de só listar as que achou. Era o
+   * que a deixava mentir por omissão: ela imprimia "as quatro vistas na barra:
+   * Resumo, Achados, No documento" — três — e seguia como se estivesse tudo bem.
+   */
   const aba = (nome) => page.getByRole("button", { name: nome }).first();
-  const vistas = ["Resumo", "Achados", "Relatório", "No documento"];
+  const vistas = ["Resumo", "Achados", "Parecer", "No documento"];
   const achou = [];
   for (const v of vistas) achou.push((await aba(new RegExp(`^${v}`, "i")).count()) > 0);
   console.log("\n  BARRA DE VISTAS:");
   console.log(`    as quatro vistas na barra: ${vistas.filter((_, i) => achou[i]).join(", ")}`);
 
+  const faltando = vistas.filter((_, i) => !achou[i]);
+  if (faltando.length > 0) {
+    console.error(`    FALHOU: vista(s) fora da barra: ${faltando.join(", ")}`);
+    process.exitCode = 1;
+  }
+
   await aba(/^Achados/i).click();
   await page.waitForTimeout(700);
   const emAchados = await page.locator("[data-achado]").count();
-  await aba(/^Relatório/i).click();
+  await aba(/^Parecer/i).click();
   await page.waitForTimeout(700);
-  const emRelatorio = await page.locator("[data-achado]").count();
+  const emParecer = await page.locator("[data-achado]").count();
   /*
    * O VISOR DE PDF DO ÚLTIMO ACHADO.
    *
@@ -215,7 +231,24 @@ try {
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${OUT}/piscando-0-barra-de-vistas.png` });
   console.log(`    Achados mostra os cartões:  ${emAchados} cartão(ões)`);
-  console.log(`    Relatório troca o conteúdo: ${emRelatorio === 0 ? "sim" : "NÃO"}`);
+  console.log(`    Parecer troca o conteúdo:   ${emParecer === 0 ? "sim" : "NÃO"}`);
+
+  /*
+   * As duas viraram FALHA, e eram só um `console.log`.
+   *
+   * "A barra manda" é o que esta prova existe para provar, e ela dizia isso num
+   * texto que ninguém lê num terminal de 200 linhas. Zero cartão em Achados, ou
+   * cartão sobrando no Parecer, é a barra NÃO mandando — e o script saía 0.
+   */
+  if (emAchados === 0) {
+    console.error("    FALHOU: a vista Achados não mostrou cartão nenhum.");
+    process.exitCode = 1;
+  }
+
+  if (emParecer !== 0) {
+    console.error(`    FALHOU: a vista Parecer ainda mostra ${emParecer} cartão(ões).`);
+    process.exitCode = 1;
+  }
   // O controle segmentado antigo (Resumo/Achados/Relatório dentro do parecer)
   // não pode coexistir com a barra: é a hierarquia dupla que se foi.
   const tituloAntigo = await page.getByText("Resultado da auditoria", { exact: true }).count();
