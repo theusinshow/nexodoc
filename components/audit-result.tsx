@@ -200,6 +200,8 @@ type SavedFeedback = {
   note: string;
   /** Com quem o achado está. Nulo = não foi enviado a ninguém. */
   assigneeEmail: string | null;
+  /** O nome dessa pessoa, quando o escritório o conhece; senão, o e-mail. */
+  assigneeName: string | null;
   /** COMO foi encerrado — ver [[lib/desfecho-do-achado.ts]]. */
   resolutionKind: DesfechoDoAchado | null;
   /** Quem encerrou, já resolvido em nome pela rota. */
@@ -1255,7 +1257,10 @@ export function AuditResult({
               // Com quem ESTÁ é diferente de quem resolveu: assim que o achado
               // fecha, ele deixa de estar com alguém e passa a ter desfecho.
               .filter((item) => item.assigneeEmail && !item.resolvedAt)
-              .map((item) => [item.findingId as string, item.assigneeEmail as string]),
+              .map((item) => [
+                item.findingId as string,
+                item.assigneeName ?? (item.assigneeEmail as string),
+              ]),
           ),
         );
         setDesfechoPorAchado(
@@ -2337,7 +2342,22 @@ export function AuditResult({
                             é a ação que se repete 22 vezes numa revisão, e ela
                             tem que estar sempre no mesmo lugar, sem rolar.
                           */}
-                          {onToggleResolvido && finding.refId ? (
+                          {/*
+                            "MARCAR CORRIGIDO" SOME quando o achado foi encerrado
+                            de outro jeito.
+
+                            Ele reflete `resolvedAt`, e os TRÊS desfechos marcam
+                            essa coluna — então um achado assumido como decisão
+                            técnica aparecia com a tarja "Decisão técnica" ao
+                            lado de um botão dizendo "Corrigido". As duas coisas
+                            se contradizem, e a contradição estava exatamente
+                            sobre o que o registro precisa deixar claro: se o
+                            documento foi mexido ou se o risco foi assumido.
+                          */}
+                          {onToggleResolvido &&
+                          finding.refId &&
+                          (!desfechoPorAchado[finding.refId] ||
+                            desfechoPorAchado[finding.refId].kind === "FIXED_IN_DOC") ? (
                             <Button
                               type="button"
                               size="sm"

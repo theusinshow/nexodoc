@@ -25,6 +25,7 @@ type Pendencia = {
   client: string;
   auditId: string;
   auditTitle: string;
+  auditadoEm: string;
   total: number;
   enviadoPor: string | null;
   enviadoEm: string;
@@ -85,7 +86,21 @@ export function FilaDoUsuario() {
               <p className="font-mono text-sm text-foreground">
                 {p.code} · {p.client}
               </p>
-              <p className="truncate text-sm text-muted-foreground">{p.auditTitle}</p>
+              {/*
+                A DATA DA AUDITORIA distingue dois pareceres do mesmo projeto.
+                Sem ela, reauditar o 063-26 produzia duas linhas idênticas na
+                home — mesmo código, mesmo título — e não havia como saber qual
+                abrir.
+              */}
+              <p className="truncate text-sm text-muted-foreground">
+                {p.auditTitle}
+                <span className="ml-2 font-mono text-xs text-muted-foreground/70">
+                  auditado em{" "}
+                  {new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+                    new Date(p.auditadoEm),
+                  )}
+                </span>
+              </p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
                 {p.total} {p.total === 1 ? "achado" : "achados"}
                 {p.enviadoPor ? ` · de ${p.enviadoPor}` : ""} · {quandoFoi(p.enviadoEm)}

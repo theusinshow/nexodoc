@@ -94,10 +94,39 @@ export async function GET(
     for (const u of usuarios) nomes.set(u.id, u.name || u.email);
   }
 
+  /*
+   * E o NOME de quem está com o achado.
+   *
+   * A linha guarda o e-mail de propósito — dá para atribuir a quem ainda não
+   * tem conta. Mas "com milton@prosul.com" na tarja é endereço, não pessoa, e
+   * o escritório sabe o nome desde o convite.
+   */
+  const emails = [
+    ...new Set(feedback.map((f) => f.assigneeEmail).filter((x): x is string => Boolean(x))),
+  ];
+
+  const nomeDoMembro = new Map<string, string>();
+
+  if (emails.length > 0) {
+    const membros = await getPrisma().organizationMember.findMany({
+      where: { email: { in: emails } },
+      select: { email: true, name: true },
+    });
+
+    for (const m of membros) {
+      if (m.name) nomeDoMembro.set(m.email, m.name);
+    }
+  }
+
   return NextResponse.json({
     feedback: feedback.map((f) => ({
       ...f,
       resolvedByName: f.resolvedById ? (nomes.get(f.resolvedById) ?? null) : null,
+      // Cai para o e-mail quando ninguém preencheu o nome: melhor um endereço
+      // do que uma tarja sem dono.
+      assigneeName: f.assigneeEmail
+        ? (nomeDoMembro.get(f.assigneeEmail) ?? f.assigneeEmail)
+        : null,
     })),
     enabled: true,
   });

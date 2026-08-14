@@ -119,6 +119,9 @@ export type ProjetoComPendencia = {
   client: string;
   auditId: string;
   auditTitle: string;
+  /** Quando a auditoria foi feita. É o que distingue dois pareceres do MESMO
+   *  projeto — sem isto, duas linhas ficam idênticas na tela. */
+  auditadoEm: string;
   total: number;
   enviadoPor: string | null;
   enviadoEm: string;
@@ -159,6 +162,7 @@ export async function pendenciasDe(
         select: {
           id: true,
           title: true,
+          createdAt: true,
           project: { select: { id: true, code: true, client: true } },
         },
       },
@@ -206,6 +210,7 @@ export async function pendenciasDe(
       client: projeto.client,
       auditId: linha.audit.id,
       auditTitle: linha.audit.title,
+      auditadoEm: linha.audit.createdAt.toISOString(),
       total: 1,
       // A primeira linha é a mais recente (ordenação acima), então quem enviou
       // e quando descrevem o envio mais novo daquela auditoria.

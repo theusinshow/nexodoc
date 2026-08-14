@@ -39,11 +39,30 @@ const projeto = await prisma.project.findFirst({
 });
 check("o 063-26 existe", Boolean(projeto), "rode npm run seed:dev");
 
+/*
+ * O RELATÓRIO SEMEADO PRECISA SER VÁLIDO.
+ *
+ * `arquivos_analisados` e `comparacoes` são obrigatórios em `AuditReport`
+ * (`lib/audit-report.ts`), e a primeira versão desta prova os omitiu. O parecer
+ * abria e a tela quebrava inteira — "Cannot read properties of undefined
+ * (reading 'map')" —, e o sintoma que a prova mostrava era "o link não leva à
+ * auditoria", que apontava para o lugar errado.
+ *
+ * Fixture inválida testa o comportamento do sistema com dado que ele nunca
+ * produz, e o erro que ela encontra é sobre a fixture.
+ */
 const relatorio = {
   tipo_auditoria: "memorial",
-  tipo_documento: "memorial",
+  tipo_documento: "memorial descritivo",
+  obra: "Cancha de Bocha",
+  codigo: "063-26",
+  municipio: "Criciúma",
+  status_analise: "concluida",
   status_geral: "NAO_EMITIR",
   total_incongruencias: 2,
+  arquivos_analisados: [],
+  comparacoes: [],
+  conclusao: "Documento com pendências antes de emitir.",
   incongruencias: [
     {
       id: "INC-001",
@@ -143,6 +162,33 @@ await pMilton.waitForTimeout(800);
 const homeDoMilton = await pMilton.locator("body").innerText();
 check("e a home mostra o 063-26", /063-26/.test(homeDoMilton));
 check("dizendo de quem veio", /victor/i.test(homeDoMilton), homeDoMilton.slice(0, 160));
+
+// --- O DEEP-LINK: clicar em ABRIR leva à auditoria de quem enviou.
+//
+// O Milton NÃO tem a conversa do Victor na máquina dele — as conversas moram no
+// IndexedDB de quem as criou. É exatamente o caso que a fila existe para
+// atender, e por isso o parecer vem do servidor.
+//
+// Sem esta asserção, o link ficava apontando para o Nexo genérico e a home
+// prometia um caminho que não existia. Foi assim por três commits.
+await pMilton.getByRole("link", { name: /abrir/i }).first().click();
+await pMilton.waitForURL(/auditoria=/, { timeout: 20000 });
+await pMilton.waitForLoadState("networkidle");
+await pMilton.waitForTimeout(3500);
+
+const telaDaAuditoria = await pMilton.locator("body").innerText();
+
+/*
+ * O parecer ABERTO, e não o Nexo genérico. A tela cai no RESUMO da auditoria —
+ * a lista de achados fica na aba ao lado, a um clique. Medir aqui pelo resumo é
+ * o honesto: é o que o link entrega hoje.
+ */
+check(
+  "ABRIR leva a auditoria, e nao ao Nexo generico",
+  /n[aã]o emitir|matriz de achados|achados/i.test(telaDaAuditoria) &&
+    !/boa noite|boa tarde|bom dia/i.test(telaDaAuditoria),
+  telaDaAuditoria.replace(/\s+/g, " ").slice(0, 160),
+);
 
 // --- Decisão técnica sem nota é recusada pelo SERVIDOR.
 const semNota = await pMilton.request.post(`/api/audits/${AUDIT_ID}/feedback`, {
