@@ -1272,4 +1272,54 @@ Construir **Revisão colaborativa de achados**, emission-oriented:
 
 **Fim da especificação.**  
 Próximo passo sugerido após análise: ADRs curtos (Fase 0 materialize, state machine, hub IA) + schema Prisma final + contratos OpenAPI/TS das rotas P0.
+
+---
+
+## 27. Correções depois da leitura contra o código (2026-08-13)
+
+Este documento foi conferido linha a linha contra o repositório, e o substrato
+que ele pressupõe foi construído — ver
+`docs/superpowers/specs/2026-08-13-substrato-de-escritorio-design.md`.
+
+**O que ele acertou, e vale registrar:** o `chaveEntreVersoes` que ele propõe
+como fingerprint **já existia** em `lib/diff-de-pareceres.ts:61`, com o
+raciocínio escrito; e a separação entre julgamento da IA e progresso do trabalho
+que ele manda preservar **já estava** no schema, documentada em
+`prisma/schema.prisma`. Ele leu o código.
+
+**O que ele pressupôs e não existia:** o §1.1 lista "Projetos, organizações,
+membros" como *o que já existe*. Existia a tabela. `OrganizationMember` era letra
+morta — nenhuma linha do aplicativo a lia ou escrevia —, a listagem de projetos
+filtrava por `ownerEmail` (então o Victor nunca veria o 063-26), e a auditoria do
+Nexo rodava sem sessão, sem projeto e sem escritório. Isso foi construído; a
+Fase 0 tem onde nascer.
+
+**Cinco correções para a Fase 0 absorver:**
+
+1. **`impacto` é opcional** em `lib/audit-report.ts`, e o Prisma do §15 declara
+   `impact FindingImpact` `NOT NULL` — com a política de validação (§5.5) e o
+   gate de emissão (§5.7) pendurados nele. A materialização precisa aplicar o
+   `classifyFindingImpact` que a tela já usa como recurso
+   (`components/audit-result.tsx`), senão o backfill de parecer antigo quebra.
+2. **`qualityVerdict AuditFeedbackVerdict?`** admite `MISSING_FINDING`, que é
+   veredito sobre o PARECER ("faltou um achado"), não sobre uma ocorrência que
+   existe. O texto do §4.2 lista corretamente só três valores; o bloco Prisma do
+   §15 contradiz o texto. Enum próprio.
+3. **`AuditFeedback.targetKey`** é `finding:INC-00x`, com unique por
+   `(auditId, targetKey)`. Casa dentro da mesma auditoria, e só. O §18.4
+   funciona, mas precisa dizer explicitamente que feedback **não** casa entre
+   versões por `findingId`.
+4. **`Audit.userId` e `Audit.projectId` são `onDelete: SetNull`.** O
+   "AuditAuthor = criador da auditoria" do §6.2 pode virar nulo, e o Validator
+   precisa de recurso para Coordinator.
+5. **`assigneeId` deve mirar o MEMBRO, não o `User`.** O convite nasce sem conta
+   (`OrganizationMember.status = INVITED`, `userId` nulo), e é justamente no
+   primeiro dia que a coordenação quer distribuir trabalho. Modelar o
+   responsável como `User` tornaria impossível atribuir um achado ao Victor
+   antes do primeiro login dele.
+
+**Onde a Fase 0 se pendura:** `persistCompletedAudit`, em
+`lib/audit-persistence.ts`. O `FindingOccurrence` nasce do relatório no instante
+em que a auditoria fecha, e esse é o instante. Não dentro de
+`app/api/audit/route.ts`, que tem 3.849 linhas.
 `)
