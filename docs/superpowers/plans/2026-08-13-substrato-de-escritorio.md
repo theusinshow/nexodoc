@@ -10,6 +10,24 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-13-substrato-de-escritorio-design.md`
 
+> ## Ordem corrigida na execução (13/08/2026)
+>
+> O plano ordenava Lote 1 (portão) antes dos lotes de migração. **É a ordem
+> invertida:** `requireActor` recusa quem não é membro de escritório ativo, e a
+> tabela de membros só é preenchida no backfill. Com o portão no lugar e sem a
+> PROSUL, toda rota fechada responde 403 — inclusive para quem usava o sistema
+> ontem. Foi verificado no banco local: 0 organizações, 0 membros, e
+> `/api/projects` recusando todo mundo.
+>
+> A ordem executada foi **1 → 2 → 3 → (6, 7, 8) → 4 → …**: o escritório e os
+> membros primeiro, depois a conversão das rotas restantes, que assim fica
+> verificável a cada família em vez de no escuro.
+>
+> **Restrição de deploy que o plano não registrava:** em produção são DOIS
+> deploys, nesta ordem — primeiro o backfill de membros, depois o código do
+> portão. Juntos, há uma janela em que o aplicativo já recusa e ainda não tem a
+> quem aceitar.
+
 ## Global Constraints
 
 - **Um escritório:** existe uma organização, a PROSUL. A tabela `Organization` permanece, com uma linha.
