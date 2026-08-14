@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { createProjectEvent, getUserActor, normalizeProjectCode } from "@/lib/project-store";
 
@@ -58,22 +60,28 @@ function serializeProject(project: {
   };
 }
 
-function getProjectFilters(request: Request, ownerEmail: string): Prisma.ProjectWhereInput {
+/**
+ * O ESCRITÓRIO É O FILTRO, e era o dono.
+ *
+ * `ownerEmail` aqui é o motivo pelo qual o Victor nunca via o 063-26: a rota de
+ * detalhe já honrava membership da organização (`lib/project-store.ts`), mas a
+ * listagem montava o próprio `where` e contornava o helper. Ele abriria o
+ * projeto por link direto e não o encontraria em lugar nenhum da interface.
+ *
+ * O `organizationId` deixou de vir da URL: escolher o escritório pela query
+ * seria deixar o cliente dizer de quem é o dado que quer ver.
+ */
+function getProjectFilters(request: Request, organizationId: string): Prisma.ProjectWhereInput {
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim();
   const includeArchived = url.searchParams.get("includeArchived") === "true";
   const includeDeleted = url.searchParams.get("includeDeleted") === "true";
-  const organizationId = url.searchParams.get("organizationId")?.trim();
   const where: Prisma.ProjectWhereInput = {
-    ownerEmail,
+    organizationId,
   };
 
   if (!includeDeleted) {
     where.deletedAt = null;
-  }
-
-  if (organizationId) {
-    where.organizationId = organizationId;
   }
 
   if (!includeArchived && !includeDeleted) {
@@ -92,13 +100,6 @@ function getProjectFilters(request: Request, ownerEmail: string): Prisma.Project
 }
 
 export async function GET(request: Request) {
-  const session = await auth();
-  const user = getUserIdentity(session);
-
-  if (!user) {
-    return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
-  }
-
   if (!isDatabaseConfigured()) {
     return NextResponse.json({
       projects: [],
@@ -106,8 +107,17 @@ export async function GET(request: Request) {
     });
   }
 
+  let actor: Actor;
+  try {
+    actor = await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
+  }
+
   const projects = await getPrisma().project.findMany({
-    where: getProjectFilters(request, user.email),
+    where: getProjectFilters(request, actor.organizationId),
     orderBy: { updatedAt: "desc" },
     take: 50,
     include: {

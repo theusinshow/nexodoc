@@ -1,3 +1,7 @@
+import { NextResponse } from "next/server";
+
+import { auth } from "@/auth";
+import { AccessDenied, resolveActor, type Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 function normalizeEmail(value: string) {
@@ -101,4 +105,61 @@ export async function getUserAccess(email: string | null | undefined, name?: str
     isAdmin: envAdmin || user.role === "ADMIN",
     source: envAdmin ? "env" as const : "database" as const,
   };
+}
+
+/**
+ * O PORTÃO. Toda rota sob `app/api/` começa por aqui.
+ *
+ * NÃO é `middleware.ts`, e isso é decisão e não descuido: middleware roda em
+ * runtime de borda e não alcança o Prisma de forma confiável. O `authorized` de
+ * [[../auth.ts]] continua fazendo o que sabe fazer — distinguir logado de
+ * deslogado. Quem está logado pode não ter escritório, e essa pergunta só o
+ * banco responde. Autorização precisa do banco; autenticação não.
+ *
+ * Quem quiser saber POR QUE cada recusa acontece, a regra está em
+ * [[actor.ts]], testável sem banco nenhum.
+ */
+export async function requireActor(): Promise<Actor> {
+  const session = await auth();
+  const email = session?.user?.email ?? null;
+  const access = email ? await getUserAccess(email, session?.user?.name) : null;
+
+  /*
+   * Sem banco não há membro para consultar, e `resolveActor` vai recusar com
+   * 403. É o certo: um ambiente sem banco não tem escritório, e deixar passar
+   * "porque não deu para verificar" é como tratar falha de checagem por
+   * permissão concedida.
+   */
+  if (!access?.email || !isDatabaseConfigured()) {
+    return resolveActor({ access: access ?? null, member: null });
+  }
+
+  const member = await getPrisma().organizationMember.findFirst({
+    where: { email: access.email },
+    select: {
+      userId: true,
+      name: true,
+      organizationId: true,
+      role: true,
+      status: true,
+    },
+  });
+
+  return resolveActor({ access, member });
+}
+
+/**
+ * Traduz a recusa em resposta.
+ *
+ * Devolve `null` quando o erro NÃO é de acesso, e quem chama re-lança. Engolir
+ * exceção de banco aqui faria falha de infraestrutura parecer falta de
+ * permissão — e o usuário passaria a tarde pedindo um acesso que já tem,
+ * enquanto o Postgres continua fora do ar sem ninguém saber.
+ */
+export function accessDeniedResponse(err: unknown) {
+  if (err instanceof AccessDenied) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
+
+  return null;
 }
