@@ -170,6 +170,10 @@ model Project {
   id          String        @id @default(cuid())
   organizationId String?
   ownerId     String?
+  /// Quem CRIOU o projeto — que deixou de ser quem é dono dele. O dono passou a
+  /// ser o escritório (`organizationId`); isto aqui é registro, não posse, e é
+  /// por isso que nenhuma consulta filtra por ele.
+  createdById String?
   ownerEmail  String
   ownerName   String?
   code        String        @default("")
