@@ -2227,7 +2227,10 @@ function AuditoriaConfirmation({
      * O código já vem do documento (`memorialFatos.codigo`), então no caso
      * normal isto não pergunta nada.
      */
-    const destino = await resolverProjetoDaAuditoria(memorialFatos?.codigo);
+    const destino = await resolverProjetoDaAuditoria(memorialFatos?.codigo, undefined, {
+      prefeitura,
+      obra,
+    });
 
     if (destino.tipo !== "achado") {
       setError(fraseDoImpasse(destino));

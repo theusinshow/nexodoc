@@ -25,6 +25,12 @@ export type ProjetoResolvido =
 export async function resolverProjetoDaAuditoria(
   codigoExtraido: string | null | undefined,
   signal?: AbortSignal,
+  /*
+   * A prefeitura e a obra vêm junto porque, quando a pasta precisa NASCER, é
+   * com elas que ela nasce. Buscar isso de novo lá dentro seria pedir de volta
+   * o que a classificação já leu.
+   */
+  identidade?: { prefeitura?: string | null; obra?: string | null },
 ): Promise<ProjetoResolvido> {
   let projetos: ProjetoConhecido[] = [];
 
@@ -60,7 +66,46 @@ export async function resolverProjetoDaAuditoria(
 
   if (resolucao.tipo === "achado") return resolucao;
   if (resolucao.tipo === "desconhecido") {
-    return { tipo: "desconhecido", codigo: resolucao.codigo, projetos };
+    /*
+     * CRIA, em vez de recusar.
+     *
+     * Aqui o Nexo parava e mandava chamar um admin — era a decisão anterior, e
+     * ela foi invertida: o código não é digitado por ninguém, é lido do
+     * documento. Quem trouxe o memorial do 099-25 não deve esperar por outra
+     * pessoa para poder auditá-lo.
+     */
+    try {
+      const criado = await fetch("/api/projects/por-centro-de-custo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: resolucao.codigo,
+          client: identidade?.prefeitura ?? "",
+          name: identidade?.obra ?? "",
+        }),
+        signal,
+      });
+
+      if (!criado.ok) {
+        // Falhar em criar não vira "código desconhecido": a pessoa perguntaria
+        // qual código, e o problema não é o código.
+        return {
+          tipo: "sem-escritorio",
+          motivo: "Não deu para criar a pasta deste centro de custo.",
+        };
+      }
+
+      const { project } = (await criado.json()) as { project: ProjetoConhecido };
+
+      return { tipo: "achado", projeto: project };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+
+      return {
+        tipo: "sem-escritorio",
+        motivo: "Não deu para criar a pasta deste centro de custo.",
+      };
+    }
   }
 
   return { tipo: "sem-codigo", projetos };

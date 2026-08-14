@@ -85,6 +85,30 @@ if (forjado.ok()) {
   check("organizationId do corpo e ignorado", false, `criacao falhou: ${forjado.status()}`);
 }
 
+// --- E o OUTRO LADO: pelo caminho da auditoria, MEMBER cria.
+//
+// Pela TELA alguém INVENTA um código, digitando; pela auditoria o código foi
+// EXTRAÍDO do PDF. É a diferença que justifica as duas regras conviverem, e
+// medi-la aqui é o que impede alguém de "corrigir" uma das duas por achar que
+// era inconsistência.
+await prisma.project.deleteMany({ where: { code: "777-26" } });
+
+const peloNexo = await pVictor.request.post("/api/projects/por-centro-de-custo", {
+  data: { code: "777-26", client: "CRICIÚMA", name: "Nascido da auditoria" },
+});
+check("MEMBER cria projeto pelo caminho da auditoria", peloNexo.status() === 201, `status ${peloNexo.status()}`);
+
+const nascido = await prisma.project.findFirst({ where: { code: "777-26" } });
+check("e ele nasce na PROSUL", nascido?.organizationId === "org-prosul", `${nascido?.organizationId}`);
+check("com quem o criou registrado", Boolean(nascido?.createdById), `${nascido?.createdById}`);
+
+// Sem código no documento, nada nasce: pasta sem nome seria pior que perguntar.
+const semCodigoNoDoc = await pVictor.request.post("/api/projects/por-centro-de-custo", {
+  data: { code: "  ", client: "CRICIÚMA" },
+});
+check("sem centro de custo, nada nasce", semCodigoNoDoc.status() === 400, `status ${semCodigoNoDoc.status()}`);
+
+await prisma.project.deleteMany({ where: { code: "777-26" } });
 await prisma.project.deleteMany({ where: { code: CODIGO } });
 await browser.close();
 console.log(falhas === 0 ? "\nOK  alcada" : `\n${falhas} falha(s)`);
