@@ -13,6 +13,7 @@ import {
   type AlvoDaConferencia,
   type LeituraDoSelo,
 } from "@/server/nexo/selo-identity-core";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 
@@ -151,6 +152,24 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
+  /*
+   * O PORTAO, DEPOIS da sessao.
+   *
+   * A checagem acima continua porque ela ESTREITA o tipo: o codigo abaixo le
+   * `session.user` direto, e remove-la faria o TypeScript recusar cada leitura.
+   * Mas ela nunca bastou -- responde "tem sessao?", e sessao sem escritorio
+   * passava, deixando a rota util para quem nao pertence a lugar nenhum.
+   *
+   * As duas recusas independentes estao em [[lib/actor.ts]].
+   */
+  try {
+    await requireActor();
+  } catch (err) {
+    const negado = accessDeniedResponse(err);
+    if (negado) return negado;
+    throw err;
   }
 
   const teto = await verificarTetoMensal({
