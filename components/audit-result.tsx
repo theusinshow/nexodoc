@@ -2665,6 +2665,13 @@ export function AuditResult({
                       size="sm"
                       disabled={!destinatario || enviando}
                       onClick={() => void enviarSelecionados()}
+                      /*
+                        O rótulo visível é "Enviar", curto porque a barra já diz
+                        quantos e para quem. Mas a página TEM outro "Enviar" — o
+                        do chat do Nexo —, e para quem navega por leitor de tela
+                        os dois seriam a mesma palavra solta.
+                      */
+                      aria-label="Enviar achados selecionados"
                     >
                       {enviando ? "Enviando…" : "Enviar"}
                     </Button>
