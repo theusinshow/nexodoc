@@ -42,82 +42,77 @@
 
 ---
 
-## Task 1: Postgres local, para o plano ser executável
+## Task 1: Postgres local, para o plano ser executável — FEITO
 
 Sem isto nada das tarefas 5 em diante roda, e a migração não é ensaiável.
 
+> **Corrigido na execução (13/08/2026).** O plano previa `docker-compose.yml`.
+> Esta máquina não tem Docker, não tem Docker Desktop, não tem serviço Postgres
+> e o subsistema WSL não está instalado — qualquer caminho exigia instalar algo
+> com privilégio de administrador. O mantenedor escolheu **PostgreSQL nativo**.
+> A versão 16 já saiu do winget; foi instalada a 17.
+
 **Files:**
-- Create: `docker-compose.yml`
-- Create: `.env` (não versionado — confirmar que `.gitignore` cobre)
-- Modify: `README.md` (seção de desenvolvimento)
+- ~~Create: `docker-compose.yml`~~ — não se aplica
+- Create: `.env` (não versionado)
+- Modify: `README.md` (seção "Banco local")
 
 **Interfaces:**
 - Consumes: nada
 - Produces: um banco em `postgresql://nexodoc:nexodoc@localhost:5432/nexodoc`, que é exatamente o padrão já embutido em `lib/db.ts:17`
 
-- [ ] **Step 1: Confirmar que `.env` está ignorado**
+- [x] **Step 1: Confirmar que `.env` está ignorado**
 
 Run: `git check-ignore -v .env`
 Expected: uma linha apontando a regra do `.gitignore`. Se não sair nada, **pare** e adicione `.env` ao `.gitignore` antes de continuar — o próximo passo escreve credenciais nele.
+Resultado: `.gitignore:15`.
 
-- [ ] **Step 2: Escrever o compose**
+- [x] **Step 2: Instalar o serviço**
 
-```yaml
-# docker-compose.yml
-# Postgres de desenvolvimento. As credenciais casam com o padrao embutido em
-# lib/db.ts:17, entao `docker compose up -d` basta: nao ha o que configurar.
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: nexodoc
-      POSTGRES_PASSWORD: nexodoc
-      POSTGRES_DB: nexodoc
-    ports:
-      - "5432:5432"
-    volumes:
-      - nexodoc-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexodoc"]
-      interval: 5s
-      retries: 10
+```powershell
+winget install --id PostgreSQL.PostgreSQL.17 --exact --source winget --silent `
+  --accept-package-agreements --accept-source-agreements
+```
+Expected: `Instalado com êxito`, e o serviço `postgresql-x64-17` em `Running`.
+O superusuário é `postgres`, com senha `postgres`.
 
-volumes:
-  nexodoc-pgdata:
+- [x] **Step 3: Criar a role e a base**
+
+As credenciais não são escolha — são as que `lib/db.ts:17` já usa por padrão.
+
+```powershell
+$psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
+$env:PGPASSWORD = "postgres"
+& $psql -U postgres -h localhost -c "CREATE ROLE nexodoc LOGIN PASSWORD 'nexodoc' CREATEDB;"
+& $psql -U postgres -h localhost -c "CREATE DATABASE nexodoc OWNER nexodoc;"
 ```
 
-- [ ] **Step 3: Subir e aplicar as migrations existentes**
+- [x] **Step 4: `.env` e migrations**
+
+`DATABASE_URL="postgresql://nexodoc:nexodoc@localhost:5432/nexodoc"` no `.env`, mais
+`NEXODOC_DEV_AUTH=true` (a Task 5 depende), `AUTH_SECRET` gerado, e
+`NEXODOC_MOCK_MODE=true` — sem chave da OpenAI aqui, e auditoria de verdade custaria
+dinheiro a cada prova.
+
+Run: `npm run db:migrate`
+Expected: `All migrations have been successfully applied.`
+
+- [x] **Step 5: Provar que o banco responde**
+
+`node -e` com `import('./lib/db.ts')` **não** serve como prova: falha em
+interoperabilidade CJS/ESM ao rodar fora do empacotador do Next, e isso não diz nada
+sobre o banco. A prova é o próprio `migrate deploy` ter aplicado, mais:
+
+```powershell
+& $psql -U nexodoc -h localhost -d nexodoc -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
+& $psql -U nexodoc -h localhost -d nexodoc -tAc "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL;"
+```
+Expected: 21 tabelas, 11 migrations.
+
+- [x] **Step 6: Documentar no README e commitar**
 
 ```bash
-docker compose up -d
-printf 'DATABASE_URL="postgresql://nexodoc:nexodoc@localhost:5432/nexodoc"\n' >> .env
-npm run db:migrate
-```
-Expected: as 11 migrations aplicam sem erro.
-
-- [ ] **Step 4: Provar que o aplicativo enxerga o banco**
-
-Run: `npm run db:check-env`
-Expected: sai sem erro e reporta a conexão. Se o script não cobrir isso, use no lugar:
-`node -e "import('./lib/db.ts').then(async m => { console.log(await m.getPrisma().user.count()) })"`
-Expected: imprime `0`.
-
-- [ ] **Step 5: Documentar no README**
-
-Acrescentar à seção de desenvolvimento:
-
-```markdown
-### Banco local
-
-`docker compose up -d` sobe um Postgres com as credenciais que `lib/db.ts` já usa
-por padrão. Depois, `npm run db:migrate`. Sem isso, as rotas respondem 503 e as
-provas que tocam banco não têm o que medir.
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add docker-compose.yml README.md
+git add README.md
 git commit -m "dev: postgres local, para as provas de banco terem o que medir"
 ```
 
@@ -793,12 +788,19 @@ Expected: `projetos vivos: 0` … `LIVRE`. Banco local vazio passa — o valor d
 
 - [ ] **Step 3: Rodar contra a cópia de produção — o passo que importa**
 
-```bash
-npm run db:backup
-# restaurar o dump num banco descartavel e apontar DATABASE_URL para ele
-npm run diag:cc
-```
+> **Corrigido na execução:** o plano previa `npm run db:backup` + restore num banco
+> descartável. Produção é **Neon** (`render.yaml:26`), que faz *branch* do banco: a
+> cópia sai instantânea, com o dado real ficando onde já está. Dump para esta máquina
+> só seria necessário se produção fosse um Postgres administrado por nós — e não é.
+
+1. No painel do Neon, criar um branch da base de produção (ex.: `ensaio-escritorio`).
+2. Apontar `DATABASE_URL` para a URL desse branch.
+3. `npm run diag:cc`
+
 Expected: a lista real. **Se sair `BLOQUEIA`, pare o plano aqui e leve os nomes ao mantenedor.** A decisão de que código dar a cada projeto é dele, projeto por projeto — não invente.
+
+O branch é descartável: errou, apaga e cria outro. Produção não é tocada em momento
+nenhum deste ensaio.
 
 - [ ] **Step 4: Registrar e commitar**
 
@@ -907,7 +909,7 @@ Expected: imprime as contagens e `ENSAIO. Nada foi gravado.`
 
 - [ ] **Step 3: Ensaiar na cópia de produção, gravando**
 
-Com `DATABASE_URL` apontando para o banco descartável restaurado do dump:
+Com `DATABASE_URL` apontando para o branch do Neon criado na Task 7, Step 3:
 
 Run: `node scripts/backfill-escritorio.ts --gravar`
 Expected: `OK  backfill fechou as contas.` e `projetos ainda sem organizacao: 0`.
