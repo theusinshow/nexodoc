@@ -1028,6 +1028,18 @@ export function AuditResult({
    */
   const [notaDoRisco, setNotaDoRisco] = useState<Record<string, string>>({});
   const [escrevendoRisco, setEscrevendoRisco] = useState<string>("");
+  /*
+   * A SELEÇÃO EM LOTE, no mesmo padrão de `/admin/users`: caixa por linha, barra
+   * de ação que só aparece com seleção, e nada de diálogo por cima. Quem revê o
+   * memorial marca os cinco erros de PPCI e manda todos de uma vez — mandar um
+   * a um seriam cinco viagens e cinco chances de metade chegar.
+   */
+  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set<string>());
+  const [destinatario, setDestinatario] = useState("");
+  const [membros, setMembros] = useState<
+    { email: string; name: string | null; status: string }[]
+  >([]);
+  const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
@@ -1317,6 +1329,81 @@ export function AuditResult({
       setFeedbackNotice(
         "Corrigido marcado nesta máquina, mas não foi possível gravar no histórico.",
       );
+    }
+  }
+
+  /*
+   * QUEM PODE RECEBER: os membros do escritório, inclusive quem foi convidado e
+   * nunca entrou. Mandar trabalho a quem ainda não logou é o caso do primeiro
+   * dia, e esconder essa pessoa da lista tornaria o convite inútil justamente
+   * quando ele mais serve.
+   */
+  useEffect(() => {
+    let vivo = true;
+
+    fetch("/api/organizacao/membros")
+      .then((r) => (r.ok ? r.json() : { membros: [] }))
+      .then((d) => {
+        if (vivo) setMembros(d.membros ?? []);
+      })
+      .catch(() => {
+        if (vivo) setMembros([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  function alternarSelecao(refId: string) {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(refId)) proximo.delete(refId);
+      else proximo.add(refId);
+      return proximo;
+    });
+  }
+
+  async function enviarSelecionados() {
+    if (!auditId || !destinatario || selecionados.size === 0) {
+      return;
+    }
+
+    setEnviando(true);
+    setFeedbackNotice("");
+
+    try {
+      const response = await fetch(`/api/audits/${encodeURIComponent(auditId)}/atribuir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingIds: [...selecionados],
+          assigneeEmail: destinatario,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { atribuidos?: number; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Não foi possível enviar.");
+      }
+
+      setAtribuidoPor((atual) => {
+        const proximo = { ...atual };
+        for (const id of selecionados) proximo[id] = destinatario;
+        return proximo;
+      });
+      setSelecionados(new Set());
+      setDestinatario("");
+      setFeedbackNotice(
+        `${payload?.atribuidos ?? 0} achado(s) enviado(s). Aparecem na home de quem recebeu.`,
+      );
+    } catch (error) {
+      setFeedbackNotice(error instanceof Error ? error.message : "Não foi possível enviar.");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -2163,9 +2250,16 @@ export function AuditResult({
                               {getErrorTypeLabel(findingErrorType(finding))}
                             </span>
                             {finding.refId ? (
-                              <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                              <label className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={selecionados.has(finding.refId)}
+                                  onChange={() => alternarSelecao(finding.refId!)}
+                                  aria-label={`Selecionar ${finding.refId} para enviar`}
+                                  className="size-3.5 accent-primary"
+                                />
                                 Ref. {finding.refId}
-                              </span>
+                              </label>
                             ) : null}
                             {/*
                               COM QUEM ESTÁ. Aparece enquanto o achado é
@@ -2532,6 +2626,58 @@ export function AuditResult({
                       <p className="mt-2 font-mono text-xs text-muted-foreground">{feedbackNotice}</p>
                     ) : null}
                   </section>
+                ) : null}
+
+                {/*
+                  A BARRA DE ENVIO, grudada no rodapé da lista.
+
+                  Mesmo padrão de `/admin/users`: aparece só quando há seleção, e
+                  fica onde a mão já está — a alternativa seria um diálogo por
+                  cima, que tira os achados da vista justamente quando a pessoa
+                  precisa conferir quais marcou.
+                */}
+                {selecionados.size > 0 ? (
+                  <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-[var(--nexodoc-recessed)] px-4 py-3 shadow-lg">
+                    <span className="font-mono text-xs text-foreground">
+                      {selecionados.size} {selecionados.size === 1 ? "achado" : "achados"}
+                    </span>
+
+                    <label htmlFor="destinatario-do-envio" className="sr-only">
+                      Enviar para
+                    </label>
+                    <select
+                      id="destinatario-do-envio"
+                      value={destinatario}
+                      onChange={(event) => setDestinatario(event.target.value)}
+                      className="h-9 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-primary"
+                    >
+                      <option value="">Enviar para…</option>
+                      {membros.map((m) => (
+                        <option key={m.email} value={m.email}>
+                          {m.name ?? m.email}
+                          {m.status === "INVITED" ? " (convidado)" : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!destinatario || enviando}
+                      onClick={() => void enviarSelecionados()}
+                    >
+                      {enviando ? "Enviando…" : "Enviar"}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelecionados(new Set())}
+                      aria-label="Limpar seleção"
+                      className="ml-auto font-mono text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Limpar
+                    </button>
+                  </div>
                 ) : null}
 
                 {suggestionFindings.length > 0 ? (
