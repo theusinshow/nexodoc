@@ -27,7 +27,7 @@ import { impressaoDosCapitulos, compararImpressoes, fracaoJaLida, resumoDoDelta 
 
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\063_26_md_geral_a.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\063_26_md_geral_a.pdf";
 
 let falhas = 0;
 function checar(nome, ok, detalhe = "") {

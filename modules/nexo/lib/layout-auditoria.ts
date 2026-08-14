@@ -14,6 +14,15 @@
 // precisa ser completo.
 import { colunasDaGrade } from "./layout-canvas.ts";
 
+/**
+ * O ID do nó de uma página no canvas.
+ *
+ * Mora aqui, e não em `AuditCanvas`, porque deixou de ser assunto de quem MONTA
+ * a cena: a pilha de recorrentes precisa dele para mandar a câmera até a página,
+ * e uma cópia da regra em dois arquivos é a receita para os dois discordarem.
+ */
+export const idDaPagina = (pagina: number) => `p${pagina}`;
+
 export const LARGURA_PAGINA = 200;
 /** Miniatura 3/4 (200×267) + rodapé com o número da página + bordas. */
 export const ALTURA_PAGINA = 305;

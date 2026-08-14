@@ -17,7 +17,7 @@ import path from "node:path";
 import { chunkPdfByChapter, extractPdfText } from "../lib/pdf-text.ts";
 import { impressaoDosCapitulos } from "../lib/audit-fingerprint.ts";
 
-const PASTA = "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais";
+const PASTA = "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais";
 const alvos =
   process.argv.slice(2).length > 0
     ? process.argv.slice(2)

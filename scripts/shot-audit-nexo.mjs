@@ -18,7 +18,7 @@ const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = process.env.SHOT_OUT ?? "./scratchpad";
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
 const LOG_DEV = path.resolve(".next/dev/logs/next-development.log");
 
 /** As identidades reaproveitadas que ESTE memorial comprovadamente contém. */

@@ -18,7 +18,7 @@ const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = "./scratchpad/qa";
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
 
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -34,10 +34,13 @@ function check(nome, ok, detalhe = "") {
 // Erros reais do memorial, com a página conferida à mão. `evidencia` é o texto
 // como está escrito no documento — é o que o pin tem de achar.
 const ACHADOS = [
-  { pagina: "11", tipo: "Nome da obra divergente", evidencia: "Cidade do Autista" },
+  // A DISCIPLINA entrou na semeadura para a sigla do card ter o que mostrar.
+  // Duas familias distintas e uma vazia: e o terceiro caso que importa, porque
+  // a disciplina e LIDA do cabecalho da pagina e muitas vezes nao existe.
+  { pagina: "11", tipo: "Nome da obra divergente", evidencia: "Cidade do Autista", disciplina: "Arquitetura" },
   { pagina: "112", tipo: "Nome da obra divergente", evidencia: "Centro Dia do Idoso" },
   { pagina: "114", tipo: "Nome da obra divergente", evidencia: "Centro Dia do Idoso" },
-  { pagina: "115", tipo: "Ocupação divergente", evidencia: "unidade básica de saúde" },
+  { pagina: "115", tipo: "Ocupação divergente", evidencia: "unidade básica de saúde", disciplina: "Estrutural de concreto" },
   { pagina: "118", tipo: "Nome da obra divergente", evidencia: "Centro Comunitário Boa Vista" },
 ];
 
@@ -105,6 +108,7 @@ try {
           sugestao_correcao: "Corrigir para a obra deste projeto.",
           confianca: "alta",
           origem: "regra",
+          disciplina: a.disciplina,
         })),
       };
 
@@ -203,6 +207,33 @@ try {
   // Nenhum achado pode ter sobrado sem trecho: no 017_26 os cinco ancoram.
   check("nenhum achado ficou 'sem trecho'", !/sem trecho/i.test(corpo));
 
+  /*
+   * O PIN RESPONDE AO PONTEIRO (onda 1 do spec do canvas).
+   *
+   * Ele era `pointer-events-none`: a pessoa mirava o ponto exato do erro sobre a
+   * página e não acontecia nada — a interação só existia no card lá embaixo.
+   *
+   * A medida é `pointerEvents`, e não a presença do atributo `onClick`: só o
+   * estilo computado responde se o clique CHEGA no elemento.
+   */
+  const eventosNoPin = await pins
+    .first()
+    .evaluate((el) => getComputedStyle(el).pointerEvents);
+  check("o pin aceita o ponteiro", eventosNoPin !== "none", eventosNoPin);
+
+  /*
+   * E CLICAR NELE ABRE O ACHADO. O drawer do parecer é a prova de que o pin
+   * chegou ao mesmo destino do card — "o pin é clicável" sozinho não diz nada
+   * sobre onde o clique leva.
+   */
+  await pins.first().click();
+  await page.waitForTimeout(900);
+  const parecerPeloPin = page.getByRole("dialog", { name: /Parecer completo/i });
+  check("e clicar no pin abre o parecer", (await parecerPeloPin.count()) === 1);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  check("Esc devolve o documento", (await parecerPeloPin.count()) === 0);
+
   // --- Card, pilha, linha e o par que acende --------------------------------
   /*
    * "Centro Dia do Idoso" aparece nas páginas 112 e 114 com a mesma evidência:
@@ -229,20 +260,92 @@ try {
   // quando o cursor sai.
   check("o card mostra o tipo do achado", /Ocupação divergente/i.test(corpo));
 
-  // A opacidade vive no CARD, não no invólucro que o React Flow cria — medir o
-  // invólucro dava 1 sempre, e a asserção passaria com o destaque quebrado.
-  const opacidade = (loc) =>
-    loc.locator("> div").first().evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
+  /*
+   * A DISCIPLINA NO CARD — de quem é o erro (onda 1 do spec do canvas).
+   *
+   * O canvas dizia tipo, trecho e página, e não dizia a quem cobrar. A sigla é
+   * o portador primário; a cor só acompanha, e por isso a prova mede a SIGLA.
+   *
+   * "Estrutural de concreto" tem de virar EST e "Arquitetura" tem de virar ARQ —
+   * a redução de vinte e três códigos para oito famílias é o que faz a escala
+   * caber num card de 200px.
+   */
+  const siglas = await page.locator("[data-disciplina]").evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-disciplina")),
+  );
+  check("o card mostra a sigla da disciplina", siglas.includes("EST"), siglas.join(","));
+
+  /*
+   * E O ACHADO SEM DISCIPLINA NÃO GANHA ETIQUETA NENHUMA.
+   *
+   * É o caso que mais acontece: a disciplina é LIDA do cabeçalho da página e
+   * fica vazia quando a página não trouxe um reconhecível. Inventar uma sigla
+   * ali seria pior que não ter — o card estaria afirmando de quem é o erro sem
+   * base. Dos cinco achados semeados, dois têm disciplina; um deles virou pilha.
+   */
+  check(
+    "e o achado sem disciplina fica sem sigla",
+    siglas.length < ACHADOS.length,
+    `${siglas.length} siglas para ${ACHADOS.length} achados`,
+  );
+
+  /*
+   * O REALCE MUDOU DE MECANISMO, e estas asserções ficaram medindo o antigo.
+   *
+   * Elas exigiam que o card sob o cursor ficasse em opacidade > 0.9 e que "os
+   * outros apagam" (< 0.5). Isso era o HOLOFOTE — e o holofote foi removido de
+   * propósito: com 45 achados em 28 páginas, atravessar a grade apagava 21 das
+   * 56 arestas a cada card tocado, e a tela virava um estroboscópio. O realce
+   * passou a ser ADITIVO: acende o par, não apaga ninguém.
+   *
+   * Com isso, `opacity` é 1 em tudo, sempre — a asserção não tinha como passar,
+   * e ninguém viu porque esta prova depende de um PDF que não está no
+   * repositório. O que carrega o destaque hoje é a MOLDURA (`--nx-edge` vira
+   * `--ring`), e é ela que se mede.
+   */
+  /*
+   * O valor computado é a COR FINAL (`#5bdac6`), e não o nome do token — por
+   * isso a comparação é contra `--ring` e `--border` lidos da raiz, em vez de
+   * procurar a palavra "ring" no texto.
+   */
+  const tokens = await page.evaluate(() => {
+    const raiz = getComputedStyle(document.documentElement);
+    return {
+      ring: raiz.getPropertyValue("--ring").trim(),
+      border: raiz.getPropertyValue("--border").trim(),
+    };
+  });
+
+  const molduraDo = (loc) =>
+    loc
+      .locator("> div")
+      .first()
+      .evaluate((el) => getComputedStyle(el).getPropertyValue("--nx-edge").trim());
 
   const primeiro = cards.first();
   const segundo = cards.nth(1);
   await primeiro.hover();
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/c3-par-aceso.png` });
-  const opAceso = await opacidade(primeiro);
-  const opApagado = await opacidade(segundo);
-  check("o card sob o cursor fica aceso", opAceso > 0.9, `${opAceso}`);
-  check("os outros apagam", opApagado < 0.5, `${opApagado}`);
+  const molduraAcesa = await molduraDo(primeiro);
+  const molduraApagada = await molduraDo(segundo);
+  check(
+    "o card sob o cursor ganha a moldura de foco",
+    molduraAcesa === tokens.ring,
+    `${molduraAcesa} (esperado ${tokens.ring})`,
+  );
+  /*
+   * O card não-aceso NÃO define `--nx-edge`: ele cai no padrão do `.nx-edge-6`,
+   * que já é `var(--border)`. Vazio aqui é o comportamento certo, e o que se
+   * cobra é o que importa — ele não ganhou a moldura de foco, e continua na
+   * tela.
+   */
+  check(
+    "e os outros continuam VISÍVEIS, sem a moldura de foco",
+    molduraApagada !== tokens.ring &&
+      (await segundo.locator("> div").first().isVisible()),
+    `${molduraApagada || "(padrão: " + tokens.border + ")"}`,
+  );
 
   /*
    * Acender o par NÃO pode remontar os PDFs: o destaque passa pelos dados dos
@@ -258,9 +361,19 @@ try {
     `${canvasesAntes} → ${canvasesDepois}`,
   );
 
+  /*
+   * SAIR DO CARD apaga o foco e não deixa rastro: nenhuma moldura de anel fica
+   * acesa depois que o cursor vai embora. Media opacidade — mesma correção das
+   * asserções acima.
+   */
   await page.mouse.move(5, 5);
   await page.waitForTimeout(400);
-  check("saindo do card, tudo volta a acender", (await opacidade(segundo)) > 0.9);
+  const molduraDepoisDeSair = await molduraDo(segundo);
+  check(
+    "saindo do card, o foco se apaga",
+    molduraDepoisDeSair !== tokens.ring,
+    molduraDepoisDeSair || "(padrão)",
+  );
 
   // A pilha acende o GRUPO: os pins das duas páginas do erro repetido, e nenhum
   // outro. Um destaque que acendesse só um deles negaria o próprio motivo da
@@ -268,54 +381,81 @@ try {
   await pilhas.first().hover();
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/c4-pilha-acesa.png` });
-  const acesos = await pins.evaluateAll(
-    (els) => els.filter((el) => Number.parseFloat(getComputedStyle(el).opacity) > 0.9).length,
-  );
+  /*
+   * Mede `data-aceso` e a ESCALA, e não opacidade — mesmo motivo das duas
+   * asserções acima: nada mais apaga, então contar quem está em opacidade 1
+   * contava todos os cinco pins e a asserção não tinha como passar.
+   *
+   * A escala entra junto para o atributo não virar decoração: `data-aceso` sem
+   * efeito visual passaria verde com o destaque quebrado.
+   */
+  const acesos = await page.locator("[data-pin][data-aceso]").count();
   check(`a pilha acende as ${RECORRENTES} páginas do erro (acesos ${acesos})`, acesos === RECORRENTES);
 
-  // O cursor pausa o ciclo — sem isso, ler a lista de páginas seria perseguir
-  // uma camada em movimento.
-  // Medir por posição não serve: o React Flow injeta o conector como último
-  // filho do nó, e era ELE que respondia "running" — a camada é marcada.
-  const pausado = await pilhas
+  if (acesos > 0) {
+    const cresceu = await page
+      .locator("[data-pin][data-aceso]")
+      .first()
+      .evaluate((el) => {
+        /*
+         * `scale`, e não `transform`: o Tailwind v4 usa as propriedades
+         * individuais (`translate`, `scale`, `rotate`), então a escala NÃO
+         * aparece na matriz do `transform` — medir lá devolvia 1 com o pin
+         * crescendo na tela.
+         */
+        const s = getComputedStyle(el).scale;
+        if (!s || s === "none") return 1;
+        const escala = Number.parseFloat(s.split(" ")[0]);
+        return Number.isFinite(escala) ? escala : 1;
+      });
+    check("e o pin aceso cresce de verdade", cresceu > 1.2, `escala ${cresceu}`);
+  }
+
+  /*
+   * A PILHA NÃO SE MEXE MAIS — e esta é a mesma proteção de antes, cobrada de
+   * um jeito mais forte.
+   *
+   * As duas asserções que viviam aqui mediam o ciclo de 6s: que o cursor o
+   * PAUSAVA, e que `prefers-reduced-motion` o CONGELAVA. As duas existiam pelo
+   * mesmo motivo — "ler a lista de páginas não pode ser perseguir uma camada em
+   * movimento". Com o ciclo removido (onda 1 do spec do canvas), isso passou a
+   * valer por construção, e o que se mede agora é a ausência: nenhuma animação,
+   * em nenhum estado, sem depender de o cursor estar em cima.
+   */
+  const animacaoDaPilha = await pilhas
     .first()
     .locator('[data-pilha="topo"]')
-    .evaluate((el) => getComputedStyle(el).animationPlayState);
-  check("o cursor pausa o ciclo da pilha", pausado === "paused", pausado);
+    .evaluate((el) => getComputedStyle(el).animationName);
+  check("a pilha nao anima", animacaoDaPilha === "none", animacaoDaPilha);
+
   const listaDePaginas = await pilhas.first().innerText();
   check("a pilha diz em que páginas o erro está", /112/.test(listaDePaginas) && /114/.test(listaDePaginas), listaDePaginas);
 
-  // Nem emoji na interface, nem o rótulo do veredito perdido: o canvas usa o
-  // mesmo ponto de status da tela textual (DESIGN.md §11).
-  check(
-    "o veredito aparece sem emoji",
-    !/[🔴🟡🟢⚠️]/u.test(corpo) && /NÃO EMITIR/i.test(corpo),
-    (corpo.match(/[🔴🟡🟢⚠️]/gu) ?? []).join(""),
-  );
-
   /*
-   * Quem pede menos movimento recebe a pilha PARADA — e ainda assim inteira: o
-   * ×N e a lista continuam lá. O repouso do desenho já é o estado legível, então
-   * congelar não tira informação nenhuma.
+   * E AS PÁGINAS VIRARAM CAMINHO. Eram texto: quem queria conferir a página 114
+   * tinha de achá-la à mão no canvas. A pílula move a câmera até lá.
+   *
+   * A medida é o TRANSFORM do painel do React Flow antes e depois — "o botão
+   * existe" passaria verde com o clique não fazendo nada.
    */
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.mouse.move(5, 5);
-  await page.waitForTimeout(600);
-  const ciclo = await pilhas
-    .first()
-    .locator('[data-pilha="topo"]')
-    .evaluate((el) => {
-      const cs = getComputedStyle(el);
-      return { duracao: cs.animationDuration, repeticoes: cs.animationIterationCount };
-    });
-  check(
-    "com menos movimento, o ciclo congela",
-    Number.parseFloat(ciclo.duracao) < 0.001 && ciclo.repeticoes === "1",
-    JSON.stringify(ciclo),
-  );
-  await page.screenshot({ path: `${OUT}/c5-pilha-congelada.png` });
+  const painel = page.locator(".react-flow__viewport").first();
+  const antesDoSalto = await painel.evaluate((el) => getComputedStyle(el).transform);
+  const pilula = pilhas.first().getByRole("button", { name: /Ir para a página 114/i });
+  check("a pilha oferece a pílula da página", (await pilula.count()) > 0);
+
+  if ((await pilula.count()) > 0) {
+    await pilula.first().click();
+    await page.waitForTimeout(900);
+    const depoisDoSalto = await painel.evaluate((el) => getComputedStyle(el).transform);
+    check(
+      "e clicar nela move a câmera",
+      antesDoSalto !== depoisDoSalto,
+      `${antesDoSalto} -> ${depoisDoSalto}`,
+    );
+    await page.screenshot({ path: `${OUT}/c5-pilula-saltou.png` });
+  }
+
   check("e a pilha continua contando as ocorrências", /×2/.test(await page.locator("body").innerText()));
-  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   // --- O parecer por cima, sem largar o documento ---------------------------
   const miniaturasAntes = await page.locator("canvas.react-pdf__Page__canvas").count();

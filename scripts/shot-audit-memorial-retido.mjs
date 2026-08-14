@@ -18,7 +18,7 @@ const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = "./scratchpad/qa";
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
 
 fs.mkdirSync(OUT, { recursive: true });
 

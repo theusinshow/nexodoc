@@ -386,34 +386,6 @@ textarea {
   }
 }
 
-/* Pilha dos achados recorrentes (auditoria visual): as camadas se revezam à
-   frente, num ciclo contínuo, para o mesmo erro em N páginas se ler como UM
-   achado espalhado — e não como N achados iguais.
-
-   O repouso (sem animação) já é a pilha legível: com `prefers-reduced-motion` o
-   bloco global acima corta a duração e a repetição, e o que sobra é a pilha
-   parada com o seu ×N. Congelar é o comportamento certo, não um efeito colateral. */
-@keyframes nexodoc-pilha-ciclo {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-    z-index: 3;
-  }
-
-  33% {
-    transform: translate(4px, 7px) scale(0.97);
-    opacity: 0.72;
-    z-index: 2;
-  }
-
-  66% {
-    transform: translate(8px, 14px) scale(0.94);
-    opacity: 0.45;
-    z-index: 1;
-  }
-}
-
 @keyframes audit-progress {
   0% {
     transform: translateX(-110%);

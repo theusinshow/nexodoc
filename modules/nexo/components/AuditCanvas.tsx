@@ -10,7 +10,7 @@
  * nem posição. Só desenha.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -35,7 +35,7 @@ import {
 } from "@/lib/audit-status";
 import type { AuditReport } from "@/lib/audit-report";
 import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
-import { layoutDaAuditoria } from "../lib/layout-auditoria";
+import { idDaPagina, layoutDaAuditoria } from "../lib/layout-auditoria";
 import { MemorialPageNode, type MemorialPageNodeData } from "./MemorialPageNode";
 import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
 import { RecurringStackNode, type RecurringStackNodeData } from "./RecurringStackNode";
@@ -49,7 +49,6 @@ const nodeTypes = {
   rotulo: RotuloDoCanvas,
 };
 
-const idDaPagina = (pagina: number) => `p${pagina}`;
 const idDoAchado = (achado: string) => `a-${achado}`;
 const idDaPilha = (grupo: string) => `g-${grupo}`;
 
@@ -154,6 +153,7 @@ function CanvasInterno({
           tipo: achado.tipo,
           evidencia: achado.evidencia,
           pageNumber: achado.pageNumber,
+          disciplina: achado.disciplina,
         },
       }));
 
@@ -257,17 +257,26 @@ function CanvasInterno({
    * A pilha abre o PRIMEIRO do grupo: são o mesmo erro repetido, e o cartão traz
    * as páginas todas.
    */
+  const abrirPeloId = useCallback((id: string) => {
+    setAchadoEmFoco(id);
+    setParecerAberto(true);
+  }, []);
+
   const abrirAchado: NodeMouseHandler = (_, node) => {
     const dados = node.data as { achadoId?: string; achadoIds?: string[] };
     const id = dados.achadoId ?? dados.achadoIds?.[0];
     if (!id) return;
-    setAchadoEmFoco(id);
-    setParecerAberto(true);
+    abrirPeloId(id);
   };
 
   const realce = useMemo(
-    () => ({ acesos, acender: (ids: readonly string[]) => setAcesos(ids), apagar }),
-    [acesos],
+    () => ({
+      acesos,
+      acender: (ids: readonly string[]) => setAcesos(ids),
+      apagar,
+      abrir: abrirPeloId,
+    }),
+    [acesos, abrirPeloId],
   );
 
   if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {

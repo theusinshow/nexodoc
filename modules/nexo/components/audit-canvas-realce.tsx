@@ -25,9 +25,18 @@ export interface Realce {
   /** Acende (hover) — lista, porque a pilha de recorrentes acende várias. */
   acender: (ids: readonly string[]) => void;
   apagar: () => void;
+  /**
+   * Abre o achado no parecer.
+   *
+   * Mora aqui pelo MESMO motivo que o realce: quem precisa disso é um elemento
+   * DENTRO de um nó — o pin sobre a miniatura, a pílula da pilha —, e o React
+   * Flow só entrega `onNodeClick`, que fala do nó inteiro. Sem este caminho, o
+   * pin não teria como abrir o achado que ele marca.
+   */
+  abrir: (achadoId: string) => void;
 }
 
-const VAZIO: Realce = { acesos: [], acender: () => {}, apagar: () => {} };
+const VAZIO: Realce = { acesos: [], acender: () => {}, apagar: () => {}, abrir: () => {} };
 
 export const RealceContext = createContext<Realce>(VAZIO);
 

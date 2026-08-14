@@ -24,7 +24,7 @@ const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = process.env.SHOT_OUT ?? "./scratchpad";
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\017_26_md_geral_c_assinado.pdf";
 const OBRA = "Centro Comunitário Primeira Linha";
 /*
  * AUDIT_REUSE=1 reabre a ÚLTIMA auditoria do histórico em vez de rodar outra.

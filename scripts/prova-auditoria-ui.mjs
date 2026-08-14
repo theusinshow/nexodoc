@@ -20,7 +20,7 @@ const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const OUT = "./scratchpad/qa";
 const MEMORIAL =
   process.env.AUDIT_PDF ??
-  "C:\\Users\\matheus.mendes\\Desktop\\NEXO - TESTES\\Memoriais\\013_26_md_geral_a.pdf";
+  "C:\\Users\\matheus.mendes\\Desktop\\NexoDoc\\NEXO - TESTES\\Memoriais\\013_26_md_geral_a.pdf";
 
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -478,7 +478,29 @@ try {
   );
 
   // ------------------------------------- o clique abre o achado no parecer
-  await page.locator(".react-flow__node").nth(primeiroCard).click({ force: true });
+  /*
+   * O ACHADO POR SELETOR, e não por índice — e no CABEÇALHO dele, não no centro.
+   *
+   * Eram duas fragilidades numa linha só (`.react-flow__node` na posição 28):
+   *
+   * 1. O número mágico valia enquanto houvesse exatamente 28 páginas antes dos
+   *    cards. Neste cenário os 45 achados têm evidência quase idêntica e o motor
+   *    os agrupa TODOS em pilhas — não existe um único card, e o índice 28 caía
+   *    numa pilha.
+   *
+   * 2. `click({ force: true })` mira o CENTRO. A pilha ganhou pílulas de página
+   *    no rodapé (onda 1 do spec do canvas), e o centro passou a cair sobre uma
+   *    delas — que navega a câmera e para o evento, em vez de abrir o parecer.
+   *    A prova acusou "drawer do parecer abriu: NÃO", e estava certa: era
+   *    regressão de verdade, não seletor velho.
+   *
+   * Clicar no alto do nó é onde ficam o tipo e a evidência — a área que um
+   * humano usa para abrir o achado.
+   */
+  const alvoDoClique = page.locator(
+    '.react-flow__node[data-id^="a-"], .react-flow__node[data-id^="g-"]',
+  );
+  await alvoDoClique.first().click({ force: true, position: { x: 60, y: 16 } });
   await page.waitForTimeout(1200);
   const drawer = page.getByRole("dialog", { name: /parecer completo/i });
   const abriu = (await drawer.count()) > 0;

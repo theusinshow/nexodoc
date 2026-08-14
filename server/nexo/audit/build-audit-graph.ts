@@ -32,6 +32,16 @@ export interface AuditFindingNode {
   evidencia: string;
   sugestao: string;
   termoBusca?: string;
+  /**
+   * A DISCIPLINA do achado, para o card do canvas dizer de quem é o erro.
+   *
+   * Viaja crua, e a sigla sai de `modules/nexo/lib/disciplina-cor.ts` na hora de
+   * desenhar: a redução de vinte e três códigos para oito famílias é decisão de
+   * APRESENTAÇÃO, e o grafo não é lugar de decidir isso. Vazia quando a página
+   * não trazia cabeçalho reconhecível — e aí o card simplesmente não mostra
+   * etiqueta, em vez de inventar uma.
+   */
+  disciplina?: string;
   groupId: string | null;
 }
 
@@ -112,6 +122,7 @@ function toNode(finding: AuditFinding, pageNumber: number | null): AuditFindingN
     evidencia: finding.evidencia,
     sugestao: finding.sugestao_correcao,
     termoBusca: finding.termo_busca || finding.evidencia || undefined,
+    disciplina: finding.disciplina || undefined,
     groupId: null,
   };
 }

@@ -43,7 +43,7 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
    * movimento do ponteiro recriava os 32 nós e o React Flow redesenhava as 28
    * miniaturas de PDF junto — ver [[audit-canvas-realce.tsx]].
    */
-  const { acesos } = useRealce();
+  const { acesos, acender, apagar, abrir } = useRealce();
   const temAceso = acesos.length > 0 && data.achados.some((a) => acesos.includes(a.id));
   const [pinos, setPinos] = useState<Record<string, PinPosition>>({});
   // Distingue "ainda não li a camada de texto" de "li e não achei o trecho": sem
@@ -98,19 +98,45 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
              * evidência e página, e acender um acende o outro. Duplicar isso no
              * leitor de tela encheria a árvore de acessibilidade com 122 rótulos
              * repetidos, empurrando o texto que importa para longe.
-             */
-            /*
+             *
+             * ELE PASSOU A RESPONDER AO PONTEIRO, e continua fora da árvore de
+             * acessibilidade — `aria-hidden` + `tabIndex={-1}`. É afordância
+             * REDUNDANTE: tudo o que o pin faz, o card abaixo também faz, e o
+             * card é focalizável e anunciado. Um botão que entra no Tab e no
+             * leitor de tela para repetir o vizinho é o que a decisão acima
+             * recusou; um atalho para quem já está com o cursor sobre a página
+             * não é a mesma coisa.
+             *
              * O pin ACESO cresce e ganha um halo; o apagado fica como sempre
              * esteve. Antes era o contrário — o não-aceso caía para 25%, e com
              * dezenas de pins a tela inteira piscava a cada movimento.
+             *
+             * `nodrag` é do React Flow: sem ela, apertar o pin ARRASTA a página
+             * em vez de clicar. E o `stopPropagation` impede que o mesmo clique
+             * suba para `onNodeClick` da página, que trataria como clique no nó.
+             *
+             * NÃO HÁ TOOLTIP, e o spec pedia um: passar o cursor já acende o
+             * card, e o card já mostra tipo e trecho. Um tooltip repetiria isso
+             * a 3cm de distância, e um por pin custaria 45 camadas flutuantes
+             * numa tela cujo histórico de problema é justamente excesso de
+             * movimento.
              */
-            <span
+            <button
               key={achado.id}
+              type="button"
               aria-hidden
+              tabIndex={-1}
               data-pin={achado.id}
               data-aceso={aceso ? "" : undefined}
+              onMouseEnter={() => acender([achado.id])}
+              onMouseLeave={apagar}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                abrir(achado.id);
+              }}
               className={cn(
-                "pointer-events-none absolute block size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-transform",
+                "nodrag absolute block size-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-background p-0 transition-transform",
+                "hover:scale-150",
                 aceso && "scale-150 ring-2 ring-[var(--ring)]",
               )}
               style={{
