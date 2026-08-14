@@ -108,6 +108,7 @@ export async function getUserAccess(email: string | null | undefined, name?: str
       : existing;
 
   await ativarConvitePendente(user.id, normalizedEmail);
+  await garantirEscritorioPadrao(user.id, normalizedEmail, name);
 
   return {
     email: normalizedEmail,
@@ -143,6 +144,104 @@ async function ativarConvitePendente(userId: string, email: string) {
     where: { email, userId: null },
     data: { userId },
   });
+}
+
+/**
+ * TODO MUNDO QUE ENTRA É DA PROSUL.
+ *
+ * Decisão do mantenedor, tomada em 14/08/2026 com a consequência na mão: existe
+ * um escritório só, e enquanto for assim conta sem vínculo não é proteção, é uma
+ * pessoa levando 403 sem motivo. Quem chega sem convite entra como `MEMBER`.
+ *
+ * O QUE ISTO ABRE, escrito para não virar surpresa: o login é Google, então esta
+ * porta não é só para gente contratada — qualquer pessoa com conta Google que
+ * abrir o site vira membro e passa a enxergar os projetos. O freio é o
+ * `NEXODOC_ESCRITORIO_PADRAO`: definido e VAZIO, desliga o automático e o
+ * sistema volta a exigir convite, sem precisar de deploy de código.
+ *
+ * DUAS TRAVAS, e as duas existem por um caso concreto:
+ *
+ *  · só cria quando NÃO HÁ vínculo nenhum — nem ACTIVE, nem INVITED, nem
+ *    DISABLED. Quem foi desligado a mão voltaria a entrar no login seguinte, e
+ *    o desligamento é justamente o gesto que não pode ser desfeito sozinho;
+ *
+ *  · `MEMBER`, nunca `ADMIN`. Alçada de cadastrar projeto define centro de
+ *    custo, e centro de custo errado manda achado para a fila de outro projeto.
+ *    Papel maior continua sendo concessão de gente.
+ */
+async function garantirEscritorioPadrao(
+  userId: string,
+  email: string,
+  name?: string | null,
+) {
+  const organizationId = escritorioPadrao();
+
+  if (!organizationId) {
+    return;
+  }
+
+  const prisma = getPrisma();
+
+  const jaTemVinculo = await prisma.organizationMember.findFirst({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (jaTemVinculo) {
+    return;
+  }
+
+  /*
+   * Num banco sem seed o escritório não existe, e `create` estouraria por chave
+   * estrangeira no meio de um login. Preferir deixar a pessoa sem vínculo a
+   * derrubar a entrada dela: sem escritório, o portão recusa com 403, que é uma
+   * resposta — o estouro não seria.
+   */
+  const escritorio = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true },
+  });
+
+  if (!escritorio) {
+    return;
+  }
+
+  /*
+   * `upsert` com `update` vazio, e não `create`: duas abas abrindo o site ao
+   * mesmo tempo entram aqui juntas, as duas leem "não tem vínculo", e a segunda
+   * bateria no unique `(organizationId, email)` — derrubando o login de quem só
+   * abriu o site duas vezes. O `update: {}` também garante que a corrida não
+   * reescreva papel nem status de um vínculo que a outra acabou de criar.
+   */
+  await prisma.organizationMember.upsert({
+    where: { organizationId_email: { organizationId, email } },
+    create: {
+      organizationId,
+      email,
+      name: name?.trim() || null,
+      userId,
+      role: "MEMBER",
+      status: "ACTIVE",
+    },
+    update: {},
+  });
+}
+
+/**
+ * `undefined` (variável ausente) mantém a PROSUL; definida e VAZIA desliga o
+ * automático. Um `|| "org-prosul"` teria tratado vazio como ausente, e o freio
+ * não existiria.
+ */
+function escritorioPadrao() {
+  const bruto = process.env.NEXODOC_ESCRITORIO_PADRAO;
+
+  if (bruto === undefined) {
+    return "org-prosul";
+  }
+
+  const limpo = bruto.trim();
+
+  return limpo.length > 0 ? limpo : null;
 }
 
 /**

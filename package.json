@@ -27,7 +27,7 @@
     "prova:convite": "node scripts/prova-convite.mjs",
     "prova:endereco": "node scripts/prova-auditoria-com-endereco.mjs",
     "prova:fila": "node scripts/prova-fila-de-achados.mjs",
-    "prova:tudo": "npm run prova:rotas && npm run prova:escritorio && npm run prova:alcada && npm run prova:convite && npm run prova:endereco && npm run prova:fila",
+    "prova:tudo": "npm run prova:rotas && npm run prova:escritorio && npm run prova:alcada && npm run prova:convite && npm run prova:endereco && npm run prova:fila && npm run prova:automatico",
     "test:audit": "node scripts/test-audit-consistency.ts",
     "test:audit:metrics": "node scripts/audit-precision-recall.ts",
     "test:ld": "node scripts/test-ld-rules.ts",
@@ -131,7 +131,8 @@
     "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts",
     "db:backup:json": "node scripts/backup-json.mjs",
-    "db:reset-trabalho": "node scripts/reset-trabalho.mjs"
+    "db:reset-trabalho": "node scripts/reset-trabalho.mjs",
+    "prova:automatico": "node scripts/prova-escritorio-automatico.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

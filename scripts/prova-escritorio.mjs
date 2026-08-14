@@ -135,16 +135,32 @@ check(
   `status ${semSessao.status()}`,
 );
 
-// 5. Quem não é de escritório nenhum não passa, mesmo com sessão válida. É o
-//    caso de quem foi desligado, e o de quem nunca foi convidado.
+// 5. Sessão válida sem escritório ATIVO não lê nada.
+//
+//    Esta asserção media DOIS casos numa só — "quem foi desligado" e "quem nunca
+//    foi convidado" — e em 14/08/2026 o segundo deixou de valer por decisão do
+//    mantenedor: desconhecido que entra vira MEMBER da PROSUL sozinho. O caso do
+//    desligado sobreviveu inteiro, e é ele que fica aqui: o vínculo existe e
+//    está DISABLED, que é o estado em que a pessoa saiu do escritório.
+//
+//    A porta que a decisão abriu tem prova própria, com as travas:
+//    `prova-escritorio-automatico.mjs`.
 await prisma.organizationMember.deleteMany({ where: { email: "estranho@fora.com" } });
+await prisma.organizationMember.create({
+  data: {
+    organizationId: ORG,
+    email: "estranho@fora.com",
+    role: "MEMBER",
+    status: "DISABLED",
+  },
+});
 const ctxEstranho = await browser.newContext({ baseURL: BASE });
 const pEstranho = await ctxEstranho.newPage();
 pEstranho.setDefaultTimeout(25000);
 await entrarComo(pEstranho, "estranho@fora.com");
 const doEstranho = await pEstranho.request.get("/api/projects");
 check(
-  "sessao valida sem escritorio nao le nada",
+  "sessao valida sem escritorio ativo nao le nada",
   doEstranho.status() === 403,
   `status ${doEstranho.status()}`,
 );
