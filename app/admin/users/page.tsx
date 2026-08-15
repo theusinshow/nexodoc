@@ -97,7 +97,7 @@ function CartaoDeConfirmacao({
       <button
         type="button"
         onClick={onConfirmar}
-        className="nx-edge-7 inline-flex h-10 items-center px-4 font-mono text-[12px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
+        className="nx-edge-7 inline-flex h-10 items-center px-4 font-mono text-[12px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-tint)]"
       >
         Confirmar
       </button>
@@ -497,7 +497,7 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
 
-        <section className="overflow-x-auto border border-border bg-card">
+        <section className="min-w-0 overflow-x-auto border border-border bg-card">
           <table className="w-full min-w-[1210px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>
@@ -579,7 +579,7 @@ export default function AdminUsersPage() {
                               confirmando.aplicar();
                               setConfirmando(null);
                             }}
-                            className="nx-edge-6 inline-flex h-9 items-center px-3 font-mono text-[11px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]"
+                            className="nx-edge-6 inline-flex h-9 items-center px-3 font-mono text-[11px] text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-tint)]"
                           >
                             Confirmar
                           </button>
@@ -592,6 +592,13 @@ export default function AdminUsersPage() {
                           </button>
                         </div>
                       ) : (
+                      /*
+                        A PERGUNTA SUBSTITUI O GRUPO INTEIRO, não só o botão que
+                        a disparou. Antes, "Desativar" continuava clicável ao
+                        lado da própria pergunta — dava para responder uma coisa
+                        e fazer outra na mesma linha.
+                      */
+                      <>
                       <button
                         type="button"
                         onClick={() =>
@@ -615,16 +622,44 @@ export default function AdminUsersPage() {
                         <ShieldCheck className="size-3.5" />
                         {user.role === "ADMIN" ? "Tornar usuário" : "Tornar admin"}
                       </button>
-                      )}
+                      {/*
+                        DESATIVAR NA LINHA PASSA PELA MESMA PORTA DO LOTE.
+                        Era `saveUser` direto no clique: um toque tirava o acesso
+                        de alguém, sem confirmação e sem volta, na linha de baixo
+                        de um botão que JÁ confirmava. O lote (`:471`) sempre
+                        confirmou, com a frase certa; a linha não. Agora as duas
+                        obedecem ao princípio 3 que o comentário lá em cima
+                        declara.
+
+                        ATIVAR continua num clique só, e de propósito: devolver
+                        acesso é reversível e não é o erro que custa caro.
+
+                        O ícone também estava errado — `Check` para desativar. O
+                        lote já usava `X` para tirar e `Check` para devolver; a
+                        linha agora fala a mesma língua. E a casca vira
+                        `nx-edge-6`: era o último `rounded-md` da célula, ao lado
+                        de um irmão chanfrado.
+                      */}
                       <button
                         type="button"
-                        onClick={() => void saveUser({ ...user, isActive: !user.isActive })}
+                        onClick={() =>
+                          user.isActive
+                            ? setConfirmando({
+                                escopo: "linha",
+                                id: user.id,
+                                rotulo: `Desativar ${user.name || user.email}? Perde o acesso ao produto imediatamente — o histórico fica.`,
+                                aplicar: () => void saveUser({ ...user, isActive: false }),
+                              })
+                            : void saveUser({ ...user, isActive: true })
+                        }
                         disabled={busyId === user.id}
-                        className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-xs transition hover:bg-muted disabled:opacity-50"
+                        className="nx-edge-6 inline-flex h-9 items-center gap-1 px-3 font-mono text-[11px] text-muted-foreground transition-colors [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)] disabled:opacity-50"
                       >
-                        <Check className="size-3.5" />
+                        {user.isActive ? <X className="size-3.5" /> : <Check className="size-3.5" />}
                         {user.isActive ? "Desativar" : "Ativar"}
                       </button>
+                      </>
+                      )}
                     </div>
                   </td>
                 </tr>

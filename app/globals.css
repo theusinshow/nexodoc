@@ -93,6 +93,24 @@
   --status-warning-bg: rgb(233 180 92 / 0.14);
   --status-critical: #ff9285;
   --status-critical-bg: rgb(255 146 133 / 0.14);
+  /* OS MIOLOS OPACOS -- e por que eles precisam existir.
+
+     Os `-bg` acima sao TRANSLUCIDOS, e isso e certo sobre um fundo qualquer.
+     Mas em `.nx-edge-*` o fundo do proprio elemento E A BORDA: um `--nx-fill`
+     translucido deixa a cor da borda atravessar o miolo inteiro. Medido no
+     admin: o botao "Confirmar" da desativacao ficava #ff9285 sobre #ff9285 --
+     1:1, um bloco coral sem texto -- e o `AdminError`, que usa os mesmos
+     tokens, tinha o mesmo defeito em TODA mensagem de erro do painel. As provas
+     de DOM passavam verdes: o texto estava la, so nao dava para ler.
+
+     Ja vem composto sobre `--card`. Use `-tint` quando o valor for um
+     `--nx-fill`; use `-bg` quando for fundo de um elemento comum.
+
+     SO O CORAL EXISTE, e de proposito: e o unico que hoje entra num `--nx-fill`
+     (confirmacao de desativar e `AdminError`). O §12 diz que token nasce com
+     trabalho declarado — criar o verde e o ambar "por simetria" seria criar
+     duas linhas que nada pinta. Quando alguem precisar, cria junto com o uso. */
+  --status-critical-tint: color-mix(in oklab, var(--status-critical) 14%, var(--card));
   --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.35);
   --shadow-subtle: 0 1px 1px rgb(0 0 0 / 0.25);
   /* Fio de luz no topo de superficies elevadas/interativas (DESIGN.md secao 4). */

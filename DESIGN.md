@@ -230,10 +230,30 @@ de paleta do Tailwind (`bg-yellow-*`), nunca nome inventado. **Não existe**
 |-----------|-------------|-------|
 | OK | `--status-ok` `#6ee7a3` | `--status-ok-bg` |
 | Atenção | `--status-warning` `#e9b45c` | `--status-warning-bg` |
-| Crítico | `--status-critical` `#ff9285` | `--status-critical-bg` |
+| Crítico | `--status-critical` `#ff9285` | `--status-critical-bg` · `--status-critical-tint` |
 
 O padrão canônico é `<Badge variant="ok|warning|critical">`. Use o componente;
 não escreva as classes à mão.
+
+#### `-bg` é translúcido; `-tint` é o mesmo tom já composto
+
+Os três `-bg` carregam alfa (13–14%), e é o certo para o fundo de um elemento
+comum: eles se assentam sobre o que estiver atrás.
+
+**Dentro de `.nx-edge-*` isso vira defeito**, porque ali o fundo do próprio
+elemento É A BORDA (§5): um `--nx-fill` translúcido deixa a cor da borda
+atravessar o miolo inteiro. Foi medido no admin em 15/08/2026 — o botão
+"Confirmar" da desativação ficava `#ff9285` sobre `#ff9285`, **1:1**, um bloco
+coral sem texto legível, e o `AdminError` tinha o mesmo defeito em toda mensagem
+de erro do painel. As provas de DOM passavam verdes: o texto estava lá, só não
+dava para ler.
+
+`--status-critical-tint` é o mesmo coral a 14% **já composto sobre `--card`**,
+opaco. Com ele o mesmo botão mede 6,89:1.
+
+- **Regra:** valor de `--nx-fill` usa `-tint`; fundo de elemento comum usa `-bg`.
+- Só o coral existe. O verde e o âmbar ganham o seu quando alguém os puser num
+  `--nx-fill` — token nasce com trabalho declarado (§12), não por simetria.
 
 ### As cores de vocabulário
 

@@ -217,7 +217,7 @@ export function AdminError({ message }: { message: string }) {
   return (
     // Borda em Signal Critical e miolo tingido: é o vocabulário de falha do §7,
     // e não uma borda vermelha qualquer.
-    <p className="nx-edge-8 flex items-start gap-2 p-3 text-sm text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-bg)]">
+    <p className="nx-edge-8 flex items-start gap-2 p-3 text-sm text-[var(--status-critical)] [--nx-edge:var(--status-critical)] [--nx-fill:var(--status-critical-tint)]">
       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
       <span>{message}</span>
     </p>
