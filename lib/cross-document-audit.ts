@@ -365,7 +365,25 @@ export function runCrossDocumentRules(sources: CrossDocumentSource[]) {
         evidencia: item.value.evidence,
         termo_busca: item.value.display.slice(0, 160),
         conflito: `${item.fileName}: ${item.value.display} x ${baseline.fileName}: ${baseline.value.display}.`,
-        sugestao_correcao: `Conferir o ${spec.label} correto e padronizar todos os documentos antes da emissão.`,
+        /*
+         * A SUGESTÃO DIZ OS DOIS VALORES E ONDE CADA UM ESTÁ.
+         *
+         * Era "Conferir o ${spec.label} correto e padronizar todos os
+         * documentos" — a frase que o nosso próprio `auditor-prompt.ts` proíbe a
+         * IA de escrever, vinda de um motor que conhece os dois valores e as
+         * duas páginas. Quem lia tinha de reabrir os dois arquivos para
+         * descobrir o que a auditoria já sabia.
+         *
+         * E ELA NÃO ESCOLHE O VENCEDOR, de propósito: o baseline é o documento
+         * majoritário, não o comprovadamente certo. Mandar "trocar X por Y" aqui
+         * seria afirmar uma coisa que este motor não apurou. O que ele apurou é
+         * a divergência — então o que se pede é a DECISÃO, com os candidatos na
+         * mão.
+         */
+        sugestao_correcao:
+          `Decidir qual ${spec.label} vale: "${item.value.display}" (${item.fileName}, p. ${item.value.page}) ` +
+          `ou "${baseline.value.display}" (${baseline.fileName}, p. ${baseline.value.page}) — ` +
+          `e alinhar os dois documentos antes da emissão.`,
         confianca: "alta",
       });
     }
@@ -610,8 +628,18 @@ export function runWithinDocumentIdentityRules(
         evidencia: inferredDominant.mention.evidence,
         termo_busca: inferredDominant.mention.display.slice(0, 160),
         conflito: `Gabarito: "${baselineDisplay}" × documento: "${inferredDominant.mention.display}".`,
+        /*
+         * A BIFURCAÇÃO CONTINUA — ela é honesta, porque daqui não dá para saber
+         * se o arquivo é o errado ou se a identidade dentro dele é que está. O
+         * que faltava era NOMEAR os dois lados: "confirmar se o arquivo
+         * corresponde à obra declarada" manda a pessoa procurar o que a
+         * auditoria já tem na mão.
+         */
         sugestao_correcao:
-          "Confirmar se o arquivo enviado corresponde à obra declarada; se sim, corrigir a identidade no documento, se não, auditar o arquivo correto.",
+          `O gabarito declara "${baselineDisplay}" e o documento identifica "${inferredDominant.mention.display}" ` +
+          `(p. ${inferredDominant.mention.page}). Se este é o arquivo certo, substituir ` +
+          `"${inferredDominant.mention.display}" por "${baselineDisplay}" no documento; ` +
+          `se não, auditar o arquivo da obra "${baselineDisplay}".`,
         confianca: "alta",
       });
     }
