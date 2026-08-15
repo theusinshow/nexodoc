@@ -2000,8 +2000,30 @@ export function AuditResult({
               Resultado da auditoria
             </p>
           )}
+          {/*
+            A CONTAGEM PASSOU A SER A MESMA DO VEREDITO.
+
+            Esta linha somava `findings.length` — sólidos MAIS sugestões da IA —
+            enquanto a aba do palco (`PalcoDoNexo.tsx:224`), os três cartões de
+            severidade e o próprio veredito contam só os sólidos. Na tela, lado a
+            lado: "Achados 4" e "5 achados em 1 arquivo". Dois números para a
+            mesma coisa, a 40px um do outro, num produto cuja proposta é contagem
+            confiável.
+
+            A soma era pior do que divergência de display: ela apresentava como
+            achado uma sugestão que a validação REBAIXOU de propósito — a mesma
+            que não acende o semáforo e mora na seção recolhível. Contar as duas
+            juntas desfazia, no rótulo, a separação de duas camadas que o resto
+            do arquivo constrói.
+
+            As sugestões não sumiram do rótulo: ganharam o nome delas, e só
+            aparecem quando existem.
+          */}
           <span className="mt-1 block font-mono text-xs text-muted-foreground">
-            {findings.length} achado{findings.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
+            {principalFindingsWithPdf.length} achado{principalFindingsWithPdf.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
+            {suggestionFindings.length > 0
+              ? ` · ${suggestionFindings.length} sugest${suggestionFindings.length !== 1 ? "ões" : "ão"} da IA`
+              : ""}
             {elapsed ? ` · ${elapsed}` : ""}
           </span>
 
