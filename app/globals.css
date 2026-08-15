@@ -1503,6 +1503,21 @@ textarea {
 /* A LAMINA. Camada inclinada a 30 graus que entra pela direita e sai pela
    esquerda. Quem quiser lamina seta `--nx-blade`; sem isso `.nx-ctl` nao pinta
    nada e continua servindo so como gancho. */
+
+/* A LAMINA ESPERA FORA DO BOTAO -- e o `clip-path` do chanfro esconde a PINTURA
+   dela, mas nao o TRANSBORDO DE LAYOUT. Medido: um "Abrir volumes" de 146px
+   tinha 526px de scrollWidth (160% de largura, deslocada 120% para a direita),
+   e era isso que fazia `/ferramentas` rolar 176px de lado num telefone de
+   390px. Um efeito de hover invisivel empurrando a pagina inteira.
+
+   `clip` e nao `hidden` de proposito: `hidden` transformaria todo controle do
+   produto num container de rolagem (e um alvo de `scrollIntoView`), enquanto
+   `clip` so recorta. A lamina continua entrando e saindo igual -- ela ja era
+   recortada na pintura. */
+.nx-ctl {
+  overflow: clip;
+}
+
 .nx-ctl::after {
   content: "";
   position: absolute;
@@ -1761,6 +1776,50 @@ textarea {
     transparent 0
   );
   background-size: var(--dotgrid-step, 24px) var(--dotgrid-step, 24px);
+}
+
+/* --- O PORTAO DE TELA LARGA: a decisao do Nexo, generalizada ----------
+   O `NexoShell` ja recusava abaixo de 1024px, e dizia por que. O resto do
+   produto nao tinha aplicado a mesma decisao: medido num telefone de 390px,
+   `/projetos` rolava 1171px para o lado e `/admin/users` 796px -- sumiam pela
+   direita sem aviso.
+
+   A regra base vem ANTES da media query de proposito, como no shell: com a
+   mesma especificidade a ultima vence, e deixa-la depois esconderia o aviso
+   justamente nas larguras em que ele deve aparecer. Ver
+   `components/ui/portao-de-tela-larga.tsx`. */
+.nx-tela-estreita {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 60dvh;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.nx-tela-estreita__titulo {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.nx-tela-estreita__texto {
+  max-width: 34ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 1024px) {
+  .nx-tela-larga {
+    display: none;
+  }
+
+  .nx-tela-estreita {
+    display: flex;
+  }
 }
 
 }

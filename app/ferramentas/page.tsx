@@ -78,11 +78,24 @@ export default async function FerramentasAntigasPage() {
           Uma coluna quando há um cartão só: a grade de duas deixava metade da
           linha vazia, e um vão desse tamanho lê como "faltou carregar".
         */}
+        {/*
+          `grid-cols-1` na base NÃO é redundante — era o que faltava.
+
+          Sem coluna declarada, o grid cria uma coluna implícita `auto`, e `auto`
+          respeita o MIN-CONTENT do cartão: medido em 390px, o cartão pedia 546px
+          e a página inteira passava a rolar 176px para o lado. `grid-cols-1` é
+          `repeat(1, minmax(0, 1fr))`, e é o `minmax(0, ...)` que autoriza o
+          cartão a encolher.
+
+          Esta tela é a saída de emergência do produto ("uma saída que ninguém
+          encontra não é saída") — por isso ela é consertada, e não recusada como
+          `/projetos` e o admin, que são densos por natureza.
+        */}
         <div
           className={
             legacyModules.length > 1
-              ? "grid gap-4 sm:grid-cols-2"
-              : "grid max-w-xl gap-4"
+              ? "grid grid-cols-1 gap-4 sm:grid-cols-2"
+              : "grid max-w-xl grid-cols-1 gap-4"
           }
         >
           {legacyModules.map((module) => {

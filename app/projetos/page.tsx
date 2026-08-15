@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { FundoDoAmbiente } from "@/components/ambiente/fundo-do-ambiente";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectConsole, type ProjectConsoleItem } from "@/components/projects/project-console";
+import { PortaoDeTelaLarga } from "@/components/ui/portao-de-tela-larga";
 import { getUserAccess } from "@/lib/access-control";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
@@ -28,7 +29,7 @@ export default async function ProjectsPage() {
         <PageHeader
           backHref="/"
           title="Projetos"
-          description="DATABASE_URL nao esta configurada. Configure o banco para consultar projetos."
+          description="DATABASE_URL não está configurada. Configure o banco para consultar projetos."
         />
       </main>
     );
@@ -73,10 +74,12 @@ export default async function ProjectsPage() {
       <PageHeader
         backHref="/"
         title="Projetos"
-        description="Base consolidada de projetos, documentos, arquivos, artefatos e eventos gerados pelos modulos."
+        description="Base consolidada de projetos, documentos, arquivos, artefatos e eventos gerados pelos módulos."
       />
 
-      <ProjectConsole initialProjects={projects.map(serializeProject)} />
+      <PortaoDeTelaLarga titulo="O cadastro fica ao lado da lista do escritório, e é assim que se confere um código antes de criar outro.">
+        <ProjectConsole initialProjects={projects.map(serializeProject)} />
+      </PortaoDeTelaLarga>
     </main>
   );
 }
