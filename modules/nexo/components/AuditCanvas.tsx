@@ -10,7 +10,15 @@
  * nem posição. Só desenha.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -36,6 +44,12 @@ import {
 import type { AuditReport } from "@/lib/audit-report";
 import { buildAuditGraph, type AuditSeverity } from "@/server/nexo/audit/build-audit-graph";
 import { idDaPagina, layoutDaAuditoria } from "../lib/layout-auditoria";
+import {
+  abreNoTeclado,
+  rotuloDaPagina,
+  rotuloDaPilha,
+  rotuloDoAchado,
+} from "../lib/rotulo-do-no";
 import { MemorialPageNode, type MemorialPageNodeData } from "./MemorialPageNode";
 import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
 import { RecurringStackNode, type RecurringStackNodeData } from "./RecurringStackNode";
@@ -92,6 +106,56 @@ function CanvasInterno({
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [parecerAberto]);
+
+  /*
+   * O DRAWER LEVA O FOCO E O DEVOLVE.
+   *
+   * Ele já se anunciava como `dialog` e fechava no Esc — mas o foco continuava lá
+   * fora, no nó do canvas. Quem abria o parecer pelo teclado ficava ouvindo a
+   * cena atrás de um painel que não sabia ter aberto, e fechá-lo devolvia o Tab
+   * ao começo do documento, não ao achado de onde saiu.
+   *
+   * `aria-modal` é declarado junto com a armadilha de Tab abaixo, e não antes:
+   * dizer ao leitor de tela que o resto da tela está inerte enquanto ele
+   * continua tabulável é uma promessa falsa.
+   */
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const focoAnterior = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!parecerAberto) {
+      // Devolve o foco a quem abriu — e só se ele ainda existir na página.
+      const volta = focoAnterior.current;
+      focoAnterior.current = null;
+      if (volta?.isConnected) volta.focus();
+      return;
+    }
+    focoAnterior.current = document.activeElement as HTMLElement | null;
+    drawerRef.current?.focus();
+  }, [parecerAberto]);
+
+  /** Mantém o Tab dentro do drawer enquanto ele está aberto. */
+  const prenderTab = (ev: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (ev.key !== "Tab") return;
+    const caixa = drawerRef.current;
+    if (!caixa) return;
+    const focaveis = [
+      ...caixa.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((el) => el.offsetParent !== null || el === caixa);
+    if (focaveis.length === 0) return;
+    const primeiro = focaveis[0];
+    const ultimo = focaveis[focaveis.length - 1];
+    const atual = document.activeElement;
+    if (ev.shiftKey && (atual === primeiro || atual === caixa)) {
+      ev.preventDefault();
+      ultimo.focus();
+    } else if (!ev.shiftKey && atual === ultimo) {
+      ev.preventDefault();
+      primeiro.focus();
+    }
+  };
   /*
    * Os achados acesos. Mora aqui, e não em CSS, porque o par a acender é
    * dinâmico: qual página combina com qual card só se sabe do grafo. É uma
@@ -112,6 +176,65 @@ function CanvasInterno({
     [grafo],
   );
 
+  /*
+   * CLICAR NO ACHADO ABRE O ACHADO — e a mesma porta serve ao teclado, abaixo.
+   *
+   * O card do canvas é um resumo — tipo, trecho e página. O que decide o que
+   * fazer (o conflito, a ação recomendada, marcar corrigido) mora no cartão do
+   * parecer, e antes não havia caminho do desenho até ele: quem via o problema
+   * na página tinha de abrir o parecer e caçar o mesmo achado na lista de 45.
+   *
+   * A pilha abre o PRIMEIRO do grupo: são o mesmo erro repetido, e o cartão traz
+   * as páginas todas.
+   */
+  const abrirPeloId = useCallback((id: string) => {
+    setAchadoEmFoco(id);
+    setParecerAberto(true);
+  }, []);
+
+  /** Qual achado cada nó abre. O nó da página não abre nada e fica de fora. */
+  const achadoDoNo = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const achado of [...grafo.findingNodes, ...grafo.unplaced]) {
+      if (layout.achados[achado.id]) mapa.set(idDoAchado(achado.id), achado.id);
+    }
+    for (const grupo of grafo.recurringGroups) {
+      // Igual ao clique: a pilha abre o primeiro do grupo.
+      if (grupo.findingIds[0]) mapa.set(idDaPilha(grupo.id), grupo.findingIds[0]);
+    }
+    return mapa;
+  }, [grafo, layout]);
+
+  /*
+   * ENTER NO NÓ EM FOCO ABRE O ACHADO, e isto é uma dívida da onda 1.
+   *
+   * O React Flow deixa o nó focalizável (`tabIndex=0`, `role="group"`), e foi
+   * por isso que a onda 1 escondeu o pin do leitor de tela — dizendo que o card
+   * fazia o mesmo trabalho. Só que o `onKeyDown` da biblioteca chama
+   * `handleNodeClick` SEM repassar o `onNodeClick` da aplicação: ele seleciona o
+   * nó e mais nada. Quem chegava aqui pelo Tab via o card destacar e não tinha
+   * como abri-lo.
+   *
+   * O ouvinte fica na CENA e não no nó, porque a biblioteca não expõe nenhum
+   * gancho tipado para o envoltório — e é o envoltório que tem o foco, então um
+   * `onKeyDown` no conteúdo do nó nunca veria a tecla (evento de teclado sobe do
+   * elemento focado, não desce até os filhos). Daqui, ele sobe até nós.
+   */
+  const aoTeclarNaCena = (ev: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!abreNoTeclado(ev.key)) return;
+    const alvo = ev.target as HTMLElement | null;
+    // As pílulas de página da pilha são botões de verdade e já respondem ao
+    // Enter sozinhas; abrir o parecer por cima delas seria fazer duas coisas
+    // com uma tecla.
+    if (!alvo || alvo.closest("button, a, input, textarea, select")) return;
+    const no = alvo.closest(".react-flow__node");
+    const achado = no ? achadoDoNo.get(no.getAttribute("data-id") ?? "") : undefined;
+    if (!achado) return;
+    // Espaço rolaria a cena.
+    ev.preventDefault();
+    abrirPeloId(achado);
+  };
+
   const nodes = useMemo<Node[]>(() => {
     const porId = new Map([...grafo.findingNodes, ...grafo.unplaced].map((f) => [f.id, f]));
 
@@ -119,6 +242,15 @@ function CanvasInterno({
       id: idDaPagina(pagina.pageNumber),
       type: "paginaMemorial",
       position: layout.paginas[pagina.pageNumber],
+      /*
+       * A PÁGINA NÃO ABRE NADA, e por isso só ganha nome: os pins dentro dela
+       * estão fora da árvore de acessibilidade de propósito, e quem navega por
+       * teclado chega aos achados pelos cards, que são nós irmãos.
+       */
+      ariaLabel: rotuloDaPagina({
+        pageNumber: pagina.pageNumber,
+        achados: pagina.findingIds.length,
+      }),
       data: {
         pdfUrl,
         pageNumber: pagina.pageNumber,
@@ -146,6 +278,13 @@ function CanvasInterno({
         id: idDoAchado(achado.id),
         type: "achado",
         position: layout.achados[achado.id],
+        ariaLabel: rotuloDoAchado({
+          tipo: achado.tipo,
+          severity: achado.severity,
+          tier: achado.tier,
+          pageNumber: achado.pageNumber,
+          disciplina: achado.disciplina,
+        }),
         data: {
           achadoId: achado.id,
           severity: achado.severity,
@@ -163,6 +302,12 @@ function CanvasInterno({
         id: idDaPilha(grupo.id),
         type: "pilha",
         position: layout.grupos[grupo.id],
+        ariaLabel: rotuloDaPilha({
+          tipo: grupo.tipo,
+          severity: grupo.severity,
+          count: grupo.count,
+          pages: grupo.pages,
+        }),
         data: {
           grupoId: grupo.id,
           achadoIds: grupo.findingIds,
@@ -246,22 +391,6 @@ function CanvasInterno({
   };
   const apagar = () => setAcesos([]);
 
-  /*
-   * CLICAR NO ACHADO ABRE O ACHADO.
-   *
-   * O card do canvas é um resumo — tipo, trecho e página. O que decide o que
-   * fazer (o conflito, a ação recomendada, marcar corrigido) mora no cartão do
-   * parecer, e antes não havia caminho do desenho até ele: quem via o problema
-   * na página tinha de abrir o parecer e caçar o mesmo achado na lista de 45.
-   *
-   * A pilha abre o PRIMEIRO do grupo: são o mesmo erro repetido, e o cartão traz
-   * as páginas todas.
-   */
-  const abrirPeloId = useCallback((id: string) => {
-    setAchadoEmFoco(id);
-    setParecerAberto(true);
-  }, []);
-
   const abrirAchado: NodeMouseHandler = (_, node) => {
     const dados = node.data as { achadoId?: string; achadoIds?: string[] };
     const id = dados.achadoId ?? dados.achadoIds?.[0];
@@ -293,7 +422,7 @@ function CanvasInterno({
 
   return (
     <RealceContext.Provider value={realce}>
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" onKeyDown={aoTeclarNaCena}>
       {/*
         O veredito acompanha a vista: quem está olhando as páginas não devia ter
         de voltar ao parecer pra saber se o documento pode ser emitido. Mesmo
@@ -339,7 +468,12 @@ function CanvasInterno({
 
           {parecerAberto && (
             <div
+              ref={drawerRef}
               role="dialog"
+              aria-modal="true"
+              // -1: recebe o foco na abertura sem entrar na ordem do Tab.
+              tabIndex={-1}
+              onKeyDown={prenderTab}
               aria-label="Parecer completo da auditoria"
               /*
                * `max-w-[85%]`: o palco é estreito (o chat divide a tela), e a

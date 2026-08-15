@@ -137,7 +137,8 @@
     "test:paginas": "node scripts/test-paginas-do-achado.ts",
     "shot:achado": "node scripts/shot-cartao-de-achado.mjs",
     "seed:equipe": "node scripts/semear-equipe.ts",
-    "test:grupos": "node scripts/test-grupos-tecnicos.ts"
+    "test:grupos": "node scripts/test-grupos-tecnicos.ts",
+    "test:nexo:canvas-teclado": "node scripts/test-nexo-canvas-teclado.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
