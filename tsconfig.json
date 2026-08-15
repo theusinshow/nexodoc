@@ -33,5 +33,10 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "design-system", "scripts"]
+  "exclude": ["node_modules", "design-system", "scripts", "scratchpad"]
+  // `scratchpad` e gitignored: e onde ficam diagnosticos descartaveis, que
+  // sao escritos para responder uma pergunta e nao para durar. Enquanto ele
+  // era type-checked, um rascunho velho com uma query desatualizada TRAVAVA O
+  // BUILD DE PRODUCAO inteiro — e so na maquina de quem tinha o rascunho, o
+  // que e o pior tipo de quebra: nao reproduz em lugar nenhum.
 }
