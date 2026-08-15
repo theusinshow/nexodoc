@@ -1659,9 +1659,22 @@ textarea {
       color-mix(in oklab, var(--ring) calc(90% * var(--motion-gain)), currentColor) 53%,
       currentColor 62%
     );
+    /* A LAMINA NUNCA SAI DE CIMA DO TEXTO, e essa e a regra que sustenta tudo.
+
+       Com o preenchimento apagado, o que se le E o gradiente: onde ele nao
+       cobre, o glifo fica TRANSPARENTE. Uma imagem de 220% com `no-repeat`
+       posicionada em 220% cai inteira fora da caixa — e a frase desaparece.
+       Aconteceu, e o que pegou foi a bancada, nao a prova: ela media que a
+       lamina existia e tinha a cor certa, nunca que ela estava sobre o texto.
+
+       A faixa de 0% a 100% e o que garante cobertura: em porcentagem, o ponto
+       P da imagem encosta no ponto P da caixa, entao 0% alinha a esquerda e
+       100% a direita — e uma imagem de 220% cobre os 100% da caixa nos dois
+       extremos e em tudo entre eles. Mexer nestes numeros exige refazer a conta;
+       `prova:ambiente` le os quadros-chave e reprova se sairem da faixa. */
     background-size: 220% 100%;
     background-repeat: no-repeat;
-    background-position: 220% 0;
+    background-position: 100% 0;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1670,10 +1683,10 @@ textarea {
 
 @keyframes nx-shiny-sweep {
   0% {
-    background-position: 220% 0;
+    background-position: 100% 0;
   }
   100% {
-    background-position: -120% 0;
+    background-position: 0% 0;
   }
 }
 

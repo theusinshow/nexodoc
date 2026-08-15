@@ -157,6 +157,56 @@ async function medirUtilidadesSinteticas(page) {
       gridTemPontos: cg.backgroundImage.includes("radial-gradient"),
       gridPasso: cg.backgroundSize,
       gain: getComputedStyle(document.documentElement).getPropertyValue("--motion-gain").trim(),
+      /*
+       * A LAMINA COBRE O TEXTO EM TODO O CICLO?
+       *
+       * Com o preenchimento apagado, onde o gradiente nao chega o glifo fica
+       * TRANSPARENTE — a frase some. A primeira versao varria de 220% a -120%
+       * e passava a maior parte do ciclo fora da caixa: as frases ficavam
+       * invisiveis, e esta prova aprovou assim mesmo, porque media que a lamina
+       * EXISTIA e nao que ela estava por cima.
+       *
+       * Em porcentagem o ponto P da imagem encosta no ponto P da caixa, entao a
+       * faixa segura e 0%..100%: nos dois extremos a imagem de 220% ainda cobre
+       * os 100% da caixa. Le-se dos quadros-chave, que e a fonte — o valor
+       * computado durante a animacao e so um instante dela.
+       */
+      laminaForaDaCaixa: (() => {
+        /*
+         * A BUSCA DESCE. O `@keyframes` mora dentro de `@layer components`, e
+         * regra de agrupamento (`@layer`, `@media`, `@supports`) guarda as
+         * filhas no proprio `cssRules` — varrer so o topo da folha nao acha
+         * nada, e o "nao encontrado" pareceria defeito do CSS.
+         */
+        const achar = (regras) => {
+          for (const regra of regras) {
+            if (regra.name === "nx-shiny-sweep" && regra.cssRules) return regra;
+            if (regra.cssRules && !regra.keyText) {
+              const dentro = achar(regra.cssRules);
+              if (dentro) return dentro;
+            }
+          }
+          return null;
+        };
+        for (const folha of document.styleSheets) {
+          let regras;
+          try {
+            regras = folha.cssRules;
+          } catch {
+            continue; // folha de outra origem
+          }
+          const quadros = achar(regras);
+          if (!quadros) continue;
+          const fora = [];
+          for (const quadro of quadros.cssRules) {
+            const pos = quadro.style.backgroundPosition || "";
+            const pct = Number.parseFloat(pos);
+            if (!Number.isFinite(pct) || pct < 0 || pct > 100) fora.push(`${quadro.keyText}: ${pos}`);
+          }
+          return fora;
+        }
+        return ["quadros-chave nao encontrados"];
+      })(),
     };
     alvo.remove();
     return medida;
@@ -214,6 +264,11 @@ check(
   "e as pontas dela são a cor do próprio texto — a frase não some fora da lâmina",
   sinteticas.shinyLaminaTemCorDeBase,
   sinteticas.shinyCorDeBase,
+);
+check(
+  "e ela NUNCA sai de cima do texto — nenhum quadro fora de 0%..100%",
+  sinteticas.laminaForaDaCaixa.length === 0,
+  sinteticas.laminaForaDaCaixa.join(" | "),
 );
 check("a grade técnica desenha pontos", sinteticas.gridTemPontos, sinteticas.gridPasso);
 check("no passo do módulo do sistema", sinteticas.gridPasso.startsWith("24px"), sinteticas.gridPasso);
