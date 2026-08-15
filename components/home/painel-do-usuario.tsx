@@ -31,6 +31,16 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { LogoNexo } from "@/components/brand/logo-nexo";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
+import dynamic from "next/dynamic";
+
+/*
+ * `ssr: false`: o `ogl` toca `window` na carga, e "use client" nao impede o Next
+ * de executar o modulo no servidor.
+ */
+const CampoNeural = dynamic(
+  () => import("@/components/ambiente/campo-neural").then((m) => m.CampoNeural),
+  { ssr: false },
+);
 
 /**
  * A partir de quantos dias um achado parado ganha destaque.
@@ -95,13 +105,27 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         ev.preventDefault();
         setSoltando(false);
       }}
-      className="flex min-h-screen flex-col bg-background"
+      className="relative flex min-h-screen flex-col bg-background"
       style={{
         outline: soltando ? "1px dashed var(--primary)" : "none",
         outlineOffset: "-6px",
       }}
     >
-      <header className="shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
+      {/*
+        O CAMPO ATRÁS DO QUADRO. Esta tela não tem orbe vivo — é a condição para
+        ele existir aqui (ver `campo-neural.tsx`: quando duas coisas se mexem, o
+        olho não sabe qual delas está dizendo algo, e o orbe é o que diz).
+
+        A 0,45, e o número é maior do que a intuição pede: esta tela tem quase
+        mil pixels de altura, e os mesmos catorze fios espalhados por ela ficam
+        muito mais esparsos do que na caixa da bancada. Opacidade de campo não se
+        escolhe no abstrato — se escolhe olhando a superfície onde ele vai.
+        `--motion-gain` continua multiplicando por fora, e em movimento reduzido
+        ele nem monta.
+      */}
+      <CampoNeural opacidade={0.45} className="pointer-events-none" />
+
+      <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
         <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
           <Link href="/nexo" className="flex items-center gap-[9px] text-foreground">
             <LogoNexo size={20} />
@@ -163,7 +187,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         propósito: quem abre no celular está conferindo pendência, não montando
         volume.
       */}
-      <main className="mx-auto flex w-full max-w-[1520px] flex-1 flex-col items-start gap-[34px] px-4 pb-11 pt-[30px] sm:px-8 lg:flex-row">
+      <main className="relative mx-auto flex w-full max-w-[1520px] flex-1 flex-col items-start gap-[34px] px-4 pb-11 pt-[30px] sm:px-8 lg:flex-row">
         <section className="flex w-full min-w-0 flex-1 flex-col gap-2.5">
           <div className="mb-0.5 flex items-baseline gap-2.5">
             <h2 className="m-0 font-mono text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">

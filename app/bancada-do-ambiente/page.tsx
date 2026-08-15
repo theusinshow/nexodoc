@@ -16,8 +16,19 @@
  * exatamente como ele se comporta no produto, onde quem escreve é o `:root`.
  */
 import { useState } from "react";
+import dynamic from "next/dynamic";
 
 import { useSpotlight } from "@/lib/use-spotlight";
+
+/*
+ * `ssr: false` não é zelo: o `ogl` toca `window` ao carregar, e `"use client"`
+ * NÃO impede o Next de executar o módulo no servidor — foi assim que o
+ * `react-pdf` derrubou o servidor nesta base em 13/08.
+ */
+const CampoNeural = dynamic(
+  () => import("@/components/ambiente/campo-neural").then((m) => m.CampoNeural),
+  { ssr: false },
+);
 
 const VOLUMES = [
   { valor: 0, rotulo: "0 — desligado" },
@@ -134,6 +145,42 @@ export default function BancadaDoAmbiente() {
             do gradiente são a cor do próprio texto, e é isso que impede que ela
             suma entre uma passada e outra.
           </p>
+        </div>
+      </section>
+
+      {/* --- O CAMPO -------------------------------------------------------
+          Duas caixas, e a segunda é a que importa: o campo com texto por cima.
+          Um fundo que só é bonito vazio não serve — todo lugar do produto onde
+          ele pode entrar tem conteúdo em cima. */}
+      <section className="flex flex-col gap-3" data-prova="campo">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+          O campo · atmosfera, nunca ao lado do orbe
+        </h2>
+        <div className="flex flex-wrap gap-4">
+          <div
+            data-prova="campo-vazio"
+            className="nx-edge-6 relative h-56 w-[380px] overflow-hidden"
+          >
+            <CampoNeural />
+            <p className="absolute bottom-3 left-4 font-mono text-[11px] text-muted-foreground">
+              o campo sozinho
+            </p>
+          </div>
+
+          <div
+            data-prova="campo-com-texto"
+            className="nx-edge-6 relative h-56 w-[380px] overflow-hidden p-5"
+          >
+            <CampoNeural />
+            <div className="relative">
+              <p className="text-base font-medium">Nenhum projeto por aqui ainda</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                É o estado vazio: a tela ensina o que aparece aqui e como. Se o
+                campo atrás atrapalhar a leitura desta frase, ele está forte
+                demais — o número a mexer é a opacidade, não o texto.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

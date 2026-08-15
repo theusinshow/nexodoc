@@ -479,6 +479,15 @@ em identidade.
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
 a redução em CSS. Onde o fundo não é escuro, só a versão achatada.
 
+**E nada mais vive ao lado dele** (emenda de 15/08/2026). O campo neural
+(`components/ambiente/campo-neural.tsx`) é atmosfera e existe só onde o orbe
+vivo não está — painel, projetos, volumes, estados vazios grandes. A razão é de
+leitura, não de gosto: quando duas coisas se mexem, o olho não sabe qual delas
+está dizendo algo. O orbe **diz** — é a máquina de estados do agente; o campo não
+diz nada. Juntos, o campo rouba atenção de um sinal.
+
+`prova:ambiente` varre as rotas e reprova qualquer tela que tenha os dois.
+
 ### Os estados
 
 O orbe **diz o que o agente está fazendo**. Um orbe que gira igual o tempo todo é

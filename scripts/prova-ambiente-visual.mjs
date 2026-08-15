@@ -316,6 +316,57 @@ check(
   (await cartaoCalmo.innerText()).length > 0,
 );
 
+// =====================================================================
+// 3. O CAMPO — e a regra que ele não pode quebrar
+// =====================================================================
+/*
+ * DUAS COISAS SE MEDEM AQUI, e a segunda é a que importa mais.
+ *
+ *  · que o campo MONTA e desenha (um canvas, sem erro de runtime);
+ *  · que ele NUNCA está na mesma tela que o orbe vivo. O §6 diz que o orbe é o
+ *    único elemento autorizado a ser vivo, e a razão é de leitura: quando duas
+ *    coisas se mexem, o olho não sabe qual delas está dizendo algo. O orbe diz;
+ *    o campo é atmosfera. Esta asserção é o que impede alguém de montar os dois
+ *    juntos sem perceber — e ela varre as telas, não um lugar combinado.
+ */
+const paginaDoCampo = await contexto.newPage();
+const errosDoCampo = [];
+paginaDoCampo.on("pageerror", (e) => errosDoCampo.push(String(e)));
+await paginaDoCampo.goto(`${BASE}/bancada-do-ambiente`, { waitUntil: "networkidle" });
+await paginaDoCampo.locator('[data-campo-neural]').first().scrollIntoViewIfNeeded();
+await paginaDoCampo.waitForTimeout(2000);
+
+check(
+  "o campo monta um canvas",
+  (await paginaDoCampo.locator("[data-campo-neural] canvas").count()) > 0,
+);
+check("e não derruba nada", errosDoCampo.length === 0, errosDoCampo.slice(0, 2).join(" | "));
+
+for (const rota of ["/", "/nexo", "/login", "/bancada-do-ambiente"]) {
+  const t = await contexto.newPage();
+  await t.goto(`${BASE}${rota}`, { waitUntil: "networkidle" }).catch(() => {});
+  await t.waitForTimeout(1800);
+  const campo = await t.locator("[data-campo-neural]").count();
+  // O orbe vivo é um canvas do React Three Fiber; a redução em CSS e o SVG não
+  // contam, e é essa a distinção que a regra faz.
+  const orbeVivo = await t.locator(".nexo-agent-orb canvas, [data-orbe-vivo] canvas").count();
+  check(
+    `${rota}: campo e orbe vivo não dividem tela`,
+    !(campo > 0 && orbeVivo > 0),
+    `campo=${campo} orbeVivo=${orbeVivo}`,
+  );
+  await t.close();
+}
+
+// Em movimento reduzido ele nem monta: quem pediu menos movimento pediu menos.
+const calmaCampo = await contextoCalmo.newPage();
+await calmaCampo.goto(`${BASE}/bancada-do-ambiente`, { waitUntil: "networkidle" });
+await calmaCampo.waitForTimeout(1800);
+check(
+  "com menos movimento o campo não monta canvas nenhum",
+  (await calmaCampo.locator("[data-campo-neural] canvas").count()) === 0,
+);
+
 await calma.screenshot({ path: `${OUT}/ambiente-2-calmo.png` });
 
 await browser.close();
