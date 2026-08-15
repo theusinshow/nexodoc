@@ -481,7 +481,9 @@ a redução em CSS. Onde o fundo não é escuro, só a versão achatada.
 
 **E nada mais vive ao lado dele** (emenda de 15/08/2026). O campo neural
 (`components/ambiente/campo-neural.tsx`) é atmosfera e existe só onde o orbe
-vivo não está — painel, projetos, volumes, estados vazios grandes. A razão é de
+vivo não está. O painel SAIU dessa lista em 15/08/2026, quando o orbe vivo
+tomou o lugar do SVG que ocupava a coluna da direita: sobram projetos, volumes e
+estados vazios grandes. A razão é de
 leitura, não de gosto: quando duas coisas se mexem, o olho não sabe qual delas
 está dizendo algo. O orbe **diz** — é a máquina de estados do agente; o campo não
 diz nada. Juntos, o campo rouba atenção de um sinal.

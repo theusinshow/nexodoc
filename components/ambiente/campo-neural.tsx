@@ -19,9 +19,11 @@
  * do agente); o campo é atmosfera e não diz nada. Postos juntos, o campo rouba
  * atenção de um sinal — e o sinal é o que o produto vende.
  *
- * Por isso ele vive onde o orbe não está: painel, projetos, volumes, estados
- * vazios grandes. Quem montar isto ao lado de um `<AgentOrb>` está contrariando
- * o sistema, e o comentário existe para essa pessoa.
+ * Por isso ele vive onde o orbe não está: projetos, volumes, estados vazios
+ * grandes. O PAINEL saiu dessa lista — ele passou a mostrar o orbe vivo no lugar
+ * do SVG que fazia as vezes dele, e os dois não cabem na mesma tela. Quem montar
+ * isto ao lado de um `<AgentOrb>` está contrariando o sistema, e o comentário
+ * existe para essa pessoa.
  */
 
 import { useEffect, useRef } from "react";

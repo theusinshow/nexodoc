@@ -30,17 +30,8 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { LogoNexo } from "@/components/brand/logo-nexo";
+import { AgentOrb } from "@/modules/nexo/components/agent-orb";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
-import dynamic from "next/dynamic";
-
-/*
- * `ssr: false`: o `ogl` toca `window` na carga, e "use client" nao impede o Next
- * de executar o modulo no servidor.
- */
-const CampoNeural = dynamic(
-  () => import("@/components/ambiente/campo-neural").then((m) => m.CampoNeural),
-  { ssr: false },
-);
 
 /**
  * A partir de quantos dias um achado parado ganha destaque.
@@ -111,20 +102,6 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         outlineOffset: "-6px",
       }}
     >
-      {/*
-        O CAMPO ATRÁS DO QUADRO. Esta tela não tem orbe vivo — é a condição para
-        ele existir aqui (ver `campo-neural.tsx`: quando duas coisas se mexem, o
-        olho não sabe qual delas está dizendo algo, e o orbe é o que diz).
-
-        A 0,62, e o número é maior do que a intuição pede: esta tela tem quase
-        mil pixels de altura, e os mesmos catorze fios espalhados por ela ficam
-        muito mais esparsos do que na caixa da bancada. Opacidade de campo não se
-        escolhe no abstrato — se escolhe olhando a superfície onde ele vai.
-        `--motion-gain` continua multiplicando por fora, e em movimento reduzido
-        ele nem monta.
-      */}
-      <CampoNeural opacidade={0.2} className="pointer-events-none" />
-
       <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
         <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
           <Link href="/nexo" className="flex items-center gap-[9px] text-foreground">
@@ -262,7 +239,23 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
                 transition: "inset .2s ease",
               }}
             />
-            <LogoNexo size={250} className="relative" />
+            {/*
+              O ORBE VIVO, e não mais o SVG.
+
+              Aqui estava `<LogoNexo size={250}>` — o TERCEIRO nível da escada de
+              reduções do §6, cujo trabalho declarado é "logo, favicon, impressão,
+              fundo claro". A 250px, ocupando a coluna inteira e sendo o convite
+              para falar com o agente, ele não é logo: é o agente. E não lia como
+              o mesmo objeto do orbe do palco, que é justamente o que a escada
+              exige dos três níveis.
+
+              A tela não tinha nenhum orbe vivo, então a regra "um por tela"
+              continua valendo com este aqui.
+
+              `interactive` porque ele reage ao ponteiro; o clique quem trata é o
+              `<Link>` em volta, e por isso não há `onActivate`.
+            */}
+            <AgentOrb size="hero" state="idle" interactive className="relative" />
           </Link>
 
           <p className="mt-6 text-center text-xl font-medium tracking-[-0.01em] text-foreground">
