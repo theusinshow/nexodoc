@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Ima } from "@/components/ambiente/ima";
+import { rotuloDeProjeto } from "@/lib/rotulos-de-status";
 
 export type ProjectConsoleItem = {
   id: string;
@@ -78,7 +79,7 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
     };
 
     if (!payload.code || !payload.name) {
-      setError("Informe codigo e nome do projeto.");
+      setError("Informe código e nome do projeto.");
       return;
     }
 
@@ -94,13 +95,13 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
           | null;
 
         if (!response.ok || !data?.project) {
-          throw new Error(data?.error ?? "Nao foi possivel criar o projeto.");
+          throw new Error(data?.error ?? "Não foi possível criar o projeto.");
         }
 
         setForm(initialForm);
         router.push(`/projetos/${data.project.id}`);
       } catch (createError) {
-        setError(createError instanceof Error ? createError.message : "Nao foi possivel criar o projeto.");
+        setError(createError instanceof Error ? createError.message : "Não foi possível criar o projeto.");
       }
     });
   }
@@ -116,13 +117,13 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
           <div>
             <h2 className="text-base font-semibold">Novo projeto</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Crie o dossie para vincular auditoria, LD, capas e volumes ao mesmo registro.
+              Crie o dossiê para vincular auditoria, LD, capas e volumes ao mesmo registro.
             </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleCreateProject}>
             <div className="space-y-2">
-              <Label htmlFor="project-code">Codigo</Label>
+              <Label htmlFor="project-code">Código</Label>
               <Input
                 id="project-code"
                 value={form.code}
@@ -145,11 +146,11 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
                 id="project-client"
                 value={form.client}
                 onChange={(event) => updateForm("client", event.target.value)}
-                placeholder="Orgao, prefeitura ou contratante"
+                placeholder="Órgão, prefeitura ou contratante"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="project-description">Observacoes</Label>
+              <Label htmlFor="project-description">Observações</Label>
               <Textarea
                 id="project-description"
                 value={form.description}
@@ -185,7 +186,7 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filtrar por codigo, nome ou cliente"
+              placeholder="Filtrar por código, nome ou cliente"
               className="pl-9"
             />
           </div>
@@ -219,7 +220,7 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
                       </div>
                       <p className="mt-1 font-mono text-xs text-muted-foreground">{project.code}</p>
                     </div>
-                    <Badge variant="outline">{project.status}</Badge>
+                    <Badge variant="outline">{rotuloDeProjeto(project.status)}</Badge>
                   </div>
 
                   <div className="grid grid-cols-4 gap-px overflow-hidden border border-border bg-border text-center">

@@ -51,13 +51,13 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
         const data = (await response.json().catch(() => null)) as { error?: string } | null;
 
         if (!response.ok) {
-          throw new Error(data?.error ?? "Nao foi possivel atualizar o projeto.");
+          throw new Error(data?.error ?? "Não foi possível atualizar o projeto.");
         }
 
         setNotice("Projeto atualizado.");
         router.refresh();
       } catch (patchError) {
-        setError(patchError instanceof Error ? patchError.message : "Nao foi possivel atualizar o projeto.");
+        setError(patchError instanceof Error ? patchError.message : "Não foi possível atualizar o projeto.");
       }
     });
   }
@@ -66,7 +66,7 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
     event.preventDefault();
 
     if (!form.code.trim() || !form.name.trim()) {
-      setError("Codigo e nome sao obrigatorios.");
+      setError("Código e nome são obrigatórios.");
       return;
     }
 
@@ -100,12 +100,12 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
         const data = (await response.json().catch(() => null)) as { error?: string } | null;
 
         if (!response.ok) {
-          throw new Error(data?.error ?? "Nao foi possivel excluir o projeto.");
+          throw new Error(data?.error ?? "Não foi possível excluir o projeto.");
         }
 
         router.push("/projetos");
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Nao foi possivel excluir o projeto.");
+        setError(deleteError instanceof Error ? deleteError.message : "Não foi possível excluir o projeto.");
       }
     });
   }
@@ -117,7 +117,7 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
           <div>
             <h2 className="text-base font-semibold">Controle do projeto</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ajuste os dados operacionais e o status do dossie consolidado.
+              Ajuste os dados operacionais e o status do dossiê consolidado.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -141,7 +141,7 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
 
         <form className="grid gap-4 lg:grid-cols-[180px_1fr_1fr] lg:items-end" onSubmit={handleSave}>
           <div className="space-y-2">
-            <Label htmlFor="detail-code">Codigo</Label>
+            <Label htmlFor="detail-code">Código</Label>
             <Input
               id="detail-code"
               value={form.code}
@@ -157,7 +157,7 @@ export function ProjectDetailActions({ project }: { project: ProjectEditable }) 
             <Input id="detail-client" value={form.client} onChange={(event) => updateForm("client", event.target.value)} />
           </div>
           <div className="space-y-2 lg:col-span-3">
-            <Label htmlFor="detail-description">Observacoes</Label>
+            <Label htmlFor="detail-description">Observações</Label>
             <Textarea
               id="detail-description"
               value={form.description}

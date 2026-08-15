@@ -156,7 +156,7 @@ export default async function ProjectDetailPage({
       <section className="rounded-sm border bg-card px-4 py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] uppercase text-muted-foreground">Proxima acao</p>
+            <p className="font-mono text-[11px] uppercase text-muted-foreground">Próxima ação</p>
             <h2 className="mt-1 flex items-center gap-2 text-base font-semibold">
               <NextIcon className="size-4 text-primary" />
               {nextModule.action}

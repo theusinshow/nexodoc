@@ -20,6 +20,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { rotuloDeAuditoria } from "@/lib/rotulos-de-status";
 import { cn } from "@/lib/utils";
 
 type AuditListItem = {
@@ -369,7 +370,7 @@ export default function AdminAuditsPage() {
           </div>
         )}
 
-        <section className="overflow-x-auto border border-border bg-card">
+        <section className="min-w-0 overflow-x-auto border border-border bg-card">
           <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>
@@ -421,7 +422,7 @@ export default function AdminAuditsPage() {
                           getStatusClass(audit.status),
                         )}
                       >
-                        {audit.status}
+                        {rotuloDeAuditoria(audit.status)}
                       </span>
                     </td>
                     <td className="px-3 py-3 font-mono text-muted-foreground">{audit.auditMode}</td>

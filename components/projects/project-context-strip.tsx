@@ -38,7 +38,7 @@ export function ProjectContextStrip({
             </div>
             <p className="mt-1 text-sm font-medium">Nenhum projeto vinculado</p>
             <p className="text-xs text-muted-foreground">
-              Saidas geradas aqui nao entram automaticamente no cockpit de projeto.
+              Saídas geradas aqui não entram automaticamente no cockpit de projeto.
             </p>
           </div>
         </div>

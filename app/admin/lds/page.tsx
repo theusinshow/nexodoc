@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { rotuloDeLd } from "@/lib/rotulos-de-status";
 import { cn } from "@/lib/utils";
 
 type LdRecord = {
@@ -220,7 +221,7 @@ export default function AdminLdsPage() {
           </div>
         )}
 
-        <section className="overflow-x-auto border border-border bg-card">
+        <section className="min-w-0 overflow-x-auto border border-border bg-card">
           <table className="w-full min-w-[1100px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>
@@ -248,7 +249,7 @@ export default function AdminLdsPage() {
                     />
                   </td>
                   <td className="max-w-[320px] px-3 py-3"><p className="font-mono font-semibold">{ld.projectCode || "-"}</p><p className="truncate text-muted-foreground">{ld.workName || "Obra não preenchida"}</p></td>
-                  <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(ld.status))}>{ld.status}</span></td>
+                  <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(ld.status))}>{rotuloDeLd(ld.status)}</span></td>
                   <td className="max-w-[250px] px-3 py-3"><p className="truncate">{ld.userName || ld.userEmail}</p><p className="truncate text-xs text-muted-foreground">{ld.userEmail}</p></td>
                   <td className="px-3 py-3 text-right font-mono">{ld.rowCount}</td><td className="px-3 py-3 text-right font-mono">{ld.uploadedFileCount}</td><td className="px-3 py-3 text-right font-mono">{ld.tomoCount}</td><td className="px-3 py-3 text-right font-mono">{ld.eventCount}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">{formatDate(ld.updatedAt)}</td>
