@@ -180,7 +180,15 @@ try {
   await page.waitForTimeout(1500);
 
   const cartao = (ref) => page.locator(`[data-achado="${ref}"]`);
+  /*
+   * A BARRA DE AÇÕES É IRMÃ DO CARTÃO, e não filha — desde a reorganização do
+   * desenho dos achados (7f53b3c), o que se FAZ com o achado fica acima dele.
+   * Procurar o botão dentro de `[data-achado]` fazia esta prova esperar 30s por
+   * um elemento que existe na tela, em outro galho do DOM.
+   */
+  const acoes = (ref) => page.locator(`[data-acoes-do-achado="${ref}"]`);
   check("o parecer montou com os achados semeados", (await cartao(REF_LOCAL).count()) > 0);
+  check("e a barra de ações do achado sabe de quem é", (await acoes(REF_LOCAL).count()) > 0);
 
   // --- 1. o que o servidor sabia e a máquina não --------------------------
   /*
@@ -212,7 +220,7 @@ try {
 
   // --- 2. marcar aqui grava nos dois lugares ------------------------------
   const antes = gravacoes.length;
-  await cartao(REF_LOCAL).getByRole("button", { name: /Marcar corrigido/i }).click();
+  await acoes(REF_LOCAL).getByRole("button", { name: /Marcar corrigido/i }).click();
   await page.waitForTimeout(1200);
 
   check(
@@ -230,7 +238,7 @@ try {
 
   // --- 3. desmarcar desfaz dos dois lados ---------------------------------
   const antesDeDesmarcar = gravacoes.length;
-  await cartao(REF_LOCAL).getByRole("button", { name: /^Corrigido/i }).click();
+  await acoes(REF_LOCAL).getByRole("button", { name: /^Corrigido/i }).click();
   await page.waitForTimeout(1200);
 
   check(

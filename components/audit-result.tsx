@@ -2449,7 +2449,19 @@ export function AuditResult({
                       (canto superior esquerdo E direito), e o chanfro desta
                       casa é sempre superior-esquerdo + inferior-direito.
                     */}
-                    <div className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5">
+                    <div
+                      /*
+                        DE QUEM SÃO ESTAS AÇÕES. A barra é IRMÃ do cartão, não
+                        filha — a identidade do achado ocupa o cartão inteiro e o
+                        que se faz com ele fica em cima. O preço disso é que o
+                        `data-achado` do cartão não alcança estes botões, e quem
+                        precisa deles (prova, e qualquer coisa que venha depois)
+                        só teria a POSIÇÃO na lista para se guiar. Índice é o
+                        número mágico que já quebrou uma prova nesta tela.
+                      */
+                      data-acoes-do-achado={finding.refId || undefined}
+                      className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5"
+                    >
                         {/*
                           O botão fica no CABEÇALHO do achado, ao lado do menu:
                           é a ação que se repete 22 vezes numa revisão, e ela
