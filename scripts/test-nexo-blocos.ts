@@ -17,6 +17,7 @@
 import assert from "node:assert/strict";
 
 import {
+  blocoGera,
   blocosDasFolhas,
   codigoDoRotulo,
   escolherCodigo,
@@ -303,6 +304,49 @@ test("fundir com um código que não existe não muda nada", () => {
   const blocos = blocosDe(folhas(selos, {}));
   assert.deepEqual(fundirBlocos(blocos, "dre", "arq"), blocos);
   assert.deepEqual(fundirBlocos(blocos, "dre", "dre"), blocos);
+});
+
+/*
+ * O QUE CADA BLOCO GERA — a tabela do escritório chegando ao plano de geração.
+ *
+ * Até 15/08/2026 o plano oferecia LD e separatriz para TODO bloco, e sondagem
+ * saía com uma LD que o escritório não entrega. `temLd` existia em
+ * `disciplinas.ts` desde a véspera e ninguém o chamava.
+ *
+ * A regra é do BLOCO, não do volume: num volume misto, sondagem não ganha LD e
+ * as outras disciplinas continuam ganhando as suas.
+ */
+test("sondagem não gera LD, mas gera separatriz", () => {
+  assert.equal(blocoGera("ld", { codigo: "snd" }), false);
+  assert.equal(blocoGera("separatriz", { codigo: "snd" }), true);
+});
+
+test("arquitetônico gera os dois", () => {
+  assert.equal(blocoGera("ld", { codigo: "arq" }), true);
+  assert.equal(blocoGera("separatriz", { codigo: "arq" }), true);
+});
+
+test("o código é lido sem depender de caixa — ele vem de nome de arquivo", () => {
+  assert.equal(blocoGera("ld", { codigo: "SND" }), false);
+});
+
+/*
+ * OS TRÊS CASOS QUE NÃO PODEM SUMIR DO PLANO. Filtrar por disciplina só é
+ * seguro quando a ausência de disciplina responde SIM: `blocosDasFolhas` produz
+ * bloco de código vazio ("Sem disciplina") sempre que o nome do arquivo não
+ * declara nada, e o léxico não é exaustivo. Errar para o lado do NÃO some com a
+ * LD de um volume inteiro sem avisar ninguém.
+ */
+test("bloco ausente gera — é o volume de disciplina única", () => {
+  assert.equal(blocoGera("ld", undefined), true);
+});
+
+test("bloco sem código gera", () => {
+  assert.equal(blocoGera("ld", { codigo: "" }), true);
+});
+
+test("disciplina fora do léxico gera", () => {
+  assert.equal(blocoGera("ld", { codigo: "zzz" }), true);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

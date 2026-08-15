@@ -1688,6 +1688,12 @@ function VolumeConfirmation({
     temLd: Boolean(ldPdfUrl),
     misto,
     pranchas: pranchaFilesDoTomo.length,
+    /*
+     * A disciplina só existe quando o volume é de UMA — e é ela que dispensa a
+     * LD de sondagem. Em volume misto não há uma disciplina do volume: a
+     * dispensa de cada bloco já aconteceu no plano de geração.
+     */
+    ...(blocos.length === 1 ? { codigo: blocos[0].codigo } : {}),
   });
 
   const sepTitle =

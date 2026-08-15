@@ -40,6 +40,7 @@ import {
 } from "../lib/editar-artefato";
 import { estadoDoArtefato } from "../lib/estado-do-artefato";
 import {
+  blocoGera,
   blocosDasFolhas,
   misturaDisciplinas,
   resumoDosBlocos,
@@ -88,6 +89,12 @@ const NOME: Record<KindDoPlano, string> = {
  * anuncia as disciplinas que vêm dentro.
  *
  * `blocos` vazio ou com um só = volume de disciplina única, e nada muda.
+ *
+ * E O QUE A DISCIPLINA NÃO ENTREGA NÃO ENTRA (`blocoGera`): sondagem não tem LD
+ * na tabela do escritório, então o bloco de sondagem anuncia separatriz e
+ * pranchas e nenhuma LD. Quem monta lê a mesma tabela em
+ * `motivoParaNaoMontar` — se só um dos dois lesse, o volume de sondagem ficaria
+ * travado pedindo um documento que o plano não oferece mais.
  */
 export function itensDoPlano(
   proposals: NexoAgentProposal[],
@@ -122,6 +129,10 @@ export function itensDoPlano(
 
       for (const bloco of doTipo) {
         if (bloco && doTomo && !bloco.ids.some((id) => doTomo.has(id))) continue;
+        // A tabela do escritório manda: sondagem não tem LD, e o item que não
+        // vira documento não pode aparecer no plano. `capa` nunca passa por
+        // aqui com bloco — ela é uma por volume físico.
+        if (kind !== "capa" && !blocoGera(kind, bloco)) continue;
         const sufixoBloco = bloco ? `:${bloco.codigo || "sem"}` : "";
         const nomeBloco = bloco ? ` · ${bloco.rotulo || "Sem disciplina"}` : "";
         itens.push({

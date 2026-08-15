@@ -76,4 +76,36 @@ test("misto sem pranchas continua travado", () => {
   );
 });
 
+/*
+ * A DISCIPLINA QUE NÃO TEM LD — e por que ela precisa chegar até aqui.
+ *
+ * O plano de geração deixou de oferecer LD para sondagem (`blocoGera`). Se esta
+ * pré-condição não soubesse disso, o volume só de sondagem ficaria TRAVADO PARA
+ * SEMPRE: o plano não oferece a LD, e o botão continua pedindo uma. As duas
+ * regras têm de ler a mesma tabela — este teste é o que impede que elas se
+ * separem de novo.
+ */
+test("volume só de sondagem monta SEM LD — o escritório não entrega LD de sondagem", () => {
+  assert.equal(motivoParaNaoMontar(pronto({ temLd: false, codigo: "snd" })), null);
+});
+
+test("mas um volume de arquitetônico sem LD continua travado", () => {
+  assert.match(String(motivoParaNaoMontar(pronto({ temLd: false, codigo: "arq" }))), /LD/);
+});
+
+/*
+ * SEM CÓDIGO, NADA MUDA. O código do volume é opcional — nem todo caminho que
+ * chama isto sabe a disciplina —, e a ausência não pode virar dispensa de LD.
+ */
+test("sem código declarado, a LD continua sendo exigida", () => {
+  assert.match(String(motivoParaNaoMontar(pronto({ temLd: false }))), /LD/);
+});
+
+test("a falta da capa vence a dispensa da LD", () => {
+  assert.match(
+    String(motivoParaNaoMontar(pronto({ temCapa: false, temLd: false, codigo: "snd" }))),
+    /capa/i,
+  );
+});
+
 console.log(`\n${passed} teste(s) passaram.`);

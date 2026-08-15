@@ -18,13 +18,15 @@
  * não se misturam: `gruposDasFolhas` reparte por quantidade, aqui agrupa-se por
  * disciplina.
  *
- * PURO: nenhum import de runtime, para rodar em Node pelado no
- * `scripts/test-nexo-blocos.ts`. O léxico do escritório e as disciplinas lidas
- * do nome do arquivo chegam INJETADOS — quem os amarra é
- * `disciplina-da-folha.ts`, que não é testável em node cru porque o parser de
- * nome de arquivo importa por caminho sem extensão.
+ * RODA EM NODE PELADO (`scripts/test-nexo-blocos.ts`): o único import de runtime
+ * é `disciplinas.ts`, que não importa nada e entra por caminho relativo COM
+ * extensão. O léxico do escritório e as disciplinas lidas do nome do arquivo
+ * continuam chegando INJETADOS — quem os amarra é `disciplina-da-folha.ts`, que
+ * não é testável em node cru porque o parser de nome de arquivo importa por
+ * caminho sem extensão.
  */
 
+import { temLd, temSeparatriz } from "../../../server/nexo/disciplinas.ts";
 import type { Folha, FolhaId } from "./folhas.ts";
 
 /** minúsculas, sem acento — o léxico do escritório já está sem acento. */
@@ -139,6 +141,32 @@ export interface Bloco {
   rotulo: string;
   /** As folhas deste bloco, na ordem da projeção. */
   ids: FolhaId[];
+}
+
+/**
+ * Este bloco gera a LD (ou a separatriz) que o plano ia oferecer?
+ *
+ * A tabela do escritório (14/08/2026) diz que SONDAGEM NÃO TEM LD, e até aqui
+ * ninguém perguntava: o plano criava uma LD por bloco, sempre, e o volume de
+ * sondagem saía com um documento que o escritório não entrega. `temLd` e
+ * `temSeparatriz` existiam em `disciplinas.ts` e não eram chamados por ninguém.
+ *
+ * A pergunta é do BLOCO, não do volume: num volume misto, sondagem fica sem LD e
+ * as outras disciplinas continuam com as suas.
+ *
+ * SEM BLOCO RESPONDE SIM, e o mesmo vale para código vazio ou fora do léxico. A
+ * assimetria é a de sempre: uma LD a mais é uma aba que se fecha; uma a menos é
+ * um documento que falta no volume entregue — e ninguém descobre, porque o item
+ * simplesmente não aparece no plano. `blocosDasFolhas` produz bloco de código
+ * vazio toda vez que o nome do arquivo não declara disciplina, que é comum.
+ */
+export function blocoGera(
+  parte: "ld" | "separatriz",
+  bloco?: { codigo: string },
+): boolean {
+  const codigo = bloco?.codigo?.trim();
+  if (!codigo) return true;
+  return parte === "ld" ? temLd(codigo) : temSeparatriz(codigo);
 }
 
 /**

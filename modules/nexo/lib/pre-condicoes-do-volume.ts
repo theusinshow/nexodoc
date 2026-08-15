@@ -20,6 +20,11 @@
  * entregável.
  */
 
+import {
+  temCapa as disciplinaTemCapa,
+  temLd as disciplinaTemLd,
+} from "../../../server/nexo/disciplinas.ts";
+
 /** O que a montagem tem em mãos, do ponto de vista das pré-condições. */
 export interface PartesDoVolume {
   /** Há PDF de capa para este tomo. */
@@ -33,6 +38,18 @@ export interface PartesDoVolume {
   misto: boolean;
   /** Quantos ARQUIVOS de prancha este tomo tem em mãos (bytes, não selos). */
   pranchas: number;
+  /**
+   * Código da disciplina do volume, quando ele é de UMA só (`snd`, `arq`...).
+   *
+   * Existe por causa de uma trava que este arquivo criaria sozinho: o plano de
+   * geração parou de oferecer LD para quem não tem LD (`blocoGera`), e se a
+   * exigência daqui não lesse a MESMA tabela, o volume de sondagem ficaria
+   * travado para sempre — o plano não oferece, e o botão pede.
+   *
+   * Opcional de propósito: nem todo caminho sabe a disciplina, e não saber não
+   * pode virar dispensa. Ausente, a exigência é a de antes.
+   */
+  codigo?: string;
 }
 
 /**
@@ -42,12 +59,21 @@ export interface PartesDoVolume {
  * falhas do "montar todos". Volume sem prancha, sem capa ou (quando é de uma
  * disciplina só) sem LD não é entregável: montar assim produz um PDF que passa
  * por pronto.
+ *
+ * O QUE A DISCIPLINA DISPENSA não é cobrado: sondagem não tem LD na tabela do
+ * escritório, e exigir a dela travaria um volume que está pronto. A dispensa
+ * depende de `codigo` chegar — sem ele, a regra é a de antes.
  */
 export function motivoParaNaoMontar(partes: PartesDoVolume): string | null {
   if (partes.pranchas <= 0) {
     return "sem as pranchas — os arquivos não estão nesta sessão; reanexe-os para montar";
   }
-  if (!partes.temCapa) return "gere a capa deste tomo antes de montar";
-  if (!partes.misto && !partes.temLd) return "gere a LD deste tomo antes de montar";
+  const codigo = partes.codigo?.trim() ?? "";
+  if (!partes.temCapa && (!codigo || disciplinaTemCapa(codigo))) {
+    return "gere a capa deste tomo antes de montar";
+  }
+  if (!partes.misto && !partes.temLd && (!codigo || disciplinaTemLd(codigo))) {
+    return "gere a LD deste tomo antes de montar";
+  }
   return null;
 }
