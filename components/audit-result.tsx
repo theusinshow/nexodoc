@@ -63,6 +63,7 @@ import {
   grupoDaDisciplinaDoAchado,
 } from "@/server/nexo/disciplinas";
 import { cn } from "@/lib/utils";
+import { useSpotlight } from "@/lib/use-spotlight";
 
 // Visor de PDF só no cliente (react-pdf não faz SSR).
 const AuditPdfViewer = dynamic(() => import("@/components/audit-pdf-viewer-internal"), {
@@ -1067,6 +1068,11 @@ export function AuditResult({
   achadoEmFoco,
 }: AuditResultProps) {
   const [viewLocal, setViewLocal] = useState<AuditView>("summary");
+  /*
+   * A luz dos cartões. Um handler só para os 45 — ele escreve `--mx`/`--my` no
+   * elemento que recebeu o evento, sem passar pelo React.
+   */
+  const moverLuz = useSpotlight();
   // Controlado por fora (barra de vistas do palco) ou dono da própria vista
   // (drawer do canvas, onde o controle segmentado continua desenhado).
   const controlado = viewDeFora !== undefined;
@@ -2611,6 +2617,7 @@ export function AuditResult({
                       data-achado={finding.refId || undefined}
                       data-em-foco={finding.refId && finding.refId === achadoEmFoco ? "" : undefined}
                       data-resolvido={estaResolvido(finding.refId) || undefined}
+                      onPointerMove={moverLuz}
                       className={cn(
                         /*
                          * SEM `overflow-hidden`: o menu de ações deste achado é
@@ -2633,7 +2640,16 @@ export function AuditResult({
                          * Breakpoint de container mede a caixa, que é o que
                          * manda aqui.
                          */
-                        "@container rounded-md border bg-card transition-colors",
+                        /*
+                         * `nx-spot`: a luz que segue o ponteiro. Só o cartão do
+                         * achado a recebe nesta tela — é a superfície que a
+                         * pessoa percorre uma a uma numa revisão, e é onde a
+                         * reação sob o cursor vira sensação de material. Pôr o
+                         * mesmo brilho em toda caixa da tela transformaria luz
+                         * em ruído, e o §5 já diz que movimento é mudança de
+                         * estado, não decoração distribuída.
+                         */
+                        "@container nx-spot rounded-md border bg-card transition-colors",
                         estaResolvido(finding.refId)
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",

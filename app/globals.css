@@ -117,6 +117,14 @@
   --duration-shell: 320ms;
   --ease-feedback: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
+  /* O VOLUME DO QUE E AMBIENTE (DESIGN.md secao 5).
+
+     Multiplica so o que e decorativo: brilho do spotlight, opacidade de fundo
+     animado, alcance do ima. NUNCA multiplica feedback de interacao (hover,
+     clique, foco) nem sinal de estado (orbe, progresso) — baixar a intensidade
+     nao pode desligar informacao. Em 0, a interface perde o ambiente e continua
+     dizendo tudo o que dizia. */
+  --motion-gain: 1;
   /* Larguras das colunas do shell do Nexo. */
   --nexo-copilot-w: 520px;
   /* 240px era a largura em que a lista ficou ilegível: o título da conversa
@@ -204,6 +212,22 @@
      dois shadows antigos servem a aresta e ao lift minimo; esta separa de um
      fundo arbitrario. */
   --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.65);
+}
+
+/* O AMBIENTE DESLIGA JUNTO COM O MOVIMENTO.
+
+   O reset de `prefers-reduced-motion` la embaixo zera a DURACAO, e isso basta
+   para o que anima — mas o spotlight e a grade tecnica sao luz PARADA, e luz
+   parada sobrevive a duracao zerada. `--motion-gain: 0` e o que os apaga.
+
+   FICA AQUI, FORA DE CAMADA, junto da definicao. Escrito dentro de
+   `@layer components` ele NAO vencia o `:root` sem camada acima — estilo sem
+   camada ganha de estilo em camada, que e a armadilha do secao 12 vista pelo
+   avesso. A prova `prova:ambiente` pegou isso medindo o token no navegador. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-gain: 0;
+  }
 }
 
 /* Precisa ficar em @layer base: fora de layer, esta regra venceria todas as
@@ -384,6 +408,7 @@ textarea {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
 }
 
 @keyframes audit-progress {
@@ -1539,6 +1564,141 @@ textarea {
   :is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8)::before {
     transition: none;
   }
+}
+
+/* =====================================================================
+   AMBIENTE — luz, brilho e grade. Tres utilidades, um volume so.
+
+   Todas passam por `--motion-gain`: em 0 elas desaparecem e a interface
+   continua dizendo tudo o que dizia. Nenhuma delas carrega informacao.
+   ===================================================================== */
+
+/* --- O SPOTLIGHT: luz seguindo o ponteiro sobre a superficie -----------
+   `--mx`/`--my` chegam do `pointermove`, em porcentagem. Sem elas o gradiente
+   fica no centro e a opacidade e 0, entao nada aparece antes do primeiro
+   movimento.
+
+   O RECORTE VEM DE GRACA, e e por isso que a luz nao vaza nos cantos: o
+   `clip-path` do chanfro recorta o elemento INTEIRO, pseudo-elemento incluido.
+   Escrever um segundo `clip-path` aqui seria a duplicacao que o secao 11 proibe.
+
+   `::after` e nao `::before` porque o `::before` ja e o miolo das `.nx-edge-*`.
+   Os dois ficam em `z-index: -1`; este vem depois no documento, entao pinta por
+   cima do miolo e por baixo do conteudo.
+
+   So em ponteiro fino: em toque nao existe cursor para a luz seguir, e um
+   spotlight parado no meio do cartao e enfeite sem causa. */
+.nx-spot {
+  position: relative;
+  isolation: isolate;
+}
+
+.nx-spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  /* Nas superficies que ainda usam raio (o cartao de achado e uma delas), o
+     `clip-path` nao existe para recortar a luz — o raio herdado faz o servico.
+     Sem isto, o brilho sai quadrado sobre um canto arredondado. */
+  border-radius: inherit;
+  background: radial-gradient(
+    var(--spot-size, 260px) circle at var(--mx, 50%) var(--my, 50%),
+    /* 7% de branco sobre o #121518 do cartao: sobe meio degrau tonal, o
+       suficiente para o olho registrar "luz" e nao "artefato". Acima de ~10% a
+       superficie comeca a parecer molhada, que e o glow de vitrine que o
+       pedido recusa. O nucleo teal e metade disso — ele TINGE a luz, nao a
+       colore. */
+    rgb(255 255 255 / 0.07),
+    rgb(91 218 198 / 0.045) 42%,
+    transparent 70%
+  );
+  transition: opacity var(--duration-base) var(--ease-feedback);
+}
+
+/* Na familia com contorno, a luz para na borda de 1px — invadi-la apagaria o
+   fio que separa o cartao do fundo. */
+:is(.nx-edge-4, .nx-edge-5, .nx-edge-6, .nx-edge-7, .nx-edge-8).nx-spot::after {
+  inset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nx-spot:hover::after {
+    opacity: var(--motion-gain);
+  }
+}
+
+/* --- O BRILHO DO TEXTO: trabalho em curso ------------------------------
+   Mesma cadencia do `skeleton-shimmer` (1.8s), porque e o mesmo gesto: uma
+   regiao que ainda nao terminou. A lamina e clara com nucleo teal, nunca
+   cromada — cromo lê como enfeite de vitrine, e isto e estado de trabalho.
+
+   O texto continua legivel com a animacao parada: a cor base e a do proprio
+   elemento e o brilho SOMA. Quem desliga movimento le a mesma frase. */
+.nx-shiny {
+  animation: nx-shiny-sweep 1.8s var(--ease-feedback) infinite;
+}
+
+/* A LAMINA E FEITA DE `currentColor`, e essa e a decisao que mantem o texto
+   legivel. Recortar o fundo no glifo exige apagar o preenchimento do texto
+   (`-webkit-text-fill-color: transparent`) — e ai o que se le passa a ser o
+   gradiente. Se ele fosse transparente nas pontas, a frase sumiria fora da
+   lamina. Sendo `currentColor` nas pontas, a cor e exatamente a de antes e a
+   lamina apenas ACRESCENTA luz ao atravessar.
+
+   Em `--motion-gain: 0` o nucleo da lamina se dissolve de volta em
+   `currentColor`: some o brilho, fica a frase. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .nx-shiny {
+    background-image: linear-gradient(
+      100deg,
+      currentColor 40%,
+      color-mix(in oklab, rgb(255 255 255) calc(85% * var(--motion-gain)), currentColor) 49%,
+      color-mix(in oklab, var(--ring) calc(90% * var(--motion-gain)), currentColor) 53%,
+      currentColor 62%
+    );
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    background-position: 220% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes nx-shiny-sweep {
+  0% {
+    background-position: 220% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-shiny {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* --- A GRADE TECNICA: coordenada, nao papel de parede ------------------
+   Estatica de proposito. A linha d'agua da secao 4 proibe BORRAO sob o que se
+   le; uma grade parada a 3% nao borra nada, e e ela que traz CAD e precisao
+   pelo menor preco de runtime que existe: um gradiente, zero JavaScript.
+
+   O ponto e de 1px em `--border`, no passo de 24px que e o mesmo modulo do
+   espacamento do sistema. */
+.nx-dotgrid {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in oklab, var(--border) calc(100% * var(--motion-gain)), transparent) 1px,
+    transparent 0
+  );
+  background-size: var(--dotgrid-step, 24px) var(--dotgrid-step, 24px);
 }
 
 }

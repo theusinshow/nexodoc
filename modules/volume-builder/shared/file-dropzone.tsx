@@ -34,7 +34,18 @@ export function FileDropzone({
     <div
       {...getRootProps()}
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 transition-colors",
+        /*
+         * A GRADE TECNICA. Esta e a area onde entram pranchas e memoriais, e a
+         * grade de pontos diz isso antes de qualquer texto: coordenada, modulo,
+         * prancheta. Ela e ESTATICA — a linha d'agua (DESIGN.md secao 4) proibe
+         * borrao sob o que se le, e uma grade parada a 3% nao borra nada. Custo
+         * de runtime zero: um gradiente, nenhum JavaScript.
+         *
+         * O raio tracejado fica: a secao 11 lista o campo tracejado como uma das
+         * tres excecoes em que o raio sobrevive ao chanfro, porque tracejado nao
+         * atravessa o recorte.
+         */
+        "nx-dotgrid flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 transition-colors",
         isDragActive
           ? "border-primary bg-primary/8"
           : "border-border hover:border-primary/50"

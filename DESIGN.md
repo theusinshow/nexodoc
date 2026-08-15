@@ -378,6 +378,13 @@ contraste: texto ≥4,5:1 mesmo com conteúdo rolando atrás.
 **Por quê essa fronteira:** premium é precisão mais alguns momentos ambientais —
 não vidro em tudo. Borrão sobre dado é o oposto do que este produto vende.
 
+**O que a linha d'água protege é a LEGIBILIDADE, não a ausência de textura**
+(emenda de 15/08/2026). Fundo **animado** continua sendo cromo e não desce
+abaixo da linha. Fundo **estático** e sem borrão — a grade de pontos do
+`.nx-dotgrid`, parada, a 3% — pode acompanhar dado, porque não borra nada e não
+se move: ela é papel milimetrado, não vidro. O teste é o de sempre: se atrapalha
+ler, não entra.
+
 ---
 
 ## 5. Movimento
@@ -394,6 +401,39 @@ sequências de entrada coreografadas por elemento.
 | `--duration-shell` | `320ms` | Só a macrotransição do shell (boas-vindas ↔ ativo). |
 | `--ease-feedback` | `cubic-bezier(0.25, 1, 0.5, 1)` | Resposta e saídas. |
 | `--ease-entrance` | `cubic-bezier(0.22, 1, 0.36, 1)` | Superfícies entrando. |
+| `--motion-gain` | `1` | **O volume do que é ambiente.** Multiplica só decoração: luz do spotlight, opacidade de fundo, alcance do ímã. |
+
+**O volume, e o que ele não alcança.** `--motion-gain` existe para baixar a
+intensidade do sistema inteiro de um lugar só. Ele governa **ambiente** e nada
+mais: feedback de interação (hover, clique, foco) e sinal de estado (orbe,
+progresso, esqueleto) **nunca** dependem dele — se dependessem, abaixar o volume
+apagaria informação, e informação não é volume. Em `0`, a interface perde a luz e
+continua dizendo tudo o que dizia.
+
+`prefers-reduced-motion: reduce` leva o token a `0`. A declaração fica **fora de
+camada**, junto da definição: escrita dentro de `@layer components` ela perde
+para o `:root` sem camada — a armadilha do §12 vista pelo avesso, e foi a
+`prova:ambiente` que a pegou.
+
+### As três utilidades de ambiente
+
+Nenhuma delas carrega informação. Todas somem em `--motion-gain: 0`.
+
+| Classe | O que é | Onde |
+|--------|---------|------|
+| `.nx-spot` | Luz radial seguindo o ponteiro. `--mx`/`--my` vêm do `pointermove` (`lib/use-spotlight.ts`), escritos direto no `style` — 45 cartões não podem re-renderizar a cada pixel. | Cartão de achado. Uma superfície por tela, não todas. |
+| `.nx-shiny` | Lâmina lenta atravessando o texto: trabalho em curso. Mesma cadência do `skeleton-shimmer` (1,8s). | Frase de processamento. |
+| `.nx-dotgrid` | Grade de pontos **estática**, passo de 24px. CAD, coordenada, prancheta. | Área de documento: dropzone. |
+
+**O recorte da luz vem de graça**, e é o que a faz parecer nativa: `clip-path`
+recorta o elemento inteiro, pseudo-elemento incluído, então numa superfície com
+chanfro o brilho já para no corte. Onde ainda há raio, `border-radius: inherit`
+faz o mesmo. Nunca escreva um segundo `clip-path` para a luz.
+
+**A lâmina é feita de `currentColor`.** Recortar o fundo no glifo exige apagar o
+preenchimento do texto, e a partir daí quem se lê é o gradiente: com pontas
+transparentes, a frase sumiria fora da lâmina. Com pontas em `currentColor`, a
+cor é a de antes e a lâmina só acrescenta luz ao passar.
 
 Saídas correm a ~75% da entrada. Toda animação usa **só `transform` e
 `opacity`** — nunca propriedade de layout.
@@ -794,6 +834,7 @@ código 1:
 | `npm run prova:glossario` | string de interface que use palavra fora do léxico do §13 |
 | `npm run prova:bancada` | bancada do orbe quebrada, ou seletor divergindo de `AGENT_STATES` |
 | `npm run test:nexo:escala` | degrau da escala de dado pintado com cor de interatividade |
+| `npm run prova:ambiente` | luz que não acende, não segue o ponteiro, ou não apaga em `reduced-motion`; lâmina que apaga o texto que atravessa |
 
 Contrato visual — geometria, estado, contraste — ainda é revisão humana.
 
