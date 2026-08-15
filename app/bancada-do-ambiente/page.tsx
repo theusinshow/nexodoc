@@ -53,7 +53,7 @@ export default function BancadaDoAmbiente() {
    * tela de verdade. Instrumento que mente não escolhe número. Quem decide é
    * quem está olhando um monitor.
    */
-  const [opacidadeDoCampo, setOpacidadeDoCampo] = useState<number>(0.22);
+  const [opacidadeDoCampo, setOpacidadeDoCampo] = useState<number>(0.5);
   const moverLuz = useSpotlight();
 
   return (
@@ -180,7 +180,7 @@ export default function BancadaDoAmbiente() {
             <span className="tabular-nums text-foreground">{opacidadeDoCampo.toFixed(2)}</span>
           </label>
           <span className="font-mono text-[11px] text-muted-foreground">
-            o painel usa 0,20
+            o produto usa 0,50
           </span>
         </div>
         <div className="flex flex-wrap gap-4">

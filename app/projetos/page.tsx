@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { FundoDoAmbiente } from "@/components/ambiente/fundo-do-ambiente";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectConsole, type ProjectConsoleItem } from "@/components/projects/project-console";
 import { getUserAccess } from "@/lib/access-control";
@@ -66,6 +67,9 @@ export default async function ProjectsPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-7">
+      {/* Atmosfera: esta tela nao tem orbe vivo, que e a condicao para o campo
+          existir. Ver a regra em `campo-neural.tsx`. */}
+      <FundoDoAmbiente />
       <PageHeader
         backHref="/"
         title="Projetos"

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { FundoDoAmbiente } from "@/components/ambiente/fundo-do-ambiente";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectContextStrip } from "@/components/projects/project-context-strip";
 import { getUserAccess } from "@/lib/access-control";
@@ -31,6 +32,8 @@ export default async function VolumesPage({
 
   return (
     <div className="w-full max-w-full space-y-6 overflow-x-clip px-4 py-4 sm:px-6 lg:px-8">
+      {/* Atmosfera: sem orbe vivo nesta tela. Ver `campo-neural.tsx`. */}
+      <FundoDoAmbiente />
       <PageHeader
         backHref="/"
         title="Organização de Volumes"

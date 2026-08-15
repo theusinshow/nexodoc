@@ -102,10 +102,18 @@ void main() {
 
     /* A espessura acompanha a altura da tela para o fio não engordar em
        janela baixa. */
-    /* FIO, NAO TUBO. Era ate 0,003 do lado da caixa, o que numa tela de mil
-       pixels de altura vira uma linha de 3px com halo. Aqui o teto e a metade
-       disso, e a maioria dos fios fica abaixo dele. */
-    float espessura = 0.0006 + hash(fi + 47.0) * 0.0009;
+    /* A ESPESSURA E EM PIXELS, e essa e a correcao que faz a calibragem valer.
+
+       Ela era fracao da ALTURA, e fracao da altura muda de grossura conforme a
+       superficie: os mesmos 0,0015 dao meio pixel na caixa de 224px da bancada e
+       dois pixels e meio numa pagina de 900px. Foi assim que um numero escolhido
+       olhando uma caixa pequena chegou GRITANDO numa tela inteira -- o fio nao
+       tinha ficado mais opaco, tinha ficado mais grosso.
+
+       Dividindo pela altura em pixels, o fio tem a mesma grossura em qualquer
+       superficie, e a opacidade volta a ser a unica coisa que se afina. */
+    float espessuraPx = 0.2 + hash(fi + 47.0) * 0.25;
+    float espessura = espessuraPx / max(uResolution.y, 1.0);
     float d = abs(uv.y - y);
     float linha = smoothstep(espessura * 3.0, 0.0, d);
 
@@ -147,13 +155,16 @@ export function CampoNeural({
   /**
    * Teto de opacidade do fio mais aceso. O `--motion-gain` multiplica isto.
    *
-   * 0,55 e o piso do que se ENXERGA, e a distancia ate la surpreende: 0,16 nao
-   * aparecia na bancada, 0,34 tambem nao. O fio tem 1px e chega ao olho ja
-   * atenuado duas vezes — pelo peso do proprio fio e pelo desvanecimento
-   * vertical —, entao a opacidade NOMINAL nao e a que se ve. O valor efetivo
-   * no fio mais aceso fica perto de 0,25, que e o que se pretende.
+   * 0,5 foi ESCOLHIDO NUM MONITOR DE VERDADE, e o caminho até aqui é o aviso.
+   * Eu me guiei por fotos de GL por software, que sub-renderiza linha de 1px:
+   * nelas o campo sumia, e subi a opacidade duas vezes atrás de um efeito que na
+   * GPU real estava gritando. Depois cortei de 0,62 para 0,22 pelo mesmo motivo,
+   * às cegas, e passei do ponto para o outro lado.
+   *
+   * O número que vale saiu do seletor da bancada, com alguém olhando. Se for
+   * mexer nele, mexa lá — não daqui, e não por foto.
    */
-  opacidade = 0.22,
+  opacidade = 0.5,
   className,
 }: {
   opacidade?: number;
