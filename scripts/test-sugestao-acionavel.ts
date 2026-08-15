@@ -22,6 +22,8 @@
 import assert from "node:assert/strict";
 
 import { sugestaoEhAcionavel } from "../lib/qualidade-da-sugestao.ts";
+import { filterGroundedFindings } from "../lib/audit-verify.ts";
+import type { AuditFinding } from "../lib/audit-report.ts";
 import {
   runCrossDocumentRules,
   runWithinDocumentIdentityRules,
@@ -157,6 +159,62 @@ test("todo achado dos motores determinísticos traz sugestão acionável", () =>
     ruins.map((r) => `${r.id}: ${r.v.motivo} :: ${r.sugestao}`),
     [],
   );
+});
+
+// --- A medida no portão de evidência ----------------------------------------
+
+/*
+ * O QUE ESTA PARTE PROVA, e é o ponto todo do desenho: a sugestão fraca é
+ * CONTADA e não punida. Achado com frase ruim continua na lista — descartá-lo
+ * perderia defeito real, que é o oposto do "peque pelo excesso" que o prompt
+ * manda —, e a `confianca` fica intocada, porque acreditar no achado e a frase
+ * ajudar quem corrige são duas perguntas independentes.
+ */
+function achadoDeIa(sugestao: string, id: string): AuditFinding {
+  return {
+    id,
+    arquivo: "memorial.pdf",
+    origem: "ia",
+    prioridade: "Media",
+    pagina: "1",
+    capitulo: "",
+    local: "",
+    tipo: "Redação / editorial",
+    descricao: "Achado semeado.",
+    // A evidência tem de existir no texto, senão o achado morre na trava e nunca
+    // chega a ser contado.
+    evidencia: "Prefeitura Municipal de Chapeco",
+    termo_busca: "Prefeitura Municipal de Chapeco",
+    conflito: "Diverge do declarado.",
+    sugestao_correcao: sugestao,
+    confianca: "alta",
+  } as AuditFinding;
+}
+
+test("o portão CONTA a sugestão fraca — e não descarta o achado", () => {
+  const doc = fonte("memorial.pdf", "memorial", [
+    "Prefeitura Municipal de Chapeco.",
+    "Memorial da Prefeitura Municipal de Chapeco.",
+  ]);
+  const portao = filterGroundedFindings(
+    [
+      achadoDeIa("Conferir o município correto.", "IA-001"),
+      achadoDeIa('Substituir "Chapeco" por "Criciuma" no cabeçalho.', "IA-002"),
+    ],
+    doc.extracted,
+  );
+
+  assert.equal(portao.kept.length, 2, "nenhum achado pode ser descartado por causa da frase");
+  assert.equal(portao.sugestoesFracas, 1);
+  // A confiança do achado de frase ruim continua onde estava.
+  assert.equal(portao.kept.find((f) => f.id === "IA-001")?.confianca, "alta");
+});
+
+test("achado de regra não entra na conta — ele já é fiscalizado antes", () => {
+  const doc = fonte("memorial.pdf", "memorial", ["Prefeitura Municipal de Chapeco."]);
+  const deRegra = { ...achadoDeIa("Conferir.", "REGRA-001"), origem: "regra" } as AuditFinding;
+  const portao = filterGroundedFindings([deRegra], doc.extracted);
+  assert.equal(portao.sugestoesFracas, 0);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

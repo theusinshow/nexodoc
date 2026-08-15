@@ -1,5 +1,12 @@
 import type { AuditFinding } from "@/lib/audit-report";
 import type { ExtractedPdf } from "@/lib/pdf-text";
+/*
+ * Caminho RELATIVO com extensao, e nao o alias `@/`: este modulo e importado por
+ * `scripts/test-audit-consistency.ts` e agora por `test:sugestao`, que rodam em
+ * node cru — e node cru nao resolve o alias do tsconfig. Os imports de TIPO
+ * podem usar `@/` porque somem na compilacao; este e de runtime.
+ */
+import { sugestaoEhAcionavel } from "./qualidade-da-sugestao.ts";
 
 // ---------------------------------------------------------------------------
 // Trava anti-alucinação (Fase B).
@@ -175,6 +182,21 @@ export type EvidenceGateResult = {
   dropped: AuditFinding[];
   /** suprimidos por ruído: meta-achado da auditoria ou artefato de extração */
   suppressed: AuditFinding[];
+  /**
+   * Quantos dos achados MANTIDOS saíram com sugestão que não instrui ninguém —
+   * "conferir" sem dizer o quê.
+   *
+   * É MEDIDA, e não portão, e a diferença é a decisão inteira: sugestão fraca
+   * não é indício de que o achado seja falso. Descartá-lo perderia defeito real,
+   * que é o oposto do "peque pelo excesso" que o `auditor-prompt.ts` manda; e
+   * rebaixar a `confianca` misturaria duas perguntas independentes — o quanto se
+   * acredita NO ACHADO e o quanto a FRASE ajuda quem vai corrigir.
+   *
+   * O número existe porque sem ele mexer no prompt é palpite: cada rodada custa
+   * tokens e não produz evidência de melhora. Com ele, "a taxa caiu de 40% para
+   * 12%" é uma frase que se pode dizer.
+   */
+  sugestoesFracas: number;
 };
 
 /**
@@ -209,5 +231,18 @@ export function filterGroundedFindings(
     }
   }
 
-  return { kept, dropped, suppressed };
+  /*
+   * A régua é a MESMA que reprovou o nosso próprio código em 15/08/2026: os
+   * motores determinísticos escreviam "Conferir o município correto" sabendo os
+   * dois valores. Medir a IA com régua diferente da nossa seria conveniente
+   * demais.
+   *
+   * Só sobre achado de IA: o de regra já passa por `test:sugestao`, que reprova
+   * na bancada antes de chegar aqui.
+   */
+  const sugestoesFracas = kept.filter(
+    (f) => f.origem !== "regra" && !sugestaoEhAcionavel(f.sugestao_correcao ?? "").ok,
+  ).length;
+
+  return { kept, dropped, suppressed, sugestoesFracas };
 }

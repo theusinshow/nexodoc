@@ -3144,10 +3144,24 @@ async function deepAnalyzeFile(args: {
       `[audit] ${args.file.file.name}: ${evidenceGate.dropped.length} achado(s) de IA descartado(s) por falta de evidência no texto (anti-alucinação)`,
     );
   }
+  /*
+   * A TAXA DE SUGESTAO FRACA vai para o log e para o marco, ao lado do descarte
+   * por alucinacao. Ela nao muda o resultado — e instrumento: sem numero, mexer
+   * no prompt do auditor e palpite caro, porque cada rodada custa tokens e nao
+   * produz evidencia de melhora.
+   */
+  if (evidenceGate.sugestoesFracas > 0) {
+    const total = evidenceGate.kept.filter((f) => f.origem !== "regra").length;
+    console.log(
+      `[audit] ${args.file.file.name}: ${evidenceGate.sugestoesFracas}/${total} achado(s) de IA com sugestao que nao instrui ("conferir" sem alvo)`,
+    );
+  }
   marco({
     passada: "evidencia",
     estado: "fim",
-    detalhe: `${evidenceGate.dropped.length} descartado(s) por falta de evidência`,
+    detalhe:
+      `${evidenceGate.dropped.length} descartado(s) por falta de evidência` +
+      ` · ${evidenceGate.sugestoesFracas} sugestão(ões) sem alvo`,
   });
   if (evidenceGate.suppressed.length > 0) {
     console.log(
