@@ -54,7 +54,7 @@ uniform float uOpacity;
 
 varying vec2 vUv;
 
-const int FIOS = 14;
+const int FIOS = 22;
 
 float hash(float n) {
   return fract(sin(n) * 43758.5453123);
@@ -83,7 +83,10 @@ void main() {
        em bloco e o campo vira listra. */
     float semente = fi * 13.37;
     float velocidade = 0.05 + hash(fi) * 0.07;
-    float base = (fi + 0.5) / float(FIOS);
+    /* O ESPACAMENTO E IRREGULAR. Distribuidos em passo exato, os fios saem
+       como PAUTA — e pauta e o que se le, por mais que cada linha ondule. O
+       empurrao de ate meio passo quebra a grade sem embolar os fios. */
+    float base = (fi + 0.5) / float(FIOS) + (hash(fi + 303.0) - 0.5) / float(FIOS) * 0.9;
 
     /* AMPLITUDE E FREQUENCIA VARIAM POR FIO. A primeira versao dava a todos a
        mesma frequencia (uv.x * 2.6) e amplitude curta: eles saiam PARALELOS, e
@@ -97,7 +100,10 @@ void main() {
 
     /* A espessura acompanha a altura da tela para o fio não engordar em
        janela baixa. */
-    float espessura = 0.0014 + hash(fi + 47.0) * 0.0016;
+    /* FIO, NAO TUBO. Era ate 0,003 do lado da caixa, o que numa tela de mil
+       pixels de altura vira uma linha de 3px com halo. Aqui o teto e a metade
+       disso, e a maioria dos fios fica abaixo dele. */
+    float espessura = 0.0006 + hash(fi + 47.0) * 0.0009;
     float d = abs(uv.y - y);
     float linha = smoothstep(espessura * 3.0, 0.0, d);
 
@@ -115,9 +121,11 @@ void main() {
      para o raro pixel onde dois fios se encontram não estourar. */
   luz = min(luz, 1.0);
 
-  /* Some para baixo: a leitura começa em cima, e campo denso sob texto é o que
-     a linha d'água proíbe. */
-  luz *= smoothstep(1.0, 0.25, uv.y);
+  /* DESVANECE NAS DUAS PONTAS. Sumir so para um lado deixava o campo ocupando
+     dois tercos da tela de baixo -- e area grande de fundo animado e a definicao
+     de papel de parede, que e o que o pedido recusa. Com as duas pontas
+     apagadas ele vira uma FAIXA, e faixa se le como atmosfera. */
+  luz *= smoothstep(1.0, 0.62, uv.y) * smoothstep(0.0, 0.22, uv.y);
 
   gl_FragColor = vec4(uColor, luz * uOpacity);
 }
@@ -143,7 +151,7 @@ export function CampoNeural({
    * vertical —, entao a opacidade NOMINAL nao e a que se ve. O valor efetivo
    * no fio mais aceso fica perto de 0,25, que e o que se pretende.
    */
-  opacidade = 0.55,
+  opacidade = 0.22,
   className,
 }: {
   opacidade?: number;

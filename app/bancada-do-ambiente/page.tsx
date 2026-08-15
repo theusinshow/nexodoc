@@ -46,6 +46,14 @@ const FRASES = [
 
 export default function BancadaDoAmbiente() {
   const [gain, setGain] = useState<number>(1);
+  /*
+   * A OPACIDADE DO CAMPO É CONTROLE, e não constante, por um motivo específico:
+   * as fotos que eu tiro para me guiar saem de GL por software, que sub-renderiza
+   * linha de 1px — o campo parecia invisível para mim e estava forte demais na
+   * tela de verdade. Instrumento que mente não escolhe número. Quem decide é
+   * quem está olhando um monitor.
+   */
+  const [opacidadeDoCampo, setOpacidadeDoCampo] = useState<number>(0.22);
   const moverLuz = useSpotlight();
 
   return (
@@ -153,15 +161,34 @@ export default function BancadaDoAmbiente() {
           Um fundo que só é bonito vazio não serve — todo lugar do produto onde
           ele pode entrar tem conteúdo em cima. */}
       <section className="flex flex-col gap-3" data-prova="campo">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-          O campo · atmosfera, nunca ao lado do orbe
-        </h2>
+        <div className="flex flex-wrap items-center gap-4">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            O campo · atmosfera, nunca ao lado do orbe
+          </h2>
+          <label className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            opacidade
+            <input
+              type="range"
+              min={0}
+              max={0.9}
+              step={0.02}
+              value={opacidadeDoCampo}
+              onChange={(ev) => setOpacidadeDoCampo(Number(ev.target.value))}
+              data-prova="opacidade-do-campo"
+              className="w-52"
+            />
+            <span className="tabular-nums text-foreground">{opacidadeDoCampo.toFixed(2)}</span>
+          </label>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            o painel usa 0,20
+          </span>
+        </div>
         <div className="flex flex-wrap gap-4">
           <div
             data-prova="campo-vazio"
             className="nx-edge-6 relative h-56 w-[380px] overflow-hidden"
           >
-            <CampoNeural />
+            <CampoNeural opacidade={opacidadeDoCampo} />
             <p className="absolute bottom-3 left-4 font-mono text-[11px] text-muted-foreground">
               o campo sozinho
             </p>
@@ -171,7 +198,7 @@ export default function BancadaDoAmbiente() {
             data-prova="campo-com-texto"
             className="nx-edge-6 relative h-56 w-[380px] overflow-hidden p-5"
           >
-            <CampoNeural />
+            <CampoNeural opacidade={opacidadeDoCampo} />
             <div className="relative">
               <p className="text-base font-medium">Nenhum projeto por aqui ainda</p>
               <p className="mt-1 text-xs leading-snug text-muted-foreground">

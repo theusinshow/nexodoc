@@ -123,7 +123,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         `--motion-gain` continua multiplicando por fora, e em movimento reduzido
         ele nem monta.
       */}
-      <CampoNeural opacidade={0.62} className="pointer-events-none" />
+      <CampoNeural opacidade={0.2} className="pointer-events-none" />
 
       <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
         <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
