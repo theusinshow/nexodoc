@@ -358,6 +358,58 @@ for (const rota of ["/", "/nexo", "/login", "/bancada-do-ambiente"]) {
   await t.close();
 }
 
+// =====================================================================
+// 4. O ÍMÃ E A ASSINATURA — no painel, que é onde os dois vivem
+// =====================================================================
+const painel = await contexto.newPage();
+await painel.goto(`${BASE}/`, { waitUntil: "networkidle" });
+await painel.waitForTimeout(2500);
+
+const ima = painel.locator("[data-ima]").first();
+if ((await ima.count()) === 0) {
+  check("o ímã existe no painel", false, "nenhum [data-ima]");
+} else {
+  await ima.scrollIntoViewIfNeeded();
+  const cx = await ima.boundingBox();
+  await painel.mouse.move(cx.x + cx.width * 0.9, cx.y + cx.height / 2);
+  await painel.waitForTimeout(300);
+  const puxado = await ima.evaluate((el) => ({
+    x: el.style.getPropertyValue("--ima-x"),
+    transform: getComputedStyle(el).transform,
+  }));
+  check("o ímã puxa o controle na direção do ponteiro", puxado.x !== "" && puxado.x !== "0px", JSON.stringify(puxado));
+  /*
+   * E PUXA POUCO. O sistema define o clique como translateY(1px); um ímã de
+   * alcance maior competiria com o próprio feedback do clique, e o controle
+   * pareceria escapar em vez de responder.
+   */
+  const px = Math.abs(Number.parseFloat(puxado.x));
+  check("e puxa no máximo 2px — não briga com o clique", px <= 2.01, `${px}px`);
+
+  await painel.mouse.move(cx.x - 200, cx.y - 200);
+  await painel.waitForTimeout(300);
+  const solto = await ima.evaluate((el) => el.style.getPropertyValue("--ima-x"));
+  check("e solta quando o ponteiro sai", solto === "0px", solto);
+}
+
+/*
+ * A ASSINATURA É UMA PALAVRA SÓ. O gradiente em texto é proibido no §11 e tem
+ * exatamente uma exceção: o nome do agente onde ele se apresenta. Se aparecer em
+ * mais de um lugar, a exceção virou regra e a proibição não vale mais nada.
+ */
+const assinaturas = await painel.locator(".nx-assinatura").count();
+check("a assinatura do agente existe", assinaturas > 0, `${assinaturas}`);
+check("e é uma só na tela", assinaturas <= 1, `${assinaturas} assinaturas`);
+if (assinaturas > 0) {
+  const legivel = await painel.locator(".nx-assinatura").first().evaluate((el) => ({
+    texto: el.textContent,
+    lamina: getComputedStyle(el).backgroundImage !== "none",
+  }));
+  check("ela carrega o nome do agente", legivel.texto?.trim() === "Nexo", legivel.texto ?? "(vazio)");
+  check("e o gradiente está pintado", legivel.lamina);
+}
+await painel.close();
+
 // Em movimento reduzido ele nem monta: quem pediu menos movimento pediu menos.
 const calmaCampo = await contextoCalmo.newPage();
 await calmaCampo.goto(`${BASE}/bancada-do-ambiente`, { waitUntil: "networkidle" });

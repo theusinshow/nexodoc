@@ -1705,6 +1705,55 @@ textarea {
 
    O ponto e de 1px em `--border`, no passo de 24px que e o mesmo modulo do
    espacamento do sistema. */
+/* --- O IMA: o controle se inclina para quem chega ---------------------
+   Alcance de 2px, e o numero e pequeno de proposito. O sistema define o clique
+   como `translateY(1px)` (secao 5), e um ima com alcance maior competiria com o
+   proprio feedback do clique — o controle pareceria escapar em vez de responder.
+
+   ELE MORA NUM INVOLUCRO, nunca no botao. O estado ativo do botao ja usa
+   `transform`, e sobrepor os dois faria o clique perder o afundamento. O
+   involucro se move; o botao dentro dele continua com os transforms que sempre
+   teve.
+
+   Em toque nao existe: sem cursor, nao ha de quem se aproximar. */
+.nx-ima {
+  display: inline-flex;
+  transition: transform var(--duration-fast) var(--ease-feedback);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nx-ima {
+    transform: translate(
+      calc(var(--ima-x, 0px) * var(--motion-gain)),
+      calc(var(--ima-y, 0px) * var(--motion-gain))
+    );
+  }
+}
+
+/* --- A ASSINATURA DO AGENTE -------------------------------------------
+   A UNICA excecao a proibicao de texto com gradiente (secao 11), e ela vale para
+   UMA palavra: o nome do agente, onde ele se apresenta. Nao e enfase — enfase
+   continua sendo peso e tamanho. E assinatura: o mesmo papel do logotipo, escrito
+   em vez de desenhado.
+
+   A rampa e a teal do sistema, de `--primary` a `--ring`, na diagonal curta. Sem
+   cor nova, e sem sair da rampa que a lei do orbe ja prende. Em heading comum,
+   em rotulo, em dado: continua proibido. */
+.nx-assinatura {
+  background-image: linear-gradient(105deg, var(--primary), var(--ring));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  /* Sem recorte, a palavra volta a ser teal solida — nunca invisivel. */
+  .nx-assinatura {
+    background-image: none;
+    color: var(--ring);
+  }
+}
+
 .nx-dotgrid {
   background-image: radial-gradient(
     circle at 1px 1px,

@@ -424,6 +424,8 @@ Nenhuma delas carrega informação. Todas somem em `--motion-gain: 0`.
 | `.nx-spot` | Luz radial seguindo o ponteiro. `--mx`/`--my` vêm do `pointermove` (`lib/use-spotlight.ts`), escritos direto no `style` — 45 cartões não podem re-renderizar a cada pixel. | Cartão de achado. Uma superfície por tela, não todas. |
 | `.nx-shiny` | Lâmina lenta atravessando o texto: trabalho em curso. Mesma cadência do `skeleton-shimmer` (1,8s). | Frase de processamento. |
 | `.nx-dotgrid` | Grade de pontos **estática**, passo de 24px. CAD, coordenada, prancheta. | Área de documento: dropzone. |
+| `.nx-ima` | O controle se inclina 2px na direção de quem chega. Mora num INVÓLUCRO, nunca no botão — o estado ativo já usa `transform`. | Dois CTAs em todo o produto: "Nova auditoria" e "Criar projeto". |
+| `.nx-assinatura` | A rampa teal no nome do agente. A exceção única do §11. | Uma palavra, uma vez por tela. |
 
 **O recorte da luz vem de graça**, e é o que a faz parecer nativa: `clip-path`
 recorta o elemento inteiro, pseudo-elemento incluído, então numa superfície com
@@ -826,7 +828,11 @@ entra.
 - Não use borda lateral maior que 1px como faixa de acento.
 - Não aninhe cartão dentro de cartão.
 - Não anime propriedade de layout (width, height, top, left).
-- Não use texto com gradiente.
+- Não use texto com gradiente — **com uma exceção, e ela é de uma palavra**:
+  o NOME DO AGENTE onde ele se apresenta (`.nx-assinatura`, 15/08/2026).
+  Assinatura tem o papel do logotipo, escrita em vez de desenhada; ênfase
+  continua sendo peso e tamanho. Em heading, rótulo ou dado: proibido. Uma
+  por tela, e `prova:ambiente` conta.
 - Não crie grades de cartões idênticos (mesmo ícone + título + texto repetidos).
 - Não use emoji na interface.
 - Não recorra a modal como primeira solução; esgote as alternativas inline.

@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Ima } from "@/components/ambiente/ima";
 
 export type ProjectConsoleItem = {
   id: string;
@@ -164,10 +165,15 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
               </p>
             ) : null}
 
-            <Button className="w-full" disabled={isPending}>
-              {isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              Criar projeto
-            </Button>
+            {/* O segundo (e último) controle com ímã no produto. `w-full` sobe
+                para o invólucro, senão o botão perde a largura ao ganhar um pai
+                `inline-flex`. */}
+            <Ima className="w-full">
+              <Button className="w-full" disabled={isPending}>
+                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Criar projeto
+              </Button>
+            </Ima>
           </form>
         </CardContent>
       </Card>

@@ -31,6 +31,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { LogoNexo } from "@/components/brand/logo-nexo";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb";
+import { Ima } from "@/components/ambiente/ima";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 
 /**
@@ -259,7 +260,18 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           </Link>
 
           <p className="mt-6 text-center text-xl font-medium tracking-[-0.01em] text-foreground">
-            {vazio ? "Solte o primeiro documento" : "Fale com o Nexo"}
+            {/*
+              A ASSINATURA. O nome do agente é a única palavra do produto com
+              gradiente (DESIGN.md §11) — é onde ele se apresenta, e assinatura
+              tem o mesmo papel do logotipo, escrita em vez de desenhada.
+            */}
+            {vazio ? (
+              "Solte o primeiro documento"
+            ) : (
+              <>
+                Fale com o <span className="nx-assinatura">Nexo</span>
+              </>
+            )}
           </p>
           <p className="mt-2 text-center text-[13px] leading-normal text-muted-foreground">
             {vazio
@@ -498,6 +510,12 @@ function CartaoDeProjeto({
               </Link>
             ))}
             <div className="flex-1" />
+            {/*
+              O ÍMÃ, num dos dois controles do produto que o recebem. É a ação
+              principal deste cartão — e a restrição a dois é o que faz o efeito
+              querer dizer "isto aqui é a ação", em vez de "esta tela é inquieta".
+            */}
+            <Ima>
             <Link
               href={`/nexo?projeto=${encodeURIComponent(projeto.projectId)}`}
               className="nx-cut-5 inline-flex items-center gap-[7px] bg-[#0f2d2a] px-[11px] py-[5px] font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--nexodoc-accent)] hover:bg-[#164039]"
@@ -514,6 +532,7 @@ function CartaoDeProjeto({
               </svg>
               <span>Nova auditoria</span>
             </Link>
+            </Ima>
           </div>
         </div>
       ) : null}
