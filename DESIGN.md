@@ -559,8 +559,21 @@ que faz 200 folhas caberem no mesmo desenho de 23.
 
 ### O erro, e por que ele não tem cor
 
-`error` é **batimento duplo** (duas contrações rápidas + pausa, ciclo de 1,6s)
-somado ao `jitter` que já existia. Tingir o aro de coral foi considerado e
+`error` é **batimento duplo** (duas contrações rápidas + pausa, ciclo de 1,6s), e
+o `jitter` da casca **bate junto com ele** (15/08/2026). Antes o tremor zumbia
+constante por baixo do pulso — duas instabilidades em ritmos diferentes, que é
+ruído e não frase.
+
+**Tremer não é despedaçar**, e por muito tempo foi: a amplitude era `0,4` num
+raio `1`, na frequência espacial `6.0`. Vértices vizinhos iam para lados opostos
+e a casca virava um ouriço de espinhos que ultrapassava o próprio aro de 1,14 —
+o orbe deixava de ser o mesmo objeto, contra a escada de reduções deste mesmo
+parágrafo. Hoje são `0,05` e `2.8`: a casca **ondula como superfície**, que é a
+mão trêmula e não o vidro estilhaçado.
+
+`prova:bancada` mede a **silhueta** em doze amostras (mais de um ciclo do
+batimento) e reprova se o pico passar de 12% do repouso. Medir o parâmetro não
+bastaria: o que se quer provar é que a esfera continua esfera. Tingir o aro de coral foi considerado e
 **recusado**: seria cor de status num elemento interativo, e romperia a
 iridescência teal que é a identidade. A lei prende o orbe à rampa — então a
 expressão do erro é temporal, não cromática. O corpo lê ritmo antes de a cabeça

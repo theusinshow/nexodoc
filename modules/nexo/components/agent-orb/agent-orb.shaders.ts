@@ -87,10 +87,23 @@ ${SNOISE}
  *
  * O jitter do estado de erro sobrevive, e de propósito: erro é a única hora em
  * que o vidro DEVE tremer.
+ *
+ * MAS TREMER NÃO É DESPEDAÇAR, e por muito tempo foi. A amplitude era 0,4
+ * numa esfera de RAIO 1 — quarenta por cento —, na frequência espacial 6.0: os
+ * vértices vizinhos recebiam deslocamentos completamente diferentes, e a casca
+ * virava um ouriço de espinhos que ultrapassava até o aro de 1,14 que mede o
+ * progresso. O orbe deixava de ser o mesmo objeto, e a escada de reduções do
+ * §6 exige exatamente o contrário: os três níveis têm de ser reconhecíveis como
+ * a mesma coisa. Um erro que destrói a identidade da marca não é expressão de
+ * erro, é falha de desenho.
+ *
+ * 0,05 e frequência 2,8: a casca ONDULA como superfície inteira, em vez de cada
+ * vértice ir para um lado. É o que o corpo lê como instabilidade — a mão
+ * trêmula, não o vidro estilhaçado.
  */
 void main() {
   float n = snoise(position * 1.7 + vec3(0.0, uTime * 0.12, uTime * 0.04));
-  float j = uJitter * 0.4 * snoise(position * 6.0 + uTime * 4.0);
+  float j = uJitter * 0.05 * snoise(position * 2.8 + uTime * 4.0);
   float onda = n * uDistort * (1.0 - uEsfera);
   vec3 displaced = position + normal * (onda + j);
   vec4 wp = modelMatrix * vec4(displaced, 1.0);

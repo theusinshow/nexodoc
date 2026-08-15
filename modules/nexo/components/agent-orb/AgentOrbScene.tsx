@@ -414,6 +414,29 @@ export function AgentOrbScene({
     breathPhase.current += dt * c.breathRate;
     const breath = reduced ? 1 : 0.85 + 0.15 * Math.sin(breathPhase.current);
 
+    /*
+     * O ERRO SE DIZ POR RITMO, porque não pode se dizer por cor.
+     *
+     * A lei do §6 prende o orbe à rampa teal — inclusive no erro. Tingir o aro
+     * de coral foi considerado e recusado: seria cor de STATUS num elemento
+     * INTERATIVO, e romperia a iridescência que é a identidade da marca. Sobra
+     * o tempo, e o tempo basta.
+     *
+     * Duas contrações rápidas e uma pausa: é sístole-diástole, e o corpo lê
+     * isso como "algo errado" antes de a cabeça ler o rótulo.
+     *
+     * SOBE PARA CÁ para reger também o tremor da casca. Antes ele regia só o
+     * miolo, e o jitter zumbia CONSTANTE por baixo — duas instabilidades em
+     * ritmos diferentes, que é ruído e não frase. Agora a casca treme QUANDO o
+     * coração bate: uma coisa só, dita duas vezes.
+     */
+    const batida = (x: number, centro: number) =>
+      Math.exp(-Math.pow((x - centro) / 0.09, 2));
+    const pulsoDoErro =
+      state === "error" && !reduced
+        ? 0.25 + 0.75 * (batida(time % 1.6, 0) + 0.7 * batida(time % 1.6, 0.18))
+        : 1;
+
     // Vidro externo.
     const su = surf.uniforms;
     if (!reduced) su.uTime.value += dt;
@@ -428,26 +451,8 @@ export function AgentOrbScene({
      * subindo do zero e cobre a mudança.
      */
     su.uScanMode.value = state === "auditing" ? 1 : 0;
-    su.uJitter.value = c.jitter;
-
-    /*
-     * O ERRO SE DIZ POR RITMO, porque não pode se dizer por cor.
-     *
-     * A lei do §6 prende o orbe à rampa teal — inclusive no erro. Tingir o aro
-     * de coral foi considerado e recusado: seria cor de STATUS num elemento
-     * INTERATIVO, e romperia a iridescência que é a identidade da marca. Sobra
-     * o tempo, e o tempo basta.
-     *
-     * Duas contrações rápidas e uma pausa: é sístole-diástole, e o corpo lê
-     * isso como "algo errado" antes de a cabeça ler o rótulo. O `jitter`
-     * continua — ele é a textura da instabilidade; isto é a frase.
-     */
-    const batida = (x: number, centro: number) =>
-      Math.exp(-Math.pow((x - centro) / 0.09, 2));
-    const pulsoDoErro =
-      state === "error" && !reduced
-        ? 0.25 + 0.75 * (batida(time % 1.6, 0) + 0.7 * batida(time % 1.6, 0.18))
-        : 1;
+    // A casca treme no compasso do coracao, nao por baixo dele.
+    su.uJitter.value = c.jitter * pulsoDoErro;
 
     // Alma.
     const cu = core.uniforms;

@@ -94,6 +94,95 @@ try {
     console.log(`  ok  ${oferecidos.length} estados: ${oferecidos.join(" ")}`);
   }
 
+  /*
+   * A ESFERA CONTINUA SENDO A ESFERA — inclusive no erro.
+   *
+   * O §6 exige que os três níveis de redução sejam reconhecíveis como o MESMO
+   * objeto, e o estado de erro passou muito tempo violando isso sem que nada
+   * reclamasse: o jitter deslocava os vértices em 0,4 de um raio 1, e a casca
+   * virava um ouriço de espinhos que ultrapassava até o aro de 1,14 que mede o
+   * progresso da leitura. Erro que destrói a identidade da marca não é
+   * expressão de erro; é falha de desenho.
+   *
+   * Esta prova MEDE A SILHUETA, e não um parâmetro: copia o canvas do WebGL
+   * para um 2D e acha a caixa dos pixels acesos. É a diferença entre provar que
+   * a constante está certa e provar que a esfera está inteira — a mesma lição
+   * que a lâmina do texto deu nesta sessão.
+   */
+  const silhueta = () =>
+    page.evaluate(() => {
+      const gl = document.querySelector("canvas");
+      if (!gl) return null;
+      const c = document.createElement("canvas");
+      c.width = gl.width;
+      c.height = gl.height;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(gl, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      let minX = c.width, maxX = -1, minY = c.height, maxY = -1;
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          const i = (y * c.width + x) * 4;
+          if ((d[i] + d[i + 1] + d[i + 2]) / 3 > 28) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      return maxX < 0 ? null : { largura: maxX - minX, altura: maxY - minY };
+    });
+
+  /*
+   * MEDE-SE O PICO, e não um instante qualquer — o tremor do erro é regido pelo
+   * batimento (duas contrações e uma pausa, ciclo de 1,6s), então a maior parte
+   * do tempo a casca está quase em repouso. Uma amostra só cai na pausa e
+   * aprova uma esfera que se despedaça duas vezes por segundo. Doze amostras
+   * cobrem mais de um ciclo inteiro.
+   */
+  const maiorSilhueta = async (amostras = 12) => {
+    let maior = null;
+    for (let i = 0; i < amostras; i++) {
+      const s = await silhueta();
+      if (s && (!maior || s.largura * s.altura > maior.largura * maior.altura)) maior = s;
+      await page.waitForTimeout(150);
+    }
+    return maior;
+  };
+
+  const seletor = page.locator("select").first();
+  await seletor.selectOption("idle");
+  await page.waitForTimeout(1800);
+  const emRepouso = await maiorSilhueta(4);
+  await seletor.selectOption("error");
+  await page.waitForTimeout(1200);
+  const noErro = await maiorSilhueta();
+
+  if (!emRepouso || !noErro) {
+    falhou = true;
+    console.error("FALHOU  não deu para medir a silhueta do orbe");
+  } else {
+    /*
+     * 12% de folga: o tremor DEVE aparecer na borda — é o que o corpo lê como
+     * instabilidade —, então exigir silhueta idêntica mataria o estado. O que
+     * não pode é a casca sair de esfera. Antes da correção a diferença passava
+     * de 25%.
+     */
+    const maior = Math.max(noErro.largura / emRepouso.largura, noErro.altura / emRepouso.altura);
+    if (maior > 1.12) {
+      falhou = true;
+      console.error(
+        `FALHOU  o erro DESPEDAÇA a esfera: ${Math.round((maior - 1) * 100)}% maior que em repouso ` +
+          `(repouso ${emRepouso.largura}x${emRepouso.altura}, erro ${noErro.largura}x${noErro.altura})`,
+      );
+    } else {
+      console.log(
+        `  ok  a esfera continua esfera no erro (${Math.round((maior - 1) * 100)}% de variação)`,
+      );
+    }
+  }
+
   if (erros.length) {
     falhou = true;
     console.error(`FALHOU  ${erros.length} erro(s) no navegador:`);

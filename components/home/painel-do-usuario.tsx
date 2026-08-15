@@ -116,14 +116,14 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         ele existir aqui (ver `campo-neural.tsx`: quando duas coisas se mexem, o
         olho não sabe qual delas está dizendo algo, e o orbe é o que diz).
 
-        A 0,45, e o número é maior do que a intuição pede: esta tela tem quase
+        A 0,62, e o número é maior do que a intuição pede: esta tela tem quase
         mil pixels de altura, e os mesmos catorze fios espalhados por ela ficam
         muito mais esparsos do que na caixa da bancada. Opacidade de campo não se
         escolhe no abstrato — se escolhe olhando a superfície onde ele vai.
         `--motion-gain` continua multiplicando por fora, e em movimento reduzido
         ele nem monta.
       */}
-      <CampoNeural opacidade={0.45} className="pointer-events-none" />
+      <CampoNeural opacidade={0.62} className="pointer-events-none" />
 
       <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
         <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
