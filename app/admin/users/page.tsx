@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { palavra, plural } from "@/lib/plural";
 
 type AdminUser = {
   id: string;
@@ -444,7 +445,7 @@ export default function AdminUsersPage() {
         ) : someSelected ? (
           <div className="nx-edge-8 flex flex-wrap items-center gap-2 p-3 [--nx-edge:var(--primary)]">
             <span className="font-mono text-xs text-muted-foreground">
-              {selectedIds.size} selecionado(s)
+              {plural(selectedIds.size, "selecionado", "selecionados")}
             </span>
             <Button
               type="button"
@@ -453,7 +454,7 @@ export default function AdminUsersPage() {
               onClick={() =>
                 setConfirmando({
                   escopo: "lote",
-                  rotulo: `Dar acesso de admin a ${selectedIds.size} pessoa(s)? Elas passam a ver custo, configuração de provedores, e a poder promover outras.`,
+                  rotulo: `Dar acesso de admin a ${plural(selectedIds.size, "pessoa", "pessoas")}? ${palavra(selectedIds.size, "Ela passa", "Elas passam")} a ver custo, configuração de provedores, e a poder promover outras.`,
                   aplicar: () => void batchUpdateUsers({ role: "ADMIN" }),
                 })
               }
@@ -469,7 +470,7 @@ export default function AdminUsersPage() {
               onClick={() =>
                 setConfirmando({
                   escopo: "lote",
-                  rotulo: `Desativar ${selectedIds.size} pessoa(s)? Elas perdem o acesso ao produto imediatamente.`,
+                  rotulo: `Desativar ${plural(selectedIds.size, "pessoa", "pessoas")}? ${palavra(selectedIds.size, "Ela perde", "Elas perdem")} o acesso ao produto imediatamente.`,
                   aplicar: () => void batchUpdateUsers({ isActive: false }),
                 })
               }

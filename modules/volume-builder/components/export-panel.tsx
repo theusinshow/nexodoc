@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { AssemblyRow, VolumeMetadata, ImportedPdfFile } from "@/modules/volume-builder/lib/volume/volume-types";
+import { plural } from "@/lib/plural";
 import { determineOutputMode } from "@/modules/volume-builder/lib/volume/volume-rules";
 import { generateZipFileName, generateReportFileName } from "@/modules/volume-builder/lib/volume/volume-naming";
 import { getVolumeApiEndpoint } from "@/modules/volume-builder/lib/utils/volume-api-endpoint";
@@ -266,7 +267,7 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, projec
         {canExport && (
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
-              {rows.length} linha(s) pronta(s) para exportacao.
+              {plural(rows.length, "linha pronta", "linhas prontas")} para exportação.
             </p>
             <p className="text-xs text-muted-foreground font-mono">
               Relatorio: {reportFileName}

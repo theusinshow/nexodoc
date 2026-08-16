@@ -76,6 +76,7 @@ import {
 import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { plural } from "@/lib/plural";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
 import {
   blocosDasFolhas,
@@ -717,7 +718,7 @@ function LdConfirmation({
         // folhas entra junto: é ela que denuncia o documento envelhecido.
         payload: { ...params, tomo: tomo.numero, folhas: assinaturaDoTomo(doTomo) },
         summary: `LD ${r.resumo.disciplina} · ${r.resumo.codigo} · rev ${r.resumo.revisao} · ${r.resumo.totalFolhas} folhas${
-          r.warnings.length ? ` · ${r.warnings.length} aviso(s)` : ""
+          r.warnings.length ? ` · ${plural(r.warnings.length, "aviso", "avisos")}` : ""
         }`,
         canvas: {
           label: `LD ${r.resumo.disciplina}`,
@@ -1085,7 +1086,7 @@ function ConferenciaConfirmation({
       await saveResult({
         artifactId: `${id}:identidade`,
         kind: "conferencia",
-        summary: `Selo — ${r.result.veredito} · ${r.result.amostras} folha(s)`,
+        summary: `Selo — ${r.result.veredito} · ${plural(r.result.amostras, "folha", "folhas")}`,
         files: [],
         payload: r.result,
       });
@@ -1159,7 +1160,7 @@ function ConferenciaConfirmation({
           {identidade && (
             <CheckResult
               result={identidade}
-              titulo={`Selo · ${identidade.amostras} folha(s) conferida(s)`}
+              titulo={`Selo · ${plural(identidade.amostras, "folha conferida", "folhas conferidas")}`}
             />
           )}
         </div>
@@ -1199,7 +1200,7 @@ function CheckResult({
         <Badge variant={variant}>{label}</Badge>
         <span className="text-xs text-muted-foreground">
           {titulo ? `${titulo} · ` : ""}
-          {result.findings.length} achado(s)
+          {plural(result.findings.length, "achado", "achados")}
         </span>
       </div>
       {result.findings.length > 0 && (
@@ -1442,7 +1443,7 @@ function VolumesDoConjunto({
       await baixarEditaveis([...consolidados, ...editaveis], "editaveis-do-volume.zip");
       if (falhas.length > 0) {
         setErroDoZip(
-          `O ZIP saiu, mas ${falhas.length} consolidado(s) não foram gerados: ${falhas.join("; ")}. Os por-tomo estão lá.`,
+          `O ZIP saiu, mas ${plural(falhas.length, "consolidado não foi gerado", "consolidados não foram gerados")}: ${falhas.join("; ")}. Os por-tomo estão lá.`,
         );
       }
     } catch (err) {
@@ -1496,7 +1497,7 @@ function VolumesDoConjunto({
           />
           {falhas.length > 0 && (
             <p className="text-xs text-[var(--destructive)]">
-              {falhas.length} volume(s) não montaram:{" "}
+              {plural(falhas.length, "volume não montou", "volumes não montaram")}:{" "}
               {falhas.map((f) => `${f.rotulo} (${f.motivo})`).join("; ")}. Os outros
               estão prontos.
             </p>
@@ -1851,7 +1852,7 @@ function VolumeConfirmation({
                 tomo: tomo.numero,
                 folhas: assinaturaDoTomo(doBloco),
               },
-              summary: `LD ${titulo} · ${doBloco.length} folha(s)`,
+              summary: `LD ${titulo} · ${plural(doBloco.length, "folha", "folhas")}`,
               canvas: { label: `LD ${titulo}`, titulo, pageNumber: 1 },
               files: [
                 { label: "ODT", name: ld.odtName, mime: ODT_MIME, url: ld.odtUrl },
@@ -2016,7 +2017,7 @@ function VolumeConfirmation({
               label="Pranchas"
               ok={!semPranchas}
               detail={
-                semPranchas ? "nenhuma" : `${pranchaFilesDoTomo.length} arquivo(s)`
+                semPranchas ? "nenhuma" : `${plural(pranchaFilesDoTomo.length, "arquivo", "arquivos")}`
               }
             />
           </div>
@@ -2296,7 +2297,7 @@ function AuditoriaConfirmation({
         payload: r,
         canvas: {
           label: "Auditoria",
-          detail: `${r.report.status_geral} · ${r.report.total_incongruencias} achado(s)`,
+          detail: `${r.report.status_geral} · ${plural(r.report.total_incongruencias, "achado", "achados")}`,
         },
       });
       refreshUsage();
@@ -2518,7 +2519,7 @@ function AuditoriaAncora({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={variant}>{verdict.label}</Badge>
         <span className="text-xs text-muted-foreground">
-          {report.total_incongruencias} achado(s) · obra {report.obra || "?"}
+          {plural(report.total_incongruencias, "achado", "achados")} · obra {report.obra || "?"}
         </span>
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">

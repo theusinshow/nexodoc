@@ -1,6 +1,14 @@
 import type { AiProvider } from "@/lib/ai-providers";
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AnalysisLevel } from "@/lib/analysis-level";
+/*
+ * CAMINHO RELATIVO, e não o alias: este módulo é executado por scripts em node
+ * cru (`npm run test:severidade`, `test:audit`), onde `@/` não existe. Os
+ * outros imports daqui são `import type` — apagados em tempo de execução, e por
+ * isso nunca cobraram o alias. Este é valor, e cobrou: quebrou as duas provas
+ * na primeira tentativa.
+ */
+import { plural } from "./plural.ts";
 
 /**
  * Um capítulo do documento, reduzido ao que identifica o CONTEÚDO dele.
@@ -679,7 +687,7 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
 
   if (critical.length > 0) {
     parts.push(
-      `Documento com ${critical.length} incongruência(s) crítica(s) de identidade/localização da obra, com risco de reaproveitamento de texto ou emissão com dados divergentes.`,
+      `Documento com ${plural(critical.length, "incongruência crítica", "incongruências críticas")} de identidade/localização da obra, com risco de reaproveitamento de texto ou emissão com dados divergentes.`,
     );
   }
 
@@ -733,7 +741,7 @@ export function getEmissionVerdict(
     return {
       emoji: "🔴",
       label: "NÃO EMITIR",
-      detail: `${groups.critico_documental.length} incongruência(s) crítica(s) de identidade/documento antes da emissão.`,
+      detail: `${plural(groups.critico_documental.length, "incongruência crítica", "incongruências críticas")} de identidade/documento antes da emissão.`,
     };
   }
 

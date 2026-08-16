@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Upload } from "lucide-react";
 import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { plural } from "@/lib/plural";
 import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
 import {
   extractSelosFromFiles,
@@ -609,7 +610,7 @@ function NexoWorkspaceInner({
     const ressalvas: string[] = [];
     if (naoLidas.ignoradas.length > 0) {
       ressalvas.push(
-        `${naoLidas.ignoradas.length} página(s) não são prancha (capa, separatriz ou índice) e ficaram de fora`,
+        `${plural(naoLidas.ignoradas.length, "página não é prancha", "páginas não são prancha")} (capa, separatriz ou índice) e ficaram de fora`,
       );
     }
     if (naoLidas.falhas.length > 0) {
@@ -618,25 +619,25 @@ function NexoWorkspaceInner({
         .map((r) => `${r.fileName} p.${r.pageNumber}`)
         .join(", ");
       ressalvas.push(
-        `${naoLidas.falhas.length} folha(s) não deram para ler (${quais}${naoLidas.falhas.length > 3 ? " …" : ""}) — estão no canvas em branco, dá para corrigir à mão ou tentar de novo`,
+        `${plural(naoLidas.falhas.length, "folha não deu para ler", "folhas não deram para ler")} (${quais}${naoLidas.falhas.length > 3 ? " …" : ""}) — estão no canvas em branco, dá para corrigir à mão ou tentar de novo`,
       );
     }
     const ressalva = ressalvas.length > 0 ? ` ${ressalvas.join("; ")}.` : "";
     const reuso =
       reaproveitadas > 0
-        ? ` ${reaproveitadas} folha(s) vieram de leitura anterior dos mesmos arquivos — não foram lidas de novo.`
+        ? ` ${plural(reaproveitadas, "folha veio de leitura anterior", "folhas vieram de leitura anterior")} dos mesmos arquivos — não foram lidas de novo.`
         : "";
 
     start();
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "user",
-      content: `Anexei ${okSelos.length} folha(s) — ${nameStr}`,
+      content: `Anexei ${plural(okSelos.length, "folha", "folhas")} — ${nameStr}`,
     });
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "assistant",
-      content: `Li ${okSelos.length} folha(s)${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
+      content: `Li ${plural(okSelos.length, "folha", "folhas")}${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
       slotRequest: {
         slotId: "intake",
         taskKind: "ld",
@@ -1347,7 +1348,7 @@ function NexoWorkspaceInner({
            * que já marca "sem título no selo" em itálico) e o canvas, onde a
            * folha existe como objeto e pode ser corrigida.
            */
-          `${okCount} folha(s) de selo lidas — pronto para gerar.`
+          `${plural(okCount, "folha de selo lida", "folhas de selo lidas")} — pronto para gerar.`
         : null;
   const memoText =
     memorialFile && !readingMemorial ? `Memorial anexado: ${memorialFile.name}` : null;
@@ -1806,7 +1807,7 @@ function NexoWorkspaceInner({
       {semTitulo > 0 && !busyReading && pranchaFiles.length > 0 && (
         <FaixaDeEstado
           tipo="documento"
-          titulo={`${semTitulo} folha(s) sem título`}
+          titulo={`${plural(semTitulo, "folha sem título", "folhas sem título")}`}
           acao={
             <Button
               size="sm"

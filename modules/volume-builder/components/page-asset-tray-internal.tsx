@@ -6,6 +6,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Document, Page, pdfjs } from "react-pdf";
 import type { PageAsset, PageAssetRole } from "@/modules/volume-builder/lib/volume/volume-types";
+import { plural } from "@/lib/plural";
 import { classifyPageAsset } from "@/modules/volume-builder/lib/volume/page-classification";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -413,7 +414,7 @@ export default function PageAssetTrayInternal({
             <div className="space-y-2 rounded-md border border-[var(--nexodoc-tertiary-strong)]/45 bg-[var(--nexodoc-tertiary-bg)] p-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-[var(--nexodoc-tertiary)]">
-                  {selectedAssetIds.length} pagina(s)
+                  {plural(selectedAssetIds.length, "página", "páginas")}
                 </span>
                 <Button
                   type="button"

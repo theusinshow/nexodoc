@@ -11,6 +11,7 @@ import type {
   VolumeMetadata,
 } from "@/modules/volume-builder/lib/volume/volume-types";
 import type { AssemblySuggestion } from "@/modules/volume-builder/lib/volume/assembly-suggestion-types";
+import { plural } from "@/lib/plural";
 import { createEmptyBlock, createEmptyRow } from "@/modules/volume-builder/lib/volume/assembly-builder";
 import { createPageAssetsForFile, createPageSelectionFromAsset } from "@/modules/volume-builder/lib/volume/page-assets";
 import { VolumeMetadataForm } from "./volume-metadata-form";
@@ -55,13 +56,13 @@ export function VolumeBuilderPage({
     {
       id: "classify",
       label: "Classificar",
-      detail: `${pageAssets.length} pagina(s)`,
+      detail: `${plural(pageAssets.length, "página", "páginas")}`,
       state: importedFiles.length === 0 ? "pending" : pageAssets.length > 0 ? "done" : "current",
     },
     {
       id: "assemble",
       label: "Montar",
-      detail: `${rows.length} volume(s)`,
+      detail: `${plural(rows.length, "volume", "volumes")}`,
       state: pageAssets.length === 0 ? "pending" : rows.length > 0 ? "done" : "current",
     },
     {
@@ -384,8 +385,8 @@ export function VolumeBuilderPage({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-semibold">Montagem de volumes</h1>
-              <Badge variant="outline">{rows.length} volume(s)</Badge>
-              <Badge variant="secondary">{pageAssets.length} pagina(s)</Badge>
+              <Badge variant="outline">{plural(rows.length, "volume", "volumes")}</Badge>
+              <Badge variant="secondary">{plural(pageAssets.length, "página", "páginas")}</Badge>
             </div>
             <p className="truncate text-xs text-muted-foreground">
               {metadata.projectCode || "Projeto sem codigo"}

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { rotuloDeLd } from "@/lib/rotulos-de-status";
+import { plural } from "@/lib/plural";
 import { cn } from "@/lib/utils";
 
 type LdRecord = {
@@ -88,7 +89,7 @@ export default function AdminLdsPage() {
 
   async function handleDelete() {
     if (selected.size === 0) return;
-    if (!window.confirm(`Excluir permanentemente ${selected.size} LD(s) selecionada(s)? Esta acao remove todos os eventos vinculados.`)) return;
+    if (!window.confirm(`Excluir permanentemente ${plural(selected.size, "LD selecionada", "LDs selecionadas")}? Esta ação remove todos os eventos vinculados.`)) return;
 
     setDeleting(true);
     setError("");
@@ -209,7 +210,7 @@ export default function AdminLdsPage() {
 
         {selected.size > 0 && (
           <div className="flex items-center justify-between border border-destructive/30 bg-destructive/8 px-4 py-3">
-            <span className="text-sm text-destructive">{selected.size} LD(s) selecionada(s)</span>
+            <span className="text-sm text-destructive">{plural(selected.size, "LD selecionada", "LDs selecionadas")}</span>
             <Button
               variant="destructive"
               size="sm"

@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 import { FileText, Loader2, Check, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { plural } from "@/lib/plural";
 import { Select } from "@/components/ui/select";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type {
@@ -409,7 +410,7 @@ export function PlanoDeGeracao({
     const nome = Number.isFinite(n) && n >= 1 && n <= 12 ? MESES_PT[n - 1] : mes;
     const base = [nome, ano].filter(Boolean).join("/");
     return divergenciaDaData > 0
-      ? `${base} · ${divergenciaDaData} folha(s) com outra data`
+      ? `${base} · ${plural(divergenciaDaData, "folha com outra data", "folhas com outra data")}`
       : base;
   })();
 
@@ -758,9 +759,9 @@ export function PlanoDeGeracao({
               frame, e a procedência tem de aparecer nos dois casos. */}
           {tituloVeioDoCarimbo && (
             <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
-              Título lido do carimbo de {tituloDoCarimbo.apoio} folha(s)
+              Título lido do carimbo de {plural(tituloDoCarimbo.apoio, "folha", "folhas")}
               {tituloDoCarimbo.divergentes > 0
-                ? ` · ${tituloDoCarimbo.divergentes} folha(s) dizem outra coisa`
+                ? ` · ${plural(tituloDoCarimbo.divergentes, "folha diz outra coisa", "folhas dizem outra coisa")}`
                 : ""}
               {" — se estiver errado, corrija pelo chat."}
             </p>

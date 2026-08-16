@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { ImportedPdfFile, PageAssetRole } from "@/modules/volume-builder/lib/volume/volume-types";
+import { plural } from "@/lib/plural";
 import { createImportedPdfFile, isPdfFile } from "@/modules/volume-builder/lib/volume/volume-extractor";
 import { countPages } from "@/modules/volume-builder/lib/pdf/count-pages";
 import { FileDropzone } from "@/modules/volume-builder/shared/file-dropzone";
@@ -156,7 +157,7 @@ export function ImportedFilesPool({
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded-md border bg-muted/20 px-2 py-1.5">
               <span className="text-xs text-muted-foreground">
-                {files.length} arquivo(s), {files.reduce((total, file) => total + file.pageCount, 0)} pagina(s)
+                {plural(files.length, "arquivo", "arquivos")}, {files.reduce((total, file) => total + file.pageCount, 0)} páginas
               </span>
               <div className="flex items-center gap-1">
                 <Badge variant="outline" className="h-5 px-1.5 text-[10px]">

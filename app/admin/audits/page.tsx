@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { rotuloDeAuditoria } from "@/lib/rotulos-de-status";
+import { plural } from "@/lib/plural";
 import { cn } from "@/lib/utils";
 
 type AuditListItem = {
@@ -169,7 +170,7 @@ export default function AdminAuditsPage() {
 
   async function handleDelete() {
     if (selected.size === 0) return;
-    if (!window.confirm(`Excluir permanentemente ${selected.size} auditoria(s) selecionada(s)? Esta acao remove todos os arquivos e feedbacks vinculados.`)) return;
+    if (!window.confirm(`Excluir permanentemente ${plural(selected.size, "auditoria selecionada", "auditorias selecionadas")}? Esta ação remove todos os arquivos e feedbacks vinculados.`)) return;
 
     setDeleting(true);
     setError("");
@@ -358,7 +359,7 @@ export default function AdminAuditsPage() {
 
         {selected.size > 0 && (
           <div className="flex items-center justify-between border border-destructive/30 bg-destructive/8 px-4 py-3">
-            <span className="text-sm text-destructive">{selected.size} auditoria(s) selecionada(s)</span>
+            <span className="text-sm text-destructive">{plural(selected.size, "auditoria selecionada", "auditorias selecionadas")}</span>
             <Button
               variant="destructive"
               size="sm"

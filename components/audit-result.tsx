@@ -33,6 +33,7 @@ import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pinsDoDocumento } from "@/lib/pins-do-parecer";
+import { palavra, plural } from "@/lib/plural";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import { MOLDURA_DE_SINAL, PONTO_DE_SINAL, statusDoVeredito } from "@/lib/audit-status";
@@ -1546,7 +1547,7 @@ export function AuditResult({
       setSelecionados(new Set());
       setDestinatario("");
       setFeedbackNotice(
-        `${payload?.atribuidos ?? 0} achado(s) enviado(s). Aparecem na home de quem recebeu.`,
+        `${plural(payload?.atribuidos ?? 0, "achado enviado", "achados enviados")}. ${palavra(payload?.atribuidos ?? 0, "Aparece", "Aparecem")} na home de quem recebeu.`,
       );
     } catch (error) {
       setFeedbackNotice(error instanceof Error ? error.message : "Não foi possível enviar.");
@@ -1907,7 +1908,7 @@ export function AuditResult({
               <div
                 className="relative w-3 shrink-0 border-r bg-[var(--nexodoc-recessed)]"
                 role="list"
-                aria-label={`${pinsDaMargem.length} achado(s) neste documento`}
+                aria-label={`${plural(pinsDaMargem.length, "achado", "achados")} neste documento`}
               >
                 {pinsDaMargem.map((pin) => {
                   const atual = pin.page === activePdf.page;
