@@ -29,14 +29,27 @@ export const metadata: Metadata = {
    * existem porque nem todo lugar resolve SVG: aba antiga, atalho na área de
    * trabalho, e a tela de início do iOS — que usa o de 180.
    */
+  /*
+   * O "N" QUADRADO SAIU DAQUI (15/08/2026).
+   *
+   * `/assets/logo.svg` é um N em blocos, com um quadrado rust no meio — nunca
+   * foi desta identidade. O produto mostrava o orbe em toda tela e a ABA DO
+   * NAVEGADOR mostrava outra marca: a primeira coisa que alguém vê do NexoDoc
+   * discordava de todo o resto.
+   *
+   * Agora é o orbe, capturado do vivo (DESIGN.md §6, emenda da marca
+   * capturada). Sem SVG na lista: o `logo-nexo.tsx` é uma esfera desenhada à
+   * mão, e oferecê-la aqui faria a aba mostrar um objeto e o app, outro —
+   * exatamente o problema que este commit fecha. Ele continua servindo onde
+   * raster perde: fundo claro e impressão.
+   */
   icons: {
     icon: [
-      { url: "/assets/logo.svg", type: "image/svg+xml" },
-      { url: "/assets/logo-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/assets/logo-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/marca/orbe-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/marca/orbe-16.png", sizes: "16x16", type: "image/png" },
     ],
-    apple: [{ url: "/assets/logo-180.png", sizes: "180x180", type: "image/png" }],
-    shortcut: "/assets/logo-32.png",
+    apple: [{ url: "/marca/orbe-180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/marca/orbe-32.png",
   },
 };
 
