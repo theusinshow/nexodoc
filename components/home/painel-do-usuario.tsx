@@ -29,7 +29,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { LogoNexo } from "@/components/brand/logo-nexo";
+import { MarcaViva } from "@/components/brand/marca-viva";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb";
 import { Ima } from "@/components/ambiente/ima";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
@@ -106,7 +106,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
         <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
           <Link href="/nexo" className="flex items-center gap-[9px] text-foreground">
-            <LogoNexo size={20} />
+            <MarcaViva size={20} />
             <span className="font-mono text-[13.5px] font-semibold">NexoDoc</span>
           </Link>
 

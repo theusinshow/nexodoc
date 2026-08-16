@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { ShieldQuestion } from "lucide-react";
 
-import { LogoNexo } from "@/components/brand/logo-nexo";
+import { MarcaViva } from "@/components/brand/marca-viva";
 
 import { TrocarDeConta } from "./trocar-de-conta";
 
@@ -34,7 +34,7 @@ export function AvisoSemAcesso({
       <div className="nexodoc-enter w-full max-w-[520px]">
         {/* A marca situa a tela. Quem chega aqui foi empurrado por um redirect
             e precisa saber de qual software é a porta que não abriu. */}
-        <LogoNexo size={24} comPalavra />
+        <MarcaViva size={24} comPalavra />
 
         <div className="mt-4 rounded-md border bg-card p-6">
           <p className="flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-[0.05em] text-[var(--signal-info)]">

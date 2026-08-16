@@ -1796,6 +1796,64 @@ textarea {
   background-size: var(--dotgrid-step, 24px) var(--dotgrid-step, 24px);
 }
 
+/* --- A MARCA, E O HOVER QUE A FAZ VIVER -------------------------------
+   O quadro capturado do orbe vivo (DESIGN.md secao 6). No hover, 18 quadros
+   consecutivos numa tira PNG, trocados por `steps()` -- sem WebGL.
+
+   `jump-none` e nao o `steps()` padrao: com posicao em PORCENTAGEM os 18
+   quadros moram em 0%, 1/17, ..., 100%, os dois extremos inclusive. O padrao
+   (`jump-end`) nunca chega ao ultimo e desalinha a tira inteira -- aparecem
+   dois meios-orbes na caixa. Medido: com `jump-none` o `background-position-x`
+   anda em multiplos exatos de 100/17 e a esfera fica parada, so a alma se move.
+
+   Ver `components/brand/marca-viva.tsx`. */
+.nx-marca {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  background-image: var(--nx-marca-estatica);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.nx-marca::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image: var(--nx-marca-tira, none);
+  background-size: 1800% 100%;
+  background-repeat: no-repeat;
+  background-position-x: 0%;
+}
+
+.nx-marca[data-acordada]:hover::after,
+.nx-marca[data-acordada]:focus-visible::after {
+  opacity: 1;
+  animation: nx-marca-vive 1.5s steps(18, jump-none) infinite;
+}
+
+@keyframes nx-marca-vive {
+  to { background-position-x: 100%; }
+}
+
+/* A REGRA DO SECAO 6 PROIBE AMBIENTE AUTONOMO, NAO REACAO (emenda de
+   16/08/2026). "Nada vive ao lado do orbe" existe para o olho saber qual coisa
+   em movimento esta FALANDO -- e o campo neural, que se mexe sozinho, disputa
+   essa leitura. O hover da marca nao disputa: ele acontece onde a pessoa ja
+   esta olhando, porque foi ela que apontou, e so enquanto ela aponta.
+
+   A primeira versao calava a marca sempre que houvesse orbe vivo na tela. Como
+   TODA tela do produto monta um (o login inclusive), o efeito simplesmente
+   nunca rodava para quem usa o produto. */
+.nx-marca--parada::after {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-marca::after { content: none; }
+}
+
 /* --- O PORTAO DE TELA LARGA: a decisao do Nexo, generalizada ----------
    O `NexoShell` ja recusava abaixo de 1024px, e dizia por que. O resto do
    produto nao tinha aplicado a mesma decisao: medido num telefone de 390px,

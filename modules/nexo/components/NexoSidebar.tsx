@@ -50,7 +50,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { ConversationSummary, TipoDeTrabalho } from "../lib/nexo-db";
 import type { EstadoDaSincronizacao } from "../lib/nexo-sync";
 import { contarPorTipo, groupConversations } from "../lib/group-conversations";
-import { LogoNexo } from "@/components/brand/logo-nexo";
+import { MarcaViva } from "@/components/brand/marca-viva";
 
 /** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
 function shortDate(ts: number): string {
@@ -297,7 +297,7 @@ export function NexoSidebar({
           className={cn("inline-flex", trabalhando && "nexodoc-status-pulse")}
           title={trabalhando ? "O Nexo está trabalhando" : undefined}
         >
-          <LogoNexo size={20} />
+          <MarcaViva size={20} />
         </span>
         <span className="font-mono text-[15px] font-semibold tracking-[-0.01em]">
           Nexo
