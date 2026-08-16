@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Ima } from "@/components/ambiente/ima";
 import { rotuloDeProjeto } from "@/lib/rotulos-de-status";
+import { plural } from "@/lib/plural";
 
 export type ProjectConsoleItem = {
   id: string;
@@ -191,7 +192,7 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
             />
           </div>
           <span className="font-mono text-xs text-muted-foreground">
-            {filteredProjects.length} de {projects.length} projeto(s)
+            {filteredProjects.length} de {plural(projects.length, "projeto", "projetos")}
           </span>
         </div>
 
@@ -215,20 +216,34 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <FolderKanban className="size-4 text-primary" />
-                        <h2 className="truncate text-lg font-semibold">{project.name}</h2>
+                        <FolderKanban className="size-4 shrink-0 text-primary" />
+                        {/* O `truncate` saiu: o nome da obra é a identidade do
+                            cartão, e ele cortava com a coluna vazia ao lado.
+                            Duas linhas custam menos do que "Cancha d…". */}
+                        <h2 className="text-lg font-semibold leading-snug">{project.name}</h2>
                       </div>
                       <p className="mt-1 font-mono text-xs text-muted-foreground">{project.code}</p>
                     </div>
                     <Badge variant="outline">{rotuloDeProjeto(project.status)}</Badge>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-px overflow-hidden border border-border bg-border text-center">
-                    <Metric label="Docs" value={project.counts.documents} />
-                    <Metric label="Uploads" value={project.counts.uploads} />
-                    <Metric label="Artefatos" value={project.counts.artifacts} />
-                    <Metric label="Eventos" value={project.counts.events} />
-                  </div>
+                  {/*
+                    ERAM QUATRO CARTÕES DENTRO DO CARTÃO, e os quatro em zero.
+
+                    Cartão aninhado é sempre o desenho errado, e aqui o preço era
+                    concreto: as quatro células com borda própria ocupavam o
+                    melhor terço do cartão para dizer "nada aconteceu ainda" —
+                    quatro vezes, com moldura, em toda obra recém-criada.
+
+                    Agora é uma linha, e ela só existe quando existe o que
+                    contar. Projeto vazio simplesmente não a mostra, que é a
+                    verdade dita em menos espaço.
+                  */}
+                  {resumoDoProjeto(project.counts) ? (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {resumoDoProjeto(project.counts)}
+                    </p>
+                  ) : null}
 
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">
@@ -251,13 +266,21 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-card px-3 py-2">
-      <p className="font-mono text-[10px] uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-lg font-semibold">{value}</p>
-    </div>
-  );
+/**
+ * O que a obra já acumulou, numa linha — e nada quando não acumulou nada.
+ *
+ * Substitui os quatro cartões aninhados. Zero não vira "0": some. A ausência é
+ * a informação, e ela não precisa de moldura para ser dita.
+ */
+function resumoDoProjeto(counts: ProjectConsoleItem["counts"]): string {
+  const partes = [
+    counts.documents ? plural(counts.documents, "documento", "documentos") : "",
+    counts.uploads ? plural(counts.uploads, "arquivo", "arquivos") : "",
+    counts.artifacts ? plural(counts.artifacts, "artefato", "artefatos") : "",
+    counts.events ? plural(counts.events, "evento", "eventos") : "",
+  ].filter(Boolean);
+
+  return partes.join(" · ");
 }
 
 function formatDate(value: string) {

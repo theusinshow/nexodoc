@@ -172,8 +172,12 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
               Seus projetos abertos
             </h2>
             <div className="flex-1" />
+            {/* Era `text-[#4c565c]`, um hex cravado fora do DESIGN.md: medido em
+                2,58:1 contra o fundo, quando o mínimo para 11px é 4,5:1 — a
+                única falha de contraste do produto inteiro. O token do sistema
+                diz a mesma coisa e passa. */}
             {painel && !vazio ? (
-              <span className="font-mono text-[11px] tracking-[0.04em] text-[#4c565c]">
+              <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
                 mais parados primeiro
               </span>
             ) : null}
@@ -428,7 +432,7 @@ function CartaoDeProjeto({
         onClick={alternar}
         aria-expanded={aberto}
         className="flex w-full cursor-pointer items-center gap-3.5 border-0 px-4 py-[13px] text-left"
-        style={{ background: alerta ? "#171410" : "transparent" }}
+        style={{ background: alerta ? "var(--status-warning-bg)" : "transparent" }}
       >
         <svg
           viewBox="0 0 24 24"
@@ -443,14 +447,14 @@ function CartaoDeProjeto({
         </svg>
         <span
           className="font-mono text-[13px] font-semibold tracking-[0.04em]"
-          style={{ color: alerta ? "#d9a13b" : "var(--muted-foreground)" }}
+          style={{ color: alerta ? "var(--status-warning)" : "var(--muted-foreground)" }}
         >
           {projeto.codigo}
         </span>
         <span className="min-w-0 flex-1 truncate text-[14.5px] text-foreground">{projeto.nome}</span>
         <span
           className="font-mono text-[11.5px] tracking-[0.03em]"
-          style={{ color: alerta ? "#d9a13b" : "var(--muted-foreground)" }}
+          style={{ color: alerta ? "var(--status-warning)" : "var(--muted-foreground)" }}
         >
           {resumo(projeto)}
         </span>
@@ -487,7 +491,7 @@ function CartaoDeProjeto({
                 style={{
                   color:
                     item.direcao === "recebido" && item.dias >= LIMIAR_TARJA
-                      ? "#d9a13b"
+                      ? "var(--status-warning)"
                       : "var(--muted-foreground)",
                 }}
               >
@@ -593,5 +597,5 @@ function nomeCurto(valor: string) {
 
 function corDoItem(item: ItemDoPainel) {
   if (item.direcao === "enviado") return "#3d474d";
-  return item.dias >= LIMIAR_TARJA ? "#d9a13b" : "var(--primary)";
+  return item.dias >= LIMIAR_TARJA ? "var(--status-warning)" : "var(--primary)";
 }
