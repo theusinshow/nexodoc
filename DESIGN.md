@@ -496,7 +496,7 @@ O orbe precisa existir em vários níveis, e todos têm de ser reconhecíveis co
 | **Vivo (3D)** | React Three Fiber + shaders próprios (`modules/nexo/components/agent-orb/`) | Palco / entrada. Uma instância por tela, nunca duas. | Alto (three.js) |
 | **Capturado (PNG)** | Um QUADRO do vivo, em repouso, recortado na silhueta com 8% de margem (`public/marca/`) | **A marca.** Favicon, ícone de app, apresentação, capa | Zero |
 | **CSS** | Gradiente radial teal→luminous mascarado (`NexoOrb`) | Barra lateral, marca inline, bolhas | Zero |
-| **Estático (SVG)** | Esfera de vidro com o nó aceso dentro, **afinada por tamanho** (`components/brand/logo-nexo.tsx`) | Fundo claro, impressão, onde raster perde | Zero |
+| **Estático (SVG)** | Esfera de vidro com o nó aceso dentro, **afinada por tamanho** (`components/brand/logo-nexo.tsx`) | Fundo claro, impressão, onde raster perde — **sem consumidor hoje** | Zero |
 
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
 a redução em CSS. Onde o fundo não é escuro, a versão em SVG.

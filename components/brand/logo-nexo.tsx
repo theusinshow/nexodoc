@@ -5,8 +5,18 @@ import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A marca do Nexo: o Orbe do Agente, na redução ESTÁTICA em SVG (DESIGN.md §6,
- * degrau de baixo da escada de reduções).
+ * A redução ESTÁTICA em SVG do orbe (DESIGN.md §6).
+ *
+ * NÃO TEM CONSUMIDOR HOJE, e isto está escrito aqui de propósito. Em 16/08/2026
+ * a marca passou a ser o quadro CAPTURADO do orbe vivo (`MarcaViva`), e as
+ * quatro telas que usavam este componente trocaram. Ele sobreviveu porque o §6
+ * lhe deu um degrau real — **fundo claro e impressão**, que é onde raster perde
+ * de verdade —, mas nenhuma superfície do produto é clara ou impressa ainda.
+ *
+ * Fica declarado para não virar promessa escondida: se aparecer tela clara ou
+ * saída impressa, o lugar dele é ali. Se um dia estiver claro que isso não vem,
+ * ele deve ser APAGADO, e não mantido por respeito ao passado — a mesma régua
+ * que este arquivo aplicou às três variantes que já morreram aqui embaixo.
  *
  * ERAM QUATRO VARIANTES: o nó clássico de traço, um vórtice minimalista, uma
  * esfera de vidro líquido inspirada na Siri, e esta. Três foram aposentadas
