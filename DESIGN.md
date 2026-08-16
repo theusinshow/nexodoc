@@ -488,18 +488,60 @@ a ser vivo.
 
 ### A escada de reduções
 
-Não existe favicon com shader. O orbe precisa existir em três níveis, e os três
-têm de ser reconhecíveis como o **mesmo objeto** — é isso que transforma efeito
-em identidade.
+O orbe precisa existir em vários níveis, e todos têm de ser reconhecíveis como o
+**mesmo objeto** — é isso que transforma efeito em identidade.
 
 | Nível | O que é | Onde | Custo |
 |-------|---------|------|-------|
 | **Vivo (3D)** | React Three Fiber + shaders próprios (`modules/nexo/components/agent-orb/`) | Palco / entrada. Uma instância por tela, nunca duas. | Alto (three.js) |
+| **Capturado (PNG)** | Um QUADRO do vivo, em repouso, recortado na silhueta com 8% de margem (`public/marca/`) | **A marca.** Favicon, ícone de app, apresentação, capa | Zero |
 | **CSS** | Gradiente radial teal→luminous mascarado (`NexoOrb`) | Barra lateral, marca inline, bolhas | Zero |
-| **Estático (SVG)** | Esfera de vidro com o nó aceso dentro, **afinada por tamanho** (`components/brand/logo-nexo.tsx`) | Logo, favicon, impressão, fundo claro | Zero |
+| **Estático (SVG)** | Esfera de vidro com o nó aceso dentro, **afinada por tamanho** (`components/brand/logo-nexo.tsx`) | Fundo claro, impressão, onde raster perde | Zero |
 
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
-a redução em CSS. Onde o fundo não é escuro, só a versão achatada.
+a redução em CSS. Onde o fundo não é escuro, a versão em SVG.
+
+#### A marca é capturada, não desenhada (emenda de 15/08/2026)
+
+Este documento dizia **"não existe favicon com shader"**, e a marca era o SVG. A
+decisão do mantenedor inverteu isso: **o quadro capturado do orbe vivo passou a
+ser a marca**, em todo tamanho, e o SVG desceu para o degrau de fundo claro e
+impressão.
+
+O argumento a favor é o mais forte que existe aqui: os degraus tinham de ser "o
+mesmo objeto", e um SVG redesenhado à mão nunca é o mesmo objeto que um shader —
+ele é uma lembrança dele. Capturar elimina a divergência na origem.
+
+**O preço foi aceito com os números à vista, e ele é real:**
+
+- **16 px borra.** Raster não tem como não borrar. Sobra a esfera acesa — serve
+  para aba de navegador, e o piso para qualquer outro uso é 32 px.
+- **Impressão em preto e branco perde** o que a cor separava.
+- **Fundo claro perde brilho.** Funciona porque o corpo da esfera é escuro, mas
+  é concessão. Aí o SVG continua sendo a resposta.
+
+**Como o quadro foi escolhido, para quem precisar refazer:** 24 quadros, de três
+estados, medidos por silhueta, simetria, concentração do núcleo e nitidez
+(`scripts/shot-orbe-parado.mjs` captura; a régua ficou no scratchpad da sessão).
+As notas empataram entre 0,785 e 0,803 — prova de que os quadros são o mesmo
+objeto, e de que a régua não decide. A escolha final foi de significado:
+**repouso**, porque os outros oito estados dizem trabalho em curso, e congelar um
+deles afirmaria que o agente está eternamente no meio de uma tarefa.
+
+O manual de identidade publicado a partir desta emenda mostra a marca no tamanho
+real, os fundos permitidos e o que nunca fazer.
+
+**A marca volta a viver no hover.** São 18 quadros consecutivos numa tira PNG
+(`public/marca/orbe-tira.png`), trocados por `steps(18, jump-none)` — sem WebGL,
+sem three.js. `jump-none` não é detalhe: com posição em porcentagem, os 18
+quadros moram em 0%, 1/17, …, 100%, os dois extremos inclusive, e o `steps()`
+padrão nunca chega ao último — a tira desalinha e aparecem dois meios-orbes na
+caixa. O laço fecha sem salto: a diferença do último quadro para o primeiro
+(0,034) cai no meio da faixa entre quadros vizinhos (0,029 a 0,048).
+
+A tira só é baixada no **primeiro hover** (`components/brand/marca-viva.tsx`):
+são 216 KB, e cobrá-los de toda visita por um efeito que a maioria nunca dispara
+seria caro pelo motivo errado. Até lá, e sempre por baixo, o PNG estático.
 
 **E nada mais vive ao lado dele** (emenda de 15/08/2026). O campo neural
 (`components/ambiente/campo-neural.tsx`) é atmosfera e existe só onde o orbe
@@ -511,6 +553,18 @@ está dizendo algo. O orbe **diz** — é a máquina de estados do agente; o cam
 diz nada. Juntos, o campo rouba atenção de um sinal.
 
 `prova:ambiente` varre as rotas e reprova qualquer tela que tenha os dois.
+
+**A regra é sobre movimento AUTÔNOMO, não sobre reação** (emenda de 16/08/2026).
+A marca (`MarcaViva`) volta a se mexer quando o ponteiro chega nela, e isso é
+permitido ao lado do orbe vivo. A distinção que sustenta a exceção: o campo
+neural se mexe **sozinho**, e por isso disputa a leitura de "quem está falando";
+o hover acontece **onde a pessoa já está olhando, porque foi ela que apontou**, e
+só enquanto ela aponta. Não compete com o orbe — responde a quem o convocou.
+
+A primeira versão desta regra calava a marca sempre que houvesse orbe vivo na
+tela. Como **toda** tela do produto monta um — o login inclusive —, o efeito
+nunca rodava para quem usa o produto: uma regra que, na prática, apagava a coisa
+que ela dizia estar apenas ordenando.
 
 ### Os estados
 

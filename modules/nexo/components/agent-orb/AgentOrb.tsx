@@ -85,6 +85,16 @@ export function AgentOrb({
   // troca de estado — evita aplicar o realce em dobro. Estados de trabalho mandam.
   const isButton = interactive && Boolean(onActivate);
 
+  /*
+   * AQUI HAVIA UMA BANDEIRA `data-orbes-vivos` no `<html>`, para a marca saber
+   * que o orbe vivo estava na tela e se calar. Ela saiu junto com a regra que a
+   * justificava (§6, emenda de 16/08/2026): o §6 passou a proibir movimento
+   * AUTÔNOMO, não reação ao ponteiro, e o hover da marca é reação.
+   *
+   * Sem ninguém lendo, a bandeira era estado que o produto anunciava e não
+   * usava — a mesma coisa que este repositório apaga toda vez que encontra.
+   */
+
   return (
     <div
       role={isButton ? "button" : "img"}
