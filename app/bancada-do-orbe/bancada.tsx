@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { Select } from "@/components/ui/select";
 import { Canvas } from "@react-three/fiber";
 
 import {
@@ -367,21 +368,21 @@ export function BancadaDoOrbe() {
             <h2 className="mb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
               Estado
             </h2>
-            <select
+            <Select
               value={estado}
               onChange={(e) => {
                 const novo = e.target.value as AgentState;
                 setEstado(novo);
                 setAjuste(paramsForState(novo, atividade));
               }}
-              className="w-full rounded border bg-card px-2 py-1.5 text-sm"
+              className="w-full"
             >
               {ESTADOS.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
             <label className="mt-2 flex items-center gap-2 text-sm">
               <span className="w-[110px] text-muted-foreground">atividade</span>
               <input

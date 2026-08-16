@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import type { NexoArtifactKind } from "../types";
 import { descreverMudanca, type RotulosDeCampo } from "../lib/edicao";
 import { FrameDoDocumento } from "./FrameDoDocumento";
@@ -143,19 +144,19 @@ export function EditorDoNo({
               {c.valor || "—"}
             </p>
           ) : c.opcoes ? (
-            <select
+            <Select
               value={valores[c.chave]}
               onChange={(e) =>
                 setValores((v) => ({ ...v, [c.chave]: e.target.value }))
               }
-              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 font-mono text-[11px]"
+              className="w-full"
             >
               {c.opcoes.map((o) => (
                 <option key={o.valor} value={o.valor}>
                   {o.rotulo}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (c.linhas ?? 1) > 1 ? (
             <textarea
               value={valores[c.chave]}

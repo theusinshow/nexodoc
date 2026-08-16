@@ -20,6 +20,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { rotuloDeAuditoria } from "@/lib/rotulos-de-status";
 import { cn } from "@/lib/utils";
 
@@ -320,26 +321,26 @@ export default function AdminAuditsPage() {
               placeholder="Buscar projeto, título ou arquivo"
             />
           </div>
-          <select
+          <Select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-md border bg-[var(--nexodoc-recessed)] px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+            className="h-9"
           >
             <option value="all">Todos status</option>
             <option value="COMPLETED">Concluídas</option>
             <option value="PROCESSING">Processando</option>
             <option value="FAILED">Falhas</option>
             <option value="CANCELED">Canceladas</option>
-          </select>
-          <select
+          </Select>
+          <Select
             value={mode}
             onChange={(event) => setMode(event.target.value)}
-            className="h-9 rounded-md border bg-[var(--nexodoc-recessed)] px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+            className="h-9"
           >
             <option value="all">Todos modos</option>
             <option value="memorial">Memorial</option>
             <option value="volume">Volume</option>
-          </select>
+          </Select>
           <div className="relative">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input

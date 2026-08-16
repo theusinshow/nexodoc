@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 import { FileText, Loader2, Check, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type {
   LdPreviewData,
@@ -638,19 +639,18 @@ export function PlanoDeGeracao({
              * a decisão da última vez.
              */}
             {semPrefeitura ? (
-              <select
+              <Select
                 aria-label="Prefeitura"
                 value=""
                 onChange={(e) => decidir("templateId", e.target.value, "")}
-                className="rounded-sm border border-[var(--status-warning)]/40 bg-transparent px-2 py-1 text-sm text-[var(--status-warning)] outline-none"
-              >
+          >
                 <option value="">escolha a prefeitura</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nome}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <span className="text-right text-sm font-medium leading-snug text-foreground">
                 {prefeitura}

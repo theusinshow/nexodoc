@@ -28,6 +28,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -3143,11 +3144,11 @@ export function AuditResult({
                     <label htmlFor="destinatario-do-envio" className="sr-only">
                       Enviar para
                     </label>
-                    <select
+                    <Select
                       id="destinatario-do-envio"
                       value={destinatario}
                       onChange={(event) => setDestinatario(event.target.value)}
-                      className="h-9 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-primary"
+                      className="h-9 text-foreground"
                     >
                       <option value="">Enviar para…</option>
                       {/*
@@ -3191,7 +3192,7 @@ export function AuditResult({
                           </option>
                         ))
                       )}
-                    </select>
+                    </Select>
 
                     <Button
                       type="button"

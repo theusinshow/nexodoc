@@ -12,6 +12,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { rotuloDeLd } from "@/lib/rotulos-de-status";
 import { cn } from "@/lib/utils";
@@ -196,9 +197,9 @@ export default function AdminLdsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Código ou obra" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
           </div>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <Select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10">
             <option value="all">Todos status</option><option value="DRAFT">Rascunho</option><option value="GENERATED">Gerada</option><option value="ARCHIVED">Arquivada</option>
-          </select>
+          </Select>
           <div className="relative">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input value={user} onChange={(event) => setUser(event.target.value)} placeholder="Usuário" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />

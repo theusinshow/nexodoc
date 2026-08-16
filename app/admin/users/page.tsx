@@ -12,6 +12,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type AdminUser = {
@@ -406,10 +407,10 @@ export default function AdminUsersPage() {
             <input value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="email@empresa.com" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
           </div>
           <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Nome" className="h-10 rounded-md border bg-background px-3 text-sm" />
-          <select value={newRole} onChange={(event) => setNewRole(event.target.value as AdminUser["role"])} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <Select value={newRole} onChange={(event) => setNewRole(event.target.value as AdminUser["role"])} className="h-10">
             <option value="USER">Usuário</option>
             <option value="ADMIN">Admin</option>
-          </select>
+          </Select>
           <Button type="submit" disabled={loading || !newEmail.trim()}><UserPlus /> Adicionar</Button>
         </form>
 
@@ -418,16 +419,16 @@ export default function AdminUsersPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nome ou e-mail" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
           </div>
-          <select value={role} onChange={(event) => setRole(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <Select value={role} onChange={(event) => setRole(event.target.value)} className="h-10">
             <option value="all">Todos papéis</option>
             <option value="ADMIN">Admins</option>
             <option value="USER">Usuários</option>
-          </select>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
+          </Select>
+          <Select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10">
             <option value="all">Todos status</option>
             <option value="active">Ativos</option>
             <option value="inactive">Desativados</option>
-          </select>
+          </Select>
           <Button type="submit" disabled={loading}>Filtrar</Button>
         </form>
 

@@ -19,6 +19,7 @@ import {
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import {
   COTACAO_NAO_DECLARADA,
   formatarReais,
@@ -304,7 +305,7 @@ export default function AdminUsagePage() {
             onSubmit={handleSubmit}
             gridClassName="sm:grid-cols-[1fr_auto_auto]"
           >
-              <select
+              <Select
                 value={days}
                 onChange={(event) => {
                   const nextDays = Number(event.target.value);
@@ -314,12 +315,12 @@ export default function AdminUsagePage() {
                     void loadUsage(token, nextDays);
                   }
                 }}
-                className="h-9 rounded-md border bg-[var(--nexodoc-recessed)] px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                className="h-9"
               >
                 <option value={7}>7 dias</option>
                 <option value={14}>14 dias</option>
                 <option value={30}>30 dias</option>
-              </select>
+              </Select>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <Loader2 className="animate-spin" />
