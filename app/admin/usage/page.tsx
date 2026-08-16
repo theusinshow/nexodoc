@@ -14,6 +14,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ADMIN_TOKEN_STORAGE_KEY,
   AdminError,
+  AdminMetricStrip,
   AdminPageHeader,
   AdminPageShell,
   AdminTokenForm,
@@ -27,6 +28,7 @@ import {
   type CotacaoDeclarada,
 } from "@/lib/cambio";
 import type { CustoDaObra } from "@/lib/custo-por-obra";
+import { plural } from "@/lib/plural";
 import { cn } from "@/lib/utils";
 import { ESCALA_DE_DADO as escalaDeDado } from "@/modules/nexo/lib/escala-de-dado";
 
@@ -183,32 +185,6 @@ function isErrorPayload(
   return "error" in payload;
 }
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Activity;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="rounded-sm border bg-card px-4 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-          {label}
-        </span>
-        <span className="flex size-9 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
-          <Icon className="size-4" />
-        </span>
-      </div>
-      <p className="mt-4 font-mono text-2xl font-semibold leading-none">{value}</p>
-      <p className="mt-2 font-mono text-xs text-muted-foreground">{detail}</p>
-    </article>
-  );
-}
 
 export default function AdminUsagePage() {
   const [token, setToken] = useState("");
@@ -359,50 +335,46 @@ export default function AdminUsagePage() {
           </a>
         </p>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={Coins}
-            label="Gasto"
-            value={
-              data
-                ? formatCurrency(data.costs.total.amount, data.costs.total.currency)
-                : "--"
-            }
-            /*
-             * O REAL VEM COLADO NO DÓLAR, nunca no lugar dele: a fatura é em
-             * dólar e continua sendo o número auditável. Sem cotação declarada,
-             * `formatarReais` devolve "" e a linha volta a ser só o período —
-             * é assim que a tela evita inventar um real.
-             */
-            detail={
-              data && formatarReais(data.costs.total.amount, cotacao)
-                ? `${formatarReais(data.costs.total.amount, cotacao)} · últimos ${days} dias`
-                : `Últimos ${days} dias`
-            }
-          />
-          <MetricCard
-            icon={Sigma}
-            label="Tokens"
-            value={data ? formatNumber(totalTokens) : "--"}
-            detail={
-              data
+        {/*
+          O REAL VEM COLADO NO DÓLAR, nunca no lugar dele: a fatura é em dólar e
+          continua sendo o número auditável. Sem cotação declarada,
+          `formatarReais` devolve "" e a linha volta a ser só o período — é
+          assim que a tela evita inventar um real.
+        */}
+        <AdminMetricStrip
+          columns="md:grid-cols-2 xl:grid-cols-4"
+          metrics={[
+            {
+              label: "Gasto",
+              icon: Coins,
+              value: data ? formatCurrency(data.costs.total.amount, data.costs.total.currency) : "--",
+              detail:
+                data && formatarReais(data.costs.total.amount, cotacao)
+                  ? `${formatarReais(data.costs.total.amount, cotacao)} · últimos ${days} dias`
+                  : `Últimos ${days} dias`,
+            },
+            {
+              label: "Tokens",
+              icon: Sigma,
+              value: data ? formatNumber(totalTokens) : "--",
+              detail: data
                 ? `${formatNumber(data.usage.totals.inputTokens)} entrada / ${formatNumber(data.usage.totals.outputTokens)} saída`
-                : "Aguardando consulta"
-            }
-          />
-          <MetricCard
-            icon={Activity}
-            label="Requests"
-            value={data ? formatNumber(data.usage.totals.requests) : "--"}
-            detail="Chamadas de modelo registradas pela OpenAI"
-          />
-          <MetricCard
-            icon={BarChart3}
-            label="Cache"
-            value={data ? formatNumber(data.usage.totals.cachedTokens) : "--"}
-            detail="Tokens de entrada com cache"
-          />
-        </section>
+                : "Aguardando consulta",
+            },
+            {
+              label: "Chamadas",
+              icon: Activity,
+              value: data ? formatNumber(data.usage.totals.requests) : "--",
+              detail: "Chamadas de modelo registradas pela OpenAI",
+            },
+            {
+              label: "Cache",
+              icon: BarChart3,
+              value: data ? formatNumber(data.usage.totals.cachedTokens) : "--",
+              detail: "Tokens de entrada com cache",
+            },
+          ]}
+        />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
           <article className="rounded-sm border bg-card p-4">
@@ -612,7 +584,7 @@ export default function AdminUsagePage() {
                               ? "a conversa não existe mais"
                               : "consumo sem conversa (auditoria fora do Nexo, manutenção)"}
                         {" · "}
-                        {formatNumber(obra.requests)} chamada(s)
+                        {plural(obra.requests, "chamada", "chamadas")}
                       </p>
                     </div>
                     <span className="text-right font-mono text-xs text-muted-foreground">

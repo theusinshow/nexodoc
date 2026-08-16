@@ -12,6 +12,7 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   ADMIN_TOKEN_STORAGE_KEY,
   AdminError,
+  AdminMetricStrip,
   AdminPageHeader,
   AdminPageShell,
   AdminTokenForm,
@@ -24,6 +25,8 @@ import {
   type SemanaDeQualidade,
   type SituacaoContraMeta,
 } from "@/lib/meta-de-qualidade";
+import { cn } from "@/lib/utils";
+import { plural } from "@/lib/plural";
 
 type QualityBucket = {
   key: string;
@@ -104,28 +107,6 @@ function isErrorPayload(
   return "error" in payload;
 }
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof ShieldCheck;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="rounded-md border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-mono text-xs text-muted-foreground">{label}</p>
-        <Icon className="size-4 text-primary" />
-      </div>
-      <p className="mt-3 font-mono text-2xl font-semibold">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p>
-    </article>
-  );
-}
 
 function QualityTable({
   title,
@@ -164,16 +145,32 @@ function QualityTable({
                 <td className="px-3 py-3 text-right font-mono">{formatNumber(row.completedAudits)}</td>
                 <td className="px-3 py-3 text-right font-mono">{formatNumber(row.reviewedAudits)}</td>
                 <td className="px-3 py-3 text-right font-mono">{formatNumber(row.generatedFindings)}</td>
-                <td className="px-3 py-3 text-right font-mono text-[var(--status-ok)]">
+                {/*
+                  A COR VEM DO VALOR, NÃO DA COLUNA.
+
+                  Antes, "Perdidos" saía sempre em coral e "Confirmação" sempre
+                  em verde. Isso pintava a melhor notícia da tabela — ZERO erro
+                  perdido — com a cor de "bloqueia a emissão", e carimbava de
+                  aprovada uma taxa de confirmação de 10%. A cor dizia a coluna;
+                  o número dizia outra coisa.
+
+                  Zero defeito é neutro: não é um sinal, é a ausência dele.
+
+                  E a taxa perdeu o verde de propósito. Esta tela declara que
+                  NÃO JULGA enquanto não houver meta declarada (é o que
+                  `prova:meta-qualidade` cobra do selo) — pintar a taxa de verde
+                  sem meta era exatamente o julgamento que a tela nega fazer.
+                */}
+                <td className="px-3 py-3 text-right font-mono">
                   {formatPercent(row.confirmationRate)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-[var(--status-warning)]">
+                <td className={cn("px-3 py-3 text-right font-mono", row.falsePositive > 0 && "text-[var(--status-warning)]")}>
                   {formatNumber(row.falsePositive)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-[var(--status-warning)]">
+                <td className={cn("px-3 py-3 text-right font-mono", row.wrongSeverity > 0 && "text-[var(--status-warning)]")}>
                   {formatNumber(row.wrongSeverity)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-[var(--status-critical)]">
+                <td className={cn("px-3 py-3 text-right font-mono", row.missingFinding > 0 && "text-[var(--status-critical)]")}>
                   {formatNumber(row.missingFinding)}
                 </td>
                 <td className="px-4 py-3 text-right font-mono">{formatSeconds(row.averageDurationMs)}</td>
@@ -278,32 +275,35 @@ export default function AdminQualityPage() {
 
         <AdminError message={error} />
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={ScanSearch}
-            label="Auditorias concluídas"
-            value={overview ? formatNumber(overview.completedAudits) : "--"}
-            detail={overview ? `${formatNumber(overview.reviewedAudits)} já têm revisão humana` : "Aguardando consulta"}
-          />
-          <MetricCard
-            icon={CheckCircle2}
-            label="Confirmação"
-            value={overview ? formatPercent(overview.confirmationRate) : "--"}
-            detail={overview ? `${formatNumber(overview.confirmed)} achados confirmados` : "Com base nos achados rotulados"}
-          />
-          <MetricCard
-            icon={XCircle}
-            label="Falsos positivos"
-            value={overview ? formatNumber(overview.falsePositive) : "--"}
-            detail={overview ? `${formatPercent(overview.falsePositiveRate)} dos achados avaliados` : "Aguardando revisão"}
-          />
-          <MetricCard
-            icon={Clock3}
-            label="Erros perdidos"
-            value={overview ? formatNumber(overview.missingFinding) : "--"}
-            detail={overview ? `${formatPercent(overview.reviewCoverage)} das auditorias foram rotuladas` : "Indicador de cobertura"}
-          />
-        </section>
+        <AdminMetricStrip
+          columns="sm:grid-cols-2 xl:grid-cols-4"
+          metrics={[
+            {
+              label: "Auditorias concluídas",
+              icon: ScanSearch,
+              value: overview ? formatNumber(overview.completedAudits) : "--",
+              detail: overview ? `${formatNumber(overview.reviewedAudits)} já têm revisão humana` : "Aguardando consulta",
+            },
+            {
+              label: "Confirmação",
+              icon: CheckCircle2,
+              value: overview ? formatPercent(overview.confirmationRate) : "--",
+              detail: overview ? `${plural(overview.confirmed, "achado confirmado", "achados confirmados")}` : "Com base nos achados rotulados",
+            },
+            {
+              label: "Falsos positivos",
+              icon: XCircle,
+              value: overview ? formatNumber(overview.falsePositive) : "--",
+              detail: overview ? `${formatPercent(overview.falsePositiveRate)} dos achados avaliados` : "Aguardando revisão",
+            },
+            {
+              label: "Erros perdidos",
+              icon: Clock3,
+              value: overview ? formatNumber(overview.missingFinding) : "--",
+              detail: overview ? `${formatPercent(overview.reviewCoverage)} das auditorias foram rotuladas` : "Indicador de cobertura",
+            },
+          ]}
+        />
 
         {/*
           A SÉRIE SEMANAL — tabela mono, nunca gráfico decorativo (spec do A.8).
@@ -376,7 +376,7 @@ export default function AdminQualityPage() {
                 <p className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
                   {tendencia === 0
                     ? "falso positivo estável entre as duas últimas semanas julgadas"
-                    : `falso positivo ${tendencia < 0 ? "caiu" : "subiu"} ${Math.abs(tendencia).toLocaleString("pt-BR")} ponto(s) na última semana julgada`}
+                    : `falso positivo ${tendencia < 0 ? "caiu" : "subiu"} ${plural(Math.abs(tendencia), "ponto", "pontos")} na última semana julgada`}
                 </p>
               ) : null}
             </div>

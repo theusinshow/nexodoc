@@ -18,9 +18,11 @@
 
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, KeyRound, RefreshCcw } from "lucide-react";
+import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const ADMIN_TOKEN_STORAGE_KEY = "nexodoc-admin-token";
 
@@ -224,46 +226,112 @@ export function AdminError({ message }: { message: string }) {
   );
 }
 
+export interface MetricaDoAdmin {
+  label: string;
+  value: string | number;
+  detail?: string;
+  /** O selo de ícone no canto. Sem ele o cartão é só rótulo e número. */
+  icon?: LucideIcon;
+  /**
+   * Para onde o número leva. Sem isto, o cartão informa e abandona: quem
+   * administra tem que sair, achar a tela certa e refazer o filtro à mão.
+   */
+  href?: string;
+  /** O selo vira crítico. Use pelo VALOR, nunca pela coluna — zero não é sinal. */
+  alerta?: boolean;
+}
+
+/**
+ * A FAIXA DE MÉTRICAS, agora uma só.
+ *
+ * Havia TRÊS implementações do mesmo cartão: esta, o `AdminMetric` da visão
+ * geral (com ícone, link e alerta) e dois `MetricCard` — um em Consumo, outro
+ * em Qualidade. Cada uma com um raio diferente (`rounded-sm`, `rounded-md`,
+ * chanfro) e um tamanho de número diferente, para o mesmo papel, no mesmo
+ * painel. Só 3 das 7 telas usavam a compartilhada.
+ *
+ * As três viraram esta, que absorveu o que as outras tinham de bom: ícone, link
+ * e alerta vêm da visão geral; o chanfro, o esqueleto com a forma final e o
+ * algarismo tabular já eram daqui.
+ */
 export function AdminMetricStrip({
   metrics,
   columns = "sm:grid-cols-4",
   loading = false,
 }: {
-  metrics: Array<{ label: string; value: string | number; detail?: string }>;
+  metrics: MetricaDoAdmin[];
   columns?: string;
   loading?: boolean;
 }) {
   return (
     <section className={`grid gap-3 ${columns}`}>
       {metrics.map((metric) => (
-        <div key={metric.label} className="nx-edge-8 p-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-            {metric.label}
-          </p>
-          {/*
-            O número desceu de 24px para 20px e ganhou ALGARISMO TABULAR.
-            Vinte pixels ainda é a coisa maior do cartão — continua sendo o que
-            se lê primeiro —, mas para de ser métrica-herói, que o §1 rejeita.
-            O tabular é o que faz uma fileira de quatro cartões alinhar em
-            coluna: sem ele, "1.204" e "87" dançam e a fileira lê como
-            decoração.
-
-            O esqueleto tem a FORMA FINAL (altura da linha do número), e não uma
-            barra genérica: skeleton que muda de tamanho ao virar conteúdo faz a
-            tela pular na hora em que a pessoa começa a ler.
-          */}
-          {loading ? (
-            <div className="mt-1 h-7 w-16 animate-pulse bg-[var(--nexodoc-recessed)]" />
-          ) : (
-            <p className="mt-1 font-mono text-[20px] font-semibold leading-7 tabular-nums">
-              {metric.value}
-            </p>
-          )}
-          {metric.detail ? (
-            <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
-          ) : null}
-        </div>
+        <AdminMetric key={metric.label} metrica={metric} loading={loading} />
       ))}
     </section>
+  );
+}
+
+function AdminMetric({ metrica, loading }: { metrica: MetricaDoAdmin; loading: boolean }) {
+  const Icon = metrica.icon;
+  const corpo = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+          {metrica.label}
+        </p>
+        {Icon ? (
+          <span
+            className={cn(
+              // Corte 5, e não `rounded-md`: o selo é um chip, e chip tem
+              // chanfro como todo o resto. As três cópias anteriores usavam
+              // raio, cada uma o seu.
+              "nx-cut-5 flex size-8 shrink-0 items-center justify-center",
+              // Alerta pinta pelo VALOR, nunca pela coluna: um zero vermelho
+              // treina o olho a ignorar a cor justamente quando ela importa.
+              metrica.alerta
+                ? "bg-[var(--status-critical)]/10 text-[var(--status-critical)]"
+                : "bg-primary/10 text-primary",
+            )}
+          >
+            <Icon className="size-4" />
+          </span>
+        ) : null}
+      </div>
+      {/*
+        O número desceu de 24px para 20px e ganhou ALGARISMO TABULAR.
+        Vinte pixels ainda é a coisa maior do cartão — continua sendo o que se lê
+        primeiro —, mas para de ser métrica-herói, que o §1 rejeita. O tabular é
+        o que faz uma fileira de quatro cartões alinhar em coluna: sem ele,
+        "1.204" e "87" dançam e a fileira lê como decoração.
+
+        O esqueleto tem a FORMA FINAL (altura da linha do número), e não uma
+        barra genérica: skeleton que muda de tamanho ao virar conteúdo faz a tela
+        pular na hora em que a pessoa começa a ler.
+      */}
+      {loading ? (
+        <div className="mt-1 h-7 w-16 animate-pulse bg-[var(--nexodoc-recessed)]" />
+      ) : (
+        <p className="mt-1 font-mono text-[20px] font-semibold leading-7 tabular-nums">
+          {metrica.value}
+        </p>
+      )}
+      {metrica.detail ? (
+        <p className="mt-1 text-xs text-muted-foreground">{metrica.detail}</p>
+      ) : null}
+    </>
+  );
+
+  if (!metrica.href) {
+    return <div className="nx-edge-8 p-3">{corpo}</div>;
+  }
+
+  return (
+    <Link
+      href={metrica.href}
+      className="nx-edge-8 block p-3 transition-colors hover:[--nx-edge:var(--primary)] focus-visible:outline-none"
+    >
+      {corpo}
+    </Link>
   );
 }

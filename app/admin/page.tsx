@@ -15,10 +15,12 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { plural } from "@/lib/plural";
 
 import {
   ADMIN_TOKEN_STORAGE_KEY,
   AdminError,
+  AdminMetricStrip,
   AdminPageHeader,
   AdminPageShell,
   AdminTokenForm,
@@ -73,65 +75,6 @@ function formatDate(value: string) {
 
 function isErrorPayload(payload: OverviewResponse | { error?: string }): payload is { error?: string } {
   return "error" in payload;
-}
-
-function AdminMetric({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  href,
-  alerta = false,
-}: {
-  label: string;
-  value: number | string;
-  detail: string;
-  icon: typeof ShieldCheck;
-  /** Para onde o número leva. Sem isto, o cartão informa e abandona. */
-  href?: string;
-  alerta?: boolean;
-}) {
-  /*
-   * O número LEVA a algum lugar.
-   *
-   * "10 falhas" sem caminho para ver quais é uma métrica que informa e abandona:
-   * quem administra tem que sair, achar a tela certa e refazer o filtro à mão.
-   * Cada cartão agora aponta para a lista já filtrada.
-   */
-  const corpo = (
-    <>
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-xs uppercase text-muted-foreground">{label}</p>
-        <span
-          className={cn(
-            "flex size-9 items-center justify-center rounded-md border",
-            // Falha só fica vermelha quando existe falha: pintar de alerta um
-            // zero treinaria o olho a ignorar a cor justamente quando importa.
-            alerta
-              ? "border-[var(--status-critical)]/30 bg-[var(--status-critical)]/10 text-[var(--status-critical)]"
-              : "border-primary/25 bg-primary/10 text-primary",
-          )}
-        >
-          <Icon className="size-4" />
-        </span>
-      </div>
-      <p className="mt-4 font-mono text-3xl font-semibold">{value}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
-    </>
-  );
-
-  if (!href) {
-    return <article className="border border-border bg-card p-4">{corpo}</article>;
-  }
-
-  return (
-    <Link
-      href={href}
-      className="block border border-border bg-card p-4 transition hover:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-    >
-      {corpo}
-    </Link>
-  );
 }
 
 export default function AdminHomePage() {
@@ -270,13 +213,16 @@ export default function AdminHomePage() {
           consulta nenhuma. A tela de Uso e custos, ao lado, já fazia certo com
           "--" e "Aguardando consulta"; aqui é a mesma regra.
         */}
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <AdminMetric label="Usuários ativos" value={data ? data.totals.activeUsers : "--"} detail={data ? `${data.totals.admins} admin(s)` : semDados} icon={UsersRound} href="/admin/users" />
-          <AdminMetric label="Auditorias" value={data ? data.totals.audits : "--"} detail={data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados} icon={ListChecks} href="/admin/audits" />
-          <AdminMetric label="Falhas" value={data ? data.totals.failedAudits : "--"} detail={data ? "Auditorias com erro" : semDados} icon={AlertTriangle} href="/admin/audits?status=FAILED" alerta={Boolean(data && data.totals.failedAudits > 0)} />
-          <AdminMetric label="LDs" value={data ? data.totals.ldDrafts : "--"} detail={data ? `${data.totals.generatedLds} gerada(s) · ${data.totals.recentLds} nos últimos 7 dias` : semDados} icon={FileSpreadsheet} href="/admin/lds" />
-          <AdminMetric label="Eventos LD" value={data ? data.totals.ldEvents : "--"} detail={data ? `${data.totals.recentLdEvents} nos últimos 7 dias` : semDados} icon={Clock3} href="/admin/lds" />
-        </section>
+        <AdminMetricStrip
+          columns="md:grid-cols-2 xl:grid-cols-5"
+          metrics={[
+            { label: "Usuários ativos", value: data ? data.totals.activeUsers : "--", detail: data ? plural(data.totals.admins, "admin", "admins") : semDados, icon: UsersRound, href: "/admin/users" },
+            { label: "Auditorias", value: data ? data.totals.audits : "--", detail: data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados, icon: ListChecks, href: "/admin/audits" },
+            { label: "Falhas", value: data ? data.totals.failedAudits : "--", detail: data ? "Auditorias com erro" : semDados, icon: AlertTriangle, href: "/admin/audits?status=FAILED", alerta: Boolean(data && data.totals.failedAudits > 0) },
+            { label: "LDs", value: data ? data.totals.ldDrafts : "--", detail: data ? `${plural(data.totals.generatedLds, "gerada", "geradas")} · ${data.totals.recentLds} nos últimos 7 dias` : semDados, icon: FileSpreadsheet, href: "/admin/lds" },
+            { label: "Eventos LD", value: data ? data.totals.ldEvents : "--", detail: data ? `${data.totals.recentLdEvents} nos últimos 7 dias` : semDados, icon: Clock3, href: "/admin/lds" },
+          ]}
+        />
 
         <section className="grid gap-3 md:grid-cols-3">
           {actions.map((action) => {
@@ -312,7 +258,7 @@ export default function AdminHomePage() {
                   */}
                   <p className="truncate text-xs text-muted-foreground">
                     {audit.projectName !== audit.title ? `${audit.projectName} · ` : ""}
-                    {audit.auditMode} · {audit.totalFindings} achado(s) · {formatDate(audit.createdAt)}
+                    {audit.auditMode} · {plural(audit.totalFindings, "achado", "achados")} · {formatDate(audit.createdAt)}
                   </p>
                 </div>
               ))}
@@ -338,7 +284,7 @@ export default function AdminHomePage() {
                     <span className="font-mono text-xs text-muted-foreground">{ld.status}</span>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {ld.workName || "Obra não preenchida"} · {ld.uploadedFileCount} PDF(s) não armazenado(s) · {formatDate(ld.updatedAt)}
+                    {ld.workName || "Obra não preenchida"} · {plural(ld.uploadedFileCount, "PDF não armazenado", "PDFs não armazenados")} · {formatDate(ld.updatedAt)}
                   </p>
                 </div>
               ))}
