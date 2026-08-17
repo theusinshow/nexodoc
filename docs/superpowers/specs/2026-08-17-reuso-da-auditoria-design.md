@@ -140,7 +140,7 @@ que não houve, que é o mesmo defeito das auditorias parciais silenciosas.
 | Onde | O quê |
 |---|---|
 | `lib/audit-reuso.ts` | `VERSAO_AUDITOR` → `versaoDoAuditor(config)` derivada |
-| `lib/audit-report.ts` | `runtime.reuso` e `herdado_de` no achado |
+| `lib/audit-report.ts` | `versao_auditor` vira `string`; `herdado_de` no achado. **`runtime.reauditoria` já existe** — `{ base_audit_id, capitulos_lidos, capitulos_herdados, achados_herdados, promovidos_sem_ancora }` — e é reusado como está |
 | `app/api/audit/route.ts` | recebe `auditIdAnterior`; portão da base; recusa de idêntico; restringe blocos e global; merge |
 | `lib/audit-validation-prompt.ts` | contexto global com resumo dos capítulos iguais |
 | `components/audit-result.tsx` | faixa de reauditoria + selo no cartão |
