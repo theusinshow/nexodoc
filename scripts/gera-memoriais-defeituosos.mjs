@@ -99,7 +99,20 @@ const SANEAMENTO = [
   ],
   // Município intruso real (p.158) — vira ruído de identidade/cross-document
   [/Prefeitura Municipal de Chapec[óo]/gi, "Prefeitura Municipal de Criciuma"],
-  // Falsos positivos de ocupação: "Escola"/"Hospital" soltos em textos genéricos e tabelas de norma
+  /*
+   * Falsos positivos de ocupação: "Escola"/"Hospital" soltos em textos genéricos
+   * e tabelas de norma.
+   *
+   * OBSOLETO desde 17/08/2026 — pode sair na próxima geração do kit. Estas
+   * quatro linhas contornavam um DEFEITO DA REGRA, não uma sujeira do documento:
+   * `runWithinDocumentIdentityRules` tratava todo tipo solto como declaração de
+   * ocupação, então a palavra "escola" numa tabela de norma virava achado
+   * crítico. Contornar aqui manteve o base "limpo" e escondeu o defeito até ele
+   * aparecer numa auditoria real (084_25, achado 1: "ginásio"). A regra agora
+   * exige moldura assertiva ("por se tratar de uma...") e o saneamento perdeu a
+   * razão de existir. Ficam até a próxima regeração para não invalidar os PDFs
+   * já gerados com gabarito.
+   */
   [/\bescolas\b/gi, "edificacoes escolares"],
   [/\bescola\b/gi, "edificacao escolar"],
   [/\bhospitais\b/gi, "edificacoes hospitalares"],

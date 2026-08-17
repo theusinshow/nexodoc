@@ -329,26 +329,33 @@ test("(e4) recomendação 1 não oferece chip de zero tomos", () => {
   assert.ok(sug.every((s) => Number(s.value) >= 1), sug.map((s) => s.value).join(","));
 });
 
-// (f) auditoria → nivel com suggestions standard/deep
-test("(f) auditoria → nextMissing nivel com suggestions standard/deep", () => {
+/*
+ * (f) A AUDITORIA NÃO PERGUNTA NADA — 17/08/2026.
+ *
+ * Estes dois testes afirmavam o contrário: que `nivel` era o próximo slot
+ * faltante, com as opções standard/deep. O slot foi removido porque a escolha
+ * não tinha trade-off — medidos no 156-25, os dois níveis custavam os mesmos
+ * US$ 0,82, e o "Padrão" lia 8 dos 72 capítulos. Ver `requirements.ts`.
+ */
+test("(f) auditoria não tem slot: está pronta sem perguntar nada", () => {
   const r = resolve({ taskKind: "auditoria", facts: facts(), slots: noSlots });
-  assert.equal(r.pronto, false);
-  assert.equal(r.nextMissing!.slotId, "nivel");
-  const vals = r.nextMissing!.suggestions.map((s) => s.value);
-  assert.deepEqual(vals, ["standard", "deep"]);
-  // standard é a 1ª (recomendada), nunca auto-commitada (segue sendo pergunta).
-  assert.equal(r.nextMissing!.suggestions[0].value, "standard");
+  assert.equal(r.pronto, true);
+  assert.equal(r.nextMissing, null);
 });
 
-// (f2) auditoria com nível escolhido → pronto:true
-test("(f2) auditoria com nivel em slots → pronto:true", () => {
+test("(f2) nivel gravado numa conversa antiga não ressuscita a pergunta", () => {
+  /*
+   * Conversa salva antes da remoção traz `nivel` no payload. Ela precisa abrir
+   * pronta como qualquer outra — e não voltar a perguntar por um slot que o
+   * resolvedor não conhece mais.
+   */
   const r = resolve({
     taskKind: "auditoria",
     facts: facts(),
     slots: { nivel: { value: "deep" } },
   });
   assert.equal(r.pronto, true);
-  assert.equal(r.resolved.nivel, "deep");
+  assert.equal(r.nextMissing, null);
 });
 
 // (g) a data é PERGUNTADA, não auto-resolvida — e os chips trazem o padrão

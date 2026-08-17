@@ -2274,7 +2274,13 @@ function AuditoriaConfirmation({
     try {
       const r = await postAudit(
         memorialFile,
-        { obra, prefeitura, municipio },
+        /*
+         * O centro de custo entra na régua junto com o resto. Ele já era lido do
+         * documento e já decidia o PROJETO da auditoria (logo acima), mas parava
+         * ali — e por isso o histórico gravava a obra por nome longo, sem o
+         * `084_25-CRICIUMA` pelo qual o escritório procura.
+         */
+        { obra, prefeitura, municipio, centroCusto: memorialFatos?.codigo ?? undefined },
         params.nivel,
         conversationId,
         {
@@ -2372,7 +2378,17 @@ function AuditoriaConfirmation({
               ruído, e memorial de outro escritório pode não ter a seção.
             */}
             {endereco && <SummaryRow label="Endereço" value={endereco} />}
-            <SummaryRow label="Nível" value={params.nivel === "deep" ? "profunda" : "padrão"} />
+            {/*
+              A linha "Nível" saiu com o slot que a alimentava (17/08/2026): há
+              um nível só, e um cartão de conferência existe para mostrar o que
+              PODE estar errado — repetir um valor que nunca varia é ruído.
+              O centro de custo entrou no lugar: ele varia, ele decide a que
+              projeto o parecer é anexado, e é por ele que a auditoria vai ser
+              procurada depois.
+            */}
+            {memorialFatos?.codigo && (
+              <SummaryRow label="Centro de custo" value={memorialFatos.codigo} />
+            )}
           </div>
           {/*
             De ONDE veio a régua muda o peso do que a auditoria vai dizer. Obra

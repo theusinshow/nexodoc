@@ -57,7 +57,13 @@ import {
   persistFailedAudit,
   type UploadedAuditFile,
 } from "@/lib/audit-persistence";
-import { chunkPdfByChapter, extractPdfText, type AuditTextChunk, type ExtractedPdf } from "@/lib/pdf-text";
+import {
+  agruparBlocosParaLeitura,
+  chunkPdfByChapter,
+  extractPdfText,
+  type AuditTextChunk,
+  type ExtractedPdf,
+} from "@/lib/pdf-text";
 import { impressaoDosCapitulos } from "@/lib/audit-fingerprint";
 import { VERSAO_AUDITOR } from "@/lib/audit-reuso";
 import {
@@ -660,12 +666,47 @@ function getValidationTimeoutMs(analysisLevel: AnalysisLevel) {
   return analysisLevel === "deep" ? 300_000 : getChunkTimeoutMs();
 }
 
+/*
+ * COBERTURA TOTAL — o nível único que lê o documento inteiro DE VERDADE.
+ *
+ * Hoje nenhum dos dois níveis cobre um memorial grande:
+ *
+ *   Padrão   identidade + leitura global AMOSTRADA (90k: cabeça/meio/cauda)
+ *            + no máximo 8 blocos → buraco depois do 8º capítulo;
+ *   Profundo identidade + leitura global INTEIRA (até 700k) + ZERO blocos
+ *            → uma chamada gigante, com a perda de recall no miolo que toda
+ *              janela longa tem.
+ *
+ * Os blocos foram cortados do Profundo quando a leitura global passou a ler o
+ * documento inteiro (item 5, "vira redundante"). A premissa era que ler tudo
+ * numa ida equivale a ler por partes — e não equivale: a chamada única enxerga o
+ * documento, a passada por capítulo o EXAMINA. Foi num memorial de 300k que os
+ * dois falsos positivos do 084_25 apareceram no lugar dos achados reais.
+ *
+ * Com esta flag ligada some a distinção: um nível só, leitura global inteira MAIS
+ * um bloco por capítulo, sem teto. Custa mais e por isso nasce desligada — a
+ * medição vem antes de virar padrão (ver `scripts/mede-cobertura-total.ts`).
+ */
+function isCoberturaTotalEnabled() {
+  return process.env.NEXODOC_AUDIT_COBERTURA_TOTAL === "true";
+}
+
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
-  const modeLimit = analysisLevel === "deep" ? 24 : 8;
+  // Sem teto na cobertura total: o teto É o buraco que ela existe para fechar.
+  // O override numérico continua valendo, para poder afunilar numa emergência.
+  const modeLimit = isCoberturaTotalEnabled()
+    ? Number.POSITIVE_INFINITY
+    : analysisLevel === "deep"
+      ? 24
+      : 8;
 
   if (Number.isFinite(value) && value > 0) {
     return Math.min(modeLimit, Math.floor(value));
+  }
+
+  if (isCoberturaTotalEnabled()) {
+    return Number.POSITIVE_INFINITY;
   }
 
   return analysisLevel === "deep" ? DEFAULT_MAX_CHUNKS_PER_FILE : 8;
@@ -2933,17 +2974,58 @@ async function deepAnalyzeFile(args: {
       )
     : [];
   const hasInferredIdentityConflict = inferredIdentityFindings.length > 0;
-  // Item 5 — no Profundo a leitura global já lê o DOCUMENTO INTEIRO (A1), então a
-  // passada por blocos vira redundante e só reintroduz o lixo de sumário. Cortamos
-  // os blocos no Profundo; o Padrão (leitura global amostrada) ainda usa blocos
-  // para cobrir o começo do documento.
+  /*
+   * Item 5 — no Profundo a leitura global já lê o DOCUMENTO INTEIRO (A1), então a
+   * passada por blocos virava redundante e só reintroduzia o lixo de sumário.
+   * Cortamos os blocos no Profundo; o Padrão (leitura global amostrada) ainda usa
+   * blocos para cobrir o começo do documento.
+   *
+   * Na COBERTURA TOTAL essa conta muda: os blocos voltam para o Profundo e sem
+   * teto, porque ler tudo de uma vez ≠ examinar capítulo a capítulo. O "lixo de
+   * sumário" que motivou o corte é hoje tratado a montante — `isLowValueModelFinding`
+   * suprime o meta-achado que reclama de auditar a partir do sumário, com teste
+   * próprio —, então o motivo original do corte já não se sustenta sozinho.
+   */
+  const coberturaTotal = isCoberturaTotalEnabled();
   const chunkLimit =
-    args.analysisLevel === "deep"
+    args.analysisLevel === "deep" && !coberturaTotal
       ? 0
-      : hasInferredIdentityConflict
+      : hasInferredIdentityConflict && !coberturaTotal
         ? Math.min(4, getMaxChunksPerFile(args.analysisLevel))
         : getMaxChunksPerFile(args.analysisLevel);
-  const chunks = chunkPdfByChapter(args.file.extracted).slice(0, chunkLimit);
+  /*
+   * O corte por capítulo é a VERDADE do documento e não muda — é ele que a
+   * impressão digital hasheia lá no relatório, e é dela que vive o reuso entre
+   * revisões. Na cobertura total, o que muda é só como esse corte é EMPACOTADO
+   * para ir ao modelo: capítulos vizinhos viajam juntos até encher 28k, o que
+   * derruba o custo em 3,3× sem tirar um caractere da leitura.
+   */
+  const capitulos = chunkPdfByChapter(args.file.extracted);
+  const blocosDisponiveis = coberturaTotal
+    ? agruparBlocosParaLeitura(capitulos)
+    : capitulos;
+  const chunks = blocosDisponiveis.slice(0, chunkLimit);
+
+  /*
+   * TETO QUE CORTA COBERTURA NÃO PODE SER SILENCIOSO.
+   *
+   * `NEXODOC_MAX_CHUNKS_PER_FILE` é um botão de vazão da época em que o limite
+   * era 8/24 por desenho — e ele continua VENCENDO na cobertura total. Num
+   * memorial grande o bastante ele deixaria o fim do documento sem bloco, e a
+   * auditoria terminaria "com sucesso" prometendo cobertura completa sobre um
+   * documento lido pela metade. É o mesmo defeito que produziu as auditorias
+   * parciais silenciosas entre jun e ago/2026, e a lição de lá é esta: quando a
+   * leitura encolhe, quem lê o parecer precisa saber, e o veredito precisa
+   * rebaixar sozinho.
+   */
+  if (coberturaTotal && chunks.length < blocosDisponiveis.length) {
+    const motivo =
+      `teto NEXODOC_MAX_CHUNKS_PER_FILE=${chunkLimit} cortou a leitura em ` +
+      `${chunks.length} de ${blocosDisponiveis.length} blocos ` +
+      `(${capitulos.length} capítulos): o fim do documento não foi lido por bloco.`;
+    console.warn(`[audit] ${args.file.file.name}: ${motivo}`);
+    args.degradacoes.push({ passada: "blocos", motivo });
+  }
   const concurrency = getChunkConcurrency();
 
   console.log(
@@ -3729,8 +3811,9 @@ async function executarAuditoria(
          * decisão de emitir: descrever nele um esforço que não houve é o pior
          * lugar do sistema para se estar errado.
          */
-        resumo:
-          analysisLevel === "deep"
+        resumo: isCoberturaTotalEnabled()
+          ? `Auditoria completa: leitura de identidade, leitura do documento inteiro por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`
+          : analysisLevel === "deep"
             ? "Auditoria profunda: leitura de identidade e leitura do documento inteiro por IA."
             : `Auditoria padrão: leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
       })),

@@ -468,9 +468,50 @@ type FacilityMention = {
   canonical: string;
   type: string;
   hasName: boolean;
+  /** O nome próprio sozinho, canônico ("rubens de arruda ramos"). Vazio se não houver. */
+  properName: string;
   page: number;
   evidence: string;
 };
+
+/*
+ * QUANDO UM TIPO SOLTO É UMA AFIRMAÇÃO DE IDENTIDADE — e quando é só vocabulário.
+ *
+ * "ginásio", "escola", "hospital" são substantivos comuns antes de serem
+ * identidade. Num memorial de reforma de escola, "a cobertura metálica do
+ * ginásio deverá ser revisada" descreve uma PARTE da obra; a regra lia isso como
+ * "o documento declara que esta obra é um ginásio" e emitia um achado de
+ * prioridade Alta que `classifyFindingImpact` ainda promovia a crítico
+ * documental (o escopo "tipo de ocupação" cai em `ocupacao`). Um substantivo
+ * comum virava o achado mais grave do parecer.
+ *
+ * O caso legítimo tem forma gramatical própria: "POR SE TRATAR DE uma unidade
+ * básica de saúde os cálculos das larguras das portas..." — aí o documento
+ * AFIRMA o que a edificação é, e isso é texto reaproveitado de outro projeto (é
+ * o erro 4 do memorial 017_26, coberto por teste).
+ *
+ * Por isso o gate é um ALLOWLIST de molduras assertivas, e não uma negativa: a
+ * lista de jeitos de mencionar um ginásio de passagem é infinita; a lista de
+ * jeitos de declarar a ocupação de uma edificação é curta e estável. Regra é
+ * fato objetivo — sem moldura assertiva não há fato de identidade, e o que
+ * depende de contexto é trabalho da IA, não da regra.
+ *
+ * Só vale para menção SEM nome próprio: "Creche Vovó Maria" é identidade em
+ * qualquer moldura.
+ */
+const OCCUPANCY_ASSERTION_FRAMES = [
+  /\b(?:por\s+se\s+)?trata(?:r|-se)?\s+de\s+(?:um|uma|o|a)?\s*$/i,
+  /\bocupa[çc][ãa]o\s*(?:é|e|:|da\s+edifica[çc][ãa]o\s*(?:é|e|:))?\s*(?:um|uma|o|a)?\s*$/i,
+  /\bclassificad[oa]s?\s+como\s+(?:um|uma)?\s*$/i,
+  /\b(?:edifica[çc][ãa]o|edif[íi]cio|im[óo]vel|obra|empreendimento)\s+(?:é|e)\s+(?:um|uma)?\s*$/i,
+  /\bdestina(?:-se|da|do)?\s+a\s+(?:um|uma)?\s*$/i,
+  /\b(?:tipo\s+de\s+)?uso\s*:\s*$/i,
+];
+
+function isOccupancyAssertion(prefix: string) {
+  const limpo = prefix.replace(/\s+/g, " ");
+  return OCCUPANCY_ASSERTION_FRAMES.some((frame) => frame.test(limpo));
+}
 
 function facilityCanonical(value: string) {
   return baseCanonical(value).replace(/\s+/g, " ").trim();
@@ -502,11 +543,23 @@ function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[]
         continue;
       }
 
+      /*
+       * Tipo solto fora de moldura assertiva não é menção de identidade — é a
+       * palavra "ginásio" no meio de uma frase sobre a cobertura dele. Descartado
+       * AQUI, na coleta, e não só na emissão: contado como menção ele ainda
+       * disputaria a dominância do documento e poderia virar a "obra
+       * predominante" de um memorial que só cita o próprio pátio.
+       */
+      if (!hasName && !isOccupancyAssertion(page.text.slice(0, match.index ?? 0).slice(-80))) {
+        continue;
+      }
+
       mentions.push({
         display,
         canonical,
         type,
         hasName,
+        properName: hasName ? facilityCanonical(name) : "",
         page: page.page,
         evidence: extractEvidence(page.text, match.index ?? 0),
       });
@@ -516,15 +569,35 @@ function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[]
   return mentions;
 }
 
-/** extrai tipo+canônico do nome de obra declarado no gabarito (item 1) */
+/**
+ * Extrai tipo+canônico do nome de obra declarado no gabarito (item 1).
+ *
+ * `fullCanonical` é o gabarito INTEIRO normalizado, e existe porque o recorte
+ * por tipo é frágil justamente nos nomes reais. O gabarito "Reforma e Adequação
+ * da Emeb (escola Municipal de Ensino Básico) Rubens de Arruda Ramos" tem a
+ * primeira âncora de tipo dentro do PARÊNTESE, e o `[^...()...]` da
+ * FACILITY_PATTERN faz a captura parar no fecha-parêntese: o baseline virava
+ * "escola municipal de ensino basico" e o nome próprio da obra — "Rubens de
+ * Arruda Ramos", a única parte que identifica o prédio — era descartado. Daí a
+ * página que citava "Escola Rubens de Arruda Ramos" ser acusada de falar de
+ * OUTRA obra. Ver o teste "gabarito com aposto entre parênteses".
+ *
+ * Consertar o recorte não bastaria: "Emeb" não está (nem deve estar) na lista de
+ * tipos, e todo gabarito real traz prefixo de serviço ("Reforma e Adequação
+ * da..."). O que sempre vale é a CONTENÇÃO — se o nome próprio citado na página
+ * está escrito dentro do gabarito, é a mesma obra, qualquer que seja o tipo
+ * usado para nomeá-la.
+ */
 function parseDeclaredObra(
   declared: string,
-): { canonical: string; type: string; display: string } | null {
+): { canonical: string; type: string; display: string; fullCanonical: string } | null {
   const trimmed = declared.trim();
 
   if (trimmed.length < 3) {
     return null;
   }
+
+  const fullCanonical = facilityCanonical(trimmed);
 
   FACILITY_PATTERN.lastIndex = 0;
   const match = FACILITY_PATTERN.exec(trimmed);
@@ -537,12 +610,13 @@ function parseDeclaredObra(
     const canonical = facilityCanonical(hasName ? `${type} ${name}` : type);
 
     if (canonical.length >= 3) {
-      return { canonical, type, display: trimmed };
+      return { canonical, type, display: trimmed, fullCanonical };
     }
   }
 
-  const canonical = facilityCanonical(trimmed);
-  return canonical.length >= 3 ? { canonical, type: "", display: trimmed } : null;
+  return fullCanonical.length >= 3
+    ? { canonical: fullCanonical, type: "", display: trimmed, fullCanonical }
+    : null;
 }
 
 /**
@@ -670,6 +744,32 @@ export function runWithinDocumentIdentityRules(
     if (
       baselineCanonical.includes(candidate.canonical) ||
       candidate.canonical.includes(baselineCanonical)
+    ) {
+      continue;
+    }
+
+    /*
+     * O NOME PRÓPRIO CITADO ESTÁ ESCRITO NO GABARITO → é a mesma obra.
+     *
+     * Este é o teste que sobrevive ao gabarito real, onde o recorte por tipo
+     * falha: "Escola Rubens de Arruda Ramos" na página 124 contra o gabarito
+     * "Reforma e Adequação da Emeb (escola Municipal de Ensino Básico) Rubens de
+     * Arruda Ramos". Os canônicos de TIPO+NOME não se contêm (um diz "escola
+     * municipal de ensino basico", o outro "escola rubens de arruda ramos"), mas
+     * "rubens de arruda ramos" está literalmente dentro do gabarito.
+     *
+     * Compara-se contra o gabarito INTEIRO, e não contra o baseline recortado,
+     * porque é justamente o recorte que erra. E só vale com nome próprio: sem
+     * ele não há o que conter, e o tipo solto já foi resolvido na coleta.
+     *
+     * Não afrouxa a detecção real: um memorial da "UBS Santo Antônio" que cite
+     * "Creche Vovó Maria" continua sendo acusado — "vovo maria" não está no
+     * gabarito.
+     */
+    if (
+      declared &&
+      candidate.properName.length >= 3 &&
+      declared.fullCanonical.includes(candidate.properName)
     ) {
       continue;
     }

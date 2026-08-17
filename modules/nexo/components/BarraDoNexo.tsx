@@ -46,9 +46,8 @@ export function BarraDoNexo() {
           strokeWidth={1.8}
           aria-hidden
         />
-        <span className="nexo-barra__rotulo">
-          Auditoria {auditando.nivel === "deep" ? "profunda" : "padrão"}
-        </span>
+        {/* Um nível só desde 17/08/2026 — ver `requirements.ts`. */}
+        <span className="nexo-barra__rotulo">Auditoria</span>
         <span className="nexo-barra__obra" title={auditando.arquivo}>
           {auditando.arquivo}
         </span>

@@ -7,6 +7,16 @@
  * auditoria, que então pega de graça o erro que originou o projeto: um memorial
  * emitido com o nome/dados de OUTRA obra.
  */
+/*
+ * CAMINHO RELATIVO COM `.ts`, e não o alias `@/` — como em [[blocos.ts]].
+ *
+ * Este módulo é importado direto por `scripts/test-nexo-audit-contrato.ts` e
+ * `test-nexo-audit-desconexao.ts`, que rodam em node cru (type-stripping, sem
+ * bundler). Ali o alias `@/` não existe: só o Next o resolve. Os outros imports
+ * daqui são `import type` e somem no strip — este é de VALOR e ficaria,
+ * derrubando os dois testes com ERR_MODULE_NOT_FOUND.
+ */
+import { centroDeCustoDaAuditoria } from "../../../lib/audit-identity.ts";
 import type { AuditReport } from "@/lib/audit-report";
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
 
@@ -14,6 +24,15 @@ export interface MemorialAuditGabarito {
   obra?: string;
   prefeitura?: string;
   municipio?: string;
+  /**
+   * O CENTRO DE CUSTO lido do documento ("084_25").
+   *
+   * Já era usado para resolver a que projeto a auditoria pertence (ver
+   * [[projeto-da-auditoria.ts]]), mas nunca acompanhava a chamada — e por isso
+   * nunca chegava ao banco. É metade do nome pelo qual o escritório procura uma
+   * auditoria; a outra metade é a prefeitura.
+   */
+  centroCusto?: string;
 }
 
 export type MemorialAuditLevel = "standard" | "deep";
@@ -104,8 +123,24 @@ export async function runMemorialAudit(
    * enviada. Sem obra, o nome do arquivo ainda é melhor que nada.
    */
   const obraGabarito = gabarito.obra?.trim();
-  form.append("auditTitle", obraGabarito || memorial.name);
+  /*
+   * `084_25-CRICIUMA` — centro de custo e prefeitura, que é como o escritório
+   * chama uma auditoria. A obra vinha no lugar dele: correta, mas longa demais
+   * para uma lista e quase idêntica entre obras do mesmo programa. Sem as duas
+   * metades a função devolve "" e a identidade cai para a obra, como antes.
+   */
+  const centroCusto = centroDeCustoDaAuditoria(
+    gabarito.centroCusto,
+    gabarito.prefeitura || gabarito.municipio,
+  );
+  form.append("auditTitle", centroCusto || obraGabarito || memorial.name);
+  // A obra continua indo em `projectName`: o par título/projeto na lista fica
+  // "084_25-CRICIUMA · Reforma e Adequação da Emeb...", que é o código para
+  // achar e o nome para reconhecer. Trocar os dois pelo mesmo valor perderia um.
   if (obraGabarito) form.append("projectName", obraGabarito);
+  if (gabarito.centroCusto?.trim()) {
+    form.append("gabaritoCentroCusto", gabarito.centroCusto.trim());
+  }
   if (gabarito.obra?.trim()) form.append("gabaritoObra", gabarito.obra.trim());
   if (gabarito.prefeitura?.trim()) {
     form.append("gabaritoPrefeitura", gabarito.prefeitura.trim());

@@ -255,6 +255,69 @@ check("gabarito × documento: acusa quando o arquivo é de outra obra", () => {
   );
 });
 
+/*
+ * Os dois falsos positivos do memorial 084_25 (Criciúma, 17/08/2026), medidos
+ * numa auditoria real. Eram os achados 1 e 3 do parecer — e o de ocupação ainda
+ * subia a crítico documental, virando o achado mais grave da lista.
+ */
+function makeEmebRubensDoc(): CrossDocumentSource {
+  return makeSource("084_25_memorial.pdf", "memorial", [
+    "O presente memorial trata das edificações de apoio à reforma e ampliação da " +
+      "Escola Rubens de Arruda Ramos, em Criciúma/SC. O objetivo deste documento é " +
+      "discriminar especificações, detalhamentos e serviços para a execução.",
+    "A cobertura metálica do ginásio deverá ser revisada conforme projeto estrutural, " +
+      "com substituição das telhas danificadas.",
+  ]);
+}
+
+const GABARITO_EMEB =
+  "Reforma e Adequação da Emeb (escola Municipal de Ensino Básico) Rubens de Arruda Ramos";
+
+check("gabarito com aposto entre parênteses: nome próprio contido não é divergência", () => {
+  /*
+   * A FACILITY_PATTERN ancora no primeiro tipo do gabarito — aqui a "escola" do
+   * aposto — e para no fecha-parêntese, deixando o baseline em "escola municipal
+   * de ensino basico" e jogando fora "Rubens de Arruda Ramos". A página que cita
+   * a mesma obra pelo nome curto virava "texto reaproveitado de outro projeto",
+   * com ação recomendada que teria estragado o documento.
+   */
+  const findings = runWithinDocumentIdentityRules(makeEmebRubensDoc(), {
+    gabaritoObra: GABARITO_EMEB,
+  });
+
+  assert.equal(
+    findings.filter((f) => /rubens de arruda ramos/i.test(f.termo_busca ?? "")).length,
+    0,
+    "'Escola Rubens de Arruda Ramos' está dentro do gabarito — é a mesma obra",
+  );
+});
+
+check("tipo solto fora de moldura assertiva não é ocupação divergente", () => {
+  /*
+   * "a cobertura metálica do ginásio" descreve uma PARTE da escola. A regra lia
+   * o substantivo comum como declaração de ocupação e emitia prioridade Alta,
+   * que `classifyFindingImpact` promovia a crítico documental pelo escopo
+   * "tipo de ocupação". O caso legítimo — "por se tratar de uma unidade básica
+   * de saúde" — tem moldura assertiva e continua sendo pego (teste acima).
+   */
+  const findings = runWithinDocumentIdentityRules(makeEmebRubensDoc(), {
+    gabaritoObra: GABARITO_EMEB,
+  });
+
+  assert.equal(
+    findings.filter((f) => f.local === "tipo de ocupação").length,
+    0,
+    "menção de passagem a 'ginásio' não declara a ocupação da edificação",
+  );
+});
+
+check("o memorial 084_25 real não produz nenhum achado de identidade", () => {
+  assert.equal(
+    runWithinDocumentIdentityRules(makeEmebRubensDoc(), { gabaritoObra: GABARITO_EMEB }).length,
+    0,
+  );
+});
+
 check("gabarito: documento coerente com a obra declarada não gera achado", () => {
   const limpo = makeSource("ok.pdf", "memorial", [
     "Obra: Centro Comunitário Primeira Linha, em Criciúma.",

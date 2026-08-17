@@ -438,23 +438,25 @@ const tituloCapaSlot: SlotDef = {
   suggest: sugestoesDeTitulo,
 };
 
-/**
- * `nivel` da auditoria: decisão required (standard|deep). Não auto-derivada — o
- * usuário escolhe a profundidade; `standard` é a 1ª suggestion (recomendada,
- * nunca auto-commitada). Escolha de valor discreto → `fill`.
+/*
+ * O SLOT `nivel` FOI REMOVIDO EM 17/08/2026 — a auditoria tem um nível só.
+ *
+ * Ele perguntava "Qual a profundidade da auditoria?" com Padrão e Profunda. A
+ * pergunta não tinha resposta errada porque não tinha trade-off: medidos no
+ * 156-25 (150 páginas), os dois custavam os MESMOS US$ 0,82 — e o "Padrão"
+ * amostrava 25% do documento e lia 8 dos 72 capítulos. Não era rápido-e-barato
+ * contra lento-e-caro; era ler o documento contra não ler, pelo mesmo preço.
+ *
+ * Ninguém pede uma fiscalização mais ou menos. O nível único
+ * (`NEXODOC_AUDIT_COBERTURA_TOTAL`) lê o documento inteiro e examina todos os
+ * capítulos em blocos agrupados, e é o que a auditoria faz agora — sem
+ * perguntar. `clampNivel` em [[normalize.ts]] continua existindo porque
+ * conversas gravadas antes desta data trazem `nivel` no payload.
+ *
+ * Se um dia voltar a existir escolha, que ela seja entre coisas diferentes de
+ * verdade (ex.: auditoria completa × reconferência só do que mudou), e não
+ * entre duas doses da mesma coisa.
  */
-const nivelAuditoriaSlot: SlotDef = {
-  id: "nivel",
-  taskKind: "auditoria",
-  required: true,
-  decision: true,
-  prompt: "Qual a profundidade da auditoria?",
-  deriveFrom: () => null,
-  suggest: () => [
-    { label: "Padrão (recomendado)", value: "standard", commit: "fill" },
-    { label: "Profunda", value: "deep", commit: "fill" },
-  ],
-};
 
 /**
  * `volume`: o número do volume no conjunto do escritório ("VOLUME 05").
@@ -513,7 +515,10 @@ export const ARTIFACT_REQUIREMENTS: Record<NexoArtifactKind, SlotDef[]> = {
     anoSlot("capa"),
   ],
   separatriz: [templateIdSlot("separatriz"), numTomosSlot("separatriz")],
-  auditoria: [nivelAuditoriaSlot],
+  // Sem slot nenhum: a auditoria não pergunta nada antes de rodar. A régua
+  // (obra, prefeitura, município, centro de custo) já vem da classificação do
+  // documento, e o nível deixou de existir — ver o bloco removido acima.
+  auditoria: [],
   volume: [],
   conferencia: [],
 };

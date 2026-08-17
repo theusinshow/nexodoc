@@ -133,3 +133,59 @@ export function chunkPdfByChapter(extracted: ExtractedPdf, maxChunkChars = 28000
 
   return chunks;
 }
+
+/**
+ * JUNTA CAPÍTULOS VIZINHOS ATÉ ENCHER UM BLOCO — só para a passada de leitura.
+ *
+ * `chunkPdfByChapter` corta em TODO cabeçalho, sem piso de tamanho: um memorial
+ * de 361 mil caracteres vira 72 blocos de ~5k. Como cada bloco carrega o prompt
+ * do auditor e tem teto de saída próprio, o custo de ler o documento passa a ser
+ * função do NÚMERO de blocos, não do tamanho do texto — medido em 17/08/2026:
+ * US$ 14,77 com um bloco por capítulo contra US$ 4,46 com os mesmos capítulos
+ * agrupados, para a MESMA cobertura. Ver `scripts/mede-cobertura-total.ts`.
+ *
+ * NÃO É PARA SER USADA NO LUGAR DE `chunkPdfByChapter`, e esta é a parte que
+ * importa: a IMPRESSÃO DIGITAL da auditoria incremental
+ * (`impressaoDosCapitulos`) hasheia o corte por capítulo, e é o casamento desses
+ * hashes entre revisões que sustenta os 86-95% de texto reaproveitado. Agrupar
+ * antes de imprimir trocaria 72 hashes estáveis por 17 hashes que mudam de
+ * conteúdo assim que qualquer capítulo do grupo muda — e o delta desabaria de
+ * "3 capítulos alterados" para "o documento inteiro mudou". O corte continua
+ * sendo o dos capítulos; o agrupamento é uma vista SOBRE ele, para ler.
+ *
+ * O bloco resultante é contíguo e sempre começa em fronteira de capítulo. O
+ * título vira "primeiro … último" quando junta mais de um, porque é ele que o
+ * modelo recebe como contexto do trecho — e "1 - PAREDES" num bloco que vai até
+ * o capítulo 6 seria uma etiqueta errada, não uma etiqueta curta.
+ *
+ * Um capítulo maior que o teto sozinho vira bloco sozinho: cortá-lo aqui é
+ * exatamente o que `chunkPdfByChapter` já fez por tamanho.
+ */
+export function agruparBlocosParaLeitura(
+  chunks: readonly AuditTextChunk[],
+  tetoChars = 28000,
+): AuditTextChunk[] {
+  const blocos: AuditTextChunk[] = [];
+
+  for (const chunk of chunks) {
+    const ultimo = blocos.at(-1);
+    const cabe = ultimo && ultimo.text.length + chunk.text.length + 1 <= tetoChars;
+
+    if (!ultimo || !cabe) {
+      blocos.push({ ...chunk, id: `bloco-${blocos.length + 1}` });
+      continue;
+    }
+
+    ultimo.text = `${ultimo.text}\n${chunk.text}`;
+    ultimo.endPage = chunk.endPage;
+    // O título do grupo nomeia o INTERVALO. `split(" … ")[0]` porque o primeiro
+    // já pode ser um intervalo de uma junção anterior.
+    const primeiro = ultimo.title.split(" … ")[0];
+    ultimo.title =
+      primeiro && chunk.title && primeiro !== chunk.title
+        ? `${primeiro} … ${chunk.title}`
+        : primeiro || chunk.title;
+  }
+
+  return blocos;
+}

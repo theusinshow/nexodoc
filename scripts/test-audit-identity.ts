@@ -10,7 +10,11 @@
  */
 import assert from "node:assert/strict";
 
-import { projetoDaAuditoria, tituloDaAuditoria } from "../lib/audit-identity.ts";
+import {
+  centroDeCustoDaAuditoria,
+  projetoDaAuditoria,
+  tituloDaAuditoria,
+} from "../lib/audit-identity.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -94,6 +98,42 @@ test("relatório corrompido não derruba a listagem", () => {
 test("o projeto segue a mesma escada", () => {
   assert.equal(projetoDaAuditoria({ projectName: "Obra X", report: REPORT }), "Obra X");
   assert.equal(projetoDaAuditoria({ report: REPORT }), "Centro Comunitário Primeira Linha");
+});
+
+// --- O centro de custo: `084_25-CRICIUMA` ------------------------------------
+
+test("centro de custo: código + prefeitura, como o escritório procura", () => {
+  assert.equal(
+    centroDeCustoDaAuditoria("084_25", "Prefeitura Municipal de Criciúma"),
+    "084_25-CRICIUMA",
+  );
+});
+
+test("centro de custo: preserva o separador do documento", () => {
+  // `084_25` e `084-25` são o mesmo centro de custo para CASAR projeto, mas aqui
+  // o valor é para LER — reescrevê-lo faria procurar por uma grafia inexistente.
+  assert.equal(centroDeCustoDaAuditoria("084-25", "Criciúma"), "084-25-CRICIUMA");
+});
+
+test("centro de custo: o órgão inteiro vira só o município", () => {
+  assert.equal(
+    centroDeCustoDaAuditoria(
+      "063_26",
+      "Prefeitura Municipal de Florianópolis / Secretaria Municipal de Infraestrutura",
+    ),
+    "063_26-FLORIANOPOLIS",
+  );
+  assert.equal(centroDeCustoDaAuditoria("017_26", "Criciúma - SC"), "017_26-CRICIUMA");
+  assert.equal(centroDeCustoDaAuditoria("017_26", "Município de Içara"), "017_26-ICARA");
+});
+
+test("centro de custo: meia identidade não é identidade", () => {
+  // "084_25-" ou "-CRICIUMA" ordenariam pior que o nome do arquivo, que é o que
+  // a escada de `tituloDaAuditoria` já sabe usar como último recurso.
+  assert.equal(centroDeCustoDaAuditoria("084_25", ""), "");
+  assert.equal(centroDeCustoDaAuditoria("", "Criciúma"), "");
+  assert.equal(centroDeCustoDaAuditoria(null, null), "");
+  assert.equal(centroDeCustoDaAuditoria("084_25", "   "), "");
 });
 
 console.log(`\n${passed} teste(s) de identidade OK`);

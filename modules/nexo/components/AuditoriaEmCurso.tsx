@@ -97,8 +97,13 @@ export function AuditoriaEmCurso({
     >
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
+          {/*
+            Sem adjetivo de nível: há um só desde 17/08/2026. "Auditoria padrão
+            em curso" descrevia uma escolha que o usuário não fez mais — e a
+            conversa antiga, restaurada, traria o rótulo de um nível aposentado.
+          */}
           <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-muted-foreground">
-            Auditoria {nivel === "deep" ? "profunda" : "padrão"} em curso
+            Auditoria em curso
           </p>
           <p className="mt-0.5 truncate text-sm text-foreground" title={arquivo}>
             {arquivo}
