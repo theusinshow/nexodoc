@@ -178,6 +178,20 @@ export async function runMemorialAudit(
     throw new AuditoriaDesconectada();
   }
 
+  /*
+   * DOCUMENTO IDÊNTICO — recusa, e ela vem ANTES da leitura do fluxo.
+   *
+   * O servidor devolve 409 com um corpo JSON simples quando nada mudou desde a
+   * última auditoria. Em modo de fluxo, `lerFluxo` procuraria `done`/`error`
+   * num corpo que não é fluxo, não acharia, e devolveria `null` — a tela diria
+   * "a conexão caiu" para uma recusa deliberada, e ainda guardaria um bilhete de
+   * retomada para uma auditoria que nunca começou.
+   */
+  if (res.status === 409) {
+    const corpo = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(corpo?.error ?? "O documento é idêntico ao que já foi auditado.");
+  }
+
   const payload = opcoes.onMarco
     ? await lerFluxo(res, opcoes.onMarco)
     : ((await res.json().catch(() => null)) as RespostaDaAuditoria | null);

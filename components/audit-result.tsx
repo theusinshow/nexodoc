@@ -187,6 +187,8 @@ type StructuredFinding = {
   referencia?: string;
   impacto?: FindingImpact;
   origem?: "regra" | "ia";
+  /** Veio do parecer anterior, de um capítulo idêntico. Ver `AuditFinding`. */
+  herdado_de?: { auditId: string; quando: string };
   confianca?: "alta" | "media" | "baixa";
   tier?: FindingTier;
   assurance?: string;
@@ -898,6 +900,13 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     // a etiqueta simplesmente não ganha explicação, em vez de inventar uma.
     severityReason: finding.severity_reason,
     origem: finding.origem,
+    /*
+     * Herdado da auditoria anterior, de um capítulo que não mudou. Atravessa a
+     * conversão porque é do MESMO tipo de informação que `origem`: diz de onde
+     * o achado veio, e é isso que permite conferir um parecer em vez de
+     * acreditar nele.
+     */
+    herdado_de: finding.herdado_de,
     confianca: finding.confianca,
     tier: classifyFindingTier(finding),
     assurance: getFindingAssurance(finding),
@@ -2246,6 +2255,54 @@ export function AuditResult({
               </div>
             ) : null}
 
+            {/*
+              REAUDITORIA: o que foi relido e o que veio de antes.
+
+              O parecer sustenta uma decisão de emitir projeto. Um documento em
+              que a maior parte dos capítulos não passou pelo modelo NESTA
+              corrida é uma coisa diferente de um que passou — mesmo sendo, as
+              duas, análises íntegras. Esconder a diferença seria afirmar um
+              trabalho que não houve, que é exatamente o defeito que o bloco de
+              "análise não completou" acima existe para não repetir.
+
+              A ausência deste bloco significa leitura completa, nunca "não sei":
+              `runtime.reauditoria` só é gravado quando houve reuso de verdade.
+            */}
+            {runtime?.reauditoria ? (
+              <div className="nx-cut-6 bg-[var(--nexodoc-recessed)] p-4">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Reauditoria
+                </p>
+                <p className="mt-1.5 text-sm leading-6 text-foreground">
+                  {plural(runtime.reauditoria.capitulos_lidos, "capítulo relido", "capítulos relidos")}
+                  {" nesta análise. "}
+                  {plural(
+                    runtime.reauditoria.capitulos_herdados,
+                    "capítulo estava idêntico",
+                    "capítulos estavam idênticos",
+                  )}
+                  {" ao parecer anterior, e "}
+                  {plural(
+                    runtime.reauditoria.achados_herdados,
+                    "achado foi herdado",
+                    "achados foram herdados",
+                  )}
+                  {"."}
+                </p>
+                {runtime.reauditoria.promovidos_sem_ancora.length > 0 ? (
+                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                    {plural(
+                      runtime.reauditoria.promovidos_sem_ancora.length,
+                      "capítulo foi relido",
+                      "capítulos foram relidos",
+                    )}{" "}
+                    por não ter sido possível localizar os achados anteriores no texto novo:{" "}
+                    {runtime.reauditoria.promovidos_sem_ancora.join(", ")}.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="grid gap-4 lg:grid-cols-2">
               {/*
                 O ARQUIVO VIRA FICHA, e deixa de ser uma linha com barras.
@@ -2737,6 +2794,24 @@ export function AuditResult({
                             >
                               {finding.origem === "regra" ? "✔ Verificado" : "◻ Sugerido"}
                             </span>
+                            {/*
+                              HERDADO: este achado não nasceu nesta corrida.
+
+                              Veio do parecer anterior, de um capítulo byte a
+                              byte idêntico, com a página reancorada para o
+                              documento novo. Quem confere um parecer precisa
+                              poder distinguir o que o modelo acabou de ler do
+                              que foi carregado de antes — e a data é o que
+                              permite ir buscar a corrida de origem.
+                            */}
+                            {finding.herdado_de ? (
+                              <span
+                                title={`Herdado da auditoria de ${finding.herdado_de.quando}: o capítulo não mudou desde lá.`}
+                                className="rounded-md border border-border px-2 py-1 font-mono text-xs text-muted-foreground"
+                              >
+                                herdado · {finding.herdado_de.quando}
+                              </span>
+                            ) : null}
                             <span className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono text-xs text-[var(--nexodoc-accent)]">
                               {getDisciplineLabel(disciplina)}
                             </span>
