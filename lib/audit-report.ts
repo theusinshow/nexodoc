@@ -116,12 +116,35 @@ export function classifyFindingTier(finding: AuditFinding): FindingTier {
   return finding.confianca === "baixa" ? "sugestao" : "principal";
 }
 
+/**
+ * QUANTO DO DOCUMENTO PASSOU PELO MODELO nesta corrida.
+ *
+ * O produto media achados, custo e tempo — e nunca cobertura. Foi por isso que
+ * uma auditoria que leu 16% do memorial 084_25 atravessou código, testes,
+ * relatório e veredito sem disparar nada, e ainda AFIRMOU no parecer ter lido
+ * "98 blocos" quando leu 8 (o texto usava o total de capítulos do documento em
+ * vez dos que foram lidos).
+ *
+ * Um auditor que não sabe dizer quanto leu não é auditor. Estes números existem
+ * para que o parecer não possa mais falar de si mesmo por cima.
+ */
+export type CoberturaDoArquivo = {
+  /** Caracteres que a leitura global efetivamente enviou ao modelo. */
+  caracteres_lidos: number;
+  caracteres_totais: number;
+  /** Blocos por capítulo que foram ao modelo. */
+  blocos_lidos: number;
+  /** Blocos que o documento tem — `lidos < totais` é buraco declarado. */
+  blocos_totais: number;
+};
+
 export type AuditFileSummary = {
   arquivo: string;
   tipo_documento: string;
   paginas?: number;
   caracteres_extraidos?: number;
   resumo: string;
+  cobertura?: CoberturaDoArquivo;
 };
 
 export type AuditReport = {

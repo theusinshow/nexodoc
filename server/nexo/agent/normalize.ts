@@ -280,9 +280,20 @@ function listaDeTitulos(v: unknown): string[] {
   return [...new Set(limpos)].slice(0, 200);
 }
 
-/** Nível da auditoria: só "deep" é preservado; qualquer outra coisa → "standard". */
+/**
+ * Nível da auditoria. O PADRÃO É `deep`, e só um "standard" explícito o troca.
+ *
+ * Era o contrário, e virou defeito no dia em que o slot de nível foi removido
+ * (17/08/2026): a proposta passou a chegar sem o campo, isto devolvia
+ * "standard", e toda auditoria passou a amostrar 16% do documento em vez de
+ * lê-lo inteiro. Ver [[analysis-level.ts]] para os números medidos.
+ *
+ * A guarda vale nos dois lados — aqui e em `parseAnalysisLevel` — porque uma
+ * conversa gravada ANTES da remoção ainda traz `nivel: "standard"` no payload, e
+ * ela precisa continuar sendo respeitada quando for explícita.
+ */
 function clampNivel(v: unknown): "standard" | "deep" {
-  return String(v ?? "").trim().toLowerCase() === "deep" ? "deep" : "standard";
+  return String(v ?? "").trim().toLowerCase() === "standard" ? "standard" : "deep";
 }
 
 /**

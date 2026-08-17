@@ -3,6 +3,7 @@ import {
   lerCaracterizacaoDaObra,
   type CaracterizacaoDaObra,
 } from "@/lib/caracterizacao-obra";
+import { nomeDaObra } from "@/lib/nome-da-obra";
 import { extractIdentityFingerprint } from "./cross-document-audit";
 
 export type DocumentKind =
@@ -76,11 +77,17 @@ function extractIdentity(source: { fileName: string; fileType: string; extracted
   const text = source.extracted.text;
   const fingerprint = extractIdentityFingerprint(source);
 
-  // obra: preferir o rodapé "017_26 – NOME DA OBRA – PROJETO EXECUTIVO" (mais limpo),
-  // depois o campo "Obra:", depois a impressão digital.
-  const footerObra = /\b\d{2,4}[_-]\d{2}\s*[–-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,90}?)\s*[–-]\s*PROJETO/i.exec(text)?.[1];
-  const campoObra = /\bObra\s*:\s*([^,.;\n]{4,90})/i.exec(text)?.[1];
-  const obraRaw = (footerObra ?? campoObra ?? fingerprint.fields.obra?.display ?? "").trim();
+  /*
+   * A obra sai de [[nome-da-obra.ts]] — rodapé primeiro, campo "Obra:" depois.
+   *
+   * As duas expressões viviam aqui e truncavam o gabarito do 084_25: a do campo
+   * parava na quebra de linha (que só passou a existir dentro de uma página
+   * quando a extração deixou de achatar tudo, no mesmo dia) e a do rodapé não
+   * aceitava parêntese. O nome saía sem "Rubens de Arruda Ramos", e a regra de
+   * identidade acusava de divergentes justamente as páginas que citavam a obra
+   * pelo nome certo.
+   */
+  const obraRaw = (nomeDaObra(text) || fingerprint.fields.obra?.display || "").trim();
   const obra = obraRaw ? titleCase(obraRaw) : "";
 
   const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";

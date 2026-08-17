@@ -19,6 +19,7 @@ import {
   type CapituloImpresso,
 } from "./audit-report.ts";
 import type { AnalysisLevel } from "./analysis-level.ts";
+import { paginasDoAchado } from "./paginas-do-achado.ts";
 import type { ExtractedPdf } from "./pdf-text.ts";
 
 const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
@@ -71,30 +72,81 @@ export function buildDocumentContext(
   ].join("");
 }
 
+/** Orçamento de contexto da validação, em caracteres. */
+const VALIDACAO_MAX_CHARS = 90_000;
+/** Páginas vizinhas incluídas junto da página do achado, de cada lado. */
+const VIZINHAS = 1;
+
 /**
- * ATENÇÃO ao nível: esta função chama `buildDocumentContext` SEM passar
- * `analysisLevel`, então o recorte é sempre o de "standard" (90k) — mesmo numa
- * auditoria profunda — e depois é cortado em 45k por arquivo, 90k no total. A
- * validação julga com uma fração do documento, e é assim de propósito: ela não
- * procura achado novo, confere os que já existem.
+ * O CONTEXTO DA VALIDAÇÃO: as PÁGINAS DOS ACHADOS, não uma amostra do documento.
+ *
+ * Até 17/08/2026 esta função chamava `buildDocumentContext` **sem o nível** —
+ * caindo no recorte de 90k do Padrão mesmo numa auditoria profunda — e depois
+ * cortava em 45k por arquivo. Num memorial de 547.855 caracteres, o validador
+ * julgava com **8% do documento**.
+ *
+ * A consequência é verificável: os falsos positivos "Escola Geral" (p. 181) do
+ * 084_25 sobreviveram porque a validação **nunca viu a página 181**. Um
+ * validador que não enxerga a página do achado não valida — carimba.
+ *
+ * A troca é de ESTRATÉGIA, não de tamanho: em vez de gastar o orçamento numa
+ * amostra que ignora onde os achados estão, gasta-se nas páginas que eles
+ * citam, mais uma vizinha de cada lado — o trecho costuma atravessar a virada.
+ * Com algumas dezenas de achados isso cabe folgado no mesmo orçamento, e é a
+ * diferença entre poder refutar e ter de acreditar.
+ *
+ * Sem página resolvível em achado nenhum, cai na amostragem antiga: contexto
+ * genérico é pior que o certo, e melhor que nenhum.
  */
-export function buildValidationContext(files: ValidationContextFile[]) {
-  let remainingCharacters = 90_000;
+export function buildValidationContext(
+  files: ValidationContextFile[],
+  findings: readonly AuditFinding[] = [],
+) {
+  const alvo = new Map<string, Set<number>>();
+
+  for (const finding of findings) {
+    const paginas = paginasDoAchado({
+      pagina: finding.pagina,
+      referencia: finding.referencia_comparada,
+    });
+    if (paginas.length === 0) continue;
+
+    // Sem `arquivo`, o achado é do único arquivo em análise — o caso comum.
+    const chave = finding.arquivo ?? files[0]?.file.name ?? "";
+    const set = alvo.get(chave) ?? new Set<number>();
+    for (const p of paginas) {
+      for (let d = -VIZINHAS; d <= VIZINHAS; d += 1) {
+        if (p + d > 0) set.add(p + d);
+      }
+    }
+    alvo.set(chave, set);
+  }
+
+  const temAlvo = [...alvo.values()].some((s) => s.size > 0);
+  let restante = VALIDACAO_MAX_CHARS;
 
   return files
     .map((file) => {
-      const text = buildDocumentContext(file.extracted).slice(
-        0,
-        Math.min(remainingCharacters, 45_000),
-      );
-      remainingCharacters -= text.length;
+      const paginas = alvo.get(file.file.name);
+      const focalizado = temAlvo && Boolean(paginas?.size);
+      const texto = focalizado
+        ? file.extracted.pages
+            .filter((p) => paginas!.has(p.page))
+            .map((p) => `--- PÁGINA ${p.page} ---\n${p.text}`)
+            .join("\n\n")
+            .slice(0, restante)
+        : buildDocumentContext(file.extracted).slice(0, Math.min(restante, 45_000));
+
+      restante -= texto.length;
 
       return [
         `ARQUIVO: ${file.file.name}`,
         `TIPO: ${file.fileType}`,
         `PÁGINAS: ${file.extracted.pageCount}`,
-        `TEXTO DE CONTEXTO:`,
-        text,
+        focalizado
+          ? "TEXTO DE CONTEXTO (as páginas citadas pelos achados):"
+          : "TEXTO DE CONTEXTO:",
+        texto,
       ].join("\n");
     })
     .join("\n\n---\n\n");
@@ -262,7 +314,7 @@ ACHADOS CANDIDATOS:
 ${buildFindingCandidateList(args.findings)}
 
 CONTEXTO DO DOCUMENTO:
-${buildValidationContext(args.files)}
+${buildValidationContext(args.files, args.findings)}
 `.trim();
 }
 

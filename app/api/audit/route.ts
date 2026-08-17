@@ -18,6 +18,7 @@ import {
   parseFindingImpact,
   sortAuditFindings,
   type AuditFinding,
+  type CoberturaDoArquivo,
   type AuditReport,
 } from "@/lib/audit-report";
 import { disciplinaDoAchado, disciplinaPorPagina } from "@/lib/disciplina-da-pagina";
@@ -65,6 +66,8 @@ import {
   type ExtractedPdf,
 } from "@/lib/pdf-text";
 import { compararImpressoes, impressaoDosCapitulos } from "@/lib/audit-fingerprint";
+import { resumoDoEsforco } from "@/lib/resumo-do-esforco";
+import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
 import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
 import { planejarReuso } from "@/lib/audit-reuso";
@@ -1933,11 +1936,18 @@ function dedupeFindings(findings: AuditFinding[]) {
 }
 
 function inferProjectFields(text: string, fallbackProjectName: string) {
+  /*
+   * A MESMA leitura de obra do cartão — ver [[nome-da-obra.ts]].
+   *
+   * Havia duas cópias das expressões, aqui e em `audit-classify.ts`, com os
+   * mesmos dois defeitos (parar na quebra de linha, recusar parêntese) e sem
+   * teste em nenhuma das duas. Duas fontes para o mesmo fato é como elas
+   * divergem — e aqui elas divergiriam sobre o gabarito da auditoria.
+   */
   const obra =
-    /\bObra\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
-    /\bIdentifica[cç][aã]o\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ??
-    /\b\d{2,4}[_-]\d{2}\s*[–-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,120})\s*[–-]\s*PROJETO\s+EXECUTIVO/i.exec(text)?.[1]?.trim() ??
-    /UBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9\s-]+PORTE\s*\d+/i.exec(text)?.[0]?.trim() ??
+    nomeDaObra(text) ||
+    /\bIdentifica[cç][aã]o\s*:\s*([^,.;\n]{4,120})/i.exec(text)?.[1]?.trim() ||
+    /UBS\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9\s-]+PORTE\s*\d+/i.exec(text)?.[0]?.trim() ||
     fallbackProjectName;
   const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";
   const municipio =
@@ -3007,6 +3017,15 @@ async function deepAnalyzeFile(args: {
   degradacoes: PassadaIncompleta[];
   /** Coletor: o mapa por capítulo que a leitura global deixa, por arquivo. */
   sinteses?: Map<string, { capitulo: string; resumo: string }[]>;
+  /**
+   * Coletor da COBERTURA — quanto do documento foi de fato ao modelo.
+   *
+   * Só quem executa sabe: o número de blocos lidos depende de teto, plano de
+   * reuso e agrupamento, e nenhum deles é visível de fora. Sem este coletor o
+   * relatório voltava a descrever o esforço por dedução, que foi como ele
+   * chegou a afirmar 98 blocos tendo lido 8.
+   */
+  cobertura?: Map<string, CoberturaDoArquivo>;
   /** Relata o progresso real, quando alguém está ouvindo. */
   onMarco?: EmitirMarco;
   /**
@@ -3120,6 +3139,21 @@ async function deepAnalyzeFile(args: {
       )
     : blocosDisponiveis;
   const chunks = blocosDoPlano.slice(0, chunkLimit);
+
+  /*
+   * A COBERTURA É REGISTRADA AQUI, onde os números são FATO — depois do teto,
+   * do plano de reuso e do agrupamento terem dito a sua. Deduzi-la no relatório
+   * foi o que produziu a frase "98 blocos" numa corrida que leu 8.
+   */
+  args.cobertura?.set(args.file.file.name, {
+    caracteres_lidos: Math.min(
+      args.file.extracted.text.length,
+      getGlobalContextChars(args.analysisLevel),
+    ),
+    caracteres_totais: args.file.extracted.text.length,
+    blocos_lidos: chunks.length,
+    blocos_totais: blocosDisponiveis.length,
+  });
 
   /*
    * TETO QUE CORTA COBERTURA NÃO PODE SER SILENCIOSO.
@@ -3757,6 +3791,8 @@ async function executarAuditoria(
     // O mapa por capítulo que cada leitura global deixa, para a reauditoria
     // seguinte não precisar reler o documento inteiro.
     const sinteses = new Map<string, { capitulo: string; resumo: string }[]>();
+    /** Quanto de cada arquivo foi de fato ao modelo — ver `CoberturaDoArquivo`. */
+    const cobertura = new Map<string, CoberturaDoArquivo>();
 
     for (const file of uploadedFiles) {
       const findings = await deepAnalyzeFile({
@@ -3773,6 +3809,7 @@ async function executarAuditoria(
         userEmail: sessionEmail,
         degradacoes,
         sinteses,
+        cobertura,
         onMarco,
         /*
          * O plano vale para o arquivo que foi comparado. Com mais de um arquivo,
@@ -4085,11 +4122,17 @@ async function executarAuditoria(
          * decisão de emitir: descrever nele um esforço que não houve é o pior
          * lugar do sistema para se estar errado.
          */
-        resumo: isCoberturaTotalEnabled()
-          ? `Auditoria completa: leitura de identidade, leitura do documento inteiro por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`
-          : analysisLevel === "deep"
-            ? "Auditoria profunda: leitura de identidade e leitura do documento inteiro por IA."
-            : `Auditoria padrão: leitura de identidade, leitura global por IA e ${chunkPdfByChapter(file.extracted).length} blocos de leitura por capítulo.`,
+        /*
+         * O RESUMO DESCREVE O QUE ACONTECEU, e nada além disso.
+         *
+         * Ele dizia "${total de capítulos do documento} blocos de leitura" — o
+         * total, não os lidos —, e assim uma corrida que leu 8 blocos afirmava
+         * 98. Um parecer que sustenta decisão de emitir projeto não pode
+         * exagerar o próprio esforço em 12×. Agora a frase sai dos números
+         * medidos, e a fração lida é dita quando não é o documento inteiro.
+         */
+        resumo: resumoDoEsforco(cobertura.get(file.file.name)),
+        cobertura: cobertura.get(file.file.name),
       })),
       comparacoes: [...ruleComparison.comparisons, ...modelComparison.comparisons],
       incongruencias: findings,

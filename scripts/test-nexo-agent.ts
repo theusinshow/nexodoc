@@ -321,14 +321,32 @@ test("normalizeProposals: auditoria nivel 'deep' é preservado", () => {
   assert.equal((r[0].params as { nivel: string }).nivel, "deep");
 });
 
-test("normalizeProposals: auditoria nivel inválido/ausente -> 'standard'", () => {
+test("normalizeProposals: auditoria nivel inválido/ausente -> 'deep'", () => {
+  /*
+   * O PADRÃO INVERTEU EM 17/08/2026, e este teste afirmava o defeito.
+   *
+   * Com o slot de nível removido, a proposta passou a chegar SEM o campo — e
+   * cair em "standard" fez toda auditoria amostrar 16% do documento em vez de
+   * lê-lo inteiro. O parecer do 084_25 encontrou 6 de 25 achados de referência
+   * por causa disso. Ver [[analysis-level.ts]] para os números medidos.
+   */
   const r = normalizeProposals(
     [{ kind: "auditoria", nivel: "xyz" }, { kind: "auditoria" }],
     { disciplina: "EST", prefeituras: PREFS },
   );
   assert.equal(r.length, 2);
+  assert.equal((r[0].params as { nivel: string }).nivel, "deep");
+  assert.equal((r[1].params as { nivel: string }).nivel, "deep");
+});
+
+test("normalizeProposals: 'standard' EXPLÍCITO continua respeitado", () => {
+  // Conversa gravada antes da remoção do slot ainda traz o campo, e serve para
+  // benchmark. O padrão mudou; a escolha explícita não deixou de valer.
+  const r = normalizeProposals([{ kind: "auditoria", nivel: "standard" }], {
+    disciplina: "EST",
+    prefeituras: PREFS,
+  });
   assert.equal((r[0].params as { nivel: string }).nivel, "standard");
-  assert.equal((r[1].params as { nivel: string }).nivel, "standard");
 });
 
 test("normalizeProposals: conferencia e volume normalizam com params vazio", () => {
