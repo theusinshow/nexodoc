@@ -25,7 +25,7 @@ import { severidadeDoAchado } from "@/lib/severidade";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 import type { Actor } from "@/lib/actor";
-import { isDatabaseConfigured } from "@/lib/db";
+import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   assertProjectAccess,
   getUserActor,
@@ -1995,6 +1995,13 @@ function inferDocumentType(auditMode: AuditMode, text: string) {
   return auditMode === "volume" ? "Volume de projeto" : "Memorial Descritivo";
 }
 
+/** "17/08" — a data do parecer anterior, para a frase da recusa e o selo. */
+function formatarDataCurta(quando: Date | null | undefined) {
+  return quando
+    ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(quando)
+    : "antes";
+}
+
 function isMissingProjectField(value: string) {
   const normalized = normalizeLoose(value);
 
@@ -2966,6 +2973,15 @@ async function deepAnalyzeFile(args: {
   sinteses?: Map<string, { capitulo: string; resumo: string }[]>;
   /** Relata o progresso real, quando alguém está ouvindo. */
   onMarco?: EmitirMarco;
+  /**
+   * Só estes capítulos vão ao modelo. `undefined` = auditoria completa, que é o
+   * caso da primeira vez e de toda base inelegível.
+   */
+  capitulosParaLer?: readonly { hash: string }[];
+  /** Hashes dos capítulos inalterados — a global os lê resumidos. */
+  hashesHerdados?: ReadonlySet<string>;
+  /** Resumo por hash, de `runtime.sintese` do parecer anterior. */
+  resumoPorHash?: ReadonlyMap<string, string>;
 }) {
   const startedAt = Date.now();
   const marco = (m: MarcoDaAuditoria) => args.onMarco?.(m);
@@ -3045,7 +3061,29 @@ async function deepAnalyzeFile(args: {
   const blocosDisponiveis = coberturaTotal
     ? agruparBlocosParaLeitura(capitulos, CHUNK_GROUP_CHARS)
     : capitulos;
-  const chunks = blocosDisponiveis.slice(0, chunkLimit);
+  /*
+   * O REUSO CORTA AQUI, e não no `chunkLimit`: o teto é orçamento, o plano é
+   * conhecimento. Confundir os dois faria a economia parecer degradação.
+   *
+   * A unidade que vai ao modelo é o BLOCO, e um bloco pode agrupar vários
+   * capítulos. Basta UM capítulo do bloco ter mudado para ele ser relido
+   * inteiro: mandar meio bloco seria mandar texto sem o contexto que o cerca, e
+   * o capítulo vizinho é justamente o contexto mais próximo que existe.
+   */
+  const hashesParaLer = args.capitulosParaLer
+    ? new Set(args.capitulosParaLer.map((c) => c.hash))
+    : null;
+  const blocosDoPlano = hashesParaLer
+    ? blocosDisponiveis.filter((bloco) =>
+        capitulos.some(
+          (cap, i) =>
+            cap.startPage >= bloco.startPage &&
+            cap.endPage <= bloco.endPage &&
+            hashesParaLer.has(impressaoDosCapitulos([capitulos[i]])[0].hash),
+        ),
+      )
+    : blocosDisponiveis;
+  const chunks = blocosDoPlano.slice(0, chunkLimit);
 
   /*
    * TETO QUE CORTA COBERTURA NÃO PODE SER SILENCIOSO.
@@ -3404,6 +3442,12 @@ async function executarAuditoria(
     }
 
     const clientAuditId = String(formData.get("auditId") ?? "").trim();
+    /*
+     * A auditoria ANTERIOR deste memorial. O cliente ja a conhece — e ja a manda
+     * para `/api/audit/delta`, que responde o que mudou de graca. Faltava mandar
+     * para ca, onde a resposta pode virar economia em vez de so informacao.
+     */
+    const auditIdAnterior = String(formData.get("auditIdAnterior") ?? "").trim();
     const conversationIdRaw = formData.get("conversationId");
     const conversationId =
       typeof conversationIdRaw === "string" && conversationIdRaw.trim()
@@ -3581,6 +3625,93 @@ async function executarAuditoria(
       tamanhoDoBloco: CHUNK_GROUP_CHARS,
     });
 
+    /*
+     * O REUSO, decidido ANTES de gastar um token.
+     *
+     * O motor de decisão inteiro já existia em [[audit-reuso.ts]] e nunca tinha
+     * sido chamado — a rota importava dali só a constante de versão. Ver
+     * `docs/superpowers/specs/2026-08-17-reuso-da-auditoria-design.md`.
+     */
+    const arquivoPrincipal = uploadedFiles[0];
+    const baseCarregada = auditIdAnterior
+      ? await getPrisma()
+          .audit.findFirst({
+            // `projectId` na cláusula não é zelo: herdar achado de auditoria de
+            // OUTRO centro de custo contaminaria a fila de um projeto alheio.
+            where: { id: auditIdAnterior, projectId },
+            select: { id: true, status: true, report: true, completedAt: true },
+          })
+          .catch(() => null)
+      : null;
+
+    const relatorioBase = (baseCarregada?.report ?? null) as AuditReport | null;
+    const elegibilidade = avaliarBase({
+      base: baseCarregada
+        ? { auditId: baseCarregada.id, status: baseCarregada.status, report: relatorioBase }
+        : null,
+      arquivo: arquivoPrincipal.file.name,
+      versaoAtual: versaoAtualDoAuditor,
+    });
+
+    const delta = elegibilidade.serve
+      ? compararImpressoes(
+          elegibilidade.impressao,
+          impressaoDosCapitulos(chunkPdfByChapter(arquivoPrincipal.extracted)),
+        )
+      : null;
+
+    /*
+     * DOCUMENTO IDÊNTICO: recusa antes de gastar.
+     *
+     * Nada alterado, nada novo e o mesmo auditor — não há trabalho a fazer, e
+     * cobrar uma auditoria para reconfirmar o parecer que já existe seria vender
+     * o mesmo serviço duas vezes.
+     *
+     * O caso VIZINHO não é recusa: documento idêntico com auditor DIFERENTE relê
+     * tudo, senão melhorar o prompt nunca alcançaria memorial já auditado. Ele
+     * nem chega aqui — `avaliarBase` já o barrou com `versao-diferente`, e
+     * `delta` fica nulo.
+     */
+    if (delta && delta.alterados.length === 0 && delta.novos.length === 0) {
+      console.log(`[audit] recusada: documento idêntico à auditoria ${auditIdAnterior}`);
+      return withCors(
+        NextResponse.json(
+          {
+            error: `O documento é idêntico ao que foi auditado em ${formatarDataCurta(baseCarregada?.completedAt)}. Não há o que auditar.`,
+            identico: true,
+            auditIdAnterior,
+          },
+          { status: 409 },
+        ),
+        request,
+      );
+    }
+
+    const plano =
+      delta && elegibilidade.serve && relatorioBase
+        ? planejarReuso({
+            delta,
+            capitulosAntes: elegibilidade.impressao,
+            achadosAntes: relatorioBase.incongruencias ?? [],
+            paginasAgora: arquivoPrincipal.extracted.pages,
+            versaoAnterior: relatorioBase.runtime?.versao_auditor,
+            versaoAtual: versaoAtualDoAuditor,
+          })
+        : null;
+
+    console.log(
+      plano
+        ? `[audit] reuso: ${plano.capitulosParaLer.length} capítulo(s) para reler, ${plano.hashesHerdados.length} herdado(s), ${plano.achadosHerdados.length} achado(s) herdado(s)`
+        : `[audit] sem reuso: ${elegibilidade.serve ? "delta indisponível" : fraseDaRecusa(elegibilidade.motivo)}`,
+    );
+
+    /** Resumo por hash, do parecer anterior — o que a global lê no lugar do texto. */
+    const resumoPorHash = new Map(
+      (relatorioBase?.runtime?.sintese ?? [])
+        .filter((s) => s.arquivo === arquivoPrincipal.file.name)
+        .flatMap((s) => s.capitulos.map((c) => [c.hash, c.resumo] as const)),
+    );
+
     const allFindings: AuditFinding[] = [];
     // Passadas que não completaram. Vai para o relatório: sem isso, uma auditoria
     // degradada chega na tela com a mesma cara de uma completa.
@@ -3605,9 +3736,34 @@ async function executarAuditoria(
         degradacoes,
         sinteses,
         onMarco,
+        /*
+         * O plano vale para o arquivo que foi comparado. Com mais de um arquivo,
+         * só o primeiro tem base — os outros são lidos inteiros, que é o
+         * conservador certo: reuso sem impressão comparável seria adivinhação.
+         */
+        ...(plano && file === arquivoPrincipal
+          ? {
+              capitulosParaLer: plano.capitulosParaLer,
+              hashesHerdados: new Set(plano.hashesHerdados),
+              resumoPorHash,
+            }
+          : {}),
       });
       allFindings.push(...findings);
     }
+
+    /*
+     * Os HERDADOS entram depois das passadas e FORA da validação: eles já foram
+     * validados na corrida que os produziu, e o texto do capítulo não mudou.
+     * Revalidá-los custa dinheiro e pode virar o veredito de um trecho idêntico.
+     */
+    const achadosHerdados = (plano?.achadosHerdados ?? []).map((f) => ({
+      ...f,
+      herdado_de: {
+        auditId: auditIdAnterior,
+        quando: formatarDataCurta(baseCarregada?.completedAt),
+      },
+    }));
 
     // Camada 1 — confronto determinístico de identidade entre documentos.
     // Sempre ativo, sem IA, com evidência verificável. É o que pega troca de
@@ -3706,9 +3862,19 @@ async function executarAuditoria(
         ? disciplinaPorArquivo.get(uploadedFiles[0].file.name)
         : undefined;
 
+    /*
+     * Os herdados entram no MESMO funil de dedupe e ordenação dos novos — e é
+     * aqui, não antes, porque `dedupeFindings` é quem impede que um achado
+     * herdado e o seu gêmeo recém-produzido apareçam duas vezes no parecer. Um
+     * capítulo promovido por falta de âncora é justamente o caso: os achados
+     * dele voltam frescos do modelo enquanto a versão antiga já foi descartada
+     * por `planejarReuso`, mas o dedupe é a rede que sustenta a promessa.
+     */
     const findings = sortAuditFindings(
       compactRepeatedIdentityFindings(
-        filterFalsePositiveIdentityFindings(dedupeFindings(validatedFindings)),
+        filterFalsePositiveIdentityFindings(
+          dedupeFindings([...validatedFindings, ...achadosHerdados]),
+        ),
       ),
     ).map(
       (finding, index) => {
@@ -3810,6 +3976,21 @@ async function executarAuditoria(
          * vencida — a mesma regra do cache de leitura de selo.
          */
         versao_auditor: versaoAtualDoAuditor,
+        /*
+         * Preenchido só quando houve reuso. A AUSÊNCIA dele significa leitura
+         * completa — nunca "não sei" —, e é por isso que ele não vira zeros.
+         */
+        ...(plano
+          ? {
+              reauditoria: {
+                base_audit_id: auditIdAnterior,
+                capitulos_lidos: plano.capitulosParaLer.length,
+                capitulos_herdados: plano.hashesHerdados.length,
+                achados_herdados: achadosHerdados.length,
+                promovidos_sem_ancora: plano.promovidos.map((p) => p.titulo),
+              },
+            }
+          : {}),
         /*
          * O modelo devolve o TÍTULO do capítulo; o reuso precisa do HASH, que é
          * o que sobrevive a capítulo inserido no meio. O casamento é aqui, e é

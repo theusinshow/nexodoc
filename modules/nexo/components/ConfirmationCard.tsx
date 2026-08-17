@@ -2288,6 +2288,12 @@ function AuditoriaConfirmation({
           signal: controle.signal,
           auditId,
           projectId: destino.projeto.id,
+          /*
+           * A base do REUSO: a última auditoria deste memorial nesta conversa.
+           * É o mesmo id que já alimenta o delta do cartão — só que agora ele
+           * economiza em vez de apenas informar.
+           */
+          auditIdAnterior: auditoriaAnterior,
         },
       );
       await saveResult({

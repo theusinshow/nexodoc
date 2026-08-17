@@ -95,6 +95,15 @@ export interface MemorialAuditOpcoes {
    * vazio. Duas guardas, e a do servidor e a que vale.
    */
   projectId?: string;
+  /**
+   * A auditoria ANTERIOR deste memorial nesta conversa.
+   *
+   * O servidor compara as impressões digitais por capítulo e relê só o que
+   * mudou. O cliente já conhecia esse id — ele já o mandava para
+   * `/api/audit/delta`, que responde de graça o que mudou. Faltava mandá-lo
+   * para cá, onde a resposta vira economia em vez de só informação.
+   */
+  auditIdAnterior?: string;
 }
 
 export async function runMemorialAudit(
@@ -154,6 +163,7 @@ export async function runMemorialAudit(
   if (opcoes.onMarco) form.append("stream", "1");
   if (opcoes.auditId) form.append("auditId", opcoes.auditId);
   if (opcoes.projectId) form.append("projectId", opcoes.projectId);
+  if (opcoes.auditIdAnterior) form.append("auditIdAnterior", opcoes.auditIdAnterior);
 
   let res: Response;
   try {
