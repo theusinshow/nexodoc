@@ -38,7 +38,29 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
       (item): item is typeof item & ItemDeTexto =>
         "str" in item && typeof item.str === "string",
     );
-    const text = textoDosItens(itens).replace(/\s+/g, " ").trim();
+    /*
+     * A QUEBRA DE LINHA SOBREVIVE — e é o que faz tabela ser legível.
+     *
+     * Este `.replace(/\s+/g, " ")` achatava a página inteira numa linha só.
+     * Numa tabela — quadro de áreas, acabamentos, esquadrias, carga de incêndio
+     * — isso apaga a estrutura: linhas e colunas viram uma sequência contínua de
+     * palavras, e nenhum modelo consegue dizer que valor pertence a que linha.
+     * Foi o que motivou "ele não está lendo tabelas" (17/08/2026).
+     *
+     * E colava números: no sumário do 156-25 o "11" da página grudava no "1.1"
+     * do item seguinte e chegava ao auditor como "111.1" — um número que não
+     * existe no documento, oferecido a uma auditoria que confere números.
+     *
+     * O colapso continua na HORIZONTAL (`[^\S\n]` = branco que não é quebra):
+     * vão duplo entre palavras é ruído de renderização, não estrutura. E três
+     * quebras seguidas viram duas, porque parágrafo separado é informação e
+     * dez linhas em branco são só o desenho da página.
+     */
+    const text = textoDosItens(itens, { quebrarLinhas: true })
+      .replace(/[^\S\n]+/g, " ")
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
     pages.push({
       page: pageNumber,

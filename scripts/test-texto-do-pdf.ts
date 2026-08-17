@@ -152,4 +152,59 @@ test("lista vazia devolve string vazia", () => {
   assert.equal(textoDosItens([]), "");
 });
 
+// ---------------------------------------------------------------------------
+// A QUEBRA DE LINHA PRESERVADA — sem ela, tabela vira sopa de palavras.
+//
+// Ate 17/08/2026 toda quebra virava espaco e a pagina inteira chegava ao auditor
+// como UMA linha. Num quadro de areas ou de acabamentos isso e fatal: nenhum
+// modelo consegue dizer que valor pertence a que linha. E colava numeros: no
+// sumario do 156-25, o "11" da pagina grudava no "1.1" do item seguinte e virava
+// "111.1", um numero que nao existe no documento.
+// ---------------------------------------------------------------------------
+
+test("com `quebrarLinhas`, mudanca de linha vira \n", () => {
+  const a: ItemDeTexto = { str: "primeira", transform: [1, 0, 0, CORPO, 100, 700], width: 40, height: CORPO };
+  const b: ItemDeTexto = { str: "segunda", transform: [1, 0, 0, CORPO, 100, 686], width: 35, height: CORPO };
+  assert.equal(textoDosItens([a, b], { quebrarLinhas: true }), "primeira\nsegunda");
+});
+
+test("com `quebrarLinhas`, hasEOL vira \n", () => {
+  const a: ItemDeTexto = { str: "fim", transform: [1, 0, 0, CORPO, 100, 700], width: 15, height: CORPO, hasEOL: true };
+  const b: ItemDeTexto = { str: "comeco", transform: [1, 0, 0, CORPO, 115, 700], width: 30, height: CORPO };
+  assert.equal(textoDosItens([a, b], { quebrarLinhas: true }), "fim\ncomeco");
+});
+
+test("a quebra NAO desfaz a costura de palavra partida", () => {
+  /*
+   * O conserto da Etapa 2 (troca de fonte no meio da palavra) continua valendo:
+   * "r" + "espingos" na MESMA linha seguem virando "respingos". A quebra so
+   * entra onde a linha realmente muda.
+   */
+  assert.equal(textoDosItens(linha(["r", "espingos"], [0.4]), { quebrarLinhas: true }), "respingos");
+});
+
+test("sem a opcao, o comportamento e o de sempre — espaco", () => {
+  /*
+   * `locateTermOnPage` remonta a pagina com `separadorEntreItens` e procura a
+   * evidencia com espacos normalizados. Mudar o padrao quebraria o pin de todo
+   * achado cujo trecho atravessa uma linha.
+   */
+  const a: ItemDeTexto = { str: "primeira", transform: [1, 0, 0, CORPO, 100, 700], width: 40, height: CORPO };
+  const b: ItemDeTexto = { str: "segunda", transform: [1, 0, 0, CORPO, 100, 686], width: 35, height: CORPO };
+  assert.equal(textoDosItens([a, b]), "primeira segunda");
+  assert.equal(separadorEntreItens(a, b), " ");
+});
+
+test("uma tabela mantem uma linha por linha", () => {
+  const l1 = linha(["Ambiente", "Piso", "Parede"], [40, 40], 700);
+  const l2 = linha(["Sala", "Porcelanato", "Pintura"], [40, 40], 686);
+  const l3 = linha(["Cozinha", "Ceramica", "Azulejo"], [40, 40], 672);
+  const texto = textoDosItens([...l1, ...l2, ...l3], { quebrarLinhas: true });
+  assert.deepEqual(texto.split("\n"), [
+    "Ambiente Piso Parede",
+    "Sala Porcelanato Pintura",
+    "Cozinha Ceramica Azulejo",
+  ]);
+});
+
 console.log(`\n${passed} teste(s) OK`);

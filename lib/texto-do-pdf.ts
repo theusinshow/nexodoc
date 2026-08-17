@@ -107,13 +107,51 @@ export function separadorEntreItens(anterior: ItemDeTexto, proximo: ItemDeTexto)
 }
 
 /**
+ * Os dois itens estão em LINHAS diferentes?
+ *
+ * A mesma medida que `separadorEntreItens` usa para decidir separar, exposta
+ * como pergunta. Ela precisa existir à parte porque aquela função devolve o
+ * SEPARADOR (" " ou ""), e do lado de fora não dava para distinguir um espaço
+ * que veio de "mudou de linha" de um que veio de "há um vão entre as palavras".
+ * Preservar quebra de linha exige exatamente essa distinção.
+ *
+ * `hasEOL` entra junto: é o marcador explícito do pdf.js, e quando ele existe
+ * não há medida a fazer.
+ */
+export function mudouDeLinha(anterior: ItemDeTexto, proximo: ItemDeTexto): boolean {
+  if (anterior.hasEOL) return true;
+
+  const corpo = corpoDaFonte(anterior) || corpoDaFonte(proximo);
+  // Sem corpo não dá para medir degrau nenhum; não afirmamos quebra.
+  if (corpo <= 0) return false;
+
+  const yAnterior = anterior.transform?.[5] ?? 0;
+  const yProximo = proximo.transform?.[5] ?? 0;
+  return Math.abs(yProximo - yAnterior) > corpo * FRACAO_DE_LINHA;
+}
+
+/**
  * A linha de texto de uma página, com os pedaços costurados pela medida acima.
  *
  * Não colapsa espaço nem apara as pontas: quem chama decide, porque o
  * localizador do pin precisa das posições preservadas para mapear o casamento
  * de volta ao item.
  */
-export function textoDosItens(items: ItemDeTexto[]): string {
+export function textoDosItens(
+  items: ItemDeTexto[],
+  opcoes: {
+    /**
+     * Emite `"\n"` onde a linha muda, em vez de espaço.
+     *
+     * DESLIGADO por padrão de propósito. `locateTermOnPage` remonta a página com
+     * `separadorEntreItens` e procura a evidência com espaço normalizado; se a
+     * costura padrão passasse a quebrar linha, o pin sumiria de todo achado cujo
+     * trecho atravessa uma quebra. Quem quer estrutura pede por ela.
+     */
+    quebrarLinhas?: boolean;
+  } = {},
+): string {
+  const fimDeLinha = opcoes.quebrarLinhas ? "\n" : " ";
   let texto = "";
   let anterior: ItemDeTexto | null = null;
   /*
@@ -130,7 +168,16 @@ export function textoDosItens(items: ItemDeTexto[]): string {
       continue;
     }
     if (anterior) {
-      texto += quebraPendente ? " " : separadorEntreItens(anterior, item);
+      /*
+       * Duas maneiras de a linha mudar, e as duas viram quebra: o marcador
+       * `hasEOL` do pdf.js e o degrau no eixo Y, que `separadorEntreItens`
+       * detecta e devolve como espaço. Tratar só o `hasEOL` deixaria de fora a
+       * maioria dos PDFs — muitos não emitem o marcador, e a mudança de Y é o
+       * que sempre existe.
+       */
+      const separador = quebraPendente ? " " : separadorEntreItens(anterior, item);
+      const trocouDeLinha = quebraPendente || mudouDeLinha(anterior, item);
+      texto += trocouDeLinha && separador === " " ? fimDeLinha : separador;
     }
     texto += item.str;
     anterior = item;
