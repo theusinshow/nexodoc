@@ -144,7 +144,8 @@
     "test:agrupar-blocos": "node scripts/test-agrupar-blocos.ts",
     "test:versao-auditor": "node scripts/test-versao-do-auditor.ts",
     "test:elegibilidade": "node scripts/test-elegibilidade-da-base.ts",
-    "test:contexto-global": "node scripts/test-contexto-da-global.ts"
+    "test:contexto-global": "node scripts/test-contexto-da-global.ts",
+    "gasto:auditoria": "node scripts/gasto-da-auditoria.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
