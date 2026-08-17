@@ -9,7 +9,13 @@ import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 export const runtime = "nodejs";
 
 /** Resposta de "não há nada a mostrar" — o anel some, sem erro na tela. */
-const VAZIO = { porModelo: [], porTarefa: [], totalTokens: 0, totalCostUsd: null };
+const VAZIO = {
+  porModelo: [],
+  porTarefa: [],
+  totalTokens: 0,
+  totalCostUsd: null,
+  desperdicioUsd: 0,
+};
 
 /**
  * Consumo de IA de UMA conversa do Nexo, agregado por modelo e por tarefa.
@@ -56,6 +62,11 @@ export async function GET(req: NextRequest) {
       where: { conversationId, userEmail },
       select: {
         flow: true,
+        // A OPERACAO e o STATUS entram porque o painel abre a auditoria passada
+        // a passada, e separa o que falhou. Sem eles, a auditoria inteira era
+        // uma linha e o que truncou somava-se ao que funcionou.
+        operation: true,
+        status: true,
         model: true,
         totalTokens: true,
         estimatedCostUsd: true,

@@ -15,6 +15,10 @@
 /** Uma linha crua vinda do banco (`AiUsageEvent`). */
 export interface UsageRow {
   flow: string;
+  /** A chamada especifica: "audit-global", "audit-chunk", "nexo-agent-turn". */
+  operation: string;
+  /** "success" ou o que a rota gravou. Falha que queimou token e gasto real. */
+  status: string;
   model: string;
   totalTokens: number;
   estimatedCostUsd: number | null;
@@ -30,10 +34,17 @@ export interface UsageSlice {
 /** Uma linha do popover: par (tarefa, modelo). */
 export interface UsageTaskRow {
   flow: string;
+  operation: string;
   label: string;
   model: string;
   totalTokens: number;
   costUsd: number | null;
+  /**
+   * A chamada nao completou. Ela CONTINUA aqui porque queimou token — chamada
+   * truncada gasta o teto de saida inteiro e devolve zero, que e o pior caso e
+   * nao um caso degradado. Some-la seria esconder o gasto que mais dói.
+   */
+  falhou: boolean;
 }
 
 export interface UsageSummary {
@@ -41,6 +52,11 @@ export interface UsageSummary {
   porTarefa: UsageTaskRow[];
   totalTokens: number;
   totalCostUsd: number | null;
+  /**
+   * O que foi gasto em chamadas que FALHARAM. Zero e uma afirmacao ("nada foi
+   * perdido"), por isso nunca e nulo.
+   */
+  desperdicioUsd: number;
 }
 
 /** Fluxo técnico → o nome que o engenheiro reconhece. */
@@ -50,9 +66,45 @@ const FLOW_LABELS: Record<string, string> = {
   audit: "Auditoria do memorial",
 };
 
+/**
+ * A OPERAÇÃO, com o nome do trabalho que ela faz.
+ *
+ * Agrupar só por fluxo fazia a auditoria inteira virar UMA linha — e foi assim
+ * que 71% do gasto de uma corrida do 084_25 (blocos truncados, US$ 4,32) ficou
+ * invisível na tela enquanto estava explícito no banco. Cada passada custa
+ * diferente e falha diferente; juntá-las apaga exatamente a informação que
+ * decide o que consertar.
+ */
+const OPERATION_LABELS: Record<string, string> = {
+  "audit-global": "Leitura do documento inteiro",
+  "audit-chunk": "Leitura por capítulo",
+  "audit-identity": "Leitura de identidade",
+  "audit-validation": "Revisão dos achados",
+  "audit-coherence": "Coerência entre capítulos",
+  "audit-cross-document": "Comparação entre arquivos",
+  "audit-refutation": "Refutação dos achados",
+  "audit-chat-answer": "Perguntas sobre o parecer",
+  "nexo-agent-turn": "Turnos da conversa",
+  "nexo-selo": "Leitura de selo",
+  "nexo-selo-image": "Recorte do selo",
+  "nexo-selo-identidade": "Conferência de identidade do selo",
+  "nexo-volume-check": "Conferência do volume",
+  "volume-batch-analysis": "Análise do volume",
+  "volume-assembly-suggestion": "Sugestão de montagem",
+};
+
 /** Rótulo da tarefa. Fluxo novo cai no próprio nome — nunca string vazia. */
 export function flowLabel(flow: string): string {
   return FLOW_LABELS[flow] ?? flow;
+}
+
+/**
+ * Rótulo da operação. Operação nova cai no próprio nome, e depois no fluxo —
+ * nunca string vazia, porque linha em branco numa tabela de gasto lê-se como
+ * "não sei o que é isto", que é pior do que ler o nome técnico.
+ */
+export function operationLabel(operation: string, flow: string): string {
+  return OPERATION_LABELS[operation] ?? operation ?? flowLabel(flow);
 }
 
 /** Soma tolerante a nulos: nulo só quando NADA no grupo tinha preço. */
@@ -66,6 +118,7 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
   const byTask = new Map<string, UsageTaskRow>();
   let totalTokens = 0;
   let totalCostUsd: number | null = null;
+  let desperdicioUsd = 0;
 
   for (const row of rows) {
     // Item 4 (decisão fechada): filtra por CONSUMO, não por status. Uma chamada
@@ -79,6 +132,9 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
     totalTokens += row.totalTokens;
     totalCostUsd = addCost(totalCostUsd, row.estimatedCostUsd);
 
+    const falhou = row.status !== "success";
+    if (falhou) desperdicioUsd += row.estimatedCostUsd ?? 0;
+
     const slice = byModel.get(row.model);
     if (slice) {
       slice.totalTokens += row.totalTokens;
@@ -91,7 +147,13 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
       });
     }
 
-    const key = `${row.flow} ${row.model}`;
+    /*
+     * A chave inclui a OPERACAO e se FALHOU. Sem a operacao, a auditoria inteira
+     * virava uma linha e a passada cara ficava indistinguivel da barata; sem o
+     * `falhou`, o que truncou se somava ao que funcionou e o desperdicio
+     * desaparecia dentro do total.
+     */
+    const key = `${row.flow} ${row.operation} ${row.model} ${falhou}`;
     const task = byTask.get(key);
     if (task) {
       task.totalTokens += row.totalTokens;
@@ -99,10 +161,12 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
     } else {
       byTask.set(key, {
         flow: row.flow,
-        label: flowLabel(row.flow),
+        operation: row.operation,
+        label: operationLabel(row.operation, row.flow),
         model: row.model,
         totalTokens: row.totalTokens,
         costUsd: row.estimatedCostUsd,
+        falhou,
       });
     }
   }
@@ -115,5 +179,6 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
     porTarefa: [...byTask.values()].sort(desc),
     totalTokens,
     totalCostUsd,
+    desperdicioUsd,
   };
 }
