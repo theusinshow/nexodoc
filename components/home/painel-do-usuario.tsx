@@ -104,24 +104,50 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       }}
     >
       <header className="relative shrink-0 border-b border-border bg-[rgb(18_21_24/0.95)]">
-        <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-[22px] gap-y-2 px-4 py-3 sm:px-8">
-          <Link href="/nexo" className="flex items-center gap-[9px] text-foreground">
-            <MarcaViva size={20} />
-            <span className="font-mono text-[13.5px] font-semibold">NexoDoc</span>
+        <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-8">
+          <Link href="/nexo" className="flex items-center gap-2 text-foreground">
+            <MarcaViva size={26} />
+            <span className="font-mono text-sm font-semibold">NexoDoc</span>
           </Link>
+
+          <div className="h-6 w-px bg-border" />
+
+          {/*
+            AS ABAS, e não mais só a marca à esquerda. `/` já É o painel, então
+            "Painel" fica marcado sem precisar de rota própria. Escondidas
+            abaixo de `lg`: a tela estreita já empilha bastante coisa, e o menu
+            da conta cobre os mesmos três destinos.
+          */}
+          <nav className="hidden items-center gap-1 lg:flex">
+            <span className="nx-cut-4 bg-[var(--nexodoc-raised)] px-3.5 py-2 font-mono text-xs font-medium uppercase tracking-[0.07em] text-foreground">
+              Painel
+            </span>
+            <Link
+              href="/volumes"
+              className="px-3.5 py-2 font-mono text-xs font-medium uppercase tracking-[0.07em] text-muted-foreground hover:text-foreground"
+            >
+              Volumes
+            </Link>
+            <Link
+              href="/projetos"
+              className="px-3.5 py-2 font-mono text-xs font-medium uppercase tracking-[0.07em] text-muted-foreground hover:text-foreground"
+            >
+              Projetos
+            </Link>
+          </nav>
 
           <div className="flex-1" />
 
-          <div className="flex items-baseline gap-[9px] font-mono tabular-nums">
+          <div className="flex items-baseline gap-2 font-mono tabular-nums">
             <Relogio />
           </div>
 
-          <div className="h-[22px] w-px bg-border" />
+          <div className="h-6 w-px bg-border" />
 
-          <div className="flex items-center gap-[10px]">
-            <div className="flex flex-col items-end gap-px">
-              <span className="text-[12.5px] font-medium leading-[1.2] text-foreground">{nome}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-sm font-medium leading-tight text-foreground">{nome}</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                 {escritorio}
                 {ehAdmin ? " · Admin" : ""}
               </span>
@@ -131,7 +157,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
               onClick={() => setContaAberta((v) => !v)}
               aria-label="Conta"
               aria-expanded={contaAberta}
-              className="nx-cut-6 flex h-[30px] w-[30px] cursor-pointer items-center justify-center border-0 bg-[var(--nexodoc-raised)] font-mono text-[11.5px] font-semibold text-muted-foreground"
+              className="nx-cut-6 flex h-8 w-8 cursor-pointer items-center justify-center border-0 bg-[var(--nexodoc-raised)] font-mono text-xs font-semibold text-muted-foreground"
             >
               {iniciais}
             </button>
@@ -159,77 +185,16 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       </header>
 
       {/*
-        EMPILHA NA TELA ESTREITA, nesta ordem: projetos → orbe → "onde você
-        parou". O desenho é de desktop e põe o `aside` fixo em 340px ao lado; sem
-        isto a página vazava 526px numa janela de 430. O orbe perde o topo de
-        propósito: quem abre no celular está conferindo pendência, não montando
-        volume.
+        A FAIXA DO ORBE, largura total, acima da grade de projetos — não mais
+        uma coluna à direita. O convite para falar com o Nexo é a primeira
+        coisa depois do cabeçalho, não algo que a pessoa só alcança depois de
+        rolar a coluna da esquerda inteira.
       */}
-      <main className="relative mx-auto flex w-full max-w-[1520px] flex-1 flex-col items-start gap-[34px] px-4 pb-11 pt-[30px] sm:px-8 lg:flex-row">
-        <section className="flex w-full min-w-0 flex-1 flex-col gap-2.5">
-          <div className="mb-0.5 flex items-baseline gap-2.5">
-            <h2 className="m-0 font-mono text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Seus projetos abertos
-            </h2>
-            <div className="flex-1" />
-            {/* Era `text-[#4c565c]`, um hex cravado fora do DESIGN.md: medido em
-                2,58:1 contra o fundo, quando o mínimo para 11px é 4,5:1 — a
-                única falha de contraste do produto inteiro. O token do sistema
-                diz a mesma coisa e passa. */}
-            {painel && !vazio ? (
-              <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
-                mais parados primeiro
-              </span>
-            ) : null}
-          </div>
-
-          {carregando ? <Esqueleto /> : null}
-
-          {falhou ? (
-            <p className="max-w-[46ch] py-6 text-[13.5px] leading-normal text-muted-foreground">
-              Não deu para carregar seus projetos agora. O Nexo continua funcionando — recarregue a
-              página quando quiser tentar de novo.
-            </p>
-          ) : null}
-
-          {vazio ? (
-            <div className="px-0.5 py-[26px]">
-              <p className="mb-1.5 text-base font-medium text-foreground">
-                Nenhum projeto seu por aqui ainda.
-              </p>
-              <p className="m-0 max-w-[42ch] text-[13.5px] leading-normal text-muted-foreground">
-                Solte um documento em qualquer lugar da tela: o centro de custo é lido do PDF e a
-                pasta nasce a partir dele.
-              </p>
-            </div>
-          ) : null}
-
-          {painel?.projetos.map((projeto) => (
-            <CartaoDeProjeto
-              key={projeto.projectId}
-              projeto={projeto}
-              aberto={Boolean(abertos[projeto.projectId])}
-              alternar={() =>
-                setAbertos((atual) => ({
-                  ...atual,
-                  [projeto.projectId]: !atual[projeto.projectId],
-                }))
-              }
-            />
-          ))}
-
-          <Link
-            href="/projetos"
-            className="mt-1.5 self-start font-mono text-[11.5px] tracking-[0.05em] text-primary hover:text-[var(--nexodoc-accent)]"
-          >
-            Ver todos os projetos do escritório →
-          </Link>
-        </section>
-
-        <aside className="flex w-full flex-col pt-[26px] lg:w-[340px] lg:flex-none">
+      <div className="border-b border-[#171c1f]">
+        <div className="mx-auto flex w-full max-w-[1520px] flex-wrap items-center gap-8 px-4 py-8 sm:px-8">
           <Link
             href="/nexo"
-            className="relative block self-center"
+            className="relative block shrink-0 self-center"
             style={{ width: 250, height: 250 }}
           >
             <div
@@ -263,59 +228,163 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
             <AgentOrb size="hero" state="idle" interactive className="relative" />
           </Link>
 
-          <p className="mt-6 text-center text-xl font-medium tracking-[-0.01em] text-foreground">
-            {/*
-              A ASSINATURA. O nome do agente é a única palavra do produto com
-              gradiente (DESIGN.md §11) — é onde ele se apresenta, e assinatura
-              tem o mesmo papel do logotipo, escrita em vez de desenhada.
-            */}
-            {vazio ? (
-              "Solte o primeiro documento"
-            ) : (
-              <>
-                Fale com o <span className="nx-assinatura">Nexo</span>
-              </>
-            )}
-          </p>
-          <p className="mt-2 text-center text-[13px] leading-normal text-muted-foreground">
-            {vazio
-              ? "o centro de custo é lido do PDF"
-              : "ou solte um PDF em qualquer lugar da tela"}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 text-2xl font-medium tracking-[-0.01em] text-foreground">
+              {/*
+                A ASSINATURA. O nome do agente é a única palavra do produto com
+                gradiente (DESIGN.md §11) — é onde ele se apresenta, e assinatura
+                tem o mesmo papel do logotipo, escrita em vez de desenhada.
+              */}
+              {vazio ? (
+                "Solte o primeiro documento"
+              ) : (
+                <>
+                  Fale com o <span className="nx-assinatura">Nexo</span>
+                </>
+              )}
+            </p>
+            <p className="m-0 mt-2 max-w-[46ch] text-sm leading-normal text-muted-foreground">
+              {vazio
+                ? "o centro de custo é lido do PDF"
+                : "ou solte um PDF em qualquer lugar da tela"}
+            </p>
+          </div>
+        </div>
+      </div>
 
-          <div className="my-[18px] mt-8 h-px bg-[var(--nexodoc-raised)]" />
+      <main className="relative mx-auto grid w-full max-w-[1520px] flex-1 grid-cols-1 items-start gap-9 px-4 pb-12 pt-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_336px]">
+        <section className="flex w-full min-w-0 flex-1 flex-col gap-3">
+          <div className="mb-1 flex items-baseline gap-3">
+            <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Seus projetos abertos
+            </h2>
+            <div className="flex-1" />
+            {/* Era `text-[#4c565c]`, um hex cravado fora do DESIGN.md: medido em
+                2,58:1 contra o fundo, quando o mínimo para 11px é 4,5:1 — a
+                única falha de contraste do produto inteiro. O token do sistema
+                diz a mesma coisa e passa. */}
+            {painel && !vazio ? (
+              <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
+                mais parados primeiro
+              </span>
+            ) : null}
+          </div>
 
-          <h3 className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {carregando ? <Esqueleto /> : null}
+
+          {falhou ? (
+            <p className="max-w-[46ch] py-6 text-sm leading-normal text-muted-foreground">
+              Não deu para carregar seus projetos agora. O Nexo continua funcionando — recarregue a
+              página quando quiser tentar de novo.
+            </p>
+          ) : null}
+
+          {vazio ? (
+            <div className="px-0.5 py-8">
+              <p className="mb-2 text-base font-medium text-foreground">
+                Nenhum projeto seu por aqui ainda.
+              </p>
+              <p className="m-0 max-w-[42ch] text-sm leading-normal text-muted-foreground">
+                Solte um documento em qualquer lugar da tela: o centro de custo é lido do PDF e a
+                pasta nasce a partir dele.
+              </p>
+            </div>
+          ) : null}
+
+          {painel?.projetos.map((projeto) => (
+            <CartaoDeProjeto
+              key={projeto.projectId}
+              projeto={projeto}
+              aberto={Boolean(abertos[projeto.projectId])}
+              alternar={() =>
+                setAbertos((atual) => ({
+                  ...atual,
+                  [projeto.projectId]: !atual[projeto.projectId],
+                }))
+              }
+            />
+          ))}
+
+          <Link
+            href="/projetos"
+            className="mt-2 self-start font-mono text-xs tracking-[0.05em] text-primary hover:text-[var(--nexodoc-accent)]"
+          >
+            Ver todos os projetos do escritório →
+          </Link>
+        </section>
+
+        <aside className="flex w-full min-w-0 flex-col gap-3">
+          <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Onde você parou
           </h3>
 
           {painel && painel.recentes.length === 0 ? (
-            <p className="m-0 text-[12.5px] leading-normal text-[#4c565c]">
+            <p className="m-0 text-sm leading-normal text-muted-foreground">
               Sua primeira auditoria aparece aqui.
             </p>
           ) : null}
 
-          <div className="flex flex-col">
-            {painel?.recentes.map((recente) => (
-              <Link
-                key={recente.auditId}
-                href={`/nexo?auditoria=${encodeURIComponent(recente.auditId)}`}
-                className="flex items-baseline gap-2.5 border-b border-[#171c1f] py-2 hover:bg-[#101418]"
-              >
-                <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
-                  {recente.nome}
-                </span>
-                <span className="font-mono text-[10.5px] tracking-[0.03em] text-muted-foreground">
-                  {recente.quando}
-                </span>
-              </Link>
-            ))}
+          <div className="nx-edge-8" style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}>
+            <div className="flex flex-col px-3.5">
+              {painel?.recentes.map((recente) => (
+                <Link
+                  key={recente.auditId}
+                  href={`/nexo?auditoria=${encodeURIComponent(recente.auditId)}`}
+                  className="flex items-baseline gap-3 border-b border-[#171c1f] py-3 last:border-0 hover:text-[var(--nexodoc-accent)]"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                    {recente.nome}
+                  </span>
+                  <span className="font-mono text-[11px] tracking-[0.03em] text-muted-foreground">
+                    {recente.quando}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <h3 className="m-0 mt-4 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Nova auditoria
+          </h3>
+
+          {/*
+            O CARTÃO É PROVA, NÃO UM SEGUNDO CONTROLE. A página inteira já
+            escuta `onDragOver`/`onDrop` (o toque tracejado do container); este
+            painel não tem `onDrop` próprio — duplicar o alvo criaria dois
+            comportamentos para soltar um PDF. Ele só reflete `soltando`, que é
+            o estado real, e existe para quem chega na tela sem projeto aberto
+            e precisa que ALGUM elemento diga "é aqui que se solta".
+          */}
+          <div
+            aria-hidden
+            className="nx-cut-8 flex flex-col items-center gap-2.5 px-5 py-8 text-center transition-colors duration-150"
+            style={{
+              background: soltando ? "#0f2d2a" : "#0d1215",
+              outline: `1px dashed ${soltando ? "var(--nexodoc-accent)" : "var(--border)"}`,
+              outlineOffset: "-1px",
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              className="h-[26px] w-[26px]"
+              style={{ color: soltando ? "var(--nexodoc-accent)" : "var(--border)" }}
+            >
+              <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" strokeLinecap="round" />
+            </svg>
+            <span className="text-sm font-medium text-foreground">Solte um PDF aqui</span>
+            <span className="max-w-[30ch] text-xs leading-normal text-muted-foreground">
+              O centro de custo é lido do documento e a pasta nasce a partir dele.
+            </span>
           </div>
         </aside>
       </main>
 
       {soltando ? (
-        <div className="nx-cut-8 fixed bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2.5 bg-primary px-[18px] py-[11px] font-mono text-xs font-semibold uppercase tracking-[0.06em] text-primary-foreground">
+        <div className="nx-cut-8 fixed bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-3 bg-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] text-primary-foreground">
           Solte o PDF para iniciar a auditoria
         </div>
       ) : null}
@@ -335,7 +404,7 @@ function ItemDaConta({
   return (
     <Link
       href={href}
-      className={`block px-2.5 py-[7px] text-[13.5px] hover:bg-[#141a1e] ${
+      className={`block px-3 py-2 text-sm hover:bg-[#141a1e] ${
         tenue ? "text-muted-foreground" : "text-foreground"
       }`}
     >
@@ -377,14 +446,14 @@ function Relogio() {
   const fatia = useSyncExternalStore(assinarRelogio, lerFatia, semRelogioNoServidor);
 
   if (fatia === null) {
-    return <span className="text-[15px] font-medium tracking-[0.02em] text-transparent">--:--</span>;
+    return <span className="text-base font-medium tracking-[0.02em] text-transparent">--:--</span>;
   }
 
   const agora = new Date(fatia * PASSO_DO_RELOGIO);
 
   return (
     <>
-      <span className="text-[15px] font-medium tracking-[0.02em] text-foreground">
+      <span className="text-base font-medium tracking-[0.02em] text-foreground">
         {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
       </span>
       <span className="text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
@@ -431,7 +500,7 @@ function CartaoDeProjeto({
         type="button"
         onClick={alternar}
         aria-expanded={aberto}
-        className="flex w-full cursor-pointer items-center gap-3.5 border-0 px-4 py-[13px] text-left"
+        className="flex w-full cursor-pointer items-center gap-4 border-0 px-4 py-3 text-left"
         style={{ background: alerta ? "var(--status-warning-bg)" : "transparent" }}
       >
         <svg
@@ -451,9 +520,9 @@ function CartaoDeProjeto({
         >
           {projeto.codigo}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[14.5px] text-foreground">{projeto.nome}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{projeto.nome}</span>
         <span
-          className="font-mono text-[11.5px] tracking-[0.03em]"
+          className="font-mono text-xs tracking-[0.03em]"
           style={{ color: alerta ? "var(--status-warning)" : "var(--muted-foreground)" }}
         >
           {resumo(projeto)}
@@ -461,12 +530,12 @@ function CartaoDeProjeto({
       </button>
 
       {aberto ? (
-        <div className="flex flex-col gap-0.5 pb-[15px] pl-[42px] pr-4 pt-0.5">
+        <div className="flex flex-col gap-0.5 pb-4 pl-11 pr-4 pt-0.5">
           {projeto.itens.map((item, indice) => (
             <Link
               key={`${item.auditId}-${item.titulo}-${indice}`}
               href={`/nexo?auditoria=${encodeURIComponent(item.auditId)}`}
-              className="flex items-center gap-[11px] border-t border-[var(--nexodoc-raised)] py-2 text-inherit"
+              className="flex items-center gap-3 border-t border-[var(--nexodoc-raised)] py-2 text-inherit"
             >
               <span
                 aria-hidden
@@ -481,7 +550,7 @@ function CartaoDeProjeto({
                 Encurtado por `nomeCurto`, travado contra quebra, e escondido de
                 todo no celular: quem é lê-se abrindo o achado.
               */}
-              <span className="hidden shrink-0 whitespace-nowrap text-[12.5px] text-muted-foreground sm:inline">
+              <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:inline">
                 {item.direcao === "recebido"
                   ? `de ${nomeCurto(item.pessoa)}`
                   : `→ ${nomeCurto(item.pessoa)}`}
@@ -500,15 +569,15 @@ function CartaoDeProjeto({
             </Link>
           ))}
 
-          <div className="flex flex-wrap items-center gap-[7px] pt-[11px]">
+          <div className="flex flex-wrap items-center gap-2 pt-3">
             {projeto.artefatos.map((artefato) => (
               <Link
                 key={artefato.artifactId}
                 href={`/projetos/${projeto.projectId}`}
-                className="nx-cut-5 inline-flex items-center gap-[7px] bg-[var(--nexodoc-raised)] px-2.5 py-[5px] font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground"
+                className="nx-cut-5 inline-flex items-center gap-2 bg-[var(--nexodoc-raised)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground"
               >
                 <span>{artefato.rotulo}</span>
-                <span className="normal-case tracking-[0.02em] text-[#4c565c]">
+                <span className="normal-case tracking-[0.02em] text-muted-foreground">
                   {artefato.quando}
                 </span>
               </Link>
@@ -522,7 +591,7 @@ function CartaoDeProjeto({
             <Ima>
             <Link
               href={`/nexo?projeto=${encodeURIComponent(projeto.projectId)}`}
-              className="nx-cut-5 inline-flex items-center gap-[7px] bg-[#0f2d2a] px-[11px] py-[5px] font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--nexodoc-accent)] hover:bg-[#164039]"
+              className="nx-cut-5 inline-flex items-center gap-2 bg-[#0f2d2a] px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--nexodoc-accent)] hover:bg-[#164039]"
             >
               <svg
                 viewBox="0 0 24 24"
