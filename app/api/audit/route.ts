@@ -80,6 +80,7 @@ import {
   buildFindingCandidateList,
   buildValidationContext,
   getFindingValidationPrompt,
+  buildDocumentContextComReuso,
   getGlobalContextChars,
 } from "@/lib/audit-validation-prompt";
 import { filterGroundedFindings } from "@/lib/audit-verify";
@@ -2243,6 +2244,35 @@ ${lines.join("\n")}
 `.trim();
 }
 
+/**
+ * O texto que a leitura global recebe: documento inteiro na primeira auditoria,
+ * delta + resumos na reauditoria. Ver [[audit-validation-prompt.ts]].
+ */
+function contextoDoDocumento(args: {
+  analysisLevel: AnalysisLevel;
+  extracted: ExtractedPdf;
+  hashesHerdados?: ReadonlySet<string>;
+  resumoPorHash?: ReadonlyMap<string, string>;
+}) {
+  if (!args.hashesHerdados || args.hashesHerdados.size === 0) {
+    return buildDocumentContext(args.extracted, args.analysisLevel);
+  }
+
+  const capitulos = chunkPdfByChapter(args.extracted);
+  const impressos = impressaoDosCapitulos(capitulos);
+
+  return buildDocumentContextComReuso({
+    capitulos: capitulos.map((c, i) => ({
+      hash: impressos[i].hash,
+      titulo: c.title,
+      texto: c.text,
+    })),
+    hashesHerdados: args.hashesHerdados,
+    resumoPorHash: args.resumoPorHash ?? new Map(),
+    maxChars: getGlobalContextChars(args.analysisLevel),
+  });
+}
+
 function getGlobalFilePrompt(args: {
   auditMode: AuditMode;
   analysisLevel: AnalysisLevel;
@@ -2253,6 +2283,10 @@ function getGlobalFilePrompt(args: {
   fileName: string;
   fileType: string;
   extracted: ExtractedPdf;
+  /** Hashes dos capítulos inalterados desde o parecer anterior. */
+  hashesHerdados?: ReadonlySet<string>;
+  /** Resumo por hash, de `runtime.sintese` do parecer anterior. */
+  resumoPorHash?: ReadonlyMap<string, string>;
 }) {
   const modeInstruction =
     args.auditMode === "volume"
@@ -2337,7 +2371,7 @@ documento. Se o documento não tiver capítulos identificáveis, devolve
 "sintese":[].
 
 TEXTO DO DOCUMENTO:
-${buildDocumentContext(args.extracted, args.analysisLevel)}
+${contextoDoDocumento(args)}
 `.trim();
 }
 
@@ -2356,6 +2390,8 @@ async function analyzeFileGloballyWithModel(args: {
   userEmail?: string | null;
   /** Coletor de passadas incompletas (best-effort NÃO é silencioso). */
   degradacoes?: PassadaIncompleta[];
+  hashesHerdados?: ReadonlySet<string>;
+  resumoPorHash?: ReadonlyMap<string, string>;
   /**
    * Coletor da síntese por capítulo, no mesmo idioma do `degradacoes` acima: a
    * leitura global tem duas saídas e só uma delas é o valor de retorno. Fica
@@ -3193,6 +3229,8 @@ async function deepAnalyzeFile(args: {
         userEmail: args.userEmail,
         degradacoes: args.degradacoes,
         sintese: sinteseDesteArquivo,
+        hashesHerdados: args.hashesHerdados,
+        resumoPorHash: args.resumoPorHash,
       })
     : [];
   args.sinteses?.set(args.file.file.name, sinteseDesteArquivo);

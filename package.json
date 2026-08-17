@@ -143,7 +143,8 @@
     "test:nexo:canvas-teclado": "node scripts/test-nexo-canvas-teclado.ts",
     "test:agrupar-blocos": "node scripts/test-agrupar-blocos.ts",
     "test:versao-auditor": "node scripts/test-versao-do-auditor.ts",
-    "test:elegibilidade": "node scripts/test-elegibilidade-da-base.ts"
+    "test:elegibilidade": "node scripts/test-elegibilidade-da-base.ts",
+    "test:contexto-global": "node scripts/test-contexto-da-global.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

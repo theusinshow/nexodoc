@@ -265,3 +265,43 @@ CONTEXTO DO DOCUMENTO:
 ${buildValidationContext(args.files)}
 `.trim();
 }
+
+/**
+ * O DOCUMENTO como a leitura global o vê numa REAUDITORIA.
+ *
+ * Capítulo que não mudou entra como uma LINHA de resumo; o que mudou entra
+ * inteiro. É para isso que `runtime.sintese` é gravado em todo parecer — sem
+ * ele, a passada mais cara da auditoria (US$ 1,19 medidos no 084_25 em
+ * 17/08/2026) continuaria relendo o documento todo, e o reuso teria piso alto
+ * mesmo com todos os blocos economizados.
+ *
+ * O TÍTULO do capítulo herdado fica SEMPRE, mesmo resumido: é ele que deixa o
+ * modelo enxergar a estrutura do documento e perceber que o capítulo novo
+ * contradiz um que ficou parado. Um contexto só com os capítulos mudados leria
+ * o delta como se fosse o documento inteiro — e concluiria coisas sobre um
+ * memorial que não existe.
+ *
+ * Herdado SEM resumo gravado volta a ir como texto integral: parecer antigo pode
+ * ter impressão e não ter síntese, e mandar uma linha em branco esconderia o
+ * conteúdo do modelo. O lado seguro aqui é gastar, não perder.
+ */
+export function buildDocumentContextComReuso(args: {
+  capitulos: readonly { hash: string; titulo: string; texto: string }[];
+  hashesHerdados: ReadonlySet<string>;
+  resumoPorHash: ReadonlyMap<string, string>;
+  maxChars: number;
+}): string {
+  const partes = args.capitulos.map((cap) => {
+    const resumo = args.resumoPorHash.get(cap.hash);
+
+    if (args.hashesHerdados.has(cap.hash) && resumo) {
+      return `--- ${cap.titulo} (inalterado desde a auditoria anterior; resumo) ---\n${resumo}`;
+    }
+
+    return `--- ${cap.titulo} ---\n${cap.texto}`;
+  });
+
+  const texto = partes.join("\n\n");
+
+  return texto.length <= args.maxChars ? texto : `${texto.slice(0, args.maxChars)}\n[...]`;
+}
