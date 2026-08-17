@@ -37,19 +37,24 @@ export function QuickReplyChips({
       {suggestions.map((s, i) => {
         const isFill = s.commit === "fill";
         return (
-          <Chip
+          <div
             key={`${s.value}-${i}`}
-            variant={i === 0 ? "suggest" : "default"}
-            aria-label={
-              isFill
-                ? `Preencher no campo de mensagem: ${s.label}`
-                : `Enviar: ${s.label}`
-            }
-            onClick={() => (isFill ? composer.fill(s.value) : composer.send(s.value))}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 duration-150 fill-mode-both"
+            style={{ animationDelay: `${i * 35}ms` }}
           >
-            {isFill ? <Pencil aria-hidden /> : <CornerDownLeft aria-hidden />}
-            {s.label}
-          </Chip>
+            <Chip
+              variant={i === 0 ? "suggest" : "default"}
+              aria-label={
+                isFill
+                  ? `Preencher no campo de mensagem: ${s.label}`
+                  : `Enviar: ${s.label}`
+              }
+              onClick={() => (isFill ? composer.fill(s.value) : composer.send(s.value))}
+            >
+              {isFill ? <Pencil aria-hidden /> : <CornerDownLeft aria-hidden />}
+              {s.label}
+            </Chip>
+          </div>
         );
       })}
     </div>
@@ -81,16 +86,21 @@ export function NextStepChips({
       </span>
       <div className="flex flex-wrap gap-1.5">
         {steps.map((s, i) => (
-          <Chip
+          <div
             key={s.label}
-            // O primeiro e o recomendado, como ja acontece nas pre-respostas.
-            variant={i === 0 ? "suggest" : "default"}
-            aria-label={`Enviar: ${s.label}`}
-            onClick={() => composer.send(s.send)}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 duration-150 fill-mode-both"
+            style={{ animationDelay: `${i * 35}ms` }}
           >
-            <ArrowRight aria-hidden />
-            {s.label}
-          </Chip>
+            <Chip
+              // O primeiro e o recomendado, como ja acontece nas pre-respostas.
+              variant={i === 0 ? "suggest" : "default"}
+              aria-label={`Enviar: ${s.label}`}
+              onClick={() => composer.send(s.send)}
+            >
+              <ArrowRight aria-hidden />
+              {s.label}
+            </Chip>
+          </div>
         ))}
       </div>
     </div>

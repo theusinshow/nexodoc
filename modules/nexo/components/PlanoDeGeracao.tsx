@@ -582,8 +582,17 @@ export function PlanoDeGeracao({
 
   const ocupado = gerando !== null;
 
+  const bordaPlano =
+    pendentes > 0
+      ? "border-[var(--status-warning)]/45"
+      : tudoGerado
+        ? "border-[var(--status-ok)]/30"
+        : "border-border";
+
   return (
-    <div className="nexodoc-enter rounded-md border border-border bg-card">
+    <div
+      className={`nexodoc-enter rounded-md border ${bordaPlano} bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]`}
+    >
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <FileText className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         <span

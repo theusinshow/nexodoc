@@ -83,7 +83,7 @@ function AdminNavLink({
          * matriz do §7 — teal marca a coisa atual, e é a única coisa desta
          * barra que pode ser teal.
          */
-        "nx-edge-6 inline-flex h-9 shrink-0 items-center gap-2 px-3 font-mono text-[12px] tracking-[0.02em] transition-colors",
+        "nx-edge-6 inline-flex h-9 shrink-0 items-center gap-2 px-3 font-mono text-[12px] tracking-[0.02em] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)]",
         active
           ? "text-foreground [--nx-edge:var(--primary)] [--nx-fill:var(--secondary)]"
           : "text-muted-foreground [--nx-edge:var(--border)] [--nx-fill:var(--card)] hover:text-foreground hover:[--nx-fill:var(--accent)]",

@@ -496,7 +496,7 @@ function CardShell({
   return (
     <div
       data-state={estado}
-      className={`nexodoc-enter rounded-md border ${borda} bg-card`}
+      className={`nexodoc-enter rounded-md border ${borda} bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]`}
     >
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />

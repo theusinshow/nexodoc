@@ -987,24 +987,32 @@ function TrechosDoAchado({
         {aberto ? "esconder os trechos" : "ver os trechos de cada página"}
       </button>
 
-      {aberto ? (
-        <div className="nx-cut-7 bg-[var(--nexodoc-recessed)] px-3.5 py-1">
-          <div className="flex items-baseline gap-3.5 border-b border-border/60 py-2.5">
-            <span className="w-14 shrink-0 font-mono text-[11px] tracking-[0.04em] text-primary">
-              pág. {paginas[0]}
-            </span>
-            <span className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
-              <HighlightedEvidence text={evidencia} needle={termo} />
-            </span>
+      <div
+        className="grid transition-[grid-template-rows,opacity] duration-[var(--duration-base)] ease-[var(--ease-entrance)]"
+        style={{
+          gridTemplateRows: aberto ? "1fr" : "0fr",
+          opacity: aberto ? 1 : 0,
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="nx-cut-7 bg-[var(--nexodoc-recessed)] px-3.5 py-1">
+            <div className="flex items-baseline gap-3.5 border-b border-border/60 py-2.5">
+              <span className="w-14 shrink-0 font-mono text-[11px] tracking-[0.04em] text-primary">
+                pág. {paginas[0]}
+              </span>
+              <span className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
+                <HighlightedEvidence text={evidencia} needle={termo} />
+              </span>
+            </div>
+            <p className="py-2.5 text-xs leading-5 text-muted-foreground">
+              O mesmo problema aparece também nas páginas{" "}
+              <span className="font-mono text-foreground">{paginas.slice(1).join(", ")}</span>. O
+              parecer guarda uma evidência por achado, não uma por página
+              {aoAbrirPagina ? " — abra o documento para conferir cada uma." : "."}
+            </p>
           </div>
-          <p className="py-2.5 text-xs leading-5 text-muted-foreground">
-            O mesmo problema aparece também nas páginas{" "}
-            <span className="font-mono text-foreground">{paginas.slice(1).join(", ")}</span>. O
-            parecer guarda uma evidência por achado, não uma por página
-            {aoAbrirPagina ? " — abra o documento para conferir cada uma." : "."}
-          </p>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -2673,7 +2681,7 @@ export function AuditResult({
                          * em ruído, e o §5 já diz que movimento é mudança de
                          * estado, não decoração distribuída.
                          */
-                        "@container nx-spot rounded-md border bg-card transition-colors",
+                        "@container nx-spot rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
                         estaResolvido(finding.refId)
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
                           : "",

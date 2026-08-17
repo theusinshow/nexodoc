@@ -20,6 +20,7 @@
  * aviso embora.
  */
 
+import { cn } from "@/lib/utils";
 import { densidadeDaBarra } from "../lib/densidade-da-barra";
 
 export function BarraDeLeitura({
@@ -49,24 +50,33 @@ export function BarraDeLeitura({
         gap: `${gapPx}px`,
       }}
     >
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className="rounded-[1px] transition-colors duration-200"
-          style={{
-            height: `${alturaPx}px`,
-            /*
-             * Lida = cor de destaque; pendente = o recesso do próprio card. Sem
-             * estado intermediário: a leitura de uma folha ou terminou ou não,
-             * e "em andamento" numa folha que leva 2s seria um piscar.
-             */
-            background:
-              i < lidas ? "var(--nexodoc-accent)" : "var(--nexodoc-recessed)",
-            border: i < lidas ? "none" : "1px solid var(--border)",
-          }}
-        />
-      ))}
+      {Array.from({ length: total }, (_, i) => {
+        const isLida = i < lidas;
+        const isAtual = i === lidas;
+        return (
+          <span
+            key={i}
+            aria-hidden
+            className={cn(
+              "rounded-[1px] transition-all duration-200",
+              isAtual && "animate-pulse",
+            )}
+            style={{
+              height: `${alturaPx}px`,
+              /*
+               * Lida = cor de destaque; atual = destaque pulsando suave;
+               * pendente = o recesso do próprio card.
+               */
+              background: isLida
+                ? "var(--nexodoc-accent)"
+                : isAtual
+                  ? "rgb(91 218 198 / 0.35)"
+                  : "var(--nexodoc-recessed)",
+              border: isLida || isAtual ? "none" : "1px solid var(--border)",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -118,7 +118,7 @@ export function DropdownItem({
       type="button"
       role="menuitem"
       className={cn(
-        "nx-cut-5 flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-foreground outline-none transition-colors hover:bg-[var(--nexodoc-raised)] focus-visible:bg-[var(--nexodoc-raised)] disabled:pointer-events-none disabled:opacity-50",
+        "nx-cut-5 flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-foreground outline-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)] hover:bg-[var(--nexodoc-raised)] focus-visible:bg-[var(--nexodoc-raised)] disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       {...props}

@@ -135,9 +135,9 @@ export function MemorialPageNode({ data, selected }: NodeProps<Node<MemorialPage
                 abrir(achado.id);
               }}
               className={cn(
-                "nodrag absolute block size-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-background p-0 transition-transform",
+                "nodrag absolute block size-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-background p-0 transition-all duration-[var(--duration-fast)] ease-[var(--ease-feedback)]",
                 "hover:scale-150",
-                aceso && "scale-150 ring-2 ring-[var(--ring)]",
+                aceso && "scale-150 ring-2 ring-[var(--ring)] ring-offset-1 ring-offset-background",
               )}
               style={{
                 left: `${pos.xPct * 100}%`,

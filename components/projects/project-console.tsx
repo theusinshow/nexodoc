@@ -211,7 +211,10 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {filteredProjects.map((project) => (
-              <Card key={project.id}>
+              <Card
+                key={project.id}
+                className="transition-all duration-[var(--duration-fast)] ease-[var(--ease-feedback)] hover:border-[var(--ring)]/40"
+              >
                 <CardContent className="space-y-4 py-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">

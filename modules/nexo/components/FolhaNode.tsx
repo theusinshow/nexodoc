@@ -118,7 +118,9 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const semCodigo = data.avulsa === true && !data.arquivo?.trim();
 
   const corpo = (
-    <div className={`nx-edge-6 w-[120px] overflow-hidden ${borda}`}>
+    <div
+      className={`nx-edge-6 w-[120px] overflow-hidden ${borda} transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)]`}
+    >
       {/*
        * O fio de 2px no topo é a disciplina — a ÚNICA cor do nó, e secundária à
        * sigla: quem não distingue matiz continua lendo "ARQ". Disciplina fora

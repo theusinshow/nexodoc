@@ -706,7 +706,7 @@ export function NexoSidebar({
                                   /* Item de lista: corte 5. SO O ATIVO tem
                                      fundo -- o inativo fica transparente e
                                      ganha fundo no hover. */
-                                  "nx-edge-5 flex min-h-[34px] w-full items-center gap-2.5 py-2 pl-2.5 pr-9 text-left transition-colors focus-visible:outline-none [--nx-edge:transparent]",
+                                  "nx-edge-5 flex min-h-[34px] w-full items-center gap-2.5 py-2 pl-2.5 pr-9 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)] focus-visible:outline-none [--nx-edge:transparent]",
                                   active
                                     ? "text-foreground [--nx-fill:var(--accent)]"
                                     : "text-muted-foreground [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)]",

@@ -167,8 +167,11 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         {contaAberta ? (
           <div className="mx-auto flex max-w-[1520px] justify-end px-8 pb-3">
             <div
-              className="nx-edge-7 w-[236px]"
-              style={{ "--nx-fill": "#0d1215" } as React.CSSProperties}
+              className="nx-edge-7 w-[236px] origin-top-right transition-all"
+              style={{
+                "--nx-fill": "#0d1215",
+                animation: "modal-scale-in 140ms cubic-bezier(0.22, 1, 0.36, 1)",
+              } as React.CSSProperties}
             >
               <div className="p-2">
                 <ItemDaConta href="/volumes">Volumes</ItemDaConta>
@@ -384,7 +387,12 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       </main>
 
       {soltando ? (
-        <div className="nx-cut-8 fixed bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-3 bg-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] text-primary-foreground">
+        <div
+          className="nx-cut-8 fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 bg-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] text-primary-foreground shadow-[var(--shadow-overlay)]"
+          style={{
+            animation: "modal-scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
           Solte o PDF para iniciar a auditoria
         </div>
       ) : null}
@@ -529,86 +537,94 @@ function CartaoDeProjeto({
         </span>
       </button>
 
-      {aberto ? (
-        <div className="flex flex-col gap-0.5 pb-4 pl-11 pr-4 pt-0.5">
-          {projeto.itens.map((item, indice) => (
-            <Link
-              key={`${item.auditId}-${item.titulo}-${indice}`}
-              href={`/nexo?auditoria=${encodeURIComponent(item.auditId)}`}
-              className="flex items-center gap-3 border-t border-[var(--nexodoc-raised)] py-2 text-inherit"
-            >
-              <span
-                aria-hidden
-                className="nx-cut-4 h-[7px] w-[7px] shrink-0"
-                style={{ background: corDoItem(item) }}
-              />
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.titulo}</span>
-              {/*
-                O NOME NÃO PODE EMPURRAR O TÍTULO. Com um e-mail no lugar do
-                nome, esta coluna cresceu até o título sumir por inteiro na tela
-                estreita — sobrava "de fulano@empresa.com" e nada do achado.
-                Encurtado por `nomeCurto`, travado contra quebra, e escondido de
-                todo no celular: quem é lê-se abrindo o achado.
-              */}
-              <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:inline">
-                {item.direcao === "recebido"
-                  ? `de ${nomeCurto(item.pessoa)}`
-                  : `→ ${nomeCurto(item.pessoa)}`}
-              </span>
-              <span
-                className="shrink-0 whitespace-nowrap text-right font-mono text-[11px] tracking-[0.03em] sm:min-w-[96px]"
-                style={{
-                  color:
-                    item.direcao === "recebido" && item.dias >= LIMIAR_TARJA
-                      ? "var(--status-warning)"
-                      : "var(--muted-foreground)",
-                }}
-              >
-                {rotuloDeTempo(item)}
-              </span>
-            </Link>
-          ))}
-
-          <div className="flex flex-wrap items-center gap-2 pt-3">
-            {projeto.artefatos.map((artefato) => (
+      <div
+        className="grid transition-[grid-template-rows,opacity] duration-[var(--duration-base)] ease-[var(--ease-entrance)]"
+        style={{
+          gridTemplateRows: aberto ? "1fr" : "0fr",
+          opacity: aberto ? 1 : 0,
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-0.5 pb-4 pl-11 pr-4 pt-0.5">
+            {projeto.itens.map((item, indice) => (
               <Link
-                key={artefato.artifactId}
-                href={`/projetos/${projeto.projectId}`}
-                className="nx-cut-5 inline-flex items-center gap-2 bg-[var(--nexodoc-raised)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground"
+                key={`${item.auditId}-${item.titulo}-${indice}`}
+                href={`/nexo?auditoria=${encodeURIComponent(item.auditId)}`}
+                className="flex items-center gap-3 border-t border-[var(--nexodoc-raised)] py-2 text-inherit transition-colors hover:text-[var(--nexodoc-accent)]"
               >
-                <span>{artefato.rotulo}</span>
-                <span className="normal-case tracking-[0.02em] text-muted-foreground">
-                  {artefato.quando}
+                <span
+                  aria-hidden
+                  className="nx-cut-4 h-[7px] w-[7px] shrink-0"
+                  style={{ background: corDoItem(item) }}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.titulo}</span>
+                {/*
+                  O NOME NÃO PODE EMPURRAR O TÍTULO. Com um e-mail no lugar do
+                  nome, esta coluna cresceu até o título sumir por inteiro na tela
+                  estreita — sobrava "de fulano@empresa.com" e nada do achado.
+                  Encurtado por `nomeCurto`, travado contra quebra, e escondido de
+                  todo no celular: quem é lê-se abrindo o achado.
+                */}
+                <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:inline">
+                  {item.direcao === "recebido"
+                    ? `de ${nomeCurto(item.pessoa)}`
+                    : `→ ${nomeCurto(item.pessoa)}`}
+                </span>
+                <span
+                  className="shrink-0 whitespace-nowrap text-right font-mono text-[11px] tracking-[0.03em] sm:min-w-[96px]"
+                  style={{
+                    color:
+                      item.direcao === "recebido" && item.dias >= LIMIAR_TARJA
+                        ? "var(--status-warning)"
+                        : "var(--muted-foreground)",
+                  }}
+                >
+                  {rotuloDeTempo(item)}
                 </span>
               </Link>
             ))}
-            <div className="flex-1" />
-            {/*
-              O ÍMÃ, num dos dois controles do produto que o recebem. É a ação
-              principal deste cartão — e a restrição a dois é o que faz o efeito
-              querer dizer "isto aqui é a ação", em vez de "esta tela é inquieta".
-            */}
-            <Ima>
-            <Link
-              href={`/nexo?projeto=${encodeURIComponent(projeto.projectId)}`}
-              className="nx-cut-5 inline-flex items-center gap-2 bg-[#0f2d2a] px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--nexodoc-accent)] hover:bg-[#164039]"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                aria-hidden
-                className="h-3 w-3"
+
+            <div className="flex flex-wrap items-center gap-2 pt-3">
+              {projeto.artefatos.map((artefato) => (
+                <Link
+                  key={artefato.artifactId}
+                  href={`/projetos/${projeto.projectId}`}
+                  className="nx-cut-5 inline-flex items-center gap-2 bg-[var(--nexodoc-raised)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span>{artefato.rotulo}</span>
+                  <span className="normal-case tracking-[0.02em] text-muted-foreground">
+                    {artefato.quando}
+                  </span>
+                </Link>
+              ))}
+              <div className="flex-1" />
+              {/*
+                O ÍMÃ, num dos dois controles do produto que o recebem. É a ação
+                principal deste cartão — e a restrição a dois é o que faz o efeito
+                querer dizer "isto aqui é a ação", em vez de "esta tela é inquieta".
+              */}
+              <Ima>
+              <Link
+                href={`/nexo?projeto=${encodeURIComponent(projeto.projectId)}`}
+                className="nx-cut-5 inline-flex items-center gap-2 bg-[#0f2d2a] px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--nexodoc-accent)] transition-colors hover:bg-[#164039]"
               >
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-              <span>Nova auditoria</span>
-            </Link>
-            </Ima>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  aria-hidden
+                  className="h-3 w-3"
+                >
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                </svg>
+                <span>Nova auditoria</span>
+              </Link>
+              </Ima>
+            </div>
           </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
