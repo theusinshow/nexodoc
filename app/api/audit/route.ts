@@ -64,8 +64,10 @@ import {
   type AuditTextChunk,
   type ExtractedPdf,
 } from "@/lib/pdf-text";
-import { impressaoDosCapitulos } from "@/lib/audit-fingerprint";
-import { VERSAO_AUDITOR } from "@/lib/audit-reuso";
+import { compararImpressoes, impressaoDosCapitulos } from "@/lib/audit-fingerprint";
+import { versaoDoAuditor } from "@/lib/versao-do-auditor";
+import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
+import { planejarReuso } from "@/lib/audit-reuso";
 import {
   isLocalityPhrase,
   runCrossDocumentRules,
@@ -88,6 +90,17 @@ const MAX_FILES = 5;
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 // Piso, não sugestão: ver `getMaxOutputTokens`. Era 1800 e truncava.
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 6000;
+/** Limite de segurança do teto por bloco. Acima disto o bloco é grande demais. */
+const MAX_CHUNK_OUTPUT_TOKENS = 16000;
+/*
+ * O TAMANHO DE UM BLOCO DE LEITURA, em caracteres.
+ *
+ * 28.000 (o teto do `chunkPdfByChapter`) foi testado em produção no 084_25 e
+ * REPROVOU: 20 de 25 blocos truncaram. Os que couberam eram de 3 páginas. Este
+ * número não é uma preferência — é o maior tamanho para o qual existe evidência
+ * de que a resposta fecha. Mexer nele exige repetir a medição, não intuição.
+ */
+const CHUNK_GROUP_CHARS = 10000;
 const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
@@ -542,14 +555,41 @@ ${args.chunk.text}
  * que não chegou. O piso é aplicado sobre a variável de ambiente de propósito,
  * porque os 1800 estão gravados no .env e no render.yaml.
  */
-function getMaxOutputTokens() {
+/**
+ * O TETO DE SAÍDA DE UM BLOCO — agora em função do TAMANHO dele.
+ *
+ * Era fixo em 6.000 para qualquer bloco, e isso custou caro em 17/08/2026:
+ * blocos agrupados em 28k caracteres truncaram 20 vezes seguidas no memorial
+ * 084_25. Medido no banco (`AiUsageEvent`): as 20 chamadas truncadas somaram
+ * **exatamente 120.000 tokens de saída** — 20 × 6.000, o teto inteiro — e
+ * devolveram ZERO achado. US$ 4,32 de US$ 6,09 da auditoria inteira.
+ *
+ * A lição que essa fatura ensina: chamada truncada é o PIOR caso possível, não
+ * um caso degradado. Ela gasta o teto todo em raciocínio e não entrega nada. Por
+ * isso o teto não pode ser generoso "por precaução" — teto alto num bloco que
+ * vai truncar só encarece a perda. O que resolve é o bloco caber.
+ *
+ * Os blocos que couberam na mesma corrida gastaram ~1.000 tokens cada; o único
+ * com conteúdo de verdade (páginas 80-82, 11 achados) gastou 4.803 — perto
+ * demais de 6.000 para o conforto de um teto fixo. Daí a escala: um bloco pequeno
+ * segue com 6.000, e um bloco maior ganha proporcionalmente, sem nunca passar do
+ * limite de segurança.
+ */
+function getMaxOutputTokens(chunkChars?: number) {
   const value = Number(process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS);
 
   if (Number.isFinite(value) && value > DEFAULT_CHUNK_MAX_OUTPUT_TOKENS) {
-    return Math.min(16000, Math.floor(value));
+    return Math.min(MAX_CHUNK_OUTPUT_TOKENS, Math.floor(value));
   }
 
-  return DEFAULT_CHUNK_MAX_OUTPUT_TOKENS;
+  if (!chunkChars || !Number.isFinite(chunkChars)) {
+    return DEFAULT_CHUNK_MAX_OUTPUT_TOKENS;
+  }
+
+  return Math.min(
+    MAX_CHUNK_OUTPUT_TOKENS,
+    Math.max(DEFAULT_CHUNK_MAX_OUTPUT_TOKENS, Math.ceil(chunkChars / 2)),
+  );
 }
 
 // A passada de coerência lê o documento inteiro e pode devolver vários achados
@@ -1994,7 +2034,8 @@ async function analyzeChunkWithModel(args: {
         reasoning: {
           effort: getReasoningEffort(args.analysisLevel, args.auditMode),
         },
-        max_output_tokens: getMaxOutputTokens(),
+        // O teto acompanha o TAMANHO deste bloco — ver `getMaxOutputTokens`.
+        max_output_tokens: getMaxOutputTokens(args.chunk.text.length),
         text: { format: auditFindingsResponseFormat },
         input: getChunkPrompt(args),
       },
@@ -3002,7 +3043,7 @@ async function deepAnalyzeFile(args: {
    */
   const capitulos = chunkPdfByChapter(args.file.extracted);
   const blocosDisponiveis = coberturaTotal
-    ? agruparBlocosParaLeitura(capitulos)
+    ? agruparBlocosParaLeitura(capitulos, CHUNK_GROUP_CHARS)
     : capitulos;
   const chunks = blocosDisponiveis.slice(0, chunkLimit);
 
@@ -3526,6 +3567,20 @@ async function executarAuditoria(
         };
       }),
     );
+    /*
+     * QUEM É O AUDITOR DESTA CORRIDA — o hash que decide se um parecer anterior
+     * ainda pode ser reaproveitado. Derivado da configuração real, para ninguém
+     * precisar lembrar de subir constante. Ver [[versao-do-auditor.ts]].
+     */
+    const versaoAtualDoAuditor = versaoDoAuditor({
+      prompt: getAuditorPrompt(auditMode),
+      modeloGlobal: getPrimaryModelName(auditMode, analysisLevel, "global"),
+      modeloBloco: getPrimaryModelName(auditMode, analysisLevel, "chunk"),
+      modeloValidacao: getValidationModelName(auditMode, analysisLevel),
+      esforco: getReasoningEffort(analysisLevel, auditMode),
+      tamanhoDoBloco: CHUNK_GROUP_CHARS,
+    });
+
     const allFindings: AuditFinding[] = [];
     // Passadas que não completaram. Vai para o relatório: sem isso, uma auditoria
     // degradada chega na tela com a mesma cara de uma completa.
@@ -3754,7 +3809,7 @@ async function executarAuditoria(
          * Herdar achado produzido por um prompt anterior é servir leitura
          * vencida — a mesma regra do cache de leitura de selo.
          */
-        versao_auditor: VERSAO_AUDITOR,
+        versao_auditor: versaoAtualDoAuditor,
         /*
          * O modelo devolve o TÍTULO do capítulo; o reuso precisa do HASH, que é
          * o que sobrevive a capítulo inserido no meio. O casamento é aqui, e é

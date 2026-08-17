@@ -16,10 +16,17 @@ import {
   planejarReuso,
   reancorarPorAritmetica,
   reancorarPorTermo,
-  VERSAO_AUDITOR,
 } from "../lib/audit-reuso.ts";
 import type { AuditFinding, CapituloImpresso } from "../lib/audit-report.ts";
 import type { ExtractedPdfPage } from "../lib/pdf-text.ts";
+
+/*
+ * A versao do auditor virou um HASH derivado da configuracao real (ver
+ * [[versao-do-auditor.ts]]). Para estas decisoes o valor e opaco: o que
+ * importa e ser igual ou diferente da anterior.
+ */
+const VERSAO = "abc123def456";
+const OUTRA_VERSAO = "999999999999";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -173,7 +180,8 @@ test("achado de capítulo igual é herdado com a página reancorada", () => {
     capitulosAntes: [A1, A2],
     achadosAntes: [achado("INC-1", "5", "ia")],
     paginasAgora: PAGINAS,
-    versaoAnterior: VERSAO_AUDITOR,
+    versaoAnterior: VERSAO,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 1);
   assert.equal(plano.achadosHerdados[0].pagina, "8"); // 5 + (7-4)
@@ -189,7 +197,8 @@ test("achado de REGRA nunca é herdado — as regras reprocessam de graça", () 
     capitulosAntes: [A1, A2],
     achadosAntes: [achado("INC-1", "5", "regra")],
     paginasAgora: PAGINAS,
-    versaoAnterior: VERSAO_AUDITOR,
+    versaoAnterior: VERSAO,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 0);
 });
@@ -200,7 +209,8 @@ test("achado de capítulo que SUMIU não entra no parecer novo", () => {
     capitulosAntes: [A1, A2],
     achadosAntes: [achado("INC-1", "5", "ia")],
     paginasAgora: PAGINAS,
-    versaoAnterior: VERSAO_AUDITOR,
+    versaoAnterior: VERSAO,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 0);
 });
@@ -215,7 +225,8 @@ test("sem âncora, o capítulo inteiro volta a ser lido", () => {
     capitulosAntes: [antes],
     achadosAntes: [achado("INC-1", "5", "ia")],
     paginasAgora: PAGINAS,
-    versaoAnterior: VERSAO_AUDITOR,
+    versaoAnterior: VERSAO,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 0);
   assert.deepEqual(
@@ -231,7 +242,8 @@ test("versão do auditor diferente: nada é herdado e tudo é lido", () => {
     capitulosAntes: [A1, A2],
     achadosAntes: [achado("INC-1", "5", "ia")],
     paginasAgora: PAGINAS,
-    versaoAnterior: VERSAO_AUDITOR - 1,
+    versaoAnterior: OUTRA_VERSAO,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 0);
   assert.equal(plano.capitulosParaLer.length, 3);
@@ -245,6 +257,7 @@ test("parecer sem versão gravada é tratado como incomparável", () => {
     achadosAntes: [achado("INC-1", "5", "ia")],
     paginasAgora: PAGINAS,
     versaoAnterior: undefined,
+    versaoAtual: VERSAO,
   });
   assert.equal(plano.achadosHerdados.length, 0);
   assert.equal(plano.capitulosParaLer.length, 3);

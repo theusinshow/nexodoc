@@ -86,6 +86,16 @@ export type AuditFinding = {
   // confirmada); "sugestao" = achado de IA que a validação rebaixou em vez de
   // deletar (vai pra seção recolhível "Sugestões da IA — confira").
   tier?: FindingTier;
+  /**
+   * Este achado veio da auditoria ANTERIOR, de um capítulo byte a byte
+   * idêntico, com a página reancorada para o documento novo.
+   *
+   * O parecer sustenta uma decisão de emitir projeto. Achado que não foi
+   * produzido nesta corrida precisa dizer isso — esconder seria afirmar um
+   * trabalho que não houve, que é o mesmo defeito das auditorias parciais
+   * silenciosas.
+   */
+  herdado_de?: { auditId: string; quando: string };
 };
 
 export type FindingTier = "principal" | "sugestao";
@@ -162,8 +172,13 @@ export type AuditReport = {
      * reaproveitáveis por um auditor da MESMA versão — achado herdado de um
      * prompt anterior é leitura vencida. Ausente (todo parecer anterior a
      * 13/08/2026) significa incomparável, nunca "compatível".
+     *
+     * HASH desde 17/08/2026 (ver [[versao-do-auditor.ts]]): era um número subido
+     * à mão e a disciplina falhou na primeira oportunidade. Pareceres gravados
+     * antes disso trazem `1`, que nunca casa com um hash — e não casar é o
+     * desfecho correto, porque aquele auditor de fato não existe mais.
      */
-    versao_auditor?: number;
+    versao_auditor?: string;
     sintese?: SinteseDoArquivo[];
     /**
      * Preenchido só quando a auditoria usou o caminho barato. A ausência dele

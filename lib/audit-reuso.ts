@@ -9,13 +9,17 @@ import type { DeltaDeCapitulos } from "./audit-fingerprint.ts";
 import type { AuditFinding, CapituloImpresso } from "./audit-report.ts";
 import type { ExtractedPdfPage } from "./pdf-text.ts";
 
-/**
- * VERSÃO DO AUDITOR. Suba à mão ao mexer no prompt ou no modelo da leitura
- * global: achado herdado foi produzido pelo auditor de ontem, e servi-lo depois
- * de melhorar o prompt é servir leitura vencida. Mesma regra do cache de
- * leitura de selo.
+/*
+ * A CONSTANTE `VERSAO_AUDITOR = 1` VIVIA AQUI e foi removida em 17/08/2026.
+ *
+ * Ela precisava ser subida à mão ao mexer no prompt ou no modelo, e a
+ * disciplina falhou na primeira oportunidade: o modelo dos blocos mudou de
+ * `sol` para `terra` e o agrupamento de 28k para 10k sem ninguém tocar nela.
+ * Achado herdado passaria a vir de um auditor que não existe mais.
+ *
+ * A versão agora é DERIVADA da configuração real — ver [[versao-do-auditor.ts]]
+ * — e chega a `planejarReuso` por parâmetro, para este módulo continuar puro.
  */
-export const VERSAO_AUDITOR = 1;
 
 /**
  * A página de um achado é texto livre no parecer ("7", "11 e 14", "pág. 5").
@@ -119,11 +123,24 @@ export function planejarReuso(args: {
   capitulosAntes: readonly CapituloImpresso[];
   achadosAntes: readonly AuditFinding[];
   paginasAgora: readonly ExtractedPdfPage[];
-  versaoAnterior?: number;
+  /**
+   * A versão gravada NO PARECER ANTERIOR. `undefined` em parecer antigo, e
+   * `undefined !== versaoAtual` recusa sozinho.
+   */
+  versaoAnterior?: string;
+  /**
+   * A versão de AGORA, derivada em [[versao-do-auditor.ts]].
+   *
+   * Chega por PARÂMETRO, e não de uma constante deste módulo, porque derivá-la
+   * exige o prompt do auditor e `process.env` — este arquivo precisa continuar
+   * puro para rodar em node cru, sem bundler e sem token. Era esse o preço
+   * escondido de "só ler a constante aqui dentro".
+   */
+  versaoAtual: string;
 }): PlanoDeReuso {
   const mudados = [...args.delta.alterados.map((a) => a.agora), ...args.delta.novos];
 
-  if (args.versaoAnterior !== VERSAO_AUDITOR) {
+  if (args.versaoAnterior !== args.versaoAtual) {
     return {
       capitulosParaLer: [...args.delta.iguais, ...mudados],
       achadosHerdados: [],
