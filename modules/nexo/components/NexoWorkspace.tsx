@@ -682,8 +682,13 @@ function NexoWorkspaceInner({
         prompt: "O que fazer com o memorial",
         optional: true,
         suggestions: [
+          /*
+           * UM BOTÃO SÓ. Havia "Auditar o memorial" e "Auditoria profunda" lado
+           * a lado, e a escolha era falsa: a profunda é a única que existe de
+           * verdade. Oferecer as duas fazia o usuário decidir entre a auditoria
+           * e uma versão pior dela, pelo mesmo preço. Ver `requirements.ts`.
+           */
           { label: "Auditar o memorial", value: "audita o memorial", commit: "send" },
-          { label: "Auditoria profunda", value: "audita o memorial em profundidade", commit: "send" },
           // `fill` escreve no composer e deixa o cursor: corrigir a obra exige
           // texto, e é a correção que transforma o gabarito em régua confiável.
           { label: "A obra está errada", value: "a obra correta é ", commit: "fill" },

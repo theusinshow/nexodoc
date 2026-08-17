@@ -472,7 +472,27 @@ export function getAuditExecutionProfile(args: {
       : args.role === "validation"
         ? getCachedAiModelOverride("audit-memorial-deep-validation") ||
           getBackendValue("NEXODOC_AUDIT_MEMORIAL_DEEP_VALIDATION_MODEL")
-        : undefined;
+        : /*
+           * BLOCO tem modelo próprio — 17/08/2026.
+           *
+           * O papel `chunk` era o único sem override no modo memorial: caía no
+           * base e ia para o mesmo modelo caro da leitura global. Os dois fazem
+           * trabalhos diferentes — a global ENXERGA o documento inteiro de uma
+           * vez, o bloco EXAMINA ~10 páginas —, e cobrar preço de leitura global
+           * por exame localizado multiplicou por 2,5 o custo da passada mais
+           * numerosa da auditoria.
+           *
+           * `NEXODOC_AUDIT_DEEP_CHUNK_MODEL` aceito como segundo nome porque é o
+           * que o `.env.example` da auditoria genérica já usa, e ter duas
+           * grafias para a mesma ideia é pior que aceitar as duas: quem
+           * configurou pela documentação errada ficava sem efeito NENHUM e sem
+           * aviso — foi o que aconteceu aqui.
+           */
+          args.role === "chunk"
+          ? getCachedAiModelOverride("audit-memorial-deep-chunk") ||
+            getBackendValue("NEXODOC_AUDIT_MEMORIAL_DEEP_CHUNK_MODEL") ||
+            getBackendValue("NEXODOC_AUDIT_DEEP_CHUNK_MODEL")
+          : undefined;
 
   return {
     provider: "openai" as const,

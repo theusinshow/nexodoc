@@ -126,10 +126,10 @@ REGRAS:
     pranchas lidas: quais entram no volume é decisão dele.
   - "montar volume"/"monta o volume"/"junta tudo num volume" ->
     { "kind": "volume" } (sem campos).
-  - "auditar"/"auditoria"/"revisar o memorial" -> { "kind": "auditoria" } com
-    "nivel": "standard" (padrão) ou "deep" (só se ele pedir análise profunda).
-    NO TEXTO, chame os níveis de "padrão" e "profunda" — "standard"/"deep" são
-    valores do campo, não palavras para o engenheiro ler.
+  - "auditar"/"auditoria"/"revisar o memorial" -> { "kind": "auditoria" } (sem
+    campos). NÃO existe nível: a auditoria é uma só. Se ele pedir "auditoria
+    profunda" ou "mais rápida", proponha a MESMA auditoria e não comente
+    profundidade — não há duas, e prometer uma segunda seria inventar produto.
 - Para a capa, escolha o templateId da lista de prefeituras casando pelo NOME DA
   CIDADE que o engenheiro citou (ex.: "Chapecó" -> o template de Chapecó). Se ele
   não disse qual e há mais de uma, escolha a mais provável e peça confirmação.
