@@ -50,9 +50,11 @@ No servidor, **antes de qualquer token**:
    nunca são herdadas.
 7. Blocos: só os capítulos de `plano.capitulosParaLer`.
 8. Leitura global: texto integral dos capítulos mudados + `sintese` dos iguais.
-9. Validação: só os achados **novos**. Os herdados já foram validados na corrida
-   que os produziu; revalidá-los custa dinheiro e pode virar o veredito de um
-   texto que não mudou.
+9. Validação: recebe os achados **novos de IA** e **todos os de regra** — estes
+   nasceram nesta corrida e nunca são herdados (§3.6), então precisam do mesmo
+   crivo de sempre. Ficam de fora apenas os **herdados**: eles já foram validados
+   na corrida que os produziu, e revalidá-los custa dinheiro e pode virar o
+   veredito de um texto que não mudou.
 10. Merge: `plano.achadosHerdados` + achados novos + achados de regra.
 
 ## 4. Versão do auditor derivada
@@ -78,10 +80,16 @@ versaoDoAuditor(modo) = sha256(
 Mexeu em qualquer um deles, a chave muda sozinha e o próximo parecer relê tudo.
 É o mesmo padrão do cache de leitura de selo, que já funciona assim no produto.
 
-`planejarReuso` compara `versaoAnterior !== versaoAtual` e devolve
-`achadosHerdados: []` — o comportamento já está escrito, só troca a fonte do
-valor. Pareceres antigos, gravados com `versao_auditor: 1`, nunca casam com um
-hash: eles simplesmente não são reusados, que é o desfecho correto.
+`planejarReuso` hoje compara `args.versaoAnterior` contra a constante importada
+do próprio módulo. Passa a receber **as duas pontas** — `versaoAnterior` e
+`versaoAtual` — em vez de ler a atual de uma constante global. Sem isso a função
+deixaria de ser pura: ela passaria a depender de `process.env` e do prompt para
+saber com o que comparar, e o teste em node cru morreria junto. O comportamento
+interno (`diferente → achadosHerdados: []`) já está escrito e não muda.
+
+Tipo: `versaoAnterior?: string` e `versaoAtual: string`. Pareceres antigos,
+gravados com o número `1`, nunca casam com um hash de 12 caracteres — não são
+reusados, que é o desfecho correto.
 
 ## 5. Quando a base NÃO serve
 
