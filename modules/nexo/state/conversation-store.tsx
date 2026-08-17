@@ -30,6 +30,7 @@ import type {
   NexoDossieDraft,
   NexoSlotRequest,
 } from "../types";
+import { tituloDaConversa, type IdentidadeLida } from "../lib/titulo-da-conversa";
 import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
@@ -248,16 +249,27 @@ const ConversationStoreContext = createContext<ConversationStoreValue | null>(nu
 const PERSIST_DEBOUNCE_MS = 500;
 
 /** Título derivado: obra do selo > 1ª mensagem do usuário > "Nova conversa". */
+/**
+ * O título da conversa. A escada mora em [[titulo-da-conversa.ts]], pura e com
+ * teste; aqui fica só a coleta das fontes que este store conhece.
+ *
+ * A IDENTIDADE DO MEMORIAL entrou como fonte em 17/08/2026. Sem ela, uma
+ * conversa só de memorial — o caminho principal do produto — não tinha carimbo
+ * de onde tirar obra, e o título caía na primeira frase digitada: o histórico
+ * virava uma pilha de "Anexei o memorial — ..." indistinguíveis.
+ */
 function deriveTitle(
   current: string,
   messages: NexoChatMessage[],
   seloResults: SeloResult[],
+  identidade?: IdentidadeLida,
 ): string {
-  const obra = seloResults.find((r) => r.extraction?.obra?.trim())?.extraction?.obra?.trim();
-  if (obra) return obra.length > 60 ? `${obra.slice(0, 57)}…` : obra;
-  const firstUser = messages.find((m) => m.role === "user")?.content.trim();
-  if (firstUser) return firstUser.length > 48 ? `${firstUser.slice(0, 45)}…` : firstUser;
-  return current || "Nova conversa";
+  return tituloDaConversa({
+    atual: current,
+    primeiraFrase: messages.find((m) => m.role === "user")?.content,
+    obraDosSelos: seloResults.find((r) => r.extraction?.obra?.trim())?.extraction?.obra ?? undefined,
+    identidade,
+  });
 }
 
 function newId(): string {
@@ -493,7 +505,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     (m: NexoChatMessage) => {
       setMessages((prev) => {
         const next = [...prev, m];
-        setTitle((t) => deriveTitle(t, next, snapshotRef.current.seloResults));
+        setTitle((t) => deriveTitle(t, next, snapshotRef.current.seloResults, snapshotRef.current.memorialMeta?.dossie));
         return next;
       });
       schedulePersist();
@@ -522,7 +534,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     ) => {
       setMessages((prev) => {
         const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m));
-        setTitle((t) => deriveTitle(t, next, snapshotRef.current.seloResults));
+        setTitle((t) => deriveTitle(t, next, snapshotRef.current.seloResults, snapshotRef.current.memorialMeta?.dossie));
         return next;
       });
       schedulePersist();
@@ -533,7 +545,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const setSeloResults = useCallback(
     (r: SeloResult[]) => {
       setSeloResultsState(r);
-      setTitle((t) => deriveTitle(t, snapshotRef.current.messages, r));
+      setTitle((t) => deriveTitle(t, snapshotRef.current.messages, r, snapshotRef.current.memorialMeta?.dossie));
       schedulePersist();
     },
     [schedulePersist],
@@ -1030,6 +1042,17 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       const meta = { ...atual, ...(dossie ? { dossie } : {}) };
       setMemorialMeta(meta);
       snapshotRef.current = { ...snapshotRef.current, memorialMeta: meta };
+      /*
+       * O TÍTULO MUDA AQUI, e não na próxima mensagem.
+       *
+       * A identidade acaba de ser lida do memorial — é o instante em que a
+       * conversa deixa de ser "Nova conversa" e passa a ser `084_25-CRICIUMA`.
+       * Esperar o próximo `appendMessage` deixaria a barra lateral mostrando o
+       * nome velho justamente enquanto o chat exibe os fatos detectados.
+       */
+      setTitle((t) =>
+        deriveTitle(t, snapshotRef.current.messages, snapshotRef.current.seloResults, dossie),
+      );
       flushPersist();
     },
     [flushPersist],

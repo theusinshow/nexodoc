@@ -707,8 +707,18 @@ export function NexoSidebar({
                                      fundo -- o inativo fica transparente e
                                      ganha fundo no hover. */
                                   "nx-edge-5 flex min-h-[34px] w-full items-center gap-2.5 py-2 pl-2.5 pr-9 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)] focus-visible:outline-none [--nx-edge:transparent]",
+                                  /*
+                                     ONDE VOCÊ ESTÁ ≠ ONDE O PONTEIRO PASSOU.
+                                     O ativo e o hover usavam o MESMO
+                                     `--nx-fill`, então a conversa aberta era
+                                     indistinguível de qualquer linha sob o
+                                     mouse — e, sem o ponteiro em cima, de
+                                     nenhuma. O ativo ganha o CONTORNO, que na
+                                     linguagem do chanfro é outra camada e não
+                                     outro tom: some a ambiguidade sem inventar
+                                     cor nova nem mexer na altura da linha. */
                                   active
-                                    ? "text-foreground [--nx-fill:var(--accent)]"
+                                    ? "font-medium text-foreground [--nx-edge:var(--primary)] [--nx-fill:var(--accent)]"
                                     : "text-muted-foreground [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)]",
                                 )}
                               >
