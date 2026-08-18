@@ -158,7 +158,8 @@
     "prova:cobertura-honesta": "node scripts/prova-cobertura-honesta.mjs",
     "test:falha-transitoria": "node scripts/test-falha-transitoria.ts",
     "test:nota-consolidacao": "node scripts/test-nota-de-consolidacao.ts",
-    "prova:nota-consolidacao": "node scripts/prova-nota-de-consolidacao.mjs"
+    "prova:nota-consolidacao": "node scripts/prova-nota-de-consolidacao.mjs",
+    "prova:evidencia-ancorada": "node scripts/prova-evidencia-ancorada.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
