@@ -2,6 +2,13 @@
 
 > 17/08/2026. **Nenhuma linha de código foi alterada por esta análise.**
 > Tudo abaixo foi conferido na implementação, não na documentação.
+>
+> ---
+>
+> **LEIA O §11 ANTES DE AGIR POR ESTE DOCUMENTO.** A Fase 0 rodou em 18/08/2026 e
+> respondeu a pergunta com que este texto termina. O recall foi a **93%** sem
+> mudar arquitetura nenhuma, e as recomendações do §10 mudaram de prioridade —
+> não de mérito. Agir pelo §7 sem ler o §11 é planejar contra número vencido.
 
 ---
 
@@ -442,3 +449,113 @@ produto que sustenta emissão de projeto.
    alta, ganho pequeno no benchmark.
 
 **A pergunta que decide tudo é a Fase 0**, e ela custa ~US$ 1,50.
+
+---
+
+# 11. A Fase 0 rodou — 18/08/2026
+
+> Escrito no dia seguinte, contra medição. O que está acima permanece como foi
+> escrito; esta seção diz o que se confirmou, o que se refutou e o que mudou de
+> prioridade.
+
+## 11.1 O número
+
+Documento novo — `117_25_md_geral_a.pdf`, UBS Vila Manaus, 218 páginas, 464.585
+chars — contra a auditoria profunda externa (`auditoria_profunda_117_25.md`, 15
+achados AUD-001..015).
+
+| | 084-25 (17/08, `standard`) | **117-25 (18/08, `deep`)** |
+|---|---|---|
+| Recall automático | 7/25 = 28% | **13/15 = 87%** |
+| Recall conferido à mão | — | **14/15 = 93%** |
+| CRÍTICA | 1/4 = 25% | **4/4 = 100%** |
+| ALTA | 1/8 = 13% | **7/7 = 100%** |
+| Achados | 25 | **57** (47 IA + 10 regra) |
+| Custo | — | **US$ 1,12** |
+
+O benchmark define três níveis de auditoria. **Nível 1 (documental): 6/6.
+Nível 2 (semântica): 5/5. Nível 3 (técnica multidisciplinar): 3/4.** O único
+buraco da escada é o AUD-013, que o próprio benchmark classifica como *"ponto de
+validação, não erro confirmado"*.
+
+## 11.2 O que se confirmou
+
+- **§2a estava certo, e era a causa dominante.** O 24% media amostragem de 16%,
+  não o motor. Com o nível corrigido o recall triplicou sem tocar em arquitetura.
+- **§10.1 estava certo.** "A probabilidade de o recall saltar para 60%+ só com
+  isso é alta" — foi a 93%.
+- **§8 estava certo sobre a métrica faltante.** O harness não existia;
+  `scripts/recall-vs-benchmark.ts` o fechou, e mede em segundos e sem token.
+- **A doutrina funciona.** Regra e IA convergiram sozinhas nos três achados
+  críticos de identidade (p.14, p.92, p.99). Duas camadas independentes, mesmo
+  defeito.
+
+## 11.3 O que se refutou ou mudou de prioridade
+
+- **A urgência do §7 fase 4-6 caiu.** Tabelas → Ledger → reconciliação
+  endereçava "o maior bloco de achados perdidos". Esse bloco foi recuperado pelo
+  nível correto mais as regras baratas. Continua sendo boa arquitetura; deixou de
+  ser urgência.
+- **A cobertura total (§7 fase 3) não foi necessária** para chegar a 93%, e é a
+  fase cara. Segue desligada.
+- **O §9 mede a coisa certa e ninguém a estava medindo.** "Parar quando o falso
+  positivo subir" pressupõe medir precisão, e precisão nunca teve número. Fechado
+  em parte por `prova:evidencia-ancorada` — ver 11.5.
+
+## 11.4 O que só a corrida contra o provedor real ensinou
+
+A primeira corrida morreu em **503 da OpenAI** aos 310s. Custou US$ 0,21 e expôs
+três defeitos que nenhum teste de fixture pegaria:
+
+1. **O alarme de cobertura estava aceso em toda corrida Profunda.** No Deep
+   `chunkLimit` é 0 por desenho, e `coberturaCompleta` exigia
+   `blocos_lidos >= blocos_totais`. A corrida que leu 218 páginas e a que não leu
+   nada saíram com a **mesma** frase: *"leitura do documento inteiro por IA.
+   ATENÇÃO: partes do documento não foram lidas"*.
+2. **Os números da cobertura mentiam quando a passada falhava** — gravados quando
+   o plano fecha, antes de a global rodar.
+3. **Não havia retry.** Um 503 derrubava a passada que descobre 47 dos 57
+   achados, e a auditoria seguia e cobrava a validação.
+
+Consertados em `c294d44`, `3eb1742`.
+
+## 11.5 Precisão: o que dá para afirmar
+
+`prova:evidencia-ancorada` confere cada transcrição contra a página declarada.
+Em 115 achados (duas corridas): **zero evidência inventada**. Os três casos
+marcados foram lidos à mão — dois eram defeito do conferente (frase partida por
+rodapé e cabeçalho, que o auditor remontou corretamente) e um era achado real com
+o campo errado (cálculo dentro de `evidencia`, corrigido no prompt em `c142018`).
+
+Isso não prova que todo julgamento está certo. Prova que **todo achado é
+rastreável ao documento** — a base sem a qual precisão nem se discute. O
+julgamento dos 26 exclusivos está preparado em
+`docs/benchmarks/117-25/planilha-de-precisao.md` e aguarda leitura de engenheiro.
+
+## 11.6 O defeito novo, e ele não é de recall
+
+Duas corridas do mesmo documento entregam o mesmo recall (87% nas duas) — ruído
+zero. Mas **o modelo reescreve o rótulo do achado a cada corrida**:
+
+    "Empreendimento estranho"             -> "Identificação de terceiro empreendimento"
+    "Unidade de seção de condutor errada" -> "Unidade de seção incorreta"
+
+Mesma página, mesma transcrição, palavras outras. Medido:
+
+    pagina + tipo ............. 17%
+    so pagina ................. 91%   <- o defeito reaparece
+    chave do dedupe (antes) ....  7%   <- e nao era reconhecido
+
+O §12 previu isto para a arquitetura de 4 auditores ("dois auditores descrevem o
+mesmo defeito com palavras diferentes"). Já acontecia com **um** auditor, entre
+duas corridas. `lib/impressao-do-achado.ts` levou a chave a **50%** sem fundir
+nenhum par de achados distintos (`f88b755`).
+
+## 11.7 Recomendação atualizada
+
+1. **Continuar sem refatorar.** O §6 segue sendo a arquitetura certa a buscar;
+   deixou de ser o caminho crítico.
+2. **A próxima fronteira é PRECISÃO, não recall.** 57 achados contra 15 do
+   concorrente só é vantagem depois da conta que a planilha prepara.
+3. **Antes de somar camada, medir a que existe.** Cada conserto barato de hoje
+   valeu mais que a arquitetura que se cogitou ontem — e custou zero token.
