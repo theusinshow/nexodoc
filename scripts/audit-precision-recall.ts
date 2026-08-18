@@ -23,8 +23,30 @@ import {
 import { runDocumentCoherenceRules } from "../lib/audit-coherence.ts";
 import type { AuditFinding } from "../lib/audit-report.ts";
 
-function makeSource(fileName: string, fileType: string, pages: string[]): CrossDocumentSource {
-  const extractedPages = pages.map((text, index) => ({ page: index + 1, text }));
+/**
+ * Uma página do fixture: só texto, ou texto com as tabelas já reconstruídas.
+ *
+ * A grade em si é provada em `test:tabela-do-pdf` e `prova:tabela-do-pdf`. Aqui
+ * ela entra pronta, porque o que este harness mede é a REGRA — não a geometria.
+ */
+type PaginaDeTeste =
+  | string
+  | { texto: string; tabelas?: { pagina: number; linhas: string[][] }[] };
+
+function makeSource(
+  fileName: string,
+  fileType: string,
+  pages: PaginaDeTeste[],
+): CrossDocumentSource {
+  const extractedPages = pages.map((entrada, index) => {
+    const page = index + 1;
+    if (typeof entrada === "string") return { page, text: entrada };
+    return {
+      page,
+      text: entrada.texto,
+      ...(entrada.tabelas ? { tabelas: entrada.tabelas } : {}),
+    };
+  });
   return {
     fileName,
     fileType,
@@ -188,6 +210,36 @@ Aplicacao sobre superficie metalica.`,
     expected: [{ label: "titulos irmaos duplicados", needle: "pintura acrilica" }],
   },
 
+  {
+    /*
+     * AUD-009/010/011 do benchmark do 084_25: 4.448,91 no texto contra
+     * 4.530,98 na tabela. A regra existia e nao pegava, porque exige a FRASE
+     * "area total construida" a ate 25 caracteres do numero — e numa celula nao
+     * ha frase nenhuma antes do numero.
+     */
+    name: "numerico: area declarada em prosa diverge do TOTAL da tabela",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        "A area total construida da edificacao e de 4.448,91 m².",
+        {
+          texto: "Quadro de areas por ambiente.",
+          tabelas: [
+            {
+              pagina: 2,
+              linhas: [
+                ["AMBIENTE", "AREA (m²)"],
+                ["Bloco A", "2.100,00"],
+                ["Bloco B", "2.430,98"],
+                ["TOTAL", "4.530,98"],
+              ],
+            },
+          ],
+        },
+      ]),
+    ],
+    expected: [{ label: "area prosa x tabela", needle: "4.448,91" }],
+  },
+
   // --- LIMPOS (sem erro; qualquer achado = falso positivo) ---------------------
   {
     name: "LIMPO: memorial coerente (so Primeira Linha)",
@@ -284,6 +336,57 @@ Texto do capitulo 5.`,
 Aplicacao em duas demaos.
 3.4.8 PINTURA EPOXI
 Aplicacao sobre superficie metalica.`,
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O GUARDA DO QUALIFICADOR. Tabela de area de PINTURA tambem fecha com
+     * TOTAL em m², e compara-la com a area construida seria o "Escola Geral"
+     * outra vez: um numero certo lido como se fosse outra coisa. E a licao que
+     * a analise de arquitetura ja tinha tirado do Ledger, aplicada antes de o
+     * Ledger existir — estruturar sem qualificar e fabrica de falso positivo.
+     */
+    name: "LIMPO: TOTAL de tabela que NAO e quadro de areas nao entra",
+    sources: [
+      makeSource("pintura.pdf", "memorial", [
+        "A area total construida da edificacao e de 4.448,91 m².",
+        {
+          texto: "Quantitativo de pintura.",
+          tabelas: [
+            {
+              pagina: 2,
+              linhas: [
+                ["SERVICO", "QUANTIDADE (m²)"],
+                ["Pintura acrilica", "8.200,00"],
+                ["TOTAL", "8.200,00"],
+              ],
+            },
+          ],
+        },
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    name: "LIMPO: TOTAL do quadro de areas BATE com a prosa",
+    sources: [
+      makeSource("bate.pdf", "memorial", [
+        "A area total construida da edificacao e de 4.530,98 m².",
+        {
+          texto: "Quadro de areas.",
+          tabelas: [
+            {
+              pagina: 2,
+              linhas: [
+                ["AMBIENTE", "AREA (m²)"],
+                ["Bloco A", "2.100,00"],
+                ["TOTAL", "4.530,98"],
+              ],
+            },
+          ],
+        },
       ]),
     ],
     expected: [],

@@ -1008,6 +1008,27 @@ function parseAreaValue(raw: string) {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * A tabela é um QUADRO DE ÁREAS DA EDIFICAÇÃO?
+ *
+ * É o guarda do qualificador, e a lição que a análise de arquitetura já tinha
+ * tirado do Ledger, aplicada antes de o Ledger existir: **estruturar sem
+ * qualificar é fábrica de falso positivo**. Uma tabela de área de PINTURA também
+ * fecha com TOTAL em m², e compará-la com a área construída produziria
+ * exatamente o "Escola Geral" de novo — um número certo lido como se fosse
+ * outra coisa.
+ *
+ * Duas primeiras linhas porque quadro de áreas costuma abrir com um título que
+ * ocupa a linha inteira antes do cabeçalho de colunas.
+ *
+ * Conservador nos dois sentidos, e de propósito: perder um quadro real custa um
+ * achado; comparar grandezas diferentes custa a confiança no parecer inteiro.
+ */
+function ehQuadroDeAreas(tabela: { linhas: string[][] }): boolean {
+  const cabecalho = tabela.linhas.slice(0, 2).flat().join(" ");
+  return /[áa]rea|ambiente|compartimento|depend[êe]ncia/i.test(cabecalho);
+}
+
 function runDeclaredTotalAreaRule(
   extracted: ExtractedPdf,
   fileName: string,
@@ -1040,6 +1061,43 @@ function runDeclaredTotalAreaRule(
         // evidência = trecho curto ao redor da menção, não a página inteira
         evidence: snippet(page.text, match.index ?? 0, 120),
       });
+    }
+
+    /*
+     * A MESMA GRANDEZA, LIDA DA TABELA.
+     *
+     * Nenhuma comparação nova: o piso de plausibilidade, a tolerância de 0,5 m²
+     * e o disparo em dois valores distintos estão logo abaixo e já eram
+     * testados. A tabela entra só como segunda fonte do mesmo fato — o que
+     * faltava era enxergá-la.
+     *
+     * E era estrutural: a âncora de prosa acima ("área total construída" a até
+     * 25 caracteres do número) é o que torna a regra precisa no texto corrido, e
+     * é a mesma coisa que a tornava cega na célula, onde não há frase alguma
+     * antes do número.
+     */
+    for (const tabela of page.tabelas ?? []) {
+      if (!ehQuadroDeAreas(tabela)) continue;
+
+      for (const linha of tabela.linhas) {
+        if (!linha.some((celula) => /^\s*total\b/i.test(celula))) continue;
+
+        for (const celula of linha) {
+          const bruto = /^\s*(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*(?:m(?:²|2))?\s*$/.exec(celula);
+          if (!bruto) continue;
+
+          const valorDaCelula = parseAreaValue(bruto[1]);
+          if (valorDaCelula === null || valorDaCelula < 10) continue;
+
+          found.push({
+            page: page.page,
+            value: valorDaCelula,
+            display: `${bruto[1]} m²`,
+            evidence: `quadro de áreas, linha "${linha.filter(Boolean).join(" | ")}"`,
+          });
+          break;
+        }
+      }
     }
   }
 
