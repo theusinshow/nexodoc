@@ -155,7 +155,8 @@
     "test:resumo-esforco": "node scripts/test-resumo-do-esforco.ts",
     "test:nome-da-obra": "node scripts/test-nome-da-obra.ts",
     "test:contexto-validacao": "node scripts/test-contexto-da-validacao.ts",
-    "prova:cobertura-honesta": "node scripts/prova-cobertura-honesta.mjs"
+    "prova:cobertura-honesta": "node scripts/prova-cobertura-honesta.mjs",
+    "test:falha-transitoria": "node scripts/test-falha-transitoria.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

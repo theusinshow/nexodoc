@@ -66,6 +66,11 @@ import {
   type ExtractedPdf,
 } from "@/lib/pdf-text";
 import { compararImpressoes, impressaoDosCapitulos } from "@/lib/audit-fingerprint";
+import {
+  comRetentativa,
+  mensagemDoErro,
+  TENTATIVAS_PADRAO,
+} from "@/lib/falha-transitoria";
 import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
@@ -700,6 +705,24 @@ function getDeepGlobalTimeoutMs() {
  * achado incerto para "Sugestão" e filtra alucinação simplesmente não rodava
  * justamente no modo que mais depende dela.
  */
+/**
+ * A retentativa da passada global, com o registro que a explica depois.
+ *
+ * Uma auditoria que levou 600s porque o provedor recusou duas vezes precisa
+ * poder ser explicada — sem esta linha no log ela parece só lentidão.
+ */
+function comRetentativaDaGlobal<T>(rotulo: string, fn: () => Promise<T>) {
+  return comRetentativa(fn, {
+    aoRepetir: (err, tentativa, espera) => {
+      console.warn(
+        `[audit] ${rotulo}: audit-global falhou de forma transitória ` +
+          `(${mensagemDoErro(err).slice(0, 120)}); ` +
+          `tentativa ${tentativa + 1}/${TENTATIVAS_PADRAO} em ${espera}ms`,
+      );
+    },
+  });
+}
+
 /**
  * A cobertura corrigida pelas passadas que falharam — ou nada, quando não houve
  * medição (parecer de arquivo que não chegou a ser planejado).
@@ -2426,7 +2449,19 @@ async function analyzeFileGloballyWithModel(args: {
   let parsed;
 
   try {
-    const result = await executeAuditModelResponse({
+    /*
+     * A RETENTATIVA ENTRA AQUI, e só aqui.
+     *
+     * Esta é a passada que descobre quase tudo: quando ela cai, o parecer sai
+     * com as regras determinísticas e nada mais — de um documento de 218
+     * páginas. Medido em 18/08/2026 no 117_25: 503 aos 310s, parecer com 10
+     * achados; a corrida seguinte, idêntica, entregou 58.
+     *
+     * Só retenta o que passa sozinho (ver `ehFalhaTransitoria`). Truncagem e
+     * JSON inválido são determinísticos e repeti-los apenas cobra de novo.
+     */
+    const result = await comRetentativaDaGlobal(args.fileName, () =>
+      executeAuditModelResponse({
       taskId: args.auditId,
       taskLabel: args.fileName,
       model,
@@ -2462,7 +2497,8 @@ async function analyzeFileGloballyWithModel(args: {
       },
       conversationId: args.conversationId,
       userEmail: args.userEmail,
-    });
+      }),
+    );
     parsed = parseRequiredAuditModelJson(result.text, "audit-global");
     for (const item of parsed?.sintese ?? []) {
       if (item?.capitulo && item?.resumo) {
