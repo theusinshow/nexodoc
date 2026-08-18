@@ -14,7 +14,7 @@
         "tipo": "Linguagem de projeto rodoviário não adaptada",
         "pagina": "38",
         "prioridade": "Media",
-        "conflito": "2 termos de projeto rodoviário num centro comunitário.",
+        "conflito": "2 termo(s) de projeto rodoviário numa obra de edificação.",
         "evidencia": "Pág. 38: \"o estudo de tráfego segundo as metodologias empregadas. TABELA 3 - ESTIMATIVA DO NÚMERO DE SOLICITAÇÕES DE PROJETO SEGMENTO (EIXO-1) N USACE N AASHTO Km 0+000 – Km 0+030 3,91 x 104 2,98 x 104 5.3 Investigações geotécnicas para caracterização do subleito O estudo geotécnico para a implantaç"
       },
       {
@@ -50,13 +50,6 @@
         "prioridade": "Alta",
         "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
         "evidencia": "p. 37: \"ArcelorMittal – Perfil UDC. 3.4.6 ACM – Alumínio Composto Conforme projeto, a nova marquis\"; p. 67: \"Docol, Acabamento para válvula de descarga Benefit Cod. 00184906. Os assentos serão em plá\"; p. 68: \"Cuba de embutir Tramontina Lavínia 40 BL em aço inox acetinado 40x34 cm. Será implantado n"
-      },
-      {
-        "tipo": "Remissão a item inexistente",
-        "pagina": "96",
-        "prioridade": "Media/Alta",
-        "conflito": "O item referenciado não existe no documento — quem for executar não tem para onde ir, e a exigência fica sem conteúdo.",
-        "evidencia": "p. 96: \"s de regulagem, tensão secundária de 380/220 V, freqüência de 60 Hz, isolação para 25 KV. Conforme item 5.7.5, letra i da norma técnica N-321.0002, o transformador a seco deverá di\""
       }
     ]
   },
@@ -89,7 +82,7 @@
         "tipo": "Material das ferragens contraditório",
         "pagina": "69 e 71",
         "prioridade": "Media/Alta",
-        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "conflito": "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         "evidencia": "Pág. 69: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
       },
       {
@@ -137,7 +130,7 @@
         "tipo": "Linguagem de projeto rodoviário não adaptada",
         "pagina": "30",
         "prioridade": "Media",
-        "conflito": "3 termos de projeto rodoviário num centro comunitário.",
+        "conflito": "3 termo(s) de projeto rodoviário numa obra de edificação.",
         "evidencia": "Pág. 30: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
       },
       {
@@ -158,7 +151,7 @@
         "tipo": "Material das ferragens contraditório",
         "pagina": "72 e 74",
         "prioridade": "Media/Alta",
-        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "conflito": "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         "evidencia": "Pág. 72: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
       },
       {
@@ -192,14 +185,14 @@
         "tipo": "Linguagem de projeto rodoviário não adaptada",
         "pagina": "29",
         "prioridade": "Media",
-        "conflito": "5 termos de projeto rodoviário num centro comunitário.",
+        "conflito": "5 termo(s) de projeto rodoviário numa obra de edificação.",
         "evidencia": "Pág. 29: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
       },
       {
         "tipo": "Material das ferragens contraditório",
         "pagina": "67 e 68",
         "prioridade": "Media/Alta",
-        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "conflito": "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         "evidencia": "Pág. 67: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
       },
       {

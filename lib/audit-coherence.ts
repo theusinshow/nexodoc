@@ -200,7 +200,12 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
           .join(", ")}) num projeto de edificação (estacionamento/acessos) — indício de especificação genérica reaproveitada sem adaptação.`,
         evidencia: `Pág. ${first.page}: "${first.evidence}"`,
         termo_busca: first.label,
-        conflito: `${roadSignals.length} termos de projeto rodoviário num centro comunitário.`,
+        /*
+         * "num centro comunitário" era o projeto em que a regra nasceu, e ela
+         * repetia isso em UBS, hospital e feira municipal. O conflito não pode
+         * afirmar uma tipologia que a regra não lê.
+         */
+        conflito: `${roadSignals.length} termo(s) de projeto rodoviário numa obra de edificação.`,
         sugestao_correcao:
           "Revisar os capítulos de terraplenagem/drenagem/pavimentação e adaptar a linguagem viária ao escopo real (estacionamento e acessos da edificação).",
         confianca: "media",
@@ -311,10 +316,20 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
           "O memorial especifica o material das ferragens de duas formas incompatíveis: em um trecho elas acompanham o material das esquadrias, em outro devem ser todas em inox.",
         evidencia: `Pág. ${ferragensComoEsquadria.page}: "${ferragensComoEsquadria.evidence.trim()}" | Pág. ${ferragensInox.page}: "${ferragensInox.evidence.trim()}"`,
         termo_busca: "do mesmo material das esquadrias",
+        /*
+         * O CONFLITO DESCREVE O QUE FOI ACHADO, e nada além.
+         *
+         * Ele afirmava "(alumínio)", e a palavra não estava em nenhum dos dois
+         * trechos casados — a regra não lê o material das esquadrias, lê a
+         * frase que diz que as ferragens o acompanham. No 117_25 o segundo
+         * trecho é sobre PORTAS DE MADEIRA, e ferragem de madeira não existe:
+         * a contradição é real, mas não é a que o texto afirmava.
+         */
         conflito:
-          "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+          "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. " +
+          "As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         sugestao_correcao:
-          "Definir um único material para as ferragens das portas de alumínio e uniformizar as duas seções, conferindo com o detalhamento das esquadrias.",
+          "Definir o material das ferragens por tipo de esquadria e uniformizar as duas seções, conferindo com o detalhamento do projeto arquitetônico.",
       }),
     );
   }
@@ -615,10 +630,23 @@ function runBrokenCrossReferenceRule(
         (match.index ?? 0) + match[0].length + 60,
       );
 
-      if (
-        /^\s*d[aeo]s?\s+(norma|nbr|nr\b|in\b|instru|abnt|lei|decreto|portaria|resolu|n-\d)/i.test(depois) ||
-        /^\s*desta\s+norma/i.test(depois)
-      ) {
+      /*
+       * A CLÁUSULA NO MEIO TAMBÉM É NORMA EXTERNA.
+       *
+       * A guarda exigia "da norma" colado ao número, e o 113-22 escreve
+       * "Conforme item 5.7.5, letra i da norma técnica N-321.0002" — o
+       * ", letra i" entre os dois derrubava a guarda, e o item de uma norma da
+       * concessionária virava remissão quebrada do memorial.
+       *
+       * A cláusula aceita é curta e fechada (letra, alínea, inciso, item,
+       * parágrafo). Procurar "norma" em qualquer lugar dos 60 caracteres
+       * seguintes seria frouxo demais: "conforme item 3.6.3, a NBR 9050 exige"
+       * é remissão INTERNA seguida de citação, e calá-la seria esconder achado.
+       */
+      const CLAUSULA_DE_NORMA_EXTERNA =
+        /^\s*(?:,\s*(?:letra|al[íi]nea|inciso|item|par[áa]grafo)\s+[\wíáéóú.-]+\s*)?d[aeo]s?\s+(norma|nbr|nr\b|in\b|instru|abnt|lei|decreto|portaria|resolu|n-\d)/i;
+
+      if (CLAUSULA_DE_NORMA_EXTERNA.test(depois) || /^\s*desta\s+norma/i.test(depois)) {
         continue;
       }
 

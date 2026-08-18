@@ -303,6 +303,38 @@ const CASES: Case[] = [
     expected: [],
   },
   {
+    /*
+     * LIMPO — item de norma EXTERNA com clausula no meio. A guarda exigia
+     * "da norma" colado ao numero, e o 113-22 escreve "item 5.7.5, letra i da
+     * norma tecnica N-321.0002": o ", letra i" derrubava a guarda e o item da
+     * concessionaria virava remissao quebrada do memorial.
+     */
+    name: "LIMPO: remissao a item de norma externa com clausula no meio",
+    sources: [
+      makeSource("eletrico.pdf", "memorial", [
+        "1 OBJETO. Memorial do projeto eletrico da unidade.",
+        "Conforme item 5.7.5, letra i da norma tecnica N-321.0002, o transformador a seco " +
+          "devera dispor de dispositivos de protecao.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O contraponto: remissao INTERNA seguida de citacao de norma continua
+     * sendo cobrada. "conforme item 3.6.3, a NBR 9050 exige" aponta para um
+     * item DESTE documento — cala-la seria esconder achado.
+     */
+    name: "remissao: item interno inexistente seguido de citacao de norma",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        "1 OBJETO. Memorial descritivo da unidade.",
+        "2.1 Acessibilidade. Conforme item 3.6.3, a NBR 9050 exige rampa com inclinacao maxima.",
+      ]),
+    ],
+    expected: [{ label: "remissao quebrada", needle: "3.6.3" }],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [
