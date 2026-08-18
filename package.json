@@ -145,6 +145,7 @@
     "test:versao-auditor": "node scripts/test-versao-do-auditor.ts",
     "test:elegibilidade": "node scripts/test-elegibilidade-da-base.ts",
     "test:aviso-gravacao": "node scripts/test-aviso-de-gravacao.ts",
+    "test:tabela-do-pdf": "node scripts/test-tabela-do-pdf.ts",
     "test:copia-mais-nova": "node scripts/test-copia-mais-nova.ts",
     "test:parecer-a-recuperar": "node scripts/test-parecer-a-recuperar.ts",
     "test:contexto-global": "node scripts/test-contexto-da-global.ts",

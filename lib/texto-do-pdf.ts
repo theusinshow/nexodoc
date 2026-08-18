@@ -65,7 +65,15 @@ const FRACAO_DE_ESPACO = 0.15;
 /** Quanto os `y` podem diferir e ainda ser a mesma linha. */
 const FRACAO_DE_LINHA = 0.5;
 
-function corpoDaFonte(item: ItemDeTexto): number {
+/**
+ * O corpo da fonte do item, em unidades do PDF.
+ *
+ * Exportada porque `tabela-do-pdf.ts` mede vão de COLUNA na mesma unidade em que
+ * este módulo mede vão de PALAVRA. Duas medidas do mesmo corpo, calculadas em
+ * dois lugares diferentes, é como se cria divergência silenciosa entre a linha
+ * que a extração vê e a coluna que a tabela vê.
+ */
+export function corpoDaFonte(item: ItemDeTexto): number {
   const altura = Math.abs(item.height ?? 0);
   if (altura > 0) return altura;
   return Math.abs(item.transform?.[3] ?? 0);
