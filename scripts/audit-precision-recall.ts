@@ -125,6 +125,50 @@ const CASES: Case[] = [
     expected: [{ label: "concessionaria fora de area", needle: "coopera" }],
   },
 
+  {
+    /*
+     * AUD-004 do benchmark do 084_25 (Bloco H, p. 188): o memorial declara, em
+     * tabela, que a saida de emergencia NAO atende. E o achado de maior
+     * prioridade do documento inteiro — nao e inferencia nem julgamento, e a
+     * confissao do proprio documento —, e o Nexodoc nao via.
+     *
+     * A quebra de linha nas celulas so passou a sobreviver em 17/08/2026; antes
+     * disso a pagina inteira era achatada numa linha e regra de tabela nenhuma
+     * podia funcionar.
+     */
+    name: "coerencia: nao conformidade DECLARADA pelo proprio documento",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        "Texto qualquer de abertura do memorial.",
+        [
+          "BLOCO H - SAIDA DE EMERGENCIA",
+          "Largura minima exigida: 1,20 m",
+          "Largura executada: 0,90 m",
+          "Atende? Nao",
+        ].join("\n"),
+      ]),
+    ],
+    expected: [{ label: "nao conformidade declarada", needle: "atende" }],
+  },
+  {
+    /*
+     * O `-se` REFLEXIVO nao pode ser lido como condicional. "Constatou-se" e
+     * "verifica-se" sao a forma normal de escrever quadro de verificacao em
+     * portugues; uma guarda ingenua com \bse\b mataria a regra em silencio
+     * justamente nas linhas onde ela mais serve.
+     */
+    name: "coerencia: declaracao com verbo REFLEXIVO ainda e achado",
+    sources: [
+      makeSource("reflexivo.pdf", "memorial", [
+        [
+          "BLOCO J - VERIFICACAO",
+          "Constatou-se que a rampa atende? Nao",
+        ].join("\n"),
+      ]),
+    ],
+    expected: [{ label: "declarada com reflexivo", needle: "atende" }],
+  },
+
   // --- LIMPOS (sem erro; qualquer achado = falso positivo) ---------------------
   {
     name: "LIMPO: memorial coerente (so Primeira Linha)",
@@ -152,6 +196,40 @@ const CASES: Case[] = [
       makeSource("memorial.pdf", "memorial", [
         "A area total construida e de 850,00 m².",
         "Reforcando: a area total construida e de 850,00 m².",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O FALSO POSITIVO QUE DECIDE A QUALIDADE DESTA REGRA.
+     *
+     * "caso nao atenda", "se nao atender", "sempre que nao atender" sao
+     * instrucao normal de memorial — hipotese, nao confissao. Uma regra que
+     * confunda as duas acusaria praticamente todo memorial do escritorio, e
+     * regra que grita em todo documento e regra que se aprende a ignorar.
+     */
+    name: "LIMPO: 'nao atende' em contexto CONDICIONAL nao e confissao",
+    sources: [
+      makeSource("condicional.pdf", "memorial", [
+        "Caso o material nao atenda as especificacoes, devera ser substituido.",
+        "Se a peca nao atender a norma, o fornecedor arcara com a troca.",
+        "Sempre que nao atender ao previsto, o responsavel tecnico sera acionado.",
+        "O contratado devera refazer o servico que nao atender ao memorial.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    name: "LIMPO: tabela de conformidade em que TUDO atende",
+    sources: [
+      makeSource("conforme.pdf", "memorial", [
+        [
+          "BLOCO A - CIRCULACAO",
+          "Largura minima exigida: 1,20 m",
+          "Largura executada: 1,50 m",
+          "Atende? Sim",
+        ].join("\n"),
       ]),
     ],
     expected: [],

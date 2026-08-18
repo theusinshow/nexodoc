@@ -318,6 +318,122 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(dupFinding);
   }
 
+  // 12) O documento declarando que ele mesmo NÃO atende.
+  for (const naoConforme of runDeclaredNonComplianceRule(extracted, fileName, nextId)) {
+    findings.push(naoConforme);
+  }
+
+  return findings;
+}
+
+// --- Regra 12: não conformidade declarada pelo próprio documento -------------
+
+/*
+ * "Atende? Não" — o memorial se acusando.
+ *
+ * É a classe de achado mais barata e mais grave que existe: não há inferência,
+ * julgamento nem contexto a interpretar. O documento afirma, por escrito, que
+ * alguma exigência não é atendida, e mesmo assim segue para emissão. No 084_25
+ * (Bloco H, p. 188) era uma saída de emergência, e o parecer não viu.
+ *
+ * POR QUE SÓ AGORA. Estas declarações moram em TABELA de verificação, e até
+ * 17/08/2026 a extração achatava a página numa linha só — a resposta "Não"
+ * ficava colada no texto vizinho e não havia como saber que era uma célula. Com
+ * a quebra de linha preservada, a posição volta a significar alguma coisa.
+ *
+ * O QUE DECIDE A QUALIDADE DA REGRA é o falso positivo por CONDICIONAL. "Caso o
+ * material não atenda, deverá ser substituído" é instrução normal de memorial —
+ * hipótese, não confissão. Uma regra que confunda as duas acusa praticamente
+ * todo memorial do escritório, e regra que grita em todo documento é regra que
+ * se aprende a ignorar. Daí as duas exigências abaixo, ambas conservadoras:
+ *
+ *   1. a declaração tem de estar em POSIÇÃO DE RESPOSTA — sozinha na linha, ou
+ *      fechando a linha depois de um rótulo com "?" ou ":";
+ *   2. a linha não pode ser regida por conjunção condicional.
+ *
+ * Conservador de propósito: perder uma declaração real custa um achado; inundar
+ * o parecer de hipóteses custa a confiança no parecer inteiro.
+ */
+
+/** "Atende? Não", "Atende: Nao", "Conforme? Não" — rótulo, pontuação, resposta. */
+const RESPOSTA_NAO =
+  /^(.{0,60}?(?:atende|atendido|conforme|conformidade|aprovado)[^\n]{0,20}?[?:])\s*(n[ãa]o)\s*$/i;
+
+/** A linha inteira é só a negativa: "NÃO ATENDE", "NÃO CONFORME". */
+const NEGATIVA_ISOLADA =
+  /^\s*(n[ãa]o\s+(?:atende|atendido|conforme|est[áa]\s+conforme))\b[^\n]{0,40}$/i;
+
+/**
+ * Conjunção condicional que transforma a frase em HIPÓTESE.
+ *
+ * O `se` exige lookbehind de hífen: em português, `-se` REFLEXIVO
+ * ("constatou-se", "verifica-se") casaria com `\bse\b` e mataria em silêncio
+ * toda declaração numa linha com verbo reflexivo — que é como quadros de
+ * verificação costumam ser escritos.
+ *
+ * É a guarda que separa "o documento declara que não atende" de "se não
+ * atender, faça X". Sem ela a regra seria inútil por excesso.
+ */
+const CONDICIONAL =
+  /\b(caso|quando|sempre\s+que|na\s+hip[óo]tese|eventualmente)\b|(?<![-\w])\bse\b/i;
+
+function runDeclaredNonComplianceRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const vistos = new Set<string>();
+
+  for (const page of extracted.pages) {
+    for (const linha of page.text.split(/\r?\n/)) {
+      const limpa = linha.trim();
+      if (!limpa) continue;
+
+      /*
+       * A condicional vale para a LINHA inteira, e não só para o trecho casado:
+       * "Caso a largura não atenda ao exigido: Não se aplica" tem a hipótese
+       * longe da resposta, e olhar só o entorno imediato a perderia.
+       */
+      if (CONDICIONAL.test(limpa)) continue;
+
+      const resposta = RESPOSTA_NAO.exec(limpa);
+      const isolada = resposta ? null : NEGATIVA_ISOLADA.exec(limpa);
+      if (!resposta && !isolada) continue;
+
+      const chave = `${page.page}:${limpa.toLowerCase()}`;
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+
+      findings.push(
+        makeFinding(nextId(), {
+          arquivo: fileName,
+          prioridade: "Alta",
+          /*
+           * Bloqueia a emissão, e sem hesitação. As outras regras acusam
+           * CONTRADIÇÃO — duas partes do documento que não fecham, e alguém
+           * precisa decidir qual vale. Aqui não há o que decidir: o documento
+           * concorda consigo mesmo em dizer que a exigência não é cumprida.
+           * Emitir assim é emitir uma não conformidade conhecida.
+           */
+          impacto: "critico_documental",
+          pagina: String(page.page),
+          capitulo: "Verificação de conformidade",
+          local: "quadro de verificação",
+          tipo: "Não conformidade declarada no documento",
+          descricao:
+            "O próprio documento declara que uma exigência NÃO é atendida. Não é divergência entre trechos: é uma não conformidade assumida por escrito, que segue para emissão.",
+          evidencia: limpa.slice(0, 200),
+          termo_busca: limpa.slice(0, 60),
+          conflito:
+            "Um documento que declara não atender a um requisito e mesmo assim é emitido transfere ao executor uma não conformidade conhecida.",
+          sugestao_correcao:
+            "Corrigir o projeto para atender à exigência, ou registrar formalmente a justificativa técnica e a aprovação do responsável antes de emitir.",
+        }),
+      );
+    }
+  }
+
   return findings;
 }
 
