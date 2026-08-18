@@ -137,6 +137,72 @@ const CASES: Case[] = [
     expected: [{ label: "area total divergente", needle: "1.250,00 m²" }],
   },
   {
+    /*
+     * O caso real do 117_25 (p.101 x p.104), com os numeros como estao no
+     * memorial. O modelo perdeu este achado nas TRES corridas Deep; a regra o
+     * pega sempre. Agua: 1.230 L/dia. Efluente: 59 x 50 = 2.950 L/dia — 2,4x.
+     */
+    name: "numerico: contribuicao de esgoto acima do consumo de agua",
+    sources: [
+      makeSource("hidro.pdf", "memorial", [
+        "TABELA DE CONSUMO DIARIO DE AGUA POTAVEL. Total Consumo 1230. " +
+          "Para a tabela acima chegamos ao valor de um consumo diario de 1.230 Litros.",
+        "Dimensionamento Filtro anaerobio. Dados: lv = 1,60; N = 59 pessoas; " +
+          "q = 50 L/un/dia; T = 0,92 dias.",
+      ]),
+    ],
+    expected: [{ label: "esgoto acima da agua", needle: "2.950 L/dia" }],
+  },
+  {
+    /*
+     * LIMPO: as duas bases conversam. 59 x 20 = 1.180 L/dia contra 1.230 L/dia
+     * de consumo — o efluente e MENOR que a agua, que e o esperado. Sem este
+     * caso a regra poderia disparar em todo memorial que dimensiona efluente.
+     */
+    name: "LIMPO: esgoto compativel com o consumo de agua",
+    sources: [
+      makeSource("hidro-ok.pdf", "memorial", [
+        "Para a tabela acima chegamos ao valor de um consumo diario de 1.230 Litros.",
+        "Dados: N = 59 pessoas; q = 20 L/un/dia; T = 0,92 dias.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /* O caso real do 117_25 (cap. 14): oxido nitroso nos postos, sem central. */
+    name: "escopo: gas medicinal com posto e sem central dimensionada",
+    sources: [
+      makeSource("gases.pdf", "memorial", [
+        "14.4.3 Postos de utilizacao. Cada posto de utilizacao de oxigenio, oxido nitroso, " +
+          "ar ou vacuo, deve ser equipado com uma valvula autovedante.",
+        "14.4.5 Dimensionamento das centrais. 14.4.5.1 Oxigenio: serao utilizados 2 cilindros. " +
+          "14.4.5.2 Vacuo: a central de vacuo medicinal sera composta por uma bomba. " +
+          "14.4.5.3 Ar Comprimido: a central de ar comprimido medicinal tera um compressor.",
+      ]),
+    ],
+    expected: [{ label: "oxido nitroso sem central", needle: "oxido nitroso" }],
+  },
+  {
+    /*
+     * LIMPO, e este caso e o que impede a regra de acusar todo memorial de
+     * gases: a tabela de cores da NBR 12188 lista os SEIS gases da norma,
+     * inclusive nitrogenio e gas carbonico, que o projeto nao usa. Ancorar nela
+     * em vez de nos postos geraria falso positivo em todo projeto de saude.
+     */
+    name: "LIMPO: tabela de cores da NBR 12188 nao declara escopo",
+    sources: [
+      makeSource("gases-ok.pdf", "memorial", [
+        "As redes deverao ser identificadas conforme a planilha abaixo (NBR 12188). " +
+          "Gas Cor: Ar Comprimido Amarelo; Oxigenio Verde; Vacuo Cinza; " +
+          "Oxido Nitroso Azul Marinho; Gas Carbonico Branco; Nitrogenio Preta.",
+        "Cada posto de utilizacao de oxigenio ou vacuo deve ser equipado com valvula.",
+        "14.4.5 Dimensionamento das centrais. 14.4.5.1 Oxigenio: 2 cilindros. " +
+          "14.4.5.2 Vacuo: central de vacuo medicinal com bomba.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [

@@ -246,6 +246,22 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(areaFinding);
   }
 
+  // 5b) Contribuição de efluente declarada acima do consumo de água declarado.
+  //     O esgoto sai da água que entrou; quando os dois números do mesmo
+  //     capítulo discordam, um dos dimensionamentos está na base errada — e é
+  //     ele que decide o volume de tanque séptico e filtro que a obra executa.
+  for (const esgotoFinding of runSewageExceedsWaterRule(extracted, fileName, nextId)) {
+    findings.push(esgotoFinding);
+  }
+
+  // 5c) Gás medicinal com posto de utilização e sem central dimensionada.
+  //     Escopo em aberto: a obra tem ponto de consumo e não tem de onde
+  //     alimentar. A âncora é a frase dos postos, nunca a tabela de cores da
+  //     NBR 12188 — ela lista os seis gases da norma, inclusive os não usados.
+  for (const gasFinding of runMedicalGasWithoutCentralRule(extracted, fileName, nextId)) {
+    findings.push(gasFinding);
+  }
+
   // 6) Concessionária de energia citada fora da sua microrregião de atendimento.
   //    Só dispara para cooperativas de área pequena e bem delimitada — grandes
   //    distribuidoras estaduais (CELESC, ENEL, CPFL...) cobrem municípios demais
@@ -1233,4 +1249,221 @@ function runElectricUtilityTerritoryRule(
   }
 
   return findings;
+}
+
+/**
+ * ESGOTO MAIOR QUE ÁGUA — as duas bases do hidrossanitário não se conversam.
+ *
+ * O memorial declara, no mesmo capítulo, quanto de água a edificação consome e
+ * quanto de efluente ela gera. O segundo não pode ser maior que o primeiro: o
+ * esgoto sai da água que entrou. Quando os dois números discordam, a diferença
+ * não é detalhe de cálculo — um dos dimensionamentos está sobre a base errada, e
+ * ele decide o volume de tanque séptico e filtro que a obra vai executar.
+ *
+ * O caso que originou a regra (117_25, p.101 × p.104):
+ *
+ *   p.101  tabela de consumo — 23+16+20 = 59 pessoas, total 1.230 L/dia
+ *   p.104  filtro anaeróbio  — N = 59 pessoas; q = 50 L/un/dia -> 2.950 L/dia
+ *
+ * Mesma população, contribuições per capita incompatíveis: a água usa 10/50/10
+ * L por grupo (média ≈ 20,8) e o esgoto usa 50 para todos. O efluente declarado
+ * é 2,4× a água consumida.
+ *
+ * A auditoria externa marcou isto como "ponto de validação, não erro
+ * confirmado", e três corridas Deep do modelo perderam o achado. Como regra ele
+ * é aritmética simples e sai 100% das vezes.
+ *
+ * TOLERÂNCIA de 20%: a contribuição per capita de esgoto vem de tabela
+ * normativa e não precisa bater com o consumo projetado no centavo. O que a
+ * regra acusa é DESACORDO DE BASE, não arredondamento — por isso só dispara
+ * quando o efluente supera a água com folga.
+ */
+function runSewageExceedsWaterRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  /** "consumo diário de 1.230 Litros" — o total que a tabela de água fecha. */
+  const CONSUMO_DIARIO = /consumo\s+di[áa]rio\s+de\s+([\d.]+(?:,\d+)?)\s*litros/gi;
+  /** "N = 59 pessoas" e "q = 50 L/un/dia" do dimensionamento do efluente. */
+  const POPULACAO_EFLUENTE = /\bN\s*=\s*(\d{1,5})\s*pessoas/gi;
+  const CONTRIBUICAO = /\bq\s*=\s*([\d.]+(?:,\d+)?)\s*l\s*\/\s*un\s*\/\s*dia/gi;
+
+  let agua: { page: number; value: number; evidence: string } | null = null;
+  let pessoas: { page: number; value: number } | null = null;
+  let contribuicao: { page: number; value: number; evidence: string } | null = null;
+
+  for (const page of extracted.pages) {
+    for (const m of page.text.matchAll(CONSUMO_DIARIO)) {
+      const value = parseAreaValue(m[1]);
+      if (value === null || value <= 0) continue;
+      // o primeiro que aparecer é o do capítulo de água potável
+      agua ??= { page: page.page, value, evidence: snippet(page.text, m.index ?? 0, 120) };
+    }
+    for (const m of page.text.matchAll(POPULACAO_EFLUENTE)) {
+      const value = Number(m[1]);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      pessoas ??= { page: page.page, value };
+    }
+    for (const m of page.text.matchAll(CONTRIBUICAO)) {
+      const value = parseAreaValue(m[1]);
+      if (value === null || value <= 0) continue;
+      contribuicao ??= { page: page.page, value, evidence: snippet(page.text, m.index ?? 0, 120) };
+    }
+  }
+
+  // Sem os três números não há comparação — e regra que chuta é pior que regra ausente.
+  if (!agua || !pessoas || !contribuicao) return [];
+
+  const efluente = pessoas.value * contribuicao.value;
+  if (efluente <= agua.value * 1.2) return [];
+
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+  const paginas = [...new Set([agua.page, contribuicao.page])].sort((a, b) => a - b).join(" e ");
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Media/Alta",
+      impacto: "tecnico_contratual",
+      pagina: paginas,
+      capitulo: "Projeto hidrossanitário",
+      local: "consumo de água × contribuição de efluente",
+      tipo: "Bases de consumo de água e de esgoto divergentes",
+      descricao:
+        `A contribuição de efluente declarada (${fmt(pessoas.value)} pessoas × ${fmt(contribuicao.value)} L/un/dia = ` +
+        `${fmt(efluente)} L/dia) é ${(efluente / agua.value).toFixed(1).replace(".", ",")}× o consumo diário de água declarado ` +
+        `(${fmt(agua.value)} L/dia). O efluente sai da água que entrou.`,
+      evidencia: `Pág. ${agua.page}: "${agua.evidence}" | Pág. ${contribuicao.page}: "${contribuicao.evidence}"`,
+      conflito:
+        "Os dois dimensionamentos do mesmo capítulo partem de contribuições per capita incompatíveis. " +
+        "O volume de tanque séptico e filtro anaeróbio é calculado sobre a base maior.",
+      sugestao_correcao:
+        "Reconciliar as duas bases no memorial: declarar qual contribuição per capita rege o efluente e por quê " +
+        "(tabela normativa × consumo projetado), ou corrigir a tabela de consumo de água.",
+      termo_busca: "L/un/dia",
+      confianca: "alta",
+    }),
+  ];
+}
+
+/**
+ * FLUIDO PREVISTO NO USO, AUSENTE DO DIMENSIONAMENTO.
+ *
+ * Em projeto de gases medicinais, o memorial diz quais fluidos existem nos
+ * postos de utilização e, mais adiante, dimensiona a central de cada um. Fluido
+ * que aparece no primeiro e não no segundo é escopo em aberto: a obra tem ponto
+ * de consumo e não tem de onde alimentar.
+ *
+ * O caso (117_25, cap. 14):
+ *
+ *   p.217  "Cada posto de utilização de oxigênio, óxido nitroso, ar ou vácuo..."
+ *   p.217  14.4.5.1 Oxigênio     -> dimensionado
+ *   p.218  14.4.5.2 Vácuo        -> dimensionado
+ *   p.218  14.4.5.3 Ar Comprimido -> dimensionado
+ *          óxido nitroso          -> AUSENTE
+ *
+ * A ÂNCORA É O POSTO DE UTILIZAÇÃO, e isso não é detalhe. A tabela de cores da
+ * NBR 12188, que todo memorial de gases transcreve, lista os SEIS gases da norma
+ * — inclusive os que o projeto não usa. Ancorar nela acusaria todo projeto de
+ * não dimensionar nitrogênio e gás carbônico. O que declara escopo é a frase que
+ * diz o que existe nos postos.
+ *
+ * O modelo pegou este achado em 2 de 3 corridas Deep. Como regra, sai sempre.
+ */
+function runMedicalGasWithoutCentralRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  /** A frase que declara o escopo: o que existe nos postos de utilização. */
+  const POSTOS = /posto[s]?\s+de\s+utiliza[cç][ãa]o\s+de\s+([^.;\n]{5,160})/i;
+  /** O trecho onde as centrais são dimensionadas. */
+  const CENTRAIS = /dimensionamento\s+das\s+centrais/i;
+
+  /**
+   * Vocabulário mínimo, com o nome como ele aparece no dimensionamento.
+   * "ar" sozinho é palavra curta demais para procurar; o par resolve.
+   */
+  const FLUIDOS: { rotulo: string; nosPostos: RegExp; naCentral: RegExp }[] = [
+    { rotulo: "óxido nitroso", nosPostos: /[óo]xido\s+nitroso/i, naCentral: /[óo]xido\s+nitroso/i },
+    { rotulo: "oxigênio", nosPostos: /oxig[êe]nio/i, naCentral: /oxig[êe]nio/i },
+    { rotulo: "vácuo", nosPostos: /v[áa]cuo/i, naCentral: /v[áa]cuo/i },
+    { rotulo: "ar comprimido", nosPostos: /\bar\b/i, naCentral: /ar\s+(?:comprimido|medicinal)/i },
+    { rotulo: "nitrogênio", nosPostos: /nitrog[êe]nio/i, naCentral: /nitrog[êe]nio/i },
+    { rotulo: "gás carbônico", nosPostos: /g[áa]s\s+carb[ôo]nico/i, naCentral: /g[áa]s\s+carb[ôo]nico/i },
+  ];
+
+  let declarados: { page: number; lista: string; evidence: string } | null = null;
+  let inicioCentrais: { page: number; index: number } | null = null;
+
+  for (const page of extracted.pages) {
+    if (!declarados) {
+      const m = POSTOS.exec(page.text);
+      if (m) {
+        declarados = {
+          page: page.page,
+          lista: m[1],
+          evidence: snippet(page.text, m.index ?? 0, 140),
+        };
+      }
+    }
+    /*
+     * A ÚLTIMA OCORRÊNCIA, NÃO A PRIMEIRA.
+     *
+     * A primeira é o SUMÁRIO. No 117_25 "Dimensionamento das centrais" aparece
+     * na p.10 (índice) e na p.217 (corpo); pegando a p.10 a regra passaria a ler
+     * o começo do documento como se fosse o capítulo de gases — e acusaria
+     * ausência de central lendo a lista de capítulos. Saía o achado certo pelo
+     * motivo errado, que é o jeito mais barato de uma regra virar falso positivo
+     * no próximo documento.
+     */
+    const m = CENTRAIS.exec(page.text);
+    if (m) inicioCentrais = { page: page.page, index: m.index ?? 0 };
+  }
+
+  if (!declarados || !inicioCentrais) return [];
+
+  /*
+   * O texto das centrais vai do título até o fim do capítulo. Colher as páginas
+   * seguintes é necessário: o 117_25 abre a seção na p.217 e dimensiona duas das
+   * três centrais na p.218.
+   */
+  const textoDasCentrais = extracted.pages
+    .filter((p) => p.page >= inicioCentrais.page)
+    .map((p, i) => (i === 0 ? p.text.slice(inicioCentrais.index) : p.text))
+    .join("\n")
+    .slice(0, 20_000);
+
+  const faltando = FLUIDOS.filter(
+    (f) => f.nosPostos.test(declarados.lista) && !f.naCentral.test(textoDasCentrais),
+  );
+
+  if (faltando.length === 0) return [];
+
+  const nomes = faltando.map((f) => f.rotulo).join(", ");
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Media/Alta",
+      impacto: "tecnico_contratual",
+      pagina: [...new Set([declarados.page, inicioCentrais.page])].sort((a, b) => a - b).join(" e "),
+      capitulo: "Projeto de gases medicinais",
+      local: "postos de utilização × dimensionamento das centrais",
+      tipo: "Fluido previsto nos postos e ausente do dimensionamento das centrais",
+      descricao:
+        `${nomes} aparece(m) entre os fluidos dos postos de utilização, mas nenhuma central ` +
+        `correspondente é dimensionada na seção de dimensionamento das centrais.`,
+      evidencia: `Pág. ${declarados.page}: "${declarados.evidence}"`,
+      conflito:
+        "O projeto prevê ponto de consumo para um fluido que não tem fonte dimensionada. " +
+        "Ou o posto não deveria existir, ou falta a central.",
+      sugestao_correcao:
+        `Dimensionar a central de ${nomes} no capítulo, ou retirar o fluido da relação de postos ` +
+        "de utilização se ele não faz parte do escopo.",
+      termo_busca: faltando[0].rotulo,
+      confianca: "alta",
+    }),
+  ];
 }
