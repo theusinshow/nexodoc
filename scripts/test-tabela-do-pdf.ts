@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 
-import { linhasDaPagina } from "../lib/tabela-do-pdf.ts";
+import { linhasDaPagina, tabelasDaPagina } from "../lib/tabela-do-pdf.ts";
 import type { ItemDeTexto } from "../lib/texto-do-pdf.ts";
 
 let passed = 0;
@@ -66,6 +66,91 @@ test("item vazio sem hasEOL é descartado, não vira linha", () => {
 
 test("página vazia não quebra", () => {
   assert.deepEqual(linhasDaPagina([]), []);
+});
+
+/** Uma linha de tabela: textos nas posições x dadas, todos no mesmo y. */
+function linhaEm(y: number, celulas: [string, number][]): ItemDeTexto[] {
+  return celulas.map(([texto, x]) => item(texto, x, y));
+}
+
+test("grade limpa de 3 colunas vira tabela", () => {
+  const tabelas = tabelasDaPagina(
+    [
+      ...linhaEm(700, [["AMBIENTE", 50], ["AREA", 300], ["PISO", 450]]),
+      ...linhaEm(680, [["Sala 1", 50], ["32,50", 300], ["Ceramica", 450]]),
+      ...linhaEm(660, [["Sala 2", 50], ["28,10", 300], ["Ceramica", 450]]),
+      ...linhaEm(640, [["TOTAL", 50], ["60,60", 300]]),
+    ],
+    45,
+  );
+  assert.equal(tabelas.length, 1);
+  assert.equal(tabelas[0].pagina, 45);
+  assert.equal(tabelas[0].linhas.length, 4);
+  assert.deepEqual(tabelas[0].linhas[1], ["Sala 1", "32,50", "Ceramica"]);
+});
+
+test("celula vazia no meio NAO desmancha a tabela", () => {
+  const tabelas = tabelasDaPagina(
+    [
+      ...linhaEm(700, [["AMBIENTE", 50], ["AREA", 300], ["PISO", 450]]),
+      ...linhaEm(680, [["Sala 1", 50], ["Ceramica", 450]]),
+      ...linhaEm(660, [["Sala 2", 50], ["28,10", 300], ["Ceramica", 450]]),
+      ...linhaEm(640, [["Sala 3", 50], ["11,00", 300], ["Ceramica", 450]]),
+    ],
+    1,
+  );
+  assert.equal(tabelas.length, 1);
+  assert.equal(tabelas[0].linhas.length, 4);
+});
+
+test("PROSA CORRIDA NAO E TABELA — o falso positivo estrutural", () => {
+  /*
+   * Prosa justificada tem vãos largos, mas em x DIFERENTE a cada linha. É essa
+   * discordância que a torna auto-excluída, e é por isso que a regra não precisa
+   * de ninguém declarando onde a tabela começa nem de lista de exclusão.
+   */
+  const tabelas = tabelasDaPagina(
+    [
+      ...linhaEm(700, [["O", 50], ["memorial", 90], ["descreve", 210]]),
+      ...linhaEm(680, [["a", 50], ["execucao", 130], ["dos", 280]]),
+      ...linhaEm(660, [["servicos", 50], ["previstos", 175], ["em", 330]]),
+    ],
+    1,
+  );
+  assert.deepEqual(tabelas, []);
+});
+
+test("uma linha isolada nao e tabela", () => {
+  const tabelas = tabelasDaPagina(linhaEm(700, [["A", 50], ["B", 300]]), 1);
+  assert.deepEqual(tabelas, []);
+});
+
+test("numero com milhar e decimal NAO e partido em duas celulas", () => {
+  const tabelas = tabelasDaPagina(
+    [
+      ...linhaEm(700, [["AMBIENTE", 50], ["AREA", 300]]),
+      ...linhaEm(680, [["Bloco A", 50], ["4.530,98", 300]]),
+      ...linhaEm(660, [["Bloco B", 50], ["1.200,00", 300]]),
+    ],
+    1,
+  );
+  assert.equal(tabelas[0].linhas[1][1], "4.530,98");
+});
+
+test("duas tabelas separadas por prosa saem como duas", () => {
+  const tabelas = tabelasDaPagina(
+    [
+      ...linhaEm(700, [["A", 50], ["1", 300]]),
+      ...linhaEm(680, [["B", 50], ["2", 300]]),
+      ...linhaEm(660, [["C", 50], ["3", 300]]),
+      ...linhaEm(620, [["Texto corrido explicando o quadro acima.", 50]]),
+      ...linhaEm(580, [["D", 50], ["4", 300]]),
+      ...linhaEm(560, [["E", 50], ["5", 300]]),
+      ...linhaEm(540, [["F", 50], ["6", 300]]),
+    ],
+    1,
+  );
+  assert.equal(tabelas.length, 2);
 });
 
 console.log(`\n${passed} teste(s) de tabela do PDF OK`);
