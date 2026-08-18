@@ -10,6 +10,26 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-17-parecer-que-some-design.md`
 
+---
+
+> ## ⚠ REVISADO EM 17/08/2026, DEPOIS DA TASK 1
+>
+> A Task 1 **refutou** a causa (a) — ver §10 da spec. O parecer FOI gravado no
+> teste: o effect sincroniza o `snapshotRef` antes do `finally`. A corrida não
+> existe no caminho exercitado.
+>
+> **A Task 2 sai do plano.** Implementá-la seria consertar um defeito que não se
+> consegue demonstrar.
+>
+> **A ordem passa a ser: Task 5 → Task 3 → Task 4.** A Task 5 vem primeiro porque
+> é ela que faz a falha aparecer — enquanto a gravação falha calada, todo
+> diagnóstico deste produto é dedução, e foi dedução que produziu a causa (a).
+>
+> As Tasks 3, 4 e 5 continuam válidas sem alteração: as causas (b), (c) e (d) têm
+> certeza de código e explicam o incidente sozinhas.
+
+---
+
 ## Global Constraints
 
 - **Testes rodam com node cru:** import por caminho **relativo com extensão `.ts`**; **nunca** alias `@/` em runtime dentro de módulo que um `scripts/test-*.ts` importe. `import type` é apagado no strip.
@@ -113,9 +133,14 @@ git commit -m "spec: a corrida do snapshot, reproduzida sem gastar token"
 
 ---
 
-### Task 2: Peça 1 — o snapshot deixa de mentir para o flush
+### ~~Task 2: Peça 1 — o snapshot deixa de mentir para o flush~~ — CANCELADA
 
-É a raiz. Depois desta task o defeito para de acontecer; as tasks 3 e 4 existem para o que já se perdeu e para as falhas que sobrarem.
+> **Não executar.** A Task 1 refutou a causa que justificava esta task (spec §10).
+> O texto fica abaixo como registro do que foi pensado e por que não foi feito.
+>
+> Se um dia a corrida for demonstrada no `finally` do `ConfirmationCard` — o único
+> caminho que a Task 1 não conseguiu exercitar sem gastar token —, esta task volta
+> como está.
 
 **Files:**
 - Modify: `modules/nexo/lib/results.ts`
