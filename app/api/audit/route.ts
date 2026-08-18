@@ -71,6 +71,7 @@ import {
   mensagemDoErro,
   TENTATIVAS_PADRAO,
 } from "@/lib/falha-transitoria";
+import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
 import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
@@ -3998,11 +3999,31 @@ async function executarAuditoria(
      * dele voltam frescos do modelo enquanto a versão antiga já foi descartada
      * por `planejarReuso`, mas o dedupe é a rede que sustenta a promessa.
      */
+    /*
+     * A ESCRITURAÇÃO DO PARECER NÃO ENTRA NO PARECER.
+     *
+     * Medido no 117_25 em 18/08: saiu um achado cujo tipo era "Achado
+     * duplicado" e cuja descrição inteira era "A ocorrência foi consolidada no
+     * INC-019". O modelo acertou ao unificar as duas ocorrências da mesma sigla
+     * errada — e depois entregou a própria decisão como se fosse mais um defeito
+     * do memorial, inflando a contagem com uma linha que não aponta erro nenhum
+     * no documento.
+     *
+     * Sai daqui, DEPOIS do dedupe: o que se remove é a nota sobre a unificação,
+     * não a unificação.
+     */
+    const semEscrituracao = semNotasDeConsolidacao(
+      dedupeFindings([...validatedFindings, ...achadosHerdados]),
+    );
+    if (semEscrituracao.removidos.length > 0) {
+      console.log(
+        `[audit] ${semEscrituracao.removidos.length} nota(s) de consolidação removida(s) do parecer: ` +
+          semEscrituracao.removidos.map((f) => f.tipo).join(" | "),
+      );
+    }
     const findings = sortAuditFindings(
       compactRepeatedIdentityFindings(
-        filterFalsePositiveIdentityFindings(
-          dedupeFindings([...validatedFindings, ...achadosHerdados]),
-        ),
+        filterFalsePositiveIdentityFindings(semEscrituracao.mantidos),
       ),
     ).map(
       (finding, index) => {
