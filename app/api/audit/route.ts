@@ -66,7 +66,7 @@ import {
   type ExtractedPdf,
 } from "@/lib/pdf-text";
 import { compararImpressoes, impressaoDosCapitulos } from "@/lib/audit-fingerprint";
-import { resumoDoEsforco } from "@/lib/resumo-do-esforco";
+import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
 import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
@@ -700,6 +700,17 @@ function getDeepGlobalTimeoutMs() {
  * achado incerto para "Sugestão" e filtra alucinação simplesmente não rodava
  * justamente no modo que mais depende dela.
  */
+/**
+ * A cobertura corrigida pelas passadas que falharam — ou nada, quando não houve
+ * medição (parecer de arquivo que não chegou a ser planejado).
+ */
+function coberturaOuNada(
+  c: CoberturaDoArquivo | undefined,
+  degradacoes: PassadaIncompleta[],
+) {
+  return c ? coberturaReconciliada(c, degradacoes) : undefined;
+}
+
 function getValidationTimeoutMs(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_VALIDATION_TIMEOUT_MS);
 
@@ -3153,6 +3164,12 @@ async function deepAnalyzeFile(args: {
     caracteres_totais: args.file.extracted.text.length,
     blocos_lidos: chunks.length,
     blocos_totais: blocosDisponiveis.length,
+    /*
+     * O PLANO, ao lado do total. Sem ele não há como distinguir "ia ler 8 e leu
+     * 0" de "ia ler 0 porque a global lê tudo" — e o Profundo, onde `chunkLimit`
+     * é 0 por desenho, ficava permanentemente marcado como incompleto.
+     */
+    blocos_planejados: chunks.length,
   });
 
   /*
@@ -4131,8 +4148,19 @@ async function executarAuditoria(
          * exagerar o próprio esforço em 12×. Agora a frase sai dos números
          * medidos, e a fração lida é dita quando não é o documento inteiro.
          */
-        resumo: resumoDoEsforco(cobertura.get(file.file.name)),
-        cobertura: cobertura.get(file.file.name),
+        /*
+         * O NÚMERO PASSA PELA MESMA PENEIRA DA PROSA.
+         *
+         * `cobertura` é gravada quando o plano fecha, antes de a leitura global
+         * ir ao modelo — certa enquanto nada falha, promessa quando algo falha.
+         * Medido em 18/08 no 117_25: com a global abortada em 503, o campo
+         * seguia afirmando 469.053 de 469.053 caracteres lidos por uma passada
+         * que leu ZERO, e o painel lia cobertura total de uma auditoria sem IA.
+         */
+        resumo: resumoDoEsforco(
+          coberturaOuNada(cobertura.get(file.file.name), degradacoes),
+        ),
+        cobertura: coberturaOuNada(cobertura.get(file.file.name), degradacoes),
       })),
       comparacoes: [...ruleComparison.comparisons, ...modelComparison.comparisons],
       incongruencias: findings,

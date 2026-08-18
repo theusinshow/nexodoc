@@ -136,6 +136,21 @@ export type CoberturaDoArquivo = {
   blocos_lidos: number;
   /** Blocos que o documento tem — `lidos < totais` é buraco declarado. */
   blocos_totais: number;
+  /**
+   * Blocos que o PLANO desta corrida pretendia ler.
+   *
+   * Sem este campo não dá para distinguir "o plano era ler 8 e leu 0" (buraco)
+   * de "o plano era ler 0 porque a global lê tudo" (Profundo, por desenho). Os
+   * dois casos gravavam `blocos_lidos: 0, blocos_totais: 98`, e a auditoria
+   * ficava permanentemente marcada como incompleta — em TODA corrida Profunda.
+   * Um alarme que toca sempre não avisa nada, e foi o que se mediu: o parecer
+   * que leu o documento inteiro e o parecer cuja leitura global morreu em 503
+   * saíram com a MESMA frase.
+   *
+   * Opcional porque parecer antigo não o tem; nesse caso vale `blocos_totais`,
+   * que preserva a leitura de quem já estava gravado.
+   */
+  blocos_planejados?: number;
 };
 
 export type AuditFileSummary = {
