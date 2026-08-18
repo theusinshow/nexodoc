@@ -2155,8 +2155,14 @@ function AuditoriaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, conversationId, marcarAuditoriaPendente } =
-    useConversation();
+  const {
+    results,
+    getResult,
+    saveResult,
+    conversationId,
+    marcarAuditoriaPendente,
+    registrarAuditoria,
+  } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
   const id = auditoriaId(selos, memorialFatos?.codigo);
@@ -2263,6 +2269,15 @@ function AuditoriaConfirmation({
       nivel: params.nivel,
       arquivo: memorialFile.name,
     });
+    /*
+     * O id vai para a CONVERSA agora, e FICA.
+     *
+     * O bilhete acima é apagado no `finally`; este registro não. É ele que
+     * permite pedir o parecer de volta ao servidor se a gravação do artefato
+     * falhar — sem o id não há como encontrar, no Postgres, o trabalho que já
+     * foi pago. Registrar na largada é o que o põe fora do caminho da falha.
+     */
+    registrarAuditoria(auditId, id);
     auditoria.iniciar({
       conversationId,
       nivel: params.nivel,

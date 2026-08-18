@@ -152,6 +152,29 @@ export interface StoredConversation {
    * Opcional, como `ajustes`: registro é schemaless, ausente = nada resolvido.
    */
   achadosResolvidos?: Record<string, string[]>;
+  /**
+   * As auditorias DISPARADAS nesta conversa, registradas quando COMEÇAM.
+   *
+   * Existe porque o `auditId` só vivia dentro do `payload` do artefato — o mesmo
+   * artefato que se perde quando a gravação falha. Registrar na largada põe o id
+   * FORA do caminho da falha: mesmo que o parecer não chegue ao disco, dá para
+   * pedi-lo de volta ao servidor, que o gravou por conta própria.
+   *
+   * O bilhete `auditoriaPendente` não serve para isso: ele é apagado no fim.
+   *
+   * Opcional, como `ajustes`: registro é schemaless, ausente = nenhuma.
+   */
+  auditorias?: { auditId: string; artifactId: string }[];
+  /**
+   * Artefatos que o usuário apagou DE PROPÓSITO.
+   *
+   * Sem esta lista, a recuperação pelo `auditId` traria de volta, em toda
+   * abertura, o parecer que ele mandou sumir — e desfazer a exclusão de alguém
+   * para sempre é pior que perder o arquivo uma vez.
+   *
+   * Opcional, como `ajustes`: ausente = nada apagado.
+   */
+  artefatosApagados?: string[];
   results: StoredResultMeta[];
   /**
    * Auditoria disparada e ainda sem resultado NESTA conversa.

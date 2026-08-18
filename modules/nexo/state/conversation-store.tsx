@@ -35,7 +35,9 @@ import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
 import { anotarDecisao, type DecisoesDoProjeto } from "../lib/decisoes";
+import { consultarAuditoria } from "../lib/audit";
 import { escolherCopia } from "../lib/copia-mais-nova";
+import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { derivarTipoDeTrabalho } from "../lib/tipo-de-trabalho";
 import {
@@ -200,6 +202,11 @@ interface ConversationStoreValue {
    * é só o que já saiu da frente de quem está corrigindo.
    */
   achadosResolvidos: Record<string, string[]>;
+  /**
+   * Registra uma auditoria na conversa quando ela COMEÇA — o que põe o
+   * `auditId` fora do caminho da falha de gravação.
+   */
+  registrarAuditoria: (auditId: string, artifactId: string) => void;
   marcarAchadoResolvido: (auditId: string, refId: string, resolvido: boolean) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
   saveResult: (input: SaveResultInput) => Promise<void>;
@@ -309,6 +316,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [decisoes, setDecisoes] = useState<DecisoesDoProjeto>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
+  /** Auditorias disparadas nesta conversa, registradas na LARGADA. */
+  const [auditorias, setAuditorias] = useState<{ auditId: string; artifactId: string }[]>([]);
+  /** Artefatos que o usuário apagou de propósito — a recuperação os respeita. */
+  const [artefatosApagados, setArtefatosApagados] = useState<string[]>([]);
   const [results, setResults] = useState<SavedResult[]>([]);
   const [auditoriaPendente, setAuditoriaPendente] =
     useState<AuditoriaPendente | null>(null);
@@ -330,6 +341,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     decisoes,
     tomosDeclarados,
     achadosResolvidos,
+    auditorias,
+    artefatosApagados,
     results,
     auditoriaPendente,
     memorialMeta,
@@ -349,6 +362,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       decisoes,
       tomosDeclarados,
       achadosResolvidos,
+      auditorias,
+      artefatosApagados,
       results,
       auditoriaPendente,
       memorialMeta,
@@ -478,6 +493,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(Object.keys(s.achadosResolvidos).length > 0
         ? { achadosResolvidos: s.achadosResolvidos }
         : {}),
+      ...(s.auditorias.length > 0 ? { auditorias: s.auditorias } : {}),
+      ...(s.artefatosApagados.length > 0 ? { artefatosApagados: s.artefatosApagados } : {}),
       ...(s.auditoriaPendente ? { auditoriaPendente: s.auditoriaPendente } : {}),
       ...(s.memorialMeta ? { memorial: s.memorialMeta } : {}),
       results: resultsMeta,
@@ -798,9 +815,44 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         removido?.files.forEach((f) => URL.revokeObjectURL(f.url));
         return restantes;
       });
+      /*
+       * A EXCLUSÃO FICA REGISTRADA, e não é burocracia: a recuperação pelo
+       * `auditId` (ver [[parecer-a-recuperar.ts]]) traria este parecer de volta
+       * na próxima abertura, e de novo na seguinte. Apagar precisa continuar
+       * sendo apagar.
+       */
+      const apagados = snapshotRef.current.artefatosApagados.includes(artifactId)
+        ? snapshotRef.current.artefatosApagados
+        : [...snapshotRef.current.artefatosApagados, artifactId];
+      setArtefatosApagados(apagados);
+      snapshotRef.current = { ...snapshotRef.current, artefatosApagados: apagados };
       schedulePersist();
     },
     [schedulePersist],
+  );
+
+  /**
+   * REGISTRA uma auditoria na conversa, no instante em que ela COMEÇA.
+   *
+   * O `auditId` só vivia dentro do `payload` do artefato — o mesmo artefato
+   * que se perde quando a gravação falha. Guardá-lo na largada é o que permite
+   * pedir o parecer de volta ao servidor depois: o backend grava a auditoria
+   * por conta própria, e sem o id não há como encontrá-la.
+   *
+   * O bilhete `auditoriaPendente` não serve: ele é apagado no fim da corrida.
+   */
+  const registrarAuditoria = useCallback(
+    (auditId: string, artifactId: string) => {
+      const atuais = snapshotRef.current.auditorias;
+      if (atuais.some((a) => a.auditId === auditId)) return;
+      const proximas = [...atuais, { auditId, artifactId }];
+      setAuditorias(proximas);
+      // Como o bilhete: o snapshot só acompanha o estado depois do render, e
+      // esta gravação precisa valer AGORA — é ela que sobrevive à falha.
+      snapshotRef.current = { ...snapshotRef.current, auditorias: proximas };
+      flushPersist();
+    },
+    [flushPersist],
   );
 
   /**
@@ -911,6 +963,52 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           ...(faltouByte ? { bytesAusentes: true } : {}),
         });
       }
+      /*
+       * A REDE POR BAIXO — o que traz de volta o parecer já perdido.
+       *
+       * Se nenhuma das duas cópias trouxe o artefato de uma auditoria que esta
+       * conversa registrou na largada, o trabalho pago ainda existe: o backend
+       * grava o parecer no Postgres por conta própria (`persistCompletedAudit`),
+       * sem passar por gravação nenhuma do cliente. Buscar é barato e só
+       * acontece quando de fato falta algo.
+       *
+       * Falhar aqui não pode travar a abertura: sem rede, a conversa abre como
+       * abriria de qualquer forma.
+       */
+      const faltando = parecerARecuperar({
+        results: restored,
+        auditorias: rec.auditorias,
+        artefatosApagados: rec.artefatosApagados,
+      });
+      if (faltando) {
+        const resposta = await consultarAuditoria(faltando.auditId).catch(() => null);
+        if (resposta?.situacao === "pronta") {
+          restored.push({
+            artifactId: faltando.artifactId,
+            kind: "auditoria",
+            summary: `Auditoria — ${resposta.resultado.report.status_geral}`,
+            files: [],
+            payload: resposta.resultado,
+            canvas: {
+              label: "Auditoria",
+              detail: `${resposta.resultado.report.status_geral} · ${resposta.resultado.report.total_incongruencias} achado(s)`,
+            },
+            generatedAt: Date.now(),
+          });
+          /*
+           * Gravar o que foi recuperado, e SÓ nesse caso.
+           *
+           * Sem isto a recuperação se repetiria em toda abertura — pagando a
+           * rede de novo, e deixando a conversa sem parecer justamente quando
+           * ela fosse aberta offline. Com isto, o servidor é consultado uma vez
+           * e o disco volta a bastar.
+           *
+           * Só quando houve recuperação: abrir uma conversa íntegra não deve
+           * mexer no `updatedAt` dela.
+           */
+          schedulePersist();
+        }
+      }
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
       jaPersistiu.current = true;
       setConversationId(rec.id);
@@ -925,6 +1023,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setDecisoes(rec.decisoes ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       setAchadosResolvidos(rec.achadosResolvidos ?? {});
+      setAuditorias(rec.auditorias ?? []);
+      setArtefatosApagados(rec.artefatosApagados ?? []);
       // A auditoria em voo volta com a conversa — quem reconecta é o palco.
       setAuditoriaPendente(rec.auditoriaPendente ?? null);
       setMemorialMeta(rec.memorial ?? null);
@@ -942,7 +1042,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [flushPersist],
+    [flushPersist, schedulePersist],
   );
 
   const removeConversation = useCallback(
@@ -1025,6 +1125,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       };
       delete novo.auditoriaPendente;
       delete novo.achadosResolvidos;
+      // A cópia não herda as auditorias da original: aquele `auditId` é do
+      // trabalho dela, e recuperá-lo aqui poria o parecer de uma conversa
+      // dentro de outra.
+      delete novo.auditorias;
+      delete novo.artefatosApagados;
       delete novo.memorial;
       if (memorial) novo.memorial = memorial;
       await putConversation(novo);
@@ -1143,6 +1248,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       declararTomos,
       achadosResolvidos,
       marcarAchadoResolvido,
+      registrarAuditoria,
       saveResult,
       getResult,
       removeResult,
@@ -1187,6 +1293,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       declararTomos,
       achadosResolvidos,
       marcarAchadoResolvido,
+      registrarAuditoria,
       saveResult,
       getResult,
       removeResult,
