@@ -169,6 +169,25 @@ const CASES: Case[] = [
     expected: [{ label: "declarada com reflexivo", needle: "atende" }],
   },
 
+  {
+    /*
+     * AUD-018 do benchmark do 084_25: dois subitens IRMAOS com o titulo
+     * identico. E assinatura de copia-e-cola — alguem duplicou o bloco para
+     * escrever o proximo material e esqueceu de trocar o nome. Quem le o indice
+     * ve dois itens e nao sabe qual descreve o que.
+     */
+    name: "estrutura: titulos identicos em subitens IRMAOS",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        `3.4.7 PINTURA ACRILICA
+Aplicacao em duas demaos sobre massa corrida.
+3.4.8 PINTURA ACRILICA
+Aplicacao sobre superficie metalica.`,
+      ]),
+    ],
+    expected: [{ label: "titulos irmaos duplicados", needle: "pintura acrilica" }],
+  },
+
   // --- LIMPOS (sem erro; qualquer achado = falso positivo) ---------------------
   {
     name: "LIMPO: memorial coerente (so Primeira Linha)",
@@ -230,6 +249,41 @@ const CASES: Case[] = [
           "Largura executada: 1,50 m",
           "Atende? Sim",
         ].join("\n"),
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O FALSO POSITIVO QUE MATARIA ESTA REGRA.
+     *
+     * "GENERALIDADES", "OBJETIVO", "MATERIAIS" repetidos sob capitulos
+     * DIFERENTES sao a estrutura normal de um memorial — todo capitulo abre
+     * assim. Uma regra que comparasse titulos soltos acusaria isso em todo
+     * documento do escritorio. Por isso ela so olha IRMAOS: mesmo pai, numero
+     * final diferente.
+     */
+    name: "LIMPO: titulo repetido sob capitulos DIFERENTES e estrutura normal",
+    sources: [
+      makeSource("estrutura.pdf", "memorial", [
+        `3.1 GENERALIDADES
+Texto do capitulo 3.
+4.1 GENERALIDADES
+Texto do capitulo 4.
+5.1 GENERALIDADES
+Texto do capitulo 5.`,
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    name: "LIMPO: subitens irmaos com titulos DIFERENTES",
+    sources: [
+      makeSource("irmaos-ok.pdf", "memorial", [
+        `3.4.7 PINTURA ACRILICA
+Aplicacao em duas demaos.
+3.4.8 PINTURA EPOXI
+Aplicacao sobre superficie metalica.`,
       ]),
     ],
     expected: [],

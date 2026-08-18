@@ -323,6 +323,109 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     findings.push(naoConforme);
   }
 
+  // 13) Subitens irmãos com o mesmo título.
+  for (const tituloDup of runSiblingDuplicateTitleRule(extracted, fileName, nextId)) {
+    findings.push(tituloDup);
+  }
+
+  return findings;
+}
+
+// --- Regra 13: subitens irmãos com o mesmo título ----------------------------
+
+/*
+ * "3.4.7 PINTURA ACRÍLICA" e "3.4.8 PINTURA ACRÍLICA".
+ *
+ * É a assinatura do copia-e-cola: alguém duplicou o bloco para escrever o
+ * próximo material e esqueceu de trocar o nome. Quem lê o índice vê dois itens e
+ * não sabe qual descreve o quê — e quem executa não sabe qual seguir.
+ *
+ * SÓ IRMÃOS, e é isto que torna a regra utilizável. "GENERALIDADES",
+ * "OBJETIVO" e "MATERIAIS" repetidos sob capítulos DIFERENTES são a estrutura
+ * normal de um memorial: todo capítulo abre assim. Uma regra que comparasse
+ * títulos soltos acusaria isso em todo documento do escritório, e o parecer
+ * viraria ruído. Dois itens com o MESMO PAI e o mesmo título, não — aí não há
+ * leitura inocente.
+ *
+ * Não colide com `runDuplicateParagraphRule`: aquela exige 180 caracteres, e
+ * título não chega perto disso.
+ */
+
+/** "3.4.7 PINTURA ACRÍLICA" — número hierárquico, espaço, título até o fim da linha. */
+const TITULO_NUMERADO = /^(\d+(?:\.\d+)+)\s+(\S.{2,118})$/;
+
+function runSiblingDuplicateTitleRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  /** chave: `pai|titulo normalizado` → os itens que a usam. */
+  const grupos = new Map<string, { numero: string; pagina: number; bruto: string }[]>();
+
+  for (const page of extracted.pages) {
+    for (const linha of page.text.split(/\r?\n/)) {
+      const m = TITULO_NUMERADO.exec(linha.trim());
+      if (!m) continue;
+
+      const [, numero, tituloBruto] = m;
+      const titulo = tituloBruto.trim();
+
+      /*
+       * Título não termina em ponto final. É o que separa um cabeçalho de uma
+       * frase numerada do corpo ("3.4.7 Aplicar duas demãos sobre a massa.").
+       */
+      if (titulo.endsWith(".")) continue;
+      if (!/[a-zà-ú]/i.test(titulo)) continue;
+
+      const pai = numero.slice(0, numero.lastIndexOf("."));
+      const chave = `${pai}|${normalizarParagrafo(titulo)}`;
+      const atual = grupos.get(chave);
+
+      if (atual) {
+        // Mesmo item citado duas vezes (sumário + corpo) não é duplicata.
+        if (atual.some((i) => i.numero === numero)) continue;
+        atual.push({ numero, pagina: page.page, bruto: titulo });
+        continue;
+      }
+
+      grupos.set(chave, [{ numero, pagina: page.page, bruto: titulo }]);
+    }
+  }
+
+  const findings: AuditFinding[] = [];
+
+  for (const itens of grupos.values()) {
+    if (itens.length < 2) continue;
+
+    const numeros = itens.map((i) => i.numero).join(" e ");
+    const paginas = [...new Set(itens.map((i) => i.pagina))].join(" e ");
+
+    findings.push(
+      makeFinding(nextId(), {
+        arquivo: fileName,
+        prioridade: "Media",
+        /*
+         * Conferência técnica, não bloqueio. Ao contrário da não conformidade
+         * declarada, aqui o documento não afirma nada errado sobre a obra — ele
+         * está mal escrito. Alguém precisa decidir qual dos dois itens fica com
+         * qual nome, e é uma decisão de quem redigiu, não uma emissão indevida.
+         */
+        impacto: "tecnico_contratual",
+        pagina: String(paginas),
+        capitulo: `Itens ${numeros}`,
+        local: "títulos de subitens irmãos",
+        tipo: "Títulos duplicados em subitens irmãos",
+        descricao: `Os subitens ${numeros} têm o mesmo título ("${itens[0].bruto}"). Sendo do mesmo item pai, é assinatura de bloco duplicado sem o nome ter sido trocado.`,
+        evidencia: itens.map((i) => `${i.numero} ${i.bruto} (p. ${i.pagina})`).join(" | "),
+        termo_busca: itens[0].bruto.slice(0, 60),
+        conflito:
+          "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
+        sugestao_correcao:
+          "Renomear um dos itens para descrever o que ele de fato especifica, ou fundi-los num item só se descreverem a mesma coisa.",
+      }),
+    );
+  }
+
   return findings;
 }
 
