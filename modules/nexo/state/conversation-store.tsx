@@ -35,6 +35,7 @@ import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
 import { anotarDecisao, type DecisoesDoProjeto } from "../lib/decisoes";
+import { escolherCopia } from "../lib/copia-mais-nova";
 import { removerResultado } from "../lib/results";
 import { derivarTipoDeTrabalho } from "../lib/tipo-de-trabalho";
 import {
@@ -844,19 +845,34 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     async (id: string): Promise<StoredConversation | null> => {
       flushPersist(); // grava a conversa atual antes de trocar (#1)
       /*
-       * Disco primeiro; servidor só se não estiver aqui.
+       * Disco preferido, MAS o desempate é a data.
        *
-       * Nessa ordem porque o disco tem os BYTES dos artefatos e o servidor não.
-       * Preferir o servidor por ser "a fonte da verdade" trocaria uma conversa
-       * completa por uma sem arquivos — e a diferença entre as duas versões é
-       * resolvida na lista, por `updatedAt`, não aqui.
+       * O disco continua vindo primeiro porque é ele que tem os BYTES dos
+       * artefatos, e trocar por uma cópia sem arquivo em nome de "fonte da
+       * verdade" seria perda disfarçada de correção.
+       *
+       * O que mudou: antes a escolha era por PRESENÇA — o disco tinha algo,
+       * então vencia. Uma gravação de disco que falhasse deixava ali uma versão
+       * velha, e ela eclipsava a cópia boa do servidor em toda reabertura. Este
+       * mesmo comentário já dizia qual era o critério certo ("é resolvida na
+       * lista, por `updatedAt`"); ele só nunca tinha descido até aqui.
+       *
+       * Comparar não custa requisição: `remotasRef` já está em memória. E se a
+       * lista remota ainda não carregou, a abertura NÃO espera por ela —
+       * bloquear toda abertura de conversa por um caso raro trocaria uma perda
+       * rara por lentidão constante.
        */
-      let rec = await getConversation(id);
-      if (!rec) {
-        rec = await lerDoServidor(id);
-        // Veio de outra máquina: desce para este disco, senão toda reabertura
-        // pagaria a rede de novo e um F5 offline a perderia.
-        if (rec) await putConversation(rec).catch(() => {});
+      const doDisco = await getConversation(id);
+      const remoto = remotasRef.current.find((c) => c.id === id) ?? null;
+      let rec = doDisco;
+      if (escolherCopia(doDisco, remoto) === "servidor") {
+        const doServidor = await lerDoServidor(id);
+        // Desce para este disco, senão toda reabertura pagaria a rede de novo e
+        // um F5 offline a perderia.
+        if (doServidor) {
+          rec = doServidor;
+          await putConversation(doServidor).catch(() => {});
+        }
       }
       if (!rec) return null;
       // Reidrata os resultados: busca cada blob e cria URLs vivas.
