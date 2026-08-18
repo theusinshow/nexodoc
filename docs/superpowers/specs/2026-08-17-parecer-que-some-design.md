@@ -271,3 +271,51 @@ console aberto — e é barata. **"Compila limpo" não é evidência de que roda
    o erro é recuperável por um segundo clique, e o oposto perde trabalho pago.
 4. **Aviso demais.** A graduação existe para conter isto, mas o julgamento de
    "discreto" só se verifica com a tela aberta.
+
+## 10. Reprodução — a causa (a) foi REFUTADA
+
+> 17/08/2026, Task 1 do plano. Custo: zero token.
+
+**O que foi feito.** Semeada uma conversa no IndexedDB com um bilhete
+`auditoriaPendente` apontando para a auditoria `51f1c9f5-…` (084-25-CRICIUMA, 25
+achados, já gravada no Postgres). Aberta a conversa pela barra lateral, o
+`use-reconectar-auditoria` rodou o caminho inteiro — `consultarAuditoria` →
+`saveResult({files: []})` → `marcarAuditoriaPendente(null)` → `flushPersist` —
+sem chamar modelo nenhum.
+
+**Resultado:**
+
+```
+[persist] ["auditoria-teste"] bilhete: null
+disco:    { results: ["auditoria-teste"], bilhete: 0 }
+```
+
+**O parecer foi gravado.** O flush leu o snapshot JÁ atualizado. O effect que
+sincroniza `snapshotRef` roda antes do `finally` — ao contrário do que §2(a)
+deduziu.
+
+**Um falso positivo pelo caminho, que vale registrar.** Numa execução anterior o
+disco ficou com `results: []` e pareceu confirmar a tese. A captura mostrou que a
+conversa aberta era o **projeto de exemplo**, não a semeada: o parecer que eu
+havia lido como "na tela" era o `exemplo-auditoria` do tour. Corrigido o teste
+para fechar o tour e clicar na conversa certa, o defeito não aparece. Foi a
+captura que desmentiu a leitura — o log sozinho teria confirmado a tese errada.
+
+**Limite honesto desta prova.** Foi exercitado `use-reconectar-auditoria`, não o
+`finally` do `ConfirmationCard`. As duas têm a mesma forma, mas não são o mesmo
+código, e exercitar a segunda exige rodar uma auditoria de verdade, com custo. A
+refutação é forte, não total.
+
+### O que muda
+
+- **Peça 1 sai do escopo.** Implementá-la seria consertar um defeito que não se
+  consegue demonstrar — o erro que a análise de arquitetura registra ter custado
+  US$ 6 ("mudar arquitetura com base em número que media outra coisa").
+- **As peças 2 e 3 ficam, e ganham peso.** As causas (b), (c) e (d) têm certeza
+  de código e explicam o incidente sozinhas, sem precisar da corrida.
+- **A ordem inverte: a peça 3 vai primeiro.** Ela é a que teria contado a causa
+  verdadeira em vez de deixar deduzi-la. Enquanto a gravação falha calada,
+  qualquer diagnóstico deste produto é dedução.
+- **(c) passa a ser a hipótese principal** para a perda do parecer: com um
+  memorial de 5,1 MB na mesma conversa, quota estourada é candidato natural — e
+  `putConversation(...).catch(() => {})` a esconderia exatamente assim.
