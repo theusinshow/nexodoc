@@ -591,3 +591,99 @@ nenhum par de achados distintos (`f88b755`).
    concorrente só é vantagem depois da conta que a planilha prepara.
 3. **Antes de somar camada, medir a que existe.** Cada conserto barato de hoje
    valeu mais que a arquitetura que se cogitou ontem — e custou zero token.
+
+---
+
+# 12. O endurecimento da camada determinística — 18/08/2026, tarde
+
+> O §11 mediu o motor. Esta seção é o que aconteceu quando a pergunta virou
+> "vale a pena manter a camada de regra, ou é melhor full IA?".
+
+## 12.1 A camada de regra é o que segura a faixa CRÍTICA
+
+Recall das mesmas três corridas, com e sem os achados de regra:
+
+| corrida | com regra | só IA |
+|---|---|---|
+| 1 | 87% · CRÍTICA 4/4 | 87% · CRÍTICA 4/4 |
+| 2 | 87% · CRÍTICA 4/4 | **60% · CRÍTICA 1/4** |
+| 3 | 80% · CRÍTICA 4/4 | **67% · CRÍTICA 2/4** |
+
+Na corrida 2 a IA perdeu Vila Francesa, UBS Paraíso e a hierarquia
+contraditória — as regras pegaram. **Full IA troca um portão por um sorteio.**
+
+E o motivo é medível: a camada de regra reproduz **100%** dos achados nas três
+corridas; a de IA reproduz entre **21%** (mesma impressão digital) e **75%**
+(voltou a olhar a página).
+
+## 12.2 Fixture escrita pelo autor testa o caso que ele imaginou
+
+A suíte dava 100% de precisão com a regra de identidade errada. `varredura:deterministica`
+roda todas as regras contra os **5 memoriais reais** do acervo, e foi ela que
+achou o que fixture nenhuma achava.
+
+Acervo: **41 → 23 achados**. Quatro classes de falso positivo, todas lidas uma a
+uma:
+
+- **identidade** (6→2) — "Hospital Municipal Nossa Senhora dos Navegantes" e
+  "Hospital de Navegantes" são o mesmo hospital. Comparação por conjunto de
+  palavras: omitir ou acrescentar é o mesmo nome, trocar o próprio é outra obra.
+- **escopo ambíguo** (4→0) — **aposentada**. O único memorial que é construção
+  nova era o único que NÃO disparava; os quatro que disparavam eram as reformas.
+- **área a partir de tabela** (3→0) — comparava área com POPULAÇÃO, lendo a
+  linha "Total" na coluna errada. O ramo era de 18/08 pela manhã.
+- **marca sem "ou similar"** (5→0) — ver 12.3.
+
+Mais o sumário enganando duas regras diferentes (títulos irmãos e gases), e dois
+textos de achado que afirmavam o que a regra não tinha lido.
+
+## 12.3 A IA revisa as regras, e o que ela achava ia para o lixo
+
+A validação por IA **nunca apaga** achado de regra — regras não alucinam. A
+proteção está certa. O que estava errado era descartar o veredito recusado.
+
+Medida com falsos positivos plantados, a validação pegou **4 de 4** — inclusive
+os que só se refutam por página do miolo. E pediu remoção de 4 dos 6 achados de
+regra do lote, com três diagnósticos **corretos** de defeito nosso.
+
+`runtime.regras_contestadas` passou a gravar a discordância. Na **primeira
+corrida real** com o registro ligado (113-22), ela apontou:
+
+> "A ressalva geral do próprio memorial invalida a conclusão de marca fechada."
+
+Item 2.7 do capítulo de condições gerais, presente nos **cinco** memoriais:
+*"Os materiais e equipamentos especificados estarão sempre sujeitos a exame de
+analogia."* Com ela, nenhuma marca está fechada.
+
+Eu tinha mexido nessa regra na mesma manhã e lido as cinco ocorrências uma a
+uma. Não vi a cláusula — ela está a quarenta páginas das especificações. A
+validação lê o documento inteiro.
+
+`fila:regras-contestadas` agrupa por REGRA ao longo das auditorias: uma
+contestação pode ser a IA errando; a mesma regra contestada várias vezes com o
+mesmo motivo é defeito nosso.
+
+## 12.4 Onze dos achados restantes são do template, não dos projetos
+
+Prevalência contratual contraditória em **5 de 5** (a auditoria externa
+classificou como CRÍTICA em dois projetos), ferragens em 3 de 3, parágrafo
+repetido em 3 de 3. Texto idêntico em cada memorial.
+
+`docs/correcoes-do-memorial-padrao.html` traz o texto atual transcrito, onde
+está a contradição e a redação corrigida. Consertar o modelo elimina os onze de
+uma vez e em todos os projetos futuros.
+
+## 12.5 Segunda tipologia
+
+Hospital 113-22, Deep: 59 achados, **58 das 59 evidências ancoram na página
+declarada**, nenhuma inventada. Não há auditoria externa deste memorial, então
+recall não foi medido — o que se mediu foi ancoragem e falso positivo.
+
+## 12.6 O que continua em aberto
+
+1. **Precisão dos exclusivos** — a planilha espera leitura de engenheiro. É a
+   única peça que não se resolve sem o julgamento de quem projeta.
+2. **Recall em segunda tipologia** — exigiria uma auditoria externa do 113-22.
+3. **Reprodutibilidade da IA (21–75%)** — estrutural. A saída provada é
+   converter achado em regra, uma de cada vez, medindo.
+4. **Cobertura total** segue desligada e nunca medida em documento real.
