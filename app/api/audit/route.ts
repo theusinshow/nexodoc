@@ -71,6 +71,7 @@ import {
   mensagemDoErro,
   TENTATIVAS_PADRAO,
 } from "@/lib/falha-transitoria";
+import { impressaoDoAchado } from "@/lib/impressao-do-achado";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
 import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
 import { nomeDaObra } from "@/lib/nome-da-obra";
@@ -1947,17 +1948,25 @@ function dedupeFindings(findings: AuditFinding[]) {
   const result: AuditFinding[] = [];
 
   for (const finding of findings) {
-    const key = [
-      finding.arquivo,
-      finding.tipo,
-      finding.pagina,
-      finding.evidencia.slice(0, 120),
-      finding.conflito.slice(0, 120),
-    ]
-      .join("|")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+    /*
+     * A CHAVE VEM DO DOCUMENTO, N\u00c3O DA REDA\u00c7\u00c3O DO MODELO.
+     *
+     * Era `arquivo|tipo|pagina|evidencia|conflito`, e media 7% de estabilidade
+     * entre duas corridas Deep do MESMO documento (117_25, 18/08/2026): `tipo` e
+     * `conflito` s\u00e3o reda\u00e7\u00e3o livre e o modelo os reescreve mantendo o defeito.
+     * Como rede contra o mesmo achado sair duas vezes \u2014 o papel dela quando um
+     * cap\u00edtulo volta a ser lido na reauditoria \u2014 7% \u00e9 estar desligada.
+     *
+     * A nova mede 50% nas mesmas duas corridas, sem fundir nenhum par de
+     * achados distintos. Ver [[impressao-do-achado.ts]] para a medi\u00e7\u00e3o das
+     * candidatas e por que as mais est\u00e1veis foram recusadas.
+     *
+     * O que N\u00c3O mudou: quem chega primeiro fica. Com uma chave que casa mais,
+     * essa escolha passa a importar mais \u2014 na reauditoria ela decide entre o
+     * achado herdado e o rec\u00e9m-lido \u2014, e merece medi\u00e7\u00e3o pr\u00f3pria antes de virar
+     * outra regra.
+     */
+    const key = impressaoDoAchado(finding);
 
     if (seen.has(key)) {
       continue;

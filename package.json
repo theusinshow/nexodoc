@@ -159,7 +159,9 @@
     "test:falha-transitoria": "node scripts/test-falha-transitoria.ts",
     "test:nota-consolidacao": "node scripts/test-nota-de-consolidacao.ts",
     "prova:nota-consolidacao": "node scripts/prova-nota-de-consolidacao.mjs",
-    "prova:evidencia-ancorada": "node scripts/prova-evidencia-ancorada.ts"
+    "prova:evidencia-ancorada": "node scripts/prova-evidencia-ancorada.ts",
+    "test:impressao-achado": "node scripts/test-impressao-do-achado.ts",
+    "mede:impressao-achado": "node scripts/mede-impressao-do-achado.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
