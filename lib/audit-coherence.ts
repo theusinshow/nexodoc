@@ -208,36 +208,36 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
     );
   }
 
-  // 4) Obra declarada como construção nova, mas com indícios de reforma/intervenção existente
-  const construcaoNova = findFirst(extracted, /ser[áa]\s+constru[íi]d[oa]\s+o?\s*[A-ZÁÉÍÓÚ]/i);
-  const reformaSignals = collectSignals(extracted, [
-    { label: "revitalização", pattern: /revitaliza[cç][ãa]o/i },
-    { label: "pavimento a ser substituído", pattern: /pavimento\s+a\s+ser\s+substitu[íi]do/i },
-    { label: "alvenaria existente", pattern: /alvenaria\s+existente/i },
-  ]);
-
-  if (construcaoNova && reformaSignals.length >= 1) {
-    findings.push(
-      makeFinding(nextId(), {
-        arquivo: fileName,
-        prioridade: "Media",
-        impacto: "tecnico_contratual",
-        pagina: String(reformaSignals[0].page),
-        capitulo: "Escopo da obra",
-        local: "construção nova × intervenção em existente",
-        tipo: "Escopo ambíguo: construção nova × reforma",
-        descricao: `O projeto é declarado como construção nova, mas há trechos com linguagem de reforma/ampliação (${reformaSignals
-          .map((item) => item.label)
-          .join(", ")}) — possível texto reaproveitado de obra de intervenção em edificação existente.`,
-        evidencia: `Pág. ${reformaSignals[0].page}: "${reformaSignals[0].evidence}"`,
-        termo_busca: reformaSignals[0].label,
-        conflito: "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
-        sugestao_correcao:
-          "Confirmar se a obra é construção nova ou intervenção em edificação existente e remover a linguagem incompatível com o escopo correto.",
-        confianca: "media",
-      }),
-    );
-  }
+  /*
+   * 4) APOSENTADA em 18/08/2026 — "Escopo ambíguo: construção nova × reforma".
+   *
+   * Ela casava `será construído o X` de um lado e "revitalização" ou "alvenaria
+   * existente" do outro, e disparava quando os dois apareciam.
+   *
+   * Medida contra os 5 memoriais reais do acervo: 4 disparos, 4 falsos
+   * positivos, 0 acertos. E o retrato inverte o propósito dela — o ÚNICO
+   * memorial que é mesmo construção nova ("NOVA SEDE DA DEFESA CIVIL", 156-25)
+   * é justamente o que NÃO dispara. Os quatro que disparam são as quatro
+   * reformas do acervo.
+   *
+   * A premissa é que estava errada, e nenhum ajuste de expressão a salva:
+   *
+   *   - `será construído o X` não declara o escopo da obra. Toda reforma
+   *     constrói alguma coisa — rampa, muro, abrigo de lixo —, e a frase casa
+   *     esse elemento novo, não o projeto;
+   *   - "alvenaria existente" é texto normal de reforma, não sinal de conflito;
+   *   - "revitalização" é a declaração do escopo, e não a contradição dele. Um
+   *     documento que diz "revitalização" está dizendo o que é, não se
+   *     contradizendo.
+   *
+   * Nunca teve fixture, e por isso a suíte ficou 100% verde enquanto ela só
+   * produzia ruído. Regra sem caso LIMPO é regra sem contraprova.
+   *
+   * O que uma versão correta exigiria: comparar o OBJETO declarado com o corpo
+   * sobre o MESMO sujeito ("construção da UBS X" contra "reforma da UBS X"),
+   * e não duas expressões soltas em páginas diferentes. Isso é reconciliação de
+   * sujeito, não casamento de padrão — trabalho de outra camada.
+   */
 
   // 5) Área construída TOTAL declarada com valores divergentes no mesmo documento.
   //    Genérico (não amarrado a um projeto): só a área total conta — áreas por
@@ -392,6 +392,22 @@ function runSiblingDuplicateTitleRule(
        */
       if (titulo.endsWith(".")) continue;
       if (!/[a-zà-ú]/i.test(titulo)) continue;
+
+      /*
+       * A LINHA DO SUMÁRIO NÃO É UM ITEM, É UM PONTEIRO PARA ELE.
+       *
+       * "8.3.12.1 Bancadas em granito.......... 97" casa o padrão de título e
+       * não termina em ponto final — termina no número da página. Resultado
+       * medido no acervo (18/08/2026): o 040-26 saía com o MESMO achado duas
+       * vezes, uma na p.5 (índice) e outra na p.97 (corpo). Contar o índice é
+       * contar o mesmo defeito de novo, e num parecer isso vira ruído que faz o
+       * leitor duvidar dos outros.
+       *
+       * A corrida de pontos é a assinatura do índice; título de verdade nunca a
+       * tem. É a segunda vez hoje que o sumário engana uma regra — a de gases
+       * casava "Dimensionamento das centrais" na p.10 antes do corpo.
+       */
+      if (/\.{4,}/.test(titulo)) continue;
 
       const pai = numero.slice(0, numero.lastIndexOf("."));
       const chave = `${pai}|${normalizarParagrafo(titulo)}`;
@@ -1063,9 +1079,39 @@ function parseAreaValue(raw: string) {
  * Conservador nos dois sentidos, e de propósito: perder um quadro real custa um
  * achado; comparar grandezas diferentes custa a confiança no parecer inteiro.
  */
+/**
+ * A TABELA PRECISA FALAR DE ÁREA, E NÃO SÓ DE AMBIENTE.
+ *
+ * O cabeçalho sozinho não basta, e o preço disso foi medido no acervo em
+ * 18/08/2026: a regra acusou os TRÊS memoriais com capítulo hidrossanitário,
+ * comparando a área da edificação com a POPULAÇÃO —
+ *
+ *   116-25   813,98 m² × 111 m²      (111 pessoas)
+ *   117-25   467,46 m² ×  59 m²      ( 59 pessoas)
+ *   156-25   551,53 m² ×  44 m²      ( 44 pessoas)
+ *
+ * — três falsos positivos, e a validação por IA já tinha dito exatamente isso
+ * ("o candidato compara área construída com quantidade de pessoas"). As tabelas
+ * de consumo de água trazem "Ambiente" no cabeçalho e uma linha "Total", que era
+ * tudo que a regra pedia.
+ *
+ * Exigir a UNIDADE em algum lugar da tabela resolve pela raiz: quadro de áreas
+ * escreve m², tabela de população escreve pessoas e litros. O ramo de tabela é
+ * de ontem (18/08) e nasceu com esse buraco — a fixture o testava com uma tabela
+ * de áreas de verdade, que é o caso que o autor imaginou.
+ */
 function ehQuadroDeAreas(tabela: { linhas: string[][] }): boolean {
   const cabecalho = tabela.linhas.slice(0, 2).flat().join(" ");
-  return /[áa]rea|ambiente|compartimento|depend[êe]ncia/i.test(cabecalho);
+  if (!/[áa]rea|ambiente|compartimento|depend[êe]ncia/i.test(cabecalho)) return false;
+
+  const tabelaInteira = tabela.linhas.flat().join(" ");
+  /*
+   * Duas expressões, e não uma com `\b` no fim: `²` não é caractere de palavra,
+   * então em "AREA (m²)" o `\b` depois dele exigiria uma fronteira entre `²` e
+   * `)` — dois não-palavra seguidos, fronteira nenhuma. A guarda recusava o
+   * quadro de áreas de verdade e só a fixture acusou.
+   */
+  return /\bm\s*²/i.test(tabelaInteira) || /\bm\s*2\b/i.test(tabelaInteira);
 }
 
 function runDeclaredTotalAreaRule(
@@ -1118,24 +1164,48 @@ function runDeclaredTotalAreaRule(
     for (const tabela of page.tabelas ?? []) {
       if (!ehQuadroDeAreas(tabela)) continue;
 
+      /*
+       * A COLUNA DA ÁREA, e não o primeiro número da linha "Total".
+       *
+       * Falso positivo medido nos TRÊS memoriais com capítulo hidrossanitário
+       * (18/08/2026). A tabela é mesmo um quadro de áreas:
+       *
+       *   População | | Área (m²) | m²/pessoa | Total
+       *   Espera e Recepção | | 45,52 | 2 | 23
+       *   Total (Alunos + Funcionários) | | | | 59
+       *
+       * A linha "Total" existe, mas o total dela é de PESSOAS. Varrendo a linha
+       * da esquerda para a direita, a regra achava 59 e o anunciava como área —
+       * "467,46 m² × 59 m²". A validação por IA acertou o diagnóstico em uma
+       * frase: "o candidato compara área construída com quantidade de pessoas".
+       *
+       * `m²/pessoa` fica de fora de propósito: ela traz a unidade e não é área.
+       */
+      const cabecalho = tabela.linhas[0] ?? [];
+      const colunaDaArea = cabecalho.findIndex(
+        (titulo) =>
+          /[áa]rea/i.test(titulo) &&
+          /m\s*(?:²|2)/i.test(titulo) &&
+          !/\/\s*(?:pessoa|hab|usu[áa]rio)/i.test(titulo),
+      );
+      if (colunaDaArea < 0) continue;
+
       for (const linha of tabela.linhas) {
-        if (!linha.some((celula) => /^\s*total\b/i.test(celula))) continue;
+        if (!/^\s*total\b/i.test(linha[0] ?? "")) continue;
 
-        for (const celula of linha) {
-          const bruto = /^\s*(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*(?:m(?:²|2))?\s*$/.exec(celula);
-          if (!bruto) continue;
+        const celula = linha[colunaDaArea] ?? "";
+        const bruto = /^\s*(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*(?:m(?:²|2))?\s*$/.exec(celula);
+        if (!bruto) continue;
 
-          const valorDaCelula = parseAreaValue(bruto[1]);
-          if (valorDaCelula === null || valorDaCelula < 10) continue;
+        const valorDaCelula = parseAreaValue(bruto[1]);
+        if (valorDaCelula === null || valorDaCelula < 10) continue;
 
-          found.push({
-            page: page.page,
-            value: valorDaCelula,
-            display: `${bruto[1]} m²`,
-            evidence: `quadro de áreas, linha "${linha.filter(Boolean).join(" | ")}"`,
-          });
-          break;
-        }
+        found.push({
+          page: page.page,
+          value: valorDaCelula,
+          display: `${bruto[1]} m²`,
+          evidence: `quadro de áreas, linha "${linha.filter(Boolean).join(" | ")}"`,
+        });
       }
     }
   }

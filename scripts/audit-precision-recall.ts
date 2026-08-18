@@ -273,6 +273,36 @@ const CASES: Case[] = [
     expected: [{ label: "marca fechada", needle: "Portobello" }],
   },
   {
+    /*
+     * LIMPO — a tabela de populacao dos TRES memoriais com capitulo
+     * hidrossanitario. Ela E um quadro de areas (tem "Area (m²)"), mas a linha
+     * "Total" totaliza PESSOAS. Varrendo a linha da esquerda para a direita, a
+     * regra achava 59 e anunciava "467,46 m² x 59 m²".
+     */
+    name: "LIMPO: linha 'Total' que totaliza pessoas, nao area",
+    sources: [
+      makeSource("hidro.pdf", "memorial", [
+        "A edificacao possui area total construida de 467,46 m².",
+        {
+          texto: "Populacao de projeto.",
+          tabelas: [
+            {
+              pagina: 2,
+              linhas: [
+                ["Populacao", "", "Area (m²)", "m²/pessoa", "Total"],
+                ["Espera e Recepcao", "", "45,52", "2", "23"],
+                ["Areas Administrativas", "", "105,26", "7", "16"],
+                ["Atendimento", "", "99,66", "5", "20"],
+                ["Total (Alunos + Funcionarios)", "", "", "", "59"],
+              ],
+            },
+          ],
+        },
+      ]),
+    ],
+    expected: [],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [

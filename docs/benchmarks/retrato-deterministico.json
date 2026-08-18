@@ -18,25 +18,11 @@
         "evidencia": "Pág. 38: \"o estudo de tráfego segundo as metodologias empregadas. TABELA 3 - ESTIMATIVA DO NÚMERO DE SOLICITAÇÕES DE PROJETO SEGMENTO (EIXO-1) N USACE N AASHTO Km 0+000 – Km 0+030 3,91 x 104 2,98 x 104 5.3 Investigações geotécnicas para caracterização do subleito O estudo geotécnico para a implantaç"
       },
       {
-        "tipo": "Escopo ambíguo: construção nova × reforma",
-        "pagina": "1",
-        "prioridade": "Media",
-        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
-        "evidencia": "Pág. 1: \"PREFEITURA MUNICIPAL DE CHAPECÓ SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO REVITALIZAÇÃO DA FEIRA MUNICIPAL DE CHAPECÓ PROJETO EXECUTIVO MEMORIAL DESCRITIVO Vol. I JUNHO/2024 040_26\""
-      },
-      {
         "tipo": "Parágrafo duplicado no mesmo documento",
         "pagina": "85",
         "prioridade": "Baixa/Media",
         "conflito": "O mesmo texto aparece repetido; se as duas ocorrências forem intencionais, uma delas deve ser remissão à outra.",
         "evidencia": "p. 85: \"As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos, alças, trilhos, corrediços e etc., serão em inox e devem ser submetidos …\""
-      },
-      {
-        "tipo": "Títulos duplicados em subitens irmãos",
-        "pagina": "5",
-        "prioridade": "Media",
-        "conflito": "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
-        "evidencia": "8.3.12.1 Bancadas em granito................................................................................................. 97 (p. 5) | 8.3.12.4 Bancadas em granito................................................................................................. 97 (p. 5)"
       },
       {
         "tipo": "Títulos duplicados em subitens irmãos",
@@ -57,13 +43,6 @@
         "prioridade": "Alta",
         "conflito": "Projetos prevalecem (pág. 18) × especificações prevalecem sobre os projetos (pág. 22).",
         "evidencia": "Pág. 18: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
-      },
-      {
-        "tipo": "Escopo ambíguo: construção nova × reforma",
-        "pagina": "35",
-        "prioridade": "Media",
-        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
-        "evidencia": "Pág. 35: \"e areia média/grossa no traço 1:2:6, obedecendo à espessura de paredes e alinhamentos indicados no projeto arquitetônico. Para melhor amarração com a alvenaria existente, evitando fissura devido ao trabalho das estruturas de diferentes materiais sugere-se a utilização de duas barras de aço"
       },
       {
         "tipo": "Marca especificada sem a ressalva 'ou similar'",
@@ -98,20 +77,6 @@
         "prioridade": "Media/Alta",
         "conflito": "Terraplenagem = Prefeitura (pág. 12) × contratada executa movimento de terra (pág. 25).",
         "evidencia": "Pág. 12: \"icação. Foi prevista a construção do passeio público em paver com a implementação de pisos táteis. Importante ressaltar que os serviços de demolição, terraplenagem e pavimentação asfáltica previstos em projeto, serão de responsabilidade da Prefeitura de Criciúma, a quem caberá a retirada e"
-      },
-      {
-        "tipo": "Escopo ambíguo: construção nova × reforma",
-        "pagina": "58",
-        "prioridade": "Media",
-        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
-        "evidencia": "Pág. 58: \"traço 1:2:6, preparada em betoneira, obedecendo à espessura de paredes e alinhamentos indicados no projeto arquitetônico. Para melhor amarração com a alvenaria existente, evitando fissura devido ao trabalho das estruturas de diferentes materiais sugere- se a utilização de duas barras de aç"
-      },
-      {
-        "tipo": "Área total construída divergente no mesmo documento",
-        "pagina": "158, 159",
-        "prioridade": "Alta",
-        "conflito": "Valores de área total incompatíveis (813,98 m² × 111 m²) — não fica claro qual é a área oficial da obra.",
-        "evidencia": "Pág. 158: \"specificações, detalhamentos e serviços das instalações hidrossanitárias da UBS Renascer – Porte 2. A edificação possui área total construída de 813,98 m². 12.1.1 Uso Pretendido Uso pretendido: Unidade de Saúde Básica (UBS). 12.1.2 Propriet\" | Pág. 159: \"quadro de áreas, linha \"Total (Alu"
       },
       {
         "tipo": "Fluido previsto nos postos e ausente do dimensionamento das centrais",
@@ -176,20 +141,6 @@
         "evidencia": "Pág. 30: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
       },
       {
-        "tipo": "Escopo ambíguo: construção nova × reforma",
-        "pagina": "38",
-        "prioridade": "Media",
-        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
-        "evidencia": "Pág. 38: \"5 – PROJETO DE URBANIZAÇÃO 5 PROJETO DE URBANIZAÇÃO 5.1 Demolições e retiradas Para a revitalização da Unidade Básica de Saúde – UBS Vila Manaus, as seguintes retiradas e alterações foram previstas: • Supressão de vegetação e limpeza do\""
-      },
-      {
-        "tipo": "Área total construída divergente no mesmo documento",
-        "pagina": "99, 100",
-        "prioridade": "Alta",
-        "conflito": "Valores de área total incompatíveis (467,46 m² × 59 m²) — não fica claro qual é a área oficial da obra.",
-        "evidencia": "Pág. 99: \"cificações, detalhamentos e serviços das instalações hidrossanitárias da UBS Vila Manaus – Porte 1. A edificação possui área total construída de 467,46 m². 9.1.1 Uso Pretendido Uso pretendido: Unidade de Saúde Básica (UBS). 9.1.2 Proprietár\" | Pág. 100: \"quadro de áreas, linha \"Total (Alun"
-      },
-      {
         "tipo": "Bases de consumo de água e de esgoto divergentes",
         "pagina": "101 e 103",
         "prioridade": "Media/Alta",
@@ -243,13 +194,6 @@
         "prioridade": "Media",
         "conflito": "5 termos de projeto rodoviário num centro comunitário.",
         "evidencia": "Pág. 29: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
-      },
-      {
-        "tipo": "Área total construída divergente no mesmo documento",
-        "pagina": "94, 95",
-        "prioridade": "Alta",
-        "conflito": "Valores de área total incompatíveis (551,53 m² × 44 m²) — não fica claro qual é a área oficial da obra.",
-        "evidencia": "Pág. 94: \"cificações, detalhamentos e serviços das instalações hidrossanitárias da Nova Sede da Defesa Civil. A edificação possui área total construída de 551,53 m², compreendendo a edificação principal e as estruturas de apoio. A edificação principa\" | Pág. 95: \"quadro de áreas, linha \"Total | 44\"\""
       },
       {
         "tipo": "Material das ferragens contraditório",
