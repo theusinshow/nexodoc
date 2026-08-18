@@ -1,8 +1,16 @@
 import { textoDosItens, type ItemDeTexto } from "./texto-do-pdf.ts";
+import { tabelasDaPagina, type Tabela } from "./tabela-do-pdf.ts";
 
 export type ExtractedPdfPage = {
   page: number;
   text: string;
+  /**
+   * As tabelas da pagina, reconstruidas das coordenadas.
+   *
+   * OPCIONAL de proposito: sete modulos consomem este tipo e nenhum precisa
+   * mudar. Quem nao sabe de tabela segue lendo `text` como sempre leu.
+   */
+  tabelas?: Tabela[];
 };
 
 export type ExtractedPdf = {
@@ -62,9 +70,19 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    /*
+     * A GRADE, dos mesmos itens de que o texto saiu.
+     *
+     * O `transform[4]`/`[5]` de cada item ja chegava aqui e ia para o lixo. A
+     * camada deterministica inteira e ancorada em prosa, e os achados
+     * numericos moram em tabela.
+     */
+    const tabelas = tabelasDaPagina(itens, pageNumber);
+
     pages.push({
       page: pageNumber,
       text,
+      ...(tabelas.length > 0 ? { tabelas } : {}),
     });
   }
 

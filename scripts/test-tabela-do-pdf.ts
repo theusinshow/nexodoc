@@ -137,6 +137,32 @@ test("numero com milhar e decimal NAO e partido em duas celulas", () => {
   assert.equal(tabelas[0].linhas[1][1], "4.530,98");
 });
 
+test("O VAO QUE VEM COMO ITEM DE ESPACO tambem separa colunas", () => {
+  /*
+   * A regressão que os 11 testes puros deixaram passar. O pdf.js real emite o
+   * recuo entre colunas como `{ str: " ", width: 182 }` em vez de deixar um
+   * buraco entre os itens — medir a distância entre o fim de um e o começo do
+   * outro dava sempre zero, e a extração de verdade devolvia ZERO tabelas com
+   * todos os testes verdes. Pego por `prova-tabela-do-pdf.ts`.
+   */
+  const branco = (x: number, y: number, largura: number): ItemDeTexto => ({
+    str: " ",
+    transform: [10, 0, 0, 10, x, y],
+    width: largura,
+    height: 0,
+  });
+  const tabelas = tabelasDaPagina(
+    [
+      item("AMBIENTE", 50, 700, 50), branco(100, 700, 150), item("AREA", 250, 700, 30),
+      item("Sala 1", 50, 680, 40), branco(90, 680, 160), item("32,50", 250, 680, 30),
+      item("Sala 2", 50, 660, 40), branco(90, 660, 160), item("28,10", 250, 660, 30),
+    ],
+    1,
+  );
+  assert.equal(tabelas.length, 1, "o vao como item de espaco nao foi reconhecido");
+  assert.deepEqual(tabelas[0].linhas[1], ["Sala 1", "32,50"]);
+});
+
 test("duas tabelas separadas por prosa saem como duas", () => {
   const tabelas = tabelasDaPagina(
     [

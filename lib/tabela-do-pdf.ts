@@ -113,18 +113,46 @@ export function corpoDaLinha(linha: LinhaDaPagina): number {
  * Os `x` onde a linha tem um salto grande o bastante para ser troca de coluna.
  * A fronteira fica no MEIO do vão — assim ela não pertence a nenhum dos lados.
  */
+/** Item que não escreve nada — só ocupa espaço. */
+function ehBranco(item: ItemDeTexto): boolean {
+  return /^\s*$/.test(item.str);
+}
+
 function fronteirasDaLinha(linha: LinhaDaPagina): number[] {
   const fronteiras: number[] = [];
+  const corpoDaPropriaLinha = corpoDaLinha(linha);
 
-  for (let i = 1; i < linha.itens.length; i += 1) {
-    const anterior = linha.itens[i - 1];
-    const proximo = linha.itens[i];
-    const corpo = corpoDaFonte(anterior) || corpoDaFonte(proximo);
+  for (let i = 0; i < linha.itens.length; i += 1) {
+    const item = linha.itens[i];
+    const corpo = corpoDaFonte(item) || corpoDaPropriaLinha;
     if (corpo <= 0) continue;
 
-    const vao = inicioDoItem(proximo) - fimDoItem(anterior);
+    /*
+     * O VÃO COSTUMA VIR COMO ITEM, e não como buraco entre itens.
+     *
+     * Descoberto pela prova contra o pdf.js real (`prova-tabela-do-pdf.ts`),
+     * depois de 11 testes puros passarem e a extração de verdade devolver ZERO
+     * tabelas: o gerador emite `{ str: " ", width: 182 }` entre duas colunas, e
+     * medir a distância entre o fim de um item e o começo do próximo dava
+     * sempre zero — o espaço preenchia o buraco que eu procurava.
+     *
+     * É a diferença entre coordenadas que eu escrevo e coordenadas que um
+     * gerador escreve, e nenhuma fixture à mão a teria produzido.
+     */
+    if (ehBranco(item) && (item.width ?? 0) >= corpo * VAO_DE_COLUNA) {
+      fronteiras.push(inicioDoItem(item) + (item.width ?? 0) / 2);
+      continue;
+    }
+
+    if (i === 0) continue;
+
+    const anterior = linha.itens[i - 1];
+    // Vão já contabilizado pelo item branco acima; não contar duas vezes.
+    if (ehBranco(anterior)) continue;
+
+    const vao = inicioDoItem(item) - fimDoItem(anterior);
     if (vao >= corpo * VAO_DE_COLUNA) {
-      fronteiras.push((fimDoItem(anterior) + inicioDoItem(proximo)) / 2);
+      fronteiras.push((fimDoItem(anterior) + inicioDoItem(item)) / 2);
     }
   }
 
