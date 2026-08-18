@@ -13,6 +13,7 @@ import {
   runWithinDocumentIdentityRules,
   runCrossDocumentRules,
 } from "../lib/cross-document-audit.ts";
+import { runDocumentCoherenceRules } from "../lib/audit-coherence.ts";
 
 const path = process.argv[2];
 
@@ -49,3 +50,37 @@ console.log(`=== Comparação entre documentos (regra): ${cross.findings.length}
 for (const c of cross.comparisons) {
   console.log(`  · ${c}`);
 }
+
+/*
+ * COERÊNCIA TAMBÉM, E AS TABELAS.
+ *
+ * O script parava na identidade, e era metade do retrato: as regras de
+ * coerência (hierarquia, área declarada, remissão, parágrafo duplicado, não
+ * conformidade declarada, títulos irmãos) são a maior parte da camada de custo
+ * zero. Sem elas não dá para responder "quanto o determinístico já cobre?"
+ * antes de gastar token — que é a pergunta que decide se vale pagar a corrida.
+ *
+ * A contagem de tabelas fica junto de propósito: elas são o insumo das regras
+ * numéricas, e uma extração que devolve zero tabela explica sozinha um recall
+ * numérico zerado. Melhor ver as duas coisas na mesma tela.
+ */
+const coerencia = runDocumentCoherenceRules(source);
+const comTabela = extracted.pages.filter((p) => (p.tabelas?.length ?? 0) > 0);
+const totalTabelas = comTabela.reduce((n, p) => n + (p.tabelas?.length ?? 0), 0);
+
+console.log(
+  `\n=== Tabelas reconstruídas: ${totalTabelas} em ${comTabela.length} página(s) ===`,
+);
+
+console.log(`\n=== Coerência do documento: ${coerencia.length} achado(s) ===\n`);
+for (const f of coerencia) {
+  console.log(`[${f.prioridade}] ${f.tipo}`);
+  console.log(`  Página: ${f.pagina}`);
+  if (f.conflito) console.log(`  Achado: ${f.conflito}`);
+  if (f.evidencia) console.log(`  Evidência: ${String(f.evidencia).slice(0, 220)}`);
+  console.log();
+}
+
+console.log(
+  `TOTAL DETERMINÍSTICO (custo zero): ${within.length + coerencia.length} achado(s)`,
+);
