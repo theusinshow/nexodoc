@@ -522,7 +522,16 @@ Consertados em `c294d44`, `3eb1742`.
 ## 11.5 Precisão: o que dá para afirmar
 
 `prova:evidencia-ancorada` confere cada transcrição contra a página declarada.
-Em 115 achados (duas corridas): **zero evidência inventada**. Os três casos
+Em 170 achados (três corridas): **zero evidência inventada**.
+
+Na corrida 3, já com `evidencia` corrigida no prompt (`c142018`), o resultado foi
+**54/55 ancoradas e ZERO não encontradas** — antes do conserto havia 1 a 2 por
+corrida, todas por cálculo dentro do campo. A regra pegou.
+
+O balde "existe, mas em OUTRA página" revelou uma classe de defeito que ninguém
+procurava: `INC-050` declara p.75 e o erro que ele cita (`"padrõa"`) está na
+p.74. Erro de atribuição de página não some do parecer — ele estraga o
+localizador do PDF e entra na impressão digital do dedupe. Os três casos
 marcados foram lidos à mão — dois eram defeito do conferente (frase partida por
 rodapé e cabeçalho, que o auditor remontou corretamente) e um era achado real com
 o campo errado (cálculo dentro de `evidencia`, corrigido no prompt em `c142018`).
@@ -532,10 +541,33 @@ rastreável ao documento** — a base sem a qual precisão nem se discute. O
 julgamento dos 26 exclusivos está preparado em
 `docs/benchmarks/117-25/planilha-de-precisao.md` e aguarda leitura de engenheiro.
 
-## 11.6 O defeito novo, e ele não é de recall
+## 11.6 Ruído entre corridas — três amostras
 
-Duas corridas do mesmo documento entregam o mesmo recall (87% nas duas) — ruído
-zero. Mas **o modelo reescreve o rótulo do achado a cada corrida**:
+Três corridas Deep idênticas sobre o mesmo documento:
+
+| | corrida 1 | corrida 2 | corrida 3 |
+|---|---|---|---|
+| Recall | 87% | 87% | **80%** |
+| CRÍTICA | 4/4 | 4/4 | 4/4 |
+| ALTA | 7/7 | 7/7 | 7/7 |
+| MÉDIA | 2/4 | 2/4 | **1/4** |
+| Achados | 58 | 57 | 55 |
+
+**As duas faixas que decidem emissão não variaram**: CRÍTICA e ALTA deram 100%
+nas três. A variação mora inteira na faixa MÉDIA — a corrida 3 perdeu o AUD-014
+(óxido nitroso) que as outras duas pegaram.
+
+Registro do erro de método, porque ele importa mais que o número: com DUAS
+corridas escrevi "ruído zero", e duas amostras não sustentavam a afirmação. A
+terceira a desmentiu. O critério de parada do §9 ("descartar mudança que entregue
+<3 pontos de recall") só é aplicável contra um ruído conhecido — e o ruído aqui é
+da ordem de 7 pontos no total, 0 nas faixas altas. Ganho futuro na faixa MÉDIA
+precisa de mais de uma corrida para ser creditado; ganho em CRÍTICA/ALTA aparece
+na primeira.
+
+## 11.7 O defeito novo, e ele não é de recall
+
+**O modelo reescreve o rótulo do achado a cada corrida**:
 
     "Empreendimento estranho"             -> "Identificação de terceiro empreendimento"
     "Unidade de seção de condutor errada" -> "Unidade de seção incorreta"
@@ -551,7 +583,7 @@ mesmo defeito com palavras diferentes"). Já acontecia com **um** auditor, entre
 duas corridas. `lib/impressao-do-achado.ts` levou a chave a **50%** sem fundir
 nenhum par de achados distintos (`f88b755`).
 
-## 11.7 Recomendação atualizada
+## 11.8 Recomendação atualizada
 
 1. **Continuar sem refatorar.** O §6 segue sendo a arquitetura certa a buscar;
    deixou de ser o caminho crítico.
