@@ -140,7 +140,26 @@ const auditFindingModelSchema = {
     local: { type: "string" },
     tipo: { type: "string" },
     descricao: { type: "string" },
-    evidencia: { type: "string" },
+    /*
+     * EVIDÊNCIA É TRANSCRIÇÃO, NÃO DERIVAÇÃO.
+     *
+     * O campo saiu assim no 117_25 (18/08/2026): "Armaz Disp 14,38x20=287,6 W,
+     * declarado 359,5 W". Conferido no documento — "Armaz Disp", "14,38" e
+     * "359,5" existem; "287,6" não existe em lugar nenhum, porque é a conta do
+     * próprio modelo. O achado era legítimo e a aritmética estava certa; o campo
+     * é que estava errado.
+     *
+     * O contrato de `evidencia` é: quem lê a página encontra isto lá. É sobre ele
+     * que se apoiam o localizador do PDF, a conferência do engenheiro e a
+     * impressão digital do dedupe. Uma conta no meio quebra os três, e faz um
+     * conferente honesto suspeitar de invenção onde não houve.
+     */
+    evidencia: {
+      type: "string",
+      description:
+        "TRECHO LITERAL copiado do documento, entre aspas. Só o que está escrito lá — " +
+        "nunca cálculo, soma, conversão ou conclusão sua. A conta vai em \"conflito\".",
+    },
     termo_busca: { type: "string" },
     arquivo: { type: "string" },
     categoria: { type: "string" },
@@ -531,7 +550,7 @@ Responda APENAS JSON válido:
       "local": "local do erro",
       "tipo": "tipo do erro",
       "descricao": "descrição objetiva",
-      "evidencia": "texto encontrado",
+      "evidencia": "TRECHO LITERAL do documento (so o que esta escrito la; conta e conclusao vao em conflito)",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "categoria": "categoria do achado (use \"Ortografia / Redação\" nos de texto)",
       "conflito": "por que diverge",
@@ -2194,7 +2213,7 @@ Responda APENAS JSON válido:
       "local": "local do erro",
       "tipo": "tipo do erro",
       "descricao": "descrição objetiva",
-      "evidencia": "texto encontrado",
+      "evidencia": "TRECHO LITERAL do documento (so o que esta escrito la; conta e conclusao vao em conflito)",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "categoria": "Identidade documental",
       "referencia_comparada": "identidade predominante ou trecho comparado",
@@ -2402,7 +2421,7 @@ Responda APENAS JSON válido:
       "local": "local do erro",
       "tipo": "tipo do erro",
       "descricao": "descrição objetiva",
-      "evidencia": "texto encontrado",
+      "evidencia": "TRECHO LITERAL do documento (so o que esta escrito la; conta e conclusao vao em conflito)",
       "termo_busca": "menor trecho exato para localizar no PDF via Ctrl+F",
       "categoria": "categoria do achado (use \"Ortografia / Redação\" nos de texto)",
       "referencia_comparada": "identidade predominante ou trecho comparado, quando existir",
@@ -2593,6 +2612,7 @@ Você é um auditor documental sênior. Leia o DOCUMENTO INTEIRO abaixo de uma v
 
 Regras rígidas:
 - Só relate o que puder sustentar com um trecho EXATO copiado do texto (campos evidencia e termo_busca). NÃO invente. Sem trecho exato, não relate.
+- "evidencia" é TRANSCRIÇÃO, nunca derivação. Quem abrir a página tem de encontrar aquilo lá, letra por letra. Se você somou, multiplicou, converteu unidade ou concluiu algo, isso vai em "conflito" — nunca dentro das aspas. Achado aritmético cita os números COMO ESTÃO no documento em "evidencia" e mostra a conta em "conflito".
 - Cada achado deve citar as páginas/capítulos envolvidos.
 - Ignore erros puramente editoriais de uma palavra (grafia isolada); foque em incoerências de conteúdo entre capítulos.
 
