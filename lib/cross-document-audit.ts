@@ -513,8 +513,70 @@ function isOccupancyAssertion(prefix: string) {
   return OCCUPANCY_ASSERTION_FRAMES.some((frame) => frame.test(limpo));
 }
 
+/**
+ * A SIGLA E O NOME POR EXTENSO SÃO O MESMO EQUIPAMENTO.
+ *
+ * Falso positivo medido no 117_25 (18/08/2026): a regra acusou
+ *
+ *   "Unidade Básica de Saúde Vila Manaus Porte" diverge da obra declarada
+ *   (gabarito) "UBS VILA MANAUS"
+ *
+ * — que é o nome CORRETO da obra escrito por extenso. A validação por IA marcou
+ * este achado para remoção com o motivo certo ("não há nome de outra obra"), e
+ * `route.ts` descartou o veredito dela, porque achado de regra é protegido.
+ * A proteção existe porque regra não alucina; só que não alucinar não é o mesmo
+ * que estar certo — uma expressão regular pode estar precisamente errada.
+ *
+ * Memorial de obra pública alterna as duas formas o tempo todo: a capa traz a
+ * sigla, o capítulo traz o nome por extenso, e às vezes os dois na mesma frase
+ * ("a UBS – Unidade Básica de Saúde Vila Manaus"). Contrair a expansão para a
+ * sigla ANTES de comparar faz as duas formas caírem no mesmo canônico.
+ *
+ * Contrai, e não expande, de propósito: a sigla é a forma curta e estável, e
+ * nomes próprios distintos continuam distintos ("emeb aurora" ≠ "emeb rubens").
+ */
+const SIGLAS_DE_EQUIPAMENTO: { sigla: string; extenso: RegExp }[] = [
+  { sigla: "ubs", extenso: /\bunidade\s+basica\s+de\s+saude\b/g },
+  { sigla: "upa", extenso: /\bunidade\s+de\s+pronto\s+atendimento\b/g },
+  { sigla: "emeb", extenso: /\bescola\s+municipal\s+de\s+ensino\s+basic[oa]\b/g },
+  { sigla: "emeif", extenso: /\bescola\s+municipal\s+de\s+ensino\s+fundamental\b/g },
+  { sigla: "eeb", extenso: /\bescola\s+de\s+educacao\s+basica\b/g },
+  { sigla: "cei", extenso: /\bcentro\s+de\s+educacao\s+infantil\b/g },
+  { sigla: "cras", extenso: /\bcentro\s+de\s+referencia\s+de\s+assistencia\s+social\b/g },
+  { sigla: "caps", extenso: /\bcentro\s+de\s+atencao\s+psicossocial\b/g },
+  { sigla: "esf", extenso: /\bestrategia\s+saude\s+da\s+familia\b/g },
+];
+
 function facilityCanonical(value: string) {
-  return baseCanonical(value).replace(/\s+/g, " ").trim();
+  let canonical = baseCanonical(value).replace(/\s+/g, " ").trim();
+
+  for (const { sigla, extenso } of SIGLAS_DE_EQUIPAMENTO) {
+    extenso.lastIndex = 0;
+    canonical = canonical.replace(extenso, sigla);
+  }
+
+  /*
+   * "ubs ubs vila manaus" vira "ubs vila manaus": o memorial escreve
+   * "a UBS – Unidade Básica de Saúde Vila Manaus", e as duas formas na mesma
+   * frase produziriam a sigla duplicada.
+   */
+  canonical = canonical.replace(/\b(\w+)( \1\b)+/g, "$1");
+
+  /*
+   * "BAIRRO" É LIGAÇÃO, NÃO NOME.
+   *
+   * O 117_25 escreve "UBS Vila Manaus" na capa e "Unidade Básica de Saúde
+   * Bairro Vila Manaus" no capítulo 7 — a mesma obra, com a palavra de ligação
+   * no meio, e a regra acusava divergência. O benchmark externo não lista isso
+   * como achado, e com razão.
+   *
+   * Só esta palavra, e só aqui: o que distingue duas obras é o nome próprio que
+   * vem depois ("Vila Francesa" continua divergindo de "Vila Manaus"), nunca o
+   * conector. Tirar mais que isso começaria a fundir obras de verdade.
+   */
+  canonical = canonical.replace(/\bbairro\b/g, " ");
+
+  return canonical.replace(/\s+/g, " ").trim();
 }
 
 function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[] {

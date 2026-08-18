@@ -203,6 +203,45 @@ const CASES: Case[] = [
     expected: [],
   },
   {
+    /*
+     * LIMPO — o falso positivo que a validacao por IA denunciou no 117_25 e a
+     * rota descartou por proteger achado de regra. Memorial de obra publica
+     * alterna sigla e nome por extenso o tempo todo, e as tres formas abaixo sao
+     * a MESMA obra. A regra acusava divergencia em duas delas.
+     */
+    name: "LIMPO: sigla, nome por extenso e 'Bairro' sao a mesma obra",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        "Memorial descritivo da UBS Vila Manaus, Criciuma/SC.",
+        "O projeto da Unidade Basica de Saude Vila Manaus tem como objetivo o atendimento em saude.",
+        "A Unidade Basica de Saude Bairro Vila Manaus e composta por uma edificacao terrea.",
+        "Sistema de gases medicinais para a UBS - Unidade Basica de Saude Vila Manaus Porte 1.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O contraponto: a sigla normalizada NAO pode fundir obras diferentes. O
+     * nome proprio depois dela e o que distingue, e "Vila Francesa" continua
+     * divergindo de "Vila Manaus" — e AUD-001 do benchmark do 117_25.
+     */
+    name: "identidade: nome proprio diferente ainda diverge, apesar da sigla igual",
+    sources: [
+      // Cinco mencoes dominantes, e nao duas: a regra so acusa depois de
+      // estabelecer baseline claro — guarda deliberada contra ruido em documento
+      // que apenas cita varios equipamentos.
+      makeSource("memorial.pdf", "memorial", [
+        "Memorial descritivo da UBS Vila Manaus, Criciuma/SC.",
+        "O projeto da UBS Vila Manaus preve reforma completa da unidade.",
+        "A UBS Vila Manaus sera executada conforme projeto aprovado.",
+        "As instalacoes da UBS Vila Manaus seguem as normas vigentes.",
+        "Servirao de referencia para a construcao da Unidade Basica de Saude Bairro Vila Francesa.",
+      ]),
+    ],
+    expected: [{ label: "Vila Francesa diverge de Vila Manaus", needle: "Vila Francesa" }],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [
