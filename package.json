@@ -144,6 +144,7 @@
     "test:agrupar-blocos": "node scripts/test-agrupar-blocos.ts",
     "test:versao-auditor": "node scripts/test-versao-do-auditor.ts",
     "test:elegibilidade": "node scripts/test-elegibilidade-da-base.ts",
+    "test:aviso-gravacao": "node scripts/test-aviso-de-gravacao.ts",
     "test:contexto-global": "node scripts/test-contexto-da-global.ts",
     "gasto:auditoria": "node scripts/gasto-da-auditoria.ts",
     "test:nexo:titulo-conversa": "node scripts/test-titulo-da-conversa.ts",

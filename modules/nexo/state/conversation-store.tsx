@@ -121,6 +121,14 @@ interface ConversationStoreValue {
    * subiu — e é justamente essa diferença que o testador não tem como adivinhar.
    */
   sincronizacao: EstadoDaSincronizacao;
+  /**
+   * Como foi a última gravação no DISCO desta máquina.
+   *
+   * Junto com `sincronizacao`, é o par que a barra lateral gradua: nenhuma
+   * das duas sozinha diz se o trabalho está em risco. Disco falhando com o
+   * servidor gravando é informação; as duas falhando é alarme.
+   */
+  gravacaoLocal: "ok" | "falhou";
   /** Resultados gerados (com URLs vivas) — reidratados do IndexedDB no restore. */
   results: SavedResult[];
   appendMessage: (m: NexoChatMessage) => void;
@@ -359,6 +367,15 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [sincronizacao, setSincronizacao] = useState<EstadoDaSincronizacao>({
     estado: "desligada",
   });
+  /**
+   * Como foi a última gravação NO DISCO.
+   *
+   * Existe porque `putConversation` engolia a própria falha — `.catch(() => {})`
+   * logo abaixo do comentário que a chama de "a gravação que vale no instante".
+   * Enquanto ela falhava calada, perder trabalho era indistinguível de nunca ter
+   * trabalhado, e o diagnóstico virava dedução.
+   */
+  const [gravacaoLocal, setGravacaoLocal] = useState<"ok" | "falhou">("ok");
 
   const refreshList = useCallback(() => {
     listConversations()
@@ -472,8 +489,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
      * depois, e é o que faz o trabalho sobreviver a trocar de máquina.
      */
     putConversation(rec)
-      .then(refreshList)
-      .catch(() => {});
+      .then(() => {
+        setGravacaoLocal("ok");
+        refreshList();
+      })
+      /*
+       * A FALHA CONTA. Era `.catch(() => {})`, e o silêncio dela é o que fez o
+       * parecer do 084_25 sumir sem ninguém saber por quê: quota estourada,
+       * transação abortada ou despejo por pressão de armazenamento produziam
+       * exatamente o mesmo nada. Quem grava e não avisa que não gravou está
+       * dizendo que gravou.
+       */
+      .catch(() => setGravacaoLocal("falhou"));
 
     gravarNoServidor(rec).then((estado) => {
       /*
@@ -1078,6 +1105,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       conversations,
       sincronizacao,
+      gravacaoLocal,
       results,
       appendMessage,
       appendDelta,
@@ -1121,6 +1149,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       conversations,
       sincronizacao,
+      gravacaoLocal,
       results,
       appendMessage,
       appendDelta,

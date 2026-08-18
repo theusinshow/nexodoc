@@ -29,6 +29,7 @@ import {
   ChevronUp,
   Cloud,
   CloudOff,
+  TriangleAlert,
   Compass,
   CopyPlus,
   FileSearch,
@@ -48,6 +49,7 @@ import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { SignOutMenuItem } from "@/components/sign-out-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ConversationSummary, TipoDeTrabalho } from "../lib/nexo-db";
+import { avisoDeGravacao } from "../lib/aviso-de-gravacao";
 import type { EstadoDaSincronizacao } from "../lib/nexo-sync";
 import { contarPorTipo, groupConversations } from "../lib/group-conversations";
 import { MarcaViva } from "@/components/brand/marca-viva";
@@ -136,11 +138,17 @@ export function NexoSidebar({
   email,
   trabalhando = false,
   sincronizacao,
+  gravacaoLocal,
 }: {
   onNewConversation?: () => void;
   conversations?: ConversationSummary[];
   /** Última ida ao servidor. Só desenha algo quando falhou. */
   sincronizacao?: EstadoDaSincronizacao;
+  /**
+   * Última gravação no disco desta máquina. Junto com `sincronizacao`,
+   * decide se a falha é informação ou alarme — ver [[aviso-de-gravacao.ts]].
+   */
+  gravacaoLocal?: "ok" | "falhou";
   activeId?: string;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -897,33 +905,84 @@ export function NexoSidebar({
       </div>
 
       {/*
-        A SINCRONIZAÇÃO SÓ APARECE QUANDO FALHA.
+        A GRAVAÇÃO SÓ APARECE QUANDO FALHA — E O VOLUME VEM DO RISCO.
 
         Um selo verde de "salvo" a cada tecla seria ruído: gravar é o esperado,
         e o esperado não merece pixel. O que merece é a diferença que ninguém
-        adivinha — o trabalho está no disco DESTA máquina e não subiu. Por isso
-        o texto diz as duas coisas: o que está garantido e o que não está.
+        adivinha. E ela tem DOIS tamanhos, que este bloco antes não distinguia
+        porque só enxergava o servidor:
 
-        Amarelo de atenção, não vermelho: nada se perdeu.
+        - uma das duas cópias falhou → o trabalho está a salvo na outra. Âmbar,
+          informativo, texto dizendo o que está garantido e o que não está.
+        - as DUAS falharam → o trabalho existe só nesta aba, e fechá-la o perde.
+          Aí é alarme, e é o único caso que merece esse peso.
+
+        Quem decide é [[aviso-de-gravacao.ts]], para a regra ficar travada por
+        teste em vez de morar numa condição JSX que ninguém consegue exercitar.
       */}
-      {sincronizacao?.estado === "falhou" && (
-        <div
-          role="status"
-          className="nx-cut-6 flex items-start gap-2 border-0 bg-[var(--status-warning)]/5 px-2.5 py-2"
-        >
-          <CloudOff
-            className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--status-warning)]"
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          <span className="text-[11.5px] leading-snug text-muted-foreground">
-            Salvo nesta máquina, mas não no servidor.
-            <span className="block text-muted-foreground/70">
-              {sincronizacao.motivo}
+      {(() => {
+        const nivel = avisoDeGravacao(
+          gravacaoLocal ?? "ok",
+          sincronizacao?.estado ?? "desligada",
+        );
+        if (nivel === "nenhum") return null;
+
+        /*
+          GRAVE tem tratamento próprio: é o único caso em que o trabalho pode
+          sumir, e num produto que sustenta emissão de projeto isso pode ser um
+          parecer pago.
+
+          `--status-critical-tint` no fundo, NÃO `--status-critical`: o
+          `--nx-fill` translúcido dentro de `.nx-edge-*` deixa a cor da borda
+          atravessar o miolo, e foi assim que o admin renderizou coral sobre
+          coral em 1:1 — com a prova passando verde (DESIGN.md §2).
+        */
+        if (nivel === "grave") {
+          return (
+            <div
+              role="alert"
+              className="nx-cut-6 flex items-start gap-2 border-0 bg-[var(--status-critical-tint)] px-2.5 py-2"
+            >
+              <TriangleAlert
+                className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--status-critical)]"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+              <span className="text-[11.5px] leading-snug text-foreground">
+                Não foi possível salvar este trabalho.
+                <span className="block text-muted-foreground">
+                  Exporte o parecer antes de fechar esta aba.
+                </span>
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            role="status"
+            className="nx-cut-6 flex items-start gap-2 border-0 bg-[var(--status-warning)]/5 px-2.5 py-2"
+          >
+            <CloudOff
+              className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--status-warning)]"
+              strokeWidth={1.5}
+              aria-hidden
+            />
+            <span className="text-[11.5px] leading-snug text-muted-foreground">
+              {nivel === "so-disco"
+                ? "Salvo nesta máquina, mas não no servidor."
+                : "Salvo no servidor, mas não neste computador."}
+              <span className="block text-muted-foreground/70">
+                {nivel === "so-disco"
+                  ? sincronizacao?.estado === "falhou"
+                    ? sincronizacao.motivo
+                    : ""
+                  : "O trabalho está seguro. Este navegador pode estar sem espaço."}
+              </span>
             </span>
-          </span>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/*
         Rodapé, camada 1: o resto do software em FILEIRA DE ÍCONES.

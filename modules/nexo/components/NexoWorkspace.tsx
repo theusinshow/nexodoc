@@ -490,7 +490,21 @@ function NexoWorkspaceInner({
       setPranchaFiles((prev) => prev.filter((f) => f.name !== file.name));
       setSeloResults(seloResults.filter((r) => r.fileName !== file.name));
       setMemorialFile(file);
-      void conv.salvarMemorial(file);
+      conv.salvarMemorial(file).catch(() => {
+        /*
+         * A REJEIÇÃO CONTA. Era `void`, e a promessa rejeitada sumia sem
+         * rastro: `salvarMemorial` aguarda `putBlob` ANTES de gravar a
+         * referência, então um blob recusado (o memorial do 084_25 tem
+         * 5,1 MB) levava junto o arquivo E o dossiê, e a conversa
+         * restaurada voltava sem memorial e com o gabarito em branco.
+         */
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            "Não consegui guardar o memorial neste navegador. A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
+        });
+      });
       setReadingMemorial(true);
       try {
         const lido = await classifyMemorial(file, true);
@@ -509,7 +523,9 @@ function NexoWorkspaceInner({
 
     // Virou prancha: deixa de ser o memorial e passa pela leitura de selo.
     setMemorialFile(null);
-    void conv.salvarMemorial(null);
+    // Sem aviso, e de propósito: falhar ao ESQUECER um arquivo não custa
+    // trabalho nenhum. O `catch` existe só para a rejeição não ficar solta.
+    conv.salvarMemorial(null).catch(() => {});
     setDossie(null);
     setPranchaFiles((prev) => [...prev, file]);
     setReading(true);
@@ -776,7 +792,21 @@ function NexoWorkspaceInner({
       setMemorialFile(memorial);
       // Retido para poder auditar DE NOVO depois — inclusive numa conversa
       // restaurada, que é onde o veredito parcial manda rodar outra vez.
-      void conv.salvarMemorial(memorial);
+      conv.salvarMemorial(memorial).catch(() => {
+        /*
+         * A REJEIÇÃO CONTA. Era `void`, e a promessa rejeitada sumia sem
+         * rastro: `salvarMemorial` aguarda `putBlob` ANTES de gravar a
+         * referência, então um blob recusado (o memorial do 084_25 tem
+         * 5,1 MB) levava junto o arquivo E o dossiê, e a conversa
+         * restaurada voltava sem memorial e com o gabarito em branco.
+         */
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            "Não consegui guardar o memorial neste navegador. A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
+        });
+      });
     }
 
     /*
@@ -1907,6 +1937,7 @@ function NexoWorkspaceInner({
             nome={nome}
             email={email}
             sincronizacao={conv.sincronizacao}
+            gravacaoLocal={conv.gravacaoLocal}
             /*
              * A marca da barra lateral respira enquanto o agente trabalha. Ela
              * está sempre visível, e o orbe grande não: sai de vista quando se
