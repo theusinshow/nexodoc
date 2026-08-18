@@ -42,15 +42,29 @@ function parsePaginas(raw: string): number[] {
   return [...out].filter((n) => n > 0 && n < 5000);
 }
 
-/** Números "de engenharia": 4.448,91 · 455,81 · 16.710. Ignora inteiro curto. */
+/**
+ * Números "de engenharia": 4.448,91 · 455,81 · 21,08 · 9574 · 2008.
+ *
+ * Os três ramos são necessários e nenhum cobre o outro:
+ *   \d{1,3}(\.\d{3})+(,\d+)?  milhar separado — 4.530,98
+ *   \d+,\d+                   decimal puro — 21,08
+ *   \d{4,}                    corrida longa sem separador — 9574, 2008
+ *
+ * O terceiro ramo faltava, e o primeiro comia o começo do número: sobre
+ * "NBR 9574:2008" o casador via `957 | 4 | 200 | 8`, descartava os quatro como
+ * inteiro curto, e perdia o achado inteiro. Toda edição de norma, ano e cota
+ * de 4 dígitos era invisível — silenciosamente, e justo na classe de achado
+ * (referência normativa) em que o número É a evidência.
+ *
+ * Inteiro curto sem decimal continua sendo ruído: numeração de item e página.
+ */
 function numerosFortes(texto: string): Set<string> {
   const out = new Set<string>();
-  for (const m of String(texto).matchAll(/\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+,\d+/g)) {
+  for (const m of String(texto).matchAll(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+,\d+|\d{4,}/g)) {
     const cru = m[0];
     const canon = cru.replace(/\./g, "").replace(",", ".");
     const valor = Number(canon);
     if (!Number.isFinite(valor)) continue;
-    // inteiro pequeno sem decimal é ruído: numeração de item, ano, página
     if (!cru.includes(",") && valor < 1000) continue;
     out.add(canon);
   }
@@ -112,26 +126,62 @@ const alvos: Alvo[] = [];
  * a primeira, a coluna de página passa a conter texto, e o recall zera —
  * silenciosamente, que é o pior jeito de uma métrica errar.
  */
+/*
+ * O CABEÇALHO MANDA, NÃO A POSIÇÃO.
+ *
+ * Cada relatório monta a tabela como quer: o do 084_25 traz
+ * `ID | Criticidade | Página | Categoria | Achado`, o do 117_25 traz
+ * `ID | Criticidade | Página | Achado | Confiança` — sem categoria e com o
+ * texto uma coluna antes. Ler por índice fixo faz a coluna errada virar o texto
+ * do achado, e o recall despenca sem que nada acuse. Lendo o cabeçalho, o
+ * harness serve a qualquer relatório que nomeie suas colunas.
+ */
+type Mapa = { id: number; crit: number; pag: number; cat: number; texto: number };
+let mapa: Mapa | null = null;
+
+function acharColunas(cols: string[]): Mapa | null {
+  const norm = cols.map((c) =>
+    c.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(),
+  );
+  const acha = (...termos: string[]) =>
+    norm.findIndex((c) => termos.some((t) => c.includes(t)));
+  const id = acha("id", "referencia");
+  const pag = acha("pagina");
+  if (id < 0 || pag < 0) return null;
+  // "achado"/"descricao" é o texto; "categoria"/"natureza" é a classe.
+  const cat = acha("categoria", "natureza", "tipo");
+  let texto = acha("achado", "descricao", "problema", "incongruencia");
+  if (texto === cat) texto = -1;
+  if (texto < 0) texto = cols.length - 1;
+  return { id, crit: acha("criticidade", "severidade", "gravidade"), pag, cat, texto };
+}
+
 const vistos = new Set<string>();
 for (const linha of bench.split(/\r?\n/)) {
   if (!linha.trim().startsWith("|")) continue;
   const cols = linha.split("|").map((c) => c.trim());
-  // | (vazio) | ID | criticidade | paginas | categoria | achado | (vazio)
-  const id = cols[1] ?? "";
+  const talvez = acharColunas(cols);
+  if (talvez) {
+    mapa = talvez;
+    continue;
+  }
+  if (!mapa) continue;
+  const id = cols[mapa.id] ?? "";
   if (!/^(AUD|BM)[-–]?\d+/i.test(id)) continue;
   if (vistos.has(id)) continue;
   // a coluna de página precisa parecer página: sem isso não é a tabela-resumo
-  if (!/\d/.test(cols[3] ?? "")) continue;
+  if (!/\d/.test(cols[mapa.pag] ?? "")) continue;
   vistos.add(id);
-  const texto = cols.slice(5).join(" ");
+  const texto = cols.slice(mapa.texto).join(" ");
+  const categoria = mapa.cat >= 0 ? (cols[mapa.cat] ?? "") : "";
   alvos.push({
     id,
-    criticidade: cols[2] ?? "",
-    categoria: cols[4] ?? "",
+    criticidade: mapa.crit >= 0 ? (cols[mapa.crit] ?? "") : "",
+    categoria,
     texto,
-    paginas: parsePaginas(cols[3] ?? ""),
+    paginas: parsePaginas(cols[mapa.pag] ?? ""),
     numeros: numerosFortes(texto),
-    termos: termosFortes(`${cols[4] ?? ""} ${texto}`),
+    termos: termosFortes(`${categoria} ${texto}`),
   });
 }
 
