@@ -335,6 +335,24 @@ const CASES: Case[] = [
     expected: [{ label: "remissao quebrada", needle: "3.6.3" }],
   },
   {
+    /*
+     * LIMPO — a clausula geral de analogia abre TODAS as marcas do documento.
+     * Ela esta nos cinco memoriais do acervo (item 2.7, condicoes gerais), e a
+     * regra acusava marca fechada quatro capitulos depois de o memorial dizer o
+     * contrario. Quem denunciou foi a contestacao da validacao por IA.
+     */
+    name: "LIMPO: clausula geral de analogia abre as marcas do documento",
+    sources: [
+      makeSource("memorial.pdf", "memorial", [
+        "2.7 Materiais e equipamentos. Os materiais e equipamentos especificados estarao " +
+          "sempre sujeitos a exame de analogia, desde que seja solicitado pela Construtora, " +
+          "cabendo a Contratante a decisao acerca dos pedidos de substituicao.",
+        "Revestimento, tipo comercial: Portobello Linha Bold Cod. 4432.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [

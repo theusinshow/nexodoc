@@ -859,11 +859,42 @@ const DECLARACAO_COMERCIAL = /(?:prot[óo]tipo|tipo)\s+comercial\s*:?\s+/gi;
  */
 const ALCANCE_DA_RESSALVA = 420;
 
+/**
+ * A CLÁUSULA GERAL DE ANALOGIA ABRE TODAS AS MARCAS DO DOCUMENTO.
+ *
+ * Achada pela contestação da validação por IA na primeira corrida em que o
+ * registro existia (113-22, 18/08/2026): "a ressalva geral do próprio memorial
+ * invalida a conclusão de marca fechada". Conferido — item 2.7 do capítulo de
+ * condições gerais:
+ *
+ *   "Os materiais e equipamentos especificados estarão SEMPRE sujeitos a exame
+ *    de analogia, desde que seja solicitado pela Construtora [...] cabendo à
+ *    Contratante a decisão acerca dos eventuais pedidos de substituição de
+ *    materiais por produtos análogos."
+ *
+ * A cláusula está nos CINCO memoriais do acervo — é do template, e vem logo
+ * depois da cláusula de prevalência. Com ela no documento, nenhuma marca está
+ * fechada, e a regra acusava o contrário três vezes.
+ *
+ * A regra não morre: sem a cláusula, o achado é legítimo e é dos que impedem
+ * emitir (Lei 14.133/2021, art. 41). Ela passa a valer só onde a ressalva geral
+ * não existe — e assim também vira uma conferência de que ela existe.
+ */
+const RESSALVA_GERAL_DO_DOCUMENTO =
+  /sujeit[oa]s?\s+a\s+exame\s+de\s+analogia|substitui[cç][ãa]o\s+de\s+materiais\s+por\s+produtos\s+an[áa]logos|marcas?\s+(?:citadas?|indicadas?|mencionadas?)[^.]{0,80}(?:refer[êe]ncia|admitind)/i;
+
 function runBrandWithoutSimilarRule(
   extracted: ExtractedPdf,
   fileName: string,
   nextId: () => string,
 ): AuditFinding[] {
+  // O texto inteiro numa linha só: a cláusula atravessa quebras de página e de
+  // linha, e procurá-la página a página a perderia como já perdeu antes.
+  const documento = extracted.text.replace(/\s+/g, " ");
+  if (RESSALVA_GERAL_DO_DOCUMENTO.test(documento)) {
+    return [];
+  }
+
   const semRessalva: { page: number; trecho: string }[] = [];
 
   extracted.pages.forEach((page, indice) => {

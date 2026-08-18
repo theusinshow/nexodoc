@@ -43,13 +43,6 @@
         "prioridade": "Alta",
         "conflito": "Projetos prevalecem (pág. 18) × especificações prevalecem sobre os projetos (pág. 22).",
         "evidencia": "Pág. 18: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
-      },
-      {
-        "tipo": "Marca especificada sem a ressalva 'ou similar'",
-        "pagina": "37, 67, 68, 71, 72",
-        "prioridade": "Alta",
-        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
-        "evidencia": "p. 37: \"ArcelorMittal – Perfil UDC. 3.4.6 ACM – Alumínio Composto Conforme projeto, a nova marquis\"; p. 67: \"Docol, Acabamento para válvula de descarga Benefit Cod. 00184906. Os assentos serão em plá\"; p. 68: \"Cuba de embutir Tramontina Lavínia 40 BL em aço inox acetinado 40x34 cm. Será implantado n"
       }
     ]
   },
@@ -84,13 +77,6 @@
         "prioridade": "Media/Alta",
         "conflito": "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         "evidencia": "Pág. 69: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
-      },
-      {
-        "tipo": "Marca especificada sem a ressalva 'ou similar'",
-        "pagina": "35",
-        "prioridade": "Alta",
-        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
-        "evidencia": "p. 35: \"Piso de concreto (ladrilho hidráulico), tamanho 40x40cm, espessura 2,5cm – JBM Artefatos d\""
       },
       {
         "tipo": "Parágrafo duplicado no mesmo documento",
@@ -153,13 +139,6 @@
         "prioridade": "Media/Alta",
         "conflito": "Uma cláusula manda a ferragem acompanhar o material da esquadria e outra fixa aço inox. As duas não podem valer para a mesma peça, e a primeira não se sustenta onde a esquadria não é metálica.",
         "evidencia": "Pág. 72: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
-      },
-      {
-        "tipo": "Marca especificada sem a ressalva 'ou similar'",
-        "pagina": "41",
-        "prioridade": "Alta",
-        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
-        "evidencia": "p. 41: \"Piso de concreto (ladrilho hidráulico), tamanho 40x40cm, espessura 2,5cm – JBM Artefatos d\""
       },
       {
         "tipo": "Parágrafo duplicado no mesmo documento",
