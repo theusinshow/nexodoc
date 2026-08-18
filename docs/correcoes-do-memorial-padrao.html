@@ -1,0 +1,534 @@
+<title>Correções do Memorial-Padrão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:        #F5F7F5;
+    --surface:       #FFFFFF;
+    --ink:           #182226;
+    --ink-soft:      #5B6A6C;
+    --rule:          #D6DEDA;
+    --rule-strong:   #B4C0BC;
+    --accent:        #12615A;
+    --accent-soft:   #E3EFEC;
+    --flag:          #8A4B2A;
+    --flag-soft:     #F2E7DF;
+    --shadow:        0 1px 2px rgba(24, 34, 38, .06), 0 8px 24px -16px rgba(24, 34, 38, .28);
+
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans:  "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
+    --mono:  "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12181A;
+      --surface:     #1A2225;
+      --ink:         #E4EAE7;
+      --ink-soft:    #94A5A4;
+      --rule:        #2C383B;
+      --rule-strong: #435154;
+      --accent:      #56B7A8;
+      --accent-soft: #17322F;
+      --flag:        #C98A61;
+      --flag-soft:   #2E241E;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #12181A;
+    --surface:     #1A2225;
+    --ink:         #E4EAE7;
+    --ink-soft:    #94A5A4;
+    --rule:        #2C383B;
+    --rule-strong: #435154;
+    --accent:      #56B7A8;
+    --accent-soft: #17322F;
+    --flag:        #C98A61;
+    --flag-soft:   #2E241E;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 47rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  /* ---------------------------------------------------------- cabeçalho */
+  header { display: flex; flex-direction: column; gap: .9rem; }
+
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(2rem, 5.5vw, 2.9rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+  }
+
+  .standfirst { color: var(--ink-soft); max-width: 38rem; }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  /* ------------------------------------------------------------ resumo */
+  .placar {
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: .93rem; }
+  thead th {
+    text-align: left;
+    font-weight: 600;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: .85rem 1.1rem;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  tbody td { padding: .85rem 1.1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .pill {
+    display: inline-block;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .18rem .5rem;
+    border-radius: 2px;
+    background: var(--flag-soft);
+    color: var(--flag);
+  }
+  .pill.media { background: var(--accent-soft); color: var(--accent); }
+
+  /* ------------------------------------------------------------ defeito */
+  section.defeito { display: flex; flex-direction: column; gap: 1.35rem; }
+
+  .cabeca { display: flex; flex-direction: column; gap: .5rem; }
+
+  .indice {
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+
+  h2 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 1.55rem;
+    line-height: 1.15;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+
+  .alcance {
+    font-family: var(--sans);
+    font-size: .88rem;
+    color: var(--ink-soft);
+  }
+  .alcance b { color: var(--flag); font-weight: 600; }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: .55rem;
+  }
+
+  /* trechos verbatim */
+  .trecho {
+    border-left: 3px solid var(--rule-strong);
+    background: var(--surface);
+    padding: 1rem 1.2rem;
+    font-size: .96rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+  .trecho.atual { border-left-color: var(--flag); }
+  .trecho.novo  { border-left-color: var(--accent); }
+
+  .fonte {
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--ink-soft);
+    letter-spacing: .02em;
+  }
+
+  .trecho ul { padding-left: 1.15rem; display: flex; flex-direction: column; gap: .35rem; }
+  .trecho li { padding-left: .15rem; }
+
+  mark {
+    background: var(--flag-soft);
+    color: var(--flag);
+    padding: 0 .12em;
+    border-radius: 1px;
+    font-weight: 600;
+  }
+  .trecho.novo mark { background: var(--accent-soft); color: var(--accent); }
+
+  .par { display: flex; flex-direction: column; gap: 1rem; }
+
+  .porque {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: 1rem 1.2rem;
+    background: var(--accent-soft);
+    border-radius: 2px;
+    font-size: .95rem;
+  }
+  .porque h3 { color: var(--accent); margin-bottom: 0; }
+
+  .nota {
+    font-size: .92rem;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: .9rem;
+  }
+  .nota b { color: var(--ink); font-weight: 600; }
+
+  hr.sep { border: 0; border-top: 1px solid var(--rule); }
+
+  /* ------------------------------------------------------------ rodapé */
+  footer { display: flex; flex-direction: column; gap: .8rem; }
+  footer p { font-size: .92rem; color: var(--ink-soft); }
+  code {
+    font-family: var(--mono);
+    font-size: .86em;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: .1em .35em;
+  }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Memorial descritivo · modelo do escritório</div>
+    <h1>Três cláusulas que saem erradas em todo projeto</h1>
+    <p class="standfirst">
+      Auditoria determinística de <strong>cinco memoriais reais</strong> — 040-26, 113-22, 116-25,
+      117-25 e 156-25. Os defeitos abaixo não são de um projeto: vêm do modelo, com o texto
+      idêntico em cada um. Consertar o modelo elimina <strong>11 achados</strong> de uma vez,
+      e em todos os projetos futuros.
+    </p>
+  </header>
+
+  <div class="placar">
+    <table>
+      <thead>
+        <tr>
+          <th>Defeito</th>
+          <th>Alcance</th>
+          <th>Gravidade</th>
+          <th>Capítulo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Prevalência contratual contraditória</td>
+          <td class="num">5 de 5</td>
+          <td><span class="pill">Crítica</span></td>
+          <td>2 — Condições Gerais</td>
+        </tr>
+        <tr>
+          <td>Material das ferragens contraditório</td>
+          <td class="num">3 de 3</td>
+          <td><span class="pill media">Média/Alta</span></td>
+          <td>7 — Arquitetônico</td>
+        </tr>
+        <tr>
+          <td>Parágrafo de ferragens repetido</td>
+          <td class="num">3 de 3</td>
+          <td><span class="pill media">Média</span></td>
+          <td>7 — Arquitetônico</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="sep">
+
+  <!-- ================================================== DEFEITO 1 -->
+  <section class="defeito">
+    <div class="cabeca">
+      <div class="indice">Defeito 1 · capítulo 2 — Condições Gerais e Preliminares</div>
+      <h2>A prevalência contratual se contradiz três vezes</h2>
+      <p class="alcance">
+        Presente em <b>5 de 5</b> memoriais.
+        040-26 p.16 e 20 · 113-22 p.18 e 22 · 116-25 p.17 e 21 · 117-25 p.17 e 21 · 156-25 p.15 e 19.
+        Auditoria externa independente classificou como <b>crítica</b> em dois projetos distintos.
+      </p>
+    </div>
+
+    <div class="par">
+      <div>
+        <h3>Como está — primeiro trecho</h3>
+        <div class="trecho atual">
+          <div class="fonte">Capítulo 2, item de interpretação de divergências</div>
+          <p>Para efeito de interpretação de divergências entre os documentos contratuais, fica estabelecido que:</p>
+          <ul>
+            <li>Em caso de divergência entre as especificações e os projetos, sempre prevalecerão <mark>os projetos</mark>.</li>
+            <li>O <mark>projeto de execução</mark> prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos;</li>
+            <li>Em caso de divergência entre as cotas dos desenhos e suas dimensões tomadas em escala, prevalecerão sempre as primeiras;</li>
+            <li>Em caso de divergência entre os desenhos de escalas diferentes, prevalecerão sempre os de maior escala;</li>
+            <li>Em caso de divergência entre os desenhos de datas diferentes, prevalecerão sempre os mais recentes.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div>
+        <h3>Como está — segundo trecho, quatro páginas adiante</h3>
+        <div class="trecho atual">
+          <div class="fonte">Capítulo 2, imediatamente antes de “Serviços iniciais”</div>
+          <p>
+            As especificações técnicas e normas de execução citadas neste memorial prevalecerão
+            sobre <mark>todos os projetos</mark>. O <mark>projeto arquitetônico</mark> prevalecerá sobre os demais.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="porque">
+      <h3>Onde está a contradição</h3>
+      <p>
+        <b>Quem manda entre memorial e projeto?</b> O primeiro trecho diz que prevalecem os projetos.
+        O segundo diz que prevalecem as especificações. As duas frases estão no mesmo capítulo,
+        a quatro páginas de distância.
+      </p>
+      <p>
+        <b>Qual projeto manda entre os projetos?</b> O primeiro trecho elege o projeto de execução.
+        O segundo elege o arquitetônico.
+      </p>
+      <p>
+        Numa divergência real em obra, o memorial sustenta as duas partes ao mesmo tempo —
+        e é por isso que a cláusula não protege ninguém.
+      </p>
+    </div>
+
+    <div>
+      <h3>Como fica — cláusula única, num lugar só</h3>
+      <div class="trecho novo">
+        <div class="fonte">Substitui os dois trechos. O segundo é apagado por inteiro.</div>
+        <p>Para efeito de interpretação de divergências entre os documentos contratuais, fica estabelecido que:</p>
+        <ul>
+          <li>quanto a <mark>materiais, acabamentos e métodos de execução</mark>, prevalecem as especificações deste memorial;</li>
+          <li>quanto a <mark>geometria, dimensões, cotas e posicionamento</mark>, prevalecem os projetos;</li>
+          <li>entre projetos, prevalece o projeto de execução na revisão mais recente;</li>
+          <li>entre cotas e dimensões tomadas em escala, prevalecem as cotas;</li>
+          <li>entre desenhos de escalas diferentes, prevalece o de maior escala;</li>
+          <li>entre desenhos de datas diferentes, prevalece o mais recente;</li>
+          <li>persistindo a divergência, a FISCALIZAÇÃO decidirá por escrito antes da execução do serviço.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="nota">
+      <b>O critério proposto separa por assunto, e não por documento.</b> Especificação governa
+      <i>o quê</i>; projeto governa <i>onde e de que tamanho</i>. É a leitura usual do setor e
+      resolve os dois conflitos de uma vez — mas é decisão contratual do escritório, e precisa ser
+      ratificada antes de entrar no modelo. A última alínea existe porque nenhuma lista cobre tudo:
+      sem ela, a divergência não prevista volta a não ter dono.
+    </p>
+  </section>
+
+  <hr class="sep">
+
+  <!-- ================================================== DEFEITO 2 -->
+  <section class="defeito">
+    <div class="cabeca">
+      <div class="indice">Defeito 2 · capítulo 7 — Projeto Arquitetônico · Esquadrias</div>
+      <h2>A ferragem tem dois materiais ao mesmo tempo</h2>
+      <p class="alcance">
+        Presente em <b>3 de 3</b> memoriais com capítulo de esquadrias.
+        116-25 p.69 e 71 · 117-25 p.72 e 74 · 156-25 p.67 e 68.
+      </p>
+    </div>
+
+    <div class="par">
+      <div>
+        <h3>Como está — regra geral</h3>
+        <div class="trecho atual">
+          <div class="fonte">Abertura do item de esquadrias</div>
+          <p>
+            As ferragens e artefatos similares tais como fechos, comandos alças etc serão
+            <mark>do mesmo material das esquadrias</mark>.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h3>Como está — item “Ferragens para esquadrias”, duas páginas adiante</h3>
+        <div class="trecho atual">
+          <div class="fonte">Três marcadores, no mesmo item</div>
+          <ul>
+            <li>Portas em Alumínio deverão ter todas as ferragens em <mark>Inox</mark> e fixadas por parafusos também em inox;</li>
+            <li>Janelas em alumínio deverão ter todas as suas ferragens e artefatos similares em <mark>inox</mark>;</li>
+            <li>[outra esquadria] … ferragens e artefatos similares <mark>do mesmo material das esquadrias (alumínio)</mark>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="porque">
+      <h3>Onde está a contradição</h3>
+      <p>
+        <b>Duas esquadrias de alumínio, dois materiais de ferragem.</b> Uma leva inox, a outra leva
+        alumínio — no mesmo item, com três marcadores de distância.
+      </p>
+      <p>
+        <b>E a regra geral não se sustenta.</b> “Ferragem do mesmo material da esquadria” é
+        impossível onde a esquadria é de madeira: não existe dobradiça de madeira. A frase geral
+        contradiz os marcadores específicos sempre que ambos alcançam a mesma peça.
+      </p>
+    </div>
+
+    <div>
+      <h3>Como fica — a regra geral sai, a tabela por tipo fica</h3>
+      <div class="trecho novo">
+        <div class="fonte">A frase da abertura é apagada. O item passa a especificar por tipo.</div>
+        <p>
+          As ferragens e artefatos similares — fechos, dobradiças, fechaduras, comandos, alças,
+          trilhos e corrediços — serão especificados <mark>por tipo de esquadria</mark>, conforme o
+          detalhamento do projeto arquitetônico:
+        </p>
+        <ul>
+          <li>esquadrias de <b>alumínio</b> — ferragens e parafusos em <mark>aço inox</mark>;</li>
+          <li>esquadrias de <b>madeira</b> — ferragens em <mark>aço inox</mark>;</li>
+          <li>esquadrias de <b>vidro temperado</b> — ferragens conforme o detalhamento específico.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="nota">
+      <b>Inox em todos os tipos é a proposta mais simples, e é o que os marcadores já dizem
+      na maioria.</b> Se houver tipo em que o escritório especifica outro material de propósito,
+      ele entra como linha própria — o que não pode voltar é a regra geral que se aplica a tudo
+      e contradiz o específico.
+    </p>
+  </section>
+
+  <hr class="sep">
+
+  <!-- ================================================== DEFEITO 3 -->
+  <section class="defeito">
+    <div class="cabeca">
+      <div class="indice">Defeito 3 · capítulo 7 — Projeto Arquitetônico · Esquadrias</div>
+      <h2>A mesma frase de aceite aparece três vezes na mesma página</h2>
+      <p class="alcance">
+        Presente em <b>3 de 3</b> memoriais.
+        040-26 p.85 · 116-25 p.71 · 117-25 p.74.
+      </p>
+    </div>
+
+    <div>
+      <h3>Como está — o mesmo período, repetido a cada marcador</h3>
+      <div class="trecho atual">
+        <div class="fonte">Item “Ferragens para esquadrias”, três ocorrências consecutivas</div>
+        <p>
+          As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos,
+          alças, trilhos, corrediços e etc., serão em inox e
+          <mark>devem ser submetidos ao aceite da Fiscalização de Obras anteriormente à sua compra
+          e instalação</mark>.
+        </p>
+      </div>
+    </div>
+
+    <div class="porque">
+      <h3>Por que importa, se o texto está certo</h3>
+      <p>
+        A exigência de aceite prévio é correta — e é justamente por ser correta que ela não pode
+        aparecer três vezes. <b>Quem revisa não sabe se as três são a mesma exigência ou três
+        exigências distintas</b>, e quem altera uma tende a esquecer as outras duas. Foi assim que
+        o material da ferragem passou a divergir entre os marcadores: o texto foi copiado, e a
+        cópia seguinte foi editada sozinha.
+      </p>
+    </div>
+
+    <div>
+      <h3>Como fica — a exigência uma vez, antes da lista</h3>
+      <div class="trecho novo">
+        <div class="fonte">Abre o item. Os marcadores deixam de repetir o período.</div>
+        <p>
+          Todas as ferragens e artefatos similares <mark>serão submetidos ao aceite da FISCALIZAÇÃO
+          anteriormente à compra e à instalação</mark>, e serão fornecidos inteiramente novos e em
+          perfeito estado de funcionamento.
+        </p>
+        <p>Por tipo de esquadria:</p>
+        <ul>
+          <li>alumínio — ferragens e parafusos em aço inox;</li>
+          <li>madeira — ferragens em aço inox;</li>
+          <li>vidro temperado — conforme detalhamento específico.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="nota">
+      <b>Os defeitos 2 e 3 se resolvem no mesmo item.</b> A redação acima já contempla os dois:
+      a exigência de aceite sai da repetição e sobe para a abertura, e o material passa a ser
+      declarado por tipo, uma vez cada.
+    </p>
+  </section>
+
+  <hr class="sep">
+
+  <!-- ================================================== VERIFICAÇÃO -->
+  <footer>
+    <h3>Como conferir que ficou resolvido</h3>
+    <p>
+      Depois de aplicar as três correções no modelo, gere um memorial novo e passe-o pela auditoria.
+      Os achados <b>“Hierarquia documental contraditória”</b>, <b>“Material das ferragens
+      contraditório”</b> e <b>“Parágrafo duplicado no mesmo documento”</b> devem desaparecer.
+      Se algum permanecer, o texto antigo sobreviveu em algum ponto do modelo — a auditoria aponta
+      a página.
+    </p>
+    <p>
+      Os memoriais já emitidos não mudam. As correções valem para o que for gerado a partir do
+      modelo corrigido; nos projetos em andamento, cada trecho precisa ser ajustado no documento.
+    </p>
+    <p style="border-top: 1px solid var(--rule); padding-top: .9rem;">
+      Levantamento determinístico sobre 040-26, 113-22, 116-25, 117-25 e 156-25 · 18 de agosto de 2026
+    </p>
+  </footer>
+
+</div>
