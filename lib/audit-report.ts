@@ -172,6 +172,22 @@ export type AuditReport = {
      * permite o veredito dizer que não pode ser usado para liberar.
      */
     passadas_incompletas?: { passada: string; motivo?: string }[];
+    /**
+     * Regras que a validação por IA quis remover e não pôde.
+     *
+     * Não muda o parecer — achado de regra continua protegido de ser apagado.
+     * É fila de revisão da camada determinística: a validação lê o documento com
+     * a página do achado na frente, e é a única coisa no sistema capaz de dizer
+     * "esta regra errou". Em 18/08/2026 ela diagnosticou corretamente três
+     * falsos positivos nossos, e os três vereditos eram descartados em silêncio.
+     */
+    regras_contestadas?: {
+      achado: string;
+      tipo: string;
+      pagina: string;
+      motivo: string;
+      evidencia: string;
+    }[];
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;

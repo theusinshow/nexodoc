@@ -72,6 +72,11 @@ import {
   TENTATIVAS_PADRAO,
 } from "@/lib/falha-transitoria";
 import { impressaoDoAchado } from "@/lib/impressao-do-achado";
+import {
+  linhaDeLog,
+  registrarContestacao,
+  type ContestacaoDeRegra,
+} from "@/lib/contestacao-de-regra";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
 import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
 import { nomeDaObra } from "@/lib/nome-da-obra";
@@ -2775,6 +2780,8 @@ async function validateFindingsWithModel(args: {
   learningContext: string;
   files: UploadedAuditFile[];
   findings: AuditFinding[];
+  /** Coletor das regras que a validação quis remover. Ver [[contestacao-de-regra.ts]]. */
+  contestacoes?: ContestacaoDeRegra[];
   conversationId?: string | null;
   userEmail?: string | null;
 }) {
@@ -2842,6 +2849,24 @@ async function validateFindingsWithModel(args: {
           // achado de regra (guardas, identidade intra-documento, coerência): eles
           // não alucinam e citam página/evidência.
           if (isMandatoryGuardFinding(finding) || finding.origem === "regra") {
+            /*
+             * O ACHADO FICA, MAS O DESACORDO NÃO SE PERDE.
+             *
+             * O veredito recusado era descartado em silêncio. Em 18/08/2026,
+             * medindo a validação com falsos positivos plantados, ela pediu
+             * remoção de 4 dos 6 achados de regra do lote — e três dos motivos
+             * eram diagnósticos CORRETOS de defeito nosso (nome por extenso lido
+             * como obra diferente, área comparada com população, ressalva de
+             * marca escrita sem o "ou"). Os três foram consertados no mesmo dia,
+             * mas por acaso: a camada que já sabia estava calada.
+             *
+             * Não alucinar não é o mesmo que estar certo. A regra continua
+             * protegida de ser apagada; o que muda é que a discordância vira
+             * relatório em vez de lixo.
+             */
+            const contestacao = registrarContestacao(finding, decision.motivo);
+            args.contestacoes?.push(contestacao);
+            console.warn(linhaDeLog(contestacao));
             return finding;
           }
 
@@ -3975,6 +4000,11 @@ async function executarAuditoria(
       detalhe: `${candidateFindings.length} achado(s) a revisar`,
       orcamentoMs: getValidationTimeoutMs(analysisLevel),
     });
+    /*
+     * As regras que a validação quis remover e não pôde. Ver
+     * [[contestacao-de-regra.ts]]: o achado fica, o desacordo vira relatório.
+     */
+    const contestacoes: ContestacaoDeRegra[] = [];
     const validatedFindings = await validateFindingsWithModel({
       auditId,
       auditMode,
@@ -3985,6 +4015,7 @@ async function executarAuditoria(
       learningContext,
       files: uploadedFiles,
       findings: candidateFindings,
+      contestacoes,
       conversationId,
       userEmail: sessionEmail,
     });
@@ -4104,6 +4135,13 @@ async function executarAuditoria(
       runtime: {
         // Quais passadas não completaram. O veredito lê isto para se rebaixar.
         passadas_incompletas: degradacoes,
+        /*
+         * Regras que a validação por IA quis remover. Não muda o parecer — é
+         * fila de revisão da camada determinística. Ver
+         * [[contestacao-de-regra.ts]] para os três falsos positivos que ela
+         * diagnosticou corretamente em 18/08/2026.
+         */
+        ...(contestacoes.length > 0 ? { regras_contestadas: contestacoes } : {}),
         nivel_analise: analysisLevel,
         motor_auditoria: auditEngine,
         regras_locais_ativas: isRuleBasedAuditEnabled(),
