@@ -775,8 +775,31 @@ function runDuplicateParagraphRule(
  * Consolidado: um achado com TODAS as ocorrências, não um por marca.
  */
 
-/** aceita "ou similar", "ou equivalente", "ou de qualidade equivalente" */
-const RESSALVA_DE_SIMILAR = /\bou\s+(?:similar|equivalente|de\s+qualidade\s+equivalente)/i;
+/**
+ * A ressalva de marca aberta, nas formas em que ela realmente aparece.
+ *
+ * Exigia o "ou", e por isso acusava especificação que TEM a ressalva. Medido no
+ * acervo em 18/08/2026: dois memoriais escrevem "Branco / Suvinil similar" —
+ * marca e ressalva coladas, sem conector — e os dois foram acusados de fechar a
+ * marca. A validação por IA já tinha dito o mesmo com outras palavras ("a
+ * ressalva geral do próprio memorial alcança a especificação citada").
+ *
+ * São duas formas, e o que as valida é o que vem ANTES:
+ *
+ *   "ou similar" / "ou equivalente"  — inequívoco, aceita sempre;
+ *   "<Marca> similar"                — só quando precedido de nome próprio.
+ *
+ * A primeira tentativa olhava o que vinha DEPOIS, recusando "similar a ...".
+ * Ela calava a ressalva em "…ou similar A superfície deverá estar limpa": o "A"
+ * de início de frase é artigo, não preposição, e nenhuma expressão regular
+ * distingue os dois. Errar assim é pior que o falso positivo original — marca
+ * fechada em obra pública é achado que impede emitir, e calá-lo é esconder.
+ *
+ * Exigir nome próprio antes resolve pelo lado certo: "Suvinil similar" passa,
+ * "escolher uma cor similar a cor cinza" não, porque "cor" é minúscula.
+ */
+const RESSALVA_DE_SIMILAR =
+  /\bou\s+(?:similar(?:es)?|equivalentes?|de\s+qualidade\s+equivalente)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ-]{2,}\s+(?:similar(?:es)?|equivalentes?)\b/;
 
 /** onde o escritório declara produto comercial */
 const DECLARACAO_COMERCIAL = /(?:prot[óo]tipo|tipo)\s+comercial\s*:?\s+/gi;

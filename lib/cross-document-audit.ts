@@ -579,6 +579,46 @@ function facilityCanonical(value: string) {
   return canonical.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Palavras que não identificam obra nenhuma: conector e qualificador de esfera.
+ *
+ * "Hospital Municipal Nossa Senhora" e "Hospital Nossa Senhora" são o mesmo
+ * hospital; "de Navegantes" e "dos Navegantes" são o mesmo lugar. O que
+ * identifica é o nome próprio, e ele nunca está nesta lista.
+ */
+const TOKENS_SEM_IDENTIDADE = new Set([
+  "de", "do", "da", "dos", "das", "e", "no", "na", "em",
+  "municipal", "estadual", "federal", "publico", "publica", "novo", "nova",
+]);
+
+function tokensDeObra(canonical: string): Set<string> {
+  return new Set(
+    canonical.split(" ").filter((t) => t.length > 0 && !TOKENS_SEM_IDENTIDADE.has(t)),
+  );
+}
+
+/**
+ * Um nome é o outro escrito de outro jeito?
+ *
+ * Verdadeiro quando um conjunto de palavras contém o outro. Exige duas palavras
+ * significativas no menor dos dois: com uma só, "Hospital" casaria com qualquer
+ * hospital, e a regra pararia de acusar troca de obra — que é a coisa que ela
+ * existe para achar.
+ */
+function mesmaObraPorTokens(a: string, b: string): boolean {
+  const ta = tokensDeObra(a);
+  const tb = tokensDeObra(b);
+  const menor = ta.size <= tb.size ? ta : tb;
+  const maior = menor === ta ? tb : ta;
+
+  if (menor.size < 2) return false;
+
+  for (const token of menor) {
+    if (!maior.has(token)) return false;
+  }
+  return true;
+}
+
 function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[] {
   const mentions: FacilityMention[] = [];
 
@@ -807,6 +847,32 @@ export function runWithinDocumentIdentityRules(
       baselineCanonical.includes(candidate.canonical) ||
       candidate.canonical.includes(baselineCanonical)
     ) {
+      continue;
+    }
+
+    /*
+     * OMITIR OU ACRESCENTAR PALAVRA É A MESMA OBRA. TROCAR NOME PRÓPRIO NÃO É.
+     *
+     * A contenção por substring acima não alcança a variação real, porque a
+     * palavra a mais entra NO MEIO. Medido no acervo (18/08/2026), memorial do
+     * Hospital Nossa Senhora dos Navegantes, com quatro acusações e as quatro
+     * falsas:
+     *
+     *   "Hospital Municipal Nossa Senhora dos Navegantes"  (+ "Municipal")
+     *   "HOSPITAL MUNICIPAL NOSSA SENHORA"                 (captura truncada)
+     *   "Hospital Nossa Senhora de Navegantes"             ("de" por "dos")
+     *   "Hospital de Navegantes"                           (forma curta)
+     *
+     * Todas são o mesmo hospital. Nenhuma é substring da outra.
+     *
+     * Comparar CONJUNTO DE PALAVRAS, sem conectores nem qualificador genérico,
+     * separa as duas coisas que importam: um nome que só omite ou só acrescenta
+     * palavras é o mesmo nome escrito de outro jeito; um nome que TROCA o nome
+     * próprio é outra obra. É por isso que "UBS Vila Francesa" e "UBS Paraíso"
+     * continuam divergindo de "UBS Vila Manaus" — nenhum é subconjunto do outro,
+     * porque cada um traz um próprio que o outro não tem.
+     */
+    if (mesmaObraPorTokens(candidate.canonical, baselineCanonical)) {
       continue;
     }
 

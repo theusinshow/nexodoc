@@ -242,6 +242,37 @@ const CASES: Case[] = [
     expected: [{ label: "Vila Francesa diverge de Vila Manaus", needle: "Vila Francesa" }],
   },
   {
+    /*
+     * LIMPO — "Suvinil similar", sem o "ou". Dois memoriais do acervo escrevem
+     * assim, e os dois eram acusados de fechar a marca. A ressalva esta la.
+     */
+    name: "LIMPO: ressalva colada na marca, sem o 'ou'",
+    sources: [
+      makeSource("pintura.pdf", "memorial", [
+        "Pintura acrilica, tipo comercial: Branco / Suvinil similar. A superficie devera estar limpa.",
+        "Esquadrias em aluminio, tipo comercial: Alcoa ou similar.",
+      ]),
+    ],
+    expected: [],
+  },
+  {
+    /*
+     * O contraponto: "cor similar a cor cinza" NAO e ressalva de marca, e uma
+     * comparacao. Se ela passasse por ressalva, a regra calaria marca fechada —
+     * e marca fechada em obra publica e achado que IMPEDE emitir. Calar e pior
+     * que acusar demais.
+     */
+    name: "marca: comparacao 'similar a' nao vale como ressalva",
+    sources: [
+      makeSource("pintura2.pdf", "memorial", [
+        "Revestimento, tipo comercial: Portobello Linha Bold Cod. 4432. " +
+          "Devera ser escolhida uma cor similar a cor cinza indicada em projeto.",
+        "Louças, tipo comercial: Deca ou similar.",
+      ]),
+    ],
+    expected: [{ label: "marca fechada", needle: "Portobello" }],
+  },
+  {
     name: "concessionaria: COOPERA fora da microrregiao (Criciuma)",
     sources: [
       makeSource("eletrico.pdf", "memorial", [

@@ -1,0 +1,277 @@
+{
+  "040_26_md_geral_a.pdf": {
+    "paginas": 167,
+    "chars": 382032,
+    "achados": [
+      {
+        "tipo": "Hierarquia documental contraditória",
+        "pagina": "16 e 20",
+        "prioridade": "Alta",
+        "conflito": "Projetos prevalecem (pág. 16) × especificações prevalecem sobre os projetos (pág. 20).",
+        "evidencia": "Pág. 16: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
+      },
+      {
+        "tipo": "Linguagem de projeto rodoviário não adaptada",
+        "pagina": "38",
+        "prioridade": "Media",
+        "conflito": "2 termos de projeto rodoviário num centro comunitário.",
+        "evidencia": "Pág. 38: \"o estudo de tráfego segundo as metodologias empregadas. TABELA 3 - ESTIMATIVA DO NÚMERO DE SOLICITAÇÕES DE PROJETO SEGMENTO (EIXO-1) N USACE N AASHTO Km 0+000 – Km 0+030 3,91 x 104 2,98 x 104 5.3 Investigações geotécnicas para caracterização do subleito O estudo geotécnico para a implantaç"
+      },
+      {
+        "tipo": "Escopo ambíguo: construção nova × reforma",
+        "pagina": "1",
+        "prioridade": "Media",
+        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
+        "evidencia": "Pág. 1: \"PREFEITURA MUNICIPAL DE CHAPECÓ SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO REVITALIZAÇÃO DA FEIRA MUNICIPAL DE CHAPECÓ PROJETO EXECUTIVO MEMORIAL DESCRITIVO Vol. I JUNHO/2024 040_26\""
+      },
+      {
+        "tipo": "Parágrafo duplicado no mesmo documento",
+        "pagina": "85",
+        "prioridade": "Baixa/Media",
+        "conflito": "O mesmo texto aparece repetido; se as duas ocorrências forem intencionais, uma delas deve ser remissão à outra.",
+        "evidencia": "p. 85: \"As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos, alças, trilhos, corrediços e etc., serão em inox e devem ser submetidos …\""
+      },
+      {
+        "tipo": "Títulos duplicados em subitens irmãos",
+        "pagina": "5",
+        "prioridade": "Media",
+        "conflito": "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
+        "evidencia": "8.3.12.1 Bancadas em granito................................................................................................. 97 (p. 5) | 8.3.12.4 Bancadas em granito................................................................................................. 97 (p. 5)"
+      },
+      {
+        "tipo": "Títulos duplicados em subitens irmãos",
+        "pagina": "97",
+        "prioridade": "Media",
+        "conflito": "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
+        "evidencia": "8.3.12.1 Bancadas em granito (p. 97) | 8.3.12.4 Bancadas em granito (p. 97)"
+      }
+    ]
+  },
+  "113_22_md_geral_a.pdf": {
+    "paginas": 177,
+    "chars": 433631,
+    "achados": [
+      {
+        "tipo": "Hierarquia documental contraditória",
+        "pagina": "18 e 22",
+        "prioridade": "Alta",
+        "conflito": "Projetos prevalecem (pág. 18) × especificações prevalecem sobre os projetos (pág. 22).",
+        "evidencia": "Pág. 18: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
+      },
+      {
+        "tipo": "Escopo ambíguo: construção nova × reforma",
+        "pagina": "35",
+        "prioridade": "Media",
+        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
+        "evidencia": "Pág. 35: \"e areia média/grossa no traço 1:2:6, obedecendo à espessura de paredes e alinhamentos indicados no projeto arquitetônico. Para melhor amarração com a alvenaria existente, evitando fissura devido ao trabalho das estruturas de diferentes materiais sugere-se a utilização de duas barras de aço"
+      },
+      {
+        "tipo": "Marca especificada sem a ressalva 'ou similar'",
+        "pagina": "37, 67, 68, 71, 72",
+        "prioridade": "Alta",
+        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
+        "evidencia": "p. 37: \"ArcelorMittal – Perfil UDC. 3.4.6 ACM – Alumínio Composto Conforme projeto, a nova marquis\"; p. 67: \"Docol, Acabamento para válvula de descarga Benefit Cod. 00184906. Os assentos serão em plá\"; p. 68: \"Cuba de embutir Tramontina Lavínia 40 BL em aço inox acetinado 40x34 cm. Será implantado n"
+      },
+      {
+        "tipo": "Remissão a item inexistente",
+        "pagina": "96",
+        "prioridade": "Media/Alta",
+        "conflito": "O item referenciado não existe no documento — quem for executar não tem para onde ir, e a exigência fica sem conteúdo.",
+        "evidencia": "p. 96: \"s de regulagem, tensão secundária de 380/220 V, freqüência de 60 Hz, isolação para 25 KV. Conforme item 5.7.5, letra i da norma técnica N-321.0002, o transformador a seco deverá di\""
+      }
+    ]
+  },
+  "116_25_md_geral_b.pdf": {
+    "paginas": 258,
+    "chars": 528473,
+    "achados": [
+      {
+        "tipo": "Hierarquia documental contraditória",
+        "pagina": "17 e 21",
+        "prioridade": "Alta",
+        "conflito": "Projetos prevalecem (pág. 17) × especificações prevalecem sobre os projetos (pág. 21).",
+        "evidencia": "Pág. 17: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
+      },
+      {
+        "tipo": "Responsabilidade de terraplenagem divergente",
+        "pagina": "12 e 25",
+        "prioridade": "Media/Alta",
+        "conflito": "Terraplenagem = Prefeitura (pág. 12) × contratada executa movimento de terra (pág. 25).",
+        "evidencia": "Pág. 12: \"icação. Foi prevista a construção do passeio público em paver com a implementação de pisos táteis. Importante ressaltar que os serviços de demolição, terraplenagem e pavimentação asfáltica previstos em projeto, serão de responsabilidade da Prefeitura de Criciúma, a quem caberá a retirada e"
+      },
+      {
+        "tipo": "Escopo ambíguo: construção nova × reforma",
+        "pagina": "58",
+        "prioridade": "Media",
+        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
+        "evidencia": "Pág. 58: \"traço 1:2:6, preparada em betoneira, obedecendo à espessura de paredes e alinhamentos indicados no projeto arquitetônico. Para melhor amarração com a alvenaria existente, evitando fissura devido ao trabalho das estruturas de diferentes materiais sugere- se a utilização de duas barras de aç"
+      },
+      {
+        "tipo": "Área total construída divergente no mesmo documento",
+        "pagina": "158, 159",
+        "prioridade": "Alta",
+        "conflito": "Valores de área total incompatíveis (813,98 m² × 111 m²) — não fica claro qual é a área oficial da obra.",
+        "evidencia": "Pág. 158: \"specificações, detalhamentos e serviços das instalações hidrossanitárias da UBS Renascer – Porte 2. A edificação possui área total construída de 813,98 m². 12.1.1 Uso Pretendido Uso pretendido: Unidade de Saúde Básica (UBS). 12.1.2 Propriet\" | Pág. 159: \"quadro de áreas, linha \"Total (Alu"
+      },
+      {
+        "tipo": "Fluido previsto nos postos e ausente do dimensionamento das centrais",
+        "pagina": "257",
+        "prioridade": "Media/Alta",
+        "conflito": "O projeto prevê ponto de consumo para um fluido que não tem fonte dimensionada. Ou o posto não deveria existir, ou falta a central.",
+        "evidencia": "Pág. 257: \"deverão conter os seguintes dizeres: “VÁLVULA DE (NOME DO FLUIDO) NÃO FECHE EXCETO EM CASO DE EMERGÊNCIA”. 15.4.3 Postos de utilização Cada posto de utilização de oxigênio, óxido nitroso, ar ou vácuo, deve ser equipado com uma válvula autovedante, e rotulado legivelmente com o no\""
+      },
+      {
+        "tipo": "Material das ferragens contraditório",
+        "pagina": "69 e 71",
+        "prioridade": "Media/Alta",
+        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "evidencia": "Pág. 69: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
+      },
+      {
+        "tipo": "Marca especificada sem a ressalva 'ou similar'",
+        "pagina": "35",
+        "prioridade": "Alta",
+        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
+        "evidencia": "p. 35: \"Piso de concreto (ladrilho hidráulico), tamanho 40x40cm, espessura 2,5cm – JBM Artefatos d\""
+      },
+      {
+        "tipo": "Parágrafo duplicado no mesmo documento",
+        "pagina": "71",
+        "prioridade": "Baixa/Media",
+        "conflito": "O mesmo texto aparece repetido; se as duas ocorrências forem intencionais, uma delas deve ser remissão à outra.",
+        "evidencia": "p. 71: \"As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos, alças, trilhos, corrediços e etc., serão em inox e devem ser submetidos …\""
+      }
+    ]
+  },
+  "117_25_md_geral_a.pdf": {
+    "paginas": 218,
+    "chars": 464585,
+    "achados": [
+      {
+        "tipo": "Nome de obra/unidade divergente no mesmo documento",
+        "pagina": "14",
+        "prioridade": "Alta",
+        "conflito": "\"Unidade Básica de Saúde Bairro Vila Francesa\" diverge da obra dominante \"UBS VILA MANAUS\".",
+        "evidencia": "servirão de referência para a construção da Unidade Básica de Saúde Bairro Vila Francesa. • Memorial Descritivo • Orçamento • Levantamento Topográfico • Sondagem • Projeto de Terr"
+      },
+      {
+        "tipo": "Nome de obra/unidade divergente no mesmo documento",
+        "pagina": "92",
+        "prioridade": "Alta",
+        "conflito": "\"UBS Paraíso\" diverge da obra dominante \"UBS VILA MANAUS\".",
+        "evidencia": "scritivo destina-se ao projeto estrutural da UBS Paraíso – Porte 1, localizada na Rua São Francisco de Assis, S/N, Vila Manaus, Criciúma/SC. O objetivo deste documento é discrimina"
+      },
+      {
+        "tipo": "Hierarquia documental contraditória",
+        "pagina": "17 e 21",
+        "prioridade": "Alta",
+        "conflito": "Projetos prevalecem (pág. 17) × especificações prevalecem sobre os projetos (pág. 21).",
+        "evidencia": "Pág. 17: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
+      },
+      {
+        "tipo": "Linguagem de projeto rodoviário não adaptada",
+        "pagina": "30",
+        "prioridade": "Media",
+        "conflito": "3 termos de projeto rodoviário num centro comunitário.",
+        "evidencia": "Pág. 30: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
+      },
+      {
+        "tipo": "Escopo ambíguo: construção nova × reforma",
+        "pagina": "38",
+        "prioridade": "Media",
+        "conflito": "Construção nova declarada, mas com referências a estrutura/pavimento existente.",
+        "evidencia": "Pág. 38: \"5 – PROJETO DE URBANIZAÇÃO 5 PROJETO DE URBANIZAÇÃO 5.1 Demolições e retiradas Para a revitalização da Unidade Básica de Saúde – UBS Vila Manaus, as seguintes retiradas e alterações foram previstas: • Supressão de vegetação e limpeza do\""
+      },
+      {
+        "tipo": "Área total construída divergente no mesmo documento",
+        "pagina": "99, 100",
+        "prioridade": "Alta",
+        "conflito": "Valores de área total incompatíveis (467,46 m² × 59 m²) — não fica claro qual é a área oficial da obra.",
+        "evidencia": "Pág. 99: \"cificações, detalhamentos e serviços das instalações hidrossanitárias da UBS Vila Manaus – Porte 1. A edificação possui área total construída de 467,46 m². 9.1.1 Uso Pretendido Uso pretendido: Unidade de Saúde Básica (UBS). 9.1.2 Proprietár\" | Pág. 100: \"quadro de áreas, linha \"Total (Alun"
+      },
+      {
+        "tipo": "Bases de consumo de água e de esgoto divergentes",
+        "pagina": "101 e 103",
+        "prioridade": "Media/Alta",
+        "conflito": "Os dois dimensionamentos do mesmo capítulo partem de contribuições per capita incompatíveis. O volume de tanque séptico e filtro anaeróbio é calculado sobre a base maior.",
+        "evidencia": "Pág. 101: \"sumo 1230 Total 2 dias de consumo 2460 Total (2 dias de consumo + RTI) 2460 Para a tabela acima chegamos ao valor de um consumo diário de 1.230 Litros. 9.3.4 Volume do Reservatório adotado O projeto possui 2 reservatórios superiores com cap\" | Pág. 103: \"ssa em litro/dia (L/dia); Dados: I"
+      },
+      {
+        "tipo": "Fluido previsto nos postos e ausente do dimensionamento das centrais",
+        "pagina": "217",
+        "prioridade": "Media/Alta",
+        "conflito": "O projeto prevê ponto de consumo para um fluido que não tem fonte dimensionada. Ou o posto não deveria existir, ou falta a central.",
+        "evidencia": "Pág. 217: \"deverão conter os seguintes dizeres: “VÁLVULA DE (NOME DO FLUIDO) NÃO FECHE EXCETO EM CASO DE EMERGÊNCIA”. 14.4.3 Postos de utilização Cada posto de utilização de oxigênio, óxido nitroso, ar ou vácuo, deve ser equipado com uma válvula autovedante, e rotulado legivelmente com o no\""
+      },
+      {
+        "tipo": "Material das ferragens contraditório",
+        "pagina": "72 e 74",
+        "prioridade": "Media/Alta",
+        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "evidencia": "Pág. 72: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
+      },
+      {
+        "tipo": "Marca especificada sem a ressalva 'ou similar'",
+        "pagina": "41",
+        "prioridade": "Alta",
+        "conflito": "O próprio memorial adota o padrão \"<marca> ou similar\" na maioria das especificações; nestas a ressalva está ausente, fechando a marca.",
+        "evidencia": "p. 41: \"Piso de concreto (ladrilho hidráulico), tamanho 40x40cm, espessura 2,5cm – JBM Artefatos d\""
+      },
+      {
+        "tipo": "Parágrafo duplicado no mesmo documento",
+        "pagina": "74",
+        "prioridade": "Baixa/Media",
+        "conflito": "O mesmo texto aparece repetido; se as duas ocorrências forem intencionais, uma delas deve ser remissão à outra.",
+        "evidencia": "p. 74: \"As ferragens e artefatos similares, tais como fechos, dobradiças, fechaduras, comandos, alças, trilhos, corrediços e etc., serão em inox e devem ser submetidos …\""
+      }
+    ]
+  },
+  "156_25_md_geral_b.pdf": {
+    "paginas": 150,
+    "chars": 361327,
+    "achados": [
+      {
+        "tipo": "Hierarquia documental contraditória",
+        "pagina": "15 e 19",
+        "prioridade": "Alta",
+        "conflito": "Projetos prevalecem (pág. 15) × especificações prevalecem sobre os projetos (pág. 19).",
+        "evidencia": "Pág. 15: \"interpretação de divergências entre os documentos contratuais, fica estabelecido que: • Em caso de divergência entre as especificações e os projetos, sempre prevalecerão os projetos. • O projeto de execução prevalecerá sempre, em qualquer estágio da obra, sobre os demais projetos; • Em cas"
+      },
+      {
+        "tipo": "Linguagem de projeto rodoviário não adaptada",
+        "pagina": "29",
+        "prioridade": "Media",
+        "conflito": "5 termos de projeto rodoviário num centro comunitário.",
+        "evidencia": "Pág. 29: \"apresentar declividade transversal superior a 15% serão adotadas as seguintes providências: • no caso de aterros, de pequenas alturas assentes sobre rodovias existentes, deverá ser executada a escarificação do leito da mesma, na profundidade de 0,15 m; • no caso de alargamento de aterros, "
+      },
+      {
+        "tipo": "Área total construída divergente no mesmo documento",
+        "pagina": "94, 95",
+        "prioridade": "Alta",
+        "conflito": "Valores de área total incompatíveis (551,53 m² × 44 m²) — não fica claro qual é a área oficial da obra.",
+        "evidencia": "Pág. 94: \"cificações, detalhamentos e serviços das instalações hidrossanitárias da Nova Sede da Defesa Civil. A edificação possui área total construída de 551,53 m², compreendendo a edificação principal e as estruturas de apoio. A edificação principa\" | Pág. 95: \"quadro de áreas, linha \"Total | 44\"\""
+      },
+      {
+        "tipo": "Material das ferragens contraditório",
+        "pagina": "67 e 68",
+        "prioridade": "Media/Alta",
+        "conflito": "Ferragens no material das esquadrias (alumínio) e ferragens em inox são especificações excludentes para a mesma peça.",
+        "evidencia": "Pág. 67: \"de Esquadrias e detalhamento de esquadrias que são partes integrantes do projeto arquitetônico, porém as medidas deverão ser verificadas em obra. As ferragens e artefatos similares tais como fechos, comandos alças etc serão do mesmo material das esquadrias. Deverão ser fornecidos os contra"
+      },
+      {
+        "tipo": "Títulos duplicados em subitens irmãos",
+        "pagina": "31",
+        "prioridade": "Media",
+        "conflito": "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
+        "evidencia": "3.4.7 Distribuição de volumes (p. 31) | 3.4.8 Distribuição de volumes (p. 31)"
+      },
+      {
+        "tipo": "Títulos duplicados em subitens irmãos",
+        "pagina": "54",
+        "prioridade": "Media",
+        "conflito": "Dois itens irmãos com o mesmo nome deixam o índice ambíguo: quem executa não sabe qual dos dois seguir, e a remissão a um deles aponta para os dois.",
+        "evidencia": "7.3.1.3 Manta asfáltica (p. 54) | 7.3.1.4 Manta asfáltica (p. 54)"
+      }
+    ]
+  }
+}
