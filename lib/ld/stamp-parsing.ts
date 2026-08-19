@@ -66,10 +66,28 @@ function cortarNoRotuloVizinho(texto: string): string {
   return texto;
 }
 
+/**
+ * A LINHA QUE É O RÓTULO, e não a que COMEÇA com a palavra dele.
+ *
+ * O descarte existe para quando a linearização entrega a célula vizinha inteira
+ * — "PRANCHA 01/15", "ARQUIVO 040_26_est_imp_001_a" —, que não é descrição de
+ * nada. Ele testava só o começo (`/^(PRANCHA|ARQUIVO)\b/`), e num projeto real
+ * as folhas se chamam "PRANCHA CORTES" e "PRANCHA DETALHES": a descrição
+ * inteira era apagada e a linha saía VAZIA na LD.
+ *
+ * Medido em `npm run mede:leitura`: as duas ÚNICAS leituras vazias das 316
+ * pranchas dos samples eram exatamente estas duas folhas.
+ *
+ * É o mesmo defeito de `IMP` casando dentro de "IMPLANTAÇÃO", com outra roupa:
+ * um guarda que não distingue o rótulo da palavra. O que separa os dois é o que
+ * vem DEPOIS — número de folha ou código de arquivo é valor; palavra é título.
+ */
+const SO_O_ROTULO = /^(?:PRANCHA|ARQUIVO)\s*:?\s*(?:\d|[a-z0-9]*[_-][a-z0-9_-]*\d)/i;
+
 export function cleanStampDescription(value: string) {
   const normalized = normalizeExtractedValue(value);
 
-  if (/^(PRANCHA|ARQUIVO)\b/i.test(normalized)) {
+  if (SO_O_ROTULO.test(normalized)) {
     return "";
   }
 

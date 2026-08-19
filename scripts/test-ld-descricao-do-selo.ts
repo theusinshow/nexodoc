@@ -129,4 +129,31 @@ check("espaços colapsam e pontuação solta no fim sai", () => {
   assert.equal(cleanStampDescription("PLANTA BAIXA -"), "PLANTA BAIXA");
 });
 
+// --- 5. PRANCHA/ARQUIVO como PRIMEIRA PALAVRA do título ----------------------
+//
+// O descarte existe para a linha que É o rótulo com o valor dele ("PRANCHA
+// 01/15"). Mas ele testava só o começo, e num projeto real as folhas se chamam
+// "PRANCHA CORTES" e "PRANCHA DETALHES" — a descrição inteira era apagada e a
+// linha da LD saía vazia. Medido em `npm run mede:leitura`: as duas ÚNICAS
+// leituras vazias das 316 pranchas eram estas.
+//
+// É o mesmo defeito de `IMP` dentro de "IMPLANTAÇÃO", com outra roupa: um
+// guarda que não distingue o rótulo da palavra.
+
+check("descarta o rótulo seguido do VALOR dele", () => {
+  assert.equal(cleanStampDescription("PRANCHA 01/15"), "");
+  assert.equal(cleanStampDescription("PRANCHA: 01/15"), "");
+  assert.equal(cleanStampDescription("ARQUIVO 040_26_est_imp_001_a"), "");
+  assert.equal(cleanStampDescription("ARQUIVO: 156_25_cli_002_a"), "");
+});
+
+check("NÃO descarta o título que começa com a palavra", () => {
+  assert.equal(cleanStampDescription("PRANCHA CORTES"), "PRANCHA CORTES");
+  assert.equal(cleanStampDescription("PRANCHA DETALHES"), "PRANCHA DETALHES");
+  assert.equal(
+    cleanStampDescription("PRANCHA CHAVE DOS BLOCOS"),
+    "PRANCHA CHAVE DOS BLOCOS",
+  );
+});
+
 console.log(`\n${passed} teste(s) passaram.`);
