@@ -846,6 +846,7 @@ function NexoWorkspaceInner({
     images: File[],
     memorial: File | null,
     jaLidas?: ReadonlySet<string>,
+    opcoes: { ignorarMemoria?: boolean } = {},
   ) {
     /*
      * O QUE JÁ FOI LIDO NUNCA É RELIDO — nem na retomada de uma leitura que
@@ -914,7 +915,9 @@ function NexoWorkspaceInner({
            * do leitor volta inteiro daqui: nem abre o pdf.js, nem gasta uma
            * chamada por página. Ver [[selo-cache.ts]].
            */
-          const doCache = await consultarCache(pranchas);
+          const doCache = await consultarCache(pranchas, {
+            ignorarMemoria: opcoes.ignorarMemoria,
+          });
           if (!atual()) return;
           ineditos = doCache.ineditos;
           for (const { results } of doCache.acertos) {
@@ -926,6 +929,13 @@ function NexoWorkspaceInner({
               reaproveitadas++;
             }
           }
+          /*
+           * O QUE VEIO DA MEMÓRIA se anuncia. A leitura guardada é por conteúdo
+           * do arquivo: reanexar a mesma prancha devolve a mesma leitura NA
+           * HORA, sem chamada nenhuma — e sem uma palavra na tela isso parece
+           * a leitura ter acontecido e ter ignorado a correção do carimbo.
+           */
+          setDaMemoria(reaproveitadas);
           if (reaproveitadas > 0) {
             selosRef.current = [...collected];
             setSeloResults([...collected]);
@@ -1342,6 +1352,40 @@ function NexoWorkspaceInner({
     (r) => r.extraction && !r.extraction.conteudo?.trim(),
   ).length;
   const [preenchendo, setPreenchendo] = useState(false);
+
+  /*
+   * RELER OS SELOS, ignorando a memória de leitura.
+   *
+   * A memória é por CONTEÚDO do arquivo (sha-256) — é o que faz a mesma prancha
+   * renomeada acertar, e é o que impede pagar duas vezes por página. Mas ela
+   * também deixa sem saída o caso em que o arquivo NÃO mudou e a leitura
+   * precisa mudar: o carimbo saiu errado, o leitor foi corrigido, ou o desenho
+   * foi reexportado idêntico byte a byte. Reanexar devolvia a mesma leitura na
+   * hora, e a correção parecia não ter funcionado.
+   *
+   * `VERSAO_DO_LEITOR` cobre o conserto que o SOFTWARE conhece — quando o leitor
+   * muda, a chave muda e tudo se relê sozinho. Isto aqui cobre o outro caso: o
+   * que só quem está olhando a prancha sabe que está errado.
+   *
+   * Custa uma chamada de modelo por folha. Por isso é botão, e não automático.
+   */
+  const [daMemoria, setDaMemoria] = useState(0);
+
+  async function relerSelos() {
+    if (pranchaFiles.length === 0) return;
+    /*
+     * Conjunto vazio de propósito: `jaLidas` é o que impede reler uma folha que
+     * a conversa já tem, e reler é exatamente o pedido. Com ele vazio a leitura
+     * não se considera retomada, `collected` começa do zero e nada da leitura
+     * velha sobrevive por baixo.
+     */
+    selosRef.current = [];
+    setSeloResults([]);
+    setDaMemoria(0);
+    await lerPranchas([...pranchaFiles], [], null, new Set<string>(), {
+      ignorarMemoria: true,
+    });
+  }
 
   async function preencherTitulos() {
     setPreenchendo(true);
@@ -1830,6 +1874,30 @@ function NexoWorkspaceInner({
           {leituraIncompleta.lidas} de {leituraIncompleta.total} folhas já foram
           lidas e estão salvas — retomar lê só as que faltam.{" "}
           <span className="text-muted-foreground">{leituraIncompleta.motivo}</span>
+        </FaixaDeEstado>
+      )}
+
+      {/*
+        LEITURA VINDA DA MEMÓRIA. Reanexar uma prancha já lida devolve a leitura
+        guardada NA HORA — de graça, e é para isso que a memória existe. O que
+        faltava era dizer isso: sem a faixa, o engenheiro que corrige o carimbo
+        e reanexa vê a mesma leitura de antes e conclui que o software não pegou
+        a alteração. Aqui ela se anuncia e oferece a saída.
+      */}
+      {daMemoria > 0 && !busyReading && pranchaFiles.length > 0 && (
+        <FaixaDeEstado
+          tipo="documento"
+          titulo={`${plural(daMemoria, "folha veio da memória", "folhas vieram da memória")} de leitura`}
+          acao={
+            <Button size="sm" variant="outline" onClick={() => void relerSelos()}>
+              Reler os selos
+            </Button>
+          }
+        >
+          Nada foi lido do PDF agora: estas folhas já tinham sido lidas antes, e
+          a leitura guardada voltou inteira. Se o carimbo mudou — ou se ele foi
+          lido errado —, reler força a leitura do PDF de novo. Custa uma chamada
+          de IA por folha.
         </FaixaDeEstado>
       )}
 

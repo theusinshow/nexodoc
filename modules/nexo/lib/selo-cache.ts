@@ -71,7 +71,28 @@ async function chaveDoArquivo(file: File): Promise<string> {
  * IndexedDB bloqueado, tudo vira inédito e o fluxo segue pagando o que sempre
  * pagou. Um cache que derruba a leitura é pior que cache nenhum.
  */
-export async function consultarCache(files: readonly File[]): Promise<ConsultaAoCache> {
+export interface OpcoesDeConsulta {
+  /**
+   * IGNORA a leitura guardada e manda tudo para leitura nova.
+   *
+   * A memória é por conteúdo do arquivo, e é isso que a torna útil: a mesma
+   * prancha renomeada acerta igual. Mas é também o que deixa o engenheiro sem
+   * saída quando o que mudou NÃO foi o arquivo — o carimbo foi lido errado, ou
+   * o desenho foi corrigido e reexportado byte a byte igual. Reanexar a prancha
+   * devolvia, na hora, a mesma leitura de antes, e não havia nada na tela que
+   * explicasse por quê.
+   *
+   * As CHAVES continuam sendo calculadas: a releitura entra por cima da
+   * guardada, senão a correção valeria só desta vez e a próxima anexação
+   * ressuscitaria a leitura velha.
+   */
+  ignorarMemoria?: boolean;
+}
+
+export async function consultarCache(
+  files: readonly File[],
+  opcoes: OpcoesDeConsulta = {},
+): Promise<ConsultaAoCache> {
   const semCache: ConsultaAoCache = {
     acertos: [],
     ineditos: files.map((file) => ({ file, key: "" })),
@@ -79,6 +100,9 @@ export async function consultarCache(files: readonly File[]): Promise<ConsultaAo
   if (files.length === 0) return { acertos: [], ineditos: [] };
   try {
     const chaves = await Promise.all(files.map((f) => chaveDoArquivo(f)));
+    if (opcoes.ignorarMemoria) {
+      return { acertos: [], ineditos: files.map((file, i) => ({ file, key: chaves[i] })) };
+    }
     const guardadas = await getSeloCache(chaves);
     const acertos: ConsultaAoCache["acertos"] = [];
     const ineditos: ArquivoInedito[] = [];
