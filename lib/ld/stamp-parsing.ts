@@ -1,10 +1,69 @@
-// Helpers de parsing de carimbos (selos) de escritório, compartilhados entre
-// `components/ld/ld-workspace.tsx` (módulo original de LD) e
-// `server/nexo/build-ld-proposal.ts` (Nexo). São funções puras de string, sem
-// dependências de React/DOM — mantenha a lógica idêntica byte a byte.
+// Helpers de parsing de carimbos (selos) de escritório. Funções puras de string,
+// sem dependências de React/DOM — usados pela rota de leitura de selo
+// (`app/api/ld/extract-stamp/route.ts`) e pela montagem da LD
+// (`server/nexo/build-ld-proposal.ts`), que precisam limpar o campo CONTEÚDO do
+// mesmo jeito: a rota limpa o que o modelo devolveu, a montagem limpa o que
+// chega até a coluna DESCRIÇÃO. Duas limpezas diferentes fariam a lista
+// discordar da leitura que a originou.
 
 export function normalizeExtractedValue(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Os rótulos dos campos VIZINHOS do carimbo.
+ *
+ * Num carimbo linearizado o valor do CONTEÚDO chega com o rótulo da célula do
+ * lado grudado atrás — "PLANTA BAIXA IMP: 001" foi para a coluna DESCRIÇÃO de
+ * uma LD entregue. É esse rabicho que o corte abaixo tira.
+ *
+ * `Nº DA FOLHA` vem ANTES de `FOLHA` de propósito: a alternância do regex é
+ * ganância-por-posição, e com `FOLHA` na frente o corte deixaria "Nº DA" para
+ * trás.
+ */
+const ROTULOS_VIZINHOS =
+  "IMP|DATA|ESCALA|REV|REVIS[ÃA]O|VISTO|DESENHO|N[°º]?\\s*DA\\s*FOLHA|FOLHA|PRANCHA|ARQUIVO|RESPONS[ÁA]VEL|CLIENTE|OBRA|FASE|DISCIPLINA";
+
+/**
+ * O rótulo tem de terminar ali: `IMP` é campo do carimbo, `IMPLANTAÇÃO` é o
+ * título da prancha.
+ *
+ * O corte nasceu SEM esta borda, e por isso comia a descrição mais comum que
+ * existe numa prancha brasileira: "PLANTA DE IMPLANTAÇÃO" chegava à LD como
+ * "PLANTA DE". O mesmo acontecia com REV/REVESTIMENTOS, VISTO/VISTORIA,
+ * DESENHO/DESENHOS e OBRA/OBRAS — dez de quinze descrições reais saíam pela
+ * metade, e ninguém via, porque o pedaço que sobra ainda parece um título.
+ *
+ * `\b` não serve: para o JavaScript "Ç" e "Ã" não são caracteres de palavra, e
+ * um título como "REVÇ..." casaria a borda. A classe Unicode é a borda de
+ * verdade — daí o flag `u`.
+ */
+const ROTULO_VIZINHO = new RegExp(`\\s+(?:${ROTULOS_VIZINHOS})(?![\\p{L}\\p{N}])`, "giu");
+
+/**
+ * O que amarra a palavra à FRASE, e não à grade do carimbo.
+ *
+ * Rótulo de campo nunca vem depois de preposição nem de travessão: na ordem de
+ * leitura do carimbo, o valor da célula anterior termina antes dele. Quando a
+ * palavra aparece nesse contexto, ela é texto do projetista — "SITUAÇÃO E
+ * LOCAÇÃO DA OBRA" e "PLANTA DE FORMAS - FOLHA 02" são títulos inteiros, não
+ * títulos com um campo vizinho pendurado.
+ */
+const LIGACAO_ANTES =
+  /(?:^|[\s(])(?:d[aeo]s?|n[aeo]s?|em|e|com|sem|sob|sobre|para|por|entre|à|às|ao|aos|a|as|o|os)$|[-–—,;/]\s*$/i;
+
+/** Corta no primeiro rótulo vizinho de verdade — ignorando os que são frase. */
+function cortarNoRotuloVizinho(texto: string): string {
+  ROTULO_VIZINHO.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = ROTULO_VIZINHO.exec(texto)) !== null) {
+    const antes = texto.slice(0, match.index);
+    if (LIGACAO_ANTES.test(antes)) continue;
+    return antes;
+  }
+
+  return texto;
 }
 
 export function cleanStampDescription(value: string) {
@@ -14,12 +73,12 @@ export function cleanStampDescription(value: string) {
     return "";
   }
 
-  return normalized
-    .replace(/^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i, "")
-    .replace(
-      /\s+(?:IMP|DATA|ESCALA|REV|REVIS[ÃA]O|VISTO|DESENHO|FOLHA|N[°º]?\s*DA\s*FOLHA|PRANCHA|ARQUIVO|RESPONS[ÁA]VEL|CLIENTE|OBRA|FASE|DISCIPLINA)\s*[:\-]?[\s\S]*$/i,
-      "",
-    )
+  const semRotuloDoCampo = normalized.replace(
+    /^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i,
+    "",
+  );
+
+  return cortarNoRotuloVizinho(semRotuloDoCampo)
     .replace(/\s*[,;:\-–—]+\s*$/g, "")
     .trim();
 }

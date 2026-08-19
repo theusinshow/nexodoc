@@ -34,7 +34,13 @@ import type { SeloResult } from "./selo-render.ts";
  * velha para arquivo já visto — e o sintoma aparece só semanas depois, num
  * projeto antigo que "voltou a errar o que já tinha sido corrigido".
  */
-export const VERSAO_DO_LEITOR = 1;
+/*
+ * 2 (19/08/2026): a limpeza da descricao ganhou borda de palavra. Ate a versao
+ * 1, o corte no rotulo vizinho casava `IMP` dentro de "IMPLANTACAO" e a coluna
+ * DESCRICAO recebia "PLANTA DE". O texto cortado ficou GUARDADO aqui, entao sem
+ * subir o numero as pranchas ja lidas voltariam da memoria erradas.
+ */
+export const VERSAO_DO_LEITOR = 2;
 
 /** Um arquivo sem leitura guardada, com a chave já calculada (não recalcular). */
 export interface ArquivoInedito {

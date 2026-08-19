@@ -12,6 +12,7 @@ import {
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { cleanStampDescription } from "@/lib/ld/stamp-parsing";
 
 type StampExtraction = {
   disciplina: string | null;
@@ -195,51 +196,14 @@ type ExtractionTrackingContext = {
   conversationId?: string | null;
 };
 
-const CONTENT_FIELD_STOP_LABELS = [
-  "IMP",
-  "DATA",
-  "ESCALA",
-  "REV",
-  "REVISÃO",
-  "REVISAO",
-  "VISTO",
-  "DESENHO",
-  "FOLHA",
-  "N° DA FOLHA",
-  "Nº DA FOLHA",
-  "N DA FOLHA",
-  "PRANCHA",
-  "ARQUIVO",
-  "RESPONSÁVEL",
-  "RESPONSAVEL",
-  "CLIENTE",
-  "OBRA",
-  "FASE",
-  "DISCIPLINA",
-];
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function cleanExtractedContentField(value: string | null) {
-  if (!value) {
-    return value;
-  }
-
-  const normalized = value
-    .replace(/\s+/g, " ")
-    .replace(/^\s*(?:CONTE[ÚU]DO|DESCRI[ÇC][ÃA]O)\s*[:\-]?\s*/i, "")
-    .trim();
-  const stopPattern = CONTENT_FIELD_STOP_LABELS.map(escapeRegex).join("|");
-  const stopMatch = new RegExp(`\\s(?:${stopPattern})\\s*[:\\-]?`, "i").exec(normalized);
-  const cleaned = (stopMatch ? normalized.slice(0, stopMatch.index) : normalized)
-    .replace(/\s*[,;:\-–—]+\s*$/g, "")
-    .trim();
-
-  return cleaned || null;
-}
-
+/*
+ * A limpeza do campo CONTEUDO mora em `lib/ld/stamp-parsing` e e a MESMA que a
+ * montagem da LD aplica. Havia aqui uma segunda copia da regra, e as duas
+ * carregavam o mesmo defeito: o corte no rotulo vizinho nao tinha borda a
+ * direita, entao `IMP` casava dentro de "IMPLANTACAO" e "PLANTA DE IMPLANTACAO"
+ * chegava a lista como "PLANTA DE". Uma regra so, testada em
+ * `scripts/test-ld-descricao-do-selo.ts`.
+ */
 function sanitizeStampExtraction(extraction: StampExtraction): StampExtraction {
   const normalizedDiscipline = extraction.disciplina
     ?.normalize("NFD")
@@ -258,7 +222,7 @@ function sanitizeStampExtraction(extraction: StampExtraction): StampExtraction {
     ...extraction,
     disciplina,
     fase: faseValida(extraction.fase),
-    conteudo: cleanExtractedContentField(extraction.conteudo),
+    conteudo: extraction.conteudo ? cleanStampDescription(extraction.conteudo) || null : null,
   };
 }
 
