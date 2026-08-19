@@ -35,6 +35,7 @@
     "test:ld:descricao": "node scripts/test-ld-descricao-do-selo.ts",
     "test:nexo:coerencia": "node scripts/test-coerencia-do-volume.ts",
     "mede:prefeitura": "node scripts/mede-prefeitura.ts",
+    "mede:leitura": "node scripts/mede-leitura-de-selo.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
     "test:nexo:selo-identity": "node scripts/test-nexo-selo-identity.ts",
