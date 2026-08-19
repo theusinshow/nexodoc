@@ -13,41 +13,32 @@
  * o mouse.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
-const CHAVE = "nexo:copilot-w";
-const PADRAO = 520;
-const MIN = 320; // abaixo disto o composer e os cards ficam apertados demais
-const MAX = 760; // acima disto o canvas deixa de caber como área de trabalho
-const PASSO = 24;
+import {
+  MAX,
+  MIN,
+  PADRAO,
+  PASSO,
+  restaurarPreferencia,
+  usarLarguraDoCopiloto,
+} from "../lib/largura-do-copiloto";
 
-function limitar(px: number): number {
-  return Math.min(MAX, Math.max(MIN, Math.round(px)));
-}
-
+/*
+ * A LARGURA NÃO MORA MAIS AQUI.
+ *
+ * Ela era estado local deste componente, e funcionava enquanto o splitter era o
+ * único a mexer nela. O botão "ver como sai" do frame também mexe, e dois donos
+ * escrevendo a mesma variável CSS é como este estado ficaria velho: a coluna
+ * alargaria por fora, e a próxima seta do teclado devolveria a largura que ele
+ * ainda achava ser a atual. Ver [[largura-do-copiloto.ts]].
+ */
 export function ShellSplitter() {
-  const [largura, setLargura] = useState(PADRAO);
+  const { largura, definir } = usarLarguraDoCopiloto();
 
-  // Lê a preferência DEPOIS de montar: no servidor não existe localStorage, e
-  // ler no primeiro render faria o HTML do servidor divergir do cliente.
   useEffect(() => {
-    const salvo = Number(window.localStorage.getItem(CHAVE));
-    if (Number.isFinite(salvo) && salvo > 0) {
-      const raf = requestAnimationFrame(() => setLargura(limitar(salvo)));
-      return () => cancelAnimationFrame(raf);
-    }
+    restaurarPreferencia();
   }, []);
-
-  // Aplica no shell (o grid inteiro deriva desta variável) e guarda.
-  useEffect(() => {
-    const shell = document.querySelector<HTMLElement>(".nexo-shell");
-    shell?.style.setProperty("--nexo-copilot-w", `${largura}px`);
-    try {
-      window.localStorage.setItem(CHAVE, String(largura));
-    } catch {
-      /* modo privado / cota cheia: a largura vale só para esta sessão */
-    }
-  }, [largura]);
 
   const arrastar = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -57,7 +48,7 @@ export function ShellSplitter() {
     // A coluna do chat é a da DIREITA: a largura é a distância do ponteiro até
     // a borda direita da janela.
     const mover = (ev: PointerEvent) =>
-      setLargura(limitar(window.innerWidth - ev.clientX));
+      definir(window.innerWidth - ev.clientX);
     const soltar = () => {
       alvo.releasePointerCapture(e.pointerId);
       alvo.removeEventListener("pointermove", mover);
@@ -65,21 +56,21 @@ export function ShellSplitter() {
     };
     alvo.addEventListener("pointermove", mover);
     alvo.addEventListener("pointerup", soltar);
-  }, []);
+  }, [definir]);
 
   const teclado = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     // Esquerda ALARGA o chat (ele está à direita) — o sentido que a mão espera.
     if (e.key === "ArrowLeft") {
       e.preventDefault();
-      setLargura((w) => limitar(w + PASSO));
+      definir(largura + PASSO);
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
-      setLargura((w) => limitar(w - PASSO));
+      definir(largura - PASSO);
     } else if (e.key === "Home") {
       e.preventDefault();
-      setLargura(PADRAO);
+      definir(PADRAO);
     }
-  }, []);
+  }, [definir, largura]);
 
   return (
     <div
