@@ -18,7 +18,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { FileText, Loader2, Check, RefreshCw } from "lucide-react";
+import { FileText, Loader2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { plural } from "@/lib/plural";
@@ -51,6 +51,7 @@ import {
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
 import { conferirPrefeitura } from "../lib/coerencia-do-volume";
+import { usarLarguraDoCopiloto } from "../lib/largura-do-copiloto";
 import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
@@ -484,6 +485,13 @@ export function PlanoDeGeracao({
    * portão pega o que a construção não alcança, que é a prefeitura editada
    * depois. Ver [[coerencia-do-volume.ts]].
    */
+  /*
+   * VER COMO SAI. Não abre superfície nova: alarga a coluna que já é
+   * redimensionável e troca o modo do frame. O mapa e o chat continuam na tela,
+   * e voltar é uma transição de largura em vez de uma tela que fecha.
+   */
+  const { abrirDocumento, fecharDocumento, emDocumento } = usarLarguraDoCopiloto();
+
   const problemaDePrefeitura = conferirPrefeitura(
     propostas
       .filter((p) => p.kind === "capa" || p.kind === "separatriz")
@@ -726,7 +734,30 @@ export function PlanoDeGeracao({
          * sempre — degradar é melhor que sumir.
          */}
         {layoutDoModelo.length > 0 ? (
+          <div className="space-y-2">
+            {/*
+              O gesto de CONFERIR tem tamanho próprio. No formulário o texto é
+              da interface, porque ali se digita; para ver como sai, a coluna
+              alarga e o corpo volta a ser o do modelo. Um botão, dois modos,
+              nenhuma tela que fecha.
+            */}
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => (emDocumento ? fecharDocumento() : abrirDocumento())}
+                aria-pressed={emDocumento}
+              >
+                {emDocumento ? (
+                  <Minimize2 className="mr-2 h-4 w-4" aria-hidden />
+                ) : (
+                  <Maximize2 className="mr-2 h-4 w-4" aria-hidden />
+                )}
+                {emDocumento ? "Voltar ao formulário" : "Ver como sai"}
+              </Button>
+            </div>
           <FrameDoDocumento
+            modo={emDocumento ? "documento" : "campo"}
             layout={layoutDoModelo}
             campos={CAMPOS_DO_FRAME}
             valores={valoresDoFrame({ identidade, params: mesclado.valores })}
@@ -751,6 +782,7 @@ export function PlanoDeGeracao({
             }}
             onChange={aoEditarNoFrame}
           />
+          </div>
         ) : null}
 
         {/*
