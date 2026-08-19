@@ -36,6 +36,7 @@
     "test:nexo:coerencia": "node scripts/test-coerencia-do-volume.ts",
     "mede:prefeitura": "node scripts/mede-prefeitura.ts",
     "mede:leitura": "node scripts/mede-leitura-de-selo.ts",
+    "mede:divida": "node scripts/mede-divida-de-design.ts",
     "test:nexo:pasta": "node scripts/test-pasta-do-projeto.ts",
     "test:nexo:grupos": "node scripts/test-group-conversations.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
