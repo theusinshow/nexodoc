@@ -34,6 +34,7 @@ import { tituloDaConversa, type IdentidadeLida } from "../lib/titulo-da-conversa
 import { summarizeSelos } from "../lib/agent-context";
 import { aplicarAjuste, PREFIXO_AVULSA, type Ajuste, type FolhaId } from "../lib/folhas";
 import { aplicarIdentidade, type IdentidadeDoProjeto } from "../lib/identidade";
+import { nomeDoVolume, pastaDoProjeto } from "../lib/pasta-do-projeto";
 import { anotarDecisao, type DecisoesDoProjeto } from "../lib/decisoes";
 import { consultarAuditoria } from "../lib/audit";
 import { escolherCopia } from "../lib/copia-mais-nova";
@@ -292,16 +293,37 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-/** Chave da pasta = código da obra dominante dos selos (agrupa a sidebar). */
-function deriveFolderKey(seloResults: SeloResult[]): string | undefined {
-  if (seloResults.length === 0) return undefined;
+/**
+ * A PASTA e o NOME da conversa de VOLUME, derivados dos selos.
+ *
+ * `deriveFolderKey` devolvia só o CÓDIGO (`084_25`) — uma pasta que não
+ * identifica o projeto, porque dois municípios podem ter o mesmo número de
+ * contrato. Agora a pasta é o CENTRO DE CUSTO (`084-25-CRICIUMA`), e é a mesma
+ * chave que a auditoria de memorial usa: o volume e a auditoria do MESMO
+ * projeto passam a cair no MESMO lugar. Ver [[pasta-do-projeto.ts]].
+ */
+function derivarDoProjeto(seloResults: SeloResult[]): {
+  folderKey: string;
+  nome: string;
+} {
+  if (seloResults.length === 0) return { folderKey: "", nome: "" };
   const facts = seloResults.map((r) => ({
     fileName: r.fileName,
     arquivo: r.extraction?.arquivo ?? null,
     disciplina: r.extraction?.disciplina ?? null,
     obra: r.extraction?.obra ?? null,
   }));
-  return summarizeSelos(facts).codigo ?? undefined;
+  /*
+   * A prefeitura vem do campo CLIENTE do carimbo — a mesma evidência que
+   * `casarPrefeituraDoCarimbo` usa para escolher o modelo da capa. Não é uma
+   * segunda leitura: é a mesma, servindo agora também para nomear a pasta.
+   */
+  const prefeitura = seloResults.find((r) => r.extraction?.cliente?.trim())?.extraction
+    ?.cliente;
+  return {
+    folderKey: pastaDoProjeto(summarizeSelos(facts).codigo, prefeitura),
+    nome: nomeDoVolume(seloResults.map((r) => r.extraction?.disciplina)),
+  };
 }
 
 export function ConversationStoreProvider({ children }: { children: ReactNode }) {
@@ -459,7 +481,22 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ...(r.payload !== undefined ? { payload: r.payload } : {}),
       ...(r.generatedAt !== undefined ? { generatedAt: r.generatedAt } : {}),
     }));
-    const folderKey = deriveFolderKey(s.seloResults);
+    const { folderKey: doVolume, nome: nomeDoConjunto } = derivarDoProjeto(s.seloResults);
+    /*
+     * O MEMORIAL CAI NA PASTA DO MESMO PROJETO.
+     *
+     * A conversa de auditoria não tem selo nenhum, então `derivarDoProjeto`
+     * devolve vazio — e ela ia para "Sem pasta" enquanto o volume do MESMO
+     * projeto tinha a sua. Reunir os dois é a RAZÃO de a pasta existir.
+     *
+     * A identidade vem da classificação do memorial, que já roda antes de a
+     * auditoria começar, e passa pela MESMA `pastaDoProjeto`: duas derivações
+     * do mesmo nome é como as duas metades do produto discordam sobre onde um
+     * projeto mora.
+     */
+    const folderKey =
+      doVolume ||
+      pastaDoProjeto(s.identidade?.codigo, s.identidade?.orgao);
     /*
      * A SEÇÃO da sidebar, derivada na mesma passada que a pasta e o título.
      *
@@ -475,7 +512,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     });
     const rec: StoredConversation = {
       id: s.conversationId,
-      title: s.title,
+      /*
+       * DENTRO DA PASTA, a conversa se chama pelo que ELA é: as siglas das
+       * disciplinas do volume (`MET · HIS · INC`), ou `Memorial` na auditoria.
+       * O nome do projeto já está no cabeçalho da pasta — repeti-lo na linha
+       * gastaria a coluna com o que o cabeçalho acabou de dizer.
+       *
+       * FORA de pasta o nome longo volta: sem cabeçalho de projeto, `Memorial`
+       * sozinho não distingue duas auditorias na mesma lista.
+       */
+      title: folderKey
+        ? nomeDoConjunto || (s.memorialMeta ? "Memorial" : s.title)
+        : s.title,
       createdAt: s.createdAt,
       updatedAt: Date.now(),
       ...(folderKey ? { folderKey } : {}),
