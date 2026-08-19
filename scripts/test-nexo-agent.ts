@@ -303,12 +303,29 @@ test("normalizeProposals: separatriz casa prefeitura e clampa tomos", () => {
   assert.deepEqual((params as { titulos: string[] }).titulos, []);
 });
 
-test("normalizeProposals: separatriz sem match cai no 1o template", () => {
+test("normalizeProposals: separatriz sem match NÃO cai no 1o template", () => {
+  /*
+   * ESTE TESTE AFIRMAVA O DEFEITO, e é por isso que ele sobreviveu.
+   *
+   * Ele dizia "separatriz sem match cai no 1o template" e passava verde
+   * enquanto um volume de Criciúma saía com separatriz de Chapecó — porque em
+   * produção o 1º template É Chapecó. A capa foi endurecida contra o mesmo
+   * `|| firstTemplateId` (o comentário em `normalize.ts` conta o incidente
+   * Florianópolis) e ninguém veio conferir se a separatriz tinha ficado para
+   * trás. Tinha, e este teste guardava a porta.
+   *
+   * Um teste que descreve o que o código faz, em vez do que ele deve fazer,
+   * não protege nada: ele impede o conserto.
+   */
   const r = normalizeProposals([{ kind: "separatriz", prefeitura: "xyz" }], {
     disciplina: "EST",
     prefeituras: PREFS,
   });
-  assert.equal((r[0].params as { templateId: string }).templateId, "prefchap");
+  assert.equal(
+    (r[0].params as { templateId: string }).templateId,
+    "",
+    "prefeitura que não casa vira PERGUNTA, nunca a primeira da lista",
+  );
 });
 
 test("normalizeProposals: auditoria nivel 'deep' é preservado", () => {
@@ -524,6 +541,64 @@ test("normalizeProposals: tituloCapa dito pelo engenheiro é copiado tal e qual"
     "PROJETO ESTRUTURAL CONCRETO\nIMPLANTAÇÃO",
     "título multilinha chega inteiro, sem mistura com o anterior",
   );
+});
+
+/*
+ * A SEPARATRIZ CAÍA NA PRIMEIRA PREFEITURA CONFIGURADA.
+ *
+ * A capa foi endurecida contra isso — o comentário em `normalize.ts` conta o
+ * volume de Criciúma que saiu como Florianópolis, e o `|| firstTemplateId` foi
+ * removido dela. A separatriz ficou com a linha antiga: mesmo defeito, arquivo
+ * seguinte, corrigido pela metade.
+ *
+ * `REAIS` está na ORDEM DE PRODUÇÃO, com Chapecó em primeiro. Com Criciúma em
+ * primeiro estes testes passariam VERDES com o defeito intacto — e é exatamente
+ * assim que ele sobreviveu à correção do irmão dele.
+ */
+test("prefeitura não decidida NÃO vira Chapecó na separatriz", () => {
+  const r = normalizeProposals(
+    [{ kind: "capa" }, { kind: "separatriz" }],
+    { prefeituras: REAIS, disciplina: "METALICA" } as never,
+  );
+  const capa = r.find((p) => p.kind === "capa")?.params as { templateId: string };
+  const sep = r.find((p) => p.kind === "separatriz")?.params as { templateId: string };
+  assert.equal(capa.templateId, "", "capa sem prefeitura decidida fica vazia");
+  assert.equal(sep.templateId, "", "separatriz sem prefeitura decidida TAMBÉM fica vazia");
+});
+
+test("a separatriz continua no plano, travada — não some", () => {
+  const r = normalizeProposals(
+    [{ kind: "separatriz" }],
+    { prefeituras: REAIS, disciplina: "METALICA" } as never,
+  );
+  assert.equal(r.length, 1, "sumir esconderia que o volume tem uma separatriz");
+});
+
+test("capa e separatriz saem SEMPRE com a mesma prefeitura", () => {
+  /*
+   * O pedido nomeia a prefeitura só na CAPA: a separatriz herda a MESMA
+   * decisão. Duas resoluções independentes do mesmo fato é o que produz um
+   * volume com capa de Criciúma e separatriz de Chapecó.
+   */
+  const r = normalizeProposals(
+    [
+      { kind: "capa", prefeitura: "Prefeitura Municipal de Criciúma" },
+      { kind: "separatriz" },
+    ],
+    { prefeituras: REAIS, disciplina: "METALICA" } as never,
+  );
+  const capa = r.find((p) => p.kind === "capa")?.params as { templateId: string };
+  const sep = r.find((p) => p.kind === "separatriz")?.params as { templateId: string };
+  assert.equal(capa.templateId, "pmcriciuma");
+  assert.equal(sep.templateId, "pmcriciuma");
+});
+
+test("sem prefeitura CONFIGURADA não há capa nem separatriz", () => {
+  const r = normalizeProposals(
+    [{ kind: "capa" }, { kind: "separatriz" }],
+    { prefeituras: [], disciplina: "METALICA" } as never,
+  );
+  assert.equal(r.length, 0);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

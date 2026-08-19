@@ -302,12 +302,53 @@ function clampNivel(v: unknown): "standard" | "deep" {
  * ld | capa (INTOCADOS) + separatriz | auditoria | conferencia | volume (PR4,
  * aditivo). Kinds desconhecidos são ignorados (degrada gracioso).
  */
+/**
+ * A PREFEITURA DO VOLUME, resolvida UMA VEZ a partir de tudo que o turno pediu.
+ *
+ * Antes cada proposta resolvia a sua: `normalizeProposals` chamava
+ * `matchPrefeitura` DUAS vezes sobre o mesmo pedido — uma para a capa, outra
+ * para a separatriz. Duas resoluções independentes do mesmo fato podem
+ * discordar, e discordavam: a capa ficava vazia e virava PERGUNTA, respondida
+ * certo pelo engenheiro, enquanto a separatriz caía calada na primeira
+ * prefeitura configurada. O volume saía internamente contraditório — capa de
+ * Criciúma, separatriz de Chapecó —, e só se descobria abrindo os dois PDFs
+ * lado a lado.
+ *
+ * A prefeitura não é atributo de documento. É a IDENTIDADE DO PROJETO, e um
+ * projeto tem uma só. Resolver uma vez não é economia de chamada: é a única
+ * forma de os documentos do volume não PODEREM discordar entre si.
+ *
+ * `""` = não decidida, e não decidida vira PERGUNTA. Nunca a primeira da lista.
+ */
+function prefeituraDoTurno(raw: readonly unknown[], ctx: NormalizeContext): string {
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const p = item as Record<string, unknown>;
+    if (p.kind !== "capa" && p.kind !== "separatriz") continue;
+
+    const match = matchPrefeitura(
+      { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
+      ctx.prefeituras,
+      ctx.escritorio ?? ESCRITORIO_VAZIO,
+    );
+    const id = match?.id ?? String(p.templateId ?? "").trim();
+    if (id) return id;
+  }
+  return "";
+}
+
 export function normalizeProposals(
   raw: unknown,
   ctx: NormalizeContext,
 ): NexoAgentProposal[] {
   if (!Array.isArray(raw)) return [];
-  const firstTemplateId = ctx.prefeituras[0]?.id ?? "";
+  /*
+   * UMA resolução para o volume inteiro. A variável que havia aqui —
+   * `firstTemplateId`, a PRIMEIRA prefeitura configurada — era o defeito, e não
+   * um detalhe dele: em produção a primeira é Chapecó, e todo volume cuja
+   * prefeitura não casasse ganhava uma separatriz de Chapecó em silêncio.
+   */
+  const templateDoVolume = prefeituraDoTurno(raw, ctx);
   const out: NexoAgentProposal[] = [];
 
   for (const item of raw) {
@@ -326,11 +367,7 @@ export function normalizeProposals(
         },
       });
     } else if (p.kind === "capa") {
-      const match = matchPrefeitura(
-        { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
-        ctx.prefeituras,
-        ctx.escritorio ?? ESCRITORIO_VAZIO,
-      );
+      const match = ctx.prefeituras.find((t) => t.id === templateDoVolume) ?? null;
       /*
        * PREFEITURA INCERTA FICA VAZIA — e vazia vira PERGUNTA.
        *
@@ -343,7 +380,7 @@ export function normalizeProposals(
        * Um palpite aqui é o erro que este produto existe para impedir. Sem
        * certeza, quem decide é o engenheiro.
        */
-      const templateId = match?.id ?? String(p.templateId ?? "").trim();
+      const templateId = templateDoVolume;
       // Sem prefeitura CONFIGURADA não há capa possível; sem prefeitura
       // ESCOLHIDA há — ela é a pergunta.
       if (ctx.prefeituras.length === 0) continue;
@@ -374,14 +411,21 @@ export function normalizeProposals(
         },
       });
     } else if (p.kind === "separatriz") {
-      // Mesma lógica de prefeitura/tomos da capa (reuso de matchPrefeitura/clampTomos).
-      const match = matchPrefeitura(
-        { id: String(p.templateId ?? ""), nome: String(p.prefeitura ?? "") },
-        ctx.prefeituras,
-        ctx.escritorio ?? ESCRITORIO_VAZIO,
-      );
-      const templateId = match?.id ?? (String(p.templateId ?? "").trim() || firstTemplateId);
-      if (!templateId) continue; // sem prefeitura configurada, não propõe separatriz
+      // A MESMA prefeitura da capa, pela mesma resolução — não uma segunda.
+      const match = ctx.prefeituras.find((t) => t.id === templateDoVolume) ?? null;
+      const templateId = templateDoVolume;
+      /*
+       * MESMA REGRA DA CAPA. Aqui havia `|| firstTemplateId` e um
+       * `if (!templateId) continue`, e os dois juntos produziam o pior defeito
+       * deste produto: prefeitura que não casava virava a PRIMEIRA da lista, e
+       * a separatriz saía de Chapecó sem uma palavra na tela.
+       *
+       * Sem prefeitura CONFIGURADA não há separatriz possível; sem prefeitura
+       * ESCOLHIDA há — ela é a pergunta, e a separatriz aparece no plano
+       * TRAVADA. Sumir esconderia que o volume tem uma separatriz, e peça que
+       * falta é tão grave quanto peça errada.
+       */
+      if (ctx.prefeituras.length === 0) continue;
       out.push({
         kind: "separatriz",
         resumo:
