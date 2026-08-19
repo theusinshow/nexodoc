@@ -20,6 +20,7 @@
  * arquivos reais de `docs/samples/040-26`.
  */
 
+import { normalizarItens } from "@/lib/coordenada-do-pdf";
 import {
   acharCaixaDoSelo,
   classificarPagina,
@@ -230,17 +231,22 @@ export async function analisarPagina(page: PaginaPdf): Promise<PaginaAnalisada> 
   const { textos, marcaveis, fontesQuebradas } = repararTextoCad(brutos);
   const marcados = new Set(marcaveis);
 
-  const itens: ItemPosicionado[] = brutos.map((b, i) => {
-    const [vx, vy] = viewport.convertToViewportPoint(
-      b.item.transform![4],
-      b.item.transform![5],
-    );
-    return {
-      texto: marcados.has(i) ? "[ilegivel]" : textos[i].trim(),
-      x: vx / w,
-      y: vy / h,
-    };
-  });
+  /*
+   * A NORMALIZAÇÃO mora em [[coordenada-do-pdf.ts]], fora deste módulo
+   * client-only. A bancada de medição precisa rodar o MESMO leitor que a
+   * produção roda; se ela reimplementasse esta conta, mediria uma cópia — e um
+   * número sobre uma cópia dá confiança sobre código que não é o que roda.
+   */
+  const itens: ItemPosicionado[] = normalizarItens(
+    brutos.map((b, i) => {
+      const [vx, vy] = viewport.convertToViewportPoint(
+        b.item.transform![4],
+        b.item.transform![5],
+      );
+      return { texto: marcados.has(i) ? "[ilegivel]" : textos[i].trim(), x: vx, y: vy };
+    }),
+    { largura: w, altura: h },
+  );
 
   const tipo = classificarPagina({ largura: w, altura: h, itens });
   const { caixa, ancoras } = acharCaixaDoSelo(itens);
