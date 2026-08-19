@@ -20,6 +20,7 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   getMonthlyBudgetUsd,
   inicioDoMes,
+  isentoDoTeto,
   type EstadoDoTeto,
 } from "@/lib/ai-budget-policy";
 
@@ -51,7 +52,18 @@ export async function verificarTetoMensal(args: {
     });
 
     const gastoUsd = soma._sum.estimatedCostUsd ?? 0;
-    return { ativo: true, gastoUsd, tetoUsd, estourou: gastoUsd >= tetoUsd };
+    /*
+     * O ADMIN NÃO É BARRADO — mas é CONTADO.
+     *
+     * A soma acima roda para ele igual, e é de propósito: quem administra é o
+     * maior consumidor (medido em 19/08/2026: US$ 19,31 num mês, contra US$
+     * 0,91 de um usuário comum), e esconder esse gasto cegaria justamente o
+     * número que define o teto dos outros. A isenção tira a PAREDE, não a conta.
+     *
+     * Ver `isentoDoTeto` para por que a exceção existe.
+     */
+    const isento = isentoDoTeto(args.userEmail, process.env.NEXODOC_ADMIN_EMAILS);
+    return { ativo: true, gastoUsd, tetoUsd, estourou: !isento && gastoUsd >= tetoUsd };
   } catch {
     /*
      * Banco fora do ar NÃO bloqueia o trabalho.

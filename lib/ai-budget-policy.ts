@@ -30,6 +30,42 @@ export function getMonthlyBudgetUsd(): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+/**
+ * QUEM É ISENTO DO BLOQUEIO — e a isenção é só do bloqueio.
+ *
+ * Quem administra é quem testa, reprocessa e demonstra. Medido no banco em
+ * 19/08/2026: o mês mais pesado de um usuário comum foi US$ 0,91; o de quem
+ * desenvolve, US$ 19,31. Vinte vezes mais, e nenhum dos dois é o uso de um
+ * engenheiro montando volume. Bater a trave no meio de uma demonstração para o
+ * diretor é pior do que a fatura que o teto existe para proteger.
+ *
+ * O GASTO DELE CONTINUA SENDO GRAVADO E SOMADO. Isento de bloqueio não é
+ * isento de conta: esconder o consumo de quem mais consome cegaria justamente
+ * o número que define o teto de todo mundo — e foi desse número que saiu o
+ * US$ 20 dos demais.
+ *
+ * Lê a MESMA `NEXODOC_ADMIN_EMAILS` que `access-control.ts`, e não a importa:
+ * aquele módulo puxa `next/server` e `auth`, e este precisa continuar puro para
+ * rodar em node cru. A régua de normalização é a mesma (aparar + minúsculas);
+ * mudou lá, muda aqui.
+ *
+ * Lista ausente ou vazia NÃO isenta ninguém — o modo de falhar seguro é o teto
+ * valer, não sumir.
+ */
+export function isentoDoTeto(
+  email: string | null | undefined,
+  adminEmails: string | undefined,
+): boolean {
+  const alvo = (email ?? "").trim().toLowerCase();
+  if (!alvo) return false;
+
+  return (adminEmails ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(alvo);
+}
+
 /** Primeiro instante do mês corrente, em UTC. */
 export function inicioDoMes(agora = new Date()): Date {
   return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1));

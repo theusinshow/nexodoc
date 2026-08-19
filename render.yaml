@@ -87,12 +87,27 @@ services:
       # verificação justamente porque é UMA CHAMADA POR PRANCHA e um volume real
       # tem dezenas — no ar, hoje, essa guarda não faz nada.
       #
-      # `sync: false` e sem valor aqui de propósito: quanto vale o mês é decisão
-      # comercial, não técnica, e um número inventado no repositório não seria
-      # mais seguro que nenhum. Esta linha existe para registrar que a variável
-      # precisa estar no painel — o mesmo motivo do `NEXODOC_ADMIN_TOKEN`.
+      # DECIDIDO EM 19/08/2026: US$ 20 por usuário, por mês.
+      #
+      # O número saiu de 3.320 chamadas medidas (`npm run mede:prefeitura` não,
+      # `node scripts/estimativa-de-custo.ts`), e não de estimativa:
+      #
+      #   leitura de selo   US$ 0,0048 por prancha → volume de 44 folhas = US$ 0,21
+      #   auditoria         US$ 0,43 mediana, US$ 1,90 a mais cara
+      #   engenheiro pesado 20 volumes + 20 auditorias = US$ 16,63/mês
+      #
+      # Vinte dá folga sobre o pior uso legítimo e ainda bate a trave antes de um
+      # erro virar fatura — alguém reprocessando o mesmo projeto vinte vezes.
+      #
+      # É POR USUÁRIO, não global: `verificarTetoMensal` soma o mês corrente com
+      # `where: { userId }`. Cinco pessoas na Diretoria = teto teórico de US$ 100,
+      # e o consumo real medido de um usuário comum foi US$ 0,91 no mês.
+      #
+      # O ADMIN É ISENTO do bloqueio (ver `isentoDoTeto`), porque é quem testa e
+      # demonstra — mas o gasto dele continua contado, senão o número acima
+      # deixaria de existir.
       - key: NEXODOC_MONTHLY_BUDGET_USD
-        sync: false
+        value: "20"
 
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
       # prancha, e um volume real tem dezenas — o custo daqui escala com o
