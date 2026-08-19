@@ -33,6 +33,7 @@
     "test:sugestao": "node scripts/test-sugestao-acionavel.ts",
     "test:ld": "node scripts/test-ld-rules.ts",
     "test:ld:descricao": "node scripts/test-ld-descricao-do-selo.ts",
+    "test:nexo:coerencia": "node scripts/test-coerencia-do-volume.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
     "test:nexo:selo-identity": "node scripts/test-nexo-selo-identity.ts",

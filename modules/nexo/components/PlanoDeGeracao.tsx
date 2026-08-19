@@ -50,6 +50,7 @@ import {
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
+import { conferirPrefeitura } from "../lib/coerencia-do-volume";
 import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
@@ -251,6 +252,14 @@ export function PlanoDeGeracao({
   const ldCrua = proposals.find((p) => p.kind === "ld")?.params as
     | NexoLdProposalParams
     | undefined;
+  /*
+   * A separatriz crua entra aqui porque ela TAMBÉM imprime a prefeitura, e num
+   * plano sem capa ela é a única que a tem. Sem isto, `templateId` do agente
+   * ficava vazio nesse caso e a decisão do engenheiro não tinha de onde partir.
+   */
+  const sepCrua = proposals.find((p) => p.kind === "separatriz")?.params as
+    | { templateId?: string }
+    | undefined;
 
   /*
    * O QUE O AGENTE PROPÔS NESTE TURNO, e o que vale DEPOIS das decisões do
@@ -277,7 +286,7 @@ export function PlanoDeGeracao({
   const tituloDoCarimbo = useMemo(() => tituloDoSelo(selos), [selos]);
 
   const paramsDoAgente: Record<string, string> = {
-    templateId: capaCrua?.templateId ?? "",
+    templateId: capaCrua?.templateId?.trim() || sepCrua?.templateId?.trim() || "",
     ...titulosPropostos({ capa: capaCrua?.tituloCapa, ld: ldCrua?.tituloLd }, tituloDoCarimbo),
     volume: capaCrua?.volume ?? "",
     mes: capaCrua?.mes ?? "",
@@ -327,7 +336,20 @@ export function PlanoDeGeracao({
     if (p.kind === "separatriz") {
       return {
         ...p,
-        params: { ...p.params, numTomos: inteiro(mesclado.valores.numTomos, 1) },
+        params: {
+          ...p.params,
+          /*
+           * A DECISÃO DO ENGENHEIRO PRECISA CHEGAR AQUI.
+           *
+           * Só o ramo da capa consumia `mesclado.valores.templateId`: quem
+           * escolhia a prefeitura no seletor mudava a capa e deixava a
+           * separatriz com o que o agente tinha proposto. Um volume com capa de
+           * Criciúma e separatriz de Chapecó saía assim, com a escolha certa
+           * feita e ignorada pela metade do plano.
+           */
+          templateId: mesclado.valores.templateId ?? "",
+          numTomos: inteiro(mesclado.valores.numTomos, 1),
+        },
       };
     }
     return p;
@@ -450,7 +472,27 @@ export function PlanoDeGeracao({
     tituloSugerido === "" &&
     (Boolean(capa) || !misto) &&
     !separatrizListada;
-  const semPrefeitura = Boolean(capa) && !capa?.templateId?.trim();
+  /*
+   * O PORTÃO DA PREFEITURA — todos os documentos que a imprimem, não só a capa.
+   *
+   * Isto era `Boolean(capa) && !capa?.templateId?.trim()`, e tinha dois furos
+   * do mesmo tamanho: um plano SEM capa (só separatriz) nunca travava, e uma
+   * separatriz que discordasse da capa passava sem uma palavra. Os dois
+   * terminam no mesmo lugar — um volume emitido para o município errado.
+   *
+   * `normalizeProposals` já impede que documentos divergentes nasçam; este
+   * portão pega o que a construção não alcança, que é a prefeitura editada
+   * depois. Ver [[coerencia-do-volume.ts]].
+   */
+  const problemaDePrefeitura = conferirPrefeitura(
+    propostas
+      .filter((p) => p.kind === "capa" || p.kind === "separatriz")
+      .map((p) => ({
+        rotulo: p.kind === "capa" ? "Capa" : "Separatriz",
+        templateId: String((p.params as { templateId?: unknown })?.templateId ?? ""),
+      })),
+  );
+  const semPrefeitura = problemaDePrefeitura?.tipo === "vazia";
 
   /*
    * O ESTADO DE CADA ITEM — não a contagem de ids existentes.
@@ -881,7 +923,7 @@ export function PlanoDeGeracao({
           <Button
             size="sm"
             onClick={gerarTudo}
-            disabled={ocupado || semTitulo || semPrefeitura}
+            disabled={ocupado || semTitulo || Boolean(problemaDePrefeitura)}
           >
             {ocupado ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -905,10 +947,18 @@ export function PlanoDeGeracao({
            * chat um campo que agora está no card, aceso, na forma em que sai
            * impresso. A frase aponta para o campo, não para outro lugar.
            */}
-          {(semTitulo || semPrefeitura) && (
+          {(semTitulo || problemaDePrefeitura) && (
             <span className="text-xs text-muted-foreground">
-              {semPrefeitura
-                ? "Escolha a prefeitura acima."
+              {problemaDePrefeitura
+                ? /*
+                   * A divergência ganha a frase INTEIRA, com os dois lados
+                   * nomeados: "escolha a prefeitura" não serve para quem já
+                   * escolheu — o problema dele é que a escolha não chegou nos
+                   * dois documentos, e ele precisa saber em qual.
+                   */
+                  problemaDePrefeitura.tipo === "divergente"
+                  ? problemaDePrefeitura.mensagem
+                  : "Escolha a prefeitura acima."
                 : "Falta o título — preencha no documento acima."}
             </span>
           )}
