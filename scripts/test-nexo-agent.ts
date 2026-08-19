@@ -601,4 +601,61 @@ test("sem prefeitura CONFIGURADA não há capa nem separatriz", () => {
   assert.equal(r.length, 0);
 });
 
+/*
+ * A SECRETARIA TAMBÉM NOMEIA UM ÓRGÃO — medido, não suposto.
+ *
+ * `npm run mede:prefeitura` sobre 40 LDs entregues: 28 cravaram, 12 não, e as
+ * doze pelo MESMO motivo (`sem-evidencia`) no MESMO projeto. O 040-26 nomeia a
+ * SECRETARIA em todo documento e nunca escreve "prefeitura"; `nomeiaOrgao`
+ * exigia `prefeitura|municipio|governo`, então o texto trazia "CHAPECÓ" por
+ * extenso e o casamento recusava.
+ *
+ * "municipal" NÃO entra na lista: "Feira Municipal de Chapecó" é o nome de um
+ * lugar, não de um órgão, e aceitá-lo abriria de novo o caminho que o caso
+ * Florianópolis fechou. O que nomeia órgão aqui é a SECRETARIA.
+ */
+const RODAPE_DO_040_26 =
+  "SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES – " +
+  "040_26 – REVITALIZAÇÃO DA FEIRA MUNICIPAL DE CHAPECÓ – PROJETO EXECUTIVO";
+
+test("a SECRETARIA emissora nomeia órgão e crava a prefeitura", () => {
+  assert.equal(matchPrefeitura({ nome: RODAPE_DO_040_26 }, REAIS)?.id, "prefchap");
+});
+
+test("aceitar SECRETARIA não reabre o caso Florianópolis", () => {
+  /*
+   * A GUARDA QUE NÃO PODE CAIR. O endereço da PROSUL está impresso em todas as
+   * pranchas e cita Florianópolis; foi ele que fez um volume de Criciúma sair
+   * como Florianópolis. Ele não contém "secretaria" — e este teste é o que
+   * garante que continua assim depois da mudança.
+   */
+  assert.equal(matchPrefeitura({ nome: ENDERECO_DA_PROSUL }, REAIS), null);
+  assert.equal(
+    matchPrefeitura({ nome: `${ENDERECO_DA_PROSUL} SECRETARIA DE OBRAS` }, REAIS, {
+      nome: "PROSUL",
+      enderecoImpresso: "Rua Saldanha Marinho, 110, Centro - Florianópolis - SC",
+      municipio: "Florianópolis",
+      uf: "SC",
+    }),
+    null,
+    "com o escritório declarado, a linha dele sai antes de casar",
+  );
+});
+
+test("secretaria sem cidade nenhuma não inventa prefeitura", () => {
+  assert.equal(
+    matchPrefeitura({ nome: "SECRETARIA DE DESENVOLVIMENTO SUSTENTÁVEL - SEDES" }, REAIS),
+    null,
+  );
+});
+
+test("o carimbo que só nomeia a secretaria crava pelo texto", () => {
+  const r = casarPrefeituraDoCarimbo(
+    [{ cliente: RODAPE_DO_040_26 }, { cliente: RODAPE_DO_040_26 }],
+    REAIS,
+  );
+  assert.equal(r?.resolvedId, "prefchap");
+  assert.equal(r?.motivo, "so-texto");
+});
+
 console.log(`\n${passed} teste(s) passaram.`);

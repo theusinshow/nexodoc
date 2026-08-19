@@ -79,9 +79,29 @@ const GENERICOS = new Set([
   "padrao",
 ]);
 
-/** O texto está NOMEANDO um órgão, ou é só uma frase que cita uma cidade? */
+/**
+ * O texto está NOMEANDO um órgão, ou é só uma frase que cita uma cidade?
+ *
+ * `secretaria` entrou em 19/08/2026, e entrou MEDIDO. `npm run mede:prefeitura`
+ * sobre 40 LDs entregues: 28 cravaram, 12 não, e as doze pelo MESMO motivo
+ * (`sem-evidencia`) no MESMO projeto. O 040-26 nomeia a SECRETARIA em todo
+ * documento e nunca escreve "prefeitura" — "SECRETARIA DE DESENVOLVIMENTO
+ * SUSTENTÁVEL E OBRAS ESTRUTURANTES - SEDES – 040_26 – REVITALIZAÇÃO DA FEIRA
+ * MUNICIPAL DE CHAPECÓ". O município estava escrito por extenso e o casamento
+ * recusava. Uma secretaria municipal É órgão da prefeitura.
+ *
+ * "municipal" NÃO entra, e a diferença é o que mantém a guarda de pé: "Feira
+ * Municipal de Chapecó" é nome de LUGAR, não de órgão. Aceitá-lo faria qualquer
+ * frase que cite um logradouro municipal casar uma prefeitura — que é a porta
+ * pela qual o endereço da PROSUL fez um volume de Criciúma sair como
+ * Florianópolis.
+ *
+ * A guarda contra aquele incidente continua sendo esta função. Ao acrescentar
+ * um termo aqui, a pergunta é uma só: **ele aparece num ENDEREÇO?**
+ * "secretaria" não aparece; "municipal" aparece.
+ */
 function nomeiaOrgao(w: string): boolean {
-  return /\b(prefeitura|municipio|governo)\b/.test(w);
+  return /\b(prefeitura|municipio|governo|secretaria)\b/.test(w);
 }
 
 export function matchPrefeitura(
