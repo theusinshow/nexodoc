@@ -52,6 +52,7 @@ import type { ConversationSummary, TipoDeTrabalho } from "../lib/nexo-db";
 import { avisoDeGravacao } from "../lib/aviso-de-gravacao";
 import type { EstadoDaSincronizacao } from "../lib/nexo-sync";
 import { contarPorTipo, groupConversations } from "../lib/group-conversations";
+import { tipoDoResumo } from "../lib/tipo-de-trabalho";
 import { MarcaViva } from "@/components/brand/marca-viva";
 
 /** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
@@ -90,29 +91,15 @@ function ehFiltro(v: unknown): v is Filtro {
 }
 
 /** As duas seções, na ordem em que aparecem. */
-const SECOES: {
-  tipo: TipoDeTrabalho;
-  titulo: string;
-  Icone: typeof Layers;
-  marca: string;
-  /** O que cai aqui, dito para a seção vazia. */
-  vazio: string;
-}[] = [
-  {
-    tipo: "volume",
-    titulo: "Montagem de volumes",
-    Icone: Layers,
-    marca: "var(--nexo-marca-volume)",
-    vazio: "Volumes montados aparecem aqui.",
-  },
-  {
-    tipo: "auditoria",
-    titulo: "Auditoria de memoriais",
-    Icone: FileSearch,
-    marca: "var(--nexo-marca-auditoria)",
-    vazio: "Memoriais auditados aparecem aqui.",
-  },
-];
+/*
+ * A TABELA DAS SEÇÕES saiu daqui em 19/08/2026, junto com as seções.
+ *
+ * Ela dava título, ícone, cor de marca e frase de vazio a "Montagem de volumes"
+ * e "Auditoria de memoriais" — os dois cabeçalhos que dividiam o histórico. Com
+ * a PASTA no topo, o projeto passou a aparecer uma vez só e o tipo de trabalho
+ * virou etiqueta: a cor da marca agora sai do tipo de CADA CONVERSA, ali na
+ * linha, porque é dentro da pasta que os dois trabalhos se misturam.
+ */
 
 /** Iniciais do nome, no máximo duas. "Marcos Ribeiro" → "MR". */
 function iniciais(nome: string): string {
@@ -197,11 +184,6 @@ export function NexoSidebar({
     id: string;
   } | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("tudo");
-  /** Seções recolhidas à mão. Ausente do conjunto = aberta. */
-  const [recolhidas, setRecolhidas] = useState<Set<TipoDeTrabalho>>(
-    () => new Set(),
-  );
-
   /*
    * Lê a preferência DEPOIS de montar: no servidor não existe `localStorage`, e
    * ler no primeiro render faria o HTML do servidor divergir do cliente
@@ -235,20 +217,14 @@ export function NexoSidebar({
   const contagem = useMemo(() => contarPorTipo(conversations), [conversations]);
 
   /** As pastas de cada seção, já recortadas por tipo e pela busca. */
-  const gruposPorTipo = useMemo(
-    () => ({
-      volume: groupConversations(conversations, query, "volume"),
-      auditoria: groupConversations(conversations, query, "auditoria"),
-    }),
-    [conversations, query],
+  /** As pastas do histórico. A pasta é o PROJETO; o filtro recorta por dentro. */
+  const grupos = useMemo(
+    () => groupConversations(conversations, query, filtro === "tudo" ? undefined : filtro),
+    [conversations, query, filtro],
   );
 
-  const secoesVisiveis = SECOES.filter(
-    (s) => filtro === "tudo" || s.tipo === filtro,
-  );
   const empty = conversations.length === 0;
-  const achou = secoesVisiveis.some((s) => gruposPorTipo[s.tipo].length > 0);
-  const noMatch = !empty && query.trim() !== "" && !achou;
+  const noMatch = !empty && query.trim() !== "" && grupos.length === 0;
 
   /*
    * SETAS ←/→ NAVEGAM O FILTRO.
@@ -272,15 +248,6 @@ export function NexoSidebar({
     },
     [filtro, escolherFiltro],
   );
-
-  const alternarSecao = useCallback((tipo: TipoDeTrabalho) => {
-    setRecolhidas((prev) => {
-      const next = new Set(prev);
-      if (next.has(tipo)) next.delete(tipo);
-      else next.add(tipo);
-      return next;
-    });
-  }, []);
 
   return (
     <aside
@@ -467,82 +434,27 @@ export function NexoSidebar({
             <br />A busca cobre o título da obra e o código do projeto.
           </p>
         )}
+        {/*
+          UM NÍVEL SÓ: as PASTAS. Aqui havia um laço externo por SEÇÃO
+          (montagem / auditoria) com as pastas dentro de cada uma, e o efeito
+          era o projeto aparecendo em DOIS lugares — o volume numa seção, a
+          auditoria do memorial dele na outra. Quem trabalha pensa "o 084-25",
+          não "a parte de montagem do 084-25".
+
+          O tipo de trabalho não morreu: virou ETIQUETA. O filtro de três
+          estados agora esconde ITENS, e a pasta que fica sem item visível some
+          — pasta vazia na tela é ruído. Ver [[group-conversations.ts]].
+        */}
         {!empty &&
           !noMatch &&
-          secoesVisiveis.map((s) => {
-            const grupos = gruposPorTipo[s.tipo];
-            const total =
-              s.tipo === "volume" ? contagem.volume : contagem.auditoria;
-            /*
-             * A ÚNICA SEÇÃO VISÍVEL NÃO RECOLHE. Recolher a única lista da tela
-             * deixaria a coluna inteira vazia sem dizer por quê — um gesto que
-             * só produz um estado pior que o anterior.
-             */
-            const podeRecolher = secoesVisiveis.length > 1;
-            const recolhida = podeRecolher && recolhidas.has(s.tipo);
-            const Cabecalho = podeRecolher ? "button" : "div";
-            return (
-              <div key={s.tipo} className="flex flex-col gap-1">
-                <Cabecalho
-                  {...(podeRecolher
-                    ? {
-                        type: "button" as const,
-                        onClick: () => alternarSecao(s.tipo),
-                        "aria-expanded": !recolhida,
-                      }
-                    : {})}
-                  className={cn(
-                    "nx-edge-6 flex w-full items-center gap-2.5 px-2.5 py-2.5 text-left transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:var(--nexodoc-recessed)]",
-                    podeRecolher &&
-                      "cursor-pointer hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]",
-                  )}
-                >
-                  {/* O ícone teal mora no CABEÇALHO, que é o que se clica —
-                      dentro da lista o tipo já está dito pela seção. */}
-                  <s.Icone
-                    className="h-[15px] w-[15px] shrink-0 text-[var(--nexodoc-accent)]"
-                    strokeWidth={1.6}
-                    aria-hidden
-                  />
-                  <span className="flex-1 font-mono text-xs font-semibold uppercase tracking-[0.05em] text-foreground">
-                    {s.titulo}
-                  </span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {total}
-                  </span>
-                  {podeRecolher && (
-                    <ChevronRight
-                      className={cn(
-                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-[var(--duration-fast)]",
-                        !recolhida && "rotate-90",
-                      )}
-                      strokeWidth={1.6}
-                      aria-hidden
-                    />
-                  )}
-                </Cabecalho>
-
-                {/*
-                  SEÇÃO VAZIA continua com cabeçalho e contagem 0, mais uma
-                  linha dizendo o que cai ali. Some só quando não há conversa
-                  nenhuma — uma seção que desaparece quando esvazia esconde
-                  metade do software de quem ainda não usou essa metade.
-                */}
-                {!recolhida && grupos.length === 0 && (
-                  <p className="px-2.5 py-2 text-[11.5px] leading-5 text-muted-foreground/80">
-                    {s.vazio}
-                  </p>
-                )}
-
-                {!recolhida &&
                   grupos.map((g) => {
                     /*
-                     * A pasta só existe DENTRO da seção: o mesmo código de obra
-                     * aparece em montagem e em auditoria, e as duas são pastas
-                     * diferentes para quem trabalha. Por isso a chave da
-                     * confirmação leva o tipo junto.
+                     * A CHAVE DA PASTA É A PASTA. Ela levava o tipo junto
+                     * (`volume:084-25`) porque o mesmo projeto existia duas
+                     * vezes, uma em cada seção. Agora existe uma vez só, e o
+                     * prefixo faria a confirmação de apagar não casar com nada.
                      */
-                    const idDaPasta = `${s.tipo}:${g.key ?? "__none__"}`;
+                    const idDaPasta = g.key ?? "__none__";
                     const confirmandoPasta =
                       confirmando?.tipo === "pasta" && confirmando.id === idDaPasta;
                     return (
@@ -731,14 +643,31 @@ export function NexoSidebar({
                                 )}
                               >
                                 {/*
-                                  Marca do tipo: lembrete PERIFÉRICO, em cinza.
-                                  Some no item ativo, onde disputaria com o
-                                  texto — `invisible` e não removida, para a
-                                  linha não pular de posição ao selecionar.
+                                  MARCA DO TIPO — e ela ganhou peso.
+                                  Enquanto a seção separava os dois trabalhos, a
+                                  marca era lembrete periférico: a lista inteira
+                                  já era de um tipo só. Agora a pasta MISTURA o
+                                  volume e a auditoria do mesmo projeto, e esta
+                                  fita é o que diz qual é qual.
+                                  Por isso ela vem do TIPO DA CONVERSA, não mais
+                                  da seção que a continha — que deixou de
+                                  existir. Some no item ativo, onde disputaria
+                                  com o texto: `invisible` e não removida, para
+                                  a linha não pular ao selecionar.
                                 */}
                                 <span
                                   aria-hidden
-                                  style={{ background: s.marca }}
+                                  title={
+                                    tipoDoResumo(c) === "auditoria"
+                                      ? "Auditoria de memorial"
+                                      : "Montagem de volume"
+                                  }
+                                  style={{
+                                    background:
+                                      tipoDoResumo(c) === "auditoria"
+                                        ? "var(--nexo-marca-auditoria)"
+                                        : "var(--nexo-marca-volume)",
+                                  }}
                                   className={cn(
                                     "h-[15px] w-0.5 shrink-0",
                                     active && "invisible",
@@ -899,9 +828,6 @@ export function NexoSidebar({
                     </details>
                     );
                   })}
-              </div>
-            );
-          })}
       </div>
 
       {/*

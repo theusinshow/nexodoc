@@ -37,6 +37,7 @@
     "mede:prefeitura": "node scripts/mede-prefeitura.ts",
     "mede:leitura": "node scripts/mede-leitura-de-selo.ts",
     "test:nexo:pasta": "node scripts/test-pasta-do-projeto.ts",
+    "test:nexo:grupos": "node scripts/test-group-conversations.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",
     "test:nexo:check": "node scripts/test-nexo-light-check.ts",
     "test:nexo:selo-identity": "node scripts/test-nexo-selo-identity.ts",

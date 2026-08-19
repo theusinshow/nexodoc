@@ -1,19 +1,22 @@
 /**
- * Agrupa as conversas da sidebar por PASTA (código da obra), filtrando por
- * título e, opcionalmente, por TIPO DE TRABALHO. Núcleo puro (só `import type`
- * → testável com node cru). Preserva a ordem por recência (a lista já vem
- * ordenada) e a ordem de aparição das pastas.
+ * Agrupa as conversas da barra por PASTA — e a pasta é o PROJETO
+ * (`084-25-CRICIUMA`). Núcleo puro (só `import type`) → testável com node cru.
  *
- * O recorte por tipo vem por parâmetro, e não por um filtro depois: a sidebar
- * desenha DUAS seções, e cada uma precisa das suas pastas já separadas. Filtrar
- * o resultado do agrupamento devolveria pastas com itens dos dois trabalhos
- * dentro, que é justamente o que a v2 desfaz.
+ * A v2 desenhava DUAS SEÇÕES no topo (montagem de volumes / auditoria de
+ * memoriais) e pastas dentro de cada uma. O efeito é que o projeto aparecia em
+ * DOIS lugares: o volume numa seção, a auditoria do memorial do mesmo projeto
+ * na outra. Quem trabalha pensa "o 084-25", não "a parte de montagem do
+ * 084-25".
+ *
+ * Agora há um nível só. O tipo de trabalho continua existindo, mas como
+ * ETIQUETA: o filtro esconde ITENS dentro das pastas, e a pasta que fica sem
+ * item visível some — pasta vazia na tela é ruído, não informação.
  */
 import type { ConversationSummary, TipoDeTrabalho } from "./nexo-db.ts";
 import { tipoDoResumo } from "./tipo-de-trabalho.ts";
 
 export interface ConversationGroup {
-  /** Chave da pasta (código da obra) ou null = "Sem pasta". */
+  /** Chave da pasta (o projeto) ou null = "Sem pasta". */
   key: string | null;
   items: ConversationSummary[];
 }
@@ -21,18 +24,31 @@ export interface ConversationGroup {
 export function groupConversations(
   conversations: ConversationSummary[],
   query: string,
-  /** Recorte por seção. Ausente = todas as conversas, como na v1. */
+  /** Recorte por etiqueta. Ausente = tudo. */
   tipo?: TipoDeTrabalho,
 ): ConversationGroup[] {
   const q = query.trim().toLowerCase();
-  const filtered = conversations.filter(
-    (c) =>
-      (tipo === undefined || tipoDoResumo(c) === tipo) &&
-      (q === "" || c.title.toLowerCase().includes(q)),
-  );
   const groups: ConversationGroup[] = [];
   const index = new Map<string, number>();
-  for (const c of filtered) {
+
+  for (const c of conversations) {
+    if (tipo !== undefined && tipoDoResumo(c) !== tipo) continue;
+    /*
+     * A BUSCA COBRE O NOME DA PASTA, e não só o título.
+     *
+     * Procurar por "criciuma" tem de achar o projeto — e o nome do projeto NÃO
+     * está mais no título da conversa, que agora é só "MET · HIS". Ele está na
+     * pasta, que é justamente a mudança desta versão: sem isto, a refatoração
+     * do histórico teria quebrado a busca que ela deveria melhorar.
+     */
+    if (
+      q !== "" &&
+      !c.title.toLowerCase().includes(q) &&
+      !(c.folderKey ?? "").toLowerCase().includes(q)
+    ) {
+      continue;
+    }
+
     const key = c.folderKey ?? null;
     const mapKey = key ?? "__none__";
     let gi = index.get(mapKey);
@@ -43,7 +59,14 @@ export function groupConversations(
     }
     groups[gi].items.push(c);
   }
-  return groups;
+
+  /*
+   * "Sem pasta" vai para o FIM, e a ordem das demais é preservada (a lista já
+   * chega por recência). São as conversas cujo projeto ainda não se
+   * identificou — sem código, ou sem prefeitura decidida. É trabalho em aberto,
+   * não um projeto, e no topo empurraria os projetos reais para baixo.
+   */
+  return groups.sort((a, b) => (a.key === null ? 1 : 0) - (b.key === null ? 1 : 0));
 }
 
 /**
