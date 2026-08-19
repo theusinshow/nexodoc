@@ -38,6 +38,7 @@
     "mede:leitura": "node scripts/mede-leitura-de-selo.ts",
     "mede:divida": "node scripts/mede-divida-de-design.ts",
     "test:nexo:largura": "node scripts/test-largura-do-copiloto.ts",
+    "test:nexo:corpo": "node scripts/test-corpo-do-frame.ts",
     "test:nexo:pasta": "node scripts/test-pasta-do-projeto.ts",
     "test:nexo:grupos": "node scripts/test-group-conversations.ts",
     "test:nexo:tomos": "node scripts/test-nexo-tomos.ts",

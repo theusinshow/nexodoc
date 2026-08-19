@@ -19,6 +19,7 @@
  */
 
 import type { ParagrafoDoModelo } from "@/server/odt/layout";
+import { classeDeCorpo, type ModoDoFrame } from "../lib/corpo-do-frame";
 
 export interface CampoDoFrame {
   /** Nome do marcador, ex. "NOME_OBRA". */
@@ -37,20 +38,13 @@ const ALINHAMENTO: Record<ParagrafoDoModelo["alinhamento"], string> = {
   end: "justify-end text-right",
 };
 
-/** Corpo do modelo (pt) → classe de tamanho. Relativo basta: é esqueleto. */
-function classeDeCorpo(corpo: number | undefined): string {
-  if (!corpo) return "text-xs";
-  if (corpo >= 16) return "text-sm font-semibold";
-  if (corpo >= 13) return "text-xs font-medium";
-  return "text-[11px]";
-}
-
 export function FrameDoDocumento({
   layout,
   campos,
   valores,
   derivados = {},
   onChange,
+  modo = "campo",
 }: {
   layout: ParagrafoDoModelo[];
   campos: CampoDoFrame[];
@@ -67,6 +61,14 @@ export function FrameDoDocumento({
    */
   derivados?: Record<string, string>;
   onChange: (marcador: string, valor: string) => void;
+  /**
+   * `campo` (padrão) = formulário com a FORMA do documento, dentro do chat.
+   * `documento` = a coluna alargou e o texto volta a seguir o corpo do modelo.
+   *
+   * A diferença entre os dois é SÓ a tipografia: ordem, alinhamento e número de
+   * linhas continuam saindo do `content.xml` nos dois. Ver [[corpo-do-frame.ts]].
+   */
+  modo?: ModoDoFrame;
 }) {
   const campoDe = (marcador: string) => campos.find((c) => c.marcador === marcador);
 
@@ -95,7 +97,7 @@ export function FrameDoDocumento({
         return (
           <div
             key={paragrafo.indice}
-            className={`flex flex-wrap items-baseline gap-1 py-0.5 ${
+            className={`flex flex-wrap items-baseline gap-2 py-1 ${
               ALINHAMENTO[paragrafo.alinhamento]
             }`}
           >
@@ -106,7 +108,7 @@ export function FrameDoDocumento({
                 return (
                   <span
                     key={chave}
-                    className={`${classeDeCorpo(paragrafo.corpo)} whitespace-pre text-foreground`}
+                    className={`${classeDeCorpo(paragrafo.corpo, modo)} whitespace-pre text-foreground`}
                   >
                     {parte.valor}
                   </span>
@@ -126,7 +128,7 @@ export function FrameDoDocumento({
                     /* Sem camada de contorno, pela mesma razao do badge: borda
                        E fundo sao translucidos, e numa camada o miolo comporia
                        sobre a cor da borda em vez de sobre a pagina. */
-                    className="nx-cut-5 border-0 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] text-destructive"
+                    className="nx-cut-5 border-0 bg-destructive/10 px-2 py-1 font-mono text-xs text-destructive"
                   >
                     {parte.bruto} — marcador quebrado, conserte no modelo
                   </span>
@@ -142,7 +144,7 @@ export function FrameDoDocumento({
                 return (
                   <span
                     key={chave}
-                    className="font-mono text-[10px] text-muted-foreground"
+                    className="font-mono text-xs text-muted-foreground"
                     title={`${rotulo} · ${campo.derivadoDe}`}
                   >
                     {valores[parte.nome] || derivados[parte.nome] || "—"}
@@ -156,11 +158,19 @@ export function FrameDoDocumento({
 
               const linhas = campo?.linhas ?? ocorrencias.get(parte.nome) ?? 1;
               const comum =
-                /* EXCECAO da spec do chanfro: campo tracejado do carimbo fica com raio de
-       4px e borda tracejada. Tracejado nao sobrevive ao recorte, e aqui o
-       tracejado e PAPEL, nao interface. O painel que os contem tem chanfro. */
-    "min-w-0 flex-1 rounded-[4px] border border-dashed border-border bg-transparent px-1.5 py-1 outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-solid focus:border-[var(--ring)] focus:bg-[var(--nexodoc-panel)]";
-              const forma = `${classeDeCorpo(paragrafo.corpo)} ${
+                /*
+                 * EXCECAO da spec do chanfro: campo tracejado do carimbo fica com raio de
+                 * 4px e borda tracejada. Tracejado nao sobrevive ao recorte, e aqui o
+                 * tracejado e PAPEL, nao interface. O painel que os contem tem chanfro.
+                 *
+                 * ALTURA MINIMA DE 32px nos DOIS modos -- o "compacto" que a DESIGN.md
+                 * documenta. Antes era `py-1` com texto de 11px, o que dava ~25px: abaixo
+                 * do piso, e pequeno demais para acertar com o cursor. No modo documento o
+                 * TEXTO encolhe conforme o modelo, mas a CAIXA nao -- fidelidade que
+                 * impede editar nao serve ao modo que existe para conferir.
+                 */
+                "min-h-8 min-w-0 flex-1 rounded-[4px] border border-dashed border-border bg-transparent px-2 py-1 outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-solid focus:border-[var(--ring)] focus:bg-[var(--nexodoc-panel)]";
+              const forma = `${classeDeCorpo(paragrafo.corpo, modo)} ${
                 ALINHAMENTO[paragrafo.alinhamento]
               }`;
 
