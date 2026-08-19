@@ -1,4 +1,4 @@
-# Montagem de volume: a prefeitura, a leitura medida, e o card que se lê
+# Montagem de volume: a prefeitura crava, a leitura se mede, o histórico é o projeto
 
 **Data:** 2026-08-19
 **Estado:** desenho aprovado, plano por escrever
@@ -56,10 +56,45 @@ prefeitura-alvo, e nunca o documento que o próprio software gerou.
 
 ---
 
-## Seção 1 — A prefeitura é uma decisão do VOLUME
+## Seção 1 — A prefeitura é a identidade do PROJETO
 
 O erro estrutural não é a linha 383; é o fato de existirem duas resoluções.
 Consertar só a linha deixaria a arquitetura que produz este defeito de pé.
+
+E a prefeitura não é um parâmetro que a capa resolve na hora de propor: ela é a
+IDENTIDADE do projeto, decidida na entrada. É ela que nomeia a pasta do
+histórico (Seção 4) — o que empurra a decisão para o minuto zero, onde ela é
+barata, em vez da hora de gerar, onde já há trabalho em cima dela.
+
+**1.0 — Medir o `motivo` ANTES de mexer no casamento.**
+
+`casarPrefeituraDoCarimbo` já cruza DUAS evidências — o nome escrito (`cliente`)
+e o brasão (`logoOrgao`) — e já devolve um `motivo` que separa as causas:
+
+```
+texto-e-logo | so-texto | so-logo | divergem | ambiguo | sem-evidencia
+```
+
+O comentário que o acompanha diz por que ele existe: "para que a próxima
+melhoria seja dirigida por fato e não por palpite". **Ninguém nunca olhou esse
+número.**
+
+A decisão do produto é que a prefeitura TEM de ser cravada. Mas "põe IA" não é a
+resposta até se saber qual motivo dispara:
+
+- `sem-evidencia` — o modelo não leu `cliente` nem `logoOrgao`. Aqui uma leitura
+  melhor resolve.
+- `divergem` / `ambiguo` — as evidências se contradizem, ou apontam duas
+  prefeituras. Aqui nenhuma IA resolve: a contradição é o fato, e decidir por
+  cima dela é exatamente o chute que produziu o incidente Florianópolis.
+
+O gabarito é grátis, como o das descrições: o rodapé das LDs entregues traz o
+caminho de rede do escritório — `P:\cad\prefchap _26\...` —, ou seja, **o
+id do template está impresso no documento**. Os quatro projetos dos samples
+viram quatro casos com resposta conhecida, sem gastar token.
+
+Este passo é pré-requisito de qualquer mudança no casamento. O que ele apontar
+entra no plano; o que ele não apontar não vira trabalho.
 
 **1.1 — Uma resolução por turno.** `normalizeProposals` casa a prefeitura UMA
 vez, antes do laço, e distribui o mesmo valor (ou o mesmo vazio) a todo
@@ -170,51 +205,94 @@ O `line-clamp-2` sai. Em lugar dele:
 
 ---
 
-## Seção 4 — O histórico de quem faz as duas coisas
+## Seção 4 — O histórico é o projeto
 
-`derivarTipoDeTrabalho` testa auditoria primeiro. Uma conversa que montou volume
-E auditou memorial vira "auditoria" e **some da seção de montagem**, mesmo tendo
-gerado documento de volume. Visto no banco:
+Hoje o histórico não representa o trabalho. Duas derivações diferentes
+convivem, e nenhuma faz o que o escritório faz:
 
-```
-"Exemplo guiado — Escola Municipal Vila Nova"
-   results: [capa, auditoria]   →   tipo=auditoria
-```
+| Caminho | O que deriva | Resultado |
+|---|---|---|
+| Volume (`deriveFolderKey`) | só o **código** do carimbo | `084_25` — pasta sem prefeitura |
+| Auditoria (`tituloDaConversa`) | `centroDeCustoDaAuditoria(codigo, orgao)` | `084_25-CRICIUMA` — mas vira **título**, não pasta |
 
-O tipo deixa de ser uma partição e vira um **conjunto**: a conversa aparece nas
-DUAS seções quando fez os dois trabalhos. As contagens ao lado dos rótulos
-passam a somar mais que o total de conversas — e isso é honesto, não erro: elas
-contam trabalhos, não linhas.
+A função que monta o nome certo **já existe** e está sendo usada no lugar
+errado.
+
+**4.1 — A pasta é o projeto.** Chave `CODIGO-MUNICIPIO` (`084-25-CRICIUMA`),
+derivada por UMA função para os dois caminhos. O carimbo entrega `084_25`; a
+normalização para hífen acontece na derivação, e não em cada chamador.
+
+**4.2 — Um nível só.** Pastas no topo, conversas dentro. `084-25-CRICIUMA`
+aparece UMA vez, com o volume metálico e a auditoria do memorial lado a lado —
+que é como o projeto existe na cabeça de quem trabalha nele. A partição em duas
+seções some: ela partia o projeto em dois lugares.
+
+**4.3 — O filtro vira etiqueta.** Montagem/Auditoria continua, mas esconde
+ITENS, não seções. Pasta que fica sem item visível desaparece da lista. As
+contagens continuam sendo do total, não do filtrado — um contador que zera junto
+com o que ele descreve não informa nada.
+
+**4.4 — O nome da conversa é o que ela É.**
+
+- Volume: as siglas das disciplinas que ele carrega — `MET`, ou `MET · HIS · INC`
+  no misto (seis dos oito volumes reais são mistos, então o caso composto é o
+  caso comum, não a exceção).
+- Auditoria de memorial: `Memorial`.
+
+**4.5 — A pasta nasce ao ANEXAR.** Assim que código e prefeitura são
+conhecidos, sem esperar documento nenhum ser gerado. É o "flagra de cara": o
+projeto se identifica na entrada.
+
+**4.6 — Sem prefeitura cravada, não há pasta.** A conversa fica em "Sem pasta"
+até a decisão. **Nunca existe pasta com nome pela metade** — um `084-25` que
+depois vira `084-25-CRICIUMA` é uma pasta que muda de identidade debaixo de quem
+está usando, e quem já a tinha aberto perde a referência.
+
+**O que sai deste desenho:** a proposta anterior — "a conversa aparece nas duas
+seções" — foi descartada. Ela resolvia o sintoma (a conversa sumia da montagem)
+mantendo a causa (o tipo de trabalho mandando na estrutura). Com a pasta no
+topo, o problema deixa de existir em vez de ser contornado.
 
 **Não é defeito o que eu supus no começo:** as conversas chamadas "Nova
 conversa" no banco de dev são fixtures de teste sem memorial e sem selos. A
-escada de `tituloDaConversa` está certa e fica como está.
+escada de `tituloDaConversa` está certa; ela muda só para passar a nomear pela
+disciplina no caso do volume.
 
 ---
 
 ## Ordem do dia
 
-1. **Prefeitura** (Seção 1) — primeiro, e não é negociável. É o único defeito
-   aqui capaz de fazer um documento errado chegar ao cliente.
-2. **Bancada** (Seção 2) — mede antes de mexer.
-3. **Consertar o que a bancada apontar**, na ordem do estrago medido. Sem
+1. **Prefeitura — o vazamento** (1.1 a 1.5). Primeiro, e não é negociável: é o
+   único defeito aqui capaz de fazer um documento errado chegar ao cliente.
+2. **Prefeitura — medir o `motivo`** (1.0), contra o gabarito do rodapé das LDs.
+   Custo zero. É o que diz se "cravar sempre" é leitura melhor ou pergunta
+   melhor.
+3. **Bancada da leitura** (Seção 2) — mede antes de mexer.
+4. **Consertar o que as duas medições apontarem**, na ordem do estrago. Sem
    escopo fechado aqui de propósito: fechá-lo antes de medir seria adivinhar.
-4. **Card legível** (Seção 3).
-5. **Histórico** (Seção 4).
+5. **Histórico** (Seção 4) — a refatoração da pasta. Depende de 1 e 2: o nome da
+   pasta É a decisão da prefeitura, então ele não pode vir antes dela.
+6. **Card legível** (Seção 3) — independente dos outros; cai para o fim por ser
+   o de menor consequência.
 
 ## Fora de escopo
 
 - **UI de correção em massa.** Foi considerada e descartada: a decisão é que a
   leitura tem que acertar. Corrigir 44 folhas mais rápido é melhorar a derrota.
-- **`matchPrefeitura`.** Está correto; ver Seção 1.
+- **`matchPrefeitura`.** A REGRA de casamento fica como está — ela recusa
+  endereço de escritório e exige que o texto nomeie um órgão, e foi assim que o
+  caso Florianópolis foi fechado. O que 1.0 pode mudar é a EVIDÊNCIA que chega
+  até ela, nunca o critério.
 - **Modo com token na bancada.** Fica o gancho, não a implementação.
-- **Nomenclatura de conversa.** Não é defeito; ver Seção 4.
+- **A escada de `tituloDaConversa` para auditoria.** Continua como está: centro
+  de custo, obra, primeira frase. O que muda é o caso do VOLUME, que passa a se
+  chamar pela sigla — e é mudança de comportamento, não conserto de defeito.
 
 ## Como se sabe que funcionou
 
 | Seção | Prova |
 |---|---|
-| 1 | Teste puro sobre `normalizeProposals` com Chapecó em primeiro: pedido não-casado devolve vazio para capa E separatriz. Portão recusa plano com documentos discordantes. |
+| 1 | Teste puro sobre `normalizeProposals` com Chapecó em primeiro: pedido não-casado devolve vazio para capa E separatriz. Portão recusa plano com documentos discordantes. E a distribuição de `motivo` nos 4 projetos sai impressa, com o acerto medido contra o `prefchap`/`pmcriciuma` do rodapé. |
 | 2 | A bancada roda e imprime números sobre 4 projetos reais. O número de partida fica registrado — sem ele não há como provar melhora depois. |
 | 3 | Card com a descrição mais longa dos samples visível por inteiro, medido contra a caixa do card e não só presente no DOM. |
-| 4 | Conversa com `results: [capa, auditoria]` aparece nas duas seções, e as contagens refletem isso. |
+| 4 | Conversa com `results: [capa, auditoria]` aparece UMA vez, dentro da pasta do projeto. Volume misto se chama `MET · HIS · INC`. Sem prefeitura, a conversa está em "Sem pasta" e nenhuma pasta parcial existe. |
