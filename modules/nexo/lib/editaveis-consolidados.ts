@@ -62,7 +62,14 @@ export function parametrosDaEntrega(results: readonly SavedResult[]): Parametros
   return {
     templateId: texto(capa.templateId),
     tituloCapa: texto(capa.tituloCapa),
-    tituloLd: texto(ld.tituloLd) || texto(capa.tituloCapa),
+    /*
+     * SEM cair no título da capa. O título da capa é o nome da OBRA, e o da LD
+     * é o nome de documento da DISCIPLINA — ver `titulosPropostos`. Este
+     * fallback fazia a obra voltar como cabeçalho de seção na hora de reemitir
+     * o editável, desfazendo em silêncio o que a montagem tinha acertado.
+     * Vazio aqui faz o servidor consultar o léxico, que é quem sabe.
+     */
+    tituloLd: texto(ld.tituloLd),
     volume: texto(capa.volume),
     numTomos: numero(capa.numTomos ?? ld.numTomos, 1),
     tomoInicial: numero(capa.tomoInicial ?? ld.tomoInicial, 1),

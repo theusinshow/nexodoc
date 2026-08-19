@@ -49,7 +49,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
-import { tituloDoSelo } from "../lib/titulo-do-selo";
+import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
 import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
@@ -261,9 +261,13 @@ export function PlanoDeGeracao({
   /*
    * O TÍTULO QUE O CARIMBO JÁ SABE.
    *
-   * O campo OBRA do selo é o nome do empreendimento — o mesmo título que a capa
-   * e a LD pedem. Ele já é lido em toda prancha, e mesmo assim o engenheiro
-   * digitava no chat uma informação que o documento trazia.
+   * O campo OBRA do selo é o nome do empreendimento. Ele já é lido em toda
+   * prancha, e mesmo assim o engenheiro digitava no chat uma informação que o
+   * próprio documento trazia.
+   *
+   * Ele nomeia a CAPA, e SÓ a capa: o título da LD é o nome de documento da
+   * disciplina, e quem responde por ele é o léxico. Ver `titulosPropostos`, que
+   * é onde essa separação mora e onde ela é testada.
    *
    * Entra como degrau ABAIXO do agente: se o agente propôs um título (porque foi
    * pedido na conversa), ele vence; e as decisões do engenheiro vencem os dois,
@@ -274,8 +278,7 @@ export function PlanoDeGeracao({
 
   const paramsDoAgente: Record<string, string> = {
     templateId: capaCrua?.templateId ?? "",
-    tituloCapa: capaCrua?.tituloCapa?.trim() || tituloDoCarimbo.valor,
-    tituloLd: ldCrua?.tituloLd?.trim() || tituloDoCarimbo.valor,
+    ...titulosPropostos({ capa: capaCrua?.tituloCapa, ld: ldCrua?.tituloLd }, tituloDoCarimbo),
     volume: capaCrua?.volume ?? "",
     mes: capaCrua?.mes ?? "",
     ano: capaCrua?.ano ?? "",

@@ -82,3 +82,42 @@ export function tituloDoSelo(selos: readonly SeloForLd[]): TituloDoSelo {
 
   return { valor: vencedor.valor, apoio: vencedor.contagem, divergentes };
 }
+
+/** O que o AGENTE propôs neste turno, quando propôs alguma coisa. */
+export interface TitulosDoAgente {
+  capa?: string | null;
+  ld?: string | null;
+}
+
+/**
+ * QUAL título cada documento recebe do carimbo — e qual NÃO recebe.
+ *
+ * O carimbo dá o campo OBRA, que é o nome do EMPREENDIMENTO. Esse é o título da
+ * CAPA, e era esse o ponto de preencher pelo carimbo.
+ *
+ * O TÍTULO DA LD É OUTRA COISA. Ele é o cabeçalho de seção do documento, e o
+ * que sai impresso ali é o nome de documento da DISCIPLINA — "PROJETO
+ * ESTRUTURAL CONCRETO", "PROJETO HIDROSSANITÁRIO" —, lido de 91 capas e
+ * separatrizes reais e guardado no léxico ([[disciplinas.ts]]). Num volume
+ * misto há um por bloco, e cada LD imprime o da SUA disciplina.
+ *
+ * Os dois campos foram preenchidos com o mesmo valor do carimbo, e o estrago é
+ * que a obra passou a nomear a seção de toda LD: `buildLdProposal` trata
+ * `tituloLd` como DECISÃO DO ENGENHEIRO — o degrau mais alto —, então a obra
+ * chegava por cima do léxico e o nome da disciplina nunca era consultado. Nos
+ * volumes mistos (seis dos oito reais) as quatro LDs saíam com o mesmo título.
+ *
+ * Vazio aqui NÃO é buraco: é o que devolve a decisão a quem sabe dela. Vazio na
+ * LD faz o léxico responder pela disciplina do bloco; vazio na capa vira
+ * pergunta, que é a regra do empate.
+ */
+export function titulosPropostos(
+  doAgente: TitulosDoAgente,
+  doCarimbo: TituloDoSelo,
+): { tituloCapa: string; tituloLd: string } {
+  return {
+    tituloCapa: limpar(doAgente.capa) || doCarimbo.valor,
+    // Sem `|| doCarimbo.valor`: é aqui que a obra parava de ser o título da LD.
+    tituloLd: limpar(doAgente.ld),
+  };
+}

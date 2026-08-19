@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-import { tituloDoSelo } from "../modules/nexo/lib/titulo-do-selo.ts";
+import { tituloDoSelo, titulosPropostos } from "../modules/nexo/lib/titulo-do-selo.ts";
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
 
 let passed = 0;
@@ -75,6 +75,47 @@ test("selo sem obra, ou com lixo curto, não preenche", () => {
 test("espaço extra do pdfjs não separa o mesmo título", () => {
   const r = tituloDoSelo([folha("REFORMA  DA   CANCHA"), folha("REFORMA DA CANCHA")]);
   assert.equal(r.apoio, 2);
+});
+
+// ---------------------------------------------------------------------------
+// ONDE o titulo do carimbo entra -- `titulosPropostos`
+// ---------------------------------------------------------------------------
+//
+// O carimbo da o nome do EMPREENDIMENTO, que e o titulo da CAPA. O titulo da LD
+// e outro: e o nome de documento da DISCIPLINA, do lexico lido de 91 capas
+// reais. Preencher os dois com o mesmo valor fez toda LD imprimir o nome da
+// obra como cabecalho de secao -- e num volume misto, as quatro LDs saiam com o
+// mesmo titulo, no lugar de "PROJETO ESTRUTURAL CONCRETO", "PROJETO
+// HIDROSSANITARIO"...
+
+const carimbo = (valor: string) => ({ valor, apoio: 3, divergentes: 0 });
+
+test("o carimbo nomeia a CAPA, e deixa a LD para o lexico", () => {
+  const r = titulosPropostos({}, carimbo("REFORMA E AMPLIACAO DA ESCOLA X"));
+  assert.equal(r.tituloCapa, "REFORMA E AMPLIACAO DA ESCOLA X");
+  assert.equal(r.tituloLd, "", "vazio e o que deixa o lexico responder pela disciplina");
+});
+
+test("titulo de LD pedido na conversa vence o lexico", () => {
+  const r = titulosPropostos({ ld: "BLOCO B" }, carimbo("REFORMA DA ESCOLA X"));
+  assert.equal(r.tituloLd, "BLOCO B");
+  assert.equal(r.tituloCapa, "REFORMA DA ESCOLA X");
+});
+
+test("titulo de capa pedido na conversa vence o carimbo", () => {
+  const r = titulosPropostos({ capa: "VOLUME UNICO" }, carimbo("REFORMA DA ESCOLA X"));
+  assert.equal(r.tituloCapa, "VOLUME UNICO");
+});
+
+test("carimbo sem apoio (empate) nao preenche nada", () => {
+  const r = titulosPropostos({}, { valor: "", apoio: 0, divergentes: 4 });
+  assert.equal(r.tituloCapa, "");
+  assert.equal(r.tituloLd, "");
+});
+
+test("so espaco nao e decisao: cai no carimbo", () => {
+  const r = titulosPropostos({ capa: "   " }, carimbo("REFORMA DA ESCOLA X"));
+  assert.equal(r.tituloCapa, "REFORMA DA ESCOLA X");
 });
 
 console.log(`\n${passed} testes ok`);
