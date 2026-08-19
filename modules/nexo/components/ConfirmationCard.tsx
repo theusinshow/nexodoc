@@ -266,7 +266,7 @@ export interface NexoTemplateOption {
 }
 
 const LABEL_CLASS =
-  "font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+  "font-mono text-microrrotulo font-medium uppercase tracking-[0.05em] text-muted-foreground";
 
 const KIND_META: Record<
   NexoAgentProposal["kind"],
@@ -426,8 +426,8 @@ function AvisoDePendencia({
 
   if (mudancas.length === 0) return null;
   return (
-    <div className="border-b border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-3 py-2.5">
-      <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-[var(--status-warning)]">
+    <div className="border-b border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-3 py-3">
+      <p className="font-mono text-sm uppercase tracking-[0.07em] text-[var(--status-warning)]">
         O documento que você baixou está velho
       </p>
       <div className="mt-2 grid gap-1">
@@ -447,11 +447,11 @@ function AvisoDePendencia({
         ))}
       </div>
       {geradoEm !== undefined && (
-        <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+        <p className="mt-2 font-mono text-microrrotulo text-muted-foreground">
           Gerado {haQuantoTempo(geradoEm, agora)}
         </p>
       )}
-      <p className="mt-1.5 text-xs leading-5 text-[var(--status-warning)]">
+      <p className="mt-2 text-xs leading-5 text-[var(--status-warning)]">
         {consequenciaDaMudanca(kind, mudancas)}
       </p>
     </div>
@@ -615,9 +615,9 @@ function ConfirmButton({
       }
     >
       {busy ? (
-        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
       ) : (
-        <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+        <FileText className="mr-2 h-3.5 w-3.5" aria-hidden />
       )}
       {busy ? busyLabel : label}
     </Button>
@@ -750,7 +750,7 @@ function LdConfirmation({
 
       {podeGerar && (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <SummaryRow
               label="Título"
               value={semTitulo ? "defina o título →" : titulo}
@@ -775,7 +775,7 @@ function LdConfirmation({
               </p>
             </div>
           )}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             <AlterChip
               label="título"
               highlight={semTitulo}
@@ -821,13 +821,13 @@ function FolhaPreview({ data }: { data: LdPreviewData }) {
     data.referenceTotal != null && data.totalFolhas < data.referenceTotal;
   return (
     <div className="rounded-md border border-border bg-[var(--nexodoc-recessed)]">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <span className={LABEL_CLASS}>
           Folhas na LD ({data.totalFolhas}
           {data.referenceTotal != null ? ` de ${data.referenceTotal}` : ""})
         </span>
         {faltando && (
-          <span className="font-mono text-[11px] text-[var(--status-warning)]">
+          <span className="font-mono text-microrrotulo text-[var(--status-warning)]">
             faltam folhas?
           </span>
         )}
@@ -949,7 +949,7 @@ function CapaConfirmation({
     >
       {podeGerar && (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <SummaryRow
               label="Prefeitura"
               value={semPrefeitura ? "escolha a prefeitura →" : prefeituraNome}
@@ -964,7 +964,7 @@ function CapaConfirmation({
             <SummaryRow label="Tomos" value={rotuloTomos(params.numTomos, params.tomoInicial)} />
             <SummaryRow label="Mês/ano" value="atual" />
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             <AlterChip
               label="prefeitura"
               highlight={semPrefeitura}
@@ -1204,7 +1204,7 @@ function CheckResult({
         </span>
       </div>
       {result.findings.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {result.findings.map((f, i) => (
             <li key={i} className="text-xs">
               <span
@@ -1484,7 +1484,7 @@ function VolumesDoConjunto({
   return (
     <>
       {tomos.length > 1 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <ConfirmButton
             busy={montando !== null}
             label={`Montar os ${tomos.length} volumes`}
@@ -1532,7 +1532,7 @@ function VolumesDoConjunto({
         engenheiro vai quando precisa mexer numa vírgula no LibreOffice.
       */}
       {editaveis.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <Button
             size="sm"
             variant="secondary"
@@ -1964,7 +1964,7 @@ function VolumeConfirmation({
           {/* O que vai para dentro do volume — as DECISÕES, antes das partes.
               Montar é irreversível na prática (o engenheiro manda o PDF), então
               ele confere aqui em vez de descobrir no documento pronto. */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <SummaryRow
               label="Folhas"
               value={`${selosDoTomo.length} folha${selosDoTomo.length === 1 ? "" : "s"}`}
@@ -1993,7 +1993,7 @@ function VolumeConfirmation({
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <PartRow label="Capa" ok={Boolean(capaPdfUrl)} />
             {/*
               Com uma disciplina só, as partes seguem listadas uma a uma — é o
@@ -2026,7 +2026,7 @@ function VolumeConfirmation({
               ? "Junta as partes num PDF único: a capa e, depois dela, um bloco por disciplina (separatriz · LD · folhas). A separatriz e a LD que faltarem em cada bloco são geradas agora."
               : "Junta as partes num PDF único (ordem: capa · separatriz · LD · folhas). As partes sem PDF ficam de fora."}
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             <AlterChip label="título" phrase="Muda o título para " />
             <AlterChip label="tomos" phrase="Começando no tomo " />
             <AlterChip label="volume" phrase="É o volume " />
@@ -2077,7 +2077,7 @@ function BlocosDoVolume({ blocos }: { blocos: readonly Bloco[] }) {
   return (
     <div className="flex items-baseline gap-3">
       <span className={`${LABEL_CLASS} w-24 shrink-0`}>Blocos</span>
-      <ol className="min-w-0 flex-1 space-y-0.5">
+      <ol className="min-w-0 flex-1 space-y-1">
         {blocos.map((bloco, i) => (
           <li key={bloco.codigo || "sem"} className="flex items-baseline gap-2 text-xs">
             <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
@@ -2375,7 +2375,7 @@ function AuditoriaConfirmation({
     <CardShell kind="auditoria" resumo={resumo}>
       {podeAuditar && (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <SummaryRow
               label="Memorial"
               value={memorialFile ? memorialFile.name : "arraste o PDF do memorial →"}
@@ -2432,7 +2432,7 @@ function AuditoriaConfirmation({
           */}
           {delta.estado === "pronto" && delta.dados.comparavel && delta.dados.delta && (
             <div className="nx-cut-6 border-0 bg-[var(--nexodoc-recessed)] px-3 py-2">
-              <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+              <p className="font-mono text-microrrotulo uppercase tracking-[0.05em] text-muted-foreground">
                 Comparado à auditoria de{" "}
                 {new Date(delta.dados.base?.quando ?? "").toLocaleString("pt-BR", {
                   day: "2-digit",
@@ -2478,7 +2478,7 @@ function AuditoriaConfirmation({
                 auditoria segue lendo o documento inteiro; o que esta caixa faz
                 hoje é informar a decisão, não baratear a corrida.
               */}
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground/80">
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground/80">
                 A auditoria ainda lê o documento inteiro — esta comparação serve
                 para você decidir se vale rodar de novo.
               </p>
@@ -2680,7 +2680,7 @@ function SeparatrizConfirmation({
     <CardShell kind="separatriz" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>
       {podeGerar && (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {titulos.length > 1 ? (
               <SummaryRow
                 label={`Disciplinas (${titulos.length} folhas)`}
@@ -2694,7 +2694,7 @@ function SeparatrizConfirmation({
               />
             )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             <AlterChip label="título" phrase="Muda o título para " />
             <AlterChip label="disciplinas" phrase="As separatrizes são de " />
           </div>

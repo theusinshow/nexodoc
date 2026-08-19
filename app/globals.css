@@ -1759,3 +1759,24 @@ textarea {
 
 }
 /* fim do @layer components */
+
+/*
+ * MONO LABEL MIÚDO — o degrau de 11px que a §3 autoriza para microrrótulo.
+ *
+ * Ele existe como CLASSE, e não como `text-[11px]` espalhado, pela própria
+ * razão de a rampa existir: "para que nenhuma tela invente um tamanho fora da
+ * escala". Nomeado, ele É escala — dá para achar todos os usos e mudá-los
+ * juntos. Solto, é o mesmo número escrito dezoito vezes sem ninguém saber por
+ * quê, e foi assim que os frames do chat viraram letra miúda.
+ *
+ * NÃO use para texto de leitura. É para contador, sigla, hora e unidade — dado
+ * curto que acompanha outro elemento. Frase em 11px é a letra miúda que a v1 da
+ * barra lateral produziu e que a v2 desfez subindo a escala.
+ *
+ * Fora do `@layer components` de propósito: como utilidade, ela precisa vencer
+ * as classes de componente, e dentro da camada perderia para elas.
+ */
+.text-microrrotulo {
+  font-size: 11px;
+  line-height: 1.2;
+}

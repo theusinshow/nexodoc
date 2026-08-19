@@ -49,12 +49,12 @@ export function BlocoDaLd({
 
   return (
     <div className="space-y-2 border-t border-border pt-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+      <p className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
         Lista de documentos
       </p>
 
       {somenteLeitura ? (
-        <p className="rounded-sm border border-border bg-[var(--nexodoc-recessed)] px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+        <p className="rounded-sm border border-border bg-[var(--nexodoc-recessed)] px-2 py-2 font-mono text-sm text-muted-foreground">
           {titulo || "—"}
         </p>
       ) : (
@@ -63,11 +63,11 @@ export function BlocoDaLd({
           value={titulo}
           placeholder={sugestao || "título da lista de documentos"}
           onChange={(e) => onTitulo(e.target.value)}
-          className="w-full rounded-sm border border-dashed border-border bg-transparent px-2 py-1.5 text-sm font-medium outline-none focus:border-solid focus:border-[var(--ring)]"
+          className="w-full rounded-sm border border-dashed border-border bg-transparent px-2 py-2 text-sm font-medium outline-none focus:border-solid focus:border-[var(--ring)]"
         />
       )}
 
-      <p className="font-mono text-[10px] text-muted-foreground">
+      <p className="font-mono text-xs text-muted-foreground">
         {codigo || "—"} · rev {revisao || "—"} · {contadas} folhas
         {referencia !== null && (
           <span
@@ -83,17 +83,17 @@ export function BlocoDaLd({
       </p>
 
       {linhas.length > 0 && (
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {linhas.map((r) => (
             <li
               key={r.file}
-              className="truncate font-mono text-[10px] text-muted-foreground"
+              className="truncate font-mono text-xs text-muted-foreground"
             >
               {r.sheet} · {r.file} · {r.description}
             </li>
           ))}
           {restantes > 0 && (
-            <li className="font-mono text-[10px] text-muted-foreground/60">
+            <li className="font-mono text-xs text-muted-foreground/60">
               + {restantes} folhas
             </li>
           )}

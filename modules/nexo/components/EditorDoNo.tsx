@@ -63,7 +63,7 @@ export interface CampoEditavel {
 }
 
 const LABEL_CLASS =
-  "font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+  "font-mono text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground";
 
 export function EditorDoNo({
   kind,
@@ -140,7 +140,7 @@ export function EditorDoNo({
     <label key={c.chave} className="block space-y-1">
           <span className={LABEL_CLASS}>{c.rotulo}</span>
           {c.somenteLeitura ? (
-            <p className="whitespace-pre-line rounded-sm border border-border bg-[var(--nexodoc-recessed)] px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+            <p className="whitespace-pre-line rounded-sm border border-border bg-[var(--nexodoc-recessed)] px-2 py-2 font-mono text-sm text-muted-foreground">
               {c.valor || "—"}
             </p>
           ) : c.opcoes ? (
@@ -164,7 +164,7 @@ export function EditorDoNo({
               onChange={(e) =>
                 setValores((v) => ({ ...v, [c.chave]: e.target.value }))
               }
-              className="w-full resize-none rounded-sm border border-input bg-transparent px-2 py-1.5 font-mono text-[11px] leading-snug outline-none"
+              className="w-full resize-none rounded-sm border border-input bg-transparent px-2 py-2 font-mono text-sm leading-snug outline-none"
             />
           ) : (
             <input
@@ -172,7 +172,7 @@ export function EditorDoNo({
               onChange={(e) =>
                 setValores((v) => ({ ...v, [c.chave]: e.target.value }))
               }
-              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 font-mono text-[11px] outline-none"
+              className="w-full rounded-sm border border-input bg-transparent px-2 py-2 font-mono text-sm outline-none"
             />
           )}
     </label>
@@ -208,7 +208,7 @@ export function EditorDoNo({
     .filter((g) => g.campos.length > 0);
 
   return (
-    <div className="nodrag nopan nowheel space-y-2.5">
+    <div className="nodrag nopan nowheel space-y-3">
       <p className={LABEL_CLASS}>Editar {kind}</p>
 
       {usaFrame && (
@@ -238,12 +238,12 @@ export function EditorDoNo({
 
       {gruposVisiveis.map((g) => (
         <details key={g.titulo} className="rounded-sm border border-border">
-          <summary className="cursor-pointer list-none px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground">
+          <summary className="cursor-pointer list-none px-2 py-2 font-mono text-xs uppercase tracking-[0.05em] text-muted-foreground hover:text-foreground">
             {g.titulo}
           </summary>
           <div className="space-y-2 border-t border-border p-2">
             {g.ajuda && (
-              <p className="text-[10px] leading-4 text-muted-foreground">{g.ajuda}</p>
+              <p className="text-xs leading-4 text-muted-foreground">{g.ajuda}</p>
             )}
             {g.campos.map(campo)}
           </div>
@@ -253,27 +253,27 @@ export function EditorDoNo({
       {avisos.map((a) => (
         <p
           key={a}
-          className="rounded-sm border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-1.5 text-[11px] text-[var(--status-warning)]"
+          className="rounded-sm border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-2 text-sm text-[var(--status-warning)]"
         >
           {a}
         </p>
       ))}
 
       {erro && (
-        <p role="alert" className="text-[11px] text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {erro}
         </p>
       )}
 
-      <div className="flex items-center gap-2 pt-0.5">
+      <div className="flex items-center gap-2 pt-1">
         <Button size="sm" onClick={aplicar} disabled={busy || semMudanca}>
-          {busy && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" aria-hidden />}
+          {busy && <Loader2 className="mr-2 h-3 w-3 animate-spin" aria-hidden />}
           {busy ? "Aplicando…" : "Aplicar"}
         </Button>
         <button
           type="button"
           onClick={onCancelar}
-          className="rounded-sm text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="rounded-sm text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
         >
           Cancelar
         </button>

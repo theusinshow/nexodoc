@@ -68,7 +68,7 @@ import { textoEmLinhasDaCapa } from "@/server/nexo/capa-linhas";
 import type { ParagrafoDoModelo } from "@/server/odt/layout";
 
 const LABEL_CLASS =
-  "font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+  "font-mono text-microrrotulo font-medium uppercase tracking-[0.05em] text-muted-foreground";
 
 /** Tipos que entram no plano; volume/auditoria/conferência têm card próprio. */
 const NO_PLANO = ["capa", "ld", "separatriz"] as const;
@@ -177,16 +177,16 @@ function CampoDoVolume({
 }) {
   return (
     <label className="flex items-baseline justify-between gap-3">
-      <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+      <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
         {rotulo}
       </span>
       <span className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground/70">{ajuda}</span>
+        <span className="font-mono text-xs text-muted-foreground/70">{ajuda}</span>
         <input
           value={valor}
           inputMode="numeric"
           onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-          className="w-12 rounded-sm border border-dashed border-border bg-transparent px-1.5 py-0.5 text-right font-mono text-[11px] outline-none focus:border-solid focus:border-[var(--ring)]"
+          className="w-12 rounded-sm border border-dashed border-border bg-transparent px-2 py-1 text-right font-mono text-sm outline-none focus:border-solid focus:border-[var(--ring)]"
         />
       </span>
     </label>
@@ -692,7 +692,7 @@ export function PlanoDeGeracao({
          */}
         {capa && (
           <div className="flex items-baseline justify-between gap-3 rounded-md border border-border bg-[var(--nexodoc-recessed)] px-3 py-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
               Vai para
             </span>
             {/*
@@ -835,7 +835,7 @@ export function PlanoDeGeracao({
          * em tomos e o tamanho do conjunto. São decisões sobre o VOLUME, não
          * sobre o documento — por isso ficam abaixo dele, e não dentro.
          */}
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {/* Sem modelo não há frame: o título volta a ser linha, para não
               sumir junto. */}
           {layoutDoModelo.length === 0 && (capa || !misto) && !separatrizListada && (
@@ -844,7 +844,7 @@ export function PlanoDeGeracao({
           {/* Fora do `layoutDoModelo.length === 0`: com modelo o título vive no
               frame, e a procedência tem de aparecer nos dois casos. */}
           {tituloVeioDoCarimbo && (
-            <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
+            <p className="font-mono text-xs leading-relaxed text-muted-foreground">
               Título lido do carimbo de {plural(tituloDoCarimbo.apoio, "folha", "folhas")}
               {tituloDoCarimbo.divergentes > 0
                 ? ` · ${plural(tituloDoCarimbo.divergentes, "folha diz outra coisa", "folhas dizem outra coisa")}`
@@ -903,7 +903,7 @@ export function PlanoDeGeracao({
 
         {/* A lista do que sai. Com tomos, é o que torna visível que "2 tomos"
             significa seis documentos, e não dois. */}
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {itens.map((it, i) => {
             /*
              * O check era POSICIONAL (`i < contagem`): com o item 0 velho e o 1
@@ -912,8 +912,8 @@ export function PlanoDeGeracao({
             const estado = estados[i];
             const salvo = salvosDosItens[i];
             return (
-              <li key={`${it.kind}${it.sufixo}`} className="flex flex-col gap-1.5">
-                <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+              <li key={`${it.kind}${it.sufixo}`} className="flex flex-col gap-2">
+                <span className="flex items-center gap-2 font-mono text-microrrotulo text-muted-foreground">
                   {gerando === i ? (
                     <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                   ) : estado === "aplicado" ? (
@@ -958,9 +958,9 @@ export function PlanoDeGeracao({
             disabled={ocupado || semTitulo || Boolean(problemaDePrefeitura)}
           >
             {ocupado ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
             ) : (
-              <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              <FileText className="mr-2 h-3.5 w-3.5" aria-hidden />
             )}
             {ocupado
               ? `Gerando ${(gerando ?? 0) + 1} de ${itens.length}…`
@@ -1012,12 +1012,12 @@ export function PlanoDeGeracao({
             role="alert"
             className="rounded-md border border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] p-3"
           >
-            <p className="font-mono text-[11px] uppercase tracking-[0.07em] text-[var(--status-critical)]">
+            <p className="font-mono text-microrrotulo uppercase tracking-[0.07em] text-[var(--status-critical)]">
               {falhas.length === 1
                 ? `${falhas[0].rotulo} não foi gerada`
                 : `${falhas.length} documentos não foram gerados`}
             </p>
-            <ul className="mt-1.5 space-y-0.5">
+            <ul className="mt-2 space-y-1">
               {falhas.map((f) => (
                 <li key={f.rotulo} className="text-xs leading-5 text-foreground">
                   <span className="font-mono">{f.rotulo}</span> — {f.motivo}
