@@ -80,6 +80,20 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
+      # O TETO MENSAL EM DÓLARES — a única coisa entre um erro de uso e a fatura.
+      #
+      # Sem esta variável NÃO HÁ TETO: `getMonthlyBudgetUsd()` devolve `null` e
+      # `verificarTetoMensal` passa tudo. A rota de leitura de selo chama a
+      # verificação justamente porque é UMA CHAMADA POR PRANCHA e um volume real
+      # tem dezenas — no ar, hoje, essa guarda não faz nada.
+      #
+      # `sync: false` e sem valor aqui de propósito: quanto vale o mês é decisão
+      # comercial, não técnica, e um número inventado no repositório não seria
+      # mais seguro que nenhum. Esta linha existe para registrar que a variável
+      # precisa estar no painel — o mesmo motivo do `NEXODOC_ADMIN_TOKEN`.
+      - key: NEXODOC_MONTHLY_BUDGET_USD
+        sync: false
+
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
       # prancha, e um volume real tem dezenas — o custo daqui escala com o
       # tamanho do volume, não com o número de auditorias.
@@ -146,6 +160,46 @@ services:
         value: gpt-5.6-sol
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_VALIDATION_MODEL
         value: gpt-5.6-sol
+
+      # O BLOCO tem modelo próprio, e a falta desta linha custava dinheiro todo
+      # dia — descoberto em 19/08/2026, conferindo o Render contra o código.
+      #
+      # O papel `chunk` era o único do modo memorial sem override: caía no
+      # `NEXODOC_AUDIT_MEMORIAL_DEEP_MODEL` e ia para o `sol`. Os dois fazem
+      # trabalhos diferentes — a leitura GLOBAL enxerga o documento inteiro de
+      # uma vez, o BLOCO examina ~10 páginas —, e cobrar preço de leitura global
+      # por exame localizado multiplica por 2,5 o custo da passada MAIS NUMEROSA
+      # da auditoria. Ver `lib/ai-providers.ts`, papel `chunk`.
+      #
+      # O `.env.local` já tinha isto desde 17/08. O Render não — e foi
+      # exatamente a falha do `NEXODOC_ADMIN_TOKEN` repetida: quem configura no
+      # `.env.local` e não repete aqui volta ao padrão do código sem aviso, e o
+      # software continua funcionando, só que mais caro.
+      - key: NEXODOC_AUDIT_MEMORIAL_DEEP_CHUNK_MODEL
+        value: gpt-5.6-terra
+
+      # A COBERTURA TOTAL — um nível só que lê o documento inteiro, sem teto de
+      # blocos. Desligada: medido em 18x o custo cru contra 2,8x com blocos
+      # agrupados. Explícita porque o padrão do código é o mesmo `false`, e uma
+      # linha aqui é o que impede alguém ligar sem saber o que custa.
+      - key: NEXODOC_AUDIT_COBERTURA_TOTAL
+        value: "false"
+
+      # A CAMADA DE REGRA determinística (`lib/audit-coherence.ts`) — o §12, a
+      # cláusula geral de analogia, a conferência de marca.
+      #
+      # É a ÚNICA do grupo de flags da auditoria que é LIGADA por padrão, e a
+      # única em que o padrão é o certo: as outras (`ENABLE_RULE_BASED_AUDIT`,
+      # `ENABLE_AI_IDENTITY_PASS`, `ENABLE_AI_CROSS_DOCUMENT`,
+      # `ENABLE_REFUTATION_PASS`) guardam motores legados ou caros e ficam fora
+      # daqui de propósito.
+      #
+      # O teste é `!== "false"`, então basta alguém escrever `false` UMA vez
+      # para derrubar a camada que pega três das quatro incongruências críticas
+      # que a IA sozinha perde. Explícita para que desligá-la seja um gesto
+      # deliberado, e não um efeito colateral.
+      - key: NEXODOC_ENABLE_COHERENCE_PASS
+        value: "true"
       - key: NEXODOC_MAX_CHUNKS_PER_FILE
         value: "24"
       - key: NEXODOC_CHUNK_CONCURRENCY
