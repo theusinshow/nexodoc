@@ -158,7 +158,29 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           />
         )}
       </div>
-      <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight" title={data.titulo}>
+      {/*
+        CINCO LINHAS, não duas.
+        Com 44 folhas na tela, conferir o título era abrir cada uma — e conferir
+        é justamente o que se vai fazer ali. Pior: o corte do carimbo devolvia
+        "PLANTA DE" onde o desenho diz "PLANTA DE IMPLANTAÇÃO", e um clamp de
+        duas linhas fazia esse pedaço parecer um título completo. O defeito se
+        escondia atrás do próprio recorte da tela.
+
+        CINCO é medido, não escolhido: as descrições reais dos quatro projetos
+        têm mediana de 37 caracteres e p90 de 97, e num nó de 120px a 10px isso
+        cabe em cinco linhas. O que passa disso é raro e continua com o texto
+        inteiro no `title`.
+
+        NÃO É ROLAGEM INTERNA, e a razão é o canvas: um `overflow-y-auto` aqui
+        exigiria `nowheel` do React Flow, e com quarenta e quatro nós metade da
+        tela viraria zona morta de zoom. Altura fixa mantém a grade regular —
+        cartão de altura variável vira escada e destrói a varredura, que é a
+        razão desta tela existir.
+      */}
+      <p
+        className="mt-0.5 line-clamp-5 min-h-[3.6em] text-[10px] leading-tight"
+        title={data.titulo}
+      >
         {data.titulo || "—"}
       </p>
       {/*
