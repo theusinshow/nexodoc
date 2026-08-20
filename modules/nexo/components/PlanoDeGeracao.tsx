@@ -56,7 +56,7 @@ import {
 import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
 import { conferirPrefeitura } from "../lib/coerencia-do-volume";
 import { usarLarguraDoCopiloto } from "../lib/largura-do-copiloto";
-import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
+import { nomeNaCapa } from "@/server/nexo/disciplinas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { summarizeSelos } from "../lib/agent-context";
 import { MESES_PT } from "@/server/nexo/agent/requirements";
@@ -833,11 +833,11 @@ export function PlanoDeGeracao({
             : (
                 <BlocoDaLd
                   titulo={mesclado.valores.tituloLd ?? ""}
-                  /* O nome de DOCUMENTO da disciplina — o que sai impresso se
-                     ninguém digitar. É o longo, diferente do da capa. */
+                  /* O nome da disciplina como a LD o imprime — o MESMO da
+                     capa. O longo e da separatriz (`nomeNaSeparatriz`). */
                   sugestao={
                     blocos.find((b) => b.codigo)
-                      ? (nomeNoDocumento(blocos.find((b) => b.codigo)!.codigo) ?? "")
+                      ? (nomeNaCapa(blocos.find((b) => b.codigo)!.codigo) ?? "")
                       : ""
                   }
                   onTitulo={(v) => decidir("tituloLd", v, paramsDoAgente.tituloLd)}

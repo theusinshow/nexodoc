@@ -172,13 +172,36 @@ export function disciplinaLabel(code: string): string | undefined {
   return DISCIPLINAS[code.toLowerCase()]?.ui;
 }
 
-/** Como a disciplina sai na CAPA. */
+/**
+ * Como a disciplina sai na CAPA — e no TÍTULO DA LD, que usa o mesmo nome.
+ *
+ * Os dois andam juntos nos documentos reais do escritório: a capa lista
+ * "PROJETO HIDROSSANITÁRIO" e a LD se intitula "LISTA DE DOCUMENTOS PROJETO
+ * HIDROSSANITÁRIO". Quem usa o nome longo é só a separatriz — ver
+ * `nomeNaSeparatriz`, e não troque um pelo outro.
+ */
 export function nomeNaCapa(code: string): string | undefined {
   return DISCIPLINAS[code.toLowerCase()]?.capa;
 }
 
-/** Como a disciplina sai na SEPARATRIZ e no título da LD. */
-export function nomeNoDocumento(code: string): string | undefined {
+/**
+ * Como a disciplina sai na SEPARATRIZ — e SÓ nela.
+ *
+ * Chamava-se `nomeNoDocumento`, e o comentário dizia "na separatriz E no título
+ * da LD". A segunda metade era falsa, e o nome genérico ("no documento") era o
+ * que a tornava plausível: três chamadores leram assim e imprimiram o nome longo
+ * na LD. Medido em 20/08/2026 contra os PDFs que o escritório entregou:
+ *
+ *   disciplina | separatriz                              | LD e capa
+ *   -----------|-----------------------------------------|------------------------
+ *   his        | PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS | PROJETO HIDROSSANITÁRIO
+ *   inc        | PROJETO PREVENTIVO CONTRA INCÊNDIO      | PROJETO PREVENTIVO
+ *   spd        | PROJETO DE SISTEMA DE PROTEÇÃO C.D.A.   | PROJETO SPDA
+ *
+ * A tabela acima já estava no léxico e já estava certa (`documento` e `capa`).
+ * Quem errava era quem lia. O nome novo não deixa mais ler errado.
+ */
+export function nomeNaSeparatriz(code: string): string | undefined {
   return DISCIPLINAS[code.toLowerCase()]?.documento;
 }
 

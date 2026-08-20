@@ -41,7 +41,7 @@ import {
 } from "./generate";
 import { summarizeSelos } from "./agent-context";
 import { codigoDaFolha } from "./disciplina-da-folha";
-import { nomeNoDocumento } from "@/server/nexo/disciplinas";
+import { nomeNaCapa, nomeNaSeparatriz } from "@/server/nexo/disciplinas";
 import { totalDoConjunto } from "./totais";
 import {
   CAMPOS_DA_IDENTIDADE,
@@ -403,7 +403,8 @@ export async function gerarItem(args: {
      * HIDROSSANITÁRIAS". Nome de tela não é nome de documento.
      */
     const titulo =
-      (item.bloco ? nomeNoDocumento(item.bloco.codigo) : "") ||
+      // O titulo da LD leva o nome da CAPA; o longo e da separatriz.
+      (item.bloco ? nomeNaCapa(item.bloco.codigo) : "") ||
       item.bloco?.rotulo.toUpperCase() ||
       txt("tituloLd");
     /*
@@ -472,7 +473,7 @@ export async function gerarItem(args: {
     : [];
   // Mesma regra da LD: a separatriz leva o nome de DOCUMENTO da disciplina.
   const tituloSep =
-    (item.bloco ? nomeNoDocumento(item.bloco.codigo) : "") ||
+    (item.bloco ? nomeNaSeparatriz(item.bloco.codigo) : "") ||
     item.bloco?.rotulo.toUpperCase() ||
     args.tituloDaSeparatriz.trim();
   const titulos = listados.length > 0 ? listados : tituloSep ? [tituloSep] : [];

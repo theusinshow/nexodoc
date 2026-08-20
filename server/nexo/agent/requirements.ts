@@ -69,7 +69,7 @@ export interface SlotFacts {
   dataDoSelo?: { mes: number; ano: number; folhas: number; divergentes: number };
   /**
    * Os títulos derivados da DISCIPLINA, já computados pelo chamador
-   * (`nomeNaCapa`/`nomeNoDocumento`, de `disciplinas.ts`).
+   * (`nomeNaCapa`/`nomeNaSeparatriz`, de `disciplinas.ts`).
    *
    * Chegam injetados pelo mesmo motivo de `templateMatch` e `tomosSugeridos`:
    * este arquivo é folha pura e `disciplinas.ts` é import de runtime. São dois

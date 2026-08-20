@@ -31,7 +31,7 @@ import type { DadosDoEscritorio } from "@/lib/escritorio";
 // dos três nomes de cada disciplina. Os dois são import de runtime, e por isso
 // entram aqui e não em `requirements.ts`, que é folha pura.
 import { dataDominante } from "@/server/nexo/data-do-selo";
-import { nomeNaCapa, nomeNoDocumento } from "@/server/nexo/disciplinas";
+import { nomeNaCapa } from "@/server/nexo/disciplinas";
 
 export interface SlotRequestContext {
   /** Selos crus lidos das pranchas (base das sugestões de título). */
@@ -187,8 +187,9 @@ export function buildSlotRequestForTurn(
     titulos: (() => {
       const code = (ctx.disciplinaCode ?? "").trim();
       if (!code) return undefined;
+      // Capa e LD levam o MESMO nome; o longo e so da separatriz.
       const capa = nomeNaCapa(code);
-      const ld = nomeNoDocumento(code);
+      const ld = capa;
       return capa && ld ? { capa, ld } : undefined;
     })(),
     mesAtual: ctx.mesAtual,

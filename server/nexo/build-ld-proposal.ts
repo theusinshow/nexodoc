@@ -1,6 +1,6 @@
 import { parseFilename, resolveSheetNumbers } from "./parse-filename";
 import { totalDeReferencia } from "./reconcile-sheets";
-import { disciplinaLabel, nomeNoDocumento } from "./disciplinas";
+import { disciplinaLabel, nomeNaCapa } from "./disciplinas";
 import {
   formatSheet,
   buildBalancedTomos,
@@ -78,6 +78,17 @@ export interface LdProposal {
  *  (que num PDF combinado é o do tomo/volume, sem folha/revisão por prancha). */
 function parseSelo(s: SeloForLd) {
   return parseFilename(s.arquivo?.trim() || s.fileName);
+}
+
+/**
+ * Tira a extensão de arquivo do código da prancha, e só ela.
+ *
+ * O corte é ancorado no FIM e limitado a 2-4 letras/dígitos, porque o código do
+ * escritório pode ter ponto no corpo (`040_26_his_1.2_a`) e cortar no primeiro
+ * ponto mutilaria a prancha. `.dwg`, `.pdf` e `.odt` saem; `1.2` fica.
+ */
+function semExtensao(nome: string): string {
+  return nome.replace(/\.[A-Za-z0-9]{2,4}$/, "");
 }
 
 function sheetOrder(sheet: string): number {
@@ -295,8 +306,12 @@ export function buildLdProposal(
       id: `${s.fileName}#${s.pageNumber ?? "?"}`,
       row: {
         sheet,
-        // Coluna ARQUIVOS = campo ARQUIVO do carimbo (código da prancha).
-        file: s.arquivo?.trim() || s.fileName,
+        // Coluna ARQUIVOS = campo ARQUIVO do carimbo (código da prancha), SEM
+        // a extensão. O carimbo traz `040_26_his_001_a.dwg` (o arquivo do CAD)
+        // e a LD do escritório imprime `040_26_his_001_a` — conferido nas LDs
+        // reais de 040-26 e 116-25, onde o único nome com extensão em cada uma
+        // é o caminho de rede do rodapé, nunca uma linha da tabela.
+        file: semExtensao(s.arquivo?.trim() || s.fileName),
         // Descrição limpa dos rótulos do carimbo (IMP/DATA/REV...) — motor provado
         // do módulo LD original, agora compartilhado em lib/ld/stamp-parsing.
         description: cleanStampDescription(s.conteudo || s.tituloSecao || ""),
@@ -356,7 +371,8 @@ export function buildLdProposal(
    */
   const tituloBase = (
     opts.tituloLd?.trim() ||
-    nomeNoDocumento(discCode) ||
+    // O MESMO nome da capa. O longo e da separatriz -- ver `nomeNaSeparatriz`.
+    nomeNaCapa(discCode) ||
     mode(
       validos.map((s) =>
         s.tituloSecao && !isOrgaoLike(s.tituloSecao) ? s.tituloSecao : null,
