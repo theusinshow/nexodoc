@@ -26,7 +26,13 @@ export const CAMPOS_DO_FRAME: CampoDoFrame[] = [
   { marcador: "SECRETARIA", rotulo: "Secretaria", placeholder: "secretaria" },
   { marcador: "ORGAO", rotulo: "Órgão", derivadoDe: "do modelo" },
   { marcador: "FASE", rotulo: "Fase", derivadoDe: "do modelo" },
-  { marcador: "VOLUME", rotulo: "Volume", derivadoDe: "do arquivo" },
+  /*
+   * O VOLUME NAO E FATO. Estava aqui como derivado ("do arquivo"), em cinza,
+   * e desenhar assim um campo que o arquivo quase nunca carrega e prometer
+   * uma origem que nao existe: o builder caia em "Vol. I" calado. E decisao,
+   * e o portao do GERAR nao deixa passar sem ela (`motivoParaNaoGerarCapa`).
+   */
+  { marcador: "VOLUME", rotulo: "Volume", placeholder: "numero do volume" },
   { marcador: "TOMO", rotulo: "Tomo", derivadoDe: "da divisão" },
   { marcador: "CODIGO_EXIBIDO", rotulo: "Código", derivadoDe: "do carimbo" },
   { marcador: "MES_ANO", rotulo: "Data", derivadoDe: "do mês corrente" },

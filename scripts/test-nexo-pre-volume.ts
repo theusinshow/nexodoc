@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 
 import {
   motivoParaNaoGerar,
+  motivoParaNaoGerarCapa,
   motivoParaNaoMontar,
   type PartesDoVolume,
 } from "../modules/nexo/lib/pre-condicoes-do-volume.ts";
@@ -151,6 +152,45 @@ test("selo ilegível não trava a geração", () => {
 
 test("sem nada anexado, não há o que travar", () => {
   assert.equal(motivoParaNaoGerar({ lendo: false, lidas: 0, total: 0 }), null);
+});
+
+/*
+ * A CAPA NAO INVENTA O NUMERO DO VOLUME.
+ *
+ * Medido em 20/08/2026 no volume 10 de 040-26: as pranchas nao carregam o
+ * numero do volume em lugar nenhum -- nem no nome, nem no carimbo. So a pasta
+ * sabe (`10_his_inc_spd`). O builder caia em "1"/"I" calado e a capa saia
+ * "Vol. I" onde o escritorio escreve "Vol. X".
+ *
+ * O campo aparecia em CINZA no frame, marcado "do arquivo" -- apresentado como
+ * fato quando era palpite. Afirmar em vez de perguntar e o modo de falhar que
+ * este produto existe para evitar: o engenheiro so descobriria abrindo o PDF.
+ */
+test("capa no plano sem volume nao gera", () => {
+  assert.match(
+    String(motivoParaNaoGerarCapa({ noPlano: true, volume: "" })),
+    /volume/i,
+  );
+});
+
+test("o motivo diz o que sairia impresso, para a pergunta ter peso", () => {
+  assert.match(String(motivoParaNaoGerarCapa({ noPlano: true, volume: "" })), /Vol\. I/);
+});
+
+test("volume dito libera a geracao", () => {
+  assert.equal(motivoParaNaoGerarCapa({ noPlano: true, volume: "10" }), null);
+});
+
+test("so espaco nao e resposta", () => {
+  assert.match(String(motivoParaNaoGerarCapa({ noPlano: true, volume: "   " })), /volume/i);
+});
+
+/*
+ * SEM CAPA NO PLANO nao ha o que travar: um turno que gera so LD e separatriz
+ * nao imprime volume nenhum.
+ */
+test("plano sem capa nao trava por volume", () => {
+  assert.equal(motivoParaNaoGerarCapa({ noPlano: false, volume: "" }), null);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

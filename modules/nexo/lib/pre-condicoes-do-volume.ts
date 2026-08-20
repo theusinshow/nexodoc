@@ -116,3 +116,36 @@ export function motivoParaNaoGerar(leitura: LeituraDosSelos): string | null {
     ? `Ainda lendo os selos — ${lidas} de ${total} folhas. Gerar agora deixaria folhas de fora.`
     : "Ainda lendo os selos. Gerar agora deixaria folhas de fora.";
 }
+
+/** O que a tela sabe sobre a capa deste turno. */
+export interface CapaDoPlano {
+  /** Há uma capa entre os documentos que este turno vai gerar. */
+  noPlano: boolean;
+  /** O número do volume, como decidido ou derivado do nome do arquivo. */
+  volume: string;
+}
+
+/**
+ * O QUE IMPEDE GERAR A CAPA — e é o número do volume, quando ninguém o disse.
+ *
+ * O builder cai em "1"/"I" quando não acha o volume em lugar nenhum, e a capa
+ * sai "Vol. I" sem que ninguém tenha decidido isso. Medido em 20/08/2026 no
+ * volume 10 de 040-26: as pranchas não carregam o número do volume — nem no
+ * nome, nem no carimbo —, só a pasta sabe (`10_his_inc_spd`). O escritório
+ * escreve "Vol. X"; o Nexo escrevia "Vol. I".
+ *
+ * O campo ainda aparecia em CINZA no frame, marcado "do arquivo": apresentado
+ * como fato quando era palpite. Afirmar em vez de perguntar é o modo de falhar
+ * que este produto existe para evitar — o engenheiro só descobriria abrindo o
+ * PDF, e uma capa com o volume errado é volume reemitido.
+ *
+ * O default do builder CONTINUA lá, de propósito: ele é a rede para o caminho
+ * que não passe por aqui, e uma capa com "Vol. I" é menos ruim que uma capa com
+ * "Vol. " vazio. O que muda é que o caminho normal não chega mais nele.
+ */
+export function motivoParaNaoGerarCapa(capa: CapaDoPlano): string | null {
+  if (!capa.noPlano) return null;
+  return capa.volume.trim()
+    ? null
+    : "Diga o número do volume — sem ele a capa sai como Vol. I, sem ninguém ter decidido.";
+}

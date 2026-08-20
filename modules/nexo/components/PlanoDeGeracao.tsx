@@ -51,6 +51,7 @@ import {
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
 import {
   motivoParaNaoGerar,
+  motivoParaNaoGerarCapa,
   type LeituraDosSelos,
 } from "../lib/pre-condicoes-do-volume";
 import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
@@ -277,6 +278,7 @@ export function PlanoDeGeracao({
    */
   const motivoDeEspera = leitura ? motivoParaNaoGerar(leitura) : null;
 
+
   const capaCrua = proposals.find((p) => p.kind === "capa")?.params as
     | NexoCapaProposalParams
     | undefined;
@@ -411,6 +413,15 @@ export function PlanoDeGeracao({
   });
 
   const itens = itensDoPlano(propostas, blocos, selos);
+  /*
+   * A CAPA NAO INVENTA O NUMERO DO VOLUME. Sem ele o builder cai em "Vol. I"
+   * calado, e o engenheiro so descobre abrindo o PDF.
+   */
+  const motivoDoVolume = motivoParaNaoGerarCapa({
+    noPlano: itens.some((i) => i.kind === "capa"),
+    volume: mesclado.valores.volume ?? "",
+  });
+  const motivoDeBloqueio = motivoDeEspera ?? motivoDoVolume;
   if (itens.length === 0) return null;
 
   const capa = propostas.find((p) => p.kind === "capa")?.params as
@@ -1008,7 +1019,7 @@ export function PlanoDeGeracao({
               ocupado ||
               semTitulo ||
               Boolean(problemaDePrefeitura) ||
-              Boolean(motivoDeEspera)
+              Boolean(motivoDeBloqueio)
             }
           >
             {ocupado ? (
@@ -1033,10 +1044,10 @@ export function PlanoDeGeracao({
            * chat um campo que agora está no card, aceso, na forma em que sai
            * impresso. A frase aponta para o campo, não para outro lugar.
            */}
-          {motivoDeEspera && (
-            <span className="text-xs text-muted-foreground">{motivoDeEspera}</span>
+          {motivoDeBloqueio && (
+            <span className="text-xs text-muted-foreground">{motivoDeBloqueio}</span>
           )}
-          {!motivoDeEspera && (semTitulo || problemaDePrefeitura) && (
+          {!motivoDeBloqueio && (semTitulo || problemaDePrefeitura) && (
             <span className="text-xs text-muted-foreground">
               {problemaDePrefeitura
                 ? /*
