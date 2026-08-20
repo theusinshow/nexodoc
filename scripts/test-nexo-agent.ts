@@ -228,6 +228,53 @@ test("normalizeProposals: ld com defaults (titulo vazio, tomos 1)", () => {
   assert.equal((r[0].params as { numTomos: number }).numTomos, 1);
 });
 
+/*
+ * A DATA DA CAPA SAI DO CARIMBO, NAO DO RELOGIO.
+ *
+ * Medido em 20/08/2026 no volume 10 de 040-26: as 20 pranchas dizem
+ * JUNHO/2026 no carimbo e a capa saia AGOSTO/2026, o mes em que foi montada.
+ * Num volume reemitido meses depois, a capa passa a discordar de todas as
+ * pranchas que ela encaderna.
+ *
+ * A regra ja existia nos slots (`mesSlot` deriva de `facts.dataDoSelo`) e no
+ * comentario que a acompanha -- "a fonte e o DOCUMENTO, nao o relogio". O que
+ * faltava era a resolucao CHEGAR na proposta: `mes`/`ano` vinham so do que o
+ * modelo emitia, e o modelo os deixava vazios.
+ */
+test("normalizeProposals: capa sem data usa a do carimbo", () => {
+  const r = normalizeProposals([{ kind: "capa", prefeitura: "Chapecó" }], {
+    disciplina: "EST",
+    prefeituras: PREFS,
+    dataDoSelo: { mes: 6, ano: 2026 },
+  });
+  const p = r[0].params as { mes: string; ano: string };
+  assert.equal(p.mes, "6");
+  assert.equal(p.ano, "2026");
+});
+
+test("normalizeProposals: data pedida na conversa vence o carimbo", () => {
+  const r = normalizeProposals(
+    [{ kind: "capa", prefeitura: "Chapecó", mes: "9", ano: "2027" }],
+    { disciplina: "EST", prefeituras: PREFS, dataDoSelo: { mes: 6, ano: 2026 } },
+  );
+  const p = r[0].params as { mes: string; ano: string };
+  assert.equal(p.mes, "9");
+  assert.equal(p.ano, "2027");
+});
+
+/*
+ * SEM DATA NO CARIMBO nada muda: vazio continua significando "use o padrao do
+ * builder", que e o mes corrente. E o comportamento de quem nao pediu data.
+ */
+test("normalizeProposals: sem data no carimbo, o campo segue vazio", () => {
+  const r = normalizeProposals([{ kind: "capa", prefeitura: "Chapecó" }], {
+    disciplina: "EST",
+    prefeituras: PREFS,
+  });
+  const p = r[0].params as { mes: string; ano: string };
+  assert.equal(p.mes, "");
+  assert.equal(p.ano, "");
+});
 test("normalizeProposals: capa mapeia prefeitura pelo nome", () => {
   const r = normalizeProposals(
     [{ kind: "capa", prefeitura: "Chapecó", volume: "2", numTomos: 4 }],

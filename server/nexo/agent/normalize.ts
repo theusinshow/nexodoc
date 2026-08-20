@@ -25,6 +25,20 @@ export interface NormalizeContext {
    * casamento é exatamente o de antes.
    */
   escritorio?: DadosDoEscritorio;
+  /**
+   * A DATA DOMINANTE DOS CARIMBOS deste conjunto, quando ha uma.
+   *
+   * A capa saia com o mes em que foi montada: 20 pranchas dizendo JUNHO/2026 e
+   * a capa imprimindo AGOSTO/2026. Num volume reemitido meses depois, ela passa
+   * a discordar de todas as pranchas que encaderna.
+   *
+   * A regra ja existia nos slots (`mesSlot` deriva de `facts.dataDoSelo`) e no
+   * comentario que a acompanha -- "a fonte e o DOCUMENTO, nao o relogio". O que
+   * faltava era a resolucao CHEGAR aqui: `mes`/`ano` saiam so do que o modelo
+   * emitia, e o modelo os deixava vazios. Mesma `dataDominante` que o
+   * `slot-request` ja chama -- uma fonte, dois consumidores.
+   */
+  dataDoSelo?: { mes: number; ano: number };
 }
 
 /** minúsculas + sem acento + espaço colapsado. */
@@ -426,8 +440,14 @@ export function normalizeProposals(
            * Vazio continua significando "use o padrão do builder", que é o
            * comportamento de quem não pediu data nenhuma.
            */
-          mes: String(p.mes ?? "").trim(),
-          ano: String(p.ano ?? "").trim(),
+          // O que foi PEDIDO vence; o carimbo preenche o silencio; vazio nos
+          // dois continua significando "use o padrao do builder".
+          mes:
+            String(p.mes ?? "").trim() ||
+            (ctx.dataDoSelo ? String(ctx.dataDoSelo.mes) : ""),
+          ano:
+            String(p.ano ?? "").trim() ||
+            (ctx.dataDoSelo ? String(ctx.dataDoSelo.ano) : ""),
         },
       });
     } else if (p.kind === "separatriz") {

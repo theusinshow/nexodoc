@@ -55,6 +55,8 @@ export interface RunNexoAgentTurnInput {
    * conta de cabeça é onde ele inventa.
    */
   tomosSugeridos?: number;
+  /** Data dominante dos carimbos — a fonte da data da capa. */
+  dataDoSelo?: { mes: number; ano: number };
   /**
    * Quem EMITE. O modelo às vezes devolve como "prefeitura" a linha do carimbo
    * inteira, endereço do escritório junto — e é o casamento, não o modelo, que
@@ -275,6 +277,8 @@ export async function runNexoAgentTurn(
       disciplina: input.resumo.disciplina,
       prefeituras: input.prefeituras,
       escritorio: input.escritorio,
+      // A data da capa sai do CARIMBO, nao do relogio. Ver `NormalizeContext`.
+      ...(input.dataDoSelo ? { dataDoSelo: input.dataDoSelo } : {}),
     }),
     usage,
   };
@@ -363,6 +367,8 @@ export async function* runNexoAgentTurnStream(
       disciplina: input.resumo.disciplina,
       prefeituras: input.prefeituras,
       escritorio: input.escritorio,
+      // A data da capa sai do CARIMBO, nao do relogio. Ver `NormalizeContext`.
+      ...(input.dataDoSelo ? { dataDoSelo: input.dataDoSelo } : {}),
     }),
     usage,
   };

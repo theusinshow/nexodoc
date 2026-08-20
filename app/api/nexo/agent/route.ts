@@ -16,6 +16,7 @@ import { sugerirNumeroDeTomos } from "@/lib/ld/ld-rules";
 import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
 import { carregarEscritorio } from "@/lib/escritorio-config";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { dataDominante } from "@/server/nexo/data-do-selo";
 
 export const runtime = "nodejs";
 
@@ -209,6 +210,12 @@ export async function POST(req: NextRequest) {
     // de runtime e os módulos do agente são folhas puras.
     tomosSugeridos: sugerirNumeroDeTomos(selos.length),
     /*
+     * A MESMA `dataDominante` que o `slot-request` chama para o slot do mes.
+     * Uma fonte, dois consumidores: se aqui fosse outra conta, a capa e a
+     * pergunta do chat poderiam discordar sobre a data do mesmo conjunto.
+     */
+    dataDoSelo: dataDominante(selos.map((s) => s.data)) ?? undefined,
+    /*
      * O que o engenheiro já decidiu no frame do documento. Sem isto o
      * resolvedor pede de novo, no chat, o título que ele acabou de digitar no
      * card — que é o oposto do que o frame existe para fazer.
@@ -238,6 +245,8 @@ export async function POST(req: NextRequest) {
               conversationId,
               userEmail,
               tomosSugeridos: slotContext.tomosSugeridos,
+              // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
+              dataDoSelo: slotContext.dataDoSelo,
             },
             req.signal,
           )) {
@@ -290,6 +299,8 @@ export async function POST(req: NextRequest) {
       conversationId,
       userEmail,
       tomosSugeridos: slotContext.tomosSugeridos,
+      // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
+      dataDoSelo: slotContext.dataDoSelo,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });
