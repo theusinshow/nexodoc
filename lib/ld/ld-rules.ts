@@ -67,6 +67,77 @@ export function buildBalancedQuantities(total: number, count: number) {
 }
 
 /**
+ * A DIVISÃO EM TOMOS RESPEITANDO A FRONTEIRA DA DISCIPLINA.
+ *
+ * `buildBalancedQuantities` reparte por contagem crua, e num volume misto isso
+ * corta dentro de um bloco. Medido em 20/08/2026 no volume 10 de 040-26
+ * (HIS 11 · INC 5 · SPD 4): com 20 folhas o sugeridor pede 2 tomos, e a
+ * repartição dava 10 + 10 — o corte caía DENTRO do hidrossanitário, que ia com
+ * 10 folhas no tomo 1 e UMA no tomo 2. Uma folha órfã, com separatriz e LD
+ * próprias, num tomo de outra disciplina.
+ *
+ * A unidade de encadernação é o BLOCO, não a folha: o que se leva para a gráfica
+ * é "o hidrossanitário inteiro", nunca dez eleventos dele. E seis dos oito
+ * volumes reais do escritório são mistos, então este é o caso comum.
+ *
+ * A busca é exaustiva sobre os cortes possíveis, como a de `sugerirNumeroDeTomos`
+ * e pelo mesmo motivo: os blocos são poucos (um por disciplina) e a regra é mais
+ * fácil de conferir assim do que numa fórmula fechada. Ganha o mais parelho;
+ * empatou, ganha quem chega mais perto do ALVO.
+ *
+ * QUANDO NÃO DÁ, cai na repartição por contagem — que é o comportamento de
+ * sempre: um bloco só (volume de disciplina única) não tem onde cortar sem
+ * partir, e mais tomos do que blocos obriga a partir algum.
+ */
+export function repartirPorBlocos(
+  tamanhos: readonly number[],
+  numTomos: number,
+): number[] {
+  const tomos = Math.max(1, Math.trunc(numTomos));
+  const total = tamanhos.reduce((soma, n) => soma + n, 0);
+  if (tomos === 1) return [total];
+  // Sem bloco para cortar entre, a fronteira não existe: vale a conta antiga.
+  if (tamanhos.length < 2 || tomos > tamanhos.length) {
+    return buildBalancedQuantities(total, tomos);
+  }
+
+  let melhor: number[] | null = null;
+  let melhorNota: [number, number] | null = null;
+
+  /** Escolhe `tomos - 1` cortes entre os `tamanhos.length - 1` intervalos. */
+  const tentar = (cortes: number[]) => {
+    const baldes: number[] = [];
+    let inicio = 0;
+    for (const corte of [...cortes, tamanhos.length]) {
+      baldes.push(tamanhos.slice(inicio, corte).reduce((soma, n) => soma + n, 0));
+      inicio = corte;
+    }
+    const nota: [number, number] = [
+      Math.max(...baldes) - Math.min(...baldes), // parelho
+      Math.max(...baldes.map((b) => Math.abs(b - TOMO_ALVO))), // perto do alvo
+    ];
+    const ganha =
+      melhorNota === null ||
+      nota[0] < melhorNota[0] ||
+      (nota[0] === melhorNota[0] && nota[1] < melhorNota[1]);
+    if (ganha) {
+      melhor = baldes;
+      melhorNota = nota;
+    }
+  };
+
+  const combinar = (inicio: number, faltam: number, escolhidos: number[]) => {
+    if (faltam === 0) return tentar(escolhidos);
+    for (let i = inicio; i <= tamanhos.length - faltam; i++) {
+      combinar(i + 1, faltam - 1, [...escolhidos, i]);
+    }
+  };
+  combinar(1, tomos - 1, []);
+
+  return melhor ?? buildBalancedQuantities(total, tomos);
+}
+
+/**
  * A divisão em tomos que o escritório usa: ~12 pranchas por tomo, nunca menos de
  * 9, nunca mais de 15, e o mais parelho possível.
  *

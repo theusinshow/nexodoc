@@ -75,9 +75,10 @@ import {
 } from "../lib/assemble-volume";
 import { entregarVolume } from "@/server/nexo/entrega-do-volume";
 import { titulosDoBloco } from "@/server/nexo/titulos-do-bloco";
+import { repartirDaLista } from "../lib/blocos";
 import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
 import { summarizeSelos } from "../lib/agent-context";
-import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { buildBalancedQuantities, repartirPorBlocos } from "@/lib/ld/ld-rules";
 import { plural } from "@/lib/plural";
 import { gruposDasFolhas, type Folha } from "../lib/folhas";
 import {
@@ -1641,7 +1642,16 @@ function VolumeConfirmation({
     if (tomo.atual === 0) return selos;
     const total = tomosDoVolumeTotal(selos, results);
     const projecao = selos as Folha[];
-    const divisao = gruposDasFolhas(projecao, total, buildBalancedQuantities);
+    /*
+     * O corte de tomo cai ENTRE disciplinas. Repartir por contagem crua partia
+     * o bloco ao meio -- no volume 10 de 040-26, dez folhas do hidrossanitario
+     * num tomo e UMA no outro. Ver `repartirPorBlocos`.
+     */
+    const divisao = gruposDasFolhas(
+      projecao,
+      total,
+      repartirDaLista(projecao, codigoDaFolha, repartirPorBlocos, buildBalancedQuantities),
+    );
     const doTomo = folhasDoTomo(projecao, divisao, tomo.atual);
     return doTomo.length > 0 ? doTomo : selos;
   }, [selos, results, tomo.atual]);

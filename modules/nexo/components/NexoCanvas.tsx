@@ -48,7 +48,9 @@ import { AcaoDoNo } from "./AcaoDoNo";
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
+import { buildBalancedQuantities, repartirPorBlocos } from "@/lib/ld/ld-rules";
+import { repartirDaLista } from "../lib/blocos";
+import { codigoDaFolha } from "../lib/disciplina-da-folha";
 import {
   chaveDeOrdem,
   gruposDasFolhas,
@@ -531,7 +533,14 @@ function CanvasInterno({
      * voltar para o lugar, porque a tela continuaria dividindo por contagem.
      */
     const divisao =
-      tomosReais > 1 ? gruposDasFolhas(folhas, tomosReais, buildBalancedQuantities) : [];
+      tomosReais > 1
+        ? gruposDasFolhas(
+            folhas,
+            tomosReais,
+            // O corte cai ENTRE disciplinas -- ver `repartirPorBlocos`.
+            repartirDaLista(folhas, codigoDaFolha, repartirPorBlocos, buildBalancedQuantities),
+          )
+        : [];
     const porId = new Map(folhas.map((f) => [f.id, f]));
 
     // As folhas de cada fileira, decididas ANTES de posicionar: a altura da

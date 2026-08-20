@@ -10,7 +10,9 @@
  * `opcoesDoTomo` veio junto porque `payloadDoItem` depende dela e deixá-la para
  * trás obrigaria a importar o módulo aliasado de volta.
  */
-import { buildBalancedQuantities } from "../../../lib/ld/ld-rules.ts";
+import { buildBalancedQuantities, repartirPorBlocos } from "../../../lib/ld/ld-rules.ts";
+import { repartirDaLista } from "./blocos.ts";
+import { codigoDaFolha } from "./disciplina-da-folha.ts";
 import { nomeNaCapa, nomeNaSeparatriz } from "../../../server/nexo/disciplinas.ts";
 import type { SeloForLd } from "../../../server/nexo/build-ld-proposal.ts";
 import { gruposDasFolhas, type Folha } from "./folhas.ts";
@@ -51,7 +53,12 @@ export function opcoesDoTomo(
 } {
   if (tomoAtual <= 0) return { doTomo: [], opts: {} };
   const projecao = selos as Folha[];
-  const divisao = gruposDasFolhas(projecao, numTomos, buildBalancedQuantities);
+  // O corte de tomo cai ENTRE disciplinas -- ver `repartirPorBlocos`.
+  const divisao = gruposDasFolhas(
+    projecao,
+    numTomos,
+    repartirDaLista(projecao, codigoDaFolha, repartirPorBlocos, buildBalancedQuantities),
+  );
   const doTomo = folhasDoTomo(projecao, divisao, tomoAtual);
   if (doTomo.length === 0) return { doTomo, opts: {} };
   return {

@@ -258,3 +258,52 @@ export function fundirBlocos(
     .map((bloco, i) => (i === primeiro ? fundido : bloco))
     .filter((_, i) => i !== segundo);
 }
+
+/**
+ * As CORRIDAS de disciplina na ordem da projeção — quantas folhas seguidas de
+ * cada disciplina, antes de a próxima começar.
+ *
+ * Corridas, e não blocos: a divisão em tomos corta por POSIÇÃO na lista, então
+ * o que precisa casar é a sequência real, não o agrupamento lógico. Num projeto
+ * cujas folhas chegaram intercaladas, os blocos não são contíguos e cortar
+ * "entre blocos" não teria onde cair — as corridas sempre têm.
+ */
+export function corridasDeDisciplina(
+  lista: readonly Folha[],
+  codigoDe: (folha: Folha) => string,
+): number[] {
+  const corridas: number[] = [];
+  let atual = "";
+  for (const folha of lista) {
+    const codigo = codigoDe(folha).trim().toLowerCase();
+    if (corridas.length === 0 || codigo !== atual) {
+      corridas.push(1);
+      atual = codigo;
+    } else {
+      corridas[corridas.length - 1] += 1;
+    }
+  }
+  return corridas;
+}
+
+/**
+ * A repartição em tomos que ESTA lista pede: por corrida de disciplina quando
+ * elas existem, por contagem quando não.
+ *
+ * Devolve um `Repartir` pronto para `gruposDasFolhas`. O guarda do total é o que
+ * torna isto seguro: `gruposDasFolhas` reparte só as folhas SEM grupo manual, e
+ * quando alguém arrastou folhas no canvas as corridas não descrevem mais o que
+ * vai ser repartido — aí a conta antiga volta, e a decisão de quem arrastou
+ * continua valendo.
+ */
+export function repartirDaLista(
+  lista: readonly Folha[],
+  codigoDe: (folha: Folha) => string,
+  porBlocos: (tamanhos: readonly number[], numTomos: number) => number[],
+  porContagem: (total: number, numTomos: number) => number[],
+): (total: number, numTomos: number) => number[] {
+  const corridas = corridasDeDisciplina(lista, codigoDe);
+  const soma = corridas.reduce((a, n) => a + n, 0);
+  return (total, numTomos) =>
+    total === soma ? porBlocos(corridas, numTomos) : porContagem(total, numTomos);
+}

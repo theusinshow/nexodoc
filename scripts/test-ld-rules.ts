@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   buildBalancedQuantities,
+  repartirPorBlocos,
   buildBalancedTomos,
   compareBySheet,
   formatSheet,
@@ -218,6 +219,52 @@ check("quantidade zero ou negativa vira 1", () => {
   const tomos = updateTomoQuantity(buildBalancedTomos(10, 2), 10, 0, 0);
   assert.equal(tomos[0].quantity, 1);
   assert.equal(somaDosTomos(tomos), 10);
+});
+
+// ---------------------------------------------------------------------------
+// repartirPorBlocos -- o corte de tomo cai ENTRE disciplinas
+// ---------------------------------------------------------------------------
+//
+// Medido em 20/08/2026 no volume 10 de 040-26 (HIS 11 - INC 5 - SPD 4). Com 20
+// folhas o sugeridor pede 2 tomos, e `buildBalancedQuantities` repartia por
+// contagem crua: 10 + 10. O corte caia DENTRO do hidrossanitario, que ia 10
+// folhas no tomo 1 e UMA no tomo 2 -- uma folha orfa, com separatriz e LD
+// proprias, num tomo de outra disciplina.
+//
+// A unidade de encadernacao e o BLOCO, nao a folha. E 6 dos 8 volumes reais do
+// escritorio sao mistos, entao isto e o caso comum.
+
+check("o corte cai entre blocos, nao no meio de um", () => {
+  assert.deepEqual(repartirPorBlocos([11, 5, 4], 2), [11, 9]);
+});
+
+check("escolhe o corte mais parelho entre os possiveis", () => {
+  // [6,6,6,6]: 12+12 e mais parelho que 6+18 ou 18+6.
+  assert.deepEqual(repartirPorBlocos([6, 6, 6, 6], 2), [12, 12]);
+});
+
+check("tres tomos, tres cortes entre blocos", () => {
+  assert.deepEqual(repartirPorBlocos([10, 4, 6, 12], 3), [10, 10, 12]);
+});
+
+/*
+ * UM BLOCO SO nao tem onde cortar sem partir: cai na repartição por contagem,
+ * que e o comportamento de sempre do volume de disciplina unica.
+ */
+check("bloco unico volta a repartir por contagem", () => {
+  assert.deepEqual(repartirPorBlocos([24], 2), [12, 12]);
+});
+
+check("mais tomos que blocos volta a repartir por contagem", () => {
+  assert.deepEqual(repartirPorBlocos([11, 5, 4], 5), buildBalancedQuantities(20, 5));
+});
+
+check("um tomo leva tudo", () => {
+  assert.deepEqual(repartirPorBlocos([11, 5, 4], 1), [20]);
+});
+
+check("sem bloco nenhum devolve vazio, sem estourar", () => {
+  assert.deepEqual(repartirPorBlocos([], 2), buildBalancedQuantities(0, 2));
 });
 
 // ---------------------------------------------------------------------------
