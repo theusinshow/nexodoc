@@ -319,7 +319,7 @@ export function PlanoDeGeracao({
   const paramsDoAgente: Record<string, string> = {
     templateId: capaCrua?.templateId?.trim() || sepCrua?.templateId?.trim() || "",
     /*
-     * A LISTA DE DISCIPLINAS AINDA NÃO ENTRA AQUI, e o motivo é o MODELO.
+     * A LISTA DE DISCIPLINAS É O TÍTULO DA CAPA — e não a obra.
      *
      * `titulosPropostos` já sabe a regra certa e está testada: o slot do título
      * da capa leva as disciplinas do volume, não a obra — hoje a obra sai
@@ -338,7 +338,11 @@ export function PlanoDeGeracao({
      * que o escritório entrega. Enquanto isso não acontece, a obra repetida é
      * menos grave que a capa sem código.
      */
-    ...titulosPropostos({ capa: capaCrua?.tituloCapa, ld: ldCrua?.tituloLd }, tituloDoCarimbo),
+    ...titulosPropostos(
+      { capa: capaCrua?.tituloCapa, ld: ldCrua?.tituloLd },
+      tituloDoCarimbo,
+      tituloSugerido,
+    ),
     volume: capaCrua?.volume ?? "",
     mes: capaCrua?.mes ?? "",
     ano: capaCrua?.ano ?? "",
