@@ -249,13 +249,30 @@ export function buildLdProposal(
   const dito = (valor: string | undefined) => valor?.trim() || "";
 
   // Identidade: preferir o código do CARIMBO (per-prancha).
+/*
+   * A FATIA EM ESCOPO — as folhas que ESTA LD vai listar.
+   *
+   * Calculada aqui em cima porque a identidade da LD depende dela: sem isto o
+   * bloco de 4 folhas de SPDA se dizia hidrossanitario, que e a disciplina
+   * majoritaria do VOLUME. O PDF escapava porque o titulo chega pronto de quem
+   * gerou; quem via o erro era a tela ("LD HIDROSSANITARIO" nas tres).
+   */
+  const idsEmEscopo = opts.folhasDoTomo?.length ? new Set(opts.folhasDoTomo) : null;
+  const naSelecao = (s: SeloForLd) =>
+    !idsEmEscopo || idsEmEscopo.has(`${s.fileName}#${s.pageNumber ?? "?"}`);
+  // Uma fatia que nao casa com nada nao pode zerar a identidade: cai no conjunto.
+  const escolhidos = validos.filter(naSelecao);
+  const emEscopo = escolhidos.length > 0 ? escolhidos : validos;
+
   const parsedList = validos.map(parseSelo);
   const codigo = dito(opts.codigo) || mode(parsedList.map((p) => p.codigo)) || "";
   const revisao = dito(opts.revisao) || mode(parsedList.map((p) => p.revisao)) || "a";
 
+  // DO ESCOPO, nao do volume: a LD do bloco fala da disciplina DELE.
+  const parsedEmEscopo = emEscopo.map(parseSelo);
   const discCode =
-    mode(parsedList.flatMap((p) => p.disciplinas)) ||
-    mode(validos.map((s) => s.disciplina)).toLowerCase();
+    mode(parsedEmEscopo.flatMap((p) => p.disciplinas)) ||
+    mode(emEscopo.map((s) => s.disciplina)).toLowerCase();
   const discLabel = (disciplinaLabel(discCode) ?? (discCode || "GERAL")).toUpperCase();
 
   const obra = dito(opts.obra) || mode(validos.map((s) => s.obra));
@@ -304,14 +321,9 @@ export function buildLdProposal(
    *
    * Sem fatia, a seleção é o conjunto inteiro e nada muda.
    */
-  const daSelecao = opts.folhasDoTomo?.length
-    ? (() => {
-        const alvo = new Set(opts.folhasDoTomo);
-        return validos
-          .map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }))
-          .filter(({ selo }) => alvo.has(`${selo.fileName}#${selo.pageNumber ?? "?"}`));
-      })()
-    : validos.map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }));
+  const daSelecao = validos
+    .map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }))
+    .filter(({ selo }) => naSelecao(selo));
   // Uma fatia que não casa com nada não pode zerar o total: cai no conjunto.
   const populacao = daSelecao.length > 0 ? daSelecao : validos.map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }));
 

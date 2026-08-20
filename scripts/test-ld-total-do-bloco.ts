@@ -159,4 +159,46 @@ test("total do carimbo menor que a contagem não vale", () => {
   assert.deepEqual(denominadores(ld.input.rows), ["04"]);
 });
 
+/*
+ * A DISCIPLINA DA LD TAMBEM E A DO BLOCO.
+ *
+ * Mesmo defeito do denominador, noutro campo: `discCode` saia de `mode()`
+ * sobre TODOS os selos, entao o bloco de 4 folhas de SPDA se dizia
+ * hidrossanitario -- a disciplina majoritaria do volume. O PDF saia certo
+ * porque o titulo chega pronto de quem gerou; quem via o erro era a tela: as
+ * tres LDs do volume 10 apareciam na lateral como "LD HIDROSSANITARIO".
+ *
+ * E o titulo so escapava por sorte: sem `tituloLd` no chamador, `nomeNaCapa`
+ * receberia o codigo errado e o PDF sairia com o nome da outra disciplina.
+ */
+test("o resumo do bloco traz a disciplina DELE", () => {
+  const ld = buildLdProposal(VOLUME, { folhasDoTomo: SPD.map(id), respeitarOrdem: true });
+  assert.equal(ld.resumo.disciplinaCode, "spd");
+  assert.equal(ld.resumo.disciplina, "SPDA");
+});
+
+test("o bloco preventivo nao se diz hidrossanitario", () => {
+  const ld = buildLdProposal(VOLUME, { folhasDoTomo: INC.map(id), respeitarOrdem: true });
+  assert.equal(ld.resumo.disciplinaCode, "inc");
+});
+
+/*
+ * SEM FATIA, a disciplina continua sendo a majoritaria do conjunto -- o
+ * caminho de volume de disciplina unica, que nao pode ter mexido.
+ */
+test("sem fatia, a disciplina e a majoritaria do conjunto", () => {
+  assert.equal(buildLdProposal(VOLUME, {}).resumo.disciplinaCode, "his");
+});
+
+/*
+ * TOMO de uma disciplina so continua dizendo a mesma coisa nos dois tomos.
+ */
+test("tomo nao muda a disciplina", () => {
+  const est = Array.from({ length: 24 }, (_, i) => selo("est", i + 1, 24));
+  const t1 = buildLdProposal(est, { folhasDoTomo: est.slice(0, 12).map(id) });
+  const t2 = buildLdProposal(est, { folhasDoTomo: est.slice(12).map(id) });
+  assert.equal(t1.resumo.disciplinaCode, "est");
+  assert.equal(t2.resumo.disciplinaCode, "est");
+});
+
 console.log(`\n${passed} teste(s) passaram.`);
