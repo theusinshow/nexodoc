@@ -417,6 +417,14 @@ export function NexoChat({
                   /* A prévia das folhas voltava do servidor todo turno e não
                      tinha para onde ir desde que este card assumiu a LD. */
                   ldPreview={m.ldPreview}
+                  /* Gerar no meio da leitura sai curto e calado: a última
+                     disciplina do volume perde as folhas que ainda não
+                     chegaram. O card tranca o botão enquanto isso. */
+                  leitura={{
+                    lendo: Boolean(readStatus?.busy),
+                    lidas: readStatus?.done ?? 0,
+                    total: readStatus?.total ?? 0,
+                  }}
                 />
               )}
               {m.proposals

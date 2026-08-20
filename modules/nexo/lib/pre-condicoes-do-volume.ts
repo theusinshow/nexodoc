@@ -77,3 +77,42 @@ export function motivoParaNaoMontar(partes: PartesDoVolume): string | null {
   }
   return null;
 }
+
+/** O que a tela sabe sobre a leitura dos selos neste instante. */
+export interface LeituraDosSelos {
+  /** A leitura ainda está em voo. */
+  lendo: boolean;
+  /** Quantas folhas já voltaram do leitor. */
+  lidas: number;
+  /** Quantas folhas foram anexadas. */
+  total: number;
+}
+
+/**
+ * O QUE IMPEDE GERAR AGORA — e é uma coisa só: a leitura ainda não acabou.
+ *
+ * O plano de geração recalcula os blocos a cada render, então a TELA sempre
+ * mostra o número certo. O artefato, não: ele sai do que existia no instante do
+ * clique. Gerar no meio da leitura produz uma LD curta sem dizer nada.
+ *
+ * Medido em 20/08/2026 no volume 10 de 040-26: clicando GERAR com 18 das 20
+ * folhas lidas, o bloco SPDA anunciava 4 folhas na tela e a LD saiu com 2. O
+ * volume foi montado com 25 páginas em vez de 27 — duas pranchas a menos num
+ * documento que vai para a prefeitura, e nenhum aviso em lugar nenhum.
+ *
+ * A leitura segue a ordem do upload, então quem perde é sempre a ÚLTIMA
+ * disciplina do volume. Num volume misto — 6 dos 8 reais são — isso é a regra,
+ * não o azar.
+ *
+ * NÃO trava por selo ilegível: a folha cujo carimbo não foi lido existe como
+ * objeto, entra na LD como "sem título no selo" e é corrigível no canvas.
+ * Travar por isso impediria de gerar um volume que o escritório aceita.
+ */
+export function motivoParaNaoGerar(leitura: LeituraDosSelos): string | null {
+  if (!leitura.lendo) return null;
+  const total = Math.max(0, Math.trunc(leitura.total));
+  const lidas = Math.max(0, Math.min(Math.trunc(leitura.lidas), total || Infinity));
+  return total > 0
+    ? `Ainda lendo os selos — ${lidas} de ${total} folhas. Gerar agora deixaria folhas de fora.`
+    : "Ainda lendo os selos. Gerar agora deixaria folhas de fora.";
+}

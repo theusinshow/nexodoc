@@ -14,6 +14,7 @@
 import assert from "node:assert/strict";
 
 import {
+  motivoParaNaoGerar,
   motivoParaNaoMontar,
   type PartesDoVolume,
 } from "../modules/nexo/lib/pre-condicoes-do-volume.ts";
@@ -106,6 +107,50 @@ test("a falta da capa vence a dispensa da LD", () => {
     String(motivoParaNaoMontar(pronto({ temCapa: false, temLd: false, codigo: "snd" }))),
     /capa/i,
   );
+});
+
+/*
+ * A LEITURA EM VOO NÃO PODE GERAR — o defeito medido em 20/08/2026 no volume 10
+ * de 040-26.
+ *
+ * Clicando "GERAR" enquanto os selos ainda eram lidos, o plano montava a LD com
+ * as folhas que já tinham chegado. A leitura vai na ordem do upload, então quem
+ * perde é sempre a ÚLTIMA disciplina: o bloco SPDA anunciava 4 folhas na tela e
+ * saía com 2 na LD — e o volume foi embora com 25 páginas em vez de 27, sem uma
+ * palavra. Duas pranchas a menos num documento que vai para a prefeitura.
+ *
+ * A tela mostrava o número certo porque ela recalcula a cada render; o artefato
+ * saía do que existia no instante do clique. Divergir em silêncio é o pior modo
+ * de falhar que este produto tem.
+ */
+test("lendo os selos, não gera", () => {
+  assert.match(
+    String(motivoParaNaoGerar({ lendo: true, lidas: 14, total: 20 })),
+    /lendo/i,
+  );
+});
+
+test("o motivo diz quanto falta, para a espera ter fim visível", () => {
+  const motivo = String(motivoParaNaoGerar({ lendo: true, lidas: 14, total: 20 }));
+  assert.match(motivo, /14/);
+  assert.match(motivo, /20/);
+});
+
+test("leitura terminada libera a geração", () => {
+  assert.equal(motivoParaNaoGerar({ lendo: false, lidas: 20, total: 20 }), null);
+});
+
+/*
+ * Folha cujo selo não foi lido NÃO é folha ausente: ela existe como objeto,
+ * entra na LD como "sem título no selo" e é corrigível no canvas. Travar por
+ * isso impediria de gerar um volume que o escritório aceita.
+ */
+test("selo ilegível não trava a geração", () => {
+  assert.equal(motivoParaNaoGerar({ lendo: false, lidas: 19, total: 20 }), null);
+});
+
+test("sem nada anexado, não há o que travar", () => {
+  assert.equal(motivoParaNaoGerar({ lendo: false, lidas: 0, total: 0 }), null);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

@@ -49,6 +49,10 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import {
+  motivoParaNaoGerar,
+  type LeituraDosSelos,
+} from "../lib/pre-condicoes-do-volume";
 import { titulosPropostos, tituloDoSelo } from "../lib/titulo-do-selo";
 import { conferirPrefeitura } from "../lib/coerencia-do-volume";
 import { usarLarguraDoCopiloto } from "../lib/largura-do-copiloto";
@@ -211,9 +215,17 @@ export function PlanoDeGeracao({
   templates,
   idsBase,
   ldPreview,
+  leitura,
 }: {
   proposals: NexoAgentProposal[];
   selos: SeloForLd[];
+  /**
+   * O andamento da leitura dos selos. Sem isto o card gera do que já chegou:
+   * os blocos aqui são recalculados a cada render (a TELA mostra o número
+   * certo), mas o artefato sai do instante do clique — e a última disciplina
+   * do volume some pela metade, calada. Ver `motivoParaNaoGerar`.
+   */
+  leitura?: LeituraDosSelos;
   /**
    * A prévia determinística das folhas, que o servidor manda a cada turno.
    * Estava órfã: quem a desenhava deixou de receber propostas de LD quando
@@ -246,6 +258,12 @@ export function PlanoDeGeracao({
    */
   const blocos = blocosDasFolhas(selos as Folha[], codigoDaFolha, rotuloDoCodigo);
   const misto = misturaDisciplinas(blocos);
+
+  /*
+   * GERAR NO MEIO DA LEITURA PRODUZ DOCUMENTO CURTO, e em silêncio. A trava é
+   * uma regra pura para poder ser testada — ver `motivoParaNaoGerar`.
+   */
+  const motivoDeEspera = leitura ? motivoParaNaoGerar(leitura) : null;
 
   const capaCrua = proposals.find((p) => p.kind === "capa")?.params as
     | NexoCapaProposalParams
@@ -955,7 +973,12 @@ export function PlanoDeGeracao({
           <Button
             size="sm"
             onClick={gerarTudo}
-            disabled={ocupado || semTitulo || Boolean(problemaDePrefeitura)}
+            disabled={
+              ocupado ||
+              semTitulo ||
+              Boolean(problemaDePrefeitura) ||
+              Boolean(motivoDeEspera)
+            }
           >
             {ocupado ? (
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -979,7 +1002,10 @@ export function PlanoDeGeracao({
            * chat um campo que agora está no card, aceso, na forma em que sai
            * impresso. A frase aponta para o campo, não para outro lugar.
            */}
-          {(semTitulo || problemaDePrefeitura) && (
+          {motivoDeEspera && (
+            <span className="text-xs text-muted-foreground">{motivoDeEspera}</span>
+          )}
+          {!motivoDeEspera && (semTitulo || problemaDePrefeitura) && (
             <span className="text-xs text-muted-foreground">
               {problemaDePrefeitura
                 ? /*
