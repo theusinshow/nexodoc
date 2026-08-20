@@ -260,6 +260,18 @@ export function PlanoDeGeracao({
   const misto = misturaDisciplinas(blocos);
 
   /*
+   * AS DISCIPLINAS DO VOLUME, uma por linha, com o nome de capa do lexico — e
+   * e isto que vai no slot do titulo da CAPA, nao a obra. Subiu para ca porque
+   * `titulosPropostos` passou a receber a lista: ela era calculada mais abaixo
+   * e servia so de fantasma no campo, enquanto a obra saia impressa DUAS vezes.
+   */
+  const tituloSugerido = blocos
+    .filter((b) => b.codigo)
+    .map((b) => nomeNaCapa(b.codigo) ?? b.rotulo.toUpperCase())
+    .filter(Boolean)
+    .join("\n");
+
+  /*
    * GERAR NO MEIO DA LEITURA PRODUZ DOCUMENTO CURTO, e em silêncio. A trava é
    * uma regra pura para poder ser testada — ver `motivoParaNaoGerar`.
    */
@@ -306,6 +318,26 @@ export function PlanoDeGeracao({
 
   const paramsDoAgente: Record<string, string> = {
     templateId: capaCrua?.templateId?.trim() || sepCrua?.templateId?.trim() || "",
+    /*
+     * A LISTA DE DISCIPLINAS AINDA NÃO ENTRA AQUI, e o motivo é o MODELO.
+     *
+     * `titulosPropostos` já sabe a regra certa e está testada: o slot do título
+     * da capa leva as disciplinas do volume, não a obra — hoje a obra sai
+     * impressa DUAS vezes e as disciplinas não aparecem em lugar nenhum.
+     *
+     * Passar `tituloSugerido` aqui produz o título certo E PERDE O CÓDIGO DO
+     * PROJETO. Medido em 20/08/2026: `modelo-capa.odt` tem UMA ocorrência de
+     * `{{TITULO_CAPA}}`, então as três linhas entram num parágrafo só, o
+     * documento inteiro flui para baixo e a tabela onde mora
+     * `{{CODIGO_EXIBIDO}}` sai da página. Com 2 linhas o código imprime em
+     * y=66; com 3 ele some.
+     *
+     * O conserto é no ODT, não aqui — "o que se vê no modelo é o que sai" —, e
+     * são quatro modelos (prefchap, pmcriciuma, prefflor, prefsjose): cada um
+     * precisa de três parágrafos `{{TITULO_CAPA}}` em posição fixa, como a capa
+     * que o escritório entrega. Enquanto isso não acontece, a obra repetida é
+     * menos grave que a capa sem código.
+     */
     ...titulosPropostos({ capa: capaCrua?.tituloCapa, ld: ldCrua?.tituloLd }, tituloDoCarimbo),
     volume: capaCrua?.volume ?? "",
     mes: capaCrua?.mes ?? "",
@@ -426,11 +458,6 @@ export function PlanoDeGeracao({
    * escritas (116-25: urbanização / paisagismo / maquete). Num volume de uma
    * disciplina só, sai uma linha.
    */
-  const tituloSugerido = blocos
-    .filter((b) => b.codigo)
-    .map((b) => nomeNaCapa(b.codigo) ?? b.rotulo.toUpperCase())
-    .filter(Boolean)
-    .join("\n");
 
   const doSelo = summarizeSelos(selos);
   const obra = identidade.obra?.trim() || doSelo.obra || "";

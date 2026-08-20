@@ -114,9 +114,34 @@ export interface TitulosDoAgente {
 export function titulosPropostos(
   doAgente: TitulosDoAgente,
   doCarimbo: TituloDoSelo,
+  /**
+   * As DISCIPLINAS deste volume, uma por linha, com o nome de capa do léxico.
+   *
+   * É o que o slot do título da capa leva — e não a obra. A capa real tem os
+   * dois campos, e a obra já ocupa o dela:
+   *
+   *   REVITALIZAÇÃO DA FEIRA MUNICIPAL DE CHAPECÓ   <- a obra
+   *   PROJETO EXECUTIVO
+   *   PROJETO HIDROSSANITÁRIO                       <- o slot do título
+   *   PROJETO PREVENTIVO
+   *   PROJETO SPDA
+   *
+   * Medido em 20/08/2026 contra a capa do volume 10 de 040-26: o Nexo imprimia
+   * a obra nos DOIS, então ela saía duas vezes e as disciplinas do volume não
+   * apareciam em lugar nenhum — quem lê a capa não ficava sabendo o que há
+   * dentro. A lista já era montada em `PlanoDeGeracao` e servia só de fantasma
+   * no campo.
+   *
+   * Vazio (disciplina fora do léxico) devolve a obra, que era o comportamento
+   * de antes.
+   */
+  disciplinasDoVolume = "",
 ): { tituloCapa: string; tituloLd: string } {
   return {
-    tituloCapa: limpar(doAgente.capa) || doCarimbo.valor,
+    // A lista NÃO passa por `limpar`: ali a quebra de linha é a estrutura (uma
+    // disciplina por linha), e colapsar espaço em branco a transformaria numa
+    // linha só.
+    tituloCapa: limpar(doAgente.capa) || disciplinasDoVolume.trim() || doCarimbo.valor,
     // Sem `|| doCarimbo.valor`: é aqui que a obra parava de ser o título da LD.
     tituloLd: limpar(doAgente.ld),
   };

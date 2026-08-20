@@ -118,4 +118,55 @@ test("so espaco nao e decisao: cai no carimbo", () => {
   assert.equal(r.tituloCapa, "REFORMA DA ESCOLA X");
 });
 
+// ---------------------------------------------------------------------------
+// O QUE VAI NO SLOT DO TITULO DA CAPA -- e nao e a obra
+// ---------------------------------------------------------------------------
+//
+// Medido em 20/08/2026 contra a capa que o escritorio entregou no volume 10 de
+// 040-26. A capa tem DOIS slots distintos, e a obra ja ocupa o primeiro:
+//
+//   PREFEITURA MUNICIPAL DE CHAPECO
+//   SECRETARIA DE DESENVOLVIMENTO SUSTENTAVEL E OBRAS ESTRUTURANTES - SEDES
+//   REVITALIZACAO DA FEIRA MUNICIPAL DE CHAPECO      <- a obra
+//   PROJETO EXECUTIVO
+//   PROJETO HIDROSSANITARIO                          <- o slot do titulo
+//   PROJETO PREVENTIVO
+//   PROJETO SPDA
+//   Vol. X   JUNHO/2026   040_26
+//
+// O Nexo imprimia a obra NOS DOIS, entao "REVITALIZACAO DA FEIRA MUNICIPAL DE
+// CHAPECO" saia duas vezes e as disciplinas do volume nao apareciam em lugar
+// nenhum. Quem le a capa nao ficava sabendo o que ha dentro.
+//
+// A lista de disciplinas ja era montada (uma linha por bloco, do lexico) e
+// servia so de fantasma no campo. Agora ela e o padrao, e a obra vira o ultimo
+// recurso -- para o volume cuja disciplina o lexico nao conhece.
+
+const DISCIPLINAS_DO_VOLUME = ["PROJETO HIDROSSANITARIO", "PROJETO PREVENTIVO", "PROJETO SPDA"].join("\n");
+
+test("a capa leva as disciplinas do volume, nao a obra", () => {
+  const r = titulosPropostos({}, carimbo("REVITALIZACAO DA FEIRA"), DISCIPLINAS_DO_VOLUME);
+  assert.equal(r.tituloCapa, DISCIPLINAS_DO_VOLUME);
+});
+
+test("uma disciplina so continua saindo em uma linha", () => {
+  const r = titulosPropostos({}, carimbo("REFORMA DA ESCOLA"), "PROJETO ESTRUTURAL");
+  assert.equal(r.tituloCapa, "PROJETO ESTRUTURAL");
+});
+
+test("sem disciplina conhecida, a obra volta a ser o titulo", () => {
+  const r = titulosPropostos({}, carimbo("REFORMA DA ESCOLA"), "");
+  assert.equal(r.tituloCapa, "REFORMA DA ESCOLA");
+});
+
+test("o que o agente propos vence a lista", () => {
+  const r = titulosPropostos({ capa: "PROJETO DE COISA" }, carimbo("OBRA"), DISCIPLINAS_DO_VOLUME);
+  assert.equal(r.tituloCapa, "PROJETO DE COISA");
+});
+
+test("a lista de disciplinas nao contamina o titulo da LD", () => {
+  const r = titulosPropostos({}, carimbo("OBRA"), DISCIPLINAS_DO_VOLUME);
+  assert.equal(r.tituloLd, "", "vazio e o que deixa o lexico responder pela disciplina");
+});
+
 console.log(`\n${passed} testes ok`);
