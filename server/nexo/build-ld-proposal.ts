@@ -126,6 +126,26 @@ function mode(values: (string | null | undefined)[]): string {
   return best;
 }
 
+/**
+ * O valor dominante SÓ VALE com apoio de metade das folhas.
+ *
+ * `mode` ignora vazios, e é isso que o torna perigoso num campo que a leitura
+ * quase sempre deixa em branco: com 19 folhas mudas e UMA trazendo "PREVENTIVO"
+ * — nome de disciplina capturado no campo FASE —, o dominante era PREVENTIVO e
+ * o volume inteiro saía assim. Medido em 20/08/2026 no volume 10 de 040-26: o
+ * mesmo conjunto, lido noutra corrida, veio todo em branco e caiu no default
+ * certo. O que sai impresso não pode depender da sorte da leitura.
+ *
+ * É a mesma regra do empate que o resto do produto usa: evidência fraca não
+ * preenche, e quem responde é o padrão — ou a pessoa.
+ */
+function modeComApoio(values: (string | null | undefined)[], total: number): string {
+  const vencedor = mode(values);
+  if (!vencedor) return "";
+  const apoio = values.filter((v) => v?.trim() === vencedor).length;
+  return apoio * 2 >= total ? vencedor : "";
+}
+
 /** Valor mais frequente (>0) — para números (total dominante). */
 function modeNumber(values: number[]): number {
   const counts = new Map<number, number>();
@@ -239,8 +259,28 @@ export function buildLdProposal(
   const discLabel = (disciplinaLabel(discCode) ?? (discCode || "GERAL")).toUpperCase();
 
   const obra = dito(opts.obra) || mode(validos.map((s) => s.obra));
-  const cliente = dito(opts.orgao) || mode(validos.map((s) => s.cliente));
-  const fase = dito(opts.fase) || mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
+  /*
+   * QUEM EMITE, no rodapé da LD: a SECRETARIA.
+   *
+   * `Info 1` recebia `cliente`, que no carimbo é a PREFEITURA. A capa imprime os
+   * dois em linhas separadas (órgão e secretaria) e o rodapé da LD usa a
+   * segunda — conferido no volume 10 de 040-26. Sem secretaria lida, cai na
+   * prefeitura, que é o comportamento de antes.
+   */
+  const cliente =
+    dito(opts.orgao) ||
+    modeComApoio(
+      validos.map((s) => s.secretaria),
+      validos.length,
+    ) ||
+    mode(validos.map((s) => s.cliente));
+  const fase =
+    dito(opts.fase) ||
+    modeComApoio(
+      validos.map((s) => s.fase),
+      validos.length,
+    ) ||
+    "PROJETO EXECUTIVO";
 
   // Folha RESOLVIDA (reconciliação por ordem de página em PDF combinado). Roda
   // sobre TODOS os selos de propósito: a reconciliação é por ordem de página no
