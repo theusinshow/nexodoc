@@ -73,6 +73,7 @@ import {
   urlToBase64,
   type BlocoDoVolume,
 } from "../lib/assemble-volume";
+import { entregarVolume } from "@/server/nexo/entrega-do-volume";
 import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
@@ -1880,50 +1881,74 @@ function VolumeConfirmation({
         });
       }
 
-      const r = await assembleVolume({
-        capaPdf64,
-        blocos: montaveis,
-        fileName: nomeDoVolume(selosDoTomo, identidade, tomo),
-        metadados: metadadosDoVolume(selosDoTomo, identidade, tomo, sepTitle),
-      });
-
       /*
-       * A CONFERÊNCIA DO VOLUME roda SOZINHA, logo depois de montar.
+       * MONTAR, ENTREGAR, e SÓ ENTÃO CONFERIR — a ordem é a regra, e ela mora
+       * em `entregarVolume` (núcleo puro, trancado por
+       * `scripts/test-entrega-do-volume.ts`).
        *
-       * Não fica atrás de um botão porque montar é irreversível na prática — o
-       * engenheiro manda o PDF —, e conferência que depende de alguém lembrar
-       * de clicar é conferência que não existe. E NÃO bloqueia o download: quem
-       * decide o que fazer com o volume é ele; travar um PDF já gerado só o
-       * empurraria a montar de novo às cegas.
+       * A CONFERÊNCIA roda SOZINHA, logo depois de montar: não fica atrás de um
+       * botão porque montar é irreversível na prática — o engenheiro manda o
+       * PDF —, e conferência que depende de alguém lembrar de clicar é
+       * conferência que não existe. E NÃO bloqueia o download: quem decide o
+       * que fazer com o volume é ele.
+       *
+       * Isto já estava escrito aqui, e a ordem das linhas dizia o contrário: o
+       * `saveResult` vinha DEPOIS da conferência. Com um volume real (20
+       * pranchas CAD, 42 MB) a conferência relê o PDF inteiro no pdf.js e
+       * rasteriza cada prancha para recortar o carimbo — passados dez minutos
+       * ainda moía, e o volume, pronto desde o primeiro segundo, nunca era
+       * gravado. Medido em 20/08/2026 no volume 10 de 040-26.
        */
-      const conferencia = await conferirVolume({
-        r,
-        montaveis,
-        blocos,
-        capaPdf64,
-        selosDoTomo: selosDoTomo as Folha[],
-        totaisPorDisciplina,
-        orgaoAlvo,
-        conversationId,
-      });
-
-      await saveResult({
-        artifactId: id,
-        kind: "volume",
-        // Quais folhas entraram neste volume — é o que o canvas compara depois
-        // para saber que ele envelheceu.
-        payload: {
-          tomo: tomo.numero,
-          folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
-          conferencia,
-        },
-        summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
-        canvas: {
-          label: "Volume",
-          detail: r.pageCount != null ? `${r.pageCount} páginas` : undefined,
-          pageNumber: 1,
-        },
-        files: [{ label: "PDF do volume", name: r.name, mime: PDF_MIME, url: r.url, primary: true }],
+      await entregarVolume({
+        montar: () =>
+          assembleVolume({
+            capaPdf64,
+            blocos: montaveis,
+            fileName: nomeDoVolume(selosDoTomo, identidade, tomo),
+            metadados: metadadosDoVolume(selosDoTomo, identidade, tomo, sepTitle),
+          }),
+        salvar: (r, conferencia) =>
+          saveResult({
+            artifactId: id,
+            kind: "volume",
+            // Quais folhas entraram neste volume — é o que o canvas compara
+            // depois para saber que ele envelheceu.
+            payload: {
+              tomo: tomo.numero,
+              folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
+              conferencia,
+            },
+            summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
+            canvas: {
+              label: "Volume",
+              detail: r.pageCount != null ? `${r.pageCount} páginas` : undefined,
+              pageNumber: 1,
+            },
+            files: [
+              { label: "PDF do volume", name: r.name, mime: PDF_MIME, url: r.url, primary: true },
+            ],
+          }),
+        conferir: (r) =>
+          conferirVolume({
+            r,
+            montaveis,
+            blocos,
+            capaPdf64,
+            selosDoTomo: selosDoTomo as Folha[],
+            totaisPorDisciplina,
+            orgaoAlvo,
+            conversationId,
+          }),
+        // O botão sai de "MONTANDO…" quando o volume EXISTE, não quando a
+        // conferência termina. Antes, um volume já gravado seguia parecendo um
+        // volume que não saiu.
+        aoEntregar: () => setBusy(false),
+        aoFalharConferencia: (err) =>
+          setError(
+            `O volume foi montado e está salvo, mas a conferência não pôde rodar: ${
+              err instanceof Error ? err.message : "erro desconhecido"
+            }`,
+          ),
       });
       return null;
     } catch (err) {
