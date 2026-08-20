@@ -177,7 +177,8 @@
     "fila:regras-contestadas": "node scripts/fila-de-regras-contestadas.ts",
     "test:entrega-do-volume": "node scripts/test-entrega-do-volume.ts",
     "test:ld:total-do-bloco": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-ld-total-do-bloco.ts",
-    "test:ld:titulo-e-arquivo": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-ld-titulo-e-arquivo.ts"
+    "test:ld:titulo-e-arquivo": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-ld-titulo-e-arquivo.ts",
+    "test:titulos-do-bloco": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-titulos-do-bloco.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

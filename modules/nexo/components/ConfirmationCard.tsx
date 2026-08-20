@@ -74,6 +74,7 @@ import {
   type BlocoDoVolume,
 } from "../lib/assemble-volume";
 import { entregarVolume } from "@/server/nexo/entrega-do-volume";
+import { titulosDoBloco } from "@/server/nexo/titulos-do-bloco";
 import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
 import { summarizeSelos } from "../lib/agent-context";
 import { buildBalancedQuantities } from "@/lib/ld/ld-rules";
@@ -1787,10 +1788,22 @@ function VolumeConfirmation({
           .map((fid) => porId.get(fid))
           .filter((f): f is Folha => f !== undefined);
         const arquivos = new Set(doBloco.map((f) => f.fileName));
-        // O título do bloco é o da disciplina. Com um bloco só, continua sendo
-        // o que o engenheiro decidiu na LD — mudar isso reescreveria a capa de
-        // volumes que já saíram certos.
-        const titulo = unico ? sepTitle : bloco.rotulo.toUpperCase() || sepTitle;
+        /*
+         * DOIS TÍTULOS, não um. O escritório imprime nomes diferentes da mesma
+         * disciplina conforme o documento: a LD leva o nome da capa, a
+         * separatriz leva o longo. Uma variável só alimentando `postSeparatriz`
+         * e `postLd` fazia as três separatrizes do volume 10 saírem com o
+         * RÓTULO DE TELA ("HIDROSSANITÁRIO", "SPDA").
+         *
+         * A precedência — e o cuidado de não confundir a decisão do engenheiro
+         * com o padrão derivado da LD — mora em `titulosDoBloco`, testada.
+         */
+        const titulos = titulosDoBloco({
+          codigo: bloco.codigo,
+          rotulo: bloco.rotulo,
+          ...(unico && sepTitle ? { escolhido: sepTitle } : {}),
+        });
+        const titulo = titulos.separatriz || sepTitle;
 
         let separatrizPdf64 = unico && sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
         const sepDoBloco = unico
@@ -1834,7 +1847,9 @@ function VolumeConfirmation({
              * outra disciplina. `respeitarOrdem` mantém a ordem do escritório.
              */
             const ld = await postLd(selosDoTomo, {
-              tituloLd: titulo,
+              // A LD leva o nome de CAPA da disciplina; `titulo` acima é o da
+              // separatriz, e eram a mesma variável.
+              tituloLd: titulos.ld || sepTitle,
               folhasDoTomo: bloco.ids,
               respeitarOrdem: true,
               // A LD deste BLOCO fala de uma disciplina só: o total corrigido
