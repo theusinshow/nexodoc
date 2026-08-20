@@ -231,20 +231,53 @@ export function buildLdProposal(
   const cliente = dito(opts.orgao) || mode(validos.map((s) => s.cliente));
   const fase = dito(opts.fase) || mode(validos.map((s) => s.fase)) || "PROJETO EXECUTIVO";
 
+  // Folha RESOLVIDA (reconciliação por ordem de página em PDF combinado). Roda
+  // sobre TODOS os selos de propósito: a reconciliação é por ordem de página no
+  // documento inteiro, e fatiar antes inventaria outra numeração.
+  const resolvedSheets = resolveSheetNumbers(validos);
+
+  /*
+   * A POPULAÇÃO DO TOTAL É A QUE VAI SER LISTADA, e quem manda nela é o carimbo.
+   *
+   * Antes o total saía de todos os selos, antes de qualquer fatia. Num volume de
+   * uma disciplina só dá no mesmo; num MISTO, `validos.length` é o volume
+   * inteiro e vence — a LD do bloco SPDA saía `01/20` enquanto a prancha dizia
+   * `01/04`. A lista discordava do desenho que ela lista, e 6 dos 8 volumes
+   * reais do escritório são mistos.
+   *
+   * Restringir à seleção honra os DOIS casos porque o carimbo é a verdade:
+   *
+   *   · TOMO de uma disciplina — as 12 folhas do tomo 1 continuam trazendo
+   *     `total: 24` no selo, então o denominador segue /24, como tem de ser;
+   *   · BLOCO de um volume misto — as 4 folhas do SPDA trazem `total: 4`.
+   *
+   * Sem fatia, a seleção é o conjunto inteiro e nada muda.
+   */
+  const daSelecao = opts.folhasDoTomo?.length
+    ? (() => {
+        const alvo = new Set(opts.folhasDoTomo);
+        return validos
+          .map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }))
+          .filter(({ selo }) => alvo.has(`${selo.fileName}#${selo.pageNumber ?? "?"}`));
+      })()
+    : validos.map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }));
+  // Uma fatia que não casa com nada não pode zerar o total: cai no conjunto.
+  const populacao = daSelecao.length > 0 ? daSelecao : validos.map((s, i) => ({ selo: s, sheet: resolvedSheets[i] }));
+
   // Total de referência ROBUSTO: total DOMINANTE (o /TT mais frequente — resiste a
   // um total mal-lido isolado) OU a maior folha real OU a contagem. NÃO é o max de
   // números soltos (que inflava e inventava folhas faltando).
   const dominantTotal = modeNumber(
-    validos.map((s) => s.total).filter((t): t is number => typeof t === "number"),
+    populacao.map((p) => p.selo.total).filter((t): t is number => typeof t === "number"),
   );
-  // Folha RESOLVIDA (reconciliação por ordem de página em PDF combinado).
-  const resolvedSheets = resolveSheetNumbers(validos);
-  const sheets = resolvedSheets.filter((n): n is number => n != null && n > 0);
+  const sheets = populacao
+    .map((p) => p.sheet)
+    .filter((n): n is number => n != null && n > 0);
   const maxSheet = sheets.length ? Math.max(...sheets) : 0;
   // A precedência (manual vence a inferência, inclusive para menos) mora no
   // módulo puro, que é onde ela pode ser testada com node cru.
   const referenceTotal = totalDeReferencia(
-    Math.max(dominantTotal, maxSheet, validos.length),
+    Math.max(dominantTotal, maxSheet, populacao.length),
     opts.referenceTotal,
   );
 

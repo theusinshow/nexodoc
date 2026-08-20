@@ -175,7 +175,8 @@
     "varredura:deterministica": "node scripts/varredura-deterministica.ts",
     "test:contestacao": "node scripts/test-contestacao-de-regra.ts",
     "fila:regras-contestadas": "node scripts/fila-de-regras-contestadas.ts",
-    "test:entrega-do-volume": "node scripts/test-entrega-do-volume.ts"
+    "test:entrega-do-volume": "node scripts/test-entrega-do-volume.ts",
+    "test:ld:total-do-bloco": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-ld-total-do-bloco.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
