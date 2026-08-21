@@ -32,7 +32,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pinsDoDocumento } from "@/lib/pins-do-parecer";
 import { palavra, plural } from "@/lib/plural";
@@ -450,16 +450,21 @@ function getSeverityLabel(severity: StructuredFinding["severity"]) {
   return "achado informativo";
 }
 
-function getSeverityClass(severity: StructuredFinding["severity"]) {
-  if (severity === "critical") {
-    return "border-[var(--status-critical)]/35 bg-[var(--status-critical-bg)] text-[var(--status-critical)]";
-  }
-
-  if (severity === "warning") {
-    return "border-[var(--status-warning)]/35 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
-  }
-
-  return "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
+/**
+ * A faixa de severidade, no vocabulário de status do sistema.
+ *
+ * Devolvia as CLASSES à mão — `border-.../35 bg-...-bg text-...` — que são
+ * exatamente as três variantes de `<Badge>`, copiadas. A DESIGN.md é explícita:
+ * "o padrão canônico é `<Badge variant="ok|warning|critical">`. Use o
+ * componente; não escreva as classes à mão." Com a cópia, ajustar o âmbar do
+ * sistema deixaria esta tela para trás sem ninguém notar.
+ */
+function getSeverityVariant(
+  severity: StructuredFinding["severity"],
+): "critical" | "warning" | "ok" {
+  if (severity === "critical") return "critical";
+  if (severity === "warning") return "warning";
+  return "ok";
 }
 
 function parseProjectFields(project: string): ProjectField[] {
@@ -2888,9 +2893,7 @@ export function AuditResult({
                       <div className="flex flex-wrap items-start gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4">
                         <div className="min-w-0 flex-1">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
-                              Achado {index + 1}
-                            </span>
+                            <Badge variant="secondary">Achado {index + 1}</Badge>
                             {/*
                               O MOTIVO DA SEVERIDADE VIAJA COM A ETIQUETA.
 
@@ -2903,30 +2906,37 @@ export function AuditResult({
                               concorda não precisa lê-la, e quem estranha a
                               alcança sem sair do cartão.
                             */}
-                            <span
+                            <Badge
+                              variant={getSeverityVariant(finding.severity)}
                               title={finding.severityReason}
                               data-motivo-severidade={finding.severityReason || undefined}
-                              className={cn(
-                                "rounded-md border px-2 py-1 font-mono text-xs font-medium",
-                                getSeverityClass(finding.severity),
-                                finding.severityReason ? "cursor-help" : "",
-                              )}
+                              className={finding.severityReason ? "cursor-help" : undefined}
                             >
                               {finding.impacto
                                 ? getImpactLabel(finding.impacto)
                                 : getSeverityLabel(finding.severity)}
-                            </span>
-                            <span
+                            </Badge>
+                            {/*
+                              O GLIFO VIROU ÍCONE. Era "✔ Verificado" e "◻
+                              Sugerido" — dois caracteres de texto fazendo trabalho
+                              de ícone, e o ◻ não simbolizava nada: era enchimento
+                              para as duas etiquetas ficarem do mesmo tamanho.
+                              `lucide` é a única iconografia do sistema (§7), e o
+                              que não significa nada sai em vez de virar ícone.
+                            */}
+                            <Badge
+                              variant={finding.origem === "regra" ? "ok" : "secondary"}
                               title={finding.assurance}
-                              className={cn(
-                                "rounded-md border px-2 py-1 font-mono text-xs",
-                                finding.origem === "regra"
-                                  ? "border-[var(--status-ok)]/30 text-[var(--status-ok)]"
-                                  : "text-muted-foreground",
-                              )}
                             >
-                              {finding.origem === "regra" ? "✔ Verificado" : "◻ Sugerido"}
-                            </span>
+                              {finding.origem === "regra" ? (
+                                <>
+                                  <Check aria-hidden />
+                                  Verificado
+                                </>
+                              ) : (
+                                "Sugerido"
+                              )}
+                            </Badge>
                             {/*
                               HERDADO: este achado não nasceu nesta corrida.
 
@@ -2938,12 +2948,12 @@ export function AuditResult({
                               permite ir buscar a corrida de origem.
                             */}
                             {finding.herdado_de ? (
-                              <span
+                              <Badge
+                                variant="secondary"
                                 title={`Herdado da auditoria de ${finding.herdado_de.quando}: o capítulo não mudou desde lá.`}
-                                className="rounded-md border border-border px-2 py-1 font-mono text-xs text-muted-foreground"
                               >
                                 herdado · {finding.herdado_de.quando}
-                              </span>
+                              </Badge>
                             ) : null}
                             {/*
                               A DISCIPLINA ERA TEAL, e teal é o acento do
@@ -2965,19 +2975,19 @@ export function AuditResult({
                               cor, e é o desenho: inventar um tom para cada uma
                               faria a escala competir com os sinais.
                             */}
-                            <span
-                              className="rounded-md border border-current/25 px-2 py-1 font-mono text-xs"
+                            <Badge
+                              variant="secondary"
                               style={
                                 corDaDisciplina(disciplina)
                                   ? {
                                       color: corDaDisciplina(disciplina) as string,
-                                      background: `color-mix(in oklab, ${corDaDisciplina(disciplina)} 12%, transparent)`,
+                                      background: `color-mix(in oklab, ${corDaDisciplina(disciplina)} 14%, transparent)`,
                                     }
-                                  : { color: "var(--muted-foreground)" }
+                                  : undefined
                               }
                             >
                               {getDisciplineLabel(disciplina)}
-                            </span>
+                            </Badge>
                             {/*
                               A ETIQUETA DE TIPO SÓ APARECE QUANDO DIZ ALGO NOVO.
 
@@ -2990,12 +3000,25 @@ export function AuditResult({
                             */}
                             {getErrorTypeLabel(findingErrorType(finding)).toLowerCase() !==
                             (finding.title ?? "").trim().toLowerCase() ? (
-                              <span className="rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                              <Badge variant="secondary">
                                 {getErrorTypeLabel(findingErrorType(finding))}
-                              </span>
+                              </Badge>
                             ) : null}
                             {finding.refId ? (
-                              <label className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs text-muted-foreground">
+                              /*
+                                O ÚNICO DA FILA QUE NÃO É `<Badge>`: badge é um
+                                `<span>`, e este rótulo guarda uma caixa de
+                                seleção — tem de ser `<label>` para o clique no
+                                texto marcar o campo. `badgeVariants` é a saída
+                                que o próprio primitivo exporta: mesma forma,
+                                mesma tipografia, elemento certo.
+                              */
+                              <label
+                                className={cn(
+                                  badgeVariants({ variant: "secondary" }),
+                                  "cursor-pointer gap-1.5",
+                                )}
+                              >
                                 <input
                                   type="checkbox"
                                   checked={selecionados.has(finding.refId)}
@@ -3037,13 +3060,11 @@ export function AuditResult({
                             */}
                             {finding.refId && atribuidoPor[finding.refId] ? (
                               atribuidoPor[finding.refId].souEu ? (
-                                <span className="rounded-md border border-[var(--status-warning)]/40 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs font-medium text-[var(--status-warning)]">
-                                  com você
-                                </span>
+                                <Badge variant="warning">com você</Badge>
                               ) : (
-                                <span className="rounded-md border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2 py-1 font-mono text-xs text-[var(--signal-info)]">
+                                <Badge variant="info">
                                   com {atribuidoPor[finding.refId].nome}
-                                </span>
+                                </Badge>
                               )
                             ) : null}
                             {/*
@@ -3057,12 +3078,12 @@ export function AuditResult({
                               sem resposta e perguntaria por fora do sistema.
                             */}
                             {finding.refId && desfechoPorAchado[finding.refId] ? (
-                              <span className="rounded-md border border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] px-2 py-1 font-mono text-xs text-[var(--status-ok)]">
+                              <Badge variant="ok">
                                 {DESFECHO_LABEL[desfechoPorAchado[finding.refId].kind]}
                                 {desfechoPorAchado[finding.refId].por
                                   ? ` · ${desfechoPorAchado[finding.refId].por}`
                                   : ""}
-                              </span>
+                              </Badge>
                             ) : null}
                             {/*
                               O VEREDITO, quando já houver um.
@@ -3081,17 +3102,28 @@ export function AuditResult({
                               espaço das que não têm outro lugar.
                             */}
                             {finding.refId && feedbackByFinding[finding.refId] ? (
-                              <span
+                              <Badge
                                 data-veredito={feedbackByFinding[finding.refId]}
-                                className={cn(
-                                  "rounded-md border px-2 py-1 font-mono text-xs",
+                                variant={
                                   feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
-                                    ? "border-muted-foreground/30 text-muted-foreground line-through"
-                                    : "border-[var(--status-ok)]/30 text-[var(--status-ok)]",
-                                )}
+                                    ? "secondary"
+                                    : "ok"
+                                }
+                                /*
+                                  O RISCO FICA no falso positivo: ele diz que a
+                                  etiqueta ao lado (a faixa de severidade) foi
+                                  RECUSADA, e nenhuma cor sozinha diz isso — um
+                                  cinza quieto lê como "sem informação", que é o
+                                  oposto de "alguém julgou e discordou".
+                                */
+                                className={
+                                  feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                    ? "line-through"
+                                    : undefined
+                                }
                               >
                                 {VEREDITO_LABEL[feedbackByFinding[finding.refId]]}
-                              </span>
+                              </Badge>
                             ) : null}
                           </div>
                           <h4
