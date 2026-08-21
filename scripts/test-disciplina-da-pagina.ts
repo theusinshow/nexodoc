@@ -117,4 +117,47 @@ test("documento vazio devolve mapa vazio", () => {
   assert.equal(disciplinaPorPagina([]).size, 0);
 });
 
+/*
+ * O TÍTULO COMPOSTO — o defeito mais caro que estes testes não pegavam.
+ *
+ * Medido no memorial do 113-22 (21/08/2026): a página 28 diz "3 - PROJETO
+ * ARQUITETÔNICO E URBANIZAÇÃO" e as 29 a 81 dizem "3 - PROJETO ARQUITETÔNICO",
+ * limpo. Como é o MESMO capítulo 3, a continuidade não revisa o que já sabe —
+ * e "urbaniza" casava antes de "arquitetonic" só porque a regra de
+ * terraplenagem vem antes na lista. Resultado: 54 das 113 páginas mapeadas de
+ * um memorial de hospital saíam como terraplenagem, e a tela as mostrava como
+ * fato lido do documento.
+ *
+ * Os três casos juntos, porque o defeito é a INTERAÇÃO: o desempate errado
+ * sozinho erra uma página, e é a continuidade que o espalha por cinquenta.
+ */
+test("título composto vale pelo substantivo da frente, não pela ordem das regras", () => {
+  const mapa = disciplinaPorPagina([
+    pagina(1, "3 - PROJETO ARQUITETONICO E URBANIZACAO abertura do capitulo"),
+  ]);
+  assert.equal(mapa.get(1), "arquitetura");
+});
+
+test("e o capítulo inteiro vai junto, e não só a página do título", () => {
+  const mapa = disciplinaPorPagina([
+    pagina(1, "3 - PROJETO ARQUITETONICO E URBANIZACAO abertura do capitulo"),
+    pagina(2, "3 - PROJETO ARQUITETONICO as esquadrias seguem o especificado"),
+    pagina(3, "3.1 Demolicoes e retiradas o construtor devera remover o existente"),
+  ]);
+  assert.equal(mapa.get(2), "arquitetura");
+  assert.equal(mapa.get(3), "arquitetura");
+});
+
+test("mas urbanização SOZINHA continua sendo terraplenagem", () => {
+  /*
+   * A metade que impede a correção de virar "arquitetura sempre ganha": o
+   * 117-25 tem "5 PROJETO DE URBANIZAÇÃO" como capítulo próprio, e ali os dez
+   * achados de espessura de camada e meio-fio são de terraplenagem de verdade.
+   */
+  const mapa = disciplinaPorPagina([
+    pagina(1, "5 - PROJETO DE URBANIZACAO camada de assentamento e meio-fio"),
+  ]);
+  assert.equal(mapa.get(1), "terraplenagem");
+});
+
 console.log(`\n${passed} teste(s) OK`);

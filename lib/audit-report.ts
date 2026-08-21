@@ -586,6 +586,47 @@ export function disciplinaDoTexto(texto: string): FindingDiscipline | null {
 }
 
 /**
+ * A disciplina de um TÍTULO DE CAPÍTULO — pela ordem das palavras, e não pela
+ * ordem das regras.
+ *
+ * MESMO VOCABULÁRIO, outro desempate, e a diferença importa em uma linha:
+ * `"3 - PROJETO ARQUITETÔNICO E URBANIZAÇÃO"`. `disciplinaDoTexto` responde
+ * `terraplenagem`, porque a regra dela (que casa `urbaniza`) vem antes da de
+ * arquitetura — e a ordem daquela lista é prioridade de ASSUNTO, montada para
+ * prosa de achado ("PPCI antes porque cita várias disciplinas"). Num título,
+ * quem manda é o substantivo da frente: o que vem depois do "E" é o secundário.
+ *
+ * O ESTRAGO MEDIDO (memorial do 113-22, 21/08/2026): esse cabeçalho está na
+ * página 28, e as páginas 29 a 81 dizem `"3 - PROJETO ARQUITETÔNICO"`, limpo.
+ * Como são o MESMO capítulo 3, a regra de continuidade não revisa o que já
+ * sabe — e 54 das 113 páginas mapeadas do documento saíam como terraplenagem.
+ * Metade do memorial de um hospital arquivada na disciplina errada, e mostrada
+ * na tela como fato lido do documento.
+ *
+ * Só para cabeçalho. A prosa do achado continua em `disciplinaDoTexto`: lá a
+ * palavra mais cedo não é a mais importante, é só a que veio primeiro na frase.
+ */
+export function disciplinaDoTitulo(titulo: string): FindingDiscipline | null {
+  const alvo = normalizeForMatch(titulo);
+
+  let melhor: FindingDiscipline | null = null;
+  let maisCedo = Infinity;
+
+  for (const rule of DISCIPLINE_RULES) {
+    // As regras não têm a flag `g`, então `exec` não guarda estado entre
+    // chamadas — sem isso, dois títulos seguidos dariam respostas diferentes.
+    const casou = rule.pattern.exec(alvo);
+
+    if (casou && casou.index < maisCedo) {
+      maisCedo = casou.index;
+      melhor = rule.key;
+    }
+  }
+
+  return melhor;
+}
+
+/**
  * De que disciplina é o achado.
  *
  * A DECLARADA VENCE. Ela vem do cabeçalho da página onde o trecho está — fato

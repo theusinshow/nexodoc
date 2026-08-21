@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  Send,
   Wrench,
   X,
 } from "lucide-react";
@@ -1324,7 +1325,20 @@ export function AuditResult({
   })();
 
   const membrosDoGrupo = grupoDoEnvio ? membros.filter((m) => m.grupo === grupoDoEnvio) : [];
-  const membrosDeFora = grupoDoEnvio ? membros.filter((m) => m.grupo !== grupoDoEnvio) : membros;
+  /*
+   * GRUPO SEM NINGUÉM NÃO VIRA CABEÇALHO.
+   *
+   * `terraplenagem` responde ao grupo `externo`, e o escritório NÃO TEM ninguém
+   * nesse grupo — a disciplina é terceirizada. O seletor abria um `<optgroup>`
+   * rotulado "Externo", vazio, e jogava o escritório inteiro em "Resto do
+   * escritório": um cabeçalho que promete a lista curta e entrega zero é pior
+   * do que não agrupar, porque quem lê acha que a pessoa certa não existe.
+   *
+   * Medido em 21/08: 57 dos 229 achados dos dois memoriais de referência caem
+   * em terraplenagem. Um quarto dos envios via esse cabeçalho vazio.
+   */
+  const agrupar = membrosDoGrupo.length > 0;
+  const membrosDeFora = agrupar ? membros.filter((m) => m.grupo !== grupoDoEnvio) : membros;
 
   const impactCount = (impact: FindingImpact) =>
     filteredPrincipal.filter((finding) => findingImpactBucket(finding) === impact).length;
@@ -2759,6 +2773,35 @@ export function AuditResult({
                                 <Eye className="size-4" />
                                 Print do achado
                               </DropdownItem>
+                              {/*
+                                ENVIAR, COM A PALAVRA ESCRITA.
+
+                                Enviar já era possível: a etiqueta "Ref. INC-001"
+                                é uma caixa de seleção, e marcá-la abre a barra
+                                com o destinatário. Mas nada na tela dizia isso.
+                                A palavra "enviar" só aparecia DEPOIS de marcar —
+                                quem não sabia que a caixa existia não tinha como
+                                descobrir a função, e ela é metade do produto.
+
+                                Não abre seletor próprio: MARCA este achado e
+                                deixa a barra do rodapé fazer o resto. Um segundo
+                                lugar para escolher pessoa seria uma segunda
+                                regra de quem pode receber — e as duas
+                                discordariam no primeiro dia.
+                              */}
+                              {finding.refId && !estaResolvido(finding.refId) ? (
+                                <DropdownItem
+                                  onClick={() => {
+                                    if (!selecionados.has(finding.refId!)) {
+                                      alternarSelecao(finding.refId!);
+                                    }
+                                    close();
+                                  }}
+                                >
+                                  <Send className="size-4" />
+                                  Enviar para alguém
+                                </DropdownItem>
+                              ) : null}
                             </>
                           )}
                         </Dropdown>
@@ -2927,14 +2970,24 @@ export function AuditResult({
                               Milton" e "com você" respondem a perguntas
                               diferentes: a primeira é notícia sobre um terceiro
                               (âmbar, "alguém está segurando isto"), a segunda é
-                              uma convocação (teal, a cor de ação do sistema).
-                              Quem abre um parecer de 45 achados com dois seus
-                              precisa achá-los sem ler nome por nome — e, pintadas
-                              iguais, os dois seus não se destacam de nada.
+                              uma convocação. Quem abre um parecer de 45 achados
+                              com dois seus precisa achá-los sem ler nome por
+                              nome — e, pintadas iguais, os dois seus não se
+                              destacam de nada.
+
+                              "COM VOCÊ" É SÓLIDA, e não teal desbotada como
+                              nasceu. A etiqueta de DISCIPLINA, duas posições à
+                              esquerda nesta mesma linha, já é teal sobre fundo
+                              teal fraco — e as duas ficavam irmãs numa fila de
+                              seis etiquetas do mesmo tamanho. Aqui a diferença
+                              não é de cor, é de PESO: uma é fundo cheio, a outra
+                              é sussurro. É a única etiqueta preenchida da linha,
+                              e é de propósito — só uma coisa nesta fila é um
+                              chamado para agir.
                             */}
                             {finding.refId && atribuidoPor[finding.refId] ? (
                               atribuidoPor[finding.refId].souEu ? (
-                                <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-1 font-mono text-xs font-medium text-[var(--nexodoc-accent)]">
+                                <span className="rounded-md bg-[var(--nexodoc-accent)] px-2 py-1 font-mono text-xs font-semibold text-[var(--nexodoc-accent-foreground)]">
                                   com você
                                 </span>
                               ) : (
@@ -3339,7 +3392,7 @@ export function AuditResult({
 
                         Sem grupo reconhecido, a ordem é a que veio do servidor.
                       */}
-                      {grupoDoEnvio ? (
+                      {grupoDoEnvio && agrupar ? (
                         <>
                           <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
                             {membrosDoGrupo.map((m) => (

@@ -376,7 +376,33 @@ await pVictor.goto(`/nexo?auditoria=${AUDIT_ID}`);
 await pVictor.waitForLoadState("networkidle");
 await pVictor.waitForTimeout(3500);
 await pVictor.getByRole("button", { name: /achados/i }).first().click();
-await pVictor.getByLabel(/Selecionar INC-001 para enviar/i).check();
+
+/*
+ * O CAMINHO COM A PALAVRA ESCRITA.
+ *
+ * Enviar sempre foi possível marcando a etiqueta "Ref. INC-001", que é uma
+ * caixa de seleção — mas nada na tela dizia isso, e a palavra "enviar" só
+ * aparecia DEPOIS de marcar. Quem não sabia da caixa não tinha como descobrir
+ * metade do produto.
+ *
+ * A prova entra pelo menu, e não pela caixa: é o caminho de quem NÃO sabe.
+ * Marcar direto testaria o que já funcionava.
+ */
+await pVictor.getByRole("button", { name: /Ações do achado/i }).first().click();
+const itemEnviar = pVictor.getByRole("menuitem", { name: /enviar para alguém/i }).first();
+const temItem = (await itemEnviar.count()) > 0;
+check("o menu do achado oferece ENVIAR com todas as letras", temItem);
+
+if (temItem) {
+  await itemEnviar.click();
+} else {
+  await pVictor.getByLabel(/Selecionar INC-001 para enviar/i).check();
+}
+
+check(
+  "e clicar nele abre a barra de envio",
+  (await pVictor.locator("#destinatario-do-envio").count()) > 0,
+);
 
 const nomesNoSeletor = await pVictor.locator("#destinatario-do-envio option").allTextContents();
 check(

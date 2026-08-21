@@ -16,14 +16,16 @@
  *
  * NADA DE PARSER NOVO. `getPageChapter` já responde "de que capítulo é esta
  * página" — é ela que corta o documento em blocos para a leitura por capítulo —
- * e `disciplinaDoTexto` já tem o vocabulário de disciplina que a tela usa. Este
+ * e `disciplinaDoTitulo` já tem o vocabulário de disciplina que a tela usa —
+ * o mesmo de `disciplinaDoTexto`, desempatado pela ordem das palavras, que é o
+ * que um TÍTULO pede (ver o comentário lá). Este
  * módulo é só a amarração das duas, mais a regra de continuidade abaixo.
  *
  * Puro: recebe as páginas já extraídas, sem pdf.js e sem IO.
  */
 
 import { getPageChapter, type ExtractedPdfPage } from "./pdf-text.ts";
-import { disciplinaDoTexto, type FindingDiscipline } from "./audit-report.ts";
+import { disciplinaDoTitulo, type FindingDiscipline } from "./audit-report.ts";
 import { primeiraPagina } from "./pins-do-parecer.ts";
 
 /** O número do capítulo ("12 - INSTALAÇÕES ELÉTRICAS" → "12"), ou "". */
@@ -63,9 +65,9 @@ export function disciplinaPorPagina(
       const numeroEmVigor = numeroDoCapitulo(capituloEmVigor);
 
       if (numeroNovo !== numeroEmVigor) {
-        disciplinaEmVigor = disciplinaDoTexto(cabecalho);
+        disciplinaEmVigor = disciplinaDoTitulo(cabecalho);
       } else {
-        disciplinaEmVigor = disciplinaEmVigor ?? disciplinaDoTexto(cabecalho);
+        disciplinaEmVigor = disciplinaEmVigor ?? disciplinaDoTitulo(cabecalho);
       }
 
       capituloEmVigor = cabecalho;
