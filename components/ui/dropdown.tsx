@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 import {
@@ -27,29 +28,65 @@ export function Dropdown({
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const painelRef = React.useRef<HTMLDivElement>(null);
   const [lugar, setLugar] = React.useState<LugarDaSobreposicao | null>(null);
+  /** Coordenadas de TELA do painel. Nulas antes da primeira medida. */
+  const [caixa, setCaixa] = React.useState<React.CSSProperties | null>(null);
 
   /*
-   * ONDE O MENU CABE.
+   * O PAINEL SAI DA ÁRVORE, e vai para o `<body>`.
    *
-   * Este primitivo abria SEMPRE para baixo, sem teto de altura — o mesmo padrão
-   * que fez um popover do canvas descer para fora da janela mostrando só o
-   * cabeçalho, com os itens no DOM e toda asserção passando verde. Aqui morde
-   * no menu de ações de um achado do fim de uma lista longa, e dentro de um
-   * cartão `overflow-hidden` morde independentemente da posição na janela.
+   * Ele era `absolute` dentro do gatilho, e por isso qualquer ancestral que
+   * recorte o levava junto: `overflow-hidden` cortava, e `clip-path` corta
+   * SEMPRE, esteja onde estiver na janela. O cartão de achado carregava a
+   * cicatriz disso — um comentário pedindo para ninguém pôr `overflow-hidden`
+   * nele, e a geometria travada em `rounded-md` porque o chanfro cortaria o
+   * menu. Contornar a falta de portal em cada consumidor não escala: o próximo
+   * a recortar um ancestral não vai saber que existe essa dívida.
    *
-   * O deslocamento horizontal não se aplica: o menu alinha pela borda do
-   * gatilho (`left-0`/`right-0`), não pelo centro dele.
+   * Com o portal o painel é `fixed` e não tem ancestral que o recorte. O preço
+   * é que `fixed` não acompanha rolagem de contêiner — por isso a medida se
+   * refaz no `scroll` (em captura, para pegar QUALQUER contêiner que role, e
+   * não só a janela) e no `resize`.
    */
   React.useLayoutEffect(() => {
     if (!open) return;
+
     function medir() {
-      if (ref.current) setLugar(medirLugarDaSobreposicao(ref.current, null));
+      const gatilho = ref.current;
+      if (!gatilho) return;
+
+      const onde = medirLugarDaSobreposicao(gatilho, painelRef.current);
+      const r = gatilho.getBoundingClientRect();
+
+      setLugar(onde);
+      setCaixa({
+        position: "fixed",
+        /*
+         * Ancorado pela BORDA, e não pelo centro: o menu alinha com a lateral
+         * do gatilho (era `right-0` / `left-0`). Usar `right`/`bottom` evita
+         * precisar da largura do painel, que ainda não existe na primeira
+         * medida — a conta não depende do resultado dela mesma.
+         */
+        ...(onde.lado === "acima"
+          ? { bottom: window.innerHeight - r.top + 4 }
+          : { top: r.bottom + 4 }),
+        ...(align === "end"
+          ? { right: window.innerWidth - r.right }
+          : { left: r.left }),
+      });
     }
+
     medir();
     window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
-  }, [open]);
+    // `true` = fase de captura: pega a rolagem de qualquer contêiner no caminho,
+    // e não só a da janela. Sem isso o menu fica parado no ar ao rolar a lista.
+    window.addEventListener("scroll", medir, true);
+    return () => {
+      window.removeEventListener("resize", medir);
+      window.removeEventListener("scroll", medir, true);
+    };
+  }, [open, align]);
 
   React.useEffect(() => {
     if (!open) {
@@ -57,7 +94,12 @@ export function Dropdown({
     }
 
     function handlePointer(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      const alvo = event.target as Node;
+      // O painel NÃO é mais descendente do gatilho: os dois precisam ser
+      // consultados, senão clicar dentro do próprio menu o fecha.
+      const dentroDoGatilho = ref.current?.contains(alvo);
+      const dentroDoPainel = painelRef.current?.contains(alvo);
+      if (!dentroDoGatilho && !dentroDoPainel) {
         setOpen(false);
       }
     }
@@ -76,35 +118,33 @@ export function Dropdown({
     };
   }, [open]);
 
+  const painel =
+    open && caixa ? (
+      /* O pai existe SO para a sombra: `filter` no painel recortado seria
+         cortado junto (filter e aplicado ANTES de clip-path), e `box-shadow`
+         externo idem. Num pai nao recortado, o drop-shadow segue a silhueta
+         chanfrada do filho -- que e exatamente o que se quer. */
+      <div className="nx-elev z-50" style={caixa}>
+        <div
+          ref={painelRef}
+          role="menu"
+          style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
+          className={cn(
+            "nexodoc-enter nx-edge-6 min-w-[180px] overflow-y-auto overscroll-contain p-1 [--nx-fill:var(--nexodoc-panel)]",
+            panelClassName,
+          )}
+        >
+          {children({ close: () => setOpen(false) })}
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div ref={ref} className="relative">
       {trigger({ open, toggle: () => setOpen((value) => !value) })}
-      {open ? (
-        /* O pai existe SO para a sombra: `filter` no painel recortado seria
-           cortado junto (filter e aplicado ANTES de clip-path), e `box-shadow`
-           externo idem. Num pai nao recortado, o drop-shadow segue a silhueta
-           chanfrada do filho -- que e exatamente o que se quer. */
-        <div
-          className={cn(
-            "nx-elev absolute z-50",
-            lugar?.lado === "acima"
-              ? "bottom-[calc(100%+4px)]"
-              : "top-[calc(100%+4px)]",
-            align === "end" ? "right-0" : "left-0",
-          )}
-        >
-          <div
-            role="menu"
-            style={lugar ? { maxHeight: lugar.alturaMax } : undefined}
-            className={cn(
-              "nexodoc-enter nx-edge-6 min-w-[180px] overflow-y-auto overscroll-contain p-1 [--nx-fill:var(--nexodoc-panel)]",
-              panelClassName,
-            )}
-          >
-            {children({ close: () => setOpen(false) })}
-          </div>
-        </div>
-      ) : null}
+      {painel && typeof document !== "undefined"
+        ? createPortal(painel, document.body)
+        : null}
     </div>
   );
 }

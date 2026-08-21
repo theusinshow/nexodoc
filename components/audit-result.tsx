@@ -2829,12 +2829,18 @@ export function AuditResult({
                       onPointerMove={moverLuz}
                       className={cn(
                         /*
-                         * SEM `overflow-hidden`: o menu de ações deste achado é
-                         * filho daqui, e o recorte o cortava INDEPENDENTEMENTE
-                         * da posição na janela — o cartão é mais curto que o
-                         * menu. O arredondamento que o `overflow` garantia
-                         * agora é do cabeçalho, que é o único filho com fundo
-                         * próprio encostando na borda.
+                         * SEM `overflow-hidden`, e a razão MUDOU (21/08/2026).
+                         *
+                         * Era pelo menu de ações: filho daqui, o recorte o
+                         * cortava INDEPENDENTEMENTE da posição na janela, porque
+                         * o cartão é mais curto que o menu. Isso deixou de valer
+                         * — o `Dropdown` agora vai para o `<body>` por portal.
+                         *
+                         * A regra fica assim mesmo, porque a alternativa não
+                         * ganha nada: o arredondamento que o `overflow` garantiria
+                         * já é do cabeçalho, que é o único filho com fundo próprio
+                         * encostando na borda. Pôr `overflow-hidden` de volta
+                         * seria criar um contêiner de rolagem por nada.
                          */
                         /*
                          * `@container`: as duas grades internas decidiam o
@@ -2859,16 +2865,21 @@ export function AuditResult({
                          * estado, não decoração distribuída.
                          */
                         /*
-                         * O ÚNICO `rounded-md` QUE FICA, e ficar é a decisão.
+                         * O ÚNICO `rounded-md` QUE FICA, e agora por UM motivo só.
                          *
-                         * `clip-path` corta filho posicionado sempre — o
-                         * `Dropdown` de ações deste achado é filho daqui e não é
-                         * portalizado, e o `ring-offset` do foco vindo do canvas
-                         * morre no recorte pelo mesmo motivo. É o irmão do
-                         * `overflow-hidden` que este cartão já evita, logo acima.
+                         * Eram dois. O `Dropdown` de ações era filho daqui e não
+                         * era portalizado — isso caiu: o primitivo agora vai para
+                         * o `<body>`, e o menu deixou de depender da geometria
+                         * deste cartão.
                          *
-                         * Trocar duas funções por uma forma não vale. Quando
-                         * alguém portalizar o menu, a porta abre.
+                         * O que sobrou é o REALCE VINDO DO CANVAS
+                         * (`data-[em-foco]:ring-2 ring-offset-2`): `outline` e
+                         * `box-shadow` externo são cortados pelo `clip-path`, e o
+                         * cartão ficaria sem a marca que faz quem clica no canvas
+                         * se achar no meio de 45 iguais. Recortar exige primeiro
+                         * trocar esse realce por um que viva POR DENTRO — decisão
+                         * de afordância, não de geometria, e por isso não entra
+                         * junto.
                          */
                         "@container nx-spot rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
                         estaResolvido(finding.refId)

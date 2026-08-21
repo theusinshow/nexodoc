@@ -212,12 +212,26 @@ try {
   await barra.waitFor({ timeout: 15000 });
   await page.waitForTimeout(800);
 
-  // ------------------------------------------------------- 01 duas seções
-  const secaoVolumes = barra.getByText("Montagem de volumes", { exact: true });
-  const secaoAuditorias = barra.getByText("Auditoria de memoriais", { exact: true });
+  /*
+   * 01 O TIPO É ETIQUETA, e não mais seção.
+   *
+   * Esta asserção procurava os cabeçalhos "Montagem de volumes" e "Auditoria de
+   * memoriais" — as duas seções que dividiam o histórico. Elas SAÍRAM em
+   * 19/08/2026 (`749bd67`, "lateral: o projeto vira a unidade, e o tipo de
+   * trabalho vira etiqueta"), e o próprio `NexoSidebar` traz o comentário
+   * dizendo isso. A prova ficou vermelha na main por dois dias sem que nada da
+   * barra estivesse quebrado — ela mede um desenho que ninguém mais desenha.
+   *
+   * O que substituiu: a PASTA no topo, e o tipo virou a barra de 2px na linha
+   * de cada conversa (`--nexo-marca-volume` / `--nexo-marca-auditoria`). O
+   * `title` dela é o portador acessível, e é por ele que se mede.
+   */
+  const marcaAuditoria = barra.locator('[title="Auditoria de memorial"]');
+  const marcaVolume = barra.locator('[title="Montagem de volume"]');
   checar(
-    "01 conversas de tipos diferentes caem em seções diferentes",
-    (await secaoVolumes.count()) === 1 && (await secaoAuditorias.count()) === 1,
+    "01 cada conversa carrega a marca do seu tipo",
+    (await marcaAuditoria.count()) === 3 && (await marcaVolume.count()) === 3,
+    `auditoria=${await marcaAuditoria.count()} volume=${await marcaVolume.count()}`,
   );
 
   // As duas conversas de volume + a legada = 3; as três de auditoria = 3.
@@ -260,13 +274,16 @@ try {
   await page.waitForTimeout(300);
   await shot(page, "tudo");
 
-  // ------------------------------------------- 02 o filtro esconde a SEÇÃO
+  // --------------------------------- 02 o filtro esconde o OUTRO TIPO
+  // Mesma troca da 01: não há seção para esconder, há conversa. Filtrar por
+  // Volumes tem de tirar da lista toda linha marcada como auditoria.
   await tabVolumes.click();
   await page.waitForTimeout(300);
   const depois = await numeros();
   checar(
-    "02 o filtro esconde a seção inteira",
-    (await secaoAuditorias.count()) === 0 && (await secaoVolumes.count()) === 1,
+    "02 o filtro esconde as conversas do outro tipo",
+    (await marcaAuditoria.count()) === 0 && (await marcaVolume.count()) === 3,
+    `auditoria=${await marcaAuditoria.count()} volume=${await marcaVolume.count()}`,
   );
   checar(
     "02 as contagens NÃO mudam ao filtrar",
@@ -297,14 +314,18 @@ try {
       "true",
   );
 
-  // ------------------------- seção única não oferece recolher (estado §7.4)
-  const cabecalhoUnico = barra
-    .getByText("Auditoria de memoriais", { exact: true })
-    .locator("xpath=..");
-  checar(
-    "§7 a única seção visível não oferece chevron de recolher",
-    (await cabecalhoUnico.evaluate((el) => el.tagName.toLowerCase())) === "div",
-  );
+  /*
+   * A ASSERÇÃO DO CHEVRON SAIU, e sair é a decisão.
+   *
+   * Ela media a regra "a única seção visível não oferece recolher" (§7.4) sobre
+   * o cabeçalho "Auditoria de memoriais". Sem seções por tipo, não há sobre o
+   * que medir — e era ela que derrubava a prova inteira com um timeout de 30s,
+   * levando junto as dez asserções que vinham depois.
+   *
+   * NÃO foi reescrita para a PASTA por honestidade: se a mesma regra vale para
+   * cabeçalho de pasta é pergunta de desenho, e inventar a resposta aqui seria
+   * congelar um palpite como se fosse spec. Quando alguém decidir, escreve.
+   */
 
   // Volta para "Tudo" para as medidas seguintes.
   await barra.getByRole("tab", { name: /Tudo/ }).click();
