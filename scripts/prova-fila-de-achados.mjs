@@ -418,6 +418,77 @@ check(
   nomesNoSeletor.slice(0, 6).join(" | "),
 );
 
+/*
+ * O GRUPO SEM NINGUÉM, DITO EM VOZ ALTA.
+ *
+ * `terraplenagem` responde ao grupo `externo` — é terceirizada na tabela do
+ * escritório — e o escritório não tem NINGUÉM nele. O seletor cai na lista
+ * plana de quarenta nomes, e antes disto quem enviava não sabia por quê:
+ * parecia que o sistema não soube. Ele soube; não há a quem apontar.
+ *
+ * Medido em 21/08: 64 dos 229 achados dos dois memoriais de referência caem
+ * nessas duas disciplinas. Um quarto dos envios.
+ *
+ * O achado é acrescentado AQUI, e não na fixture lá em cima: mexer no relatório
+ * inicial mudaria a contagem de meia dúzia de asserções que não têm nada a ver
+ * com isto.
+ */
+const comTerraplenagem = structuredClone(relatorio);
+comTerraplenagem.incongruencias.push({
+  id: "INC-009",
+  prioridade: "Media",
+  pagina: "44",
+  capitulo: "5 PROJETO DE URBANIZAÇÃO",
+  local: "quadro 3",
+  tipo: "Espessura da camada de assentamento conflitante",
+  descricao: "Duas espessuras para o mesmo piso.",
+  evidencia: "camada de assentamento de 5 cm",
+  conflito: "o quadro diz 3 cm",
+  sugestao_correcao: "Uniformizar.",
+  confianca: "alta",
+  impacto: "tecnico_contratual",
+});
+
+await prisma.audit.update({
+  where: { id: AUDIT_ID },
+  data: { report: comTerraplenagem, totalFindings: comTerraplenagem.incongruencias.length },
+});
+
+await pVictor.goto(`/nexo?auditoria=${AUDIT_ID}`);
+await pVictor.waitForLoadState("networkidle");
+await pVictor.waitForTimeout(3500);
+await pVictor.getByRole("button", { name: /achados/i }).first().click();
+await pVictor.waitForTimeout(500);
+await pVictor.getByLabel(/Selecionar INC-009 para enviar/i).check();
+await pVictor.waitForTimeout(300);
+
+const barra = await pVictor.locator("main.nexo-shell__stage").innerText();
+check(
+  "achado de grupo vazio avisa que nao ha a quem apontar",
+  /ningu[eé]m do escrit[oó]rio est[aá] nesse grupo/i.test(barra),
+  barra.replace(/\s+/g, " ").slice(-220),
+);
+check(
+  "e diz QUAL grupo, senao a frase nao ajuda a resolver",
+  /externo/i.test(barra),
+  barra.replace(/\s+/g, " ").slice(-220),
+);
+
+/*
+ * E A OUTRA METADE: com grupo que TEM gente, o aviso não aparece. Sem isto, um
+ * aviso grudado na tela para sempre passaria as duas asserções acima.
+ */
+await pVictor.getByLabel(/Selecionar INC-009 para enviar/i).uncheck();
+await pVictor.getByLabel(/Selecionar INC-001 para enviar/i).check();
+await pVictor.waitForTimeout(300);
+
+const semAviso = await pVictor.locator("main.nexo-shell__stage").innerText();
+check(
+  "e some quando o grupo tem gente",
+  !/ningu[eé]m do escrit[oó]rio est[aá] nesse grupo/i.test(semAviso),
+  semAviso.replace(/\s+/g, " ").slice(-220),
+);
+
 // --- Fora do escritório, nada.
 //
 // O cenário é semeado AQUI, e não herdado de `prova:escritorio`. Uma asserção

@@ -3453,6 +3453,32 @@ export function AuditResult({
                     >
                       Limpar
                     </button>
+
+                    {/*
+                      O BURACO DITO EM VOZ ALTA.
+
+                      Quando a disciplina TEM grupo e o grupo não tem ninguém, o
+                      seletor cai na lista plana de quarenta nomes — e quem envia
+                      não sabe por quê. Parece que o sistema não soube; ele soube,
+                      e não há a quem apontar.
+
+                      Medido em 21/08: `terraplenagem` e `climatizacao` respondem
+                      ao grupo `externo` (são terceirizadas na tabela do
+                      escritório) e o escritório não tem NINGUÉM nele. São 64 dos
+                      229 achados dos dois memoriais de referência — um quarto.
+
+                      A frase não sugere ninguém, e é o ponto: sugerir seria
+                      inventar dono. Ela diz o fato que falta, e quem lê sabe o
+                      que fazer — convidar o parceiro, ou corrigir o grupo de
+                      quem já faz a ponte.
+                    */}
+                    {grupoDoEnvio && !agrupar ? (
+                      <p className="w-full font-mono text-[11px] leading-relaxed text-[var(--status-warning)]">
+                        {GRUPOS_TECNICOS[grupoDoEnvio]} é quem responde por este
+                        achado, e ninguém do escritório está nesse grupo. Escolha à
+                        mão, ou peça para incluírem a pessoa.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 
