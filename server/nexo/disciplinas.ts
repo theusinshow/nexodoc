@@ -269,6 +269,10 @@ export function grupoDaDisciplinaDoAchado(disciplina: string): GrupoTecnico | un
     eletrico: "complementares",
     ppci: "complementares",
     cabeamento: "complementares",
+    // Os mesmos grupos que a tabela do escritório dá a `gme` e `cli` logo
+    // acima — climatização é terceirizada, gases medicinais é de casa.
+    gases_medicinais: "complementares",
+    climatizacao: "externo",
     terraplenagem: "externo",
   };
 

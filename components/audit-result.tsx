@@ -1251,9 +1251,17 @@ export function AuditResult({
   const suggestionFindings = findingsWithPdf.filter((finding) => finding.tier === "sugestao");
 
   // Filtros por disciplina e tipo de erro (só mostra os que existem no resultado).
+  /*
+   * A ORDEM DOS CHIPS DE DISCIPLINA — e a lista de quais existem.
+   *
+   * PRECISA CONTER TODAS. Disciplina fora daqui não é só desordenada: ela some
+   * de `presentDisciplines`, e o chip de filtro dela nunca é desenhado. Um
+   * parecer com trinta achados de climatização não teria como filtrá-los.
+   */
   const disciplineOrder: FindingDiscipline[] = [
     "geral", "arquitetura", "estrutural", "hidrossanitario", "eletrico",
-    "ppci", "cabeamento", "terraplenagem", "paisagismo", "acessibilidade",
+    "ppci", "cabeamento", "climatizacao", "gases_medicinais",
+    "terraplenagem", "paisagismo", "acessibilidade",
   ];
   const findingDiscipline = (finding: StructuredFinding): FindingDiscipline => finding.disciplina ?? "geral";
   const findingErrorType = (finding: StructuredFinding): FindingErrorType => finding.tipoErro ?? "tecnico";

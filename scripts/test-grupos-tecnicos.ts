@@ -20,6 +20,7 @@ import {
   temLd,
   temSeparatriz,
 } from "../server/nexo/disciplinas.ts";
+import type { FindingDiscipline } from "../lib/audit-report.ts";
 
 let falhas = 0;
 function check(nome: string, ok: boolean, detalhe = "") {
@@ -87,6 +88,41 @@ check("achado de paisagismo cai em arquitetura", grupoDaDisciplinaDoAchado("pais
  * a lista de destinatários seria ordenada por um palpite.
  */
 check("achado 'geral' NAO tem grupo", grupoDaDisciplinaDoAchado("geral") === undefined);
+
+/*
+ * AS DUAS QUE ENTRARAM EM 21/08 — e a razão de terem grupos diferentes.
+ *
+ * Elas seguem a tabela do escritório (`cli` e `gme` no léxico), e não uma
+ * escolha nova: climatização é terceirizada, gases medicinais é de casa. Sem
+ * esta ponte, trinta achados de um memorial de hospital não teriam a quem ser
+ * sugeridos.
+ */
+check(
+  "achado de gases medicinais cai em complementares",
+  grupoDaDisciplinaDoAchado("gases_medicinais") === "complementares",
+);
+check(
+  "e climatizacao segue a tabela: externo",
+  grupoDaDisciplinaDoAchado("climatizacao") === "externo",
+);
+
+/*
+ * TODA DISCIPLINA DE ACHADO TEM PONTE, menos "geral".
+ *
+ * A asserção que faltava, e que teria pegado esta lacuna sozinha: as duas novas
+ * entraram no tipo e a ponte poderia ter ficado para trás — o TypeScript não
+ * cobra, porque o mapa é um `Record<string, ...>` parcial de propósito.
+ */
+const SEM_PONTE_ESPERADO = new Set(["geral"]);
+const disciplinasDeAchado: FindingDiscipline[] = [
+  "arquitetura", "estrutural", "hidrossanitario", "eletrico", "ppci",
+  "cabeamento", "climatizacao", "gases_medicinais", "terraplenagem",
+  "paisagismo", "acessibilidade", "geral",
+];
+const orfas = disciplinasDeAchado.filter(
+  (d) => !grupoDaDisciplinaDoAchado(d) && !SEM_PONTE_ESPERADO.has(d),
+);
+check("nenhuma disciplina de achado ficou sem ponte", orfas.length === 0, orfas.join(","));
 
 if (falhas > 0) {
   console.error(`\nFALHOU  grupos tecnicos (${falhas})`);

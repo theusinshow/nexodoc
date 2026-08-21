@@ -496,6 +496,29 @@ export function classifyFindingImpact(finding: AuditFinding): FindingImpact {
 // disciplina, então o texto do capítulo/categoria carrega o sinal). Determinístico
 // e de graça; achado ambíguo cai em "geral"/"tecnico".
 
+/**
+ * AS DISCIPLINAS QUE UM ACHADO PODE TER.
+ *
+ * É uma lista MENOR que a do escritório (`server/nexo/disciplinas.ts`, 24
+ * entradas), e isso é deliberado: ali estão as disciplinas que geram capa,
+ * separatriz e LD; aqui estão as que aparecem na PROSA de um memorial com
+ * vocabulário próprio o bastante para serem reconhecidas.
+ *
+ * `climatizacao` e `gases_medicinais` entraram em 21/08/2026, e não por
+ * completismo. Medido nos dois memoriais de referência: dos 52 achados que
+ * caíam em "geral", TRINTA vinham dos capítulos "13 PROJETO DE CLIMATIZAÇÃO",
+ * "14 PROJETO DE GASES MEDICINAIS" e "RELATÓRIO DE CARGA TÉRMICA". Não era
+ * palavra faltando no vocabulário — eram duas disciplinas inteiras que o
+ * escritório conhece, tem grupo responsável e capítulo próprio no documento, e
+ * que esta lista não sabia nomear. Um memorial de hospital é metade disso.
+ *
+ * O QUE SOBROU EM "GERAL" É GERAL DE VERDADE: identidade da obra, condições
+ * gerais e preliminares, ARTs e caderno de encargos. Documento, não disciplina.
+ *
+ * As outras ausências (topografia, sondagem, maquete, levantamento) continuam
+ * fora de propósito: nenhuma delas tem capítulo nos memoriais medidos, e
+ * inventar regra para vocabulário que não se viu é como a lista erra.
+ */
 export type FindingDiscipline =
   | "arquitetura"
   | "estrutural"
@@ -503,6 +526,8 @@ export type FindingDiscipline =
   | "eletrico"
   | "ppci"
   | "cabeamento"
+  | "climatizacao"
+  | "gases_medicinais"
   | "terraplenagem"
   | "paisagismo"
   | "acessibilidade"
@@ -524,6 +549,8 @@ const DISCIPLINE_LABELS: Record<FindingDiscipline, string> = {
   eletrico: "Elétrico",
   ppci: "PPCI / Incêndio",
   cabeamento: "Cabeamento / CFTV",
+  climatizacao: "Climatização",
+  gases_medicinais: "Gases medicinais",
   terraplenagem: "Terraplenagem / Urbanização",
   paisagismo: "Paisagismo",
   acessibilidade: "Acessibilidade",
@@ -557,6 +584,25 @@ function findingHaystack(finding: AuditFinding) {
 // ordem = prioridade (mais específico primeiro); PPCI antes porque cita várias disciplinas
 const DISCIPLINE_RULES: Array<{ key: FindingDiscipline; pattern: RegExp }> = [
   { key: "ppci", pattern: /\b(?:ppci|incendio|cbmsc|smsci|preventivo|hidrante|extintor|brigada|trrf|iluminacao de emergencia|saidas de emergencia)/ },
+  /*
+   * GASES MEDICINAIS ANTES DE HIDROSSANITÁRIO, e não em ordem alfabética.
+   *
+   * A rede de gases é tubulação, e a prosa dela fala de tubo, ramal e pressão —
+   * palavras que o hidrossanitário também usa. O vocabulário abaixo é o que
+   * NENHUMA outra disciplina diz: "posto de utilização" e "vácuo clínico" são
+   * de gases medicinais e de mais nada.
+   *
+   * `cilindro` FICOU DE FORA de propósito, embora seja a palavra mais óbvia:
+   * corpo de prova cilíndrico é ensaio de concreto, e a regra roubaria achado
+   * do estrutural. Uma palavra que casa demais é pior que uma que falta.
+   */
+  { key: "gases_medicinais", pattern: /\b(?:gases medicinais|gas medicinal|oxigenio medicinal|ar comprimido medicinal|vacuo clinico|vacuo medicinal|posto de utilizacao|nbr 12188|oxido nitroso)/ },
+  /*
+   * CLIMATIZAÇÃO tem vocabulário próprio e sem vizinho: nenhuma outra
+   * disciplina do memorial fala de carga térmica, condensadora ou psicrometria.
+   * `split` e `chiller` são nomes de equipamento e não aparecem em outro lugar.
+   */
+  { key: "climatizacao", pattern: /\b(?:climatiz|carga termica|ar condicionado|condicionamento de ar|condensadora|evaporadora|fancoil|fan coil|chiller|split|psicrometr|vrf|btu)/ },
   { key: "hidrossanitario", pattern: /\b(?:hidrossanit|hidraulic|esgoto|agua fria|agua quente|reservatori|sanitari|bacia|louca|efluente|pluvial)/ },
   { key: "eletrico", pattern: /\b(?:eletric|qgp|quadro geral|quadro de distribui|luminotecnic|spda|aterramento|baixa tensao|subestacao|concessionaria)/ },
   { key: "cabeamento", pattern: /\b(?:cabeamento|cftv|logica|telecom|rack)/ },

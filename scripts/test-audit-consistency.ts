@@ -949,6 +949,43 @@ check("disciplina: PPCI, hidro, elétrico, paisagismo, geral", () => {
   assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Hierarquia documental contraditória", categoria: "Condições gerais" })), "geral");
 });
 
+/*
+ * CLIMATIZAÇÃO E GASES MEDICINAIS — as duas disciplinas que entraram em 21/08.
+ *
+ * Trinta dos cinquenta e dois achados que caíam em "geral" nos dois memoriais
+ * de referência vinham destes dois capítulos. Não era palavra faltando: eram
+ * duas disciplinas que o escritório conhece e esta lista não sabia nomear.
+ */
+check("disciplina: climatização e gases medicinais", () => {
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Capacidade instalada inferior à carga térmica calculada", categoria: "Climatização" })), "climatizacao");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Quantidade conflitante de condensadoras", categoria: "13 PROJETO DE CLIMATIZAÇÃO" })), "climatizacao");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Localização de posto de utilização ambígua", categoria: "Gases medicinais" })), "gases_medicinais");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Vácuo clínico sem escopo definido", categoria: "14 PROJETO DE GASES MEDICINAIS" })), "gases_medicinais");
+});
+
+/*
+ * E A GUARDA CONTRA O ROUBO. `cilindro` seria a palavra mais óbvia para gases
+ * medicinais e ficou de fora de propósito: corpo de prova cilíndrico é ensaio
+ * de concreto. Uma palavra que casa demais rouba achado da disciplina certa, e
+ * o dono some da lista de quem deveria receber.
+ */
+check("gases medicinais NAO rouba o corpo de prova do estrutural", () => {
+  assert.equal(
+    classifyFindingDiscipline(mkReportFinding({ tipo: "Corpo de prova cilíndrico sem idade de ruptura", categoria: "Estrutural — concreto armado" })),
+    "estrutural",
+  );
+});
+
+/*
+ * O QUE CONTINUA SENDO "GERAL" DE VERDADE: identidade da obra e condições
+ * gerais não são disciplina, são documento. Depois da correção sobraram
+ * dezesseis achados assim nos dois memoriais, e é onde eles têm que estar.
+ */
+check("identidade e condições gerais continuam em 'geral'", () => {
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "Nome de obra/unidade divergente no mesmo documento", categoria: "Identidade da obra no documento" })), "geral");
+  assert.equal(classifyFindingDiscipline(mkReportFinding({ tipo: "ARTs e RRTs anunciadas e não anexadas", categoria: "13 ART'S E RRT'S" })), "geral");
+});
+
 check("tipo de erro: identidade, norma, quantitativo, escopo, especificação", () => {
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Nome de obra/unidade divergente no mesmo documento", categoria: "nome da obra/unidade" })), "identidade");
   assert.equal(classifyFindingErrorType(mkReportFinding({ tipo: "Referência normativa desatualizada", categoria: "Normas técnicas" })), "norma");
