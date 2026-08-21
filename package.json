@@ -133,6 +133,7 @@
     "prova:texto-do-pdf": "node scripts/prova-texto-do-pdf.ts",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
+    "prova:badge": "node scripts/prova-badge-a-mao.mjs",
     "prova:ambiente": "node scripts/prova-ambiente-visual.mjs",
     "prova:glossario": "node scripts/prova-glossario.mjs",
     "prova:cambio": "node scripts/prova-cambio.mjs",

@@ -19,6 +19,7 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TUDO_EM_ORDEM, resumoDeAtencao } from "@/lib/atencao-do-admin";
 import {
@@ -160,10 +161,6 @@ function ConfigurationStatus({ configured }: { configured: boolean }) {
 
 function getProviderLabel(_provider: AiProvider) {
   return "OpenAI";
-}
-
-function getProviderClass(_provider: AiProvider) {
-  return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
 }
 
 function getFailureForFlow(
@@ -625,20 +622,14 @@ export default function AdminConfigPage() {
                 Salva somente nomes de modelos no banco. Chaves continuam protegidas no ambiente do backend.
               </p>
             </div>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs ${
-                data?.modelSettings.databaseConfigured
-                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
-              }`}
-            >
+            <Badge variant={data?.modelSettings.databaseConfigured ? "ok" : "warning"}>
               {data?.modelSettings.databaseConfigured ? (
-                <CheckCircle2 className="size-3.5" />
+                <CheckCircle2 aria-hidden />
               ) : (
-                <AlertTriangle className="size-3.5" />
+                <AlertTriangle aria-hidden />
               )}
               {data?.modelSettings.databaseConfigured ? "persistência ativa" : "sem DATABASE_URL"}
-            </span>
+            </Badge>
           </div>
 
           <datalist id="nexodoc-ai-model-options">
@@ -671,11 +662,7 @@ export default function AdminConfigPage() {
                         : "usando padrão/env"}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
-                  >
-                    {getProviderLabel(flow.provider)}
-                  </span>
+                  <Badge variant="ok">{getProviderLabel(flow.provider)}</Badge>
                   <span className="break-all font-mono text-xs text-foreground">{flow.effectiveModel || "--"}</span>
                   <input
                     list="nexodoc-ai-model-options"
@@ -745,12 +732,10 @@ export default function AdminConfigPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {data?.runtime.primaryProvider ? (
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 font-mono text-xs font-medium ${getProviderClass(data.runtime.primaryProvider)}`}
-                >
-                  <Activity className="size-3.5" />
+                <Badge variant="ok">
+                  <Activity aria-hidden />
                   principal: {getProviderLabel(data.runtime.primaryProvider)}
-                </span>
+                </Badge>
               ) : null}
               <span className="font-mono text-xs text-muted-foreground">
                 {connectivityTest
@@ -780,22 +765,12 @@ export default function AdminConfigPage() {
                     <p className="font-medium text-foreground">{flow.label}</p>
                     {flow.note ? <p className="mt-1 text-xs text-muted-foreground">{flow.note}</p> : null}
                   </div>
-                  <span
-                    className={`inline-flex w-fit rounded-sm border px-2 py-1 font-mono text-[11px] font-medium uppercase ${getProviderClass(flow.provider)}`}
-                  >
-                    {getProviderLabel(flow.provider)}
-                  </span>
+                  <Badge variant="ok">{getProviderLabel(flow.provider)}</Badge>
                   <span className="break-all font-mono text-xs text-foreground">{flow.model || "--"}</span>
-                  <span
-                    className={`inline-flex w-fit items-center gap-1.5 rounded-sm border px-2 py-1 text-xs ${
-                      isReady
-                        ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-                        : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
-                    }`}
-                  >
-                    {isReady ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+                  <Badge variant={isReady ? "ok" : "warning"}>
+                    {isReady ? <CheckCircle2 aria-hidden /> : <AlertTriangle aria-hidden />}
                     {isReady ? "pronto" : flow.keyConfigured ? "atenção" : "sem chave"}
-                  </span>
+                  </Badge>
                   {/*
                     A ÚNICA FONTE DA ÚLTIMA FALHA.
                     Havia uma segunda, no fim da página ("Últimos incidentes de

@@ -11,6 +11,7 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -48,9 +49,16 @@ function roleClass(role: AdminUser["role"]) {
  * convidado usa a cor de atencao de proposito -- e um estado de espera, e quem
  * olha a lista precisa distinguir "nao liberei" de "liberei e ele nao entrou".
  */
+/*
+ * ESTE FICA EM CLASSES, e a excecao esta declarada na linha: o alvo e um
+ * BOTAO que liga e desliga o vinculo, e a aparencia dele carrega o estado.
+ * `<Badge>` e um `<span>` passivo -- trocaria o controle por um rotulo.
+ * badge-a-mao-permitido
+ */
 function escritorioClass(vinculo: AdminUser["escritorio"]) {
   if (!vinculo) return "border-border bg-background text-muted-foreground";
   if (vinculo.status !== "ACTIVE") {
+    // badge-a-mao-permitido: o alvo e um BOTAO, nao uma etiqueta (ver acima).
     return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
   }
   return "border-primary/30 bg-primary/10 text-primary";
@@ -63,10 +71,9 @@ function escritorioLabel(vinculo: AdminUser["escritorio"]) {
   return vinculo.role;
 }
 
-function statusClass(isActive: boolean) {
-  return isActive
-    ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]"
-    : "border-destructive/30 bg-background text-destructive";
+/** A variante do `<Badge>`, e nao as classes: ver `scripts/prova-badge-a-mao.mjs`. */
+function statusVariant(isActive: boolean) {
+  return isActive ? ("ok" as const) : ("critical" as const);
 }
 
 /**
@@ -540,7 +547,7 @@ export default function AdminUsersPage() {
                     <p className="truncate font-mono text-xs text-muted-foreground">{user.email}</p>
                   </td>
                   <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", roleClass(user.role))}>{user.role}</span></td>
-                  <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(user.isActive))}>{user.isActive ? "ATIVO" : "DESATIVADO"}</span></td>
+                  <td className="px-3 py-3"><Badge variant={statusVariant(user.isActive)}>{user.isActive ? "ATIVO" : "DESATIVADO"}</Badge></td>
                   <td className="px-3 py-3">
                     <button
                       type="button"

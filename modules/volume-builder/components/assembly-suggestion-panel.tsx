@@ -110,7 +110,7 @@ export function AssemblySuggestionPanel({
                     <p className="text-sm font-medium">{suggestion.title}</p>
                     <p className="text-xs text-muted-foreground">{suggestion.outputFileName}</p>
                   </div>
-                  <Badge variant="outline" className={getConfidenceClassName(suggestion.confidence)}>
+                  <Badge variant={getConfidenceVariant(suggestion.confidence)}>
                     {CONFIDENCE_LABELS[suggestion.confidence]}
                   </Badge>
                 </div>
@@ -174,16 +174,18 @@ function SuggestionMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getConfidenceClassName(confidence: AssemblySuggestion["confidence"]) {
-  if (confidence === "high") {
-    return "border-[var(--status-ok)]/35 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
-  }
-
-  if (confidence === "medium") {
-    return "border-[var(--nexodoc-tertiary-strong)]/35 bg-[var(--nexodoc-tertiary-bg)] text-[var(--nexodoc-tertiary)]";
-  }
-
-  return "border-destructive/35 bg-[var(--status-critical-bg)] text-destructive";
+/**
+ * A confiança da sugestão, como VARIANTE do `<Badge>`.
+ *
+ * Devolvia as classes à mão, e o sítio que a consumia já era
+ * `<Badge variant="outline" className={...}>` — o componente estava ali, sendo
+ * contrariado por uma string. `emphasis` é o rust, que é exatamente o que o
+ * caso do meio pintava: ênfase, não status. Ver `scripts/prova-badge-a-mao.mjs`.
+ */
+function getConfidenceVariant(confidence: AssemblySuggestion["confidence"]) {
+  if (confidence === "high") return "ok" as const;
+  if (confidence === "medium") return "emphasis" as const;
+  return "critical" as const;
 }
 
 const CONFIDENCE_LABELS: Record<AssemblySuggestion["confidence"], string> = {

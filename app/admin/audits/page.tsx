@@ -19,6 +19,7 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { rotuloDeAuditoria } from "@/lib/rotulos-de-status";
@@ -89,16 +90,11 @@ function isErrorPayload(
 /** Os status que a API aceita — a URL não manda um valor que o filtro ignora. */
 const STATUS_VALIDOS = ["PROCESSING", "COMPLETED", "FAILED", "CANCELED"];
 
-function getStatusClass(status: string) {
-  if (status === "COMPLETED") {
-    return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
-  }
-
-  if (status === "FAILED" || status === "CANCELED") {
-    return "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]";
-  }
-
-  return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
+/** A variante do `<Badge>`, e nao as classes: ver `scripts/prova-badge-a-mao.mjs`. */
+function getStatusVariant(status: string) {
+  if (status === "COMPLETED") return "ok" as const;
+  if (status === "FAILED" || status === "CANCELED") return "critical" as const;
+  return "warning" as const;
 }
 
 export default function AdminAuditsPage() {
@@ -418,14 +414,9 @@ export default function AdminAuditsPage() {
                       <p className="truncate">{audit.projectName}</p>
                     </td>
                     <td className="px-3 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex rounded-md border px-2 py-1 font-mono text-xs font-medium",
-                          getStatusClass(audit.status),
-                        )}
-                      >
+                      <Badge variant={getStatusVariant(audit.status)}>
                         {rotuloDeAuditoria(audit.status)}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-3 py-3 font-mono text-muted-foreground">{audit.auditMode}</td>
                     <td className="px-3 py-3 font-mono text-muted-foreground">

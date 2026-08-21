@@ -11,6 +11,7 @@ import {
   AdminPageShell,
   AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -39,10 +40,11 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-function statusClass(status: LdRecord["status"]) {
-  if (status === "GENERATED") return "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]";
-  if (status === "ARCHIVED") return "border-border bg-muted text-muted-foreground";
-  return "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]";
+/** A variante do `<Badge>`, e nao as classes: ver `scripts/prova-badge-a-mao.mjs`. */
+function statusVariant(status: LdRecord["status"]) {
+  if (status === "GENERATED") return "ok" as const;
+  if (status === "ARCHIVED") return "secondary" as const;
+  return "warning" as const;
 }
 
 export default function AdminLdsPage() {
@@ -251,7 +253,7 @@ export default function AdminLdsPage() {
                     />
                   </td>
                   <td className="max-w-[320px] px-3 py-3"><p className="font-mono font-semibold">{ld.projectCode || "-"}</p><p className="truncate text-muted-foreground">{ld.workName || "Obra não preenchida"}</p></td>
-                  <td className="px-3 py-3"><span className={cn("border px-2 py-1 font-mono text-xs", statusClass(ld.status))}>{rotuloDeLd(ld.status)}</span></td>
+                  <td className="px-3 py-3"><Badge variant={statusVariant(ld.status)}>{rotuloDeLd(ld.status)}</Badge></td>
                   <td className="max-w-[250px] px-3 py-3"><p className="truncate">{ld.userName || ld.userEmail}</p><p className="truncate text-xs text-muted-foreground">{ld.userEmail}</p></td>
                   <td className="px-3 py-3 text-right font-mono">{ld.rowCount}</td><td className="px-3 py-3 text-right font-mono">{ld.uploadedFileCount}</td><td className="px-3 py-3 text-right font-mono">{ld.tomoCount}</td><td className="px-3 py-3 text-right font-mono">{ld.eventCount}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-muted-foreground">{formatDate(ld.updatedAt)}</td>

@@ -349,52 +349,35 @@ function parseAuditResult(content: string): ParsedAudit {
   return parsed;
 }
 
-function getStatusVariant(status: string) {
+/**
+ * O RÓTULO do veredito geral, em português de gente.
+ *
+ * Devolvia também `className` (as três variantes do Badge, transcritas à mão) e
+ * `icon`. Os dois estavam MORTOS: `className` ia para um campo `tone` de
+ * `confidenceItems`, que ninguém renderizava, e `icon` para um `StatusIcon` que
+ * ninguém usava. Quatro cópias das classes de status mantidas vivas por código
+ * que não desenha nada — e que apareceriam numa busca por "quem usa âmbar" como
+ * se fossem tela.
+ */
+function rotuloDoStatus(status: string) {
   const normalized = normalizeText(status);
-
-  if (
-    normalized.includes("sem achados criticos") ||
-    normalized.includes("sem incongruencia relevante")
-  ) {
-    return {
-      label: "sem achados críticos",
-      className:
-        "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
-      icon: CheckCircle2,
-    };
-  }
 
   if (
     normalized.includes("revisao obrigatoria") ||
     normalized.includes("inconsistencias criticas") ||
     normalized.includes("incongruencia relevante")
   ) {
-    return {
-      label: "com inconsistências críticas",
-      className:
-        "border-[var(--status-critical)]/30 bg-[var(--status-critical-bg)] text-[var(--status-critical)]",
-      icon: AlertTriangle,
-    };
+    return "com inconsistências críticas";
   }
 
   if (
     normalized.includes("pontos de revisao") ||
     normalized.includes("ponto de atencao")
   ) {
-    return {
-      label: "com pontos de revisão",
-      className:
-        "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
-      icon: AlertTriangle,
-    };
+    return "com pontos de revisão";
   }
 
-  return {
-    label: "sem achados críticos",
-    className:
-      "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)] text-[var(--status-ok)]",
-    icon: CheckCircle2,
-  };
+  return "sem achados críticos";
 }
 
 function formatElapsedTime(elapsedMs?: number) {
@@ -1246,8 +1229,7 @@ export function AuditResult({
    */
   const [impactFilter, setImpactFilter] = useState<Set<FindingImpact>>(new Set());
   const parsed = parseAuditResult(content);
-  const status = getStatusVariant(report?.status_geral ?? parsed.status);
-  const StatusIcon = status.icon;
+  const status = rotuloDoStatus(report?.status_geral ?? parsed.status);
   const elapsed = formatElapsedTime(elapsedMs);
   const runtime = report?.runtime;
   const dualReview = runtime?.motor_auditoria === "dual" && runtime.segunda_ia?.ativa;
@@ -1403,28 +1385,6 @@ export function AuditResult({
     (criticalCount > 0
       ? "Revisar achados críticos antes da emissão."
       : "Validar pontos de revisão e registrar aceite técnico.");
-  const confidenceItems = [
-    {
-      label: "Status",
-      value: status.label,
-      tone: status.className,
-    },
-    {
-      label: "Arquivos",
-      value: uniqueDocumentCount > 0 ? String(uniqueDocumentCount) : "não informado",
-    },
-    {
-      label: "Achados",
-      value: String(findings.length),
-    },
-    {
-      label: "Evidências",
-      value:
-        evidenceLinkCount > 0
-          ? `${evidenceLinkCount}/${findingsWithPdf.length} com PDF`
-          : "sem PDF local",
-    },
-  ];
   const projectFields = report
     ? [
         { label: "Arquivo", value: report.arquivo ?? "não informado" },
@@ -3266,8 +3226,16 @@ export function AuditResult({
                                     onClick={() => openInlinePdf(finding, numero)}
                                     className={cn(
                                       "nx-cut-5 px-2.5 py-1 font-mono text-xs transition-colors",
+                                      /*
+                                        A PÁGINA ÂNCORA era VERDE, e verde é o
+                                        sinal de OK. Ela não está "ok" — ela é a
+                                        ATUAL do conjunto, e a matriz de estados
+                                        (§7) diz que atual é teal preenchido. Aqui
+                                        o teal é legítimo: são botões, e cada um
+                                        abre o documento.
+                                      */
                                       ordem === 0
-                                        ? "bg-[var(--status-ok-bg)] font-semibold text-[var(--status-ok)]"
+                                        ? "bg-primary/15 font-semibold text-[var(--nexodoc-accent)]"
                                         : "bg-[var(--nexodoc-raised)] text-muted-foreground",
                                       finding.pdfUrl
                                         ? "cursor-pointer hover:text-foreground"
@@ -3718,7 +3686,7 @@ export function AuditResult({
                 <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Status
                 </p>
-                <p className="mt-1 text-sm">{status.label}</p>
+                <p className="mt-1 text-sm">{status}</p>
               </div>
               <div>
                 <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
