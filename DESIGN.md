@@ -762,6 +762,32 @@ Medido em 21/08/2026, na barra de envio de achados: `.nx-edge-8` no contêiner,
   explícito. Quem o separa do fundo é o degrau de superfície (`--card` sobre a
   página) e, se flutuar, o `drop-shadow` do `.nx-elev`.
 
+**A LACUNA: não há painel COM CONTORNO que contenha controles.**
+
+`.nx-cut-*` dá forma sem contorno; `.nx-edge-*` dá contorno mas acende no foco
+de qualquer filho. Falta o terceiro. E ele faz falta: o **cartão de achado** é a
+maior superfície da tela principal, precisa de contorno para se separar dos
+outros quarenta e quatro, e guarda botões. Por isso ele segue em `rounded-md` —
+não por descuido.
+
+Três saídas foram consideradas em 21/08/2026 e **as três são piores** que a
+dívida; ficam escritas para ninguém refazer o caminho:
+
+1. **`border` ou `box-shadow: inset` sobre `.nx-cut-*`.** Não funciona. Os dois
+   desenham um anel no retângulo da caixa e o `clip-path` corta o canto — o
+   contorno some justamente na diagonal, que é onde o chanfro acontece. É por
+   isso que a camada existe: são duas superfícies recortadas igual, e o
+   "contorno" é a lasca da de baixo aparecendo em volta da de cima.
+2. **Desligar a regra de foco só nesse elemento.** Exigiria uma classe de
+   exceção em `globals.css` para derrotar uma regra deliberada do sistema —
+   vocabulário novo para um componente só.
+3. **Remontar as duas camadas à mão no componente.** Duplica `.nx-edge-*` sem o
+   nome dele, e as duas cópias divergem na primeira correção.
+
+O caminho honesto é **decidir o terceiro primitivo** — um `.nx-edge-*` cujo anel
+de foco não suba de nível — e só então converter. Até lá, o cartão fica como
+está, com a razão escrita nele.
+
 **E `clip-path` corta filho posicionado, sempre.** Não só a pintura: menu, popover
 e tooltip que sejam FILHOS de um elemento recortado somem na borda dele,
 independentemente de `overflow` e da posição na janela. O cartão de achado é o

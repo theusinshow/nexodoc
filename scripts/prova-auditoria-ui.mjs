@@ -511,6 +511,32 @@ try {
   console.log("\n  CLICANDO NA CAIXA DE UM ACHADO:");
   console.log(`    drawer do parecer abriu:   ${abriu ? "sim" : "NÃO"}`);
   console.log(`    cartão em foco na lista:   ${focado} ${rotuloDoFoco ? `· ${rotuloDoFoco}` : ""}`);
+
+  /*
+   * ISTO ERA DIAGNÓSTICO, e virou ASSERÇÃO (21/08/2026).
+   *
+   * As duas linhas acima imprimiam e nada mais: o script só falhava por erro de
+   * página ou exceção. Quem quebrasse o caminho canvas -> cartão veria "NÃO" e
+   * "0" no meio de setenta linhas de saída, com exit 0 — e o portão passaria.
+   *
+   * O que se mede é a PONTE entre as duas metades da tela: clicar na caixa de um
+   * achado no canvas abre o parecer E encontra o cartão correspondente na lista.
+   * Sem a segunda metade, quem clica cai no meio de 45 cartões iguais sem saber
+   * qual era o dele — e o `data-em-foco` existe exatamente para isso.
+   */
+  if (!abriu) {
+    console.error("FALHOU  clicar no achado nao abriu o parecer");
+    process.exitCode = 1;
+  }
+  if (focado !== 1) {
+    console.error(
+      `FALHOU  clicar no achado nao focou UM cartao na lista (focados: ${focado})`,
+    );
+    process.exitCode = 1;
+  }
+  if (abriu && focado === 1) {
+    console.log("    ok  a ponte canvas -> cartao esta de pe");
+  }
   await page.screenshot({ path: `${OUT}/piscando-3-clique-no-achado.png` });
 
   if (erros.length > 0) {
