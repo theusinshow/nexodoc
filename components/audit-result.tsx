@@ -19,6 +19,7 @@ import {
   Minus,
   MoreHorizontal,
   Plus,
+  Info,
   Search,
   Send,
   Wrench,
@@ -65,6 +66,12 @@ import {
   GRUPOS_TECNICOS,
   grupoDaDisciplinaDoAchado,
 } from "@/server/nexo/disciplinas";
+/*
+ * A MESMA função que pinta as folhas no canvas. Importada, e não reescrita: a
+ * disciplina tem UMA cor no produto, e duas tabelas discordariam no primeiro
+ * tom que alguém ajustasse.
+ */
+import { corDaDisciplina } from "@/modules/nexo/lib/disciplina-cor";
 import { cn } from "@/lib/utils";
 import { useSpotlight } from "@/lib/use-spotlight";
 
@@ -2938,7 +2945,37 @@ export function AuditResult({
                                 herdado · {finding.herdado_de.quando}
                               </span>
                             ) : null}
-                            <span className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono text-xs text-[var(--nexodoc-accent)]">
+                            {/*
+                              A DISCIPLINA ERA TEAL, e teal é o acento do
+                              INTERATIVO (§2, regra do acento único). Uma
+                              etiqueta categórica pintada na cor de "clique aqui"
+                              gasta o acento em decoração — e, pior, ficava irmã
+                              da tarja de responsável, que estava a duas posições
+                              na mesma fila.
+
+                              O sistema já tem a escala certa para isto:
+                              `--discipline-*`, oito tons dessaturados, feitos
+                              para agrupar sem competir com os três sinais de
+                              status. `corDaDisciplina` é a mesma função que
+                              pinta as folhas no canvas — a disciplina passa a
+                              ter UMA cor no produto, e não duas.
+
+                              O RÓTULO CONTINUA SENDO O PORTADOR. Disciplina sem
+                              família conhecida (geral, acessibilidade) fica sem
+                              cor, e é o desenho: inventar um tom para cada uma
+                              faria a escala competir com os sinais.
+                            */}
+                            <span
+                              className="rounded-md border border-current/25 px-2 py-1 font-mono text-xs"
+                              style={
+                                corDaDisciplina(disciplina)
+                                  ? {
+                                      color: corDaDisciplina(disciplina) as string,
+                                      background: `color-mix(in oklab, ${corDaDisciplina(disciplina)} 12%, transparent)`,
+                                    }
+                                  : { color: "var(--muted-foreground)" }
+                              }
+                            >
                               {getDisciplineLabel(disciplina)}
                             </span>
                             {/*
@@ -2976,30 +3013,35 @@ export function AuditResult({
 
                               DUAS TARJAS, E NÃO UMA COM TEXTO TROCADO. "com
                               Milton" e "com você" respondem a perguntas
-                              diferentes: a primeira é notícia sobre um terceiro
-                              (âmbar, "alguém está segurando isto"), a segunda é
-                              uma convocação. Quem abre um parecer de 45 achados
-                              com dois seus precisa achá-los sem ler nome por
-                              nome — e, pintadas iguais, os dois seus não se
-                              destacam de nada.
+                              diferentes, e agora a cor diz qual é qual pelo
+                              vocabulário do sistema (§2) em vez de por peso:
 
-                              "COM VOCÊ" É SÓLIDA, e não teal desbotada como
-                              nasceu. A etiqueta de DISCIPLINA, duas posições à
-                              esquerda nesta mesma linha, já é teal sobre fundo
-                              teal fraco — e as duas ficavam irmãs numa fila de
-                              seis etiquetas do mesmo tamanho. Aqui a diferença
-                              não é de cor, é de PESO: uma é fundo cheio, a outra
-                              é sussurro. É a única etiqueta preenchida da linha,
-                              e é de propósito — só uma coisa nesta fila é um
-                              chamado para agir.
+                               · ÂMBAR é Atenção — algo espera ação de quem lê.
+                                 É o que "com você" quer dizer, e é o único
+                                 sentido de âmbar no produto;
+                               · AZUL é `--signal-info`, o contexto que o sistema
+                                 oferece sem pedir nada. "com Milton" é
+                                 exatamente isso: notícia sobre um terceiro.
+
+                              A primeira versão pintou "com você" de TEAL SÓLIDO,
+                              e estava errada: teal é o acento do interativo, e a
+                              regra do acento único proíbe usá-lo em status. Pior,
+                              ficava irmã da etiqueta de disciplina, que também
+                              era teal — o defeito que a troca acima resolve.
+
+                              A INVERSÃO É O PONTO. Antes, TODA tarja era âmbar,
+                              e o âmbar não distinguia "é seu" de "é de alguém".
+                              Trocar o alheio para azul devolve o âmbar ao seu
+                              trabalho: num parecer de 45 achados, o que é seu é
+                              a única coisa alaranjada da fila.
                             */}
                             {finding.refId && atribuidoPor[finding.refId] ? (
                               atribuidoPor[finding.refId].souEu ? (
-                                <span className="rounded-md bg-[var(--nexodoc-accent)] px-2 py-1 font-mono text-xs font-semibold text-[var(--nexodoc-accent-foreground)]">
+                                <span className="rounded-md border border-[var(--status-warning)]/40 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs font-medium text-[var(--status-warning)]">
                                   com você
                                 </span>
                               ) : (
-                                <span className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs text-[var(--status-warning)]">
+                                <span className="rounded-md border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2 py-1 font-mono text-xs text-[var(--signal-info)]">
                                   com {atribuidoPor[finding.refId].nome}
                                 </span>
                               )
@@ -3371,19 +3413,74 @@ export function AuditResult({
                   precisa conferir quais marcou.
                 */}
                 {selecionados.size > 0 ? (
-                  <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-[var(--nexodoc-recessed)] px-4 py-3 shadow-lg">
-                    <span className="font-mono text-xs text-foreground">
-                      {selecionados.size} {selecionados.size === 1 ? "achado" : "achados"}
+                  /*
+                    QUATRO COISAS ESTAVAM FORA DO SISTEMA aqui, e todas na mesma
+                    barra (§2, §5, §7 da DESIGN.md):
+
+                     · `rounded-md` — a geometria declarada é o CHANFRO, e duas
+                       geometrias na mesma tela não são um sistema;
+                     · `border-primary/40` — teal é a cor do INTERATIVO. Uma
+                       moldura teal num contêiner passivo gasta o acento em
+                       decoração, que é exatamente o que a regra do acento único
+                       proíbe;
+                     · fundo `--nexodoc-recessed` — recessed é a cor de CAMPO.
+                       A barra é painel flutuante, e o `<Select>` dentro dela
+                       também pede recessed: campo e contêiner ficavam na mesma
+                       cor, e o seletor sumia dentro da barra. Era esse o "não
+                       dá para ler";
+                     · `shadow-lg` — `box-shadow` morre no recorte. Elevação de
+                       sobreposição vem de `drop-shadow` num pai NÃO recortado.
+
+                    Por isso são dois elementos e não um: `.nx-elev` é o pai que
+                    projeta a sombra, e a forma chanfrada de dentro é o que ela
+                    segue.
+
+                    `.nx-cut-8` E NÃO `.nx-edge-8`, e isto foi medido no
+                    navegador, não deduzido: `.nx-edge-*` reage a
+                    `:has(:focus-visible)` — é assim que o wrapper de um campo
+                    mostra o foco do filho. Numa barra que CONTÉM campos, focar o
+                    seletor acendia a moldura da BARRA INTEIRA de teal, e o anel
+                    de foco aparecia a quarenta centímetros do controle focado.
+                    A camada de contorno é vocabulário de CONTROLE; um painel que
+                    guarda controles é forma só, e quem o separa do fundo é a
+                    sombra do `.nx-elev` mais o degrau de superfície (`--card`
+                    sobre a página).
+                  */
+                  <div className="nx-elev sticky bottom-4 z-10">
+                    <div className="nx-cut-8 flex flex-wrap items-center gap-3 bg-card px-4 py-3">
+                    {/*
+                      A CONTAGEM É O ASSUNTO DA BARRA, e estava em 12px cinza,
+                      do mesmo peso do resto. Mono Label maiúsculo separa o
+                      rótulo do dado sem precisar de cor — e a cor aqui seria
+                      teal, que não pode.
+                    */}
+                    <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                      <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
+                        {selecionados.size}
+                      </span>{" "}
+                      {selecionados.size === 1 ? "achado" : "achados"}
                     </span>
 
                     <label htmlFor="destinatario-do-envio" className="sr-only">
                       Enviar para
                     </label>
+                    {/*
+                      ALTURA 40, e não 36. O `h-9` ia para o WRAPPER, mas o
+                      `select` de dentro tem `min-height: 2.5rem` numa regra
+                      global fora de `@layer` — que vence utility. O campo
+                      transbordava a própria moldura por 4px, e é boa parte do
+                      borrado que a lista tinha.
+
+                      A LARGURA MÍNIMA existe porque o nome é o dado: "Christian
+                      Lizardo Wilhelm Aren…" cortado em 140px não identifica
+                      ninguém.
+                    */}
                     <Select
                       id="destinatario-do-envio"
                       value={destinatario}
                       onChange={(event) => setDestinatario(event.target.value)}
-                      className="h-9 text-foreground"
+                      className="min-w-[15rem] flex-1 sm:max-w-[22rem]"
+                      selectClassName="text-foreground"
                     >
                       <option value="">Enviar para…</option>
                       {/*
@@ -3429,10 +3526,22 @@ export function AuditResult({
                       )}
                     </Select>
 
+                    {/*
+                      A AÇÃO DE TURNO da barra, e por isso na altura PADRÃO (40)
+                      e não na densa (32): ela precisa alinhar com o campo ao
+                      lado, e um botão de 32 ao lado de um campo de 40 lê como
+                      controle secundário. É o oposto do que ele é — a barra
+                      inteira existe para este clique.
+
+                      `loading` em vez de trocar o rótulo à mão: o primitivo já
+                      guarda a largura e põe o spinner por dentro, que é o que a
+                      matriz de estados manda (§7). Trocar "Enviar" por
+                      "Enviando…" encolhia e esticava a barra a cada envio.
+                    */}
                     <Button
                       type="button"
-                      size="sm"
-                      disabled={!destinatario || enviando}
+                      disabled={!destinatario}
+                      loading={enviando}
                       onClick={() => void enviarSelecionados()}
                       /*
                         O rótulo visível é "Enviar", curto porque a barra já diz
@@ -3442,17 +3551,25 @@ export function AuditResult({
                       */
                       aria-label="Enviar achados selecionados"
                     >
-                      {enviando ? "Enviando…" : "Enviar"}
+                      <Send aria-hidden />
+                      Enviar
                     </Button>
 
-                    <button
+                    {/*
+                      LIMPAR É FANTASMA, e continua sendo — desfazer a seleção
+                      não é ação de turno. Mas era um `<button>` cru: sem a
+                      altura da linha, sem o Mono Label do sistema e sem anel de
+                      foco por dentro do chanfro. O primitivo resolve os três.
+                    */}
+                    <Button
                       type="button"
+                      variant="ghost"
                       onClick={() => setSelecionados(new Set())}
                       aria-label="Limpar seleção"
-                      className="ml-auto font-mono text-xs text-muted-foreground hover:text-foreground"
+                      className="ml-auto"
                     >
                       Limpar
-                    </button>
+                    </Button>
 
                     {/*
                       O BURACO DITO EM VOZ ALTA.
@@ -3471,14 +3588,33 @@ export function AuditResult({
                       inventar dono. Ela diz o fato que falta, e quem lê sabe o
                       que fazer — convidar o parceiro, ou corrigir o grupo de
                       quem já faz a ponte.
+
+                      AZUL, E NÃO ÂMBAR — o âmbar era meu, e estava errado (§2).
+                      Âmbar é ATENÇÃO: um estado do documento que pede ação sobre
+                      ele. Isto é contexto que o sistema oferece sobre a própria
+                      lista, e é exatamente o trabalho declarado de
+                      `--signal-info`. O comentário do `Badge` já avisa o preço
+                      de errar isso: quando "seu documento está velho" divide a
+                      cor com "reconectei sozinho", o engenheiro aprende a
+                      ignorar o âmbar — e o aviso que custa dinheiro passa batido.
+
+                      Frase em SANS, não em mono: mono é rótulo e dado. Isto é
+                      prosa, e prosa em mono lê como saída de terminal.
                     */}
                     {grupoDoEnvio && !agrupar ? (
-                      <p className="w-full font-mono text-[11px] leading-relaxed text-[var(--status-warning)]">
-                        {GRUPOS_TECNICOS[grupoDoEnvio]} é quem responde por este
-                        achado, e ninguém do escritório está nesse grupo. Escolha à
-                        mão, ou peça para incluírem a pessoa.
+                      <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-[var(--signal-info)]">
+                        <Info aria-hidden className="mt-px size-4 shrink-0" />
+                        <span>
+                          <strong className="font-medium">
+                            {GRUPOS_TECNICOS[grupoDoEnvio]}
+                          </strong>{" "}
+                          é quem responde por este achado, e ninguém do escritório
+                          está nesse grupo. Escolha à mão, ou peça para incluírem a
+                          pessoa.
+                        </span>
                       </p>
                     ) : null}
+                    </div>
                   </div>
                 ) : null}
 

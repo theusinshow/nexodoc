@@ -362,6 +362,29 @@ textarea {
   border-radius: 0;
 }
 
+/* A LISTA ABERTA DO SELECT — a unica superficie do produto que nao e nossa.
+   Quem a desenha e o sistema operacional; `color-scheme: dark` (no primitivo
+   `Select`) so diz a ELE que o tema e escuro, e o resultado e o cinza padrao do
+   Windows, nao a paleta desta casa. Essas duas regras sao o que o Chrome
+   respeita dentro do popup, e poem a lista nos tokens: item em Panel Surface
+   com On Surface, rotulo de grupo em Mono Label mudo, como todo cabecalho de
+   secao do produto.
+
+   Onde o SO ignora (macOS), nada piora: ele continua desenhando o popup escuro
+   que o `color-scheme` ja pedia. */
+select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+select optgroup {
+  background-color: var(--background);
+  color: var(--muted-foreground);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 ::selection {
   background: var(--primary);
   color: var(--primary-foreground);
