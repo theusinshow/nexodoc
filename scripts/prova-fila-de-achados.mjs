@@ -204,6 +204,54 @@ check(
   telaDaAuditoria.replace(/\s+/g, " ").slice(0, 160),
 );
 
+/*
+ * A TARJA DIZ "COM VOCÊ" PARA QUEM RECEBEU — e o nome, para todos os outros.
+ *
+ * É o buraco que o teste de 21/08 encontrou: o fluxo inteiro funcionava e a
+ * única tela em que a pessoa TRABALHA o achado mostrava "com Milton" para o
+ * próprio Milton. Notícia sobre um terceiro, na tela dele.
+ *
+ * As DUAS metades são medidas aqui, e de propósito. Só afirmar que o Milton lê
+ * "com você" passaria verde numa tarja que dissesse "com você" para todo mundo
+ * — que é o defeito oposto e o pior dos dois: aí o Victor acha que o achado
+ * voltou para ele.
+ */
+async function tarjasDe(page) {
+  await page.getByRole("button", { name: /achados/i }).first().click();
+  await page.waitForTimeout(600);
+  // O PALCO, e não `main`: a barra lateral também é um `main`, e ela lista as
+  // conversas — texto que não tem nada a ver com a tarja e que só abriria porta
+  // para casamento por acaso.
+  return page.locator("main.nexo-shell__stage").innerText();
+}
+
+const achadosDoMilton = await tarjasDe(pMilton);
+check(
+  "para quem recebeu, a tarja diz COM VOCE",
+  /com voc[eê]/i.test(achadosDoMilton),
+  achadosDoMilton.replace(/\s+/g, " ").slice(0, 200),
+);
+check(
+  "e nao o nome dele mesmo",
+  !/com milton/i.test(achadosDoMilton),
+  achadosDoMilton.replace(/\s+/g, " ").slice(0, 200),
+);
+
+await pVictor.goto(`/nexo?auditoria=${AUDIT_ID}`);
+await pVictor.waitForLoadState("networkidle");
+await pVictor.waitForTimeout(3500);
+const achadosDoVictor = await tarjasDe(pVictor);
+check(
+  "para quem enviou, a tarja diz o nome de quem esta com ele",
+  /com milton/i.test(achadosDoVictor),
+  achadosDoVictor.replace(/\s+/g, " ").slice(0, 200),
+);
+check(
+  "e nunca COM VOCE",
+  !/com voc[eê]/i.test(achadosDoVictor),
+  achadosDoVictor.replace(/\s+/g, " ").slice(0, 200),
+);
+
 // --- Decisão técnica sem nota é recusada pelo SERVIDOR.
 const semNota = await pMilton.request.post(`/api/audits/${AUDIT_ID}/feedback`, {
   data: { findingId: "INC-001", resolutionKind: "ACCEPTED_RISK" },
@@ -283,6 +331,67 @@ check(
   JSON.stringify(daAna.pendencias),
 );
 
+// --- Quem foi DESLIGADO não recebe.
+//
+// Encontrado em 21/08, olhando o seletor "Enviar para": ele oferecia dois
+// vínculos DISABLED, e o servidor aceitava. O achado ia para uma fila que
+// ninguém mais abre, e quem enviou via "1 achado enviado" e ia embora.
+//
+// O cenário é semeado AQUI: depender de outra prova ter passado antes é o
+// buraco com aparência de cobertura que este arquivo já documenta duas vezes.
+await prisma.organizationMember.upsert({
+  where: { organizationId_email: { organizationId: "org-prosul", email: "exfuncionario@prosul.com" } },
+  create: {
+    organizationId: "org-prosul",
+    email: "exfuncionario@prosul.com",
+    name: "Ex Funcionario",
+    role: "MEMBER",
+    status: "DISABLED",
+  },
+  update: { status: "DISABLED" },
+});
+
+const paraDesligado = await pVictor.request.post(`/api/audits/${AUDIT_ID}/atribuir`, {
+  data: { findingIds: ["INC-001"], assigneeEmail: "exfuncionario@prosul.com" },
+});
+check(
+  "quem foi desligado nao recebe achado",
+  paraDesligado.status() === 400,
+  `status ${paraDesligado.status()}`,
+);
+
+const paraNinguem = await prisma.auditFeedback.count({
+  where: { assigneeEmail: "exfuncionario@prosul.com" },
+});
+check("e nada foi gravado para ele", paraNinguem === 0, `${paraNinguem} linha(s)`);
+
+/*
+ * E O SELETOR NEM O OFERECE — o servidor recusar não basta se a tela convida.
+ *
+ * A barra de envio só existe com achado marcado, então a prova marca um: ler a
+ * lista sem isso devolveria zero opções e passaria verde por ausência, que é o
+ * jeito mais fácil de escrever uma asserção que não mede nada.
+ */
+await pVictor.goto(`/nexo?auditoria=${AUDIT_ID}`);
+await pVictor.waitForLoadState("networkidle");
+await pVictor.waitForTimeout(3500);
+await pVictor.getByRole("button", { name: /achados/i }).first().click();
+await pVictor.getByLabel(/Selecionar INC-001 para enviar/i).check();
+
+const nomesNoSeletor = await pVictor.locator("#destinatario-do-envio option").allTextContents();
+check(
+  "e o seletor nem o oferece",
+  nomesNoSeletor.length > 1 && !nomesNoSeletor.some((n) => /ex funcionario/i.test(n)),
+  `${nomesNoSeletor.length} opcoes`,
+);
+// A lista tem que trazer QUEM PODE: sem isto, "não oferece o desligado" passaria
+// verde numa lista vazia — e uma tela sem destinatário nenhum é pior defeito.
+check(
+  "mas oferece quem pode",
+  nomesNoSeletor.some((n) => /milton/i.test(n)),
+  nomesNoSeletor.slice(0, 6).join(" | "),
+);
+
 // --- Fora do escritório, nada.
 //
 // O cenário é semeado AQUI, e não herdado de `prova:escritorio`. Uma asserção
@@ -359,7 +468,26 @@ await pSemNada.waitForLoadState("networkidle");
 await pSemNada.waitForTimeout(800);
 
 const semPendencia = await pSemNada.locator("body").innerText();
-check("sem pendencia, a home nao mostra COM VOCE", !/COM VOC/i.test(semPendencia));
+
+/*
+ * SEM PENDÊNCIA, A HOME NÃO INVENTA TRABALHO.
+ *
+ * A versão anterior desta asserção procurava a palavra "COM VOCÊ" — e essa
+ * palavra NÃO EXISTE em lugar nenhum da tela desde que a home virou o painel de
+ * projetos, em 14/08. Ela não podia ficar vermelha: passava verde num banco
+ * vazio, num banco cheio, e passaria com a home em branco.
+ *
+ * É o mesmo erro que o comentário do link para o Nexo, trinta linhas abaixo,
+ * descreve — e ele estava a trinta linhas de distância. O que esta asserção
+ * quer dizer é "a Carla não vê o projeto do Milton", então é o CÓDIGO DO
+ * PROJETO que se procura: ele aparece na home de quem tem pendência (asserção
+ * lá em cima) e não pode aparecer na de quem não tem.
+ */
+check(
+  "sem pendencia, a home nao mostra o projeto de outra pessoa",
+  !/063-26/.test(semPendencia),
+  semPendencia.replace(/\s+/g, " ").slice(0, 160),
+);
 
 /*
  * O CAMINHO PARA O NEXO, medido como LINK e não como palavra.

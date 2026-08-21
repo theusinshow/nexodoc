@@ -1152,8 +1152,26 @@ export function AuditResult({
   const [resolvidosNoServidor, setResolvidosNoServidor] = useState<ReadonlySet<string>>(
     new Set<string>(),
   );
-  /** Com quem cada achado está, enquanto não é resolvido. */
-  const [atribuidoPor, setAtribuidoPor] = useState<Record<string, string>>({});
+  /**
+   * Com quem cada achado está, enquanto não é resolvido.
+   *
+   * Guarda `souEu` junto do nome, e não só o nome: "com Milton" é informação
+   * sobre um terceiro, e quem lê isso na PRÓPRIA tela precisa de "com você".
+   * Descobrir isso comparando o nome exibido não daria — dois Miltons no
+   * escritório, ou o e-mail no lugar do nome, e a tarja mente.
+   */
+  const [atribuidoPor, setAtribuidoPor] = useState<
+    Record<string, { nome: string; souEu: boolean }>
+  >({});
+  /**
+   * O e-mail de quem está lendo, como o SERVIDOR o vê (ver a rota de feedback).
+   *
+   * Vazio até a primeira carga: enquanto for vazio, nenhuma tarja diz "com
+   * você" — e errar para o lado de mostrar o nome é o lado certo de errar.
+   */
+  const [euSou, setEuSou] = useState("");
+  /** Sobe de um a cada envio, para o efeito abaixo reler o que o servidor gravou. */
+  const [releituras, setReleituras] = useState(0);
   /** Como cada achado foi encerrado, e por quem. */
   const [desfechoPorAchado, setDesfechoPorAchado] = useState<
     Record<string, { kind: DesfechoDoAchado; por: string | null }>
@@ -1390,6 +1408,16 @@ export function AuditResult({
       ]
     : parseProjectFields(parsed.project);
 
+  /**
+   * O QUE O SERVIDOR SABE sobre cada achado — veredito, desfecho e com quem está.
+   *
+   * `releituras` existe para ENVIAR poder pedir esta carga de novo: a tela
+   * adivinhava a tarja com o valor cru do seletor e escrevia "com
+   * milton@prosul.com" onde o servidor já sabia dizer "com Milton". Um contador,
+   * e não uma função exportada do efeito, porque o React Compiler barra
+   * `setState` chamado direto do corpo de um efeito — e a barra tem razão: o que
+   * muda aqui é a intenção de reler, não a chamada.
+   */
   useEffect(() => {
     if (!auditId) {
       return;
@@ -1403,7 +1431,15 @@ export function AuditResult({
           return;
         }
 
-        const payload = (await response.json()) as { feedback?: SavedFeedback[] };
+        const payload = (await response.json()) as {
+          feedback?: SavedFeedback[];
+          euSou?: string;
+        };
+
+        if (payload.euSou) {
+          setEuSou(payload.euSou.toLowerCase());
+        }
+
         const linhas = (payload.feedback ?? []).filter((item) => item.findingId);
         const saved = Object.fromEntries(
           linhas
@@ -1420,7 +1456,13 @@ export function AuditResult({
               .filter((item) => item.assigneeEmail && !item.resolvedAt)
               .map((item) => [
                 item.findingId as string,
-                item.assigneeName ?? (item.assigneeEmail as string),
+                {
+                  nome: item.assigneeName ?? (item.assigneeEmail as string),
+                  souEu:
+                    Boolean(payload.euSou) &&
+                    (item.assigneeEmail as string).toLowerCase() ===
+                      (payload.euSou as string).toLowerCase(),
+                },
               ]),
           ),
         );
@@ -1447,7 +1489,7 @@ export function AuditResult({
     }
 
     void loadFeedback();
-  }, [auditId]);
+  }, [auditId, releituras]);
 
   /** Corrigido aqui OU corrigido em outra máquina — ver `resolvidosNoServidor`. */
   const estaResolvido = (refId: string | undefined) =>
@@ -1510,7 +1552,25 @@ export function AuditResult({
     fetch("/api/organizacao/membros")
       .then((r) => (r.ok ? r.json() : { membros: [] }))
       .then((d) => {
-        if (vivo) setMembros(d.membros ?? []);
+        /*
+         * QUEM FOI DESLIGADO SAI DA LISTA.
+         *
+         * A rota lista o vínculo com o status, e está certa — o painel de
+         * membros precisa ver quem está fora para poder religar. Aqui a
+         * pergunta é outra: "para quem dá para mandar trabalho". O servidor já
+         * recusa (ver [[lib/fila-de-achados]]); tirar do seletor evita oferecer
+         * um caminho que só termina em erro.
+         *
+         * INVITED FICA, com o rótulo "(convidado)" que a opção já traz: dá para
+         * atribuir a quem nunca entrou, e é assim de propósito.
+         */
+        if (vivo) {
+          setMembros(
+            (d.membros ?? []).filter(
+              (m: { status?: string }) => m.status !== "DISABLED",
+            ),
+          );
+        }
       })
       .catch(() => {
         if (vivo) setMembros([]);
@@ -1556,13 +1616,28 @@ export function AuditResult({
         throw new Error(payload?.error ?? "Não foi possível enviar.");
       }
 
+      /*
+       * A TARJA APARECE NA HORA, com o nome que o seletor já mostrava — e não
+       * com o e-mail cru, que era o defeito antigo ("com milton@prosul.com"
+       * numa lista em que a pessoa se chama Milton).
+       *
+       * Otimista E confirmada logo abaixo: só recarregar deixaria o achado sem
+       * tarja nenhuma se a releitura falhasse, e sumir depois de um envio que
+       * DEU CERTO é o pior dos dois erros.
+       */
+      const recebeu = membros.find((m) => m.email === destinatario);
+      const rotulo = { nome: recebeu?.name ?? destinatario, souEu: destinatario === euSou };
+
       setAtribuidoPor((atual) => {
         const proximo = { ...atual };
-        for (const id of selecionados) proximo[id] = destinatario;
+        for (const id of selecionados) proximo[id] = rotulo;
         return proximo;
       });
       setSelecionados(new Set());
       setDestinatario("");
+      // E a versão do servidor por cima: é ela que sabe o nome de quem foi
+      // convidado e nunca entrou, e quem o `euSou` de verdade é.
+      setReleituras((n) => n + 1);
       setFeedbackNotice(
         `${plural(payload?.atribuidos ?? 0, "achado enviado", "achados enviados")}. ${palavra(payload?.atribuidos ?? 0, "Aparece", "Aparecem")} na home de quem recebeu.`,
       );
@@ -2847,11 +2922,26 @@ export function AuditResult({
                               COM QUEM ESTÁ. Aparece enquanto o achado é
                               pendência de alguém, e sai quando ele fecha —
                               trocado pela tarja do desfecho, logo abaixo.
+
+                              DUAS TARJAS, E NÃO UMA COM TEXTO TROCADO. "com
+                              Milton" e "com você" respondem a perguntas
+                              diferentes: a primeira é notícia sobre um terceiro
+                              (âmbar, "alguém está segurando isto"), a segunda é
+                              uma convocação (teal, a cor de ação do sistema).
+                              Quem abre um parecer de 45 achados com dois seus
+                              precisa achá-los sem ler nome por nome — e, pintadas
+                              iguais, os dois seus não se destacam de nada.
                             */}
                             {finding.refId && atribuidoPor[finding.refId] ? (
-                              <span className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs text-[var(--status-warning)]">
-                                com {atribuidoPor[finding.refId]}
-                              </span>
+                              atribuidoPor[finding.refId].souEu ? (
+                                <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-1 font-mono text-xs font-medium text-[var(--nexodoc-accent)]">
+                                  com você
+                                </span>
+                              ) : (
+                                <span className="rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)] px-2 py-1 font-mono text-xs text-[var(--status-warning)]">
+                                  com {atribuidoPor[finding.refId].nome}
+                                </span>
+                              )
                             ) : null}
                             {/*
                               O DESFECHO FICA, e é a tarja que mais importa para

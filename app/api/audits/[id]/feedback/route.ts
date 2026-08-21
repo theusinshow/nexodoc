@@ -45,8 +45,10 @@ export async function GET(
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let quemPede: Actor;
+
   try {
-    await requireActor();
+    quemPede = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -128,6 +130,20 @@ export async function GET(
         ? (nomeDoMembro.get(f.assigneeEmail) ?? f.assigneeEmail)
         : null,
     })),
+    /*
+     * QUEM ESTÁ LENDO — para a tarja poder dizer "com você".
+     *
+     * Vem do SERVIDOR, e não de uma prop que a tela receberia de cima. A tarja
+     * responde "este achado é meu?", e a resposta tem que sair do mesmo lugar
+     * que resolveu o nome do responsável: com duas fontes, o dia em que a
+     * sessão trocar sem a árvore remontar a tela diz "com você" para quem não
+     * é — que é pior do que não dizer nada.
+     *
+     * Em minúsculas porque é assim que `atribuirAchados` grava o e-mail do
+     * destinatário. Comparar sem normalizar faria "Milton@prosul.com" nunca
+     * casar com a linha que ele próprio recebeu.
+     */
+    euSou: quemPede.email.toLowerCase(),
     enabled: true,
   });
 }

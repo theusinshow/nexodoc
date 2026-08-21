@@ -60,11 +60,27 @@ export async function atribuirAchados(args: {
 
   const membro = await prisma.organizationMember.findFirst({
     where: { organizationId: args.organizationId, email: args.assigneeEmail },
-    select: { email: true },
+    select: { email: true, status: true },
   });
 
   if (!membro) {
     throw new FilaRecusada(400, "Essa pessoa não faz parte do escritório.");
+  }
+
+  /*
+   * DESLIGADO NÃO RECEBE — pelo mesmo motivo que auditoria sem projeto não
+   * recebe, logo acima: a pendência existiria numa fila que ninguém vai abrir.
+   *
+   * INVITED recebe, e é de propósito: o convite nasce antes da conta, e o
+   * primeiro login é quando a pessoa encontra o que a esperava. DISABLED é o
+   * contrário disso — é alguém que JÁ TEVE acesso e não tem mais. Não há
+   * primeiro login pela frente para revelar o achado.
+   *
+   * Recusar aqui, e não só esconder da lista: o seletor da tela é cortesia, e
+   * um POST direto passava por cima dele.
+   */
+  if (membro.status === "DISABLED") {
+    throw new FilaRecusada(400, "Essa pessoa foi desligada do escritório.");
   }
 
   const report = audit.report as AuditReport | null;
