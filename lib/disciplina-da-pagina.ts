@@ -97,3 +97,35 @@ export function disciplinaDoAchado(
   if (numero === null) return undefined;
   return mapa.get(numero);
 }
+
+/**
+ * A disciplina que VALE para o achado nesta corrida.
+ *
+ * A PÁGINA MANDA, e a gravada só entra quando a página não sabe responder — a
+ * ordem inversa da que estava no `app/api/audit/route.ts`, e a inversão é o
+ * ponto.
+ *
+ * ACHADO HERDADO carrega o parecer anterior inteiro (`{...f, herdado_de}`),
+ * `disciplina` incluída. Com `gravada ?? derivada`, o valor velho vencia sempre
+ * — e uma correção na leitura de cabeçalho jamais alcançava um herdado. Foi
+ * exatamente o caso de 21/08/2026: metade do memorial do 113-22 saía como
+ * terraplenagem por um cabeçalho composto ("3 - PROJETO ARQUITETÔNICO E
+ * URBANIZAÇÃO"), e o conserto teria ficado invisível justamente nos achados que
+ * mais se repetem — 86 a 95% do texto é reaproveitado entre revisões.
+ *
+ * É SEGURO REDERIVAR porque a página do herdado JÁ foi reancorada para o
+ * documento novo antes de chegar aqui, e o mapa vem desse mesmo documento. Onde
+ * a página não tem cabeçalho reconhecível o mapa devolve `undefined`, e aí a
+ * gravada volta a valer: rederivar nunca APAGA o que se sabia.
+ *
+ * Nada disso muda achado novo: ele chega sem `disciplina` (o modelo não emite
+ * esse campo; quem o escreve é esta regra), e os dois caminhos coincidem.
+ */
+export function disciplinaQueVale(
+  gravada: FindingDiscipline | undefined,
+  pagina: string | undefined,
+  mapa: ReadonlyMap<number, FindingDiscipline> | undefined,
+): FindingDiscipline | undefined {
+  const daPagina = mapa ? disciplinaDoAchado(pagina, mapa) : undefined;
+  return daPagina ?? gravada;
+}

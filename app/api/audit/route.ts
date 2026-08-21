@@ -21,7 +21,7 @@ import {
   type CoberturaDoArquivo,
   type AuditReport,
 } from "@/lib/audit-report";
-import { disciplinaDoAchado, disciplinaPorPagina } from "@/lib/disciplina-da-pagina";
+import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
@@ -4089,8 +4089,10 @@ async function executarAuditoria(
       (finding, index) => {
         const mapa =
           (finding.arquivo ? disciplinaPorArquivo.get(finding.arquivo) : undefined) ?? mapaUnico;
-        const disciplina =
-          finding.disciplina ?? (mapa ? disciplinaDoAchado(finding.pagina, mapa) : undefined);
+        // A pagina manda; a gravada so entra quando a pagina nao sabe.
+        // Ver `disciplinaQueVale` -- a ordem inversa deixava o conserto da
+        // leitura de cabecalho invisivel em todo achado HERDADO.
+        const disciplina = disciplinaQueVale(finding.disciplina, finding.pagina, mapa);
         /*
          * A PRIORIDADE PASSA A SER DERIVADA, e não mais o campo livre que o
          * modelo preenchia — dois achados idênticos em documentos diferentes

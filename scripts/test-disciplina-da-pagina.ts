@@ -14,7 +14,11 @@
  */
 import assert from "node:assert/strict";
 
-import { disciplinaPorPagina, disciplinaDoAchado } from "../lib/disciplina-da-pagina.ts";
+import {
+  disciplinaPorPagina,
+  disciplinaDoAchado,
+  disciplinaQueVale,
+} from "../lib/disciplina-da-pagina.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -160,4 +164,35 @@ test("mas urbanização SOZINHA continua sendo terraplenagem", () => {
   assert.equal(mapa.get(1), "terraplenagem");
 });
 
-console.log(`\n${passed} teste(s) OK`);
+/*
+ * A DISCIPLINA QUE VALE, e o achado HERDADO.
+ *
+ * O herdado carrega o parecer anterior inteiro, `disciplina` incluída. Com a
+ * gravada vencendo, um conserto na leitura de cabeçalho nunca alcançava um
+ * herdado — e herdado é a maioria, porque 86 a 95% do texto se repete entre
+ * revisões. Estes três fecham a inversão e o seu limite.
+ */
+test("a página vence a disciplina gravada", () => {
+  const mapa = disciplinaPorPagina([
+    pagina(1, "3 - PROJETO ARQUITETONICO E URBANIZACAO abertura do capitulo"),
+  ]);
+  // O que o parecer velho gravou, com a leitura antiga de cabecalho composto.
+  assert.equal(disciplinaQueVale("terraplenagem", "1", mapa), "arquitetura");
+});
+
+test("mas a gravada volta quando a página não sabe", () => {
+  const mapa = disciplinaPorPagina([pagina(1, "12 - INSTALACOES ELETRICAS abertura")]);
+  // Pagina 99 esta fora do mapa: rederivar nao pode APAGAR o que se sabia.
+  assert.equal(disciplinaQueVale("hidrossanitario", "99", mapa), "hidrossanitario");
+  assert.equal(disciplinaQueVale("hidrossanitario", "1", undefined), "hidrossanitario");
+});
+
+test("e achado novo não muda de caminho", () => {
+  const mapa = disciplinaPorPagina([pagina(1, "12 - INSTALACOES ELETRICAS abertura")]);
+  // Sem gravada (o modelo nao emite o campo), os dois caminhos coincidem.
+  assert.equal(disciplinaQueVale(undefined, "1", mapa), "eletrico");
+  assert.equal(disciplinaQueVale(undefined, "99", mapa), undefined);
+});
+
+console.log(`
+${passed} teste(s) OK`);
