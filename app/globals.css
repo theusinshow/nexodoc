@@ -45,8 +45,17 @@
   --color-data-3: var(--data-3);
   --color-data-4: var(--data-4);
   --color-data-5: var(--data-5);
-  /* DESIGN.md: 8px e o unico raio do sistema. sm/md/lg colapsam nele de
-     proposito; xl fica para o raro caso de container externo. */
+  /* ATENCAO: `rounded-sm` AQUI NAO E PEQUENO -- sao os mesmos 8px.
+     
+     A escala colapsou em 8px quando 8px ERA o sistema. O chanfro substituiu o
+     raio (DESIGN.md §5) e hoje o teto e 4px, entao quem escreve `rounded-sm`
+     achando que pede "um cantinho" pede o dobro do permitido. Medido em
+     21/08/2026: 65 usos em 14 arquivos, todos renderizando 8px.
+     
+     NAO baixe estes valores para 4px como atalho. Isso faria o criterio 06 de
+     `test:chanfro` passar sem ninguem adotar o sistema -- retangulo menos
+     redondo nao e chanfro. O caminho e converter os 65 para `.nx-cut-*` /
+     `.nx-edge-*`, e a escala sai daqui quando o ultimo sair. */
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
   --radius-lg: var(--radius);

@@ -746,6 +746,30 @@ o miolo (`.nx-edge-*` em `globals.css`; as cores entram por `--nx-edge` e
 não crie a camada sem necessidade. Campo nativo (`input`, `textarea`) é a única
 exceção que ainda usa wrapper de verdade: ele não renderiza `::before`.
 
+**A camada é vocabulário de CONTROLE. Painel que CONTÉM controles é forma só.**
+
+`.nx-edge-*` responde a `:has(:focus-visible)` — é assim que o wrapper de um
+campo mostra o foco do filho, e é o que faz o anel viver por dentro do chanfro.
+A consequência só aparece quando a classe sobe de nível: num PAINEL que guarda
+controles, focar qualquer um deles pinta a moldura do painel inteiro de teal, e
+o anel de foco aparece a quarenta centímetros do controle focado.
+
+Medido em 21/08/2026, na barra de envio de achados: `.nx-edge-8` no contêiner,
+`<Select>` dentro, e a barra toda acendia ao focar o seletor.
+
+- **Controle e campo** (botão, `<Select>`, wrapper de `input`): `.nx-edge-*`.
+- **Painel, barra, cartão com controles dentro**: `.nx-cut-*` mais fundo
+  explícito. Quem o separa do fundo é o degrau de superfície (`--card` sobre a
+  página) e, se flutuar, o `drop-shadow` do `.nx-elev`.
+
+**E `clip-path` corta filho posicionado, sempre.** Não só a pintura: menu, popover
+e tooltip que sejam FILHOS de um elemento recortado somem na borda dele,
+independentemente de `overflow` e da posição na janela. O cartão de achado é o
+caso vivo: o `Dropdown` de ações é filho dele e não é portalizado, então o cartão
+continua em `rounded-md` até que alguém portalize o menu. O `ring-offset` do foco
+vindo do canvas morre no recorte pelo mesmo motivo. **Antes de recortar, procure
+filho posicionado** — trocar duas funções por uma forma nunca vale.
+
 **Botões.** Corte 8/7/6, rótulo em mono 600 caixa alta (`0.06em`). Três alturas:
 **44** (ação de turno), **40** (padrão), **32** (denso). *Primary:* `#00a693`
 chapado, texto escuro, hover a `#00bda7`, pressionado a `#00877a` — nunca

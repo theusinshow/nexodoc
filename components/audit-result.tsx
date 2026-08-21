@@ -31,6 +31,7 @@ import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -754,7 +755,10 @@ function HighlightedEvidence({
         part.toLowerCase() === cleanNeedle.toLowerCase() ? (
           <mark
             key={`${part}-${index}`}
-            className="rounded-sm border border-primary/30 bg-primary/20 px-1 py-0.5 font-medium text-foreground"
+            /* Realce inline: forma só, corte 4. `rounded-sm` neste projeto
+               resolve para 8px (`--radius-sm: var(--radius)`), o dobro do que
+               o §5 tolera — ver o comentário da escala em `globals.css`. */
+            className="nx-cut-4 border border-primary/30 bg-primary/20 px-1 py-0.5 font-medium text-foreground"
           >
             {part}
           </mark>
@@ -1050,7 +1054,15 @@ function FindingField({
   value?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-2.5">
+    <div
+      className="nx-edge-7 min-w-0 px-3 py-2.5"
+      style={
+        {
+          "--nx-edge": "var(--border)",
+          "--nx-fill": "var(--nexodoc-recessed)",
+        } as React.CSSProperties
+      }
+    >
       <p className="font-mono text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 break-words text-sm text-foreground">
         {value || "não informado"}
@@ -2465,7 +2477,15 @@ export function AuditResult({
           <SectionCard title="Matriz de achados" icon={MapPin}>
             {findings.length > 0 ? (
               <div className="space-y-4">
-                <div className="rounded-md border bg-[var(--nexodoc-recessed)] p-4">
+                <div
+                  className="nx-edge-8 p-4"
+                  style={
+                    {
+                      "--nx-edge": "var(--border)",
+                      "--nx-fill": "var(--nexodoc-recessed)",
+                    } as React.CSSProperties
+                  }
+                >
                   <p className="font-mono text-xs uppercase text-muted-foreground">
                     Como ler
                   </p>
@@ -2477,7 +2497,9 @@ export function AuditResult({
                 {presentDisciplines.length > 1 ||
                 presentErrorTypes.length > 1 ||
                 presentImpacts.length > 1 ? (
-                  <div className="space-y-2 rounded-md border bg-[var(--nexodoc-recessed)] p-3">
+                  /* Forma so: o painel guarda botoes, e a camada acenderia
+                     inteira ao focar um deles (ver DESIGN.md §7). */
+                  <div className="nx-cut-8 space-y-2 bg-[var(--nexodoc-recessed)] p-3">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Gravidade</span>
                       {presentImpacts.map((impact) => (
@@ -2487,7 +2509,7 @@ export function AuditResult({
                           data-filtro-gravidade={impact}
                           onClick={() => setImpactFilter((current) => toggleFrom(current, impact))}
                           className={cn(
-                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             impactFilter.has(impact)
                               ? "border-ring bg-card text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -2505,7 +2527,7 @@ export function AuditResult({
                           type="button"
                           onClick={() => setDisciplineFilter((current) => toggleFrom(current, discipline))}
                           className={cn(
-                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             disciplineFilter.has(discipline)
                               ? "border-ring bg-card text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -2523,7 +2545,7 @@ export function AuditResult({
                           type="button"
                           onClick={() => setErrorTypeFilter((current) => toggleFrom(current, type))}
                           className={cn(
-                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             errorTypeFilter.has(type)
                               ? "border-ring bg-card text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -2836,6 +2858,18 @@ export function AuditResult({
                          * em ruído, e o §5 já diz que movimento é mudança de
                          * estado, não decoração distribuída.
                          */
+                        /*
+                         * O ÚNICO `rounded-md` QUE FICA, e ficar é a decisão.
+                         *
+                         * `clip-path` corta filho posicionado sempre — o
+                         * `Dropdown` de ações deste achado é filho daqui e não é
+                         * portalizado, e o `ring-offset` do foco vindo do canvas
+                         * morre no recorte pelo mesmo motivo. É o irmão do
+                         * `overflow-hidden` que este cartão já evita, logo acima.
+                         *
+                         * Trocar duas funções por uma forma não vale. Quando
+                         * alguém portalizar o menu, a porta abre.
+                         */
                         "@container nx-spot rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
                         estaResolvido(finding.refId)
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
@@ -3134,7 +3168,7 @@ export function AuditResult({
                           >
                             Por que este risco está sendo assumido
                           </label>
-                          <textarea
+                          <Textarea
                             id={`nota-risco-${finding.refId}`}
                             value={notaDoRisco[finding.refId] ?? ""}
                             onChange={(event) =>
@@ -3146,7 +3180,8 @@ export function AuditResult({
                             rows={3}
                             autoFocus
                             placeholder="Ex.: aprovado pelo corpo de bombeiros em 12/08, ata anexada ao processo."
-                            className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground outline-none focus:border-primary"
+                            className="w-full"
+                            textareaClassName="resize-y"
                           />
                           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
                             Fica registrada com o seu nome e a data. Sem ela, a decisão não é
@@ -3377,16 +3412,17 @@ export function AuditResult({
                 </div>
 
                 {auditId ? (
-                  <section className="rounded-md border bg-[var(--nexodoc-recessed)] p-4">
+                  <section className="nx-cut-8 bg-[var(--nexodoc-recessed)] p-4">
                     <p className="font-mono text-xs uppercase text-muted-foreground">
                       Faltou apontar algum erro?
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                      <textarea
+                      <Textarea
                         value={missingFindingNote}
                         onChange={(event) => setMissingFindingNote(event.target.value)}
                         rows={2}
-                        className="min-h-12 flex-1 resize-y rounded-md border bg-card px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
+                        className="min-h-12 flex-1"
+                        textareaClassName="resize-y"
                         placeholder="Descreva o erro não identificado pelo Nexo."
                       />
                       <Button
@@ -3619,17 +3655,15 @@ export function AuditResult({
                 ) : null}
 
                 {suggestionFindings.length > 0 ? (
-                  <details className="rounded-md border bg-[var(--nexodoc-recessed)]/40">
+                  <details className="nx-cut-8 bg-[var(--nexodoc-recessed)]">
                     <summary className="cursor-pointer px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                       Sugestões da IA — confira ({suggestionFindings.length}) · menor confiança, não contam para o veredito
                     </summary>
                     <div className="grid gap-2 px-4 pb-4">
                       {suggestionFindings.map((finding, index) => (
-                        <div key={`${finding.raw}-suggestion-${index}`} className="rounded-md border bg-card p-3">
+                        <div key={`${finding.raw}-suggestion-${index}`} className="nx-cut-8 bg-card p-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-md border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                              ◻ Sugerido
-                            </span>
+                            <Badge variant="secondary">Sugerido</Badge>
                             {finding.pagina ? (
                               <span className="font-mono text-[11px] text-muted-foreground">p.{finding.pagina}</span>
                             ) : null}
