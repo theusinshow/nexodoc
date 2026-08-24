@@ -15,10 +15,34 @@ export type ExtractedPdfPage = {
 
 export type ExtractedPdf = {
   pages: ExtractedPdfPage[];
+  /**
+   * O documento COMO ESTÁ ESCRITO na folha. É o que a camada determinística
+   * regex-eia e de onde sai a evidência de todo achado de regra.
+   */
   text: string;
+  /**
+   * O documento COMO O MODELO O LÊ: o mesmo texto, com a grade das tabelas
+   * anexada a cada página. Ver `textoDaPaginaParaIA`.
+   *
+   * OPCIONAL porque dezenas de fixtures montam `ExtractedPdf` à mão; quem não
+   * tiver o campo cai em `text`, que é o comportamento de antes.
+   */
+  textoParaIA?: string;
   pageCount: number;
   charCount: number;
 };
+
+/**
+ * O texto que a IA leu — `textoParaIA` quando existe, `text` quando não.
+ *
+ * Existe como função e não como `??` espalhado porque são TRÊS os lugares que
+ * precisam concordar sobre isto (o contexto do prompt, a trava anti-alucinação
+ * e a validação), e discordarem significa descartar em silêncio um achado que o
+ * modelo leu de um insumo que nós mesmos demos a ele.
+ */
+export function textoDoDocumentoParaIA(extracted: ExtractedPdf): string {
+  return extracted.textoParaIA ?? extracted.text;
+}
 
 export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -89,14 +113,80 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
   await document.destroy();
 
   const text = pages.map((page) => `--- PAGINA ${page.page} ---\n${page.text}`).join("\n\n");
+  /*
+   * A MESMA MONTAGEM, com a grade. Feita aqui e não em quem lê porque a
+   * trava anti-alucinação e o contexto do prompt precisam da MESMA string:
+   * se o modelo lê a grade e a trava procura a evidência no texto achatado,
+   * todo achado tirado de tabela é descartado sem deixar rastro.
+   */
+  const textoParaIA = pages
+    .map((page) => `--- PAGINA ${page.page} ---\n${textoDaPaginaParaIA(page)}`)
+    .join("\n\n");
   const charCount = pages.reduce((total, page) => total + page.text.length, 0);
 
   return {
     pages,
     text,
+    textoParaIA,
     pageCount: document.numPages,
     charCount,
   };
+}
+
+/**
+ * O MARCADOR DA GRADE no texto que a IA lê.
+ *
+ * Curto de propósito: um memorial real tem ~120 tabelas, e cada caractere de
+ * moldura é pago 120 vezes em toda passada de leitura.
+ */
+const ABRE_TABELA = "[TABELA]";
+const FECHA_TABELA = "[/TABELA]";
+
+/**
+ * O TEXTO DA PÁGINA COMO O MODELO PRECISA LÊ-LA: a prosa, e depois a grade.
+ *
+ * O defeito que isto conserta (24/08/2026): `page.tabelas` era reconstruída
+ * corretamente das coordenadas e tinha UM ÚNICO consumidor no repositório
+ * inteiro — `runDeclaredTotalAreaRule`, na camada determinística. Tudo que a IA
+ * lê sai de `page.text`, que é a página achatada. A tabela chegava ao modelo
+ * como uma fila de palavras sem dono:
+ *
+ *     AMBIENTE AREA (m2) PISO
+ *     Circulacao Ceramica          <- a célula de área está VAZIA, e some
+ *
+ * — e "Circulacao" passa a ter área "Ceramica". Daí o achado "não existe
+ * tabela" num documento que TEM a tabela: o modelo não estava errado sobre o
+ * que recebeu, e nenhuma instrução de prompt conserta um insumo que não chegou.
+ *
+ * A GRADE VEM DEPOIS DA PROSA, e não no lugar dela. Duas razões, e a segunda é
+ * a que decide:
+ *
+ *  1. A reconstrução é best-effort. Uma linha cuja célula quebra em duas linhas
+ *     visuais vira duas linhas de grade. Perder a prosa custaria o texto
+ *     correto em troca de uma estrutura aproximada.
+ *  2. `page.text` é o que a camada determinística regex-eia, e é de onde sai a
+ *     EVIDÊNCIA de todo achado de regra. Mexer nele mudaria o recorte de
+ *     `snippet()` e faria a evidência apontar para um texto que não está
+ *     escrito na folha. A grade é uma VISTA para o modelo, não a folha.
+ *
+ * O preço é a repetição do conteúdo da tabela dentro da mesma página. Ele é
+ * pago no prompt do auditor, que diz o que o bloco é — sem isso o modelo abre
+ * achado de "conteúdo duplicado" contra a nossa própria moldura.
+ */
+export function textoDaPaginaParaIA(page: ExtractedPdfPage): string {
+  const tabelas = page.tabelas ?? [];
+  if (tabelas.length === 0) return page.text;
+
+  const grades = tabelas.map((tabela) => {
+    const linhas = tabela.linhas
+      // Célula vazia vira `-`: sem ela as colunas se deslocam e "Circulação"
+      // passa a ter área "Cerâmica" — o defeito original, agora dentro da grade.
+      .map((celulas) => celulas.map((c) => c.trim() || "-").join(" | "))
+      .join("\n");
+    return `${ABRE_TABELA}\n${linhas}\n${FECHA_TABELA}`;
+  });
+
+  return `${page.text}\n${grades.join("\n")}`;
 }
 
 export type AuditTextChunk = {
@@ -152,7 +242,9 @@ export function chunkPdfByChapter(extracted: ExtractedPdf, maxChunkChars = 28000
 
   for (const page of extracted.pages) {
     const chapter = getPageChapter(page.text);
-    const pageText = `--- PAGINA ${page.page} ---\n${page.text}\n`;
+    // O CAPÍTULO sai do texto cru (a grade não tem cabeçalho de capítulo); o
+    // BLOCO leva a grade junto, porque é ele que o modelo lê.
+    const pageText = `--- PAGINA ${page.page} ---\n${textoDaPaginaParaIA(page)}\n`;
     const shouldSplitByChapter =
       chapter && chapter !== currentTitle && currentText.length > 0;
     const shouldSplitBySize = currentText.length + pageText.length > maxChunkChars;

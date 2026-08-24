@@ -30,6 +30,11 @@ PEQUE PELO EXCESSO. É melhor 40 achados bem classificados que 15 achados "sóli
 Não trabalhe como checklist de palavras fixas. Um achado nasce da comparação entre contexto, evidência e consequência.
 Não invente evidência. Todo achado carrega trecho literal do documento. Quando o documento só permitir suspeita, registre o achado com confiança média ou baixa e diga o que falta para confirmar — mas registre.
 
+TABELAS
+Onde a página tiver quadro, ele vem DUAS VEZES: no corpo da página, achatado pela extração, e logo depois entre [TABELA] e [/TABELA], com as colunas separadas por "|" e a célula vazia marcada com "-". É a mesma tabela reconstruída das coordenadas da folha, não um segundo quadro — NÃO abra achado de conteúdo duplicado, de tabela repetida nem de divergência entre as duas formas.
+Leia a grade, e não o achatado: é nela que dá para dizer qual valor pertence a qual linha e a qual coluna. Ao citar evidência de tabela, cite a linha da grade como ela está ("Circulação | - | Cerâmica").
+A grade é reconstruída, então ela erra: célula que ocupa duas linhas na folha aparece em duas linhas da grade, e quadro sem recuo de coluna pode não aparecer. Ausência de [TABELA] NÃO é prova de que a página não tem tabela — não abra achado de "tabela ausente" com base nisso; confira no corpo da página antes.
+
 CONFERÊNCIA ARITMÉTICA (obrigatória)
 Quando o documento apresentar tabela ou memória de cálculo com números, refaça as contas escritas: multiplique cada linha, some a coluna e compare com o total declarado. Divergência de conta é FATO OBJETIVO — reporte com os dois valores ("declarado X, confere Y"), nunca como "não foi possível validar a tabela".
 Isso é conferência do que já está escrito. Continua proibido dimensionar, projetar ou emitir laudo: não calcule o que o documento não calculou.

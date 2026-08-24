@@ -22,7 +22,9 @@
 import assert from "node:assert/strict";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 
-import { extractPdfText } from "../lib/pdf-text.ts";
+import { chunkPdfByChapter, extractPdfText } from "../lib/pdf-text.ts";
+import { buildHaystack, isFindingGrounded } from "../lib/audit-verify.ts";
+import type { AuditFinding } from "../lib/audit-report.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -123,6 +125,84 @@ test("A PROSA NAO VIROU TABELA — a premissa que o teste puro nao alcanca", () 
   assert.ok(
     !/presente memorial descreve/i.test(texto),
     "a prosa foi absorvida pela tabela",
+  );
+});
+
+/*
+ * A GRADE CHEGA AO MODELO? — a pergunta que faltava (24/08/2026).
+ *
+ * As seis provas acima param na reconstrucao: elas provam que a grade sai certa
+ * das coordenadas. Nenhuma delas perguntava quem a LE, e a resposta era
+ * "ninguem": `page.tabelas` tinha um unico consumidor em todo o repositorio,
+ * `runDeclaredTotalAreaRule`. O texto que vai para a IA sai de `page.text`, e
+ * `page.text` e a pagina achatada — numa tabela, as celulas viram uma sequencia
+ * de palavras sem dono.
+ *
+ * Foi isso que produziu o achado "nao existe tabela" num documento que TEM a
+ * tabela: o modelo nao estava errado sobre o que recebeu.
+ */
+test("O CHUNK QUE VAI PARA O MODELO TRAZ A GRADE, e nao so a pagina achatada", () => {
+  const chunk = chunkPdfByChapter(extraido)[0];
+  assert.ok(chunk, "esperava ao menos um bloco");
+
+  assert.ok(
+    /\[TABELA\]/.test(chunk.text),
+    `o bloco enviado ao modelo nao marca tabela nenhuma:\n${chunk.text.slice(0, 400)}`,
+  );
+  assert.ok(
+    /AMBIENTE \| AREA \(m2\) \| PISO/.test(chunk.text),
+    "o cabecalho da tabela nao chegou ao modelo com as colunas separadas",
+  );
+  assert.ok(
+    /TOTAL \| 4\.530,98/.test(chunk.text),
+    "a linha TOTAL nao chegou ao modelo com o valor na coluna certa",
+  );
+});
+
+test("a prosa da pagina continua inteira no bloco do modelo", () => {
+  const chunk = chunkPdfByChapter(extraido)[0];
+  assert.ok(
+    /presente memorial descreve/i.test(chunk.text),
+    "a grade nao pode custar a prosa: o modelo precisa das duas",
+  );
+});
+
+/*
+ * A TRAVA ANTI-ALUCINAÇÃO PRECISA ENXERGAR A MESMA COISA QUE O MODELO LEU.
+ *
+ * `filterGroundedFindings` descarta todo achado de IA cuja evidência não exista
+ * no texto extraído — é o que impede a auditoria de apontar o que não está
+ * escrito. O haystack dela saía de `extracted.text`, a página achatada.
+ *
+ * No instante em que a grade passou a ir para o modelo, isso virou uma armadilha
+ * silenciosa: o modelo cita "TOTAL | 4.530,98" porque foi assim que ele leu, e a
+ * trava não acha o `|` em lugar nenhum e joga o achado fora. O conserto do
+ * insumo teria produzido um segundo defeito PIOR que o primeiro — achado certo
+ * descartado sem deixar rastro, em vez de achado errado visível.
+ */
+function achadoDeTabela(evidencia: string): AuditFinding {
+  return {
+    id: "F1",
+    tipo: "Divergência no quadro de áreas",
+    descricao: "teste",
+    evidencia,
+    termo_busca: evidencia,
+  } as AuditFinding;
+}
+
+test("EVIDENCIA CITADA DA GRADE nao e descartada pela trava anti-alucinacao", () => {
+  const haystack = buildHaystack(extraido);
+  assert.ok(
+    isFindingGrounded(achadoDeTabela("TOTAL | 4.530,98"), haystack),
+    "a trava rejeitou uma evidencia que o proprio modelo leu na grade",
+  );
+});
+
+test("a trava continua rejeitando o que NAO esta no documento", () => {
+  const haystack = buildHaystack(extraido);
+  assert.ok(
+    !isFindingGrounded(achadoDeTabela("TOTAL | 9.999,99 de area inventada"), haystack),
+    "a trava passou a aceitar texto inexistente",
   );
 });
 

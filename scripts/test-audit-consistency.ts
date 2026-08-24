@@ -318,6 +318,60 @@ check("o memorial 084_25 real não produz nenhum achado de identidade", () => {
   );
 });
 
+/*
+ * O FALSO POSITIVO "ESCOLA GERAL" (24/08/2026), apontado numa auditoria real.
+ *
+ * "ESCOLA GERAL" é o cabeçalho de um GRUPO DE DEFINIÇÃO TÉCNICA — as
+ * especificações comuns a todas as escolas do programa —, não o nome de uma
+ * obra. A regra o lia como obra e acusava divergência contra o gabarito.
+ *
+ * A causa não era a lista de tipos: era `trimProperName`, que aceita qualquer
+ * palavra com inicial maiúscula como nome próprio. Em cabeçalho — que memorial
+ * escreve em CAIXA ALTA — "GERAL" satisfazia isso, e um nome próprio falso é
+ * pior que nome nenhum: `hasName` verdadeiro PULA a guarda de moldura
+ * assertiva, que existe exatamente para descartar tipo solto.
+ *
+ * Ver `QUALIFICADORES_SEM_IDENTIDADE` em lib/cross-document-audit.ts.
+ */
+check("qualificador genérico em caixa alta não é nome de obra", () => {
+  const grupos = [
+    "ESCOLA GERAL",
+    "Escola Geral",
+    "ESCOLA PADRÃO",
+    "CRECHE TIPO",
+    "UBS MODELO",
+  ];
+
+  for (const cabecalho of grupos) {
+    const doc = makeSource("084_25_memorial.pdf", "memorial", [
+      `${cabecalho}
+Especificações técnicas comuns a todas as unidades do programa.`,
+    ]);
+    assert.equal(
+      runWithinDocumentIdentityRules(doc, { gabaritoObra: GABARITO_EMEB }).length,
+      0,
+      `"${cabecalho}" é grupo de definição técnica, não nome de obra`,
+    );
+  }
+});
+
+check("qualificador no meio de nome próprio real continua identificando", () => {
+  /*
+   * O guarda é sobre o nome INTEIRO ser genérico, nunca sobre a palavra
+   * aparecer. "Hospital Geral de Blumenau" identifica um prédio; "HOSPITAL
+   * GERAL" sozinho, não. Sem esta distinção o conserto trocaria um falso
+   * positivo por um falso negativo — e deixar de acusar troca de obra é o
+   * defeito que a regra existe para não ter.
+   */
+  const doc = makeSource("084_25_memorial.pdf", "memorial", [
+    "Obra: Hospital Geral de Blumenau, conforme projeto executivo.",
+  ]);
+  assert.ok(
+    runWithinDocumentIdentityRules(doc, { gabaritoObra: GABARITO_EMEB }).length > 0,
+    "'Hospital Geral de Blumenau' é outra obra e tem de ser acusado",
+  );
+});
+
 check("gabarito: documento coerente com a obra declarada não gera achado", () => {
   const limpo = makeSource("ok.pdf", "memorial", [
     "Obra: Centro Comunitário Primeira Linha, em Criciúma.",

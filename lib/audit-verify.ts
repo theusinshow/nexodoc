@@ -7,6 +7,7 @@ import type { ExtractedPdf } from "@/lib/pdf-text";
  * podem usar `@/` porque somem na compilacao; este e de runtime.
  */
 import { sugestaoEhAcionavel } from "./qualidade-da-sugestao.ts";
+import { textoDoDocumentoParaIA } from "./pdf-text.ts";
 
 // ---------------------------------------------------------------------------
 // Trava anti-alucinação (Fase B).
@@ -42,9 +43,19 @@ function normalizeSpaceless(value: string) {
 type Haystack = { collapsed: string; spaceless: string };
 
 export function buildHaystack(extracted: ExtractedPdf): Haystack {
+  /*
+   * O PALHEIRO É O QUE O MODELO LEU, não o que está na folha.
+   *
+   * Enquanto a IA lia só a página achatada as duas coisas eram a mesma, e o
+   * `extracted.text` daqui era inofensivo. Desde que a grade das tabelas passou
+   * a ir junto (24/08/2026), não são: o modelo cita "TOTAL | 4.530,98" porque
+   * foi assim que ele leu, e um palheiro sem o `|` descarta o achado como
+   * alucinação. Provado em `prova:tabela-do-pdf`.
+   */
+  const texto = textoDoDocumentoParaIA(extracted);
   return {
-    collapsed: normalizeCollapsed(extracted.text),
-    spaceless: normalizeSpaceless(extracted.text),
+    collapsed: normalizeCollapsed(texto),
+    spaceless: normalizeSpaceless(texto),
   };
 }
 

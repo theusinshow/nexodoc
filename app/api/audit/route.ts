@@ -62,6 +62,7 @@ import {
   agruparBlocosParaLeitura,
   chunkPdfByChapter,
   extractPdfText,
+  textoDoDocumentoParaIA,
   type AuditTextChunk,
   type ExtractedPdf,
 } from "@/lib/pdf-text";
@@ -2584,18 +2585,21 @@ function getCoherenceContextChars() {
 // sejam vistos na mesma passada.
 function buildWholeDocumentContext(extracted: ExtractedPdf) {
   const maxChars = getCoherenceContextChars();
+  // Com a grade das tabelas: é o mesmo documento que os outros dois caminhos de
+  // leitura recebem. Ver `textoDaPaginaParaIA` em lib/pdf-text.ts.
+  const texto = textoDoDocumentoParaIA(extracted);
 
-  if (extracted.text.length <= maxChars) {
-    return extracted.text;
+  if (texto.length <= maxChars) {
+    return texto;
   }
 
   const head = Math.floor(maxChars * 0.6);
   const tail = maxChars - head;
 
   return [
-    extracted.text.slice(0, head),
+    texto.slice(0, head),
     "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
-    extracted.text.slice(-tail),
+    texto.slice(-tail),
   ].join("");
 }
 

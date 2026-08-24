@@ -2881,9 +2881,28 @@ export function AuditResult({
                          * de afordância, não de geometria, e por isso não entra
                          * junto.
                          */
-                        "@container nx-spot rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
+                        "@container nx-spot relative rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
                         estaResolvido(finding.refId)
                           ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
+                          : "",
+                        /*
+                         * MARCADO COMO FALSO POSITIVO: o cartão inteiro fica
+                         * âmbar.
+                         *
+                         * A tarja sozinha não bastava. Quem revisa 45 achados
+                         * rola a lista de cima a baixo várias vezes, e o que
+                         * ele precisa responder a cada passada é "este eu já
+                         * descartei?" — uma etiqueta de 11px no meio do
+                         * cabeçalho não responde isso de relance. A cor do
+                         * cartão responde.
+                         *
+                         * DEPOIS do resolvido na ordem das classes, e de
+                         * propósito: um achado pode estar marcado como
+                         * corrigido E depois ser julgado falso positivo, e aí é
+                         * o julgamento que manda. `cn` faz a última vencer.
+                         */
+                        finding.refId && feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                          ? "border-[var(--status-warning)]/50 bg-[var(--status-warning-bg)]"
                           : "",
                         /*
                          * VINDO DO CANVAS, o cartão precisa se identificar: a
@@ -2895,6 +2914,40 @@ export function AuditResult({
                         "data-[em-foco]:ring-2 data-[em-foco]:ring-[var(--ring)] data-[em-foco]:ring-offset-2 data-[em-foco]:ring-offset-[var(--background)]",
                       )}
                     >
+                      {/*
+                        O SINAL DE CUIDADO TOMANDO O CARTÃO, em transparência.
+                        Marca-d'água, não ícone: ele não informa nada que a cor
+                        já não informe — ele dá ao estado um PESO que a cor
+                        sozinha não tem, e some da leitura assim que o olho
+                        passa para o texto.
+
+                        `pointer-events-none` porque o cartão continua
+                        interativo por baixo: o achado descartado ainda se abre,
+                        ainda rola, e o julgamento ainda se desfaz.
+                        `aria-hidden` porque a tarja de veredito, logo abaixo,
+                        já diz isto em texto — para o leitor de tela o selo
+                        seria a mesma frase repetida.
+                      */}
+                      {finding.refId && feedbackByFinding[finding.refId] === "FALSE_POSITIVE" ? (
+                        <div
+                          aria-hidden
+                          data-selo-de-cuidado=""
+                          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-md"
+                        >
+                          <AlertTriangle
+                            /*
+                              A ALTURA É DO CARTÃO, não um número fixo. `max-h-40`
+                              dava um triângulo de 160px num cartão de 775 — um
+                              ícone grande no meio, não uma marca-d'água. O
+                              `max-w` existe porque o glifo é quadrado: num
+                              cartão alto e estreito é a LARGURA que estoura
+                              primeiro, e sem o teto ele vazaria pelas laterais.
+                            */
+                            className="h-[65%] w-auto max-w-[60%] text-[var(--status-warning)] opacity-[0.10]"
+                            strokeWidth={1.25}
+                          />
+                        </div>
+                      ) : null}
                       <div className="flex flex-wrap items-start gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4">
                         <div className="min-w-0 flex-1">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -3378,9 +3431,35 @@ export function AuditResult({
                         dele na tela decide quanto dado a gente tem.
                       */}
                       {auditId && finding.refId ? (
-                        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--status-ok)]/20 bg-[var(--status-ok-bg)]/25 px-4 py-3">
+                        <div
+                          /*
+                            A ÁREA DE FEEDBACK RESPONDE AO QUE FOI RESPONDIDO.
+                            Antes ela era verde SEMPRE — inclusive antes de
+                            alguém responder qualquer coisa, e inclusive num
+                            achado marcado como falso positivo. Uma cor de
+                            estado que nunca muda não é estado: é decoração, e
+                            ela ocupava o verde que agora significa "confirmado".
+
+                            Neutra por padrão; verde quando o achado foi
+                            confirmado; âmbar quando foi descartado, de acordo
+                            com o cartão em volta.
+                          */
+                          data-veredito-do-achado={feedbackByFinding[finding.refId] || undefined}
+                          className={cn(
+                            "relative z-20 flex flex-wrap items-center gap-3 border-t px-4 py-3 transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
+                            feedbackByFinding[finding.refId] === "CONFIRMED"
+                              ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]"
+                              : feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
+                                : "bg-[var(--nexodoc-recessed)]/50",
+                          )}
+                        >
                               <p className="text-sm font-medium text-foreground">
-                                Esse achado está certo?
+                                {feedbackByFinding[finding.refId] === "CONFIRMED"
+                                  ? "Achado confirmado."
+                                  : feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                    ? "Marcado como falso positivo."
+                                    : "Esse achado está certo?"}
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 <Button
@@ -3389,6 +3468,14 @@ export function AuditResult({
                                   variant={feedbackByFinding[finding.refId] === "CONFIRMED" ? "secondary" : "outline"}
                                   disabled={feedbackSavingKey === finding.refId}
                                   onClick={() => void saveFindingFeedback(finding, index, "CONFIRMED")}
+                                  // O botão escolhido carrega a cor do estado: é
+                                  // o mesmo verde do "Corrigido" na barra de
+                                  // ações, e é o que diz QUAL dos três foi.
+                                  className={
+                                    feedbackByFinding[finding.refId] === "CONFIRMED"
+                                      ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
+                                      : undefined
+                                  }
                                 >
                                   <Check />
                                   Correto
@@ -3399,6 +3486,11 @@ export function AuditResult({
                                   variant={feedbackByFinding[finding.refId] === "FALSE_POSITIVE" ? "secondary" : "outline"}
                                   disabled={feedbackSavingKey === finding.refId}
                                   onClick={() => void saveFindingFeedback(finding, index, "FALSE_POSITIVE")}
+                                  className={
+                                    feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                      ? "border-[var(--status-warning)]/40 text-[var(--status-warning)]"
+                                      : undefined
+                                  }
                                 >
                                   <AlertTriangle />
                                   Falso positivo

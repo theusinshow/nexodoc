@@ -20,7 +20,7 @@ import {
 } from "./audit-report.ts";
 import type { AnalysisLevel } from "./analysis-level.ts";
 import { paginasDoAchado } from "./paginas-do-achado.ts";
-import type { ExtractedPdf } from "./pdf-text.ts";
+import { textoDoDocumentoParaIA, type ExtractedPdf } from "./pdf-text.ts";
 
 const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
 // Teto do nível Profundo: grande o bastante para o memorial inteiro caber numa
@@ -53,22 +53,28 @@ export function buildDocumentContext(
   analysisLevel: AnalysisLevel = "standard",
 ) {
   const maxChars = getGlobalContextChars(analysisLevel);
+  /*
+   * O TEXTO COM A GRADE, e não a folha crua: é este recorte que vai no prompt.
+   * O nível Padrão lê o documento por aqui, e sem isto ele continuaria cego a
+   * tabela mesmo depois de o Profundo (que lê por blocos) passar a enxergá-la.
+   */
+  const texto = textoDoDocumentoParaIA(extracted);
 
-  if (extracted.text.length <= maxChars) {
-    return extracted.text;
+  if (texto.length <= maxChars) {
+    return texto;
   }
 
   const headChars = Math.floor(maxChars * 0.38);
   const tailChars = Math.floor(maxChars * 0.42);
   const middleChars = maxChars - headChars - tailChars;
-  const middleStart = Math.max(0, Math.floor((extracted.text.length - middleChars) / 2));
+  const middleStart = Math.max(0, Math.floor((texto.length - middleChars) / 2));
 
   return [
-    extracted.text.slice(0, headChars),
+    texto.slice(0, headChars),
     "\n\n--- RECORTE INTERMEDIARIO DO DOCUMENTO ---\n\n",
-    extracted.text.slice(middleStart, middleStart + middleChars),
+    texto.slice(middleStart, middleStart + middleChars),
     "\n\n--- RECORTE FINAL DO DOCUMENTO ---\n\n",
-    extracted.text.slice(-tailChars),
+    texto.slice(-tailChars),
   ].join("");
 }
 

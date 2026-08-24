@@ -463,6 +463,64 @@ function trimProperName(raw: string) {
   return kept.join(" ");
 }
 
+/**
+ * PALAVRAS QUE QUALIFICAM UM TIPO, MAS NÃO IDENTIFICAM UM PRÉDIO.
+ *
+ * Falso positivo medido numa auditoria real (24/08/2026): "ESCOLA GERAL" —
+ * cabeçalho do grupo de definições técnicas comuns a todas as escolas do
+ * programa — era acusado de divergir da obra declarada, como se fosse o nome de
+ * outro empreendimento.
+ *
+ * A causa está em `isProperNameWord`, que decide nome próprio pela CAIXA da
+ * primeira letra. Memorial escreve cabeçalho em CAIXA ALTA, então toda palavra
+ * de um cabeçalho satisfaz o teste — e "GERAL" virava nome próprio.
+ *
+ * O estrago não para em um achado errado: um nome próprio falso faz `hasName`
+ * verdadeiro, e `hasName` verdadeiro PULA a guarda de moldura assertiva
+ * (`isOccupancyAssertion`), que existe justamente para descartar tipo solto. O
+ * falso nome desarmava a defesa que já estava lá.
+ *
+ * O TESTE É SOBRE O NOME INTEIRO, nunca sobre a palavra aparecer: "Hospital
+ * Geral de Blumenau" identifica um prédio e continua identificando, porque
+ * "Blumenau" sobra. O que não identifica nada é o nome em que só resta
+ * qualificador.
+ */
+const QUALIFICADORES_SEM_IDENTIDADE = new Set([
+  "geral",
+  "gerais",
+  "padrao",
+  "padroes",
+  "tipo",
+  "tipos",
+  "modelo",
+  "modelos",
+  "comum",
+  "comuns",
+  "generico",
+  "generica",
+  "basico",
+  "basica",
+  "unico",
+  "unica",
+]);
+
+/**
+ * O recorte de `trimProperName` é mesmo um nome próprio?
+ *
+ * Falso quando sobra só qualificador e conector — aí não há prédio nenhum
+ * sendo nomeado, e a menção volta a valer o que ela é: um tipo solto, sujeito à
+ * guarda de moldura assertiva como qualquer outro.
+ */
+function ehNomeProprio(name: string): boolean {
+  const palavras = baseCanonical(name)
+    .split(" ")
+    .filter((p) => p.length > 0);
+
+  return palavras.some(
+    (p) => !QUALIFICADORES_SEM_IDENTIDADE.has(p) && !NAME_CONNECTORS.has(p),
+  );
+}
+
 type FacilityMention = {
   display: string;
   canonical: string;
@@ -629,7 +687,9 @@ function collectFacilityMentions(source: CrossDocumentSource): FacilityMention[]
       const typeRaw = match[1] ?? "";
       const name = trimProperName(match[2] ?? "");
       const type = baseCanonical(typeRaw);
-      const hasName = name.length > 0;
+      // `ehNomeProprio` e não `length > 0`: "ESCOLA GERAL" tem recorte, e o
+      // recorte não nomeia obra nenhuma. Ver QUALIFICADORES_SEM_IDENTIDADE.
+      const hasName = ehNomeProprio(name);
       const display = cleanDisplay(hasName ? `${typeRaw} ${name}` : typeRaw);
       const canonical = facilityCanonical(hasName ? `${type} ${name}` : type);
 

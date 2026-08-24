@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Skeleton } from "@/components/ui/skeleton";
+import { marcacaoDoTrecho, type FaixasDaMarcacao } from "@/lib/marcacao-do-trecho";
+import type { ItemDeTexto } from "@/lib/texto-do-pdf";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -12,10 +14,6 @@ import "react-pdf/dist/Page/TextLayer.css";
 // "API version does not match Worker version" e nada renderiza. Este arquivo é
 // cópia do worker do próprio react-pdf.
 pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.react-pdf.mjs";
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /**
  * A largura de uma página em 100%. 520px numa gaveta de 560 é a página inteira
@@ -39,9 +37,35 @@ type AuditPdfViewerInternalProps = {
   onNumPages?: (n: number) => void;
 };
 
-// Visor embutido de PDF da auditoria (item 2): renderiza a página exata do achado
-// e destaca o termo de busca. O pdfjs quebra o texto em vários spans, então o
-// destaque casa por fragmento — o suficiente para o olho localizar o trecho.
+function escaparHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Visor embutido de PDF da auditoria: renderiza a página do achado e marca o
+ * trecho citado como evidência.
+ *
+ * COMO A MARCAÇÃO FUNCIONA — e por que ela mudou (24/08/2026).
+ *
+ * Antes: uma expressão regular com o trecho inteiro E cada palavra dele com 4
+ * letras ou mais, aplicada a cada span isoladamente. O remendo da palavra solta
+ * existia porque o pdf.js corta o texto em spans e uma frase raramente cabe num
+ * só — mas numa página de memorial "revestimento" e "conforme" aparecem dezenas
+ * de vezes, e a folha inteira acendia. O relato foi "a marcação está ficando
+ * imprecisa"; o diagnóstico é que ela nunca soube ONDE o trecho estava.
+ *
+ * Agora: `onGetTextSuccess` entrega os itens da página ANTES de o texto ser
+ * pintado, `marcacaoDoTrecho` costura esses itens na ordem de leitura (com a
+ * mesma medida da extração) e devolve as faixas de caractere da ÚNICA ocorrência
+ * certa. O `customTextRenderer` recebe `itemIndex` e recorta só o que é dele.
+ *
+ * Sem os itens ainda (primeiro quadro) não marca nada: o estado chega logo
+ * depois e o React repinta. Marca nenhuma por um quadro é melhor que a marca
+ * errada, que é o que se está consertando.
+ */
 export default function AuditPdfViewerInternal({
   url,
   page,
@@ -50,56 +74,42 @@ export default function AuditPdfViewerInternal({
   onNumPages,
 }: AuditPdfViewerInternalProps) {
   const [numPages, setNumPages] = useState(0);
+  const [itens, setItens] = useState<ItemDeTexto[] | null>(null);
   const needle = (highlight ?? "").trim();
 
-  // O pdfjs quebra o texto em vários spans, então o customTextRenderer recebe um
-  // fragmento por vez e um termo de várias palavras raramente cai inteiro num só.
-  // Solução: destacar o termo inteiro E cada palavra significativa (>= 4 letras,
-  // sem stopwords) dele — assim o trecho fica marcado mesmo quando o pdfjs corta.
-  const pattern = useMemo(() => {
-    if (needle.length < 3) {
-      return null;
-    }
+  /*
+   * A página muda: os itens da anterior não valem mais. Sem isto o visor
+   * marcaria, por um quadro, faixas calculadas sobre outra folha — que é pior
+   * que não marcar, porque parece certo.
+   */
+  const [paginaDosItens, setPaginaDosItens] = useState(0);
 
-    const stop = new Set(["para", "pelo", "pela", "com", "sem", "das", "dos", "que", "por", "uma", "num", "nos", "nas"]);
-    const words = needle
-      .split(/\s+/)
-      .map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-      .filter((word) => word.length >= 4 && !stop.has(word.toLowerCase()));
-
-    const parts = [...new Set([needle, ...words])]
-      .filter((part) => part.length >= 3)
-      .sort((a, b) => b.length - a.length)
-      .map(escapeRegExp);
-
-    if (parts.length === 0) {
-      return null;
-    }
-
-    try {
-      return new RegExp(`(${parts.join("|")})`, "gi");
-    } catch {
-      return null;
-    }
-  }, [needle]);
+  const faixas: FaixasDaMarcacao | null = useMemo(() => {
+    if (!itens || paginaDosItens !== page || needle.length < 3) return null;
+    return marcacaoDoTrecho(itens, needle);
+  }, [itens, paginaDosItens, page, needle]);
 
   const textRenderer = useCallback(
-    (textItem: { str: string }) => {
-      if (!pattern) {
-        return textItem.str;
-      }
+    ({ str, itemIndex }: { str: string; itemIndex: number }) => {
+      const trechos = faixas?.get(itemIndex);
+      if (!trechos || trechos.length === 0) return escaparHtml(str);
 
       /*
-       * Sem zerar `lastIndex` à mão: `String.replace` com regex global já o
-       * zera antes de casar, então a linha era morta — e mutava um valor vindo
-       * do `useMemo`, o que o React Compiler barra com razão. O `pattern` é
-       * compartilhado entre todos os itens de texto da página; se alguém
-       * trocar este `replace` por `exec` ou `test`, aí sim o estado do regex
-       * passa a atravessar chamadas e precisa de cuidado.
+       * Montado por FATIA, e não por `replace`: as faixas vêm em índice de
+       * caractere, e reconstruir o texto pedaço a pedaço é o que garante que a
+       * marca caia exatamente onde o casamento caiu — inclusive no meio de uma
+       * palavra que o pdf.js entregou colada a outra.
        */
-      return textItem.str.replace(pattern, "<mark>$1</mark>");
+      let saida = "";
+      let cursor = 0;
+      for (const [inicio, fim] of trechos) {
+        saida += escaparHtml(str.slice(cursor, inicio));
+        saida += `<mark>${escaparHtml(str.slice(inicio, fim))}</mark>`;
+        cursor = fim;
+      }
+      return saida + escaparHtml(str.slice(cursor));
     },
-    [pattern],
+    [faixas],
   );
 
   const safePage = numPages > 0 ? Math.min(Math.max(1, page), numPages) : Math.max(1, page);
@@ -126,6 +136,20 @@ export default function AuditPdfViewerInternal({
       <Page
         pageNumber={safePage}
         width={Math.round(LARGURA_BASE_DA_PAGINA * zoom)}
+        onGetTextSuccess={(conteudo) => {
+          /*
+           * `TextMarkedContent` vem misturado aos itens de texto e não tem
+           * `str` — o predicado o descarta. O `unknown` no meio é por causa do
+           * `dir`/`fontName` do tipo do pdf.js, que `ItemDeTexto` não declara
+           * de propósito: ele é o SUBCONJUNTO que a costura usa, e é o que
+           * mantém o módulo puro provável sem pdf.js.
+           */
+          const lidos = (conteudo?.items ?? []).filter(
+            (item) => typeof (item as { str?: unknown }).str === "string",
+          ) as unknown as ItemDeTexto[];
+          setItens(lidos);
+          setPaginaDosItens(safePage);
+        }}
         customTextRenderer={textRenderer}
         renderAnnotationLayer={false}
         className="shadow-sm"
