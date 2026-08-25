@@ -1,15 +1,33 @@
+/**
+ * O CHAT PÓS-PARECER — reescrito em 25/08/2026.
+ *
+ * A versão anterior estava MORTA desde que as telas standalone foram
+ * aposentadas, e mesmo viva só enxergava o JSON compactado do parecer: o prompt
+ * dela mandava literalmente "não diga que releu o PDF". Agora a rota carrega o
+ * texto guardado da auditoria (`AuditText`) e roda um laço de ferramentas —
+ * quem responde ONDE ESTÁ é o código, não o modelo.
+ *
+ * A rota é fina de propósito: o cérebro mora em `server/audit/chat/`, espelhando
+ * a separação que `server/nexo/agent/` já usa.
+ */
 import { NextResponse } from "next/server";
 
-import { executeOpenAiResponse, getProviderFailureStatus } from "@/lib/ai-runner";
-import type { AuditReport } from "@/lib/audit-report";
+import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import {
   classifyProviderFailure,
   getAiConfiguration,
   getAuditExecutionProfile,
   type AiProvider,
 } from "@/lib/ai-providers";
-import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
-import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { executeOpenAiResponse } from "@/lib/ai-runner";
+import type { AuditReport } from "@/lib/audit-report";
+import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { carregarMemoriaDoDocumento } from "@/lib/memoria-do-documento";
+import { aplicarAchadoNoParecer, montarContexto } from "@/server/audit/chat/ferramentas";
+import { historicoDaObra } from "@/server/audit/chat/historico";
+import { runChatTurn } from "@/server/audit/chat/run-chat-turn";
+import { linhaSse, respostaDoModelo } from "./serializacao";
 
 export const runtime = "nodejs";
 
@@ -40,7 +58,7 @@ function getAllowedOrigin(request: Request) {
   return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 }
 
-function withCors(response: NextResponse, request?: Request) {
+function withCors<T extends Response>(response: T, request?: Request): T {
   response.headers.set("Access-Control-Allow-Origin", request ? getAllowedOrigin(request) : "*");
   response.headers.set("Vary", "Origin");
 
@@ -55,37 +73,14 @@ function jsonError(message: string, status = 400, request?: Request) {
   return withCors(NextResponse.json({ error: message }, { status }), request);
 }
 
-function extractResponseText(response: unknown) {
-  const candidate = response as {
-    output_text?: string;
-    output?: Array<{
-      content?: Array<{ type?: string; text?: string }>;
-    }>;
-  };
-
-  if (typeof candidate.output_text === "string") {
-    return candidate.output_text.trim();
-  }
-
-  return (
-    candidate.output
-      ?.flatMap((item) => item.content ?? [])
-      .map((item) => item.text)
-      .filter((item): item is string => Boolean(item))
-      .join("\n")
-      .trim() ?? ""
-  );
-}
-
 /**
- * O chat responde SOBRE UM RELATÓRIO QUE JÁ EXISTE — os achados foram julgados
- * na auditoria, aqui o modelo só explica e localiza. Isso não pede deliberação,
- * pede resposta rápida: o padrão saiu de `medium` para `low` em 11/08/2026,
- * pelo mesmo motivo que o agente Nexo já nascia em `low`.
+ * O chat responde SOBRE UM RELATÓRIO QUE JÁ EXISTE, e agora com o documento ao
+ * alcance. Isso não pede deliberação, pede resposta rápida — o padrão saiu de
+ * `medium` para `low` em 11/08/2026, pelo mesmo motivo que o agente Nexo já
+ * nascia em `low`.
  *
- * Suba para `medium` em `NEXODOC_CHAT_REASONING_EFFORT` se as respostas
- * começarem a errar a leitura do relatório — o sintoma é resposta rápida e
- * errada, não resposta lenta.
+ * Suba para `medium` em `NEXODOC_CHAT_REASONING_EFFORT` se ele começar a errar a
+ * escolha da ferramenta — o sintoma é resposta rápida e errada, não lenta.
  */
 function getReasoningEffort() {
   const effort = process.env.NEXODOC_CHAT_REASONING_EFFORT;
@@ -104,77 +99,38 @@ function getReasoningEffort() {
   return "low";
 }
 
-function compactReport(report: AuditReport) {
-  return {
-    projeto: {
-      arquivo: report.arquivo,
-      obra: report.obra,
-      projeto: report.codigo,
-      documento: report.tipo_documento,
-      volume: report.volume,
-      municipio: report.municipio,
-      orgao: report.orgao,
-      data: report.data_documento,
-      status: report.status_geral,
-      conclusao: report.conclusao,
-    },
-    arquivos: report.arquivos_analisados,
-    comparacoes: report.comparacoes,
-    achados: report.incongruencias.map((finding) => ({
-      id: finding.id,
-      prioridade: finding.prioridade,
-      impacto: finding.impacto,
-      arquivo: finding.arquivo,
-      pagina: finding.pagina,
-      capitulo: finding.capitulo,
-      local: finding.local,
-      tipo: finding.tipo,
-      descricao: finding.descricao,
-      evidencia: finding.evidencia,
-      termo_busca: finding.termo_busca,
-      conflito: finding.conflito,
-      acao: finding.sugestao_correcao,
-      categoria: finding.categoria,
-      referencia: finding.referencia_comparada,
-      confianca: finding.confianca,
-    })),
-  };
-}
-
-function getChatPrompt(args: {
-  question: string;
-  report: AuditReport;
-  history: ChatTurn[];
-}) {
-  return `
-Você é o assistente de pós-auditoria do NexoDoc. Responda a pergunta do usuário usando somente o relatório estruturado abaixo.
-
-Regras:
-- Explique o "porquê" dos achados quando solicitado.
-- Cite IDs dos achados, páginas prováveis, evidências e termos de busca quando forem relevantes.
-- Diferencie erro crítico documental, ponto técnico/contratual e revisão editorial.
-- Se o usuário pedir algo que não está no relatório, diga que a evidência não consta na auditoria atual e sugira qual documento ou trecho validar.
-- Não diga que releu o PDF. Nesta conversa você está interpretando o relatório já gerado.
-- Seja direto, técnico e útil para um escritório de engenharia.
-
-Histórico recente:
-${args.history.map((turn) => `${turn.role}: ${turn.content.slice(0, 1200)}`).join("\n\n") || "Sem histórico."}
-
-Pergunta do usuário:
-${args.question}
-
-Relatório estruturado:
-${JSON.stringify(compactReport(args.report), null, 2)}
-`.trim();
-}
-
 export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
+/**
+ * O achado nascido na conversa é gravado no `Audit.report`.
+ *
+ * Best-effort de propósito: o cliente também funde o achado no IndexedDB (o
+ * parecer persiste em DOIS lugares), então falhar aqui não faz o engenheiro
+ * perder o achado da tela. Mas o log tem de existir — sem banco o achado some
+ * no próximo F5 e ninguém saberia por quê.
+ */
+async function gravarAchadoNoParecer(auditId: string, report: AuditReport) {
+  if (!isDatabaseConfigured()) return;
+
+  try {
+    const prisma = getPrisma();
+    await prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        report: report as never,
+        totalFindings: report.total_incongruencias,
+      },
+    });
+  } catch (error) {
+    console.error("[audit-chat] falha ao gravar o achado nascido no chat", error);
+  }
+}
+
 export async function POST(request: Request) {
   /*
-   * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
+   * O PORTÃO. Esta rota não pedia NADA -- nem sessão.
    */
   try {
     await requireActor();
@@ -184,85 +140,152 @@ export async function POST(request: Request) {
     throw err;
   }
 
-  let executionProfile: {
-    provider: AiProvider;
-    model: string;
-  } = getAiConfiguration().auditChat;
+  let executionProfile: { provider: AiProvider; model: string } = getAiConfiguration().auditChat;
+
+  let body: {
+    question?: string;
+    report?: AuditReport;
+    history?: ChatTurn[];
+    auditId?: string;
+    projectId?: string | null;
+  };
 
   try {
     await refreshAiModelOverrideCache();
-    const body = (await request.json()) as {
-      question?: string;
-      report?: AuditReport;
-      history?: ChatTurn[];
-      auditId?: string;
-    };
-    const question = String(body.question ?? "").trim();
-
-    if (!question) {
-      return jsonError("Informe uma pergunta sobre a auditoria.", 400, request);
-    }
-
-    if (!body.report || !Array.isArray(body.report.incongruencias)) {
-      return jsonError("Relatório da auditoria não informado.", 400, request);
-    }
-
-    const history = Array.isArray(body.history)
-      ? body.history
-          .filter((turn) => turn.role === "user" || turn.role === "assistant")
-          .slice(-6)
-      : [];
-    const auditMode = body.report.tipo_auditoria === "volume" ? "volume" : "memorial";
-    const analysisLevel = body.report.runtime?.nivel_analise === "deep" ? "deep" : "standard";
-    if (auditMode === "memorial") {
-      executionProfile = getAuditExecutionProfile({ auditMode, analysisLevel });
-    }
-    const model = executionProfile.model;
-    const aiResponse = await executeOpenAiResponse({
-      flow: "audit-chat",
-      providerOverride: executionProfile.provider,
-      taskId: body.auditId,
-      taskLabel: body.report.obra || body.report.arquivo || "Pós-auditoria",
-      model,
-      operation: "audit-chat-answer",
-      metadata: {
-        findings: body.report.incongruencias.length,
-        historyTurns: history.length,
-        auditMode,
-        analysisLevel,
-      },
-      request: {
-        model,
-        instructions: "Você responde perguntas pós-auditoria documental com base estrita no relatório fornecido.",
-        reasoning: { effort: getReasoningEffort() },
-        max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
-        input: getChatPrompt({ question, report: body.report, history }),
-      },
-    });
-    const answer = aiResponse.text || extractResponseText(aiResponse.response);
-
-    if (!answer) {
-      throw new Error("Resposta vazia do modelo.");
-    }
-
-    return withCors(NextResponse.json({ answer }), request);
-  } catch (error) {
-    const failure = classifyProviderFailure(
-      executionProfile.provider,
-      "audit-chat",
-      executionProfile.model,
-      error,
-    );
-    if (failure.category !== "unknown") {
-      console.error(`[audit-chat] falha do provedor (${failure.category})`);
-      return jsonError(failure.message, getProviderFailureStatus(failure.category), request);
-    }
-
-    console.error("[audit-chat] falha não classificada");
-    return jsonError(
-      error instanceof Error ? error.message : "Não foi possível responder sobre a auditoria.",
-      500,
-      request,
-    );
+    body = (await request.json()) as typeof body;
+  } catch {
+    return jsonError("Corpo da requisição inválido.", 400, request);
   }
+
+  const question = String(body.question ?? "").trim();
+  if (!question) {
+    return jsonError("Informe uma pergunta sobre a auditoria.", 400, request);
+  }
+  if (!body.report || !Array.isArray(body.report.incongruencias)) {
+    return jsonError("Relatório da auditoria não informado.", 400, request);
+  }
+
+  const auditId = String(body.auditId ?? "");
+  const history = Array.isArray(body.history)
+    ? body.history.filter((t) => t.role === "user" || t.role === "assistant").slice(-6)
+    : [];
+
+  const analysisLevel = body.report.runtime?.nivel_analise === "deep" ? "deep" : "standard";
+  if (body.report.tipo_auditoria !== "volume") {
+    executionProfile = getAuditExecutionProfile({ auditMode: "memorial", analysisLevel });
+  }
+  const model = executionProfile.model;
+
+  /*
+   * O texto guardado. Vetor vazio = parecer antigo: o laço entra em modo
+   * degradado e o modelo é instruído a DIZER que não tem o documento.
+   */
+  const memorias = auditId ? await carregarMemoriaDoDocumento(auditId) : [];
+  // Cópia do parecer: o laço acrescenta o achado novo ao contexto do turno, e
+  // mutar o objeto que veio do cliente confunde quem grava.
+  const ctx = montarContexto({ ...body.report }, memorias);
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (payload: unknown) => controller.enqueue(encoder.encode(linhaSse(payload)));
+
+      try {
+        for await (const evento of runChatTurn({
+          ctx,
+          pergunta: question,
+          historico: history,
+          historicoDaObra: () => historicoDaObra({ auditId, projectId: body.projectId ?? null }),
+          /*
+           * O encaminhamento é resolvido no CLIENTE. `runNexoAgentTurn` precisa
+           * de `resumo`, `prefeituras`, `escritorio`, `tomosSugeridos` e
+           * `decisoes`, montados em 180 linhas de `app/api/nexo/agent/route.ts`
+           * que esta rota não tem — duplicá-las criaria duas fontes para a
+           * mesma verdade. Aqui só avisamos que o turno é de geração.
+           */
+          encaminhar: async (pedido) => {
+            send({ type: "encaminhar", pedido });
+            return null;
+          },
+          aoRegistrar: async (achado) => {
+            const atualizado = aplicarAchadoNoParecer(body.report!, achado);
+            body.report = atualizado;
+            if (auditId) await gravarAchadoNoParecer(auditId, atualizado);
+          },
+          executar: async ({ input, tools, volta }) => {
+            const ai = await executeOpenAiResponse({
+              flow: "audit-chat",
+              providerOverride: executionProfile.provider,
+              taskId: auditId || undefined,
+              taskLabel: body.report?.obra || body.report?.arquivo || "Pós-auditoria",
+              model,
+              operation: "audit-chat-turn",
+              metadata: {
+                volta,
+                comMemoria: memorias.length > 0,
+                findings: body.report?.incongruencias.length ?? 0,
+                historyTurns: history.length,
+                analysisLevel,
+              },
+              request: {
+                model,
+                instructions:
+                  "Você é o auditor sênior do NexoDoc respondendo sobre um parecer já emitido, " +
+                  "com o documento ao alcance por ferramentas.",
+                reasoning: { effort: getReasoningEffort() },
+                max_output_tokens: Number(process.env.NEXODOC_CHAT_MAX_OUTPUT_TOKENS ?? 1400),
+                input: input as never,
+                ...(tools.length > 0 ? { tools } : {}),
+              },
+            });
+            return respostaDoModelo(ai);
+          },
+        })) {
+          if (evento.type === "achado") {
+            // O achado sai COM o parecer inteiro: o cliente funde os dois de uma
+            // vez e regrava no IndexedDB sem precisar recompor a lista.
+            send({ type: "achado", achado: evento.achado, report: body.report });
+          } else if (evento.type !== "proposta") {
+            send(evento);
+          }
+        }
+      } catch (error) {
+        const failure = classifyProviderFailure(
+          executionProfile.provider,
+          "audit-chat",
+          model,
+          error,
+        );
+        console.error(`[audit-chat] falha (${failure.category})`);
+        /*
+         * O erro viaja DENTRO do SSE, com status 200: o fluxo já começou, e
+         * trocar o status a essa altura não chega ao cliente.
+         */
+        send({
+          type: "error",
+          error:
+            failure.category !== "unknown"
+              ? failure.message
+              : error instanceof Error
+                ? error.message
+                : "Não foi possível responder sobre a auditoria.",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return withCors(
+    new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        // Sem isto, proxies com buffer seguram os eventos e o progresso some.
+        "X-Accel-Buffering": "no",
+      },
+    }),
+    request,
+  );
 }

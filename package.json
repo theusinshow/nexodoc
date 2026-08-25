@@ -177,6 +177,7 @@
   "test:chat:ferramentas": "node scripts/test-chat-ferramentas.ts",
   "test:chat:historico": "node scripts/test-chat-historico.ts",
   "test:chat:laco": "node scripts/test-chat-laco.ts",
+  "test:chat:rota": "node scripts/test-chat-rota.ts",
   "test:impressao-achado": "node scripts/test-impressao-do-achado.ts",
     "mede:impressao-achado": "node scripts/mede-impressao-do-achado.mjs",
     "prova:validacao-refuta": "node scripts/prova-validacao-refuta.ts",
