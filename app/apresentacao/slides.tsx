@@ -326,57 +326,6 @@ function Marcador({
   );
 }
 
-/** Uma folha de reserva: a captura ocupando a folha inteira. */
-function Reserva({ chave, titulo }: { chave: string; titulo: string }) {
-  return (
-    <>
-      <h2
-        style={{
-          margin: "0 0 20px",
-          fontSize: 40,
-          fontWeight: 500,
-          letterSpacing: "-0.02em",
-          color: "var(--foreground)",
-        }}
-      >
-        {titulo}
-      </h2>
-      <div
-        className="ap-surge"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/*
-          `next/image` NÃO serve aqui: o otimizador busca a URL pelo servidor,
-          sem o cookie da sessão, e a rota do plano B é autenticada — voltaria
-          401, e o plano B seria um quadrado vazio.
-        */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/apresentacao/plano-b/${chave}`}
-          alt={titulo}
-          style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            background: "var(--card)",
-          }}
-        />
-      </div>
-      <p className="ap-fonte">
-        Tela do próprio sistema, numa conferência do memorial geral do 117-25.
-      </p>
-    </>
-  );
-}
-
 /* ══════════════════════════════════════════════════════════════════ AS FOLHAS */
 
 export const SLIDES: readonly Slide[] = [
@@ -954,53 +903,15 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Quando escapou",
+    rotulo: "A conta",
     numero: "08",
     bloco: "O problema",
     notas:
-      "Narrar. Sem detalhar quem, sem nomear disciplina. Todos na sala sabem qual foi o caso. O silêncio depois das três linhas faz mais trabalho do que qualquer explicação.",
-    corpo: (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        {["Projeto devolvido.", "Procuradoria acionada.", "Três responsáveis, três dias."].map(
-          (linha, i) => (
-            <div key={linha} className="ap-entra" style={{ animationDelay: `${i * 420}ms` }}>
-              <p
-                style={{
-                  margin: "18px 0",
-                  fontSize: 82,
-                  fontWeight: 500,
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.1,
-                  color: i === 2 ? "var(--status-critical)" : "var(--foreground)",
-                }}
-              >
-                {linha}
-              </p>
-            </div>
-          ),
-        )}
-      </div>
-    ),
-  },
-
-  {
-    rotulo: "A conta",
-    numero: "09",
-    bloco: "O problema",
-    notas:
-      "A palavra estimativa fica visível na tela — se preferir, troque a faixa pelo valor real antes de apresentar. A coluna da direita é o que fecha o slide: ler devagar e não insistir.",
+      "É AQUI que o episódio é narrado, agora que ele não tem folha própria: projeto devolvido, procuradoria acionada, três responsáveis parados três dias. Contar antes de mostrar a conta — sem detalhar quem, sem nomear disciplina. A palavra estimativa fica visível na tela; se preferir, troque a faixa pelo valor real antes de apresentar. A coluna da direita é o que fecha o slide: ler devagar e não insistir.",
     corpo: (
       <>
         <Entra atraso={0}>
-          <h2 className="ap-titulo">O que aquilo custou</h2>
+          <h2 className="ap-titulo">O que um erro desses custa</h2>
         </Entra>
 
         <div style={{ flex: 1, display: "flex", gap: 0 }}>
@@ -1092,7 +1003,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "Limites",
-    numero: "10",
+    numero: "09",
     denso: true,
     bloco: "O que existe",
     notas:
@@ -1140,7 +1051,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "Segurança",
-    numero: "11",
+    numero: "10",
     denso: true,
     bloco: "O que existe",
     notas:
@@ -1202,7 +1113,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que existe hoje",
-    numero: "12",
+    numero: "11",
     bloco: "O que existe",
     notas:
       "Dois blocos, não seis módulos. O que importa é a distinção entre conferir o que já existe e montar o que falta — é assim que o trabalho acontece no escritório.",
@@ -1310,7 +1221,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "Quanto custa",
-    numero: "13",
+    numero: "12",
     denso: true,
     bloco: "O dinheiro",
     notas:
@@ -1456,7 +1367,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O piloto",
-    numero: "14",
+    numero: "13",
     denso: true,
     bloco: "O pedido",
     notas:
@@ -1563,7 +1474,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que pode vir",
-    numero: "15",
+    numero: "14",
     bloco: "O pedido",
     notas:
       "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
@@ -1639,7 +1550,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que ela não é",
-    numero: "16",
+    numero: "15",
     bloco: "O pedido",
     notas:
       "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor, é aí que o anexo sai.",
@@ -1690,32 +1601,4 @@ export const SLIDES: readonly Slide[] = [
     ),
   },
 
-  /*
-   * AS DUAS FOLHAS DE RESERVA. Ficam DEPOIS do fim, fora do caminho de quem
-   * apresenta bem: numa demonstração que funciona ninguém chega aqui. Numa que
-   * falha, `End` traz as duas em tamanho de leitura — a diferença entre um plano
-   * B e uma miniatura decorativa.
-   *
-   * Ficaram MAIS necessárias depois que a folha "Ao vivo" saiu do deck: a
-   * demonstração agora começa sem âncora, e estas são a única tela de resultado
-   * que sobra se a execução falhar.
-   */
-  {
-    rotulo: "Reserva — Resumo",
-    numero: "B1",
-    denso: true,
-    bloco: "Reserva",
-    notas:
-      "Só se a demonstração ao vivo falhar. Tela de resumo de uma execução real: veredito, total de achados e a separação por severidade — o que bloqueia a emissão, o que exige decisão técnica e o que é revisão de texto.",
-    corpo: <Reserva chave="resumo" titulo="Resumo — veredito e severidade" />,
-  },
-  {
-    rotulo: "Reserva — Achados",
-    numero: "B2",
-    denso: true,
-    bloco: "Reserva",
-    notas:
-      "A matriz por disciplina e um achado aberto: o que está errado, por que importa, o que fazer, onde aparece e a evidência transcrita. É esta tela que mostra a profundidade do parecer.",
-    corpo: <Reserva chave="achados" titulo="Achados — matriz e evidência" />,
-  },
 ];

@@ -141,6 +141,17 @@ async function main() {
 
   await pagina.waitForSelector(".ap-folha", { timeout: 20000 });
 
+  /*
+   * O ORBE DEMORA A MONTAR: o canvas dele entra por `next/dynamic`, e a primeira
+   * versão deste gerador serializava a capa antes disso — o arquivo saía com o
+   * halo e um buraco no meio. Esperar o elemento existir é a diferença entre um
+   * plano de emergência e uma capa quebrada.
+   */
+  await pagina.waitForSelector(".nexo-agent-orb", { timeout: 8000 }).catch(() => {
+    console.warn("   aviso: o orbe não montou a tempo; a capa sai sem a marca.");
+  });
+  await pagina.waitForTimeout(600);
+
   const total = Number((await pagina.textContent(".ap-posicao"))?.split("/")[1] ?? 0);
   if (!total) throw new Error("Não achei o contador de slides — a rota mudou?");
 
@@ -155,7 +166,30 @@ async function main() {
       const secao = document.querySelector(".ap-folha");
       if (!secao) return null;
       const numero = secao.querySelector(".ap-numero")?.textContent ?? "";
-      return { html: secao.outerHTML, numero };
+
+      /*
+       * O ORBE VIVO NÃO SOBREVIVE À SERIALIZAÇÃO. Ele é um canvas WebGL, e
+       * `outerHTML` devolve a tag vazia: a capa do arquivo offline abriria com
+       * um buraco no lugar da marca — e só se descobriria isso no dia em que o
+       * arquivo fosse preciso.
+       *
+       * Trocado por um marcador, que vira o quadro estático do próprio orbe lá
+       * no Node. É a mesma imagem que a `MarcaViva` usa no produto: a captura
+       * do orbe vivo. Perde o movimento, mantém a identidade.
+       */
+      const clone = secao.cloneNode(true);
+      for (const orbe of clone.querySelectorAll(".nexo-agent-orb")) {
+        const marcador = document.createElement("span");
+        marcador.setAttribute("data-orbe-estatico", "");
+        // Medida com recuo: o orbe já apareceu medindo 0 aqui, e o arquivo saiu
+        // com uma imagem de 0x0 — presente no HTML, invisível na tela. 298 é o
+        // lado que o `hero` assume numa janela de 1080.
+        const lado = Math.round(orbe.getBoundingClientRect().width) || 298;
+        marcador.setAttribute("style", `display:block;width:${lado}px;height:${lado}px`);
+        orbe.replaceWith(marcador);
+      }
+
+      return { html: clone.outerHTML, numero };
     });
     if (!folha) throw new Error(`Folha ${i + 1} não renderizou.`);
 
@@ -185,8 +219,14 @@ async function main() {
 
   const palcoCss = fs.readFileSync("app/apresentacao/palco.css", "utf8");
   const orbe = dataUri("public/marca/orbe-512.png", "image/png");
-  const resumo = dataUri("assets-privados/apresentacao/plano-b-resumo.jpg", "image/jpeg");
-  const achados = dataUri("assets-privados/apresentacao/plano-b-achados.jpg", "image/jpeg");
+  // A `MarcaViva` escolhe o arquivo pelo tamanho pedido: o diagrama usa o de
+  // 180. Trocar só o de 512 deixava um endereço de servidor para trás.
+  const marcaPorTamanho = {
+    "/marca/orbe-512.png": orbe,
+    "/marca/orbe-180.png": dataUri("public/marca/orbe-180.png", "image/png"),
+    "/marca/orbe-64.png": dataUri("public/marca/orbe-64.png", "image/png"),
+    "/marca/orbe-32.png": dataUri("public/marca/orbe-32.png", "image/png"),
+  };
 
   const corpo = folhas
     .map(({ html, rotulo, notas }, i) => {
@@ -232,12 +272,17 @@ ${corpo}
 </body>
 </html>`;
 
-  html = html
-    .replaceAll("/marca/orbe-512.png", orbe)
-    .replaceAll("/apresentacao/plano-b/resumo", resumo)
-    .replaceAll("/apresentacao/plano-b/achados", achados);
+  for (const [endereco, uri] of Object.entries(marcaPorTamanho)) {
+    html = html.replaceAll(endereco, uri);
+  }
+  // O marcador deixado na serialização vira o quadro estático do orbe.
+  html = html.replace(
+    /<span data-orbe-estatico(?:=""|)\s+style="([^"]*)"><\/span>/g,
+    (_todo, estilo) =>
+      `<img src="${orbe}" alt="NexoDoc" style="${estilo};border-radius:50%">`,
+  );
 
-  const restou = ["/marca/", "/apresentacao/plano-b/", "/_next/"].filter((p) => html.includes(p));
+  const restou = ["/marca/", "/_next/"].filter((p) => html.includes(p));
   if (restou.length) {
     throw new Error(
       `Sobrou endereço de servidor no arquivo (${restou.join(", ")}) — ele não abriria do disco.`,
