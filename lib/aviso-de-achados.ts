@@ -195,22 +195,45 @@ export function assuntoDoAviso(pessoa: PessoaAAvisar, contexto: Contexto) {
     : `${pessoa.quantidade} achados esperam por você — ${contexto.codigo}${obra}`;
 }
 
+/** A rampa teal da DESIGN.md, e o preto do app. Repetida aqui como literal, e
+ *  NÃO lida dos tokens CSS: cliente de e-mail não resolve `var()`, e um token
+ *  que chegasse cru pintaria texto de preto sobre preto. */
+const TINTA = {
+  fundo: "#0a0e11",
+  papel: "#ffffff",
+  tinta: "#14181b",
+  suave: "#5c666d",
+  linha: "#e4e6e8",
+  teal: "#00a693",
+  claro: "#7af7e1",
+} as const;
+
 /**
  * O CORPO, nas duas formas.
  *
- * Estilos INLINE e tabela: cliente de e-mail não lê variável CSS, e boa parte
+ * ESTILOS INLINE E TABELA. Cliente de e-mail não lê variável CSS e boa parte
  * deles descarta `<style>` no `<head>`. O que a DESIGN.md governa é a tela; o
  * e-mail é outro meio, e fingir o contrário produziria uma mensagem sem
  * formatação nenhuma no Outlook.
  *
- * Sem imagem e sem fonte remota, também de propósito: as duas ficam bloqueadas
- * por padrão na maioria das caixas, e um aviso que depende delas chega mudo.
+ * CABEÇALHO ESCURO, CORPO CLARO — e é uma escolha, não um meio-termo. A marca é
+ * escura, e um e-mail inteiro escuro seria mais fiel; mas Gmail e Outlook no
+ * celular INVERTEM automaticamente peças escuras, e a inversão de um corpo
+ * inteiro produz combinações que ninguém desenhou. A faixa escura carrega a
+ * identidade num pedaço que a inversão não estraga, e o texto vive no branco,
+ * que é o terreno em que todo cliente acerta.
+ *
+ * O ORBE É IMAGEM REMOTA, e o e-mail funciona sem ele: metade dos clientes
+ * bloqueia imagem por padrão. O `alt` diz "NexoDoc", a faixa escura já é a
+ * marca, e nenhuma informação mora dentro do PNG. Imagem embutida em `data:`
+ * não é alternativa — o Gmail descarta.
  */
 export function corpoDoAviso(pessoa: PessoaAAvisar, contexto: Contexto) {
-  const link = `${enderecoPublico()}/nexo?auditoria=${encodeURIComponent(contexto.auditId)}`;
-  const quantos =
-    pessoa.quantidade === 1 ? "1 achado" : `${pessoa.quantidade} achados`;
-  const obra = [contexto.codigo, contexto.cliente].filter(Boolean).join(" · ");
+  const base = enderecoPublico();
+  const link = `${base}/nexo?auditoria=${encodeURIComponent(contexto.auditId)}`;
+  const orbe = `${base}/marca/orbe-faixa-256.png`;
+  const quantos = pessoa.quantidade === 1 ? "1 achado" : `${pessoa.quantidade} achados`;
+  const verbo = pessoa.quantidade === 1 ? "espera" : "esperam";
   const quem = contexto.remetente || "Alguém do escritório";
 
   /*
@@ -221,45 +244,99 @@ export function corpoDoAviso(pessoa: PessoaAAvisar, contexto: Contexto) {
    * pode descobrir que há trabalho esperando por ela. A frase avisa que o
    * clique vai pedir login antes de mostrar o parecer.
    *
-   * Para quem já tem conta a linha era "Abra para ver o que é." — texto que
-   * repetia o botão logo acima dele e não acrescentava nada.
+   * Para quem já tem conta a linha repetia o botão logo acima dela.
    */
-  const chamada = pessoa.convidado ? "Entre com sua conta Google para ver." : "";
+  const chamada = pessoa.convidado
+    ? "Você ainda não entrou no NexoDoc. Use a conta Google do escritório — o parecer estará esperando."
+    : "";
+
+  /*
+   * A FICHA é o que torna este e-mail ESTRUTURADO em vez de um parágrafo com
+   * link. São os quatro dados que respondem "isso é meu, é urgente, e onde
+   * fica" sem abrir nada — e nenhum deles é conteúdo de achado.
+   */
+  const ficha: [string, string][] = [
+    ["Projeto", contexto.codigo],
+    ...(contexto.cliente ? ([["Cliente", contexto.cliente]] as [string, string][]) : []),
+    ["Parecer", contexto.titulo],
+    ["Com você", quantos],
+  ];
 
   const texto = [
-    `${quem} enviou ${quantos} para você.`,
+    `${quantos} ${verbo} por você no NexoDoc.`,
     "",
-    obra,
-    contexto.titulo,
+    `${quem} enviou ${quantos} da auditoria para você.`,
     "",
-    ...(chamada ? [chamada] : []),
+    ...ficha.map(([r, v]) => `${r}: ${v}`),
+    "",
+    "Abrir no NexoDoc:",
     link,
+    ...(chamada ? ["", chamada] : []),
     "",
-    "Você recebeu este aviso porque faz parte de um escritório no NexoDoc.",
+    "---",
+    "O conteúdo dos achados não sai do sistema — este aviso leva só a contagem e o caminho.",
+    "Você recebeu esta mensagem porque faz parte de um escritório no NexoDoc.",
   ].join("\n");
 
-  const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f2;padding:32px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:#ffffff;border:1px solid #e2e2de;">
-<tr><td style="padding:28px 28px 0 28px;">
-<p style="margin:0 0 4px 0;font:600 11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#6b6b66;">NexoDoc</p>
-<h1 style="margin:0 0 16px 0;font-size:20px;line-height:1.3;color:#1a1a18;font-weight:600;">${esc(quantos)} ${pessoa.quantidade === 1 ? "espera" : "esperam"} por você</h1>
-<p style="margin:0 0 20px 0;font-size:15px;line-height:1.55;color:#3d3d39;">${esc(quem)} enviou ${esc(quantos)} da auditoria para você.</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-left:3px solid #0f9b8e;margin:0 0 24px 0;">
-<tr><td style="padding:2px 0 2px 12px;">
-<p style="margin:0;font:600 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#1a1a18;">${esc(obra)}</p>
-<p style="margin:2px 0 0 0;font-size:13px;line-height:1.5;color:#6b6b66;">${esc(contexto.titulo)}</p>
+  const linhasDaFicha = ficha
+    .map(
+      ([rotulo, valor], i) => `<tr>
+<td style="padding:${i === 0 ? "0" : "9px"} 16px 9px 0;border-top:${i === 0 ? "0" : `1px solid ${TINTA.linha}`};font:600 11px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.07em;text-transform:uppercase;color:${TINTA.suave};white-space:nowrap;vertical-align:top;">${esc(rotulo)}</td>
+<td style="padding:${i === 0 ? "0" : "9px"} 0 9px 0;border-top:${i === 0 ? "0" : `1px solid ${TINTA.linha}`};font-size:14px;line-height:1.5;color:${TINTA.tinta};vertical-align:top;">${esc(valor)}</td>
+</tr>`,
+    )
+    .join("");
+
+  /*
+   * A FAMÍLIA NA TABELA DE FORA é rede de segurança, e não decoração.
+   *
+   * Toda célula abaixo declara a própria fonte — menos uma, que ficou sem e caiu
+   * na SERIFA padrão do cliente no meio de um layout sem serifa nenhuma. Herdar
+   * aqui não conserta quem declara, e salva quem esquecer.
+   */
+  const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#f2f3f4;margin:0;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<tr><td align="center" style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;background:${TINTA.papel};border:1px solid ${TINTA.linha};">
+
+<tr><td style="padding:0;background:${TINTA.fundo};" bgcolor="${TINTA.fundo}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="padding:26px 0 26px 28px;width:76px;" valign="middle">
+<img src="${esc(orbe)}" width="64" height="64" alt="NexoDoc" style="display:block;width:64px;height:64px;border:0;outline:none;text-decoration:none;">
+</td>
+<td style="padding:26px 28px 26px 16px;" valign="middle">
+<p style="margin:0;font:600 12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.16em;text-transform:uppercase;color:${TINTA.claro};">NexoDoc</p>
+<p style="margin:5px 0 0 0;font:400 15px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#9fb0b6;">Documentação de projetos de engenharia</p>
+</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:0;font-size:0;line-height:0;background:${TINTA.teal};" bgcolor="${TINTA.teal}" height="3">&nbsp;</td></tr>
+
+<tr><td style="padding:30px 28px 0 28px;">
+<h1 style="margin:0;font:600 23px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${TINTA.tinta};">${esc(quantos)} ${verbo} por você</h1>
+<p style="margin:12px 0 0 0;font:400 15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#3f484e;">${esc(quem)} enviou ${esc(quantos)} da auditoria para você revisar.</p>
+</td></tr>
+
+<tr><td style="padding:24px 28px 0 28px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid ${TINTA.linha};border-bottom:1px solid ${TINTA.linha};">
+<tr><td style="padding:16px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${linhasDaFicha}</table>
 </td></tr></table>
 </td></tr>
-<tr><td style="padding:0 28px 8px 28px;">
+
+<tr><td style="padding:24px 28px 0 28px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="background:#0f9b8e;"><a href="${esc(link)}" style="display:inline-block;padding:11px 22px;font:600 14px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#ffffff;text-decoration:none;">Abrir no NexoDoc</a></td>
+<td style="background:${TINTA.teal};" bgcolor="${TINTA.teal}">
+<a href="${esc(link)}" style="display:block;padding:13px 26px;font:600 15px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;text-decoration:none;">Abrir no NexoDoc &rarr;</a>
+</td>
 </tr></table>
-${chamada ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:1.5;color:#6b6b66;">${esc(chamada)}</p>` : ""}
+${chamada ? `<p style="margin:14px 0 0 0;font:400 13px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${TINTA.suave};">${esc(chamada)}</p>` : ""}
 </td></tr>
-<tr><td style="padding:20px 28px 24px 28px;">
-<p style="margin:0;padding-top:16px;border-top:1px solid #ececE8;font-size:12px;line-height:1.5;color:#8a8a84;">Você recebeu este aviso porque faz parte de um escritório no NexoDoc.</p>
+
+<tr><td style="padding:26px 28px 28px 28px;">
+<p style="margin:0;padding-top:18px;border-top:1px solid ${TINTA.linha};font:400 12px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#8b959b;">O conteúdo dos achados não sai do sistema — este aviso leva só a contagem e o caminho.</p>
+<p style="margin:8px 0 0 0;font:400 12px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#8b959b;">Você recebeu esta mensagem porque faz parte de um escritório no NexoDoc.</p>
 </td></tr>
+
 </table>
 </td></tr></table>`;
 

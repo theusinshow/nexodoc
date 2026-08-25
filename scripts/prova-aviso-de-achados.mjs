@@ -314,8 +314,63 @@ check(
 );
 check(
   "e a chamada muda para quem nunca entrou",
-  /entre com sua conta/i.test(paraConvidado?.texto ?? ""),
-  (paraConvidado?.texto ?? "").slice(0, 160),
+  /ainda n[aã]o entrou/i.test(paraConvidado?.texto ?? "") &&
+    /conta google/i.test(paraConvidado?.texto ?? ""),
+  (paraConvidado?.texto ?? "").slice(0, 220),
+);
+check(
+  "e NAO aparece para quem ja tem conta",
+  !/ainda n[aã]o entrou/i.test(paraMilton?.texto ?? ""),
+  (paraMilton?.texto ?? "").slice(0, 220),
+);
+
+/*
+ * A FICHA — os quatro dados que fazem o aviso ser lido sem abrir nada. Medida
+ * nas DUAS formas: um cliente que descarta HTML tem que receber a mesma
+ * informação, e a versão em texto puro era onde isso costumava se perder.
+ */
+for (const [rotulo, valor] of [
+  ["Projeto", "063-26"],
+  ["Parecer", "prova do aviso"],
+  ["Com você", "2 achados"],
+]) {
+  check(
+    `a ficha traz ${rotulo.toLowerCase()} no texto puro`,
+    new RegExp(`${rotulo}:.*${valor}`, "i").test(paraMilton?.texto ?? ""),
+    (paraMilton?.texto ?? "").replace(/\n/g, " | ").slice(0, 240),
+  );
+  check(
+    `e ${rotulo.toLowerCase()} no HTML`,
+    (paraMilton?.html ?? "").includes(rotulo) && (paraMilton?.html ?? "").includes(valor),
+  );
+}
+
+/*
+ * O E-MAIL NÃO PODE DEPENDER DE NADA QUE O CLIENTE BLOQUEIA.
+ *
+ * A única imagem é o orbe, servida do endereço público — e o aviso continua
+ * legível sem ela, que é o caso NORMAL: metade dos clientes bloqueia imagem por
+ * padrão. `data:` em `<img>` o Gmail descarta, e fonte remota o Outlook ignora;
+ * as duas viram layout quebrado em vez de layout sóbrio.
+ */
+const imagens = [...(paraMilton?.html ?? "").matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+check("uma imagem so, e ela vem do endereco publico", imagens.length === 1, imagens.join(", "));
+check(
+  "servida pelo proprio NexoDoc, e nao de fora",
+  imagens[0]?.startsWith(BASE) && imagens[0].includes("/marca/"),
+  imagens[0],
+);
+check(
+  "e ela tem alt, senao o cabecalho fica mudo quando bloqueada",
+  /<img[^>]+alt="NexoDoc"/.test(paraMilton?.html ?? ""),
+);
+check(
+  "nenhuma imagem embutida em data: (o Gmail descarta)",
+  !/<img[^>]+src="data:/.test(paraMilton?.html ?? ""),
+);
+check(
+  "nenhuma fonte remota nem <style> no cabecalho",
+  !/@import|fonts\.googleapis|<style/i.test(paraMilton?.html ?? ""),
 );
 
 /*
