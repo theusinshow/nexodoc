@@ -196,7 +196,12 @@ type StructuredFinding = {
   descricao?: string;
   referencia?: string;
   impacto?: FindingImpact;
-  origem?: "regra" | "ia";
+  /**
+   * Espelha `AuditFinding["origem"]`, e por isso inclui `"chat"`: o achado
+   * nascido na conversa pós-parecer entra na MESMA lista, e o cartão precisa
+   * saber distingui-lo — veio de uma pergunta, não da varredura.
+   */
+  origem?: AuditFinding["origem"];
   /** Veio do parecer anterior, de um capítulo idêntico. Ver `AuditFinding`. */
   herdado_de?: { auditId: string; quando: string };
   confianca?: "alta" | "media" | "baixa";

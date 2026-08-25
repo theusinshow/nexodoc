@@ -80,7 +80,18 @@ export type AuditFinding = {
   conflito: string;
   sugestao_correcao: string;
   confianca: FindingConfidence;
-  origem?: "regra" | "ia";
+  /**
+   * De onde o achado veio.
+   *
+   * `"chat"` nasceu na conversa pós-parecer, com o engenheiro perguntando — e
+   * passa pelos MESMOS ramos que `"ia"` em severidade, verificação e reuso,
+   * porque é nascido de IA e merece a mesma trava anti-alucinação. Os seis
+   * consumidores deste campo testam `=== "regra"`, e nenhum precisou mudar.
+   *
+   * A distinção existe para a TELA: o engenheiro precisa saber que aquele
+   * achado veio da conversa, e não da varredura.
+   */
+  origem?: "regra" | "ia" | "chat";
   impacto?: FindingImpact;
   // Item 4 — camada de exibição. "principal" = achado sólido (regra ou IA
   // confirmada); "sugestao" = achado de IA que a validação rebaixou em vez de
