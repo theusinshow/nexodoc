@@ -72,6 +72,12 @@ COPY --from=build /app/tsconfig.json ./tsconfig.json
 # leem por `process.cwd()`, e é mais barato copiar a pasta que caçar a próxima
 # rota que alguém esquecer de declarar.
 COPY --from=build /app/templates ./templates
+# As capturas de plano B da apresentação, pelo MESMO motivo dos modelos ODT: a
+# rota `/apresentacao/plano-b/[arquivo]` as lê do disco por `process.cwd()`, e o
+# empacotador não as rastreia. Sem esta linha o plano B some SÓ EM PRODUÇÃO —
+# em desenvolvimento tudo aparece, e o buraco só se revelaria no dia em que a
+# demonstração ao vivo falhasse e alguém apertasse `End`.
+COPY --from=build /app/assets-privados ./assets-privados
 
 EXPOSE 3000
 ENV PORT=3000
