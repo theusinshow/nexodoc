@@ -66,6 +66,28 @@ services:
       - key: NEXODOC_ADMIN_TOKEN
         sync: false
 
+      # -------------------------------------------------------------- correio
+      # O AVISO POR E-MAIL dos achados (`lib/correio.ts`). AS DUAS, OU NENHUMA:
+      # chave sem remetente é uma chamada que a Resend recusa com 422, e
+      # descobrir isso no primeiro envio real é descobrir tarde.
+      #
+      # Sem elas o produto NÃO finge: `avisarEnvolvidos` devolve
+      # `nao-configurado`, a tela diz "o envio de e-mail não está configurado
+      # neste ambiente", e nenhuma linha é marcada como avisada. É o oposto da
+      # falha do `NEXODOC_ADMIN_TOKEN` logo acima — aqui a ausência se explica
+      # sozinha, em vez de virar um botão que parece funcionar.
+      #
+      # `NEXODOC_EMAIL_FROM` no formato `NexoDoc <avisos@dominio.com.br>`, com
+      # domínio VERIFICADO na Resend (SPF/DKIM no DNS). Endereço de domínio não
+      # verificado é recusado no envio, não no deploy.
+      #
+      # E o link dentro do e-mail sai de `AUTH_URL`, declarada acima: sem ela em
+      # produção, o botão do e-mail não tem para onde apontar.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NEXODOC_EMAIL_FROM
+        sync: false
+
       # ------------------------------------------------------------------- IA
       #
       # ESTAS VARIÁVEIS NÃO SÃO OPCIONAIS, e o motivo é chato: os padrões
