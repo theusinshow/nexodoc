@@ -1,0 +1,205 @@
+/*
+ * O PALCO — 1920x1080 fixo, escalado para caber na tela.
+ *
+ * Slide não é layout responsivo: é uma folha de proporção fixa, como sempre
+ * foi. Reflow por largura arruinaria o ensaio, porque a quebra de linha que o
+ * apresentador viu ao preparar não seria a que o projetor mostra. Então o palco
+ * desenha em 1920x1080 e a tela só o AMPLIA ou REDUZ inteiro, com
+ * `transform: scale()`. O que se ensaia é o que se projeta.
+ */
+
+.ap-raiz {
+  position: fixed;
+  inset: 0;
+  background: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.ap-palco {
+  width: 1920px;
+  height: 1080px;
+  flex: none;
+  transform-origin: center center;
+  position: relative;
+}
+
+/* O slide ocupa o palco inteiro; só o corrente é montado. */
+.ap-folha {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 96px 100px 80px;
+  background: var(--background);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+/*
+ * SLIDE DENSO. Tabela de sete linhas com texto que quebra não cabe na margem
+ * de respiro dos outros — e "não cabe" aqui significa a frase de fechamento
+ * saindo pela borda de baixo, que é como o slide 9 nasceu. Medido na tela, não
+ * deduzido do código.
+ */
+.ap-folha--denso {
+  padding: 64px 100px 52px;
+}
+
+/* Cabeçalho do slide: bloco à esquerda, número à direita. */
+.ap-cabeca {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 36px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 24px;
+}
+
+.ap-bloco {
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #5f6b72;
+}
+
+.ap-numero {
+  letter-spacing: 0.1em;
+  color: #3d474d;
+}
+
+.ap-titulo {
+  margin: 0 0 44px;
+  font-size: 64px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
+.ap-fonte {
+  margin: 28px 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 22px;
+  line-height: 1.45;
+  color: #5f6b72;
+  text-wrap: pretty;
+}
+
+.ap-premissa {
+  color: var(--status-warning);
+}
+
+.ap-mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.ap-cresce {
+  flex: 1;
+}
+
+/*
+ * A RÉGUA DE CONTROLE. Discreta de propósito: quem olha é o apresentador, e
+ * uma barra viva no rodapé roubaria atenção do argumento. Some em tela cheia
+ * enquanto o ponteiro estiver parado.
+ */
+.ap-regua {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  transition: opacity 240ms ease;
+}
+
+.ap-regua[data-oculta="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ap-regua kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--nexodoc-raised);
+  font: inherit;
+  color: var(--muted-foreground);
+}
+
+.ap-posicao {
+  color: var(--foreground);
+}
+
+/*
+ * AS NOTAS DO APRESENTADOR. Painel lateral, sobre o palco, aberto por `N`.
+ * Fica à esquerda porque a régua de controle já ocupa a direita.
+ */
+.ap-notas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 460px;
+  box-sizing: border-box;
+  padding: 32px 28px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.ap-notas h2 {
+  margin: 0 0 8px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.ap-notas p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground);
+  text-wrap: pretty;
+}
+
+.ap-notas-rotulo {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+/*
+ * A ARMADILHA DO ENSAIO: sem isto, uma transição de slide durante uma fala
+ * lenta parece falha de projetor. Nenhuma animação de entrada, e movimento
+ * reduzido continua valendo em toda parte.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ap-regua {
+    transition: none;
+  }
+}
+
+/*
+ * Com as notas abertas o palco recua em vez de ficar por baixo. A largura aqui
+ * é a mesma de `.ap-notas` e do `LARGURA_DAS_NOTAS` em `palco.tsx` — mudou uma,
+ * mudam as três.
+ */
+.ap-raiz[data-notas="true"] {
+  padding-left: 460px;
+}

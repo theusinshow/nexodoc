@@ -171,14 +171,21 @@ em fonte monoespaçada, com a página. Não se discute com uma citação literal
 | Disciplina | Achado | Trecho literal | Pág. |
 |---|---|---|---|
 | Elétrico | Unidade de espessura mil vezes menor que a real | "espessura de 0,254 microns" | 115 |
-| Urbanização | Unidade dimensional incompatível com o perfil | "postes de aço de 60x40m altura 1,58m" | 47 |
-| Urbanização | Espessura de tubo conflitante na mesma frase | "tubos de aço galvanizado ø 1'' 1/2 (e=3,81) com espessura de 3mm" | 49 |
+| Terraplenagem / Urbanização | Unidade dimensional incompatível com o perfil | "postes de aço de 60x40m altura 1,58m" | 47 |
+| Terraplenagem / Urbanização | Espessura de tubo conflitante na mesma frase | "tubos de aço galvanizado ø 1'' 1/2 (e=3,81) com espessura de 3mm" | 49 |
 | Arquitetura | Norma citada não trata do requisito exigido | sinalização de porta de vidro vinculada à "ABNT NBR ISO 9050:2022 — Determinação da transmissão de lu[minosidade]" | 74 |
 | Hidrossanitário | Referência de outro município, sem justificativa | "Seguiram o cálculo conforme manual COMCAP." | 109 |
 | Climatização | Premissa de ocupação divergente entre disciplinas | "1 sala de inalação atendendo 4 pessoas simultaneamente" × "Número de Pessoas : 3" | 12 e 195 |
-| Sem disciplina | Texto de outro empreendimento dentro do memorial | "Por exigência do Shopping, todos os sistemas que atendem a loja deverão ser intertravados eletricamente" | 211 |
+| Geral / Documental | Texto de outro empreendimento dentro do memorial | "Por exigência do Shopping, todos os sistemas que atendem a loja deverão ser intertravados eletricamente" | 211 |
 
 *Fonte na tela:* `docs/benchmarks/117-25/planilha-de-precisao.md`.
+
+**A coluna Disciplina usa o RÓTULO do produto, não a chave da planilha.** A
+planilha agrupa por chave interna (`terraplenagem`), e a regra dessa disciplina
+casa `urbaniza` de propósito — `DISCIPLINE_LABELS` em `lib/audit-report.ts` a
+exibe como "Terraplenagem / Urbanização". Copiar a chave para o slide faria um
+subdiretor conferir a página 47 no capítulo de urbanização e achar divergência
+onde não há. Conferido em 24/08/2026: não é defeito de classificação.
 
 **Enquadramento obrigatório, escrito no slide:**
 
@@ -324,7 +331,7 @@ O slide que responde "e se der problema?".
 | Auditoria profunda de memorial | 16 memoriais/mês × US$ 1,50 | US$ 24,00 |
 | Montagem de LDs e volumes | frações de centavo por leitura de selo (US$ 0,0011 medido) | < US$ 1,00 |
 | Infraestrutura | servidor (US$ 7) + banco (camada gratuita) | US$ 7,00 |
-| **Total** | | **≈ US$ 31/mês ≈ R$ 170/mês** |
+| **Total** | | **≈ US$ 32/mês ≈ R$ 170/mês** |
 
 *Câmbio — premissa declarada na tela: R$ 5,50/US$. **Atualizar a cotação do dia
 antes de apresentar**, e corrigir também o slide 17, que deriva dela.*
@@ -336,15 +343,19 @@ diretoria (4 projetos × ~4 memoriais gerais).
 
 Duas barras, mesma escala. É o slide que decide.
 
-- **Um ano de operação do NexoDoc:** ≈ US$ 372 (≈ R$ 2.046 na premissa de
-  câmbio de R$ 5,50/US$).
+- **Um ano de operação do NexoDoc:** ≈ US$ 384 (≈ R$ 2.046 na premissa de
+  câmbio de R$ 5,30/US$).
 - **Um único episódio como o que já aconteceu:** R$ 5.760 a R$ 10.800 em horas
   paradas — sem contar a devolução do projeto e o desgaste com o cliente.
 
 **Frase de fechamento:**
 
-> O ano inteiro de operação cabe dentro de um terço de um episódio. E o episódio
-> não custou só dinheiro.
+> Mesmo na hipótese mais conservadora, o ano inteiro de operação cabe dentro de
+> um terço de um episódio. E o episódio não custou só dinheiro.
+
+A barra do episódio mostra a FAIXA: trecho sólido até R$ 5.760 (valor-hora de
+R$ 80), hachurado até R$ 10.800 (R$ 150). A frase compara pela ponta
+conservadora de propósito — ganhar com o número menor é ganhar sem discussão.
 
 ---
 
@@ -408,6 +419,22 @@ Uma linha, sem defensiva, sem justificativa longa:
 
 ---
 
+# Onde o deck vive
+
+**A rota `/apresentacao`, neste repositório, é a fonte única.**
+`app/apresentacao/` traz o motor de slides (`palco.tsx`), o conteúdo
+(`slides.tsx`) e o estilo (`palco.css`). A rota é fechada a **administrador** e
+fica fora da barra lateral: o conteúdo cita um episódio real e lista achados por
+disciplina, e projetista da PROSUL não deve tropeçar nele.
+
+Teclado: `←` `→` (também `PageUp`/`PageDown` e espaço, que é o que um controle
+remoto de sala emite), `Home`/`End`, `N` para as notas do apresentador, `F` para
+tela cheia.
+
+**O anexo NÃO está na rota** e não deve entrar. Ele vive no arquivo do Claude
+Design (`Nexo - Anexo proposta.dc.html`), separado, e se abre por decisão de
+quem apresenta.
+
 # Antes de apresentar — verificação
 
 Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
@@ -422,8 +449,11 @@ Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
       foi devolvida, não a corrigida.
 - [ ] **Teto de gasto do mês conferido**, para a demonstração não esbarrar nele
       na frente do diretor.
-- [ ] **Anexo separado do deck principal**, em arquivo próprio ou no fim, e
-      nunca aberto por acidente.
+- [ ] **Anexo separado do deck principal**, em arquivo próprio, e nunca aberto
+      por acidente.
+- [ ] **Cópia que abra sem servidor**, para o caso de o deploy falhar: pôr o
+      deck dentro do aplicativo acopla a apresentação à saúde dele, e um
+      problema de infraestrutura mataria o deck e a demonstração juntos.
 
 ---
 
