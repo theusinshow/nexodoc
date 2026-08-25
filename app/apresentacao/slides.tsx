@@ -306,46 +306,90 @@ export const SLIDES: readonly Slide[] = [
   {
     rotulo: "Ao vivo",
     numero: "03",
+    denso: true,
     bloco: "Funciona",
     notas:
       "Abrir o NexoDoc autenticado. Anexar 117_25_md_geral_a.pdf (memorial geral, 218 páginas, versão de outubro/2025). Selecionar nível Profundo. Executar. Enquanto processa (~6 min), passar aos slides 5-8. Voltar quando terminar e abrir o resultado. Se a rede, a OpenAI ou o deploy falharem, usar as capturas de plano B. Nunca demonstrar ao vivo sem rede.",
     corpo: (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          gap: 28,
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            fontSize: 120,
-            fontWeight: 500,
-            letterSpacing: "-0.03em",
-            lineHeight: 1,
-            color: "var(--foreground)",
-          }}
-        >
-          Ao vivo
+      <>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 32, margin: "0 0 30px" }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 92,
+              fontWeight: 500,
+              letterSpacing: "-0.03em",
+              lineHeight: 1,
+              color: "var(--foreground)",
+            }}
+          >
+            Ao vivo
+          </p>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: MONO,
+              fontSize: 40,
+              letterSpacing: "0.02em",
+              color: "var(--nexodoc-accent)",
+            }}
+          >
+            117-25
+          </p>
+        </div>
+
+        {/*
+          O PLANO B fica NO SLIDE, e não numa pasta que ninguém acha às pressas.
+          São as telas da execução real de 18/08 — o mesmo parecer de 57 achados
+          cujos números o slide 4 declara. Se a rede, a OpenAI ou o deploy
+          falharem, a apresentação segue daqui sem interrupção.
+        */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 24 }}>
+          {[
+            { chave: "resumo", rotulo: "Resumo — veredito e severidade" },
+            { chave: "achados", rotulo: "Achados — matriz e evidência" },
+          ].map((captura) => (
+            /*
+              A LEGENDA VEM ANTES da imagem. As duas capturas têm alturas
+              diferentes — o resumo cabe em meia tela, a lista de achados não —
+              e legenda embaixo faria as duas flutuarem em linhas distintas.
+              Penduradas por cima, a desigualdade some.
+            */
+            <figure
+              key={captura.chave}
+              style={{ flex: 1, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <figcaption style={{ ...rotulo, fontSize: 21 }}>{captura.rotulo}</figcaption>
+              {/*
+                `next/image` NÃO serve aqui: o otimizador busca a URL pelo
+                servidor, sem o cookie da sessão, e a rota do plano B é
+                autenticada — voltaria 401 e o plano B seria um quadrado vazio.
+                Duas imagens locais num slide não têm problema de LCP a resolver.
+              */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/apresentacao/plano-b/${captura.chave}`}
+                alt={captura.rotulo}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                  background: "var(--card)",
+                }}
+              />
+            </figure>
+          ))}
+        </div>
+
+        <div className="ap-cresce" />
+
+        <p className="ap-fonte">
+          Plano B — telas da execução real de 18/08/2026, da mesma corrida de 57 achados
+          do slide 4. Em tamanho de leitura no fim do deck: tecla <strong>End</strong>.
         </p>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: MONO,
-            fontSize: 44,
-            letterSpacing: "0.02em",
-            color: "var(--nexodoc-accent)",
-          }}
-        >
-          117-25
-        </p>
-        <p style={{ margin: "40px 0 0", fontSize: 26, color: "#5f6b72" }}>
-          Plano B — capturas do resultado real, 18/08/2026
-        </p>
-      </div>
+      </>
     ),
   },
 
@@ -1354,7 +1398,74 @@ export const SLIDES: readonly Slide[] = [
       </>
     ),
   },
+
+  /*
+   * AS DUAS FOLHAS DE RESERVA. Ficam DEPOIS do slide 18, fora do caminho de quem
+   * apresenta bem: numa demonstração que funciona ninguém chega aqui. Numa que
+   * falha, `End` traz as duas em tamanho de leitura — que é a diferença entre um
+   * plano B e uma miniatura decorativa.
+   *
+   * Diferente do anexo de valor, chegar aqui por acidente não custa nada: é a
+   * saída do próprio produto, a mesma que a demonstração produziria.
+   */
+  {
+    rotulo: "Plano B — Resumo",
+    numero: "B1",
+    denso: true,
+    bloco: "Reserva",
+    notas:
+      "Só se a demonstração ao vivo falhar. Esta é a tela de Resumo da execução de 18/08/2026: veredito NÃO EMITIR, 57 achados, e a separação por severidade — 12 bloqueiam a emissão, 30 exigem decisão técnica, 15 são revisão de texto.",
+    corpo: <Reserva chave="resumo" titulo="Resumo — veredito e severidade" />,
+  },
+  {
+    rotulo: "Plano B — Achados",
+    numero: "B2",
+    denso: true,
+    bloco: "Reserva",
+    notas:
+      "A matriz por disciplina e um achado aberto: o que está errado, por que importa, o que fazer, onde aparece e a evidência transcrita. É esta tela que mostra a profundidade do parecer.",
+    corpo: <Reserva chave="achados" titulo="Achados — matriz e evidência" />,
+  },
 ];
+
+/** Uma folha de reserva: a captura ocupando a folha inteira. */
+function Reserva({ chave, titulo }: { chave: string; titulo: string }) {
+  return (
+    <>
+      <h2 style={{ margin: "0 0 20px", fontSize: 40, fontWeight: 500, letterSpacing: "-0.02em", color: "var(--foreground)" }}>
+        {titulo}
+      </h2>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          // Sem isto o flex ESTICA a imagem, e a borda fica a cem pixels do
+          // conteúdo — moldura vazia em volta de uma captura pequena.
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/apresentacao/plano-b/${chave}`}
+          alt={titulo}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            border: "1px solid var(--border)",
+            borderRadius: 4,
+            background: "var(--card)",
+          }}
+        />
+      </div>
+      <p className="ap-fonte">
+        Execução real de 18/08/2026 — 117-25, memorial geral, 218 páginas, nível Profundo.
+      </p>
+    </>
+  );
+}
 
 
 

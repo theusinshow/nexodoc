@@ -6,7 +6,8 @@ de projetar. O Claude Design executa a partir daqui.
 
 - **Plateia:** diretor do departamento (decide a compra) e subdiretores de cada
   disciplina (julgam a técnica).
-- **Duração:** reunião aberta, sem tempo fixo. 18 slides + anexo destacável.
+- **Duração:** reunião aberta, sem tempo fixo. 18 slides + 2 folhas de reserva
+  (plano B) + anexo destacável, em arquivo separado.
 - **Objetivo:** obter um piloto pago de 3 meses.
 - **Postura:** engenheiro mostrando trabalho, não vendedor. Nenhum adjetivo
   onde couber um número. Nenhum número sem fonte.
@@ -70,9 +71,22 @@ projeto **117-25**. O conteúdo é a aplicação real, projetada.
    do problema. A espera vira conteúdo em vez de silêncio.
 5. Voltar quando terminar e abrir o resultado.
 
-**Plano B obrigatório:** o slide carrega, ocultas, as capturas do resultado real
-das corridas de 18/08/2026. Se a internet, a OpenAI ou o deploy falharem, a
-apresentação segue sem interrupção. Nunca demonstrar ao vivo sem rede.
+**Plano B — FEITO em 24/08/2026.** O slide traz duas miniaturas das telas reais
+da corrida de 18/08 (a mesma de 57 achados que o slide 4 declara), e as capturas
+em tamanho de leitura vivem em **duas folhas de reserva no fim do deck**, `B1`
+(Resumo) e `B2` (Achados) — alcançadas pela tecla `End`.
+
+Ficam no fim, e não no meio, porque numa demonstração que funciona ninguém deve
+passar por elas. Diferente do anexo de valor, chegar lá por acidente não custa
+nada: é a saída do próprio produto.
+
+As imagens são servidas por **rota autenticada** (`/apresentacao/plano-b/[arquivo]`),
+nunca por `public/` — elas mostram o parecer de um projeto real, com transcrição
+literal do memorial, e `public/` é aberto a qualquer pessoa com o endereço. Os
+arquivos moram em `assets-privados/apresentacao/`, fora de `public/` e fora de
+`docs/` (que o `.dockerignore` exclui, o que apagaria o plano B em produção).
+
+Nunca demonstrar ao vivo sem rede.
 
 ## Slide 4 — O resultado bruto
 
@@ -429,7 +443,8 @@ disciplina, e projetista da PROSUL não deve tropeçar nele.
 
 Teclado: `←` `→` (também `PageUp`/`PageDown` e espaço, que é o que um controle
 remoto de sala emite), `Home`/`End`, `N` para as notas do apresentador, `F` para
-tela cheia.
+tela cheia. `End` é também o atalho do plano B: as duas folhas de reserva são as
+últimas do deck.
 
 **O anexo NÃO está na rota** e não deve entrar. Ele vive no arquivo do Claude
 Design (`Nexo - Anexo proposta.dc.html`), separado, e se abre por decisão de
@@ -444,7 +459,9 @@ Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
 - [ ] **Ambiente de pé e testado no mesmo dia**, com o caminho exato da
       demonstração percorrido do início ao fim. Compilar limpo não é evidência
       de que roda.
-- [ ] **Capturas de plano B** geradas e embutidas no slide 3.
+- [x] ~~**Capturas de plano B** geradas e embutidas.~~ FEITO em 24/08/2026:
+      miniaturas no slide 3, tamanho de leitura nas folhas `B1` e `B2` (tecla
+      `End`). Vieram do parecer gravado, sem gastar uma chamada de IA nova.
 - [ ] **`117_25_md_geral_a.pdf` na máquina**, na versão de outubro/2025 — a que
       foi devolvida, não a corrigida.
 - [ ] **Teto de gasto do mês conferido**, para a demonstração não esbarrar nele
@@ -453,7 +470,8 @@ Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
       por acidente.
 - [ ] **Cópia que abra sem servidor**, para o caso de o deploy falhar: pôr o
       deck dentro do aplicativo acopla a apresentação à saúde dele, e um
-      problema de infraestrutura mataria o deck e a demonstração juntos.
+      problema de infraestrutura mataria o deck e a demonstração juntos. É o
+      único item do plano B que continua em aberto.
 
 ---
 
