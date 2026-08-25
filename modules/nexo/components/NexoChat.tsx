@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, FileText, X, Copy, Check, ArrowDown } from "lucide-react";
 import type { NexoAgentTurn, NexoChatMessage, LdPreviewData } from "../types";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -8,6 +8,8 @@ import {
   useRegisterComposer,
   usePublicarFocoDoComposer,
 } from "../state/composer-controller";
+import type { AuditReport } from "@/lib/audit-report";
+import { auditoriaMaisRecente } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import { useRevealText } from "../lib/use-reveal-text";
@@ -121,7 +123,18 @@ export function NexoChat({
     appendMessage,
     appendDelta,
     finalizeMessage,
+    saveResult,
   } = useConversation();
+  /*
+   * O PARECER NO PALCO decide a porta do turno. Com parecer, a pergunta vai
+   * para o chat que RELÊ o memorial; sem ele, para o roteador de intenção do
+   * Nexo, exatamente como sempre foi.
+   *
+   * A regra de QUAL parecer é a da tela tem um dono só (`auditoriaMaisRecente`)
+   * — repeti-la aqui faria o chat responder sobre uma revisão e o palco
+   * mostrar outra.
+   */
+  const auditoriaAtual = useMemo(() => auditoriaMaisRecente(results), [results]);
   const { data: usage, refresh: refreshUsage } = useConversationUsage();
   const { online } = useConexao();
   const [input, setInput] = useState("");
@@ -187,7 +200,114 @@ export function NexoChat({
     abortRef.current?.abort();
   }
 
-  async function send(textArg?: string) {
+  /**
+   * O turno que vai para o CHAT DA AUDITORIA.
+   *
+   * Consome o mesmo contrato SSE do agente (`delta`/`done`/`error`) mais dois
+   * eventos: `ferramenta`, que mostra o que ele está lendo enquanto lê, e
+   * `achado`, que traz o parecer inteiro já com a linha nova.
+   *
+   * O `ferramenta` não é enfeite: o laço pode dar até oito idas ao modelo, e sem
+   * ele o engenheiro olha para uma bolha vazia esse tempo todo.
+   */
+  async function perguntarSobreAuditoria(args: {
+    text: string;
+    history: { role: "user" | "assistant"; content: string }[];
+    assistantId: string;
+    controller: AbortController;
+    marcarIniciado: () => void;
+  }) {
+    const alvo = auditoriaAtual;
+    if (!alvo) return;
+
+    const res = await fetch("/api/audit/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({
+        question: args.text,
+        history: args.history,
+        report: alvo.salvo.report,
+        auditId: alvo.salvo.auditId,
+      }),
+      signal: args.controller.signal,
+    });
+
+    if (!res.ok || !res.body) throw new Error("Falha ao conversar sobre a auditoria.");
+
+    appendMessage({ id: args.assistantId, role: "assistant", content: "" });
+    args.marcarIniciado();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let streamError: string | null = null;
+    let encaminhado: string | null = null;
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE: eventos separados por linha em branco.
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) {
+        const line = part.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue;
+        const event = JSON.parse(line.slice(6)) as
+          | { type: "delta"; text: string }
+          | { type: "ferramenta"; nome: string; resumo: string }
+          | { type: "achado"; achado: unknown; report: AuditReport }
+          | { type: "encaminhar"; pedido: string }
+          | { type: "done"; voltas: number; parouPorTeto: boolean }
+          | { type: "error"; error: string };
+
+        if (event.type === "delta") {
+          appendDelta(args.assistantId, event.text);
+        } else if (event.type === "ferramenta") {
+          onTurnStatus?.({ thinking: true, error: false, responding: false });
+        } else if (event.type === "achado") {
+          /*
+           * O parecer persiste em DOIS lugares (banco e IndexedDB) e os dois
+           * precisam concordar. O servidor já gravou o dele; aqui regravamos o
+           * artefato NO LUGAR — mesmo `artifactId`, então canvas, fila e
+           * feedback enxergam o achado novo de graça, sem alteração.
+           */
+          void saveResult({
+            artifactId: alvo.artifactId,
+            kind: "auditoria",
+            summary: `Auditoria — ${event.report.status_geral}`,
+            files: [],
+            payload: { ...alvo.salvo, report: event.report },
+            canvas: {
+              label: "Auditoria",
+              detail: `${event.report.status_geral} · ${event.report.total_incongruencias} achado(s)`,
+            },
+          });
+        } else if (event.type === "encaminhar") {
+          encaminhado = event.pedido;
+        } else if (event.type === "error") {
+          streamError = event.error;
+        }
+      }
+    }
+
+    if (streamError) throw new Error(streamError);
+    finalizeMessage(args.assistantId, {});
+
+    /*
+     * O engenheiro pediu para GERAR, e não para perguntar. O turno vai ao Nexo
+     * com o corpo de sempre, e o card de confirmação aparece igual. O `true`
+     * força a outra porta: sem ele, voltaria para cá em laço.
+     */
+    if (encaminhado) await send(encaminhado, true);
+  }
+
+  /**
+   * `forcarNexo` existe por um laço real: `encaminhar_para_geracao` chama
+   * `send` de volta, e ali `auditoriaAtual` continua preenchido — sem esta
+   * saída o turno voltaria ao chat da auditoria para sempre, e a tela travaria.
+   */
+  async function send(textArg?: string, forcarNexo = false) {
     const text = (textArg ?? input).trim();
     if (!text || busy) return;
     // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
@@ -209,6 +329,20 @@ export function NexoChat({
     let started = false;
 
     try {
+      // A PORTA. Com parecer no palco, quem responde é quem tem o documento.
+      if (auditoriaAtual?.salvo.report && !forcarNexo) {
+        await perguntarSobreAuditoria({
+          text,
+          history,
+          assistantId,
+          controller,
+          marcarIniciado: () => {
+            started = true;
+          },
+        });
+        return;
+      }
+
       const res = await fetch("/api/nexo/agent", {
         method: "POST",
         headers: {

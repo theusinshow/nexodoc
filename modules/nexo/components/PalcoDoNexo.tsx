@@ -19,7 +19,7 @@ import { AuditResult, type AuditView } from "@/components/audit-result";
 import { classifyFindingTier } from "@/lib/audit-report";
 import { compararPareceres, resumoDoDiff } from "@/lib/diff-de-pareceres";
 import { Chip } from "@/components/ui/chip";
-import type { MemorialAuditResult } from "../lib/audit";
+import { auditoriaMaisRecente, type MemorialAuditResult } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import {
   auditoriaDaConversa,
@@ -118,6 +118,11 @@ export function PalcoDoNexo({
    * existente o substitui NO LUGAR, mantendo a posição antiga e atualizando o
    * carimbo. O `ConfirmationCard` já tratava "a última auditoria desta
    * conversa" como a base do delta; agora as duas telas concordam sobre qual é.
+   *
+   * A ESCOLHA SAIU DAQUI em 25/08/2026 (`auditoriaMaisRecente`), porque ganhou
+   * um terceiro consumidor: o chat da auditoria precisa responder sobre o MESMO
+   * parecer que este palco desenha. Uma segunda cópia da regra acabaria
+   * discordando, e aí o chat falaria de uma revisão e a tela mostraria outra.
    */
   const auditorias = useMemo(
     () =>
@@ -127,8 +132,7 @@ export function PalcoDoNexo({
         .sort((a, b) => (a.generatedAt ?? 0) - (b.generatedAt ?? 0)),
     [results],
   );
-  const auditoria = auditorias.at(-1);
-  const salvo = auditoria?.payload as MemorialAuditResult | undefined;
+  const salvo = useMemo(() => auditoriaMaisRecente(results)?.salvo, [results]);
   const report = salvo?.report;
   /*
    * O PARECER DE ANTES, quando existe. É o que permite dizer o que o trabalho

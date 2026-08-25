@@ -310,3 +310,35 @@ async function lerFluxo(
   }
   return final;
 }
+
+/**
+ * A AUDITORIA QUE ESTÁ NA TELA — a MAIS RECENTE desta conversa.
+ *
+ * Era `results.find(...)` dentro de `PalcoDoNexo`, e virou função porque ganhou
+ * um segundo consumidor: o chat precisa responder sobre o MESMO parecer que a
+ * tela mostra. Duas cópias da regra discordariam no dia em que alguém
+ * reauditasse — `saveResult` acrescenta um artefato novo sem apagar o anterior,
+ * e a lista passa a ter dois.
+ *
+ * `generatedAt` é o critério, e não a posição no vetor: regerar um artefato
+ * existente o substitui NO LUGAR, mantendo a posição antiga e atualizando o
+ * carimbo.
+ */
+export function auditoriaMaisRecente(
+  results: readonly {
+    kind: string;
+    payload?: unknown;
+    generatedAt?: number;
+    artifactId: string;
+  }[],
+): { artifactId: string; salvo: MemorialAuditResult } | null {
+  const auditorias = results
+    .filter((r) => r.kind === "auditoria")
+    .slice()
+    .sort((a, b) => (a.generatedAt ?? 0) - (b.generatedAt ?? 0));
+
+  const ultima = auditorias.at(-1);
+  if (!ultima?.payload) return null;
+
+  return { artifactId: ultima.artifactId, salvo: ultima.payload as MemorialAuditResult };
+}
