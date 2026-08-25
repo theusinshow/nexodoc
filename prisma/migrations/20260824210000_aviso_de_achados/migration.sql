@@ -1,0 +1,14 @@
+-- O AVISO: quando o e-mail de uma atribuição saiu.
+--
+-- Aditivo e nulável, como a fila que veio antes. Nenhuma linha existente muda
+-- de significado, e o rollback é derrubar a coluna.
+--
+-- NÃO HÁ BACKFILL, e a escolha é deliberada. Toda atribuição feita até hoje
+-- nasce com `notifiedAt` nulo -- ou seja, "pendente de aviso". Isso é a
+-- verdade: nenhum e-mail saiu, porque o produto nunca mandou e-mail nenhum.
+--
+-- A consequência é visível e foi escolhida: ao abrir um parecer antigo, o botão
+-- de avisar aparece oferecendo notificar quem já está com achado há semanas.
+-- A alternativa -- carimbar o passado inteiro como "já avisado" -- registraria
+-- no banco um envio que nunca aconteceu, e ninguém descobriria o contrário.
+ALTER TABLE "AuditFeedback" ADD COLUMN "notifiedAt" TIMESTAMP(3);

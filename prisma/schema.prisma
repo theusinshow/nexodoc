@@ -361,6 +361,18 @@ model AuditFeedback {
   assigneeEmail  String?
   assignedById   String?
   assignedAt     DateTime?
+  /// Quando o AVISO POR E-MAIL desta atribuição saiu. Nulo = a pessoa foi
+  /// atribuída e ainda não foi avisada.
+  ///
+  /// Mora aqui, e não numa tabela de notificação, pelo mesmo motivo que a
+  /// atribuição mora aqui: uma segunda linha para o mesmo achado discordaria
+  /// da primeira no dia em que alguém reatribuísse por um dos caminhos.
+  ///
+  /// REATRIBUIR ZERA ESTE CAMPO (ver `atribuirAchados`). Sem isso, o achado que
+  /// sai do Milton para a Carla continuaria "já avisado" — e a Carla nunca
+  /// receberia o e-mail, porque a linha diz que o aviso já saiu. Saiu para
+  /// outra pessoa.
+  notifiedAt     DateTime?
   resolutionKind FindingResolutionKind?
   resolvedById   String?
   note         String                @default("")

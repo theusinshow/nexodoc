@@ -104,6 +104,19 @@ export async function atribuirAchados(args: {
       assigneeEmail: membro.email,
       assignedById: args.atribuidoPor.id,
       assignedAt: agora,
+      /*
+       * ATRIBUIR ZERA O AVISO — inclusive quando é REATRIBUIÇÃO.
+       *
+       * É a linha que faz [[lib/aviso-de-achados]] funcionar de verdade. O
+       * achado que sai do Milton para a Carla carrega o `notifiedAt` do e-mail
+       * que foi mandado AO MILTON; mantê-lo diria "esta pessoa já foi avisada"
+       * sobre alguém que nunca recebeu nada, e a Carla ficaria com trabalho
+       * que ninguém lhe contou que existia.
+       *
+       * Nada é enviado daqui, e é o ponto do desenho: atribuir é silencioso, e
+       * avisar é um ato separado e explícito. Esta coluna só marca a dívida.
+       */
+      notifiedAt: null,
     };
 
     await prisma.auditFeedback.upsert({

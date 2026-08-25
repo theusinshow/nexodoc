@@ -15,6 +15,7 @@ import {
   ExternalLink,
   FileText,
   LayoutList,
+  Mail,
   MapPin,
   Minus,
   MoreHorizontal,
@@ -239,6 +240,19 @@ type SavedFeedback = {
 };
 
 type DesfechoDoAchado = "FIXED_IN_DOC" | "FALSE_POSITIVE" | "ACCEPTED_RISK";
+
+/**
+ * Alguém que recebeu achado nesta auditoria e ainda não foi avisado por e-mail.
+ * Vem inteiro do servidor (`GET /api/audits/[id]/avisar`) — a tela não deduz
+ * quem falta a partir das linhas de feedback, porque `convidado` depende do
+ * status do membro no escritório, que a rota de feedback não devolve.
+ */
+type PessoaAAvisar = {
+  email: string;
+  nome: string;
+  quantidade: number;
+  convidado: boolean;
+};
 
 /**
  * O nome curto de cada veredito na etiqueta do cartão. Curto de propósito: ela
@@ -1205,6 +1219,25 @@ export function AuditResult({
   const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
+
+  /*
+   * O AVISO POR E-MAIL, em quatro estados que não se sobrepõem.
+   *
+   * `pendentesDeAviso` é a lista de quem receberia e-mail se o botão fosse
+   * apertado agora. Ela também é o que DECIDE se o botão existe: lista vazia,
+   * botão nenhum. Não há botão desabilitado aqui de propósito — um "avisar"
+   * cinza no cabeçalho de todo parecer sem atribuição seria um controle que
+   * nunca faz nada em 90% das telas.
+   */
+  const [pendentesDeAviso, setPendentesDeAviso] = useState<PessoaAAvisar[]>([]);
+  /** O painel de confirmação está aberto. Clicar no botão NÃO manda e-mail:
+   *  abre isto. Ver o comentário no painel. */
+  const [confirmandoAviso, setConfirmandoAviso] = useState(false);
+  const [avisando, setAvisando] = useState(false);
+  /** O que aconteceu no último envio, já em português de gente. Separado de
+   *  `feedbackNotice` porque os dois avisos vivem em cantos diferentes da tela
+   *  e um sobrescreveria o outro. */
+  const [avisoNotice, setAvisoNotice] = useState("");
   const [missingFindingNote, setMissingFindingNote] = useState("");
   const [activePdf, setActivePdf] = useState<ActivePdf | null>(null);
   /**
@@ -1496,6 +1529,126 @@ export function AuditResult({
 
     void loadFeedback();
   }, [auditId, releituras]);
+
+  /*
+   * QUEM ESTÁ ESPERANDO AVISO.
+   *
+   * Consulta própria, e não um campo a mais na carga de feedback acima: ela
+   * depende do STATUS do membro no escritório (para marcar quem é convidado e
+   * nunca entrou), e a rota de feedback existe para responder outra pergunta.
+   * Misturar as duas faria a rota do parecer consultar a tabela de membros por
+   * um dado que só este botão usa.
+   *
+   * Reage a `releituras` pelo mesmo motivo que a carga de feedback: ENVIAR
+   * acabou de criar pendências, e o botão precisa aparecer sem recarregar a
+   * página. É o caminho normal — distribuir e avisar acontecem no mesmo minuto.
+   */
+  useEffect(() => {
+    if (!auditId) return;
+
+    let cancelado = false;
+
+    async function carregarPendentes() {
+      try {
+        const response = await fetch(
+          `/api/audits/${encodeURIComponent(auditId!)}/avisar`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as { pendentes?: PessoaAAvisar[] };
+
+        if (!cancelado) setPendentesDeAviso(payload.pendentes ?? []);
+      } catch {
+        // Sem a lista o botão não aparece, e o parecer segue utilizável. É a
+        // degradação certa: o e-mail é acessório do trabalho, não o trabalho.
+      }
+    }
+
+    void carregarPendentes();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [auditId, releituras]);
+
+  const achadosAAvisar = pendentesDeAviso.reduce((soma, p) => soma + p.quantidade, 0);
+
+  /**
+   * AVISAR — o único lugar do produto que manda e-mail para pessoa de verdade.
+   *
+   * Só é chamado do painel de confirmação, nunca do botão do cabeçalho. E-mail
+   * não tem desfazer, e um clique de mira errada no cabeçalho de um parecer não
+   * pode alcançar a caixa de entrada de doze pessoas.
+   */
+  async function avisarOsEnvolvidos() {
+    if (!auditId || pendentesDeAviso.length === 0) return;
+
+    setAvisando(true);
+    setAvisoNotice("");
+
+    try {
+      const response = await fetch(
+        `/api/audits/${encodeURIComponent(auditId)}/avisar`,
+        { method: "POST", headers: { "Content-Type": "application/json" } },
+      );
+
+      const payload = (await response.json().catch(() => null)) as {
+        estado?: string;
+        avisados?: PessoaAAvisar[];
+        falharam?: { email: string; erro: string }[];
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Não foi possível avisar.");
+      }
+
+      const avisados = payload?.avisados ?? [];
+      const falharam = payload?.falharam ?? [];
+
+      /*
+       * CADA ESTADO TEM A FRASE DELE, e nenhuma delas é "pronto!".
+       *
+       * `gravado` é o que acontece na máquina de desenvolvimento, e é o estado
+       * que mais precisa de texto próprio: se ele dissesse "avisados", quem
+       * testa aqui concluiria que o e-mail funciona — e descobriria o contrário
+       * no dia em que a produção não avisasse ninguém.
+       */
+      if (payload?.estado === "nada-a-avisar") {
+        setAvisoNotice("Todo mundo já foi avisado.");
+      } else if (payload?.estado === "nao-configurado") {
+        setAvisoNotice(
+          "O envio de e-mail não está configurado neste ambiente. Ninguém foi avisado, e nada foi marcado como avisado.",
+        );
+      } else if (payload?.estado === "gravado") {
+        setAvisoNotice(
+          `Modo de desenvolvimento: ${plural(avisados.length, "aviso gravado", "avisos gravados")} em scratchpad/qa/correio.jsonl. Nenhum e-mail saiu.`,
+        );
+      } else if (avisados.length === 0) {
+        setAvisoNotice(
+          `Não foi possível avisar ninguém. ${falharam.map((f) => f.email).join(", ")}`,
+        );
+      } else {
+        const base = `${plural(avisados.length, "pessoa avisada", "pessoas avisadas")} por e-mail.`;
+        setAvisoNotice(
+          falharam.length > 0
+            ? `${base} ${plural(falharam.length, "não chegou", "não chegaram")}: ${falharam.map((f) => f.email).join(", ")} — o botão continua ali para tentar de novo.`
+            : base,
+        );
+      }
+
+      setConfirmandoAviso(false);
+      // A verdade do servidor por cima: é ela que sabe quem ficou pendente
+      // depois de uma falha parcial, e é ela que faz o botão sumir.
+      setReleituras((n) => n + 1);
+    } catch (error) {
+      setAvisoNotice(error instanceof Error ? error.message : "Não foi possível avisar.");
+    } finally {
+      setAvisando(false);
+    }
+  }
 
   /** Corrigido aqui OU corrigido em outra máquina — ver `resolvidosNoServidor`. */
   const estaResolvido = (refId: string | undefined) =>
@@ -2155,6 +2308,32 @@ export function AuditResult({
         </div>
 
         <div className="flex flex-wrap items-start gap-2 sm:justify-end">
+          {/*
+            AVISAR OS ENVOLVIDOS — o fim da distribuição.
+
+            Vive ao lado do EXPORTAR e não na barra de envio do rodapé, e a
+            distância entre os dois é o desenho: a barra do rodapé é o gesto
+            REPETIDO (marcar quatro achados, mandar para o Milton; marcar dois,
+            mandar para a Carla), e este é o gesto ÚNICO que fecha a rodada.
+            Colar o aviso na barra teria feito cada distribuição parcial
+            perguntar "avisar agora?" — e a resposta certa é "não, ainda estou
+            distribuindo", cinco vezes seguidas.
+
+            SÓ EXISTE QUANDO HÁ ALGUÉM A AVISAR. Ver `pendentesDeAviso`.
+          */}
+          {pendentesDeAviso.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmandoAviso((aberto) => !aberto)}
+              aria-expanded={confirmandoAviso}
+              aria-label={`Avisar por e-mail ${plural(pendentesDeAviso.length, "pessoa envolvida", "pessoas envolvidas")}`}
+            >
+              <Mail />
+              Avisar {plural(pendentesDeAviso.length, "envolvido", "envolvidos")}
+            </Button>
+          ) : null}
           <Dropdown
             align="end"
             trigger={({ open, toggle }) => (
@@ -2208,6 +2387,107 @@ export function AuditResult({
           </Dropdown>
         </div>
       </div>
+
+      {/*
+        O PAINEL DE CONFIRMAÇÃO — os nomes ANTES do envio.
+
+        Em FLUXO, e não sobreposto. É a mesma escolha da barra de envio do
+        rodapé, pelo mesmo motivo declarado lá: um diálogo por cima tira da
+        vista justamente o que se precisa conferir. Aqui o que se confere são
+        pessoas de verdade, e o custo de errar não é uma linha no banco — é um
+        e-mail na caixa de alguém, que não volta.
+
+        Por isso o botão do cabeçalho ABRE isto em vez de enviar. Um clique
+        direto seria um controle irreversível a 8px do "Exportar".
+
+        `.nx-elev` como pai e a forma chanfrada dentro: `box-shadow` morre no
+        recorte, e elevação de painel vem de `drop-shadow` num pai não
+        recortado (§5 da DESIGN.md — a mesma dívida que a barra de envio pagou).
+      */}
+      {confirmandoAviso && pendentesDeAviso.length > 0 ? (
+        <div className="nx-elev mt-4">
+          <div className="nx-cut-8 bg-card p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+              <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
+                {pendentesDeAviso.length}
+              </span>{" "}
+              {palavra(pendentesDeAviso.length, "pessoa será avisada", "pessoas serão avisadas")} por e-mail
+            </p>
+
+            <ul className="mt-3 grid gap-1.5">
+              {pendentesDeAviso.map((pessoa) => (
+                <li
+                  key={pessoa.email}
+                  className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border/50 pb-1.5 last:border-0"
+                >
+                  <span className="text-sm text-foreground">
+                    {pessoa.nome}
+                    {/*
+                      QUEM NUNCA ENTROU FICA MARCADO, e é a informação mais
+                      útil do painel. Para essa pessoa o e-mail não é cortesia:
+                      é o único caminho pelo qual ela pode descobrir que existe
+                      trabalho esperando por ela. Sem a marca, quem confirma não
+                      tem como saber que está diante do caso que mais importa.
+                    */}
+                    {pessoa.convidado ? (
+                      <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+                        convidado — ainda não entrou
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {plural(pessoa.quantidade, "achado", "achados")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {/*
+              O QUE VAI NO E-MAIL, dito antes de sair. Quem aperta está mandando
+              uma mensagem em nome do escritório, e tem direito de saber que ela
+              não carrega o teor do memorial — é a diferença entre avisar um
+              colega e encaminhar documento de cliente.
+            */}
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              O e-mail leva a contagem, o projeto e o link para o parecer. O conteúdo dos achados
+              não sai do sistema.
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                loading={avisando}
+                onClick={() => void avisarOsEnvolvidos()}
+                aria-label="Confirmar e enviar os avisos por e-mail"
+              >
+                <Mail aria-hidden />
+                Enviar {plural(pendentesDeAviso.length, "aviso", "avisos")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setConfirmandoAviso(false)}
+                aria-label="Cancelar o envio dos avisos"
+              >
+                Cancelar
+              </Button>
+              <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                {plural(achadosAAvisar, "achado", "achados")} no total
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/*
+        O RESULTADO DO ENVIO fica DEPOIS do painel e sobrevive a ele: o painel
+        fecha quando o envio dá certo, e uma frase que sumisse junto não teria
+        dito nada. É aqui que "o correio não está configurado" e "dois dos três
+        não chegaram" aparecem.
+      */}
+      {avisoNotice ? (
+        <p className="mt-3 font-mono text-xs leading-5 text-muted-foreground">{avisoNotice}</p>
+      ) : null}
 
       {dualReview ? (
         <section className="mt-4 rounded-sm border border-primary/30 bg-primary/8 p-4">
