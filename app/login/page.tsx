@@ -131,22 +131,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               confere se essa conta está liberada para acessar o ambiente.
             </p>
 
-            {/*
-              O CANAL SÓ EXISTE DEPOIS DA PORTA FECHADA.
-
-              Um "fale com o responsável" permanente na tela de login é suporte
-              decorativo: quem entra normalmente não precisa dele, e ele rouba
-              atenção do único controle que importa. Aqui ele nasce do erro, ao
-              lado da frase que o descreve.
-            */}
             {error ? (
-              <div className="login-error-bloco">
-                <p role="alert" className="login-error">
-                  Não foi possível autenticar com o Google. Tente novamente ou
-                  fale com quem administra o acesso.
-                </p>
-                <ContatoDoResponsavel enviarRecado={enviarRecado} />
-              </div>
+              <p role="alert" className="login-error">
+                Não foi possível autenticar com o Google. Tente novamente ou use
+                o contato no fim desta coluna.
+              </p>
             ) : null}
 
             <form
@@ -213,11 +202,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                     Entrar como dev
                   </Button>
                 </form>
-                <p className="login-dev-email">
-                  Em branco entra como {devUser?.email}
-                </p>
               </div>
             ) : null}
+
+            {/*
+              O CANAL FICA SEMPRE, e isto reverte a versão anterior desta tela.
+
+              Ele nascia do erro, com o argumento de que suporte permanente numa
+              tela de login é ruído. O argumento estava incompleto: quem precisa
+              falar com o responsável nem sempre chega aqui por um erro do
+              Google — chega por conta que o escritório ainda não liberou, que
+              é o caso comum deste produto e que NÃO produz `?error=`. Fazer o
+              canal depender do erro era escondê-lo justamente de quem mais
+              precisa dele.
+
+              Fica no rodapé, atrás de um clique e em variante fantasma: presente
+              para quem procura, sem disputar com o botão de entrar.
+            */}
+            <div className="login-rodape">
+              <ContatoDoResponsavel enviarRecado={enviarRecado} />
+            </div>
           </div>
         </div>
       </section>

@@ -728,17 +728,17 @@ textarea {
   outline-offset: 1px;
 }
 
-.login-dev-email {
-  margin-top: 8px;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--muted-foreground);
+/* `.login-dev-email` SAIU (25/08/2026): ela imprimia o e-mail do ambiente na
+   tela para dizer o que o campo em branco faz. A informação já está no
+   `placeholder` e no comentário da página; o que sobrava era um endereço
+   pessoal exposto em toda captura de tela desta tela. */
+
+/* O rodapé da coluna: o contato permanente, atrás de uma linha fina. A linha é
+   o que diz "acabou o fluxo de entrada, isto aqui é outra coisa". */
+.login-rodape {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 /* So o orbe vivo agora: o poster do workspace saiu (16/08/2026), entao a
@@ -781,8 +781,8 @@ textarea {
    do `AgentOrb` chega perto da borda da caixa, então um vão curto encostaria o
    texto na luz. */
 .login-saudacao {
-  margin-top: 28px;
-  max-width: 34ch;
+  margin-top: 32px;
+  max-width: 42ch;
   text-align: center;
 }
 
@@ -790,9 +790,17 @@ textarea {
    base. `tabular-nums` não: não há número. O que importa é a largura estável —
    com fonte proporcional cada glifo embaralhado mudaria o comprimento da linha
    a cada passo, e a frase tremeria até assentar. */
+/* 18px é o degrau `Title` da §3, e a saudação o toma emprestado do eixo SANS
+   para uso em MONO — uma exceção declarada, não um número inventado.
+
+   O mono não é escolha de gosto: a frase é decifrada caractere a caractere, e
+   em fonte proporcional cada glifo sorteado mudaria a largura da linha a cada
+   quadro. A frase tremeria até assentar. O eixo mono da §3 só tem 12 e 13px,
+   que são tamanhos de rótulo e de dado — nenhum deles serve para o único texto
+   de apresentação da tela. Então: geometria do mono, escala do sans. */
 .login-saudacao-titulo {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 18px;
   line-height: 1.4;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -802,8 +810,8 @@ textarea {
 }
 
 .login-saudacao-copy {
-  margin-top: 10px;
-  font-size: 0.875rem;
+  margin-top: 12px;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--muted-foreground);
   text-wrap: pretty;
@@ -999,15 +1007,13 @@ textarea {
   }
 
   .login-saudacao {
-    margin-top: 36px;
+    margin-top: 40px;
   }
 
+  /* Title -> Headline. A copy NÃO sobe junto: ela já está em 1rem, e o degrau
+     seguinte da rampa a poria do tamanho do título. Quem cresce é o título. */
   .login-saudacao-titulo {
-    font-size: 17px;
-  }
-
-  .login-saudacao-copy {
-    font-size: 0.9375rem;
+    font-size: 24px;
   }
 }
 

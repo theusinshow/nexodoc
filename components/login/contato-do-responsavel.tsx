@@ -19,6 +19,7 @@
  * um "enviado" falso o deixa esperando resposta que ninguém vai escrever.
  */
 
+import { Mail } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,16 @@ export function ContatoDoResponsavel({
 
   if (!aberto) {
     return (
+      /* FANTASMA, e não `outline`: ele mora no rodapé de uma tela cujo único
+         controle que importa é o botão de entrar. Um segundo botão com moldura
+         ali embaixo lê como uma segunda saída de igual peso, que não é. */
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         className="login-contato-gatilho"
         onClick={() => setAberto(true)}
       >
+        <Mail strokeWidth={1.5} />
         Falar com o responsável
       </Button>
     );
