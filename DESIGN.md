@@ -375,7 +375,17 @@ faziam quem lesse rápido concluir o oposto do que vale.
 
 **Cromo (lista fechada; nada entra sem alterar este documento):** o backdrop de
 escurecimento do modal, o dock do composer, o *wash* da tela de boas-vindas, a
-bolha do assistente (como invólucro), o cromo do visualizador de PDF e o orbe.
+bolha do assistente (como invólucro), o cromo do visualizador de PDF, o orbe e a
+**barra do topo do painel** (emenda de 25/08/2026).
+
+*Sobre a barra do topo:* ela entrou porque virou `sticky` e o conteúdo passa por
+baixo dela. É a condição que faz o vidro querer dizer alguma coisa — vidro sobre
+nada é só um tom de cinza mais caro. O que ela borra é o FUNDO da página em
+rolagem, nunca um dado que alguém esteja lendo: cartões, achados e listas
+continuam matte, abaixo da linha. A implementação é a `.nexo-glass` de sempre,
+com as degradações já dentro dela, e por isso a regra de `<GlassPanel>` como
+único dono de `backdrop-filter` continua valendo — a barra usa a mesma classe,
+não um segundo desenho de vidro.
 
 **Dado (jamais):** cartões, achados de auditoria, tabelas, molduras de artefato,
 `ConfirmationCard`, miniaturas. Nunca borrar o que se lê.

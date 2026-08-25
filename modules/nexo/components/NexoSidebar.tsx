@@ -255,7 +255,21 @@ export function NexoSidebar({
       className="flex h-full w-full flex-col gap-3 border-r border-border/60 p-3.5"
     >
       {/*
-        Topo: a marca. Não há mais "voltar" — a entrada do software é esta tela.
+        Topo: a marca — e, desde 25/08/2026, a VOLTA.
+
+        O comentário aqui dizia "não há mais 'voltar' — a entrada do software é
+        esta tela", e isso deixou de ser verdade quando a raiz virou o painel. O
+        efeito era um beco: daqui saía-se para Projetos, Admin e Ferramentas
+        (rodapé), e não havia caminho nenhum de volta para a tela em que a pessoa
+        entra. Sobrava o botão do navegador, que não é interface.
+
+        A marca é o lugar certo dessa volta, e não um controle novo: ela já é o
+        objeto de identidade no canto superior esquerdo, que é onde toda a web
+        aprendeu a clicar para voltar ao começo. O botão do orbe do painel
+        (`components/layout/botao-do-orbe.tsx`) é a mesma porta pelo outro lado —
+        ele já sabe alternar sozinho, por rota, se um dia o cromo do Nexo quiser
+        montá-lo.
+
         E ela DIZ O QUE O AGENTE ESTÁ FAZENDO.
 
         A §6 é clara: "em repouso ela fica PARADA; marca que se mexe sozinha
@@ -267,7 +281,12 @@ export function NexoSidebar({
         enquanto o orbe grande sai de vista quando se rola a conversa ou se olha
         o canvas. Trabalhando, ela respira; parada, fica parada.
       */}
-      <div className="flex items-center gap-2.5 px-1 py-1">
+      <Link
+        href="/"
+        aria-label="Voltar ao painel"
+        title="Voltar ao painel"
+        className="flex items-center gap-2.5 rounded-sm px-1 py-1 transition-opacity duration-[var(--duration-fast)] hover:opacity-80 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+      >
         <span
           className={cn("inline-flex", trabalhando && "nexodoc-status-pulse")}
           title={trabalhando ? "O Nexo está trabalhando" : undefined}
@@ -284,7 +303,7 @@ export function NexoSidebar({
             O Nexo está trabalhando
           </span>
         )}
-      </div>
+      </Link>
 
       {/*
         Nova conversa: UMA ENTRADA SÓ, e primária.
