@@ -17,6 +17,7 @@ import type { AnalysisLevel } from "@/lib/analysis-level";
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AuditReport } from "@/lib/audit-report";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { linhasDeAuditText, memoriasDosArquivos } from "@/lib/memoria-do-documento";
 import type { ExtractedPdf } from "@/lib/pdf-text";
 import {
   createStoredDocumentArtifact,
@@ -140,6 +141,25 @@ export async function persistCompletedAudit(args: {
           sizeBytes: file.file.size,
         })),
       });
+
+      /*
+       * O TEXTO, para o chat poder reler.
+       *
+       * Na mesma transação e a partir do `extracted` que JÁ está na mão: a
+       * corrida acabou de extrair o documento inteiro e o descartava. Não é
+       * preciso mexer na rota de auditoria nem re-extrair nada.
+       *
+       * Reauditar SUBSTITUI a memória junto com o parecer — as duas coisas
+       * descrevem a MESMA corrida, e uma memória de outra revisão faria o chat
+       * citar a página de um documento que não é mais o auditado.
+       */
+      await transaction.auditText.deleteMany({ where: { auditId: args.auditId! } });
+      const memorias = memoriasDosArquivos(args.uploadedFiles);
+      if (memorias.length > 0) {
+        await transaction.auditText.createMany({
+          data: linhasDeAuditText(args.auditId!, memorias),
+        });
+      }
 
       if (args.projectId && args.actor) {
         for (const file of args.uploadedFiles) {

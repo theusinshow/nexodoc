@@ -173,6 +173,7 @@
     "prova:nota-consolidacao": "node scripts/prova-nota-de-consolidacao.mjs",
     "prova:evidencia-ancorada": "node scripts/prova-evidencia-ancorada.ts",
     "test:ancoragem": "node scripts/test-ancoragem.ts",
+  "test:memoria": "node scripts/test-memoria-do-documento.ts",
   "test:impressao-achado": "node scripts/test-impressao-do-achado.ts",
     "mede:impressao-achado": "node scripts/mede-impressao-do-achado.mjs",
     "prova:validacao-refuta": "node scripts/prova-validacao-refuta.ts",

@@ -124,36 +124,36 @@ enum AiTaskPriority {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         UserRole  @default(USER)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  sessions     Session[]
+  id                      String               @id @default(cuid())
+  name                    String
+  email                   String               @unique
+  passwordHash            String
+  role                    UserRole             @default(USER)
+  isActive                Boolean              @default(true)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  sessions                Session[]
   organizationMemberships OrganizationMember[]
-  audits       Audit[]
-  aiTasks      AiTask[]
-  aiUsageEvents AiUsageEvent[]
-  projects     Project[]
-  projectDocuments ProjectDocument[]
-  projectUploads ProjectUpload[]
-  documentArtifacts DocumentArtifact[]
-  projectEvents ProjectEvent[]
+  audits                  Audit[]
+  aiTasks                 AiTask[]
+  aiUsageEvents           AiUsageEvent[]
+  projects                Project[]
+  projectDocuments        ProjectDocument[]
+  projectUploads          ProjectUpload[]
+  documentArtifacts       DocumentArtifact[]
+  projectEvents           ProjectEvent[]
 }
 
 model Organization {
-  id          String                     @id @default(cuid())
-  name        String
-  slug        String                     @unique
-  ownerEmail  String
-  createdAt   DateTime                   @default(now())
-  updatedAt   DateTime                   @updatedAt
-  archivedAt  DateTime?
-  members     OrganizationMember[]
-  projects    Project[]
+  id         String               @id @default(cuid())
+  name       String
+  slug       String               @unique
+  ownerEmail String
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  archivedAt DateTime?
+  members    OrganizationMember[]
+  projects   Project[]
 
   @@index([ownerEmail, createdAt])
   @@index([archivedAt])
@@ -187,41 +187,41 @@ model OrganizationMember {
 }
 
 model Project {
-  id          String        @id @default(cuid())
+  id             String             @id @default(cuid())
   /// O DONO. Era `ownerEmail`; passou a ser o escritorio, e por isso deixou de
   /// aceitar nulo: projeto sem escritorio nao tem quem o libere para emissao.
   organizationId String
-  ownerId     String?
+  ownerId        String?
   /// Quem CRIOU o projeto — que deixou de ser quem é dono dele. O dono passou a
   /// ser o escritório (`organizationId`); isto aqui é registro, não posse, e é
   /// por isso que nenhuma consulta filtra por ele.
-  createdById String?
-  ownerEmail  String
-  ownerName   String?
+  createdById    String?
+  ownerEmail     String
+  ownerName      String?
   /// O CENTRO DE CUSTO — "099-25". Perdeu o `@default("")` porque virou
   /// identidade: e por ele que a auditoria acha o projeto a que pertence, e um
   /// vazio casaria com qualquer documento sem codigo legivel.
-  code        String
-  name        String
-  client      String        @default("")
-  description String        @default("")
-  status      ProjectStatus @default(ACTIVE)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  archivedAt  DateTime?
-  deletedAt   DateTime?
+  code           String
+  name           String
+  client         String             @default("")
+  description    String             @default("")
+  status         ProjectStatus      @default(ACTIVE)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  archivedAt     DateTime?
+  deletedAt      DateTime?
   /// `Restrict`, e nao `SetNull`: com o escritorio sendo dono, apagar a
   /// organizacao deixaria projeto orfao — que e exatamente o estado que este
   /// trabalho eliminou.
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  audits      Audit[]
-  ldDrafts    LdDraft[]
-  documents   ProjectDocument[]
-  uploads     ProjectUpload[]
-  artifacts   DocumentArtifact[]
-  events      ProjectEvent[]
-  aiTasks     AiTask[]
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner          User?              @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  audits         Audit[]
+  ldDrafts       LdDraft[]
+  documents      ProjectDocument[]
+  uploads        ProjectUpload[]
+  artifacts      DocumentArtifact[]
+  events         ProjectEvent[]
+  aiTasks        AiTask[]
 
   /// O codigo do projeto e unico no ESCRITORIO, e era unico por dono: dois
   /// projetistas podiam cadastrar "099-25" cada um, e o banco achava normal.
@@ -233,23 +233,23 @@ model Project {
 }
 
 model ProjectDocument {
-  id            String                @id @default(cuid())
-  projectId     String?
-  userId        String?
-  userEmail     String
-  module        String
-  documentType  String
-  fileName      String
-  mimeType      String                @default("application/pdf")
-  sizeBytes     Int?
-  pageCount     Int?
+  id             String                @id @default(cuid())
+  projectId      String?
+  userId         String?
+  userEmail      String
+  module         String
+  documentType   String
+  fileName       String
+  mimeType       String                @default("application/pdf")
+  sizeBytes      Int?
+  pageCount      Int?
   checksumSha256 String?
-  status        ProjectDocumentStatus @default(ACTIVE)
-  metadata      Json?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  project       Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status         ProjectDocumentStatus @default(ACTIVE)
+  metadata       Json?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  project        Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user           User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([userEmail, createdAt])
@@ -259,23 +259,23 @@ model ProjectDocument {
 }
 
 model ProjectUpload {
-  id             String                @id @default(cuid())
-  projectId      String?
-  userId         String?
-  userEmail      String
-  module         String
-  source         String                @default("manual")
-  fileName       String
-  mimeType       String
-  sizeBytes      Int?
-  pageCount      Int?
-  storageProvider String               @default("none")
-  storageKey     String?
-  checksumSha256 String?
-  metadata       Json?
-  createdAt      DateTime             @default(now())
-  project        Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id              String   @id @default(cuid())
+  projectId       String?
+  userId          String?
+  userEmail       String
+  module          String
+  source          String   @default("manual")
+  fileName        String
+  mimeType        String
+  sizeBytes       Int?
+  pageCount       Int?
+  storageProvider String   @default("none")
+  storageKey      String?
+  checksumSha256  String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([userEmail, createdAt])
@@ -297,27 +297,28 @@ model Session {
 }
 
 model Audit {
-  id             String       @id @default(cuid())
-  userId         String?
-  projectId      String?
-  title          String
-  projectName    String
-  description    String      @default("")
-  auditMode      String
-  analysisLevel  String      @default("standard")
-  status         AuditStatus @default(PROCESSING)
-  result         String?
-  report         Json?
-  error          String?
-  elapsedMs      Int?
-  totalFindings  Int         @default(0)
-  createdAt      DateTime    @default(now())
-  completedAt    DateTime?
-  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  files          AuditFile[]
-  feedback       AuditFeedback[]
-  artifacts      DocumentArtifact[]
+  id            String             @id @default(cuid())
+  userId        String?
+  projectId     String?
+  title         String
+  projectName   String
+  description   String             @default("")
+  auditMode     String
+  analysisLevel String             @default("standard")
+  status        AuditStatus        @default(PROCESSING)
+  result        String?
+  report        Json?
+  error         String?
+  elapsedMs     Int?
+  totalFindings Int                @default(0)
+  createdAt     DateTime           @default(now())
+  completedAt   DateTime?
+  user          User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project       Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  files         AuditFile[]
+  feedback      AuditFeedback[]
+  artifacts     DocumentArtifact[]
+  texts         AuditText[]
 
   @@index([projectId, createdAt])
   @@index([userId, createdAt])
@@ -339,16 +340,16 @@ model Audit {
 /// Por isso `verdict` passou a ser opcional: marcar corrigido sem julgar é
 /// legítimo, e era o único caminho que a coluna obrigatória bloqueava.
 model AuditFeedback {
-  id           String                @id @default(cuid())
-  auditId      String
-  targetKey    String
-  findingId    String?
-  findingLabel String?
-  page         String?
-  verdict      AuditFeedbackVerdict?
+  id             String                 @id @default(cuid())
+  auditId        String
+  targetKey      String
+  findingId      String?
+  findingLabel   String?
+  page           String?
+  verdict        AuditFeedbackVerdict?
   /// Quando foi marcado como corrigido. Nulo = não corrigido — o instante fica
   /// registrado porque "quando" é a pergunta seguinte de quem revisa em dupla.
-  resolvedAt   DateTime?
+  resolvedAt     DateTime?
   /// A identidade do achado ENTRE VERSÕES (`chaveEntreVersoes`), gravada no
   /// instante do envio. O `targetKey` guarda `finding:INC-014`, e o `INC-014` é
   /// POSICIONAL: na reauditoria o mesmo achado vira `INC-009` sem nada ter
@@ -375,10 +376,10 @@ model AuditFeedback {
   notifiedAt     DateTime?
   resolutionKind FindingResolutionKind?
   resolvedById   String?
-  note         String                @default("")
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  audit        Audit                 @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  note           String                 @default("")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  audit          Audit                  @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   @@unique([auditId, targetKey])
   @@index([auditId, createdAt])
@@ -401,28 +402,53 @@ model AuditFile {
   @@index([auditId])
 }
 
+/// O texto do documento auditado, guardado para o chat pós-parecer poder RELER
+/// o memorial em vez de falar de cor sobre o parecer. Sem isto o chat nunca viu
+/// o documento — só o JSON dos achados, e o prompt dele mandava literalmente
+/// "não diga que releu o PDF".
+///
+/// Guardamos o TEXTO, não o PDF: os bytes vivem no navegador e o provedor de
+/// blob está em "none" (`lib/file-storage.ts`). ~173 KB para 73 páginas.
+model AuditText {
+  id        String   @id @default(cuid())
+  auditId   String
+  fileName  String
+  /// Uma entrada por página: { page, text }. É daqui que sai o número da página
+  /// que o chat cita — o modelo nunca o inventa.
+  pages     Json
+  /// O ÍNDICE por capítulo (`chunkPdfByChapter`), SEM o texto: título, página
+  /// inicial, final e nº de chars. Guardar o texto aqui também dobraria o
+  /// armazenamento — o texto do capítulo se reconstrói das páginas.
+  capitulos Json
+  charCount Int
+  createdAt DateTime @default(now())
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
 model LdDraft {
-  id                 String        @id @default(cuid())
+  id                 String             @id @default(cuid())
   projectId          String?
   userEmail          String
   userName           String?
   title              String
   projectCode        String
   workName           String
-  status             LdDraftStatus @default(DRAFT)
-  activeStep         Int           @default(0)
+  status             LdDraftStatus      @default(DRAFT)
+  activeStep         Int                @default(0)
   ldData             Json
   rows               Json
   tomos              Json
   referenceTotal     Int?
-  manualTotal        String        @default("")
+  manualTotal        String             @default("")
   uploadedFileNames  Json
-  uploadedFileCount  Int           @default(0)
+  uploadedFileCount  Int                @default(0)
   generatedFileNames Json
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   generatedAt        DateTime?
-  project            Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project            Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   events             LdDraftEvent[]
   artifacts          DocumentArtifact[]
 
@@ -447,30 +473,30 @@ model LdDraftEvent {
 }
 
 model DocumentArtifact {
-  id             String                 @id @default(cuid())
-  projectId      String?
-  auditId        String?
-  ldDraftId      String?
-  userId         String?
-  userEmail      String
-  module         String
-  kind           DocumentArtifactKind
-  status         DocumentArtifactStatus @default(AVAILABLE)
-  fileName       String
-  mimeType       String
-  sizeBytes      Int?
+  id              String                 @id @default(cuid())
+  projectId       String?
+  auditId         String?
+  ldDraftId       String?
+  userId          String?
+  userEmail       String
+  module          String
+  kind            DocumentArtifactKind
+  status          DocumentArtifactStatus @default(AVAILABLE)
+  fileName        String
+  mimeType        String
+  sizeBytes       Int?
   storageProvider String                 @default("none")
-  storageKey     String?
-  downloadUrl    String?
-  checksumSha256 String?
-  metadata       Json?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  expiresAt      DateTime?
-  project        Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  audit          Audit?                 @relation(fields: [auditId], references: [id], onDelete: SetNull)
-  ldDraft        LdDraft?               @relation(fields: [ldDraftId], references: [id], onDelete: SetNull)
-  user           User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  storageKey      String?
+  downloadUrl     String?
+  checksumSha256  String?
+  metadata        Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  expiresAt       DateTime?
+  project         Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  audit           Audit?                 @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  ldDraft         LdDraft?               @relation(fields: [ldDraftId], references: [id], onDelete: SetNull)
+  user            User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([auditId, createdAt])
@@ -557,8 +583,6 @@ model AiModelConfig {
   @@index([model])
 }
 
-
-
 /// A cotação do dólar DECLARADA à mão, com data e autor.
 /// Linha única: `id` é sempre "cambio". Não é buscada de API de propósito —
 /// ver o docblock de `lib/cambio.ts`. Sem a linha, o painel fica em dólar.
@@ -583,29 +607,29 @@ model MetaQualidadeConfig {
 }
 
 model AiUsageEvent {
-  id           String   @id @default(cuid())
-  flow         String
-  aiTaskId     String?
-  taskId       String?
-  taskLabel    String?
-  provider     String
-  model        String
-  operation    String
-  status       String   @default("success")
-  inputTokens  Int      @default(0)
-  outputTokens Int      @default(0)
-  cachedTokens Int      @default(0)
-  totalTokens  Int      @default(0)
+  id               String   @id @default(cuid())
+  flow             String
+  aiTaskId         String?
+  taskId           String?
+  taskLabel        String?
+  provider         String
+  model            String
+  operation        String
+  status           String   @default("success")
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  cachedTokens     Int      @default(0)
+  totalTokens      Int      @default(0)
   estimatedCostUsd Float?
-  durationMs   Int?
-  metadata     Json?
-  error        String?
-  userId       String?
-  userEmail    String?
-  conversationId String?
-  createdAt    DateTime @default(now())
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  aiTask       AiTask?  @relation(fields: [aiTaskId], references: [id], onDelete: SetNull)
+  durationMs       Int?
+  metadata         Json?
+  error            String?
+  userId           String?
+  userEmail        String?
+  conversationId   String?
+  createdAt        DateTime @default(now())
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aiTask           AiTask?  @relation(fields: [aiTaskId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([flow, createdAt])
@@ -640,25 +664,25 @@ model AiUsageEvent {
 /// criado na camada de escrita de artefatos, e uma conversa nao pode depender
 /// disso para ser salva.
 model NexoConversation {
-  id        String   @id
-  userEmail String
-  title     String
-  folderKey String?
-  createdAt DateTime
-  updatedAt DateTime
+  id                String   @id
+  userEmail         String
+  title             String
+  folderKey         String?
+  createdAt         DateTime
+  updatedAt         DateTime
   /// Coluna, e nao um `data->>`: e o unico campo do miolo que a LISTA precisa,
   /// e puxar o JSON inteiro de cem conversas para desenhar a barra lateral
   /// arrastaria megabytes por um booleano.
-  auditoriaPendente Boolean @default(false)
+  auditoriaPendente Boolean  @default(false)
   /// Mesma razao da coluna acima: a barra lateral separa "Montagem de volumes"
   /// de "Auditorias", e o tipo vive dentro do `data`. Sem coluna, a lista do
   /// servidor nao consegue tipar e TODA conversa cai em "volume" -- e num
   /// primeiro acesso, noutro navegador ou com o cache limpo, o disco local nao
   /// esta la para corrigir. Nulo nos registros gravados antes desta coluna;
   /// `tipoDoResumo` aplica o padrao.
-  tipo      String?
-  data      Json
-  syncedAt  DateTime @default(now())
+  tipo              String?
+  data              Json
+  syncedAt          DateTime @default(now())
 
   @@index([userEmail, updatedAt])
 }
