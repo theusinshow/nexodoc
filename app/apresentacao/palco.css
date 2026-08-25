@@ -223,3 +223,68 @@
 .ap-raiz[data-notas="true"] {
   padding-left: 460px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOVIMENTO
+
+   A regra que governa tudo aqui: NADA SE MEXE SEM DIZER ALGO. Entrada
+   escalonada porque a ordem de leitura é uma informação; linha que se desenha
+   porque o fluxo TEM direção; número que corre até o valor porque o valor é o
+   argumento. Movimento decorativo é o que as anti-referências do `PRODUCT.md`
+   proíbem, e ele some primeiro quando a sala é técnica.
+
+   As folhas remontam a cada troca (a `<section>` tem `key`), então as animações
+   tocam de novo a cada visita — o que se ensaia é o que se projeta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes ap-sobe {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ap-surge {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Linha que se desenha da esquerda para a direita: o fluxo tem direção. */
+@keyframes ap-risca {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Descida, para o ramo que desce do motor. */
+@keyframes ap-desce {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* O pulso que percorre o ramo — some junto com o resto em movimento reduzido. */
+@keyframes ap-pulso {
+  0%   { opacity: 0; transform: translateX(0); }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(var(--ap-percurso, 100px)); }
+}
+
+.ap-entra   { animation: ap-sobe 560ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.ap-surge   { animation: ap-surge 700ms ease-out both; }
+.ap-risca   { transform-origin: left center; animation: ap-risca 460ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.ap-desce   { transform-origin: top center;  animation: ap-desce 420ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/*
+ * MOVIMENTO REDUZIDO DESLIGA TUDO — e "tudo" precisa incluir o estado final.
+ * `both` deixa o elemento no quadro inicial (opacidade 0) quando a animação não
+ * roda: sem este bloco, quem pede movimento reduzido veria a folha VAZIA. Já
+ * aconteceu em produto de gente grande.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ap-entra,
+  .ap-surge,
+  .ap-risca,
+  .ap-desce {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

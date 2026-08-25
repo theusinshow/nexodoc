@@ -1,5 +1,22 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **REESTRUTURADO EM 25/08/2026, e este documento ficou para trás no CONTEÚDO.**
+> O deck passou de 18 para 16 folhas + 2 de reserva, com quatro folhas novas (o
+> motor em dois caminhos, a autorrevisão, a segurança e o que pode vir) e cinco
+> aposentadas (a folha "Ao vivo", os achados por disciplina, a ancoragem, a
+> comparação de barras e a conta antiga). A ordem, os títulos e os textos vivem
+> agora em `app/apresentacao/slides.tsx`, que é a autoridade.
+>
+> **O que continua valendo aqui, e por isso o documento não foi apagado:** a
+> ORIGEM de cada número, o que foi medido e o que é premissa, as duas cartas
+> retiradas de propósito, e as decisões de risco (portão de admin, anexo fora do
+> produto, plano B fora do `public/`). Onde este texto e o código divergirem
+> sobre um número, o código está certo e este documento explica de onde ele veio.
+>
+> Mudanças de conteúdo desta reestruturação: hora de engenheiro passou a R$ 50 a
+> R$ 90 (custo direto R$ 3.600 a R$ 6.480); toda data de execução saiu das telas;
+> o custo mensal aparece declarado como estimativa.
+
 Documento de conteúdo para a apresentação à diretoria da PROSUL. Define cada
 slide, o texto real, a fonte de cada número e o que o apresentador narra em vez
 de projetar. O Claude Design executa a partir daqui.
