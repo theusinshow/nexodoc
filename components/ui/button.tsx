@@ -39,8 +39,16 @@ const buttonVariants = cva(
           "nx-dot text-foreground [--nx-edge:var(--input)] [--nx-fill:var(--card)] [--nx-blade:var(--blade-on-secondary)] hover:[--nx-edge:var(--ring)]",
         secondary:
           "nx-dot text-secondary-foreground [--nx-edge:var(--input)] [--nx-fill:var(--secondary)] [--nx-blade:var(--blade-on-secondary)] hover:[--nx-edge:var(--ring)]",
+        /* A UNICA VARIANTE QUE NAO TINHA ESTADO NENHUM. Nem hover, nem active,
+           nem lamina -- passar o mouse no botao de entrar nao devolvia nada, e
+           ele e o unico controle da tela de login.
+
+           A escada corre para o BRANCO no hover e para baixo no active -- o
+           inverso da teal, porque a superficie e clara. Os tres valores e a
+           lamina moram em `--google-*` / `--blade-on-google`, e o comentario
+           deles no `globals.css` conta por que sao esses e nao outros. */
         google:
-          "font-sans text-sm font-medium normal-case tracking-normal text-background [--nx-edge:var(--foreground)] [--nx-fill:var(--foreground)]",
+          "font-sans text-sm font-medium normal-case tracking-normal text-background shadow-[inset_0_1px_0_rgb(255_255_255/0.55)] [--nx-edge:var(--foreground)] [--nx-fill:var(--foreground)] [--nx-blade:var(--blade-on-google)] hover:[--nx-edge:var(--google-hover)] hover:[--nx-fill:var(--google-hover)] active:shadow-[inset_0_2px_3px_rgb(0_0_0/0.26)] active:[--nx-edge:var(--google-active)] active:[--nx-fill:var(--google-active)]",
         /* Sem forma: so texto. A camada continua existindo (transparente) para o
            anel de foco ter onde aparecer -- mas o miolo TEM de ficar opaco no
            foco: transparente ele nao mascara nada, e o botao virava um bloco

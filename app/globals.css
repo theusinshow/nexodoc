@@ -183,6 +183,35 @@
   --blade-on-secondary: rgb(0 166 147 / 0.2);
   --blade-on-destructive: rgb(255 255 255 / 0.28);
 
+  /* O BOTAO DO GOOGLE, que ate 25/08/2026 nao tinha estado nenhum.
+
+     Ele e o unico controle claro do sistema: o miolo e `--foreground` (#e1e7ea)
+     sobre fundo escuro, entao a escada de estado corre para o BRANCO no hover e
+     para BAIXO no active -- o inverso da escada teal, e pelo mesmo motivo que a
+     teal existe: o estado tem de somar, nunca enfraquecer.
+
+     A LAMINA E CLARA, e a primeira versao daqui a fez escura -- errado, por uma
+     razao que so aparece quando se mede o pixel composto.
+
+     A lamina NAO atravessa e sai: `.nx-ctl:hover::after` a leva ate
+     `translateX(-14%)` de uma faixa de 160%, o que COBRE o botao inteiro e fica.
+     Ela nao e um reflexo passando, e a segunda metade do hover. Com um vidro
+     escuro a 9% por cima, o hover media (223,227,229) contra (225,231,234) em
+     repouso: o botao ESCURECIA ao receber o mouse -- o mesmo defeito que o
+     comentario do `--primary-hover` seis linhas acima existe para nao repetir.
+
+     Branco a 35% poe o composto em (248,250,252). O gesto e o mesmo da primaria
+     (um tom mais luminoso da propria superficie entrando na diagonal), e o
+     estado volta a SOMAR.
+
+     O `--google-active` desce mais do que pareceria preciso pelo mesmo motivo:
+     durante o clique o elemento continua em `:hover`, entao a lamina clara ainda
+     esta la clareando o miolo. Ele e escolhido pelo pixel que sai, nao pelo
+     valor que entra -- (204,211,215), simetrico ao ganho do hover. */
+  --google-hover: #f4f8fa;
+  --google-active: #b0bac0;
+  --blade-on-google: rgb(255 255 255 / 0.35);
+
   /* ---------------------------------------------------------------------
      As quatro vagas de cor do DESIGN.md secao 2, preenchidas pelo sistema de
      design v0 (docs/design-system-v0/01-fundamentos.html). Cada uma existe
@@ -715,10 +744,130 @@ textarea {
 /* So o orbe vivo agora: o poster do workspace saiu (16/08/2026), entao a
    pilha e so o centro do painel. */
 .login-media-stack {
+  /* O orbe fica ACIMA da malha. Sem a camada explícita a ordem passa a depender
+     da ordem do markup, que é o acoplamento que some no primeiro refactor. */
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
+}
+
+.login-apresentacao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+/* O ORBE CRESCE, e é aqui que ele cresce para TODAS as larguras.
+
+   O `hero` do `AgentOrb` é `clamp(223px, 27.6vh, 308px)` — uma conta só de
+   ALTURA, deliberada, porque no workspace é a altura que falta. Nesta tela ele
+   é o painel inteiro e o que sobra é LARGURA, então a conta é outra.
+
+   `!important` porque o componente escreve `width`/`height` em estilo inline.
+   Alargar o clamp lá dentro mudaria o welcome do Nexo junto, por um problema
+   que é só do login; escalar por `transform` reamostraria o canvas WebGL e o
+   orbe sairia borrado. Sobra sobrepor o valor inline, no único lugar que tem o
+   problema. */
+.login-media-stack .nexo-agent-orb {
+  width: clamp(300px, 26vw, 400px) !important;
+  height: clamp(300px, 26vw, 400px) !important;
+}
+
+/* A SAUDAÇÃO fica ABAIXO do orbe, e a distância é a do orbe respirando: o halo
+   do `AgentOrb` chega perto da borda da caixa, então um vão curto encostaria o
+   texto na luz. */
+.login-saudacao {
+  margin-top: 28px;
+  max-width: 34ch;
+  text-align: center;
+}
+
+/* Mono, porque a frase está sendo DECODIFICADA e é isso que o mono diz nesta
+   base. `tabular-nums` não: não há número. O que importa é a largura estável —
+   com fonte proporcional cada glifo embaralhado mudaria o comprimento da linha
+   a cada passo, e a frase tremeria até assentar. */
+.login-saudacao-titulo {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  font-variant-ligatures: none;
+}
+
+.login-saudacao-copy {
+  margin-top: 10px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+/* ---- Falar com o responsável ---- */
+
+.login-error-bloco {
+  margin-top: 16px;
+}
+
+.login-error-bloco .login-error {
+  margin-top: 0;
+}
+
+.login-contato-gatilho {
+  margin-top: 10px;
+}
+
+.login-contato {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  clip-path: var(--cut-8);
+}
+
+.login-contato-rotulo {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.login-contato-rotulo:not(:first-child) {
+  margin-top: 12px;
+}
+
+.login-contato-mensagem {
+  min-height: 88px;
+  font-family: var(--font-sans);
+  resize: vertical;
+}
+
+.login-contato-aviso {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--signal-info);
+}
+
+.login-contato-aviso--ok {
+  color: var(--status-ok);
+}
+
+.login-contato-acoes {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
 }
 
 .login-media-panel {
@@ -736,17 +885,130 @@ textarea {
     var(--nexodoc-recessed);
 }
 
-.login-media-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--nexodoc-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--nexodoc-grid) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(90deg, transparent, black 18%, black 82%, transparent);
-  opacity: 0.45;
-  pointer-events: none;
+/* A GRADE DE 56px SAIU DAQUI e virou a malha de pontos (`MalhaDeSondagem`).
+
+   O que ela era: duas linhas de gradiente repetidas, imóveis, decoração pura. O
+   que ela é agora: a mesma textura técnica, com os pontos acendendo e cedendo
+   onde o ponteiro passa — e parada, sem laço de animação nenhum, enquanto
+   ninguém mexe o mouse. É essa parada que a deixa coexistir com o orbe vivo;
+   a razão inteira está no cabeçalho do componente.
+
+   A máscara continua aqui e não lá dentro: é composição desta tela (o campo não
+   pode encostar na borda do painel nem competir com o orbe no centro), não
+   propriedade da malha. */
+.login-malha {
+  mask-image:
+    linear-gradient(90deg, transparent, black 16%, black 84%, transparent),
+    linear-gradient(transparent, black 12%, black 88%, transparent);
+  mask-composite: intersect;
+
+  /* O ÚNICO BOTÃO DE INTENSIDADE DA MALHA, e ele está em 1 de propósito.
+
+     A densidade lá dentro (24px de passo, raio 1,6) foi calculada para dar a
+     MESMA TINTA da grade de linhas que existia aqui antes — geometria, que se
+     mede. O quanto o campo inteiro pesa na tela é a outra metade, e essa não se
+     escolhe por captura: as fotos desta máquina sub-renderizam alfa baixo e já
+     me fizeram errar o campo neural em ambas as direções.
+
+     Então: se ficar forte ou fraco NO MONITOR, o número a mexer é este, e
+     mexê-lo é a decisão de quem está olhando. Não mexa na geometria por isso —
+     ela responde por outra pergunta. */
+  opacity: 1;
+}
+
+/* =====================================================================
+   O LOGIN EM TELA GRANDE — dois degraus, e nenhum deles é tipografia fluida.
+
+   O defeito medido em 25/08/2026: a coluna de autenticação tinha EXATAMENTE a
+   mesma caixa a 1440 e a 2560 — 400px de conteúdo, botão de 400×44 — dentro de
+   um painel que ia de 605px para 1075px. Nada crescia; só o vazio em volta. Um
+   botão de 44px lido a 60cm de um monitor de 27" é o que "parece meio pequeno"
+   quer dizer, e a causa não é o botão: é a composição inteira congelada.
+
+   POR QUE DEGRAU E NÃO `clamp()`: isto é UI de produto, e tipografia fluida aqui
+   piora — o mesmo título mudaria de tamanho a cada resize sem que nada no
+   conteúdo tivesse mudado, e a rampa do DESIGN.md (§3) deixaria de ser uma
+   escala de degraus nomeados. O que responde ao tamanho da tela é a ESTRUTURA:
+   a coluna para de esticar, o conteúdo ocupa mais dela, o alvo de clique cresce.
+
+   1600px: notebook grande / 1080p em tela larga.
+   2100px: a faixa 2K/4K, onde a coluna também precisa PARAR de esticar — a
+           42vw padrão dava 1075px de painel para 400px de conteúdo.
+   ===================================================================== */
+@media (min-width: 1600px) {
+  .login-auth-panel {
+    padding: 64px;
+  }
+
+  .login-auth-content {
+    max-width: 448px;
+  }
+
+  .login-title {
+    margin-top: 26px;
+    font-size: 47px;
+  }
+
+  .login-lead {
+    font-size: 1rem;
+  }
+
+  .login-auth-block {
+    margin-top: 48px;
+  }
+
+  .login-copy {
+    font-size: 1rem;
+  }
+
+  .login-access-note {
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 2100px) {
+  /* A coluna PARA de esticar. Acima disto, 42vw é largura de painel, não de
+     coluna de leitura — e o que sobra vai para o campo, onde o orbe está. */
+  .login-split-shell {
+    grid-template-columns: minmax(560px, 34vw) minmax(0, 1fr);
+  }
+
+  .login-auth-panel {
+    padding: 80px;
+  }
+
+  .login-auth-content {
+    max-width: 496px;
+  }
+
+  .login-title {
+    margin-top: 30px;
+    font-size: 54px;
+  }
+
+  .login-lead,
+  .login-copy {
+    font-size: 1.0625rem;
+  }
+
+  /* O degrau de cima do orbe. A regra base já o levou ao teto de 400px; aqui o
+     painel tem largura de sobra e ele pode ocupar. */
+  .login-media-stack .nexo-agent-orb {
+    width: 500px !important;
+    height: 500px !important;
+  }
+
+  .login-saudacao {
+    margin-top: 36px;
+  }
+
+  .login-saudacao-titulo {
+    font-size: 17px;
+  }
+
+  .login-saudacao-copy {
+    font-size: 0.9375rem;
+  }
 }
 
 .login-narrow-notice {
@@ -1811,4 +2073,38 @@ textarea {
 .text-microrrotulo {
   font-size: 11px;
   line-height: 1.2;
+}
+
+/*
+ * O ALVO DO LOGIN EM TELA GRANDE.
+ *
+ * Ele mora aqui, longe do resto das regras do login, pela razão que o
+ * `.text-microrrotulo` acima já paga: dentro de `@layer components` esta regra
+ * PERDE para o `h-11` do botão — não por especificidade (`.login-form
+ * [data-slot="button"]` é 0,2,0 contra 0,1,0), mas porque utility é uma camada
+ * acima, e camada ganha de especificidade sempre. Medido: com o bloco lá dentro
+ * o botão continuava com 44px de altura a 1440, 1920 e 2560, exatamente igual,
+ * enquanto a largura da coluna (que não briga com utility nenhuma) crescia.
+ *
+ * E é `[data-slot="button"]` em vez de um `size` novo no componente porque o
+ * tamanho é desta TELA: um degrau a mais no `Button` teria de valer para o
+ * produto inteiro, e nada fora do login pediu isso.
+ */
+@media (min-width: 1600px) {
+  .login-form [data-slot="button"] {
+    height: 50px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 2100px) {
+  .login-form [data-slot="button"] {
+    height: 56px;
+    font-size: 14px;
+  }
+
+  .login-form [data-slot="button"] svg {
+    width: 20px;
+    height: 20px;
+  }
 }

@@ -1,10 +1,17 @@
 import { Terminal } from "lucide-react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { MalhaDeSondagem } from "@/components/ambiente/malha-de-sondagem";
 import { MarcaViva } from "@/components/brand/marca-viva";
-import { AgentOrb } from "@/modules/nexo/components/agent-orb";
+import { BoasVindas } from "@/components/login/boas-vindas";
+import {
+  ContatoDoResponsavel,
+  type RespostaDoContato,
+} from "@/components/login/contato-do-responsavel";
 import { Button } from "@/components/ui/button";
+import { falarComOResponsavel } from "@/lib/contato-do-responsavel";
 import { normalizeAuthCallbackPath } from "@/lib/auth-redirect";
 import {
   DEV_AUTH_PROVIDER_ID,
@@ -52,6 +59,44 @@ function MarcaDoGoogle() {
   );
 }
 
+/**
+ * O RECADO DE QUEM NÃO CONSEGUIU ENTRAR.
+ *
+ * É uma server action e NÃO uma rota em `app/api`, por duas razões que puxam
+ * para o mesmo lado. A primeira é de vizinhança: ela existe só para esta tela e
+ * morre com ela. A segunda é a `prova:rotas`, que varre `app/api` exigindo um
+ * portão em cada handler — este é deliberadamente sem sessão (quem o usa é
+ * justamente quem não tem uma), e entrar na lista de exceções da prova daria a
+ * uma decisão pequena o mesmo peso do `/api/auth`.
+ *
+ * O que faz dela segura não é o lugar, é a guarda: destino fixo, teto por
+ * origem, tamanho limitado e escape de HTML, tudo em
+ * [[lib/contato-do-responsavel]].
+ */
+async function enviarRecado(dados: FormData): Promise<RespostaDoContato> {
+  "use server";
+
+  /* O IP vem do cabeçalho que o proxy escreve. Ele é falsificável por quem
+     fala direto com o processo, e o teto sabe disso — ele existe contra o
+     formulário apertado em laço, não contra um adversário determinado. */
+  const cabecalhos = await headers();
+  const origem =
+    cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    cabecalhos.get("x-real-ip")?.trim() ||
+    "desconhecida";
+
+  const resultado = await falarComOResponsavel({
+    email: String(dados.get("email") ?? ""),
+    mensagem: String(dados.get("mensagem") ?? ""),
+    origem,
+    contexto: "falha de autenticação na tela de login",
+  });
+
+  return resultado.ok
+    ? { ok: true, estado: resultado.estado as "enviado" | "gravado" | "nao-configurado" }
+    : { ok: false, motivo: resultado.motivo, erro: resultado.erro };
+}
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const { callbackUrl, error } = await searchParams;
@@ -86,10 +131,22 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               confere se essa conta está liberada para acessar o ambiente.
             </p>
 
+            {/*
+              O CANAL SÓ EXISTE DEPOIS DA PORTA FECHADA.
+
+              Um "fale com o responsável" permanente na tela de login é suporte
+              decorativo: quem entra normalmente não precisa dele, e ele rouba
+              atenção do único controle que importa. Aqui ele nasce do erro, ao
+              lado da frase que o descreve.
+            */}
             {error ? (
-              <p role="alert" className="login-error">
-                Não foi possível autenticar com o Google. Tente novamente.
-              </p>
+              <div className="login-error-bloco">
+                <p role="alert" className="login-error">
+                  Não foi possível autenticar com o Google. Tente novamente ou
+                  fale com quem administra o acesso.
+                </p>
+                <ContatoDoResponsavel enviarRecado={enviarRecado} />
+              </div>
             ) : null}
 
             <form
@@ -167,6 +224,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <aside className="login-media-panel" aria-label="Prévia do Nexo">
         {/*
+          O CAMPO ATRÁS DO ORBE.
+
+          Aqui havia uma grade de 56px desenhada em `::before` — imóvel, e nada
+          além de textura. A malha põe a mesma grade de pé: os pontos acendem e
+          cedem sob o ponteiro, e ficam absolutamente parados enquanto ninguém
+          mexe o mouse.
+
+          É essa parada que a autoriza ao lado do orbe vivo, onde o
+          `CampoNeural` é proibido: a regra do §6 veta movimento AUTÔNOMO, e
+          esta malha não tem nenhum — o laço de animação nem existe em repouso.
+          Reação ao ponteiro é a pessoa mexendo a própria mão.
+
+          Não precisa de `next/dynamic`: ela só toca `window` dentro do efeito,
+          então atravessa o SSR desta página de servidor sem o invólucro que o
+          `ogl` do campo exige.
+        */}
+        <MalhaDeSondagem className="login-malha" />
+
+        {/*
           A ALMA ACESA NA PORTA DE ENTRADA.
 
           O §6 já previa o orbe 3D em "Palco / entrada", e o login É a entrada.
@@ -180,9 +256,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           Um orbe vivo por tela: esta é a única instância do login (o lockup e o
           aviso de tela estreita usam o SVG estático).
+
+          O orbe e a saudação saem juntos de `BoasVindas`, e não daqui: enquanto
+          a frase se decifra o orbe está em `responding` acompanhando o
+          progresso dela. Montá-los como irmãos nesta página deixaria os dois
+          sem como conversar.
         */}
         <div className="login-media-stack">
-          <AgentOrb size="hero" state="idle" interactive={false} />
+          <BoasVindas />
         </div>
       </aside>
 
