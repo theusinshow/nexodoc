@@ -1,0 +1,337 @@
+// A CÓPIA QUE ABRE SEM SERVIDOR — um único `.html`, do disco, sem rede.
+//
+// POR QUE ELA EXISTE. O deck mora dentro do aplicativo (`/apresentacao`), e isso
+// acopla a apresentação à saúde dele: um problema de deploy mataria o deck E a
+// demonstração ao vivo no mesmo minuto. As folhas de reserva B1/B2 não salvam
+// disso — também dependem do app estar de pé. Este arquivo é a última camada.
+//
+//   npm run dev                              (noutro terminal)
+//   node scripts/gerar-apresentacao-offline.mjs
+//
+// POR QUE PELO NAVEGADOR, e não renderizando o React aqui. Duas razões:
+//
+//  1. O Next RECUSA `react-dom/server` no grafo do app ("You're importing a
+//     component that imports react-dom/server"), então a rota que eu tentei
+//     primeiro não compila. Não é contorno: é a regra da plataforma.
+//  2. Mais importante — o que se quer no pen drive é o que o apresentador
+//     ENSAIOU. Serializar o DOM da página real garante isso; uma segunda
+//     renderização por outro caminho pode divergir sem avisar.
+//
+// NÃO GASTA TOKEN: só lê a tela que já existe.
+//
+// O QUE NÃO VAI JUNTO: as fontes. `next/font` auto-hospeda o IBM Plex, e embutir
+// os `woff2` custaria centenas de KB por um caso degradado do caso degradado. O
+// arquivo pede a fonte ao Google e cai na do sistema quando não há internet — o
+// deck continua legível, só menos afinado, e isso está escrito no rodapé dele.
+import fs from "node:fs";
+import path from "node:path";
+
+import nextEnv from "@next/env";
+import { chromium } from "playwright";
+
+nextEnv.loadEnvConfig(process.cwd());
+
+const BASE = process.env.NEXODOC_BASE_URL ?? "http://localhost:3000";
+const SAIDA = process.argv[2] ?? "scratchpad/nexodoc-apresentacao.html";
+
+/** Lê um arquivo do disco como `data:` URI. */
+function dataUri(arquivo, tipo) {
+  const bytes = fs.readFileSync(path.join(process.cwd(), arquivo));
+  return `data:${tipo};base64,${bytes.toString("base64")}`;
+}
+
+/**
+ * Os tokens que o `globals.css` daria e que o arquivo solto não terá, mais a
+ * regra da marca reduzida ao que a capa usa.
+ */
+const TOKENS = `
+:root {
+  --background: #0a0e11;
+  --foreground: #e1e7ea;
+  --card: #121518;
+  --border: #23282c;
+  --muted-foreground: #8e9ba3;
+  --primary: #00a693;
+  --nexodoc-accent: #5bdac6;
+  --nexodoc-raised: #1a1e21;
+  --status-ok: #6ee7a3;
+  --status-ok-bg: rgb(110 231 163 / 0.13);
+  --status-warning: #e9b45c;
+  --status-critical: #ff9285;
+  --status-critical-bg: rgb(255 146 133 / 0.14);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); }
+.nx-marca {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  background-image: var(--nx-marca-estatica);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.ap-folha[hidden] { display: none; }
+.ap-aviso {
+  position: fixed; left: 24px; bottom: 20px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px; color: #3d474d;
+}
+`;
+
+/** O motor, em JavaScript comum. As MESMAS teclas do `palco.tsx`. */
+const MOTOR = `
+(function () {
+  var folhas = [].slice.call(document.querySelectorAll('.ap-folha'));
+  var palco = document.getElementById('palco');
+  var moldura = document.getElementById('moldura');
+  var raiz = document.getElementById('raiz');
+  var notas = document.getElementById('notas');
+  var notasTexto = document.getElementById('notas-texto');
+  var notasRotulo = document.getElementById('notas-rotulo');
+  var posicao = document.getElementById('posicao');
+  var i = 0, notasAbertas = false;
+
+  function escala() {
+    var largura = window.innerWidth - (notasAbertas ? 460 : 0);
+    var k = Math.min(largura / 1920, window.innerHeight / 1080);
+    palco.style.transform = 'scale(' + k + ')';
+    // A moldura assume o tamanho ja escalado — ver o comentario em palco.css.
+    moldura.style.width = 1920 * k + 'px';
+    moldura.style.height = 1080 * k + 'px';
+  }
+  function mostra(n) {
+    i = Math.max(0, Math.min(folhas.length - 1, n));
+    folhas.forEach(function (f, k) { f.hidden = k !== i; });
+    posicao.textContent = (i + 1) + '/' + folhas.length;
+    notasTexto.textContent = folhas[i].getAttribute('data-notas') || '';
+    notasRotulo.textContent = folhas[i].getAttribute('data-rotulo') || '';
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); mostra(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); mostra(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); mostra(0); }
+    else if (e.key === 'End') { e.preventDefault(); mostra(folhas.length - 1); }
+    else if (e.key === 'n' || e.key === 'N') {
+      notasAbertas = !notasAbertas;
+      notas.hidden = !notasAbertas;
+      raiz.setAttribute('data-notas', String(notasAbertas));
+      escala();
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (raiz.requestFullscreen) raiz.requestFullscreen();
+    }
+  });
+  window.addEventListener('resize', escala);
+  escala();
+  mostra(0);
+})();
+`;
+
+async function main() {
+  const navegador = await chromium.launch();
+  const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
+
+  await pagina.goto(`${BASE}/apresentacao`, { waitUntil: "domcontentloaded" });
+
+  if (pagina.url().includes("/login")) {
+    await pagina.getByRole("button", { name: /Entrar como dev/i }).click();
+    await pagina.waitForURL("**/apresentacao**", { timeout: 30000 });
+  }
+
+  await pagina.waitForSelector(".ap-folha", { timeout: 20000 });
+
+  const total = Number((await pagina.textContent(".ap-posicao"))?.split("/")[1] ?? 0);
+  if (!total) throw new Error("Não achei o contador de slides — a rota mudou?");
+
+  /*
+   * UMA FOLHA DE CADA VEZ, porque o palco só monta a corrente. Avança pela MESMA
+   * tecla que o apresentador usa: se a navegação quebrar, o gerador quebra junto
+   * — e é melhor descobrir aqui do que na sala.
+   */
+  const folhas = [];
+  for (let i = 0; i < total; i += 1) {
+    const folha = await pagina.evaluate(() => {
+      const secao = document.querySelector(".ap-folha");
+      if (!secao) return null;
+      const numero = secao.querySelector(".ap-numero")?.textContent ?? "";
+      return { html: secao.outerHTML, numero };
+    });
+    if (!folha) throw new Error(`Folha ${i + 1} não renderizou.`);
+
+    folhas.push({ ...folha, rotulo: "", notas: "" });
+
+    if (i < total - 1) {
+      await pagina.keyboard.press("ArrowRight");
+      await pagina.waitForFunction(
+        (esperado) => document.querySelector(".ap-posicao")?.textContent?.startsWith(`${esperado}/`),
+        i + 2,
+        { timeout: 5000 },
+      );
+    }
+  }
+
+  // As notas vivem no React, e o painel só existe quando está aberto. Abre uma
+  // vez e relê tudo — mais barato que abrir e fechar a cada folha.
+  await pagina.keyboard.press("Home");
+  await pagina.keyboard.press("n");
+  for (let i = 0; i < total; i += 1) {
+    folhas[i].rotulo = (await pagina.textContent(".ap-notas-rotulo")) ?? "";
+    folhas[i].notas = (await pagina.textContent(".ap-notas p:last-of-type")) ?? "";
+    if (i < total - 1) await pagina.keyboard.press("ArrowRight");
+  }
+
+  await navegador.close();
+
+  const palcoCss = fs.readFileSync("app/apresentacao/palco.css", "utf8");
+  const orbe = dataUri("public/marca/orbe-512.png", "image/png");
+  const resumo = dataUri("assets-privados/apresentacao/plano-b-resumo.jpg", "image/jpeg");
+  const achados = dataUri("assets-privados/apresentacao/plano-b-achados.jpg", "image/jpeg");
+
+  const corpo = folhas
+    .map(({ html, rotulo, notas }, i) => {
+      const atributos =
+        `${i === 0 ? "" : " hidden"}` +
+        ` data-rotulo="${escapar(rotulo)}" data-notas="${escapar(notas)}"`;
+      return html.replace(/^<section/, `<section${atributos}`);
+    })
+    .join("\n");
+
+  let html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexoDoc — Apresentação à diretoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>${TOKENS}${palcoCss}</style>
+</head>
+<body>
+<div class="ap-raiz" id="raiz">
+  <div class="ap-moldura" id="moldura">
+    <div class="ap-palco" id="palco">
+${corpo}
+    </div>
+  </div>
+</div>
+<aside class="ap-notas" id="notas" hidden>
+  <p class="ap-notas-rotulo" id="notas-rotulo"></p>
+  <h2>Notas do apresentador</h2>
+  <p id="notas-texto"></p>
+</aside>
+<div class="ap-regua">
+  <span class="ap-posicao" id="posicao"></span>
+  <span><kbd>←</kbd> <kbd>→</kbd> navegar</span>
+  <span><kbd>N</kbd> notas</span>
+  <span><kbd>F</kbd> tela cheia</span>
+</div>
+<p class="ap-aviso">cópia offline · sem internet a fonte cai para a do sistema</p>
+<script>${MOTOR}</script>
+</body>
+</html>`;
+
+  html = html
+    .replaceAll("/marca/orbe-512.png", orbe)
+    .replaceAll("/apresentacao/plano-b/resumo", resumo)
+    .replaceAll("/apresentacao/plano-b/achados", achados);
+
+  const restou = ["/marca/", "/apresentacao/plano-b/", "/_next/"].filter((p) => html.includes(p));
+  if (restou.length) {
+    throw new Error(
+      `Sobrou endereço de servidor no arquivo (${restou.join(", ")}) — ele não abriria do disco.`,
+    );
+  }
+
+  fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
+  fs.writeFileSync(SAIDA, html, "utf8");
+
+  await conferirNoDisco(path.resolve(SAIDA), folhas.length);
+
+  console.log(`OK — ${folhas.length} folhas, ${(html.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   ${path.resolve(SAIDA)}`);
+}
+
+/**
+ * ABRE O ARQUIVO DO DISCO e confere que ele funciona ali — `file://`, sem
+ * servidor nenhum de pé.
+ *
+ * Escrever o arquivo não é prova de que ele abre: a lição desta casa é que
+ * "compila limpo" não é evidência de que roda, e aqui o modo de falhar seria
+ * silencioso — um endereço que sobrou, um script que não executa sob `file://`,
+ * uma folha que não aparece. Um arquivo de emergência que só se descobre quebrado
+ * na emergência é pior que não ter arquivo nenhum.
+ */
+async function conferirNoDisco(arquivo, esperadas) {
+  const navegador = await chromium.launch();
+  const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
+
+  const falhas = [];
+  pagina.on("pageerror", (erro) => falhas.push(String(erro)));
+  // Sob `file://` qualquer pedido de rede que sobrasse falharia aqui.
+  pagina.on("requestfailed", (req) => {
+    if (!req.url().startsWith("https://fonts.")) falhas.push(`pedido falhou: ${req.url()}`);
+  });
+
+  await pagina.goto(`file://${arquivo.replaceAll("\\", "/")}`, { waitUntil: "load" });
+
+  const contador = await pagina.textContent(".ap-posicao");
+  if (contador !== `1/${esperadas}`) {
+    throw new Error(`Contador do arquivo diz "${contador}", esperava "1/${esperadas}".`);
+  }
+
+  const visiveis = await pagina.locator(".ap-folha:not([hidden])").count();
+  if (visiveis !== 1) throw new Error(`${visiveis} folhas visíveis ao abrir; esperava 1.`);
+
+  /*
+   * O SLIDE INTEIRO PRECISA CABER NA JANELA. Foi assim que o defeito do
+   * transbordo apareceu: o rodapé da capa caía 23px abaixo da borda, em toda
+   * folha, e nenhuma asserção de DOM notava — o elemento existia, só não dava
+   * para vê-lo. Mede-se a caixa, não a existência.
+   */
+  const transborda = await pagina.evaluate(() => {
+    const folha = document.querySelector(".ap-folha:not([hidden])");
+    if (!folha) return "sem folha";
+    const c = folha.getBoundingClientRect();
+    const fora = c.bottom > window.innerHeight + 1 || c.right > window.innerWidth + 1 ||
+      c.top < -1 || c.left < -1;
+    return fora
+      ? `folha em ${Math.round(c.left)},${Math.round(c.top)} até ${Math.round(c.right)},${Math.round(c.bottom)} numa janela de ${window.innerWidth}x${window.innerHeight}`
+      : null;
+  });
+  if (transborda) throw new Error(`O slide não cabe na janela: ${transborda}`);
+
+  // A tecla precisa navegar — é o único jeito de passar os slides ali.
+  await pagina.keyboard.press("End");
+  const fim = await pagina.textContent(".ap-posicao");
+  if (fim !== `${esperadas}/${esperadas}`) {
+    throw new Error(`\`End\` levou a "${fim}", esperava "${esperadas}/${esperadas}".`);
+  }
+
+  // E as notas do apresentador precisam sair do atributo para a tela.
+  await pagina.keyboard.press("n");
+  const nota = (await pagina.textContent("#notas-texto")) ?? "";
+  if (nota.trim().length < 20) throw new Error("O painel de notas abriu vazio.");
+
+  await navegador.close();
+
+  if (falhas.length) {
+    throw new Error(`O arquivo não é autossuficiente:\n  ${falhas.join("\n  ")}`);
+  }
+
+  console.log(`   conferido do disco: ${esperadas} folhas, navegação e notas.`);
+}
+
+function escapar(texto) {
+  return texto
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+main().catch((erro) => {
+  console.error(erro.message);
+  process.exit(1);
+});

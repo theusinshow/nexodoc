@@ -18,12 +18,32 @@
   place-items: center;
 }
 
+/*
+ * A MOLDURA existe para o palco NÃO TRANSBORDAR — e isso não é detalhe de
+ * estilo, é o que decide se o rodapé do slide aparece.
+ *
+ * `transform: scale()` encolhe o DESENHO e não a CAIXA: o palco continua
+ * ocupando 1920x1080 no layout. Numa janela menor ele transborda, e como
+ * `.ap-raiz` tem `overflow: hidden` — o que faz dela um contêiner de rolagem —
+ * o navegador DESISTE de centralizar o que não cabe e encosta no início. Medido
+ * em 1600x900: o palco nascia em (160, 90) em vez de (0, 0), e o rodapé da capa
+ * caía em y=923 numa janela de 900. Cortado, em todos os slides, sem aviso.
+ *
+ * A moldura recebe por JavaScript o tamanho JÁ ESCALADO. Aí ela cabe, a
+ * centralização volta a valer, e o palco desenha dentro dela a partir do canto.
+ */
+.ap-moldura {
+  position: relative;
+  flex: none;
+}
+
 .ap-palco {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 1920px;
   height: 1080px;
-  flex: none;
-  transform-origin: center center;
-  position: relative;
+  transform-origin: 0 0;
 }
 
 /* O slide ocupa o palco inteiro; só o corrente é montado. */

@@ -450,6 +450,23 @@ tela cheia. `End` é também o atalho do plano B: as duas folhas de reserva são
 Design (`Nexo - Anexo proposta.dc.html`), separado, e se abre por decisão de
 quem apresenta.
 
+## A terceira camada: a cópia que abre sem servidor
+
+`npm run apresentacao:offline` serializa a página real num `.html` único, com a
+marca e as capturas embutidas como `data:` URI e um motor de slides em
+JavaScript comum — as mesmas teclas. Abre do disco, sem app, sem rede.
+
+Sai da página REAL de propósito: o que vai no pen drive é o que foi ensaiado.
+Uma segunda redação do mesmo conteúdo divergiria na primeira correção.
+
+O gerador **se confere sozinho** antes de terminar: reabre o arquivo por
+`file://`, exige as 20 folhas, navega com `End`, abre as notas e mede se o slide
+cabe na janela. Se sobrar qualquer endereço de servidor, ele falha em vez de
+entregar um arquivo que só se descobriria quebrado na emergência.
+
+Não leva as fontes: sem internet, o IBM Plex cai para a do sistema. O deck
+continua legível, e o próprio arquivo avisa isso no rodapé.
+
 # Antes de apresentar — verificação
 
 Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
@@ -468,10 +485,10 @@ Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
       na frente do diretor.
 - [ ] **Anexo separado do deck principal**, em arquivo próprio, e nunca aberto
       por acidente.
-- [ ] **Cópia que abra sem servidor**, para o caso de o deploy falhar: pôr o
-      deck dentro do aplicativo acopla a apresentação à saúde dele, e um
-      problema de infraestrutura mataria o deck e a demonstração juntos. É o
-      único item do plano B que continua em aberto.
+- [ ] **Gerar a cópia offline e levá-la no pen drive:** `npm run apresentacao:offline`
+      (com o `npm run dev` de pé) escreve um `.html` único de ~0,65 MB, que abre
+      do disco sem servidor. Ele se confere sozinho antes de terminar. **Refazer
+      sempre que um slide mudar** — a cópia é uma fotografia, não um espelho.
 
 ---
 
@@ -501,6 +518,14 @@ relatório técnico, não pitch deck.
 
 **Densidade:** um argumento por slide. Os slides 7 e 17 são deliberadamente
 vazios — o espaço em branco é o efeito.
+
+**O palco não pode transbordar.** `transform: scale()` encolhe o desenho e não a
+caixa; com `overflow: hidden` no contêiner, o navegador desiste de centralizar o
+que não cabe e encosta no início. Medido em 1600x900 em 24/08/2026: o rodapé da
+capa caía 23px abaixo da borda, em TODOS os slides, e nenhuma asserção de DOM
+notava — o elemento existia, só não dava para vê-lo. A moldura
+(`.ap-moldura`) recebe o tamanho já escalado e devolve a centralização. Há
+asserção de caixa no gerador offline para impedir a volta.
 
 **Diagrama do slide 13:** caixas retangulares, cantos levemente arredondados,
 setas finas, sem sombra. Três faixas com fundo `#121518` e rótulo em mono sobre

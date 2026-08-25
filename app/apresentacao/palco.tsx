@@ -34,6 +34,7 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
   const [notasAbertas, setNotasAbertas] = useState(false);
   const [ponteiroParado, setPonteiroParado] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
+  const moldura = useRef<HTMLDivElement>(null);
   const palco = useRef<HTMLDivElement>(null);
 
   const atual = slides[indice];
@@ -65,6 +66,11 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
       const largura = window.innerWidth - (notasAbertas ? LARGURA_DAS_NOTAS : 0);
       const escala = Math.min(largura / 1920, window.innerHeight / 1080);
       alvo.style.transform = `scale(${escala})`;
+      // A moldura assume o tamanho já escalado — ver o comentário em palco.css.
+      if (moldura.current) {
+        moldura.current.style.width = `${1920 * escala}px`;
+        moldura.current.style.height = `${1080 * escala}px`;
+      }
     }
 
     ajusta();
@@ -138,19 +144,21 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
 
   return (
     <div className="ap-raiz" data-notas={notasAbertas} ref={raiz}>
-      <div className="ap-palco" ref={palco}>
-        <section
-          className={`ap-folha${atual.denso ? " ap-folha--denso" : ""}`}
-          key={atual.numero}
-        >
-          {atual.bloco ? (
-            <div className="ap-cabeca">
-              <span className="ap-bloco">{atual.bloco}</span>
-              <span className="ap-numero">{atual.numero}</span>
-            </div>
-          ) : null}
-          {atual.corpo}
-        </section>
+      <div className="ap-moldura" ref={moldura}>
+        <div className="ap-palco" ref={palco}>
+          <section
+            className={`ap-folha${atual.denso ? " ap-folha--denso" : ""}`}
+            key={atual.numero}
+          >
+            {atual.bloco ? (
+              <div className="ap-cabeca">
+                <span className="ap-bloco">{atual.bloco}</span>
+                <span className="ap-numero">{atual.numero}</span>
+              </div>
+            ) : null}
+            {atual.corpo}
+          </section>
+        </div>
       </div>
 
       {notasAbertas ? (
