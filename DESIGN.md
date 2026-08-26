@@ -548,6 +548,35 @@ que dispara sozinho porque a rota do painel nunca montou aquele módulo.
 clique e a chegada, por dentro da própria página. Serializar a navegação de novo
 dobra o tempo até o Nexo aparecer, e o portão pega.
 
+#### O que sobra é o dev server, não o desenho (medido em 26/08/2026)
+
+A transição foi reportada como "muito travada" depois de já estar paralelizada, e
+a medição achou a causa fora dela. Mesmo clique, mesma máquina, mesmo código:
+
+| | casca no DOM | tela pronta | quadros perdidos |
+|---|---|---|---|
+| `next dev`, 1ª ida a `/nexo` | **2321 ms** | — | — |
+| `next dev`, idas seguintes | 270 ms | 558 ms | 1,3% |
+| `next start` (produção), 1ª ida | 222 ms | 489 ms | 1,0% |
+| `next start` (produção), 2ª ida | 168 ms | 435 ms | 0,3% |
+
+Os 2,3s são o Turbopack compilando a rota sob demanda, e eles voltam **a cada
+edição de arquivo** — então quem está desenvolvendo bate nesse caminho o dia
+inteiro, e quem usa o produto nunca bate. O JS que de fato bloqueia a thread são
+120–170ms nos quatro casos: não é o que trava.
+
+**Consequência prática:** julgar esta transição em `next dev` é medir o
+compilador. Um build de produção é o único lugar onde o número quer dizer
+alguma coisa. E não há biblioteca de transição que conserte isto — todas
+animam a TROCA, e a troca custa 1% de quadros; o que doía era a espera pelo
+destino, que nenhuma animação encurta.
+
+**O que foi tentado e NÃO funciona:** aquecer a rota com `router.prefetch()` no
+`useEffect`. Em desenvolvimento a chamada não chega ao servidor (o log do dev
+mostra só os `GET /nexo` das navegações de verdade), e em produção o `<Link>` já
+pré-carrega ao entrar na viewport — onde o orbe sempre está. Era uma linha que
+não fazia nada nos dois ambientes.
+
 **Movimento reduzido não vê nada disso.** O gate é em JS, no `BotaoDoOrbe`,
 antes de a coreografia começar — e o que ele desliga é a ENCENAÇÃO, nunca a
 navegação: o clique volta a ser um `<Link>` comum e leva ao mesmo lugar. Vale o
