@@ -496,23 +496,57 @@ que atravessa as duas telas — o orbe — e uma espera real do outro lado, onde
 Nexo monta three.js, a barra lateral e o histórico. Sem transição, o que se via
 era o painel congelado até tudo ficar pronto.
 
-**Partida — 240ms.** É `--duration-shell` a 75%, a regra de saída da tabela
-acima, e não um número novo. O trabalho da página se apaga em BLOCO (nunca em
+**Os dois tempos correm JUNTOS, e essa é a regra que a primeira versão desta
+transição quebrou.** Ela pedia a rota num `setTimeout` no fim da saída, para que
+a animação nunca fosse cortada — e o resultado foi 240ms em que nada era
+buscado, seguidos do congelamento de montar o Nexo. Duas esperas em fila lêem-se
+como travamento, não como transição. A navegação agora sai no mesmo quadro do
+clique, dentro de um `startTransition`: o React segura o painel na tela, ainda
+animando, enquanto prepara o destino.
+
+**A consequência aceita:** numa rota quente a saída pode ser cortada pela
+metade. Isso é BOM. Quem toca o orbe quer chegar, não assistir — e o corte fica
+invisível porque a chegada entra em fade.
+
+**Partida — `--duration-base`.** O trabalho da página se apaga em BLOCO (nunca em
 cascata pelos filhos), o vidro da barra vai a transparente junto com o que ela
 mostra, e o orbe fica: cresce a 1,45 e acende o halo por inteiro. Sobra ele,
 sozinho no escuro. É a mesma frase do `:active` — tocar abre — levada até o fim.
+
+**Quem apaga a página é um VÉU, não a página.** Um retângulo `fixed` da cor do
+fundo, em opacidade, entre o trabalho (abaixo) e o orbe (acima, no `z` da
+barra). A alternativa óbvia — `opacity: 0` no `<main>` — obriga o navegador a
+rasterizar a página inteira numa camada, dezenas de cartões com `clip-path` e
+pseudo-elemento, no exato quadro em que o destino começa a montar. Cor sólida em
+opacidade é o caso mais barato do compositor, e continua a 60fps com a thread
+principal ocupada. Nenhum dos dois precisa de `will-change`: opacidade em
+animação já promove a camada.
+
+**Todo `backdrop-filter` morre no ato durante a partida** — o da barra e o do
+próprio orbe, sem transição. É a linha que mais pesa da transição inteira:
+desfoque de fundo recalcula a cada quadro tudo que passa por baixo, e durante a
+saída o que passa por baixo é a página se apagando — dentro de um elemento que
+ainda por cima está escalando 45%. Não se perde nada: atrás do orbe, ali, só
+existe o véu, e borrar cor sólida devolve a mesma cor.
 
 O halo, que é ambiente e obedece a `--motion-gain` em toda outra situação, **na
 partida não obedece**: ali ele deixa de ser ambiente. Vira a única coisa na tela
 dizendo que o Nexo está vindo, e ambiente é, por definição, o que se pode
 desligar sem perder informação.
 
-**Chegada — 320ms.** `.nexo-shell` revela-se inteira, uma vez, só em opacidade.
-`transform` está proibido neste nó: ele criaria bloco de contenção para todo
-descendente `fixed` (popover do orbe, drawer, tooltip), e um deles aberto
-durante a entrada apareceria fora do lugar. Quem carrega a chegada de verdade é
-o **boot do orbe** (§6, ~600ms), que dispara sozinho porque a rota do painel
-nunca montou aquele módulo.
+**Chegada — `--duration-slow`.** `.nexo-shell` revela-se inteira, uma vez, só em
+opacidade. `transform` está proibido neste nó: ele criaria bloco de contenção
+para todo descendente `fixed` (popover do orbe, drawer, tooltip), e um deles
+aberto durante a entrada apareceria fora do lugar. E não é `--duration-shell`:
+320ms é o reflow de layout do welcome↔active, enquanto isto é superfície
+entrando. A diferença importa porque estes 240ms rodam EM CIMA do boot do
+three.js — alongar a entrada só estica o trecho em que as duas coisas disputam a
+máquina. Quem carrega a chegada de verdade é o **boot do orbe** (§6, ~600ms),
+que dispara sozinho porque a rota do painel nunca montou aquele módulo.
+
+**Como isto se mede:** `npm run prova:partida` conta os quadros perdidos entre o
+clique e a chegada, por dentro da própria página. Serializar a navegação de novo
+dobra o tempo até o Nexo aparecer, e o portão pega.
 
 **Movimento reduzido não vê nada disso.** O gate é em JS, no `BotaoDoOrbe`,
 antes de a coreografia começar — e o que ele desliga é a ENCENAÇÃO, nunca a

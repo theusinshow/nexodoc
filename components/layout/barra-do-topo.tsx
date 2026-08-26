@@ -71,13 +71,8 @@ import { RelogioDoTopo } from "@/components/layout/relogio-do-topo";
 import { cn } from "@/lib/utils";
 import { DURATION } from "@/modules/nexo/lib/motion";
 
-/**
- * A duração da partida, do mesmo jeito que o `BotaoDoOrbe` a calcula: a
- * macrotransição do shell a 75%, que é o que a §5 manda usar em toda saída.
- * Repetida como conta, e não copiada como 240 — os dois têm de andar juntos, e
- * um número solto aqui sairia de sincronia na primeira reafinação.
- */
-const PARTIDA_MS = Math.round(DURATION.shell * 0.75);
+/** A duração da partida. Mesmo token do `BotaoDoOrbe`, e não uma cópia do número. */
+const PARTIDA_MS = DURATION.base;
 
 export function BarraDoTopo({
   nome,
@@ -132,6 +127,17 @@ export function BarraDoTopo({
               backgroundColor: "transparent",
               borderBottomColor: "transparent",
               boxShadow: "none",
+              /*
+               * O BORRÃO MORRE NO ATO, sem transição — e é a linha que mais
+               * pesa deste arquivo. `backdrop-filter` recalcula o desfoque de
+               * tudo que passa por baixo A CADA QUADRO, e durante a partida o
+               * que passa por baixo é a página inteira se apagando: o pior
+               * momento possível para manter o efeito mais caro da tela ligado.
+               * Desligado, a saída passa a ser só opacidade, que o compositor
+               * resolve sem a thread principal.
+               */
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none",
               transition: `background-color ${PARTIDA_MS}ms var(--ease-feedback), border-color ${PARTIDA_MS}ms var(--ease-feedback), box-shadow ${PARTIDA_MS}ms var(--ease-feedback)`,
             }
           : undefined
@@ -145,7 +151,7 @@ export function BarraDoTopo({
           className={cn(
             "flex shrink-0 items-center gap-2.5 text-foreground",
             "transition-opacity duration-[var(--duration-fast)] hover:opacity-80",
-            partindo && "pointer-events-none opacity-0 duration-[160ms]",
+            partindo && "pointer-events-none opacity-0 duration-[120ms]",
           )}
         >
           {/*
@@ -195,7 +201,7 @@ export function BarraDoTopo({
         <RelogioDoTopo
           className={cn(
             "nx-cut-5 ml-1 hidden items-center bg-[var(--nexodoc-recessed)] px-3 py-[7px] md:inline-flex",
-            "transition-opacity duration-[160ms]",
+            "transition-opacity duration-[120ms]",
             partindo && "opacity-0",
           )}
         />
@@ -234,7 +240,7 @@ export function BarraDoTopo({
         <div
           ref={conta}
           className={cn(
-            "relative shrink-0 transition-opacity duration-[160ms]",
+            "relative shrink-0 transition-opacity duration-[120ms]",
             partindo && "pointer-events-none opacity-0",
           )}
         >

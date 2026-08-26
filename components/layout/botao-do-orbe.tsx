@@ -49,7 +49,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { MarcaViva } from "@/components/brand/marca-viva";
@@ -65,15 +65,15 @@ import { DURATION, prefersReducedMotion } from "@/modules/nexo/lib/motion";
 const alcanceDe = (tamanho: number) => Math.max(3, Math.round(tamanho * 0.055));
 
 /**
- * Quanto dura a PARTIDA — o painel saindo de cena antes de o Nexo chegar.
+ * Quanto dura a PARTIDA — o painel saindo de cena.
  *
- * Não é número novo: é a macrotransição do shell (320ms, o único token que a
- * §5 reserva para uma mudança deste porte) vezes os 75% que a mesma seção manda
- * usar em toda saída. Escrito como conta, e não como 240, para que mexer no
- * token mexa nisto junto — a alternativa era um número solto que envelheceria
- * sozinho na primeira vez que alguém reafinasse o shell.
+ * Era `--duration-shell` a 75% (240ms), enquanto a saída ainda GATILHAVA a
+ * navegação e precisava caber a viagem inteira. Desde que os dois passaram a
+ * correr juntos, esta duração é só o que o olho vê, e 240ms viraram lentidão
+ * gratuita no caminho de quem só quer chegar. `--duration-base` é a revelação
+ * de conteúdo da §5, que é exatamente o que isto é.
  */
-const PARTIDA = Math.round(DURATION.shell * 0.75);
+const PARTIDA = DURATION.base;
 
 export function BotaoDoOrbe({
   /** Lado da caixa de vidro. O símbolo dentro acompanha. */
@@ -157,19 +157,21 @@ export function BotaoDoOrbe({
    * A PARTIDA — a única coisa deste arquivo que não é sobre o botão em si.
    *
    * O clique deixa de ser uma navegação instantânea e passa a ser uma SAÍDA: a
-   * página se apaga, o orbe cresce e fica aceso sozinho no escuro, e só então o
-   * Nexo é pedido. São 240ms, e eles não são cortesia — do outro lado o Nexo
-   * monta three.js, a barra lateral e o histórico da conversa, e sem a saída o
-   * que se via era a tela do painel congelada até tudo isso ficar pronto.
+   * página se apaga e o orbe cresce, aceso, sozinho no escuro.
    *
-   * O `router.push` vai no FIM, e não no começo. Com a rota já pré-carregada
-   * pelo `<Link>`, empurrar antes trocaria a página no primeiro quadro e cortaria
-   * a saída pela metade — a transição existiria só nas máquinas lentas, que é o
-   * avesso do que se quer.
+   * A NAVEGAÇÃO COMEÇA NO MESMO INSTANTE, e a primeira versão disto errava
+   * exatamente aqui. Ela pedia a rota num `setTimeout(240)`, para que a saída
+   * nunca fosse cortada — e o resultado foi o oposto do pretendido: 240ms de
+   * espera em que NADA era buscado, e só depois o Nexo começava a montar
+   * three.js, a barra lateral e o histórico. Os dois tempos ficavam em fila, e
+   * o que se sentia era a tela travar depois da animação.
    *
-   * O TEMPORIZADOR NÃO É CANCELADO na desmontagem, e isso é intencional. Este
-   * componente desmonta porque a navegação aconteceu; cancelar ali seria
-   * cancelar a própria viagem no instante em que ela chega.
+   * Agora eles correm juntos. `startTransition` é o que torna isso possível: a
+   * navegação vira atualização não urgente, então o React mantém o painel na
+   * tela — ainda animando — enquanto prepara o Nexo, e troca quando estiver
+   * pronto. O custo aceito é que numa rota já quente a saída pode ser cortada
+   * pela metade; e isso é BOM, porque quem clica quer chegar, não assistir. O
+   * corte fica invisível porque a chegada entra em fade (`.nexo-shell`).
    *
    * QUATRO SAÍDAS SEM COREOGRAFIA, e as quatro devolvem o `<Link>` intacto:
    * modificador de teclado ou botão que não é o principal (abrir em nova aba
@@ -185,10 +187,15 @@ export function BotaoDoOrbe({
     ev.preventDefault();
     if (partindo) return;
 
+    /*
+     * A encenação é URGENTE e a viagem não. Nesta ordem: o painel tem de
+     * começar a se apagar no primeiro quadro depois do clique — é o que
+     * responde à mão —, e a rota pode levar o tempo que precisar por baixo.
+     */
     setPartindo(true);
     soltar();
     aoPartir();
-    window.setTimeout(() => router.push(destino), PARTIDA);
+    startTransition(() => router.push(destino));
   }
 
   return (
@@ -239,6 +246,16 @@ export function BotaoDoOrbe({
           ? {
               scale: "1.45",
               transition: `scale ${PARTIDA}ms var(--ease-entrance)`,
+              /*
+               * O VIDRO DESLIGA JUNTO. `.nexo-glass` traz `backdrop-filter`, e
+               * um desfoque de fundo dentro de um elemento que ESTÁ ESCALANDO é
+               * o pior caso do compositor: a cada quadro ele reamostra o que
+               * está atrás, numa área que cresce 45%. E não custa nada abrir
+               * mão dele aqui — atrás do orbe, nesse instante, só existe o véu,
+               * que é uma cor sólida. Borrar cor sólida devolve a mesma cor.
+               */
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none",
             }
           : null),
       }}

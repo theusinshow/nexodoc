@@ -66,6 +66,7 @@ import { Ima } from "@/components/ambiente/ima";
 import { BarraDoTopo } from "@/components/layout/barra-do-topo";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import { cn } from "@/lib/utils";
+import { DURATION } from "@/modules/nexo/lib/motion";
 
 /**
  * A partir de quantos dias um achado parado ganha destaque.
@@ -74,6 +75,9 @@ import { cn } from "@/lib/utils";
  * segunda — e tarja que acende sozinha no fim de semana ensina a ignorá-la.
  */
 const LIMIAR_TARJA = 5;
+
+/** Quanto o véu leva para fechar. Mesmo token do `BotaoDoOrbe`, não uma cópia. */
+const PARTIDA_MS = DURATION.base;
 
 type Props = {
   nome: string;
@@ -170,19 +174,40 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       />
 
       {/*
-        O TRABALHO SAI DE CENA em bloco, e não elemento por elemento. A §5 é
-        explícita — "não há sequências de entrada coreografadas por elemento" —,
-        e o mesmo vale na saída: uma cascata de dez cartões apagando em fila
-        seria a página se assistindo carregar ao contrário.
+        O VÉU — o trabalho saindo de cena por CIMA, e não por dentro.
 
-        `translate` e não `transform`: em Tailwind v4 o `translate-y-*` escreve
-        na propriedade `translate`, e é ela que a transição precisa nomear.
+        Aqui o `<main>` inteiro é que se apagava (`opacity-0` + 6px de
+        deslocamento), e essa era a segunda causa do travamento. Apagar uma
+        subárvore desse tamanho obriga o navegador a rasterizar a página toda
+        numa camada — dezenas de cartões, cada um com `clip-path` e
+        pseudo-elemento — no exato quadro em que o Nexo começa a montar do outro
+        lado. As duas coisas disputam a mesma thread, e quem perde é a animação.
+
+        O véu faz o mesmo efeito com uma camada só: um retângulo da cor do fundo
+        que aparece por cima. Retângulo de cor sólida em opacidade é o caso mais
+        barato que existe — o compositor resolve sozinho, e continua a 60fps
+        mesmo com a thread principal ocupada montando three.js. E ele nem precisa
+        de `will-change`: opacidade em animação já promove a camada.
+
+        `z-30` e não mais: a barra é `z-40`, então o véu cobre o trabalho e passa
+        POR BAIXO do orbe. É isso que deixa a esfera acesa sozinha no escuro em
+        vez de ser engolida junto.
+
+        A §5 continua valendo — o trabalho sai em BLOCO, nunca em cascata pelos
+        filhos. Só mudou quem pinta o bloco.
       */}
+      {partindo ? (
+        <div
+          aria-hidden
+          className="fixed inset-0 z-30 bg-background"
+          style={{ animation: `nx-veu-da-partida ${PARTIDA_MS}ms var(--ease-feedback) both` }}
+        />
+      ) : null}
+
       <main
         className={cn(
           "mx-auto w-full max-w-[1520px] flex-1 px-4 pb-16 sm:px-8",
-          "transition-[opacity,translate] duration-[240ms] ease-[var(--ease-feedback)]",
-          partindo && "pointer-events-none translate-y-[6px] opacity-0",
+          partindo && "pointer-events-none",
         )}
       >
         <ConviteDoOrbe />

@@ -1206,14 +1206,34 @@ textarea {
 
      SO OPACIDADE, e isso e regra e nao economia: `transform` neste no criaria
      bloco de contencao para todo descendente `fixed` (popover do orbe, drawer,
-     tooltip), e um modal aberto nos 320ms da entrada apareceria fora do lugar.
+     tooltip), e um modal aberto durante a entrada apareceria fora do lugar.
      A esfera ja tem a propria chegada -- o boot da S6, ~600ms -- entao o que
      falta aqui e so o fundo trazer o resto junto.
+
+     `--duration-slow` e nao `--duration-shell`: 320ms e o tempo da
+     macrotransicao welcome<->active, que e um reflow de layout; aqui e uma
+     superficie entrando, e 240ms e o token dela. A diferenca importa porque
+     estes 240ms rodam EM CIMA do boot do three.js -- alongar a entrada so
+     estica o trecho em que as duas coisas disputam a maquina.
 
      O reset de `prefers-reduced-motion` do @layer components leva a duracao a
      0.01ms; com `both`, o quadro final e o visivel, entao quem pede menos
      movimento recebe a tela pronta em vez de um piscar. */
-  animation: nexo-shell-chegada var(--duration-shell) var(--ease-entrance) both;
+  animation: nexo-shell-chegada var(--duration-slow) var(--ease-entrance) both;
+}
+
+/* O VEU DA PARTIDA (PainelDoUsuario). Retangulo da cor do fundo que fecha por
+   cima do trabalho quando alguem toca o orbe. Opacidade pura: o compositor
+   resolve sem a thread principal, que naquele instante esta ocupada montando o
+   Nexo do outro lado. */
+@keyframes nx-veu-da-partida {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 @keyframes nexo-shell-chegada {

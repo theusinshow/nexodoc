@@ -26,6 +26,7 @@
     "prova:alcada": "node scripts/prova-alcada.mjs",
     "prova:convite": "node scripts/prova-convite.mjs",
     "prova:endereco": "node scripts/prova-auditoria-com-endereco.mjs",
+    "prova:partida": "node scripts/prova-partida-pelo-orbe.mjs",
     "prova:fila": "node scripts/prova-fila-de-achados.mjs",
     "prova:aviso": "node scripts/prova-aviso-de-achados.mjs",
     "prova:tudo": "npm run prova:rotas && npm run prova:escritorio && npm run prova:alcada && npm run prova:convite && npm run prova:endereco && npm run prova:fila && npm run prova:aviso && npm run prova:automatico",
