@@ -1197,6 +1197,33 @@ textarea {
   column-gap: 1rem;
   row-gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
+
+  /* A CHEGADA (26/08/2026). O painel se apaga e o orbe cresce sozinho no
+     escuro (`BotaoDoOrbe`, a partida); o Nexo tem de aparecer POR CIMA disso,
+     e nao surgir montado num quadro so. Uma revelacao unica, no bloco inteiro,
+     na mesma duracao da macrotransicao do shell -- e sem cascata pelos filhos,
+     que e o que a S5 proibe.
+
+     SO OPACIDADE, e isso e regra e nao economia: `transform` neste no criaria
+     bloco de contencao para todo descendente `fixed` (popover do orbe, drawer,
+     tooltip), e um modal aberto nos 320ms da entrada apareceria fora do lugar.
+     A esfera ja tem a propria chegada -- o boot da S6, ~600ms -- entao o que
+     falta aqui e so o fundo trazer o resto junto.
+
+     O reset de `prefers-reduced-motion` do @layer components leva a duracao a
+     0.01ms; com `both`, o quadro final e o visivel, entao quem pede menos
+     movimento recebe a tela pronta em vez de um piscar. */
+  animation: nexo-shell-chegada var(--duration-shell) var(--ease-entrance) both;
+}
+
+@keyframes nexo-shell-chegada {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* A barra do topo atravessa as colunas: ela fala da conversa, nao de uma area.

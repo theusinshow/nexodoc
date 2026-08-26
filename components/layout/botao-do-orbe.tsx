@@ -48,12 +48,13 @@
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { MarcaViva } from "@/components/brand/marca-viva";
 import { cn } from "@/lib/utils";
+import { DURATION, prefersReducedMotion } from "@/modules/nexo/lib/motion";
 
 /**
  * Quanto o botão se desloca na direção do ponteiro, em pixels.
@@ -63,16 +64,43 @@ import { cn } from "@/lib/utils";
  */
 const alcanceDe = (tamanho: number) => Math.max(3, Math.round(tamanho * 0.055));
 
+/**
+ * Quanto dura a PARTIDA — o painel saindo de cena antes de o Nexo chegar.
+ *
+ * Não é número novo: é a macrotransição do shell (320ms, o único token que a
+ * §5 reserva para uma mudança deste porte) vezes os 75% que a mesma seção manda
+ * usar em toda saída. Escrito como conta, e não como 240, para que mexer no
+ * token mexa nisto junto — a alternativa era um número solto que envelheceria
+ * sozinho na primeira vez que alguém reafinasse o shell.
+ */
+const PARTIDA = Math.round(DURATION.shell * 0.75);
+
 export function BotaoDoOrbe({
   /** Lado da caixa de vidro. O símbolo dentro acompanha. */
   tamanho = 60,
   className,
+  /**
+   * Avisa a PÁGINA que a partida começou, para ela sair de cena junto.
+   *
+   * Sem isto o botão só sabe crescer sozinho no meio de uma tela intacta, que
+   * é o oposto do que a transição quer dizer. Quem apaga o trabalho é quem o
+   * desenhou — este componente não conhece o painel e não deveria conhecer.
+   *
+   * A AUSÊNCIA DESLIGA A COREOGRAFIA, de propósito: onde ninguém passa o
+   * `aoPartir` o botão volta a ser um `<Link>` comum, e navegar continua
+   * funcionando. É o mesmo motivo de a checagem de movimento reduzido não
+   * cair para "sem animação, sem navegação".
+   */
+  aoPartir,
 }: {
   tamanho?: number;
   className?: string;
+  aoPartir?: () => void;
 }) {
   const caixa = useRef<HTMLAnchorElement | null>(null);
   const pendente = useRef<number | null>(null);
+  const router = useRouter();
+  const [partindo, setPartindo] = useState(false);
 
   /*
    * `startsWith` e não igualdade: `/nexo?auditoria=…` continua sendo o Nexo, e
@@ -93,6 +121,9 @@ export function BotaoDoOrbe({
     (ev: ReactPointerEvent<HTMLAnchorElement>) => {
       const alvo = ev.currentTarget;
       const { clientX, clientY } = ev;
+      // Partiu: o orbe deixa de seguir o ponteiro. Durante a saída ele não é
+      // mais um controle sob a mão, é a única coisa que ficou na tela.
+      if (partindo) return;
       if (pendente.current !== null) return;
       pendente.current = requestAnimationFrame(() => {
         pendente.current = null;
@@ -112,7 +143,7 @@ export function BotaoDoOrbe({
         alvo.style.setProperty("--orbe-y", `${(dy * alcance).toFixed(2)}px`);
       });
     },
-    [tamanho],
+    [partindo, tamanho],
   );
 
   const soltar = useCallback(() => {
@@ -122,12 +153,51 @@ export function BotaoDoOrbe({
     alvo.style.setProperty("--orbe-y", "0px");
   }, []);
 
+  /**
+   * A PARTIDA — a única coisa deste arquivo que não é sobre o botão em si.
+   *
+   * O clique deixa de ser uma navegação instantânea e passa a ser uma SAÍDA: a
+   * página se apaga, o orbe cresce e fica aceso sozinho no escuro, e só então o
+   * Nexo é pedido. São 240ms, e eles não são cortesia — do outro lado o Nexo
+   * monta three.js, a barra lateral e o histórico da conversa, e sem a saída o
+   * que se via era a tela do painel congelada até tudo isso ficar pronto.
+   *
+   * O `router.push` vai no FIM, e não no começo. Com a rota já pré-carregada
+   * pelo `<Link>`, empurrar antes trocaria a página no primeiro quadro e cortaria
+   * a saída pela metade — a transição existiria só nas máquinas lentas, que é o
+   * avesso do que se quer.
+   *
+   * O TEMPORIZADOR NÃO É CANCELADO na desmontagem, e isso é intencional. Este
+   * componente desmonta porque a navegação aconteceu; cancelar ali seria
+   * cancelar a própria viagem no instante em que ela chega.
+   *
+   * QUATRO SAÍDAS SEM COREOGRAFIA, e as quatro devolvem o `<Link>` intacto:
+   * modificador de teclado ou botão que não é o principal (abrir em nova aba
+   * tem de continuar abrindo em nova aba), voltar do Nexo para o painel (a
+   * partida é a ida, não a volta), movimento reduzido, e página que não passou
+   * `aoPartir`.
+   */
+  function partir(ev: ReactMouseEvent<HTMLAnchorElement>) {
+    if (ev.defaultPrevented || ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    if (!aoPartir || noNexo || prefersReducedMotion()) return;
+
+    ev.preventDefault();
+    if (partindo) return;
+
+    setPartindo(true);
+    soltar();
+    aoPartir();
+    window.setTimeout(() => router.push(destino), PARTIDA);
+  }
+
   return (
     <Link
       ref={caixa}
       href={destino}
       aria-label={rotulo}
       title={rotulo}
+      onClick={partir}
       onPointerMove={mover}
       onPointerLeave={soltar}
       className={cn(
@@ -159,6 +229,18 @@ export function BotaoDoOrbe({
          * Tailwind pode mexer só na escala sem apagar o que o ponteiro escreveu.
          */
         translate: "var(--orbe-x, 0px) var(--orbe-y, 0px)",
+        /*
+         * A PARTIDA VENCE O HOVER porque é `style`, e `style` ganha de classe.
+         * Sem isso, tirar o ponteiro do botão no meio da saída faria a esfera
+         * encolher de volta a caminho do Nexo. Fora da partida o campo é
+         * `undefined` e quem manda voltam a ser as classes.
+         */
+        ...(partindo
+          ? {
+              scale: "1.45",
+              transition: `scale ${PARTIDA}ms var(--ease-entrance)`,
+            }
+          : null),
       }}
     >
       {/*
@@ -180,6 +262,18 @@ export function BotaoDoOrbe({
           inset: -Math.round(tamanho * 0.16),
           background: "radial-gradient(circle, rgb(0 166 147 / 0.34), transparent 70%)",
           filter: `blur(${Math.max(10, Math.round(tamanho * 0.13))}px)`,
+          /*
+             NA PARTIDA O HALO FICA ACESO, e sem `--motion-gain`. Ele deixa de
+             ser ambiente no instante em que a tela se apaga: passa a ser a
+             única coisa que diz "o Nexo está vindo" durante os 240ms em que não
+             há mais nada para olhar. Ambiente é o que se pode desligar sem
+             perder informação, e aqui já não é o caso. O gate de movimento
+             reduzido continua valendo — em `partir()`, antes de tudo: quem pede
+             menos movimento não chega a ver esta saída.
+          */
+          ...(partindo
+            ? { opacity: 1, transition: `opacity ${PARTIDA}ms var(--ease-entrance)` }
+            : null),
         }}
       />
       <MarcaViva size={Math.round(tamanho * 0.8)} className="relative" />

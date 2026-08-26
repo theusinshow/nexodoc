@@ -65,6 +65,7 @@ import { useEffect, useState } from "react";
 import { Ima } from "@/components/ambiente/ima";
 import { BarraDoTopo } from "@/components/layout/barra-do-topo";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
+import { cn } from "@/lib/utils";
 
 /**
  * A partir de quantos dias um achado parado ganha destaque.
@@ -85,6 +86,21 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
   const [painel, setPainel] = useState<Painel | null>(null);
   const [falhou, setFalhou] = useState(false);
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
+
+  /*
+   * A PARTIDA PELO ORBE.
+   *
+   * Quem começa é o `BotaoDoOrbe` (é dele o gesto, e é ele quem navega); o que
+   * este estado faz é APAGAR O TRABALHO enquanto isso. Sem ele, o orbe crescia
+   * sozinho no meio de uma tela cheia de projetos, e a leitura era de um botão
+   * com defeito em vez de uma página saindo de cena.
+   *
+   * Não há caminho de volta para `false`, e é assim de propósito: a única saída
+   * deste estado é a página desmontar, porque a navegação aconteceu. Um estado
+   * que se desfaz sozinho abriria a porta para o painel reaparecer meio segundo
+   * depois de alguém já ter pedido o Nexo.
+   */
+  const [partindo, setPartindo] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -144,9 +160,31 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       onDrop={(ev) => ev.preventDefault()}
       className="relative flex min-h-screen flex-col bg-background"
     >
-      <BarraDoTopo nome={nome} iniciais={iniciais} escritorio={escritorio} ehAdmin={ehAdmin} />
+      <BarraDoTopo
+        nome={nome}
+        iniciais={iniciais}
+        escritorio={escritorio}
+        ehAdmin={ehAdmin}
+        partindo={partindo}
+        aoPartir={() => setPartindo(true)}
+      />
 
-      <main className="mx-auto w-full max-w-[1520px] flex-1 px-4 pb-16 sm:px-8">
+      {/*
+        O TRABALHO SAI DE CENA em bloco, e não elemento por elemento. A §5 é
+        explícita — "não há sequências de entrada coreografadas por elemento" —,
+        e o mesmo vale na saída: uma cascata de dez cartões apagando em fila
+        seria a página se assistindo carregar ao contrário.
+
+        `translate` e não `transform`: em Tailwind v4 o `translate-y-*` escreve
+        na propriedade `translate`, e é ela que a transição precisa nomear.
+      */}
+      <main
+        className={cn(
+          "mx-auto w-full max-w-[1520px] flex-1 px-4 pb-16 sm:px-8",
+          "transition-[opacity,translate] duration-[240ms] ease-[var(--ease-feedback)]",
+          partindo && "pointer-events-none translate-y-[6px] opacity-0",
+        )}
+      >
         <ConviteDoOrbe />
 
         {primeiraVez ? <PrimeirosPassos /> : null}

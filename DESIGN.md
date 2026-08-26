@@ -485,6 +485,41 @@ desliga `startViewTransition` nem FLIP.
 contínuo (orbe, shimmer) é **congelado** — senão duplica no cross-fade do
 snapshot.
 
+### A troca de tela pelo orbe (2026-08-26)
+
+Há **uma** transição entre rotas no produto, e ela é a do painel para o Nexo.
+Não vale para as outras: `/volumes`, `/projetos` e o admin continuam trocando
+sem cerimônia, porque são LUGARES, e ir a um lugar não é um acontecimento.
+
+Ela existe porque essa troca tem duas coisas que as outras não têm: um objeto
+que atravessa as duas telas — o orbe — e uma espera real do outro lado, onde o
+Nexo monta three.js, a barra lateral e o histórico. Sem transição, o que se via
+era o painel congelado até tudo ficar pronto.
+
+**Partida — 240ms.** É `--duration-shell` a 75%, a regra de saída da tabela
+acima, e não um número novo. O trabalho da página se apaga em BLOCO (nunca em
+cascata pelos filhos), o vidro da barra vai a transparente junto com o que ela
+mostra, e o orbe fica: cresce a 1,45 e acende o halo por inteiro. Sobra ele,
+sozinho no escuro. É a mesma frase do `:active` — tocar abre — levada até o fim.
+
+O halo, que é ambiente e obedece a `--motion-gain` em toda outra situação, **na
+partida não obedece**: ali ele deixa de ser ambiente. Vira a única coisa na tela
+dizendo que o Nexo está vindo, e ambiente é, por definição, o que se pode
+desligar sem perder informação.
+
+**Chegada — 320ms.** `.nexo-shell` revela-se inteira, uma vez, só em opacidade.
+`transform` está proibido neste nó: ele criaria bloco de contenção para todo
+descendente `fixed` (popover do orbe, drawer, tooltip), e um deles aberto
+durante a entrada apareceria fora do lugar. Quem carrega a chegada de verdade é
+o **boot do orbe** (§6, ~600ms), que dispara sozinho porque a rota do painel
+nunca montou aquele módulo.
+
+**Movimento reduzido não vê nada disso.** O gate é em JS, no `BotaoDoOrbe`,
+antes de a coreografia começar — e o que ele desliga é a ENCENAÇÃO, nunca a
+navegação: o clique volta a ser um `<Link>` comum e leva ao mesmo lugar. Vale o
+mesmo para Ctrl/Cmd/Shift-clique e para o botão do meio, que precisam continuar
+abrindo em outra aba.
+
 **Segurança.** `prefers-reduced-motion: reduce` desliga toda animação. Movimento
 é sempre melhoria, nunca carrega significado sozinho.
 

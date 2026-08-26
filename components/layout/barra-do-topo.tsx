@@ -46,6 +46,20 @@
  *
  * O `z-index` continua sendo o da barra (40). O botão é filho dela, então a
  * metade que pende para fora já pinta acima do conteúdo sem pedir nada.
+ *
+ * A PARTIDA (26/08/2026) é o que a barra faz quando alguém toca o orbe.
+ *
+ * Tudo que ela mostra — marca, relógio, conta — se apaga, e o VIDRO SE APAGA
+ * JUNTO: fundo, borda e fio de luz vão a transparente. Sobra o orbe, crescendo
+ * sozinho no escuro, que é a leitura inteira da transição. Uma barra de vidro
+ * vazia pendurada no topo diria o contrário — que o painel continua ali,
+ * esperando.
+ *
+ * O apagar do vidro é `style` e não classe porque é a `.nexo-glass` que está
+ * sendo desfeita, e desfazer uma classe com outra classe é uma corrida de
+ * especificidade que a próxima pessoa perde. `background-color` e não
+ * `background`: o atalho não é animável, e a barra pularia para transparente
+ * num quadro só.
  */
 
 import Link from "next/link";
@@ -55,17 +69,32 @@ import { MarcaViva } from "@/components/brand/marca-viva";
 import { BotaoDoOrbe } from "@/components/layout/botao-do-orbe";
 import { RelogioDoTopo } from "@/components/layout/relogio-do-topo";
 import { cn } from "@/lib/utils";
+import { DURATION } from "@/modules/nexo/lib/motion";
+
+/**
+ * A duração da partida, do mesmo jeito que o `BotaoDoOrbe` a calcula: a
+ * macrotransição do shell a 75%, que é o que a §5 manda usar em toda saída.
+ * Repetida como conta, e não copiada como 240 — os dois têm de andar juntos, e
+ * um número solto aqui sairia de sincronia na primeira reafinação.
+ */
+const PARTIDA_MS = Math.round(DURATION.shell * 0.75);
 
 export function BarraDoTopo({
   nome,
   iniciais,
   escritorio,
   ehAdmin,
+  partindo = false,
+  aoPartir,
 }: {
   nome: string;
   iniciais: string;
   escritorio: string;
   ehAdmin: boolean;
+  /** A saída começou: a barra se apaga e deixa só o orbe. */
+  partindo?: boolean;
+  /** Repassado ao botão do orbe — ver `BotaoDoOrbe`. */
+  aoPartir?: () => void;
 }) {
   const [contaAberta, setContaAberta] = useState(false);
   const conta = useRef<HTMLDivElement | null>(null);
@@ -95,13 +124,29 @@ export function BarraDoTopo({
   }, [contaAberta]);
 
   return (
-    <header className="nexo-glass sticky top-0 z-40 shrink-0 rounded-none border-x-0 border-t-0">
+    <header
+      className="nexo-glass sticky top-0 z-40 shrink-0 rounded-none border-x-0 border-t-0"
+      style={
+        partindo
+          ? {
+              backgroundColor: "transparent",
+              borderBottomColor: "transparent",
+              boxShadow: "none",
+              transition: `background-color ${PARTIDA_MS}ms var(--ease-feedback), border-color ${PARTIDA_MS}ms var(--ease-feedback), box-shadow ${PARTIDA_MS}ms var(--ease-feedback)`,
+            }
+          : undefined
+      }
+    >
       <div className="relative mx-auto flex h-20 max-w-[1520px] items-center gap-5 px-4 sm:px-8">
         {/* ESQUERDA — identidade e relógio. */}
         <Link
           href="/"
           aria-label="NexoDoc — painel"
-          className="flex shrink-0 items-center gap-2.5 text-foreground transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
+          className={cn(
+            "flex shrink-0 items-center gap-2.5 text-foreground",
+            "transition-opacity duration-[var(--duration-fast)] hover:opacity-80",
+            partindo && "pointer-events-none opacity-0 duration-[160ms]",
+          )}
         >
           {/*
             `parada`: o orbe que vive no hover é o do botão do centro. Dois
@@ -147,7 +192,13 @@ export function BarraDoTopo({
           bloco inteiro; ela não reabre a hierarquia entre a hora e o dia, que
           aquele componente rejeita com razão.
         */}
-        <RelogioDoTopo className="nx-cut-5 ml-1 hidden items-center bg-[var(--nexodoc-recessed)] px-3 py-[7px] md:inline-flex" />
+        <RelogioDoTopo
+          className={cn(
+            "nx-cut-5 ml-1 hidden items-center bg-[var(--nexodoc-recessed)] px-3 py-[7px] md:inline-flex",
+            "transition-opacity duration-[160ms]",
+            partindo && "opacity-0",
+          )}
+        />
 
         <div className="flex-1" />
 
@@ -158,7 +209,7 @@ export function BarraDoTopo({
           barra em lugares diferentes. Eixo que se move não é eixo.
         */}
         <div className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2">
-          <BotaoDoOrbe tamanho={128} className="pointer-events-auto" />
+          <BotaoDoOrbe tamanho={128} className="pointer-events-auto" aoPartir={aoPartir} />
         </div>
 
         {/*
@@ -180,7 +231,13 @@ export function BarraDoTopo({
           é do interativo, e um selo de estado que se pinta de teal começa a
           competir com os controles de verdade.
         */}
-        <div ref={conta} className="relative shrink-0">
+        <div
+          ref={conta}
+          className={cn(
+            "relative shrink-0 transition-opacity duration-[160ms]",
+            partindo && "pointer-events-none opacity-0",
+          )}
+        >
           <button
             type="button"
             onClick={() => setContaAberta((v) => !v)}
