@@ -23,6 +23,29 @@
  * A altura subiu de 56 para 80px. Não é ar de graça: é o que o botão de 56px
  * precisa para caber sem encostar nas bordas, e é o que separa o cromo do
  * trabalho agora que não há mais faixa de herói entre os dois.
+ *
+ * O ORBE DESCEU PARA CIMA DA LINHA (26/08/2026), e dobrou de tamanho.
+ *
+ * Ele era um item de 64px dentro da barra, e por isso a barra o continha: a
+ * altura de 80px existia para lhe dar folga, e o resultado era um controle que
+ * pedia licença ao cromo. Agora ele fica CENTRADO NA BORDA INFERIOR — metade em
+ * cima do vidro, metade sobre a página — e a leitura vira outra: o orbe não é
+ * mais um botão da barra, é a costura entre o cromo e o trabalho, o mesmo lugar
+ * que ele ocupa no produto.
+ *
+ * Isso cobra três coisas, e as três estão aqui:
+ *
+ *  · o botão sai do fluxo do flex (já saía) e ancora em `top-full`, que é a
+ *    linha da borda. `-translate-y-1/2` põe o CENTRO dele ali;
+ *  · a barra não pode recortar o que transborda. `.nexo-glass` traz
+ *    `backdrop-filter`, que cria contexto de empilhamento mas não recorta —
+ *    ninguém pode acrescentar `overflow-hidden` aqui sem decapitar o orbe;
+ *  · quem vem abaixo precisa abrir espaço para os 64px que sobram. Isso é do
+ *    `PainelDoUsuario` (o `ConviteDoOrbe` reserva o vão), e não daqui: a barra
+ *    não sabe o que é a página.
+ *
+ * O `z-index` continua sendo o da barra (40). O botão é filho dela, então a
+ * metade que pende para fora já pinta acima do conteúdo sem pedir nada.
  */
 
 import Link from "next/link";
@@ -31,6 +54,7 @@ import { useEffect, useRef, useState } from "react";
 import { MarcaViva } from "@/components/brand/marca-viva";
 import { BotaoDoOrbe } from "@/components/layout/botao-do-orbe";
 import { RelogioDoTopo } from "@/components/layout/relogio-do-topo";
+import { cn } from "@/lib/utils";
 
 export function BarraDoTopo({
   nome,
@@ -77,17 +101,53 @@ export function BarraDoTopo({
         <Link
           href="/"
           aria-label="NexoDoc — painel"
-          className="flex shrink-0 items-center gap-2 text-foreground transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
+          className="flex shrink-0 items-center gap-2.5 text-foreground transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
         >
-          {/* `parada`: o orbe que vive no hover é o do botão do centro. Dois
-              orbes reagindo na mesma barra dividiriam a atenção que o do meio
-              precisa concentrar — e este aqui é só a assinatura da casa. */}
-          <MarcaViva size={22} parada />
-          <span className="font-mono text-sm font-semibold tracking-[-0.01em]">NexoDoc</span>
+          {/*
+            `parada`: o orbe que vive no hover é o do botão do centro. Dois
+            orbes reagindo na mesma barra dividiriam a atenção que o do meio
+            precisa concentrar — e este aqui é só a assinatura da casa.
+
+            32 e não 22. Aos 22px o símbolo era mais baixo que a caixa da
+            palavra ao lado e lia como um marcador antes do texto, não como a
+            marca; e `arquivoPara()` ainda servia o PNG de 32 reduzido, que é
+            justamente onde a §6 diz que o vidro vira mancha. Aos 32 ele pede o
+            arquivo da própria faixa e volta a ter corpo.
+
+            `leading-none` na palavra é o que ALINHA de verdade. `items-center`
+            centra as duas CAIXAS, e a caixa de uma linha de texto tem meia
+            entrelinha sobrando em cima e embaixo — com `leading` normal a
+            palavra assenta um fio abaixo do eixo do símbolo. Sem entrelinha
+            extra, o centro da caixa é o centro das letras.
+          */}
+          <MarcaViva size={32} parada />
+          {/*
+            A PALAVRA SAI ABAIXO DE 440px, e o símbolo fica. O orbe do centro
+            tem 128px e é ancorado no meio da janela, então ele ocupa de
+            `L/2-64` a `L/2+64`; a marca com a palavra mede ~120px a partir da
+            margem. As duas se encostam quando `L` desce de ~368px — e a marca,
+            que é a única coisa da esquerda, passaria por baixo da esfera num
+            telefone. 440 é esse limite com folga. O símbolo sozinho continua
+            sendo a marca (§6: "o símbolo sozinho serve de favicon e avatar").
+          */}
+          <span className="font-mono text-[15px] font-semibold leading-none tracking-[-0.015em] max-[440px]:hidden">
+            NexoDoc
+          </span>
         </Link>
 
-        <div className="hidden h-6 w-px shrink-0 bg-border md:block" />
-        <RelogioDoTopo className="hidden md:block" />
+        {/*
+          O RELÓGIO GANHOU CASA (26/08/2026). Ele era texto solto encostado num
+          fio de 1px, e texto solto no cromo não tem hierarquia nenhuma: lia como
+          uma sobra de outro bloco. Agora é um MOSTRADOR — superfície embutida
+          (Nível 3, §4: campo, abaixo do fundo), chanfro de 5 e o mesmo mono
+          tabular de antes.
+
+          O que NÃO mudou, e é decisão do próprio `RelogioDoTopo`: hora e data
+          continuam em um peso, uma família e uma cor. A casa dá presença ao
+          bloco inteiro; ela não reabre a hierarquia entre a hora e o dia, que
+          aquele componente rejeita com razão.
+        */}
+        <RelogioDoTopo className="nx-cut-5 ml-1 hidden items-center bg-[var(--nexodoc-recessed)] px-3 py-[7px] md:inline-flex" />
 
         <div className="flex-1" />
 
@@ -97,29 +157,72 @@ export function BarraDoTopo({
           entra como "Matheus" e quem entra como um e-mail longo veriam o eixo da
           barra em lugares diferentes. Eixo que se move não é eixo.
         */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <BotaoDoOrbe tamanho={64} className="pointer-events-auto" />
+        <div className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2">
+          <BotaoDoOrbe tamanho={128} className="pointer-events-auto" />
         </div>
 
-        {/* DIREITA — quem você é, e a saída. */}
-        <div ref={conta} className="relative flex shrink-0 items-center gap-3">
-          <div className="hidden flex-col items-end gap-0.5 sm:flex">
-            <span className="text-sm font-medium leading-tight text-foreground">{nome}</span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-              {escritorio}
-              {ehAdmin ? " · Admin" : ""}
-            </span>
-          </div>
+        {/*
+          DIREITA — quem você é, e a saída.
 
+          O CLUSTER INTEIRO VIROU O CONTROLE (26/08/2026). Ele era um texto morto
+          ("Matheus / PROSUL · ADMIN") ao lado de um quadrado de 36px que era o
+          único clicável: a área que o olho lê como "minha conta" tinha três
+          vezes o tamanho da área que respondia ao clique, e nada dizia que ali
+          havia um menu — nem forma de botão, nem seta, nem hover.
+
+          Agora o nome, a identificação e o avatar são UM botão chanfrado, com
+          fundo no hover e no aberto, e a seta que gira. O alvo passou de 36×36
+          para a largura do bloco, e a promessa passou a existir.
+
+          O rótulo "Admin" saiu do texto corrido e virou SELO. Solto, ele tinha o
+          mesmo peso do nome do escritório ao lado e lia como parte do endereço;
+          com fundo próprio ele lê como o que é — uma alçada. Sem teal: o acento
+          é do interativo, e um selo de estado que se pinta de teal começa a
+          competir com os controles de verdade.
+        */}
+        <div ref={conta} className="relative shrink-0">
           <button
             type="button"
             onClick={() => setContaAberta((v) => !v)}
             aria-label="Conta"
             aria-expanded={contaAberta}
             aria-haspopup="menu"
-            className="nx-cut-6 flex h-9 w-9 cursor-pointer items-center justify-center border-0 bg-[var(--nexodoc-raised)] font-mono text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] hover:text-foreground"
+            className={cn(
+              "nx-cut-8 group flex cursor-pointer items-center gap-3 border-0 py-1.5 pl-2 pr-2.5 sm:pl-3.5",
+              "transition-colors duration-[var(--duration-fast)]",
+              contaAberta ? "bg-[#141a1e]" : "bg-transparent hover:bg-[#141a1e]",
+            )}
           >
-            {iniciais}
+            <span className="hidden flex-col items-end gap-1.5 sm:flex">
+              <span className="text-sm font-medium leading-none text-foreground">{nome}</span>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.1em] text-muted-foreground">
+                {escritorio}
+                {ehAdmin ? (
+                  <span className="nx-cut-4 bg-[var(--nexodoc-raised)] px-1.5 py-[3px] tracking-[0.12em] text-[#9aa6ac]">
+                    Admin
+                  </span>
+                ) : null}
+              </span>
+            </span>
+
+            <span
+              aria-hidden
+              className="nx-cut-6 grid h-9 w-9 shrink-0 place-items-center bg-[var(--nexodoc-raised)] font-mono text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] group-hover:bg-[#20262a] group-hover:text-foreground"
+            >
+              {iniciais}
+            </span>
+
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+              className="h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-[var(--duration-fast)]"
+              style={{ transform: contaAberta ? "rotate(180deg)" : "none" }}
+            >
+              <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
 
           {contaAberta ? (

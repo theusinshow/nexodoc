@@ -32,6 +32,19 @@
  * começaria a diluí-lo. Aqui o deslocamento é do próprio botão e anda junto com
  * uma escala, que o ímã não faz. Mesma mecânica (posição do cursor dentro do
  * controle → variáveis no `style`, sem passar pelo React), papel diferente.
+ *
+ * O PRESSIONAR CRESCE, e antes ele encolhia (26/08/2026). Encolher no `:active`
+ * é o idioma de BOTÃO — a tecla que afunda. Este controle não é uma tecla: é a
+ * presença do agente, e o que ele promete ao ser tocado é que a conversa vai
+ * ABRIR. Crescer sob o dedo é a mesma frase do gesto que vem depois, e o alcance
+ * do ponteiro continua ativo por baixo — as duas coisas moram em propriedades
+ * diferentes (`scale` e `translate`), então uma nunca apaga a outra.
+ *
+ * TUDO AQUI ESCALA COM `tamanho`. O botão nasceu com 60px e hoje o painel o
+ * pede com 128; um deslocamento fixo de 3px, que era nítido no pequeno, some no
+ * grande, e um halo de `-inset-3` vira um fio colado na borda. Alcance, halo e
+ * desfoque saem do lado da caixa em vez de constantes — assim o mesmo componente
+ * atende os dois tamanhos sem que ninguém precise reafinar à mão.
  */
 
 import Link from "next/link";
@@ -42,8 +55,13 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { MarcaViva } from "@/components/brand/marca-viva";
 import { cn } from "@/lib/utils";
 
-/** Quanto o botão se desloca na direção do ponteiro, em pixels. */
-const ALCANCE = 3;
+/**
+ * Quanto o botão se desloca na direção do ponteiro, em pixels.
+ *
+ * Proporcional ao lado, com piso: 5,5% dá 3px nos 60px de origem e 7px nos 128
+ * do painel — o mesmo GESTO nos dois, e não o mesmo número.
+ */
+const alcanceDe = (tamanho: number) => Math.max(3, Math.round(tamanho * 0.055));
 
 export function BotaoDoOrbe({
   /** Lado da caixa de vidro. O símbolo dentro acompanha. */
@@ -71,22 +89,31 @@ export function BotaoDoOrbe({
     [],
   );
 
-  const mover = useCallback((ev: ReactPointerEvent<HTMLAnchorElement>) => {
-    const alvo = ev.currentTarget;
-    const { clientX, clientY } = ev;
-    if (pendente.current !== null) return;
-    pendente.current = requestAnimationFrame(() => {
-      pendente.current = null;
-      if (!alvo.isConnected) return;
-      const r = alvo.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      // -1..1 a partir do centro, e daí para pixels.
-      const dx = ((clientX - r.left) / r.width - 0.5) * 2;
-      const dy = ((clientY - r.top) / r.height - 0.5) * 2;
-      alvo.style.setProperty("--orbe-x", `${(dx * ALCANCE).toFixed(2)}px`);
-      alvo.style.setProperty("--orbe-y", `${(dy * ALCANCE).toFixed(2)}px`);
-    });
-  }, []);
+  const mover = useCallback(
+    (ev: ReactPointerEvent<HTMLAnchorElement>) => {
+      const alvo = ev.currentTarget;
+      const { clientX, clientY } = ev;
+      if (pendente.current !== null) return;
+      pendente.current = requestAnimationFrame(() => {
+        pendente.current = null;
+        if (!alvo.isConnected) return;
+        const r = alvo.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        /*
+         * -1..1 a partir do centro, e daí para pixels. A conta é sobre a caixa
+         * MEDIDA, e por isso continua honesta enquanto o `:active` a infla: o
+         * `scale` é uniforme, então o centro visual continua caindo em 0,5 e o
+         * orbe não salta no instante do clique.
+         */
+        const dx = ((clientX - r.left) / r.width - 0.5) * 2;
+        const dy = ((clientY - r.top) / r.height - 0.5) * 2;
+        const alcance = alcanceDe(tamanho);
+        alvo.style.setProperty("--orbe-x", `${(dx * alcance).toFixed(2)}px`);
+        alvo.style.setProperty("--orbe-y", `${(dy * alcance).toFixed(2)}px`);
+      });
+    },
+    [tamanho],
+  );
 
   const soltar = useCallback(() => {
     const alvo = caixa.current;
@@ -112,8 +139,14 @@ export function BotaoDoOrbe({
          * esfera e chanfrar a caixa de uma esfera briga com o que ela é.
          */
         "nexo-glass group relative grid shrink-0 place-items-center rounded-full",
-        "transition-[transform,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-feedback)]",
-        "hover:scale-[1.09] active:scale-[1.03]",
+        "transition-[scale,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-feedback)]",
+        /*
+         * O PRESSIONAR É MAIOR QUE O HOVER, e é essa ordem que carrega o
+         * sentido: aproximar acende, tocar abre. `scale` e não `transform`
+         * porque o `translate` do ponteiro mora na propriedade vizinha e as
+         * duas precisam conviver.
+         */
+        "hover:scale-[1.06] active:scale-[1.17]",
         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
         className,
       )}
@@ -136,10 +169,17 @@ export function BotaoDoOrbe({
       */}
       <span
         aria-hidden
-        className="pointer-events-none absolute -inset-3 rounded-full opacity-0 transition-opacity duration-[var(--duration-base)] group-hover:opacity-[calc(1*var(--motion-gain))]"
+        className={cn(
+          "pointer-events-none absolute rounded-full opacity-0",
+          "transition-opacity duration-[var(--duration-base)]",
+          "group-hover:opacity-[calc(0.85*var(--motion-gain))]",
+          // Tocar acende o halo por inteiro: o crescimento não vem sozinho.
+          "group-active:opacity-[calc(1*var(--motion-gain))]",
+        )}
         style={{
+          inset: -Math.round(tamanho * 0.16),
           background: "radial-gradient(circle, rgb(0 166 147 / 0.34), transparent 70%)",
-          filter: "blur(10px)",
+          filter: `blur(${Math.max(10, Math.round(tamanho * 0.13))}px)`,
         }}
       />
       <MarcaViva size={Math.round(tamanho * 0.8)} className="relative" />

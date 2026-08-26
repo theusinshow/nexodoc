@@ -101,7 +101,7 @@ export function RelogioDoTopo({ className }: { className?: string }) {
     >
       <span
         aria-hidden
-        className="inline-flex items-center font-mono text-xs font-medium tracking-[0.09em] text-muted-foreground tabular-nums"
+        className="inline-flex items-center font-mono text-xs font-medium tracking-[0.1em] text-muted-foreground tabular-nums"
       >
         {/* Sem hora ainda (servidor / primeira pintura): o mesmo número de
             caracteres, invisíveis, para o cabeçalho não pular na hidratação. */}
@@ -111,7 +111,18 @@ export function RelogioDoTopo({ className }: { className?: string }) {
             ref={(el) => {
               letras.current[i] = el;
             }}
-            className="inline-block overflow-hidden"
+            /*
+              O SEPARADOR RECUA. Ele não é hora nem data — é a costura entre as
+              duas — e, no mesmo tom dos dígitos, lia como mais um caractere da
+              leitura. Isto NÃO reabre a hierarquia que o cabeçalho deste arquivo
+              rejeita: hora e data continuam no mesmo peso, na mesma família e na
+              mesma cor. Quem apaga é a pontuação entre elas.
+            */
+            className={
+              c === "·"
+                ? "inline-block overflow-hidden px-[1px] opacity-55"
+                : "inline-block overflow-hidden"
+            }
             style={{ opacity: texto ? undefined : 0 }}
           >
             {c === " " ? " " : c}

@@ -511,6 +511,40 @@ O orbe precisa existir em vários níveis, e todos têm de ser reconhecíveis co
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
 a redução em CSS. Onde o fundo não é escuro, a versão em SVG.
 
+#### O orbe do painel mora NA COSTURA (emenda de 26/08/2026)
+
+O botão do orbe (`components/layout/botao-do-orbe.tsx`) era um item de 64px
+dentro da barra do topo, e a altura de 80px da barra existia para lhe dar folga.
+Ele passa a ter **128px, centrado na borda inferior da barra** — metade sobre o
+vidro, metade sobre a página.
+
+**Por quê:** contido pela barra, o orbe lia como mais um controle do cromo, ao
+lado do relógio e do avatar. Ele não é. É a única porta do painel para o agente,
+e a leitura certa é a de uma **costura entre o cromo e o trabalho** — que é o
+lugar que ele ocupa no produto. O tamanho acompanha o papel: a 64px ele era um
+ícone, a 128px ele é o objeto.
+
+O degrau continua sendo o **capturado**, e não o vivo: este botão é cromo
+persistente, e montar WebGL em toda rota quebraria "um orbe vivo por tela" na
+própria tela do Nexo. Nada aqui reabre isso.
+
+**O que a emenda obriga:**
+
+- a barra do topo **não pode recortar o transbordo** (`overflow-hidden` nela
+  decapita o orbe);
+- **quem vem abaixo abre o vão**. São 64px pendurados, 75 com o `:active`
+  inflado — o `ConviteDoOrbe` do painel reserva 84px, e é ele o dono desse
+  número, não a barra;
+- **abaixo de 440px de janela a palavra da marca sai** e fica só o símbolo. O
+  orbe é ancorado no meio da janela e a marca cresce da margem: as duas se
+  encostam por volta de 368px.
+
+**O pressionar CRESCE** (hover 1,06 → active 1,17), e não encolhe. Encolher é o
+idioma da tecla que afunda; este controle promete que a conversa vai ABRIR, e a
+escala tem de dizer a mesma coisa que o gesto seguinte. Sai por `scale`, nunca
+por `transform`: o `translate` do ímã de ponteiro mora na propriedade vizinha, e
+as duas precisam conviver.
+
 #### A marca é capturada, não desenhada (emenda de 15/08/2026)
 
 Este documento dizia **"não existe favicon com shader"**, e a marca era o SVG. A

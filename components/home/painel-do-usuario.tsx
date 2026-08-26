@@ -35,6 +35,17 @@
  * auditoria. O `preventDefault` do container fica — sem ele, arrastar um PDF
  * para cá faz o NAVEGADOR abrir o arquivo e a sessão vai embora com a página.
  *
+ * A CORREÇÃO DE 26/08/2026 levou esse raciocínio até o fim: a faixa também
+ * saiu. Ela era a SEGUNDA porta para o `/nexo` na mesma dobra, a poucos
+ * centímetros da primeira — e a primeira agora é um orbe de 128px sentado na
+ * borda da barra, que ninguém confunde com outra coisa. No lugar da faixa ficou
+ * o `ConviteDoOrbe`: a legenda daquele objeto, sem alvo de clique próprio.
+ *
+ * E QUANDO NÃO HÁ TRABALHO NENHUM, a tela para de descrever o vazio e passa a
+ * descrever o produto (`PrimeirosPassos`). Quem entra pela primeira vez não
+ * precisa de dois títulos confirmando que não tem nada; precisa saber o que
+ * trazer. Ver `primeiraVez`, que exige as duas colunas vazias, não só uma.
+ *
  * A ESCADA DO ORBE (§6) sai desta tela sem perder nada. O orbe vivo era o único
  * consumidor de WebGL do painel; sem ele, a home não monta three.js. O degrau
  * capturado — `MarcaViva`, que volta a viver no hover — assumiu dentro do botão
@@ -47,6 +58,7 @@
  * sem pendência nenhuma aparece, e por isso o que você ENVIOU aparece junto do
  * que recebeu — o cartão é do projeto, não seu.
  */
+import { FileSearch, FolderPlus, Layers, Ruler, Stamp, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -102,6 +114,23 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
   const carregando = !painel && !falhou;
   const vazio = Boolean(painel && painel.projetos.length === 0);
 
+  /*
+   * A TELA DE QUEM AINDA NÃO TEM NADA.
+   *
+   * Não basta "sem projeto": as duas colunas desta home respondem perguntas
+   * diferentes, e uma delas pode estar cheia com a outra vazia — quem auditou
+   * ontem e fechou tudo tem `projetos` vazio e `recentes` com trabalho dentro.
+   * Só quando as DUAS estão vazias é que a tela não tem o que contar, e é aí
+   * que ela deve falar do produto em vez de mostrar dois títulos sobre o nada.
+   *
+   * `falhou` fica de fora de propósito. Falha de rede não é ausência de
+   * trabalho, e trocar o aviso de erro por uma apresentação do software diria à
+   * pessoa que os projetos dela sumiram.
+   */
+  const primeiraVez = Boolean(
+    painel && painel.projetos.length === 0 && painel.recentes.length === 0,
+  );
+
   return (
     <div
       /*
@@ -117,166 +146,273 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
     >
       <BarraDoTopo nome={nome} iniciais={iniciais} escritorio={escritorio} ehAdmin={ehAdmin} />
 
-      <main className="mx-auto w-full max-w-[1520px] flex-1 px-4 pb-16 pt-7 sm:px-8">
-        <FaixaDeEntrada vazio={vazio} />
+      <main className="mx-auto w-full max-w-[1520px] flex-1 px-4 pb-16 sm:px-8">
+        <ConviteDoOrbe />
 
-        <div className="mt-9 grid grid-cols-1 items-start gap-9 lg:grid-cols-[minmax(0,1fr)_336px]">
-          <section className="flex w-full min-w-0 flex-col gap-2.5">
-            <div className="mb-1 flex items-baseline gap-3">
-              <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Seus projetos abertos
-              </h2>
-              <div className="flex-1" />
-              {painel && !vazio ? (
-                <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
-                  mais parados primeiro
-                </span>
+        {primeiraVez ? <PrimeirosPassos /> : null}
+
+        {primeiraVez ? null : (
+          <div className="mt-9 grid grid-cols-1 items-start gap-9 lg:grid-cols-[minmax(0,1fr)_336px]">
+            <section className="flex w-full min-w-0 flex-col gap-2.5">
+              <div className="mb-1 flex items-baseline gap-3">
+                <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Seus projetos abertos
+                </h2>
+                <div className="flex-1" />
+                {painel && !vazio ? (
+                  <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
+                    mais parados primeiro
+                  </span>
+                ) : null}
+              </div>
+
+              {carregando ? <Esqueleto /> : null}
+
+              {falhou ? (
+                <p className="max-w-[46ch] py-6 text-sm leading-normal text-muted-foreground">
+                  Não deu para carregar seus projetos agora. O Nexo continua funcionando —
+                  recarregue a página quando quiser tentar de novo.
+                </p>
               ) : null}
-            </div>
 
-            {carregando ? <Esqueleto /> : null}
-
-            {falhou ? (
-              <p className="max-w-[46ch] py-6 text-sm leading-normal text-muted-foreground">
-                Não deu para carregar seus projetos agora. O Nexo continua funcionando — recarregue
-                a página quando quiser tentar de novo.
-              </p>
-            ) : null}
-
-            {vazio ? (
-              <div className="px-0.5 py-6">
-                <p className="mb-2 text-base font-medium text-foreground">
-                  Nenhum projeto seu por aqui ainda.
-                </p>
-                <p className="m-0 max-w-[44ch] text-sm leading-normal text-muted-foreground">
-                  Abra o Nexo e envie o primeiro documento: o centro de custo é lido do PDF e a
-                  pasta nasce a partir dele.
-                </p>
-              </div>
-            ) : null}
-
-            {painel?.projetos.map((projeto) => (
-              <CartaoDeProjeto
-                key={projeto.projectId}
-                projeto={projeto}
-                aberto={Boolean(abertos[projeto.projectId])}
-                alternar={() =>
-                  setAbertos((atual) => ({
-                    ...atual,
-                    [projeto.projectId]: !atual[projeto.projectId],
-                  }))
-                }
-              />
-            ))}
-
-            {painel && !vazio ? (
-              <Link
-                href="/projetos"
-                className="mt-2 self-start font-mono text-xs tracking-[0.05em] text-primary transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
-              >
-                Ver todos os projetos do escritório →
-              </Link>
-            ) : null}
-          </section>
-
-          <aside className="flex w-full min-w-0 flex-col gap-3">
-            <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Onde você parou
-            </h3>
-
-            {painel && painel.recentes.length === 0 ? (
-              <p className="m-0 text-sm leading-normal text-muted-foreground">
-                Sua primeira auditoria aparece aqui.
-              </p>
-            ) : null}
-
-            {painel && painel.recentes.length > 0 ? (
-              <div
-                className="nx-edge-8"
-                style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
-              >
-                <div className="flex flex-col px-3.5">
-                  {painel.recentes.map((recente) => (
-                    <Link
-                      key={recente.auditId}
-                      href={`/nexo?auditoria=${encodeURIComponent(recente.auditId)}`}
-                      className="flex items-baseline gap-3 border-b border-[#171c1f] py-3 transition-colors duration-[var(--duration-fast)] last:border-0 hover:text-[var(--nexodoc-accent)]"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                        {recente.nome}
-                      </span>
-                      <span className="font-mono text-[11px] tracking-[0.03em] text-muted-foreground">
-                        {recente.quando}
-                      </span>
-                    </Link>
-                  ))}
+              {vazio ? (
+                <div className="px-0.5 py-6">
+                  <p className="mb-2 text-base font-medium text-foreground">
+                    Nenhum projeto seu por aqui ainda.
+                  </p>
+                  <p className="m-0 max-w-[44ch] text-sm leading-normal text-muted-foreground">
+                    Abra o Nexo e envie o primeiro documento: o centro de custo é lido do PDF e a
+                    pasta nasce a partir dele.
+                  </p>
                 </div>
-              </div>
-            ) : null}
-          </aside>
-        </div>
+              ) : null}
+
+              {painel?.projetos.map((projeto) => (
+                <CartaoDeProjeto
+                  key={projeto.projectId}
+                  projeto={projeto}
+                  aberto={Boolean(abertos[projeto.projectId])}
+                  alternar={() =>
+                    setAbertos((atual) => ({
+                      ...atual,
+                      [projeto.projectId]: !atual[projeto.projectId],
+                    }))
+                  }
+                />
+              ))}
+
+              {painel && !vazio ? (
+                <Link
+                  href="/projetos"
+                  className="mt-2 self-start font-mono text-xs tracking-[0.05em] text-primary transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
+                >
+                  Ver todos os projetos do escritório →
+                </Link>
+              ) : null}
+            </section>
+
+            <aside className="flex w-full min-w-0 flex-col gap-3">
+              <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Onde você parou
+              </h3>
+
+              {painel && painel.recentes.length === 0 ? (
+                <p className="m-0 text-sm leading-normal text-muted-foreground">
+                  Sua primeira auditoria aparece aqui.
+                </p>
+              ) : null}
+
+              {painel && painel.recentes.length > 0 ? (
+                <div
+                  className="nx-edge-8"
+                  style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
+                >
+                  <div className="flex flex-col px-3.5">
+                    {painel.recentes.map((recente) => (
+                      <Link
+                        key={recente.auditId}
+                        href={`/nexo?auditoria=${encodeURIComponent(recente.auditId)}`}
+                        className="flex items-baseline gap-3 border-b border-[#171c1f] py-3 transition-colors duration-[var(--duration-fast)] last:border-0 hover:text-[var(--nexodoc-accent)]"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                          {recente.nome}
+                        </span>
+                        <span className="font-mono text-[11px] tracking-[0.03em] text-muted-foreground">
+                          {recente.quando}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </aside>
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
 /**
- * A FAIXA DE ENTRADA — onde o trabalho começa, em largura total.
+ * O CONVITE DO ORBE — a instrução que o botão do topo não podia dar sozinho.
  *
- * Ela é um LINK, e essa é a mudança que importa. No lugar dela havia um cartão
- * `aria-hidden` que não clicava, não recebia foco e não fazia nada: existia para
- * dizer "é aqui que se solta" num gesto que a tela não sabia atender (ver o
- * comentário do topo). Um bloco desse tamanho na primeira dobra é lido como
- * botão por qualquer pessoa — e era o único elemento grande da tela que não
- * respondia ao clique.
+ * Aqui havia a FAIXA DE ENTRADA: um bloco de 120px de altura em largura total,
+ * com ícone de upload, o rótulo "NOVA AUDITORIA" e um link para o `/nexo`. Ela
+ * saiu em 26/08/2026, e a razão é a mesma que tirou a faixa de herói antes
+ * dela: era a segunda porta para o MESMO destino, na mesma dobra, a dois
+ * centímetros do orbe. Duas portas para uma sala não dobram o convite — elas
+ * dividem a atenção e fazem a tela parecer indecisa sobre por onde se começa.
  *
- * Agora ele leva ao Nexo, que é onde a auditoria de fato começa, por conversa ou
- * por documento solto. A promessa e o destino passaram a ser a mesma coisa.
+ * O que ficou é a PORTA e a LEGENDA dela. O orbe, agora centrado na borda da
+ * barra, é o controle; este bloco é a frase que diz o que acontece ao tocá-lo.
+ * Ele não clica: um alvo escondido embaixo do alvo verdadeiro seria a terceira
+ * porta.
  *
- * `.nx-dotgrid` é a única textura autorizada a acompanhar dado (§4, emenda de
- * 15/08/2026): grade estática de 24px, parada, a 3% — papel milimetrado, e não
- * vidro. O uso declarado dela no §5 é exatamente este: "área de documento".
+ * O VÃO DE 84px NÃO É ESPAÇAMENTO, É ESTRUTURA. O orbe tem 128px e está
+ * ancorado no CENTRO da borda inferior da barra, então 64px dele pendem sobre
+ * esta região — 75 quando o `:active` o infla em 17%. Os 84 são esses 75 mais
+ * folga. Quem mexer neste número sem mexer no `tamanho` da `BarraDoTopo` põe o
+ * texto embaixo da esfera, ou o fio por baixo dela no instante do clique.
+ *
+ * O FIO é o que amarra os dois. Um gradiente de 20px que nasce na cor da borda
+ * e morre no nada, saindo de baixo do orbe em direção à frase: sem ele, o texto
+ * lê como um subtítulo da página; com ele, lê como a legenda daquele objeto.
  */
-function FaixaDeEntrada({ vazio }: { vazio: boolean }) {
+function ConviteDoOrbe() {
   return (
-    <Link
-      href="/nexo"
-      className="nx-cut-12 nx-dotgrid group flex flex-wrap items-center gap-x-7 gap-y-5 border border-border bg-card px-6 py-8 transition-colors duration-[var(--duration-fast)] hover:border-[var(--nexodoc-accent)] sm:px-9"
-    >
+    <div className="flex flex-col items-center pt-[84px] text-center">
       <span
         aria-hidden
-        className="nx-cut-8 grid h-14 w-14 shrink-0 place-items-center bg-[var(--nexodoc-raised)] text-muted-foreground transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--nexodoc-accent)]"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="h-6 w-6">
-          <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" strokeLinecap="round" />
-        </svg>
-      </span>
+        className="h-5 w-px shrink-0"
+        style={{
+          background: "linear-gradient(to bottom, var(--border), transparent)",
+        }}
+      />
 
-      <span className="min-w-0 flex-1">
-        <span className="block font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-          Nova auditoria
-        </span>
-        <span className="mt-1.5 block text-xl font-medium tracking-[-0.01em] text-foreground">
-          {vazio ? "Envie o primeiro documento" : "Comece uma auditoria"}
-        </span>
-        <span className="mt-1.5 block max-w-[56ch] text-sm leading-normal text-muted-foreground">
-          Abra o Nexo e solte o PDF lá. O centro de custo é lido do documento e a pasta nasce a
-          partir dele.
-        </span>
-      </span>
+      <p className="mt-3.5 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-foreground">
+        Clique no orbe para falar com o Nexo
+      </p>
 
-      {/* A seta é o que promete o clique. `translate-x` no hover em vez de
-          `margin`: o §5 manda animar só `transform` e `opacity`. */}
-      <span
-        aria-hidden
-        className="shrink-0 font-mono text-sm text-muted-foreground transition-[transform,color] duration-[var(--duration-fast)] group-hover:translate-x-1 group-hover:text-[var(--nexodoc-accent)]"
-      >
-        →
-      </span>
-    </Link>
+      <p className="mt-2.5 max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+        Peça a auditoria de um memorial, a montagem de um volume ou a lista de documentos — e solte
+        o PDF na conversa. O centro de custo é lido do carimbo e a pasta nasce a partir dele.
+      </p>
+    </div>
   );
 }
+
+/**
+ * OS PRIMEIROS PASSOS — o que a home mostra quando ainda não há trabalho.
+ *
+ * Ela mostrava dois títulos ("Seus projetos abertos", "Onde você parou") e duas
+ * frases de consolo embaixo deles. Era honesto e inútil: a pessoa que abre o
+ * produto pela primeira vez não precisa que a tela confirme que ela não tem
+ * nada — precisa saber o que a ferramenta FAZ, para decidir o que trazer.
+ *
+ * Seis fichas, e cada uma é uma CAPACIDADE que existe hoje, com o nome que o
+ * produto usa por dentro. Nenhuma delas é um link: mandar alguém para
+ * `/volumes` antes de existir um projeto é mandá-lo para outra tela vazia. A
+ * única porta continua sendo o orbe, logo acima.
+ *
+ * MATTE, sem exceção (§4). São cartões, e cartão é dado — o vidro desta tela
+ * mora só na barra do topo e no orbe que pende dela.
+ */
+function PrimeirosPassos() {
+  return (
+    <section className="mt-12">
+      <div className="mb-4 flex items-baseline gap-3">
+        <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          O que o Nexo faz
+        </h2>
+        <span aria-hidden className="h-px flex-1 bg-border" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {CAPACIDADES.map((c) => (
+          <article
+            key={c.titulo}
+            className="nx-edge-8 h-full"
+            style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
+          >
+            <div className="flex h-full flex-col gap-3 px-5 py-5">
+              <span
+                aria-hidden
+                className="nx-cut-6 grid h-9 w-9 shrink-0 place-items-center bg-[var(--nexodoc-raised)] text-muted-foreground"
+              >
+                <c.Icone className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </span>
+
+              <h3 className="m-0 text-[15px] font-medium leading-snug tracking-[-0.01em] text-foreground">
+                {c.titulo}
+              </h3>
+
+              <p className="m-0 text-sm leading-relaxed text-muted-foreground">{c.texto}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {/*
+        O RODAPÉ DA APRESENTAÇÃO. Ele responde a pergunta que sobra depois das
+        seis fichas — "e por onde eu começo?" — apontando de volta para o orbe,
+        que é a resposta. Uma sétima ficha diria mais uma capacidade; esta linha
+        fecha o assunto.
+      */}
+      <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+        Nada disso pede cadastro antes. Abra a conversa no orbe, mande o primeiro documento, e esta
+        tela passa a mostrar seus projetos e por onde você andou.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * As seis capacidades, na ordem em que uma pessoa as encontra trabalhando: o
+ * documento chega, é lido, vira achado, o achado vira trabalho de alguém, o
+ * projeto vira volume, e o volume passa pelo portão de conferência.
+ *
+ * O texto de cada uma diz o que a ferramenta FAZ, com o número quando há
+ * número. "Lê o documento inteiro" é propaganda; "compara o selo de cada folha
+ * com a prefeitura de destino" é uma promessa que dá para cobrar.
+ */
+const CAPACIDADES = [
+  {
+    Icone: FileSearch,
+    titulo: "Auditoria de memorial",
+    texto:
+      "O documento é lido inteiro — numeração, sumário, tabelas, referências normativas e as cláusulas que o template do escritório deixou para trás. Cada achado vem com o trecho e a página em que ele está.",
+  },
+  {
+    Icone: Ruler,
+    titulo: "Regra primeiro, IA depois",
+    texto:
+      "O que é fato objetivo — item que não fecha, folha faltando, norma revogada — sai de regra determinística. A IA entra onde é preciso contexto, e o veredito avisa quando a leitura foi parcial.",
+  },
+  {
+    Icone: FolderPlus,
+    titulo: "O projeto nasce do documento",
+    texto:
+      "O centro de custo e a obra são lidos do carimbo do próprio PDF. Não há formulário para preencher antes: a pasta do projeto se cria a partir do primeiro arquivo que você manda.",
+  },
+  {
+    Icone: Users,
+    titulo: "Achado vira trabalho de alguém",
+    texto:
+      "Um achado pode ser atribuído a outra pessoa do escritório. O painel mostra o que está com você, o que está com os outros e há quantos dias cada coisa está parada.",
+  },
+  {
+    Icone: Layers,
+    titulo: "Capas, separatrizes e LDs",
+    texto:
+      "Capa, folha de separação e lista de documentos saem do próprio projeto, uma por disciplina, e se juntam num volume montado na ordem certa.",
+  },
+  {
+    Icone: Stamp,
+    titulo: "Conferência antes de entregar",
+    texto:
+      "O portão final do volume confere nome, endereço, data e logo de cada selo contra a prefeitura de destino — e diz qual folha discorda, em vez de dizer que algo está errado.",
+  },
+] as const;
 
 function Esqueleto() {
   return (
@@ -356,7 +492,9 @@ function CartaoDeProjeto({
           onClick={alternar}
           aria-expanded={aberto}
           className="flex w-full cursor-pointer items-center gap-3.5 border-0 py-3.5 pl-5 pr-4 text-left transition-colors duration-[var(--duration-fast)] hover:bg-[var(--nexodoc-raised)]"
-          style={{ background: alerta ? "var(--status-warning-bg)" : "transparent" }}
+          style={{
+            background: alerta ? "var(--status-warning-bg)" : "transparent",
+          }}
         >
           <svg
             viewBox="0 0 24 24"
@@ -372,7 +510,9 @@ function CartaoDeProjeto({
 
           <span
             className="nx-cut-4 shrink-0 bg-[var(--nexodoc-raised)] px-2 py-1 font-mono text-[12px] font-semibold tracking-[0.04em]"
-            style={{ color: alerta ? "var(--status-warning)" : "var(--foreground)" }}
+            style={{
+              color: alerta ? "var(--status-warning)" : "var(--foreground)",
+            }}
           >
             {projeto.codigo}
           </span>
