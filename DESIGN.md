@@ -577,6 +577,33 @@ mostra só os `GET /nexo` das navegações de verdade), e em produção o `<Link
 pré-carrega ao entrar na viewport — onde o orbe sempre está. Era uma linha que
 não fazia nada nos dois ambientes.
 
+#### Por que NÃO há cortina de carregamento
+
+A proposta apareceu, e é a reação certa a um sintoma real: entrando no Nexo, o
+orbe "nascia bugado, sólido" e só depois virava ele mesmo. A ideia era segurar
+uma cortina até o chat carregar por inteiro.
+
+**O sintoma era outra coisa.** O que aparecia enquanto o WebGL não chegava não
+era o orbe meio-carregado: era o degrau CSS do §6, um gradiente teal chapado —
+um OBJETO DIFERENTE, na tela por ~300ms na primeira ida. O conserto foi trocar
+o degrau pelo capturado (ver `OrbGlow`), e a mutação sumiu na origem.
+
+**E a cortina custaria caro para esconder o que já não existe:**
+
+- ela contradiz a abertura do §5 — "instrumento de trabalho usado em sessões
+  longas, não uma página que se assiste carregar";
+- ela é mais LENTA, não mais rápida. Hoje a casca aparece aos 222ms e já dá para
+  ler; uma cortina que espera "tudo pronto" só levanta depois dos ~489ms, e
+  esperar atrás de um pano é a definição de travado;
+- ela esconderia o **boot do orbe** (§6, ~600ms), que é o momento em que a
+  identidade do produto acontece. Levantar a cortina depois dele entrega uma
+  esfera já ligada, e o que se ganhou em "limpo" se perdeu em presença.
+
+**A regra que fica:** quando um estado intermediário parece defeito, o conserto
+é o estado intermediário virar o mesmo objeto — nunca um pano por cima. Cobrir
+transforma um salto visível numa espera invisível, e espera é o que este produto
+menos pode gastar.
+
 **Movimento reduzido não vê nada disso.** O gate é em JS, no `BotaoDoOrbe`,
 antes de a coreografia começar — e o que ele desliga é a ENCENAÇÃO, nunca a
 navegação: o clique volta a ser um `<Link>` comum e leva ao mesmo lugar. Vale o
