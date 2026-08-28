@@ -1,0 +1,329 @@
+# Roadmap do pendente — traçado em 27/08/2026
+
+> **Autoridade:** o Matheus mandou decidir e executar sem perguntar a cada
+> bifurcação. As escolhas abaixo estão tomadas, com o motivo escrito. Onde uma
+> escolha puder queimar dinheiro ou apagar trabalho, há portão — e só ali.
+
+**Orçamento de modelo de HOJE: US$ 4,00** (de US$ 6,00 disponíveis). O plano de
+gasto está na Fase 0 e é o único lugar deste documento que paga modelo.
+
+---
+
+## O que estava pendente, conferido no código em 27/08/2026
+
+Três frentes, e nada foi commitado em 26/08 — o último commit é `1e9477e`, de
+25/08.
+
+| frente | de onde vem | estado real |
+|---|---|---|
+| Prova com token do chat advogado do diabo | `scripts/prova-chat-com-token.md` | escrita, **nunca rodada** |
+| Lote de envio de achado (3 itens) | combinado em 25/08 | **nada feito**, nem desenho |
+| UX: lotes 2 a 12 | `specs/2026-08-13-propostas-ux-ui-aprovadas.md` | abertos |
+| Admin: A.8, A.6, A.9b | `specs/2026-08-13-admin-aprovado.md` | abertos |
+
+**Reconferido item a item hoje, e três coisas mudaram de estado:**
+
+- **O Lote 11 da spec de UX está MORTO.** Ele era "2.24, 2.25, 2.26 — admin:
+  tabela de saúde, funil de calibração, custo por obra". A spec do admin
+  substituiu os três: a 2.24 virou A.4 (feito, `lib/status-do-sistema.ts`), a
+  2.26 virou A.7 (feito, `lib/custo-por-obra.ts`), e a 2.25 virou A.8 — o único
+  pedaço que sobrou. **Não abrir plano para o Lote 11**; ele está inteiro dentro
+  da Fase 6 deste roadmap. Isso tira um lote da fila sem trabalho nenhum.
+- **Lote 0 e Lote 1 estão feitos** (`enquadramento-do-selo.ts` no
+  `VisorDaFolha`), e A-I a A-VI também. A fila de UX real é: **2, 3, 4, 5, 6, 7,
+  8, 9, 10, 12**.
+- **A.10 (trilha de ações do admin) segue fora de escopo** até haver auth por
+  pessoa. Registrar "quem tinha o token" dá aparência de trilha sem atribuição,
+  e trilha em que não se pode confiar é pior que trilha nenhuma. Não reabrir.
+
+## A lei que vale para toda fase deste roadmap
+
+Herdada das duas specs e da lição de 15/08, e ela decide o que conta como
+pronto:
+
+1. **"Compila limpo" não é evidência de que roda.** `tsc` e `eslint` passaram
+   verdes enquanto o servidor caía na inicialização. **Toda tela tocada é ABERTA
+   antes de eu dizer que está pronta.**
+2. **GREPE antes de construir.** As specs não registram o que foi feito; o
+   código sim. Em 15/08 eu ia começar um item que estava pronto havia dois dias.
+3. **Fato determinístico primeiro, IA por último.** Página e trecho saem sempre
+   de ferramenta, nunca da cabeça do modelo.
+4. **Commit direto na `main`, caminho por caminho**, nunca `git add -A`, sempre
+   `git diff --cached --stat` antes.
+5. **Teste novo entra no `package.json`** como `"test:<nome>"`.
+6. Comentário e nome em **pt-BR**, explicando POR QUE.
+
+---
+
+# Fase 0 — HOJE: o que só o dinheiro responde
+
+**Por que primeiro:** o chat advogado do diabo está inteiro na `main` e
+**não está provado**. Nove tarefas, sete suítes verdes, e ainda assim o que
+está provado é que o mecanismo funciona — não que o auditor acerta. Enquanto a
+prova com token não roda, a feature mais cara do mês é uma promessa. É o único
+item da fila que dinheiro destrava, e é por isso que ele gasta o orçamento de
+hoje antes de qualquer pixel.
+
+## O plano de gasto, decidido com número medido
+
+Medido hoje no banco (`AiUsageEvent`, 241 chamadas em 08/2026, US$ 12,33):
+
+| corrida | modelo | custo real medido |
+|---|---|---|
+| auditoria de memorial **Padrão** | `gpt-5.6-terra` | **US$ 0,25** (0,131 global + 0,082 validação + 0,039 chunks) |
+| auditoria de memorial **Profundo** | `gpt-5.6-sol` | **US$ 1,95** — 8x mais cara |
+| turno de conversa | `terra` | US$ 0,005 em média |
+
+**DECISÃO: a prova roda em Padrão.** As sete perguntas do roteiro medem se a
+*página citada bate com o PDF* — isso é ferramenta determinística sobre o
+`AuditText`, e a profundidade da leitura do motor não muda a resposta. Pagar
+`sol` aqui seria comprar US$ 1,70 de nada.
+
+    US$ 0,25   auditoria Padrão do memorial do kit
+    US$ 0,50   as sete perguntas do roteiro, com folga de voltas
+    ---------
+    US$ 0,75   custo previsto
+    US$ 3,25   RESERVA — cabe uma segunda corrida inteira se a primeira
+               reprovar por defeito que eu consiga consertar na hora
+
+**O teto do ambiente NÃO protege esta corrida**, e é bom estar escrito:
+`NEXODOC_MONTHLY_BUDGET_USD` não está no `.env.local` (não há teto), e mesmo se
+estivesse, `matheusmendes077@gmail.com` está em `NEXODOC_ADMIN_EMAILS` e
+`isentoDoTeto()` o dispensa do bloqueio de propósito. **Quem segura os US$ 4 sou
+eu, medindo.** Daí o passo 0.1.
+
+## Passos
+
+- [ ] **0.1 — `scripts/gasto-de-hoje.ts`, o guarda-livros (sem token).**
+      Soma `estimatedCostUsd` de hoje e do mês, quebrado por `flow` e `model`.
+      Sem ele, "gastei US$ 4" é palpite. Registrar como `npm run gasto`.
+      Rodar ANTES e DEPOIS de cada corrida paga, e colar a diferença aqui.
+
+- [ ] **0.2 — gerar o kit de memoriais** (sem token):
+      `node scripts/gera-memoriais-defeituosos.mjs`. A pasta
+      `docs/samples/_auditoria-teste/` é ignorada pelo git e **não existe nesta
+      máquina agora** — precisa nascer. Conferir com
+      `node scripts/confere-memoriais-defeituosos.ts`, que valida o gabarito
+      sem pagar nada.
+
+- [ ] **0.3 — as sete suítes puras, antes de gastar.** Um defeito que um teste
+      grátis pega não pode ser descoberto por uma corrida paga:
+
+      npm run test:ancoragem && npm run test:memoria && npm run test:chat:ferramentas
+      npm run test:chat:historico && npm run test:chat:laco && npm run test:chat:rota
+      npm run test:chat:roteamento && npm run prova:chat-advogado
+
+- [ ] **0.4 — `npm run dev` RECÉM-INICIADO.** Um `next dev` velho dá falha de
+      portão consistente e falsa. Reiniciar antes de acreditar em qualquer
+      reprovação. Se o Chrome insistir em "X is not a function", só
+      `Ctrl+Shift+R` resolve — apagar `.next` não.
+
+- [ ] **0.5 — a corrida paga**, seguindo `scripts/prova-chat-com-token.md`
+      passo a passo. Arquivo escolhido: **`03-numerico-areas-e-unidades.pdf`** —
+      o gabarito dele tem número conferível (813,98 × 1.480,00 × 902,45 m² nas
+      páginas 6/13/28), e "em que página está X, e qual o valor?" tem UMA
+      resposta certa. Um memorial de identidade não daria isso.
+
+      **REPROVA sem apelação se a página citada não bater com o PDF.** Não
+      arredondar o julgamento: página errada é o defeito que esta arquitetura
+      inteira existe para impedir.
+
+- [ ] **0.6 — o número que fecha a feature.** O log traz uma linha por volta
+      (`[ai] flow=audit-chat op=audit-chat-turn`). Anotar quantas voltas cada
+      pergunta gastou e o custo da sessão, e então **decidir o teto de voltas**:
+      hoje `NEXODOC_AUDIT_CHAT_MAX_TOOL_TURNS = 8` é palpite, e está escrito
+      assim de propósito. Se a pergunta mais cara gastar 3, o teto vira 6 (o
+      dobro do pior caso medido). Escrever o número medido no plano da feature.
+
+- [ ] **0.7 — fechar o estado.** Trocar, na spec do chat, "a prova com token
+      ainda NÃO foi executada" pelo resultado e pela data. Commit.
+
+**PORTÃO:** se a prova REPROVAR na página citada, a Fase 1 não começa. Um chat
+que cita página errada é pior que chat nenhum, e vira o trabalho do dia
+seguinte. Se reprovar em algo cosmético, anoto e sigo.
+
+---
+
+# Fase 1 — O lote de envio de achado
+
+**Por que aqui:** foi pedido em 25/08 e adiado por um dia que já passou. Não
+paga modelo, e os três itens tocam o mesmo arquivo
+(`components/audit-result.tsx`, fila `data-acoes-do-achado`, hoje
+`[Marcar corrigido] [Decisao tecnica] [···]`). A dúvida que travava já foi
+respondida.
+
+- [ ] **1.1 — desenho curto e portão de aprovação.** Uma tela desenhada, não um
+      documento: como fica a fila de ações com quatro controles, e como fica a
+      seleção em massa. **É o único portão desta fase** — o Matheus vê antes de
+      eu escrever componente.
+
+- [ ] **1.2 — "pop" de achado enviado.** Hoje o retorno é o `feedbackNotice`,
+      mono pequeno perto da barra, e some no ruído. **Componente novo, não
+      reuso:** `components/ui/` não tem toast e nenhum arquivo usa
+      sonner/snackbar — conferido hoje, a pasta tem 19 primitivos e nenhum
+      deles serve.
+
+- [ ] **1.3 — seleção em massa.** "Selecionar todos", ou todos os do FILTRO
+      atual (todos os críticos, todos de hidrossanitário). Hoje são 22 cliques
+      para mandar 22 achados. **Não é falta de função:** o envio em lote já
+      existe — a etiqueta "Ref. INC-00x" é caixa de seleção e a barra do rodapé
+      manda todos numa requisição só. O que falta é marcar rápido.
+
+      **RECUSADO de propósito:** mandar o mesmo achado para várias pessoas. Um
+      achado tem UM dono; reatribuir passa de mão, não soma. Duas pessoas dariam
+      duas respostas possíveis para "com você" e para o desfecho.
+
+- [ ] **1.4 — botão ENVIAR ao lado de "Decisão técnica".** Hoje "Enviar para
+      alguém" só existe dentro do `···` (`audit-result.tsx:3089`). Promover a
+      irmão dos outros dois, **mantendo o comportamento**: o botão MARCA o
+      achado e a barra do rodapé escolhe a pessoa. Um segundo seletor seria uma
+      segunda regra de quem pode receber, e as duas discordariam no primeiro
+      dia.
+
+      Cuidado medido: a fila já quebra em duas linhas no painel estreito do Nexo
+      com três controles. Com quatro, resolver a quebra faz parte do item.
+
+- [ ] **1.5 — a dívida cosmética junto:** a barra de envio do rodapé quebra em
+      duas linhas no painel do Nexo e o "LIMPAR" cai sozinho embaixo
+      (`ml-auto` + `flex-wrap`). Está anotada desde 25/08 e é a mesma tela.
+
+- [ ] **1.6 — abrir a tela** (lei 1) e commitar.
+
+---
+
+# Fase 2 — Lote 2 da UX: as duas metades que fecham
+
+**Por que aqui:** são as duas linhas da "Parte C" da spec — meio caminho já
+andado, uma tarde cada, e a primeira apaga um defeito que a tela confessa.
+
+- [ ] **2.1 — o botão Regenerar (item 1.6).** Conferido hoje:
+      `modules/nexo/components/NexoCanvas.tsx:200` diz "Gere de novo antes de
+      montar o volume" e **não existe botão nenhum** que faça isso — a string
+      "Regenerar" não aparece em lugar nenhum do produto. A tela manda fazer
+      algo e não oferece o gesto.
+
+      **Não depende de decisão de storage:** o caminho determinístico de
+      regeneração já existe; o botão só o chama.
+
+- [ ] **2.2 — recibo do drop (item 2.11).** `NexoWorkspace.tsx:545-551` já
+      nomeia as folhas que falharam e `lib/estado-do-anexo.ts` dá estado por
+      arquivo. Falta só o formato de recibo: `200 recebidos · 198 lidos · 2
+      falharam`.
+
+---
+
+# Fase 3 — Lote 3: fechar o loop de valor da auditoria
+
+Itens **2.19, 2.20, 2.21** — o que mudou, o que custa, o que se entrega em
+papel. É a fase que faz a auditoria valer dinheiro na frente de quem paga, e
+por isso vem antes de qualquer refinamento de canvas.
+
+- [ ] **3.1** — reler a spec e GREPAR os três antes de desenhar (lei 2).
+- [ ] **3.2** — plano próprio em `docs/superpowers/plans/`, um PR.
+
+---
+
+# Fase 4 — Lote 4: o canvas vira conferível
+
+Itens **2.16, 2.14, 2.15**, nesta ordem e por este motivo: **teclado primeiro**
+(barato e independente de tudo), zoom depois, coluna da LD por último.
+
+---
+
+# Fase 5 — Lote 5: proveniência e trace
+
+Itens **1.2, 1.3, 2.9**. Destravado — o Lote 0 já documentou `--signal-info`
+como a cor de "informação", e **não há decisão de cor pendente**.
+
+**Entregar a versão de três origens** (nome do arquivo / carimbo / mão), NÃO
+`folha 07 · canto inferior direito`. Hoje `classify-documents.ts` guarda
+confiança por *arquivo*; origem por campo não existe, e inventar precisão que o
+dado não tem é o pior desfecho possível aqui.
+
+---
+
+# Fase 6 — Admin: A.8, A.6, A.9b (e o enterro do Lote 11)
+
+**Por que só agora:** o admin é onde mora quem paga a conta, mas A-I a A-VI já
+entregaram o que importa — sistema visual, header, linha de status, confirmação
+de privilégio, dados do escritório e custo por obra. O que sobra é acabamento.
+
+- [ ] **6.1 — A.8 (era A-VII, e engole a 2.25 do Lote 11):** `/admin/quality`
+      com série semanal e **meta declarada**. Sem meta, série é enfeite.
+      **Gráfico decorativo é fora de escopo:** tabela mono ou sparkline de 1px,
+      e o `DESIGN.md` já proíbe métrica-herói colorida.
+- [ ] **6.2 — A.6 (A-VIII):** `/admin/config` com hierarquia de atenção, e
+      **fundir a "última falha" duplicada numa fonte só**. Dois lugares dizendo
+      a mesma coisa vão discordar.
+- [ ] **6.3 — A.9b (A-IX):** preferências da pessoa. Acabamento declarado como
+      tal na própria spec.
+- [ ] **6.4 — riscar o Lote 11 da spec de UX**, com o motivo, para ninguém
+      abrir plano para ele de novo.
+
+---
+
+# Fase 7 — Lote 7: onboarding, e o suporte que destrava dois lotes
+
+Itens **2.4, 2.5, 2.3+** — checklist, partidas e ampliação do projeto de
+demonstração (`lib/projeto-exemplo.ts`, 375 linhas, já existe com outra forma).
+
+**Esta é a fase-gargalo do fim do roadmap:** o suporte a **intenção inicial na
+rota `/nexo`** nasce aqui, e **2.5, 2.28 e 1.1 dependem dele**. É por isso que 7
+vem antes de 8 e de 10 — inverter significa construir o mesmo suporte duas
+vezes.
+
+---
+
+# Fase 8 — Lotes 8 e 10, sobre a intenção inicial
+
+- [ ] **8.1 — Lote 8 / item 1.1: command palette.** Componente **do zero**: não
+      há `Command` de biblioteca no projeto (A.5 da spec).
+- [ ] **8.2 — Lote 10 / item 2.28: banner de ponte para o Nexo.** **Uma tela
+      só** — a premissa de "quatro ferramentas antigas" está errada, restou uma
+      (A.2 da spec).
+
+---
+
+# Fase 9 — Lote 9 e Lote 12: o acabamento
+
+- [ ] **9.1 — Lote 9 / item 2.22:** a régua vira índice, **respeitando A.4**: a
+      barra de leitura não sinaliza falha, e isso é de propósito. Não
+      transformar índice em alarme.
+- [ ] **9.2 — Lote 12:** favicon vivo, selo e gabarito do login, orbe
+      "aguardando você" (**1.4, 2.1, 2.2, 2.23**).
+
+---
+
+## O que este roadmap NÃO vai fazer, e por quê
+
+Escrito para eu não reabrir sozinho no meio do caminho:
+
+- **2.13 minimapa** — rejeitado com autópsia: o `MiniMapNode` do xyflow descarta
+  nó sem dimensão declarada e o mapa saía vazio. Não reabrir sem resolver isso
+  primeiro.
+- **2.29 prontuário da obra** — retirado pelo mantenedor.
+- **A.10 trilha do admin** — só depois de auth por pessoa.
+- **Lote 11** — morto, absorvido pela Fase 6.
+- Cor nova fora dos quatro tokens; tema claro; dashboard de métrica-herói;
+  emoji; mudança de stack, de modelo de IA ou de pipeline de geração.
+
+## Verificação, ao fim de cada fase
+
+    npx tsc --noEmit && npm run lint && npm run prova:rotas
+
+E **a tela aberta**, sempre — porque `tsc` verde já conviveu com servidor caído.
+
+Se `tsc` acusar centenas de erros de `@prisma/client` e `lucide-react` que não
+fazem sentido, o `node_modules` deste worktree é cópia parcial (SWC com 6 MB em
+vez de 136 MB). Cura: `rm -rf node_modules .next && npm ci && npx prisma generate`.
+
+---
+
+## Registro de gasto — preencher durante a Fase 0
+
+| quando | corrida | modelo | US$ | acumulado |
+|---|---|---|---|---|
+| | | | | |
+
+**Teto de hoje: US$ 4,00.** Ao cruzar, a Fase 0 para onde estiver e o resto do
+roadmap segue sem pagar modelo — nenhuma fase de 1 a 9 precisa de token.

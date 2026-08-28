@@ -2,7 +2,8 @@
  * QUANTO CUSTOU, de verdade — lido do banco, não estimado.
  *
  * Toda chamada de modelo grava um `AiUsageEvent` com tokens e custo calculado
- * pela mesma tabela de preço do produto. Este script só agrupa e soma.
+ * pela mesma tabela de preço do produto. Este script só agrupa e soma — o
+ * motor da auditoria e o chat que vem depois dela, juntos.
  *
  * Nasceu em 17/08/2026, quando uma auditoria do 084_25 gastou US$ 6,09 e 71%
  * disso foi para 20 blocos que truncaram e devolveram zero. Nenhuma estimativa
@@ -40,7 +41,14 @@ const prisma = new PrismaClient({
 
 const eventos = await prisma.aiUsageEvent.findMany({
   where: {
-    flow: "audit",
+    /*
+     * O CHAT DA AUDITORIA ENTRA NA MESMA CONTA. Ele nasceu em 25/08 num flow
+     * próprio (`audit-chat`), e enquanto este script só lia `audit` a conversa
+     * sobre o parecer ficava invisível — some justamente a parte que o teto de
+     * voltas existe para limitar. Uma auditoria custa o motor MAIS as perguntas
+     * que vieram depois; separar as duas responde a pergunta errada.
+     */
+    flow: { in: ["audit", "audit-chat"] },
     createdAt: { gte: new Date(Date.now() - horas * 60 * 60 * 1000) },
     ...(auditId ? { taskId: auditId } : {}),
   },
@@ -49,7 +57,7 @@ const eventos = await prisma.aiUsageEvent.findMany({
 
 if (eventos.length === 0) {
   console.log(
-    `\nNenhuma chamada de auditoria nas últimas ${horas}h${auditId ? ` para ${auditId}` : ""}.`,
+    `\nNenhuma chamada de auditoria (nem de chat) nas últimas ${horas}h${auditId ? ` para ${auditId}` : ""}.`,
   );
   await prisma.$disconnect();
   process.exit(0);
