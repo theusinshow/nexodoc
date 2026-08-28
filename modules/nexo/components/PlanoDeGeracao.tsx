@@ -676,6 +676,47 @@ export function PlanoDeGeracao({
     for (const [campo, v] of Object.entries(extras)) decidir(campo, v, "");
   }
 
+  /**
+   * UM item, e é ele a unidade de verdade deste plano.
+   *
+   * Extraído de `gerarTudo` em 27/08/2026 para o botão "Regenerar" ter o que
+   * chamar: quando os bytes de um artefato ficaram noutra máquina, refazer o
+   * plano INTEIRO gastaria de novo os outros documentos, que estão íntegros.
+   * O laço de `gerarTudo` continua sendo o mesmo caminho — ele só passou a
+   * chamar esta função em vez de repetir o corpo dela.
+   *
+   * Devolve a falha em vez de lançar: quem chama decide se ela interrompe o
+   * resto (o laço não interrompe, e é assim desde antes disto).
+   */
+  async function gerarUmItem(i: number) {
+    setGerando(i);
+    try {
+      await gerarItem({
+        item: itens[i],
+        selos,
+        saveResult,
+        idsBase,
+        // A separatriz herda o título da capa — nunca deriva o seu.
+        tituloDaSeparatriz: titulo,
+        // O total corrigido à mão: este é o caminho NORMAL de gerar, então
+        // é por aqui que a correção precisa chegar ao documento.
+        totais: totaisPorDisciplina,
+        // O escape de quando o carimbo mente. Pelo mesmo motivo do total:
+        // este é o caminho normal de gerar.
+        identidade,
+        // Os marcadores que o engenheiro acrescentou ao modelo. Sem eles,
+        // o campo que o frame ofereceu sairia literal no documento.
+        extras,
+      });
+      return null;
+    } catch (err) {
+      return {
+        rotulo: itens[i].rotulo,
+        motivo: err instanceof Error ? err.message : "erro desconhecido",
+      };
+    }
+  }
+
   async function gerarTudo() {
     // As decisões que sobreviveram a este turno. Sem guardar de volta, uma que
     // perdeu para o agente voltaria a vencer quando ele repetisse o valor novo.
@@ -684,35 +725,30 @@ export function PlanoDeGeracao({
     const coletadas: { rotulo: string; motivo: string }[] = [];
     try {
       for (let i = 0; i < itens.length; i++) {
-        setGerando(i);
-        try {
-          await gerarItem({
-            item: itens[i],
-            selos,
-            saveResult,
-            idsBase,
-            // A separatriz herda o título da capa — nunca deriva o seu.
-            tituloDaSeparatriz: titulo,
-            // O total corrigido à mão: este é o caminho NORMAL de gerar, então
-            // é por aqui que a correção precisa chegar ao documento.
-            totais: totaisPorDisciplina,
-            // O escape de quando o carimbo mente. Pelo mesmo motivo do total:
-            // este é o caminho normal de gerar.
-            identidade,
-            // Os marcadores que o engenheiro acrescentou ao modelo. Sem eles,
-            // o campo que o frame ofereceu sairia literal no documento.
-            extras,
-          });
-        } catch (err) {
-          coletadas.push({
-            rotulo: itens[i].rotulo,
-            motivo: err instanceof Error ? err.message : "erro desconhecido",
-          });
-        }
+        const falha = await gerarUmItem(i);
+        if (falha) coletadas.push(falha);
       }
     } finally {
       setGerando(null);
       setFalhas(coletadas);
+    }
+  }
+
+  /**
+   * REGENERAR UM SÓ — o que o aviso de bytes ausentes pedia e não oferecia.
+   *
+   * As decisões vivas são guardadas aqui também: refazer um documento com o
+   * payload de hoje é o ponto, e sem isto uma decisão que perdeu para o agente
+   * voltaria a vencer no arquivo refeito.
+   */
+  async function regerarUmItem(i: number) {
+    guardarDecisoesVivas(mesclado.vivas);
+    setFalhas([]);
+    try {
+      const falha = await gerarUmItem(i);
+      setFalhas(falha ? [falha] : []);
+    } finally {
+      setGerando(null);
     }
   }
 
@@ -1045,9 +1081,23 @@ export function PlanoDeGeracao({
                   a LD errada sairia para a prefeitura com um botão verde ao
                   lado. Quem quiser o arquivo antigo regera.
                 */}
-                {estado === "aplicado" && salvo && !ocupado && (
-                  <ResultLinks saved={salvo} />
-                )}
+                {/*
+                  `|| gerando === i` NÃO É REDUNDANTE, e sem ele o botão novo
+                  não funcionava: `ocupado` esconde os arquivos enquanto QUALQUER
+                  item gera, e clicar em "Regenerar" fazia sumir o próprio bloco
+                  que guarda o botão — spinner nenhum, e a impressão de que o
+                  clique não pegou. O item que está sendo refeito continua na
+                  tela, mostrando o próprio estado; os outros somem como antes.
+                */}
+                {estado === "aplicado" &&
+                  salvo &&
+                  (!ocupado || gerando === i) && (
+                    <ResultLinks
+                      saved={salvo}
+                      onRegerar={() => regerarUmItem(i)}
+                      regerando={gerando === i}
+                    />
+                  )}
               </li>
             );
           })}

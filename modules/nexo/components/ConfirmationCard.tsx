@@ -811,6 +811,14 @@ function LdConfirmation({
               : saved.summary
           }
           saved={saved}
+          /*
+            REGENERAR É O MESMO `confirm()` QUE GEROU. Não há segundo caminho
+            de geração para manter em pé, e é por isso que o botão pode existir
+            aqui: quando os bytes ficaram noutra máquina, refazer é repetir a
+            confirmação com o mesmo payload.
+          */
+          onRegerar={confirm}
+          regerando={busy}
         />
       )}
       <CardError message={error} />
@@ -1008,6 +1016,14 @@ function CapaConfirmation({
               : saved.summary
           }
           saved={saved}
+          /*
+            REGENERAR É O MESMO `confirm()` QUE GEROU. Não há segundo caminho
+            de geração para manter em pé, e é por isso que o botão pode existir
+            aqui: quando os bytes ficaram noutra máquina, refazer é repetir a
+            confirmação com o mesmo payload.
+          */
+          onRegerar={confirm}
+          regerando={busy}
         />
       )}
       <CardError message={error} />
@@ -2102,7 +2118,14 @@ function VolumeConfirmation({
         </>
       )}
 
-      {saved && <ResultLinks summary={saved.summary} saved={saved} />}
+      {saved && (
+        <ResultLinks
+          summary={saved.summary}
+          saved={saved}
+          onRegerar={confirm}
+          regerando={busy}
+        />
+      )}
       {/* A conferência do volume montado, logo abaixo do PDF. Crítico pinta o
           semáforo, e o link de baixar continua acima, ativo: quem decide o que
           fazer com o volume é o engenheiro. */}
@@ -2778,6 +2801,14 @@ function SeparatrizConfirmation({
               : saved.summary
           }
           saved={saved}
+          /*
+            REGENERAR É O MESMO `confirm()` QUE GEROU. Não há segundo caminho
+            de geração para manter em pé, e é por isso que o botão pode existir
+            aqui: quando os bytes ficaram noutra máquina, refazer é repetir a
+            confirmação com o mesmo payload.
+          */
+          onRegerar={confirm}
+          regerando={busy}
         />
       )}
       <CardError message={error} />
