@@ -26,7 +26,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 
@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { pinsDoDocumento } from "@/lib/pins-do-parecer";
 import { palavra, plural } from "@/lib/plural";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pop } from "@/components/ui/pop";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
 import {
   MOLDURA_DE_SINAL,
@@ -1271,6 +1272,26 @@ export function AuditResult({
   const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
   const [feedbackNotice, setFeedbackNotice] = useState("");
+  /**
+   * O DESFECHO DO ENVIO, no pop — separado do `feedbackNotice` de propósito.
+   *
+   * `feedbackNotice` é compartilhado por quatro ações (desfecho, avaliação,
+   * erro ausente, envio) e é renderizado num só lugar: dentro da seção
+   * "Registrar erro ausente". O resultado de mandar vinte e dois achados
+   * aparecia, em mono cinza, encostado numa seção que não tem nada com isso.
+   * Aqui o envio ganha o próprio canal, e ele nasce onde a barra de envio
+   * estava.
+   */
+  const [pop, setPop] = useState<{ tom: "ok" | "falha"; texto: string } | null>(
+    null,
+  );
+  /*
+   * `useCallback` e não uma seta inline: o pop de sucesso se apaga por
+   * `setTimeout`, e o efeito que o arma depende desta função. Uma função nova a
+   * cada render reiniciaria o relógio a cada render — num componente que relê o
+   * parecer, o aviso nunca sairia sozinho.
+   */
+  const fecharPop = useCallback(() => setPop(null), []);
 
   /*
    * O AVISO POR E-MAIL, em quatro estados que não se sobrepõem.
@@ -1915,13 +1936,52 @@ export function AuditResult({
     });
   }
 
+  /*
+   * SELEÇÃO EM MASSA — 22 cliques viravam um.
+   *
+   * O envio em lote já existia: a etiqueta "Ref. INC-00x" é caixa de seleção e
+   * a barra do rodapé manda todos numa requisição só. O que faltava era MARCAR
+   * rápido — quem revisa um memorial inteiro marca vinte e dois achados um a
+   * um antes de chegar à barra.
+   *
+   * O ALVO É O FILTRO ATUAL, e é por isso que ele sai de `groupedPrincipal`:
+   * "todos os críticos" e "todos de hidrossanitário" não precisam de controle
+   * próprio, porque os filtros da tela já sabem fazer isso. Um segundo jeito de
+   * dizer "quais" seria uma segunda regra, e as duas discordariam.
+   *
+   * ACHADO FECHADO FICA DE FORA. Mandar para alguém um achado já corrigido é
+   * pedir trabalho que não existe — e é a MESMA condição do botão "Enviar" de
+   * cada cartão, de propósito: dois critérios diferentes para a mesma ação
+   * fariam a contagem do botão mentir sobre o que ele marca.
+   *
+   * As sugestões da IA também ficam de fora: elas vivem noutra lista, dobrada,
+   * e não contam para o veredito.
+   */
+  const enviaveisDoFiltro = groupedPrincipal.filter(
+    (f) => f.refId && !estaResolvido(f.refId),
+  );
+  const todosDoFiltroMarcados =
+    enviaveisDoFiltro.length > 0 &&
+    enviaveisDoFiltro.every((f) => selecionados.has(f.refId!));
+
+  function alternarTodosDoFiltro() {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual);
+      for (const f of enviaveisDoFiltro) {
+        if (todosDoFiltroMarcados) proximo.delete(f.refId!);
+        else proximo.add(f.refId!);
+      }
+      return proximo;
+    });
+  }
+
   async function enviarSelecionados() {
     if (!auditId || !destinatario || selecionados.size === 0) {
       return;
     }
 
     setEnviando(true);
-    setFeedbackNotice("");
+    setPop(null);
 
     try {
       const response = await fetch(
@@ -1970,13 +2030,24 @@ export function AuditResult({
       // E a versão do servidor por cima: é ela que sabe o nome de quem foi
       // convidado e nunca entrou, e quem o `euSou` de verdade é.
       setReleituras((n) => n + 1);
-      setFeedbackNotice(
-        `${plural(payload?.atribuidos ?? 0, "achado enviado", "achados enviados")}. ${palavra(payload?.atribuidos ?? 0, "Aparece", "Aparecem")} na home de quem recebeu.`,
-      );
+      /*
+       * O NOME DE QUEM RECEBEU ENTRA NO AVISO. A frase antiga dizia só quantos
+       * foram; quem manda em lote manda para pessoas diferentes na mesma
+       * sessão, e "22 achados enviados" não diz se foram para o Milton ou para
+       * o Victor. `rotulo.nome` é o mesmo texto que o seletor mostrava.
+       */
+      setPop({
+        tom: "ok",
+        texto: `${plural(payload?.atribuidos ?? 0, "achado enviado", "achados enviados")} para ${rotulo.nome}. ${palavra(payload?.atribuidos ?? 0, "Aparece", "Aparecem")} na home de quem recebeu.`,
+      });
     } catch (error) {
-      setFeedbackNotice(
-        error instanceof Error ? error.message : "Não foi possível enviar.",
-      );
+      // A falha FICA na tela: a seleção não foi zerada, e o motivo é a única
+      // coisa que explica por que os achados continuam marcados.
+      setPop({
+        tom: "falha",
+        texto:
+          error instanceof Error ? error.message : "Não foi possível enviar.",
+      });
     } finally {
       setEnviando(false);
     }
@@ -3149,6 +3220,40 @@ export function AuditResult({
                   </div>
                 ) : null}
 
+                {/*
+                  A LINHA DE SELEÇÃO EM MASSA, colada nos filtros — e não na
+                  barra do rodapé.
+
+                  Ela age sobre exatamente o que os filtros acabaram de
+                  produzir, então mora ao lado deles. Na barra do rodapé ela
+                  chegaria tarde: a barra só existe DEPOIS de haver seleção, e o
+                  problema é justamente o primeiro clique.
+
+                  Ela some quando não há nada a marcar — uma lista inteira de
+                  achados já resolvidos não tem massa para selecionar, e um
+                  controle que não faz nada é pior que controle nenhum.
+                */}
+                {enviaveisDoFiltro.length > 0 ? (
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={alternarTodosDoFiltro}
+                      aria-pressed={todosDoFiltroMarcados}
+                      className="nx-cut-6 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground outline-none transition-colors duration-[var(--duration-fast)] hover:text-foreground focus-visible:text-foreground"
+                    >
+                      {todosDoFiltroMarcados
+                        ? `Desmarcar ${enviaveisDoFiltro.length}`
+                        : /*
+                            O NÚMERO NO RÓTULO, e não só "selecionar todos": com
+                            filtro ligado, "todos" é ambíguo entre os 44 do
+                            parecer e os 9 da tela. O número diz qual dos dois
+                            sem precisar de outra frase.
+                          */
+                          `Selecionar ${enviaveisDoFiltro.length} ${enviaveisDoFiltro.length === 1 ? "achado" : "achados"}`}
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-4">
                   {groupedPrincipal.length === 0 ? (
                     <EmptyState
@@ -3230,7 +3335,17 @@ export function AuditResult({
                         número mágico que já quebrou uma prova nesta tela.
                       */
                           data-acoes-do-achado={finding.refId || undefined}
-                          className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5"
+                          /*
+                           * `@container` PORQUE A COLUNA MANDA, e não a janela.
+                           *
+                           * Medido em 27/08/2026 no painel do Nexo com janela
+                           * de 1100px: esta fila tem 274px de largura, e os
+                           * quatro controles somam 433 — três linhas. O `@`
+                           * pergunta à COLUNA, que é quem aperta; uma media
+                           * query de janela responderia "1100px, está largo"
+                           * enquanto a fila quebra em três.
+                           */
+                          className="@container flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5"
                         >
                           {/*
                           O botão fica no CABEÇALHO do achado, ao lado do menu:
@@ -3274,10 +3389,70 @@ export function AuditResult({
                                   : undefined
                               }
                             >
-                              <Check />
+                              {/*
+                                O ÍCONE SAI QUANDO A COLUNA APERTA — e é ele, não o rótulo.
+                                Um ícone vale ~22px com o gap, e os dois desta fila são o
+                                que separa duas linhas de três. Cortar a PALAVRA
+                                economizaria mais e custaria o sentido: "Decisão técnica"
+                                sem texto é um quadrado mudo, e decisão que alguém vai
+                                defender depois não pode virar adivinhação.
+                              */}
+                              <Check className="hidden @[21rem]:block" />
                               {estaResolvido(finding.refId)
                                 ? "Corrigido"
                                 : "Marcar corrigido"}
+                            </Button>
+                          ) : null}
+                          {/*
+                            A ORDEM DESTA FILA É POR FREQUÊNCIA, e foi medida.
+
+                            "Marcar corrigido" e "Enviar" são o que se repete
+                            vinte e duas vezes numa revisão; "Decisão técnica" é
+                            rara e pesada — abre campo de nota e vira compromisso
+                            que alguém defende depois. Pôr as duas frequentes
+                            juntas na primeira linha não é só hierarquia: com a
+                            coluna a 274px (254 de conteúdo), 144+8+72 = 224 cabe
+                            e sobra folga, enquanto a ordem antiga empurrava o
+                            `···` sozinho para uma TERCEIRA linha — vinte e duas
+                            vezes, uma por cartão.
+                          */}
+                          {/*
+                            ENVIAR, IRMÃO DOS OUTROS DOIS — e não escondido no
+                            `···`.
+
+                            Enviar já era possível antes: a etiqueta "Ref.
+                            INC-001" é uma caixa de seleção, e marcá-la abre a
+                            barra com o destinatário. Mas a palavra "enviar" só
+                            aparecia DEPOIS de marcar, e dentro do menu de três
+                            pontos — quem não sabia que a caixa existia não tinha
+                            como descobrir a função, e ela é metade do produto.
+
+                            NÃO ABRE SELETOR PRÓPRIO: marca este achado e deixa a
+                            barra do rodapé escolher a pessoa. Um segundo lugar
+                            para escolher destinatário seria uma segunda regra de
+                            quem pode receber, e as duas discordariam no primeiro
+                            dia.
+
+                            E ELE ALTERNA. Marcar é reversível, então o mesmo
+                            botão desmarca — um botão que já cumpriu seu efeito e
+                            não faz mais nada é um botão quebrado.
+                          */}
+                          {finding.refId && !estaResolvido(finding.refId) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={
+                                selecionados.has(finding.refId)
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              onClick={() => alternarSelecao(finding.refId!)}
+                              aria-pressed={selecionados.has(finding.refId)}
+                            >
+                              <Send className="hidden @[21rem]:block" />
+                              {selecionados.has(finding.refId)
+                                ? "Marcado"
+                                : "Enviar"}
                             </Button>
                           ) : null}
                           {/*
@@ -3372,36 +3547,6 @@ export function AuditResult({
                                   <Eye className="size-4" />
                                   Print do achado
                                 </DropdownItem>
-                                {/*
-                                ENVIAR, COM A PALAVRA ESCRITA.
-
-                                Enviar já era possível: a etiqueta "Ref. INC-001"
-                                é uma caixa de seleção, e marcá-la abre a barra
-                                com o destinatário. Mas nada na tela dizia isso.
-                                A palavra "enviar" só aparecia DEPOIS de marcar —
-                                quem não sabia que a caixa existia não tinha como
-                                descobrir a função, e ela é metade do produto.
-
-                                Não abre seletor próprio: MARCA este achado e
-                                deixa a barra do rodapé fazer o resto. Um segundo
-                                lugar para escolher pessoa seria uma segunda
-                                regra de quem pode receber — e as duas
-                                discordariam no primeiro dia.
-                              */}
-                                {finding.refId &&
-                                !estaResolvido(finding.refId) ? (
-                                  <DropdownItem
-                                    onClick={() => {
-                                      if (!selecionados.has(finding.refId!)) {
-                                        alternarSelecao(finding.refId!);
-                                      }
-                                      close();
-                                    }}
-                                  >
-                                    <Send className="size-4" />
-                                    Enviar para alguém
-                                  </DropdownItem>
-                                ) : null}
                               </>
                             )}
                           </Dropdown>
@@ -4257,8 +4402,29 @@ export function AuditResult({
                   cima, que tira os achados da vista justamente quando a pessoa
                   precisa conferir quais marcou.
                 */}
-                {selecionados.size > 0 ? (
-                  /*
+                {/*
+                  O RODAPÉ DA LISTA É UM SÓ, e por isso os dois moram no mesmo
+                  `sticky`.
+
+                  A barra de envio some no instante em que o envio dá certo (a
+                  seleção zera) e o pop nasce ali, na mesma posição, com a mesma
+                  forma e a mesma elevação: o olho não precisa procurar a
+                  resposta, ela chega onde a pergunta estava. Quando o envio
+                  FALHA os dois convivem — a seleção não foi desfeita, e o pop
+                  fica por cima da barra explicando por quê.
+
+                  Dois `sticky bottom-4` irmãos se sobreporiam no mesmo ponto;
+                  um `sticky` só, com os dois dentro, empilha de verdade.
+                */}
+                {pop || selecionados.size > 0 ? (
+                  <div className="sticky bottom-4 z-10 grid gap-2">
+                    {pop ? (
+                      <Pop tom={pop.tom} onFechar={fecharPop}>
+                        {pop.texto}
+                      </Pop>
+                    ) : null}
+                    {selecionados.size > 0 ? (
+                      /*
                     QUATRO COISAS ESTAVAM FORA DO SISTEMA aqui, e todas na mesma
                     barra (§2, §5, §7 da DESIGN.md):
 
@@ -4291,28 +4457,28 @@ export function AuditResult({
                     sombra do `.nx-elev` mais o degrau de superfície (`--card`
                     sobre a página).
                   */
-                  <div className="nx-elev sticky bottom-4 z-10">
-                    <div className="nx-cut-8 flex flex-wrap items-center gap-3 bg-card px-4 py-3">
-                      {/*
+                      <div className="nx-elev">
+                        <div className="nx-cut-8 flex flex-wrap items-center gap-3 bg-card px-4 py-3">
+                          {/*
                       A CONTAGEM É O ASSUNTO DA BARRA, e estava em 12px cinza,
                       do mesmo peso do resto. Mono Label maiúsculo separa o
                       rótulo do dado sem precisar de cor — e a cor aqui seria
                       teal, que não pode.
                     */}
-                      <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
-                        <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
-                          {selecionados.size}
-                        </span>{" "}
-                        {selecionados.size === 1 ? "achado" : "achados"}
-                      </span>
+                          <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                            <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
+                              {selecionados.size}
+                            </span>{" "}
+                            {selecionados.size === 1 ? "achado" : "achados"}
+                          </span>
 
-                      <label
-                        htmlFor="destinatario-do-envio"
-                        className="sr-only"
-                      >
-                        Enviar para
-                      </label>
-                      {/*
+                          <label
+                            htmlFor="destinatario-do-envio"
+                            className="sr-only"
+                          >
+                            Enviar para
+                          </label>
+                          {/*
                       ALTURA 40, e não 36. O `h-9` ia para o WRAPPER, mas o
                       `select` de dentro tem `min-height: 2.5rem` numa regra
                       global fora de `@layer` — que vence utility. O campo
@@ -4323,17 +4489,17 @@ export function AuditResult({
                       Lizardo Wilhelm Aren…" cortado em 140px não identifica
                       ninguém.
                     */}
-                      <Select
-                        id="destinatario-do-envio"
-                        value={destinatario}
-                        onChange={(event) =>
-                          setDestinatario(event.target.value)
-                        }
-                        className="min-w-[15rem] flex-1 sm:max-w-[22rem]"
-                        selectClassName="text-foreground"
-                      >
-                        <option value="">Enviar para…</option>
-                        {/*
+                          <Select
+                            id="destinatario-do-envio"
+                            value={destinatario}
+                            onChange={(event) =>
+                              setDestinatario(event.target.value)
+                            }
+                            className="min-w-[15rem] flex-1 sm:max-w-[22rem]"
+                            selectClassName="text-foreground"
+                          >
+                            <option value="">Enviar para…</option>
+                            {/*
                         QUEM RESPONDE PELA DISCIPLINA VEM PRIMEIRO — e ninguém
                         some da lista.
 
@@ -4347,36 +4513,40 @@ export function AuditResult({
 
                         Sem grupo reconhecido, a ordem é a que veio do servidor.
                       */}
-                        {grupoDoEnvio && agrupar ? (
-                          <>
-                            <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
-                              {membrosDoGrupo.map((m) => (
+                            {grupoDoEnvio && agrupar ? (
+                              <>
+                                <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
+                                  {membrosDoGrupo.map((m) => (
+                                    <option key={m.email} value={m.email}>
+                                      {m.name ?? m.email}
+                                      {m.status === "INVITED"
+                                        ? " (convidado)"
+                                        : ""}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                                <optgroup label="Resto do escritório">
+                                  {membrosDeFora.map((m) => (
+                                    <option key={m.email} value={m.email}>
+                                      {m.name ?? m.email}
+                                      {m.status === "INVITED"
+                                        ? " (convidado)"
+                                        : ""}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              </>
+                            ) : (
+                              membros.map((m) => (
                                 <option key={m.email} value={m.email}>
                                   {m.name ?? m.email}
                                   {m.status === "INVITED" ? " (convidado)" : ""}
                                 </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Resto do escritório">
-                              {membrosDeFora.map((m) => (
-                                <option key={m.email} value={m.email}>
-                                  {m.name ?? m.email}
-                                  {m.status === "INVITED" ? " (convidado)" : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </>
-                        ) : (
-                          membros.map((m) => (
-                            <option key={m.email} value={m.email}>
-                              {m.name ?? m.email}
-                              {m.status === "INVITED" ? " (convidado)" : ""}
-                            </option>
-                          ))
-                        )}
-                      </Select>
+                              ))
+                            )}
+                          </Select>
 
-                      {/*
+                          {/*
                       A AÇÃO DE TURNO da barra, e por isso na altura PADRÃO (40)
                       e não na densa (32): ela precisa alinhar com o campo ao
                       lado, e um botão de 32 ao lado de um campo de 40 lê como
@@ -4388,40 +4558,46 @@ export function AuditResult({
                       matriz de estados manda (§7). Trocar "Enviar" por
                       "Enviando…" encolhia e esticava a barra a cada envio.
                     */}
-                      <Button
-                        type="button"
-                        disabled={!destinatario}
-                        loading={enviando}
-                        onClick={() => void enviarSelecionados()}
-                        /*
+                          <Button
+                            type="button"
+                            disabled={!destinatario}
+                            loading={enviando}
+                            onClick={() => void enviarSelecionados()}
+                            /*
                         O rótulo visível é "Enviar", curto porque a barra já diz
                         quantos e para quem. Mas a página TEM outro "Enviar" — o
                         do chat do Nexo —, e para quem navega por leitor de tela
                         os dois seriam a mesma palavra solta.
                       */
-                        aria-label="Enviar achados selecionados"
-                      >
-                        <Send aria-hidden />
-                        Enviar
-                      </Button>
+                            aria-label="Enviar achados selecionados"
+                          >
+                            <Send aria-hidden />
+                            Enviar
+                          </Button>
 
-                      {/*
+                          {/*
                       LIMPAR É FANTASMA, e continua sendo — desfazer a seleção
                       não é ação de turno. Mas era um `<button>` cru: sem a
                       altura da linha, sem o Mono Label do sistema e sem anel de
                       foco por dentro do chanfro. O primitivo resolve os três.
-                    */}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setSelecionados(new Set())}
-                        aria-label="Limpar seleção"
-                        className="ml-auto"
-                      >
-                        Limpar
-                      </Button>
 
-                      {/*
+                      SEM `ml-auto`, desde 27/08/2026. Ele empurrava o Limpar
+                      para a direita da linha, e numa barra que quebra
+                      (`flex-wrap`) o empurrão sobrevive à quebra: no painel
+                      estreito do Nexo o Limpar caía sozinho numa terceira
+                      linha, encostado na borda, longe do Enviar que ele desfaz.
+                      Colado no Enviar ele lê como o par que é.
+                    */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setSelecionados(new Set())}
+                            aria-label="Limpar seleção"
+                          >
+                            Limpar
+                          </Button>
+
+                          {/*
                       O BURACO DITO EM VOZ ALTA.
 
                       Quando a disciplina TEM grupo e o grupo não tem ninguém, o
@@ -4451,20 +4627,25 @@ export function AuditResult({
                       Frase em SANS, não em mono: mono é rótulo e dado. Isto é
                       prosa, e prosa em mono lê como saída de terminal.
                     */}
-                      {grupoDoEnvio && !agrupar ? (
-                        <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-[var(--signal-info)]">
-                          <Info aria-hidden className="mt-px size-4 shrink-0" />
-                          <span>
-                            <strong className="font-medium">
-                              {GRUPOS_TECNICOS[grupoDoEnvio]}
-                            </strong>{" "}
-                            é quem responde por este achado, e ninguém do
-                            escritório está nesse grupo. Escolha à mão, ou peça
-                            para incluírem a pessoa.
-                          </span>
-                        </p>
-                      ) : null}
-                    </div>
+                          {grupoDoEnvio && !agrupar ? (
+                            <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-[var(--signal-info)]">
+                              <Info
+                                aria-hidden
+                                className="mt-px size-4 shrink-0"
+                              />
+                              <span>
+                                <strong className="font-medium">
+                                  {GRUPOS_TECNICOS[grupoDoEnvio]}
+                                </strong>{" "}
+                                é quem responde por este achado, e ninguém do
+                                escritório está nesse grupo. Escolha à mão, ou
+                                peça para incluírem a pessoa.
+                              </span>
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
