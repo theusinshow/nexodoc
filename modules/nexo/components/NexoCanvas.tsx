@@ -78,6 +78,7 @@ import {
   topoDasFileiras,
 } from "../lib/layout-canvas";
 import { FolhaNode, type FolhaNodeData } from "./FolhaNode";
+import { ehDigitacao, passoDoTeclado } from "../lib/navegacao-por-teclado";
 import { ArtifactThumb } from "./ArtifactThumb";
 import { NavegacaoDoCanvas, type FileiraNavegavel } from "./NavegacaoDoCanvas";
 
@@ -467,6 +468,17 @@ function CanvasInterno({
    * o popover fechar no instante em que abria.
    */
   const abrirFolha = useCallback((id: FolhaId) => onAbrirFolha?.(id), [onAbrirFolha]);
+
+  /*
+   * QUAL FOLHA ESTÁ EM CORREÇÃO — uma, no máximo.
+   *
+   * Sai do nó e vem para cá porque o teclado precisa de um lugar que saiba
+   * QUANTOS nós estão selecionados: `E` com quarenta folhas marcadas abriria
+   * quarenta formulários, e nenhum deles seria o que a pessoa quis.
+   */
+  const [noEmCorrecao, setNoEmCorrecao] = useState<FolhaId | null>(null);
+  const pedirCorrecao = useCallback((id: FolhaId) => setNoEmCorrecao(id), []);
+  const fecharCorrecao = useCallback(() => setNoEmCorrecao(null), []);
   const corrigirFolha = useCallback(
     (
       id: FolhaId,
@@ -674,6 +686,16 @@ function CanvasInterno({
             // explícito aqui evita depender desse acidente.
             podeAbrir: !f.avulsa && (arquivosDisponiveis?.has(f.fileName) ?? false),
             onAbrir: abrirFolha,
+            /*
+             * `f.id`, e NÃO `id`: o nó se chama `folha:<id>` e a folha se chama
+             * `<id>`. Comparar com o id do nó nunca casava, e o `E` chegava ao
+             * canvas sem abrir nada — silêncio que parecia tecla morta. Foi a
+             * prova de navegador que separou "não chegou" de "chegou e não
+             * casou"; nenhum teste puro veria isso.
+             */
+            emCorrecao: noEmCorrecao === f.id,
+            onPedirCorrecao: pedirCorrecao,
+            onFecharCorrecao: fecharCorrecao,
             onCorrigir: corrigirFolha,
             onRemover: removerFolha,
           } satisfies FolhaNodeData,
@@ -741,6 +763,16 @@ function CanvasInterno({
     abrirFolha,
     corrigirFolha,
     removerFolha,
+    /*
+     * `noEmCorrecao` remonta os nós ao abrir e ao fechar a correção — e isso é
+     * aceitável porque abrir a correção é um gesto raro e deliberado, não algo
+     * que acontece a cada quadro. Sem ele na lista, abrir pelo teclado não
+     * chegava ao nó: a derivação ficava com o valor velho e o formulário não
+     * aparecia. Os dois callbacks são estáveis (`useCallback` sem dependência).
+     */
+    noEmCorrecao,
+    pedirCorrecao,
+    fecharCorrecao,
     results,
     templates,
     tomosDeclarados,
@@ -857,6 +889,83 @@ function CanvasInterno({
     ],
   );
 
+  /*
+   * O TECLADO, para conferir um lote sem tirar a mão dele.
+   *
+   * Setas andam nó a nó na ordem do canvas, `Enter` abre a página original e
+   * `E` abre a correção do carimbo. A decisão de QUAL nó é a seta seleciona
+   * mora em `lib/navegacao-por-teclado.ts` e é provada sem navegador.
+   *
+   * O ouvinte é do CONTÊINER, e não da janela: o Nexo tem um compositor de
+   * conversa na mesma tela, e um atalho global roubaria a seta de quem está
+   * escrevendo. `ehDigitacao` é a segunda guarda, para o campo que mora DENTRO
+   * do canvas (o formulário de correção).
+   */
+  const idsEmOrdem = useMemo(() => nodes.map((n) => n.id), [nodes]);
+  const selecionados = useMemo(() => nodes.filter((n) => n.selected), [nodes]);
+  /** Só há "o nó selecionado" quando é UM. Com quarenta marcados, `E` não tem alvo. */
+  const alvoDoTeclado = selecionados.length === 1 ? selecionados[0] : null;
+  const fluxoDoTeclado = useReactFlow();
+
+  const aoTeclar = useCallback(
+    (evento: React.KeyboardEvent<HTMLDivElement>) => {
+      if (ehDigitacao(evento.target as HTMLElement | null)) return;
+
+      const passo = passoDoTeclado(evento.key, idsEmOrdem, alvoDoTeclado?.id ?? null);
+      if (passo.consumiu) {
+        evento.preventDefault();
+        const destino = passo.proximo;
+        if (!destino) return;
+        setNodes((atuais) => atuais.map((n) => ({ ...n, selected: n.id === destino })));
+        const no = nodes.find((n) => n.id === destino);
+        if (no) {
+          /*
+           * Centrar SEM mexer no zoom: quem confere escolheu a aproximação, e
+           * reenquadrar a cada seta faria a tela pular de perto para longe a
+           * cada folha. A duração curta mantém a noção de para onde se andou.
+           */
+          const c = centroDoNo(no);
+          fluxoDoTeclado.setCenter(c.x, c.y, {
+            zoom: fluxoDoTeclado.getZoom(),
+            duration: 180,
+          });
+        }
+        return;
+      }
+
+      if (!alvoDoTeclado) return;
+
+      if (evento.key === "Enter") {
+        const dados = alvoDoTeclado.data as Partial<FolhaNodeData>;
+        // Folha restaurada de outra máquina não tem PDF: abrir seria prometer
+        // uma aba que nasce vazia.
+        if (alvoDoTeclado.type === "folha" && dados.podeAbrir && dados.id) {
+          evento.preventDefault();
+          abrirFolha(dados.id);
+        }
+        return;
+      }
+
+      if (evento.key === "e" || evento.key === "E") {
+        const dados = alvoDoTeclado.data as Partial<FolhaNodeData>;
+        if (alvoDoTeclado.type === "folha" && dados.id) {
+          evento.preventDefault();
+          pedirCorrecao(dados.id);
+        }
+      }
+    },
+    [
+      abrirFolha,
+      alvoDoTeclado,
+      centroDoNo,
+      fluxoDoTeclado,
+      idsEmOrdem,
+      nodes,
+      pedirCorrecao,
+      setNodes,
+    ],
+  );
+
   // O tomo que o "+ Tomo" vai criar: o próximo depois do maior que existe.
   const maiorTomo = fileiras.reduce((maior, f) => Math.max(maior, f.tomo), 0);
 
@@ -873,7 +982,32 @@ function CanvasInterno({
   }
 
   return (
-    <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)]">
+    <div
+      /*
+       * `tabIndex` para o contêiner poder RECEBER a tecla. Sem ele o canvas
+       * nunca tem foco e o ouvinte abaixo nunca dispara — o atalho existiria só
+       * no código.
+       */
+      tabIndex={0}
+      onKeyDown={aoTeclar}
+      role="application"
+      aria-label="Mapa do volume — setas andam entre as folhas, Enter abre a página, E corrige o carimbo"
+      className="group relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)] outline-none focus-visible:border-[var(--ring)]"
+    >
+      {/*
+        A DICA APARECE QUANDO O ATALHO ESTÁ VIVO.
+ 
+        Permanente, ela seria ruído sobre duzentas folhas; escondida atrás de um
+        "?" que ninguém abre, seria documentação para ninguém. Com
+        `focus-within` ela nasce no instante em que o canvas passa a receber
+        tecla — que é exatamente quando a informação vale.
+      */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 right-3 z-10 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground opacity-0 transition-opacity duration-[var(--duration-base)] group-focus-within:opacity-100"
+      >
+        setas andam · enter abre · e corrige
+      </div>
       <NavegacaoDoCanvas
         fileiras={fileiras}
         proximoTomo={maiorTomo + 1}
@@ -898,6 +1032,16 @@ function CanvasInterno({
         minZoom={0.3}
         maxZoom={1.5}
         nodesConnectable={false}
+        /*
+         * O TECLADO É DO CANVAS, não de cada nó.
+         *
+         * A a11y de teclado do xyflow move o NÓ com as setas. Aqui a posição é
+         * derivada do arranjo em fileiras (o `useMemo` que monta os nós), então
+         * mover por tecla escrevia uma coordenada que o próximo render
+         * descartava — gesto sem efeito, competindo com a navegação que a
+         * conferência precisa.
+         */
+        disableKeyboardA11y
         elementsSelectable
         /*
          * Botão esquerdo no vazio DESENHA A JANELA de seleção; a tela se move

@@ -38,6 +38,17 @@ export type FolhaNodeData = {
   /** Criada à mão: não há PDF por trás dela, então ela não entra no volume. */
   avulsa?: boolean;
   /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
+  /**
+   * O formulário de correção está aberto NESTE nó.
+   *
+   * A decisão mora no canvas: é ele que sabe quantos nós estão selecionados e é
+   * ele que recebe a tecla `E`. O nó só desenha o que lhe dizem.
+   */
+  emCorrecao?: boolean;
+  /** Pede ao canvas para abrir a correção aqui. */
+  onPedirCorrecao: (id: FolhaId) => void;
+  /** Fecha a correção — cancelar, salvar ou clicar fora. */
+  onFecharCorrecao: () => void;
   onCorrigir: (
     id: FolhaId,
     patch: {
@@ -85,13 +96,46 @@ const DISCIPLINAS_SUGERIDAS = [
 ];
 
 export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
-  const [corrigindo, setCorrigindo] = useState(false);
+  /*
+   * QUEM ABRE A CORREÇÃO É O CANVAS, e não este nó.
+   *
+   * Era estado local, aberto só pelo botão "Corrigir" — e o teclado não tem
+   * como apertar um botão que só existe dentro de um nó. Com a decisão no
+   * canvas, mouse e tecla `E` passam pela MESMA porta; duas portas para o mesmo
+   * formulário divergiriam na primeira correção (uma semeando os campos, a
+   * outra não).
+   */
+  const corrigindo = data.emCorrecao === true;
   const [confirmando, setConfirmando] = useState(false);
-  const [texto, setTexto] = useState(data.titulo);
-  const [numero, setNumero] = useState("");
-  const [total, setTotal] = useState("");
-  const [arquivo, setArquivo] = useState("");
-  const [disciplina, setDisciplina] = useState("");
+  /*
+   * `null` = "não mexeram neste campo", e aí vale o que veio do carimbo.
+   *
+   * Antes os campos eram semeados no clique do botão. Semear é um passo que só
+   * o caminho do mouse dava: aberto pelo teclado, o formulário apareceria com o
+   * número e a disciplina em branco, e salvar apagaria o que o OCR tinha lido
+   * certo. Derivar do dado remove o passo — e com ele o modo de errar.
+   */
+  const [texto, setTexto] = useState<string | null>(null);
+  const [numero, setNumero] = useState<string | null>(null);
+  const [total, setTotal] = useState<string | null>(null);
+  const [arquivo, setArquivo] = useState<string | null>(null);
+  const [disciplina, setDisciplina] = useState<string | null>(null);
+
+  const vTexto = texto ?? data.titulo ?? "";
+  const vNumero = numero ?? (data.numero != null ? String(data.numero) : "");
+  const vTotal = total ?? (data.total != null ? String(data.total) : "");
+  const vArquivo = arquivo ?? data.arquivo ?? "";
+  const vDisciplina = disciplina ?? data.disciplina ?? "";
+
+  /** Fecha e esquece o que foi digitado: reabrir mostra o carimbo de novo. */
+  function fecharCorrecao() {
+    setTexto(null);
+    setNumero(null);
+    setTotal(null);
+    setArquivo(null);
+    setDisciplina(null);
+    data.onFecharCorrecao();
+  }
 
   /*
    * "Corrigido à mão" é ÊNFASE, não status: o valor não está errado nem certo —
@@ -220,14 +264,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             icone={Pencil}
             rotulo="Corrigir"
             ajuda="Corrige o que a IA leu do carimbo: nº da prancha, total do conjunto, código do arquivo, disciplina e título. Os valores novos saem na LD gerada depois."
-            onClick={() => {
-              setTexto(data.titulo);
-              setNumero(data.numero != null ? String(data.numero) : "");
-              setTotal(data.total != null ? String(data.total) : "");
-              setArquivo(data.arquivo ?? "");
-              setDisciplina(data.disciplina ?? "");
-              setCorrigindo(true);
-            }}
+            onClick={() => data.onPedirCorrecao(data.id)}
           />
           <AcaoDoNo
             icone={Trash2}
@@ -281,7 +318,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   return (
     <AgentPopover
       open={corrigindo}
-      onClose={() => setCorrigindo(false)}
+      onClose={fecharCorrecao}
       label="Corrigir a folha"
       panelClassName="w-[280px]"
       anchor={corpo}
@@ -290,8 +327,14 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         className="flex flex-col gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          data.onCorrigir(data.id, { titulo: texto, numero, total, arquivo, disciplina });
-          setCorrigindo(false);
+          data.onCorrigir(data.id, {
+            titulo: vTexto,
+            numero: vNumero,
+            total: vTotal,
+            arquivo: vArquivo,
+            disciplina: vDisciplina,
+          });
+          fecharCorrecao();
         }}
       >
         {/*
@@ -309,7 +352,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
                 renderiza ::before, entao a camada de contorno mora fora. */}
             <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
               <input
-                value={numero}
+                value={vNumero}
                 onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"
                 placeholder="—"
@@ -332,7 +375,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             </span>
             <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
               <input
-                value={total}
+                value={vTotal}
                 onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"
                 placeholder="—"
@@ -347,7 +390,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           </span>
           <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
             <input
-              value={arquivo}
+              value={vArquivo}
               onChange={(e) => setArquivo(e.target.value)}
               placeholder="040_26_arq_005_a"
               className="nodrag nopan w-full border-0 bg-transparent p-1.5 font-mono text-[11px] outline-none"
@@ -366,7 +409,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           </span>
           <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
             <input
-              value={disciplina}
+              value={vDisciplina}
               onChange={(e) => setDisciplina(e.target.value)}
               list="nexo-disciplinas"
               placeholder="Drenagem"
@@ -385,7 +428,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           </span>
           <div className="nx-edge-6 w-full [--nx-edge:var(--border)] [--nx-fill:var(--background)]">
             <textarea
-              value={texto}
+              value={vTexto}
               onChange={(e) => setTexto(e.target.value)}
               rows={3}
               className="nodrag nopan w-full resize-none border-0 bg-transparent p-1.5 text-[11px] outline-none"
@@ -404,7 +447,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCorrigindo(false)}
+            onClick={fecharCorrecao}
             className="nodrag nopan"
           >
             Cancelar

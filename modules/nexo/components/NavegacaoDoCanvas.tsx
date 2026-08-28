@@ -16,6 +16,7 @@ import { useCallback, useEffect } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { Plus, RotateCcw, Undo2 } from "lucide-react";
 
+import { ehDigitacao } from "../lib/navegacao-por-teclado";
 import { Chip } from "@/components/ui/chip";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -78,12 +79,14 @@ export function NavegacaoDoCanvas({
    */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const alvo = e.target as HTMLElement | null;
-      const digitando =
-        alvo?.tagName === "INPUT" ||
-        alvo?.tagName === "TEXTAREA" ||
-        alvo?.isContentEditable;
-      if (digitando || e.metaKey || e.ctrlKey || e.altKey) return;
+      /*
+       * A guarda é a MESMA do teclado do canvas (`ehDigitacao`), e por isso é
+       * importada em vez de repetida: eram duas cópias da mesma regra, e duas
+       * cópias divergem na primeira vez que alguém lembrar de um caso novo
+       * (`SELECT`, por exemplo, faltava aqui).
+       */
+      if (ehDigitacao(e.target as HTMLElement | null)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
