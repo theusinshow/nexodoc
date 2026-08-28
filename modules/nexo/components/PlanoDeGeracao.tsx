@@ -18,7 +18,14 @@
  */
 
 import { useMemo, useState } from "react";
-import { FileText, Loader2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Check,
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { plural } from "@/lib/plural";
@@ -133,11 +140,14 @@ export function itensDoPlano(
       // As folhas deste tomo, para não anunciar o bloco que não tem nenhuma
       // dentro dele — um item que não produz documento é uma linha mentirosa.
       const doTomo = temTomo
-        ? new Set(opcoesDoTomo(selos, numTomos, tomoAtual).doTomo.map((f) => f.id))
+        ? new Set(
+            opcoesDoTomo(selos, numTomos, tomoAtual).doTomo.map((f) => f.id),
+          )
         : null;
 
       for (const bloco of doTipo) {
-        if (bloco && doTomo && !bloco.ids.some((id) => doTomo.has(id))) continue;
+        if (bloco && doTomo && !bloco.ids.some((id) => doTomo.has(id)))
+          continue;
         // A tabela do escritório manda: sondagem não tem LD, e o item que não
         // vira documento não pode aparecer no plano. `capa` nunca passa por
         // aqui com bloco — ela é uma por volume físico.
@@ -186,7 +196,9 @@ function CampoDoVolume({
         {rotulo}
       </span>
       <span className="flex items-baseline gap-2">
-        <span className="font-mono text-xs text-muted-foreground/70">{ajuda}</span>
+        <span className="font-mono text-xs text-muted-foreground/70">
+          {ajuda}
+        </span>
         <input
           value={valor}
           inputMode="numeric"
@@ -249,7 +261,9 @@ export function PlanoDeGeracao({
   } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
-  const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
+  const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>(
+    [],
+  );
 
   /*
    * OS BLOCOS DO VOLUME. A proposta do agente traz UMA LD, com a disciplina
@@ -257,7 +271,11 @@ export function PlanoDeGeracao({
    * disciplina. Sem isto, as folhas das outras disciplinas saíam sob um título
    * que não é o delas — e o PDF ia embora assim, sem aviso.
    */
-  const blocos = blocosDasFolhas(selos as Folha[], codigoDaFolha, rotuloDoCodigo);
+  const blocos = blocosDasFolhas(
+    selos as Folha[],
+    codigoDaFolha,
+    rotuloDoCodigo,
+  );
   const misto = misturaDisciplinas(blocos);
 
   /*
@@ -278,21 +296,17 @@ export function PlanoDeGeracao({
    */
   const motivoDeEspera = leitura ? motivoParaNaoGerar(leitura) : null;
 
-
   const capaCrua = proposals.find((p) => p.kind === "capa")?.params as
-    | NexoCapaProposalParams
-    | undefined;
+    NexoCapaProposalParams | undefined;
   const ldCrua = proposals.find((p) => p.kind === "ld")?.params as
-    | NexoLdProposalParams
-    | undefined;
+    NexoLdProposalParams | undefined;
   /*
    * A separatriz crua entra aqui porque ela TAMBÉM imprime a prefeitura, e num
    * plano sem capa ela é a única que a tem. Sem isto, `templateId` do agente
    * ficava vazio nesse caso e a decisão do engenheiro não tinha de onde partir.
    */
   const sepCrua = proposals.find((p) => p.kind === "separatriz")?.params as
-    | { templateId?: string }
-    | undefined;
+    { templateId?: string } | undefined;
 
   /*
    * O QUE O AGENTE PROPÔS NESTE TURNO, e o que vale DEPOIS das decisões do
@@ -319,7 +333,8 @@ export function PlanoDeGeracao({
   const tituloDoCarimbo = useMemo(() => tituloDoSelo(selos), [selos]);
 
   const paramsDoAgente: Record<string, string> = {
-    templateId: capaCrua?.templateId?.trim() || sepCrua?.templateId?.trim() || "",
+    templateId:
+      capaCrua?.templateId?.trim() || sepCrua?.templateId?.trim() || "",
     /*
      * A LISTA DE DISCIPLINAS É O TÍTULO DA CAPA — e não a obra.
      *
@@ -425,11 +440,9 @@ export function PlanoDeGeracao({
   if (itens.length === 0) return null;
 
   const capa = propostas.find((p) => p.kind === "capa")?.params as
-    | NexoCapaProposalParams
-    | undefined;
+    NexoCapaProposalParams | undefined;
   const ld = propostas.find((p) => p.kind === "ld")?.params as
-    | NexoLdProposalParams
-    | undefined;
+    NexoLdProposalParams | undefined;
 
   const titulo = capa?.tituloCapa?.trim() || ld?.tituloLd?.trim() || "";
 
@@ -487,13 +500,15 @@ export function PlanoDeGeracao({
    * onde a data já está sendo conferida, e não num painel à parte que ninguém
    * abre.
    */
-  const divergenciaDaData = dataDominante(selos.map((s) => s.data))?.divergentes ?? 0;
+  const divergenciaDaData =
+    dataDominante(selos.map((s) => s.data))?.divergentes ?? 0;
   const dataDaCapa = (() => {
     const mes = capa?.mes?.trim();
     const ano = capa?.ano?.trim();
     if (!mes && !ano) return "";
     const n = Number(mes);
-    const nome = Number.isFinite(n) && n >= 1 && n <= 12 ? MESES_PT[n - 1] : mes;
+    const nome =
+      Number.isFinite(n) && n >= 1 && n <= 12 ? MESES_PT[n - 1] : mes;
     const base = [nome, ano].filter(Boolean).join("/");
     return divergenciaDaData > 0
       ? `${base} · ${plural(divergenciaDaData, "folha com outra data", "folhas com outra data")}`
@@ -513,9 +528,10 @@ export function PlanoDeGeracao({
    * vezes. Era o defeito que mantinha a tela `/separatrizes` viva na prática.
    */
   const titulosDaSeparatriz = (
-    (proposals.find((p) => p.kind === "separatriz")?.params as
-      | NexoSeparatrizProposalParams
-      | undefined)?.titulos ?? []
+    (
+      proposals.find((p) => p.kind === "separatriz")?.params as
+        NexoSeparatrizProposalParams | undefined
+    )?.titulos ?? []
   )
     .map((t) => t.trim())
     .filter(Boolean);
@@ -550,14 +566,17 @@ export function PlanoDeGeracao({
    * redimensionável e troca o modo do frame. O mapa e o chat continuam na tela,
    * e voltar é uma transição de largura em vez de uma tela que fecha.
    */
-  const { abrirDocumento, fecharDocumento, emDocumento } = usarLarguraDoCopiloto();
+  const { abrirDocumento, fecharDocumento, emDocumento } =
+    usarLarguraDoCopiloto();
 
   const problemaDePrefeitura = conferirPrefeitura(
     propostas
       .filter((p) => p.kind === "capa" || p.kind === "separatriz")
       .map((p) => ({
         rotulo: p.kind === "capa" ? "Capa" : "Separatriz",
-        templateId: String((p.params as { templateId?: unknown })?.templateId ?? ""),
+        templateId: String(
+          (p.params as { templateId?: unknown })?.templateId ?? "",
+        ),
       })),
   );
   const semPrefeitura = problemaDePrefeitura?.tipo === "vazia";
@@ -641,7 +660,11 @@ export function PlanoDeGeracao({
    * faria a correção da obra durar só até a próxima geração pelo plano.
    */
   function aoEditarNoFrame(marcador: string, valor: string) {
-    const { identidade: ident, params, extras } = separarParaGerar({
+    const {
+      identidade: ident,
+      params,
+      extras,
+    } = separarParaGerar({
       [marcador]: valor,
     });
     if (Object.keys(ident).length > 0) corrigirIdentidade(ident);
@@ -766,7 +789,7 @@ export function PlanoDeGeracao({
                 aria-label="Prefeitura"
                 value=""
                 onChange={(e) => decidir("templateId", e.target.value, "")}
-          >
+              >
                 <option value="">escolha a prefeitura</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -805,7 +828,9 @@ export function PlanoDeGeracao({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => (emDocumento ? fecharDocumento() : abrirDocumento())}
+                onClick={() =>
+                  emDocumento ? fecharDocumento() : abrirDocumento()
+                }
                 aria-pressed={emDocumento}
               >
                 {emDocumento ? (
@@ -816,32 +841,34 @@ export function PlanoDeGeracao({
                 {emDocumento ? "Voltar ao formulário" : "Ver como sai"}
               </Button>
             </div>
-          <FrameDoDocumento
-            modo={emDocumento ? "documento" : "campo"}
-            layout={layoutDoModelo}
-            campos={CAMPOS_DO_FRAME}
-            valores={valoresDoFrame({ identidade, params: mesclado.valores })}
-            /*
-             * O que o carimbo, o arquivo e a divisão já dizem — texto fantasma
-             * nos campos editáveis, valor nos derivados. Nunca valor de campo:
-             * ali ele impediria apagar.
-             */
-            derivados={{
-              // Já quebrada nas linhas em que vai sair impressa — o carimbo
-              // escreve "A - B" numa tira só, e a capa tem duas linhas.
-              NOME_OBRA: textoEmLinhasDaCapa(obra),
-              // O nome padrão da disciplina lida — é o que sai se ninguém
-              // digitar nada, então é o que o campo deve mostrar apagado.
-              TITULO_CAPA: tituloSugerido,
-              CODIGO_EXIBIDO: codigo,
-              MES_ANO: dataDaCapa || "mês corrente",
-              VOLUME: capa?.volume?.trim() || "do arquivo",
-              TOMO:
-                numTomos > 1 ? `TOMO ${String(tomoInicial).padStart(2, "0")}…` : "",
-              DISCIPLINA: misto ? resumoDosBlocos(blocos) : "",
-            }}
-            onChange={aoEditarNoFrame}
-          />
+            <FrameDoDocumento
+              modo={emDocumento ? "documento" : "campo"}
+              layout={layoutDoModelo}
+              campos={CAMPOS_DO_FRAME}
+              valores={valoresDoFrame({ identidade, params: mesclado.valores })}
+              /*
+               * O que o carimbo, o arquivo e a divisão já dizem — texto fantasma
+               * nos campos editáveis, valor nos derivados. Nunca valor de campo:
+               * ali ele impediria apagar.
+               */
+              derivados={{
+                // Já quebrada nas linhas em que vai sair impressa — o carimbo
+                // escreve "A - B" numa tira só, e a capa tem duas linhas.
+                NOME_OBRA: textoEmLinhasDaCapa(obra),
+                // O nome padrão da disciplina lida — é o que sai se ninguém
+                // digitar nada, então é o que o campo deve mostrar apagado.
+                TITULO_CAPA: tituloSugerido,
+                CODIGO_EXIBIDO: codigo,
+                MES_ANO: dataDaCapa || "mês corrente",
+                VOLUME: capa?.volume?.trim() || "do arquivo",
+                TOMO:
+                  numTomos > 1
+                    ? `TOMO ${String(tomoInicial).padStart(2, "0")}…`
+                    : "",
+                DISCIPLINA: misto ? resumoDosBlocos(blocos) : "",
+              }}
+              onChange={aoEditarNoFrame}
+            />
           </div>
         ) : null}
 
@@ -852,43 +879,43 @@ export function PlanoDeGeracao({
          * decisão que a geração ignora.
          */}
         {proposals.some((p) => p.kind === "ld") &&
-          (misto
-            ? /*
-               * TODOS os blocos, inclusive o "sem disciplina".
-               *
-               * Filtrar por `codigo` mostrava 3 LDs enquanto o plano gerava 4:
-               * `itensDoPlano` percorre a lista inteira, e as folhas cuja
-               * disciplina não foi lida também viram um bloco. Esconder esse
-               * bloco é esconder justamente o que precisa de conferência.
-               */
-              blocos.map((b) => (
-                <BlocoDaLd
-                  key={b.codigo || "sem-disciplina"}
-                  titulo={(b.rotulo || "Sem disciplina").toUpperCase()}
-                  onTitulo={() => {}}
-                  somenteLeitura
-                  codigo={codigo}
-                  revisao={revisao}
-                  totalFolhas={b.ids.length}
-                />
-              ))
-            : (
-                <BlocoDaLd
-                  titulo={mesclado.valores.tituloLd ?? ""}
-                  /* O nome da disciplina como a LD o imprime — o MESMO da
+          (misto ? (
+            /*
+             * TODOS os blocos, inclusive o "sem disciplina".
+             *
+             * Filtrar por `codigo` mostrava 3 LDs enquanto o plano gerava 4:
+             * `itensDoPlano` percorre a lista inteira, e as folhas cuja
+             * disciplina não foi lida também viram um bloco. Esconder esse
+             * bloco é esconder justamente o que precisa de conferência.
+             */
+            blocos.map((b) => (
+              <BlocoDaLd
+                key={b.codigo || "sem-disciplina"}
+                titulo={(b.rotulo || "Sem disciplina").toUpperCase()}
+                onTitulo={() => {}}
+                somenteLeitura
+                codigo={codigo}
+                revisao={revisao}
+                totalFolhas={b.ids.length}
+              />
+            ))
+          ) : (
+            <BlocoDaLd
+              titulo={mesclado.valores.tituloLd ?? ""}
+              /* O nome da disciplina como a LD o imprime — o MESMO da
                      capa. O longo e da separatriz (`nomeNaSeparatriz`). */
-                  sugestao={
-                    blocos.find((b) => b.codigo)
-                      ? (nomeNaCapa(blocos.find((b) => b.codigo)!.codigo) ?? "")
-                      : ""
-                  }
-                  onTitulo={(v) => decidir("tituloLd", v, paramsDoAgente.tituloLd)}
-                  codigo={codigo}
-                  revisao={revisao}
-                  preview={ldPreview}
-                  totalFolhas={selos.length}
-                />
-              ))}
+              sugestao={
+                blocos.find((b) => b.codigo)
+                  ? (nomeNaCapa(blocos.find((b) => b.codigo)!.codigo) ?? "")
+                  : ""
+              }
+              onTitulo={(v) => decidir("tituloLd", v, paramsDoAgente.tituloLd)}
+              codigo={codigo}
+              revisao={revisao}
+              preview={ldPreview}
+              totalFolhas={selos.length}
+            />
+          ))}
 
         {/*
          * O QUE O FRAME NÃO DESENHA porque não sai impresso na capa: a divisão
@@ -898,21 +925,26 @@ export function PlanoDeGeracao({
         <div className="space-y-2">
           {/* Sem modelo não há frame: o título volta a ser linha, para não
               sumir junto. */}
-          {layoutDoModelo.length === 0 && (capa || !misto) && !separatrizListada && (
-            <Linha rotulo="Título" valor={titulo || "—"} />
-          )}
+          {layoutDoModelo.length === 0 &&
+            (capa || !misto) &&
+            !separatrizListada && (
+              <Linha rotulo="Título" valor={titulo || "—"} />
+            )}
           {/* Fora do `layoutDoModelo.length === 0`: com modelo o título vive no
               frame, e a procedência tem de aparecer nos dois casos. */}
           {tituloVeioDoCarimbo && (
             <p className="font-mono text-xs leading-relaxed text-muted-foreground">
-              Título lido do carimbo de {plural(tituloDoCarimbo.apoio, "folha", "folhas")}
+              Título lido do carimbo de{" "}
+              {plural(tituloDoCarimbo.apoio, "folha", "folhas")}
               {tituloDoCarimbo.divergentes > 0
                 ? ` · ${plural(tituloDoCarimbo.divergentes, "folha diz outra coisa", "folhas dizem outra coisa")}`
                 : ""}
               {" — se estiver errado, corrija pelo chat."}
             </p>
           )}
-          {layoutDoModelo.length === 0 && obra && <Linha rotulo="Obra" valor={obra} />}
+          {layoutDoModelo.length === 0 && obra && (
+            <Linha rotulo="Obra" valor={obra} />
+          )}
           {layoutDoModelo.length === 0 && codigo && (
             <Linha rotulo="Código" valor={codigo} />
           )}
@@ -940,12 +972,16 @@ export function PlanoDeGeracao({
             <CampoDoVolume
               rotulo="Tomo inicial"
               valor={String(tomoInicial)}
-              onChange={(v) => decidir("tomoInicial", v, paramsDoAgente.tomoInicial)}
+              onChange={(v) =>
+                decidir("tomoInicial", v, paramsDoAgente.tomoInicial)
+              }
               ajuda="de onde a contagem começa neste volume"
             />
           )}
           <Linha rotulo="Folhas" valor={`${selos.length}`} />
-          {misto && <Linha rotulo="Disciplinas" valor={resumoDosBlocos(blocos)} />}
+          {misto && (
+            <Linha rotulo="Disciplinas" valor={resumoDosBlocos(blocos)} />
+          )}
         </div>
 
         {/*
@@ -954,10 +990,10 @@ export function PlanoDeGeracao({
         */}
         {misto && (
           <p className="text-xs leading-5 text-muted-foreground">
-            As pranchas são de {blocos.filter((b) => b.codigo).length} disciplinas.
-            O volume leva uma capa e, depois dela, um bloco por disciplina — por
-            isso sai uma separatriz e uma LD para cada, como o escritório
-            entrega. O título de cada uma é o da sua disciplina.
+            As pranchas são de {blocos.filter((b) => b.codigo).length}{" "}
+            disciplinas. O volume leva uma capa e, depois dela, um bloco por
+            disciplina — por isso sai uma separatriz e uma LD para cada, como o
+            escritório entrega. O título de cada uma é o da sua disciplina.
           </p>
         )}
 
@@ -972,12 +1008,18 @@ export function PlanoDeGeracao({
             const estado = estados[i];
             const salvo = salvosDosItens[i];
             return (
-              <li key={`${it.kind}${it.sufixo}`} className="flex flex-col gap-2">
+              <li
+                key={`${it.kind}${it.sufixo}`}
+                className="flex flex-col gap-2"
+              >
                 <span className="flex items-center gap-2 font-mono text-microrrotulo text-muted-foreground">
                   {gerando === i ? (
                     <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                   ) : estado === "aplicado" ? (
-                    <Check className="h-3 w-3 text-[var(--status-ok)]" aria-hidden />
+                    <Check
+                      className="h-3 w-3 text-[var(--status-ok)]"
+                      aria-hidden
+                    />
                   ) : estado === "pendente" ? (
                     <RefreshCw
                       className="h-3 w-3 text-[var(--status-warning)]"
@@ -1045,7 +1087,9 @@ export function PlanoDeGeracao({
            * impresso. A frase aponta para o campo, não para outro lugar.
            */}
           {motivoDeBloqueio && (
-            <span className="text-xs text-muted-foreground">{motivoDeBloqueio}</span>
+            <span className="text-xs text-muted-foreground">
+              {motivoDeBloqueio}
+            </span>
           )}
           {!motivoDeBloqueio && (semTitulo || problemaDePrefeitura) && (
             <span className="text-xs text-muted-foreground">
@@ -1066,7 +1110,8 @@ export function PlanoDeGeracao({
 
         {tudoGerado && !ocupado && (
           <p className="text-xs text-muted-foreground">
-            Prontos no canvas. Selecione um documento lá para conferir ou editar.
+            Prontos no canvas. Selecione um documento lá para conferir ou
+            editar.
           </p>
         )}
 
@@ -1087,7 +1132,10 @@ export function PlanoDeGeracao({
             </p>
             <ul className="mt-2 space-y-1">
               {falhas.map((f) => (
-                <li key={f.rotulo} className="text-xs leading-5 text-foreground">
+                <li
+                  key={f.rotulo}
+                  className="text-xs leading-5 text-foreground"
+                >
                   <span className="font-mono">{f.rotulo}</span> — {f.motivo}
                 </li>
               ))}
