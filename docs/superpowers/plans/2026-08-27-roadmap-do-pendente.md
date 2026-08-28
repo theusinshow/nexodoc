@@ -292,12 +292,65 @@ Itens **2.16, 2.14, 2.15**, nesta ordem e por este motivo: **teclado primeiro**
       a seta seleciona" é pura (`modules/nexo/lib/navegacao-por-teclado.ts`,
       `npm run test:teclado`, 9 asserções) e o resto é provado no navegador
       (`npm run prova:teclado`, 14 asserções).
-- [ ] **2.14 — zoom semântico.** Três densidades por nível de zoom. Continua
-      aberto.
-- [ ] **2.15 — modo conferência (LD × canvas).** A coluna sincronizada.
-      Continua aberto — e a spec manda **reusar** o resultado da conferência
-      leve do backend (`modules/ld-interop/`, `modules/volume-builder/`), não
-      recomputar no cliente.
+- [x] **2.14 — zoom semântico.** Três densidades, com os dois limiares como
+      constantes nomeadas (`modules/nexo/lib/densidade-do-canvas.ts`,
+      `npm run test:densidade`, 8 asserções) e a travessia provada no navegador
+      (`npm run prova:zoom`, 16 asserções).
+- [ ] **2.15 — modo conferência (LD × canvas).** ABERTO, e com um bloqueio já
+      apurado — leia o achado abaixo antes de começar.
+
+## 2.14 — o que a implementação decidiu
+
+- **O nível "longe" já tinha metade pronta.** A proposta pede "fileiras de tomo
+  com contagens" no zoom de conjunto, e o `RotuloNode` já desenha "Tomo NN" com
+  a contagem ao lado de cada fileira. O que faltava era o oposto: as FOLHAS
+  ficarem quietas nessa distância.
+- **`useStore` com o seletor mapeando zoom→densidade, e não `useViewport`.**
+  `useViewport()` devolve um número novo a cada quadro do gesto, e cada quadro
+  reenderizaria os duzentos nós — o oposto do que o zoom semântico existe para
+  resolver. Mapeando para um dos três NOMES antes da comparação, o nó só volta a
+  renderizar quando a faixa muda: duas vezes num gesto inteiro, não sessenta.
+- **Render condicional, não CSS que esconde** — é a nota da própria proposta, e
+  DOM oculto em duzentos nós pesa igual.
+- **A marca de "corrigido à mão" sobrevive aos três níveis**, e a prova a mede
+  no zoom em que todo o resto sumiu: é o único aviso de que aquele valor veio de
+  uma pessoa, e escondê-la de longe faria a varredura mentir justamente sobre o
+  que a máquina não leu.
+- **O aviso da folha avulsa vira PONTO de longe, em vez de sumir.** "Sem código
+  · não sai na LD" é defeito de verdade; a varredura de conjunto é exatamente
+  aquela em que ele passaria batido.
+- **As ações do nó selecionado somem no zoom de longe.** Lá os rótulos viram
+  fiapo de 4px e o nó selecionado ficava três vezes mais alto que os vizinhos —
+  a escada que o comentário das cinco linhas existe para evitar, recriada pela
+  própria seleção. Quem navega por teclado não perde nada: `E` e `Enter` fazem o
+  mesmo. **A prova mede as alturas** e exige que a grade continue regular.
+
+## 2.15 — O BLOQUEIO, apurado em 28/08/2026 antes de escrever uma linha
+
+A spec manda **reusar** o resultado da conferência leve em vez de recomputar no
+cliente — e está certa. Só que **o resultado reusável não serve para marcar o
+nó**, e isso precisa ser resolvido antes:
+
+`LightCheckFinding` (`server/nexo/light-check-core.ts:17`) tem `severidade`,
+`campo`, `mensagem` e `detalhe` — **e nenhuma referência a uma folha**. As
+mensagens são agregadas por construção ("Pranchas com códigos de projeto
+divergentes (…)", "Folha(s) faltando na sequência 1..N: 3, 7"). O aceite da
+proposta é "divergência LD×folha aparece **no nó** e na linha"; com o que existe
+hoje, dá para pintar a COLUNA inteira de aviso e não dá para dizer QUAL nó.
+
+**As duas saídas, e a escolha:**
+
+1. **Acrescentar a folha ao achado** — um campo opcional em `LightCheckFinding`
+   apontando as folhas envolvidas. É onde a informação já está (a checagem sabe
+   quais pranchas entraram em cada grupo, ela só descarta isso ao formatar a
+   frase), o módulo é PURO e já tem teste, e um campo opcional não quebra
+   nenhum consumidor. **É esta.**
+2. Recomputar no cliente — a spec proíbe, e com razão: seriam duas verdades
+   sobre a mesma conferência, divergindo na primeira regra nova.
+
+**Ordem sugerida para quem pegar:** (a) estender o core e o teste dele; (b) a
+coluna, lendo o resultado já existente; (c) a sincronização nos dois sentidos,
+que reusa a seleção por id que o teclado do 2.16 já montou.
 
 ## O que o teclado obrigou a mudar, e por quê
 
