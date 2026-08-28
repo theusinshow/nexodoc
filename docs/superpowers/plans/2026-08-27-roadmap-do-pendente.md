@@ -212,14 +212,73 @@ andado, uma tarde cada, e a primeira apaga um defeito que a tela confessa.
 
 ---
 
-# Fase 3 — Lote 3: fechar o loop de valor da auditoria
+# Fase 3 — Lote 3: fechar o loop de valor da auditoria ✅ FEITA EM 27-28/08/2026
 
-Itens **2.19, 2.20, 2.21** — o que mudou, o que custa, o que se entrega em
-papel. É a fase que faz a auditoria valer dinheiro na frente de quem paga, e
-por isso vem antes de qualquer refinamento de canvas.
+Itens **2.19, 2.20, 2.21**. A lei 2 (GREPE antes de construir) pagou o dia
+inteiro aqui: **dos três, só um era trabalho.**
 
-- [ ] **3.1** — reler a spec e GREPAR os três antes de desenhar (lei 2).
-- [ ] **3.2** — plano próprio em `docs/superpowers/plans/`, um PR.
+- [x] **2.19 — delta entre auditorias: JÁ ESTAVA FEITO.** `lib/diff-de-pareceres.ts`
+      compara dois pareceres pelo TIPO do defeito e pelo TRECHO citado (nunca
+      pelo id, que é posicional, nem pela página, que é o dado que mais se move
+      entre revisões), e `PalcoDoNexo.tsx:372` já mostra o resumo no topo do
+      parecer, sumindo quando não há auditoria anterior — exatamente o aceite da
+      proposta, inclusive o "sem estado vazio constrangedor".
+
+- [x] **2.20 — custo antes do Profundo: MORTO, e não por preguiça.** Não há
+      Profundo para preceder. O slot `nivel` foi removido em 17/08/2026 com
+      argumento medido (`server/nexo/agent/requirements.ts:442`): no 156-25, os
+      dois níveis custavam os MESMOS US$ 0,82, e o "Padrão" amostrava 25% do
+      documento — não era barato-contra-caro, era ler contra não ler pelo mesmo
+      preço. A auditoria tem um nível só, `/audit` só redireciona para `/nexo`, e
+      nenhuma tela oferece a escolha. **Se um dia voltar a haver escolha, que
+      seja entre coisas diferentes de verdade** (auditoria completa × reconferir
+      só o que mudou) — e aí este item renasce com outro enunciado.
+
+- [x] **2.21 — o parecer impresso.** Era o único trabalho de verdade, e está
+      feito em três camadas:
+      `lib/parecer-em-papel.ts` (estrutura, quebra e paginação — puro, com o
+      medidor INJETADO, `npm run test:parecer-papel`, 13 asserções),
+      `server/pdf/parecer.ts` (o desenho com `pdf-lib`) e
+      `app/api/nexo/parecer` (a rota). No menu **Exportar**, em primeiro lugar.
+
+## O que o parecer em papel decidiu, e por quê
+
+- **`pdf-lib`, e não o caminho ODT→LibreOffice.** O `render-service` converte
+  ODT que veio de um MODELO; o parecer não tem modelo, e criar um empurraria a
+  identidade da peça para dentro de um binário que ninguém revisa em diff.
+- **As 14 fontes padrão.** Embutir a IBM Plex exigiria o arquivo da fonte no
+  repositório mais o `fontkit`. O que a identidade pede aqui é a HIERARQUIA —
+  texto proporcional, dado monoespaçado —, e Helvetica/Courier a entregam. O dia
+  em que a Plex entrar, só `server/pdf/parecer.ts` muda.
+- **`paraWinAnsi`, e é o detalhe que teria quebrado em produção.** As fontes
+  padrão codificam em WinAnsi e `drawText` **lança** fora dela. Um memorial que
+  escreve "largura ≥ 1,20 m" derrubaria a exportação inteira. A troca é por
+  equivalente legível (`>=`), nunca por vazio — apagar o sinal mudaria o sentido
+  da evidência que o parecer está citando. Está na prova.
+- **O cabeçalho de um achado nunca fica órfão no pé da página**, e o rótulo
+  ("EVIDÊNCIA") desce junto com o texto dele. Quem confere papel lê o achado
+  inteiro de um golpe ou não confia nele.
+- **A moldura chanfrada só na primeira folha.** Repetida em todas viraria borda
+  de formulário; assinatura que se repete deixa de ser lida.
+- **O rodapé em toda página**, com obra, código e `n/total`: folha solta de
+  parecer circula sozinha no escritório, e a que chega à mesa do fiscal pode ser
+  a página 4.
+- **Análise parcial é dita no papel**, logo abaixo do veredito. Um parecer
+  incompleto impresso sem essa linha é a pior peça que este sistema poderia
+  produzir.
+- **Sugestão da IA não vai para o papel.** A validação a rebaixou; imprimi-la ao
+  lado de um achado sólido apagaria a distinção que a validação existe para fazer.
+
+**Provas:** `npm run test:parecer-papel` (13, puro) · `npm run prova:parecer`
+(gera o PDF e **relê com pdfjs** — 14 asserções, sem servidor) ·
+`npm run prova:parecer-tela` (a rota recusa sem sessão, devolve `%PDF-` com
+sessão, e o item existe no menu — 11 asserções).
+
+**Duas armadilhas que a prova pegou e valem registro:** a primeira versão da
+asserção do menu passava lendo o cabeçalho do próprio parecer, porque a obra
+semeada se chamava "Prova do parecer em PDF" — nome de fixture não pode conter o
+texto que a prova procura. E o `Dropdown` sai por **portal no `document.body`**:
+ler o palco depois do clique devolve a tela sem o menu.
 
 ---
 
