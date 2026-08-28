@@ -144,7 +144,7 @@ seguinte. Se reprovar em algo cosmético, anoto e sigo.
 
 ---
 
-# Fase 1 — O lote de envio de achado
+# Fase 1 — O lote de envio de achado ✅ FEITA EM 27/08/2026
 
 **Por que aqui:** foi pedido em 25/08 e adiado por um dia que já passou. Não
 paga modelo, e os três itens tocam o mesmo arquivo
@@ -152,18 +152,18 @@ paga modelo, e os três itens tocam o mesmo arquivo
 `[Marcar corrigido] [Decisao tecnica] [···]`). A dúvida que travava já foi
 respondida.
 
-- [ ] **1.1 — desenho curto e portão de aprovação.** Uma tela desenhada, não um
-      documento: como fica a fila de ações com quatro controles, e como fica a
-      seleção em massa. **É o único portão desta fase** — o Matheus vê antes de
-      eu escrever componente.
+- [x] **1.1 — o portão CAIU, por decisão do Matheus.** Ele deu autonomia para
+      fechar as atividades sem perguntar a cada passo, e um desenho para
+      aprovação era exatamente a pergunta que ele mandou parar de fazer. Fui ao
+      código e mostrei o resultado — `npm run prova:envio`.
 
-- [ ] **1.2 — "pop" de achado enviado.** Hoje o retorno é o `feedbackNotice`,
+- [x] **1.2 — "pop" de achado enviado.** Hoje o retorno é o `feedbackNotice`,
       mono pequeno perto da barra, e some no ruído. **Componente novo, não
       reuso:** `components/ui/` não tem toast e nenhum arquivo usa
       sonner/snackbar — conferido hoje, a pasta tem 19 primitivos e nenhum
       deles serve.
 
-- [ ] **1.3 — seleção em massa.** "Selecionar todos", ou todos os do FILTRO
+- [x] **1.3 — seleção em massa.** "Selecionar todos", ou todos os do FILTRO
       atual (todos os críticos, todos de hidrossanitário). Hoje são 22 cliques
       para mandar 22 achados. **Não é falta de função:** o envio em lote já
       existe — a etiqueta "Ref. INC-00x" é caixa de seleção e a barra do rodapé
@@ -173,7 +173,7 @@ respondida.
       achado tem UM dono; reatribuir passa de mão, não soma. Duas pessoas dariam
       duas respostas possíveis para "com você" e para o desfecho.
 
-- [ ] **1.4 — botão ENVIAR ao lado de "Decisão técnica".** Hoje "Enviar para
+- [x] **1.4 — botão ENVIAR ao lado de "Decisão técnica".** Hoje "Enviar para
       alguém" só existe dentro do `···` (`audit-result.tsx:3089`). Promover a
       irmão dos outros dois, **mantendo o comportamento**: o botão MARCA o
       achado e a barra do rodapé escolhe a pessoa. Um segundo seletor seria uma
@@ -183,20 +183,20 @@ respondida.
       Cuidado medido: a fila já quebra em duas linhas no painel estreito do Nexo
       com três controles. Com quatro, resolver a quebra faz parte do item.
 
-- [ ] **1.5 — a dívida cosmética junto:** a barra de envio do rodapé quebra em
+- [x] **1.5 — a dívida cosmética junto:** a barra de envio do rodapé quebra em
       duas linhas no painel do Nexo e o "LIMPAR" cai sozinho embaixo
       (`ml-auto` + `flex-wrap`). Está anotada desde 25/08 e é a mesma tela.
 
-- [ ] **1.6 — abrir a tela** (lei 1) e commitar.
+- [x] **1.6 — abrir a tela** (lei 1) e commitar.
 
 ---
 
-# Fase 2 — Lote 2 da UX: as duas metades que fecham
+# Fase 2 — Lote 2 da UX: as duas metades que fecham ✅ FEITA EM 27/08/2026
 
 **Por que aqui:** são as duas linhas da "Parte C" da spec — meio caminho já
 andado, uma tarde cada, e a primeira apaga um defeito que a tela confessa.
 
-- [ ] **2.1 — o botão Regenerar (item 1.6).** Conferido hoje:
+- [x] **2.1 — o botão Regenerar (item 1.6).** Conferido hoje:
       `modules/nexo/components/NexoCanvas.tsx:200` diz "Gere de novo antes de
       montar o volume" e **não existe botão nenhum** que faça isso — a string
       "Regenerar" não aparece em lugar nenhum do produto. A tela manda fazer
@@ -205,7 +205,7 @@ andado, uma tarde cada, e a primeira apaga um defeito que a tela confessa.
       **Não depende de decisão de storage:** o caminho determinístico de
       regeneração já existe; o botão só o chama.
 
-- [ ] **2.2 — recibo do drop (item 2.11).** `NexoWorkspace.tsx:545-551` já
+- [x] **2.2 — recibo do drop (item 2.11).** `NexoWorkspace.tsx:545-551` já
       nomeia as folhas que falharam e `lib/estado-do-anexo.ts` dá estado por
       arquivo. Falta só o formato de recibo: `200 recebidos · 198 lidos · 2
       falharam`.
@@ -348,3 +348,64 @@ de token.
 - **O teto de 8 voltas está medido** e escrito no `run-chat-turn.ts`.
 - `npm run gasto:auditoria` passou a somar o chat junto com o motor.
 - **PORTÃO ABERTO:** a prova passou, então a Fase 1 pode começar.
+
+
+---
+
+# O que a execução de 27/08 acrescentou ao registro
+
+## Fase 1 — provada na tela: `npm run prova:envio`
+
+17 asserções, todas verdes. Semeia a auditoria no banco, abre o parecer no
+painel do Nexo e mede o que só existe no navegador.
+
+**A quebra em três linhas ACONTECEU**, como a spec previa, e foi medida em vez
+de julgada por captura: a fila tem **274px** (254 de conteúdo) e os quatro
+controles somavam **433px**. Duas mudanças a resolveram, nesta ordem:
+
+1. `@container` na fila, e os ícones de "Marcar corrigido" e "Enviar" saem
+   abaixo de 21rem. Ícone vale ~22px com o gap; o rótulo é o que não pode sair
+   ("Decisão técnica" sem texto é um quadrado mudo). Ficou em 385px.
+2. **A ordem passou a ser por frequência de uso** — "Marcar corrigido" e
+   "Enviar" primeiro, "Decisão técnica" e `···` depois. Não é só hierarquia: com
+   os números acima, 144+8+72 = 224 cabe na primeira linha com folga, enquanto a
+   ordem antiga empurrava o `···` sozinho para uma terceira linha, vinte e duas
+   vezes por parecer.
+
+A prova mede as linhas pelas caixas dos botões, e não por captura — julgar isso
+a olho já deu falso positivo nesta tela.
+
+## Fase 2 — um defeito latente que ninguém tinha visto
+
+O `ResultLinks` saía com `return null` quando **não havia arquivo** — e o caso
+mais comum de bytes ausentes é justamente esse: conversa aberta noutra máquina
+não tem blob nenhum, o restaurador pula todos e marca `bytesAusentes`. **O aviso
+que o componente existe para dar nunca chegava à tela** no único caso que o
+pedia. A regra virou `modules/nexo/lib/links-do-resultado.ts`, provada em
+`npm run test:links`.
+
+O botão Regenerar está ligado em cinco lugares (LD, capa, volume, separatriz e
+cada item do plano). No plano foi preciso extrair `gerarUmItem` de `gerarTudo`:
+refazer o plano inteiro gastaria de novo os documentos que estão íntegros.
+
+**O QUE NÃO FOI PROVADO NA TELA, e precisa ser dito:** o botão Regenerar não foi
+exercitado num card real com bytes ausentes. Chegar a esse estado exige uma
+conversa gerada em OUTRA máquina, e a fixture para forjá-la (selos + proposta +
+artifactId derivado de `idsBaseDosArtefatos`) custa mais que o que provaria. O
+que está provado: a regra de visibilidade (node), os tipos (`tsc`), e que o
+`onRegerar` é o mesmo `confirm()` que gerou da primeira vez. **Quando aparecer
+um caso real de bytes ausentes, abrir e conferir.**
+
+## Duas lições de processo desta sessão
+
+**`prettier --write` num arquivo que não estava formatado reescreve o mundo.**
+O `audit-result.tsx` tinha 988 linhas fora do padrão, e o commit da feature
+nasceu com 2596 linhas mexidas — ilegível. Foi separado em dois: um commit só de
+formatação, outro com as 443 linhas que são a mudança. **Confira
+`prettier --check` no arquivo ORIGINAL antes de rodar `--write`;** se ele já
+estiver sujo, formate em commit próprio primeiro.
+
+**Cinco erros de `react-hooks/rules-of-hooks` em
+`modules/nexo/lib/largura-do-copiloto.ts` são PRÉ-EXISTENTES** (`usarLargura…`
+não começa com "use"). `npm run lint` nunca fecha em zero hoje; não os confunda
+com dano novo.
