@@ -1,77 +1,83 @@
 # Prova com token — o chat cita a página certa
 
-Roda **uma vez**, à mão. É a única corrida desta feature que paga o modelo, e
-existe para responder o que nenhum teste puro responde: *a página que o chat
-cita bate com o PDF?*
+**EXECUTADA EM 27/08/2026, e passou: 15 asserções, nenhuma falha.**
 
-Tudo o mais já está provado sem token:
-`npm run test:ancoragem`, `test:memoria`, `test:chat:ferramentas`,
-`test:chat:historico`, `test:chat:laco`, `test:chat:rota`,
-`test:chat:roteamento` e `npm run prova:chat-advogado`.
+Este roteiro era manual — abrir o PDF na página citada e conferir a olho. Virou
+código:
 
-## Antes
+    PROVA_PAGA=1 npm run prova:chat-token
+
+`scripts/prova-chat-com-token.mjs` roda a auditoria, confere a memória, faz as
+seis perguntas e **confere cada citação contra um gabarito extraído com pdfjs
+cru** — nenhum módulo do produto participa do julgamento. Trocou-se a leitura a
+olho pelo mesmo motivo que o produto inteiro existe: julgamento humano cansado
+erra número de página, e prova que só passa com paciência não roda duas vezes.
+
+O guarda `PROVA_PAGA=1` existe porque ela paga modelo.
+
+## O que a corrida de 27/08 mediu
+
+Documento: `tests/117_25_md_geral_a.pdf` — UBS Vila Manaus, Criciúma, 218
+páginas, 465.196 caracteres. Auditoria `standard`: 130 s, 25 achados.
+
+| pergunta | o que se mediu | resultado |
+|---|---|---|
+| espessura da telha | página **62**, valor **6,5 mm** | bateu |
+| área total construída | página **99**, **467,46 m²** — e não a área do terreno da p.13 | bateu |
+| proprietário | **Chapecó** na p.99, contra a capa de Criciúma | bateu, e registrou a divergência |
+| escada rolante | termo que **não existe** no documento | negou, e ainda separou a escada FIXA das p.12/38/43/44 |
+| "concorda com o INC-001?" | todo trecho entre aspas existe mesmo | todos ancoraram |
+| "procure um erro que passou" | evidência do achado novo ancora na página declarada | ancorou |
+
+**Nenhuma página citada estava errada em nenhuma das três corridas de chat.**
+
+## O teto de voltas: 8 era palpite, agora é medido
+
+Voltas por pergunta, três corridas:
+
+| pergunta | corridas |
+|---|---|
+| espessura / área / proprietário / INC-001 | **2** voltas |
+| escada rolante (termo ausente) | **3** voltas |
+| "procure um erro que a auditoria deixou passar" | **5, 8 e 6** voltas |
+
+**O teto de 8 FICA.** A pergunta aberta encostou nele numa das corridas — e
+mesmo assim entregou achado com evidência ancorada (p.115). Baixar para 6
+cortaria uma busca legítima no meio; o número não é folga, é o custo real de
+procurar num memorial de 218 páginas.
+
+## Custo — medido, não estimado
+
+| corrida | o que rodou | US$ |
+|---|---|---|
+| 1ª | auditoria + 6 perguntas | 0,6019 |
+| 2ª | só as perguntas (`PROVA_AUDIT_ID`) | 0,3296 |
+| 3ª | só as perguntas | 0,4381 |
+| 4ª | só as perguntas | 0,3016 |
+| | **total do dia** | **1,67** |
+
+`PROVA_AUDIT_ID=<id>` reaproveita uma auditoria já feita e a corrida cai para
+~US$ 0,33 — o motor relendo um documento que não mudou custava US$ 0,35 por
+repetição, e prova cara não roda de novo.
+
+**Rode em `standard`.** Auditoria de memorial em `deep` vai para o `gpt-5.6-sol`
+e custa ~US$ 1,95 contra US$ 0,25 do `gpt-5.6-terra` — 8x por uma resposta que
+não muda: a página sai de ferramenta determinística sobre o texto guardado.
+
+## Antes de rodar
 
 1. `npm run dev` **recém-iniciado**. Um `next dev` velho dá falha de portão
-   consistente e falsa — reiniciar antes de acreditar em qualquer reprovação.
-2. Um memorial do kit de erros plantados na máquina, com o gabarito à mão.
-3. Teto de gasto do mês conferido.
-4. Banco configurado: sem ele não há `AuditText`, e o chat cai no modo
-   degradado — que é um caminho legítimo, mas não é o que esta prova mede.
+   consistente e falsa.
+2. Banco configurado: sem ele não há `AuditText`, e o chat cai no modo degradado
+   — caminho legítimo, mas não é o que esta prova mede.
+3. Teto de gasto conferido. **O teto do ambiente não protege esta corrida:** sem
+   `NEXODOC_MONTHLY_BUDGET_USD` não há teto, e quem administra é isento do
+   bloqueio de propósito (`isentoDoTeto`). Por isso a prova imprime o gasto
+   antes e depois — quem segura o orçamento é quem lê a saída.
 
-## Passos
+## O que ela ainda NÃO prova
 
-1. **Rode a auditoria** do memorial pelo Nexo, até o parecer aparecer no palco.
-
-2. **Confirme que a memória foi gravada:**
-
-   ```sql
-   SELECT "fileName", "charCount", jsonb_array_length("pages") AS paginas
-   FROM "AuditText" WHERE "auditId" = '<id>';
-   ```
-
-   Esperado: uma linha, `charCount` próximo do `extractedCharCount` do
-   `AuditFile` da mesma auditoria. Zero linhas = a gravação não entrou na
-   transação, e o resto da prova não faz sentido.
-
-3. **"Em que página está a espessura da telha, e qual o valor?"**
-   - Abra o PDF na página citada e confira o valor.
-   - **REPROVA** se a página não bater. Não arredonde o julgamento: página
-     errada é o defeito que esta arquitetura inteira existe para impedir.
-
-4. **"Você concorda com o achado INC-00X?"** — escolha um que o gabarito diz
-   ser falso positivo.
-   - Esperado: ele discorda e **mostra o trecho** que o contradiz.
-   - **REPROVA** se ele concordar por educação.
-
-5. **"Procure um erro que a auditoria deixou passar."**
-   - Se ele registrar um achado, confira a evidência contra o PDF.
-   - **REPROVA** se a evidência não existir na página informada — a trava de
-     `registrar_achado` teria falhado, e é o pior defeito possível aqui.
-   - Confira também que o achado apareceu na lista com origem de conversa, e
-     que sobreviveu a um F5 (ele persiste em dois lugares: `Audit.report` no
-     banco e o artefato no IndexedDB).
-
-6. **Algo que NÃO está no memorial:** *"O que o documento diz sobre elevadores?"*
-   - Esperado: "não encontrei", sem aproximar.
-   - **REPROVA** se ele citar qualquer página.
-
-7. **Um pedido de geração:** *"Monta a LD dessas pranchas."*
-   - Esperado: o card de confirmação do Nexo aparece, como sempre. O turno é
-     encaminhado pelo cliente para `/api/nexo/agent`.
-
-## Depois — anote, porque decide um número
-
-O log traz **uma linha por volta**:
-
-```
-[ai] flow=audit-chat op=audit-chat-turn provider=... model=... status=OK in=... out=... total=...
-```
-
-Anote, no plano desta feature:
-
-- quantas voltas cada pergunta gastou;
-- o custo total da sessão.
-
-É esse número que decide se o teto de 8 voltas
-(`NEXODOC_AUDIT_CHAT_MAX_TOOL_TURNS`) está certo. Até esta prova rodar, **8 é
-palpite** — e está escrito assim de propósito.
+- O comportamento com parecer antigo, gravado antes de `AuditText` existir. O
+  modo degradado está provado só nos testes puros.
+- Documento **escaneado**, sem camada de texto. Este memorial tem texto
+  extraível; o chat não foi medido onde não há o que reler.

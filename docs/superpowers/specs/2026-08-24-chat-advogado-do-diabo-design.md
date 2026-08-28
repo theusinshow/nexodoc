@@ -21,9 +21,22 @@ Um sétimo consumidor de `origem` apareceu que esta spec não contava: o tipo
 local em `components/audit-result.tsx:199`. Era declaração de tipo, não
 comparação; passou a espelhar `AuditFinding["origem"]`.
 
-**A prova com token (`scripts/prova-chat-com-token.md`) ainda NÃO foi
-executada.** Até ela rodar, o que está provado é que o mecanismo funciona — não
-que o auditor acerta a página.
+**A prova com token RODOU em 27/08/2026 e PASSOU** — 15 asserções, nenhuma
+falha, US$ 1,67 em quatro corridas. Ela deixou de ser roteiro manual e virou
+`npm run prova:chat-token`, que confere cada citação contra um gabarito extraído
+com pdfjs cru, fora do produto. Sobre `tests/117_25_md_geral_a.pdf` (218
+páginas): página e valor da telha (p.62, 6,5 mm), área construída (p.99,
+467,46 m²), proprietário divergente (Chapecó na p.99 contra a capa de Criciúma),
+recusa limpa de um termo ausente, e evidência ancorada no achado nascido na
+conversa. **Nenhuma página citada errada em três corridas de chat.**
+
+**O teto de 8 voltas deixou de ser palpite.** Medido: 2 voltas nas perguntas
+diretas, 3 na do termo ausente, e 5/8/6 na pergunta aberta ("procure um erro que
+a auditoria deixou passar") — que encostou no teto numa corrida e ainda assim
+entregou achado ancorado. **Fica em 8**; baixar cortaria busca legítima.
+
+O que continua não provado: parecer antigo em banco real (modo degradado), e
+documento escaneado, sem camada de texto para reler.
 
 ## O pedido
 

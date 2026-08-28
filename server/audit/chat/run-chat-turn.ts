@@ -78,8 +78,17 @@ export const FERRAMENTA_ENCAMINHAR: FunctionTool = {
 };
 
 /**
- * Oito voltas por padrão. Configurável porque o número certo depende do
- * memorial: navegar um documento de 200 páginas custa mais idas do que um de 40.
+ * Oito voltas por padrão — MEDIDO em 27/08/2026, não mais um palpite.
+ *
+ * `npm run prova:chat-token` sobre um memorial de 218 páginas: pergunta direta
+ * ("em que página está a espessura da telha?") gasta 2 voltas; termo ausente,
+ * 3; e a pergunta aberta ("procure um erro que a auditoria deixou passar")
+ * gastou 5, 8 e 6 em três corridas — encostou no teto numa delas e ainda assim
+ * devolveu achado com evidência ancorada. Baixar para 6 cortaria busca
+ * legítima; o número não é folga, é o custo de procurar num documento longo.
+ *
+ * Configurável porque o certo depende do memorial: navegar 200 páginas custa
+ * mais idas do que 40.
  */
 export function tetoDeVoltas(): number {
   const bruto = Number(process.env.NEXODOC_AUDIT_CHAT_MAX_TOOL_TURNS ?? 8);

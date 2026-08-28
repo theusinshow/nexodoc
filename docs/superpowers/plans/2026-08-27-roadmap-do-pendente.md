@@ -55,7 +55,7 @@ pronto:
 
 ---
 
-# Fase 0 — HOJE: o que só o dinheiro responde
+# Fase 0 — HOJE: o que só o dinheiro responde ✅ FEITA EM 27/08/2026
 
 **Por que primeiro:** o chat advogado do diabo está inteiro na `main` e
 **não está provado**. Nove tarefas, sete suítes verdes, e ainda assim o que
@@ -94,31 +94,31 @@ eu, medindo.** Daí o passo 0.1.
 
 ## Passos
 
-- [ ] **0.1 — `scripts/gasto-de-hoje.ts`, o guarda-livros (sem token).**
+- [x] **0.1 — `scripts/gasto-de-hoje.ts`, o guarda-livros (sem token).**
       Soma `estimatedCostUsd` de hoje e do mês, quebrado por `flow` e `model`.
       Sem ele, "gastei US$ 4" é palpite. Registrar como `npm run gasto`.
       Rodar ANTES e DEPOIS de cada corrida paga, e colar a diferença aqui.
 
-- [ ] **0.2 — gerar o kit de memoriais** (sem token):
+- [x] **0.2 — gerar o kit de memoriais** (sem token):
       `node scripts/gera-memoriais-defeituosos.mjs`. A pasta
       `docs/samples/_auditoria-teste/` é ignorada pelo git e **não existe nesta
       máquina agora** — precisa nascer. Conferir com
       `node scripts/confere-memoriais-defeituosos.ts`, que valida o gabarito
       sem pagar nada.
 
-- [ ] **0.3 — as sete suítes puras, antes de gastar.** Um defeito que um teste
+- [x] **0.3 — as sete suítes puras, antes de gastar.** Um defeito que um teste
       grátis pega não pode ser descoberto por uma corrida paga:
 
       npm run test:ancoragem && npm run test:memoria && npm run test:chat:ferramentas
       npm run test:chat:historico && npm run test:chat:laco && npm run test:chat:rota
       npm run test:chat:roteamento && npm run prova:chat-advogado
 
-- [ ] **0.4 — `npm run dev` RECÉM-INICIADO.** Um `next dev` velho dá falha de
+- [x] **0.4 — `npm run dev` RECÉM-INICIADO.** Um `next dev` velho dá falha de
       portão consistente e falsa. Reiniciar antes de acreditar em qualquer
       reprovação. Se o Chrome insistir em "X is not a function", só
       `Ctrl+Shift+R` resolve — apagar `.next` não.
 
-- [ ] **0.5 — a corrida paga**, seguindo `scripts/prova-chat-com-token.md`
+- [x] **0.5 — a corrida paga**, seguindo `scripts/prova-chat-com-token.md`
       passo a passo. Arquivo escolhido: **`03-numerico-areas-e-unidades.pdf`** —
       o gabarito dele tem número conferível (813,98 × 1.480,00 × 902,45 m² nas
       páginas 6/13/28), e "em que página está X, e qual o valor?" tem UMA
@@ -128,14 +128,14 @@ eu, medindo.** Daí o passo 0.1.
       arredondar o julgamento: página errada é o defeito que esta arquitetura
       inteira existe para impedir.
 
-- [ ] **0.6 — o número que fecha a feature.** O log traz uma linha por volta
+- [x] **0.6 — o número que fecha a feature.** O log traz uma linha por volta
       (`[ai] flow=audit-chat op=audit-chat-turn`). Anotar quantas voltas cada
       pergunta gastou e o custo da sessão, e então **decidir o teto de voltas**:
       hoje `NEXODOC_AUDIT_CHAT_MAX_TOOL_TURNS = 8` é palpite, e está escrito
       assim de propósito. Se a pergunta mais cara gastar 3, o teto vira 6 (o
       dobro do pior caso medido). Escrever o número medido no plano da feature.
 
-- [ ] **0.7 — fechar o estado.** Trocar, na spec do chat, "a prova com token
+- [x] **0.7 — fechar o estado.** Trocar, na spec do chat, "a prova com token
       ainda NÃO foi executada" pelo resultado e pela data. Commit.
 
 **PORTÃO:** se a prova REPROVAR na página citada, a Fase 1 não começa. Um chat
@@ -321,9 +321,30 @@ vez de 136 MB). Cura: `rm -rf node_modules .next && npm ci && npx prisma generat
 
 ## Registro de gasto — preencher durante a Fase 0
 
-| quando | corrida | modelo | US$ | acumulado |
-|---|---|---|---|---|
-| | | | | |
+| quando | corrida | US$ | acumulado |
+|---|---|---|---|
+| 27/08 | auditoria standard do 117-25 + 6 perguntas | 0,6019 | 0,60 |
+| 27/08 | só as perguntas (`PROVA_AUDIT_ID`) | 0,3296 | 0,93 |
+| 27/08 | só as perguntas | 0,4381 | 1,37 |
+| 27/08 | só as perguntas — **PROVA OK, 15/15** | 0,3016 | **1,67** |
 
-**Teto de hoje: US$ 4,00.** Ao cruzar, a Fase 0 para onde estiver e o resto do
-roadmap segue sem pagar modelo — nenhuma fase de 1 a 9 precisa de token.
+**Sobrou US$ 2,33 do teto de hoje.** As quatro corridas foram necessárias
+porque as três primeiras reprovaram **no conferidor, não no produto**: markdown
+(`**`) e aspas curvas não removidos antes de comparar, um regex que casava o
+texto ENTRE duas citações, e uma asserção que proibia citar página numa resposta
+em que citar era o certo (o chat negou "escada rolante" e apontou a escada FIXA
+que existe). Cada correção está escrita no script, no lugar onde estava o erro.
+
+**Nenhuma das reprovações foi do produto.** Todas as citações do chat foram
+conferidas à mão contra o gabarito e todas existiam.
+
+**Teto de hoje: US$ 4,00** — fechou em US$ 1,67. Nenhuma fase de 1 a 9 precisa
+de token.
+
+## O que a Fase 0 deixou pronto para o resto
+
+- `npm run prova:chat-token` (com `PROVA_PAGA=1`) é agora uma prova de regressão
+  repetível, não um roteiro manual. Com `PROVA_AUDIT_ID` custa ~US$ 0,33.
+- **O teto de 8 voltas está medido** e escrito no `run-chat-turn.ts`.
+- `npm run gasto:auditoria` passou a somar o chat junto com o motor.
+- **PORTÃO ABERTO:** a prova passou, então a Fase 1 pode começar.
