@@ -282,10 +282,61 @@ ler o palco depois do clique devolve a tela sem o menu.
 
 ---
 
-# Fase 4 — Lote 4: o canvas vira conferível
+# Fase 4 — Lote 4: o canvas vira conferível — 2.16 FEITO EM 28/08/2026
 
 Itens **2.16, 2.14, 2.15**, nesta ordem e por este motivo: **teclado primeiro**
 (barato e independente de tudo), zoom depois, coluna da LD por último.
+
+- [x] **2.16 — navegação por teclado.** Setas andam nó a nó, `E` abre a
+      correção do carimbo, `Enter` abre a página original. A decisão de "qual nó
+      a seta seleciona" é pura (`modules/nexo/lib/navegacao-por-teclado.ts`,
+      `npm run test:teclado`, 9 asserções) e o resto é provado no navegador
+      (`npm run prova:teclado`, 14 asserções).
+- [ ] **2.14 — zoom semântico.** Três densidades por nível de zoom. Continua
+      aberto.
+- [ ] **2.15 — modo conferência (LD × canvas).** A coluna sincronizada.
+      Continua aberto — e a spec manda **reusar** o resultado da conferência
+      leve do backend (`modules/ld-interop/`, `modules/volume-builder/`), não
+      recomputar no cliente.
+
+## O que o teclado obrigou a mudar, e por quê
+
+**O estado do formulário de correção SAIU do nó e foi para o canvas.** Era local
+ao `FolhaNode` e só abria pelo botão — e o teclado não tem como apertar um botão
+que só existe dentro de um nó. Com a decisão no canvas, mouse e `E` passam pela
+mesma porta.
+
+**E os campos deixaram de ser SEMEADOS no clique.** Eles eram preenchidos no
+`onClick` do botão "Corrigir"; aberto por outro caminho, o formulário nasceria em
+branco e salvar **apagaria o que o OCR tinha lido certo**. Agora derivam do dado
+(`texto ?? data.titulo`), e o passo que só um dos caminhos dava deixou de
+existir. A prova mede exatamente isso: "o formulário nasce PREENCHIDO".
+
+**`disableKeyboardA11y` no ReactFlow.** A a11y de teclado do xyflow move o NÓ
+com as setas — e aqui a posição é derivada do arranjo em fileiras, então mover
+por tecla escrevia uma coordenada que o próximo render descartava. Gesto sem
+efeito, competindo com a navegação que a conferência precisa.
+
+**A guarda de digitação virou uma só.** `NavegacaoDoCanvas` já tinha a sua cópia
+(para os atalhos `+`, `-`, `0`, `1-9`), e faltava `SELECT` nela. As duas agora
+importam `ehDigitacao` — era exatamente o caso de "duas cópias da mesma regra
+divergem na primeira lembrança de um caso novo".
+
+**A dica aparece com `focus-within`**, não permanente: sobre duzentas folhas ela
+seria ruído, e atrás de um "?" que ninguém abre seria documentação para ninguém.
+
+## O defeito que só o navegador viu
+
+`emCorrecao: noEmCorrecao === id` comparava o id do **nó** (`folha:<id>`) com o
+id da **folha** (`<id>`). O `E` chegava ao canvas e não abria nada — silêncio que
+parece tecla morta. Nenhum teste puro veria isso: a decisão estava certa, o
+casamento é que não acontecia. **É o argumento inteiro a favor de abrir a tela.**
+
+E duas armadilhas do lado da prova, ambas de seletor: `page.locator("textarea").last()`
+caía no **compositor da conversa**, não no campo do formulário (a asserção
+acusava "nasce em branco" um formulário correto); e a prova dependia do projeto
+de exemplo, que não estava semeado — semear a própria conversa deixou a prova
+dona do que ela mede.
 
 ---
 
