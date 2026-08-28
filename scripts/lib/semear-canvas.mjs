@@ -10,9 +10,17 @@
  * dele não o achava, e o sintoma ("sem folhas") apontava para o canvas em vez de
  * para o cenário.
  */
-export async function semearCanvas(page, { conversationId, titulo, folhas }) {
+export async function semearCanvas(
+  page,
+  { conversationId, titulo, folhas, conferencia },
+) {
   await page.evaluate(
-    async ({ convId, tituloDaConversa, listaDeFolhas }) => {
+    async ({
+      convId,
+      tituloDaConversa,
+      listaDeFolhas,
+      resultadoDaConferencia,
+    }) => {
       const db = await new Promise((res, rej) => {
         const req = indexedDB.open("nexo");
         req.onsuccess = () => res(req.result);
@@ -56,13 +64,34 @@ export async function semearCanvas(page, { conversationId, titulo, folhas }) {
             },
             usage: 0,
           })),
-          results: [],
+          /*
+           * A conferência entra como ARTEFATO da conversa, que é onde ela mora
+           * de verdade (`saveResult` com `kind: "conferencia"`). Injetá-la por
+           * prop faria a prova medir um caminho que o produto não tem.
+           */
+          results: resultadoDaConferencia
+            ? [
+                {
+                  artifactId: "conferencia:qa",
+                  kind: "conferencia",
+                  summary: `Conferência — ${resultadoDaConferencia.veredito}`,
+                  files: [],
+                  payload: resultadoDaConferencia,
+                  generatedAt: agora,
+                },
+              ]
+            : [],
         });
         tx.oncomplete = () => res();
         tx.onerror = () => rej(tx.error);
       });
     },
-    { convId: conversationId, tituloDaConversa: titulo, listaDeFolhas: folhas },
+    {
+      convId: conversationId,
+      tituloDaConversa: titulo,
+      listaDeFolhas: folhas,
+      resultadoDaConferencia: conferencia ?? null,
+    },
   );
 
   // A barra lateral só relê na montagem — sem recarregar, a conversa semeada

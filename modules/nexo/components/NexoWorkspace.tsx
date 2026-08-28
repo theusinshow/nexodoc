@@ -244,6 +244,29 @@ function NexoWorkspaceInner({
     );
   }, [conv.results, replaceArtifacts]);
 
+  /*
+   * A CONFERÊNCIA DO VOLUME que já rodou nesta conversa — a que a coluna do
+   * canvas lê.
+   *
+   * A MAIS RECENTE, e não a primeira: conferir de novo depois de corrigir é o
+   * caminho normal, e mostrar a primeira faria a coluna acusar defeitos já
+   * consertados — o pior desfecho possível para uma tela cuja função é dizer o
+   * que falta.
+   *
+   * O artefato `:identidade` fica FORA: ele tem o mesmo `kind` e um payload de
+   * outra forma (conferência do selo, com amostras), e passá-lo adiante daria
+   * uma lista de achados sem `folhas` — coluna acesa sem nada a apontar.
+   */
+  const conferenciaDoVolume = useMemo(() => {
+    const artefato = [...conv.results]
+      .reverse()
+      .find((r) => r.kind === "conferencia" && !r.artifactId.endsWith(":identidade"));
+    const payload = artefato?.payload as
+      | { findings?: { severidade: string; campo: string; mensagem: string; folhas?: string[] }[] }
+      | undefined;
+    return Array.isArray(payload?.findings) ? { findings: payload.findings } : undefined;
+  }, [conv.results]);
+
   const [files, setFiles] = useState<File[]>([]);
   const [folderCount, setFolderCount] = useState(0);
   const [dossie, setDossie] = useState<NexoDossieDraft | null>(null);
@@ -2062,6 +2085,7 @@ function NexoWorkspaceInner({
             removidas={removidas}
             onRestaurarFolhas={restaurarFolhas}
             tomosDeclarados={conv.tomosDeclarados}
+            conferencia={conferenciaDoVolume}
           />
             }
           />

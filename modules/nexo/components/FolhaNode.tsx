@@ -18,6 +18,7 @@ import { AgentPopover } from "@/components/ui/agent-popover";
 import { Button } from "@/components/ui/button";
 import type { FolhaId } from "../lib/folhas";
 import { corDaDisciplina, siglaDaDisciplina } from "../lib/disciplina-cor";
+import type { DivergenciaDaFolha } from "../lib/conferencia-por-folha";
 import { densidadeDoZoom, oQueMostrar } from "../lib/densidade-do-canvas";
 import { AcaoDoNo } from "./AcaoDoNo";
 
@@ -39,6 +40,13 @@ export type FolhaNodeData = {
   /** Criada à mão: não há PDF por trás dela, então ela não entra no volume. */
   avulsa?: boolean;
   /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
+  /**
+   * O que a CONFERÊNCIA pesa sobre esta folha — traduzido do achado agregado
+   * pelo índice de `conferencia-por-folha.ts`. Ausente = nada pesa, e o nó não
+   * ganha marca nenhuma: um "ok" em cada uma das duzentas folhas é ruído que
+   * apaga as três que importam.
+   */
+  divergencia?: DivergenciaDaFolha;
   /**
    * O formulário de correção está aberto NESTE nó.
    *
@@ -215,6 +223,29 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             className="h-1.5 w-1.5 rounded-full bg-[var(--nexodoc-tertiary-strong)]"
             title="corrigido à mão"
             aria-label="corrigido à mão"
+          />
+        )}
+        {/*
+          A MARCA DA CONFERÊNCIA, e ela sobrevive aos três níveis de zoom pelo
+          mesmo motivo da marca de "corrigido à mão": é sinal de DEFEITO, e a
+          varredura de conjunto é exatamente aquela em que ele passaria batido.
+
+          Sem verde. "Sem divergência" é o normal, e o normal é mudo — duzentos
+          pontos verdes apagariam os três coloridos que importam.
+        */}
+        {data.divergencia && (
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{
+              background:
+                data.divergencia.severidade === "critico"
+                  ? "var(--status-critical)"
+                  : data.divergencia.severidade === "aviso"
+                    ? "var(--status-warning)"
+                    : "var(--muted-foreground)",
+            }}
+            title={data.divergencia.motivos.join(" · ")}
+            aria-label={`conferência: ${data.divergencia.motivos.join(". ")}`}
           />
         )}
       </div>

@@ -78,7 +78,10 @@ import {
   topoDasFileiras,
 } from "../lib/layout-canvas";
 import { FolhaNode, type FolhaNodeData } from "./FolhaNode";
+import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { ehDigitacao, passoDoTeclado } from "../lib/navegacao-por-teclado";
+import { divergenciasPorFolha } from "../lib/conferencia-por-folha";
+import { ColunaDaConferencia, type LinhaDaConferencia } from "./ColunaDaConferencia";
 import { ArtifactThumb } from "./ArtifactThumb";
 import { NavegacaoDoCanvas, type FileiraNavegavel } from "./NavegacaoDoCanvas";
 
@@ -423,7 +426,17 @@ function CanvasInterno({
   removidas = [],
   onRestaurarFolhas,
   tomosDeclarados = 0,
+  conferencia,
 }: {
+  /**
+   * O resultado da conferência leve que JÁ RODOU nesta conversa.
+   *
+   * Chega pronto de propósito: recomputar no cliente criaria uma segunda
+   * verdade sobre as mesmas regras de nome, e as duas divergiriam na primeira
+   * regra nova. Ausente = a conferência não foi feita, e a coluna não aparece —
+   * que é diferente de "foi feita e não achou nada".
+   */
+  conferencia?: { findings: { severidade: string; campo: string; mensagem: string; folhas?: string[] }[] };
   /** A projeção (selo + ajuste). É a MESMA lista que a montagem lê. */
   folhas?: Folha[];
   /** Número da folha resolvido por `resolveSheetNumbers`, por id. */
@@ -479,6 +492,20 @@ function CanvasInterno({
   const [noEmCorrecao, setNoEmCorrecao] = useState<FolhaId | null>(null);
   const pedirCorrecao = useCallback((id: FolhaId) => setNoEmCorrecao(id), []);
   const fecharCorrecao = useCallback(() => setNoEmCorrecao(null), []);
+
+  /*
+   * O QUE PESA SOBRE CADA FOLHA, vindo da conferência que já rodou.
+   *
+   * REUSA o resultado, não recomputa: a conferência leve é a fonte única das
+   * regras de nome, e uma segunda implementação no cliente divergiria dela na
+   * primeira regra nova. O índice só traduz o agregado ("pranchas com revisões
+   * divergentes") para a prancha, pelo `label` que os dois lados já usam — o
+   * nome do arquivo.
+   */
+  const porFolha = useMemo(
+    () => divergenciasPorFolha(conferencia?.findings ?? []),
+    [conferencia],
+  );
   const corrigirFolha = useCallback(
     (
       id: FolhaId,
@@ -693,6 +720,7 @@ function CanvasInterno({
              * prova de navegador que separou "não chegou" de "chegou e não
              * casou"; nenhum teste puro veria isso.
              */
+            divergencia: porFolha.get(f.fileName),
             emCorrecao: noEmCorrecao === f.id,
             onPedirCorrecao: pedirCorrecao,
             onFecharCorrecao: fecharCorrecao,
@@ -771,6 +799,7 @@ function CanvasInterno({
      * aparecia. Os dois callbacks são estáveis (`useCallback` sem dependência).
      */
     noEmCorrecao,
+    porFolha,
     pedirCorrecao,
     fecharCorrecao,
     results,
@@ -966,6 +995,45 @@ function CanvasInterno({
     ],
   );
 
+  /*
+   * AS LINHAS DA COLUNA saem dos MESMOS nós, na MESMA ordem.
+   *
+   * Montar a lista de outra fonte (as folhas cruas, por exemplo) criaria duas
+   * ordens para a mesma coisa, e a coluna passaria a discordar do mapa
+   * justamente quando o engenheiro reordenasse um tomo — que é quando ele mais
+   * precisa que as duas concordem.
+   */
+  const linhasDaConferencia = useMemo<LinhaDaConferencia[]>(
+    () =>
+      nodes
+        .filter((n) => n.type === "folha")
+        .map((n) => {
+          const d = n.data as Partial<FolhaNodeData>;
+          return {
+            idDoNo: n.id,
+            numero: d.numero ?? null,
+            sigla: siglaDaDisciplina(d.disciplina),
+            titulo: d.titulo ?? "",
+            divergencia: d.divergencia,
+          };
+        }),
+    [nodes],
+  );
+
+  const escolherPelaColuna = useCallback(
+    (idDoNo: string) => {
+      setNodes((atuais) => atuais.map((n) => ({ ...n, selected: n.id === idDoNo })));
+      const no = nodes.find((n) => n.id === idDoNo);
+      if (no) {
+        const c = centroDoNo(no);
+        // O zoom é de quem confere: clicar na linha aproxima a folha sem
+        // reenquadrar o volume inteiro por baixo dela.
+        fluxoDoTeclado.setCenter(c.x, c.y, { zoom: fluxoDoTeclado.getZoom(), duration: 180 });
+      }
+    },
+    [centroDoNo, fluxoDoTeclado, nodes, setNodes],
+  );
+
   // O tomo que o "+ Tomo" vai criar: o próximo depois do maior que existe.
   const maiorTomo = fileiras.reduce((maior, f) => Math.max(maior, f.tomo), 0);
 
@@ -992,8 +1060,11 @@ function CanvasInterno({
       onKeyDown={aoTeclar}
       role="application"
       aria-label="Mapa do volume — setas andam entre as folhas, Enter abre a página, E corrige o carimbo"
-      className="group relative h-full min-h-[320px] w-full overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)] outline-none focus-visible:border-[var(--ring)]"
+      className="group flex h-full min-h-[320px] w-full gap-2 overflow-hidden rounded-md border border-border bg-[var(--nexodoc-recessed)] p-0 outline-none focus-visible:border-[var(--ring)]"
     >
+      {/* O fluxo e o que flutua sobre ELE (barra, dica, fresta) ficam numa
+          caixa própria: a coluna é irmã, não sobreposta. */}
+      <div className="relative min-w-0 flex-1">
       {/*
         A DICA APARECE QUANDO O ATALHO ESTÁ VIVO.
  
@@ -1116,6 +1187,14 @@ function CanvasInterno({
          * funcionar. A orientação por tomo fica com a `NavegacaoDoCanvas`.
          */}
       </ReactFlow>
+      </div>
+      {conferencia && (
+        <ColunaDaConferencia
+          linhas={linhasDaConferencia}
+          selecionado={alvoDoTeclado?.id ?? null}
+          onEscolher={escolherPelaColuna}
+        />
+      )}
     </div>
   );
 }
@@ -1163,6 +1242,7 @@ export function NexoCanvas(props: {
   removidas?: { id: FolhaId; rotulo: string }[];
   onRestaurarFolhas?: () => void;
   tomosDeclarados?: number;
+  conferencia?: { findings: { severidade: string; campo: string; mensagem: string; folhas?: string[] }[] };
 }) {
   return (
     <ReactFlowProvider>
