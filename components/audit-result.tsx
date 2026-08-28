@@ -1135,6 +1135,46 @@ function downloadMarkdown(result: string, fileName = "nexodoc-auditoria.md") {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * O PARECER EM PAPEL — abre numa aba, para conferir antes de mandar.
+ *
+ * A rota devolve `inline`, então o navegador mostra o PDF em vez de baixar: o
+ * engenheiro entrega esse papel à prefeitura, e entregar sem ler é o erro que
+ * este produto inteiro existe para evitar. Baixar continua a um clique, no
+ * visualizador.
+ *
+ * Devolve a mensagem de erro em vez de lançar: quem chama põe no pop, e uma
+ * promessa rejeitada num `onClick` morreria no console.
+ */
+async function abrirParecerEmPdf(report: AuditReport): Promise<string | null> {
+  try {
+    const res = await fetch("/api/nexo/parecer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report }),
+    });
+    if (!res.ok) {
+      const corpo = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      return corpo?.error ?? "Não foi possível gerar o parecer em PDF.";
+    }
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, "_blank", "noopener");
+    /*
+     * O `revoke` espera: revogar na linha seguinte mata a URL antes de a aba
+     * nova terminar de carregar, e o PDF abre em branco. Um minuto é folga
+     * larga para qualquer leitura inicial.
+     */
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return null;
+  } catch (err) {
+    return err instanceof Error
+      ? err.message
+      : "Não foi possível gerar o parecer em PDF.";
+  }
+}
+
 export function AuditResult({
   content,
   auditId,
@@ -1292,6 +1332,8 @@ export function AuditResult({
    * parecer, o aviso nunca sairia sozinho.
    */
   const fecharPop = useCallback(() => setPop(null), []);
+  /** O parecer em papel está sendo desenhado. Sem token: é PDF determinístico. */
+  const [gerandoParecer, setGerandoParecer] = useState(false);
 
   /*
    * O AVISO POR E-MAIL, em quatro estados que não se sobrepõem.
@@ -2637,6 +2679,34 @@ export function AuditResult({
           >
             {({ close }) => (
               <>
+                {/*
+                  PRIMEIRO DA LISTA, e acima dos "copiar".
+
+                  Os outros itens entregam texto para colar noutro lugar; este
+                  entrega a PEÇA. É o que sai do produto e chega à mesa do
+                  fiscal, e por isso é o único do menu que vale o topo.
+
+                  Só existe com parecer estruturado em mãos: sem `report` não há
+                  achado, página nem evidência para imprimir, e um PDF com o
+                  texto corrido da resposta seria o print de tela com outro
+                  nome.
+                */}
+                {report ? (
+                  <DropdownItem
+                    onClick={() => {
+                      setGerandoParecer(true);
+                      void abrirParecerEmPdf(report)
+                        .then((erro) => {
+                          if (erro) setPop({ tom: "falha", texto: erro });
+                        })
+                        .finally(() => setGerandoParecer(false));
+                      close();
+                    }}
+                  >
+                    <FileText className="size-4" />
+                    {gerandoParecer ? "Gerando o parecer…" : "Parecer em PDF"}
+                  </DropdownItem>
+                ) : null}
                 <DropdownItem
                   onClick={() => {
                     void navigator.clipboard.writeText(content);
