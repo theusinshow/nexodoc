@@ -40,7 +40,11 @@ import { pinsDoDocumento } from "@/lib/pins-do-parecer";
 import { palavra, plural } from "@/lib/plural";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getAnalysisLevelLabel } from "@/lib/analysis-level";
-import { MOLDURA_DE_SINAL, PONTO_DE_SINAL, statusDoVeredito } from "@/lib/audit-status";
+import {
+  MOLDURA_DE_SINAL,
+  PONTO_DE_SINAL,
+  statusDoVeredito,
+} from "@/lib/audit-status";
 import {
   classifyFindingDiscipline,
   classifyFindingErrorType,
@@ -78,14 +82,17 @@ import { cn } from "@/lib/utils";
 import { useSpotlight } from "@/lib/use-spotlight";
 
 // Visor de PDF só no cliente (react-pdf não faz SSR).
-const AuditPdfViewer = dynamic(() => import("@/components/audit-pdf-viewer-internal"), {
-  ssr: false,
-  loading: () => (
-    <div className="p-3">
-      <Skeleton className="h-[70vh] w-full" />
-    </div>
-  ),
-});
+const AuditPdfViewer = dynamic(
+  () => import("@/components/audit-pdf-viewer-internal"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-3">
+        <Skeleton className="h-[70vh] w-full" />
+      </div>
+    ),
+  },
+);
 
 type ActivePdf = {
   url: string;
@@ -221,10 +228,7 @@ type ProjectField = {
 };
 
 type FeedbackVerdict =
-  | "CONFIRMED"
-  | "FALSE_POSITIVE"
-  | "WRONG_SEVERITY"
-  | "MISSING_FINDING";
+  "CONFIRMED" | "FALSE_POSITIVE" | "WRONG_SEVERITY" | "MISSING_FINDING";
 
 type SavedFeedback = {
   id: string;
@@ -300,7 +304,8 @@ const DESFECHO_LABEL: Record<DesfechoDoAchado, string> = {
  */
 const ZOOMS = [0.75, 1, 1.25, 1.5, 2, 3];
 
-const zoomSeguinte = (atual: number) => ZOOMS.find((z) => z > atual) ?? ZOOMS[ZOOMS.length - 1];
+const zoomSeguinte = (atual: number) =>
+  ZOOMS.find((z) => z > atual) ?? ZOOMS[ZOOMS.length - 1];
 const zoomAnterior = (atual: number) =>
   [...ZOOMS].reverse().find((z) => z < atual) ?? ZOOMS[0];
 
@@ -495,7 +500,9 @@ function splitFindings(findings: string): StructuredFinding[] {
     .split(/\n\s*\n/)
     .map((block) => block.trim())
     .filter(Boolean)
-    .filter((block) => /Documento\s*:|Página provável\s*:|Pagina provavel\s*:/i.test(block));
+    .filter((block) =>
+      /Documento\s*:|Página provável\s*:|Pagina provavel\s*:/i.test(block),
+    );
 
   if (structuredBlocks.length > 0) {
     return structuredBlocks.map((block, index) => ({
@@ -576,7 +583,9 @@ function findingImpactBucket(finding: StructuredFinding) {
   }
 
   // Achado sem faixa declarada: severidade é o único sinal disponível.
-  return finding.severity === "critical" ? "critico_documental" : "revisao_editorial";
+  return finding.severity === "critical"
+    ? "critico_documental"
+    : "revisao_editorial";
 }
 
 function formatFindingBlock(finding: StructuredFinding, position: number) {
@@ -606,17 +615,24 @@ function buildFindingsText(findings: StructuredFinding[]) {
   let position = 0;
 
   const sections = IMPACT_SECTIONS.map((section) => {
-    const bucket = findings.filter((finding) => findingImpactBucket(finding) === section.key);
+    const bucket = findings.filter(
+      (finding) => findingImpactBucket(finding) === section.key,
+    );
 
     if (bucket.length === 0) {
       return null;
     }
 
-    const blocks = bucket.map((finding) => formatFindingBlock(finding, (position += 1)));
-
-    return [`## ${section.title} (${bucket.length})`, section.hint, "", blocks.join("\n\n")].join(
-      "\n",
+    const blocks = bucket.map((finding) =>
+      formatFindingBlock(finding, (position += 1)),
     );
+
+    return [
+      `## ${section.title} (${bucket.length})`,
+      section.hint,
+      "",
+      blocks.join("\n\n"),
+    ].join("\n");
   }).filter(Boolean);
 
   return sections.join("\n\n");
@@ -741,7 +757,9 @@ function getHighlightNeedle(finding: StructuredFinding) {
   return (
     candidates.find((candidate) =>
       evidence.toLowerCase().includes(candidate.toLowerCase()),
-    ) ?? candidates[0] ?? ""
+    ) ??
+    candidates[0] ??
+    ""
   );
 }
 
@@ -813,7 +831,10 @@ function wrapSnapshotText(value: string, maxLength: number) {
   return lines;
 }
 
-async function createFindingSnapshot(finding: StructuredFinding, index: number) {
+async function createFindingSnapshot(
+  finding: StructuredFinding,
+  index: number,
+) {
   const rows = [
     `Achado ${index + 1}${finding.refId ? ` | ${finding.refId}` : ""}`,
     finding.title,
@@ -854,7 +875,8 @@ async function createFindingSnapshot(finding: StructuredFinding, index: number) 
 
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Não foi possível gerar o print do achado."));
+    image.onerror = () =>
+      reject(new Error("Não foi possível gerar o print do achado."));
     image.src = dataUrl;
   });
 
@@ -934,7 +956,9 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
     raw: [
       `${finding.id}: ${finding.tipo}`,
       `Prioridade: ${finding.prioridade}`,
-      finding.severity_reason ? `Motivo da severidade: ${finding.severity_reason}` : "",
+      finding.severity_reason
+        ? `Motivo da severidade: ${finding.severity_reason}`
+        : "",
       `Página: ${finding.pagina}`,
       `Capítulo: ${finding.capitulo}`,
       `Local: ${finding.local}`,
@@ -960,13 +984,21 @@ function reportFindingToStructured(finding: AuditFinding): StructuredFinding {
  * banco chama aquilo de `conflito`; precisa saber que pergunta aquele parágrafo
  * responde. Ver `docs/superpowers/specs/2026-08-14-tela-de-achados-design.md`.
  */
-function BlocoDeTexto({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function BlocoDeTexto({
+  titulo,
+  children,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="grid gap-1">
       <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {titulo}
       </p>
-      <p className="max-w-[70ch] text-sm leading-6 text-foreground">{children}</p>
+      <p className="max-w-[70ch] text-sm leading-6 text-foreground">
+        {children}
+      </p>
     </section>
   );
 }
@@ -1010,7 +1042,10 @@ function TrechosDoAchado({
         className="flex w-fit items-center gap-2 font-mono text-[11px] tracking-[0.04em] text-primary hover:text-[var(--nexodoc-accent)]"
       >
         <ChevronRight
-          className={cn("size-3 transition-transform", aberto ? "rotate-90" : "")}
+          className={cn(
+            "size-3 transition-transform",
+            aberto ? "rotate-90" : "",
+          )}
         />
         {aberto ? "esconder os trechos" : "ver os trechos de cada página"}
       </button>
@@ -1034,9 +1069,13 @@ function TrechosDoAchado({
             </div>
             <p className="py-2.5 text-xs leading-5 text-muted-foreground">
               O mesmo problema aparece também nas páginas{" "}
-              <span className="font-mono text-foreground">{paginas.slice(1).join(", ")}</span>. O
-              parecer guarda uma evidência por achado, não uma por página
-              {aoAbrirPagina ? " — abra o documento para conferir cada uma." : "."}
+              <span className="font-mono text-foreground">
+                {paginas.slice(1).join(", ")}
+              </span>
+              . O parecer guarda uma evidência por achado, não uma por página
+              {aoAbrirPagina
+                ? " — abra o documento para conferir cada uma."
+                : "."}
             </p>
           </div>
         </div>
@@ -1065,13 +1104,7 @@ function SectionCard({
   );
 }
 
-function FindingField({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
+function FindingField({ label, value }: { label: string; value?: string }) {
   return (
     <div
       className="nx-edge-7 min-w-0 px-3 py-2.5"
@@ -1123,7 +1156,8 @@ export function AuditResult({
   // (drawer do canvas, onde o controle segmentado continua desenhado).
   const controlado = viewDeFora !== undefined;
   const view = controlado ? viewDeFora : viewLocal;
-  const setView = (v: AuditView) => (controlado ? onViewChange?.(v) : setViewLocal(v));
+  const setView = (v: AuditView) =>
+    controlado ? onViewChange?.(v) : setViewLocal(v);
   /*
    * O ACHADO PEDIDO DE FORA vira vista, DURANTE O RENDER.
    *
@@ -1141,7 +1175,9 @@ export function AuditResult({
    * empatar no primeiro render — a vista continuava em Resumo e o cartão nunca
    * aparecia. O clique abria um drawer que parecia ignorar o clique.
    */
-  const [focoAnterior, setFocoAnterior] = useState<string | undefined>(undefined);
+  const [focoAnterior, setFocoAnterior] = useState<string | undefined>(
+    undefined,
+  );
   if (achadoEmFoco !== focoAnterior) {
     setFocoAnterior(achadoEmFoco);
     // Só o caso NÃO controlado: o foco vem do clique no canvas, e ali o parecer
@@ -1153,7 +1189,9 @@ export function AuditResult({
   // existir, senão não há elemento a alcançar.
   useEffect(() => {
     if (!achadoEmFoco || view !== "findings") return;
-    const alvo = document.querySelector(`[data-achado="${CSS.escape(achadoEmFoco)}"]`);
+    const alvo = document.querySelector(
+      `[data-achado="${CSS.escape(achadoEmFoco)}"]`,
+    );
     /*
      * `start`, não `center`: centralizar deixava o CABEÇALHO do cartão — o
      * título, as etiquetas e o anel de foco — acima da dobra, e quem clicou caía
@@ -1162,7 +1200,9 @@ export function AuditResult({
     alvo?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [achadoEmFoco, view]);
 
-  const [feedbackByFinding, setFeedbackByFinding] = useState<Record<string, FeedbackVerdict>>({});
+  const [feedbackByFinding, setFeedbackByFinding] = useState<
+    Record<string, FeedbackVerdict>
+  >({});
   /*
    * OS CORRIGIDOS QUE O BANCO CONHECE.
    *
@@ -1176,9 +1216,9 @@ export function AuditResult({
    * requisição; deixar o local mandar ignoraria o que veio da outra máquina.
    * Somar acerta os dois, e a marcação mantém as duas pontas em dia.
    */
-  const [resolvidosNoServidor, setResolvidosNoServidor] = useState<ReadonlySet<string>>(
-    new Set<string>(),
-  );
+  const [resolvidosNoServidor, setResolvidosNoServidor] = useState<
+    ReadonlySet<string>
+  >(new Set<string>());
   /**
    * Com quem cada achado está, enquanto não é resolvido.
    *
@@ -1216,10 +1256,17 @@ export function AuditResult({
    * memorial marca os cinco erros de PPCI e manda todos de uma vez — mandar um
    * a um seriam cinco viagens e cinco chances de metade chegar.
    */
-  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set<string>());
+  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(
+    new Set<string>(),
+  );
   const [destinatario, setDestinatario] = useState("");
   const [membros, setMembros] = useState<
-    { email: string; name: string | null; status: string; grupo?: string | null }[]
+    {
+      email: string;
+      name: string | null;
+      status: string;
+      grupo?: string | null;
+    }[]
   >([]);
   const [enviando, setEnviando] = useState(false);
   const [feedbackSavingKey, setFeedbackSavingKey] = useState("");
@@ -1268,8 +1315,12 @@ export function AuditResult({
    * montagem do parecer para responder a uma pergunta que o ambiente já responde.
    */
   const temDocument = typeof document !== "undefined";
-  const [disciplineFilter, setDisciplineFilter] = useState<Set<FindingDiscipline>>(new Set());
-  const [errorTypeFilter, setErrorTypeFilter] = useState<Set<FindingErrorType>>(new Set());
+  const [disciplineFilter, setDisciplineFilter] = useState<
+    Set<FindingDiscipline>
+  >(new Set());
+  const [errorTypeFilter, setErrorTypeFilter] = useState<Set<FindingErrorType>>(
+    new Set(),
+  );
   /*
    * GRAVIDADE era o filtro que faltava dos três. Disciplina responde "de quem é
    * isto" e tipo responde "que espécie de erro é" — nenhum dos dois responde a
@@ -1277,12 +1328,15 @@ export function AuditResult({
    * hoje". As faixas já organizavam a lista em seções; o que não havia era como
    * ficar só com uma delas num parecer de quarenta achados.
    */
-  const [impactFilter, setImpactFilter] = useState<Set<FindingImpact>>(new Set());
+  const [impactFilter, setImpactFilter] = useState<Set<FindingImpact>>(
+    new Set(),
+  );
   const parsed = parseAuditResult(content);
   const status = rotuloDoStatus(report?.status_geral ?? parsed.status);
   const elapsed = formatElapsedTime(elapsedMs);
   const runtime = report?.runtime;
-  const dualReview = runtime?.motor_auditoria === "dual" && runtime.segunda_ia?.ativa;
+  const dualReview =
+    runtime?.motor_auditoria === "dual" && runtime.segunda_ia?.ativa;
   const findings = report
     ? report.incongruencias.map(reportFindingToStructured)
     : splitFindings(parsed.findings);
@@ -1291,8 +1345,12 @@ export function AuditResult({
     pdfUrl: findPdfSource(finding, pdfSources)?.url,
   }));
   // Item 2/4 — duas camadas: sólidos (principal) e sugestões da IA (recolhível).
-  const principalFindingsWithPdf = findingsWithPdf.filter((finding) => finding.tier !== "sugestao");
-  const suggestionFindings = findingsWithPdf.filter((finding) => finding.tier === "sugestao");
+  const principalFindingsWithPdf = findingsWithPdf.filter(
+    (finding) => finding.tier !== "sugestao",
+  );
+  const suggestionFindings = findingsWithPdf.filter(
+    (finding) => finding.tier === "sugestao",
+  );
 
   // Filtros por disciplina e tipo de erro (só mostra os que existem no resultado).
   /*
@@ -1303,28 +1361,56 @@ export function AuditResult({
    * parecer com trinta achados de climatização não teria como filtrá-los.
    */
   const disciplineOrder: FindingDiscipline[] = [
-    "geral", "arquitetura", "estrutural", "hidrossanitario", "eletrico",
-    "ppci", "cabeamento", "climatizacao", "gases_medicinais",
-    "terraplenagem", "paisagismo", "acessibilidade",
+    "geral",
+    "arquitetura",
+    "estrutural",
+    "hidrossanitario",
+    "eletrico",
+    "ppci",
+    "cabeamento",
+    "climatizacao",
+    "gases_medicinais",
+    "terraplenagem",
+    "paisagismo",
+    "acessibilidade",
   ];
-  const findingDiscipline = (finding: StructuredFinding): FindingDiscipline => finding.disciplina ?? "geral";
-  const findingErrorType = (finding: StructuredFinding): FindingErrorType => finding.tipoErro ?? "tecnico";
+  const findingDiscipline = (finding: StructuredFinding): FindingDiscipline =>
+    finding.disciplina ?? "geral";
+  const findingErrorType = (finding: StructuredFinding): FindingErrorType =>
+    finding.tipoErro ?? "tecnico";
   const presentDisciplines = disciplineOrder.filter((discipline) =>
-    principalFindingsWithPdf.some((finding) => findingDiscipline(finding) === discipline),
+    principalFindingsWithPdf.some(
+      (finding) => findingDiscipline(finding) === discipline,
+    ),
   );
-  const presentErrorTypes = ([
-    "identidade", "escopo", "norma", "quantitativo", "especificacao", "editorial", "tecnico",
-  ] as FindingErrorType[]).filter((type) =>
-    principalFindingsWithPdf.some((finding) => findingErrorType(finding) === type),
+  const presentErrorTypes = (
+    [
+      "identidade",
+      "escopo",
+      "norma",
+      "quantitativo",
+      "especificacao",
+      "editorial",
+      "tecnico",
+    ] as FindingErrorType[]
+  ).filter((type) =>
+    principalFindingsWithPdf.some(
+      (finding) => findingErrorType(finding) === type,
+    ),
   );
   const presentImpacts = IMPACT_SECTIONS.map((s) => s.key).filter((impact) =>
-    principalFindingsWithPdf.some((finding) => findingImpactBucket(finding) === impact),
+    principalFindingsWithPdf.some(
+      (finding) => findingImpactBucket(finding) === impact,
+    ),
   );
   const filteredPrincipal = principalFindingsWithPdf.filter(
     (finding) =>
-      (disciplineFilter.size === 0 || disciplineFilter.has(findingDiscipline(finding))) &&
-      (errorTypeFilter.size === 0 || errorTypeFilter.has(findingErrorType(finding))) &&
-      (impactFilter.size === 0 || impactFilter.has(findingImpactBucket(finding))),
+      (disciplineFilter.size === 0 ||
+        disciplineFilter.has(findingDiscipline(finding))) &&
+      (errorTypeFilter.size === 0 ||
+        errorTypeFilter.has(findingErrorType(finding))) &&
+      (impactFilter.size === 0 ||
+        impactFilter.has(findingImpactBucket(finding))),
   );
   /*
    * Agrupamento primário: FAIXA DE IMPACTO, não disciplina.
@@ -1345,13 +1431,17 @@ export function AuditResult({
   const impactOrder = IMPACT_SECTIONS.map((section) => section.key);
   const groupedPrincipal = [...filteredPrincipal].sort((a, b) => {
     const porFaixa =
-      impactOrder.indexOf(findingImpactBucket(a)) - impactOrder.indexOf(findingImpactBucket(b));
+      impactOrder.indexOf(findingImpactBucket(a)) -
+      impactOrder.indexOf(findingImpactBucket(b));
 
     if (porFaixa !== 0) {
       return porFaixa;
     }
 
-    return disciplineOrder.indexOf(findingDiscipline(a)) - disciplineOrder.indexOf(findingDiscipline(b));
+    return (
+      disciplineOrder.indexOf(findingDiscipline(a)) -
+      disciplineOrder.indexOf(findingDiscipline(b))
+    );
   });
   /*
    * O GRUPO TÉCNICO DOS ACHADOS SELECIONADOS — para a lista de quem recebe
@@ -1376,7 +1466,9 @@ export function AuditResult({
     return [...grupos][0];
   })();
 
-  const membrosDoGrupo = grupoDoEnvio ? membros.filter((m) => m.grupo === grupoDoEnvio) : [];
+  const membrosDoGrupo = grupoDoEnvio
+    ? membros.filter((m) => m.grupo === grupoDoEnvio)
+    : [];
   /*
    * GRUPO SEM NINGUÉM NÃO VIRA CABEÇALHO.
    *
@@ -1390,13 +1482,19 @@ export function AuditResult({
    * em terraplenagem. Um quarto dos envios via esse cabeçalho vazio.
    */
   const agrupar = membrosDoGrupo.length > 0;
-  const membrosDeFora = agrupar ? membros.filter((m) => m.grupo !== grupoDoEnvio) : membros;
+  const membrosDeFora = agrupar
+    ? membros.filter((m) => m.grupo !== grupoDoEnvio)
+    : membros;
 
   const impactCount = (impact: FindingImpact) =>
-    filteredPrincipal.filter((finding) => findingImpactBucket(finding) === impact).length;
+    filteredPrincipal.filter(
+      (finding) => findingImpactBucket(finding) === impact,
+    ).length;
   // Continua alimentando os chips de filtro por disciplina.
   const disciplineCount = (discipline: FindingDiscipline) =>
-    filteredPrincipal.filter((finding) => findingDiscipline(finding) === discipline).length;
+    filteredPrincipal.filter(
+      (finding) => findingDiscipline(finding) === discipline,
+    ).length;
   const toggleFrom = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
     if (next.has(value)) {
@@ -1409,7 +1507,9 @@ export function AuditResult({
   // Item 12 — veredito de emissão só a partir dos achados sólidos.
   const verdict = report
     ? getEmissionVerdict(
-        report.incongruencias.filter((finding) => classifyFindingTier(finding) === "principal"),
+        report.incongruencias.filter(
+          (finding) => classifyFindingTier(finding) === "principal",
+        ),
         report.runtime?.passadas_incompletas ?? [],
       )
     : null;
@@ -1417,18 +1517,32 @@ export function AuditResult({
     ? groupFindingsByImpact(report.incongruencias)
     : null;
   const groupedStructuredFindings = {
-    critico_documental: findingsWithPdf.filter((finding) => finding.impacto === "critico_documental" || (!finding.impacto && finding.severity === "critical")),
-    tecnico_contratual: findingsWithPdf.filter((finding) => finding.impacto === "tecnico_contratual"),
-    revisao_editorial: findingsWithPdf.filter((finding) => finding.impacto === "revisao_editorial" || (!finding.impacto && finding.severity !== "critical")),
+    critico_documental: findingsWithPdf.filter(
+      (finding) =>
+        finding.impacto === "critico_documental" ||
+        (!finding.impacto && finding.severity === "critical"),
+    ),
+    tecnico_contratual: findingsWithPdf.filter(
+      (finding) => finding.impacto === "tecnico_contratual",
+    ),
+    revisao_editorial: findingsWithPdf.filter(
+      (finding) =>
+        finding.impacto === "revisao_editorial" ||
+        (!finding.impacto && finding.severity !== "critical"),
+    ),
   };
   const findingsText = buildFindingsText(findingsWithPdf);
   const actionsText = buildActionsText(findingsWithPdf);
   const uniqueDocumentCount = countUniqueDocuments(findingsWithPdf);
-  const evidenceLinkCount = findingsWithPdf.filter((finding) => finding.pdfUrl).length;
+  const evidenceLinkCount = findingsWithPdf.filter(
+    (finding) => finding.pdfUrl,
+  ).length;
   const criticalCount = groupedReportFindings
     ? groupedReportFindings.critico_documental.length
     : findings.filter((finding) => finding.severity === "critical").length;
-  const warningCount = findings.filter((finding) => finding.severity === "warning").length;
+  const warningCount = findings.filter(
+    (finding) => finding.severity === "warning",
+  ).length;
   const firstAction = getFirstAction(findingsWithPdf);
   const nextStep =
     firstAction ??
@@ -1442,13 +1556,39 @@ export function AuditResult({
         { label: "Código", value: report.codigo || "não identificado" },
         { label: "Município", value: report.municipio || "não identificado" },
         { label: "Data", value: report.data_documento || "não identificada" },
-        { label: "Nível", value: getAnalysisLevelLabel(report.runtime?.nivel_analise ?? "standard") },
-        { label: "Motor", value: dualReview ? "2 IAs em consenso" : "IA única" },
-        { label: "Provider", value: report.runtime?.provedor_principal || "openai" },
-        { label: "Regras locais", value: report.runtime?.regras_locais_ativas ? "ativas" : "desligadas" },
-        { label: "Modelo", value: report.runtime?.modelo_principal || "não informado" },
-        { label: "Validação", value: report.runtime?.modelo_validacao || report.runtime?.modelo_principal || "não informado" },
-        { label: "Total de achados", value: String(report.total_incongruencias) },
+        {
+          label: "Nível",
+          value: getAnalysisLevelLabel(
+            report.runtime?.nivel_analise ?? "standard",
+          ),
+        },
+        {
+          label: "Motor",
+          value: dualReview ? "2 IAs em consenso" : "IA única",
+        },
+        {
+          label: "Provider",
+          value: report.runtime?.provedor_principal || "openai",
+        },
+        {
+          label: "Regras locais",
+          value: report.runtime?.regras_locais_ativas ? "ativas" : "desligadas",
+        },
+        {
+          label: "Modelo",
+          value: report.runtime?.modelo_principal || "não informado",
+        },
+        {
+          label: "Validação",
+          value:
+            report.runtime?.modelo_validacao ||
+            report.runtime?.modelo_principal ||
+            "não informado",
+        },
+        {
+          label: "Total de achados",
+          value: String(report.total_incongruencias),
+        },
       ]
     : parseProjectFields(parsed.project);
 
@@ -1469,7 +1609,9 @@ export function AuditResult({
 
     async function loadFeedback() {
       try {
-        const response = await fetch(getFeedbackEndpoint(auditId!), { cache: "no-store" });
+        const response = await fetch(getFeedbackEndpoint(auditId!), {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           return;
@@ -1484,11 +1626,16 @@ export function AuditResult({
           setEuSou(payload.euSou.toLowerCase());
         }
 
-        const linhas = (payload.feedback ?? []).filter((item) => item.findingId);
+        const linhas = (payload.feedback ?? []).filter(
+          (item) => item.findingId,
+        );
         const saved = Object.fromEntries(
           linhas
             .filter((item) => item.verdict)
-            .map((item) => [item.findingId as string, item.verdict as FeedbackVerdict]),
+            .map((item) => [
+              item.findingId as string,
+              item.verdict as FeedbackVerdict,
+            ]),
         );
 
         setFeedbackByFinding(saved);
@@ -1516,7 +1663,10 @@ export function AuditResult({
               .filter((item) => item.resolutionKind)
               .map((item) => [
                 item.findingId as string,
-                { kind: item.resolutionKind as DesfechoDoAchado, por: item.resolvedByName },
+                {
+                  kind: item.resolutionKind as DesfechoDoAchado,
+                  por: item.resolvedByName,
+                },
               ]),
           ),
         );
@@ -1562,7 +1712,9 @@ export function AuditResult({
 
         if (!response.ok) return;
 
-        const payload = (await response.json()) as { pendentes?: PessoaAAvisar[] };
+        const payload = (await response.json()) as {
+          pendentes?: PessoaAAvisar[];
+        };
 
         if (!cancelado) setPendentesDeAviso(payload.pendentes ?? []);
       } catch {
@@ -1578,7 +1730,10 @@ export function AuditResult({
     };
   }, [auditId, releituras]);
 
-  const achadosAAvisar = pendentesDeAviso.reduce((soma, p) => soma + p.quantidade, 0);
+  const achadosAAvisar = pendentesDeAviso.reduce(
+    (soma, p) => soma + p.quantidade,
+    0,
+  );
 
   /**
    * AVISAR — o único lugar do produto que manda e-mail para pessoa de verdade.
@@ -1649,7 +1804,9 @@ export function AuditResult({
       // depois de uma falha parcial, e é ela que faz o botão sumir.
       setReleituras((n) => n + 1);
     } catch (error) {
-      setAvisoNotice(error instanceof Error ? error.message : "Não foi possível avisar.");
+      setAvisoNotice(
+        error instanceof Error ? error.message : "Não foi possível avisar.",
+      );
     } finally {
       setAvisando(false);
     }
@@ -1657,7 +1814,8 @@ export function AuditResult({
 
   /** Corrigido aqui OU corrigido em outra máquina — ver `resolvidosNoServidor`. */
   const estaResolvido = (refId: string | undefined) =>
-    Boolean(refId) && (resolvidos.has(refId!) || resolvidosNoServidor.has(refId!));
+    Boolean(refId) &&
+    (resolvidos.has(refId!) || resolvidosNoServidor.has(refId!));
 
   /**
    * Marca (ou desmarca) o achado como corrigido nos DOIS lugares.
@@ -1668,7 +1826,10 @@ export function AuditResult({
    * pé: perder o trabalho da sessão por causa de uma rede instável seria pior
    * que ficar sem a cópia durável, e o aviso diz o que aconteceu.
    */
-  async function alternarResolvido(finding: StructuredFinding, resolvido: boolean) {
+  async function alternarResolvido(
+    finding: StructuredFinding,
+    resolvido: boolean,
+  ) {
     const refId = finding.refId;
     if (!refId) return;
 
@@ -1763,18 +1924,22 @@ export function AuditResult({
     setFeedbackNotice("");
 
     try {
-      const response = await fetch(`/api/audits/${encodeURIComponent(auditId)}/atribuir`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          findingIds: [...selecionados],
-          assigneeEmail: destinatario,
-        }),
-      });
+      const response = await fetch(
+        `/api/audits/${encodeURIComponent(auditId)}/atribuir`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            findingIds: [...selecionados],
+            assigneeEmail: destinatario,
+          }),
+        },
+      );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { atribuidos?: number; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        atribuidos?: number;
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(payload?.error ?? "Não foi possível enviar.");
@@ -1790,7 +1955,10 @@ export function AuditResult({
        * DEU CERTO é o pior dos dois erros.
        */
       const recebeu = membros.find((m) => m.email === destinatario);
-      const rotulo = { nome: recebeu?.name ?? destinatario, souEu: destinatario === euSou };
+      const rotulo = {
+        nome: recebeu?.name ?? destinatario,
+        souEu: destinatario === euSou,
+      };
 
       setAtribuidoPor((atual) => {
         const proximo = { ...atual };
@@ -1806,7 +1974,9 @@ export function AuditResult({
         `${plural(payload?.atribuidos ?? 0, "achado enviado", "achados enviados")}. ${palavra(payload?.atribuidos ?? 0, "Aparece", "Aparecem")} na home de quem recebeu.`,
       );
     } catch (error) {
-      setFeedbackNotice(error instanceof Error ? error.message : "Não foi possível enviar.");
+      setFeedbackNotice(
+        error instanceof Error ? error.message : "Não foi possível enviar.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -1847,8 +2017,12 @@ export function AuditResult({
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ?? "Não foi possível registrar o desfecho.");
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          payload?.error ?? "Não foi possível registrar o desfecho.",
+        );
       }
 
       /*
@@ -1871,7 +2045,9 @@ export function AuditResult({
       setFeedbackNotice("Desfecho registrado.");
     } catch (error) {
       setFeedbackNotice(
-        error instanceof Error ? error.message : "Não foi possível registrar o desfecho.",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o desfecho.",
       );
     } finally {
       setFeedbackSavingKey("");
@@ -1911,7 +2087,9 @@ export function AuditResult({
       setFeedbackNotice("Avaliação registrada para o benchmark.");
     } catch (error) {
       setFeedbackNotice(
-        error instanceof Error ? error.message : "Não foi possível salvar a avaliação.",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a avaliação.",
       );
     } finally {
       setFeedbackSavingKey("");
@@ -1945,7 +2123,9 @@ export function AuditResult({
       setFeedbackNotice("Erro ausente registrado para revisão do motor.");
     } catch (error) {
       setFeedbackNotice(
-        error instanceof Error ? error.message : "Não foi possível registrar o erro ausente.",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o erro ausente.",
       );
     } finally {
       setFeedbackSavingKey("");
@@ -2008,26 +2188,28 @@ export function AuditResult({
       */}
       {activePdf && temDocument
         ? createPortal(
-        <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[560px] flex-col border-l bg-card shadow-2xl">
-          <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-            <div className="min-w-0">
-              <p className="truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                PDF · página {activePdf.page}
-              </p>
-              {activePdf.label ? (
-                <p className="truncate text-xs text-foreground">{activePdf.label}</p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={() => setActivePdf(null)}
-              className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
-              aria-label="Fechar visor de PDF"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-          {/*
+            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[560px] flex-col border-l bg-card shadow-2xl">
+              <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    PDF · página {activePdf.page}
+                  </p>
+                  {activePdf.label ? (
+                    <p className="truncate text-xs text-foreground">
+                      {activePdf.label}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActivePdf(null)}
+                  className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
+                  aria-label="Fechar visor de PDF"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              {/*
             A BARRA DE NAVEGAÇÃO DO DOCUMENTO.
 
             O visor abria a página do achado e o resto do documento não existia:
@@ -2041,42 +2223,47 @@ export function AuditResult({
             520px, o que responde "onde está o trecho" e não responde "o que ele
             diz" — corpo 10 numa A4 reduzida a 87% é conferência a olho apertado.
           */}
-          <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Página anterior"
-                disabled={activePdf.page <= 1}
-                onClick={() =>
-                  setActivePdf((a) => (a ? { ...a, page: Math.max(1, a.page - 1) } : a))
-                }
-                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              {/*
+              <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Página anterior"
+                    disabled={activePdf.page <= 1}
+                    onClick={() =>
+                      setActivePdf((a) =>
+                        a ? { ...a, page: Math.max(1, a.page - 1) } : a,
+                      )
+                    }
+                    className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  {/*
                 Campo e não só setas: num memorial de 80 folhas, chegar à página
                 47 com o botão de "próxima" é quarenta e seis cliques. O `form`
                 existe para o Enter valer — é como se digita número de página em
                 qualquer leitor, e sem ele o campo pareceria quebrado.
               */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const campo = e.currentTarget.elements.namedItem("pagina");
-                  const alvo = Number.parseInt(
-                    campo instanceof HTMLInputElement ? campo.value : "",
-                    10,
-                  );
-                  if (!Number.isFinite(alvo)) return;
-                  const limite = paginasDoAberto || alvo;
-                  setActivePdf((a) =>
-                    a ? { ...a, page: Math.min(Math.max(1, alvo), limite) } : a,
-                  );
-                }}
-                className="flex items-center gap-1"
-              >
-                {/*
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const campo =
+                        e.currentTarget.elements.namedItem("pagina");
+                      const alvo = Number.parseInt(
+                        campo instanceof HTMLInputElement ? campo.value : "",
+                        10,
+                      );
+                      if (!Number.isFinite(alvo)) return;
+                      const limite = paginasDoAberto || alvo;
+                      setActivePdf((a) =>
+                        a
+                          ? { ...a, page: Math.min(Math.max(1, alvo), limite) }
+                          : a,
+                      );
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    {/*
                   `key` na página, e o campo é NÃO CONTROLADO de propósito. Ele
                   precisa mostrar a página atual quando ela muda por outro
                   caminho (as setas, um pin da margem) e, ao mesmo tempo, deixar
@@ -2085,71 +2272,79 @@ export function AuditResult({
                   efeito de sincronia — que é onde este tipo de campo costuma
                   ganhar um defeito de piscar.
                 */}
-                <input
-                  key={activePdf.page}
-                  name="pagina"
-                  defaultValue={String(activePdf.page)}
-                  onFocus={(e) => e.currentTarget.select()}
-                  inputMode="numeric"
-                  aria-label="Ir para a página"
-                  className="w-12 rounded-sm border bg-transparent px-1 py-0.5 text-center font-mono text-xs outline-none focus-visible:border-ring"
-                />
-              </form>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                de {paginasDoAberto || "?"}
-              </span>
-              <button
-                type="button"
-                aria-label="Próxima página"
-                disabled={paginasDoAberto > 0 && activePdf.page >= paginasDoAberto}
-                onClick={() =>
-                  setActivePdf((a) =>
-                    a
-                      ? { ...a, page: Math.min(paginasDoAberto || a.page + 1, a.page + 1) }
-                      : a,
-                  )
-                }
-                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
+                    <input
+                      key={activePdf.page}
+                      name="pagina"
+                      defaultValue={String(activePdf.page)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      inputMode="numeric"
+                      aria-label="Ir para a página"
+                      className="w-12 rounded-sm border bg-transparent px-1 py-0.5 text-center font-mono text-xs outline-none focus-visible:border-ring"
+                    />
+                  </form>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    de {paginasDoAberto || "?"}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Próxima página"
+                    disabled={
+                      paginasDoAberto > 0 && activePdf.page >= paginasDoAberto
+                    }
+                    onClick={() =>
+                      setActivePdf((a) =>
+                        a
+                          ? {
+                              ...a,
+                              page: Math.min(
+                                paginasDoAberto || a.page + 1,
+                                a.page + 1,
+                              ),
+                            }
+                          : a,
+                      )
+                    }
+                    className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Diminuir zoom"
-                disabled={zoomDoPdf <= ZOOMS[0]}
-                onClick={() => setZoomDoPdf((z) => zoomAnterior(z))}
-                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
-              >
-                <Minus className="size-4" />
-              </button>
-              {/*
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Diminuir zoom"
+                    disabled={zoomDoPdf <= ZOOMS[0]}
+                    onClick={() => setZoomDoPdf((z) => zoomAnterior(z))}
+                    className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+                  >
+                    <Minus className="size-4" />
+                  </button>
+                  {/*
                 O número é BOTÃO: clicar volta a 100%. É o gesto de desfazer de
                 quem se perdeu no zoom, e ele não merece um controle próprio.
               */}
-              <button
-                type="button"
-                onClick={() => setZoomDoPdf(1)}
-                aria-label="Zoom de 100%"
-                className="min-w-12 rounded-sm px-1 py-0.5 text-center font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
-              >
-                {Math.round(zoomDoPdf * 100)}%
-              </button>
-              <button
-                type="button"
-                aria-label="Aumentar zoom"
-                disabled={zoomDoPdf >= ZOOMS[ZOOMS.length - 1]}
-                onClick={() => setZoomDoPdf((z) => zoomSeguinte(z))}
-                className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
-              >
-                <Plus className="size-4" />
-              </button>
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1">
-            {/*
+                  <button
+                    type="button"
+                    onClick={() => setZoomDoPdf(1)}
+                    aria-label="Zoom de 100%"
+                    className="min-w-12 rounded-sm px-1 py-0.5 text-center font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring"
+                  >
+                    {Math.round(zoomDoPdf * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Aumentar zoom"
+                    disabled={zoomDoPdf >= ZOOMS[ZOOMS.length - 1]}
+                    onClick={() => setZoomDoPdf((z) => zoomSeguinte(z))}
+                    className="rounded-sm border p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:border-ring disabled:opacity-30"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-1">
+                {/*
               A MARGEM DE ACHADOS.
 
               O visor abria a página de UM achado e calava sobre o resto: com
@@ -2160,61 +2355,69 @@ export function AuditResult({
 
               12px de largura: é margem, não coluna. Só aparece quando há pin.
             */}
-            {pinsDaMargem.length > 0 && (
-              <div
-                className="relative w-3 shrink-0 border-r bg-[var(--nexodoc-recessed)]"
-                role="list"
-                aria-label={`${plural(pinsDaMargem.length, "achado", "achados")} neste documento`}
-              >
-                {pinsDaMargem.map((pin) => {
-                  const atual = pin.page === activePdf.page;
-                  return (
-                    <button
-                      key={pin.chave}
-                      type="button"
-                      role="listitem"
-                      title={`Página ${pin.page} · ${pin.title}`}
-                      aria-label={`Ir para a página ${pin.page}: ${pin.title}`}
-                      onClick={() =>
-                        setActivePdf((a) => (a ? { ...a, page: pin.page, severity: pin.severity } : a))
-                      }
-                      style={{ top: `${pin.top * 100}%` }}
-                      className={cn(
-                        "absolute left-0 h-[3px] w-full -translate-y-1/2 outline-none transition-all",
-                        // O pin da página aberta cresce em vez de mudar de cor:
-                        // a cor já está dizendo a gravidade, e dois significados
-                        // na mesma cor é como um sinal deixa de significar.
-                        atual && "h-[5px]",
-                        "focus-visible:ring-1 focus-visible:ring-ring",
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className="block size-full"
-                        style={{ background: COR_DO_PIN[pin.severity] }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                {pinsDaMargem.length > 0 && (
+                  <div
+                    className="relative w-3 shrink-0 border-r bg-[var(--nexodoc-recessed)]"
+                    role="list"
+                    aria-label={`${plural(pinsDaMargem.length, "achado", "achados")} neste documento`}
+                  >
+                    {pinsDaMargem.map((pin) => {
+                      const atual = pin.page === activePdf.page;
+                      return (
+                        <button
+                          key={pin.chave}
+                          type="button"
+                          role="listitem"
+                          title={`Página ${pin.page} · ${pin.title}`}
+                          aria-label={`Ir para a página ${pin.page}: ${pin.title}`}
+                          onClick={() =>
+                            setActivePdf((a) =>
+                              a
+                                ? {
+                                    ...a,
+                                    page: pin.page,
+                                    severity: pin.severity,
+                                  }
+                                : a,
+                            )
+                          }
+                          style={{ top: `${pin.top * 100}%` }}
+                          className={cn(
+                            "absolute left-0 h-[3px] w-full -translate-y-1/2 outline-none transition-all",
+                            // O pin da página aberta cresce em vez de mudar de cor:
+                            // a cor já está dizendo a gravidade, e dois significados
+                            // na mesma cor é como um sinal deixa de significar.
+                            atual && "h-[5px]",
+                            "focus-visible:ring-1 focus-visible:ring-ring",
+                          )}
+                        >
+                          <span
+                            aria-hidden
+                            className="block size-full"
+                            style={{ background: COR_DO_PIN[pin.severity] }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-            <div
-              className={cn(
-                "min-w-0 flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3",
-                MARCACAO_POR_GRAVIDADE[activePdf.severity ?? "warning"],
-              )}
-            >
-              <AuditPdfViewer
-                url={activePdf.url}
-                page={activePdf.page}
-                highlight={activePdf.highlight}
-                zoom={zoomDoPdf}
-                onNumPages={setPaginasDoAberto}
-              />
-            </div>
-          </div>
-        </div>,
+                <div
+                  className={cn(
+                    "min-w-0 flex-1 overflow-auto bg-[var(--nexodoc-recessed)] p-3",
+                    MARCACAO_POR_GRAVIDADE[activePdf.severity ?? "warning"],
+                  )}
+                >
+                  <AuditPdfViewer
+                    url={activePdf.url}
+                    page={activePdf.page}
+                    highlight={activePdf.highlight}
+                    zoom={zoomDoPdf}
+                    onNumPages={setPaginasDoAberto}
+                  />
+                </div>
+              </div>
+            </div>,
             document.body,
           )
         : null}
@@ -2240,7 +2443,9 @@ export function AuditResult({
             {verdict.label}
           </p>
           <p className="text-sm text-muted-foreground">
-            {(report?.obra && report.obra !== "não identificada" ? `${report.obra} · ` : "") + verdict.detail}
+            {(report?.obra && report.obra !== "não identificada"
+              ? `${report.obra} · `
+              : "") + verdict.detail}
           </p>
         </div>
       ) : null}
@@ -2278,7 +2483,10 @@ export function AuditResult({
             aparecem quando existem.
           */}
           <span className="mt-1 block font-mono text-xs text-muted-foreground">
-            {principalFindingsWithPdf.length} achado{principalFindingsWithPdf.length !== 1 ? "s" : ""} em {uniqueDocumentCount || pdfSources.length || "?"} arquivo{pdfSources.length !== 1 ? "s" : ""}
+            {principalFindingsWithPdf.length} achado
+            {principalFindingsWithPdf.length !== 1 ? "s" : ""} em{" "}
+            {uniqueDocumentCount || pdfSources.length || "?"} arquivo
+            {pdfSources.length !== 1 ? "s" : ""}
             {suggestionFindings.length > 0
               ? ` · ${suggestionFindings.length} sugest${suggestionFindings.length !== 1 ? "ões" : "ão"} da IA`
               : ""}
@@ -2288,11 +2496,11 @@ export function AuditResult({
           {!controlado && (
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <div className="flex rounded-sm bg-[var(--nexodoc-recessed)] p-0.5">
-                {([
+                {[
                   { value: "summary" as const, label: "Resumo" },
                   { value: "findings" as const, label: "Achados" },
                   { value: "report" as const, label: "Relatório" },
-                ]).map((tab) => (
+                ].map((tab) => (
                   <button
                     key={tab.value}
                     type="button"
@@ -2336,13 +2544,20 @@ export function AuditResult({
               aria-label={`Avisar por e-mail ${plural(pendentesDeAviso.length, "pessoa envolvida", "pessoas envolvidas")}`}
             >
               <Mail />
-              Avisar {plural(pendentesDeAviso.length, "envolvido", "envolvidos")}
+              Avisar{" "}
+              {plural(pendentesDeAviso.length, "envolvido", "envolvidos")}
             </Button>
           ) : null}
           <Dropdown
             align="end"
             trigger={({ open, toggle }) => (
-              <Button type="button" variant="outline" size="sm" onClick={toggle} aria-expanded={open}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggle}
+                aria-expanded={open}
+              >
                 <Download />
                 Exportar
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -2416,7 +2631,12 @@ export function AuditResult({
               <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
                 {pendentesDeAviso.length}
               </span>{" "}
-              {palavra(pendentesDeAviso.length, "pessoa será avisada", "pessoas serão avisadas")} por e-mail
+              {palavra(
+                pendentesDeAviso.length,
+                "pessoa será avisada",
+                "pessoas serão avisadas",
+              )}{" "}
+              por e-mail
             </p>
 
             <ul className="mt-3 grid gap-1.5">
@@ -2454,8 +2674,8 @@ export function AuditResult({
               colega e encaminhar documento de cliente.
             */}
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              O e-mail leva a contagem, o projeto e o link para o parecer. O conteúdo dos achados
-              não sai do sistema.
+              O e-mail leva a contagem, o projeto e o link para o parecer. O
+              conteúdo dos achados não sai do sistema.
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -2491,7 +2711,9 @@ export function AuditResult({
         não chegaram" aparecem.
       */}
       {avisoNotice ? (
-        <p className="mt-3 font-mono text-xs leading-5 text-muted-foreground">{avisoNotice}</p>
+        <p className="mt-3 font-mono text-xs leading-5 text-muted-foreground">
+          {avisoNotice}
+        </p>
       ) : null}
 
       {dualReview ? (
@@ -2502,17 +2724,24 @@ export function AuditResult({
                 Consenso de duas IAs
               </p>
               <p className="mt-1 text-sm leading-6 text-foreground">
-                O modelo principal encontrou candidatos e a segunda IA revisou a lista final antes da emissão do relatório.
+                O modelo principal encontrou candidatos e a segunda IA revisou a
+                lista final antes da emissão do relatório.
               </p>
             </div>
             <div className="grid gap-2 text-xs sm:min-w-[260px]">
               <div className="flex items-center justify-between gap-3 rounded-sm border bg-card px-3 py-2">
                 <span className="text-muted-foreground">Principal</span>
-                <span className="font-mono text-foreground">{runtime?.modelo_principal || "não informado"}</span>
+                <span className="font-mono text-foreground">
+                  {runtime?.modelo_principal || "não informado"}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-sm border bg-card px-3 py-2">
                 <span className="text-muted-foreground">Segunda IA</span>
-                <span className="font-mono text-foreground">{runtime?.segunda_ia?.modelo || runtime?.modelo_validacao || "não informado"}</span>
+                <span className="font-mono text-foreground">
+                  {runtime?.segunda_ia?.modelo ||
+                    runtime?.modelo_validacao ||
+                    "não informado"}
+                </span>
               </div>
             </div>
           </div>
@@ -2569,7 +2798,9 @@ export function AuditResult({
                     <p
                       className={cn(
                         "font-mono text-[11px] font-semibold uppercase tracking-[0.1em]",
-                        bloqueia && quantos > 0 ? "text-destructive" : "text-muted-foreground",
+                        bloqueia && quantos > 0
+                          ? "text-destructive"
+                          : "text-muted-foreground",
                       )}
                     >
                       {secao.title}
@@ -2577,12 +2808,16 @@ export function AuditResult({
                     <p
                       className={cn(
                         "text-2xl font-semibold tabular-nums",
-                        bloqueia && quantos > 0 ? "text-destructive" : "text-foreground",
+                        bloqueia && quantos > 0
+                          ? "text-destructive"
+                          : "text-foreground",
                       )}
                     >
                       {quantos}
                     </p>
-                    <p className="text-xs leading-5 text-muted-foreground">{secao.hint}</p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {secao.hint}
+                    </p>
                   </button>
                 );
               })}
@@ -2640,7 +2875,11 @@ export function AuditResult({
                   Reauditoria
                 </p>
                 <p className="mt-1.5 text-sm leading-6 text-foreground">
-                  {plural(runtime.reauditoria.capitulos_lidos, "capítulo relido", "capítulos relidos")}
+                  {plural(
+                    runtime.reauditoria.capitulos_lidos,
+                    "capítulo relido",
+                    "capítulos relidos",
+                  )}
                   {" nesta análise. "}
                   {plural(
                     runtime.reauditoria.capitulos_herdados,
@@ -2662,7 +2901,8 @@ export function AuditResult({
                       "capítulo foi relido",
                       "capítulos foram relidos",
                     )}{" "}
-                    por não ter sido possível localizar os achados anteriores no texto novo:{" "}
+                    por não ter sido possível localizar os achados anteriores no
+                    texto novo:{" "}
                     {runtime.reauditoria.promovidos_sem_ancora.join(", ")}.
                   </p>
                 ) : null}
@@ -2681,27 +2921,45 @@ export function AuditResult({
                 {report && report.arquivos_analisados.length > 0 ? (
                   <ul className="grid gap-3">
                     {report.arquivos_analisados.map((item, i) => (
-                      <li key={`${item.arquivo}-${i}`} className="grid gap-1.5 border-b pb-3 last:border-0 last:pb-0">
+                      <li
+                        key={`${item.arquivo}-${i}`}
+                        className="grid gap-1.5 border-b pb-3 last:border-0 last:pb-0"
+                      >
                         <p className="font-mono text-sm text-foreground [overflow-wrap:anywhere]">
                           {item.arquivo}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="secondary" className="font-mono text-[11px]">
+                          <Badge
+                            variant="secondary"
+                            className="font-mono text-[11px]"
+                          >
                             {item.tipo_documento}
                           </Badge>
                           {item.paginas ? (
-                            <Badge variant="secondary" className="font-mono text-[11px]">
-                              {item.paginas} {item.paginas === 1 ? "página" : "páginas"}
+                            <Badge
+                              variant="secondary"
+                              className="font-mono text-[11px]"
+                            >
+                              {item.paginas}{" "}
+                              {item.paginas === 1 ? "página" : "páginas"}
                             </Badge>
                           ) : null}
                           {item.caracteres_extraidos ? (
-                            <Badge variant="secondary" className="font-mono text-[11px]">
-                              {item.caracteres_extraidos.toLocaleString("pt-BR")} caracteres
+                            <Badge
+                              variant="secondary"
+                              className="font-mono text-[11px]"
+                            >
+                              {item.caracteres_extraidos.toLocaleString(
+                                "pt-BR",
+                              )}{" "}
+                              caracteres
                             </Badge>
                           ) : null}
                         </div>
                         {item.resumo ? (
-                          <p className="text-sm leading-6 text-muted-foreground">{item.resumo}</p>
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {item.resumo}
+                          </p>
                         ) : null}
                       </li>
                     ))}
@@ -2722,12 +2980,17 @@ export function AuditResult({
                 {report && report.comparacoes.length > 0 ? (
                   <ul className="grid gap-2">
                     {report.comparacoes.map((item, i) => (
-                      <li key={`${item.slice(0, 24)}-${i}`} className="flex gap-2.5">
+                      <li
+                        key={`${item.slice(0, 24)}-${i}`}
+                        className="flex gap-2.5"
+                      >
                         <span
                           aria-hidden
                           className="nx-cut-4 mt-2 size-1.5 shrink-0 bg-primary"
                         />
-                        <span className="text-sm leading-6 text-foreground">{item}</span>
+                        <span className="text-sm leading-6 text-foreground">
+                          {item}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -2746,10 +3009,17 @@ export function AuditResult({
             */}
             <SectionCard title="Conclusão objetiva" icon={CheckCircle2}>
               <div className="grid max-w-[75ch] gap-3">
-                {(report?.conclusao || parsed.conclusion || "Sem conclusão identificada.")
+                {(
+                  report?.conclusao ||
+                  parsed.conclusion ||
+                  "Sem conclusão identificada."
+                )
                   .split(/\n{2,}/)
                   .map((paragrafo, i) => (
-                    <p key={`conclusao-${i}`} className="text-sm leading-6 text-foreground">
+                    <p
+                      key={`conclusao-${i}`}
+                      className="text-sm leading-6 text-foreground"
+                    >
                       {paragrafo.trim()}
                     </p>
                   ))}
@@ -2775,7 +3045,9 @@ export function AuditResult({
                     Como ler
                   </p>
                   <p className="mt-2 text-sm leading-6 text-foreground">
-                    Cada linha mostra o problema, onde conferir, a evidência encontrada, o conflito e a ação recomendada. Use o termo de busca para localizar o trecho no PDF.
+                    Cada linha mostra o problema, onde conferir, a evidência
+                    encontrada, o conflito e a ação recomendada. Use o termo de
+                    busca para localizar o trecho no PDF.
                   </p>
                 </div>
 
@@ -2786,13 +3058,19 @@ export function AuditResult({
                      inteira ao focar um deles (ver DESIGN.md §7). */
                   <div className="nx-cut-8 space-y-2 bg-[var(--nexodoc-recessed)] p-3">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Gravidade</span>
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Gravidade
+                      </span>
                       {presentImpacts.map((impact) => (
                         <button
                           key={impact}
                           type="button"
                           data-filtro-gravidade={impact}
-                          onClick={() => setImpactFilter((current) => toggleFrom(current, impact))}
+                          onClick={() =>
+                            setImpactFilter((current) =>
+                              toggleFrom(current, impact),
+                            )
+                          }
                           className={cn(
                             "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             impactFilter.has(impact)
@@ -2805,12 +3083,18 @@ export function AuditResult({
                       ))}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Disciplina</span>
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Disciplina
+                      </span>
                       {presentDisciplines.map((discipline) => (
                         <button
                           key={discipline}
                           type="button"
-                          onClick={() => setDisciplineFilter((current) => toggleFrom(current, discipline))}
+                          onClick={() =>
+                            setDisciplineFilter((current) =>
+                              toggleFrom(current, discipline),
+                            )
+                          }
                           className={cn(
                             "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             disciplineFilter.has(discipline)
@@ -2818,17 +3102,24 @@ export function AuditResult({
                               : "text-muted-foreground hover:text-foreground",
                           )}
                         >
-                          {getDisciplineLabel(discipline)} ({disciplineCount(discipline)})
+                          {getDisciplineLabel(discipline)} (
+                          {disciplineCount(discipline)})
                         </button>
                       ))}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Tipo</span>
+                      <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Tipo
+                      </span>
                       {presentErrorTypes.map((type) => (
                         <button
                           key={type}
                           type="button"
-                          onClick={() => setErrorTypeFilter((current) => toggleFrom(current, type))}
+                          onClick={() =>
+                            setErrorTypeFilter((current) =>
+                              toggleFrom(current, type),
+                            )
+                          }
                           className={cn(
                             "nx-cut-6 px-2.5 py-1 font-mono text-[11px] transition-colors",
                             errorTypeFilter.has(type)
@@ -2839,7 +3130,9 @@ export function AuditResult({
                           {getErrorTypeLabel(type)}
                         </button>
                       ))}
-                      {disciplineFilter.size > 0 || errorTypeFilter.size > 0 || impactFilter.size > 0 ? (
+                      {disciplineFilter.size > 0 ||
+                      errorTypeFilter.size > 0 ||
+                      impactFilter.size > 0 ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -2870,42 +3163,48 @@ export function AuditResult({
                       referencia: finding.referencia,
                     });
                     const faixa = findingImpactBucket(finding);
-                    const secao = IMPACT_SECTIONS.find((item) => item.key === faixa);
+                    const secao = IMPACT_SECTIONS.find(
+                      (item) => item.key === faixa,
+                    );
                     const showImpactHeader =
-                      index === 0 || findingImpactBucket(groupedPrincipal[index - 1]) !== faixa;
+                      index === 0 ||
+                      findingImpactBucket(groupedPrincipal[index - 1]) !==
+                        faixa;
                     return (
-                    <Fragment key={`${finding.raw}-matrix-${index}`}>
-                      {showImpactHeader && secao ? (
-                        /*
-                         * O cabeçalho da faixa é o marcador de leitura da tela.
-                         * O bloqueador ganha o tom destrutivo porque é o único
-                         * que interrompe a entrega; os outros dois ficam
-                         * discretos de propósito, para não competirem com ele.
-                         */
-                        <div
-                          data-faixa={faixa}
-                          className="mt-4 first:mt-0 flex flex-col gap-1 border-l-2 pl-3"
-                          style={{
-                            borderColor:
-                              faixa === "critico_documental"
-                                ? "var(--destructive)"
-                                : "var(--border)",
-                          }}
-                        >
-                          <h5
-                            className={cn(
-                              "font-mono text-[11px] font-semibold uppercase tracking-wider",
-                              faixa === "critico_documental"
-                                ? "text-destructive"
-                                : "text-muted-foreground",
-                            )}
+                      <Fragment key={`${finding.raw}-matrix-${index}`}>
+                        {showImpactHeader && secao ? (
+                          /*
+                           * O cabeçalho da faixa é o marcador de leitura da tela.
+                           * O bloqueador ganha o tom destrutivo porque é o único
+                           * que interrompe a entrega; os outros dois ficam
+                           * discretos de propósito, para não competirem com ele.
+                           */
+                          <div
+                            data-faixa={faixa}
+                            className="mt-4 first:mt-0 flex flex-col gap-1 border-l-2 pl-3"
+                            style={{
+                              borderColor:
+                                faixa === "critico_documental"
+                                  ? "var(--destructive)"
+                                  : "var(--border)",
+                            }}
                           >
-                            {secao.title} ({impactCount(faixa)})
-                          </h5>
-                          <p className="text-xs text-muted-foreground">{secao.hint}</p>
-                        </div>
-                      ) : null}
-                    {/*
+                            <h5
+                              className={cn(
+                                "font-mono text-[11px] font-semibold uppercase tracking-wider",
+                                faixa === "critico_documental"
+                                  ? "text-destructive"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {secao.title} ({impactCount(faixa)})
+                            </h5>
+                            <p className="text-xs text-muted-foreground">
+                              {secao.hint}
+                            </p>
+                          </div>
+                        ) : null}
+                        {/*
                       AS AÇÕES SAEM DE DENTRO DO CARTÃO e viram uma barra
                       acima dele.
 
@@ -2920,8 +3219,8 @@ export function AuditResult({
                       (canto superior esquerdo E direito), e o chanfro desta
                       casa é sempre superior-esquerdo + inferior-direito.
                     */}
-                    <div
-                      /*
+                        <div
+                          /*
                         DE QUEM SÃO ESTAS AÇÕES. A barra é IRMÃ do cartão, não
                         filha — a identidade do achado ocupa o cartão inteiro e o
                         que se faz com ele fica em cima. O preço disso é que o
@@ -2930,15 +3229,15 @@ export function AuditResult({
                         só teria a POSIÇÃO na lista para se guiar. Índice é o
                         número mágico que já quebrou uma prova nesta tela.
                       */
-                      data-acoes-do-achado={finding.refId || undefined}
-                      className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5"
-                    >
-                        {/*
+                          data-acoes-do-achado={finding.refId || undefined}
+                          className="flex flex-wrap items-center justify-end gap-2 px-2.5 pb-1.5"
+                        >
+                          {/*
                           O botão fica no CABEÇALHO do achado, ao lado do menu:
                           é a ação que se repete 22 vezes numa revisão, e ela
                           tem que estar sempre no mesmo lugar, sem rolar.
                         */}
-                        {/*
+                          {/*
                           "MARCAR CORRIGIDO" SOME quando o achado foi encerrado
                           de outro jeito.
 
@@ -2950,28 +3249,38 @@ export function AuditResult({
                           sobre o que o registro precisa deixar claro: se o
                           documento foi mexido ou se o risco foi assumido.
                         */}
-                        {onToggleResolvido &&
-                        finding.refId &&
-                        (!desfechoPorAchado[finding.refId] ||
-                          desfechoPorAchado[finding.refId].kind === "FIXED_IN_DOC") ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={estaResolvido(finding.refId) ? "secondary" : "outline"}
-                            onClick={() =>
-                              void alternarResolvido(finding, !estaResolvido(finding.refId))
-                            }
-                            className={
-                              estaResolvido(finding.refId)
-                                ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
-                                : undefined
-                            }
-                          >
-                            <Check />
-                            {estaResolvido(finding.refId) ? "Corrigido" : "Marcar corrigido"}
-                          </Button>
-                        ) : null}
-                        {/*
+                          {onToggleResolvido &&
+                          finding.refId &&
+                          (!desfechoPorAchado[finding.refId] ||
+                            desfechoPorAchado[finding.refId].kind ===
+                              "FIXED_IN_DOC") ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={
+                                estaResolvido(finding.refId)
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              onClick={() =>
+                                void alternarResolvido(
+                                  finding,
+                                  !estaResolvido(finding.refId),
+                                )
+                              }
+                              className={
+                                estaResolvido(finding.refId)
+                                  ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
+                                  : undefined
+                              }
+                            >
+                              <Check />
+                              {estaResolvido(finding.refId)
+                                ? "Corrigido"
+                                : "Marcar corrigido"}
+                            </Button>
+                          ) : null}
+                          {/*
                           DECISÃO TÉCNICA — o terceiro desfecho.
 
                           Fica ao lado de "Marcar corrigido" e não dentro do
@@ -2983,84 +3292,87 @@ export function AuditResult({
                           grava. Sem nota o botão não fecha nada — e o
                           servidor recusa também, que é onde a regra vale.
                         */}
-                        {finding.refId && !desfechoPorAchado[finding.refId] ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={
-                              escrevendoRisco === finding.refId &&
-                              !notaDoRisco[finding.refId]?.trim()
-                            }
-                            onClick={() => {
-                              if (escrevendoRisco !== finding.refId) {
-                                setEscrevendoRisco(finding.refId!);
-                                return;
-                              }
-
-                              void salvarDesfecho(
-                                finding,
-                                index,
-                                "ACCEPTED_RISK",
-                                notaDoRisco[finding.refId!],
-                              );
-                            }}
-                          >
-                            {escrevendoRisco === finding.refId
-                              ? "Registrar decisão"
-                              : "Decisão técnica"}
-                          </Button>
-                        ) : null}
-                        <Dropdown
-                          align="end"
-                          trigger={({ open, toggle }) => (
+                          {finding.refId &&
+                          !desfechoPorAchado[finding.refId] ? (
                             <Button
                               type="button"
+                              size="sm"
                               variant="outline"
-                              size="icon"
-                              className="size-8"
-                              onClick={toggle}
-                              aria-expanded={open}
-                              aria-label="Ações do achado"
+                              disabled={
+                                escrevendoRisco === finding.refId &&
+                                !notaDoRisco[finding.refId]?.trim()
+                              }
+                              onClick={() => {
+                                if (escrevendoRisco !== finding.refId) {
+                                  setEscrevendoRisco(finding.refId!);
+                                  return;
+                                }
+
+                                void salvarDesfecho(
+                                  finding,
+                                  index,
+                                  "ACCEPTED_RISK",
+                                  notaDoRisco[finding.refId!],
+                                );
+                              }}
                             >
-                              <MoreHorizontal className="size-4" />
+                              {escrevendoRisco === finding.refId
+                                ? "Registrar decisão"
+                                : "Decisão técnica"}
                             </Button>
-                          )}
-                        >
-                          {({ close }) => (
-                            <>
-                              {finding.pdfUrl ? (
-                                <DropdownItem
-                                  onClick={() => {
-                                    openInlinePdf(finding);
-                                    close();
-                                  }}
-                                >
-                                  <ExternalLink className="size-4" />
-                                  Abrir PDF
-                                </DropdownItem>
-                              ) : null}
-                              {finding.termoBusca ? (
-                                <DropdownItem
-                                  onClick={() => {
-                                    void navigator.clipboard.writeText(finding.termoBusca ?? "");
-                                    close();
-                                  }}
-                                >
-                                  <Copy className="size-4" />
-                                  Copiar termo
-                                </DropdownItem>
-                              ) : null}
-                              <DropdownItem
-                                onClick={() => {
-                                  void createFindingSnapshot(finding, index);
-                                  close();
-                                }}
+                          ) : null}
+                          <Dropdown
+                            align="end"
+                            trigger={({ open, toggle }) => (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                onClick={toggle}
+                                aria-expanded={open}
+                                aria-label="Ações do achado"
                               >
-                                <Eye className="size-4" />
-                                Print do achado
-                              </DropdownItem>
-                              {/*
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            )}
+                          >
+                            {({ close }) => (
+                              <>
+                                {finding.pdfUrl ? (
+                                  <DropdownItem
+                                    onClick={() => {
+                                      openInlinePdf(finding);
+                                      close();
+                                    }}
+                                  >
+                                    <ExternalLink className="size-4" />
+                                    Abrir PDF
+                                  </DropdownItem>
+                                ) : null}
+                                {finding.termoBusca ? (
+                                  <DropdownItem
+                                    onClick={() => {
+                                      void navigator.clipboard.writeText(
+                                        finding.termoBusca ?? "",
+                                      );
+                                      close();
+                                    }}
+                                  >
+                                    <Copy className="size-4" />
+                                    Copiar termo
+                                  </DropdownItem>
+                                ) : null}
+                                <DropdownItem
+                                  onClick={() => {
+                                    void createFindingSnapshot(finding, index);
+                                    close();
+                                  }}
+                                >
+                                  <Eye className="size-4" />
+                                  Print do achado
+                                </DropdownItem>
+                                {/*
                                 ENVIAR, COM A PALAVRA ESCRITA.
 
                                 Enviar já era possível: a etiqueta "Ref. INC-001"
@@ -3076,24 +3388,25 @@ export function AuditResult({
                                 regra de quem pode receber — e as duas
                                 discordariam no primeiro dia.
                               */}
-                              {finding.refId && !estaResolvido(finding.refId) ? (
-                                <DropdownItem
-                                  onClick={() => {
-                                    if (!selecionados.has(finding.refId!)) {
-                                      alternarSelecao(finding.refId!);
-                                    }
-                                    close();
-                                  }}
-                                >
-                                  <Send className="size-4" />
-                                  Enviar para alguém
-                                </DropdownItem>
-                              ) : null}
-                            </>
-                          )}
-                        </Dropdown>
-                    </div>
-                    {/*
+                                {finding.refId &&
+                                !estaResolvido(finding.refId) ? (
+                                  <DropdownItem
+                                    onClick={() => {
+                                      if (!selecionados.has(finding.refId!)) {
+                                        alternarSelecao(finding.refId!);
+                                      }
+                                      close();
+                                    }}
+                                  >
+                                    <Send className="size-4" />
+                                    Enviar para alguém
+                                  </DropdownItem>
+                                ) : null}
+                              </>
+                            )}
+                          </Dropdown>
+                        </div>
+                        {/*
                       ACHADO RESOLVIDO = tarefa riscada da lista.
                       O engenheiro trabalha com o software numa tela e o
                       memorial na outra, corrigindo um a um. Sem marcar o que já
@@ -3102,104 +3415,112 @@ export function AuditResult({
                       Verde + risco no título: some da leitura sem sumir da tela,
                       porque desfazer tem que continuar possível.
                     */}
-                    <article
-                      // Faixa no DOM: é o que permite provar a ORDEM da lista no
-                      // navegador sem depender do texto do cabeçalho.
-                      data-impacto={faixa}
-                      // A âncora do achado: é por ela que o clique no canvas
-                      // encontra este cartão para rolar até ele.
-                      data-achado={finding.refId || undefined}
-                      data-em-foco={finding.refId && finding.refId === achadoEmFoco ? "" : undefined}
-                      data-resolvido={estaResolvido(finding.refId) || undefined}
-                      onPointerMove={moverLuz}
-                      className={cn(
-                        /*
-                         * SEM `overflow-hidden`, e a razão MUDOU (21/08/2026).
-                         *
-                         * Era pelo menu de ações: filho daqui, o recorte o
-                         * cortava INDEPENDENTEMENTE da posição na janela, porque
-                         * o cartão é mais curto que o menu. Isso deixou de valer
-                         * — o `Dropdown` agora vai para o `<body>` por portal.
-                         *
-                         * A regra fica assim mesmo, porque a alternativa não
-                         * ganha nada: o arredondamento que o `overflow` garantiria
-                         * já é do cabeçalho, que é o único filho com fundo próprio
-                         * encostando na borda. Pôr `overflow-hidden` de volta
-                         * seria criar um contêiner de rolagem por nada.
-                         */
-                        /*
-                         * `@container`: as duas grades internas decidiam o
-                         * número de colunas por `xl:`, que mede a JANELA. Dentro
-                         * do Nexo o parecer divide a tela com a conversa e fica
-                         * com ~528px — mas a janela de 1440px acionava o `xl:`
-                         * assim mesmo, e uma grade de 2 colunas com mínimo de
-                         * 16rem forçava 922px de conteúdo numa caixa de 544px.
-                         * O texto era cortado na borda direita.
-                         *
-                         * Medido antes: clientWidth 544 × scrollWidth 922.
-                         * Breakpoint de container mede a caixa, que é o que
-                         * manda aqui.
-                         */
-                        /*
-                         * `nx-spot`: a luz que segue o ponteiro. Só o cartão do
-                         * achado a recebe nesta tela — é a superfície que a
-                         * pessoa percorre uma a uma numa revisão, e é onde a
-                         * reação sob o cursor vira sensação de material. Pôr o
-                         * mesmo brilho em toda caixa da tela transformaria luz
-                         * em ruído, e o §5 já diz que movimento é mudança de
-                         * estado, não decoração distribuída.
-                         */
-                        /*
-                         * O ÚNICO `rounded-md` QUE FICA, e agora por UM motivo só.
-                         *
-                         * Eram dois. O `Dropdown` de ações era filho daqui e não
-                         * era portalizado — isso caiu: o primitivo agora vai para
-                         * o `<body>`, e o menu deixou de depender da geometria
-                         * deste cartão.
-                         *
-                         * O que sobrou é o REALCE VINDO DO CANVAS
-                         * (`data-[em-foco]:ring-2 ring-offset-2`): `outline` e
-                         * `box-shadow` externo são cortados pelo `clip-path`, e o
-                         * cartão ficaria sem a marca que faz quem clica no canvas
-                         * se achar no meio de 45 iguais. Recortar exige primeiro
-                         * trocar esse realce por um que viva POR DENTRO — decisão
-                         * de afordância, não de geometria, e por isso não entra
-                         * junto.
-                         */
-                        "@container nx-spot relative rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
-                        estaResolvido(finding.refId)
-                          ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
-                          : "",
-                        /*
-                         * MARCADO COMO FALSO POSITIVO: o cartão inteiro fica
-                         * âmbar.
-                         *
-                         * A tarja sozinha não bastava. Quem revisa 45 achados
-                         * rola a lista de cima a baixo várias vezes, e o que
-                         * ele precisa responder a cada passada é "este eu já
-                         * descartei?" — uma etiqueta de 11px no meio do
-                         * cabeçalho não responde isso de relance. A cor do
-                         * cartão responde.
-                         *
-                         * DEPOIS do resolvido na ordem das classes, e de
-                         * propósito: um achado pode estar marcado como
-                         * corrigido E depois ser julgado falso positivo, e aí é
-                         * o julgamento que manda. `cn` faz a última vencer.
-                         */
-                        finding.refId && feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
-                          ? "border-[var(--status-warning)]/50 bg-[var(--status-warning-bg)]"
-                          : "",
-                        /*
-                         * VINDO DO CANVAS, o cartão precisa se identificar: a
-                         * lista rola até aqui, e sem uma marca a pessoa cai no
-                         * meio de 45 cartões iguais sem saber qual é o dela. O
-                         * anel fica enquanto o foco durar, e sai no próximo
-                         * clique — não é estado permanente.
-                         */
-                        "data-[em-foco]:ring-2 data-[em-foco]:ring-[var(--ring)] data-[em-foco]:ring-offset-2 data-[em-foco]:ring-offset-[var(--background)]",
-                      )}
-                    >
-                      {/*
+                        <article
+                          // Faixa no DOM: é o que permite provar a ORDEM da lista no
+                          // navegador sem depender do texto do cabeçalho.
+                          data-impacto={faixa}
+                          // A âncora do achado: é por ela que o clique no canvas
+                          // encontra este cartão para rolar até ele.
+                          data-achado={finding.refId || undefined}
+                          data-em-foco={
+                            finding.refId && finding.refId === achadoEmFoco
+                              ? ""
+                              : undefined
+                          }
+                          data-resolvido={
+                            estaResolvido(finding.refId) || undefined
+                          }
+                          onPointerMove={moverLuz}
+                          className={cn(
+                            /*
+                             * SEM `overflow-hidden`, e a razão MUDOU (21/08/2026).
+                             *
+                             * Era pelo menu de ações: filho daqui, o recorte o
+                             * cortava INDEPENDENTEMENTE da posição na janela, porque
+                             * o cartão é mais curto que o menu. Isso deixou de valer
+                             * — o `Dropdown` agora vai para o `<body>` por portal.
+                             *
+                             * A regra fica assim mesmo, porque a alternativa não
+                             * ganha nada: o arredondamento que o `overflow` garantiria
+                             * já é do cabeçalho, que é o único filho com fundo próprio
+                             * encostando na borda. Pôr `overflow-hidden` de volta
+                             * seria criar um contêiner de rolagem por nada.
+                             */
+                            /*
+                             * `@container`: as duas grades internas decidiam o
+                             * número de colunas por `xl:`, que mede a JANELA. Dentro
+                             * do Nexo o parecer divide a tela com a conversa e fica
+                             * com ~528px — mas a janela de 1440px acionava o `xl:`
+                             * assim mesmo, e uma grade de 2 colunas com mínimo de
+                             * 16rem forçava 922px de conteúdo numa caixa de 544px.
+                             * O texto era cortado na borda direita.
+                             *
+                             * Medido antes: clientWidth 544 × scrollWidth 922.
+                             * Breakpoint de container mede a caixa, que é o que
+                             * manda aqui.
+                             */
+                            /*
+                             * `nx-spot`: a luz que segue o ponteiro. Só o cartão do
+                             * achado a recebe nesta tela — é a superfície que a
+                             * pessoa percorre uma a uma numa revisão, e é onde a
+                             * reação sob o cursor vira sensação de material. Pôr o
+                             * mesmo brilho em toda caixa da tela transformaria luz
+                             * em ruído, e o §5 já diz que movimento é mudança de
+                             * estado, não decoração distribuída.
+                             */
+                            /*
+                             * O ÚNICO `rounded-md` QUE FICA, e agora por UM motivo só.
+                             *
+                             * Eram dois. O `Dropdown` de ações era filho daqui e não
+                             * era portalizado — isso caiu: o primitivo agora vai para
+                             * o `<body>`, e o menu deixou de depender da geometria
+                             * deste cartão.
+                             *
+                             * O que sobrou é o REALCE VINDO DO CANVAS
+                             * (`data-[em-foco]:ring-2 ring-offset-2`): `outline` e
+                             * `box-shadow` externo são cortados pelo `clip-path`, e o
+                             * cartão ficaria sem a marca que faz quem clica no canvas
+                             * se achar no meio de 45 iguais. Recortar exige primeiro
+                             * trocar esse realce por um que viva POR DENTRO — decisão
+                             * de afordância, não de geometria, e por isso não entra
+                             * junto.
+                             */
+                            "@container nx-spot relative rounded-md border bg-card transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
+                            estaResolvido(finding.refId)
+                              ? "border-[var(--status-ok)]/40 bg-[var(--status-ok-bg)]/40"
+                              : "",
+                            /*
+                             * MARCADO COMO FALSO POSITIVO: o cartão inteiro fica
+                             * âmbar.
+                             *
+                             * A tarja sozinha não bastava. Quem revisa 45 achados
+                             * rola a lista de cima a baixo várias vezes, e o que
+                             * ele precisa responder a cada passada é "este eu já
+                             * descartei?" — uma etiqueta de 11px no meio do
+                             * cabeçalho não responde isso de relance. A cor do
+                             * cartão responde.
+                             *
+                             * DEPOIS do resolvido na ordem das classes, e de
+                             * propósito: um achado pode estar marcado como
+                             * corrigido E depois ser julgado falso positivo, e aí é
+                             * o julgamento que manda. `cn` faz a última vencer.
+                             */
+                            finding.refId &&
+                              feedbackByFinding[finding.refId] ===
+                                "FALSE_POSITIVE"
+                              ? "border-[var(--status-warning)]/50 bg-[var(--status-warning-bg)]"
+                              : "",
+                            /*
+                             * VINDO DO CANVAS, o cartão precisa se identificar: a
+                             * lista rola até aqui, e sem uma marca a pessoa cai no
+                             * meio de 45 cartões iguais sem saber qual é o dela. O
+                             * anel fica enquanto o foco durar, e sai no próximo
+                             * clique — não é estado permanente.
+                             */
+                            "data-[em-foco]:ring-2 data-[em-foco]:ring-[var(--ring)] data-[em-foco]:ring-offset-2 data-[em-foco]:ring-offset-[var(--background)]",
+                          )}
+                        >
+                          {/*
                         O SINAL DE CUIDADO TOMANDO O CARTÃO, em transparência.
                         Marca-d'água, não ícone: ele não informa nada que a cor
                         já não informe — ele dá ao estado um PESO que a cor
@@ -3213,14 +3534,16 @@ export function AuditResult({
                         já diz isto em texto — para o leitor de tela o selo
                         seria a mesma frase repetida.
                       */}
-                      {finding.refId && feedbackByFinding[finding.refId] === "FALSE_POSITIVE" ? (
-                        <div
-                          aria-hidden
-                          data-selo-de-cuidado=""
-                          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-md"
-                        >
-                          <AlertTriangle
-                            /*
+                          {finding.refId &&
+                          feedbackByFinding[finding.refId] ===
+                            "FALSE_POSITIVE" ? (
+                            <div
+                              aria-hidden
+                              data-selo-de-cuidado=""
+                              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-md"
+                            >
+                              <AlertTriangle
+                                /*
                               A ALTURA É DO CARTÃO, não um número fixo. `max-h-40`
                               dava um triângulo de 160px num cartão de 775 — um
                               ícone grande no meio, não uma marca-d'água. O
@@ -3228,16 +3551,18 @@ export function AuditResult({
                               cartão alto e estreito é a LARGURA que estoura
                               primeiro, e sem o teto ele vazaria pelas laterais.
                             */
-                            className="h-[65%] w-auto max-w-[60%] text-[var(--status-warning)] opacity-[0.10]"
-                            strokeWidth={1.25}
-                          />
-                        </div>
-                      ) : null}
-                      <div className="flex flex-wrap items-start gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4">
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary">Achado {index + 1}</Badge>
-                            {/*
+                                className="h-[65%] w-auto max-w-[60%] text-[var(--status-warning)] opacity-[0.10]"
+                                strokeWidth={1.25}
+                              />
+                            </div>
+                          ) : null}
+                          <div className="flex flex-wrap items-start gap-4 rounded-t-md border-b bg-[var(--nexodoc-recessed)]/70 p-4">
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary">
+                                  Achado {index + 1}
+                                </Badge>
+                                {/*
                               O MOTIVO DA SEVERIDADE VIAJA COM A ETIQUETA.
 
                               A faixa é derivada de consequência × certeza
@@ -3249,17 +3574,23 @@ export function AuditResult({
                               concorda não precisa lê-la, e quem estranha a
                               alcança sem sair do cartão.
                             */}
-                            <Badge
-                              variant={getSeverityVariant(finding.severity)}
-                              title={finding.severityReason}
-                              data-motivo-severidade={finding.severityReason || undefined}
-                              className={finding.severityReason ? "cursor-help" : undefined}
-                            >
-                              {finding.impacto
-                                ? getImpactLabel(finding.impacto)
-                                : getSeverityLabel(finding.severity)}
-                            </Badge>
-                            {/*
+                                <Badge
+                                  variant={getSeverityVariant(finding.severity)}
+                                  title={finding.severityReason}
+                                  data-motivo-severidade={
+                                    finding.severityReason || undefined
+                                  }
+                                  className={
+                                    finding.severityReason
+                                      ? "cursor-help"
+                                      : undefined
+                                  }
+                                >
+                                  {finding.impacto
+                                    ? getImpactLabel(finding.impacto)
+                                    : getSeverityLabel(finding.severity)}
+                                </Badge>
+                                {/*
                               O GLIFO VIROU ÍCONE. Era "✔ Verificado" e "◻
                               Sugerido" — dois caracteres de texto fazendo trabalho
                               de ícone, e o ◻ não simbolizava nada: era enchimento
@@ -3267,20 +3598,24 @@ export function AuditResult({
                               `lucide` é a única iconografia do sistema (§7), e o
                               que não significa nada sai em vez de virar ícone.
                             */}
-                            <Badge
-                              variant={finding.origem === "regra" ? "ok" : "secondary"}
-                              title={finding.assurance}
-                            >
-                              {finding.origem === "regra" ? (
-                                <>
-                                  <Check aria-hidden />
-                                  Verificado
-                                </>
-                              ) : (
-                                "Sugerido"
-                              )}
-                            </Badge>
-                            {/*
+                                <Badge
+                                  variant={
+                                    finding.origem === "regra"
+                                      ? "ok"
+                                      : "secondary"
+                                  }
+                                  title={finding.assurance}
+                                >
+                                  {finding.origem === "regra" ? (
+                                    <>
+                                      <Check aria-hidden />
+                                      Verificado
+                                    </>
+                                  ) : (
+                                    "Sugerido"
+                                  )}
+                                </Badge>
+                                {/*
                               HERDADO: este achado não nasceu nesta corrida.
 
                               Veio do parecer anterior, de um capítulo byte a
@@ -3290,15 +3625,15 @@ export function AuditResult({
                               que foi carregado de antes — e a data é o que
                               permite ir buscar a corrida de origem.
                             */}
-                            {finding.herdado_de ? (
-                              <Badge
-                                variant="secondary"
-                                title={`Herdado da auditoria de ${finding.herdado_de.quando}: o capítulo não mudou desde lá.`}
-                              >
-                                herdado · {finding.herdado_de.quando}
-                              </Badge>
-                            ) : null}
-                            {/*
+                                {finding.herdado_de ? (
+                                  <Badge
+                                    variant="secondary"
+                                    title={`Herdado da auditoria de ${finding.herdado_de.quando}: o capítulo não mudou desde lá.`}
+                                  >
+                                    herdado · {finding.herdado_de.quando}
+                                  </Badge>
+                                ) : null}
+                                {/*
                               A DISCIPLINA ERA TEAL, e teal é o acento do
                               INTERATIVO (§2, regra do acento único). Uma
                               etiqueta categórica pintada na cor de "clique aqui"
@@ -3318,20 +3653,22 @@ export function AuditResult({
                               cor, e é o desenho: inventar um tom para cada uma
                               faria a escala competir com os sinais.
                             */}
-                            <Badge
-                              variant="secondary"
-                              style={
-                                corDaDisciplina(disciplina)
-                                  ? {
-                                      color: corDaDisciplina(disciplina) as string,
-                                      background: `color-mix(in oklab, ${corDaDisciplina(disciplina)} 14%, transparent)`,
-                                    }
-                                  : undefined
-                              }
-                            >
-                              {getDisciplineLabel(disciplina)}
-                            </Badge>
-                            {/*
+                                <Badge
+                                  variant="secondary"
+                                  style={
+                                    corDaDisciplina(disciplina)
+                                      ? {
+                                          color: corDaDisciplina(
+                                            disciplina,
+                                          ) as string,
+                                          background: `color-mix(in oklab, ${corDaDisciplina(disciplina)} 14%, transparent)`,
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  {getDisciplineLabel(disciplina)}
+                                </Badge>
+                                {/*
                               A ETIQUETA DE TIPO SÓ APARECE QUANDO DIZ ALGO NOVO.
 
                               O título do achado É o tipo (`title: finding.tipo`
@@ -3341,14 +3678,18 @@ export function AuditResult({
                               ficou impossível de não ver — a etiqueta e o título
                               passaram a ser vizinhos diretos.
                             */}
-                            {getErrorTypeLabel(findingErrorType(finding)).toLowerCase() !==
-                            (finding.title ?? "").trim().toLowerCase() ? (
-                              <Badge variant="secondary">
-                                {getErrorTypeLabel(findingErrorType(finding))}
-                              </Badge>
-                            ) : null}
-                            {finding.refId ? (
-                              /*
+                                {getErrorTypeLabel(
+                                  findingErrorType(finding),
+                                ).toLowerCase() !==
+                                (finding.title ?? "").trim().toLowerCase() ? (
+                                  <Badge variant="secondary">
+                                    {getErrorTypeLabel(
+                                      findingErrorType(finding),
+                                    )}
+                                  </Badge>
+                                ) : null}
+                                {finding.refId ? (
+                                  /*
                                 O ÚNICO DA FILA QUE NÃO É `<Badge>`: badge é um
                                 `<span>`, e este rótulo guarda uma caixa de
                                 seleção — tem de ser `<label>` para o clique no
@@ -3356,23 +3697,25 @@ export function AuditResult({
                                 que o próprio primitivo exporta: mesma forma,
                                 mesma tipografia, elemento certo.
                               */
-                              <label
-                                className={cn(
-                                  badgeVariants({ variant: "secondary" }),
-                                  "cursor-pointer gap-1.5",
-                                )}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selecionados.has(finding.refId)}
-                                  onChange={() => alternarSelecao(finding.refId!)}
-                                  aria-label={`Selecionar ${finding.refId} para enviar`}
-                                  className="size-3.5 accent-primary"
-                                />
-                                Ref. {finding.refId}
-                              </label>
-                            ) : null}
-                            {/*
+                                  <label
+                                    className={cn(
+                                      badgeVariants({ variant: "secondary" }),
+                                      "cursor-pointer gap-1.5",
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selecionados.has(finding.refId)}
+                                      onChange={() =>
+                                        alternarSelecao(finding.refId!)
+                                      }
+                                      aria-label={`Selecionar ${finding.refId} para enviar`}
+                                      className="size-3.5 accent-primary"
+                                    />
+                                    Ref. {finding.refId}
+                                  </label>
+                                ) : null}
+                                {/*
                               COM QUEM ESTÁ. Aparece enquanto o achado é
                               pendência de alguém, e sai quando ele fecha —
                               trocado pela tarja do desfecho, logo abaixo.
@@ -3401,16 +3744,17 @@ export function AuditResult({
                               trabalho: num parecer de 45 achados, o que é seu é
                               a única coisa alaranjada da fila.
                             */}
-                            {finding.refId && atribuidoPor[finding.refId] ? (
-                              atribuidoPor[finding.refId].souEu ? (
-                                <Badge variant="warning">com você</Badge>
-                              ) : (
-                                <Badge variant="info">
-                                  com {atribuidoPor[finding.refId].nome}
-                                </Badge>
-                              )
-                            ) : null}
-                            {/*
+                                {finding.refId &&
+                                atribuidoPor[finding.refId] ? (
+                                  atribuidoPor[finding.refId].souEu ? (
+                                    <Badge variant="warning">com você</Badge>
+                                  ) : (
+                                    <Badge variant="info">
+                                      com {atribuidoPor[finding.refId].nome}
+                                    </Badge>
+                                  )
+                                ) : null}
+                                {/*
                               O DESFECHO FICA, e é a tarja que mais importa para
                               quem NÃO está com o achado.
 
@@ -3420,15 +3764,20 @@ export function AuditResult({
                               apenas sumisse ao resolver, quem delegou ficaria
                               sem resposta e perguntaria por fora do sistema.
                             */}
-                            {finding.refId && desfechoPorAchado[finding.refId] ? (
-                              <Badge variant="ok">
-                                {DESFECHO_LABEL[desfechoPorAchado[finding.refId].kind]}
-                                {desfechoPorAchado[finding.refId].por
-                                  ? ` · ${desfechoPorAchado[finding.refId].por}`
-                                  : ""}
-                              </Badge>
-                            ) : null}
-                            {/*
+                                {finding.refId &&
+                                desfechoPorAchado[finding.refId] ? (
+                                  <Badge variant="ok">
+                                    {
+                                      DESFECHO_LABEL[
+                                        desfechoPorAchado[finding.refId].kind
+                                      ]
+                                    }
+                                    {desfechoPorAchado[finding.refId].por
+                                      ? ` · ${desfechoPorAchado[finding.refId].por}`
+                                      : ""}
+                                  </Badge>
+                                ) : null}
+                                {/*
                               O VEREDITO, quando já houver um.
 
                               Ele era gravado e só reaparecia como um botão
@@ -3444,44 +3793,53 @@ export function AuditResult({
                               mesma informação numa terceira marca só rouba
                               espaço das que não têm outro lugar.
                             */}
-                            {finding.refId && feedbackByFinding[finding.refId] ? (
-                              <Badge
-                                data-veredito={feedbackByFinding[finding.refId]}
-                                variant={
-                                  feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
-                                    ? "secondary"
-                                    : "ok"
-                                }
-                                /*
+                                {finding.refId &&
+                                feedbackByFinding[finding.refId] ? (
+                                  <Badge
+                                    data-veredito={
+                                      feedbackByFinding[finding.refId]
+                                    }
+                                    variant={
+                                      feedbackByFinding[finding.refId] ===
+                                      "FALSE_POSITIVE"
+                                        ? "secondary"
+                                        : "ok"
+                                    }
+                                    /*
                                   O RISCO FICA no falso positivo: ele diz que a
                                   etiqueta ao lado (a faixa de severidade) foi
                                   RECUSADA, e nenhuma cor sozinha diz isso — um
                                   cinza quieto lê como "sem informação", que é o
                                   oposto de "alguém julgou e discordou".
                                 */
-                                className={
-                                  feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
-                                    ? "line-through"
-                                    : undefined
-                                }
+                                    className={
+                                      feedbackByFinding[finding.refId] ===
+                                      "FALSE_POSITIVE"
+                                        ? "line-through"
+                                        : undefined
+                                    }
+                                  >
+                                    {
+                                      VEREDITO_LABEL[
+                                        feedbackByFinding[finding.refId]
+                                      ]
+                                    }
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <h4
+                                className={cn(
+                                  "text-base font-semibold leading-6 transition-colors",
+                                  estaResolvido(finding.refId)
+                                    ? "text-muted-foreground line-through decoration-[var(--status-ok)]/60"
+                                    : "text-foreground",
+                                )}
                               >
-                                {VEREDITO_LABEL[feedbackByFinding[finding.refId]]}
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <h4
-                            className={cn(
-                              "text-base font-semibold leading-6 transition-colors",
-                              estaResolvido(finding.refId)
-                                ? "text-muted-foreground line-through decoration-[var(--status-ok)]/60"
-                                : "text-foreground",
-                            )}
-                          >
-                            {finding.title}
-                          </h4>
-                        </div>
+                                {finding.title}
+                              </h4>
+                            </div>
 
-                        {/*
+                            {/*
                           "4 PÁGINAS" NO LUGAR DE "PÁGINA 8".
 
                           É a mudança mais barata desta tela e a que mais muda o
@@ -3493,53 +3851,56 @@ export function AuditResult({
                           Achado de um lugar só continua dizendo "página 8", em
                           cinza: sem isso, 90% dos cartões ganhariam um enfeite.
                         */}
-                        <Badge
-                          variant={ehMultiPagina(paginas) ? "ok" : "secondary"}
-                          className="shrink-0 gap-1.5 font-mono text-xs"
-                        >
-                          <FileText className="size-3.5" />
-                          {rotuloDePaginas(paginas, finding.pagina)}
-                        </Badge>
-                      </div>
+                            <Badge
+                              variant={
+                                ehMultiPagina(paginas) ? "ok" : "secondary"
+                              }
+                              className="shrink-0 gap-1.5 font-mono text-xs"
+                            >
+                              <FileText className="size-3.5" />
+                              {rotuloDePaginas(paginas, finding.pagina)}
+                            </Badge>
+                          </div>
 
-                      {/*
+                          {/*
                         A JUSTIFICATIVA DA DECISÃO TÉCNICA, na largura inteira do
                         cartão e não espremida na linha dos botões: quem assume
                         um risco precisa de espaço para dizer por quê, e o texto
                         curto que caberia ali seria o que ninguém consegue
                         defender depois.
                       */}
-                      {finding.refId && escrevendoRisco === finding.refId ? (
-                        <div className="border-t border-border p-4">
-                          <label
-                            htmlFor={`nota-risco-${finding.refId}`}
-                            className="mb-2 block font-mono text-xs uppercase text-muted-foreground"
-                          >
-                            Por que este risco está sendo assumido
-                          </label>
-                          <Textarea
-                            id={`nota-risco-${finding.refId}`}
-                            value={notaDoRisco[finding.refId] ?? ""}
-                            onChange={(event) =>
-                              setNotaDoRisco((atual) => ({
-                                ...atual,
-                                [finding.refId!]: event.target.value,
-                              }))
-                            }
-                            rows={3}
-                            autoFocus
-                            placeholder="Ex.: aprovado pelo corpo de bombeiros em 12/08, ata anexada ao processo."
-                            className="w-full"
-                            textareaClassName="resize-y"
-                          />
-                          <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-                            Fica registrada com o seu nome e a data. Sem ela, a decisão não é
-                            gravada.
-                          </p>
-                        </div>
-                      ) : null}
+                          {finding.refId &&
+                          escrevendoRisco === finding.refId ? (
+                            <div className="border-t border-border p-4">
+                              <label
+                                htmlFor={`nota-risco-${finding.refId}`}
+                                className="mb-2 block font-mono text-xs uppercase text-muted-foreground"
+                              >
+                                Por que este risco está sendo assumido
+                              </label>
+                              <Textarea
+                                id={`nota-risco-${finding.refId}`}
+                                value={notaDoRisco[finding.refId] ?? ""}
+                                onChange={(event) =>
+                                  setNotaDoRisco((atual) => ({
+                                    ...atual,
+                                    [finding.refId!]: event.target.value,
+                                  }))
+                                }
+                                rows={3}
+                                autoFocus
+                                placeholder="Ex.: aprovado pelo corpo de bombeiros em 12/08, ata anexada ao processo."
+                                className="w-full"
+                                textareaClassName="resize-y"
+                              />
+                              <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+                                Fica registrada com o seu nome e a data. Sem
+                                ela, a decisão não é gravada.
+                              </p>
+                            </div>
+                          ) : null}
 
-                      {/*
+                          {/*
                         A EXPLICAÇÃO OCUPA A COLUNA LARGA, e os metadados vão
                         para a lateral. Era o contrário: `Documento / Página /
                         Local / Categoria` ficavam na coluna da esquerda e o
@@ -3550,67 +3911,74 @@ export function AuditResult({
                         diferentes, nesta sequência: o que é o fato, o que ele
                         custa, e o que fazer com ele.
                       */}
-                      <div className="grid gap-4 p-4 @min-[46rem]:grid-cols-[minmax(0,1.4fr)_minmax(15rem,0.6fr)]">
-                        <div className="grid content-start gap-4">
-                          <BlocoDeTexto titulo="O que está errado">
-                            {finding.descricao ||
-                              finding.title ||
-                              "Fato não detalhado no resultado."}
-                          </BlocoDeTexto>
+                          <div className="grid gap-4 p-4 @min-[46rem]:grid-cols-[minmax(0,1.4fr)_minmax(15rem,0.6fr)]">
+                            <div className="grid content-start gap-4">
+                              <BlocoDeTexto titulo="O que está errado">
+                                {finding.descricao ||
+                                  finding.title ||
+                                  "Fato não detalhado no resultado."}
+                              </BlocoDeTexto>
 
-                          <BlocoDeTexto titulo="Por que importa">
-                            {finding.conflito ||
-                              finding.referencia ||
-                              "Consequência não detalhada no resultado."}
-                          </BlocoDeTexto>
+                              <BlocoDeTexto titulo="Por que importa">
+                                {finding.conflito ||
+                                  finding.referencia ||
+                                  "Consequência não detalhada no resultado."}
+                              </BlocoDeTexto>
 
-                          {/*
+                              {/*
                             "O QUE FAZER" É O ÚNICO COM FUNDO PRÓPRIO. Os outros
                             dois descrevem; este pede uma ação, e é o que a
                             pessoa procura quando volta ao cartão pela segunda
                             vez.
                           */}
-                          <section className="nx-cut-6 bg-[var(--status-warning-bg)]/70 p-3">
-                            <div className="mb-1.5 flex items-center gap-2 text-[var(--status-warning)]">
-                              <Wrench className="size-4" />
-                              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">
-                                O que fazer
-                              </p>
+                              <section className="nx-cut-6 bg-[var(--status-warning-bg)]/70 p-3">
+                                <div className="mb-1.5 flex items-center gap-2 text-[var(--status-warning)]">
+                                  <Wrench className="size-4" />
+                                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                    O que fazer
+                                  </p>
+                                </div>
+                                <p className="max-w-[68ch] text-sm leading-6 text-[var(--status-warning)]">
+                                  {finding.acao ||
+                                    "Ação recomendada não identificada."}
+                                </p>
+                              </section>
+
+                              <TrechosDoAchado
+                                paginas={paginas}
+                                evidencia={finding.evidencia}
+                                termo={getHighlightNeedle(finding)}
+                                aoAbrirPagina={
+                                  finding.pdfUrl
+                                    ? () => openInlinePdf(finding)
+                                    : undefined
+                                }
+                              />
                             </div>
-                            <p className="max-w-[68ch] text-sm leading-6 text-[var(--status-warning)]">
-                              {finding.acao || "Ação recomendada não identificada."}
-                            </p>
-                          </section>
 
-                          <TrechosDoAchado
-                            paginas={paginas}
-                            evidencia={finding.evidencia}
-                            termo={getHighlightNeedle(finding)}
-                            aoAbrirPagina={finding.pdfUrl ? () => openInlinePdf(finding) : undefined}
-                          />
-                        </div>
-
-                        <div className="grid content-start gap-3">
-                          {/*
+                            <div className="grid content-start gap-3">
+                              {/*
                             ONDE APARECE — a fita de páginas. Cada número abre o
                             documento. Some no achado de uma página só: a
                             etiqueta do cabeçalho já disse tudo.
                           */}
-                          {ehMultiPagina(paginas) ? (
-                            <section className="nx-cut-6 bg-[var(--nexodoc-recessed)] p-3">
-                              <p className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                Onde aparece
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {paginas.map((numero, ordem) => (
-                                  <button
-                                    key={`${finding.refId ?? index}-pag-${numero}`}
-                                    type="button"
-                                    disabled={!finding.pdfUrl}
-                                    onClick={() => openInlinePdf(finding, numero)}
-                                    className={cn(
-                                      "nx-cut-5 px-2.5 py-1 font-mono text-xs transition-colors",
-                                      /*
+                              {ehMultiPagina(paginas) ? (
+                                <section className="nx-cut-6 bg-[var(--nexodoc-recessed)] p-3">
+                                  <p className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                    Onde aparece
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {paginas.map((numero, ordem) => (
+                                      <button
+                                        key={`${finding.refId ?? index}-pag-${numero}`}
+                                        type="button"
+                                        disabled={!finding.pdfUrl}
+                                        onClick={() =>
+                                          openInlinePdf(finding, numero)
+                                        }
+                                        className={cn(
+                                          "nx-cut-5 px-2.5 py-1 font-mono text-xs transition-colors",
+                                          /*
                                         A PÁGINA ÂNCORA era VERDE, e verde é o
                                         sinal de OK. Ela não está "ok" — ela é a
                                         ATUAL do conjunto, e a matriz de estados
@@ -3618,38 +3986,38 @@ export function AuditResult({
                                         o teal é legítimo: são botões, e cada um
                                         abre o documento.
                                       */
-                                      ordem === 0
-                                        ? "bg-primary/15 font-semibold text-[var(--nexodoc-accent)]"
-                                        : "bg-[var(--nexodoc-raised)] text-muted-foreground",
-                                      finding.pdfUrl
-                                        ? "cursor-pointer hover:text-foreground"
-                                        : "cursor-default",
-                                    )}
-                                  >
-                                    <span className="mr-1 text-[10px] uppercase tracking-wider opacity-70">
-                                      pág.
-                                    </span>
-                                    {numero}
-                                  </button>
-                                ))}
-                              </div>
-                            </section>
-                          ) : null}
+                                          ordem === 0
+                                            ? "bg-primary/15 font-semibold text-[var(--nexodoc-accent)]"
+                                            : "bg-[var(--nexodoc-raised)] text-muted-foreground",
+                                          finding.pdfUrl
+                                            ? "cursor-pointer hover:text-foreground"
+                                            : "cursor-default",
+                                        )}
+                                      >
+                                        <span className="mr-1 text-[10px] uppercase tracking-wider opacity-70">
+                                          pág.
+                                        </span>
+                                        {numero}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </section>
+                              ) : null}
 
-                          <section className="nx-cut-6 min-w-0 bg-[var(--nexodoc-recessed)] p-3">
-                            {/*
+                              <section className="nx-cut-6 min-w-0 bg-[var(--nexodoc-recessed)] p-3">
+                                {/*
                               `flex-wrap` porque esta linha DESCEU para a coluna
                               estreita: o rótulo e o botão "Ver no documento" não
                               encolhem, e lado a lado mediam 1013px dentro de
                               580. Sem a quebra, o cartão inteiro passava a rolar
                               na horizontal dentro do palco do Nexo.
                             */}
-                            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                              <Search className="size-4 shrink-0 text-primary" />
-                              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                Evidência encontrada
-                              </p>
-                              {/*
+                                <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                  <Search className="size-4 shrink-0 text-primary" />
+                                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                    Evidência encontrada
+                                  </p>
+                                  {/*
                                 VER NO DOCUMENTO fica AQUI, colado à evidência —
                                 não escondido no menu "⋯". É a ação que fecha o
                                 ciclo da auditoria: o achado deixa de ser uma
@@ -3657,12 +4025,12 @@ export function AuditResult({
                                 Enterrada num kebab, ela simplesmente não existia
                                 para quem usa.
                               */}
-                              {finding.pdfUrl ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  /*
+                                  {finding.pdfUrl ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      /*
                                     SEM `ml-auto`. Numa linha que quebra, a
                                     margem automática resolvia para o espaço
                                     livre da linha inteira e inflava o
@@ -3670,38 +4038,47 @@ export function AuditResult({
                                     rolar 1041px dentro de 636 sem que nada
                                     parecesse largo na tela. `gap` já separa.
                                   */
-                                  className="h-7 shrink-0"
-                                  onClick={() => openInlinePdf(finding)}
-                                >
-                                  <ExternalLink className="size-3.5" />
-                                  Ver no documento
-                                </Button>
-                              ) : null}
-                            </div>
-                            <p className="text-sm leading-6 text-foreground">
-                              <HighlightedEvidence
-                                text={finding.evidencia}
-                                needle={getHighlightNeedle(finding)}
-                              />
-                            </p>
-                          </section>
+                                      className="h-7 shrink-0"
+                                      onClick={() => openInlinePdf(finding)}
+                                    >
+                                      <ExternalLink className="size-3.5" />
+                                      Ver no documento
+                                    </Button>
+                                  ) : null}
+                                </div>
+                                <p className="text-sm leading-6 text-foreground">
+                                  <HighlightedEvidence
+                                    text={finding.evidencia}
+                                    needle={getHighlightNeedle(finding)}
+                                  />
+                                </p>
+                              </section>
 
-                          {/*
+                              {/*
                             OS METADADOS DESCEM PARA A LATERAL. Eles respondem
                             "onde eu confiro", e não "o que está errado" — quem
                             precisa deles já decidiu que vai olhar o documento.
                             "Página provável" saiu: a fita acima diz melhor, e
                             com todas as páginas em vez de uma.
                           */}
-                          <section className="grid content-start gap-2 border-t pt-3">
-                            <FindingField label="Documento" value={finding.documento} />
-                            <FindingField label="Local" value={finding.local} />
-                            <FindingField label="Categoria" value={finding.categoria} />
-                          </section>
-                        </div>
-                      </div>
+                              <section className="grid content-start gap-2 border-t pt-3">
+                                <FindingField
+                                  label="Documento"
+                                  value={finding.documento}
+                                />
+                                <FindingField
+                                  label="Local"
+                                  value={finding.local}
+                                />
+                                <FindingField
+                                  label="Categoria"
+                                  value={finding.categoria}
+                                />
+                              </section>
+                            </div>
+                          </div>
 
-                      {/*
+                          {/*
                         O VEREDITO SOBRE O ACHADO vira o rodapé do cartão, e uma
                         PERGUNTA em vez de um rótulo.
 
@@ -3715,9 +4092,9 @@ export function AuditResult({
                         É o que alimenta o benchmark do motor, então o lugar
                         dele na tela decide quanto dado a gente tem.
                       */}
-                      {auditId && finding.refId ? (
-                        <div
-                          /*
+                          {auditId && finding.refId ? (
+                            <div
+                              /*
                             A ÁREA DE FEEDBACK RESPONDE AO QUE FOI RESPONDIDO.
                             Antes ela era verde SEMPRE — inclusive antes de
                             alguém responder qualquer coisa, e inclusive num
@@ -3729,20 +4106,25 @@ export function AuditResult({
                             confirmado; âmbar quando foi descartado, de acordo
                             com o cartão em volta.
                           */
-                          data-veredito-do-achado={feedbackByFinding[finding.refId] || undefined}
-                          className={cn(
-                            "relative z-20 flex flex-wrap items-center gap-3 border-t px-4 py-3 transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
-                            feedbackByFinding[finding.refId] === "CONFIRMED"
-                              ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]"
-                              : feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
-                                ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
-                                : "bg-[var(--nexodoc-recessed)]/50",
-                          )}
-                        >
+                              data-veredito-do-achado={
+                                feedbackByFinding[finding.refId] || undefined
+                              }
+                              className={cn(
+                                "relative z-20 flex flex-wrap items-center gap-3 border-t px-4 py-3 transition-colors duration-[var(--duration-base)] ease-[var(--ease-feedback)]",
+                                feedbackByFinding[finding.refId] === "CONFIRMED"
+                                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]"
+                                  : feedbackByFinding[finding.refId] ===
+                                      "FALSE_POSITIVE"
+                                    ? "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
+                                    : "bg-[var(--nexodoc-recessed)]/50",
+                              )}
+                            >
                               <p className="text-sm font-medium text-foreground">
-                                {feedbackByFinding[finding.refId] === "CONFIRMED"
+                                {feedbackByFinding[finding.refId] ===
+                                "CONFIRMED"
                                   ? "Achado confirmado."
-                                  : feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                  : feedbackByFinding[finding.refId] ===
+                                      "FALSE_POSITIVE"
                                     ? "Marcado como falso positivo."
                                     : "Esse achado está certo?"}
                               </p>
@@ -3750,14 +4132,26 @@ export function AuditResult({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant={feedbackByFinding[finding.refId] === "CONFIRMED" ? "secondary" : "outline"}
+                                  variant={
+                                    feedbackByFinding[finding.refId] ===
+                                    "CONFIRMED"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
                                   disabled={feedbackSavingKey === finding.refId}
-                                  onClick={() => void saveFindingFeedback(finding, index, "CONFIRMED")}
+                                  onClick={() =>
+                                    void saveFindingFeedback(
+                                      finding,
+                                      index,
+                                      "CONFIRMED",
+                                    )
+                                  }
                                   // O botão escolhido carrega a cor do estado: é
                                   // o mesmo verde do "Corrigido" na barra de
                                   // ações, e é o que diz QUAL dos três foi.
                                   className={
-                                    feedbackByFinding[finding.refId] === "CONFIRMED"
+                                    feedbackByFinding[finding.refId] ===
+                                    "CONFIRMED"
                                       ? "border-[var(--status-ok)]/40 text-[var(--status-ok)]"
                                       : undefined
                                   }
@@ -3768,11 +4162,23 @@ export function AuditResult({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant={feedbackByFinding[finding.refId] === "FALSE_POSITIVE" ? "secondary" : "outline"}
+                                  variant={
+                                    feedbackByFinding[finding.refId] ===
+                                    "FALSE_POSITIVE"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
                                   disabled={feedbackSavingKey === finding.refId}
-                                  onClick={() => void saveFindingFeedback(finding, index, "FALSE_POSITIVE")}
+                                  onClick={() =>
+                                    void saveFindingFeedback(
+                                      finding,
+                                      index,
+                                      "FALSE_POSITIVE",
+                                    )
+                                  }
                                   className={
-                                    feedbackByFinding[finding.refId] === "FALSE_POSITIVE"
+                                    feedbackByFinding[finding.refId] ===
+                                    "FALSE_POSITIVE"
                                       ? "border-[var(--status-warning)]/40 text-[var(--status-warning)]"
                                       : undefined
                                   }
@@ -3783,18 +4189,29 @@ export function AuditResult({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant={feedbackByFinding[finding.refId] === "WRONG_SEVERITY" ? "secondary" : "outline"}
+                                  variant={
+                                    feedbackByFinding[finding.refId] ===
+                                    "WRONG_SEVERITY"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
                                   disabled={feedbackSavingKey === finding.refId}
-                                  onClick={() => void saveFindingFeedback(finding, index, "WRONG_SEVERITY")}
+                                  onClick={() =>
+                                    void saveFindingFeedback(
+                                      finding,
+                                      index,
+                                      "WRONG_SEVERITY",
+                                    )
+                                  }
                                 >
                                   <Wrench />
                                   Gravidade errada
                                 </Button>
                               </div>
-                        </div>
-                      ) : null}
-                    </article>
-                    </Fragment>
+                            </div>
+                          ) : null}
+                        </article>
+                      </Fragment>
                     );
                   })}
                 </div>
@@ -3807,7 +4224,9 @@ export function AuditResult({
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <Textarea
                         value={missingFindingNote}
-                        onChange={(event) => setMissingFindingNote(event.target.value)}
+                        onChange={(event) =>
+                          setMissingFindingNote(event.target.value)
+                        }
                         rows={2}
                         className="min-h-12 flex-1"
                         textareaClassName="resize-y"
@@ -3823,7 +4242,9 @@ export function AuditResult({
                       </Button>
                     </div>
                     {feedbackNotice ? (
-                      <p className="mt-2 font-mono text-xs text-muted-foreground">{feedbackNotice}</p>
+                      <p className="mt-2 font-mono text-xs text-muted-foreground">
+                        {feedbackNotice}
+                      </p>
                     ) : null}
                   </section>
                 ) : null}
@@ -3872,23 +4293,26 @@ export function AuditResult({
                   */
                   <div className="nx-elev sticky bottom-4 z-10">
                     <div className="nx-cut-8 flex flex-wrap items-center gap-3 bg-card px-4 py-3">
-                    {/*
+                      {/*
                       A CONTAGEM É O ASSUNTO DA BARRA, e estava em 12px cinza,
                       do mesmo peso do resto. Mono Label maiúsculo separa o
                       rótulo do dado sem precisar de cor — e a cor aqui seria
                       teal, que não pode.
                     */}
-                    <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
-                      <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
-                        {selecionados.size}
-                      </span>{" "}
-                      {selecionados.size === 1 ? "achado" : "achados"}
-                    </span>
+                      <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                        <span className="text-sm font-semibold normal-case tracking-normal text-foreground">
+                          {selecionados.size}
+                        </span>{" "}
+                        {selecionados.size === 1 ? "achado" : "achados"}
+                      </span>
 
-                    <label htmlFor="destinatario-do-envio" className="sr-only">
-                      Enviar para
-                    </label>
-                    {/*
+                      <label
+                        htmlFor="destinatario-do-envio"
+                        className="sr-only"
+                      >
+                        Enviar para
+                      </label>
+                      {/*
                       ALTURA 40, e não 36. O `h-9` ia para o WRAPPER, mas o
                       `select` de dentro tem `min-height: 2.5rem` numa regra
                       global fora de `@layer` — que vence utility. O campo
@@ -3899,15 +4323,17 @@ export function AuditResult({
                       Lizardo Wilhelm Aren…" cortado em 140px não identifica
                       ninguém.
                     */}
-                    <Select
-                      id="destinatario-do-envio"
-                      value={destinatario}
-                      onChange={(event) => setDestinatario(event.target.value)}
-                      className="min-w-[15rem] flex-1 sm:max-w-[22rem]"
-                      selectClassName="text-foreground"
-                    >
-                      <option value="">Enviar para…</option>
-                      {/*
+                      <Select
+                        id="destinatario-do-envio"
+                        value={destinatario}
+                        onChange={(event) =>
+                          setDestinatario(event.target.value)
+                        }
+                        className="min-w-[15rem] flex-1 sm:max-w-[22rem]"
+                        selectClassName="text-foreground"
+                      >
+                        <option value="">Enviar para…</option>
+                        {/*
                         QUEM RESPONDE PELA DISCIPLINA VEM PRIMEIRO — e ninguém
                         some da lista.
 
@@ -3921,36 +4347,36 @@ export function AuditResult({
 
                         Sem grupo reconhecido, a ordem é a que veio do servidor.
                       */}
-                      {grupoDoEnvio && agrupar ? (
-                        <>
-                          <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
-                            {membrosDoGrupo.map((m) => (
-                              <option key={m.email} value={m.email}>
-                                {m.name ?? m.email}
-                                {m.status === "INVITED" ? " (convidado)" : ""}
-                              </option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Resto do escritório">
-                            {membrosDeFora.map((m) => (
-                              <option key={m.email} value={m.email}>
-                                {m.name ?? m.email}
-                                {m.status === "INVITED" ? " (convidado)" : ""}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </>
-                      ) : (
-                        membros.map((m) => (
-                          <option key={m.email} value={m.email}>
-                            {m.name ?? m.email}
-                            {m.status === "INVITED" ? " (convidado)" : ""}
-                          </option>
-                        ))
-                      )}
-                    </Select>
+                        {grupoDoEnvio && agrupar ? (
+                          <>
+                            <optgroup label={GRUPOS_TECNICOS[grupoDoEnvio]}>
+                              {membrosDoGrupo.map((m) => (
+                                <option key={m.email} value={m.email}>
+                                  {m.name ?? m.email}
+                                  {m.status === "INVITED" ? " (convidado)" : ""}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Resto do escritório">
+                              {membrosDeFora.map((m) => (
+                                <option key={m.email} value={m.email}>
+                                  {m.name ?? m.email}
+                                  {m.status === "INVITED" ? " (convidado)" : ""}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </>
+                        ) : (
+                          membros.map((m) => (
+                            <option key={m.email} value={m.email}>
+                              {m.name ?? m.email}
+                              {m.status === "INVITED" ? " (convidado)" : ""}
+                            </option>
+                          ))
+                        )}
+                      </Select>
 
-                    {/*
+                      {/*
                       A AÇÃO DE TURNO da barra, e por isso na altura PADRÃO (40)
                       e não na densa (32): ela precisa alinhar com o campo ao
                       lado, e um botão de 32 ao lado de um campo de 40 lê como
@@ -3962,40 +4388,40 @@ export function AuditResult({
                       matriz de estados manda (§7). Trocar "Enviar" por
                       "Enviando…" encolhia e esticava a barra a cada envio.
                     */}
-                    <Button
-                      type="button"
-                      disabled={!destinatario}
-                      loading={enviando}
-                      onClick={() => void enviarSelecionados()}
-                      /*
+                      <Button
+                        type="button"
+                        disabled={!destinatario}
+                        loading={enviando}
+                        onClick={() => void enviarSelecionados()}
+                        /*
                         O rótulo visível é "Enviar", curto porque a barra já diz
                         quantos e para quem. Mas a página TEM outro "Enviar" — o
                         do chat do Nexo —, e para quem navega por leitor de tela
                         os dois seriam a mesma palavra solta.
                       */
-                      aria-label="Enviar achados selecionados"
-                    >
-                      <Send aria-hidden />
-                      Enviar
-                    </Button>
+                        aria-label="Enviar achados selecionados"
+                      >
+                        <Send aria-hidden />
+                        Enviar
+                      </Button>
 
-                    {/*
+                      {/*
                       LIMPAR É FANTASMA, e continua sendo — desfazer a seleção
                       não é ação de turno. Mas era um `<button>` cru: sem a
                       altura da linha, sem o Mono Label do sistema e sem anel de
                       foco por dentro do chanfro. O primitivo resolve os três.
                     */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setSelecionados(new Set())}
-                      aria-label="Limpar seleção"
-                      className="ml-auto"
-                    >
-                      Limpar
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setSelecionados(new Set())}
+                        aria-label="Limpar seleção"
+                        className="ml-auto"
+                      >
+                        Limpar
+                      </Button>
 
-                    {/*
+                      {/*
                       O BURACO DITO EM VOZ ALTA.
 
                       Quando a disciplina TEM grupo e o grupo não tem ninguém, o
@@ -4025,19 +4451,19 @@ export function AuditResult({
                       Frase em SANS, não em mono: mono é rótulo e dado. Isto é
                       prosa, e prosa em mono lê como saída de terminal.
                     */}
-                    {grupoDoEnvio && !agrupar ? (
-                      <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-[var(--signal-info)]">
-                        <Info aria-hidden className="mt-px size-4 shrink-0" />
-                        <span>
-                          <strong className="font-medium">
-                            {GRUPOS_TECNICOS[grupoDoEnvio]}
-                          </strong>{" "}
-                          é quem responde por este achado, e ninguém do escritório
-                          está nesse grupo. Escolha à mão, ou peça para incluírem a
-                          pessoa.
-                        </span>
-                      </p>
-                    ) : null}
+                      {grupoDoEnvio && !agrupar ? (
+                        <p className="flex w-full items-start gap-2 text-xs leading-relaxed text-[var(--signal-info)]">
+                          <Info aria-hidden className="mt-px size-4 shrink-0" />
+                          <span>
+                            <strong className="font-medium">
+                              {GRUPOS_TECNICOS[grupoDoEnvio]}
+                            </strong>{" "}
+                            é quem responde por este achado, e ninguém do
+                            escritório está nesse grupo. Escolha à mão, ou peça
+                            para incluírem a pessoa.
+                          </span>
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -4045,17 +4471,25 @@ export function AuditResult({
                 {suggestionFindings.length > 0 ? (
                   <details className="nx-cut-8 bg-[var(--nexodoc-recessed)]">
                     <summary className="cursor-pointer px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Sugestões da IA — confira ({suggestionFindings.length}) · menor confiança, não contam para o veredito
+                      Sugestões da IA — confira ({suggestionFindings.length}) ·
+                      menor confiança, não contam para o veredito
                     </summary>
                     <div className="grid gap-2 px-4 pb-4">
                       {suggestionFindings.map((finding, index) => (
-                        <div key={`${finding.raw}-suggestion-${index}`} className="nx-cut-8 bg-card p-3">
+                        <div
+                          key={`${finding.raw}-suggestion-${index}`}
+                          className="nx-cut-8 bg-card p-3"
+                        >
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="secondary">Sugerido</Badge>
                             {finding.pagina ? (
-                              <span className="font-mono text-[11px] text-muted-foreground">p.{finding.pagina}</span>
+                              <span className="font-mono text-[11px] text-muted-foreground">
+                                p.{finding.pagina}
+                              </span>
                             ) : null}
-                            <span className="text-sm font-medium text-foreground">{finding.title}</span>
+                            <span className="text-sm font-medium text-foreground">
+                              {finding.title}
+                            </span>
                             {finding.pdfUrl ? (
                               <button
                                 type="button"
@@ -4078,7 +4512,10 @@ export function AuditResult({
                 ) : null}
               </div>
             ) : (
-              <EmptyState description="Nenhum achado encontrado." className="py-8" />
+              <EmptyState
+                description="Nenhum achado encontrado."
+                className="py-8"
+              />
             )}
           </SectionCard>
         ) : null}
@@ -4131,7 +4568,9 @@ export function AuditResult({
                   Conclusão
                 </p>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-sm">
-                  {report?.conclusao || parsed.conclusion || "Sem conclusão identificada."}
+                  {report?.conclusao ||
+                    parsed.conclusion ||
+                    "Sem conclusão identificada."}
                 </pre>
               </div>
             </div>
