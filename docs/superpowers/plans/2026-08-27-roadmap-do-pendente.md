@@ -296,8 +296,8 @@ Itens **2.16, 2.14, 2.15**, nesta ordem e por este motivo: **teclado primeiro**
       constantes nomeadas (`modules/nexo/lib/densidade-do-canvas.ts`,
       `npm run test:densidade`, 8 asserções) e a travessia provada no navegador
       (`npm run prova:zoom`, 16 asserções).
-- [ ] **2.15 — modo conferência (LD × canvas).** ABERTO, e com um bloqueio já
-      apurado — leia o achado abaixo antes de começar.
+- [x] **2.15 — modo conferência (LD × canvas).** FEITO em 28/08/2026, pelos
+      três passos que o bloqueio abaixo indicava. **A Fase 4 está fechada.**
 
 ## 2.14 — o que a implementação decidiu
 
@@ -325,7 +325,7 @@ Itens **2.16, 2.14, 2.15**, nesta ordem e por este motivo: **teclado primeiro**
   própria seleção. Quem navega por teclado não perde nada: `E` e `Enter` fazem o
   mesmo. **A prova mede as alturas** e exige que a grade continue regular.
 
-## 2.15 — O BLOQUEIO, apurado em 28/08/2026 antes de escrever uma linha
+## 2.15 — o bloqueio que foi apurado ANTES de escrever uma linha, e resolvido
 
 A spec manda **reusar** o resultado da conferência leve em vez de recomputar no
 cliente — e está certa. Só que **o resultado reusável não serve para marcar o
@@ -348,9 +348,45 @@ hoje, dá para pintar a COLUNA inteira de aviso e não dá para dizer QUAL nó.
 2. Recomputar no cliente — a spec proíbe, e com razão: seriam duas verdades
    sobre a mesma conferência, divergindo na primeira regra nova.
 
-**Ordem sugerida para quem pegar:** (a) estender o core e o teste dele; (b) a
-coluna, lendo o resultado já existente; (c) a sincronização nos dois sentidos,
-que reusa a seleção por id que o teclado do 2.16 já montou.
+**Foi essa a ordem executada:**
+
+**(a) O core passou a dizer quais.** `LightCheckFinding.folhas?: string[]`, com
+o mesmo `label` que já entrava no `SeloFact` — o nome do arquivo, que os dois
+lados já usam. Nenhum consumidor mudou (campo opcional). Cinco asserções novas
+em `npm run test:nexo:check`, e duas delas registram as decisões que importam:
+
+- **TODAS as envolvidas, não "a errada".** Numa divergência de código ninguém
+  sabe qual grupo é o intruso; eleger a minoria como culpada seria palpite com
+  cara de fato.
+- **A folha FALTANDO não aponta nó nenhum.** Ela não está no conjunto — marcar
+  um vizinho seria acusar o inocente. A ausência do campo é informação.
+
+**(b) A tradução do agregado para a folha** vive em
+`modules/nexo/lib/conferencia-por-folha.ts` (`npm run test:conferencia-folha`,
+7 asserções). A regra que a prova defende: **a pior severidade vence**, mesmo
+quando o aviso vem primeiro na lista — rebaixar ali esconderia o problema na
+única tela em que ele seria visto.
+
+**(c) A coluna e a sincronização nos dois sentidos.** As linhas saem dos MESMOS
+nós, na MESMA ordem: montar a lista de outra fonte criaria duas ordens para a
+mesma coisa, e as duas discordariam justamente quando alguém reordenasse um
+tomo. Clicar na linha seleciona o nó; andar de seta move a linha — a segunda
+metade reusa a seleção por id que o 2.16 montou, e sem ela quem confere pelo
+teclado veria a coluna parada.
+
+**Três decisões de desenho, e a terceira veio de olhar a tela:**
+
+- **Sem verde.** "Sem divergência" é o normal, e o normal é mudo: duzentos
+  pontos verdes apagariam os três coloridos que importam.
+- **A conta em número, não em cor** ("2 de 4 com divergência") — lê-se igual em
+  preto e branco e por quem não distingue matiz. E o zero é dito, porque "nada
+  aqui" e "não conferido" são coisas diferentes.
+- **A coluna OCUPA espaço, não flutua.** Na primeira versão ela era um painel
+  absoluto e cobria a barra do canvas ("+ Folha", "+ Tomo") e a dica dos
+  atalhos — e o `fitView` seguia enquadrando o volume POR BAIXO dela, então
+  parte das folhas nascia escondida. Como irmã do fluxo, o canvas só fica mais
+  estreito. **Isso só apareceu na captura**, não nas asserções: a prova passava
+  com a coluna por cima de tudo.
 
 ## O que o teclado obrigou a mudar, e por quê
 
