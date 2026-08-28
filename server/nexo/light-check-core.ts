@@ -20,6 +20,27 @@ export interface LightCheckFinding {
   campo: string;
   mensagem: string;
   detalhe?: string;
+  /**
+   * AS FOLHAS ENVOLVIDAS, pelo mesmo `label` que entrou em `SeloFact` — o nome
+   * do arquivo da prancha.
+   *
+   * Existe porque a mensagem é agregada por construção ("Pranchas com códigos
+   * divergentes (…)") e quem desenha o canvas precisa saber QUAL nó marcar. A
+   * informação sempre esteve aqui: as regras já agrupam as pranchas para montar
+   * o `detalhe`, e só a descartavam ao formatar a frase.
+   *
+   * TODAS as envolvidas, não "a errada". Numa divergência de código ninguém
+   * sabe qual grupo é o intruso — dizer que a minoria está errada seria um
+   * palpite com cara de fato, e é justamente o palpite que este produto recusa.
+   *
+   * AUSENTE quando não há folha a apontar, e isso é informação: "folha 3
+   * faltando na sequência" fala de uma prancha que NÃO está no conjunto, e
+   * marcar qualquer nó ali seria acusar o inocente.
+   *
+   * Um `label` pode cobrir mais de uma folha (PDF de várias páginas). Para
+   * estas regras é a granularidade certa: a divergência é do arquivo.
+   */
+  folhas?: string[];
 }
 
 export type LightCheckVeredito = "ok" | "aviso" | "critico";
@@ -64,6 +85,13 @@ export interface SeloFact {
   totalLido: number | null;
   /** todos os números (>0) que o selo carrega — base do total de referência. */
   numeros: number[];
+}
+
+/** Junta os rótulos de vários grupos numa lista sem repetição, na ordem lida. */
+function envolvidas(grupos: Iterable<string[]>): string[] {
+  const vistos = new Set<string>();
+  for (const nomes of grupos) for (const n of nomes) vistos.add(n);
+  return [...vistos];
 }
 
 const SEVERITY_RANK: Record<LightCheckVeredito, number> = {
@@ -174,6 +202,7 @@ export function checkSeloFacts(
       detalhe: [...codigoGroups.entries()]
         .map(([cod, names]) => `${cod}: ${joinNames(names)}`)
         .join(" | "),
+      folhas: envolvidas(codigoGroups.values()),
     });
   }
 
@@ -196,6 +225,7 @@ export function checkSeloFacts(
       detalhe: [...obraGroups.values()]
         .map((g) => `"${g.display}": ${joinNames(g.names)}`)
         .join(" | "),
+      folhas: envolvidas([...obraGroups.values()].map((g) => g.names)),
     });
   }
 
@@ -247,6 +277,7 @@ export function checkSeloFacts(
         detalhe: [...discGroups.entries()]
           .map(([disc, names]) => `${disc.toUpperCase()}: ${joinNames(names)}`)
           .join(" | "),
+        folhas: envolvidas(discGroups.values()),
       });
     }
   }
@@ -282,6 +313,7 @@ export function checkSeloFacts(
         detalhe: [...revGroups.entries()]
           .map(([rev, names]) => `rev ${rev.toUpperCase()}: ${joinNames(names)}`)
           .join(" | "),
+        folhas: envolvidas(revGroups.values()),
       });
     }
 
@@ -325,6 +357,11 @@ export function checkSeloFacts(
           campo: "sequencia",
           mensagem: `${prefixo(bloco.codigo)}Folha(s) faltando na sequência 1..${referenceTotal}: ${missing.join(", ")}.`,
           detalhe: `Total de referência ${referenceTotal}; ${sheetCount.size} folha(s) distinta(s) presentes.`,
+          /*
+           * SEM `folhas`, de propósito. Este achado fala de pranchas que NÃO
+           * estão no conjunto — não há nó no canvas para marcar, e marcar os
+           * vizinhos seria acusar quem está presente pela ausência do outro.
+           */
         });
       }
 
@@ -340,15 +377,20 @@ export function checkSeloFacts(
           detalhe: duplicates
             .map((n) => `folha ${n} aparece ${sheetCount.get(n)}x`)
             .join(" | "),
+          folhas: doBloco
+            .filter((f) => f.sheet != null && duplicates.includes(f.sheet))
+            .map((f) => f.label),
         });
       }
     }
 
     // --- Folha × total: total do selo diverge do de referência (INFO/OCR) ----
     const totalMismatch: string[] = [];
+    const folhasDoTotal: string[] = [];
     for (const f of doBloco) {
       if (f.totalLido != null && f.totalLido > 0 && f.totalLido !== referenceTotal) {
         totalMismatch.push(`${f.label} (total lido ${f.totalLido})`);
+        folhasDoTotal.push(f.label);
       }
     }
     if (totalMismatch.length > 0) {
@@ -364,6 +406,7 @@ export function checkSeloFacts(
         campo: "total",
         mensagem: `${prefixo(bloco.codigo)}Total lido no selo diverge do total de referência (${referenceTotal}) em ${totalMismatch.length} prancha(s) — ${porque}`,
         detalhe: joinNames(totalMismatch),
+        folhas: folhasDoTotal,
       });
     }
   }

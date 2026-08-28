@@ -314,4 +314,61 @@ test("sem bloco calculado, o comportamento antigo continua (disciplina = aviso)"
   );
 });
 
+/* ---------------------------------------------------------------------------
+ * AS FOLHAS ENVOLVIDAS — acrescentadas em 28/08/2026 para o canvas poder marcar
+ * o nó. A mensagem sempre foi agregada; sem esta lista dava para pintar a coluna
+ * inteira e não dava para dizer QUAL prancha.
+ * ------------------------------------------------------------------------- */
+
+test("codigo divergente aponta TODAS as pranchas envolvidas, e nao so a minoria", () => {
+  const facts = [
+    fact({ sheet: 1 }),
+    fact({ sheet: 2 }),
+    fact({ sheet: 3, codigo: "999-99", label: "999_99_his_003_a.pdf" }),
+  ];
+  const achado = checkSeloFacts(facts).findings.find((f) => f.campo === "codigo");
+  assert.ok(achado, "o achado de código existe");
+  assert.equal(achado!.folhas?.length, 3);
+  assert.ok(achado!.folhas?.includes("999_99_his_003_a.pdf"));
+  // A maioria também entra: ninguém sabe qual grupo é o intruso, e eleger a
+  // minoria como culpada seria palpite com cara de fato.
+  assert.ok(achado!.folhas?.includes("040_26_his_001_a.pdf"));
+});
+
+test("revisao divergente aponta as pranchas das duas revisoes", () => {
+  const facts = [fact({ sheet: 1 }), fact({ sheet: 2, revisao: "b" }), fact({ sheet: 3 })];
+  const achado = checkSeloFacts(facts).findings.find((f) => f.campo === "revisao");
+  assert.ok(achado);
+  assert.equal(achado!.folhas?.length, 3);
+});
+
+test("numero duplicado aponta SO as pranchas que repetem", () => {
+  const facts = [
+    fact({ sheet: 1 }),
+    fact({ sheet: 2, label: "040_26_his_002_a.pdf" }),
+    fact({ sheet: 2, label: "040_26_his_002_b.pdf" }),
+  ];
+  const achado = checkSeloFacts(facts).findings.find(
+    (f) => f.campo === "sequencia" && /duplicado/i.test(f.mensagem),
+  );
+  assert.ok(achado);
+  assert.deepEqual(achado!.folhas, ["040_26_his_002_a.pdf", "040_26_his_002_b.pdf"]);
+});
+
+test("FOLHA FALTANDO nao aponta no nenhum — ela nao esta no conjunto", () => {
+  const facts = [fact({ sheet: 1 }), fact({ sheet: 3 })];
+  const achado = checkSeloFacts(facts).findings.find(
+    (f) => f.campo === "sequencia" && /faltando/i.test(f.mensagem),
+  );
+  assert.ok(achado, "o achado de falta existe");
+  assert.equal(achado!.folhas, undefined, "marcar um vizinho seria acusar o inocente");
+});
+
+test("conjunto limpo continua sem achado nenhum — o campo novo nao inventa aviso", () => {
+  const r = checkSeloFacts(conjuntoLimpo());
+  assert.equal(r.veredito, "ok");
+  assert.equal(r.findings.length, 0);
+});
+
+
 console.log(`\n${passed} teste(s) passaram.`);
