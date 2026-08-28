@@ -11,13 +11,14 @@
  */
 
 import { useState } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { Button } from "@/components/ui/button";
 import type { FolhaId } from "../lib/folhas";
 import { corDaDisciplina, siglaDaDisciplina } from "../lib/disciplina-cor";
+import { densidadeDoZoom, oQueMostrar } from "../lib/densidade-do-canvas";
 import { AcaoDoNo } from "./AcaoDoNo";
 
 export type FolhaNodeData = {
@@ -150,6 +151,21 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
       ? "[--nx-edge:var(--nexodoc-tertiary-strong)]"
       : "[--nx-edge:var(--border)]";
 
+  /*
+   * A DENSIDADE, e não o zoom.
+   *
+   * `useViewport()` devolveria um número novo a cada quadro do gesto, e cada
+   * quadro reenderizaria os duzentos nós — o oposto do que o zoom semântico
+   * existe para resolver. O seletor mapeia o zoom para UM DOS TRÊS NOMES antes
+   * da comparação: o nó só volta a renderizar quando a faixa muda, o que
+   * acontece duas vezes num gesto inteiro, e não sessenta.
+   *
+   * Render CONDICIONAL, e não CSS que esconde: DOM oculto em duzentos nós pesa
+   * igual, e a economia seria só visual.
+   */
+  const densidade = useStore((estado) => densidadeDoZoom(estado.transform[2]));
+  const mostrar = oQueMostrar(densidade);
+
   const cor = corDaDisciplina(data.disciplina);
   const sigla = siglaDaDisciplina(data.disciplina);
   const semNumero = data.numero == null;
@@ -189,7 +205,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
           {semNumero ? "—" : String(data.numero).padStart(2, "0")}
           {data.total ? `/${String(data.total).padStart(2, "0")}` : ""}
         </span>
-        {sigla && (
+        {sigla && mostrar.sigla && (
           <span className="font-mono text-[10px] tracking-[0.05em] text-muted-foreground">
             · {sigla}
           </span>
@@ -221,18 +237,59 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         cartão de altura variável vira escada e destrói a varredura, que é a
         razão desta tela existir.
       */}
-      <p
-        className="mt-0.5 line-clamp-5 min-h-[3.6em] text-[10px] leading-tight"
-        title={data.titulo}
-      >
-        {data.titulo || "—"}
-      </p>
+      {mostrar.titulo && (
+        <p
+          className="mt-0.5 line-clamp-5 min-h-[3.6em] text-[10px] leading-tight"
+          title={data.titulo}
+        >
+          {data.titulo || "—"}
+        </p>
+      )}
+      {/*
+        O CARIMBO INTEIRO só de perto — e é aqui que o zoom semântico paga.
+        Código do arquivo e disciplina por extenso são o que se confere contra a
+        prancha, folha a folha; de longe eles são ruído sobre duzentos nós, e no
+        meio do caminho competiriam com o título.
+      */}
+      {mostrar.carimbo && (data.arquivo?.trim() || data.disciplina?.trim()) && (
+        <div className="mt-1 grid gap-0.5 border-t border-[var(--border)] pt-1">
+          {data.arquivo?.trim() && (
+            <p
+              className="truncate font-mono text-[9px] text-muted-foreground"
+              title={data.arquivo}
+            >
+              {data.arquivo}
+            </p>
+          )}
+          {data.disciplina?.trim() && (
+            <p className="truncate text-[9px] text-muted-foreground" title={data.disciplina}>
+              {data.disciplina}
+            </p>
+          )}
+        </div>
+      )}
       {/*
         A folha sem PDF é DIFERENTE das outras e precisa parecer diferente: ela
         entra na lista de documentos e não entra no volume montado. Quem for
         montar tem de saber disso olhando, não descobrindo no PDF final.
       */}
-      {data.avulsa && (
+      {data.avulsa && !mostrar.titulo && (
+        /*
+         * DE LONGE O AVISO VIRA PONTO, e não desaparece: "sem código · não sai
+         * na LD" é um defeito de verdade, e uma varredura que o esconde no zoom
+         * de conjunto é justamente a varredura em que ele passaria batido.
+         */
+        <span
+          className={
+            semCodigo
+              ? "mt-1 block h-1.5 w-1.5 rounded-full bg-[var(--status-warning)]"
+              : "mt-1 block h-1.5 w-1.5 rounded-full bg-muted-foreground"
+          }
+          title={semCodigo ? "sem código · não sai na LD" : "sem PDF · só na LD"}
+          aria-label={semCodigo ? "sem código, não sai na LD" : "sem PDF, só na LD"}
+        />
+      )}
+      {data.avulsa && mostrar.titulo && (
         <p
           className={
             semCodigo
@@ -244,8 +301,14 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         </p>
       )}
       {/* As ações só no nó SELECIONADO: com 200 folhas na tela, botões em todas
-          seriam ruído maior que o conteúdo. */}
-      {selected && !confirmando && (
+          seriam ruído maior que o conteúdo.
+
+          E SÓ ONDE DÁ PARA LÊ-LAS. No zoom de conjunto os rótulos viram fiapo
+          de 4px, e o nó selecionado ficava três vezes mais alto que os vizinhos
+          — a escada que o comentário das cinco linhas existe para evitar, agora
+          criada pela própria seleção. Quem navega por teclado não perde nada:
+          `E` e `Enter` fazem o mesmo sem os botões. */}
+      {selected && !confirmando && mostrar.titulo && (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <AcaoDoNo
             icone={ExternalLink}

@@ -14,6 +14,7 @@ import { chromium } from "playwright";
 import nextEnv from "@next/env";
 
 import { entrarComo } from "./lib/atores-de-teste.mjs";
+import { FOLHAS_DE_PROVA, semearCanvas } from "./lib/semear-canvas.mjs";
 
 nextEnv.loadEnvConfig(process.cwd());
 
@@ -49,79 +50,13 @@ const pular = page.getByRole("button", { name: /pular/i });
 if (await pular.count()) await pular.first().click();
 await page.waitForTimeout(600);
 
-/*
- * A CONVERSA É SEMEADA AQUI, e não herdada do projeto de exemplo.
- *
- * A primeira versão desta prova contava com o exemplo guiado que a primeira
- * visita semeia — e não o achava: a barra já vinha com dezenas de conversas do
- * servidor, o palco abria sem nenhuma escolhida, e o sintoma ("sem folhas")
- * apontava para o canvas em vez de para o cenário. Semear quatro selos deixa a
- * prova dona do que ela mede.
- */
-const CONV = "qa-teclado-do-canvas";
-await page.evaluate(async (convId) => {
-  const db = await new Promise((res, rej) => {
-    const req = indexedDB.open("nexo");
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-  const agora = Date.now();
-  const base = {
-    total: 2,
-    arquivo: null,
-    cliente: "Prefeitura Municipal de Criciuma",
-    obra: "Escola da prova do teclado",
-    fase: "Projeto Executivo",
-    data: "MARCO/2026",
-    confianca: "alta",
-  };
-  const folhas = [
-    { disciplina: "Arquitetura", folha: 1, conteudo: "Planta baixa" },
-    { disciplina: "Arquitetura", folha: 2, conteudo: "Cortes e fachadas" },
-    { disciplina: "Estrutural", folha: 1, conteudo: "Formas - fundacao" },
-    { disciplina: "Estrutural", folha: 2, conteudo: "Armacao - pilares" },
-  ];
-  await new Promise((res, rej) => {
-    const tx = db.transaction("conversations", "readwrite");
-    tx.objectStore("conversations").put({
-      id: convId,
-      title: "QA TECLADO DO CANVAS",
-      createdAt: agora,
-      updatedAt: agora,
-      messages: [{ id: "m1", role: "assistant", content: "Li 4 folhas." }],
-      seloResults: folhas.map((f) => ({
-        fileName: `qa_${f.disciplina.slice(0, 3).toLowerCase()}_${f.folha}.pdf`,
-        pageNumber: 1,
-        pageCount: 1,
-        extraction: {
-          ...base,
-          disciplina: f.disciplina,
-          folha: f.folha,
-          numeroFolha: `0${f.folha}/02`,
-          conteudo: f.conteudo,
-        },
-        usage: 0,
-      })),
-      results: [],
-    });
-    tx.oncomplete = () => res();
-    tx.onerror = () => rej(tx.error);
-  });
-}, CONV);
-
-// A barra lateral só relê na montagem — sem recarregar, a conversa semeada não
-// aparece para ser aberta.
-await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForTimeout(2500);
-const pular2 = page.getByRole("button", { name: /pular/i });
-if (await pular2.count()) await pular2.first().click();
-await page.getByText("QA TECLADO DO CANVAS").first().click();
-await page.waitForTimeout(1500);
-const abaDoMapa = page.getByRole("button", { name: /mapa do volume/i }).first();
-if (await abaDoMapa.count()) {
-  await abaDoMapa.click();
-  await page.waitForTimeout(1200);
-}
+// O cenário mora em `lib/semear-canvas.mjs`: a prova do zoom usa o MESMO, e
+// duas cópias dele mediriam telas diferentes achando que medem a mesma.
+await semearCanvas(page, {
+  conversationId: "qa-teclado-do-canvas",
+  titulo: "QA TECLADO DO CANVAS",
+  folhas: FOLHAS_DE_PROVA,
+});
 
 const canvas = page.locator('[role="application"]').first();
 check("o canvas do volume esta na tela", (await canvas.count()) === 1);
