@@ -20,6 +20,7 @@ import {
   guardarNoCache,
   type ArquivoInedito,
 } from "../lib/selo-cache";
+import { reciboDoDrop } from "../lib/recibo-do-drop";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import { resolveSheetNumbers } from "@/server/nexo/parse-filename";
@@ -644,16 +645,44 @@ function NexoWorkspaceInner({
         ? ` ${plural(reaproveitadas, "folha veio de leitura anterior", "folhas vieram de leitura anterior")} dos mesmos arquivos — não foram lidas de novo.`
         : "";
 
+    // O que ENTROU: a mesma soma que o recibo publica, e por isso ela é
+    // calculada uma vez só — dois lugares somando por conta própria divergem.
+    const recebidas =
+      okSelos.length + naoLidas.falhas.length + naoLidas.ignoradas.length;
+
     start();
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "user",
-      content: `Anexei ${plural(okSelos.length, "folha", "folhas")} — ${nameStr}`,
+      /*
+       * "ANEXEI 200", e não 198. A frase é do ENGENHEIRO, e ele anexou tudo — o
+       * que o Nexo conseguiu ler é notícia da resposta, não do pedido. Escrever
+       * na boca dele o número dos acertos fazia o histórico da conversa mentir
+       * sobre o que entrou.
+       */
+      content: `Anexei ${plural(recebidas, "folha", "folhas")} — ${nameStr}`,
     });
     conv.appendMessage({
       id: crypto.randomUUID(),
       role: "assistant",
-      content: `Li ${plural(okSelos.length, "folha", "folhas")}${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
+      /*
+       * O RECIBO ABRE A FRASE, e não a contagem dos acertos.
+       *
+       * Era "Li 198 folhas … 2 folhas não deram para ler (…)": o número bom na
+       * frente, o ruim no fim, e o TOTAL que entrou em lugar nenhum — quem
+       * soltou um PDF de 200 páginas tinha de somar de cabeça para saber se
+       * estavam todas contabilizadas. O recibo diz as três parcelas de uma vez,
+       * na mesma ordem sempre, e por construção elas fecham.
+       *
+       * As ressalvas FICAM: o recibo diz quantas falharam, elas dizem quais e o
+       * que fazer com elas. Um número sem o "está no canvas em branco, dá para
+       * corrigir à mão" seria contagem sem saída.
+       */
+      content: `${reciboDoDrop({
+        lidas: okSelos.length,
+        falharam: naoLidas.falhas.length,
+        ignoradas: naoLidas.ignoradas.length,
+      })}${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
       slotRequest: {
         slotId: "intake",
         taskKind: "ld",
