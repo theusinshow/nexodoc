@@ -12,6 +12,14 @@ type ShortcutItem = {
 };
 
 export const GLOBAL_SHORTCUTS: ShortcutItem[] = [
+  /*
+   * `Ctrl+K` entra PRIMEIRO porque é o que responde "qual caminho eu tomo" —
+   * os outros levam a uma tela específica, e para usá-los é preciso já saber
+   * qual. A paleta vive no Nexo (é lá que estão as conversas e o composer), e
+   * dizer isso aqui evita a pior forma de documentar um atalho: prometê-lo em
+   * telas onde ele não abre nada.
+   */
+  { keys: ["Ctrl", "K"], description: "Paleta de comandos (no Nexo): buscar obra ou começar um trabalho" },
   { keys: ["Ctrl", "G"], description: "Ir para o dashboard" },
   { keys: ["Ctrl", "A"], description: "Ir para auditoria" },
   { keys: ["Ctrl", "L"], description: "Ir para montagem de LDs" },

@@ -29,6 +29,7 @@ import {
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import { partidaPorId } from "../lib/partidas";
+import { PaletaDeComandos } from "./PaletaDeComandos";
 import {
   ComposerControllerProvider,
   useComposer,
@@ -2097,6 +2098,17 @@ function NexoWorkspaceInner({
           );
         })()}
 
+      {/*
+        A PALETA É SOBREPOSIÇÃO, então é IRMÃ do shell — não filha da barra.
+        Dentro da prop `sidebar` ela ficaria presa à largura de 300px da coluna;
+        dentro do palco, sumiria a cada troca de vista. Aqui ela lê a MESMA
+        lista de conversas e usa o MESMO `selectConv` que a barra.
+      */}
+      <PaletaDeComandos
+        conversas={conv.conversations}
+        onAbrirConversa={selectConv}
+        isAdmin={isAdmin}
+      />
       <NexoShell
         started={started}
         barra={<BarraDoNexo />}
