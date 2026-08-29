@@ -516,22 +516,55 @@ mesma linha mesmo com a ligação quebrada.
 
 ---
 
-# Fase 6 — Admin: A.8, A.6, A.9b (e o enterro do Lote 11)
+# Fase 6 — Admin ✅ FECHADA EM 28/08/2026, SEM UMA LINHA DE CÓDIGO
+
+Os três itens foram conferidos no código e na tela. **Dois já estavam feitos e o
+terceiro não tem conteúdo.**
+
+- [x] **A.8 — série semanal e meta.** Já existia: `lib/meta-de-qualidade.ts`
+      (`serieSemanal`, `tendenciaDoFalsoPositivo`) e
+      `lib/meta-qualidade-config.ts`, com a rota citando "(A.8)" no comentário.
+      **Aberto e conferido:** `/admin/quality` mostra "Semana a semana" com
+      SEMANA · AUDITORIAS · ACHADOS · FALSO POSITIVO · COBERTURA e o controle
+      "meta não declarada · declarar". Tabela mono, sem gráfico decorativo —
+      como a spec exigia. E a régua está escrita na própria tela: "a taxa divide
+      pelos achados JULGADOS, não pelos gerados: dividir pelo total faria a taxa
+      cair sempre que alguém deixasse de revisar — melhora aparente por
+      preguiça".
+- [x] **A.6 — hierarquia de atenção e a falha duplicada.** Já existia:
+      `lib/atencao-do-admin.ts` abre `/admin/config` com a faixa, e a segunda
+      lista de "última falha" **já foi fundida**, com o motivo escrito no
+      código: "duas listas do mesmo fato divergem no dia em que alguém mexer
+      numa só". Conferido na tela: "nada exigindo ação: chaves presentes e sem
+      incidentes nesta instância".
+- [x] **A.9b — preferências da pessoa: FECHADO SEM CONSTRUIR.** A spec o
+      descreve em três palavras e o rotula "acabamento" — não há lista de
+      preferências em lugar nenhum. Procurei a necessidade em vez de inventá-la:
+      a única escolha que a pessoa repetia nas sete telas era **digitar o token
+      do admin**, e ela **já é lembrada** (`ADMIN_TOKEN_STORAGE_KEY` em
+      `sessionStorage`, compartilhado entre as telas) — e em `sessionStorage`,
+      não `localStorage`, que é a escolha certa para um bearer token. Nenhum
+      filtro, ordenação ou período de admin se perde entre visitas.
+
+      **Construir aqui seria inventar preferências que ninguém pediu.** O item
+      volta se aparecer uma escolha real que a pessoa refaz.
+
+## O enterro do Lote 11
 
 **Por que só agora:** o admin é onde mora quem paga a conta, mas A-I a A-VI já
 entregaram o que importa — sistema visual, header, linha de status, confirmação
 de privilégio, dados do escritório e custo por obra. O que sobra é acabamento.
 
-- [ ] **6.1 — A.8 (era A-VII, e engole a 2.25 do Lote 11):** `/admin/quality`
+- [x] **6.1 — A.8 (era A-VII, e engole a 2.25 do Lote 11):** `/admin/quality`
       com série semanal e **meta declarada**. Sem meta, série é enfeite.
       **Gráfico decorativo é fora de escopo:** tabela mono ou sparkline de 1px,
       e o `DESIGN.md` já proíbe métrica-herói colorida.
-- [ ] **6.2 — A.6 (A-VIII):** `/admin/config` com hierarquia de atenção, e
+- [x] **6.2 — A.6 (A-VIII):** `/admin/config` com hierarquia de atenção, e
       **fundir a "última falha" duplicada numa fonte só**. Dois lugares dizendo
       a mesma coisa vão discordar.
-- [ ] **6.3 — A.9b (A-IX):** preferências da pessoa. Acabamento declarado como
+- [x] **6.3 — A.9b (A-IX):** preferências da pessoa. Acabamento declarado como
       tal na própria spec.
-- [ ] **6.4 — riscar o Lote 11 da spec de UX**, com o motivo, para ninguém
+- [x] **6.4 — riscar o Lote 11 da spec de UX**, com o motivo, para ninguém
       abrir plano para ele de novo.
 
 ---
