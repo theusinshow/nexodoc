@@ -23,7 +23,10 @@ import {
 import { reciboDoDrop } from "../lib/recibo-do-drop";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
-import { resolveSheetNumbers } from "@/server/nexo/parse-filename";
+import {
+  resolveSheetNumbersComOrigem,
+  type OrigemDoNumero,
+} from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import {
   ComposerControllerProvider,
@@ -1625,7 +1628,7 @@ function NexoWorkspaceInner({
   // Número da folha (resolvido entre arquivos) por id — derivação dos selos, não
   // ajuste: por isso mora aqui e não no módulo puro da projeção.
   const numerosDasFolhas = useMemo(() => {
-    const resolvidos = resolveSheetNumbers(
+    const resolvidos = resolveSheetNumbersComOrigem(
       selos.map((f) => ({
         fileName: f.fileName,
         pageNumber: f.pageNumber,
@@ -1636,7 +1639,33 @@ function NexoWorkspaceInner({
     );
     const mapa: Record<FolhaId, number | null> = {};
     selos.forEach((f, i) => {
-      mapa[f.id] = resolvidos[i] ?? null;
+      mapa[f.id] = resolvidos[i]?.numero ?? null;
+    });
+    return mapa;
+  }, [selos]);
+
+  /*
+   * DE ONDE VEIO CADA NÚMERO — a mesma corrida, o outro lado da resposta.
+   *
+   * Sai de `resolveSheetNumbersComOrigem`, que DEDUZ a origem das etapas que já
+   * decidem em vez de recalculá-la. Chamar duas vezes seria trabalho repetido;
+   * dois `useMemo` sobre a mesma lista, também. Ficam separados porque o canvas
+   * já recebia `numeros` e mudar aquele contrato faria uma prop existente
+   * significar duas coisas.
+   */
+  const origensDasFolhas = useMemo(() => {
+    const resolvidos = resolveSheetNumbersComOrigem(
+      selos.map((f) => ({
+        fileName: f.fileName,
+        pageNumber: f.pageNumber,
+        arquivo: f.arquivo,
+        folha: f.folha,
+        folhaManual: f.folhaManual,
+      })),
+    );
+    const mapa: Record<FolhaId, OrigemDoNumero | null> = {};
+    selos.forEach((f, i) => {
+      mapa[f.id] = resolvidos[i]?.origem ?? null;
     });
     return mapa;
   }, [selos]);
@@ -2073,6 +2102,7 @@ function NexoWorkspaceInner({
           <NexoCanvas
             folhas={selos}
             numeros={numerosDasFolhas}
+            origens={origensDasFolhas}
             arquivosDisponiveis={arquivosDisponiveis}
             onAbrirFolha={abrirFolha}
             totais={totaisDasFolhas}

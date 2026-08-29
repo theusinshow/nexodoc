@@ -79,6 +79,7 @@ import {
 } from "../lib/layout-canvas";
 import { FolhaNode, type FolhaNodeData } from "./FolhaNode";
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
+import type { OrigemDoNumero } from "@/server/nexo/parse-filename";
 import { ehDigitacao, passoDoTeclado } from "../lib/navegacao-por-teclado";
 import { divergenciasPorFolha } from "../lib/conferencia-por-folha";
 import { ColunaDaConferencia, type LinhaDaConferencia } from "./ColunaDaConferencia";
@@ -414,6 +415,7 @@ const GRADE: GradeDoDrop = { passoX: PASSO_X, passoY: PASSO_Y };
 function CanvasInterno({
   folhas = [],
   numeros = {},
+  origens = {},
   totais = {},
   arquivosDisponiveis,
   onAbrirFolha,
@@ -441,6 +443,12 @@ function CanvasInterno({
   folhas?: Folha[];
   /** Número da folha resolvido por `resolveSheetNumbers`, por id. */
   numeros?: Record<FolhaId, number | null>;
+  /**
+   * DE ONDE veio cada número — mão, nome do arquivo, carimbo ou ordem da
+   * página. Deduzido pela mesma corrida que resolveu o número, e não por uma
+   * segunda regra que poderia discordar dela.
+   */
+  origens?: Record<FolhaId, OrigemDoNumero | null>;
   /** Total do conjunto por id — o carimbo, ou a correção da disciplina. */
   totais?: Record<FolhaId, number | null>;
   /** Nomes de arquivo com bytes em memória — sem eles não dá para abrir a página. */
@@ -697,6 +705,7 @@ function CanvasInterno({
           data: {
             id: f.id,
             numero: numeros[f.id] ?? null,
+            origemDoNumero: origens[f.id] ?? null,
             // O total corrigido à mão (por disciplina) vence o do carimbo. A
             // derivação é do dono, não daqui: o canvas não sabe de disciplina.
             total: totais[f.id] ?? f.total ?? null,
@@ -786,6 +795,7 @@ function CanvasInterno({
     artifacts,
     folhas,
     numeros,
+    origens,
     totais,
     arquivosDisponiveis,
     abrirFolha,
@@ -1230,6 +1240,7 @@ function ReenquadrarAoCrescer({ quantidade }: { quantidade: number }) {
 export function NexoCanvas(props: {
   folhas?: Folha[];
   numeros?: Record<FolhaId, number | null>;
+  origens?: Record<FolhaId, OrigemDoNumero | null>;
   totais?: Record<FolhaId, number | null>;
   arquivosDisponiveis?: ReadonlySet<string>;
   onAbrirFolha?: (id: FolhaId) => void;

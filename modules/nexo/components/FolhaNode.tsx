@@ -41,6 +41,15 @@ export type FolhaNodeData = {
   avulsa?: boolean;
   /** Campo VAZIO desfaz aquele ajuste e devolve o que o selo dizia. */
   /**
+   * DE ONDE VEIO O NÚMERO desta folha.
+   *
+   * `ordem` é o único que aparece SEM hover, e é decisão: ele quer dizer que
+   * ninguém leu este número — a reconciliação o deduziu da posição da página.
+   * Um palpite por posição que se parece com uma leitura é a informação mais
+   * cara de esconder nesta tela.
+   */
+  origemDoNumero?: "mao" | "nome" | "carimbo" | "ordem" | null;
+  /**
    * O que a CONFERÊNCIA pesa sobre esta folha — traduzido do achado agregado
    * pelo índice de `conferencia-por-folha.ts`. Ausente = nada pesa, e o nó não
    * ganha marca nenhuma: um "ok" em cada uma das duzentas folhas é ruído que
@@ -174,6 +183,21 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
   const densidade = useStore((estado) => densidadeDoZoom(estado.transform[2]));
   const mostrar = oQueMostrar(densidade);
 
+  /*
+   * A PROVENIÊNCIA EM PALAVRAS, no `title`.
+   *
+   * A proposta pede "marcador discreto que acende no hover, nunca uma segunda
+   * linha de texto permanente" — e num nó de 120px com duzentos irmãos, a
+   * frase é o `title`: custa zero pixel e responde a pergunta inteira.
+   */
+  const FONTE: Record<string, string> = {
+    mao: "número corrigido à mão",
+    nome: "número lido do nome do arquivo",
+    carimbo: "número lido do carimbo",
+    ordem: "número deduzido pela ordem das páginas — ninguém o leu",
+  };
+  const fonteDoNumero = data.origemDoNumero ? FONTE[data.origemDoNumero] : undefined;
+
   const cor = corDaDisciplina(data.disciplina);
   const sigla = siglaDaDisciplina(data.disciplina);
   const semNumero = data.numero == null;
@@ -204,6 +228,7 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         {/* O travessão em rust marca a AUSÊNCIA do número sem chamar de erro:
             a folha continua arrastável e continua entrando no volume. */}
         <span
+          title={fonteDoNumero}
           className={`font-mono text-[10px] tabular-nums ${
             semNumero
               ? "text-[var(--nexodoc-tertiary-strong)]"
@@ -212,6 +237,19 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
         >
           {semNumero ? "—" : String(data.numero).padStart(2, "0")}
           {data.total ? `/${String(data.total).padStart(2, "0")}` : ""}
+          {/*
+            O ANEL VAZIO do número deduzido — e SÓ dele.
+            Marcar as quatro origens encheria o nó de pontos e apagaria o único
+            que muda o que se faz: os outros três são leituras de algum lugar;
+            este é posição. Anel vazio, e não ponto cheio: a forma diz "falta
+            miolo aqui" sem gastar uma cor do sistema.
+          */}
+          {data.origemDoNumero === "ordem" && (
+            <span
+              aria-label="número deduzido pela ordem das páginas"
+              className="ml-1 inline-block size-1.5 rounded-full border border-muted-foreground align-middle"
+            />
+          )}
         </span>
         {sigla && mostrar.sigla && (
           <span className="font-mono text-[10px] tracking-[0.05em] text-muted-foreground">

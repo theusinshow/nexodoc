@@ -1,5 +1,13 @@
-import { DISCIPLINA_LEXICON } from "./disciplinas";
-import { aplicarFolhaManual, reconcileByPageOrder } from "./reconcile-sheets";
+/*
+ * COM EXTENSÃO `.ts`, e é isso que torna este módulo provável em node cru.
+ *
+ * O bundler do Next resolve com ou sem; o `node` com type-stripping só resolve
+ * COM. É o mesmo arranjo de `lib/audit-report.ts`, e sem ele a precedência do
+ * número da folha — a regra mais consequente deste arquivo — só poderia ser
+ * conferida abrindo o navegador.
+ */
+import { DISCIPLINA_LEXICON } from "./disciplinas.ts";
+import { aplicarFolhaManual, reconcileByPageOrder } from "./reconcile-sheets.ts";
 
 /**
  * Parser filename-first do intake do Nexo (Fase 0). A convencao de nomes do
@@ -79,23 +87,51 @@ export function sheetNumberFromFilename(fileName: string): number | null {
  *   3) folha do OCR (último recurso, menos confiável).
  * Espelha a lógica provada do módulo LD original (extractSheetNumberFromFileCode).
  */
+/**
+ * DE ONDE VEIO O VALOR — o vocabulário que a tela usa para dizer proveniência.
+ *
+ * `carimbo` cobre os dois campos que saem do selo (o código em ARQUIVO e o
+ * número da folha lido): para quem confere, os dois são "o que a máquina leu do
+ * desenho", e separá-los na tela seria detalhe de implementação. `ordem` é o
+ * palpite por posição da página — não é leitura de nada, e é justamente por
+ * isso que ele precisa aparecer.
+ */
+export type OrigemDoNumero = "mao" | "nome" | "carimbo" | "ordem";
+
+/**
+ * O número da folha COM a origem — e é esta a implementação, não uma segunda.
+ *
+ * `sheetNumberFromSelo` passou a ser uma vista desta função. Escrever a
+ * precedência duas vezes (uma para decidir, outra para explicar) daria duas
+ * verdades sobre a mesma coisa, e a explicação passaria a mentir na primeira
+ * regra nova — que é exatamente o defeito que a proveniência existe para
+ * impedir.
+ */
+export function sheetNumberFromSeloComOrigem(selo: {
+  arquivo?: string | null;
+  fileName?: string | null;
+  folha?: number | null;
+}): { numero: number | null; origem: OrigemDoNumero | null } {
+  if (selo.arquivo) {
+    const n = sheetNumberFromFilename(selo.arquivo);
+    if (n != null) return { numero: n, origem: "carimbo" };
+  }
+  if (selo.fileName) {
+    const n = sheetNumberFromFilename(selo.fileName);
+    if (n != null) return { numero: n, origem: "nome" };
+  }
+  if (typeof selo.folha === "number" && Number.isFinite(selo.folha) && selo.folha > 0) {
+    return { numero: selo.folha, origem: "carimbo" };
+  }
+  return { numero: null, origem: null };
+}
+
 export function sheetNumberFromSelo(selo: {
   arquivo?: string | null;
   fileName?: string | null;
   folha?: number | null;
 }): number | null {
-  if (selo.arquivo) {
-    const n = sheetNumberFromFilename(selo.arquivo);
-    if (n != null) return n;
-  }
-  if (selo.fileName) {
-    const n = sheetNumberFromFilename(selo.fileName);
-    if (n != null) return n;
-  }
-  if (typeof selo.folha === "number" && Number.isFinite(selo.folha) && selo.folha > 0) {
-    return selo.folha;
-  }
-  return null;
+  return sheetNumberFromSeloComOrigem(selo).numero;
 }
 
 export interface SeloSheetInput {
@@ -122,6 +158,40 @@ export interface SeloSheetInput {
  * Arquivos separados (1 página) mantêm a folha do carimbo/nome. É a FONTE ÚNICA da
  * folha para a leitura, a LD e a conferência.
  */
+/**
+ * A RESOLUÇÃO COM A ORIGEM DE CADA NÚMERO.
+ *
+ * A origem não é recalculada por uma segunda regra: ela é DEDUZIDA das etapas
+ * que já existem, comparando o que cada uma devolveu.
+ *
+ *   · o candidato traz a sua origem de `sheetNumberFromSeloComOrigem`;
+ *   · se a reconciliação por ordem de página MUDOU o valor, a origem passa a
+ *     ser `ordem` — o número deixou de ser leitura e virou posição;
+ *   · a correção à mão entra por último e vence tudo, como sempre venceu.
+ *
+ * Deduzir em vez de reimplementar é o que garante que a explicação não possa
+ * discordar da decisão.
+ */
+export function resolveSheetNumbersComOrigem(
+  selos: SeloSheetInput[],
+): { numero: number | null; origem: OrigemDoNumero | null }[] {
+  const comOrigem = selos.map((s) =>
+    sheetNumberFromSeloComOrigem({ arquivo: s.arquivo, fileName: s.fileName, folha: s.folha }),
+  );
+  const resolvidas = resolveSheetNumbers(selos);
+
+  return resolvidas.map((numero, i) => {
+    const manual = selos[i].folhaManual;
+    if (typeof manual === "number" && Number.isFinite(manual) && manual > 0) {
+      return { numero, origem: "mao" };
+    }
+    // Valor diferente do candidato = a reconciliação por ordem entrou. Cobre
+    // também o caso em que ela INVENTA um número onde não havia leitura nenhuma.
+    if (numero !== comOrigem[i].numero) return { numero, origem: "ordem" };
+    return { numero, origem: comOrigem[i].origem };
+  });
+}
+
 export function resolveSheetNumbers(selos: SeloSheetInput[]): (number | null)[] {
   const candidates = selos.map((s) =>
     sheetNumberFromSelo({ arquivo: s.arquivo, fileName: s.fileName, folha: s.folha }),

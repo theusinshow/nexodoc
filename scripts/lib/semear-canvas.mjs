@@ -51,8 +51,16 @@ export async function semearCanvas(
             },
           ],
           seloResults: listaDeFolhas.map((f) => ({
-            fileName: `qa_${f.disciplina.slice(0, 3).toLowerCase()}_${f.folha}.pdf`,
-            pageNumber: 1,
+            /*
+             * `arquivoDoUpload` e `pagina` são escapes para o cenário em que
+             * várias folhas vêm do MESMO PDF — é ele que aciona a reconciliação
+             * por ordem de página, e sem poder encená-lo não daria para provar
+             * a origem `ordem`.
+             */
+            fileName:
+              f.arquivoDoUpload ??
+              `qa_${f.disciplina.slice(0, 3).toLowerCase()}_${f.folha}.pdf`,
+            pageNumber: f.pagina ?? 1,
             pageCount: 1,
             extraction: {
               ...base,
