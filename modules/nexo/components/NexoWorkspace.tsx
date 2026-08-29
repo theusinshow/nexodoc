@@ -29,6 +29,7 @@ import {
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import { partidaPorId } from "../lib/partidas";
+import { FaviconVivo } from "@/components/brand/favicon-vivo";
 import { PaletaDeComandos } from "./PaletaDeComandos";
 import {
   ComposerControllerProvider,
@@ -2109,6 +2110,18 @@ function NexoWorkspaceInner({
         onAbrirConversa={selectConv}
         isAdmin={isAdmin}
       />
+      {/*
+        O FAVICON acompanha a auditoria — que é o trabalho longo do produto (de
+        três a seis minutos) e o único que sobrevive à aba indo para o fundo. A
+        leitura de selos dura segundos e não vale a troca: um ícone que pisca a
+        cada anexo vira ruído em vez de sinal.
+
+        OS DOIS SINAIS, e não só o `emCurso`. Ele só existe na aba que DISPAROU
+        a auditoria: depois de um F5 quem sabe que há trabalho é o bilhete
+        `auditoriaPendente`, e é exatamente aí — na aba que voltou e foi para o
+        fundo — que o ícone precisa dizer que ainda está rodando.
+      */}
+      <FaviconVivo trabalhando={Boolean(auditoriaEmCurso || conv.auditoriaPendente)} />
       <NexoShell
         started={started}
         barra={<BarraDoNexo />}
