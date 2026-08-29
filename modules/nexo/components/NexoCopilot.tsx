@@ -18,6 +18,7 @@ import { useComposer } from "../state/composer-controller";
 import { AgentOrb, AgentStatusPopover, type AgentState } from "./agent-orb";
 import type { AgentContext } from "../lib/agent-context";
 import { NexoChat, type ReadStatus, type Attachment } from "./NexoChat";
+import { PartidasDoNexo } from "./PartidasDoNexo";
 import { SaudacaoDoNexo } from "./SaudacaoDoNexo";
 
 export function NexoCopilot({
@@ -202,7 +203,19 @@ export function NexoCopilot({
             mão não sabia que a auditoria mora aqui —, mas agora quem as nomeia é
             o próprio Nexo, escrevendo.
           */
-          <SaudacaoDoNexo nome={nome} onDigitando={setSaudando} />
+          <>
+            <SaudacaoDoNexo nome={nome} onDigitando={setSaudando} />
+            {/*
+              As partidas ENTRAM COM A SAUDAÇÃO, e saem com ela: passada a
+              primeira mensagem, a pessoa já sabe pedir, e três chips fixos no
+              topo de toda conversa seriam mobília.
+            */}
+            <PartidasDoNexo
+              temPranchas={pranchaFiles.length > 0 || selos.length > 0}
+              temMemorial={Boolean(memorialFile)}
+              onAnexar={onAttach}
+            />
+          </>
         )}
       </div>
 

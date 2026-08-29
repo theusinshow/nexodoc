@@ -28,8 +28,10 @@ import {
   type OrigemDoNumero,
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
+import { partidaPorId } from "../lib/partidas";
 import {
   ComposerControllerProvider,
+  useComposer,
   useComposerFoco,
 } from "../state/composer-controller";
 import { ArtifactStoreProvider, useArtifactStore } from "../state/artifact-store";
@@ -1170,6 +1172,34 @@ function NexoWorkspaceInner({
       ? null
       : new URLSearchParams(window.location.search).get("auditoria"),
   );
+
+  /*
+   * A INTENÇÃO PEDIDA POR LINK — `/nexo?intencao=auditar`.
+   *
+   * É a mesma coisa que os chips de partida escrevem, vinda de fora: outra tela
+   * (ou um atalho) manda alguém para cá já sabendo o que veio fazer, e a frase
+   * aparece escrita no composer. Sem isto, o link entregaria a tela genérica e a
+   * intenção morreria no caminho — que é o mesmo defeito que o `?auditoria=`
+   * teve, e pelo qual ele ganhou o comentário acima.
+   *
+   * Lido UMA vez, na montagem: reler a cada render reescreveria o composer por
+   * cima do que a pessoa está digitando.
+   */
+  const composer = useComposer();
+  const intencaoAplicada = useRef(false);
+  useEffect(() => {
+    if (intencaoAplicada.current || typeof window === "undefined") return;
+    const partida = partidaPorId(new URLSearchParams(window.location.search).get("intencao"));
+    if (!partida) return;
+    intencaoAplicada.current = true;
+    /*
+     * `requestAnimationFrame` porque o composer só se registra depois de o
+     * NexoChat montar — sem a espera, `fill` cairia no controle de mentira que
+     * o provider usa antes de haver implementação, e a frase sumiria.
+     */
+    const raf = requestAnimationFrame(() => composer.fill(partida.frase));
+    return () => cancelAnimationFrame(raf);
+  }, [composer]);
 
   const [started, setStarted] = useState(false);
   const start = () => {
