@@ -429,15 +429,90 @@ dona do que ela mede.
 
 ---
 
-# Fase 5 — Lote 5: proveniência e trace
+# Fase 5 — Lote 5: proveniência e trace — 1.2 e 2.9 FEITOS EM 28/08/2026
 
-Itens **1.2, 1.3, 2.9**. Destravado — o Lote 0 já documentou `--signal-info`
-como a cor de "informação", e **não há decisão de cor pendente**.
+- [x] **1.2 — proveniência.** O número da folha passa a dizer de onde veio.
+- [ ] **1.3 — confiança por campo.** **BLOQUEADO por falta de dado**, e não por
+      falta de trabalho — o apuro está abaixo.
+- [x] **2.9 — trace do turno.** `leu 4 selos · propôs LD · 5,1s` acima da
+      resposta.
 
-**Entregar a versão de três origens** (nome do arquivo / carimbo / mão), NÃO
-`folha 07 · canto inferior direito`. Hoje `classify-documents.ts` guarda
-confiança por *arquivo*; origem por campo não existe, e inventar precisão que o
-dado não tem é o pior desfecho possível aqui.
+## 1.2 — quatro origens, e não três
+
+O roadmap dizia "três origens (nome do arquivo / carimbo / mão)". **O código diz
+quatro.** `resolveSheetNumbers` aplica, nesta ordem: correção à mão →
+reconciliação por ordem de página → campo ARQUIVO do carimbo → nome do arquivo →
+folha lida no carimbo. A **reconciliação por ordem** não é leitura de lugar
+nenhum: é um palpite por posição, e é justamente a origem que o engenheiro
+precisa poder ver. Colapsá-la nas outras três esconderia a única que muda o que
+se faz.
+
+**A regra não foi escrita duas vezes.** `sheetNumberFromSelo` passou a ser uma
+VISTA de `sheetNumberFromSeloComOrigem`, e `resolveSheetNumbersComOrigem`
+*deduz* a origem comparando o que cada etapa devolveu — se a reconciliação mudou
+o valor, a origem vira `ordem`. Uma segunda implementação da precedência (uma
+para decidir, outra para explicar) faria a explicação mentir na primeira regra
+nova, que é exatamente o defeito que a proveniência existe para impedir.
+
+**Na tela:** a explicação inteira mora no `title` (custa zero pixel num nó de
+120px com duzentos irmãos), e **só o número deduzido pela ordem ganha marca
+visível** — um anel VAZIO, que diz "falta miolo aqui" sem gastar cor do sistema.
+Marcar as quatro origens encheria o nó de pontos e apagaria a única que importa.
+
+`npm run test:origem` (8) · `npm run prova:origem` (7).
+
+**Também foi preciso pôr extensão `.ts` nos imports de `parse-filename.ts`** —
+sem ela o módulo não roda em node cru, e a regra mais consequente do arquivo só
+poderia ser conferida abrindo o navegador.
+
+## 1.3 — o bloqueio: os números da proposta não existem em lugar nenhum
+
+A proposta manda "usar a calibração real (código 98%, revisão 87%, disciplina
+98%)". **Esses números não têm fonte no repositório:**
+
+- `docs/07-testes-reais.md` é um diário de testes reais (maio/2026) com data,
+  custo e qualidade da resposta — **nenhuma taxa de acerto por campo**.
+- `app/api/admin/quality` mede qualidade de AUDITORIA (série semanal, meta), não
+  precisão de extração de carimbo por campo.
+
+E há um segundo problema, independente: **o campo "revisão" não é exibido em
+cartão de confirmação nenhum.** Os `SummaryRow` mostram Título, Tomos, Volume,
+Mês/ano — que são DECISÕES do engenheiro, não valores lidos. A revisão só
+aparece em resumo pós-geração ("rev A · 12 folhas"). O aceite ("campo revisão
+aparece com o indicador em todo cartão de proposta de LD") mira um campo que a
+tela não tem.
+
+**Por que não implementar assim mesmo:** marcar um campo como "este costuma
+precisar de conferência" com base num número que ninguém pode apontar é o
+contrário de "instrumento calibrado mostra a própria margem de erro" — seria uma
+margem inventada, com cara de medição. **O caminho honesto é medir primeiro:**
+um passe que compare o que o OCR leu com o que foi corrigido à mão (o dado já
+existe — `folhaManual`, `editadoTexto`, os ajustes por campo) produziria a taxa
+real por campo. Aí o indicador tem o que dizer.
+
+## 2.9 — o trace
+
+`leu 23 selos · propôs LD · 8,4s`, mono apagado, ACIMA da bolha — colado no
+rótulo "Nexo", onde se lê como assinatura do turno. Abaixo viraria rodapé de
+nota, e a pergunta que ele responde ("por que ele propôs isso?") nasce antes de
+a resposta ser lida.
+
+- **Turno simples não ganha linha.** "Olá" não leu nada e não propôs nada;
+  imprimir "0 selos · 0,4s" gastaria uma linha por turno para não dizer nada.
+- **O tempo nunca aparece sozinho** — ele qualifica um trabalho que a linha já
+  nomeou.
+- **O relógio começa antes da chamada**, não no primeiro delta: o que se sente
+  como demora inclui a espera pelo primeiro caractere.
+- **O trace é guardado JÁ MONTADO** na mensagem, não como números soltos: a
+  frase é o que a conversa precisa preservar, e recompor exigiria que a regra de
+  formatação sobrevivesse a cada versão para uma conversa velha continuar
+  legível.
+- **Nada de bastidor de API** — a prova mede isso: nem modelo, nem id, nem
+  token. O `NexoDebugDrawer` já cobre debug, e para outro leitor.
+
+`npm run test:trace` (8) · `npm run prova:trace` (6, **com uma volta REAL do
+agente**, US$ 0,0053). A prova paga existe porque um objeto semeado desenharia a
+mesma linha mesmo com a ligação quebrada.
 
 ---
 
