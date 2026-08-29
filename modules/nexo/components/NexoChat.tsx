@@ -9,6 +9,7 @@ import {
   usePublicarFocoDoComposer,
 } from "../state/composer-controller";
 import type { AuditReport } from "@/lib/audit-report";
+import { traceDoTurno } from "../lib/trace-do-turno";
 import { auditoriaMaisRecente } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import { useConversationUsage } from "../state/use-conversation-usage";
@@ -343,6 +344,13 @@ export function NexoChat({
         return;
       }
 
+      /*
+       * O relógio começa ANTES da chamada, e não quando o primeiro delta chega:
+       * o que o engenheiro sente como demora inclui a espera pelo primeiro
+       * caractere, e um número que ignora justamente a parte lenta seria
+       * transparência ao contrário.
+       */
+      const inicioDoTurno = Date.now();
       const res = await fetch("/api/nexo/agent", {
         method: "POST",
         headers: {
@@ -380,6 +388,11 @@ export function NexoChat({
           throw new Error(payload?.error ?? "Falha ao conversar com o Nexo.");
         }
         setRevealId(assistantId); // sem streaming, o typewriter ainda vale
+        const trace = traceDoTurno({
+          selosLidos: selos.length,
+          propostas: (payload.turn.proposals ?? []).map((p) => p.kind),
+          duracaoMs: Date.now() - inicioDoTurno,
+        });
         appendMessage({
           id: assistantId,
           role: "assistant",
@@ -387,6 +400,7 @@ export function NexoChat({
           proposals: payload.turn.proposals,
           slotRequest: payload.turn.slotRequest,
           ldPreview: payload.ldPreview,
+          ...(trace ? { trace } : {}),
         });
         return;
       }
@@ -426,10 +440,18 @@ export function NexoChat({
           if (event.type === "delta") {
             appendDelta(assistantId, event.text);
           } else if (event.type === "done") {
+            // O trace fecha JUNTO com a mensagem: no `done` o turno inteiro já
+            // aconteceu, e é o único momento em que as três parcelas existem.
+            const trace = traceDoTurno({
+              selosLidos: selos.length,
+              propostas: (event.proposals ?? []).map((p) => p.kind),
+              duracaoMs: Date.now() - inicioDoTurno,
+            });
             finalizeMessage(assistantId, {
               proposals: event.proposals,
               ...(event.slotRequest ? { slotRequest: event.slotRequest } : {}),
               ...(event.ldPreview ? { ldPreview: event.ldPreview } : {}),
+              ...(trace ? { trace } : {}),
             });
           } else {
             streamError = event.error;
@@ -526,6 +548,25 @@ export function NexoChat({
               {m.role === "assistant" && (
                 <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
                   Nexo
+                </span>
+              )}
+              {/*
+                O TRACE ACIMA DA BOLHA, colado no rótulo "Nexo".
+
+                Ali ele é lido como assinatura do turno — o que aquele Nexo fez
+                para responder. Abaixo da bolha viraria rodapé de nota, e a
+                pergunta que ele responde ("por que ele propôs isso?") nasce
+                ANTES de a resposta ser lida.
+
+                Mono e apagado: é registro, não conteúdo. Se competir com a
+                resposta, atrapalha a leitura que o produto existe para servir.
+              */}
+              {m.role === "assistant" && m.trace && (
+                <span
+                  data-trace-do-turno
+                  className="font-mono text-[11px] tabular-nums text-muted-foreground"
+                >
+                  {m.trace}
                 </span>
               )}
               <MessageBubble

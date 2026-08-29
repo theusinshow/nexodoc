@@ -146,6 +146,7 @@ interface ConversationStoreValue {
       slotRequest?: NexoSlotRequest;
       ldPreview?: LdPreviewData;
       interrupted?: boolean;
+      trace?: string;
     },
   ) => void;
   setSeloResults: (r: SeloResult[]) => void;
@@ -623,6 +624,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         slotRequest?: NexoSlotRequest;
         ldPreview?: LdPreviewData;
         interrupted?: boolean;
+        trace?: string;
       },
     ) => {
       setMessages((prev) => {

@@ -348,4 +348,13 @@ export interface NexoChatMessage {
   ldPreview?: LdPreviewData;
   /** Turno interrompido pelo usuário (texto parcial, sem propostas). */
   interrupted?: boolean;
+  /**
+   * O BASTIDOR DO TURNO em uma linha ("leu 23 selos · propôs LD · 8,4s").
+   *
+   * Guardado JÁ MONTADO, e não como números soltos: a frase é o que a conversa
+   * precisa preservar, e recompor a partir de campos exigiria que a regra de
+   * formatação sobrevivesse a cada versão do produto para uma conversa velha
+   * continuar legível. Ausente = o turno não teve bastidor a mostrar.
+   */
+  trace?: string;
 }
