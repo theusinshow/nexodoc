@@ -569,7 +569,149 @@ de privilégio, dados do escritório e custo por obra. O que sobra é acabamento
 
 ---
 
-# Fase 7 — Lote 7: onboarding, e o suporte que destrava dois lotes
+# Fase 7 — onboarding ✅ FECHADA EM 28-29/08/2026
+
+- [x] **2.5 — partidas na saudação.** Três chips ("Montar um volume", "Auditar
+      um memorial", "Conferir as folhas") abaixo da saudação, e o **suporte a
+      intenção inicial** que o lote existia para criar: `/nexo?intencao=montar`
+      chega escrito no composer. `npm run test:partidas` (6) ·
+      `npm run prova:partidas` (7).
+- [ ] **2.4 — checklist de ativação: NÃO CONSTRUÍDO, por decisão.**
+- [x] **2.3+ — projeto de demonstração: já existe** (`lib/projeto-exemplo.ts`,
+      com capa, parecer, quatro selos, mais o tour de 11 passos). "Ampliação"
+      não tem enunciado; sem dizer o que falta nele, ampliar é inventar.
+
+## O que as partidas decidiram
+
+- **O chip ESCREVE, não envia.** Enviar gastaria uma volta de modelo para o
+  agente responder "anexe as pranchas" em metade dos casos — e o primeiro
+  contato com um produto que cobra por volta não pode ser uma cobrança que não
+  levou a nada. Escrito no composer, o pedido fica a um Enter, e visível, que é
+  como se aprende a frase.
+- **Quando falta o insumo, ele também abre o seletor.** "Audita o memorial" numa
+  conversa sem memorial é a frase certa sem nada a que ela se aplique; o gesto
+  seguinte é sempre anexar.
+- **A lista é UMA** (`lib/partidas.ts`): a mesma atende os chips, o `?intencao=`
+  e a paleta. Duas listas fariam o mesmo comando pedir coisas diferentes
+  conforme o caminho por onde a pessoa chegou.
+- **Intenção desconhecida não vira pedido** — um link velho não pode escrever
+  uma frase inventada no composer de alguém.
+
+## 2.4 — por que o checklist não foi construído
+
+O produto já tem **três** superfícies de ativação: o tour guiado de 11 passos
+(exemplo, orbe, composer, selo, mapa, parecer), o projeto de exemplo semeado na
+primeira visita, e agora as partidas. Uma quarta — que só aparece para quem
+nunca usou e some depois — seria empilhamento.
+
+E o dado não fecha: das três marcas que a proposta pede,
+`/api/nexo/conversas` entrega duas (`tipo: volume | auditoria`); "leu os selos
+de um projeto" exigiria puxar a coluna `data` de todas as conversas —
+exatamente o que aquele `select` evita ("puxar `data` de cem conversas para
+desenhar a barra lateral seria arrastar megabytes por nada").
+
+**O que sobraria** é um checklist de duas linhas dizendo "você ainda não montou"
+e "você ainda não auditou" — que é o que as partidas já oferecem como BOTÃO, e
+botão é melhor que aviso. Se ele voltar, que volte com a terceira marca
+resolvida.
+
+# Fase 8 — paleta e ponte ✅ FECHADA EM 29/08/2026
+
+- [x] **1.1 — command palette (Ctrl+K).** Busca conversa por obra e começa um
+      trabalho. `npm run test:paleta` (9) · `npm run prova:paleta` (12).
+- [ ] **2.28 — banner de ponte: MORTO.** Não há ferramenta antiga para a ponte.
+
+## A paleta
+
+- **As conversas saem de `groupConversations`** — o mesmo filtro da barra
+  lateral, que já cobre título e nome da pasta. Uma segunda busca acharia coisas
+  diferentes com o mesmo texto, e ninguém saberia qual das duas está errada.
+- **As partidas saem de `lib/partidas.ts`**, as mesmas dos chips.
+- **Nenhuma ação destrutiva**, e o teste defende a regra: a paleta é alcançada
+  por acidente (um `Ctrl+K` que se queria `Ctrl+C`), e "apagar a conversa" a
+  duas teclas de distância transformaria o atalho num risco.
+- **As conversas só entram COM TEXTO.** Recém-aberta, listar cinquenta conversas
+  empurraria as ações para fora da tela — e as ações são o que alguém que
+  apertou `Ctrl+K` sem saber o que procurar precisa ver.
+- **Ela vive no Nexo, não no aplicativo inteiro**, e isso está escrito na ajuda
+  do `?`. A proposta pede "de qualquer tela"; as conversas e o composer moram
+  aqui, e uma paleta global precisaria do próprio caminho de dados para metade
+  do que faz. **Prometer o atalho em telas onde ele não abre nada seria a pior
+  forma de documentá-lo.**
+
+## 2.28 — o banner não tem onde morar
+
+A proposta manda pôr "Este fluxo agora acontece na conversa · Continuar no Nexo"
+no topo de **cada ferramenta antiga**. Já não há nenhuma: `/ld`, `/capas` e
+`/separatrizes` foram removidas, e a que sobrou (`/volumes`) **não é dívida** —
+ela monta volume de PDFs soltos, coisa que o Nexo não faz. O banner ali seria
+**falso**, e mandaria a pessoa embora da única tela que faz aquilo.
+
+`/ferramentas` — o índice — já explica isso em duas frases e já linka para o
+Nexo. Diz mais, e mais verdade, do que o banner diria.
+
+# Fase 9 — a régua ✅ FECHADA EM 29/08/2026, sem código
+
+- [ ] **2.22 — índice do lote: SUPERADO pela coluna da conferência (2.15).**
+
+A proposta quer que a "régua navegue, não só meça". Só que a `BarraDeLeitura`
+**é uma barra de progresso e some quando a leitura acaba** — está escrito no
+próprio componente, e o `NexoChat` só a renderiza com `readStatus.busy`. Durante
+a leitura não há para onde navegar (as folhas ainda estão sendo lidas); depois
+dela, não há régua.
+
+**E o aceite já está entregue por outra superfície:** a coluna da conferência,
+da Fase 4, lista toda folha na ordem do mapa, marca a que diverge, seleciona o
+nó ao clique e acompanha a seleção de volta. "Régua navega; folha com falha
+assinalada e clicável" — é isso, num lugar que não desaparece.
+
+Transformar a barra de progresso num segundo índice criaria uma navegação que só
+existe enquanto se lê.
+
+# Fase 12 — acabamento ✅ FECHADA EM 29/08/2026
+
+- [x] **1.4 — favicon vivo.** `npm run prova:favicon` (7).
+- [x] **2.1 — o selo do próprio produto** no login: `NEXO · PLATAFORMA
+      DOCUMENTAL · REV 0.1.0 · FOLHA 1/1` mais a data, no canto.
+- [ ] **2.2 — fundo de gabarito: RECUSADO, porque já foi desfeito de propósito.**
+- [x] **2.23 — orbe "aguardando você": já existia** (`AgentOrb.tsx`).
+
+## O favicon
+
+- **Troca a referência, não desenha.** `npm run marca:trabalhando` gera os dois
+  arquivos a partir da MESMA captura do orbe (§6), com o ponto teal e um anel
+  escuro em volta — sem o anel, o ponto some dentro do brilho, e um indicador
+  que só aparece em metade dos fundos não é indicador. **Variação afinada, não
+  um segundo desenho:** um orbe novo para o estado de trabalho quebraria a
+  escada de reduções.
+- **Acende também na auditoria RECONECTADA.** `emCurso` só existe na aba que
+  disparou; depois de um F5 quem sabe que há trabalho é o bilhete
+  `auditoriaPendente` — e é aí, na aba que voltou e foi para o fundo, que o
+  ícone precisa falar.
+- **Um ícone só enquanto trabalha, e um observador do `head`.** Medido: a página
+  tem SEIS `<link rel="icon">` (o Next declara 32 e 16, e o roteador os
+  reinsere). Trocar o `href` dos que existiam deixava metade apontando para o
+  ícone antigo, e o navegador prefere o ÚLTIMO. **As duas versões anteriores
+  reprovaram na prova por isso** — a terceira só passou porque a prova mede o
+  que o navegador vê, não o que o código quis fazer.
+- E o ícone **volta** ao terminar, inclusive os que o roteador inseriu no meio:
+  um ponto que fica para sempre vira decoração, e decoração que parece estado é
+  pior que estado nenhum.
+
+## 2.2 — o gabarito já foi desfeito, e por um motivo melhor
+
+A proposta pede uma textura estática de gabarito A1 como fundo do login.
+**Havia exatamente isso** — uma grade de 56px em `::before` — e ela foi
+**substituída** pela `MalhaDeSondagem`, com a razão escrita no
+`app/login/page.tsx`: a grade era "imóvel, e nada além de textura"; a malha põe
+a mesma grade de pé, reagindo ao ponteiro e absolutamente parada em repouso (o
+que a autoriza ao lado do orbe vivo, onde movimento autônomo é proibido).
+
+Repor a textura estática seria desfazer uma decisão documentada para cumprir uma
+proposta escrita antes dela.
+
+
+# Fase 7 — Lote 7 (o registro original)
 
 Itens **2.4, 2.5, 2.3+** — checklist, partidas e ampliação do projeto de
 demonstração (`lib/projeto-exemplo.ts`, 375 linhas, já existe com outra forma).
