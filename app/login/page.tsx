@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { SeloDoProduto } from "@/components/brand/selo-do-produto";
+import { VERSAO_DO_BUILD } from "@/lib/versao-do-build";
 import { MalhaDeSondagem } from "@/components/ambiente/malha-de-sondagem";
 import { MarcaViva } from "@/components/brand/marca-viva";
 import { BoasVindas } from "@/components/login/boas-vindas";
@@ -268,6 +270,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         */}
         <div className="login-media-stack">
           <BoasVindas />
+        </div>
+
+        {/*
+          O CARIMBO DO PRÓPRIO PRODUTO, no canto.
+
+          Um software sobre carimbo de prancha que não carimba a própria porta
+          de entrada deixa a primeira impressão para a ilustração. Fica no
+          CANTO, e não ao lado do orbe: o painel é do orbe vivo (um por tela,
+          §6), e dois objetos disputando o centro quebrariam a escada de
+          reduções.
+        */}
+        <div className="pointer-events-none absolute bottom-6 right-6 z-10">
+          <SeloDoProduto versao={VERSAO_DO_BUILD} />
         </div>
       </aside>
 
