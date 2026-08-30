@@ -485,6 +485,131 @@ desliga `startViewTransition` nem FLIP.
 contínuo (orbe, shimmer) é **congelado** — senão duplica no cross-fade do
 snapshot.
 
+### A troca de tela pelo orbe (2026-08-26)
+
+Há **uma** transição entre rotas no produto, e ela é a do painel para o Nexo.
+Não vale para as outras: `/volumes`, `/projetos` e o admin continuam trocando
+sem cerimônia, porque são LUGARES, e ir a um lugar não é um acontecimento.
+
+Ela existe porque essa troca tem duas coisas que as outras não têm: um objeto
+que atravessa as duas telas — o orbe — e uma espera real do outro lado, onde o
+Nexo monta three.js, a barra lateral e o histórico. Sem transição, o que se via
+era o painel congelado até tudo ficar pronto.
+
+**Os dois tempos correm JUNTOS, e essa é a regra que a primeira versão desta
+transição quebrou.** Ela pedia a rota num `setTimeout` no fim da saída, para que
+a animação nunca fosse cortada — e o resultado foi 240ms em que nada era
+buscado, seguidos do congelamento de montar o Nexo. Duas esperas em fila lêem-se
+como travamento, não como transição. A navegação agora sai no mesmo quadro do
+clique, dentro de um `startTransition`: o React segura o painel na tela, ainda
+animando, enquanto prepara o destino.
+
+**A consequência aceita:** numa rota quente a saída pode ser cortada pela
+metade. Isso é BOM. Quem toca o orbe quer chegar, não assistir — e o corte fica
+invisível porque a chegada entra em fade.
+
+**Partida — `--duration-base`.** O trabalho da página se apaga em BLOCO (nunca em
+cascata pelos filhos), o vidro da barra vai a transparente junto com o que ela
+mostra, e o orbe fica: cresce a 1,45 e acende o halo por inteiro. Sobra ele,
+sozinho no escuro. É a mesma frase do `:active` — tocar abre — levada até o fim.
+
+**Quem apaga a página é um VÉU, não a página.** Um retângulo `fixed` da cor do
+fundo, em opacidade, entre o trabalho (abaixo) e o orbe (acima, no `z` da
+barra). A alternativa óbvia — `opacity: 0` no `<main>` — obriga o navegador a
+rasterizar a página inteira numa camada, dezenas de cartões com `clip-path` e
+pseudo-elemento, no exato quadro em que o destino começa a montar. Cor sólida em
+opacidade é o caso mais barato do compositor, e continua a 60fps com a thread
+principal ocupada. Nenhum dos dois precisa de `will-change`: opacidade em
+animação já promove a camada.
+
+**Todo `backdrop-filter` morre no ato durante a partida** — o da barra e o do
+próprio orbe, sem transição. É a linha que mais pesa da transição inteira:
+desfoque de fundo recalcula a cada quadro tudo que passa por baixo, e durante a
+saída o que passa por baixo é a página se apagando — dentro de um elemento que
+ainda por cima está escalando 45%. Não se perde nada: atrás do orbe, ali, só
+existe o véu, e borrar cor sólida devolve a mesma cor.
+
+O halo, que é ambiente e obedece a `--motion-gain` em toda outra situação, **na
+partida não obedece**: ali ele deixa de ser ambiente. Vira a única coisa na tela
+dizendo que o Nexo está vindo, e ambiente é, por definição, o que se pode
+desligar sem perder informação.
+
+**Chegada — `--duration-slow`.** `.nexo-shell` revela-se inteira, uma vez, só em
+opacidade. `transform` está proibido neste nó: ele criaria bloco de contenção
+para todo descendente `fixed` (popover do orbe, drawer, tooltip), e um deles
+aberto durante a entrada apareceria fora do lugar. E não é `--duration-shell`:
+320ms é o reflow de layout do welcome↔active, enquanto isto é superfície
+entrando. A diferença importa porque estes 240ms rodam EM CIMA do boot do
+three.js — alongar a entrada só estica o trecho em que as duas coisas disputam a
+máquina. Quem carrega a chegada de verdade é o **boot do orbe** (§6, ~600ms),
+que dispara sozinho porque a rota do painel nunca montou aquele módulo.
+
+**Como isto se mede:** `npm run prova:partida` conta os quadros perdidos entre o
+clique e a chegada, por dentro da própria página. Serializar a navegação de novo
+dobra o tempo até o Nexo aparecer, e o portão pega.
+
+#### O que sobra é o dev server, não o desenho (medido em 26/08/2026)
+
+A transição foi reportada como "muito travada" depois de já estar paralelizada, e
+a medição achou a causa fora dela. Mesmo clique, mesma máquina, mesmo código:
+
+| | casca no DOM | tela pronta | quadros perdidos |
+|---|---|---|---|
+| `next dev`, 1ª ida a `/nexo` | **2321 ms** | — | — |
+| `next dev`, idas seguintes | 270 ms | 558 ms | 1,3% |
+| `next start` (produção), 1ª ida | 222 ms | 489 ms | 1,0% |
+| `next start` (produção), 2ª ida | 168 ms | 435 ms | 0,3% |
+
+Os 2,3s são o Turbopack compilando a rota sob demanda, e eles voltam **a cada
+edição de arquivo** — então quem está desenvolvendo bate nesse caminho o dia
+inteiro, e quem usa o produto nunca bate. O JS que de fato bloqueia a thread são
+120–170ms nos quatro casos: não é o que trava.
+
+**Consequência prática:** julgar esta transição em `next dev` é medir o
+compilador. Um build de produção é o único lugar onde o número quer dizer
+alguma coisa. E não há biblioteca de transição que conserte isto — todas
+animam a TROCA, e a troca custa 1% de quadros; o que doía era a espera pelo
+destino, que nenhuma animação encurta.
+
+**O que foi tentado e NÃO funciona:** aquecer a rota com `router.prefetch()` no
+`useEffect`. Em desenvolvimento a chamada não chega ao servidor (o log do dev
+mostra só os `GET /nexo` das navegações de verdade), e em produção o `<Link>` já
+pré-carrega ao entrar na viewport — onde o orbe sempre está. Era uma linha que
+não fazia nada nos dois ambientes.
+
+#### Por que NÃO há cortina de carregamento
+
+A proposta apareceu, e é a reação certa a um sintoma real: entrando no Nexo, o
+orbe "nascia bugado, sólido" e só depois virava ele mesmo. A ideia era segurar
+uma cortina até o chat carregar por inteiro.
+
+**O sintoma era outra coisa.** O que aparecia enquanto o WebGL não chegava não
+era o orbe meio-carregado: era o degrau CSS do §6, um gradiente teal chapado —
+um OBJETO DIFERENTE, na tela por ~300ms na primeira ida. O conserto foi trocar
+o degrau pelo capturado (ver `OrbGlow`), e a mutação sumiu na origem.
+
+**E a cortina custaria caro para esconder o que já não existe:**
+
+- ela contradiz a abertura do §5 — "instrumento de trabalho usado em sessões
+  longas, não uma página que se assiste carregar";
+- ela é mais LENTA, não mais rápida. Hoje a casca aparece aos 222ms e já dá para
+  ler; uma cortina que espera "tudo pronto" só levanta depois dos ~489ms, e
+  esperar atrás de um pano é a definição de travado;
+- ela esconderia o **boot do orbe** (§6, ~600ms), que é o momento em que a
+  identidade do produto acontece. Levantar a cortina depois dele entrega uma
+  esfera já ligada, e o que se ganhou em "limpo" se perdeu em presença.
+
+**A regra que fica:** quando um estado intermediário parece defeito, o conserto
+é o estado intermediário virar o mesmo objeto — nunca um pano por cima. Cobrir
+transforma um salto visível numa espera invisível, e espera é o que este produto
+menos pode gastar.
+
+**Movimento reduzido não vê nada disso.** O gate é em JS, no `BotaoDoOrbe`,
+antes de a coreografia começar — e o que ele desliga é a ENCENAÇÃO, nunca a
+navegação: o clique volta a ser um `<Link>` comum e leva ao mesmo lugar. Vale o
+mesmo para Ctrl/Cmd/Shift-clique e para o botão do meio, que precisam continuar
+abrindo em outra aba.
+
 **Segurança.** `prefers-reduced-motion: reduce` desliga toda animação. Movimento
 é sempre melhoria, nunca carrega significado sozinho.
 
@@ -510,6 +635,40 @@ O orbe precisa existir em vários níveis, e todos têm de ser reconhecíveis co
 
 **Regra:** um orbe vivo por tela. Quando o palco tem o orbe 3D, todo o resto usa
 a redução em CSS. Onde o fundo não é escuro, a versão em SVG.
+
+#### O orbe do painel mora NA COSTURA (emenda de 26/08/2026)
+
+O botão do orbe (`components/layout/botao-do-orbe.tsx`) era um item de 64px
+dentro da barra do topo, e a altura de 80px da barra existia para lhe dar folga.
+Ele passa a ter **128px, centrado na borda inferior da barra** — metade sobre o
+vidro, metade sobre a página.
+
+**Por quê:** contido pela barra, o orbe lia como mais um controle do cromo, ao
+lado do relógio e do avatar. Ele não é. É a única porta do painel para o agente,
+e a leitura certa é a de uma **costura entre o cromo e o trabalho** — que é o
+lugar que ele ocupa no produto. O tamanho acompanha o papel: a 64px ele era um
+ícone, a 128px ele é o objeto.
+
+O degrau continua sendo o **capturado**, e não o vivo: este botão é cromo
+persistente, e montar WebGL em toda rota quebraria "um orbe vivo por tela" na
+própria tela do Nexo. Nada aqui reabre isso.
+
+**O que a emenda obriga:**
+
+- a barra do topo **não pode recortar o transbordo** (`overflow-hidden` nela
+  decapita o orbe);
+- **quem vem abaixo abre o vão**. São 64px pendurados, 75 com o `:active`
+  inflado — o `ConviteDoOrbe` do painel reserva 84px, e é ele o dono desse
+  número, não a barra;
+- **abaixo de 440px de janela a palavra da marca sai** e fica só o símbolo. O
+  orbe é ancorado no meio da janela e a marca cresce da margem: as duas se
+  encostam por volta de 368px.
+
+**O pressionar CRESCE** (hover 1,06 → active 1,17), e não encolhe. Encolher é o
+idioma da tecla que afunda; este controle promete que a conversa vai ABRIR, e a
+escala tem de dizer a mesma coisa que o gesto seguinte. Sai por `scale`, nunca
+por `transform`: o `translate` do ímã de ponteiro mora na propriedade vizinha, e
+as duas precisam conviver.
 
 #### A marca é capturada, não desenhada (emenda de 15/08/2026)
 

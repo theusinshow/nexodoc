@@ -73,31 +73,24 @@ export async function getUserAccess(email: string | null | undefined, name?: str
     where: { email: normalizedEmail },
   });
 
-  if (!existing) {
-    const created = await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        name: name?.trim() || normalizedEmail,
-        passwordHash: "google-oauth",
-        role: envAdmin ? "ADMIN" : "USER",
-        isActive: true,
-      },
-    });
+  const shouldUpdateName = existing
+    ? Boolean(name?.trim()) && existing.name !== name?.trim()
+    : false;
+  const shouldForceEnvAdmin = existing
+    ? envAdmin && (existing.role !== "ADMIN" || !existing.isActive)
+    : false;
 
-    await ativarConvitePendente(created.id, normalizedEmail);
-
-    return {
-      email: normalizedEmail,
-      isActive: created.isActive,
-      isAdmin: envAdmin || created.role === "ADMIN",
-      source: envAdmin ? "env" as const : "database" as const,
-    };
-  }
-
-  const shouldUpdateName = Boolean(name?.trim()) && existing.name !== name?.trim();
-  const shouldForceEnvAdmin = envAdmin && (existing.role !== "ADMIN" || !existing.isActive);
-  const user =
-    shouldUpdateName || shouldForceEnvAdmin
+  const user = !existing
+    ? await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          name: name?.trim() || normalizedEmail,
+          passwordHash: "google-oauth",
+          role: envAdmin ? "ADMIN" : "USER",
+          isActive: true,
+        },
+      })
+    : shouldUpdateName || shouldForceEnvAdmin
       ? await prisma.user.update({
           where: { id: existing.id },
           data: {
@@ -107,6 +100,24 @@ export async function getUserAccess(email: string | null | undefined, name?: str
         })
       : existing;
 
+  /*
+   * AS DUAS LIGAÇÕES VALEM PARA QUEM ACABOU DE NASCER TAMBÉM, e é por isso que
+   * elas ficam aqui embaixo, depois dos dois caminhos, em vez de dentro de cada
+   * um.
+   *
+   * Estavam separadas, e o ramo de conta nova devolvia antes de chamar
+   * `garantirEscritorioPadrao` — então o primeiro pedido de quem entra pela
+   * primeira vez achava a conta criada e NENHUM vínculo, e o portão recusava com
+   * "Você não faz parte de nenhum escritório.". O segundo pedido já passava,
+   * porque aí a conta existia e o automático rodava. Um 403 que some ao recarregar
+   * é pior que um 403 fixo: parece defeito de sorte, e nunca aparece em prova que
+   * carregue uma página antes de chamar a API — que era o caso da nossa.
+   *
+   * A ORDEM É PARTE DA REGRA: o convite primeiro. Quem foi convidado como ADMIN
+   * tem o vínculo virado para ACTIVE com o papel que a coordenação escolheu, e o
+   * automático logo abaixo vê que já há vínculo e não faz nada. Invertidas, o
+   * automático criaria um MEMBER e rebaixaria o convite.
+   */
   await ativarConvitePendente(user.id, normalizedEmail);
   await garantirEscritorioPadrao(user.id, normalizedEmail, name);
 
@@ -174,20 +185,44 @@ async function garantirEscritorioPadrao(
   email: string,
   name?: string | null,
 ) {
-  const organizationId = escritorioPadrao();
-
-  if (!organizationId) {
-    return;
-  }
-
   const prisma = getPrisma();
 
+  /*
+   * O VÍNCULO EXISTENTE É CONSULTADO PRIMEIRO, e a ordem tem uma razão: é o
+   * único jeito de as duas desistências abaixo saberem que estão desistindo de
+   * ALGUÉM. Sem isso elas seriam mudas por obrigação — avisar em toda visita de
+   * quem já é membro encheria o log de nada.
+   */
   const jaTemVinculo = await prisma.organizationMember.findFirst({
     where: { email },
     select: { id: true },
   });
 
   if (jaTemVinculo) {
+    return;
+  }
+
+  const organizationId = escritorioPadrao();
+
+  /*
+   * AS DUAS DESISTÊNCIAS FALAM, e é por isso que estas linhas existem.
+   *
+   * Aconteceu em produção: quem entrava levava "Você não faz parte de nenhum
+   * escritório." e o servidor não dizia uma palavra sobre o porquê — do lado de
+   * fora, o automático simplesmente não existia. Levou uma leitura do banco de
+   * produção para descobrir que o vínculo nunca tinha sido criado, e o código
+   * sozinho não distinguia "o freio está puxado" de "o código não subiu".
+   *
+   * `warn` e não `error`: nenhuma das duas é falha do programa. A primeira é uma
+   * decisão de quem configurou (o freio do `NEXODOC_ESCRITORIO_PADRAO`), a
+   * segunda é banco sem seed. As duas viram 403 logo em seguida, e a única coisa
+   * que faltava era o log dizer qual delas foi.
+   */
+  if (!organizationId) {
+    console.warn(
+      `[escritório] ${email} não tem vínculo e o escritório padrão está ` +
+        `desligado (NEXODOC_ESCRITORIO_PADRAO definida e vazia). Vai levar 403.`,
+    );
     return;
   }
 
@@ -203,6 +238,10 @@ async function garantirEscritorioPadrao(
   });
 
   if (!escritorio) {
+    console.warn(
+      `[escritório] ${email} não tem vínculo e o escritório padrão ` +
+        `"${organizationId}" não existe neste banco. Vai levar 403.`,
+    );
     return;
   }
 
