@@ -66,6 +66,7 @@ import { Ima } from "@/components/ambiente/ima";
 import { BarraDoTopo } from "@/components/layout/barra-do-topo";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import { cn } from "@/lib/utils";
+import { OndeVoceParou } from "./onde-voce-parou";
 import { DURATION } from "@/modules/nexo/lib/motion";
 
 /**
@@ -210,6 +211,25 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           partindo && "pointer-events-none",
         )}
       >
+        {/*
+          ONDE VOCÊ PAROU vem ANTES do convite do orbe, e a troca é o ponto
+          desta tela: a primeira pergunta de quem entra deixou de ser "qual
+          ferramenta" e passou a ser "onde eu estava" — está escrito no
+          comentário de `app/page.tsx` desde 14/08, e a tela não respondia.
+
+          O convite continua, embaixo: ele ensina o gesto (soltar o PDF, falar
+          com o orbe) e é o que a primeira visita precisa. Quem já tem trabalho
+          não precisa dele no lugar mais caro da página.
+        */}
+        {!primeiraVez && painel?.trabalho.ondeParou ? (
+          <div className="mt-8">
+            <OndeVoceParou
+              ondeParou={painel.trabalho.ondeParou}
+              projetos={painel.trabalho.projetos}
+            />
+          </div>
+        ) : null}
+
         <ConviteDoOrbe />
 
         {primeiraVez ? <PrimeirosPassos /> : null}

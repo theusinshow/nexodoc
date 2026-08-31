@@ -21,6 +21,12 @@
  * sai sozinho quando não houver mais.
  */
 import { getPrisma } from "@/lib/db";
+import {
+  ondeParou,
+  projetosRecentes,
+  type ConversaCrua,
+  type ProjetoRecente,
+} from "./trabalho-recente";
 
 /** Um achado em aberto, visto do projeto. */
 export type ItemDoPainel = {
@@ -64,10 +70,30 @@ export type RecenteDoPainel = {
 export type Painel = {
   projetos: ProjetoDoPainel[];
   recentes: RecenteDoPainel[];
+  /**
+   * O TRABALHO DO NEXO — volumes e auditorias, agrupados por pasta.
+   *
+   * Esta tela só enxergava `Audit` e projetos com achado pendente. Quem passou o
+   * dia montando VOLUME não via nada aqui, porque volume não é auditoria nem
+   * gera achado — metade do produto ficava invisível na primeira tela.
+   *
+   * Sai das SETE COLUNAS de fora da conversa; o `data` JSON não é aberto. Ver
+   * [[lib/trabalho-recente.ts]].
+   */
+  trabalho: {
+    ondeParou: ConversaCrua | null;
+    projetos: ProjetoRecente[];
+  };
 };
 
 const LIMITE_PROJETOS = 8;
 const LIMITE_RECENTES = 4;
+/**
+ * Quantos PROJETOS a home lista. Seis cabem sem rolagem na primeira dobra, e a
+ * pergunta que a seção responde ("onde eu estava") tem resposta curta: quem
+ * precisa do sétimo está procurando, e para procurar existe a barra lateral.
+ */
+const LIMITE_PROJETOS_RECENTES = 6;
 const LIMITE_ARTEFATOS = 3;
 
 /** Rótulo curto do artefato. O `kind` do banco é gritado e técnico demais. */
@@ -281,8 +307,44 @@ export async function painelDe(args: {
     });
   }
 
+  /*
+   * O TRABALHO DO NEXO, na mesma chamada.
+   *
+   * `select` das SETE colunas de fora: o `data` de cada conversa carrega os
+   * artefatos e pesa megabytes, e abri-lo para desenhar a primeira tela é
+   * exatamente o custo que a lista da barra lateral evita. `take` alto porque o
+   * agrupamento é por PASTA — cortar antes de agrupar esconderia um projeto
+   * inteiro atrás de conversas de outro.
+   */
+  const conversas = await prisma.nexoConversation.findMany({
+    where: { userEmail: args.email },
+    select: {
+      id: true,
+      title: true,
+      folderKey: true,
+      tipo: true,
+      updatedAt: true,
+      auditoriaPendente: true,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 300,
+  });
+
+  const cruas: ConversaCrua[] = conversas.map((c) => ({
+    id: c.id,
+    title: c.title,
+    folderKey: c.folderKey,
+    tipo: c.tipo,
+    updatedAt: c.updatedAt.getTime(),
+    auditoriaPendente: c.auditoriaPendente,
+  }));
+
   return {
     projetos,
+    trabalho: {
+      ondeParou: ondeParou(cruas),
+      projetos: projetosRecentes(cruas, { limite: LIMITE_PROJETOS_RECENTES }),
+    },
     recentes: auditorias.slice(0, LIMITE_RECENTES).map((a) => ({
       auditId: a.id,
       nome: a.project?.code ? `${a.project.code} · ${a.title}` : a.title,

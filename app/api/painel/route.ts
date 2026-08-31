@@ -24,7 +24,11 @@ export async function GET() {
      * não ter como preencher. O orbe continua funcionando, que é o que importa.
      */
     if (!isDatabaseConfigured()) {
-      return NextResponse.json({ projetos: [], recentes: [] });
+      return NextResponse.json({
+        projetos: [],
+        recentes: [],
+        trabalho: { ondeParou: null, projetos: [] },
+      });
     }
 
     return NextResponse.json(

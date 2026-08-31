@@ -33,7 +33,11 @@ import {
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import { partidaPorId } from "../lib/partidas";
-import { deveRestaurar, ultimaConversaLembrada } from "../lib/ultima-conversa";
+import {
+  conversaPedidaNaUrl,
+  deveRestaurar,
+  ultimaConversaLembrada,
+} from "../lib/ultima-conversa";
 import { FaviconVivo } from "@/components/brand/favicon-vivo";
 import { PaletaDeComandos } from "./PaletaDeComandos";
 import {
@@ -1356,8 +1360,13 @@ function NexoWorkspaceInner({
   useEffect(() => {
     if (restaurouUltima.current || typeof window === "undefined") return;
     restaurouUltima.current = true;
-    if (!deveRestaurar(window.location.search)) return;
-    const id = ultimaConversaLembrada();
+    /*
+     * O PEDIDO EXPLÍCITO VENCE A MEMÓRIA. `/nexo?conversa=<id>` é como a home
+     * manda alguém de volta ao trabalho: quem clicou disse onde quer ir, e
+     * abrir "onde eu parei" por cima jogaria fora o clique.
+     */
+    const pedida = conversaPedidaNaUrl(window.location.search);
+    const id = pedida ?? (deveRestaurar(window.location.search) ? ultimaConversaLembrada() : null);
     if (!id) return;
     /*
      * DEPOIS DO PRIMEIRO QUADRO, como o efeito da `?intencao=` logo acima e

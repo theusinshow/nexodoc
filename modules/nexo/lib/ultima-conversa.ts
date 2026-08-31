@@ -59,6 +59,18 @@ export function esquecerUltimaConversa(): void {
 }
 
 /**
+ * A conversa que a URL PEDE — `/nexo?conversa=<id>`, ou `null`.
+ *
+ * É como a home manda alguém de volta ao trabalho: ela lista os projetos e cada
+ * linha aponta para a conversa mais recente da pasta. Um pedido explícito vence
+ * a memória de onde se parou, porque quem clicou disse onde quer ir.
+ */
+export function conversaPedidaNaUrl(query: string): string | null {
+  const pedida = new URLSearchParams(query).get("conversa")?.trim();
+  return pedida ? pedida : null;
+}
+
+/**
  * A restauração deve acontecer nesta abertura?
  *
  * NÃO quando a URL já manda em qual conversa abrir. Quem chega por
