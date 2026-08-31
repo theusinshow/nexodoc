@@ -1805,6 +1805,34 @@ export function AuditResult({
    * não tem desfazer, e um clique de mira errada no cabeçalho de um parecer não
    * pode alcançar a caixa de entrada de doze pessoas.
    */
+/**
+ * QUEM FALHOU, E POR QUÊ — o motivo junto do endereço.
+ *
+ * A frase dizia só os e-mails: "Não foi possível avisar ninguém.
+ * fulano@prosul.com". O servidor manda o motivo em `falharam[].erro` desde
+ * sempre, e a tela o jogava fora — então a única forma de descobrir por que o
+ * envio falhou era abrir o painel de rede do navegador.
+ *
+ * Custou uma investigação inteira: em produção o erro era `Invalid \`from\`
+ * field`, um remetente malformado, e a tela não tinha como dizer isso. Motivo
+ * escondido transforma um ajuste de variável de ambiente numa caça.
+ *
+ * AGRUPA POR MOTIVO. Cinco pessoas que falharam pela mesma razão são uma frase,
+ * não cinco — repetir o mesmo texto cinco vezes esconde o que ele diz.
+ */
+function porQue(falharam: readonly { email: string; erro?: string }[]): string {
+  const porMotivo = new Map<string, string[]>();
+  for (const f of falharam) {
+    const motivo = f.erro?.trim() || "motivo não informado";
+    const lista = porMotivo.get(motivo);
+    if (lista) lista.push(f.email);
+    else porMotivo.set(motivo, [f.email]);
+  }
+  return [...porMotivo.entries()]
+    .map(([motivo, emails]) => `${emails.join(", ")} (${motivo})`)
+    .join("; ");
+}
+
   async function avisarOsEnvolvidos() {
     if (!auditId || pendentesDeAviso.length === 0) return;
 
@@ -1850,14 +1878,12 @@ export function AuditResult({
           `Modo de desenvolvimento: ${plural(avisados.length, "aviso gravado", "avisos gravados")} em scratchpad/qa/correio.jsonl. Nenhum e-mail saiu.`,
         );
       } else if (avisados.length === 0) {
-        setAvisoNotice(
-          `Não foi possível avisar ninguém. ${falharam.map((f) => f.email).join(", ")}`,
-        );
+        setAvisoNotice(`Não foi possível avisar ninguém. ${porQue(falharam)}`);
       } else {
         const base = `${plural(avisados.length, "pessoa avisada", "pessoas avisadas")} por e-mail.`;
         setAvisoNotice(
           falharam.length > 0
-            ? `${base} ${plural(falharam.length, "não chegou", "não chegaram")}: ${falharam.map((f) => f.email).join(", ")} — o botão continua ali para tentar de novo.`
+            ? `${base} ${plural(falharam.length, "não chegou", "não chegaram")}: ${porQue(falharam)} — o botão continua ali para tentar de novo.`
             : base,
         );
       }
