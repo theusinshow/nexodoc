@@ -30,8 +30,29 @@ function primeiroQueExiste(base) {
   return null;
 }
 
+/**
+ * DEPENDÊNCIA INSTALADA NÃO SE MEXE.
+ *
+ * O hook existe para o código DESTE repositório, que importa sem extensão. Um
+ * pacote em `node_modules` já resolve sozinho, e pelas suas próprias regras —
+ * `exports`, `main`, `require` de CommonJS.
+ *
+ * Sem esta guarda, o `require("./client")` interno do `pg` era capturado aqui e
+ * devolvido ao carregador de CommonJS como URL `file://`, que ele não aceita:
+ * "Cannot find module 'file:///.../pg/lib/client.js'". O efeito era qualquer
+ * teste que tocasse o BANCO morrer na importação, com um erro que aponta para
+ * dentro de uma dependência e não diz nada sobre a causa.
+ */
+function ehDependencia(caminho) {
+  return caminho.includes("node_modules");
+}
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL && ehDependencia(context.parentURL)) {
+      return nextResolve(specifier, context);
+    }
+
     let alvo = null;
     if (specifier.startsWith("@/")) {
       alvo = primeiroQueExiste(`${RAIZ}/${specifier.slice(2)}`);
