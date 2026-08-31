@@ -39,6 +39,22 @@ export interface NormalizeContext {
    * `slot-request` ja chama -- uma fonte, dois consumidores.
    */
   dataDoSelo?: { mes: number; ano: number };
+  /**
+   * A PREFEITURA QUE O CARIMBO JÁ RESOLVEU — id do template, ou vazio.
+   *
+   * Chega pronta da rota, que é quem tem os selos (`casarPrefeituraDoCarimbo`).
+   * O casamento existia, era testado e medido, e não era CONSUMIDO por ninguém:
+   * a prefeitura saía só do que o modelo emitia, e o modelo só a emite quando
+   * alguém a digitou no chat. Resultado: a pasta do projeto nascia
+   * `084-25-CRICIUMA` pelo campo CLIENTE do mesmo carimbo, e a capa continuava
+   * perguntando de que cidade era o volume.
+   *
+   * Degrau ABAIXO da proposta do modelo, que é onde mora a decisão digitada.
+   * Vazio continua virando pergunta: quem resolve com evidência dividida é
+   * `casarPrefeituraDoCarimbo`, e ele devolve `null` quando texto e brasão
+   * discordam.
+   */
+  prefeituraDoSelo?: string;
 }
 
 /** minúsculas + sem acento + espaço colapsado. */
@@ -368,7 +384,14 @@ function prefeituraDoTurno(raw: readonly unknown[], ctx: NormalizeContext): stri
     const id = match?.id ?? String(p.templateId ?? "").trim();
     if (id) return id;
   }
-  return "";
+  /*
+   * O CARIMBO É O ÚLTIMO DEGRAU ANTES DO VAZIO — nunca antes do que foi dito.
+   *
+   * Fica aqui embaixo, depois do laço, e não dentro dele: se subisse, um volume
+   * cujo engenheiro escreveu a prefeitura no chat passaria a ser decidido pela
+   * folha reaproveitada de outro projeto.
+   */
+  return ctx.prefeituraDoSelo?.trim() ?? "";
 }
 
 export function normalizeProposals(

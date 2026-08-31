@@ -217,6 +217,60 @@ test("normalizeProposals: sem prefeitura reconhecida NÃO inventa a primeira", (
   );
 });
 
+/*
+ * A PREFEITURA DO CARIMBO CHEGANDO AO PLANO.
+ *
+ * `casarPrefeituraDoCarimbo` era resolvido, testado e medido — e ninguém o
+ * consumia. A prefeitura saía só do que o modelo emitia, e o modelo só a emite
+ * quando alguém a digitou no chat: a pasta do projeto nascia `084-25-CRICIUMA`
+ * pelo mesmo carimbo, e a capa continuava perguntando de que cidade era.
+ */
+test("normalizeProposals: sem prefeitura dita, o CARIMBO responde", () => {
+  const r = normalizeProposals([{ kind: "capa", tituloCapa: "PROJETO ESTRUTURAL" }], {
+    disciplina: "Estrutural",
+    prefeituras: PREFS,
+    prefeituraDoSelo: "prefcri",
+  });
+  assert.equal((r[0].params as { templateId: string }).templateId, "prefcri");
+});
+
+test("normalizeProposals: o que foi DITO vence o carimbo", () => {
+  /*
+   * A folha reaproveitada de outro projeto no meio do conjunto não pode
+   * derrubar a prefeitura que o engenheiro escreveu.
+   */
+  const r = normalizeProposals(
+    [{ kind: "capa", prefeitura: "Chapecó", tituloCapa: "PROJETO ESTRUTURAL" }],
+    { disciplina: "Estrutural", prefeituras: PREFS, prefeituraDoSelo: "prefcri" },
+  );
+  assert.equal((r[0].params as { templateId: string }).templateId, "prefchap");
+});
+
+test("normalizeProposals: carimbo indeciso continua virando PERGUNTA", () => {
+  const r = normalizeProposals([{ kind: "capa", tituloCapa: "PROJETO ESTRUTURAL" }], {
+    disciplina: "Estrutural",
+    prefeituras: PREFS,
+    prefeituraDoSelo: "",
+  });
+  assert.equal(
+    (r[0].params as { templateId: string }).templateId,
+    "",
+    "sem evidência resolvida, a prefeitura tem de ficar vazia",
+  );
+});
+
+test("normalizeProposals: a separatriz recebe a MESMA prefeitura do carimbo", () => {
+  const r = normalizeProposals(
+    [
+      { kind: "capa", tituloCapa: "PROJETO ESTRUTURAL" },
+      { kind: "separatriz", titulos: ["ESTRUTURAL"] },
+    ],
+    { disciplina: "Estrutural", prefeituras: PREFS, prefeituraDoSelo: "prefcri" },
+  );
+  const ids = r.map((p) => (p.params as { templateId?: string }).templateId);
+  assert.deepEqual(ids, ["prefcri", "prefcri"], "capa e separatriz não podem divergir");
+});
+
 test("normalizeProposals: ld com defaults (titulo vazio, tomos 1)", () => {
   const r = normalizeProposals([{ kind: "ld" }], {
     disciplina: "EST",

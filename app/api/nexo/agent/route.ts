@@ -17,6 +17,7 @@ import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos
 import { carregarEscritorio } from "@/lib/escritorio-config";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 import { dataDominante } from "@/server/nexo/data-do-selo";
+import { casarPrefeituraDoCarimbo } from "@/server/nexo/agent/normalize";
 
 export const runtime = "nodejs";
 
@@ -216,6 +217,21 @@ export async function POST(req: NextRequest) {
      */
     dataDoSelo: dataDominante(selos.map((s) => s.data)) ?? undefined,
     /*
+     * A PREFEITURA PELO CARIMBO — o degrau que faltava entre o modelo e o vazio.
+     *
+     * `casarPrefeituraDoCarimbo` já sabia ler o campo CLIENTE e o brasão e
+     * casá-los com os templates configurados; só não havia quem o chamasse. A
+     * prefeitura vinha, então, só do que alguém tivesse digitado no chat — e a
+     * mesma leitura que já nomeava a PASTA do projeto (`084-25-CRICIUMA`) não
+     * chegava à capa, que continuava perguntando de que cidade era o volume.
+     *
+     * Aqui, e não dentro do `normalize`: os selos vivem na rota, e os módulos do
+     * agente são folhas puras. É o mesmo caminho que a `dataDominante` faz na
+     * linha acima — uma fonte, um consumidor a mais.
+     */
+    prefeituraDoSelo:
+      casarPrefeituraDoCarimbo(selos, prefeituras, escritorio)?.resolvedId ?? undefined,
+    /*
      * O que o engenheiro já decidiu no frame do documento. Sem isto o
      * resolvedor pede de novo, no chat, o título que ele acabou de digitar no
      * card — que é o oposto do que o frame existe para fazer.
@@ -247,6 +263,7 @@ export async function POST(req: NextRequest) {
               tomosSugeridos: slotContext.tomosSugeridos,
               // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
               dataDoSelo: slotContext.dataDoSelo,
+              prefeituraDoSelo: slotContext.prefeituraDoSelo,
             },
             req.signal,
           )) {
@@ -301,6 +318,7 @@ export async function POST(req: NextRequest) {
       tomosSugeridos: slotContext.tomosSugeridos,
       // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
       dataDoSelo: slotContext.dataDoSelo,
+      prefeituraDoSelo: slotContext.prefeituraDoSelo,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });
