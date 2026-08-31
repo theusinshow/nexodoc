@@ -161,6 +161,7 @@
     "test:nexo:limpeza": "node scripts/test-nexo-limpeza.ts",
     "prova:limpeza": "node scripts/prova-limpeza-da-pasta.mjs",
     "test:trabalho-recente": "node scripts/test-trabalho-recente.ts",
+    "test:nexo:cartoes": "node scripts/test-nexo-cartoes.ts",
     "test:url-migracao": "node scripts/test-url-de-migracao.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts",
     "db:backup:json": "node scripts/backup-json.mjs",

@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { ListaDeProjetos } from "./ListaDeProjetos";
 import { LimpezaDaPasta } from "./LimpezaDaPasta";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
@@ -53,7 +54,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { ConversationSummary, TipoDeTrabalho } from "../lib/nexo-db";
 import { avisoDeGravacao } from "../lib/aviso-de-gravacao";
 import type { EstadoDaSincronizacao } from "../lib/nexo-sync";
-import { contarPorTipo, groupConversations } from "../lib/group-conversations";
 import { tipoDoResumo } from "../lib/tipo-de-trabalho";
 import { MarcaViva } from "@/components/brand/marca-viva";
 
@@ -68,28 +68,6 @@ function shortDate(ts: number): string {
   return sameDay
     ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
-/** Os três estados do filtro. "tudo" mostra as duas seções. */
-type Filtro = "tudo" | TipoDeTrabalho;
-
-const FILTROS: readonly Filtro[] = ["tudo", "volume", "auditoria"] as const;
-
-const ROTULO_DO_FILTRO: Record<Filtro, string> = {
-  tudo: "Tudo",
-  volume: "Volumes",
-  auditoria: "Auditorias",
-};
-
-/**
- * O filtro PERSISTE. Quem só audita não reescolhe o recorte toda manhã, e
- * "tudo" a cada carregamento apaga uma decisão que a pessoa já tomou. Mesmo
- * armazenamento local do resto da barra (ver `nexo:copilot-w`).
- */
-const CHAVE_FILTRO = "nexo:sidebar-filtro";
-
-function ehFiltro(v: unknown): v is Filtro {
-  return v === "tudo" || v === "volume" || v === "auditoria";
 }
 
 /** As duas seções, na ordem em que aparecem. */
@@ -189,75 +167,11 @@ export function NexoSidebar({
    * clica no errado.
    */
   const [limpando, setLimpando] = useState<string | null>(null);
+  const empty = conversations.length === 0;
   const [confirmando, setConfirmando] = useState<{
     tipo: "conversa" | "pasta";
     id: string;
   } | null>(null);
-  const [filtro, setFiltro] = useState<Filtro>("tudo");
-  /*
-   * Lê a preferência DEPOIS de montar: no servidor não existe `localStorage`, e
-   * ler no primeiro render faria o HTML do servidor divergir do cliente
-   * (hidratação). Mesmo padrão do ShellSplitter.
-   */
-  useEffect(() => {
-    let salvo: string | null = null;
-    try {
-      salvo = window.localStorage.getItem(CHAVE_FILTRO);
-    } catch {
-      // Armazenamento bloqueado (modo privado, política de site). O filtro
-      // funciona igual, só não sobrevive ao recarregar — nada a dizer na tela.
-    }
-    if (!ehFiltro(salvo)) return;
-    // Um quadro depois, como o ShellSplitter faz com a largura do copiloto:
-    // `setState` síncrono dentro do efeito cascateia render (React Compiler).
-    const raf = requestAnimationFrame(() => setFiltro(salvo));
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const escolherFiltro = useCallback((f: Filtro) => {
-    setFiltro(f);
-    try {
-      window.localStorage.setItem(CHAVE_FILTRO, f);
-    } catch {
-      // Ver acima.
-    }
-  }, []);
-
-  /** Contagem por tipo: a lista INTEIRA, sem busca e sem filtro. */
-  const contagem = useMemo(() => contarPorTipo(conversations), [conversations]);
-
-  /** As pastas de cada seção, já recortadas por tipo e pela busca. */
-  /** As pastas do histórico. A pasta é o PROJETO; o filtro recorta por dentro. */
-  const grupos = useMemo(
-    () => groupConversations(conversations, query, filtro === "tudo" ? undefined : filtro),
-    [conversations, query, filtro],
-  );
-
-  const empty = conversations.length === 0;
-  const noMatch = !empty && query.trim() !== "" && grupos.length === 0;
-
-  /*
-   * SETAS ←/→ NAVEGAM O FILTRO.
-   *
-   * `role="tablist"` promete isso a quem usa teclado, e prometer sem cumprir é
-   * pior que não ter papel nenhum. Move o foco E a seleção juntos, que é o
-   * comportamento de tablist de seleção automática.
-   */
-  const trilhoRef = useRef<HTMLDivElement>(null);
-  const navegarPorTeclado = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const passo = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if (passo === 0) return;
-      e.preventDefault();
-      const i = FILTROS.indexOf(filtro);
-      const proximo = FILTROS[(i + passo + FILTROS.length) % FILTROS.length];
-      escolherFiltro(proximo);
-      trilhoRef.current
-        ?.querySelector<HTMLButtonElement>(`[data-filtro="${proximo}"]`)
-        ?.focus();
-    },
-    [filtro, escolherFiltro],
-  );
 
   return (
     <aside
@@ -330,7 +244,7 @@ export function NexoSidebar({
         className="w-full justify-start gap-2.5 px-3.5 text-[12.5px]"
       >
         <Plus className="shrink-0" strokeWidth={1.9} aria-hidden />
-        Nova conversa
+        Novo projeto
       </Button>
 
       {/* Busca */}
@@ -370,533 +284,49 @@ export function NexoSidebar({
         contador que zera junto com a seção que ele descreve não informa nada; o
         que informa é "existe trabalho do outro lado".
       */}
-      {!empty && (
-        <div
-          ref={trilhoRef}
-          role="tablist"
-          aria-label="Filtrar histórico por tipo de trabalho"
-          onKeyDown={navegarPorTeclado}
-          className="nx-cut-7 grid grid-cols-3 gap-0.5 border-0 bg-[var(--nexodoc-recessed)] p-[3px]"
-        >
-          {FILTROS.map((f) => {
-            const ativo = filtro === f;
-            const n =
-              f === "tudo"
-                ? contagem.tudo
-                : f === "volume"
-                  ? contagem.volume
-                  : contagem.auditoria;
-            return (
-              <button
-                key={f}
-                type="button"
-                role="tab"
-                data-filtro={f}
-                aria-selected={ativo}
-                aria-controls="nexo-historico"
-                /* Só o ativo entra na ordem de tabulação; as setas alcançam os
-                   outros. É o padrão de tablist, e evita três paradas de Tab
-                   numa fileira que decide uma coisa só. */
-                tabIndex={ativo ? 0 : -1}
-                onClick={() => escolherFiltro(f)}
-                className={cn(
-                  "nx-edge-6 flex h-[30px] items-center justify-center gap-1.5 font-mono text-[11.5px] font-semibold uppercase tracking-[0.04em] transition-colors duration-[var(--duration-fast)] focus-visible:outline-none [--nx-edge:transparent]",
-                  ativo
-                    ? "text-[var(--primary)] [--nx-fill:var(--accent)]"
-                    : "text-muted-foreground [--nx-fill:transparent] hover:text-foreground hover:[--nx-fill:var(--accent)] focus-visible:[--nx-fill:var(--accent)]",
-                )}
-              >
-                {ROTULO_DO_FILTRO[f]}
-                <span
-                  className={cn(
-                    "text-[11.5px] tabular-nums",
-                    ativo
-                      ? "text-[var(--nexodoc-accent)]"
-                      : "text-muted-foreground/70",
-                  )}
-                >
-                  {n}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/*
+        A LISTA DE PROJETOS.
 
-      {/* Histórico: duas seções, e dentro de cada uma as pastas por obra */}
+        Saíram daqui as três abas (Tudo / Volumes / Auditorias) e a lista de
+        conversas. As abas porque a terceira NÃO CABIA em 300px — aparecia
+        cortada na tela — e porque filtrar por TIPO responde uma pergunta que
+        ninguém faz: quem procura, procura a obra. A lista de conversas porque
+        quatro linhas "MET" na mesma pasta não distinguiam nada, e a única
+        diferença visível era o horário.
+
+        Desenho: `Nexo - Barra lateral direções.dc.html` e
+        `Nexo - Especificação barra lateral.dc.html`.
+      */}
       <div
         id="nexo-historico"
-        role="tabpanel"
         className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto"
       >
-        {empty && (
+        {empty ? (
           /*
            * ESTADO VAZIO conforme a DESIGN.md §7: um Mono Label nomeando a
-           * região e uma linha dizendo o que vai aparecer ali. Sem ação —
-           * aqui não há nada a fazer, e ação inventada num vazio é confissão
-           * de que a tela não sabe o que quer.
-           *
-           * Sem conversa nenhuma, some TUDO entre a busca e o rodapé: sem
-           * filtro, sem seções. Filtrar o nada e recolher o vazio são gestos
-           * que não servem a ninguém.
+           * região e uma linha dizendo o que vai aparecer ali. Sem ação — aqui
+           * não há nada a fazer, e ação inventada num vazio é confissão de que
+           * a tela não sabe o que quer.
            */
-          /* Raio de 4px, nao chanfro: tracejado nao sobrevive ao recorte (a
-             borda sumiria nas duas diagonais). Mesmo tratamento que a spec da
-             aos campos tracejados do carimbo. */
-          <div className="space-y-1.5 rounded-[4px] border border-dashed border-border/60 px-3 py-3">
-            <p className="font-mono text-[11.5px] uppercase tracking-[0.07em] text-muted-foreground">
-              Histórico
+          <div className="rounded-[4px] border border-dashed border-border/60 px-3 py-3">
+            <p className="m-0 font-mono text-[11.5px] uppercase tracking-[0.07em] text-muted-foreground">
+              Projetos
             </p>
-            <p className="text-xs leading-5 text-muted-foreground">
-              Suas conversas e volumes ficam salvos aqui.
+            <p className="m-0 mt-1.5 text-xs leading-5 text-muted-foreground">
+              Cada obra vira um cartão aqui, com o que ela já produziu. O projeto
+              nasce do carimbo: solte as pranchas na conversa.
             </p>
           </div>
+        ) : (
+          <ListaDeProjetos
+            conversations={conversations}
+            query={query}
+            {...(activeId ? { activeId } : {})}
+            {...(onSelect ? { onSelect } : {})}
+            {...(onDeleteFolder ? { onDeleteFolder } : {})}
+            {...(onDuplicate ? { onDuplicate } : {})}
+          />
         )}
-        {noMatch && (
-          /* Diz ONDE buscou, e SOB QUAL RECORTE. Só "nada encontrado" faz o
-             engenheiro duvidar se digitou errado, quando o problema pode ser o
-             filtro ativo escondendo justamente a seção que tem o resultado. */
-          <p className="px-2 py-3 text-center text-[11.5px] leading-5 text-muted-foreground">
-            {filtro === "tudo"
-              ? `Nenhuma conversa com “${query}”.`
-              : `Nenhuma ${filtro === "volume" ? "montagem" : "auditoria"} com “${query}”.`}
-            <br />A busca cobre o título da obra e o código do projeto.
-          </p>
-        )}
-        {/*
-          UM NÍVEL SÓ: as PASTAS. Aqui havia um laço externo por SEÇÃO
-          (montagem / auditoria) com as pastas dentro de cada uma, e o efeito
-          era o projeto aparecendo em DOIS lugares — o volume numa seção, a
-          auditoria do memorial dele na outra. Quem trabalha pensa "o 084-25",
-          não "a parte de montagem do 084-25".
-
-          O tipo de trabalho não morreu: virou ETIQUETA. O filtro de três
-          estados agora esconde ITENS, e a pasta que fica sem item visível some
-          — pasta vazia na tela é ruído. Ver [[group-conversations.ts]].
-        */}
-        {!empty &&
-          !noMatch &&
-                  grupos.map((g) => {
-                    /*
-                     * A CHAVE DA PASTA É A PASTA. Ela levava o tipo junto
-                     * (`volume:084-25`) porque o mesmo projeto existia duas
-                     * vezes, uma em cada seção. Agora existe uma vez só, e o
-                     * prefixo faria a confirmação de apagar não casar com nada.
-                     */
-                    const idDaPasta = g.key ?? "__none__";
-                    const confirmandoPasta =
-                      confirmando?.tipo === "pasta" && confirmando.id === idDaPasta;
-                    return (
-                    <details key={g.key ?? "__none__"} open className="group/f">
-                      {/*
-                        A pasta é o CÓDIGO DA OBRA, e é por ele que se procura.
-                        Sai em Mono Label maiúsculo — o degrau que a §3 reserva
-                        para rótulo de região —, e o ícone de pasta saiu: o
-                        chevron e o recuo já dizem que é um grupo, e dois glifos
-                        para o mesmo trabalho é ruído numa coluna estreita.
-                      */}
-                      {/* `.nx-edge-5` com tokens transparentes: sem forma em
-                          repouso, mas com o anel de foco POR DENTRO de graca.
-                          `.nx-cut-*` sozinho desligaria o ring global sem por
-                          nada no lugar, e um focalizavel sem foco visivel e
-                          regressao de acessibilidade. */}
-                      <summary
-                        /*
-                         * `group/s` é do SUMMARY, não do `<details>`: com
-                         * `group-hover/f` os botões da pasta apareciam ao passar
-                         * o ponteiro por qualquer conversa lá de dentro.
-                         *
-                         * Confirmando, o clique não pode dobrar a pasta — a
-                         * pergunta mora aqui dentro, e recolher o grupo a
-                         * levaria embora no meio da decisão.
-                         */
-                        onClick={(e) => {
-                          if (confirmandoPasta) e.preventDefault();
-                        }}
-                        className="nx-edge-5 group/s relative flex cursor-pointer list-none items-center gap-1.5 px-2 py-2 pl-3 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)] [&::-webkit-details-marker]:hidden"
-                      >
-                        <ChevronRight
-                          className={cn(
-                            "h-3 w-3 shrink-0 transition-transform duration-[var(--duration-fast)] group-open/f:rotate-90",
-                            confirmandoPasta && "invisible",
-                          )}
-                          strokeWidth={1.5}
-                          aria-hidden
-                        />
-                        {confirmandoPasta && onDeleteFolder ? (
-                          /*
-                           * A pergunta ocupa a linha da pasta, como a da
-                           * conversa ocupa a dela. Dentro do `<summary>` e não
-                           * abaixo dele porque o `<details>` pode estar
-                           * fechado — e uma confirmação escondida dentro de um
-                           * grupo recolhido seria um botão de apagar sem
-                           * pergunta.
-                           *
-                           * A CONTAGEM ESTÁ NA FRASE. É a diferença entre esta
-                           * pergunta e a de uma conversa só, e é o único dado
-                           * que dimensiona o estrago.
-                           */
-                          <span className="nx-cut-6 flex-1 space-y-1.5 border-0 bg-[var(--status-critical-bg)] px-2 py-1.5">
-                            <span className="block text-[11.5px] normal-case leading-4 text-muted-foreground">
-                              Apagar {g.key ?? "as conversas sem pasta"}
-                              {g.key ? ` e as ${g.items.length} conversas dentro dela` : ` (${g.items.length})`},
-                              com os documentos gerados.
-                            </span>
-                            <span className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setConfirmando(null);
-                                }}
-                                className="nx-edge-5 px-1.5 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  onDeleteFolder(g.items.map((c) => c.id));
-                                  setConfirmando(null);
-                                }}
-                                /*
-                                       * O MIOLO PRECISA SER OPACO.
-                                       *
-                                       * `--status-critical-bg` é translúcido, e
-                                       * o `::before` do `.nx-edge-*` compõe
-                                       * sobre o fundo do próprio elemento — que
-                                       * é a BORDA, salmão cheio. O resultado era
-                                       * um bloco salmão com o texto salmão por
-                                       * cima: o botão mais perigoso da coluna
-                                       * sem rótulo legível. A mistura devolve a
-                                       * mesma cor pretendida, só que opaca.
-                                       */
-                                      className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:color-mix(in_oklab,var(--status-critical)_16%,var(--card))]"
-                              >
-                                Apagar
-                              </button>
-                            </span>
-                          </span>
-                        ) : (
-                          <>
-                            <span className="flex-1 truncate font-mono text-[11.5px] font-medium uppercase tracking-[0.05em]">
-                              {g.key ?? "Sem pasta"}
-                            </span>
-                            {/*
-                              A contagem SAI enquanto os botões entram. Não há
-                              largura para os dois numa coluna de 300px, e
-                              reservar espaço fixo para ações que quase nunca
-                              aparecem encolheria o nome da obra o tempo todo.
-                            */}
-                            <span
-                              className={cn(
-                                "font-mono text-[11.5px] tabular-nums text-muted-foreground/70 transition-opacity duration-[var(--duration-fast)]",
-                                (onDeleteFolder || onDuplicate) &&
-                                  "group-hover/s:opacity-0 group-focus-within/s:opacity-0",
-                              )}
-                            >
-                              {g.items.length}
-                            </span>
-                            {(onDuplicate || onDeleteFolder) && (
-                              <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover/s:opacity-100 group-focus-within/s:opacity-100">
-                                {onDuplicate && g.items.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      // A mais RECENTE do grupo: é dela que se
-                                      // continua o trabalho da obra.
-                                      onDuplicate(g.items[0].id);
-                                    }}
-                                    aria-label={`Nova conversa a partir da mais recente de ${g.key ?? "sem pasta"}`}
-                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground focus-visible:[--nx-fill:var(--accent)]"
-                                  >
-                                    <CopyPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                  </button>
-                                )}
-                                {onDeleteFolder && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setLimpando((atual) =>
-                                        atual === idDaPasta ? null : idDaPasta,
-                                      );
-                                      setConfirmando(null);
-                                    }}
-                                    aria-label={`Procurar o que dá para apagar em ${g.key ?? "Sem pasta"}`}
-                                    title="Limpar a pasta"
-                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground focus-visible:[--nx-fill:var(--accent)]"
-                                  >
-                                    <Eraser className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                  </button>
-                                )}
-                                {onDeleteFolder && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setConfirmando({ tipo: "pasta", id: idDaPasta });
-                                      setLimpando(null);
-                                    }}
-                                    aria-label={`Apagar a pasta ${g.key ?? "Sem pasta"} inteira`}
-                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-[var(--status-critical)] focus-visible:[--nx-fill:var(--accent)]"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                  </button>
-                                )}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </summary>
-                      {/*
-                        A LIMPEZA GUIADA da pasta. Fica DENTRO do `<details>`,
-                        abaixo do cabeçalho: é sobre estas conversas, e um painel
-                        flutuante perderia essa amarração — além de ser cortado
-                        pelo `clip-path` do chanfro.
-                      */}
-                      {limpando === idDaPasta && onDeleteFolder && (
-                        <div className="pl-3 pr-1">
-                          <LimpezaDaPasta
-                            /* Uma montagem por pasta: o painel lê a pasta UMA
-                               vez, na montagem. */
-                            key={g.key ?? "sem-pasta"}
-                            pasta={g.key}
-                            {...(activeId ? { idAberta: activeId } : {})}
-                            onFechar={() => setLimpando(null)}
-                            onApagar={(ids) => {
-                              onDeleteFolder(ids);
-                              setLimpando(null);
-                            }}
-                          />
-                        </div>
-                      )}
-                      <ul className="flex flex-col gap-px py-0.5 pl-3">
-                        {g.items.map((c) => {
-                          const active = c.id === activeId;
-                          return (
-                            <li key={c.id} className="group/c relative">
-                              <button
-                                type="button"
-                                onClick={() => onSelect?.(c.id)}
-                                aria-current={active ? "true" : undefined}
-                                className={cn(
-                                  /*
-                                   * Uma linha, não duas. O título e a data
-                                   * disputavam altura numa coluna estreita, e a
-                                   * data ficava abaixo do piso de legibilidade.
-                                   *
-                                   * Lado a lado, a lista mostra quase o dobro
-                                   * de conversas, que é o trabalho dela: achar
-                                   * a de ontem.
-                                   */
-                                  /* Item de lista: corte 5. SO O ATIVO tem
-                                     fundo -- o inativo fica transparente e
-                                     ganha fundo no hover. */
-                                  "nx-edge-5 flex min-h-[34px] w-full items-center gap-2.5 py-2 pl-2.5 pr-9 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-feedback)] focus-visible:outline-none [--nx-edge:transparent]",
-                                  /*
-                                     ONDE VOCÊ ESTÁ ≠ ONDE O PONTEIRO PASSOU.
-                                     O ativo e o hover usavam o MESMO
-                                     `--nx-fill`, então a conversa aberta era
-                                     indistinguível de qualquer linha sob o
-                                     mouse — e, sem o ponteiro em cima, de
-                                     nenhuma. O ativo ganha o CONTORNO, que na
-                                     linguagem do chanfro é outra camada e não
-                                     outro tom: some a ambiguidade sem inventar
-                                     cor nova nem mexer na altura da linha. */
-                                  active
-                                    ? "font-medium text-foreground [--nx-edge:var(--primary)] [--nx-fill:var(--accent)]"
-                                    : "text-muted-foreground [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground hover:[--nx-fill:var(--accent)]",
-                                )}
-                              >
-                                {/*
-                                  MARCA DO TIPO — e ela ganhou peso.
-                                  Enquanto a seção separava os dois trabalhos, a
-                                  marca era lembrete periférico: a lista inteira
-                                  já era de um tipo só. Agora a pasta MISTURA o
-                                  volume e a auditoria do mesmo projeto, e esta
-                                  fita é o que diz qual é qual.
-                                  Por isso ela vem do TIPO DA CONVERSA, não mais
-                                  da seção que a continha — que deixou de
-                                  existir. Some no item ativo, onde disputaria
-                                  com o texto: `invisible` e não removida, para
-                                  a linha não pular ao selecionar.
-                                */}
-                                <span
-                                  aria-hidden
-                                  title={
-                                    tipoDoResumo(c) === "auditoria"
-                                      ? "Auditoria de memorial"
-                                      : "Montagem de volume"
-                                  }
-                                  style={{
-                                    background:
-                                      tipoDoResumo(c) === "auditoria"
-                                        ? "var(--nexo-marca-auditoria)"
-                                        : "var(--nexo-marca-volume)",
-                                  }}
-                                  className={cn(
-                                    "h-[15px] w-0.5 shrink-0",
-                                    active && "invisible",
-                                  )}
-                                />
-                                <span className="min-w-0 flex-1 truncate text-[13.5px]">
-                                  {c.title}
-                                </span>
-                                {/*
-                                  Veio de outra máquina. A conversa abre
-                                  inteira, mas os ODT/PDF/ZIP gerados não vieram
-                                  junto — eles moram no navegador que os gerou.
-                                  Cinza, não teal: é estado, e teal aqui
-                                  significaria que se pode clicar (§ cor).
-                                */}
-                                {c.soNoServidor && (
-                                  <Cloud
-                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
-                                    strokeWidth={1.5}
-                                    aria-label="Do servidor: os arquivos gerados não estão nesta máquina"
-                                  />
-                                )}
-                                {/*
-                                  A hora dá lugar às ações no hover — mesma
-                                  troca do cabeçalho da pasta. Com duas ações,
-                                  o espaço reservado à direita teria de dobrar,
-                                  e ele sairia do título.
-                                */}
-                                <span
-                                  className={cn(
-                                    "shrink-0 font-mono text-[11.5px] tabular-nums text-muted-foreground/70 transition-opacity duration-[var(--duration-fast)]",
-                                    onDuplicate && "group-hover/c:opacity-0",
-                                  )}
-                                >
-                                  {shortDate(c.updatedAt)}
-                                </span>
-                              </button>
-                              {onDuplicate && confirmando?.id !== c.id && (
-                                /*
-                                 * NOVA A PARTIR DESTA. Leva os selos já lidos e
-                                 * o memorial retido; não leva as mensagens nem
-                                 * os documentos gerados. É o que evita subir e
-                                 * reler as mesmas 200 pranchas para montar o
-                                 * volume seguinte da mesma obra.
-                                 */
-                                <button
-                                  type="button"
-                                  onClick={() => onDuplicate(c.id)}
-                                  aria-label={`Nova conversa a partir de ${c.title}`}
-                                  className={cn(
-                                    "nx-edge-4 absolute right-8 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground",
-                                    "[--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)]",
-                                    "transition-[opacity,color] duration-[var(--duration-fast)]",
-                                    "hover:text-foreground focus-visible:outline-none",
-                                    "opacity-0 group-hover/c:opacity-100 focus-visible:opacity-100",
-                                  )}
-                                >
-                                  <CopyPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                </button>
-                              )}
-                              {onDelete && confirmando?.id !== c.id && (
-                                /*
-                                 * O gatilho fica SEMPRE presente, a 0 de
-                                 * opacidade só enquanto o ponteiro não chega.
-                                 * Revelar por hover apenas o tornava
-                                 * inalcançável no toque, onde não existe hover
-                                 * — e a §7 pede afordância consistente, não
-                                 * escondida. Aparece também no foco do teclado
-                                 * e quando a linha está ativa, que é onde a mão
-                                 * costuma estar.
-                                 */
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmando({ tipo: "conversa", id: c.id })}
-                                  aria-label={`Apagar conversa ${c.title}`}
-                                  className={cn(
-                                    "nx-edge-4 absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground",
-                                    "[--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)]",
-                                    "transition-[opacity,color] duration-[var(--duration-fast)]",
-                                    "hover:text-[var(--status-critical)] focus-visible:outline-none",
-                                    "opacity-0 group-hover/c:opacity-100 focus-visible:opacity-100",
-                                    active && "opacity-60",
-                                  )}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                </button>
-                              )}
-                              {onDelete &&
-                                confirmando?.tipo === "conversa" &&
-                                confirmando.id === c.id && (
-                                /*
-                                 * A confirmação SUBSTITUI a linha, não flutua
-                                 * sobre ela. Antes era uma tarja no canto, por
-                                 * cima do título da conversa que se está
-                                 * prestes a apagar — justamente o que se
-                                 * precisa ler para decidir. Agora o nome fica
-                                 * visível acima, e a pergunta ocupa o seu
-                                 * próprio espaço.
-                                 *
-                                 * Inline e não modal: a §11 manda esgotar as
-                                 * alternativas antes do modal, e apagar uma
-                                 * conversa não merece parar a tela inteira. Mas
-                                 * leva os documentos gerados junto — por isso
-                                 * pergunta.
-                                 */
-                                /*
-                                 * EMPILHADO, não lado a lado: numa coluna
-                                 * estreita a frase e dois botões na mesma linha
-                                 * não cabem — o texto quebrava em cinco linhas
-                                 * e passava por cima do "Cancelar". Só apareceu
-                                 * no print.
-                                 */
-                                /* Sem camada de contorno, pela mesma razao do
-                                   badge: borda E fundo translucidos nao
-                                   sobrevivem a composicao em duas formas -- o
-                                   miolo pintaria sobre a cor da borda. */
-                                <div className="nx-cut-6 mt-0.5 space-y-1.5 border-0 bg-[var(--status-critical-bg)] px-2 py-2">
-                                  <p className="text-[11.5px] leading-4 text-muted-foreground">
-                                    Apagar leva os documentos gerados junto.
-                                  </p>
-                                  <span className="flex items-center justify-end gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => setConfirmando(null)}
-                                      className="nx-edge-5 px-1.5 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] focus-visible:[--nx-fill:var(--accent)] hover:text-foreground"
-                                    >
-                                      Cancelar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        onDelete(c.id);
-                                        setConfirmando(null);
-                                      }}
-                                      /*
-                                       * O MIOLO PRECISA SER OPACO.
-                                       *
-                                       * `--status-critical-bg` é translúcido, e
-                                       * o `::before` do `.nx-edge-*` compõe
-                                       * sobre o fundo do próprio elemento — que
-                                       * é a BORDA, salmão cheio. O resultado era
-                                       * um bloco salmão com o texto salmão por
-                                       * cima: o botão mais perigoso da coluna
-                                       * sem rótulo legível. A mistura devolve a
-                                       * mesma cor pretendida, só que opaca.
-                                       */
-                                      className="nx-edge-5 border-0 px-2 py-1 font-mono text-[11.5px] uppercase tracking-[0.05em] text-[var(--status-critical)] transition-colors focus-visible:outline-none [--nx-edge:var(--status-critical)] [--nx-fill:color-mix(in_oklab,var(--status-critical)_16%,var(--card))]"
-                                    >
-                                      Apagar
-                                    </button>
-                                  </span>
-                                </div>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </details>
-                    );
-                  })}
       </div>
 
       {/*
