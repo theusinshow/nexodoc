@@ -66,7 +66,7 @@ import { Ima } from "@/components/ambiente/ima";
 import { BarraDoTopo } from "@/components/layout/barra-do-topo";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import { cn } from "@/lib/utils";
-import { OndeVoceParou } from "./onde-voce-parou";
+import { OndeVoceParou, TrabalhoRecente } from "./onde-voce-parou";
 import { DURATION } from "@/modules/nexo/lib/motion";
 
 /**
@@ -212,17 +212,26 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         )}
       >
         {/*
-          ONDE VOCÊ PAROU vem ANTES do convite do orbe, e a troca é o ponto
-          desta tela: a primeira pergunta de quem entra deixou de ser "qual
-          ferramenta" e passou a ser "onde eu estava" — está escrito no
-          comentário de `app/page.tsx` desde 14/08, e a tela não respondia.
+          O CONVITE VOLTOU PARA O TOPO (31/08/2026), e não é preferência de
+          ordem: é GEOMETRIA. O orbe tem 128px e pende do centro da borda
+          inferior da barra, então 64px dele caem sobre esta região — e o
+          `ConviteDoOrbe` é quem reserva esse vão (os `pt-[84px]`, ver lá).
 
-          O convite continua, embaixo: ele ensina o gesto (soltar o PDF, falar
-          com o orbe) e é o que a primeira visita precisa. Quem já tem trabalho
-          não precisa dele no lugar mais caro da página.
+          Com o `OndeVoceParou` na frente dele, quem passava por baixo do orbe
+          era a retomada, e a legenda ia parar no meio da página, a 300px do
+          objeto que ela legenda — um fio de 20px saindo do nada em direção a um
+          texto sem dono. O orbe ficava sem frase e a frase ficava sem orbe.
+
+          A ordem certa continua respeitando o que `app/page.tsx` diz desde
+          14/08 ("a primeira pergunta é onde eu estava"): o convite é UMA LINHA
+          de legenda mais um parágrafo, não uma faixa de herói — a retomada
+          entra logo abaixo, ainda na primeira dobra, e agora com peso de cartão
+          em vez de texto solto.
         */}
+        <ConviteDoOrbe />
+
         {!primeiraVez && painel?.trabalho.ondeParou ? (
-          <div className="mt-8">
+          <div className="mt-10">
             <OndeVoceParou
               ondeParou={painel.trabalho.ondeParou}
               projetos={painel.trabalho.projetos}
@@ -230,12 +239,10 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           </div>
         ) : null}
 
-        <ConviteDoOrbe />
-
         {primeiraVez ? <PrimeirosPassos /> : null}
 
         {primeiraVez ? null : (
-          <div className="mt-9 grid grid-cols-1 items-start gap-9 lg:grid-cols-[minmax(0,1fr)_336px]">
+          <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_336px]">
             <section className="flex w-full min-w-0 flex-col gap-2.5">
               <div className="mb-1 flex items-baseline gap-3">
                 <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -294,39 +301,37 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
               ) : null}
             </section>
 
+            {/*
+              A COLUNA DA DIREITA É "O QUE PASSOU", e passou a ter um nome que
+              não colide com o vizinho.
+
+              Ela se chamava "Onde você parou" — o mesmo título da seção que
+              abria a página, com outro conteúdo embaixo. E o conteúdo eram
+              AUDITORIAS pelo título (`painel.recentes`), enquanto a seção de
+              cima listava as mesmas pastas pelo código: `088-25` aparecia duas
+              vezes na mesma tela, com dois nomes e duas contagens, como se
+              fossem coisas diferentes.
+
+              Agora a coluna mostra as PASTAS recentes menos a que está na
+              retomada (ver `TrabalhoRecente`), que é a única lista de projeto
+              que sobrou fora da coluna principal. `painel.recentes` continua
+              vindo da API — é a mesma consulta que traz projeto sem pendência
+              para a lista da esquerda, e é ela que decide `primeiraVez`.
+            */}
             <aside className="flex w-full min-w-0 flex-col gap-3">
               <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Onde você parou
+                Trabalho recente
               </h3>
 
-              {painel && painel.recentes.length === 0 ? (
-                <p className="m-0 text-sm leading-normal text-muted-foreground">
-                  Sua primeira auditoria aparece aqui.
-                </p>
+              {carregando ? (
+                <div className="nx-cut-8 h-[120px] animate-pulse bg-card" />
               ) : null}
 
-              {painel && painel.recentes.length > 0 ? (
-                <div
-                  className="nx-edge-8"
-                  style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
-                >
-                  <div className="flex flex-col px-3.5">
-                    {painel.recentes.map((recente) => (
-                      <Link
-                        key={recente.auditId}
-                        href={`/nexo?auditoria=${encodeURIComponent(recente.auditId)}`}
-                        className="flex items-baseline gap-3 border-b border-[#171c1f] py-3 transition-colors duration-[var(--duration-fast)] last:border-0 hover:text-[var(--nexodoc-accent)]"
-                      >
-                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                          {recente.nome}
-                        </span>
-                        <span className="font-mono text-[11px] tracking-[0.03em] text-muted-foreground">
-                          {recente.quando}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {painel ? (
+                <TrabalhoRecente
+                  ondeParou={painel.trabalho.ondeParou}
+                  projetos={painel.trabalho.projetos}
+                />
               ) : null}
             </aside>
           </div>
