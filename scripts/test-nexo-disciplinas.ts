@@ -1,10 +1,18 @@
 /**
  * Teste do LÉXICO DE DISCIPLINAS — os três registros do nome.
  *
- * A capa usa o nome curto; a separatriz e a LD usam o longo; a interface usa o
- * de tela. Sete das vinte e quatro disciplinas divergem entre capa e documento,
- * e antes disto a LD de um volume misto saía com o rótulo de INTERFACE —
- * "HIDROSSANITARIO", sem acento — no documento entregue ao cliente.
+ * A capa E A LD usam o nome curto; SÓ a separatriz usa o longo; a interface usa
+ * o de tela. Sete das vinte e quatro disciplinas divergem entre capa e
+ * documento, e antes disto a LD de um volume misto saía com o rótulo de
+ * INTERFACE — "HIDROSSANITARIO", sem acento — no documento entregue ao cliente.
+ *
+ * O nome longo era `nomeNoDocumento`, e "no documento" era genérico o bastante
+ * para três chamadores lerem "também na LD" — que é falso, e foi medido contra
+ * os PDFs entregues (20/08/2026). Virou `nomeNaSeparatriz`. ESTE ARQUIVO NÃO
+ * ACOMPANHOU: ficou onze dias quebrando no import, e nenhuma das asserções
+ * abaixo rodou nesse período. Nada o chama num script agregado, então ninguém
+ * viu — o teste que guarda uma decisão do engenheiro tem de rodar junto com
+ * alguém.
  *
  * Os nomes foram lidos de 91 capas e separatrizes reais (040-26, 113-22,
  * 116-25, 156-25) e os quatro casos ambíguos foram fechados com o engenheiro
@@ -21,7 +29,7 @@ import {
   disciplinaLabel,
   nomeDoPar,
   nomeNaCapa,
-  nomeNoDocumento,
+  nomeNaSeparatriz,
 } from "../server/nexo/disciplinas.ts";
 
 let passed = 0;
@@ -44,13 +52,13 @@ function test(name: string, fn: () => void) {
 test("est é SEMPRE 'PROJETO ESTRUTURAL CONCRETO'", () => {
   // O 113-22 imprimia "DE CONCRETO ARMADO"; o padrão é o do 084-25.
   assert.equal(nomeNaCapa("est"), "PROJETO ESTRUTURAL CONCRETO");
-  assert.equal(nomeNoDocumento("est"), "PROJETO ESTRUTURAL CONCRETO");
+  assert.equal(nomeNaSeparatriz("est"), "PROJETO ESTRUTURAL CONCRETO");
 });
 
 test("top é SEMPRE 'LEVANTAMENTO TOPOGRÁFICO'", () => {
   // O 156-25 usava a forma longa "PLANIALTIMÉTRICO E CADASTRAL"; não é o padrão.
   assert.equal(nomeNaCapa("top"), "LEVANTAMENTO TOPOGRÁFICO");
-  assert.equal(nomeNoDocumento("top"), "LEVANTAMENTO TOPOGRÁFICO");
+  assert.equal(nomeNaSeparatriz("top"), "LEVANTAMENTO TOPOGRÁFICO");
 });
 
 test("fnd tem nome, mesmo sem aparecer nas amostras", () => {
@@ -59,8 +67,8 @@ test("fnd tem nome, mesmo sem aparecer nas amostras", () => {
 
 test("gmt e ter existem SOZINHOS e como PAR", () => {
   // "Às vezes separados" — então os três nomes precisam existir.
-  assert.equal(nomeNoDocumento("gmt"), "DESENHO GEOMÉTRICO");
-  assert.equal(nomeNoDocumento("ter"), "PROJETO DE TERRAPLENAGEM");
+  assert.equal(nomeNaSeparatriz("gmt"), "DESENHO GEOMÉTRICO");
+  assert.equal(nomeNaSeparatriz("ter"), "PROJETO DE TERRAPLENAGEM");
   assert.equal(nomeDoPar("gmt", "ter"), "PROJETO DE GEOMETRIA E TERRAPLENAGEM");
 });
 
@@ -80,16 +88,28 @@ test("os sete que DIVERGEM entre capa e documento", () => {
   assert.deepEqual(divergem, ["cab", "ele", "elt", "his", "inc", "lev", "spd"]);
 });
 
-test("a LD do hidrossanitário NÃO leva o nome de tela", () => {
+test("a separatriz do hidrossanitário NÃO leva o nome de tela", () => {
   // Era o defeito: "HIDROSSANITARIO" (rótulo de chip) ia para o documento.
-  assert.equal(nomeNoDocumento("his"), "PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS");
-  assert.notEqual(nomeNoDocumento("his"), disciplinaLabel("his")?.toUpperCase());
+  assert.equal(nomeNaSeparatriz("his"), "PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS");
+  assert.notEqual(nomeNaSeparatriz("his"), disciplinaLabel("his")?.toUpperCase());
+});
+
+test("a LD e a capa levam o nome CURTO, e não o da separatriz", () => {
+  /*
+   * A regra que o rename de `nomeNoDocumento` cravou, e que o cabeçalho deste
+   * arquivo dizia ao contrário. Nas sete disciplinas que divergem, ler o nome
+   * errado troca o título impresso na LD entregue ao cliente.
+   */
+  assert.equal(nomeNaCapa("his"), "PROJETO HIDROSSANITÁRIO");
+  assert.equal(nomeNaCapa("inc"), "PROJETO PREVENTIVO");
+  assert.equal(nomeNaCapa("spd"), "PROJETO SPDA");
+  assert.notEqual(nomeNaCapa("his"), nomeNaSeparatriz("his"));
 });
 
 test("as grafias irmãs dão o mesmo nome", () => {
   // `elt`/`ele` e `cft`/`cftv` são a mesma disciplina escrita de dois jeitos.
-  assert.equal(nomeNoDocumento("ele"), nomeNoDocumento("elt"));
-  assert.equal(nomeNoDocumento("cftv"), nomeNoDocumento("cft"));
+  assert.equal(nomeNaSeparatriz("ele"), nomeNaSeparatriz("elt"));
+  assert.equal(nomeNaSeparatriz("cftv"), nomeNaSeparatriz("cft"));
 });
 
 // ---------------------------------------------------------------------------
@@ -123,7 +143,7 @@ test("o mapa de compatibilidade é DERIVADO, não uma segunda lista", () => {
 
 test("código desconhecido devolve undefined, não um nome inventado", () => {
   assert.equal(nomeNaCapa("xyz"), undefined);
-  assert.equal(nomeNoDocumento("xyz"), undefined);
+  assert.equal(nomeNaSeparatriz("xyz"), undefined);
   assert.equal(nomeDoPar("xyz", "abc"), undefined);
 });
 
