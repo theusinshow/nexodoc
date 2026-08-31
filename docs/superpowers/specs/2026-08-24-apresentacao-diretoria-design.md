@@ -1,5 +1,40 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **31/08/2026 — O BLOCO "O DINHEIRO" VAI DE 1 PARA 3 FOLHAS, e o deck a 22.**
+> Entram a 13 ("O que custou construir") e a 14 ("Em quanto tempo se paga"),
+> antes do pedido. Tudo a partir da antiga 13 andou duas casas.
+>
+> **A ORIGEM DE CADA NÚMERO NOVO — é para isso que este documento existe:**
+>
+> | número | de onde vem | medido? |
+> |---|---|---|
+> | US$ 64 em modelo | soma de `AiUsageEvent.estimatedCostUsd`: US$ 50 no banco de produção (3.428 chamadas, 01/06 a 31/08) + US$ 14 no de dev (323 chamadas, 17 a 29/08) | **medido** |
+> | 3.751 chamadas | contagem das mesmas duas tabelas | **medido** |
+> | US$ 600 de ferramenta | assinatura Claude Code Max, US$ 100/mês × 6 meses | **medido** |
+> | US$ 26 de servidor e domínio | US$ 7 de Render + R$ 100 de domínio (= US$ 19 a 5,18) | **medido** |
+> | ~700 horas | noites e fins de semana, 25 a 30 h/semana × ~26 semanas | *estimativa* |
+> | R$ 30 a R$ 50 a hora | hora de desenvolvedor júnior. **Escolhido pelo Claude, não pelo autor** — conferir antes de apresentar | *estimativa* |
+> | US$ 25 de servidor / mês | Render sobe de US$ 7 para US$ 25 | declarado pelo autor |
+> | US$ 5 de banco / mês | Neon sai da camada gratuita | declarado pelo autor |
+> | R$ 285 / mês para operar | US$ 55 (24 + 1 + 25 + 5) a R$ 5,18 | conta |
+> | R$ 800 a R$ 1.440 / mês | 4 projetos × até 4 h de montagem manual = 16 h, à hora de engenheiro da folha 08 (R$ 50 a 90) | *estimativa sobre estimativa* |
+> | R$ 515 a R$ 1.155 | a diferença entre os dois de cima. É o TETO da licença, não o preço | conta |
+> | R$ 3.420 / ano | R$ 285 × 12 | conta |
+>
+> **A folha 14 ignora a auditoria inteira de propósito.** Ela se paga só com a
+> montagem — o trabalho braçal que ninguém discute. É o argumento mais forte
+> justamente porque não depende de a leitura do memorial acertar.
+>
+> **A última linha da 14 é um teto, não um preço.** Qualquer licença abaixo dela
+> se paga no primeiro mês. Não oferecer esse número como valor: ele é o limite
+> que o diretor calcularia sozinho, e é melhor que o calcule com esta aritmética.
+>
+> **A folha 13 justifica preço, e essa foi decisão do autor** contra a
+> recomendação de usá-la só para credibilidade. O risco assumido: abrir o custo
+> de construção convida raciocínio de custo-mais-margem, que é exatamente o que a
+> folha 20 derruba. O que costura as duas é a linha da 20 — "não é o que custou
+> construir" — que passa a ser uma referência ao que a 13 mostrou.
+
 > **31/08/2026 — ENTRA O BLOCO "AS PERGUNTAS DIFÍCEIS", e o deck vai a 20 folhas.**
 > Cinco folhas novas (14 a 18), entre o pedido e o que pode vir, cada uma com a
 > objeção do comprador CITADA na versão mais dura e três blocos de resposta:
@@ -512,7 +547,11 @@ Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
       criação fora do expediente, **a folha 17 sai do deck** e o assunto vira
       conversa reservada com o diretor, nunca plenário. Não subir ao palco sem
       saber a resposta: é a única objeção que, mal respondida, mata o negócio.
-- [ ] **Cotação do dólar do dia** substituída nos slides 16 e 17.
+- [ ] **Cotação do dólar do dia.** Está em **R$ 5,18** nas folhas 12, 13 e 14.
+      Mudou a cotação, mudam OS TRÊS: R$ 285/mês, R$ 3.576 somado, R$ 24.600 a
+      R$ 38.600, R$ 3.420/ano e R$ 515 a R$ 1.155 são todos derivados dela.
+- [ ] **Hora de desenvolvedor júnior (R$ 30 a R$ 50) conferida.** É o único
+      número do bloco do dinheiro que não veio de você nem de medição.
 - [ ] **Valor-hora real da PROSUL** no slide 8, se preferir ao intervalo-premissa.
 - [ ] **Ambiente de pé e testado no mesmo dia**, com o caminho exato da
       demonstração percorrido do início ao fim. Compilar limpo não é evidência
