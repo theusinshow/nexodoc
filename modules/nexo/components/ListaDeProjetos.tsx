@@ -121,7 +121,31 @@ export function ListaDeProjetos({
     () => cartoes.find((c) => c.conversas.some((x) => x.id === activeId))?.chave ?? null,
     [cartoes, activeId],
   );
-  const abertoAgora = aberto ?? doAtivo;
+
+  /*
+   * SEM CONVERSA ATIVA, ABRE O CARTÃO DO TRABALHO MAIS RECENTE — e isto conserta
+   * uma regressão que este arquivo criou.
+   *
+   * A auditoria de um memorial cuja prefeitura não foi lida fica SEM PASTA
+   * (`pastaDoProjeto` exige código E prefeitura). Na lista de projetos ela cai
+   * no cartão "SEM CÓDIGO NO CARIMBO" — fechado, no fim da lista. Depois de um
+   * F5, quem tinha acabado de auditar não achava o parecer e refazia a
+   * auditoria inteira, pagando de novo pelo trabalho que estava gravado.
+   *
+   * A regra "o cartão do projeto em que se está nasce aberto" já cobria o caso
+   * COM conversa ativa. Este degrau cobre o sem: o mais recente é o que se
+   * estava fazendo, com pasta ou sem.
+   */
+  const doMaisRecente = useMemo(() => {
+    let melhor: { chave: string; quando: number } | null = null;
+    for (const c of cartoes) {
+      const topo = c.conversas[0]?.updatedAt ?? 0;
+      if (!melhor || topo > melhor.quando) melhor = { chave: c.chave, quando: topo };
+    }
+    return melhor?.chave ?? null;
+  }, [cartoes]);
+
+  const abertoAgora = aberto ?? doAtivo ?? doMaisRecente;
 
   if (filtrados.length === 0) {
     return (
@@ -133,6 +157,9 @@ export function ListaDeProjetos({
     );
   }
 
+  // "TRABALHANDO NO" só quando há conversa ATIVA de verdade: dizer isso do
+  // cartão que abriu por ser o mais recente afirmaria uma coisa que não
+  // aconteceu — ninguém abriu nada ainda.
   const trabalhandoEm = cartoes.find((c) => c.chave === doAtivo);
 
   return (

@@ -111,6 +111,33 @@ test("o documento FINAL se distingue dos intermediários", () => {
   assert.equal(ehDocumentoFinal("CAPA"), false);
 });
 
+/*
+ * A AUDITORIA SEM PREFEITURA continua achável.
+ *
+ * `pastaDoProjeto` exige código E prefeitura, então uma auditoria de memorial
+ * cuja prefeitura não foi lida fica sem pasta e cai no balde SEM CÓDIGO — que
+ * na lista vai para o FIM. Se ele também nascesse fechado, quem acabou de
+ * auditar não acharia o parecer depois de um F5 e refaria a auditoria inteira.
+ * Quem garante que isso não acontece é a abertura pelo mais recente, em
+ * `ListaDeProjetos`; aqui fica travado o que ela usa: o balde existe, é o
+ * último, e carrega a conversa.
+ */
+test("auditoria sem prefeitura vira o balde SEM CÓDIGO, no fim, com a conversa dentro", () => {
+  const r = cartoesDeProjeto([
+    c("antiga", "084-25-X", 100, ["ld"]),
+    c("auditoria-agora", null, 9999, ["auditoria"], { title: "Memorial" }),
+  ]);
+  assert.deepEqual(r.map((x) => x.chave), ["084-25-X", ""]);
+  const balde = r[1];
+  assert.equal(balde.conversas[0].id, "auditoria-agora");
+  assert.equal(balde.conversas[0].desfecho, "auditoria");
+  assert.equal(
+    balde.atualizadoEm,
+    9999,
+    "o balde carrega a data do mais recente — é ela que decide quem abre",
+  );
+});
+
 test("sem conversa nenhuma não há cartão", () => {
   assert.deepEqual(cartoesDeProjeto([]), []);
 });
