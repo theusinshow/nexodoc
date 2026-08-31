@@ -139,7 +139,24 @@ export async function enviar(mensagem: Mensagem): Promise<ResultadoDoEnvio> {
      * `notifiedAt` carimbaria um e-mail que voltou.
      */
     if (resposta.error) {
-      return { estado: "falhou", erro: resposta.error.message };
+      /*
+       * O REMETENTE VIAJA JUNTO DO ERRO, e não é enfeite: quase todo erro da
+       * Resend é SOBRE ele, e a mensagem dela nunca o repete.
+       *
+       * Custou uma investigação inteira (31/08/2026). A conta respondeu "you
+       * can only send testing emails to your own email address" — o erro de
+       * quem envia de um remetente FORA do domínio verificado. O domínio
+       * `nexo-doc.com` estava verificado havia uma semana, a variável parecia
+       * certa, e nada na resposta dizia de qual endereço a chamada tinha
+       * saído. Sem esse dado, "domínio não verificado" e "remetente errado"
+       * são indistinguíveis, e as duas hipóteses pedem correções opostas.
+       *
+       * Não é segredo: é o From que vai impresso em toda mensagem enviada.
+       */
+      return {
+        estado: "falhou",
+        erro: `${resposta.error.message} [remetente: ${remetente() || "(vazio)"}]`,
+      };
     }
 
     return { estado: "enviado" };
