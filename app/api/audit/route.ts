@@ -10,6 +10,11 @@ import {
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
 import { mensagemDeTetoEstourado, verificarTetoMensal } from "@/lib/ai-budget";
 import {
+  mensagemDeVagaRecusada,
+  pedirVaga,
+  type VagaConcedida,
+} from "@/lib/vazao-de-auditoria";
+import {
   makeTextReport,
   buildExecutiveSummary,
   classifyFindingImpact,
@@ -3559,6 +3564,16 @@ async function executarAuditoria(
   let requestedAuditMode: AuditMode = "memorial";
   let requestedAnalysisLevel: AnalysisLevel = "standard";
   const marco = (m: MarcoDaAuditoria) => onMarco?.(m);
+  /*
+   * A vaga de execução, devolvida no `finally` do fim desta função.
+   *
+   * Declarada AQUI, fora do `try`, porque é o `finally` daquele bloco que a
+   * libera — e ele precisa enxergá-la mesmo quando a falha acontece antes de a
+   * vaga ser pedida. Vale para os dois caminhos da rota: no modo SSE quem
+   * chama esta função é o `start` do stream, então a vaga cobre exatamente o
+   * trabalho pesado, e não o tempo em que o cliente lê o resultado.
+   */
+  let vaga: VagaConcedida | null = null;
 
   try {
     await refreshAiModelOverrideCache();
@@ -3683,6 +3698,33 @@ async function executarAuditoria(
       );
       return jsonError(mensagemDeTetoEstourado(teto), 402);
     }
+
+    /*
+     * A VAGA DE EXECUÇÃO — logo depois do teto, pelo mesmo motivo que ele vem
+     * depois das validações de arquivo: recusar por lotação um pedido que já
+     * seria recusado por limite de gasto trocaria a causa que a pessoa lê.
+     *
+     * Ordem entre os dois: o teto é sobre o MÊS e não muda nos próximos
+     * minutos; a lotação é sobre AGORA e passa. Medir a permanente primeiro
+     * evita mandar alguém "tentar de novo em alguns minutos" quando o que ele
+     * tem pela frente é um limite que só vira no dia 1º.
+     *
+     * `pedirVaga` deixa tudo passar enquanto as variáveis de vazão não
+     * existirem — ver `lib/vazao-de-auditoria.ts`.
+     */
+    const pedido = pedirVaga(session?.user?.id ?? sessionEmail ?? null);
+    if (!pedido.ok) {
+      console.warn(
+        `[audit] recusada por vazão (${pedido.escopo}): ${pedido.emCurso} em curso, limite ${pedido.limite}`,
+      );
+      /*
+       * 429, e não 503: o pedido está correto e o servidor está de pé — o que
+       * falta é vez. É o status que diz a um cliente para voltar depois, e o
+       * mesmo que `lib/falha-transitoria.ts` já trata como transitório.
+       */
+      return jsonError(mensagemDeVagaRecusada(pedido), 429);
+    }
+    vaga = pedido;
 
     const canUseClientMock = process.env.NODE_ENV !== "production" ||
       process.env.NEXODOC_ALLOW_CLIENT_DEMO === "true";
@@ -4355,6 +4397,19 @@ async function executarAuditoria(
         : "Não foi possível concluir a auditoria documental.",
       500,
     );
+  } finally {
+    /*
+     * A VAGA VOLTA SEMPRE — sucesso, erro tratado, exceção ou aborto.
+     *
+     * É a única linha que impede o limite de vazão de virar uma trava que só
+     * aperta: vaga que não é devolvida some do total até o processo reiniciar,
+     * e depois de algumas falhas o sistema recusaria auditoria com a máquina
+     * vazia. Por isso o `finally`, e não uma chamada no fim do caminho feliz.
+     *
+     * `liberar` é idempotente, então esta linha convive com qualquer devolução
+     * futura em outro ponto.
+     */
+    vaga?.liberar();
   }
 }
 

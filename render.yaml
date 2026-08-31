@@ -22,6 +22,33 @@ services:
     healthCheckPath: /api/saude
     autoDeploy: true
     envVars:
+      # -------------------------------------------------------------- runtime
+      # O TETO DO HEAP DO NODE, e ele PRECISA acompanhar o `plan:` acima.
+      #
+      # O V8 não lê o limite do cgroup: ele dimensiona o heap por `os.totalmem()`,
+      # que dentro do container devolve a RAM da MÁQUINA HOSPEDEIRA — dezenas de
+      # gigabytes. O Node conclui que tem espaço de sobra, adia a coleta
+      # agressiva, e o cgroup mata o processo antes de ele considerar que
+      # precisava limpar. O sintoma é um OOM que chega mais cedo do que a carga
+      # justificava, e sem nenhum erro de aplicação para investigar.
+      #
+      # E o OOM aqui não recusa uma auditoria: mata o container, e com ele TODAS
+      # as conexões SSE abertas — inclusive as de quem não pediu nada de grande.
+      #
+      # A regra é ~75% da RAM do plano, deixando o resto para o que não é heap
+      # do V8: os buffers de PDF, o LibreOffice e o próprio Node.
+      #
+      #   0.5c-512mb (starter) →  384
+      #   1c-2g                → 1536
+      #   2c-4g                → 3072
+      #   2c-8g / 4c-8g        → 6144
+      #
+      # Está em 384 porque o `plan:` acima é `starter`. TROCOU O PLANO, TROCA
+      # AQUI: um número baixo demais desperdiça a memória que se pagou, e um
+      # número alto demais devolve exatamente o OOM que esta variável evita.
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
+
       # ---------------------------------------------------------------- banco
       # A URL do Neon. `fromDatabase` não serve: o banco é externo à Render.
       - key: DATABASE_URL
@@ -130,6 +157,56 @@ services:
       # deixaria de existir.
       - key: NEXODOC_MONTHLY_BUDGET_USD
         value: "20"
+
+      # O TETO DA CASA — a soma de todo mundo no mês.
+      #
+      # O de cima é POR USUÁRIO (`where: { userId }`), e é a proteção certa
+      # contra o indivíduo que reprocessa o mesmo projeto vinte vezes. Ele não
+      # protege contra a SOMA: quinze pessoas a US$ 20 são US$ 300 de exposição,
+      # e até aqui nada no sistema conhecia esse número.
+      #
+      # DESARMADO DE PROPÓSITO — sem valor, não há teto global e o
+      # comportamento é o de sempre. O número certo é comercial, não técnico:
+      # deve ficar BEM acima da soma esperada, porque esta é a última parede
+      # contra a catástrofe (um laço, uma chave vazada) e não um instrumento de
+      # orçamento fino — para isso já existe o teto por usuário.
+      #
+      # Referência medida em 19/08/2026: US$ 0,91 no mês de um usuário comum,
+      # US$ 19,31 no de quem desenvolve. Para 15 pessoas, algo em torno de
+      # US$ 400 barra a catástrofe sem nunca encostar no uso legítimo.
+      #
+      # ATENÇÃO: este teto NÃO isenta o admin, ao contrário do de cima. Se ele
+      # bater, ninguém audita até alguém ampliar o valor — é o objetivo.
+      # - key: NEXODOC_GLOBAL_MONTHLY_BUDGET_USD
+      #   value: "400"
+
+      # ----------------------------------------------------------------- vazão
+      # QUANTAS AUDITORIAS AO MESMO TEMPO. O teto acima protege a FATURA; estas
+      # protegem a MÁQUINA, e são coisas diferentes: dez auditorias simultâneas
+      # custam pouco enquanto rodam e derrubam o container muito antes de
+      # virarem dinheiro.
+      #
+      # Cada auditoria segura um PDF de até 25 MB mais o que o pdfjs constrói
+      # em cima dele, do início ao fim de uma conexão SSE, e dispara
+      # `NEXODOC_CHUNK_CONCURRENCY` blocos em paralelo. Recusar a décima com
+      # uma mensagem clara é melhor que aceitar as dez e perder as nove no OOM.
+      #
+      # DESARMADAS DE PROPÓSITO — sem valor, tudo passa, como antes de
+      # existirem. Quantas a máquina aguenta depende do plano, e o código não
+      # tem como saber qual foi contratado.
+      #
+      # A GLOBAL é a que protege a RAM, e sai da conta do heap acima: com
+      # 2c-4g, 3 a 4 é uma faixa defensável. A POR USUÁRIO é contra o
+      # indivíduo que dispara cinco de uma vez; 2 é um número humano, já que
+      # ninguém acompanha três auditorias ao mesmo tempo de verdade.
+      #
+      # A conta vive no processo, não no banco: com mais de uma instância, cada
+      # uma conta a sua — que para proteger memória é a régua certa, porque a
+      # memória também é por instância.
+      # - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL
+      #   value: "4"
+      # - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS
+      #   value: "2"
 
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
       # prancha, e um volume real tem dezenas — o custo daqui escala com o

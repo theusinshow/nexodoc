@@ -18,6 +18,7 @@
  */
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
+  getGlobalMonthlyBudgetUsd,
   getMonthlyBudgetUsd,
   inicioDoMes,
   isentoDoTeto,
@@ -25,21 +26,77 @@ import {
 } from "@/lib/ai-budget-policy";
 
 export {
+  getGlobalMonthlyBudgetUsd,
   getMonthlyBudgetUsd,
   mensagemDeTetoEstourado,
+  type EscopoDoTeto,
   type EstadoDoTeto,
 } from "@/lib/ai-budget-policy";
+
+/**
+ * O TETO DA CASA, medido antes do individual.
+ *
+ * Roda primeiro porque é o mais grave: se a soma do escritório estourou, saber
+ * que este usuário específico ainda tinha saldo não muda nada — e a mensagem
+ * que ele precisa ler é a do escritório, não a dele.
+ *
+ * NÃO ISENTA NINGUÉM, nem quem administra. A isenção do teto pessoal existe
+ * para não bater a trave no meio de uma demonstração, e o custo dela é
+ * limitado a um usuário. Aqui o custo é a fatura inteira: se o teto global
+ * estourou, algo saiu do lugar (um laço, uma chave vazada), e o caminho certo
+ * é olhar antes de continuar gastando. Quem administra amplia a variável em
+ * meio minuto; a fatura não se desfaz.
+ */
+async function verificarTetoGlobal(): Promise<EstadoDoTeto | null> {
+  const tetoUsd = getGlobalMonthlyBudgetUsd();
+  if (!tetoUsd) {
+    return null;
+  }
+
+  const soma = await getPrisma().aiUsageEvent.aggregate({
+    _sum: { estimatedCostUsd: true },
+    where: { createdAt: { gte: inicioDoMes() } },
+  });
+
+  const gastoUsd = soma._sum.estimatedCostUsd ?? 0;
+  if (gastoUsd < tetoUsd) {
+    return null;
+  }
+
+  return { ativo: true, gastoUsd, tetoUsd, estourou: true, escopo: "global" };
+}
 
 export async function verificarTetoMensal(args: {
   userId?: string | null;
   userEmail?: string | null;
 }): Promise<EstadoDoTeto> {
   const tetoUsd = getMonthlyBudgetUsd();
-  if (!tetoUsd || !isDatabaseConfigured()) {
-    return { ativo: false, gastoUsd: 0, tetoUsd, estourou: false };
+  const tetoGlobalUsd = getGlobalMonthlyBudgetUsd();
+
+  /*
+   * Sem NENHUM dos dois tetos não há o que medir. A checagem olha os dois
+   * porque o teto global precisa valer mesmo em ambiente que nunca configurou
+   * o pessoal — do contrário a parede da casa dependeria da parede do quarto.
+   */
+  if ((!tetoUsd && !tetoGlobalUsd) || !isDatabaseConfigured()) {
+    return { ativo: false, gastoUsd: 0, tetoUsd, estourou: false, escopo: "usuario" };
   }
 
   try {
+    const global = await verificarTetoGlobal();
+    if (global) {
+      return global;
+    }
+
+    /*
+     * O teto global pode existir sozinho. Sem o pessoal configurado, a medição
+     * por usuário não tem régua para comparar e o trabalho segue — o que já foi
+     * decidido acima é que a casa ainda tem saldo.
+     */
+    if (!tetoUsd) {
+      return { ativo: true, gastoUsd: 0, tetoUsd: null, estourou: false, escopo: "usuario" };
+    }
+
     const dono = args.userId
       ? { userId: args.userId }
       : args.userEmail
@@ -63,7 +120,13 @@ export async function verificarTetoMensal(args: {
      * Ver `isentoDoTeto` para por que a exceção existe.
      */
     const isento = isentoDoTeto(args.userEmail, process.env.NEXODOC_ADMIN_EMAILS);
-    return { ativo: true, gastoUsd, tetoUsd, estourou: !isento && gastoUsd >= tetoUsd };
+    return {
+      ativo: true,
+      gastoUsd,
+      tetoUsd,
+      estourou: !isento && gastoUsd >= tetoUsd,
+      escopo: "usuario",
+    };
   } catch {
     /*
      * Banco fora do ar NÃO bloqueia o trabalho.

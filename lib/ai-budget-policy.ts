@@ -7,6 +7,9 @@
  * regra impossível de testar sem subir infraestrutura.
  */
 
+/** Qual das duas paredes foi medida — muda o que o usuário lê ao ser barrado. */
+export type EscopoDoTeto = "usuario" | "global";
+
 export interface EstadoDoTeto {
   /** Há teto configurado neste ambiente. */
   ativo: boolean;
@@ -16,6 +19,12 @@ export interface EstadoDoTeto {
   tetoUsd: number | null;
   /** Estourou — a chamada deve ser recusada. */
   estourou: boolean;
+  /**
+   * Qual teto respondeu. Ausente equivale a `"usuario"`, que era o único que
+   * existia antes do teto global — quem já lia este objeto continua lendo o
+   * mesmo significado.
+   */
+  escopo?: EscopoDoTeto;
 }
 
 /**
@@ -27,6 +36,30 @@ export interface EstadoDoTeto {
  */
 export function getMonthlyBudgetUsd(): number | null {
   const value = Number(process.env.NEXODOC_MONTHLY_BUDGET_USD);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * O TETO DA CASA — a soma de todo mundo, no mês.
+ *
+ * O teto acima é POR USUÁRIO (`where: { userId }`), e essa é a proteção certa
+ * contra o indivíduo que reprocessa o mesmo projeto vinte vezes. Ele não
+ * protege contra a soma: quinze pessoas a US$ 20 são US$ 300 de exposição, e
+ * nada no sistema conhecia esse número.
+ *
+ * Sem `NEXODOC_GLOBAL_MONTHLY_BUDGET_USD` não há teto global, e o
+ * comportamento é exatamente o de antes desta função existir. É deliberado:
+ * um número inventado aqui barraria a casa inteira num dia movimentado, e
+ * quanto vale o mês do escritório é decisão comercial, não técnica.
+ *
+ * Como dimensionar: o consumo medido em 19/08/2026 foi US$ 0,91 no mês de um
+ * usuário comum e US$ 19,31 no de quem desenvolve. Um teto global deve ficar
+ * bem ACIMA da soma esperada — ele é a última parede contra a catástrofe (um
+ * laço, uma chave vazada), não um instrumento de orçamento fino. Para isso já
+ * existe o teto por usuário.
+ */
+export function getGlobalMonthlyBudgetUsd(): number | null {
+  const value = Number(process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD);
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
@@ -71,9 +104,21 @@ export function inicioDoMes(agora = new Date()): Date {
   return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1));
 }
 
-/** A mensagem que o usuário lê ao ser recusado — diz o número, não só "não". */
+/**
+ * A mensagem que o usuário lê ao ser recusado — diz o número, não só "não".
+ *
+ * O teto global tem texto próprio porque a ação que ele pede é outra: no teto
+ * pessoal quem lê pode esperar o mês virar; no global, o limite é do
+ * escritório e quem resolve é quem administra. Mandar alguém "esperar o
+ * próximo mês" quando o vizinho é que gastou seria mentir sobre a causa.
+ */
 export function mensagemDeTetoEstourado(estado: EstadoDoTeto): string {
   const gasto = estado.gastoUsd.toFixed(2);
   const teto = (estado.tetoUsd ?? 0).toFixed(2);
+
+  if (estado.escopo === "global") {
+    return `Limite mensal do escritório atingido: US$ ${gasto} de US$ ${teto}. Nenhuma nova auditoria roda até o limite ser ampliado por quem administra, ou o mês virar.`;
+  }
+
   return `Limite mensal de uso atingido: US$ ${gasto} de US$ ${teto}. Novas auditorias voltam a rodar no próximo mês, ou quando o limite for ampliado.`;
 }

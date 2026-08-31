@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 
 import {
+  getGlobalMonthlyBudgetUsd,
   getMonthlyBudgetUsd,
   isentoDoTeto,
   mensagemDeTetoEstourado,
@@ -100,5 +101,64 @@ test("e-mail parecido não passa por engano", () => {
   assert.equal(isentoDoTeto("nao-yazan@prosul.com", admins), false);
 });
 
+// ─────────────────────────────── o teto da casa ───────────────────────────────
+
+test("sem variável, NÃO há teto global", () => {
+  // Mesma razão do teto por usuário: um número inventado aqui barraria o
+  // escritório inteiro num dia movimentado.
+  delete process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD;
+  assert.equal(getGlobalMonthlyBudgetUsd(), null);
+});
+
+test("valor inválido ou zero não vira teto global", () => {
+  for (const v of ["", "abc", "0", "-5"]) {
+    process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD = v;
+    assert.equal(getGlobalMonthlyBudgetUsd(), null, `"${v}" não deveria virar teto`);
+  }
+});
+
+test("valor positivo vira teto global", () => {
+  process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD = "400";
+  assert.equal(getGlobalMonthlyBudgetUsd(), 400);
+});
+
+test("os dois tetos são INDEPENDENTES", () => {
+  // O global precisa valer em ambiente que nunca configurou o pessoal: se um
+  // dependesse do outro, a parede da casa dependeria da parede do quarto.
+  delete process.env.NEXODOC_MONTHLY_BUDGET_USD;
+  process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD = "400";
+  assert.equal(getMonthlyBudgetUsd(), null);
+  assert.equal(getGlobalMonthlyBudgetUsd(), 400);
+});
+
+test("a recusa GLOBAL diz que o limite é do escritório", () => {
+  const msg = mensagemDeTetoEstourado({
+    ativo: true,
+    gastoUsd: 401.5,
+    tetoUsd: 400,
+    estourou: true,
+    escopo: "global",
+  });
+  // Mandar alguém "esperar o próximo mês" quando foi o vizinho que gastou
+  // seria mentir sobre a causa: quem resolve isto é quem administra.
+  assert.match(msg, /escritório/);
+  assert.match(msg, /401\.50/);
+  assert.match(msg, /400\.00/);
+  assert.doesNotMatch(msg, /Limite mensal de uso atingido/);
+});
+
+test("sem escopo, a mensagem continua sendo a PESSOAL", () => {
+  // Compatibilidade: quem já construía este objeto sem `escopo` não muda de
+  // texto por causa do campo novo.
+  const msg = mensagemDeTetoEstourado({
+    ativo: true,
+    gastoUsd: 20,
+    tetoUsd: 20,
+    estourou: true,
+  });
+  assert.match(msg, /Limite mensal de uso atingido/);
+});
+
 delete process.env.NEXODOC_MONTHLY_BUDGET_USD;
+delete process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD;
 console.log(`\n${passed} teste(s) de teto OK`);
