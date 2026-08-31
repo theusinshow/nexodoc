@@ -75,6 +75,32 @@ services:
       - key: DATABASE_URL
         sync: false
 
+      # A CONEXÃO DIRETA, SÓ PARA A MIGRAÇÃO — opcional, e eis por que existe.
+      #
+      # `prisma migrate deploy` serializa migrações concorrentes com um ADVISORY
+      # LOCK, que no Postgres é de SESSÃO. O pooler do Neon é PgBouncer em modo
+      # TRANSAÇÃO: devolve a conexão de servidor ao pool sem encerrar a sessão.
+      # Uma migração que morra segurando o lock o deixa PENDURADO num backend
+      # ocioso, e todo deploy seguinte expira assim (31/08/2026):
+      #
+      #   Error: P1002 — Timed out trying to acquire a postgres advisory lock
+      #   (SELECT pg_advisory_lock(72707369)). Timeout: 10000ms.
+      #
+      # Medido: pelo pooler, um cliente novo às vezes CONSEGUE o lock — porque
+      # cai no mesmo backend que já o tem, e o lock é reentrante na sessão. Ou
+      # seja, o pooler quebra a garantia nas duas pontas: ora trava quem deveria
+      # passar, ora deixa passar duas migrações ao mesmo tempo.
+      #
+      # NÃO PRECISA PREENCHER: sem ela, `prisma.config.ts` deriva a direta
+      # tirando o `-pooler` do host do Neon, e anuncia isso no log do deploy.
+      # Preencha só se o host não seguir essa convenção. O APLICATIVO continua
+      # no pooler, e deve — quem precisa de conexão direta é só a migração.
+      #
+      # Lock já pendurado não se solta trocando de URL: use
+      # `node scripts/destravar-migracao.mjs --limpar`.
+      # - key: DIRECT_DATABASE_URL
+      #   sync: false
+
       # ----------------------------------------------------------------- auth
       - key: AUTH_SECRET
         generateValue: true
