@@ -3784,6 +3784,7 @@ async function executarAuditoria(
     }
 
     const activeLearnings = await listAuditLearnings({
+      organizationId: actor.organizationId,
       activeOnly: true,
       scope: auditMode,
     });

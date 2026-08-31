@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { auditByIdWhereForActor } from "@/lib/audit-access";
 import type { Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import type { AuditReport } from "@/lib/audit-report";
@@ -55,27 +56,7 @@ export async function GET(
 
   try {
     const audit = await getPrisma().audit.findFirst({
-      where: {
-        id,
-        OR: [
-          { project: { organizationId: actor.organizationId } },
-          /*
-           * O LEGADO. Auditoria do Nexo anterior a este trabalho não tem projeto
-           * (`projectId` nulo), e ela precisa continuar legível: escopar só por
-           * organização a tornaria invisível para quem a rodou, o que é apagar
-           * histórico pela porta dos fundos.
-           *
-           * A condição é estreita de propósito — SEM projeto E de quem está
-           * pedindo. Auditoria órfã de outra pessoa continua fora.
-           *
-           * E o `userId` do ator PRECISA existir para esta cláusula entrar. A
-           * rota antiga não exigia sessão, então gravou auditoria com `userId`
-           * nulo; um ator sem conta (convidado recém-ativado) casaria nulo com
-           * nulo e leria TODAS elas. Sem id, sem cláusula.
-           */
-          ...(actor.userId ? [{ projectId: null, userId: actor.userId }] : []),
-        ],
-      },
+      where: auditByIdWhereForActor(id, actor),
       select: { status: true, report: true, result: true, error: true },
     });
 

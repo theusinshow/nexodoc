@@ -88,7 +88,9 @@ test("o luna não paga preço de contexto longo — a regra é só do sol e do t
 });
 
 test("nome de modelo não aceita chave de API — uma já foi parar no banco", () => {
-  const chave = "sk-proj-4EkArXbwwgyPOMqzMf_5kQYTnyvqmoS1nVNmSO_H3044qGEvOWY";
+  // Montada em runtime para exercitar o formato sem manter um segredo — nem uma
+  // sequência que scanners confundam com segredo — no código-fonte.
+  const chave = ["sk", "proj", "exemplo-ficticio-com-mais-de-vinte-caracteres"].join("-");
   assert.notEqual(validateAiModelName(chave), "");
   assert.notEqual(validateAiModelName("  sk-abc123  "), "");
   assert.notEqual(validateAiModelName("SK-PROJ-MAIUSCULO"), "");

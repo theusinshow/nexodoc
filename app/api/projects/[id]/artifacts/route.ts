@@ -4,7 +4,13 @@ import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
-import { assertProjectAccess, createDocumentArtifact, getUserActor, normalizeEmail } from "@/lib/project-store";
+import {
+  assertProjectAccess,
+  createDocumentArtifact,
+  getUserActor,
+  InvalidArtifactRelation,
+  normalizeEmail,
+} from "@/lib/project-store";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
 export const runtime = "nodejs";
@@ -171,26 +177,34 @@ export async function POST(
   }
 
   const expiresAtValue = getStringField(payload?.expiresAt);
-  const artifact = await getPrisma().$transaction((tx) =>
-    createDocumentArtifact(tx, {
-      projectId: id,
-      auditId: getStringField(payload?.auditId) || undefined,
-      ldDraftId: getStringField(payload?.ldDraftId) || undefined,
-      actor,
-      module: sourceModule,
-      kind,
-      status: getStatusField(payload?.status),
-      fileName,
-      mimeType,
-      sizeBytes: getNumberField(payload?.sizeBytes),
-      storageProvider: getStringField(payload?.storageProvider) || "none",
-      storageKey: getStringField(payload?.storageKey) || undefined,
-      downloadUrl: getStringField(payload?.downloadUrl) || undefined,
-      checksumSha256: getStringField(payload?.checksumSha256) || undefined,
-      metadata: payload?.metadata as Prisma.InputJsonValue | undefined,
-      expiresAt: expiresAtValue ? new Date(expiresAtValue) : undefined,
-    }),
-  );
+  let artifact;
+  try {
+    artifact = await getPrisma().$transaction((tx) =>
+      createDocumentArtifact(tx, {
+        projectId: id,
+        auditId: getStringField(payload?.auditId) || undefined,
+        ldDraftId: getStringField(payload?.ldDraftId) || undefined,
+        actor,
+        module: sourceModule,
+        kind,
+        status: getStatusField(payload?.status),
+        fileName,
+        mimeType,
+        sizeBytes: getNumberField(payload?.sizeBytes),
+        storageProvider: getStringField(payload?.storageProvider) || "none",
+        storageKey: getStringField(payload?.storageKey) || undefined,
+        downloadUrl: getStringField(payload?.downloadUrl) || undefined,
+        checksumSha256: getStringField(payload?.checksumSha256) || undefined,
+        metadata: payload?.metadata as Prisma.InputJsonValue | undefined,
+        expiresAt: expiresAtValue ? new Date(expiresAtValue) : undefined,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof InvalidArtifactRelation) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    throw error;
+  }
 
   return NextResponse.json({
     artifact: {

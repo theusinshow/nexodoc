@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { auditByIdWhereForActor } from "@/lib/audit-access";
+import type { Actor } from "@/lib/actor";
 
 export const runtime = "nodejs";
 
@@ -34,8 +36,9 @@ export async function PATCH(
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -56,7 +59,7 @@ export async function PATCH(
   }
 
   const updated = await getPrisma().audit.updateMany({
-    where: { id, status: "PROCESSING" },
+    where: { ...auditByIdWhereForActor(id, actor), status: "PROCESSING" },
     data: {
       status: "CANCELED",
       error: "Auditoria cancelada pelo usuário.",

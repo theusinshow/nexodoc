@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createAuditLearning, listAuditLearnings } from "@/lib/audit-learnings";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
 
 export const runtime = "nodejs";
 
@@ -50,15 +51,16 @@ export async function GET(request: Request) {
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
     throw err;
   }
 
-  const learnings = await listAuditLearnings();
+  const learnings = await listAuditLearnings({ organizationId: actor.organizationId });
 
   return withCors(NextResponse.json({ learnings }), request);
 }
@@ -67,8 +69,9 @@ export async function POST(request: Request) {
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as Record<string, unknown>;
-    const learning = await createAuditLearning({
+    const learning = await createAuditLearning(actor.organizationId, {
       title: String(body.title ?? ""),
       content: String(body.content ?? ""),
       type: body.type as never,

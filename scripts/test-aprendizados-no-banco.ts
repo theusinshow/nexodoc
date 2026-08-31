@@ -22,6 +22,7 @@ nextEnv.loadEnvConfig(process.cwd());
 
 let passed = 0;
 const criados: string[] = [];
+const ORGANIZATION_ID = "org-prosul";
 
 async function test(name: string, fn: () => Promise<void>) {
   try {
@@ -52,12 +53,12 @@ async function main() {
 
   /** Só os registros deste teste — o banco local tem trabalho de verdade. */
   const meus = async () => {
-    const todos = await listAuditLearnings();
+    const todos = await listAuditLearnings({ organizationId: ORGANIZATION_ID });
     return todos.filter((l) => criados.includes(l.id));
   };
 
   await test("criar grava NO BANCO, não em arquivo", async () => {
-    const criado = await createAuditLearning({
+    const criado = await createAuditLearning(ORGANIZATION_ID, {
       title: "Teste — carimbo sempre em caixa alta",
       content: "O campo RESPONSÁVEL TÉCNICO do selo deve sair em caixa alta.",
       type: "rule",
@@ -84,14 +85,17 @@ async function main() {
   });
 
   await test("o escopo GLOBAL viaja com qualquer escopo pedido", async () => {
-    const global = await createAuditLearning({
+    const global = await createAuditLearning(ORGANIZATION_ID, {
       title: "Teste — global",
       content: "Vale para toda auditoria, seja qual for o escopo.",
       scope: "global",
     });
     criados.push(global.id);
 
-    const doVolume = await listAuditLearnings({ scope: "volume" });
+    const doVolume = await listAuditLearnings({
+      organizationId: ORGANIZATION_ID,
+      scope: "volume",
+    });
     const ids = doVolume.map((l) => l.id);
     assert.ok(ids.includes(global.id), "o global deveria aparecer no escopo volume");
     assert.ok(
@@ -101,10 +105,15 @@ async function main() {
   });
 
   await test("pausar tira do prompt sem apagar do acervo", async () => {
-    const pausado = await updateAuditLearning(criados[0], { status: "paused" });
+    const pausado = await updateAuditLearning(ORGANIZATION_ID, criados[0], {
+      status: "paused",
+    });
     assert.equal(pausado?.status, "paused");
 
-    const ativos = await listAuditLearnings({ activeOnly: true });
+    const ativos = await listAuditLearnings({
+      organizationId: ORGANIZATION_ID,
+      activeOnly: true,
+    });
     assert.ok(
       !ativos.map((l) => l.id).includes(criados[0]),
       "pausado não entra na lista de ativos",
@@ -117,23 +126,28 @@ async function main() {
   await test("editar só o status NÃO exige reenviar título e conteúdo", async () => {
     // A validação roda sobre o registro já mesclado. Se rodasse sobre o pedido
     // cru, uma pausa seria recusada por "falta título".
-    const voltou = await updateAuditLearning(criados[0], { status: "active" });
+    const voltou = await updateAuditLearning(ORGANIZATION_ID, criados[0], {
+      status: "active",
+    });
     assert.equal(voltou?.status, "active");
     assert.equal(voltou?.title, "Teste — carimbo sempre em caixa alta");
   });
 
   await test("editar o que não existe devolve null, sem explodir", async () => {
-    assert.equal(await updateAuditLearning("nao-existe-jamais", { status: "paused" }), null);
+    assert.equal(
+      await updateAuditLearning(ORGANIZATION_ID, "nao-existe-jamais", { status: "paused" }),
+      null,
+    );
   });
 
   await test("apagar duas vezes não lança exceção", async () => {
-    const alvo = await createAuditLearning({
+    const alvo = await createAuditLearning(ORGANIZATION_ID, {
       title: "Teste — descartável",
       content: "Existe só para ser apagado duas vezes.",
     });
-    assert.equal(await deleteAuditLearning(alvo.id), true);
+    assert.equal(await deleteAuditLearning(ORGANIZATION_ID, alvo.id), true);
     // Dois cliques ou duas abas são caminho normal desta rota.
-    assert.equal(await deleteAuditLearning(alvo.id), false);
+    assert.equal(await deleteAuditLearning(ORGANIZATION_ID, alvo.id), false);
   });
 
   await test("o prompt sai formatado com o que está ativo", async () => {
@@ -172,7 +186,7 @@ async function main() {
 
     process.env.NEXODOC_LEARNINGS_FILE = arquivo;
     const antes = await getPrisma().auditLearning.count();
-    await listAuditLearnings();
+    await listAuditLearnings({ organizationId: ORGANIZATION_ID });
     const depois = await getPrisma().auditLearning.count();
 
     assert.equal(

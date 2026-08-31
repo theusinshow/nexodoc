@@ -148,14 +148,20 @@ async function writeLearningFile(learnings: AuditLearning[]) {
  * container disparem dez importações. `skipDuplicates` cuida do resto, porque
  * duas instâncias não compartilham esta variável.
  */
-let importacaoTentada = false;
+const importacoesTentadas = new Set<string>();
 
-async function importarAcervoDoArquivo() {
-  if (importacaoTentada) return;
-  importacaoTentada = true;
+async function importarAcervoDoArquivo(organizationId: string) {
+  /*
+   * O JSON legado nasceu na instalacao de escritorio unico da PROSUL e nao tem
+   * tenant gravado. Replica-lo para cada organizacao que fizer a primeira
+   * leitura transformaria um arquivo sem dono em vazamento. Somente o dono
+   * historico conhecido pode importa-lo; os demais comecam com acervo vazio.
+   */
+  if (organizationId !== "org-prosul" || importacoesTentadas.has(organizationId)) return;
+  importacoesTentadas.add(organizationId);
 
   try {
-    const jaTem = await getPrisma().auditLearning.count();
+    const jaTem = await getPrisma().auditLearning.count({ where: { organizationId } });
     if (jaTem > 0) return;
 
     const doArquivo = await readLearningFile();
@@ -164,6 +170,7 @@ async function importarAcervoDoArquivo() {
     await getPrisma().auditLearning.createMany({
       data: doArquivo.map((item) => ({
         id: item.id,
+        organizationId,
         title: item.title,
         content: item.content,
         type: item.type,
@@ -190,7 +197,11 @@ async function importarAcervoDoArquivo() {
   }
 }
 
-export async function listAuditLearnings(options: { activeOnly?: boolean; scope?: AuditLearningScope } = {}) {
+export async function listAuditLearnings(options: {
+  organizationId: string;
+  activeOnly?: boolean;
+  scope?: AuditLearningScope;
+}) {
   if (!usarBanco()) {
     const learnings = await readLearningFile();
 
@@ -200,10 +211,11 @@ export async function listAuditLearnings(options: { activeOnly?: boolean; scope?
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
-  await importarAcervoDoArquivo();
+  await importarAcervoDoArquivo(options.organizationId);
 
   const rows = await getPrisma().auditLearning.findMany({
     where: {
+      organizationId: options.organizationId,
       ...(options.activeOnly ? { status: "active" } : {}),
       /*
        * `global` viaja com QUALQUER escopo pedido — é o significado da palavra
@@ -217,7 +229,10 @@ export async function listAuditLearnings(options: { activeOnly?: boolean; scope?
   return rows.map(daLinha);
 }
 
-export async function createAuditLearning(input: Partial<AuditLearning>) {
+export async function createAuditLearning(
+  organizationId: string,
+  input: Partial<AuditLearning>,
+) {
   const learning = normalizeLearning(input);
 
   if (!learning) {
@@ -230,11 +245,12 @@ export async function createAuditLearning(input: Partial<AuditLearning>) {
     return learning;
   }
 
-  await importarAcervoDoArquivo();
+  await importarAcervoDoArquivo(organizationId);
 
   const row = await getPrisma().auditLearning.create({
     data: {
       id: learning.id,
+      organizationId,
       title: learning.title,
       content: learning.content,
       type: learning.type,
@@ -248,7 +264,11 @@ export async function createAuditLearning(input: Partial<AuditLearning>) {
   return daLinha(row);
 }
 
-export async function updateAuditLearning(id: string, input: Partial<AuditLearning>) {
+export async function updateAuditLearning(
+  organizationId: string,
+  id: string,
+  input: Partial<AuditLearning>,
+) {
   if (!usarBanco()) {
     const learnings = await readLearningFile();
     const index = learnings.findIndex((item) => item.id === id);
@@ -275,9 +295,11 @@ export async function updateAuditLearning(id: string, input: Partial<AuditLearni
     return updated;
   }
 
-  await importarAcervoDoArquivo();
+  await importarAcervoDoArquivo(organizationId);
 
-  const atual = await getPrisma().auditLearning.findUnique({ where: { id } });
+  const atual = await getPrisma().auditLearning.findFirst({
+    where: { id, organizationId },
+  });
   if (!atual) {
     return null;
   }
@@ -314,7 +336,7 @@ export async function updateAuditLearning(id: string, input: Partial<AuditLearni
   return daLinha(row);
 }
 
-export async function deleteAuditLearning(id: string) {
+export async function deleteAuditLearning(organizationId: string, id: string) {
   if (!usarBanco()) {
     const learnings = await readLearningFile();
     const nextLearnings = learnings.filter((item) => item.id !== id);
@@ -327,14 +349,16 @@ export async function deleteAuditLearning(id: string) {
     return true;
   }
 
-  await importarAcervoDoArquivo();
+  await importarAcervoDoArquivo(organizationId);
 
   /*
    * `deleteMany` em vez de `delete`: apagar o que não existe é um caminho
    * normal desta rota (dois cliques, duas abas), e o `delete` do Prisma
    * responde a isso com exceção. A contagem já diz o que o chamador precisa.
    */
-  const { count } = await getPrisma().auditLearning.deleteMany({ where: { id } });
+  const { count } = await getPrisma().auditLearning.deleteMany({
+    where: { id, organizationId },
+  });
   return count > 0;
 }
 

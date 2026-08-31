@@ -18,6 +18,13 @@ export type ActorIdentity = {
 
 type PrismaClientOrTransaction = Prisma.TransactionClient | ReturnType<typeof getPrisma>;
 
+export class InvalidArtifactRelation extends Error {
+  constructor() {
+    super("Referência de artefato não encontrada para este projeto.");
+    this.name = "InvalidArtifactRelation";
+  }
+}
+
 export function normalizeEmail(email: string) {
   return email.trim().toLocaleLowerCase("pt-BR");
 }
@@ -228,6 +235,36 @@ export async function createDocumentArtifact(
     expiresAt?: Date | null;
   },
 ) {
+  /*
+   * AS TRES FKs CONTAM A MESMA HISTORIA. Se o artefato diz que pertence ao
+   * projeto A, auditoria e rascunho tambem precisam pertencer a A. Validar no
+   * helper protege tanto a API manual quanto os geradores internos que o
+   * reutilizam; deixar a regra apenas na rota abriria o mesmo buraco no proximo
+   * chamador.
+   */
+  if ((input.auditId || input.ldDraftId) && !input.projectId) {
+    throw new InvalidArtifactRelation();
+  }
+
+  const [audit, ldDraft] = await Promise.all([
+    input.auditId
+      ? tx.audit.findFirst({
+          where: { id: input.auditId, projectId: input.projectId! },
+          select: { id: true },
+        })
+      : null,
+    input.ldDraftId
+      ? tx.ldDraft.findFirst({
+          where: { id: input.ldDraftId, projectId: input.projectId! },
+          select: { id: true },
+        })
+      : null,
+  ]);
+
+  if ((input.auditId && !audit) || (input.ldDraftId && !ldDraft)) {
+    throw new InvalidArtifactRelation();
+  }
+
   const artifact = await tx.documentArtifact.create({
     data: {
       projectId: input.projectId ?? undefined,

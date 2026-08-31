@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { auditByIdWhereForActor } from "@/lib/audit-access";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import {
   classifyProviderFailure,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/ai-providers";
 import { executeOpenAiResponse } from "@/lib/ai-runner";
 import type { AuditReport } from "@/lib/audit-report";
+import type { Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { carregarMemoriaDoDocumento } from "@/lib/memoria-do-documento";
 import { aplicarAchadoNoParecer, montarContexto } from "@/server/audit/chat/ferramentas";
@@ -30,6 +32,8 @@ import { runChatTurn } from "@/server/audit/chat/run-chat-turn";
 import { linhaSse, respostaDoModelo } from "./serializacao";
 
 export const runtime = "nodejs";
+
+const VALID_ID = /^[A-Za-z0-9-]{8,80}$/;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
@@ -111,13 +115,13 @@ export function OPTIONS(request: Request) {
  * perder o achado da tela. Mas o log tem de existir — sem banco o achado some
  * no próximo F5 e ninguém saberia por quê.
  */
-async function gravarAchadoNoParecer(auditId: string, report: AuditReport) {
+async function gravarAchadoNoParecer(auditId: string, report: AuditReport, actor: Actor) {
   if (!isDatabaseConfigured()) return;
 
   try {
     const prisma = getPrisma();
-    await prisma.audit.update({
-      where: { id: auditId },
+    await prisma.audit.updateMany({
+      where: auditByIdWhereForActor(auditId, actor),
       data: {
         report: report as never,
         totalFindings: report.total_incongruencias,
@@ -132,8 +136,9 @@ export async function POST(request: Request) {
   /*
    * O PORTÃO. Esta rota não pedia NADA -- nem sessão.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -165,7 +170,30 @@ export async function POST(request: Request) {
     return jsonError("Relatório da auditoria não informado.", 400, request);
   }
 
-  const auditId = String(body.auditId ?? "");
+  const auditId = String(body.auditId ?? "").trim();
+  if (auditId && !VALID_ID.test(auditId)) {
+    return jsonError("Identificador de auditoria inválido.", 400, request);
+  }
+
+  /*
+   * O ID DO NAVEGADOR NÃO É AUTORIDADE. Primeiro resolvemos a auditoria dentro
+   * do escritório; só então seu texto, projeto e parecer podem entrar no turno.
+   * Sem `auditId`, o chat continua funcionando sobre o parecer local, mas não
+   * ganha acesso ao acervo apenas porque recebeu um `projectId` no corpo.
+   */
+  let projectIdAutorizado: string | null = null;
+  if (auditId && isDatabaseConfigured()) {
+    const audit = await getPrisma().audit.findFirst({
+      where: auditByIdWhereForActor(auditId, actor),
+      select: { id: true, projectId: true },
+    });
+
+    if (!audit) {
+      return jsonError("Auditoria não encontrada.", 404, request);
+    }
+
+    projectIdAutorizado = audit.projectId;
+  }
   const history = Array.isArray(body.history)
     ? body.history.filter((t) => t.role === "user" || t.role === "assistant").slice(-6)
     : [];
@@ -195,7 +223,12 @@ export async function POST(request: Request) {
           ctx,
           pergunta: question,
           historico: history,
-          historicoDaObra: () => historicoDaObra({ auditId, projectId: body.projectId ?? null }),
+          historicoDaObra: () =>
+            historicoDaObra({
+              auditId,
+              organizationId: actor.organizationId,
+              projectId: projectIdAutorizado,
+            }),
           /*
            * O encaminhamento é resolvido no CLIENTE. `runNexoAgentTurn` precisa
            * de `resumo`, `prefeituras`, `escritorio`, `tomosSugeridos` e
@@ -210,7 +243,7 @@ export async function POST(request: Request) {
           aoRegistrar: async (achado) => {
             const atualizado = aplicarAchadoNoParecer(body.report!, achado);
             body.report = atualizado;
-            if (auditId) await gravarAchadoNoParecer(auditId, atualizado);
+            if (auditId) await gravarAchadoNoParecer(auditId, atualizado, actor);
           },
           executar: async ({ input, tools, volta }) => {
             const ai = await executeOpenAiResponse({

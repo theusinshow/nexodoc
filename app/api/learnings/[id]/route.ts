@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { deleteAuditLearning, updateAuditLearning } from "@/lib/audit-learnings";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
 
 export const runtime = "nodejs";
 
@@ -53,8 +54,9 @@ export async function PATCH(
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -64,7 +66,7 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = (await request.json()) as Record<string, unknown>;
-    const learning = await updateAuditLearning(id, {
+    const learning = await updateAuditLearning(actor.organizationId, id, {
       title: body.title === undefined ? undefined : String(body.title),
       content: body.content === undefined ? undefined : String(body.content),
       type: body.type as never,
@@ -93,8 +95,9 @@ export async function DELETE(
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -102,7 +105,7 @@ export async function DELETE(
   }
 
   const { id } = await context.params;
-  const deleted = await deleteAuditLearning(id);
+  const deleted = await deleteAuditLearning(actor.organizationId, id);
 
   if (!deleted) {
     return jsonError("Aprendizado não encontrado.", 404, request);

@@ -43,6 +43,21 @@ function esperaPorConexaoMs(): number {
 }
 
 /**
+ * O adapter do Prisma qualifica as tabelas com `public` por padrão. O `pg`
+ * respeita `search_path`, mas isso não muda as queries geradas pelo adapter;
+ * para bancos que declaram `?schema=...` na própria URL, as duas camadas
+ * precisam receber o mesmo schema. Em produção o valor usual é `public`; em
+ * provas de migração isso permite usar um schema descartável de verdade.
+ */
+function schemaDaConexao(connectionString: string): string | undefined {
+  try {
+    return new URL(connectionString).searchParams.get("schema")?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * O TRATADOR QUE IMPEDE O PROCESSO DE MORRER.
  *
  * Um `Pool` é um EventEmitter, e conexão OCIOSA pode emitir `error` sozinha —
@@ -95,7 +110,10 @@ export function getPrisma() {
     ouvirErrosDeFundo(pool);
   }
 
-  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const schema = schemaDaConexao(connectionString);
+  const client = new PrismaClient({
+    adapter: new PrismaPg(pool, schema ? { schema } : undefined),
+  });
 
   globalForPrisma.prisma = client;
   globalForPrisma.prismaPgPool = pool;

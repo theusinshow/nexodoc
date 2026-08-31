@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { auditByIdWhereForActor } from "@/lib/audit-access";
 import type { Actor } from "@/lib/actor";
 import {
   DesfechoInvalido,
@@ -65,6 +66,15 @@ export async function GET(
     return jsonError("Identificador de auditoria inválido.");
   }
 
+  const audit = await getPrisma().audit.findFirst({
+    where: auditByIdWhereForActor(id, quemPede),
+    select: { id: true },
+  });
+
+  if (!audit) {
+    return jsonError("Auditoria não encontrada.", 404);
+  }
+
   const feedback = await getPrisma().auditFeedback.findMany({
     where: { auditId: id },
     orderBy: { createdAt: "asc" },
@@ -88,12 +98,17 @@ export async function GET(
   const nomes = new Map<string, string>();
 
   if (idsDeQuemResolveu.length > 0) {
-    const usuarios = await getPrisma().user.findMany({
-      where: { id: { in: idsDeQuemResolveu } },
-      select: { id: true, name: true, email: true },
+    const membros = await getPrisma().organizationMember.findMany({
+      where: {
+        organizationId: quemPede.organizationId,
+        userId: { in: idsDeQuemResolveu },
+      },
+      select: { userId: true, name: true, email: true },
     });
 
-    for (const u of usuarios) nomes.set(u.id, u.name || u.email);
+    for (const membro of membros) {
+      if (membro.userId) nomes.set(membro.userId, membro.name || membro.email);
+    }
   }
 
   /*
@@ -111,7 +126,10 @@ export async function GET(
 
   if (emails.length > 0) {
     const membros = await getPrisma().organizationMember.findMany({
-      where: { email: { in: emails } },
+      where: {
+        organizationId: quemPede.organizationId,
+        email: { in: emails },
+      },
       select: { email: true, name: true },
     });
 
@@ -231,8 +249,8 @@ export async function POST(
     return jsonError("Classificação de feedback inválida.");
   }
 
-  const audit = await getPrisma().audit.findUnique({
-    where: { id },
+  const audit = await getPrisma().audit.findFirst({
+    where: auditByIdWhereForActor(id, actor),
     select: { id: true },
   });
 

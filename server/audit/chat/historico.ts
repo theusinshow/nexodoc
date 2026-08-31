@@ -68,9 +68,13 @@ function criticosDe(report: unknown): number {
 
 export async function historicoDaObra(args: {
   auditId: string;
+  organizationId: string;
   projectId?: string | null;
 }): Promise<string> {
-  const aprendizados = await listAuditLearnings({ activeOnly: true })
+  const aprendizados = await listAuditLearnings({
+    organizationId: args.organizationId,
+    activeOnly: true,
+  })
     .then((lista) => lista.map((a) => ({ title: a.title, content: a.content })))
     .catch(() => []);
 

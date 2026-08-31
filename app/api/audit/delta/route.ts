@@ -12,7 +12,6 @@
  */
 import { NextResponse } from "next/server";
 
-import { auth } from "@/auth";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { extractPdfText, chunkPdfByChapter } from "@/lib/pdf-text";
 import {
@@ -23,6 +22,8 @@ import {
 } from "@/lib/audit-fingerprint";
 import type { AuditReport, ImpressaoDoArquivo } from "@/lib/audit-report";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { auditByIdWhereForActor } from "@/lib/audit-access";
+import type { Actor } from "@/lib/actor";
 
 export const runtime = "nodejs";
 
@@ -30,18 +31,13 @@ export async function POST(request: Request) {
   /*
    * O PORTAO. Esta rota nao pedia NADA -- nem sessao.
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
     throw err;
-  }
-
-  const sessao = await auth();
-  const userEmail = sessao?.user?.email;
-  if (!userEmail) {
-    return NextResponse.json({ error: "Sem sessão." }, { status: 401 });
   }
 
   const form = await request.formData();
@@ -61,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const anterior = await getPrisma().audit.findFirst({
-    where: { id: auditIdAnterior },
+    where: auditByIdWhereForActor(auditIdAnterior, actor),
     select: { id: true, report: true, completedAt: true, createdAt: true, status: true },
   });
   if (!anterior || anterior.status !== "COMPLETED") {
