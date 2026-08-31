@@ -995,6 +995,9 @@ function NexoWorkspaceInner({
            * a leitura ter acontecido e ter ignorado a correção do carimbo.
            */
           setDaMemoria(reaproveitadas);
+          // Leitura nova = aviso novo: o que foi dispensado era sobre o
+          // conjunto anterior.
+          setMemoriaDispensada(false);
           if (reaproveitadas > 0) {
             selosRef.current = [...collected];
             setSeloResults([...collected]);
@@ -1457,6 +1460,13 @@ function NexoWorkspaceInner({
    * Custa uma chamada de modelo por folha. Por isso é botão, e não automático.
    */
   const [daMemoria, setDaMemoria] = useState(0);
+  /*
+   * A faixa da memória é NOTÍCIA, não bloqueio: depois de lida e entendida, ela
+   * só ocupa o topo da tela pelo resto da conversa. Fechada aqui, e reaberta
+   * sozinha na PRÓXIMA leitura que reaproveitar folhas — porque aí é notícia
+   * nova, sobre outro conjunto.
+   */
+  const [memoriaDispensada, setMemoriaDispensada] = useState(false);
 
   async function relerSelos() {
     if (pranchaFiles.length === 0) return;
@@ -1997,7 +2007,7 @@ function NexoWorkspaceInner({
         e reanexa vê a mesma leitura de antes e conclui que o software não pegou
         a alteração. Aqui ela se anuncia e oferece a saída.
       */}
-      {daMemoria > 0 && !busyReading && pranchaFiles.length > 0 && (
+      {daMemoria > 0 && !memoriaDispensada && !busyReading && pranchaFiles.length > 0 && (
         <FaixaDeEstado
           tipo="documento"
           titulo={`${plural(daMemoria, "folha veio da memória", "folhas vieram da memória")} de leitura`}
@@ -2006,6 +2016,7 @@ function NexoWorkspaceInner({
               Reler os selos
             </Button>
           }
+          aoFechar={() => setMemoriaDispensada(true)}
         >
           Nada foi lido do PDF agora: estas folhas já tinham sido lidas antes, e
           a leitura guardada voltou inteira. Se o carimbo mudou — ou se ele foi

@@ -9,12 +9,15 @@
  * - `atencao` (âmbar): reversível, nada se perdeu — sem conexão, sessão expirada.
  * - `info` (azul): nada quebrou, só a porta é outra — sem permissão.
  *
+ * E a faixa que é NOTÍCIA se fecha (`aoFechar`); a que é BLOQUEIO, não — ver a
+ * prop.
+ *
  * E a primeira frase é sempre sobre o que ele tem em risco, nunca sobre a
  * máquina: "o que você escreveu está guardado" vem antes de "a rede caiu".
  */
 
 import type { ReactNode } from "react";
-import { CloudOff, Info, Clock, FileWarning } from "lucide-react";
+import { CloudOff, Info, Clock, FileWarning, X } from "lucide-react";
 
 export type TipoDeFaixa = "offline" | "sessao" | "permissao" | "documento";
 
@@ -58,12 +61,22 @@ export function FaixaDeEstado({
   titulo,
   children,
   acao,
+  aoFechar,
 }: {
   tipo: TipoDeFaixa;
   titulo: string;
   /** A garantia: o que sobreviveu. Vem antes de qualquer explicação técnica. */
   children: ReactNode;
   acao?: ReactNode;
+  /**
+   * Dispensa a faixa. SÓ passe onde ela é NOTÍCIA, não onde é BLOQUEIO.
+   *
+   * "As folhas vieram da memória" é notícia: quem já leu e decidiu que está
+   * certo não precisa da faixa ocupando o topo da tela pelo resto da conversa.
+   * "A leitura parou no meio" e "você está offline" são o contrário — fechar
+   * esconderia trabalho que não terminou, e a faixa é a única forma de saber.
+   */
+  aoFechar?: () => void;
 }) {
   const estilo = ESTILO[tipo];
   const Icone = estilo.icone;
@@ -91,6 +104,17 @@ export function FaixaDeEstado({
         <p className="mt-1 text-[13px] leading-5 text-foreground">{children}</p>
       </div>
       {acao}
+      {aoFechar && (
+        <button
+          type="button"
+          onClick={aoFechar}
+          aria-label={`Fechar aviso: ${titulo}`}
+          title="Fechar"
+          className="-mr-1 shrink-0 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      )}
     </div>
   );
 }

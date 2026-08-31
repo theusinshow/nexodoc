@@ -101,6 +101,19 @@ function buildPrompt(input: RunNexoAgentTurnInput): string {
   const prefLista =
     prefeituras.map((t) => `- id="${t.id}" · ${t.nome}`).join("\n") ||
     "(nenhuma prefeitura configurada)";
+  /*
+   * A PREFEITURA JÁ RESOLVIDA PRECISA CHEGAR AO MODELO, e não só ao
+   * `normalize`.
+   *
+   * O casamento pelo carimbo preenchia o `templateId` da proposta — o card
+   * mostrava "Vai para Criciúma" — e a PROSA continuava dizendo "confirme a
+   * prefeitura", porque a regra do prompt manda pedir confirmação quando o
+   * engenheiro não citou a cidade. Pedir o que já está decidido ensina a
+   * desconfiar do card, que é o oposto do que o card existe para fazer.
+   */
+  const prefResolvida = input.prefeituraDoSelo
+    ? prefeituras.find((t) => t.id === input.prefeituraDoSelo)
+    : undefined;
   const hist =
     history
       .slice(-6)
@@ -135,9 +148,11 @@ REGRAS:
     profunda" ou "mais rápida", proponha a MESMA auditoria e não comente
     profundidade — não há duas, e prometer uma segunda seria inventar produto.
 - Para a capa, escolha o templateId da lista de prefeituras casando pelo NOME DA
-  CIDADE que o engenheiro citou (ex.: "Chapecó" -> o template de Chapecó). Se ele
-  não disse qual e há mais de uma, escolha a mais provável e peça confirmação.
-  A separatriz usa a MESMA escolha de prefeitura/tomos da capa.
+  CIDADE que o engenheiro citou (ex.: "Chapecó" -> o template de Chapecó). Se os
+  FATOS abaixo já trazem a prefeitura lida do carimbo, ela está DECIDIDA: use o
+  templateId dela, AFIRME de qual prefeitura é o volume e NÃO peça confirmação.
+  Só quando os fatos não a trouxerem é que você escolhe a mais provável e pede
+  confirmação. A separatriz usa a MESMA escolha de prefeitura/tomos da capa.
 - Se faltar prefeitura para a capa/separatriz, proponha só a LD e comente no texto.
 - TÍTULOS (LD e CAPA): são DECISÃO do engenheiro — NÃO adivinhe. Se ele não
   disse, deixe "tituloLd": "" / "tituloCapa": "" e PERGUNTE no texto. Se ele
@@ -181,6 +196,11 @@ FATOS JÁ LIDOS DOS SELOS (não pergunte de novo):
 - Nº de folhas: ${resumo.totalFolhas}
 - Divisão recomendada: ${tomosSugeridos} tomo(s) — o escritório encaderna ~12 pranchas por tomo
 - Título sugerido (do selo): ${resumo.tituloSugerido || "(nenhum)"}
+- Prefeitura: ${
+    prefResolvida
+      ? `${prefResolvida.nome} — LIDA DO CARIMBO, templateId="${prefResolvida.id}". Já decidida: afirme e não pergunte.`
+      : "(não resolvida pelo carimbo — esta sim é decisão do engenheiro)"
+  }
 
 PREFEITURAS DISPONÍVEIS (use o id no templateId):
 ${prefLista}
