@@ -167,7 +167,16 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
             {atual.numero} · {atual.rotulo}
           </p>
           <h2>Notas do apresentador</h2>
-          <p>{atual.notas}</p>
+          {/*
+            AS NOTAS QUEBRAM EM PARÁGRAFOS. Desde que elas passaram a carregar as
+            RÉPLICAS — o que o comprador diz quando a resposta não o satisfaz —
+            uma nota tem três ou quatro blocos, e num `<p>` único eles viram uma
+            parede de texto que ninguém acha no meio de uma frase. O painel é
+            lido de relance, com a sala esperando.
+          */}
+          {atual.notas.split("\n\n").map((paragrafo) => (
+            <p key={paragrafo}>{paragrafo}</p>
+          ))}
         </aside>
       ) : null}
 

@@ -1662,17 +1662,17 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Em quanto tempo se paga",
+    rotulo: "Como ela se paga",
     numero: "14",
     denso: true,
     bloco: "O dinheiro",
     notas:
-      "A conta desta folha IGNORA A AUDITORIA INTEIRA de proposito, e e preciso dizer isso em voz alta: ela se paga so com a montagem, que e o trabalho bracal que ninguem discute. Tudo o que a conferencia de memorial trouxer vem depois, e de graca nesta conta. A ultima linha e o teto: qualquer licenca abaixo dela se paga no primeiro mes. NAO oferecer esse numero como preco -- ele e o limite que o proprio diretor vai calcular, e e melhor que ele o calcule com a minha aritmetica.",
+      "ESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nO terceiro bloco e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar. Todos na sala sabem de qual entrega estamos falando.",
     corpo: (
       <>
         <Entra atraso={0}>
           <h2 className="ap-titulo" style={{ marginBottom: 20 }}>
-            Em quanto tempo se paga
+            Como ela se paga
           </h2>
         </Entra>
 
@@ -1693,38 +1693,41 @@ export const SLIDES: readonly Slide[] = [
         >
           {[
             [
-              "Só a montagem já paga a operação.",
-              "Quatro projetos por mês, até quatro horas de montagem manual cada: 16 horas. À hora de engenheiro que este deck já usou, valem R$ 800 a R$ 1.440. Operar custa R$ 285.",
+              "Em tempo que volta para o projeto.",
+              "Quatro projetos por mês, até quatro horas de montagem manual cada. São dezesseis horas que ninguém precisa gastar abrindo prancha por prancha — e que voltam para quem deveria estar projetando.",
             ],
             [
-              "A conferência inteira entra de graça nessa conta.",
-              "Nada acima foi creditado à leitura do memorial — que é o motivo pelo qual estamos nesta sala. O que ela achar é ganho que esta folha não contou.",
+              "Em qualidade do que sai daqui.",
+              "O projeto que chega ao cliente já passou por uma leitura que hoje não acontece. Não é uma revisão a mais: é a primeira.",
             ],
             [
-              "Um episódio evitado paga mais de um ano.",
-              "Operar custa R$ 3.420 no ano inteiro. O episódio que já aconteceu custou R$ 3.600 a R$ 6.480 só em horas paradas.",
+              "E em vergonha não passada.",
+              "Este é o retorno que não entra em planilha nenhuma, e é o único que a sala inteira já viu de perto. Um projeto devolvido não custa só as horas paradas que a folha da conta somou.",
             ],
           ].map(([titulo, texto], i) => (
             <Marcador key={titulo} titulo={titulo} texto={texto} atraso={160 + i * 190} />
           ))}
         </div>
 
+        {/*
+          SEM O TETO DE LICENÇA NA TELA. A versão anterior fechava com "sobra
+          R$ 515 a R$ 1.155 por mês" — e um comprador não lê isso como teto, lê
+          como piso: "seu preço é 515, você mesmo escreveu". O número continua
+          existindo, mas nas notas: é melhor que o diretor o deduza do que eu o
+          conceda por escrito.
+        */}
         <Entra
           atraso={820}
           style={{
             paddingTop: 26,
             borderTop: "1px solid var(--nexodoc-accent)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: 40,
           }}
         >
           <p
             style={{
               margin: 0,
-              maxWidth: "40ch",
-              fontSize: 34,
+              maxWidth: "56ch",
+              fontSize: 36,
               fontWeight: 500,
               letterSpacing: "-0.018em",
               lineHeight: 1.28,
@@ -1732,20 +1735,9 @@ export const SLIDES: readonly Slide[] = [
               textWrap: "pretty",
             }}
           >
-            O que sobra por mês, antes de contar um único achado
+            Operar custa R$ 285 por mês. O episódio que já aconteceu custou entre R$ 3.600 e
+            R$ 6.480 — e isso foi só a parte que deu para somar.
           </p>
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 50,
-              fontWeight: 500,
-              letterSpacing: "-0.025em",
-              color: "var(--foreground)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            R$ 515 a R$ 1.155
-          </span>
         </Entra>
       </>
     ),
@@ -1874,7 +1866,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "16",
     bloco: "As perguntas difíceis",
     notas:
-      "NÃO BRIGAR COM O CHATGPT: ele está dentro do sistema, e dizer isso desarma a pergunta em vez de disputá-la. Esta folha responde junto a 'e se em seis meses isso virar de graça?' e 'contrato um desenvolvedor por dois meses e tenho o mesmo'. Para o desenvolvedor: dois meses fazem a primeira versão; o que está na tela é o que sobrou depois de meses corrigindo contra memorial real, e a folha dos limites mostra o que ainda falta.",
+      "NÃO BRIGAR COM O CHATGPT: ele está dentro do sistema, e dizer isso desarma a pergunta em vez de disputá-la. Para 'contrato um desenvolvedor por dois meses': dois meses fazem a primeira versão; o que está na tela é o que sobrou depois de meses corrigindo contra memorial real, e a folha dos limites mostra o que ainda falta.\n\nRÉPLICA PROVÁVEL 1 — 'então me venda só as regras e a montagem, e eu uso o ChatGPT para o resto': as regras sozinhas acham menos da metade, e é a segunda passada que derruba o falso positivo — está na folha da autorrevisão. Vender as partes separadas entrega um motor sem freio.\n\nRÉPLICA PROVÁVEL 2 — 'em seis meses isso é um botão dentro do Word': pode ser, e nesse dia eu troco o modelo por dentro e vocês não fazem nada. O que não vem de graça em botão nenhum é saber o que perguntar ao modelo, e é isso que os oito meses compraram.",
     corpo: (
       <Objecao
         pergunta="Isso é uma casca em cima do ChatGPT. Por que não assinamos o ChatGPT e mandamos alguém jogar o PDF lá?"
@@ -1902,7 +1894,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "17",
     bloco: "As perguntas difíceis",
     notas:
-      "Se vier 'isso aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM — o erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado. Se vier 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele; e se ignorarem, o piloto é exatamente o que mede isso. O terceiro bloco é o que mais compra a sala: é ganho que independe de assinar contrato.",
+      "O terceiro bloco é o que mais compra a sala: é ganho que independe de assinar contrato.\n\nRÉPLICA PROVÁVEL 1 — 'aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM. O erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado — e não seria achado.\n\nRÉPLICA PROVÁVEL 2 — 'então traga a medição pronta e voltamos a conversar': a medição depende do veredito de quem projeta, e é literalmente o que estou pedindo. Sem uso real ela não existe, e não há como eu produzi-la sozinho — seria eu julgando o meu próprio trabalho, que é exatamente o problema que este sistema existe para resolver.\n\nRÉPLICA PROVÁVEL 3 — 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele. E se ignorarem, o piloto é justamente o que mede isso.",
     corpo: (
       <Objecao
         pergunta="57 achados, e você mesmo disse que não sabe quantos são erro de verdade. Meu subdiretor lê um memorial em uma hora. Agora ele lê o memorial e mais 57 achados. Você piorou o trabalho dele."
@@ -1930,7 +1922,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "18",
     bloco: "As perguntas difíceis",
     notas:
-      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS AQUI. Se um diretor pedir, é concessão a negociar na hora — nunca promessa feita da tela, porque promessa projetada não se retira depois. O fecho é o ponto que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.",
+      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS AQUI. Promessa projetada não se retira depois. O fecho é o que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.\n\nRÉPLICA PROVÁVEL 1 — 'então põe o código em custódia': é a concessão que mata a objeção de vez, e por isso ela é cara. Se ceder, pedir contrapartida na mesma frase — prazo maior ou valor. Decidir ANTES de entrar na sala se ela está disponível.\n\nRÉPLICA PROVÁVEL 2 — 'prazo de resposta sem multa é papel': aceitar multa proporcional é barato e fecha a objeção inteira. Também decidir antes.\n\nRÉPLICA PROVÁVEL 3 — 'e se der problema num sábado?': o prazo escrito vale para problema que impeça o uso, não para toda dúvida. Dizer isso com essas palavras, sem prometer plantão.",
     corpo: (
       <Objecao
         pergunta="Você não é uma empresa. Sem CNPJ, sem suporte, sem prazo. E se você sair daqui, ou simplesmente parar? Ficamos reféns de um software de uma pessoa só."
@@ -1958,7 +1950,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "19",
     bloco: "As perguntas difíceis",
     notas:
-      "ATENÇÃO — ESTA FOLHA CONVIDA A PERGUNTA 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?'. Ler o contrato ANTES de apresentar. Se houver cláusula de cessão sobre criação fora do expediente, esta folha sai do deck e o assunto vira conversa reservada com o diretor, nunca plenário. Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.",
+      "ATENÇÃO — ESTA FOLHA CONVIDA A PERGUNTA 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?'. Ler o contrato ANTES de apresentar. Se houver cláusula de cessão sobre criação fora do expediente, esta folha sai do deck e o assunto vira conversa reservada com o diretor, nunca plenário. Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.\n\nRÉPLICA PROVÁVEL 1 — 'e o seu contrato de trabalho, o que diz?': é a réplica que decide a sala, e a única resposta aceitável é a que você já sabe de cor. Sem ter lido o contrato, não subir ao palco com esta folha.\n\nRÉPLICA PROVÁVEL 2 — 'você testou com os nossos projetos; isso é uso de informação da empresa': os documentos foram lidos, não copiados nem guardados, e o produto não contém nenhum trecho deles. O que aprendi lendo é conhecimento profissional — o mesmo que qualquer projetista leva de um projeto para o seguinte.\n\nRÉPLICA PROVÁVEL 3 — 'se é seu, faça no seu tempo e nos dê de graça': é aí que a folha seguinte responde. Não improvisar aqui.",
     corpo: (
       <Objecao
         pergunta="O problema é nosso. Os memoriais são nossos, os clientes são nossos, e você é nosso funcionário. Por que estamos pagando por isso?"
@@ -1982,26 +1974,26 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "O preço não se sustenta",
+    rotulo: "Então compramos você",
     numero: "20",
     bloco: "As perguntas difíceis",
     notas:
-      "NENHUM NÚMERO NESTA FOLHA, de propósito: o anexo não existe para a sala até alguém perguntar o valor, e é AQUI que ele sai — em arquivo separado, aberto por decisão sua. A citação também não nomeia cifra, para não envelhecer quando a folha do custo mudar. O segundo bloco é o que salva a negociação: piloto de graça não é generosidade, é o que faz o julgamento dos subdiretores nunca acontecer.",
+      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': NÃO FECHAR NÚMERO NA SALA sem ter decidido o piso antes de entrar. Se vier abaixo do piso, dizer que leva para pensar. Nunca aceitar por alívio de a reunião estar acabando.\n\nNENHUM NÚMERO NESTA FOLHA: o anexo só existe para a sala quando alguém perguntar o valor, e é aqui que ele sai.",
     corpo: (
       <Objecao
-        pergunta="Você mesmo mostrou o custo de manter isso ligado, e ele é baixo. Piloto é grátis. E você não tem outro cliente — quem precisa de quem, aqui?"
+        pergunta="Setecentas horas é palavra sua, e você usou uma ferramenta de IA de cem dólares por mês para escrever isso. Te pago as suas horas — pelo seu próprio número — e o software passa a ser nosso."
         respostas={[
           [
-            "O custo de operar é a conta de luz.",
-            "É o que custa manter ligado. Não é o que custou construir, nem o que custa manter de pé enquanto vocês usam.",
+            "As horas não são o produto.",
+            "Comprar as minhas horas compraria o passado. O que vocês viram funcionando precisa de alguém que o mantenha na semana que vem, e é isso que a licença contrata.",
           ],
           [
-            "Piloto de graça não mede nada.",
-            "O que eu peço no piloto é o julgamento de vocês, achado por achado — e isso é hora de subdiretor. O que se dá de graça vira brinde, e brinde não recebe julgamento: recebe silêncio.",
+            "A ferramenta escreve código. Ela não conhece memorial.",
+            "Não foi ela que descobriu que uma regra minha estava errada lendo os cinco memoriais do acervo, um a um. Essa ferramenta hoje está à venda para qualquer um — o que ela produz depende inteiramente de quem a opera e do que essa pessoa sabe.",
           ],
           [
-            "É verdade que não tenho outro cliente.",
-            "Por isso a proposta é curta: três meses, e ao fim ou encerra ou se renegocia. Não estou pedindo compromisso. Estou pedindo uma janela.",
+            "Comprar o software é outra conversa.",
+            "O que está na mesa é licença de uso por três meses. Se a diretoria quiser falar em compra, é outra negociação, com outro número e outro contrato — e eu ouço. Só não é a que eu vim propor hoje.",
           ],
         ]}
         fecho="Se for ruim, não usamos. Se for bom, conversamos sobre valores."

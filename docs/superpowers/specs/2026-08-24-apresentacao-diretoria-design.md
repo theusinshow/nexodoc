@@ -17,17 +17,25 @@
 > | US$ 25 de servidor / mês | Render sobe de US$ 7 para US$ 25 | declarado pelo autor |
 > | US$ 5 de banco / mês | Neon sai da camada gratuita | declarado pelo autor |
 > | R$ 285 / mês para operar | US$ 55 (24 + 1 + 25 + 5) a R$ 5,18 | conta |
-> | R$ 800 a R$ 1.440 / mês | 4 projetos × até 4 h de montagem manual = 16 h, à hora de engenheiro da folha 08 (R$ 50 a 90) | *estimativa sobre estimativa* |
-> | R$ 515 a R$ 1.155 | a diferença entre os dois de cima. É o TETO da licença, não o preço | conta |
-> | R$ 3.420 / ano | R$ 285 × 12 | conta |
+> | 16 h / mês de montagem | 4 projetos × até 4 h, declarado pelo autor | *estimativa* |
 >
-> **A folha 14 ignora a auditoria inteira de propósito.** Ela se paga só com a
-> montagem — o trabalho braçal que ninguém discute. É o argumento mais forte
-> justamente porque não depende de a leitura do memorial acertar.
+> **A FOLHA 14 NÃO DISPUTA ARITMÉTICA, e a primeira versão dela disputava.**
+> Ela valorizava as 16 horas de montagem à hora de engenheiro (R$ 50 a 90),
+> chegava a R$ 800–1.440 por mês e fechava com "sobra R$ 515 a R$ 1.155". Caía
+> com uma frase: **quem monta lista de documentos não ganha hora de engenheiro.**
+> À hora de técnico (R$ 20) as mesmas 16 horas valem R$ 320, a operação custa
+> R$ 285, e sobram R$ 35 — o argumento inteiro desmonta de cabeça, na sala.
 >
-> **A última linha da 14 é um teto, não um preço.** Qualquer licença abaixo dela
-> se paga no primeiro mês. Não oferecer esse número como valor: ele é o limite
-> que o diretor calcularia sozinho, e é melhor que o calcule com esta aritmética.
+> O retorno passou a ser **tempo devolvido, qualidade da entrega e vergonha não
+> passada**, que é como o autor o formulou e é terreno onde nenhuma aritmética
+> refuta. O único número que sobrou é o que já estava medido: R$ 285 por mês
+> contra os R$ 3.600 a 6.480 do episódio.
+>
+> **O TETO DE LICENÇA SAIU DA TELA e vive nas notas.** Com a operação em R$ 285,
+> uma licença até cerca de R$ 500 por mês se paga só no tempo devolvido. Um
+> comprador não lê um teto como teto — lê como piso ("seu preço é 515, você
+> mesmo escreveu"). O diretor vai deduzi-lo de qualquer forma, e um número que
+> ele deduz vale mais que um que o autor concede por escrito.
 >
 > **A folha 13 justifica preço, e essa foi decisão do autor** contra a
 > recomendação de usá-la só para credibilidade. O risco assumido: abrir o custo
@@ -53,6 +61,20 @@
 > **O que ficou de fora de propósito, e é concessão a negociar na hora:**
 > custódia de código e instalação na infraestrutura da PROSUL. Promessa feita da
 > tela não se retira depois.
+>
+> **AS NOTAS DE CADA FOLHA CARREGAM AS RÉPLICAS.** O comprador se posicionou como
+> advogado do diabo, e advogado do diabo não pergunta uma vez: ele insiste. Cada
+> folha do bloco traz, nas notas, as duas ou três réplicas mais prováveis e como
+> responder — inclusive as que exigem decisão tomada ANTES de entrar na sala
+> (custódia de código, multa por atraso, e o piso de valor abaixo do qual não se
+> fecha). O painel de notas quebra em parágrafos por causa disso.
+>
+> **A folha 20 foi reescrita depois que o bloco do dinheiro entrou.** A pergunta
+> antiga ("o custo de manter ligado é baixo; piloto é grátis") foi escrita quando
+> a tela mostrava R$ 170 por mês e nada sobre construção. Com a folha 13 no ar, a
+> objeção real virou a compra: *"te pago as suas horas — pelo seu próprio número
+> — e o software passa a ser nosso"*. É o preço de ter aberto o custo de
+> construção, e estava previsto quando essa decisão foi tomada.
 
 > **REESTRUTURADO EM 25/08/2026, e este documento ficou para trás no CONTEÚDO.**
 > O deck passou de 18 para 16 folhas + 2 de reserva, com quatro folhas novas (o

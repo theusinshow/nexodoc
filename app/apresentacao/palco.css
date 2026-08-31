@@ -288,3 +288,8 @@
     transform: none;
   }
 }
+
+/* Espaço entre parágrafos das notas — ver o comentário em `palco.tsx`. */
+.ap-notas p + p {
+  margin-top: 14px;
+}
