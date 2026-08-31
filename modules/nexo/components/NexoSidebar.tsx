@@ -32,6 +32,7 @@ import {
   TriangleAlert,
   Compass,
   CopyPlus,
+  Eraser,
   FileSearch,
   FolderKanban,
   Gauge,
@@ -44,6 +45,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { LimpezaDaPasta } from "./LimpezaDaPasta";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { SignOutMenuItem } from "@/components/sign-out-button";
@@ -179,6 +181,14 @@ export function NexoSidebar({
    * armar a pasta desarma o item, e vice-versa. Duas perguntas abertas ao mesmo
    * tempo numa coluna estreita seriam duas chances de clicar na errada.
    */
+  /**
+   * QUAL PASTA está com a limpeza aberta, ou `null`.
+   *
+   * Uma por vez, e ela desarma a confirmação de apagar (e vice-versa): dois
+   * painéis destrutivos abertos ao mesmo tempo numa coluna de 300px é como se
+   * clica no errado.
+   */
+  const [limpando, setLimpando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<{
     tipo: "conversa" | "pasta";
     id: string;
@@ -610,7 +620,25 @@ export function NexoSidebar({
                                     type="button"
                                     onClick={(e) => {
                                       e.preventDefault();
+                                      setLimpando((atual) =>
+                                        atual === idDaPasta ? null : idDaPasta,
+                                      );
+                                      setConfirmando(null);
+                                    }}
+                                    aria-label={`Procurar o que dá para apagar em ${g.key ?? "Sem pasta"}`}
+                                    title="Limpar a pasta"
+                                    className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-foreground focus-visible:[--nx-fill:var(--accent)]"
+                                  >
+                                    <Eraser className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                  </button>
+                                )}
+                                {onDeleteFolder && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
                                       setConfirmando({ tipo: "pasta", id: idDaPasta });
+                                      setLimpando(null);
                                     }}
                                     aria-label={`Apagar a pasta ${g.key ?? "Sem pasta"} inteira`}
                                     className="nx-edge-4 p-1.5 text-muted-foreground transition-colors focus-visible:outline-none [--nx-edge:transparent] [--nx-fill:transparent] hover:text-[var(--status-critical)] focus-visible:[--nx-fill:var(--accent)]"
@@ -623,6 +651,28 @@ export function NexoSidebar({
                           </>
                         )}
                       </summary>
+                      {/*
+                        A LIMPEZA GUIADA da pasta. Fica DENTRO do `<details>`,
+                        abaixo do cabeçalho: é sobre estas conversas, e um painel
+                        flutuante perderia essa amarração — além de ser cortado
+                        pelo `clip-path` do chanfro.
+                      */}
+                      {limpando === idDaPasta && onDeleteFolder && (
+                        <div className="pl-3 pr-1">
+                          <LimpezaDaPasta
+                            /* Uma montagem por pasta: o painel lê a pasta UMA
+                               vez, na montagem. */
+                            key={g.key ?? "sem-pasta"}
+                            pasta={g.key}
+                            {...(activeId ? { idAberta: activeId } : {})}
+                            onFechar={() => setLimpando(null)}
+                            onApagar={(ids) => {
+                              onDeleteFolder(ids);
+                              setLimpando(null);
+                            }}
+                          />
+                        </div>
+                      )}
                       <ul className="flex flex-col gap-px py-0.5 pl-3">
                         {g.items.map((c) => {
                           const active = c.id === activeId;
