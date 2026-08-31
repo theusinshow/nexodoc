@@ -7,7 +7,7 @@ import "./palco.css";
 export interface Slide {
   /** Rótulo curto, para as notas e para o índice. */
   rotulo: string;
-  /** O que aparece no canto: "01".."18". */
+  /** O que aparece no canto: "01".."20". */
   numero: string;
   /** O bloco narrativo a que o slide pertence. Vazio na capa. */
   bloco?: string;
@@ -61,7 +61,7 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
        * As notas ROUBAM LARGURA do palco, e não podem cobri-lo: no ensaio se lê
        * o slide e a nota ao mesmo tempo, e um painel por cima do slide obriga a
        * fechar para conferir o que se ia dizer sobre ele. Visto na tela, com o
-       * painel tapando a coluna esquerda do slide 18.
+       * painel tapando a coluna esquerda de um slide em duas colunas.
        */
       const largura = window.innerWidth - (notasAbertas ? LARGURA_DAS_NOTAS : 0);
       const escala = Math.min(largura / 1920, window.innerHeight / 1080);

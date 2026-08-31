@@ -326,6 +326,123 @@ function Marcador({
   );
 }
 
+/* ────────────────────────────────────────────────── a folha do contraditório */
+
+/**
+ * UMA FOLHA DE OBJEÇÃO.
+ *
+ * A pergunta aparece na tela COM AS PALAVRAS DO COMPRADOR, na versão mais dura
+ * que ele conseguiria formular — não numa versão amaciada. Quem escreveu a
+ * acusação já tirou dela metade da força: a sala vê que ela foi PREVISTA, e não
+ * improvisada na hora.
+ *
+ * A citação é MONO porque essa distinção já vale no resto do deck — mono é o
+ * que os OUTROS dizem (o memorial, o diretor), sans é o que eu digo. Aqui ela
+ * separa a acusação da resposta sem precisar de rótulo nenhum.
+ *
+ * NENHUMA CIFRA nas perguntas. Uma objeção que cita um número do deck envelhece
+ * junto com ele, e um número desencontrado entre duas folhas é exatamente o que
+ * a regra do topo deste arquivo proíbe.
+ */
+function Objecao({
+  pergunta,
+  respostas,
+  fecho,
+}: {
+  pergunta: string;
+  respostas: readonly (readonly [string, string])[];
+  fecho: string;
+}) {
+  return (
+    <>
+      <Entra atraso={0}>
+        <span style={rotulo}>A pergunta</span>
+      </Entra>
+      <Entra atraso={100}>
+        <p
+          style={{
+            margin: "18px 0 0",
+            maxWidth: "46ch",
+            fontFamily: MONO,
+            fontSize: 40,
+            lineHeight: 1.34,
+            letterSpacing: "-0.012em",
+            color: "var(--foreground)",
+            textWrap: "pretty",
+          }}
+        >
+          {`“${pergunta}”`}
+        </p>
+      </Entra>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          marginTop: 44,
+          paddingTop: 40,
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        {respostas.map(([titulo, texto], i) => (
+          <div
+            key={titulo}
+            className="ap-entra"
+            style={{
+              animationDelay: `${320 + i * 180}ms`,
+              flex: 1,
+              padding: i === 0 ? "0 40px 0 0" : "0 40px",
+              borderLeft: i === 0 ? "none" : "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 24, color: "var(--nexodoc-accent)" }}>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 31,
+                fontWeight: 500,
+                letterSpacing: "-0.016em",
+                lineHeight: 1.26,
+                color: "var(--foreground)",
+                textWrap: "pretty",
+              }}
+            >
+              {titulo}
+            </p>
+            <p style={{ ...secundario, fontSize: 24 }}>{texto}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="ap-cresce" />
+
+      <Entra atraso={320 + respostas.length * 180 + 160}>
+        <p
+          style={{
+            margin: 0,
+            maxWidth: "52ch",
+            paddingTop: 30,
+            borderTop: "1px solid var(--border)",
+            fontSize: 36,
+            fontWeight: 500,
+            letterSpacing: "-0.018em",
+            lineHeight: 1.3,
+            color: "var(--nexodoc-accent)",
+            textWrap: "pretty",
+          }}
+        >
+          {fecho}
+        </p>
+      </Entra>
+    </>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════ AS FOLHAS */
 
 export const SLIDES: readonly Slide[] = [
@@ -1472,9 +1589,160 @@ export const SLIDES: readonly Slide[] = [
     ),
   },
 
+  /*
+   * ─── AS PERGUNTAS DIFÍCEIS ────────────────────────────────────────────────
+   *
+   * O bloco vem DEPOIS do pedido, e não antes, porque objeção só existe quando
+   * há pedido na mesa: ninguém contesta um preço antes de saber que existe um.
+   *
+   * A ordem escala do técnico ao comercial. Cada folha responde por dinheiro um
+   * pouco mais do que a anterior, e a última abre a porta do anexo — que é o
+   * único lugar onde o valor aparece.
+   */
+
+  {
+    rotulo: "Por que não o ChatGPT",
+    numero: "14",
+    bloco: "As perguntas difíceis",
+    notas:
+      "NÃO BRIGAR COM O CHATGPT: ele está dentro do sistema, e dizer isso desarma a pergunta em vez de disputá-la. Esta folha responde junto a 'e se em seis meses isso virar de graça?' e 'contrato um desenvolvedor por dois meses e tenho o mesmo'. Para o desenvolvedor: dois meses fazem a primeira versão; o que está na tela é o que sobrou depois de meses corrigindo contra memorial real, e a folha dos limites mostra o que ainda falta.",
+    corpo: (
+      <Objecao
+        pergunta="Isso é uma casca em cima do ChatGPT. Por que não assinamos o ChatGPT e mandamos alguém jogar o PDF lá?"
+        respostas={[
+          [
+            "O modelo é uma peça, não é o sistema.",
+            "O ChatGPT é uma das caixas do diagrama que vocês viram. As outras não são dele: extrair o texto sabendo em que página cada linha está, aplicar as regras que não alucinam, validar cada achado contra o próprio documento e descartar o que não se sustenta. Sem elas, o que volta é um resumo — e resumo não se leva para o cliente.",
+          ],
+          [
+            "A conversa não guarda nada.",
+            "Colar um PDF num chat não deixa histórico por obra, nem custo por projeto, nem teto de gasto, nem registro de quem leu o quê. E o que ele entendeu de um memorial não serve para o próximo.",
+          ],
+          [
+            "Metade do sistema não é leitura.",
+            "Lista de documentos, capa, volume, folha faltante, selo divergente. Isso é montagem de arquivo. Nenhum chat entrega ODT, PDF e ZIP prontos para a entrega.",
+          ],
+        ]}
+        fecho="E quando o modelo melhorar — e vai — ele melhora aqui dentro. Trocar de modelo é uma linha de configuração; o que sobra é o resto."
+      />
+    ),
+  },
+
+  {
+    rotulo: "Você não provou que vale",
+    numero: "15",
+    bloco: "As perguntas difíceis",
+    notas:
+      "Se vier 'isso aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM — o erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado. Se vier 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele; e se ignorarem, o piloto é exatamente o que mede isso. O terceiro bloco é o que mais compra a sala: é ganho que independe de assinar contrato.",
+    corpo: (
+      <Objecao
+        pergunta="57 achados, e você mesmo disse que não sabe quantos são erro de verdade. Meu subdiretor lê um memorial em uma hora. Agora ele lê o memorial e mais 57 achados. Você piorou o trabalho dele."
+        respostas={[
+          [
+            "A comparação não é uma hora contra seis minutos.",
+            "É uma leitura que acontece contra uma que não acontece. A folha da conferência de hoje já disse: não há tempo dedicado para isso, e quando há, ela disputa espaço com a entrega.",
+          ],
+          [
+            "Descartar um achado errado custa duas linhas.",
+            "Cada um vem com a página e o trecho transcrito do próprio memorial. Não se investiga um achado: lê-se e decide-se.",
+          ],
+          [
+            "Onze deles não são de projeto nenhum.",
+            "São do modelo-padrão — o mesmo texto errado em cinco projetos. Corrigidos uma vez, somem de todos. Esse ganho existe mesmo que vocês não comprem nada.",
+          ],
+        ]}
+        fecho="Quantos dos outros são erro de verdade, eu não sei. É exatamente por isso que estou pedindo três meses, e não a sua assinatura."
+      />
+    ),
+  },
+
+  {
+    rotulo: "E se você sumir",
+    numero: "16",
+    bloco: "As perguntas difíceis",
+    notas:
+      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS AQUI. Se um diretor pedir, é concessão a negociar na hora — nunca promessa feita da tela, porque promessa projetada não se retira depois. O fecho é o ponto que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.",
+    corpo: (
+      <Objecao
+        pergunta="Você não é uma empresa. Sem CNPJ, sem suporte, sem prazo. E se você sair daqui, ou simplesmente parar? Ficamos reféns de um software de uma pessoa só."
+        respostas={[
+          [
+            "A licença não depende do meu crachá.",
+            "Se eu sair da PROSUL, ela continua valendo pelo prazo contratado. Sair da empresa não é sair do compromisso.",
+          ],
+          [
+            "Prazo de resposta escrito, não boa vontade.",
+            "Problema que impeça o uso tem tempo de correção definido em contrato, e não depende de eu estar de bom humor naquela semana.",
+          ],
+          [
+            "O que ele produz são arquivos, e eles são de vocês.",
+            "Parecer, lista de documentos, capa e volume saem em arquivo. Se o sistema parar amanhã, o que já foi montado continua exatamente onde está.",
+          ],
+        ]}
+        fecho="A responsabilidade técnica não muda de mãos, e nunca esteve na mesa. Quem assina o projeto continua sendo quem responde por ele — hoje, sem conferência nenhuma, e depois."
+      />
+    ),
+  },
+
+  {
+    rotulo: "Isso não é nosso?",
+    numero: "17",
+    bloco: "As perguntas difíceis",
+    notas:
+      "ATENÇÃO — ESTA FOLHA CONVIDA A PERGUNTA 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?'. Ler o contrato ANTES de apresentar. Se houver cláusula de cessão sobre criação fora do expediente, esta folha sai do deck e o assunto vira conversa reservada com o diretor, nunca plenário. Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.",
+    corpo: (
+      <Objecao
+        pergunta="O problema é nosso. Os memoriais são nossos, os clientes são nossos, e você é nosso funcionário. Por que estamos pagando por isso?"
+        respostas={[
+          [
+            "Foi feito fora.",
+            "Fora do horário, em equipamento meu, com licenças minhas. Nenhuma hora paga pela PROSUL entrou aqui.",
+          ],
+          [
+            "Os documentos não ficaram comigo.",
+            "Nenhum memorial de cliente está na minha máquina. E o sistema não guarda PDF nenhum — é a mesma decisão que a folha da segurança mostrou.",
+          ],
+          [
+            "A exclusividade está na mesa.",
+            "Durante o piloto eu não licencio para escritório concorrente. Se isso importa, escreve-se no contrato.",
+          ],
+        ]}
+        fecho="O problema é da casa. A solução não nasceu dela."
+      />
+    ),
+  },
+
+  {
+    rotulo: "O preço não se sustenta",
+    numero: "18",
+    bloco: "As perguntas difíceis",
+    notas:
+      "NENHUM NÚMERO NESTA FOLHA, de propósito: o anexo não existe para a sala até alguém perguntar o valor, e é AQUI que ele sai — em arquivo separado, aberto por decisão sua. A citação também não nomeia cifra, para não envelhecer quando a folha do custo mudar. O segundo bloco é o que salva a negociação: piloto de graça não é generosidade, é o que faz o julgamento dos subdiretores nunca acontecer.",
+    corpo: (
+      <Objecao
+        pergunta="Você mesmo mostrou o custo de manter isso ligado, e ele é baixo. Piloto é grátis. E você não tem outro cliente — quem precisa de quem, aqui?"
+        respostas={[
+          [
+            "O custo de operar é a conta de luz.",
+            "É o que custa manter ligado. Não é o que custou construir, nem o que custa manter de pé enquanto vocês usam.",
+          ],
+          [
+            "Piloto de graça não mede nada.",
+            "O que eu peço no piloto é o julgamento de vocês, achado por achado — e isso é hora de subdiretor. O que se dá de graça vira brinde, e brinde não recebe julgamento: recebe silêncio.",
+          ],
+          [
+            "É verdade que não tenho outro cliente.",
+            "Por isso a proposta é curta: três meses, e ao fim ou encerra ou se renegocia. Não estou pedindo compromisso. Estou pedindo uma janela.",
+          ],
+        ]}
+        fecho="Se for ruim, não usamos. Se for bom, conversamos sobre valores."
+      />
+    ),
+  },
+
   {
     rotulo: "O que pode vir",
-    numero: "14",
+    numero: "19",
     bloco: "O pedido",
     notas:
       "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
@@ -1550,7 +1818,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que ela não é",
-    numero: "15",
+    numero: "20",
     bloco: "O pedido",
     notas:
       "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor, é aí que o anexo sai.",

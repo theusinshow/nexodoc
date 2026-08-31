@@ -1,5 +1,24 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **31/08/2026 — ENTRA O BLOCO "AS PERGUNTAS DIFÍCEIS", e o deck vai a 20 folhas.**
+> Cinco folhas novas (14 a 18), entre o pedido e o que pode vir, cada uma com a
+> objeção do comprador CITADA na versão mais dura e três blocos de resposta:
+> "Por que não o ChatGPT", "Você não provou que vale", "E se você sumir", "Isso
+> não é nosso?" e "O preço não se sustenta". As antigas 14 e 15 viraram 19 e 20.
+>
+> **Vêm depois do pedido, e não antes**, porque objeção só existe quando há
+> pedido na mesa. A ordem escala do técnico ao comercial, e a última abre a porta
+> do anexo — o único lugar onde o valor aparece.
+>
+> **Nenhuma cifra nas perguntas citadas.** Uma objeção que repete um número do
+> deck envelhece junto com ele, e dois números desencontrados entre folhas é
+> exatamente o que a regra do topo proíbe. A folha 18 cita "o custo de manter
+> isso ligado", nunca a quantia.
+>
+> **O que ficou de fora de propósito, e é concessão a negociar na hora:**
+> custódia de código e instalação na infraestrutura da PROSUL. Promessa feita da
+> tela não se retira depois.
+
 > **REESTRUTURADO EM 25/08/2026, e este documento ficou para trás no CONTEÚDO.**
 > O deck passou de 18 para 16 folhas + 2 de reserva, com quatro folhas novas (o
 > motor em dois caminhos, a autorrevisão, a segurança e o que pode vir) e cinco
@@ -488,6 +507,11 @@ continua legível, e o próprio arquivo avisa isso no rodapé.
 
 Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
 
+- [ ] **LER O CONTRATO DE TRABALHO.** A folha 17 ("Isso não é nosso?") convida a
+      pergunta "e o que diz o seu contrato?". Se houver cláusula de cessão sobre
+      criação fora do expediente, **a folha 17 sai do deck** e o assunto vira
+      conversa reservada com o diretor, nunca plenário. Não subir ao palco sem
+      saber a resposta: é a única objeção que, mal respondida, mata o negócio.
 - [ ] **Cotação do dólar do dia** substituída nos slides 16 e 17.
 - [ ] **Valor-hora real da PROSUL** no slide 8, se preferir ao intervalo-premissa.
 - [ ] **Ambiente de pé e testado no mesmo dia**, com o caminho exato da
