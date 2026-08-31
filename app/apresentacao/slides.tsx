@@ -1172,7 +1172,7 @@ export const SLIDES: readonly Slide[] = [
     denso: true,
     bloco: "O que existe",
     notas:
-      "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras. Se perguntarem se a IA aprende com os documentos: pela política da API usada, o conteúdo enviado não alimenta treinamento.",
+      "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras. Se perguntarem se a IA aprende com os documentos: pela política da API usada, o conteúdo enviado não alimenta treinamento.\n\nCUIDADO — ESTA É A FOLHA QUE CONVIDA 'mostra esse painel de custo aí'. A demonstração sai de produção, e a tela de uso de IA de lá lista modelos sem preço, onde hoje aparece uma chave antiga em texto puro. Ou limpar essas linhas antes do dia, ou abrir o custo POR OBRA e não a tela de uso por modelo.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -1642,7 +1642,7 @@ export const SLIDES: readonly Slide[] = [
               textWrap: "pretty",
             }}
           >
-            O piloto não compra três meses de acesso. Compra o que já está construído.
+            O piloto não compra seis meses de acesso. Compra o que já está construído.
           </p>
           <span
             style={{
@@ -1754,7 +1754,7 @@ export const SLIDES: readonly Slide[] = [
       <>
         <Entra atraso={0}>
           <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            Piloto de três meses
+            Piloto de seis meses
           </h2>
         </Entra>
 
@@ -1841,7 +1841,7 @@ export const SLIDES: readonly Slide[] = [
                   textWrap: "pretty",
                 }}
               >
-                Três meses de uso real dizem o que nenhuma apresentação diz.
+                Seis meses de uso real dizem o que nenhuma apresentação diz.
               </p>
             </Entra>
           </div>
@@ -1912,7 +1912,7 @@ export const SLIDES: readonly Slide[] = [
             "São do modelo-padrão — o mesmo texto errado em cinco projetos. Corrigidos uma vez, somem de todos. Esse ganho existe mesmo que vocês não comprem nada.",
           ],
         ]}
-        fecho="Quantos dos outros são erro de verdade, eu não sei. É exatamente por isso que estou pedindo três meses, e não a sua assinatura."
+        fecho="Quantos dos outros são erro de verdade, eu não sei. É exatamente por isso que estou pedindo seis meses, e não a sua assinatura."
       />
     ),
   },
@@ -1922,7 +1922,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "18",
     bloco: "As perguntas difíceis",
     notas:
-      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS AQUI. Promessa projetada não se retira depois. O fecho é o que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.\n\nRÉPLICA PROVÁVEL 1 — 'então põe o código em custódia': é a concessão que mata a objeção de vez, e por isso ela é cara. Se ceder, pedir contrapartida na mesma frase — prazo maior ou valor. Decidir ANTES de entrar na sala se ela está disponível.\n\nRÉPLICA PROVÁVEL 2 — 'prazo de resposta sem multa é papel': aceitar multa proporcional é barato e fecha a objeção inteira. Também decidir antes.\n\nRÉPLICA PROVÁVEL 3 — 'e se der problema num sábado?': o prazo escrito vale para problema que impeça o uso, não para toda dúvida. Dizer isso com essas palavras, sem prometer plantão.",
+      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS NA TELA. Promessa projetada não se retira depois. O fecho é o que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.\n\nRÉPLICA PROVÁVEL 1 — 'então põe o código em custódia': DECIDIDO, ela está disponível — mas nunca de graça. A contrapartida é PRAZO: a custódia entra se o piloto virar contrato longo. Dizer as duas coisas na mesma frase, porque cedida sozinha ela vira o novo ponto de partida da negociação.\n\nRÉPLICA PROVÁVEL 2 — 'prazo de resposta sem multa é papel': DECIDIDO, NÃO há multa. O prazo já é o compromisso, e contrato descumprido tem consequência sem precisar de cláusula de multa. Não ceder aqui no calor da reunião: esta linha foi escrita justamente para isso.\n\nRÉPLICA PROVÁVEL 3 — 'e se der problema num sábado?': o prazo escrito vale para problema que impeça o uso, não para toda dúvida. Dizer isso com essas palavras, sem prometer plantão.",
     corpo: (
       <Objecao
         pergunta="Você não é uma empresa. Sem CNPJ, sem suporte, sem prazo. E se você sair daqui, ou simplesmente parar? Ficamos reféns de um software de uma pessoa só."
@@ -1950,7 +1950,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "19",
     bloco: "As perguntas difíceis",
     notas:
-      "ATENÇÃO — ESTA FOLHA CONVIDA A PERGUNTA 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?'. Ler o contrato ANTES de apresentar. Se houver cláusula de cessão sobre criação fora do expediente, esta folha sai do deck e o assunto vira conversa reservada com o diretor, nunca plenário. Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.\n\nRÉPLICA PROVÁVEL 1 — 'e o seu contrato de trabalho, o que diz?': é a réplica que decide a sala, e a única resposta aceitável é a que você já sabe de cor. Sem ter lido o contrato, não subir ao palco com esta folha.\n\nRÉPLICA PROVÁVEL 2 — 'você testou com os nossos projetos; isso é uso de informação da empresa': os documentos foram lidos, não copiados nem guardados, e o produto não contém nenhum trecho deles. O que aprendi lendo é conhecimento profissional — o mesmo que qualquer projetista leva de um projeto para o seguinte.\n\nRÉPLICA PROVÁVEL 3 — 'se é seu, faça no seu tempo e nos dê de graça': é aí que a folha seguinte responde. Não improvisar aqui.",
+      "Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.\n\nRÉPLICA PROVÁVEL 1 — 'e o que diz o seu contrato de trabalho?': CONFERIDO — o contrato foi lido e NÃO tem cláusula de cessão sobre criação fora do expediente. Responder isso e parar. É a réplica que decide a sala, e a resposta curta é a mais forte: alongar aqui soa como quem está construindo um argumento em vez de relatar um fato.\n\nRÉPLICA PROVÁVEL 2 — 'você testou com os nossos projetos; isso é uso de informação da empresa': os documentos foram lidos, não copiados nem guardados, e o produto não contém nenhum trecho deles. O que aprendi lendo é conhecimento profissional — o mesmo que qualquer projetista leva de um projeto para o seguinte.\n\nRÉPLICA PROVÁVEL 3 — 'se é seu, faça no seu tempo e nos dê de graça': é aí que a folha seguinte responde. Não improvisar aqui.",
     corpo: (
       <Objecao
         pergunta="O problema é nosso. Os memoriais são nossos, os clientes são nossos, e você é nosso funcionário. Por que estamos pagando por isso?"
@@ -1978,7 +1978,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "20",
     bloco: "As perguntas difíceis",
     notas:
-      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': NÃO FECHAR NÚMERO NA SALA sem ter decidido o piso antes de entrar. Se vier abaixo do piso, dizer que leva para pensar. Nunca aceitar por alívio de a reunião estar acabando.\n\nNENHUM NÚMERO NESTA FOLHA: o anexo só existe para a sala quando alguém perguntar o valor, e é aqui que ele sai.",
+      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': O PISO ESTÁ DECIDIDO — seis meses por R$ 10.000. Abaixo disso não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.\n\nA MOEDA DE TROCA, se travar no valor, é a CUSTÓDIA DO CÓDIGO — está disponível e vale prazo. Oferecê-la em troca de contrato mais longo, nunca de desconto.\n\nNENHUM NÚMERO NESTA FOLHA: o anexo só existe para a sala quando alguém perguntar o valor, e é aqui que ele sai.",
     corpo: (
       <Objecao
         pergunta="Setecentas horas é palavra sua, e você usou uma ferramenta de IA de cem dólares por mês para escrever isso. Te pago as suas horas — pelo seu próprio número — e o software passa a ser nosso."
@@ -1993,7 +1993,7 @@ export const SLIDES: readonly Slide[] = [
           ],
           [
             "Comprar o software é outra conversa.",
-            "O que está na mesa é licença de uso por três meses. Se a diretoria quiser falar em compra, é outra negociação, com outro número e outro contrato — e eu ouço. Só não é a que eu vim propor hoje.",
+            "O que está na mesa é licença de uso por seis meses. Se a diretoria quiser falar em compra, é outra negociação, com outro número e outro contrato — e eu ouço. Só não é a que eu vim propor hoje.",
           ],
         ]}
         fecho="Se for ruim, não usamos. Se for bom, conversamos sobre valores."

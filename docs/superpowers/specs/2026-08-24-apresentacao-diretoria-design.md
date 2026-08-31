@@ -1,5 +1,15 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **31/08/2026 — AS OITO DECISÕES QUE FECHAM O DECK.** Contrato lido (sem
+> cláusula de cessão, a folha 19 fica); hora de dev júnior confirmada em R$ 30 a
+> 50; custódia de código disponível em troca de PRAZO, nunca de desconto; SEM
+> multa por atraso; piso de **seis meses por R$ 10.000**; anexo escrito em
+> `docs/anexo-proposta.html`; demonstração **ao vivo**, **de produção**.
+>
+> **O PILOTO PASSOU DE TRÊS PARA SEIS MESES**, e as três folhas que diziam
+> "três" foram trocadas. O "três meses" que sobrou na folha 13 é o período de
+> MEDIÇÃO do gasto em modelo (junho a agosto), não o piloto — não trocar.
+
 > **31/08/2026 — O BLOCO "O DINHEIRO" VAI DE 1 PARA 3 FOLHAS, e o deck a 22.**
 > Entram a 13 ("O que custou construir") e a 14 ("Em quanto tempo se paga"),
 > antes do pedido. Tudo a partir da antiga 13 andou duas casas.
@@ -13,7 +23,7 @@
 > | US$ 600 de ferramenta | assinatura Claude Code Max, US$ 100/mês × 6 meses | **medido** |
 > | US$ 26 de servidor e domínio | US$ 7 de Render + R$ 100 de domínio (= US$ 19 a 5,18) | **medido** |
 > | ~700 horas | noites e fins de semana, 25 a 30 h/semana × ~26 semanas | *estimativa* |
-> | R$ 30 a R$ 50 a hora | hora de desenvolvedor júnior. **Escolhido pelo Claude, não pelo autor** — conferir antes de apresentar | *estimativa* |
+> | R$ 30 a R$ 50 a hora | hora de desenvolvedor júnior, **confirmada pelo autor em 31/08/2026** | *estimativa* |
 > | US$ 25 de servidor / mês | Render sobe de US$ 7 para US$ 25 | declarado pelo autor |
 > | US$ 5 de banco / mês | Neon sai da camada gratuita | declarado pelo autor |
 > | R$ 285 / mês para operar | US$ 55 (24 + 1 + 25 + 5) a R$ 5,18 | conta |
@@ -101,7 +111,7 @@ de projetar. O Claude Design executa a partir daqui.
   disciplina (julgam a técnica).
 - **Duração:** reunião aberta, sem tempo fixo. 18 slides + 2 folhas de reserva
   (plano B) + anexo destacável, em arquivo separado.
-- **Objetivo:** obter um piloto pago de 3 meses.
+- **Objetivo:** obter um piloto pago de **6 meses** (era 3 até 31/08/2026).
 - **Postura:** engenheiro mostrando trabalho, não vendedor. Nenhum adjetivo
   onde couber um número. Nenhum número sem fonte.
 
@@ -564,33 +574,46 @@ continua legível, e o próprio arquivo avisa isso no rodapé.
 
 Nenhum destes é opcional. Cada um já derrubou uma apresentação de alguém.
 
-- [ ] **LER O CONTRATO DE TRABALHO.** A folha 17 ("Isso não é nosso?") convida a
-      pergunta "e o que diz o seu contrato?". Se houver cláusula de cessão sobre
-      criação fora do expediente, **a folha 17 sai do deck** e o assunto vira
-      conversa reservada com o diretor, nunca plenário. Não subir ao palco sem
-      saber a resposta: é a única objeção que, mal respondida, mata o negócio.
+**Oito decisões foram tomadas em 31/08/2026** e estão aplicadas no deck e nas
+notas. O que sobrou abaixo é o que só se resolve na véspera ou no dia.
+
+- [x] ~~**Ler o contrato de trabalho.**~~ LIDO em 31/08/2026: **não há cláusula
+      de cessão** sobre criação fora do expediente. A folha 19 fica no deck, e a
+      réplica "e o que diz o seu contrato?" tem resposta de uma linha, na nota.
+- [x] ~~**Hora de desenvolvedor júnior conferida.**~~ CONFIRMADA em R$ 30 a
+      R$ 50 pelo autor. Deixou de ser número escolhido pelo Claude.
+- [x] ~~**Anexo separado do deck.**~~ ESCRITO: `docs/anexo-proposta.html`, duas
+      folhas (valor e propriedade), fora do aplicativo e fora do `.dockerignore`
+      de produção. Abre do disco, com as mesmas teclas do deck.
+- [x] ~~**Decidir o piso de valor.**~~ DECIDIDO: **seis meses por R$ 10.000**. O
+      valor não vai à tela; vive no anexo e na nota da folha 20. O deck inteiro
+      passou de "três meses" para "seis meses".
+- [x] ~~**Decidir sobre custódia de código.**~~ DISPONÍVEL, com contrapartida de
+      **prazo** — a custódia entra se o piloto virar contrato longo, nunca de
+      graça e nunca em troca de desconto. Escrito na nota da folha 18.
+- [x] ~~**Decidir sobre multa por atraso.**~~ **NÃO** haverá multa: o prazo de
+      resposta já é o compromisso. Escrito na nota da folha 18 para não ceder no
+      calor da reunião.
 - [ ] **Cotação do dólar do dia.** Está em **R$ 5,18** nas folhas 12, 13 e 14.
-      Mudou a cotação, mudam OS TRÊS: R$ 285/mês, R$ 3.576 somado, R$ 24.600 a
-      R$ 38.600, R$ 3.420/ano e R$ 515 a R$ 1.155 são todos derivados dela.
-- [ ] **Hora de desenvolvedor júnior (R$ 30 a R$ 50) conferida.** É o único
-      número do bloco do dinheiro que não veio de você nem de medição.
-- [ ] **Valor-hora real da PROSUL** no slide 8, se preferir ao intervalo-premissa.
-- [ ] **Ambiente de pé e testado no mesmo dia**, com o caminho exato da
-      demonstração percorrido do início ao fim. Compilar limpo não é evidência
-      de que roda.
-- [x] ~~**Capturas de plano B** geradas e embutidas.~~ FEITO em 24/08/2026:
-      miniaturas no slide 3, tamanho de leitura nas folhas `B1` e `B2` (tecla
-      `End`). Vieram do parecer gravado, sem gastar uma chamada de IA nova.
+      Mudou a cotação, mudam todos os derivados: R$ 285/mês, R$ 3.576 somado,
+      R$ 24.600 a R$ 38.600 e R$ 3.420/ano.
+- [ ] **Valor-hora real da PROSUL** na folha 08, se preferir ao intervalo-premissa.
 - [ ] **`117_25_md_geral_a.pdf` na máquina**, na versão de outubro/2025 — a que
-      foi devolvida, não a corrigida.
+      foi devolvida, não a corrigida. **Obrigatório: a demonstração é ao vivo.**
 - [ ] **Teto de gasto do mês conferido**, para a demonstração não esbarrar nele
-      na frente do diretor.
-- [ ] **Anexo separado do deck principal**, em arquivo próprio, e nunca aberto
-      por acidente.
-- [ ] **Gerar a cópia offline e levá-la no pen drive:** `npm run apresentacao:offline`
-      (com o `npm run dev` de pé) escreve um `.html` único de ~0,65 MB, que abre
-      do disco sem servidor. Ele se confere sozinho antes de terminar. **Refazer
-      sempre que um slide mudar** — a cópia é uma fotografia, não um espelho.
+      na frente do diretor. **Obrigatório pelo mesmo motivo.**
+- [ ] **Ambiente de pé e testado no mesmo dia**, com o caminho exato da
+      demonstração percorrido do início ao fim, **em produção** — que é de onde
+      a demonstração sai. Compilar limpo não é evidência de que roda.
+- [ ] **A chave antiga em `AiUsageEvent`, ou a promessa de não abrir aquela
+      tela.** A demonstração sai de produção, e o painel de uso de IA de lá lista
+      modelos sem preço — onde hoje aparece uma chave em texto puro, em 169
+      linhas. A folha 10 é justamente a que convida "mostra esse painel aí". Ou
+      limpar as linhas antes do dia, ou abrir só o custo POR OBRA.
+- [ ] **Regerar a cópia offline DEPOIS da última mudança:**
+      `npm run apresentacao:offline` (com o `npm run dev` de pé) escreve um
+      `.html` único que abre do disco sem servidor, e se confere sozinho. **A
+      cópia é uma fotografia, não um espelho.**
 
 ---
 
