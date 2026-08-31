@@ -112,6 +112,7 @@
     "test:nexo:tour": "node scripts/test-nexo-tour.ts",
     "test:ai-budget": "node scripts/test-ai-budget.ts",
     "test:vazao": "node scripts/test-vazao-de-auditoria.ts",
+    "test:pool": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-pool-do-banco.ts",
     "test:aprendizados": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-aprendizados-no-banco.ts",
     "test:ai-failure": "node scripts/test-ai-failure-policy.ts",
     "test:audit-identity": "node scripts/test-audit-identity.ts",

@@ -51,6 +51,27 @@ services:
 
       # ---------------------------------------------------------------- banco
       # A URL do Neon. `fromDatabase` não serve: o banco é externo à Render.
+      #
+      # O PLANO DO NEON IMPORTA, e o gratuito tem três paredes (apuradas em
+      # 30/08/2026, com 15 usuários no horizonte):
+      #
+      #   storage    0,5 GB por projeto. Medido: ~200-300 kB por auditoria
+      #              (`AuditText` guarda o texto do memorial em JSONB), e o
+      #              banco local estava em 11 MB. Com uso de escritório, a
+      #              parede chega dentro do primeiro ano — e ao chegar, o
+      #              banco para de aceitar escrita.
+      #   compute    100 CU-hours/mês. A 0,25 CU cabe; a 1 CU estoura antes do
+      #              fim do mês, e o compute é cortado até virar o mês. Quanto
+      #              o autoescalonamento sobe com carga real só o painel do
+      #              Neon diz — vale olhar antes de decidir.
+      #   sono       suspende após 5 min de ociosidade e NÃO PODE SER
+      #              DESLIGADO no gratuito. É a parede que não se contorna com
+      #              configuração, e a que motivou o tratador de erro de fundo
+      #              do pool em `lib/db.ts` — banco que dorme derruba conexão
+      #              ociosa, e emitter sem ouvinte de `error` mata o processo.
+      #
+      # O plano Launch remove as três (sem mínimo mensal, US$ 0,106/CU-hora e
+      # US$ 0,35/GB-mês) e traz alerta de gasto em 80% e 100%.
       - key: DATABASE_URL
         sync: false
 
