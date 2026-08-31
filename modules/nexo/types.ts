@@ -9,6 +9,7 @@
  */
 
 import type { CaracterizacaoDaObra } from "@/lib/caracterizacao-obra";
+import type { FichaDoDrop } from "./lib/ficha-do-drop";
 
 /** Arquivo enviado pelo usuario, antes/depois de classificado. */
 export interface NexoInputFile {
@@ -348,6 +349,15 @@ export interface NexoChatMessage {
   ldPreview?: LdPreviewData;
   /** Turno interrompido pelo usuário (texto parcial, sem propostas). */
   interrupted?: boolean;
+  /**
+   * A FICHA do que entrou — identidade do projeto lida dos carimbos.
+   *
+   * Guardada JÁ MONTADA, como a `trace`: a conversa precisa preservar o que foi
+   * mostrado, e recompor a ficha numa conversa velha exigiria que a regra de
+   * derivação sobrevivesse a cada versão do produto. Ausente = mensagem que não
+   * é recibo de anexo.
+   */
+  ficha?: FichaDoDrop;
   /**
    * O BASTIDOR DO TURNO em uma linha ("leu 23 selos · propôs LD · 8,4s").
    *

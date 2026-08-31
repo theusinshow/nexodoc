@@ -20,6 +20,7 @@ import {
   type NexoTemplateOption,
 } from "./ConfirmationCard";
 import { PlanoDeGeracao } from "./PlanoDeGeracao";
+import { FichaDoDropCard } from "./FichaDoDrop";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { useConexao } from "../lib/use-conexao";
 import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-do-anexo";
@@ -579,6 +580,10 @@ export function NexoChat({
                   interrompido
                 </span>
               )}
+              {/* A ficha do anexo: de que projeto são as folhas que entraram.
+                  Fica ABAIXO da bolha e ACIMA dos botões — a ordem em que se
+                  decide: leia o que entrou, confira de quem é, então escolha. */}
+              {m.ficha && <FichaDoDropCard ficha={m.ficha} />}
               {/* UM card para tudo que sai de capa/LD/separatriz — com tomos,
                   cada proposta virava vários cards e a tela virava fila de
                   botões iguais. Volume, auditoria e conferência seguem com card

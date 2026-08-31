@@ -37,6 +37,29 @@ function doNomeDoArquivo(fileName: string): string[] {
   return codigos;
 }
 
+/**
+ * O código da disciplina de UMA leitura, pelas mesmas três fontes.
+ *
+ * Existe para quem tem o SELO e ainda não tem a `Folha` — o recibo do anexo, que
+ * monta a ficha no instante em que a leitura termina. Uma segunda conta ali
+ * (dois "quem decide a disciplina" no produto) é exatamente a classe de defeito
+ * que o `codigoDoRotulo` acabou de pagar em `build-ld-proposal`.
+ */
+export function codigoDoSelo(
+  fileName: string,
+  disciplinaDoCarimbo: string | null | undefined,
+  arquivo?: string | null,
+): string {
+  return escolherCodigo(
+    {
+      manual: "",
+      doNome: doNomeDoArquivo(fileName || arquivo?.trim() || ""),
+      doCarimbo: disciplinaDoCarimbo ?? "",
+    },
+    TABELAS,
+  );
+}
+
 /** O código da disciplina desta folha, ou "" quando não deu para saber. */
 export function codigoDaFolha(folha: Folha): string {
   return escolherCodigo(

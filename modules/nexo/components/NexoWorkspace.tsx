@@ -21,6 +21,10 @@ import {
   type ArquivoInedito,
 } from "../lib/selo-cache";
 import { reciboDoDrop } from "../lib/recibo-do-drop";
+import { fichaDoDrop } from "../lib/ficha-do-drop";
+import { codigoDoSelo } from "../lib/disciplina-da-folha";
+import { dataDominante } from "@/server/nexo/data-do-selo";
+import { nomeNaCapa } from "@/server/nexo/disciplinas";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
 import {
@@ -631,13 +635,46 @@ function NexoWorkspaceInner({
     const names = files.map((f) => f.name);
     const nameStr =
       names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-    const detail = [
-      ctx.disciplinas.join(", "),
-      ctx.codigo ? `código ${ctx.codigo}` : "",
-      ctx.obra ? `obra ${ctx.obra}` : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    /*
+     * A IDENTIDADE SAIU DA FRASE E VIROU FICHA.
+     *
+     * Era "66 recebidas · 66 lidas — MET · código 088-25 · obra EMEB JOSÉ
+     * GIASSI. 66 folhas vieram de leitura anterior…": o engenheiro, que precisa
+     * CONFERIR se é o projeto certo antes de mandar gerar, garimpava cada campo
+     * no meio da prosa. Nada aqui custa uma chamada — sai dos mesmos carimbos
+     * que a leitura já pagou.
+     *
+     * Os NOMES das disciplinas são os que a capa e a LD imprimem
+     * (`nomeNaCapa`), na ordem de aparição e sem repetir: num volume misto a
+     * capa lista todos. O código sai da MESMA regra que o canvas usa
+     * (`codigoDoSelo`) — duas contas para "de que disciplina é esta folha"
+     * divergiriam, e foi assim que o metálico virou concreto.
+     */
+    const codigosVistos: string[] = [];
+    for (const r of okSelos) {
+      const codigo = codigoDoSelo(r.fileName, r.extraction?.disciplina, r.extraction?.arquivo);
+      if (codigo && !codigosVistos.includes(codigo)) codigosVistos.push(codigo);
+    }
+    const ficha = fichaDoDrop({
+      recibo: reciboDoDrop({
+        lidas: okSelos.length,
+        falharam: naoLidas.falhas.length,
+        ignoradas: naoLidas.ignoradas.length,
+      }),
+      codigo: ctx.codigo,
+      obra: ctx.obra,
+      folhas: okSelos.map((r) => ({
+        cliente: r.extraction?.cliente ?? null,
+        logoOrgao: r.extraction?.logoOrgao ?? null,
+      })),
+      // A MESMA `dataDominante` da capa e do slot do mês: uma fonte, mais um
+      // consumidor. Contas separadas fariam a ficha e a capa discordarem sobre
+      // a data do mesmo conjunto.
+      dataDoSelo: dataDominante(okSelos.map((r) => r.extraction?.data ?? null)) ?? null,
+      nomesDasDisciplinas: codigosVistos
+        .map((c) => nomeNaCapa(c) ?? "")
+        .filter(Boolean),
+    });
 
     const suggestions: NexoSlotSuggestion[] = [
       { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
@@ -708,11 +745,16 @@ function NexoWorkspaceInner({
        * que fazer com elas. Um número sem o "está no canvas em branco, dá para
        * corrigir à mão" seria contagem sem saída.
        */
-      content: `${reciboDoDrop({
-        lidas: okSelos.length,
-        falharam: naoLidas.falhas.length,
-        ignoradas: naoLidas.ignoradas.length,
-      })}${detail ? ` — ${detail}` : ""}.${reuso}${ressalva} O que você quer que eu faça?`,
+      /*
+       * A FRASE ficou com o que é NOTÍCIA — o reuso e as ressalvas — e a
+       * contagem foi para o topo da ficha, onde ela se lê de relance. Repetir o
+       * recibo nos dois lugares faria a mesma conta aparecer duas vezes com
+       * formatos diferentes, que é como uma delas envelhece sozinha.
+       */
+      content: `${reuso.trim()}${reuso && ressalva ? " " : ""}${ressalva.trim()}${
+        reuso || ressalva ? " " : ""
+      }O que você quer que eu faça?`.trim(),
+      ficha,
       slotRequest: {
         slotId: "intake",
         taskKind: "ld",

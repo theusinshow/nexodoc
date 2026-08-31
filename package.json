@@ -149,6 +149,7 @@
     "prova:admin": "npm run prova:cambio && npm run prova:meta-qualidade && npm run prova:config",
     "test:nexo:enquadramento": "node scripts/test-nexo-enquadramento.ts",
     "test:nexo:segundo-plano": "node scripts/test-nexo-render-em-segundo-plano.ts",
+    "test:nexo:ficha": "node scripts/test-nexo-ficha.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts",
     "db:backup:json": "node scripts/backup-json.mjs",
     "db:reset-trabalho": "node scripts/reset-trabalho.mjs",
