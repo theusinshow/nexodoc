@@ -7,12 +7,15 @@
  * node cru; este módulo não é, porque o parser importa por caminho sem extensão.
  */
 
-import { DISCIPLINA_LEXICON } from "@/server/nexo/disciplinas";
+import {
+  DISCIPLINA_LEXICON,
+  QUALIFICADORES_DA_DISCIPLINA,
+} from "@/server/nexo/disciplinas";
 import { parseFilename } from "@/server/nexo/parse-filename";
 import { escolherCodigo, tabelasDoLexico } from "./blocos";
 import type { Folha } from "./folhas";
 
-const TABELAS = tabelasDoLexico(DISCIPLINA_LEXICON);
+const TABELAS = tabelasDoLexico(DISCIPLINA_LEXICON, QUALIFICADORES_DA_DISCIPLINA);
 
 /** Rótulo de exibição do código ("dre" → "Drenagem"). */
 export function rotuloDoCodigo(codigo: string): string {

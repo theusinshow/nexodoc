@@ -30,7 +30,10 @@ import { folhas } from "../modules/nexo/lib/folhas.ts";
 import type { Folha } from "../modules/nexo/lib/folhas.ts";
 import type { SeloForLd } from "../server/nexo/build-ld-proposal.ts";
 // O léxico REAL do escritório. Um dublê aqui só provaria que o Map funciona.
-import { DISCIPLINA_LEXICON } from "../server/nexo/disciplinas.ts";
+import {
+  DISCIPLINA_LEXICON,
+  QUALIFICADORES_DA_DISCIPLINA,
+} from "../server/nexo/disciplinas.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -45,7 +48,9 @@ function test(name: string, fn: () => void) {
   }
 }
 
-const TABELAS = tabelasDoLexico(DISCIPLINA_LEXICON);
+// As MESMAS tabelas da produção — com qualificadores. Montá-las sem eles aqui
+// testaria uma configuração que não existe em lugar nenhum.
+const TABELAS = tabelasDoLexico(DISCIPLINA_LEXICON, QUALIFICADORES_DA_DISCIPLINA);
 
 /** Saída verificada do `parseFilename` de produção para nomes reais. */
 const DO_NOME: Record<string, string[]> = {
@@ -109,6 +114,41 @@ test("metálica não cai no bloco do concreto", () => {
   // Vence o rótulo MAIS LONGO que casa — senão os dois volumes viram um.
   assert.equal(codigoDoRotulo("ESTRUTURA METALICA", TABELAS), "met");
   assert.equal(codigoDoRotulo("Estrutural", TABELAS), "est");
+});
+
+test("o carimbo que escreve ESTRUTURAL METÁLICO não vira concreto", () => {
+  /*
+   * O caso real (31/08/2026): um volume inteiro de estrutural metálico saiu com
+   * "PROJETO ESTRUTURAL CONCRETO" na capa e na LD. "estrutural metalico" COMEÇA
+   * com "estrutural" (`est`) e NÃO começa com "estrutura metalica" (`met`),
+   * então a regra do prefixo mais longo nem chegava a considerar o metálico — o
+   * rótulo dele não era candidato. Quem decide agora é o qualificador.
+   */
+  for (const escrito of [
+    "ESTRUTURAL METÁLICO",
+    "ESTRUTURAL METALICO",
+    "ESTRUTURAL - METÁLICA",
+    "PROJETO ESTRUTURAL METÁLICO",
+    "Cobertura metálica",
+  ]) {
+    assert.equal(codigoDoRotulo(escrito, TABELAS), "met", escrito);
+  }
+});
+
+test("o qualificador não rouba o concreto", () => {
+  assert.equal(codigoDoRotulo("ESTRUTURAL CONCRETO", TABELAS), "est");
+  assert.equal(codigoDoRotulo("Estrutural", TABELAS), "est");
+  assert.equal(codigoDoRotulo("CONCRETO ARMADO", TABELAS), "est");
+});
+
+test("duas famílias qualificando o mesmo texto NÃO decidem", () => {
+  /*
+   * "Estrutural concreto e metálico" numa folha só é uma folha que o sistema não
+   * sabe classificar. Escolher uma das duas poria metade do volume sob o título
+   * errado, calado; cair no prefixo (aqui, `est`) mantém a regra antiga, e onde
+   * nem ela resolver a folha vai para o bloco "sem disciplina", que é visível.
+   */
+  assert.equal(codigoDoRotulo("ESTRUTURAL CONCRETO E METALICO", TABELAS), "est");
 });
 
 test("grafias irmãs do léxico dão o mesmo bloco", () => {

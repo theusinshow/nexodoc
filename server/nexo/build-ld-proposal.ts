@@ -1,6 +1,12 @@
 import { parseFilename, resolveSheetNumbers } from "./parse-filename";
 import { totalDeReferencia } from "./reconcile-sheets";
-import { disciplinaLabel, nomeNaCapa } from "./disciplinas";
+import {
+  disciplinaLabel,
+  nomeNaCapa,
+  DISCIPLINA_LEXICON,
+  QUALIFICADORES_DA_DISCIPLINA,
+} from "./disciplinas";
+import { codigoDoRotulo, tabelasDoLexico } from "@/modules/nexo/lib/blocos";
 import {
   formatSheet,
   buildBalancedTomos,
@@ -9,6 +15,12 @@ import {
 } from "@/lib/ld/ld-rules";
 import { cleanStampDescription } from "@/lib/ld/stamp-parsing";
 import type { CreateLDInput } from "./tools/create-ld";
+
+/** Derivada uma vez: o léxico não muda em tempo de execução. */
+const TABELAS_DO_LEXICO = tabelasDoLexico(
+  DISCIPLINA_LEXICON,
+  QUALIFICADORES_DA_DISCIPLINA,
+);
 
 /** Um selo lido de uma prancha (subconjunto do StampExtraction que interessa aqui). */
 export interface SeloForLd {
@@ -270,9 +282,19 @@ export function buildLdProposal(
 
   // DO ESCOPO, nao do volume: a LD do bloco fala da disciplina DELE.
   const parsedEmEscopo = emEscopo.map(parseSelo);
+  /*
+   * O RÓTULO DO CARIMBO PASSA PELO LÉXICO, e não por um `.toLowerCase()`.
+   *
+   * `discCode` é a chave que escolhe o título da capa e o da LD
+   * (`nomeNaCapa`). Minusculizar o texto do carimbo só acerta quando ele já vem
+   * como o código de três letras: "ESTRUTURAL METÁLICO" virava a chave
+   * `"estrutural metalico"`, que não existe no léxico — e o título caía no
+   * alternativo sem ninguém notar. Pior, a mesma pergunta tinha DUAS regras no
+   * produto, e só a do canvas (`codigoDoRotulo`) conhecia os qualificadores.
+   */
   const discCode =
     mode(parsedEmEscopo.flatMap((p) => p.disciplinas)) ||
-    mode(emEscopo.map((s) => s.disciplina)).toLowerCase();
+    codigoDoRotulo(mode(emEscopo.map((s) => s.disciplina)), TABELAS_DO_LEXICO);
   const discLabel = (disciplinaLabel(discCode) ?? (discCode || "GERAL")).toUpperCase();
 
   const obra = dito(opts.obra) || mode(validos.map((s) => s.obra));

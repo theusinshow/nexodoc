@@ -50,9 +50,20 @@ function normalizar(valor: string): string {
 export interface TabelasDoLexico {
   canonico: Map<string, string>;
   porRotulo: Map<string, string>;
+  /**
+   * Os QUALIFICADORES, do mais longo para o mais curto: `[termo, codigo]`.
+   *
+   * Ordenados na construção porque a busca precisa do mais específico primeiro,
+   * e ordenar a cada folha custaria a ordenação 200 vezes por projeto.
+   */
+  porTermo: readonly (readonly [string, string])[];
 }
 
-export function tabelasDoLexico(lexico: Record<string, string>): TabelasDoLexico {
+export function tabelasDoLexico(
+  lexico: Record<string, string>,
+  /** Termos que qualificam a disciplina. Ver `termos` em `disciplinas.ts`. */
+  qualificadores: Record<string, readonly string[]> = {},
+): TabelasDoLexico {
   const canonico = new Map<string, string>();
   const porRotulo = new Map<string, string>();
   for (const [codigo, rotulo] of Object.entries(lexico)) {
@@ -60,7 +71,12 @@ export function tabelasDoLexico(lexico: Record<string, string>): TabelasDoLexico
     if (!porRotulo.has(chave)) porRotulo.set(chave, codigo);
     canonico.set(codigo, porRotulo.get(chave)!);
   }
-  return { canonico, porRotulo };
+  const porTermo = Object.entries(qualificadores)
+    .flatMap(([codigo, termos]) =>
+      termos.map((t) => [normalizar(t), canonico.get(codigo) ?? codigo] as const),
+    )
+    .sort((a, b) => b[0].length - a[0].length);
+  return { canonico, porRotulo, porTermo };
 }
 
 /**
@@ -82,6 +98,28 @@ export function codigoDoRotulo(
   if (cru) return cru;
   const exato = tabelas.porRotulo.get(texto);
   if (exato) return exato;
+
+  /*
+   * O QUALIFICADOR VEM ANTES DO PREFIXO — é o degrau que faltava.
+   *
+   * O carimbo escreve "ESTRUTURAL METÁLICO". Isso COMEÇA com "Estrutural"
+   * (`est`) e não começa com "Estrutura metálica" (`met`), então o prefixo
+   * mais longo escolhia o concreto: as pranchas de metálico entravam no bloco
+   * do concreto e a capa e a LD saíam com "PROJETO ESTRUTURAL CONCRETO". A
+   * ordem por tamanho, que existia para desempatar prefixos, não alcançava o
+   * caso — o rótulo do metálico nem chegava a ser candidato.
+   *
+   * DOIS CÓDIGOS DIFERENTES QUALIFICANDO O MESMO TEXTO NÃO DECIDEM. "Estrutural
+   * concreto e metálico" numa folha só é uma folha que o sistema não sabe
+   * classificar; cai no prefixo, e se ele também não resolver a folha vai para
+   * o bloco "sem disciplina" — que é honesto e visível, ao contrário de meio
+   * volume com o título errado.
+   */
+  const qualificam = tabelas.porTermo.filter(([termo]) => texto.includes(termo));
+  if (qualificam.length > 0) {
+    const codigos = new Set(qualificam.map(([, codigo]) => codigo));
+    if (codigos.size === 1) return qualificam[0][1];
+  }
 
   let melhor = "";
   let tamanho = 0;

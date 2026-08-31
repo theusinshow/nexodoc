@@ -73,6 +73,21 @@ export interface NomesDaDisciplina {
   semLd?: true;
   semSeparatriz?: true;
   semCapa?: true;
+  /**
+   * QUALIFICADORES: o que o carimbo escreve para distinguir esta disciplina de
+   * outra da mesma família.
+   *
+   * O casamento por PREFIXO do rótulo não dá conta da família estrutural. O
+   * carimbo real escreve "ESTRUTURAL METÁLICO", que começa com "Estrutural" e
+   * NÃO começa com "Estrutura metálica" — então caía em `est` e o volume saía
+   * inteiro como "PROJETO ESTRUTURAL CONCRETO", título de capa e de LD
+   * inclusive. Medido em 31/08/2026 com o léxico real.
+   *
+   * Termo é substring, já sem acento e em minúsculas (`metalic` cobre
+   * "METÁLICO" e "METÁLICA"). Ele vence o prefixo e perde para o rótulo exato.
+   * Ver `codigoDoRotulo`, em `modules/nexo/lib/blocos.ts`.
+   */
+  termos?: readonly string[];
 }
 
 export const DISCIPLINAS: Record<string, NomesDaDisciplina> = {
@@ -82,8 +97,20 @@ export const DISCIPLINAS: Record<string, NomesDaDisciplina> = {
   psg: { ui: "Paisagismo", capa: "PROJETO DE PAISAGISMO", documento: "PROJETO DE PAISAGISMO", grupo: "arquitetura" },
   mqt: { ui: "Maquete", capa: "MAQUETE ELETRÔNICA", documento: "MAQUETE ELETRÔNICA", grupo: "arquitetura" },
   fnd: { ui: "Fundações", capa: "PROJETO DE FUNDAÇÕES", documento: "PROJETO DE FUNDAÇÕES", grupo: "estrutural" },
-  est: { ui: "Estrutural", capa: "PROJETO ESTRUTURAL CONCRETO", documento: "PROJETO ESTRUTURAL CONCRETO", grupo: "estrutural" },
-  met: { ui: "Estrutura metálica", capa: "PROJETO ESTRUTURAL METÁLICO", documento: "PROJETO ESTRUTURAL METÁLICO", grupo: "estrutural" },
+  est: {
+    ui: "Estrutural",
+    capa: "PROJETO ESTRUTURAL CONCRETO",
+    documento: "PROJETO ESTRUTURAL CONCRETO",
+    grupo: "estrutural",
+    termos: ["concreto"],
+  },
+  met: {
+    ui: "Estrutura metálica",
+    capa: "PROJETO ESTRUTURAL METÁLICO",
+    documento: "PROJETO ESTRUTURAL METÁLICO",
+    grupo: "estrutural",
+    termos: ["metalic"],
+  },
 
   // ------------------------------------------------------------------ Instalações
   elt: { ui: "Elétrico", capa: "PROJETO ELÉTRICO", documento: "PROJETO DE INSTALAÇÕES ELÉTRICAS", grupo: "complementares" },
@@ -163,6 +190,19 @@ export function nomeDoPar(codigoA: string, codigoB: string): string | undefined 
 export const DISCIPLINA_LEXICON: Record<string, string> = Object.fromEntries(
   Object.entries(DISCIPLINAS).map(([codigo, nomes]) => [codigo, nomes.ui]),
 );
+
+/**
+ * Os QUALIFICADORES por disciplina — a segunda tabela que o casamento consulta.
+ *
+ * Derivada, como o léxico: quem escreve os termos é a linha da disciplina, para
+ * a exceção morar ao lado do nome que ela qualifica.
+ */
+export const QUALIFICADORES_DA_DISCIPLINA: Record<string, readonly string[]> =
+  Object.fromEntries(
+    Object.entries(DISCIPLINAS)
+      .filter(([, nomes]) => nomes.termos && nomes.termos.length > 0)
+      .map(([codigo, nomes]) => [codigo, nomes.termos!]),
+  );
 
 /** Codigos que sao secoes/tipos de documento, nao disciplinas. */
 export const NAO_DISCIPLINA = new Set(["memorial", "md", "geral", "capa", "capas", "separatriz", "vol", "orcamento"]);
