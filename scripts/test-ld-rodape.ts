@@ -113,6 +113,52 @@ test("a correção à mão vence a regra do modelo", () => {
   assert.equal(r.input.ldData.client, "ÓRGÃO DITO À MÃO");
 });
 
+/*
+ * A GRAFIA DO CÓDIGO NO RODAPÉ segue o DOCUMENTO, não a forma canônica.
+ *
+ * Medido em 31/08/2026 nas 55 LDs de `docs/samples`: o separador do rodapé
+ * segue o do nome do arquivo em 54 de 55. `projectCode` continua normalizado —
+ * é ele que agrupa a pasta —, e `formattedCode` é o que sai impresso.
+ */
+/*
+ * A GRAFIA VEM DO CAMPO ARQUIVO DO CARIMBO, e não do nome do PDF: `parseSelo`
+ * prefere `s.arquivo`, que é o que o documento declara de si mesmo. O nome do
+ * PDF é só a reserva.
+ */
+const comGrafia = (sep: "_" | "-") =>
+  conjunto(3).map((s) => ({
+    ...s,
+    arquivo: s.arquivo!.replace(/^040[_-]26/, `040${sep}26`),
+    fileName: s.fileName.replace(/^040[_-]26/, `040${sep}26`),
+  }));
+
+test("carimbo com underscore imprime underscore", () => {
+  const r = buildLdProposal(comGrafia("_"), { respeitarOrdem: true });
+  assert.equal(r.input.ldData.formattedCode, "040_26");
+  assert.equal(r.input.ldData.projectCode, "040-26", "a identidade continua normalizada");
+});
+
+test("carimbo com hífen imprime hífen", () => {
+  const r = buildLdProposal(comGrafia("-"), { respeitarOrdem: true });
+  assert.equal(r.input.ldData.formattedCode, "040-26");
+  assert.equal(r.input.ldData.projectCode, "040-26");
+});
+
+test("o campo ARQUIVO manda mais que o nome do PDF", () => {
+  const selos = conjunto(3).map((s) => ({
+    ...s,
+    arquivo: s.arquivo!.replace(/^040[_-]26/, "040_26"),
+    fileName: s.fileName.replace(/^040[_-]26/, "040-26"),
+  }));
+  const r = buildLdProposal(selos, { respeitarOrdem: true });
+  assert.equal(r.input.ldData.formattedCode, "040_26");
+});
+
+test("o código dito à mão vence a grafia do arquivo", () => {
+  const r = buildLdProposal(conjunto(3), { respeitarOrdem: true, codigo: "999_99" });
+  assert.equal(r.input.ldData.formattedCode, "999_99");
+});
+
 test("uma secretaria mal lida não vence a maioria", () => {
   const selos = conjunto(10, (i) => (i === 0 ? { secretaria: "SECRETARIA DE OUTRA COISA" } : {}));
   assert.equal(dados(selos).client, SECRETARIA);

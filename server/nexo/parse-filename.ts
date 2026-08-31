@@ -44,6 +44,11 @@ export const TIPO_LABEL: Record<NexoDocTipo, string> = {
 
 export interface ParsedFilename {
   codigo: string;
+  /**
+   * O código com o separador ORIGINAL (`040_26`), para o que vai IMPRESSO.
+   * `codigo` continua normalizado — ele é identidade, este é grafia.
+   */
+  codigoComoEscrito: string;
   revisao: string;
   assinado: boolean;
   tipo: NexoDocTipo;
@@ -233,6 +238,22 @@ function parseCodigo(fileName: string): string {
   return m ? `${m[1]}-${m[2]}` : "";
 }
 
+/**
+ * O código COMO O DOCUMENTO O ESCREVE — com o separador original.
+ *
+ * `parseCodigo` normaliza para hífen, e tem de continuar normalizando: é ele
+ * que agrupa a pasta do projeto, e `040_26` e `040-26` precisam cair no mesmo
+ * lugar. Mas o que vai IMPRESSO no rodapé segue o documento.
+ *
+ * Medido em 31/08/2026 nas 55 LDs de `docs/samples`: o separador do rodapé
+ * segue o do nome do arquivo em **54 de 55**. O Nexo imprimia `088-25` num
+ * projeto cujos arquivos são `088_25_met_*`, e o escritório entrega `088_25`.
+ */
+function parseCodigoComoEscrito(fileName: string): string {
+  const m = /^(\d{2,4})([_-])(\d{2})(?!\d)/.exec(fileName.trim());
+  return m ? `${m[1]}${m[2]}${m[3]}` : "";
+}
+
 /** Revisao: ultima letra isolada antes da extensao/_assinado/descritivo. */
 function parseRevisao(stem: string): string {
   const head = stem.split(/\s+-\s+/)[0]; // descarta " - 01 - PLANTA ..."
@@ -268,6 +289,7 @@ export function parseFilename(fileName: string, relPath?: string): ParsedFilenam
     .filter(Boolean);
 
   const codigo = parseCodigo(fileName);
+  const codigoComoEscrito = parseCodigoComoEscrito(fileName);
   const revisao = parseRevisao(clean);
   const volume = parseVolume(nameTokens, norm, relPath);
 
@@ -306,5 +328,15 @@ export function parseFilename(fileName: string, relPath?: string): ParsedFilenam
     tipo = "outro";
   }
 
-  return { codigo, revisao, assinado, tipo, foraDeEscopo, disciplinas, folha, volume };
+  return {
+    codigo,
+    codigoComoEscrito,
+    revisao,
+    assinado,
+    tipo,
+    foraDeEscopo,
+    disciplinas,
+    folha,
+    volume,
+  };
 }

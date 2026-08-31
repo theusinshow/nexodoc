@@ -287,6 +287,21 @@ export function buildLdProposal(
 
   const parsedList = validos.map(parseSelo);
   const codigo = dito(opts.codigo) || mode(parsedList.map((p) => p.codigo)) || "";
+  /*
+   * O CÓDIGO IMPRESSO SEGUE O DOCUMENTO, e não a forma canônica.
+   *
+   * `codigo` normaliza o separador para hífen porque é ele que agrupa a pasta
+   * do projeto — `040_26` e `040-26` têm de cair no mesmo lugar. Mas o rodapé é
+   * grafia, não identidade: medido nas 55 LDs de `docs/samples` (31/08/2026), o
+   * separador do rodapé segue o do nome do arquivo em 54 de 55. O Nexo imprimia
+   * `088-25` num projeto cujos arquivos são `088_25_met_*`, e o escritório
+   * entrega `088_25`.
+   *
+   * A correção à mão (`opts.codigo`) vence as duas: quem digitou escolheu a
+   * grafia junto.
+   */
+  const codigoImpresso =
+    dito(opts.codigo) || mode(parsedList.map((p) => p.codigoComoEscrito)) || codigo;
   const revisao = dito(opts.revisao) || mode(parsedList.map((p) => p.revisao)) || "a";
 
   // DO ESCOPO, nao do volume: a LD do bloco fala da disciplina DELE.
@@ -514,8 +529,10 @@ export function buildLdProposal(
 
   const input: CreateLDInput = {
     ldData: {
+      // `projectCode` é IDENTIDADE (normalizada); `formattedCode` é o que sai
+      // impresso. Os nomes já diziam isso; só o valor não seguia.
       projectCode: codigo,
-      formattedCode: codigo,
+      formattedCode: codigoImpresso,
       discipline: discLabel,
       revision: revisao,
       sectionTitle,
