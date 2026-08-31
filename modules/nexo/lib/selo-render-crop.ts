@@ -14,6 +14,47 @@ import type { Caixa } from "@/server/nexo/selo-regiao";
 export const RENDER_SCALE = 2;
 export const MAX_IMAGE_EDGE = 2400;
 
+/** A tarefa devolvida por `page.render`, com o que o pdf.js guarda por dentro. */
+type TarefaDeRender = {
+  promise: Promise<void>;
+  _internalRenderTask?: { _useRequestAnimationFrame?: boolean };
+};
+
+/**
+ * DESLIGA O `requestAnimationFrame` DO DESENHO — é o que faz a leitura de selo
+ * continuar quando a aba vai para segundo plano.
+ *
+ * O pdf.js não desenha a página de uma vez: ele executa a lista de operações em
+ * fatias de ~15ms e agenda a fatia seguinte. Com intent de tela
+ * (`useRequestAnimationFrame: !intentPrint`, em `PDFPageProxy.render`) esse
+ * agendamento é `requestAnimationFrame` — e o Chrome NÃO roda rAF em aba de
+ * segundo plano. Trocar de aba no meio da análise pendurava a promessa do
+ * render, as três leituras simultâneas ficavam presas nela, e o progresso
+ * congelava até a aba voltar à frente. Sem erro, sem aviso: só parado.
+ *
+ * Aqui não há tela nenhuma — o canvas é offscreen e existe só para virar um
+ * JPEG. Sem rAF, o pdf.js continua por microtask (`Promise.resolve().then`),
+ * que roda em segundo plano na mesma velocidade.
+ *
+ * A alternativa pela API pública seria renderizar com `intent: "print"`, que já
+ * nasce sem rAF — mas ela troca o que é DESENHADO (anotações e conteúdo
+ * opcional seguem regras de impressão), e o que se desenha aqui é exatamente o
+ * que o modelo vai ler. Mexer no agendamento não muda um pixel; mudar o intent
+ * muda.
+ *
+ * Os dois campos são internos do pdf.js (5.7.284) — o combinado está travado em
+ * `scripts/test-nexo-render-em-segundo-plano.ts`. Se um upgrade os remover, o
+ * recorte continua certo e volta a ser lento em segundo plano; por isso o campo
+ * ausente passa em silêncio em vez de derrubar a leitura.
+ */
+export function semRequestAnimationFrame<T extends TarefaDeRender>(tarefa: T): T {
+  const interno = tarefa._internalRenderTask;
+  if (interno && typeof interno._useRequestAnimationFrame === "boolean") {
+    interno._useRequestAnimationFrame = false;
+  }
+  return tarefa;
+}
+
 /**
  * Renderiza a página em escala 2, recorta a CAIXA DO CARIMBO e devolve um JPEG
  * data URL.
@@ -27,9 +68,10 @@ export const MAX_IMAGE_EDGE = 2400;
 export async function renderSeloCrop(
   page: {
     getViewport: (o: { scale: number }) => { width: number; height: number };
-    render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => {
-      promise: Promise<void>;
-    };
+    render: (o: {
+      canvasContext: CanvasRenderingContext2D;
+      viewport: unknown;
+    }) => TarefaDeRender;
   },
   caixa: Caixa,
 ): Promise<string> {
@@ -39,7 +81,8 @@ export async function renderSeloCrop(
   pageCanvas.height = Math.ceil(viewport.height);
   const pageCtx = pageCanvas.getContext("2d");
   if (!pageCtx) throw new Error("Canvas 2D indisponivel.");
-  await page.render({ canvasContext: pageCtx, viewport }).promise;
+  await semRequestAnimationFrame(page.render({ canvasContext: pageCtx, viewport }))
+    .promise;
 
   const cropX = Math.floor(caixa.x0 * pageCanvas.width);
   const cropY = Math.floor(caixa.y0 * pageCanvas.height);
