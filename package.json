@@ -157,6 +157,7 @@
     "test:nexo:ficha": "node scripts/test-nexo-ficha.ts",
     "test:nexo:urls": "node scripts/test-nexo-urls.ts",
     "test:nexo:ultima": "node scripts/test-nexo-ultima-conversa.ts",
+    "prova:ultima": "node scripts/prova-ultima-conversa.mjs",
     "test:url-migracao": "node scripts/test-url-de-migracao.ts",
     "test:nexo:pins": "node scripts/test-nexo-pins-do-parecer.ts",
     "db:backup:json": "node scripts/backup-json.mjs",
