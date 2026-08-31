@@ -61,7 +61,21 @@ const TOKENS = `
   --status-critical-bg: rgb(255 146 133 / 0.14);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--background); color: var(--foreground); }
+/*
+ * A FAMILIA VAI NO BODY, e nao so na folha. O painel de notas vive FORA de
+ * .ap-folha — no produto ele herda a fonte do globals.css, que o arquivo solto
+ * nao tem, e as notas saiam em serifada enquanto o slide ao lado estava certo.
+ * Visto na captura do arquivo aberto por file://.
+ *
+ * SEM CRASE NESTE COMENTARIO: ele mora dentro de um template literal, e a
+ * primeira versao dele fechou a string no meio do CSS.
+ */
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
 .nx-marca {
   display: inline-block;
   position: relative;
@@ -103,7 +117,15 @@ const MOTOR = `
     i = Math.max(0, Math.min(folhas.length - 1, n));
     folhas.forEach(function (f, k) { f.hidden = k !== i; });
     posicao.textContent = (i + 1) + '/' + folhas.length;
-    notasTexto.textContent = folhas[i].getAttribute('data-notas') || '';
+    // A nota chega com os paragrafos separados por linha em branco, e cada um
+    // vira um <p> — do mesmo jeito que o painel do produto os mostra.
+    notasTexto.textContent = '';
+    (folhas[i].getAttribute('data-notas') || '').split('\\n\\n').forEach(function (bloco) {
+      if (!bloco) return;
+      var p = document.createElement('p');
+      p.textContent = bloco;
+      notasTexto.appendChild(p);
+    });
     notasRotulo.textContent = folhas[i].getAttribute('data-rotulo') || '';
   }
   document.addEventListener('keydown', function (e) {
@@ -211,7 +233,24 @@ async function main() {
   await pagina.keyboard.press("n");
   for (let i = 0; i < total; i += 1) {
     folhas[i].rotulo = (await pagina.textContent(".ap-notas-rotulo")) ?? "";
-    folhas[i].notas = (await pagina.textContent(".ap-notas p:last-of-type")) ?? "";
+    /*
+     * TODOS OS PARÁGRAFOS, e não `p:last-of-type`.
+     *
+     * O seletor antigo funcionava enquanto cada nota era um parágrafo só. No dia
+     * em que as notas passaram a carregar as RÉPLICAS — o que o comprador diz
+     * quando a resposta não o satisfaz — elas viraram quatro e cinco blocos, e a
+     * cópia do pen drive passou a levar apenas o ÚLTIMO. Perdiam-se justamente
+     * as réplicas, que são a parte que não se improvisa.
+     *
+     * O modo de falhar era o pior possível: a autoconferência exigia só que a
+     * nota tivesse mais de 20 caracteres, e o último parágrafo sempre tem. O
+     * arquivo saía verde e só se descobriria mutilado na emergência.
+     */
+    folhas[i].notas = (
+      await pagina.$$eval(".ap-notas p:not(.ap-notas-rotulo)", (nós) =>
+        nós.map((nó) => nó.textContent?.trim() ?? "").filter(Boolean),
+      )
+    ).join("\n\n");
     if (i < total - 1) await pagina.keyboard.press("ArrowRight");
   }
 
@@ -259,7 +298,7 @@ ${corpo}
 <aside class="ap-notas" id="notas" hidden>
   <p class="ap-notas-rotulo" id="notas-rotulo"></p>
   <h2>Notas do apresentador</h2>
-  <p id="notas-texto"></p>
+  <div id="notas-texto"></div>
 </aside>
 <div class="ap-regua">
   <span class="ap-posicao" id="posicao"></span>
@@ -290,6 +329,21 @@ ${corpo}
   }
 
   fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
+  /*
+   * O GUARDA CONTRA A NOTA MUTILADA. Não é sobre tamanho — o seletor errado
+   * devolvia um parágrafo inteiro e válido, e por isso passou. É sobre a FORMA:
+   * o deck tem folhas cuja nota é feita de vários blocos (as réplicas do bloco
+   * das perguntas difíceis), e se NENHUMA chegar aqui com mais de um bloco, foi
+   * a extração que regrediu, não o conteúdo que mudou.
+   */
+  const comVariosBlocos = folhas.filter(({ notas }) => notas.includes("\n\n")).length;
+  if (comVariosBlocos < 3) {
+    throw new Error(
+      `Só ${comVariosBlocos} folhas trouxeram nota com mais de um parágrafo. ` +
+        "O deck tem várias — o seletor das notas regrediu.",
+    );
+  }
+
   fs.writeFileSync(SAIDA, html, "utf8");
 
   await conferirNoDisco(path.resolve(SAIDA), folhas.length);
@@ -354,10 +408,36 @@ async function conferirNoDisco(arquivo, esperadas) {
     throw new Error(`\`End\` levou a "${fim}", esperava "${esperadas}/${esperadas}".`);
   }
 
-  // E as notas do apresentador precisam sair do atributo para a tela.
+  /*
+   * E as notas precisam sair do atributo PARA A TELA, INTEIRAS. Voltando do fim
+   * ao começo com o painel aberto, alguma folha tem de mostrar vários
+   * parágrafos: é onde moram as réplicas, e é o que a versão anterior deste
+   * arquivo perdia em silêncio. De quebra, a volta exercita a navegação para
+   * trás, que até aqui ninguém conferia.
+   */
   await pagina.keyboard.press("n");
-  const nota = (await pagina.textContent("#notas-texto")) ?? "";
-  if (nota.trim().length < 20) throw new Error("O painel de notas abriu vazio.");
+  let maiorNota = 0;
+  let blocosNaMaior = 0;
+  for (let i = 0; i < esperadas; i += 1) {
+    const bloco = await pagina.$$eval("#notas-texto p", (nós) => ({
+      blocos: nós.length,
+      caracteres: nós.reduce((soma, nó) => soma + (nó.textContent ?? "").length, 0),
+    }));
+    if (bloco.caracteres > maiorNota) maiorNota = bloco.caracteres;
+    if (bloco.blocos > blocosNaMaior) blocosNaMaior = bloco.blocos;
+    if (i < esperadas - 1) await pagina.keyboard.press("ArrowLeft");
+  }
+  if (maiorNota < 20) throw new Error("O painel de notas abriu vazio.");
+  if (blocosNaMaior < 3) {
+    throw new Error(
+      `A nota mais longa do arquivo tem ${blocosNaMaior} parágrafo(s). ` +
+        "As réplicas não chegaram ao pen drive.",
+    );
+  }
+  const inicio = await pagina.textContent(".ap-posicao");
+  if (inicio !== `1/${esperadas}`) {
+    throw new Error(`Voltando com \`←\` cheguei a "${inicio}", esperava "1/${esperadas}".`);
+  }
 
   await navegador.close();
 
@@ -365,7 +445,9 @@ async function conferirNoDisco(arquivo, esperadas) {
     throw new Error(`O arquivo não é autossuficiente:\n  ${falhas.join("\n  ")}`);
   }
 
-  console.log(`   conferido do disco: ${esperadas} folhas, navegação e notas.`);
+  console.log(
+    `   conferido do disco: ${esperadas} folhas, ida e volta pelo teclado, e a nota mais longa com ${blocosNaMaior} parágrafos.`,
+  );
 }
 
 function escapar(texto) {
