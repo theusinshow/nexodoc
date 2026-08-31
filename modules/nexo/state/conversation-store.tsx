@@ -40,6 +40,7 @@ import { consultarAuditoria } from "../lib/audit";
 import { escolherCopia } from "../lib/copia-mais-nova";
 import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
+import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import { derivarTipoDeTrabalho } from "../lib/tipo-de-trabalho";
 import {
   deleteConversation as dbDelete,
@@ -841,8 +842,21 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         const i = prev.findIndex((r) => r.artifactId === saved.artifactId);
         if (i === -1) return [...prev, saved];
         const next = [...prev];
-        // Regerar o mesmo artefato → revoga os URLs antigos antes de trocar (#4).
-        prev[i].files.forEach((f) => URL.revokeObjectURL(f.url));
+        /*
+         * Regerar o mesmo artefato → revoga os URLs antigos antes de trocar
+         * (#4) — mas SÓ os que a gravação nova não está reusando.
+         *
+         * Revogar tudo matava a URL que acabava de ser regravada:
+         * `entregarVolume` chama `salvar` DUAS vezes com o MESMO volume (uma ao
+         * montar, outra depois da conferência), e a segunda revogava a URL da
+         * primeira e a guardava de volta, já inválida. Na tela: "6 arquivo(s)
+         * não estão disponíveis neste navegador". Os bytes estavam no IndexedDB
+         * o tempo todo — um F5 "consertava", porque a restauração cria URLs
+         * novas a partir deles. Ver [[urls-a-abandonar.ts]].
+         */
+        urlsAAbandonar(prev[i].files, saved.files).forEach((u) =>
+          URL.revokeObjectURL(u),
+        );
         next[i] = saved;
         return next;
       });
