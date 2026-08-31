@@ -7,6 +7,9 @@ import { saveLdDraft } from "@/lib/ld/ld-draft-store";
 import { buildLdProposal, type SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { createLD } from "@/server/nexo/tools/create-ld";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import { getTemplateRegistry } from "@/server/templates/registry";
+import { casarPrefeituraDoCarimbo } from "@/server/nexo/agent/normalize";
+import { carregarEscritorio } from "@/lib/escritorio-config";
 
 export const runtime = "nodejs";
 
@@ -50,6 +53,8 @@ export async function POST(req: NextRequest) {
   let respeitarOrdem = false;
   let folhasDoTomo: string[] | undefined;
   let referenceTotal: number | undefined;
+  /** A prefeitura escolhida no card, quando o plano tem capa/separatriz. */
+  let templateId = "";
   /** A identidade do projeto corrigida à mão — a MESMA que a capa recebe. */
   const identidade: Record<string, string> = {};
   try {
@@ -63,6 +68,7 @@ export async function POST(req: NextRequest) {
       respeitarOrdem?: unknown;
       folhasDoTomo?: unknown;
       referenceTotal?: unknown;
+      templateId?: unknown;
     } & Record<string, unknown>;
     if (!Array.isArray(body.selos)) throw new Error("selos ausente");
     selos = body.selos as SeloForLd[];
@@ -103,6 +109,7 @@ export async function POST(req: NextRequest) {
       const valor = body[chave];
       if (typeof valor === "string" && valor.trim()) identidade[chave] = valor.trim();
     }
+    if (typeof body.templateId === "string") templateId = body.templateId.trim();
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -111,8 +118,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum selo informado." }, { status: 400 });
   }
 
+  /*
+   * QUEM ASSINA O RODAPÉ DA LD É A PREFEITURA, e cada uma tem a sua regra.
+   *
+   * Medido nas 39 LDs entregues de `docs/samples` (31/08/2026):
+   *
+   *   Criciúma (116-25)  PREFEITURA MUNICIPAL DE CRICIÚMA          10 de 10
+   *   Chapecó  (040-26)  SECRETARIA DE DESENV. SUSTENTÁVEL — SEDES
+   *   113-22             PMN – Sec. Municipal de Planejamento Urbano
+   *
+   * O rodapé usava SEMPRE a secretaria lida do carimbo, com a prefeitura só de
+   * reserva — regra tirada do 040-26, que é Chapecó. Aplicada a Criciúma, ela
+   * imprimia "SECRETARIA DE INFRAESTRUTURA E OBRAS" onde o escritório entrega
+   * "PREFEITURA MUNICIPAL DE CRICIÚMA".
+   *
+   * Quem sabe a regra é o MODELO da prefeitura, e ele já sabia: o `config.json`
+   * de Criciúma declara `secretaria: ""` e o de Chapecó declara a dela. Modelo
+   * sem secretaria = documento que não imprime secretaria. Nenhum dado novo, um
+   * consumidor a mais.
+   *
+   * O template vem do card quando há capa; sem ele (pedido de "só a LD"), sai do
+   * mesmo carimbo, pelo mesmo casamento que a capa usa — senão a LD sozinha
+   * voltaria a errar exatamente onde este conserto mira.
+   */
+  let usarSecretaria = true;
+  try {
+    const templates = await getTemplateRegistry();
+    let modelo = templateId ? templates.find((t) => t.id === templateId) : undefined;
+    if (!modelo) {
+      const casado = casarPrefeituraDoCarimbo(
+        selos,
+        templates.map((t) => ({ id: t.id, nome: t.nome })),
+        carregarEscritorio(),
+      );
+      modelo = casado?.resolvedId
+        ? templates.find((t) => t.id === casado.resolvedId)
+        : undefined;
+    }
+    // Sem modelo reconhecido, nada muda: continua a regra de antes.
+    if (modelo && !modelo.defaults.secretaria.trim()) usarSecretaria = false;
+  } catch {
+    // Registro de modelos indisponível não pode impedir a LD de sair.
+  }
+
   // Título, tomo específico e divisão em tomos são decisões do engenheiro.
   const proposal = buildLdProposal(selos, {
+    usarSecretaria,
     numTomos,
     tomoInicial,
     tomoAtual,

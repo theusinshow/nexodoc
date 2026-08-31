@@ -177,6 +177,15 @@ function rowDisciplineLabel(s: SeloForLd): string {
 }
 
 export interface BuildLdOptions {
+  /**
+   * O rodapé desta prefeitura imprime a SECRETARIA (default) ou o ÓRGÃO?
+   *
+   * Quem responde é o `config.json` do modelo, e a rota traduz: modelo que
+   * declara `secretaria: ""` é o de uma prefeitura cujos documentos não a
+   * imprimem. Ver o comentário longo em `app/api/nexo/ld/route.ts`, onde a
+   * medição está.
+   */
+  usarSecretaria?: boolean;
   /** Divide as folhas em N tomos balanceados (decisão do engenheiro). Default 1. */
   numTomos?: number;
   /** Tomo ESPECÍFICO (ex.: 4): a seção vira "... (TOMO 04)". 0 = usar numTomos. */
@@ -306,12 +315,24 @@ export function buildLdProposal(
    * segunda — conferido no volume 10 de 040-26. Sem secretaria lida, cai na
    * prefeitura, que é o comportamento de antes.
    */
+  /*
+   * A SECRETARIA SÓ ENTRA ONDE A PREFEITURA A IMPRIME.
+   *
+   * Era incondicional, e a regra tinha vindo de UM projeto (040-26, Chapecó).
+   * Em Criciúma o rodapé entregue diz "PREFEITURA MUNICIPAL DE CRICIÚMA" nas
+   * dez LDs medidas, e o carimbo de lá traz "SECRETARIA DE INFRAESTRUTURA E
+   * OBRAS" — que passou a ser impressa no lugar dela.
+   *
+   * A correção à mão (`opts.orgao`) segue por cima de tudo, como sempre.
+   */
   const cliente =
     dito(opts.orgao) ||
-    modeComApoio(
-      validos.map((s) => s.secretaria),
-      validos.length,
-    ) ||
+    (opts.usarSecretaria === false
+      ? ""
+      : modeComApoio(
+          validos.map((s) => s.secretaria),
+          validos.length,
+        )) ||
     mode(validos.map((s) => s.cliente));
   const fase =
     dito(opts.fase) ||

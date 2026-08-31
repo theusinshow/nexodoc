@@ -71,7 +71,11 @@ function selo(folha: number, extra: Partial<SeloForLd> = {}): SeloForLd {
 const conjunto = (n: number, extra?: (i: number) => Partial<SeloForLd>) =>
   Array.from({ length: n }, (_, i) => selo(i + 1, extra?.(i) ?? {}));
 
-const dados = (selos: SeloForLd[]) => buildLdProposal(selos, { respeitarOrdem: true }).input.ldData;
+const dados = (selos: SeloForLd[], usarSecretaria?: boolean) =>
+  buildLdProposal(selos, {
+    respeitarOrdem: true,
+    ...(usarSecretaria === undefined ? {} : { usarSecretaria }),
+  }).input.ldData;
 
 // ------------------------------------------------------------------ o emissor
 
@@ -81,6 +85,32 @@ test("o rodapé leva a SECRETARIA, não a prefeitura", () => {
 
 test("sem secretaria no carimbo, cai na prefeitura", () => {
   assert.equal(dados(conjunto(5, () => ({ secretaria: null }))).client, PREFEITURA);
+});
+
+/*
+ * A PREFEITURA QUE NÃO IMPRIME SECRETARIA.
+ *
+ * A regra acima veio de UM projeto — 040-26, que é Chapecó. Medido em
+ * 31/08/2026 nas 39 LDs de `docs/samples`: Criciúma (116-25) imprime
+ * "PREFEITURA MUNICIPAL DE CRICIÚMA" nas dez, e o carimbo de lá traz
+ * "SECRETARIA DE INFRAESTRUTURA E OBRAS" — que ia impressa no lugar dela. Quem
+ * decide é o `config.json` do modelo (`secretaria: ""`), traduzido pela rota.
+ */
+test("modelo sem secretaria imprime a PREFEITURA, mesmo com secretaria no carimbo", () => {
+  assert.equal(dados(conjunto(5), false).client, PREFEITURA);
+});
+
+test("modelo COM secretaria continua imprimindo a secretaria", () => {
+  assert.equal(dados(conjunto(5), true).client, SECRETARIA);
+});
+
+test("a correção à mão vence a regra do modelo", () => {
+  const r = buildLdProposal(conjunto(5), {
+    respeitarOrdem: true,
+    usarSecretaria: false,
+    orgao: "ÓRGÃO DITO À MÃO",
+  });
+  assert.equal(r.input.ldData.client, "ÓRGÃO DITO À MÃO");
 });
 
 test("uma secretaria mal lida não vence a maioria", () => {
