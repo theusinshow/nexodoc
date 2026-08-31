@@ -686,3 +686,34 @@ model NexoConversation {
 
   @@index([userEmail, updatedAt])
 }
+
+/// O QUE A AUDITORIA APRENDEU -- as preferencias, regras e correcoes que o
+/// escritorio ensinou e que entram no prompt de toda auditoria.
+///
+/// Vivia num JSON em `process.cwd()/data/`, e o container da Render nao tem
+/// disco persistente declarado: cada deploy zerava o acervo. Com `autoDeploy`
+/// ligado, isso acontecia a cada push -- as telas gravavam, a proxima subida
+/// apagava, e nada no produto acusava a perda.
+///
+/// Sem relacao com `User`: aprendizado e do ESCRITORIO, nao de quem o digitou.
+/// Amarra-lo a uma conta faria o acervo encolher quando alguem saisse da
+/// empresa, que e o oposto do que ele existe para fazer.
+model AuditLearning {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  /// `preference` | `rule` | `example` | `correction`. Texto, e nao enum: os
+  /// tipos sao vocabulario de produto e mudam sem merecer uma migracao.
+  type      String   @default("preference")
+  /// `global` | `memorial` | `volume`.
+  scope     String   @default("global")
+  /// `active` | `paused`. Pausado continua no acervo e sai do prompt.
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  /// A leitura quente: os ativos de um escopo, do mais recente para o mais
+  /// antigo. E exatamente o que `listAuditLearnings` pede a cada auditoria.
+  @@index([status, scope, updatedAt])
+  @@index([updatedAt])
+}
