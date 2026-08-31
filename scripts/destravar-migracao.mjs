@@ -64,7 +64,25 @@ function urlDireta() {
 }
 
 const limpar = process.argv.includes("--limpar");
-const cliente = new pg.Client({ connectionString: urlDireta() });
+const url = urlDireta();
+
+/*
+ * DIZ QUAL BANCO ESTÁ OLHANDO — sem isto o script tinha um jeito silencioso de
+ * enganar: quem esquecesse de passar a URL de produção inspecionaria o banco de
+ * desenvolvimento, leria "ninguém segura o lock" e concluiria que o deploy
+ * falha por outro motivo. Um "está limpo" sobre o banco errado é pior que
+ * nenhuma resposta.
+ *
+ * Sem credencial: o que identifica é host + nome do banco.
+ */
+const endereco = new URL(url);
+console.log(
+  `Olhando: ${endereco.hostname}${endereco.pathname}` +
+    (endereco.hostname.includes("-pooler.") ? "  (ATENÇÃO: ainda é o pooler)" : ""),
+);
+console.log("");
+
+const cliente = new pg.Client({ connectionString: url });
 await cliente.connect();
 
 const { rows } = await cliente.query(
@@ -73,7 +91,7 @@ const { rows } = await cliente.query(
           a.state,
           a.application_name,
           a.backend_start,
-          now() - a.state_change AS parado_ha
+          to_char(now() - a.state_change, 'HH24h MIm SSs') AS parado_ha
      FROM pg_locks l
      LEFT JOIN pg_stat_activity a ON a.pid = l.pid
     WHERE l.locktype = 'advisory' AND l.objid = $1
