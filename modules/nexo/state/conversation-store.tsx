@@ -41,6 +41,11 @@ import { escolherCopia } from "../lib/copia-mais-nova";
 import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
+import {
+  esquecerUltimaConversa,
+  lembrarUltimaConversa,
+  ultimaConversaLembrada,
+} from "../lib/ultima-conversa";
 import { derivarTipoDeTrabalho } from "../lib/tipo-de-trabalho";
 import {
   deleteConversation as dbDelete,
@@ -467,6 +472,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       return;
     }
     jaPersistiu.current = true;
+    /*
+     * DAQUI EM DIANTE ESTA CONVERSA EXISTE, e é a ela que o próximo F5 volta.
+     *
+     * O ponto é o mesmo que decide gravar, e não por economia: lembrar de uma
+     * conversa que a guarda acima recusou gravar apontaria para um registro que
+     * nunca chega ao disco. Ver [[ultima-conversa.ts]].
+     */
+    lembrarUltimaConversa(s.conversationId);
     const resultsMeta: StoredResultMeta[] = s.results.map((r) => ({
       artifactId: r.artifactId,
       kind: r.kind,
@@ -1075,6 +1088,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       }
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
       jaPersistiu.current = true;
+      // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
+      // colhe isto.
+      lembrarUltimaConversa(rec.id);
       setConversationId(rec.id);
       setTitle(rec.title);
       setMessages(rec.messages);
@@ -1111,6 +1127,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const removeConversation = useCallback(
     async (id: string) => {
+      /*
+       * Apagou a conversa lembrada → esquece. Sem isto a chave apontaria para um
+       * registro morto e toda abertura gastaria uma ida ao disco para descobrir
+       * isso, para sempre.
+       */
+      if (ultimaConversaLembrada() === id) esquecerUltimaConversa();
       await dbDelete(id);
       refreshList();
       /*
@@ -1137,6 +1159,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const removeConversations = useCallback(
     async (ids: readonly string[]) => {
       if (ids.length === 0) return;
+      const lembrada = ultimaConversaLembrada();
+      if (lembrada && ids.includes(lembrada)) esquecerUltimaConversa();
       for (const id of ids) await dbDelete(id).catch(() => {});
       refreshList();
       await Promise.all(ids.map((id) => apagarNoServidor(id).catch(() => {})));

@@ -33,6 +33,7 @@ import {
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
 import { partidaPorId } from "../lib/partidas";
+import { deveRestaurar, ultimaConversaLembrada } from "../lib/ultima-conversa";
 import { FaviconVivo } from "@/components/brand/favicon-vivo";
 import { PaletaDeComandos } from "./PaletaDeComandos";
 import {
@@ -1334,6 +1335,49 @@ function NexoWorkspaceInner({
       if (memorialRetido.dossie) setDossie(memorialRetido.dossie);
     }
   };
+
+  /*
+   * VOLTAR PARA ONDE O ENGENHEIRO PAROU.
+   *
+   * Antes, `conversationId` nascia de um `newId()` a cada montagem e nada
+   * reabria a anterior — só o clique no histórico. Toda recarga começava do
+   * zero, e o trabalho seguinte virava OUTRA linha na barra: numa pasta real
+   * (`088-25-CRICIUMA`) isso rendeu quatro conversas "MET" do mesmo volume,
+   * distinguíveis só pelo horário.
+   *
+   * Passa pelo MESMO `selectConv` do histórico, e não por um caminho próprio:
+   * ele é quem sabe restaurar o shell, o memorial retido e o palco. Um segundo
+   * caminho de restauração divergiria do primeiro na próxima mudança.
+   *
+   * UMA VEZ, na montagem. E não quando a URL já manda em qual conversa abrir —
+   * ver `deveRestaurar`.
+   */
+  const restaurouUltima = useRef(false);
+  useEffect(() => {
+    if (restaurouUltima.current || typeof window === "undefined") return;
+    restaurouUltima.current = true;
+    if (!deveRestaurar(window.location.search)) return;
+    const id = ultimaConversaLembrada();
+    if (!id) return;
+    /*
+     * DEPOIS DO PRIMEIRO QUADRO, como o efeito da `?intencao=` logo acima e
+     * pelo mesmo tipo de razão: `selectConv` roda a transição do shell, e
+     * dispará-la durante a montagem faria a tela nascer já deslizando. Um
+     * quadro depois ela desliza a partir de algo que já apareceu.
+     *
+     * Falha em silêncio de propósito: `selectConv` já devolve sem fazer nada
+     * quando o registro não existe (apagado, outra máquina), e a abertura em
+     * branco é o desfecho certo. Um erro na tela aqui seria o produto
+     * reclamando de uma conveniência que ninguém pediu.
+     */
+    const raf = requestAnimationFrame(() => {
+      void Promise.resolve(selectConv(id)).catch(() => {});
+    });
+    return () => cancelAnimationFrame(raf);
+    // Só na montagem: `selectConv` muda a cada render e re-rodar reabriria a
+    // conversa por cima do que a pessoa acabou de escolher.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /*
    * Apagar a PASTA inteira, do cabeçalho do grupo na barra lateral.
