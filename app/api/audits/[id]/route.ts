@@ -57,7 +57,18 @@ export async function GET(
   try {
     const audit = await getPrisma().audit.findFirst({
       where: auditByIdWhereForActor(id, actor),
-      select: { status: true, report: true, result: true, error: true },
+      select: {
+        status: true,
+        report: true,
+        result: true,
+        error: true,
+        /*
+         * OS ARQUIVOS, para o parecer saber qual documento abrir. Quem chega
+         * pelo link do e-mail não tem o memorial nesta máquina, e o checksum é
+         * o que o leva até `/api/arquivos/<checksum>`.
+         */
+        files: { select: { fileName: true, checksumSha256: true } },
+      },
     });
 
     if (!audit) {
@@ -69,6 +80,7 @@ export async function GET(
       report: (audit.report as AuditReport | null) ?? null,
       result: audit.result ?? "",
       error: audit.error ?? null,
+      arquivos: audit.files,
     });
   } catch {
     return NextResponse.json({ error: "Banco não respondeu." }, { status: 503 });

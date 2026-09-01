@@ -44,6 +44,19 @@ export interface MemorialAuditResult {
   texto: string;
   /** Id persistido; sem ele o feedback por achado não tem onde gravar. */
   auditId: string | null;
+  /**
+   * Os arquivos auditados, com a chave do que está guardado no servidor.
+   *
+   * OPCIONAL, e é o caso comum estar ausente: `postAudit` devolve o que
+   * `/api/audit` responde (`result`, `report`, `auditId`), e quem acabou de
+   * rodar a auditoria tem o memorial no IndexedDB de qualquer forma. Quem
+   * precisa disto é quem chega por `consultarAuditoria` — pelo link do e-mail,
+   * sem o arquivo na máquina.
+   *
+   * Ausente também nos artefatos gravados ANTES deste trabalho.
+   * `fonteDoDocumento` trata os dois casos do mesmo jeito, e a tela diz o motivo.
+   */
+  arquivos?: { fileName: string; checksumSha256: string | null }[];
 }
 
 /**
@@ -245,7 +258,13 @@ export async function consultarAuditoria(auditId: string): Promise<EstadoDaAudit
     return { situacao: "irrecuperavel", motivo: "Auditoria não encontrada no servidor." };
   }
   const corpo = (await res.json().catch(() => null)) as
-    | { status?: string; report?: AuditReport | null; result?: string; error?: string | null }
+    | {
+        status?: string;
+        report?: AuditReport | null;
+        result?: string;
+        error?: string | null;
+        arquivos?: { fileName: string; checksumSha256: string | null }[];
+      }
     | null;
   if (!res.ok || !corpo) {
     // Banco fora do ar é temporário: vale continuar tentando.
@@ -260,7 +279,12 @@ export async function consultarAuditoria(auditId: string): Promise<EstadoDaAudit
   if (corpo.status === "COMPLETED" && corpo.report) {
     return {
       situacao: "pronta",
-      resultado: { report: corpo.report, texto: corpo.result ?? "", auditId },
+      resultado: {
+        report: corpo.report,
+        texto: corpo.result ?? "",
+        auditId,
+        arquivos: corpo.arquivos ?? [],
+      },
     };
   }
   if (corpo.status === "FAILED") {

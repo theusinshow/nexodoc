@@ -26,6 +26,8 @@ import {
   useAuditoria,
   type VistaDoPalco as Vista,
 } from "../state/auditoria-store";
+import { fonteDoDocumento } from "@/lib/fonte-do-documento";
+
 import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import type { AberturaPorLink } from "./use-abrir-auditoria-por-link";
@@ -134,6 +136,30 @@ export function PalcoDoNexo({
   );
   const salvo = useMemo(() => auditoriaMaisRecente(results)?.salvo, [results]);
   const report = salvo?.report;
+
+  /*
+   * O DOCUMENTO, LOCAL OU DO SERVIDOR.
+   *
+   * O local vem primeiro por ser instantâneo e não gastar rede — quem rodou a
+   * auditoria não perde nada. Quem chegou pelo link do e-mail nunca teve o
+   * memorial nesta máquina, e é para essa pessoa que o degrau do servidor
+   * existe: era ela quem não tinha botão nenhum.
+   *
+   * A escolha é PURA e mora em [[lib/fonte-do-documento.ts]], com teste que roda
+   * sem navegador.
+   */
+  const doServidor = salvo?.arquivos?.find((a) => a.checksumSha256) ?? null;
+  const fonte = fonteDoDocumento({
+    urlLocal: memorialPdf?.url ?? null,
+    checksum: doServidor?.checksumSha256 ?? null,
+  });
+  const documento =
+    fonte.tipo === "ausente"
+      ? null
+      : {
+          name: memorialPdf?.name ?? doServidor?.fileName ?? "memorial.pdf",
+          url: fonte.url,
+        };
   /*
    * O PARECER DE ANTES, quando existe. É o que permite dizer o que o trabalho
    * de correção mudou, em vez de entregar a lista nova como se fosse a primeira.
@@ -193,7 +219,7 @@ export function PalcoDoNexo({
    * o PDF do memorial em mãos: sem os bytes, o canvas seria uma grade de ícones.
    */
   const [noDocumento, setNoDocumento] = useState(false);
-  const podeVerNoDocumento = Boolean(report && memorialPdf);
+  const podeVerNoDocumento = Boolean(report && documento);
   /*
    * A vista do parecer sobe para cá: as quatro vistas da auditoria (Resumo,
    * Achados, Relatório, No documento) são irmãs numa barra só. Antes eram dois
@@ -254,7 +280,7 @@ export function PalcoDoNexo({
         content={salvo?.texto ?? ""}
         report={report}
         auditId={salvo?.auditId ?? undefined}
-        pdfSources={memorialPdf ? [memorialPdf] : []}
+        pdfSources={documento ? [documento] : []}
         resolvidos={resolvidosDesta}
         onToggleResolvido={aoAlternarResolvido}
         /*
@@ -359,6 +385,19 @@ export function PalcoDoNexo({
               No documento
             </Chip>
           )}
+          {/*
+            POR QUE A ABA NÃO ESTÁ AQUI, quando não está.
+
+            Some junto com a aba, e no lugar dela. Botão ausente não se distingue
+            de funcionalidade inexistente: quem recebeu um achado por e-mail
+            precisa saber se o documento não está guardado ou se o produto não
+            faz isso.
+          */}
+          {report && fonte.tipo === "ausente" ? (
+            <span className="text-[11.5px] leading-5 text-muted-foreground">
+              {fonte.motivo}
+            </span>
+          ) : null}
           {/*
             O QUE MUDOU DESDE A AUDITORIA ANTERIOR.
 
