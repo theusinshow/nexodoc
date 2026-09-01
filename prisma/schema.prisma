@@ -354,6 +354,13 @@ model Audit {
 ///
 /// Por isso `verdict` passou a ser opcional: marcar corrigido sem julgar é
 /// legítimo, e era o único caminho que a coluna obrigatória bloqueava.
+///
+/// ESTA LINHA VIROU O ACHADO COMPARTILHADO. Nasceu para guardar o julgamento da
+/// IA, e hoje guarda também a atribuição, o aviso, o desfecho e — desde o
+/// multiplayer — a âncora da conversa e dos envolvidos. O nome ficou pequeno.
+///
+/// NÃO foi renomeada de propósito: migração de tabela por vaidade de
+/// nomenclatura, num sistema no ar, é risco sem retorno.
 model AuditFeedback {
   id             String                 @id @default(cuid())
   auditId        String
@@ -395,6 +402,8 @@ model AuditFeedback {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   audit          Audit                  @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  mensagens      AuditFindingMessage[]
+  envolvidos     AuditFindingWatcher[]
 
   @@unique([auditId, targetKey])
   @@index([auditId, createdAt])
@@ -752,4 +761,62 @@ model AuditLearning {
   /// antigo. E exatamente o que `listAuditLearnings` pede a cada auditoria.
   @@index([organizationId, status, scope, updatedAt])
   @@index([organizationId, updatedAt])
+}
+
+/// Uma linha da CONVERSA de um achado — o que uma pessoa escreveu, ou o que o
+/// sistema registrou. As duas coisas na MESMA cronologia, e isso é decisão.
+///
+/// Uma tabela de mensagens e outra de eventos produziriam duas linhas do tempo
+/// que a tela teria que fundir, e que poderiam discordar. Ver
+/// [[lib/conversa-do-achado.ts]], que monta a leitura.
+model AuditFindingMessage {
+  id          String        @id @default(cuid())
+  feedbackId  String
+  /// `comentario` | `atribuiu` | `reatribuiu` | `envolveu` | `desenvolveu` |
+  /// `resolveu` | `reabriu`.
+  ///
+  /// Texto e não enum: o vocabulário é de produto e cresce sem merecer uma
+  /// migração — mesma razão de `AuditLearning.type`. Quem lê trata `kind`
+  /// desconhecido com uma frase genérica, nunca sumindo com a linha.
+  kind        String
+  /// E-mail de quem falou. Como no resto do módulo, é o e-mail que identifica —
+  /// dá para ter sido convidado e ainda não ter conta.
+  authorEmail String
+  authorId    String?
+  /// O que a pessoa escreveu. Vazio nos eventos de sistema — e NÃO vazio na
+  /// atribuição com recado: o recado é a primeira fala da conversa, e a linha
+  /// carrega o evento e a fala ao mesmo tempo.
+  body        String        @default("")
+  /// `{de, deNome, para, paraNome}` na reatribuição; `{desfecho}` no fecho. É o
+  /// que a frase precisa para se montar sem uma segunda consulta — e o que a
+  /// mantém verdadeira quando a pessoa citada sai do escritório depois.
+  details     Json?
+  createdAt   DateTime      @default(now())
+  feedback    AuditFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@index([feedbackId, createdAt])
+}
+
+/// Quem ACOMPANHA o achado sem responder por ele.
+///
+/// O responsável é UM, e continua em `AuditFeedback.assigneeEmail` — a coluna
+/// indexada que a home consulta em `pendenciasDe()`. Com N responsáveis iguais,
+/// "o achado está resolvido quando quem fecha?" não teria resposta que não
+/// perdesse achado. A assimetria é a decisão: um responde, os outros acompanham.
+model AuditFindingWatcher {
+  id         String        @id @default(cuid())
+  feedbackId String
+  email      String
+  /// POR PESSOA, e não uma coluna só no achado.
+  ///
+  /// O docblock de `AuditFeedback.notifiedAt` explica por quê: reatribuir zera o
+  /// aviso, senão a Carla herda o "já avisado" que era do Milton e nunca fica
+  /// sabendo. Com N pessoas, esse estado é de cada uma.
+  notifiedAt DateTime?
+  addedById  String?
+  addedAt    DateTime      @default(now())
+  feedback   AuditFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@unique([feedbackId, email])
+  @@index([email, notifiedAt])
 }
