@@ -54,6 +54,20 @@ export type ProjetoDoPainel = {
   projectId: string;
   codigo: string;
   nome: string;
+  /**
+   * A CIDADE, carregada separada do nome.
+   *
+   * O `select` já trazia `client` do banco, e ele era descartado dentro de
+   * `nome: name || client || code` — três campos colapsados num. A home não
+   * tinha como saber a cidade, e por isso a marca de prefeitura não podia
+   * entrar nela.
+   *
+   * Vazio é estado legítimo: projeto sem cliente cadastrado existe, e a marca
+   * tem forma para ele (cinza a 50%, ver [[marca-da-prefeitura.ts]]).
+   */
+  cliente: string;
+  /** O trabalho mais recente deste projeto, em ISO. Desempata a ordenação. */
+  atualizadoEm: string;
   /** Achados em aberto, os mais parados primeiro. */
   itens: ItemDoPainel[];
   artefatos: ArtefatoDoPainel[];
@@ -144,7 +158,17 @@ export async function painelDe(args: {
         select: {
           id: true,
           projectId: true,
-          project: { select: { id: true, code: true, name: true, client: true } },
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              client: true,
+              /* Desempata a ordenação por atenção sem uma segunda consulta: o
+               * `Project` já é buscado, e a coluna já existe. */
+              updatedAt: true,
+            },
+          },
         },
       },
     },
@@ -209,6 +233,8 @@ export async function painelDe(args: {
       projectId: projeto.id,
       codigo: projeto.code,
       nome: projeto.name || projeto.client || projeto.code,
+      cliente: projeto.client,
+      atualizadoEm: projeto.updatedAt.toISOString(),
       itens: [],
       artefatos: [],
       diasParado: 0,
@@ -247,7 +273,17 @@ export async function painelDe(args: {
           id: true,
           title: true,
           createdAt: true,
-          project: { select: { id: true, code: true, name: true, client: true } },
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              client: true,
+              /* Desempata a ordenação por atenção sem uma segunda consulta: o
+               * `Project` já é buscado, e a coluna já existe. */
+              updatedAt: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         take: 30,
@@ -263,6 +299,8 @@ export async function painelDe(args: {
       projectId: projeto.id,
       codigo: projeto.code,
       nome: projeto.name || projeto.client || projeto.code,
+      cliente: projeto.client,
+      atualizadoEm: projeto.updatedAt.toISOString(),
       itens: [],
       artefatos: [],
       diasParado: 0,
@@ -325,6 +363,9 @@ export async function painelDe(args: {
       tipo: true,
       updatedAt: true,
       auditoriaPendente: true,
+      /* O VÍNCULO do sub-projeto 1. O código e o cliente saem daqui; a pasta
+       * continua servindo à conversa legada, que não tem vínculo. */
+      project: { select: { code: true, client: true } },
     },
     orderBy: { updatedAt: "desc" },
     take: 300,
@@ -337,6 +378,8 @@ export async function painelDe(args: {
     tipo: c.tipo,
     updatedAt: c.updatedAt.getTime(),
     auditoriaPendente: c.auditoriaPendente,
+    projectCode: c.project?.code ?? "",
+    projectClient: c.project?.client ?? "",
   }));
 
   return {

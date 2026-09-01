@@ -30,6 +30,10 @@ export interface ConversaCrua {
   /** Epoch em ms. */
   updatedAt: number;
   auditoriaPendente?: boolean;
+  /** `063-26`, do projeto vinculado. Vazio na conversa legada, sem vínculo. */
+  projectCode?: string;
+  /** `CRICIÚMA`, do projeto vinculado. Vazio na conversa legada, sem vínculo. */
+  projectClient?: string;
 }
 
 export interface ProjetoRecente {
@@ -60,6 +64,11 @@ export interface ProjetoRecente {
  *
  * Pasta fora da convenção devolve os dois campos vazios, e a tela mostra a
  * chave crua — inventar uma separação errada seria pior que não separar.
+ *
+ * DEGRAU DE TRÁS desde 01/09/2026. Com `NexoConversation.projectId`, o código e
+ * o cliente vêm do `Project` — que é editável em /projetos e não depende de a
+ * pasta ter sido nomeada certo. Esta função atende a conversa LEGADA, que tem
+ * pasta e não tem vínculo, e é só para isso que ela continua aqui.
  */
 export function partesDaPasta(chave: string): { codigo: string; cliente: string } {
   const m = /^(\d{2,4}-\d{2})-(.+)$/.exec(chave.trim());
@@ -99,7 +108,21 @@ export function projetosRecentes(
     const atual = porPasta.get(chave);
 
     if (!atual) {
-      const { codigo, cliente } = partesDaPasta(chave);
+      /*
+       * O PROJETO VINCULADO VENCE A STRING DA PASTA.
+       *
+       * `partesDaPasta` quebra "084-25-CRICIUMA" em código e cliente, e era o
+       * único caminho antes de a conversa ter `projectId`. Manter os dois como
+       * iguais daria à home DUAS fontes para a mesma cidade, e elas
+       * discordariam no primeiro projeto renomeado em /projetos.
+       *
+       * A string continua valendo como DEGRAU DE TRÁS: conversa legada não tem
+       * vínculo, e o nome dela ainda mora na pasta. Mesmo arranjo de
+       * `enderecoDa` em [[modules/nexo/lib/cartoes-de-projeto.ts]].
+       */
+      const daPasta = partesDaPasta(chave);
+      const codigo = c.projectCode || daPasta.codigo;
+      const cliente = c.projectClient || daPasta.cliente;
       porPasta.set(chave, {
         chave,
         codigo,
