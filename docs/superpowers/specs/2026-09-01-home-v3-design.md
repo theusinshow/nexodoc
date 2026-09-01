@@ -73,28 +73,37 @@ Então: **a seleção de hoje fica** (projetos, inclusive sem pendência) e a
 é uma lista, uma ordem. E é a ordem que a tela **já promete** no canto direito
 ("mais parados primeiro"), sendo hoje a única promessa que ela cumpre.
 
-### Seção 2 — O cartão para de listar achado por achado
+### Seção 2 — A abertura automática deixa de gastar a dobra
 
-Hoje o cartão do projeto lista cada achado aberto. Com cinco, são cinco linhas
-quase idênticas.
+**Correção de 01/09/2026, feita antes de escrever o plano.** Esta seção dizia
+que "o cartão passa a mostrar o estado em vez de listar achado por achado".
+**Estava errada.** O acordeão já existe e o cartão fechado já mostra resumo, via
+`Selo` (`painel-do-usuario.tsx:721`): `"5 achados"`, `"5 com outros"`,
+`"sem pendência"`, ou `"3 achados · parado há 7 dias"`.
 
-Passa a mostrar o **estado do projeto**:
+O que produziu a parede de cinco linhas na medição é outra coisa, e é uma linha:
 
+```ts
+// painel-do-usuario.tsx:124
+if (primeiro) setAbertos({ [primeiro.projectId]: true });
 ```
-▸ ▪▪▪  063-26 · CRICIÚMA   Memorial descritivo — Cancha de Bocha
-       5 achados · com Milton · parados há 4 dias      [NOVA AUDITORIA]
-```
 
-Achado é coisa de **agir**, e agir acontece no parecer — que desde o sub-projeto
-3 abre no achado certo, com o documento do lado. Listar cinco linhas iguais na
-Home é a fila vazando para dentro do cartão de projeto.
+**O primeiro cartão abre sozinho, sempre.** E no caso medido ele expandiu cinco
+achados `enviado` — trabalho que está com OUTRAS pessoas, o tipo menos acionável
+que existe. A dobra inteira foi gasta mostrando o que ninguém pode fazer agora.
 
-**O cartão continua abrindo.** O acordeão que já existe (`abertos`) passa a
-revelar os achados — quem quer a lista tem a lista, a um clique, e a densidade
-padrão volta a ser legível.
+**A regra passa a ser: abre sozinho só o que é PARA VOCÊ.** Um projeto cujos
+achados estão todos com terceiros não precisa estar expandido — precisa de uma
+linha dizendo com quem estão. Com a ordenação da Seção 1, o cartão que abre
+sozinho passa a ser o mais parado que espera por você.
 
-**Quando há mais de uma pessoa**, a linha diz "com 3 pessoas" em vez de nomear
-todas: três nomes numa linha de resumo é a repetição de novo, com outro rosto.
+**E o resumo de "enviados" ganha COM QUEM.** Hoje o `Selo` diz `"5 com outros"`,
+que informa a quantidade e esconde o essencial. Passa a dizer `"5 com Milton"`;
+com mais de uma pessoa, `"5 com 3 pessoas"` — três nomes numa linha de resumo
+seria a repetição de novo, com outro rosto.
+
+A lista de achados **continua onde está**, dentro do acordeão. Quem quer varrer
+os títulos abre o cartão.
 
 ### Seção 3 — A prefeitura entra, e o dado vem junto
 
@@ -151,17 +160,19 @@ docblock dizendo isso — o mesmo arranjo que `cartoes-de-projeto.ts` já usa em
 
 - `ordemDaAtencao()` — a ordenação dos projetos: mais parado primeiro, empate
   desfeito por data, projeto sem pendência depois dos com pendência;
-- `resumoDoProjeto()` — a linha de estado: "5 achados · com Milton · parados há
-  4 dias"; "com 3 pessoas" quando há mais de uma; e o que ela diz quando não há
-  achado nenhum.
+- `resumoDoProjeto()` — o texto do `Selo`: "5 com Milton" com uma pessoa, "5 com
+  3 pessoas" com várias, "3 achados · parado há 7 dias" quando é para você, e
+  "sem pendência" quando não há nada;
+- `abreSozinho()` — só o primeiro cartão, e só quando há achado PARA VOCÊ.
 
 **Navegador, medindo o que a queixa dizia:**
 
 - a **altura em px** do topo da página até o primeiro cartão de projeto — hoje
   ~290, e a prova registra o número novo. É a queixa "a dobra é ensino"
   transformada em medida;
-- o cartão fechado tem **uma** linha de estado, e não cinco;
-- abrir o cartão revela os achados;
+- nenhum cartão nasce expandido quando o trabalho todo está com terceiros — e o
+  do topo nasce expandido quando há achado para você;
+- abrir o cartão revela os achados, como já revela hoje;
 - a marca aparece no cartão, e duas cidades diferentes têm cores diferentes;
 - sem trabalho recente, **não existe** coluna de 336px reservada.
 
@@ -183,10 +194,11 @@ docblock dizendo isso — o mesmo arranjo que `cartoes-de-projeto.ts` já usa em
 
 ## Riscos aceitos
 
-- **Tirar os achados do cartão fechado é a mudança que mais se sente.** Quem
-  hoje varre a Home lendo os cinco títulos passa a ver um número e precisa abrir.
-  Aceito porque a lista continua a um clique e porque cinco linhas idênticas não
-  são leitura — são ruído com formato de dado.
+- **O cartão do topo pode passar a nascer fechado.** Quem hoje encontra os
+  achados já expandidos ao abrir a Home vai precisar de um clique quando o
+  projeto mais parado for de trabalho que está com terceiros. Aceito: expandir
+  cinco linhas de "com o Milton" gasta a dobra mostrando o que ninguém pode
+  fazer agora.
 - **A ordenação por atenção muda o topo da lista.** Um projeto que estava em
   primeiro por ser recente pode descer. É o efeito pretendido, e a tela já
   anuncia a regra no canto.
