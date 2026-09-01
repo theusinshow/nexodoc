@@ -35,6 +35,9 @@ const c = (
   id,
   title: "MET",
   folderKey: pasta,
+  projectId: null,
+  projectCode: "",
+  projectClient: "",
   tipo: "volume",
   updatedAt,
   folhas: 10,
@@ -140,6 +143,72 @@ test("auditoria sem prefeitura vira o balde SEM CÓDIGO, no fim, com a conversa 
 
 test("sem conversa nenhuma não há cartão", () => {
   assert.deepEqual(cartoesDeProjeto([]), []);
+});
+
+test("memorial COM projeto não cai no balde de sem-endereço", () => {
+  /*
+   * É a queixa que abriu este trabalho: memorial auditado aparecia em "Sem
+   * código no carimbo" — e memorial não tem carimbo.
+   */
+  const r = cartoesDeProjeto([
+    c("a", null, 100, [], {
+      projectId: "p1",
+      projectCode: "063-26",
+      projectClient: "CRICIÚMA",
+      tipo: "auditoria",
+    }),
+  ]);
+  assert.equal(r[0].chave, "p1");
+  assert.equal(r[0].codigo, "063-26");
+  assert.equal(r[0].cliente, "CRICIÚMA");
+  assert.equal(r[0].aEnderecar, false);
+});
+
+test("volume e memorial do MESMO projeto caem no MESMO cartão", () => {
+  // É a razão de o vínculo existir: reunir os dois trabalhos do projeto.
+  const doProjeto = { projectId: "p1", projectCode: "063-26", projectClient: "CRICIÚMA" };
+  const r = cartoesDeProjeto([
+    c("a", null, 200, [], { ...doProjeto, tipo: "auditoria" }),
+    c("b", null, 100, ["volume"], { ...doProjeto, tipo: "volume" }),
+  ]);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].conversas.length, 2);
+});
+
+test("conversa sem vínculo é 'a endereçar', e vai para o FIM", () => {
+  const r = cartoesDeProjeto([
+    c("sem", null, 999, []),
+    c("com", null, 1, [], { projectId: "p1", projectCode: "063-26" }),
+  ]);
+  assert.equal(r.length, 2);
+  assert.equal(r[0].chave, "p1", "o endereçado vem primeiro, mesmo sendo mais velho");
+  assert.equal(r[1].aEnderecar, true);
+});
+
+test("conversa LEGADA com folderKey e sem projeto continua agrupando", () => {
+  /*
+   * Não se perde o agrupamento de quem já tinha pasta. `folderKey` deixou de
+   * ser a identidade, mas continua servindo de endereço enquanto o vínculo não
+   * é feito — jogar essas conversas no balde seria uma regressão.
+   */
+  const r = cartoesDeProjeto([c("a", "084-25-CRICIUMA", 100, ["volume"])]);
+  assert.equal(r[0].chave, "084-25-CRICIUMA");
+  assert.equal(r[0].codigo, "084-25");
+  assert.equal(r[0].cliente, "CRICIUMA");
+  assert.equal(r[0].aEnderecar, false);
+});
+
+test("o projeto vence a pasta quando os dois existem", () => {
+  // O cadastro é a fonte; a string derivada é cache de exibição.
+  const r = cartoesDeProjeto([
+    c("a", "084-25-CRICIUMA", 100, [], {
+      projectId: "p9",
+      projectCode: "084-25",
+      projectClient: "Criciúma",
+    }),
+  ]);
+  assert.equal(r[0].chave, "p9");
+  assert.equal(r[0].cliente, "Criciúma", "o texto do cadastro, não o da pasta");
 });
 
 console.log(`\n${passed} teste(s) ok`);

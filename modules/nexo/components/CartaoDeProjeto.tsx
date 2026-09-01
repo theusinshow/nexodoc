@@ -79,9 +79,16 @@ export function CartaoDeProjeto({
   onAbrirConversa: (id: string) => void;
   onVerTudo?: (chave: string) => void;
 }) {
-  const semCodigo = cartao.chave === "";
+  /*
+   * "A ENDEREÇAR", e não "Sem código no carimbo".
+   *
+   * Memorial não tem carimbo — o rótulo antigo era mentira de vocabulário, e
+   * dizia à pessoa que o documento dela estava errado quando o que faltava era
+   * o sistema ter ligado a conversa a um projeto.
+   */
+  const semCodigo = cartao.aEnderecar;
   const nome = semCodigo
-    ? "Sem código no carimbo"
+    ? "A endereçar"
     : cartao.cliente
       ? `${cartao.codigo} · ${cartao.cliente}`
       : cartao.codigo;

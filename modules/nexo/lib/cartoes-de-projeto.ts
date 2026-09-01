@@ -52,8 +52,17 @@ export interface ConversaDoCartao {
 }
 
 export interface CartaoDeProjeto {
-  /** A pasta como está gravada; `""` é o trabalho sem código no carimbo. */
+  /**
+   * A identidade do cartão: o `projectId`, ou o `folderKey` legado, ou `""`.
+   *
+   * Era só o `folderKey` — uma string derivada no navegador, enquanto a home e
+   * a fila agrupavam por chave estrangeira. Os dois conceitos discordavam, e o
+   * sintoma era todo memorial auditado caindo num balde chamado "Sem código no
+   * carimbo" — sendo que memorial não tem carimbo.
+   */
   chave: string;
+  /** Sem vínculo com projeto nenhum — o cartão "A endereçar". */
+  aEnderecar: boolean;
   /** `084-25` — o contrato. Vazio quando a pasta não segue a convenção. */
   codigo: string;
   /** `CRICIUMA`. Vazio quando a pasta traz só o código (carimbo sem prefeitura). */
@@ -127,6 +136,18 @@ function partes(chave: string): { codigo: string; cliente: string } {
 }
 
 /**
+ * O ENDEREÇO da conversa, na ordem de autoridade.
+ *
+ * O projeto do Postgres vence a pasta derivada: o cadastro é a fonte, e a
+ * string é cache de exibição. O `folderKey` continua valendo para a conversa
+ * LEGADA que tem pasta e ainda não foi vinculada — jogá-la no balde seria uma
+ * regressão para quem já tinha o agrupamento funcionando.
+ */
+function enderecoDa(c: ConversaResumida): string {
+  return (c.projectId ?? "").trim() || (c.folderKey ?? "").trim();
+}
+
+/**
  * O DESFECHO da conversa, em uma palavra: o que ela produziu de mais adiantado.
  *
  * "leitura falhou" tem precedência sobre tudo — uma conversa que não conseguiu
@@ -147,17 +168,16 @@ function desfechoDa(c: ConversaResumida): string {
 /**
  * Os cartões, do projeto mais recente para o mais antigo.
  *
- * SEM CÓDIGO NO CARIMBO vai para o fim, sempre. É onde caem as conversas que
- * ainda não têm identidade de projeto — as mais numerosas e as menos
- * informativas. No topo, empurrariam para baixo o projeto que a pessoa
- * reconheceria.
+ * A ENDEREÇAR vai para o fim, sempre. É onde caem as conversas que ainda não
+ * têm projeto — as mais numerosas e as menos informativas. No topo, empurrariam
+ * para baixo o projeto que a pessoa reconheceria.
  */
 export function cartoesDeProjeto(
   conversas: readonly ConversaResumida[],
 ): CartaoDeProjeto[] {
   const porPasta = new Map<string, ConversaResumida[]>();
   for (const c of conversas) {
-    const chave = (c.folderKey ?? "").trim();
+    const chave = enderecoDa(c);
     const lista = porPasta.get(chave);
     if (lista) lista.push(c);
     else porPasta.set(chave, [c]);
@@ -179,10 +199,18 @@ export function cartoesDeProjeto(
 
     const visiveis = ordenado.slice(0, TETO_DE_CONVERSAS);
     const cortadas = ordenado.slice(TETO_DE_CONVERSAS);
-    const { codigo, cliente } = partes(chave);
+    /*
+     * O código e o cliente saem do PROJETO quando há vínculo; da pasta quando é
+     * conversa legada. É a mesma ordem de autoridade de `enderecoDa`.
+     */
+    const comProjeto = ordenado.find((x) => x.projectId);
+    const { codigo, cliente } = comProjeto
+      ? { codigo: comProjeto.projectCode, cliente: comProjeto.projectClient }
+      : partes(chave);
 
     cartoes.push({
       chave,
+      aEnderecar: chave === "",
       codigo,
       cliente,
       atualizadoEm: ordenado[0].updatedAt,
@@ -205,9 +233,9 @@ export function cartoesDeProjeto(
     });
   }
 
-  const comCodigo = cartoes.filter((c) => c.chave !== "");
-  const semCodigo = cartoes.filter((c) => c.chave === "");
-  comCodigo.sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+  const enderecados = cartoes.filter((c) => !c.aEnderecar);
+  const aEnderecar = cartoes.filter((c) => c.aEnderecar);
+  enderecados.sort((a, b) => b.atualizadoEm - a.atualizadoEm);
 
-  return [...comCodigo, ...semCodigo];
+  return [...enderecados, ...aEnderecar];
 }

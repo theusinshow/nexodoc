@@ -180,7 +180,7 @@ export function ListaDeProjetos({
         O cartão aberto responde por posição; esta linha responde por nome, que
         é o que sobrevive a rolar a lista.
       */}
-      {trabalhandoEm && trabalhandoEm.chave !== "" && !query.trim() ? (
+      {trabalhandoEm && !trabalhandoEm.aEnderecar && !query.trim() ? (
         <p className="m-0 px-1 pb-1 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
           Trabalhando no{" "}
           <span className="text-[var(--primary)]">
