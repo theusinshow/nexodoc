@@ -186,6 +186,14 @@ interface ConversationStoreValue {
   /** Acumula a correção. Campo com string vazia DESFAZ aquele campo. */
   corrigirIdentidade: (patch: Record<string, string>) => void;
   /**
+   * O PROJETO desta conversa — o `Project` do Postgres. Nulo = a endereçar.
+   *
+   * É a identidade, e `folderKey` virou cache de exibição. Ver [[nexo-db.ts]].
+   */
+  projectId: string | null;
+  /** Endereça a conversa. `null` desvincula. */
+  vincularProjeto: (id: string | null) => void;
+  /**
    * As DECISÕES do documento (título, volume, data, tomos, prefeitura). Ao
    * contrário da identidade, o agente PROPÕE estes campos a cada turno — por
    * isso cada decisão guarda o valor dele que ela substituiu. Ver [[decisoes.ts]].
@@ -342,6 +350,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [avulsas, setAvulsas] = useState<FolhaId[]>([]);
   const [totaisPorDisciplina, setTotaisPorDisciplina] = useState<Record<string, number>>({});
   const [identidade, setIdentidade] = useState<IdentidadeDoProjeto>({});
+  /** O projeto desta conversa. Nulo = a endereçar. */
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [decisoes, setDecisoes] = useState<DecisoesDoProjeto>({});
   const [tomosDeclarados, setTomosDeclarados] = useState(0);
   const [achadosResolvidos, setAchadosResolvidos] = useState<Record<string, string[]>>({});
@@ -367,6 +377,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     avulsas,
     totaisPorDisciplina,
     identidade,
+    projectId,
     decisoes,
     tomosDeclarados,
     achadosResolvidos,
@@ -388,6 +399,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       avulsas,
       totaisPorDisciplina,
       identidade,
+      projectId,
       decisoes,
       tomosDeclarados,
       achadosResolvidos,
@@ -542,6 +554,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       createdAt: s.createdAt,
       updatedAt: Date.now(),
       ...(folderKey ? { folderKey } : {}),
+      ...(s.projectId ? { projectId: s.projectId } : {}),
       tipo,
       messages: s.messages,
       seloResults: s.seloResults,
@@ -754,6 +767,25 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   );
 
   /*
+   * O ENDEREÇO da conversa, decidido no ANEXO.
+   *
+   * Antes disto a pasta era derivada de uma string (`pastaDoProjeto`), e a
+   * conversa de memorial nunca tinha uma: o dossiê morria num `useState` do
+   * NexoWorkspace e nunca chegava aqui. O vínculo agora é a chave estrangeira, e
+   * ela é gravada no instante em que a classificação lê o centro de custo.
+   *
+   * Aceita `null` de propósito: desvincular é ação legítima de quem percebe que
+   * anexou o memorial na conversa errada.
+   */
+  const vincularProjeto = useCallback(
+    (id: string | null) => {
+      setProjectId(id);
+      schedulePersist();
+    },
+    [schedulePersist],
+  );
+
+  /*
    * Uma decisão do engenheiro sobre o documento. Guarda junto o que o agente
    * propunha na hora — é esse par que deixa a mescla saber, no turno seguinte,
    * se o agente mudou de ideia ou apenas repetiu o mesmo valor.
@@ -957,6 +989,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setAvulsas([]);
     setTotaisPorDisciplina({});
     setIdentidade({});
+    setProjectId(null);
     setTomosDeclarados(0);
     setAuditoriaPendente(null);
     setMemorialMeta(null);
@@ -1100,6 +1133,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       setAvulsas(rec.avulsas ?? []);
       setTotaisPorDisciplina(rec.totaisPorDisciplina ?? {});
       setIdentidade(rec.identidade ?? {});
+      setProjectId(rec.projectId ?? null);
       setDecisoes(rec.decisoes ?? {});
       setTomosDeclarados(rec.tomosDeclarados ?? 0);
       setAchadosResolvidos(rec.achadosResolvidos ?? {});
@@ -1329,6 +1363,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       definirTotal,
       identidade,
       corrigirIdentidade,
+      projectId,
+      vincularProjeto,
       decisoes,
       decidir,
       guardarDecisoesVivas,
@@ -1374,6 +1410,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       definirTotal,
       identidade,
       corrigirIdentidade,
+      projectId,
+      vincularProjeto,
       decisoes,
       decidir,
       guardarDecisoesVivas,
