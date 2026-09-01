@@ -128,7 +128,7 @@ const COR_DO_PIN: Record<StructuredFinding["severity"], string> = {
 };
 
 const MARCACAO_POR_GRAVIDADE: Record<StructuredFinding["severity"], string> = {
-  critical: "[&_mark]:bg-[var(--status-critical)] [&_mark]:text-[#2b0a08]",
+  critical: "[&_mark]:bg-[var(--status-critical)] [&_mark]:text-[var(--destructive-foreground)]",
   warning: "[&_mark]:bg-[var(--status-warning)] [&_mark]:text-[#2b1d05]",
   ok: "[&_mark]:bg-[var(--status-ok)] [&_mark]:text-[#052b16]",
 };
@@ -856,6 +856,10 @@ async function createFindingSnapshot(
   const width = 1400;
   const lineHeight = 28;
   const height = Math.max(720, 96 + lines.length * lineHeight);
+  /* cor-crua-ok: este SVG é uma IMAGEM que o parecer exporta, não uma tela.
+     Ele sai do produto como arquivo e é aberto fora dele — `var()` não resolve
+     num SVG solto, e um token que chegasse cru pintaria retângulo transparente.
+     Mesma razão da paleta do e-mail em `lib/aviso-de-achados.ts`. */
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#0B0D0E"/>

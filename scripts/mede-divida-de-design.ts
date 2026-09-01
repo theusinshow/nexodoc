@@ -103,13 +103,54 @@ const achados: Achado[] = [];
 
 for (const arquivo of ARQUIVOS) {
   const linhas = readFileSync(arquivo, "utf8").split("\n");
+  /*
+   * DENTRO DE UM COMENTÁRIO DE BLOCO?
+   *
+   * O filtro de baixo só pula a linha que COMEÇA com marca de comentário — e num
+   * bloco de várias linhas as continuações não começam. O primeiro alvo que a
+   * regra de cor acusou foi `ui/button.tsx:37`: a linha de um comentário que
+   * explica QUAL TOKEN é cada hex. Um fiscal que manda apagar a própria
+   * documentação está quebrado, não rigoroso.
+   */
+  let emBloco = false;
+  /** Ligada por `cor-crua-ok:`, desligada pela linha em branco seguinte. */
+  let dispensado = false;
+
   linhas.forEach((linha, i) => {
+    const dentroDeBloco = emBloco;
+    if (linha.includes("/*") && !linha.includes("*/")) emBloco = true;
+    else if (emBloco && linha.includes("*/")) emBloco = false;
+    if (dentroDeBloco) return;
+
+    /*
+     * A DISPENSA EXPLÍCITA, para superfícies que o app NÃO PINTA com CSS.
+     *
+     * Há literais legítimos: a paleta do e-mail (`aviso-de-achados.ts` explica
+     * que cliente de e-mail não resolve `var()`), o SVG que o parecer exporta
+     * como imagem, o popup do `select`. Nesses, o token não chega — e proibir o
+     * hex seria proibir a única coisa que funciona.
+     *
+     * A dispensa EXIGE motivo escrito junto (`cor-crua-ok: <motivo>`), e vale
+     * ATÉ A LINHA EM BRANCO seguinte. O fim é explícito de propósito: uma
+     * dispensa sem fim vira o lugar onde a regra é desligada no arquivo inteiro,
+     * e o próximo hex a entrar ali passaria sem ninguém decidir nada.
+     */
+    if (dispensado) {
+      if (linha.trim() === "") dispensado = false;
+      else return;
+    }
+    if (/cor-crua-ok:/.test(linha)) {
+      dispensado = true;
+      return;
+    }
+
     /*
      * Comentário não é interface. Estes arquivos explicam o PORQUÊ das
      * decisões, e um comentário que cita `text-[10px]` para contar que ele saiu
      * seria lido como violação — o contador acusaria a própria explicação.
      */
     if (/^\s*(\*|\/\/|\/\*)/.test(linha)) return;
+
     const codigo = linha.replace(/\/\/.*$/, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
     /* A escala só vale nos frames — ver o comentário de RAIZES_DE_COR. */
