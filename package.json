@@ -41,6 +41,7 @@
     "prova:home": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-home-v3.mjs",
     "prova:duas-pessoas": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-duas-pessoas-no-achado.mjs",
     "prova:marca": "node scripts/prova-marca-de-prefeitura.mjs",
+    "prova:contraste": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-contraste-dos-primitivos.mjs",
     "prova:barra-enderecada": "node scripts/shot-barra-enderecada.mjs",
     "backfill:identidade": "node scripts/backfill-identidade-do-projeto.mjs",
     "prova:orbe-parado": "node scripts/prova-orbe-parado.mjs",
