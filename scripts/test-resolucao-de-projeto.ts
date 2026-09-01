@@ -7,7 +7,11 @@
 // só apareceria quando alguém recebesse uma pendência que não é dele.
 import assert from "node:assert/strict";
 
-import { normalizarCentroDeCusto, resolverProjeto } from "../lib/resolucao-de-projeto.ts";
+import {
+  decidirTroca,
+  normalizarCentroDeCusto,
+  resolverProjeto,
+} from "../lib/resolucao-de-projeto.ts";
 
 const projetos = [
   { id: "p1", code: "099-25", client: "CRICIÚMA" },
@@ -53,5 +57,31 @@ const cadastroTorto = resolverProjeto({
 });
 assert.equal(cadastroTorto.tipo, "achado");
 assert.equal(cadastroTorto.tipo === "achado" && cadastroTorto.projeto.id, "p3");
+
+// TROCAR O PROJETO DA CONVERSA — o anexo pode ser refeito (F5, reclassificação,
+// segundo memorial), e cada um desses casos tem um desfecho diferente.
+
+// Sem código vinculado, o lido vincula.
+assert.deepEqual(decidirTroca({ codigoAtual: null, codigoLido: "099-25" }), { acao: "vincular" });
+assert.deepEqual(decidirTroca({ codigoAtual: "", codigoLido: "099-25" }), { acao: "vincular" });
+
+// O MESMO código, escrito diferente, mantém o vínculo: reanexar o mesmo
+// memorial depois de um F5 não pode remexer no endereço.
+assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: "099/25" }), { acao: "manter" });
+assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: "CC 099.25" }), { acao: "manter" });
+
+// Código DIFERENTE é conflito, nunca troca em silêncio. Dois memoriais de
+// projetos diferentes na mesma conversa é erro de quem anexou, não decisão a
+// executar: trocar calado levaria os achados do primeiro para a fila do
+// segundo, e o erro só apareceria dias depois.
+assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: "063-26" }), { acao: "conflito" });
+
+// Não ler código não desfaz o vínculo que existe: um segundo anexo ilegível não
+// pode apagar o endereço já conquistado.
+assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: null }), { acao: "manter" });
+assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: "  " }), { acao: "manter" });
+
+// Sem nada dos dois lados, não há o que fazer.
+assert.deepEqual(decidirTroca({ codigoAtual: null, codigoLido: null }), { acao: "manter" });
 
 console.log("OK  resolucao de projeto");

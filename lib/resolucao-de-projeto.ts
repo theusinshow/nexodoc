@@ -69,3 +69,35 @@ export function resolverProjeto(args: {
 
   return projeto ? { tipo: "achado", projeto } : { tipo: "desconhecido", codigo };
 }
+
+/**
+ * O CÓDIGO LIDO AGORA MUDA O PROJETO DA CONVERSA?
+ *
+ * O anexo pode ser refeito: um F5, uma reclassificação, um segundo memorial na
+ * mesma conversa. Três desfechos, e o terceiro é o que dá o desenho:
+ *
+ *  · `manter`   — mesmo código, ou nada novo legível. Nada a fazer;
+ *  · `vincular` — a conversa ainda não tinha endereço e agora tem;
+ *  · `conflito` — o documento novo é de OUTRO projeto. Quem decide é gente.
+ *
+ * `conflito` NÃO troca o vínculo. Trocar em silêncio levaria os achados do
+ * primeiro memorial para a fila do segundo, e o erro só apareceria dias depois,
+ * quando alguém recebesse uma pendência que não é dele — o mesmo modo de falhar
+ * que o docblock do topo deste arquivo já descreve.
+ *
+ * A comparação passa pela MESMA `normalizarCentroDeCusto` do resto do arquivo,
+ * senão "099/25" e "099-25" seriam projetos diferentes.
+ */
+export function decidirTroca(args: {
+  codigoAtual: string | null | undefined;
+  codigoLido: string | null | undefined;
+}): { acao: "manter" | "vincular" | "conflito" } {
+  const atual = normalizarCentroDeCusto(args.codigoAtual ?? "");
+  const lido = normalizarCentroDeCusto(args.codigoLido ?? "");
+
+  // Um anexo ilegível não desfaz o endereço já conquistado.
+  if (!lido) return { acao: "manter" };
+  if (!atual) return { acao: "vincular" };
+
+  return { acao: atual === lido ? "manter" : "conflito" };
+}
