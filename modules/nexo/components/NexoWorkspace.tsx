@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { plural } from "@/lib/plural";
 import type { NexoDossieDraft, NexoSlotSuggestion } from "../types";
+import { vincularProjetoDaConversa } from "../lib/projeto-da-auditoria";
 import {
   extractSelosFromFiles,
   extractSeloFromImage,
@@ -785,6 +786,25 @@ function NexoWorkspaceInner({
     ]
       .filter(Boolean)
       .join(" · ");
+
+    /*
+     * O ELO QUE FALTAVA.
+     *
+     * O dossiê morria neste componente: `corrigirIdentidade` só era chamado por
+     * NexoCanvas e PlanoDeGeracao — os dois fluxos de VOLUME. Numa conversa só
+     * de memorial a identidade ficava `{}`, a pasta saía "" e o cartão da barra
+     * virava "Sem código no carimbo". O código de derivação estava certo o
+     * tempo todo; o dado nunca chegava nele.
+     */
+    const lido: Record<string, string> = {};
+    if (dossie?.codigo) lido.codigo = dossie.codigo;
+    if (dossie?.obra) lido.obra = dossie.obra;
+    if (dossie?.orgao) lido.orgao = dossie.orgao;
+    if (dossie?.municipio) lido.municipio = dossie.municipio;
+    /* O código ANTES da correção: é com ele que `decidirTroca` compara. */
+    const codigoAtual = conv.identidade?.codigo ?? null;
+    if (Object.keys(lido).length > 0) conv.corrigirIdentidade(lido);
+
     start();
     conv.appendMessage({
       id: crypto.randomUUID(),
@@ -817,6 +837,48 @@ function NexoWorkspaceInner({
         ],
       },
     });
+
+    /*
+     * O VÍNCULO, em segundo plano.
+     *
+     * NÃO bloqueia o anexo: quem arrastou o memorial vê a resposta do agente na
+     * hora, e o endereço se resolve enquanto ele lê. Cobrar a decisão aqui
+     * exigiria uma escolha de quem talvez só queira olhar o documento.
+     *
+     * Falhar deixa a conversa "A endereçar" — estado legítimo, com ação inline
+     * no cartão — e o disparo da auditoria continua cobrando como sempre cobrou.
+     */
+    void (async () => {
+      try {
+        const v = await vincularProjetoDaConversa({
+          codigoAtual,
+          codigoLido: dossie?.codigo ?? null,
+          prefeitura: dossie?.orgao ?? null,
+          obra: dossie?.obra ?? null,
+          municipio: dossie?.municipio ?? null,
+        });
+
+        if (v.tipo === "vinculado") conv.vincularProjeto(v.projeto.id);
+
+        if (v.tipo === "conflito") {
+          /*
+           * DIZ, e não troca. O silêncio aqui seria pior que o conflito: a
+           * pessoa seguiria auditando achando que está no projeto certo.
+           */
+          conv.appendMessage({
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              `Este memorial é do ${v.lido}, e esta conversa é do ${v.atual}. ` +
+              `Não vou trocar o projeto por conta própria — os achados que já ` +
+              `estão aqui iriam para a fila do outro. Abra uma conversa nova ` +
+              `para o ${v.lido}, ou me diga que era para trocar mesmo.`,
+          });
+        }
+      } catch {
+        /* Silêncio proposital: ver o comentário acima. */
+      }
+    })();
   }
 
   // Leitura AUTOMÁTICA ao anexar/soltar. PDFs: parte por tipo do nome — MEMORIAL
