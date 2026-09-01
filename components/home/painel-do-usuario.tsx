@@ -64,18 +64,17 @@ import { useEffect, useState } from "react";
 
 import { Ima } from "@/components/ambiente/ima";
 import { BarraDoTopo } from "@/components/layout/barra-do-topo";
+import {
+  abreSozinho,
+  LIMIAR_TARJA,
+  ordemDaAtencao,
+  resumoDoProjeto,
+} from "@/lib/atencao-do-painel";
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
+import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { cn } from "@/lib/utils";
 import { OndeVoceParou, TrabalhoRecente } from "./onde-voce-parou";
 import { DURATION } from "@/modules/nexo/lib/motion";
-
-/**
- * A partir de quantos dias um achado parado ganha destaque.
- *
- * Cinco, e não três: com três, uma pendência de sexta já chega alaranjada na
- * segunda — e tarja que acende sozinha no fim de semana ensina a ignorá-la.
- */
-const LIMIAR_TARJA = 5;
 
 /** Quanto o véu leva para fechar. Mesmo token do `BotaoDoOrbe`, não uma cópia. */
 const PARTIDA_MS = DURATION.base;
@@ -107,6 +106,9 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
    */
   const [partindo, setPartindo] = useState(false);
 
+  /** Há pasta recente para a coluna da direita mostrar? Ver o comentário dela. */
+  const temRecente = Boolean(painel?.trabalho.projetos.length);
+
   useEffect(() => {
     let vivo = true;
 
@@ -114,14 +116,34 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((dados: Painel) => {
         if (!vivo) return;
-        setPainel(dados);
+
         /*
-         * O PRIMEIRO PROJETO NASCE ABERTO, e só ele. A lista vem com os mais
-         * parados primeiro, então o que abre é o que mais espera — e abrir
-         * todos devolveria a parede de texto que o acordeão existe para evitar.
+         * A ORDEM DA ATENÇÃO, aplicada UMA vez — e a lista guardada já
+         * ordenada. Ordenar na renderização faria a decisão de abertura
+         * (abaixo) e a lista desenhada virem de duas passagens diferentes, e
+         * bastaria um empate para elas discordarem.
          */
-        const primeiro = dados.projetos.find((p) => p.itens.length > 0);
-        if (primeiro) setAbertos({ [primeiro.projectId]: true });
+        const ordenados = ordemDaAtencao(
+          dados.projetos.map((p) => ({
+            ...p,
+            recebidos: p.itens.filter((i) => i.direcao === "recebido").length,
+            enviados: p.itens.filter((i) => i.direcao === "enviado").length,
+            atualizadoEmMs: Date.parse(p.atualizadoEm) || 0,
+          })),
+        );
+
+        setPainel({ ...dados, projetos: ordenados });
+
+        /*
+         * ABRE SOZINHO SÓ O QUE É PARA VOCÊ.
+         *
+         * Antes o primeiro cartão abria SEMPRE, e na medição de 01/09/2026 isso
+         * expandiu cinco achados que estavam com outra pessoa — a dobra inteira
+         * gasta com o que ninguém pode fazer agora. A regra mora em
+         * [[lib/atencao-do-painel.ts]], com teste sem navegador.
+         */
+        const paraAbrir = abreSozinho(ordenados);
+        if (paraAbrir) setAbertos({ [paraAbrir]: true });
       })
       .catch(() => {
         if (vivo) setFalhou(true);
@@ -242,7 +264,19 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         {primeiraVez ? <PrimeirosPassos /> : null}
 
         {primeiraVez ? null : (
-          <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_336px]">
+          /*
+            A COLUNA DA DIREITA SÓ EXISTE COM CONTEÚDO.
+
+            Ela reservava 336px para dizer "as outras pastas em que você mexer
+            aparecem aqui" — coluna vazia com legenda ocupa o espaço e não paga
+            por ele. Com conteúdo, nada muda.
+          */
+          <div
+            className={cn(
+              "mt-8 grid grid-cols-1 items-start gap-8",
+              temRecente && "lg:grid-cols-[minmax(0,1fr)_336px]",
+            )}
+          >
             <section className="flex w-full min-w-0 flex-col gap-2.5">
               <div className="mb-1 flex items-baseline gap-3">
                 <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -318,6 +352,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
               vindo da API — é a mesma consulta que traz projeto sem pendência
               para a lista da esquerda, e é ela que decide `primeiraVez`.
             */}
+            {temRecente ? (
             <aside className="flex w-full min-w-0 flex-col gap-3">
               <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Trabalho recente
@@ -334,6 +369,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
                 />
               ) : null}
             </aside>
+            ) : null}
           </div>
         )}
       </main>
@@ -381,9 +417,19 @@ function ConviteDoOrbe() {
         Clique no orbe para falar com o Nexo
       </p>
 
+      {/*
+        UMA LINHA, e não três.
+
+        O parágrafo ensinava o que pedir ao Nexo — e quem abre esta tela pela
+        décima vez já sabe. Medido em 01/09/2026: orbe, legenda e este parágrafo
+        somavam ~290px antes de qualquer trabalho aparecer, numa página que tem
+        uma dobra só.
+
+        O ensino continua INTEIRO em `PrimeirosPassos`, que é onde ele serve: a
+        tela de quem ainda não tem trabalho nenhum.
+      */}
       <p className="mt-2.5 max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
-        Peça a auditoria de um memorial, a montagem de um volume ou a lista de documentos — e solte
-        o PDF na conversa. O centro de custo é lido do carimbo e a pasta nasce a partir dele.
+        Auditoria de memorial, montagem de volume ou lista de documentos.
       </p>
     </div>
   );
@@ -555,6 +601,7 @@ function CartaoDeProjeto({
 
   return (
     <div
+      data-cartao-de-projeto={projeto.projectId}
       className="nx-edge-8 overflow-hidden"
       style={
         {
@@ -596,6 +643,14 @@ function CartaoDeProjeto({
             <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
 
+          {/*
+            A MARCA, na forma SELO — a que o módulo destina a cartão de projeto.
+            `aria-hidden` mora dentro do componente: a cidade está escrita a
+            poucos pixels daqui, e um rótulo repetiria "Criciúma" por linha para
+            quem ouve a lista.
+          */}
+          <MarcaDaPrefeitura prefeitura={projeto.cliente} forma="selo" />
+
           <span
             className="nx-cut-4 shrink-0 bg-[var(--nexodoc-raised)] px-2 py-1 font-mono text-[12px] font-semibold tracking-[0.04em]"
             style={{
@@ -607,7 +662,7 @@ function CartaoDeProjeto({
 
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">{projeto.nome}</span>
 
-          <Selo projeto={projeto} alerta={alerta} recebidos={recebidos} />
+          <Selo projeto={projeto} recebidos={recebidos} />
         </button>
       </div>
 
@@ -720,34 +775,45 @@ function CartaoDeProjeto({
  */
 function Selo({
   projeto,
-  alerta,
   recebidos,
 }: {
   projeto: ProjetoDoPainel;
-  alerta: boolean;
   recebidos: number;
 }) {
   const enviados = projeto.itens.length - recebidos;
+  const resumo = resumoDoProjeto({
+    recebidos,
+    enviados,
+    diasParado: projeto.diasParado,
+    pessoas: projeto.itens
+      .filter((i) => i.direcao === "enviado")
+      .map((i) => nomeCurto(i.pessoa)),
+  });
 
-  if (recebidos === 0) {
+  /*
+   * Sem realce, o resumo é texto de apoio — "5 com Milton" e "sem pendência"
+   * são informação, não alarme. Só o que espera VOCÊ ganha a caixa.
+   */
+  if (resumo.realce === "quieto") {
     return (
       <span className="shrink-0 whitespace-nowrap font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
-        {enviados > 0 ? `${enviados} com outros` : "sem pendência"}
+        {resumo.texto}
       </span>
     );
   }
-
-  const contagem = `${recebidos} ${recebidos === 1 ? "achado" : "achados"}`;
 
   return (
     <span
       className="nx-cut-4 shrink-0 whitespace-nowrap px-2.5 py-1 font-mono text-[11px] font-medium tracking-[0.04em]"
       style={{
-        background: alerta ? "var(--status-warning-bg)" : "#0f2d2a",
-        color: alerta ? "var(--status-warning)" : "var(--nexodoc-accent)",
+        background: resumo.realce === "alerta" ? "var(--status-warning-bg)" : "#0f2d2a",
+        color:
+          resumo.realce === "alerta"
+            ? "var(--status-warning)"
+            : "var(--nexodoc-accent)",
       }}
     >
-      {alerta ? `${contagem} · parado há ${projeto.diasParado} dias` : contagem}
+      {resumo.texto}
     </span>
   );
 }

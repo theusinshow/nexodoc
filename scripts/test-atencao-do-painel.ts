@@ -23,7 +23,7 @@ const p = (over: Partial<ProjetoParaOrdenar> & { projectId: string }): ProjetoPa
   diasParado: 0,
   recebidos: 0,
   enviados: 0,
-  atualizadoEm: 0,
+  atualizadoEmMs: 0,
   ...over,
 });
 
@@ -49,7 +49,7 @@ test("projeto SEM pendência vai depois de todos os que têm", () => {
   // Ele continua na lista — a home é "onde você está trabalhando" —, mas não
   // disputa o topo com trabalho que espera alguém.
   const r = ordemDaAtencao([
-    p({ projectId: "quieto", atualizadoEm: 9999 }),
+    p({ projectId: "quieto", atualizadoEmMs: 9999 }),
     p({ projectId: "comAchado", recebidos: 1, diasParado: 0 }),
   ]);
   assert.deepEqual(
@@ -60,8 +60,8 @@ test("projeto SEM pendência vai depois de todos os que têm", () => {
 
 test("entre projetos sem pendência, o mais recente vem antes", () => {
   const r = ordemDaAtencao([
-    p({ projectId: "velho", atualizadoEm: 100 }),
-    p({ projectId: "novo", atualizadoEm: 900 }),
+    p({ projectId: "velho", atualizadoEmMs: 100 }),
+    p({ projectId: "novo", atualizadoEmMs: 900 }),
   ]);
   assert.deepEqual(
     r.map((x) => x.projectId),
@@ -71,8 +71,8 @@ test("entre projetos sem pendência, o mais recente vem antes", () => {
 
 test("empate de dias parados é desfeito pelo mais recente", () => {
   const r = ordemDaAtencao([
-    p({ projectId: "a", recebidos: 1, diasParado: 4, atualizadoEm: 100 }),
-    p({ projectId: "b", recebidos: 1, diasParado: 4, atualizadoEm: 900 }),
+    p({ projectId: "a", recebidos: 1, diasParado: 4, atualizadoEmMs: 100 }),
+    p({ projectId: "b", recebidos: 1, diasParado: 4, atualizadoEmMs: 900 }),
   ]);
   assert.deepEqual(
     r.map((x) => x.projectId),

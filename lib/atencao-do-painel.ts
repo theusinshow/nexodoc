@@ -19,8 +19,14 @@ export type ProjetoParaOrdenar = {
   recebidos: number;
   /** Achados que você mandou e estão com outra pessoa. */
   enviados: number;
-  /** Instante do trabalho mais recente. Desempata. */
-  atualizadoEm: number;
+  /**
+   * Instante do trabalho mais recente, em MILISSEGUNDOS. Desempata.
+   *
+   * O sufixo não é enfeite: `ProjetoDoPainel.atualizadoEm` é uma string ISO, e
+   * dois campos com o mesmo nome e tipos diferentes é como um `Date.parse`
+   * esquecido vira uma ordenação silenciosamente aleatória.
+   */
+  atualizadoEmMs: number;
 };
 
 /**
@@ -42,7 +48,7 @@ export function ordemDaAtencao<T extends ProjetoParaOrdenar>(projetos: readonly 
     if (aTem !== bTem) return aTem ? -1 : 1;
     if (aTem && a.diasParado !== b.diasParado) return b.diasParado - a.diasParado;
 
-    return b.atualizadoEm - a.atualizadoEm;
+    return b.atualizadoEmMs - a.atualizadoEmMs;
   });
 }
 
