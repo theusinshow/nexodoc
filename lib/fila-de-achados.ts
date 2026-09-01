@@ -171,6 +171,30 @@ export async function atribuirAchados(args: {
     const trocou =
       Boolean(anterior?.assigneeEmail) && anterior?.assigneeEmail !== membro.email;
 
+    /*
+     * O NOME DE QUEM SAIU, guardado junto — e não só o e-mail.
+     *
+     * `details` é FOTOGRAFIA, e é de propósito (ver o docblock de
+     * `AuditFindingMessage.details`): a frase precisa continuar verdadeira
+     * depois que a pessoa citada sair do escritório. Sem esta busca a linha
+     * saía "passou de milton@prosul.com para Carla" — um lado nome, o outro
+     * endereço, na mesma frase.
+     *
+     * Uma consulta a mais SÓ na reatribuição, que é o caso raro. O caminho
+     * comum — atribuir pela primeira vez — não paga nada por isto.
+     */
+    const nomeAnterior = trocou
+      ? (
+          await prisma.organizationMember.findFirst({
+            where: {
+              organizationId: args.organizationId,
+              email: anterior?.assigneeEmail ?? "",
+            },
+            select: { name: true },
+          })
+        )?.name
+      : null;
+
     await registrarNoAchado({
       feedbackId: linha.id,
       kind: trocou ? "reatribuiu" : "atribuiu",
@@ -180,7 +204,12 @@ export async function atribuirAchados(args: {
       details: {
         para: membro.email,
         paraNome: (args.assigneeNome ?? "").trim() || membro.email,
-        ...(trocou ? { de: anterior?.assigneeEmail } : {}),
+        ...(trocou
+          ? {
+              de: anterior?.assigneeEmail,
+              deNome: nomeAnterior || anterior?.assigneeEmail,
+            }
+          : {}),
       },
     });
 

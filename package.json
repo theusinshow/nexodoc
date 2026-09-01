@@ -32,6 +32,7 @@
     "prova:endereco": "node scripts/prova-auditoria-com-endereco.mjs",
     "prova:identidade": "node scripts/prova-identidade-do-projeto.mjs",
     "prova:conversa-achado": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conversa-do-achado.mjs",
+    "prova:duas-pessoas": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-duas-pessoas-no-achado.mjs",
     "prova:barra-enderecada": "node scripts/shot-barra-enderecada.mjs",
     "backfill:identidade": "node scripts/backfill-identidade-do-projeto.mjs",
     "prova:orbe-parado": "node scripts/prova-orbe-parado.mjs",
