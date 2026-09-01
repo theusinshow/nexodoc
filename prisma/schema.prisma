@@ -205,6 +205,18 @@ model Project {
   code           String
   name           String
   client         String             @default("")
+  /// A CHAVE ESTÁVEL do cliente — `criciuma`, `icara`, `chapeco`.
+  ///
+  /// `client` é texto que humano lê e edita: "CRICIÚMA", "Criciúma" e
+  /// "Prefeitura Municipal de Criciúma" são a MESMA prefeitura escritas por três
+  /// pessoas. Agrupar o histórico ou pintar uma cor por esse texto daria três
+  /// grupos para um cliente só, e a chave é o que não muda quando alguém corrige
+  /// a grafia.
+  ///
+  /// Derivada por [[lib/cliente-do-projeto.ts]], nunca digitada. Vazia é estado
+  /// legítimo: projeto sem cliente é projeto sem cliente, e inventar uma chave o
+  /// faria agrupar com quem não é dele.
+  clientKey      String             @default("")
   description    String             @default("")
   status         ProjectStatus      @default(ACTIVE)
   createdAt      DateTime           @default(now())
@@ -223,11 +235,13 @@ model Project {
   artifacts      DocumentArtifact[]
   events         ProjectEvent[]
   aiTasks        AiTask[]
+  nexoConversations NexoConversation[]
 
   /// O codigo do projeto e unico no ESCRITORIO, e era unico por dono: dois
   /// projetistas podiam cadastrar "099-25" cada um, e o banco achava normal.
   @@unique([organizationId, code])
   @@index([organizationId, updatedAt])
+  @@index([organizationId, clientKey])
   @@index([status, updatedAt])
   @@index([archivedAt])
   @@index([deletedAt])
@@ -669,6 +683,24 @@ model NexoConversation {
   userEmail         String
   title             String
   folderKey         String?
+  /// O ENDEREÇO da conversa — o `Project` a que ela pertence.
+  ///
+  /// `folderKey` era a identidade, e era uma string derivada no navegador: a
+  /// barra lateral agrupava por ela enquanto a home e a fila agrupavam por chave
+  /// estrangeira. Dois conceitos de "projeto" que não conversavam, e o sintoma
+  /// era todo memorial auditado caindo num balde chamado "Sem código no
+  /// carimbo" — sendo que memorial não tem carimbo.
+  ///
+  /// `folderKey` continua existindo como cache de EXIBIÇÃO; a identidade é esta
+  /// coluna.
+  ///
+  /// NULO É LEGÍTIMO — é a conversa "a endereçar": memorial sem código legível,
+  /// ou conversa que ainda não recebeu documento nenhum.
+  ///
+  /// `SetNull` como no `Audit`: apagar o projeto não pode apagar a conversa, que
+  /// guarda o trabalho de quem a escreveu.
+  projectId         String?
+  project           Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt         DateTime
   updatedAt         DateTime
   /// Coluna, e nao um `data->>`: e o unico campo do miolo que a LISTA precisa,
@@ -686,6 +718,7 @@ model NexoConversation {
   syncedAt          DateTime @default(now())
 
   @@index([userEmail, updatedAt])
+  @@index([projectId, updatedAt])
 }
 
 /// O QUE A AUDITORIA APRENDEU -- as preferencias, regras e correcoes que o
