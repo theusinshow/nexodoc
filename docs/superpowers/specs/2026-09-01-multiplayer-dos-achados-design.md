@@ -46,20 +46,25 @@ não é dele, as opções são fechar errado ou deixar apodrecendo na fila. Não
 Não existe `AuditFeedbackEvent`. `atribuirAchados` sobrescreve `assigneeEmail` e
 zera `notifiedAt` — quem teve o achado antes desaparece sem rastro.
 
-### 4. "Resolvido" existe em dois lugares que se ignoram
+### 4. O fecho do achado acontece FORA da conversa
 
-```ts
-// modules/nexo/state/conversation-store.tsx:825
-const marcarAchadoResolvido = useCallback((auditId, refId, resolvido) => {
-  setAchadosResolvidos(...); schedulePersist();   // → IndexedDB + JSON da conversa
-}, [schedulePersist]);
-```
+**Correção de 01/09/2026, feita durante a implementação.** Este item dizia antes
+que "resolvido" existia em dois lugares que se ignoravam. **Era falso**, e o
+código diz o contrário (`components/audit-result.tsx:1247`):
 
-E, em paralelo, `AuditFeedback.resolvedAt` no Postgres, gravado por
-`POST /api/audits/[id]/feedback`. Nenhum sabe do outro.
+> *"Os dois se somam em vez de um sobrescrever o outro, e a razão é a ordem dos
+> fatos: a prop já está lá na primeira pintura, a resposta do banco chega depois.
+> Deixar o servidor mandar apagaria a marca local durante o voo da requisição;
+> deixar o local mandar ignoraria o que veio da outra máquina."*
 
-`achadosResolvidos` vive no JSON da conversa, e a conversa tem **um dono**
-(`NexoConversation.userEmail`). O progresso de quem marca é privado dele.
+Marcar corrigido já grava nos DOIS (local em `audit-result.tsx:1925`, servidor em
+`:1936`), e a leitura é a UNIÃO dos dois conjuntos. A tela avisa quando o POST
+falha. É decisão deliberada e correta, e não se mexe nela.
+
+O que falta de verdade é outra coisa: **o fecho não entra na conversa do
+achado**. A linha do tempo sabe dizer "marcou como corrigido no documento" e
+"reabriu o achado", e nada as grava. Quem abre o achado depois vê a discussão
+parar no ar, sem saber que ela acabou.
 
 ### 5. Permissão é do escritório inteiro, e binária
 
@@ -184,29 +189,23 @@ que era do Milton e nunca fica sabendo. Com N pessoas, esse estado é de cada um
 **Duas moradas para "quem está no achado" não é duplicação — a assimetria é a
 decisão.** Um responde, os outros acompanham.
 
-### Seção 4 — "Resolvido" passa a ter um dono só
+### Seção 4 — O fecho entra na conversa
 
-O Postgres manda. `achadosResolvidos` no store local deixa de ser fonte e vira
-cache de leitura, alimentado pelo `GET /api/audits/[id]/feedback` que a tela já
-faz (e que já devolve `resolvedByName`, `assigneeName` e `euSou`).
+**Reescrita em 01/09/2026, durante a implementação.** Esta seção mandava fazer o
+Postgres virar "a única fonte" de resolvido e empurrar as marcações locais para
+cima. Estava errada: a união local+servidor já existe, é deliberada e está
+documentada no código. Desfazê-la seria trocar uma decisão correta por um defeito.
 
-**Com uma ressalva que não se pula: há marcações locais reais.** Abandonar o que
-já está marcado apagaria trabalho de quem usa, em silêncio — que é o modo de
-falhar que este projeto mais evita.
+O que entra aqui é o que faltava: **`POST /api/audits/[id]/feedback` passa a
+gravar o fecho na conversa** — `resolveu` quando o achado é encerrado, `reabriu`
+quando volta a ficar em aberto.
 
-**Quando a empurrada roda:** uma vez por auditoria, no mesmo momento em que a tela
-busca o feedback dela (`GET /api/audits/[id]/feedback`), e só para os `refId` que
-estão em `achadosResolvidos[auditId]` e voltaram do servidor **sem** `resolvedAt`.
-Não é uma varredura de todas as conversas no arranque: seria trabalho para uma
-auditoria que ninguém abriu, e num arranque que já tem o que fazer.
+Sem desfecho declarado, a frase é "encerrou o achado". Marcar corrigido sem
+escolher COMO é caminho legítimo, e gravar `FIXED_IN_DOC` ali registraria uma
+decisão que ninguém tomou — o mesmo cuidado que faz `verdict` não ser inventado.
 
-Depois de empurrar, a entrada local daquela auditoria é apagada — é o que impede
-a empurrada de acontecer de novo e o que faz o servidor virar a única fonte.
-
-A empurrada é idempotente e sem veredito: marca `resolvedAt` e
-`resolutionKind: FIXED_IN_DOC`, nunca `verdict`. Inventar um julgamento da IA a
-partir de um clique que nunca julgou nada contaminaria o benchmark — exatamente o
-estrago silencioso que o docblock de `lib/desfecho-do-achado.ts` descreve.
+Só para `finding:`. `missing:` é um achado que a IA **não** fez: não tem conversa
+nem envolvidos a reunir.
 
 ### Seção 5 — Permissão: transparência em vez de portão
 

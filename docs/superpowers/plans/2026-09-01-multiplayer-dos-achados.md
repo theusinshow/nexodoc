@@ -1867,177 +1867,75 @@ git commit -m "o aviso passa a alcançar quem só acompanha"
 
 ---
 
-### Task 8: "resolvido" passa a ter um dono só
+### Task 8: o fecho entra na conversa
+
+> **Esta tarefa foi REESCRITA em 01/09/2026, durante a execução.** A versão
+> anterior mandava fazer o Postgres virar a única fonte de "resolvido" e empurrar
+> as marcações locais para cima. Era trabalho errado: a união local+servidor já
+> existe e é deliberada — ver `components/audit-result.tsx:1247`. O buraco real
+> era outro, e o próprio mapa de arquivos deste plano o prometia sem que nenhuma
+> tarefa o implementasse: nada gravava `resolveu` nem `reabriu`.
 
 **Files:**
-- Modificar: `modules/nexo/state/conversation-store.tsx`
-- Modificar: `modules/nexo/components/PalcoDoNexo.tsx`
-- Modificar: `components/audit-result.tsx`
+- Modificar: `app/api/audits/[id]/feedback/route.ts`
 
 **Interfaces:**
-- Consome: `GET /api/audits/[id]/feedback`, que já devolve `resolvedAt` por linha.
-- Produz: no store — `esquecerAchadosResolvidos(auditId: string): void`.
+- Consome: `registrarNoAchado` de `lib/achado-compartilhado.ts` (Task 4).
+- Produz: nada para tarefas seguintes.
 
-- [ ] **Passo 1: o store ganha como esquecer**
+- [ ] **Passo 1: gravar o evento depois do upsert**
 
-Em `modules/nexo/state/conversation-store.tsx`, no tipo do contexto, logo depois
-de `marcarAchadoResolvido`:
+Em `app/api/audits/[id]/feedback/route.ts`, acrescentar ao import:
 
-```tsx
-  /**
-   * Apaga o progresso LOCAL de uma auditoria, depois de ele ter sido empurrado
-   * para o servidor. Ver [[audit-result.tsx]]: é o passo que faz o Postgres
-   * virar a única fonte de "resolvido".
-   */
-  esquecerAchadosResolvidos: (auditId: string) => void;
+```ts
+import { registrarNoAchado } from "@/lib/achado-compartilhado";
 ```
 
-E o callback, ao lado de `marcarAchadoResolvido`:
+E, imediatamente antes do `return NextResponse.json({ feedback });` do `POST`:
 
-```tsx
-  const esquecerAchadosResolvidos = useCallback(
-    (auditId: string) => {
-      setAchadosResolvidos((atual) => {
-        if (!(auditId in atual)) return atual;
-        const proximo = { ...atual };
-        delete proximo[auditId];
-        return proximo;
+```ts
+  if (targetKey.startsWith("finding:")) {
+    const encerrou = desfecho || resolvedAt instanceof Date;
+    const reabriu = resolvedAt === null && temResolvido;
+
+    if (encerrou || reabriu) {
+      await registrarNoAchado({
+        feedbackId: feedback.id,
+        kind: encerrou ? "resolveu" : "reabriu",
+        autor: { id: actor.userId, email: actor.email },
+        ...(desfecho ? { details: { desfecho: desfecho.resolutionKind } } : {}),
       });
-      schedulePersist();
-    },
-    [schedulePersist],
-  );
+    }
+  }
 ```
 
-Acrescentar `esquecerAchadosResolvidos` ao objeto de valor do provider **e ao
-array de dependências do `useMemo`** — são dois lugares, e esquecer o segundo faz
-a tela ler um valor velho.
+- [ ] **Passo 2: provar contra o servidor**
 
-- [ ] **Passo 2: a empurrada, no lugar onde a tela já busca o feedback**
+Com o `next dev` de pé, fechar sem desfecho, reabrir e fechar com desfecho — e
+ler a conversa. Esperado, nesta ordem:
 
-Em `components/audit-result.tsx`, o efeito que faz `GET` em
-`` `/api/audits/${encodeURIComponent(auditId)}/feedback` `` (por volta da linha
-315) passa a, depois de receber a resposta, empurrar o que só existe local.
-
-Acrescentar duas props ao componente que recebe `auditId` e as usa nesse efeito —
-`resolvidosLocais: ReadonlySet<string>` e `aoAbsorverResolvidos: () => void` — e,
-dentro do efeito, logo após `setFeedback(payload.feedback)`:
-
-```tsx
-        /*
-         * A EMPURRADA — uma vez por auditoria, aqui e não no arranque.
-         *
-         * "Resolvido" morava em dois lugares que se ignoravam: `achadosResolvidos`
-         * no JSON privado da conversa e `AuditFeedback.resolvedAt` no Postgres.
-         * O Postgres passa a mandar — mas há marcações locais REAIS, e abandoná-las
-         * apagaria trabalho de quem usa, em silêncio.
-         *
-         * Varrer todas as conversas no arranque seria trabalho por auditorias que
-         * ninguém abriu. Aqui já se sabe qual é a auditoria e o que o servidor tem.
-         */
-        const noServidor = new Set(
-          payload.feedback
-            .filter((f) => f.resolvedAt)
-            .map((f) => f.findingId)
-            .filter((x): x is string => Boolean(x)),
-        );
-        const faltando = [...resolvidosLocais].filter((refId) => !noServidor.has(refId));
-
-        if (faltando.length > 0) {
-          await Promise.all(
-            faltando.map((refId) =>
-              fetch(`/api/audits/${encodeURIComponent(auditId)}/feedback`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  findingId: refId,
-                  /*
-                   * SEM VEREDITO. Marcar corrigido não é julgar a IA, e gravar
-                   * `verdict` a partir de um clique que nunca julgou contaminaria
-                   * o benchmark — o estrago silencioso que
-                   * `lib/desfecho-do-achado.ts` descreve.
-                   */
-                  resolutionKind: "FIXED_IN_DOC",
-                }),
-              }).catch(() => null),
-            ),
-          );
-        }
-
-        /* Esquecer é o que impede a empurrada de acontecer de novo, e o que faz
-         * o servidor virar a única fonte daqui em diante. */
-        aoAbsorverResolvidos();
+```
+Victor | "encerrou o achado"
+Victor | "reabriu o achado"
+Victor | "assumiu o risco"
 ```
 
-- [ ] **Passo 3: o palco lê do servidor e passa o local para a empurrada**
+"encerrou o achado" e não "marcou como corrigido": sem desfecho declarado, gravar
+`FIXED_IN_DOC` registraria uma decisão que ninguém tomou.
 
-Em `modules/nexo/components/PalcoDoNexo.tsx`, acrescentar
-`esquecerAchadosResolvidos` à desestruturação de `useConversation()` que já traz
-`achadosResolvidos` e `marcarAchadoResolvido`, e passar ao `<AuditResult>` as
-duas props novas:
-
-```tsx
-        resolvidosLocais={resolvidosDesta}
-        aoAbsorverResolvidos={() => {
-          const id = salvo?.auditId;
-          if (id) esquecerAchadosResolvidos(id);
-        }}
-```
-
-`resolvidosDesta` já existe no arquivo (o `useMemo` por volta da linha 152).
-
-- [ ] **Passo 4: conferir tipos e lint**
+- [ ] **Passo 3: conferir tipos e lint**
 
 ```bash
 npx tsc --noEmit
-npx eslint modules/nexo/state/conversation-store.tsx modules/nexo/components/PalcoDoNexo.tsx components/audit-result.tsx
+npx eslint "app/api/audits/[id]/feedback/route.ts"
 ```
 
-- [ ] **Passo 5: provar no navegador que a marca local sobe**
-
-Com `next dev` reiniciado e `NEXODOC_DEV_AUTH=true`:
-
-1. Entre como `victor@prosul.com`, abra uma auditoria com achados.
-2. No console do navegador, plante uma marca local e recarregue:
-
-```js
-// Marque um achado pela tela, confirme que ele aparece marcado, e então:
-const q = indexedDB.open("nexo");
-q.onsuccess = () => {
-  const tx = q.result.transaction("conversations", "readonly");
-  tx.objectStore("conversations").getAll().onsuccess = (e) =>
-    console.log(e.target.result.map((c) => c.achadosResolvidos).filter(Boolean));
-};
-```
-
-Esperado ANTES do recarregamento: a lista mostra o `refId` marcado.
-Esperado DEPOIS: a lista vem vazia (o local foi esquecido), e o achado continua
-aparecendo marcado — agora vindo do servidor.
-
-3. Confirme no banco:
+- [ ] **Passo 4: commit**
 
 ```bash
-node --import ./scripts/lib/resolver-de-imports.mjs -e "
-import('./lib/db.ts').then(async ({ getPrisma }) => {
-  const r = await getPrisma().auditFeedback.findMany({
-    where: { resolvedAt: { not: null } },
-    select: { findingId: true, resolutionKind: true, verdict: true },
-    take: 10,
-  });
-  console.log(r);
-});
-"
-```
-
-Esperado: as linhas com `resolutionKind: 'FIXED_IN_DOC'` e **`verdict: null`**.
-Um `verdict` preenchido aqui é falha — significa que a empurrada julgou a IA.
-
-- [ ] **Passo 6: commit**
-
-```bash
-git add modules/nexo/state/conversation-store.tsx modules/nexo/components/PalcoDoNexo.tsx components/audit-result.tsx
+git add "app/api/audits/[id]/feedback/route.ts"
 git diff --cached --stat
-git commit -m "resolvido deixa de morar em dois lugares que se ignoravam"
+git commit -m "o fecho do achado passa a aparecer na conversa dele"
 ```
 
 ---

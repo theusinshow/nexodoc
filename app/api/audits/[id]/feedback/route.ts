@@ -1,6 +1,7 @@
 import { AuditFeedbackVerdict } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+import { registrarNoAchado } from "@/lib/achado-compartilhado";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 import { auditByIdWhereForActor } from "@/lib/audit-access";
@@ -324,6 +325,35 @@ export async function POST(
               : {}),
           },
         });
+
+  /*
+   * O DESFECHO ENTRA NA CONVERSA DO ACHADO.
+   *
+   * A linha do tempo já sabia dizer "marcou como corrigido no documento" e
+   * "reabriu o achado" ([[lib/conversa-do-achado.ts]]), e nada as gravava: a
+   * conversa mostrava quem atribuiu e quem falou, e o fecho — a informação que
+   * encerra o assunto — acontecia fora dela. Quem abrisse o achado depois via
+   * a discussão parar no ar, sem saber que ela tinha acabado.
+   *
+   * Só para achado de verdade: `missing:` é um achado que a IA NÃO fez, e não
+   * tem conversa nem envolvidos para reunir.
+   */
+  if (targetKey.startsWith("finding:")) {
+    const encerrou = desfecho || resolvedAt instanceof Date;
+    const reabriu = resolvedAt === null && temResolvido;
+
+    if (encerrou || reabriu) {
+      await registrarNoAchado({
+        feedbackId: feedback.id,
+        kind: encerrou ? "resolveu" : "reabriu",
+        autor: { id: actor.userId, email: actor.email },
+        /* Sem `desfecho`, a frase cai em "encerrou o achado" — marcar corrigido
+         * sem escolher COMO é caminho legítimo, e inventar um desfecho aqui
+         * gravaria uma decisão que ninguém tomou. */
+        ...(desfecho ? { details: { desfecho: desfecho.resolutionKind } } : {}),
+      });
+    }
+  }
 
   return NextResponse.json({ feedback });
 }
