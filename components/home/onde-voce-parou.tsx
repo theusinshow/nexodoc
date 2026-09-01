@@ -181,6 +181,21 @@ export function OndeVoceParou({
  * Régua de 1px entre linhas, sem cartão e sem divisor vertical — o padrão de
  * tabela da DESIGN.md, que favorece ver muitas linhas de uma vez.
  */
+/**
+ * AS PASTAS QUE SOBRAM para a coluna da direita — todas menos a da retomada.
+ *
+ * Exportada porque o PAI precisa da MESMA resposta para decidir se a coluna
+ * existe (ver `temRecente` em [[painel-do-usuario.tsx]]). Com a regra escrita
+ * duas vezes, `projetos.length` podia ser 1 enquanto isto devolvia zero — e a
+ * coluna de 336px nascia reservada para uma frase de consolo.
+ */
+export function pastasFora(
+  projetos: readonly ProjetoRecente[],
+  ondeParou: ConversaCrua | null,
+): ProjetoRecente[] {
+  return projetos.filter((p) => p.ultima.id !== ondeParou?.id);
+}
+
 export function TrabalhoRecente({
   ondeParou,
   projetos,
@@ -188,7 +203,7 @@ export function TrabalhoRecente({
   ondeParou: ConversaCrua | null;
   projetos: ProjetoRecente[];
 }) {
-  const outros = projetos.filter((p) => p.ultima.id !== ondeParou?.id);
+  const outros = pastasFora(projetos, ondeParou);
 
   if (outros.length === 0) {
     return (

@@ -73,7 +73,7 @@ import {
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { cn } from "@/lib/utils";
-import { OndeVoceParou, TrabalhoRecente } from "./onde-voce-parou";
+import { OndeVoceParou, pastasFora, TrabalhoRecente } from "./onde-voce-parou";
 import { DURATION } from "@/modules/nexo/lib/motion";
 
 /** Quanto o véu leva para fechar. Mesmo token do `BotaoDoOrbe`, não uma cópia. */
@@ -106,8 +106,16 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
    */
   const [partindo, setPartindo] = useState(false);
 
-  /** Há pasta recente para a coluna da direita mostrar? Ver o comentário dela. */
-  const temRecente = Boolean(painel?.trabalho.projetos.length);
+  /*
+   * Há pasta recente para a coluna da direita MOSTRAR?
+   *
+   * Pela MESMA regra que `TrabalhoRecente` usa por dentro — ela tira a pasta
+   * que já está na retomada. Contar `projetos.length` aqui dava 1 com a coluna
+   * vazia, e ela nascia reservada para uma frase de consolo.
+   */
+  const temRecente =
+    pastasFora(painel?.trabalho.projetos ?? [], painel?.trabalho.ondeParou ?? null)
+      .length > 0;
 
   useEffect(() => {
     let vivo = true;
