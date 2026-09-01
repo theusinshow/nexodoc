@@ -31,6 +31,8 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
+import { ConversaDoAchado } from "@/components/achado/conversa-do-achado";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
@@ -1301,6 +1303,15 @@ export function AuditResult({
     new Set<string>(),
   );
   const [destinatario, setDestinatario] = useState("");
+  /*
+   * O RECADO do encaminhamento — "olha o item 14".
+   *
+   * Vira a primeira fala da conversa de CADA achado enviado: uma linha por
+   * achado, e não uma compartilhada pelo lote. Cada achado tem a sua conversa, e
+   * quem abrir um deles daqui a uma semana precisa do recado ali, não num lugar
+   * que fala de outros trinta.
+   */
+  const [recado, setRecado] = useState("");
   const [membros, setMembros] = useState<
     {
       email: string;
@@ -2060,6 +2071,9 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
           body: JSON.stringify({
             findingIds: [...selecionados],
             assigneeEmail: destinatario,
+            assigneeNome:
+              membros.find((m) => m.email === destinatario)?.name ?? "",
+            recado,
           }),
         },
       );
@@ -2095,6 +2109,9 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
       });
       setSelecionados(new Set());
       setDestinatario("");
+      // O recado é DAQUELE envio. Mantê-lo faria o próximo lote sair com o
+      // bilhete do anterior, para outra pessoa e sobre outros achados.
+      setRecado("");
       // E a versão do servidor por cima: é ela que sabe o nome de quem foi
       // convidado e nunca entrou, e quem o `euSou` de verdade é.
       setReleituras((n) => n + 1);
@@ -4195,6 +4212,25 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                                     : undefined
                                 }
                               />
+
+                              {/*
+                            A CONVERSA DO ACHADO, e só o ponto de montagem aqui.
+                            O componente mora em `components/achado/` porque
+                            este arquivo tem 4.859 linhas e o `AuditResult`
+                            sozinho passa de três mil — mais trezentas aqui
+                            seriam exatamente como se chegou a esse tamanho.
+
+                            Exige `auditId`: sem parecer gravado no servidor não
+                            há onde pendurar a conversa. E exige `refId`: é ele
+                            que identifica o achado dentro do relatório.
+                          */}
+                              {auditId && finding.refId ? (
+                                <ConversaDoAchado
+                                  auditId={auditId}
+                                  findingId={finding.refId}
+                                  membros={membros}
+                                />
+                              ) : null}
                             </div>
 
                             <div className="grid content-start gap-3">
@@ -4641,6 +4677,23 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                               ))
                             )}
                           </Select>
+
+                          {/*
+                      O RECADO, OPCIONAL — e `Input` e não `Textarea`.
+                      A barra é `items-center` com controles de 40px, e os
+                      comentários vizinhos explicam por que essa altura importa.
+                      Um `Textarea` (min-h 64) desalinharia a linha inteira para
+                      ganhar uma segunda linha de texto que o recado raramente
+                      usa. Quem precisa escrever mais escreve na conversa do
+                      achado, que é onde a discussão mora.
+                    */}
+                          <Input
+                            value={recado}
+                            onChange={(event) => setRecado(event.target.value)}
+                            placeholder="Recado (opcional)"
+                            aria-label="Recado que vai junto de cada achado enviado"
+                            className="min-w-[12rem] flex-1 sm:max-w-[20rem]"
+                          />
 
                           {/*
                       A AÇÃO DE TURNO da barra, e por isso na altura PADRÃO (40)
