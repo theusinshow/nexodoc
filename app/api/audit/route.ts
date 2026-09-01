@@ -4350,6 +4350,9 @@ async function executarAuditoria(
       result,
       elapsedMs: Date.now() - requestStartedAt,
       projectId,
+      /* O escritório dono dos bytes — sem ele o memorial não é guardado, e o
+       * botão "ver no documento" não existe para quem chega pelo link. */
+      organizationId: actor.organizationId,
       actor: auditActor,
     });
 

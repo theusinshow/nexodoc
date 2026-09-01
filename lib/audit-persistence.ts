@@ -23,7 +23,11 @@ import {
   createStoredDocumentArtifact,
   createStoredProjectUpload,
 } from "@/lib/project-files";
-import { createProjectEvent, type ActorIdentity } from "@/lib/project-store";
+import {
+  createProjectEvent,
+  getChecksumSha256,
+  type ActorIdentity,
+} from "@/lib/project-store";
 
 export type UploadedAuditFile = {
   file: File;
@@ -102,6 +106,8 @@ export async function persistCompletedAudit(args: {
   result: string;
   elapsedMs: number;
   projectId?: string | null;
+  /** O escritório dono dos bytes. Sem ele o memorial não é guardado. */
+  organizationId?: string | null;
   actor?: ActorIdentity | null;
 }) {
   if (!args.auditId || !isDatabaseConfigured()) {
@@ -139,6 +145,13 @@ export async function persistCompletedAudit(args: {
           pageCount: file.extracted.pageCount,
           extractedCharCount: file.extracted.charCount,
           sizeBytes: file.file.size,
+          /*
+           * O checksum sai do MESMO buffer que vai para `StoredFile`, e não de
+           * uma segunda leitura: dois cálculos são duas chances de divergir, e a
+           * divergência aqui daria um botão que aponta para um arquivo que não
+           * existe.
+           */
+          checksumSha256: getChecksumSha256(file.buffer),
         })),
       });
 
@@ -166,6 +179,7 @@ export async function persistCompletedAudit(args: {
           await createStoredProjectUpload(transaction, {
             data: file.buffer,
             projectId: args.projectId,
+            organizationId: args.organizationId,
             actor: args.actor,
             module: "audit",
             source: "audit-input",

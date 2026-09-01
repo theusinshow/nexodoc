@@ -1,6 +1,6 @@
 import type { DocumentArtifactKind, DocumentArtifactStatus, Prisma } from "@prisma/client";
 
-import { describeStoredFile } from "@/lib/file-storage";
+import { describeStoredFile, guardarArquivo } from "@/lib/file-storage";
 import {
   createDocumentArtifact,
   createProjectUpload,
@@ -47,6 +47,15 @@ export async function createStoredProjectUpload(
   input: {
     data: StorableData;
     projectId?: string | null;
+    /**
+     * O ESCRITÓRIO DONO DOS BYTES. Quando vem, o arquivo é GUARDADO de verdade;
+     * quando não vem, o comportamento é o de sempre — só metadados.
+     *
+     * Explícito, e não deduzido do `projectId`: guardar 5 MB é decisão de quem
+     * chama, e uma busca implícita faria isso acontecer em caminhos que nunca
+     * pediram.
+     */
+    organizationId?: string | null;
     actor: ActorIdentity;
     module: string;
     source?: string;
@@ -56,7 +65,7 @@ export async function createStoredProjectUpload(
     metadata?: Prisma.InputJsonValue;
   },
 ) {
-  const { data, ...upload } = input;
+  const { data, organizationId, ...upload } = input;
   const storage = describeStoredFile({
     data,
     module: upload.module,
@@ -64,8 +73,23 @@ export async function createStoredProjectUpload(
     fileName: upload.fileName,
   });
 
+  /*
+   * OS BYTES, quando há escritório para respondê-los.
+   *
+   * Fora da transação de propósito: um arquivo de 5 MB dentro da transação que
+   * grava o parecer manteria o lock aberto pelo tempo do upload, e o parecer é o
+   * que não pode falhar. Se isto falhar, a auditoria continua gravada e o botão
+   * "ver no documento" apenas não aparece — degradação, não perda.
+   */
+  const guardado = organizationId
+    ? await guardarArquivo({ data, organizationId, mimeType: upload.mimeType })
+    : null;
+
   return createProjectUpload(tx, {
     ...upload,
     ...storage,
+    ...(guardado
+      ? { storageProvider: "postgres", storageKey: guardado.checksumSha256 }
+      : {}),
   });
 }
