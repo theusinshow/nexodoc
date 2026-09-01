@@ -21,6 +21,7 @@
     "backfill:escritorio": "node scripts/backfill-escritorio.ts",
     "test:portao": "node scripts/test-portao-de-acesso.ts",
     "test:resolucao": "node scripts/test-resolucao-de-projeto.ts",
+    "test:cliente": "node scripts/test-cliente-do-projeto.ts",
     "test:desfecho": "node scripts/test-desfecho-do-achado.ts",
     "prova:rotas": "node scripts/prova-nenhuma-rota-aberta.mjs",
     "prova:escritorio": "node scripts/prova-escritorio.mjs",
