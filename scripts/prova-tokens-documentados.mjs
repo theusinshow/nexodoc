@@ -63,3 +63,58 @@ if (ausentes.length > 0) {
 }
 
 console.log(`  ok  ${definidos.size} token(s) de vocabulário, todos nomeados no DESIGN.md`);
+
+/*
+ * O LITERAL DO POPUP CONTRA O TOKEN.
+ *
+ * A regra `select option, select optgroup` usa hex cru de propósito: o popup é
+ * superfície que o app não possui e pode não resolver `var()` — ver o comentário
+ * dela em `globals.css`.
+ *
+ * O preço de um literal é ele envelhecer calado. Mudar `--card` no `:root` e
+ * deixar o popup no valor velho não quebra nada visível AQUI; quebra lá dentro,
+ * na única superfície do produto que ninguém consegue fotografar. Este fiscal é
+ * o que paga esse preço.
+ *
+ * DEPOIS do desfecho acima, e não antes: aquele bloco sai com `process.exit(1)`,
+ * e um fiscal posto antes dele simplesmente não rodaria quando mais importa.
+ */
+function valorDoToken(nome) {
+  const m = new RegExp("--" + nome + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;").exec(css);
+  return m ? m[1].toLowerCase() : null;
+}
+
+const regraDoPopup = /select option,\s*select optgroup\s*\{([^}]*)\}/.exec(css);
+
+if (!regraDoPopup) {
+  console.error("FALHOU  a regra `select option, select optgroup` sumiu de globals.css.");
+  console.error("        Ela é a segunda defesa contra o branco-sobre-branco do popup.");
+  process.exit(1);
+}
+
+const corpoDoPopup = regraDoPopup[1];
+const fundoDoPopup = /background-color:\s*(#[0-9a-fA-F]{3,8})/
+  .exec(corpoDoPopup)?.[1]
+  ?.toLowerCase();
+const textoDoPopup = /(?<!-)\bcolor:\s*(#[0-9a-fA-F]{3,8})/
+  .exec(corpoDoPopup)?.[1]
+  ?.toLowerCase();
+const tokenCard = valorDoToken("card");
+const tokenFg = valorDoToken("foreground");
+let literalDivergiu = false;
+
+if (fundoDoPopup !== tokenCard) {
+  console.error(`FALHOU  o popup do select pinta ${fundoDoPopup}, e --card é ${tokenCard}.`);
+  console.error("        O literal envelheceu. Ver o comentário da regra em globals.css.");
+  literalDivergiu = true;
+}
+
+if (textoDoPopup !== tokenFg) {
+  console.error(`FALHOU  o texto do popup é ${textoDoPopup}, e --foreground é ${tokenFg}.`);
+  console.error("        O literal envelheceu. Ver o comentário da regra em globals.css.");
+  literalDivergiu = true;
+}
+
+if (literalDivergiu) process.exit(1);
+
+console.log(`  ok  o literal do popup bate com os tokens (${tokenCard} / ${tokenFg})`);
