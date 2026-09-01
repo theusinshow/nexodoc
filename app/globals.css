@@ -63,6 +63,25 @@
 }
 
 :root {
+  /*
+   * O PRODUTO É ESCURO, e agora o navegador sabe.
+   *
+   * Havia UM lugar declarando isso: o `style` inline do primitivo `Select`, para
+   * si mesmo. Medido em 01/09/2026, `getComputedStyle(document.documentElement)
+   * .colorScheme` devolvia "normal" — e toda superfície nativa que este CSS não
+   * pinta era desenhada CLARA, herdando o texto claro da página. Popup de
+   * `<datalist>`, barra de rolagem, preenchimento automático, as setas de
+   * `type="number"`, o seletor de `type="color"` e o botão de `type="file"`.
+   *
+   * O comentário do `Select` adiava esta linha dizendo que ela "mexeria também
+   * em barra de rolagem e em todo controle nativo". Mexe — e é o efeito
+   * PRETENDIDO: um app escuro com barra de rolagem clara é o defeito, não o
+   * cuidado. Decidido com o Matheus em 01/09/2026, sabendo disso.
+   *
+   * Há UM `:root` neste arquivo, sem tema claro e sem `prefers-color-scheme`.
+   * Declarar o esquema é dizer a verdade que o CSS já pratica.
+   */
+  color-scheme: dark;
   --radius: 8px;
   --background: #0a0e11;
   --foreground: #e1e7ea;
@@ -445,9 +464,25 @@ textarea {
 
    Onde o SO ignora (macOS), nada piora: ele continua desenhando o popup escuro
    que o `color-scheme` ja pedia. */
-select option {
-  background-color: var(--card);
-  color: var(--foreground);
+/* LITERAL, E NÃO `var()` — e o motivo tem precedente escrito neste projeto.
+   `lib/aviso-de-achados.ts` declara a paleta do e-mail em hex cru porque
+   "cliente de e-mail não resolve var(), e um token que chegasse cru pintaria
+   texto de preto sobre preto". O popup do select é a mesma classe de problema:
+   uma superfície que o app NÃO POSSUI. Se ela não resolver a variável,
+   `background-color` cai para o claro padrão enquanto `color` segue herdando o
+   claro da página — que é exatamente o branco-sobre-branco relatado.
+
+   Os dois valores são `--card` (#121518) e `--foreground` (#e1e7ea), e eles NÃO
+   PODEM divergir em silêncio: `npm run prova:tokens` confere que o hex escrito
+   aqui é o mesmo do token.
+
+   `optgroup` entra junto. A regra anterior era só `select option`, e o seletor
+   de destinatário do parecer (`audit-result.tsx`) agrupa por disciplina — o
+   rótulo do grupo ficava de fora e caía no padrão do navegador. */
+select option,
+select optgroup {
+  background-color: #121518;
+  color: #e1e7ea;
 }
 
 select optgroup {
