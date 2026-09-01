@@ -28,6 +28,7 @@
     "prova:alcada": "node scripts/prova-alcada.mjs",
     "prova:convite": "node scripts/prova-convite.mjs",
     "prova:endereco": "node scripts/prova-auditoria-com-endereco.mjs",
+    "prova:identidade": "node scripts/prova-identidade-do-projeto.mjs",
     "prova:orbe-parado": "node scripts/prova-orbe-parado.mjs",
     "prova:partida": "node scripts/prova-partida-pelo-orbe.mjs",
     "prova:fila": "node scripts/prova-fila-de-achados.mjs",
