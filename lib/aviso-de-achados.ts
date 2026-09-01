@@ -19,6 +19,7 @@
  * cada uma com o motivo dela.
  */
 import { getPrisma } from "@/lib/db";
+import { quemAvisar, type AchadoParaAvisar } from "@/lib/quem-avisar";
 import {
   correioConfigurado,
   correioEmDesenvolvimento,
@@ -111,6 +112,57 @@ async function contextoDaAuditoria(auditId: string, organizationId: string): Pro
 }
 
 /**
+ * QUEM ESTÁ ESPERANDO AVISO NESTA AUDITORIA — a consulta, num lugar só.
+ *
+ * Havia DUAS cópias desta leitura: uma em `quemFaltaAvisar`, que rotula o botão,
+ * e outra em `avisarEnvolvidos`, que manda. Com uma pessoa por achado elas eram
+ * idênticas e ninguém notava; com envolvidos, deixá-las divergir faria o botão
+ * mostrar uma lista e o envio alcançar outra — e o testador confirmaria nomes
+ * que não iam receber nada.
+ *
+ * A CONSULTA TRAZ O ACHADO INTEIRO, e não só o e-mail do responsável: com
+ * envolvidos, um achado tem N pessoas, cada uma com seu próprio `notifiedAt`.
+ * Quem decide quem entra é [[lib/quem-avisar.ts]], puro e com teste sem banco —
+ * aqui fica só o IO.
+ */
+async function pessoasPendentes(
+  auditId: string,
+  organizationId: string,
+): Promise<PessoaAAvisar[]> {
+  const linhas = await getPrisma().auditFeedback.findMany({
+    where: { auditId },
+    select: {
+      assigneeEmail: true,
+      notifiedAt: true,
+      resolvedAt: true,
+      envolvidos: { select: { email: true, notifiedAt: true } },
+    },
+  });
+
+  const achados: AchadoParaAvisar[] = linhas.map((l) => ({
+    resolvido: l.resolvedAt !== null,
+    pessoas: [
+      ...(l.assigneeEmail
+        ? [
+            {
+              email: l.assigneeEmail,
+              papel: "responsavel" as const,
+              notifiedAt: l.notifiedAt?.getTime() ?? null,
+            },
+          ]
+        : []),
+      ...l.envolvidos.map((e) => ({
+        email: e.email,
+        papel: "envolvido" as const,
+        notifiedAt: e.notifiedAt?.getTime() ?? null,
+      })),
+    ],
+  }));
+
+  return await comNomes(quemAvisar(achados), organizationId);
+}
+
+/**
  * QUEM ESTÁ ESPERANDO AVISO — a consulta que o botão usa para se rotular antes
  * de qualquer envio.
  *
@@ -124,57 +176,47 @@ export async function quemFaltaAvisar(
 ): Promise<PessoaAAvisar[]> {
   await contextoDaAuditoria(auditId, organizationId);
 
-  const linhas = await getPrisma().auditFeedback.findMany({
-    where: { auditId, ...PENDENTE_DE_AVISO },
-    select: { assigneeEmail: true },
-  });
-
-  return await comNomes(linhas, organizationId);
+  return await pessoasPendentes(auditId, organizationId);
 }
 
 /**
- * Agrupa por pessoa e resolve os nomes numa consulta só.
+ * Resolve os nomes numa consulta só.
+ *
+ * A CONTAGEM já vem pronta de [[lib/quem-avisar.ts]] — ela era feita aqui, e
+ * saiu porque virou regra com N pessoas por achado e merecia teste sem banco.
+ * O que sobrou é o que precisa do banco: o nome e o estado do convite.
  *
  * Uma consulta, e não uma por linha, pelo mesmo motivo da rota de feedback: um
  * parecer com quarenta achados do mesmo destinatário seriam quarenta idas ao
  * banco pelo mesmo nome.
  */
 async function comNomes(
-  linhas: { assigneeEmail: string | null }[],
+  contados: { email: string; quantidade: number }[],
   organizationId: string,
 ): Promise<PessoaAAvisar[]> {
-  const contagem = new Map<string, number>();
-
-  for (const linha of linhas) {
-    if (!linha.assigneeEmail) continue;
-    contagem.set(linha.assigneeEmail, (contagem.get(linha.assigneeEmail) ?? 0) + 1);
-  }
-
-  if (contagem.size === 0) return [];
+  if (contados.length === 0) return [];
 
   const membros = await getPrisma().organizationMember.findMany({
-    where: { organizationId, email: { in: [...contagem.keys()] } },
+    where: { organizationId, email: { in: contados.map((c) => c.email) } },
     select: { email: true, name: true, status: true },
   });
 
   const porEmail = new Map(membros.map((m) => [m.email, m]));
 
-  return [...contagem.entries()]
-    .map(([email, quantidade]) => {
-      const membro = porEmail.get(email);
+  /*
+   * A ORDEM NÃO É REFEITA AQUI. `quemAvisar` já devolve ordenado por quantidade,
+   * e ordenar de novo esconderia de qual das duas a ordem final veio.
+   */
+  return contados.map(({ email, quantidade }) => {
+    const membro = porEmail.get(email);
 
-      return {
-        email,
-        nome: membro?.name || email,
-        quantidade,
-        convidado: membro?.status === "INVITED",
-      };
-    })
-    /*
-     * Quem tem MAIS achados primeiro: é a pessoa cujo dia este envio mais muda,
-     * e a que quem confirma mais precisa conferir antes de apertar.
-     */
-    .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome, "pt-BR"));
+    return {
+      email,
+      nome: membro?.name || email,
+      quantidade,
+      convidado: membro?.status === "INVITED",
+    };
+  });
 }
 
 /** Escapa para HTML. Nome de pessoa e nome de obra entram no corpo, e um `&`
@@ -366,12 +408,9 @@ export async function avisarEnvolvidos(args: {
 
   contexto.remetente = args.avisadoPor.nome?.trim() || args.avisadoPor.email;
 
-  const linhas = await prisma.auditFeedback.findMany({
-    where: { auditId: args.auditId, ...PENDENTE_DE_AVISO },
-    select: { assigneeEmail: true },
-  });
-
-  const pessoas = await comNomes(linhas, args.organizationId);
+  /* O MESMO helper que rotula o botão. Duas leituras separadas fariam a tela
+   * prometer uma lista e o envio alcançar outra. */
+  const pessoas = await pessoasPendentes(args.auditId, args.organizationId);
 
   if (pessoas.length === 0) {
     return { estado: "nada-a-avisar", avisados: [], falharam: [] };
@@ -417,6 +456,10 @@ export async function avisarEnvolvidos(args: {
      * marcaria também quem falhou logo acima -- e essa pessoa nunca mais
      * apareceria no botão para uma segunda tentativa.
      */
+    /* UM instante para os dois carimbos. Duas chamadas a `new Date()` dariam
+     * milissegundos diferentes ao responsável e ao envolvido do MESMO envio. */
+    const agora = new Date();
+
     await prisma.auditFeedback.updateMany({
       /*
        * A ORDEM DAS CHAVES É A CORREÇÃO, e não estilo.
@@ -430,7 +473,24 @@ export async function avisarEnvolvidos(args: {
        * O spread vem primeiro; o estreitamento vem depois e vence.
        */
       where: { ...PENDENTE_DE_AVISO, auditId: args.auditId, assigneeEmail: pessoa.email },
-      data: { notifiedAt: new Date() },
+      data: { notifiedAt: agora },
+    });
+
+    /*
+     * O ENVOLVIDO TAMBÉM É MARCADO. Sem isto, o próximo clique no botão mandaria
+     * de novo para quem só acompanha — e é exatamente a repetição que
+     * `notifiedAt` existe para evitar.
+     *
+     * O estreitamento segue a mesma lição do comentário acima: esta pessoa,
+     * nesta auditoria, e só o que ainda estava pendente.
+     */
+    await prisma.auditFindingWatcher.updateMany({
+      where: {
+        email: pessoa.email,
+        notifiedAt: null,
+        feedback: { auditId: args.auditId },
+      },
+      data: { notifiedAt: agora },
     });
 
     avisados.push(pessoa);
