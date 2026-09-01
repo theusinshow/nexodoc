@@ -25,6 +25,8 @@
     "test:desfecho": "node scripts/test-desfecho-do-achado.ts",
     "test:conversa-achado": "node scripts/test-conversa-do-achado.ts",
     "test:quem-avisar": "node scripts/test-quem-avisar.ts",
+    "test:fonte-documento": "node scripts/test-fonte-do-documento.ts",
+    "test:link-achado": "node scripts/test-link-do-achado.ts",
     "prova:rotas": "node scripts/prova-nenhuma-rota-aberta.mjs",
     "prova:escritorio": "node scripts/prova-escritorio.mjs",
     "prova:alcada": "node scripts/prova-alcada.mjs",
