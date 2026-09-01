@@ -11,6 +11,7 @@
  * escritório e traduzir o desfecho em algo que a tela saiba dizer.
  */
 import {
+  decidirTroca,
   resolverProjeto,
   type ProjetoConhecido,
   type ResolucaoDeProjeto,
@@ -30,7 +31,7 @@ export async function resolverProjetoDaAuditoria(
    * com elas que ela nasce. Buscar isso de novo lá dentro seria pedir de volta
    * o que a classificação já leu.
    */
-  identidade?: { prefeitura?: string | null; obra?: string | null },
+  identidade?: { prefeitura?: string | null; obra?: string | null; municipio?: string | null },
 ): Promise<ProjetoResolvido> {
   let projetos: ProjetoConhecido[] = [];
 
@@ -82,6 +83,11 @@ export async function resolverProjetoDaAuditoria(
           code: resolucao.codigo,
           client: identidade?.prefeitura ?? "",
           name: identidade?.obra ?? "",
+          /*
+           * Forma a CHAVE do cliente. O órgão pode ser uma secretaria de nome
+           * longo; o município é o que identifica a prefeitura.
+           */
+          municipio: identidade?.municipio ?? "",
         }),
         signal,
       });
@@ -135,4 +141,66 @@ export function fraseDoImpasse(resolvido: ProjetoResolvido): string {
         ? "Este escritório ainda não tem projetos cadastrados."
         : "Não achei o centro de custo no documento. Escolha o projeto desta auditoria.";
   }
+}
+
+export type Vinculo =
+  | { tipo: "vinculado"; projeto: ProjetoConhecido }
+  /** Nada mudou: mesmo código, ou nada novo legível. */
+  | { tipo: "manter" }
+  /** O documento novo é de OUTRO projeto. Quem decide é gente. */
+  | { tipo: "conflito"; atual: string; lido: string }
+  /** Não deu para endereçar. `fraseDoImpasse` explica o porquê. */
+  | { tipo: "impasse"; resolvido: ProjetoResolvido };
+
+/**
+ * ENDEREÇAR A CONVERSA NO ANEXO — e não no disparo da auditoria.
+ *
+ * A resolução morava no `confirm()` do ConfirmationCard, junto com o disparo. A
+ * barra lateral, porém, precisa saber a que projeto a conversa pertence ANTES
+ * disso: no instante em que a conversa é gravada. Era essa defasagem que
+ * produzia o "Sem código no carimbo" — no momento da gravação ninguém ainda
+ * tinha decidido o projeto.
+ *
+ * NÃO BLOQUEIA O ANEXO. Memorial sem código legível devolve `impasse`, e a
+ * conversa fica "A endereçar" com ação inline no cartão. Cobrar a decisão aqui
+ * exigiria uma escolha de quem talvez só queira olhar o documento; o disparo da
+ * auditoria continua cobrando, como já cobrava.
+ */
+export async function vincularProjetoDaConversa(args: {
+  codigoAtual: string | null;
+  codigoLido: string | null;
+  prefeitura?: string | null;
+  obra?: string | null;
+  municipio?: string | null;
+  signal?: AbortSignal;
+}): Promise<Vinculo> {
+  const { acao } = decidirTroca({
+    codigoAtual: args.codigoAtual,
+    codigoLido: args.codigoLido,
+  });
+
+  if (acao === "manter") return { tipo: "manter" };
+
+  if (acao === "conflito") {
+    /*
+     * NÃO TROCA. Dois memoriais de projetos diferentes na mesma conversa é erro
+     * de quem anexou; trocar em silêncio levaria os achados do primeiro para a
+     * fila do segundo, e o erro só apareceria dias depois.
+     */
+    return {
+      tipo: "conflito",
+      atual: args.codigoAtual ?? "",
+      lido: args.codigoLido ?? "",
+    };
+  }
+
+  const resolvido = await resolverProjetoDaAuditoria(args.codigoLido, args.signal, {
+    prefeitura: args.prefeitura,
+    obra: args.obra,
+    municipio: args.municipio,
+  });
+
+  if (resolvido.tipo === "achado") return { tipo: "vinculado", projeto: resolvido.projeto };
+
+  return { tipo: "impasse", resolvido };
 }

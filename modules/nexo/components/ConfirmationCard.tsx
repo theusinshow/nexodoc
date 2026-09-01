@@ -2235,6 +2235,8 @@ function AuditoriaConfirmation({
     conversationId,
     marcarAuditoriaPendente,
     registrarAuditoria,
+    projectId: projetoDaConversa,
+    vincularProjeto,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
@@ -2313,15 +2315,32 @@ function AuditoriaConfirmation({
      * O código já vem do documento (`memorialFatos.codigo`), então no caso
      * normal isto não pergunta nada.
      */
-    const destino = await resolverProjetoDaAuditoria(memorialFatos?.codigo, undefined, {
-      prefeitura,
-      obra,
-    });
+    let projectId = projetoDaConversa;
 
-    if (destino.tipo !== "achado") {
-      setError(fraseDoImpasse(destino));
-      setBusy(false);
-      return;
+    if (!projectId) {
+      /*
+       * O CAMINHO DE EXCEÇÃO, e não mais o normal.
+       *
+       * No caso comum o endereço já foi decidido no ANEXO, e chegar aqui sem
+       * vínculo significa memorial sem código legível — ou um anexo em que o
+       * vínculo falhou. Continua cobrando a decisão, como sempre cobrou.
+       */
+      const destino = await resolverProjetoDaAuditoria(memorialFatos?.codigo, undefined, {
+        prefeitura,
+        obra,
+        municipio,
+      });
+
+      if (destino.tipo !== "achado") {
+        setError(fraseDoImpasse(destino));
+        setBusy(false);
+        return;
+      }
+
+      projectId = destino.projeto.id;
+      // Endereça a conversa também: descobrir o projeto aqui e não gravá-lo
+      // faria a próxima auditoria desta conversa perguntar de novo.
+      vincularProjeto(projectId);
     }
     /*
      * Avisa o PALCO. Sem isto o centro da tela segue mostrando o mapa do volume
@@ -2375,7 +2394,7 @@ function AuditoriaConfirmation({
           onMarco: auditoria.marcar,
           signal: controle.signal,
           auditId,
-          projectId: destino.projeto.id,
+          projectId,
           /*
            * A base do REUSO: a última auditoria deste memorial nesta conversa.
            * É o mesmo id que já alimenta o delta do cartão — só que agora ele
