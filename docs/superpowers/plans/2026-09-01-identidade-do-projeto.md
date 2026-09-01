@@ -644,6 +644,17 @@ ALTER TABLE "NexoConversation" ADD CONSTRAINT "NexoConversation_projectId_fkey"
 Se aparecer qualquer `DROP TABLE` ou `DROP COLUMN`, **pare**: é sinal de que o
 schema local divergiu do banco. Não aplique.
 
+- [ ] **Passo 3b: regenerar o client do Prisma**
+
+```bash
+npm run db:generate
+```
+
+**Não pule.** `prisma migrate dev` altera o BANCO, e o client tipado que o Node
+importa continua sendo o de antes. Sem isto, a prova da Task 4 quebra com
+`Unknown argument 'clientKey'. Did you mean 'client'?` — uma mensagem que aponta
+para o código quando o problema é o client desatualizado.
+
 - [ ] **Passo 4: provar que as colunas existem e nada quebrou**
 
 ```bash
