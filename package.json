@@ -35,6 +35,7 @@
     "prova:identidade": "node scripts/prova-identidade-do-projeto.mjs",
     "prova:conversa-achado": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conversa-do-achado.mjs",
     "prova:arquivo": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-arquivo-guardado.mjs",
+    "prova:milton": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-milton-abre-o-pdf.mjs",
     "prova:duas-pessoas": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-duas-pessoas-no-achado.mjs",
     "prova:marca": "node scripts/prova-marca-de-prefeitura.mjs",
     "prova:barra-enderecada": "node scripts/shot-barra-enderecada.mjs",
