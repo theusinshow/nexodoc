@@ -26,6 +26,7 @@ import { contextoDaBarra } from "../lib/contexto-da-barra";
 import { resumoDaAuditoria } from "../lib/resumo-da-auditoria";
 import { auditoriaDaConversa, useAuditoria } from "../state/auditoria-store";
 import { useConversation } from "../state/conversation-store";
+import { MarcaDaPrefeitura } from "./MarcaDaPrefeitura";
 
 export function BarraDoNexo() {
   const { conversationId, identidade, seloResults } = useConversation();
@@ -75,6 +76,20 @@ export function BarraDoNexo() {
   const { obra, orgao, codigo } = contexto!;
   return (
     <div className="nexo-barra" data-camada="repouso">
+      {/*
+        O SELO, e não o sinal: a faixa é uma SUPERFÍCIE LARGA, e ali os 31px do
+        sinal se perderiam entre o nome da obra e o código.
+
+        Ele só existe na camada de REPOUSO. Enquanto a auditoria roda, a faixa
+        deixa de falar da obra e passa a falar do trabalho — e marca de
+        identidade ao lado de barra de progresso disputa o olho com o único
+        campo que muda ali.
+
+        A COR VEM DO ÓRGÃO, que é opcional: sem órgão, marca cinza. Não é
+        degradação — a faixa nasce da leitura dos selos, e "ainda não sei de
+        quem é esta obra" é um estado real do minuto zero.
+      */}
+      <MarcaDaPrefeitura prefeitura={orgao} forma="selo" />
       <span className="nexo-barra__obra" title={obra}>
         {obra}
       </span>

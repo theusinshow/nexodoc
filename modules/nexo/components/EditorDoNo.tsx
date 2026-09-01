@@ -72,6 +72,7 @@ export function EditorDoNo({
   onCancelar,
   layout,
   derivadosDoNo,
+  prefeitura,
 }: {
   kind: NexoArtifactKind;
   campos: CampoEditavel[];
@@ -87,6 +88,8 @@ export function EditorDoNo({
    * "vale o selo".
    */
   derivadosDoNo?: Record<string, string>;
+  /** O nome do modelo aberto — vira a chapa no cabeçalho do frame. */
+  prefeitura?: string | null;
   /**
    * Aplica: recebe os valores novos e a FRASE para o histórico (`null` quando
    * nada mudou). Quem chama regenera o artefato e escreve a mensagem.
@@ -214,6 +217,7 @@ export function EditorDoNo({
       {usaFrame && (
         <FrameDoDocumento
           layout={layout ?? []}
+          prefeitura={prefeitura}
           campos={CAMPOS_DO_FRAME}
           /*
            * Só o que foi DECIDIDO à mão. O derivado vai separado, como texto

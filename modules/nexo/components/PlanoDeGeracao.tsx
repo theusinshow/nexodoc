@@ -879,6 +879,12 @@ export function PlanoDeGeracao({
             </div>
             <FrameDoDocumento
               modo={emDocumento ? "documento" : "campo"}
+              /*
+               * O MODELO ABERTO, não o que o carimbo leu: aqui a marca confirma
+               * para qual prefeitura este documento vai sair. Sem prefeitura
+               * escolhida não há modelo, e o frame fica só com o papel.
+               */
+              prefeitura={semPrefeitura ? null : prefeitura}
               layout={layoutDoModelo}
               campos={CAMPOS_DO_FRAME}
               valores={valoresDoFrame({ identidade, params: mesclado.valores })}

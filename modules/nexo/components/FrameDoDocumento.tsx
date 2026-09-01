@@ -20,6 +20,7 @@
 
 import type { ParagrafoDoModelo } from "@/server/odt/layout";
 import { classeDeCorpo, type ModoDoFrame } from "../lib/corpo-do-frame";
+import { MarcaDaPrefeitura } from "./MarcaDaPrefeitura";
 
 export interface CampoDoFrame {
   /** Nome do marcador, ex. "NOME_OBRA". */
@@ -45,6 +46,7 @@ export function FrameDoDocumento({
   derivados = {},
   onChange,
   modo = "campo",
+  prefeitura,
 }: {
   layout: ParagrafoDoModelo[];
   campos: CampoDoFrame[];
@@ -69,6 +71,19 @@ export function FrameDoDocumento({
    * linhas continuam saindo do `content.xml` nos dois. Ver [[corpo-do-frame.ts]].
    */
   modo?: ModoDoFrame;
+  /**
+   * A prefeitura do MODELO aberto — o nome do template, não o que o carimbo
+   * leu. Ausente (ou vazia) = sem cabeçalho, e o frame fica só com o papel.
+   *
+   * A marca vai no CABEÇALHO e NUNCA DENTRO DO PAPEL. O frame existe para
+   * conferir ESTRUTURA — ordem, alinhamento, quantas linhas —, e não é
+   * pré-visualização fiel: fonte e brasão são do ODT. Um papel colorido
+   * prometeria uma fidelidade que o gerador não entrega, e a promessa quebrada
+   * apareceria só depois de imprimir. No cabeçalho ela faz o trabalho certo,
+   * que é confirmar QUAL MODELO está aberto — o campo cujo erro custa o projeto
+   * inteiro, e que originou este produto.
+   */
+  prefeitura?: string | null;
 }) {
   const campoDe = (marcador: string) => campos.find((c) => c.marcador === marcador);
 
@@ -89,7 +104,9 @@ export function FrameDoDocumento({
 
   const jaDesenhados = new Set<string>();
 
-  return (
+  const cabecalho = (prefeitura ?? "").trim();
+
+  const papel = (
     <div className="nx-edge-8 p-4 [--nx-fill:var(--nexodoc-recessed)]">
       {layout.map((paragrafo) => {
         if (paragrafo.partes.length === 0) return null;
@@ -198,6 +215,24 @@ export function FrameDoDocumento({
           </div>
         );
       })}
+    </div>
+  );
+
+  if (!cabecalho) return papel;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/*
+        A CHAPA, e uma por tela: é a forma que pode ser lida como imagem, e ela
+        só cabe onde a cidade é O ASSUNTO — aqui, a conferência antes de gerar.
+      */}
+      <div className="flex items-center gap-3.5">
+        <MarcaDaPrefeitura prefeitura={cabecalho} forma="chapa" />
+        <span className="min-w-0 truncate font-mono text-[11px] uppercase tracking-[0.07em] text-muted-foreground">
+          {cabecalho}
+        </span>
+      </div>
+      {papel}
     </div>
   );
 }

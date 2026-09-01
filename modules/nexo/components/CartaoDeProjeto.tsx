@@ -29,6 +29,7 @@ import {
   ehDocumentoFinal,
   type CartaoDeProjeto as Cartao,
 } from "../lib/cartoes-de-projeto";
+import { MarcaDaPrefeitura } from "./MarcaDaPrefeitura";
 
 /** "4 min", "17:40", "ontem", "qui", "12/08" — a régua curta da barra. */
 function quando(ms: number, agora = Date.now()): string {
@@ -103,13 +104,50 @@ export function CartaoDeProjeto({
             : "[--nx-edge:transparent] [--nx-fill:transparent] hover:[--nx-fill:var(--accent)]",
         )}
       >
+        {/*
+          A MARCA NA ARESTA, dentro do `nx-edge-6` e antes do cabeçalho.
+
+          `pl-2.5` é o mesmo `px-2.5` do botão: o primeiro segmento nasce
+          alinhado com o chevron, e os segmentos de todos os cartões da coluna
+          caem na mesma vertical, abertos ou fechados. A marca não tem chanfro
+          próprio — o recorte é o do `nx-edge-6`, que já envolve o cartão.
+
+          O `py-2` do botão virou `pt-[5px] pb-2`: os 3px da marca mais 5px
+          devolvem os 8px que separavam a aresta da primeira linha. A altura do
+          cartão FECHADO não muda, que era a condição do desenho.
+
+          O `pt-px` quando aberto é a única correção ao spec, e é por causa de
+          COMO o chanfro desta casa desenha borda: em `.nx-edge-*` o contorno é
+          o fundo do próprio elemento com o miolo recortado a 1px por cima —
+          não é padding. O spec pedia um pixel a menos no `padding-left` para
+          compensar uma borda que empurra o conteúdo; aqui ela não empurra, e
+          tirar o pixel na horizontal DESALINHARIA justamente o que ele queria
+          alinhar. O pixel vai para o topo, onde a borda de fato passaria por
+          baixo dos segmentos.
+
+          NO REPOUSO A MARCA APARECE SOBRE O FUNDO DA BARRA, não sobre um
+          cartão: fechado, `--nx-fill` é `transparent`. No hover o fill vira
+          `--accent` e a marca continua na aresta, sem mudar de cor.
+        */}
+        <MarcaDaPrefeitura
+          /*
+           * A MESMA FONTE QUE JÁ NOMEIA O CARTÃO — o `cliente` da pasta. O
+           * balde "A endereçar" agrega conversas de projetos diferentes e por
+           * isso não pode ter a cor de nenhum: vai como ausência, que é o que
+           * ele é.
+           */
+          prefeitura={semCodigo ? null : cartao.cliente}
+          forma="sinal"
+          className={cn("pl-2.5", aberto && "pt-px")}
+        />
+
         {/* O CABEÇALHO é o cartão fechado, e continua sendo o alvo do clique
             quando aberto: fechar é o mesmo gesto de abrir. */}
         <button
           type="button"
           onClick={onAlternar}
           aria-expanded={aberto}
-          className="flex w-full flex-col gap-0.5 px-2.5 py-2 text-left focus-visible:outline-none"
+          className="flex w-full flex-col gap-0.5 px-2.5 pb-2 pt-[5px] text-left focus-visible:outline-none"
         >
           <span className="flex w-full items-center gap-1.5">
             <ChevronRight
@@ -165,6 +203,13 @@ export function CartaoDeProjeto({
           </span>
         </button>
 
+        {/*
+          AS CONVERSAS DE DENTRO NÃO RECEBEM MARCA. Todas são do mesmo projeto;
+          repetir a marca em cada linha diria quatro vezes o que o cartão já
+          disse na aresta. A linha selecionada usa o teal em
+          `--nx-edge: var(--primary)`, que é a única cor de que a lista interna
+          precisa.
+        */}
         {aberto ? (
           <ul className="m-0 list-none border-t border-border/50 px-1.5 py-1">
             {cartao.conversas.map((c) => {

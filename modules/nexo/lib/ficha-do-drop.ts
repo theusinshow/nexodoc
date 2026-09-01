@@ -33,6 +33,16 @@ export interface LinhaDaFicha {
   lido: boolean;
 }
 
+/**
+ * O rótulo da linha que a MARCA acompanha.
+ *
+ * Exportado, e não escrito duas vezes: a tela precisa achar exatamente esta
+ * linha para pôr o selo ao lado do valor que o origina, e comparar com um
+ * literal `"Prefeitura"` faria a marca sumir calada no dia em que o rótulo
+ * mudasse de caixa ou ganhasse um acento.
+ */
+export const ROTULO_DA_PREFEITURA = "Prefeitura";
+
 export interface FichaDoDrop {
   /** A conta que fecha, já montada por `reciboDoDrop`. */
   recibo: string;
@@ -136,7 +146,7 @@ export function fichaDoDrop(entrada: {
   const identidade: LinhaDaFicha[] = [
     naoLido("Código", limpar(entrada.codigo)),
     naoLido("Obra", limpar(entrada.obra)),
-    naoLido("Prefeitura", prefeituraDoCarimbo(entrada.folhas)),
+    naoLido(ROTULO_DA_PREFEITURA, prefeituraDoCarimbo(entrada.folhas)),
     naoLido("Data do selo", dataPorExtenso(entrada.dataDoSelo)),
   ];
 

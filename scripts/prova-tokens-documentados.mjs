@@ -28,6 +28,7 @@ const FAMILIAS = [
   "--discipline-",
   "--data-",
   "--nexo-marca-",
+  "--prefeitura-",
 ];
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");

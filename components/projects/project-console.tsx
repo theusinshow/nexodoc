@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Ima } from "@/components/ambiente/ima";
+import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { rotuloDeProjeto } from "@/lib/rotulos-de-status";
 import { plural } from "@/lib/plural";
 
@@ -225,7 +226,24 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
                             Duas linhas custam menos do que "Cancha d…". */}
                         <h2 className="text-lg font-semibold leading-snug">{project.name}</h2>
                       </div>
-                      <p className="mt-1 font-mono text-xs text-muted-foreground">{project.code}</p>
+                      {/*
+                        PAGA UMA DÍVIDA ANTES DE DECORAR. O cartão tem `client`
+                        no dado e FILTRA por ele na busca — mas não o mostrava:
+                        quem procurava por "criciuma" recebia uma lista que não
+                        explicava por que aqueles projetos vieram.
+
+                        O SELO vem junto porque o cartão é superfície larga, e
+                        porque a marca só ganha o direito de existir ao lado do
+                        valor que a origina. Sem cliente cadastrado, ela fica
+                        cinza — e a linha continua com o código, que é o que
+                        sempre existe.
+                      */}
+                      <p className="mt-1 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                        <MarcaDaPrefeitura prefeitura={project.client} forma="selo" />
+                        <span className="min-w-0 truncate">
+                          {project.client ? `${project.code} · ${project.client}` : project.code}
+                        </span>
+                      </p>
                     </div>
                     <Badge variant="outline">{rotuloDeProjeto(project.status)}</Badge>
                   </div>

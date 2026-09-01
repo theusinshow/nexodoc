@@ -257,7 +257,7 @@ opaco. Com ele o mesmo botão mede 6,89:1.
 
 ### As cores de vocabulário
 
-Além dos três sinais, o sistema tem cinco famílias com trabalho declarado. Elas
+Além dos três sinais, o sistema tem seis famílias com trabalho declarado. Elas
 nasceram como **vagas abertas** — cor com função pensada e valor por decidir — e
 foram preenchidas uma a uma. Nenhuma pode ser confundida com um sinal de status
 a três metros da tela; é essa a prova que todas passaram.
@@ -269,6 +269,22 @@ a três metros da tela; é essa a prova que todas passaram.
 | **Tipo de trabalho** | `--nexo-marca-volume` · `--nexo-marca-auditoria` | `#5a666e` · `#3f6d68` | a barra de 2px do item da sidebar (montagem × auditoria). Cinza e teal-**acinzentado**, nunca o teal vivo: dentro da lista o tipo já está dito pelo cabeçalho da seção, e ali a barra é lembrete periférico | `NexoSidebar` |
 | **Disciplina (categórica)** | `--discipline-arq` · `--discipline-est` · `--discipline-hid` · `--discipline-ele` · `--discipline-pci` · `--discipline-cli` · `--discipline-ter` · `--discipline-pai` | oito tons dessaturados | agrupar folhas no canvas por disciplina. **A sigla mono de três letras é o portador primário; a cor é secundária** — nenhuma decisão do produto pode depender só do matiz | `modules/nexo/lib/disciplina-cor.ts` |
 | **Escala de dado (sequencial)** | `--data-1` · `--data-2` · `--data-3` · `--data-4` · `--data-5` | rampa azul, do escuro ao claro | donut de consumo e gráficos futuros. Azul, **nunca** teal: teal significa interativo, e fatia de gráfico não se clica | `modules/nexo/lib/escala-de-dado.ts` |
+| **Prefeitura (identidade)** | `--prefeitura-florianopolis-1` · `--prefeitura-florianopolis-2` · `--prefeitura-florianopolis-3` · `--prefeitura-sao-jose-1` · `--prefeitura-sao-jose-2` · `--prefeitura-sao-jose-3` · `--prefeitura-criciuma-1` · `--prefeitura-criciuma-2` · `--prefeitura-criciuma-3` · `--prefeitura-chapeco-1` · `--prefeitura-chapeco-2` · `--prefeitura-chapeco-3` · `--prefeitura-urubici-1` · `--prefeitura-urubici-2` · `--prefeitura-urubici-3` · `--prefeitura-ausente-1` · `--prefeitura-ausente-2` · `--prefeitura-ausente-3` | cores das **bandeiras**, com preto e branco puros substituídos | a marca de três segmentos que diz de qual cidade é a obra. **Só aparece onde a cidade é uma pergunta em aberto** — nunca no palco (uma obra só), no admin (filtro por texto) nem na saudação (não há projeto ainda). Ordem fixa principal / secundária / apoio: entre telas muda o tamanho, nunca o arranjo. Sem prefeitura decidida, os três cinzas a 50% — a ausência tem marca, senão vira buraco | `modules/nexo/lib/marca-da-prefeitura.ts`, `MarcaDaPrefeitura` |
+
+Preto e branco puros **não entram** na marca de prefeitura, e não é preciosismo:
+`#111111` dá contraste 1,00 contra o fundo do cartão — o segmento não parece uma
+cor, parece um vão entre os outros dois —, e `#FFFFFF` fica mais claro que o
+texto mais forte da interface, o que poria o terceiro segmento acima do nome do
+projeto na hierarquia. O carvão sobe até ter contraste próprio, o branco desce um
+degrau, e os dois continuam lendo como "o preto do escudo" e "o branco da
+bandeira".
+
+O amarelo de Criciúma (`#fdd116`) é o único ponto do sistema em que identidade e
+status dividem o campo visual: ele encosta no âmbar de `--status-warning`, que é
+a cor do "análise rodando", no mesmo cartão e na cidade mais frequente da lista.
+A posição separa os dois — a marca está na aresta, o estado está no texto. Se
+incomodar na bancada, a saída **não** é trocar o amarelo: é o carvão vir primeiro
+e o amarelo segundo.
 
 São **oito cores de disciplina para vinte e três códigos** do léxico do
 escritório, e isso é de propósito: agrupar por família (tudo que é terra numa

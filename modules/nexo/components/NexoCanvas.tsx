@@ -297,6 +297,13 @@ function ArtifactNode({ data, selected }: NodeProps<Node<ArtifactNodeData>>) {
             (t) => t.id === String((data.params as { templateId?: unknown })?.templateId ?? ""),
           )?.layout ?? []
         }
+        /* O MESMO template que deu o layout dá o nome: dois `find` divergiriam
+           no dia em que um deles mudasse de critério. */
+        prefeitura={
+          (data.templates ?? []).find(
+            (t) => t.id === String((data.params as { templateId?: unknown })?.templateId ?? ""),
+          )?.nome ?? null
+        }
         /*
          * O que o CARIMBO diz, por marcador. Os campos de identidade chegam
          * vazios (vazio = "vale o selo"), e num desenho do documento isso se

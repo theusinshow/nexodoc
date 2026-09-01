@@ -252,6 +252,41 @@
   --discipline-ter: #c4a58f;
   --discipline-pai: #a3bd8a;
 
+  /* PREFEITURA — a marca de tres segmentos que diz de qual cidade e a obra, na
+     ordem principal / secundaria / apoio. Sao as cores das BANDEIRAS, e e o
+     ponto: identidade que o engenheiro ja associa a cidade vale mais que uma
+     escala inventada. Ver `marca-da-prefeitura.ts` e DESIGN.md secao 2.
+
+     PRETO E BRANCO PUROS SAIRAM. `#111111` da contraste 1,00 contra o fundo do
+     cartao — o segmento nao parece cor, parece um vao entre os outros dois. E
+     `#FFFFFF` fica mais claro que o texto mais forte da interface, o que poria
+     o terceiro segmento acima do nome do projeto na hierarquia. O carvao sobe
+     ate ter contraste proprio, o branco desce um degrau, e os dois continuam
+     lendo como "o preto do escudo" e "o branco da bandeira". */
+  --prefeitura-florianopolis-1: #20b6e7;
+  --prefeitura-florianopolis-2: #2c5e92;
+  --prefeitura-florianopolis-3: #dce3e7;
+  --prefeitura-sao-jose-1: #d62828;
+  --prefeitura-sao-jose-2: #3a3f44;
+  --prefeitura-sao-jose-3: #dce3e7;
+  --prefeitura-criciuma-1: #fdd116;
+  --prefeitura-criciuma-2: #33383d;
+  --prefeitura-criciuma-3: #dce3e7;
+  --prefeitura-chapeco-1: #17a649;
+  --prefeitura-chapeco-2: #dce3e7;
+  --prefeitura-chapeco-3: #7e8489;
+  --prefeitura-urubici-1: #4a87c6;
+  --prefeitura-urubici-2: #f2e639;
+  --prefeitura-urubici-3: #dce3e7;
+
+  /* A AUSENCIA TEM MARCA. Tres cinzas, servidos a 50% pela tela: sem forma, a
+     prefeitura desconhecida vira buraco na aresta do cartao — e na ficha do
+     drop o cinza no topo e o aviso, antes da conferencia linha a linha, de que
+     esta capa vai sair sem prefeitura decidida. */
+  --prefeitura-ausente-1: #4a5459;
+  --prefeitura-ausente-2: #3f484d;
+  --prefeitura-ausente-3: #343c40;
+
   /* DADO — escala SEQUENCIAL para donut e graficos. Azul, nunca teal: teal
      significa interativo, e barra de grafico nao se clica. */
   --data-1: #2f3a5c;

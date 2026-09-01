@@ -33,6 +33,7 @@ import {
   type AcaoDaPaleta,
 } from "../lib/paleta";
 import { useComposer } from "../state/composer-controller";
+import { MarcaDaPrefeitura } from "./MarcaDaPrefeitura";
 
 type Item =
   | { tipo: "acao"; acao: AcaoDaPaleta }
@@ -209,6 +210,31 @@ export function PaletaDeComandos({
                         : "hover:bg-[var(--accent)]/60",
                     )}
                   >
+                    {/*
+                      O BASTÃO SUBSTITUI UM RÓTULO QUE NÃO EXISTE.
+
+                      Hoje a única diferença entre um item de conversa e um de
+                      ação é o texto da direita — a pasta, ou o grupo da ação.
+                      Quem tem bastão é conversa; quem não tem é ação. A
+                      distinção passa a ser vista antes de lida.
+
+                      E resolve o caso frequente da busca por cidade: digitando
+                      "criciuma", a lista devolve conversas de três obras
+                      diferentes da mesma prefeitura. Sem a marca, três linhas
+                      de texto quase igual; com ela, três bastões idênticos
+                      confirmando que a busca acertou a cidade, e o código à
+                      direita separando as obras.
+
+                      A AÇÃO FICA COM O VÃO, e não sem nada: 3px reservados
+                      mantêm os rótulos das duas espécies na mesma vertical.
+                      Alinhamento quebrado por meia dúzia de pixels é o que faz
+                      uma lista parecer duas.
+                    */}
+                    {item.tipo === "conversa" ? (
+                      <MarcaDaPrefeitura prefeitura={item.pasta} forma="bastao" />
+                    ) : (
+                      <span className="w-[3px] shrink-0" aria-hidden />
+                    )}
                     <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
                       {rotulo}
                     </span>
