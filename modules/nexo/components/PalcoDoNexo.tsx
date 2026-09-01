@@ -227,6 +227,29 @@ export function PalcoDoNexo({
    * parecer —, e o de baixo se lia como filtro da lista, não como troca de vista.
    */
   const [vistaDoParecer, setVistaDoParecer] = useState<AuditView>("summary");
+
+  /*
+   * O LINK QUE PEDE UM ACHADO ABRE A ABA ACHADOS.
+   *
+   * `AuditResult` faz isso sozinho, mas só quando é DONO da vista
+   * (`if (achadoEmFoco && !controlado)`). Aqui ele é controlado — a barra de
+   * vistas mora neste componente —, então quem tem de trocar é este componente.
+   * Sem isto, o link do e-mail abria o parecer no Resumo e o achado pedido
+   * ficava a uma aba de distância, que é metade da promessa do link.
+   *
+   * DERIVADO NA RENDERIZAÇÃO comparando com o valor anterior, e não num effect:
+   * é o mesmo padrão de `audit-result.tsx:1224`, e o React Compiler barra
+   * `setState` chamado direto do corpo de um efeito.
+   *
+   * Uma vez por achado pedido. Sem a comparação, cada render devolveria a vista
+   * para Achados e a pessoa não conseguiria sair dela.
+   */
+  const [focoDoLink, setFocoDoLink] = useState<string | null>(null);
+
+  if (aberturaPorLink.achadoEmFoco !== focoDoLink) {
+    setFocoDoLink(aberturaPorLink.achadoEmFoco);
+    if (aberturaPorLink.achadoEmFoco) setVistaDoParecer("findings");
+  }
   /*
    * A CONTAGEM DA ABA CONTA O QUE A LISTA MOSTRA.
    *
@@ -294,7 +317,19 @@ export function PalcoDoNexo({
       />
     ) : null;
 
-  const parecer = parecerCom({ controlado: true });
+  /*
+   * O ACHADO PEDIDO PELO LINK vai para a vista INTEIRA — que é onde quem chega
+   * pelo e-mail cai. O AuditResult já sabe o resto: troca para a aba Achados,
+   * rola até o cartão e o faz piscar uma vez.
+   *
+   * A gaveta do canvas (linha abaixo) tem o próprio foco, vindo do clique num
+   * card. São duas origens diferentes para a mesma prop, e misturá-las faria um
+   * clique no canvas ser desfeito pelo parâmetro da URL a cada render.
+   */
+  const parecer = parecerCom({
+    controlado: true,
+    achadoEmFoco: aberturaPorLink.achadoEmFoco ?? undefined,
+  });
 
   return (
     <div className="relative flex h-full w-full flex-col">

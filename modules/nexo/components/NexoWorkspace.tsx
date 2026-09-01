@@ -1283,8 +1283,11 @@ function NexoWorkspaceInner({
    */
   const aberturaPorLink = useAbrirAuditoriaPorLink(
     typeof window === "undefined"
-      ? null
-      : new URLSearchParams(window.location.search).get("auditoria"),
+      ? { auditoria: null, achado: null }
+      : (() => {
+          const q = new URLSearchParams(window.location.search);
+          return { auditoria: q.get("auditoria"), achado: q.get("achado") };
+        })(),
   );
 
   /*

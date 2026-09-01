@@ -26,6 +26,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { lerLinkDoAchado } from "@/lib/link-do-achado";
+
 import { consultarAuditoria } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 
@@ -36,9 +38,20 @@ export type AberturaPorLink = {
   falha: string | null;
   /** O parecer está aqui e pode ser mostrado. */
   abriu: boolean;
+  /** O achado que o link pediu, ou nulo. */
+  achadoEmFoco: string | null;
 };
 
-export function useAbrirAuditoriaPorLink(auditId: string | null): AberturaPorLink {
+export function useAbrirAuditoriaPorLink(params: {
+  auditoria: string | null;
+  achado: string | null;
+}): AberturaPorLink {
+  /*
+   * OS DOIS PARÂMETROS, lidos pela MESMA regra que monta o link no e-mail
+   * ([[lib/link-do-achado.ts]]). Achado sem auditoria é descartado: focar um
+   * achado exige saber de qual parecer ele é.
+   */
+  const { auditId, findingId } = lerLinkDoAchado(params);
   const { getResult, saveResult } = useConversation();
 
   /*
@@ -134,5 +147,11 @@ export function useAbrirAuditoriaPorLink(auditId: string | null): AberturaPorLin
      * pessoa continuava olhando o "Boa noite".
      */
     abriu: jaEstaAberta || (desfecho?.id === auditId && desfecho.falha === null),
+    /*
+     * O ACHADO A FOCAR. Só faz sentido depois de o parecer abrir, e por isso
+     * acompanha `abriu` na mesma resposta — mandá-lo antes faria a tela procurar
+     * um cartão que ainda não existe.
+     */
+    achadoEmFoco: findingId,
   };
 }
