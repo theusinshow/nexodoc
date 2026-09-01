@@ -420,6 +420,16 @@ model AuditFile {
   pageCount          Int?
   extractedCharCount Int?
   sizeBytes          Int?
+  /// O ARQUIVO GUARDADO a que esta linha se refere — a chave de [[StoredFile]].
+  ///
+  /// Fica aqui, e não numa consulta ao `ProjectUpload` por
+  /// `metadata->>'auditId'`: `AuditFile` já É a lista dos arquivos desta
+  /// auditoria, e amarrar a busca a uma chave dentro de um JSON faria a tela
+  /// depender de um formato que nada garante.
+  ///
+  /// Nulo nas auditorias anteriores a este trabalho — os bytes delas não foram
+  /// guardados, e a tela diz isso em vez de esconder o botão.
+  checksumSha256     String?
   createdAt          DateTime @default(now())
   audit              Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
@@ -819,4 +829,39 @@ model AuditFindingWatcher {
 
   @@unique([feedbackId, email])
   @@index([email, notifiedAt])
+}
+
+/// O ARQUIVO, de verdade — os bytes.
+///
+/// `lib/file-storage.ts` existia desde sempre e NUNCA gravou nada: 64 linhas que
+/// calculam chave, checksum e URL, e devolvem `storageProvider: "none"`. Os
+/// bytes do memorial chegavam ao servidor (`audit-persistence` passa
+/// `file.buffer`) e eram descartados. Resultado: quem recebia um achado por
+/// e-mail não tinha como conferi-lo no documento — e uma auditoria que não se
+/// pode conferir é uma afirmação.
+///
+/// POSTGRES, E NÃO S3. Decidido em 01/09/2026 sabendo do custo: sem vendor novo,
+/// sem credencial nova, no mesmo backup do resto. `file-storage.ts` continua
+/// sendo a costura, então trocar de provedor depois não é reescrever.
+///
+/// SÓ O MEMORIAL AUDITADO. Pranchas e volumes ficam de fora, e é o que segura o
+/// custo: memorial real tem 1,6 a 5,2 MB; um volume passa de 20 MB com 88% de
+/// JPEG.
+model StoredFile {
+  /// A CHAVE É O CONTEÚDO. Reauditar o mesmo memorial não grava de novo, e
+  /// `ProjectUpload.checksumSha256` já é calculado e já aponta para cá.
+  ///
+  /// Cinco revisões assinadas do mesmo memorial são cinco arquivos DIFERENTES e
+  /// ocupam cinco vagas — é o comportamento certo: o parecer de cada uma cita as
+  /// páginas da sua.
+  checksumSha256 String   @id
+  /// O escopo de quem pode ler, na mesma régua de [[lib/audit-access.ts]].
+  organizationId String
+  mimeType       String
+  sizeBytes      Int
+  bytes          Bytes
+  createdAt      DateTime @default(now())
+
+  /// Sustenta a regra de expurgo no dia em que ela existir. Não há nenhuma hoje.
+  @@index([organizationId, createdAt])
 }
