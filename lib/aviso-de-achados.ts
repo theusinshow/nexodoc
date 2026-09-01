@@ -19,6 +19,7 @@
  * cada uma com o motivo dela.
  */
 import { getPrisma } from "@/lib/db";
+import { linkDoAchado } from "@/lib/link-do-achado";
 import { quemAvisar, type AchadoParaAvisar } from "@/lib/quem-avisar";
 import {
   correioConfigurado,
@@ -61,6 +62,13 @@ export type PessoaAAvisar = {
   /** Nunca entrou no sistema. Para esta pessoa o e-mail é a ÚNICA forma de
    *  saber que existe trabalho — a tela marca, e a mensagem muda. */
   convidado: boolean;
+  /**
+   * O achado a abrir quando a pessoa tem UM só.
+   *
+   * Com dois ou mais o link leva ao parecer: escolher um deles por ela
+   * esconderia os outros, e o assunto do e-mail já diz quantos são.
+   */
+  achadoUnico?: string | null;
 };
 
 export type ResultadoDoAviso = {
@@ -132,6 +140,7 @@ async function pessoasPendentes(
   const linhas = await getPrisma().auditFeedback.findMany({
     where: { auditId },
     select: {
+      findingId: true,
       assigneeEmail: true,
       notifiedAt: true,
       resolvedAt: true,
@@ -159,7 +168,33 @@ async function pessoasPendentes(
     ],
   }));
 
-  return await comNomes(quemAvisar(achados), organizationId);
+  /*
+   * O ÚNICO ACHADO de quem só tem um. É o que transforma "1 achado espera por
+   * você" num link que abre exatamente ele, em vez de um parecer com quarenta.
+   */
+  const achadosPorPessoa = new Map<string, string[]>();
+
+  for (const l of linhas) {
+    if (l.resolvedAt || !l.findingId) continue;
+    const pendentes = [
+      ...(l.assigneeEmail && !l.notifiedAt ? [l.assigneeEmail] : []),
+      ...l.envolvidos.filter((e) => !e.notifiedAt).map((e) => e.email),
+    ];
+    for (const email of pendentes) {
+      const dela = achadosPorPessoa.get(email) ?? [];
+      // Responsável E envolvido do mesmo achado não conta duas vezes — a mesma
+      // razão do conjunto em `quemAvisar`.
+      if (!dela.includes(l.findingId)) dela.push(l.findingId);
+      achadosPorPessoa.set(email, dela);
+    }
+  }
+
+  const pessoas = await comNomes(quemAvisar(achados), organizationId);
+
+  return pessoas.map((pessoa) => {
+    const dela = achadosPorPessoa.get(pessoa.email) ?? [];
+    return { ...pessoa, achadoUnico: dela.length === 1 ? dela[0] : null };
+  });
 }
 
 /**
@@ -272,7 +307,15 @@ const TINTA = {
  */
 export function corpoDoAviso(pessoa: PessoaAAvisar, contexto: Contexto) {
   const base = enderecoPublico();
-  const link = `${base}/nexo?auditoria=${encodeURIComponent(contexto.auditId)}`;
+  /*
+   * O LINK VAI ATÉ O ACHADO quando há um só. Antes ele entregava o parecer
+   * inteiro e a pessoa tinha que caçar, entre quarenta, o que era dela.
+   */
+  const link = linkDoAchado({
+    base,
+    auditId: contexto.auditId,
+    findingId: pessoa.quantidade === 1 ? pessoa.achadoUnico : null,
+  });
   const orbe = `${base}/marca/orbe-faixa-256.png`;
   const quantos = pessoa.quantidade === 1 ? "1 achado" : `${pessoa.quantidade} achados`;
   const verbo = pessoa.quantidade === 1 ? "espera" : "esperam";

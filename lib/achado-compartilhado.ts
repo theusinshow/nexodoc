@@ -144,6 +144,31 @@ export async function comentar(args: {
     body: corpo,
   });
 
+  /*
+   * A RESPOSTA REACENDE O AVISO — para os OUTROS, e não para quem escreveu.
+   *
+   * E-mail automático a cada resposta foi recusado de propósito: o aviso é ato
+   * único, e uma conversa de seis mensagens viraria seis e-mails em que o sexto
+   * diz menos que o primeiro. Zerar `notifiedAt` faz a novidade aparecer no
+   * botão "Avisar" que já existe — a mensagem continua saindo quando gente
+   * decide que sai.
+   *
+   * Quem escreveu fica de fora: ninguém precisa ser avisado do que acabou de
+   * dizer. E achado já resolvido também: reacender ali mandaria alguém olhar
+   * trabalho que já foi fechado.
+   */
+  const autor = args.autor.email.trim().toLowerCase();
+
+  await getPrisma().auditFeedback.updateMany({
+    where: { id: linha.id, resolvedAt: null, assigneeEmail: { not: autor } },
+    data: { notifiedAt: null },
+  });
+
+  await getPrisma().auditFindingWatcher.updateMany({
+    where: { feedbackId: linha.id, email: { not: autor } },
+    data: { notifiedAt: null },
+  });
+
   return linha;
 }
 
