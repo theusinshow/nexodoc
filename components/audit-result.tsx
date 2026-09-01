@@ -3627,17 +3627,6 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                           >
                             {({ close }) => (
                               <>
-                                {finding.pdfUrl ? (
-                                  <DropdownItem
-                                    onClick={() => {
-                                      openInlinePdf(finding);
-                                      close();
-                                    }}
-                                  >
-                                    <ExternalLink className="size-4" />
-                                    Abrir PDF
-                                  </DropdownItem>
-                                ) : null}
                                 {finding.termoBusca ? (
                                   <DropdownItem
                                     onClick={() => {
@@ -4826,7 +4815,11 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                                 onClick={() => openInlinePdf(finding)}
                                 className="ml-auto text-xs text-primary outline-none hover:underline focus-visible:underline"
                               >
-                                Abrir PDF
+                                {/* O MESMO rótulo do botão colado à evidência
+                                    (ver o comentário dele). Dois nomes para o
+                                    mesmo gesto é como um produto passa a ter
+                                    duas portas para o mesmo lugar. */}
+                                Ver no documento
                               </button>
                             ) : null}
                           </div>
