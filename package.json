@@ -23,6 +23,7 @@
     "test:resolucao": "node scripts/test-resolucao-de-projeto.ts",
     "test:cliente": "node scripts/test-cliente-do-projeto.ts",
     "test:desfecho": "node scripts/test-desfecho-do-achado.ts",
+    "test:conversa-achado": "node scripts/test-conversa-do-achado.ts",
     "prova:rotas": "node scripts/prova-nenhuma-rota-aberta.mjs",
     "prova:escritorio": "node scripts/prova-escritorio.mjs",
     "prova:alcada": "node scripts/prova-alcada.mjs",
