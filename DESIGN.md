@@ -279,6 +279,15 @@ projeto na hierarquia. O carvão sobe até ter contraste próprio, o branco desc
 degrau, e os dois continuam lendo como "o preto do escudo" e "o branco da
 bandeira".
 
+**Três campos, e está decidido (01/09/2026).** O doc `Nexo - Cores das
+prefeituras` recomendava cortar para **dois**, tirando o apoio claro — quatro das
+cinco bandeiras terminam no mesmo `#dce3e7`, e o campo que aparece em todas é
+justamente o que não distingue nenhuma. O `Mapa da marca`, mais novo, manteve os
+três, e é o que está no produto: quem separa é o **par da frente**, e o terceiro
+campo é textura. Quem reabrir isto mexe numa tabela só, em
+`marca-da-prefeitura.ts` mais os tokens acima — mas reabra com a tela na frente,
+não pelo argumento.
+
 O amarelo de Criciúma (`#fdd116`) é o único ponto do sistema em que identidade e
 status dividem o campo visual: ele encosta no âmbar de `--status-warning`, que é
 a cor do "análise rodando", no mesmo cartão e na cidade mais frequente da lista.

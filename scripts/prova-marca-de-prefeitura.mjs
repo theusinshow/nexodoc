@@ -274,31 +274,41 @@ check("a paleta abriu", await paleta.isVisible().catch(() => false));
 
 if (await paleta.isVisible().catch(() => false)) {
   /*
-   * A BUSCA É UMA LETRA, e não o nome de uma cidade.
+   * A BUSCA POR CIDADE — o caso que a seção 04 do mapa foi escrita para
+   * melhorar, e que estava QUEBRADO até 01/09/2026.
    *
-   * O caso que o desenho descreve — digitar "criciuma" e receber conversas de
-   * três obras da mesma prefeitura — depende de a conversa ter `folderKey`, que
-   * é por onde `groupConversations` procura. Numa base de desenvolvimento sem
-   * backfill, as conversas apontam para `projectId` e o `folderKey` está vazio:
-   * "criciuma" devolve zero, e a prova reprovaria a marca por um buraco de
-   * dado que não é dela. Uma letra devolve a lista misturada, que é o que esta
-   * prova precisa: conversa E ação, lado a lado.
+   * A barra achava os projetos por "criciuma" (ela filtra por código e cliente)
+   * e a paleta não achava NADA: ela buscava por `groupConversations`, que só
+   * olhava título e `folderKey` — vazio nas conversas que já têm `projectId`.
+   * Duas buscas, o mesmo texto, respostas diferentes. Agora as duas chamam
+   * `filtrarCartoes` sobre os mesmos cartões.
    */
-  await pagina.keyboard.type("a");
+  await pagina.keyboard.type("criciuma");
   const bastao = paleta.locator('[data-marca-de-prefeitura="bastao"]').first();
   await bastao.waitFor({ state: "attached", timeout: 8_000 }).catch(() => {});
-  check("as conversas da paleta trazem bastão", (await bastao.count()) > 0);
+  check(
+    "buscar a CIDADE na paleta acha conversa — não mais zero",
+    (await bastao.count()) > 0,
+  );
 
   if ((await bastao.count()) > 0) {
     const b = await bastao.evaluate((el) => {
       const seg = el.children[0].getBoundingClientRect();
       const ultimo = el.children[2].getBoundingClientRect();
+      const linha = el.closest("[data-item-da-paleta]");
       return {
         cor: getComputedStyle(el.children[0]).backgroundColor,
         largura: seg.width,
         altura: seg.height,
         alturaTotal: ultimo.bottom - seg.y,
         direcao: getComputedStyle(el).flexDirection,
+        opacidade: getComputedStyle(el).opacity,
+        // O último SPAN, e não o último filho: no item sob o cursor o último
+        // filho é o `CornerDownLeft`, e um svg não tem texto.
+        pasta: (() => {
+          const spans = linha ? [...linha.querySelectorAll("span")] : [];
+          return spans.length ? (spans[spans.length - 1].textContent ?? "").trim() : "";
+        })(),
       };
     });
     check(
@@ -309,18 +319,46 @@ if (await paleta.isVisible().catch(() => false)) {
         Math.abs(b.alturaTotal - 14) < 1.2,
       JSON.stringify(b),
     );
+    /*
+     * E ELE É AMARELO, não cinza. Era o segundo defeito do mesmo buraco: a cor
+     * vinha da `pasta` (o `folderKey` vazio), então o bastão nascia cinza mesmo
+     * com o projeto resolvido. Agora vem do `cliente` do cartão.
+     */
     check(
-      "a cor resolveu — nenhum var() vazio no bastão",
-      b.cor !== "rgba(0, 0, 0, 0)" && b.cor !== "transparent",
-      b.cor,
+      "e traz a COR DE CRICIÚMA — não o cinza de ausência",
+      b.cor === "rgb(253, 209, 22)" && b.opacidade === "1",
+      JSON.stringify({ cor: b.cor, opacidade: b.opacidade }),
+    );
+    check(
+      "o texto da direita é a pasta, e não um cuid de banco",
+      /CRICIUMA/i.test(b.pasta) && !/^c[a-z0-9]{20,}$/i.test(b.pasta),
+      `direita: ${b.pasta}`,
     );
   }
+
+  /*
+   * A FOTO SAI AQUI, com a busca por cidade na tela — é o estado que estava
+   * quebrado, e a prova é a única que o encena: fora dela este banco não tem
+   * NENHUMA conversa com projeto, e "criciuma" devolveria "nada com esse nome"
+   * com toda a razão.
+   */
+  await pagina.screenshot({ path: "prova-paleta-cidade.png" });
 
   /*
    * QUEM TEM BASTÃO É CONVERSA, QUEM NÃO TEM É AÇÃO — e é a distinção inteira
    * que o desenho comprou. Se a ação ganhasse bastão, o sinal deixaria de
    * separar as duas espécies e viraria enfeite.
+   *
+   * A BUSCA MUDA AQUI, e de propósito: "criciuma" devolve só conversas (nenhuma
+   * ação se chama assim), e a lista misturada é justamente o que esta checagem
+   * precisa ver. Uma letra devolve as duas.
    */
+  for (let i = 0; i < "criciuma".length; i += 1) {
+    await pagina.keyboard.press("Backspace");
+  }
+  await pagina.keyboard.type("a");
+  await pagina.waitForTimeout(300);
+
   const especies = await paleta.evaluate(() => {
     const linhas = [...document.querySelectorAll("[data-item-da-paleta]")];
     let comBastao = 0;

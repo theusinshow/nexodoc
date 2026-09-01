@@ -10,7 +10,6 @@ import {
   derivarTipoDeTrabalho,
   tipoDoResumo,
 } from "../modules/nexo/lib/tipo-de-trabalho.ts";
-import { contarPorTipo, groupConversations } from "../modules/nexo/lib/group-conversations.ts";
 import type { ConversationSummary, TipoDeTrabalho } from "../modules/nexo/lib/nexo-db.ts";
 
 let passed = 0;
@@ -82,58 +81,15 @@ test("registro antigo sem o campo é lido como volume", () => {
 
 // -------------------------------------------------- recorte e contagem
 
-let t = 0;
-const conv = (
-  title: string,
-  tipo?: TipoDeTrabalho,
-  folderKey?: string,
-): ConversationSummary => ({
-  id: `id-${t++}`,
-  title,
-  updatedAt: 0,
-  createdAt: 0,
-  folderKey,
-  tipo,
-});
-
-const lista = [
-  conv("Escola Cruzeiro", "volume", "013-26"),
-  conv("Escola — memorial", "auditoria", "013-26"),
-  conv("Praça", "volume", "040-26"),
-  conv("Conversa antiga sem tipo", undefined, "040-26"),
-];
-
-test("o recorte por tipo devolve as pastas já dentro da seção", () => {
-  const g = groupConversations(lista, "", "auditoria");
-  assert.equal(g.length, 1);
-  assert.equal(g[0].key, "013-26");
-  assert.equal(g[0].items.length, 1);
-  assert.equal(g[0].items[0].title, "Escola — memorial");
-});
-
-test("conversa antiga (sem tipo) cai na seção de montagem", () => {
-  const g = groupConversations(lista, "", "volume");
-  const titulos = g.flatMap((x) => x.items.map((i) => i.title));
-  assert.ok(titulos.includes("Conversa antiga sem tipo"));
-  assert.equal(titulos.length, 3);
-});
-
-test("sem recorte, agrupa tudo (comportamento da v1)", () => {
-  const g = groupConversations(lista, "");
-  assert.deepEqual(g.map((x) => x.key), ["013-26", "040-26"]);
-  assert.equal(g[0].items.length + g[1].items.length, 4);
-});
-
-test("filtro e busca se aplicam JUNTOS", () => {
-  const g = groupConversations(lista, "escola", "volume");
-  assert.equal(g.length, 1);
-  assert.equal(g[0].items.length, 1);
-  assert.equal(g[0].items[0].title, "Escola Cruzeiro");
-});
-
-test("as contagens são do total e ignoram busca e recorte", () => {
-  assert.deepEqual(contarPorTipo(lista), { tudo: 4, volume: 3, auditoria: 1 });
-});
+/*
+ * O AGRUPAMENTO SAIU DAQUI em 01/09/2026, junto com `group-conversations.ts`.
+ *
+ * Aquele módulo era a barra v2 por abas, que morreu: a barra agrupa por CARTÃO
+ * DE PROJETO (`cartoes-de-projeto.ts`) e a paleta, último consumidor, passou a
+ * ler os mesmos cartões. As cinco checagens de recorte/busca/contagem foram com
+ * ele — o que sobrou aqui é o que continua vivo: derivar o tipo e lê-lo do
+ * resumo do servidor.
+ */
 
 // --- a lista do servidor precisa saber tipar (12/08/2026) --------------------
 // A coluna `tipo` entrou no NexoConversation porque a listagem lê só as colunas
@@ -149,15 +105,21 @@ test("resumo do servidor COM tipo é respeitado", () => {
   assert.equal(tipoDoResumo({ tipo: "auditoria" }), "auditoria");
 });
 
-test("conversa só do servidor, tipada, conta como auditoria", () => {
-  // É o caso que a coluna conserta: sem disco local para corrigir o tipo.
+test("conversa só do servidor, tipada, é lida pelo tipo da coluna", () => {
+  /*
+   * É o caso que a coluna conserta: sem disco local para corrigir o tipo.
+   *
+   * A checagem era por `contarPorTipo`, que morreu com a barra v2. O FATO que
+   * ela guardava continua valendo, e é este: o que decide o tipo de uma conversa
+   * que só existe no servidor é a coluna, não o título nem o conteúdo.
+   */
   const soDoServidor: ConversationSummary[] = [
     { id: "a", title: "Memorial 063-26", updatedAt: 3, createdAt: 1, tipo: "auditoria" },
     { id: "b", title: "Volume 040-26", updatedAt: 2, createdAt: 1, tipo: "volume" },
     { id: "c", title: "Conversa antiga sem tipo", updatedAt: 1, createdAt: 1 },
   ];
 
-  assert.deepEqual(contarPorTipo(soDoServidor), { tudo: 3, volume: 2, auditoria: 1 });
+  assert.deepEqual(soDoServidor.map(tipoDoResumo), ["auditoria", "volume", "volume"]);
 });
 
 console.log(`\n${passed} testes ok`);

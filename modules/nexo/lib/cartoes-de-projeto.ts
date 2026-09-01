@@ -239,3 +239,50 @@ export function cartoesDeProjeto(
 
   return [...enderecados, ...aEnderecar];
 }
+
+/** Sem acento e em minúsculas — a busca não pode exigir o "ú" de CRICIÚMA. */
+function paraBusca(v: string): string {
+  return v
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * A BUSCA DA BARRA, e agora também a da paleta — uma regra só.
+ *
+ * Ela morava dentro de `ListaDeProjetos`, e a paleta buscava por outro caminho
+ * (`groupConversations`, que só olhava o título e o `folderKey`). O resultado
+ * era o defeito que o comentário no topo da paleta existia para impedir: dois
+ * caminhos achando coisas diferentes com o mesmo texto, e ninguém sabendo qual
+ * dos dois está certo.
+ *
+ * Concretamente: digitar "criciuma" na barra achava os projetos; na paleta,
+ * NADA — porque `folderKey` está vazio nas conversas que já têm `projectId`,
+ * e o código e o cliente só existem no cartão. A busca por cidade é a mais
+ * frequente do produto, e era a que a paleta não fazia.
+ *
+ * CASA NO CARTÃO **OU** DENTRO DELE. Quem digita "criciuma" quer o projeto;
+ * quem digita "memorial" quer a conversa. Quando casa por dentro, o cartão volta
+ * só com as conversas que casaram — o resto seria ruído com o nome certo.
+ *
+ * PURO → `npm run test:nexo:cartoes`.
+ */
+export function filtrarCartoes(
+  cartoes: readonly CartaoDeProjeto[],
+  query: string,
+): CartaoDeProjeto[] {
+  const q = paraBusca(query.trim());
+  if (!q) return [...cartoes];
+
+  const achados: CartaoDeProjeto[] = [];
+  for (const c of cartoes) {
+    if (paraBusca(`${c.chave} ${c.codigo} ${c.cliente}`).includes(q)) {
+      achados.push(c);
+      continue;
+    }
+    const dentro = c.conversas.filter((x) => paraBusca(x.titulo).includes(q));
+    if (dentro.length > 0) achados.push({ ...c, conversas: dentro });
+  }
+  return achados;
+}

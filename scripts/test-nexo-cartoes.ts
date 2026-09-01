@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import {
   cartoesDeProjeto,
   ehDocumentoFinal,
+  filtrarCartoes,
   TETO_DE_CONVERSAS,
   type ConversaResumida,
 } from "../modules/nexo/lib/cartoes-de-projeto.ts";
@@ -209,6 +210,71 @@ test("o projeto vence a pasta quando os dois existem", () => {
   ]);
   assert.equal(r[0].chave, "p9");
   assert.equal(r[0].cliente, "Criciúma", "o texto do cadastro, não o da pasta");
+});
+
+// ------------------------------------------------------- a busca, uma só
+
+/** A lista que a barra e a paleta veem — dois projetos de cidades diferentes e um sem. */
+const ACERVO = cartoesDeProjeto([
+  c("v1", null, 300, ["volume"], {
+    projectId: "p1",
+    projectCode: "084-25",
+    projectClient: "CRICIUMA",
+  }),
+  c("v2", null, 200, ["capa"], {
+    projectId: "p2",
+    projectCode: "999-26",
+    projectClient: "FLORIANOPOLIS",
+  }),
+  c("v3", null, 100, [], {}),
+]);
+
+test("BUSCA POR CIDADE — o caso que a paleta não fazia", () => {
+  /*
+   * O defeito, em uma linha: a paleta buscava por `folderKey`, que está vazio
+   * nas conversas que já têm `projectId`. "criciuma" achava projetos na barra e
+   * ZERO na paleta — e é a busca mais frequente do produto. As duas telas
+   * chamam esta função agora.
+   */
+  const r = filtrarCartoes(ACERVO, "criciuma");
+  assert.equal(r.length, 1);
+  assert.equal(r[0].codigo, "084-25");
+});
+
+test("a busca não exige o acento de CRICIÚMA", () => {
+  assert.equal(filtrarCartoes(ACERVO, "CRICIÚMA").length, 1);
+  assert.equal(filtrarCartoes(ACERVO, "criciuma").length, 1);
+});
+
+test("busca pelo código também acha", () => {
+  assert.equal(filtrarCartoes(ACERVO, "999").length, 1);
+  assert.equal(filtrarCartoes(ACERVO, "999")[0].cliente, "FLORIANOPOLIS");
+});
+
+test("casar POR DENTRO devolve o cartão só com as conversas que casaram", () => {
+  /*
+   * Quem digita "criciuma" quer o projeto; quem digita "memorial" quer a
+   * conversa. Devolver o cartão inteiro no segundo caso seria ruído com o nome
+   * certo.
+   */
+  const doProjeto = { projectId: "p1", projectCode: "084-25", projectClient: "CRICIUMA" };
+  const comDuas = cartoesDeProjeto([
+    { ...c("a", null, 300, ["volume"], doProjeto), title: "MET" },
+    { ...c("b", null, 200, ["auditoria"], doProjeto), title: "Memorial" },
+  ]);
+  const r = filtrarCartoes(comDuas, "memorial");
+  assert.equal(r.length, 1);
+  assert.equal(r[0].conversas.length, 1, "só a que casou");
+});
+
+test("busca vazia devolve tudo, e nunca a mesma referência de lista", () => {
+  const r = filtrarCartoes(ACERVO, "   ");
+  assert.equal(r.length, ACERVO.length);
+  assert.notEqual(r, ACERVO, "cópia: quem filtra não pode mexer no acervo");
+});
+
+test("texto que não casa devolve lista vazia, não a lista inteira", () => {
+  assert.deepEqual(filtrarCartoes(ACERVO, "zzz"), []);
 });
 
 console.log(`\n${passed} teste(s) ok`);

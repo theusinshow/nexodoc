@@ -6,9 +6,15 @@
  *
  * Ela junta as duas coisas que a pessoa procura: a CONVERSA (por obra ou
  * código) e a AÇÃO (começar um trabalho, ir para uma tela). As conversas saem
- * de `groupConversations`, o mesmo filtro da barra lateral — uma segunda busca
- * acharia coisas diferentes com o mesmo texto, e ninguém saberia qual das duas
- * está certa.
+ * dos MESMOS CARTÕES da barra lateral — uma segunda busca acharia coisas
+ * diferentes com o mesmo texto, e ninguém saberia qual das duas está certa.
+ *
+ * Essa promessa esteve QUEBRADA. A barra passou a montar cartões (que trazem
+ * código e cliente, vindos do `Project`) e a paleta ficou em
+ * `groupConversations`, que só olhava o título e o `folderKey` — vazio nas
+ * conversas que já têm `projectId`. O sintoma era exato: "criciuma" achava os
+ * projetos na barra e NADA na paleta, que é a busca mais frequente do produto.
+ * Agora as duas chamam `useCartoesDeProjeto` e `filtrarCartoes`.
  *
  * ELA VIVE NO NEXO, e não no aplicativo inteiro. A proposta pede "de qualquer
  * tela"; as conversas e o composer moram aqui, e uma paleta global precisaria do
@@ -24,8 +30,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { groupConversations } from "../lib/group-conversations";
+import { filtrarCartoes } from "../lib/cartoes-de-projeto";
 import type { ConversationSummary } from "../lib/nexo-db";
+import { pastaDoProjeto } from "../lib/pasta-do-projeto";
+import { useCartoesDeProjeto } from "../state/use-cartoes-de-projeto";
 import {
   ACOES_DA_PALETA,
   ACOES_DE_ADMIN,
@@ -37,7 +45,15 @@ import { MarcaDaPrefeitura } from "./MarcaDaPrefeitura";
 
 type Item =
   | { tipo: "acao"; acao: AcaoDaPaleta }
-  | { tipo: "conversa"; id: string; titulo: string; pasta: string | null };
+  | {
+      tipo: "conversa";
+      id: string;
+      titulo: string;
+      /** "063-26-CRICIUMA", ou `null` na conversa ainda sem projeto. */
+      pasta: string | null;
+      /** De onde o BASTÃO tira a cor. Vazio = cinza. */
+      cliente: string;
+    };
 
 export function PaletaDeComandos({
   conversas,
@@ -85,6 +101,8 @@ export function PaletaDeComandos({
     if (aberta) requestAnimationFrame(() => campo.current?.focus());
   }, [aberta]);
 
+  const cartoes = useCartoesDeProjeto(conversas);
+
   const itens = useMemo<Item[]>(() => {
     const acoes = filtrarAcoes(query, [
       ...ACOES_DA_PALETA,
@@ -99,18 +117,25 @@ export function PaletaDeComandos({
     const achadas =
       query.trim() === ""
         ? []
-        : groupConversations(conversas, query)
-            .flatMap((g) => g.items.map((c) => ({ grupo: g.key, c })))
-            .slice(0, 8)
-            .map(({ grupo, c }) => ({
-              tipo: "conversa" as const,
-              id: c.id,
-              titulo: c.title,
-              pasta: grupo,
-            }));
+        : filtrarCartoes(cartoes, query)
+            .flatMap((cartao) =>
+              cartao.conversas.map((c) => ({
+                tipo: "conversa" as const,
+                id: c.id,
+                titulo: c.titulo,
+                /*
+                 * O NOME DA PASTA, remontado pela mesma regra que a barra usa —
+                 * e não o `chave` do cartão, que hoje é o `projectId` e é um
+                 * cuid: mostrá-lo poria um identificador de banco na tela.
+                 */
+                pasta: pastaDoProjeto(cartao.codigo, cartao.cliente) || null,
+                cliente: cartao.cliente,
+              })),
+            )
+            .slice(0, 8);
 
     return [...acoes, ...achadas];
-  }, [conversas, isAdmin, query]);
+  }, [cartoes, isAdmin, query]);
 
   const escolher = useCallback(
     (item: Item | undefined) => {
@@ -231,7 +256,7 @@ export function PaletaDeComandos({
                       uma lista parecer duas.
                     */}
                     {item.tipo === "conversa" ? (
-                      <MarcaDaPrefeitura prefeitura={item.pasta} forma="bastao" />
+                      <MarcaDaPrefeitura prefeitura={item.cliente} forma="bastao" />
                     ) : (
                       <span className="w-[3px] shrink-0" aria-hidden />
                     )}

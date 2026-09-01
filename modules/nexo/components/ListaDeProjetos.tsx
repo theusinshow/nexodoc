@@ -18,26 +18,18 @@
  * segunda chamada seria pior que uma barra incompleta.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CopyPlus, Eraser, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
-  cartoesDeProjeto,
+  filtrarCartoes,
   type CartaoDeProjeto as Cartao,
-  type ConversaResumida,
 } from "../lib/cartoes-de-projeto";
+import { useCartoesDeProjeto } from "../state/use-cartoes-de-projeto";
 import type { ConversationSummary } from "../lib/nexo-db";
 import { CartaoDeProjeto } from "./CartaoDeProjeto";
 import { LimpezaDaPasta } from "./LimpezaDaPasta";
-
-/** Sem acento e em minúsculas — a busca não pode exigir o "ú" de CRICIÚMA. */
-function chave(v: string): string {
-  return v
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
 
 export function ListaDeProjetos({
   conversations,
@@ -54,73 +46,17 @@ export function ListaDeProjetos({
   onDeleteFolder?: (ids: string[]) => void;
   onDuplicate?: (id: string) => void;
 }) {
-  const [resumo, setResumo] = useState<ConversaResumida[] | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [limpando, setLimpando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
 
-  useEffect(() => {
-    let vivo = true;
-    fetch("/api/nexo/conversas/resumo")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((p: { conversas?: ConversaResumida[] }) => {
-        if (vivo) setResumo(p.conversas ?? []);
-      })
-      .catch(() => {
-        // Best-effort: a lista continua com o que as sete colunas dão.
-        if (vivo) setResumo([]);
-      });
-    return () => {
-      vivo = false;
-    };
-  }, []);
-
   /*
-   * O RESUMO É ENXERTADO NA LISTA, e a lista é que manda em quais conversas
-   * existem. Ela vem do store (disco + servidor fundidos) e reflete o que foi
-   * apagado agora; o resumo é uma foto do servidor de segundos atrás. Deixar o
-   * resumo mandar faria uma conversa apagada reaparecer até o próximo F5.
+   * A MONTAGEM SAIU DAQUI, e é o ponto da mudança: barra e paleta liam listas
+   * diferentes com o mesmo texto. Ver [[use-cartoes-de-projeto.tsx]].
    */
-  const cartoes = useMemo(() => {
-    const porId = new Map((resumo ?? []).map((r) => [r.id, r]));
-    const cruas: ConversaResumida[] = conversations.map((c) => {
-      const r = porId.get(c.id);
-      return {
-        id: c.id,
-        title: c.title,
-        folderKey: c.folderKey ?? null,
-        /*
-         * O VÍNCULO vem da lista local primeiro: ela reflete o que acabou de ser
-         * endereçado nesta máquina, e o resumo é uma foto do servidor de
-         * segundos atrás. O código e o cliente só o resumo tem — são do
-         * `Project`, e a lista local nunca os viu.
-         */
-        projectId: c.projectId ?? r?.projectId ?? null,
-        projectCode: r?.projectCode ?? "",
-        projectClient: r?.projectClient ?? "",
-        tipo: c.tipo ?? null,
-        updatedAt: c.updatedAt,
-        auditoriaPendente: c.temAuditoriaPendente,
-        folhas: r?.folhas ?? 0,
-        kinds: r?.kinds ?? [],
-      };
-    });
-    return cartoesDeProjeto(cruas);
-  }, [conversations, resumo]);
+  const cartoes = useCartoesDeProjeto(conversations);
 
-  const filtrados = useMemo(() => {
-    const q = chave(query.trim());
-    if (!q) return cartoes;
-    return cartoes
-      .map((c) => {
-        const noNome = chave(`${c.chave} ${c.codigo} ${c.cliente}`).includes(q);
-        if (noNome) return c;
-        // Busca também DENTRO do projeto: quem digita "memorial" quer a conversa.
-        const dentro = c.conversas.filter((x) => chave(x.titulo).includes(q));
-        return dentro.length > 0 ? { ...c, conversas: dentro } : null;
-      })
-      .filter((c): c is Cartao => c !== null);
-  }, [cartoes, query]);
+  const filtrados = useMemo(() => filtrarCartoes(cartoes, query), [cartoes, query]);
 
   /*
    * O CARTÃO DA CONVERSA ABERTA nasce aberto. É a regra "fechar não perde o
