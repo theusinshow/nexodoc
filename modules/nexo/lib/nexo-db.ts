@@ -90,6 +90,17 @@ export interface StoredConversation {
   /** Chave da pasta = código da obra (dos selos). Agrupa na sidebar. */
   folderKey?: string;
   /**
+   * O `Project` do Postgres a que esta conversa pertence.
+   *
+   * `folderKey` era a identidade e virou cache de exibição: ele é uma string
+   * derivada, e a barra lateral agrupava por ela enquanto a home agrupava por
+   * chave estrangeira. Ausente = conversa "a endereçar", que é estado legítimo.
+   *
+   * Opcional, como `ajustes`: registro gravado antes deste campo não tem, e a
+   * leitura cai em nulo. Sem migração de `DB_VERSION` — o registro é schemaless.
+   */
+  projectId?: string;
+  /**
    * Montagem de volume ou auditoria de memorial — a SEÇÃO da sidebar.
    *
    * Opcional, como `ajustes`: conversas gravadas antes deste campo não têm, e
@@ -230,6 +241,12 @@ export interface ConversationSummary {
   createdAt: number;
   folderKey?: string;
   /**
+   * O ENDEREÇO da conversa. Entra no resumo pelo mesmo motivo de `tipo`: a barra
+   * se desenha só com ele, e abrir cada conversa para descobrir de que projeto
+   * ela é derrotaria o propósito do resumo leve.
+   */
+  projectId?: string;
+  /**
    * A seção da sidebar. Entra no resumo porque a lista se desenha só com ele —
    * abrir cada conversa para descobrir de que tipo ela é derrotaria o propósito
    * do resumo leve.
@@ -321,6 +338,7 @@ export async function listConversations(): Promise<ConversationSummary[]> {
       updatedAt: c.updatedAt,
       createdAt: c.createdAt,
       folderKey: c.folderKey,
+      ...(c.projectId ? { projectId: c.projectId } : {}),
       ...(c.tipo ? { tipo: c.tipo } : {}),
       ...(c.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
     }))

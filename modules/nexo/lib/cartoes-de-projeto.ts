@@ -26,6 +26,12 @@ export interface ConversaResumida {
   id: string;
   title: string;
   folderKey: string | null;
+  /** O `Project` a que a conversa pertence. Nulo = a endereçar. */
+  projectId: string | null;
+  /** `063-26`, lido do projeto. Vazio quando não há vínculo. */
+  projectCode: string;
+  /** `CRICIÚMA`, lido do projeto. Vazio quando não há vínculo ou cliente. */
+  projectClient: string;
   tipo: string | null;
   updatedAt: number;
   auditoriaPendente?: boolean;

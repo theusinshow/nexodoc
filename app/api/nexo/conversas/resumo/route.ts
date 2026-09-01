@@ -44,6 +44,9 @@ type LinhaCrua = {
   id: string;
   title: string;
   folderKey: string | null;
+  projectId: string | null;
+  projectCode: string;
+  projectClient: string;
   tipo: string | null;
   updatedAt: Date;
   auditoriaPendente: boolean;
@@ -64,7 +67,15 @@ export async function GET() {
      * fica sem projeto nenhum.
      */
     const linhas = await getPrisma().$queryRaw<LinhaCrua[]>`
-      SELECT c.id, c.title, c."folderKey", c.tipo, c."updatedAt", c."auditoriaPendente",
+      SELECT c.id, c.title, c."folderKey", c."projectId", c.tipo, c."updatedAt",
+        c."auditoriaPendente",
+        /*
+         * O código e o cliente vêm do PROJETO, não de uma string derivada no
+         * navegador. É por isso que renomear o cliente em /projetos passa a
+         * refletir na barra sem migração e sem reprocessar nada.
+         */
+        COALESCE(p.code, '') AS "projectCode",
+        COALESCE(p.client, '') AS "projectClient",
         CASE WHEN jsonb_typeof(c.data->'seloResults') = 'array'
              THEN jsonb_array_length(c.data->'seloResults') ELSE 0 END AS folhas,
         COALESCE((
@@ -75,6 +86,7 @@ export async function GET() {
           WHERE r->>'kind' IS NOT NULL
         ), ARRAY[]::text[]) AS kinds
       FROM "NexoConversation" c
+      LEFT JOIN "Project" p ON p.id = c."projectId"
       WHERE c."userEmail" = ${g.userEmail}
       ORDER BY c."updatedAt" DESC
       LIMIT 300`;
@@ -83,6 +95,9 @@ export async function GET() {
       id: l.id,
       title: l.title,
       folderKey: l.folderKey,
+      projectId: l.projectId,
+      projectCode: l.projectCode ?? "",
+      projectClient: l.projectClient ?? "",
       tipo: l.tipo,
       updatedAt: l.updatedAt.getTime(),
       auditoriaPendente: l.auditoriaPendente,

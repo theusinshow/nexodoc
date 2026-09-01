@@ -69,6 +69,7 @@ export async function GET() {
         id: true,
         title: true,
         folderKey: true,
+        projectId: true,
         createdAt: true,
         updatedAt: true,
         auditoriaPendente: true,
@@ -82,6 +83,7 @@ export async function GET() {
       createdAt: l.createdAt.getTime(),
       updatedAt: l.updatedAt.getTime(),
       ...(l.folderKey ? { folderKey: l.folderKey } : {}),
+      ...(l.projectId ? { projectId: l.projectId } : {}),
       // Só "volume"/"auditoria" viram tipo: a coluna é String e um valor
       // estranho no banco não pode virar uma terceira seção na barra lateral.
       ...(l.tipo === "volume" || l.tipo === "auditoria" ? { tipo: l.tipo } : {}),
@@ -143,6 +145,7 @@ export async function PUT(req: NextRequest) {
       userEmail: g.userEmail,
       title: resumo.title,
       folderKey: resumo.folderKey ?? null,
+      projectId: resumo.projectId ?? null,
       createdAt: new Date(resumo.createdAt),
       updatedAt: new Date(resumo.updatedAt),
       auditoriaPendente: resumo.temAuditoriaPendente === true,

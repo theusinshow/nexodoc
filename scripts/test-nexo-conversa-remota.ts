@@ -248,4 +248,24 @@ test("fundir não altera as listas recebidas", () => {
   assert.equal("soNoServidor" in remotas[0], false);
 });
 
+test("o projectId sobrevive à validação e ao resumo", () => {
+  const v = validarRegistro(registro({ projectId: "proj-063-26" }));
+  assert.equal(v.ok, true);
+  if (!v.ok) return;
+  assert.equal(resumoDoRegistro(v.registro).projectId, "proj-063-26");
+});
+
+test("projectId de tipo errado é recusado, não convertido", () => {
+  // Vira coluna e chave estrangeira: um número aqui quebraria a gravação lá.
+  const v = validarRegistro({ ...registro(), projectId: 7 });
+  assert.equal(v.ok, false);
+});
+
+test("conversa a endereçar não inventa projectId", () => {
+  const v = validarRegistro(registro());
+  assert.equal(v.ok, true);
+  if (!v.ok) return;
+  assert.equal(resumoDoRegistro(v.registro).projectId, undefined);
+});
+
 console.log(`\n${passed} verificações passaram.`);

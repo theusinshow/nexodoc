@@ -18,6 +18,13 @@ export interface ResumoDaConversa {
   updatedAt: number;
   folderKey?: string;
   /**
+   * O ENDEREÇO da conversa — o `Project` do Postgres a que ela pertence.
+   *
+   * Diferente de `tipo`, este campo VEM da listagem do servidor: é coluna, não
+   * mora dentro do JSON. `fundirListas` pode confiar no que o servidor disser.
+   */
+  projectId?: string;
+  /**
    * A seção da sidebar: montagem de volume ou auditoria de memorial.
    *
    * A lista do SERVIDOR não traz este campo — ele vive dentro do JSON da
@@ -42,6 +49,7 @@ export interface RegistroDaConversa {
   createdAt: number;
   updatedAt: number;
   folderKey?: string;
+  projectId?: string;
   tipo?: "volume" | "auditoria";
   auditoriaPendente?: unknown;
   [campo: string]: unknown;
@@ -90,6 +98,11 @@ export function validarRegistro(corpo: unknown): Veredito {
   if (r.folderKey !== undefined && typeof r.folderKey !== "string") {
     return { ok: false, motivo: "folderKey inválido" };
   }
+  /* Vira coluna E chave estrangeira: um número aqui quebraria a gravação lá,
+   * longe daqui e sem dizer que o corpo é que estava torto. */
+  if (r.projectId !== undefined && typeof r.projectId !== "string") {
+    return { ok: false, motivo: "projectId inválido" };
+  }
 
   let bytes: number;
   try {
@@ -116,6 +129,7 @@ export function resumoDoRegistro(r: RegistroDaConversa): ResumoDaConversa {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     ...(r.folderKey ? { folderKey: r.folderKey } : {}),
+    ...(r.projectId ? { projectId: r.projectId } : {}),
     ...(r.tipo ? { tipo: r.tipo } : {}),
     ...(r.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
   };

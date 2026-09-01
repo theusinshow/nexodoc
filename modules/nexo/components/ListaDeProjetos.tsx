@@ -89,6 +89,15 @@ export function ListaDeProjetos({
         id: c.id,
         title: c.title,
         folderKey: c.folderKey ?? null,
+        /*
+         * O VÍNCULO vem da lista local primeiro: ela reflete o que acabou de ser
+         * endereçado nesta máquina, e o resumo é uma foto do servidor de
+         * segundos atrás. O código e o cliente só o resumo tem — são do
+         * `Project`, e a lista local nunca os viu.
+         */
+        projectId: c.projectId ?? r?.projectId ?? null,
+        projectCode: r?.projectCode ?? "",
+        projectClient: r?.projectClient ?? "",
         tipo: c.tipo ?? null,
         updatedAt: c.updatedAt,
         auditoriaPendente: c.temAuditoriaPendente,
