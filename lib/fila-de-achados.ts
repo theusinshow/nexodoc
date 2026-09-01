@@ -12,6 +12,7 @@
  * apareceria muitos meses depois, quando a reauditoria não reencontrasse a
  * pendência — tarde demais para descobrir de onde veio.
  */
+import { registrarNoAchado } from "@/lib/achado-compartilhado";
 import type { AuditReport } from "@/lib/audit-report";
 import { getPrisma } from "@/lib/db";
 import { chaveEntreVersoes } from "@/lib/diff-de-pareceres";
@@ -30,6 +31,16 @@ export async function atribuirAchados(args: {
   auditId: string;
   findingIds: string[];
   assigneeEmail: string;
+  /** O nome de quem recebe, para a frase da conversa não virar um endereço. */
+  assigneeNome?: string;
+  /**
+   * O RECADO que acompanha o encaminhamento — "olha o item 14".
+   *
+   * Não é uma segunda funcionalidade: vira a primeira fala da conversa daquele
+   * achado, na mesma linha do evento `atribuiu`. Um por achado enviado, e não
+   * uma linha compartilhada: cada achado tem a sua conversa.
+   */
+  recado?: string;
   atribuidoPor: { id: string | null; email: string };
   organizationId: string;
 }): Promise<{ atribuidos: number }> {
@@ -99,6 +110,18 @@ export async function atribuirAchados(args: {
     if (!achado) continue;
 
     const targetKey = `finding:${findingId}`;
+
+    /*
+     * QUEM ESTAVA COM O ACHADO, lido ANTES de sobrescrever.
+     *
+     * É a informação que a reatribuição apagava. Sem esta leitura, a conversa
+     * saberia dizer "passou para a Carla" e não "saiu do Milton" — e o histórico
+     * existe justamente para responder a segunda.
+     */
+    const anterior = await prisma.auditFeedback.findUnique({
+      where: { auditId_targetKey: { auditId: audit.id, targetKey } },
+      select: { assigneeEmail: true },
+    });
     const dados = {
       fingerprint: chaveEntreVersoes(achado),
       assigneeEmail: membro.email,
@@ -119,7 +142,7 @@ export async function atribuirAchados(args: {
       notifiedAt: null,
     };
 
-    await prisma.auditFeedback.upsert({
+    const linha = await prisma.auditFeedback.upsert({
       where: { auditId_targetKey: { auditId: audit.id, targetKey } },
       create: {
         auditId: audit.id,
@@ -134,6 +157,31 @@ export async function atribuirAchados(args: {
        * olhou antes continuam valendo. O achado só muda de mãos.
        */
       update: dados,
+      select: { id: true },
+    });
+
+    /*
+     * A LINHA NA CONVERSA. É o que substitui o portão de permissão: qualquer um
+     * do escritório pode atribuir, e toda atribuição fica assinada.
+     *
+     * `reatribuiu` só quando havia OUTRA pessoa antes. Reenviar para quem já
+     * estava com o achado é `atribuiu` de novo — dizer "passou de Milton para
+     * Milton" seria ruído com cara de mudança.
+     */
+    const trocou =
+      Boolean(anterior?.assigneeEmail) && anterior?.assigneeEmail !== membro.email;
+
+    await registrarNoAchado({
+      feedbackId: linha.id,
+      kind: trocou ? "reatribuiu" : "atribuiu",
+      autor: args.atribuidoPor,
+      // O recado vira a fala; sem recado, a linha é só o evento.
+      body: args.recado ?? "",
+      details: {
+        para: membro.email,
+        paraNome: (args.assigneeNome ?? "").trim() || membro.email,
+        ...(trocou ? { de: anterior?.assigneeEmail } : {}),
+      },
     });
 
     atribuidos += 1;

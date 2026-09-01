@@ -29,6 +29,8 @@ export async function POST(
     const corpo = (await request.json().catch(() => null)) as {
       findingIds?: unknown;
       assigneeEmail?: unknown;
+      assigneeNome?: unknown;
+      recado?: unknown;
     } | null;
 
     const findingIds = Array.isArray(corpo?.findingIds)
@@ -36,6 +38,10 @@ export async function POST(
       : [];
     const assigneeEmail =
       typeof corpo?.assigneeEmail === "string" ? corpo.assigneeEmail.trim().toLowerCase() : "";
+    const assigneeNome =
+      typeof corpo?.assigneeNome === "string" ? corpo.assigneeNome.trim().slice(0, 120) : "";
+    /* O mesmo teto do corpo de uma mensagem, em `achado-compartilhado.ts`. */
+    const recado = typeof corpo?.recado === "string" ? corpo.recado.trim().slice(0, 4000) : "";
 
     if (findingIds.length === 0) {
       return NextResponse.json({ error: "Selecione ao menos um achado." }, { status: 400 });
@@ -49,6 +55,8 @@ export async function POST(
       auditId: id,
       findingIds,
       assigneeEmail,
+      assigneeNome,
+      recado,
       atribuidoPor: { id: actor.userId, email: actor.email },
       organizationId: actor.organizationId,
     });
