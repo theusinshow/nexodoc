@@ -936,10 +936,15 @@ process.exit(falhas === 0 ? 0 : 1);
 - [ ] **Passo 2: rodar e ver falhar**
 
 ```bash
-node scripts/prova-conversa-do-achado.mjs
+node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conversa-do-achado.mjs
 ```
 
 Esperado: FALHA com `Cannot find module '.../lib/achado-compartilhado.ts'`.
+
+**O `--import` não é opcional.** `lib/achado-compartilhado.ts` importa pelo alias
+`@/`, e node cru não o resolve — sem o hook o erro é
+`Cannot find package '@/lib'`, que aponta para o import quando o problema é a
+ausência do resolvedor.
 
 - [ ] **Passo 3: escrever a implementação**
 
@@ -1175,17 +1180,17 @@ export async function desenvolver(args: {
 - [ ] **Passo 4: rodar a prova e ver passar**
 
 ```bash
-node scripts/prova-conversa-do-achado.mjs
+node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conversa-do-achado.mjs
 ```
 
-Esperado: 10 linhas `OK` e `prova passou`.
+Esperado: 13 linhas `OK` e `prova passou`.
 
 - [ ] **Passo 5: registrar o script**
 
 Em `package.json`, depois de `"prova:identidade"`:
 
 ```json
-"prova:conversa-achado": "node scripts/prova-conversa-do-achado.mjs",
+"prova:conversa-achado": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conversa-do-achado.mjs",
 ```
 
 - [ ] **Passo 6: commit**
