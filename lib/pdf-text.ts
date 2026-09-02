@@ -1,5 +1,6 @@
 import { textoDosItens, type ItemDeTexto } from "./texto-do-pdf.ts";
 import { tabelasDaPagina, type Tabela } from "./tabela-do-pdf.ts";
+import { LIMIAR_DE_CARACTERES, type TintaDaPagina } from "./pagina-muda.ts";
 
 export type ExtractedPdfPage = {
   page: number;
@@ -11,6 +12,27 @@ export type ExtractedPdfPage = {
    * mudar. Quem nao sabe de tabela segue lendo `text` como sempre leu.
    */
   tabelas?: Tabela[];
+  /**
+   * QUANTO A PÁGINA MANDA DESENHAR, fora o texto.
+   *
+   * É o sinal que distingue a folha em branco da folha cujo texto virou curva
+   * vetorial ou tira de imagem — ver [[pagina-muda.ts]]. As duas chegavam aqui
+   * como `text: ""` e eram indistinguíveis, e por isso a segunda passava por
+   * lida.
+   *
+   * OPCIONAL pelo mesmo motivo de `tabelas`: dezenas de fixtures montam
+   * `ExtractedPdfPage` à mão e nenhuma precisa mudar.
+   */
+  tinta?: TintaDaPagina;
+  /**
+   * DE ONDE VEIO ESTE TEXTO. Ausente = extraído do PDF, que é o caso normal.
+   *
+   * `"visao"` marca a página que o modelo releu da imagem. Ela não tem
+   * coordenada de palavra: o achado que sair dela ancora na PÁGINA, e o grifo
+   * do trecho não tenta desenhar retângulo nenhum. Sem o campo, o visor
+   * procuraria por um trecho que a folha não sabe onde fica.
+   */
+  origem?: "visao";
 };
 
 export type ExtractedPdf = {
@@ -42,6 +64,54 @@ export type ExtractedPdf = {
  */
 export function textoDoDocumentoParaIA(extracted: ExtractedPdf): string {
   return extracted.textoParaIA ?? extracted.text;
+}
+
+/**
+ * Conta os ops de DESENHO e de IMAGEM da folha.
+ *
+ * Os dois grupos existem separados porque são dois defeitos diferentes do mesmo
+ * documento, e saber qual é ajuda a diagnosticar o PDF que chegou: no 114-19 a
+ * página 7 tem 74 caminhos e nenhum texto (o parágrafo virou curva, saída
+ * típica de "achatar" o PDF), e a página 9 tem 24 imagens de 944x92 px (cada
+ * LINHA do parágrafo virou uma tira, saída típica de colar captura de tela).
+ *
+ * `?? -1` em cada op: a lista de `OPS` do pdf.js já mudou entre versões, e um
+ * nome que suma daqui não pode derrubar a extração inteira — só faria a folha
+ * contar menos tinta, e a página cai para o lado seguro (`muda`).
+ */
+async function medirTinta(
+  pdfjs: typeof import("pdfjs-dist/legacy/build/pdf.mjs"),
+  page: Awaited<ReturnType<Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>["getPage"]>>,
+): Promise<TintaDaPagina | undefined> {
+  const OPS = (pdfjs as unknown as { OPS: Record<string, number> }).OPS;
+  if (!OPS) return undefined;
+
+  try {
+    const ops = await page.getOperatorList();
+    const desenhoOps = new Set([OPS.constructPath ?? -1]);
+    const imagemOps = new Set([
+      OPS.paintImageXObject ?? -1,
+      OPS.paintJpegXObject ?? -1,
+      OPS.paintImageMaskXObject ?? -1,
+      OPS.paintInlineImageXObject ?? -1,
+    ]);
+
+    let desenho = 0;
+    let imagem = 0;
+    for (const op of ops.fnArray) {
+      if (desenhoOps.has(op)) desenho += 1;
+      else if (imagemOps.has(op)) imagem += 1;
+    }
+
+    return { desenho, imagem };
+  } catch {
+    /*
+     * Folha que o pdf.js não consegue reparsear não vira "vazia" por omissão:
+     * sem o campo, [[pagina-muda.ts]] a trata como suspeita. Um sinal que falha
+     * calado para o lado de "não há nada aqui" é o defeito original.
+     */
+    return undefined;
+  }
 }
 
 export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
@@ -103,15 +173,51 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
      */
     const tabelas = tabelasDaPagina(itens, pageNumber);
 
+    /*
+     * A TINTA, e SÓ na página suspeita.
+     *
+     * `getOperatorList()` reparseia o content stream inteiro da folha — é caro
+     * o bastante para não se pagar num volume de 400 páginas que está todo
+     * certo. E não precisa: quem já entregou texto acima do limiar não é
+     * candidato a transcrição, e a tinta dela não seria olhada por ninguém.
+     *
+     * O sinal só existe para separar duas folhas que chegam aqui idênticas
+     * (`text: ""`) e não são a mesma coisa: o verso em branco, que não vale
+     * nada, e a folha cujo texto virou curva vetorial, que vale o memorial
+     * inteiro. Ver [[pagina-muda.ts]].
+     */
+    const tinta =
+      text.trim().length < LIMIAR_DE_CARACTERES ? await medirTinta(pdfjs, page) : undefined;
+
     pages.push({
       page: pageNumber,
       text,
       ...(tabelas.length > 0 ? { tabelas } : {}),
+      ...(tinta ? { tinta } : {}),
     });
   }
 
   await document.destroy();
 
+  return montarDocumento(pages, document.numPages);
+}
+
+/**
+ * As páginas viram o DOCUMENTO — as duas montagens e a contagem.
+ *
+ * Separada de `extractPdfText` porque há um segundo produtor de páginas: a
+ * transcrição por visão devolve o texto de uma folha muda e precisa recompor o
+ * documento com ele dentro (ver `aplicarTranscricao` em [[pagina-muda.ts]]).
+ * Montar ali por conta própria significaria duas noções de "como o documento é
+ * escrito", e a segunda divergiria da primeira exatamente onde dói: a trava
+ * anti-alucinação procura a evidência do achado NESTA string, e um separador de
+ * página com um espaço a mais faria todo achado de folha transcrita ser
+ * descartado sem deixar rastro.
+ */
+export function montarDocumento(
+  pages: ExtractedPdfPage[],
+  pageCount = pages.length,
+): ExtractedPdf {
   const text = pages.map((page) => `--- PAGINA ${page.page} ---\n${page.text}`).join("\n\n");
   /*
    * A MESMA MONTAGEM, com a grade. Feita aqui e não em quem lê porque a
@@ -128,7 +234,7 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
     pages,
     text,
     textoParaIA,
-    pageCount: document.numPages,
+    pageCount,
     charCount,
   };
 }

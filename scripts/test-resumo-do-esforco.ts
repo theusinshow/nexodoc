@@ -13,6 +13,7 @@ import {
   coberturaCompleta,
   coberturaReconciliada,
   fracaoLida,
+  paginasMudasPendentes,
   resumoDoEsforco,
 } from "../lib/resumo-do-esforco.ts";
 
@@ -152,6 +153,58 @@ test("zero por cento nao e amostra pequena, e passada ausente", () => {
   const frase = resumoDoEsforco(nada);
   assert.match(frase, /N.O foi conclu/);
   assert.doesNotMatch(frase, /amostrados/);
+});
+
+/*
+ * O 114-19, em 02/09/2026. O denominador sai da PRÓPRIA extração, então a folha
+ * cujo texto está desenhado em vez de escrito não baixa a fração: ela some da
+ * conta. 7.470 de 7.470 caracteres, cobertura completa, parecer sem ressalva —
+ * numa auditoria que viu 6 das 31 páginas do memorial.
+ */
+const O_114_19 = {
+  caracteres_lidos: 7_470,
+  caracteres_totais: 7_470,
+  blocos_lidos: 2,
+  blocos_totais: 2,
+  paginas_mudas: 25,
+  paginas_transcritas: 0,
+};
+
+test("25 folhas sem texto não deixam a cobertura sair completa", () => {
+  assert.equal(fracaoLida(O_114_19), 1, "a fração mente por construção: 7.470/7.470");
+  assert.equal(coberturaCompleta(O_114_19), false, "e por isso ela não decide sozinha");
+  assert.equal(paginasMudasPendentes(O_114_19), 25);
+});
+
+test("o resumo diz QUANTAS folhas ficaram sem leitura, e por quê", () => {
+  const frase = resumoDoEsforco(O_114_19);
+  assert.match(frase, /ATEN..O: 25 p.ginas/);
+  assert.match(frase, /desenhado na folha/);
+});
+
+test("transcrever todas as folhas mudas devolve a cobertura completa", () => {
+  const transcrito = { ...O_114_19, paginas_transcritas: 25 };
+  assert.equal(paginasMudasPendentes(transcrito), 0);
+  assert.equal(coberturaCompleta(transcrito), true);
+  const frase = resumoDoEsforco(transcrito);
+  assert.match(frase, /25 p.ginas sem texto recuperadas por vis.o/);
+  assert.doesNotMatch(frase, /ATEN..O/);
+});
+
+test("transcrição parcial conta o que sobrou, não o que foi feito", () => {
+  const meio = { ...O_114_19, paginas_transcritas: 20 };
+  assert.equal(paginasMudasPendentes(meio), 5);
+  assert.equal(coberturaCompleta(meio), false);
+  assert.match(resumoDoEsforco(meio), /ATEN..O: 5 p.ginas/);
+});
+
+test("parecer antigo, sem os campos novos, não muda de comportamento", () => {
+  // Nenhum parecer gravado antes de 02/09/2026 declara `paginas_mudas`. Deduzir
+  // "tem buraco" para eles acenderia o alarme no acervo inteiro — e um alarme
+  // que toca sempre não avisa nada.
+  assert.equal(paginasMudasPendentes(COMPLETA), 0);
+  assert.equal(coberturaCompleta(COMPLETA), true);
+  assert.doesNotMatch(resumoDoEsforco(COMPLETA), /desenhado na folha/);
 });
 
 console.log(`\n${passed} teste(s) de resumo do esforço OK`);

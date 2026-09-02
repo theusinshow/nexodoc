@@ -49,6 +49,8 @@ import {
 import { AuditoriaDesconectada, type MemorialAuditResult } from "../lib/audit";
 import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
 import { useDeltaDoMemorial } from "./use-delta-do-memorial";
+import { usePaginasMudas } from "./use-paginas-mudas";
+import type { PaginaTranscrita } from "@/lib/pagina-muda";
 import type {
   NexoAgentProposal,
   NexoLdProposalParams,
@@ -2297,8 +2299,24 @@ function AuditoriaConfirmation({
     result ? null : memorialFile,
     result ? null : (auditoriaAnterior ?? null),
   );
+  /*
+   * AS FOLHAS QUE ESTE MEMORIAL NÃO ENTREGA — medidas aqui, sem gastar modelo.
+   *
+   * O `114_19_VOLUME ÚNICO.pdf` entrou na auditoria com 25 das 31 folhas
+   * ilegíveis (o texto está desenhado na página, não escrito), a análise leu um
+   * décimo do memorial e o parecer saiu sem uma palavra sobre isso. O portão
+   * existe para essa decisão ser tomada por quem paga, antes de pagar.
+   */
+  const paginasMudas = usePaginasMudas(result ? null : memorialFile);
+  const mudas =
+    paginasMudas.estado === "pronto" ? paginasMudas.dados : null;
+  const temFolhaMuda = (mudas?.mudas.length ?? 0) > 0;
+  /** Folhas já transcritas / total, enquanto a transcrição corre. */
+  const [progressoDaTranscricao, setProgressoDaTranscricao] = useState<
+    { prontas: number; total: number } | null
+  >(null);
 
-  async function confirm() {
+  async function confirm(comTranscricao = false) {
     if (!memorialFile) return;
     setBusy(true);
     setError(null);
@@ -2379,6 +2397,32 @@ function AuditoriaConfirmation({
     /** A saída foi perda de conexão? Decide se o bilhete sobrevive ao `finally`. */
     let desconectou = false;
     try {
+      /*
+       * AS FOLHAS MUDAS, ANTES DA AUDITORIA — e só se o engenheiro autorizou.
+       *
+       * Falhar aqui NÃO derruba a corrida: o que voltou entra, o que não voltou
+       * continua muda, e a cobertura do parecer conta a diferença. Trocar uma
+       * auditoria degradada e honesta por auditoria nenhuma seria pior do que o
+       * defeito que este portão conserta.
+       */
+      let transcricao: PaginaTranscrita[] = [];
+      if (comTranscricao && mudas) {
+        try {
+          const { transcreverPaginasMudas } = await import("../lib/pagina-muda-render");
+          setProgressoDaTranscricao({ prontas: 0, total: mudas.mudas.length });
+          transcricao = await transcreverPaginasMudas(mudas, {
+            onProgresso: setProgressoDaTranscricao,
+            signal: controle.signal,
+            conversationId,
+          });
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") throw err;
+          console.warn("[pagina-muda] transcrição falhou", err);
+        } finally {
+          setProgressoDaTranscricao(null);
+        }
+      }
+
       const r = await postAudit(
         memorialFile,
         /*
@@ -2401,6 +2445,7 @@ function AuditoriaConfirmation({
            * economiza em vez de apenas informar.
            */
           auditIdAnterior: auditoriaAnterior,
+          ...(transcricao.length > 0 ? { transcricao } : {}),
         },
       );
       await saveResult({
@@ -2596,14 +2641,67 @@ function AuditoriaConfirmation({
               Sem obra de referência, a checagem de identidade fica mais fraca.
             </p>
           )}
-          <div className="flex items-center gap-2">
+          {/*
+            O PORTÃO DA FOLHA MUDA. Fica ACIMA dos botões porque é ele que muda
+            qual botão faz sentido apertar — e porque o número é o argumento: "25
+            de 31" decide sozinho, sem adjetivo nenhum.
+          */}
+          {temFolhaMuda && mudas && (
+            <div className="nx-cut-6 border-0 bg-[var(--nexodoc-recessed)] px-3 py-2">
+              <p className="font-mono text-microrrotulo uppercase tracking-[0.05em] text-[var(--status-warning)]">
+                Páginas sem texto
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-foreground">
+                <span className="tabular-nums">
+                  {mudas.mudas.length} de {mudas.totalDePaginas}
+                </span>{" "}
+                páginas deste documento não têm texto: o conteúdo está desenhado
+                na folha, não escrito. Sem transcrever, a auditoria não as lê — e
+                o parecer sai declarado como parcial.
+              </p>
+            </div>
+          )}
+          {progressoDaTranscricao && (
+            <p className="text-xs tabular-nums text-muted-foreground">
+              Transcrevendo folha {progressoDaTranscricao.prontas} de{" "}
+              {progressoDaTranscricao.total}…
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {/*
+              Com folha muda são DOIS caminhos, e o de transcrever é o primário:
+              ele é o que produz um parecer sobre o documento inteiro. O segundo
+              continua disponível porque a decisão de gastar é de quem paga —
+              mas o texto dele diz o que se está abrindo mão.
+            */}
             <ConfirmButton
               busy={busy}
               disabled={!memorialFile}
-              label={parcial ? "Rodar de novo" : "Auditar"}
+              label={
+                temFolhaMuda
+                  ? "Transcrever e auditar"
+                  : parcial
+                    ? "Rodar de novo"
+                    : "Auditar"
+              }
               busyLabel="Auditando…"
-              onConfirm={confirm}
+              onConfirm={() => confirm(temFolhaMuda)}
             />
+            {temFolhaMuda && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy || !memorialFile}
+                onClick={() => confirm(false)}
+              >
+                Auditar sem transcrever
+              </Button>
+            )}
+            {paginasMudas.estado === "lendo" && (
+              <span className="text-xs text-muted-foreground">
+                Conferindo se o documento tem texto…
+              </span>
+            )}
             {!memorialFile && (
               <span className="text-xs text-muted-foreground">
                 Anexe o memorial (o Nexo o separa das pranchas).

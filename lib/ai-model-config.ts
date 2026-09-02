@@ -38,6 +38,7 @@ export const AI_MODEL_FLOW_DEFINITIONS = [
   { id: "audit-deep-cross-document", label: "Auditoria profunda - comparação entre arquivos" },
   { id: "audit-deep-validation", label: "Auditoria profunda - validação" },
   { id: "audit-chat", label: "Chat pós-auditoria" },
+  { id: "audit-transcricao", label: "Auditoria - transcrição de página sem texto" },
   { id: "volume-analysis", label: "Volumes - validação da montagem" },
   { id: "volume-suggestion", label: "Volumes - sugestão de montagem" },
   { id: "volume-conferencia", label: "Volumes - conferência do volume montado" },

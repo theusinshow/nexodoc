@@ -18,6 +18,7 @@
  */
 import { centroDeCustoDaAuditoria } from "../../../lib/audit-identity.ts";
 import type { AuditReport } from "@/lib/audit-report";
+import type { PaginaTranscrita } from "@/lib/pagina-muda";
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
 
 export interface MemorialAuditGabarito {
@@ -117,6 +118,15 @@ export interface MemorialAuditOpcoes {
    * para cá, onde a resposta vira economia em vez de só informação.
    */
   auditIdAnterior?: string;
+  /**
+   * As folhas mudas deste memorial, relidas por visão antes de a auditoria
+   * começar — ver [[pagina-muda-render.ts]].
+   *
+   * Ausente é o caso normal: documento sem folha muda, ou transcrição recusada
+   * no portão. Nos dois casos a auditoria corre como sempre correu, e a
+   * cobertura declara o que ficou por ler.
+   */
+  transcricao?: PaginaTranscrita[];
 }
 
 export async function runMemorialAudit(
@@ -172,6 +182,23 @@ export async function runMemorialAudit(
   }
   // Carimba a conversa do Nexo no consumo de IA desta auditoria (anel de consumo).
   if (conversationId) form.append("conversationId", conversationId);
+
+  /*
+   * AS FOLHAS MUDAS JÁ RELIDAS, quando o engenheiro autorizou a transcrição.
+   *
+   * Vai como um JSON por arquivo, na mesma ordem de `files` — aqui é sempre um
+   * arquivo só. O servidor funde em `extracted` logo depois de extrair, e
+   * `aplicarTranscricao` só aceita o texto para páginas que ELE mesmo
+   * classificou como mudas: nada do que vem daqui sobrescreve folha que o PDF
+   * entregou por conta própria.
+   *
+   * Omitir o campo é o caminho normal — documento sem folha muda, ou
+   * transcrição recusada no portão. Nos dois casos a auditoria roda como
+   * sempre rodou, e a cobertura acusa o que ficou por ler.
+   */
+  if (opcoes.transcricao?.length) {
+    form.append("textoRecuperado", JSON.stringify(opcoes.transcricao));
+  }
 
   if (opcoes.onMarco) form.append("stream", "1");
   if (opcoes.auditId) form.append("auditId", opcoes.auditId);

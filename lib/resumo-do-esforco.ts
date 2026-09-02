@@ -48,7 +48,29 @@ function blocosPlanejados(c: CoberturaDoArquivo): number {
  * que planeja blocos e pode deixá-los para trás) e cala onde ela não se aplica.
  */
 export function coberturaCompleta(c: CoberturaDoArquivo): boolean {
-  return fracaoLida(c) >= 1 && c.blocos_lidos >= blocosPlanejados(c);
+  return (
+    fracaoLida(c) >= 1 && c.blocos_lidos >= blocosPlanejados(c) && paginasMudasPendentes(c) === 0
+  );
+}
+
+/**
+ * Folhas que a extração não conseguiu ler e que NINGUÉM releu.
+ *
+ * A terceira condição de `coberturaCompleta` existe por um buraco que as outras
+ * duas não enxergam, e este é o ponto: `caracteres_totais` sai da própria
+ * extração (`extracted.text.length`), então uma folha que não entregou
+ * caractere nenhum não entra no denominador. Ela some da conta em vez de baixar
+ * a fração.
+ *
+ * Medido em 02/09/2026 no `114_19_VOLUME ÚNICO.pdf`: 25 de 31 páginas com o
+ * texto desenhado em vez de escrito, extração de 7.470 caracteres, e a
+ * cobertura declarando `7.470 / 7.470 = 100%` — completa, sem ressalva, num
+ * parecer que viu um décimo do memorial. O arquivo inteiro em que esta função
+ * mora existe para impedir exatamente isso, e não alcançava o caso porque não
+ * sabia que a página existia.
+ */
+export function paginasMudasPendentes(c: CoberturaDoArquivo): number {
+  return Math.max(0, (c.paginas_mudas ?? 0) - (c.paginas_transcritas ?? 0));
 }
 
 /**
@@ -115,7 +137,27 @@ export function resumoDoEsforco(c?: CoberturaDoArquivo): string {
     );
   }
 
+  if ((c.paginas_transcritas ?? 0) > 0) {
+    partes.push(`${c.paginas_transcritas} páginas sem texto recuperadas por visão`);
+  }
+
   const frase = `${partes.join(", ")}.`;
+
+  /*
+   * A FOLHA QUE NINGUÉM LEU É DITA POR NOME, com o número.
+   *
+   * O "ATENÇÃO" genérico do fim não serve aqui: quem lê precisa saber que o
+   * buraco não é uma amostragem menor do texto, é um pedaço do documento que
+   * não passou por ninguém — e quantas folhas são, para decidir se manda o
+   * arquivo de volta ou transcreve.
+   */
+  const mudas = paginasMudasPendentes(c);
+  if (mudas > 0) {
+    return (
+      `${frase} ATENÇÃO: ${mudas} ${mudas === 1 ? "página não teve" : "páginas não tiveram"} ` +
+      "o texto lido — o conteúdo está desenhado na folha, não escrito, e não foi transcrito."
+    );
+  }
 
   /*
    * O AVISO É PARTE DA FRASE, e não um campo à parte que a tela possa esquecer

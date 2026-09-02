@@ -84,7 +84,16 @@ import {
   type ContestacaoDeRegra,
 } from "@/lib/contestacao-de-regra";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
-import { coberturaReconciliada, resumoDoEsforco } from "@/lib/resumo-do-esforco";
+import {
+  coberturaCompleta,
+  coberturaReconciliada,
+  resumoDoEsforco,
+} from "@/lib/resumo-do-esforco";
+import {
+  aplicarTranscricao,
+  diagnosticarPaginasMudas,
+  type PaginaTranscrita,
+} from "@/lib/pagina-muda";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
 import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
@@ -764,6 +773,53 @@ function coberturaOuNada(
   degradacoes: PassadaIncompleta[],
 ) {
   return c ? coberturaReconciliada(c, degradacoes) : undefined;
+}
+
+/**
+ * Lê o campo `textoRecuperado` do `FormData` — um JSON por arquivo, na ordem de
+ * `files`.
+ *
+ * TOLERA TUDO, e nunca derruba a auditoria: JSON quebrado, campo faltando,
+ * formato inesperado. Um cliente antigo não manda o campo, e um erro de parse
+ * aqui trocaria uma auditoria que roda sem transcrição — degradada, mas honesta,
+ * porque a cobertura acusa as folhas mudas — por uma auditoria que não roda.
+ */
+function lerTranscricoes(valores: FormDataEntryValue[]): PaginaTranscrita[][] {
+  return valores.map((valor) => {
+    try {
+      const dados = JSON.parse(String(valor)) as unknown;
+      if (!Array.isArray(dados)) return [];
+      return dados.flatMap((item): PaginaTranscrita[] => {
+        const pagina = Number((item as { pagina?: unknown })?.pagina);
+        const texto = (item as { texto?: unknown })?.texto;
+        if (!Number.isInteger(pagina) || pagina < 1 || typeof texto !== "string") return [];
+        return [{ pagina, texto }];
+      });
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * Quantas folhas do documento são mudas, e quantas já foram recuperadas.
+ *
+ * A transcrição chega pelo `FormData` e é fundida em `extracted` ANTES daqui —
+ * ver `aplicarTranscricao`. Contar a página transcrita pela marca `origem` e
+ * não por um número que o cliente mandou é de propósito: o cliente é quem pede
+ * a transcrição, e um parecer que aceitasse dele o número de folhas recuperadas
+ * poderia declarar cobertura completa sem que uma linha tivesse sido lida.
+ */
+function contarPaginasDoDocumento(extracted: ExtractedPdf) {
+  const diagnostico = diagnosticarPaginasMudas(extracted);
+  const transcritas = extracted.pages.filter((p) => p.origem === "visao").length;
+
+  return {
+    // A folha transcrita deixou de ser muda (ela agora tem texto), então o
+    // total é a soma: é ele que `paginasMudasPendentes` subtrai.
+    paginas_mudas: diagnostico.mudas.length + transcritas,
+    paginas_transcritas: transcritas,
+  };
 }
 
 function getValidationTimeoutMs(analysisLevel: AnalysisLevel) {
@@ -3270,6 +3326,17 @@ async function deepAnalyzeFile(args: {
      * é 0 por desenho, ficava permanentemente marcado como incompleto.
      */
     blocos_planejados: chunks.length,
+    /*
+     * AS FOLHAS QUE A EXTRAÇÃO NÃO LEU, e que o denominador acima não vê.
+     *
+     * `caracteres_totais` sai de `extracted.text.length` — da própria extração.
+     * Uma folha cujo texto está desenhado em vez de escrito não entrega
+     * caractere, então não entra no denominador: ela SOME da conta em vez de
+     * baixar a fração. No `114_19_VOLUME ÚNICO.pdf` (02/09/2026) isso deu
+     * `7.470 / 7.470 = 100%` de cobertura para um parecer que viu 6 das 31
+     * páginas do memorial, sem uma palavra de ressalva.
+     */
+    ...contarPaginasDoDocumento(args.file.extracted),
   });
 
   /*
@@ -3657,6 +3724,17 @@ async function executarAuditoria(
     const files = formData
       .getAll("files")
       .filter((file): file is File => file instanceof File);
+    /*
+     * AS FOLHAS QUE O CLIENTE JÁ RELEU, uma entrada por arquivo, na mesma ordem
+     * de `files`.
+     *
+     * Vem do cliente porque é ele quem rasteriza — não há canvas no Node aqui,
+     * e a decisão de pagar a transcrição é dele, no portão da entrada. O que
+     * chega é texto, e `aplicarTranscricao` só o aceita para páginas que ELE
+     * mesmo já classificou como mudas: a extração continua mandando em toda
+     * folha que entregou texto por conta própria.
+     */
+    const transcricoes = lerTranscricoes(formData.getAll("textoRecuperado"));
 
     if (!message) {
       return jsonError("Informe uma solicitação para a auditoria.");
@@ -3812,7 +3890,17 @@ async function executarAuditoria(
         const fileStartedAt = Date.now();
         console.log(`[audit] extraindo texto: ${file.name} (${file.size} bytes)`);
         const buffer = Buffer.from(await file.arrayBuffer());
-        const extracted = await extractPdfText(buffer);
+        /*
+         * A TRANSCRIÇÃO ENTRA AQUI, logo depois da extração e antes de qualquer
+         * leitura. Daqui para a frente o documento é UM SÓ: a camada
+         * determinística, os blocos, a global e a trava anti-alucinação leem
+         * todos o mesmo texto, sem saber quais folhas vieram pelo olho. A marca
+         * `origem: "visao"` fica na página, para o visor e para a cobertura.
+         */
+        const extracted = aplicarTranscricao(
+          await extractPdfText(buffer),
+          transcricoes[index] ?? [],
+        );
         console.log(
           `[audit] texto extraido: ${file.name}, ${extracted.pageCount} paginas, ${extracted.charCount} caracteres em ${Math.round((Date.now() - fileStartedAt) / 1000)}s`,
         );
@@ -4289,7 +4377,30 @@ async function executarAuditoria(
       volume: inferred.volume,
       orgao: inferred.orgao,
       data_documento: inferred.data,
-      status_analise: "concluida",
+      /*
+       * O STATUS SAI DA MEDIÇÃO, e não é mais a constante `"concluida"`.
+       *
+       * Ele era literal desde sempre: TODA auditoria que chegasse até aqui sem
+       * exceção saía "concluída", inclusive a que leu 6 das 31 páginas do
+       * `114_19_VOLUME ÚNICO.pdf` porque o resto do memorial tem o texto
+       * desenhado em vez de escrito. A prosa do parecer já sabia disso
+       * (`resumoDoEsforco` diz), o campo por máquina não — e é o campo que o
+       * `parecer-em-papel.ts` lê para carimbar PARCIAL na peça impressa, e que o
+       * `elegibilidade-da-base.ts` lê para recusar uma base incompleta como
+       * ponto de partida de reauditoria.
+       *
+       * "falha" continua fora daqui: este ponto do código só é alcançado quando
+       * a corrida terminou. A escolha é entre completa e parcial.
+       */
+      status_analise: uploadedFiles.every((file) => {
+        const c = coberturaOuNada(cobertura.get(file.file.name), degradacoes);
+        // Sem medição não se afirma buraco — é o tratamento que `resumoDoEsforco`
+        // já dá ao parecer antigo, e discordar dele aqui faria a peça impressa
+        // contradizer a própria frase que ela imprime.
+        return !c || coberturaCompleta(c);
+      })
+        ? "concluida"
+        : "parcial",
       status_geral:
         findings.length === 0
           ? "sem achados críticos"

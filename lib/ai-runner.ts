@@ -148,6 +148,8 @@ function getProviderForFlow(flow: AiProviderFlow): AiProvider {
       return configuration.audit.provider;
     case "audit-chat":
       return configuration.auditChat.provider;
+    case "audit-transcricao":
+      return configuration.auditTranscricao.provider;
     case "nexo-agent":
       return configuration.nexoAgent.provider;
     case "ld-extraction":

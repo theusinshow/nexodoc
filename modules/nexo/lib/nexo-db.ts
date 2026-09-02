@@ -19,10 +19,11 @@ import type { IdentidadeDoProjeto } from "./identidade";
 import type { NexoArtifactKind, NexoChatMessage, NexoDossieDraft } from "../types";
 
 const DB_NAME = "nexo";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_CONVERSATIONS = "conversations";
 const STORE_BLOBS = "result_blobs";
 const STORE_SELO_CACHE = "selo_cache";
+const STORE_TRANSCRICAO = "transcricao_cache";
 
 /**
  * Teto do cache de leitura, em ARQUIVOS.
@@ -33,6 +34,16 @@ const STORE_SELO_CACHE = "selo_cache";
  * vê milhares de projetos ao longo de anos. Poda pelo mais VELHO a entrar.
  */
 const TETO_SELO_CACHE = 2000;
+
+/**
+ * Teto do cache de transcrição, em PÁGINAS.
+ *
+ * Aqui a entrada é uma FOLHA e não um arquivo — o `114_19_VOLUME ÚNICO.pdf`
+ * sozinho ocupa 25 delas —, então o número precisa ser generoso na mesma
+ * proporção. ~2 KB por folha põe 20 mil páginas em ~40 MB, e o que se protege
+ * é dinheiro: cada entrada perdida é uma chamada de modelo paga de novo.
+ */
+const TETO_TRANSCRICAO = 20000;
 
 /**
  * QUAL DOS DOIS TRABALHOS a conversa é.
@@ -293,6 +304,13 @@ function openDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORE_SELO_CACHE, { keyPath: "key" });
         store.createIndex("savedAt", "savedAt");
       }
+      // v3. Uma entrada por FOLHA transcrita, e não por arquivo: a transcrição
+      // é paga folha a folha, e parar no meio de um documento de 25 páginas
+      // mudas precisa preservar as que já foram lidas.
+      if (!db.objectStoreNames.contains(STORE_TRANSCRICAO)) {
+        const store = db.createObjectStore(STORE_TRANSCRICAO, { keyPath: "key" });
+        store.createIndex("savedAt", "savedAt");
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error ?? new Error("IndexedDB indisponível."));
@@ -446,4 +464,61 @@ function txDone(tx: IDBTransaction): Promise<void> {
     tx.onerror = () => reject(tx.error ?? new Error("Transação falhou."));
     tx.onabort = () => reject(tx.error ?? new Error("Transação abortada."));
   });
+}
+
+/**
+ * UMA FOLHA TRANSCRITA, guardada por conteúdo do arquivo.
+ *
+ * A chave é `${sha-256 do PDF}:${página}:${versão do transcritor}` — conteúdo e
+ * não nome, como no cache de selo: o mesmo memorial renomeado ou vindo de outra
+ * pasta acerta igual. E por FOLHA, porque é assim que a transcrição é paga:
+ * quem cancela no meio de um documento de 25 páginas mudas conserva as que já
+ * leu, em vez de recomeçar do zero na próxima tentativa.
+ */
+export interface TranscricaoCacheEntry {
+  key: string;
+  /** Só para depurar: o mesmo conteúdo pode chegar com outro nome. */
+  fileName: string;
+  pagina: number;
+  texto: string;
+  savedAt: number;
+}
+
+/** Lê várias folhas do cache de uma vez (uma transação só). */
+export async function getTranscricaoCache(
+  keys: readonly string[],
+): Promise<Map<string, TranscricaoCacheEntry>> {
+  const achados = new Map<string, TranscricaoCacheEntry>();
+  if (keys.length === 0) return achados;
+  const db = await openDb();
+  const tx = db.transaction(STORE_TRANSCRICAO, "readonly");
+  const store = tx.objectStore(STORE_TRANSCRICAO);
+  const lidos = await Promise.all(keys.map((k) => reqToPromise(store.get(k))));
+  for (const rec of lidos) {
+    const entry = rec as TranscricaoCacheEntry | undefined;
+    if (entry) achados.set(entry.key, entry);
+  }
+  return achados;
+}
+
+/** Grava uma folha transcrita e poda o excedente mais velho. */
+export async function putTranscricaoCache(entry: TranscricaoCacheEntry): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(STORE_TRANSCRICAO, "readwrite");
+  const store = tx.objectStore(STORE_TRANSCRICAO);
+  store.put(entry);
+  const total = await reqToPromise(store.count());
+  const excedente = total - TETO_TRANSCRICAO;
+  if (excedente > 0) {
+    let restam = excedente;
+    const cursorReq = store.index("savedAt").openCursor();
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor || restam <= 0) return;
+      cursor.delete();
+      restam--;
+      cursor.continue();
+    };
+  }
+  await txDone(tx);
 }

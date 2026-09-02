@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { estimateOpenAiCostUsd } from "@/lib/ai-precos";
-import type { AiProvider } from "@/lib/ai-providers";
+import type { AiProvider, AiProviderFlow } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export { estimateOpenAiCostUsd, isModelPriceKnown } from "@/lib/ai-precos";
@@ -14,7 +14,17 @@ type TokenUsage = {
 };
 
 type RecordAiUsageArgs = {
-  flow: "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
+  /*
+   * A MESMA lista de `ai-providers.ts`, e não uma cópia dela.
+   *
+   * Era uma união escrita à mão, idêntica a `AiProviderFlow` — e portanto uma
+   * segunda verdade sobre os fluxos que existem. Ela envelheceu na primeira
+   * ocasião: incluir `audit-transcricao` (02/09/2026) quebrou `ai-runner.ts` em
+   * quatro pontos, todos passando `args.flow` do tipo certo para o parâmetro da
+   * cópia. O erro é de compilação, e por isso barato; o modo caro seria a cópia
+   * ter um fluxo A MAIS e gravar consumo sob um nome que o painel não conhece.
+   */
+  flow: AiProviderFlow;
   aiTaskId?: string | null;
   taskId?: string | null;
   taskLabel?: string | null;

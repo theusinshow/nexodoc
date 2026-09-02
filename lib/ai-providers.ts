@@ -32,7 +32,7 @@ export type { ProviderFailureCategory };
  * ter dois provedores um dia seja uma mudança de tipo, não uma arqueologia.
  */
 export type AiProvider = "openai";
-export type AiProviderFlow = "audit" | "audit-chat" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
+export type AiProviderFlow = "audit" | "audit-chat" | "audit-transcricao" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type AuditMode = "memorial" | "volume";
@@ -116,6 +116,17 @@ const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.6-terra";
  * flow é configurável no painel — trocar de modelo é um clique, sem código.
  */
 const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-5.6-luna";
+/**
+ * A TRANSCRIÇÃO da página sem texto: uma imagem de folha A4 entra, a prosa dela
+ * sai. Copiar o que está escrito não pede raciocínio — pede leitura fiel —, e é
+ * a tarefa em que o modelo barato empata com o caro.
+ *
+ * O preço decide a viabilidade do recurso: no `114_19_VOLUME ÚNICO.pdf` são 25
+ * folhas, e a US$ 0,20/1,20 por milhão isso fecha em ~US$ 0,07 o documento.
+ * Nos modelos de raciocínio a mesma corrida passaria de US$ 0,40, e um portão
+ * que cobra isso por documento não é usado. Trocar é um clique no painel.
+ */
+const DEFAULT_AUDIT_TRANSCRICAO_MODEL = "gpt-5.6-luna";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;
@@ -343,6 +354,14 @@ export function getAiConfiguration() {
           getBackendValue("OPENAI_MODEL") ||
           DEFAULT_CONVERSATION_MODEL,
         "audit-chat",
+      ),
+      keyConfigured: getProviderKeyConfigured(),
+    },
+    auditTranscricao: {
+      provider: AI_PROVIDER,
+      model: getProviderModel(
+        getBackendValue("NEXODOC_AUDIT_TRANSCRICAO_MODEL") || DEFAULT_AUDIT_TRANSCRICAO_MODEL,
+        "audit-transcricao",
       ),
       keyConfigured: getProviderKeyConfigured(),
     },

@@ -162,6 +162,21 @@ export type CoberturaDoArquivo = {
    * que preserva a leitura de quem já estava gravado.
    */
   blocos_planejados?: number;
+  /**
+   * Folhas com conteúdo na página e NENHUM caractere extraível — ver
+   * [[pagina-muda.ts]].
+   *
+   * Existem porque o denominador acima é cego a elas. `caracteres_totais` sai
+   * de `extracted.text.length`, ou seja, da própria extração: no
+   * `114_19_VOLUME ÚNICO.pdf`, 25 das 31 páginas têm o texto desenhado em vez
+   * de escrito, a extração devolveu 7.470 caracteres, e a cobertura declarou
+   * **7.470 de 7.470 = 100%** para uma auditoria que leu um décimo do memorial.
+   * O `resumoDoEsforco` saiu sem uma palavra de ressalva, porque não há como
+   * perceber a falta de uma página que nunca apareceu na conta.
+   */
+  paginas_mudas?: number;
+  /** Quantas dessas folhas foram recuperadas por visão antes da leitura. */
+  paginas_transcritas?: number;
 };
 
 export type AuditFileSummary = {

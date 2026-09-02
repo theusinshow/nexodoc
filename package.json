@@ -252,6 +252,8 @@
     "test:titulos-do-bloco": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-titulos-do-bloco.ts",
     "test:ld:rodape": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-ld-rodape.ts",
     "test:marcacao": "node scripts/test-marcacao-do-trecho.ts",
+  "test:pagina-muda": "node scripts/test-pagina-muda.ts",
+  "prova:pagina-muda": "node scripts/prova-pagina-muda.ts",
     "prova:marcacao-ui": "node scripts/prova-marcacao-e-feedback.mjs"
   },
   "dependencies": {
