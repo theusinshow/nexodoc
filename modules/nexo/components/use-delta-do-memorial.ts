@@ -25,7 +25,15 @@ export interface DeltaDoMemorial {
    * auditoria em seguida não entregava.
    */
   motivo?: "sem-banco" | "sem-auditoria-anterior" | "sem-impressao" | "outro-arquivo";
-  base?: { auditId: string; arquivo: string; quando: string };
+  base?: {
+    auditId: string;
+    arquivo: string;
+    quando: string;
+    /** A base saiu da BUSCA no projeto, não da conversa atual. */
+    deOutraConversa?: boolean;
+    /** Quem rodou a base — pode ser um colega do escritório. */
+    autor?: string;
+  };
   resumo?: string;
   fracaoJaLida?: number;
   paginas?: number;
@@ -49,6 +57,15 @@ export type EstadoDoDelta =
 export function useDeltaDoMemorial(
   memorial: File | null,
   auditIdAnterior: string | null,
+  /**
+   * O PROJETO, que abre a busca por conta própria.
+   *
+   * Sem ele o hook só compara quando a conversa atual já tem uma auditoria — e
+   * era esse o limite: corrigir os erros e voltar numa conversa nova relia 100%
+   * do memorial, sem dizer que havia base. Com o projeto, o servidor procura a
+   * última auditoria DESTE documento no projeto, venha ela de onde vier.
+   */
+  projectId?: string | null,
 ): EstadoDoDelta {
   /*
    * O estado guardado é SÓ a resposta, carimbada com a chave que a produziu.
@@ -61,17 +78,24 @@ export function useDeltaDoMemorial(
     dados: DeltaDoMemorial | null;
   } | null>(null);
 
+  /*
+   * BASTA UM DOS DOIS. Antes a chave exigia `auditIdAnterior`, e sem ele o hook
+   * nem chegava a perguntar — que é exatamente o caso da conversa nova.
+   */
   const chave =
-    memorial && auditIdAnterior
-      ? `${auditIdAnterior}|${memorial.name}|${memorial.size}|${memorial.lastModified}`
+    memorial && (auditIdAnterior || projectId)
+      ? `${auditIdAnterior ?? ""}|${projectId ?? ""}|${memorial.name}|${memorial.size}|${memorial.lastModified}`
       : null;
 
   useEffect(() => {
-    if (!chave || !memorial || !auditIdAnterior) return;
+    if (!chave || !memorial) return;
     let vivo = true;
     const form = new FormData();
     form.append("file", memorial, memorial.name);
-    form.append("auditIdAnterior", auditIdAnterior);
+    // O id da conversa tem PRECEDÊNCIA: quando ele existe, a base é a que o
+    // engenheiro já viu nesta conversa, e não uma que a busca escolheu por ele.
+    if (auditIdAnterior) form.append("auditIdAnterior", auditIdAnterior);
+    if (projectId) form.append("projectId", projectId);
     fetch("/api/audit/delta", { method: "POST", body: form })
       .then((r) => (r.ok ? (r.json() as Promise<DeltaDoMemorial>) : null))
       .then((dados) => {

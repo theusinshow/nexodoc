@@ -2295,10 +2295,41 @@ function AuditoriaConfirmation({
     .map((r) => (r.payload as MemorialAuditResult | undefined)?.auditId)
     .filter((a): a is string => Boolean(a))
     .at(-1);
+  /**
+   * A BASE RECUSADA À MÃO. Enquanto for o id de uma base, ela não vai à corrida.
+   *
+   * Existe porque a base agora pode vir de OUTRA conversa: o engenheiro precisa
+   * poder olhar qual é e dizer "essa não" antes de gastar — sem isso, "acha e
+   * mostra" viraria "acha e usa", que é o que ele não escolheu.
+   */
+  const [baseRecusada, setBaseRecusada] = useState<string | null>(null);
   const delta = useDeltaDoMemorial(
     result ? null : memorialFile,
     result ? null : (auditoriaAnterior ?? null),
+    result ? null : projetoDaConversa,
   );
+  /**
+   * A base que a corrida vai usar: a da conversa, ou a que a busca achou — e
+   * nenhuma das duas se ela foi recusada.
+   */
+  const baseDoDelta =
+    delta.estado === "pronto" && delta.dados.comparavel ? delta.dados.base : undefined;
+  /*
+   * RECUSAR PRECISA RECUSAR DE VERDADE.
+   *
+   * O primeiro corte disto era `baseDoDelta.auditId !== baseRecusada ? … :
+   * undefined`, e depois caía em `?? auditoriaAnterior` na chamada — ou seja,
+   * recusar a base da própria conversa devolvia a MESMA base pela porta dos
+   * fundos. O botão existiria e não faria nada.
+   *
+   * O `?? auditoriaAnterior` continua, mas só onde ele significa alguma coisa:
+   * o delta não respondeu (rede caiu, projeto ainda sem vínculo). Aí vale o
+   * comportamento de antes — a base da conversa, que o engenheiro já viu.
+   */
+  const baseRecusadaAgora = Boolean(baseDoDelta && baseDoDelta.auditId === baseRecusada);
+  const baseParaReuso = baseRecusadaAgora
+    ? undefined
+    : (baseDoDelta?.auditId ?? auditoriaAnterior);
   /*
    * AS FOLHAS QUE ESTE MEMORIAL NÃO ENTREGA — medidas aqui, sem gastar modelo.
    *
@@ -2444,7 +2475,12 @@ function AuditoriaConfirmation({
            * É o mesmo id que já alimenta o delta do cartão — só que agora ele
            * economiza em vez de apenas informar.
            */
-          auditIdAnterior: auditoriaAnterior,
+          /*
+           * A base vem do DELTA, e não mais só da conversa. É o mesmo id que o
+           * cartão acabou de mostrar — mandar outro faria a corrida reusar de
+           * um parecer diferente daquele que o engenheiro aprovou na tela.
+           */
+          auditIdAnterior: baseParaReuso,
           ...(transcricao.length > 0 ? { transcricao } : {}),
         },
       );
@@ -2569,6 +2605,13 @@ function AuditoriaConfirmation({
           */}
           {delta.estado === "pronto" && delta.dados.comparavel && delta.dados.delta && (
             <div className="nx-cut-6 border-0 bg-[var(--nexodoc-recessed)] px-3 py-2">
+              {/*
+                A PROCEDÊNCIA DA BASE entra no rótulo, e não numa linha extra.
+                Dentro da conversa, "comparado à auditoria de hoje de manhã" é
+                óbvio e o rótulo segue como sempre foi. Vindo da busca no
+                projeto, o engenheiro precisa saber QUAL parecer vai emprestar
+                achado ao dele — e de quem ele é — antes de mandar rodar.
+              */}
               <p className="font-mono text-microrrotulo uppercase tracking-[0.05em] text-muted-foreground">
                 Comparado à auditoria de{" "}
                 {new Date(delta.dados.base?.quando ?? "").toLocaleString("pt-BR", {
@@ -2577,6 +2620,12 @@ function AuditoriaConfirmation({
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
+                {delta.dados.base?.deOutraConversa && (
+                  <>
+                    {" · outra conversa"}
+                    {delta.dados.base.autor ? ` · ${delta.dados.base.autor}` : ""}
+                  </>
+                )}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-foreground">
                 {delta.dados.resumo}
@@ -2615,10 +2664,35 @@ function AuditoriaConfirmation({
                 auditoria segue lendo o documento inteiro; o que esta caixa faz
                 hoje é informar a decisão, não baratear a corrida.
               */}
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground/80">
-                A auditoria ainda lê o documento inteiro — esta comparação serve
-                para você decidir se vale rodar de novo.
-              </p>
+              {/*
+                A FRASE SEGUIU O MOTOR. Ela dizia "a auditoria ainda lê o
+                documento inteiro" — verdade até 17/08/2026, quando o reuso foi
+                ligado e passou a reler só os capítulos alterados. Mantê-la
+                faria o cartão desmentir o que a corrida faz.
+              */}
+              {baseRecusadaAgora ? (
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground/80">
+                  Base recusada — o documento vai ser lido inteiro.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setBaseRecusada(null)}
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    usar mesmo assim
+                  </button>
+                </p>
+              ) : (
+                <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-relaxed text-muted-foreground/80">
+                  <span>Só os capítulos alterados vão ser relidos.</span>
+                  <button
+                    type="button"
+                    onClick={() => setBaseRecusada(delta.dados.base?.auditId ?? null)}
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    não usar esta base
+                  </button>
+                </p>
+              )}
             </div>
           )}
           {parcial && (

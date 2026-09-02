@@ -304,8 +304,27 @@ export function parseFilename(fileName: string, relPath?: string): ParsedFilenam
   const fromName = pick(nameTokens);
   const disciplinas = fromName.length > 0 ? fromName : pick(pathTokens);
 
-  const folhaMatch = /(?:^|[_ -])(\d{3})(?=[_ -]|$)/.exec(clean);
-  const folha = folhaMatch ? folhaMatch[1] : undefined;
+  /*
+   * A FOLHA SAI DE `sheetNumberFromFilename`, e não de uma regex própria.
+   *
+   * Aqui havia uma segunda noção de "qual é a folha desta prancha":
+   * `/(?:^|[_ -])(\d{3})(?=[_ -]|$)/` sobre o nome inteiro, que casa o PRIMEIRO
+   * grupo de três dígitos. Num nome `040_26_his_001_a` esse grupo é o CÓDIGO DO
+   * PROJETO, não a folha — e o campo saía 040 em vez de 1.
+   *
+   * Medido em 02/09/2026 contra os 654 PDFs de `docs/`: errado em 651 (99,5%).
+   * Passava despercebido porque a classificação acertava por acidente — qualquer
+   * três dígitos fazia `folha` ser truthy e o arquivo virar "prancha", que é o
+   * que a maioria dos nomes com código é de qualquer forma. O preço apareceu no
+   * `114_19_VOLUME ÚNICO.pdf`: um MEMORIAL virou prancha porque o 114 do código
+   * passou por número de folha, e as 31 páginas foram para a leitura de selo.
+   *
+   * A função certa já morava neste arquivo e é a que o fluxo de volume usa: ela
+   * tira o código, tira `vol10`/`tomo1` e pega o ÚLTIMO número. Duas contas para
+   * a mesma pergunta é como uma delas envelhece sozinha.
+   */
+  const folhaNumero = sheetNumberFromFilename(clean);
+  const folha = folhaNumero == null ? undefined : String(folhaNumero);
 
   const has = (re: RegExp) => re.test(clean);
 

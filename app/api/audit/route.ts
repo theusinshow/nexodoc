@@ -96,6 +96,7 @@ import {
 } from "@/lib/pagina-muda";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { versaoDoAuditor } from "@/lib/versao-do-auditor";
+import { CHUNK_GROUP_CHARS, getReasoningEffort } from "@/lib/configuracao-do-auditor";
 import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
 import { planejarReuso } from "@/lib/audit-reuso";
 import {
@@ -131,8 +132,6 @@ const MAX_CHUNK_OUTPUT_TOKENS = 16000;
  * número não é uma preferência — é o maior tamanho para o qual existe evidência
  * de que a resposta fecha. Mexer nele exige repetir a medição, não intuição.
  */
-const CHUNK_GROUP_CHARS = 10000;
-const DEFAULT_REASONING_EFFORT = "high";
 const MIN_TEXT_CHARS_FOR_DEEP_AUDIT = 300;
 const DEFAULT_MAX_CHUNKS_PER_FILE = 8;
 const DEFAULT_CHUNK_CONCURRENCY = 3;
@@ -385,60 +384,6 @@ function withCors(response: NextResponse, request?: Request) {
 
 export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
-}
-
-function getReasoningEffort(analysisLevel: AnalysisLevel, auditMode: AuditMode) {
-  const effort =
-    analysisLevel === "deep"
-      ? process.env.OPENAI_DEEP_REASONING_EFFORT ?? process.env.OPENAI_REASONING_EFFORT
-      : process.env.OPENAI_STANDARD_REASONING_EFFORT;
-
-  if (auditMode === "memorial" && analysisLevel === "deep") {
-    if (effort === "minimal") {
-      return "none";
-    }
-
-    if (
-      effort === "none" ||
-      effort === "low" ||
-      effort === "medium" ||
-      effort === "high" ||
-      effort === "xhigh"
-    ) {
-      return effort;
-    }
-
-    /*
-     * Memorial no Profundo: `medium`, não `high`.
-     *
-     * Medido no 063_26_md_geral_a.pdf (73 páginas, 173k chars) em 12/08/2026,
-     * com o prompt de "pecar pelo excesso":
-     *   high   -> abortou em 480s; abortou de novo em 900s; 0 achado de IA.
-     *   medium -> 258s, 35 achados de IA, out=13.893 de 16.000.
-     *
-     * Não é economia: o `high` simplesmente não converge quando a passada lê o
-     * documento inteiro e o pedido é exaustivo. Subir o teto de tempo já falhou
-     * duas vezes; quem quiser `high` precisa antes dividir a leitura global em
-     * duas passadas por faixa de impacto, não dar mais minutos.
-     *
-     * `OPENAI_DEEP_REASONING_EFFORT=high` continua funcionando para quem quiser
-     * tentar — em documento pequeno o `high` termina normalmente.
-     */
-    return "medium";
-  }
-
-  if (
-    effort === "none" ||
-    effort === "minimal" ||
-    effort === "low" ||
-    effort === "medium" ||
-    effort === "high" ||
-    effort === "xhigh"
-  ) {
-    return effort;
-  }
-
-  return analysisLevel === "deep" ? DEFAULT_REASONING_EFFORT : "medium";
 }
 
 function getPrimaryExecutionProfile(
