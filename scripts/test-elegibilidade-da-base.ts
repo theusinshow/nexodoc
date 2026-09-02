@@ -61,6 +61,30 @@ const base = (report: AuditReport | null, status = "COMPLETED") => ({
   report,
 });
 
+/** Um parecer com cobertura declarada — para os testes de folha muda. */
+function comCobertura(paginas_mudas: number, paginas_transcritas: number): AuditReport {
+  const r = relatorio();
+  return {
+    ...r,
+    arquivos_analisados: [
+      {
+        arquivo: "084_25_md.pdf",
+        tipo_documento: "Memorial Descritivo",
+        resumo: "",
+        cobertura: {
+          caracteres_lidos: 7470,
+          caracteres_totais: 7470,
+          blocos_lidos: 1,
+          blocos_totais: 1,
+          blocos_planejados: 1,
+          paginas_mudas,
+          paginas_transcritas,
+        },
+      },
+    ],
+  } as unknown as AuditReport;
+}
+
 test("base boa serve, e devolve a impressão do arquivo", () => {
   const r = avaliarBase({
     base: base(relatorio()),
@@ -164,6 +188,162 @@ test("toda recusa tem frase, e nenhuma diz 'erro'", () => {
     assert.ok(frase.length > 10, `${m} sem frase`);
     assert.doesNotMatch(frase, /erro/i, `${m}: não houve erro, houve ausência de base`);
   }
+});
+
+// --- Folha muda na base (02/09/2026) -----------------------------------------
+
+/*
+ * O BURACO QUE O TRABALHO DA PAGINA MUDA ABRIU.
+ *
+ * O portao so recusava quando alguma passada FALHOU (`passadas_incompletas`).
+ * Uma auditoria que leu 6 de 31 paginas porque as outras 25 estao desenhadas na
+ * folha em vez de escritas nao falhou em nada -- a global rodou, os blocos
+ * rodaram -- e passava. Herdar dela congela o buraco, que e exatamente o que o
+ * cabecalho deste modulo diz sobre amplificar a base.
+ */
+test("base com folha muda NAO lida nao serve - mesmo sem passada falhada", () => {
+  const r = avaliarBase({
+    base: base(comCobertura(25, 0)),
+    arquivo: "084_25_md.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, false);
+  assert.equal((r as { motivo: string }).motivo, "paginas-nao-lidas");
+});
+
+test("base cujas folhas mudas FORAM transcritas serve normalmente", () => {
+  const r = avaliarBase({
+    base: base(comCobertura(25, 25)),
+    arquivo: "084_25_md.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, true);
+});
+
+test("parecer antigo, sem os campos de folha muda, nao muda de comportamento", () => {
+  // Nada gravado antes de 02/09/2026 declara `paginas_mudas`; deduzir buraco
+  // para eles recusaria o acervo inteiro.
+  const r = avaliarBase({ base: base(relatorio()), arquivo: "084_25_md.pdf", versaoAtual: VERSAO });
+  assert.equal(r.serve, true);
+});
+
+test("a frase da recusa por folha muda diz o que houve", () => {
+  assert.match(fraseDaRecusa("paginas-nao-lidas"), /desenhad|transcri/i);
+});
+
+// --- A revisao muda o nome do arquivo (02/09/2026) ---------------------------
+
+/*
+ * MEDIDO nos nomes reais do acervo: a letra de revisao esta NO NOME por
+ * convencao do escritorio (`_a` -> `_b`), e cada rodada de assinatura ainda
+ * ACRESCENTA quem assinou:
+ *
+ *   040_26_md_geral_a.pdf
+ *   040_26_md_geral_a_clau_chris_assinado.pdf
+ *   040_26_md_geral_a_clau_chris_Rama_Rafa_assinado.pdf
+ *
+ * Casando so por nome exato, o reuso recusava justamente o caso da revisao --
+ * para o qual ele foi construido.
+ */
+test("a revisao seguinte do mesmo memorial reusa a base", () => {
+  const r = avaliarBase({
+    base: base(relatorio({ impressao: [{ arquivo: "040_26_md_geral_a.pdf", capitulos: CAPITULOS }] })),
+    arquivo: "040_26_md_geral_b.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, true, "_a -> _b e a mesma peca, uma revisao depois");
+});
+
+test("a via assinada do mesmo memorial reusa a base", () => {
+  const r = avaliarBase({
+    base: base(relatorio({ impressao: [{ arquivo: "040_26_md_geral_a.pdf", capitulos: CAPITULOS }] })),
+    arquivo: "040_26_md_geral_a_clau_chris_Rama_Rafa_assinado.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, true);
+});
+
+test("OUTRO memorial do MESMO projeto nao reusa", () => {
+  // `116_25_md_geral` e `116_25_md_ter_pav` convivem no mesmo projeto e sao
+  // pecas diferentes. Emparelha-las herdaria achado de outro documento.
+  const r = avaliarBase({
+    base: base(relatorio({ impressao: [{ arquivo: "116_25_md_geral_b.pdf", capitulos: CAPITULOS }] })),
+    arquivo: "116_25_md_ter_pav.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, false);
+  assert.equal((r as { motivo: string }).motivo, "outro-arquivo");
+});
+
+test("chave ambigua na base NAO casa - o nome exato continua mandando", () => {
+  /*
+   * As 6 folhas de `113_22_gme_a-R00 - NN - ...` normalizam todas para
+   * `113_22_gme`. Com mais de uma candidata, escolher seria escolher no escuro:
+   * recusa, que e o comportamento de antes.
+   */
+  const impressao = [
+    { arquivo: "113_22_gme_a-R00 - 01 - PLANTA BAIXA.pdf", capitulos: CAPITULOS },
+    { arquivo: "113_22_gme_a-R00 - 02 - ISOMETRICO.pdf", capitulos: CAPITULOS },
+  ];
+  const r = avaliarBase({
+    base: base(relatorio({ impressao })),
+    arquivo: "113_22_gme_b-R01 - 09 - OUTRA.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, false);
+  assert.equal((r as { motivo: string }).motivo, "outro-arquivo");
+});
+
+test("nome exato tem precedencia sobre a chave normalizada", () => {
+  const impressao = [
+    { arquivo: "040_26_md_geral_a.pdf", capitulos: [{ ...CAPITULOS[0], hash: "errado" }] },
+    { arquivo: "040_26_md_geral_b.pdf", capitulos: [{ ...CAPITULOS[0], hash: "certo" }] },
+  ];
+  const r = avaliarBase({
+    base: base(relatorio({ impressao })),
+    arquivo: "040_26_md_geral_b.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(r.serve, true);
+  assert.equal((r as { impressao: { hash: string }[] }).impressao[0].hash, "certo");
+});
+
+test("revisao renomeada nao escapa do portao da folha muda", () => {
+  /*
+   * O defeito do primeiro corte deste conserto: a impressao casava pela chave
+   * (para `_a` -> `_b` reusar) e a cobertura casava por nome EXATO. Numa
+   * revisao renomeada o arquivo da cobertura nao era encontrado, o portao achava
+   * que nao havia medicao e passava -- deixando entrar a base furada que ele
+   * acabara de ser escrito para barrar.
+   */
+  const r = relatorio({ impressao: [{ arquivo: "040_26_md_geral_a.pdf", capitulos: CAPITULOS }] });
+  const comFuro = {
+    ...r,
+    arquivos_analisados: [
+      {
+        arquivo: "040_26_md_geral_a.pdf",
+        tipo_documento: "Memorial Descritivo",
+        resumo: "",
+        cobertura: {
+          caracteres_lidos: 7470,
+          caracteres_totais: 7470,
+          blocos_lidos: 1,
+          blocos_totais: 1,
+          blocos_planejados: 1,
+          paginas_mudas: 25,
+          paginas_transcritas: 0,
+        },
+      },
+    ],
+  } as unknown as AuditReport;
+
+  const res = avaliarBase({
+    base: base(comFuro),
+    arquivo: "040_26_md_geral_b.pdf",
+    versaoAtual: VERSAO,
+  });
+  assert.equal(res.serve, false);
+  assert.equal((res as { motivo: string }).motivo, "paginas-nao-lidas");
 });
 
 console.log(`\n${passed} teste(s) de elegibilidade OK`);

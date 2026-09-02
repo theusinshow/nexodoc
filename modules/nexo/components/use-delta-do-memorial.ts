@@ -18,7 +18,13 @@ import { useEffect, useState } from "react";
 
 export interface DeltaDoMemorial {
   comparavel: boolean;
-  motivo?: "sem-banco" | "sem-auditoria-anterior" | "sem-impressao";
+  /*
+   * `outro-arquivo` entrou em 02/09/2026, quando o delta passou a usar a MESMA
+   * busca de base que a auditoria (`acharPorNomeOuChave`). Antes ele caía no
+   * primeiro arquivo da base e nunca recusava — anunciando economia que a
+   * auditoria em seguida não entregava.
+   */
+  motivo?: "sem-banco" | "sem-auditoria-anterior" | "sem-impressao" | "outro-arquivo";
   base?: { auditId: string; arquivo: string; quando: string };
   resumo?: string;
   fracaoJaLida?: number;

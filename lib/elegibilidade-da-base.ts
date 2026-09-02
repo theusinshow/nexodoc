@@ -17,6 +17,7 @@
  * PURO: recebe o parecer já carregado. Quem fala com o banco é a rota.
  */
 import type { AuditReport, CapituloImpresso } from "./audit-report.ts";
+import { paginasMudasPendentes } from "./resumo-do-esforco.ts";
 
 export type BaseDaReauditoria = {
   auditId: string;
@@ -31,7 +32,8 @@ export type MotivoDeRecusa =
   | "analise-parcial"
   | "sem-impressao"
   | "versao-diferente"
-  | "outro-arquivo";
+  | "outro-arquivo"
+  | "paginas-nao-lidas";
 
 export type Elegibilidade =
   | { serve: true; impressao: CapituloImpresso[] }
@@ -67,12 +69,32 @@ export function avaliarBase(args: {
     return { serve: false, motivo: "versao-diferente" };
   }
 
+  /*
+   * FOLHA QUE NINGUÉM LEU TAMBÉM FURA A BASE — e não aparece em
+   * `passadas_incompletas`.
+   *
+   * O portão acima cobre a passada que FALHOU. Uma auditoria cujas folhas estão
+   * desenhadas em vez de escritas (ver [[pagina-muda.ts]]) não falha em nada: a
+   * global roda, os blocos rodam, e ela sai "COMPLETED". No
+   * `114_19_VOLUME ÚNICO.pdf` isso seria uma base que leu 6 de 31 páginas —
+   * e herdar dela é o mesmo congelamento de buraco descrito no cabeçalho, pela
+   * porta ao lado.
+   *
+   * Só conta a folha que ficou POR LER: transcrita é folha lida.
+   */
+  const doArquivoNaCobertura = acharPorNomeOuChave(
+    base.report.arquivos_analisados ?? [],
+    arquivo,
+  );
+  if (doArquivoNaCobertura?.cobertura && paginasMudasPendentes(doArquivoNaCobertura.cobertura) > 0) {
+    return { serve: false, motivo: "paginas-nao-lidas" };
+  }
+
   if (!runtime?.impressao?.length) {
     return { serve: false, motivo: "sem-impressao" };
   }
 
-  // `impressao` é POR ARQUIVO, e o nome é o único elo entre as duas corridas.
-  const doArquivo = runtime.impressao.find((i) => i.arquivo === arquivo);
+  const doArquivo = acharPorNomeOuChave(runtime.impressao, arquivo);
 
   if (!doArquivo?.capitulos?.length) {
     return { serve: false, motivo: "outro-arquivo" };
@@ -80,6 +102,78 @@ export function avaliarBase(args: {
 
   return { serve: true, impressao: doArquivo.capitulos };
 }
+
+/**
+ * A CHAVE DO DOCUMENTO: o nome sem a revisão nem o rastro das assinaturas.
+ *
+ * `impressao` é gravada por NOME de arquivo, e o nome muda entre revisões do
+ * MESMO documento — por convenção do escritório, e não por descuido. Medido nos
+ * nomes reais do acervo:
+ *
+ *   040_26_md_geral_a.pdf
+ *   040_26_md_geral_a_clau_chris_assinado.pdf
+ *   040_26_md_geral_a_clau_chris_Rama_Rafa_assinado.pdf
+ *   116_25_md_geral_b.pdf
+ *
+ * A letra de revisão está no nome, e cada rodada de assinatura ACRESCENTA quem
+ * assinou. Casando só por nome exato, o reuso recusava `_a` -> `_b` — que é
+ * exatamente a reauditoria de revisão para a qual ele foi construído.
+ *
+ * A regra: os tokens ATÉ o primeiro que é uma letra sozinha (a revisão) ou um
+ * `rev`/`r00`. Tudo depois é rastro de processo, não identidade do documento.
+ * `116_25_md_geral` e `116_25_md_ter_pav` continuam chaves diferentes, que é o
+ * que impede herdar achado de outra peça do mesmo projeto.
+ */
+export function chaveDoDocumento(fileName: string): string {
+  const stem = fileName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\.[a-z0-9]+$/, "");
+  const tokens = stem.split(/[^a-z0-9]+/).filter(Boolean);
+  const corte = tokens.findIndex((t) => /^[a-z]$/.test(t) || /^r(ev|\d+)$/.test(t));
+  return (corte >= 0 ? tokens.slice(0, corte) : tokens).join("_");
+}
+
+/**
+ * A impressão DESTE documento dentro da base — por nome exato, e só então pela
+ * chave.
+ *
+ * A chave normalizada só vale quando ela casa com UMA candidata. As seis folhas
+ * de `113_22_gme_a-R00 - NN - …` normalizam todas para `113_22_gme`; com mais
+ * de uma, escolher seria escolher no escuro, e a recusa é o comportamento que
+ * já existia.
+ */
+export function acharPorNomeOuChave<T extends { arquivo: string }>(
+  entradas: readonly T[],
+  arquivo: string,
+): T | undefined {
+  const exato = entradas.find((i) => i.arquivo === arquivo);
+  if (exato) return exato;
+
+  const chave = chaveDoDocumento(arquivo);
+  if (!chave) return undefined;
+
+  const candidatas = entradas.filter((i) => chaveDoDocumento(i.arquivo) === chave);
+  return candidatas.length === 1 ? candidatas[0] : undefined;
+}
+
+/*
+ * A MESMA busca serve às TRÊS leituras da base — a cobertura, a impressão e o
+ * delta que o cartão mostra ANTES de auditar (`/api/audit/delta`).
+ *
+ * O delta tinha regra própria: nome exato, senão `impressaoAnterior[0]`. Mais
+ * frouxa que a daqui, e a divergência aparecia do pior jeito possível — numa
+ * revisão renomeada o cartão dizia "86% já foi lido" e a auditoria em seguida
+ * recusava a base por `outro-arquivo` e relia tudo. A promessa e a entrega
+ * discordando sobre a mesma dupla de arquivos.
+ *
+ * Foi o defeito do primeiro corte desta função: a impressão casava pela chave
+ * (para a revisão `_a` -> `_b` reusar) e a cobertura casava por nome exato. Numa
+ * revisão renomeada, o arquivo da cobertura não era encontrado, o portão da
+ * folha muda achava que não havia medição e passava — deixando entrar
+ * exatamente a base furada que ele acabara de ser escrito para barrar.
+ */
 
 /**
  * Por que não houve reuso, em linguagem de documento. Nenhuma frase diz "erro":
@@ -98,6 +192,8 @@ export function fraseDaRecusa(motivo: MotivoDeRecusa): string {
       return "O parecer anterior é de uma versão que ainda não guardava a impressão por capítulo.";
     case "versao-diferente":
       return "O auditor mudou desde o parecer anterior (prompt, modelo ou recorte), então o documento foi lido inteiro.";
+    case "paginas-nao-lidas":
+      return "A auditoria anterior deixou folhas sem leitura — o texto delas está desenhado na página, não escrito, e não foi transcrito. Herdar dela repetiria o buraco, então este memorial foi lido inteiro.";
     case "outro-arquivo":
       return "O parecer anterior é de outro arquivo; não há capítulos para comparar.";
   }

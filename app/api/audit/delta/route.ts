@@ -23,6 +23,7 @@ import {
 import type { AuditReport, ImpressaoDoArquivo } from "@/lib/audit-report";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 import { auditByIdWhereForActor } from "@/lib/audit-access";
+import { acharPorNomeOuChave } from "@/lib/elegibilidade-da-base";
 import type { Actor } from "@/lib/actor";
 
 export const runtime = "nodejs";
@@ -79,12 +80,27 @@ export async function POST(request: Request) {
   const capitulosAgora = impressaoDosCapitulos(chunkPdfByChapter(extraido));
 
   /*
-   * Compara com o arquivo de MESMO NOME quando ele existe; senão, com o
-   * primeiro. Auditoria de memorial tem um arquivo só — a busca por nome existe
-   * para o dia em que tiver mais.
+   * A MESMA BUSCA QUE A AUDITORIA VAI FAZER — `acharPorNomeOuChave`.
+   *
+   * Aqui a regra era própria e mais frouxa: nome exato, senão
+   * `impressaoAnterior[0]`. Numa revisão renomeada (`_a` -> `_b`, ou a via
+   * assinada) o delta caía no `[0]`, acertava, e o cartão anunciava "86% já foi
+   * lido" — enquanto `avaliarBase`, casando só por nome exato, recusava a base
+   * por `outro-arquivo` e relia o documento inteiro. A promessa e a entrega
+   * discordando sobre a mesma dupla de arquivos, e quem paga só descobre depois.
+   *
+   * O `[0]` sobrevive como último recurso e SÓ com um arquivo na base: é o caso
+   * que ele sempre atendeu — auditoria de memorial tem um arquivo só — e com
+   * dois ou mais escolher o primeiro é escolher no escuro.
    */
   const base =
-    impressaoAnterior.find((i) => i.arquivo === arquivo.name) ?? impressaoAnterior[0];
+    acharPorNomeOuChave(impressaoAnterior, arquivo.name) ??
+    (impressaoAnterior.length === 1 ? impressaoAnterior[0] : undefined);
+
+  if (!base) {
+    return NextResponse.json({ comparavel: false, motivo: "outro-arquivo" });
+  }
+
   const delta = compararImpressoes(base.capitulos, capitulosAgora);
 
   return NextResponse.json({
