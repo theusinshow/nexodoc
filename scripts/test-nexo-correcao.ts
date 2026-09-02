@@ -16,7 +16,10 @@ import {
   mudancasDoArtefato,
   tamanhoLegivel,
 } from "../modules/nexo/lib/pendencia.ts";
-import { estadoDoAnexo } from "../modules/nexo/lib/estado-do-anexo.ts";
+import {
+  arquivosQueNaoSaoPrancha,
+  estadoDoAnexo,
+} from "../modules/nexo/lib/estado-do-anexo.ts";
 import {
   corDaDisciplina,
   siglaDaDisciplina,
@@ -167,6 +170,82 @@ test("estadoDoAnexo: uma página lida entre várias ilegíveis ainda conta como 
 test("estadoDoAnexo: não confunde arquivos diferentes", () => {
   const selos = [{ fileName: "outro.pdf", extraction: { disciplina: "Arq", numeroFolha: "1/2" } }];
   assert.deepEqual(estadoDoAnexo("a.pdf", selos, true, sigla), { tipo: "na-fila" });
+});
+
+/*
+ * O CASO 114-19 (02/09/2026): um MEMORIAL entrou pelo fluxo de prancha porque o
+ * nome não dizia "md". As 31 folhas são A4 retrato, e as mudas não têm uma linha
+ * de texto — `classificarPagina` chamou todas de "capa" e `valeLerComoPrancha`
+ * pulou todas. Zero chamadas de modelo, zero erro. A tela dizia "selo ilegível",
+ * que descreve outro problema: nada foi ilegível, tudo foi pulado de propósito.
+ *
+ * O limiar de 4 folhas foi MEDIDO nos 515 PDFs de prancha de `docs/`: 68 pulam
+ * 100% das páginas (LDs e capas, que devem mesmo ser puladas) e NENHUMA delas
+ * passa de 4 folhas. Um documento de 31 "capas" não é uma capa.
+ */
+test("estadoDoAnexo: 31 folhas todas puladas não é 'ilegível' — não é prancha", () => {
+  const selos = Array.from({ length: 31 }, (_, i) => ({
+    fileName: "114_19_VOLUME UNICO.pdf",
+    extraction: null,
+    ignorada: "capa" as const,
+    pageNumber: i + 1,
+  }));
+  assert.deepEqual(estadoDoAnexo("114_19_VOLUME UNICO.pdf", selos, false, sigla), {
+    tipo: "nao-e-prancha",
+    paginas: 31,
+  });
+});
+
+test("estadoDoAnexo: a LD de 3 folhas continua pulada em silêncio", () => {
+  // `113_22_est_ld_a.pdf`: 3 páginas, todas "capa". Pular é o certo, e avisar
+  // aqui poria um alarme em toda montagem de volume.
+  const selos = Array.from({ length: 3 }, () => ({
+    fileName: "113_22_est_ld_a.pdf",
+    extraction: null,
+    ignorada: "capa" as const,
+  }));
+  assert.deepEqual(estadoDoAnexo("113_22_est_ld_a.pdf", selos, false, sigla), { tipo: "nenhum" });
+});
+
+test("estadoDoAnexo: folha pulada e folha ILEGÍVEL não são a mesma coisa", () => {
+  // Sem `ignorada`, a leitura foi tentada e falhou — isso pede segunda tentativa,
+  // e continua sendo "ilegível" como sempre foi.
+  const selos = Array.from({ length: 31 }, () => ({
+    fileName: "prancha.pdf",
+    extraction: null,
+  }));
+  assert.deepEqual(estadoDoAnexo("prancha.pdf", selos, false, sigla), { tipo: "ilegivel" });
+});
+
+test("arquivosQueNaoSaoPrancha: nomeia o memorial e ignora a LD do mesmo lote", () => {
+  const selos = [
+    // O memorial de 31 folhas que entrou pelo fluxo errado.
+    ...Array.from({ length: 31 }, () => ({
+      fileName: "114_19_VOLUME UNICO.pdf",
+      extraction: null,
+      ignorada: "capa" as const,
+    })),
+    // Uma LD de 1 folha: pular é o certo, não vira aviso.
+    { fileName: "040_26_his_ld_a.pdf", extraction: null, ignorada: "indice" as const },
+    // Uma prancha de verdade, lida.
+    { fileName: "040_26_his_001_a.pdf", extraction: { disciplina: "His", numeroFolha: "1/11" } },
+  ];
+  assert.deepEqual(arquivosQueNaoSaoPrancha(selos), [
+    { fileName: "114_19_VOLUME UNICO.pdf", paginas: 31 },
+  ]);
+});
+
+test("arquivosQueNaoSaoPrancha: uma folha lida já salva o arquivo do aviso", () => {
+  // Um tomo grande em que só a primeira folha leu continua sendo prancha.
+  const selos = [
+    { fileName: "tomo.pdf", extraction: { disciplina: "Est", numeroFolha: "1/18" } },
+    ...Array.from({ length: 17 }, () => ({
+      fileName: "tomo.pdf",
+      extraction: null,
+      ignorada: "capa" as const,
+    })),
+  ];
+  assert.deepEqual(arquivosQueNaoSaoPrancha(selos), []);
 });
 
 // --- Disciplina: sigla e cor -------------------------------------------------

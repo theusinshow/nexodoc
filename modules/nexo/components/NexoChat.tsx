@@ -908,6 +908,29 @@ function AttachmentChip({
         </span>
       )}
       {/*
+        NENHUMA FOLHA LIDA, E FOLHAS DEMAIS PARA ISSO SER NORMAL.
+
+        O caso que trouxe isto (02/09/2026): o `114_19_VOLUME ÚNICO.pdf` é um
+        memorial, mas o nome não diz "md" — o roteamento é pelo nome, então ele
+        entrou pelo fluxo de prancha. Lá, as 31 folhas A4 retrato sem texto
+        foram todas classificadas como "capa" e puladas: zero chamada de modelo,
+        zero erro, e a tela dizia "selo ilegível" — que descreve outro problema
+        e não aponta saída nenhuma. O engenheiro só descobriu renomeando o
+        arquivo no escuro.
+
+        A frase agora diz o que aconteceu, e o botão ao lado ("tratar como
+        memorial") é a saída, sem precisar renomear nada.
+      */}
+      {estado.tipo === "nao-e-prancha" && (
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.07em]"
+          style={{ color: "var(--status-warning)" }}
+          title={`Nenhuma das ${estado.paginas} folhas parece prancha — nenhum carimbo foi lido. Se este PDF for o memorial, use "tratar como memorial" ao lado para auditá-lo.`}
+        >
+          não parece prancha
+        </span>
+      )}
+      {/*
         O PAPEL só aparece quando NÃO há como trocá-lo. Com o botão ao lado, os
         dois juntos davam "PRANCHA  é o memorial" — um estado e uma ação
         encostados, sem nada distinguindo qual era qual. O verbo do botão já diz

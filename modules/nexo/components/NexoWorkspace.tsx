@@ -28,6 +28,7 @@ import { dataDominante } from "@/server/nexo/data-do-selo";
 import { nomeNaCapa } from "@/server/nexo/disciplinas";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
+import { arquivosQueNaoSaoPrancha } from "../lib/estado-do-anexo";
 import {
   resolveSheetNumbersComOrigem,
   type OrigemDoNumero,
@@ -682,11 +683,37 @@ function NexoWorkspaceInner({
         .filter(Boolean),
     });
 
-    const suggestions: NexoSlotSuggestion[] = [
-      { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
-      { label: "Só a LD", value: "cria a LD dessas pranchas", commit: "send" },
-      { label: "Conferir as folhas", value: "confere as folhas", commit: "send" },
-    ];
+    /*
+     * O ARQUIVO INTEIRO QUE NÃO É PRANCHA — dito por NOME, e com a saída.
+     *
+     * Calculado ANTES das sugestões porque ele decide o que faz sentido
+     * oferecer: com zero folhas lidas, "Criar a LD e a capa" é um convite para
+     * gerar documento sobre nada.
+     *
+     * O caso: o `114_19_VOLUME ÚNICO.pdf` (02/09/2026) é um memorial, mas o nome
+     * não diz "md" e o roteamento é pelo nome — ele entrou pelo fluxo de
+     * prancha. Lá, as 31 folhas A4 retrato sem texto foram todas classificadas
+     * "capa" e puladas. O engenheiro descobriu renomeando o arquivo no escuro.
+     *
+     * O limiar está medido em [[estado-do-anexo.ts]]: nenhuma das 515 pranchas
+     * reais de `docs/` dispara isto.
+     */
+    const naoSaoPrancha = arquivosQueNaoSaoPrancha(
+      [...okSelos, ...naoLidas.falhas, ...naoLidas.ignoradas].map((r) => ({
+        fileName: r.fileName,
+        extraction: r.extraction,
+        ignorada: r.ignorada,
+      })),
+    );
+    const nenhumaFolhaLida = okSelos.length === 0;
+
+    const suggestions: NexoSlotSuggestion[] = nenhumaFolhaLida
+      ? []
+      : [
+          { label: "Criar a LD e a capa", value: "cria a LD e a capa dessas pranchas", commit: "send" },
+          { label: "Só a LD", value: "cria a LD dessas pranchas", commit: "send" },
+          { label: "Conferir as folhas", value: "confere as folhas", commit: "send" },
+        ];
     if (hasMemorial) {
       suggestions.push({ label: "Auditar o memorial", value: "audita o memorial", commit: "send" });
     }
@@ -698,9 +725,24 @@ function NexoWorkspaceInner({
      * tem de dizer o que fazer com ela.
      */
     const ressalvas: string[] = [];
-    if (naoLidas.ignoradas.length > 0) {
+    /*
+     * A ressalva genérica só conta as páginas de arquivos que PERTENCEM a este
+     * fluxo. As folhas de um arquivo já nomeado abaixo ("nenhuma folha parece
+     * prancha") sairiam contadas duas vezes, e a primeira frase — "ficaram de
+     * fora", que descreve o comportamento certo — faria a segunda soar como
+     * detalhe.
+     */
+    const nomeados = new Set(naoSaoPrancha.map((a) => a.fileName));
+    const ignoradasDeVerdade = naoLidas.ignoradas.filter((r) => !nomeados.has(r.fileName));
+    if (ignoradasDeVerdade.length > 0) {
       ressalvas.push(
-        `${plural(naoLidas.ignoradas.length, "página não é prancha", "páginas não são prancha")} (capa, separatriz ou índice) e ficaram de fora`,
+        `${plural(ignoradasDeVerdade.length, "página não é prancha", "páginas não são prancha")} (capa, separatriz ou índice) e ficaram de fora`,
+      );
+    }
+    if (naoSaoPrancha.length > 0) {
+      const quais = naoSaoPrancha.map((a) => `${a.fileName} (${a.paginas} folhas)`).join(", ");
+      ressalvas.push(
+        `em ${quais} NENHUMA folha parece prancha — nenhum carimbo foi lido. Se for o memorial, use "tratar como memorial" no anexo para auditá-lo`,
       );
     }
     if (naoLidas.falhas.length > 0) {
@@ -761,13 +803,22 @@ function NexoWorkspaceInner({
         reuso || ressalva ? " " : ""
       }O que você quer que eu faça?`.trim(),
       ficha,
-      slotRequest: {
-        slotId: "intake",
-        taskKind: "ld",
-        prompt: "O que fazer com as pranchas anexadas",
-        optional: true,
-        suggestions,
-      },
+      /*
+       * SEM SUGESTÃO, SEM SLOT. Com zero folhas lidas a lista fica vazia, e um
+       * seletor vazio pedindo "o que fazer com as pranchas anexadas" convida a
+       * agir sobre um conjunto que não existe.
+       */
+      ...(suggestions.length > 0
+        ? {
+            slotRequest: {
+              slotId: "intake" as const,
+              taskKind: "ld" as const,
+              prompt: "O que fazer com as pranchas anexadas",
+              optional: true,
+              suggestions,
+            },
+          }
+        : {}),
     });
   }
 
@@ -1187,9 +1238,23 @@ function NexoWorkspaceInner({
           falhas: collected.filter((r) => !r.extraction && !r.ignorada),
           ignoradas: collected.filter((r) => r.ignorada),
         };
-        // Basta UMA folha ter falhado para a mensagem valer: o caso ruim é
-        // justamente o das zero leituras boas, em que antes não se dizia nada.
-        if (okSelos.length > 0 || naoLidas.falhas.length > 0) {
+        /*
+         * ARQUIVO INTEIRO PULADO TAMBÉM MERECE A MENSAGEM — e era o buraco.
+         *
+         * A guarda era `okSelos.length > 0 || naoLidas.falhas.length > 0`, e o
+         * comentário dizia que o caso ruim é o das zero leituras boas. Só que há
+         * DOIS jeitos de ter zero leituras boas, e este cobria um só: quando as
+         * folhas falharam. Quando elas são PULADAS, `falhas` também é zero — e a
+         * condição inteira dá falso.
+         *
+         * Foi o que aconteceu com o `114_19_VOLUME ÚNICO.pdf` (02/09/2026): um
+         * memorial roteado para o fluxo de prancha pelo nome, 31 folhas A4
+         * retrato sem texto, todas classificadas "capa" e puladas. Zero acertos,
+         * zero falhas, e o Nexo não disse UMA PALAVRA — nem no chat, nem no
+         * canvas. O engenheiro descobriu renomeando o arquivo no escuro.
+         */
+        const arquivosMudos = arquivosQueNaoSaoPrancha(collected);
+        if (okSelos.length > 0 || naoLidas.falhas.length > 0 || arquivosMudos.length > 0) {
           appendSelosIntake(
             okSelos,
             [...pranchas, ...images],
