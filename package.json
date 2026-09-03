@@ -138,6 +138,7 @@
     "test:papel-do-anexo": "node scripts/test-papel-do-anexo.ts",
     "medir:papel": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/medir-papel-do-anexo.mjs",
     "prova:pre-voo-real": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-pre-voo-com-pdf-real.mjs",
+    "prova:pre-voo-navegador": "node scripts/prova-pre-voo-no-navegador.mjs",
     "test:pool": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-pool-do-banco.ts",
     "test:aprendizados": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-aprendizados-no-banco.ts",
     "test:ai-failure": "node scripts/test-ai-failure-policy.ts",
