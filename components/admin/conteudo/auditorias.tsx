@@ -293,14 +293,14 @@ export function CorpoDasAuditorias() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-2 border border-border bg-card p-3 lg:grid-cols-[1fr_170px_170px_220px_auto]"
+          className="grid gap-2 nx-edge-8 p-3 lg:grid-cols-[1fr_170px_170px_220px_auto]"
         >
-          <div className="relative">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+              className="h-9 w-full bg-transparent pl-9 pr-3 text-sm outline-none"
               placeholder="Buscar projeto, título ou arquivo"
             />
           </div>
@@ -324,12 +324,12 @@ export function CorpoDasAuditorias() {
             <option value="memorial">Memorial</option>
             <option value="volume">Volume</option>
           </Select>
-          <div className="relative">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={userFilter}
               onChange={(event) => setUserFilter(event.target.value)}
-              className="h-9 w-full rounded-md border bg-[var(--nexodoc-recessed)] pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+              className="h-9 w-full bg-transparent pl-9 pr-3 text-sm outline-none"
               placeholder="Usuário"
             />
           </div>
@@ -354,7 +354,7 @@ export function CorpoDasAuditorias() {
           </div>
         )}
 
-        <section className="min-w-0 overflow-x-auto border border-border bg-card">
+        <section className="nx-edge-8 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
               <tr>

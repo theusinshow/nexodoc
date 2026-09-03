@@ -191,17 +191,17 @@ export function CorpoDasLds() {
             { label: "Eventos", value: totals.events },
           ]}
         />
-        <form onSubmit={submit} className="grid gap-2 border border-border bg-card p-3 md:grid-cols-[1fr_180px_250px_auto]">
-          <div className="relative">
+        <form onSubmit={submit} className="grid gap-2 nx-edge-8 p-3 md:grid-cols-[1fr_180px_250px_auto]">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Código ou obra" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Código ou obra" className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none" />
           </div>
           <Select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10">
             <option value="all">Todos status</option><option value="DRAFT">Rascunho</option><option value="GENERATED">Gerada</option><option value="ARCHIVED">Arquivada</option>
           </Select>
-          <div className="relative">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={user} onChange={(event) => setUser(event.target.value)} placeholder="Usuário" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
+            <input value={user} onChange={(event) => setUser(event.target.value)} placeholder="Usuário" className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none" />
           </div>
           <Button type="submit" disabled={loading}>Filtrar</Button>
         </form>
@@ -221,7 +221,7 @@ export function CorpoDasLds() {
           </div>
         )}
 
-        <section className="min-w-0 overflow-x-auto border border-border bg-card">
+        <section className="nx-edge-8 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[1100px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>

@@ -240,13 +240,6 @@ export function CorpoDaConfiguracao() {
   const [cambioSalvo, setCambioSalvo] = useState(false);
   const apiUrl = getApiUrl();
   const errosDoCambio = validarCotacao(normalizarCotacao({ valor: cambio }));
-  const itensDeAtencao = data
-    ? resumoDeAtencao({
-        fluxos: data.aiFlows,
-        falhas: data.aiHealth.lastFailures,
-        databaseConfigured: data.modelSettings.databaseConfigured,
-      })
-    : [];
   const errosDasMetas = validarMetas(
     normalizarMetas({ falsoPositivoMax: metaFp, coberturaMin: metaCobertura }),
   );
@@ -572,40 +565,8 @@ export function CorpoDaConfiguracao() {
 
         <AdminError message={error} />
 
-        {/*
-          A FAIXA DE ATENÇÃO abre a tela. Só entra o que impede o produto de
-          funcionar agora — o opcional (cotação, metas) fica de fora
-          de propósito: faixa que lista pendência que ninguém precisa resolver é
-          faixa que se aprende a ignorar. Ver `lib/atencao-do-admin.ts`.
-        */}
-        {data ? (
-          <section className="rounded-sm border bg-card px-4 py-3">
-            {itensDeAtencao.length === 0 ? (
-              <p className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
-                <CheckCircle2 className="size-3.5" />
-                {TUDO_EM_ORDEM}
-              </p>
-            ) : (
-              <ul className="grid gap-1.5">
-                {itensDeAtencao.map((item) => (
-                  <li
-                    key={item.chave}
-                    className={`inline-flex items-start gap-1.5 font-mono text-[11px] ${
-                      item.gravidade === "critico"
-                        ? "text-[var(--status-critical)]"
-                        : "text-[var(--status-warning)]"
-                    }`}
-                  >
-                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                    {item.texto}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ) : null}
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Editor de modelos por fluxo</h2>
@@ -627,7 +588,7 @@ export function CorpoDaConfiguracao() {
             {data?.modelSettings.options.map((model) => <option key={model} value={model} />)}
           </datalist>
 
-          <div className="mt-4 overflow-hidden rounded-sm border">
+          <div className="mt-4 nx-edge-8">
             <div className="grid grid-cols-[1.2fr_0.65fr_1fr_1.2fr_0.8fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
               <span>Fluxo</span>
               <span>Provider</span>
@@ -665,7 +626,7 @@ export function CorpoDaConfiguracao() {
                       }))
                     }
                     disabled={!data.modelSettings.databaseConfigured || isSaving}
-                    className="min-h-9 w-full rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary"
+                    className="nx-edge-7 min-h-9 w-full bg-transparent px-3 py-1 font-mono text-xs outline-none [--nx-fill:var(--nexodoc-recessed)]"
                     aria-label={`Modelo para ${flow.label}`}
                   />
                   <div className="flex items-center gap-2">
@@ -701,7 +662,7 @@ export function CorpoDaConfiguracao() {
           </div>
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Painel de provedores IA</h2>
@@ -735,7 +696,7 @@ export function CorpoDaConfiguracao() {
               </span>
             </div>
           </div>
-          <div className="mt-4 overflow-hidden rounded-sm border">
+          <div className="mt-4 nx-edge-8">
             <div className="grid grid-cols-[1.4fr_0.75fr_1.15fr_0.85fr_1.3fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
               <span>Fluxo</span>
               <span>Provider</span>
@@ -811,7 +772,7 @@ export function CorpoDaConfiguracao() {
           sempre abre por causa de algo quebrado.
         */}
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Metas de qualidade</h2>
@@ -822,7 +783,7 @@ export function CorpoDaConfiguracao() {
                 meta continua sem cor.
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2.5 py-1 font-mono text-[11px] text-[var(--signal-info)]">
+            <span className="inline-flex items-center gap-1.5 nx-cut-6 bg-[var(--signal-info-bg)] px-2.5 py-1 font-mono text-[11px] text-[var(--signal-info)]">
               {data && (data.metaQualidade.metas.falsoPositivoMax > 0 ||
                 data.metaQualidade.metas.coberturaMin > 0)
                 ? "metas declaradas"
@@ -844,7 +805,7 @@ export function CorpoDaConfiguracao() {
                   setMetasSalvas(false);
                   setMetaFp(event.target.value);
                 }}
-                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
+                className="nx-edge-7 min-h-9 w-40 bg-transparent px-3 py-1 font-mono text-xs outline-none disabled:opacity-60 [--nx-fill:var(--nexodoc-recessed)]"
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -860,7 +821,7 @@ export function CorpoDaConfiguracao() {
                   setMetasSalvas(false);
                   setMetaCobertura(event.target.value);
                 }}
-                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
+                className="nx-edge-7 min-h-9 w-40 bg-transparent px-3 py-1 font-mono text-xs outline-none disabled:opacity-60 [--nx-fill:var(--nexodoc-recessed)]"
               />
             </label>
             <Button
@@ -904,87 +865,9 @@ export function CorpoDaConfiguracao() {
           ) : null}
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Cotação do dólar</h2>
-              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                A fatura do provedor é em dólar; a decisão de rodar (ou não) é em
-                real. A cotação é <strong>declarada</strong>, não buscada: cotação
-                que se busca envelhece em silêncio, e o número que precifica o
-                trabalho é o do contador, não o do mercado à vista. Todo valor
-                convertido sai com &quot;≈&quot; e com a data desta declaração.
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2.5 py-1 font-mono text-[11px] text-[var(--signal-info)]">
-              {data
-                ? procedenciaDaCotacao(data.cambio.cotacao, new Date())
-                : "cotação não declarada — os valores ficam em dólar"}
-            </span>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-                Reais por US$ 1
-              </span>
-              <input
-                value={cambio}
-                placeholder="ex.: 5,42"
-                inputMode="decimal"
-                disabled={!data || savingCambio}
-                onChange={(event) => {
-                  setCambioSalvo(false);
-                  setCambio(event.target.value);
-                }}
-                className="min-h-9 w-40 rounded-sm border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none transition focus:border-primary disabled:opacity-60"
-              />
-            </label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                !data || !data.cambio.databaseConfigured || savingCambio || errosDoCambio.length > 0
-              }
-              onClick={() => void salvarCotacaoNoAdmin()}
-            >
-              {savingCambio ? <Loader2 className="animate-spin" /> : <Save />}
-              Declarar cotação
-            </Button>
-            {!data ? (
-              <span className="text-xs text-muted-foreground">
-                Informe o token admin para declarar.
-              </span>
-            ) : !data.cambio.databaseConfigured ? (
-              <span className="font-mono text-[11px] text-[var(--status-warning)]">
-                sem DATABASE_URL — só leitura do que veio do ambiente
-              </span>
-            ) : cambioSalvo ? (
-              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
-                <CheckCircle2 className="size-3.5" /> declarada agora
-              </span>
-            ) : null}
-          </div>
-
-          {errosDoCambio.length > 0 ? (
-            <ul className="mt-3 space-y-1">
-              {errosDoCambio.map((erro) => (
-                <li key={erro} className="font-mono text-[11px] text-[var(--status-warning)]">
-                  {erro}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <p className="mt-3 text-xs text-muted-foreground">
-            Campo vazio apaga a cotação — e o consumo volta a aparecer só em dólar,
-            que é melhor que um real com procedência inventada.
-          </p>
-        </section>
 
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Teste de conectividade do provider ativo</h2>
@@ -999,10 +882,15 @@ export function CorpoDaConfiguracao() {
           </div>
           {connectivityTest ? (
             <div
-              className={`mt-4 rounded-sm border px-3 py-3 text-sm ${
+              /*
+                Fundo TRANSLÚCIDO não compõe em duas formas: o miolo pintaria
+                sobre a cor da borda. Caixa de alerta fica com `.nx-cut-*` e uma
+                forma só, sem borda — a regra do chanfro para badge e alerta.
+              */
+              className={`nx-cut-6 mt-4 px-3 py-3 text-sm ${
                 connectivityTest.ok
-                  ? "border-[var(--status-ok)]/30 bg-[var(--status-ok-bg)]"
-                  : "border-[var(--status-warning)]/30 bg-[var(--status-warning-bg)]"
+                  ? "bg-[var(--status-ok-bg)]"
+                  : "bg-[var(--status-warning-bg)]"
               }`}
             >
               <p className="font-mono font-medium">
@@ -1026,8 +914,14 @@ export function CorpoDaConfiguracao() {
           ) : null}
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
-          <article className="rounded-sm border bg-card p-4">
+        {/*
+          "Limites" SAIU DAQUI. Era uma tabela de leitura pura dos mesmos quatro
+          números que agora são editáveis logo acima, em "Vazão e limites de
+          leitura" — e uma tela que mostra o mesmo valor duas vezes, uma delas
+          sem poder mexer, ensina a duvidar da que manda.
+        */}
+        <section className="grid gap-4 lg:grid-cols-2">
+          <article className="nx-edge-8 p-4">
             <h2 className="text-sm font-semibold">Runtime</h2>
             <div className="mt-3">
               <ConfigRow label="Ambiente" value={data?.runtime.nodeEnv || "--"} />
@@ -1042,18 +936,7 @@ export function CorpoDaConfiguracao() {
             </div>
           </article>
 
-          <article className="rounded-sm border bg-card p-4">
-            <h2 className="text-sm font-semibold">Limites</h2>
-            <div className="mt-3">
-              {data
-                ? Object.entries(data.limits).map(([key, value]) => (
-                    <ConfigRow key={key} label={key} value={value} />
-                  ))
-                : null}
-            </div>
-          </article>
-
-          <article className="rounded-sm border bg-card p-4">
+          <article className="nx-edge-8 p-4">
             <h2 className="text-sm font-semibold">Chaves</h2>
             <div className="mt-3">
               {data

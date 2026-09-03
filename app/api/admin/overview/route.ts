@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
 import { coletarStatusDoSistema } from "@/lib/fatos-do-sistema";
+import { getLastProviderFailures } from "@/lib/ai-providers";
+import { listarFluxosDeIa } from "@/lib/fluxos-de-ia";
+import { resumoDeAtencao } from "@/lib/atencao-do-admin";
+import { ultimasAcoes } from "@/lib/trilha-administrativa";
 import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
@@ -112,8 +116,31 @@ export async function GET(request: Request) {
    */
   const status = await coletarStatusDoSistema();
 
+  /*
+   * A FAIXA DE ATENÇÃO MUDOU DE CASA. Ela nasceu no topo da Config, e ficou lá
+   * enquanto a Config existia: quem abria aquela tela quase sempre abria por
+   * causa de algo quebrado. Só que a pergunta "o que exige ação?" não é sobre
+   * configuração — é a primeira pergunta do painel inteiro, e agora ela abre o
+   * cockpit.
+   *
+   * A LISTA DE FLUXOS É A MESMA de `/api/admin/config` ([[lib/fluxos-de-ia.ts]]).
+   * Duas bases dariam, mais cedo ou mais tarde, dois números diferentes para
+   * "N fluxos sem chave" em duas telas do mesmo painel.
+   */
+  const atencao = resumoDeAtencao({
+    fluxos: listarFluxosDeIa(),
+    falhas: getLastProviderFailures(),
+    databaseConfigured: isDatabaseConfigured(),
+  });
+
+  // As últimas ações administrativas: até agora nada era registrado, e o
+  // cockpit é onde "quem apagou o quê" precisa aparecer sem ninguém procurar.
+  const acoes = await ultimasAcoes(5);
+
   return NextResponse.json({
     status,
+    atencao,
+    acoes,
     totals: {
       users,
       activeUsers,

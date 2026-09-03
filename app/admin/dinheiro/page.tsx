@@ -11,6 +11,7 @@ import {
 } from "@/components/admin/admin-page-shell";
 import { useAdminToken } from "@/components/admin/admin-token";
 import { CorpoDosControles } from "@/components/admin/conteudo/controles";
+import { CorpoDaCotacao } from "@/components/admin/conteudo/cotacao";
 import { TituloDaSecao } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -266,8 +267,8 @@ export default function AdminUsagePage() {
     <AdminPageShell maxWidth="max-w-6xl">
       <AdminPageHeader
         icon={ShieldCheck}
-        title="Uso e custos"
-        description="Painel operacional para acompanhar tokens, chamadas e gasto da conta OpenAI conectada ao Nexo."
+        title="Dinheiro"
+        description="Quanto custou, contra que teto, e por obra. A fatura do provedor e o consumo interno, que vem do nosso banco."
         actions={
           /*
            * O SELETOR DE PERIODO FICA; o campo de token foi para o trilho.
@@ -309,6 +310,14 @@ export default function AdminUsagePage() {
         </section>
 
         {/*
+          A COTAÇÃO VEIO DA CONFIG. Ela morava lá entre o teste de conectividade
+          e a lista de chaves, e não é configuração de motor: é o câmbio que
+          traduz a fatura no número que decide se vale rodar. Pertence ao lado do
+          consumo que ela converte.
+        */}
+        <CorpoDaCotacao />
+
+        {/*
           A PROCEDÊNCIA DO REAL, acima de tudo que ele toca. Um número
           convertido sem dizer por qual cotação e de quando é exatamente o tipo
           de "quase certo" que este produto recusa em documento — não teria por
@@ -319,17 +328,20 @@ export default function AdminUsagePage() {
           vazio, o que vem do banco continua na tela.
         */}
         {data?.semChaveDaOpenAi ? (
-          <p className="rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-3 py-2 font-mono text-[11px] text-[var(--signal-info)]">
+          <p className="nx-cut-6 bg-[var(--signal-info-bg)] px-3 py-2 font-mono text-[11px] text-[var(--signal-info)]">
             {data.semChaveDaOpenAi}
           </p>
         ) : null}
 
+        {/*
+          A PROCEDÊNCIA FICA; O CONVITE SAIU. Ele mandava "declarar em
+          Configurações" — uma tela que deixou de existir, e cuja seção de
+          cotação agora está NESTA MESMA página, algumas dobras acima. Um link
+          que atravessa o painel para chegar onde a pessoa já está é pior que
+          nenhum.
+        */}
         <p className="font-mono text-[11px] text-muted-foreground">
           {procedenciaDaCotacao(cotacao, new Date())}
-          {" · "}
-          <a href="/admin/motor" className="underline underline-offset-4 hover:text-foreground">
-            declarar em Configurações
-          </a>
         </p>
 
         {/*
@@ -374,7 +386,7 @@ export default function AdminUsagePage() {
         />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-          <article className="rounded-sm border bg-card p-4">
+          <article className="nx-edge-8 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Uso diario</h2>
@@ -405,7 +417,7 @@ export default function AdminUsagePage() {
                     key={usageDay?.date ?? index}
                     className="flex h-64 min-w-0 flex-col justify-end gap-2"
                   >
-                    <div className="flex flex-1 items-end rounded-md border bg-[var(--nexodoc-recessed)] p-1">
+                    <div className="flex flex-1 items-end nx-edge-6 p-1 [--nx-fill:var(--nexodoc-recessed)]">
                       <div
                         /*
                           A BARRA SAI DO TEAL.
@@ -446,7 +458,7 @@ export default function AdminUsagePage() {
             </div>
           </article>
 
-          <article className="rounded-sm border bg-card p-4">
+          <article className="nx-edge-8 p-4">
             <h2 className="text-sm font-semibold">Modelos</h2>
             <div className="mt-4 space-y-2">
               {data && data.usage.models.length > 0 ? (
@@ -456,11 +468,11 @@ export default function AdminUsagePage() {
                   return (
                     <div
                       key={model.model}
-                      className="rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3"
+                      className="nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <p className="break-all font-mono text-sm font-medium">{model.model}</p>
-                        <span className="rounded-md border bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
+                        <span className="nx-edge-6 px-2 py-1 font-mono text-xs text-muted-foreground">
                           {formatNumber(model.requests)}
                         </span>
                       </div>
@@ -471,7 +483,7 @@ export default function AdminUsagePage() {
                   );
                 })
               ) : (
-                <p className="rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+                <p className="nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)] text-sm text-muted-foreground">
                   Nenhum modelo retornado no periodo.
                 </p>
               )}
@@ -479,9 +491,9 @@ export default function AdminUsagePage() {
           </article>
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <h2 className="text-sm font-semibold">Itens de custo</h2>
-          <div className="mt-4 overflow-hidden rounded-md border">
+          <div className="mt-4 nx-edge-7">
             <table className="w-full border-collapse text-sm">
               <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
@@ -514,7 +526,7 @@ export default function AdminUsagePage() {
           </div>
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Custo por obra</h2>
@@ -531,22 +543,22 @@ export default function AdminUsagePage() {
                 avisar leria como o período inteiro — e alguém precificaria em
                 cima dela.
               */
-              <span className="rounded-sm border border-[var(--signal-info-border)] bg-[var(--signal-info-bg)] px-2 py-1 font-mono text-[11px] text-[var(--signal-info)]">
+              <span className="nx-cut-6 bg-[var(--signal-info-bg)] px-2 py-1 font-mono text-[11px] text-[var(--signal-info)]">
                 amostra: os {data.internalUsage.amostra.limite} eventos mais recentes
               </span>
             ) : null}
           </div>
 
           {!data?.internalUsage?.enabled ? (
-            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+            <p className="mt-4 nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)] text-sm text-muted-foreground">
               Sem DATABASE_URL: o consumo por obra vem dos eventos gravados no banco.
             </p>
           ) : obras.length === 0 ? (
-            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+            <p className="mt-4 nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)] text-sm text-muted-foreground">
               Nenhum consumo registrado no período.
             </p>
           ) : (
-            <div className="mt-4 overflow-hidden rounded-sm border">
+            <div className="mt-4 nx-edge-8">
               <div className="grid grid-cols-[1.6fr_0.6fr_0.7fr_0.9fr] border-b bg-[var(--nexodoc-recessed)] px-3 py-2 font-mono text-[11px] uppercase text-muted-foreground">
                 <span>Obra</span>
                 <span className="text-right">Conversas</span>
@@ -605,7 +617,7 @@ export default function AdminUsagePage() {
           )}
         </section>
 
-        <section className="rounded-sm border bg-card p-4">
+        <section className="nx-edge-8 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Uso interno por tarefa</h2>
@@ -614,7 +626,7 @@ export default function AdminUsagePage() {
               </p>
             </div>
             {data?.internalUsage?.enabled ? (
-              <span className="rounded-md border bg-[var(--nexodoc-recessed)] px-2 py-1 font-mono text-xs text-muted-foreground">
+              <span className="nx-edge-6 px-2 py-1 [--nx-fill:var(--nexodoc-recessed)] font-mono text-xs text-muted-foreground">
                 {formatNumber(data.internalUsage.totals.requests)} eventos ·{" "}
                 {/*
                   As duas ressalvas convivem, e nenhuma pode calar a outra: o
@@ -638,7 +650,7 @@ export default function AdminUsagePage() {
             faziam a conta parecer menor do que era.
           */}
           {data?.internalUsage?.enabled && data.internalUsage.totals.unpricedRequests > 0 ? (
-            <p className="mt-3 rounded-md border border-[var(--nexodoc-warning-border,var(--border))] bg-[var(--nexodoc-recessed)] px-3 py-2 text-xs text-muted-foreground">
+            <p className="mt-3 nx-edge-6 px-3 py-2 [--nx-fill:var(--nexodoc-recessed)] text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Total parcial.</span>{" "}
               {formatNumber(data.internalUsage.totals.unpricedRequests)} de{" "}
               {formatNumber(data.internalUsage.totals.requests)} chamadas não têm preço na tabela e
@@ -650,7 +662,7 @@ export default function AdminUsagePage() {
           ) : null}
 
           {!data?.internalUsage?.enabled ? (
-            <p className="mt-4 rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3 text-sm text-muted-foreground">
+            <p className="mt-4 nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)] text-sm text-muted-foreground">
               Registro interno indisponível. Configure `DATABASE_URL` e aplique o schema do Prisma.
             </p>
           ) : (
@@ -660,7 +672,7 @@ export default function AdminUsagePage() {
                   Fluxos
                 </h3>
                 {data.internalUsage.flows.map((flow) => (
-                  <div key={flow.flow} className="rounded-md border bg-[var(--nexodoc-recessed)] px-3 py-3">
+                  <div key={flow.flow} className="nx-edge-7 px-3 py-3 [--nx-fill:var(--nexodoc-recessed)]">
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-mono text-sm font-medium">{flow.flow}</p>
                       <span className="font-mono text-xs text-muted-foreground">
@@ -682,7 +694,7 @@ export default function AdminUsagePage() {
                 <h3 className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                   Tarefas com maior consumo
                 </h3>
-                <div className="mt-2 overflow-hidden rounded-md border">
+                <div className="mt-2 nx-edge-7">
                   <table className="w-full border-collapse text-sm">
                     <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                       <tr>

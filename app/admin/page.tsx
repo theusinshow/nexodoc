@@ -1,20 +1,12 @@
 "use client";
 
-import {
-  AlertTriangle,
-  BarChart3,
-  Clock3,
-  FileSpreadsheet,
-  ListChecks,
-  Settings2,
-  ShieldCheck,
-  UsersRound,
-} from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Clock3, FileSpreadsheet, ListChecks, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { TUDO_EM_ORDEM } from "@/lib/atencao-do-admin";
 import { plural } from "@/lib/plural";
 
 import {
@@ -32,6 +24,14 @@ type OverviewResponse = {
     linha: string;
     motivo: string;
   };
+  atencao?: Array<{ chave: string; texto: string; gravidade: "critico" | "aviso" }>;
+  acoes?: Array<{
+    id: string;
+    quando: string;
+    quem: string;
+    acao: string;
+    alcance: string;
+  }>;
   totals: {
     users: number;
     activeUsers: number;
@@ -97,15 +97,6 @@ export default function AdminHomePage() {
    * três vezes não é redundância útil, é ruído que faz a tela parecer maior do
    * que é.
    */
-  const actions = useMemo(
-    () => [
-      { href: "/admin/dinheiro", label: "Consumo", detail: "Tokens, custos e modelos OpenAI", icon: BarChart3 },
-      { href: "/admin/motor", label: "Qualidade do motor", detail: "Compara Padrão e Profundo pelos achados revisados", icon: ShieldCheck },
-      { href: "/admin/motor", label: "Configuração", detail: "Chaves, modelos e limites sem expor valores", icon: Settings2 },
-    ],
-    [],
-  );
-
   async function loadOverview(nextToken = token) {
     const trimmedToken = nextToken.trim();
 
@@ -163,41 +154,61 @@ export default function AdminHomePage() {
       <AdminPageHeader
         icon={ShieldCheck}
         title="Centro de controle"
-        description="Operação do Nexo para piloto: usuários, histórico, LDs, consumo, qualidade e configuração."
+        description="O que exige ação, quanto se gastou e o que rodou por último. Cada linha abre o dado."
       />
 
         <AdminError message={error} />
 
         {/*
-          A LINHA DE STATUS abre a home (A.4). Um veredito, não um cartão: a
-          home já tinha as contagens e deixava a conclusão por conta de quem
-          olhava. A cor sai dos tokens de status — nada de métrica-herói
-          colorida, que o DESIGN.md proíbe.
+          O VEREDITO NÃO SE REPETE AQUI. Ele abria esta tela desde a A.4, e era
+          o certo enquanto era a única que o mostrava. Agora ele mora no trilho
+          e acompanha os cinco destinos — repeti-lo seria a mesma notícia duas
+          vezes na mesma dobra, e a segunda ensina a não ler a primeira.
         */}
-        {data?.status ? (
-          <section className="border border-border bg-card px-4 py-3">
-            <p
-              className={
-                data.status.veredito === "parado"
-                  ? "font-mono text-xs text-[var(--status-critical)]"
-                  : data.status.veredito === "degradado"
-                    ? "font-mono text-xs text-[var(--status-warning)]"
-                    : "font-mono text-xs text-[var(--status-ok)]"
-              }
-            >
-              {data.status.linha}
-            </p>
-            {data.status.motivo ? (
-              <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                {data.status.motivo}
+
+        {/*
+          O QUE EXIGE AÇÃO, logo abaixo do veredito.
+          Isto vivia no topo da Config, e ficou lá enquanto a Config existia:
+          quem abria aquela tela quase sempre abria por causa de algo quebrado.
+          Mas a pergunta não é sobre configuração — é a PRIMEIRA pergunta do
+          painel, e agora ela abre o cockpit.
+
+          Só entra o que impede o produto de funcionar agora. O opcional
+          (cotação, metas) fica de fora de propósito: faixa que lista pendência
+          que ninguém precisa resolver é faixa que se aprende a ignorar. Ver
+          `lib/atencao-do-admin.ts`.
+        */}
+        {data ? (
+          <section className="nx-edge-8 px-4 py-3">
+            {(data.atencao ?? []).length === 0 ? (
+              <p className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--status-ok)]">
+                <CheckCircle2 className="size-3.5" />
+                {TUDO_EM_ORDEM}
               </p>
-            ) : null}
+            ) : (
+              <ul className="grid gap-1.5">
+                {(data.atencao ?? []).map((item) => (
+                  <li
+                    key={item.chave}
+                    className={cn(
+                      "inline-flex items-start gap-1.5 font-mono text-[11px]",
+                      item.gravidade === "critico"
+                        ? "text-[var(--status-critical)]"
+                        : "text-[var(--status-warning)]",
+                    )}
+                  >
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    {item.texto}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         ) : null}
 
         {/* O painel só fala quando tem o que dizer. */}
         {!data && !loading && !error && (
-          <p className="border border-border bg-card p-3 text-sm text-muted-foreground">
+          <p className="nx-edge-8 p-3 text-sm text-muted-foreground">
             Informe o token admin acima para carregar os números.
           </p>
         )}
@@ -222,22 +233,8 @@ export default function AdminHomePage() {
           ]}
         />
 
-        <section className="grid gap-3 md:grid-cols-3">
-          {actions.map((action) => {
-            const Icon = action.icon;
-
-            return (
-              <Link key={action.href} href={action.href} className="group border border-border bg-card p-4 transition hover:border-primary">
-                <Icon className="size-5 text-primary" />
-                <p className="mt-4 font-semibold">{action.label}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">{action.detail}</p>
-              </Link>
-            );
-          })}
-        </section>
-
         <section className="grid gap-4 lg:grid-cols-2">
-          <article className="border border-border bg-card">
+          <article className="nx-edge-8">
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">Auditorias recentes</h2>
             </div>
@@ -270,7 +267,7 @@ export default function AdminHomePage() {
             </div>
           </article>
 
-          <article className="border border-border bg-card">
+          <article className="nx-edge-8">
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">LDs recentes</h2>
             </div>
@@ -291,6 +288,34 @@ export default function AdminHomePage() {
             </div>
           </article>
         </section>
+
+        {/*
+          QUEM FEZ O QUÊ. Até agora nada era registrado — nem quem promoveu
+          alguém a admin, nem quem apagou cinquenta auditorias. Com o expurgo
+          isso deixou de ser desconforto e virou risco.
+        */}
+        <article className="nx-edge-8">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold">Últimas ações administrativas</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {(data?.acoes ?? []).map((acao) => (
+              <div key={acao.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 text-sm">
+                <span className="font-mono text-xs">
+                  {acao.acao}
+                  {acao.alcance ? ` · ${acao.alcance}` : ""}
+                </span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {acao.quem} · {formatDate(acao.quando)}
+                </span>
+              </div>
+            ))}
+            {data && (data.acoes ?? []).length === 0 ? (
+              <EmptyState description="Nenhuma ação registrada ainda." className="py-8" />
+            ) : null}
+            {!data ? <EmptyState description="Aguardando consulta." className="py-8" /> : null}
+          </div>
+        </article>
     </AdminPageShell>
   );
 }

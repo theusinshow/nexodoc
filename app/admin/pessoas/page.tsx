@@ -391,8 +391,8 @@ export default function AdminUsersPage() {
     <AdminPageShell>
       <AdminPageHeader
         icon={UsersRound}
-        title="Usuários e permissões"
-        description="Admins acessam todos os painéis. Remover usuário desativa o acesso sem apagar histórico."
+        title="Pessoas"
+        description="Quem entra, com que alçada, e o que acontece com quem chega sem convite."
       />
 
         <AdminError message={error} />
@@ -420,12 +420,12 @@ export default function AdminUsersPage() {
           ]}
         />
 
-        <form onSubmit={createUser} className="grid gap-2 border border-border bg-card p-3 lg:grid-cols-[1fr_1fr_160px_auto]">
-          <div className="relative">
+        <form onSubmit={createUser} className="grid gap-2 nx-edge-8 p-3 lg:grid-cols-[1fr_1fr_160px_auto]">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <UserPlus className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="email@empresa.com" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
+            <input value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="email@empresa.com" className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none" />
           </div>
-          <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Nome" className="h-10 rounded-md border bg-background px-3 text-sm" />
+          <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Nome" className="nx-edge-7 h-10 bg-transparent px-3 text-sm outline-none [--nx-fill:var(--nexodoc-recessed)]" />
           <Select value={newRole} onChange={(event) => setNewRole(event.target.value as AdminUser["role"])} className="h-10">
             <option value="USER">Usuário</option>
             <option value="ADMIN">Admin</option>
@@ -433,10 +433,10 @@ export default function AdminUsersPage() {
           <Button type="submit" disabled={loading || !newEmail.trim()}><UserPlus /> Adicionar</Button>
         </form>
 
-        <form onSubmit={submitFilters} className="grid gap-2 border border-border bg-card p-3 md:grid-cols-[1fr_180px_180px_auto]">
-          <div className="relative">
+        <form onSubmit={submitFilters} className="grid gap-2 nx-edge-8 p-3 md:grid-cols-[1fr_180px_180px_auto]">
+          <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nome ou e-mail" className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nome ou e-mail" className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none" />
           </div>
           <Select value={role} onChange={(event) => setRole(event.target.value)} className="h-10">
             <option value="all">Todos papéis</option>
@@ -517,7 +517,7 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
 
-        <section className="min-w-0 overflow-x-auto border border-border bg-card">
+        <section className="nx-edge-8 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[1210px] border-collapse text-sm">
             <thead className="bg-[var(--nexodoc-recessed)] text-left font-mono text-xs uppercase text-muted-foreground">
               <tr>

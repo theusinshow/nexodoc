@@ -116,7 +116,7 @@ function QualityTable({
   rows: QualityBucket[];
 }) {
   return (
-    <section className="overflow-hidden rounded-md border bg-card">
+    <section className="nx-edge-7">
       <div className="border-b px-4 py-4">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
@@ -301,7 +301,7 @@ export function CorpoDaQualidade() {
           Uma foto do mês não distingue "12% e caindo" de "12% e subindo", e as
           duas pedem decisões opostas.
         */}
-        <section className="overflow-hidden rounded-md border bg-card">
+        <section className="nx-edge-7">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Semana a semana</h2>
@@ -375,7 +375,7 @@ export function CorpoDaQualidade() {
         </section>
 
         {overview && overview.reviewedAudits < 10 ? (
-          <div className="rounded-md border border-[var(--status-warning)]/25 bg-[var(--status-warning-bg)] px-4 py-3 text-sm text-[var(--status-warning)]">
+          <div className="nx-cut-6 bg-[var(--status-warning-bg)] px-4 py-3 text-sm text-[var(--status-warning)]">
             Amostra inicial: revise pelo menos 10 auditorias de cada nível antes de decidir qual configuração vender como padrão.
           </div>
         ) : null}

@@ -17,7 +17,7 @@ export default function AdminLoading() {
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="border border-border bg-card p-4">
+            <div key={i} className="nx-edge-8 p-4">
               <div className="h-3 w-20 animate-pulse bg-muted" />
               <div className="mt-4 h-8 w-12 animate-pulse bg-muted" />
               <div className="mt-2 h-3 w-28 animate-pulse bg-muted" />
@@ -27,7 +27,7 @@ export default function AdminLoading() {
 
         <section className="grid gap-3 md:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="border border-border bg-card p-4">
+            <div key={i} className="nx-edge-8 p-4">
               <div className="size-5 animate-pulse bg-muted" />
               <div className="mt-4 h-5 w-24 animate-pulse bg-muted" />
               <div className="mt-2 h-4 w-full animate-pulse bg-muted" />
