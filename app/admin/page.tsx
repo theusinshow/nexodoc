@@ -209,7 +209,13 @@ export default function AdminHomePage() {
         {/* O painel só fala quando tem o que dizer. */}
         {!data && !loading && !error && (
           <p className="nx-edge-8 p-3 text-sm text-muted-foreground">
-            Informe o token admin acima para carregar os números.
+            {/*
+              "ACIMA" ERA VERDADE ATÉ O TOKEN MUDAR DE LUGAR. O campo vivia no
+              cabeçalho de cada tela; agora mora no rodapé do trilho, à
+              esquerda. Instrução que aponta para o lugar errado é pior que
+              nenhuma — manda a pessoa procurar onde não está.
+            */}
+            Informe o token admin no rodapé do trilho, à esquerda, para carregar os números.
           </p>
         )}
 
