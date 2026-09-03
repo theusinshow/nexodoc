@@ -65,7 +65,7 @@ import {
   listarNoServidor,
   type EstadoDaSincronizacao,
 } from "../lib/nexo-sync";
-import { fundirListas } from "@/server/nexo/conversa-remota";
+import { fundirListas, lapidesLocais } from "@/server/nexo/conversa-remota";
 
 /** Um arquivo de resultado com object URL vivo (p/ download/preview). */
 export interface SavedFile {
@@ -421,6 +421,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * `refreshRemote`, na montagem e depois de apagar.
    */
   const remotasRef = useRef<ConversationSummary[]>([]);
+  /**
+   * Os ids que o painel administrativo mandou apagar. Ficam num ref, e não no
+   * estado: eles não desenham nada sozinhos — servem para a fusão descartar e
+   * para o disco perder o que já foi enterrado.
+   */
+  const expurgadasRef = useRef<string[]>([]);
   const [sincronizacao, setSincronizacao] = useState<EstadoDaSincronizacao>({
     estado: "desligada",
   });
@@ -436,15 +442,40 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const refreshList = useCallback(() => {
     listConversations()
-      .then((locais) => setConversations(fundirListas(locais, remotasRef.current)))
+      .then((locais) =>
+        setConversations(fundirListas(locais, remotasRef.current, expurgadasRef.current)),
+      )
       .catch(() => {});
   }, []);
 
   const refreshRemote = useCallback(() => {
     listarNoServidor()
-      .then(({ conversas, sincronizando }) => {
+      .then(async ({ conversas, expurgadas, sincronizando }) => {
         remotasRef.current = conversas;
+        expurgadasRef.current = expurgadas;
         if (!sincronizando) setSincronizacao({ estado: "desligada" });
+
+        /*
+         * A LÁPIDE É CUMPRIDA AQUI — e é a única coisa que apaga conversa local
+         * sem alguém ter clicado em apagar nesta máquina.
+         *
+         * `deleteConversation` já varre os blobs por prefixo `${id}:`, então os
+         * bytes dos ODT/PDF/ZIP que só existem neste disco vão junto. É o ponto
+         * do expurgo: sem isto, o servidor esquece o volume e a máquina que o
+         * montou continua com ele inteiro.
+         */
+        try {
+          const locais = await listConversations();
+          const aApagar = lapidesLocais(locais, expurgadas);
+
+          for (const id of aApagar) {
+            await dbDelete(id);
+          }
+        } catch {
+          // Disco indisponível não pode travar a sincronização. A lápide não
+          // caduca: a próxima leitura tenta de novo.
+        }
+
         refreshList();
       })
       .catch(() => {
@@ -603,6 +634,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * modo de falhar caro deste projeto é o que parece ter dado certo.
        */
       setSincronizacao(estado);
+
+      /*
+       * EXPURGADA NO MEIO DA GRAVAÇÃO — a corrida que o 410 fecha.
+       *
+       * O administrador apagou esta conversa enquanto ela estava aberta aqui. O
+       * servidor recusou, e insistir seria ressuscitá-la. A cópia local sai
+       * agora, com os blobs, e a lista se redesenha sem ela.
+       */
+      if (estado.estado === "expurgada") {
+        dbDelete(rec.id)
+          .catch(() => {})
+          .finally(refreshList);
+      }
     });
   }, [refreshList]);
 

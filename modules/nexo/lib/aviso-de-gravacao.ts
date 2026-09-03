@@ -19,8 +19,22 @@ export type NivelDoAviso = "nenhum" | "so-disco" | "so-servidor" | "grave";
 
 export function avisoDeGravacao(
   disco: "ok" | "falhou",
-  servidor: "ok" | "desligada" | "falhou",
+  servidor: "ok" | "desligada" | "expurgada" | "falhou",
 ): NivelDoAviso {
+  /*
+   * EXPURGADA NÃO É PERDA — é uma ordem cumprida.
+   *
+   * O servidor recusou a gravação porque um administrador apagou esta conversa
+   * pelo painel, e o cliente está apagando a cópia local em seguida. Avisar
+   * "não foi possível salvar" aqui mandaria a pessoa tentar recuperar um
+   * trabalho que alguém decidiu apagar — e, pior, sugeriria que insistir
+   * resolveria, quando insistir é exatamente o que o 410 impede.
+   *
+   * Vale mesmo com o disco falhando: não há o que proteger numa conversa que
+   * está saindo dos dois lados.
+   */
+  if (servidor === "expurgada") return "nenhum";
+
   if (disco === "ok") {
     // O trabalho está nesta máquina. Só o servidor falhando é o aviso âmbar que
     // a barra lateral já mostrava: "salvo aqui, não no servidor".

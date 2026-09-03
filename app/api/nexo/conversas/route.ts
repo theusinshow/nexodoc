@@ -30,7 +30,7 @@ export const runtime = "nodejs";
 function semBanco() {
   // Sem `DATABASE_URL` o Nexo continua inteiro no IndexedDB: é como ele sempre
   // funcionou. 503 aqui viraria erro na tela por uma função acessória.
-  return NextResponse.json({ conversas: [], sincronizando: false });
+  return NextResponse.json({ conversas: [], expurgadas: [], sincronizando: false });
 }
 
 async function guarda() {
@@ -90,7 +90,27 @@ export async function GET() {
       ...(l.auditoriaPendente ? { temAuditoriaPendente: true } : {}),
     }));
 
-    return NextResponse.json({ conversas, sincronizando: true });
+    /*
+     * AS LÁPIDES VIAJAM COM A LISTA.
+     *
+     * Numa chamada só, de propósito: em duas, existe a janela em que a lista
+     * chega e as lápides não — e nessa janela a conversa expurgada reaparece na
+     * barra lateral. Ela some no próximo carregamento, o que é pior que nunca
+     * ter aparecido: parece defeito intermitente.
+     *
+     * Só as DESTE dono. O expurgo atravessa donos, mas cada máquina só obedece
+     * ao que é dela.
+     */
+    const lapides = await getPrisma().conversaExpurgada.findMany({
+      where: { userEmail: g.userEmail },
+      select: { id: true },
+    });
+
+    return NextResponse.json({
+      conversas,
+      expurgadas: lapides.map((lapide) => lapide.id),
+      sincronizando: true,
+    });
   } catch (error) {
     console.error("[nexo-conversas] falha ao listar", error);
     return semBanco();
@@ -121,6 +141,31 @@ export async function PUT(req: NextRequest) {
   const resumo = resumoDoRegistro(r);
 
   try {
+    /*
+     * A LÁPIDE FECHA A CORRIDA — e sem isto o expurgo se desfazia sozinho.
+     *
+     * A máquina que montou o volume guarda a conversa no IndexedDB e re-sobe a
+     * cada edição (`conversation-store.tsx` chama `gravarNoServidor` em toda
+     * persistência). Entre o expurgo e a próxima leitura da lista, uma tecla
+     * digitada bastava para a conversa voltar ao banco — apagada no servidor e
+     * ressuscitada pelo cliente, sem ninguém perceber.
+     *
+     * 410 e não 409: a conversa não está em conflito, ela deixou de existir por
+     * decisão de um administrador. O cliente usa esse código para apagar a
+     * cópia local em vez de tentar de novo.
+     */
+    const lapide = await getPrisma().conversaExpurgada.findUnique({
+      where: { id: r.id },
+      select: { expurgadaEm: true },
+    });
+
+    if (lapide) {
+      return NextResponse.json(
+        { error: "conversa expurgada pelo painel administrativo", expurgada: true },
+        { status: 410 },
+      );
+    }
+
     const dono = await getPrisma().nexoConversation.findUnique({
       where: { id: r.id },
       select: { userEmail: true, updatedAt: true },

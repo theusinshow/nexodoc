@@ -18,6 +18,12 @@ import type { StoredConversation, ConversationSummary } from "./nexo-db";
 export type EstadoDaSincronizacao =
   | { estado: "ok"; em: number }
   | { estado: "desligada" }
+  /**
+   * O servidor recusou a gravação porque um administrador EXPURGOU esta
+   * conversa pelo painel. Não é falha: é uma ordem, e quem chama deve apagar a
+   * cópia local em vez de tentar de novo.
+   */
+  | { estado: "expurgada"; em: number }
   | { estado: "falhou"; motivo: string; em: number };
 
 const ROTA = "/api/nexo/conversas";
@@ -25,16 +31,24 @@ const ROTA = "/api/nexo/conversas";
 /** Lista os resumos que o servidor tem para o usuário logado. */
 export async function listarNoServidor(): Promise<{
   conversas: ConversationSummary[];
+  /**
+   * Os ids que um administrador mandou apagar. Vêm JUNTO da lista, numa chamada
+   * só: em duas, haveria a janela em que a lista chega e as lápides não, e
+   * nessa janela a conversa expurgada reaparece na barra lateral.
+   */
+  expurgadas: string[];
   sincronizando: boolean;
 }> {
   const resp = await fetch(ROTA, { method: "GET", cache: "no-store" });
   if (!resp.ok) throw new Error(`servidor respondeu ${resp.status}`);
   const json = (await resp.json()) as {
     conversas?: ConversationSummary[];
+    expurgadas?: string[];
     sincronizando?: boolean;
   };
   return {
     conversas: json.conversas ?? [],
+    expurgadas: json.expurgadas ?? [],
     sincronizando: json.sincronizando === true,
   };
 }
@@ -58,6 +72,12 @@ export async function gravarNoServidor(
     if (resp.ok) return { estado: "ok", em: agora };
     // 404 é a resposta de "módulo desligado" — não é falha, é ausência.
     if (resp.status === 404) return { estado: "desligada" };
+    /*
+     * 410: a conversa foi expurgada pelo painel. Reportar como "falhou" faria a
+     * tela pedir para tentar de novo — e tentar de novo é exatamente o que
+     * ressuscitaria a conversa que o administrador apagou.
+     */
+    if (resp.status === 410) return { estado: "expurgada", em: agora };
     const json = (await resp.json().catch(() => null)) as { error?: string } | null;
     return {
       estado: "falhou",

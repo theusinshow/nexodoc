@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import {
   LIMITE_BYTES,
   fundirListas,
+  lapidesLocais,
   resumoDoRegistro,
   validarRegistro,
   type RegistroDaConversa,
@@ -266,6 +267,52 @@ test("conversa a endereçar não inventa projectId", () => {
   assert.equal(v.ok, true);
   if (!v.ok) return;
   assert.equal(resumoDoRegistro(v.registro).projectId, undefined);
+});
+
+/* ─────────────────────────────── a lápide ─────────────────────────────── */
+
+test("ausência continua NÃO apagando — a regra que a lápide não afrouxa", () => {
+  /*
+   * A conversa está no disco e não está no servidor. Sem lápide, ela FICA.
+   * Ausência é indistinguível de "ainda não subiu", e sumir com o trabalho de
+   * alguém por causa de uma rede ruim é inaceitável.
+   */
+  const out = fundirListas([resumo({ id: "so-local" })], [], []);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].id, "so-local");
+});
+
+test("lápide tira a conversa da lista mesmo estando no disco", () => {
+  const out = fundirListas([resumo({ id: "morta" }), resumo({ id: "viva" })], [], ["morta"]);
+  assert.deepEqual(
+    out.map((c) => c.id),
+    ["viva"],
+  );
+});
+
+test("lápide também vence o que o servidor ainda lista", () => {
+  /*
+   * Acontece de propósito: o expurgo grava a lápide ANTES de apagar a conversa.
+   * Entre as duas gravações a listagem ainda a traz, e sem esta regra ela
+   * reapareceria na tela por um instante.
+   */
+  assert.deepEqual(fundirListas([], [resumo({ id: "morta" })], ["morta"]), []);
+});
+
+test("sem lápide nenhuma, a fusão é exatamente a de antes", () => {
+  // O terceiro argumento é opcional: os 27 casos acima continuam valendo.
+  const out = fundirListas([resumo({ id: "a" })], [resumo({ id: "b" })]);
+  assert.equal(out.length, 2);
+});
+
+test("lápide de conversa que este disco nunca viu não gera trabalho", () => {
+  // A lápide vale para todas as máquinas do dono, e a maioria não tinha aquela
+  // conversa. Não é erro.
+  assert.deepEqual(lapidesLocais([resumo({ id: "a" })], ["outra"]), []);
+});
+
+test("lápide aponta o que apagar deste disco", () => {
+  assert.deepEqual(lapidesLocais([resumo({ id: "a" }), resumo({ id: "b" })], ["b", "c"]), ["b"]);
 });
 
 console.log(`\n${passed} verificações passaram.`);

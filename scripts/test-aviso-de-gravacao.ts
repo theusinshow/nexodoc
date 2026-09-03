@@ -59,4 +59,19 @@ test("disco falhou e servidor DESLIGADO é grave, não silêncio", () => {
   assert.equal(avisoDeGravacao("falhou", "desligada"), "grave");
 });
 
+test("expurgada não é perda — é ordem cumprida, e não vira aviso", () => {
+  /*
+   * O administrador apagou a conversa pelo painel; o servidor respondeu 410 e o
+   * cliente está apagando a cópia local. "Não foi possível salvar" mandaria a
+   * pessoa tentar recuperar o que alguém decidiu apagar — e insistir é
+   * exatamente o que o 410 existe para impedir.
+   */
+  assert.equal(avisoDeGravacao("ok", "expurgada"), "nenhum");
+});
+
+test("expurgada cala o aviso mesmo com o disco falhando", () => {
+  // Não há o que proteger numa conversa que está saindo dos dois lados.
+  assert.equal(avisoDeGravacao("falhou", "expurgada"), "nenhum");
+});
+
 console.log(`\n${passed} teste(s) de aviso de gravação OK`);

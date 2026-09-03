@@ -149,13 +149,22 @@ export function resumoDoRegistro(r: RegistroDaConversa): ResumoDaConversa {
  * 3. **o que só existe no disco fica.** Sincronizar pode ter falhado, e sumir
  *    com o trabalho de alguém por causa de uma rede ruim é inaceitável.
  *
- * O que esta função NÃO faz: apagar. Ausência no servidor nunca é ordem de
- * apagar o local, porque é indistinguível de "ainda não subiu".
+ * AUSÊNCIA NÃO É ORDEM — continua não sendo, e é a regra mais importante daqui:
+ * o servidor não listar uma conversa é indistinguível de "ainda não subiu".
+ *
+ * LÁPIDE É ORDEM. `expurgadas` são os ids que um administrador mandou apagar
+ * pelo painel, explicitamente, com autor e hora ([[prisma/schema.prisma]],
+ * `ConversaExpurgada`). Eles saem da lista mesmo existindo no disco — e é a
+ * ÚNICA coisa que faz uma conversa local desaparecer. Sem esta distinção, ou o
+ * expurgo não alcançava a máquina que montou o volume, ou a regra da ausência
+ * teria que ser afrouxada para todo mundo.
  */
 export function fundirListas(
   locais: ResumoDaConversa[],
   remotas: ResumoDaConversa[],
+  expurgadas: readonly string[] = [],
 ): ResumoDaConversa[] {
+  const enterradas = new Set(expurgadas);
   const porId = new Map<string, ResumoDaConversa>();
 
   for (const l of locais) porId.set(l.id, { ...l, soNoServidor: false });
@@ -184,5 +193,29 @@ export function fundirListas(
     }
   }
 
-  return [...porId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  return [...porId.values()]
+    .filter((conversa) => !enterradas.has(conversa.id))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * O que a lápide manda apagar DESTE disco.
+ *
+ * Separado de `fundirListas` porque são dois efeitos com públicos diferentes: a
+ * fusão devolve o que a tela desenha, e isto devolve o que o IndexedDB tem que
+ * perder — a conversa e, junto dela, os blobs dos documentos que ela gerou.
+ * Misturar os dois faria a função que a barra lateral chama a cada
+ * sincronização carregar a responsabilidade de apagar arquivo.
+ *
+ * SÓ O QUE ESTÁ AQUI. Uma lápide para conversa que este disco nunca viu não
+ * gera trabalho nenhum — e não é erro: a lápide vale para todas as máquinas do
+ * dono, e a maioria delas não tinha aquela conversa.
+ */
+export function lapidesLocais(
+  locais: readonly ResumoDaConversa[],
+  expurgadas: readonly string[],
+): string[] {
+  const enterradas = new Set(expurgadas);
+
+  return locais.filter((conversa) => enterradas.has(conversa.id)).map((conversa) => conversa.id);
 }
