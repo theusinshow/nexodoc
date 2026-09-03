@@ -135,6 +135,7 @@
     "test:ai-budget": "node scripts/test-ai-budget.ts",
     "test:vazao": "node scripts/test-vazao-de-auditoria.ts",
     "test:batimento": "node scripts/test-batimento-da-auditoria.ts",
+    "test:papel-do-anexo": "node scripts/test-papel-do-anexo.ts",
     "test:pool": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-pool-do-banco.ts",
     "test:aprendizados": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-aprendizados-no-banco.ts",
     "test:ai-failure": "node scripts/test-ai-failure-policy.ts",
