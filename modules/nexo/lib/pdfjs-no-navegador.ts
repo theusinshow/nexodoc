@@ -22,10 +22,25 @@ let pdfjsPromise: Promise<PdfjsModule> | null = null;
 export async function loadPdfjs(): Promise<PdfjsModule> {
   if (!pdfjsPromise) {
     pdfjsPromise = import("pdfjs-dist/legacy/build/pdf.mjs").then((pdfjs) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/legacy/build/pdf.worker.mjs",
-        import.meta.url,
-      ).toString();
+      /*
+       * O `workerSrc` SÓ NO NAVEGADOR, e isto foi aprendido tentando.
+       *
+       * `new URL("pdfjs-dist/...", import.meta.url)` é uma forma que o bundler
+       * do Next REESCREVE em tempo de build. Fora dele — num script de prova
+       * rodando em `node` — ela é resolvida ao pé da letra e devolve
+       * `.../modules/nexo/lib/pdfjs-dist/legacy/build/pdf.worker.mjs`, que não
+       * existe. Todo `getDocument` falhava, e como quem chama trata falha
+       * caindo para o nome do arquivo, a prova passava VERDE medindo nada.
+       *
+       * Sem `workerSrc`, o pdf.js usa o worker falso (mesma thread), que é
+       * exatamente o que um script quer. No navegador nada muda.
+       */
+      if (typeof window !== "undefined") {
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/legacy/build/pdf.worker.mjs",
+          import.meta.url,
+        ).toString();
+      }
       return pdfjs;
     });
   }
