@@ -59,6 +59,7 @@ import {
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
 import {
   createPendingAudit,
+  manterBatimento,
   persistCompletedAudit,
   persistFailedAudit,
   type UploadedAuditFile,
@@ -3586,6 +3587,18 @@ async function executarAuditoria(
    * trabalho pesado, e não o tempo em que o cliente lê o resultado.
    */
   let vaga: VagaConcedida | null = null;
+  /*
+   * O BATIMENTO DA AUDITORIA, declarado ao lado da vaga e pelo mesmo motivo:
+   * quem o desliga é o `finally`, e ele precisa enxergá-lo mesmo quando a falha
+   * acontece antes de a auditoria chegar a existir no banco.
+   *
+   * O NOME É LONGO DE PROPÓSITO. Mais abaixo, no `POST`, existe outro
+   * `batimento` — o `: ping` de 15s que impede o proxy da Render de cortar uma
+   * conexão SSE ociosa. São coisas diferentes: aquele diz ao PROXY que a
+   * conexão vive, este diz ao BANCO que o processo vive. Um sobrevive à queda
+   * do outro, e é justamente aí que os dois importam.
+   */
+  let batimentoDaAuditoria: { parar: () => void } | null = null;
 
   try {
     await refreshAiModelOverrideCache();
@@ -3828,6 +3841,18 @@ async function executarAuditoria(
       files,
       fileTypes,
     });
+
+    /*
+     * A PARTIR DAQUI HÁ ALGUÉM DO OUTRO LADO, e é preciso dizer isso a cada
+     * trinta segundos até o fim.
+     *
+     * A linha acaba de nascer em PROCESSING, e nada mais no caminho feliz a
+     * toca antes do desfecho: se este processo morrer no meio — deploy, OOM,
+     * queda do provedor — ela fica em PROCESSING para sempre, e a tela de quem
+     * espera pergunta por ela de cinco em cinco segundos até o fim dos tempos.
+     * Ver [[lib/batimento-da-auditoria.ts]].
+     */
+    batimentoDaAuditoria = manterBatimento(persistedAuditId);
 
     marco({ passada: "extracao", estado: "inicio" });
     const uploadedFiles = await Promise.all(
@@ -4470,6 +4495,15 @@ async function executarAuditoria(
      * futura em outro ponto.
      */
     vaga?.liberar();
+
+    /*
+     * E O BATIMENTO PARA — pela mesma razão, e no mesmo lugar.
+     *
+     * Aqui a auditoria já tem desfecho gravado (COMPLETED ou FAILED), então o
+     * `updateMany` do batimento não acharia mais nada; parar assim mesmo evita
+     * um timer vivo por auditoria num processo que fica meses no ar.
+     */
+    batimentoDaAuditoria?.parar();
   }
 }
 

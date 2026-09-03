@@ -321,6 +321,11 @@ model Audit {
   auditMode     String
   analysisLevel String             @default("standard")
   status        AuditStatus        @default(PROCESSING)
+  /// Último sinal de vida do processo que roda esta auditoria. Ver
+  /// [[lib/batimento-da-auditoria.ts]]: sem ele, uma linha PROCESSING órfã de
+  /// um container que reiniciou fica "rodando" para sempre, e a tela de quem
+  /// espera pergunta por ela até o fim dos tempos.
+  heartbeatAt   DateTime?
   result        String?
   report        Json?
   error         String?

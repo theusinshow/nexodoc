@@ -16,6 +16,10 @@ import type { Prisma } from "@prisma/client";
 import type { AnalysisLevel } from "@/lib/analysis-level";
 import type { AuditMode } from "@/lib/audit-mode";
 import type { AuditReport } from "@/lib/audit-report";
+import {
+  INTERVALO_DE_BATIMENTO_MS,
+  MOTIVO_SEM_SINAL,
+} from "@/lib/batimento-da-auditoria";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { linhasDeAuditText, memoriasDosArquivos } from "@/lib/memoria-do-documento";
 import type { ExtractedPdf } from "@/lib/pdf-text";
@@ -65,6 +69,14 @@ export async function createPendingAudit(args: {
         auditMode: args.auditMode,
         analysisLevel: args.analysisLevel,
         status: "PROCESSING",
+        /*
+         * O PRIMEIRO BATIMENTO nasce junto com a linha, e não trinta segundos
+         * depois. `auditoriaSemSinal` já trata o nulo caindo para `createdAt`,
+         * mas deixar a coluna nula no começo faria a única diferença entre "vai
+         * nascer" e "morreu há três dias" ser a IDADE da linha — e é exatamente
+         * essa ambiguidade que o batimento existe para remover.
+         */
+        heartbeatAt: new Date(),
         files: {
           create: args.files.map((file, index) => ({
             fileName: file.name,
@@ -241,5 +253,85 @@ export async function persistFailedAudit(
     });
   } catch (persistenceError) {
     console.error("[audit] falha ao persistir erro da auditoria", persistenceError);
+  }
+}
+
+/**
+ * MANTÉM O BATIMENTO enquanto a auditoria roda.
+ *
+ * Chamado logo depois de `createPendingAudit` e desligado no `finally` da rota,
+ * junto da devolução da vaga. Enquanto este intervalo estiver de pé, existe um
+ * processo do outro lado; quando o container morre, o intervalo morre com ele —
+ * e é a AUSÊNCIA de escrita, não uma mensagem de erro, que conta a verdade.
+ *
+ * O porquê do desenho (teto de silêncio, e não teto de duração) está em
+ * [[lib/batimento-da-auditoria.ts]].
+ *
+ * FALHA DE ESCRITA É ENGOLIDA, de propósito. O banco piscando não pode derrubar
+ * uma análise de seis minutos que já foi paga ao modelo: o pior que acontece é
+ * um batimento perdido, e a tolerância existe para cobrir exatamente isso.
+ *
+ * `unref()` para o intervalo não segurar o processo de pé sozinho — num script
+ * ou num teste, um timer vivo faria o node nunca sair.
+ */
+export function manterBatimento(auditId: string | null): { parar: () => void } {
+  if (!auditId || !isDatabaseConfigured()) {
+    return { parar: () => {} };
+  }
+
+  const bater = () => {
+    void getPrisma()
+      .audit.updateMany({
+        // Só bate no que ainda está rodando: cancelada por outra aba não revive.
+        where: { id: auditId, status: "PROCESSING" },
+        data: { heartbeatAt: new Date() },
+      })
+      .catch(() => {});
+  };
+
+  /*
+   * O PRIMEIRO BATIMENTO SAI JÁ, sem esperar os trinta segundos.
+   *
+   * `createPendingAudit` acabou de carimbar a linha, então em produção esta
+   * escrita é redundante — e é o preço de a função ser verdadeira sozinha:
+   * quem chamar `manterBatimento` sobre uma auditoria parada tem o direito de
+   * ver o sinal voltar imediatamente, e é assim que `prova:batimento` prova
+   * que o intervalo escreve de verdade, sem esperar meio minuto por teste.
+   */
+  bater();
+
+  const timer = setInterval(bater, INTERVALO_DE_BATIMENTO_MS);
+
+  timer.unref?.();
+
+  return {
+    parar: () => {
+      clearInterval(timer);
+    },
+  };
+}
+
+/**
+ * FECHA a auditoria que perdeu o processo — o que ninguém fez até agora.
+ *
+ * `updateMany` com `status: "PROCESSING"` na condição, e não `update` por id:
+ * duas abas podem consultar a mesma auditoria órfã no mesmo segundo, e a
+ * segunda não pode sobrescrever nada. Quem chegar depois encontra a linha já
+ * FAILED e lê o mesmo motivo.
+ */
+export async function marcarAuditoriaSemSinal(auditId: string): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+
+  try {
+    await getPrisma().audit.updateMany({
+      where: { id: auditId, status: "PROCESSING" },
+      data: {
+        status: "FAILED",
+        error: MOTIVO_SEM_SINAL,
+        completedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error("[audit] falha ao fechar auditoria sem sinal", error);
   }
 }

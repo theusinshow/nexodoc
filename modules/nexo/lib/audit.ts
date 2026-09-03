@@ -317,6 +317,21 @@ export async function consultarAuditoria(auditId: string): Promise<EstadoDaAudit
   if (corpo.status === "FAILED") {
     return { situacao: "falhou", motivo: corpo.error ?? "A auditoria falhou no servidor." };
   }
+  /*
+   * CANCELADA TAMBÉM É DESFECHO, e caía aqui embaixo como "rodando".
+   *
+   * Só `COMPLETED` e `FAILED` tinham ramo próprio; tudo o mais virava "ainda
+   * está trabalhando". Uma auditoria cancelada numa aba e retomada em outra (ou
+   * depois de um F5) fazia a segunda perguntar de cinco em cinco segundos por
+   * um resultado que ninguém ia gravar — o mesmo defeito da auditoria órfã, com
+   * outra causa.
+   *
+   * `irrecuperavel` e não `falhou`: nada deu errado, e a frase precisa dizer
+   * isso. É um desfecho que a própria pessoa escolheu.
+   */
+  if (corpo.status === "CANCELED") {
+    return { situacao: "irrecuperavel", motivo: "Esta auditoria foi cancelada." };
+  }
   return { situacao: "rodando" };
 }
 

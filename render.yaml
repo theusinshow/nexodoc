@@ -238,22 +238,38 @@ services:
       # `NEXODOC_CHUNK_CONCURRENCY` blocos em paralelo. Recusar a décima com
       # uma mensagem clara é melhor que aceitar as dez e perder as nove no OOM.
       #
-      # DESARMADAS DE PROPÓSITO — sem valor, tudo passa, como antes de
-      # existirem. Quantas a máquina aguenta depende do plano, e o código não
-      # tem como saber qual foi contratado.
+      # SEM VALOR, TUDO PASSA — o módulo nasce desarmado, porque quantas a
+      # máquina aguenta depende do plano contratado e o código não tem como
+      # saber qual é. Quem sabe é ESTE arquivo, e é por isso que os números
+      # moram aqui e não em `lib/vazao-de-auditoria.ts`.
       #
-      # A GLOBAL é a que protege a RAM, e sai da conta do heap acima: com
-      # 2c-4g, 3 a 4 é uma faixa defensável. A POR USUÁRIO é contra o
-      # indivíduo que dispara cinco de uma vez; 2 é um número humano, já que
-      # ninguém acompanha três auditorias ao mesmo tempo de verdade.
+      # ARMADAS EM 03/09/2026 — e os números seguem o `plan:` acima, exatamente
+      # como o heap do `NODE_OPTIONS` segue.
+      #
+      # A GLOBAL é a que protege a RAM. O rascunho que estava aqui dizia "3 a
+      # 4", e esse número foi escrito pensando em 2c-4g. O plano contratado é
+      # `starter`: 0,5 CPU, 512 MB, heap em 384. Quatro auditorias segurando
+      # cada uma um PDF de até 25 MB, mais o que o pdfjs constrói em cima dele,
+      # não cabem em 384 MB — e o erro caro não é recusar a quarta, é perder o
+      # container junto com as três que estavam quase prontas.
+      #
+      # Por isso 2, e não 4. TROCOU O PLANO, TROCA AQUI: a tabela de heap lá em
+      # cima é a mesma régua, e subir uma sem subir a outra ou desperdiça a
+      # memória que se pagou, ou devolve o OOM que as duas evitam.
+      #
+      # A POR USUÁRIO em 1, e não nos 2 que o módulo chama de "número humano":
+      # numa máquina de DUAS vagas, limite de 2 por usuário é o mesmo que não
+      # ter limite por usuário — uma pessoa ocupa a casa inteira e o colega lê
+      # "o sistema está ocupado" por causa dela. Com 1, quem espera é quem
+      # pediu duas, e essa é a única pessoa que sabe por que está esperando.
       #
       # A conta vive no processo, não no banco: com mais de uma instância, cada
       # uma conta a sua — que para proteger memória é a régua certa, porque a
       # memória também é por instância.
-      # - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL
-      #   value: "4"
-      # - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS
-      #   value: "2"
+      - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL
+        value: "2"
+      - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS
+        value: "1"
 
       # A LEITURA DE SELO. O gargalo de todo o fluxo: uma chamada com visão por
       # prancha, e um volume real tem dezenas — o custo daqui escala com o

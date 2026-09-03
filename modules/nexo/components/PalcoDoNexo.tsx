@@ -180,7 +180,12 @@ export function PalcoDoNexo({
     [achadosResolvidos, auditIdAtual],
   );
   const temAuditoria = Boolean(
-    emCurso || reconexao.pendente || report || aberturaPorLink.carregando || aberturaPorLink.falha,
+    emCurso ||
+      reconexao.pendente ||
+      reconexao.falha ||
+      report ||
+      aberturaPorLink.carregando ||
+      aberturaPorLink.falha,
   );
 
   /*
@@ -201,9 +206,11 @@ export function PalcoDoNexo({
     ? `curso:${emCurso.inicioMs}`
     : reconexao.pendente
       ? `retomada:${reconexao.pendente.inicioMs}`
-      : report
-        ? "pronta"
-        : "vazio";
+      : reconexao.falha
+        ? "retomada-falhou"
+        : report
+          ? "pronta"
+          : "vazio";
   const valeAgora = escolha && (escolha.marca === marca || escolha.marca === "*");
   const vista: Vista = valeAgora
     ? escolha.vista
@@ -501,6 +508,33 @@ export function PalcoDoNexo({
                 marcos={[]}
                 retomada
               />
+            </div>
+          ) : reconexao.falha ? (
+            /*
+             * A RETOMADA QUE NÃO DEU — e ela não tinha tela.
+             *
+             * `useReconectarAuditoria` sempre devolveu `falha`, e ninguém a
+             * lia: quando o servidor respondia FAILED, o cartão de "análise em
+             * curso" simplesmente SUMIA, e o palco voltava ao mapa como se nada
+             * tivesse sido pedido. A pessoa tinha esperado seis minutos por um
+             * parecer, e a resposta foi uma tela trocar de assunto.
+             *
+             * Passou a importar em 03/09/2026, quando a auditoria órfã de um
+             * container reiniciado deixou de ficar "rodando" para sempre e
+             * passou a voltar como falha COM MOTIVO — o motivo que esta caixa
+             * mostra, e que diz o que fazer (rodar de novo).
+             *
+             * Mesma forma da abertura por link logo acima, de propósito: são a
+             * mesma situação para quem olha — pedi um parecer, não veio, e
+             * preciso saber por quê.
+             */
+            <div className="flex h-full items-start justify-center overflow-y-auto pt-10">
+              <div className="max-w-md text-center">
+                <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  A análise não terminou
+                </p>
+                <p className="mt-3 text-sm text-muted-foreground">{reconexao.falha}</p>
+              </div>
             </div>
           ) : report ? (
             noDocumento ? (
