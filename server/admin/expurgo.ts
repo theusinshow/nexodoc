@@ -32,6 +32,15 @@ export interface ConversaListada extends ConversaParaExpurgo {
   atualizadaEm: string;
   /** A obra a que ela pertence, já resolvida. */
   obra: string;
+  /**
+   * O NOME que se lê na tela, e que se digita para confirmar.
+   *
+   * A chave da obra é um `projectId` (`cmf3x...`) sempre que a conversa foi
+   * endereçada — ilegível, e impossível de digitar numa confirmação. O rótulo é
+   * "099-25 · Ginásio Municipal" quando o projeto existe, o `folderKey` quando
+   * só ele endereça, e "Sem pasta" no resto.
+   */
+  rotulo: string;
 }
 
 export interface PreviaDoExpurgo {
@@ -66,7 +75,8 @@ interface AlvoResolvido {
  * desenhar uma lista.
  */
 export async function listarConversas(): Promise<ConversaListada[]> {
-  const linhas = await getPrisma().nexoConversation.findMany({
+  const prisma = getPrisma();
+  const linhas = await prisma.nexoConversation.findMany({
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -79,16 +89,59 @@ export async function listarConversas(): Promise<ConversaListada[]> {
     },
   });
 
-  return linhas.map((linha) => ({
-    id: linha.id,
-    userEmail: linha.userEmail,
-    title: linha.title,
-    projectId: linha.projectId,
-    folderKey: linha.folderKey,
-    tipo: linha.tipo,
-    atualizadaEm: linha.updatedAt.toISOString(),
-    obra: chaveDaObra(linha),
-  }));
+  /*
+   * Só os projetos CITADOS pelas conversas — não a tabela inteira. É a mesma
+   * postura da junção do custo por obra, e pelo mesmo motivo.
+   */
+  const idsDeProjeto = [
+    ...new Set(linhas.map((linha) => linha.projectId).filter((id): id is string => Boolean(id))),
+  ];
+  const projetos = idsDeProjeto.length
+    ? await prisma.project.findMany({
+        where: { id: { in: idsDeProjeto } },
+        select: { id: true, code: true, name: true },
+      })
+    : [];
+  const porId = new Map(projetos.map((projeto) => [projeto.id, projeto]));
+
+  return linhas.map((linha) => {
+    const obra = chaveDaObra(linha);
+    const projeto = linha.projectId ? porId.get(linha.projectId) : undefined;
+
+    return {
+      id: linha.id,
+      userEmail: linha.userEmail,
+      title: linha.title,
+      projectId: linha.projectId,
+      folderKey: linha.folderKey,
+      tipo: linha.tipo,
+      atualizadaEm: linha.updatedAt.toISOString(),
+      obra,
+      rotulo: rotuloDaObra(obra, projeto, linha.folderKey),
+    };
+  });
+}
+
+/**
+ * O nome que se lê — e que se digita para confirmar o expurgo.
+ *
+ * PROJETO APAGADO NÃO VIRA "Sem pasta": a conversa continua endereçada a ele, e
+ * fundi-la com as sem endereço juntaria obras distintas numa linha só. Fica a
+ * chave crua, que é feia e é honesta.
+ */
+function rotuloDaObra(
+  obra: string,
+  projeto: { code: string; name: string } | undefined,
+  folderKey: string | null,
+): string {
+  if (obra === SEM_OBRA) return "Sem pasta";
+  if (projeto) {
+    const codigo = projeto.code.trim();
+    const nome = projeto.name.trim();
+    if (codigo && nome) return `${codigo} · ${nome}`;
+    return codigo || nome || obra;
+  }
+  return folderKey?.trim() || obra;
 }
 
 /**

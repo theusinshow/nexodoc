@@ -49,6 +49,7 @@
     "prova:orbe-parado": "node scripts/prova-orbe-parado.mjs",
     "prova:partida": "node scripts/prova-partida-pelo-orbe.mjs",
     "prova:fila": "node scripts/prova-fila-de-achados.mjs",
+    "prova:expurgo": "node scripts/prova-expurgo.mjs",
     "prova:aviso": "node scripts/prova-aviso-de-achados.mjs",
     "prova:tudo": "npm run prova:rotas && npm run prova:escritorio && npm run prova:alcada && npm run prova:convite && npm run prova:endereco && npm run prova:fila && npm run prova:aviso && npm run prova:automatico && npm run prova:primeiro-acesso",
     "apresentacao:offline": "node scripts/gerar-apresentacao-offline.mjs",
