@@ -109,12 +109,21 @@ antigo (assumir prancha em silêncio) é o defeito que este trabalho remove.
 **PURO e sem imports**, como `estado-do-anexo.ts` e `attachments-core.ts` — roda
 no node cru, e é aí que os limiares ficam prováveis sem navegador e sem banco.
 
+**Corrigido em 03/09/2026, ao escrever o plano:** este bloco dizia
+`maiorLado > 900` e `A4 retrato`, com números meus. `server/nexo/selo-regiao.ts`
+**não tem imports** — dá para importá-lo num módulo puro —, e ele já encapsula
+papel grande (`LIMITE_PAPEL_PEQUENO = 1200`) e âncoras de carimbo
+(`MIN_ANCORAS = 3`). Reescrever isso aqui daria **duas noções de "isto é
+prancha"** no repositório, e a discordância entre elas apareceria como um
+arquivo que o chip chama de memorial e o leitor de selo insiste em ler. O
+julgamento consome o veredito de `classificarPagina` por folha:
+
 ```
 papelPelaGeometria(fatos):
-  âncoras de carimbo na p.1 ......................... "prancha"
-  maiorLado > 900 (A3+) ou paisagem ................. "prancha"
-  A4 retrato + >=10 páginas + >=1000 chars/pág ...... "memorial"
-  A4 retrato + >=10 páginas + texto ~nulo + tinta ... "nao-sei"   <- o 114_19
+  alguma folha da amostra = "prancha" ............... "prancha"
+      (é `classificarPagina` que decide isso: carimbo ou papel grande)
+  >=10 páginas + >=1000 chars/pág ................... "memorial"
+  >=10 páginas + texto ~nulo + tinta ................ "nao-sei"   <- o 114_19
   <=2 páginas + pouco texto ......................... "prancha"   (capa/separatriz)
   resto ............................................. "nao-sei"
 ```
