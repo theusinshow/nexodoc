@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Activity,
-  BarChart3,
-  Coins,
-  Loader2,
-  RefreshCcw,
-  ShieldCheck,
-  Sigma,
-} from "lucide-react";
+import { Activity, BarChart3, Coins, Loader2, RefreshCcw, ShieldCheck, Sigma, Wallet } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
@@ -18,6 +10,8 @@ import {
   AdminPageShell,
 } from "@/components/admin/admin-page-shell";
 import { useAdminToken } from "@/components/admin/admin-token";
+import { CorpoDosControles } from "@/components/admin/conteudo/controles";
+import { TituloDaSecao } from "@/components/admin/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -299,6 +293,20 @@ export default function AdminUsagePage() {
       />
 
         <AdminError message={error} />
+
+        {/*
+          O TETO ABRE A TELA, e não fecha: o painel mostrava o gasto do mês sem
+          mostrar contra o quê. Um número sem régua ao lado não é resposta para
+          "posso rodar mais uma auditoria profunda hoje?".
+        */}
+        <section className="flex flex-col gap-4">
+          <TituloDaSecao
+            icon={Wallet}
+            titulo="Teto de gasto"
+            descricao="Barreira de entrada: mede o que já foi registrado, então não freia auditoria em voo. Vazio = sem teto."
+          />
+          <CorpoDosControles chaves={["teto.mensal.usd", "teto.global.usd"]} />
+        </section>
 
         {/*
           A PROCEDÊNCIA DO REAL, acima de tudo que ele toca. Um número

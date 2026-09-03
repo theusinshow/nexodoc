@@ -32,6 +32,8 @@ const BASE: ConfiguracaoDoAuditor = {
   modeloValidacao: "gpt-5.6-sol",
   esforco: "medium",
   tamanhoDoBloco: 10000,
+  blocosPorArquivo: null,
+  tetoDeSaida: null,
 };
 
 test("mesma configuração, mesma versão", () => {
@@ -59,6 +61,11 @@ test("cada campo, sozinho, invalida", () => {
     { modeloValidacao: "x" },
     { esforco: "high" },
     { tamanhoDoBloco: 28000 },
+    // Os dois que entraram quando os limites viraram campo do painel. Sem eles
+    // no hash, afunilar a cobertura numa tarde deixaria o reuso servindo
+    // pareceres produzidos sob outro regime.
+    { blocosPorArquivo: 8 },
+    { tetoDeSaida: 16000 },
   ];
   for (const m of mudancas) {
     assert.notEqual(
@@ -76,6 +83,8 @@ test("a ordem dos campos não muda a versão", () => {
    * invalidaria o reuso de todos os memoriais do escritório de uma vez.
    */
   const invertido: ConfiguracaoDoAuditor = {
+    tetoDeSaida: BASE.tetoDeSaida,
+    blocosPorArquivo: BASE.blocosPorArquivo,
     tamanhoDoBloco: BASE.tamanhoDoBloco,
     esforco: BASE.esforco,
     modeloValidacao: BASE.modeloValidacao,

@@ -1,3 +1,5 @@
+import { numeroDoControle } from "@/lib/cache-de-controles";
+
 /**
  * A POLÍTICA do teto de gasto — sem banco, sem rede.
  *
@@ -35,8 +37,13 @@ export interface EstadoDoTeto {
  * decisão comercial, não técnica.
  */
 export function getMonthlyBudgetUsd(): number | null {
-  const value = Number(process.env.NEXODOC_MONTHLY_BUDGET_USD);
-  return Number.isFinite(value) && value > 0 ? value : null;
+  /*
+   * O PAINEL VENCE A VARIÁVEL — pela escada de [[cache-de-controles.ts]], que é
+   * memória do processo e não banco: esta função é síncrona e roda em caminho
+   * quente, e o cabeçalho acima continua valendo. Sem cache carregado, a escada
+   * cai no ambiente, que é como isto funcionava antes do painel.
+   */
+  return numeroDoControle("teto.mensal.usd");
 }
 
 /**
@@ -59,8 +66,7 @@ export function getMonthlyBudgetUsd(): number | null {
  * existe o teto por usuário.
  */
 export function getGlobalMonthlyBudgetUsd(): number | null {
-  const value = Number(process.env.NEXODOC_GLOBAL_MONTHLY_BUDGET_USD);
-  return Number.isFinite(value) && value > 0 ? value : null;
+  return numeroDoControle("teto.global.usd");
 }
 
 /**

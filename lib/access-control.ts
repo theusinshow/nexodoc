@@ -8,6 +8,8 @@ import {
   type Actor,
   type PlatformAdmin,
 } from "@/lib/actor";
+import { freioDoCadastro } from "@/lib/cache-de-controles";
+import { recarregarControles } from "@/lib/configuracao-da-plataforma";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 function normalizeEmail(value: string) {
@@ -58,6 +60,17 @@ export async function getUserAccess(email: string | null | undefined, name?: str
 
   const normalizedEmail = normalizeEmail(email);
   const envAdmin = isAdminEmail(normalizedEmail);
+
+  /*
+   * O CACHE DOS CONTROLES ANTES DE DECIDIR. O freio do cadastro automático mora
+   * nele agora, e ele é lido lá embaixo por `escritorioPadrao()`, que é
+   * síncrona. Sem esta linha, o primeiro pedido depois de um boot decidiria
+   * pela variável de ambiente mesmo com o painel dizendo outra coisa — e o
+   * sintoma seria alguém entrando (ou levando 403) uma vez só, sem repetir.
+   *
+   * Respeita o TTL de 15s: não é uma ida ao banco por requisição.
+   */
+  await recarregarControles();
 
   if (!isDatabaseConfigured()) {
     return {
@@ -267,20 +280,16 @@ async function garantirEscritorioPadrao(
 }
 
 /**
- * `undefined` (variável ausente) mantém a PROSUL; definida e VAZIA desliga o
+ * `undefined` (não declarado) mantém a PROSUL; declarado e VAZIO desliga o
  * automático. Um `|| "org-prosul"` teria tratado vazio como ausente, e o freio
  * não existiria.
+ *
+ * A REGRA SAIU PARA [[controles-da-plataforma.ts]] quando o freio virou um
+ * interruptor do painel: os três estados são os mesmos, e agora estão provados
+ * em node cru (`npm run test:controles`) em vez de morarem nesta função.
  */
 function escritorioPadrao() {
-  const bruto = process.env.NEXODOC_ESCRITORIO_PADRAO;
-
-  if (bruto === undefined) {
-    return "org-prosul";
-  }
-
-  const limpo = bruto.trim();
-
-  return limpo.length > 0 ? limpo : null;
+  return freioDoCadastro().organizationId;
 }
 
 /**

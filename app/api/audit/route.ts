@@ -96,8 +96,19 @@ import {
   type PaginaTranscrita,
 } from "@/lib/pagina-muda";
 import { nomeDaObra } from "@/lib/nome-da-obra";
-import { versaoDoAuditor } from "@/lib/versao-do-auditor";
-import { CHUNK_GROUP_CHARS, getReasoningEffort } from "@/lib/configuracao-do-auditor";
+import {
+  CHUNK_GROUP_CHARS,
+  getReasoningEffort,
+  versaoDoAuditorDaCorrida,
+} from "@/lib/configuracao-do-auditor";
+/*
+ * Os limites de leitura passaram a ser regulados pelo painel. A leitura segue
+ * SÍNCRONA e sem banco — o cache é memória do processo, e sem ele a escada cai
+ * na variável de ambiente, exatamente como era antes. O `?? NaN` preserva a
+ * lógica de cada getter: "não declarado" continua caindo no padrão do motor,
+ * que depende do nível da análise.
+ */
+import { numeroDoControle } from "@/lib/cache-de-controles";
 import { avaliarBase, fraseDaRecusa } from "@/lib/elegibilidade-da-base";
 import { planejarReuso } from "@/lib/audit-reuso";
 import {
@@ -572,7 +583,7 @@ ${args.chunk.text}
  * limite de segurança.
  */
 function getMaxOutputTokens(chunkChars?: number) {
-  const value = Number(process.env.NEXODOC_DEEP_CHUNK_MAX_OUTPUT_TOKENS);
+  const value = numeroDoControle("limites.saidaProfundo") ?? Number.NaN;
 
   if (Number.isFinite(value) && value > DEFAULT_CHUNK_MAX_OUTPUT_TOKENS) {
     return Math.min(MAX_CHUNK_OUTPUT_TOKENS, Math.floor(value));
@@ -804,7 +815,7 @@ function isCoberturaTotalEnabled() {
 }
 
 function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
-  const value = Number(process.env.NEXODOC_MAX_CHUNKS_PER_FILE);
+  const value = numeroDoControle("limites.blocosPorArquivo") ?? Number.NaN;
   // Sem teto na cobertura total: o teto É o buraco que ela existe para fechar.
   // O override numérico continua valendo, para poder afunilar numa emergência.
   const modeLimit = isCoberturaTotalEnabled()
@@ -825,7 +836,7 @@ function getMaxChunksPerFile(analysisLevel: AnalysisLevel) {
 }
 
 function getChunkConcurrency() {
-  const value = Number(process.env.NEXODOC_CHUNK_CONCURRENCY);
+  const value = numeroDoControle("limites.concorrencia") ?? Number.NaN;
 
   if (Number.isFinite(value) && value > 0) {
     return Math.min(4, Math.floor(value));
@@ -846,7 +857,7 @@ function getStandardGlobalTimeoutMs() {
 }
 
 function getChunkTimeoutMs() {
-  const value = Number(process.env.NEXODOC_CHUNK_TIMEOUT_MS);
+  const value = numeroDoControle("limites.timeoutMs") ?? Number.NaN;
 
   if (Number.isFinite(value) && value >= 30_000) {
     return Math.min(300_000, Math.floor(value));
@@ -3900,15 +3911,15 @@ async function executarAuditoria(
      * QUEM É O AUDITOR DESTA CORRIDA — o hash que decide se um parecer anterior
      * ainda pode ser reaproveitado. Derivado da configuração real, para ninguém
      * precisar lembrar de subir constante. Ver [[versao-do-auditor.ts]].
+     *
+     * A MONTAGEM ESTAVA DUPLICADA AQUI, campo a campo, ao lado da de
+     * [[configuracao-do-auditor.ts]] — que existe justamente para ser a única.
+     * Duas cópias de uma lista de campos é a forma exata que deixa a terceira
+     * sair errada: quando os limites de leitura entraram no hash, esta aqui não
+     * os ganhou, e o hash da corrida teria passado a descrever um auditor
+     * diferente do que `/api/audit/delta` usa para procurar a base.
      */
-    const versaoAtualDoAuditor = versaoDoAuditor({
-      prompt: getAuditorPrompt(auditMode),
-      modeloGlobal: getPrimaryModelName(auditMode, analysisLevel, "global"),
-      modeloBloco: getPrimaryModelName(auditMode, analysisLevel, "chunk"),
-      modeloValidacao: getValidationModelName(auditMode, analysisLevel),
-      esforco: getReasoningEffort(analysisLevel, auditMode),
-      tamanhoDoBloco: CHUNK_GROUP_CHARS,
-    });
+    const versaoAtualDoAuditor = versaoDoAuditorDaCorrida(auditMode, analysisLevel);
 
     /*
      * O REUSO, decidido ANTES de gastar um token.

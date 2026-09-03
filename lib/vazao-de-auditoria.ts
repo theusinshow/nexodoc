@@ -45,6 +45,8 @@
  * Next em desenvolvimento zeraria um contador de escopo de módulo, e a conta
  * passaria a mentir depois da primeira edição de arquivo.
  */
+import { numeroDoControle } from "@/lib/cache-de-controles";
+
 
 const globalParaVazao = globalThis as unknown as {
   nexodocAuditoriasEmCurso?: Map<string, number>;
@@ -61,17 +63,25 @@ function getContagemGlobal(): { total: number } {
   return globalParaVazao.nexodocAuditoriasGlobais;
 }
 
-function lerLimite(nome: string): number | null {
-  const valor = Number(process.env[nome]);
-  return Number.isFinite(valor) && valor > 0 ? Math.floor(valor) : null;
+/*
+ * O PAINEL VENCE A VARIÁVEL, pela escada de [[cache-de-controles.ts]]. A
+ * leitura continua síncrona e sem banco: o cache é memória do processo, e sem
+ * ele a escada cai no ambiente — que é como isto funcionava antes do painel.
+ *
+ * `Math.floor` sobrevive à mudança: meia auditoria simultânea não existe, e a
+ * guarda do painel aceita decimal como qualquer campo numérico.
+ */
+function lerLimite(chave: "vazao.usuario" | "vazao.global"): number | null {
+  const valor = numeroDoControle(chave);
+  return valor !== null && valor > 0 ? Math.floor(valor) : null;
 }
 
 export function getLimitePorUsuario(): number | null {
-  return lerLimite("NEXODOC_MAX_AUDITORIAS_SIMULTANEAS");
+  return lerLimite("vazao.usuario");
 }
 
 export function getLimiteGlobal(): number | null {
-  return lerLimite("NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL");
+  return lerLimite("vazao.global");
 }
 
 export interface VagaRecusada {

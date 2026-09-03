@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Search, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
+import { Check, DoorOpen, Search, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -10,6 +10,8 @@ import {
   AdminPageShell,
 } from "@/components/admin/admin-page-shell";
 import { useAdminToken } from "@/components/admin/admin-token";
+import { CorpoDosControles } from "@/components/admin/conteudo/controles";
+import { TituloDaSecao } from "@/components/admin/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -394,6 +396,20 @@ export default function AdminUsersPage() {
       />
 
         <AdminError message={error} />
+
+        {/*
+          O FREIO ABRE A TELA DE PESSOAS porque é a regra que decide QUEM vira
+          pessoa aqui. Estava só num comentário do código, onde quem opera nunca
+          leria — e é o interruptor com a maior consequência do painel.
+        */}
+        <section className="flex flex-col gap-4">
+          <TituloDaSecao
+            icon={DoorOpen}
+            titulo="A porta de entrada"
+            descricao="O que acontece com quem faz login e não tem convite."
+          />
+          <CorpoDosControles chaves={[]} comFreio />
+        </section>
 
         <AdminMetricStrip
           metrics={[

@@ -17,6 +17,9 @@ import { ShieldCheck } from "lucide-react";
 
 import { AdminPageHeader, AdminPageShell } from "@/components/admin/admin-page-shell";
 import { CorpoDaConfiguracao } from "@/components/admin/conteudo/configuracao";
+import { CorpoDosControles } from "@/components/admin/conteudo/controles";
+import { TituloDaSecao } from "@/components/admin/admin-page-shell";
+import { Gauge } from "lucide-react";
 import { CorpoDaQualidade } from "@/components/admin/conteudo/qualidade";
 
 export default function AdminMotorPage() {
@@ -28,6 +31,25 @@ export default function AdminMotorPage() {
         description="O que a auditoria está achando, e a configuração que produz isso. A medida em cima, a régua embaixo."
       />
       <CorpoDaQualidade />
+
+      <section className="flex flex-col gap-4">
+        <TituloDaSecao
+          icon={Gauge}
+          titulo="Vazão e limites de leitura"
+          descricao="O que a máquina aguenta e quanto ela lê. Dois destes mudam o que a auditoria acha — e por isso entram na versão do auditor."
+        />
+        <CorpoDosControles
+          chaves={[
+            "vazao.usuario",
+            "vazao.global",
+            "limites.blocosPorArquivo",
+            "limites.saidaProfundo",
+            "limites.concorrencia",
+            "limites.timeoutMs",
+          ]}
+        />
+      </section>
+
       <CorpoDaConfiguracao />
     </AdminPageShell>
   );

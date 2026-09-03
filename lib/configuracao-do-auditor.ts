@@ -18,6 +18,7 @@
  */
 import { getAuditExecutionProfile, type AuditAnalysisLevel, type AuditMode } from "./ai-providers.ts";
 import { getAuditorPrompt } from "./auditor-prompt.ts";
+import { numeroDoControle } from "./cache-de-controles.ts";
 import { versaoDoAuditor, type ConfiguracaoDoAuditor } from "./versao-do-auditor.ts";
 
 /**
@@ -105,6 +106,14 @@ export function configuracaoDoAuditor(
       .model,
     esforco: getReasoningEffort(analysisLevel, auditMode),
     tamanhoDoBloco: CHUNK_GROUP_CHARS,
+    /*
+     * OS DOIS LIMITES QUE MUDAM O ACHADO entram na versão. Vêm da escada do
+     * painel (banco → ambiente → não declarado), a mesma que o motor lê: se
+     * viessem de outro lugar, o hash descreveria um auditor que não é o que
+     * rodou.
+     */
+    blocosPorArquivo: numeroDoControle("limites.blocosPorArquivo"),
+    tetoDeSaida: numeroDoControle("limites.saidaProfundo"),
   };
 }
 
