@@ -6,11 +6,20 @@
  * contra todo o resto. Arquivo que caia em `tipo: "outro"` vai para o fluxo de
  * prancha exatamente como uma prancha vai, e ninguém olha o conteúdo antes.
  *
- * Medido em 03/09/2026 sobre os 659 PDFs de `docs/`: a convenção acerta 656. O
- * nome só erra quando quem nomeou está FORA da convenção do escritório — o
- * arquivo que chega do cliente ou de outro escritório. Por isso a convenção
+ * Medido em 03/09/2026 sobre os 661 PDFs do acervo: a convenção acerta quase
+ * todos. O nome só erra quando quem nomeou está FORA da convenção do escritório
+ * — o arquivo que chega do cliente ou de outro escritório. Por isso a convenção
  * continua mandando onde ela fala, e a geometria entra como contestação, nunca
  * como substituta.
+ *
+ * O RESULTADO da regra inteira sobre esse acervo (`npm run medir:papel`):
+ *
+ *   636 prancha · 18 memorial · 7 pergunta   —  ZERO troca de lado
+ *
+ * Das 7 perguntas, 6 são os memoriais do kit de erros plantados, cujo nome diz
+ * "capa" ou virou número de folha; a sétima é um `Relatório de Sondagem` de 14
+ * folhas, que é ambíguo de verdade. 1,1% de perguntas é o preço, e ele cai todo
+ * em cima de arquivo que hoje é roteado errado em silêncio.
  *
  * ────────────────────────────────────────────────────────────────────────────
  *
@@ -60,12 +69,27 @@ export const PAGINAS_PARA_SER_DOCUMENTO = 10;
 /**
  * Caracteres por folha a partir dos quais o documento é texto corrido.
  *
- * MEDIDO no acervo (ver `npm run medir:papel`): o maior não-memorial é o volume
- * montado, com 570 chars/folha; o menor memorial é o `116_25_md_ter_pav`, com
- * 1157. O limiar mora no vão, e não numa das bordas — encostá-lo em 570 faria
- * o primeiro volume um pouco mais falante virar memorial.
+ * MEDIDO nos 661 PDFs do acervo com a amostra espalhada (`npm run medir:papel`,
+ * 03/09/2026), contando só documentos de 10+ folhas sem carimbo:
+ *
+ *   menor MEMORIAL ......... 846 chars/folha  (116_25_md_geral_b, 258 págs)
+ *   maior NÃO-memorial ..... 353 chars/folha  (040-26_vol3_..., volume, 42 págs)
+ *
+ * 600 é o meio desse vão. Não é o número que eu tinha escrito no spec: lá
+ * estava 1000, calculado sobre as TRÊS PRIMEIRAS folhas de cada arquivo, em que
+ * o menor memorial dava 1157. Com a amostra espalhada o mesmo acervo devolve
+ * 846 — e a premissa que eu tinha usado para justificar espalhar a amostra
+ * ("o começo do memorial é a parte magra") estava invertida neste arquivo: o
+ * miolo do 116_25 é mais ralo que a abertura. A amostra espalhada continua
+ * certa, e por um motivo melhor do que o meu: ela é a MAIS CONSERVADORA das
+ * duas, porque encontra a região rala em vez de contorná-la.
+ *
+ * Em 1000, quatro memoriais reais do acervo caíam em "não sei". Eles seriam
+ * roteados certo de qualquer forma (o nome deles segue a convenção), então o
+ * defeito não apareceria em teste nenhum — apareceria no dia em que um desses
+ * quatro chegasse com nome de cliente.
  */
-export const CHARS_DE_MEMORIAL = 1000;
+export const CHARS_DE_MEMORIAL = 600;
 
 /**
  * Abaixo disto a folha não tem texto para efeito de julgamento.
@@ -141,11 +165,20 @@ export function papelPelaGeometria(fatos: FatosDoAnexo): PapelPelaGeometria {
   }
 
   /*
-   * Documento curto e magro é capa, separatriz ou LD — o fluxo de prancha lida
-   * com os três há muito tempo, e pular esses arquivos é o comportamento certo
-   * dele. Perguntar aqui poria uma pergunta em toda montagem de volume.
+   * Documento de uma ou duas folhas é capa, separatriz ou LD — o fluxo de
+   * prancha lida com os três há muito tempo, e pular esses arquivos é o
+   * comportamento certo dele. Perguntar aqui poria uma pergunta em toda
+   * montagem de volume.
+   *
+   * SEM olhar a densidade, e isto foi medido: a condição era
+   * `paginas <= 2 && chars < CHARS_DE_MEMORIAL`, e baixar aquele limiar de 1000
+   * para 600 empurrou 21 capas do acervo para "não sei" — capas com 600 a 1000
+   * caracteres, que são capas exatamente como as outras. O número de folhas e a
+   * densidade respondem perguntas diferentes, e amarrá-los fazia um limiar
+   * mexer no que o outro decide. Memorial de duas folhas não existe: o menor do
+   * acervo tem 11.
    */
-  if (fatos.paginas <= 2 && chars < CHARS_DE_MEMORIAL) return "prancha";
+  if (fatos.paginas <= 2) return "prancha";
 
   return "nao-sei";
 }
