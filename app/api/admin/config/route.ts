@@ -21,6 +21,7 @@ import { isDatabaseConfigured } from "@/lib/db";
 import { carregarCotacaoComOrigem, salvarCotacao } from "@/lib/cambio-config";
 import { carregarMetasComOrigem, salvarMetas } from "@/lib/meta-qualidade-config";
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { registrarAcao } from "@/lib/trilha-administrativa";
 
 export const runtime = "nodejs";
 
@@ -83,14 +84,23 @@ export function OPTIONS(request: Request) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
-async function getAdminAuthError(request: Request) {
+/**
+ * O portão, e QUEM passou por ele.
+ *
+ * Devolvia só o erro, e o e-mail do administrador era jogado fora — foi assim
+ * que `updatedBy: "admin"` virou uma constante no código de um campo que existe
+ * para dizer quem mexeu. O dado sempre esteve na mão.
+ */
+async function portaoDoAdmin(request: Request) {
   /*
    * O PORTAO DE PLATAFORMA + o token, em [[lib/admin-gate.ts]]. Antes daqui a
    * checagem era so o Bearer: quem tivesse o token entrava sem sessao alguma.
    */
   const portao = await checkAdminRequest(request);
 
-  return portao.ok ? null : jsonError(request, portao.message, portao.status);
+  return portao.ok
+    ? { email: portao.email, erro: null }
+    : { email: "", erro: jsonError(request, portao.message, portao.status) };
 }
 
 async function buildConfigPayload() {
@@ -335,10 +345,10 @@ async function buildConfigPayload() {
 }
 
 export async function GET(request: Request) {
-  const authError = await getAdminAuthError(request);
+  const { erro } = await portaoDoAdmin(request);
 
-  if (authError) {
-    return authError;
+  if (erro) {
+    return erro;
   }
 
   const payload = await buildConfigPayload();
@@ -350,10 +360,10 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authError = await getAdminAuthError(request);
+  const { email: quem, erro } = await portaoDoAdmin(request);
 
-  if (authError) {
-    return authError;
+  if (erro) {
+    return erro;
   }
 
   const body = (await request.json().catch(() => null)) as {
@@ -374,7 +384,8 @@ export async function PATCH(request: Request) {
       );
     }
     try {
-      await salvarCotacao({ valor: body.cambio, declaradaPor: "admin" });
+      await salvarCotacao({ valor: body.cambio, declaradaPor: quem });
+      await registrarAcao({ quem, acao: "cambio", resumo: { valor: body.cambio } });
       return withCors(
         NextResponse.json({ ok: true, action: "cambio", config: await buildConfigPayload() }),
         request,
@@ -393,7 +404,8 @@ export async function PATCH(request: Request) {
       return jsonError(request, "DATABASE_URL não configurada; não é possível salvar as metas.", 500);
     }
     try {
-      await salvarMetas({ metas: body.metas, declaradaPor: "admin" });
+      await salvarMetas({ metas: body.metas, declaradaPor: quem });
+      await registrarAcao({ quem, acao: "metas", resumo: { metas: body.metas } });
       return withCors(
         NextResponse.json({ ok: true, action: "metas", config: await buildConfigPayload() }),
         request,
@@ -420,7 +432,8 @@ export async function PATCH(request: Request) {
 
   try {
     if (action === "reset") {
-      await disableAiModelConfig(flowId, "admin");
+      await disableAiModelConfig(flowId, quem);
+      await registrarAcao({ quem, acao: "modelo-reset", alcance: flowId, resumo: {} });
     } else {
       const model = String(body?.model ?? "").trim();
       const modelError = validateAiModelName(model);
@@ -433,8 +446,9 @@ export async function PATCH(request: Request) {
         flowId,
         model,
         notes: body?.notes,
-        updatedBy: "admin",
+        updatedBy: quem,
       });
+      await registrarAcao({ quem, acao: "modelo", alcance: flowId, resumo: { model } });
     }
 
     return withCors(
@@ -456,10 +470,10 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authError = await getAdminAuthError(request);
+  const { erro } = await portaoDoAdmin(request);
 
-  if (authError) {
-    return authError;
+  if (erro) {
+    return erro;
   }
 
   await refreshAiModelOverrideCache({ force: true });

@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { registrarAcao } from "@/lib/trilha-administrativa";
 import { getPrisma } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
       where: { organizationId: ORG, email },
     });
 
+    await registrarAcao({
+      quem: portao.email,
+      acao: "escritorio",
+      alcance: email,
+      resumo: { acao: "remover", organizationId: ORG },
+    });
+
     return NextResponse.json({ escritorio: null });
   }
 
@@ -81,6 +89,13 @@ export async function POST(request: Request) {
       select: { role: true, status: true, organizationId: true },
     });
 
+    await registrarAcao({
+      quem: portao.email,
+      acao: "escritorio",
+      alcance: email,
+      resumo: { acao: "papel", role },
+    });
+
     return NextResponse.json({ escritorio: membro });
   }
 
@@ -94,6 +109,13 @@ export async function POST(request: Request) {
      */
     update: { role },
     select: { role: true, status: true, organizationId: true },
+  });
+
+  await registrarAcao({
+    quem: portao.email,
+    acao: "escritorio",
+    alcance: email,
+    resumo: { acao: "liberar", role, status: membro.status },
   });
 
   return NextResponse.json({ escritorio: membro }, { status: 201 });

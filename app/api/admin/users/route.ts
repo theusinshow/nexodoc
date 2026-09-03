@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma, UserRole } from "@prisma/client";
 
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { registrarAcao } from "@/lib/trilha-administrativa";
 import { getPrisma } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -14,11 +15,16 @@ function jsonError(message: string, status: number) {
  * A regra mora em [[../../../../lib/admin-gate.ts]]. Aqui fica só a tradução
  * para o formato de erro desta rota — antes, a checagem estava copiada aqui e
  * em mais seis lugares, e só exigia o token: sessão não era pedida.
+ *
+ * Devolve também QUEM passou: promover alguém a admin sem registrar quem
+ * promoveu é a mudança de permissão mais séria do sistema acontecendo anônima.
  */
-async function ensureAdmin(request: Request) {
+async function portaoDoAdmin(request: Request) {
   const veredito = await checkAdminRequest(request);
 
-  return veredito.ok ? null : jsonError(veredito.message, veredito.status);
+  return veredito.ok
+    ? { email: veredito.email, erro: null }
+    : { email: "", erro: jsonError(veredito.message, veredito.status) };
 }
 
 function normalizeEmail(value: unknown) {
@@ -123,8 +129,8 @@ async function serializeUser(user: {
 }
 
 export async function GET(request: Request) {
-  const adminError = await ensureAdmin(request);
-  if (adminError) return adminError;
+  const { erro } = await portaoDoAdmin(request);
+  if (erro) return erro;
 
   const users = await getPrisma().user.findMany({
     where: getFilters(request),
@@ -147,8 +153,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const adminError = await ensureAdmin(request);
-  if (adminError) return adminError;
+  const { email: quem, erro } = await portaoDoAdmin(request);
+  if (erro) return erro;
 
   const body = (await request.json().catch(() => null)) as
     | { email?: unknown; name?: unknown; role?: unknown; isActive?: unknown }
@@ -183,14 +189,21 @@ export async function POST(request: Request) {
     },
   });
 
+  await registrarAcao({
+    quem,
+    acao: "usuario",
+    alcance: email,
+    resumo: { criadoOuAtualizado: true, role: user.role, isActive: user.isActive },
+  });
+
   return NextResponse.json({
     user: await serializeUser(user),
   });
 }
 
 export async function PATCH(request: Request) {
-  const adminError = await ensureAdmin(request);
-  if (adminError) return adminError;
+  const { email: quem, erro } = await portaoDoAdmin(request);
+  if (erro) return erro;
 
   const body = (await request.json().catch(() => null)) as
     | { id?: unknown; name?: unknown; role?: unknown; isActive?: unknown }
@@ -241,6 +254,16 @@ export async function PATCH(request: Request) {
       );
     }
   }
+
+  await registrarAcao({
+    quem,
+    acao: "usuario",
+    alcance: current.email,
+    resumo: {
+      de: { role: current.role, isActive: current.isActive },
+      para: { role: novoPapel, isActive: novoAtivo },
+    },
+  });
 
   const user = await getPrisma().user.update({
     where: { id },

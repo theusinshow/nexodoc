@@ -745,6 +745,80 @@ model NexoConversation {
   @@index([projectId, updatedAt])
 }
 
+/// A LÁPIDE de uma conversa expurgada pelo painel — a ordem explícita de apagar.
+///
+/// Existe por causa de uma assimetria que condena qualquer expurgo ingênuo: o
+/// Postgres guarda a conversa, mas os BYTES dos ODT/PDF/ZIP montados vivem no
+/// IndexedDB da máquina que montou (`result_blobs`, base `nexo`), porque
+/// `NEXODOC_STORAGE_PROVIDER=none`. Apagar só a linha daqui não limpa nada: a
+/// lista continua inteira naquela máquina e a primeira edição RE-SOBE a conversa
+/// (`conversation-store.tsx` chama `gravarNoServidor` a cada persistência).
+///
+/// Não dava para resolver afrouxando `fundirListas`. A regra dela — "ausência no
+/// servidor NUNCA vira ordem de apagar o local" — está certa: ausência é
+/// indistinguível de "ainda não subiu". A lápide é a distinção que faltava.
+/// Ausência continua não sendo ordem; ISTO é ordem, com autor e hora.
+///
+/// NÃO É PODADA. São ~100 bytes por conversa apagada, e podar reabriria o furo
+/// exatamente para o caso que ela existe para cobrir: a máquina que ficou muito
+/// tempo sem abrir o sistema.
+///
+/// O `userEmail` é o da conversa, e não o de quem apagou: o painel é da
+/// plataforma e o expurgo atravessa donos, mas o cliente de cada pessoa só
+/// recebe e só obedece às lápides dela.
+model ConversaExpurgada {
+  id           String   @id
+  userEmail    String
+  expurgadaEm  DateTime @default(now())
+  expurgadaPor String
+
+  @@index([userEmail, expurgadaEm])
+}
+
+/// QUEM FEZ O QUÊ no painel administrativo.
+///
+/// Não havia nada: quem promoveu quem, quem apagou cinquenta auditorias em lote.
+/// Com o expurgo isso deixa de ser lacuna e vira risco — um gesto que apaga obra
+/// inteira sem deixar rastro não tem como ser auditado depois.
+///
+/// `resumo` é Json porque cada ação conta coisas diferentes (o expurgo conta por
+/// tabela, a troca de modelo guarda de/para). Normalizar exigiria uma coluna por
+/// tipo de ação e uma migração a cada ação nova.
+model AcaoAdministrativa {
+  id      String   @id @default(cuid())
+  quando  DateTime @default(now())
+  /// E-mail de quem executou, vindo do portão (`checkAdminRequest`).
+  quem    String
+  /// "expurgo" | "modelo" | "teto" | "vazao" | "limites" | "escritorio-padrao" | ...
+  acao    String
+  /// "selecao" | "obra:088-25-CRICIUMA" | "tudo" — ou vazio, quando não se aplica.
+  alcance String   @default("")
+  resumo  Json
+
+  @@index([quando])
+}
+
+/// OS NÚMEROS QUE REGULAM A PLATAFORMA, declarados pelo painel.
+///
+/// Escada `banco → ambiente → constante`, a mesma de [[lib/cambio-config.ts]] e
+/// [[lib/meta-qualidade-config.ts]]: o que está aqui vence a variável de
+/// ambiente, e a ausência das duas cai no padrão do código.
+///
+/// UMA TABELA PARA TODOS, e não uma por controle. `CambioConfig` e
+/// `MetaQualidadeConfig` ganharam tabela própria porque cada uma tem forma
+/// própria e nasceu sozinha; repetir isso para teto de gasto, vazão, limites de
+/// leitura e freio de cadastro criaria quatro migrações, quatro leitores e
+/// quatro lugares para esquecer a escada — para valores que são, todos, um
+/// número com piso e teto. As duas tabelas existentes ficam onde estão: movê-las
+/// seria migração sem ganho.
+model ConfiguracaoDaPlataforma {
+  /// "teto.mensal.usd", "vazao.global", "limites.blocosPorArquivo", ...
+  chave        String   @id
+  valor        Json
+  declaradaPor String   @default("")
+  atualizadaEm DateTime @updatedAt
+}
+
 /// O QUE A AUDITORIA APRENDEU -- as preferencias, regras e correcoes que o
 /// escritorio ensinou e que entram no prompt de toda auditoria.
 ///

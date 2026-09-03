@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { registrarAcao } from "@/lib/trilha-administrativa";
 
 export const runtime = "nodejs";
 
@@ -113,11 +114,18 @@ export async function DELETE(request: Request) {
 
     const prisma = getPrisma();
 
-    await prisma.ldDraft.deleteMany({
+    const { count } = await prisma.ldDraft.deleteMany({
       where: { id: { in: ids } },
     });
 
-    return NextResponse.json({ deleted: ids.length });
+    await registrarAcao({
+      quem: portao.email,
+      acao: "expurgo",
+      alcance: "lds",
+      resumo: { pedidas: ids.length, apagadas: count, ids },
+    });
+
+    return NextResponse.json({ deleted: count });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao excluir LDs.";
     return jsonError(message, 500);

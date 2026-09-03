@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { registrarAcao } from "@/lib/trilha-administrativa";
 
 export const runtime = "nodejs";
 
@@ -189,12 +190,19 @@ export async function DELETE(request: Request) {
 
     const prisma = getPrisma();
 
-    await prisma.audit.deleteMany({
+    const { count } = await prisma.audit.deleteMany({
       where: { id: { in: ids } },
     });
 
+    await registrarAcao({
+      quem: portao.email,
+      acao: "expurgo",
+      alcance: "auditorias",
+      resumo: { pedidas: ids.length, apagadas: count, ids },
+    });
+
     return withCors(
-      NextResponse.json({ deleted: ids.length }),
+      NextResponse.json({ deleted: count }),
       request,
     );
   } catch (err) {
