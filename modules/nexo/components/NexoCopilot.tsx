@@ -40,6 +40,7 @@ export function NexoCopilot({
   attachments,
   onRemoveAttachment,
   onTrocarPapelAnexo,
+  onDefinirPapelAnexo,
   onTurnStatus,
 }: {
   started: boolean;
@@ -80,6 +81,7 @@ export function NexoCopilot({
   onRemoveAttachment?: (id: string) => void;
   /** Corrige o papel lido do nome do arquivo (memorial ↔ prancha). */
   onTrocarPapelAnexo?: (id: string) => void;
+  onDefinirPapelAnexo?: (id: string, papel: "memorial" | "prancha") => void;
   onTurnStatus?: (s: { thinking: boolean; error: boolean; responding: boolean }) => void;
 }) {
   // Popover de status: clique no orb "espia a cabeça" do agente.
@@ -237,6 +239,7 @@ export function NexoCopilot({
           attachments={attachments}
           onRemoveAttachment={onRemoveAttachment}
           onTrocarPapelAnexo={onTrocarPapelAnexo}
+          onDefinirPapelAnexo={onDefinirPapelAnexo}
           onTurnStatus={onTurnStatus}
         />
       </div>

@@ -48,14 +48,22 @@ export interface Attachment {
   /** Object URL da miniatura (só imagens). */
   url?: string;
   /**
-   * Papel LIDO do nome do arquivo — e por isso corrigível à mão.
+   * Papel do anexo: palpite do NOME, corrigido pelo PRÉ-VOO, e corrigível à mão.
    *
-   * A partição usa a convenção de nome (`md`/`memorial`). Um memorial batizado
-   * fora da convenção virava prancha, ia para o OCR de selo e a auditoria nunca
-   * era oferecida — sem erro, sem aviso, sem saída. Mostrar o papel e deixar
-   * trocá-lo é o que impede que um nome de arquivo tranque a função principal.
+   * A partição usava só a convenção de nome (`md`/`memorial`). Um memorial
+   * batizado fora da convenção virava prancha, ia para o OCR de selo e a
+   * auditoria nunca era oferecida — sem erro, sem aviso, sem saída. Mostrar o
+   * papel e deixar trocá-lo é o que impede que um nome de arquivo tranque a
+   * função principal.
+   *
+   * `indeciso` é o estado que faltava, e ele chega do pré-voo: o nome diz uma
+   * coisa e o conteúdo diz outra. Escolher em silêncio trocaria um erro raro e
+   * visível por um raro e invisível — a convenção acerta 656 de 659 no acervo.
+   * Ver [[modules/nexo/lib/papel-do-anexo.ts]].
    */
-  papel?: "memorial" | "prancha";
+  papel?: "memorial" | "prancha" | "indeciso";
+  /** Por que o papel ficou indeciso — a frase que o chip mostra. */
+  porque?: string;
 }
 
 /**
@@ -78,6 +86,7 @@ export function NexoChat({
   attachments = [],
   onRemoveAttachment,
   onTrocarPapelAnexo,
+  onDefinirPapelAnexo,
   onTurnStatus,
 }: {
   selos: SeloForLd[];
@@ -109,6 +118,14 @@ export function NexoChat({
   onRemoveAttachment?: (id: string) => void;
   /** Corrige o papel lido do nome do arquivo (memorial ↔ prancha). */
   onTrocarPapelAnexo?: (id: string) => void;
+  /**
+   * DEFINE o papel de um anexo indeciso — diferente de trocar.
+   *
+   * Trocar inverte um papel que existe, e o verbo do botão já diz qual é por
+   * oposição. No indeciso não há papel atual: um botão só esconderia metade da
+   * resposta, então são dois, e cada um diz o que faz.
+   */
+  onDefinirPapelAnexo?: (id: string, papel: "memorial" | "prancha") => void;
   /** Reporta o estado do turno pro Nexo Core (analyzing/responding/erro). */
   onTurnStatus?: (s: {
     thinking: boolean;
@@ -702,6 +719,7 @@ export function NexoChat({
             attachments={attachments}
             onRemove={onRemoveAttachment}
             onTrocarPapel={onTrocarPapelAnexo}
+            onDefinirPapel={onDefinirPapelAnexo}
             selosLidos={selosLidos}
             lendo={Boolean(readStatus?.busy)}
           />
@@ -769,12 +787,14 @@ function Anexos({
   attachments,
   onRemove,
   onTrocarPapel,
+  onDefinirPapel,
   selosLidos = [],
   lendo = false,
 }: {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
   onTrocarPapel?: (id: string) => void;
+  onDefinirPapel?: (id: string, papel: "memorial" | "prancha") => void;
   /** Selos já lidos — amarram resultado e anexo pelo nome do arquivo. */
   selosLidos?: readonly SeloLido[];
   lendo?: boolean;
@@ -794,6 +814,7 @@ function Anexos({
           att={a}
           onRemove={onRemove}
           onTrocarPapel={onTrocarPapel}
+          onDefinirPapel={onDefinirPapel}
           estado={estadoDoAnexo(a.name, selosLidos, lendo, siglaDaDisciplina)}
         />
       ))}
@@ -858,14 +879,17 @@ function AttachmentChip({
   att,
   onRemove,
   onTrocarPapel,
+  onDefinirPapel,
   estado = { tipo: "nenhum" },
 }: {
   att: Attachment;
   onRemove?: (id: string) => void;
   onTrocarPapel?: (id: string) => void;
+  onDefinirPapel?: (id: string, papel: "memorial" | "prancha") => void;
   estado?: EstadoDoAnexo;
 }) {
   const viraMemorial = att.papel === "prancha";
+  const indeciso = att.papel === "indeciso";
   return (
     <div className="nexodoc-enter nx-edge-6 flex items-center gap-2 py-1 pl-1 pr-1.5 [--nx-fill:var(--nexodoc-recessed)]">
       {att.kind === "image" && att.url ? (
@@ -921,6 +945,29 @@ function AttachmentChip({
         A frase agora diz o que aconteceu, e o botão ao lado ("tratar como
         memorial") é a saída, sem precisar renomear nada.
       */}
+      {/*
+        MEMORIAL OU PRANCHA? — a pergunta, antes de qualquer leitura.
+
+        O `nao-e-prancha` logo abaixo é o MESMO problema descoberto tarde: ele
+        só acorda depois de as 31 folhas terem sido puladas. Este aqui vem do
+        pré-voo, e por isso aparece antes de o arquivo ser lido — e o arquivo
+        NÃO é lido enquanto ele estiver aceso.
+
+        Âmbar, e não teal: é pendência, e o teal é só do interativo.
+      */}
+      {indeciso && (
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.07em]"
+          style={{ color: "var(--status-warning)" }}
+          title={
+            att.porque
+              ? `${att.porque} Escolha ao lado para eu poder continuar.`
+              : "Não deu para saber se este PDF é o memorial ou uma prancha. Escolha ao lado."
+          }
+        >
+          memorial ou prancha?
+        </span>
+      )}
       {estado.tipo === "nao-e-prancha" && (
         <span
           className="font-mono text-[10px] uppercase tracking-[0.07em]"
@@ -936,7 +983,7 @@ function AttachmentChip({
         encostados, sem nada distinguindo qual era qual. O verbo do botão já diz
         o papel atual por oposição.
       */}
-      {att.papel && estado.tipo !== "lido" && !onTrocarPapel && (
+      {att.papel && !indeciso && estado.tipo !== "lido" && !onTrocarPapel && (
         <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
           {att.papel}
         </span>
@@ -954,7 +1001,34 @@ function AttachmentChip({
         escrito no indicativo ("é o memorial"), que se lê como afirmação do
         estado e não como o convite que é.
       */}
-      {att.papel && onTrocarPapel && estado.tipo !== "lido" && (
+      {/*
+        NO INDECISO SÃO DOIS BOTÕES, e não um.
+
+        O botão de trocar tem um verbo só porque existe um papel atual, e o
+        verbo diz o outro por oposição ("tratar como memorial" = hoje é
+        prancha). No indeciso não há papel atual: um botão só ofereceria metade
+        da resposta e a outra metade não teria como ser dita.
+      */}
+      {indeciso && onDefinirPapel && estado.tipo !== "lido" ? (
+        <>
+          <button
+            type="button"
+            onClick={() => onDefinirPapel(att.id, "memorial")}
+            title="Tratar este PDF como o memorial (auditar em vez de ler o selo)"
+            className="rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            tratar como memorial
+          </button>
+          <button
+            type="button"
+            onClick={() => onDefinirPapel(att.id, "prancha")}
+            title="Tratar este PDF como prancha (ler o selo)"
+            className="rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          >
+            tratar como prancha
+          </button>
+        </>
+      ) : att.papel && !indeciso && onTrocarPapel && estado.tipo !== "lido" ? (
         <button
           type="button"
           onClick={() => onTrocarPapel(att.id)}
@@ -967,7 +1041,7 @@ function AttachmentChip({
         >
           {viraMemorial ? "tratar como memorial" : "tratar como prancha"}
         </button>
-      )}
+      ) : null}
       {onRemove && (
         <button
           type="button"

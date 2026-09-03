@@ -28,6 +28,7 @@ import { dataDominante } from "@/server/nexo/data-do-selo";
 import { nomeNaCapa } from "@/server/nexo/disciplinas";
 import { summarizeSelos } from "../lib/agent-context";
 import { partitionByRole } from "../lib/attachments";
+import { preVoarLote } from "../lib/pre-voo-do-anexo";
 import { arquivosQueNaoSaoPrancha } from "../lib/estado-do-anexo";
 import {
   resolveSheetNumbersComOrigem,
@@ -495,19 +496,43 @@ function NexoWorkspaceInner({
   }
 
   /**
-   * Corrige o papel de um PDF quando o nome do arquivo mentiu.
+   * INVERTE o papel de um PDF — e é só isso que ela faz.
    *
-   * A partição usa a convenção (`md`/`memorial`): um `ESCOLA_JOSE_GIASSI_REV_A.pdf`
-   * que é memorial vira prancha, entra no OCR de selo e a auditoria nunca é
-   * oferecida — sem erro e sem saída. Trocar o papel REFAZ a leitura pelo
-   * caminho certo, porque um rótulo novo sobre a leitura errada não muda nada:
-   * o que decide a auditoria é o que foi lido, não como o chip está escrito.
+   * Era esta função que continha o roteamento inteiro. Com o pré-voo, um anexo
+   * pode chegar SEM papel definido (`indeciso`), e aí não há o que inverter:
+   * `viraMemorial = att.papel === "prancha"` daria `false` e mandaria um
+   * memorial para o leitor de selo, que é exatamente o defeito original.
+   *
+   * Então ela delega. Uma noção só de "levar este arquivo para o fluxo X", em
+   * `definirPapelAnexo` — duas discordariam no dia em que uma delas ganhasse um
+   * passo, e a discordância apareceria como um arquivo que trocou de rótulo sem
+   * trocar de leitura.
    */
   async function trocarPapelAnexo(id: string) {
-    const file = arquivosPorAnexo.current.get(id);
     const att = attachments.find((a) => a.id === id);
-    if (!file || !att?.papel) return;
-    const viraMemorial = att.papel === "prancha";
+    if (!att?.papel || att.papel === "indeciso") return;
+    await definirPapelAnexo(id, att.papel === "prancha" ? "memorial" : "prancha");
+  }
+
+  /**
+   * LEVA o PDF para o fluxo certo — e refaz a leitura por ele.
+   *
+   * A partição usava a convenção (`md`/`memorial`): um
+   * `ESCOLA_JOSE_GIASSI_REV_A.pdf` que é memorial virava prancha, entrava no OCR
+   * de selo e a auditoria nunca era oferecida — sem erro e sem saída. Definir o
+   * papel REFAZ a leitura pelo caminho certo, porque um rótulo novo sobre a
+   * leitura errada não muda nada: o que decide a auditoria é o que foi lido, não
+   * como o chip está escrito.
+   *
+   * Serve aos dois gestos: a correção de quem discorda do papel que o Nexo
+   * escolheu, e a resposta de quem foi PERGUNTADO (o anexo indeciso do
+   * pré-voo). O segundo é o caminho em que nada foi lido ainda — e é por isso
+   * que a função dispara a leitura em vez de só refazê-la.
+   */
+  async function definirPapelAnexo(id: string, papel: "memorial" | "prancha") {
+    const file = arquivosPorAnexo.current.get(id);
+    if (!file) return;
+    const viraMemorial = papel === "memorial";
     setError(null);
     /*
      * Invalida a leitura em voo ANTES de qualquer coisa.
@@ -522,7 +547,9 @@ function NexoWorkspaceInner({
     setReading(false);
     setAttachments((prev) =>
       prev.map((a) =>
-        a.id === id ? { ...a, papel: viraMemorial ? "memorial" : "prancha" } : a,
+        // `porque` sai junto: a frase existia para justificar a dúvida, e a
+        // dúvida acabou de ser respondida.
+        a.id === id ? { ...a, papel, porque: undefined } : a,
       ),
     );
 
@@ -1005,7 +1032,30 @@ function NexoWorkspaceInner({
     ];
     setAttachments((prev) => [...prev, ...atts]);
 
-    const { memorials, pranchas } = partitionByRole(pdfs);
+    /*
+     * O PRÉ-VOO: depois dos chips, e ANTES de qualquer leitura.
+     *
+     * Os chips acima já estão na tela com o papel do NOME. Esperar a medição
+     * para desenhá-los trocaria um chip que se corrige em menos de um segundo
+     * por uma tela parada com oito PDFs invisíveis.
+     *
+     * Mas a LEITURA espera, e é essa a ordem que importa: ler antes de decidir
+     * é como um memorial de 31 folhas foi parar no OCR de selo, com as 31
+     * puladas em silêncio. Ver [[modules/nexo/lib/papel-do-anexo.ts]].
+     */
+    const preVoos = await preVoarLote(pdfs);
+    const porNome = new Map(preVoos.map((p) => [p.file.name, p]));
+
+    setAttachments((prev) =>
+      prev.map((a) => {
+        const pv = a.kind === "pdf" ? porNome.get(a.name) : undefined;
+        return pv ? { ...a, papel: pv.papel, porque: pv.porque } : a;
+      }),
+    );
+
+    const indecisos = preVoos.filter((p) => p.papel === "indeciso");
+    const memorials = preVoos.filter((p) => p.papel === "memorial").map((p) => p.file);
+    const pranchas = preVoos.filter((p) => p.papel === "prancha").map((p) => p.file);
     const memorial = memorials[0] ?? null;
     if (memorial) {
       setMemorialFile(memorial);
@@ -1044,6 +1094,7 @@ function NexoWorkspaceInner({
       })();
       leituraEmVoo.current = minha;
       await minha;
+      avisarSobreIndecisos(indecisos);
       return;
     }
 
@@ -1051,6 +1102,33 @@ function NexoWorkspaceInner({
     if (memorial) {
       await lerSoMemorial(memorial);
     }
+    avisarSobreIndecisos(indecisos);
+  }
+
+  /**
+   * OS INDECISOS, DITOS EM VOZ ALTA.
+   *
+   * Um chip âmbar num lote de oito é um chip que ninguém olha — e o anexo
+   * indeciso não é lido, então ele fica ali parado sem nada acontecendo, que é
+   * indistinguível de "o Nexo travou". A frase tem a mesma forma da de
+   * `arquivosQueNaoSaoPrancha`, e pelo mesmo motivo: a TELA mostra o que
+   * aconteceu com um anexo, e a CONVERSA mostra quais anexos esperam alguém.
+   *
+   * Vem DEPOIS da leitura do lote, de propósito. Antes dela, a mensagem
+   * apareceria acima do "Li 14 folha(s)" e leria como se o lote inteiro tivesse
+   * parado — quando na verdade só um arquivo parou, e os outros andaram.
+   */
+  function avisarSobreIndecisos(indecisos: readonly { file: File; porque: string }[]) {
+    if (indecisos.length === 0) return;
+    const quais = indecisos.map((p) => `"${p.file.name}"`).join(", ");
+    const verbo = indecisos.length === 1 ? "é" : "são";
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content:
+        `Não consegui decidir se ${quais} ${verbo} memorial ou prancha. ` +
+        `${indecisos[0].porque} Escolha no anexo e eu sigo daí — o resto do lote já está andando.`,
+    });
   }
 
   /**
@@ -2447,6 +2525,7 @@ function NexoWorkspaceInner({
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
             onTrocarPapelAnexo={trocarPapelAnexo}
+            onDefinirPapelAnexo={definirPapelAnexo}
             onTurnStatus={handleTurnStatus}
           />
         }
