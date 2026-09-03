@@ -33,23 +33,8 @@ import {
 } from "@/lib/pagina-muda";
 
 import { getTranscricaoCache, putTranscricaoCache } from "./nexo-db";
+import { loadPdfjs, medirTinta } from "./pdfjs-no-navegador";
 import { semRequestAnimationFrame } from "./selo-render-crop";
-
-type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
-let pdfjsPromise: Promise<PdfjsModule> | null = null;
-
-async function loadPdfjs(): Promise<PdfjsModule> {
-  if (!pdfjsPromise) {
-    pdfjsPromise = import("pdfjs-dist/legacy/build/pdf.mjs").then((pdfjs) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/legacy/build/pdf.worker.mjs",
-        import.meta.url,
-      ).toString();
-      return pdfjs;
-    });
-  }
-  return pdfjsPromise;
-}
 
 /**
  * Escala do render. 2 sobre a A4 de 595x842pt dá ~1190x1684 px, ou ~150 dpi.
@@ -126,30 +111,6 @@ export async function diagnosticarArquivo(file: File): Promise<DiagnosticoDoArqu
   return { file, mudas, totalDePaginas, checksum };
 }
 
-async function medirTinta(
-  page: { getOperatorList: () => Promise<{ fnArray: number[] | Uint8Array }> },
-  OPS: Record<string, number>,
-) {
-  try {
-    const ops = await page.getOperatorList();
-    const desenhoOps = new Set([OPS.constructPath ?? -1]);
-    const imagemOps = new Set([
-      OPS.paintImageXObject ?? -1,
-      OPS.paintJpegXObject ?? -1,
-      OPS.paintImageMaskXObject ?? -1,
-      OPS.paintInlineImageXObject ?? -1,
-    ]);
-    let desenho = 0;
-    let imagem = 0;
-    for (const op of ops.fnArray) {
-      if (desenhoOps.has(op)) desenho += 1;
-      else if (imagemOps.has(op)) imagem += 1;
-    }
-    return { desenho, imagem };
-  } catch {
-    return undefined;
-  }
-}
 
 export interface ProgressoDaTranscricao {
   /** Folhas já resolvidas — do cache ou do modelo. */
