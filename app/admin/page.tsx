@@ -18,13 +18,12 @@ import { cn } from "@/lib/utils";
 import { plural } from "@/lib/plural";
 
 import {
-  ADMIN_TOKEN_STORAGE_KEY,
   AdminError,
   AdminMetricStrip,
   AdminPageHeader,
   AdminPageShell,
-  AdminTokenForm,
 } from "@/components/admin/admin-page-shell";
+import { useAdminToken } from "@/components/admin/admin-token";
 
 type OverviewResponse = {
   /** O veredito derivado do estado do sistema (A.4). */
@@ -80,7 +79,12 @@ function isErrorPayload(payload: OverviewResponse | { error?: string }): payload
 export default function AdminHomePage() {
   /** O detalhe do cartão quando ainda não houve consulta — nunca um número. */
   const semDados = "Aguardando consulta";
-  const [token, setToken] = useState("");
+  /*
+   * O token vem do trilho, nao desta tela -- ver [[components/admin/admin-token.tsx]].
+   * Antes, cada uma das sete telas tinha o seu, e o campo de senha era a
+   * primeira coisa que se via em todas elas.
+   */
+  const { token, restaurado, recarga, registrarResposta } = useAdminToken();
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -95,9 +99,9 @@ export default function AdminHomePage() {
    */
   const actions = useMemo(
     () => [
-      { href: "/admin/usage", label: "Consumo", detail: "Tokens, custos e modelos OpenAI", icon: BarChart3 },
-      { href: "/admin/quality", label: "Qualidade do motor", detail: "Compara Padrão e Profundo pelos achados revisados", icon: ShieldCheck },
-      { href: "/admin/config", label: "Configuração", detail: "Chaves, modelos e limites sem expor valores", icon: Settings2 },
+      { href: "/admin/dinheiro", label: "Consumo", detail: "Tokens, custos e modelos OpenAI", icon: BarChart3 },
+      { href: "/admin/motor", label: "Qualidade do motor", detail: "Compara Padrão e Profundo pelos achados revisados", icon: ShieldCheck },
+      { href: "/admin/motor", label: "Configuração", detail: "Chaves, modelos e limites sem expor valores", icon: Settings2 },
     ],
     [],
   );
@@ -128,8 +132,7 @@ export default function AdminHomePage() {
         throw new Error(isErrorPayload(payload) ? payload.error ?? "Não foi possível carregar o painel admin." : "Não foi possível carregar o painel admin.");
       }
 
-      sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmedToken);
-      setToken(trimmedToken);
+      registrarResposta(true);
       setData(payload);
     } catch (requestError) {
       setData(null);
@@ -145,11 +148,15 @@ export default function AdminHomePage() {
   }
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
-    if (storedToken) queueMicrotask(() => void loadOverview(storedToken));
-    // Initial token restoration only.
+    if (!restaurado || !token.trim()) return;
+    /*
+     * `queueMicrotask` porque a carga chama `setState` no corpo dela, e o
+     * React Compiler barra `setState` sincrono dentro de efeito. E o mesmo
+     * contorno que este arquivo ja usava na restauracao do token.
+     */
+    queueMicrotask(() => void loadOverview(token));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token, restaurado, recarga]);
 
   return (
     <AdminPageShell>
@@ -157,15 +164,6 @@ export default function AdminHomePage() {
         icon={ShieldCheck}
         title="Centro de controle"
         description="Operação do Nexo para piloto: usuários, histórico, LDs, consumo, qualidade e configuração."
-        actions={
-          <AdminTokenForm
-            token={token}
-            autenticado={Boolean(data)}
-            loading={loading}
-            onTokenChange={setToken}
-            onSubmit={submit}
-          />
-        }
       />
 
         <AdminError message={error} />
@@ -216,11 +214,11 @@ export default function AdminHomePage() {
         <AdminMetricStrip
           columns="md:grid-cols-2 xl:grid-cols-5"
           metrics={[
-            { label: "Usuários ativos", value: data ? data.totals.activeUsers : "--", detail: data ? plural(data.totals.admins, "admin", "admins") : semDados, icon: UsersRound, href: "/admin/users" },
-            { label: "Auditorias", value: data ? data.totals.audits : "--", detail: data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados, icon: ListChecks, href: "/admin/audits" },
-            { label: "Falhas", value: data ? data.totals.failedAudits : "--", detail: data ? "Auditorias com erro" : semDados, icon: AlertTriangle, href: "/admin/audits?status=FAILED", alerta: Boolean(data && data.totals.failedAudits > 0) },
-            { label: "LDs", value: data ? data.totals.ldDrafts : "--", detail: data ? `${plural(data.totals.generatedLds, "gerada", "geradas")} · ${data.totals.recentLds} nos últimos 7 dias` : semDados, icon: FileSpreadsheet, href: "/admin/lds" },
-            { label: "Eventos LD", value: data ? data.totals.ldEvents : "--", detail: data ? `${data.totals.recentLdEvents} nos últimos 7 dias` : semDados, icon: Clock3, href: "/admin/lds" },
+            { label: "Usuários ativos", value: data ? data.totals.activeUsers : "--", detail: data ? plural(data.totals.admins, "admin", "admins") : semDados, icon: UsersRound, href: "/admin/pessoas" },
+            { label: "Auditorias", value: data ? data.totals.audits : "--", detail: data ? `${data.totals.recentAudits} nos últimos 7 dias` : semDados, icon: ListChecks, href: "/admin/dados" },
+            { label: "Falhas", value: data ? data.totals.failedAudits : "--", detail: data ? "Auditorias com erro" : semDados, icon: AlertTriangle, href: "/admin/dados?status=FAILED", alerta: Boolean(data && data.totals.failedAudits > 0) },
+            { label: "LDs", value: data ? data.totals.ldDrafts : "--", detail: data ? `${plural(data.totals.generatedLds, "gerada", "geradas")} · ${data.totals.recentLds} nos últimos 7 dias` : semDados, icon: FileSpreadsheet, href: "/admin/dados" },
+            { label: "Eventos LD", value: data ? data.totals.ldEvents : "--", detail: data ? `${data.totals.recentLdEvents} nos últimos 7 dias` : semDados, icon: Clock3, href: "/admin/dados" },
           ]}
         />
 

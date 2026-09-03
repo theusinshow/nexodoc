@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { projetoDaAuditoria, tituloDaAuditoria } from "@/lib/audit-identity";
-import { getAiConfiguration, getLastProviderFailures } from "@/lib/ai-providers";
-import { carregarCotacao } from "@/lib/cambio-config";
-import { statusDoSistema } from "@/lib/status-do-sistema";
+import { coletarStatusDoSistema } from "@/lib/fatos-do-sistema";
 import { checkAdminRequest } from "@/lib/admin-gate";
 
 export const runtime = "nodejs";
@@ -108,48 +106,11 @@ export async function GET(request: Request) {
    * A LINHA DE STATUS (A.4). Substitui a 2.24, que queria trocar cartão por
    * tabela — rearranjo. O que faltava na home era veredito, não layout.
    *
-   * As 24h saem de duas contagens novas; o gasto do mês, da soma do consumo
-   * gravado. `estimatedCostUsd` pode ser nulo por evento, e a soma devolve null
-   * quando não há evento nenhum — que é diferente de zero e chega assim na
-   * linha, de propósito.
+   * A COLETA MORA EM [[lib/fatos-do-sistema.ts]] desde que o trilho passou a
+   * mostrar o veredito em toda tela: duas coletas separadas dariam, mais cedo
+   * ou mais tarde, dois vereditos diferentes na mesma tela.
    */
-  const ultimasVinteQuatro = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const inicioDoMes = new Date();
-  inicioDoMes.setDate(1);
-  inicioDoMes.setHours(0, 0, 0, 0);
-
-  const [auditorias24h, auditoriasFalhadas24h, consumoDoMes, cotacao] = await Promise.all([
-    prisma.audit.count({ where: { createdAt: { gte: ultimasVinteQuatro } } }),
-    prisma.audit.count({
-      where: { status: "FAILED", createdAt: { gte: ultimasVinteQuatro } },
-    }),
-    prisma.aiUsageEvent.aggregate({
-      _sum: { estimatedCostUsd: true },
-      where: { createdAt: { gte: inicioDoMes } },
-    }),
-    carregarCotacao(),
-  ]);
-
-  const ai = getAiConfiguration();
-  /*
-   * Os fluxos que hoje existem. Havia um `ldExtraction.fallback` aqui até a
-   * `main` unificar o provedor ("o software passa a ter um provedor só, e os
-   * dois que sobravam já estavam mortos") — contar um fluxo morto faria o
-   * veredito acusar chave faltando para sempre.
-   */
-  const fluxos = [ai.audit, ai.auditChat, ai.ldExtraction.primary];
-  const status = statusDoSistema(
-    {
-      fluxosComChave: fluxos.filter((fluxo) => fluxo.keyConfigured).length,
-      fluxosTotais: fluxos.length,
-      databaseConfigured: true,
-      auditorias24h,
-      auditoriasFalhadas24h,
-      falhasDeProvedor: getLastProviderFailures().length,
-      gastoDoMesUsd: consumoDoMes._sum.estimatedCostUsd ?? null,
-    },
-    cotacao,
-  );
+  const status = await coletarStatusDoSistema();
 
   return NextResponse.json({
     status,

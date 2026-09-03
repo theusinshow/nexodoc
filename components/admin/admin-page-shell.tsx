@@ -17,15 +17,17 @@
  */
 
 import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, KeyRound, RefreshCcw } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const ADMIN_TOKEN_STORAGE_KEY = "nexodoc-admin-token";
-
+/**
+ * O fundo, a altura e o tema saíram daqui: são do `app/admin/layout.tsx`, que
+ * agora desenha o trilho ao lado. Mantê-los aqui pintaria um `min-h-dvh` dentro
+ * de outro e daria duas rolagens concorrentes na mesma tela.
+ */
 export function AdminPageShell({
   children,
   maxWidth = "max-w-[1500px]",
@@ -34,7 +36,7 @@ export function AdminPageShell({
   maxWidth?: string;
 }) {
   return (
-    <main className="min-h-dvh bg-background px-5 py-5 text-foreground">
+    <main className="px-5 py-5">
       <div className={`mx-auto flex ${maxWidth} flex-col gap-4`}>{children}</div>
     </main>
   );
@@ -67,147 +69,37 @@ export function AdminPageHeader({
 }
 
 /**
- * O TOKEN COLAPSA DEPOIS DE ENTRAR.
+ * O CABEÇALHO DE UMA SEÇÃO dentro de um destino.
  *
- * O campo de senha ocupava o melhor lugar das SETE telas, para sempre: a
- * primeira coisa que se via em todo header do admin era um input de senha, dez
- * vezes por dia, para uma sessão que já estava aberta no `sessionStorage`.
- *
- * O que o estado recolhido AFIRMA é só o que se sabe: "há um token nesta
- * sessão". Ele não diz que o token é válido — quem diz isso é a tela, que
- * mostra `AdminError` quando não é, e aí o botão "trocar" está ali do lado.
- * Afirmar validade que não se apurou seria a mesma mentira que o produto
- * inteiro evita.
+ * `AdminPageHeader` continua sendo o título da TELA — um por rota. Quando dois
+ * conteúdos passaram a dividir um destino (Motor recebeu Qualidade e
+ * Configuração; Dados recebeu Auditorias e LDs), cada um deles precisava
+ * continuar se apresentando sem fingir ser a página inteira: dois `<h1>` na
+ * mesma tela é o tipo de coisa que só o leitor de tela percebe, e percebe como
+ * defeito.
  */
-export function AdminTokenForm({
-  token,
-  loading,
-  onTokenChange,
-  onSubmit,
-  children,
-  gridClassName = "sm:grid-cols-[1fr_auto]",
-  autenticado = true,
+export function TituloDaSecao({
+  icon: Icon,
+  titulo,
+  descricao,
+  acoes,
 }: {
-  token: string;
-  loading: boolean;
-  onTokenChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  children?: ReactNode;
-  gridClassName?: string;
-  /**
-   * O token FUNCIONOU (a tela recebeu dados). Sem isto, o recolhimento
-   * acontecia no envio, desse certo ou não: token recusado deixava a pessoa
-   * olhando "Acesso admin negado" com o campo fechado, e para tentar de novo
-   * era preciso adivinhar que o caminho é o link "trocar".
-   *
-   * O padrão é `true` para não mudar o comportamento de quem não passa a prop.
-   */
-  autenticado?: boolean;
+  icon: LucideIcon;
+  titulo: string;
+  descricao: string;
+  acoes?: ReactNode;
 }) {
-  const [editando, setEditando] = useState(false);
-
-  function sair() {
-    onTokenChange("");
-    setEditando(true);
-    try {
-      sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    } catch {
-      // `sessionStorage` pode estar bloqueado (modo restrito do navegador). O
-      // token já saiu do estado, que é o que importa nesta aba.
-    }
-  }
-
-  if (token && !editando && autenticado) {
-    /*
-      O RECOLHIDO CONTINUA SENDO UM FORM, e continua carregando os `children`.
-      Algumas telas passam ali controles que NÃO são de autenticação — o
-      seletor de período do consumo, por exemplo. Sumir com eles junto do campo
-      de senha seria trocar um problema por outro pior: o campo estorva, mas o
-      seletor de período é o controle principal daquela tela.
-    */
-    return (
-      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
-        <span className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <KeyRound className="size-3.5" aria-hidden />
-            sessão admin
-          </span>
-          <span aria-hidden className="text-border">·</span>
-          <button
-            type="button"
-            onClick={() => setEditando(true)}
-            className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
-          >
-            trocar
-          </button>
-          <span aria-hidden className="text-border">·</span>
-          <button
-            type="button"
-            onClick={sair}
-            className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
-          >
-            sair
-          </button>
-        </span>
-        {children}
-      </form>
-    );
-  }
-
   return (
-    <form
-      onSubmit={(e) => {
-        // Recolhe ao enviar: quem acabou de digitar o token não precisa de um
-        // campo de senha aberto na tela pelo resto da sessão.
-        setEditando(false);
-        onSubmit(e);
-      }}
-      className="nx-edge-8 flex w-full flex-col gap-2 p-3 lg:w-[460px]"
-    >
-      <label className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-        Token admin
-      </label>
-      <div className={`grid gap-2 ${gridClassName}`}>
-        {/*
-          O campo recebe o corte 7 (a medida de campo, §5) e o miolo recessado —
-          o mesmo tratamento do `Input` do produto. `nx-edge-*` já reposiciona
-          `input` filho para a camada certa, então basta o wrapper.
-        */}
-        <div className="nx-edge-7 relative [--nx-fill:var(--nexodoc-recessed)]">
-          <KeyRound className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="password"
-            value={token}
-            onChange={(event) => {
-              /*
-               * DIGITAR É EDITAR — e sem esta linha o campo sumia na PRIMEIRA
-               * TECLA.
-               *
-               * O recolhimento é `token && !editando`, e `editando` nascia
-               * `false`. O primeiro caractere tornava `token` verdadeiro, a
-               * condição fechava, e o formulário virava "sessão admin · trocar
-               * · sair" com um caractere só dentro. Não havia como digitar o
-               * token à mão em nenhuma das 7 telas do admin.
-               *
-               * O recolhido continua servindo ao caso para o qual foi feito: o
-               * token restaurado do `sessionStorage`, que chega sem ninguém
-               * digitar, e o `onSubmit`, que recolhe depois de enviar.
-               */
-              setEditando(true);
-              onTokenChange(event.target.value);
-            }}
-            placeholder="NEXODOC_ADMIN_TOKEN"
-            className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none"
-          />
-        </div>
-        {children ?? (
-          <Button type="submit" disabled={loading}>
-            <RefreshCcw />
-            Atualizar
-          </Button>
-        )}
+    <header className="flex flex-col gap-3 border-b border-border pb-3 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Icon className="size-4 text-primary" />
+          {titulo}
+        </h2>
+        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">{descricao}</p>
       </div>
-    </form>
+      {acoes}
+    </header>
   );
 }
 
