@@ -117,7 +117,7 @@ test("o que está com OUTROS diz COM QUEM — e não 'com outros'", () => {
     pessoas: ["Milton"],
   });
   assert.equal(r.texto, "5 com Milton");
-  assert.equal(r.realce, "quieto");
+  assert.equal(r.realce, "outro");
 });
 
 test("a mesma pessoa em cinco achados continua sendo UMA pessoa", () => {
@@ -143,7 +143,7 @@ test("com várias pessoas, conta — três nomes numa linha é repetição", () 
 test("sem achado nenhum, o resumo diz isso", () => {
   const r = resumoDoProjeto({ recebidos: 0, enviados: 0, diasParado: 0, pessoas: [] });
   assert.equal(r.texto, "sem pendência");
-  assert.equal(r.realce, "quieto");
+  assert.equal(r.realce, "limpo");
 });
 
 test("recebido VENCE enviado no resumo: o que é seu é o que importa", () => {
@@ -185,4 +185,78 @@ test("abre UM só, e é o primeiro na ordem da atenção", () => {
   assert.equal(so, "b");
 });
 
-console.log(`\n${passed} passaram`);
+/* ───────────── o quinto estado: trabalho sem achado ───────────── */
+
+test("volume montado é estado próprio, não 'sem pendência'", () => {
+  /*
+   * O projeto que só teve volume montado existia apenas na coluna da direita da
+   * home. Com a fusão das listas ele entra na principal, e "sem pendência"
+   * apagaria justamente o que se fez nele.
+   */
+  const r = resumoDoProjeto({
+    recebidos: 0,
+    enviados: 0,
+    diasParado: 0,
+    pessoas: [],
+    trabalho: { tipo: "volume" },
+  });
+  assert.equal(r.texto, "volume montado");
+  assert.equal(r.realce, "trabalho");
+});
+
+test("auditoria em voo vence o tipo da conversa", () => {
+  const r = resumoDoProjeto({
+    recebidos: 0,
+    enviados: 0,
+    diasParado: 0,
+    pessoas: [],
+    trabalho: { tipo: "volume", auditoriaPendente: true },
+  });
+  assert.equal(r.texto, "auditoria em curso");
+});
+
+test("conversa sem volume NÃO vira estado próprio", () => {
+  /*
+   * Havia um "trabalho recente" genérico aqui, e ele tornava o "sem pendência"
+   * INALCANÇÁVEL: todo projeto tem conversa, é assim que o trabalho começa.
+   * Um projeto auditado e limpo aparecia como "trabalho recente" — que não diz
+   * nada que a pessoa não saiba. Visto na tela, não deduzido.
+   */
+  const r = resumoDoProjeto({
+    recebidos: 0, enviados: 0, diasParado: 0, pessoas: [], trabalho: { tipo: "auditoria" },
+  });
+  assert.equal(r.texto, "sem pendência");
+  assert.equal(r.realce, "limpo");
+});
+
+test("ACHADO PARADO VENCE volume montado ontem", () => {
+  /*
+   * A precedência que importa: dizer "volume montado" num projeto com achado
+   * parado há 12 dias esconderia a cobrança atrás de uma notícia boa.
+   */
+  const r = resumoDoProjeto({
+    recebidos: 1,
+    enviados: 0,
+    diasParado: 12,
+    pessoas: [],
+    trabalho: { tipo: "volume" },
+  });
+  assert.equal(r.realce, "alerta");
+  assert.match(r.texto, /parado há 12 dias/);
+});
+
+test("o que está com OUTROS também vence o trabalho recente", () => {
+  const r = resumoDoProjeto({
+    recebidos: 0, enviados: 2, diasParado: 0, pessoas: ["Victor"], trabalho: { tipo: "volume" },
+  });
+  assert.equal(r.realce, "outro");
+});
+
+test("sem trabalho e sem achado continua sendo 'sem pendência'", () => {
+  // O `trabalho` é opcional: quem não o passa vê o comportamento de antes.
+  const r = resumoDoProjeto({ recebidos: 0, enviados: 0, diasParado: 0, pessoas: [], trabalho: null });
+  assert.equal(r.realce, "limpo");
+});
+
+console.log(`
+${passed} passaram`);

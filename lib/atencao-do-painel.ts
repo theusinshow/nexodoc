@@ -65,8 +65,23 @@ export const LIMIAR_TARJA = 5;
 
 export type ResumoDoProjeto = {
   texto: string;
-  /** `alerta` acende; `seu` marca o que espera você; `quieto` é o resto. */
-  realce: "alerta" | "seu" | "quieto";
+  /**
+   * O TOM do chip. Eram três, e `quieto` cobria duas coisas diferentes:
+   * "está com outra pessoa" e "não tem nada". O componente desenhava `quieto`
+   * como texto solto, sem caixa, com uma razão escrita — "só o que espera VOCÊ
+   * ganha a caixa".
+   *
+   * A razão era boa e o efeito foi outro: na tela cheia, as linhas sem caixa
+   * leem como DESABILITADAS ao lado das que têm. O olho aprende que caixa =
+   * importante e para de ler a coluna inteira. Agora todo estado é um chip com
+   * a mesma forma, e só a cor muda — a hierarquia passa a ser a cor, que não
+   * some.
+   *
+   * `trabalho` é o quinto, e ele não existia: é o projeto que está na home
+   * porque houve conversa recente, sem auditoria nem achado. Ele aparecia só na
+   * coluna da direita, que morreu.
+   */
+  realce: "alerta" | "seu" | "outro" | "trabalho" | "limpo";
 };
 
 /**
@@ -86,6 +101,15 @@ export function resumoDoProjeto(args: {
   enviados: number;
   diasParado: number;
   pessoas: readonly string[];
+  /**
+   * O trabalho do Nexo neste projeto, quando NÃO há achado nenhum.
+   *
+   * Ele só fala quando o resto se cala, e a precedência é essa de propósito: um
+   * projeto com achado parado E volume montado ontem é, para quem abre a home,
+   * um projeto com achado parado. Dizer "volume montado" ali esconderia a
+   * cobrança atrás de uma notícia boa.
+   */
+  trabalho?: { tipo?: string | null; auditoriaPendente?: boolean } | null;
 }): ResumoDoProjeto {
   if (args.recebidos > 0) {
     const quantos = `${args.recebidos} ${args.recebidos === 1 ? "achado" : "achados"}`;
@@ -104,10 +128,34 @@ export function resumoDoProjeto(args: {
     const comQuem =
       unicas.length === 1 ? unicas[0] : `${unicas.length || args.enviados} pessoas`;
 
-    return { texto: `${args.enviados} com ${comQuem}`, realce: "quieto" };
+    return { texto: `${args.enviados} com ${comQuem}`, realce: "outro" };
   }
 
-  return { texto: "sem pendência", realce: "quieto" };
+  /*
+   * SEM ACHADO, o que sobra é o que se fez aqui. "Sem pendência" é verdade e é
+   * pouco: não distingue a obra que ninguém tocou da que teve volume montado
+   * ontem — e essa segunda é o motivo de metade das visitas ao produto.
+   */
+  if (args.trabalho?.auditoriaPendente) {
+    return { texto: "auditoria em curso", realce: "trabalho" };
+  }
+
+  if (args.trabalho?.tipo === "volume") {
+    return { texto: "volume montado", realce: "trabalho" };
+  }
+
+  /*
+   * SÓ FALA QUEM TEM O QUE DIZER, e este freio foi acrescentado depois de ver a
+   * tela: havia um "trabalho recente" genérico aqui, para qualquer conversa. Só
+   * que TODO projeto tem conversa — é assim que o trabalho começa —, então esse
+   * ramo engolia o "sem pendência" e o tornava inalcançável. Um projeto
+   * auditado e limpo aparecia como "trabalho recente", que não diz nada que a
+   * pessoa não saiba.
+   *
+   * O quinto estado existe para o caso concreto (montou volume, nunca auditou),
+   * não para "houve uma conversa aqui".
+   */
+  return { texto: "sem pendência", realce: "limpo" };
 }
 
 /**

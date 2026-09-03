@@ -73,7 +73,7 @@ import {
 import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { cn } from "@/lib/utils";
-import { OndeVoceParou, pastasFora, TrabalhoRecente } from "./onde-voce-parou";
+import { OndeVoceParou } from "./onde-voce-parou";
 import { DURATION } from "@/modules/nexo/lib/motion";
 
 /** Quanto o véu leva para fechar. Mesmo token do `BotaoDoOrbe`, não uma cópia. */
@@ -105,17 +105,6 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
    * depois de alguém já ter pedido o Nexo.
    */
   const [partindo, setPartindo] = useState(false);
-
-  /*
-   * Há pasta recente para a coluna da direita MOSTRAR?
-   *
-   * Pela MESMA regra que `TrabalhoRecente` usa por dentro — ela tira a pasta
-   * que já está na retomada. Contar `projetos.length` aqui dava 1 com a coluna
-   * vazia, e ela nascia reservada para uma frase de consolo.
-   */
-  const temRecente =
-    pastasFora(painel?.trabalho.projetos ?? [], painel?.trabalho.ondeParou ?? null)
-      .length > 0;
 
   useEffect(() => {
     let vivo = true;
@@ -264,7 +253,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           <div className="mt-10">
             <OndeVoceParou
               ondeParou={painel.trabalho.ondeParou}
-              projetos={painel.trabalho.projetos}
+              retomada={painel.trabalho.retomada}
             />
           </div>
         ) : null}
@@ -273,18 +262,15 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
 
         {primeiraVez ? null : (
           /*
-            A COLUNA DA DIREITA SÓ EXISTE COM CONTEÚDO.
-
-            Ela reservava 336px para dizer "as outras pastas em que você mexer
-            aparecem aqui" — coluna vazia com legenda ocupa o espaço e não paga
-            por ele. Com conteúdo, nada muda.
+            UMA COLUNA SÓ, desde 03/09/2026.
+            A da direita mostrava as pastas recentes e parecia repetir a
+            esquerda — quatro dos cinco projetos apareciam nas duas. Só que as
+            fontes eram DIFERENTES: a esquerda vinha de achados e auditorias, a
+            direita de conversas, e uma obra em que só se montou volume existia
+            apenas lá. Fundir sem cuidado a teria apagado da home.
+            A fusão está em [[lib/painel.ts]]; aqui sobrou uma lista.
           */
-          <div
-            className={cn(
-              "mt-8 grid grid-cols-1 items-start gap-8",
-              temRecente && "lg:grid-cols-[minmax(0,1fr)_336px]",
-            )}
-          >
+          <div className="mt-8 flex flex-col items-start gap-8">
             <section className="flex w-full min-w-0 flex-col gap-2.5">
               <div className="mb-1 flex items-baseline gap-3">
                 <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -343,41 +329,6 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
               ) : null}
             </section>
 
-            {/*
-              A COLUNA DA DIREITA É "O QUE PASSOU", e passou a ter um nome que
-              não colide com o vizinho.
-
-              Ela se chamava "Onde você parou" — o mesmo título da seção que
-              abria a página, com outro conteúdo embaixo. E o conteúdo eram
-              AUDITORIAS pelo título (`painel.recentes`), enquanto a seção de
-              cima listava as mesmas pastas pelo código: `088-25` aparecia duas
-              vezes na mesma tela, com dois nomes e duas contagens, como se
-              fossem coisas diferentes.
-
-              Agora a coluna mostra as PASTAS recentes menos a que está na
-              retomada (ver `TrabalhoRecente`), que é a única lista de projeto
-              que sobrou fora da coluna principal. `painel.recentes` continua
-              vindo da API — é a mesma consulta que traz projeto sem pendência
-              para a lista da esquerda, e é ela que decide `primeiraVez`.
-            */}
-            {temRecente ? (
-            <aside className="flex w-full min-w-0 flex-col gap-3">
-              <h3 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Trabalho recente
-              </h3>
-
-              {carregando ? (
-                <div className="nx-cut-8 h-[120px] animate-pulse bg-card" />
-              ) : null}
-
-              {painel ? (
-                <TrabalhoRecente
-                  ondeParou={painel.trabalho.ondeParou}
-                  projetos={painel.trabalho.projetos}
-                />
-              ) : null}
-            </aside>
-            ) : null}
           </div>
         )}
       </main>
@@ -653,9 +604,13 @@ function CartaoDeProjeto({
 
           {/*
             A MARCA, na forma SELO — a que o módulo destina a cartão de projeto.
-            `aria-hidden` mora dentro do componente: a cidade está escrita a
-            poucos pixels daqui, e um rótulo repetiria "Criciúma" por linha para
-            quem ouve a lista.
+
+            O cabeçalho dela promete que "a cidade está escrita a poucos pixels
+            daqui", e é o que a torna decifrável: cor mais nome. NESTA TELA A
+            PROMESSA ESTAVA QUEBRADA — a cidade aparecia na coluna da direita e
+            não aqui, e a marca virava três traços coloridos sem legenda. Quem
+            não decorou a paleta não tinha como saber a cidade na tela
+            principal. O nome entra ao lado do projeto, logo abaixo.
           */}
           <MarcaDaPrefeitura prefeitura={projeto.cliente} forma="selo" />
 
@@ -668,7 +623,19 @@ function CartaoDeProjeto({
             {projeto.codigo}
           </span>
 
-          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{projeto.nome}</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+            {projeto.nome}
+            {/*
+              "SEM CIDADE" POR EXTENSO, e não um separador pendurado. Com
+              `cliente` vazio a linha terminava em "Reforma do Centro ·" — um
+              ponto que parece erro de renderização, e não o fato de que ninguém
+              cadastrou o município.
+            */}
+            <span className="text-muted-foreground">
+              {" · "}
+              {projeto.cliente.trim() || "sem cidade"}
+            </span>
+          </span>
 
           <Selo projeto={projeto} recebidos={recebidos} />
         </button>
@@ -796,35 +763,63 @@ function Selo({
     pessoas: projeto.itens
       .filter((i) => i.direcao === "enviado")
       .map((i) => nomeCurto(i.pessoa)),
+    // O quinto estado: o projeto que está aqui por causa de conversa recente,
+    // sem achado nenhum. Quem decide se ele fala é o módulo, não esta tela.
+    trabalho: projeto.trabalho,
   });
-
-  /*
-   * Sem realce, o resumo é texto de apoio — "5 com Milton" e "sem pendência"
-   * são informação, não alarme. Só o que espera VOCÊ ganha a caixa.
-   */
-  if (resumo.realce === "quieto") {
-    return (
-      <span className="shrink-0 whitespace-nowrap font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
-        {resumo.texto}
-      </span>
-    );
-  }
 
   return (
     <span
-      className="nx-cut-4 shrink-0 whitespace-nowrap px-2.5 py-1 font-mono text-[11px] font-medium tracking-[0.04em]"
-      style={{
-        background: resumo.realce === "alerta" ? "var(--status-warning-bg)" : "#0f2d2a",
-        color:
-          resumo.realce === "alerta"
-            ? "var(--status-warning)"
-            : "var(--nexodoc-accent)",
-      }}
+      className="nx-cut-4 shrink-0 whitespace-nowrap border px-2.5 py-1 font-mono text-[11px] font-medium tracking-[0.04em]"
+      style={TOM_DO_RESUMO[resumo.realce]}
     >
       {resumo.texto}
     </span>
   );
 }
+
+/**
+ * UMA FORMA, CINCO CORES — e é o ponto deste trabalho.
+ *
+ * Antes eram três tratamentos na mesma coluna: caixa âmbar, caixa teal e texto
+ * solto. O texto solto cobria "está com outra pessoa" e "sem pendência", e a
+ * razão estava escrita — "só o que espera VOCÊ ganha a caixa".
+ *
+ * A razão era boa e o efeito, medido na tela cheia, foi outro: as linhas sem
+ * caixa leem como DESABILITADAS ao lado das que têm. O olho aprende que caixa =
+ * importante e para de ler metade da coluna — inclusive "2 com Victor", que é
+ * de quem cobrar.
+ *
+ * Agora a forma é constante e a hierarquia é a COR, que não some. `--nexodoc-*`
+ * e os tokens de status, nunca hexadecimal solto: havia um `#0f2d2a` aqui.
+ */
+const TOM_DO_RESUMO: Record<string, React.CSSProperties> = {
+  alerta: {
+    borderColor: "var(--status-warning)",
+    background: "var(--status-warning-bg)",
+    color: "var(--status-warning)",
+  },
+  seu: {
+    borderColor: "var(--primary)",
+    background: "var(--secondary)",
+    color: "var(--nexodoc-accent)",
+  },
+  outro: {
+    borderColor: "var(--border)",
+    background: "transparent",
+    color: "var(--foreground)",
+  },
+  trabalho: {
+    borderColor: "var(--border)",
+    background: "transparent",
+    color: "var(--muted-foreground)",
+  },
+  limpo: {
+    borderColor: "var(--nexodoc-raised)",
+    background: "transparent",
+    color: "var(--muted-foreground)",
+  },
+};
 
 function rotuloDeTempo(item: ItemDoPainel) {
   if (item.direcao === "recebido" && item.dias >= LIMIAR_TARJA) {

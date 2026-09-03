@@ -103,14 +103,22 @@ const CAMINHO = (id: string) => `/nexo?conversa=${encodeURIComponent(id)}`;
  */
 export function OndeVoceParou({
   ondeParou,
-  projetos,
+  retomada,
 }: {
   ondeParou: ConversaCrua | null;
-  projetos: ProjetoRecente[];
+  /**
+   * A PASTA desta retomada, já resolvida pelo servidor.
+   *
+   * Era a lista inteira de pastas recentes, e este componente achava a certa
+   * dentro dela — porque a lista existia de qualquer jeito para a coluna da
+   * direita. A coluna morreu (ver [[painel-do-usuario.tsx]]); procurar numa
+   * lista de seis para usar uma é trabalho que ninguém pediu.
+   */
+  retomada: ProjetoRecente | null;
 }) {
   if (!ondeParou) return null;
 
-  const daRetomada = projetos.find((p) => p.ultima.id === ondeParou.id);
+  const daRetomada = retomada;
 
   return (
     <section
@@ -181,83 +189,3 @@ export function OndeVoceParou({
  * Régua de 1px entre linhas, sem cartão e sem divisor vertical — o padrão de
  * tabela da DESIGN.md, que favorece ver muitas linhas de uma vez.
  */
-/**
- * AS PASTAS QUE SOBRAM para a coluna da direita — todas menos a da retomada.
- *
- * Exportada porque o PAI precisa da MESMA resposta para decidir se a coluna
- * existe (ver `temRecente` em [[painel-do-usuario.tsx]]). Com a regra escrita
- * duas vezes, `projetos.length` podia ser 1 enquanto isto devolvia zero — e a
- * coluna de 336px nascia reservada para uma frase de consolo.
- */
-export function pastasFora(
-  projetos: readonly ProjetoRecente[],
-  ondeParou: ConversaCrua | null,
-): ProjetoRecente[] {
-  return projetos.filter((p) => p.ultima.id !== ondeParou?.id);
-}
-
-export function TrabalhoRecente({
-  ondeParou,
-  projetos,
-}: {
-  ondeParou: ConversaCrua | null;
-  projetos: ProjetoRecente[];
-}) {
-  const outros = pastasFora(projetos, ondeParou);
-
-  if (outros.length === 0) {
-    return (
-      <p className="m-0 text-sm leading-normal text-muted-foreground">
-        As outras pastas em que você mexer aparecem aqui.
-      </p>
-    );
-  }
-
-  return (
-    <div className="nx-edge-8" style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}>
-      <ul className="m-0 flex list-none flex-col px-3.5 py-0">
-        {outros.map((p) => (
-          <li key={p.chave || "sem-pasta"} className="border-b border-[#171c1f] last:border-0">
-            {/*
-              DUAS LINHAS, e não três colunas.
-
-              A lista era `nome | resumo | quando` numa linha só, e isso servia
-              enquanto ela ocupava a largura inteira da página. Nesta coluna de
-              336px as três colunas não cabem: o resumo e a data são de largura
-              fixa, então quem cede é sempre o NOME — e a home passou a mostrar
-              "088-25 · CR…", que é justamente o dado pelo qual a pessoa
-              procura o projeto.
-
-              Agora o nome tem a linha inteira, e o resumo desce para a segunda
-              com a data ao lado. Nada trunca até uns 200px de coluna.
-            */}
-            <Link
-              href={CAMINHO(p.ultima.id)}
-              className="group block py-2.5 transition-colors duration-[var(--duration-fast)] focus-visible:outline-none"
-            >
-              <span className="block truncate text-sm text-foreground transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--nexodoc-accent)] group-focus-visible:text-[var(--nexodoc-accent)]">
-                {nomeDoProjeto(p)}
-              </span>
-              <span className="mt-0.5 flex items-baseline gap-2 font-mono text-[11px] text-muted-foreground">
-                {/*
-                  ANÁLISE EM CURSO toma o lugar do resumo: um projeto com
-                  auditoria rodando é exatamente o que se quer ver da home sem
-                  entrar em nada, e é mais urgente que a contagem de volumes.
-                */}
-                {p.emCurso ? (
-                  <span className="inline-flex min-w-0 flex-1 items-center gap-1 text-[var(--status-warning)]">
-                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
-                    análise rodando
-                  </span>
-                ) : (
-                  <span className="min-w-0 flex-1 truncate">{oQueTem(p)}</span>
-                )}
-                <span className="shrink-0 tabular-nums">{quando(p.atualizadoEm)}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}

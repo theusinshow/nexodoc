@@ -73,6 +73,18 @@ export type ProjetoDoPainel = {
   artefatos: ArtefatoDoPainel[];
   /** O maior tempo parado entre os itens. Zero quando não há pendência. */
   diasParado: number;
+  /**
+   * O TRABALHO DO NEXO neste projeto, quando houve conversa recente.
+   *
+   * Existe porque a coluna "Trabalho recente" morreu e o que ela cobria não
+   * podia morrer junto: uma obra em que só se MONTOU VOLUME não tem auditoria
+   * nem achado, e vivia exclusivamente lá. Medido em 03/09/2026 — o
+   * `SIM099-26` aparecia numa lista e não na outra.
+   *
+   * Nulo quando não há conversa: o resumo então cai em "sem pendência", que era
+   * o comportamento de sempre.
+   */
+  trabalho: { tipo: string | null; auditoriaPendente: boolean } | null;
 };
 
 export type RecenteDoPainel = {
@@ -96,7 +108,15 @@ export type Painel = {
    */
   trabalho: {
     ondeParou: ConversaCrua | null;
-    projetos: ProjetoRecente[];
+    /**
+     * A PASTA da retomada, e só ela.
+     *
+     * Era a lista inteira (`projetos`), porque a coluna da direita a desenhava.
+     * A coluna morreu; a linha de retomada continua precisando saber quantos
+     * volumes e auditorias há na pasta, e se algo está em curso. Uma pasta em
+     * vez de seis.
+     */
+    retomada: ProjetoRecente | null;
   };
 };
 
@@ -238,6 +258,7 @@ export async function painelDe(args: {
       itens: [],
       artefatos: [],
       diasParado: 0,
+      trabalho: null,
     };
 
     atual.itens.push({
@@ -304,6 +325,96 @@ export async function painelDe(args: {
       itens: [],
       artefatos: [],
       diasParado: 0,
+      trabalho: null,
+    });
+  }
+
+  /*
+   * O TRABALHO DO NEXO, na mesma chamada.
+   *
+   * `select` das SETE colunas de fora: o `data` de cada conversa carrega os
+   * artefatos e pesa megabytes, e abri-lo para desenhar a primeira tela é
+   * exatamente o custo que a lista da barra lateral evita. `take` alto porque o
+   * agrupamento é por PASTA — cortar antes de agrupar esconderia um projeto
+   * inteiro atrás de conversas de outro.
+   */
+  const conversas = await prisma.nexoConversation.findMany({
+    where: { userEmail: args.email },
+    select: {
+      id: true,
+      title: true,
+      folderKey: true,
+      tipo: true,
+      updatedAt: true,
+      auditoriaPendente: true,
+      /* O VÍNCULO do sub-projeto 1. O código e o cliente saem daqui; a pasta
+       * continua servindo à conversa legada, que não tem vínculo. */
+      project: { select: { id: true, code: true, client: true, name: true, updatedAt: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 300,
+  });
+
+  const cruas: ConversaCrua[] = conversas.map((c) => ({
+    id: c.id,
+    title: c.title,
+    folderKey: c.folderKey,
+    tipo: c.tipo,
+    updatedAt: c.updatedAt.getTime(),
+    auditoriaPendente: c.auditoriaPendente,
+    projectCode: c.project?.code ?? "",
+    projectClient: c.project?.client ?? "",
+  }));
+
+  /*
+   * A TERCEIRA FONTE — e a que faltava.
+   *
+   * As duas de cima (`AuditFeedback` e `Audit`) só enxergam quem AUDITOU. Uma
+   * obra em que se montou volume e nunca se auditou não tem achado nem
+   * auditoria: ela existia apenas na coluna "Trabalho recente", que era uma
+   * segunda lista com outra fonte — e por isso a home parecia repetir projetos
+   * quando na verdade mostrava conjuntos diferentes.
+   *
+   * Medido em 03/09/2026 com a home semeada: `SIM099-26` aparecia na direita e
+   * não na esquerda. Fundir as listas SEM esta passada apagaria da tela quem só
+   * monta volume — metade do uso do produto.
+   */
+  for (const conversa of conversas) {
+    const projeto = conversa.project;
+    if (!projeto) continue;
+
+    const jaEsta = porProjeto.get(projeto.id);
+
+    if (jaEsta) {
+      /*
+       * O projeto já veio de achado ou auditoria. O trabalho entra mesmo assim
+       * — quem decide se ele APARECE é `resumoDoProjeto`, e lá a regra é que
+       * achado vence trabalho recente. A decisão fica num lugar só.
+       */
+      jaEsta.trabalho ??= {
+        tipo: conversa.tipo,
+        auditoriaPendente: conversa.auditoriaPendente,
+      };
+      continue;
+    }
+
+    if (porProjeto.size >= LIMITE_PROJETOS) break;
+
+    porProjeto.set(projeto.id, {
+      projectId: projeto.id,
+      codigo: projeto.code,
+      nome: projeto.name || projeto.client || projeto.code,
+      cliente: projeto.client,
+      /*
+       * A data da CONVERSA, e não a do projeto: é ela que diz quando se mexeu
+       * nisto, e é ela que ordena a cauda da lista por recência — o critério
+       * que a coluna morta carregava.
+       */
+      atualizadoEm: new Date(conversa.updatedAt).toISOString(),
+      itens: [],
+      artefatos: [],
+      diasParado: 0,
+      trabalho: { tipo: conversa.tipo, auditoriaPendente: conversa.auditoriaPendente },
     });
   }
 
@@ -317,6 +428,13 @@ export async function painelDe(args: {
       (a, b) =>
         b.diasParado - a.diasParado ||
         b.itens.length - a.itens.length ||
+        /*
+         * A RECÊNCIA desempata a cauda. Sem achado, `diasParado` e `itens` são
+         * zero para todos, e o código ordenaria por número de contrato — que
+         * não quer dizer nada. É aqui que a ordem da coluna morta sobrevive:
+         * ela era "o que passou", e virou o critério do fim desta lista.
+         */
+        Date.parse(b.atualizadoEm) - Date.parse(a.atualizadoEm) ||
         a.codigo.localeCompare(b.codigo),
     )
     .slice(0, LIMITE_PROJETOS);
@@ -345,49 +463,22 @@ export async function painelDe(args: {
     });
   }
 
-  /*
-   * O TRABALHO DO NEXO, na mesma chamada.
-   *
-   * `select` das SETE colunas de fora: o `data` de cada conversa carrega os
-   * artefatos e pesa megabytes, e abri-lo para desenhar a primeira tela é
-   * exatamente o custo que a lista da barra lateral evita. `take` alto porque o
-   * agrupamento é por PASTA — cortar antes de agrupar esconderia um projeto
-   * inteiro atrás de conversas de outro.
-   */
-  const conversas = await prisma.nexoConversation.findMany({
-    where: { userEmail: args.email },
-    select: {
-      id: true,
-      title: true,
-      folderKey: true,
-      tipo: true,
-      updatedAt: true,
-      auditoriaPendente: true,
-      /* O VÍNCULO do sub-projeto 1. O código e o cliente saem daqui; a pasta
-       * continua servindo à conversa legada, que não tem vínculo. */
-      project: { select: { code: true, client: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 300,
-  });
-
-  const cruas: ConversaCrua[] = conversas.map((c) => ({
-    id: c.id,
-    title: c.title,
-    folderKey: c.folderKey,
-    tipo: c.tipo,
-    updatedAt: c.updatedAt.getTime(),
-    auditoriaPendente: c.auditoriaPendente,
-    projectCode: c.project?.code ?? "",
-    projectClient: c.project?.client ?? "",
-  }));
-
   return {
     projetos,
-    trabalho: {
-      ondeParou: ondeParou(cruas),
-      projetos: projetosRecentes(cruas, { limite: LIMITE_PROJETOS_RECENTES }),
-    },
+    /*
+     * `projetos` SAIU DAQUI: era a coluna da direita, e ela virou a cauda da
+     * lista única. Sobra o `ondeParou` — que nomeia a primeira linha — e a
+     * pasta DELE, que a linha usa para dizer o que a pasta tem.
+     */
+    trabalho: (() => {
+      const parou = ondeParou(cruas);
+      const pastas = projetosRecentes(cruas, { limite: LIMITE_PROJETOS_RECENTES });
+
+      return {
+        ondeParou: parou,
+        retomada: pastas.find((pasta) => pasta.ultima.id === parou?.id) ?? null,
+      };
+    })(),
     recentes: auditorias.slice(0, LIMITE_RECENTES).map((a) => ({
       auditId: a.id,
       nome: a.project?.code ? `${a.project.code} · ${a.title}` : a.title,
