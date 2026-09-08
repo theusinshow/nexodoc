@@ -96,6 +96,12 @@ body {
 const MOTOR = `
 (function () {
   var folhas = [].slice.call(document.querySelectorAll('.ap-folha'));
+  // O DECK E O ANEXO SAO DOIS PERCURSOS. As folhas de valores estao no mesmo
+  // arquivo, mas fora do caminho da seta: chegar nelas pelo End seria a seta a
+  // mais que a decisao do deck proibe. O botao e a unica porta.
+  var deck = folhas.filter(function (f) { return !f.hasAttribute('data-anexo'); });
+  var anexo = folhas.filter(function (f) { return f.hasAttribute('data-anexo'); });
+  var voltarPara = 0;
   var palco = document.getElementById('palco');
   var moldura = document.getElementById('moldura');
   var raiz = document.getElementById('raiz');
@@ -113,10 +119,26 @@ const MOTOR = `
     moldura.style.width = 1920 * k + 'px';
     moldura.style.height = 1080 * k + 'px';
   }
+  function noAnexo() { return folhas[i].hasAttribute('data-anexo'); }
+  // A navegacao clampa no percurso ONDE SE ESTA, e nao no arquivo inteiro:
+  // seta para a direita na ultima folha do deck nao pode cair no preco.
+  function limites() {
+    var lista = noAnexo() ? anexo : deck;
+    return [folhas.indexOf(lista[0]), folhas.indexOf(lista[lista.length - 1])];
+  }
+  function anda(passo) {
+    var faixa = limites();
+    mostra(Math.max(faixa[0], Math.min(faixa[1], i + passo)));
+  }
   function mostra(n) {
     i = Math.max(0, Math.min(folhas.length - 1, n));
     folhas.forEach(function (f, k) { f.hidden = k !== i; });
-    posicao.textContent = (i + 1) + '/' + folhas.length;
+    if (noAnexo()) {
+      posicao.textContent = 'anexo ' + (folhas[i].getAttribute('data-anexo') || '') +
+        ' · Esc volta';
+    } else {
+      posicao.textContent = (deck.indexOf(folhas[i]) + 1) + '/' + deck.length;
+    }
     // A nota chega com os paragrafos separados por linha em branco, e cada um
     // vira um <p> — do mesmo jeito que o painel do produto os mostra.
     notasTexto.textContent = '';
@@ -128,12 +150,24 @@ const MOTOR = `
     });
     notasRotulo.textContent = folhas[i].getAttribute('data-rotulo') || '';
   }
+  // O BOTAO, no arquivo do pen drive, e um salto interno. O gerador ja trocou o
+  // endereco; aqui ele ganha o comportamento. Guardar de ONDE se saiu e o que
+  // faz o Esc devolver a folha certa em vez do comeco do deck.
+  var botao = document.querySelector('[data-abre-valores]');
+  if (botao && anexo.length) {
+    botao.addEventListener('click', function (e) {
+      e.preventDefault();
+      voltarPara = i;
+      mostra(folhas.indexOf(anexo[0]));
+    });
+  }
   document.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); mostra(i + 1); }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); mostra(i - 1); }
-    else if (e.key === 'Home') { e.preventDefault(); mostra(0); }
-    else if (e.key === 'End') { e.preventDefault(); mostra(folhas.length - 1); }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); anda(1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); anda(-1); }
+    else if (e.key === 'Escape' && noAnexo()) { e.preventDefault(); mostra(voltarPara); }
+    else if (e.key === 'Home') { e.preventDefault(); mostra(limites()[0]); }
+    else if (e.key === 'End') { e.preventDefault(); mostra(limites()[1]); }
     else if (e.key === 'n' || e.key === 'N') {
       notasAbertas = !notasAbertas;
       notas.hidden = !notasAbertas;
@@ -150,15 +184,19 @@ const MOTOR = `
 })();
 `;
 
-async function main() {
-  const navegador = await chromium.launch();
-  const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
-
-  await pagina.goto(`${BASE}/apresentacao`, { waitUntil: "domcontentloaded" });
+/**
+ * CAPTURA UMA APRESENTAÇÃO INTEIRA — o deck ou o anexo dos valores.
+ *
+ * A mesma função para as duas porque elas são o mesmo motor com conteúdos
+ * diferentes: uma segunda redação da captura divergiria na primeira correção,
+ * e a que divergiria em silêncio é a do anexo, que quase ninguém abre.
+ */
+async function capturar(pagina, rota) {
+  await pagina.goto(`${BASE}${rota}`, { waitUntil: "domcontentloaded" });
 
   if (pagina.url().includes("/login")) {
     await pagina.getByRole("button", { name: /Entrar como dev/i }).click();
-    await pagina.waitForURL("**/apresentacao**", { timeout: 30000 });
+    await pagina.waitForURL(`**${rota}**`, { timeout: 30000 });
   }
 
   await pagina.waitForSelector(".ap-folha", { timeout: 20000 });
@@ -169,9 +207,11 @@ async function main() {
    * halo e um buraco no meio. Esperar o elemento existir é a diferença entre um
    * plano de emergência e uma capa quebrada.
    */
-  await pagina.waitForSelector(".nexo-agent-orb", { timeout: 8000 }).catch(() => {
-    console.warn("   aviso: o orbe não montou a tempo; a capa sai sem a marca.");
-  });
+  if (rota === "/apresentacao") {
+    await pagina.waitForSelector(".nexo-agent-orb", { timeout: 8000 }).catch(() => {
+      console.warn("   aviso: o orbe não montou a tempo; a capa sai sem a marca.");
+    });
+  }
   await pagina.waitForTimeout(600);
 
   const total = Number((await pagina.textContent(".ap-posicao"))?.split("/")[1] ?? 0);
@@ -254,6 +294,23 @@ async function main() {
     if (i < total - 1) await pagina.keyboard.press("ArrowRight");
   }
 
+  return folhas;
+}
+
+async function main() {
+  const navegador = await chromium.launch();
+  const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
+
+  const folhasDoDeck = await capturar(pagina, "/apresentacao");
+  /*
+   * O ANEXO VAI JUNTO, e isto não é conveniência. Com a folha 21 trazendo um
+   * botão, o arquivo do pen drive sairia com um LINK MORTO se as folhas de
+   * valores ficassem de fora — e isso só se descobriria na sala, sem rede, que
+   * é exatamente o modo de falhar que este gerador inteiro existe para evitar.
+   */
+  const folhasDosValores = await capturar(pagina, "/apresentacao/valores");
+  if (folhasDosValores.length < 1) throw new Error("O anexo dos valores não renderizou.");
+
   await navegador.close();
 
   const palcoCss = fs.readFileSync("app/apresentacao/palco.css", "utf8");
@@ -267,11 +324,22 @@ async function main() {
     "/marca/orbe-32.png": dataUri("public/marca/orbe-32.png", "image/png"),
   };
 
+  /*
+   * O ANEXO ENTRA COM `data-anexo`, e é esse atributo que o mantém fora do
+   * caminho da seta: o motor navega dentro do percurso em que se está, e o
+   * `End` do deck para na última folha DELE, não no preço.
+   */
+  const folhas = [
+    ...folhasDoDeck.map((f) => ({ ...f, anexo: null })),
+    ...folhasDosValores.map((f) => ({ ...f, anexo: f.numero || "?" })),
+  ];
+
   const corpo = folhas
-    .map(({ html, rotulo, notas }, i) => {
+    .map(({ html, rotulo, notas, anexo }, i) => {
       const atributos =
         `${i === 0 ? "" : " hidden"}` +
-        ` data-rotulo="${escapar(rotulo)}" data-notas="${escapar(notas)}"`;
+        ` data-rotulo="${escapar(rotulo)}" data-notas="${escapar(notas)}"` +
+        (anexo ? ` data-anexo="${escapar(anexo)}"` : "");
       return html.replace(/^<section/, `<section${atributos}`);
     })
     .join("\n");
@@ -321,7 +389,28 @@ ${corpo}
       `<img src="${orbe}" alt="NexoDoc" style="${estilo};border-radius:50%">`,
   );
 
-  const restou = ["/marca/", "/_next/"].filter((p) => html.includes(p));
+  /*
+   * O BOTÃO DOS VALORES vira um salto interno. `target="_blank"` num arquivo de
+   * disco abriria uma janela nova sobre a mesma cópia — e a folha do preço já
+   * está aqui dentro. O `data-abre-valores` sobrevive: é por ele que o motor
+   * acha o link para ligar o clique.
+   */
+  const antes = html;
+  html = html.replace(
+    /<a\b([^>]*\bdata-abre-valores\b[^>]*)>/,
+    (_todo, atributos) =>
+      `<a${atributos
+        .replace(/href="[^"]*"/, 'href="#valores"')
+        .replace(/\s*target="_blank"/, "")}>`,
+  );
+  if (html === antes) {
+    throw new Error(
+      "Não achei o botão `data-abre-valores` no deck — ele saiu da folha 21, ou o " +
+        "atributo mudou de nome. Sem ele o arquivo do pen drive vai com link morto.",
+    );
+  }
+
+  const restou = ["/marca/", "/_next/", "/apresentacao/"].filter((p) => html.includes(p));
   if (restou.length) {
     throw new Error(
       `Sobrou endereço de servidor no arquivo (${restou.join(", ")}) — ele não abriria do disco.`,
@@ -346,9 +435,12 @@ ${corpo}
 
   fs.writeFileSync(SAIDA, html, "utf8");
 
-  await conferirNoDisco(path.resolve(SAIDA), folhas.length);
+  await conferirNoDisco(path.resolve(SAIDA), folhasDoDeck.length, folhasDosValores.length);
 
-  console.log(`OK — ${folhas.length} folhas, ${(html.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(
+    `OK — ${folhasDoDeck.length} folhas do deck + ${folhasDosValores.length} do anexo, ` +
+      `${(html.length / 1024 / 1024).toFixed(2)} MB`,
+  );
   console.log(`   ${path.resolve(SAIDA)}`);
 }
 
@@ -362,7 +454,7 @@ ${corpo}
  * uma folha que não aparece. Um arquivo de emergência que só se descobre quebrado
  * na emergência é pior que não ter arquivo nenhum.
  */
-async function conferirNoDisco(arquivo, esperadas) {
+async function conferirNoDisco(arquivo, esperadas, noAnexo) {
   const navegador = await chromium.launch();
   const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
 
@@ -409,6 +501,64 @@ async function conferirNoDisco(arquivo, esperadas) {
   }
 
   /*
+   * O BOTÃO PRECISA LEVAR A ALGUM LUGAR, e o `End` NÃO pode levar ao preço.
+   *
+   * As duas metades da mesma decisão: o valor está no arquivo, para não faltar
+   * na sala, e fora do caminho da seta, para não escapar por acidente. Conferir
+   * só uma delas deixaria passar o defeito que importa.
+   */
+  await pagina.keyboard.press("Home");
+  const botao = pagina.locator("[data-abre-valores]");
+  if ((await botao.count()) !== 1) {
+    throw new Error(`Achei ${await botao.count()} botões de valores no arquivo; esperava 1.`);
+  }
+  /*
+   * ANDAR ATÉ A FOLHA DO BOTÃO, e não clicá-lo por JavaScript de dentro de uma
+   * folha escondida. Um clique programático num elemento invisível passaria com
+   * o botão fora da tela — a mesma armadilha que já deixou este projeto aprovar
+   * um painel que ninguém via.
+   */
+  let passos = 0;
+  const naFolhaDoBotao = pagina.locator(".ap-folha:not([hidden]) [data-abre-valores]");
+  while ((await naFolhaDoBotao.count()) === 0) {
+    if ((passos += 1) > esperadas) {
+      throw new Error("Andei o deck inteiro e não cheguei à folha do botão dos valores.");
+    }
+    await pagina.keyboard.press("ArrowRight");
+  }
+  const voltaEsperada = `${passos + 1}/${esperadas}`;
+  await botao.click();
+  const naFolhaDoValor = await pagina.textContent(".ap-posicao");
+  if (!naFolhaDoValor?.startsWith("anexo ")) {
+    throw new Error(`O botão levou a "${naFolhaDoValor}" — o salto interno não pegou.`);
+  }
+  const temPreco = await pagina.locator(".ap-folha:not([hidden])").textContent();
+  if (!temPreco?.includes("R$")) {
+    throw new Error("A folha que o botão abriu não tem cifra nenhuma — abriu a folha errada.");
+  }
+  // Dentro do anexo a seta anda no anexo, e `End` para na última folha DELE.
+  await pagina.keyboard.press("End");
+  const fimDoAnexo = await pagina.textContent(".ap-posicao");
+  if (!fimDoAnexo?.startsWith("anexo ")) {
+    throw new Error(`\`End\` no anexo saiu para "${fimDoAnexo}" — o percurso vazou.`);
+  }
+  await pagina.keyboard.press("Escape");
+  const devolvido = await pagina.textContent(".ap-posicao");
+  if (devolvido !== voltaEsperada) {
+    throw new Error(
+      `\`Esc\` devolveu "${devolvido}", esperava a folha de onde saí ("${voltaEsperada}").`,
+    );
+  }
+  // E de volta no deck, `End` continua parando na última folha DELE.
+  await pagina.keyboard.press("End");
+  const fimDoDeck = await pagina.textContent(".ap-posicao");
+  if (fimDoDeck !== `${esperadas}/${esperadas}`) {
+    throw new Error(
+      `\`End\` no deck levou a "${fimDoDeck}" — as ${noAnexo} folhas do anexo entraram no caminho da seta.`,
+    );
+  }
+
+  /*
    * E as notas precisam sair do atributo PARA A TELA, INTEIRAS. Voltando do fim
    * ao começo com o painel aberto, alguma folha tem de mostrar vários
    * parágrafos: é onde moram as réplicas, e é o que a versão anterior deste
@@ -446,7 +596,8 @@ async function conferirNoDisco(arquivo, esperadas) {
   }
 
   console.log(
-    `   conferido do disco: ${esperadas} folhas, ida e volta pelo teclado, e a nota mais longa com ${blocosNaMaior} parágrafos.`,
+    `   conferido do disco: ${esperadas} folhas, ida e volta pelo teclado, a nota mais longa com ` +
+      `${blocosNaMaior} parágrafos, e o botão abrindo as ${noAnexo} folhas do anexo sem que a seta as alcance.`,
   );
 }
 

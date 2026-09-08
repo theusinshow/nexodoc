@@ -24,9 +24,11 @@ import { SLIDES } from "./slides";
  * FORA DA BARRA LATERAL, pelo mesmo motivo. Rota conhecida por quem apresenta,
  * não item de menu.
  *
- * O ANEXO NÃO ESTÁ AQUI e não deve entrar. Valor do piloto e propriedade do
- * software vivem em arquivo separado, que se abre por decisão de quem apresenta
- * — nunca por uma seta a mais no fim do deck.
+ * O PREÇO NÃO ESTÁ NESTAS FOLHAS. Valor do piloto e propriedade do software
+ * vivem em `/apresentacao/valores`, e chega-se lá pelo BOTÃO da folha 21 —
+ * nunca por uma seta a mais no fim do deck. Até 08/09/2026 aquilo era um
+ * `.html` solto em `docs/`, que o `.dockerignore` exclui: existia numa máquina
+ * só e nunca chegava a produção, que é de onde a apresentação de fato roda.
  *
  * A FONTE DO CONTEÚDO é `docs/superpowers/specs/2026-08-24-apresentacao-diretoria-design.md`,
  * onde cada número tem a origem escrita. Mudou número aqui, mude lá.

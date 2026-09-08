@@ -6,6 +6,7 @@ import { MarcaViva } from "@/components/brand/marca-viva";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb/AgentOrb";
 
 import type { Slide } from "./palco";
+import { Entra, Linha, Marcador, MONO, paragrafo, rotulo, secundario } from "./pecas";
 
 /**
  * O CONTEÚDO DO DECK.
@@ -16,9 +17,12 @@ import type { Slide } from "./palco";
  *     Os custos saíram de `AiUsageEvent`; os achados, de execuções reais. Onde
  *     há premissa, a palavra fica na tela, em âmbar. Um número inventado que o
  *     diretor detecte contamina os que estão certos.
- *  2. **O anexo não mora aqui.** Valor do piloto e propriedade do software
- *     ficam em arquivo separado. Uma seta a mais no fim do deck não pode
- *     revelar a proposta comercial antes da hora.
+ *  2. **Nenhuma cifra de preço nas folhas 01 a 23.** Valor do piloto e
+ *     propriedade do software vivem em `/apresentacao/valores`, e a folha 21
+ *     só traz o BOTÃO que abre aquela rota. Uma seta a mais no fim do deck não
+ *     pode revelar a proposta comercial antes da hora — mas o preço também não
+ *     pode ficar fora do alcance de quem apresenta, que era o custo de mantê-lo
+ *     num arquivo solto em `docs/`.
  *  3. **Nada se mexe sem dizer algo.** A entrada escalonada é ordem de leitura;
  *     a linha que se desenha é direção de fluxo; o número que corre é o
  *     argumento chegando. Ver a seção de movimento em `palco.css`.
@@ -28,51 +32,7 @@ import type { Slide } from "./palco";
  * e convida a pergunta errada.
  */
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace";
-
-const rotulo: CSSProperties = {
-  fontFamily: MONO,
-  fontSize: 23,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  color: "#5f6b72",
-};
-
-const paragrafo: CSSProperties = {
-  margin: 0,
-  fontSize: 27,
-  lineHeight: 1.45,
-  color: "var(--foreground)",
-  textWrap: "pretty",
-};
-
-const secundario: CSSProperties = {
-  ...paragrafo,
-  fontSize: 25,
-  color: "var(--muted-foreground)",
-};
-
 /* ───────────────────────────────────────────────────────── peças de movimento */
-
-/**
- * Entrada escalonada. O atraso é a ORDEM DE LEITURA tornada visível: o olho
- * chega em cada peça no instante em que a anterior terminou de ser lida.
- */
-function Entra({
-  atraso = 0,
-  children,
-  style,
-}: {
-  atraso?: number;
-  children: ReactNode;
-  style?: CSSProperties;
-}) {
-  return (
-    <div className="ap-entra" style={{ animationDelay: `${atraso}ms`, ...style }}>
-      {children}
-    </div>
-  );
-}
 
 /**
  * O número corre até o valor. Não é enfeite: o valor É o argumento, e vê-lo
@@ -270,59 +230,51 @@ function Ramo({
   );
 }
 
-/* ─────────────────────────────────────────────────────────── peças de conteúdo */
+/* ─────────────────────────────────────────────────────── o botão dos valores */
 
-function Linha({ chave, valor, atraso }: { chave: string; valor: ReactNode; atraso: number }) {
+/**
+ * O BOTÃO QUE ABRE OS VALORES.
+ *
+ * É o único elemento clicável do deck inteiro, e isso é o ponto. O preço não
+ * pode ser alcançado por avançar a seta — a decisão de mostrá-lo tem que custar
+ * um gesto, e tirar a mão do teclado para ir ao mouse é esse gesto.
+ *
+ * ABA NOVA, e não navegação. Voltar na mesma aba devolveria o deck na folha 01,
+ * e esta folha é a 21 de 23. Com `_blank`, `Ctrl+W` traz de volta a folha certa,
+ * ainda em tela cheia, com o índice intacto.
+ *
+ * `data-abre-valores` NÃO É ENFEITE: é por ele que o gerador da cópia offline
+ * acha este link para trocar o endereço por um salto interno. Sem o atributo, o
+ * arquivo do pen drive sai com um link morto — e isso só se descobriria na sala,
+ * sem rede. O gerador falha se o atributo sumir.
+ */
+function BotaoDosValores() {
   return (
-    <Entra
-      atraso={atraso}
+    <a
+      href="/apresentacao/valores"
+      target="_blank"
+      rel="noreferrer"
+      data-abre-valores=""
       style={{
-        display: "grid",
-        gridTemplateColumns: "340px 1fr",
-        gap: "0 48px",
-        alignItems: "baseline",
-        padding: "24px 0",
-        borderTop: "1px solid var(--border)",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 18,
+        padding: "24px 40px",
+        borderRadius: 4,
+        border: "1px solid var(--nexodoc-accent)",
+        background: "rgb(0 166 147 / 0.10)",
+        fontSize: 34,
+        fontWeight: 500,
+        letterSpacing: "-0.018em",
+        color: "var(--nexodoc-accent)",
+        textDecoration: "none",
       }}
     >
-      <span style={{ ...rotulo, fontSize: 22 }}>{chave}</span>
-      <span style={{ fontFamily: MONO, fontSize: 38, color: "var(--foreground)" }}>{valor}</span>
-    </Entra>
-  );
-}
-
-function Marcador({
-  titulo,
-  texto,
-  atraso,
-  cor = "var(--muted-foreground)",
-}: {
-  titulo: string;
-  texto?: string;
-  atraso: number;
-  cor?: string;
-}) {
-  return (
-    <Entra atraso={atraso} style={{ padding: "22px 0", borderTop: "1px solid var(--border)" }}>
-      <p
-        style={{
-          margin: texto ? "0 0 8px" : 0,
-          fontSize: 30,
-          fontWeight: 500,
-          letterSpacing: "-0.015em",
-          lineHeight: 1.3,
-          color: "var(--foreground)",
-          textWrap: "pretty",
-        }}
-      >
-        {titulo}
-      </p>
-      {texto ? (
-        <p style={{ margin: 0, fontSize: 24, lineHeight: 1.45, color: cor, textWrap: "pretty" }}>
-          {texto}
-        </p>
-      ) : null}
-    </Entra>
+      Abrir os valores
+      <span style={{ fontFamily: MONO, fontSize: 30 }} aria-hidden="true">
+        →
+      </span>
+    </a>
   );
 }
 
@@ -1749,7 +1701,7 @@ export const SLIDES: readonly Slide[] = [
     denso: true,
     bloco: "O pedido",
     notas:
-      "O pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Não abrir o anexo aqui: ele é arquivo separado, e só sai se perguntarem valor.",
+      "O pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Não falar de valor aqui: a folha 21 tem o botão que abre os valores, e ele só se clica se perguntarem.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -1978,7 +1930,7 @@ export const SLIDES: readonly Slide[] = [
     numero: "20",
     bloco: "As perguntas difíceis",
     notas:
-      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': O PISO ESTÁ DECIDIDO — seis meses por R$ 10.000. Abaixo disso não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.\n\nA MOEDA DE TROCA, se travar no valor, é a CUSTÓDIA DO CÓDIGO — está disponível e vale prazo. Oferecê-la em troca de contrato mais longo, nunca de desconto.\n\nNENHUM NÚMERO NESTA FOLHA: o anexo só existe para a sala quando alguém perguntar o valor, e é aqui que ele sai.",
+      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': O PISO ESTÁ DECIDIDO — seis meses por R$ 10.000. Abaixo disso não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.\n\nA MOEDA DE TROCA, se travar no valor, é a CUSTÓDIA DO CÓDIGO — está disponível e vale prazo. Oferecê-la em troca de contrato mais longo, nunca de desconto.\n\nNENHUM NÚMERO NESTA FOLHA. O preço está a duas folhas daqui, atrás do botão da 21 — e só se abre quando alguém perguntar o valor.",
     corpo: (
       <Objecao
         pergunta="Setecentas horas é palavra sua, e você usou uma ferramenta de IA de cem dólares por mês para escrever isso. Te pago as suas horas — pelo seu próprio número — e o software passa a ser nosso."
@@ -2002,8 +1954,51 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "O que pode vir",
+    rotulo: "Quanto custa usar",
     numero: "21",
+    bloco: "O dinheiro",
+    notas:
+      "ESTA FOLHA NÃO TEM CIFRA, E ISSO É O DESENHO. Ela existe para que o preço esteja ao alcance da mão sem estar na tela: se ninguém perguntar, ela passa em dez segundos e o deck fecha no limite, que é onde ele sempre fechou.\n\nO BLOCO VOLTA A SER 'O DINHEIRO' de propósito, depois das perguntas difíceis. A sala percebe que a conversa mudou de assunto antes de eu dizer.\n\nO BOTÃO ABRE EM ABA NOVA: clicar não perde o deck. Fechar com Ctrl+W devolve esta folha, ainda em tela cheia.\n\nQUANDO CLICAR: quando alguém perguntar o valor, ou quando eu tiver decidido que a sala está pronta. Não clicar por reflexo de estar numa folha que tem botão — a folha funciona sem ser clicada, e passar por ela sem abrir é uma escolha legítima.\n\nO PISO CONTINUA SENDO seis meses por R$ 10.000. Abaixo disso não se fecha na sala.",
+    corpo: (
+      <>
+        <Entra atraso={0}>
+          <h2 className="ap-titulo" style={{ marginBottom: 24 }}>
+            Quanto custa usar
+          </h2>
+        </Entra>
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <Entra atraso={160}>
+            <p
+              style={{
+                ...paragrafo,
+                maxWidth: "44ch",
+                fontSize: 40,
+                fontWeight: 500,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.28,
+              }}
+            >
+              O valor não está neste deck.
+            </p>
+          </Entra>
+          <Entra atraso={320}>
+            <p style={{ ...secundario, maxWidth: "50ch", marginTop: 18, fontSize: 28 }}>
+              Ele está numa página separada, com a conta que o sustenta. Eu abro agora, se você
+              quiser ver.
+            </p>
+          </Entra>
+          <Entra atraso={520} style={{ marginTop: 52 }}>
+            <BotaoDosValores />
+          </Entra>
+        </div>
+      </>
+    ),
+  },
+
+  {
+    rotulo: "O que pode vir",
+    numero: "22",
     bloco: "O pedido",
     notas:
       "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
@@ -2079,10 +2074,10 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que ela não é",
-    numero: "22",
+    numero: "23",
     bloco: "O pedido",
     notas:
-      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor, é aí que o anexo sai.",
+      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor depois disto, voltar à folha 21 e abrir o botão — o deck não termina no preço.",
     corpo: (
       <>
         <Entra atraso={0}>

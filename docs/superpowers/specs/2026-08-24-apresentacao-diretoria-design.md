@@ -509,6 +509,12 @@ vocês que transforma a única medida em aberto em número.
 
 # ANEXO DESTACÁVEL — A proposta
 
+> **SUPERADO em 08/09/2026** por
+> `2026-09-08-folha-de-precos-e-rota-de-valores-design.md`. O anexo deixou de
+> ser arquivo solto e virou a rota `/apresentacao/valores`, alcançada por um
+> botão na folha 21 — nunca pela seta. O conteúdo abaixo continua correto; o
+> que mudou é ONDE ele vive.
+
 Slides separados do deck principal. O apresentador decide na hora se e quando
 mostrar. **Não numerar em sequência com o deck** e não referenciá-los antes.
 
@@ -549,9 +555,11 @@ remoto de sala emite), `Home`/`End`, `N` para as notas do apresentador, `F` para
 tela cheia. `End` é também o atalho do plano B: as duas folhas de reserva são as
 últimas do deck.
 
-**O anexo NÃO está na rota** e não deve entrar. Ele vive no arquivo do Claude
-Design (`Nexo - Anexo proposta.dc.html`), separado, e se abre por decisão de
-quem apresenta.
+**O anexo está na rota `/apresentacao/valores`** desde 08/09/2026, atrás do
+mesmo portão de admin e alcançado por um BOTÃO na folha 21 — nunca por uma seta
+a mais. O `docs/anexo-proposta.html` foi apagado para não haver duas fontes do
+mesmo valor. Ver
+`2026-09-08-folha-de-precos-e-rota-de-valores-design.md`.
 
 ## A terceira camada: a cópia que abre sem servidor
 
@@ -582,9 +590,10 @@ notas. O que sobrou abaixo é o que só se resolve na véspera ou no dia.
       réplica "e o que diz o seu contrato?" tem resposta de uma linha, na nota.
 - [x] ~~**Hora de desenvolvedor júnior conferida.**~~ CONFIRMADA em R$ 30 a
       R$ 50 pelo autor. Deixou de ser número escolhido pelo Claude.
-- [x] ~~**Anexo separado do deck.**~~ ESCRITO: `docs/anexo-proposta.html`, duas
-      folhas (valor e propriedade), fora do aplicativo e fora do `.dockerignore`
-      de produção. Abre do disco, com as mesmas teclas do deck.
+- [x] ~~**Anexo separado do deck.**~~ REFEITO em 08/09/2026: virou a rota
+      `/apresentacao/valores`, três folhas (piloto, de onde sai o número,
+      propriedade), atrás do portão de admin e alcançada só pelo botão da folha
+      21. O `docs/anexo-proposta.html` foi apagado.
 - [x] ~~**Decidir o piso de valor.**~~ DECIDIDO: **seis meses por R$ 10.000**. O
       valor não vai à tela; vive no anexo e na nota da folha 20. O deck inteiro
       passou de "três meses" para "seis meses".
