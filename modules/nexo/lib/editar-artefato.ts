@@ -196,7 +196,7 @@ export async function aplicarEdicaoNoNo(args: {
   valores: Record<string, string>;
   paramsAntigos: Record<string, unknown> | undefined;
   selos: SeloForLd[];
-  saveResult: (input: SaveResultInput) => Promise<void>;
+  saveResult: (input: SaveResultInput) => Promise<SavedResult | void>;
   /** Total de folhas por disciplina, corrigido à mão no canvas. */
   totais?: Record<string, number>;
   /** Identidade do projeto corrigida à mão (órgão, obra, código, revisão…). */
@@ -312,7 +312,7 @@ export type { SavedResult };
 export async function gerarItem(args: {
   item: ItemDoPlano;
   selos: SeloForLd[];
-  saveResult: (input: SaveResultInput) => Promise<void>;
+  saveResult: (input: SaveResultInput) => Promise<SavedResult | void>;
   /** Ids base (sem sufixo de tomo) dos três tipos. */
   idsBase: { capa: string; ld: string; separatriz: string };
   tituloDaSeparatriz: string;

@@ -98,6 +98,8 @@
     "test:nexo:selo-cache": "node scripts/test-nexo-selo-cache.ts",
     "test:nexo:tipo": "node scripts/test-nexo-tipo.ts",
     "test:nexo:volumes-prontos": "node scripts/test-nexo-volumes-prontos.ts",
+    "test:nexo:desatualizados": "node scripts/test-nexo-volumes-desatualizados.ts",
+    "test:nexo:nome-do-zip": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-nexo-nome-do-zip.ts",
     "test:nexo:titulo-do-selo": "node scripts/test-nexo-titulo-do-selo.ts",
     "test:nexo:agent": "node scripts/test-nexo-agent.ts",
     "test:nexo:parts": "node scripts/test-nexo-parts.ts",

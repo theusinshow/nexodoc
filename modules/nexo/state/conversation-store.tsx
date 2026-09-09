@@ -225,7 +225,15 @@ interface ConversationStoreValue {
   registrarAuditoria: (auditId: string, artifactId: string) => void;
   marcarAchadoResolvido: (auditId: string, refId: string, resolvido: boolean) => void;
   /** Persiste um resultado gerado (blobs no IndexedDB) e o expõe reidratado. */
-  saveResult: (input: SaveResultInput) => Promise<void>;
+  /**
+   * Grava (ou regrava) um artefato e DEVOLVE o que ficou gravado.
+   *
+   * O retorno existe porque quem monta o volume precisa da hora exata
+   * (`generatedAt`) das peças que gerou na hora — ler de `results` não serve:
+   * o array do closure é o de antes desta gravação, e usar `Date.now()` do
+   * chamador faria o volume nascer velho por alguns milissegundos.
+   */
+  saveResult: (input: SaveResultInput) => Promise<SavedResult>;
   /** Lê um resultado já gerado (nesta sessão ou restaurado). */
   getResult: (artifactId: string) => SavedResult | undefined;
   /**
@@ -950,6 +958,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         return next;
       });
       schedulePersist();
+      return saved;
     },
     [schedulePersist],
   );

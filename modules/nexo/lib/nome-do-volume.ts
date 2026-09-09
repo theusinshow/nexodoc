@@ -94,6 +94,34 @@ export function metadadosDoVolume(
   };
 }
 
+/**
+ * O NOME DO ZIP quando se baixa o conjunto de volumes de uma vez.
+ *
+ * Era `volumes-montados.zip`, fixo no código: dizia o que o arquivo É e não de
+ * que obra ele é. Quem baixa dois conjuntos no mesmo dia fica com dois arquivos
+ * de nome idêntico na pasta de downloads, e o segundo vira "(1)".
+ *
+ * A convenção é a mesma do PDF do volume, mais o número do volume como o
+ * escritório o escreve: `084_25_met_vol_12.zip`. O número vem dos params da
+ * CAPA, que é onde o engenheiro o decide; sem ele o trecho não entra, porque
+ * inventar volume é pior do que omiti-lo.
+ */
+export function nomeDoZipDosVolumes(
+  selos: readonly SeloForLd[],
+  identidade: { codigo?: string },
+  volume: string | undefined,
+): string {
+  const doSelo = summarizeSelos(selos as SeloForLd[]);
+  const codigo = limpo(identidade.codigo?.trim() || doSelo.codigo || "");
+  const disciplina = limpo(disciplinaDominante(selos));
+  // "12", "vol 12", "Volume 12" e "VOL. 12" são o mesmo volume; sem isto o nome
+  // sairia "vol_volume_12". Só dígitos entram.
+  const numero = (volume ?? "").replace(/\D+/g, "");
+
+  const partes = [codigo, disciplina, numero ? `vol_${numero}` : ""].filter(Boolean);
+  return `${partes.length > 0 ? partes.join("_") : "volumes-montados"}.zip`;
+}
+
 export function nomeDoVolume(
   selosDoTomo: readonly SeloForLd[],
   identidade: { codigo?: string },

@@ -20,6 +20,7 @@ import {
   type NexoTemplateOption,
 } from "./ConfirmationCard";
 import { PlanoDeGeracao } from "./PlanoDeGeracao";
+import { VolumesDesatualizados } from "./VolumesDesatualizados";
 import { FichaDoDropCard } from "./FichaDoDrop";
 import { QuickReplyChips, NextStepChips } from "./QuickReplyChips";
 import { useConexao } from "../lib/use-conexao";
@@ -647,6 +648,14 @@ export function NexoChat({
               )}
             </div>
           ))}
+          {/*
+            O VOLUME QUE ENVELHECEU — derivado, no fim da conversa.
+            Fica FORA do laço de mensagens de propósito: ele nasce quando uma
+            peça é regerada depois do volume e some quando o volume é
+            remontado. Preso a uma mensagem, ficaria congelado no histórico
+            mentindo depois de resolvido.
+          */}
+          <VolumesDesatualizados selos={selos} temPranchas={pranchaFiles.length > 0} />
           {busy && messages[messages.length - 1]?.role === "user" && (
             <div className="nexodoc-message-in flex flex-col items-start gap-2">
               <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-muted-foreground">

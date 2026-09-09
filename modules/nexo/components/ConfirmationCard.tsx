@@ -18,7 +18,6 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -76,6 +75,13 @@ import {
   type BlocoDoVolume,
 } from "../lib/assemble-volume";
 import { entregarVolume } from "@/server/nexo/entrega-do-volume";
+import { useMontadoresDeVolume } from "../state/montadores-de-volume";
+import {
+  identidadeDoVolume,
+  ordenarPartes,
+  volumesDesatualizados,
+  type ParteDoVolume,
+} from "../lib/volumes-desatualizados";
 import { titulosDoBloco } from "@/server/nexo/titulos-do-bloco";
 import { repartirDaLista } from "../lib/blocos";
 import { motivoParaNaoMontar } from "../lib/pre-condicoes-do-volume";
@@ -126,7 +132,11 @@ import {
   gerarEditaveisConsolidados,
   parametrosDaEntrega,
 } from "../lib/editaveis-consolidados";
-import { metadadosDoVolume, nomeDoVolume } from "../lib/nome-do-volume";
+import {
+  metadadosDoVolume,
+  nomeDoVolume,
+  nomeDoZipDosVolumes,
+} from "../lib/nome-do-volume";
 import { ResultLinks } from "./ResultLinks";
 import { useConversationUsage } from "../state/use-conversation-usage";
 
@@ -1385,6 +1395,22 @@ async function conferirVolume(args: {
  * engenheiro sem saber quantos PDFs tem na mão. É a mesma regra do
  * `gerarTudo` do plano, pelo mesmo motivo.
  */
+/**
+ * O NÚMERO DO VOLUME, lido dos params da capa.
+ *
+ * É onde o engenheiro o decide (o campo "Volume" do card da capa), e é o único
+ * lugar da conversa que o guarda. Qualquer capa serve: todas as do conjunto
+ * falam do mesmo volume — o que muda entre elas é o tomo.
+ */
+function volumeDeclaradoNaCapa(results: readonly SavedResult[]): string {
+  for (const r of results) {
+    if (r.kind !== "capa") continue;
+    const v = (r.payload as { volume?: unknown } | undefined)?.volume;
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return "";
+}
+
 function VolumesDoConjunto({
   tomos,
   ...props
@@ -1395,14 +1421,13 @@ function VolumesDoConjunto({
   pranchaFiles: File[];
   templates: NexoTemplateOption[];
 }) {
-  const montadores = useRef(new Map<string, () => Promise<string | null>>());
-  const registrar = useCallback(
-    (chave: string, montar: (() => Promise<string | null>) | null) => {
-      if (montar) montadores.current.set(chave, montar);
-      else montadores.current.delete(chave);
-    },
-    [],
-  );
+  /*
+   * O mapa de montadores subiu para a conversa (`montadores-de-volume.tsx`):
+   * quem remonta um volume desatualizado mora FORA desta mensagem e precisa
+   * alcancar o mesmo montador. Aqui ele continua sendo consultado do mesmo
+   * jeito -- so mudou onde mora, nao quem o alimenta.
+   */
+  const { montador } = useMontadoresDeVolume();
   const [montando, setMontando] = useState<number | null>(null);
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
   const { results, identidade } = useConversation();
@@ -1435,7 +1460,11 @@ function VolumesDoConjunto({
     setBaixandoVolumes(true);
     setErroDosVolumes(null);
     try {
-      await baixarArquivosEmZip(volumesProntos, "volumes-montados.zip");
+      await baixarArquivosEmZip(volumesProntos, nomeDoZipDosVolumes(
+        props.selos,
+        identidade,
+        volumeDeclaradoNaCapa(results),
+      ));
     } catch (err) {
       setErroDosVolumes(err instanceof Error ? err.message : "Falha ao juntar os volumes.");
     } finally {
@@ -1479,8 +1508,7 @@ function VolumesDoConjunto({
     const coletadas: { rotulo: string; motivo: string }[] = [];
     try {
       for (let i = 0; i < tomos.length; i++) {
-        const chave = tomos[i].sufixo || "unico";
-        const montar = montadores.current.get(chave);
+        const montar = montador(volumeId(props.selos) + tomos[i].sufixo);
         if (!montar) continue;
         setMontando(i);
         const rotulo = `TOMO ${String(tomos[i].numero).padStart(2, "0")}`;
@@ -1570,13 +1598,7 @@ function VolumesDoConjunto({
         </div>
       )}
       {tomos.map((t) => (
-        <VolumeConfirmation
-          key={t.sufixo || "unico"}
-          {...props}
-          tomo={t}
-          chave={t.sufixo || "unico"}
-          registrar={registrar}
-        />
+        <VolumeConfirmation key={t.sufixo || "unico"} {...props} tomo={t} />
       ))}
     </>
   );
@@ -1588,24 +1610,12 @@ function VolumeConfirmation({
   pranchaFiles,
   templates,
   tomo,
-  chave,
-  registrar,
 }: {
   resumo: string;
   selos: SeloForLd[];
   pranchaFiles: File[];
   templates: NexoTemplateOption[];
   tomo: { atual: number; numero: number; sufixo: string };
-  /** Identidade deste card para o pai; ausente = card solto, sem "montar todos". */
-  chave?: string;
-  /**
-   * Entrega ao pai a função que monta ESTE tomo. Ela devolve o MOTIVO da falha
-   * (ou `null` quando deu certo) em vez de lançar — ver `confirm`.
-   */
-  registrar?: (
-    chave: string,
-    montar: (() => Promise<string | null>) | null,
-  ) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1617,6 +1627,7 @@ function VolumeConfirmation({
     identidade,
     conversationId,
   } = useConversation();
+  const { registrar } = useMontadoresDeVolume();
   const id = volumeId(selos) + tomo.sufixo;
   const saved = getResult(id);
   /** A conferência do volume gravada junto com o PDF, quando já rodou. */
@@ -1738,10 +1749,37 @@ function VolumeConfirmation({
    * e QUAIS FOLHAS entraram nele. Sem a assinatura, arrastar uma folha deixava
    * este volume descrevendo um conjunto que não existe mais, em silêncio.
    */
-  const estado = estadoDoArtefato(saved, {
-    tomo: tomo.numero,
-    folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
-  });
+  /*
+   * `conferencia` e `partes` NAO entram na conta: a primeira descreve o volume
+   * depois de pronto, a segunda registra quem entrou nele -- nenhuma das duas e
+   * parametro de entrada. Como `estadoDoArtefato` compara por `JSON.stringify`
+   * literal, elas sobrando de um lado so significavam uma coisa: "pendente"
+   * SEMPRE, em toda conversa e em todo tomo. A moldura ambar que deveria gritar
+   * "este documento envelheceu" estava acesa desde que o volume passou a gravar
+   * payload, o que e o mesmo que nao gritar. Ver `identidadeDoVolume`.
+   */
+  const estadoDasFolhas = estadoDoArtefato(
+    saved && {
+      ...saved,
+      payload:
+        saved.payload === undefined ? undefined : identidadeDoVolume(saved.payload),
+    },
+    identidadeDoVolume({
+      tomo: tomo.numero,
+      folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
+    }),
+  );
+  /*
+   * A OUTRA forma de envelhecer: uma PEÇA foi gerada de novo depois deste
+   * volume. `folhas` não pega isso -- ela descreve o conjunto, e corrigir o
+   * título da LD muda o conteúdo de uma peça, não o conjunto. Foi assim que um
+   * volume com a LD velha dentro seguiu anunciando "Gerado".
+   */
+  const desatualizado = useMemo(
+    () => volumesDesatualizados(results).some((v) => v.artifactId === id),
+    [results, id],
+  );
+  const estado = desatualizado ? "pendente" : estadoDasFolhas;
   /*
    * Montar de novo segue SEMPRE disponível: o volume é derivado das partes e
    * refazê-lo é barato. Antes disto o `estado` era sempre "pendente" (o volume
@@ -1784,6 +1822,27 @@ function VolumeConfirmation({
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
       const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
+
+      /*
+       * AS PECAS QUE ENTRARAM, e de quando elas eram.
+       *
+       * Sem este registro o volume nao tinha como saber que envelheceu: a
+       * assinatura de folhas descreve o CONJUNTO (folha arrastada, tomo
+       * redividido) e nao pega o que muda o CONTEUDO de uma peca -- corrigir o
+       * titulo da LD deixava o card dizendo "Gerado" com a LD velha dentro.
+       *
+       * A hora vem do proprio `saveResult` (que devolve o gravado) ou do
+       * artefato ja existente. `Date.now()` daqui faria o volume nascer velho
+       * por alguns milissegundos. Quem julga esta lista e
+       * `volumesDesatualizados`.
+       */
+      const partesUsadas: ParteDoVolume[] = [];
+      const anotarParte = (r: { artifactId: string; generatedAt?: number } | undefined) => {
+        if (r && typeof r.generatedAt === "number") {
+          partesUsadas.push({ id: r.artifactId, em: r.generatedAt });
+        }
+      };
+      if (capaPdf64) anotarParte(capa);
 
       /*
        * A separatriz é GARANTIDA aqui, não esperada.
@@ -1834,12 +1893,14 @@ function VolumeConfirmation({
         const titulo = titulos.separatriz || sepTitle;
 
         let separatrizPdf64 = unico && sepPdfUrl ? await urlToBase64(sepPdfUrl) : null;
+        if (separatrizPdf64) anotarParte(separatriz);
         const sepDoBloco = unico
           ? null
           : results.find((r) => r.artifactId === separatrizId(selos) + chave + tomo.sufixo);
         const sepUrlDoBloco = sepDoBloco?.files.find((f) => f.mime === PDF_MIME)?.url;
         if (!separatrizPdf64 && sepUrlDoBloco) {
           separatrizPdf64 = await urlToBase64(sepUrlDoBloco);
+          anotarParte(sepDoBloco ?? undefined);
         }
         if (!separatrizPdf64 && titulo) {
           const sep = await postSeparatriz(titulo, {
@@ -1851,7 +1912,7 @@ function VolumeConfirmation({
           // fica registrada como artefato (o ODT existe) e a montagem segue sem
           // ela, como já fazia. Perder o volume inteiro por isso seria pior.
           separatrizPdf64 = sep.pdf?.data ?? null;
-          await saveResult({
+          const sepSalva = await saveResult({
             artifactId: separatrizId(selos) + chave + tomo.sufixo,
             kind: "separatriz",
             payload: { titulo, tomo: tomo.numero },
@@ -1859,16 +1920,20 @@ function VolumeConfirmation({
             canvas: { label: "Separatriz", titulo, pageNumber: 1 },
             files: arquivosDaSeparatriz(sep),
           });
+          anotarParte(sepSalva);
         }
 
         let ldDoBloco64 = unico ? ldPdf64 : null;
+        if (ldDoBloco64) anotarParte(ld);
         if (!unico) {
           const artefato = results.find(
             (r) => r.artifactId === ldId(selos) + chave + tomo.sufixo,
           );
           const url = artefato?.files.find((f) => f.mime === PDF_MIME)?.url;
-          if (url) ldDoBloco64 = await urlToBase64(url);
-          else {
+          if (url) {
+            ldDoBloco64 = await urlToBase64(url);
+            anotarParte(artefato);
+          } else {
             /*
              * `folhasDoTomo` leva os ids exatos do bloco: sem eles a rota
              * dividiria por quantidade e a LD do bloco listaria folhas de
@@ -1888,7 +1953,7 @@ function VolumeConfirmation({
               identidade,
             });
             ldDoBloco64 = ld.pdfUrl ? await urlToBase64(ld.pdfUrl) : null;
-            await saveResult({
+            const ldSalva = await saveResult({
               artifactId: ldId(selos) + chave + tomo.sufixo,
               kind: "ld",
               payload: {
@@ -1913,6 +1978,7 @@ function VolumeConfirmation({
                   : []),
               ],
             });
+            anotarParte(ldSalva);
           }
         }
 
@@ -1959,6 +2025,14 @@ function VolumeConfirmation({
             payload: {
               tomo: tomo.numero,
               folhas: assinaturaDoTomo(selosDoTomo as Folha[]),
+              /*
+               * QUAIS pecas entraram, e de quando elas eram. E o que permite
+               * dizer, depois, que a LD foi corrigida DEPOIS deste volume --
+               * `folhas` sozinha nao pega isso, porque titulo e conteudo de
+               * peca, nao conjunto. Ordenada e sem repeticao porque a
+               * comparacao do card e por JSON literal.
+               */
+              partes: ordenarPartes(partesUsadas),
               conferencia,
             },
             summary: `Volume montado${r.pageCount != null ? ` · ${r.pageCount} páginas` : ""}`,
@@ -2020,10 +2094,9 @@ function VolumeConfirmation({
     confirmRef.current = confirm;
   });
   useEffect(() => {
-    if (!registrar || !chave) return;
-    registrar(chave, () => confirmRef.current());
-    return () => registrar(chave, null);
-  }, [registrar, chave]);
+    registrar(id, () => confirmRef.current());
+    return () => registrar(id, null);
+  }, [registrar, id]);
 
   return (
     <CardShell kind="volume" resumo={resumo} estado={estado} tomo={tomo.atual > 0 ? tomo.numero : 0}>

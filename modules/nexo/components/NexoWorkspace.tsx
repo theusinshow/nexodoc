@@ -110,6 +110,7 @@ import {
   auditoriaDaConversa,
   useAuditoria,
 } from "../state/auditoria-store";
+import { MontadoresDeVolumeProvider } from "../state/montadores-de-volume";
 import { NexoDebugDrawer } from "./NexoDebugDrawer";
 import { useAgentState } from "./agent-orb/use-agent-state";
 import { useReducedMotionPref } from "./agent-orb/use-agent-orb";
@@ -174,7 +175,12 @@ export function NexoWorkspace({
           <ComposerControllerProvider>
             {/* A auditoria em curso é do PALCO, não do cartão que a disparou. */}
             <AuditoriaStoreProvider>
-              <NexoWorkspaceInner isAdmin={isAdmin} nome={nome} email={email} />
+              {/* Quem sabe montar cada volume — um mapa só, para o card de
+                  volumes desatualizados alcançar o montador de uma mensagem
+                  que ficou lá atrás na conversa. */}
+              <MontadoresDeVolumeProvider>
+                <NexoWorkspaceInner isAdmin={isAdmin} nome={nome} email={email} />
+              </MontadoresDeVolumeProvider>
             </AuditoriaStoreProvider>
           </ComposerControllerProvider>
         </ArtifactStoreProvider>

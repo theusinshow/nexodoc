@@ -32,7 +32,7 @@ export interface EntregaDoVolume<Montado, Conferencia> {
    * novo quando a conferência termina. A segunda gravação é uma ATUALIZAÇÃO do
    * mesmo artefato, nunca um segundo volume.
    */
-  salvar: (montado: Montado, conferencia: Conferencia | null) => Promise<void>;
+  salvar: (montado: Montado, conferencia: Conferencia | null) => Promise<unknown>;
   /** Confere o volume já entregue. Pode demorar, pode falhar; não pode barrar. */
   conferir: (montado: Montado) => Promise<Conferencia>;
   /**
