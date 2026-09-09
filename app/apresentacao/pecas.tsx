@@ -130,6 +130,7 @@ export function Marcador({
         <p
           style={{
             margin: 0,
+            maxWidth: "72ch",
             fontSize: 24,
             lineHeight: 1.45,
             color: cor,
@@ -198,4 +199,95 @@ export function Contador({
   }, [ate, atraso, duracao]);
 
   return <span style={style}>{valor}</span>;
+}
+
+/* ───────────────────────────────────────────────────── revelação por máscara */
+
+/**
+ * LINHAS REVELADAS POR MÁSCARA, uma de cada vez. É a entrada de título e de
+ * fecho: o texto nasce na própria linha de base, em vez de flutuar até ela.
+ *
+ * As quebras são DELIBERADAS — cada item do array é uma linha, e a quebra é
+ * decisão editorial, não acidente de largura. O palco tem 1920px fixos, então
+ * o que se ensaia é o que se projeta. Uma linha que ainda assim quebrar por
+ * conta própria é defeito de quem a escreveu, e a prova de tela pega.
+ */
+export function Linhas({
+  linhas,
+  atraso = 0,
+  passo = 110,
+  style,
+}: {
+  linhas: readonly string[];
+  atraso?: number;
+  /** Intervalo entre uma linha e a seguinte. */
+  passo?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <>
+      {linhas.map((linha, i) => (
+        <span key={linha} className="ap-mascara" style={style}>
+          <span
+            className="ap-linha"
+            style={{ animationDelay: `${atraso + i * passo}ms` }}
+          >
+            {linha}
+          </span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** O título da folha, revelado por máscara. Uma linha só, por regra. */
+export function Titulo({
+  children,
+  atraso = 0,
+  style,
+}: {
+  children: string;
+  atraso?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <h2 className="ap-titulo" style={style}>
+      <Linhas linhas={[children]} atraso={atraso} />
+    </h2>
+  );
+}
+
+/**
+ * O FECHO — a frase em teal que fecha a folha, quebrada onde o argumento
+ * respira. Linha a linha, com um passo maior que o das listas: é a frase que
+ * se lê devagar, e a entrada acompanha a leitura.
+ */
+export function Fecho({
+  linhas,
+  atraso = 0,
+  tamanho = 44,
+  cor = "var(--nexodoc-accent)",
+  style,
+}: {
+  linhas: readonly string[];
+  atraso?: number;
+  tamanho?: number;
+  cor?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <p
+      style={{
+        margin: 0,
+        fontSize: tamanho,
+        fontWeight: 500,
+        letterSpacing: "-0.022em",
+        lineHeight: 1.22,
+        color: cor,
+        ...style,
+      }}
+    >
+      <Linhas linhas={linhas} atraso={atraso} passo={140} />
+    </p>
+  );
 }

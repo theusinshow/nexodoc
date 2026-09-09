@@ -227,24 +227,67 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    MOVIMENTO
 
-   A regra que governa tudo aqui: NADA SE MEXE SEM DIZER ALGO. Entrada
-   escalonada porque a ordem de leitura é uma informação; linha que se desenha
-   porque o fluxo TEM direção; número que corre até o valor porque o valor é o
-   argumento. Movimento decorativo é o que as anti-referências do `PRODUCT.md`
-   proíbem, e ele some primeiro quando a sala é técnica.
+   A regra que governa tudo aqui: NADA SE MEXE SEM DIZER ALGO. Cada animação
+   responde a uma pergunta — dirige a atenção, explica, cria hierarquia ou
+   marca um momento. O que não responde a nenhuma não existe.
+
+   O SISTEMA. Cinco durações, três curvas, dois passos de cascata. Todo valor
+   nas folhas vem daqui; número solto em `style` é o que faz duas folhas
+   parecerem de decks diferentes.
+
+     micro   120ms   resposta (hover do botão)
+     curta   260ms   saída de folha, item de lista
+     média   480ms   revelação de texto, cartão
+     longa   720ms   número que corre, linha que se desenha
+     herói  1100ms   o momento da folha (o 57 assentando)
+
+   ENTRADA desacelera (chega rápido, assenta); SAÍDA acelera e dura ~75% da
+   entrada. Ambiente é senoidal e lento. Nunca linear em deslocamento.
 
    As folhas remontam a cada troca (a `<section>` tem `key`), então as animações
-   tocam de novo a cada visita — o que se ensaia é o que se projeta.
+   tocam de novo a cada visita — o que se ensaia é o que se projeta. A folha que
+   SAI fica montada por uma saída curta por cima da que entra: a troca deixa de
+   ser corte seco sem virar dissolve de PowerPoint.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+.ap-raiz {
+  --ap-micro: 120ms;
+  --ap-curta: 260ms;
+  --ap-media: 480ms;
+  --ap-longa: 720ms;
+  --ap-heroi: 1100ms;
+
+  --ap-passo: 90ms;
+  --ap-passo-largo: 160ms;
+
+  /* chega rápido e assenta — a curva de 80% do deck */
+  --ap-entra: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* sai acelerando: o olho já foi embora */
+  --ap-sai: cubic-bezier(0.3, 0, 1, 1);
+  /* ambiente e travessia: simétrica, sem sobressalto */
+  --ap-suave: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+/* Sobe 10px e assenta. Para itens secundários: listas, notas de rodapé. */
 @keyframes ap-sobe {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes ap-surge {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/*
+ * A MÁSCARA DE LINHA. O texto sobe de trás de uma borda invisível, linha a
+ * linha — é a revelação do título e do fecho. Diferente do fade-up: o olho vê o
+ * texto NASCER na linha de base, e não flutuar até ela. É a diferença entre
+ * uma frase dita e uma frase que aparece.
+ */
+@keyframes ap-mascara {
+  from { transform: translateY(108%); }
+  to   { transform: none; }
 }
 
 /* Linha que se desenha da esquerda para a direita: o fluxo tem direção. */
@@ -259,18 +302,61 @@
   to   { transform: scaleY(1); }
 }
 
-/* O pulso que percorre o ramo — some junto com o resto em movimento reduzido. */
+/* O documento percorrendo o ramo do motor. Some com o resto em movimento reduzido. */
 @keyframes ap-pulso {
   0%   { opacity: 0; transform: translateX(0); }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
   100% { opacity: 0; transform: translateX(var(--ap-percurso, 100px)); }
 }
 
-.ap-entra   { animation: ap-sobe 560ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-.ap-surge   { animation: ap-surge 700ms ease-out both; }
-.ap-risca   { transform-origin: left center; animation: ap-risca 460ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-.ap-desce   { transform-origin: top center;  animation: ap-desce 420ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+/* A folha que sai: um passo para trás e some. Por cima da que entra. */
+@keyframes ap-sai-folha {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.992); }
+}
+
+/* A página que acende no mapa do memorial. */
+@keyframes ap-acende {
+  from { opacity: 0.18; }
+  to   { opacity: 1; }
+}
+
+.ap-entra   { animation: ap-sobe var(--ap-media) var(--ap-entra) both; }
+.ap-surge   { animation: ap-surge var(--ap-longa) ease-out both; }
+.ap-risca   { transform-origin: left center; animation: ap-risca var(--ap-media) var(--ap-suave) both; }
+.ap-desce   { transform-origin: top center;  animation: ap-desce var(--ap-media) var(--ap-suave) both; }
+
+/*
+ * A máscara é um par: o invólucro recorta, a linha sobe. O `padding-bottom`
+ * negativo-compensado existe porque `overflow: hidden` decapita descendentes
+ * (g, p, ç) na linha de base — visto no "engenharia" da capa.
+ */
+.ap-mascara {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+.ap-mascara > .ap-linha {
+  display: block;
+  animation: ap-mascara var(--ap-longa) var(--ap-entra) both;
+}
+
+/* A página do memorial acendendo conforme a leitura passa por ela. */
+.ap-acende { animation: ap-acende var(--ap-curta) var(--ap-suave) both; }
+
+/* O documento atravessando o ramo do motor: um ponto, uma vez, sem rastro. */
+.ap-pulso {
+  opacity: 0;
+  animation: ap-pulso 1400ms var(--ap-suave) both;
+}
+
+.ap-folha--sai {
+  z-index: 2;
+  pointer-events: none;
+  animation: ap-sai-folha var(--ap-curta) var(--ap-sai) both;
+}
 
 /*
  * MOVIMENTO REDUZIDO DESLIGA TUDO — e "tudo" precisa incluir o estado final.
@@ -282,10 +368,17 @@
   .ap-entra,
   .ap-surge,
   .ap-risca,
-  .ap-desce {
+  .ap-desce,
+  .ap-mascara > .ap-linha,
+  .ap-acende,
+  .ap-folha--sai {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  .ap-folha--sai,
+  .ap-pulso {
+    display: none;
   }
 }
 

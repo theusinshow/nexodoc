@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { MarcaViva } from "@/components/brand/marca-viva";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb/AgentOrb";
+
+import {
+  corDaDisciplina,
+  siglaDaDisciplina,
+} from "@/modules/nexo/lib/disciplina-cor";
 
 import type { Slide } from "./palco";
 import {
   Contador,
   Entra,
+  Fecho,
   Linha,
+  Linhas,
   Marcador,
   MONO,
   paragrafo,
   rotulo,
   secundario,
+  Titulo,
 } from "./pecas";
 
 /**
@@ -174,7 +182,32 @@ function Ramo({
       <Entra atraso={atrasoBase}>
         <span style={{ ...rotulo, fontSize: 21, color: cor }}>{titulo}</span>
       </Entra>
-      <div style={{ display: "flex", alignItems: "stretch" }}>
+      <div
+        style={{ position: "relative", display: "flex", alignItems: "stretch" }}
+      >
+        {/*
+          O DOCUMENTO ATRAVESSA O RAMO. Um ponto da cor do ramo percorre a cadeia
+          uma vez, depois que as caixas chegaram — é o que a folha diz em palavras
+          ("o documento entra, o sistema lê") acontecendo na frente da sala. O
+          percurso é a largura fixa do ramo: 1720 de folha − 168 do motor − 56 do
+          colchete.
+        */}
+        <span
+          aria-hidden="true"
+          className="ap-pulso"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: "50%",
+            width: 10,
+            height: 10,
+            marginTop: -5,
+            borderRadius: "50%",
+            background: cor,
+            ["--ap-percurso" as string]: "1486px",
+            animationDelay: `${atrasoBase + passos.length * 160 + 720}ms`,
+          }}
+        />
         {passos.map((passo, i) => (
           <div key={passo} style={{ display: "contents" }}>
             {i > 0 ? <Liga atraso={atrasoBase + i * 160} /> : null}
@@ -270,17 +303,14 @@ function Objecao({
   /** A linha de apoio do título. Só faz sentido junto de `titulo`. */
   linhaFina?: string;
   respostas: readonly (readonly [string, string])[];
-  fecho: string;
+  /** O fecho, uma linha por item — a quebra é editorial, não de largura. */
+  fecho: readonly string[];
 }) {
   return (
     <>
       {titulo ? (
         <>
-          <Entra atraso={0}>
-            <h2 className="ap-titulo" style={{ margin: 0 }}>
-              {titulo}
-            </h2>
-          </Entra>
+          <Titulo style={{ margin: 0 }}>{titulo}</Titulo>
           {linhaFina ? (
             <Entra atraso={100}>
               <p
@@ -367,25 +397,263 @@ function Objecao({
 
       <div className="ap-cresce" />
 
-      <Entra atraso={320 + respostas.length * 180 + 160}>
+      <Entra
+        atraso={320 + respostas.length * 180 + 160}
+        style={{ paddingTop: 30, borderTop: "1px solid var(--border)" }}
+      >
+        <Fecho
+          linhas={fecho}
+          tamanho={38}
+          atraso={320 + respostas.length * 180 + 260}
+        />
+      </Entra>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────── o memorial lido, página a página */
+
+/**
+ * AS PÁGINAS COM ACHADO DE UMA EXECUÇÃO REAL — o parecer do `117_25_md_geral_a`
+ * (memorial geral da UBS Vila Manaus, 218 páginas) gravado no banco em
+ * 28/08/2026. Página e gravidade, lidas de lá; nada inventado. É só o que a
+ * folha precisa saber: ONDE o mapa acende, e com que cor.
+ *
+ * A gravidade segue o vocabulário do produto — crítico, técnico, editorial — e
+ * as cores são as mesmas do pin sobre a página no canvas da auditoria.
+ */
+type Gravidade = "critico" | "tecnico" | "editorial";
+
+const PAGINAS_COM_ACHADO: ReadonlyArray<readonly [number, Gravidade]> = [
+  [14, "critico"],
+  [92, "critico"],
+  [99, "critico"],
+  [17, "tecnico"],
+  [21, "tecnico"],
+  [30, "tecnico"],
+  [72, "tecnico"],
+  [74, "tecnico"],
+  [101, "tecnico"],
+  [103, "tecnico"],
+  [115, "tecnico"],
+  [151, "tecnico"],
+  [204, "tecnico"],
+  [208, "tecnico"],
+  [209, "tecnico"],
+  [211, "tecnico"],
+  [217, "tecnico"],
+  [85, "editorial"],
+  [86, "editorial"],
+  [89, "editorial"],
+  [212, "editorial"],
+  [215, "editorial"],
+  [218, "editorial"],
+];
+
+const COR_DA_GRAVIDADE: Record<Gravidade, string> = {
+  critico: "var(--status-critical)",
+  tecnico: "var(--status-warning)",
+  editorial: "var(--muted-foreground)",
+};
+
+/** A largura útil da folha: 1920 menos as duas margens de 100. */
+const LARGURA_UTIL = 1720;
+
+/**
+ * O MAPA DO MEMORIAL: uma marca por página, na ordem. A leitura passa da
+ * esquerda para a direita e acende cada página; onde há achado, a marca sobe e
+ * ganha a cor da gravidade — o pin do canvas, visto de longe.
+ *
+ * É a grafia do próprio produto (uma página, um pin), e não um scanner de
+ * cinema: nada varre a tela, as páginas simplesmente vão ficando lidas.
+ */
+function MapaDoMemorial({
+  paginas,
+  atraso,
+  duracao,
+}: {
+  paginas: number;
+  /** Quando a leitura começa. */
+  atraso: number;
+  /** Quanto tempo a leitura leva para atravessar o documento inteiro. */
+  duracao: number;
+}) {
+  const porPagina = new Map<number, Gravidade>(PAGINAS_COM_ACHADO);
+  const passo = duracao / paginas;
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{ display: "flex", gap: 3, height: 64, alignItems: "flex-end" }}
+    >
+      {Array.from({ length: paginas }, (_, i) => {
+        const gravidade = porPagina.get(i + 1);
+        return (
+          <span
+            key={i}
+            className="ap-acende"
+            style={{
+              flex: 1,
+              height: gravidade ? 64 : 40,
+              background: gravidade ? COR_DA_GRAVIDADE[gravidade] : "#3d474d",
+              animationDelay: `${atraso + i * passo}ms`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * UM ACHADO, como o produto o mostra. É o `FindingCardNode` do canvas da
+ * auditoria em escala de palco: o ponto da gravidade, o tipo, o trecho
+ * transcrito entre aspas, a página e a sigla da disciplina. Mesma ordem,
+ * mesma hierarquia, mesmo chanfro — a folha não inventa uma interface mais
+ * bonita do que a que a sala vai usar.
+ */
+function CartaoDeAchado({
+  tipo,
+  evidencia,
+  pagina,
+  disciplina,
+  gravidade,
+  atraso,
+  style,
+}: {
+  tipo: string;
+  evidencia: string;
+  pagina: number;
+  disciplina: string;
+  gravidade: Gravidade;
+  atraso: number;
+  style?: CSSProperties;
+}) {
+  const sigla = siglaDaDisciplina(disciplina);
+  const corDaSigla = corDaDisciplina(disciplina);
+
+  return (
+    <div
+      className="nx-edge-6 ap-entra"
+      style={{ animationDelay: `${atraso}ms`, width: 640, ...style }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: "22px 26px 20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 14,
+              height: 14,
+              flex: "none",
+              borderRadius: "50%",
+              background: COR_DA_GRAVIDADE[gravidade],
+            }}
+          />
+          <p
+            style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 500,
+              lineHeight: 1.2,
+              letterSpacing: "-0.012em",
+              color: "var(--foreground)",
+            }}
+          >
+            {tipo}
+          </p>
+        </div>
         <p
           style={{
             margin: 0,
-            maxWidth: "52ch",
-            paddingTop: 30,
-            borderTop: "1px solid var(--border)",
-            fontSize: 36,
-            fontWeight: 500,
-            letterSpacing: "-0.018em",
-            lineHeight: 1.3,
-            color: "var(--nexodoc-accent)",
+            fontSize: 23,
+            lineHeight: 1.4,
+            color: "var(--muted-foreground)",
             textWrap: "pretty",
           }}
         >
-          {fecho}
+          “{evidencia}”
         </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            gap: 16,
+            marginTop: 4,
+            fontFamily: MONO,
+            textTransform: "uppercase",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 20,
+              letterSpacing: "0.05em",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            p. {pagina}
+          </span>
+          {sigla ? (
+            <span
+              style={{
+                fontSize: 19,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                color: corDaSigla ?? "var(--muted-foreground)",
+              }}
+            >
+              {sigla}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Um número-protagonista com o rótulo embaixo: a grade das folhas de dados. */
+function Dado({
+  rotuloDo,
+  children,
+  atraso,
+  cor = "var(--foreground)",
+}: {
+  rotuloDo: string;
+  children: ReactNode;
+  atraso: number;
+  cor?: string;
+}) {
+  return (
+    <div>
+      <span
+        className="ap-mascara"
+        style={{
+          fontFamily: MONO,
+          fontSize: 80,
+          fontWeight: 500,
+          letterSpacing: "-0.035em",
+          lineHeight: 1,
+          color: cor,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span className="ap-linha" style={{ animationDelay: `${atraso}ms` }}>
+          {children}
+        </span>
+      </span>
+      <Entra atraso={atraso + 120}>
+        <span style={{ ...rotulo, display: "block", marginTop: 14 }}>
+          {rotuloDo}
+        </span>
       </Entra>
-    </>
+    </div>
   );
 }
 
@@ -458,35 +726,36 @@ export const SLIDES: readonly Slide[] = [
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            <Entra atraso={220}>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: 128,
-                  fontWeight: 500,
-                  letterSpacing: "-0.038em",
-                  lineHeight: 1,
-                  color: "var(--foreground)",
-                }}
-              >
-                NexoDoc
-              </h1>
-            </Entra>
-            <Entra atraso={380}>
-              <p
-                style={{
-                  margin: 0,
-                  maxWidth: "26ch",
-                  fontSize: 38,
-                  letterSpacing: "-0.012em",
-                  lineHeight: 1.28,
-                  color: "var(--muted-foreground)",
-                  textWrap: "pretty",
-                }}
-              >
-                Conferência e montagem documental para projetos de engenharia
-              </p>
-            </Entra>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 128,
+                fontWeight: 500,
+                letterSpacing: "-0.038em",
+                lineHeight: 1,
+                color: "var(--foreground)",
+              }}
+            >
+              <Linhas linhas={["NexoDoc"]} atraso={260} />
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 38,
+                letterSpacing: "-0.012em",
+                lineHeight: 1.28,
+                color: "var(--muted-foreground)",
+              }}
+            >
+              <Linhas
+                linhas={[
+                  "Conferência e montagem documental",
+                  "para projetos de engenharia",
+                ]}
+                atraso={520}
+                passo={90}
+              />
+            </p>
           </div>
         </div>
 
@@ -521,21 +790,25 @@ export const SLIDES: readonly Slide[] = [
     corpo: (
       <div style={{ flex: 1, display: "flex", gap: 0, alignItems: "center" }}>
         <div style={{ flex: 1.15, paddingRight: 64 }}>
-          <Entra atraso={60}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 52,
-                fontWeight: 500,
-                letterSpacing: "-0.022em",
-                lineHeight: 1.24,
-                color: "var(--foreground)",
-                textWrap: "pretty",
-              }}
-            >
-              Um sistema para organizar e documentar projetos de engenharia.
-            </p>
-          </Entra>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 52,
+              fontWeight: 500,
+              letterSpacing: "-0.022em",
+              lineHeight: 1.22,
+              color: "var(--foreground)",
+            }}
+          >
+            <Linhas
+              linhas={[
+                "Um sistema para organizar",
+                "e documentar projetos",
+                "de engenharia.",
+              ]}
+              atraso={80}
+            />
+          </p>
           <Entra atraso={240}>
             <p
               style={{
@@ -601,19 +874,9 @@ export const SLIDES: readonly Slide[] = [
       "Acompanhar as caixas conforme aparecem, um ramo de cada vez. O ponto que vale repetir: os dois caminhos saem do MESMO motor — é o mesmo sistema lendo o mesmo tipo de documento, e por isso o que ele aprende de um lado serve do outro.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2
-            style={{
-              margin: "0 0 8px",
-              fontSize: 52,
-              fontWeight: 500,
-              letterSpacing: "-0.025em",
-              color: "var(--foreground)",
-            }}
-          >
-            Um motor, dois caminhos
-          </h2>
-        </Entra>
+        <Titulo style={{ margin: "0 0 8px", fontSize: 52 }}>
+          Um motor, dois caminhos
+        </Titulo>
         <Entra atraso={120}>
           <p style={{ ...secundario, margin: "0 0 16px", maxWidth: "76ch" }}>
             O documento entra, o sistema lê, e o caminho se decide pelo que ele
@@ -712,92 +975,12 @@ export const SLIDES: readonly Slide[] = [
       "Este slide responde antes da pergunta 'e se ele inventar?'. O caso real, para narrar: uma regra minha acusava marca fechada; a validação leu o documento inteiro e achou, quarenta páginas adiante, a cláusula que derrubava a acusação. Eu tinha lido aquelas ocorrências uma a uma e não vi.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 16 }}>
-            Ele revisa a si mesmo
-          </h2>
-        </Entra>
-        <Entra atraso={120}>
-          <p style={{ ...secundario, margin: "0 0 40px", maxWidth: "80ch" }}>
+        <Titulo style={{ marginBottom: 12 }}>Ele revisa a si mesmo</Titulo>
+        <Entra atraso={140}>
+          <p style={{ ...secundario, margin: 0, maxWidth: "80ch" }}>
             A primeira leitura levanta. A segunda existe para derrubar o que a
             primeira afirmou sem sustentação.
           </p>
-        </Entra>
-
-        <div style={{ flex: 1, display: "flex", gap: 0 }}>
-          {[
-            {
-              n: "01",
-              titulo: "Cada achado volta ao documento",
-              texto:
-                "Uma segunda passada relê o texto procurando o que contradiz o que foi apontado. O que não se sustenta é descartado antes de chegar à sua tela.",
-            },
-            {
-              n: "02",
-              titulo: "Ele contesta as minhas regras",
-              texto:
-                "Quando a validação discorda de uma regra do sistema, a discordância fica registrada. A mesma regra contestada várias vezes pelo mesmo motivo é defeito meu — e vira correção.",
-            },
-            {
-              n: "03",
-              titulo: "E aprende com o próprio erro",
-              texto:
-                "Falso positivo e gravidade errada viram caso de teste. Foi assim que uma regra inteira foi aposentada por estar errada, e o total de achados do acervo caiu quase pela metade.",
-            },
-          ].map((c, i) => (
-            <div
-              key={c.n}
-              className="ap-entra"
-              style={{
-                animationDelay: `${280 + i * 180}ms`,
-                flex: 1,
-                padding: i === 0 ? "0 44px 0 0" : "0 44px",
-                borderLeft: i === 0 ? "none" : "1px solid var(--border)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 25,
-                  color: "var(--nexodoc-accent)",
-                }}
-              >
-                {c.n}
-              </span>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 32,
-                  fontWeight: 500,
-                  letterSpacing: "-0.015em",
-                  lineHeight: 1.28,
-                  color: "var(--foreground)",
-                  textWrap: "pretty",
-                }}
-              >
-                {c.titulo}
-              </p>
-              <p style={{ ...secundario, fontSize: 24 }}>{c.texto}</p>
-            </div>
-          ))}
-        </div>
-      </>
-    ),
-  },
-
-  {
-    rotulo: "O resultado",
-    numero: "05",
-    bloco: "O que é",
-    notas:
-      "Ler os números sem adjetivo — eles não precisam de ajuda. Se a execução ao vivo devolver um total diferente, dizer na hora: é a variação que o slide dos limites declara, e reconhecê-la aqui reforça aquele slide em vez de enfraquecer este.",
-    corpo: (
-      <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo">Um memorial inteiro, conferido</h2>
         </Entra>
 
         <div
@@ -808,47 +991,175 @@ export const SLIDES: readonly Slide[] = [
             justifyContent: "center",
           }}
         >
-          <Linha
-            chave="Documento"
-            valor="Memorial geral de uma UBS"
-            atraso={140}
-          />
-          <Linha
-            chave="Páginas"
-            valor={<Contador ate={218} atraso={300} />}
-            atraso={240}
-          />
-          <Linha
-            chave="Achados"
-            valor={
-              <Contador
-                ate={57}
-                atraso={460}
-                style={{ color: "var(--status-critical)", fontWeight: 500 }}
-              />
-            }
-            atraso={340}
-          />
-          <Linha
-            chave="Tempo de leitura"
-            valor="cerca de 6 minutos"
-            atraso={440}
-          />
-          <Linha
-            chave="Custo da execução"
-            valor={
-              <span style={{ color: "var(--nexodoc-accent)" }}>US$ 1,49</span>
-            }
-            atraso={540}
-          />
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              {
+                n: "01",
+                titulo: "Cada achado volta ao documento",
+                texto:
+                  "Uma segunda passada relê o texto procurando o que contradiz o que foi apontado. O que não se sustenta é descartado antes de chegar à sua tela.",
+              },
+              {
+                n: "02",
+                titulo: "Ele contesta as minhas regras",
+                texto:
+                  "Quando a validação discorda de uma regra do sistema, a discordância fica registrada. A mesma regra contestada várias vezes pelo mesmo motivo é defeito meu — e vira correção.",
+              },
+              {
+                n: "03",
+                titulo: "E aprende com o próprio erro",
+                texto:
+                  "Falso positivo e gravidade errada viram caso de teste. Foi assim que uma regra inteira foi aposentada por estar errada, e o total de achados do acervo caiu quase pela metade.",
+              },
+            ].map((c, i) => (
+              <div
+                key={c.n}
+                className="ap-entra"
+                style={{
+                  animationDelay: `${300 + i * 200}ms`,
+                  flex: 1,
+                  padding: i === 0 ? "0 44px 0 0" : "0 44px",
+                  borderLeft: i === 0 ? "none" : "1px solid var(--border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 25,
+                    color: "var(--nexodoc-accent)",
+                  }}
+                >
+                  {c.n}
+                </span>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 34,
+                    fontWeight: 500,
+                    letterSpacing: "-0.018em",
+                    lineHeight: 1.24,
+                    color: "var(--foreground)",
+                    textWrap: "pretty",
+                  }}
+                >
+                  {c.titulo}
+                </p>
+                <p style={{ ...secundario, fontSize: 25 }}>{c.texto}</p>
+              </div>
+            ))}
+          </div>
         </div>
+      </>
+    ),
+  },
 
-        <Entra atraso={720}>
-          <p className="ap-fonte">
-            Custo lido do registro de uso do próprio sistema, não estimado. O
-            tempo varia com o tamanho do documento.
+  {
+    rotulo: "O resultado",
+    numero: "05",
+    denso: true,
+    bloco: "O que é",
+    notas:
+      "É A DEMONSTRAÇÃO. O mapa é o memorial página a página; a leitura passa, e onde há achado a página sobe com a cor da gravidade — a mesma grafia do canvas da auditoria. Deixar o mapa terminar antes de falar: são dois segundos e meio, e a sala acompanha sozinha.\n\nOS ACHADOS DO MAPA E O CARTÃO SÃO REAIS: saíram do parecer do 117_25 gravado no banco em 28/08/2026 (28 achados naquela corrida). O 57 é o da corrida citada no deck — é a variação entre execuções que a folha dos limites declara. Se alguém perguntar, dizer isso, e não amaciar.\n\nO CARTÃO É O QUE A SALA VAI VER NO PRODUTO. Ler o trecho em voz alta: um memorial da UBS Vila Manaus chamando a obra de 'UBS Paraíso', na página 92. Ninguém tinha visto — e este é o tipo de erro que a folha 07 explica.\n\nLer os números sem adjetivo — eles não precisam de ajuda.",
+    corpo: (
+      <>
+        <Titulo style={{ marginBottom: 12 }}>
+          Um memorial inteiro, conferido
+        </Titulo>
+        <Entra atraso={140}>
+          <p
+            style={{ ...secundario, margin: 0, fontFamily: MONO, fontSize: 23 }}
+          >
+            117_25_md_geral_a.pdf — memorial geral de uma UBS
           </p>
         </Entra>
+
+        {/*
+          A ORDEM DO TEMPO É A ORDEM DO ARGUMENTO. As páginas contam junto com o
+          mapa (a leitura está acontecendo), o 57 assenta quando a leitura
+          termina, e só então o custo e o tempo entram — baixos, depois do
+          tamanho do trabalho. O cartão é o último a chegar: primeiro o todo,
+          depois um exemplar.
+        */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 40,
+            marginTop: 44,
+          }}
+        >
+          <Dado rotuloDo="páginas" atraso={520}>
+            <Contador ate={218} atraso={520} duracao={2300} />
+          </Dado>
+          <Dado rotuloDo="achados" atraso={2700} cor="var(--status-critical)">
+            <Contador ate={57} atraso={2700} duracao={720} />
+          </Dado>
+          <Dado rotuloDo="tempo de leitura" atraso={3200}>
+            ≈ 6 min
+          </Dado>
+          <Dado
+            rotuloDo="custo da execução"
+            atraso={3340}
+            cor="var(--nexodoc-accent)"
+          >
+            US$ 1,49
+          </Dado>
+        </div>
+
+        <div style={{ marginTop: 52 }}>
+          <MapaDoMemorial paginas={218} atraso={520} duracao={2300} />
+        </div>
+
+        {/*
+          O cartão nasce LIGADO à página, como no canvas: a linha desce da marca
+          da p. 92 até o cartão. A posição é a da página no mapa — (92 − ½) da
+          largura útil dividida por 218 —, e não um número escolhido a olho.
+        */}
+        <div style={{ position: "relative", flex: 1, minHeight: 300 }}>
+          <span
+            aria-hidden="true"
+            className="ap-desce"
+            style={{
+              position: "absolute",
+              left: Math.round(((92 - 0.5) / 218) * LARGURA_UTIL),
+              top: 0,
+              width: 1,
+              height: 48,
+              background: "var(--status-critical)",
+              animationDelay: "3700ms",
+            }}
+          />
+          <CartaoDeAchado
+            tipo="Divergência de identificação da obra"
+            evidencia="Este memorial descritivo destina-se ao projeto estrutural da UBS Paraíso – Porte 1, localizada na Rua São Francisco de Assis, S/N, Vila Manaus, Criciúma/SC."
+            pagina={92}
+            disciplina="estrutural"
+            gravidade="critico"
+            atraso={3950}
+            style={{
+              position: "absolute",
+              top: 48,
+              left: Math.round(((92 - 0.5) / 218) * LARGURA_UTIL) - 26,
+            }}
+          />
+          <Entra
+            atraso={4300}
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: 0,
+              maxWidth: "46ch",
+            }}
+          >
+            <p className="ap-fonte" style={{ margin: 0, textAlign: "right" }}>
+              Custo lido do registro de uso do próprio sistema, não estimado. O
+              tempo varia com o tamanho do documento.
+            </p>
+          </Entra>
+        </div>
       </>
     ),
   },
@@ -858,69 +1169,64 @@ export const SLIDES: readonly Slide[] = [
     numero: "06",
     bloco: "O problema",
     notas:
-      "A frase de fechamento é o eixo da apresentação: ela impede que a conversa vire 'quantas horas você economiza', discussão que não interessa travar. O que se propõe é um controle que hoje não existe, não um processo mais barato.",
+      "A frase de fechamento é o eixo da apresentação: ela impede que a conversa vire 'quantas horas você economiza', discussão que não interessa travar. O que se propõe é um controle que hoje não existe, não um processo mais barato.\n\nOs três fatos chegam um de cada vez, com um respiro entre eles. Dizer cada um quando ele aparece — e não os três de uma vez.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo">Como a conferência acontece hoje</h2>
-        </Entra>
+        <Titulo>Como a conferência acontece hoje</Titulo>
 
-        <div style={{ display: "flex", gap: 0 }}>
-          {[
-            ["Cada projetista", "confere o próprio projeto"],
-            [
-              "Sem tempo dedicado",
-              "a conferência disputa espaço com a entrega",
-            ],
-            ["Uma a duas horas", "quando de fato acontece"],
-          ].map(([titulo, texto], i) => (
-            <div
-              key={titulo}
-              className="ap-entra"
-              style={{
-                animationDelay: `${140 + i * 160}ms`,
-                flex: 1,
-                padding: i === 0 ? "0 44px 0 0" : "0 44px",
-                borderLeft: i === 0 ? "none" : "1px solid var(--border)",
-              }}
-            >
-              <p
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              ["Cada projetista", "confere o próprio projeto"],
+              [
+                "Sem tempo dedicado",
+                "a conferência disputa espaço com a entrega",
+              ],
+              ["Uma a duas horas", "quando de fato acontece"],
+            ].map(([titulo, texto], i) => (
+              <div
+                key={titulo}
                 style={{
-                  margin: "0 0 12px",
-                  fontSize: 40,
-                  fontWeight: 500,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.2,
-                  color: "var(--foreground)",
-                  textWrap: "pretty",
+                  flex: 1,
+                  padding: i === 0 ? "0 44px 0 0" : "0 44px",
+                  borderLeft: i === 0 ? "none" : "1px solid var(--border)",
                 }}
               >
-                {titulo}
-              </p>
-              <p style={{ ...secundario, fontSize: 25 }}>{texto}</p>
-            </div>
-          ))}
+                <p
+                  style={{
+                    margin: "0 0 14px",
+                    fontSize: 46,
+                    fontWeight: 500,
+                    letterSpacing: "-0.022em",
+                    lineHeight: 1.16,
+                    color: "var(--foreground)",
+                  }}
+                >
+                  <Linhas linhas={[titulo]} atraso={200 + i * 260} />
+                </p>
+                <Entra atraso={330 + i * 260}>
+                  <p style={{ ...secundario, fontSize: 26 }}>{texto}</p>
+                </Entra>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="ap-cresce" />
-
-        <Entra atraso={680}>
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "36ch",
-              fontSize: 50,
-              fontWeight: 500,
-              letterSpacing: "-0.022em",
-              lineHeight: 1.24,
-              color: "var(--nexodoc-accent)",
-              textWrap: "pretty",
-            }}
-          >
-            Isto não é um processo caro para substituir. É um controle que hoje
-            não existe.
-          </p>
-        </Entra>
+        <Fecho
+          linhas={[
+            "Isto não é um processo caro para substituir.",
+            "É um controle que hoje não existe.",
+          ]}
+          tamanho={54}
+          atraso={1200}
+        />
       </>
     ),
   },
@@ -930,47 +1236,55 @@ export const SLIDES: readonly Slide[] = [
     numero: "07",
     bloco: "O problema",
     notas:
-      "A primeira causa desarma qualquer leitura de incompetência — e é importante dizê-la assim, porque quem está na sala assina esses projetos. A segunda mostra que o problema é do processo, não das pessoas.",
+      "A primeira causa desarma qualquer leitura de incompetência — e é importante dizê-la assim, porque quem está na sala assina esses projetos. A segunda mostra que o problema é do processo, não das pessoas.\n\nAs duas frases coloridas chegam por último, uma de cada lado: a vermelha é a consequência, a âmbar é a saída. Não ler as duas emendadas.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo">Por que escapa</h2>
-        </Entra>
+        <Titulo>Por que escapa</Titulo>
 
-        <div style={{ flex: 1, display: "flex", gap: 0 }}>
-          <div
-            style={{
-              flex: 1,
-              paddingRight: 56,
-              display: "flex",
-              flexDirection: "column",
-              gap: 26,
-            }}
-          >
-            <Entra atraso={140}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ display: "flex", gap: 0 }}>
+            <div
+              style={{
+                flex: 1,
+                paddingRight: 64,
+                display: "flex",
+                flexDirection: "column",
+                gap: 26,
+              }}
+            >
               <p
                 style={{
                   margin: 0,
-                  fontSize: 38,
+                  fontSize: 40,
                   fontWeight: 500,
-                  letterSpacing: "-0.018em",
-                  lineHeight: 1.26,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.22,
                   color: "var(--foreground)",
-                  textWrap: "pretty",
                 }}
               >
-                Quem escreveu relê o que quis dizer, não o que ficou escrito.
+                <Linhas
+                  linhas={[
+                    "Quem escreveu relê o que quis dizer,",
+                    "não o que ficou escrito.",
+                  ]}
+                  atraso={140}
+                />
               </p>
-            </Entra>
-            <Entra atraso={300}>
-              <p style={secundario}>
-                Não é falta de competência: é como a leitura funciona. E a
-                consequência é sempre a mesma — na prática, a primeira revisão
-                de verdade só acontece quando o projeto já está na mão do
-                cliente.
-              </p>
-            </Entra>
-            <Entra atraso={460}>
+              <Entra atraso={420}>
+                <p style={{ ...secundario, maxWidth: "52ch" }}>
+                  Não é falta de competência: é como a leitura funciona. E a
+                  consequência é sempre a mesma — na prática, a primeira revisão
+                  de verdade só acontece quando o projeto já está na mão do
+                  cliente.
+                </p>
+              </Entra>
               <p
                 style={{
                   ...paragrafo,
@@ -979,44 +1293,50 @@ export const SLIDES: readonly Slide[] = [
                   color: "var(--status-critical)",
                 }}
               >
-                Quando isso acontece, quem revisa é quem contratou.
+                <Linhas
+                  linhas={[
+                    "Quando isso acontece, quem revisa é quem contratou.",
+                  ]}
+                  atraso={700}
+                />
               </p>
-            </Entra>
-          </div>
+            </div>
 
-          <div
-            style={{
-              flex: 1,
-              paddingLeft: 56,
-              borderLeft: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 26,
-            }}
-          >
-            <Entra atraso={620}>
+            <div
+              style={{
+                flex: 1,
+                paddingLeft: 64,
+                borderLeft: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 26,
+              }}
+            >
               <p
                 style={{
                   margin: 0,
-                  fontSize: 38,
+                  fontSize: 40,
                   fontWeight: 500,
-                  letterSpacing: "-0.018em",
-                  lineHeight: 1.26,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.22,
                   color: "var(--foreground)",
-                  textWrap: "pretty",
                 }}
               >
-                O modelo-padrão leva o mesmo defeito para todos os projetos.
+                <Linhas
+                  linhas={[
+                    "O modelo-padrão leva o mesmo defeito",
+                    "para todos os projetos.",
+                  ]}
+                  atraso={900}
+                />
               </p>
-            </Entra>
-            <Entra atraso={780}>
-              <p style={secundario}>
-                O texto-base é reaproveitado de um projeto para o outro. Um erro
-                nele não erra um projeto: erra todos, até que alguém finalmente
-                o encontre.
-              </p>
-            </Entra>
-            <Entra atraso={940}>
+              <Entra atraso={1180}>
+                <p style={{ ...secundario, maxWidth: "52ch" }}>
+                  O texto-base é reaproveitado de um projeto para o outro. Um
+                  erro nele não erra um projeto: erra todos, até que alguém
+                  finalmente o encontre.
+                </p>
+              </Entra>
               <p
                 style={{
                   ...paragrafo,
@@ -1025,9 +1345,14 @@ export const SLIDES: readonly Slide[] = [
                   color: "var(--status-warning)",
                 }}
               >
-                Achado uma vez, corrigido uma vez, resolvido em todos.
+                <Linhas
+                  linhas={[
+                    "Achado uma vez, corrigido uma vez, resolvido em todos.",
+                  ]}
+                  atraso={1460}
+                />
               </p>
-            </Entra>
+            </div>
           </div>
         </div>
       </>
@@ -1039,46 +1364,76 @@ export const SLIDES: readonly Slide[] = [
     numero: "08",
     bloco: "O problema",
     notas:
-      "É AQUI que o episódio é narrado, agora que ele não tem folha própria: projeto devolvido, procuradoria acionada, três responsáveis parados três dias. Contar antes de mostrar a conta — sem detalhar quem, sem nomear disciplina. A palavra estimativa fica visível na tela; se preferir, troque a faixa pelo valor real antes de apresentar. A coluna da direita é o que fecha o slide: ler devagar e não insistir.",
+      "É AQUI que o episódio é narrado, agora que ele não tem folha própria: projeto devolvido, procuradoria acionada, três responsáveis parados três dias. Contar ANTES de avançar — a conta entra fator a fator, e cada fator é uma frase da história: três pessoas, três dias, oito horas. Só depois o total.\n\nA palavra estimativa fica visível na tela; se preferir, troque a faixa pelo valor real antes de apresentar. A coluna da direita chega por último e é o que fecha o slide: ler devagar e não insistir.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo">O que um erro desses custa</h2>
-        </Entra>
+        <Titulo>O que um erro desses custa</Titulo>
 
         <div style={{ flex: 1, display: "flex", gap: 0 }}>
           <div
             style={{
-              flex: 1,
-              paddingRight: 56,
+              flex: 1.05,
+              paddingRight: 64,
               display: "flex",
               flexDirection: "column",
-              gap: 24,
             }}
           >
             <Entra atraso={120}>
               <span style={rotulo}>A aritmética</span>
             </Entra>
-            <Entra atraso={240}>
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: MONO,
-                  fontSize: 34,
-                  color: "var(--foreground)",
-                }}
-              >
-                3 responsáveis × 3 dias × 8 h ={" "}
-                <Contador ate={72} atraso={420} style={{ fontWeight: 500 }} />{" "}
-                horas
-              </p>
+
+            {/*
+              A EQUAÇÃO ASSENTA FATOR A FATOR. Cada linha é um fato do episódio, e
+              cada fato chega quando a fala chega nele. O total é o único número
+              que CORRE: é a soma acontecendo na frente da sala.
+            */}
+            <div
+              style={{
+                marginTop: 22,
+                fontFamily: MONO,
+                fontSize: 54,
+                lineHeight: 1.22,
+                letterSpacing: "-0.02em",
+                color: "var(--foreground)",
+              }}
+            >
+              <Linhas
+                linhas={["3 responsáveis", "× 3 dias", "× 8 horas"]}
+                atraso={300}
+                passo={320}
+              />
+            </div>
+
+            <Entra
+              atraso={1250}
+              style={{
+                marginTop: 18,
+                paddingTop: 18,
+                borderTop: "1px solid var(--border)",
+                fontFamily: MONO,
+                fontSize: 54,
+                lineHeight: 1.22,
+                letterSpacing: "-0.02em",
+                color: "var(--foreground)",
+              }}
+            >
+              ={" "}
+              <Contador
+                ate={72}
+                atraso={1350}
+                duracao={720}
+                style={{ fontWeight: 500 }}
+              />{" "}
+              horas
             </Entra>
-            <Entra atraso={400}>
+
+            <Entra atraso={1700}>
               <p
                 style={{
-                  margin: 0,
+                  margin: "22px 0 0",
                   fontFamily: MONO,
-                  fontSize: 34,
+                  fontSize: 26,
+                  lineHeight: 1.4,
                   color: "var(--muted-foreground)",
                 }}
               >
@@ -1086,43 +1441,46 @@ export const SLIDES: readonly Slide[] = [
                 <span className="ap-premissa">(estimativa: R$ 50 a R$ 90)</span>
               </p>
             </Entra>
+
+            <div className="ap-cresce" />
+
             <Entra
-              atraso={580}
+              atraso={2000}
               style={{
-                marginTop: 12,
                 paddingTop: 26,
-                borderTop: "1px solid var(--border)",
+                borderTop: "1px solid var(--nexodoc-accent)",
               }}
             >
-              <span style={{ ...rotulo, display: "block", marginBottom: 12 }}>
+              <span style={{ ...rotulo, display: "block", marginBottom: 14 }}>
                 Só de horas paradas
               </span>
-              <span
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 58,
-                  fontWeight: 500,
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.1,
-                  color: "var(--foreground)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                R$ 3.600 a R$ 6.480
-              </span>
             </Entra>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 92,
+                fontWeight: 500,
+                letterSpacing: "-0.035em",
+                lineHeight: 1,
+                color: "var(--foreground)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Linhas linhas={["R$ 3.600 a R$ 6.480"]} atraso={2150} />
+            </div>
           </div>
 
           <div
             style={{
               flex: 1,
-              paddingLeft: 56,
+              paddingLeft: 64,
               borderLeft: "1px solid var(--border)",
               display: "flex",
               flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <Entra atraso={720}>
+            <Entra atraso={2900}>
               <span style={{ ...rotulo, color: "var(--status-critical)" }}>
                 O que não entra nessa conta
               </span>
@@ -1146,7 +1504,7 @@ export const SLIDES: readonly Slide[] = [
                   key={titulo}
                   titulo={titulo}
                   texto={texto}
-                  atraso={840 + i * 160}
+                  atraso={3050 + i * 160}
                 />
               ))}
             </div>
@@ -1165,11 +1523,9 @@ export const SLIDES: readonly Slide[] = [
       "Dito por você, antes de perguntarem. Este slide compra mais credibilidade que qualquer outro do deck. Não amaciar nenhum item — principalmente o do excesso, que é o que o usuário vai sentir no primeiro dia.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 24 }}>
-            O que ele ainda não faz bem
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 24 }}>
+          O que ele ainda não faz bem
+        </Titulo>
 
         <div
           style={{
@@ -1221,11 +1577,7 @@ export const SLIDES: readonly Slide[] = [
       "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras.\n\nSobre 'a IA aprende com os nossos projetos?': separar as duas coisas na fala. O modelo NÃO aprende — ele vem pronto de fora e o conteúdo enviado não alimenta treinamento pela política da API. O que aprende é o sistema, e só pelo que vocês corrigirem: falso positivo, gravidade errada e achado que faltou viram medida de qualidade e ajuste de regra dentro da nossa base, sem sair para o provedor.\n\nCUIDADO — ESTA É A FOLHA QUE CONVIDA 'mostra esse painel de custo aí'. A demonstração sai de produção, e a tela de uso de IA de lá lista modelos sem preço, onde hoje aparece uma chave antiga em texto puro. Ou limpar essas linhas antes do dia, ou abrir o custo POR OBRA e não a tela de uso por modelo.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 24 }}>
-            O que protege o documento
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 24 }}>O que protege o documento</Titulo>
 
         <div
           style={{
@@ -1292,108 +1644,126 @@ export const SLIDES: readonly Slide[] = [
     numero: "11",
     bloco: "O que existe",
     notas:
-      "Dois blocos, não seis módulos. O que importa é a distinção entre conferir o que já existe e montar o que falta — é assim que o trabalho acontece no escritório.",
+      "Dois blocos, não seis módulos. O que importa é a distinção entre conferir o que já existe e montar o que falta — é assim que o trabalho acontece no escritório. As cores são as dos dois ramos do motor: teal confere, âmbar monta.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 30 }}>
-            O que já existe e funciona
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 24 }}>O que já existe e funciona</Titulo>
 
-        <div style={{ flex: 1, display: "flex", gap: 32 }}>
-          {[
-            {
-              titulo: "Conferência de memorial descritivo",
-              cor: "var(--nexodoc-accent)",
-              linhas: [
-                "Lê o memorial inteiro e aponta o que não fecha",
-                "Cada achado com a página e a transcrição do trecho",
-                "Separa o que impede emitir do que é decisão técnica",
-                "Compara documentos entre si",
-              ],
-              selo: "Medido em projeto real",
-              seloOk: true,
-            },
-            {
-              titulo: "Montagem de LDs, capas e volumes",
-              cor: "var(--status-warning)",
-              linhas: [
-                "Lê os selos das pranchas e monta a lista de documentos",
-                "Acusa folha faltante, duplicada e divergência de total",
-                "Gera capa com os dados do escritório",
-                "Entrega ODT, PDF e ZIP prontos",
-              ],
-              selo: "Em uso acompanhado",
-              seloOk: false,
-            },
-          ].map((bloco, i) => (
-            <div
-              key={bloco.titulo}
-              className="ap-entra"
-              style={{
-                animationDelay: `${160 + i * 220}ms`,
-                flex: 1,
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                borderTop: `2px solid ${bloco.cor}`,
-                borderRadius: 4,
-                padding: "34px 36px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 20,
-              }}
-            >
-              <h3
+        {/*
+          SEM CAIXA. A versão anterior punha cada bloco num cartão de 600px de
+          altura com quatro linhas dentro — dois terços do cartão eram fundo. A
+          régua colorida no topo é a única moldura: ela já diz de qual ramo do
+          motor o bloco vem.
+        */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              {
+                titulo: "Conferência de memorial descritivo",
+                cor: "var(--nexodoc-accent)",
+                linhas: [
+                  "Lê o memorial inteiro e aponta o que não fecha",
+                  "Cada achado com a página e a transcrição do trecho",
+                  "Separa o que impede emitir do que é decisão técnica",
+                  "Compara documentos entre si",
+                ],
+                selo: "Medido em projeto real",
+                seloOk: true,
+              },
+              {
+                titulo: "Montagem de LDs, capas e volumes",
+                cor: "var(--status-warning)",
+                linhas: [
+                  "Lê os selos das pranchas e monta a lista de documentos",
+                  "Acusa folha faltante, duplicada e divergência de total",
+                  "Gera capa com os dados do escritório",
+                  "Entrega ODT, PDF e ZIP prontos",
+                ],
+                selo: "Em uso acompanhado",
+                seloOk: false,
+              },
+            ].map((bloco, i) => (
+              <div
+                key={bloco.titulo}
                 style={{
-                  margin: 0,
-                  fontSize: 36,
-                  fontWeight: 500,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.2,
-                  color: "var(--foreground)",
-                  textWrap: "pretty",
+                  flex: 1,
+                  padding: i === 0 ? "0 56px 0 0" : "0 0 0 56px",
+                  borderLeft: i === 0 ? "none" : "1px solid var(--border)",
                 }}
               >
-                {bloco.titulo}
-              </h3>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", flex: 1 }}>
-                {bloco.linhas.map((linha) => (
-                  <li
-                    key={linha}
+                <span
+                  aria-hidden="true"
+                  className="ap-risca"
+                  style={{
+                    display: "block",
+                    height: 2,
+                    background: bloco.cor,
+                    animationDelay: `${160 + i * 260}ms`,
+                  }}
+                />
+                <h3
+                  style={{
+                    margin: "26px 0 0",
+                    fontSize: 40,
+                    fontWeight: 500,
+                    letterSpacing: "-0.022em",
+                    lineHeight: 1.16,
+                    color: "var(--foreground)",
+                  }}
+                >
+                  <Linhas linhas={[bloco.titulo]} atraso={260 + i * 260} />
+                </h3>
+                <Entra atraso={420 + i * 260}>
+                  <span
                     style={{
-                      padding: "14px 0",
-                      borderTop: "1px solid var(--border)",
-                      fontSize: 24,
-                      lineHeight: 1.4,
-                      color: "var(--muted-foreground)",
-                      textWrap: "pretty",
+                      display: "inline-block",
+                      marginTop: 18,
+                      padding: "8px 14px",
+                      background: bloco.seloOk
+                        ? "var(--status-ok-bg)"
+                        : "var(--nexodoc-raised)",
+                      fontFamily: MONO,
+                      fontSize: 20,
+                      letterSpacing: "0.05em",
+                      color: bloco.seloOk
+                        ? "var(--status-ok)"
+                        : "var(--muted-foreground)",
                     }}
                   >
-                    {linha}
-                  </li>
-                ))}
-              </ul>
-              <span
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "8px 14px",
-                  borderRadius: 3,
-                  background: bloco.seloOk
-                    ? "var(--status-ok-bg)"
-                    : "var(--nexodoc-raised)",
-                  fontFamily: MONO,
-                  fontSize: 21,
-                  letterSpacing: "0.05em",
-                  color: bloco.seloOk
-                    ? "var(--status-ok)"
-                    : "var(--muted-foreground)",
-                }}
-              >
-                {bloco.selo}
-              </span>
-            </div>
-          ))}
+                    {bloco.selo}
+                  </span>
+                </Entra>
+                <ul
+                  style={{ margin: "26px 0 0", padding: 0, listStyle: "none" }}
+                >
+                  {bloco.linhas.map((linha, j) => (
+                    <li
+                      key={linha}
+                      className="ap-entra"
+                      style={{
+                        animationDelay: `${560 + i * 260 + j * 90}ms`,
+                        padding: "16px 0",
+                        borderTop: "1px solid var(--border)",
+                        fontSize: 26,
+                        lineHeight: 1.4,
+                        color: "var(--muted-foreground)",
+                        textWrap: "pretty",
+                      }}
+                    >
+                      {linha}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </>
     ),
@@ -1405,25 +1775,20 @@ export const SLIDES: readonly Slide[] = [
     denso: true,
     bloco: "O dinheiro",
     notas:
-      "DE ONDE SAI O R$ 285: a folha que abria essa conta saiu do deck em 09/09/2026 e vive na folha B do anexo. Se perguntarem como se chega nele, abrir o botão da folha 17 em vez de improvisar a conta de cabeça.\n\nESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nO terceiro bloco e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar. Todos na sala sabem de qual entrega estamos falando.",
+      "DE ONDE SAI O R$ 285: a folha que abria essa conta saiu do deck em 09/09/2026 e vive na folha B do anexo. Se perguntarem como se chega nele, abrir o botão da folha 17 em vez de improvisar a conta de cabeça.\n\nESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nOS DOIS NÚMEROS DE BAIXO SÃO A FRASE INTEIRA, sem razão escrita entre eles: o pequeno é o que custa operar, o grande é o que o episódio custou — e a sala faz a divisão sozinha. O terceiro bloco de cima e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 20 }}>
-            Como ela se paga
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 20 }}>Como ela se paga</Titulo>
 
         {/*
           LARGURA LIMITADA de propósito. Sem o teto, a linha corre os 1720px da
           folha e vira uma faixa de texto que ninguém lê da terceira fileira da
-          sala. As outras folhas escapam disso porque são de duas colunas; esta
-          é de uma só, e o teto faz o trabalho que a coluna faria.
+          sala.
         */}
         <div
           style={{
             flex: 1,
-            maxWidth: 1460,
+            maxWidth: 1380,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1453,36 +1818,63 @@ export const SLIDES: readonly Slide[] = [
         </div>
 
         {/*
-          SEM O TETO DE LICENÇA NA TELA. A versão anterior fechava com "sobra
-          R$ 515 a R$ 1.155 por mês" — e um comprador não lê isso como teto, lê
-          como piso: "seu preço é 515, você mesmo escreveu". O número continua
-          existindo, mas nas notas: é melhor que o diretor o deduza do que eu o
-          conceda por escrito.
+          O ANTES E O DEPOIS EM DOIS NÚMEROS, e a distância entre eles é o
+          argumento. Nada de razão escrita: a folha 14 do spec proíbe disputar
+          aritmética, e "22 vezes" seria uma conta que a sala pode refutar.
+          Um número pequeno ao lado de um grande não se refuta — se vê.
         */}
-        <Entra
-          atraso={820}
+        {/*
+          DUAS LINHAS DE GRADE, e não duas colunas: os rótulos ficam na mesma
+          altura e os números na mesma linha de base, ainda que um tenha 56px e
+          o outro 96. Em duas colunas alinhadas por baixo, o rótulo do pequeno
+          descia 40px em relação ao do grande — visto na captura.
+        */}
+        <div
           style={{
-            paddingTop: 26,
+            display: "grid",
+            gridTemplateColumns: "auto 1fr",
+            gridTemplateRows: "auto auto",
+            columnGap: 96,
+            rowGap: 18,
+            alignItems: "baseline",
+            paddingTop: 30,
             borderTop: "1px solid var(--nexodoc-accent)",
           }}
         >
-          <p
+          <Entra atraso={820}>
+            <span style={rotulo}>Operar, por mês</span>
+          </Entra>
+          <Entra atraso={1150}>
+            <span style={rotulo}>
+              O episódio que já aconteceu — só a parte que deu para somar
+            </span>
+          </Entra>
+          <div
             style={{
-              margin: 0,
-              maxWidth: "56ch",
-              fontSize: 36,
-              fontWeight: 500,
-              letterSpacing: "-0.018em",
-              lineHeight: 1.28,
-              color: "var(--nexodoc-accent)",
-              textWrap: "pretty",
+              fontFamily: MONO,
+              fontSize: 56,
+              letterSpacing: "-0.025em",
+              lineHeight: 1,
+              color: "var(--muted-foreground)",
+              whiteSpace: "nowrap",
             }}
           >
-            Operar custa R$ 285 por mês. O episódio que já aconteceu custou
-            entre R$ 3.600 e R$ 6.480 — e isso foi só a parte que deu para
-            somar.
-          </p>
-        </Entra>
+            <Linhas linhas={["R$ 285"]} atraso={900} />
+          </div>
+          <div
+            style={{
+              fontFamily: MONO,
+              fontSize: 96,
+              fontWeight: 500,
+              letterSpacing: "-0.035em",
+              lineHeight: 1,
+              color: "var(--nexodoc-accent)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <Linhas linhas={["R$ 3.600 a R$ 6.480"]} atraso={1250} />
+          </div>
+        </div>
       </>
     ),
   },
@@ -1522,7 +1914,10 @@ export const SLIDES: readonly Slide[] = [
             "Lista de documentos, capa, volume, folha faltante, selo divergente. Isso é montagem de arquivo. Nenhum chat entrega ODT, PDF e ZIP prontos para a entrega.",
           ],
         ]}
-        fecho="E quando o modelo melhorar — e vai — ele melhora aqui dentro. Trocar de modelo é uma linha de configuração; o que sobra é o resto."
+        fecho={[
+          "E quando o modelo melhorar — e vai — ele melhora aqui dentro.",
+          "Trocar de modelo é uma linha de configuração; o que sobra é o resto.",
+        ]}
       />
     ),
   },
@@ -1550,7 +1945,10 @@ export const SLIDES: readonly Slide[] = [
             "São do modelo-padrão — o mesmo texto errado em cinco projetos. Corrigidos uma vez, somem de todos. Esse ganho existe mesmo que vocês não comprem nada.",
           ],
         ]}
-        fecho="Quantos dos outros são erro de verdade, eu não sei. É exatamente por isso que estou pedindo seis meses, e não a sua assinatura."
+        fecho={[
+          "Quantos dos outros são erro de verdade, eu não sei.",
+          "É exatamente por isso que estou pedindo seis meses, e não a sua assinatura.",
+        ]}
       />
     ),
   },
@@ -1578,7 +1976,11 @@ export const SLIDES: readonly Slide[] = [
             "Parecer, lista de documentos, capa e volume saem em arquivo. Se o sistema parar amanhã, o que já foi montado continua exatamente onde está.",
           ],
         ]}
-        fecho="A responsabilidade técnica não muda de mãos, e nunca esteve na mesa. Quem assina o projeto continua sendo quem responde por ele — hoje, sem conferência nenhuma, e depois."
+        fecho={[
+          "A responsabilidade técnica não muda de mãos, e nunca esteve na mesa.",
+          "Quem assina o projeto continua sendo quem responde por ele —",
+          "hoje, sem conferência nenhuma, e depois.",
+        ]}
       />
     ),
   },
@@ -1607,7 +2009,10 @@ export const SLIDES: readonly Slide[] = [
             "Memorial, lista de documentos, volume, prefeitura: o mesmo trabalho existe em qualquer escritório que entregue projeto público. O que está montado vira produto para outras empresas com pouca mudança.",
           ],
         ]}
-        fecho="O problema é da casa. A solução não nasceu dela — e serve a qualquer escritório que entregue projeto para prefeitura."
+        fecho={[
+          "O problema é da casa. A solução não nasceu dela —",
+          "e serve a qualquer escritório que entregue projeto para prefeitura.",
+        ]}
       />
     ),
   },
@@ -1620,11 +2025,7 @@ export const SLIDES: readonly Slide[] = [
       "ESTA FOLHA NÃO TEM CIFRA, E ISSO É O DESENHO. Ela existe para que o preço esteja ao alcance da mão sem estar na tela: se ninguém perguntar, ela passa em dez segundos e o deck fecha no limite, que é onde ele sempre fechou.\n\nO BLOCO VOLTA A SER 'O DINHEIRO' de propósito, depois das possíveis perguntas. A sala percebe que a conversa mudou de assunto antes de eu dizer.\n\nO BOTÃO ABRE EM ABA NOVA: clicar não perde o deck. Fechar com Ctrl+W devolve esta folha, ainda em tela cheia.\n\nQUANDO CLICAR: quando alguém perguntar o valor, ou quando eu tiver decidido que a sala está pronta. Não clicar por reflexo de estar numa folha que tem botão — a folha funciona sem ser clicada, e passar por ela sem abrir é uma escolha legítima.\n\nO PISO CONTINUA SENDO seis meses por R$ 10.000. Abaixo disso não se fecha na sala.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 24 }}>
-            Quanto custa usar
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 24 }}>Quanto custa usar</Titulo>
 
         <div
           style={{
@@ -1677,73 +2078,84 @@ export const SLIDES: readonly Slide[] = [
       "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            O que pode vir depois
-          </h2>
-        </Entra>
-        <Entra atraso={100}>
-          <p style={{ ...secundario, margin: "0 0 36px" }}>
+        <Titulo style={{ marginBottom: 12 }}>O que pode vir depois</Titulo>
+        <Entra atraso={140}>
+          <p style={{ ...secundario, margin: 0 }}>
             Caminho, não promessa. Nada disto está pronto, e a ordem depende do
             que o uso real mostrar.
           </p>
         </Entra>
 
+        {/*
+          TRACEJADO = NÃO CONSTRUÍDO. É a mesma grade de colunas das folhas 04 e
+          06, com a régua de cima tracejada em vez de cheia — o olho lê "igual
+          ao que existe, mas ainda não". Sem caixa: os três cartões de antes
+          tinham alturas diferentes e flutuavam no meio da folha.
+        */}
         <div
-          style={{ flex: 1, display: "flex", gap: 28, alignItems: "center" }}
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
         >
-          {[
-            {
-              titulo: "Conferência de quantidades",
-              texto:
-                "Cruzar o que o memorial especifica com o que a planilha orça, e acusar o que não bate.",
-            },
-            {
-              titulo: "Leitura especializada por disciplina",
-              texto:
-                "Um leitor treinado no vocabulário de cada disciplina, em vez de um leitor geral para todas.",
-            },
-            {
-              titulo: "Correção no arquivo editável",
-              texto:
-                "A alteração aplicada direto no documento de origem, com você aprovando cada uma antes.",
-            },
-          ].map((c, i) => (
-            <div
-              key={c.titulo}
-              className="ap-entra"
-              style={{
-                animationDelay: `${240 + i * 200}ms`,
-                flex: 1,
-                padding: "32px 32px 28px",
-                borderRadius: 4,
-                border: "1px dashed var(--border)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 18,
-              }}
-            >
-              <span
-                style={{ fontFamily: MONO, fontSize: 22, color: "#5f6b72" }}
-              >
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <h3
+          <div style={{ display: "flex", gap: 0, alignItems: "flex-start" }}>
+            {[
+              {
+                titulo: "Conferência de quantidades",
+                texto:
+                  "Cruzar o que o memorial especifica com o que a planilha orça, e acusar o que não bate.",
+              },
+              {
+                titulo: "Leitura especializada por disciplina",
+                texto:
+                  "Um leitor treinado no vocabulário de cada disciplina, em vez de um leitor geral para todas.",
+              },
+              {
+                titulo: "Correção no arquivo editável",
+                texto:
+                  "A alteração aplicada direto no documento de origem, com você aprovando cada uma antes.",
+              },
+            ].map((c, i) => (
+              <div
+                key={c.titulo}
+                className="ap-entra"
                 style={{
-                  margin: 0,
-                  fontSize: 34,
-                  fontWeight: 500,
-                  letterSpacing: "-0.018em",
-                  lineHeight: 1.24,
-                  color: "var(--foreground)",
-                  textWrap: "pretty",
+                  animationDelay: `${300 + i * 200}ms`,
+                  flex: 1,
+                  margin: i === 0 ? "0 28px 0 0" : "0 0 0 28px",
+                  paddingTop: 26,
+                  borderTop: "1px dashed #3d474d",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
                 }}
               >
-                {c.titulo}
-              </h3>
-              <p style={{ ...secundario, fontSize: 24 }}>{c.texto}</p>
-            </div>
-          ))}
+                <span
+                  style={{ fontFamily: MONO, fontSize: 22, color: "#5f6b72" }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 36,
+                    fontWeight: 500,
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.22,
+                    color: "var(--foreground)",
+                    textWrap: "pretty",
+                  }}
+                >
+                  {c.titulo}
+                </h3>
+                <p style={{ ...secundario, fontSize: 25, maxWidth: "40ch" }}>
+                  {c.texto}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </>
     ),
@@ -1754,18 +2166,17 @@ export const SLIDES: readonly Slide[] = [
     numero: "19",
     bloco: "O pedido",
     notas:
-      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
+      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar.\n\nO ORBE VOLTA — o mesmo da capa, do mesmo tamanho da folha do motor. É o deck fechando onde abriu, e não um enfeite: a sala viu o produto se apresentar sozinho na primeira folha, e o vê de novo quando eu digo o que ele não é.\n\nSe vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            O que esta ferramenta não é
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 20 }}>
+          O que esta ferramenta não é
+        </Titulo>
 
         <div
           style={{
             flex: 1,
+            maxWidth: 1380,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1789,28 +2200,48 @@ export const SLIDES: readonly Slide[] = [
               key={titulo}
               titulo={titulo}
               texto={texto}
-              atraso={160 + i * 200}
+              atraso={160 + i * 190}
             />
           ))}
         </div>
 
-        <Entra atraso={860}>
-          <p
+        {/*
+          O FECHO DO DECK É O ORBE E UMA FRASE. O orbe é `compact` (198px, medida
+          fixa) — a mesma escala em que a folha do motor o mostrou, e o mesmo
+          organismo vivo da capa. Ver a nota sobre `transform` na capa: o canvas
+          mede a si mesmo, e não pode ser escalado por fora.
+        */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 64,
+            paddingTop: 26,
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <div
+            className="ap-surge"
             style={{
-              margin: 0,
-              maxWidth: "44ch",
-              fontSize: 44,
-              fontWeight: 500,
-              letterSpacing: "-0.022em",
-              lineHeight: 1.26,
-              color: "var(--nexodoc-accent)",
-              textWrap: "pretty",
+              flex: "none",
+              width: 198,
+              height: 198,
+              display: "grid",
+              placeItems: "center",
+              animationDelay: "760ms",
             }}
           >
-            Uma segunda leitura que nunca se cansa, e que nunca assina no seu
-            lugar.
-          </p>
-        </Entra>
+            <AgentOrb size="compact" state="idle" />
+          </div>
+          <Fecho
+            linhas={[
+              "Uma segunda leitura que nunca se cansa,",
+              "e que nunca assina no seu lugar.",
+            ]}
+            tamanho={48}
+            atraso={900}
+          />
+        </div>
       </>
     ),
   },

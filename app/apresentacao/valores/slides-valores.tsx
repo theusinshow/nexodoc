@@ -9,6 +9,7 @@ import {
   paragrafo,
   rotulo,
   secundario,
+  Titulo,
 } from "../pecas";
 
 /**
@@ -63,11 +64,7 @@ export const VALORES: readonly Slide[] = [
       "PRIMEIRA FOLHA DO ANEXO, e é assim de propósito: quem clicou o botão da folha 17 perguntou quanto custa, e a pior resposta possível é a cifra sozinha. Antes do número, o que está sendo comprado.\n\nO pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Ler a coluna da direita devagar: é o que separa este piloto de um período de teste.\n\nNÃO ANTECIPAR O VALOR AQUI. Ele está três folhas adiante, e a sala chega lá em menos de um minuto.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            Piloto de seis meses
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 28 }}>Piloto de seis meses</Titulo>
 
         <div style={{ flex: 1, display: "flex", gap: 0 }}>
           <div
@@ -184,11 +181,7 @@ export const VALORES: readonly Slide[] = [
       "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            Quanto custa operar
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 10 }}>Quanto custa operar</Titulo>
         <Entra atraso={100}>
           <p style={{ ...secundario, margin: "0 0 30px" }}>
             O custo por execução é medido no próprio sistema. O total mensal é{" "}
@@ -377,11 +370,7 @@ export const VALORES: readonly Slide[] = [
       "O gasto em dinheiro NAO e estimativa: sai do registro de uso do proprio sistema, chamada por chamada, e o painel administrativo mostra a mesma soma. A hora de desenvolvedor junior e o unico numero inventado desta folha, e a palavra estimativa fica na tela por isso. Se perguntarem por que a ferramenta de programacao entra na conta: porque sem ela este software nao existiria em seis meses, e ela continua sendo paga enquanto eu mantiver o produto.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            O que custou construir
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 10 }}>O que custou construir</Titulo>
         <Entra atraso={100}>
           <p style={{ ...secundario, margin: "0 0 26px" }}>
             O gasto em dinheiro está medido no próprio sistema, chamada por
@@ -606,11 +595,7 @@ export const VALORES: readonly Slide[] = [
       "Ler a folha inteira antes de falar do número. A linha que decide não é o valor, é a de baixo: ao fim dos seis meses, se não atender, encerra. É isso que tira o risco da mesa.\n\nSE PERGUNTAREM POR QUE SEIS E NÃO TRÊS: porque três meses não dão para um projeto inteiro passar pelo sistema, e sem projeto inteiro não há julgamento — sobra impressão.\n\nO PISO ESTÁ DECIDIDO e é este. Abaixo dele não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            A proposta
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 28 }}>A proposta</Titulo>
 
         <Linha
           chave="Modalidade"
@@ -692,11 +677,7 @@ export const VALORES: readonly Slide[] = [
       "ESTA FOLHA NÃO DEFENDE O PREÇO, ELA O ANCORA. Nenhum dos três números da esquerda é novo: dois estão nas folhas B e C, aqui mesmo, e o do projeto devolvido veio da folha 12 do deck. O que esta folha faz é pô-los ao lado do pedido.\n\nNÃO TRAZER A CONTA DE RETORNO MENSAL para esta folha, nem de boca. Operar custa R$ 285 e o tempo devolvido paga até cerca de R$ 500 por mês; R$ 10.000 em seis meses dá R$ 1.667 por mês. Quem levantar essa aritmética na sala derruba o preço com o meu próprio número.\n\nSE ELE MESMO LEVANTAR, a resposta é a frase de baixo: o piloto não está comprando seis meses de acesso, está comprando o que já está construído — e mesmo que ninguém abra o sistema no sexto mês, o que foi entregue continua entregue.\n\nA ÚNICA ESTIMATIVA DESTA FOLHA é a hora de desenvolvedor júnior, e a palavra fica na tela por isso. Tudo o mais saiu do registro de uso do próprio sistema.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            De onde sai esse número
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 10 }}>De onde sai esse número</Titulo>
         <Entra atraso={100}>
           <p style={{ ...secundario, margin: "0 0 30px" }}>
             Nada aqui é novo: os três números já passaram — dois nas duas folhas
@@ -856,11 +837,7 @@ export const VALORES: readonly Slide[] = [
       "UMA FRASE, SEM DEFENSIVA E SEM JUSTIFICATIVA LONGA. Explicar demais aqui parece culpa. Ler, parar, e deixar a sala reagir.\n\nSE VIER 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?': o contrato foi lido, e não há cláusula de cessão sobre criação fora do expediente. Resposta de uma linha, sem alongar.\n\nA MOEDA DE TROCA, se travar aqui, é a CUSTÓDIA DO CÓDIGO — está disponível e vale PRAZO. Oferecê-la em troca de contrato mais longo, nunca de desconto.",
     corpo: (
       <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            Propriedade
-          </h2>
-        </Entra>
+        <Titulo style={{ marginBottom: 28 }}>Propriedade</Titulo>
 
         <div className="ap-cresce" />
 

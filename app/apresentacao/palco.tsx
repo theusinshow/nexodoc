@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import "./palco.css";
 
@@ -31,6 +37,18 @@ const LARGURA_DAS_NOTAS = 460;
 
 export function Palco({ slides }: { slides: readonly Slide[] }) {
   const [indice, setIndice] = useState(0);
+  /*
+   * A FOLHA QUE SAI. Fica montada por uma saída curta, por cima da que entra,
+   * e depois some. Sem isto a troca é um corte seco — e um corte seco no meio de
+   * uma fala parece falha de projetor, não decisão.
+   *
+   * Ela é renderizada na MESMA lista da folha atual, com a mesma `key` de
+   * antes: o React mantém o DOM, e o que já estava no estado final (o número
+   * que correu, a linha que se desenhou) continua lá durante a saída em vez de
+   * recomeçar do zero por cima do fade.
+   */
+  const [saindo, setSaindo] = useState<Slide | null>(null);
+  const indiceAtual = useRef(0);
   const [notasAbertas, setNotasAbertas] = useState(false);
   const [ponteiroParado, setPonteiroParado] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
@@ -39,12 +57,31 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
 
   const atual = slides[indice];
 
-  const vai = useCallback(
-    (passo: number) => {
-      setIndice((i) => Math.min(slides.length - 1, Math.max(0, i + passo)));
+  const mostra = useCallback(
+    (alvo: number) => {
+      const de = indiceAtual.current;
+      const para = Math.min(slides.length - 1, Math.max(0, alvo));
+      if (para === de) return;
+      indiceAtual.current = para;
+      setIndice(para);
+      if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        setSaindo(slides[de]);
+      }
     },
-    [slides.length],
+    [slides],
   );
+
+  const vai = useCallback(
+    (passo: number) => mostra(indiceAtual.current + passo),
+    [mostra],
+  );
+
+  /* A saída dura `--ap-curta`; o mesmo número mora em palco.css. */
+  useEffect(() => {
+    if (!saindo) return;
+    const relogio = setTimeout(() => setSaindo(null), 260);
+    return () => clearTimeout(relogio);
+  }, [saindo]);
 
   /*
    * A ESCALA. `transform: scale()` no palco inteiro, calculada a cada resize e
@@ -63,7 +100,8 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
        * fechar para conferir o que se ia dizer sobre ele. Visto na tela, com o
        * painel tapando a coluna esquerda de um slide em duas colunas.
        */
-      const largura = window.innerWidth - (notasAbertas ? LARGURA_DAS_NOTAS : 0);
+      const largura =
+        window.innerWidth - (notasAbertas ? LARGURA_DAS_NOTAS : 0);
       const escala = Math.min(largura / 1920, window.innerHeight / 1080);
       alvo.style.transform = `scale(${escala})`;
       // A moldura assume o tamanho já escalado — ver o comentário em palco.css.
@@ -97,11 +135,11 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
           break;
         case "Home":
           evento.preventDefault();
-          setIndice(0);
+          mostra(0);
           break;
         case "End":
           evento.preventDefault();
-          setIndice(slides.length - 1);
+          mostra(slides.length - 1);
           break;
         case "n":
         case "N":
@@ -122,7 +160,7 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
 
     window.addEventListener("keydown", tecla);
     return () => window.removeEventListener("keydown", tecla);
-  }, [slides.length, vai]);
+  }, [slides.length, vai, mostra]);
 
   /* A régua some quando o ponteiro para. Três segundos: tempo de uma frase. */
   useEffect(() => {
@@ -146,18 +184,29 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
     <div className="ap-raiz" data-notas={notasAbertas} ref={raiz}>
       <div className="ap-moldura" ref={moldura}>
         <div className="ap-palco" ref={palco}>
-          <section
-            className={`ap-folha${atual.denso ? " ap-folha--denso" : ""}`}
-            key={atual.numero}
-          >
-            {atual.bloco ? (
-              <div className="ap-cabeca">
-                <span className="ap-bloco">{atual.bloco}</span>
-                <span className="ap-numero">{atual.numero}</span>
-              </div>
-            ) : null}
-            {atual.corpo}
-          </section>
+          {(saindo && saindo !== atual ? [saindo, atual] : [atual]).map(
+            (folha) => (
+              <section
+                key={folha.numero}
+                aria-hidden={folha !== atual || undefined}
+                className={[
+                  "ap-folha",
+                  folha.denso ? "ap-folha--denso" : "",
+                  folha !== atual ? "ap-folha--sai" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {folha.bloco ? (
+                  <div className="ap-cabeca">
+                    <span className="ap-bloco">{folha.bloco}</span>
+                    <span className="ap-numero">{folha.numero}</span>
+                  </div>
+                ) : null}
+                {folha.corpo}
+              </section>
+            ),
+          )}
         </div>
       </div>
 
