@@ -176,3 +176,192 @@ export function resumoDoProjeto(args: {
 export function abreSozinho(projetos: readonly ProjetoParaOrdenar[]): string | null {
   return projetos.find((p) => p.recebidos > 0)?.projectId ?? null;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * A ORDENAÇÃO ESCOLHIDA — quatro, e a promessa do canto vira um controle.
+ *
+ * O canto da lista dizia "mais parados primeiro" e essa era a única ordem que
+ * existia. Ela continua sendo o padrão, e continua sendo a certa para quem abre
+ * a tela de manhã sem saber o que quer. As outras três servem a quem CHEGA
+ * SABENDO: "o que eu mexi ontem", "onde está a pilha", "acha o 077".
+ *
+ * "Críticos primeiro" ficou de fora de propósito. O painel não carrega
+ * severidade de achado — `ItemDoPainel` tem título, direção, pessoa e dias, e
+ * mais nada. Uma ordem que dissesse "críticos" ordenando por quantidade seria
+ * a interface afirmando o que ela não sabe.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** As ordens que a lista oferece. O valor viaja para o `localStorage`. */
+export const ORDENS = [
+  { id: "parados", rotulo: "Mais parados primeiro" },
+  { id: "recentes", rotulo: "Atualizados recentemente" },
+  { id: "achados", rotulo: "Mais achados" },
+  { id: "alfabetica", rotulo: "A–Z" },
+] as const;
+
+export type OrdemDaLista = (typeof ORDENS)[number]["id"];
+
+export function ehOrdem(valor: unknown): valor is OrdemDaLista {
+  return ORDENS.some((o) => o.id === valor);
+}
+
+/** O que as ordens que não são "parados" precisam saber, além do básico. */
+export type ProjetoParaOrdenarPorNome = ProjetoParaOrdenar & {
+  codigo: string;
+  nome: string;
+};
+
+/**
+ * ORDENA UMA CÓPIA, sempre — o chamador é React.
+ *
+ * Só `parados` é `ordemDaAtencao`; as outras três são ordens simples e
+ * DELIBERADAMENTE não separam "o que é seu" do resto. Quem escolheu "A–Z"
+ * pediu o alfabeto, e um alfabeto que começa pelos seus achados não é um
+ * alfabeto — é a ordem de atenção com outro rótulo.
+ */
+export function ordenarLista<T extends ProjetoParaOrdenarPorNome>(
+  projetos: readonly T[],
+  ordem: OrdemDaLista,
+): T[] {
+  if (ordem === "parados") return ordemDaAtencao(projetos);
+
+  const copia = [...projetos];
+
+  if (ordem === "recentes") {
+    return copia.sort(
+      (a, b) => b.atualizadoEmMs - a.atualizadoEmMs || a.codigo.localeCompare(b.codigo),
+    );
+  }
+
+  if (ordem === "achados") {
+    /*
+     * TOTAL, e não só o recebido. A pergunta desta ordem é "onde está a pilha
+     * de trabalho", e a pilha do projeto inclui o que está com os outros —
+     * quem cobra precisa achar o projeto de nove achados mesmo que oito
+     * estejam com o Victor.
+     */
+    const total = (p: T) => p.recebidos + p.enviados;
+    return copia.sort(
+      (a, b) =>
+        total(b) - total(a) ||
+        b.diasParado - a.diasParado ||
+        a.codigo.localeCompare(b.codigo),
+    );
+  }
+
+  /*
+   * A–Z PELO NOME DA OBRA, e não pelo código. O código é `SIM118-25`: ordená-lo
+   * dá a ordem do número de contrato, que é cronológica disfarçada de
+   * alfabética. Quem pede A–Z está procurando "Ginásio", não "118".
+   *
+   * `localeCompare` com pt-BR: sem ele, "Ampliação" cai depois de "Zona" em
+   * runtime que ordena por code point, e acento vira erro de ordem.
+   */
+  return copia.sort(
+    (a, b) =>
+      (a.nome || a.codigo).localeCompare(b.nome || b.codigo, "pt-BR", {
+        sensitivity: "base",
+      }) || a.codigo.localeCompare(b.codigo),
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * O QUE PEDE VOCÊ, EM NÚMEROS — a faixa "Precisa da sua atenção".
+ *
+ * Três contadores, e os três saem do MESMO dado que a lista já desenha. É a
+ * regra desta faixa: ela não busca nada, ela CONTA o que está logo abaixo. Um
+ * contador que consultasse outra fonte poderia dizer "3 achados" sobre uma
+ * lista que mostra dois, e a faixa perderia a única coisa que a justifica.
+ *
+ * "1 conferência pendente" ficou de fora: a conferência do volume não é estado
+ * persistido — ela roda durante a montagem e morre com ela. Um contador ali
+ * seria número inventado.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type FocoDaAtencao = "com-voce" | "parados" | "com-outros";
+
+export type ContadorDaAtencao = {
+  foco: FocoDaAtencao;
+  /** Quantos ACHADOS — não quantos projetos. É o que a pessoa vai fazer. */
+  quantos: number;
+  /** Em quantos projetos eles estão. Vai para o `title` do controle. */
+  projetos: number;
+  rotulo: string;
+};
+
+export function contadoresDaAtencao(
+  projetos: readonly { recebidos: number; enviados: number; diasParado: number }[],
+): ContadorDaAtencao[] {
+  const conta = (
+    escolhe: (p: { recebidos: number; enviados: number; diasParado: number }) => number,
+  ) =>
+    projetos.reduce(
+      (acc, p) => {
+        const n = escolhe(p);
+        return n > 0 ? { quantos: acc.quantos + n, projetos: acc.projetos + 1 } : acc;
+      },
+      { quantos: 0, projetos: 0 },
+    );
+
+  const comVoce = conta((p) => p.recebidos);
+  /*
+   * PARADO é um SUBCONJUNTO de "com você", e a faixa o repete de propósito. Os
+   * dois números respondem perguntas diferentes — "quanto trabalho tenho" e
+   * "quanto dele já está me constrangendo" — e somá-los num só esconderia o
+   * segundo, que é o que faz alguém mudar o dia.
+   *
+   * Conta PROJETO parado, não achado: `diasParado` é o pior item do projeto, e
+   * não dá para saber daqui quantos itens dele passaram do limiar sem receber a
+   * lista inteira. O rótulo diz "projeto" para não mentir sobre a unidade.
+   */
+  const parados = projetos.filter((p) => p.recebidos > 0 && p.diasParado >= LIMIAR_TARJA);
+  const comOutros = conta((p) => p.enviados);
+
+  const tudo: ContadorDaAtencao[] = [
+    {
+      foco: "com-voce",
+      quantos: comVoce.quantos,
+      projetos: comVoce.projetos,
+      rotulo: `${comVoce.quantos} ${comVoce.quantos === 1 ? "achado" : "achados"} com você`,
+    },
+    {
+      foco: "parados",
+      quantos: parados.length,
+      projetos: parados.length,
+      rotulo: `${parados.length} ${parados.length === 1 ? "projeto parado" : "projetos parados"}`,
+    },
+    {
+      foco: "com-outros",
+      quantos: comOutros.quantos,
+      projetos: comOutros.projetos,
+      rotulo: `${comOutros.quantos} com outras pessoas`,
+    },
+  ];
+
+  // Contador zerado não vira "0 achados com você" — ele SOME. Uma faixa que
+  // anuncia zeros ensina a não olhar para ela.
+  return tudo.filter((c) => c.quantos > 0);
+}
+
+/**
+ * AS INICIAIS de quem responde por um achado.
+ *
+ * Duas letras quando há dois nomes ("Carla Mendes" → CM), uma quando há um só
+ * ("Carla" → C). O e-mail perde o domínio antes — `victor.almeida@prosul.com`
+ * é `VA`, e não `VI`, porque o ponto separa nome de sobrenome tão bem quanto o
+ * espaço.
+ *
+ * NUNCA substitui o nome sozinha. A regra do cartão é: uma pessoa mostra o
+ * NOME (é de quem cobrar, e cobrar exige saber de quem); duas ou mais mostram
+ * a pilha de iniciais, porque três nomes numa linha de resumo é a repetição
+ * que esta tela existe para tirar. O tooltip devolve os nomes inteiros.
+ */
+export function iniciaisDe(valor: string): string {
+  const local = (valor.includes("@") ? valor.split("@")[0] : valor).trim();
+  const partes = local.split(/[\s._-]+/).filter(Boolean);
+
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0][0].toUpperCase();
+
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}

@@ -2231,3 +2231,15 @@ textarea {
     height: 20px;
   }
 }
+
+/* O painel de personalizar a Home, entrando pela direita.
+
+   TRANSLADA E OPACIFICA, e nada mais: o painel tem borda esquerda, texto e uma
+   lista arrastavel dentro, e animar largura ou `clip-path` obrigaria o
+   navegador a refazer o layout do conteudo a cada quadro. `transform` +
+   `opacity` sao as duas propriedades que o compositor resolve sozinho -- mesma
+   razao do veu da partida (§5). */
+@keyframes nx-entra-da-direita {
+  from { transform: translateX(12px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}

@@ -120,7 +120,29 @@ export type Painel = {
   };
 };
 
-const LIMITE_PROJETOS = 8;
+/*
+ * O TETO — 24, e não mais 8.
+ *
+ * Ele era 8 porque a lista mostrava 8, e essa igualdade escondia dois defeitos
+ * medidos em 09/09/2026 com a Home semeada:
+ *
+ *  1. A ORDENAÇÃO DAQUI é `diasParado → itens.length → recência`, e
+ *     `diasParado` só conta achado RECEBIDO. Toda obra com achado ENVIADO
+ *     (`itens.length > 0`, `diasParado === 0`) passava na frente de qualquer
+ *     obra sem achado nenhum — então "volume montado", "auditoria em curso" e
+ *     "sem pendência" NUNCA chegavam à tela num escritório ocupado. Quem só
+ *     monta volume sumia da Home no dia em que mais usava o produto;
+ *  2. QUEM ORDENA AGORA É O NAVEGADOR (as quatro ordens de
+ *     [[lib/atencao-do-painel.ts]]), e ordenar 8 já cortados é ordenar a
+ *     amostra errada: um "A–Z" sobre os 8 mais parados não é o alfabeto da
+ *     lista, é o alfabeto de um recorte.
+ *
+ * 24 é o teto do CONJUNTO que viaja; quantos aparecem é `projetosVisiveis`,
+ * que a pessoa escolhe. Continua sendo um teto — sem ele, quem tem 400 obras
+ * carrega 400 —, mas agora ele corta onde ninguém procura, e não no meio da
+ * primeira dobra.
+ */
+const LIMITE_PROJETOS = 24;
 const LIMITE_RECENTES = 4;
 /**
  * Quantos PROJETOS a home lista. Seis cabem sem rolagem na primeira dobra, e a
@@ -145,10 +167,28 @@ export async function painelDe(args: {
   email: string;
   userId: string | null;
   organizationId: string;
+  /**
+   * DE QUEM É A LISTA — "meus" (o padrão) ou "todos" do escritório.
+   *
+   * A Home nasceu respondendo só "onde EU estava", e a pergunta ao lado dela
+   * ("o que está acontecendo aqui") não tinha tela: para ver o trabalho de
+   * outra pessoa era preciso ir a `/projetos`, que lista contrato e não
+   * trabalho. As duas abas da lista são a mesma consulta com o filtro de
+   * pessoa retirado — a de organização FICA, sempre, e é ela o portão.
+   *
+   * O que muda com "todos": as pendências deixam de exigir que você seja o
+   * destinatário ou o remetente, e as auditorias deixam de exigir que sejam
+   * suas. As conversas NÃO mudam — `NexoConversation` é por `userEmail`, e não
+   * há vínculo de organização nela; a lista de todos mostra o trabalho do
+   * escritório em achados e auditorias, e o Nexo de cada um continua sendo de
+   * cada um.
+   */
+  escopo?: "meus" | "todos";
   agora?: Date;
 }): Promise<Painel> {
   const prisma = getPrisma();
   const agora = args.agora ?? new Date();
+  const todos = args.escopo === "todos";
 
   /*
    * UMA consulta para os dois sentidos, e não duas.
@@ -162,10 +202,14 @@ export async function painelDe(args: {
       resolvedAt: null,
       assignedAt: { not: null },
       audit: { project: { organizationId: args.organizationId } },
-      OR: [
-        { assigneeEmail: args.email },
-        ...(args.userId ? [{ assignedById: args.userId }] : []),
-      ],
+      ...(todos
+        ? {}
+        : {
+            OR: [
+              { assigneeEmail: args.email },
+              ...(args.userId ? [{ assignedById: args.userId }] : []),
+            ],
+          }),
     },
     select: {
       auditId: true,
@@ -284,10 +328,10 @@ export async function painelDe(args: {
    * As auditorias recentes servem a DUAS coisas na tela: a lista "Onde você
    * parou" e a entrada dos projetos sem pendência. Uma consulta, dois usos.
    */
-  const auditorias = args.userId
+  const auditorias = (todos || args.userId)
     ? await prisma.audit.findMany({
         where: {
-          userId: args.userId,
+          ...(todos ? {} : { userId: args.userId }),
           project: { organizationId: args.organizationId },
         },
         select: {

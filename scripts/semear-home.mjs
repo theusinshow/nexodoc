@@ -72,15 +72,30 @@ const MARCA = "SIM-";
  * "N com <fulano>" nunca vira "N com 3 pessoas" — o ramo de contagem de
  * `resumoDoProjeto` ficava sem cena que o desenhasse.
  */
-const VICTOR = "victor@prosul.com";
-const CARLA = "carla@prosul.com";
-const RENATA = "renata@prosul.com";
-const GUSTAVO = "gustavo@prosul.com";
-const EQUIPE = [VICTOR, CARLA, RENATA, GUSTAVO];
+const VICTOR = "victor.almeida@prosul.com";
+const CARLA = "carla.mendes@prosul.com";
+const RENATA = "renata.brito@prosul.com";
+const GUSTAVO = "gustavo.lima@prosul.com";
+
+/*
+ * NOME E SOBRENOME, e não só o primeiro nome.
+ *
+ * A cena tinha "Victor", "Carla" — e com um nome só, `iniciaisDe` devolve UMA
+ * letra: a pilha de avatares do cartão virava `(G)(R)`, que não é iniciais, são
+ * duas letras soltas. O escritório real tem nome completo no cadastro, e a cena
+ * mentia sobre a forma do dado justamente onde a tela desenha o dado.
+ */
+const EQUIPE = [
+  { email: VICTOR, nome: "Victor Almeida" },
+  { email: CARLA, nome: "Carla Mendes" },
+  { email: RENATA, nome: "Renata Brito" },
+  { email: GUSTAVO, nome: "Gustavo Lima" },
+];
 
 const diasAtras = (d) => new Date(Date.now() - d * 24 * 60 * 60 * 1000);
 
 async function limpar() {
+  await prisma.projectEvent.deleteMany({ where: { title: { startsWith: MARCA } } });
   await prisma.nexoConversation.deleteMany({ where: { id: { startsWith: MARCA } } });
   await prisma.auditFeedback.deleteMany({ where: { targetKey: { startsWith: MARCA } } });
   await prisma.audit.deleteMany({ where: { title: { startsWith: MARCA } } });
@@ -110,10 +125,7 @@ const eu = await prisma.user.findUnique({ where: { email: EU } });
  * propósito: ninguém entra por estas contas — quem entra é o atalho de dev.
  */
 const idPorEmail = new Map();
-for (const email of EQUIPE) {
-  const bruto = email.split("@")[0];
-  const nome = bruto[0].toUpperCase() + bruto.slice(1);
-
+for (const { email, nome } of EQUIPE) {
   await prisma.organizationMember.upsert({
     where: { organizationId_email: { organizationId: ORG, email } },
     create: { organizationId: ORG, email, name: nome, role: "MEMBER", status: "ACTIVE" },
@@ -397,10 +409,69 @@ for (const [i, art] of ARTEFATOS.entries()) {
   });
 }
 
+/*
+ * A ATIVIDADE DO ESCRITÓRIO — a linha do tempo que o widget lê.
+ *
+ * `ProjectEvent` é escrita pelo produto desde sempre (auditoria, volume, capa,
+ * LD, upload) e não tinha consumidor até o widget de 09/09/2026. Sem estas
+ * linhas a cena mostrava o widget com os eventos REAIS do banco de dev — três
+ * linhas do mesmo projeto, do mesmo dia, da mesma pessoa. Não dava para julgar
+ * a densidade nem a leitura de "quem fez o quê".
+ *
+ * QUATRO PESSOAS E VOCÊ, em minutos e horas diferentes: é o que faz aparecer a
+ * distinção que o widget desenha — a sua linha em texto normal, as outras em
+ * cinza. Com um ator só, a regra não tem o que separar.
+ */
+const horasAtras = (h) => new Date(Date.now() - h * 60 * 60 * 1000);
+
+/*
+ * O ÍNDICE INCLUI AS DUAS OBRAS DE FORA de `criadas` — a só-montagem e a
+ * em-curso, criadas à parte porque não têm auditoria. Sem elas aqui, um evento
+ * apontando para `SIM104-26` derrubava a cena com `undefined.id`, e o dado que
+ * a atividade mais precisa mostrar (algo acontecendo AGORA) era justamente
+ * nessas duas.
+ */
+const TODAS = [...criadas, { code: "SIM099-26", id: soMontagem.id }, { code: "SIM104-26", id: emCurso.id }];
+const acha = (code) => TODAS.find((o) => o.code === code);
+
+const EVENTOS = [
+  { code: "SIM118-25", type: "VOLUME_GENERATED", quem: VICTOR, horas: 0.3 },
+  { code: "SIM077-26", type: "AUDIT_COMPLETED", quem: EU, horas: 1 },
+  { code: "SIM113-25", type: "LD_GENERATED", quem: CARLA, horas: 2.5 },
+  { code: "SIM104-26", type: "AUDIT_CREATED", quem: RENATA, horas: 4 },
+  { code: "SIM088-25", type: "COVER_GENERATED", quem: GUSTAVO, horas: 9 },
+  { code: "SIM047-26", type: "INPUT_UPLOADED", quem: VICTOR, horas: 26 },
+  { code: "SIM063-26", type: "AUDIT_COMPLETED", quem: EU, horas: 31 },
+  { code: "SIM031-26", type: "PROJECT_CREATED", quem: CARLA, horas: 50 },
+];
+
+for (const ev of EVENTOS) {
+  const alvo = acha(ev.code);
+  const nome =
+    ev.quem === EU
+      ? eu?.name ?? "Você"
+      : EQUIPE.find((p) => p.email === ev.quem)?.nome ?? ev.quem;
+
+  await prisma.projectEvent.create({
+    data: {
+      projectId: alvo.id,
+      actorId: ev.quem === EU ? eu?.id ?? null : idPorEmail.get(ev.quem) ?? null,
+      actorEmail: ev.quem,
+      actorName: nome,
+      type: ev.type,
+      // O prefixo é o que a limpeza procura — `title` é a única coluna de texto
+      // livre do evento, e por isso é ela que carrega a marca da cena.
+      title: `${MARCA}${ev.type}`,
+      createdAt: horasAtras(ev.horas),
+    },
+  });
+}
+
 console.log(
   `cena ${CALMO ? "CALMA" : "CHEIA"} semeada: ${criadas.length + 2} obras ` +
     `(${criadas.length} auditadas/atribuídas + 1 só montagem + 1 em curso), ` +
-    `${ARTEFATOS.length} artefatos. A home mostra 8 — o teto de lib/painel.ts.`,
+    `${ARTEFATOS.length} artefatos, ${EVENTOS.length} eventos. ` +
+    `A home mostra 8 dos 24 que o servidor manda.`,
 );
 
 if (!CALMO) {

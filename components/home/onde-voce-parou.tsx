@@ -130,7 +130,11 @@ export function OndeVoceParou({
         Onde você parou
       </h2>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-4">
+      {/* py-3 e não py-4: o card perdeu 8px de altura na dobra mais cara da
+          tela, e não perdeu nada de conteúdo — as duas linhas continuam
+          inteiras, só pararam de flutuar no meio de uma folga que não
+          separava nada. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-3">
         {/*
           O RÓTULO É A ETIQUETA DA LINHA, e não um cabeçalho de seção: ele fica
           NO bloco, à esquerda do dado que qualifica, na mesma altura. É a
@@ -141,19 +145,32 @@ export function OndeVoceParou({
           Retomar
         </span>
 
+        {/*
+          A AÇÃO SUBIU, O CÓDIGO DESCEU (09/09/2026).
+
+          A linha forte era `SIM104-26 · CHAPECÓ` e a fraca era `Auditoria do
+          memorial — ARQ`. A ordem estava invertida em relação à pergunta que o
+          bloco responde: quem clica "Continuar" está voltando para uma TAREFA,
+          não para uma pasta. O código continua ali — é o que identifica a obra
+          — mas como metadado da tarefa, que é o que ele é neste bloco.
+
+          E a troca conserta uma repetição que nem se via de tão constante: o
+          código aparecia aqui em 15px e outra vez, quatro linhas abaixo, na
+          ficha do primeiro cartão de projeto. Duas vezes o mesmo dado na mesma
+          dobra, e a segunda com mais razão de estar lá.
+        */}
         <div className="min-w-0 flex-1">
-          <p className="m-0 flex items-baseline gap-2.5">
-            <span className="truncate text-[15px] font-medium leading-snug text-foreground">
-              {daRetomada ? nomeDoProjeto(daRetomada) : ondeParou.title}
-            </span>
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-              {quando(ondeParou.updatedAt)}
-            </span>
+          <p className="m-0 truncate text-[15px] font-medium leading-snug text-foreground">
+            {ondeParou.title}
           </p>
-          <p className="m-0 mt-1 truncate font-mono text-[11.5px] leading-5 text-muted-foreground">
-            {daRetomada ? `${ondeParou.title} · ${oQueTem(daRetomada)}` : ondeParou.title}
+          <p className="m-0 mt-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[11.5px] leading-5 text-muted-foreground">
+            <span className="tracking-[0.03em] text-foreground">
+              {daRetomada ? nomeDoProjeto(daRetomada) : "sem projeto"}
+            </span>
+            {daRetomada ? <span>{oQueTem(daRetomada)}</span> : null}
+            <span className="tabular-nums">{quando(ondeParou.updatedAt)}</span>
             {daRetomada?.emCurso ? (
-              <span className="ml-2 inline-flex items-center gap-1 text-[var(--status-warning)]">
+              <span className="inline-flex items-center gap-1 text-[var(--status-warning)]">
                 <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                 análise rodando
               </span>
@@ -163,7 +180,7 @@ export function OndeVoceParou({
 
         <Link
           href={CAMINHO(ondeParou.id)}
-          className="nx-edge-7 inline-flex shrink-0 items-center gap-2 px-4 py-2.5 text-[12.5px] font-medium text-[var(--primary-foreground)] transition-colors [--nx-edge:var(--primary)] [--nx-fill:var(--primary)] hover:[--nx-edge:var(--primary-hover)] hover:[--nx-fill:var(--primary-hover)] focus-visible:outline-none"
+          className="nx-edge-7 inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[12.5px] font-medium text-[var(--primary-foreground)] transition-colors [--nx-edge:var(--primary)] [--nx-fill:var(--primary)] hover:[--nx-edge:var(--primary-hover)] hover:[--nx-fill:var(--primary-hover)] focus-visible:outline-none"
         >
           Continuar
           <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />

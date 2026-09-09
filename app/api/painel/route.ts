@@ -14,7 +14,7 @@ import { painelDe } from "@/lib/painel";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const actor = await requireActor();
 
@@ -31,11 +31,24 @@ export async function GET() {
       });
     }
 
+    /*
+     * O ESCOPO VEM DA URL, e a validação é uma comparação com a única string
+     * que abre a lista do escritório. `escopo=todos` OU nada — qualquer outro
+     * valor cai em "meus", que é o mais restrito. Filtro que erra para o lado
+     * de mostrar mais é vazamento; este erra para o lado de mostrar menos.
+     *
+     * A organização NÃO sai da consulta em nenhum dos dois casos: ela é o
+     * portão, e este parâmetro só escolhe se o filtro DE PESSOA se aplica.
+     */
+    const escopo =
+      new URL(request.url).searchParams.get("escopo") === "todos" ? "todos" : "meus";
+
     return NextResponse.json(
       await painelDe({
         email: actor.email,
         userId: actor.userId,
         organizationId: actor.organizationId,
+        escopo,
       }),
     );
   } catch (err) {
