@@ -6,7 +6,16 @@ import { MarcaViva } from "@/components/brand/marca-viva";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb/AgentOrb";
 
 import type { Slide } from "./palco";
-import { Entra, Linha, Marcador, MONO, paragrafo, rotulo, secundario } from "./pecas";
+import {
+  Contador,
+  Entra,
+  Linha,
+  Marcador,
+  MONO,
+  paragrafo,
+  rotulo,
+  secundario,
+} from "./pecas";
 
 /**
  * O CONTEÚDO DO DECK.
@@ -17,8 +26,8 @@ import { Entra, Linha, Marcador, MONO, paragrafo, rotulo, secundario } from "./p
  *     Os custos saíram de `AiUsageEvent`; os achados, de execuções reais. Onde
  *     há premissa, a palavra fica na tela, em âmbar. Um número inventado que o
  *     diretor detecte contamina os que estão certos.
- *  2. **Nenhuma cifra de preço nas folhas 01 a 23.** Valor do piloto e
- *     propriedade do software vivem em `/apresentacao/valores`, e a folha 21
+ *  2. **Nenhuma cifra de preço nas folhas 01 a 19.** Valor do piloto e
+ *     propriedade do software vivem em `/apresentacao/valores`, e a folha 17
  *     só traz o BOTÃO que abre aquela rota. Uma seta a mais no fim do deck não
  *     pode revelar a proposta comercial antes da hora — mas o preço também não
  *     pode ficar fora do alcance de quem apresenta, que era o custo de mantê-lo
@@ -31,63 +40,6 @@ import { Entra, Linha, Marcador, MONO, paragrafo, rotulo, secundario } from "./p
  * de quando uma corrida específica rodou — data em slide envelhece o argumento
  * e convida a pergunta errada.
  */
-
-/* ───────────────────────────────────────────────────────── peças de movimento */
-
-/**
- * O número corre até o valor. Não é enfeite: o valor É o argumento, e vê-lo
- * chegar prende o olho nele por um segundo a mais do que vê-lo já parado.
- *
- * Respeita movimento reduzido — quem pediu para nada se mexer recebe o número
- * final, e não uma contagem congelada no zero.
- */
-function Contador({
-  ate,
-  duracao = 900,
-  atraso = 0,
-  style,
-}: {
-  ate: number;
-  duracao?: number;
-  atraso?: number;
-  style?: CSSProperties;
-}) {
-  const [valor, setValor] = useState(0);
-
-  useEffect(() => {
-    let quadro = 0;
-    let inicio = 0;
-
-    /*
-     * A decisão sobre movimento reduzido mora DENTRO do temporizador, e não no
-     * corpo do efeito. Não é preciosismo: `setState` síncrono num efeito dispara
-     * renderização em cascata, e o lint do projeto recusa — com razão. Aqui a
-     * chamada já nasce assíncrona, que é o contrato que a regra pede.
-     */
-    const relogio = setTimeout(() => {
-      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-        setValor(ate);
-        return;
-      }
-
-      const passo = (agora: number) => {
-        if (!inicio) inicio = agora;
-        const t = Math.min(1, (agora - inicio) / duracao);
-        // Desaceleração cúbica: chega devagar, como um ponteiro assentando.
-        setValor(Math.round(ate * (1 - Math.pow(1 - t, 3))));
-        if (t < 1) quadro = requestAnimationFrame(passo);
-      };
-      quadro = requestAnimationFrame(passo);
-    }, atraso);
-
-    return () => {
-      clearTimeout(relogio);
-      cancelAnimationFrame(quadro);
-    };
-  }, [ate, atraso, duracao]);
-
-  return <span style={style}>{valor}</span>;
-}
 
 /* ────────────────────────────────────────────────── peças do diagrama do motor */
 
@@ -111,7 +63,9 @@ function Passo({
         padding: "16px 18px",
         borderRadius: 4,
         border: `1px solid ${destaque ? "var(--primary)" : "var(--border)"}`,
-        background: destaque ? "rgb(0 166 147 / 0.10)" : "var(--nexodoc-raised)",
+        background: destaque
+          ? "rgb(0 166 147 / 0.10)"
+          : "var(--nexodoc-raised)",
         fontSize: 21,
         lineHeight: 1.3,
         color: "var(--foreground)",
@@ -155,7 +109,13 @@ function Liga({ atraso }: { atraso: number }) {
  * A espinha invade a lacuna de 40px entre as metades (`-20px`) para as duas se
  * encontrarem no meio — sem isso a linha ficaria partida no vão.
  */
-function MetadeDoColchete({ paraBaixo, atraso }: { paraBaixo: boolean; atraso: number }) {
+function MetadeDoColchete({
+  paraBaixo,
+  atraso,
+}: {
+  paraBaixo: boolean;
+  atraso: number;
+}) {
   const cor = "rgb(91 218 198 / 0.4)";
   return (
     <div aria-hidden="true" style={{ flex: 1, position: "relative" }}>
@@ -298,34 +258,62 @@ function BotaoDosValores() {
  */
 function Objecao({
   pergunta,
+  titulo,
+  linhaFina,
   respostas,
   fecho,
 }: {
-  pergunta: string;
+  /** A objeção, dita com as palavras de quem a faria. Vai entre aspas. */
+  pergunta?: string;
+  /** Alternativa à pergunta: a folha se anuncia como afirmação, não objeção. */
+  titulo?: string;
+  /** A linha de apoio do título. Só faz sentido junto de `titulo`. */
+  linhaFina?: string;
   respostas: readonly (readonly [string, string])[];
   fecho: string;
 }) {
   return (
     <>
-      <Entra atraso={0}>
-        <span style={rotulo}>A pergunta</span>
-      </Entra>
-      <Entra atraso={100}>
-        <p
-          style={{
-            margin: "18px 0 0",
-            maxWidth: "46ch",
-            fontFamily: MONO,
-            fontSize: 40,
-            lineHeight: 1.34,
-            letterSpacing: "-0.012em",
-            color: "var(--foreground)",
-            textWrap: "pretty",
-          }}
-        >
-          {`“${pergunta}”`}
-        </p>
-      </Entra>
+      {titulo ? (
+        <>
+          <Entra atraso={0}>
+            <h2 className="ap-titulo" style={{ margin: 0 }}>
+              {titulo}
+            </h2>
+          </Entra>
+          {linhaFina ? (
+            <Entra atraso={100}>
+              <p
+                style={{ ...secundario, maxWidth: "58ch", margin: "16px 0 0" }}
+              >
+                {linhaFina}
+              </p>
+            </Entra>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Entra atraso={0}>
+            <span style={rotulo}>A pergunta</span>
+          </Entra>
+          <Entra atraso={100}>
+            <p
+              style={{
+                margin: "18px 0 0",
+                maxWidth: "46ch",
+                fontFamily: MONO,
+                fontSize: 40,
+                lineHeight: 1.34,
+                letterSpacing: "-0.012em",
+                color: "var(--foreground)",
+                textWrap: "pretty",
+              }}
+            >
+              {`“${pergunta}”`}
+            </p>
+          </Entra>
+        </>
+      )}
 
       <div
         style={{
@@ -350,7 +338,13 @@ function Objecao({
               gap: 14,
             }}
           >
-            <span style={{ fontFamily: MONO, fontSize: 24, color: "var(--nexodoc-accent)" }}>
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: 24,
+                color: "var(--nexodoc-accent)",
+              }}
+            >
               {String(i + 1).padStart(2, "0")}
             </span>
             <p
@@ -543,10 +537,17 @@ export const SLIDES: readonly Slide[] = [
             </p>
           </Entra>
           <Entra atraso={240}>
-            <p style={{ ...secundario, marginTop: 30, fontSize: 30, lineHeight: 1.42 }}>
-              Ele monta os documentos que acompanham o projeto — listas de documentos, capas e
-              volumes — e confere o que já está escrito nos memoriais, apontando o que não
-              fecha.
+            <p
+              style={{
+                ...secundario,
+                marginTop: 30,
+                fontSize: 30,
+                lineHeight: 1.42,
+              }}
+            >
+              Ele monta os documentos que acompanham o projeto — listas de
+              documentos, capas e volumes — e confere o que já está escrito nos
+              memoriais, apontando o que não fecha.
             </p>
           </Entra>
         </div>
@@ -565,14 +566,25 @@ export const SLIDES: readonly Slide[] = [
           </Entra>
           <div style={{ marginTop: 12 }}>
             {[
-              ["Lê o documento inteiro.", "Não é amostragem nem busca por palavra-chave."],
-              ["Não altera o documento.", "Aponta onde está e o que fazer. Quem edita é você."],
+              [
+                "Lê o documento inteiro.",
+                "Não é amostragem nem busca por palavra-chave.",
+              ],
+              [
+                "Não altera o documento.",
+                "Aponta onde está e o que fazer. Quem edita é você.",
+              ],
               [
                 "Não substitui revisão técnica.",
                 "Faz a conferência que hoje ninguém tem tempo de fazer.",
               ],
             ].map(([titulo, texto], i) => (
-              <Marcador key={titulo} titulo={titulo} texto={texto} atraso={520 + i * 140} />
+              <Marcador
+                key={titulo}
+                titulo={titulo}
+                texto={texto}
+                atraso={520 + i * 140}
+              />
             ))}
           </div>
         </div>
@@ -604,11 +616,14 @@ export const SLIDES: readonly Slide[] = [
         </Entra>
         <Entra atraso={120}>
           <p style={{ ...secundario, margin: "0 0 16px", maxWidth: "76ch" }}>
-            O documento entra, o sistema lê, e o caminho se decide pelo que ele é.
+            O documento entra, o sistema lê, e o caminho se decide pelo que ele
+            é.
           </p>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", gap: 0, alignItems: "stretch" }}>
+        <div
+          style={{ flex: 1, display: "flex", gap: 0, alignItems: "stretch" }}
+        >
           <div
             className="ap-surge"
             style={{
@@ -623,7 +638,9 @@ export const SLIDES: readonly Slide[] = [
             }}
           >
             <MarcaViva size={112} parada />
-            <span style={{ ...rotulo, fontSize: 19, textAlign: "center" }}>O motor</span>
+            <span style={{ ...rotulo, fontSize: 19, textAlign: "center" }}>
+              O motor
+            </span>
           </div>
 
           <div
@@ -640,7 +657,14 @@ export const SLIDES: readonly Slide[] = [
             <MetadeDoColchete paraBaixo={false} atraso={1100} />
           </div>
 
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 40 }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 40,
+            }}
+          >
             <Ramo
               titulo="Memorial descritivo → conferência"
               cor="var(--nexodoc-accent)"
@@ -671,9 +695,9 @@ export const SLIDES: readonly Slide[] = [
 
         <Entra atraso={2000}>
           <p className="ap-fonte" style={{ marginTop: 22 }}>
-            Regra determinística é conta e comparação: não inventa, e a IA não pode apagá-la. A
-            IA lê o que regra nenhuma alcança. A validação é a etapa que remove o achado sem
-            sustentação.
+            Regra determinística é conta e comparação: não inventa, e a IA não
+            pode apagá-la. A IA lê o que regra nenhuma alcança. A validação é a
+            etapa que remove o achado sem sustentação.
           </p>
         </Entra>
       </>
@@ -695,8 +719,8 @@ export const SLIDES: readonly Slide[] = [
         </Entra>
         <Entra atraso={120}>
           <p style={{ ...secundario, margin: "0 0 40px", maxWidth: "80ch" }}>
-            A primeira leitura levanta. A segunda existe para derrubar o que a primeira afirmou
-            sem sustentação.
+            A primeira leitura levanta. A segunda existe para derrubar o que a
+            primeira afirmou sem sustentação.
           </p>
         </Entra>
 
@@ -734,7 +758,13 @@ export const SLIDES: readonly Slide[] = [
                 gap: 16,
               }}
             >
-              <span style={{ fontFamily: MONO, fontSize: 25, color: "var(--nexodoc-accent)" }}>
+              <span
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 25,
+                  color: "var(--nexodoc-accent)",
+                }}
+              >
                 {c.n}
               </span>
               <p
@@ -770,9 +800,24 @@ export const SLIDES: readonly Slide[] = [
           <h2 className="ap-titulo">Um memorial inteiro, conferido</h2>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <Linha chave="Documento" valor="Memorial geral de uma UBS" atraso={140} />
-          <Linha chave="Páginas" valor={<Contador ate={218} atraso={300} />} atraso={240} />
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <Linha
+            chave="Documento"
+            valor="Memorial geral de uma UBS"
+            atraso={140}
+          />
+          <Linha
+            chave="Páginas"
+            valor={<Contador ate={218} atraso={300} />}
+            atraso={240}
+          />
           <Linha
             chave="Achados"
             valor={
@@ -784,18 +829,24 @@ export const SLIDES: readonly Slide[] = [
             }
             atraso={340}
           />
-          <Linha chave="Tempo de leitura" valor="cerca de 6 minutos" atraso={440} />
+          <Linha
+            chave="Tempo de leitura"
+            valor="cerca de 6 minutos"
+            atraso={440}
+          />
           <Linha
             chave="Custo da execução"
-            valor={<span style={{ color: "var(--nexodoc-accent)" }}>US$ 1,49</span>}
+            valor={
+              <span style={{ color: "var(--nexodoc-accent)" }}>US$ 1,49</span>
+            }
             atraso={540}
           />
         </div>
 
         <Entra atraso={720}>
           <p className="ap-fonte">
-            Custo lido do registro de uso do próprio sistema, não estimado. O tempo varia com o
-            tamanho do documento.
+            Custo lido do registro de uso do próprio sistema, não estimado. O
+            tempo varia com o tamanho do documento.
           </p>
         </Entra>
       </>
@@ -817,7 +868,10 @@ export const SLIDES: readonly Slide[] = [
         <div style={{ display: "flex", gap: 0 }}>
           {[
             ["Cada projetista", "confere o próprio projeto"],
-            ["Sem tempo dedicado", "a conferência disputa espaço com a entrega"],
+            [
+              "Sem tempo dedicado",
+              "a conferência disputa espaço com a entrega",
+            ],
             ["Uma a duas horas", "quando de fato acontece"],
           ].map(([titulo, texto], i) => (
             <div
@@ -863,7 +917,8 @@ export const SLIDES: readonly Slide[] = [
               textWrap: "pretty",
             }}
           >
-            Isto não é um processo caro para substituir. É um controle que hoje não existe.
+            Isto não é um processo caro para substituir. É um controle que hoje
+            não existe.
           </p>
         </Entra>
       </>
@@ -884,7 +939,13 @@ export const SLIDES: readonly Slide[] = [
 
         <div style={{ flex: 1, display: "flex", gap: 0 }}>
           <div
-            style={{ flex: 1, paddingRight: 56, display: "flex", flexDirection: "column", gap: 26 }}
+            style={{
+              flex: 1,
+              paddingRight: 56,
+              display: "flex",
+              flexDirection: "column",
+              gap: 26,
+            }}
           >
             <Entra atraso={140}>
               <p
@@ -903,9 +964,10 @@ export const SLIDES: readonly Slide[] = [
             </Entra>
             <Entra atraso={300}>
               <p style={secundario}>
-                Não é falta de competência: é como a leitura funciona. E a consequência é sempre
-                a mesma — na prática, a primeira revisão de verdade só acontece quando o projeto
-                já está na mão do cliente.
+                Não é falta de competência: é como a leitura funciona. E a
+                consequência é sempre a mesma — na prática, a primeira revisão
+                de verdade só acontece quando o projeto já está na mão do
+                cliente.
               </p>
             </Entra>
             <Entra atraso={460}>
@@ -949,8 +1011,9 @@ export const SLIDES: readonly Slide[] = [
             </Entra>
             <Entra atraso={780}>
               <p style={secundario}>
-                O texto-base é reaproveitado de um projeto para o outro. Um erro nele não erra um
-                projeto: erra todos, até que alguém finalmente o encontre.
+                O texto-base é reaproveitado de um projeto para o outro. Um erro
+                nele não erra um projeto: erra todos, até que alguém finalmente
+                o encontre.
               </p>
             </Entra>
             <Entra atraso={940}>
@@ -985,15 +1048,29 @@ export const SLIDES: readonly Slide[] = [
 
         <div style={{ flex: 1, display: "flex", gap: 0 }}>
           <div
-            style={{ flex: 1, paddingRight: 56, display: "flex", flexDirection: "column", gap: 24 }}
+            style={{
+              flex: 1,
+              paddingRight: 56,
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}
           >
             <Entra atraso={120}>
               <span style={rotulo}>A aritmética</span>
             </Entra>
             <Entra atraso={240}>
-              <p style={{ margin: 0, fontFamily: MONO, fontSize: 34, color: "var(--foreground)" }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: MONO,
+                  fontSize: 34,
+                  color: "var(--foreground)",
+                }}
+              >
                 3 responsáveis × 3 dias × 8 h ={" "}
-                <Contador ate={72} atraso={420} style={{ fontWeight: 500 }} /> horas
+                <Contador ate={72} atraso={420} style={{ fontWeight: 500 }} />{" "}
+                horas
               </p>
             </Entra>
             <Entra atraso={400}>
@@ -1011,7 +1088,11 @@ export const SLIDES: readonly Slide[] = [
             </Entra>
             <Entra
               atraso={580}
-              style={{ marginTop: 12, paddingTop: 26, borderTop: "1px solid var(--border)" }}
+              style={{
+                marginTop: 12,
+                paddingTop: 26,
+                borderTop: "1px solid var(--border)",
+              }}
             >
               <span style={{ ...rotulo, display: "block", marginBottom: 12 }}>
                 Só de horas paradas
@@ -1061,7 +1142,12 @@ export const SLIDES: readonly Slide[] = [
                   "Dentro e fora da empresa, e por muito mais tempo do que os três dias.",
                 ],
               ].map(([titulo, texto], i) => (
-                <Marcador key={titulo} titulo={titulo} texto={texto} atraso={840 + i * 160} />
+                <Marcador
+                  key={titulo}
+                  titulo={titulo}
+                  texto={texto}
+                  atraso={840 + i * 160}
+                />
               ))}
             </div>
           </div>
@@ -1085,7 +1171,14 @@ export const SLIDES: readonly Slide[] = [
           </h2>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
           {[
             [
               "Peca pelo excesso.",
@@ -1109,7 +1202,9 @@ export const SLIDES: readonly Slide[] = [
               titulo={titulo}
               texto={texto}
               atraso={120 + i * 130}
-              cor={i === 0 ? "var(--status-warning)" : "var(--muted-foreground)"}
+              cor={
+                i === 0 ? "var(--status-warning)" : "var(--muted-foreground)"
+              }
             />
           ))}
         </div>
@@ -1156,7 +1251,12 @@ export const SLIDES: readonly Slide[] = [
                 "Quando alguém marca um achado como falso positivo ou aponta o que faltou, isso vira medida de qualidade e ajuste de regra aqui dentro — fica na PROSUL e não sai para lugar nenhum.",
               ],
             ].map(([titulo, texto], i) => (
-              <Marcador key={titulo} titulo={titulo} texto={texto} atraso={140 + i * 150} />
+              <Marcador
+                key={titulo}
+                titulo={titulo}
+                texto={texto}
+                atraso={140 + i * 150}
+              />
             ))}
           </div>
           <div>
@@ -1174,7 +1274,12 @@ export const SLIDES: readonly Slide[] = [
                 "Ao ser atingido, o sistema recusa a chamada em vez de continuar gastando.",
               ],
             ].map(([titulo, texto], i) => (
-              <Marcador key={titulo} titulo={titulo} texto={texto} atraso={600 + i * 150} />
+              <Marcador
+                key={titulo}
+                titulo={titulo}
+                texto={texto}
+                atraso={600 + i * 150}
+              />
             ))}
           </div>
         </div>
@@ -1274,11 +1379,15 @@ export const SLIDES: readonly Slide[] = [
                   alignSelf: "flex-start",
                   padding: "8px 14px",
                   borderRadius: 3,
-                  background: bloco.seloOk ? "var(--status-ok-bg)" : "var(--nexodoc-raised)",
+                  background: bloco.seloOk
+                    ? "var(--status-ok-bg)"
+                    : "var(--nexodoc-raised)",
                   fontFamily: MONO,
                   fontSize: 21,
                   letterSpacing: "0.05em",
-                  color: bloco.seloOk ? "var(--status-ok)" : "var(--muted-foreground)",
+                  color: bloco.seloOk
+                    ? "var(--status-ok)"
+                    : "var(--muted-foreground)",
                 }}
               >
                 {bloco.selo}
@@ -1291,337 +1400,12 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Quanto custa",
+    rotulo: "Como ela se paga",
     numero: "12",
     denso: true,
     bloco: "O dinheiro",
     notas:
-      "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.",
-    corpo: (
-      <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            Quanto custa operar
-          </h2>
-        </Entra>
-        <Entra atraso={100}>
-          <p style={{ ...secundario, margin: "0 0 30px" }}>
-            O custo por execução é medido no próprio sistema. O total mensal é{" "}
-            <span className="ap-premissa">estimativa</span> — varia com quantos documentos
-            passarem.
-          </p>
-        </Entra>
-
-        <div style={{ flex: 1, display: "flex", gap: 0 }}>
-          <div style={{ width: 560, flex: "none", paddingRight: 56 }}>
-            <Entra atraso={200}>
-              <span style={rotulo}>Medido por execução</span>
-            </Entra>
-            <div style={{ marginTop: 16 }}>
-              {[
-                ["Conferência de um memorial", "US$ 1,50", "218 páginas, leitura profunda"],
-                ["Leitura de um selo de prancha", "US$ 0,001", "frações de centavo por folha"],
-              ].map(([o, quanto, nota], i) => (
-                <Entra
-                  key={o}
-                  atraso={300 + i * 160}
-                  style={{ padding: "20px 0", borderTop: "1px solid var(--border)" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      gap: 20,
-                    }}
-                  >
-                    <span style={{ fontSize: 26, color: "var(--foreground)" }}>{o}</span>
-                    <span
-                      style={{
-                        fontFamily: MONO,
-                        fontSize: 32,
-                        color: "var(--nexodoc-accent)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {quanto}
-                    </span>
-                  </div>
-                  <p style={{ margin: "6px 0 0", fontFamily: MONO, fontSize: 21, color: "#5f6b72" }}>
-                    {nota}
-                  </p>
-                </Entra>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              paddingLeft: 56,
-              borderLeft: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={620}>
-              <span style={rotulo}>Estimativa mensal, no volume do escritório</span>
-            </Entra>
-            <div style={{ marginTop: 16, flex: 1 }}>
-              {[
-                ["Conferência de memoriais", "cerca de 16 por mês", "US$ 24"],
-                ["Montagem de listas e volumes", "uso corrente", "menos de US$ 1"],
-                ["Servidor", "infraestrutura", "US$ 25"],
-                ["Banco de dados", "infraestrutura", "US$ 5"],
-              ].map(([item, base, valor], i) => (
-                <Entra
-                  key={item}
-                  atraso={720 + i * 120}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "baseline",
-                    gap: "0 24px",
-                    padding: "18px 0",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                >
-                  <div>
-                    <p style={{ margin: 0, fontSize: 26, color: "var(--foreground)" }}>{item}</p>
-                    <p
-                      style={{ margin: "4px 0 0", fontFamily: MONO, fontSize: 21, color: "#5f6b72" }}
-                    >
-                      {base}
-                    </p>
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 28, color: "var(--foreground)" }}>
-                    {valor}
-                  </span>
-                </Entra>
-              ))}
-            </div>
-
-            <Entra
-              atraso={1180}
-              style={{
-                paddingTop: 22,
-                borderTop: "1px solid var(--nexodoc-accent)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 20,
-              }}
-            >
-              <span style={{ ...rotulo, fontSize: 24 }}>Ordem de grandeza</span>
-              <span
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 44,
-                  fontWeight: 500,
-                  letterSpacing: "-0.02em",
-                  color: "var(--nexodoc-accent)",
-                }}
-              >
-                ≈ R$ 285 / mês
-              </span>
-            </Entra>
-            <Entra atraso={1300}>
-              <p className="ap-fonte">
-                Convertido a <span className="ap-premissa">R$ 5,18 por dólar</span> — atualizar a
-                cotação antes de apresentar.
-              </p>
-            </Entra>
-          </div>
-        </div>
-      </>
-    ),
-  },
-
-  {
-    rotulo: "O que custou construir",
-    numero: "13",
-    denso: true,
-    bloco: "O dinheiro",
-    notas:
-      "O gasto em dinheiro NAO e estimativa: sai do registro de uso do proprio sistema, chamada por chamada, e o painel administrativo mostra a mesma soma. A hora de desenvolvedor junior e o unico numero inventado desta folha, e a palavra estimativa fica na tela por isso. Se perguntarem por que a ferramenta de programacao entra na conta: porque sem ela este software nao existiria em seis meses, e ela continua sendo paga enquanto eu mantiver o produto.",
-    corpo: (
-      <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 10 }}>
-            O que custou construir
-          </h2>
-        </Entra>
-        <Entra atraso={100}>
-          <p style={{ ...secundario, margin: "0 0 26px" }}>
-            O gasto em dinheiro está medido no próprio sistema, chamada por chamada. O tempo é{" "}
-            <span className="ap-premissa">estimativa</span> — e nenhuma dessas horas foi paga pela
-            PROSUL.
-          </p>
-        </Entra>
-
-        <div style={{ flex: 1, display: "flex", gap: 0 }}>
-          <div style={{ flex: 1.15, paddingRight: 52, display: "flex", flexDirection: "column" }}>
-            <Entra atraso={200}>
-              <span style={rotulo}>Em dinheiro — medido</span>
-            </Entra>
-            <div style={{ marginTop: 14, flex: 1 }}>
-              {[
-                ["Modelos de IA", "3.751 chamadas, três meses", "US$ 64"],
-                ["Ferramenta de programação", "assinatura, seis meses", "US$ 600"],
-                ["Servidor e domínio", "do período de construção", "US$ 26"],
-              ].map(([item, base, valor], i) => (
-                <Entra
-                  key={item}
-                  atraso={300 + i * 130}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "baseline",
-                    gap: "0 24px",
-                    padding: "17px 0",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                >
-                  <div>
-                    <p style={{ margin: 0, fontSize: 26, color: "var(--foreground)" }}>{item}</p>
-                    <p
-                      style={{ margin: "4px 0 0", fontFamily: MONO, fontSize: 21, color: "#5f6b72" }}
-                    >
-                      {base}
-                    </p>
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 28, color: "var(--foreground)" }}>
-                    {valor}
-                  </span>
-                </Entra>
-              ))}
-            </div>
-            <Entra
-              atraso={720}
-              style={{
-                paddingTop: 18,
-                borderTop: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 20,
-              }}
-            >
-              <span style={{ ...rotulo, fontSize: 22 }}>Somado</span>
-              <span style={{ fontFamily: MONO, fontSize: 34, color: "var(--foreground)" }}>
-                R$ 3.576
-              </span>
-            </Entra>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              paddingLeft: 52,
-              borderLeft: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={820}>
-              <span style={rotulo}>Em tempo — estimativa</span>
-            </Entra>
-            <Entra atraso={940} style={{ marginTop: 20 }}>
-              <span
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 62,
-                  fontWeight: 500,
-                  letterSpacing: "-0.03em",
-                  color: "var(--foreground)",
-                }}
-              >
-                <Contador ate={700} atraso={1040} /> horas
-              </span>
-              <p style={{ ...secundario, fontSize: 24, marginTop: 8 }}>
-                Noites e fins de semana, ao longo de seis meses.
-              </p>
-            </Entra>
-            <Entra atraso={1160} style={{ marginTop: 22 }}>
-              <p style={{ margin: 0, fontFamily: MONO, fontSize: 26, color: "var(--muted-foreground)" }}>
-                Hora de desenvolvedor júnior{" "}
-                <span className="ap-premissa">(estimativa: R$ 30 a R$ 50)</span>
-              </p>
-            </Entra>
-            <div className="ap-cresce" />
-            <Entra
-              atraso={1300}
-              style={{ paddingTop: 18, borderTop: "1px solid var(--border)" }}
-            >
-              <span style={{ ...rotulo, fontSize: 22, display: "block", marginBottom: 8 }}>
-                Só de trabalho
-              </span>
-              <span
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 40,
-                  fontWeight: 500,
-                  letterSpacing: "-0.02em",
-                  color: "var(--foreground)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                R$ 21.000 a R$ 35.000
-              </span>
-            </Entra>
-          </div>
-        </div>
-
-        <Entra
-          atraso={1460}
-          style={{
-            marginTop: 22,
-            paddingTop: 22,
-            borderTop: "1px solid var(--nexodoc-accent)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: 40,
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "44ch",
-              fontSize: 32,
-              fontWeight: 500,
-              letterSpacing: "-0.018em",
-              lineHeight: 1.28,
-              color: "var(--nexodoc-accent)",
-              textWrap: "pretty",
-            }}
-          >
-            O piloto não compra seis meses de acesso. Compra o que já está construído.
-          </p>
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 44,
-              fontWeight: 500,
-              letterSpacing: "-0.025em",
-              color: "var(--foreground)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            R$ 24.600 a R$ 38.600
-          </span>
-        </Entra>
-      </>
-    ),
-  },
-
-  {
-    rotulo: "Como ela se paga",
-    numero: "14",
-    denso: true,
-    bloco: "O dinheiro",
-    notas:
-      "ESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nO terceiro bloco e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar. Todos na sala sabem de qual entrega estamos falando.",
+      "DE ONDE SAI O R$ 285: a folha que abria essa conta saiu do deck em 09/09/2026 e vive na folha B do anexo. Se perguntarem como se chega nele, abrir o botão da folha 17 em vez de improvisar a conta de cabeça.\n\nESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nO terceiro bloco e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar. Todos na sala sabem de qual entrega estamos falando.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -1659,7 +1443,12 @@ export const SLIDES: readonly Slide[] = [
               "Este é o retorno que não entra em planilha nenhuma, e é o único que a sala inteira já viu de perto. Um projeto devolvido não custa só as horas paradas que a folha da conta somou.",
             ],
           ].map(([titulo, texto], i) => (
-            <Marcador key={titulo} titulo={titulo} texto={texto} atraso={160 + i * 190} />
+            <Marcador
+              key={titulo}
+              titulo={titulo}
+              texto={texto}
+              atraso={160 + i * 190}
+            />
           ))}
         </div>
 
@@ -1689,126 +1478,21 @@ export const SLIDES: readonly Slide[] = [
               textWrap: "pretty",
             }}
           >
-            Operar custa R$ 285 por mês. O episódio que já aconteceu custou entre R$ 3.600 e
-            R$ 6.480 — e isso foi só a parte que deu para somar.
+            Operar custa R$ 285 por mês. O episódio que já aconteceu custou
+            entre R$ 3.600 e R$ 6.480 — e isso foi só a parte que deu para
+            somar.
           </p>
         </Entra>
       </>
     ),
   },
 
-  {
-    rotulo: "O piloto",
-    numero: "15",
-    denso: true,
-    bloco: "O pedido",
-    notas:
-      "O pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Não falar de valor aqui: a folha 21 tem o botão que abre os valores, e ele só se clica se perguntarem.",
-    corpo: (
-      <>
-        <Entra atraso={0}>
-          <h2 className="ap-titulo" style={{ marginBottom: 28 }}>
-            Piloto de seis meses
-          </h2>
-        </Entra>
-
-        <div style={{ flex: 1, display: "flex", gap: 0 }}>
-          <div
-            style={{ flex: 1, paddingRight: 52, display: "flex", flexDirection: "column", gap: 26 }}
-          >
-            <Entra atraso={140}>
-              <span style={rotulo}>O que entra</span>
-              <p style={{ ...paragrafo, marginTop: 12 }}>
-                Conferência de memorial descritivo e montagem de LDs, capas e volumes, com os
-                usuários definidos junto com a diretoria.
-              </p>
-            </Entra>
-            <Entra atraso={300}>
-              <span style={rotulo}>O que eu entrego</span>
-              <p style={{ ...paragrafo, marginTop: 12 }}>
-                Acesso, acompanhamento próximo, correção dos problemas que aparecerem e o
-                modelo-padrão de memorial corrigido.
-              </p>
-            </Entra>
-            <Entra atraso={460}>
-              <span style={rotulo}>Como saberemos se deu certo</span>
-              <div style={{ marginTop: 10 }}>
-                {[
-                  "Nenhum achado com evidência que não exista no documento.",
-                  "Precisão julgada por quem usou, disciplina por disciplina.",
-                  "Listas e volumes reais montados sem perda de trabalho.",
-                  "Custo mensal dentro do estimado.",
-                ].map((t) => (
-                  <p key={t} style={{ ...secundario, fontSize: 24, marginTop: 8 }}>
-                    {t}
-                  </p>
-                ))}
-              </div>
-            </Entra>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              paddingLeft: 52,
-              borderLeft: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 22,
-            }}
-          >
-            <Entra atraso={640}>
-              <span style={{ ...rotulo, color: "var(--primary)" }}>O que eu peço em troca</span>
-            </Entra>
-            <Entra atraso={780}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 40,
-                  fontWeight: 500,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.26,
-                  color: "var(--foreground)",
-                  textWrap: "pretty",
-                }}
-              >
-                Que quem usar julgue cada achado: verdadeiro, duvidoso ou falso.
-              </p>
-            </Entra>
-            <Entra atraso={920}>
-              <p style={secundario}>
-                É a peça que falta no produto. A planilha de julgamento já existe e está pronta
-                para receber esse veredito — e é ele que transforma a única medida em aberto num
-                número.
-              </p>
-            </Entra>
-            <div className="ap-cresce" />
-            <Entra atraso={1060} style={{ paddingTop: 26, borderTop: "1px solid var(--border)" }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 34,
-                  fontWeight: 500,
-                  letterSpacing: "-0.018em",
-                  lineHeight: 1.3,
-                  color: "var(--nexodoc-accent)",
-                  textWrap: "pretty",
-                }}
-              >
-                Seis meses de uso real dizem o que nenhuma apresentação diz.
-              </p>
-            </Entra>
-          </div>
-        </div>
-      </>
-    ),
-  },
-
   /*
-   * ─── AS PERGUNTAS DIFÍCEIS ────────────────────────────────────────────────
+   * ─── AS POSSÍVEIS PERGUNTAS ───────────────────────────────────────────────
    *
-   * O bloco vem DEPOIS do pedido, e não antes, porque objeção só existe quando
-   * há pedido na mesa: ninguém contesta um preço antes de saber que existe um.
+   * O rótulo diz POSSÍVEIS, e não "difíceis". Quem projeta o slide sabe que são
+   * objeções; a sala não precisa ouvir que a conversa vai ficar difícil antes
+   * de ela ficar. O conteúdo é o mesmo — o enquadramento, não.
    *
    * A ordem escala do técnico ao comercial. Cada folha responde por dinheiro um
    * pouco mais do que a anterior, e a última abre a porta do anexo — que é o
@@ -1817,8 +1501,8 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "Por que não o ChatGPT",
-    numero: "16",
-    bloco: "As perguntas difíceis",
+    numero: "13",
+    bloco: "Possíveis perguntas",
     notas:
       "NÃO BRIGAR COM O CHATGPT: ele está dentro do sistema, e dizer isso desarma a pergunta em vez de disputá-la. Para 'contrato um desenvolvedor por dois meses': dois meses fazem a primeira versão; o que está na tela é o que sobrou depois de meses corrigindo contra memorial real, e a folha dos limites mostra o que ainda falta.\n\nRÉPLICA PROVÁVEL 1 — 'então me venda só as regras e a montagem, e eu uso o ChatGPT para o resto': as regras sozinhas acham menos da metade, e é a segunda passada que derruba o falso positivo — está na folha da autorrevisão. Vender as partes separadas entrega um motor sem freio.\n\nRÉPLICA PROVÁVEL 2 — 'em seis meses isso é um botão dentro do Word': pode ser, e nesse dia eu troco o modelo por dentro e vocês não fazem nada. O que não vem de graça em botão nenhum é saber o que perguntar ao modelo, e é isso que os oito meses compraram.",
     corpo: (
@@ -1845,8 +1529,8 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "Você não provou que vale",
-    numero: "17",
-    bloco: "As perguntas difíceis",
+    numero: "14",
+    bloco: "Possíveis perguntas",
     notas:
       "O terceiro bloco é o que mais compra a sala: é ganho que independe de assinar contrato.\n\nRÉPLICA PROVÁVEL 1 — 'aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM. O erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado — e não seria achado.\n\nRÉPLICA PROVÁVEL 2 — 'então traga a medição pronta e voltamos a conversar': a medição depende do veredito de quem projeta, e é literalmente o que estou pedindo. Sem uso real ela não existe, e não há como eu produzi-la sozinho — seria eu julgando o meu próprio trabalho, que é exatamente o problema que este sistema existe para resolver.\n\nRÉPLICA PROVÁVEL 3 — 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele. E se ignorarem, o piloto é justamente o que mede isso.",
     corpo: (
@@ -1872,18 +1556,18 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "E se você sumir",
-    numero: "18",
-    bloco: "As perguntas difíceis",
+    rotulo: "E se você sair",
+    numero: "15",
+    bloco: "Possíveis perguntas",
     notas:
-      "CUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS NA TELA. Promessa projetada não se retira depois. O fecho é o que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.\n\nRÉPLICA PROVÁVEL 1 — 'então põe o código em custódia': DECIDIDO, ela está disponível — mas nunca de graça. A contrapartida é PRAZO: a custódia entra se o piloto virar contrato longo. Dizer as duas coisas na mesma frase, porque cedida sozinha ela vira o novo ponto de partida da negociação.\n\nRÉPLICA PROVÁVEL 2 — 'prazo de resposta sem multa é papel': DECIDIDO, NÃO há multa. O prazo já é o compromisso, e contrato descumprido tem consequência sem precisar de cláusula de multa. Não ceder aqui no calor da reunião: esta linha foi escrita justamente para isso.\n\nRÉPLICA PROVÁVEL 3 — 'e se der problema num sábado?': o prazo escrito vale para problema que impeça o uso, não para toda dúvida. Dizer isso com essas palavras, sem prometer plantão.",
+      "NÃO ENTRAR NO MÉRITO DO VÍNCULO. A relação hoje é PJ, e a folha responde CONTINUIDADE, não crachá: quem contrata licença de software não pergunta o regime de quem a escreveu. Se alguém puxar o assunto, devolver para o contrato — prazo, prazo de resposta e o que fica com vocês.\n\nCUSTÓDIA DE CÓDIGO E INSTALAÇÃO NA INFRAESTRUTURA DELES NÃO ESTÃO OFERECIDAS NA TELA. Promessa projetada não se retira depois. O fecho é o que mais tranquiliza engenheiro na sala: a assinatura, e o risco que vem com ela, não mudam de dono.\n\nRÉPLICA PROVÁVEL 1 — 'então põe o código em custódia': DECIDIDO, ela está disponível — mas nunca de graça. A contrapartida é PRAZO: a custódia entra se o piloto virar contrato longo. Dizer as duas coisas na mesma frase, porque cedida sozinha ela vira o novo ponto de partida da negociação.\n\nRÉPLICA PROVÁVEL 2 — 'prazo de resposta sem multa é papel': DECIDIDO, NÃO há multa. O prazo já é o compromisso, e contrato descumprido tem consequência sem precisar de cláusula de multa. Não ceder aqui no calor da reunião: esta linha foi escrita justamente para isso.\n\nRÉPLICA PROVÁVEL 3 — 'e se der problema num sábado?': o prazo escrito vale para problema que impeça o uso, não para toda dúvida. Dizer isso com essas palavras, sem prometer plantão.",
     corpo: (
       <Objecao
-        pergunta="Você não é uma empresa. Sem CNPJ, sem suporte, sem prazo. E se você sair daqui, ou simplesmente parar? Ficamos reféns de um software de uma pessoa só."
+        pergunta="E se você sair, como fica? O sistema é de uma pessoa só: se você parar, a gente para junto."
         respostas={[
           [
-            "A licença não depende do meu crachá.",
-            "Se eu sair da PROSUL, ela continua valendo pelo prazo contratado. Sair da empresa não é sair do compromisso.",
+            "O que nos liga é um contrato, não um crachá.",
+            "A licença tem prazo próprio e vale por ele inteiro. Se eu deixar de tocar qualquer outro trabalho aqui, esse prazo continua de pé — são duas relações diferentes, e sempre foram.",
           ],
           [
             "Prazo de resposta escrito, não boa vontade.",
@@ -1900,14 +1584,15 @@ export const SLIDES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Isso não é nosso?",
-    numero: "19",
-    bloco: "As perguntas difíceis",
+    rotulo: "Motivo da venda",
+    numero: "16",
+    bloco: "Possíveis perguntas",
     notas:
-      "Nada aqui é dito na defensiva: são três fatos e uma concessão. Falar devagar, sem justificar mais do que está escrito — quem explica demais parece estar se defendendo de algo.\n\nRÉPLICA PROVÁVEL 1 — 'e o que diz o seu contrato de trabalho?': CONFERIDO — o contrato foi lido e NÃO tem cláusula de cessão sobre criação fora do expediente. Responder isso e parar. É a réplica que decide a sala, e a resposta curta é a mais forte: alongar aqui soa como quem está construindo um argumento em vez de relatar um fato.\n\nRÉPLICA PROVÁVEL 2 — 'você testou com os nossos projetos; isso é uso de informação da empresa': os documentos foram lidos, não copiados nem guardados, e o produto não contém nenhum trecho deles. O que aprendi lendo é conhecimento profissional — o mesmo que qualquer projetista leva de um projeto para o seguinte.\n\nRÉPLICA PROVÁVEL 3 — 'se é seu, faça no seu tempo e nos dê de graça': é aí que a folha seguinte responde. Não improvisar aqui.",
+      "A FOLHA DEIXOU DE SER UMA OBJEÇÃO em 09/09/2026. Antes ela punha na tela a acusação ('você é nosso funcionário, por que estamos pagando?') e respondia. Emprestar essa frase à sala é dar munição que talvez ninguém fosse buscar — e, com a relação em PJ, ela nem se sustenta. Agora a folha AFIRMA: três fatos, ditos por mim, antes de alguém precisar perguntar.\n\nFALAR DEVAGAR E NÃO JUSTIFICAR MAIS DO QUE ESTÁ ESCRITO. Quem explica demais parece estar se defendendo de algo.\n\nSE VIER 'e o que diz o seu contrato?': CONFERIDO — foi lido, e NÃO há cláusula de cessão sobre o que eu crio fora dele. Responder isso e parar; a resposta curta é a mais forte.\n\nSE VIER 'você testou com os nossos projetos, isso é informação da empresa': os documentos foram lidos, não copiados nem guardados, e o produto não contém nenhum trecho deles. O que aprendi lendo é conhecimento profissional — o mesmo que qualquer projetista leva de um projeto para o seguinte.\n\nSE VIER 'te pago as suas horas e o software passa a ser nosso': a folha que respondia isso saiu do deck em 09/09/2026, e a resposta agora é de boca. Comprar as minhas horas compraria o passado; quem mantém o sistema na semana que vem é a licença. Compra é outra negociação, com outro número e outro contrato — e eu ouço, só não é a que eu vim propor hoje. A MOEDA DE TROCA, se travar, é a CUSTÓDIA DO CÓDIGO: vale PRAZO, nunca desconto.\n\nO TERCEIRO FATO NÃO É AMEAÇA, e não se diz com esse tom. Ele explica por que existe preço em vez de doação — e, dito antes de perguntarem, tira o assunto da mesa.",
     corpo: (
       <Objecao
-        pergunta="O problema é nosso. Os memoriais são nossos, os clientes são nossos, e você é nosso funcionário. Por que estamos pagando por isso?"
+        titulo="Motivo da venda"
+        linhaFina="Três fatos, ditos antes de alguém precisar perguntar."
         respostas={[
           [
             "Foi feito fora.",
@@ -1918,49 +1603,21 @@ export const SLIDES: readonly Slide[] = [
             "Nenhum memorial de cliente está na minha máquina. E o sistema não guarda PDF nenhum — é a mesma decisão que a folha da segurança mostrou.",
           ],
           [
-            "A exclusividade está na mesa.",
-            "Durante o piloto eu não licencio para escritório concorrente. Se isso importa, escreve-se no contrato.",
+            "Foi pensado num problema daqui, mas não é só daqui.",
+            "Memorial, lista de documentos, volume, prefeitura: o mesmo trabalho existe em qualquer escritório que entregue projeto público. O que está montado vira produto para outras empresas com pouca mudança.",
           ],
         ]}
-        fecho="O problema é da casa. A solução não nasceu dela."
-      />
-    ),
-  },
-
-  {
-    rotulo: "Então compramos você",
-    numero: "20",
-    bloco: "As perguntas difíceis",
-    notas:
-      "ESTA É A PERGUNTA QUE A FOLHA 13 CRIOU. Abrir o custo de construção foi decisão sua, e o preço disso é este: o diretor tem agora um número para oferecer. A resposta não recusa a compra — reenquadra: é outra negociação, com outro número e outro contrato, e não é a que veio à mesa hoje. Recusar soa defensivo; aceitar entrega o produto pelo custo do passado.\n\nRÉPLICA PROVÁVEL 1 — 'piloto é grátis em qualquer lugar': o que eu peço no piloto é hora de subdiretor julgando achado. Brinde não recebe julgamento, recebe silêncio.\n\nRÉPLICA PROVÁVEL 2 — 'então R$ X e fechamos': O PISO ESTÁ DECIDIDO — seis meses por R$ 10.000. Abaixo disso não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.\n\nA MOEDA DE TROCA, se travar no valor, é a CUSTÓDIA DO CÓDIGO — está disponível e vale prazo. Oferecê-la em troca de contrato mais longo, nunca de desconto.\n\nNENHUM NÚMERO NESTA FOLHA. O preço está a duas folhas daqui, atrás do botão da 21 — e só se abre quando alguém perguntar o valor.",
-    corpo: (
-      <Objecao
-        pergunta="Setecentas horas é palavra sua, e você usou uma ferramenta de IA de cem dólares por mês para escrever isso. Te pago as suas horas — pelo seu próprio número — e o software passa a ser nosso."
-        respostas={[
-          [
-            "As horas não são o produto.",
-            "Comprar as minhas horas compraria o passado. O que vocês viram funcionando precisa de alguém que o mantenha na semana que vem, e é isso que a licença contrata.",
-          ],
-          [
-            "A ferramenta escreve código. Ela não conhece memorial.",
-            "Não foi ela que descobriu que uma regra minha estava errada lendo os cinco memoriais do acervo, um a um. Essa ferramenta hoje está à venda para qualquer um — o que ela produz depende inteiramente de quem a opera e do que essa pessoa sabe.",
-          ],
-          [
-            "Comprar o software é outra conversa.",
-            "O que está na mesa é licença de uso por seis meses. Se a diretoria quiser falar em compra, é outra negociação, com outro número e outro contrato — e eu ouço. Só não é a que eu vim propor hoje.",
-          ],
-        ]}
-        fecho="Se for ruim, não usamos. Se for bom, conversamos sobre valores."
+        fecho="O problema é da casa. A solução não nasceu dela — e serve a qualquer escritório que entregue projeto para prefeitura."
       />
     ),
   },
 
   {
     rotulo: "Quanto custa usar",
-    numero: "21",
+    numero: "17",
     bloco: "O dinheiro",
     notas:
-      "ESTA FOLHA NÃO TEM CIFRA, E ISSO É O DESENHO. Ela existe para que o preço esteja ao alcance da mão sem estar na tela: se ninguém perguntar, ela passa em dez segundos e o deck fecha no limite, que é onde ele sempre fechou.\n\nO BLOCO VOLTA A SER 'O DINHEIRO' de propósito, depois das perguntas difíceis. A sala percebe que a conversa mudou de assunto antes de eu dizer.\n\nO BOTÃO ABRE EM ABA NOVA: clicar não perde o deck. Fechar com Ctrl+W devolve esta folha, ainda em tela cheia.\n\nQUANDO CLICAR: quando alguém perguntar o valor, ou quando eu tiver decidido que a sala está pronta. Não clicar por reflexo de estar numa folha que tem botão — a folha funciona sem ser clicada, e passar por ela sem abrir é uma escolha legítima.\n\nO PISO CONTINUA SENDO seis meses por R$ 10.000. Abaixo disso não se fecha na sala.",
+      "ESTA FOLHA NÃO TEM CIFRA, E ISSO É O DESENHO. Ela existe para que o preço esteja ao alcance da mão sem estar na tela: se ninguém perguntar, ela passa em dez segundos e o deck fecha no limite, que é onde ele sempre fechou.\n\nO BLOCO VOLTA A SER 'O DINHEIRO' de propósito, depois das possíveis perguntas. A sala percebe que a conversa mudou de assunto antes de eu dizer.\n\nO BOTÃO ABRE EM ABA NOVA: clicar não perde o deck. Fechar com Ctrl+W devolve esta folha, ainda em tela cheia.\n\nQUANDO CLICAR: quando alguém perguntar o valor, ou quando eu tiver decidido que a sala está pronta. Não clicar por reflexo de estar numa folha que tem botão — a folha funciona sem ser clicada, e passar por ela sem abrir é uma escolha legítima.\n\nO PISO CONTINUA SENDO seis meses por R$ 10.000. Abaixo disso não se fecha na sala.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -1969,7 +1626,14 @@ export const SLIDES: readonly Slide[] = [
           </h2>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
           <Entra atraso={160}>
             <p
               style={{
@@ -1985,9 +1649,16 @@ export const SLIDES: readonly Slide[] = [
             </p>
           </Entra>
           <Entra atraso={320}>
-            <p style={{ ...secundario, maxWidth: "50ch", marginTop: 18, fontSize: 28 }}>
-              Ele está numa página separada, com a conta que o sustenta. Eu abro agora, se você
-              quiser ver.
+            <p
+              style={{
+                ...secundario,
+                maxWidth: "50ch",
+                marginTop: 18,
+                fontSize: 28,
+              }}
+            >
+              Ele está numa página separada, com a conta que o sustenta. Eu abro
+              agora, se você quiser ver.
             </p>
           </Entra>
           <Entra atraso={520} style={{ marginTop: 52 }}>
@@ -2000,7 +1671,7 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que pode vir",
-    numero: "22",
+    numero: "18",
     bloco: "O pedido",
     notas:
       "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
@@ -2013,12 +1684,14 @@ export const SLIDES: readonly Slide[] = [
         </Entra>
         <Entra atraso={100}>
           <p style={{ ...secundario, margin: "0 0 36px" }}>
-            Caminho, não promessa. Nada disto está pronto, e a ordem depende do que o uso real
-            mostrar.
+            Caminho, não promessa. Nada disto está pronto, e a ordem depende do
+            que o uso real mostrar.
           </p>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", gap: 28, alignItems: "center" }}>
+        <div
+          style={{ flex: 1, display: "flex", gap: 28, alignItems: "center" }}
+        >
           {[
             {
               titulo: "Conferência de quantidades",
@@ -2050,7 +1723,9 @@ export const SLIDES: readonly Slide[] = [
                 gap: 18,
               }}
             >
-              <span style={{ fontFamily: MONO, fontSize: 22, color: "#5f6b72" }}>
+              <span
+                style={{ fontFamily: MONO, fontSize: 22, color: "#5f6b72" }}
+              >
                 {String(i + 1).padStart(2, "0")}
               </span>
               <h3
@@ -2076,10 +1751,10 @@ export const SLIDES: readonly Slide[] = [
 
   {
     rotulo: "O que ela não é",
-    numero: "23",
+    numero: "19",
     bloco: "O pedido",
     notas:
-      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor depois disto, voltar à folha 21 e abrir o botão — o deck não termina no preço.",
+      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar. Se vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -2088,7 +1763,14 @@ export const SLIDES: readonly Slide[] = [
           </h2>
         </Entra>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
           {[
             [
               "Ela não assume responsabilidade técnica.",
@@ -2103,7 +1785,12 @@ export const SLIDES: readonly Slide[] = [
               "O que ela devolve não é o projeto pronto: é o tempo que se gastaria procurando — e a chance de achar o que ninguém teve tempo de procurar.",
             ],
           ].map(([titulo, texto], i) => (
-            <Marcador key={titulo} titulo={titulo} texto={texto} atraso={160 + i * 200} />
+            <Marcador
+              key={titulo}
+              titulo={titulo}
+              texto={texto}
+              atraso={160 + i * 200}
+            />
           ))}
         </div>
 
@@ -2120,11 +1807,11 @@ export const SLIDES: readonly Slide[] = [
               textWrap: "pretty",
             }}
           >
-            Uma segunda leitura que nunca se cansa, e que nunca assina no seu lugar.
+            Uma segunda leitura que nunca se cansa, e que nunca assina no seu
+            lugar.
           </p>
         </Entra>
       </>
     ),
   },
-
 ];

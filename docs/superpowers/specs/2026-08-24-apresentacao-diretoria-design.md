@@ -1,5 +1,31 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **09/09/2026 — O DECK CAI DE 23 PARA 19 FOLHAS, E O ANEXO SOBE PARA 6.**
+> Decisão do autor, e a numeração deste documento passou a ser HISTÓRICA: a
+> fonte da ordem é `app/apresentacao/slides.tsx`.
+>
+> - **"Quanto custa operar" e "O que custou construir" saíram do deck** e viraram
+>   as folhas B e C do anexo. Dinheiro é assunto do anexo; o deck ficou com o
+>   produto e as possíveis perguntas. A folha "Como ela se paga" FICOU no deck
+>   (é a 12), e a conta de onde sai o R$ 285 agora só existe no anexo.
+> - **"Piloto de seis meses" também foi para o anexo**, como folha A: o anexo
+>   abre pelo ESCOPO e só depois mostra o preço.
+> - **A folha "Então compramos você" foi removida.** A resposta a "te pago as
+>   suas horas e o software passa a ser nosso" virou nota do apresentador na
+>   folha 16 — a folha existia porque a de custo de construção estava no deck,
+>   e ela não está mais.
+> - **"As perguntas difíceis" virou "Possíveis perguntas"** no rótulo de bloco.
+> - **"Isso não é nosso?" virou "Motivo da venda"**, sem pergunta na tela: três
+>   fatos afirmados (feito fora, documentos não ficaram comigo, nasceu de um
+>   problema daqui mas serve a outros escritórios). A acusação saiu porque a
+>   relação hoje é PJ e pôr a frase na tela emprestava munição à sala.
+> - **"E se você sumir" virou "E se você sair"**, sem CNPJ e sem crachá: a folha
+>   responde continuidade de contrato, não vínculo empregatício.
+> - **A folha 09 não diz mais que não lê PDF escaneado** — passou a ler.
+> - **A folha 10 separa o modelo que não aprende do sistema que aprende** pelo
+>   feedback, e a linha da chave de IA saiu (não diz nada a quem assiste).
+> - **O botão dos valores agora está na folha 17.**
+
 > **31/08/2026 — AS OITO DECISÕES QUE FECHAM O DECK.** Contrato lido (sem
 > cláusula de cessão, a folha 19 fica); hora de dev júnior confirmada em R$ 30 a
 > 50; custódia de código disponível em troca de PRAZO, nunca de desconto; SEM

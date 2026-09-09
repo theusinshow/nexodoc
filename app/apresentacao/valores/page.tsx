@@ -18,7 +18,7 @@ import { VALORES } from "./slides-valores";
  *
  * POR QUE SEPARADA DE `/apresentacao`, E NÃO MAIS FOLHAS NO FIM DELA. O que a
  * decisão original protegia era o MOMENTO: valor não pode escapar por avançar a
- * seta no fim do deck. Aqui só se chega pelo BOTÃO da folha 21, que é um gesto —
+ * seta no fim do deck. Aqui só se chega pelo BOTÃO da folha 17, que é um gesto —
  * a mão sai do teclado e vai ao mouse. A fricção é a decisão.
  *
  * MESMO PORTÃO DE ADMIN da `/apresentacao`, e pelo mesmo motivo, mais um: aqui

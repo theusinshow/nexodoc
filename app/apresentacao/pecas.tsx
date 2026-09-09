@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
  * AS PEÇAS COMPARTILHADAS DAS APRESENTAÇÕES.
@@ -55,7 +55,10 @@ export function Entra({
   style?: CSSProperties;
 }) {
   return (
-    <div className="ap-entra" style={{ animationDelay: `${atraso}ms`, ...style }}>
+    <div
+      className="ap-entra"
+      style={{ animationDelay: `${atraso}ms`, ...style }}
+    >
       {children}
     </div>
   );
@@ -84,7 +87,11 @@ export function Linha({
       }}
     >
       <span style={{ ...rotulo, fontSize: 22 }}>{chave}</span>
-      <span style={{ fontFamily: MONO, fontSize: 38, color: "var(--foreground)" }}>{valor}</span>
+      <span
+        style={{ fontFamily: MONO, fontSize: 38, color: "var(--foreground)" }}
+      >
+        {valor}
+      </span>
     </Entra>
   );
 }
@@ -102,7 +109,10 @@ export function Marcador({
   cor?: string;
 }) {
   return (
-    <Entra atraso={atraso} style={{ padding: "22px 0", borderTop: "1px solid var(--border)" }}>
+    <Entra
+      atraso={atraso}
+      style={{ padding: "22px 0", borderTop: "1px solid var(--border)" }}
+    >
       <p
         style={{
           margin: texto ? "0 0 8px" : 0,
@@ -117,10 +127,75 @@ export function Marcador({
         {titulo}
       </p>
       {texto ? (
-        <p style={{ margin: 0, fontSize: 24, lineHeight: 1.45, color: cor, textWrap: "pretty" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 24,
+            lineHeight: 1.45,
+            color: cor,
+            textWrap: "pretty",
+          }}
+        >
           {texto}
         </p>
       ) : null}
     </Entra>
   );
+}
+
+/* ───────────────────────────────────────────────────────── peças de movimento */
+
+/**
+ * O número corre até o valor. Não é enfeite: o valor É o argumento, e vê-lo
+ * chegar prende o olho nele por um segundo a mais do que vê-lo já parado.
+ *
+ * Respeita movimento reduzido — quem pediu para nada se mexer recebe o número
+ * final, e não uma contagem congelada no zero.
+ */
+export function Contador({
+  ate,
+  duracao = 900,
+  atraso = 0,
+  style,
+}: {
+  ate: number;
+  duracao?: number;
+  atraso?: number;
+  style?: CSSProperties;
+}) {
+  const [valor, setValor] = useState(0);
+
+  useEffect(() => {
+    let quadro = 0;
+    let inicio = 0;
+
+    /*
+     * A decisão sobre movimento reduzido mora DENTRO do temporizador, e não no
+     * corpo do efeito. Não é preciosismo: `setState` síncrono num efeito dispara
+     * renderização em cascata, e o lint do projeto recusa — com razão. Aqui a
+     * chamada já nasce assíncrona, que é o contrato que a regra pede.
+     */
+    const relogio = setTimeout(() => {
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        setValor(ate);
+        return;
+      }
+
+      const passo = (agora: number) => {
+        if (!inicio) inicio = agora;
+        const t = Math.min(1, (agora - inicio) / duracao);
+        // Desaceleração cúbica: chega devagar, como um ponteiro assentando.
+        setValor(Math.round(ate * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) quadro = requestAnimationFrame(passo);
+      };
+      quadro = requestAnimationFrame(passo);
+    }, atraso);
+
+    return () => {
+      clearTimeout(relogio);
+      cancelAnimationFrame(quadro);
+    };
+  }, [ate, atraso, duracao]);
+
+  return <span style={style}>{valor}</span>;
 }

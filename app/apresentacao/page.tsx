@@ -25,7 +25,7 @@ import { SLIDES } from "./slides";
  * não item de menu.
  *
  * O PREÇO NÃO ESTÁ NESTAS FOLHAS. Valor do piloto e propriedade do software
- * vivem em `/apresentacao/valores`, e chega-se lá pelo BOTÃO da folha 21 —
+ * vivem em `/apresentacao/valores`, e chega-se lá pelo BOTÃO da folha 17 —
  * nunca por uma seta a mais no fim do deck. Até 08/09/2026 aquilo era um
  * `.html` solto em `docs/`, que o `.dockerignore` exclui: existia numa máquina
  * só e nunca chegava a produção, que é de onde a apresentação de fato roda.
