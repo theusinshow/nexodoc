@@ -1099,7 +1099,6 @@ export const SLIDES: readonly Slide[] = [
               "A precisão ainda não foi julgada por quem projeta.",
               "É a única medida em aberto, e depende do veredito de vocês. É exatamente isso que estou pedindo no piloto.",
             ],
-            ["Não lê PDF escaneado.", "Documento digitalizado como imagem não é auditado."],
             [
               "Não audita prancha.",
               "Hoje o alvo é o memorial descritivo e a documentação de identidade do projeto.",
