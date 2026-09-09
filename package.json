@@ -30,6 +30,7 @@
     "test:atencao-painel": "node scripts/test-atencao-do-painel.ts",
     "test:expurgo": "node scripts/test-expurgo.ts",
     "test:controles": "node scripts/test-controles.ts",
+    "test:nome-do-zip": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-nome-do-zip.ts",
     "test:contraste": "node scripts/test-contraste.ts",
     "prova:rotas": "node scripts/prova-nenhuma-rota-aberta.mjs",
     "prova:escritorio": "node scripts/prova-escritorio.mjs",

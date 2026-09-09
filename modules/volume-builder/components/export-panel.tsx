@@ -29,7 +29,7 @@ export function ExportPanel({ rows, metadata, importedFiles, fileDataMap, projec
   const outputMode = determineOutputMode(rows);
   const canExport = rows.length > 0;
 
-  const zipFileName = generateZipFileName(metadata);
+  const zipFileName = generateZipFileName(metadata, rows);
   const reportFileName = generateReportFileName(metadata);
   const usedFileIds = useMemo(() => getUsedFileIds(rows), [rows]);
 

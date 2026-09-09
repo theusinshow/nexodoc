@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     ];
 
     const zipBytes = await generateZip(zipFiles);
-    const zipFileName = generateZipFileName(metadata);
+    const zipFileName = generateZipFileName(metadata, rows);
 
     if (projectId) {
       const session = await auth();
