@@ -1518,9 +1518,15 @@ function NexoWorkspaceInner({
          * layout de boas-vindas, que não tem palco — e a análise retomada não
          * teria onde aparecer, mesmo tendo sido recuperada com sucesso.
          */
+        /*
+         * `?? []` pelo mesmo motivo do store: a conversa pode vir do SERVIDOR, e
+         * la um campo nunca gravado volta AUSENTE, nao vazio. Sem isto,
+         * escolher uma conversa dessas explodia aqui -- dentro de um
+         * `flushSync`, o que derruba a arvore inteira.
+         */
         setStarted(
-          rec.messages.length > 0 ||
-            rec.seloResults.length > 0 ||
+          (rec.messages?.length ?? 0) > 0 ||
+            (rec.seloResults?.length ?? 0) > 0 ||
             Boolean(rec.auditoriaPendente),
         );
         setFiles([]);

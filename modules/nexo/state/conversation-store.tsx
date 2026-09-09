@@ -1179,8 +1179,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       lembrarUltimaConversa(rec.id);
       setConversationId(rec.id);
       setTitle(rec.title);
-      setMessages(rec.messages);
-      setSeloResultsState(rec.seloResults);
+      /*
+       * `?? []` NAO e paranoia: a conversa pode chegar do SERVIDOR, e la ela e
+       * um registro de banco -- um campo que nunca foi gravado volta ausente,
+       * nao vazio. `ordenarPorPagina(undefined)` derruba a tela inteira com
+       * "itens is not iterable", e o que o engenheiro ve e "This page couldn't
+       * load": a conversa some, e o motivo nao aparece em lugar nenhum.
+       *
+       * Medido em 09/09/2026 com as conversas semeadas no banco de dev, que sao
+       * exatamente esse formato -- registro sem `seloResults`.
+       */
+      setMessages(rec.messages ?? []);
+      setSeloResultsState(rec.seloResults ?? []);
       // Conversa gravada antes deste campo existir não tem `ajustes`.
       setAjustes(rec.ajustes ?? {});
       setAvulsas(rec.avulsas ?? []);
