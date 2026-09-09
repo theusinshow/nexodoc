@@ -1786,6 +1786,29 @@ textarea {
   inset: 3px;
 }
 
+/* O ANEL DE FOCO DO `.nx-cut-*` -- e ele NAO existia.
+
+   `.nx-edge-*` tem o anel logo acima, e a regra do @layer base tira o
+   `box-shadow` externo de quem tem chanfro ("em elemento recortado este
+   box-shadow e CORTADO"). So que ela exclui as DUAS familias pelo `:not()`, e
+   so uma delas ganhou anel de volta: todo botao `.nx-cut-*` do produto ficava
+   sem foco visivel nenhum. Medido em 09/09/2026 nos controles da Home (chips da
+   faixa de atencao, abas de escopo, gatilho de ordenacao, abas do conversor,
+   Personalizar) -- e vale para o produto inteiro, nao so para esta tela.
+
+   POR DENTRO, com `inset`: `.nx-cut-*` e superficie chapada (uma forma so, sem
+   pseudo-elemento de moldura), entao nao da para escurecer uma borda que nao
+   existe. Um `box-shadow` interno e desenhado ANTES do recorte e sobrevive a
+   ele. 2px e nao 3: sem moldura, o anel encosta direto no texto, e 3px comeria
+   o `px-2` dos chips menores.
+
+   `:is(a, button, [role="tab"], [tabindex])` para nao pintar as centenas de
+   `.nx-cut-*` que sao so superficie -- selo de projeto, ficha de codigo, tarja.
+   Foco em coisa que nao recebe foco seria ruido que nunca aparece. */
+:is(a, button, [role="tab"], [tabindex]):is(.nx-cut-4, .nx-cut-5, .nx-cut-6, .nx-cut-7, .nx-cut-8):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ring);
+}
+
 /* Campo DENTRO de wrapper chanfrado: quem mostra o foco e o wrapper, entao o
    ring global do @layer base (que mira `input`, e a classe esta no wrapper, nao
    nele) tem que se calar aqui -- senao aparece um retangulo por cima do chanfro. */

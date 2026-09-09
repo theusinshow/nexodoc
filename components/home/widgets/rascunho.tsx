@@ -32,14 +32,34 @@
  * "escrito mas não salvo", que é exatamente o estado em que se perde nota.
  * 600ms depois da última tecla o texto está no disco. O `beforeunload` fecha a
  * última fresta — quem fecha a aba 200ms depois de digitar não perde a linha.
+ *
+ * O QUE MUDOU NA SEGUNDA RODADA: ele deixou de ser uma caixa muda.
+ *
+ * Era um `textarea` vazio com um "salvo" que piscava no canto. Três coisas
+ * entraram, e as três respondem perguntas que a caixa vazia deixava no ar:
+ *
+ *  · QUANDO foi salvo ("salvo agora", "salvo há 4 min"), e não só QUE foi. Um
+ *    "salvo" permanente não distingue a nota de agora da de terça;
+ *  · LIMPAR, com confirmação em dois toques. Apagar 300 caracteres com
+ *    ⌘A+Delete funciona e ninguém pensa nisso;
+ *  · a CONTAGEM some — ela seria a informação menos útil possível sobre uma
+ *    nota. O que ocupa o lugar dela é o carimbo de tempo.
+ *
+ * NÃO ENTROU "transformar em tarefa", e a ausência é a decisão. Não há modelo
+ * de tarefa no schema: o botão teria que virar um achado (que exige auditoria,
+ * projeto e responsável — nada disso existe numa nota solta) ou não fazer nada.
+ * Um botão que promete um destino inexistente é pior que a falta dele.
  */
 
 import * as React from "react";
+import { Eraser } from "lucide-react";
 
 import { assinarChave, brutoDoServidor, escreverBruto, lerBruto } from "@/lib/armazem-local";
-import { Casco } from "./casco";
+import { Casco, quando } from "./casco";
 
 const CHAVE = "nexodoc:home:rascunho";
+/** Quando foi a última gravação, em ISO. Chave separada: o texto é o texto. */
+const CHAVE_QUANDO = "nexodoc:home:rascunho-em";
 const ATRASO_MS = 600;
 
 const assinar = assinarChave(CHAVE);
@@ -50,6 +70,8 @@ export function WidgetRascunho() {
 
   /** Nulo enquanto ninguém digitou — aí o campo é do disco. */
   const [rascunho, setRascunho] = React.useState<string | null>(null);
+  /** Segundo toque do limpar. Volta a `false` sozinho em 4s. */
+  const [confirmando, setConfirmando] = React.useState(false);
 
   const texto = rascunho ?? salvo;
   const gravado = texto === salvo;
@@ -65,7 +87,10 @@ export function WidgetRascunho() {
   React.useEffect(() => {
     if (gravado) return;
 
-    const id = window.setTimeout(() => escreverBruto(CHAVE, texto), ATRASO_MS);
+    const id = window.setTimeout(() => {
+      escreverBruto(CHAVE, texto);
+      escreverBruto(CHAVE_QUANDO, new Date().toISOString());
+    }, ATRASO_MS);
     return () => window.clearTimeout(id);
   }, [texto, gravado]);
 
@@ -76,31 +101,59 @@ export function WidgetRascunho() {
      * para este ouvinte — remontá-lo a cada tecla para capturar o texto novo
      * poria e tiraria um listener da janela a cada caractere.
      */
-    const aoSair = () => escreverBruto(CHAVE, ultimoRef.current);
+    const aoSair = () => {
+      if (ultimoRef.current === lerBruto(CHAVE)) return;
+      escreverBruto(CHAVE, ultimoRef.current);
+      escreverBruto(CHAVE_QUANDO, new Date().toISOString());
+    };
     window.addEventListener("beforeunload", aoSair);
     return () => window.removeEventListener("beforeunload", aoSair);
   }, []);
+
+  React.useEffect(() => {
+    if (!confirmando) return;
+    // A CONFIRMAÇÃO EXPIRA. Um botão que fica dizendo "Apagar?" para sempre é
+    // uma armadilha na próxima vez que a pessoa passar o mouse por ali.
+    const id = window.setTimeout(() => setConfirmando(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [confirmando]);
+
+  function limpar() {
+    if (!confirmando) {
+      setConfirmando(true);
+      return;
+    }
+    setRascunho("");
+    escreverBruto(CHAVE, "");
+    escreverBruto(CHAVE_QUANDO, "");
+    setConfirmando(false);
+  }
+
+  const temTexto = Boolean(texto.trim());
 
   return (
     <Casco
       titulo="Rascunho"
       acessorio={
-        <span
-          className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground transition-opacity duration-[var(--duration-base)]"
-          style={{
-            // A confirmação só aparece quando há o que confirmar. Um "salvo"
-            // permanente sobre uma caixa vazia é ruído que ensina a ignorar o
-            // canto onde a confirmação de verdade vai aparecer.
-            opacity: gravado && texto.trim() ? 1 : 0,
-          }}
-        >
-          salvo
-        </span>
+        <Carimbo
+          /*
+            TRÊS ESTADOS num acessório de 60px, e cada um responde a mesma
+            pergunta em momentos diferentes: "escrevendo…" enquanto o atraso
+            corre, "salvo agora / há 4 min" depois, e nada quando não há nota.
+            Sem o primeiro, o campo passa 600ms sem dizer coisa alguma — que é
+            exatamente o intervalo em que alguém fecharia a aba achando que
+            perdeu.
+          */
+          estado={!temTexto ? "vazio" : gravado ? "salvo" : "escrevendo"}
+        />
       }
     >
       <textarea
         value={texto}
-        onChange={(ev) => setRascunho(ev.target.value)}
+        onChange={(ev) => {
+          setRascunho(ev.target.value);
+          setConfirmando(false);
+        }}
         rows={3}
         spellCheck={false}
         placeholder="O que não pode escapar hoje…"
@@ -108,9 +161,67 @@ export function WidgetRascunho() {
         className="nx-cut-5 w-full resize-none bg-[var(--nexodoc-recessed)] px-3 py-2 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
       />
 
-      <p className="m-0 mt-2 font-mono text-[10px] leading-4 tracking-[0.02em] text-muted-foreground">
-        Fica só neste navegador — não vai para o escritório.
-      </p>
+      <div className="mt-2 flex items-center gap-3">
+        <p className="m-0 min-w-0 flex-1 font-mono text-[10.5px] leading-4 tracking-[0.02em] text-muted-foreground">
+          Fica só neste navegador.
+        </p>
+
+        {/*
+          LIMPAR só aparece quando há o que limpar. Um botão de apagar sobre uma
+          caixa vazia é um controle que nunca faz nada — e um controle que nunca
+          faz nada ensina a ignorar a fileira em que ele mora.
+        */}
+        {temTexto ? (
+          <button
+            type="button"
+            onClick={limpar}
+            className="nx-cut-4 inline-flex shrink-0 cursor-pointer items-center gap-1.5 px-2 py-1 font-mono text-[10.5px] uppercase tracking-[0.06em] transition-colors duration-[var(--duration-fast)]"
+            style={
+              confirmando
+                ? { color: "var(--status-critical)", background: "var(--status-critical-bg)" }
+                : { color: "var(--muted-foreground)" }
+            }
+          >
+            <Eraser className="h-3 w-3" strokeWidth={1.6} aria-hidden />
+            {confirmando ? "Apagar?" : "Limpar"}
+          </button>
+        ) : null}
+      </div>
     </Casco>
+  );
+}
+
+/**
+ * O CARIMBO — "salvo agora", "salvo há 4 min", "escrevendo…".
+ *
+ * O instante da gravação sai de uma SEGUNDA chave do armazém, e não do texto.
+ * Guardar `{texto, quando}` num JSON só significaria reescrever e reparsear a
+ * nota inteira a cada tecla para carimbar a hora — e o texto é a coisa que mais
+ * cresce neste widget.
+ */
+function Carimbo({ estado }: { estado: "vazio" | "salvo" | "escrevendo" }) {
+  const [em, setEm] = React.useState("");
+
+  /*
+   * O CARIMBO ENVELHECE SOZINHO. Sem o intervalo, "salvo agora" continuaria
+   * dizendo "agora" vinte minutos depois — e é justamente aos vinte minutos que
+   * a frase passa a importar. Um minuto é a menor unidade que `quando` desenha,
+   * então é de minuto em minuto que vale reamostrar.
+   */
+  React.useEffect(() => {
+    if (estado !== "salvo") return;
+
+    const ler = () => setEm(lerBruto(CHAVE_QUANDO));
+    ler();
+    const id = window.setInterval(ler, 60_000);
+    return () => window.clearInterval(id);
+  }, [estado]);
+
+  if (estado === "vazio") return null;
+
+  return (
+    <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
+      {estado === "escrevendo" ? "escrevendo…" : em ? `salvo ${quando(em)}` : "salvo"}
+    </span>
   );
 }

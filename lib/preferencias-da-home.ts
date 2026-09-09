@@ -81,13 +81,19 @@ export const CATALOGO: readonly WidgetDoCatalogo[] = [
     id: "atividade",
     nome: "Atividade do escritório",
     descricao: "O que as outras pessoas fizeram nos projetos.",
-    tamanho: "largo",
+    /*
+     * CURTO desde 09/09/2026. Ele era `largo` (duas colunas) e por isso ocupava
+     * metade de uma seção que se chama SEU espaço — a maior peça de "seu
+     * espaço" era a atividade dos outros. `largo` continua existindo no tipo
+     * para o widget que vier precisar dele.
+     */
+    tamanho: "curto",
     fonte: "servidor",
   },
   {
     id: "conversor",
     nome: "Conversor de obra",
-    descricao: "mm/cm/m, área e inclinação em % ou graus.",
+    descricao: "Comprimento, área, volume e inclinação (% · graus · 1:X · mm/m).",
     tamanho: "curto",
     fonte: "nenhuma",
   },

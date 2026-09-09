@@ -40,10 +40,10 @@ export function PrecisaDaSuaAtencao({
   if (contadores.length === 0) return null;
 
   return (
-    <section aria-labelledby="atencao" className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-2">
+    <section aria-labelledby="atencao" className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-2">
       <h2
         id="atencao"
-        className="mr-1 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+        className="mr-0.5 shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
       >
         Precisa da sua atenção
       </h2>
@@ -68,8 +68,18 @@ export function PrecisaDaSuaAtencao({
  *
  * O número em `--foreground` e o rótulo em `--muted-foreground` na MESMA linha:
  * é o que faz "3" saltar sem precisar de fundo. Só `parados` recebe cor, porque
- * só ele é status (§2 — âmbar é atenção); "com você" e "com outras pessoas" são
+ * só ele é status (§2 — âmbar é atenção); "meus achados" e "da equipe" são
  * fatos, não severidades, e pintá-los faria a faixa inteira acender.
+ *
+ * A BORDA CHEGOU NA SEGUNDA RODADA, e ela é o conserto de um defeito real: sem
+ * fundo e sem contorno, os três contadores liam como TEXTO — a interface tinha
+ * três controles disfarçados de legenda, e a única forma de descobrir que
+ * clicavam era passar o mouse por cima. Descobrir por hover é não descobrir: no
+ * toque não há hover, e no desktop ninguém varre a tela com o cursor.
+ *
+ * Contorno em `--border` (a mesma linha estrutural de todo o produto) mais o
+ * `py-1.5` que leva o alvo a 30px de altura. Continua sendo um chip, e não
+ * virou botão: fundo transparente, peso de rótulo.
  *
  * O ESTADO ATIVO é o teal do sistema — filtro ligado é seleção, e seleção é
  * interativo. É a regra do acento único aplicada: o âmbar diz o que a coisa É,
@@ -95,13 +105,20 @@ function Contador({
       type="button"
       onClick={aoClicar}
       aria-pressed={ativo}
+      title={
+        ativo
+          ? "Clique para ver a lista inteira"
+          : `Filtrar a lista: ${contador.rotulo} em ${contador.projetos} ${contador.projetos === 1 ? "projeto" : "projetos"}`
+      }
       className={cn(
-        "nx-cut-4 inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 px-2.5 py-1 text-left transition-colors duration-[var(--duration-fast)]",
-        ativo ? "bg-[var(--secondary)]" : "hover:bg-[var(--nexodoc-raised)]",
+        "nx-cut-4 inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 border px-2.5 py-1.5 text-left transition-colors duration-[var(--duration-fast)]",
+        ativo
+          ? "border-[var(--primary)] bg-[var(--secondary)]"
+          : "border-border hover:border-[var(--nexodoc-raised)] hover:bg-[var(--nexodoc-raised)]",
       )}
     >
       <span
-        className="font-mono text-[13px] font-semibold tabular-nums leading-none"
+        className="font-mono text-[13.5px] font-semibold leading-none tabular-nums"
         style={{
           color: ativo
             ? "var(--nexodoc-accent)"
@@ -113,7 +130,7 @@ function Contador({
         {numero}
       </span>
       <span
-        className="text-[12.5px] leading-none"
+        className="text-[13px] leading-none"
         style={{ color: ativo ? "var(--nexodoc-accent)" : "var(--muted-foreground)" }}
       >
         {resto.join(" ")}

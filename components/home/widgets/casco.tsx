@@ -40,7 +40,7 @@ export function Casco({
       style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
     >
       <header className="flex min-h-[34px] shrink-0 items-center gap-3 px-4 pt-3.5">
-        <h3 className="m-0 truncate font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <h3 className="m-0 truncate font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {titulo}
         </h3>
         <div className="flex-1" />
@@ -61,7 +61,7 @@ export function Casco({
  */
 export function Nada({ children }: { children: React.ReactNode }) {
   return (
-    <p className="m-0 py-2 text-[12.5px] leading-relaxed text-muted-foreground">{children}</p>
+    <p className="m-0 py-2 text-[13px] leading-relaxed text-muted-foreground">{children}</p>
   );
 }
 

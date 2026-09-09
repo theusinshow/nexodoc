@@ -213,6 +213,25 @@ test("auditoria em voo vence o tipo da conversa", () => {
     trabalho: { tipo: "volume", auditoriaPendente: true },
   });
   assert.equal(r.texto, "auditoria em curso");
+  /*
+   * REALCE PRÓPRIO desde 09/09/2026, e não mais `trabalho`. Os dois liam iguais
+   * na tela — cinza os dois — e são opostos: um é o motor rodando NESTE
+   * instante, o outro é uma tarefa que acabou. Um estado que muda sozinho
+   * enquanto a pessoa olha não pode ter a cor de um que não muda mais.
+   */
+  assert.equal(r.realce, "curso");
+});
+
+test("volume montado NÃO herda o realce de 'em curso'", () => {
+  const r = resumoDoProjeto({
+    recebidos: 0,
+    enviados: 0,
+    diasParado: 0,
+    pessoas: [],
+    trabalho: { tipo: "volume", auditoriaPendente: false },
+  });
+  assert.equal(r.texto, "volume montado");
+  assert.equal(r.realce, "trabalho");
 });
 
 test("conversa sem volume NÃO vira estado próprio", () => {

@@ -58,32 +58,19 @@ function nomeDoProjeto(p: ProjetoRecente): string {
   return `${p.codigo} · ${p.cliente}`;
 }
 
-/**
- * O que a pasta tem dentro, em palavras.
+/*
+ * `oQueTem` MORREU AQUI (09/09/2026), e a lápide vale a linha.
  *
- * Contagem por TIPO, e não o total: "5 conversas" não diz nada sobre o
- * trabalho; "3 volumes · 1 auditoria" diz em que pé o projeto está.
+ * Ela montava "3 volumes · 1 auditoria" para a segunda linha do Retomar. A
+ * contagem é da PASTA, e responde uma pergunta que ninguém faz num bloco
+ * chamado "Retomar" — quem clica em Continuar quer voltar para UMA conversa,
+ * não saber quantas existem na pasta. Ela era o quarto de cinco termos numa
+ * linha que a prioridade pedia com três.
+ *
+ * O vocabulário sobrevive onde ele serve: a barra lateral conta a pasta, e é
+ * a tela da pasta. Quem precisar dele aqui de novo, copie de lá — e escreva
+ * por que a pergunta mudou.
  */
-function oQueTem(p: ProjetoRecente): string {
-  /*
-   * SEM PASTA NÃO É UM PROJETO, e contá-lo por tipo mente sobre o que ele é:
-   * "3 volumes · 55 auditorias" numa linha só anões as pastas reais logo acima
-   * e sugere um projeto gigante onde há 58 conversas órfãs. Elas são o resíduo
-   * de trabalho sem identidade — ver a limpeza guiada, na barra lateral.
-   */
-  if (p.chave === "") {
-    // Sem "sem projeto" no fim: a linha já se chama assim, e repetir o rótulo
-    // no dado é a palavra que não ganha o lugar dela.
-    return `${p.conversas} conversa${p.conversas > 1 ? "s" : ""}`;
-  }
-  const partes: string[] = [];
-  if (p.volumes > 0) partes.push(`${p.volumes} volume${p.volumes > 1 ? "s" : ""}`);
-  if (p.auditorias > 0)
-    partes.push(`${p.auditorias} auditoria${p.auditorias > 1 ? "s" : ""}`);
-  if (partes.length === 0)
-    return `${p.conversas} conversa${p.conversas > 1 ? "s" : ""}`;
-  return partes.join(" · ");
-}
 
 const CAMINHO = (id: string) => `/nexo?conversa=${encodeURIComponent(id)}`;
 
@@ -141,7 +128,7 @@ export function OndeVoceParou({
           diferença entre gastar uma linha inteira para dizer "onde você parou"
           e gastar a margem esquerda de uma linha que já existia.
         */}
-        <span className="shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Retomar
         </span>
 
@@ -163,17 +150,44 @@ export function OndeVoceParou({
           <p className="m-0 truncate text-[15px] font-medium leading-snug text-foreground">
             {ondeParou.title}
           </p>
-          <p className="m-0 mt-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[11.5px] leading-5 text-muted-foreground">
+          {/*
+            QUATRO TERMOS VIRARAM TRÊS, e o que saiu foi o `oQueTem`.
+
+            A linha era `SIM104-26 · CHAPECÓ · 1 auditoria · há 4 min · análise
+            rodando`. "1 auditoria" é a contagem da PASTA, e ela responde uma
+            pergunta que ninguém faz num bloco chamado "Retomar" — quem clica em
+            Continuar quer voltar para UMA conversa, não saber quantas existem
+            na pasta. Ela sobrevive inteira na barra lateral, que é a tela da
+            pasta.
+
+            O que sobrou é a prioridade pedida: projeto, município, tempo. E o
+            status vira o quarto termo só quando existe.
+
+            `·` COMO SEPARADOR, e não `gap` mudo: com quatro termos de larguras
+            diferentes, o espaço sozinho lia como quebra de coluna.
+          */}
+          <p className="m-0 mt-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[12px] leading-5 text-muted-foreground">
             <span className="tracking-[0.03em] text-foreground">
               {daRetomada ? nomeDoProjeto(daRetomada) : "sem projeto"}
             </span>
-            {daRetomada ? <span>{oQueTem(daRetomada)}</span> : null}
+            <span aria-hidden>·</span>
             <span className="tabular-nums">{quando(ondeParou.updatedAt)}</span>
             {daRetomada?.emCurso ? (
-              <span className="inline-flex items-center gap-1 text-[var(--status-warning)]">
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                análise rodando
-              </span>
+              <>
+                <span aria-hidden>·</span>
+                {/*
+                  AZUL, e não mais âmbar. Âmbar nesta tela significa "está parado
+                  esperando você" (o chip do projeto), e "análise rodando" é o
+                  oposto exato disso. `--signal-info` é o token que a DESIGN.md
+                  destina a "aviso que NÃO é status", com `AuditoriaEmCurso`
+                  nomeado como consumidor — e é o mesmo azul da legenda do orbe,
+                  logo acima, que diz a mesma coisa.
+                */}
+                <span className="inline-flex items-center gap-1 text-[var(--signal-info)]">
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  análise rodando
+                </span>
+              </>
             ) : null}
           </p>
         </div>

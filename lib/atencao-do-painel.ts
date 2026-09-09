@@ -80,8 +80,14 @@ export type ResumoDoProjeto = {
    * `trabalho` é o quinto, e ele não existia: é o projeto que está na home
    * porque houve conversa recente, sem auditoria nem achado. Ele aparecia só na
    * coluna da direita, que morreu.
+   *
+   * `curso` é o SEXTO, e nasceu em 09/09/2026 separando-se do `trabalho`.
+   * Os dois liam igual na tela — "auditoria em curso" e "volume montado" com o
+   * mesmo tom cinza — e são opostos: um é o motor trabalhando NESTE INSTANTE, o
+   * outro é uma tarefa que acabou. Um estado que muda sozinho enquanto a pessoa
+   * olha não pode ter a mesma cor de um que não muda mais.
    */
-  realce: "alerta" | "seu" | "outro" | "trabalho" | "limpo";
+  realce: "alerta" | "seu" | "outro" | "curso" | "trabalho" | "limpo";
 };
 
 /**
@@ -137,7 +143,7 @@ export function resumoDoProjeto(args: {
    * ontem — e essa segunda é o motivo de metade das visitas ao produto.
    */
   if (args.trabalho?.auditoriaPendente) {
-    return { texto: "auditoria em curso", realce: "trabalho" };
+    return { texto: "auditoria em curso", realce: "curso" };
   }
 
   if (args.trabalho?.tipo === "volume") {
@@ -317,12 +323,23 @@ export function contadoresDaAtencao(
   const parados = projetos.filter((p) => p.recebidos > 0 && p.diasParado >= LIMIAR_TARJA);
   const comOutros = conta((p) => p.enviados);
 
+  /*
+   * O RÓTULO ENCURTOU, e a razão é a linha: três chips lado a lado somavam
+   * "11 achados com você · 3 projetos parados · 12 com outras pessoas" — 58
+   * caracteres de preposição para dizer três números. "Meus" e "da equipe" são
+   * a mesma informação em metade do espaço, e são as palavras que o escritório
+   * usa falando.
+   *
+   * "MEUS ACHADOS" e não "achados": a distinção que o chip carrega não é
+   * "existe achado", é "é seu ou é de outro". O possessivo faz o trabalho que a
+   * preposição fazia, e cabe.
+   */
   const tudo: ContadorDaAtencao[] = [
     {
       foco: "com-voce",
       quantos: comVoce.quantos,
       projetos: comVoce.projetos,
-      rotulo: `${comVoce.quantos} ${comVoce.quantos === 1 ? "achado" : "achados"} com você`,
+      rotulo: `${comVoce.quantos} ${comVoce.quantos === 1 ? "meu achado" : "meus achados"}`,
     },
     {
       foco: "parados",
@@ -334,7 +351,7 @@ export function contadoresDaAtencao(
       foco: "com-outros",
       quantos: comOutros.quantos,
       projetos: comOutros.projetos,
-      rotulo: `${comOutros.quantos} com outras pessoas`,
+      rotulo: `${comOutros.quantos} da equipe`,
     },
   ];
 
@@ -364,4 +381,90 @@ export function iniciaisDe(valor: string): string {
   if (partes.length === 1) return partes[0][0].toUpperCase();
 
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * O ESTADO DO MOTOR — o que a legenda do orbe diz.
+ *
+ * Ela dizia a CONTAGEM de achados ("11 achados esperam por você"), e a faixa
+ * "Precisa da sua atenção" repetia o mesmo número 60px abaixo. Duas vezes o
+ * mesmo dado na mesma dobra, e a de baixo ainda FILTRA a lista — então a de
+ * cima perdeu a disputa e trocou de assunto.
+ *
+ * O que só a legenda pode dizer é em que pé está o MOTOR: se há auditoria
+ * rodando, se acabou de terminar alguma coisa, ou se está tudo quieto. Nenhum
+ * desses três aparece em outro lugar da tela.
+ *
+ * PURO, e por isso testável: a regra de "há pouco" é uma subtração de datas, e
+ * é exatamente o tipo de coisa que passa despercebida no navegador — ninguém
+ * abre a home às 3h da manhã para conferir se a notícia de ontem já saiu.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Quanto tempo uma conclusão continua sendo notícia.
+ *
+ * DOZE HORAS, e o limite não é decoração: sem ele, "auditoria concluída"
+ * ficaria no lugar mais visível do produto por três semanas depois de a
+ * auditoria acabar. Notícia velha no lugar de honra ensina a não olhar para o
+ * lugar de honra.
+ *
+ * Doze e não vinte e quatro: quem montou um volume às 18h de ontem e abre o
+ * produto às 9h de hoje não está "no meio" daquilo — o dia virou, e o que ele
+ * quer saber é o que está rodando AGORA. Doze horas cobrem o intervalo do
+ * almoço e a volta depois de uma reunião, que é o caso real.
+ */
+export const NOTICIA_VALE_MS = 12 * 60 * 60 * 1000;
+
+export type EstadoDoProcesso = {
+  texto: string;
+  /**
+   * `info` é processo ACONTECENDO — azul, e com o ponto que pulsa.
+   * `quieto` é notícia ou repouso — sem cor.
+   *
+   * NÃO EXISTE `alerta` AQUI, e a ausência é a decisão: âmbar nesta tela
+   * significa uma coisa só, "está parado esperando você", e é o chip de tempo
+   * do projeto que a carrega. Se a legenda do orbe também pudesse ficar âmbar,
+   * a mesma cor diria "rodando agora" e "parado há seis semanas" na mesma
+   * dobra.
+   */
+  tom: "info" | "quieto";
+};
+
+export function estadoDoProcesso(args: {
+  /** Há auditoria rodando neste instante. */
+  emCurso: boolean;
+  /** O código da obra do trabalho mais recente. Vazio quando não há pasta. */
+  codigo: string;
+  /** `volume` | `auditoria` | outro. É o `tipo` da conversa. */
+  tipo: string | null;
+  /** Quando esse trabalho foi tocado pela última vez, em ms. */
+  quandoMs: number | null;
+  agoraMs?: number;
+}): EstadoDoProcesso {
+  const agora = args.agoraMs ?? Date.now();
+  // O código entra na frase quando existe; sem ele a frase fica genérica em vez
+  // de ficar quebrada ("Analisando o memorial do " com o fim pendurado).
+  const onde = args.codigo.trim() ? ` do ${args.codigo.trim()}` : "";
+
+  if (args.emCurso) return { texto: `Analisando o memorial${onde}`, tom: "info" };
+
+  const recente =
+    args.quandoMs !== null && agora - args.quandoMs >= 0 && agora - args.quandoMs < NOTICIA_VALE_MS;
+
+  if (recente && args.tipo === "volume") {
+    return { texto: `Volume${onde} montado`, tom: "quieto" };
+  }
+
+  if (recente && args.tipo === "auditoria") {
+    return { texto: `Auditoria${onde} concluída`, tom: "quieto" };
+  }
+
+  /*
+   * O REPOUSO, e ele NÃO é "tudo em dia".
+   *
+   * "Tudo em dia" é uma afirmação sobre o TRABALHO, e a legenda não fala de
+   * trabalho — fala do motor. Numa conta com onze achados parados, "tudo em
+   * dia" seria falso a dois dedos de uma faixa dizendo o contrário.
+   */
+  return { texto: "Nenhum processo em andamento", tom: "quieto" };
 }

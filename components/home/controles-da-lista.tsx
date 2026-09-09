@@ -66,11 +66,18 @@ export function ControlesDaLista({
             role="tab"
             aria-selected={escopo === id}
             onClick={() => aoTrocarEscopo(id)}
+            /*
+              ALVO DE 28px, e antes era 22. `py-1` com texto de 10,5px dava uma
+              área clicável mais baixa que a linha de texto ao lado — e o alvo
+              menor da tela era justamente o controle que troca a lista inteira.
+              O texto sobe para 11,5px pela mesma razão: em versalete, 10,5px de
+              mono é o degrau em que a caixa alta começa a exigir esforço.
+            */
             className={cn(
-              "nx-cut-4 cursor-pointer px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.06em] transition-colors duration-[var(--duration-fast)]",
+              "nx-cut-4 cursor-pointer px-3 py-1.5 font-mono text-[11.5px] uppercase tracking-[0.06em] transition-colors duration-[var(--duration-fast)]",
               escopo === id
                 ? "bg-[var(--secondary)] text-[var(--nexodoc-accent)]"
-                : "text-muted-foreground hover:text-foreground",
+                : "text-muted-foreground hover:bg-[var(--nexodoc-raised)] hover:text-foreground",
             )}
           >
             {rotulo}
@@ -85,7 +92,15 @@ export function ControlesDaLista({
             type="button"
             onClick={toggle}
             aria-expanded={open}
-            className="inline-flex cursor-pointer items-center gap-1.5 font-mono text-[11px] tracking-[0.04em] text-muted-foreground transition-colors duration-[var(--duration-fast)] hover:text-foreground"
+            /*
+              O GATILHO GANHOU CAIXA. Ele era texto solto com uma seta, e a única
+              pista de que abria um menu era o `chevron` de 12px — a mesma
+              aparência de "mais parados primeiro" quando era rótulo morto. O
+              `nx-cut-4` com hover em `--nexodoc-raised` diz "isto é um
+              controle" sem virar botão: continua sem borda e sem fundo em
+              repouso.
+            */
+            className="nx-cut-4 inline-flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 font-mono text-[12px] tracking-[0.04em] text-muted-foreground transition-colors duration-[var(--duration-fast)] hover:bg-[var(--nexodoc-raised)] hover:text-foreground"
           >
             {/*
               O RÓTULO DA ORDEM ATUAL ficava aqui como texto morto ("mais
@@ -110,7 +125,7 @@ export function ControlesDaLista({
                     close();
                   }}
                   className={cn(
-                    "nx-cut-4 flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-[12.5px] transition-colors duration-[var(--duration-fast)]",
+                    "nx-cut-4 flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--duration-fast)]",
                     ordem === o.id
                       ? "text-[var(--nexodoc-accent)]"
                       : "text-foreground hover:bg-[var(--nexodoc-raised)]",

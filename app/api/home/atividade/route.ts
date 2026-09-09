@@ -26,8 +26,15 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-/** Cabe no widget sem rolagem em qualquer uma das larguras. */
-const LIMITE = 8;
+/**
+ * CINCO, e não mais oito.
+ *
+ * O widget deixou de ser `largo` (duas colunas) e voltou a uma coluna: oito
+ * linhas ali dentro faziam dele a peça mais alta de "Seu espaço", numa seção
+ * cujo nome diz que ela é SUA. Da sexta linha para baixo também deixa de ser "o
+ * que aconteceu" e vira histórico — e histórico tem tela, que é a do projeto.
+ */
+const LIMITE = 5;
 
 /**
  * O VERBO de cada tipo, na terceira pessoa e no passado.

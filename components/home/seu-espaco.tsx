@@ -14,16 +14,16 @@
  * DESIGN.md ("evitar cards coloridos, ruído visual e ornamentação sem função").
  * Quem quiser os outros dois liga em dois cliques.
  *
- * A GRADE TEM QUATRO COLUNAS, e o número não é estético — é aritmética.
+ * A GRADE TEM TRÊS COLUNAS, e o número é aritmética, não gosto.
  *
- * Ela nasceu com três, e o padrão (dois `curto` + um `largo`) soma 1+1+2 = 4
- * células: numa grade de três, o `largo` não cabe na sobra da primeira linha,
- * desce inteiro para a segunda e deixa DOIS buracos — um no fim de cada linha.
- * A seção lia como uma prateleira meio vazia. Com quatro, o padrão fecha a
- * linha exatamente, e em `sm` (duas colunas) fecha duas linhas exatamente.
+ * Ela já foi de três e já foi de quatro, e as duas mudanças foram pela mesma
+ * conta: o padrão tem que FECHAR a linha, senão a seção lia como prateleira
+ * meio vazia. Com a atividade `largo` (dois de quatro), o padrão somava
+ * 1+1+2 = 4 e fechava numa grade de quatro. Ela voltou a `curto`, o padrão
+ * virou 1+1+1 = 3, e a grade acompanhou.
  *
- * A atividade é a única larga porque é uma lista de oito linhas com nome, verbo
- * e hora: numa coluna de 300px, cada linha viraria três.
+ * `largo` continua funcionando (`sm:col-span-2`) para o widget que vier
+ * precisar — hoje nenhum precisa, e é isso que a grade reflete.
  *
  * SEÇÃO INTEIRA SOME quando não há widget ligado. Um título "SEU ESPAÇO" sobre
  * o nada é a interface anunciando um vazio que a própria pessoa escolheu.
@@ -57,8 +57,19 @@ export function SeuEspaco({
   if (montaveis.length === 0) return null;
 
   return (
-    <section aria-labelledby="seu-espaco" className="mt-10 w-full">
-      <div className="mb-3 flex items-baseline gap-3">
+    /*
+      O VÃO ERA DUPLO, e medi-lo foi o que revelou.
+      O contêiner pai é `flex flex-col gap-8` (32px) e esta seção somava o
+      próprio `mt-10` (40px) por cima: 72px entre o rodapé da lista e este
+      título, numa tela em que a separação de seção mais larga em qualquer outro
+      ponto é 32. Medido em 09/09/2026: 65px do fim do "Ver todos…" até aqui —
+      "Seu espaço" lia como outra página.
+      `mt-5` (20px) sobre os 32 do pai dá 52, que é ~28% a menos. O espaço
+      negativo continua inteiro; o que saiu foi a soma acidental de dois
+      espaçamentos que ninguém tinha somado.
+    */
+    <section aria-labelledby="seu-espaco" className="mt-5 w-full">
+      <div className="mb-3 flex items-center gap-3">
         <h2
           id="seu-espaco"
           className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
@@ -66,17 +77,27 @@ export function SeuEspaco({
           Seu espaço
         </h2>
         <span aria-hidden className="h-px flex-1 bg-border" />
+        {/*
+          PERSONALIZAR ganhou forma de controle, e continua secundário.
+
+          Era texto de 11px com um ícone de 12, sem caixa e sem alvo: 16px de
+          altura clicável no canto de uma seção, o que na prática quer dizer que
+          só quem já sabia que ele existia o encontrava. Agora tem borda, 30px
+          de alvo e o ícone em 14 — e continua longe de ser primário: sem fundo,
+          em `--muted-foreground`, do outro lado do fio.
+        */}
         <button
           type="button"
           onClick={aoPersonalizar}
-          className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 font-mono text-[11px] tracking-[0.04em] text-muted-foreground transition-colors duration-[var(--duration-fast)] hover:text-foreground"
+          title="Escolher os widgets e como a lista de projetos se comporta"
+          className="nx-cut-4 inline-flex shrink-0 cursor-pointer items-center gap-2 border border-border px-2.5 py-1.5 font-mono text-[11.5px] tracking-[0.04em] text-muted-foreground transition-colors duration-[var(--duration-fast)] hover:bg-[var(--nexodoc-raised)] hover:text-foreground"
         >
-          <Settings2 className="h-3 w-3" strokeWidth={1.6} aria-hidden />
+          <Settings2 className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden />
           Personalizar
         </button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {montaveis.map(({ id, Componente, ficha }) => (
           <div
             key={id}

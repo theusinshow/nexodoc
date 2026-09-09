@@ -270,10 +270,13 @@ test("achado ENVIADO nunca conta como parado — é cobrança, não esquecimento
 });
 
 test("singular e plural nos rótulos", () => {
+  // "meus achados" e não "achados com você": três chips lado a lado somavam 58
+  // caracteres de preposição para dizer três números.
   const um = contadoresDaAtencao([{ recebidos: 1, enviados: 0, diasParado: 0 }]);
-  assert.equal(um[0].rotulo, "1 achado com você");
-  const dois = contadoresDaAtencao([{ recebidos: 2, enviados: 0, diasParado: 0 }]);
-  assert.equal(dois[0].rotulo, "2 achados com você");
+  assert.equal(um[0].rotulo, "1 meu achado");
+  const dois = contadoresDaAtencao([{ recebidos: 2, enviados: 3, diasParado: 0 }]);
+  assert.equal(dois[0].rotulo, "2 meus achados");
+  assert.equal(dois.at(-1)?.rotulo, "3 da equipe");
 });
 
 /* ── as iniciais ────────────────────────────────────────────────────────── */

@@ -65,11 +65,11 @@ export function WidgetGerados() {
                 href={`/projetos/${g.projectId}`}
                 className="flex items-baseline gap-2.5 py-[7px] transition-colors duration-[var(--duration-fast)] hover:text-foreground"
               >
-                <span className="shrink-0 text-[12.5px] text-foreground">{g.rotulo}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] tracking-[0.03em] text-muted-foreground">
+                <span className="shrink-0 text-[13px] text-foreground">{g.rotulo}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[12px] tracking-[0.03em] text-muted-foreground">
                   {g.codigo}
                 </span>
-                <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground">
+                <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                   {quando(g.quando)}
                 </span>
               </Link>

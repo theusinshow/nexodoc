@@ -18,7 +18,18 @@
  * o mural de outra equipe. Quem é você vem marcado, para a leitura ser rápida.
  *
  * RÉGUA DE 1px, sem cartão por linha — o padrão de tabela da DESIGN.md, que é
- * o que deixa oito linhas caberem sem a seção virar uma pilha de caixas.
+ * o que deixa as linhas caberem sem a seção virar uma pilha de caixas.
+ *
+ * ELE ENCOLHEU NA SEGUNDA RODADA, e a razão está no nome da seção.
+ *
+ * Ele era `largo` (duas colunas de quatro) com oito linhas, e com isso ocupava
+ * metade de "Seu espaço" — uma seção que se chama SEU espaço tendo como maior
+ * peça a atividade dos OUTROS. Agora é `curto` como os demais e mostra cinco
+ * linhas: continua respondendo "o que aconteceu enquanto eu não estava", que é
+ * a pergunta dele, sem responder por toda a seção.
+ *
+ * Cinco e não oito: da sexta linha para baixo já não é "o que aconteceu",
+ * é histórico — e histórico tem tela, que é a do projeto.
  */
 
 import * as React from "react";
@@ -86,7 +97,7 @@ function Linha({ evento }: { evento: Evento }) {
   const miolo = (
     <>
       <span
-        className="shrink-0 truncate text-[12.5px]"
+        className="shrink-0 truncate text-[13px]"
         style={{
           maxWidth: "9ch",
           // Você em texto normal, os outros em cinza: a inversão do que se
@@ -98,14 +109,14 @@ function Linha({ evento }: { evento: Evento }) {
         {evento.souEu ? "Você" : primeiroNome(evento.quem)}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">
+      <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
         {evento.verbo}{" "}
-        <span className="font-mono text-[11.5px] tracking-[0.03em] text-foreground">
+        <span className="font-mono text-[12px] tracking-[0.03em] text-foreground">
           {evento.onde}
         </span>
       </span>
 
-      <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground">
+      <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
         {quando(evento.quando)}
       </span>
     </>

@@ -69,8 +69,13 @@ check("a faixa de atenção está visível", Boolean(geo.atencao && geo.atencao.
   geo.atencao ? `w=${Math.round(geo.atencao.width)} top=${Math.round(geo.atencao.top)}` : "não achou");
 
 const legenda = (await page.locator("main p[aria-live=polite]").first().innerText()).trim();
-check("a legenda do orbe é ESTADO, e não instrução fixa",
-  /ESPERAM POR VOCÊ|ESPERA POR VOCÊ|ANALISANDO|TUDO EM DIA/i.test(legenda), legenda);
+// O ESTADO DO MOTOR, e nao mais a contagem de achados: essa a faixa logo abaixo
+// ja dava, e o mesmo numero duas vezes na mesma dobra era a redundancia que a
+// segunda rodada tirou.
+check("a legenda do orbe é o estado do PROCESSO",
+  /ANALISANDO|MONTADO|CONCLUÍDA|NENHUM PROCESSO/i.test(legenda), legenda);
+check("a legenda NÃO repete a contagem da faixa",
+  !/ESPERA(M)? POR VOCÊ|ACHADOS?/i.test(legenda), legenda);
 
 const saudacao = await page.locator("main p", { hasText: /Clique no orbe/ }).first().innerText();
 check("a saudação nomeia a pessoa", /Bom dia|Boa tarde|Boa noite/.test(saudacao), saudacao.trim());
@@ -162,8 +167,14 @@ check("nenhum chip junta contagem e tempo na mesma frase", juntos === 0);
 /* ── 4. OS CONTROLES MUDAM A LISTA ─────────────────────────────────────── */
 console.log("\nos controles");
 
+// Pelo ATRIBUTO, e nao pela classe: a versao anterior pescava o codigo por
+// `span.font-mono.font-semibold`, e no dia em que o codigo deixou de ser
+// semibold a asserção passou a comparar duas listas vazias -- falhando sem
+// dizer por que. Gancho de prova e contrato; classe de estilo nao e.
 const codigos = () =>
-  page.locator("[data-cartao-de-projeto] span.font-mono.font-semibold").allInnerTexts();
+  page
+    .locator("[data-cartao-de-projeto] [data-codigo-do-projeto]")
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-codigo-do-projeto")));
 
 const antesDaOrdem = await codigos();
 
@@ -250,6 +261,60 @@ if (await drawer.count()) {
   check("a preferência sobrevive ao F5",
     (await page.locator("section[aria-labelledby=seu-espaco] > div > div").count()) === 3);
 }
+
+/* ── 6b. FOCO VISÍVEL ──────────────────────────────────────────────────── */
+console.log("\nfoco de teclado");
+
+/*
+ * O ANEL DE FOCO DO `.nx-cut-*` NÃO EXISTIA no produto. A regra do @layer base
+ * tira o box-shadow externo das duas familias chanfradas ("em elemento
+ * recortado este box-shadow e CORTADO"), e so `.nx-edge-*` ganhou anel de
+ * volta -- todo botao `.nx-cut-*` ficava sem foco visivel nenhum.
+ *
+ * Mede o ESTILO COMPUTADO no elemento focado, e nao a existencia de uma classe:
+ * asserção de classe passa verde com a regra CSS deletada.
+ */
+/*
+ * TAB DE VERDADE, e nao `locator.focus()`.
+ *
+ * A primeira versao desta prova chamava `.focus()` e media `boxShadow` -- e
+ * falhou nos tres controles com "none", o que parecia dizer que a regra CSS nao
+ * existia. Ela existia: `:focus-visible` NAO casa com foco programatico no
+ * Chromium. E a heuristica do proprio seletor -- ele so acende quando o foco
+ * veio de teclado, que e exatamente o caso que a regra serve.
+ *
+ * Entao a prova anda de Tab a partir do topo, como a pessoa andaria.
+ */
+async function focarPorTeclado(seletor, maximo = 40) {
+  await page.locator("body").click({ position: { x: 4, y: 4 } });
+  for (let i = 0; i < maximo; i += 1) {
+    await page.keyboard.press("Tab");
+    const acertou = await page.evaluate(
+      (sel) => document.activeElement?.matches(sel) ?? false,
+      seletor,
+    );
+    if (acertou) return true;
+  }
+  return false;
+}
+
+const focaveis = [
+  ["chip da faixa de atenção", "section[aria-labelledby=atencao] button"],
+  ["aba de escopo", "[role=tab]"],
+];
+
+for (const [nome, seletor] of focaveis) {
+  if (!(await focarPorTeclado(seletor))) {
+    check(`${nome} é alcançável por Tab`, false, seletor);
+    continue;
+  }
+  const sombra = await page.evaluate(() => getComputedStyle(document.activeElement).boxShadow);
+  // `inset` porque `.nx-cut-*` e superficie chapada: um anel externo seria
+  // cortado pelo clip-path e o controle ficaria sem foco visivel nenhum.
+  check(`${nome} mostra o foco por dentro`, sombra.includes("inset"), sombra);
+}
+
+await page.locator("body").click({ position: { x: 4, y: 4 } });
 
 /* ── 7. RESPONSIVO ─────────────────────────────────────────────────────── */
 console.log("\nresponsivo");

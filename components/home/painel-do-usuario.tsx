@@ -72,11 +72,12 @@ import {
   abreSozinho,
   contadoresDaAtencao,
   ehOrdem,
+  estadoDoProcesso,
   iniciaisDe,
   LIMIAR_TARJA,
   ordenarLista,
   resumoDoProjeto,
-  type ContadorDaAtencao,
+  type EstadoDoProcesso,
   type FocoDaAtencao,
   type OrdemDaLista,
 } from "@/lib/atencao-do-painel";
@@ -219,6 +220,27 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
 
   const contadores = useMemo(() => contadoresDaAtencao(enriquecidos), [enriquecidos]);
 
+  /*
+   * O ESTADO DO MOTOR, para a legenda do orbe. Sai da RETOMADA — que é a pasta
+   * do trabalho mais recente — e não da lista: a lista responde "onde eu
+   * estava", e a legenda responde "o que está rodando", que é outra pergunta.
+   *
+   * `useMemo` com o painel na dependência e não `Date.now()`: a frase muda de
+   * "concluída" para "nenhum processo" na virada das doze horas, e ninguém
+   * fica com a home aberta esperando essa virada. Recalcular a cada render por
+   * causa disso seria pagar por um caso que não existe.
+   */
+  const processo = useMemo<EstadoDoProcesso>(
+    () =>
+      estadoDoProcesso({
+        emCurso: Boolean(painel?.trabalho.retomada?.emCurso),
+        codigo: painel?.trabalho.retomada?.codigo ?? "",
+        tipo: painel?.trabalho.ondeParou?.tipo ?? null,
+        quandoMs: painel?.trabalho.ondeParou?.updatedAt ?? null,
+      }),
+    [painel],
+  );
+
   const ordem: OrdemDaLista = ehOrdem(prefs.ordem) ? prefs.ordem : "parados";
 
   const lista = useMemo(() => {
@@ -318,12 +340,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           entra logo abaixo, ainda na primeira dobra, e agora com peso de cartão
           em vez de texto solto.
         */}
-        <ConviteDoOrbe
-          nome={nome}
-          contadores={contadores}
-          emCurso={painel?.trabalho.retomada?.emCurso ? painel.trabalho.retomada.codigo : null}
-          carregando={carregando}
-        />
+        <ConviteDoOrbe nome={nome} processo={processo} carregando={carregando} />
 
         {painel?.trabalho.ondeParou ? (
           <div className="mt-6">
@@ -506,18 +523,27 @@ function enriquecer(projetos: readonly ProjetoDoPainel[]) {
  * a segunda linha, junto com a saudação, e o lugar de honra passou a ser
  * ocupado pelo ESTADO.
  *
- * TRÊS ESTADOS, em ordem de precedência, e a ordem é a decisão:
+ * O QUE MUDOU NA SEGUNDA RODADA: ela mostra o PROCESSO, e não a contagem.
  *
- *  1. ANALISANDO — há auditoria rodando agora. Vence tudo porque é a única
- *     coisa da tela que muda sozinha enquanto a pessoa olha;
- *  2. N ESPERAM POR VOCÊ — a soma do que a faixa detalha logo abaixo;
- *  3. TUDO EM DIA — e ele só aparece quando a resposta é REALMENTE essa. Ver o
- *     `carregando`.
+ * A versão anterior dizia "11 ACHADOS ESPERAM POR VOCÊ" — e a faixa "Precisa da
+ * sua atenção", 60px abaixo, dizia "11 meus achados". O mesmo número, duas
+ * vezes, na mesma dobra. Uma delas tinha que ir embora, e a que sai é a de
+ * cima: a faixa não só conta como FILTRA, então ela ganha a disputa por ser a
+ * que faz alguma coisa com o número.
  *
- * "TUDO EM DIA" ENQUANTO CARREGA SERIA MENTIRA, e das piores: a frase é boa
- * notícia, ela apareceria por 300ms em toda visita, e quem lesse rápido sairia
- * da tela achando que não tinha nada. Enquanto o painel não chega, a legenda é
- * a instrução de sempre — que é verdadeira em qualquer estado.
+ * O que sobra para esta linha é o que só ela pode dizer: em que pé está o
+ * MOTOR. Quatro estados, e nenhum deles aparece em outro lugar da tela:
+ *
+ *  1. ANALISANDO O MEMORIAL DO X — há auditoria rodando AGORA. Vence tudo
+ *     porque é a única coisa da tela que muda sozinha enquanto a pessoa olha;
+ *  2. VOLUME DO X MONTADO / AUDITORIA DO X CONCLUÍDA — terminou há pouco;
+ *  3. NENHUM PROCESSO EM ANDAMENTO — o repouso, e ele é DISCRETO de propósito.
+ *
+ * "HÁ POUCO" É DOZE HORAS, e o limite não é decoração. Sem ele, "auditoria
+ * concluída" ficaria na tela por três semanas depois de a auditoria acabar, e
+ * uma notícia velha no lugar mais visível do produto ensina a não ler o lugar
+ * mais visível do produto. Passadas as doze horas a linha volta ao repouso —
+ * que é a verdade: não há processo em andamento.
  *
  * O VÃO DE 78px NÃO É ESPAÇAMENTO, É ESTRUTURA. O orbe tem 128px e está
  * ancorado no CENTRO da borda inferior da barra, então 64px dele pendem sobre
@@ -531,25 +557,22 @@ function enriquecer(projetos: readonly ProjetoDoPainel[]) {
  */
 function ConviteDoOrbe({
   nome,
-  contadores,
-  emCurso,
+  processo,
   carregando,
 }: {
   nome: string;
-  contadores: ContadorDaAtencao[];
-  /** O código da obra sendo analisada agora, ou nulo. */
-  emCurso: string | null;
+  processo: EstadoDoProcesso;
   carregando: boolean;
 }) {
-  const comVoce = contadores.find((c) => c.foco === "com-voce")?.quantos ?? 0;
-
-  const legenda = carregando
-    ? "Clique no orbe para falar com o Nexo"
-    : emCurso
-      ? `Analisando o memorial do ${emCurso}`
-      : comVoce > 0
-        ? `${comVoce} ${comVoce === 1 ? "achado espera" : "achados esperam"} por você`
-        : "Tudo em dia";
+  /*
+   * ENQUANTO CARREGA, A INSTRUÇÃO — e não "nenhum processo em andamento".
+   *
+   * A frase de repouso é uma AFIRMAÇÃO sobre o motor, e afirmá-la antes de
+   * saber apareceria por 300ms em toda visita; quem lesse rápido sairia da tela
+   * achando que a auditoria que ele acabou de disparar não estava rodando. A
+   * instrução é verdadeira em qualquer estado, e por isso é o repouso seguro.
+   */
+  const legenda = carregando ? "Clique no orbe para falar com o Nexo" : processo.texto;
 
   return (
     <div className="flex flex-col items-center pt-[78px] text-center">
@@ -567,20 +590,49 @@ function ConviteDoOrbe({
       */}
       <p
         aria-live="polite"
-        className="mt-3 font-mono text-[11px] font-medium uppercase tracking-[0.16em]"
+        className="mt-3 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.16em]"
         style={{
           /*
-            ÂMBAR SÓ QUANDO É STATUS. "Analisando" é processo em curso e usa o
-            mesmo âmbar de `análise rodando` no cartão de retomada logo abaixo —
-            a mesma coisa dita duas vezes tem que ter a mesma cor. Contagem de
-            achado e "tudo em dia" são FATOS, não severidades: pintá-los faria a
-            primeira dobra acender todo dia, e a §2 reserva os três sinais para
-            status. Teal está fora de questão — não se clica nesta linha.
+            AZUL, E NÃO MAIS ÂMBAR — e esta troca conserta uma ambiguidade que
+            atravessava a tela inteira.
+            "Analisando" era âmbar, e âmbar é `--status-warning`: a MESMA cor
+            que o chip "41 dias" do projeto parado. Duas coisas opostas — uma é
+            trabalho acontecendo agora, a outra é trabalho que ninguém tocou há
+            seis semanas — pintadas do mesmo tom, na mesma dobra.
+            `--signal-info` existe exatamente para isto, e a DESIGN.md já nomeia
+            `AuditoriaEmCurso` como consumidor dele: "aviso que NÃO é status".
+            Com a troca, âmbar nesta tela passa a significar uma coisa só, e é a
+            que importa: alguma coisa está parada esperando você.
+            O repouso e o processo concluído ficam em `--muted-foreground`: são
+            notícia, e notícia boa não precisa de cor para ser lida.
           */
-          color: emCurso && !carregando ? "var(--status-warning)" : "var(--foreground)",
+          color: processo.tom === "info" ? "var(--signal-info)" : "var(--foreground)",
         }}
       >
-        {legenda}
+        {/*
+          O PONTO QUE PULSA, e só quando há processo. É a única animação
+          contínua desta tela, e ela tem função: diz que o número vai mudar
+          sozinho. Ela some no instante em que o processo acaba — animação que
+          continua depois do fim é a definição de movimento decorativo.
+        */}
+        {processo.tom === "info" && !carregando ? (
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{
+              background: "var(--signal-info)",
+              animation: "nx-respira 2s var(--ease-standard) infinite",
+            }}
+          />
+        ) : null}
+        <span
+          style={{
+            color:
+              processo.tom === "quieto" && !carregando ? "var(--muted-foreground)" : undefined,
+          }}
+        >
+          {legenda}
+        </span>
       </p>
 
       {/*
@@ -684,9 +736,21 @@ function CartaoDeProjeto({
           O TRILHO. `aria-hidden` porque ele não acrescenta informação nova — o
           selo ao lado diz a mesma coisa em palavras, e quem lê por leitor de
           tela recebe a frase, não a cor. Cor sozinha nunca carrega significado.
+
+          O `title` é para o MOUSE, e pela mesma razão do `title` da marca: três
+          pixels de cor na borda são decifráveis para quem já sabe o código, e
+          mudos para quem não sabe. Ele não substitui o chip; ele responde no
+          lugar em que a pergunta nasce.
         */}
         <span
           aria-hidden
+          title={
+            alerta
+              ? `Parado há ${projeto.diasParado} dias esperando você`
+              : recebidos > 0
+                ? "Tem achado esperando você"
+                : "Nada esperando você"
+          }
           className="absolute left-0 top-0 h-full w-[3px] transition-colors duration-[var(--duration-fast)]"
           style={{ background: trilho }}
         />
@@ -712,57 +776,67 @@ function CartaoDeProjeto({
           {/*
             A MARCA, na forma SELO — a que o módulo destina a cartão de projeto.
 
-            O cabeçalho dela promete que "a cidade está escrita a poucos pixels
-            daqui", e é o que a torna decifrável: cor mais nome. NESTA TELA A
-            PROMESSA ESTAVA QUEBRADA — a cidade aparecia na coluna da direita e
-            não aqui, e a marca virava três traços coloridos sem legenda. Quem
-            não decorou a paleta não tinha como saber a cidade na tela
-            principal. O nome entra ao lado do projeto, logo abaixo.
+            O `title` chegou na segunda rodada, e ele conserta o que sobrava da
+            promessa. A marca é `aria-hidden` por construção (o nome da cidade
+            está escrito a poucos pixels dela, e um leitor de tela diria
+            "Criciúma" duas vezes por linha), mas quem usa MOUSE não tem como
+            saber o que são três traços coloridos antes de ler a linha inteira.
+            O `title` responde no lugar em que a pergunta nasce.
           */}
-          <MarcaDaPrefeitura prefeitura={projeto.cliente} forma="selo" />
-
-          {/*
-            A FICHA DO CÓDIGO fica NEUTRA, sempre. Ela era pintada de âmbar
-            junto com o resto — e o código é o IDENTIFICADOR, o que a pessoa
-            procura quando chega sabendo o que quer. Um identificador que muda
-            de cor conforme o estado do projeto é mais difícil de varrer, não
-            mais fácil: o olho passa a filtrar por cor numa coluna em que ele
-            deveria estar lendo texto.
-          */}
-          <span className="nx-cut-4 shrink-0 bg-[var(--nexodoc-raised)] px-2 py-1 font-mono text-[12px] font-semibold tracking-[0.04em] text-foreground">
-            {projeto.codigo}
+          <span
+            className="flex shrink-0"
+            title={
+              projeto.cliente.trim()
+                ? `Prefeitura de ${projeto.cliente.trim()}`
+                : "Município não cadastrado"
+            }
+          >
+            <MarcaDaPrefeitura prefeitura={projeto.cliente} forma="selo" />
           </span>
 
           {/*
-            O NOME TRUNCA, A CIDADE NÃO — e os dois ficam JUNTOS, à esquerda.
+            O NOME DA OBRA VEM PRIMEIRO (segunda rodada), e a troca é de
+            HIERARQUIA, não de layout — a linha continua com a mesma altura.
 
-            A cidade era um `<span>` aninhado dentro do elemento que trunca, e
-            por isso era a PRIMEIRA coisa a sumir: a 820px, "Reforma e ampliação
-            do Pronto Atendimento…" comia a linha e TUBARÃO ficava fora da
-            caixa, enquanto a marca de prefeitura continuava ali — três traços
-            coloridos sem legenda. É a promessa do módulo da marca ("o nome da
-            cidade está a poucos pixels daqui") quebrada na largura estreita.
+            O código era uma FICHA em superfície elevada, 12px semibold, à
+            esquerda de tudo: pesava mais que o nome da obra em três eixos ao
+            mesmo tempo (posição, peso e fundo). E quem abre a home de manhã não
+            está procurando "SIM031-26" — está procurando "o muro de contenção".
+            A busca por código existe e tem tela própria (`/projetos`), com
+            campo de texto; a home responde a outra pergunta.
 
-            A primeira tentativa de conserto foi pior: separá-los em irmãos do
-            flex mandou a cidade para a BORDA DIREITA, colada nos chips de
-            estado, a 900px da marca que ela legenda. Consertou o truncamento e
-            quebrou a promessa de vez, nas duas larguras.
+            Então o nome sobe para `font-medium` e ocupa o lugar da esquerda, e
+            o código desce para metadado mono ao lado da cidade. Ele continua
+            perfeitamente visível — monoespaçado, em caixa alta, ao lado do
+            nome —, só parou de gritar.
 
-            O certo é um grupo só: `min-w-0` para o flex poder encolher o
-            conjunto, `truncate` só no nome, e a cidade `shrink-0` logo ao lado.
-            O que encurta é o nome — o código, três elementos à esquerda, já
-            identifica a obra sozinho.
+            O GRUPO É UM SÓ, com `min-w-0`, e isso não mudou: `truncate` no nome
+            e `shrink-0` no metadado. O que encurta na tela estreita é o nome,
+            porque o código e a cidade são curtos e identificam sozinhos.
           */}
-          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-sm">
-            <span className="min-w-0 truncate text-foreground">{projeto.nome}</span>
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="min-w-0 truncate text-[14px] font-medium leading-tight text-foreground">
+              {projeto.nome}
+            </span>
             {/*
               "SEM CIDADE" POR EXTENSO, e não um separador pendurado. Com
               `cliente` vazio a linha terminava em "Reforma do Centro ·" — um
               ponto que parece erro de renderização, e não o fato de que ninguém
               cadastrou o município.
             */}
-            <span className="shrink-0 text-muted-foreground">
-              · {projeto.cliente.trim() || "sem cidade"}
+            {/*
+              `data-codigo-do-projeto` é GANCHO DE PROVA, e não estilo. A prova
+              do navegador pescava o código por `span.font-mono.font-semibold` —
+              e quando o código deixou de ser semibold nesta rodada, a asserção
+              de ordenação passou a comparar duas listas vazias e a falhar sem
+              dizer por quê. Asserção presa a classe de estilo quebra a cada
+              ajuste visual, que é o oposto do que ela existe para permitir.
+            */}
+            <span
+              data-codigo-do-projeto={projeto.codigo}
+              className="shrink-0 font-mono text-[11.5px] tracking-[0.03em] text-muted-foreground"
+            >
+              {projeto.codigo} · {projeto.cliente.trim() || "sem cidade"}
             </span>
           </span>
 
@@ -778,19 +852,26 @@ function CartaoDeProjeto({
         }}
       >
         <div className="overflow-hidden">
-          <div className="flex flex-col gap-0.5 pb-4 pl-5 pr-4 pt-0.5">
+          {/*
+            COMPACTADO na segunda rodada. Era `gap-0.5 pb-4 pt-0.5` com linhas de
+            `py-2.5`: um cartão com UM achado media 156px, dos quais 52 eram ar.
+            Agora o corpo abre colado no cabeçalho, as linhas são `py-2`, e a
+            fileira de ações sobe. Um achado cabe em ~112px, e o segundo cartão
+            da lista volta para a primeira dobra.
+          */}
+          <div className="flex flex-col pb-3 pl-5 pr-4">
             {projeto.itens.map((item, indice) => (
               <Link
                 key={`${item.auditId}-${item.titulo}-${indice}`}
                 href={`/nexo?auditoria=${encodeURIComponent(item.auditId)}`}
-                className="flex items-center gap-3 border-t border-[var(--nexodoc-raised)] py-2.5 text-inherit transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
+                className="group flex items-center gap-3 border-t border-[var(--nexodoc-raised)] py-2 text-inherit transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
               >
                 <span
                   aria-hidden
                   className="nx-cut-4 h-[7px] w-[7px] shrink-0"
                   style={{ background: corDoItem(item) }}
                 />
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                <span className="min-w-0 flex-1 truncate text-[13.5px] text-foreground">
                   {item.titulo}
                 </span>
                 {/*
@@ -800,13 +881,13 @@ function CartaoDeProjeto({
                   achado. Encurtado por `nomeCurto`, travado contra quebra, e
                   escondido de todo no celular: quem é lê-se abrindo o achado.
                 */}
-                <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:inline">
+                <span className="hidden shrink-0 whitespace-nowrap text-[12px] text-muted-foreground sm:inline">
                   {item.direcao === "recebido"
                     ? `de ${nomeCurto(item.pessoa)}`
                     : `→ ${nomeCurto(item.pessoa)}`}
                 </span>
                 <span
-                  className="shrink-0 whitespace-nowrap text-right font-mono text-[11px] tracking-[0.03em] sm:min-w-[96px]"
+                  className="shrink-0 whitespace-nowrap text-right font-mono text-[11.5px] tracking-[0.03em] sm:min-w-[92px]"
                   style={{
                     color:
                       item.direcao === "recebido" && item.dias >= LIMIAR_TARJA
@@ -816,10 +897,28 @@ function CartaoDeProjeto({
                 >
                   {rotuloDeTempo(item)}
                 </span>
+                {/*
+                  A SETA DE "ABRE ALGUMA COISA", que só aparece no hover.
+
+                  A linha inteira é um link para o achado dentro do Nexo, e nada
+                  na linha dizia isso: título, nome e data leem como três colunas
+                  de uma tabela. Uma seta permanente em oito linhas seria oito
+                  vezes o mesmo ícone; no hover ela custa zero e responde na hora
+                  em que a pergunta nasce.
+
+                  `aria-hidden` porque o `<a>` já é anunciado como link — a seta
+                  é a versão visual da mesma informação, não uma segunda.
+                */}
+                <span
+                  aria-hidden
+                  className="hidden shrink-0 font-mono text-[12px] text-[var(--nexodoc-accent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100 sm:inline"
+                >
+                  →
+                </span>
               </Link>
             ))}
 
-            <div className="flex flex-wrap items-center gap-2 pt-3">
+            <div className="flex flex-wrap items-center gap-2 pt-2.5">
               {projeto.artefatos.map((artefato) => (
                 <Link
                   key={artefato.artifactId}
@@ -929,32 +1028,43 @@ function Selo({
   return (
     <span className="flex shrink-0 items-center gap-1.5">
       {/*
-        A CONTAGEM é sempre o primeiro chip, e nunca é status: ela diz o tamanho
-        da pilha, não a gravidade dela. Fica teal quando é SUA (é acionável, e
-        teal significa "isto responde a você") e neutra quando é estado do
-        projeto.
+        A CONTAGEM é sempre o primeiro chip, e é NEUTRA — inclusive quando é sua.
+
+        Ela era teal quando o achado era seu, e isso furava a regra do acento
+        único (§2: "teal significa interatividade. Só. Nunca status"). O chip
+        não é um controle: quem clica é a linha inteira. Pior, com teal na
+        contagem e âmbar no tempo, uma linha de projeto parado carregava DUAS
+        cores fortes lado a lado, e as duas competiam pelo mesmo olhar.
+
+        Quem diz "isto é seu" é o TRILHO, que já é teal e já está a três pixels
+        dali — 3px de acento em vez de um chip inteiro, o que também aproxima a
+        tela do teto de 10% que a §2 pede. O que sobra na contagem é o peso do
+        texto: `--foreground` quando é seu, `--muted-foreground` quando não é.
       */}
       <span
-        className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11px] font-medium tracking-[0.04em]"
-        style={TOM_DO_RESUMO[alerta ? "seu" : resumo.realce]}
+        className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11.5px] font-medium tracking-[0.04em]"
+        style={TOM_DO_RESUMO[alerta ? "contagem" : resumo.realce]}
       >
         {alerta ? `${recebidos} ${recebidos === 1 ? "achado" : "achados"}` : resumo.texto}
       </span>
 
       {/*
-        O TEMPO é o segundo, e é o único que carrega o âmbar — é ele o status. A
-        unidade encurta ("12 d", e não "parado há 12 dias") porque a coluna
-        inteira tem a mesma unidade, e repeti-la oito vezes é a palavra que não
-        ganha o lugar. A frase inteira vai para o `title`, onde a régua cabe sem
-        custar largura.
+        O TEMPO é o segundo, e é o único que carrega o âmbar — é ele o status.
+
+        "41 DIAS", E NÃO "41 D". A abreviação economizava ~22px numa linha que
+        tem 800, e cobrava um instante de decodificação por linha para isso: com
+        oito projetos na tela, o `d` solto lê como unidade de qualquer coisa
+        antes de ler como dia. Cabe por extenso, então vai por extenso. O
+        `title` continua, com a frase inteira ("Parado há 41 dias"), porque o
+        chip diz o número e não diz o verbo.
       */}
       {alerta ? (
         <span
           title={`Parado há ${projeto.diasParado} dias`}
-          className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11px] font-medium tabular-nums tracking-[0.04em]"
+          className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11.5px] font-medium tabular-nums tracking-[0.04em]"
           style={TOM_DO_RESUMO.alerta}
         >
-          {projeto.diasParado} d
+          {projeto.diasParado} dias
         </span>
       ) : null}
     </span>
@@ -987,20 +1097,49 @@ function Selo({
  * única coisa desta tela que pede ação agora.
  */
 function ChipDePessoas({ quantos, pessoas }: { quantos: number; pessoas: string[] }) {
+  /*
+   * O "COM" SAIU, A UNIDADE FICOU.
+   *
+   * O chip dizia "2 com Carla": a preposição era a palavra mais larga dos três
+   * termos, para dizer a relação que a ficha de iniciais ao lado já diz por
+   * posição. Tirá-la foi certo — e a primeira tentativa tirou o substantivo
+   * junto, deixando um "2" solto numa caixa. Numa coluna em que o vizinho de
+   * cima diz "1 achado" e o de baixo diz "7 achados", um número puro lê como
+   * contador de outra coisa.
+   *
+   * "2 achados" é a mesma forma dos outros estados, e o "com quem" fica onde
+   * pertence: nas fichas ao lado.
+   */
   const contagem = (
     <span
-      className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11px] font-medium tracking-[0.04em]"
+      className="nx-cut-4 whitespace-nowrap border px-2 py-1 font-mono text-[11.5px] font-medium tracking-[0.04em]"
       style={TOM_DO_RESUMO.outro}
+      title={`${quantos} ${quantos === 1 ? "achado" : "achados"} com ${pessoas.map(nomeCurto).join(", ")}`}
     >
-      <span className="tabular-nums">{quantos}</span>
-      {pessoas.length === 1 ? (
-        <span className="text-muted-foreground"> com {nomeCurto(pessoas[0])}</span>
-      ) : null}
+      {quantos} {quantos === 1 ? "achado" : "achados"}
     </span>
   );
 
-  if (pessoas.length <= 1) {
-    return <span className="flex shrink-0 items-center">{contagem}</span>;
+  /*
+   * UMA PESSOA TAMBÉM GANHA FICHA, e isto mudou: antes ela via só o nome.
+   *
+   * Com ficha em todas as linhas, a coluna passa a ter uma FORMA constante — o
+   * olho encontra "quem" no mesmo lugar em toda linha, em vez de achar às vezes
+   * um nome e às vezes dois discos. O nome fica ao lado enquanto couber, porque
+   * ler "Carla" continua sendo melhor que decifrar "CM".
+   */
+  if (pessoas.length === 1) {
+    return (
+      <span className="flex shrink-0 items-center gap-2">
+        {contagem}
+        <span className="flex items-center gap-1.5">
+          <Ficha pessoa={pessoas[0]} />
+          <span className="hidden whitespace-nowrap text-[12.5px] text-muted-foreground sm:inline">
+            {nomeCurto(pessoas[0])}
+          </span>
+        </span>
+      </span>
+    );
   }
 
   return (
@@ -1012,45 +1151,14 @@ function ChipDePessoas({ quantos, pessoas }: { quantos: number; pessoas: string[
 
             <span aria-hidden className="flex items-center gap-1">
               {pessoas.slice(0, 3).map((pessoa) => (
-                <span
-                  key={pessoa}
-                  /*
-                    REDONDO, e é uma das TRÊS exceções que a DESIGN.md abre ao
-                    chanfro: "formas redondas (orbe, avatar, indicador de
-                    estado)". A primeira versão usava `nx-cut-3` — classe que
-                    nem existe na escala, que vai de 4 a 8 —, então as fichas
-                    saíam sem forma nenhuma e as letras liam como texto solto.
-
-                    A segunda ficou redonda e INVISÍVEL: `--nexodoc-raised`
-                    (#1a1e21) sobre `--card` (#121518) é um degrau de oito
-                    pontos, e a 19px de diâmetro isso não é um disco, é uma
-                    sombra. Quem dá forma à ficha é o CONTORNO em `--border`.
-
-                    E A TERCEIRA ERRAVA NO GESTO CONHECIDO: os discos se
-                    sobrepunham 6px, como toda pilha de avatar faz. Medido a 3×
-                    de escala, o `RB` saía como `:B` — a ficha da frente cobria
-                    a primeira letra da de trás. A conta explica: 19px de disco
-                    com texto de 9px deixam ~4px de aro livre de cada lado, e a
-                    sobreposição comia 6 mais 2 do anel.
-
-                    A sobreposição existe para dizer "isto é um grupo". Aqui ela
-                    custava a LETRA, e a letra é a resposta — o comentário do
-                    chip diz que este dado é "de quem cobrar". Grupo é o que
-                    fichas idênticas e adjacentes já leem; a sobreposição era o
-                    ornamento que apagava o conteúdo.
-                  */
-                  className="grid h-[19px] w-[19px] shrink-0 place-items-center rounded-full border border-border bg-[var(--nexodoc-raised)] text-[9px] font-semibold leading-none tracking-normal text-foreground"
-                >
-                  {iniciaisDe(pessoa)}
-                </span>
+                <Ficha key={pessoa} pessoa={pessoa} />
               ))}
               {pessoas.length > 3 ? (
-                <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+                <span className="ml-0.5 font-mono text-[11.5px] text-muted-foreground">
                   +{pessoas.length - 3}
                 </span>
               ) : null}
             </span>
-
             {/* O que o leitor de tela recebe. A pilha é `aria-hidden` — "CM GL"
                 lido em voz alta não é o nome de ninguém. */}
             <span className="sr-only">com {pessoas.map(nomeCurto).join(", ")}</span>
@@ -1059,6 +1167,39 @@ function ChipDePessoas({ quantos, pessoas }: { quantos: number; pessoas: string[
         <TooltipContent side="left">{pessoas.map(nomeCurto).join(" · ")}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+/**
+ * A FICHA DE UMA PESSOA — duas letras num disco de 19px.
+ *
+ * Virou componente na segunda rodada porque passou a ter DOIS chamadores: a
+ * linha de uma pessoa (ficha + nome) e a pilha de duas ou mais. Duas cópias do
+ * mesmo disco é como uma delas envelhece sozinha — e foi exatamente o que
+ * aconteceu com a forma dele, que já errou três vezes:
+ *
+ *  · `nx-cut-3`, uma classe que não existe (a escala do chanfro vai de 4 a 8):
+ *    a ficha saía sem forma nenhuma e as letras liam como texto solto;
+ *  · redondo mas com `--nexodoc-raised` sobre `--card`, um degrau de oito
+ *    pontos: a 19px de diâmetro isso não é um disco, é uma sombra. Quem dá
+ *    forma é o CONTORNO em `--border`;
+ *  · sobreposto 6px, como toda pilha de avatar faz. Medido a 3× de escala, o
+ *    `RB` saía como `:B` — a ficha da frente cobria a primeira letra da de
+ *    trás. A conta explica: 19px de disco com texto de 9px deixam ~4px de aro
+ *    livre de cada lado. A sobreposição diz "isto é um grupo"; aqui ela custava
+ *    a LETRA, e a letra é a resposta.
+ *
+ * REDONDO é uma das três exceções que a DESIGN.md abre ao chanfro: "formas
+ * redondas (orbe, avatar, indicador de estado)".
+ */
+function Ficha({ pessoa }: { pessoa: string }) {
+  return (
+    <span
+      aria-hidden
+      className="grid h-[19px] w-[19px] shrink-0 place-items-center rounded-full border border-border bg-[var(--nexodoc-raised)] text-[9px] font-semibold leading-none tracking-normal text-foreground"
+    >
+      {iniciaisDe(pessoa)}
+    </span>
   );
 }
 
@@ -1078,26 +1219,66 @@ function ChipDePessoas({ quantos, pessoas }: { quantos: number; pessoas: string[
  * e os tokens de status, nunca hexadecimal solto: havia um `#0f2d2a` aqui.
  */
 const TOM_DO_RESUMO: Record<string, React.CSSProperties> = {
+  /** Status, e o único âmbar da linha: alguma coisa está parada esperando. */
   alerta: {
     borderColor: "var(--status-warning)",
     background: "var(--status-warning-bg)",
     color: "var(--status-warning)",
   },
-  seu: {
-    borderColor: "var(--primary)",
-    background: "var(--secondary)",
-    color: "var(--nexodoc-accent)",
-  },
-  outro: {
+  /**
+   * A CONTAGEM ao lado de um tempo em âmbar. Neutra, com o texto forte: ela diz
+   * o tamanho da pilha, e o vizinho já diz a gravidade.
+   */
+  contagem: {
     borderColor: "var(--border)",
     background: "transparent",
     color: "var(--foreground)",
   },
+  /**
+   * Achado SEU, recente. Mesma forma neutra da contagem — o que distingue "é
+   * seu" de "é de outro" é o trilho de 3px, que já é teal.
+   *
+   * Era `--primary` + `--secondary` + `--nexodoc-accent`: um chip teal inteiro
+   * para dizer o que o trilho já dizia, furando a regra do acento único.
+   */
+  seu: {
+    borderColor: "var(--border)",
+    background: "transparent",
+    color: "var(--foreground)",
+  },
+  /** Está com outra pessoa. Neutro e mais fraco: não pede ação sua agora. */
+  outro: {
+    borderColor: "var(--border)",
+    background: "transparent",
+    color: "var(--muted-foreground)",
+  },
+  /**
+   * AUDITORIA EM CURSO — o motor trabalhando NESTE INSTANTE.
+   *
+   * AZUL de informação, `--signal-info`: o token que a DESIGN.md destina a
+   * "aviso que NÃO é status", com `AuditoriaEmCurso` nomeado como consumidor. É
+   * o mesmo azul da legenda do orbe e do "análise rodando" do Retomar — a mesma
+   * coisa dita em três lugares tem que ter a mesma cor.
+   */
+  curso: {
+    borderColor: "var(--signal-info-border)",
+    background: "transparent",
+    color: "var(--signal-info)",
+  },
+  /**
+   * VOLUME MONTADO — tarefa que ACABOU, e por isso neutra.
+   *
+   * Ela dividia o tom com "auditoria em curso", e os dois são opostos: um muda
+   * sozinho enquanto a pessoa olha, o outro não muda mais. Azul nos dois fazia
+   * a lista parecer ter duas auditorias rodando onde havia uma.
+   */
   trabalho: {
     borderColor: "var(--border)",
     background: "transparent",
     color: "var(--muted-foreground)",
   },
+  /** Sem pendência. O mais apagado da coluna, e de propósito: é a ausência de
+   * notícia, e pintá-la de verde faria uma lista em dia acender inteira. */
   limpo: {
     borderColor: "var(--nexodoc-raised)",
     background: "transparent",
