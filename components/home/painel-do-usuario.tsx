@@ -41,10 +41,14 @@
  * borda da barra, que ninguém confunde com outra coisa. No lugar da faixa ficou
  * o `ConviteDoOrbe`: a legenda daquele objeto, sem alvo de clique próprio.
  *
- * E QUANDO NÃO HÁ TRABALHO NENHUM, a tela para de descrever o vazio e passa a
- * descrever o produto (`PrimeirosPassos`). Quem entra pela primeira vez não
- * precisa de dois títulos confirmando que não tem nada; precisa saber o que
- * trazer. Ver `primeiraVez`, que exige as duas colunas vazias, não só uma.
+ * E QUANDO NÃO HÁ TRABALHO NENHUM, a tela mostra a MESMA lista, vazia, com a
+ * linha que diz o que fazer para preenchê-la. Havia aqui um `PrimeirosPassos`:
+ * seis fichas descrevendo as capacidades do produto para quem entrava pela
+ * primeira vez. Ele saiu em 09/09/2026 — esta tela é o lugar de trabalho de
+ * quem já entrou, não a vitrine de quem está decidindo entrar, e apresentar o
+ * software a quem acabou de fazer login é responder uma pergunta que ninguém
+ * fez. Quem chega sem projeto tem uma frase e um orbe, que é tudo de que
+ * precisa.
  *
  * A ESCADA DO ORBE (§6) sai desta tela sem perder nada. O orbe vivo era o único
  * consumidor de WebGL do painel; sem ele, a home não monta three.js. O degrau
@@ -58,7 +62,6 @@
  * sem pendência nenhuma aparece, e por isso o que você ENVIOU aparece junto do
  * que recebeu — o cartão é do projeto, não seu.
  */
-import { FileSearch, FolderPlus, Layers, Ruler, Stamp, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -154,23 +157,6 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
   const carregando = !painel && !falhou;
   const vazio = Boolean(painel && painel.projetos.length === 0);
 
-  /*
-   * A TELA DE QUEM AINDA NÃO TEM NADA.
-   *
-   * Não basta "sem projeto": as duas colunas desta home respondem perguntas
-   * diferentes, e uma delas pode estar cheia com a outra vazia — quem auditou
-   * ontem e fechou tudo tem `projetos` vazio e `recentes` com trabalho dentro.
-   * Só quando as DUAS estão vazias é que a tela não tem o que contar, e é aí
-   * que ela deve falar do produto em vez de mostrar dois títulos sobre o nada.
-   *
-   * `falhou` fica de fora de propósito. Falha de rede não é ausência de
-   * trabalho, e trocar o aviso de erro por uma apresentação do software diria à
-   * pessoa que os projetos dela sumiram.
-   */
-  const primeiraVez = Boolean(
-    painel && painel.projetos.length === 0 && painel.recentes.length === 0,
-  );
-
   return (
     <div
       /*
@@ -249,7 +235,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
         */}
         <ConviteDoOrbe />
 
-        {!primeiraVez && painel?.trabalho.ondeParou ? (
+        {painel?.trabalho.ondeParou ? (
           <div className="mt-10">
             <OndeVoceParou
               ondeParou={painel.trabalho.ondeParou}
@@ -258,10 +244,7 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
           </div>
         ) : null}
 
-        {primeiraVez ? <PrimeirosPassos /> : null}
-
-        {primeiraVez ? null : (
-          /*
+        {/*
             UMA COLUNA SÓ, desde 03/09/2026.
             A da direita mostrava as pastas recentes e parecia repetir a
             esquerda — quatro dos cinco projetos apareciam nas duas. Só que as
@@ -269,68 +252,66 @@ export function PainelDoUsuario({ nome, iniciais, escritorio, ehAdmin }: Props) 
             direita de conversas, e uma obra em que só se montou volume existia
             apenas lá. Fundir sem cuidado a teria apagado da home.
             A fusão está em [[lib/painel.ts]]; aqui sobrou uma lista.
-          */
-          <div className="mt-8 flex flex-col items-start gap-8">
-            <section className="flex w-full min-w-0 flex-col gap-2.5">
-              <div className="mb-1 flex items-baseline gap-3">
-                <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  Seus projetos abertos
-                </h2>
-                <div className="flex-1" />
-                {painel && !vazio ? (
-                  <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
-                    mais parados primeiro
-                  </span>
-                ) : null}
-              </div>
-
-              {carregando ? <Esqueleto /> : null}
-
-              {falhou ? (
-                <p className="max-w-[46ch] py-6 text-sm leading-normal text-muted-foreground">
-                  Não deu para carregar seus projetos agora. O Nexo continua funcionando —
-                  recarregue a página quando quiser tentar de novo.
-                </p>
-              ) : null}
-
-              {vazio ? (
-                <div className="px-0.5 py-6">
-                  <p className="mb-2 text-base font-medium text-foreground">
-                    Nenhum projeto seu por aqui ainda.
-                  </p>
-                  <p className="m-0 max-w-[44ch] text-sm leading-normal text-muted-foreground">
-                    Abra o Nexo e envie o primeiro documento: o centro de custo é lido do PDF e a
-                    pasta nasce a partir dele.
-                  </p>
-                </div>
-              ) : null}
-
-              {painel?.projetos.map((projeto) => (
-                <CartaoDeProjeto
-                  key={projeto.projectId}
-                  projeto={projeto}
-                  aberto={Boolean(abertos[projeto.projectId])}
-                  alternar={() =>
-                    setAbertos((atual) => ({
-                      ...atual,
-                      [projeto.projectId]: !atual[projeto.projectId],
-                    }))
-                  }
-                />
-              ))}
-
+        */}
+        <div className="mt-8 flex flex-col items-start gap-8">
+          <section className="flex w-full min-w-0 flex-col gap-2.5">
+            <div className="mb-1 flex items-baseline gap-3">
+              <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Seus projetos abertos
+              </h2>
+              <div className="flex-1" />
               {painel && !vazio ? (
-                <Link
-                  href="/projetos"
-                  className="mt-2 self-start font-mono text-xs tracking-[0.05em] text-primary transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
-                >
-                  Ver todos os projetos do escritório →
-                </Link>
+                <span className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">
+                  mais parados primeiro
+                </span>
               ) : null}
-            </section>
+            </div>
 
-          </div>
-        )}
+            {carregando ? <Esqueleto /> : null}
+
+            {falhou ? (
+              <p className="max-w-[46ch] py-6 text-sm leading-normal text-muted-foreground">
+                Não deu para carregar seus projetos agora. O Nexo continua funcionando —
+                recarregue a página quando quiser tentar de novo.
+              </p>
+            ) : null}
+
+            {vazio ? (
+              <div className="px-0.5 py-6">
+                <p className="mb-2 text-base font-medium text-foreground">
+                  Nenhum projeto seu por aqui ainda.
+                </p>
+                <p className="m-0 max-w-[44ch] text-sm leading-normal text-muted-foreground">
+                  Abra o Nexo e envie o primeiro documento: o centro de custo é lido do PDF e a
+                  pasta nasce a partir dele.
+                </p>
+              </div>
+            ) : null}
+
+            {painel?.projetos.map((projeto) => (
+              <CartaoDeProjeto
+                key={projeto.projectId}
+                projeto={projeto}
+                aberto={Boolean(abertos[projeto.projectId])}
+                alternar={() =>
+                  setAbertos((atual) => ({
+                    ...atual,
+                    [projeto.projectId]: !atual[projeto.projectId],
+                  }))
+                }
+              />
+            ))}
+
+            {painel && !vazio ? (
+              <Link
+                href="/projetos"
+                className="mt-2 self-start font-mono text-xs tracking-[0.05em] text-primary transition-colors duration-[var(--duration-fast)] hover:text-[var(--nexodoc-accent)]"
+              >
+                Ver todos os projetos do escritório →
+              </Link>
+            ) : null}
+          </section>
+        </div>
       </main>
     </div>
   );
@@ -393,119 +374,6 @@ function ConviteDoOrbe() {
     </div>
   );
 }
-
-/**
- * OS PRIMEIROS PASSOS — o que a home mostra quando ainda não há trabalho.
- *
- * Ela mostrava dois títulos ("Seus projetos abertos", "Onde você parou") e duas
- * frases de consolo embaixo deles. Era honesto e inútil: a pessoa que abre o
- * produto pela primeira vez não precisa que a tela confirme que ela não tem
- * nada — precisa saber o que a ferramenta FAZ, para decidir o que trazer.
- *
- * Seis fichas, e cada uma é uma CAPACIDADE que existe hoje, com o nome que o
- * produto usa por dentro. Nenhuma delas é um link: mandar alguém para
- * `/volumes` antes de existir um projeto é mandá-lo para outra tela vazia. A
- * única porta continua sendo o orbe, logo acima.
- *
- * MATTE, sem exceção (§4). São cartões, e cartão é dado — o vidro desta tela
- * mora só na barra do topo e no orbe que pende dela.
- */
-function PrimeirosPassos() {
-  return (
-    <section className="mt-12">
-      <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          O que o Nexo faz
-        </h2>
-        <span aria-hidden className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {CAPACIDADES.map((c) => (
-          <article
-            key={c.titulo}
-            className="nx-edge-8 h-full"
-            style={{ "--nx-fill": "var(--card)" } as React.CSSProperties}
-          >
-            <div className="flex h-full flex-col gap-3 px-5 py-5">
-              <span
-                aria-hidden
-                className="nx-cut-6 grid h-9 w-9 shrink-0 place-items-center bg-[var(--nexodoc-raised)] text-muted-foreground"
-              >
-                <c.Icone className="h-[18px] w-[18px]" strokeWidth={1.5} />
-              </span>
-
-              <h3 className="m-0 text-[15px] font-medium leading-snug tracking-[-0.01em] text-foreground">
-                {c.titulo}
-              </h3>
-
-              <p className="m-0 text-sm leading-relaxed text-muted-foreground">{c.texto}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-
-      {/*
-        O RODAPÉ DA APRESENTAÇÃO. Ele responde a pergunta que sobra depois das
-        seis fichas — "e por onde eu começo?" — apontando de volta para o orbe,
-        que é a resposta. Uma sétima ficha diria mais uma capacidade; esta linha
-        fecha o assunto.
-      */}
-      <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-        Nada disso pede cadastro antes. Abra a conversa no orbe, mande o primeiro documento, e esta
-        tela passa a mostrar seus projetos e por onde você andou.
-      </p>
-    </section>
-  );
-}
-
-/**
- * As seis capacidades, na ordem em que uma pessoa as encontra trabalhando: o
- * documento chega, é lido, vira achado, o achado vira trabalho de alguém, o
- * projeto vira volume, e o volume passa pelo portão de conferência.
- *
- * O texto de cada uma diz o que a ferramenta FAZ, com o número quando há
- * número. "Lê o documento inteiro" é propaganda; "compara o selo de cada folha
- * com a prefeitura de destino" é uma promessa que dá para cobrar.
- */
-const CAPACIDADES = [
-  {
-    Icone: FileSearch,
-    titulo: "Auditoria de memorial",
-    texto:
-      "O documento é lido inteiro — numeração, sumário, tabelas, referências normativas e as cláusulas que o template do escritório deixou para trás. Cada achado vem com o trecho e a página em que ele está.",
-  },
-  {
-    Icone: Ruler,
-    titulo: "Regra primeiro, IA depois",
-    texto:
-      "O que é fato objetivo — item que não fecha, folha faltando, norma revogada — sai de regra determinística. A IA entra onde é preciso contexto, e o veredito avisa quando a leitura foi parcial.",
-  },
-  {
-    Icone: FolderPlus,
-    titulo: "O projeto nasce do documento",
-    texto:
-      "O centro de custo e a obra são lidos do carimbo do próprio PDF. Não há formulário para preencher antes: a pasta do projeto se cria a partir do primeiro arquivo que você manda.",
-  },
-  {
-    Icone: Users,
-    titulo: "Achado vira trabalho de alguém",
-    texto:
-      "Um achado pode ser atribuído a outra pessoa do escritório. O painel mostra o que está com você, o que está com os outros e há quantos dias cada coisa está parada.",
-  },
-  {
-    Icone: Layers,
-    titulo: "Capas, separatrizes e LDs",
-    texto:
-      "Capa, folha de separação e lista de documentos saem do próprio projeto, uma por disciplina, e se juntam num volume montado na ordem certa.",
-  },
-  {
-    Icone: Stamp,
-    titulo: "Conferência antes de entregar",
-    texto:
-      "O portão final do volume confere nome, endereço, data e logo de cada selo contra a prefeitura de destino — e diz qual folha discorda, em vez de dizer que algo está errado.",
-  },
-] as const;
 
 function Esqueleto() {
   return (
