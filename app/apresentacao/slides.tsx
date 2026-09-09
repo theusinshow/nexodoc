@@ -1123,7 +1123,7 @@ export const SLIDES: readonly Slide[] = [
     denso: true,
     bloco: "O que existe",
     notas:
-      "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras. Se perguntarem se a IA aprende com os documentos: pela política da API usada, o conteúdo enviado não alimenta treinamento.\n\nCUIDADO — ESTA É A FOLHA QUE CONVIDA 'mostra esse painel de custo aí'. A demonstração sai de produção, e a tela de uso de IA de lá lista modelos sem preço, onde hoje aparece uma chave antiga em texto puro. Ou limpar essas linhas antes do dia, ou abrir o custo POR OBRA e não a tela de uso por modelo.",
+      "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras.\n\nSobre 'a IA aprende com os nossos projetos?': separar as duas coisas na fala. O modelo NÃO aprende — ele vem pronto de fora e o conteúdo enviado não alimenta treinamento pela política da API. O que aprende é o sistema, e só pelo que vocês corrigirem: falso positivo, gravidade errada e achado que faltou viram medida de qualidade e ajuste de regra dentro da nossa base, sem sair para o provedor.\n\nCUIDADO — ESTA É A FOLHA QUE CONVIDA 'mostra esse painel de custo aí'. A demonstração sai de produção, e a tela de uso de IA de lá lista modelos sem preço, onde hoje aparece uma chave antiga em texto puro. Ou limpar essas linhas antes do dia, ou abrir o custo POR OBRA e não a tela de uso por modelo.",
     corpo: (
       <>
         <Entra atraso={0}>
@@ -1148,10 +1148,13 @@ export const SLIDES: readonly Slide[] = [
                 "Ele é lido e descartado. Para reprocessar, o arquivo é reenviado — decisão de projeto, não limitação.",
               ],
               [
-                "O conteúdo não vira treino de modelo.",
-                "Pela política da API usada, o que é enviado não alimenta treinamento.",
+                "Nenhum documento de vocês treina o modelo.",
+                "A inteligência vem pronta de fora e não muda com o que a PROSUL manda: pela política da API usada, o conteúdo enviado não alimenta treinamento. O memorial é lido, respondido e esquecido.",
               ],
-              ["A chave de IA vive só no servidor.", "Nunca chega ao navegador de ninguém."],
+              [
+                "Quem ensina o sistema é o feedback, não o documento.",
+                "Quando alguém marca um achado como falso positivo ou aponta o que faltou, isso vira medida de qualidade e ajuste de regra aqui dentro — fica na PROSUL e não sai para lugar nenhum.",
+              ],
             ].map(([titulo, texto], i) => (
               <Marcador key={titulo} titulo={titulo} texto={texto} atraso={140 + i * 150} />
             ))}
