@@ -1400,12 +1400,12 @@ export const SLIDES: readonly Slide[] = [
               <Linhas
                 linhas={["3 responsáveis", "× 3 dias", "× 8 horas"]}
                 atraso={300}
-                passo={320}
+                passo={260}
               />
             </div>
 
             <Entra
-              atraso={1250}
+              atraso={1100}
               style={{
                 marginTop: 18,
                 paddingTop: 18,
@@ -1420,14 +1420,14 @@ export const SLIDES: readonly Slide[] = [
               ={" "}
               <Contador
                 ate={72}
-                atraso={1350}
+                atraso={1180}
                 duracao={720}
                 style={{ fontWeight: 500 }}
               />{" "}
               horas
             </Entra>
 
-            <Entra atraso={1700}>
+            <Entra atraso={1500}>
               <p
                 style={{
                   margin: "22px 0 0",
@@ -1445,7 +1445,7 @@ export const SLIDES: readonly Slide[] = [
             <div className="ap-cresce" />
 
             <Entra
-              atraso={2000}
+              atraso={1750}
               style={{
                 paddingTop: 26,
                 borderTop: "1px solid var(--nexodoc-accent)",
@@ -1466,7 +1466,7 @@ export const SLIDES: readonly Slide[] = [
                 whiteSpace: "nowrap",
               }}
             >
-              <Linhas linhas={["R$ 3.600 a R$ 6.480"]} atraso={2150} />
+              <Linhas linhas={["R$ 3.600 a R$ 6.480"]} atraso={1900} />
             </div>
           </div>
 
@@ -1480,7 +1480,7 @@ export const SLIDES: readonly Slide[] = [
               justifyContent: "center",
             }}
           >
-            <Entra atraso={2900}>
+            <Entra atraso={2500}>
               <span style={{ ...rotulo, color: "var(--status-critical)" }}>
                 O que não entra nessa conta
               </span>
@@ -1504,7 +1504,7 @@ export const SLIDES: readonly Slide[] = [
                   key={titulo}
                   titulo={titulo}
                   texto={texto}
-                  atraso={3050 + i * 160}
+                  atraso={2650 + i * 160}
                 />
               ))}
             </div>
@@ -1517,7 +1517,6 @@ export const SLIDES: readonly Slide[] = [
   {
     rotulo: "Limites",
     numero: "09",
-    denso: true,
     bloco: "O que existe",
     notas:
       "Dito por você, antes de perguntarem. Este slide compra mais credibilidade que qualquer outro do deck. Não amaciar nenhum item — principalmente o do excesso, que é o que o usuário vai sentir no primeiro dia.",
@@ -1571,7 +1570,6 @@ export const SLIDES: readonly Slide[] = [
   {
     rotulo: "Segurança",
     numero: "10",
-    denso: true,
     bloco: "O que existe",
     notas:
       "O slide que responde 'e se vazar?'. O primeiro item é decisão de projeto, não limitação — dizer com essas palavras.\n\nSobre 'a IA aprende com os nossos projetos?': separar as duas coisas na fala. O modelo NÃO aprende — ele vem pronto de fora e o conteúdo enviado não alimenta treinamento pela política da API. O que aprende é o sistema, e só pelo que vocês corrigirem: falso positivo, gravidade errada e achado que faltou viram medida de qualidade e ajuste de regra dentro da nossa base, sem sair para o provedor.\n\nCUIDADO — ESTA É A FOLHA QUE CONVIDA 'mostra esse painel de custo aí'. A demonstração sai de produção, e a tela de uso de IA de lá lista modelos sem preço, onde hoje aparece uma chave antiga em texto puro. Ou limpar essas linhas antes do dia, ou abrir o custo POR OBRA e não a tela de uso por modelo.",
@@ -1788,7 +1786,6 @@ export const SLIDES: readonly Slide[] = [
         <div
           style={{
             flex: 1,
-            maxWidth: 1380,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -2176,7 +2173,6 @@ export const SLIDES: readonly Slide[] = [
         <div
           style={{
             flex: 1,
-            maxWidth: 1380,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",

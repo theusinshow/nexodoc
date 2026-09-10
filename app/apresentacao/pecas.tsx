@@ -175,9 +175,17 @@ export function Contador({
      * corpo do efeito. Não é preciosismo: `setState` síncrono num efeito dispara
      * renderização em cascata, e o lint do projeto recusa — com razão. Aqui a
      * chamada já nasce assíncrona, que é o contrato que a regra pede.
+     *
+     * E O ATRASO NÃO VALE em movimento reduzido. Sem isto o "57 achados" da
+     * folha 05 ficava escrito "0" por 2,7 segundos — o tempo que a contagem
+     * levaria para começar — e um zero no lugar de um número é o único estado
+     * pior do que uma animação indesejada. Visto na captura reduzida.
      */
+    const reduzido = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches;
+    const espera = reduzido ? 0 : atraso;
     const relogio = setTimeout(() => {
-      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      if (reduzido) {
         setValor(ate);
         return;
       }
@@ -190,7 +198,7 @@ export function Contador({
         if (t < 1) quadro = requestAnimationFrame(passo);
       };
       quadro = requestAnimationFrame(passo);
-    }, atraso);
+    }, espera);
 
     return () => {
       clearTimeout(relogio);

@@ -224,8 +224,23 @@ async function capturar(pagina, rota) {
    */
   const folhas = [];
   for (let i = 0; i < total; i += 1) {
+    /*
+     * ESPERAR A FOLHA ANTERIOR SAIR. Desde o crossfade (09/09/2026) o palco
+     * mantém a folha que sai montada por 260ms, ANTES da que entra no DOM. A
+     * primeira versão deste laço lia `querySelector(".ap-folha")` assim que o
+     * contador mudava — e levava a folha ERRADA: o arquivo saiu com 23 das 25
+     * folhas sendo cópias da anterior, marcadas `ap-folha--sai`, e a
+     * autoconferência só pegou porque o botão dos valores, dentro de uma cópia
+     * com `pointer-events: none`, não recebia o clique. Aqui se espera sobrar
+     * uma folha só, e ainda se recusa a que estiver saindo.
+     */
+    await pagina.waitForFunction(
+      () => document.querySelectorAll(".ap-folha").length === 1,
+      undefined,
+      { timeout: 5000 },
+    );
     const folha = await pagina.evaluate(() => {
-      const secao = document.querySelector(".ap-folha");
+      const secao = document.querySelector(".ap-folha:not(.ap-folha--sai)");
       if (!secao) return null;
       const numero = secao.querySelector(".ap-numero")?.textContent ?? "";
 
@@ -476,6 +491,22 @@ async function conferirNoDisco(arquivo, esperadas, noAnexo) {
   if (visiveis !== 1) throw new Error(`${visiveis} folhas visíveis ao abrir; esperava 1.`);
 
   /*
+   * CADA FOLHA DO ARQUIVO É UMA FOLHA DIFERENTE, na ordem do deck. É a
+   * asserção que faltava quando o crossfade fez o gerador copiar a folha
+   * anterior 23 vezes: o contador batia, `End` batia, e só o botão denunciou.
+   * Conferir a sequência de números pega a duplicata na primeira folha.
+   */
+  const numeros = await pagina.$$eval(".ap-folha", (secoes) =>
+    secoes.map((s) => s.querySelector(".ap-numero")?.textContent?.trim() ?? "capa"),
+  );
+  const repetidos = numeros.filter((n, k) => numeros.indexOf(n) !== k);
+  if (repetidos.length) {
+    throw new Error(`Folhas repetidas no arquivo: ${repetidos.join(", ")} — o gerador copiou a folha que estava saindo.`);
+  }
+  const sobras = await pagina.locator(".ap-folha--sai").count();
+  if (sobras) throw new Error(`${sobras} folhas do arquivo ainda têm a classe de saída.`);
+
+  /*
    * O SLIDE INTEIRO PRECISA CABER NA JANELA. Foi assim que o defeito do
    * transbordo apareceu: o rodapé da capa caía 23px abaixo da borda, em toda
    * folha, e nenhuma asserção de DOM notava — o elemento existia, só não dava
@@ -532,9 +563,20 @@ async function conferirNoDisco(arquivo, esperadas, noAnexo) {
   if (!naFolhaDoValor?.startsWith("anexo ")) {
     throw new Error(`O botão levou a "${naFolhaDoValor}" — o salto interno não pegou.`);
   }
-  const temPreco = await pagina.locator(".ap-folha:not([hidden])").textContent();
-  if (!temPreco?.includes("R$")) {
-    throw new Error("A folha que o botão abriu não tem cifra nenhuma — abriu a folha errada.");
+  /*
+   * O BOTÃO ABRE O ANEXO PELO COMEÇO — que desde 09/09/2026 é o ESCOPO do
+   * piloto (folha A), sem cifra: a decisão do anexo é nunca responder "quanto
+   * custa" com o número sozinho. A versão anterior desta asserção exigia "R$"
+   * na folha aberta e passou a falhar quando a ordem mudou. O que se confere
+   * agora são as duas metades da decisão: abriu na PRIMEIRA folha do anexo, e o
+   * preço existe em alguma folha do anexo, alcançável pela seta.
+   */
+  if (!naFolhaDoValor.startsWith("anexo A")) {
+    throw new Error(`O botão abriu "${naFolhaDoValor}" — o anexo tem que começar pela folha A.`);
+  }
+  const textosDoAnexo = await pagina.locator(".ap-folha[data-anexo]").allTextContents();
+  if (!textosDoAnexo.some((t) => t.includes("R$ 10.000"))) {
+    throw new Error("Nenhuma folha do anexo traz o valor do piloto — o preço sumiu do arquivo.");
   }
   // Dentro do anexo a seta anda no anexo, e `End` para na última folha DELE.
   await pagina.keyboard.press("End");

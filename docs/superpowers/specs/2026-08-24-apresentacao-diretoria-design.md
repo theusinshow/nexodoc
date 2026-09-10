@@ -1,5 +1,32 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **10/09/2026 — O DECK GANHOU UM SISTEMA DE MOVIMENTO, e este documento não
+> descreve movimento.** A autoridade é a seção MOVIMENTO de
+> `app/apresentacao/palco.css` (cinco durações `--ap-*`, três curvas, máscara
+> de linha, crossfade de 260 ms entre folhas) e as peças em
+> `app/apresentacao/pecas.tsx`. O conteúdo das folhas não mudou. O que mudou
+> de composição, para constar aqui:
+>
+> - **A folha 05 mostra o produto:** mapa das 218 páginas acendendo e o cartão
+>   de um achado REAL (117_25, p. 92, "UBS Paraíso" num memorial da Vila
+>   Manaus), fiel ao cartão do canvas da auditoria. A folha 08 monta a equação
+>   fator a fator; a 12 põe R$ 285 ao lado do episódio sem razão escrita.
+> - **O cabeçalho é âncora fixa:** folha densa recupera espaço embaixo, nunca
+>   em cima. Antes o rótulo pulava 32px entre folha densa e normal, e o
+>   crossfade mostrava o pulo.
+> - **Movimento reduzido mostra o estado final na hora** — inclusive os
+>   números que correm, que antes esperavam o atraso e exibiam "0".
+> - **A cópia offline quebrou com o crossfade e foi consertada:** o gerador
+>   lia a folha que estava SAINDO e o arquivo saiu com 23 folhas repetidas.
+>   Agora ele espera a troca terminar e a autoconferência exige numeração
+>   única. Regenerar sempre que mexer em folha.
+>
+> Provas sem token: `node scripts/shot-apresentacao-todas.mjs` (todas as
+> folhas, e `REDUZIDO=1` para movimento reduzido),
+> `node scripts/medir-folga-apresentacao.mjs` (folga vertical e posição do
+> cabeçalho por folha), `node scripts/shot-apresentacao-folhas.mjs`
+> (asserções) e `npm run apresentacao:offline` (gera e confere a cópia).
+
 > **09/09/2026 — O DECK CAI DE 23 PARA 19 FOLHAS, E O ANEXO SOBE PARA 6.**
 > Decisão do autor, e a numeração deste documento passou a ser HISTÓRICA: a
 > fonte da ordem é `app/apresentacao/slides.tsx`.

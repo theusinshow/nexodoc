@@ -63,9 +63,20 @@
  * de respiro dos outros — e "não cabe" aqui significa a frase de fechamento
  * saindo pela borda de baixo, que é como o slide 9 nasceu. Medido na tela, não
  * deduzido do código.
+ *
+ * O CABEÇALHO NÃO SE MEXE. A primeira versão encolhia a margem de cima também
+ * (96 → 64), e o rótulo do bloco pulava 32px a cada troca entre folha densa e
+ * folha normal — visível justamente no crossfade, quando os dois cabeçalhos
+ * estão na tela ao mesmo tempo. O espaço que a folha densa recupera vem de
+ * baixo e do vão sob o cabeçalho, nunca de cima: o rótulo e o número são a
+ * âncora fixa do deck inteiro.
  */
 .ap-folha--denso {
-  padding: 64px 100px 52px;
+  padding: 96px 100px 52px;
+}
+
+.ap-folha--denso .ap-cabeca {
+  margin-bottom: 16px;
 }
 
 /* Cabeçalho do slide: bloco à esquerda, número à direita. */
@@ -284,9 +295,15 @@
  * linha — é a revelação do título e do fecho. Diferente do fade-up: o olho vê o
  * texto NASCER na linha de base, e não flutuar até ela. É a diferença entre
  * uma frase dita e uma frase que aparece.
+ *
+ * 118%, e não 100%: o invólucro tem 0,14em de folga embaixo para não decapitar
+ * descendentes, e a linha precisa começar ABAIXO dessa folga. Com line-height 1
+ * (os números grandes) a folga vale 14% da altura, e a 108% o topo do "R$" já
+ * aparecia como dois tracinhos antes da revelação — visto no quadro de 1,3 s da
+ * folha 08.
  */
 @keyframes ap-mascara {
-  from { transform: translateY(108%); }
+  from { transform: translateY(118%); }
   to   { transform: none; }
 }
 

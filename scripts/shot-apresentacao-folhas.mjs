@@ -43,8 +43,8 @@ async function folha(rota, n, arquivo) {
   // A ENTRADA ESCALONADA CHEGA A 1460ms: capturar antes disso fotografa meia folha.
   await p.waitForTimeout(2600);
   await p.screenshot({ path: `${SAIDA}/${arquivo}.png` });
-  const caixa = await p.locator(".ap-folha").first().boundingBox();
-  const texto = await p.locator(".ap-folha").first().innerText();
+  const caixa = await p.locator(".ap-folha:not(.ap-folha--sai)").first().boundingBox();
+  const texto = await p.locator(".ap-folha:not(.ap-folha--sai)").first().innerText();
   return { texto, caixa };
 }
 
@@ -116,7 +116,7 @@ for (let i = 0; i < rotulos.length; i++) {
   const f = await folha("/apresentacao/valores", i + 1, `val-${rotulos[i]}`);
   // A FOLHA É 1080px E NÃO ROLA. Texto que passa disso some no projetor.
   const altura = await p
-    .locator(".ap-folha")
+    .locator(".ap-folha:not(.ap-folha--sai)")
     .first()
     .evaluate((el) =>
       Math.max(
