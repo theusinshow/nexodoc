@@ -58,7 +58,6 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "O piloto",
     numero: "A",
-    denso: true,
     bloco: "Os valores",
     notas:
       "PRIMEIRA FOLHA DO ANEXO, e é assim de propósito: quem clicou o botão da folha 17 perguntou quanto custa, e a pior resposta possível é a cifra sozinha. Antes do número, o que está sendo comprado.\n\nO pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Ler a coluna da direita devagar: é o que separa este piloto de um período de teste.\n\nNÃO ANTECIPAR O VALOR AQUI. Ele está três folhas adiante, e a sala chega lá em menos de um minuto.",
@@ -175,7 +174,6 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "Quanto custa",
     numero: "B",
-    denso: true,
     bloco: "Os valores",
     notas:
       "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.",
@@ -364,7 +362,6 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "O que custou construir",
     numero: "C",
-    denso: true,
     bloco: "Os valores",
     notas:
       "O gasto em dinheiro NAO e estimativa: sai do registro de uso do proprio sistema, chamada por chamada, e o painel administrativo mostra a mesma soma. A hora de desenvolvedor junior e o unico numero inventado desta folha, e a palavra estimativa fica na tela por isso. Se perguntarem por que a ferramenta de programacao entra na conta: porque sem ela este software nao existiria em seis meses, e ela continua sendo paga enquanto eu mantiver o produto.",
@@ -589,7 +586,6 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "A proposta",
     numero: "D",
-    denso: true,
     bloco: "Os valores",
     notas:
       "Ler a folha inteira antes de falar do número. A linha que decide não é o valor, é a de baixo: ao fim dos seis meses, se não atender, encerra. É isso que tira o risco da mesa.\n\nSE PERGUNTAREM POR QUE SEIS E NÃO TRÊS: porque três meses não dão para um projeto inteiro passar pelo sistema, e sem projeto inteiro não há julgamento — sobra impressão.\n\nO PISO ESTÁ DECIDIDO e é este. Abaixo dele não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.",
@@ -671,7 +667,6 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "De onde sai esse número",
     numero: "E",
-    denso: true,
     bloco: "Os valores",
     notas:
       "ESTA FOLHA NÃO DEFENDE O PREÇO, ELA O ANCORA. Nenhum dos três números da esquerda é novo: dois estão nas folhas B e C, aqui mesmo, e o do projeto devolvido veio da folha 12 do deck. O que esta folha faz é pô-los ao lado do pedido.\n\nNÃO TRAZER A CONTA DE RETORNO MENSAL para esta folha, nem de boca. Operar custa R$ 285 e o tempo devolvido paga até cerca de R$ 500 por mês; R$ 10.000 em seis meses dá R$ 1.667 por mês. Quem levantar essa aritmética na sala derruba o preço com o meu próprio número.\n\nSE ELE MESMO LEVANTAR, a resposta é a frase de baixo: o piloto não está comprando seis meses de acesso, está comprando o que já está construído — e mesmo que ninguém abra o sistema no sexto mês, o que foi entregue continua entregue.\n\nA ÚNICA ESTIMATIVA DESTA FOLHA é a hora de desenvolvedor júnior, e a palavra fica na tela por isso. Tudo o mais saiu do registro de uso do próprio sistema.",

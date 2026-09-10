@@ -13,14 +13,16 @@ import "./palco.css";
 export interface Slide {
   /** Rótulo curto, para as notas e para o índice. */
   rotulo: string;
-  /** O que aparece no canto: "01".."20". */
+  /** O que aparece no trilho: "01".."19" no deck, "A".."F" no anexo. */
   numero: string;
   /** O bloco narrativo a que o slide pertence. Vazio na capa. */
   bloco?: string;
+  /** O rótulo-título da folha, em caixa de frase (o CSS põe em caixa alta). Vazio na capa. */
+  titulo?: string;
+  /** Nome de arquivo ou subtítulo que acompanha o rótulo-título, sem caixa alta. */
+  subtitulo?: string;
   /** O que o apresentador fala e o slide NÃO mostra. */
   notas: string;
-  /** Slide com mais conteúdo que respiro: reduz a margem da folha. */
-  denso?: boolean;
   corpo: ReactNode;
 }
 
@@ -34,6 +36,43 @@ export interface Slide {
  */
 /** Largura do painel de notas. Precisa bater com `.ap-notas` no CSS. */
 const LARGURA_DAS_NOTAS = 460;
+
+/**
+ * O TRILHO — os índices de todas as folhas, a corrente acesa e a marca ao lado.
+ * Vive fora da <section> da folha: não dissolve na troca, só a marca desliza.
+ * `aria-hidden` porque é o mesmo dado que a régua de controle já anuncia.
+ */
+function Trilho({
+  folhas,
+  indice,
+}: {
+  folhas: readonly Slide[];
+  indice: number;
+}) {
+  return (
+    <div className="ap-trilho" aria-hidden="true">
+      <ol className="ap-trilho__indices">
+        {folhas.map((f, i) => (
+          <li
+            key={f.numero}
+            className={
+              i === indice
+                ? "ap-trilho__indice ap-trilho__indice--atual"
+                : "ap-trilho__indice"
+            }
+          >
+            {f.numero}
+          </li>
+        ))}
+      </ol>
+      <span
+        className="ap-trilho__marca"
+        style={{ transform: `translateY(${indice * 40}px)` }}
+      />
+      <span className="ap-trilho__bloco">{folhas[indice].bloco ?? ""}</span>
+    </div>
+  );
+}
 
 export function Palco({ slides }: { slides: readonly Slide[] }) {
   const [indice, setIndice] = useState(0);
@@ -184,24 +223,25 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
     <div className="ap-raiz" data-notas={notasAbertas} ref={raiz}>
       <div className="ap-moldura" ref={moldura}>
         <div className="ap-palco" ref={palco}>
+          <Trilho folhas={slides} indice={indice} />
           {(saindo && saindo !== atual ? [saindo, atual] : [atual]).map(
             (folha) => (
               <section
                 key={folha.numero}
                 aria-hidden={folha !== atual || undefined}
-                className={[
-                  "ap-folha",
-                  folha.denso ? "ap-folha--denso" : "",
-                  folha !== atual ? "ap-folha--sai" : "",
-                ]
+                className={["ap-folha", folha !== atual ? "ap-folha--sai" : ""]
                   .filter(Boolean)
                   .join(" ")}
               >
-                {folha.bloco ? (
-                  <div className="ap-cabeca">
-                    <span className="ap-bloco">{folha.bloco}</span>
-                    <span className="ap-numero">{folha.numero}</span>
-                  </div>
+                {folha.titulo ? (
+                  <h2 className="ap-rotulo-titulo">
+                    <span>{folha.titulo}</span>
+                    {folha.subtitulo ? (
+                      <span className="ap-rotulo-titulo__sub">
+                        {folha.subtitulo}
+                      </span>
+                    ) : null}
+                  </h2>
                 ) : null}
                 {folha.corpo}
               </section>

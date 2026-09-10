@@ -49,6 +49,8 @@
     "prova:home-cheia": "node scripts/prova-home.mjs",
     "prova:duas-pessoas": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-duas-pessoas-no-achado.mjs",
     "prova:marca": "node scripts/prova-marca-de-prefeitura.mjs",
+    "prova:deck-regua": "node scripts/prova-deck-regua.mjs",
+    "prova:deck-caixa": "node scripts/prova-deck-caixa.mjs",
     "prova:contraste": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-contraste-dos-primitivos.mjs",
     "prova:barra-enderecada": "node scripts/shot-barra-enderecada.mjs",
     "backfill:identidade": "node scripts/backfill-identidade-do-projeto.mjs",

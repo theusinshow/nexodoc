@@ -46,59 +46,404 @@
   transform-origin: 0 0;
 }
 
-/* O slide ocupa o palco inteiro; só o corrente é montado. */
+/*
+ * A FOLHA. Ocupa o palco inteiro; só a corrente é montada (mais a que sai, por
+ * 260 ms). O recuo esquerdo de 224 deixa os 144 do trilho mais 80 de margem; o
+ * de cima, 156, é onde o conteúdo nasce — abaixo do rótulo-título (y = 80) e
+ * da linha fina (y = 124). NADA aqui centra verticalmente: o que sobra de
+ * espaço fica embaixo, e isso é aceitável; o bloco à deriva não é.
+ */
 .ap-folha {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: 96px 100px 80px;
+  padding: 156px 80px 80px 224px;
   background: var(--background);
   font-family: "IBM Plex Sans", system-ui, sans-serif;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   A ARMADURA — o que é igual em toda folha e NÃO participa do crossfade.
+
+   O TRILHO. Faixa de 144 px à esquerda com os índices de todas as folhas; a
+   corrente acesa, uma marca teal ao lado dela e o nome do bloco na vertical.
+   Mora no palco, fora da <section> da folha: na troca, o conteúdo se dissolve
+   e o trilho fica — só a marca desliza um índice. É assim que a sala percebe
+   a mudança de bloco sem slide separador.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ap-trilho {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 144px;
+  /* Acima das folhas (a que sai tem z-index 2): a <section> tem fundo opaco e
+     vem depois no DOM — sem isto ela cobria o trilho inteiro. Visto na captura. */
+  z-index: 3;
+  border-right: 1px solid var(--border);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.ap-trilho__indices {
+  position: absolute;
+  left: 0;
+  top: 72px;
+  width: 144px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ap-trilho__indice {
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: #3d474d;
+}
+
+.ap-trilho__indice--atual {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* A marca desliza com a folha: um passo de 40 px por índice. */
+.ap-trilho__marca {
+  position: absolute;
+  left: 128px;
+  top: 72px;
+  width: 16px;
+  height: 40px;
+  background: var(--nexodoc-accent);
+  transition: transform var(--ap-curta) var(--ap-entra);
+}
+
+.ap-trilho__bloco {
+  position: absolute;
+  left: 0;
+  top: 864px;
+  width: 144px;
+  height: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5f6b72;
+  white-space: nowrap;
+}
+
 /*
- * SLIDE DENSO. Tabela de sete linhas com texto que quebra não cabe na margem
- * de respiro dos outros — e "não cabe" aqui significa a frase de fechamento
- * saindo pela borda de baixo, que é como o slide 9 nasceu. Medido na tela, não
- * deduzido do código.
- *
- * O CABEÇALHO NÃO SE MEXE. A primeira versão encolhia a margem de cima também
- * (96 → 64), e o rótulo do bloco pulava 32px a cada troca entre folha densa e
- * folha normal — visível justamente no crossfade, quando os dois cabeçalhos
- * estão na tela ao mesmo tempo. O espaço que a folha densa recupera vem de
- * baixo e do vão sob o cabeçalho, nunca de cima: o rótulo e o número são a
- * âncora fixa do deck inteiro.
+ * O RÓTULO-TÍTULO. Mono, caixa alta por CSS (o DOM guarda caixa de frase), em
+ * y = 80, com a linha fina em y = 124. Fica dentro da folha para dissolver com
+ * ela, mas na mesma posição em toda folha — parece fixo, e só o texto muda.
  */
-.ap-folha--denso {
-  padding: 96px 100px 52px;
-}
-
-.ap-folha--denso .ap-cabeca {
-  margin-bottom: 16px;
-}
-
-/* Cabeçalho do slide: bloco à esquerda, número à direita. */
-.ap-cabeca {
+.ap-rotulo-titulo {
+  position: absolute;
+  left: 224px;
+  right: 80px;
+  top: 80px;
+  margin: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  margin: 0 0 36px;
+  gap: 28px;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 24px;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }
 
-.ap-bloco {
-  font-weight: 500;
-  letter-spacing: 0.18em;
+.ap-rotulo-titulo__sub {
+  letter-spacing: 0;
+  text-transform: none;
+  color: #5f6b72;
+}
+
+/* Rótulo Mono genérico (A PERGUNTA, LEITURA, PÁGINAS…). Caixa alta por CSS. */
+.ap-mono-rotulo {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #5f6b72;
 }
 
-.ap-numero {
-  letter-spacing: 0.1em;
-  color: #3d474d;
+/* A grade: 12 colunas de x = 224 a 1840, calha 24. */
+.ap-grade {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0 24px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OS ARQUÉTIPOS — a escala segura o conteúdo; nada flutua.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Texto de leitura: Sans 26, 64ch. */
+.ap-texto {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.45;
+  max-width: 64ch;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+/* Título de fato ou de leitura: Sans 500 44. */
+.ap-titulo-de-fato {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
+/*
+ * ESCALA HORIZONTAL. Os fatos ficam ACIMA da linha; a linha atravessa; um tick
+ * de 24 px marca o início de cada fato e o fim do último. Colunas iguais.
+ * A linha se desenha (`ap-risca`) antes dos fatos assentarem: primeiro a
+ * escala, depois a agulha.
+ */
+.ap-escala-h {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0 24px;
+  padding-bottom: 36px;
+}
+
+.ap-escala-h__fato {
+  position: relative;
+  min-width: 0;
+  padding-right: 24px;
+}
+
+.ap-escala-h__fato > * + * {
+  margin-top: 16px;
+}
+
+.ap-escala-h__titulo {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
+.ap-escala-h--compacta .ap-escala-h__titulo {
+  font-size: 26px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.ap-escala-h__texto {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+.ap-escala-h__linha {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: #3d474d;
+}
+
+.ap-escala-h--tracejada .ap-escala-h__linha {
+  background: repeating-linear-gradient(90deg, #3d474d 0 8px, transparent 8px 16px);
+}
+
+/* O tick nasce no início de cada fato; o último fato ganha um segundo tick no fim. */
+.ap-escala-h__tick {
+  position: absolute;
+  bottom: -48px;
+  width: 1px;
+  height: 24px;
+  background: #5f6b72;
+}
+
+.ap-escala-h__tick--inicio { left: 0; }
+.ap-escala-h__tick--fim { right: 0; }
+
+/*
+ * ESCALA VERTICAL. Linha em x = 96 dentro do componente (x = 320 da folha),
+ * número à esquerda dela, tick de 24 px por item, texto a partir de x = 144
+ * (368 da folha). ALTURA IGUAL POR ITEM: o espaço disponível dividido pelo
+ * número de itens, nunca a altura do texto — é o que a torna uma escala e não
+ * uma lista.
+ */
+.ap-escala-v {
+  position: relative;
+  display: grid;
+  grid-auto-rows: 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.ap-escala-v__linha {
+  position: absolute;
+  left: 96px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #3d474d;
+}
+
+.ap-escala-v__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: start;
+  padding-top: 12px;
+  min-width: 0;
+}
+
+.ap-escala-v__numero {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 16px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #5f6b72;
+  padding-top: 8px;
+}
+
+.ap-escala-v__tick {
+  position: absolute;
+  left: 84px;
+  top: 22px;
+  width: 24px;
+  height: 1px;
+  background: #5f6b72;
+}
+
+.ap-escala-v__corpo {
+  padding-left: 48px;
+  min-width: 0;
+}
+
+.ap-escala-v__titulo {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  color: var(--foreground);
+  text-wrap: pretty;
+}
+
+.ap-escala-v__texto {
+  margin: 8px 0 0;
+  font-size: 26px;
+  line-height: 1.45;
+  max-width: 64ch;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+/*
+ * A LEITURA. Base da folha: linha em y = 820, rótulo em y = 856, frase a
+ * partir de y = 892. Altura FIXA (180) para a linha cair sempre no mesmo y,
+ * tenha a frase uma ou duas linhas.
+ */
+.ap-leitura {
+  flex: none;
+  margin-top: auto;
+  height: 180px;
+  box-sizing: border-box;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+}
+
+.ap-leitura__frase {
+  margin: 16px 0 0;
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--foreground);
+}
+
+.ap-leitura__linha--chave {
+  color: var(--nexodoc-accent);
+}
+
+/*
+ * O CONFRONTO. Pergunta em Mono à esquerda (5 colunas), leituras à direita
+ * (colunas 7 a 12). A pergunta cai um degrau (32 → 26) quando passa de 160
+ * caracteres.
+ */
+.ap-confronto {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0 24px;
+}
+
+.ap-confronto__esquerda {
+  grid-column: 1 / span 5;
+  min-width: 0;
+}
+
+.ap-confronto__direita {
+  grid-column: 7 / span 6;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-confronto__pergunta {
+  margin: 16px 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 32px;
+  line-height: 1.4;
+  letter-spacing: -0.012em;
+  color: var(--foreground);
+  text-wrap: pretty;
+}
+
+.ap-confronto__pergunta--longa {
+  font-size: 26px;
+}
+
+/*
+ * O MOSTRADOR. Valor em Mono 80 sobre rótulo, com uma borda esquerda de 1 px
+ * (é a régua do mostrador, não faixa de acento: 1 px, neutra).
+ */
+.ap-mostrador {
+  border-left: 1px solid #3d474d;
+  padding-left: 24px;
+  min-width: 0;
+}
+
+.ap-mostrador__valor {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 80px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--foreground);
 }
 
 .ap-titulo {
@@ -396,6 +741,9 @@
   .ap-folha--sai,
   .ap-pulso {
     display: none;
+  }
+  .ap-trilho__marca {
+    transition: none;
   }
 }
 
