@@ -1,6 +1,7 @@
 // FOLGA VERTICAL DE CADA FOLHA — mede, em px de palco (1080), onde termina o
-// conteúdo mais baixo de cada folha e onde começa o cabeçalho. Serve para
-// decidir quais folhas precisam de `denso` (margem menor) e quais não.
+// conteúdo mais baixo de cada folha e onde começa o rótulo-título (esperado
+// 80 em toda folha menos a capa). Fundo acima de 1000 é conteúdo passando da
+// margem.
 //
 //   node scripts/medir-folga-apresentacao.mjs            (npm run dev noutro terminal)
 //
@@ -50,7 +51,7 @@ for (const [rota, n] of [["/apresentacao", 19], ["/apresentacao/valores", 6]]) {
         const b = r.getBoundingClientRect();
         if (b.height === 0) continue;
         const y = (b.top - topo) / escala;
-        if (el.closest(".ap-cabeca")) cabeca = cabeca === null ? y : Math.min(cabeca, y);
+        if (el.closest(".ap-rotulo-titulo")) cabeca = cabeca === null ? y : Math.min(cabeca, y);
         fundo = Math.max(fundo, (b.bottom - topo) / escala);
       }
       // folhas sem texto: canvas, réguas, pontos, botões com borda

@@ -11,35 +11,14 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
  * um cinza um passo mais claro a denunciariam como outro arquivo. Uma segunda
  * redação das mesmas escalas divergiria na primeira correção.
  *
- * O QUE MORA AQUI: tipografia base, a entrada escalonada e as duas peças de
- * conteúdo que os dois decks usam. O que é específico de uma folha — o diagrama
- * do motor, a folha do contraditório, o número que corre — continua em
- * `slides.tsx`, junto de quem o usa.
+ * O QUE MORA AQUI: a entrada escalonada, a máscara de linha, o número que corre
+ * e os ARQUÉTIPOS do instrumento (escala horizontal, escala vertical, confronto,
+ * leitura, mostrador). O que é específico de uma folha — o diagrama do motor, o
+ * mapa do memorial, o botão dos valores — continua em `folhas/`, junto de quem
+ * o usa. Ver `2026-09-10-deck-instrumento-design.md`.
  */
 
 export const MONO = "'IBM Plex Mono', ui-monospace, monospace";
-
-export const rotulo: CSSProperties = {
-  fontFamily: MONO,
-  fontSize: 23,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  color: "#5f6b72",
-};
-
-export const paragrafo: CSSProperties = {
-  margin: 0,
-  fontSize: 27,
-  lineHeight: 1.45,
-  color: "var(--foreground)",
-  textWrap: "pretty",
-};
-
-export const secundario: CSSProperties = {
-  ...paragrafo,
-  fontSize: 25,
-  color: "var(--muted-foreground)",
-};
 
 /**
  * Entrada escalonada. O atraso é a ORDEM DE LEITURA tornada visível: o olho
@@ -61,86 +40,6 @@ export function Entra({
     >
       {children}
     </div>
-  );
-}
-
-/** Uma linha de tabela: rótulo à esquerda, valor em mono à direita. */
-export function Linha({
-  chave,
-  valor,
-  atraso,
-}: {
-  chave: string;
-  valor: ReactNode;
-  atraso: number;
-}) {
-  return (
-    <Entra
-      atraso={atraso}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "340px 1fr",
-        gap: "0 48px",
-        alignItems: "baseline",
-        padding: "24px 0",
-        borderTop: "1px solid var(--border)",
-      }}
-    >
-      <span style={{ ...rotulo, fontSize: 22 }}>{chave}</span>
-      <span
-        style={{ fontFamily: MONO, fontSize: 38, color: "var(--foreground)" }}
-      >
-        {valor}
-      </span>
-    </Entra>
-  );
-}
-
-/** Um marcador de lista: a afirmação em destaque, a explicação embaixo. */
-export function Marcador({
-  titulo,
-  texto,
-  atraso,
-  cor = "var(--muted-foreground)",
-}: {
-  titulo: string;
-  texto?: string;
-  atraso: number;
-  cor?: string;
-}) {
-  return (
-    <Entra
-      atraso={atraso}
-      style={{ padding: "22px 0", borderTop: "1px solid var(--border)" }}
-    >
-      <p
-        style={{
-          margin: texto ? "0 0 8px" : 0,
-          fontSize: 30,
-          fontWeight: 500,
-          letterSpacing: "-0.015em",
-          lineHeight: 1.3,
-          color: "var(--foreground)",
-          textWrap: "pretty",
-        }}
-      >
-        {titulo}
-      </p>
-      {texto ? (
-        <p
-          style={{
-            margin: 0,
-            maxWidth: "72ch",
-            fontSize: 24,
-            lineHeight: 1.45,
-            color: cor,
-            textWrap: "pretty",
-          }}
-        >
-          {texto}
-        </p>
-      ) : null}
-    </Entra>
   );
 }
 
@@ -245,58 +144,6 @@ export function Linhas({
         </span>
       ))}
     </>
-  );
-}
-
-/** O título da folha, revelado por máscara. Uma linha só, por regra. */
-export function Titulo({
-  children,
-  atraso = 0,
-  style,
-}: {
-  children: string;
-  atraso?: number;
-  style?: CSSProperties;
-}) {
-  return (
-    <h2 className="ap-titulo" style={style}>
-      <Linhas linhas={[children]} atraso={atraso} />
-    </h2>
-  );
-}
-
-/**
- * O FECHO — a frase em teal que fecha a folha, quebrada onde o argumento
- * respira. Linha a linha, com um passo maior que o das listas: é a frase que
- * se lê devagar, e a entrada acompanha a leitura.
- */
-export function Fecho({
-  linhas,
-  atraso = 0,
-  tamanho = 44,
-  cor = "var(--nexodoc-accent)",
-  style,
-}: {
-  linhas: readonly string[];
-  atraso?: number;
-  tamanho?: number;
-  cor?: string;
-  style?: CSSProperties;
-}) {
-  return (
-    <p
-      style={{
-        margin: 0,
-        fontSize: tamanho,
-        fontWeight: 500,
-        letterSpacing: "-0.022em",
-        lineHeight: 1.22,
-        color: cor,
-        ...style,
-      }}
-    >
-      <Linhas linhas={linhas} atraso={atraso} passo={140} />
-    </p>
   );
 }
 

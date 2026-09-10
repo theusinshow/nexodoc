@@ -457,15 +457,6 @@
   color: var(--foreground);
 }
 
-.ap-titulo {
-  margin: 0 0 44px;
-  font-size: 64px;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  color: var(--foreground);
-}
-
 .ap-fonte {
   margin: 28px 0 0;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
