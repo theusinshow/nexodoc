@@ -68,13 +68,14 @@ conteúdo se dissolve e a armadura fica; só a marca da régua desliza um índic
 - Faixa vertical de **144 px** de largura, altura inteira, com borda direita de
   1 px (`var(--border)`).
 - Os índices de todas as folhas do deck (01 a 19), em Mono 14 px, empilhados a
-  partir de y = 72 com passo de **48 px** (19 × 48 = 912; termina em y = 984).
+  partir de y = 72 com passo de **40 px** (19 × 40 = 760; termina em y = 832).
   Cor `#3d474d`; a **folha corrente** em `var(--foreground)` peso 500.
-- **Marca teal**: retângulo de 16 × 48 px encostado na borda direita da régua,
+- **Marca teal**: retângulo de 16 × 40 px encostado na borda direita da régua,
   alinhado ao índice corrente. É o único teal da armadura.
 - **Nome do bloco** na vertical (writing-mode vertical, de baixo para cima),
-  Mono 14 px caixa alta, tracking 0,14em, cor `#5f6b72`, ancorado no rodapé da
-  régua (y de 1008 para cima). Trocou o bloco, troca o texto.
+  Mono 14 px caixa alta, tracking 0,14em, cor `#5f6b72`, ocupando de y = 864 a
+  1032 (168 px, o bastante para POSSÍVEIS PERGUNTAS em 14 px). Trocou o bloco,
+  troca o texto.
 - No anexo, a régua mostra **A a F** e o bloco OS VALORES. Mesmo desenho.
 - Na capa (01) a régua aparece com o 01 aceso: o deck já começa dentro do
   instrumento.
@@ -243,9 +244,8 @@ linha, crossfade de 260 ms) continua sendo a autoridade. O que muda:
 ## 7. Código
 
 - `palco.tsx`: passa a renderizar a **régua** fora da `<section>`, alimentada
-  pelo índice corrente e pela lista de folhas (número e bloco). A largura da
-  régua entra no cálculo da moldura? Não: a régua é parte do palco de 1920 e
-  escala com ele.
+  pelo índice corrente e pela lista de folhas (número e bloco). A régua é parte
+  do palco de 1920 e escala com ele; a moldura não muda.
 - `palco.css`: ganha a armadura (`.ap-regua-deck`, `.ap-rotulo`, `.ap-leitura`,
   `.ap-grade`) e perde `.ap-cabeca`, `.ap-titulo`, `.ap-folha--denso` (não há
   mais folha densa: a grade decide).
