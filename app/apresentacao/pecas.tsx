@@ -495,7 +495,8 @@ export function Confronto({
   leitura,
 }: {
   pergunta?: string;
-  titulo?: string;
+  /** Alternativa à pergunta: a afirmação da folha, em linhas deliberadas. */
+  titulo?: readonly string[];
   linhaFina?: string;
   respostas: readonly (readonly [string, string])[];
   leitura: readonly LinhaDeLeitura[];
@@ -525,7 +526,7 @@ export function Confronto({
           ) : (
             <>
               <p className="ap-titulo-de-fato">
-                <Linhas linhas={[titulo ?? ""]} atraso={0} />
+                <Linhas linhas={titulo ?? []} atraso={0} />
               </p>
               {linhaFina ? (
                 <Entra atraso={140}>

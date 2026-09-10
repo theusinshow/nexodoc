@@ -361,13 +361,14 @@
 
 /*
  * A LEITURA. Base da folha: linha em y = 820, rótulo em y = 856, frase a
- * partir de y = 892. Altura FIXA (180) para a linha cair sempre no mesmo y,
- * tenha a frase uma ou duas linhas.
+ * partir de y = 892. Altura MÍNIMA de 180 para a linha cair no mesmo y com uma
+ * ou duas linhas de frase; um fecho de três linhas (14, 15) empurra a linha
+ * para cima em vez de vazar pelo pé da folha.
  */
 .ap-leitura {
   flex: none;
   margin-top: auto;
-  height: 180px;
+  min-height: 180px;
   box-sizing: border-box;
   padding-top: 32px;
   border-top: 1px solid var(--border);
@@ -400,15 +401,25 @@
 }
 
 .ap-confronto__esquerda {
-  grid-column: 1 / span 5;
+  grid-column: 1 / span 4;
   min-width: 0;
 }
 
+/*
+ * Sete colunas para as leituras, e o texto um degrau abaixo (24). Com seis
+ * colunas e 26 px, a resposta longa da folha 13 (oito linhas) empurrava a
+ * terceira leitura para cima do fecho — visto na captura. A pergunta, em Mono,
+ * cabe bem em quatro colunas.
+ */
 .ap-confronto__direita {
-  grid-column: 7 / span 6;
+  grid-column: 6 / span 7;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.ap-confronto .ap-escala-v__texto {
+  font-size: 24px;
 }
 
 .ap-confronto__pergunta {
