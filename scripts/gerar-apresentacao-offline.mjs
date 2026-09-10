@@ -242,7 +242,11 @@ async function capturar(pagina, rota) {
     const folha = await pagina.evaluate(() => {
       const secao = document.querySelector(".ap-folha:not(.ap-folha--sai)");
       if (!secao) return null;
-      const numero = secao.querySelector(".ap-numero")?.textContent ?? "";
+      // O número da folha mora no TRILHO desde 10/09/2026 (o cabeçalho antigo
+      // saiu): é o índice aceso — "01".."19" no deck, "A".."F" no anexo.
+      const numero =
+        document.querySelector(".ap-trilho__indice--atual")?.textContent?.trim() ??
+        "";
 
       /*
        * O ORBE VIVO NÃO SOBREVIVE À SERIALIZAÇÃO. Ele é um canvas WebGL, e
@@ -255,6 +259,15 @@ async function capturar(pagina, rota) {
        * do orbe vivo. Perde o movimento, mantém a identidade.
        */
       const clone = secao.cloneNode(true);
+      /*
+       * O TRILHO VIVE FORA DA FOLHA no palco real (para não dissolver na troca),
+       * mas o motor offline alterna folhas inteiras por `hidden`: cada folha
+       * leva a SUA cópia do trilho, com o índice dela aceso. `.ap-trilho` é
+       * absoluto em relação ao palco e a <section> cobre o palco inteiro, então
+       * as coordenadas batem.
+       */
+      const trilho = document.querySelector(".ap-trilho");
+      if (trilho) clone.prepend(trilho.cloneNode(true));
       for (const orbe of clone.querySelectorAll(".nexo-agent-orb")) {
         const marcador = document.createElement("span");
         marcador.setAttribute("data-orbe-estatico", "");
@@ -497,7 +510,7 @@ async function conferirNoDisco(arquivo, esperadas, noAnexo) {
    * Conferir a sequência de números pega a duplicata na primeira folha.
    */
   const numeros = await pagina.$$eval(".ap-folha", (secoes) =>
-    secoes.map((s) => s.querySelector(".ap-numero")?.textContent?.trim() ?? "capa"),
+    secoes.map((s) => s.querySelector(".ap-trilho__indice--atual")?.textContent?.trim() ?? "sem trilho"),
   );
   const repetidos = numeros.filter((n, k) => numeros.indexOf(n) !== k);
   if (repetidos.length) {
@@ -505,6 +518,10 @@ async function conferirNoDisco(arquivo, esperadas, noAnexo) {
   }
   const sobras = await pagina.locator(".ap-folha--sai").count();
   if (sobras) throw new Error(`${sobras} folhas do arquivo ainda têm a classe de saída.`);
+  const semTrilho = await pagina.$$eval(".ap-folha", (secoes) =>
+    secoes.filter((sec) => !sec.querySelector(".ap-trilho")).length,
+  );
+  if (semTrilho) throw new Error(`${semTrilho} folhas do arquivo saíram sem o trilho.`);
 
   /*
    * O SLIDE INTEIRO PRECISA CABER NA JANELA. Foi assim que o defeito do
