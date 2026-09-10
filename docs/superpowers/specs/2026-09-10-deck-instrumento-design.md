@@ -1,6 +1,25 @@
 # O deck como instrumento — redesenho da apresentação (spec de estrutura e visual)
 
-> **Data:** 10/09/2026. **Estado:** aprovado em conversa, aguardando plano.
+> **Data:** 10/09/2026. **Estado:** IMPLEMENTADO em 10/09/2026, na main, em
+> dez commits (de `d0a7807` "o deck ganha o trilho" a "a copia offline leva o
+> trilho"). Plano em `docs/superpowers/plans/2026-09-10-deck-instrumento.md`.
+>
+> **O que a implementação mudou em relação ao texto abaixo, e por quê:**
+>
+> - §3.3 — a leitura tem altura **mínima** de 180, não fixa: fechos de três
+>   linhas deliberadas (14, 15, E) empurram a linha para cima em vez de vazar
+>   pelo pé da folha.
+> - §5.3 — o confronto ficou em **4 + 7 colunas** (pergunta em 1–4, leituras em
+>   6–12) com o texto das leituras em 24 px: com 5 + 6 e 26 px, a resposta longa
+>   da folha 13 empurrava a terceira leitura para cima do fecho. A folha 16
+>   afirma com a própria linha fina em Sans 44 ("Três fatos, ditos antes de
+>   alguém precisar perguntar.") e sem repetir o rótulo-título.
+> - §5.4 — a cifra da folha 08 ficou em 80 px, com a coluna esquerda em 7
+>   colunas: a 96 px ela não cabia em 6.
+> - §5.4 — a escala de página da folha 05 é **posicional** (cada rótulo sob a
+>   página que nomeia), não distribuída por `space-between`.
+> - §7 — o gerador offline lê o número da folha no trilho (o cabeçalho antigo
+>   não existe mais) e a autoconferência exige um trilho por folha.
 > **Autoridade sobre:** estrutura, composição, tipografia e movimento das folhas
 > de `app/apresentacao` e `app/apresentacao/valores`.
 > **NÃO tem autoridade sobre:** o texto falado e as notas do apresentador, que

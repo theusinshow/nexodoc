@@ -1,5 +1,12 @@
 # Apresentação do NexoDoc à diretoria — spec de conteúdo
 
+> **10/09/2026 — A ESTRUTURA E O VISUAL DO DECK SÃO OS DO SPEC DO INSTRUMENTO**
+> (`2026-09-10-deck-instrumento-design.md`): trilho fixo com os 19 índices,
+> rótulo-título em caixa alta, quatro arquétipos (escala horizontal, escala
+> vertical, confronto, composição própria) e a leitura na base. Este documento
+> continua a autoridade do TEXTO e das NOTAS, que não mudaram; a nota abaixo
+> descreve o sistema de movimento que o instrumento herdou.
+
 > **10/09/2026 — O DECK GANHOU UM SISTEMA DE MOVIMENTO, e este documento não
 > descreve movimento.** A autoridade é a seção MOVIMENTO de
 > `app/apresentacao/palco.css` (cinco durações `--ap-*`, três curvas, máscara

@@ -239,6 +239,10 @@ async function capturar(pagina, rota) {
       undefined,
       { timeout: 5000 },
     );
+    // O `Contador` grava o valor final num `setTimeout(0)` e o React ainda
+    // precisa de um quadro para pintá-lo: sem esta folga a folha 05 saía com
+    // "0 páginas" mesmo em movimento reduzido.
+    await pagina.waitForTimeout(250);
     const folha = await pagina.evaluate(() => {
       const secao = document.querySelector(".ap-folha:not(.ap-folha--sai)");
       if (!secao) return null;
@@ -327,7 +331,18 @@ async function capturar(pagina, rota) {
 
 async function main() {
   const navegador = await chromium.launch();
-  const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
+  /*
+   * MOVIMENTO REDUZIDO NA CAPTURA. O que se serializa é o DOM, e o DOM de um
+   * número que corre (`Contador`) só chega ao valor final quando a animação
+   * termina — a cópia offline saía com "0 páginas" e "0 achados" na folha 05
+   * (visto em 10/09/2026). Com movimento reduzido o React grava o valor final
+   * de imediato; as animações CSS continuam no arquivo, porque a folha do pen
+   * drive não é aberta em modo reduzido e o `animationDelay` inline sobrevive.
+   */
+  const pagina = await navegador.newPage({
+    viewport: { width: 1920, height: 1080 },
+    reducedMotion: "reduce",
+  });
 
   const folhasDoDeck = await capturar(pagina, "/apresentacao");
   /*
