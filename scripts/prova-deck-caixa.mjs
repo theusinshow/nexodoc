@@ -31,7 +31,8 @@ const SIGLAS = [
   "EST",
 ];
 // "ia" e "sc" em minúscula são palavras da língua ("ele ia"): só as inequívocas.
-const MINUSCULAS_PROIBIDAS = /\b(ld|lds|ubs|odt|pdf|zip|prosul|api|ocr)\b/;
+// Extensão de arquivo (".pdf" em "117_25_md_geral_a.pdf") é minúscula por direito.
+const MINUSCULAS_PROIBIDAS = /(?<![.\w])(ld|lds|ubs|odt|pdf|zip|prosul|api|ocr)\b/;
 
 const b = await chromium.launch();
 const p = await b.newPage({
