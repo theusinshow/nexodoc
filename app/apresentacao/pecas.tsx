@@ -299,3 +299,289 @@ export function Fecho({
     </p>
   );
 }
+
+/* ═══════════════════════════════════════════════════════ os arquétipos (10/09) */
+
+export type LinhaDeLeitura = { texto: string; chave?: boolean };
+
+/**
+ * A LEITURA — a conclusão da folha, na base, como a leitura de um instrumento.
+ * Linha fina, rótulo LEITURA e a frase em Sans 600 48, linha a linha por
+ * máscara. Qual linha é a CHAVE (em teal) é decisão editorial por folha.
+ */
+export function Leitura({
+  linhas,
+  atraso = 900,
+  rotuloDo = "Leitura",
+}: {
+  linhas: readonly LinhaDeLeitura[];
+  atraso?: number;
+  rotuloDo?: string;
+}) {
+  return (
+    <div className="ap-leitura">
+      <Entra atraso={atraso}>
+        <span className="ap-mono-rotulo">{rotuloDo}</span>
+      </Entra>
+      <p className="ap-leitura__frase">
+        {linhas.map((l, i) => (
+          <span
+            key={l.texto}
+            className={
+              l.chave ? "ap-mascara ap-leitura__linha--chave" : "ap-mascara"
+            }
+          >
+            <span
+              className="ap-linha"
+              style={{ animationDelay: `${atraso + 160 + i * 140}ms` }}
+            >
+              {l.texto}
+            </span>
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+export type Fato = {
+  /** Título em linhas deliberadas. */
+  titulo: readonly string[];
+  texto?: ReactNode;
+  /** Cor do título (padrão: foreground). */
+  cor?: string;
+  /** O que vem depois do texto: uma frase colorida, uma lista Mono. */
+  extra?: ReactNode;
+};
+
+/**
+ * ESCALA HORIZONTAL — fatos em linha, ticks embaixo. A linha se desenha, os
+ * ticks aparecem, e só então os fatos assentam, em cascata da esquerda para a
+ * direita.
+ */
+export function EscalaHorizontal({
+  fatos,
+  atraso = 200,
+  tracejada = false,
+  compacta = false,
+  style,
+}: {
+  fatos: readonly Fato[];
+  atraso?: number;
+  tracejada?: boolean;
+  compacta?: boolean;
+  style?: CSSProperties;
+}) {
+  const classes = [
+    "ap-escala-h",
+    tracejada ? "ap-escala-h--tracejada" : "",
+    compacta ? "ap-escala-h--compacta" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className={classes} style={style}>
+      {fatos.map((f, i) => (
+        <div key={f.titulo.join(" ")} className="ap-escala-h__fato">
+          <p
+            className="ap-escala-h__titulo"
+            style={f.cor ? { color: f.cor } : undefined}
+          >
+            <Linhas linhas={f.titulo} atraso={atraso + 320 + i * 160} />
+          </p>
+          {f.texto ? (
+            <Entra atraso={atraso + 440 + i * 160}>
+              <p className="ap-escala-h__texto">{f.texto}</p>
+            </Entra>
+          ) : null}
+          {f.extra ? (
+            <Entra atraso={atraso + 560 + i * 160}>{f.extra}</Entra>
+          ) : null}
+          <span
+            aria-hidden="true"
+            className="ap-escala-h__tick ap-escala-h__tick--inicio ap-surge"
+            style={{ animationDelay: `${atraso + 200}ms` }}
+          />
+          {i === fatos.length - 1 ? (
+            <span
+              aria-hidden="true"
+              className="ap-escala-h__tick ap-escala-h__tick--fim ap-surge"
+              style={{ animationDelay: `${atraso + 200}ms` }}
+            />
+          ) : null}
+        </div>
+      ))}
+      <span
+        aria-hidden="true"
+        className="ap-escala-h__linha ap-risca"
+        style={{ animationDelay: `${atraso}ms` }}
+      />
+    </div>
+  );
+}
+
+export type ItemDaEscala = { titulo: string; texto?: string; cor?: string };
+
+/**
+ * ESCALA VERTICAL — leituras numeradas de altura igual. A linha desce
+ * (`ap-desce`), os ticks aparecem, e as leituras assentam de cima para baixo.
+ */
+export function EscalaVertical({
+  itens,
+  atraso = 200,
+  inicio = 1,
+  numerada = true,
+  style,
+}: {
+  itens: readonly ItemDaEscala[];
+  atraso?: number;
+  inicio?: number;
+  numerada?: boolean;
+  style?: CSSProperties;
+}) {
+  return (
+    <div className="ap-escala-v" style={style}>
+      <span
+        aria-hidden="true"
+        className="ap-escala-v__linha ap-desce"
+        style={{ animationDelay: `${atraso}ms` }}
+      />
+      {itens.map((item, i) => (
+        <div key={item.titulo} className="ap-escala-v__item">
+          <span
+            className="ap-escala-v__numero ap-surge"
+            style={{ animationDelay: `${atraso + 200}ms`, color: item.cor }}
+          >
+            {numerada ? String(inicio + i).padStart(2, "0") : ""}
+          </span>
+          <span
+            aria-hidden="true"
+            className="ap-escala-v__tick ap-surge"
+            style={{
+              animationDelay: `${atraso + 200}ms`,
+              background: item.cor,
+            }}
+          />
+          <div className="ap-escala-v__corpo">
+            <p
+              className="ap-escala-v__titulo"
+              style={item.cor ? { color: item.cor } : undefined}
+            >
+              <Linhas linhas={[item.titulo]} atraso={atraso + 320 + i * 160} />
+            </p>
+            {item.texto ? (
+              <Entra atraso={atraso + 440 + i * 160}>
+                <p className="ap-escala-v__texto">{item.texto}</p>
+              </Entra>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * O CONFRONTO — a folha de objeção. A pergunta, com as palavras do comprador,
+ * em Mono à esquerda (mono é o que os OUTROS dizem); as respostas como leituras
+ * numeradas à direita; a leitura final na base. Sem `pergunta`, a esquerda traz
+ * o título e a linha fina (a folha 16 afirma em vez de responder).
+ */
+export function Confronto({
+  pergunta,
+  titulo,
+  linhaFina,
+  respostas,
+  leitura,
+}: {
+  pergunta?: string;
+  titulo?: string;
+  linhaFina?: string;
+  respostas: readonly (readonly [string, string])[];
+  leitura: readonly LinhaDeLeitura[];
+}) {
+  const longa = (pergunta?.length ?? 0) > 160;
+  return (
+    <>
+      <div className="ap-confronto">
+        <div className="ap-confronto__esquerda">
+          {pergunta ? (
+            <>
+              <Entra atraso={0}>
+                <span className="ap-mono-rotulo">A pergunta</span>
+              </Entra>
+              <Entra atraso={120}>
+                <p
+                  className={
+                    longa
+                      ? "ap-confronto__pergunta ap-confronto__pergunta--longa"
+                      : "ap-confronto__pergunta"
+                  }
+                >
+                  {`“${pergunta}”`}
+                </p>
+              </Entra>
+            </>
+          ) : (
+            <>
+              <p className="ap-titulo-de-fato">
+                <Linhas linhas={[titulo ?? ""]} atraso={0} />
+              </p>
+              {linhaFina ? (
+                <Entra atraso={140}>
+                  <p className="ap-texto" style={{ marginTop: 16 }}>
+                    {linhaFina}
+                  </p>
+                </Entra>
+              ) : null}
+            </>
+          )}
+        </div>
+        <div className="ap-confronto__direita">
+          <EscalaVertical
+            atraso={300}
+            itens={respostas.map(([t, x]) => ({ titulo: t, texto: x }))}
+          />
+        </div>
+      </div>
+      <Leitura
+        linhas={leitura}
+        atraso={300 + 320 + respostas.length * 160 + 200}
+      />
+    </>
+  );
+}
+
+/** O MOSTRADOR — um valor em Mono 80 sobre o rótulo, com a régua de 1 px à esquerda. */
+export function Mostrador({
+  valor,
+  rotuloDo,
+  cor,
+  atraso,
+}: {
+  valor: ReactNode;
+  rotuloDo: string;
+  cor?: string;
+  atraso: number;
+}) {
+  return (
+    <div className="ap-mostrador">
+      <span
+        className="ap-mascara ap-mostrador__valor"
+        style={cor ? { color: cor } : undefined}
+      >
+        <span className="ap-linha" style={{ animationDelay: `${atraso}ms` }}>
+          {valor}
+        </span>
+      </span>
+      <Entra atraso={atraso + 120}>
+        <span
+          className="ap-mono-rotulo"
+          style={{ display: "block", marginTop: 16 }}
+        >
+          {rotuloDo}
+        </span>
+      </Entra>
+    </div>
+  );
+}
