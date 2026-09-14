@@ -779,6 +779,22 @@ function contarPaginasDoDocumento(extracted: ExtractedPdf) {
   };
 }
 
+/*
+ * O TETO DE SAÍDA DA VALIDAÇÃO TEM PARTE FIXA para o raciocínio.
+ *
+ * Era `max(2600, achados × 260)`: uma decisão por achado, e nada para o modelo
+ * pensar — só que o raciocínio sai do MESMO teto. Com poucos achados sobrava
+ * quase nada: em 14/09/2026, com a leitura global abortada, o 117_25 chegou à
+ * validação com 10 achados de regra, teto de 2600, e voltou
+ * `incomplete_max_output_tokens` sem uma decisão. Com 70 achados o teto era
+ * 16000 e usou 8955.
+ *
+ * `max_output_tokens` é teto, não meta: a folga só é cobrada se for usada.
+ */
+export function tetoDeSaidaDaValidacao(achados: number) {
+  return Math.min(32_000, 8_000 + achados * 300);
+}
+
 function getValidationTimeoutMs(analysisLevel: AnalysisLevel) {
   const value = Number(process.env.NEXODOC_VALIDATION_TIMEOUT_MS);
 
@@ -2527,6 +2543,13 @@ async function analyzeFileGloballyWithModel(args: {
       // dos blocos passa a ser apertado para uma passada que lê o documento.
       timeoutMs:
         args.analysisLevel === "deep" ? getDeepGlobalTimeoutMs() : getStandardGlobalTimeoutMs(),
+      /*
+       * Em segundo plano, e não numa conexão aberta por minutos. Em produção,
+       * nenhuma leitura global passou de 338s: as que cruzaram ~350s ficaram
+       * penduradas até o aborto, e a auditoria saía só com as regras (117_25,
+       * 14/09/2026). Ver [[resposta-em-segundo-plano.ts]].
+       */
+      emSegundoPlano: true,
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
@@ -2804,6 +2827,8 @@ async function validateFindingsWithModel(args: {
   findings: AuditFinding[];
   /** Coletor das regras que a validação quis remover. Ver [[contestacao-de-regra.ts]]. */
   contestacoes?: ContestacaoDeRegra[];
+  /** Coletor das passadas que não completaram — a validação também é uma. */
+  degradacoes?: PassadaIncompleta[];
   conversationId?: string | null;
   userEmail?: string | null;
 }) {
@@ -2825,14 +2850,12 @@ async function validateFindingsWithModel(args: {
       providerOverride: profile.provider,
       operation: "audit-validation",
       timeoutMs: getValidationTimeoutMs(args.analysisLevel),
+      emSegundoPlano: true,
       request: {
         model,
         instructions: getAuditorPrompt(args.auditMode),
         reasoning: { effort: getReasoningEffort(args.analysisLevel, args.auditMode) },
-        // Uma decisão por achado; com o doc inteiro a lista cresce (26 no 017-26)
-        // e o teto fixo de 2600 truncava o JSON → validação inteira descartada.
-        // Escala com o nº de achados.
-        max_output_tokens: Math.min(16000, Math.max(2600, args.findings.length * 260)),
+        max_output_tokens: tetoDeSaidaDaValidacao(args.findings.length),
         text: { format: auditValidationResponseFormat },
         input: getFindingValidationPrompt(args),
       },
@@ -2936,6 +2959,15 @@ async function validateFindingsWithModel(args: {
       recordProviderFailure(failure);
     }
     console.error(`[audit] validacao semantica falhou; mantendo candidatos (${failure.category})`);
+    /*
+     * Os achados ficam, mas sem a revisão eles não foram conferidos, e isso
+     * precisa aparecer no parecer. Era só uma linha de log: em 14/09/2026 a
+     * validação do 117_25 truncou e a tela não disse nada.
+     */
+    args.degradacoes?.push({
+      passada: "Revisão dos achados pela IA",
+      motivo: String((error as { message?: string })?.message ?? error).slice(0, 160),
+    });
     return args.findings;
   }
 }
@@ -4132,6 +4164,7 @@ async function executarAuditoria(
       files: uploadedFiles,
       findings: candidateFindings,
       contestacoes,
+      degradacoes,
       conversationId,
       userEmail: sessionEmail,
     });
@@ -4382,8 +4415,17 @@ async function executarAuditoria(
       })
         ? "concluida"
         : "parcial",
+      /*
+       * Etapa que não completou manda no status antes do número. Com a leitura
+       * global abortada, o 117_25 saiu com "revisão obrigatória antes de
+       * emissão" e 10 achados (14/09/2026): a frase parecia um parecer inteiro.
+       * E "sem achados críticos" de uma corrida que não leu o documento é a
+       * pior mentira possível.
+       */
       status_geral:
-        findings.length === 0
+        degradacoes.length > 0
+          ? "auditoria incompleta — não use para emitir"
+          : findings.length === 0
           ? "sem achados críticos"
           : hasCriticalDocumental
             ? "revisão obrigatória antes de emissão"

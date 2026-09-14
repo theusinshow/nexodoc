@@ -139,6 +139,12 @@ import {
 } from "../lib/nome-do-volume";
 import { ResultLinks } from "./ResultLinks";
 import { useConversationUsage } from "../state/use-conversation-usage";
+import {
+  detalheDoParecer,
+  resumoDoParecer,
+  rotuloDaContagem,
+} from "@/lib/auditoria-incompleta";
+import { AvisoDeAuditoriaIncompleta } from "@/components/aviso-de-auditoria-incompleta";
 
 const PDF_MIME = "application/pdf";
 
@@ -2560,7 +2566,7 @@ function AuditoriaConfirmation({
       await saveResult({
         artifactId: id,
         kind: "auditoria",
-        summary: `Auditoria — ${r.report.status_geral}`,
+        summary: resumoDoParecer(r.report),
         files: [],
         /*
          * O envelope inteiro, não só o relatório: o texto alimenta o Exportar e o
@@ -2570,7 +2576,7 @@ function AuditoriaConfirmation({
         payload: r,
         canvas: {
           label: "Auditoria",
-          detail: `${r.report.status_geral} · ${plural(r.report.total_incongruencias, "achado", "achados")}`,
+          detail: detalheDoParecer(r.report),
         },
       });
       refreshUsage();
@@ -2769,14 +2775,14 @@ function AuditoriaConfirmation({
             </div>
           )}
           {parcial && (
-            <p className="text-xs text-[var(--status-warning)]">
-              A análise anterior voltou incompleta
+            <p className="text-xs font-medium text-[var(--status-critical)]">
+              A auditoria anterior voltou INCOMPLETA
               {result?.report.runtime?.passadas_incompletas?.length
                 ? ` (${result.report.runtime.passadas_incompletas
                     .map((p) => p.passada)
                     .join(", ")})`
                 : ""}
-              . Rode de novo antes de decidir.
+              : a contagem dela não é o total. Rode de novo antes de decidir.
             </p>
           )}
           {/*
@@ -2890,10 +2896,12 @@ function AuditoriaAncora({
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-[var(--nexodoc-recessed)] p-3">
+      {/* Antes do número: a contagem de uma auditoria incompleta não é o total. */}
+      <AvisoDeAuditoriaIncompleta report={report} compacto />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={variant}>{verdict.label}</Badge>
         <span className="text-xs text-muted-foreground">
-          {plural(report.total_incongruencias, "achado", "achados")} · obra {report.obra || "?"}
+          {rotuloDaContagem(report)} · obra {report.obra || "?"}
         </span>
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">

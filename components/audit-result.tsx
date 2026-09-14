@@ -81,6 +81,8 @@ import {
  * tom que alguém ajustasse.
  */
 import { corDaDisciplina } from "@/modules/nexo/lib/disciplina-cor";
+import { AvisoDeAuditoriaIncompleta } from "@/components/aviso-de-auditoria-incompleta";
+import { incompletudeDoParecer } from "@/lib/auditoria-incompleta";
 import { cn } from "@/lib/utils";
 import { useSpotlight } from "@/lib/use-spotlight";
 
@@ -389,6 +391,12 @@ function parseAuditResult(content: string): ParsedAudit {
  */
 function rotuloDoStatus(status: string) {
   const normalized = normalizeText(status);
+
+  // Antes de tudo: sem este ramo, "auditoria incompleta" caía no fim e virava
+  // "sem achados críticos" — a frase exatamente oposta.
+  if (normalized.includes("incompleta")) {
+    return "auditoria incompleta — não use para emitir";
+  }
 
   if (
     normalized.includes("revisao obrigatoria") ||
@@ -2581,6 +2589,12 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
             document.body,
           )
         : null}
+      {/*
+        O AVISO VEM ANTES DO VEREDITO E DE QUALQUER NÚMERO. Em 14/09/2026 o
+        117_25 saiu com 10 achados só de regra e a contagem foi lida como o total.
+        Ver [[lib/auditoria-incompleta.ts]].
+      */}
+      <AvisoDeAuditoriaIncompleta report={report} className="mb-3" />
       {verdict ? (
         <div
           data-tour="veredito-parecer"
@@ -2646,11 +2660,16 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
             {principalFindingsWithPdf.length} achado
             {principalFindingsWithPdf.length !== 1 ? "s" : ""} em{" "}
             {uniqueDocumentCount || pdfSources.length || "?"} arquivo
-            {pdfSources.length !== 1 ? "s" : ""}
+            {(uniqueDocumentCount || pdfSources.length) !== 1 ? "s" : ""}
             {suggestionFindings.length > 0
               ? ` · ${suggestionFindings.length} sugest${suggestionFindings.length !== 1 ? "ões" : "ão"} da IA`
               : ""}
             {elapsed ? ` · ${elapsed}` : ""}
+            {report && incompletudeDoParecer(report).incompleta ? (
+              <span className="font-semibold text-[var(--status-critical)]">
+                {" "}· contagem INCOMPLETA
+              </span>
+            ) : null}
           </span>
 
           {!controlado && (
@@ -3010,39 +3029,6 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                 );
               })}
             </div>
-
-            {/*
-              A ANÁLISE PARCIAL É ASSUNTO DO RESUMO, e não só do veredito.
-
-              Quando uma passada não completa, o parecer vale menos do que
-              parece — e isso já rebaixa o veredito lá em cima. Mas quem abre o
-              resumo para decidir emissão precisa ver O QUE ficou de fora, e não
-              apenas que "não dá para liberar". A informação existia no dado e
-              não existia na tela.
-            */}
-            {runtime?.passadas_incompletas?.length ? (
-              <div className="nx-cut-6 bg-[var(--status-warning-bg)]/60 p-4">
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--status-warning)]">
-                  A análise não completou
-                </p>
-                <p className="mt-1.5 text-sm leading-6 text-foreground">
-                  {runtime.passadas_incompletas.length === 1
-                    ? "Uma passada não terminou, então este parecer não cobre o documento inteiro."
-                    : `${runtime.passadas_incompletas.length} passadas não terminaram, então este parecer não cobre o documento inteiro.`}
-                </p>
-                <ul className="mt-2 grid gap-1">
-                  {runtime.passadas_incompletas.map((passada, i) => (
-                    <li
-                      key={`${passada.passada}-${i}`}
-                      className="font-mono text-xs text-muted-foreground"
-                    >
-                      {passada.passada}
-                      {passada.motivo ? ` — ${passada.motivo}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
 
             {/*
               REAUDITORIA: o que foi relido e o que veio de antes.
@@ -4840,7 +4826,11 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
               </div>
             ) : (
               <EmptyState
-                description="Nenhum achado encontrado."
+                description={
+                  report && incompletudeDoParecer(report).incompleta
+                    ? "Nenhum achado nesta lista, mas a auditoria NÃO foi completa: isto não significa que o documento está correto."
+                    : "Nenhum achado encontrado."
+                }
                 className="py-8"
               />
             )}
@@ -4872,7 +4862,11 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                 <p className="font-mono text-xs font-medium uppercase text-muted-foreground">
                   Status
                 </p>
-                <p className="mt-1 text-sm">{status}</p>
+                <p className="mt-1 text-sm">
+                  {report && incompletudeDoParecer(report).incompleta
+                    ? incompletudeDoParecer(report).titulo
+                    : status}
+                </p>
               </div>
               <div>
                 <p className="font-mono text-xs font-medium uppercase text-muted-foreground">

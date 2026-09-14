@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from "react";
 import { consultarAuditoria } from "../lib/audit";
 import { auditoriaDaConversa, useAuditoria } from "../state/auditoria-store";
 import { useConversation } from "../state/conversation-store";
+import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Espaço entre perguntas. A auditoria leva minutos; insistir mais é ruído. */
 const INTERVALO_MS = 5000;
@@ -113,12 +114,12 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
         await saveResult({
           artifactId: bilhete.artifactId,
           kind: "auditoria",
-          summary: `Auditoria — ${r.report.status_geral}`,
+          summary: resumoDoParecer(r.report),
           files: [],
           payload: r,
           canvas: {
             label: "Auditoria",
-            detail: `${r.report.status_geral} · ${r.report.total_incongruencias} achado(s)`,
+            detail: detalheDoParecer(r.report),
           },
         });
       } else {

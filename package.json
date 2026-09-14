@@ -19,6 +19,8 @@
     "convidar": "node scripts/convidar.ts",
     "diag:cc": "node scripts/diagnostico-de-centros-de-custo.ts",
     "backfill:escritorio": "node scripts/backfill-escritorio.ts",
+    "test:auditoria-incompleta": "node scripts/test-auditoria-incompleta.ts",
+    "test:segundo-plano": "node scripts/test-resposta-em-segundo-plano.ts",
     "test:portao": "node scripts/test-portao-de-acesso.ts",
     "test:resolucao": "node scripts/test-resolucao-de-projeto.ts",
     "test:cliente": "node scripts/test-cliente-do-projeto.ts",

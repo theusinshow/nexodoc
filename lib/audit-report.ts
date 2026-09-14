@@ -8,6 +8,7 @@ import type { AnalysisLevel } from "@/lib/analysis-level";
  * isso nunca cobraram o alias. Este é valor, e cobrou: quebrou as duas provas
  * na primeira tentativa.
  */
+import { ehLeituraDoDocumentoPelaIa, incompletudeDoParecer } from "./auditoria-incompleta.ts";
 import { plural } from "./plural.ts";
 
 /**
@@ -283,6 +284,8 @@ export type AuditReport = {
     | "sem achados críticos"
     | "com pontos de revisão"
     | "com inconsistências críticas"
+    /** Etapa da análise não completou: a contagem não é o total. */
+    | "auditoria incompleta — não use para emitir"
     | "revisão obrigatória antes de emissão";
   total_incongruencias: number;
   arquivos_analisados: AuditFileSummary[];
@@ -910,6 +913,21 @@ export function getEmissionVerdict(
 ): EmissionVerdict {
   const groups = groupFindingsByImpact(findings);
 
+  /*
+   * Sem a leitura da IA não é "análise parcial", é outra coisa: o parecer tem
+   * só os achados de regra. Em 14/09/2026 o 117_25 saiu assim com 10 achados,
+   * contra 56 da corrida completa, e o rótulo âmbar não impediu que a contagem
+   * fosse lida como o total. Vermelho, e dizendo o que faltou.
+   */
+  if (passadasIncompletas.some((p) => ehLeituraDoDocumentoPelaIa(p.passada))) {
+    return {
+      emoji: "🔴",
+      label: "AUDITORIA INCOMPLETA — A IA NÃO LEU O DOCUMENTO. NÃO USE PARA EMITIR",
+      detail:
+        "Só as regras automáticas rodaram: os achados abaixo não são o total de problemas do documento. Rode a auditoria de novo.",
+    };
+  }
+
   if (passadasIncompletas.length > 0) {
     const quais = passadasIncompletas.map((p) => p.passada).join("; ");
     return {
@@ -1005,8 +1023,13 @@ export function makeTextReport(report: AuditReport) {
           })
           .join("\n\n");
 
+  const incompleta = incompletudeDoParecer(report);
+
   return `
-0. Veredito de emissão
+${incompleta.incompleta ? `!!! ${incompleta.titulo} !!!
+${incompleta.explicacao}
+
+` : ""}0. Veredito de emissão
 ${verdict.emoji} ${verdict.label} — ${verdict.detail}
 
 1. Projeto analisado

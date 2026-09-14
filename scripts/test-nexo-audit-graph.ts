@@ -164,6 +164,17 @@ test("análise parcial rebaixa o veredito mesmo sem achado", () => {
   const g = buildAuditGraph(
     report([], { passadas_incompletas: [{ passada: "leitura global", motivo: "timeout" }] }),
   );
+  // Sem a leitura global a auditoria é só de regra: vermelho, não âmbar
+  // (117_25 em 14/09/2026). Ver lib/auditoria-incompleta.ts.
+  assert.equal(g.verdict.emoji, "🔴");
+  assert.ok(g.verdict.label.includes("A IA NÃO LEU O DOCUMENTO"));
+  assert.ok(g.verdict.label.includes("NÃO USE PARA EMITIR"));
+});
+
+test("outra passada incompleta segue âmbar e manda não emitir", () => {
+  const g = buildAuditGraph(
+    report([], { passadas_incompletas: [{ passada: "Revisão dos achados pela IA", motivo: "x" }] }),
+  );
   assert.equal(g.verdict.emoji, "⚠️");
   assert.ok(g.verdict.label.includes("NÃO USE PARA EMITIR"));
 });

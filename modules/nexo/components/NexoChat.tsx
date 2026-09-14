@@ -30,6 +30,7 @@ import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
 import { BarraDeLeitura } from "./BarraDeLeitura";
 import { ZonaDeSolta } from "./ZonaDeSolta";
+import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
@@ -295,12 +296,12 @@ export function NexoChat({
           void saveResult({
             artifactId: alvo.artifactId,
             kind: "auditoria",
-            summary: `Auditoria — ${event.report.status_geral}`,
+            summary: resumoDoParecer(event.report),
             files: [],
             payload: { ...alvo.salvo, report: event.report },
             canvas: {
               label: "Auditoria",
-              detail: `${event.report.status_geral} · ${event.report.total_incongruencias} achado(s)`,
+              detail: detalheDoParecer(event.report),
             },
           });
         } else if (event.type === "encaminhar") {

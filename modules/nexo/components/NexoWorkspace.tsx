@@ -142,6 +142,12 @@ const VisorDaFolha = dynamic(
 );
 import { useConexao } from "../lib/use-conexao";
 import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
+import { detalheDoParecer, type ParecerParaIncompletude } from "@/lib/auditoria-incompleta";
+
+function reportDoPayload(payload: unknown): ParecerParaIncompletude | null {
+  const report = (payload as { report?: unknown } | null | undefined)?.report;
+  return report && typeof report === "object" ? (report as ParecerParaIncompletude) : null;
+}
 
 /**
  * Workspace do Nexo (chat-first). "Anexar/soltar PDFs" LÊ os selos das pranchas
@@ -260,7 +266,16 @@ function NexoWorkspaceInner({
             id: r.artifactId,
             kind: r.kind,
             label: r.canvas!.label,
-            detail: r.canvas!.detail,
+            /*
+             * O detalhe da auditoria é recalculado do parecer, e não lido do que
+             * foi gravado: a frase gravada até 14/09/2026 punha a contagem sem
+             * dizer que a auditoria estava incompleta, e conversa antiga seguiria
+             * mostrando "10 achados" como se fosse o total.
+             */
+            detail:
+              r.kind === "auditoria" && reportDoPayload(r.payload)
+                ? detalheDoParecer(reportDoPayload(r.payload)!)
+                : r.canvas!.detail,
             titulo: r.canvas!.titulo,
             pdfUrl: pdf?.url,
             pageNumber: r.canvas!.pageNumber ?? 1,

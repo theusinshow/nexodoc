@@ -30,6 +30,7 @@ import { lerLinkDoAchado } from "@/lib/link-do-achado";
 
 import { consultarAuditoria } from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
+import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 export type AberturaPorLink = {
   /** Enquanto busca o parecer no servidor. */
@@ -108,12 +109,12 @@ export function useAbrirAuditoriaPorLink(params: {
         await saveResult({
           artifactId: `auditoria:${id}`,
           kind: "auditoria",
-          summary: `Auditoria — ${parecer.report.status_geral}`,
+          summary: resumoDoParecer(parecer.report),
           files: [],
           payload: parecer,
           canvas: {
             label: "Auditoria",
-            detail: `${parecer.report.status_geral} · ${parecer.report.total_incongruencias} achado(s)`,
+            detail: detalheDoParecer(parecer.report),
           },
         });
 

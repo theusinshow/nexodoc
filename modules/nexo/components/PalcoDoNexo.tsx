@@ -32,6 +32,7 @@ import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
 import type { AberturaPorLink } from "./use-abrir-auditoria-por-link";
 import { useReconectarAuditoria } from "./use-reconectar-auditoria";
+import { incompletudeDoParecer } from "@/lib/auditoria-incompleta";
 
 /**
  * As três vistas de LISTA do parecer. A quarta ("No documento") entra ao lado
@@ -410,6 +411,12 @@ export function PalcoDoNexo({
                 {v.valor === "findings" && totalDeAchados > 0 && (
                   <span className="font-mono tabular-nums text-muted-foreground">
                     {totalDeAchados}
+                  </span>
+                )}
+                {/* Número de auditoria incompleta não anda sem a ressalva. */}
+                {v.valor === "findings" && incompletudeDoParecer(report).incompleta && (
+                  <span className="font-mono text-[10px] font-semibold uppercase text-[var(--status-critical)]">
+                    incompleta
                   </span>
                 )}
               </Chip>

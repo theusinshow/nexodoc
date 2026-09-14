@@ -55,6 +55,8 @@ import { FindingCardNode, type FindingCardNodeData } from "./FindingCardNode";
 import { RecurringStackNode, type RecurringStackNodeData } from "./RecurringStackNode";
 import { RotuloDoCanvas, type RotuloDoCanvasData } from "./RotuloDoCanvas";
 import { RealceContext } from "./audit-canvas-realce";
+import { AvisoDeAuditoriaIncompleta } from "@/components/aviso-de-auditoria-incompleta";
+import { incompletudeDoParecer } from "@/lib/auditoria-incompleta";
 
 const nodeTypes = {
   paginaMemorial: MemorialPageNode,
@@ -408,13 +410,21 @@ function CanvasInterno({
     [acesos, abrirPeloId],
   );
 
+  const incompleta = incompletudeDoParecer(report).incompleta;
+
   if (grafo.pageNodes.length === 0 && grafo.unplaced.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-4">
+        {/* Vazio de uma auditoria incompleta não é documento limpo. */}
+        <AvisoDeAuditoriaIncompleta report={report} className="max-w-xl" />
         <EmptyState
           icon={MapPin}
           label="Nada a marcar no documento"
-          description="Esta vista mostra as páginas do memorial em que a auditoria encontrou algo. Como não há achados, não há o que marcar — o parecer completo continua no chip ao lado."
+          description={
+            incompleta
+              ? "Nenhuma página marcada, mas a auditoria não foi completa: isto não significa que o documento está correto."
+              : "Esta vista mostra as páginas do memorial em que a auditoria encontrou algo. Como não há achados, não há o que marcar — o parecer completo continua no chip ao lado."
+          }
         />
       </div>
     );
@@ -448,8 +458,18 @@ function CanvasInterno({
           {grafo.pageNodes.length === 1
             ? "1 página com achado"
             : `${grafo.pageNodes.length} páginas com achado`}
+          {incompleta ? " · contagem INCOMPLETA" : ""}
         </span>
       </div>
+      {/*
+        Sobre o canvas, logo abaixo do veredito: quem só olha as páginas marcadas
+        lê "poucas páginas com problema" se ninguém disser que a leitura faltou.
+      */}
+      {incompleta && (
+        <div className="pointer-events-none absolute left-2 top-12 z-10 max-w-md">
+          <AvisoDeAuditoriaIncompleta report={report} compacto />
+        </div>
+      )}
 
       {parecer && (
         <>

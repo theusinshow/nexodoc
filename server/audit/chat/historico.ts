@@ -15,6 +15,7 @@ import type { FunctionTool } from "openai/resources/responses/responses";
 
 import { listAuditLearnings } from "../../../lib/audit-learnings.ts";
 import type { AuditReport } from "../../../lib/audit-report.ts";
+import { incompletudeDoParecer } from "../../../lib/auditoria-incompleta.ts";
 import { getPrisma, isDatabaseConfigured } from "../../../lib/db.ts";
 
 export type ParecerAnterior = {
@@ -30,6 +31,15 @@ export type Acervo = {
   anteriores: ParecerAnterior[];
   aprendizados: { title: string; content: string }[];
 };
+
+/** O veredito do parecer anterior, dizendo quando ele foi incompleto. */
+function vereditoDoAnterior(report: AuditReport | null) {
+  if (!report) return "sem veredito registrado";
+  const i = incompletudeDoParecer(report);
+  return i.incompleta
+    ? `${i.titulo} (a contagem não é o total)`
+    : (report.status_geral ?? "sem veredito registrado");
+}
 
 export function redigirHistorico(acervo: Acervo): string {
   const partes: string[] = [];
@@ -114,7 +124,7 @@ export async function historicoDaObra(args: {
     const anteriores: ParecerAnterior[] = linhas.map((linha) => ({
       auditId: linha.id,
       quando: (linha.completedAt ?? linha.createdAt).toISOString().slice(0, 10),
-      veredito: (linha.report as AuditReport | null)?.status_geral ?? "sem veredito registrado",
+      veredito: vereditoDoAnterior(linha.report as AuditReport | null),
       totalAchados: linha.totalFindings,
       criticos: criticosDe(linha.report),
       arquivo: linha.files[0]?.fileName ?? "arquivo não registrado",

@@ -66,6 +66,7 @@ import {
   type EstadoDaSincronizacao,
 } from "../lib/nexo-sync";
 import { fundirListas, lapidesLocais } from "@/server/nexo/conversa-remota";
+import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Um arquivo de resultado com object URL vivo (p/ download/preview). */
 export interface SavedFile {
@@ -1149,12 +1150,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           restored.push({
             artifactId: faltando.artifactId,
             kind: "auditoria",
-            summary: `Auditoria — ${resposta.resultado.report.status_geral}`,
+            summary: resumoDoParecer(resposta.resultado.report),
             files: [],
             payload: resposta.resultado,
             canvas: {
               label: "Auditoria",
-              detail: `${resposta.resultado.report.status_geral} · ${resposta.resultado.report.total_incongruencias} achado(s)`,
+              detail: detalheDoParecer(resposta.resultado.report),
             },
             generatedAt: Date.now(),
           });

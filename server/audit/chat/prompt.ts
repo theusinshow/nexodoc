@@ -8,6 +8,7 @@
  * sem conferência.
  */
 import type { AuditReport } from "../../../lib/audit-report.ts";
+import { incompletudeDoParecer } from "../../../lib/auditoria-incompleta.ts";
 
 export function instrucoesDoAdvogado(args: { temMemoria: boolean }): string {
   const base = `
@@ -69,8 +70,19 @@ export function primeiraEntrada(args: {
       .map((t) => `${t.role}: ${t.content.slice(0, 1200)}`)
       .join("\n\n") || "(sem histórico)";
 
+  /*
+   * O chat não pode repetir o erro da tela: tratar a contagem de uma auditoria
+   * incompleta como o total de problemas do documento.
+   */
+  const incompleta = incompletudeDoParecer(args.report);
+  const aviso = incompleta.incompleta
+    ? `
+ATENÇÃO — ${incompleta.titulo}. ${incompleta.explicacao} Diga isso ao engenheiro sempre que falar de quantos problemas o documento tem.
+`
+    : "";
+
   return `
-Parecer desta auditoria:
+Parecer desta auditoria:${aviso}
 ${JSON.stringify(args.report, null, 2)}
 
 Histórico recente da conversa:

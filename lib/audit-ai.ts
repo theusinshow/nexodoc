@@ -62,6 +62,8 @@ export async function executeAuditModelResponse(args: {
   operation: string;
   request: AuditOpenAiRequest;
   timeoutMs?: number;
+  /** Ver `emSegundoPlano` em [[ai-runner.ts]]: as passadas de minutos. */
+  emSegundoPlano?: boolean;
   metadata?: Record<string, string | number | boolean | null | undefined>;
   conversationId?: string | null;
   /** E-mail da sessão — viaja SEMPRE junto com `conversationId` (telemetria). */
@@ -76,6 +78,7 @@ export async function executeAuditModelResponse(args: {
     operation: args.operation,
     request: args.request,
     timeoutMs: args.timeoutMs,
+    emSegundoPlano: args.emSegundoPlano,
     metadata: args.metadata ?? {},
     conversationId: args.conversationId,
     userEmail: args.userEmail,

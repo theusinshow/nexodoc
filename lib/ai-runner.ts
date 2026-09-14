@@ -18,6 +18,10 @@ import {
 } from "@/lib/ai/tasks";
 import { extractTokenUsage, recordAiUsage } from "@/lib/ai-usage";
 import { getOpenAIClient } from "@/lib/openai";
+import {
+  type ClienteDeRespostas,
+  respostaEmSegundoPlano,
+} from "@/lib/resposta-em-segundo-plano";
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
 
@@ -40,6 +44,12 @@ export type ExecuteOpenAiResponseArgs = {
   userEmail?: string | null;
   metadata?: Prisma.InputJsonValue;
   timeoutMs?: number;
+  /**
+   * Roda a resposta em segundo plano no provedor e consulta até terminar, em vez
+   * de esperar numa conexão calada. Para as passadas de minutos — ver
+   * [[resposta-em-segundo-plano.ts]] para o corte que isto evita.
+   */
+  emSegundoPlano?: boolean;
   /** Conversa do Nexo que originou a chamada (só o Nexo preenche). */
   conversationId?: string | null;
 };
@@ -207,9 +217,22 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
   let response: unknown;
 
   try {
-    response = await getOpenAIClient().responses.create(args.request, {
-      signal: controller.signal,
-    });
+    response = args.emSegundoPlano
+      ? await respostaEmSegundoPlano({
+          cliente: getOpenAIClient().responses as unknown as ClienteDeRespostas,
+          request: args.request as unknown as Record<string, unknown>,
+          signal: controller.signal,
+        })
+      : await getOpenAIClient().responses.create(args.request, {
+          signal: controller.signal,
+          /*
+           * O prazo do SDK acompanha o NOSSO. O padrão dele é 600s com duas
+           * retentativas: numa passada com orçamento maior, aos 600s ele
+           * reenviava a chamada por conta própria — uma segunda resposta paga,
+           * que o nosso aborto matava no meio. Medido em 14/09/2026.
+           */
+          timeout: timeoutMs + 5_000,
+        });
     const durationMs = Date.now() - startedAt;
     const outputText = extractOutputText(response);
 

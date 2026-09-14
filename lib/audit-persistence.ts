@@ -111,6 +111,38 @@ export async function createPendingAudit(args: {
   }
 }
 
+/*
+ * A GRAVAÇÃO EM ETAPAS, e não numa transação só.
+ *
+ * Era uma transação interativa com tudo dentro: o parecer, os arquivos, o texto
+ * de cada página e os BYTES do PDF. Qualquer falha desfazia tudo, inclusive o
+ * parecer, e o `catch` só registrava no log. Em 14/09/2026 as duas auditorias
+ * do 117_25 em produção chegaram na tela e ficaram "rodando" no banco: o
+ * parecer só existia dentro da conversa. A transação interativa do Prisma
+ * encerra em 5s por padrão, e em produção o servidor está em Oregon e o banco
+ * em São Paulo, com 3,3 MB de PDF e 465 mil caracteres de texto indo junto. Na
+ * máquina de desenvolvimento, perto do banco, o mesmo documento gravava.
+ *
+ * Agora o que importa vai primeiro e sozinho: o parecer marcado como concluído.
+ * O texto e os bytes vêm depois, cada um na sua etapa, com prazo folgado — e
+ * se falharem, o parecer continua gravado.
+ */
+const PRAZO_DA_ETAPA = { maxWait: 15_000, timeout: 120_000 };
+
+async function etapaDaGravacao(nome: string, auditId: string, fn: () => Promise<unknown>) {
+  const inicio = Date.now();
+  try {
+    await fn();
+    return true;
+  } catch (error) {
+    console.error(
+      `[audit] gravação: etapa "${nome}" falhou em ${Date.now() - inicio}ms (auditoria ${auditId})`,
+      error,
+    );
+    return false;
+  }
+}
+
 export async function persistCompletedAudit(args: {
   auditId: string | null;
   uploadedFiles: UploadedAuditFile[];
@@ -126,14 +158,17 @@ export async function persistCompletedAudit(args: {
     return;
   }
 
-  try {
-    const prisma = getPrisma();
-    await prisma.$transaction(async (transaction) => {
-      const updated = await transaction.audit.updateMany({
-        where: {
-          id: args.auditId!,
-          status: "PROCESSING",
-        },
+  const auditId = args.auditId;
+  const prisma = getPrisma();
+
+  // 1. O parecer. Um comando só, fora de transação interativa, e com uma
+  //    segunda tentativa: é a etapa que não pode se perder.
+  let linhasAtualizadas: number | null = null;
+  for (let tentativa = 1; tentativa <= 2 && linhasAtualizadas === null; tentativa++) {
+    if (tentativa > 1) await new Promise((r) => setTimeout(r, 1_000));
+    await etapaDaGravacao(`parecer (tentativa ${tentativa})`, auditId, async () => {
+      const updated = await prisma.audit.updateMany({
+        where: { id: auditId, status: "PROCESSING" },
         data: {
           status: "COMPLETED",
           result: args.result,
@@ -143,15 +178,23 @@ export async function persistCompletedAudit(args: {
           completedAt: new Date(),
         },
       });
+      linhasAtualizadas = updated.count;
+    });
+  }
 
-      if (updated.count === 0) {
-        return;
-      }
+  // Zero linhas = cancelada por outra aba enquanto rodava: nada a gravar. E se
+  // nem o parecer gravou, as etapas seguintes não têm a que se pendurar.
+  if (!linhasAtualizadas) {
+    return;
+  }
 
-      await transaction.auditFile.deleteMany({ where: { auditId: args.auditId! } });
-      await transaction.auditFile.createMany({
+  // 2. Os arquivos da auditoria (uma linha por arquivo, sem bytes).
+  await etapaDaGravacao("arquivos", auditId, () =>
+    prisma.$transaction([
+      prisma.auditFile.deleteMany({ where: { auditId } }),
+      prisma.auditFile.createMany({
         data: args.uploadedFiles.map((file) => ({
-          auditId: args.auditId!,
+          auditId,
           fileName: file.file.name,
           documentType: file.fileType,
           pageCount: file.extracted.pageCount,
@@ -165,41 +208,51 @@ export async function persistCompletedAudit(args: {
            */
           checksumSha256: getChecksumSha256(file.buffer),
         })),
-      });
+      }),
+    ]),
+  );
 
-      /*
-       * O TEXTO, para o chat poder reler.
-       *
-       * Na mesma transação e a partir do `extracted` que JÁ está na mão: a
-       * corrida acabou de extrair o documento inteiro e o descartava. Não é
-       * preciso mexer na rota de auditoria nem re-extrair nada.
-       *
-       * Reauditar SUBSTITUI a memória junto com o parecer — as duas coisas
-       * descrevem a MESMA corrida, e uma memória de outra revisão faria o chat
-       * citar a página de um documento que não é mais o auditado.
-       */
-      await transaction.auditText.deleteMany({ where: { auditId: args.auditId! } });
+  /*
+   * 3. O TEXTO, para o chat poder reler.
+   *
+   * A partir do `extracted` que JÁ está na mão: a corrida acabou de extrair o
+   * documento inteiro e o descartava. Não é preciso re-extrair nada.
+   *
+   * Reauditar SUBSTITUI a memória junto com o parecer — as duas coisas
+   * descrevem a MESMA corrida, e uma memória de outra revisão faria o chat
+   * citar a página de um documento que não é mais o auditado.
+   */
+  await etapaDaGravacao("texto do documento", auditId, () =>
+    prisma.$transaction(async (transaction) => {
+      await transaction.auditText.deleteMany({ where: { auditId } });
       const memorias = memoriasDosArquivos(args.uploadedFiles);
       if (memorias.length > 0) {
         await transaction.auditText.createMany({
-          data: linhasDeAuditText(args.auditId!, memorias),
+          data: linhasDeAuditText(auditId, memorias),
         });
       }
+    }, PRAZO_DA_ETAPA),
+  );
 
-      if (args.projectId && args.actor) {
+  // 4. Os bytes do memorial e o relatório como artefato do projeto.
+  if (args.projectId && args.actor) {
+    const projectId = args.projectId;
+    const actor = args.actor;
+    await etapaDaGravacao("memorial e relatório no projeto", auditId, () =>
+      prisma.$transaction(async (transaction) => {
         for (const file of args.uploadedFiles) {
           await createStoredProjectUpload(transaction, {
             data: file.buffer,
-            projectId: args.projectId,
+            projectId,
             organizationId: args.organizationId,
-            actor: args.actor,
+            actor,
             module: "audit",
             source: "audit-input",
             fileName: file.file.name,
             mimeType: file.file.type || "application/pdf",
             pageCount: file.extracted.pageCount,
             metadata: {
-              auditId: args.auditId,
+              auditId,
               documentType: file.fileType,
               extractedCharCount: file.extracted.charCount,
             },
@@ -208,12 +261,12 @@ export async function persistCompletedAudit(args: {
 
         await createStoredDocumentArtifact(transaction, {
           data: args.result,
-          projectId: args.projectId,
-          auditId: args.auditId,
-          actor: args.actor,
+          projectId,
+          auditId,
+          actor,
           module: "audit",
           kind: "AUDIT_MARKDOWN",
-          fileName: `${args.auditId}-relatorio-auditoria.md`,
+          fileName: `${auditId}-relatorio-auditoria.md`,
           mimeType: "text/markdown",
           metadata: {
             auditMode: args.report.tipo_auditoria,
@@ -221,10 +274,8 @@ export async function persistCompletedAudit(args: {
             totalFindings: args.report.total_incongruencias,
           },
         });
-      }
-    });
-  } catch (error) {
-    console.error("[audit] falha ao persistir auditoria", error);
+      }, PRAZO_DA_ETAPA),
+    );
   }
 }
 
