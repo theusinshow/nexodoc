@@ -1,0 +1,96 @@
+# Rodar a bateria de fluxos no PC de casa
+
+Guia para continuar em outra máquina o trabalho da bateria de fluxos esquisitos.
+
+Os três documentos do trabalho:
+
+| Documento | Para quê |
+|---|---|
+| `docs/superpowers/specs/2026-09-14-bateria-de-fluxos-design.md` | o desenho: o que é, por que foi feito assim, o catálogo de cenários |
+| `docs/superpowers/plans/2026-09-14-bateria-de-fluxos-fundacao.md` | o plano passo a passo: 10 tarefas, com o código de cada uma |
+| este arquivo | preparar a máquina e mandar o Claude Code executar o plano |
+
+## 1. Código em dia
+
+```bash
+git checkout main
+git pull origin main
+```
+
+Confira que os documentos chegaram: `ls docs/superpowers/plans/2026-09-14-bateria-de-fluxos-fundacao.md`.
+
+## 2. Node 24
+
+```bash
+node -v
+```
+
+Precisa ser **v24.x**: os testes rodam TypeScript direto no `node`, sem compilar, e isso só existe a partir do 24. Se vier outra versão, instale o Node 24 LTS em nodejs.org.
+
+## 3. Dependências
+
+```bash
+npm ci
+npx prisma generate
+npx playwright install chromium
+```
+
+- `prisma generate`: sem ele, o cliente do banco fica velho e aparecem erros de tipo que não são do código (`auditLearning` não existe, por exemplo).
+- `playwright install chromium`: baixa o navegador das jornadas, cerca de 150 MB.
+
+## 4. O `.env.local`
+
+O `.env.local` **não está no git**, e não pode ir para lá: tem a chave da OpenAI, as senhas do banco e o segredo de login.
+
+**Traga o arquivo do PC do trabalho** por um meio seguro, como pendrive ou gerenciador de senhas. Não use e-mail nem chat. Ele fica na raiz do projeto: `nexodoc/.env.local`.
+
+Depois **acrescente uma linha**, a URL do banco da bateria. Ela é igual à `DATABASE_URL`, trocando só o nome do banco de `nexodoc_dev` para `nexodoc_teste`:
+
+```
+DATABASE_URL_BATERIA=<a mesma DATABASE_URL, com /nexodoc_dev? trocado por /nexodoc_teste?>
+```
+
+Por exemplo, se a sua linha é `DATABASE_URL=postgresql://usuario:senha@host/nexodoc_dev?sslmode=require`, a nova fica `DATABASE_URL_BATERIA=postgresql://usuario:senha@host/nexodoc_teste?sslmode=require`.
+
+A bateria **se recusa a rodar** se essa URL apontar para qualquer banco que não seja `nexodoc_teste`. É de propósito: ela apaga as tabelas a cada rodada.
+
+## 5. Mandar o Claude Code executar
+
+Abra o Claude Code na pasta do projeto e cole:
+
+> Execute o plano `docs/superpowers/plans/2026-09-14-bateria-de-fluxos-fundacao.md` usando a skill superpowers:subagent-driven-development. O desenho está em `docs/superpowers/specs/2026-09-14-bateria-de-fluxos-design.md`; leia os dois antes de começar. Regras:
+> - commit direto na main, um por tarefa, e push ao fim;
+> - nunca `git add -A`;
+> - defeito claro do produto: conserte e prove;
+> - decisão de produto: pare e me pergunte;
+> - não gaste token de IA: a bateria usa a IA simulada;
+> - antes de dizer que algo funciona, rode o comando e mostre a saída.
+
+**O que esperar:**
+- As tarefas 1 a 6 montam a fundação.
+- As tarefas 7 a 9 escrevem as primeiras jornadas.
+- A tarefa 10 roda tudo e conserta o que ficar vermelho.
+- A tarefa 3 cria o banco `nexodoc_teste` com `npm run bateria:criar-banco`, uma vez só.
+- Depois de pronto, rodar a bateria inteira é `npm run bateria`.
+
+## 6. Memórias do Claude Code
+
+As memórias que o Claude Code guardou sobre este projeto ficam **só no PC do trabalho**, em `C:\Users\matheus.mendes\.claude\projects\C--Dev-trabalho-empresa-nexodoc\memory\`. Em casa ele começa sem elas.
+
+O plano e o desenho foram escritos para funcionar sem memória. Se quiser levá-las mesmo assim:
+1. Copie a pasta `memory` inteira.
+2. Abra o Claude Code uma vez na pasta do projeto em casa, para ele criar a pasta dele em `~/.claude/projects/`. O nome da pasta muda com o caminho do projeto na máquina.
+3. Cole o conteúdo dentro de `memory/` dessa pasta.
+
+## Problemas conhecidos
+
+| Sintoma | Causa e saída |
+|---|---|
+| `DATABASE_URL_BATERIA ausente ou não é uma URL` | falta a linha do passo 4 |
+| `a bateria só roda no banco nexodoc_teste` | a URL do passo 4 aponta para outro banco; troque o nome do banco |
+| `P1002 … advisory lock` na migração | outra migração pendurada no Neon: `npm run db:destravar` |
+| `o servidor da bateria não respondeu /api/saude` | abra `scratchpad/bateria/<data-hora>/servidor.log`; costuma ser `.env.local` incompleto |
+| `Another next dev server is already running` | seu `npm run dev` está disputando a pasta de build; desligue-o e rode a bateria de novo (a tarefa 4 tenta resolver isso com `.next-bateria`) |
+| Jornada vermelha com `X is not a function` no navegador | chunk velho: apague `.next-bateria` e rode de novo |
+| Erros de tipo estranhos logo depois do `git pull` | `npx prisma generate` |
+| Um teste puro aparece como **apodrecido** | ele nem carrega (import quebrado); a tarefa 10 manda investigar e consertar |
