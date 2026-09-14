@@ -59,7 +59,7 @@ export const O_DINHEIRO_12: Slide = {
   bloco: "O dinheiro",
   titulo: "Como ela se paga",
   notas:
-    "DE ONDE SAI O R$ 285: a folha que abria essa conta saiu do deck em 09/09/2026 e vive na folha B do anexo. Se perguntarem como se chega nele, abrir o botão da folha 17 em vez de improvisar a conta de cabeça.\n\nESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 285, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nOS DOIS NÚMEROS DE BAIXO SÃO A FRASE INTEIRA, sem razão escrita entre eles: o pequeno é o que custa operar, o grande é o que o episódio custou — e a sala faz a divisão sozinha. O terceiro bloco de cima e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar.",
+    "DE ONDE SAI O R$ 295: a folha que abria essa conta saiu do deck em 09/09/2026 e vive na folha B do anexo. Se perguntarem como se chega nele, abrir o botão da folha 17 em vez de improvisar a conta de cabeça.\n\nESTA FOLHA NAO DISPUTA ARITMETICA, DE PROPOSITO. A versao anterior valorizava as 16 horas de montagem a hora de engenheiro e caia com uma frase: quem monta lista de documentos nao ganha hora de engenheiro. A hora de tecnico derruba a conta inteira, e o argumento nao pode depender de um numero que a sala refuta de cabeca.\n\nO TETO DE LICENCA SAIU DA TELA e vive aqui: com a operacao em R$ 295, uma licenca ate cerca de R$ 500 por mes se paga so no tempo devolvido. NAO OFERECER esse numero. O diretor vai calcula-lo sozinho, e um numero que ele deduz vale mais que um que eu concedo.\n\nOS DOIS NÚMEROS DE BAIXO SÃO A FRASE INTEIRA, sem razão escrita entre eles: o pequeno é o que custa operar, o grande é o que o episódio custou — e a sala faz a divisão sozinha. O terceiro bloco de cima e o mais forte do deck inteiro e nao tem numero nenhum. Ler devagar e parar.",
   corpo: (
     <>
       <EscalaVertical
@@ -121,7 +121,7 @@ export const O_DINHEIRO_12: Slide = {
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Linhas linhas={["R$ 285"]} atraso={1000} />
+          <Linhas linhas={["R$ 295"]} atraso={1000} />
         </div>
         <div
           style={{

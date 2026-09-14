@@ -14,7 +14,6 @@ import {
   Contador,
   Entra,
   EscalaHorizontal,
-  EscalaVertical,
   Linhas,
   MONO,
   Mostrador,
@@ -157,40 +156,49 @@ function Ramo({
 /* ──────────────────────────────── o memorial lido, página a página (folha 05) */
 
 /**
- * AS PÁGINAS COM ACHADO DE UMA EXECUÇÃO REAL — o parecer do `117_25_md_geral_a`
- * (memorial geral da UBS Vila Manaus, 218 páginas) gravado no banco em
- * 28/08/2026. Página e gravidade, lidas de lá; nada inventado. É só o que a
- * folha precisa saber: ONDE o mapa acende, e com que cor.
+ * AS PÁGINAS COM ACHADO DE UMA EXECUÇÃO REAL — o parecer `34e41ba2` do
+ * `117_25_md_geral_a` (memorial geral da UBS Vila Manaus, 218 páginas), leitura
+ * profunda, gravado no banco em 14/09/2026 com 56 achados. É a MÉTRICA do deck
+ * inteiro: os mostradores desta folha, os trechos da 07, a pergunta da 14 e o
+ * custo por execução do anexo saem da mesma corrida.
+ *
+ * Página e gravidade, lidas de lá; nada inventado. Achado citado em faixa de
+ * páginas ("159-200") acende o início e o fim, não o miolo — acender 41 páginas
+ * por um achado de memória de cálculo diria que há 41 problemas. Onde duas
+ * gravidades caem na mesma página, vale a maior.
+ *
+ * O MAPA É O PARECER COMO ELE SAIU, contestações incluídas: p. 1 e p. 215 são
+ * regras que a validação contestou (o nome citado era o certo). Tirá-las daqui
+ * faria o mapa discordar do "56" ao lado. Os exemplos das folhas não as usam.
  *
  * A gravidade segue o vocabulário do produto — crítico, técnico, editorial — e
  * as cores são as mesmas do pin sobre a página no canvas da auditoria.
  */
 type Gravidade = "critico" | "tecnico" | "editorial";
 
-const PAGINAS_COM_ACHADO: ReadonlyArray<readonly [number, Gravidade]> = [
-  [14, "critico"],
-  [92, "critico"],
-  [99, "critico"],
-  [17, "tecnico"],
-  [21, "tecnico"],
-  [30, "tecnico"],
-  [72, "tecnico"],
-  [74, "tecnico"],
-  [101, "tecnico"],
-  [103, "tecnico"],
-  [115, "tecnico"],
-  [151, "tecnico"],
-  [204, "tecnico"],
-  [208, "tecnico"],
-  [209, "tecnico"],
-  [211, "tecnico"],
-  [217, "tecnico"],
-  [85, "editorial"],
-  [86, "editorial"],
-  [89, "editorial"],
-  [212, "editorial"],
-  [215, "editorial"],
-  [218, "editorial"],
+const PAGINAS_POR_GRAVIDADE: Record<Gravidade, readonly number[]> = {
+  critico: [1, 14, 25, 92, 99, 113, 115, 159, 200, 211, 215, 217],
+  tecnico: [
+    12, 15, 17, 21, 26, 29, 30, 31, 35, 39, 47, 57, 60, 66, 72, 74, 81, 83, 85,
+    95, 100, 101, 103, 105, 107, 109, 110, 120, 121, 150, 160, 195, 201, 202,
+    203,
+  ],
+  editorial: [13, 38, 42, 43, 46, 62, 63, 64, 128, 206],
+};
+
+const PAGINAS_COM_ACHADO: ReadonlyArray<readonly [number, Gravidade]> = (
+  Object.entries(PAGINAS_POR_GRAVIDADE) as [Gravidade, readonly number[]][]
+).flatMap(([gravidade, paginas]) =>
+  paginas.map((p) => [p, gravidade] as const),
+);
+
+/** Os 56 do parecer, pela gravidade que o próprio parecer atribuiu. */
+const ACHADOS_POR_GRAVIDADE: ReadonlyArray<
+  readonly [Gravidade, number, string]
+> = [
+  ["critico", 11, "impedem emitir"],
+  ["tecnico", 32, "técnicos ou contratuais"],
+  ["editorial", 13, "editoriais"],
 ];
 
 const COR_DA_GRAVIDADE: Record<Gravidade, string> = {
@@ -459,7 +467,9 @@ export const O_QUE_E: readonly Slide[] = [
           <span>·</span>
           <span>2026</span>
           <span>·</span>
-          <span>Matheus Mendes</span>
+          <span className="ap-neon" data-texto="Coded by M">
+            Coded by M
+          </span>
         </Entra>
       </>
     ),
@@ -471,72 +481,50 @@ export const O_QUE_E: readonly Slide[] = [
     bloco: "O que é",
     titulo: "O que é",
     notas:
-      "Ler a frase central devagar. Os três limites da direita são o que impede a sala de imaginar mais do que o sistema faz — e é por dizê-los que o resto do deck fica acreditável.",
+      "Ler a frase central devagar. Os dois verbos embaixo são os dois caminhos da próxima folha, na mesma ordem: primeiro confere, depois monta.",
     corpo: (
-      <div className="ap-grade" style={{ flex: 1, alignItems: "start" }}>
-        <div style={{ gridColumn: "1 / span 6" }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 60,
-              fontWeight: 500,
-              letterSpacing: "-0.022em",
-              lineHeight: 1.15,
-              color: "var(--foreground)",
-            }}
-          >
-            <Linhas
-              linhas={[
-                "Um sistema para organizar",
-                "e documentar projetos",
-                "de engenharia.",
-              ]}
-              atraso={80}
-            />
-          </p>
-          <Entra atraso={360}>
-            <p
-              className="ap-texto"
-              style={{ marginTop: 32, fontSize: 32, lineHeight: 1.4 }}
-            >
-              Ele monta os documentos que acompanham o projeto — listas de
-              documentos, capas e volumes — e confere o que já está escrito nos
-              memoriais, apontando o que não fecha.
-            </p>
-          </Entra>
-        </div>
-        <div
+      <>
+        {/*
+          SÓ O QUE ELE É. A frase ocupa a largura inteira, em duas linhas, e o
+          que ela promete desce para uma escala de dois fatos — confere e monta,
+          na ordem dos dois ramos da folha 03, para a próxima folha ler como
+          ampliação desta e não como assunto novo.
+        */}
+        <p
           style={{
-            gridColumn: "8 / span 5",
-            display: "flex",
-            flexDirection: "column",
-            height: 760,
+            margin: "48px 0 0",
+            fontSize: 76,
+            fontWeight: 500,
+            letterSpacing: "-0.028em",
+            lineHeight: 1.08,
+            color: "var(--foreground)",
           }}
         >
-          <Entra atraso={420}>
-            <span className="ap-mono-rotulo">E o que ele não faz</span>
-          </Entra>
-          <EscalaVertical
-            atraso={520}
-            numerada={false}
-            style={{ marginTop: 16 }}
-            itens={[
-              {
-                titulo: "Lê o documento inteiro.",
-                texto: "Não é amostragem nem busca por palavra-chave.",
-              },
-              {
-                titulo: "Não altera o documento.",
-                texto: "Aponta onde está e o que fazer. Quem edita é você.",
-              },
-              {
-                titulo: "Não substitui revisão técnica.",
-                texto: "Faz a conferência que hoje ninguém tem tempo de fazer.",
-              },
+          <Linhas
+            linhas={[
+              "Um sistema para organizar",
+              "e documentar projetos de engenharia.",
             ]}
+            atraso={80}
           />
-        </div>
-      </div>
+        </p>
+        <EscalaHorizontal
+          atraso={420}
+          style={{ marginTop: 136 }}
+          fatos={[
+            {
+              titulo: ["Confere"],
+              texto:
+                "Lê o que já está escrito nos memoriais e aponta o que não fecha.",
+            },
+            {
+              titulo: ["Monta"],
+              texto:
+                "Os documentos que acompanham o projeto: listas de documentos, capas e volumes.",
+            },
+          ]}
+        />
+      </>
     ),
   },
 
@@ -693,12 +681,12 @@ export const O_QUE_E: readonly Slide[] = [
     titulo: "Um memorial inteiro, conferido",
     subtitulo: "117_25_md_geral_a.pdf — memorial geral de uma UBS",
     notas:
-      "É A DEMONSTRAÇÃO. O mapa é o memorial página a página; a leitura passa, e onde há achado a página sobe com a cor da gravidade — a mesma grafia do canvas da auditoria. Deixar o mapa terminar antes de falar: são dois segundos e meio, e a sala acompanha sozinha.\n\nOS ACHADOS DO MAPA E O CARTÃO SÃO REAIS: saíram do parecer do 117_25 gravado no banco em 28/08/2026 (28 achados naquela corrida). O 57 é o da corrida citada no deck — é a variação entre execuções que a folha dos limites declara. Se alguém perguntar, dizer isso, e não amaciar.\n\nO CARTÃO É O QUE A SALA VAI VER NO PRODUTO. Ler o trecho em voz alta: um memorial da UBS Vila Manaus chamando a obra de 'UBS Paraíso', na página 92. Ninguém tinha visto — e este é o tipo de erro que a folha 07 explica.\n\nLer os números sem adjetivo — eles não precisam de ajuda.",
+      "É A DEMONSTRAÇÃO. O mapa é o memorial página a página; a leitura passa, e onde há achado a página sobe com a cor da gravidade — a mesma grafia do canvas da auditoria. Deixar o mapa terminar antes de falar: são dois segundos e meio, e a sala acompanha sozinha.\n\nTUDO NESTA FOLHA É UMA CORRIDA SÓ: o 117_25 em leitura profunda, gravado no banco em 14/09/2026. 218 páginas, 56 achados, 5,4 minutos, US$ 1,61 somados do registro de uso (leitura, validação e as 14 páginas sem texto que precisaram ser transcritas). Se perguntarem por que a corrida de agosto deu 28: aquela foi no nível padrão, com outro modelo — não é a mesma leitura, e não serve de comparação.\n\nA LEGENDA É O PARECER, SEM ARREDONDAR: 11 impedem emitir, 32 são técnicos ou contratuais, 13 editoriais. Ler só o 11.\n\nO CARTÃO É O QUE A SALA VAI VER NO PRODUTO. Ler o trecho em voz alta: um memorial da UBS Vila Manaus chamando a obra de 'UBS Paraíso', na página 92. Na mesma corrida ele achou outra prefeitura como proprietária (Chapecó, p. 99) e a exigência de um shopping numa UBS (p. 211) — guardar esses dois para a folha 07, que os mostra.\n\nLer os números sem adjetivo — eles não precisam de ajuda.",
     corpo: (
       <>
         {/*
           A ORDEM DO TEMPO É A ORDEM DO ARGUMENTO. As páginas contam junto com o
-          mapa (a leitura está acontecendo), o 57 assenta quando a leitura
+          mapa (a leitura está acontecendo), o 56 assenta quando a leitura
           termina, e só então o custo e o tempo entram — baixos, depois do
           tamanho do trabalho. O cartão é o último a chegar: primeiro o todo,
           depois um exemplar.
@@ -718,14 +706,14 @@ export const O_QUE_E: readonly Slide[] = [
               rotuloDo="achados"
               atraso={2700}
               cor="var(--status-critical)"
-              valor={<Contador ate={57} atraso={2700} duracao={720} />}
+              valor={<Contador ate={56} atraso={2700} duracao={720} />}
             />
           </div>
           <div style={{ gridColumn: "7 / span 3" }}>
             <Mostrador
               rotuloDo="tempo de leitura"
               atraso={3200}
-              valor="≈ 6 min"
+              valor="5,4 min"
             />
           </div>
           <div style={{ gridColumn: "10 / span 3" }}>
@@ -733,7 +721,7 @@ export const O_QUE_E: readonly Slide[] = [
               rotuloDo="custo da execução"
               atraso={3340}
               cor="var(--nexodoc-accent)"
-              valor="US$ 1,49"
+              valor="US$ 1,61"
             />
           </div>
         </div>
@@ -799,7 +787,7 @@ export const O_QUE_E: readonly Slide[] = [
             }}
           />
           <CartaoDeAchado
-            tipo="Divergência de identificação da obra"
+            tipo="Identificação de terceiro empreendimento"
             evidencia="Este memorial descritivo destina-se ao projeto estrutural da UBS Paraíso – Porte 1, localizada na Rua São Francisco de Assis, S/N, Vila Manaus, Criciúma/SC."
             pagina={92}
             disciplina="estrutural"
@@ -811,6 +799,58 @@ export const O_QUE_E: readonly Slide[] = [
               left: Math.round(((92 - 0.5) / 218) * LARGURA_UTIL) - 26,
             }}
           />
+          {/*
+            A LEGENDA DO MAPA É O "56" ABERTO: as três cores do mapa com o número
+            de cada uma. Mora embaixo à esquerda, no vão que o cartão deixa (ele
+            nasce na p. 92, a 40% da largura), e chega junto do cartão — é a
+            leitura do todo antes do exemplar.
+          */}
+          <Entra
+            atraso={3500}
+            style={{ position: "absolute", left: 0, bottom: 0 }}
+          >
+            <ul
+              style={{
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                fontFamily: MONO,
+                fontSize: 22,
+                color: "var(--muted-foreground)",
+              }}
+            >
+              {ACHADOS_POR_GRAVIDADE.map(([gravidade, n, rotulo]) => (
+                <li
+                  key={gravidade}
+                  style={{ display: "flex", alignItems: "center", gap: 14 }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 12,
+                      height: 12,
+                      flex: "none",
+                      background: COR_DA_GRAVIDADE[gravidade],
+                    }}
+                  />
+                  <span
+                    style={{
+                      minWidth: "2ch",
+                      textAlign: "right",
+                      color: "var(--foreground)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {n}
+                  </span>
+                  {rotulo}
+                </li>
+              ))}
+            </ul>
+          </Entra>
           <Entra
             atraso={4300}
             style={{

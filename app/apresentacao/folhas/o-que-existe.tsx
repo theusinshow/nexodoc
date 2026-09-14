@@ -35,7 +35,7 @@ export const O_QUE_EXISTE: readonly Slide[] = [
     bloco: "O que existe",
     titulo: "O que ele ainda não faz bem",
     notas:
-      "Dito por você, antes de perguntarem. Este slide compra mais credibilidade que qualquer outro do deck. Não amaciar nenhum item — principalmente o do excesso, que é o que o usuário vai sentir no primeiro dia.",
+      "Dito por você, antes de perguntarem. Este slide compra mais credibilidade que qualquer outro do deck. Não amaciar nenhum item — principalmente o do excesso, que é o que o usuário vai sentir no primeiro dia.\n\nO EXCESSO, NO 117_25 (a corrida da folha 05), para quem pedir exemplo: a própria validação contestou 5 regras e as deixou registradas no parecer — uma delas acusava de divergente o nome CERTO da obra (p. 215). E 2 dos 56 o parecer já descreve como não sendo erro (p. 38, 'terminologia aceitável'; p. 62, 'falso positivo de escopo'). É isso que o 'você vai descartar parte' quer dizer.\n\nSE PERGUNTAREM DA VARIAÇÃO com número: a corrida de agosto do mesmo memorial deu 28, mas no nível padrão e com outro modelo. Não é a mesma leitura repetida, e NÃO serve de prova deste item — dizer que a medida de variação vem de rodar o mesmo nível duas vezes.",
     corpo: (
       <EscalaVertical
         atraso={200}

@@ -75,7 +75,7 @@ export function Contador({
      * renderização em cascata, e o lint do projeto recusa — com razão. Aqui a
      * chamada já nasce assíncrona, que é o contrato que a regra pede.
      *
-     * E O ATRASO NÃO VALE em movimento reduzido. Sem isto o "57 achados" da
+     * E O ATRASO NÃO VALE em movimento reduzido. Sem isto o "56 achados" da
      * folha 05 ficava escrito "0" por 2,7 segundos — o tempo que a contagem
      * levaria para começar — e um zero no lugar de um número é o único estado
      * pior do que uma animação indesejada. Visto na captura reduzida.

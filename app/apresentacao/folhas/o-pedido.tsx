@@ -49,7 +49,7 @@ export const O_PEDIDO: readonly Slide[] = [
     bloco: "O pedido",
     titulo: "O que esta ferramenta não é",
     notas:
-      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar.\n\nO ORBE VOLTA — o mesmo da capa, do mesmo tamanho da folha do motor. É o deck fechando onde abriu, e não um enfeite: a sala viu o produto se apresentar sozinho na primeira folha, e o vê de novo quando eu digo o que ele não é.\n\nSe vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
+      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar.\n\n'A IA ERRA' TEM EXEMPLO NA MESA, se alguém pedir: no 117_25, o parecer acusou de divergente o nome certo da obra (p. 215) — e a própria validação contestou. Não trazer de iniciativa; a folha fecha melhor sem.\n\nO ORBE VOLTA — o mesmo da capa, do mesmo tamanho da folha do motor. É o deck fechando onde abriu, e não um enfeite: a sala viu o produto se apresentar sozinho na primeira folha, e o vê de novo quando eu digo o que ele não é.\n\nSe vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
     corpo: (
       <>
         <EscalaVertical

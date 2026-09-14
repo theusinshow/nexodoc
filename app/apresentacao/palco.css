@@ -269,7 +269,11 @@
 }
 
 .ap-escala-h--tracejada .ap-escala-h__linha {
-  background: repeating-linear-gradient(90deg, #3d474d 0 8px, transparent 8px 16px);
+  background: repeating-linear-gradient(
+    90deg,
+    #3d474d 0 8px,
+    transparent 8px 16px
+  );
 }
 
 /* O tick nasce no início de cada fato; o último fato ganha um segundo tick no fim. */
@@ -281,8 +285,12 @@
   background: #5f6b72;
 }
 
-.ap-escala-h__tick--inicio { left: 0; }
-.ap-escala-h__tick--fim { right: 0; }
+.ap-escala-h__tick--inicio {
+  left: 0;
+}
+.ap-escala-h__tick--fim {
+  right: 0;
+}
 
 /*
  * ESCALA VERTICAL. Linha em x = 96 dentro do componente (x = 320 da folha),
@@ -597,7 +605,7 @@
      curta   260ms   saída de folha, item de lista
      média   480ms   revelação de texto, cartão
      longa   720ms   número que corre, linha que se desenha
-     herói  1100ms   o momento da folha (o 57 assentando)
+     herói  1100ms   o momento da folha (o 56 assentando)
 
    ENTRADA desacelera (chega rápido, assenta); SAÍDA acelera e dura ~75% da
    entrada. Ambiente é senoidal e lento. Nunca linear em deslocamento.
@@ -628,13 +636,23 @@
 
 /* Sobe 10px e assenta. Para itens secundários: listas, notas de rodapé. */
 @keyframes ap-sobe {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes ap-surge {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /*
@@ -650,46 +668,88 @@
  * folha 08.
  */
 @keyframes ap-mascara {
-  from { transform: translateY(118%); }
-  to   { transform: none; }
+  from {
+    transform: translateY(118%);
+  }
+  to {
+    transform: none;
+  }
 }
 
 /* Linha que se desenha da esquerda para a direita: o fluxo tem direção. */
 @keyframes ap-risca {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 /* Descida, para o ramo que desce do motor. */
 @keyframes ap-desce {
-  from { transform: scaleY(0); }
-  to   { transform: scaleY(1); }
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 
 /* O documento percorrendo o ramo do motor. Some com o resto em movimento reduzido. */
 @keyframes ap-pulso {
-  0%   { opacity: 0; transform: translateX(0); }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(var(--ap-percurso, 100px)); }
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--ap-percurso, 100px));
+  }
 }
 
 /* A folha que sai: um passo para trás e some. Por cima da que entra. */
 @keyframes ap-sai-folha {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.992); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.992);
+  }
 }
 
 /* A página que acende no mapa do memorial. */
 @keyframes ap-acende {
-  from { opacity: 0.18; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0.18;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.ap-entra   { animation: ap-sobe var(--ap-media) var(--ap-entra) both; }
-.ap-surge   { animation: ap-surge var(--ap-longa) ease-out both; }
-.ap-risca   { transform-origin: left center; animation: ap-risca var(--ap-media) var(--ap-suave) both; }
-.ap-desce   { transform-origin: top center;  animation: ap-desce var(--ap-media) var(--ap-suave) both; }
+.ap-entra {
+  animation: ap-sobe var(--ap-media) var(--ap-entra) both;
+}
+.ap-surge {
+  animation: ap-surge var(--ap-longa) ease-out both;
+}
+.ap-risca {
+  transform-origin: left center;
+  animation: ap-risca var(--ap-media) var(--ap-suave) both;
+}
+.ap-desce {
+  transform-origin: top center;
+  animation: ap-desce var(--ap-media) var(--ap-suave) both;
+}
 
 /*
  * A máscara é um par: o invólucro recorta, a linha sobe. O `padding-bottom`
@@ -708,7 +768,9 @@
 }
 
 /* A página do memorial acendendo conforme a leitura passa por ela. */
-.ap-acende { animation: ap-acende var(--ap-curta) var(--ap-suave) both; }
+.ap-acende {
+  animation: ap-acende var(--ap-curta) var(--ap-suave) both;
+}
 
 /* O documento atravessando o ramo do motor: um ponto, uma vez, sem rastro. */
 .ap-pulso {
@@ -720,6 +782,68 @@
   z-index: 2;
   pointer-events: none;
   animation: ap-sai-folha var(--ap-curta) var(--ap-sai) both;
+}
+
+/*
+ * A ASSINATURA DA CAPA. Um fio de neon vermelho atravessa "Coded by M" da
+ * esquerda para a direita e some; o texto de baixo nunca muda. A cópia acesa
+ * mora num `::after` com o mesmo texto (`data-texto`), e é a MÁSCARA que anda —
+ * só as letras sob a faixa brilham. A folga de 0,5em em volta existe porque a
+ * máscara recorta na caixa, e o halo do `text-shadow` seria decapitado.
+ *
+ * Começa depois do rodapé assentar e repete a cada 7 s: ~1,6 s de travessia e
+ * o resto parado, para ser notado sem virar letreiro.
+ */
+.ap-neon {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.ap-neon::after {
+  content: attr(data-texto);
+  position: absolute;
+  inset: -0.5em;
+  padding: 0.5em;
+  color: #ff4d5a;
+  text-shadow:
+    0 0 4px rgba(255, 45, 61, 0.55),
+    0 0 12px rgba(255, 45, 61, 0.3);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 42%,
+    #000 50%,
+    transparent 58%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 42%,
+    #000 50%,
+    transparent 58%
+  );
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 100% 0;
+  mask-position: 100% 0;
+  animation: ap-neon 7s var(--ap-suave) 1400ms infinite;
+}
+
+/* 100% → 0% leva a faixa de fora à esquerda a fora à direita (máscara com 3× a largura). */
+@keyframes ap-neon {
+  0% {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+  23% {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+  100% {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
 }
 
 /*
@@ -741,7 +865,8 @@
     transform: none;
   }
   .ap-folha--sai,
-  .ap-pulso {
+  .ap-pulso,
+  .ap-neon::after {
     display: none;
   }
   .ap-trilho__marca {

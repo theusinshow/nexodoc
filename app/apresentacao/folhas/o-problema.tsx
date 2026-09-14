@@ -11,7 +11,55 @@ import {
   MONO,
 } from "../pecas";
 
-/** BLOCO 2 — O PROBLEMA (folhas 06 a 08). Texto e notas de 09/09/2026, sem alteração. */
+/**
+ * BLOCO 2 — O PROBLEMA (folhas 06 a 08). Texto e notas de 09/09/2026; a folha 07
+ * ganhou em 14/09/2026 os trechos do 117_25 que provam cada causa.
+ */
+
+/**
+ * TRECHOS TRANSCRITOS, com a página. Cada um foi conferido contra o texto da
+ * própria página guardado com o parecer `34e41ba2` (117_25, 14/09/2026) — é a
+ * frase do documento, e não a paráfrase do achado. Mono, porque é citação de
+ * arquivo; aspas, porque é a letra de outra pessoa.
+ */
+function Trechos({
+  rotulo,
+  itens,
+}: {
+  rotulo: string;
+  itens: ReadonlyArray<readonly [pagina: number, trecho: string]>;
+}) {
+  return (
+    <div>
+      <span className="ap-mono-rotulo" style={{ display: "block" }}>
+        {rotulo}
+      </span>
+      <ul style={{ margin: "12px 0 0", padding: 0, listStyle: "none" }}>
+        {itens.map(([pagina, trecho]) => (
+          <li
+            key={pagina}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "88px 1fr",
+              alignItems: "baseline",
+              padding: "10px 0",
+              borderTop: "1px solid var(--border)",
+              fontFamily: MONO,
+              fontSize: 22,
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ color: "#5f6b72" }}>p. {pagina}</span>
+            <span style={{ color: "var(--foreground)", textWrap: "pretty" }}>
+              “{trecho}”
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export const O_PROBLEMA: readonly Slide[] = [
   {
     rotulo: "Conferência hoje",
@@ -54,7 +102,7 @@ export const O_PROBLEMA: readonly Slide[] = [
     bloco: "O problema",
     titulo: "Por que escapa",
     notas:
-      "A primeira causa desarma qualquer leitura de incompetência — e é importante dizê-la assim, porque quem está na sala assina esses projetos. A segunda mostra que o problema é do processo, não das pessoas.\n\nAs duas frases coloridas chegam por último, uma de cada lado: a vermelha é a consequência, a âmbar é a saída. Não ler as duas emendadas.",
+      "A primeira causa desarma qualquer leitura de incompetência — e é importante dizê-la assim, porque quem está na sala assina esses projetos. A segunda mostra que o problema é do processo, não das pessoas.\n\nOS TRECHOS SÃO DO 117_25, A MESMA CORRIDA DA FOLHA 05, e cada um foi conferido contra o texto da página. À esquerda, o que quem escreveu leu como queria: 'USB' no lugar de UBS, a seção de um cabo em metros quadrados, 'ambulânciua'. À direita, o que veio de outra obra e ninguém tirou: outro bairro, outra prefeitura, um shopping — num memorial de UBS em Criciúma. Ler UM de cada lado, não os seis.\n\nNÃO DIZER DE QUAL PROJETO veio o texto reaproveitado. O documento não diz, e o deck não sabe.\n\nAs duas frases coloridas chegam por último, uma de cada lado: a vermelha é a consequência, a âmbar é a saída. Não ler as duas emendadas.",
     corpo: (
       <EscalaHorizontal
         atraso={200}
@@ -68,18 +116,34 @@ export const O_PROBLEMA: readonly Slide[] = [
             texto:
               "Não é falta de competência: é como a leitura funciona. E a consequência é sempre a mesma — na prática, a primeira revisão de verdade só acontece quando o projeto já está na mão do cliente.",
             extra: (
-              <p
-                style={{
-                  margin: 0,
-                  paddingTop: 20,
-                  borderTop: "1px solid var(--border)",
-                  fontSize: 26,
-                  lineHeight: 1.4,
-                  color: "var(--status-critical)",
-                }}
-              >
-                Quando isso acontece, quem revisa é quem contratou.
-              </p>
+              <>
+                <Trechos
+                  rotulo="No 117-25, lido como se queria"
+                  itens={[
+                    [
+                      29,
+                      "Projeto de Engenharia para a USB Vila Manaus (117-25)",
+                    ],
+                    [
+                      113,
+                      "Ramal de ligação aéreo: Alumínio multiplexado de # 35m²",
+                    ],
+                    [38, "estacionamento com vagas (ambulânciua, PCD e idoso)"],
+                  ]}
+                />
+                <p
+                  style={{
+                    margin: 0,
+                    paddingTop: 20,
+                    borderTop: "1px solid var(--border)",
+                    fontSize: 26,
+                    lineHeight: 1.4,
+                    color: "var(--status-critical)",
+                  }}
+                >
+                  Quando isso acontece, quem revisa é quem contratou.
+                </p>
+              </>
             ),
           },
           {
@@ -90,18 +154,34 @@ export const O_PROBLEMA: readonly Slide[] = [
             texto:
               "O texto-base é reaproveitado de um projeto para o outro. Um erro nele não erra um projeto: erra todos, até que alguém finalmente o encontre.",
             extra: (
-              <p
-                style={{
-                  margin: 0,
-                  paddingTop: 20,
-                  borderTop: "1px solid var(--border)",
-                  fontSize: 26,
-                  lineHeight: 1.4,
-                  color: "var(--status-warning)",
-                }}
-              >
-                Achado uma vez, corrigido uma vez, resolvido em todos.
-              </p>
+              <>
+                <Trechos
+                  rotulo="No 117-25, texto de outra obra"
+                  itens={[
+                    [
+                      14,
+                      "…construção da Unidade Básica de Saúde Bairro Vila Francesa",
+                    ],
+                    [99, "Proprietário: Prefeitura Municipal de Chapecó;"],
+                    [
+                      211,
+                      "Por exigência do Shopping, todos os sistemas que atendem a loja…",
+                    ],
+                  ]}
+                />
+                <p
+                  style={{
+                    margin: 0,
+                    paddingTop: 20,
+                    borderTop: "1px solid var(--border)",
+                    fontSize: 26,
+                    lineHeight: 1.4,
+                    color: "var(--status-warning)",
+                  }}
+                >
+                  Achado uma vez, corrigido uma vez, resolvido em todos.
+                </p>
+              </>
             ),
           },
         ]}

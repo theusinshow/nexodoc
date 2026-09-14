@@ -234,7 +234,7 @@ export const VALORES: readonly Slide[] = [
     bloco: "Os valores",
     titulo: "Quanto custa operar",
     notas:
-      "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.",
+      "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.\n\nOS US$ 1,61 SÃO A CORRIDA DA FOLHA 05 DO DECK (117_25, 14/09/2026, leitura profunda): US$ 1,23 da leitura, US$ 0,37 da validação e US$ 0,01 das 14 páginas sem texto transcritas, somados do registro de uso. O mensal é 16 × 1,61 ≈ US$ 26, e o total, US$ 57 a R$ 5,18, dá os R$ 295 — que também estão nas folhas 12 do deck e E daqui.",
     corpo: (
       <>
         <Entra atraso={100}>
@@ -259,7 +259,7 @@ export const VALORES: readonly Slide[] = [
               <LinhaDeCusto
                 item="Conferência de um memorial"
                 base="218 páginas, leitura profunda"
-                valor="US$ 1,50"
+                valor="US$ 1,61"
                 atraso={300}
               />
               <LinhaDeCusto
@@ -286,7 +286,7 @@ export const VALORES: readonly Slide[] = [
               <LinhaDeCusto
                 item="Conferência de memoriais"
                 base="cerca de 16 por mês"
-                valor="US$ 24"
+                valor="US$ 26"
                 atraso={720}
               />
               <LinhaDeCusto
@@ -310,7 +310,7 @@ export const VALORES: readonly Slide[] = [
             </div>
             <Total
               rotuloDo="Ordem de grandeza"
-              valor="≈ R$ 285 / mês"
+              valor="≈ R$ 295 / mês"
               cor="var(--nexodoc-accent)"
               atraso={1180}
               teal
@@ -522,7 +522,7 @@ export const VALORES: readonly Slide[] = [
     bloco: "Os valores",
     titulo: "De onde sai esse número",
     notas:
-      "ESTA FOLHA NÃO DEFENDE O PREÇO, ELA O ANCORA. Nenhum dos três números da esquerda é novo: dois estão nas folhas B e C, aqui mesmo, e o do projeto devolvido veio da folha 12 do deck. O que esta folha faz é pô-los ao lado do pedido.\n\nNÃO TRAZER A CONTA DE RETORNO MENSAL para esta folha, nem de boca. Operar custa R$ 285 e o tempo devolvido paga até cerca de R$ 500 por mês; R$ 10.000 em seis meses dá R$ 1.667 por mês. Quem levantar essa aritmética na sala derruba o preço com o meu próprio número.\n\nSE ELE MESMO LEVANTAR, a resposta é a frase de baixo: o piloto não está comprando seis meses de acesso, está comprando o que já está construído — e mesmo que ninguém abra o sistema no sexto mês, o que foi entregue continua entregue.\n\nA ÚNICA ESTIMATIVA DESTA FOLHA é a hora de desenvolvedor júnior, e a palavra fica na tela por isso. Tudo o mais saiu do registro de uso do próprio sistema.",
+      "ESTA FOLHA NÃO DEFENDE O PREÇO, ELA O ANCORA. Nenhum dos três números da esquerda é novo: dois estão nas folhas B e C, aqui mesmo, e o do projeto devolvido veio da folha 12 do deck. O que esta folha faz é pô-los ao lado do pedido.\n\nNÃO TRAZER A CONTA DE RETORNO MENSAL para esta folha, nem de boca. Operar custa R$ 295 e o tempo devolvido paga até cerca de R$ 500 por mês; R$ 10.000 em seis meses dá R$ 1.667 por mês. Quem levantar essa aritmética na sala derruba o preço com o meu próprio número.\n\nSE ELE MESMO LEVANTAR, a resposta é a frase de baixo: o piloto não está comprando seis meses de acesso, está comprando o que já está construído — e mesmo que ninguém abra o sistema no sexto mês, o que foi entregue continua entregue.\n\nA ÚNICA ESTIMATIVA DESTA FOLHA é a hora de desenvolvedor júnior, e a palavra fica na tela por isso. Tudo o mais saiu do registro de uso do próprio sistema.",
     corpo: (
       <>
         <Entra atraso={100}>
@@ -559,7 +559,7 @@ export const VALORES: readonly Slide[] = [
               <LinhaDeCusto
                 item="Operar o sistema"
                 base="por mês, no volume do escritório"
-                valor="R$ 285"
+                valor="R$ 295"
                 atraso={580}
               />
             </div>

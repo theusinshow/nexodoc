@@ -54,13 +54,13 @@ export const POSSIVEIS_PERGUNTAS: readonly Slide[] = [
     bloco: "Possíveis perguntas",
     titulo: "Você não provou que vale",
     notas:
-      "O terceiro bloco é o que mais compra a sala: é ganho que independe de assinar contrato.\n\nRÉPLICA PROVÁVEL 1 — 'aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM. O erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado — e não seria achado.\n\nRÉPLICA PROVÁVEL 2 — 'então traga a medição pronta e voltamos a conversar': a medição depende do veredito de quem projeta, e é literalmente o que estou pedindo. Sem uso real ela não existe, e não há como eu produzi-la sozinho — seria eu julgando o meu próprio trabalho, que é exatamente o problema que este sistema existe para resolver.\n\nRÉPLICA PROVÁVEL 3 — 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele. E se ignorarem, o piloto é justamente o que mede isso.",
+      "O terceiro bloco é o que mais compra a sala: são os onze do 117_25 que o parecer classificou como impeditivos de emissão, e os três citados estão transcritos na folha 07. Se pedirem para ver, abrir o parecer na p. 92.\n\nO '56' E O 'CINCO MINUTOS' SÃO A CORRIDA DA FOLHA 05 (5,4 min). Não arredondar o 56 para 'uns cinquenta'.\n\nSAIU DA TELA em 14/09/2026 o bloco 'onze deles são do modelo-padrão, o mesmo texto errado em cinco projetos': ele contava os achados de outra corrida, e esta não permite conferir quais dos 56 vêm do texto-base. O argumento continua valendo DE BOCA, e é a réplica 1 abaixo — ganho que existe mesmo sem contrato.\n\nRÉPLICA PROVÁVEL 1 — 'aconteceu uma vez, em quantos anos?': uma vez que os senhores SOUBERAM. O erro do modelo-padrão esteve em cinco projetos e ninguém tinha achado — e não seria achado.\n\nRÉPLICA PROVÁVEL 2 — 'então traga a medição pronta e voltamos a conversar': a medição depende do veredito de quem projeta, e é literalmente o que estou pedindo. Sem uso real ela não existe, e não há como eu produzi-la sozinho — seria eu julgando o meu próprio trabalho, que é exatamente o problema que este sistema existe para resolver.\n\nRÉPLICA PROVÁVEL 3 — 'projetista ignora checklist há vinte anos': não é checklist, é uma lista com a página e a frase do documento dele. E se ignorarem, o piloto é justamente o que mede isso.",
     corpo: (
       <Confronto
-        pergunta="57 achados, e você mesmo disse que não sabe quantos são erro de verdade. Meu subdiretor lê um memorial em uma hora. Agora ele lê o memorial e mais 57 achados. Você piorou o trabalho dele."
+        pergunta="56 achados, e você mesmo disse que não sabe quantos são erro de verdade. Meu subdiretor lê um memorial em uma hora. Agora ele lê o memorial e mais 56 achados. Você piorou o trabalho dele."
         respostas={[
           [
-            "A comparação não é uma hora contra seis minutos.",
+            "A comparação não é uma hora contra cinco minutos.",
             "É uma leitura que acontece contra uma que não acontece. A folha da conferência de hoje já disse: não há tempo dedicado para isso, e quando há, ela disputa espaço com a entrega.",
           ],
           [
@@ -68,8 +68,8 @@ export const POSSIVEIS_PERGUNTAS: readonly Slide[] = [
             "Cada um vem com a página e o trecho transcrito do próprio memorial. Não se investiga um achado: lê-se e decide-se.",
           ],
           [
-            "Onze deles não são de projeto nenhum.",
-            "São do modelo-padrão — o mesmo texto errado em cinco projetos. Corrigidos uma vez, somem de todos. Esse ganho existe mesmo que vocês não comprem nada.",
+            "Onze deles devolveriam o projeto.",
+            "Outra obra no capítulo estrutural (p. 92), outra prefeitura como proprietária (p. 99), a exigência de um shopping numa UBS (p. 211). Basta um desses chegar ao cliente.",
           ],
         ]}
         leitura={[
