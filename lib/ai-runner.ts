@@ -25,6 +25,14 @@ import {
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
 
+/**
+ * A IA SIMULADA da bateria de fluxos. As duas condições, como em
+ * `lib/ia-simulada.ts`: fora de teste o módulo nem é carregado.
+ */
+function iaSimuladaLigada() {
+  return process.env.NEXODOC_IA_SIMULADA === "1" && process.env.NODE_ENV !== "production";
+}
+
 export type ExecuteOpenAiResponseArgs = {
   flow: AiProviderFlow;
   providerOverride?: AiProvider;
@@ -217,22 +225,27 @@ export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
   let response: unknown;
 
   try {
-    response = args.emSegundoPlano
-      ? await respostaEmSegundoPlano({
-          cliente: getOpenAIClient().responses as unknown as ClienteDeRespostas,
-          request: args.request as unknown as Record<string, unknown>,
-          signal: controller.signal,
-        })
-      : await getOpenAIClient().responses.create(args.request, {
-          signal: controller.signal,
-          /*
-           * O prazo do SDK acompanha o NOSSO. O padrão dele é 600s com duas
-           * retentativas: numa passada com orçamento maior, aos 600s ele
-           * reenviava a chamada por conta própria — uma segunda resposta paga,
-           * que o nosso aborto matava no meio. Medido em 14/09/2026.
-           */
-          timeout: timeoutMs + 5_000,
-        });
+    response = iaSimuladaLigada()
+      ? await (await import("@/lib/ia-simulada")).respostaSimulada(
+          { operation: args.operation, model: args.model, request: args.request },
+          controller.signal,
+        )
+      : args.emSegundoPlano
+        ? await respostaEmSegundoPlano({
+            cliente: getOpenAIClient().responses as unknown as ClienteDeRespostas,
+            request: args.request as unknown as Record<string, unknown>,
+            signal: controller.signal,
+          })
+        : await getOpenAIClient().responses.create(args.request, {
+            signal: controller.signal,
+            /*
+             * O prazo do SDK acompanha o NOSSO. O padrão dele é 600s com duas
+             * retentativas: numa passada com orçamento maior, aos 600s ele
+             * reenviava a chamada por conta própria — uma segunda resposta paga,
+             * que o nosso aborto matava no meio. Medido em 14/09/2026.
+             */
+            timeout: timeoutMs + 5_000,
+          });
     const durationMs = Date.now() - startedAt;
     const outputText = extractOutputText(response);
 
@@ -345,10 +358,15 @@ export async function* executeOpenAiResponseStream(
   let finalResponse: unknown = null;
 
   try {
-    const stream = await getOpenAIClient().responses.create(
-      { ...args.request, stream: true },
-      { signal: controller.signal },
-    );
+    const stream = iaSimuladaLigada()
+      ? (await import("@/lib/ia-simulada")).streamSimulado(
+          { operation: args.operation, model: args.model, request: args.request },
+          controller.signal,
+        )
+      : await getOpenAIClient().responses.create(
+          { ...args.request, stream: true },
+          { signal: controller.signal },
+        );
 
     let text = "";
     for await (const event of stream as AsyncIterable<{
