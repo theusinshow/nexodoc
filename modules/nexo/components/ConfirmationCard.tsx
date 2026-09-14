@@ -32,6 +32,7 @@ import {
   Loader2,
   Download,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,12 @@ import {
   groupFindingsByImpact,
   type AuditReport,
 } from "@/lib/audit-report";
-import { AuditoriaDesconectada, type MemorialAuditResult } from "../lib/audit";
+import {
+  AuditoriaDesconectada,
+  auditoriaMaisRecente,
+  type MemorialAuditResult,
+} from "../lib/audit";
+import { idDaAuditoriaDaProposta } from "../lib/auditoria-da-proposta";
 import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
 import { useDeltaDoMemorial } from "./use-delta-do-memorial";
 import { usePaginasMudas } from "./use-paginas-mudas";
@@ -310,6 +316,7 @@ export function ConfirmationCard({
   pranchaFiles = [],
   memorialFile = null,
   memorialFatos = null,
+  mensagemId,
 }: {
   proposal: NexoAgentProposal;
   selos: SeloForLd[];
@@ -328,6 +335,8 @@ export function ConfirmationCard({
     /** Endereço da caracterização da obra — distingue obras de mesmo nome. */
     endereco?: string | null;
   } | null;
+  /** A mensagem que trouxe a proposta: dá à auditoria um resultado por rodada. */
+  mensagemId?: string;
 }) {
   const { results } = useConversation();
   switch (proposal.kind) {
@@ -392,6 +401,7 @@ export function ConfirmationCard({
           selos={selos}
           memorialFile={memorialFile}
           memorialFatos={memorialFatos}
+          mensagemId={mensagemId}
         />
       );
     case "separatriz":
@@ -2294,6 +2304,7 @@ function AuditoriaConfirmation({
   selos,
   memorialFile,
   memorialFatos = null,
+  mensagemId,
 }: {
   resumo: string;
   params: NexoAuditoriaProposalParams;
@@ -2307,6 +2318,7 @@ function AuditoriaConfirmation({
     /** Endereço da caracterização da obra — distingue obras de mesmo nome. */
     endereco?: string | null;
   } | null;
+  mensagemId?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2319,11 +2331,48 @@ function AuditoriaConfirmation({
     registrarAuditoria,
     projectId: projetoDaConversa,
     vincularProjeto,
+    appendMessage,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
-  const id = auditoriaId(selos, memorialFatos?.codigo);
+  /*
+   * UM RESULTADO POR PROPOSTA, e não por documento. Com o id por documento, a
+   * segunda auditoria do 117_25 (14/09/2026) achou o parecer da primeira: o
+   * cartão novo nasceu mostrando os 10 achados antigos, sem formulário e sem a
+   * detecção das folhas mudas. Ver [[auditoria-da-proposta.ts]].
+   *
+   * O resultado é achado pelo SUFIXO da mensagem porque o código do documento
+   * pode chegar depois (a classificação relê o memorial a cada anexo), e um id
+   * que mudasse com ele perderia o parecer que o próprio cartão gravou.
+   */
+  const resultadoDaProposta = mensagemId
+    ? results.find(
+        (r) => r.kind === "auditoria" && r.artifactId.endsWith(`:${mensagemId}`),
+      )
+    : undefined;
+  const id =
+    resultadoDaProposta?.artifactId ??
+    (mensagemId
+      ? idDaAuditoriaDaProposta(
+          summarizeSelos(selos).codigo ?? memorialFatos?.codigo,
+          mensagemId,
+        )
+      : auditoriaId(selos, memorialFatos?.codigo));
   const result = getResult(id)?.payload as MemorialAuditResult | undefined;
+  /*
+   * AUDITAR DE NOVO abre OUTRA proposta, com outro cartão. Rodar no mesmo
+   * cartão sobrescrevia o parecer anterior, e a comparação entre as rodadas
+   * nunca tinha duas para comparar. Só na rodada mais recente: nos cartões
+   * antigos o botão convidaria a refazer uma auditoria já superada.
+   */
+  const ehAMaisRecente = auditoriaMaisRecente(results)?.artifactId === id;
+  const auditarDeNovo = () =>
+    appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Nova rodada da auditoria deste memorial. Confira e confirme no cartão.",
+      proposals: [{ kind: "auditoria", resumo, params }],
+    });
 
   /*
    * O GABARITO da auditoria: a obra do CARIMBO quando há pranchas (fonte
@@ -2418,15 +2467,7 @@ function AuditoriaConfirmation({
    * décimo do memorial e o parecer saiu sem uma palavra sobre isso. O portão
    * existe para essa decisão ser tomada por quem paga, antes de pagar.
    */
-  /*
-   * Com parecer INCOMPLETO na mão o diagnóstico volta a rodar: rodar de novo
-   * sem ele auditaria outra vez sem transcrever, e as mesmas folhas ficariam
-   * sem leitura (117_25, 14/09/2026 17:49).
-   */
-  const resultadoIncompleto = result
-    ? incompletudeDoParecer(result.report).incompleta
-    : false;
-  const paginasMudas = usePaginasMudas(result && !resultadoIncompleto ? null : memorialFile);
+  const paginasMudas = usePaginasMudas(result ? null : memorialFile);
   const mudas =
     paginasMudas.estado === "pronto" ? paginasMudas.dados : null;
   const temFolhaMuda = (mudas?.mudas.length ?? 0) > 0;
@@ -2622,22 +2663,17 @@ function AuditoriaConfirmation({
   }
 
   /*
-   * Uma auditoria PARCIAL não é uma auditoria concluída.
-   *
-   * Quando uma passada aborta, o veredito rebaixa para "NÃO USE PARA EMITIR" e
-   * manda rodar de novo — mas o cartão escondia o botão assim que existia um
-   * resultado qualquer. A instrução mais importante do sistema era justamente a
-   * única que a interface não deixava cumprir.
-   */
-  const parcial = resultadoIncompleto;
-  /*
    * O BOTÃO ESPERA O DIAGNÓSTICO. Enquanto as folhas ainda estão sendo
    * conferidas, "Auditar" era clicável e mandava a análise sem transcrever: foi
    * o que aconteceu no 117_25 em 14/09/2026 17:49, clicado 9s depois da
    * proposta, e 14 páginas saíram sem leitura.
    */
   const conferindoPaginas = paginasMudas.estado === "lendo";
-  const podeAuditar = !result || parcial;
+  /*
+   * Cartão com parecer não reabre o formulário: rodar de novo é outra proposta
+   * (`auditarDeNovo`). Reabrir aqui gravaria a rodada nova por cima desta.
+   */
+  const podeAuditar = !result;
 
   return (
     <CardShell kind="auditoria" resumo={resumo}>
@@ -2790,12 +2826,6 @@ function AuditoriaConfirmation({
               )}
             </div>
           )}
-          {parcial && (
-            <p className="text-xs font-medium text-[var(--status-critical)]">
-              A auditoria anterior voltou INCOMPLETA: a contagem dela não é o total.
-              Rode de novo antes de decidir.
-            </p>
-          )}
           {/*
             Sem obra de referência a auditoria roda comparando o documento
             consigo mesmo. Não bloqueia — mas diz, antes dos minutos gastos.
@@ -2845,9 +2875,7 @@ function AuditoriaConfirmation({
                 conferindoPaginas
                   ? "Conferindo páginas…"
                   : temFolhaMuda
-                  ? "Transcrever e auditar"
-                  : parcial
-                    ? "Rodar de novo"
+                    ? "Transcrever e auditar"
                     : "Auditar"
               }
               busyLabel="Auditando…"
@@ -2877,7 +2905,13 @@ function AuditoriaConfirmation({
         </>
       )}
 
-      {result && <AuditoriaAncora report={result.report} onVer={auditoria.verNoPalco} />}
+      {result && (
+        <AuditoriaAncora
+          report={result.report}
+          onVer={auditoria.verNoPalco}
+          onAuditarDeNovo={ehAMaisRecente ? auditarDeNovo : undefined}
+        />
+      )}
       <CardError message={error} />
     </CardShell>
   );
@@ -2895,10 +2929,14 @@ function AuditoriaConfirmation({
 function AuditoriaAncora({
   report,
   onVer,
+  onAuditarDeNovo,
 }: {
   report: AuditReport;
   onVer: () => void;
+  /** Só na rodada mais recente. Abre outra proposta, com outro cartão. */
+  onAuditarDeNovo?: () => void;
 }) {
+  const incompleta = incompletudeDoParecer(report);
   const verdict = getEmissionVerdict(
     report.incongruencias,
     report.runtime?.passadas_incompletas ?? [],
@@ -2922,11 +2960,17 @@ function AuditoriaAncora({
         <span>{porImpacto.tecnico_contratual.length} técnico contratual</span>
         <span>{porImpacto.revisao_editorial.length} revisão editorial</span>
       </div>
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <Chip onClick={onVer}>
           <ShieldCheck aria-hidden />
           Ver o parecer
         </Chip>
+        {onAuditarDeNovo && (
+          <Chip onClick={onAuditarDeNovo} variant={incompleta.incompleta ? "default" : "quiet"}>
+            <RotateCcw aria-hidden />
+            {incompleta.paginasNaoLidas > 0 ? "Transcrever e auditar de novo" : "Auditar de novo"}
+          </Chip>
+        )}
       </div>
     </div>
   );

@@ -162,7 +162,7 @@ export async function POST(request: Request) {
    * depois recusa é recriar, pela porta ao lado, o defeito de `ae5d47f` — o
    * cartão prometendo economia que a auditoria não entrega.
    */
-  const anterior = auditIdAnterior
+  const pedida = auditIdAnterior
     ? await getPrisma().audit.findFirst({
         where: auditByIdWhereForActor(auditIdAnterior, actor),
         // O MESMO `select` dos dois lados: a resposta é uma só, e um campo que
@@ -177,12 +177,31 @@ export async function POST(request: Request) {
           user: { select: { name: true, email: true } },
         },
       })
-    : await procurarBaseNoProjeto({
-        projectId,
-        actor,
-        arquivo: arquivo.name,
-        versaoAtual,
-      });
+    : null;
+  /*
+   * A BASE PEDIDA PASSA PELO MESMO PORTÃO da busca. Sem isto o cartão mandava a
+   * rodada anterior da conversa e ouvia "só os capítulos alterados vão ser
+   * relidos" de uma base que a auditoria recusa — foi o caso do 117_25 em
+   * 14/09/2026, cuja rodada anterior não tinha lido o documento. Recusada, a
+   * busca no projeto ainda pode achar uma rodada que sirva.
+   */
+  const pedidaServe =
+    pedida &&
+    avaliarBase({
+      base: { auditId: pedida.id, status: pedida.status, report: pedida.report as AuditReport | null },
+      arquivo: arquivo.name,
+      versaoAtual,
+    }).serve;
+  const anterior =
+    (pedidaServe ? pedida : null) ??
+    (projectId
+      ? await procurarBaseNoProjeto({
+          projectId,
+          actor,
+          arquivo: arquivo.name,
+          versaoAtual,
+        })
+      : null);
 
   if (!anterior || anterior.status !== "COMPLETED") {
     return NextResponse.json({ comparavel: false, motivo: "sem-auditoria-anterior" });
@@ -241,7 +260,7 @@ export async function POST(request: Request) {
        * vindo de outro lugar, o engenheiro tem de saber QUAL parecer vai
        * emprestar achado ao dele, e de quem ele é, antes de mandar rodar.
        */
-      deOutraConversa: !auditIdAnterior,
+      deOutraConversa: anterior.id !== auditIdAnterior,
       /*
        * Quem rodou a base. Auditoria ligada a projeto pertence ao ESCRITÓRIO
        * (ver `auditWhereForActor`), então a base legítima pode ser de um colega

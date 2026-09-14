@@ -30,6 +30,7 @@ import { NexoComposer } from "./NexoComposer";
 import { UsageDonut } from "./UsageDonut";
 import { BarraDeLeitura } from "./BarraDeLeitura";
 import { ZonaDeSolta } from "./ZonaDeSolta";
+import { pedeNovaAuditoria } from "../lib/auditoria-da-proposta";
 import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Status da leitura de selos (mostrado acima do composer). */
@@ -350,8 +351,14 @@ export function NexoChat({
     let started = false;
 
     try {
-      // A PORTA. Com parecer no palco, quem responde é quem tem o documento.
-      if (auditoriaAtual?.salvo.report && !forcarNexo) {
+      /*
+       * A PORTA. Com parecer no palco, quem responde é quem tem o documento —
+       * MENOS quando o pedido é auditar de novo. Esse ia ao chat da auditoria e
+       * dependia do modelo decidir repassar: em 14/09/2026 o "audita o
+       * memorial" voltou duas vezes como "Encaminhei a nova auditoria", sem
+       * cartão. Ver `pedeNovaAuditoria`.
+       */
+      if (auditoriaAtual?.salvo.report && !forcarNexo && !pedeNovaAuditoria(text)) {
         await perguntarSobreAuditoria({
           text,
           history,
@@ -638,6 +645,7 @@ export function NexoChat({
                     pranchaFiles={pranchaFiles}
                     memorialFile={memorialFile}
                     memorialFatos={memorialFatos}
+                    mensagemId={m.id}
                   />
                 ))}
               {m.slotRequest && (

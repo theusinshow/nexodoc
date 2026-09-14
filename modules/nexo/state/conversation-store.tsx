@@ -66,6 +66,7 @@ import {
   type EstadoDaSincronizacao,
 } from "../lib/nexo-sync";
 import { fundirListas, lapidesLocais } from "@/server/nexo/conversa-remota";
+import { migrarAuditoriasLegadas } from "../lib/auditoria-da-proposta";
 import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Um arquivo de resultado com object URL vivo (p/ download/preview). */
@@ -1091,6 +1092,32 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         }
       }
       if (!rec) return null;
+      /*
+       * AUDITORIA POR PROPOSTA. Conversa gravada antes de 14/09/2026 guarda o
+       * parecer com id por documento (`auditoria:117-25`), e com esse id a
+       * segunda rodada do mesmo memorial se confundia com a primeira. A
+       * migração roda aqui, ao abrir, antes de qualquer proposta nova existir.
+       * Ver [[auditoria-da-proposta.ts]].
+       */
+      const migrada = migrarAuditoriasLegadas({
+        messages: rec.messages ?? [],
+        results: rec.results ?? [],
+        auditorias: rec.auditorias,
+        auditoriaPendente: rec.auditoriaPendente ?? null,
+        artefatosApagados: rec.artefatosApagados,
+      });
+      if (migrada.migrou) {
+        rec = {
+          ...rec,
+          results: migrada.results,
+          ...(migrada.auditorias ? { auditorias: migrada.auditorias } : {}),
+          ...(migrada.auditoriaPendente ? { auditoriaPendente: migrada.auditoriaPendente } : {}),
+          ...(migrada.artefatosApagados ? { artefatosApagados: migrada.artefatosApagados } : {}),
+        };
+        // Grava já no disco: o próximo F5 não pode ler o formato antigo de novo
+        // e casar com uma proposta que chegou depois.
+        await putConversation(rec).catch(() => {});
+      }
       // Reidrata os resultados: busca cada blob e cria URLs vivas.
       const restored: SavedResult[] = [];
       for (const meta of rec.results) {
