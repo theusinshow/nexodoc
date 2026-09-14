@@ -93,6 +93,45 @@ test("status parcial sem passada falha (folha muda) também é incompleta", () =
   assert.equal(i.iaNaoLeu, false);
 });
 
+test("folhas mudas não transcritas: diz QUANTAS páginas a IA não leu e como resolver", () => {
+  // O caso real de 14/09 17:49: a IA leu todo o texto, mas 14 das 218 páginas
+  // têm o conteúdo desenhado e não foram transcritas. "Parte do documento não
+  // foi lida" não dizia o que faltou nem o que fazer.
+  const p = parecer({
+    status_analise: "parcial",
+    total_incongruencias: 52,
+    arquivos_analisados: [
+      {
+        arquivo: "117_25_md_geral_a.pdf",
+        paginas: 218,
+        cobertura: {
+          caracteres_lidos: 469053, caracteres_totais: 469053,
+          blocos_lidos: 0, blocos_totais: 98, blocos_planejados: 0,
+          paginas_mudas: 14, paginas_transcritas: 0,
+        },
+      },
+    ],
+  });
+  const i = incompletudeDoParecer(p);
+  assert.equal(i.incompleta, true);
+  assert.equal(i.iaNaoLeu, false);
+  assert.equal(i.paginasNaoLidas, 14);
+  assert.match(i.titulo, /14 PÁGINAS NÃO FORAM LIDAS/);
+  assert.match(i.explicacao, /14 de 218 páginas/);
+  assert.match(i.explicacao, /52 achados/);
+  assert.match(i.explicacao, /Transcrever e auditar/);
+  assert.doesNotMatch(i.explicacao, /Parte do documento não foi lida/);
+});
+
+test("folhas mudas transcritas não acendem aviso", () => {
+  const p = parecer({
+    arquivos_analisados: [
+      { arquivo: "x.pdf", paginas: 218, cobertura: { caracteres_lidos: 1, caracteres_totais: 1, blocos_lidos: 0, blocos_totais: 98, blocos_planejados: 0, paginas_mudas: 14, paginas_transcritas: 14 } },
+    ],
+  });
+  assert.equal(incompletudeDoParecer(p).incompleta, false);
+});
+
 test("parecer antigo sem runtime não quebra e não inventa aviso", () => {
   const i = incompletudeDoParecer({ total_incongruencias: 3, incongruencias: [] });
   assert.equal(i.incompleta, false);

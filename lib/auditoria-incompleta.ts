@@ -15,6 +15,8 @@
  * cru o importam igual.
  */
 import { plural } from "./plural.ts";
+import { paginasMudasPendentes } from "./resumo-do-esforco.ts";
+import type { CoberturaDoArquivo } from "./audit-report.ts";
 
 type PassadaIncompleta = { passada: string; motivo?: string };
 
@@ -25,12 +27,15 @@ export type ParecerParaIncompletude = {
   total_incongruencias?: number | null;
   incongruencias?: readonly unknown[] | null;
   runtime?: { passadas_incompletas?: readonly PassadaIncompleta[] | null } | null;
+  arquivos_analisados?: readonly { paginas?: number; cobertura?: CoberturaDoArquivo }[] | null;
 };
 
 export type Incompletude = {
   incompleta: boolean;
   /** A leitura do documento pela IA não aconteceu: os achados são só de regra. */
   iaNaoLeu: boolean;
+  /** Folhas com o texto desenhado que ninguém transcreveu: a IA não as leu. */
+  paginasNaoLidas: number;
   titulo: string;
   explicacao: string;
   passadas: PassadaIncompleta[];
@@ -51,9 +56,15 @@ export function incompletudeDoParecer(p: ParecerParaIncompletude): Incompletude 
   const parcial = p.status_analise === "parcial" || p.status_analise === "falha";
   const incompleta = passadas.length > 0 || parcial;
   const achados = plural(totalDeAchados(p), "achado", "achados");
+  const arquivos = p.arquivos_analisados ?? [];
+  const paginasNaoLidas = arquivos.reduce(
+    (soma, a) => soma + (a.cobertura ? paginasMudasPendentes(a.cobertura) : 0),
+    0,
+  );
+  const paginasTotais = arquivos.reduce((soma, a) => soma + (a.paginas ?? 0), 0);
 
   if (!incompleta) {
-    return { incompleta, iaNaoLeu, titulo: "", explicacao: "", passadas };
+    return { incompleta, iaNaoLeu, paginasNaoLidas, titulo: "", explicacao: "", passadas };
   }
 
   if (iaNaoLeu) {
@@ -61,6 +72,7 @@ export function incompletudeDoParecer(p: ParecerParaIncompletude): Incompletude 
     return {
       incompleta,
       iaNaoLeu,
+      paginasNaoLidas,
       titulo: "AUDITORIA INCOMPLETA — A IA NÃO LEU O DOCUMENTO",
       explicacao:
         `A leitura do documento pela IA falhou${motivo ? ` (${motivo})` : ""}. ` +
@@ -72,10 +84,34 @@ export function incompletudeDoParecer(p: ParecerParaIncompletude): Incompletude 
     };
   }
 
+  /*
+   * FOLHA MUDA É O CASO MAIS COMUM, e o que a frase genérica pior explicava.
+   * Em 14/09/2026 17:49 o 117_25 foi auditado sem transcrever as 14 folhas
+   * desenhadas: a IA leu todo o texto, deu 52 achados, e o aviso dizia só
+   * "parte do documento não foi lida". Quem leu não sabia o que faltou nem
+   * como resolver.
+   */
+  if (paginasNaoLidas > 0 && passadas.length === 0) {
+    const folhas = paginasTotais > 0 ? `${paginasNaoLidas} de ${paginasTotais} páginas` : plural(paginasNaoLidas, "página", "páginas");
+    return {
+      incompleta,
+      iaNaoLeu,
+      paginasNaoLidas,
+      titulo: `AUDITORIA INCOMPLETA — ${plural(paginasNaoLidas, "PÁGINA NÃO FOI LIDA", "PÁGINAS NÃO FORAM LIDAS")}`,
+      explicacao:
+        `${folhas} deste documento têm o conteúdo desenhado na folha, e não escrito, ` +
+        "e não foram transcritas: a IA não leu essas páginas. " +
+        `Os ${achados} valem para o resto do documento, mas não cobrem essas páginas. ` +
+        "Rode de novo com \"Transcrever e auditar\" antes de decidir.",
+      passadas,
+    };
+  }
+
   const quais = passadas.map((x) => x.passada).join("; ");
   return {
     incompleta,
     iaNaoLeu,
+    paginasNaoLidas,
     titulo: "AUDITORIA INCOMPLETA",
     explicacao:
       (quais

@@ -141,6 +141,7 @@ import { ResultLinks } from "./ResultLinks";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import {
   detalheDoParecer,
+  incompletudeDoParecer,
   resumoDoParecer,
   rotuloDaContagem,
 } from "@/lib/auditoria-incompleta";
@@ -2417,7 +2418,15 @@ function AuditoriaConfirmation({
    * décimo do memorial e o parecer saiu sem uma palavra sobre isso. O portão
    * existe para essa decisão ser tomada por quem paga, antes de pagar.
    */
-  const paginasMudas = usePaginasMudas(result ? null : memorialFile);
+  /*
+   * Com parecer INCOMPLETO na mão o diagnóstico volta a rodar: rodar de novo
+   * sem ele auditaria outra vez sem transcrever, e as mesmas folhas ficariam
+   * sem leitura (117_25, 14/09/2026 17:49).
+   */
+  const resultadoIncompleto = result
+    ? incompletudeDoParecer(result.report).incompleta
+    : false;
+  const paginasMudas = usePaginasMudas(result && !resultadoIncompleto ? null : memorialFile);
   const mudas =
     paginasMudas.estado === "pronto" ? paginasMudas.dados : null;
   const temFolhaMuda = (mudas?.mudas.length ?? 0) > 0;
@@ -2620,7 +2629,14 @@ function AuditoriaConfirmation({
    * resultado qualquer. A instrução mais importante do sistema era justamente a
    * única que a interface não deixava cumprir.
    */
-  const parcial = (result?.report.runtime?.passadas_incompletas?.length ?? 0) > 0;
+  const parcial = resultadoIncompleto;
+  /*
+   * O BOTÃO ESPERA O DIAGNÓSTICO. Enquanto as folhas ainda estão sendo
+   * conferidas, "Auditar" era clicável e mandava a análise sem transcrever: foi
+   * o que aconteceu no 117_25 em 14/09/2026 17:49, clicado 9s depois da
+   * proposta, e 14 páginas saíram sem leitura.
+   */
+  const conferindoPaginas = paginasMudas.estado === "lendo";
   const podeAuditar = !result || parcial;
 
   return (
@@ -2776,13 +2792,8 @@ function AuditoriaConfirmation({
           )}
           {parcial && (
             <p className="text-xs font-medium text-[var(--status-critical)]">
-              A auditoria anterior voltou INCOMPLETA
-              {result?.report.runtime?.passadas_incompletas?.length
-                ? ` (${result.report.runtime.passadas_incompletas
-                    .map((p) => p.passada)
-                    .join(", ")})`
-                : ""}
-              : a contagem dela não é o total. Rode de novo antes de decidir.
+              A auditoria anterior voltou INCOMPLETA: a contagem dela não é o total.
+              Rode de novo antes de decidir.
             </p>
           )}
           {/*
@@ -2829,9 +2840,11 @@ function AuditoriaConfirmation({
             */}
             <ConfirmButton
               busy={busy}
-              disabled={!memorialFile}
+              disabled={!memorialFile || conferindoPaginas}
               label={
-                temFolhaMuda
+                conferindoPaginas
+                  ? "Conferindo páginas…"
+                  : temFolhaMuda
                   ? "Transcrever e auditar"
                   : parcial
                     ? "Rodar de novo"

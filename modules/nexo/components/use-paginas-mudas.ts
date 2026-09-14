@@ -48,8 +48,19 @@ export function usePaginasMudas(memorial: File | null): EstadoDasPaginasMudas {
      * Carregá-lo estaticamente o poria no bundle de toda tela que renderiza o
      * cartão de confirmação, inclusive as que nunca veem um memorial.
      */
-    import("../lib/pagina-muda-render")
-      .then((mod) => mod.diagnosticarArquivo(memorial))
+    /*
+     * COM PRAZO. O botão de auditar agora espera este diagnóstico, e um
+     * diagnóstico que nunca volta (pdf.js parado com a aba em segundo plano)
+     * travaria a auditoria. Passado o prazo, vale o caminho de falha abaixo:
+     * a análise roda, e o parecer acusa as folhas mudas pela conta do servidor.
+     */
+    const prazo = new Promise<never>((_, rejeitar) =>
+      setTimeout(() => rejeitar(new Error("diagnóstico passou de 60s")), 60_000),
+    );
+    Promise.race([
+      import("../lib/pagina-muda-render").then((mod) => mod.diagnosticarArquivo(memorial)),
+      prazo,
+    ])
       .then((dados) => {
         if (vivo) setResposta({ chave, dados });
       })
