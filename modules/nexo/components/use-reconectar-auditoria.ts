@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { consultarAuditoria } from "../lib/audit";
+import { auditoriaDaConversa, useAuditoria } from "../state/auditoria-store";
 import { useConversation } from "../state/conversation-store";
 
 /** Espaço entre perguntas. A auditoria leva minutos; insistir mais é ruído. */
@@ -29,15 +30,43 @@ const INTERVALO_MS = 5000;
 
 export interface ReconexaoDaAuditoria {
   /** Existe enquanto há auditoria em voo herdada de outra sessão. */
-  pendente: { arquivo: string; nivel: "standard" | "deep"; inicioMs: number } | null;
+  pendente: {
+    arquivo: string;
+    nivel: "standard" | "deep";
+    inicioMs: number;
+  } | null;
   /** Motivo de ter desistido — some sozinho quando o usuário age. */
   falha: string | null;
 }
 
 export function useReconectarAuditoria(): ReconexaoDaAuditoria {
-  const { auditoriaPendente, marcarAuditoriaPendente, saveResult, getResult } =
-    useConversation();
+  const {
+    auditoriaPendente,
+    marcarAuditoriaPendente,
+    saveResult,
+    getResult,
+    conversationId,
+  } = useConversation();
+  /*
+   * A ABA QUE DISPAROU NÃO SE RECONECTA A SI MESMA.
+   *
+   * O bilhete é gravado no clique, ANTES da transcrição das folhas mudas — e
+   * ela roda no navegador, meio minuto ou mais, antes de o POST criar a linha no
+   * banco. Este gancho via o bilhete na hora, perguntava pelo id, levava 404 e
+   * declarava "Auditoria não encontrada no servidor" sobre uma análise que
+   * ainda nem tinha começado. Em 14/09/2026 o 117_25 terminou COMPLETED com 56
+   * achados enquanto a tela dizia que a análise não tinha terminado.
+   *
+   * Enquanto o cartão desta aba conduz a corrida, a espera é dele. Se a conexão
+   * cair, ele encerra o `emCurso` e deixa o bilhete — e aí sim o gancho assume.
+   */
+  const conduzidaAqui =
+    auditoriaDaConversa(useAuditoria().emCurso, conversationId) !== null;
   const [falha, setFalha] = useState<string | null>(null);
+  // Uma corrida nova aposenta o motivo da anterior: sem isto a falha velha
+  // ficaria por cima do parecer novo quando ele chegasse (o palco a desenha
+  // antes do parecer). Ajuste durante o render, e não num effect.
+  if (conduzidaAqui && falha !== null) setFalha(null);
   /*
    * Guarda de reentrada: sem ela, cada re-render agenda uma nova consulta e a
    * mesma auditoria passa a ser perguntada várias vezes por segundo.
@@ -47,6 +76,8 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
   useEffect(() => {
     const bilhete = auditoriaPendente;
     if (!bilhete) return;
+
+    if (conduzidaAqui) return;
 
     // Já temos o resultado (a aba que disparou concluiu): o bilhete é resíduo.
     if (getResult(bilhete.artifactId)) {
@@ -104,7 +135,13 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
       if (timer) clearTimeout(timer);
       consultando.current = null;
     };
-  }, [auditoriaPendente, marcarAuditoriaPendente, saveResult, getResult]);
+  }, [
+    auditoriaPendente,
+    conduzidaAqui,
+    marcarAuditoriaPendente,
+    saveResult,
+    getResult,
+  ]);
 
   return {
     pendente: auditoriaPendente
