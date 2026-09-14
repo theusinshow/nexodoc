@@ -97,6 +97,8 @@
     "medir:validacao": "node scripts/medir-validacao-sol-vs-terra.ts",
     "test:ai:precos": "node scripts/test-ai-precos.ts",
     "test:ia-simulada": "node scripts/test-ia-simulada.ts",
+    "test:guarda-do-banco": "node scripts/test-guarda-do-banco.ts",
+    "bateria:criar-banco": "node scripts/bateria/criar-banco.mjs",
     "test:security:audits": "node scripts/test-isolamento-de-auditorias.ts && node scripts/test-segredos-hardcoded.mjs",
     "prova:security:audits": "node scripts/prova-isolamento-de-auditorias.mjs",
     "test:security:p2": "node scripts/test-seguranca-p2.ts",
