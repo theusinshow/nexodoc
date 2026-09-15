@@ -141,6 +141,33 @@ export default {
       `aviso=${avisou} POSTs /api/ld/extract-stamp=${selosDaAba2.total()}`,
     );
 
+    /*
+     * E A CORREÇÃO MEMORIAL → PRANCHA RECUSADA NÃO MEXE NO CHIP (15/09/2026). A
+     * recusa da leitura vinha DEPOIS de o chip trocar de papel: ele dizia
+     * "prancha" com a leitura recusada e o memorial ainda retido. Conta pelos
+     * botões: o chip do memorial oferece "tratar como prancha"; virado, passaria
+     * a oferecer "tratar como memorial", como o da prancha solta acima.
+     */
+    const paraPrancha = aba2.getByRole("button", { name: /^tratar como prancha$/ });
+    const paraMemorial = aba2.getByRole("button", { name: /^tratar como memorial$/ });
+    await aba2.locator('input[type="file"][accept="application/pdf,image/*"]').first().setInputFiles([path.resolve(f.memorialSemCodigo)]);
+    const chipDoMemorial = await ctx.esperar(async () => (await paraPrancha.count()) > 0, 30_000, 250);
+    await aba2.waitForTimeout(3000); // o pré-voo e a leitura do memorial assentam
+    const antesDaCorrecao = { prancha: await paraPrancha.count(), memorial: await paraMemorial.count(), recusas: await leituraRecusada.count() };
+    await paraPrancha.last().click({ timeout: 10_000 }).catch(() => {});
+    const recusouCorrecao = await ctx.esperar(async () => (await leituraRecusada.count()) > antesDaCorrecao.recusas, 20_000, 250);
+    await aba2.waitForTimeout(1000);
+    const depoisDaCorrecao = { prancha: await paraPrancha.count(), memorial: await paraMemorial.count(), recusas: await leituraRecusada.count() };
+    ctx.verificar(
+      "a aba travada recusa corrigir o memorial para prancha, diz por quê e o chip continua memorial",
+      chipDoMemorial &&
+        recusouCorrecao &&
+        depoisDaCorrecao.prancha === antesDaCorrecao.prancha &&
+        depoisDaCorrecao.memorial === antesDaCorrecao.memorial &&
+        (await ctx.visivelRolando(leituraRecusada.last())),
+      `antes=${JSON.stringify(antesDaCorrecao)} depois=${JSON.stringify(depoisDaCorrecao)}`,
+    );
+
     const depois = await noServidor();
     ctx.verificar("o servidor continua com o parecer da aba 1", pareceresDe(depois?.data).length === 1, `pareceres=${pareceresDe(depois?.data).length}`);
     ctx.verificar(

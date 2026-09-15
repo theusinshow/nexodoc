@@ -558,6 +558,20 @@ function NexoWorkspaceInner({
     const file = arquivosPorAnexo.current.get(id);
     if (!file) return;
     const viraMemorial = papel === "memorial";
+    /*
+     * A RECUSA DA LEITURA VEM ANTES DE QUALQUER MUDANÇA (15/09/2026, jornada c3).
+     * Virar prancha é pagar a leitura do carimbo; na aba travada ela é recusada.
+     * A recusa vinha depois de o chip trocar de papel: ele dizia "prancha" com a
+     * leitura recusada e o memorial ainda retido. Recusada, nada muda — o chip
+     * fica como estava, e a conversa diz por quê.
+     */
+    if (!viraMemorial) {
+      const recusaDaLeitura = conv.recusaDeLeituraPagaAgora();
+      if (recusaDaLeitura) {
+        avisarLeituraRecusada(1, recusaDaLeitura);
+        return;
+      }
+    }
     setError(null);
     /*
      * Invalida a leitura em voo ANTES de qualquer coisa.
@@ -615,12 +629,8 @@ function NexoWorkspaceInner({
       return;
     }
 
-    // Virou prancha: deixa de ser o memorial e passa pela leitura de selo.
-    const recusaDaLeitura = conv.recusaDeLeituraPagaAgora();
-    if (recusaDaLeitura) {
-      avisarLeituraRecusada(1, recusaDaLeitura);
-      return;
-    }
+    // Virou prancha: deixa de ser o memorial e passa pela leitura de selo (a
+    // recusa da aba travada já saiu lá em cima).
     setMemorialFile(null);
     // Sem aviso, e de propósito: falhar ao ESQUECER um arquivo não custa
     // trabalho nenhum. O `catch` existe só para a rejeição não ficar solta.
