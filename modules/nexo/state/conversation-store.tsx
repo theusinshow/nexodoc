@@ -1068,7 +1068,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const newConversation = useCallback((opts?: { descartar?: boolean }) => {
     if (opts?.descartar) descartarPendente();
     else flushPersist(); // grava a conversa atual antes de largar (#1)
-    setConversationId(newId());
+    const idNovo = newId();
+    // Daqui até o commit, o snapshot tem o id da antiga com a guarda de vazia e
+    // o `createdAt` da nova: nada grava a partir dele (ver `comecarTroca`).
+    agenda.comecarTroca(idNovo);
+    setConversationId(idNovo);
     setTitle("Nova conversa");
     setMessages([]);
     setSeloResultsState([]);
@@ -1087,9 +1091,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
       return [];
     });
-    // O snapshot começa a carregar a conversa nova com o id ainda da antiga:
-    // o pedido do flush acima não pode ser cumprido a partir dele.
-    agenda.esquecerPedido();
+    // O snapshot começa a carregar a conversa nova com o id ainda da antiga;
+    // a troca marcada lá em cima já esqueceu o pedido do flush.
     snapshotRef.current.createdAt = Date.now();
   }, [agenda, flushPersist, descartarPendente]);
 
@@ -1247,6 +1250,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           schedulePersist();
         }
       }
+      /*
+       * A TROCA COMEÇA AQUI — revisão final, 15/09/2026, jornada c6. Daqui até
+       * o commit que traz `rec.id`, o snapshot tem o id da conversa anterior com
+       * a guarda de vazia, o memorial e o `createdAt` desta. Medido: o palco
+       * limpou o bilhete residual desta DENTRO do commit da troca (effect de
+       * filho, antes do effect do provider) e a anterior foi gravada com o
+       * memorial desta; e no F5, "voltar à última" e "retomar a auditoria"
+       * abriram a mesma conversa duas vezes, e o flush da segunda gravou um
+       * registro fantasma. Marcada a troca, gravação nenhuma lê o snapshot até
+       * o commit desta — só fica o pedido, cumprido por ele.
+       */
+      agenda.comecarTroca(rec.id);
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
       jaPersistiu.current = true;
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
@@ -1286,11 +1301,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * linha ele leria o memorial da conversa ANTERIOR.
        *
        * Daqui até o commit, o snapshot mistura o id da conversa anterior com
-       * campos desta. Um flush da anterior pedido durante as leituras acima não
-       * pode ser cumprido a partir dele: gravaria a anterior com o memorial e o
-       * `createdAt` desta.
+       * campos desta — por isso a troca foi marcada lá em cima.
        */
-      agenda.esquecerPedido();
       snapshotRef.current = { ...snapshotRef.current, memorialMeta: rec.memorial ?? null };
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {

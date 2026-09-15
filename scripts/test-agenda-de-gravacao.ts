@@ -200,7 +200,13 @@ function storeDeMentira({ commitMs = 25 } = {}) {
         await (agenda as unknown as AgendaLegada).proximaSincronizacao(1000);
       }
       await r.esperar(esperaMs);
-      agenda.esquecerPedido?.();
+      // O store de agora marca a troca; os de antes só esqueciam o pedido.
+      const api = agenda as unknown as {
+        comecarTroca?: (para: string) => void;
+        esquecerPedido?: () => void;
+      };
+      if (api.comecarTroca) api.comecarTroca(b.id);
+      else api.esquecerPedido?.();
       snapshot = { ...snapshot, memorial: b.memorial };
       set((e) => ({
         id: b.id,
@@ -372,6 +378,85 @@ await test("trocar de conversa de dentro de um effect de filho: espera o commit 
     s.gravacoesDe("B").every((g) => !g.results.includes("rodada-2")),
     JSON.stringify(s.gravacoesDe("B")),
   );
+});
+
+/*
+ * A TROCA DE CONVERSA É UMA JANELA — revisão final, 15/09/2026, jornada c6.
+ *
+ * Entre `selectConversation` escrever à mão os campos de B no snapshot e o
+ * commit que traz o id de B, o snapshot tem o id de A com o memorial e o
+ * `createdAt` de B. Medido no app (c6): (1) com A aberta e o palco montado, o
+ * `useReconectarAuditoria` limpa o bilhete residual de B DENTRO do commit da
+ * troca, antes do effect do provider — A foi gravada com o memorial de B, e B
+ * ficou com o bilhete no disco; (2) no F5, "voltar para a última conversa" e
+ * "retomar a auditoria em voo" abrem B duas vezes seguidas, e o flush da
+ * segunda caiu na janela da primeira — um registro fantasma com o memorial de B.
+ */
+const CONVERSA_B_COM_BILHETE = { ...CONVERSA_B, pendente: true };
+
+await test("troca: o effect de filho que limpa o bilhete de B no commit da troca não grava A com campos de B", async () => {
+  for (const esperaMs of [2, 40, 480]) {
+    const s = storeDeMentira();
+    const abrindo = s.selectConversation(CONVERSA_B_COM_BILHETE, esperaMs);
+    // Até B estar na fila e escrita à mão no snapshot, ANTES do commit dela.
+    let pronto = false;
+    void abrindo.then(() => {
+      pronto = true;
+    });
+    for (let i = 0; i < 2000 && !pronto; i++) await s.r.avancar(1);
+    const efeitoDoProviderDaTroca = s.commitSemEfeitos();
+    s.marcarAuditoriaPendenteNull(); // effect do palco, que roda antes do provider
+    efeitoDoProviderDaTroca();
+    await s.r.avancar(1000);
+    const deA = s.gravacoesDe("A");
+    assert.ok(
+      deA.every((g) => g.memorial === "A:memorial" && g.createdAt === 100),
+      `esperaMs=${esperaMs}: A gravada com campos de B: ${JSON.stringify(deA)}`,
+    );
+    assert.equal(
+      s.ultimaDe("B")?.pendente,
+      false,
+      `esperaMs=${esperaMs}: o bilhete limpo de B não chegou ao disco: ${JSON.stringify(s.disco)}`,
+    );
+  }
+});
+
+await test("troca: abrir B duas vezes seguidas (última conversa + retomada) não grava A com campos de B", async () => {
+  const s = storeDeMentira();
+  const primeira = s.selectConversation(CONVERSA_B_COM_BILHETE, 40);
+  let pronto = false;
+  void primeira.then(() => {
+    pronto = true;
+  });
+  for (let i = 0; i < 2000 && !pronto; i++) await s.r.avancar(1);
+  // A segunda abertura chega antes do commit da primeira.
+  const segunda = s.selectConversation(CONVERSA_B_COM_BILHETE, 40);
+  await s.r.avancar(2000);
+  await segunda;
+  const deA = s.gravacoesDe("A");
+  assert.ok(
+    deA.every((g) => g.memorial === "A:memorial" && g.createdAt === 100),
+    `A gravada com campos de B: ${JSON.stringify(deA)}`,
+  );
+});
+
+await test("troca: debounce que vence na janela vira pedido da nova, e a marca sai no commit dela", async () => {
+  const r = relogioDeMentira();
+  const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio: r.relogio });
+  const gravadas: string[] = [];
+  let id = "A";
+  const gravar = () => gravadas.push(id);
+  agenda.agendar(gravar);
+  agenda.comecarTroca("B");
+  await r.avancar(600); // o debounce vence com o snapshot ainda misto
+  assert.deepEqual(gravadas, []);
+  agenda.aoSincronizar(gravar, () => id, 0); // commit de antes da troca
+  assert.deepEqual(gravadas, []);
+  id = "B";
+  agenda.aoSincronizar(gravar, () => id, 0); // o commit de B
+  assert.deepEqual(gravadas, ["B"]);
+  agenda.gravarJa(gravar, () => id); // passada a troca, grava na hora de novo
+  assert.deepEqual(gravadas, ["B", "B"]);
 });
 
 await test("a espera pela sincronização desarma o limite quando resolve", async () => {

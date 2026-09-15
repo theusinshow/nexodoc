@@ -43,11 +43,12 @@ export type AgendaDeGravacao = {
   /** Resolve quando um commit com `geracao` sincronizar (ou em `limiteMs`). */
   proximaSincronizacao: (geracao: number, limiteMs: number) => Promise<void>;
   /**
-   * Esquece o pedido pendente sem gravar. Para quando o snapshot vai começar a
-   * receber campos de OUTRA conversa: dali em diante nada pode ser gravado sob
-   * o id antigo a partir dele.
+   * O snapshot vai começar a receber campos da conversa `para` com o id ainda
+   * da anterior. Esquece o pedido pendente e, até o commit que trouxer `para`
+   * sincronizar, nenhuma gravação lê o snapshot: `gravarJa` e o debounce só
+   * deixam um pedido para `para`, cumprido pelo commit dela.
    */
-  esquecerPedido: () => void;
+  comecarTroca: (para: string) => void;
   /** Larga tudo o que estava para ser gravado: debounce e pedido. */
   descartar: () => void;
 };
@@ -63,6 +64,11 @@ export function criarAgendaDeGravacao(opcoes: {
   /** O pedido pós-commit: para qual conversa e a partir de qual geração. */
   let pedido: { conversa: string; geracao: number } | null = null;
   let esperando: { geracao: number; resolver: () => void }[] = [];
+  /**
+   * A conversa para a qual o snapshot está sendo trocado, entre as escritas à
+   * mão da troca e o commit que traz o id dela (ver `comecarTroca`).
+   */
+  let trocandoPara: string | null = null;
 
   function desarmar() {
     if (alca !== null) {
@@ -76,6 +82,12 @@ export function criarAgendaDeGravacao(opcoes: {
       desarmar();
       alca = relogio.armar(() => {
         alca = null;
+        // No meio de uma troca o snapshot é metade de cada conversa: o commit
+        // da conversa nova é quem grava.
+        if (trocandoPara !== null) {
+          pedido = { conversa: trocandoPara, geracao: geracoes };
+          return;
+        }
         gravar();
       }, opcoes.esperaMs);
     },
@@ -104,15 +116,36 @@ export function criarAgendaDeGravacao(opcoes: {
        * pedido. O bilhete ficava no disco e todo F5 reabria a conversa. A
        * geração vai para o estado do React junto com a mudança, então só o
        * commit que a traz pode cumprir o pedido.
+       *
+       * NO MEIO DE UMA TROCA NÃO GRAVA NADA AGORA (revisão final, 15/09/2026,
+       * jornada c6). Entre as escritas à mão de `selectConversation` e o commit
+       * da conversa nova, o snapshot tem o id da ANTERIOR com o memorial e o
+       * `createdAt` da nova. Medido: o palco limpou o bilhete residual da nova
+       * dentro do commit da troca e a anterior foi gravada com o memorial da
+       * nova (e a nova ficou com o bilhete no disco); no F5, a segunda abertura
+       * da mesma conversa gravou um registro fantasma. Aí só fica o pedido,
+       * para a conversa nova, cumprido pelo commit dela.
        */
       desarmar();
-      gravar();
       geracoes += 1;
+      if (trocandoPara !== null) {
+        pedido = { conversa: trocandoPara, geracao: geracoes };
+        return geracoes;
+      }
+      gravar();
       pedido = { conversa: conversaAtual(), geracao: geracoes };
       return geracoes;
     },
     aoSincronizar(gravar, conversaAtual, geracaoComitada) {
-      if (pedido !== null && geracaoComitada >= pedido.geracao) {
+      // O commit da conversa nova chegou ao snapshot: a troca acabou.
+      if (trocandoPara !== null && conversaAtual() === trocandoPara)
+        trocandoPara = null;
+      // Um commit de ANTES da troca não cumpre nem descarta o pedido dela.
+      if (
+        trocandoPara === null &&
+        pedido !== null &&
+        geracaoComitada >= pedido.geracao
+      ) {
         const cumprir = pedido.conversa === conversaAtual();
         pedido = null;
         if (cumprir) gravar();
@@ -140,8 +173,9 @@ export function criarAgendaDeGravacao(opcoes: {
         }, limiteMs);
       });
     },
-    esquecerPedido() {
+    comecarTroca(para) {
       pedido = null;
+      trocandoPara = para;
     },
     descartar() {
       desarmar();
