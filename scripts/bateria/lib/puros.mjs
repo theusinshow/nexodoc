@@ -25,12 +25,20 @@ function executar(args, env, timeoutMs) {
 
 function primeiraLinhaDeErro(saida) {
   const linhas = saida.split(/\r?\n/);
-  const falhouIdx = linhas.findIndex((l) => /FALHOU|falha/.test(l) && !/warning/i.test(l));
+  const falhouIdx = linhas.findIndex((l) => /^FALHOU\b/.test(l.trim()));
   if (falhouIdx !== -1) {
     const header = linhas[falhouIdx].trim();
-    // Procura a primeira linha não-vazia após FALHOU que não seja stack frame ("at ...")
-    const motivo = linhas.slice(falhouIdx + 1).find((l) => l.trim() && !/^\s*at\s+/.test(l))?.trim() ?? "";
-    return (motivo ? `${header}: ${motivo}` : header).slice(0, 200);
+    // Coleta todas as linhas não-vazia após FALHOU até o primeiro stack frame,
+    // juntando com espaço. Assim "Expected..." / "1 !== 2" vira uma só linha.
+    const motivos = [];
+    for (let i = falhouIdx + 1; i < linhas.length; i++) {
+      const linha = linhas[i].trim();
+      if (!linha) continue; // Ignora linhas vazias
+      if (/^\s*at\s+/.test(linhas[i])) break; // Para no primeiro stack frame
+      motivos.push(linha);
+    }
+    const detalhes = motivos.join(" ");
+    return (detalhes ? `${header}: ${detalhes}` : header).slice(0, 200);
   }
   return (
     linhas.find((l) => /Error|AssertionError/.test(l) && !/warning/i.test(l)) ??
