@@ -18,19 +18,14 @@
 // CORRIDA ATUAL apareça ali, mesmo com corridas antigas da bateria deixando
 // outras "BATERIA C5 B" no mesmo balde (o banco não é esvaziado entre corridas).
 //
-// A TROCA ÚNICA NÃO FICA DE PÉ — E ISSO É O DEFEITO, NÃO UM JEITO DE JORNADA
-// (ruling R18, 15/09/2026). `NexoWorkspace.tsx` (~1761-1777) tem um efeito de
-// UMA VEZ SÓ (`retomouRef`) para retomar uma auditoria em voo no F5 — mas ele
-// dispara na PRIMEIRA vez que a conversa ativa se afasta de quem audita,
-// mesmo que o afastamento tenha sido um clique do engenheiro, não um F5.
-// Medido em 15/09/2026 com uma linha do tempo a cada 500ms (Tarefa 12,
-// relatório "Fix round 1"): o clique em B pega, fica marcado por ~1s, e a tela
-// volta sozinha para A. O catálogo espera "auditar; abrir outra conversa;
-// voltar — auditoria segue" com UM clique, não dois — então a jornada abre B
-// uma ÚNICA vez e prova, com uma verificação própria, que a retomada puxa de
-// volta. Esperado VERMELHO hoje; a Tarefa 13 conserta o puxão antes de as
-// verificações de vazamento (parecer só em A) decidirem alguma coisa.
-async function abrirB(ctx) {
+// A TROCA ÚNICA TEM DE FICAR DE PÉ (ruling R18, 15/09/2026). A retomada da
+// auditoria em voo (`NexoWorkspace.tsx`, `retomouRef`) existe para o F5, mas
+// disparava na PRIMEIRA vez que a conversa ativa se afastava de quem audita,
+// mesmo num clique do engenheiro: medido com uma linha do tempo a cada 500ms
+// (Tarefa 12, "Fix round 1"), B ficava marcada por ~1s e a tela voltava
+// sozinha para A. Consertado na Tarefa 13 (`retomada-da-auditoria.ts`); a
+// verificação "B continua aberta alguns segundos depois" é quem trava a volta.
+async function abrirB(ctx, idB) {
   const { page } = ctx;
   await page
     .getByLabel("Buscar conversas por obra ou código")
@@ -42,11 +37,13 @@ async function abrirB(ctx) {
     .click({ timeout: 30_000 });
   await page.waitForTimeout(500);
   await page.getByText("BATERIA C5 B").first().click({ timeout: 30_000 });
-  // Curto de propósito: a linha do tempo de 15/09/2026 (ver topo do arquivo)
-  // mostrou B marcada em t+500/1000ms e já de volta em A em t+1500ms — uma
-  // espera de 1,5s aqui pegaria o puxão em vez do estado aberto que esta
-  // função promete devolver.
-  await page.waitForTimeout(800);
+  // Espera pelo EVENTO (a conversa aberta virou B), não por um relógio afinado
+  // no puxão que existia: quem prova que B fica é a verificação seguinte.
+  await ctx.esperar(
+    async () => (await ctx.conversaAberta()) === idB,
+    20_000,
+    250,
+  );
 }
 export default {
   id: "c5",
@@ -93,7 +90,7 @@ export default {
     if (!bilhete?.auditId) return;
 
     // Um clique só — o gesto natural do catálogo.
-    await abrirB(ctx);
+    await abrirB(ctx, idB);
     const barraB = await ctx.marcadaNaBarra("BATERIA C5 B");
     ctx.verificar(
       "B está aberta enquanto A audita",
@@ -101,11 +98,11 @@ export default {
       barraB.detalhe,
     );
 
-    // A retomada de uma vez só (ver topo do arquivo) reage a QUALQUER
-    // divergência entre a conversa ativa e a que audita — e o clique acima foi
-    // a primeira desde o F5 que começou a auditoria. Esta verificação é a que
-    // prova o puxão: espera alguns segundos e confere se B AINDA está aberta,
-    // em vez de já ter voltado para A sozinha.
+    // A retomada de uma vez só (ver topo do arquivo) reagia à primeira
+    // divergência entre a conversa ativa e a que audita — e o clique acima era
+    // a primeira desde o F5 que começou a auditoria. Esta verificação trava o
+    // puxão: espera alguns segundos e confere se B AINDA está aberta, em vez de
+    // já ter voltado para A sozinha.
     await page.waitForTimeout(3000);
     const barraBDepois = await ctx.marcadaNaBarra("BATERIA C5 B");
     ctx.verificar(
@@ -153,13 +150,17 @@ export default {
     // E "a tela não mostra parecer" só prova o que diz se a tela em jogo É a de
     // B — sem isso, `count() === 0` também passaria com a tela em branco ou
     // noutra conversa, sem nunca ter olhado para B.
+    // O botão "Ver o parecer" mora no cartão do chat de A, que B não tem: contar
+    // só ele passou com o parecer de A aberto no canvas de B (captura de
+    // 15/09/2026, Tarefa 13). O nome do memorial de A na tela é o que denuncia.
     const verEmB = await page
       .getByRole("button", { name: /Ver o parecer/ })
       .count();
+    const arquivoDeAEmB = await page.getByText(bilhete.arquivo).count();
     ctx.verificar(
       "a tela de B não mostra parecer",
-      bAindaAberta && verEmB === 0,
-      `B aberta=${bAindaAberta} (${barraAindaB.detalhe}) botões Ver o parecer=${verEmB}`,
+      bAindaAberta && verEmB === 0 && arquivoDeAEmB === 0,
+      `B aberta=${bAindaAberta} (${barraAindaB.detalhe}) botões Ver o parecer=${verEmB} "${bilhete.arquivo}" na tela=${arquivoDeAEmB}`,
     );
 
     // De volta para A, como quem reabre o Nexo.
@@ -188,8 +189,8 @@ export default {
     );
     ctx.verificar(
       "o bilhete de A saiu do disco",
-      !recA?.auditoriaPendente,
-      JSON.stringify(recA?.auditoriaPendente),
+      recA?.id === idA && !recA.auditoriaPendente,
+      `recA=${recA?.id ?? "null"} bilhete=${JSON.stringify(recA?.auditoriaPendente)}`,
     );
 
     const recBNoFim = await ctx.lerConversa(idB);

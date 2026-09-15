@@ -52,6 +52,7 @@ import {
   type MemorialAuditResult,
 } from "../lib/audit";
 import { idDaAuditoriaDaProposta } from "../lib/auditoria-da-proposta";
+import { desfechoNaChegada } from "../lib/destino-do-parecer";
 import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
 import { useDeltaDoMemorial } from "./use-delta-do-memorial";
 import { usePaginasMudas } from "./use-paginas-mudas";
@@ -2332,6 +2333,7 @@ function AuditoriaConfirmation({
     projectId: projetoDaConversa,
     vincularProjeto,
     appendMessage,
+    conversaAberta,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
@@ -2556,6 +2558,14 @@ function AuditoriaConfirmation({
     });
     /** A saída foi perda de conexão? Decide se o bilhete sobrevive ao `finally`. */
     let desconectou = false;
+    /*
+     * A CONVERSA QUE PEDIU — 15/09/2026, jornada c5. A resposta chega minutos
+     * depois, e `saveResult` grava na conversa aberta NAQUELE instante: trocar
+     * de conversa no meio levava o parecer para a outra. Ver
+     * [[destino-do-parecer.ts]]. Limite: uma resposta que caia na janela de
+     * milissegundos da própria troca ainda lê o id anterior (sem caso medido).
+     */
+    const origem = conversationId;
     try {
       /*
        * AS FOLHAS MUDAS, ANTES DA AUDITORIA — e só se o engenheiro autorizou.
@@ -2613,6 +2623,10 @@ function AuditoriaConfirmation({
           ...(transcricao.length > 0 ? { transcricao } : {}),
         },
       );
+      if (!desfechoNaChegada({ origem, aberta: conversaAberta(), desconectou: false }).gravarParecer) {
+        // Outra conversa aberta: o bilhete desta fica, e ela reconecta ao ser reaberta.
+        return;
+      }
       await saveResult({
         artifactId: id,
         kind: "auditoria",
@@ -2658,7 +2672,9 @@ function AuditoriaConfirmation({
       // Fechou o ciclo nesta aba: não há mais o que reconectar. Se a aba morreu
       // antes daqui — ou se a conexão caiu com a análise em curso —, o bilhete
       // fica e o palco assume.
-      if (!desconectou) marcarAuditoriaPendente(null);
+      if (desfechoNaChegada({ origem, aberta: conversaAberta(), desconectou }).limparBilhete) {
+        marcarAuditoriaPendente(null);
+      }
     }
   }
 

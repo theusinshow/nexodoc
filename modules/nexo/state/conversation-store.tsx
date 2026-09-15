@@ -255,6 +255,12 @@ interface ConversationStoreValue {
   auditoriaPendente: AuditoriaPendente | null;
   marcarAuditoriaPendente: (p: Omit<AuditoriaPendente, "inicioMs"> | null) => void;
   /**
+   * A conversa aberta AGORA, lida do snapshot no momento da chamada — e não a do
+   * render em que o chamador nasceu. É o que deixa uma resposta que chega minutos
+   * depois saber se ainda está na conversa que a pediu (jornada c5, 15/09/2026).
+   */
+  conversaAberta: () => string;
+  /**
    * Retém o PDF do memorial para que dê para auditar de novo depois.
    *
    * É a exceção à regra de que arquivos de entrada não persistem: sem ele, a
@@ -1500,6 +1506,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     };
   }, []);
 
+  const conversaAberta = useCallback(() => snapshotRef.current.conversationId, []);
+
   const value = useMemo<ConversationStoreValue>(
     () => ({
       conversationId,
@@ -1539,6 +1547,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       removeResult,
       auditoriaPendente,
       marcarAuditoriaPendente,
+      conversaAberta,
       salvarMemorial,
       salvarDossieDoMemorial,
       recuperarMemorial,
@@ -1586,6 +1595,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       removeResult,
       auditoriaPendente,
       marcarAuditoriaPendente,
+      conversaAberta,
       salvarMemorial,
       salvarDossieDoMemorial,
       recuperarMemorial,
