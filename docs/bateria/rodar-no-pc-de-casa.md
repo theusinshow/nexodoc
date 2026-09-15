@@ -97,3 +97,16 @@ O plano e o desenho foram escritos para funcionar sem memória. Se quiser levá-
 | Jornada vermelha com `X is not a function` no navegador | chunk velho: apague `.next-bateria` e rode de novo |
 | Erros de tipo estranhos logo depois do `git pull` | `npx prisma generate` |
 | Um teste puro aparece como **apodrecido** | ele nem carrega (import quebrado); a tarefa 10 manda investigar e consertar |
+
+## Próximo passo: CI (fora desta rodada)
+
+A bateria ficou verde em duas rodadas seguidas em 15/09/2026, com as 18 jornadas da segunda rodada. É a condição que o desenho pôs para levar a bateria ao GitHub Actions. O que bloqueia hoje, medido em 15/09/2026:
+
+| Bloqueio | Onde | Saída |
+|---|---|---|
+| Derrubar o servidor no Linux mata só o shell | `scripts/bateria/lib/servidor.mjs`: fora do Windows, `matarFilho` é `filho.kill()`, e o `next dev` é neto do shell (`spawn` com `shell: true`); `matarPorta` usa `kill -9` só no PID que escuta | `spawn` com `detached: true` e `process.kill(-filho.pid)` (o grupo), e `matarPorta` de novo depois |
+| Versão do Node não fixada | `package.json` não tem `engines`; os testes dependem do TypeScript nativo do Node 24 | `"engines": { "node": ">=24" }` e `actions/setup-node` com `node-version: 24` |
+| Navegador do Playwright | nenhum script instala o Chromium | passo `npx playwright install --with-deps chromium` antes de `npm run bateria` |
+| Banco | `DATABASE_URL_BATERIA` mora no `.env.local`, que não existe no runner | segredo do GitHub com a URL do `nexodoc_teste` (sem `-pooler` para o `migrate deploy`), ou `services: postgres` com um banco chamado `nexodoc_teste` — a guarda só olha o nome |
+| `lsof` | `pidsEscutando` fora do Windows | presente no `ubuntu-latest`; em imagem mínima, instalar |
+| Variáveis | `lerEnvLocal` só lê arquivo | todas vêm do `env:` do workflow; `OPENAI_API_KEY` não precisa de valor real (a bateria força `sk-simulada`) |

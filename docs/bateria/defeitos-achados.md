@@ -20,3 +20,5 @@ quebra se o defeito voltar.
 ## Suspeitas abertas
 
 - `newConversation` é síncrono: uma mudança agendada no mesmo tick logo antes dele se perde (nenhum chamador real encontrado).
+- C5: uma resposta de auditoria que chegue dentro da janela da própria troca de conversa (entre `selectConversation` e o commit da conversa nova) ainda lê o id anterior em `conversaAberta()`. Sem caso medido.
+- 403 na auditoria (membro desativado ou removido) ainda cai no "rodando" e pergunta para sempre na reconexão; na largada vira "a conexão caiu". Achado na revisão da x1, 15/09/2026; entra na próxima onda.
