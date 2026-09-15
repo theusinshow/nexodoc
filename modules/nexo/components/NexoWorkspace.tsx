@@ -41,6 +41,7 @@ import {
   deveRestaurar,
   ultimaConversaLembrada,
 } from "../lib/ultima-conversa";
+import { decidirRetomada } from "../lib/retomada-da-auditoria";
 import { FaviconVivo } from "@/components/brand/favicon-vivo";
 import { PaletaDeComandos } from "./PaletaDeComandos";
 import {
@@ -1760,17 +1761,29 @@ function NexoWorkspaceInner({
 
   const retomouRef = useRef(false);
   useEffect(() => {
-    if (retomouRef.current) return;
-    const pendente = conv.conversations.find((c) => c.temAuditoriaPendente);
-    if (!pendente || pendente.id === conv.conversationId) return;
-    retomouRef.current = true;
+    /*
+     * SÓ NA CARGA DA PÁGINA — 15/09/2026, jornada c5. A guarda antiga só se
+     * dava por gasta quando retomava: com a conversa que audita já aberta na
+     * carga, ela ficava armada, e o primeiro clique do engenheiro em outra
+     * conversa com a análise em voo o puxava de volta ~1s depois. Agora a
+     * decisão é tomada uma vez, na primeira lista que chega, retomando ou não.
+     * Ver [[retomada-da-auditoria.ts]].
+     */
+    const decisao = decidirRetomada({
+      jaDecidiu: retomouRef.current,
+      conversas: conv.conversations,
+      aberta: conv.conversationId,
+    });
+    if (decisao.decidiu) retomouRef.current = true;
+    const retomar = decisao.retomar;
+    if (!retomar) return;
     /*
      * Adiado um quadro: `selectConv` mexe em vários estados de uma vez (é o
      * mesmo caminho do clique na sidebar), e disparar isso no corpo do effect
      * encadeia renders — o lint do React Compiler barra, com razão. Aqui não há
      * pressa nenhuma: é a retomada de uma análise que já leva minutos.
      */
-    const quadro = requestAnimationFrame(() => void selectConv(pendente.id));
+    const quadro = requestAnimationFrame(() => void selectConv(retomar));
     return () => cancelAnimationFrame(quadro);
     // `selectConv` é recriada a cada render; a guarda de reentrada é o `ref`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
