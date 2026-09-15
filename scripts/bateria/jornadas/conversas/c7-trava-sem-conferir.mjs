@@ -1,0 +1,138 @@
+// C7 — a trava que ninguém provou (15/09/2026, depois da segunda rodada).
+//
+// Um 409 com a base aberta do disco sem conferir o servidor deixa a marca
+// "manter": pode ter sido a gravação atrasada desta mesma aba. Até 9cd14e6 a
+// faixa dizia "Esta conversa mudou em outra aba" — falso ali — e o único botão
+// trocava o disco pela cópia do servidor, apagando as edições que só existiam
+// nesta máquina. Agora a faixa diz o que se sabe, e a recarga que apagaria algo
+// pede confirmação; "Continuar travada" deixa o disco como está.
+//
+// O estado é montado à mão, como na c4: a conversa no servidor (PUT sem base),
+// a mesma no disco com uma edição a mais e hora mais nova, e a marca "manter".
+const TITULO = "BATERIA C7 TRAVA SEM CONFERIR";
+const SO_AQUI = "edição só desta máquina";
+
+export default {
+  id: "c7",
+  area: "conversas",
+  titulo:
+    "trava sem conferir: a faixa não acusa outra aba, e recarregar do servidor não apaga calado",
+  async rodar(ctx) {
+    const { page } = ctx;
+    await ctx.login();
+    const agora = Date.now();
+    const id = `bateria-c7-${agora}`;
+    const doServidor = {
+      id,
+      title: TITULO,
+      createdAt: agora - 120_000,
+      updatedAt: agora - 60_000,
+      seloResults: [],
+      results: [],
+      messages: [
+        { id: "u1", role: "user", content: "mensagem que o servidor tem" },
+      ],
+    };
+    const resposta = await page.request.put(`${ctx.base}/api/nexo/conversas`, {
+      data: doServidor,
+    });
+    ctx.verificar(
+      "o servidor guardou a conversa semeada",
+      resposta.ok(),
+      `status=${resposta.status()}`,
+    );
+
+    await ctx.indexeddb.gravarConversa({
+      ...doServidor,
+      updatedAt: agora - 30_000,
+      messages: [
+        ...doServidor.messages,
+        { id: "u2", role: "user", content: SO_AQUI },
+      ],
+    });
+    await page.evaluate(
+      (chave) => localStorage.setItem(chave, "manter"),
+      `nexo:recusada-pelo-servidor:${id}`,
+    );
+
+    await ctx.abrirConversa(TITULO);
+
+    const faixaSemConferir = page.getByText(
+      "Não deu para confirmar se esta conversa é a mais nova",
+      { exact: true },
+    );
+    const faixaOutraAba = page.getByText("Esta conversa mudou em outra aba", {
+      exact: true,
+    });
+    await faixaSemConferir
+      .first()
+      .waitFor({ timeout: 30_000 })
+      .catch(() => {});
+    ctx.verificar(
+      "a conversa abre travada com a faixa sem conferir, visível de verdade, e sem acusar outra aba",
+      (await ctx.visivelRolando(faixaSemConferir)) &&
+        (await faixaOutraAba.count()) === 0,
+      `sem conferir=${await faixaSemConferir.count()} outra aba=${await faixaOutraAba.count()}`,
+    );
+
+    const recarregar = page.getByRole("button", {
+      name: "Recarregar do servidor",
+    });
+    await recarregar.click({ timeout: 10_000 }).catch(() => {});
+    const aviso = page.getByText(/diferente da do servidor/);
+    await aviso
+      .first()
+      .waitFor({ timeout: 15_000 })
+      .catch(() => {});
+    ctx.verificar(
+      "recarregar do servidor avisa que a cópia deste navegador é outra, antes de trocar",
+      await ctx.visivelRolando(aviso),
+      `aviso=${await aviso.count()}`,
+    );
+
+    await page
+      .getByRole("button", { name: "Continuar travada" })
+      .click({ timeout: 10_000 })
+      .catch(() => {});
+    await page.waitForTimeout(2000);
+    const depoisDeCancelar = await ctx.lerConversa(id);
+    ctx.verificar(
+      "'Continuar travada' não mexe no disco: a edição só desta máquina continua lá",
+      JSON.stringify(depoisDeCancelar?.messages ?? []).includes(SO_AQUI) &&
+        depoisDeCancelar?.updatedAt === agora - 30_000,
+      `updatedAt=${depoisDeCancelar?.updatedAt} mensagens=${depoisDeCancelar?.messages?.length}`,
+    );
+    ctx.verificar(
+      "e a faixa sem conferir continua",
+      (await faixaSemConferir.count()) === 1,
+      `faixas=${await faixaSemConferir.count()}`,
+    );
+
+    await recarregar.click({ timeout: 10_000 }).catch(() => {});
+    await page
+      .getByRole("button", { name: "Trocar pela do servidor" })
+      .click({ timeout: 15_000 })
+      .catch(() => {});
+    const trocou = await ctx.esperar(
+      async () =>
+        (await ctx.lerConversa(id))?.updatedAt === doServidor.updatedAt,
+      30_000,
+    );
+    const depoisDeTrocar = await ctx.lerConversa(id);
+    ctx.verificar(
+      "confirmada, a troca traz a cópia do servidor para o disco",
+      trocou &&
+        !JSON.stringify(depoisDeTrocar?.messages ?? []).includes(SO_AQUI),
+      `updatedAt=${depoisDeTrocar?.updatedAt} mensagens=${depoisDeTrocar?.messages?.length}`,
+    );
+    const faixaSaiu = await ctx.esperar(
+      async () => (await faixaSemConferir.count()) === 0,
+      15_000,
+    );
+    ctx.verificar(
+      "e a faixa sai",
+      faixaSaiu,
+      `faixas=${await faixaSemConferir.count()}`,
+    );
+  },
+};

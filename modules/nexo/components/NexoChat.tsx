@@ -27,7 +27,6 @@ import { useConexao } from "../lib/use-conexao";
 import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-do-anexo";
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { NexoComposer } from "./NexoComposer";
-import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { UsageDonut } from "./UsageDonut";
 import { BarraDeLeitura } from "./BarraDeLeitura";
 import { ZonaDeSolta } from "./ZonaDeSolta";
@@ -148,6 +147,7 @@ export function NexoChat({
     finalizeMessage,
     saveResult,
     podeGastar,
+    motivoParaNaoGastar,
     conferirAntesDeGastar,
   } = useConversation();
   /*
@@ -797,7 +797,7 @@ export function NexoChat({
             inputRef={inputRef}
             motivoDesabilitado={
               !podeGastar
-                ? MOTIVO_ABA_TRAVADA
+                ? (motivoParaNaoGastar ?? undefined)
                 : online
                   ? undefined
                   : "Sem conexão — o que você escrever fica guardado, mas o envio espera a rede voltar."

@@ -59,6 +59,7 @@ import {
   useConversationUsage,
 } from "../state/use-conversation-usage";
 import { FaixaDeEstado } from "./FaixaDeEstado";
+import { FaixaDaAbaTravada } from "./FaixaDaAbaTravada";
 import { NexoShell } from "./NexoShell";
 import { BarraDoNexo } from "./BarraDoNexo";
 import { NexoSidebar } from "./NexoSidebar";
@@ -2484,28 +2485,13 @@ function NexoWorkspaceInner({
       )}
 
       {/*
-        A CONVERSA MUDOU EM OUTRA ABA — decidido em 15/09/2026 (jornada c3).
-        Bloqueio, não notícia: sem `aoFechar`. Esta aba parou de gravar para não
-        apagar o que a outra fez, e recarregar é o único caminho que devolve a
-        gravação. O texto vale para as duas origens: na recusa do servidor a
-        gravação desta aba chega a passar pelo disco, mas a cópia do servidor
-        desce por cima dela (revisão, 15/09/2026) — "nada foi gravado" mentia ali.
+        A CONVERSA MUDOU EM OUTRA ABA — decidido em 15/09/2026 (jornada c3), e
+        com as duas origens da trava desde depois da segunda rodada: a provada
+        e a sem conferir, cada uma com a sua frase e a sua recarga. Ver
+        [[FaixaDaAbaTravada.tsx]].
       */}
       {conv.conflitoDeVersao && (
-        <FaixaDeEstado
-          tipo="documento"
-          titulo="Esta conversa mudou em outra aba"
-          acao={
-            <Button size="sm" variant="outline" onClick={() => void selectConv(conv.conversationId)}>
-              Recarregar a conversa
-            </Button>
-          }
-        >
-          Outra aba (ou outro computador) gravou esta conversa depois que ela foi aberta aqui.
-          Para não apagar o que foi feito lá, esta aba parou de guardar a conversa: o que
-          foi feito aqui desde então não fica salvo — recarregue para continuar da versão
-          mais nova.
-        </FaixaDeEstado>
+        <FaixaDaAbaTravada aoRecarregar={() => selectConv(conv.conversationId)} />
       )}
 
       {tourAtivo && <TourDoNexo aoSair={encerrarTour} />}

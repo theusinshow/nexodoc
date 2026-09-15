@@ -40,7 +40,6 @@ import type {
 } from "../types";
 import { BlocoDaLd } from "./BlocoDaLd";
 import { ResultLinks } from "./ResultLinks";
-import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversation } from "../state/conversation-store";
 import {
   gerarItem,
@@ -260,6 +259,8 @@ export function PlanoDeGeracao({
     decidir,
     guardarDecisoesVivas,
     podeGastar,
+    motivoParaNaoGastar,
+    motivoDaTrava,
     conferirAntesDeGastar,
   } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
@@ -700,7 +701,7 @@ export function PlanoDeGeracao({
    */
   async function gerarUmItem(i: number) {
     if (!podeGastar) {
-      return { rotulo: itens[i].rotulo, motivo: MOTIVO_ABA_TRAVADA };
+      return { rotulo: itens[i].rotulo, motivo: motivoDaTrava() };
     }
     setGerando(i);
     try {
@@ -1123,7 +1124,7 @@ export function PlanoDeGeracao({
                       onRegerar={() => regerarUmItem(i)}
                       regerando={gerando === i}
                       motivoRegerarBloqueado={
-                        podeGastar ? null : MOTIVO_ABA_TRAVADA
+                        podeGastar ? null : motivoParaNaoGastar
                       }
                     />
                   )}
@@ -1143,7 +1144,7 @@ export function PlanoDeGeracao({
               Boolean(motivoDeBloqueio) ||
               !podeGastar
             }
-            title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
+            title={podeGastar ? undefined : (motivoParaNaoGastar ?? undefined)}
           >
             {ocupado ? (
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -1174,7 +1175,7 @@ export function PlanoDeGeracao({
            */}
           {!podeGastar && (
             <span className="text-xs text-muted-foreground">
-              {MOTIVO_ABA_TRAVADA}
+              {motivoParaNaoGastar}
             </span>
           )}
           {podeGastar && motivoDeBloqueio && (

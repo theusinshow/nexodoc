@@ -150,7 +150,6 @@ import {
   nomeDoZipDosVolumes,
 } from "../lib/nome-do-volume";
 import { ResultLinks } from "./ResultLinks";
-import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import {
   detalheDoParecer,
@@ -642,13 +641,13 @@ function ConfirmButton({
    * aqui; com a conversa mudada em outra aba, o que se gerasse seria pago e
    * nunca gravado. O `title` diz o porquê do botão cinza.
    */
-  const { podeGastar } = useConversation();
+  const { podeGastar, motivoParaNaoGastar } = useConversation();
   return (
     <Button
       size="sm"
       onClick={onConfirm}
       disabled={busy || disabled || !podeGastar}
-      title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
+      title={podeGastar ? undefined : (motivoParaNaoGastar ?? undefined)}
       /*
        * Âmbar quando é RESPOSTA a um estado pendente: teal significa "ação
        * primária nova", e regerar não é ação nova — é consertar o que
@@ -697,7 +696,7 @@ function LdConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, totaisPorDisciplina, identidade, podeGastar } =
+  const { getResult, saveResult, totaisPorDisciplina, identidade, podeGastar, motivoParaNaoGastar, motivoDaTrava } =
     useConversation();
   const id = ldId(selos) + tomo.sufixo;
   const saved = getResult(id);
@@ -739,7 +738,7 @@ function LdConfirmation({
      * direto: o documento sairia e a fila de gravação desta aba o descartaria.
      */
     if (!podeGastar) {
-      setError(MOTIVO_ABA_TRAVADA);
+      setError(motivoDaTrava());
       return;
     }
     setBusy(true);
@@ -873,7 +872,7 @@ function LdConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
-          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
+          motivoRegerarBloqueado={podeGastar ? null : motivoParaNaoGastar}
         />
       )}
       <CardError message={error} />
@@ -938,7 +937,8 @@ function CapaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, results, identidade, podeGastar } = useConversation();
+  const { getResult, saveResult, results, identidade, podeGastar, motivoParaNaoGastar, motivoDaTrava } =
+    useConversation();
   const id = capaId(selos) + tomo.sufixo;
   // Capa gerada antes da correção da chave: acha pelo prefixo antigo.
   const saved =
@@ -968,7 +968,7 @@ function CapaConfirmation({
      * direto: o documento sairia e a fila de gravação desta aba o descartaria.
      */
     if (!podeGastar) {
-      setError(MOTIVO_ABA_TRAVADA);
+      setError(motivoDaTrava());
       return;
     }
     setBusy(true);
@@ -1088,7 +1088,7 @@ function CapaConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
-          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
+          motivoRegerarBloqueado={podeGastar ? null : motivoParaNaoGastar}
         />
       )}
       <CardError message={error} />
@@ -1680,6 +1680,8 @@ function VolumeConfirmation({
     identidade,
     conversationId,
     podeGastar,
+    motivoParaNaoGastar,
+    motivoDaTrava,
     conferirAntesDeGastar,
   } = useConversation();
   const { registrar } = useMontadoresDeVolume();
@@ -1882,8 +1884,8 @@ function VolumeConfirmation({
      * de gravação desta aba descartaria o resultado.
      */
     if (!podeGastar) {
-      setError(MOTIVO_ABA_TRAVADA);
-      return MOTIVO_ABA_TRAVADA;
+      setError(motivoDaTrava());
+      return motivoDaTrava();
     }
     setBusy(true);
     setError(null);
@@ -1895,8 +1897,8 @@ function VolumeConfirmation({
      */
     if (!(await conferirAntesDeGastar())) {
       setBusy(false);
-      setError(MOTIVO_ABA_TRAVADA);
-      return MOTIVO_ABA_TRAVADA;
+      setError(motivoDaTrava());
+      return motivoDaTrava();
     }
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
@@ -2278,7 +2280,7 @@ function VolumeConfirmation({
           saved={saved}
           onRegerar={confirm}
           regerando={busy}
-          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
+          motivoRegerarBloqueado={podeGastar ? null : motivoParaNaoGastar}
         />
       )}
       {/* A conferência do volume montado, logo abaixo do PDF. Crítico pinta o
@@ -2397,6 +2399,7 @@ function AuditoriaConfirmation({
     appendMessage,
     conversaAberta,
     podeGastar,
+    motivoDaTrava,
     conferirAntesDeGastar,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
@@ -2563,7 +2566,7 @@ function AuditoriaConfirmation({
      * pela fila de gravação desta aba.
      */
     if (!podeGastar) {
-      setError(MOTIVO_ABA_TRAVADA);
+      setError(motivoDaTrava());
       return;
     }
     setBusy(true);
@@ -2577,7 +2580,7 @@ function AuditoriaConfirmation({
      */
     if (!(await conferirAntesDeGastar())) {
       setBusy(false);
-      setError(MOTIVO_ABA_TRAVADA);
+      setError(motivoDaTrava());
       return;
     }
 
@@ -3183,7 +3186,8 @@ function SeparatrizConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, identidade, podeGastar } = useConversation();
+  const { results, getResult, saveResult, identidade, podeGastar, motivoParaNaoGastar, motivoDaTrava } =
+    useConversation();
   const id = separatrizId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -3224,7 +3228,7 @@ function SeparatrizConfirmation({
      * direto: o documento sairia e a fila de gravação desta aba o descartaria.
      */
     if (!podeGastar) {
-      setError(MOTIVO_ABA_TRAVADA);
+      setError(motivoDaTrava());
       return;
     }
     setBusy(true);
@@ -3317,7 +3321,7 @@ function SeparatrizConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
-          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
+          motivoRegerarBloqueado={podeGastar ? null : motivoParaNaoGastar}
         />
       )}
       <CardError message={error} />

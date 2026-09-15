@@ -32,7 +32,6 @@ import { baixarArquivosEmZip } from "../lib/editaveis";
 import { nomeDoZipDosVolumes } from "../lib/nome-do-volume";
 import { volumesDesatualizados } from "../lib/volumes-desatualizados";
 import { volumesProntosDosResultados } from "../lib/volumes-prontos";
-import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useMontadoresDeVolume } from "../state/montadores-de-volume";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -65,7 +64,8 @@ export function VolumesDesatualizados({
    */
   temPranchas: boolean;
 }) {
-  const { results, identidade, podeGastar } = useConversation();
+  const { results, identidade, podeGastar, motivoParaNaoGastar, motivoDaTrava } =
+    useConversation();
   const { montador } = useMontadoresDeVolume();
 
   const velhos = useMemo(() => volumesDesatualizados(results), [results]);
@@ -145,7 +145,7 @@ export function VolumesDesatualizados({
      * mesmo motivo e dá a resposta de uma vez, antes de tentar.
      */
     if (!podeGastar) {
-      setErro(MOTIVO_ABA_TRAVADA);
+      setErro(motivoDaTrava());
       return;
     }
     setErro(null);
@@ -226,7 +226,7 @@ export function VolumesDesatualizados({
               size="sm"
               onClick={remontarEBaixar}
               disabled={ocupado || !podeGastar}
-              title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
+              title={podeGastar ? undefined : (motivoParaNaoGastar ?? undefined)}
               /* Âmbar porque é RESPOSTA a algo que envelheceu, não ação nova —
                  a mesma regra do botão do card pendente. */
               className={
@@ -250,7 +250,7 @@ export function VolumesDesatualizados({
             </Button>
             {!podeGastar && (
               <span className="text-xs text-muted-foreground">
-                {MOTIVO_ABA_TRAVADA}
+                {motivoParaNaoGastar}
               </span>
             )}
           </div>

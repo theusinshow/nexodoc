@@ -50,7 +50,14 @@ import {
   type CopiaDoServidor,
   type MarcaDeRecusa,
 } from "../lib/abertura-da-conversa";
-import { podeGastar as podeGastarNaAba } from "../lib/aba-travada";
+import {
+  juntarOrigens,
+  motivoParaNaoGastar as motivoParaNaoGastarNaAba,
+  origemDaTrava,
+  origemDaTravaAoAbrir,
+  podeGastar as podeGastarNaAba,
+  type OrigemDaTrava,
+} from "../lib/aba-travada";
 import type { LeituraDoServidor } from "../lib/conferir-antes-de-gastar";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
@@ -153,6 +160,25 @@ interface ConversationStoreValue {
    * (decidido em 15/09/2026, jornada c3).
    */
   conflitoDeVersao: boolean;
+  /**
+   * De onde veio a trava: "outra-aba" (provado) ou "sem-conferir" (409 com a
+   * base não conferida — pode ter sido esta própria aba). Nulo sem trava. A
+   * faixa diz coisas diferentes para cada uma (ver `lib/aba-travada.ts`).
+   */
+  origemDaTrava: OrigemDaTrava | null;
+  /** A frase que explica o botão cinza, pela origem da trava; nulo sem trava. */
+  motivoParaNaoGastar: string | null;
+  /**
+   * A mesma frase lida AGORA, e não a do render: quem acabou de ser recusado
+   * por `conferirAntesDeGastar` ainda está com o render de antes da trava.
+   */
+  motivoDaTrava: () => string;
+  /**
+   * As versões desta conversa no disco desta máquina e no servidor, lidas
+   * agora (null = não tem, ou não deu para ler). É o que decide se "Recarregar
+   * do servidor" pode apagar alguma coisa (`recargaPedeConfirmacao`).
+   */
+  compararComServidor: () => Promise<{ disco: number | null; servidor: number | null }>;
   /**
    * Falso enquanto `conflitoDeVersao`: a aba travada não dispara auditoria,
    * agente nem geração — o que ela fizesse seria pago e nunca gravado (revisão
@@ -633,10 +659,24 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * e a base de cada conversa mora nela. Ver [[fila-de-gravacao.ts]].
    */
   const [fila] = useState(() => criarFilaDeGravacao<StoredConversation>());
-  const [conflitoDeVersao, setConflitoDeVersao] = useState(false);
-  const marcarConflito = useCallback((conversa: string) => {
-    if (snapshotRef.current.conversationId === conversa) setConflitoDeVersao(true);
+  /*
+   * A TRAVA E A ORIGEM DELA (15/09/2026): o estado desenha a faixa; o ref é
+   * lido na hora por quem acabou de ser recusado (`motivoDaTrava`).
+   */
+  const [trava, setTravaNoEstado] = useState<OrigemDaTrava | null>(null);
+  const travaRef = useRef<OrigemDaTrava | null>(null);
+  const definirTrava = useCallback((origem: OrigemDaTrava | null) => {
+    travaRef.current = origem;
+    setTravaNoEstado(origem);
   }, []);
+  const conflitoDeVersao = trava !== null;
+  const marcarConflito = useCallback(
+    (conversa: string, origem: OrigemDaTrava) => {
+      if (snapshotRef.current.conversationId !== conversa) return;
+      definirTrava(juntarOrigens(travaRef.current, origem));
+    },
+    [definirTrava],
+  );
 
   /*
    * OS GANCHOS DA FILA, criados uma vez: a gravação (`persistNow`) e a
@@ -665,7 +705,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       },
       aoConflito: (id, origem, vaiDescer) => {
         if (origem === "servidor") lembrarRecusa(id, vaiDescer ? "descer" : "manter");
-        marcarConflito(id);
+        marcarConflito(id, origemDaTrava({ origem, vaiDescer }));
       },
       lerDoServidor,
       aoDescer: (id) => {
@@ -1253,7 +1293,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     // Conversa nova ainda não existe no disco: volta a valer a guarda de vazia.
     jaPersistiu.current = false;
     // Nada lido, nada a proteger: a primeira gravação dela vai sem base (c3).
-    setConflitoDeVersao(false);
+    definirTrava(null);
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
     setResults((prev) => {
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -1262,7 +1302,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     // O snapshot começa a carregar a conversa nova com o id ainda da antiga;
     // a troca marcada lá em cima já esqueceu o pedido do flush.
     snapshotRef.current.createdAt = Date.now();
-  }, [agenda, flushPersist, descartarPendente]);
+  }, [agenda, flushPersist, descartarPendente, definirTrava]);
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
@@ -1523,7 +1563,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       // com a faixa. A regra e o porquê em `abreTravada` (lib/abertura-da-conversa.ts).
       const abreTravada = decidirAbreTravada({ lerDoServidorPrimeiro, manterDisco, copiaDoServidor });
       if (abreTravada) fila.travar(rec.id, "servidor");
-      setConflitoDeVersao(abreTravada);
+      definirTrava(abreTravada ? origemDaTravaAoAbrir({ marca }) : null);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
       // colhe isto.
       lembrarUltimaConversa(rec.id);
@@ -1572,7 +1612,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [aberturas, agenda, fila, flushPersist, schedulePersist],
+    [aberturas, agenda, fila, flushPersist, schedulePersist, definirTrava],
   );
 
   const removeConversation = useCallback(
@@ -1797,6 +1837,27 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     return fila.conferirAntesDeGastar(id, leitura, ganchosDaFila);
   }, [fila, ganchosDaFila]);
 
+  const motivoDaTrava = useCallback(
+    () =>
+      motivoParaNaoGastarNaAba({ conflitoDeVersao: true, origem: travaRef.current }) ?? "",
+    [],
+  );
+
+  const compararComServidor = useCallback(async () => {
+    const id = snapshotRef.current.conversationId;
+    const [noDisco, noServidor] = await Promise.all([
+      getConversation(id).then(
+        (rec) => rec?.updatedAt ?? null,
+        () => null,
+      ),
+      listarNoServidor().then(
+        ({ conversas }) => conversas.find((c) => c.id === id)?.updatedAt ?? null,
+        () => null,
+      ),
+    ]);
+    return { disco: noDisco, servidor: noServidor };
+  }, []);
+
   const value = useMemo<ConversationStoreValue>(
     () => ({
       conversationId,
@@ -1808,6 +1869,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       sincronizacao,
       conflitoDeVersao,
       podeGastar: podeGastarNaAba({ conflitoDeVersao }),
+      origemDaTrava: trava,
+      motivoParaNaoGastar: motivoParaNaoGastarNaAba({ conflitoDeVersao, origem: trava }),
+      motivoDaTrava,
+      compararComServidor,
       conferirAntesDeGastar,
       gravacaoLocal,
       results,
@@ -1858,6 +1923,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conversations,
       sincronizacao,
       conflitoDeVersao,
+      trava,
+      motivoDaTrava,
+      compararComServidor,
       conferirAntesDeGastar,
       gravacaoLocal,
       results,
