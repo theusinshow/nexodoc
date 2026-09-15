@@ -34,6 +34,22 @@ export default {
 
     await ctx.abrirConversa("BATERIA C4 CONVERSA ANTIGA");
 
+    /*
+     * ESPERA POR EVENTO, NÃO POR RELÓGIO (15/09/2026). `abrirConversa` dá 2,5s
+     * depois do clique, e desde que a abertura espera a lista do servidor (até
+     * 4s) isso deixou de bastar: numa rodada da área conversas o botão "Auditar
+     * de novo" ainda não existia quando a verificação olhou. Espera a conversa
+     * aberta ser esta, a migração gravada no disco e o botão na tela.
+     */
+    const deNovo = ctx.page.getByRole("button", { name: /auditar de novo/i });
+    const pronta = await ctx.esperar(async () => {
+      if ((await ctx.conversaAberta()) !== id) return false;
+      const r = (await ctx.indexeddb.lerConversas()).find((c) => c.id === id);
+      if (r?.results?.[0]?.artifactId !== "auditoria:117-25:p2") return false;
+      return (await deNovo.count()) > 0;
+    }, 20_000, 500);
+    ctx.verificar("a conversa abriu e migrou em até 20s", pronta, `aberta=${await ctx.conversaAberta()}`);
+
     const rec = (await ctx.indexeddb.lerConversas()).find((c) => c.id === id);
     ctx.verificar("parecer migrou para a última proposta", rec?.results?.[0]?.artifactId === "auditoria:117-25:p2", rec?.results?.[0]?.artifactId);
     ctx.verificar(
@@ -44,7 +60,6 @@ export default {
 
     // Presença no DOM não basta: card fora da dobra ou escondido atrás de outro
     // passaria em `count()` sem nunca ter chegado aos olhos de quem lê a tela.
-    const deNovo = ctx.page.getByRole("button", { name: /auditar de novo/i });
     const qtdDeNovo = await deNovo.count();
     ctx.verificar(
       "um único botão de auditar de novo, visível de verdade",
