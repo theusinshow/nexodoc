@@ -98,15 +98,52 @@ O plano e o desenho foram escritos para funcionar sem memória. Se quiser levá-
 | Erros de tipo estranhos logo depois do `git pull` | `npx prisma generate` |
 | Um teste puro aparece como **apodrecido** | ele nem carrega (import quebrado); a tarefa 10 manda investigar e consertar |
 
-## Próximo passo: CI (fora desta rodada)
+## CI
 
-A bateria ficou verde em duas rodadas seguidas em 15/09/2026, com as 18 jornadas da segunda rodada. É a condição que o desenho pôs para levar a bateria ao GitHub Actions. O que bloqueia hoje, medido em 15/09/2026:
+A bateria inteira (169 testes puros e 18 jornadas) roda no GitHub Actions a cada push na `main` e em todo pull request: `.github/workflows/bateria.yml`. Ficou verde no `ubuntu-latest` na primeira corrida, em 15/09/2026, em cerca de 7 minutos.
 
-| Bloqueio | Onde | Saída |
+### O que o workflow faz
+
+1. `actions/checkout`, `actions/setup-node` com Node 24 e cache do npm (o `package.json` exige `"engines": { "node": ">=24" }`).
+2. `npm ci`, `npx prisma generate` e `npx playwright install --with-deps chromium`.
+3. Sorteia um `AUTH_SECRET` descartável (mascarado no log).
+4. `npm run bateria`, com `DATABASE_URL_BATERIA=postgresql://postgres:postgres@localhost:5432/nexodoc_teste`.
+5. Confere que nada ficou escutando na 3100 e que nenhum `next dev` sobreviveu. Esse passo roda sempre, mesmo com a bateria vermelha.
+6. Se algo falhou, sobe `scratchpad/bateria/**` como artefato.
+
+Não há segredo nenhum no repositório, e não pode haver: ele é público.
+
+- **O banco** é um container `postgres:17` declarado em `services:`. Ele nasce chamado `nexodoc_teste`, e a guarda só confere o nome. `criar-banco.mjs` não roda no CI.
+- **As migrações** vão direto para ele: `prisma.config.ts` só reescreve host do Neon.
+- **O seed** é o mesmo de sempre: `prepararBanco()` recria a `org-prosul` e o usuário da bateria sem precisar de `.env.local`.
+
+Push novo na mesma ref cancela a corrida anterior (`concurrency`). O job tem teto de 45 minutos.
+
+### Ler uma corrida vermelha
+
+```bash
+gh run list --workflow bateria.yml --limit 5
+gh run view <id> --log-failed          # o relatório da bateria está no fim do passo "Bateria"
+gh run download <id> -D scratchpad/ci  # o artefato bateria-<id>-<tentativa>
+```
+
+Dentro do artefato fica `<data-hora>/`, com duas coisas:
+- `servidor.log`: tudo o que o `next dev` escreveu;
+- `<id-da-jornada>.png`: a tela no momento da falha, uma por jornada vermelha.
+
+É o mesmo conteúdo da pasta `scratchpad/bateria/` local. Não há segredo ali: o único do job é o `AUTH_SECRET` sorteado, e o servidor não o escreve no log.
+
+Se o passo "Nenhum servidor da bateria ficou de pé" ficar vermelho com a bateria verde, a derrubada do servidor regrediu. Veja a próxima tabela.
+
+### O que muda entre o CI e o PC
+
+| | PC (Windows) | CI (Linux) |
 |---|---|---|
-| Derrubar o servidor no Linux mata só o shell | `scripts/bateria/lib/servidor.mjs`: fora do Windows, `matarFilho` é `filho.kill()`, e o `next dev` é neto do shell (`spawn` com `shell: true`); `matarPorta` usa `kill -9` só no PID que escuta | `spawn` com `detached: true` e `process.kill(-filho.pid)` (o grupo), e `matarPorta` de novo depois |
-| Versão do Node não fixada | `package.json` não tem `engines`; os testes dependem do TypeScript nativo do Node 24 | `"engines": { "node": ">=24" }` e `actions/setup-node` com `node-version: 24` |
-| Navegador do Playwright | nenhum script instala o Chromium | passo `npx playwright install --with-deps chromium` antes de `npm run bateria` |
-| Banco | `DATABASE_URL_BATERIA` mora no `.env.local`, que não existe no runner | segredo do GitHub com a URL do `nexodoc_teste` (sem `-pooler` para o `migrate deploy`), ou `services: postgres` com um banco chamado `nexodoc_teste` — a guarda só olha o nome |
-| `lsof` | `pidsEscutando` fora do Windows | presente no `ubuntu-latest`; em imagem mínima, instalar |
-| Variáveis | `lerEnvLocal` só lê arquivo | todas vêm do `env:` do workflow; `OPENAI_API_KEY` não precisa de valor real (a bateria força `sk-simulada`) |
+| Banco | `nexodoc_teste` no Neon, pela URL do `.env.local` | Postgres 17 local do container, sem SSL, zerado a cada corrida |
+| Ambiente | `.env.local` mais o que `ambiente.mjs` força | só o `env:` do workflow mais o que `ambiente.mjs` força. Não há chave da OpenAI, Google nem Resend, e a bateria não precisa delas |
+| Derrubar o servidor | `taskkill /PID <shell> /T /F` e depois a porta (`netstat`) | o `next dev` sobe num grupo de processos próprio (`detached: true`). Cai com `SIGTERM` no grupo, 5 s de folga, `SIGKILL` em quem sobrou, e depois a porta (`lsof`; sem ele, `ss` ou `fuser`) |
+| Ctrl+C / cancelamento | o console já mata a árvore inteira | o grupo próprio não recebe o sinal do terminal: `rodar.mjs` chama `derrubarServidoresVivos()`, e um `process.on("exit")` manda `SIGKILL` no grupo como última rede |
+| Fuso | o da máquina | `TZ=America/Sao_Paulo`, fixado no workflow |
+| Idioma do Chromium | o do Windows | o padrão do runner (`en-US`). Nenhuma jornada depende disso hoje |
+
+Nada de tempo foi afrouxado para o CI: as 18 jornadas passaram no runner com as mesmas esperas do PC.

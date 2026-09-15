@@ -51,9 +51,9 @@ jobs:
       CI: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -76,11 +76,25 @@ jobs:
       - name: Bateria
         run: npm run bateria
 
+      # A bateria derruba o `next dev` pelo grupo de processos; se isso regredir,
+      # o runner apagaria o órfão calado no fim do job. Aqui ele fica vermelho.
+      - name: Nenhum servidor da bateria ficou de pé
+        if: always()
+        run: |
+          if lsof -nP -ti tcp:3100 -sTCP:LISTEN; then
+            echo "::error::alguém ainda escuta na 3100 depois da bateria"
+            exit 1
+          fi
+          if pgrep -af "next dev"; then
+            echo "::error::um next dev sobreviveu à bateria"
+            exit 1
+          fi
+
       # Capturas das jornadas vermelhas e o servidor.log do `next dev`. Não há
       # segredo ali: o único é o AUTH_SECRET sorteado, que o servidor não loga.
       - name: Artefatos da corrida
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bateria-${{ github.run_id }}-${{ github.run_attempt }}
           path: scratchpad/bateria/**
