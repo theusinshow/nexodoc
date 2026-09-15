@@ -21,6 +21,21 @@ export default {
     await ver.last().click();
     await ctx.page.waitForTimeout(1500);
 
+    // A PRECONDIÇÃO do cenário inteiro é esta: "com parecer no palco". Sem
+    // provar que o veredito está mesmo renderizado antes de digitar, um "Ver
+    // o parecer" que não abrisse nada (ou abrisse outra coisa) deixaria a
+    // jornada inteira testando uma premissa falsa. `data-tour="veredito-parecer"`
+    // (`components/audit-result.tsx:2600`) só existe quando `report` está
+    // presente (linha 1594) — nasce com QUALQUER parecer, completo ou não
+    // (a2 prova isso com "AUDITORIA INCOMPLETA"), então serve de prova
+    // genérica sem depender do conteúdo específico deste memorial.
+    const parecerNoPalco = ctx.page.locator('[data-tour="veredito-parecer"]');
+    ctx.verificar(
+      "o parecer está aberto no palco antes do pedido, visível de verdade",
+      await ctx.visivelRolando(parecerNoPalco),
+      `veredito no palco=${await parecerNoPalco.count()}`,
+    );
+
     // Não `exact: true`: a bolha traz um rótulo de acessibilidade colado no
     // mesmo elemento ("Nexo: ", `NexoChat.tsx:1128`, `<span className="sr-only">`),
     // então o texto INTEIRO da bolha é "Nexo: Vou auditar o memorial (resposta
@@ -28,6 +43,13 @@ export default {
     // resposta pelos 60s inteiros achando 0 sempre (medido em 15/09/2026 com
     // `page.evaluate` despejando o texto real da bolha). Substring pega a
     // resposta pronta sem depender do rótulo.
+    //
+    // O chip "Auditar o memorial" do `abrirCartaoDeAuditoria` MANDA "audita o
+    // memorial" pelo mesmo composer (`NexoWorkspace.tsx:933`, `commit: "send"`)
+    // — e como ainda não havia parecer naquele momento, foi ao agente e já
+    // deixou UMA bolha "Vou auditar o memorial (resposta simulada)." na
+    // conversa. É por isso que a prova de resposta compara antes/depois, e
+    // não apenas `count() > 0`: a contagem "antes" já nasce em 1.
     const respostas = ctx.page.getByText(RESPOSTA_DO_AGENTE);
     const respostasAntes = await respostas.count();
     const botoesAuditarAntes = await ctx.page
@@ -64,9 +86,11 @@ export default {
       respondeu,
       `respostas antes=${respostasAntes} depois=${await respostas.count()}`,
     );
+    // O catálogo é uma chamada, não "pelo menos uma": medido em 15/09/2026,
+    // uma única `POST /api/nexo/agent` dentro desta janela.
     ctx.verificar(
       "o pedido foi ao agente",
-      agente.total() >= 1,
+      agente.total() === 1,
       `chamadas ao agente=${agente.total()}`,
     );
     // P5: "chat da auditoria=0" sozinho não prova nada — uma jornada que nunca
