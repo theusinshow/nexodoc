@@ -120,4 +120,36 @@ test("c5 em sequência: carga, auditoria começa em A, abre B — nenhuma retoma
   }
 });
 
+/*
+ * F5 DE VOLTA PARA A, COM O BILHETE DE A NO DISCO — 15/09/2026, fim da c5.
+ * A restauração da última conversa já está abrindo A (assíncrona) quando a
+ * lista chega com a conversa nova ainda aberta. Retomar abria A DE NOVO: o chat
+ * remontava ~0,5s depois de aparecer, com a rolagem de volta ao topo (medido:
+ * `restaura A` em 598ms, `retoma A aberta=<nova>` em 626ms, log do chat trocado
+ * em 1749ms e de novo em 2166ms, depois de o parecer já estar na tela).
+ */
+test("F5 cuja restauração já está abrindo A: decidido, sem abrir A de novo", () => {
+  assert.deepEqual(
+    decidirRetomada({
+      jaDecidiu: false,
+      conversas: [A, B],
+      aberta: "nova",
+      abrindo: "A",
+    }),
+    { decidiu: true, retomar: null },
+  );
+});
+
+test("F5 cuja restauração abre B com A auditando: A continua sendo retomada", () => {
+  assert.deepEqual(
+    decidirRetomada({
+      jaDecidiu: false,
+      conversas: [A, B],
+      aberta: "nova",
+      abrindo: "B",
+    }),
+    { decidiu: true, retomar: "A" },
+  );
+});
+
 console.log(`\n${passed} teste(s) passaram`);

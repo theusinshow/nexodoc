@@ -1612,6 +1612,12 @@ function NexoWorkspaceInner({
    * ver `deveRestaurar`.
    */
   const restaurouUltima = useRef(false);
+  /**
+   * A conversa que esta carga MANDOU abrir, e cuja abertura ainda pode estar em
+   * curso. A retomada da auditoria em voo, logo abaixo, lê isto para não abrir a
+   * mesma conversa uma segunda vez (c5, 15/09/2026).
+   */
+  const abrindoNaCarga = useRef<string | null>(null);
   useEffect(() => {
     if (restaurouUltima.current || typeof window === "undefined") return;
     restaurouUltima.current = true;
@@ -1635,6 +1641,9 @@ function NexoWorkspaceInner({
      * reclamando de uma conveniência que ninguém pediu.
      */
     const raf = requestAnimationFrame(() => {
+      // Marcado aqui, e não antes do quadro: um quadro cancelado não abre nada,
+      // e não pode impedir a retomada de abrir.
+      abrindoNaCarga.current = id;
       void Promise.resolve(selectConv(id)).catch(() => {});
     });
     return () => cancelAnimationFrame(raf);
@@ -1767,12 +1776,15 @@ function NexoWorkspaceInner({
      * carga, ela ficava armada, e o primeiro clique do engenheiro em outra
      * conversa com a análise em voo o puxava de volta ~1s depois. Agora a
      * decisão é tomada uma vez, na primeira lista que chega, retomando ou não.
-     * Ver [[retomada-da-auditoria.ts]].
+     * E não reabre a conversa que a restauração da carga já está abrindo: no
+     * F5 de volta para A (fim da c5) as duas aberturas remontavam o chat
+     * depois de o parecer aparecer. Ver [[retomada-da-auditoria.ts]].
      */
     const decisao = decidirRetomada({
       jaDecidiu: retomouRef.current,
       conversas: conv.conversations,
       aberta: conv.conversationId,
+      abrindo: abrindoNaCarga.current,
     });
     if (decisao.decidiu) retomouRef.current = true;
     const retomar = decisao.retomar;

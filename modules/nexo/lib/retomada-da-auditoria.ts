@@ -18,17 +18,28 @@
  * Lista vazia conta como "ainda não chegou": quem não tem conversa nenhuma
  * também não tem auditoria a retomar, e a primeira lista com conteúdo decide.
  *
+ * `abrindo` é a conversa que a própria carga já mandou abrir (a última lembrada,
+ * ou a da URL), cuja abertura é assíncrona. 15/09/2026, fim da c5: F5 de volta
+ * para A com o bilhete de A no disco — a lista chegava com a conversa nova ainda
+ * aberta, e a retomada abria A uma SEGUNDA vez. O chat remontava ~0,5s depois de
+ * aparecer, com a rolagem de volta ao topo. Se ela já está sendo aberta, não há
+ * o que retomar.
+ *
  * PURO e sem imports: roda no node cru.
  */
 export function decidirRetomada(args: {
   jaDecidiu: boolean;
   conversas: readonly { id: string; temAuditoriaPendente?: boolean }[];
   aberta: string;
+  abrindo?: string | null;
 }): { decidiu: boolean; retomar: string | null } {
   if (args.jaDecidiu || args.conversas.length === 0) {
     return { decidiu: false, retomar: null };
   }
   const pendente = args.conversas.find((c) => c.temAuditoriaPendente);
-  const retomar = pendente && pendente.id !== args.aberta ? pendente.id : null;
+  const jaEmCaminho =
+    pendente !== undefined &&
+    (pendente.id === args.aberta || pendente.id === args.abrindo);
+  const retomar = pendente && !jaEmCaminho ? pendente.id : null;
   return { decidiu: true, retomar };
 }
