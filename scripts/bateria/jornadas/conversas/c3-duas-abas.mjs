@@ -65,12 +65,34 @@ export default {
       `pareceres no servidor=${pareceresDe(antes?.data).length} leituras=${JSON.stringify(leituras)}`,
     );
 
+    /*
+     * O PRIMEIRO GESTO PAGO DA ABA PARADA NÃO SAI (15/09/2026). Até 9cd14e6 a
+     * trava só acendia com a gravação recusada: o primeiro turno do agente de
+     * uma aba parada ia ao modelo (medido com a conferência desligada:
+     * POSTs /api/nexo/agent=1). Agora a aba confere a versão com o servidor
+     * antes de gastar, e a faixa acende sem a aba ter gravado nada.
+     *
+     * O "Auditar" do cartão não entra aqui: na aba restaurada ele nasce cinza
+     * (medido: `Auditar|disabled`, o memorial retido não volta ao cartão — ver
+     * "Suspeitas abertas" no registro), então o clique nem chega ao `confirm`.
+     * O que se conta é que nenhum dos dois POSTs pagos sai desta aba.
+     */
+    const ePost = (caminho) => (req) => req.method() === "POST" && new URL(req.url()).pathname === caminho;
     await aba2.bringToFront();
+    const turnosDaAba2 = ctx.contarRequisicoes(ePost("/api/nexo/agent"), aba2);
+    const auditoriasDaAba2 = ctx.contarRequisicoes(ePost("/api/audit"), aba2);
     await ctx.escrever("oi, tudo bem?", aba2);
     await aba2.waitForTimeout(6000);
+    turnosDaAba2.parar();
+    auditoriasDaAba2.parar();
 
     const faixa = aba2.getByText("Esta conversa mudou em outra aba", { exact: true });
     ctx.verificar("a aba 2 avisa que a conversa mudou em outra aba, visível de verdade", await ctx.visivelRolando(faixa), `contagem=${await faixa.count()}`);
+    ctx.verificar(
+      "o primeiro envio da aba 2, parada, é recusado antes de gastar: nenhum POST a /api/nexo/agent nem a /api/audit",
+      turnosDaAba2.total() === 0 && auditoriasDaAba2.total() === 0,
+      `POSTs /api/nexo/agent=${turnosDaAba2.total()} /api/audit=${auditoriasDaAba2.total()}`,
+    );
 
     // A ABA TRAVADA NÃO GASTA (revisão final, 15/09/2026): com a faixa acesa, o
     // envio e o "Auditar" ficam travados — o que rodasse seria pago e descartado.

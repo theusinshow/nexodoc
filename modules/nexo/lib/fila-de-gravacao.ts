@@ -35,6 +35,10 @@
  * como na `agenda-de-gravacao.ts`, porque o store cria a fila uma vez só.
  */
 import { gravacaoDesatualizada } from "../../../server/nexo/conversa-remota.ts";
+import {
+  decidirAntesDeGastar,
+  type LeituraDoServidor,
+} from "./conferir-antes-de-gastar.ts";
 
 export type OrigemDoConflito = "disco" | "servidor";
 
@@ -106,7 +110,24 @@ export type FilaDeGravacao<R extends Registro> = {
   confirmar: (id: string, versao: number) => void;
   /** Trava por fora da fila (o 409 do servidor). */
   travar: (id: string, origem: OrigemDoConflito) => void;
+  /**
+   * ANTES DE GASTAR (auditoria, agente, conferência do volume): confere a base
+   * desta aba com a versão que o servidor guarda, pela regra da rota. Devolve
+   * se pode gastar. Desatualizada, trava EXATAMENTE como um 409 — mesma origem,
+   * mesmo aviso, a mesma descida da cópia quando a base estava conferida. Ver
+   * [[conferir-antes-de-gastar.ts]].
+   */
+  conferirAntesDeGastar: (
+    id: string,
+    leitura: LeituraDoServidor,
+    ganchos: GanchosDaGravacao<R>,
+  ) => boolean;
   travada: (id: string) => OrigemDoConflito | null;
+  /**
+   * Esta aba tem base para esta conversa (abriu ou gravou)? Sem base não há o
+   * que conferir antes de gastar: conversa nova nunca está desatualizada.
+   */
+  temBase: (id: string) => boolean;
   /** Resolve quando o que está na fila agora terminar. */
   ociosa: () => Promise<void>;
 };
@@ -206,6 +227,11 @@ export function criarFilaDeGravacao<R extends Registro>(
       return;
     }
     if (resposta !== "desatualizada") return;
+    recusar(id, epoca, g);
+  }
+
+  /** A recusa do servidor: o 409, ou a conferência de antes de gastar. */
+  function recusar(id: string, epoca: number, g: GanchosDaGravacao<R>) {
     const antes = travadas.get(id);
     if (antes === undefined) travadas.set(id, "servidor");
     /*
@@ -340,8 +366,25 @@ export function criarFilaDeGravacao<R extends Registro>(
       // A primeira origem fica: é ela que diz de onde recarregar.
       if (!travadas.has(id)) travadas.set(id, origem);
     },
+    conferirAntesDeGastar(id, leitura, g) {
+      if (travadas.has(id)) return false;
+      const base = bases.get(id) ?? null;
+      const proprias = (pendentes.get(id) ?? []).filter(
+        (v) => base === null || v > base,
+      );
+      const decisao = decidirAntesDeGastar({ leitura, base, proprias });
+      if (!decisao.gastar) {
+        recusar(id, epocas.get(id) ?? 0, g);
+        return false;
+      }
+      if (decisao.conferida) naoConferidas.delete(id);
+      return true;
+    },
     travada(id) {
       return travadas.get(id) ?? null;
+    },
+    temBase(id) {
+      return bases.has(id);
     },
     ociosa() {
       return cauda;

@@ -148,6 +148,7 @@ export function NexoChat({
     finalizeMessage,
     saveResult,
     podeGastar,
+    conferirAntesDeGastar,
   } = useConversation();
   /*
    * O PARECER NO PALCO decide a porta do turno. Com parecer, a pergunta vai
@@ -337,6 +338,15 @@ export function NexoChat({
     // Aba travada (conversa mudada em outra aba) não chama o agente: o turno
     // seria pago e descartado pela fila. O campo já diz o porquê.
     if (!podeGastar) return;
+    /*
+     * Nem o PRIMEIRO turno de uma aba parada (15/09/2026): a trava de cima só
+     * acende depois de uma gravação recusada. Pergunta ao servidor antes; a
+     * recusa acende a faixa e trava o campo, e o texto fica escrito nele.
+     */
+    setBusy(true);
+    const podeSeguir = await conferirAntesDeGastar();
+    setBusy(false);
+    if (!podeSeguir) return;
     // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
     onSend?.();
     setError(null);

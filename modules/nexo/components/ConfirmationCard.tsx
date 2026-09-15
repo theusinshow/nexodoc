@@ -1659,6 +1659,7 @@ function VolumeConfirmation({
     identidade,
     conversationId,
     podeGastar,
+    conferirAntesDeGastar,
   } = useConversation();
   const { registrar } = useMontadoresDeVolume();
   const id = volumeId(selos) + tomo.sufixo;
@@ -1865,6 +1866,17 @@ function VolumeConfirmation({
     }
     setBusy(true);
     setError(null);
+    /*
+     * E A PRIMEIRA MONTAGEM DE UMA ABA PARADA TAMBÉM NÃO — 15/09/2026. A trava
+     * de cima só acende depois de uma gravação recusada; antes dela, a aba que
+     * abriu a conversa antes de outra mudá-la montaria e pagaria a conferência.
+     * Pergunta ao servidor antes (ver [[conferir-antes-de-gastar.ts]]).
+     */
+    if (!(await conferirAntesDeGastar())) {
+      setBusy(false);
+      setError(MOTIVO_ABA_TRAVADA);
+      return MOTIVO_ABA_TRAVADA;
+    }
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
       const ldPdf64 = ldPdfUrl ? await urlToBase64(ldPdfUrl) : null;
@@ -2364,6 +2376,7 @@ function AuditoriaConfirmation({
     appendMessage,
     conversaAberta,
     podeGastar,
+    conferirAntesDeGastar,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
@@ -2534,6 +2547,18 @@ function AuditoriaConfirmation({
     }
     setBusy(true);
     setError(null);
+    /*
+     * NEM A PRIMEIRA — 15/09/2026. Sem gravação recusada ainda, a aba que abriu
+     * a conversa antes de outra aba auditá-la auditaria de novo, pagando de 3 a
+     * 6 minutos de modelo por um parecer que a fila descartaria. Pergunta ao
+     * servidor antes (ver [[conferir-antes-de-gastar.ts]]); fora do alcance,
+     * audita como sempre.
+     */
+    if (!(await conferirAntesDeGastar())) {
+      setBusy(false);
+      setError(MOTIVO_ABA_TRAVADA);
+      return;
+    }
 
     /*
      * O ENDEREÇO ANTES DO TRABALHO.

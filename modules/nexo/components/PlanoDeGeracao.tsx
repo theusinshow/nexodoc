@@ -260,6 +260,7 @@ export function PlanoDeGeracao({
     decidir,
     guardarDecisoesVivas,
     podeGastar,
+    conferirAntesDeGastar,
   } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
@@ -730,6 +731,12 @@ export function PlanoDeGeracao({
   }
 
   async function gerarTudo() {
+    /*
+     * Um gesto, uma conferência (15/09/2026): a aba parada que ainda não gravou
+     * nada não tem a trava acesa, e geraria documentos que a fila descartaria.
+     * Recusada, a faixa acende e `podeGastar` diz o porquê embaixo do botão.
+     */
+    if (!(await conferirAntesDeGastar())) return;
     // As decisões que sobreviveram a este turno. Sem guardar de volta, uma que
     // perdeu para o agente voltaria a vencer quando ele repetisse o valor novo.
     guardarDecisoesVivas(mesclado.vivas);
@@ -754,6 +761,7 @@ export function PlanoDeGeracao({
    * voltaria a vencer no arquivo refeito.
    */
   async function regerarUmItem(i: number) {
+    if (!(await conferirAntesDeGastar())) return;
     guardarDecisoesVivas(mesclado.vivas);
     setFalhas([]);
     try {

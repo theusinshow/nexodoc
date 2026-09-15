@@ -41,7 +41,7 @@ import { escolherCopia } from "../lib/copia-mais-nova";
 import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
-import { criarFilaDeGravacao } from "../lib/fila-de-gravacao";
+import { criarFilaDeGravacao, type GanchosDaGravacao } from "../lib/fila-de-gravacao";
 import { criarUltimaAbertura } from "../lib/ultima-abertura";
 import {
   abreTravada as decidirAbreTravada,
@@ -51,6 +51,7 @@ import {
   type MarcaDeRecusa,
 } from "../lib/abertura-da-conversa";
 import { podeGastar as podeGastarNaAba } from "../lib/aba-travada";
+import type { LeituraDoServidor } from "../lib/conferir-antes-de-gastar";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
   esquecerUltimaConversa,
@@ -158,6 +159,15 @@ interface ConversationStoreValue {
    * final da segunda rodada, 15/09/2026). Ver `lib/aba-travada.ts`.
    */
   podeGastar: boolean;
+  /**
+   * ANTES DE GASTAR (auditar, turno do agente, conferir o volume, gerar pelo
+   * plano): pergunta ao servidor a versão guardada desta conversa e confere com
+   * a base desta aba, pela regra da rota. Desatualizada: trava como um 409 (a
+   * mesma faixa) e devolve `false` — quem chama não gasta. Servidor fora do
+   * alcance: devolve `true` (offline segue como sempre). Ver
+   * [[conferir-antes-de-gastar.ts]].
+   */
+  conferirAntesDeGastar: () => Promise<boolean>;
   /**
    * Como foi a última gravação no DISCO desta máquina.
    *
@@ -320,6 +330,9 @@ export type AuditoriaPendente = NonNullable<StoredConversation["auditoriaPendent
 const ConversationStoreContext = createContext<ConversationStoreValue | null>(null);
 
 const PERSIST_DEBOUNCE_MS = 500;
+
+/** Quanto a conferência de antes de gastar espera o servidor responder. */
+const LIMITE_DA_CONFERENCIA_MS = 5000;
 
 /** Título derivado: obra do selo > 1ª mensagem do usuário > "Nova conversa". */
 /**
@@ -625,6 +638,74 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     if (snapshotRef.current.conversationId === conversa) setConflitoDeVersao(true);
   }, []);
 
+  /*
+   * OS GANCHOS DA FILA, criados uma vez: a gravação (`persistNow`) e a
+   * conferência de antes de gastar (`conferirAntesDeGastar`) passam os MESMOS —
+   * a recusa de antes de gastar trava, avisa e desce a cópia exatamente como o
+   * 409 de uma gravação.
+   */
+  const ganchosDaFila = useMemo<GanchosDaGravacao<StoredConversation>>(
+    () => ({
+      lerVersaoNoDisco: versaoMaisNovaNoDisco,
+      gravarNoDisco: putConversation,
+      depoisDoDisco: (_rec, ok) => {
+        if (ok) {
+          setGravacaoLocal("ok");
+          refreshList();
+          return;
+        }
+        /*
+         * A FALHA CONTA. Era `.catch(() => {})`, e o silêncio dela é o que fez o
+         * parecer do 084_25 sumir sem ninguém saber por quê: quota estourada,
+         * transação abortada ou despejo por pressão de armazenamento produziam
+         * exatamente o mesmo nada. Quem grava e não avisa que não gravou está
+         * dizendo que gravou.
+         */
+        setGravacaoLocal("falhou");
+      },
+      aoConflito: (id, origem, vaiDescer) => {
+        if (origem === "servidor") lembrarRecusa(id, vaiDescer ? "descer" : "manter");
+        marcarConflito(id);
+      },
+      lerDoServidor,
+      aoDescer: (id) => {
+        esquecerRecusa(id);
+        refreshList();
+      },
+      /*
+       * A resposta volta para a fila, que confirma a base ou, no 409 (outra
+       * máquina gravou depois da base desta aba), trava e desce a cópia do
+       * servidor para o disco. A fila ignora a resposta de uma gravação de antes
+       * da recarga: ela não pode travar de novo a conversa recarregada.
+       */
+      enviarAoServidor: (gravado, base, proprias) =>
+        gravarNoServidor(gravado, base, proprias).then((estado) => {
+          if (estado.estado === "desatualizada") return "desatualizada" as const;
+          /*
+           * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
+           * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
+           * modo de falhar caro deste projeto é o que parece ter dado certo.
+           */
+          setSincronizacao(estado);
+
+          /*
+           * EXPURGADA NO MEIO DA GRAVAÇÃO — a corrida que o 410 fecha.
+           *
+           * O administrador apagou esta conversa enquanto ela estava aberta aqui. O
+           * servidor recusou, e insistir seria ressuscitá-la. A cópia local sai
+           * agora, com os blobs, e a lista se redesenha sem ela.
+           */
+          if (estado.estado === "expurgada") {
+            dbDelete(gravado.id)
+              .catch(() => {})
+              .finally(refreshList);
+          }
+          return estado.estado === "ok" ? ("ok" as const) : ("outra" as const);
+        }),
+    }),
+    [refreshList, marcarConflito],
+  );
+
   // Grava o snapshot atual AGORA (base do debounce E do flush ao trocar conversa).
   const persistNow = useCallback(() => {
     const s = snapshotRef.current;
@@ -756,65 +837,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
      * o trabalho dela. A ida ao servidor sai já, com a base e as próprias, e a
      * rota recusa pelo mesmo motivo (409).
      */
-    fila.gravar(rec, {
-      lerVersaoNoDisco: versaoMaisNovaNoDisco,
-      gravarNoDisco: putConversation,
-      depoisDoDisco: (_rec, ok) => {
-        if (ok) {
-          setGravacaoLocal("ok");
-          refreshList();
-          return;
-        }
-        /*
-         * A FALHA CONTA. Era `.catch(() => {})`, e o silêncio dela é o que fez o
-         * parecer do 084_25 sumir sem ninguém saber por quê: quota estourada,
-         * transação abortada ou despejo por pressão de armazenamento produziam
-         * exatamente o mesmo nada. Quem grava e não avisa que não gravou está
-         * dizendo que gravou.
-         */
-        setGravacaoLocal("falhou");
-      },
-      aoConflito: (id, origem, vaiDescer) => {
-        if (origem === "servidor") lembrarRecusa(id, vaiDescer ? "descer" : "manter");
-        marcarConflito(id);
-      },
-      lerDoServidor,
-      aoDescer: (id) => {
-        esquecerRecusa(id);
-        refreshList();
-      },
-      /*
-       * A resposta volta para a fila, que confirma a base ou, no 409 (outra
-       * máquina gravou depois da base desta aba), trava e desce a cópia do
-       * servidor para o disco. A fila ignora a resposta de uma gravação de antes
-       * da recarga: ela não pode travar de novo a conversa recarregada.
-       */
-      enviarAoServidor: (gravado, base, proprias) =>
-        gravarNoServidor(gravado, base, proprias).then((estado) => {
-          if (estado.estado === "desatualizada") return "desatualizada" as const;
-          /*
-           * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
-           * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
-           * modo de falhar caro deste projeto é o que parece ter dado certo.
-           */
-          setSincronizacao(estado);
-
-          /*
-           * EXPURGADA NO MEIO DA GRAVAÇÃO — a corrida que o 410 fecha.
-           *
-           * O administrador apagou esta conversa enquanto ela estava aberta aqui. O
-           * servidor recusou, e insistir seria ressuscitá-la. A cópia local sai
-           * agora, com os blobs, e a lista se redesenha sem ela.
-           */
-          if (estado.estado === "expurgada") {
-            dbDelete(gravado.id)
-              .catch(() => {})
-              .finally(refreshList);
-          }
-          return estado.estado === "ok" ? ("ok" as const) : ("outra" as const);
-        }),
-    });
-  }, [refreshList, fila, marcarConflito]);
+    fila.gravar(rec, ganchosDaFila);
+  }, [fila, ganchosDaFila]);
 
   // Debounce: grava 500ms após a última mudança.
   const schedulePersist = useCallback(() => {
@@ -1744,6 +1768,35 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const conversaAberta = useCallback(() => snapshotRef.current.conversationId, []);
 
+  const conferirAntesDeGastar = useCallback(async (): Promise<boolean> => {
+    const id = snapshotRef.current.conversationId;
+    if (fila.travada(id)) return false;
+    // Conversa nova (sem base): nunca está desatualizada, e não paga a ida à rede.
+    if (!fila.temBase(id)) return true;
+    /*
+     * A LISTA, e não a conversa inteira: ela traz o `updatedAt` de cada conversa
+     * sem arrastar o `data` (a mesma rota que a barra lateral já usa). Com
+     * limite: servidor que não responde conta como fora do alcance, e o gesto
+     * segue — travar o trabalho por lentidão de rede seria o defeito inverso.
+     */
+    const leitura: LeituraDoServidor = await Promise.race([
+      listarNoServidor().then(
+        ({ conversas, sincronizando }): LeituraDoServidor =>
+          sincronizando
+            ? {
+                estado: "lida",
+                guardada: conversas.find((c) => c.id === id)?.updatedAt ?? null,
+              }
+            : { estado: "sem-servidor" },
+        (): LeituraDoServidor => ({ estado: "inalcancavel" }),
+      ),
+      new Promise<LeituraDoServidor>((r) =>
+        setTimeout(() => r({ estado: "inalcancavel" }), LIMITE_DA_CONFERENCIA_MS),
+      ),
+    ]);
+    return fila.conferirAntesDeGastar(id, leitura, ganchosDaFila);
+  }, [fila, ganchosDaFila]);
+
   const value = useMemo<ConversationStoreValue>(
     () => ({
       conversationId,
@@ -1755,6 +1808,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       sincronizacao,
       conflitoDeVersao,
       podeGastar: podeGastarNaAba({ conflitoDeVersao }),
+      conferirAntesDeGastar,
       gravacaoLocal,
       results,
       appendMessage,
@@ -1804,6 +1858,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conversations,
       sincronizacao,
       conflitoDeVersao,
+      conferirAntesDeGastar,
       gravacaoLocal,
       results,
       appendMessage,
