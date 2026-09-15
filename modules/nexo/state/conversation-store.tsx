@@ -64,6 +64,7 @@ import {
 import {
   apagarNoServidor,
   gravarNoServidor,
+  consultarConversaNoServidor,
   lerDoServidor,
   listarNoServidor,
   type EstadoDaSincronizacao,
@@ -345,19 +346,28 @@ function newId(): string {
  */
 const PREFIXO_DA_RECUSA = "nexo:recusada-pelo-servidor:";
 
-function lembrarRecusa(id: string) {
+/**
+ * "descer": a cópia do servidor foi pedida para o disco; quem abre lê do
+ * servidor. "manter": a base não estava conferida e o 409 pode ser falso; quem
+ * abre fica com o disco, travado, até "Recarregar a conversa".
+ */
+type MarcaDeRecusa = "descer" | "manter";
+
+function lembrarRecusa(id: string, marca: MarcaDeRecusa) {
   try {
-    localStorage.setItem(PREFIXO_DA_RECUSA + id, String(Date.now()));
+    localStorage.setItem(PREFIXO_DA_RECUSA + id, marca);
   } catch {
     // sem armazenamento: a descida da cópia é a única proteção
   }
 }
 
-function recusaLembrada(id: string): boolean {
+function recusaLembrada(id: string): MarcaDeRecusa | null {
   try {
-    return localStorage.getItem(PREFIXO_DA_RECUSA + id) !== null;
+    const valor = localStorage.getItem(PREFIXO_DA_RECUSA + id);
+    if (valor === null) return null;
+    return valor === "manter" ? "manter" : "descer";
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -483,6 +493,15 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    */
   const remotasRef = useRef<ConversationSummary[]>([]);
   /**
+   * Se `remotasRef` já veio do servidor alguma vez, e a leitura em curso. Sem
+   * isto não há como saber, na abertura, se "não está na lista" quer dizer "o
+   * servidor não tem" ou "a lista ainda não chegou".
+   */
+  const listaRemota = useRef<{ carregada: boolean; chegando: Promise<boolean> | null }>({
+    carregada: false,
+    chegando: null,
+  });
+  /**
    * Os ids que o painel administrativo mandou apagar. Ficam num ref, e não no
    * estado: eles não desenham nada sozinhos — servem para a fusão descartar e
    * para o disco perder o que já foi enterrado.
@@ -510,9 +529,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   }, []);
 
   const refreshRemote = useCallback(() => {
-    listarNoServidor()
+    const lista = listarNoServidor();
+    lista
       .then(async ({ conversas, expurgadas, sincronizando }) => {
         remotasRef.current = conversas;
+        listaRemota.current.carregada = true;
         expurgadasRef.current = expurgadas;
         if (!sincronizando) setSincronizacao({ estado: "desligada" });
 
@@ -544,6 +565,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         // continua inteiro. O que NÃO pode é a gravação falhar em silêncio —
         // isso o `persistNow` reporta.
       });
+    // Registrado depois da cadeia de cima: quando resolve, `remotasRef` já foi
+    // preenchido. É o que a abertura da carga espera (ver `selectConversation`).
+    listaRemota.current.chegando = lista.then(
+      () => true,
+      () => false,
+    );
   }, [refreshList]);
 
   useEffect(() => {
@@ -728,8 +755,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
          */
         setGravacaoLocal("falhou");
       },
-      aoConflito: (id, origem) => {
-        if (origem === "servidor") lembrarRecusa(id);
+      aoConflito: (id, origem, vaiDescer) => {
+        if (origem === "servidor") lembrarRecusa(id, vaiDescer ? "descer" : "manter");
         marcarConflito(id);
       },
       lerDoServidor,
@@ -1225,9 +1252,36 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * que a de lá. O desempate por data escolheria justamente a desatualizada.
        * A marca guardada vale o mesmo depois de um F5 ou noutra aba local,
        * enquanto a cópia do servidor não pousou no disco.
+       *
+       * Marca "manter" (409 com base não conferida, segunda revisão): o 409
+       * pode ter sido falso, contra a própria gravação atrasada desta aba, e o
+       * disco tem edições que não existem em lugar nenhum. Reabrir sem ser pelo
+       * botão (F5, outra aba) abre do DISCO e travada; só "Recarregar a
+       * conversa", com a trava na memória desta aba, troca pela do servidor.
        */
-      const travadaPeloServidor = fila.travada(id) === "servidor" || recusaLembrada(id);
-      let desceuDoServidor = false;
+      const travadaNaMemoria = fila.travada(id) === "servidor";
+      const marca = recusaLembrada(id);
+      const manterDisco = marca === "manter" && !travadaNaMemoria;
+      const lerDoServidorPrimeiro = travadaNaMemoria || marca === "descer";
+      let copiaDoServidor: "desceu" | "ausente" | "falhou" | null = null;
+      /*
+       * A ABERTURA DA CARGA ESPERA A LISTA DO SERVIDOR — segunda revisão da
+       * Tarefa 15, 15/09/2026. A restauração do F5 roda um quadro depois da
+       * montagem, antes de `refreshRemote` responder, e abria sempre do disco.
+       * Se a última gravação desta aba chegou ao servidor e não ao disco, a
+       * base ficava atrás do servidor: a gravação seguinte levava um 409 falso,
+       * e a descida da cópia do servidor apagava as edições feitas depois do
+       * F5. A lista já está a caminho (a montagem a pediu); aqui só se espera
+       * por ela, com limite. Sem ela, a base abre "não conferida" e um 409 não
+       * desce nada por cima do disco.
+       */
+      if (!listaRemota.current.carregada && listaRemota.current.chegando) {
+        await Promise.race([
+          listaRemota.current.chegando,
+          new Promise((r) => setTimeout(r, 4000)),
+        ]);
+      }
+      let verificada = listaRemota.current.carregada;
       /*
        * Disco preferido, MAS o desempate é a data.
        *
@@ -1241,25 +1295,38 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * mesmo comentário já dizia qual era o critério certo ("é resolvida na
        * lista, por `updatedAt`"); ele só nunca tinha descido até aqui.
        *
-       * Comparar não custa requisição: `remotasRef` já está em memória. E se a
-       * lista remota ainda não carregou, a abertura NÃO espera por ela —
-       * bloquear toda abertura de conversa por um caso raro trocaria uma perda
-       * rara por lentidão constante.
+       * Comparar não custa requisição: `remotasRef` já está em memória. A
+       * espera pela lista, lá em cima, só acontece na carga — e ficou de
+       * propósito depois de 15/09/2026: o caso "raro" apagava edições.
        */
       const doDisco = await getConversation(id);
       const remoto = remotasRef.current.find((c) => c.id === id) ?? null;
       let rec = doDisco;
-      if (travadaPeloServidor || escolherCopia(doDisco, remoto) === "servidor") {
-        const doServidor = await lerDoServidor(id);
-        // Desce para este disco, senão toda reabertura pagaria a rede de novo e
-        // um F5 offline a perderia.
-        if (doServidor) {
-          rec = doServidor;
-          desceuDoServidor = await putConversation(doServidor).then(
+      const irAoServidor = manterDisco
+        ? !doDisco
+        : lerDoServidorPrimeiro || escolherCopia(doDisco, remoto) === "servidor";
+      if (manterDisco) verificada = false;
+      if (irAoServidor) {
+        const consulta = await consultarConversaNoServidor(id);
+        if (consulta.estado === "achada") {
+          rec = consulta.copia;
+          verificada = true;
+          // Desce para este disco, senão toda reabertura pagaria a rede de novo e
+          // um F5 offline a perderia.
+          const desceu = await putConversation(consulta.copia).then(
             () => true,
             () => false,
           );
-          if (desceuDoServidor) esquecerRecusa(id);
+          copiaDoServidor = desceu ? "desceu" : "falhou";
+          if (desceu) esquecerRecusa(id);
+        } else if (consulta.estado === "ausente") {
+          // Apagada no servidor (noutra máquina): a marca não trava para sempre.
+          copiaDoServidor = "ausente";
+          esquecerRecusa(id);
+        } else {
+          copiaDoServidor = "falhou";
+          // O servidor é mais novo e não deu para ler: a base não está conferida.
+          verificada = false;
         }
       }
       if (!rec) return null;
@@ -1391,13 +1458,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * tela velha de uma conversa travada é largado, e a partir daqui nenhuma
        * gravação lê o snapshot até o commit trazer esta versão.
        */
-      fila.abrir(rec.id, rec.updatedAt);
+      fila.abrir(rec.id, rec.updatedAt, { verificada });
       /*
        * Recusada pelo servidor e sem conseguir a cópia dele (rede fora): o que
        * abriu é a cópia parada do disco. Abre travada, com a faixa — gravar dali
        * apagaria o trabalho da outra máquina, porque a hora parada é mais nova.
+       * Com a marca "manter", abre do disco e travada de propósito (acima).
+       * Conversa que o servidor não tem mais ("ausente") abre destravada.
        */
-      const abreTravada = travadaPeloServidor && !desceuDoServidor;
+      const abreTravada =
+        (lerDoServidorPrimeiro &&
+          copiaDoServidor !== "desceu" &&
+          copiaDoServidor !== "ausente") ||
+        (manterDisco && copiaDoServidor === null);
       if (abreTravada) fila.travar(rec.id, "servidor");
       setConflitoDeVersao(abreTravada);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
@@ -1459,6 +1532,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * isso, para sempre.
        */
       if (ultimaConversaLembrada() === id) esquecerUltimaConversa();
+      // A marca de recusa do servidor de uma conversa apagada não serve mais.
+      esquecerRecusa(id);
       // Apagar a conversa ABERTA larga o que ia ser gravado dela: o debounce ou
       // o pedido do flush a escreveriam de volta logo depois do `dbDelete`.
       if (snapshotRef.current.conversationId === id) agenda.descartar();
@@ -1490,6 +1565,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       if (ids.length === 0) return;
       const lembrada = ultimaConversaLembrada();
       if (lembrada && ids.includes(lembrada)) esquecerUltimaConversa();
+      for (const id of ids) esquecerRecusa(id);
       // Como em `removeConversation`: a aberta no meio não pode ser regravada.
       if (ids.includes(snapshotRef.current.conversationId)) agenda.descartar();
       for (const id of ids) await dbDelete(id).catch(() => {});

@@ -41,7 +41,10 @@ function supportsViewTransitions(): boolean {
   return typeof document !== "undefined" && "startViewTransition" in document;
 }
 
-type StartViewTransition = (callback: () => void) => { finished: Promise<void> };
+type StartViewTransition = (callback: () => void) => {
+  finished: Promise<void>;
+  ready: Promise<void>;
+};
 
 /**
  * Executa a macro-transição do shell. O `apply` DEVE aplicar a mudança de DOM
@@ -59,5 +62,14 @@ export function runShellTransition(apply: () => void): void {
     return;
   }
   const doc = document as Document & { startViewTransition?: StartViewTransition };
-  doc.startViewTransition!(apply);
+  const transicao = doc.startViewTransition!(apply);
+  /*
+   * DUAS TRANSIÇÕES SEGUIDAS: a nova PULA a anterior, e o `ready` da anterior
+   * rejeita com "AbortError: Transition was skipped". A mudança de DOM das duas
+   * é aplicada do mesmo jeito — só a animação da primeira não roda —, mas a
+   * rejeição sem dono virava `unhandledRejection` na página. Medido em
+   * 15/09/2026 na bateria (c6 duas vezes, a4 uma): a abertura da carga passou a
+   * esperar a lista do servidor e terminou junto de outra abertura.
+   */
+  transicao?.ready?.catch(() => {});
 }

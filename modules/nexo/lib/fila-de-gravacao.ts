@@ -64,8 +64,16 @@ export type GanchosDaGravacao<R extends Registro> = {
   ) => Promise<RespostaDoServidor>;
   /** A cópia que o servidor guarda desta conversa (null se não deu para ler). */
   lerDoServidor: (id: string) => Promise<R | null>;
-  /** A conversa travou (disco mais novo que a base, ou 409 do servidor). */
-  aoConflito: (id: string, origem: OrigemDoConflito) => void;
+  /**
+   * A conversa travou (disco mais novo que a base, ou 409 do servidor).
+   * `vaiDescer` diz se a cópia do servidor foi pedida para o disco — só quando
+   * a base tinha sido conferida com o servidor (ver `abrir`).
+   */
+  aoConflito: (
+    id: string,
+    origem: OrigemDoConflito,
+    vaiDescer: boolean,
+  ) => void;
   /** A cópia do servidor desceu para o disco, depois de um 409. */
   aoDescer?: (id: string) => void;
 };
@@ -82,8 +90,18 @@ export type FilaDeGravacao<R extends Registro> = {
   /**
    * A conversa foi (re)aberta e a tela vai mostrar a `versao` lida. Destrava;
    * se estava travada, larga o que ainda está na fila dela (é da tela velha).
+   *
+   * `verificada: false` quando a versão veio do disco SEM saber a do servidor
+   * (lista do servidor ainda não chegou, ou rede fora). Aí um 409 pode ser só a
+   * própria gravação atrasada desta aba, e a fila trava sem descer a cópia do
+   * servidor por cima do disco. A primeira gravação que o servidor aceitar
+   * confere a base.
    */
-  abrir: (id: string, versao: number) => void;
+  abrir: (
+    id: string,
+    versao: number,
+    opcoes?: { verificada?: boolean },
+  ) => void;
   /** O servidor aceitou esta versão: ela também é base desta aba. */
   confirmar: (id: string, versao: number) => void;
   /** Trava por fora da fila (o 409 do servidor). */
@@ -117,6 +135,8 @@ export function criarFilaDeGravacao<R extends Registro>(
 
   /** Para cada conversa, a época em que a cópia do servidor já foi pedida. */
   const descidas = new Map<string, number>();
+  /** As conversas cuja base foi aberta sem conhecer a versão do servidor. */
+  const naoConferidas = new Set<string>();
 
   const epocaMudou = (id: string, epoca: number) =>
     epoca !== (epocas.get(id) ?? 0);
@@ -135,7 +155,10 @@ export function criarFilaDeGravacao<R extends Registro>(
    *
    * Pela fila, atrás do que ainda estava para gravar, e só se ninguém gravou o
    * disco depois desta aba: se outra aba LOCAL gravou (o disco tem versão mais
-   * nova que a base), é a dela que vale, e o servidor pode estar atrasado.
+   * nova que a base), é a dela que vale, e o servidor pode estar atrasado. A
+   * conferência vale antes E depois de ler o servidor (a leitura leva uma ida à
+   * rede), e uma leitura do disco que falha desiste: descer às cegas pode apagar
+   * o que outra aba acabou de gravar (segunda revisão, 15/09/2026).
    */
   function descerCopiaDoServidor(
     id: string,
@@ -144,21 +167,23 @@ export function criarFilaDeGravacao<R extends Registro>(
   ) {
     if (descidas.get(id) === epoca) return;
     descidas.set(id, epoca);
+    const discoSoDestaAba = async (): Promise<boolean> => {
+      const base = bases.get(id);
+      if (base === undefined) return false;
+      return g.lerVersaoNoDisco(id, base).then(
+        (deOutraAba) => deOutraAba === null,
+        (erro) => {
+          registrarFalha(erro);
+          return false;
+        },
+      );
+    };
     cauda = cauda
       .then(async () => {
-        if (epocaMudou(id, epoca)) return;
-        const base = bases.get(id);
-        if (base !== undefined) {
-          const deOutraAba = await g
-            .lerVersaoNoDisco(id, base)
-            .catch((erro) => {
-              registrarFalha(erro);
-              return null;
-            });
-          if (deOutraAba !== null) return;
-        }
+        if (epocaMudou(id, epoca) || !(await discoSoDestaAba())) return;
         const copia = await g.lerDoServidor(id);
         if (!copia || epocaMudou(id, epoca)) return;
+        if (!(await discoSoDestaAba()) || epocaMudou(id, epoca)) return;
         await g.gravarNoDisco(copia);
         g.aoDescer?.(id);
       })
@@ -176,13 +201,24 @@ export function criarFilaDeGravacao<R extends Registro>(
     if (epocaMudou(id, epoca)) return;
     if (resposta === "ok") {
       avancar(id, versao);
+      // O servidor aceitou a base: ela está conferida.
+      naoConferidas.delete(id);
       return;
     }
     if (resposta !== "desatualizada") return;
     const antes = travadas.get(id);
     if (antes === undefined) travadas.set(id, "servidor");
-    g.aoConflito(id, antes ?? "servidor");
-    if (antes !== "disco") descerCopiaDoServidor(id, epoca, g);
+    /*
+     * BASE NÃO CONFERIDA NÃO DESCE A CÓPIA — segunda revisão, 15/09/2026. Aberta
+     * do disco sem saber a versão do servidor, a base pode estar atrás de uma
+     * gravação DESTA aba que chegou ao servidor e não ao disco; o 409 seria
+     * falso, e descer a cópia do servidor apagaria do disco as edições feitas
+     * depois do F5. Sem ter como distinguir, fica a trava com a faixa e o disco
+     * como está, até quem usa pedir para recarregar.
+     */
+    const vaiDescer = antes !== "disco" && !naoConferidas.has(id);
+    g.aoConflito(id, antes ?? "servidor", vaiDescer);
+    if (vaiDescer) descerCopiaDoServidor(id, epoca, g);
   }
 
   function avancar(id: string, versao: number) {
@@ -256,7 +292,7 @@ export function criarFilaDeGravacao<R extends Registro>(
             })
           ) {
             travadas.set(rec.id, "disco");
-            g.aoConflito(rec.id, "disco");
+            g.aoConflito(rec.id, "disco", false);
             return;
           }
           const gravou = await g.gravarNoDisco(gravado).then(
@@ -279,7 +315,9 @@ export function criarFilaDeGravacao<R extends Registro>(
         .catch(registrarFalha);
       return cauda;
     },
-    abrir(id, versao) {
+    abrir(id, versao, opcoesDaAbertura) {
+      if (opcoesDaAbertura?.verificada === false) naoConferidas.add(id);
+      else naoConferidas.delete(id);
       if (travadas.has(id)) {
         travadas.delete(id);
         epocas.set(id, (epocas.get(id) ?? 0) + 1);

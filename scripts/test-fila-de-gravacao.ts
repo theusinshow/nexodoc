@@ -27,6 +27,7 @@ import {
   type GanchosDaGravacao,
 } from "../modules/nexo/lib/fila-de-gravacao.ts";
 import { gravacaoDesatualizada } from "../server/nexo/conversa-remota.ts";
+import { escolherCopia } from "../modules/nexo/lib/copia-mais-nova.ts";
 
 let passed = 0;
 async function test(name: string, fn: () => Promise<void>) {
@@ -671,6 +672,142 @@ await test("a leitura do disco que falha é registrada (e não some calada)", as
     },
   );
   assert.equal(falhas.length, 1);
+});
+
+/*
+ * O 409 FALSO CONTRA A PRÓPRIA GRAVAÇÃO ATRASADA (segunda revisão da Tarefa 15,
+ * 15/09/2026). A reabertura do F5 roda um quadro depois da montagem, antes de a
+ * lista do servidor chegar, e abria sempre do DISCO. Se a última gravação desta
+ * aba chegou ao servidor e não ao disco, a base ficava atrás do servidor; a
+ * gravação seguinte (que já tinha pousado no disco) levava 409, e a descida da
+ * cópia do servidor apagava do disco as edições feitas depois do F5.
+ */
+
+await test("base aberta sem conferir o servidor: 409 trava, mas NÃO desce a cópia por cima das edições locais", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2000,
+    texto: "D + W1 (minha, só no servidor)",
+  });
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "D" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  // O F5 abriu do disco sem saber a versão do servidor.
+  fila.abrir("A", 1000, { verificada: false });
+  await fila.gravar(
+    { id: "A", updatedAt: 3000, texto: "D + edições depois do F5" },
+    ganchos,
+  );
+  await assentar(fila);
+  assert.equal(
+    m.disco.get("A")?.texto,
+    "D + edições depois do F5",
+    "a descida apagou as edições locais",
+  );
+  assert.equal(fila.travada("A"), "servidor");
+  assert.ok(m.conflitos.includes("A"), "a trava tem de acender a faixa");
+});
+
+await test("base aberta da cópia mais nova (servidor conhecido): a própria gravação atrasada não dá 409", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2000,
+    texto: "D + W1 (minha, só no servidor)",
+  });
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "D" });
+  // A regra da abertura (`escolherCopia`) com a versão do servidor em mãos.
+  const doDisco = m.disco.get("A")!;
+  const aberta =
+    escolherCopia(doDisco, srv.estado.atual) === "servidor"
+      ? srv.estado.atual
+      : doDisco;
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", aberta.updatedAt);
+  await fila.gravar(
+    { id: "A", updatedAt: 3000, texto: `${aberta.texto} + edição` },
+    ganchos,
+  );
+  await assentar(fila);
+  assert.equal(fila.travada("A"), null);
+  assert.ok(srv.estado.atual.texto.includes("W1"));
+  assert.ok(srv.estado.atual.texto.includes("edição"));
+  assert.equal(m.disco.get("A")?.texto, srv.estado.atual.texto);
+});
+
+await test("base não conferida que o servidor aceita vira conferida: o 409 de outra máquina depois disso desce a cópia", async () => {
+  const m = mundo();
+  const srv = servidorVivo({ id: "A", updatedAt: 1000, texto: "D" });
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "D" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000, { verificada: false });
+  await fila.gravar({ id: "A", updatedAt: 2000, texto: "D + minha" }, ganchos);
+  await assentar(fila);
+  assert.equal(srv.estado.atual.texto, "D + minha");
+  // Outra máquina grava depois; esta aba grava de novo com a base 2000.
+  srv.estado.atual = { id: "A", updatedAt: 2500, texto: "outra máquina" };
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  await assentar(fila);
+  assert.equal(fila.travada("A"), "servidor");
+  assert.equal(m.disco.get("A")?.texto, "outra máquina");
+});
+
+await test("descida: outra aba local grava o disco enquanto a cópia do servidor é lida — a cópia não pousa", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2500,
+    texto: "outra máquina",
+  });
+  let soltarLeitura: (() => void) | null = null;
+  const ganchos: GanchosDaGravacao<Rec> = {
+    ...m.ganchos,
+    ...srv.ganchos(m),
+    lerDoServidor: () =>
+      new Promise((resolve) => {
+        soltarLeitura = () => resolve(srv.estado.atual);
+      }),
+  };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  for (let i = 0; i < 10 && !soltarLeitura; i++)
+    await new Promise((r) => setTimeout(r, 10));
+  assert.ok(soltarLeitura, "a descida devia estar lendo o servidor");
+  m.disco.set("A", { id: "A", updatedAt: 3500, texto: "outra aba local" });
+  (soltarLeitura as () => void)();
+  await assentar(fila);
+  assert.equal(m.disco.get("A")?.texto, "outra aba local");
+});
+
+await test("descida: a leitura do disco que falha NÃO deixa a cópia descer às cegas", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2500,
+    texto: "outra máquina",
+  });
+  let quebrar = false;
+  const ganchos: GanchosDaGravacao<Rec> = {
+    ...m.ganchos,
+    ...srv.ganchos(m),
+    lerVersaoNoDisco: (id, acimaDe) =>
+      quebrar
+        ? Promise.reject(new Error("IDB fechado"))
+        : m.ganchos.lerVersaoNoDisco(id, acimaDe),
+  };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  quebrar = true;
+  await assentar(fila);
+  assert.equal(fila.travada("A"), "servidor");
+  assert.equal(m.disco.get("A")?.texto, "parada");
 });
 
 console.log(`\n${passed} ok`);

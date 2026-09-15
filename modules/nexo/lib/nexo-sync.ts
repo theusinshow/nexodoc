@@ -107,15 +107,35 @@ export async function gravarNoServidor(
   }
 }
 
-/** Busca uma conversa que existe no servidor e não neste disco. */
-export async function lerDoServidor(id: string): Promise<StoredConversation | null> {
+/**
+ * Busca a cópia do servidor, dizendo POR QUE não veio quando não vem.
+ *
+ * "ausente" (404) não é "falhou": a conversa não existe lá (apagada noutra
+ * máquina, ou módulo desligado). A marca de recusa do servidor usa essa
+ * diferença — sem ela, uma marca velha de uma conversa apagada deixava a
+ * conversa travada para sempre (segunda revisão da Tarefa 15, 15/09/2026).
+ */
+export async function consultarConversaNoServidor(
+  id: string,
+): Promise<
+  | { estado: "achada"; copia: StoredConversation }
+  | { estado: "ausente" }
+  | { estado: "falhou" }
+> {
   try {
     const resp = await fetch(`${ROTA}/${encodeURIComponent(id)}`, { cache: "no-store" });
-    if (!resp.ok) return null;
-    return (await resp.json()) as StoredConversation;
+    if (resp.status === 404) return { estado: "ausente" };
+    if (!resp.ok) return { estado: "falhou" };
+    return { estado: "achada", copia: (await resp.json()) as StoredConversation };
   } catch {
-    return null;
+    return { estado: "falhou" };
   }
+}
+
+/** Busca uma conversa que existe no servidor e não neste disco. */
+export async function lerDoServidor(id: string): Promise<StoredConversation | null> {
+  const consulta = await consultarConversaNoServidor(id);
+  return consulta.estado === "achada" ? consulta.copia : null;
 }
 
 /**
