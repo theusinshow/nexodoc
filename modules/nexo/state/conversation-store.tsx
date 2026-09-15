@@ -42,6 +42,7 @@ import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
 import { criarFilaDeGravacao } from "../lib/fila-de-gravacao";
+import { podeGastar as podeGastarNaAba } from "../lib/aba-travada";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
   esquecerUltimaConversa,
@@ -143,6 +144,12 @@ interface ConversationStoreValue {
    * (decidido em 15/09/2026, jornada c3).
    */
   conflitoDeVersao: boolean;
+  /**
+   * Falso enquanto `conflitoDeVersao`: a aba travada não dispara auditoria,
+   * agente nem geração — o que ela fizesse seria pago e nunca gravado (revisão
+   * final da segunda rodada, 15/09/2026). Ver `lib/aba-travada.ts`.
+   */
+  podeGastar: boolean;
   /**
    * Como foi a última gravação no DISCO desta máquina.
    *
@@ -1727,6 +1734,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conversations,
       sincronizacao,
       conflitoDeVersao,
+      podeGastar: podeGastarNaAba({ conflitoDeVersao }),
       gravacaoLocal,
       results,
       appendMessage,

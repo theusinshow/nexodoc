@@ -27,6 +27,7 @@ import { useConexao } from "../lib/use-conexao";
 import { estadoDoAnexo, type EstadoDoAnexo, type SeloLido } from "../lib/estado-do-anexo";
 import { siglaDaDisciplina } from "../lib/disciplina-cor";
 import { NexoComposer } from "./NexoComposer";
+import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { UsageDonut } from "./UsageDonut";
 import { BarraDeLeitura } from "./BarraDeLeitura";
 import { ZonaDeSolta } from "./ZonaDeSolta";
@@ -146,6 +147,7 @@ export function NexoChat({
     appendDelta,
     finalizeMessage,
     saveResult,
+    podeGastar,
   } = useConversation();
   /*
    * O PARECER NO PALCO decide a porta do turno. Com parecer, a pergunta vai
@@ -332,6 +334,9 @@ export function NexoChat({
   async function send(textArg?: string, forcarNexo = false) {
     const text = (textArg ?? input).trim();
     if (!text || busy) return;
+    // Aba travada (conversa mudada em outra aba) não chama o agente: o turno
+    // seria pago e descartado pela fila. O campo já diz o porquê.
+    if (!podeGastar) return;
     // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
     onSend?.();
     setError(null);
@@ -781,9 +786,11 @@ export function NexoChat({
             onAttach={onAttach}
             inputRef={inputRef}
             motivoDesabilitado={
-              online
-                ? undefined
-                : "Sem conexão — o que você escrever fica guardado, mas o envio espera a rede voltar."
+              !podeGastar
+                ? MOTIVO_ABA_TRAVADA
+                : online
+                  ? undefined
+                  : "Sem conexão — o que você escrever fica guardado, mas o envio espera a rede voltar."
             }
           />
         </div>

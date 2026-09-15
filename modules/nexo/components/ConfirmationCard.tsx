@@ -150,6 +150,7 @@ import {
   nomeDoZipDosVolumes,
 } from "../lib/nome-do-volume";
 import { ResultLinks } from "./ResultLinks";
+import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversationUsage } from "../state/use-conversation-usage";
 import {
   detalheDoParecer,
@@ -635,11 +636,19 @@ function ConfirmButton({
   /** Responde a um documento envelhecido: o botão vira âmbar, não teal. */
   pendente?: boolean;
 }) {
+  /*
+   * ABA TRAVADA NÃO GASTA — revisão final da segunda rodada, 15/09/2026. Todo
+   * cartão (LD, capa, conferência, volume, separatriz, auditoria) confirma por
+   * aqui; com a conversa mudada em outra aba, o que se gerasse seria pago e
+   * nunca gravado. O `title` diz o porquê do botão cinza.
+   */
+  const { podeGastar } = useConversation();
   return (
     <Button
       size="sm"
       onClick={onConfirm}
-      disabled={busy || disabled}
+      disabled={busy || disabled || !podeGastar}
+      title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
       /*
        * Âmbar quando é RESPOSTA a um estado pendente: teal significa "ação
        * primária nova", e regerar não é ação nova — é consertar o que
@@ -2339,6 +2348,7 @@ function AuditoriaConfirmation({
     vincularProjeto,
     appendMessage,
     conversaAberta,
+    podeGastar,
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
@@ -2497,6 +2507,16 @@ function AuditoriaConfirmation({
 
   async function confirm(comTranscricao = false, projetoDaEscolha?: string) {
     if (!memorialFile) return;
+    /*
+     * A ABA TRAVADA NÃO AUDITA — revisão final da segunda rodada, 15/09/2026.
+     * Os botões já ficam cinza, mas a escolha de projeto e o "sem transcrição"
+     * também chamam aqui: a auditoria rodaria paga e o parecer seria descartado
+     * pela fila de gravação desta aba.
+     */
+    if (!podeGastar) {
+      setError(MOTIVO_ABA_TRAVADA);
+      return;
+    }
     setBusy(true);
     setError(null);
 

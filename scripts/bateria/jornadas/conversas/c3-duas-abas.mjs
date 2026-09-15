@@ -72,6 +72,26 @@ export default {
     const faixa = aba2.getByText("Esta conversa mudou em outra aba", { exact: true });
     ctx.verificar("a aba 2 avisa que a conversa mudou em outra aba, visível de verdade", await ctx.visivelRolando(faixa), `contagem=${await faixa.count()}`);
 
+    // A ABA TRAVADA NÃO GASTA (revisão final, 15/09/2026): com a faixa acesa, o
+    // envio e o "Auditar" ficam travados — o que rodasse seria pago e descartado.
+    const campoNaAba2 = aba2.locator('[data-tour="composer"] textarea').last();
+    const campoTravado = await campoNaAba2.isDisabled().catch(() => false);
+    const motivoNoCampo = (await campoNaAba2.getAttribute("placeholder").catch(() => null)) ?? "";
+    ctx.verificar(
+      "a aba travada não gasta: o envio do chat trava e diz que a conversa mudou em outra aba",
+      campoTravado && /mudou em outra aba/.test(motivoNoCampo),
+      `desabilitado=${campoTravado} placeholder=${motivoNoCampo}`,
+    );
+    const auditarNaAba2 = aba2.getByRole("button", { name: /^Auditar$/ });
+    const quantosAuditar = await auditarNaAba2.count();
+    let auditarTravados = 0;
+    for (let i = 0; i < quantosAuditar; i++) if (await auditarNaAba2.nth(i).isDisabled()) auditarTravados++;
+    ctx.verificar(
+      "a aba travada não gasta: nenhum 'Auditar' clicável",
+      quantosAuditar > 0 && auditarTravados === quantosAuditar,
+      `auditar=${quantosAuditar} travados=${auditarTravados}`,
+    );
+
     const depois = await noServidor();
     ctx.verificar("o servidor continua com o parecer da aba 1", pareceresDe(depois?.data).length === 1, `pareceres=${pareceresDe(depois?.data).length}`);
     ctx.verificar(
