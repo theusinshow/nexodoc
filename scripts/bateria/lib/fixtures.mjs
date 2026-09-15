@@ -14,6 +14,9 @@ export const PASTA_DAS_FIXTURES = path.join("scratchpad", "bateria", "fixtures")
 
 export const NOMES = {
   memorialCurto: "990_26_md_bateria_a.pdf",
+  // A REVISÃO do memorial curto: MESMO NOME, bytes diferentes (um parágrafo a
+  // mais). Mora numa subpasta porque o nome é o ponto — c1, 15/09/2026.
+  memorialCurtoRevisado: "revisao/990_26_md_bateria_a.pdf",
   memorialComFolhaMuda: "991_26_md_bateria_muda_a.pdf",
   // SEM "memorial_" NO NOME: medido em 15/09/2026, `memorial_bateria_sem_codigo.pdf`
   // não tem `md` isolado por separador nem `\bmemorial\b` — `parseFilename`
@@ -61,7 +64,7 @@ function quebrarLinhas(texto, fonte, tamanho, largura) {
  * do cabeçalho: `\b\d{2,4}[_-]\d{2}\b` (lib/audit-classify.ts) não distingue
  * código de data, e um "10-25" aqui daria código ao memorial que precisa não ter.
  */
-function paginasDoMemorial(codigo) {
+function paginasDoMemorial(codigo, revisado = false) {
   const cabecalho = [
     "MEMORIAL DESCRITIVO",
     "Obra: Centro Comunitário da Bateria",
@@ -87,14 +90,15 @@ function paginasDoMemorial(codigo) {
       "O reservatório superior terá capacidade de dez metros cúbicos conforme o projeto hidrossanitário da edificação.",
       "As instalações elétricas seguem a NBR 5410 e o padrão de entrada da concessionária de energia do município.",
       "Os sanitários terão barras de apoio e portas com largura livre adequada à acessibilidade prevista na norma técnica.",
+      ...(revisado ? ["Revisão: o depósito de materiais passa a ter ventilação permanente por venezianas na parede externa."] : []),
     ],
   ];
 }
 
-async function memorialBytes({ titulo, codigo, comFolhaMuda }) {
+async function memorialBytes({ titulo, codigo, comFolhaMuda, revisado = false }) {
   const doc = await novoDocumento(titulo);
   const fonte = await doc.embedFont(StandardFonts.Helvetica);
-  for (const linhasDaPagina of paginasDoMemorial(codigo)) {
+  for (const linhasDaPagina of paginasDoMemorial(codigo, revisado)) {
     const pagina = doc.addPage([595, 842]);
     let y = 780;
     for (const paragrafo of linhasDaPagina) {
@@ -155,6 +159,7 @@ async function pranchaBytes({ arquivo, conteudo, folha, total, legivel }) {
 export async function bytesDasFixtures() {
   const saida = {};
   saida[NOMES.memorialCurto] = await memorialBytes({ titulo: "memorial curto", codigo: "990-26", comFolhaMuda: false });
+  saida[NOMES.memorialCurtoRevisado] = await memorialBytes({ titulo: "memorial curto", codigo: "990-26", comFolhaMuda: false, revisado: true });
   saida[NOMES.memorialComFolhaMuda] = await memorialBytes({ titulo: "memorial com folha muda", codigo: "991-26", comFolhaMuda: true });
   saida[NOMES.memorialSemCodigo] = await memorialBytes({ titulo: "memorial sem codigo", codigo: null, comFolhaMuda: false });
   for (const [i, nome] of NOMES.pranchas.entries()) {
@@ -206,12 +211,14 @@ export async function garantirFixtures() {
   const bytes = await bytesDasFixtures();
   for (const [nome, dados] of Object.entries(bytes)) {
     const destino = path.join(PASTA_DAS_FIXTURES, nome);
+    fs.mkdirSync(path.dirname(destino), { recursive: true });
     const atual = fs.existsSync(destino) ? fs.readFileSync(destino) : null;
     if (!atual || !atual.equals(Buffer.from(dados))) escreverAtomico(destino, dados);
   }
   const caminho = (nome) => path.join(PASTA_DAS_FIXTURES, nome);
   return {
     memorialCurto: caminho(NOMES.memorialCurto),
+    memorialCurtoRevisado: caminho(NOMES.memorialCurtoRevisado),
     memorialComFolhaMuda: caminho(NOMES.memorialComFolhaMuda),
     memorialSemCodigo: caminho(NOMES.memorialSemCodigo),
     pranchas: NOMES.pranchas.map(caminho),

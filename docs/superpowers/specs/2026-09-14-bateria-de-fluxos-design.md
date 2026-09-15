@@ -34,7 +34,7 @@ As três primeiras são do Matheus e respondem os cenários marcados **[decisão
 
 | Pergunta | Decisão |
 |---|---|
-| C1 — o mesmo memorial solto duas vezes | **Deduplicar por nome de arquivo**, a mesma regra que as pranchas já seguem (`NexoWorkspace.tsx`, "Dedup por nome"). Soltar de novo um memorial com o nome do memorial retido não cria chip nem as mensagens "Anexei o memorial"/"Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa |
+| C1 — o mesmo memorial solto duas vezes | **Deduplicar o mesmo memorial.** Refinado em 15/09/2026: mesmo nome e mesmo conteúdo; mesmo nome com conteúdo novo é revisão e troca. Repetido é mesmo nome, mesmo tamanho e mesmo sha-256 dos bytes do memorial retido (`modules/nexo/lib/memorial-repetido.ts`; `lastModified` não conta): soltá-lo de novo não cria chip nem as mensagens "Anexei o memorial"/"Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa. Mesmo nome com bytes diferentes é a revisão do memorial (`use-delta-do-memorial.ts`: dois PDFs com o mesmo nome são a regra na revisão) — troca o memorial retido e o chip, é lido de novo, e a conversa ganha a linha "Troquei o memorial pela versão nova". A primeira versão (só o nome) ignorava a revisão e auditava a versão velha |
 | C3 — duas abas na mesma conversa | **Recusar a aba desatualizada.** Cada aba guarda o `updatedAt` que leu ao abrir a conversa e o manda como base na gravação; o servidor responde 409 se a versão guardada mudou desde essa base; a aba avisa e oferece recarregar a conversa, sem sobrescrever. Sem mudança de schema |
 | X2 — memorial sem código legível | **Criar o seletor de projeto.** O cartão de auditoria mostra um seletor com os projetos do escritório; escolher libera a auditoria; sem escolha, não gasta |
 
@@ -154,7 +154,7 @@ Cada cenário diz o **gesto** e o **esperado**. O esperado segue o comportamento
 
 | # | Cenário | Gesto | Esperado |
 |---|---|---|---|
-| C1 | Mesmo memorial anexado duas vezes | anexar; anexar de novo o mesmo arquivo | um memorial só na conversa: um chip, uma "Anexei o memorial", uma "Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa (decidido em 15/09/2026: deduplicar por nome) |
+| C1 | Mesmo memorial anexado duas vezes | anexar; anexar de novo o mesmo arquivo | um memorial só na conversa: um chip, uma "Anexei o memorial", uma "Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa (decidido em 15/09/2026: deduplicar; refinado em 15/09/2026: mesmo nome e mesmo conteúdo; mesmo nome com conteúdo novo é revisão e troca — "Troquei o memorial pela versão nova", um chip) |
 | C2 | Memorial e pranchas no mesmo drop | soltar memorial + 3 pranchas juntos | memorial vira memorial, pranchas vão à leitura de selo; nenhuma prancha lida como memorial |
 | C3 | Duas abas na mesma conversa | aba 1 audita; aba 2 aberta antes, parada | depois de a aba 2 tentar gravar, servidor e disco seguem com o parecer da aba 1; a aba 2 avisa que a conversa mudou em outra aba e oferece recarregar, sem sobrescrever; o servidor responde 409 a gravação com base velha (decidido em 15/09/2026) |
 | C4 | Conversa antiga (formato de antes de 14/09) | semear conversa com `auditoria:<código>` | abre, o parecer fica no cartão que o gerou, "Auditar de novo" aparece |

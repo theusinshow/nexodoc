@@ -11,6 +11,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 
 import { NOMES, bytesDasFixtures, garantirFixtures } from "./bateria/lib/fixtures.mjs";
 import { normalizarItens } from "../lib/coordenada-do-pdf.ts";
@@ -113,6 +114,11 @@ await test("prancha sem selo: nenhum texto, e mesmo assim vai para a leitura", a
   assert.equal(valeLerComoPrancha(tipo), true);
 });
 
+await test("a revisão do memorial curto tem o MESMO nome e outros bytes (c1)", async () => {
+  assert.equal(path.basename(NOMES.memorialCurtoRevisado), NOMES.memorialCurto);
+  assert.ok(!Buffer.from(bytes[NOMES.memorialCurto]).equals(Buffer.from(bytes[NOMES.memorialCurtoRevisado])));
+});
+
 await test("duas gerações dão os mesmos bytes", async () => {
   const outra = await bytesDasFixtures();
   for (const nome of Object.keys(bytes)) {
@@ -122,8 +128,8 @@ await test("duas gerações dão os mesmos bytes", async () => {
 
 await test("garantirFixtures grava os arquivos que as jornadas anexam", async () => {
   const f = await garantirFixtures();
-  const caminhos = [f.memorialCurto, f.memorialComFolhaMuda, f.memorialSemCodigo, ...f.pranchas, f.pranchaSemSelo];
-  assert.equal(caminhos.length, 7);
+  const caminhos = [f.memorialCurto, f.memorialCurtoRevisado, f.memorialComFolhaMuda, f.memorialSemCodigo, ...f.pranchas, f.pranchaSemSelo];
+  assert.equal(caminhos.length, 8);
   for (const c of caminhos) {
     assert.ok(fs.existsSync(c), c);
     assert.ok(c.replaceAll("\\", "/").startsWith("scratchpad/bateria/fixtures/"), c);

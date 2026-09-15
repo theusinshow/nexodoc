@@ -1011,11 +1011,15 @@ function NexoWorkspaceInner({
      * O MEMORIAL QUE A CONVERSA JÁ TEM não entra de novo — decidido em
      * 15/09/2026 (jornada c1). Sai ANTES dos chips e do pré-voo: soltá-lo outra
      * vez criava um segundo chip, relia o documento e repetia "Anexei o memorial"
-     * e "Li as primeiras páginas" no histórico. Mesma régua das pranchas: o nome.
+     * e "Li as primeiras páginas" no histórico.
+     *
+     * Refinado em 15/09/2026: repetido é mesmo nome E mesmo conteúdo (sha-256).
+     * Mesmo nome com conteúdo novo é a REVISÃO do memorial — entra, troca o
+     * memorial retido e o chip antigo sai.
      */
-    const { novos: pdfs, repetido } = separarMemorialRepetido(
+    const { novos: pdfs, repetido, revisao } = await separarMemorialRepetido(
       pdfsSoltos,
-      memorialFile?.name ?? null,
+      memorialFile,
     );
 
     /*
@@ -1046,6 +1050,13 @@ function NexoWorkspaceInner({
         content: `O memorial ${repetido} já está nesta conversa — não li de novo.`,
       });
     }
+    if (revisao) {
+      conv.appendMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "Troquei o memorial pela versão nova",
+      });
+    }
     if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
 
@@ -1071,7 +1082,15 @@ function NexoWorkspaceInner({
         url: URL.createObjectURL(f),
       })),
     ];
-    setAttachments((prev) => [...prev, ...atts]);
+    setAttachments((prev) => [
+      // A revisão TROCA: o chip da versão anterior, com o mesmo nome, sai.
+      ...prev.filter((a) => {
+        const antigo = revisao !== null && a.kind === "pdf" && a.name === revisao;
+        if (antigo) arquivosPorAnexo.current.delete(a.id);
+        return !antigo;
+      }),
+      ...atts,
+    ]);
 
     /*
      * O PRÉ-VOO: depois dos chips, e ANTES de qualquer leitura.

@@ -1,10 +1,14 @@
 /**
- * Teste da DEDUPLICAÇÃO do memorial pelo nome.
+ * Teste da DEDUPLICAÇÃO do memorial: mesmo nome E mesmo conteúdo.
  *
  * Decidido pelo Matheus em 15/09/2026 (cenário C1 da bateria): soltar de novo o
- * memorial que a conversa já tem não cria chip nem relê o documento. É a mesma
- * régua que as pranchas seguem desde o "soltar o mesmo arquivo de novo não o
- * duplica" (NexoWorkspace.tsx) — por NOME EXATO, que é o que a tela mostra.
+ * memorial que a conversa já tem não cria chip nem relê o documento.
+ *
+ * Refinado no mesmo dia (revisão final da segunda rodada): a primeira versão
+ * comparava só o NOME, e dois PDFs diferentes com o mesmo nome são a regra na
+ * revisão de memorial (`use-delta-do-memorial.ts`) — a revisão B era ignorada e
+ * a auditoria rodava na A. Agora repetido é mesmo nome, mesmo tamanho e mesmo
+ * sha-256; mesmo nome com bytes novos é REVISÃO e troca o memorial.
  *
  *   node scripts/test-memorial-repetido.ts
  */
@@ -13,9 +17,9 @@ import assert from "node:assert/strict";
 import { separarMemorialRepetido } from "../modules/nexo/lib/memorial-repetido.ts";
 
 let passed = 0;
-function test(name: string, fn: () => void) {
+async function test(name: string, fn: () => Promise<void>) {
   try {
-    fn();
+    await fn();
     passed++;
     console.log(`  ok  ${name}`);
   } catch (err) {
@@ -25,34 +29,79 @@ function test(name: string, fn: () => void) {
   }
 }
 
-const arquivo = (name: string) => ({ name });
+/** Um File mínimo: nome, tamanho e bytes — o que o navegador entrega no drop. */
+function arquivo(name: string, texto = "memorial versão A") {
+  const bytes = new TextEncoder().encode(texto);
+  let lidas = 0;
+  return {
+    name,
+    size: bytes.byteLength,
+    get lidas() {
+      return lidas;
+    },
+    async arrayBuffer() {
+      lidas++;
+      return bytes.slice().buffer;
+    },
+  };
+}
 
-test("sem memorial retido, tudo é novo", () => {
-  const pdfs = [arquivo("990_26_md_bateria_a.pdf")];
-  assert.deepEqual(separarMemorialRepetido(pdfs, null), { novos: pdfs, repetido: null });
+const MD = "990_26_md_bateria_a.pdf";
+
+await test("sem memorial retido, tudo é novo", async () => {
+  const pdfs = [arquivo(MD)];
+  const r = await separarMemorialRepetido(pdfs, null);
+  assert.deepEqual(r.novos, pdfs);
+  assert.equal(r.repetido, null);
+  assert.equal(r.revisao, null);
 });
 
-test("o mesmo nome do memorial retido sai do lote e é dito", () => {
-  const r = separarMemorialRepetido([arquivo("990_26_md_bateria_a.pdf")], "990_26_md_bateria_a.pdf");
-  assert.deepEqual(r, { novos: [], repetido: "990_26_md_bateria_a.pdf" });
+await test("mesmo nome e mesmos bytes: sai do lote e é dito", async () => {
+  const r = await separarMemorialRepetido([arquivo(MD)], arquivo(MD));
+  assert.deepEqual(r.novos, []);
+  assert.equal(r.repetido, MD);
+  assert.equal(r.revisao, null);
 });
 
-test("no lote misto, as pranchas seguem e só o memorial repetido sai", () => {
-  const r = separarMemorialRepetido(
-    [arquivo("990_26_md_bateria_a.pdf"), arquivo("990_26_est_001_a.pdf")],
-    "990_26_md_bateria_a.pdf",
-  );
-  assert.deepEqual(r, { novos: [arquivo("990_26_est_001_a.pdf")], repetido: "990_26_md_bateria_a.pdf" });
+await test("mesmo nome com bytes novos (mesmo tamanho): é revisão, fica no lote", async () => {
+  const novo = arquivo(MD, "memorial versão B");
+  const r = await separarMemorialRepetido([novo], arquivo(MD, "memorial versão A"));
+  assert.deepEqual(r.novos, [novo]);
+  assert.equal(r.repetido, null);
+  assert.equal(r.revisao, MD);
 });
 
-test("outro memorial, com outro nome, não é repetido", () => {
+await test("mesmo nome com tamanho diferente: é revisão, sem ler os bytes", async () => {
+  const novo = arquivo(MD, "memorial versão B, com uma seção a mais");
+  const retido = arquivo(MD, "memorial versão A");
+  const r = await separarMemorialRepetido([novo], retido);
+  assert.deepEqual(r.novos, [novo]);
+  assert.equal(r.revisao, MD);
+  assert.equal(novo.lidas + retido.lidas, 0, "tamanho diferente já decide");
+});
+
+await test("no lote misto, as pranchas seguem e só o memorial repetido sai", async () => {
+  const prancha = arquivo("990_26_est_001_a.pdf", "prancha");
+  const r = await separarMemorialRepetido([arquivo(MD), prancha], arquivo(MD));
+  assert.deepEqual(r.novos, [prancha]);
+  assert.equal(r.repetido, MD);
+  assert.equal(r.revisao, null);
+});
+
+await test("outro memorial, com outro nome, não é repetido nem revisão", async () => {
   const pdfs = [arquivo("990_26_md_bateria_b.pdf")];
-  assert.deepEqual(separarMemorialRepetido(pdfs, "990_26_md_bateria_a.pdf"), { novos: pdfs, repetido: null });
+  const r = await separarMemorialRepetido(pdfs, arquivo(MD));
+  assert.deepEqual(r.novos, pdfs);
+  assert.equal(r.repetido, null);
+  assert.equal(r.revisao, null);
 });
 
-test("a regra é o nome exato, como nas pranchas", () => {
+await test("o nome é exato: caixa diferente é outro arquivo", async () => {
   const pdfs = [arquivo("990_26_MD_BATERIA_A.pdf")];
-  assert.deepEqual(separarMemorialRepetido(pdfs, "990_26_md_bateria_a.pdf"), { novos: pdfs, repetido: null });
+  const r = await separarMemorialRepetido(pdfs, arquivo(MD));
+  assert.deepEqual(r.novos, pdfs);
+  assert.equal(r.repetido, null);
+  assert.equal(r.revisao, null);
 });
 
 console.log(`\n${passed} teste(s) passaram`);
