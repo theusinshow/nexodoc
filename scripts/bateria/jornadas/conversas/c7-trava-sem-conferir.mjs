@@ -31,7 +31,7 @@ export default {
       id,
       title: TITULO,
       createdAt: agora - 120_000,
-      updatedAt: agora - 60_000,
+      updatedAt: agora - 1_000,
       seloResults: [],
       results: [],
       messages: [
@@ -47,7 +47,13 @@ export default {
       `status=${resposta.status()}`,
     );
 
-    const noDiscoAntes = agora - 30_000;
+    /*
+     * A MAIS NOVA DA BARRA, de propósito (CI de 741aaed, 15/09/2026): com as
+     * horas no passado, as conversas que a c6 acabara de criar ficavam mais
+     * novas, e esta caía em "a outra conversa" do cartão "A endereçar" — o
+     * clique pelo título não achava nada. O disco segue mais novo que o servidor.
+     */
+    const noDiscoAntes = agora;
     await ctx.indexeddb.gravarConversa({
       ...doServidor,
       updatedAt: noDiscoAntes,
