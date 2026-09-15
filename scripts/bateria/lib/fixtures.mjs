@@ -170,6 +170,36 @@ export async function bytesDasFixtures() {
   return saida;
 }
 
+/**
+ * Grava DE UMA VEZ SÓ: escreve num nome temporário único e troca por `rename`,
+ * que o SO aplica atomicamente. Sem isto, um teste puro e uma jornada chamando
+ * `garantirFixtures()` ao mesmo tempo contra uma pasta fria podiam fazer uma
+ * ler o PDF que a outra ainda estava escrevendo pela metade (revisão da
+ * Tarefa 2, 15/09/2026).
+ */
+function escreverAtomico(destino, dados) {
+  const buf = Buffer.from(dados);
+  const temp = `${destino}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temp, buf);
+  try {
+    fs.renameSync(temp, destino);
+  } catch (err) {
+    // No Windows, `rename` sobre um destino que outro processo acabou de criar
+    // pode falhar com EPERM/EEXIST. Bytes iguais = a outra corrida já chegou
+    // ao mesmo resultado; senão, uma última tentativa antes de desistir.
+    if ((err.code === "EPERM" || err.code === "EEXIST") && fs.existsSync(destino)) {
+      fs.rmSync(temp, { force: true });
+      if (fs.readFileSync(destino).equals(buf)) return;
+      const retry = `${destino}.${process.pid}.${Date.now()}.retry.tmp`;
+      fs.writeFileSync(retry, buf);
+      fs.renameSync(retry, destino);
+      return;
+    }
+    fs.rmSync(temp, { force: true });
+    throw err;
+  }
+}
+
 /** Grava (ou regrava, se a receita mudou) e devolve os caminhos para `ctx.anexar`. */
 export async function garantirFixtures() {
   fs.mkdirSync(PASTA_DAS_FIXTURES, { recursive: true });
@@ -177,7 +207,7 @@ export async function garantirFixtures() {
   for (const [nome, dados] of Object.entries(bytes)) {
     const destino = path.join(PASTA_DAS_FIXTURES, nome);
     const atual = fs.existsSync(destino) ? fs.readFileSync(destino) : null;
-    if (!atual || !atual.equals(Buffer.from(dados))) fs.writeFileSync(destino, dados);
+    if (!atual || !atual.equals(Buffer.from(dados))) escreverAtomico(destino, dados);
   }
   const caminho = (nome) => path.join(PASTA_DAS_FIXTURES, nome);
   return {
