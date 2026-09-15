@@ -22,6 +22,7 @@
  */
 // Com extensão, como em [[group-conversations.ts]]: é o que deixa as partes
 // puras deste módulo rodarem no node cru, no teste.
+import { leituraDoSeloVazia } from "./estado-do-anexo.ts";
 import { getSeloCache, putSeloCache } from "./nexo-db.ts";
 import type { SeloResult } from "./selo-render.ts";
 
@@ -39,8 +40,14 @@ import type { SeloResult } from "./selo-render.ts";
  * 1, o corte no rotulo vizinho casava `IMP` dentro de "IMPLANTACAO" e a coluna
  * DESCRICAO recebia "PLANTA DE". O texto cortado ficou GUARDADO aqui, entao sem
  * subir o numero as pranchas ja lidas voltariam da memoria erradas.
+ *
+ * 3 (15/09/2026, v2): a leitura vazia (JSON valido, todos os campos nulos)
+ * passou a virar `extraction: null` com motivo, em vez do objeto truthy que
+ * o cache guardava como "lido" — ver `leituraDoSeloVazia`. Sem subir o
+ * numero, prancha ja lida por um build anterior ao conserto continuaria
+ * voltando da memoria com o chip em branco.
  */
-export const VERSAO_DO_LEITOR = 2;
+export const VERSAO_DO_LEITOR = 3;
 
 /** Um arquivo sem leitura guardada, com a chave já calculada (não recalcular). */
 export interface ArquivoInedito {
@@ -126,7 +133,28 @@ export async function consultarCache(
  * pago, e a fatura é justamente o lugar onde a economia precisa aparecer.
  */
 export function reidratar(results: readonly SeloResult[], fileName: string): SeloResult[] {
-  return results.map((r) => ({ ...semUsage(r), fileName }));
+  return results.map((r) => saneada({ ...semUsage(r), fileName }));
+}
+
+/**
+ * SEGUNDA DEFESA contra a leitura vazia, independente de `VERSAO_DO_LEITOR`.
+ *
+ * A versão protege contra a MESMA chave voltar a servir leitura de um leitor
+ * já corrigido — mas o cache é um IndexedDB local, e nada impede um registro
+ * gravado por qualquer versão (inclusive uma futura, se algum conserto
+ * esquecer de subir o número) de chegar aqui com um objeto de extração todo
+ * nulo. Reler o que já está na mão custa zero: se o objeto é vazio pela
+ * mesma regra do leitor (`leituraDoSeloVazia`), ele sai daqui já como não
+ * lido — nunca como um "lido" em branco.
+ */
+function saneada(r: SeloResult): SeloResult {
+  if (!leituraDoSeloVazia(r.extraction)) return r;
+  return {
+    ...r,
+    extraction: null,
+    error: r.error ?? "O carimbo voltou sem nenhum campo legível.",
+    vazia: true,
+  };
 }
 
 /** Cópia sem a contagem de tokens (ver `reidratar`). */
@@ -139,10 +167,17 @@ function semUsage(r: SeloResult): SeloResult {
 /**
  * A leitura deste arquivo pode ser guardada?
  *
- * Só quando TODAS as folhas do documento estão presentes e nenhuma falhou. Meia
- * leitura no cache seria pior que cache nenhum: o buraco viraria permanente —
- * toda vez que o arquivo voltasse, ele acertaria o cache e as folhas que faltam
- * nunca mais seriam lidas.
+ * Só quando TODAS as folhas do documento estão presentes e nenhuma falhou DE
+ * VERDADE. Meia leitura no cache seria pior que cache nenhum: o buraco
+ * viraria permanente — toda vez que o arquivo voltasse, ele acertaria o
+ * cache e as folhas que faltam nunca mais seriam lidas.
+ *
+ * `error` sozinho não decide mais: uma folha `vazia` (a chamada teve êxito,
+ * o carimbo não trouxe nada — ver `leituraDoSeloVazia`) carrega `error` para
+ * a tela avisar, mas reler não mudaria nada, e SEM guardá-la o mesmo PDF
+ * pagava uma chamada de modelo a cada reanexação só para redescobrir o
+ * carimbo em branco de sempre. Falha TRANSITÓRIA (rede, timeout) continua de
+ * fora: essa pode sair diferente na próxima tentativa.
  *
  * Página PULADA (capa, separatriz, índice) conta como lida: pular é o
  * comportamento certo, é determinístico e não custou modelo nenhum.
@@ -151,9 +186,10 @@ export function leituraCompleta(doArquivo: readonly SeloResult[]): boolean {
   if (doArquivo.length === 0) return false;
   const pageCount = doArquivo[0].pageCount;
   if (!pageCount || doArquivo.length !== pageCount) return false;
-  if (doArquivo.some((r) => r.error)) return false;
-  // Uma folha lida sem extração e sem motivo é buraco silencioso — não entra.
-  return doArquivo.every((r) => r.extraction !== null || r.ignorada);
+  if (doArquivo.some((r) => r.error && !r.vazia)) return false;
+  // Uma folha lida sem extração e sem motivo (nem vazia, nem pulada) é
+  // buraco silencioso — não entra.
+  return doArquivo.every((r) => r.extraction !== null || r.ignorada || r.vazia);
 }
 
 /**

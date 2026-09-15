@@ -84,6 +84,14 @@ export interface SeloResult {
   ignorada?: TipoDePagina;
   /** Tokens de IA gastos nesta leitura de selo (indicador de consumo). */
   usage?: number;
+  /**
+   * A CHAMADA TEVE ÊXITO, mas o carimbo não trouxe nenhum campo legível —
+   * ver `leituraDoSeloVazia`. Existe para distinguir esta folha, cuja
+   * releitura não mudaria nada, de uma falha TRANSITÓRIA (rede, timeout):
+   * as duas chegam aqui com `extraction: null` e `error` preenchido, e só
+   * esta marca diz qual delas vale guardar no cache (`leituraCompleta`).
+   */
+  vazia?: boolean;
 }
 
 /**
@@ -379,6 +387,7 @@ export async function extractSeloFromImage(
         extraction: null,
         usage,
         error: "O carimbo voltou sem nenhum campo legível.",
+        vazia: true,
       };
     }
     return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction, usage };
@@ -452,6 +461,7 @@ async function extractSeloFromPage(
         extraction: null,
         usage,
         error: "O carimbo voltou sem nenhum campo legível.",
+        vazia: true,
       };
     }
     return { fileName: file.name, pageNumber, pageCount, extraction: completada, usage };
