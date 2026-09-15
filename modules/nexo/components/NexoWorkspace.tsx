@@ -2452,6 +2452,28 @@ function NexoWorkspaceInner({
         </FaixaDeEstado>
       )}
 
+      {/*
+        A CONVERSA MUDOU EM OUTRA ABA — decidido em 15/09/2026 (jornada c3).
+        Bloqueio, não notícia: sem `aoFechar`. Esta aba parou de gravar para não
+        apagar o que a outra fez, e recarregar é o único caminho que devolve a
+        gravação.
+      */}
+      {conv.conflitoDeVersao && (
+        <FaixaDeEstado
+          tipo="documento"
+          titulo="Esta conversa mudou em outra aba"
+          acao={
+            <Button size="sm" variant="outline" onClick={() => void selectConv(conv.conversationId)}>
+              Recarregar a conversa
+            </Button>
+          }
+        >
+          Outra aba (ou outro computador) gravou esta conversa depois que ela foi aberta aqui.
+          Para não apagar o que foi feito lá, nada desta aba foi gravado — recarregue para
+          continuar da versão mais nova.
+        </FaixaDeEstado>
+      )}
+
       {tourAtivo && <TourDoNexo aoSair={encerrarTour} />}
 
       {/*

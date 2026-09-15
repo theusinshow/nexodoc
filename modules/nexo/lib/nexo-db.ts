@@ -334,6 +334,36 @@ export async function putConversation(conv: StoredConversation): Promise<void> {
   await txDone(tx);
 }
 
+/**
+ * A versão desta conversa no disco, SÓ SE for mais nova que `acimaDe` (senão null).
+ *
+ * É a checagem da aba desatualizada (15/09/2026, jornada c3), feita antes de
+ * toda gravação. Pelo `getConversation` ela custava 50ms medidos no fim de uma
+ * auditoria — o registro inteiro desserializado para ler um número —, e esse
+ * atraso antes da ida ao servidor bastou para as últimas gravações da a1
+ * serem cortadas quando a aba fechou (3 de 4 corridas). Aqui só as CHAVES do
+ * índice `updatedAt` acima da base são percorridas, sem valor nenhum: quase
+ * sempre nenhuma, e nunca mais que as gravadas depois dela.
+ */
+export async function versaoMaisNovaNoDisco(
+  id: string,
+  acimaDe: number,
+): Promise<number | null> {
+  const db = await openDb();
+  const tx = db.transaction(STORE_CONVERSATIONS, "readonly");
+  const indice = tx.objectStore(STORE_CONVERSATIONS).index("updatedAt");
+  return new Promise((resolve, reject) => {
+    const req = indice.openKeyCursor(IDBKeyRange.lowerBound(acimaDe, true));
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return resolve(null);
+      if (cursor.primaryKey === id) return resolve(cursor.key as number);
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error ?? new Error("Falha no IndexedDB."));
+  });
+}
+
 /** Lê uma conversa completa (mensagens + selos + meta dos resultados). */
 export async function getConversation(id: string): Promise<StoredConversation | null> {
   const db = await openDb();

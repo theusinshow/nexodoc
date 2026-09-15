@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
+  gravacaoDesatualizada,
   resumoDoRegistro,
   validarRegistro,
   type RegistroDaConversa,
@@ -184,6 +185,37 @@ export async function PUT(req: NextRequest) {
      */
     if (dono && dono.updatedAt.getTime() > resumo.updatedAt) {
       return NextResponse.json({ ok: true, ignorada: "servidor tem versão mais nova" });
+    }
+    /*
+     * A ABA DESATUALIZADA É RECUSADA — decidido em 15/09/2026 (jornada c3). A
+     * regra de cima só compara horas de GRAVAÇÃO: uma aba parada desde antes da
+     * auditoria grava com hora nova e passa. A base é a versão que a aba leu;
+     * se a guardada mudou desde então, 409 — o cliente avisa e oferece
+     * recarregar, e nada é sobrescrito. Sem o cabeçalho, vale o de sempre.
+     *
+     * As PRÓPRIAS são as versões que a aba mandou e ainda não viu confirmadas:
+     * guardado igual a uma delas é dela mesma. O cliente manda sem esperar a
+     * resposta anterior (esperar fazia a última gravação ser cortada quando a
+     * aba fechava), então a gravação em dupla chega com a mesma base.
+     */
+    const baseDaAba = Number(req.headers.get("x-nexo-versao-base"));
+    const propriasDaAba = (req.headers.get("x-nexo-versoes-proprias") ?? "")
+      .split(",")
+      .map(Number)
+      .filter((v) => Number.isFinite(v) && v > 0)
+      .slice(0, 50);
+    if (
+      dono &&
+      gravacaoDesatualizada({
+        guardada: dono.updatedAt.getTime(),
+        base: Number.isFinite(baseDaAba) && baseDaAba > 0 ? baseDaAba : null,
+        proprias: propriasDaAba,
+      })
+    ) {
+      return NextResponse.json(
+        { error: "esta conversa mudou depois que esta aba a abriu", desatualizada: true },
+        { status: 409 },
+      );
     }
 
     const campos = {

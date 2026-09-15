@@ -53,6 +53,9 @@ export async function listarNoServidor(): Promise<{
   };
 }
 
+/** O servidor recusou porque a conversa mudou depois que esta aba a leu (C3). */
+export type GravacaoDesatualizada = { estado: "desatualizada"; em: number };
+
 /**
  * Manda a conversa para o servidor.
  *
@@ -61,12 +64,22 @@ export async function listarNoServidor(): Promise<{
  */
 export async function gravarNoServidor(
   rec: StoredConversation,
-): Promise<EstadoDaSincronizacao> {
+  /** O `updatedAt` que esta aba leu ou gravou por último. Ver `gravacaoDesatualizada`. */
+  versaoBase: number | null = null,
+  /** As versões que esta aba mandou desde a base e o servidor não confirmou. */
+  versoesProprias: readonly number[] = [],
+): Promise<EstadoDaSincronizacao | GravacaoDesatualizada> {
   const agora = Date.now();
   try {
     const resp = await fetch(ROTA, {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(versaoBase !== null ? { "x-nexo-versao-base": String(versaoBase) } : {}),
+        ...(versaoBase !== null && versoesProprias.length > 0
+          ? { "x-nexo-versoes-proprias": versoesProprias.join(",") }
+          : {}),
+      },
       body: JSON.stringify(rec),
     });
     if (resp.ok) return { estado: "ok", em: agora };
@@ -78,7 +91,11 @@ export async function gravarNoServidor(
      * ressuscitaria a conversa que o administrador apagou.
      */
     if (resp.status === 410) return { estado: "expurgada", em: agora };
-    const json = (await resp.json().catch(() => null)) as { error?: string } | null;
+    const json = (await resp.json().catch(() => null)) as
+      | { error?: string; desatualizada?: boolean }
+      | null;
+    // 409 também é "conversa de outro usuário": só o corpo diz qual dos dois.
+    if (resp.status === 409 && json?.desatualizada) return { estado: "desatualizada", em: agora };
     return {
       estado: "falhou",
       motivo: json?.error ?? `servidor respondeu ${resp.status}`,

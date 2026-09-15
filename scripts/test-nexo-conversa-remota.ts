@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import {
   LIMITE_BYTES,
   fundirListas,
+  gravacaoDesatualizada,
   lapidesLocais,
   resumoDoRegistro,
   validarRegistro,
@@ -313,6 +314,39 @@ test("lápide de conversa que este disco nunca viu não gera trabalho", () => {
 
 test("lápide aponta o que apagar deste disco", () => {
   assert.deepEqual(lapidesLocais([resumo({ id: "a" }), resumo({ id: "b" })], ["b", "c"]), ["b"]);
+});
+
+// ---------------------------------------------------------------------------
+// A aba desatualizada (C3, decidido em 15/09/2026)
+
+test("a aba que leu a versão guardada grava", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: 2_000, base: 2_000 }), false);
+});
+
+test("a versão guardada mudou depois da base: a gravação é recusada", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: 3_000, base: 2_000 }), true);
+});
+
+test("base MAIS NOVA que a guardada é gravação desta aba ainda a caminho, não conflito", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: 2_000, base: 3_000 }), false);
+});
+
+test("sem base (conversa nova, ou cliente de antes da regra) nunca recusa", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: 3_000, base: null }), false);
+});
+
+test("sem nada guardado não há o que proteger", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: null, base: 2_000 }), false);
+});
+
+test("guardada mais nova que a base, mas mandada por ESTA aba (ainda sem confirmação): grava", () => {
+  // A gravação em dupla (agora + commit) sai antes de a primeira voltar: a
+  // segunda leva a mesma base e a primeira entre as próprias.
+  assert.equal(gravacaoDesatualizada({ guardada: 3_000, base: 2_000, proprias: [3_000] }), false);
+});
+
+test("as próprias não salvam a versão de OUTRA aba", () => {
+  assert.equal(gravacaoDesatualizada({ guardada: 2_500, base: 2_000, proprias: [3_000] }), true);
 });
 
 console.log(`\n${passed} verificações passaram.`);

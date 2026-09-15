@@ -136,6 +136,36 @@ export function resumoDoRegistro(r: RegistroDaConversa): ResumoDaConversa {
 }
 
 /**
+ * A GRAVAÇÃO VEM DE UMA ABA DESATUALIZADA?
+ *
+ * Decidido pelo Matheus em 15/09/2026 (cenário C3 da bateria). O `updatedAt` é a
+ * hora em que a aba GRAVA, e não a do conteúdo: uma aba parada desde antes da
+ * auditoria gravava com hora nova e conteúdo velho, passava pela regra "a mais
+ * velha é descartada", e apagava o parecer da outra aba. A base é a versão que a
+ * aba LEU (ou a última que ela mesma mandou); guardado mais novo que isso é
+ * trabalho de outra aba.
+ *
+ * Base mais nova que o guardado NÃO é conflito: é gravação desta própria aba
+ * ainda a caminho. Sem base, ou sem nada guardado, não há o que proteger.
+ *
+ * AS PRÓPRIAS são as versões que esta aba já mandou e o servidor ainda não
+ * confirmou. Guardado igual a uma delas é trabalho desta aba, não de outra. Sem
+ * elas, a gravação em dupla do store (agora + commit, as duas saindo antes de a
+ * primeira voltar, com a mesma base) daria 409 contra a própria aba; e avançar
+ * a base ao mandar, em vez de listar as próprias, deixaria a SEGUNDA gravação
+ * da aba parada passar com uma base nova (achado da pré-revisão, 15/09/2026).
+ */
+export function gravacaoDesatualizada(args: {
+  guardada: number | null;
+  base: number | null;
+  proprias?: readonly number[];
+}): boolean {
+  if (args.guardada === null || args.base === null) return false;
+  if (args.proprias?.includes(args.guardada)) return false;
+  return args.guardada > args.base;
+}
+
+/**
  * Funde a lista do disco com a do servidor.
  *
  * Regras, nesta ordem:

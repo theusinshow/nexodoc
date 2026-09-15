@@ -41,6 +41,7 @@ import { escolherCopia } from "../lib/copia-mais-nova";
 import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
+import { criarFilaDeGravacao } from "../lib/fila-de-gravacao";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
   esquecerUltimaConversa,
@@ -55,6 +56,7 @@ import {
   listConversations,
   putBlob,
   putConversation,
+  versaoMaisNovaNoDisco,
   type ConversationSummary,
   type StoredConversation,
   type StoredResultMeta,
@@ -134,6 +136,12 @@ interface ConversationStoreValue {
    * subiu — e é justamente essa diferença que o testador não tem como adivinhar.
    */
   sincronizacao: EstadoDaSincronizacao;
+  /**
+   * Esta aba tentou gravar uma conversa que OUTRA aba (ou máquina) já mudou
+   * depois que ela a abriu. Nada foi gravado; a tela oferece recarregar
+   * (decidido em 15/09/2026, jornada c3).
+   */
+  conflitoDeVersao: boolean;
   /**
    * Como foi a última gravação no DISCO desta máquina.
    *
@@ -523,6 +531,17 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const [geracaoDaGravacao, setGeracaoDaGravacao] = useState(0);
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
   const jaPersistiu = useRef(false);
+  /*
+   * A VERSÃO QUE ESTA ABA CONHECE E A TRAVA DA ABA DESATUALIZADA — 15/09/2026,
+   * jornada c3. As gravações entram numa fila (a checagem do disco antes de
+   * gravar é assíncrona, e duas gravações seguidas não podem chegar trocadas),
+   * e a base de cada conversa mora nela. Ver [[fila-de-gravacao.ts]].
+   */
+  const [fila] = useState(() => criarFilaDeGravacao<StoredConversation>());
+  const [conflitoDeVersao, setConflitoDeVersao] = useState(false);
+  const marcarConflito = useCallback((conversa: string) => {
+    if (snapshotRef.current.conversationId === conversa) setConflitoDeVersao(true);
+  }, []);
 
   // Grava o snapshot atual AGORA (base do debounce E do flush ao trocar conversa).
   const persistNow = useCallback(() => {
@@ -642,43 +661,70 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
      * O IndexedDB é a gravação que vale no instante: é síncrono o bastante,
      * funciona sem rede e é o que faz um F5 não perder nada. O servidor vem
      * depois, e é o que faz o trabalho sobreviver a trocar de máquina.
+     *
+     * "Primeiro" é de importância, não de relógio: desde 15/09/2026 a ida ao
+     * servidor é disparada na mesma volta e a gravação no disco entra na fila
+     * logo atrás dela (ver abaixo e [[fila-de-gravacao.ts]]).
      */
-    putConversation(rec)
-      .then(() => {
-        setGravacaoLocal("ok");
-        refreshList();
-      })
-      /*
-       * A FALHA CONTA. Era `.catch(() => {})`, e o silêncio dela é o que fez o
-       * parecer do 084_25 sumir sem ninguém saber por quê: quota estourada,
-       * transação abortada ou despejo por pressão de armazenamento produziam
-       * exatamente o mesmo nada. Quem grava e não avisa que não gravou está
-       * dizendo que gravou.
-       */
-      .catch(() => setGravacaoLocal("falhou"));
+    /*
+     * A ABA DESATUALIZADA NÃO GRAVA — decidido em 15/09/2026 (jornada c3). A
+     * fila confere a trava, a base e o disco NA HORA DE GRAVAR NO DISCO: se o
+     * disco que as abas dividem já tem versão mais nova que a base desta aba,
+     * outra aba gravou depois que esta abriu a conversa, e gravar aqui apagaria
+     * o trabalho dela. A ida ao servidor sai já, com a base e as próprias, e a
+     * rota recusa pelo mesmo motivo (409).
+     */
+    fila.gravar(rec, {
+      lerVersaoNoDisco: versaoMaisNovaNoDisco,
+      gravarNoDisco: putConversation,
+      depoisDoDisco: (_rec, ok) => {
+        if (ok) {
+          setGravacaoLocal("ok");
+          refreshList();
+          return;
+        }
+        /*
+         * A FALHA CONTA. Era `.catch(() => {})`, e o silêncio dela é o que fez o
+         * parecer do 084_25 sumir sem ninguém saber por quê: quota estourada,
+         * transação abortada ou despejo por pressão de armazenamento produziam
+         * exatamente o mesmo nada. Quem grava e não avisa que não gravou está
+         * dizendo que gravou.
+         */
+        setGravacaoLocal("falhou");
+      },
+      aoConflito: marcarConflito,
+      enviarAoServidor: (gravado, base, proprias) => {
+        gravarNoServidor(gravado, base, proprias).then((estado) => {
+          // Outra máquina gravou depois da base desta aba: mesma trava do disco.
+          if (estado.estado === "desatualizada") {
+            fila.travar(gravado.id, "servidor");
+            marcarConflito(gravado.id);
+            return;
+          }
+          if (estado.estado === "ok") fila.confirmar(gravado.id, gravado.updatedAt);
+          /*
+           * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
+           * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
+           * modo de falhar caro deste projeto é o que parece ter dado certo.
+           */
+          setSincronizacao(estado);
 
-    gravarNoServidor(rec).then((estado) => {
-      /*
-       * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
-       * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
-       * modo de falhar caro deste projeto é o que parece ter dado certo.
-       */
-      setSincronizacao(estado);
-
-      /*
-       * EXPURGADA NO MEIO DA GRAVAÇÃO — a corrida que o 410 fecha.
-       *
-       * O administrador apagou esta conversa enquanto ela estava aberta aqui. O
-       * servidor recusou, e insistir seria ressuscitá-la. A cópia local sai
-       * agora, com os blobs, e a lista se redesenha sem ela.
-       */
-      if (estado.estado === "expurgada") {
-        dbDelete(rec.id)
-          .catch(() => {})
-          .finally(refreshList);
-      }
+          /*
+           * EXPURGADA NO MEIO DA GRAVAÇÃO — a corrida que o 410 fecha.
+           *
+           * O administrador apagou esta conversa enquanto ela estava aberta aqui. O
+           * servidor recusou, e insistir seria ressuscitá-la. A cópia local sai
+           * agora, com os blobs, e a lista se redesenha sem ela.
+           */
+          if (estado.estado === "expurgada") {
+            dbDelete(gravado.id)
+              .catch(() => {})
+              .finally(refreshList);
+          }
+        });
+      },
     });
-  }, [refreshList]);
+  }, [refreshList, fila, marcarConflito]);
 
   // Debounce: grava 500ms após a última mudança.
   const schedulePersist = useCallback(() => {
@@ -1092,6 +1138,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setMemorialMeta(null);
     // Conversa nova ainda não existe no disco: volta a valer a guarda de vazia.
     jaPersistiu.current = false;
+    // Nada lido, nada a proteger: a primeira gravação dela vai sem base (c3).
+    setConflitoDeVersao(false);
     // Revoga os object URLs dos resultados antes de largar (evita vazamento).
     setResults((prev) => {
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
@@ -1118,6 +1166,22 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        */
       await agenda.proximaSincronizacao(geracao, 1000);
       /*
+       * E ESPERA A FILA DE GRAVAÇÃO, 15/09/2026 (jornada c3). A gravação do
+       * flush só chega ao disco depois de a fila conferir a versão dele; antes
+       * da fila o `putConversation` saía na hora e a leitura abaixo já o
+       * encontrava. Lida sem esperar, esta abertura pegaria o disco sem a
+       * última mudança desta mesma aba (reabrir a conversa aberta, como na c6).
+       * Com limite, pelo mesmo motivo de cima: abrir conversa nunca trava por
+       * causa de disco lento.
+       */
+      await Promise.race([fila.ociosa(), new Promise((r) => setTimeout(r, 1000))]);
+      /*
+       * Recarregar depois do 409 do servidor: quem gravou foi OUTRA MÁQUINA, e o
+       * disco desta tem a versão desta aba — com hora que pode ser mais nova
+       * que a de lá. O desempate por data escolheria justamente a desatualizada.
+       */
+      const travadaPeloServidor = fila.travada(id) === "servidor";
+      /*
        * Disco preferido, MAS o desempate é a data.
        *
        * O disco continua vindo primeiro porque é ele que tem os BYTES dos
@@ -1138,7 +1202,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       const doDisco = await getConversation(id);
       const remoto = remotasRef.current.find((c) => c.id === id) ?? null;
       let rec = doDisco;
-      if (escolherCopia(doDisco, remoto) === "servidor") {
+      if (travadaPeloServidor || escolherCopia(doDisco, remoto) === "servidor") {
         const doServidor = await lerDoServidor(id);
         // Desce para este disco, senão toda reabertura pagaria a rede de novo e
         // um F5 offline a perderia.
@@ -1270,6 +1334,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       agenda.comecarTroca(rec.id);
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
       jaPersistiu.current = true;
+      /*
+       * A versão que esta aba acabou de LER é a base das gravações dela (c3). É
+       * aqui, junto da troca, e não na leitura: o que a fila ainda gravar da
+       * tela velha de uma conversa travada é largado, e a partir daqui nenhuma
+       * gravação lê o snapshot até o commit trazer esta versão.
+       */
+      fila.abrir(rec.id, rec.updatedAt);
+      setConflitoDeVersao(false);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
       // colhe isto.
       lembrarUltimaConversa(rec.id);
@@ -1318,7 +1390,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [agenda, flushPersist, schedulePersist],
+    [agenda, fila, flushPersist, schedulePersist],
   );
 
   const removeConversation = useCallback(
@@ -1425,7 +1497,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       refreshList();
       // O servidor também: uma cópia que ninguém tocar nunca dispararia o
       // `persistNow`, e só existiria nesta máquina.
-      gravarNoServidor(novo).then(setSincronizacao);
+      gravarNoServidor(novo).then((estado) => {
+        // Cópia recém-criada não tem base: "desatualizada" não acontece aqui.
+        if (estado.estado !== "desatualizada") setSincronizacao(estado);
+      });
       return novoId;
     },
     [flushPersist, refreshList],
@@ -1517,6 +1592,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       conversations,
       sincronizacao,
+      conflitoDeVersao,
       gravacaoLocal,
       results,
       appendMessage,
@@ -1565,6 +1641,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       ajustes,
       conversations,
       sincronizacao,
+      conflitoDeVersao,
       gravacaoLocal,
       results,
       appendMessage,
