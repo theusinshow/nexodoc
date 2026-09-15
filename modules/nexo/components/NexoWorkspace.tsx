@@ -1070,15 +1070,9 @@ function NexoWorkspaceInner({
       });
     }
     // Na aba travada o memorial não é guardado nem lido (ver
-    // `avisarMemorialRecusado`), então não houve troca a anunciar.
+    // `avisarMemorialRecusado`), então não há troca a anunciar. A troca da
+    // revisão só é anunciada DEPOIS do pré-voo (ver `memorial` abaixo).
     const recusaDaTrava = conv.recusaDeLeituraPagaAgora();
-    if (revisao && !recusaDaTrava) {
-      conv.appendMessage({
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "Troquei o memorial pela versão nova",
-      });
-    }
     if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
 
@@ -1104,16 +1098,10 @@ function NexoWorkspaceInner({
         url: URL.createObjectURL(f),
       })),
     ];
-    setAttachments((prev) => [
-      // A revisão TROCA: o chip da versão anterior, com o mesmo nome, sai.
-      ...prev.filter((a) => {
-        const antigo =
-          revisao !== null && !recusaDaTrava && a.kind === "pdf" && a.name === revisao;
-        if (antigo) arquivosPorAnexo.current.delete(a.id);
-        return !antigo;
-      }),
-      ...atts,
-    ]);
+    // A revisão TROCA o chip da versão anterior — mas só depois do pré-voo
+    // confirmar que o arquivo novo é memorial (ver `memorial` abaixo).
+    setAttachments((prev) => [...prev, ...atts]);
+    const idsNovos = new Set(atts.map((a) => a.id));
 
     /*
      * O PRÉ-VOO: depois dos chips, e ANTES de qualquer leitura.
@@ -1142,6 +1130,27 @@ function NexoWorkspaceInner({
     const memorialSolto = memorials[0] ?? null;
     if (memorialSolto && recusaDaTrava) avisarMemorialRecusado(memorialSolto.name, recusaDaTrava);
     const memorial = recusaDaTrava ? null : memorialSolto;
+    /*
+     * A REVISÃO SÓ É ANUNCIADA DEPOIS DO PRÉ-VOO (15/09/2026). "Troquei o
+     * memorial pela versão nova" saía antes de o pré-voo decidir o papel: um PDF
+     * de mesmo nome que se revelasse prancha ou indeciso tirava o chip do
+     * memorial e anunciava uma troca que não aconteceu. Agora só troca quando o
+     * arquivo novo, com o nome do memorial retido, é mesmo o memorial.
+     */
+    if (revisao !== null && memorial !== null && memorial.name === revisao) {
+      setAttachments((prev) =>
+        prev.filter((a) => {
+          const antigo = a.kind === "pdf" && a.name === revisao && !idsNovos.has(a.id);
+          if (antigo) arquivosPorAnexo.current.delete(a.id);
+          return !antigo;
+        }),
+      );
+      conv.appendMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "Troquei o memorial pela versão nova",
+      });
+    }
     if (memorial) {
       setMemorialFile(memorial);
       // Retido para poder auditar DE NOVO depois — inclusive numa conversa
