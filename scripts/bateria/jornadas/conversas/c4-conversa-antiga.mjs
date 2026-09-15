@@ -42,9 +42,28 @@ export default {
       JSON.stringify(rec?.auditorias),
     );
 
+    // Presença no DOM não basta: card fora da dobra ou escondido atrás de outro
+    // passaria em `count()` sem nunca ter chegado aos olhos de quem lê a tela.
     const deNovo = ctx.page.getByRole("button", { name: /auditar de novo/i });
-    ctx.verificar("um único botão de auditar de novo", (await deNovo.count()) === 1, String(await deNovo.count()));
-    ctx.verificar("o aviso diz quantas páginas não foram lidas", (await ctx.page.getByText(/14 PÁGINAS NÃO FORAM LIDAS/).count()) > 0);
-    ctx.verificar("a contagem não aparece sozinha", (await ctx.page.getByText(/contagem INCOMPLETA/).count()) > 0);
+    const qtdDeNovo = await deNovo.count();
+    ctx.verificar(
+      "um único botão de auditar de novo, visível de verdade",
+      qtdDeNovo === 1 && (await ctx.visivelRolando(deNovo)),
+      `contagem=${qtdDeNovo}`,
+    );
+
+    const aviso = ctx.page.getByText(/14 PÁGINAS NÃO FORAM LIDAS/);
+    ctx.verificar(
+      "o aviso diz quantas páginas não foram lidas, visível de verdade",
+      await ctx.visivelRolando(aviso),
+      `contagem=${await aviso.count()}`,
+    );
+
+    const contagem = ctx.page.getByText(/contagem INCOMPLETA/);
+    ctx.verificar(
+      "a contagem não aparece sozinha, visível de verdade",
+      await ctx.visivelRolando(contagem),
+      `contagem=${await contagem.count()}`,
+    );
   },
 };

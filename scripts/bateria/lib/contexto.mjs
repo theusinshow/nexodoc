@@ -134,6 +134,13 @@ export async function criarContexto({ browser, base }) {
       return caixa.width > 0 && caixa.height > 0 && caixa.y < janela.height && caixa.x < janela.width && caixa.y + caixa.height > 0;
     },
 
+    // Rola até o elemento antes de medir: um texto fora da dobra passaria em
+    // `count()` sem nunca ter chegado aos olhos de quem lê a tela.
+    async visivelRolando(locator) {
+      await locator.first().scrollIntoViewIfNeeded().catch(() => {});
+      return ctx.visivel(locator);
+    },
+
     verificar(nome, condicao, detalhe = "") {
       if (condicao) console.log(`      ok  ${nome}`);
       else {
