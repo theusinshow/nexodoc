@@ -46,8 +46,13 @@ import type { SeloResult } from "./selo-render.ts";
  * o cache guardava como "lido" — ver `leituraDoSeloVazia`. Sem subir o
  * numero, prancha ja lida por um build anterior ao conserto continuaria
  * voltando da memoria com o chip em branco.
+ *
+ * 4 (15/09/2026, revisao final da segunda rodada): "vazia" passou a exigir os
+ * 13 campos nulos, e nao 6. Um carimbo parcial (so cliente e data) lido pelo
+ * build anterior foi guardado como vazio; sem subir o numero ele voltaria da
+ * memoria como nao lido. Custo unico: cada prancha e relida uma vez.
  */
-export const VERSAO_DO_LEITOR = 3;
+export const VERSAO_DO_LEITOR = 4;
 
 /** Um arquivo sem leitura guardada, com a chave já calculada (não recalcular). */
 export interface ArquivoInedito {

@@ -63,17 +63,28 @@ export const PISO_PARA_DESCONFIAR = 4;
  * nulos, porque o carimbo não tem texto legível. Esse objeto passava por lido, o
  * chip ficava em branco e a conversa não dizia nada da folha.
  *
- * Basta um campo que identifique a folha (disciplina, número, arquivo, título)
- * para a leitura valer. `null` não entra aqui: já é tratado como não lido.
+ * VAZIA É TODO CAMPO NULO, como diz o desenho (V2): os 13 campos do carimbo.
+ * A primeira versão olhava só 6 (disciplina, número, folha, arquivo, conteúdo,
+ * título) e um carimbo parcial — só cliente e data legíveis — virava "não lido",
+ * perdia cliente, obra e data e ainda ia para o cache como vazio (revisão final
+ * da segunda rodada, 15/09/2026). Qualquer campo legível faz a leitura valer.
+ * `null` não entra aqui: já é tratado como não lido.
  */
 export function leituraDoSeloVazia(
   extraction: {
     disciplina?: string | null;
     numeroFolha?: string | null;
     folha?: number | null;
+    total?: number | null;
     arquivo?: string | null;
     conteudo?: string | null;
+    cliente?: string | null;
+    secretaria?: string | null;
+    obra?: string | null;
+    fase?: string | null;
     tituloSecao?: string | null;
+    data?: string | null;
+    logoOrgao?: string | null;
   } | null,
 ): boolean {
   if (!extraction) return false;
@@ -82,9 +93,16 @@ export function leituraDoSeloVazia(
     !temTexto(extraction.disciplina) &&
     !temTexto(extraction.numeroFolha) &&
     extraction.folha == null &&
+    extraction.total == null &&
     !temTexto(extraction.arquivo) &&
     !temTexto(extraction.conteudo) &&
-    !temTexto(extraction.tituloSecao)
+    !temTexto(extraction.cliente) &&
+    !temTexto(extraction.secretaria) &&
+    !temTexto(extraction.obra) &&
+    !temTexto(extraction.fase) &&
+    !temTexto(extraction.tituloSecao) &&
+    !temTexto(extraction.data) &&
+    !temTexto(extraction.logoOrgao)
   );
 }
 

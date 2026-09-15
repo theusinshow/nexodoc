@@ -31,10 +31,17 @@ function test(name: string, fn: () => void) {
 const vazia = {
   disciplina: null,
   folha: null,
+  total: null,
   numeroFolha: null,
   arquivo: null,
   conteudo: null,
+  cliente: null,
+  secretaria: null,
+  obra: null,
+  fase: null,
   tituloSecao: null,
+  data: null,
+  logoOrgao: null,
 };
 
 test("todos os campos nulos é leitura vazia", () => {
@@ -60,6 +67,28 @@ test("qualquer campo que identifica a folha basta", () => {
   assert.equal(leituraDoSeloVazia({ ...vazia, numeroFolha: "01/03" }), false);
   assert.equal(leituraDoSeloVazia({ ...vazia, folha: 1 }), false);
   assert.equal(leituraDoSeloVazia({ ...vazia, disciplina: "EST" }), false);
+});
+
+/*
+ * VAZIA É TODO CAMPO NULO, como diz o desenho (V2) — revisão final da segunda
+ * rodada, 15/09/2026. A regra olhava 6 dos 13 campos: um carimbo parcial, com
+ * só cliente e data legíveis, virava "não lido", perdia cliente/obra/data e
+ * ainda ia para o cache como vazio.
+ */
+test("carimbo parcial com só cliente e data legíveis conta como lido", () => {
+  assert.equal(
+    leituraDoSeloVazia({ ...vazia, cliente: "PREFEITURA MUNICIPAL DE CIDADE FICTICIA", data: "09/2026" }),
+    false,
+  );
+});
+
+test("cada um dos 13 campos, sozinho, já faz a leitura valer", () => {
+  const textos = ["disciplina", "numeroFolha", "arquivo", "conteudo", "cliente", "secretaria", "obra", "fase", "tituloSecao", "data", "logoOrgao"] as const;
+  for (const campo of textos) {
+    assert.equal(leituraDoSeloVazia({ ...vazia, [campo]: "X" }), false, campo);
+  }
+  assert.equal(leituraDoSeloVazia({ ...vazia, folha: 1 }), false, "folha");
+  assert.equal(leituraDoSeloVazia({ ...vazia, total: 3 }), false, "total");
 });
 
 test("leitura que falhou (null) não é 'vazia': já é tratada como não lida", () => {

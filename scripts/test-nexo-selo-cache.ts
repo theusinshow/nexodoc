@@ -116,7 +116,7 @@ test("reidratar não muta o que está guardado", () => {
 /*
  * FIX ROUND 1 (15/09/2026, revisão da Tarefa 18) — CRÍTICO.
  *
- * `VERSAO_DO_LEITOR` (agora 3) já impede a MESMA chave de servir uma leitura
+ * `VERSAO_DO_LEITOR` (3 aqui; 4 desde a revisão final) já impede a MESMA chave de servir uma leitura
  * de antes do conserto: a chave muda, o cache erra, a folha relê. Mas nada
  * garante que um registro já gravado sob a versão atual — por um bug futuro
  * que esqueça de aplicar `leituraDoSeloVazia` antes de guardar, por exemplo —
