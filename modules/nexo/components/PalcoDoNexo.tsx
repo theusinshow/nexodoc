@@ -536,7 +536,7 @@ export function PalcoDoNexo({
              * preciso saber por quê.
              */
             <div className="flex h-full items-start justify-center overflow-y-auto pt-10">
-              <div className="max-w-md text-center">
+              <div className="max-w-md text-center" data-retomada-falhou>
                 <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                   A análise não terminou
                 </p>

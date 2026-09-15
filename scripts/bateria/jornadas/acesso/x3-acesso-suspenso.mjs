@@ -64,7 +64,11 @@ export default {
         [EMAIL],
       );
 
-      const motivo = page.getByText("Você não faz parte de nenhum escritório.");
+      // Dentro da caixa do palco: o mesmo texto aparece também no estado da
+      // sincronização na barra lateral (a gravação recebe 403), e contar a
+      // página inteira fez o descarte falhar no CI com a caixa já fechada.
+      const caixa = page.locator("[data-retomada-falhou]");
+      const motivo = caixa.getByText("Você não faz parte de nenhum escritório.");
       const disse = await ctx.esperar(
         async () => (await motivo.count()) > 0,
         20_000,
@@ -103,14 +107,16 @@ export default {
       if (podeDescartar) {
         await descartar.click();
         const saiu = await ctx.esperar(
-          async () => !(await ctx.lerConversa(id))?.auditoriaPendente,
+          async () =>
+            !(await ctx.lerConversa(id))?.auditoriaPendente &&
+            (await caixa.count()) === 0,
           10_000,
           250,
         );
         ctx.verificar(
           "descartar tira o bilhete do disco e a caixa do motivo some",
-          saiu && (await motivo.count()) === 0,
-          `bilhete=${JSON.stringify((await ctx.lerConversa(id))?.auditoriaPendente)} motivo=${await motivo.count()}`,
+          saiu,
+          `bilhete=${JSON.stringify((await ctx.lerConversa(id))?.auditoriaPendente)} caixa=${await caixa.count()}`,
         );
       }
     } finally {

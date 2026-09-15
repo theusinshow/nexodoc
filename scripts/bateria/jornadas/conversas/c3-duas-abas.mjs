@@ -251,9 +251,14 @@ export default {
 
     await aba2.getByRole("button", { name: "Recarregar a conversa" }).click({ timeout: 10_000 }).catch(() => {});
     const verNaAba2 = aba2.getByRole("button", { name: /Ver o parecer/ });
-    await verNaAba2.first().waitFor({ timeout: 30_000 }).catch(() => {});
+    // Por evento, e não uma leitura só: no CI (Linux, mais lento) o botão já
+    // estava no DOM e o chat ainda descia até o fim quando a caixa foi medida.
+    const pareceerVisivelDeVerdade = await ctx.esperar(
+      async () => (await verNaAba2.count()) === 1 && (await ctx.visivelRolando(verNaAba2)),
+      30_000,
+      500,
+    );
     const pareceresNaAba2DepoisDeRecarregar = await verNaAba2.count();
-    const pareceerVisivelDeVerdade = pareceresNaAba2DepoisDeRecarregar === 1 && (await ctx.visivelRolando(verNaAba2));
     ctx.verificar("recarregada, a aba 2 mostra o parecer, visível de verdade", pareceerVisivelDeVerdade, `botões=${pareceresNaAba2DepoisDeRecarregar}`);
     // Vazia não prova nada: "a faixa sai" só conta se a recarga de fato
     // aconteceu, provada pelo parecer visível na tela (ruling P5, 15/09/2026).
