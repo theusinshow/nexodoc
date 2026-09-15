@@ -243,7 +243,9 @@ function MapaDoMemorial({
             style={{
               flex: 1,
               height: gravidade ? 96 : 60,
-              background: gravidade ? COR_DA_GRAVIDADE[gravidade] : "#3d474d",
+              background: gravidade
+                ? COR_DA_GRAVIDADE[gravidade]
+                : "var(--border)",
               animationDelay: `${atraso + i * passo}ms`,
             }}
           />
@@ -460,7 +462,7 @@ export const O_QUE_E: readonly Slide[] = [
             gap: 20,
             fontFamily: MONO,
             fontSize: 20,
-            color: "#5f6b72",
+            color: "var(--muted-foreground)",
           }}
         >
           <span>Apresentação de software</span>
@@ -729,7 +731,9 @@ export const O_QUE_E: readonly Slide[] = [
         {/* O mapa, com a escala de página embaixo. */}
         <div style={{ marginTop: 56 }}>
           <MapaDoMemorial paginas={218} atraso={520} duracao={2300} />
-          <div style={{ height: 1, background: "#3d474d", marginTop: 8 }} />
+          <div
+            style={{ height: 1, background: "var(--border)", marginTop: 8 }}
+          />
           {/*
             A ESCALA DE PÁGINA é posicional, não "space-between": o rótulo 100
             fica exatamente sob a página 100, senão a linha da p. 92 cai à
@@ -743,7 +747,7 @@ export const O_QUE_E: readonly Slide[] = [
               marginTop: 8,
               fontFamily: MONO,
               fontSize: 16,
-              color: "#5f6b72",
+              color: "var(--muted-foreground)",
               animationDelay: "520ms",
             }}
           >

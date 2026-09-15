@@ -2,48 +2,21 @@
 
 import type { Slide } from "../palco";
 import {
-  Contador,
   Entra,
+  EscalaHorizontal,
   EscalaVertical,
   Leitura,
   Linhas,
   MONO,
-  Mostrador,
 } from "../pecas";
 
 /**
- * OS VALORES — o piloto, o que ele custa e o preço, em seis folhas.
- *
- * POR QUE ESTÁ SEPARADA DO DECK. Preço não pode ser alcançado por uma seta a
- * mais no fim da apresentação. Estas folhas se abrem por um BOTÃO, na folha 17,
- * e só quando o apresentador decidir — a mão sai do teclado e vai ao mouse, e
- * essa fricção é a decisão sendo tomada de propósito.
- *
- * POR QUE NÃO É MAIS UM ARQUIVO SOLTO. Até 08/09/2026 isto vivia em
- * `docs/anexo-proposta.html`, que o `.dockerignore` exclui: existia numa
- * máquina só e nunca chegava a produção, que é de onde a apresentação de fato
- * roda. A rota devolve o alcance sem devolver o acidente.
- *
- * NUMERADAS A · B · C · D · E · F, e não 01..06. Um "01" aqui dentro faria isto
- * parecer o começo de outro deck; a letra diz que é anexo.
- *
- * A ORDEM É ESCOPO → CUSTOS → PREÇO, e ela não é arbitrária: quem chega aqui
- * clicou perguntando quanto custa, e a pior resposta possível é a cifra sozinha.
- * A vem antes porque diz o que está sendo comprado; B e C põem os dois custos
- * na mesa — operar e construir — antes de D pedir um número. As folhas B e C
- * vieram do deck em 09/09/2026: dinheiro é assunto do anexo, e o deck ficou com
- * o produto e as possíveis perguntas.
- *
- * A ÂNCORA DO PREÇO É A CONSTRUÇÃO, NUNCA O RETORNO MENSAL — e esta é a regra
- * que decide o conteúdo da folha E. A folha 12 do deck sustenta um teto de
- * licença de cerca de R$ 500 por mês; R$ 10.000 em seis meses é R$ 1.667 por
- * mês, 3,3 vezes esse teto. Pôr as duas contas lado a lado armaria o argumento
- * contra o próprio preço, com números do próprio autor. A folha E ancora onde a
- * folha C ancora em voz alta: o piloto não compra seis meses de acesso, compra
- * o que já está construído — e pede menos de metade disso.
+ * A PROPOSTA — seis folhas, abertas deliberadamente a partir da folha 17.
+ * A sequência é: objeto da compra → custo operacional → entregas → preço →
+ * evidência final → decisão. O custo histórico de construção não ancora mais o
+ * preço: ele explica o esforço do vendedor, não o valor recebido pelo comprador.
  */
 
-/** Uma linha de tabela do anexo: item, base em Mono, valor à direita. */
 function LinhaDeCusto({
   item,
   base,
@@ -76,7 +49,7 @@ function LinhaDeCusto({
             margin: "4px 0 0",
             fontFamily: MONO,
             fontSize: 20,
-            color: "#5f6b72",
+            color: "var(--muted-foreground)",
           }}
         >
           {base}
@@ -96,21 +69,14 @@ function LinhaDeCusto({
   );
 }
 
-/** O total de uma coluna: rótulo e valor sobre linha, na base. */
 function Total({
   rotuloDo,
   valor,
-  cor = "var(--foreground)",
-  tamanho = 44,
   atraso,
-  teal = false,
 }: {
   rotuloDo: string;
   valor: string;
-  cor?: string;
-  tamanho?: number;
   atraso: number;
-  teal?: boolean;
 }) {
   return (
     <Entra
@@ -118,7 +84,7 @@ function Total({
       style={{
         marginTop: "auto",
         paddingTop: 20,
-        borderTop: `1px solid ${teal ? "var(--nexodoc-accent)" : "var(--border)"}`,
+        borderTop: "1px solid var(--nexodoc-accent)",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
@@ -129,10 +95,10 @@ function Total({
       <span
         style={{
           fontFamily: MONO,
-          fontSize: tamanho,
+          fontSize: 44,
           fontWeight: 500,
           letterSpacing: "-0.02em",
-          color: cor,
+          color: "var(--nexodoc-accent)",
           whiteSpace: "nowrap",
           fontVariantNumeric: "tabular-nums",
         }}
@@ -147,81 +113,35 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "O piloto",
     numero: "A",
-    bloco: "Os valores",
-    titulo: "Piloto de seis meses",
+    bloco: "A proposta",
+    titulo: "Um piloto, duas trilhas de evidência",
     notas:
-      "PRIMEIRA FOLHA DO ANEXO, e é assim de propósito: quem clicou o botão da folha 17 perguntou quanto custa, e a pior resposta possível é a cifra sozinha. Antes do número, o que está sendo comprado.\n\nO pedido é o julgamento de quem usar — sem ele, a única medida em aberto continua em aberto. Ler a coluna da direita devagar: é o que separa este piloto de um período de teste.\n\nNÃO ANTECIPAR O VALOR AQUI. Ele está três folhas adiante, e a sala chega lá em menos de um minuto.",
+      "ANTES DO PREÇO, DEFINIR O OBJETO DA COMPRA. As duas capacidades entram juntas, mas não dividem uma métrica artificial.\n\nCONFERÊNCIA: quem projeta julga cada achado e a precisão aparece por disciplina.\n\nMONTAGEM: quem monta registra a linha de base, o tempo real, as falhas, o retrabalho e se os arquivos finais foram aceitos.\n\nA DIRETORIA recebe as duas medidas separadas. Isso impede que uma capacidade esconda a fraqueza da outra e transforma o piloto em produção de evidência, não período de acesso.",
     corpo: (
       <>
-        <div className="ap-grade" style={{ flex: 1 }}>
-          <div
-            style={{
-              gridColumn: "1 / span 6",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <EscalaVertical
-              atraso={200}
-              numerada={false}
-              itens={[
-                {
-                  titulo: "O que entra",
-                  texto:
-                    "Conferência de memorial descritivo e montagem de LDs, capas e volumes, com os usuários definidos junto com a diretoria.",
-                },
-                {
-                  titulo: "O que eu entrego",
-                  texto:
-                    "Acesso, acompanhamento próximo, correção dos problemas que aparecerem e o modelo-padrão de memorial corrigido.",
-                },
-                {
-                  titulo: "Como saberemos se deu certo",
-                  texto:
-                    "Nenhum achado com evidência que não exista no documento. Precisão julgada por quem usou, disciplina por disciplina. Listas e volumes reais montados sem perda de trabalho. Custo mensal dentro do estimado.",
-                },
-              ]}
-            />
-          </div>
-          <div
-            style={{
-              gridColumn: "8 / span 5",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={640}>
-              <span
-                className="ap-mono-rotulo"
-                style={{ color: "var(--nexodoc-accent)" }}
-              >
-                O que eu peço em troca
-              </span>
-            </Entra>
-            <p className="ap-titulo-de-fato" style={{ marginTop: 20 }}>
-              <Linhas
-                linhas={[
-                  "Que quem usar julgue",
-                  "cada achado: verdadeiro,",
-                  "duvidoso ou falso.",
-                ]}
-                atraso={780}
-              />
-            </p>
-            <Entra atraso={980}>
-              <p className="ap-texto" style={{ marginTop: 20 }}>
-                É a peça que falta no produto. A planilha de julgamento já
-                existe e está pronta para receber esse veredito — e é ele que
-                transforma a única medida em aberto num número.
-              </p>
-            </Entra>
-          </div>
-        </div>
+        <EscalaHorizontal
+          atraso={180}
+          style={{ marginTop: 48 }}
+          fatos={[
+            {
+              titulo: ["Conferência", "documental"],
+              cor: "var(--nexodoc-accent)",
+              texto:
+                "Achados julgados como verdadeiros, duvidosos ou falsos, separados por disciplina e sempre ligados à página e ao trecho.",
+            },
+            {
+              titulo: ["Montagem", "de entregáveis"],
+              cor: "var(--status-warning)",
+              texto:
+                "LDs, capas e volumes reais medidos por tempo, retrabalho, estabilidade do rascunho e aceitação dos arquivos finais.",
+            },
+          ]}
+        />
         <Leitura
-          atraso={1100}
+          atraso={1040}
           linhas={[
-            { texto: "Seis meses de uso real dizem", chave: true },
-            { texto: "o que nenhuma apresentação diz.", chave: true },
+            { texto: "As duas capacidades entram juntas." },
+            { texto: "A prova de cada uma continua separada.", chave: true },
           ]}
         />
       </>
@@ -229,19 +149,18 @@ export const VALORES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Quanto custa",
+    rotulo: "Quanto custa operar",
     numero: "B",
-    bloco: "Os valores",
+    bloco: "A proposta",
     titulo: "Quanto custa operar",
     notas:
-      "Deixar claro, com essas palavras, que a projeção é estimativa e varia com o uso. O número por execução é medido; o mensal depende de quantos documentos passarem. Atualizar a cotação do dólar antes de apresentar.\n\nOS US$ 1,61 SÃO A CORRIDA DA FOLHA 05 DO DECK (117_25, 14/09/2026, leitura profunda): US$ 1,23 da leitura, US$ 0,37 da validação e US$ 0,01 das 14 páginas sem texto transcritas, somados do registro de uso. O mensal é 16 × 1,61 ≈ US$ 26, e o total, US$ 57 a R$ 5,18, dá os R$ 295 — que também estão nas folhas 12 do deck e E daqui.",
+      "O CUSTO POR EXECUÇÃO É MEDIDO; o mensal é estimativa. Atualizar a cotação antes de apresentar.\n\nOS US$ 1,61 são a mesma corrida da folha 05: US$ 1,23 de leitura, US$ 0,37 de validação e US$ 0,01 das quatorze páginas sem texto transcritas.\n\nO TOTAL MENSAL usa dezesseis memoriais, montagem corrente, servidor e banco. Não apresentar esse número como preço nem como retorno: é custo operacional e precisa continuar separado dos R$ 10 mil do piloto.",
     corpo: (
       <>
         <Entra atraso={100}>
           <p className="ap-texto" style={{ fontSize: 28, maxWidth: "80ch" }}>
-            O custo por execução é medido no próprio sistema. O total mensal é{" "}
-            <span className="ap-premissa">estimativa</span> — varia com quantos
-            documentos passarem.
+            O custo por execução é medido no sistema. O total mensal é uma{" "}
+            <span className="ap-premissa">estimativa</span> — varia com o uso.
           </p>
         </Entra>
         <div className="ap-grade" style={{ flex: 1, marginTop: 40 }}>
@@ -279,7 +198,7 @@ export const VALORES: readonly Slide[] = [
           >
             <Entra atraso={620}>
               <span className="ap-mono-rotulo">
-                Estimativa mensal, no volume do escritório
+                Estimativa mensal no volume do escritório
               </span>
             </Entra>
             <div style={{ marginTop: 12 }}>
@@ -311,9 +230,7 @@ export const VALORES: readonly Slide[] = [
             <Total
               rotuloDo="Ordem de grandeza"
               valor="≈ R$ 295 / mês"
-              cor="var(--nexodoc-accent)"
               atraso={1180}
-              teal
             />
             <Entra atraso={1300}>
               <p className="ap-fonte">
@@ -329,139 +246,42 @@ export const VALORES: readonly Slide[] = [
   },
 
   {
-    rotulo: "O que custou construir",
+    rotulo: "O que está sendo comprado",
     numero: "C",
-    bloco: "Os valores",
-    titulo: "O que custou construir",
+    bloco: "A proposta",
+    titulo: "O que o piloto compra",
     notas:
-      "O gasto em dinheiro NAO e estimativa: sai do registro de uso do proprio sistema, chamada por chamada, e o painel administrativo mostra a mesma soma. A hora de desenvolvedor junior e o unico numero inventado desta folha, e a palavra estimativa fica na tela por isso. Se perguntarem por que a ferramenta de programacao entra na conta: porque sem ela este software nao existiria em seis meses, e ela continua sendo paga enquanto eu mantiver o produto.",
+      "ESTA FOLHA SUBSTITUI O CUSTO DE CONSTRUÇÃO COMO ÂNCORA. O comprador não paga as horas passadas; paga implantação, acompanhamento e uma decisão final sustentada por evidência.\n\nIMPLANTAÇÃO inclui configurar o uso com projeto e pessoas reais. ACOMPANHAMENTO inclui observar, corrigir e documentar problemas recorrentes. EVIDÊNCIA inclui as duas medidas separadas e o memorial-padrão corrigido.\n\nPROPRIEDADE, EM UMA FRASE: o software continua sendo de Matheus Mendes; os pareceres e arquivos produzidos para a PROSUL ficam com a PROSUL. Custódia de código só entra numa negociação de longo prazo.",
     corpo: (
       <>
-        <Entra atraso={100}>
-          <p className="ap-texto" style={{ fontSize: 28, maxWidth: "80ch" }}>
-            O gasto em dinheiro está medido no próprio sistema, chamada por
-            chamada. O tempo é <span className="ap-premissa">estimativa</span> —
-            e nenhuma dessas horas foi paga pela PROSUL.
-          </p>
-        </Entra>
-        <div className="ap-grade" style={{ flex: 1, marginTop: 40 }}>
-          <div
-            style={{
-              gridColumn: "1 / span 6",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={200}>
-              <span className="ap-mono-rotulo">Em dinheiro — medido</span>
-            </Entra>
-            <div style={{ marginTop: 12 }}>
-              <LinhaDeCusto
-                item="Modelos de IA"
-                base="3.751 chamadas, três meses"
-                valor="US$ 64"
-                atraso={300}
-              />
-              <LinhaDeCusto
-                item="Ferramenta de programação"
-                base="assinatura, seis meses"
-                valor="US$ 600"
-                atraso={430}
-              />
-              <LinhaDeCusto
-                item="Servidor e domínio"
-                base="do período de construção"
-                valor="US$ 26"
-                atraso={560}
-              />
-            </div>
-            <Total
-              rotuloDo="Somado"
-              valor="R$ 3.576"
-              tamanho={36}
-              atraso={720}
-            />
-          </div>
-          <div
-            style={{
-              gridColumn: "8 / span 5",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={820}>
-              <span className="ap-mono-rotulo">Em tempo — estimativa</span>
-            </Entra>
-            <div style={{ marginTop: 20 }}>
-              <Mostrador
-                rotuloDo="horas, noites e fins de semana"
-                atraso={940}
-                valor={<Contador ate={700} atraso={1040} />}
-              />
-            </div>
-            <Entra atraso={1160}>
-              <p
-                style={{
-                  margin: "24px 0 0",
-                  fontFamily: MONO,
-                  fontSize: 26,
-                  color: "var(--muted-foreground)",
-                }}
-              >
-                Hora de desenvolvedor júnior{" "}
-                <span className="ap-premissa">(estimativa: R$ 30 a R$ 50)</span>
-              </p>
-            </Entra>
-            <Total
-              rotuloDo="Só de trabalho"
-              valor="R$ 21.000 a R$ 35.000"
-              tamanho={36}
-              atraso={1300}
-            />
-          </div>
-        </div>
-        <Entra
-          atraso={1460}
-          style={{
-            flex: "none",
-            marginTop: 24,
-            paddingTop: 24,
-            borderTop: "1px solid var(--nexodoc-accent)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: 40,
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              maxWidth: "44ch",
-              fontSize: 32,
-              fontWeight: 500,
-              letterSpacing: "-0.018em",
-              lineHeight: 1.25,
-              color: "var(--nexodoc-accent)",
-              textWrap: "pretty",
-            }}
-          >
-            O piloto não compra seis meses de acesso. Compra o que já está
-            construído.
-          </p>
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 44,
-              fontWeight: 500,
-              letterSpacing: "-0.025em",
-              color: "var(--foreground)",
-              whiteSpace: "nowrap",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            R$ 24.600 a R$ 38.600
-          </span>
-        </Entra>
+        <EscalaHorizontal
+          atraso={180}
+          style={{ marginTop: 48 }}
+          fatos={[
+            {
+              titulo: ["Implantação", "acompanhada"],
+              texto:
+                "Projeto inicial, usuários, configuração, linha de base e entrada assistida nos dois caminhos.",
+            },
+            {
+              titulo: ["Correção durante", "o uso"],
+              texto:
+                "Problemas recorrentes recebem correção ou procedimento documentado enquanto o piloto acontece.",
+            },
+            {
+              titulo: ["Evidência para", "a diretoria"],
+              texto:
+                "Medidas separadas, registro das decisões e memorial-padrão corrigido para permanecer na empresa.",
+            },
+          ]}
+        />
+        <Leitura
+          atraso={1160}
+          linhas={[
+            { texto: "Não são seis meses de acesso." },
+            { texto: "É uma implantação com prova de saída.", chave: true },
+          ]}
+        />
       </>
     ),
   },
@@ -469,10 +289,10 @@ export const VALORES: readonly Slide[] = [
   {
     rotulo: "A proposta",
     numero: "D",
-    bloco: "Os valores",
+    bloco: "A proposta",
     titulo: "A proposta",
     notas:
-      "Ler a folha inteira antes de falar do número. A linha que decide não é o valor, é a de baixo: ao fim dos seis meses, se não atender, encerra. É isso que tira o risco da mesa.\n\nSE PERGUNTAREM POR QUE SEIS E NÃO TRÊS: porque três meses não dão para um projeto inteiro passar pelo sistema, e sem projeto inteiro não há julgamento — sobra impressão.\n\nO PISO ESTÁ DECIDIDO e é este. Abaixo dele não se fecha na sala: dizer que leva para pensar, e levar mesmo. Nunca aceitar por alívio de a reunião estar acabando, que é como quase todo desconto acontece.",
+      "LER O ESCOPO ANTES DO NÚMERO. O valor compra a implantação descrita na folha anterior e a evidência da folha seguinte.\n\nSE PERGUNTAREM POR QUE SEIS MESES: porque um projeto precisa atravessar o sistema por inteiro e produzir julgamento, não impressão.\n\nOCR pode funcionar em casos específicos, mas não é cobertura garantida do piloto. Dizer assim evita contradizer a demonstração das quatorze páginas sem texto da corrida real.\n\nO PISO CONTINUA R$ 10 mil. Não conceder desconto por alívio de a reunião estar acabando.",
     corpo: (
       <>
         <EscalaVertical
@@ -490,109 +310,66 @@ export const VALORES: readonly Slide[] = [
             {
               titulo: "Inclui",
               texto:
-                "Conferência de memorial descritivo e montagem de listas de documentos, capas e volumes. Acompanhamento próximo, correção dos problemas que aparecerem, e o modelo-padrão de memorial corrigido.",
+                "Conferência documental; montagem de LDs, capas e volumes; implantação acompanhada; correções; evidência final; memorial-padrão corrigido.",
             },
             {
               titulo: "Não inclui",
               texto:
-                "Desenvolvimento de módulo novo sob demanda, leitura de PDF escaneado (OCR) e auditoria de prancha.",
+                "Módulo novo sob demanda, cobertura garantida de OCR para todo documento e auditoria técnica de prancha.",
             },
           ]}
         />
         <Leitura
-          atraso={900}
+          atraso={920}
           linhas={[
+            { texto: "Se não produzir evidência suficiente, encerra." },
             {
-              texto: "Ao fim dos seis meses: se não atender, encerra.",
+              texto: "Se produzir, a renovação nasce dos dados do piloto.",
               chave: true,
             },
+          ]}
+        />
+      </>
+    ),
+  },
+
+  {
+    rotulo: "O que fica ao final",
+    numero: "E",
+    bloco: "A proposta",
+    titulo: "A prova que fica com a PROSUL",
+    notas:
+      "ESTA É A JUSTIFICATIVA DO VALOR. Não comparar os R$ 10 mil com horas de desenvolvimento. Mostrar o pacote de decisão que a empresa recebe.\n\nCONFERÊNCIA: matriz julgada por disciplina, taxa de achados verdadeiros, classes recorrentes de falso positivo e correções do memorial-padrão.\n\nMONTAGEM: linha de base contra tempo real, LDs e volumes gerados, arquivos aceitos, falhas, retrabalho e correções.\n\nO REGISTRO DE DECISÃO fecha: o que ficou provado, o que ainda falta e qual condição sustenta renovar. Mesmo sem renovação, essa evidência não some.",
+    corpo: (
+      <>
+        <EscalaHorizontal
+          atraso={180}
+          style={{ marginTop: 44 }}
+          fatos={[
             {
+              titulo: ["Conferência", "medida"],
+              cor: "var(--nexodoc-accent)",
               texto:
-                "Se atender, a renovação é negociada com o que o uso real tiver mostrado.",
+                "Julgamento por disciplina, verdadeiros, duvidosos, falsos, padrões recorrentes e correções do texto-base.",
+            },
+            {
+              titulo: ["Montagem", "medida"],
+              cor: "var(--status-warning)",
+              texto:
+                "Tempo antes e depois, estabilidade, retrabalho, arquivos gerados e aceitação por quem entrega.",
+            },
+            {
+              titulo: ["Decisão", "registrada"],
+              texto:
+                "O que ficou provado, o que permaneceu em aberto e a condição objetiva para encerrar ou renovar.",
             },
           ]}
         />
-      </>
-    ),
-  },
-
-  {
-    rotulo: "De onde sai esse número",
-    numero: "E",
-    bloco: "Os valores",
-    titulo: "De onde sai esse número",
-    notas:
-      "ESTA FOLHA NÃO DEFENDE O PREÇO, ELA O ANCORA. Nenhum dos três números da esquerda é novo: dois estão nas folhas B e C, aqui mesmo, e o do projeto devolvido veio da folha 12 do deck. O que esta folha faz é pô-los ao lado do pedido.\n\nNÃO TRAZER A CONTA DE RETORNO MENSAL para esta folha, nem de boca. Operar custa R$ 295 e o tempo devolvido paga até cerca de R$ 500 por mês; R$ 10.000 em seis meses dá R$ 1.667 por mês. Quem levantar essa aritmética na sala derruba o preço com o meu próprio número.\n\nSE ELE MESMO LEVANTAR, a resposta é a frase de baixo: o piloto não está comprando seis meses de acesso, está comprando o que já está construído — e mesmo que ninguém abra o sistema no sexto mês, o que foi entregue continua entregue.\n\nA ÚNICA ESTIMATIVA DESTA FOLHA é a hora de desenvolvedor júnior, e a palavra fica na tela por isso. Tudo o mais saiu do registro de uso do próprio sistema.",
-    corpo: (
-      <>
-        <Entra atraso={100}>
-          <p className="ap-texto" style={{ fontSize: 28, maxWidth: "80ch" }}>
-            Nada aqui é novo: os três números já passaram — dois nas duas folhas
-            anteriores, o terceiro no deck. O que muda é que agora estão ao lado
-            do pedido.
-          </p>
-        </Entra>
-        <div className="ap-grade" style={{ flex: 1, marginTop: 40 }}>
-          <div
-            style={{
-              gridColumn: "1 / span 6",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Entra atraso={200}>
-              <span className="ap-mono-rotulo">O que já foi gasto</span>
-            </Entra>
-            <div style={{ marginTop: 12 }}>
-              <LinhaDeCusto
-                item="Construir o que vocês viram"
-                base="R$ 3.576 em dinheiro, medido, mais 700 horas"
-                valor="R$ 24.600 a 38.600"
-                atraso={300}
-              />
-              <LinhaDeCusto
-                item="O projeto devolvido"
-                base="só as horas paradas que deu para somar"
-                valor="R$ 3.600 a 6.480"
-                atraso={440}
-              />
-              <LinhaDeCusto
-                item="Operar o sistema"
-                base="por mês, no volume do escritório"
-                valor="R$ 295"
-                atraso={580}
-              />
-            </div>
-            <Entra atraso={720} style={{ marginTop: "auto" }}>
-              <p className="ap-fonte">
-                A hora de desenvolvedor júnior é{" "}
-                <span className="ap-premissa">estimativa (R$ 30 a R$ 50)</span>.
-                Todo o resto saiu do registro de uso do próprio sistema.
-              </p>
-            </Entra>
-          </div>
-          <div
-            style={{
-              gridColumn: "8 / span 5",
-              display: "flex",
-              flexDirection: "column",
-              paddingTop: 120,
-            }}
-          >
-            <Mostrador
-              rotuloDo="por seis meses de licença de uso"
-              atraso={900}
-              cor="var(--nexodoc-accent)"
-              valor="R$ 10.000"
-            />
-          </div>
-        </div>
         <Leitura
-          atraso={1100}
+          atraso={1160}
           linhas={[
-            { texto: "O piloto não compra seis meses de acesso.", chave: true },
-            { texto: "Compra o que já está construído —", chave: true },
-            { texto: "e pede menos de metade do que custou construir." },
+            { texto: "O valor não se sustenta no que custou construir." },
+            { texto: "Sustenta-se no que fica para decidir.", chave: true },
           ]}
         />
       </>
@@ -600,28 +377,48 @@ export const VALORES: readonly Slide[] = [
   },
 
   {
-    rotulo: "Propriedade",
+    rotulo: "A decisão",
     numero: "F",
-    bloco: "Os valores",
-    titulo: "Propriedade",
+    bloco: "A proposta",
+    titulo: "Para começar",
     notas:
-      "UMA FRASE, SEM DEFENSIVA E SEM JUSTIFICATIVA LONGA. Explicar demais aqui parece culpa. Ler, parar, e deixar a sala reagir.\n\nSE VIER 'E O QUE DIZ O SEU CONTRATO DE TRABALHO?': o contrato foi lido, e não há cláusula de cessão sobre criação fora do expediente. Resposta de uma linha, sem alongar.\n\nA MOEDA DE TROCA, se travar aqui, é a CUSTÓDIA DO CÓDIGO — está disponível e vale PRAZO. Oferecê-la em troca de contrato mais longo, nunca de desconto.",
+      "ÚLTIMA FOLHA DO ANEXO: terminar em decisão, não em propriedade.\n\nPEDIR TRÊS COISAS: aprovar o piloto de seis meses por R$ 10 mil; escolher o projeto inicial; nomear o responsável e os usuários.\n\nSE A RESPOSTA FOR SIM, a próxima conversa é de implantação. Se precisarem pensar, perguntar qual evidência ainda falta para decidir e registrar quem a traz.\n\nNÃO REPETIR o custo de construção, não oferecer desconto e não abrir roadmap. Parar depois do pedido.",
     corpo: (
       <>
-        <p className="ap-titulo-de-fato" style={{ marginTop: 48 }}>
+        <p className="ap-titulo-de-fato" style={{ marginTop: 20 }}>
           <Linhas
             linhas={[
-              "O NexoDoc é de autoria e propriedade de Matheus",
-              "Mendes, desenvolvido fora do vínculo empregatício,",
-              "em equipamento, tempo e licenças próprios.",
+              "Aprovar o piloto de seis meses por R$ 10 mil.",
+              "Escolher o projeto. Nomear as pessoas.",
             ]}
-            atraso={200}
+            atraso={180}
           />
         </p>
+        <EscalaHorizontal
+          atraso={520}
+          compacta
+          style={{ marginTop: 72 }}
+          fatos={[
+            {
+              titulo: ["01 · Projeto"],
+              texto: "O primeiro trabalho real que atravessa o piloto.",
+            },
+            {
+              titulo: ["02 · Responsável"],
+              texto: "Quem recebe a evidência e responde pela decisão final.",
+            },
+            {
+              titulo: ["03 · Usuários"],
+              texto: "Quem julga a conferência e quem mede a montagem.",
+            },
+          ]}
+        />
         <Leitura
-          atraso={900}
+          atraso={1240}
+          rotuloDo="Próximo passo"
           linhas={[
-            { texto: "O que se propõe aqui é licença de uso.", chave: true },
+            { texto: "Com a aprovação," },
+            { texto: "a próxima reunião é de implantação.", chave: true },
           ]}
         />
       </>

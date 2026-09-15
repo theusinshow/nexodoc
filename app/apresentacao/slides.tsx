@@ -10,8 +10,9 @@ import type { Slide } from "./palco";
 
 /**
  * O CONTEÚDO DO DECK — a ordem das folhas, e só ela. Cada bloco mora em
- * `folhas/`, com o texto e as notas de 09/09/2026 sem alteração; a composição
- * é a do spec `2026-09-10-deck-instrumento-design.md`.
+ * `folhas/`; a composição preserva o instrumento do spec de 10/09 e segue a
+ * narrativa comercial de
+ * `2026-09-15-apresentacao-prova-e-credibilidade.md`.
  *
  * TRÊS REGRAS QUE ESTE DECK NÃO PODE PERDER:
  *

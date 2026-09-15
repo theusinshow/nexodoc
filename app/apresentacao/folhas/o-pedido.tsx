@@ -3,91 +3,91 @@
 import { AgentOrb } from "@/modules/nexo/components/agent-orb/AgentOrb";
 
 import type { Slide } from "../palco";
-import { EscalaHorizontal, EscalaVertical, Leitura } from "../pecas";
+import {
+  Entra,
+  EscalaHorizontal,
+  EscalaVertical,
+  Leitura,
+  Linhas,
+} from "../pecas";
 
-/** BLOCO 6 — O PEDIDO (folhas 18 e 19). Texto e notas de 09/09/2026, sem alteração. */
+/** O fechamento do deck: preparar a decisão e pedi-la sem rodeios. */
 export const O_PEDIDO: readonly Slide[] = [
   {
-    rotulo: "O que pode vir",
+    rotulo: "Para começar",
     numero: "18",
-    bloco: "O pedido",
-    titulo: "O que pode vir depois",
-    subtitulo:
-      "Caminho, não promessa. Nada disto está pronto, e a ordem depende do que o uso real mostrar.",
+    bloco: "A decisão",
+    titulo: "O que precisa ficar decidido",
     notas:
-      "Deixar claro que é caminho, não promessa — nada aqui está pronto. O item que costuma acender o olho de quem projeta é o terceiro: a correção aplicada direto no arquivo editável.",
+      "ESTA FOLHA TRANSFORMA INTERESSE EM IMPLANTAÇÃO. Não sair da reunião apenas com concordância abstrata. Os três itens podem ser decididos ali ou receber dono e prazo.\n\nPROJETO: escolher um trabalho real que atravesse conferência e montagem. Se nenhum projeto servir aos dois caminhos, escolher um para cada prova e manter as medidas separadas.\n\nRESPONSÁVEL: alguém da diretoria precisa responder pelo resultado, e não só pelo acesso.\n\nUSUÁRIOS: quem confere julga achados; quem monta registra tempo, retrabalho e aceitação dos arquivos. Sem essas pessoas, a evidência não nasce.",
     corpo: (
-      /* TRACEJADO = NÃO CONSTRUÍDO: a mesma escala das folhas 04 e 06, com a linha tracejada. */
-      <EscalaHorizontal
-        atraso={200}
-        tracejada
-        style={{ marginTop: 48 }}
-        fatos={[
-          {
-            titulo: ["Conferência", "de quantidades"],
-            texto:
-              "Cruzar o que o memorial especifica com o que a planilha orça, e acusar o que não bate.",
-          },
-          {
-            titulo: ["Leitura especializada", "por disciplina"],
-            texto:
-              "Um leitor treinado no vocabulário de cada disciplina, em vez de um leitor geral para todas.",
-          },
-          {
-            titulo: ["Correção no", "arquivo editável"],
-            texto:
-              "A alteração aplicada direto no documento de origem, com você aprovando cada uma antes.",
-          },
-        ]}
-      />
+      <>
+        <EscalaHorizontal
+          atraso={180}
+          style={{ marginTop: 48 }}
+          fatos={[
+            {
+              titulo: ["Projeto", "de entrada"],
+              texto:
+                "Um trabalho real que permita observar conferência e montagem sem criar um caso artificial.",
+            },
+            {
+              titulo: ["Responsável", "executivo"],
+              texto:
+                "Uma pessoa com autoridade para remover bloqueios e receber a evidência do piloto.",
+            },
+            {
+              titulo: ["Quem confere", "e quem monta"],
+              texto:
+                "Usuários que julgam achados, registram o trabalho e dizem se os arquivos podem ser usados.",
+            },
+          ]}
+        />
+        <Leitura
+          atraso={1160}
+          linhas={[
+            { texto: "Sem projeto e sem responsáveis, não existe piloto." },
+            { texto: "Existe só acesso ao sistema.", chave: true },
+          ]}
+        />
+      </>
     ),
   },
 
   {
-    rotulo: "O que ela não é",
+    rotulo: "A decisão",
     numero: "19",
-    bloco: "O pedido",
-    titulo: "O que esta ferramenta não é",
+    bloco: "A decisão",
+    titulo: "A decisão",
     notas:
-      "Fechar por aqui é escolha: a última coisa que a sala ouve é o limite, dito por mim, e não uma promessa. Ler devagar e parar.\n\n'A IA ERRA' TEM EXEMPLO NA MESA, se alguém pedir: no 117_25, o parecer acusou de divergente o nome certo da obra (p. 215) — e a própria validação contestou. Não trazer de iniciativa; a folha fecha melhor sem.\n\nO ORBE VOLTA — o mesmo da capa, do mesmo tamanho da folha do motor. É o deck fechando onde abriu, e não um enfeite: a sala viu o produto se apresentar sozinho na primeira folha, e o vê de novo quando eu digo o que ele não é.\n\nSe vier pergunta sobre valor depois disto, voltar à folha 17 e abrir o botão — o deck não termina no preço.",
+      "ESTA É A ÚLTIMA TELA. O deck termina no pedido, não no limite, no roadmap ou na propriedade.\n\nDIZER: 'O que eu peço hoje é autorização para transformar estas duas provas em uso acompanhado por seis meses. Se a resposta for sim, saímos daqui com o projeto inicial, o responsável e os usuários — e a próxima conversa já é de implantação.'\n\nDEPOIS, PARAR. Não preencher o silêncio com desconto, justificativa de custo ou promessa nova.\n\nSE A RESPOSTA FOR 'PRECISO PENSAR': perguntar qual evidência ainda falta para decidir. A objeção volta para o critério, não para uma defesa genérica do software.",
     corpo: (
-      <>
-        <EscalaVertical
-          atraso={200}
-          style={{ flex: "none", height: 460 }}
-          itens={[
-            {
-              titulo: "Ela não assume responsabilidade técnica.",
-              texto:
-                "Quem assina o projeto continua sendo quem responde por ele. O sistema aponta; a decisão é de quem põe o nome na capa.",
-            },
-            {
-              titulo: "A IA erra, e vai errar.",
-              texto:
-                "Ela levanta o que parece não fechar. Parte disso não é erro nenhum, e é você quem separa uma coisa da outra.",
-            },
-            {
-              titulo: "Ela não faz o trabalho no seu lugar.",
-              texto:
-                "O que ela devolve não é o projeto pronto: é o tempo que se gastaria procurando — e a chance de achar o que ninguém teve tempo de procurar.",
-            },
-          ]}
-        />
-        {/*
-          O FECHO DO DECK É O ORBE E A LEITURA. O orbe é `compact` (198 px,
-          medida fixa) — a mesma escala em que a folha do motor o mostrou, e o
-          mesmo organismo vivo da capa. Ver a nota sobre `transform` na capa: o
-          canvas mede a si mesmo, e não pode ser escalado por fora.
-        */}
+      <div className="ap-grade" style={{ flex: 1 }}>
         <div
           style={{
-            marginTop: "auto",
-            display: "grid",
-            gridTemplateColumns: "198px 1fr",
-            columnGap: 64,
-            alignItems: "end",
+            gridColumn: "1 / span 6",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
+          <Entra atraso={100}>
+            <span className="ap-mono-rotulo">O pedido</span>
+          </Entra>
+          <p
+            className="ap-titulo-de-fato"
+            style={{ marginTop: 24, fontSize: 72, lineHeight: 1.06 }}
+          >
+            <Linhas
+              linhas={["Aprovar o piloto", "de seis meses."]}
+              atraso={240}
+            />
+          </p>
+          <Entra atraso={520} style={{ marginTop: 36 }}>
+            <p className="ap-texto" style={{ fontSize: 30 }}>
+              Conferência e montagem, cada uma julgada pela evidência que lhe
+              pertence.
+            </p>
+          </Entra>
           <div
             className="ap-surge"
             style={{
@@ -95,21 +95,48 @@ export const O_PEDIDO: readonly Slide[] = [
               height: 198,
               display: "grid",
               placeItems: "center",
-              animationDelay: "760ms",
-              marginBottom: -8,
+              animationDelay: "780ms",
+              marginTop: "auto",
             }}
           >
             <AgentOrb size="compact" state="idle" />
           </div>
+        </div>
+        <div
+          style={{
+            gridColumn: "8 / span 5",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <EscalaVertical
+            atraso={420}
+            style={{ flex: "none", height: 420 }}
+            itens={[
+              {
+                titulo: "Escolher o projeto inicial.",
+                texto: "Um caso real, com começo e fim dentro do período.",
+              },
+              {
+                titulo: "Nomear o responsável.",
+                texto: "Quem recebe a evidência e responde pela decisão final.",
+              },
+              {
+                titulo: "Indicar quem vai usar.",
+                texto: "Quem confere julga; quem monta mede o trabalho.",
+              },
+            ]}
+          />
           <Leitura
-            atraso={900}
+            atraso={1080}
+            rotuloDo="Próximo passo"
             linhas={[
-              { texto: "Uma segunda leitura que nunca se cansa," },
-              { texto: "e que nunca assina no seu lugar.", chave: true },
+              { texto: "Se a resposta for sim," },
+              { texto: "a próxima reunião é de implantação.", chave: true },
             ]}
           />
         </div>
-      </>
+      </div>
     ),
   },
 ];

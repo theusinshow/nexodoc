@@ -49,7 +49,7 @@ function Trechos({
               lineHeight: 1.4,
             }}
           >
-            <span style={{ color: "#5f6b72" }}>p. {pagina}</span>
+            <span style={{ color: "var(--muted-foreground)" }}>p. {pagina}</span>
             <span style={{ color: "var(--foreground)", textWrap: "pretty" }}>
               “{trecho}”
             </span>

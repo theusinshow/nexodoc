@@ -102,7 +102,7 @@
   text-align: center;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
-  color: #3d474d;
+  color: var(--border);
 }
 
 .ap-trilho__indice--atual {
@@ -135,7 +135,7 @@
   font-size: 14px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #5f6b72;
+  color: var(--muted-foreground);
   white-space: nowrap;
 }
 
@@ -167,7 +167,7 @@
 .ap-rotulo-titulo__sub {
   letter-spacing: 0;
   text-transform: none;
-  color: #5f6b72;
+  color: var(--muted-foreground);
 }
 
 /* Rótulo Mono genérico (A PERGUNTA, LEITURA, PÁGINAS…). Caixa alta por CSS. */
@@ -177,7 +177,7 @@
   line-height: 20px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #5f6b72;
+  color: var(--muted-foreground);
 }
 
 /* A grade: 12 colunas de x = 224 a 1840, calha 24. */
@@ -265,13 +265,13 @@
   right: 0;
   bottom: 0;
   height: 1px;
-  background: #3d474d;
+  background: var(--border);
 }
 
 .ap-escala-h--tracejada .ap-escala-h__linha {
   background: repeating-linear-gradient(
     90deg,
-    #3d474d 0 8px,
+    var(--border) 0 8px,
     transparent 8px 16px
   );
 }
@@ -282,7 +282,7 @@
   bottom: -48px;
   width: 1px;
   height: 24px;
-  background: #5f6b72;
+  background: var(--muted-foreground);
 }
 
 .ap-escala-h__tick--inicio {
@@ -313,7 +313,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #3d474d;
+  background: var(--border);
 }
 
 .ap-escala-v__item {
@@ -330,7 +330,7 @@
   font-size: 16px;
   line-height: 20px;
   font-variant-numeric: tabular-nums;
-  color: #5f6b72;
+  color: var(--muted-foreground);
   padding-top: 8px;
 }
 
@@ -340,7 +340,7 @@
   top: 22px;
   width: 24px;
   height: 1px;
-  background: #5f6b72;
+  background: var(--muted-foreground);
 }
 
 .ap-escala-v__corpo {
@@ -449,7 +449,7 @@
  * (é a régua do mostrador, não faixa de acento: 1 px, neutra).
  */
 .ap-mostrador {
-  border-left: 1px solid #3d474d;
+  border-left: 1px solid var(--border);
   padding-left: 24px;
   min-width: 0;
 }
@@ -470,8 +470,31 @@
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 22px;
   line-height: 1.45;
-  color: #5f6b72;
+  color: var(--muted-foreground);
   text-wrap: pretty;
+}
+
+/* O único link do deck precisa continuar visível quando a mão sai do mouse. */
+.ap-botao-valores {
+  transition:
+    background-color var(--ap-micro) var(--ap-entra),
+    color var(--ap-micro) var(--ap-entra),
+    box-shadow var(--ap-micro) var(--ap-entra);
+}
+
+.ap-botao-valores:hover {
+  background: rgb(91 218 198 / 0.16) !important;
+}
+
+.ap-botao-valores:focus-visible {
+  outline: none;
+  color: var(--ring) !important;
+  background: var(--nexodoc-raised) !important;
+  box-shadow: inset 0 0 0 3px var(--ring);
+}
+
+.ap-botao-valores:active {
+  transform: translateY(1px);
 }
 
 .ap-premissa {
@@ -516,7 +539,7 @@
 .ap-regua kbd {
   padding: 2px 6px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--nexodoc-raised);
   font: inherit;
   color: var(--muted-foreground);
@@ -804,10 +827,10 @@
   position: absolute;
   inset: -0.5em;
   padding: 0.5em;
-  color: #ff4d5a;
+  color: var(--status-critical);
   text-shadow:
-    0 0 4px rgba(255, 45, 61, 0.55),
-    0 0 12px rgba(255, 45, 61, 0.3);
+    0 0 4px color-mix(in srgb, var(--status-critical) 55%, transparent),
+    0 0 12px color-mix(in srgb, var(--status-critical) 30%, transparent);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     90deg,

@@ -30,8 +30,9 @@ import { SLIDES } from "./slides";
  * `.html` solto em `docs/`, que o `.dockerignore` exclui: existia numa máquina
  * só e nunca chegava a produção, que é de onde a apresentação de fato roda.
  *
- * A FONTE DO CONTEÚDO é `docs/superpowers/specs/2026-08-24-apresentacao-diretoria-design.md`,
- * onde cada número tem a origem escrita. Mudou número aqui, mude lá.
+ * A FONTE DA NARRATIVA ATUAL é
+ * `docs/superpowers/specs/2026-09-15-apresentacao-prova-e-credibilidade.md`.
+ * O spec de 24/08 permanece como histórico e origem das medições anteriores.
  */
 
 export const metadata: Metadata = {

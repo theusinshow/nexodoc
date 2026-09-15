@@ -3,7 +3,7 @@
 import type { Slide } from "../palco";
 import { EscalaHorizontal, EscalaVertical, MONO } from "../pecas";
 
-/** BLOCO 3 — O QUE EXISTE (folhas 09 a 11). Texto e notas de 09/09/2026, sem alteração. */
+/** BLOCO 3 — O QUE EXISTE (folhas 09 a 11). */
 
 /** As quatro linhas de cada bloco da folha 11, sobre linhas finas. */
 function LinhasDoBloco({ linhas }: { linhas: readonly string[] }) {
@@ -142,7 +142,7 @@ export const O_QUE_EXISTE: readonly Slide[] = [
     bloco: "O que existe",
     titulo: "O que já existe e funciona",
     notas:
-      "Dois blocos, não seis módulos. O que importa é a distinção entre conferir o que já existe e montar o que falta — é assim que o trabalho acontece no escritório. As cores são as dos dois ramos do motor: teal confere, âmbar monta.",
+      "DOIS CAMINHOS, DUAS PROVAS. A conferência já foi medida num memorial real; a montagem já prova o fluxo operacional, mas ainda precisa de uso real para medir tempo, estabilidade e aceitação. Não nivelar as duas maturidades — dizer a diferença aumenta a credibilidade.\n\nAs cores são as dos dois ramos do motor: teal confere, âmbar monta. A folha seguinte abre a prova operacional da montagem sem repetir a demonstração da conferência.",
     corpo: (
       <EscalaHorizontal
         atraso={200}
@@ -192,7 +192,7 @@ export const O_QUE_EXISTE: readonly Slide[] = [
                   color: "var(--muted-foreground)",
                 }}
               >
-                Em uso acompanhado
+                Prova operacional
               </span>
             ),
             extra: (
@@ -200,8 +200,8 @@ export const O_QUE_EXISTE: readonly Slide[] = [
                 linhas={[
                   "Lê os selos das pranchas e monta a lista de documentos",
                   "Acusa folha faltante, duplicada e divergência de total",
-                  "Gera capa com os dados do escritório",
-                  "Entrega ODT, PDF e ZIP prontos",
+                  "Preserva rascunho, tomos e a trilha de eventos",
+                  "Gera ODT, PDF e ZIP para conferência",
                 ]}
               />
             ),

@@ -229,19 +229,21 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
               <section
                 key={folha.numero}
                 aria-hidden={folha !== atual || undefined}
+                aria-label={`${folha.numero} de ${slides.length}: ${folha.titulo ?? folha.rotulo}`}
+                aria-roledescription="slide"
                 className={["ap-folha", folha !== atual ? "ap-folha--sai" : ""]
                   .filter(Boolean)
                   .join(" ")}
               >
                 {folha.titulo ? (
-                  <h2 className="ap-rotulo-titulo">
+                  <h1 className="ap-rotulo-titulo">
                     <span>{folha.titulo}</span>
                     {folha.subtitulo ? (
                       <span className="ap-rotulo-titulo__sub">
                         {folha.subtitulo}
                       </span>
                     ) : null}
-                  </h2>
+                  </h1>
                 ) : null}
                 {folha.corpo}
               </section>
@@ -268,6 +270,10 @@ export function Palco({ slides }: { slides: readonly Slide[] }) {
           ))}
         </aside>
       ) : null}
+
+      <span className="sr-only" aria-live="polite">
+        Folha {indice + 1} de {slides.length}: {atual.titulo ?? atual.rotulo}
+      </span>
 
       <div className="ap-regua" data-oculta={ponteiroParado}>
         <span className="ap-posicao">
