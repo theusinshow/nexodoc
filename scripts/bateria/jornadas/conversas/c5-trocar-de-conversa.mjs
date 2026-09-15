@@ -30,12 +30,13 @@ async function abrirB(ctx, idB) {
   await page
     .getByLabel("Buscar conversas por obra ou código")
     .fill("BATERIA C5 B");
-  await page.waitForTimeout(800);
+  // Sem relógio entre os gestos (15/09/2026): o clique do Playwright já espera
+  // o elemento existir, ficar estável e habilitado — e refaz se a busca
+  // redesenhar o cartão no meio.
   await page
     .getByRole("button", { name: /A endere.ar/i })
     .first()
     .click({ timeout: 30_000 });
-  await page.waitForTimeout(500);
   await page.getByText("BATERIA C5 B").first().click({ timeout: 30_000 });
   // Espera pelo EVENTO (a conversa aberta virou B), não por um relógio afinado
   // no puxão que existia: quem prova que B fica é a verificação seguinte.
@@ -70,7 +71,10 @@ export default {
       results: [],
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2500);
+    // A barra de conversas de pé (evento), e não 2,5s de relógio.
+    await page
+      .getByLabel("Buscar conversas por obra ou código")
+      .waitFor({ timeout: 30_000 });
 
     // 30s, e não os 15s do resto da bateria: a folga garante que a auditoria de
     // A ainda esteja em voo quando as duas verificações de B rodarem (a de
