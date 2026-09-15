@@ -54,16 +54,24 @@ export type GanchosDaGravacao<R extends Registro> = {
   depoisDoDisco: (rec: R, ok: boolean) => void;
   /**
    * Dispara a ida ao servidor — chamado dentro de `gravar`, sem espera nenhuma.
-   * `base` é a versão confirmada; `proprias`, as mandadas desde ela.
+   * `base` é a versão confirmada; `proprias`, as mandadas desde ela. A promessa
+   * diz o que o servidor fez: a fila confirma a base ou trava e desce a cópia.
    */
   enviarAoServidor: (
     rec: R,
     base: number | null,
     proprias: readonly number[],
-  ) => void;
-  /** O disco tinha versão mais nova que a base: a conversa travou. */
-  aoConflito: (id: string) => void;
+  ) => Promise<RespostaDoServidor>;
+  /** A cópia que o servidor guarda desta conversa (null se não deu para ler). */
+  lerDoServidor: (id: string) => Promise<R | null>;
+  /** A conversa travou (disco mais novo que a base, ou 409 do servidor). */
+  aoConflito: (id: string, origem: OrigemDoConflito) => void;
+  /** A cópia do servidor desceu para o disco, depois de um 409. */
+  aoDescer?: (id: string) => void;
 };
+
+/** "outra" é tudo que não confirma nem recusa: desligada, falha, expurgada. */
+export type RespostaDoServidor = "ok" | "desatualizada" | "outra";
 
 export type FilaDeGravacao<R extends Registro> = {
   /**
@@ -107,8 +115,75 @@ export function criarFilaDeGravacao<R extends Registro>(
   const pendentes = new Map<string, number[]>();
   let cauda: Promise<void> = Promise.resolve();
 
+  /** Para cada conversa, a época em que a cópia do servidor já foi pedida. */
+  const descidas = new Map<string, number>();
+
+  const epocaMudou = (id: string, epoca: number) =>
+    epoca !== (epocas.get(id) ?? 0);
   const largar = (id: string, epoca: number) =>
-    travadas.has(id) || epoca !== (epocas.get(id) ?? 0);
+    travadas.has(id) || epocaMudou(id, epoca);
+
+  /*
+   * O 409 DO SERVIDOR DESCE A CÓPIA DELE PARA O DISCO — revisão da Tarefa 15,
+   * 15/09/2026. Quando quem gravou antes foi OUTRA MÁQUINA, o disco desta não
+   * tem nada mais novo: a checagem do disco passa e a gravação parada chega ao
+   * disco centenas de ms antes do 409. A trava só vive na memória; um F5
+   * reabria do disco (a cópia parada, com hora mais nova que a do servidor),
+   * ela virava a base, e a gravação seguinte passava na rota e apagava o
+   * trabalho da outra máquina. Com a cópia do servidor no disco, qualquer
+   * reabertura — F5, outra aba local — parte da versão certa.
+   *
+   * Pela fila, atrás do que ainda estava para gravar, e só se ninguém gravou o
+   * disco depois desta aba: se outra aba LOCAL gravou (o disco tem versão mais
+   * nova que a base), é a dela que vale, e o servidor pode estar atrasado.
+   */
+  function descerCopiaDoServidor(
+    id: string,
+    epoca: number,
+    g: GanchosDaGravacao<R>,
+  ) {
+    if (descidas.get(id) === epoca) return;
+    descidas.set(id, epoca);
+    cauda = cauda
+      .then(async () => {
+        if (epocaMudou(id, epoca)) return;
+        const base = bases.get(id);
+        if (base !== undefined) {
+          const deOutraAba = await g
+            .lerVersaoNoDisco(id, base)
+            .catch((erro) => {
+              registrarFalha(erro);
+              return null;
+            });
+          if (deOutraAba !== null) return;
+        }
+        const copia = await g.lerDoServidor(id);
+        if (!copia || epocaMudou(id, epoca)) return;
+        await g.gravarNoDisco(copia);
+        g.aoDescer?.(id);
+      })
+      .catch(registrarFalha);
+  }
+
+  function responder(
+    id: string,
+    epoca: number,
+    versao: number,
+    resposta: RespostaDoServidor,
+    g: GanchosDaGravacao<R>,
+  ) {
+    // Resposta de uma gravação de antes da recarga: a tela já é outra.
+    if (epocaMudou(id, epoca)) return;
+    if (resposta === "ok") {
+      avancar(id, versao);
+      return;
+    }
+    if (resposta !== "desatualizada") return;
+    const antes = travadas.get(id);
+    if (antes === undefined) travadas.set(id, "servidor");
+    g.aoConflito(id, antes ?? "servidor");
+    if (antes !== "disco") descerCopiaDoServidor(id, epoca, g);
+  }
 
   function avancar(id: string, versao: number) {
     const base = Math.max(bases.get(id) ?? versao, versao);
@@ -146,7 +221,9 @@ export function criarFilaDeGravacao<R extends Registro>(
         (v) => base === null || v > base,
       );
       try {
-        g.enviarAoServidor(gravado, base, proprias);
+        g.enviarAoServidor(gravado, base, proprias)
+          .then((r) => responder(rec.id, epoca, gravado.updatedAt, r, g))
+          .catch(registrarFalha);
       } catch (erro) {
         registrarFalha(erro);
       }
@@ -164,7 +241,11 @@ export function criarFilaDeGravacao<R extends Registro>(
             baseDaLeitura !== undefined
               ? await g
                   .lerVersaoNoDisco(rec.id, baseDaLeitura)
-                  .catch(() => null)
+                  .catch((erro) => {
+                    // Falha aberta (grava sem conferir), mas não calada.
+                    registrarFalha(erro);
+                    return null;
+                  })
               : null;
           // A leitura é assíncrona: a trava e a base são as de DEPOIS dela.
           if (largar(rec.id, epoca)) return;
@@ -175,7 +256,7 @@ export function criarFilaDeGravacao<R extends Registro>(
             })
           ) {
             travadas.set(rec.id, "disco");
-            g.aoConflito(rec.id);
+            g.aoConflito(rec.id, "disco");
             return;
           }
           const gravou = await g.gravarNoDisco(gravado).then(

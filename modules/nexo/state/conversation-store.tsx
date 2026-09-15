@@ -333,6 +333,42 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+/*
+ * A RECUSA DO SERVIDOR SOBREVIVE AO F5 — revisão da Tarefa 15, 15/09/2026.
+ *
+ * Depois de um 409 a fila desce a cópia do servidor para o disco, mas isso leva
+ * uma ida à rede. Um F5 (ou outra aba local abrindo a conversa) antes de ela
+ * chegar reabriria do disco a cópia parada, que tem hora mais nova que a do
+ * servidor — e a gravação seguinte apagaria o trabalho da outra máquina. A
+ * marca fica aqui até a cópia do servidor pousar no disco; quem abre a conversa
+ * com a marca lê do servidor. Armazenamento indisponível: vale só a descida.
+ */
+const PREFIXO_DA_RECUSA = "nexo:recusada-pelo-servidor:";
+
+function lembrarRecusa(id: string) {
+  try {
+    localStorage.setItem(PREFIXO_DA_RECUSA + id, String(Date.now()));
+  } catch {
+    // sem armazenamento: a descida da cópia é a única proteção
+  }
+}
+
+function recusaLembrada(id: string): boolean {
+  try {
+    return localStorage.getItem(PREFIXO_DA_RECUSA + id) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function esquecerRecusa(id: string) {
+  try {
+    localStorage.removeItem(PREFIXO_DA_RECUSA + id);
+  } catch {
+    // idem
+  }
+}
+
 /**
  * A PASTA e o NOME da conversa de VOLUME, derivados dos selos.
  *
@@ -692,16 +728,24 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
          */
         setGravacaoLocal("falhou");
       },
-      aoConflito: marcarConflito,
-      enviarAoServidor: (gravado, base, proprias) => {
+      aoConflito: (id, origem) => {
+        if (origem === "servidor") lembrarRecusa(id);
+        marcarConflito(id);
+      },
+      lerDoServidor,
+      aoDescer: (id) => {
+        esquecerRecusa(id);
+        refreshList();
+      },
+      /*
+       * A resposta volta para a fila, que confirma a base ou, no 409 (outra
+       * máquina gravou depois da base desta aba), trava e desce a cópia do
+       * servidor para o disco. A fila ignora a resposta de uma gravação de antes
+       * da recarga: ela não pode travar de novo a conversa recarregada.
+       */
+      enviarAoServidor: (gravado, base, proprias) =>
         gravarNoServidor(gravado, base, proprias).then((estado) => {
-          // Outra máquina gravou depois da base desta aba: mesma trava do disco.
-          if (estado.estado === "desatualizada") {
-            fila.travar(gravado.id, "servidor");
-            marcarConflito(gravado.id);
-            return;
-          }
-          if (estado.estado === "ok") fila.confirmar(gravado.id, gravado.updatedAt);
+          if (estado.estado === "desatualizada") return "desatualizada" as const;
           /*
            * "desligada" não vira alarme: é a resposta de instalação sem banco, e o
            * Nexo funcionou assim a vida inteira. Falha de verdade FICA na tela — o
@@ -721,8 +765,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
               .catch(() => {})
               .finally(refreshList);
           }
-        });
-      },
+          return estado.estado === "ok" ? ("ok" as const) : ("outra" as const);
+        }),
     });
   }, [refreshList, fila, marcarConflito]);
 
@@ -1179,8 +1223,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * Recarregar depois do 409 do servidor: quem gravou foi OUTRA MÁQUINA, e o
        * disco desta tem a versão desta aba — com hora que pode ser mais nova
        * que a de lá. O desempate por data escolheria justamente a desatualizada.
+       * A marca guardada vale o mesmo depois de um F5 ou noutra aba local,
+       * enquanto a cópia do servidor não pousou no disco.
        */
-      const travadaPeloServidor = fila.travada(id) === "servidor";
+      const travadaPeloServidor = fila.travada(id) === "servidor" || recusaLembrada(id);
+      let desceuDoServidor = false;
       /*
        * Disco preferido, MAS o desempate é a data.
        *
@@ -1208,7 +1255,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         // um F5 offline a perderia.
         if (doServidor) {
           rec = doServidor;
-          await putConversation(doServidor).catch(() => {});
+          desceuDoServidor = await putConversation(doServidor).then(
+            () => true,
+            () => false,
+          );
+          if (desceuDoServidor) esquecerRecusa(id);
         }
       }
       if (!rec) return null;
@@ -1341,7 +1392,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * gravação lê o snapshot até o commit trazer esta versão.
        */
       fila.abrir(rec.id, rec.updatedAt);
-      setConflitoDeVersao(false);
+      /*
+       * Recusada pelo servidor e sem conseguir a cópia dele (rede fora): o que
+       * abriu é a cópia parada do disco. Abre travada, com a faixa — gravar dali
+       * apagaria o trabalho da outra máquina, porque a hora parada é mais nova.
+       */
+      const abreTravada = travadaPeloServidor && !desceuDoServidor;
+      if (abreTravada) fila.travar(rec.id, "servidor");
+      setConflitoDeVersao(abreTravada);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
       // colhe isto.
       lembrarUltimaConversa(rec.id);

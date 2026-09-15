@@ -2468,7 +2468,9 @@ function NexoWorkspaceInner({
         A CONVERSA MUDOU EM OUTRA ABA — decidido em 15/09/2026 (jornada c3).
         Bloqueio, não notícia: sem `aoFechar`. Esta aba parou de gravar para não
         apagar o que a outra fez, e recarregar é o único caminho que devolve a
-        gravação.
+        gravação. O texto vale para as duas origens: na recusa do servidor a
+        gravação desta aba chega a passar pelo disco, mas a cópia do servidor
+        desce por cima dela (revisão, 15/09/2026) — "nada foi gravado" mentia ali.
       */}
       {conv.conflitoDeVersao && (
         <FaixaDeEstado
@@ -2481,8 +2483,9 @@ function NexoWorkspaceInner({
           }
         >
           Outra aba (ou outro computador) gravou esta conversa depois que ela foi aberta aqui.
-          Para não apagar o que foi feito lá, nada desta aba foi gravado — recarregue para
-          continuar da versão mais nova.
+          Para não apagar o que foi feito lá, esta aba parou de guardar a conversa: o que
+          foi feito aqui desde então não fica salvo — recarregue para continuar da versão
+          mais nova.
         </FaixaDeEstado>
       )}
 

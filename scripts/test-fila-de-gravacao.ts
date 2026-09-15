@@ -80,9 +80,11 @@ function mundo() {
   let discoQuebrado = false;
   let leituras = 0;
   const ganchos: GanchosDaGravacao<Rec> = {
-    lerVersaoNoDisco: async (id) => {
+    // Como `versaoMaisNovaNoDisco`: só devolve a versão se for mais nova.
+    lerVersaoNoDisco: async (id, acimaDe) => {
       leituras++;
-      return disco.get(id)?.updatedAt ?? null;
+      const v = disco.get(id)?.updatedAt ?? null;
+      return v !== null && v > acimaDe ? v : null;
     },
     gravarNoDisco: async (rec) => {
       if (discoQuebrado) throw new Error("quota estourada");
@@ -99,7 +101,10 @@ function mundo() {
         base,
         proprias: [...proprias],
       });
+      // Sem servidor de verdade: nem confirma nem recusa.
+      return Promise.resolve("outra" as const);
     },
+    lerDoServidor: async () => null,
     aoConflito: (id) => {
       conflitos.push(id);
     },
@@ -451,6 +456,221 @@ await test("ociosa() só resolve depois de o último trabalho terminar", async (
   void fila.gravar({ id: "A", updatedAt: 2000, texto: "dois" }, m.ganchos);
   await fila.ociosa();
   assert.equal(m.disco.get("A")?.texto, "dois");
+});
+
+/*
+ * A RECUSA VINDA DO SERVIDOR (revisão da Tarefa 15, 15/09/2026). Quem gravou
+ * antes foi OUTRA MÁQUINA: o disco desta não tem versão mais nova, a checagem
+ * do disco passa, e a gravação parada chega ao disco centenas de ms antes do
+ * 409. A trava morava só na memória: um F5 reabria do disco (a cópia parada,
+ * com hora mais nova que a do servidor), ela virava a base, e a gravação
+ * seguinte passava na rota e apagava o trabalho da outra máquina.
+ */
+
+/** Um servidor com as regras da rota, que responde depois de `latenciaMs`. */
+function servidorVivo(inicial: Rec, latenciaMs = 5) {
+  const estado = { atual: inicial };
+  const ganchos = (
+    m: ReturnType<typeof mundo>,
+  ): Pick<GanchosDaGravacao<Rec>, "enviarAoServidor" | "lerDoServidor"> => ({
+    enviarAoServidor: (rec, base, proprias) =>
+      new Promise((resolve) =>
+        setTimeout(() => {
+          const s = servidor(estado.atual.updatedAt, [
+            {
+              id: rec.id,
+              texto: rec.texto,
+              updatedAt: rec.updatedAt,
+              base,
+              proprias,
+            },
+          ]);
+          if (s.respostas[0] === "ok") estado.atual = rec;
+          m.idas.push({
+            id: rec.id,
+            texto: rec.texto,
+            updatedAt: rec.updatedAt,
+            base,
+            proprias: [...proprias],
+          });
+          resolve(
+            s.respostas[0] === "409"
+              ? "desatualizada"
+              : s.respostas[0] === "ok"
+                ? "ok"
+                : "outra",
+          );
+        }, latenciaMs),
+      ),
+    lerDoServidor: async () => estado.atual,
+  });
+  return { estado, ganchos };
+}
+
+async function assentar(fila: { ociosa: () => Promise<void> }) {
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    await fila.ociosa();
+  }
+}
+
+await test("409 do servidor depois de o disco gravar: o F5 que reabre do disco não apaga a outra máquina", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2500,
+    texto: "trabalho da outra máquina",
+  });
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  // Esta máquina abriu A na versão 1000; a outra gravou 2500 só no servidor.
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  await assentar(fila);
+  const travadaAntesDoF5 = fila.travada("A");
+
+  // F5: fila nova, reabre pela regra do store (a cópia de hora mais nova).
+  const doDisco = m.disco.get("A")!;
+  const aberta =
+    doDisco.updatedAt >= srv.estado.atual.updatedAt
+      ? doDisco
+      : srv.estado.atual;
+  const depoisDoF5 = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  depoisDoF5.abrir("A", aberta.updatedAt);
+  await depoisDoF5.gravar(
+    { id: "A", updatedAt: 4000, texto: `${aberta.texto} + edição` },
+    ganchos,
+  );
+  await assentar(depoisDoF5);
+
+  assert.ok(
+    srv.estado.atual.texto.includes("trabalho da outra máquina"),
+    `o servidor perdeu o trabalho da outra máquina: "${srv.estado.atual.texto}" (disco depois do 409: "${doDisco.texto}")`,
+  );
+  assert.equal(travadaAntesDoF5, "servidor");
+});
+
+await test("409 atrasado de uma gravação de antes da recarga não trava de novo a conversa recarregada", async () => {
+  const m = mundo();
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  m.disco.set("A", { id: "A", updatedAt: 2000, texto: "parecer" });
+  fila.abrir("A", 1000);
+  let responder: ((r: "desatualizada") => void) | null = null;
+  const lento: GanchosDaGravacao<Rec> = {
+    ...m.ganchos,
+    enviarAoServidor: () => new Promise((resolve) => (responder = resolve)),
+    lerDoServidor: async () => ({
+      id: "A",
+      updatedAt: 1500,
+      texto: "cópia velha do servidor",
+    }),
+  };
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "oi" }, lento);
+  assert.equal(fila.travada("A"), "disco");
+  const conflitosAntes = m.conflitos.length;
+  // Recarregou; só então chega o 409 da gravação de antes.
+  fila.abrir("A", 2000);
+  assert.ok(responder, "a ida devia estar esperando a resposta");
+  (responder as (r: "desatualizada") => void)("desatualizada");
+  await assentar(fila);
+  assert.equal(
+    fila.travada("A"),
+    null,
+    "a resposta velha travou a conversa recarregada",
+  );
+  assert.equal(m.conflitos.length, conflitosAntes);
+  assert.equal(
+    m.disco.get("A")?.texto,
+    "parecer",
+    "a resposta velha desceu a cópia do servidor",
+  );
+});
+
+await test("409 com o disco travado por outra aba local: a cópia do servidor NÃO desce por cima do disco dela", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 1800,
+    texto: "servidor atrasado",
+  });
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  // A outra aba local gravou o disco (2000) e o servidor ainda tem 1800.
+  m.disco.set("A", { id: "A", updatedAt: 2000, texto: "outra aba local" });
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  await assentar(fila);
+  assert.equal(m.disco.get("A")?.texto, "outra aba local");
+});
+
+await test("409 que chega depois de outra aba local gravar o disco: a cópia do servidor não desce por cima", async () => {
+  const m = mundo();
+  const srv = servidorVivo(
+    { id: "A", updatedAt: 2500, texto: "outra máquina" },
+    30,
+  );
+  const ganchos = { ...m.ganchos, ...srv.ganchos(m) };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  assert.equal(m.disco.get("A")?.texto, "parada");
+  // Antes do 409: outra aba local grava o disco por cima desta.
+  m.disco.set("A", { id: "A", updatedAt: 3500, texto: "outra aba local" });
+  await assentar(fila);
+  assert.equal(fila.travada("A"), "servidor");
+  assert.equal(m.disco.get("A")?.texto, "outra aba local");
+});
+
+await test("recarregar enquanto a cópia do servidor ainda desce: a cópia velha não pousa por cima da recarga", async () => {
+  const m = mundo();
+  const srv = servidorVivo({
+    id: "A",
+    updatedAt: 2500,
+    texto: "outra máquina",
+  });
+  let soltarLeitura: (() => void) | null = null;
+  const ganchos: GanchosDaGravacao<Rec> = {
+    ...m.ganchos,
+    ...srv.ganchos(m),
+    lerDoServidor: () =>
+      new Promise((resolve) => {
+        soltarLeitura = () =>
+          resolve({ id: "A", updatedAt: 2500, texto: "cópia lenta" });
+      }),
+  };
+  m.disco.set("A", { id: "A", updatedAt: 1000, texto: "leitura" });
+  const fila = criarFilaDeGravacao<Rec>({ registrarFalha: () => {} });
+  fila.abrir("A", 1000);
+  await fila.gravar({ id: "A", updatedAt: 3000, texto: "parada" }, ganchos);
+  for (let i = 0; i < 10 && !soltarLeitura; i++)
+    await new Promise((r) => setTimeout(r, 10));
+  assert.ok(soltarLeitura, "a descida devia estar lendo o servidor");
+  // A recarga leu e gravou por conta própria uma versão mais nova.
+  m.disco.set("A", { id: "A", updatedAt: 2600, texto: "recarregada" });
+  fila.abrir("A", 2600);
+  (soltarLeitura as () => void)();
+  await assentar(fila);
+  assert.equal(m.disco.get("A")?.texto, "recarregada");
+});
+
+await test("a leitura do disco que falha é registrada (e não some calada)", async () => {
+  const m = mundo();
+  const falhas: unknown[] = [];
+  const fila = criarFilaDeGravacao<Rec>({
+    registrarFalha: (e) => falhas.push(e),
+  });
+  fila.abrir("A", 1000);
+  await fila.gravar(
+    { id: "A", updatedAt: 3000, texto: "oi" },
+    {
+      ...m.ganchos,
+      lerVersaoNoDisco: async () => Promise.reject(new Error("IDB fechado")),
+    },
+  );
+  assert.equal(falhas.length, 1);
 });
 
 console.log(`\n${passed} ok`);
