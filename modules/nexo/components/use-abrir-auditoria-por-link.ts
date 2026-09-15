@@ -87,6 +87,12 @@ export function useAbrirAuditoriaPorLink(params: {
           return;
         }
 
+        if (resposta.situacao === "sem-sessao") {
+          // A faixa de sessão expirada já acendeu; aqui só não abrimos o parecer.
+          setDesfecho({ id, falha: "Sua sessão expirou. Entre de novo para abrir este parecer." });
+          return;
+        }
+
         if (resposta.situacao !== "pronta") {
           setDesfecho({ id, falha: resposta.motivo });
           return;

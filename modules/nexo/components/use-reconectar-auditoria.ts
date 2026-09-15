@@ -109,6 +109,15 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
         return;
       }
 
+      /*
+       * SEM SESSÃO: PARA DE PERGUNTAR E GUARDA O BILHETE — 15/09/2026, jornada
+       * x1. A faixa de sessão expirada já acendeu (`conferirSessao`). Entrar de
+       * novo recarrega a página, e a reconexão recomeça daqui, do bilhete: é o
+       * "nada é perdido". Limpar o bilhete agora jogaria fora o único ponteiro
+       * para uma análise que o servidor segue terminando.
+       */
+      if (estado.situacao === "sem-sessao") return;
+
       if (estado.situacao === "pronta") {
         const r = estado.resultado;
         await saveResult({

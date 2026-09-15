@@ -19,6 +19,8 @@ import assert from "node:assert/strict";
 
 import {
   AuditoriaDesconectada,
+  SessaoExpiradaNaAuditoria,
+  consultarAuditoria,
   runMemorialAudit,
 } from "../modules/nexo/lib/audit.ts";
 
@@ -123,6 +125,52 @@ await test("evento partido em dois pedaços da rede não quebra", async () => {
   );
   const r = await runMemorialAudit(memorial, {}, "deep", null, opcoes);
   assert.equal(r.auditId, "x");
+});
+
+/*
+ * 401 NÃO É DESCONEXÃO NEM BANCO FORA DO AR — 15/09/2026, jornada x1. Com a
+ * sessão caída, a largada virava `AuditoriaDesconectada` (bilhete guardado,
+ * reconexão eterna) e a reconexão virava "rodando" para sempre, sem a faixa de
+ * sessão expirada que o produto já tinha.
+ */
+await test("401 na largada é sessão expirada, e não desconexão", async () => {
+  comFetch(
+    async () =>
+      new Response(JSON.stringify({ error: "Entre para continuar." }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }),
+  );
+  await assert.rejects(
+    runMemorialAudit(memorial, {}, "deep", null, opcoes),
+    (e: Error) =>
+      e instanceof SessaoExpiradaNaAuditoria &&
+      !(e instanceof AuditoriaDesconectada),
+  );
+});
+
+await test("reconexão com 401 devolve sem-sessao, e não rodando", async () => {
+  comFetch(
+    async () =>
+      new Response(JSON.stringify({ error: "Entre para continuar." }), {
+        status: 401,
+      }),
+  );
+  assert.deepEqual(await consultarAuditoria("abc12345"), {
+    situacao: "sem-sessao",
+  });
+});
+
+await test("reconexão com 503 continua rodando: banco fora do ar é passageiro", async () => {
+  comFetch(
+    async () =>
+      new Response(JSON.stringify({ error: "Banco não respondeu." }), {
+        status: 503,
+      }),
+  );
+  assert.deepEqual(await consultarAuditoria("abc12345"), {
+    situacao: "rodando",
+  });
 });
 
 console.log(`\n${passed} testes ok`);

@@ -17,6 +17,8 @@
  * derrubando os dois testes com ERR_MODULE_NOT_FOUND.
  */
 import { centroDeCustoDaAuditoria } from "../../../lib/audit-identity.ts";
+// Caminho relativo com `.ts` pelo mesmo motivo do import acima: os testes em node cru.
+import { conferirSessao } from "./sessao.ts";
 import type { AuditReport } from "@/lib/audit-report";
 import type { PaginaTranscrita } from "@/lib/pagina-muda";
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
@@ -84,6 +86,23 @@ export class AuditoriaDesconectada extends Error {
       "A conexão com o servidor caiu, mas a análise continua lá. O resultado aparece aqui sozinho quando terminar.",
     );
     this.name = "AuditoriaDesconectada";
+  }
+}
+
+/**
+ * A SESSÃO CAIU ANTES DE A AUDITORIA COMEÇAR.
+ *
+ * Um 401 no POST caía em `lerFluxo`, que não achava evento nenhum e devolvia
+ * `null` — e virava `AuditoriaDesconectada`: bilhete guardado e reconexão
+ * perguntando para sempre por uma análise que o servidor recusou (jornada x1,
+ * 15/09/2026). Nada começou; o que falta é entrar de novo.
+ */
+export class SessaoExpiradaNaAuditoria extends Error {
+  constructor() {
+    super(
+      "Sua sessão expirou antes de a auditoria começar. Entre de novo — a conversa e o memorial continuam neste navegador.",
+    );
+    this.name = "SessaoExpiradaNaAuditoria";
   }
 }
 
@@ -219,6 +238,14 @@ export async function runMemorialAudit(
   }
 
   /*
+   * SEM SESSÃO — antes de tudo, e antes do fluxo, pelo mesmo motivo do 409
+   * abaixo: o corpo do 401 não é fluxo. `conferirSessao` acende a faixa que o
+   * produto já tinha para isso (jornada x1, 15/09/2026).
+   */
+  conferirSessao(res);
+  if (res.status === 401) throw new SessaoExpiradaNaAuditoria();
+
+  /*
    * DOCUMENTO IDÊNTICO — recusa, e ela vem ANTES da leitura do fluxo.
    *
    * O servidor devolve 409 com um corpo JSON simples quando nada mudou desde a
@@ -267,6 +294,8 @@ interface RespostaDaAuditoria {
 /** O que o servidor sabe sobre uma auditoria já disparada. */
 export type EstadoDaAuditoria =
   | { situacao: "rodando" }
+  /** O servidor respondeu 401: não há como saber até entrar de novo. */
+  | { situacao: "sem-sessao" }
   | { situacao: "pronta"; resultado: MemorialAuditResult }
   | { situacao: "falhou"; motivo: string }
   | { situacao: "irrecuperavel"; motivo: string };
@@ -281,6 +310,13 @@ export type EstadoDaAuditoria =
  */
 export async function consultarAuditoria(auditId: string): Promise<EstadoDaAuditoria> {
   const res = await fetch(`/api/audits/${encodeURIComponent(auditId)}`);
+  /*
+   * 401 NÃO É "BANCO FORA DO AR" — 15/09/2026, jornada x1. Caía no "vale
+   * continuar tentando" lá embaixo, e a tela perguntava de 5 em 5s para sempre,
+   * sem nunca dizer que a sessão tinha caído.
+   */
+  conferirSessao(res);
+  if (res.status === 401) return { situacao: "sem-sessao" };
   if (res.status === 404) {
     return { situacao: "irrecuperavel", motivo: "Auditoria não encontrada no servidor." };
   }
