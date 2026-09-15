@@ -28,6 +28,28 @@ O projeto tem 156 testes puros (`scripts/test-*.ts`) e 111 provas de navegador (
 | Quando achar defeito | **Consertar direto**, provar e subir na main; **perguntar só decisão de produto** |
 | Onde roda | **Local agora** (`npm run bateria`), **CI (GitHub Actions) depois** que estabilizar |
 
+## Decisões da segunda rodada (15/09/2026)
+
+As três primeiras são do Matheus e respondem os cenários marcados **[decisão de produto]** no catálogo. Plano: `docs/superpowers/plans/2026-09-15-bateria-segunda-rodada.md`.
+
+| Pergunta | Decisão |
+|---|---|
+| C1 — o mesmo memorial solto duas vezes | **Deduplicar por nome de arquivo**, a mesma regra que as pranchas já seguem (`NexoWorkspace.tsx`, "Dedup por nome"). Soltar de novo um memorial com o nome do memorial retido não cria chip nem as mensagens "Anexei o memorial"/"Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa |
+| C3 — duas abas na mesma conversa | **Recusar a aba desatualizada.** Cada aba guarda o `updatedAt` que leu ao abrir a conversa e o manda como base na gravação; o servidor responde 409 se a versão guardada mudou desde essa base; a aba avisa e oferece recarregar a conversa, sem sobrescrever. Sem mudança de schema |
+| X2 — memorial sem código legível | **Criar o seletor de projeto.** O cartão de auditoria mostra um seletor com os projetos do escritório; escolher libera a auditoria; sem escolha, não gasta |
+
+Decisões de planejamento da mesma data (sem mudar o esperado do catálogo):
+
+| Pergunta | Decisão |
+|---|---|
+| Documentos de teste novos | **Gerados pela bateria** com pdf-lib, em memória, gravados em `scratchpad/bateria/fixtures/` (ignorado pelo git). O repositório é público: nada de dado de cliente, e a receita fica revisável como código em vez de binário |
+| C3 — por onde viaja a base | A base viaja no cabeçalho `x-nexo-versao-base`, e não no corpo: o registro gravado no banco continua igual. A mesma regra (`gravacaoDesatualizada`) guarda também a gravação no IndexedDB, que as duas abas compartilham — senão a aba parada apagaria o parecer no disco antes de o servidor recusar |
+| V2 — "leitura de selo volta vazia" | É a leitura que RODOU e voltou sem campo legível (JSON válido, tudo nulo), não a que falhou. O simulador devolve isso para a prancha cujo carimbo não tem texto — sem comportamento novo na fila, porque a ordem das chamadas de selo num lote não é garantida |
+| V1 — "remontar resolve" | A jornada monta o estado de volume já montado pela conversa (o volume real exige capa com PDF, e o PDF depende de LibreOffice e do modelo da prefeitura, que nem o PC da bateria nem o CI garantem). Regerar a LD é gesto real; que remontar zera o aviso fica travado por `scripts/test-nexo-volumes-desatualizados.ts` ("peça com a mesma hora não denuncia nada") |
+| A5 — linha `Audit` criada antes da recusa | A linha nasce em PROCESSING antes da extração por um motivo legítimo: um F5 durante a extração acha a auditoria em vez de "não encontrada". A recusa por documento idêntico passa a APAGAR essa linha (e o evento "Auditoria criada"), e o esperado "nenhuma auditoria nova no banco" continua valendo |
+| A7 — `encaminhar_para_geracao` no simulador | **Fica de fora.** "audita o memorial" com parecer aberto não chega ao chat da auditoria: `pedeNovaAuditoria` desvia no cliente (14/09/2026). A jornada prova esse desvio |
+| `/volumes`, tela clássica de LD, `ld-stamp-*`, `volume-*` | **Fora desta rodada**: nenhuma jornada do catálogo passa por eles |
+
 ## Abordagem escolhida: híbrida
 
 1. **Jornada no navegador**: cada fluxo esquisito é um cenário Playwright sobre o app de verdade, com a IA simulada. É a camada que ACHA o defeito, porque os defeitos de 14/09 só aparecem com tudo junto: IndexedDB, servidor, gravação e duas abas.
@@ -132,9 +154,9 @@ Cada cenário diz o **gesto** e o **esperado**. O esperado segue o comportamento
 
 | # | Cenário | Gesto | Esperado |
 |---|---|---|---|
-| C1 | Mesmo memorial anexado duas vezes | anexar; anexar de novo o mesmo arquivo | um memorial só na conversa, sem mensagem de leitura duplicada **[decisão de produto: repetir a mensagem ou não]** |
+| C1 | Mesmo memorial anexado duas vezes | anexar; anexar de novo o mesmo arquivo | um memorial só na conversa: um chip, uma "Anexei o memorial", uma "Li as primeiras páginas"; no máximo uma linha curta dizendo que esse memorial já está na conversa (decidido em 15/09/2026: deduplicar por nome) |
 | C2 | Memorial e pranchas no mesmo drop | soltar memorial + 3 pranchas juntos | memorial vira memorial, pranchas vão à leitura de selo; nenhuma prancha lida como memorial |
-| C3 | Duas abas na mesma conversa | aba 1 audita; aba 2 aberta antes, parada | depois das duas gravarem, servidor tem o parecer da aba 1 **[decisão de produto: hoje o PUT ignora versão mais velha, e a aba parada pode ganhar]** |
+| C3 | Duas abas na mesma conversa | aba 1 audita; aba 2 aberta antes, parada | depois de a aba 2 tentar gravar, servidor e disco seguem com o parecer da aba 1; a aba 2 avisa que a conversa mudou em outra aba e oferece recarregar, sem sobrescrever; o servidor responde 409 a gravação com base velha (decidido em 15/09/2026) |
 | C4 | Conversa antiga (formato de antes de 14/09) | semear conversa com `auditoria:<código>` | abre, o parecer fica no cartão que o gerou, "Auditar de novo" aparece |
 | C5 | Trocar de conversa durante a auditoria | auditar; abrir outra conversa; voltar | auditoria segue, parecer aparece na conversa certa e não na outra |
 
@@ -150,7 +172,7 @@ Cada cenário diz o **gesto** e o **esperado**. O esperado segue o comportamento
 | # | Cenário | Gesto | Esperado |
 |---|---|---|---|
 | X1 | Sessão expira no meio | invalidar o cookie durante a auditoria | aviso de sessão expirada; nada é perdido ao entrar de novo |
-| X2 | Memorial sem código legível | memorial sem centro de custo | auditar pede o projeto antes de gastar; não roda sem projeto |
+| X2 | Memorial sem código legível | memorial sem centro de custo | o cartão mostra um seletor com os projetos do escritório antes de gastar; sem escolha não roda nem cria auditoria; escolher libera a auditoria no projeto escolhido (decidido em 15/09/2026) |
 
 ## Como uma jornada é escrita
 
