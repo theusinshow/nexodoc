@@ -7,8 +7,13 @@
 // nesta máquina. Agora a faixa diz o que se sabe, e a recarga que apagaria algo
 // pede confirmação; "Continuar travada" deixa o disco como está.
 //
+// E reabrir pela barra não fura a confirmação (revisão da frente A, 15/09/2026):
+// clicar de novo na conversa, ou sair para outra e voltar, lia do servidor com a
+// trava na memória e pousava a cópia dele no disco sem perguntar.
+//
 // O estado é montado à mão, como na c4: a conversa no servidor (PUT sem base),
 // a mesma no disco com uma edição a mais e hora mais nova, e a marca "manter".
+// Os cliques não engolem erro: botão que não aparece derruba a jornada.
 const TITULO = "BATERIA C7 TRAVA SEM CONFERIR";
 const SO_AQUI = "edição só desta máquina";
 
@@ -16,7 +21,7 @@ export default {
   id: "c7",
   area: "conversas",
   titulo:
-    "trava sem conferir: a faixa não acusa outra aba, e recarregar do servidor não apaga calado",
+    "trava sem conferir: a faixa não acusa outra aba, e nem a faixa nem a barra trocam o disco sem confirmação",
   async rodar(ctx) {
     const { page } = ctx;
     await ctx.login();
@@ -42,9 +47,10 @@ export default {
       `status=${resposta.status()}`,
     );
 
+    const noDiscoAntes = agora - 30_000;
     await ctx.indexeddb.gravarConversa({
       ...doServidor,
-      updatedAt: agora - 30_000,
+      updatedAt: noDiscoAntes,
       messages: [
         ...doServidor.messages,
         { id: "u2", role: "user", content: SO_AQUI },
@@ -64,10 +70,7 @@ export default {
     const faixaOutraAba = page.getByText("Esta conversa mudou em outra aba", {
       exact: true,
     });
-    await faixaSemConferir
-      .first()
-      .waitFor({ timeout: 30_000 })
-      .catch(() => {});
+    await faixaSemConferir.first().waitFor({ timeout: 30_000 });
     ctx.verificar(
       "a conversa abre travada com a faixa sem conferir, visível de verdade, e sem acusar outra aba",
       (await ctx.visivelRolando(faixaSemConferir)) &&
@@ -78,12 +81,9 @@ export default {
     const recarregar = page.getByRole("button", {
       name: "Recarregar do servidor",
     });
-    await recarregar.click({ timeout: 10_000 }).catch(() => {});
+    await recarregar.click({ timeout: 10_000 });
     const aviso = page.getByText(/diferente da do servidor/);
-    await aviso
-      .first()
-      .waitFor({ timeout: 15_000 })
-      .catch(() => {});
+    await aviso.first().waitFor({ timeout: 15_000 });
     ctx.verificar(
       "recarregar do servidor avisa que a cópia deste navegador é outra, antes de trocar",
       await ctx.visivelRolando(aviso),
@@ -92,27 +92,68 @@ export default {
 
     await page
       .getByRole("button", { name: "Continuar travada" })
-      .click({ timeout: 10_000 })
-      .catch(() => {});
-    await page.waitForTimeout(2000);
-    const depoisDeCancelar = await ctx.lerConversa(id);
+      .click({ timeout: 10_000 });
+    await recarregar.waitFor({ timeout: 10_000 });
+    const discoIntacto = async () => {
+      const rec = await ctx.lerConversa(id);
+      return {
+        ok:
+          JSON.stringify(rec?.messages ?? []).includes(SO_AQUI) &&
+          rec?.updatedAt === noDiscoAntes,
+        detalhe: `updatedAt=${rec?.updatedAt} mensagens=${rec?.messages?.length}`,
+      };
+    };
+    let disco = await discoIntacto();
     ctx.verificar(
       "'Continuar travada' não mexe no disco: a edição só desta máquina continua lá",
-      JSON.stringify(depoisDeCancelar?.messages ?? []).includes(SO_AQUI) &&
-        depoisDeCancelar?.updatedAt === agora - 30_000,
-      `updatedAt=${depoisDeCancelar?.updatedAt} mensagens=${depoisDeCancelar?.messages?.length}`,
+      disco.ok,
+      disco.detalhe,
     );
     ctx.verificar(
-      "e a faixa sem conferir continua",
+      "e volta à faixa de antes, com 'Recarregar do servidor' visível de novo",
+      (await faixaSemConferir.count()) === 1 &&
+        (await ctx.visivelRolando(recarregar)) &&
+        (await aviso.count()) === 0,
+      `faixas=${await faixaSemConferir.count()} aviso=${await aviso.count()}`,
+    );
+
+    // Reabrir pela barra: clicar de novo na conversa aberta.
+    const naBarra = (titulo) =>
+      page.getByRole("button", { name: new RegExp(titulo) }).first();
+    await naBarra(TITULO).click({ timeout: 10_000 });
+    await page.waitForTimeout(3000);
+    disco = await discoIntacto();
+    ctx.verificar(
+      "clicar de novo na conversa pela barra não troca o disco: a edição só desta máquina continua lá",
+      disco.ok,
+      disco.detalhe,
+    );
+    await faixaSemConferir.first().waitFor({ timeout: 15_000 });
+    ctx.verificar(
+      "e ela continua travada, com a faixa sem conferir",
       (await faixaSemConferir.count()) === 1,
       `faixas=${await faixaSemConferir.count()}`,
     );
 
-    await recarregar.click({ timeout: 10_000 }).catch(() => {});
+    // Sair (para uma conversa nova, pelo "Novo projeto") e voltar pela barra.
+    await page
+      .getByRole("button", { name: "Novo projeto" })
+      .click({ timeout: 10_000 });
+    await faixaSemConferir.waitFor({ state: "detached", timeout: 15_000 });
+    await naBarra(TITULO).click({ timeout: 10_000 });
+    await faixaSemConferir.first().waitFor({ timeout: 15_000 });
+    await page.waitForTimeout(2000);
+    disco = await discoIntacto();
+    ctx.verificar(
+      "sair para uma conversa nova e voltar pela barra não troca o disco, e a conversa volta travada",
+      disco.ok && (await faixaSemConferir.count()) === 1,
+      `${disco.detalhe} faixas=${await faixaSemConferir.count()}`,
+    );
+
+    await recarregar.click({ timeout: 10_000 });
     await page
       .getByRole("button", { name: "Trocar pela do servidor" })
-      .click({ timeout: 15_000 })
-      .catch(() => {});
+      .click({ timeout: 15_000 });
     const trocou = await ctx.esperar(
       async () =>
         (await ctx.lerConversa(id))?.updatedAt === doServidor.updatedAt,

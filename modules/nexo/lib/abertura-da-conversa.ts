@@ -40,6 +40,13 @@ export type CopiaDoServidor = "desceu" | "ausente" | "falhou" | null;
 export function decidirAbertura(args: {
   travadaNaMemoria: boolean;
   marca: MarcaDeRecusa | null;
+  /**
+   * A trava da memória veio de um 409 com a base NÃO conferida (a fila sabe,
+   * mesmo sem a marca). Revisão da frente A, 15/09/2026.
+   */
+  travaSemConferir?: boolean;
+  /** A pessoa pediu pela faixa para trocar pela cópia do servidor (e confirmou, se precisava). */
+  recargaConfirmada?: boolean;
   listaCarregada: boolean;
   temDisco: boolean;
   servidorMaisNovo: boolean;
@@ -49,8 +56,19 @@ export function decidirAbertura(args: {
   irAoServidor: boolean;
   verificada: boolean;
 } {
-  const manterDisco = args.marca === "manter" && !args.travadaNaMemoria;
-  const lerDoServidorPrimeiro = args.travadaNaMemoria || args.marca === "descer";
+  /*
+   * TRAVA SEM CONFERIR, REABERTA SEM A FAIXA (revisão da frente A, 15/09/2026):
+   * clicar de novo na conversa, ou sair e voltar, lia do servidor primeiro e a
+   * cópia dele pousava no disco sem a confirmação que a faixa pede — as edições
+   * só desta máquina sumiam logo depois de "Continuar travada". Sem a recarga
+   * confirmada, é o caminho da marca "manter": disco, travada.
+   */
+  const semConferirSemConfirmacao =
+    args.travadaNaMemoria && args.travaSemConferir === true && args.recargaConfirmada !== true;
+  const manterDisco =
+    (args.marca === "manter" && !args.travadaNaMemoria) || semConferirSemConfirmacao;
+  const lerDoServidorPrimeiro =
+    !semConferirSemConfirmacao && (args.travadaNaMemoria || args.marca === "descer");
   const irAoServidor = manterDisco
     ? !args.temDisco
     : lerDoServidorPrimeiro || args.servidorMaisNovo;

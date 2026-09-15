@@ -24,14 +24,17 @@ export type AgendaDeGravacao = {
   /**
    * Grava `esperaMs` depois da ÚLTIMA chamada. Devolve uma geração, como
    * `gravarJa`: quem chama põe no estado do React na mesma volta, e é assim que
-   * `mudancaSemCommit` sabe se a mudança já chegou a um commit.
+   * `geracaoSemCommit` sabe se a mudança já chegou a um commit.
    */
   agendar: (gravar: () => void) => number;
   /**
-   * Há mudança (agendada ou gravada já) cuja geração nenhum commit sincronizou
-   * ainda? É o que `comecarNovaConversa` pergunta antes de trocar de conversa.
+   * A última geração entregue (debounce ou flush), se nenhum commit a
+   * sincronizou ainda; `null` se não há mudança pendente. É o que
+   * `comecarNovaConversa` espera antes de dar o flush e trocar de conversa: o
+   * commit que traz ESTA geração traz a mudança, porque as duas entraram no
+   * estado na mesma volta (e na mesma faixa de prioridade do React).
    */
-  mudancaSemCommit: () => boolean;
+  geracaoSemCommit: () => number | null;
   /**
    * Grava AGORA e pede outra gravação para o commit que trouxer a geração
    * devolvida. Quem chama PRECISA pôr essa geração no estado do React na mesma
@@ -115,8 +118,8 @@ export function criarAgendaDeGravacao(opcoes: {
       }, opcoes.esperaMs);
       return geracoes;
     },
-    mudancaSemCommit() {
-      return geracoes > comitada;
+    geracaoSemCommit() {
+      return geracoes > comitada ? geracoes : null;
     },
     gravarJa(gravar, conversaAtual) {
       /*

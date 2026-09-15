@@ -23,6 +23,7 @@ import {
 } from "../lib/selo-cache";
 import { reciboDoDrop } from "../lib/recibo-do-drop";
 import { fichaDoDrop } from "../lib/ficha-do-drop";
+import { criarUltimaAbertura } from "../lib/ultima-abertura";
 import { codigoDoSelo } from "../lib/disciplina-da-folha";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { nomeNaCapa } from "@/server/nexo/disciplinas";
@@ -1541,7 +1542,17 @@ function NexoWorkspaceInner({
       runShellTransition(() => flushSync(() => setStarted(true)));
     }
   }, [aberturaPorLink.abriu, started]);
+  /*
+   * A ÚLTIMA ABERTURA DA TELA — revisão da frente A, 15/09/2026. Com a troca de
+   * DOM esperada (a8), duas `selectConv` sobrepostas (o F5 restaurando e um
+   * clique na barra) podiam devolver o memorial retido da PRIMEIRA depois de a
+   * segunda ter limpado e restaurado o seu: o cartão da segunda ficava com o
+   * memorial da primeira. Cada abertura (e "Nova conversa") pega a vez; a que
+   * não é mais a última não restaura nada. A regra é `ultima-abertura.ts`.
+   */
+  const [aberturasDaTela] = useState(() => criarUltimaAbertura());
   const reset = (opts?: { descartar?: boolean }) => {
+    aberturasDaTela.comecar();
     runShellTransition(() =>
       flushSync(() => {
         setStarted(false);
@@ -1563,8 +1574,9 @@ function NexoWorkspaceInner({
   };
 
   // Trocar de conversa (histórico): carrega o registro e restaura o shell.
-  const selectConv = async (id: string) => {
-    const rec = await conv.selectConversation(id);
+  const selectConv = async (id: string, opcoes?: { recargaConfirmada?: boolean }) => {
+    const minha = aberturasDaTela.comecar();
+    const rec = await conv.selectConversation(id, opcoes);
     if (!rec) return;
     /*
      * ESPERA A TROCA DE DOM, e não só o pedido dela (a8, 15/09/2026). Com view
@@ -1615,7 +1627,9 @@ function NexoWorkspaceInner({
      * ele pertence ao momento do envio; o que volta é a capacidade de auditar
      * de novo, que é a ordem que o veredito parcial dá.
      */
+    if (!aberturasDaTela.valeAinda(minha)) return;
     const memorialRetido = await conv.recuperarMemorial();
+    if (!aberturasDaTela.valeAinda(minha)) return;
     if (memorialRetido) {
       setMemorialFile(memorialRetido.file);
       // A identidade volta junto: é ela que vira o gabarito da auditoria.
@@ -2499,7 +2513,9 @@ function NexoWorkspaceInner({
         [[FaixaDaAbaTravada.tsx]].
       */}
       {conv.conflitoDeVersao && (
-        <FaixaDaAbaTravada aoRecarregar={() => selectConv(conv.conversationId)} />
+        <FaixaDaAbaTravada
+          aoRecarregar={() => selectConv(conv.conversationId, { recargaConfirmada: true })}
+        />
       )}
 
       {tourAtivo && <TourDoNexo aoSair={encerrarTour} />}

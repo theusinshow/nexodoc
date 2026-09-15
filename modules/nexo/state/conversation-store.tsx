@@ -84,6 +84,7 @@ import {
   gravarNoServidor,
   consultarConversaNoServidor,
   lerDoServidor,
+  versaoNoServidor,
   listarNoServidor,
   type EstadoDaSincronizacao,
 } from "../lib/nexo-sync";
@@ -339,7 +340,15 @@ interface ConversationStoreValue {
    */
   newConversation: (opts?: { descartar?: boolean }) => void;
   /** Carrega uma conversa; devolve o registro (p/ o dono restaurar o shell). */
-  selectConversation: (id: string) => Promise<StoredConversation | null>;
+  selectConversation: (
+    id: string,
+    /**
+     * `recargaConfirmada`: a faixa da aba travada pediu a troca pela cópia do
+     * servidor (e confirmou, se precisava). Só ela desfaz uma trava sem conferir;
+     * reabrir pela barra não (ver `decidirAbertura`).
+     */
+    opcoes?: { recargaConfirmada?: boolean },
+  ) => Promise<StoredConversation | null>;
   removeConversation: (id: string) => Promise<void>;
   /** Apaga uma pasta inteira: as conversas do grupo, numa tacada. */
   removeConversations: (ids: readonly string[]) => Promise<void>;
@@ -360,6 +369,21 @@ const PERSIST_DEBOUNCE_MS = 500;
 
 /** Quanto a conferência de antes de gastar espera o servidor responder. */
 const LIMITE_DA_CONFERENCIA_MS = 5000;
+
+/** Roda `fazer` com um limite: estourado, aborta e devolve `seEstourar`. */
+function comLimite<T>(fazer: (signal: AbortSignal) => Promise<T>, seEstourar: T): Promise<T> {
+  const controle = new AbortController();
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    fazer(controle.signal),
+    new Promise<T>((resolve) => {
+      relogio = setTimeout(() => {
+        controle.abort();
+        resolve(seEstourar);
+      }, LIMITE_DA_CONFERENCIA_MS);
+    }),
+  ]).finally(() => clearTimeout(relogio));
+}
 
 /** Título derivado: obra do selo > 1ª mensagem do usuário > "Nova conversa". */
 /**
@@ -885,7 +909,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   const schedulePersist = useCallback(() => {
     /*
      * A geração do debounce vai para o estado junto com a mudança, como a do
-     * flush: é o que deixa `mudancaSemCommit` saber se ela já chegou a um
+     * flush: é o que deixa `geracaoSemCommit` saber se ela já chegou a um
      * commit (ver `comecarNovaConversa`). O `max` não deixa um debounce baixar
      * a geração de um flush da mesma volta.
      */
@@ -1320,7 +1344,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   }, [agenda, aberturas, flushPersist, zerarConversa]);
 
   const selectConversation = useCallback(
-    async (id: string): Promise<StoredConversation | null> => {
+    async (
+      id: string,
+      opcoes?: { recargaConfirmada?: boolean },
+    ): Promise<StoredConversation | null> => {
       /*
        * A ÚLTIMA ABERTURA VENCE — revisão final da segunda rodada, 15/09/2026.
        * As esperas abaixo (commit, fila, lista do servidor por até 4s, disco,
@@ -1331,6 +1358,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        */
       const minha = aberturas.comecar();
       const superada = () => !aberturas.valeAinda(minha);
+      /*
+       * A MUDANÇA PENDENTE COMITA ANTES DO FLUSH (revisão da frente A,
+       * 15/09/2026). O clique que abre é da faixa síncrona do React: a geração
+       * do flush comitava na hora, sem uma mudança ainda na faixa padrão
+       * (`await saveResult(...)`), e a espera logo abaixo resolvia cedo — a
+       * conversa que sai era gravada sem ela, e a troca chegava junto. Ver
+       * `comecarNovaConversa` e scripts/test-nova-conversa.ts.
+       */
+      const pendente = agenda.geracaoSemCommit();
+      if (pendente !== null) {
+        await agenda.proximaSincronizacao(pendente, 1000);
+        if (superada()) return null;
+      }
       const geracao = flushPersist(); // grava a conversa atual antes de trocar (#1)
       /*
        * E ESPERA O COMMIT da conversa que sai, 14/09/2026. O flush grava o
@@ -1364,6 +1404,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * 15/09/2026), com tabela-verdade.
        */
       const travadaNaMemoria = fila.travada(id) === "servidor";
+      // A fila sabe se a trava da memória veio sem conferir, mesmo sem a marca.
+      const travaSemConferir = travadaNaMemoria && !fila.baseConferida(id);
       const marca = recusaLembrada(id);
       let copiaDoServidor: CopiaDoServidor = null;
       /*
@@ -1410,6 +1452,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       let rec = doDisco;
       const { manterDisco, lerDoServidorPrimeiro, irAoServidor, ...abertura } = decidirAbertura({
         travadaNaMemoria,
+        travaSemConferir,
+        recargaConfirmada: opcoes?.recargaConfirmada === true,
         marca,
         listaCarregada,
         temDisco: Boolean(doDisco),
@@ -1578,7 +1622,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       // com a faixa. A regra e o porquê em `abreTravada` (lib/abertura-da-conversa.ts).
       const abreTravada = decidirAbreTravada({ lerDoServidorPrimeiro, manterDisco, copiaDoServidor });
       if (abreTravada) fila.travar(rec.id, "servidor");
-      definirTrava(abreTravada ? origemDaTravaAoAbrir({ marca }) : null);
+      definirTrava(
+        abreTravada ? origemDaTravaAoAbrir({ marca, semConferir: travaSemConferir }) : null,
+      );
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
       // colhe isto.
       lembrarUltimaConversa(rec.id);
@@ -1842,28 +1888,24 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     // Conversa nova (sem base): nunca está desatualizada, e não paga a ida à rede.
     if (!fila.temBase(id)) return true;
     /*
-     * A LISTA, e não a conversa inteira: ela traz o `updatedAt` de cada conversa
-     * sem arrastar o `data` (a mesma rota que a barra lateral já usa). Com
-     * limite: servidor que não responde conta como fora do alcance, e o gesto
-     * segue — travar o trabalho por lentidão de rede seria o defeito inverso.
+     * SÓ A VERSÃO DESTA CONVERSA (`GET ?id=`), e não a lista com as lápides
+     * (revisão da frente A). Com limite: servidor que não responde conta como
+     * fora do alcance, e o gesto segue — travar o trabalho por lentidão de rede
+     * seria o defeito inverso.
      */
-    const leitura: LeituraDoServidor = await Promise.race([
-      listarNoServidor().then(
-        ({ conversas, sincronizando }): LeituraDoServidor =>
-          sincronizando
-            ? {
-                estado: "lida",
-                guardada: conversas.find((c) => c.id === id)?.updatedAt ?? null,
-              }
-            : { estado: "sem-servidor" },
-        (): LeituraDoServidor => ({ estado: "inalcancavel" }),
-      ),
-      new Promise<LeituraDoServidor>((r) =>
-        setTimeout(() => r({ estado: "inalcancavel" }), LIMITE_DA_CONFERENCIA_MS),
-      ),
-    ]);
-    return fila.conferirAntesDeGastar(id, leitura, ganchosDaFila);
-  }, [fila, ganchosDaFila]);
+    const leitura = await comLimite((signal) => versaoNoServidor(id, signal), {
+      estado: "inalcancavel",
+    } as LeituraDoServidor);
+    const pode = fila.conferirAntesDeGastar(id, leitura, ganchosDaFila);
+    /*
+     * A decisão (e a trava, se for o caso) é da conversa que pediu. Se outra
+     * foi aberta durante a ida à rede, o gesto não gasta: ele era daquela.
+     */
+    if (snapshotRef.current.conversationId !== id || agenda.destinoDaTroca() !== null) {
+      return false;
+    }
+    return pode;
+  }, [agenda, fila, ganchosDaFila]);
 
   const motivoDaTrava = useCallback(
     () =>
@@ -1873,14 +1915,20 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const compararComServidor = useCallback(async () => {
     const id = snapshotRef.current.conversationId;
+    // Com limite, as duas: "não deu para ler" vale null, e a faixa confirma.
     const [noDisco, noServidor] = await Promise.all([
-      getConversation(id).then(
-        (rec) => rec?.updatedAt ?? null,
-        () => null,
+      comLimite(
+        () =>
+          getConversation(id).then(
+            (rec) => rec?.updatedAt ?? null,
+            () => null,
+          ),
+        null,
       ),
-      listarNoServidor().then(
-        ({ conversas }) => conversas.find((c) => c.id === id)?.updatedAt ?? null,
-        () => null,
+      comLimite(
+        (signal) =>
+          versaoNoServidor(id, signal).then((l) => (l.estado === "lida" ? l.guardada : null)),
+        null,
       ),
     ]);
     return { disco: noDisco, servidor: noServidor };

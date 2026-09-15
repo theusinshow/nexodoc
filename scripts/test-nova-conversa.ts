@@ -86,7 +86,16 @@ function storeDeMentira({ commitMs = 25 } = {}) {
   const r = relogioDeMentira();
   let estado: Campos = { id: "A", results: ["rodada-1"], geracao: 0 };
   let snapshot = { id: "A", results: ["rodada-1"] };
-  const fila: ((e: Campos) => Campos)[] = [];
+  /*
+   * DUAS FAIXAS DE PRIORIDADE, como o React (revisão da frente A, 15/09/2026).
+   * O que muda numa continuação assíncrona (`await saveResult(...)`) é da faixa
+   * padrão; o que muda dentro de `flushSync` (o `reset` da tela) é síncrono e
+   * comita NA HORA, pulando o que é da padrão — que volta depois, rebaseado.
+   * Com uma faixa só, o modelo não via o defeito que a revisão achou.
+   */
+  let base: Campos = estado;
+  const fila: { fn: (e: Campos) => Campos; faixa: "sync" | "padrao" }[] = [];
+  let faixaAtual: "sync" | "padrao" = "padrao";
   let commitArmado: unknown = null;
   const disco: { id: string; results: string[] }[] = [];
   const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio: r.relogio });
@@ -99,16 +108,38 @@ function storeDeMentira({ commitMs = 25 } = {}) {
   };
   let zerou = 0;
 
+  function comitar(render: Campos) {
+    estado = render;
+    const { geracao, ...campos } = render;
+    snapshot = { ...campos };
+    agenda.aoSincronizar(persistNow, conversaAtual, geracao);
+  }
   function set(fn: (e: Campos) => Campos) {
-    fila.push(fn);
-    if (commitArmado !== null) return;
+    fila.push({ fn, faixa: faixaAtual });
+    if (faixaAtual === "sync" || commitArmado !== null) return;
     commitArmado = r.relogio.armar(() => {
       commitArmado = null;
-      for (const f of fila.splice(0)) estado = f(estado);
-      const { geracao, ...campos } = estado;
-      snapshot = { ...campos };
-      agenda.aoSincronizar(persistNow, conversaAtual, geracao);
+      let render = base;
+      for (const u of fila.splice(0)) render = u.fn(render);
+      base = render;
+      comitar(render);
     }, commitMs);
+  }
+  /** `flushSync`: o que muda dentro comita já, só a faixa síncrona. */
+  function flushSync(fn: () => void) {
+    faixaAtual = "sync";
+    try {
+      fn();
+    } finally {
+      faixaAtual = "padrao";
+    }
+    let render = base;
+    for (const u of fila) if (u.faixa === "sync") render = u.fn(render);
+    if (!fila.some((u) => u.faixa === "padrao")) {
+      base = render;
+      fila.splice(0);
+    }
+    comitar(render);
   }
   function flushPersist() {
     const g = agenda.gravarJa(persistNow, conversaAtual);
@@ -126,6 +157,7 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     r,
     disco,
     estado: () => estado,
+    flushSync,
     zerou: () => zerou,
     ultimaDe: (id: string) => disco.filter((g) => g.id === id).at(-1),
     saveResult(artefato: string) {
@@ -151,6 +183,15 @@ function storeDeMentira({ commitMs = 25 } = {}) {
      */
     async abrir(id: string, esperaMs: number) {
       const minha = aberturas.comecar();
+      // O store de agora espera antes o commit da mudança pendente.
+      const api = agenda as unknown as {
+        geracaoSemCommit?: () => number | null;
+      };
+      const pendente = api.geracaoSemCommit?.() ?? null;
+      if (pendente !== null) {
+        await agenda.proximaSincronizacao(pendente, 1000);
+        if (!aberturas.valeAinda(minha)) return null;
+      }
       await agenda.proximaSincronizacao(flushPersist(), 1000);
       if (!aberturas.valeAinda(minha)) return null;
       await r.esperar(esperaMs);
@@ -222,6 +263,50 @@ await test("abertura pedida DEPOIS de uma 'Nova conversa' que espera o commit: v
   assert.equal(await abrindo, "B");
   assert.equal(s.estado().id, "B");
   assert.deepEqual(s.ultimaDe("A")?.results, ["rodada-1", "rodada-2"]);
+});
+
+await test("'Nova conversa' dentro de flushSync (o reset da tela) com mudança pendente na faixa padrão: a mudança vai para A", async () => {
+  // A revisão da frente A: o flush pedia a geração dele na faixa síncrona, o
+  // commit síncrono a trazia SEM a mudança da faixa padrão, a espera resolvia,
+  // A era gravada sem ela e a troca chegava junto com a mudança rebaseada.
+  const s = storeDeMentira();
+  s.saveResult("rodada-2");
+  s.flushSync(() => s.newConversation());
+  await s.r.avancar(2000);
+  assert.deepEqual(
+    s.ultimaDe("A")?.results,
+    ["rodada-1", "rodada-2"],
+    `disco=${JSON.stringify(s.disco)}`,
+  );
+  assert.equal(s.estado().id, "N");
+});
+
+await test("dentro de flushSync sem mudança pendente: troca no próprio commit síncrono", async () => {
+  const s = storeDeMentira();
+  s.saveResult("rodada-2");
+  await s.r.avancar(2000);
+  s.flushSync(() => s.newConversation());
+  assert.equal(s.estado().id, "N");
+  await s.r.avancar(2000);
+  assert.deepEqual(s.ultimaDe("A")?.results, ["rodada-1", "rodada-2"]);
+});
+
+await test("abrir outra conversa por um clique (faixa síncrona) com mudança pendente na faixa padrão: a mudança vai para A", async () => {
+  // O mesmo defeito em `selectConversation`: o flush do clique comita na hora,
+  // sem a mudança da faixa padrão, e a espera pelo commit dele resolve cedo.
+  const s = storeDeMentira();
+  s.saveResult("rodada-2");
+  let abrindo: Promise<string | null> = Promise.resolve(null);
+  s.flushSync(() => {
+    abrindo = s.abrir("B", 10);
+  });
+  await s.r.avancar(2000);
+  assert.equal(await abrindo, "B");
+  assert.deepEqual(
+    s.ultimaDe("A")?.results,
+    ["rodada-1", "rodada-2"],
+    `disco=${JSON.stringify(s.disco)}`,
+  );
 });
 
 console.log(`\n${passed} ok`);

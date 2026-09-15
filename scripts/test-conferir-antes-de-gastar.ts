@@ -14,7 +14,10 @@
  */
 import assert from "node:assert/strict";
 
-import { decidirAntesDeGastar } from "../modules/nexo/lib/conferir-antes-de-gastar.ts";
+import {
+  decidirAntesDeGastar,
+  leituraDaResposta,
+} from "../modules/nexo/lib/conferir-antes-de-gastar.ts";
 import {
   criarFilaDeGravacao,
   type GanchosDaGravacao,
@@ -113,6 +116,65 @@ await test("o servidor não tem a conversa, ou a conversa é nova (sem base): ga
     }).gastar,
     true,
   );
+});
+
+// ------------------------------------------- a resposta da rota `?id=` ---
+
+/*
+ * A CONFERÊNCIA LÊ SÓ A VERSÃO DA CONVERSA (revisão da frente A, 15/09/2026):
+ * `GET /api/nexo/conversas?id=` devolve o `updatedAt` daquela linha, sem a lista
+ * inteira e sem as lápides. Como a resposta vira leitura é regra pura.
+ */
+await test("a rota respondeu a versão: lida, com a hora (ou null se não tem)", () => {
+  assert.deepEqual(
+    leituraDaResposta({
+      ok: true,
+      status: 200,
+      corpo: { id: "A", updatedAt: 2000, sincronizando: true },
+    }),
+    { estado: "lida", guardada: 2000 },
+  );
+  assert.deepEqual(
+    leituraDaResposta({
+      ok: true,
+      status: 200,
+      corpo: { id: "A", updatedAt: null, sincronizando: true },
+    }),
+    { estado: "lida", guardada: null },
+  );
+});
+
+await test("instalação sem banco ou módulo desligado (404): sem servidor", () => {
+  assert.deepEqual(
+    leituraDaResposta({
+      ok: true,
+      status: 200,
+      corpo: { conversas: [], expurgadas: [], sincronizando: false },
+    }),
+    { estado: "sem-servidor" },
+  );
+  assert.deepEqual(leituraDaResposta({ ok: false, status: 404, corpo: null }), {
+    estado: "sem-servidor",
+  });
+});
+
+await test("erro do servidor, sessão caída ou corpo torto: fora do alcance", () => {
+  for (const r of [
+    { ok: false, status: 500, corpo: { error: "falha" } },
+    { ok: false, status: 401, corpo: null },
+    { ok: true, status: 200, corpo: null },
+    {
+      ok: true,
+      status: 200,
+      corpo: { sincronizando: true, updatedAt: "ontem" },
+    },
+  ]) {
+    assert.deepEqual(
+      leituraDaResposta(r),
+      { estado: "inalcancavel" },
+      JSON.stringify(r),
+    );
+  }
 });
 
 // ---------------------------------------------------------------- a fila ---

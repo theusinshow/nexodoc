@@ -1,6 +1,7 @@
 "use client";
 
 import type { StoredConversation, ConversationSummary } from "./nexo-db";
+import { leituraDaResposta, type LeituraDoServidor } from "./conferir-antes-de-gastar";
 
 /**
  * O LADO DE CÁ DA SINCRONIZAÇÃO.
@@ -51,6 +52,28 @@ export async function listarNoServidor(): Promise<{
     expurgadas: json.expurgadas ?? [],
     sincronizando: json.sincronizando === true,
   };
+}
+
+/**
+ * A versão que o servidor guarda de UMA conversa, para a conferência de antes
+ * de gastar (`GET ?id=`, revisão da frente A, 15/09/2026). Nunca lança: rede
+ * fora, erro ou `signal` abortado viram "inalcancavel" (ver `leituraDaResposta`).
+ */
+export async function versaoNoServidor(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeituraDoServidor> {
+  try {
+    const resp = await fetch(`${ROTA}?id=${encodeURIComponent(id)}`, {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    });
+    const corpo = await resp.json().catch(() => null);
+    return leituraDaResposta({ ok: resp.ok, status: resp.status, corpo });
+  } catch {
+    return { estado: "inalcancavel" };
+  }
 }
 
 /** O servidor recusou porque a conversa mudou depois que esta aba a leu (C3). */

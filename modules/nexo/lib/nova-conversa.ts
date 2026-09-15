@@ -10,8 +10,8 @@
  *    uma mudança agendada logo antes (`await saveResult(...)` e, em seguida,
  *    "Nova conversa") chegava ao React JUNTO com a troca, e o commit que a
  *    trazia já trazia o id novo — ela nunca era gravada na conversa que saía.
- *    Agora, se há mudança sem commit (`mudancaSemCommit`), a troca espera o
- *    commit do flush, como `selectConversation` já esperava; sem mudança
+ *    Agora, se há mudança sem commit (`geracaoSemCommit`), a troca espera o
+ *    commit QUE A TRAZ, e só então dá o flush (ver abaixo); sem mudança
  *    pendente (o caso normal: o clique vem muito depois do último commit), ela
  *    continua saindo na mesma volta, e a tela não muda de ritmo.
  * 2. A ÚLTIMA ABERTURA VENCE também contra "Nova conversa": ela pega a vez em
@@ -50,15 +50,26 @@ export function comecarNovaConversa(args: {
     trocar();
     return Promise.resolve();
   }
-  const pendente = args.agenda.mudancaSemCommit();
-  const geracao = args.flush();
-  if (!pendente) {
+  const pendente = args.agenda.geracaoSemCommit();
+  if (pendente === null) {
+    args.flush();
     trocar();
     return Promise.resolve();
   }
+  /*
+   * ESPERA O COMMIT DA MUDANÇA, E SÓ ENTÃO O FLUSH (revisão da frente A,
+   * 15/09/2026). A primeira versão dava o flush antes e esperava o commit DELE.
+   * Só que o "Nova conversa" da tela roda dentro de `flushSync`: a geração do
+   * flush ia na faixa síncrona e comitava na hora, SEM a mudança pendente da
+   * faixa padrão (`await saveResult(...)`). A espera resolvia, A era gravada
+   * sem a mudança, e a troca chegava junto com ela. Esperando a geração que
+   * entrou no estado junto com a mudança, o commit que resolve é o que a traz.
+   */
   return args.agenda
-    .proximaSincronizacao(geracao, args.limiteMs ?? 1000)
+    .proximaSincronizacao(pendente, args.limiteMs ?? 1000)
     .then(() => {
-      if (args.aberturas.valeAinda(minha)) trocar();
+      if (!args.aberturas.valeAinda(minha)) return;
+      args.flush();
+      trocar();
     });
 }

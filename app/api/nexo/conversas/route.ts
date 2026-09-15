@@ -55,10 +55,36 @@ async function guarda() {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const g = await guarda();
   if (g.erro) return g.erro;
   if (!isDatabaseConfigured()) return semBanco();
+
+  /*
+   * `?id=`: SÓ A VERSÃO DE UMA CONVERSA — revisão da frente A, 15/09/2026. É a
+   * pergunta de antes de gastar (`conferirAntesDeGastar` no cliente): qual o
+   * `updatedAt` que o servidor guarda desta conversa. Uma linha, uma coluna, e
+   * sem as lápides: ler a lista inteira a cada auditoria ou turno do agente
+   * seria pagar a barra lateral por uma pergunta de um número. Filtra pelo
+   * e-mail da sessão, como tudo aqui; conversa de outra pessoa é `null`.
+   */
+  const id = req.nextUrl.searchParams.get("id");
+  if (id) {
+    try {
+      const linha = await getPrisma().nexoConversation.findFirst({
+        where: { id, userEmail: g.userEmail },
+        select: { updatedAt: true },
+      });
+      return NextResponse.json({
+        id,
+        updatedAt: linha ? linha.updatedAt.getTime() : null,
+        sincronizando: true,
+      });
+    } catch (error) {
+      console.error("[nexo-conversas] falha ao ler a versão", error);
+      return NextResponse.json({ error: "falha ao ler a versão" }, { status: 500 });
+    }
+  }
 
   try {
     const linhas = await getPrisma().nexoConversation.findMany({

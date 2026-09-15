@@ -53,3 +53,35 @@ export function decidirAntesDeGastar(args: {
   // O servidor tem a conversa e ela não passa da base: a base está conferida.
   return { gastar: true, conferida: guardada !== null && args.base !== null };
 }
+
+/**
+ * A resposta de `GET /api/nexo/conversas?id=` vira leitura (revisão da frente
+ * A, 15/09/2026: a conferência lê só a versão daquela conversa, e não a lista
+ * inteira com as lápides).
+ *
+ * - `sincronizando: false` (sem banco) ou 404 (módulo desligado): sem servidor.
+ * - `updatedAt` número ou null: lida.
+ * - Qualquer outra coisa — 5xx, 401, corpo torto: fora do alcance, e o gesto
+ *   segue sem conferir a base, como offline.
+ */
+export function leituraDaResposta(resposta: {
+  ok: boolean;
+  status: number;
+  corpo: unknown;
+}): LeituraDoServidor {
+  if (resposta.status === 404) return { estado: "sem-servidor" };
+  if (!resposta.ok || !resposta.corpo || typeof resposta.corpo !== "object") {
+    return { estado: "inalcancavel" };
+  }
+  const corpo = resposta.corpo as {
+    sincronizando?: unknown;
+    updatedAt?: unknown;
+  };
+  if (corpo.sincronizando === false) return { estado: "sem-servidor" };
+  if (corpo.sincronizando !== true) return { estado: "inalcancavel" };
+  if (corpo.updatedAt === null) return { estado: "lida", guardada: null };
+  if (typeof corpo.updatedAt === "number" && Number.isFinite(corpo.updatedAt)) {
+    return { estado: "lida", guardada: corpo.updatedAt };
+  }
+  return { estado: "inalcancavel" };
+}

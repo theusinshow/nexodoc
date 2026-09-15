@@ -190,4 +190,63 @@ test("'Recarregar a conversa' com a trava na memória: a marca 'manter' cede, l�
   assert.equal(d.irAoServidor, true);
 });
 
+/*
+ * A TRAVA SEM CONFERIR NÃO SE DESFAZ PELA BARRA — revisão da frente A, 15/09/2026.
+ * Com a trava na memória desta aba, reabrir a conversa (clicar nela de novo, ou
+ * sair e voltar) lia do servidor primeiro: a cópia do servidor pousava no disco
+ * SEM a confirmação que a faixa pede, e as edições só desta máquina sumiam —
+ * logo depois de "Continuar travada". Só a recarga confirmada pela faixa troca.
+ */
+test("trava sem conferir na memória, reaberta pela barra: fica no disco e abre travada", () => {
+  const d = decidirAbertura({
+    ...base,
+    travadaNaMemoria: true,
+    marca: "manter",
+    travaSemConferir: true,
+    recargaConfirmada: false,
+  });
+  assert.equal(d.manterDisco, true);
+  assert.equal(d.lerDoServidorPrimeiro, false);
+  assert.equal(d.irAoServidor, false);
+  assert.equal(d.verificada, false);
+  assert.equal(abreTravada({ ...d, copiaDoServidor: null }), true);
+});
+
+test("sem a marca (armazenamento fora), a fila é quem sabe que não conferiu: idem", () => {
+  const d = decidirAbertura({
+    ...base,
+    travadaNaMemoria: true,
+    marca: null,
+    travaSemConferir: true,
+    recargaConfirmada: false,
+  });
+  assert.equal(d.manterDisco, true);
+  assert.equal(d.lerDoServidorPrimeiro, false);
+});
+
+test("trava sem conferir com a recarga confirmada pela faixa: lê do servidor primeiro", () => {
+  const d = decidirAbertura({
+    ...base,
+    travadaNaMemoria: true,
+    marca: "manter",
+    travaSemConferir: true,
+    recargaConfirmada: true,
+  });
+  assert.equal(d.manterDisco, false);
+  assert.equal(d.lerDoServidorPrimeiro, true);
+  assert.equal(d.irAoServidor, true);
+});
+
+test("trava provada na memória, reaberta pela barra: lê do servidor, como sempre", () => {
+  const d = decidirAbertura({
+    ...base,
+    travadaNaMemoria: true,
+    marca: null,
+    travaSemConferir: false,
+    recargaConfirmada: false,
+  });
+  assert.equal(d.lerDoServidorPrimeiro, true);
+  assert.equal(d.manterDisco, false);
+});
+
 console.log(`\n${passed} teste(s) passaram`);

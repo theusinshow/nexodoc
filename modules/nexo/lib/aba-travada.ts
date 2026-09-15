@@ -48,8 +48,10 @@ export function origemDaTrava(args: {
  */
 export function origemDaTravaAoAbrir(args: {
   marca: "descer" | "manter" | null;
+  /** A fila sabe que a trava da memória veio sem conferir (vale sem a marca). */
+  semConferir?: boolean;
 }): OrigemDaTrava {
-  return args.marca === "manter" ? "sem-conferir" : "outra-aba";
+  return args.marca === "manter" || args.semConferir === true ? "sem-conferir" : "outra-aba";
 }
 
 /** Uma trava provada não volta a "sem conferir"; a sem conferir pode ser provada depois. */

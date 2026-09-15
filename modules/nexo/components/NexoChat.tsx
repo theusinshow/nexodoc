@@ -343,10 +343,16 @@ export function NexoChat({
      * acende depois de uma gravação recusada. Pergunta ao servidor antes; a
      * recusa acende a faixa e trava o campo, e o texto fica escrito nele.
      */
+    // O controle nasce ANTES da conferência: "parar" durante ela cancela o envio.
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true);
     const podeSeguir = await conferirAntesDeGastar();
-    setBusy(false);
-    if (!podeSeguir) return;
+    if (!podeSeguir || controller.signal.aborted) {
+      setBusy(false);
+      if (abortRef.current === controller) abortRef.current = null;
+      return;
+    }
     // Primeiro envio latcheia o shell (welcome→active). Idempotente no dono.
     onSend?.();
     setError(null);
@@ -358,11 +364,8 @@ export function NexoChat({
     // O campo esvaziou por um caminho que não passa pelo `onChange` — sem isto,
     // o orbe continuaria achando que há texto escrito depois de enviado.
     publicarFoco({ focado: focadoRef.current, temTexto: false });
-    setBusy(true);
 
     const assistantId = crypto.randomUUID();
-    const controller = new AbortController();
-    abortRef.current = controller;
     let started = false;
 
     try {

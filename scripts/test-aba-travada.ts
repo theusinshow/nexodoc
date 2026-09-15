@@ -68,6 +68,8 @@ test("ao abrir travada, a marca diz a origem: 'manter' é sem conferir, o resto 
   assert.equal(origemDaTravaAoAbrir({ marca: "manter" }), "sem-conferir");
   assert.equal(origemDaTravaAoAbrir({ marca: "descer" }), "outra-aba");
   assert.equal(origemDaTravaAoAbrir({ marca: null }), "outra-aba");
+  // Sem a marca, mas a fila sabe que a trava da memória veio sem conferir.
+  assert.equal(origemDaTravaAoAbrir({ marca: null, semConferir: true }), "sem-conferir");
 });
 
 test("uma trava provada não volta a ser 'sem conferir'; a sem conferir pode virar provada", () => {

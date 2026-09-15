@@ -128,6 +128,12 @@ export type FilaDeGravacao<R extends Registro> = {
    * que conferir antes de gastar: conversa nova nunca está desatualizada.
    */
   temBase: (id: string) => boolean;
+  /**
+   * A base desta conversa foi conferida com o servidor? Falso quando abriu do
+   * disco sem conhecer a versão do servidor (`abrir` com `verificada: false`) e
+   * nada a conferiu depois — é o que faz uma trava ser "sem conferir".
+   */
+  baseConferida: (id: string) => boolean;
   /** Resolve quando o que está na fila agora terminar. */
   ociosa: () => Promise<void>;
 };
@@ -385,6 +391,9 @@ export function criarFilaDeGravacao<R extends Registro>(
     },
     temBase(id) {
       return bases.has(id);
+    },
+    baseConferida(id) {
+      return !naoConferidas.has(id);
     },
     ociosa() {
       return cauda;
