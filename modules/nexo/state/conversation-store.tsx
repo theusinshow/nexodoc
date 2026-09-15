@@ -40,6 +40,7 @@ import { consultarAuditoria } from "../lib/audit";
 import { escolherCopia } from "../lib/copia-mais-nova";
 import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
+import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
   esquecerUltimaConversa,
@@ -500,7 +501,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     refreshRemote();
   }, [refreshList, refreshRemote]);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * Debounce e flush moram em `agenda-de-gravacao.ts`, e não mais num
+   * `timerRef` solto aqui: o flush cancelava o debounce e gravava um snapshot
+   * que ainda não tinha o estado novo (a3, 14/09/2026 — ver o comentário de
+   * `gravarJa`). Criada uma vez só; ela lê o snapshot na hora de gravar.
+   */
+  const [agenda] = useState(() => criarAgendaDeGravacao({ esperaMs: PERSIST_DEBOUNCE_MS }));
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
   const jaPersistiu = useRef(false);
 
@@ -662,19 +669,15 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   // Debounce: grava 500ms após a última mudança.
   const schedulePersist = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(persistNow, PERSIST_DEBOUNCE_MS);
-  }, [persistNow]);
+    agenda.agendar(persistNow);
+  }, [agenda, persistNow]);
 
   // Flush: grava JÁ, antes de trocar/limpar a conversa. Sem isso, um debounce
   // pendente seria CANCELADO e a última mudança se perderia (bug #1 da revisão).
+  // O debounce pendente não é cancelado: é rearmado (ver `gravarJa`).
   const flushPersist = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    persistNow();
-  }, [persistNow]);
+    agenda.gravarJa(persistNow, () => snapshotRef.current.conversationId);
+  }, [agenda, persistNow]);
 
   const appendMessage = useCallback(
     (m: NexoChatMessage) => {
@@ -1027,11 +1030,8 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * lista, viva no banco, e de volta na próxima sincronização.
    */
   const descartarPendente = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
+    agenda.descartar();
+  }, [agenda]);
 
   const newConversation = useCallback((opts?: { descartar?: boolean }) => {
     if (opts?.descartar) descartarPendente();

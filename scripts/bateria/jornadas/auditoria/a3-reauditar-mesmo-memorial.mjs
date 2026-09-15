@@ -1,18 +1,16 @@
 // A3 — o fluxo que desmontou em 14/09/2026: auditar o 117_25, e auditar de novo
 // transcrevendo. Cada rodada com cartão e parecer próprios (a486a53).
 //
-// DEFEITO DE PRODUTO PEGO POR ESTA JORNADA (14/09/2026, ver task-9-report.md):
-// a rodada 2 fecha certa NA TELA (dois cartões, parecer novo, faixa de diff),
-// mas a gravação no IndexedDB da PRIMEIRA rodada nunca chega a incluir a
-// segunda — `marcarAuditoriaPendente(null)` no `finally` de `confirm()`
-// (ConfirmationCard.tsx) dispara `flushPersist()` (síncrono, cancela o
-// debounce) usando um `snapshotRef.current.results` que ainda não foi
-// resincronizado com o `setResults` que o próprio `saveResult` acabou de
-// disparar — o efeito que copia `results` para o ref só roda depois do
-// commit do render, e não há `await` entre os dois para esperá-lo. O disco
-// fica com só a rodada 1; um F5 depois disto perderia a rodada 2 inteira.
-// NÃO é bug desta jornada: as verificações abaixo ficam vermelhas de
-// propósito, documentando o defeito, e o produto não foi tocado aqui.
+// DEFEITO PEGO POR ESTA JORNADA (14/09/2026, ver fix-a3-report.md): a rodada 2
+// fechava certa NA TELA e só a rodada 1 ia para o IndexedDB. `saveResult`
+// agendava a gravação e, na mesma volta, `marcarAuditoriaPendente(null)` gravava
+// JÁ — cancelando o debounce e lendo um snapshot que só acompanha o estado
+// depois do commit do React. Online, o F5 escondia a perda: a rede de
+// recuperação (`parecerARecuperar` → GET /api/audits/<id>) buscava a rodada 2
+// no Postgres. Sem essa rede, o F5 voltava com a rodada 1 ("14 PÁGINAS NÃO
+// FORAM LIDAS"). Por isso o F5 abaixo corta /api/audits: é o disco, e só ele,
+// que tem de trazer as duas rodadas de volta.
+// Teste puro que trava a regra: scripts/test-agenda-de-gravacao.ts.
 export default {
   id: "a3",
   area: "auditoria",
@@ -21,8 +19,7 @@ export default {
     // O banco NÃO é esvaziado entre jornadas (só uma vez, no início da bateria
     // inteira): numa corrida completa a1 roda antes de a3 no MESMO banco, e
     // contar "Audit" sem filtro incluiria a auditoria que a1 já gravou ali.
-    // Cada jornada só lê o que ELA MESMA criou.
-    const inicio = new Date();
+    // Cada jornada só lê o que ELA MESMA criou (ver a consulta ao banco abaixo).
     await ctx.login();
 
     // Rodada 1: sem transcrever → parecer parcial (14 folhas não lidas). Mesmos
@@ -44,27 +41,37 @@ export default {
 
     // Fim da rodada 2: dois cartões com parecer ("Ver o parecer" em cada um —
     // AuditoriaAncora, ConfirmationCard.tsx:2966).
+    const verParecer = ctx.page.getByRole("button", { name: /Ver o parecer/ });
     const fim = Date.now() + 900_000;
-    while (Date.now() < fim && (await ctx.page.getByRole("button", { name: /Ver o parecer/ }).count()) < 2) {
+    while (Date.now() < fim && (await verParecer.count()) < 2) {
       await ctx.page.waitForTimeout(3000);
     }
-    // Tempo para a tela assentar antes de ler o disco. Não é sobre o debounce
-    // do IndexedDB (500ms bastariam para isso) — é só para não ler no meio de
-    // um reflow do React.
+    // A espera acima não verifica nada sozinha: sem esta linha, "a rodada 2
+    // nunca apareceu" e "apareceu mas não foi gravada" dariam a mesma falha lá
+    // embaixo, no disco.
+    const qtdNaTela = await verParecer.count();
+    ctx.verificar("a tela mostra as duas rodadas", qtdNaTela === 2, `botões Ver o parecer=${qtdNaTela}`);
+    // Mais que os 500ms do debounce: a gravação que o flush rearma (ver
+    // agenda-de-gravacao.ts) precisa ter acontecido antes de ler o disco.
     await ctx.page.waitForTimeout(2000);
 
-    const conversa = (await ctx.indexeddb.lerConversas()).sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    const pareceres = (conversa?.results ?? []).filter((r) => r.kind === "auditoria");
-    ctx.verificar("duas rodadas gravadas", pareceres.length === 2, String(pareceres.length));
+    // A conversa SOB TESTE é a que o produto lembra como aberta — não "a de
+    // `updatedAt` mais alto", que numa bateria com mais conversas poderia ser
+    // outra (o falso positivo do projeto de exemplo, agosto de 2026).
+    const idDaConversa = await ctx.page.evaluate(() => localStorage.getItem("nexo:ultima-conversa"));
+    const lerPareceres = async () => {
+      const conversa = (await ctx.indexeddb.lerConversas()).find((c) => c.id === idDaConversa);
+      return (conversa?.results ?? []).filter((r) => r.kind === "auditoria");
+    };
+    const pareceres = await lerPareceres();
+    ctx.verificar("duas rodadas gravadas", pareceres.length === 2, `conversa=${idDaConversa} pareceres=${pareceres.length}`);
     ctx.verificar(
       "cada rodada com o próprio id",
-      new Set(pareceres.map((r) => r.artifactId)).size === pareceres.length,
+      pareceres.length === 2 && new Set(pareceres.map((r) => r.artifactId)).size === pareceres.length,
       pareceres.map((r) => r.artifactId).join(" | "),
     );
-    ctx.verificar(
-      "a rodada 2 leu as folhas transcritas",
-      pareceres.some((r) => (r.payload?.report?.arquivos_analisados?.[0]?.cobertura?.paginas_transcritas ?? 0) > 0),
-    );
+    const transcritas = (r) => r.payload?.report?.arquivos_analisados?.[0]?.cobertura?.paginas_transcritas ?? 0;
+    ctx.verificar("a rodada 2 leu as folhas transcritas", pareceres.some((r) => transcritas(r) > 0));
 
     // R11: presença no DOM não basta — um botão fora da dobra passaria em
     // `count()` sem chegar aos olhos de quem lê a tela. A contagem é o PONTO
@@ -91,19 +98,60 @@ export default {
     const qtdFaixaDoDiff = await faixaDoDiff.count();
     ctx.verificar(
       "o palco mostra o que mudou entre as rodadas, visível de verdade",
-      qtdFaixaDoDiff > 0 && (await ctx.visivelRolando(faixaDoDiff)),
+      qtdFaixaDoDiff === 1 && (await ctx.visivelRolando(faixaDoDiff)),
       `contagem=${qtdFaixaDoDiff}`,
     );
 
-    // R12: só as auditorias que ESTA jornada criou (ver a1-leitura-da-ia-aborta.mjs).
-    const auditorias = await ctx.banco.consultar(
-      `select status from "Audit" where "createdAt" >= $1 order by "createdAt"`,
-      [inicio],
-    );
+    // R12: só as auditorias que ESTA jornada criou — pelos `auditId` que a
+    // própria conversa registrou na largada (`registrarAuditoria`; o id do
+    // cliente é o id da linha em "Audit"). Filtrar por `"createdAt" >= inicio`
+    // não bastava: em `--so-jornadas auditoria` (14/09/2026) a consulta contou
+    // três COMPLETED — a da a1, que roda logo antes no mesmo banco, entrou.
+    // Comparar o relógio da jornada com uma coluna gravada por outro processo
+    // é frágil (o `now()` do banco medido ali estava 29s atrás da máquina).
+    const registradas = (await ctx.indexeddb.lerConversas()).find((c) => c.id === idDaConversa)?.auditorias ?? [];
+    const auditorias = await ctx.banco.consultar(`select id, status from "Audit" where id = any($1::text[])`, [
+      registradas.map((a) => a.auditId),
+    ]);
     ctx.verificar(
       "as duas auditorias concluídas no banco",
-      auditorias.filter((a) => a.status === "COMPLETED").length === 2,
-      JSON.stringify(auditorias),
+      registradas.length === 2 && auditorias.filter((a) => a.status === "COMPLETED").length === 2,
+      `registradas=${registradas.length} ${JSON.stringify(auditorias)}`,
     );
+
+    // F5 COMO O ENGENHEIRO DARIA — mas sem a rede de recuperação. Com ela, o
+    // parecer que faltasse no disco voltaria do Postgres e esconderia a perda
+    // (medido: foi exatamente o que aconteceu antes do conserto). O F5 reabre
+    // sozinho a conversa lembrada (NexoWorkspace, "VOLTAR PARA ONDE O
+    // ENGENHEIRO PAROU"); nada aqui clica no histórico.
+    await ctx.page.route("**/api/audits/**", (rota) => rota.abort());
+    try {
+      await ctx.page.reload({ waitUntil: "domcontentloaded" });
+      const fimDoF5 = Date.now() + 60_000;
+      while (Date.now() < fimDoF5 && (await verParecer.count()) < 2) {
+        await ctx.page.waitForTimeout(1000);
+      }
+      const aberta = await ctx.page.evaluate(() => localStorage.getItem("nexo:ultima-conversa"));
+      ctx.verificar("depois do F5 a conversa aberta é a mesma", aberta === idDaConversa, `${aberta} vs ${idDaConversa}`);
+      const qtdDepoisDoF5 = await verParecer.count();
+      ctx.verificar(
+        "depois do F5, sem a rede de recuperação, as duas rodadas voltam do disco",
+        qtdDepoisDoF5 === 2 && (await ctx.visivelRolando(verParecer.last())),
+        `botões Ver o parecer=${qtdDepoisDoF5}`,
+      );
+      const recuperadasPorVisao = ctx.page.getByText(/páginas sem texto recuperadas por visão/);
+      ctx.verificar(
+        "depois do F5 o palco mostra o parecer da rodada 2, visível de verdade",
+        (await recuperadasPorVisao.count()) > 0 && (await ctx.visivelRolando(recuperadasPorVisao)),
+      );
+      const pareceresDepois = await lerPareceres();
+      ctx.verificar(
+        "depois do F5 o disco segue com as duas rodadas",
+        pareceresDepois.length === 2 && pareceresDepois.some((r) => transcritas(r) > 0),
+        `pareceres=${pareceresDepois.length}`,
+      );
+    } finally {
+      await ctx.page.unroute("**/api/audits/**");
+    }
   },
 };

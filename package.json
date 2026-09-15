@@ -21,6 +21,7 @@
     "backfill:escritorio": "node scripts/backfill-escritorio.ts",
     "test:auditoria-incompleta": "node scripts/test-auditoria-incompleta.ts",
     "test:auditoria-da-proposta": "node scripts/test-auditoria-da-proposta.ts",
+    "test:agenda-de-gravacao": "node scripts/test-agenda-de-gravacao.ts",
     "test:segundo-plano": "node scripts/test-resposta-em-segundo-plano.ts",
     "test:portao": "node scripts/test-portao-de-acesso.ts",
     "test:resolucao": "node scripts/test-resolucao-de-projeto.ts",
