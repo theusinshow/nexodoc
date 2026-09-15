@@ -56,6 +56,39 @@ export interface SeloLido {
 export const PISO_PARA_DESCONFIAR = 4;
 
 /**
+ * A LEITURA QUE VOLTOU SEM NADA.
+ *
+ * "Não lida" era só `extraction: null` — a chamada que falhou. Em 15/09/2026 a
+ * jornada v2 mostrou o outro jeito: o modelo RESPONDE, com todos os campos
+ * nulos, porque o carimbo não tem texto legível. Esse objeto passava por lido, o
+ * chip ficava em branco e a conversa não dizia nada da folha.
+ *
+ * Basta um campo que identifique a folha (disciplina, número, arquivo, título)
+ * para a leitura valer. `null` não entra aqui: já é tratado como não lido.
+ */
+export function leituraDoSeloVazia(
+  extraction: {
+    disciplina?: string | null;
+    numeroFolha?: string | null;
+    folha?: number | null;
+    arquivo?: string | null;
+    conteudo?: string | null;
+    tituloSecao?: string | null;
+  } | null,
+): boolean {
+  if (!extraction) return false;
+  const temTexto = (v: string | null | undefined) => (v ?? "").trim() !== "";
+  return (
+    !temTexto(extraction.disciplina) &&
+    !temTexto(extraction.numeroFolha) &&
+    extraction.folha == null &&
+    !temTexto(extraction.arquivo) &&
+    !temTexto(extraction.conteudo) &&
+    !temTexto(extraction.tituloSecao)
+  );
+}
+
+/**
  * `lendo` é o estado GLOBAL da leitura: sem ele, um arquivo ainda não lido
  * ficaria indistinguível de um arquivo que ninguém vai ler (o memorial, por
  * exemplo, que não passa pelo OCR de selo).

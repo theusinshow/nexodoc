@@ -21,6 +21,7 @@
  */
 
 import { normalizarItens } from "@/lib/coordenada-do-pdf";
+import { leituraDoSeloVazia } from "./estado-do-anexo";
 import {
   acharCaixaDoSelo,
   classificarPagina,
@@ -369,6 +370,17 @@ export async function extractSeloFromImage(
       source: "image",
       operation: "nexo-selo-image",
     }, conversationId);
+    // Leitura sem nenhum campo é folha não lida — ver `leituraDoSeloVazia` (v2, 15/09/2026).
+    if (leituraDoSeloVazia(extraction)) {
+      return {
+        fileName: file.name,
+        pageNumber: 1,
+        pageCount: 1,
+        extraction: null,
+        usage,
+        error: "O carimbo voltou sem nenhum campo legível.",
+      };
+    }
     return { fileName: file.name, pageNumber: 1, pageCount: 1, extraction, usage };
   } catch (err) {
     return {
@@ -425,6 +437,23 @@ async function extractSeloFromPage(
             tituloDaPrancha(extraction.conteudo, conteudo, { textoRecuperado }) || null,
         }
       : extraction;
+    /*
+     * A LEITURA QUE VOLTOU SEM NADA É FOLHA NÃO LIDA — 15/09/2026, jornada v2.
+     * Checada DEPOIS do título da geometria: carimbo com CONTEÚDO em texto não é
+     * vazio, mesmo que o modelo não o tenha lido. Como falha, a folha continua
+     * no conjunto (a LD usa `seloNaoLido()`), e o chip e a conversa dizem que ela
+     * não foi lida.
+     */
+    if (leituraDoSeloVazia(completada)) {
+      return {
+        fileName: file.name,
+        pageNumber,
+        pageCount,
+        extraction: null,
+        usage,
+        error: "O carimbo voltou sem nenhum campo legível.",
+      };
+    }
     return { fileName: file.name, pageNumber, pageCount, extraction: completada, usage };
   } catch (err) {
     return {

@@ -2,8 +2,12 @@
 // leitura da segunda VOLTA, e volta vazia (decisão V2 no desenho). Esperado
 // (catálogo): a prancha aparece como não lida, e não some do volume.
 //
-// "Não some": a folha continua nos selos da conversa e no recibo "Anexei 2
-// folhas" — é dela que a LD e o volume saem (`r.extraction ?? seloNaoLido()`).
+// "Não some": a folha continua nos selos da conversa — é dela que a LD e o
+// volume saem (`r.extraction ?? seloNaoLido()`). "Anexei 2 folhas" não prova
+// isso: o intake anuncia esse texto pelo número de arquivos anexados, igual
+// com o defeito presente ou consertado. Quem distingue bug de conserto é a
+// FICHA, com o recibo `reciboDoDrop` ("2 recebidas · 1 lida" — a leitura
+// vazia deixa de contar como lida) e o chip/ressalva de "selo ilegível".
 import path from "node:path";
 
 export default {
@@ -90,6 +94,20 @@ export default {
       "a conversa diz qual folha não deu para ler, visível de verdade",
       textoDaRessalva.includes(semSelo) && (await ctx.visivelRolando(ressalva)),
       JSON.stringify(textoDaRessalva.slice(0, 160)),
+    );
+
+    /*
+     * A FICHA É QUEM DISTINGUE BUG DE CONSERTO: "Anexei 2 folhas" sai igual
+     * nos dois casos (é a contagem de arquivos anexados). O recibo da ficha
+     * (`reciboDoDrop`, modules/nexo/lib/recibo-do-drop.ts) só fecha em
+     * "1 lida" quando a leitura vazia deixa de contar como leitura boa — com o
+     * defeito, fechava em "2 lidas".
+     */
+    const recibo = ctx.page.getByText("2 recebidas · 1 lida", { exact: false });
+    ctx.verificar(
+      "a ficha do drop fecha em '2 recebidas · 1 lida', visível de verdade",
+      (await recibo.count()) === 1 && (await ctx.visivelRolando(recibo)),
+      `contagem=${await recibo.count()}`,
     );
   },
 };
