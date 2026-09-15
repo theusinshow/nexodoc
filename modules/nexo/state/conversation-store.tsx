@@ -93,6 +93,7 @@ import {
 } from "../lib/nexo-sync";
 import { fundirListas, lapidesLocais } from "@/server/nexo/conversa-remota";
 import { migrarAuditoriasLegadas } from "../lib/auditoria-da-proposta";
+import { deveReconsultarLista } from "../lib/reconsulta-da-lista";
 import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 
 /** Um arquivo de resultado com object URL vivo (p/ download/preview). */
@@ -615,7 +616,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       .catch(() => {});
   }, []);
 
+  /** Quando a lista remota foi pedida pela última vez (ver `deveReconsultarLista`). */
+  const ultimaIdaDaLista = useRef<number | null>(null);
+
   const refreshRemote = useCallback(() => {
+    ultimaIdaDaLista.current = Date.now();
     const lista = listarNoServidor();
     lista
       .then(async ({ conversas, expurgadas, sincronizando }) => {
@@ -664,6 +669,36 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     refreshList();
     refreshRemote();
   }, [refreshList, refreshRemote]);
+
+  /*
+   * A LISTA REMOTA VOLTA A SER PEDIDA quando a rede volta e quando a aba volta a
+   * ficar visível (15/09/2026). Antes, só na montagem: a sessão que carregou sem
+   * servidor ficava sem a lista até o próximo F5 (ver `reconsulta-da-lista.ts`).
+   */
+  useEffect(() => {
+    const tentar = (motivo: "online" | "visivel") => {
+      if (
+        deveReconsultarLista({
+          motivo,
+          carregada: listaRemota.current.carregada,
+          ultimaIdaMs: ultimaIdaDaLista.current,
+          agoraMs: Date.now(),
+        })
+      ) {
+        refreshRemote();
+      }
+    };
+    const aoFicarOnline = () => tentar("online");
+    const aoFicarVisivel = () => {
+      if (document.visibilityState === "visible") tentar("visivel");
+    };
+    window.addEventListener("online", aoFicarOnline);
+    document.addEventListener("visibilitychange", aoFicarVisivel);
+    return () => {
+      window.removeEventListener("online", aoFicarOnline);
+      document.removeEventListener("visibilitychange", aoFicarVisivel);
+    };
+  }, [refreshRemote]);
 
   /*
    * Debounce e flush moram em `agenda-de-gravacao.ts`, e não mais num
