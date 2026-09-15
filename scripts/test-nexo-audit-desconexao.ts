@@ -18,6 +18,7 @@
 import assert from "node:assert/strict";
 
 import {
+  AcessoNegadoNaAuditoria,
   AuditoriaDesconectada,
   SessaoExpiradaNaAuditoria,
   consultarAuditoria,
@@ -171,6 +172,90 @@ await test("reconexão com 503 continua rodando: banco fora do ar é passageiro"
   assert.deepEqual(await consultarAuditoria("abc12345"), {
     situacao: "rodando",
   });
+});
+
+/*
+ * 403 NÃO É "RODANDO" NEM DESCONEXÃO — 15/09/2026, revisão final da segunda
+ * rodada (R21). Membro desativado ou removido do escritório leva 403: na
+ * reconexão caía no "banco fora do ar, continue tentando" e perguntava para
+ * sempre; na largada virava "a conexão caiu" e guardava o bilhete de uma
+ * análise que o servidor recusou antes de criar.
+ */
+function json(status: number, corpo: unknown) {
+  return new Response(JSON.stringify(corpo), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+await test("reconexão com 403 devolve sem-acesso com a frase do servidor", async () => {
+  comFetch(async () => json(403, { error: "Sua conta foi desativada neste escritório." }));
+  assert.deepEqual(await consultarAuditoria("abc12345"), {
+    situacao: "sem-acesso",
+    motivo: "Sua conta foi desativada neste escritório.",
+  });
+});
+
+await test("reconexão com 403 sem corpo diz que o acesso foi suspenso", async () => {
+  comFetch(async () => new Response("", { status: 403 }));
+  assert.deepEqual(await consultarAuditoria("abc12345"), {
+    situacao: "sem-acesso",
+    motivo: "Seu acesso a este escritório foi suspenso",
+  });
+});
+
+await test("reconexão com 400 é irrecuperável, e não rodando", async () => {
+  comFetch(async () => json(400, { error: "Id inválido." }));
+  const r = await consultarAuditoria("abc12345");
+  assert.equal(r.situacao, "irrecuperavel");
+});
+
+await test("403 na largada é acesso negado, e não desconexão", async () => {
+  comFetch(async () => json(403, { error: "Sua conta foi desativada neste escritório." }));
+  await assert.rejects(
+    runMemorialAudit(memorial, {}, "deep", null, opcoes),
+    (e: Error) =>
+      e instanceof AcessoNegadoNaAuditoria &&
+      !(e instanceof AuditoriaDesconectada) &&
+      /desativada/.test(e.message),
+  );
+});
+
+for (const status of [400, 404, 413, 422]) {
+  await test(`${status} na largada fecha o ciclo: nunca AuditoriaDesconectada`, async () => {
+    comFetch(async () => new Response("não é fluxo", { status }));
+    await assert.rejects(
+      runMemorialAudit(memorial, {}, "deep", null, opcoes),
+      (e: Error) => !(e instanceof AuditoriaDesconectada),
+    );
+  });
+}
+
+/*
+ * NO MODO DE FLUXO o status HTTP é sempre 200: a recusa do portão chega como
+ * `event: error`. O servidor passa a mandar o status junto, e o cliente separa
+ * sessão caída e acesso negado de falha do motor.
+ */
+await test("fluxo com error de status 403 é acesso negado", async () => {
+  comFetch(async () =>
+    respostaComFluxo([
+      `event: error\ndata: {"error":"Sua conta foi desativada.","status":403}\n\n`,
+    ]),
+  );
+  await assert.rejects(
+    runMemorialAudit(memorial, {}, "deep", null, opcoes),
+    (e: Error) => e instanceof AcessoNegadoNaAuditoria && /desativada/.test(e.message),
+  );
+});
+
+await test("fluxo com error de status 401 é sessão expirada", async () => {
+  comFetch(async () =>
+    respostaComFluxo([`event: error\ndata: {"error":"Entre para continuar.","status":401}\n\n`]),
+  );
+  await assert.rejects(
+    runMemorialAudit(memorial, {}, "deep", null, opcoes),
+    SessaoExpiradaNaAuditoria,
+  );
 });
 
 console.log(`\n${passed} testes ok`);

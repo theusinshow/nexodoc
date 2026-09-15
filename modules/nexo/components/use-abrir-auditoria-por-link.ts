@@ -93,6 +93,12 @@ export function useAbrirAuditoriaPorLink(params: {
           return;
         }
 
+        if (resposta.situacao === "sem-acesso") {
+          // 403: o escritório recusou esta pessoa; a frase é a do servidor.
+          setDesfecho({ id, falha: resposta.motivo });
+          return;
+        }
+
         if (resposta.situacao !== "pronta") {
           setDesfecho({ id, falha: resposta.motivo });
           return;

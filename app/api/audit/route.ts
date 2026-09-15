@@ -4633,7 +4633,13 @@ export async function POST(request: Request) {
           enviar("marco", m),
         );
         const corpo = await resposta.json().catch(() => null);
-        enviar(resposta.ok ? "done" : "error", corpo ?? { error: "Resposta inválida." });
+        /*
+         * O STATUS VIAJA NO `error`. O HTTP do fluxo já saiu 200, então a recusa
+         * do portão (401 sessão, 403 acesso) chegava ao cliente igual a falha do
+         * motor — revisão final da segunda rodada, 15/09/2026. Ver `runMemorialAudit`.
+         */
+        if (resposta.ok) enviar("done", corpo ?? { error: "Resposta inválida." });
+        else enviar("error", { ...(corpo ?? { error: "Resposta inválida." }), status: resposta.status });
       } catch (err) {
         enviar("error", {
           error: err instanceof Error ? err.message : "Falha na auditoria.",

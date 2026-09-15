@@ -118,6 +118,17 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
        */
       if (estado.situacao === "sem-sessao") return;
 
+      /*
+       * SEM ACESSO (403): DIZ, PARA DE PERGUNTAR E GUARDA O BILHETE — revisão
+       * final da segunda rodada, 15/09/2026. Caía no "rodando" e perguntava para
+       * sempre. O bilhete fica pelo mesmo motivo da sessão: se o acesso voltar, o
+       * próximo carregamento reconecta à análise que o servidor terminou.
+       */
+      if (estado.situacao === "sem-acesso") {
+        setFalha(estado.motivo);
+        return;
+      }
+
       if (estado.situacao === "pronta") {
         const r = estado.resultado;
         await saveResult({

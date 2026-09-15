@@ -18,7 +18,7 @@
  */
 import { centroDeCustoDaAuditoria } from "../../../lib/audit-identity.ts";
 // Caminho relativo com `.ts` pelo mesmo motivo do import acima: os testes em node cru.
-import { conferirSessao } from "./sessao.ts";
+import { conferirSessao, reportarSessaoExpirada } from "./sessao.ts";
 import type { AuditReport } from "@/lib/audit-report";
 import type { PaginaTranscrita } from "@/lib/pagina-muda";
 import type { EmitirMarco, MarcoDaAuditoria } from "@/lib/audit-progress";
@@ -104,6 +104,32 @@ export class SessaoExpiradaNaAuditoria extends Error {
     );
     this.name = "SessaoExpiradaNaAuditoria";
   }
+}
+
+/**
+ * O ESCRITÓRIO RECUSOU A PESSOA — 403, membro desativado ou removido.
+ *
+ * Caía no mesmo buraco do 401 antes do conserto da x1: na largada virava
+ * `AuditoriaDesconectada` (bilhete guardado, reconexão eterna) para uma análise
+ * que o servidor recusou antes de criar (revisão final da segunda rodada,
+ * 15/09/2026). Entrar de novo não resolve; a frase é a do servidor quando há.
+ */
+export class AcessoNegadoNaAuditoria extends Error {
+  constructor(motivo?: string | null) {
+    super(motivo?.trim() || MOTIVO_SEM_ACESSO);
+    this.name = "AcessoNegadoNaAuditoria";
+  }
+}
+
+export const MOTIVO_SEM_ACESSO = "Seu acesso a este escritório foi suspenso";
+
+/**
+ * 4xx que NÃO fecham o ciclo: 408 (tempo esgotado no caminho), 409 (idêntico,
+ * tratado à parte) e 429 (vazão). Todo outro 4xx é recusa deliberada — nada
+ * começou no servidor, e guardar bilhete para ele é perguntar para sempre.
+ */
+function recusaDefinitiva(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 429;
 }
 
 export interface MemorialAuditOpcoes {
@@ -259,9 +285,31 @@ export async function runMemorialAudit(
     throw new Error(corpo?.error ?? "O documento é idêntico ao que já foi auditado.");
   }
 
+  /*
+   * ACESSO NEGADO E OUTRAS RECUSAS — antes do fluxo, pelo mesmo motivo do 409:
+   * o corpo de um 4xx não é fluxo, e `lerFluxo` devolveria `null`, que vira
+   * `AuditoriaDesconectada` (revisão final da segunda rodada, 15/09/2026).
+   */
+  if (recusaDefinitiva(res.status)) {
+    const corpo = (await res.json().catch(() => null)) as { error?: string } | null;
+    if (res.status === 403) throw new AcessoNegadoNaAuditoria(corpo?.error);
+    throw new Error(corpo?.error ?? "O servidor recusou a auditoria do memorial.");
+  }
+
   const payload = opcoes.onMarco
     ? await lerFluxo(res, opcoes.onMarco)
     : ((await res.json().catch(() => null)) as RespostaDaAuditoria | null);
+
+  /*
+   * NO MODO DE FLUXO o HTTP é sempre 200, e a recusa do portão (`requireActor`
+   * roda dentro do fluxo) chega como `event: error` com o status que a rota
+   * teria respondido. Sem ler o status, 401 e 403 viravam falha genérica.
+   */
+  if (payload?.status === 401) {
+    reportarSessaoExpirada();
+    throw new SessaoExpiradaNaAuditoria();
+  }
+  if (payload?.status === 403) throw new AcessoNegadoNaAuditoria(payload.error);
 
   /*
    * FLUXO CORTADO ≠ AUDITORIA FALHADA.
@@ -289,6 +337,8 @@ interface RespostaDaAuditoria {
   result?: string;
   report?: AuditReport;
   auditId?: string | null;
+  /** Só no `event: error` do fluxo: o status que a rota teria respondido. */
+  status?: number;
 }
 
 /** O que o servidor sabe sobre uma auditoria já disparada. */
@@ -296,6 +346,8 @@ export type EstadoDaAuditoria =
   | { situacao: "rodando" }
   /** O servidor respondeu 401: não há como saber até entrar de novo. */
   | { situacao: "sem-sessao" }
+  /** O servidor respondeu 403: o escritório recusou esta pessoa. */
+  | { situacao: "sem-acesso"; motivo: string }
   | { situacao: "pronta"; resultado: MemorialAuditResult }
   | { situacao: "falhou"; motivo: string }
   | { situacao: "irrecuperavel"; motivo: string };
@@ -319,6 +371,21 @@ export async function consultarAuditoria(auditId: string): Promise<EstadoDaAudit
   if (res.status === 401) return { situacao: "sem-sessao" };
   if (res.status === 404) {
     return { situacao: "irrecuperavel", motivo: "Auditoria não encontrada no servidor." };
+  }
+  /*
+   * 403 E 400 TAMBÉM NÃO SÃO "BANCO FORA DO AR" — revisão final da segunda
+   * rodada, 15/09/2026. Membro desativado ou removido perguntava para sempre.
+   * Só 408, 429 e 5xx (lá embaixo) continuam valendo nova tentativa.
+   */
+  if (recusaDefinitiva(res.status)) {
+    const recusa = (await res.json().catch(() => null)) as { error?: string } | null;
+    if (res.status === 403) {
+      return { situacao: "sem-acesso", motivo: recusa?.error?.trim() || MOTIVO_SEM_ACESSO };
+    }
+    return {
+      situacao: "irrecuperavel",
+      motivo: recusa?.error?.trim() || "O servidor recusou a consulta desta auditoria.",
+    };
   }
   const corpo = (await res.json().catch(() => null)) as
     | {
