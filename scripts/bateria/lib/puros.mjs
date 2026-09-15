@@ -37,6 +37,14 @@ async function rodarUm(arquivo, env, timeoutMs) {
   if (r.codigo !== 0 && /Cannot find package '@\//.test(r.saida)) {
     r = await executar(["--import", "./scripts/lib/so-o-alias.mjs", arquivo], env, timeoutMs);
   }
+  // Se ainda falhar com import de extensão faltando (imports relativos sem extensão),
+  // tenta com o resolvedor do repo. Alguns testes de produção usam isto porque o código
+  // de produção importa sem extensão (./disciplinas, ./parse-filename). O build resolve,
+  // node cru não — que é por que package.json roda esses testes com --import resolver.
+  // Sem isto, 5 testes foram flagrados como apodrecidos por engano (14/09/2026).
+  if (r.codigo !== 0 && /(ERR_MODULE_NOT_FOUND|Cannot find module)/.test(r.saida) && !/^Cannot find package/.test(r.saida)) {
+    r = await executar(["--import", "./scripts/lib/resolver-de-imports.mjs", arquivo], env, timeoutMs);
+  }
   if (r.estourou) return { arquivo, estado: "vermelho", motivo: `tempo esgotado (${timeoutMs / 1000}s)`, ms: r.ms };
   if (r.codigo === 0) return { arquivo, estado: "verde", motivo: "", ms: r.ms };
   const apodrecido = IMPORT_QUEBRADO.test(r.saida) && !/ok\s/.test(r.saida);
