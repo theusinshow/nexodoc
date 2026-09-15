@@ -39,7 +39,8 @@ import {
  * contrato que o card de volume já usava, para que um tomo que falha não
  * derrube o laço de quem chama.
  */
-export type MontarVolume = () => Promise<string | null>;
+export type { MontarVolume } from "../lib/lote-de-volumes";
+import type { MontarVolume } from "../lib/lote-de-volumes";
 
 interface MontadoresDeVolume {
   registrar: (artifactId: string, montar: MontarVolume | null) => void;

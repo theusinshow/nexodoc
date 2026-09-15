@@ -24,6 +24,13 @@
 export const MOTIVO_ABA_TRAVADA =
   "Esta conversa mudou em outra aba. Recarregue a conversa para continuar — daqui, nada fica salvo.";
 
+/**
+ * O gesto foi recusado porque OUTRA conversa foi aberta enquanto ele era
+ * conferido com o servidor — não há trava nenhuma (última onda da frente A).
+ */
+export const MOTIVO_TROCOU_DE_CONVERSA =
+  "Outra conversa foi aberta enquanto isto era conferido com o servidor. Nada foi gasto — volte à conversa e tente de novo.";
+
 export const MOTIVO_SEM_CONFERIR =
   "Não deu para confirmar com o servidor se esta conversa é a mais nova. Recarregue do servidor para continuar — daqui, nada fica salvo.";
 
@@ -50,8 +57,36 @@ export function origemDaTravaAoAbrir(args: {
   marca: "descer" | "manter" | null;
   /** A fila sabe que a trava da memória veio sem conferir (vale sem a marca). */
   semConferir?: boolean;
+  /** A origem que esta aba lembra da última trava desta conversa. */
+  origemLembrada?: OrigemDaTrava | null;
 }): OrigemDaTrava {
+  /*
+   * PROVADA FICA PROVADA (última onda da frente A, 15/09/2026). Recarregada pela
+   * faixa com a rede fora, a base volta "não conferida" — mas quem gravou foi
+   * outra aba ou máquina, e a marca "descer" (ou a origem lembrada) diz isso.
+   */
+  if (args.marca === "descer" || args.origemLembrada === "outra-aba") return "outra-aba";
   return args.marca === "manter" || args.semConferir === true ? "sem-conferir" : "outra-aba";
+}
+
+/**
+ * A trava na memória é "sem conferir" para `decidirAbertura`? Só se a base não
+ * foi conferida E nada prova outra aba: nem a marca "descer", nem a origem que
+ * esta aba lembra. Sem isso, uma trava provada recarregada offline passava a
+ * abrir do disco sem voltar ao servidor, com a frase errada.
+ */
+export function travaSemConferirAoAbrir(args: {
+  travadaNaMemoria: boolean;
+  baseConferida: boolean;
+  marca: "descer" | "manter" | null;
+  origemLembrada: OrigemDaTrava | null;
+}): boolean {
+  return (
+    args.travadaNaMemoria &&
+    !args.baseConferida &&
+    args.marca !== "descer" &&
+    args.origemLembrada !== "outra-aba"
+  );
 }
 
 /** Uma trava provada não volta a "sem conferir"; a sem conferir pode ser provada depois. */
@@ -72,6 +107,27 @@ export function motivoParaNaoGastar(estado: {
 }): string | null {
   if (podeGastar(estado)) return null;
   return estado.origem === "sem-conferir" ? MOTIVO_SEM_CONFERIR : MOTIVO_ABA_TRAVADA;
+}
+
+/**
+ * O motivo de um gesto recusado por `conferirAntesDeGastar`: a troca de
+ * conversa no meio tem frase própria; a trava fala pela origem.
+ */
+export function motivoDaRecusaAntesDeGastar(args: {
+  trocouDeConversa: boolean;
+  origem: OrigemDaTrava | null;
+}): string {
+  if (args.trocouDeConversa) return MOTIVO_TROCOU_DE_CONVERSA;
+  return args.origem === "sem-conferir" ? MOTIVO_SEM_CONFERIR : MOTIVO_ABA_TRAVADA;
+}
+
+/**
+ * A LEITURA PAGA DO DROP (selo das pranchas, delta do memorial) numa aba
+ * travada: `null` lê; o texto é o porquê de não ler. Síncrono de propósito — só
+ * a trava já acesa, sem ida à rede: o drop não espera o servidor.
+ */
+export function recusaDeLeituraPaga(trava: OrigemDaTrava | null): string | null {
+  return motivoParaNaoGastar({ conflitoDeVersao: trava !== null, origem: trava });
 }
 
 /** As frases da faixa de bloqueio, por origem. */

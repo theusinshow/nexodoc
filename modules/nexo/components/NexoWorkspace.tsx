@@ -616,6 +616,11 @@ function NexoWorkspaceInner({
     }
 
     // Virou prancha: deixa de ser o memorial e passa pela leitura de selo.
+    const recusaDaLeitura = conv.recusaDeLeituraPagaAgora();
+    if (recusaDaLeitura) {
+      avisarLeituraRecusada(1, recusaDaLeitura);
+      return;
+    }
     setMemorialFile(null);
     // Sem aviso, e de propósito: falhar ao ESQUECER um arquivo não custa
     // trabalho nenhum. O `catch` existe só para a rejeição não ficar solta.
@@ -1200,6 +1205,21 @@ function NexoWorkspaceInner({
    * folhas ali dentro não são relidas, e cada uma delas é uma chamada de modelo
    * que não acontece.
    */
+  /*
+   * A ABA TRAVADA NÃO LÊ CARIMBO — última onda da frente A, 15/09/2026. Ler o
+   * selo é modelo pago por folha, e a conversa desta aba já não grava: o que
+   * voltasse seria descartado pela fila. Só a trava já acesa, sem ida à rede (o
+   * drop não espera o servidor), e com o porquê na conversa — soltar e nada
+   * acontecer se lê como travamento.
+   */
+  function avisarLeituraRecusada(folhas: number, motivo: string) {
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `Não li ${plural(folhas, "prancha", "pranchas")}: ${motivo}`,
+    });
+  }
+
   async function lerPranchas(
     pranchas: File[],
     images: File[],
@@ -1207,6 +1227,11 @@ function NexoWorkspaceInner({
     jaLidas?: ReadonlySet<string>,
     opcoes: { ignorarMemoria?: boolean } = {},
   ) {
+    const recusaDaLeitura = conv.recusaDeLeituraPagaAgora();
+    if (recusaDaLeitura) {
+      avisarLeituraRecusada(pranchas.length + images.length, recusaDaLeitura);
+      return;
+    }
     /*
      * O QUE JÁ FOI LIDO NUNCA É RELIDO — nem na retomada de uma leitura que
      * quebrou, nem num segundo lote solto por cima do primeiro. Os dois casos

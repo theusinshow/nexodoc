@@ -347,8 +347,9 @@ export function NexoChat({
     const controller = new AbortController();
     abortRef.current = controller;
     setBusy(true);
-    const podeSeguir = await conferirAntesDeGastar();
-    if (!podeSeguir || controller.signal.aborted) {
+    // Recusado, o texto fica no campo: nada foi enviado nem gasto.
+    const conferencia = await conferirAntesDeGastar();
+    if (!conferencia.pode || controller.signal.aborted) {
       setBusy(false);
       if (abortRef.current === controller) abortRef.current = null;
       return;

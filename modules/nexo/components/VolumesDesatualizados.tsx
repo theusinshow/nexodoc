@@ -34,6 +34,7 @@ import { volumesDesatualizados } from "../lib/volumes-desatualizados";
 import { volumesProntosDosResultados } from "../lib/volumes-prontos";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useMontadoresDeVolume } from "../state/montadores-de-volume";
+import { montarEmLote } from "../lib/lote-de-volumes";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 
 const LABEL_CLASS =
@@ -64,8 +65,14 @@ export function VolumesDesatualizados({
    */
   temPranchas: boolean;
 }) {
-  const { results, identidade, podeGastar, motivoParaNaoGastar, motivoDaTrava } =
-    useConversation();
+  const {
+    results,
+    identidade,
+    podeGastar,
+    motivoParaNaoGastar,
+    motivoDaTrava,
+    conferirAntesDeGastar,
+  } = useConversation();
   const { montador } = useMontadoresDeVolume();
 
   const velhos = useMemo(() => volumesDesatualizados(results), [results]);
@@ -150,36 +157,31 @@ export function VolumesDesatualizados({
     }
     setErro(null);
     setFalhas([]);
-    const coletadas: { rotulo: string; motivo: string }[] = [];
+    let coletadas: { rotulo: string; motivo: string }[] = [];
     const desde = Date.now();
-    const refeitos: string[] = [];
+    let refeitos: string[] = [];
     try {
       /*
-       * SEQUENCIAL, cada um no seu `try` — a mesma regra do "montar todos", pelo
-       * mesmo motivo: cada volume carrega dezenas de megabytes, e um que falha
-       * não pode levar os outros junto nem sumir em silêncio.
+       * SEQUENCIAL, cada um no seu `try`, e UMA conferência com o servidor para
+       * o gesto inteiro (última onda da frente A, 15/09/2026) — ver
+       * `montarEmLote`. Antes, cada volume perguntava a versão de novo.
        */
-      for (let i = 0; i < velhos.length; i++) {
-        const montar = montador(velhos[i].artifactId);
-        if (!montar) {
-          coletadas.push({
-            rotulo: velhos[i].rotulo,
-            motivo: "o card deste volume não está mais na conversa",
-          });
-          continue;
-        }
-        setMontando(i);
-        try {
-          const motivo = await montar();
-          if (motivo) coletadas.push({ rotulo: velhos[i].rotulo, motivo });
-          else refeitos.push(velhos[i].artifactId);
-        } catch (err) {
-          coletadas.push({
-            rotulo: velhos[i].rotulo,
-            motivo: err instanceof Error ? err.message : "erro desconhecido",
-          });
-        }
+      const lote = await montarEmLote({
+        itens: velhos.map((v) => ({
+          id: v.artifactId,
+          rotulo: v.rotulo,
+          montar: montador(v.artifactId),
+          faltando: "o card deste volume não está mais na conversa",
+        })),
+        conferir: conferirAntesDeGastar,
+        aoComecar: setMontando,
+      });
+      if (lote.recusado) {
+        setErro(lote.recusado);
+        return;
       }
+      coletadas = lote.falhas;
+      refeitos = lote.refeitos;
     } finally {
       setMontando(null);
       setFalhas(coletadas);

@@ -88,6 +88,7 @@ import {
 } from "../lib/assemble-volume";
 import { entregarVolume } from "@/server/nexo/entrega-do-volume";
 import { useMontadoresDeVolume } from "../state/montadores-de-volume";
+import { montarEmLote, type MontarVolume } from "../lib/lote-de-volumes";
 import {
   identidadeDoVolume,
   ordenarPartes,
@@ -1481,6 +1482,7 @@ function VolumesDoConjunto({
    * jeito -- so mudou onde mora, nao quem o alimenta.
    */
   const { montador } = useMontadoresDeVolume();
+  const { conferirAntesDeGastar } = useConversation();
   const [montando, setMontando] = useState<number | null>(null);
   const [falhas, setFalhas] = useState<{ rotulo: string; motivo: string }[]>([]);
   const { results, identidade } = useConversation();
@@ -1556,27 +1558,30 @@ function VolumesDoConjunto({
     }
   }
 
+  /*
+   * UMA CONFERÊNCIA PARA O LOTE (última onda da frente A, 15/09/2026): cada
+   * `confirm` perguntava a versão ao servidor; `montarEmLote` pergunta uma vez
+   * e passa `jaConferido` a cada tomo. Recusado, os N tomos saem com o motivo.
+   */
   async function montarTodos() {
     setFalhas([]);
-    const coletadas: { rotulo: string; motivo: string }[] = [];
+    let coletadas: { rotulo: string; motivo: string }[] = [];
     try {
-      for (let i = 0; i < tomos.length; i++) {
-        const montar = montador(volumeId(props.selos) + tomos[i].sufixo);
-        if (!montar) continue;
-        setMontando(i);
-        const rotulo = `TOMO ${String(tomos[i].numero).padStart(2, "0")}`;
-        try {
-          const motivo = await montar();
-          if (motivo) coletadas.push({ rotulo, motivo });
-        } catch (err) {
-          // Rede de segurança: o card devolve o motivo em vez de lançar, mas um
-          // erro fora do `try` dele (render, por exemplo) não pode parar o laço.
-          coletadas.push({
-            rotulo,
-            motivo: err instanceof Error ? err.message : "erro desconhecido",
-          });
-        }
-      }
+      const lote = await montarEmLote({
+        itens: tomos.map((tomo) => {
+          const id = volumeId(props.selos) + tomo.sufixo;
+          return {
+            id,
+            rotulo: `TOMO ${String(tomo.numero).padStart(2, "0")}`,
+            montar: montador(id),
+          };
+        }),
+        conferir: conferirAntesDeGastar,
+        aoComecar: setMontando,
+      });
+      coletadas = lote.recusado
+        ? [{ rotulo: "Volumes", motivo: lote.recusado }]
+        : lote.falhas;
     } finally {
       setMontando(null);
       setFalhas(coletadas);
@@ -1860,7 +1865,12 @@ function VolumeConfirmation({
       ? (templates.find((t) => t.id === templateIdDaCapa)?.nome ?? "")
       : "");
 
-  async function confirm() {
+  /*
+   * `jaConferido`: quem monta em lote (`montarEmLote`) já perguntou a versão ao
+   * servidor uma vez para o gesto inteiro. O clique do botão passa o evento,
+   * que não tem a chave: só `true` pula.
+   */
+  async function confirm(opcoes?: { jaConferido?: boolean }) {
     /*
      * A PRÉ-CONDIÇÃO É VERIFICADA AQUI, e não só no botão.
      *
@@ -1895,10 +1905,13 @@ function VolumeConfirmation({
      * abriu a conversa antes de outra mudá-la montaria e pagaria a conferência.
      * Pergunta ao servidor antes (ver [[conferir-antes-de-gastar.ts]]).
      */
-    if (!(await conferirAntesDeGastar())) {
-      setBusy(false);
-      setError(motivoDaTrava());
-      return motivoDaTrava();
+    if (opcoes?.jaConferido !== true) {
+      const conferencia = await conferirAntesDeGastar();
+      if (!conferencia.pode) {
+        setBusy(false);
+        setError(conferencia.motivo);
+        return conferencia.motivo;
+      }
     }
     try {
       const capaPdf64 = capaPdfUrl ? await urlToBase64(capaPdfUrl) : null;
@@ -2170,12 +2183,12 @@ function VolumeConfirmation({
    * `confirm`: registrar a função direto congelaria os selos e os artefatos do
    * primeiro render, e o botão montaria o conjunto de antes.
    */
-  const confirmRef = useRef<() => Promise<string | null>>(() => Promise.resolve(null));
+  const confirmRef = useRef<MontarVolume>(() => Promise.resolve(null));
   useEffect(() => {
     confirmRef.current = confirm;
   });
   useEffect(() => {
-    registrar(id, () => confirmRef.current());
+    registrar(id, (opcoes) => confirmRef.current(opcoes));
     return () => registrar(id, null);
   }, [registrar, id]);
 
@@ -2505,6 +2518,7 @@ function AuditoriaConfirmation({
     result ? null : memorialFile,
     result ? null : (auditoriaAnterior ?? null),
     result ? null : projetoDaConversa,
+    podeGastar,
   );
   /**
    * A base que a corrida vai usar: a da conversa, ou a que a busca achou — e
@@ -2578,9 +2592,10 @@ function AuditoriaConfirmation({
      * servidor antes (ver [[conferir-antes-de-gastar.ts]]); fora do alcance,
      * audita como sempre.
      */
-    if (!(await conferirAntesDeGastar())) {
+    const conferencia = await conferirAntesDeGastar();
+    if (!conferencia.pode) {
       setBusy(false);
-      setError(motivoDaTrava());
+      setError(conferencia.motivo);
       return;
     }
 

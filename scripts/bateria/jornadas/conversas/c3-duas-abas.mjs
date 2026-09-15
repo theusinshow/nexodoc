@@ -6,6 +6,8 @@
 // IndexedDB, mesmo `nexo:ultima-conversa` — é assim que a aba 2 abre a mesma
 // conversa sozinha. A rota também é exercitada direto, com uma base velha: é o
 // caminho de outra máquina, que o IndexedDB desta não protege.
+import path from "node:path";
+
 export default {
   id: "c3",
   area: "conversas",
@@ -120,6 +122,23 @@ export default {
       "a aba travada não gasta: nenhum 'Auditar' clicável",
       quantosAuditar > 0 && auditarTravados === quantosAuditar,
       `auditar=${quantosAuditar} travados=${auditarTravados}`,
+    );
+
+    /*
+     * NEM LÊ CARIMBO (última onda da frente A, 15/09/2026): soltar uma prancha na
+     * aba travada não chama o leitor de selo — modelo pago por folha, que a fila
+     * descartaria — e a conversa diz por quê.
+     */
+    const selosDaAba2 = ctx.contarRequisicoes(ePost("/api/ld/extract-stamp"), aba2);
+    await aba2.locator('input[type="file"][accept="application/pdf,image/*"]').first().setInputFiles([path.resolve(f.pranchas[0])]);
+    const leituraRecusada = aba2.getByText(/Não li 1 prancha: Esta conversa mudou em outra aba/);
+    const avisou = await ctx.esperar(async () => (await leituraRecusada.count()) > 0, 60_000, 500);
+    await aba2.waitForTimeout(3000);
+    selosDaAba2.parar();
+    ctx.verificar(
+      "a aba travada não lê o carimbo da prancha solta: nenhum POST a /api/ld/extract-stamp, e a conversa diz por quê",
+      avisou && selosDaAba2.total() === 0 && (await ctx.visivelRolando(leituraRecusada)),
+      `aviso=${avisou} POSTs /api/ld/extract-stamp=${selosDaAba2.total()}`,
     );
 
     const depois = await noServidor();

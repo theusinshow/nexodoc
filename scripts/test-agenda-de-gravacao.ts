@@ -521,6 +521,22 @@ await test("troca: debounce que vence na janela vira pedido da nova, e a marca s
   assert.deepEqual(gravadas, ["B", "B"]);
 });
 
+await test("a conversa aberta de fato é o destino da troca até o commit dela (vale para a trava também)", async () => {
+  // Última onda da frente A: `marcarConflito` lia o snapshot, e uma recusa de A
+  // que chegasse entre o começo da troca para B e o commit acendia a faixa em B.
+  // `conversaAberta()` e `marcarConflito` agora perguntam a mesma coisa.
+  const agenda = criarAgendaDeGravacao({ esperaMs: 500 });
+  assert.equal(agenda.abertaAgora("A"), "A");
+  agenda.comecarTroca("B");
+  assert.equal(agenda.abertaAgora("A"), "B");
+  agenda.aoSincronizar(
+    () => {},
+    () => "B",
+    0,
+  );
+  assert.equal(agenda.abertaAgora("B"), "B");
+});
+
 await test("a espera pela sincronização desarma o limite quando resolve", async () => {
   const r = relogioDeMentira();
   let armados = 0;

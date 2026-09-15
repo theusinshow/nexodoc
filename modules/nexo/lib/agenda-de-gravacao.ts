@@ -67,6 +67,12 @@ export type AgendaDeGravacao = {
    * ainda tem o id da anterior (ver `conversaAberta` no store).
    */
   destinoDaTroca: () => string | null;
+  /**
+   * A conversa aberta DE FATO, dado o id do snapshot: o destino da troca em
+   * curso, ou o próprio snapshot. Quem pergunta "é a conversa aberta?" —
+   * `conversaAberta()` e `marcarConflito` no store — usa esta mesma regra.
+   */
+  abertaAgora: (idDoSnapshot: string) => string;
   /** Larga tudo o que estava para ser gravado: debounce e pedido. */
   descartar: () => void;
 };
@@ -210,6 +216,9 @@ export function criarAgendaDeGravacao(opcoes: {
     },
     destinoDaTroca() {
       return trocandoPara;
+    },
+    abertaAgora(idDoSnapshot) {
+      return trocandoPara ?? idDoSnapshot;
     },
     descartar() {
       desarmar();

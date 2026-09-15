@@ -66,6 +66,12 @@ export function useDeltaDoMemorial(
    * última auditoria DESTE documento no projeto, venha ela de onde vier.
    */
   projectId?: string | null,
+  /**
+   * A ABA TRAVADA NÃO LÊ (última onda da frente A, 15/09/2026): o delta lê o
+   * memorial no servidor, e numa aba cuja conversa esta aba já não grava a
+   * leitura seria paga à toa. Falso = nem pergunta, como sem base.
+   */
+  podeGastar: boolean = true,
 ): EstadoDoDelta {
   /*
    * O estado guardado é SÓ a resposta, carimbada com a chave que a produziu.
@@ -83,7 +89,7 @@ export function useDeltaDoMemorial(
    * nem chegava a perguntar — que é exatamente o caso da conversa nova.
    */
   const chave =
-    memorial && (auditIdAnterior || projectId)
+    podeGastar && memorial && (auditIdAnterior || projectId)
       ? `${auditIdAnterior ?? ""}|${projectId ?? ""}|${memorial.name}|${memorial.size}|${memorial.lastModified}`
       : null;
 

@@ -53,10 +53,13 @@ import {
 } from "../lib/abertura-da-conversa";
 import {
   juntarOrigens,
+  motivoDaRecusaAntesDeGastar,
   motivoParaNaoGastar as motivoParaNaoGastarNaAba,
   origemDaTrava,
   origemDaTravaAoAbrir,
   podeGastar as podeGastarNaAba,
+  recusaDeLeituraPaga,
+  travaSemConferirAoAbrir,
   type OrigemDaTrava,
 } from "../lib/aba-travada";
 import type { LeituraDoServidor } from "../lib/conferir-antes-de-gastar";
@@ -176,6 +179,12 @@ interface ConversationStoreValue {
    */
   motivoDaTrava: () => string;
   /**
+   * A leitura paga do drop (selo, delta do memorial) pode sair AGORA? `null`
+   * pode; o texto é o porquê de não poder. Síncrono: só a trava já acesa, sem
+   * ida à rede (última onda da frente A, 15/09/2026).
+   */
+  recusaDeLeituraPagaAgora: () => string | null;
+  /**
    * As versões desta conversa no disco desta máquina e no servidor, lidas
    * agora (null = não tem, ou não deu para ler). É o que decide se "Recarregar
    * do servidor" pode apagar alguma coisa (`recargaPedeConfirmacao`).
@@ -195,7 +204,7 @@ interface ConversationStoreValue {
    * alcance: devolve `true` (offline segue como sempre). Ver
    * [[conferir-antes-de-gastar.ts]].
    */
-  conferirAntesDeGastar: () => Promise<boolean>;
+  conferirAntesDeGastar: () => Promise<{ pode: true } | { pode: false; motivo: string }>;
   /**
    * Como foi a última gravação no DISCO desta máquina.
    *
@@ -695,12 +704,27 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     setTravaNoEstado(origem);
   }, []);
   const conflitoDeVersao = trava !== null;
+  /**
+   * A origem da última trava de cada conversa, lembrada nesta aba mesmo depois
+   * de sair dela: é o que impede uma trava provada, recarregada com a rede fora,
+   * de ser relida como "sem conferir" na reabertura (`travaSemConferirAoAbrir`).
+   */
+  const origensDasTravas = useRef(new Map<string, OrigemDaTrava>());
   const marcarConflito = useCallback(
     (conversa: string, origem: OrigemDaTrava) => {
-      if (snapshotRef.current.conversationId !== conversa) return;
+      origensDasTravas.current.set(
+        conversa,
+        juntarOrigens(origensDasTravas.current.get(conversa) ?? null, origem),
+      );
+      /*
+       * Só acende a faixa se a conversa recusada é a aberta DE FATO — o destino
+       * de uma troca em curso conta, e não o snapshot, que ainda tem o id da
+       * anterior (a mesma regra de `conversaAberta()`, última onda da frente A).
+       */
+      if (agenda.abertaAgora(snapshotRef.current.conversationId) !== conversa) return;
       definirTrava(juntarOrigens(travaRef.current, origem));
     },
-    [definirTrava],
+    [agenda, definirTrava],
   );
 
   /*
@@ -1404,9 +1428,16 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * 15/09/2026), com tabela-verdade.
        */
       const travadaNaMemoria = fila.travada(id) === "servidor";
-      // A fila sabe se a trava da memória veio sem conferir, mesmo sem a marca.
-      const travaSemConferir = travadaNaMemoria && !fila.baseConferida(id);
       const marca = recusaLembrada(id);
+      // A fila sabe se a base não foi conferida, mesmo sem a marca; a marca
+      // "descer" e a origem lembrada dizem se a trava foi provada.
+      const origemLembrada = origensDasTravas.current.get(id) ?? null;
+      const travaSemConferir = travaSemConferirAoAbrir({
+        travadaNaMemoria,
+        baseConferida: fila.baseConferida(id),
+        marca,
+        origemLembrada,
+      });
       let copiaDoServidor: CopiaDoServidor = null;
       /*
        * A ABERTURA DA CARGA ESPERA A LISTA DO SERVIDOR — segunda revisão da
@@ -1622,9 +1653,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       // com a faixa. A regra e o porquê em `abreTravada` (lib/abertura-da-conversa.ts).
       const abreTravada = decidirAbreTravada({ lerDoServidorPrimeiro, manterDisco, copiaDoServidor });
       if (abreTravada) fila.travar(rec.id, "servidor");
-      definirTrava(
-        abreTravada ? origemDaTravaAoAbrir({ marca, semConferir: travaSemConferir }) : null,
-      );
+      const origemAoAbrir = abreTravada
+        ? origemDaTravaAoAbrir({ marca, semConferir: travaSemConferir, origemLembrada })
+        : null;
+      if (origemAoAbrir) origensDasTravas.current.set(rec.id, origemAoAbrir);
+      else origensDasTravas.current.delete(rec.id);
+      definirTrava(origemAoAbrir);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
       // colhe isto.
       lembrarUltimaConversa(rec.id);
@@ -1878,15 +1912,21 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * vê outra conversa aberta e deixa a origem reconectar ao ser reaberta.
    */
   const conversaAberta = useCallback(
-    () => agenda.destinoDaTroca() ?? snapshotRef.current.conversationId,
+    () => agenda.abertaAgora(snapshotRef.current.conversationId),
     [agenda],
   );
 
-  const conferirAntesDeGastar = useCallback(async (): Promise<boolean> => {
+  const conferirAntesDeGastar = useCallback(async (): Promise<
+    { pode: true } | { pode: false; motivo: string }
+  > => {
     const id = snapshotRef.current.conversationId;
-    if (fila.travada(id)) return false;
+    const recusa = (trocouDeConversa: boolean) => ({
+      pode: false as const,
+      motivo: motivoDaRecusaAntesDeGastar({ trocouDeConversa, origem: travaRef.current }),
+    });
+    if (fila.travada(id)) return recusa(false);
     // Conversa nova (sem base): nunca está desatualizada, e não paga a ida à rede.
-    if (!fila.temBase(id)) return true;
+    if (!fila.temBase(id)) return { pode: true };
     /*
      * SÓ A VERSÃO DESTA CONVERSA (`GET ?id=`), e não a lista com as lápides
      * (revisão da frente A). Com limite: servidor que não responde conta como
@@ -1902,10 +1942,16 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
      * foi aberta durante a ida à rede, o gesto não gasta: ele era daquela.
      */
     if (snapshotRef.current.conversationId !== id || agenda.destinoDaTroca() !== null) {
-      return false;
+      // Não é trava: a frase diz que a conversa trocou, e não "mudou em outra aba".
+      return recusa(true);
     }
-    return pode;
+    return pode ? { pode: true } : recusa(false);
   }, [agenda, fila, ganchosDaFila]);
+
+  const recusaDeLeituraPagaAgora = useCallback(
+    () => recusaDeLeituraPaga(travaRef.current),
+    [],
+  );
 
   const motivoDaTrava = useCallback(
     () =>
@@ -1948,6 +1994,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       origemDaTrava: trava,
       motivoParaNaoGastar: motivoParaNaoGastarNaAba({ conflitoDeVersao, origem: trava }),
       motivoDaTrava,
+      recusaDeLeituraPagaAgora,
       compararComServidor,
       conferirAntesDeGastar,
       gravacaoLocal,
@@ -2001,6 +2048,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       conflitoDeVersao,
       trava,
       motivoDaTrava,
+      recusaDeLeituraPagaAgora,
       compararComServidor,
       conferirAntesDeGastar,
       gravacaoLocal,
