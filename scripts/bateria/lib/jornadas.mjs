@@ -17,7 +17,9 @@ function listar(filtro) {
     if (!fs.statSync(pasta).isDirectory()) continue;
     for (const nome of fs.readdirSync(pasta).sort()) {
       if (!nome.endsWith(".mjs")) continue;
-      if (filtro && area !== filtro && !nome.startsWith(filtro)) continue;
+      // A área inteira, ou o id EXATO (o nome até o primeiro `-`): `startsWith`
+      // fazia `a1` levar junto uma futura `a10`.
+      if (filtro && area !== filtro && nome.split("-")[0] !== filtro) continue;
       arquivos.push(path.join(pasta, nome));
     }
   }
