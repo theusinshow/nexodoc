@@ -63,6 +63,23 @@ export async function prepararBanco() {
     await consultar(`TRUNCATE ${lista} RESTART IDENTITY CASCADE`);
   }
 
+  /*
+   * SE FALTAR "org-prosul", ninguém a recria sozinho: `migrate deploy` não
+   * reexecuta a migração que a insere, e sem ela o seed abaixo para em
+   * "Organizacao org-prosul nao existe", sem pista de como voltar — foi
+   * exatamente o estado desta máquina em 14/09/2026, depois de rodadas com a
+   * primeira versão deste arquivo (que truncava "Organization" junto com o
+   * resto). Reaplica o MESMO `INSERT` de
+   * `prisma/migrations/20260814013954_escritorio_passo_1/migration.sql`,
+   * valor por valor: não é dado novo, é o dado que a migração já define, e o
+   * `ON CONFLICT` torna repetir isto sempre seguro.
+   */
+  await consultar(
+    `INSERT INTO "Organization" ("id", "name", "slug", "ownerEmail", "createdAt", "updatedAt")
+     VALUES ('org-prosul', 'PROSUL', 'prosul', 'matheusmendes077@gmail.com', NOW(), NOW())
+     ON CONFLICT ("slug") DO NOTHING`,
+  );
+
   rodar("node scripts/seed-desenvolvimento.ts", {
     ...env,
     NEXODOC_DEV_AUTH_EMAIL: EMAIL_DA_BATERIA,

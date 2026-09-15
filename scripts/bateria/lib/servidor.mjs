@@ -44,24 +44,58 @@ async function esperarSaude(base, ms) {
 export async function subirServidor({ porta, arquivoDeLog }) {
   matarPorta(porta);
   const log = fs.openSync(arquivoDeLog, "a");
+  let logFechado = false;
+  function fecharLog() {
+    // Guarda contra fechar duas vezes: o caminho de falha e o `derrubar()`
+    // podiam se sobrepor, e `closeSync` num fd já fechado lança.
+    if (logFechado) return;
+    logFechado = true;
+    fs.closeSync(log);
+  }
+
   const filho = spawn(`npx next dev -p ${porta}`, {
     shell: true,
     env: ambienteDoServidor(porta),
     stdio: ["ignore", log, log],
   });
+
+  /*
+   * `shell: true` faz `filho` ser o PROCESSO DO SHELL, não o `next dev` — que
+   * é neto dele. Se `/api/saude` nunca respondeu porque a porta ainda não
+   * tinha sido aberta, `matarPorta` não encontra ninguém ESCUTANDO e essa
+   * árvore (shell → npx → next → node) ficava viva, livre para abrir a porta
+   * DEPOIS de `subirServidor` já ter desistido e devolvido o erro (achado na
+   * revisão da Tarefa 4, 14/09/2026). Matar pelo PID do próprio `filho`, com
+   * a árvore inteira, fecha essa brecha — independente do que já esteja
+   * escutando.
+   */
+  function matarFilho() {
+    if (process.platform === "win32") {
+      try {
+        execSync(`taskkill /PID ${filho.pid} /T /F`, { stdio: "ignore" });
+      } catch {
+        // Já tinha saído sozinho: é o caminho feliz normal.
+      }
+    } else {
+      filho.kill();
+    }
+  }
+
   const base = `http://localhost:${porta}`;
   try {
     await esperarSaude(base, 240_000);
   } catch (err) {
     matarPorta(porta);
+    matarFilho();
+    fecharLog();
     throw err;
   }
   return {
     base,
     async derrubar() {
       matarPorta(porta);
-      filho.kill();
-      fs.closeSync(log);
+      matarFilho();
+      fecharLog();
     },
   };
 }
