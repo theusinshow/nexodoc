@@ -152,4 +152,129 @@ await test("comportamentoValido aceita só a lista", () => {
   assert.equal(comportamentoValido("explodir"), false);
 });
 
+/** O pedido da rota do selo: prompt, texto extraído do PDF e o recorte. */
+function pedidoDeSelo(textoExtraido: string | null) {
+  const prompt =
+    "Você lê carimbos. Exemplo: ARQUIVO: 040_26_est_imp_001_a" +
+    (textoExtraido === null ? "" : `\n\nTEXTO EXTRAÍDO:\n${textoExtraido}`);
+  return {
+    input: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: prompt },
+          { type: "input_image", image_url: "data:image/png;base64,AA==", detail: "high" },
+        ],
+      },
+    ],
+  };
+}
+
+const CAMPOS_DO_SELO = [
+  "disciplina", "folha", "total", "numeroFolha", "arquivo", "conteudo", "cliente",
+  "secretaria", "obra", "fase", "tituloSecao", "data", "logoOrgao", "confianca",
+];
+
+await test("selo legível sai do texto extraído, com os 14 campos do schema", async () => {
+  const texto = [
+    "REGIAO DO SELO (medida pelos rotulos do carimbo):",
+    "CLIENTE:",
+    "PREFEITURA MUNICIPAL DE CIDADE FICTICIA",
+    "CONTEÚDO:",
+    "PLANTA DE FORMAS DO BLOCO A",
+    "PRANCHA:",
+    "01/03",
+    "ARQUIVO:",
+    "990_26_est_001_a",
+    "",
+    "PAGINA COMPLETA:",
+    "CLIENTE:",
+  ].join("\n");
+  const r = await respostaSimulada({ operation: "nexo-selo", model: "m", request: pedidoDeSelo(texto) });
+  const selo = JSON.parse(r.output_text) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(selo).sort(), [...CAMPOS_DO_SELO].sort());
+  // O exemplo do PROMPT não pode virar leitura: só vale o que veio depois do marcador.
+  assert.equal(selo.arquivo, "990_26_est_001_a");
+  assert.equal(selo.disciplina, "EST");
+  assert.equal(selo.conteudo, "PLANTA DE FORMAS DO BLOCO A");
+  assert.equal(selo.numeroFolha, "01/03");
+  assert.equal(selo.folha, 1);
+  assert.equal(selo.total, 3);
+  assert.equal(selo.cliente, "PREFEITURA MUNICIPAL DE CIDADE FICTICIA");
+  assert.equal(selo.confianca, "alta");
+});
+
+await test("carimbo sem texto legível volta VAZIO, e não com erro", async () => {
+  const texto = "REGIAO DO SELO (aproximada: nenhum rotulo encontrado):\n\n\nPAGINA COMPLETA:\n";
+  const r = await respostaSimulada({ operation: "nexo-selo", model: "m", request: pedidoDeSelo(texto) });
+  assert.equal(r.status, "completed");
+  const selo = JSON.parse(r.output_text) as Record<string, unknown>;
+  for (const campo of CAMPOS_DO_SELO.filter((c) => c !== "confianca")) {
+    assert.equal(selo[campo], null, campo);
+  }
+  assert.equal(selo.confianca, "baixa");
+});
+
+await test("foto de carimbo sem texto extraído também volta vazia", async () => {
+  const r = await respostaSimulada({ operation: "nexo-selo-image", model: "m", request: pedidoDeSelo(null) });
+  const selo = JSON.parse(r.output_text) as Record<string, unknown>;
+  assert.equal(selo.arquivo, null);
+  assert.equal(selo.confianca, "baixa");
+});
+
+/** Pedido com texto e N imagens, como selo-check e volume-check montam. */
+function pedidoComImagens(n: number) {
+  return {
+    instructions: "confira",
+    input: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: `${n} recorte(s) de carimbo, nesta ordem: ...` },
+          ...Array.from({ length: n }, () => ({ type: "input_image", image_url: "data:image/png;base64,AA==" })),
+        ],
+      },
+    ],
+  };
+}
+
+await test("identidade do selo: uma leitura nula por imagem, na ordem", async () => {
+  const r = await respostaSimulada({ operation: "nexo-selo-identidade", model: "m", request: pedidoComImagens(3) });
+  const corpo = JSON.parse(r.output_text) as { leituras: Record<string, unknown>[] };
+  assert.equal(corpo.leituras.length, 3);
+  assert.deepEqual(corpo.leituras[0], {
+    endereco: null, orgao: null, logoPresente: false, logoOrgao: null,
+    numeracaoTexto: null, folha: null, total: null,
+  });
+});
+
+await test("conferência do volume: uma leitura nula por imagem", async () => {
+  const r = await respostaSimulada({ operation: "nexo-volume-check", model: "m", request: pedidoComImagens(2) });
+  const corpo = JSON.parse(r.output_text) as { leituras: Record<string, unknown>[] };
+  assert.equal(corpo.leituras.length, 2);
+  assert.deepEqual(Object.keys(corpo.leituras[1]).sort(), [
+    "codigo", "disciplina", "folha", "numeracaoTexto", "obra", "orgao", "titulo", "total",
+  ]);
+});
+
+/** A cauda JSON de uma resposta do agente. */
+function propostasDaResposta(texto: string) {
+  const cauda = texto.slice(texto.indexOf("```"));
+  return (JSON.parse(cauda.replace(/```json|```/g, "")) as { proposals: Record<string, unknown>[] }).proposals;
+}
+
+await test("agente propõe LD com o título que o engenheiro disse", async () => {
+  const input = "PEDIDO DO ENGENHEIRO:\ncria a LD dessas pranchas com o título BATERIA V1\n\nFormato da resposta, nesta ordem:";
+  const r = await respostaSimulada({ operation: "nexo-agent-turn", model: "m", request: { input } });
+  assert.deepEqual(propostasDaResposta(r.output_text), [
+    { kind: "ld", resumo: "LD", tituloLd: "BATERIA V1", numTomos: 1, tomoInicial: 1 },
+  ]);
+});
+
+await test("agente propõe volume quando o pedido é montar", async () => {
+  const input = "PEDIDO DO ENGENHEIRO:\nmonta o volume\n\nFormato da resposta, nesta ordem:";
+  const r = await respostaSimulada({ operation: "nexo-agent-turn", model: "m", request: { input } });
+  assert.deepEqual(propostasDaResposta(r.output_text), [{ kind: "volume", resumo: "Volume" }]);
+});
+
 console.log(`\n${passed} teste(s) passaram`);
