@@ -31,7 +31,9 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next-bateria/types/**/*.ts",
+    ".next-bateria/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", "design-system", "scripts", "scratchpad", ".next-bateria"]
   // `scratchpad` e gitignored: e onde ficam diagnosticos descartaveis, que

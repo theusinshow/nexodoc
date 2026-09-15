@@ -29,6 +29,19 @@ function rodar(comando, env) {
   }
 }
 
+/*
+ * TABELAS DE REFERÊNCIA: dado inserido por MIGRAÇÃO, não por quem usa o
+ * sistema. `migrate deploy` não reexecuta uma migração já aplicada — a linha
+ * de `INSERT` de `20260814013954_escritorio_passo_1` só roda uma vez na vida
+ * do banco. Se o TRUNCATE de `prepararBanco()` apagar esta tabela, ninguém a
+ * recria depois, e toda chamada seguinte quebra igual (medido em 14/09/2026,
+ * no nexodoc_teste: "org-prosul" sumia e `seed-desenvolvimento.ts` parava em
+ * "Organizacao org-prosul nao existe"). A bateria apaga o TRABALHO
+ * (projetos, achados, sessões, membros...), não a organização em si — quem
+ * é ADMIN dela é o seed, chamado logo abaixo.
+ */
+const TABELAS_DE_REFERENCIA = ["Organization"];
+
 export async function prepararBanco() {
   const env = ambienteDosTestes();
   rodar("npx prisma migrate deploy", env);
@@ -36,8 +49,17 @@ export async function prepararBanco() {
   const tabelas = await consultar(
     "select tablename from pg_tables where schemaname = current_schema() and tablename <> '_prisma_migrations'",
   );
-  if (tabelas.length > 0) {
-    const lista = tabelas.map((t) => `"${t.tablename}"`).join(", ");
+  const paraEsvaziar = tabelas.filter((t) => !TABELAS_DE_REFERENCIA.includes(t.tablename));
+  if (paraEsvaziar.length > 0) {
+    /*
+     * CASCADE aqui só alcança quem tem FK apontando para as tabelas LISTADAS
+     * (as de trabalho). "Organization" é o lado referenciado — não o que
+     * referencia — por "OrganizationMember", "Project" e "AuditLearning"
+     * (conferido em information_schema.referential_constraints em
+     * 14/09/2026), então truncar as três não arrasta "Organization" de volta
+     * por tabela nenhuma: CASCADE nunca sobe para o lado pai.
+     */
+    const lista = paraEsvaziar.map((t) => `"${t.tablename}"`).join(", ");
     await consultar(`TRUNCATE ${lista} RESTART IDENTITY CASCADE`);
   }
 
