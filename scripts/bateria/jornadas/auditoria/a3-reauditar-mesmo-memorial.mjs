@@ -1,15 +1,15 @@
 // A3 — o fluxo que desmontou em 14/09/2026: auditar o 117_25, e auditar de novo
 // transcrevendo. Cada rodada com cartão e parecer próprios (a486a53).
 //
-// DEFEITO PEGO POR ESTA JORNADA (14/09/2026, ver fix-a3-report.md): a rodada 2
+// DEFEITO PEGO POR ESTA JORNADA (14/09/2026, docs/bateria/defeitos-achados.md): a rodada 2
 // fechava certa NA TELA e só a rodada 1 ia para o IndexedDB. `saveResult`
 // agendava a gravação e, na mesma volta, `marcarAuditoriaPendente(null)` gravava
 // JÁ — cancelando o debounce e lendo um snapshot que só acompanha o estado
 // depois do commit do React. Online, o F5 escondia a perda: a rede de
 // recuperação (`parecerARecuperar` → GET /api/audits/<id>) buscava a rodada 2
 // no Postgres. Sem essa rede, o F5 voltava com a rodada 1 ("14 PÁGINAS NÃO
-// FORAM LIDAS"). Por isso o F5 abaixo corta /api/audits: é o disco, e só ele,
-// que tem de trazer as duas rodadas de volta.
+// FORAM LIDAS"). Por isso o F5 abaixo corta /api/audits e a cópia da conversa
+// no servidor: é o disco, e só ele, que tem de trazer as duas rodadas de volta.
 // Teste puro que trava a regra: scripts/test-agenda-de-gravacao.ts.
 export default {
   id: "a3",
@@ -31,7 +31,7 @@ export default {
     await ctx.esperarTexto(/14 PÁGINAS NÃO FORAM LIDAS/, 600_000);
 
     // Rodada 2: pelo chip do cartão-âncora ("Transcrever e auditar de novo" —
-    // AuditoriaAncora, ConfirmationCard.tsx:2971 — quando há folha não lida; cai
+    // `AuditoriaAncora`, em ConfirmationCard — quando há folha não lida; cai
     // para "Auditar de novo" quando não há), transcrevendo desta vez.
     const deNovo = await ctx.esperarBotao(/Transcrever e auditar de novo|Auditar de novo/, 30_000);
     await deNovo.click();
@@ -40,7 +40,7 @@ export default {
     await transcrever.click();
 
     // Fim da rodada 2: dois cartões com parecer ("Ver o parecer" em cada um —
-    // AuditoriaAncora, ConfirmationCard.tsx:2966).
+    // `AuditoriaAncora`, em ConfirmationCard).
     const verParecer = ctx.page.getByRole("button", { name: /Ver o parecer/ });
     // `waitFor` e não um laço de 3 em 3s: a leitura do disco abaixo tem de
     // acontecer logo depois de a rodada 2 aparecer, dentro da janela de 500ms
@@ -90,9 +90,9 @@ export default {
     );
 
     // A faixa [data-diff-do-parecer] só aparece na vista "Auditoria" do palco
-    // (PalcoDoNexo.tsx:381, dentro de `mostrandoAuditoria && report`). O palco
+    // (`PalcoDoNexo`, dentro de `mostrandoAuditoria && report`). O palco
     // já escolhe essa vista sozinho assim que há uma auditoria em curso ou
-    // pronta (PalcoDoNexo.tsx:216-223) — o clique aqui é só a garantia de que
+    // pronta (a escolha da vista em `PalcoDoNexo`) — o clique aqui é só a garantia de que
     // uma escolha manual anterior (ex.: "Mapa do volume") não ficou no caminho.
     const chipAuditoria = ctx.page.getByRole("button", { name: /^Auditoria$/ });
     if ((await chipAuditoria.count()) > 0) await chipAuditoria.first().click();
@@ -125,10 +125,14 @@ export default {
 
     // F5 COMO O ENGENHEIRO DARIA — mas sem a rede de recuperação. Com ela, o
     // parecer que faltasse no disco voltaria do Postgres e esconderia a perda
-    // (medido: foi exatamente o que aconteceu antes do conserto). O F5 reabre
-    // sozinho a conversa lembrada (NexoWorkspace, "VOLTAR PARA ONDE O
-    // ENGENHEIRO PAROU"); nada aqui clica no histórico.
-    await ctx.page.route("**/api/audits/**", (rota) => rota.abort());
+    // (medido: foi exatamente o que aconteceu antes do conserto). E sem a cópia
+    // da conversa no servidor: `selectConversation` lê
+    // /api/nexo/conversas/<id> quando a cópia remota é mais nova, e ela também
+    // traria a rodada 2. O F5 reabre sozinho a conversa lembrada (NexoWorkspace,
+    // "VOLTAR PARA ONDE O ENGENHEIRO PAROU"); nada aqui clica no histórico.
+    const cortar = (rota) => rota.abort();
+    await ctx.page.route("**/api/audits/**", cortar);
+    await ctx.page.route("**/api/nexo/conversas/**", cortar);
     try {
       await ctx.page.reload({ waitUntil: "domcontentloaded" });
       const fimDoF5 = Date.now() + 60_000;
@@ -171,7 +175,8 @@ export default {
         JSON.stringify(bilheteDepoisDoF5),
       );
     } finally {
-      await ctx.page.unroute("**/api/audits/**");
+      await ctx.page.unroute("**/api/audits/**", cortar);
+      await ctx.page.unroute("**/api/nexo/conversas/**", cortar);
     }
   },
 };
