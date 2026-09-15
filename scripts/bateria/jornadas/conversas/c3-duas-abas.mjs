@@ -6,6 +6,7 @@
 // IndexedDB, mesmo `nexo:ultima-conversa` — é assim que a aba 2 abre a mesma
 // conversa sozinha. A rota também é exercitada direto, com uma base velha: é o
 // caminho de outra máquina, que o IndexedDB desta não protege.
+import fs from "node:fs";
 import path from "node:path";
 
 export default {
@@ -150,6 +151,7 @@ export default {
      */
     const paraPrancha = aba2.getByRole("button", { name: /^tratar como prancha$/ });
     const paraMemorial = aba2.getByRole("button", { name: /^tratar como memorial$/ });
+    const classificacoesDaAba2 = ctx.contarRequisicoes(ePost("/api/nexo/classify"), aba2);
     await aba2.locator('input[type="file"][accept="application/pdf,image/*"]').first().setInputFiles([path.resolve(f.memorialSemCodigo)]);
     const chipDoMemorial = await ctx.esperar(async () => (await paraPrancha.count()) > 0, 30_000, 250);
     await aba2.waitForTimeout(3000); // o pré-voo e a leitura do memorial assentam
@@ -166,6 +168,41 @@ export default {
         depoisDaCorrecao.memorial === antesDaCorrecao.memorial &&
         (await ctx.visivelRolando(leituraRecusada.last())),
       `antes=${JSON.stringify(antesDaCorrecao)} depois=${JSON.stringify(depoisDaCorrecao)}`,
+    );
+
+    /*
+     * NEM GUARDA O MEMORIAL (15/09/2026). `salvarMemorial` escrevia o arquivo
+     * direto no IndexedDB que as duas abas dividem, sob `<conversa>:memorial`: o
+     * memorial solto na aba parada trocava o da aba 1, e o F5 dela voltava com o
+     * arquivo errado. Confere pelo próprio blob, e pelo tamanho do memorial que a
+     * aba 1 anexou.
+     */
+    classificacoesDaAba2.parar();
+    const memorialRecusado = aba2.getByText(/Não guardei o memorial md_bateria_sem_codigo\.pdf: Esta conversa mudou em outra aba/);
+    const blobRetido = await aba2.evaluate(
+      (chave) =>
+        new Promise((res) => {
+          const pedido = indexedDB.open("nexo");
+          pedido.onsuccess = () => {
+            const leitura = pedido.result.transaction("result_blobs").objectStore("result_blobs").get(chave);
+            leitura.onsuccess = () => {
+              const blob = leitura.result?.blob;
+              res(blob ? { nome: blob.name ?? null, tamanho: blob.size } : null);
+            };
+            leitura.onerror = () => res(null);
+          };
+          pedido.onerror = () => res(null);
+        }),
+      `${id}:memorial`,
+    );
+    const tamanhoDaAba1 = fs.statSync(f.memorialCurto).size;
+    ctx.verificar(
+      "a aba travada não guarda nem lê o memorial solto: o blob continua o da aba 1, nenhum POST a /api/nexo/classify, e a conversa diz por quê",
+      Boolean(blobRetido) &&
+        blobRetido.tamanho === tamanhoDaAba1 &&
+        classificacoesDaAba2.total() === 0 &&
+        (await ctx.visivelRolando(memorialRecusado)),
+      `blob=${JSON.stringify(blobRetido)} tamanhoDaAba1=${tamanhoDaAba1} POSTs /api/nexo/classify=${classificacoesDaAba2.total()} aviso=${await memorialRecusado.count()}`,
     );
 
     const depois = await noServidor();

@@ -565,12 +565,14 @@ function NexoWorkspaceInner({
      * leitura recusada e o memorial ainda retido. Recusada, nada muda — o chip
      * fica como estava, e a conversa diz por quê.
      */
-    if (!viraMemorial) {
-      const recusaDaLeitura = conv.recusaDeLeituraPagaAgora();
-      if (recusaDaLeitura) {
-        avisarLeituraRecusada(1, recusaDaLeitura);
-        return;
-      }
+    const recusaDaTrava = conv.recusaDeLeituraPagaAgora();
+    if (recusaDaTrava) {
+      // Virar memorial também não passa: guardá-lo escreveria por cima do
+      // memorial da outra aba no IndexedDB que as duas dividem (ver
+      // `avisarMemorialRecusado`).
+      if (viraMemorial) avisarMemorialRecusado(file.name, recusaDaTrava);
+      else avisarLeituraRecusada(1, recusaDaTrava);
+      return;
     }
     setError(null);
     /*
@@ -1067,7 +1069,10 @@ function NexoWorkspaceInner({
         content: `O memorial ${repetido} já está nesta conversa — não li de novo.`,
       });
     }
-    if (revisao) {
+    // Na aba travada o memorial não é guardado nem lido (ver
+    // `avisarMemorialRecusado`), então não houve troca a anunciar.
+    const recusaDaTrava = conv.recusaDeLeituraPagaAgora();
+    if (revisao && !recusaDaTrava) {
       conv.appendMessage({
         id: crypto.randomUUID(),
         role: "assistant",
@@ -1102,7 +1107,8 @@ function NexoWorkspaceInner({
     setAttachments((prev) => [
       // A revisão TROCA: o chip da versão anterior, com o mesmo nome, sai.
       ...prev.filter((a) => {
-        const antigo = revisao !== null && a.kind === "pdf" && a.name === revisao;
+        const antigo =
+          revisao !== null && !recusaDaTrava && a.kind === "pdf" && a.name === revisao;
         if (antigo) arquivosPorAnexo.current.delete(a.id);
         return !antigo;
       }),
@@ -1133,7 +1139,9 @@ function NexoWorkspaceInner({
     const indecisos = preVoos.filter((p) => p.papel === "indeciso");
     const memorials = preVoos.filter((p) => p.papel === "memorial").map((p) => p.file);
     const pranchas = preVoos.filter((p) => p.papel === "prancha").map((p) => p.file);
-    const memorial = memorials[0] ?? null;
+    const memorialSolto = memorials[0] ?? null;
+    if (memorialSolto && recusaDaTrava) avisarMemorialRecusado(memorialSolto.name, recusaDaTrava);
+    const memorial = recusaDaTrava ? null : memorialSolto;
     if (memorial) {
       setMemorialFile(memorial);
       // Retido para poder auditar DE NOVO depois — inclusive numa conversa
@@ -1222,6 +1230,22 @@ function NexoWorkspaceInner({
    * drop não espera o servidor), e com o porquê na conversa — soltar e nada
    * acontecer se lê como travamento.
    */
+  /*
+   * NEM GUARDA MEMORIAL (15/09/2026). `salvarMemorial` escreve o arquivo direto
+   * no IndexedDB, sob `<conversa>:memorial`, sem passar pela fila que a trava
+   * fecha — e o IndexedDB é o mesmo das duas abas. Soltar um memorial na aba
+   * parada trocava, em silêncio, o memorial retido pela aba que está em dia: o
+   * F5 dela voltava com o arquivo errado. Recusado, o memorial não é retido nem
+   * lido (a leitura só serviria a uma conversa que esta aba não grava).
+   */
+  function avisarMemorialRecusado(nome: string, motivo: string) {
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `Não guardei o memorial ${nome}: ${motivo}`,
+    });
+  }
+
   function avisarLeituraRecusada(folhas: number, motivo: string) {
     conv.appendMessage({
       id: crypto.randomUUID(),
