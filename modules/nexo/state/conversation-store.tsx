@@ -43,6 +43,7 @@ import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
 import { criarFilaDeGravacao, type GanchosDaGravacao } from "../lib/fila-de-gravacao";
 import { criarUltimaAbertura } from "../lib/ultima-abertura";
+import { comecarNovaConversa } from "../lib/nova-conversa";
 import {
   abreTravada as decidirAbreTravada,
   decidirAbertura,
@@ -882,7 +883,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   // Debounce: grava 500ms após a última mudança.
   const schedulePersist = useCallback(() => {
-    agenda.agendar(persistNow);
+    /*
+     * A geração do debounce vai para o estado junto com a mudança, como a do
+     * flush: é o que deixa `mudancaSemCommit` saber se ela já chegou a um
+     * commit (ver `comecarNovaConversa`). O `max` não deixa um debounce baixar
+     * a geração de um flush da mesma volta.
+     */
+    const geracao = agenda.agendar(persistNow);
+    setGeracaoDaGravacao((atual) => Math.max(atual, geracao));
   }, [agenda, persistNow]);
 
   // Flush: grava JÁ, antes de trocar/limpar a conversa. Sem isso, um debounce
@@ -1260,24 +1268,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     [flushPersist],
   );
 
-  /**
-   * Larga a gravação pendente SEM gravar.
-   *
-   * Só existe para um caso: a conversa aberta acabou de ser apagada. O flush
-   * normal a escreveria de volta no disco meio segundo depois — apagada da
-   * lista, viva no banco, e de volta na próxima sincronização.
+  /*
+   * `descartar` larga a gravação pendente SEM gravar. Só existe para um caso: a
+   * conversa aberta acabou de ser apagada. O flush normal a escreveria de volta
+   * no disco meio segundo depois — apagada da lista, viva no banco, e de volta
+   * na próxima sincronização.
    */
-  const descartarPendente = useCallback(() => {
-    agenda.descartar();
-  }, [agenda]);
-
-  const newConversation = useCallback((opts?: { descartar?: boolean }) => {
-    if (opts?.descartar) descartarPendente();
-    else flushPersist(); // grava a conversa atual antes de largar (#1)
-    const idNovo = newId();
-    // Daqui até o commit, o snapshot tem o id da antiga com a guarda de vazia e
-    // o `createdAt` da nova: nada grava a partir dele (ver `comecarTroca`).
-    agenda.comecarTroca(idNovo);
+  const zerarConversa = useCallback((idNovo: string) => {
     setConversationId(idNovo);
     setTitle("Nova conversa");
     setMessages([]);
@@ -1302,7 +1299,25 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     // O snapshot começa a carregar a conversa nova com o id ainda da antiga;
     // a troca marcada lá em cima já esqueceu o pedido do flush.
     snapshotRef.current.createdAt = Date.now();
-  }, [agenda, flushPersist, descartarPendente, definirTrava]);
+  }, [definirTrava]);
+
+  /*
+   * A ORDEM da troca (flush, espera do commit quando há mudança pendente, a vez
+   * na última abertura) mora em `lib/nova-conversa.ts`, com teste; aqui fica o
+   * que zera. Ela grava a conversa atual antes de largar (#1), ou larga o
+   * pendente com `descartar`.
+   */
+  const newConversation = useCallback((opts?: { descartar?: boolean }) => {
+    const idNovo = newId();
+    void comecarNovaConversa({
+      agenda,
+      aberturas,
+      descartar: Boolean(opts?.descartar),
+      flush: flushPersist,
+      idNovo,
+      zerar: () => zerarConversa(idNovo),
+    });
+  }, [agenda, aberturas, flushPersist, zerarConversa]);
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {

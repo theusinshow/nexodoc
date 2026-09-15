@@ -21,8 +21,17 @@ const RELOGIO_DO_NAVEGADOR: Relogio = {
 };
 
 export type AgendaDeGravacao = {
-  /** Grava `esperaMs` depois da ÚLTIMA chamada. */
-  agendar: (gravar: () => void) => void;
+  /**
+   * Grava `esperaMs` depois da ÚLTIMA chamada. Devolve uma geração, como
+   * `gravarJa`: quem chama põe no estado do React na mesma volta, e é assim que
+   * `mudancaSemCommit` sabe se a mudança já chegou a um commit.
+   */
+  agendar: (gravar: () => void) => number;
+  /**
+   * Há mudança (agendada ou gravada já) cuja geração nenhum commit sincronizou
+   * ainda? É o que `comecarNovaConversa` pergunta antes de trocar de conversa.
+   */
+  mudancaSemCommit: () => boolean;
   /**
    * Grava AGORA e pede outra gravação para o commit que trouxer a geração
    * devolvida. Quem chama PRECISA pôr essa geração no estado do React na mesma
@@ -59,8 +68,10 @@ export function criarAgendaDeGravacao(opcoes: {
 }): AgendaDeGravacao {
   const relogio = opcoes.relogio ?? RELOGIO_DO_NAVEGADOR;
   let alca: unknown = null;
-  /** Última geração entregue a um `gravarJa`. */
+  /** Última geração entregue a um `gravarJa` ou `agendar`. */
   let geracoes = 0;
+  /** A maior geração que um commit já sincronizou. */
+  let comitada = 0;
   /** O pedido pós-commit: para qual conversa e a partir de qual geração. */
   let pedido: { conversa: string; geracao: number } | null = null;
   let esperando: { geracao: number; resolver: () => void }[] = [];
@@ -80,16 +91,26 @@ export function criarAgendaDeGravacao(opcoes: {
   return {
     agendar(gravar) {
       desarmar();
+      geracoes += 1;
       alca = relogio.armar(() => {
         alca = null;
         // No meio de uma troca o snapshot é metade de cada conversa: o commit
         // da conversa nova é quem grava.
         if (trocandoPara !== null) {
-          pedido = { conversa: trocandoPara, geracao: geracoes };
+          /*
+           * Qualquer commit da conversa nova cumpre: a geração é a última já
+           * comitada, e não a deste debounce — ela entra no estado junto com a
+           * mudança, e o commit que a traz pode ser o de antes da troca.
+           */
+          pedido = { conversa: trocandoPara, geracao: comitada };
           return;
         }
         gravar();
       }, opcoes.esperaMs);
+      return geracoes;
+    },
+    mudancaSemCommit() {
+      return geracoes > comitada;
     },
     gravarJa(gravar, conversaAtual) {
       /*
@@ -137,6 +158,7 @@ export function criarAgendaDeGravacao(opcoes: {
       return geracoes;
     },
     aoSincronizar(gravar, conversaAtual, geracaoComitada) {
+      comitada = Math.max(comitada, geracaoComitada);
       // O commit da conversa nova chegou ao snapshot: a troca acabou.
       if (trocandoPara !== null && conversaAtual() === trocandoPara)
         trocandoPara = null;

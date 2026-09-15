@@ -25,6 +25,4 @@ quebra se o defeito voltar.
 
 ## Suspeitas abertas
 
-- `newConversation` é síncrono: uma mudança agendada no mesmo tick logo antes dele se perde (nenhum chamador real encontrado).
 - C5: uma resposta de auditoria que chegue dentro da janela da própria troca de conversa (entre `selectConversation` e o commit da conversa nova) ainda lê o id anterior em `conversaAberta()`. Sem caso medido.
-- "A última abertura vence" conta só `selectConversation`: um `newConversation` ("Nova conversa") dado enquanto a abertura do F5 espera a lista do servidor (até 4s) não a invalida, e ela ainda pode trocar por cima. Achado na onda final, 15/09/2026; sem caso medido.
