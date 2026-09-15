@@ -1658,6 +1658,7 @@ function VolumeConfirmation({
     totaisPorDisciplina,
     identidade,
     conversationId,
+    podeGastar,
   } = useConversation();
   const { registrar } = useMontadoresDeVolume();
   const id = volumeId(selos) + tomo.sufixo;
@@ -1848,6 +1849,19 @@ function VolumeConfirmation({
     if (motivoDeBloqueio) {
       setError(motivoDeBloqueio);
       return motivoDeBloqueio;
+    }
+    /*
+     * A ABA TRAVADA NÃO MONTA VOLUME — revisão final da segunda rodada,
+     * 15/09/2026. `confirm` é chamado por três portas: o botão deste card (já
+     * cinza), "Regenerar" (`ResultLinks`, bytes ausentes) e "Remontar e
+     * baixar" (`VolumesDesatualizados`, via `registrar`/`confirmRef`) — as duas
+     * últimas não passam pelo `disabled` do botão. Sem a trava aqui, a
+     * conferência do volume rodaria o modelo pago (`conferirVolume`) e a fila
+     * de gravação desta aba descartaria o resultado.
+     */
+    if (!podeGastar) {
+      setError(MOTIVO_ABA_TRAVADA);
+      return MOTIVO_ABA_TRAVADA;
     }
     setBusy(true);
     setError(null);
@@ -2231,6 +2245,7 @@ function VolumeConfirmation({
           saved={saved}
           onRegerar={confirm}
           regerando={busy}
+          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
         />
       )}
       {/* A conferência do volume montado, logo abaixo do PDF. Crítico pinta o

@@ -32,6 +32,7 @@ import { baixarArquivosEmZip } from "../lib/editaveis";
 import { nomeDoZipDosVolumes } from "../lib/nome-do-volume";
 import { volumesDesatualizados } from "../lib/volumes-desatualizados";
 import { volumesProntosDosResultados } from "../lib/volumes-prontos";
+import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversation, type SavedResult } from "../state/conversation-store";
 import { useMontadoresDeVolume } from "../state/montadores-de-volume";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
@@ -64,7 +65,7 @@ export function VolumesDesatualizados({
    */
   temPranchas: boolean;
 }) {
-  const { results, identidade } = useConversation();
+  const { results, identidade, podeGastar } = useConversation();
   const { montador } = useMontadoresDeVolume();
 
   const velhos = useMemo(() => volumesDesatualizados(results), [results]);
@@ -135,6 +136,18 @@ export function VolumesDesatualizados({
   const podeRemontar = temPranchas && semMontador.length < velhos.length;
 
   async function remontarEBaixar() {
+    /*
+     * A ABA TRAVADA NÃO REMONTA — revisão final da segunda rodada, 15/09/2026.
+     * Este botão chama, por volume, o `confirm` registrado em
+     * `montadores-de-volume.tsx` — o MESMO que roda a conferência paga
+     * (`conferirVolume`). Ele já recusa sozinho (devolve o motivo, que cairia
+     * em `falhas`), mas travar aqui evita um laço inteiro de "falhas" com o
+     * mesmo motivo e dá a resposta de uma vez, antes de tentar.
+     */
+    if (!podeGastar) {
+      setErro(MOTIVO_ABA_TRAVADA);
+      return;
+    }
     setErro(null);
     setFalhas([]);
     const coletadas: { rotulo: string; motivo: string }[] = [];
@@ -208,31 +221,39 @@ export function VolumesDesatualizados({
         </ul>
 
         {podeRemontar ? (
-          <Button
-            size="sm"
-            onClick={remontarEBaixar}
-            disabled={ocupado}
-            /* Âmbar porque é RESPOSTA a algo que envelheceu, não ação nova —
-               a mesma regra do botão do card pendente. */
-            className={
-              ocupado
-                ? undefined
-                : "border-[var(--status-warning)] bg-[var(--status-warning)] text-[#2b1d05] hover:bg-[var(--status-warning)]/90"
-            }
-          >
-            {ocupado ? (
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={remontarEBaixar}
+              disabled={ocupado || !podeGastar}
+              title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
+              /* Âmbar porque é RESPOSTA a algo que envelheceu, não ação nova —
+                 a mesma regra do botão do card pendente. */
+              className={
+                ocupado || !podeGastar
+                  ? undefined
+                  : "border-[var(--status-warning)] bg-[var(--status-warning)] text-[#2b1d05] hover:bg-[var(--status-warning)]/90"
+              }
+            >
+              {ocupado ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden />
+              )}
+              {montando !== null
+                ? `Remontando ${montando + 1} de ${velhos.length}…`
+                : baixando
+                  ? "Preparando o download…"
+                  : velhos.length === 1
+                    ? "Remontar e baixar"
+                    : `Remontar e baixar os ${velhos.length}`}
+            </Button>
+            {!podeGastar && (
+              <span className="text-xs text-muted-foreground">
+                {MOTIVO_ABA_TRAVADA}
+              </span>
             )}
-            {montando !== null
-              ? `Remontando ${montando + 1} de ${velhos.length}…`
-              : baixando
-                ? "Preparando o download…"
-                : velhos.length === 1
-                  ? "Remontar e baixar"
-                  : `Remontar e baixar os ${velhos.length}`}
-          </Button>
+          </div>
         ) : (
           <p className="text-xs leading-5 text-muted-foreground">
             {temPranchas

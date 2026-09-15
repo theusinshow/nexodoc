@@ -40,6 +40,7 @@ import type {
 } from "../types";
 import { BlocoDaLd } from "./BlocoDaLd";
 import { ResultLinks } from "./ResultLinks";
+import { MOTIVO_ABA_TRAVADA } from "../lib/aba-travada";
 import { useConversation } from "../state/conversation-store";
 import {
   gerarItem,
@@ -258,6 +259,7 @@ export function PlanoDeGeracao({
     decisoes,
     decidir,
     guardarDecisoesVivas,
+    podeGastar,
   } = useConversation();
   const [gerando, setGerando] = useState<number | null>(null);
   /** O que falhou na última tentativa. Vazio = nada falhou. */
@@ -687,8 +689,18 @@ export function PlanoDeGeracao({
    *
    * Devolve a falha em vez de lançar: quem chama decide se ela interrompe o
    * resto (o laço não interrompe, e é assim desde antes disto).
+   *
+   * A ABA TRAVADA NÃO GERA — revisão final da segunda rodada, 15/09/2026.
+   * Capa/LD/separatriz não custam modelo, mas o resultado ainda passa pela
+   * fila de gravação desta aba, e ela descarta tudo enquanto a conversa mudou
+   * noutra aba: o clique pareceria funcionar e o documento sumiria calado. O
+   * botão "Gerar"/"Atualizar" já fica cinza; a trava aqui cobre "Regenerar",
+   * que chama esta função direto.
    */
   async function gerarUmItem(i: number) {
+    if (!podeGastar) {
+      return { rotulo: itens[i].rotulo, motivo: MOTIVO_ABA_TRAVADA };
+    }
     setGerando(i);
     try {
       await gerarItem({
@@ -1102,6 +1114,9 @@ export function PlanoDeGeracao({
                       saved={salvo}
                       onRegerar={() => regerarUmItem(i)}
                       regerando={gerando === i}
+                      motivoRegerarBloqueado={
+                        podeGastar ? null : MOTIVO_ABA_TRAVADA
+                      }
                     />
                   )}
               </li>
@@ -1117,8 +1132,10 @@ export function PlanoDeGeracao({
               ocupado ||
               semTitulo ||
               Boolean(problemaDePrefeitura) ||
-              Boolean(motivoDeBloqueio)
+              Boolean(motivoDeBloqueio) ||
+              !podeGastar
             }
+            title={podeGastar ? undefined : MOTIVO_ABA_TRAVADA}
           >
             {ocupado ? (
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -1142,26 +1159,38 @@ export function PlanoDeGeracao({
            * chat um campo que agora está no card, aceso, na forma em que sai
            * impresso. A frase aponta para o campo, não para outro lugar.
            */}
-          {motivoDeBloqueio && (
+          {/*
+           * A ABA TRAVADA GANHA A FRASE PRIMEIRO: é o único motivo que some
+           * sozinho (basta recarregar), e os outros (título, prefeitura)
+           * continuam pendentes de qualquer forma até serem resolvidos.
+           */}
+          {!podeGastar && (
+            <span className="text-xs text-muted-foreground">
+              {MOTIVO_ABA_TRAVADA}
+            </span>
+          )}
+          {podeGastar && motivoDeBloqueio && (
             <span className="text-xs text-muted-foreground">
               {motivoDeBloqueio}
             </span>
           )}
-          {!motivoDeBloqueio && (semTitulo || problemaDePrefeitura) && (
-            <span className="text-xs text-muted-foreground">
-              {problemaDePrefeitura
-                ? /*
-                   * A divergência ganha a frase INTEIRA, com os dois lados
-                   * nomeados: "escolha a prefeitura" não serve para quem já
-                   * escolheu — o problema dele é que a escolha não chegou nos
-                   * dois documentos, e ele precisa saber em qual.
-                   */
-                  problemaDePrefeitura.tipo === "divergente"
-                  ? problemaDePrefeitura.mensagem
-                  : "Escolha a prefeitura acima."
-                : "Falta o título — preencha no documento acima."}
-            </span>
-          )}
+          {podeGastar &&
+            !motivoDeBloqueio &&
+            (semTitulo || problemaDePrefeitura) && (
+              <span className="text-xs text-muted-foreground">
+                {problemaDePrefeitura
+                  ? /*
+                     * A divergência ganha a frase INTEIRA, com os dois lados
+                     * nomeados: "escolha a prefeitura" não serve para quem já
+                     * escolheu — o problema dele é que a escolha não chegou nos
+                     * dois documentos, e ele precisa saber em qual.
+                     */
+                    problemaDePrefeitura.tipo === "divergente"
+                    ? problemaDePrefeitura.mensagem
+                    : "Escolha a prefeitura acima."
+                  : "Falta o título — preencha no documento acima."}
+              </span>
+            )}
         </div>
 
         {tudoGerado && !ocupado && (

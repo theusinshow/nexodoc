@@ -40,6 +40,7 @@ export function ResultLinks({
   saved,
   onRegerar,
   regerando,
+  motivoRegerarBloqueado,
 }: {
   summary?: string;
   saved: SavedResult;
@@ -50,6 +51,14 @@ export function ResultLinks({
    */
   onRegerar?: () => void | Promise<unknown>;
   regerando?: boolean;
+  /**
+   * Por que "Regenerar" está cinza mesmo com `onRegerar` definido — por
+   * exemplo, a aba travada (`MOTIVO_ABA_TRAVADA`, ver `lib/aba-travada.ts`): o
+   * clique chamaria o mesmo `confirm` que gastaria de novo, e a fila de
+   * gravação desta aba descartaria o resultado. `null`/`undefined` deixa o
+   * botão como sempre foi — quem não passa a prop não muda de comportamento.
+   */
+  motivoRegerarBloqueado?: string | null;
 }) {
   const files = toResultFiles(saved);
   if (!temAlgoADizer(saved)) return null;
@@ -85,16 +94,25 @@ export function ResultLinks({
             gastar de novo não deve parecer o caminho óbvio.
           */}
           {onRegerar && (
-            <Button
-              size="sm"
-              variant="outline"
-              loading={regerando}
-              onClick={() => void onRegerar()}
-              data-prova="regerar-artefato"
-            >
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Regenerar
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                loading={regerando}
+                onClick={() => void onRegerar()}
+                data-prova="regerar-artefato"
+                disabled={Boolean(motivoRegerarBloqueado)}
+                title={motivoRegerarBloqueado ?? undefined}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Regenerar
+              </Button>
+              {motivoRegerarBloqueado && (
+                <span className="text-xs text-muted-foreground">
+                  {motivoRegerarBloqueado}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}

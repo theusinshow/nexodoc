@@ -19,13 +19,28 @@
  * O tamanho vem primeiro porque é de graça; o sha só é calculado quando nome e
  * tamanho batem.
  *
+ * REFINADO EM 15/09/2026 (revisão final, segunda rodada): `crypto.subtle` exige
+ * HTTPS ou localhost — falta numa sessão de dev aberta pelo IP da rede. Sem
+ * fallback, `sha256` lançava, a promessa de `separarMemorialRepetido` rejeitava
+ * e `void readSelos(...)` (quem chama) engolia a rejeição: o drop não fazia
+ * nada, calado. Sem como confirmar o conteúdo, o lado seguro é tratar como
+ * REVISÃO (troca o memorial) e não como repetido — pior um chip extra do que um
+ * memorial revisado descartado em silêncio.
+ *
  * PURO e sem imports: roda no node cru (`crypto.subtle` é global no node e no
- * navegador).
+ * navegador, quando existe).
  */
 export interface ArquivoComparavel {
   name: string;
   size: number;
   arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+/** Falso fora de HTTPS/localhost — não há como ler o sha-256 dos bytes ali. */
+function temSubtleDigest(): boolean {
+  return (
+    typeof crypto !== "undefined" && typeof crypto.subtle?.digest === "function"
+  );
 }
 
 async function sha256(arquivo: ArquivoComparavel): Promise<string> {
@@ -48,12 +63,15 @@ export async function separarMemorialRepetido<T extends ArquivoComparavel>(
   let repetido: string | null = null;
   let revisao: string | null = null;
   let shaDoRetido: string | null = null;
+  const podeConferirBytes = temSubtleDigest();
   for (const f of pdfs) {
     if (f.name !== memorialRetido.name) {
       novos.push(f);
       continue;
     }
-    let igual = f.size === memorialRetido.size;
+    // Sem `crypto.subtle`, nome e tamanho batendo não bastam para dizer
+    // "repetido" — cai direto no `else` abaixo, que é a via da revisão.
+    let igual = podeConferirBytes && f.size === memorialRetido.size;
     if (igual) {
       shaDoRetido ??= await sha256(memorialRetido);
       igual = (await sha256(f)) === shaDoRetido;

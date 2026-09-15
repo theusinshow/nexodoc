@@ -104,4 +104,32 @@ await test("o nome é exato: caixa diferente é outro arquivo", async () => {
   assert.equal(r.revisao, null);
 });
 
+/*
+ * SEM `crypto.subtle` (revisão final, segunda rodada): dev pela rede local é
+ * HTTP, não HTTPS/localhost, e `crypto.subtle` não existe ali. Sem fallback,
+ * `sha256` lançava e `separarMemorialRepetido` rejeitava — e quem chama
+ * (`void readSelos(...)`) engolia a rejeição em silêncio. O lado seguro é
+ * tratar como REVISÃO (troca o memorial), nunca como repetido.
+ */
+await test("sem crypto.subtle: mesmo nome e mesmo tamanho não é repetido, é revisão", async () => {
+  const original = globalThis.crypto;
+  Object.defineProperty(globalThis, "crypto", {
+    value: { subtle: undefined },
+    configurable: true,
+  });
+  try {
+    const novo = arquivo(MD);
+    const retido = arquivo(MD);
+    const r = await separarMemorialRepetido([novo], retido);
+    assert.deepEqual(r.novos, [novo]);
+    assert.equal(r.repetido, null);
+    assert.equal(r.revisao, MD);
+  } finally {
+    Object.defineProperty(globalThis, "crypto", {
+      value: original,
+      configurable: true,
+    });
+  }
+});
+
 console.log(`\n${passed} teste(s) passaram`);
