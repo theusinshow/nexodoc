@@ -1821,7 +1821,20 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     };
   }, []);
 
-  const conversaAberta = useCallback(() => snapshotRef.current.conversationId, []);
+  /*
+   * NA JANELA DA TROCA, a aberta é a de destino — 15/09/2026, a suspeita C5 da
+   * segunda rodada. Entre as escritas de `selectConversation` (ou de "Nova
+   * conversa") e o commit da conversa nova, o snapshot ainda tem o id da
+   * anterior. Uma resposta de auditoria que chegasse ali lia a origem como
+   * aberta, e o parecer dela entrava na fila de estado DEPOIS dos campos da
+   * nova: medido no modelo (`test-agenda-de-gravacao.ts`), o parecer de A ia
+   * parar em B e o bilhete de B era limpo. Com o destino da troca, a resposta
+   * vê outra conversa aberta e deixa a origem reconectar ao ser reaberta.
+   */
+  const conversaAberta = useCallback(
+    () => agenda.destinoDaTroca() ?? snapshotRef.current.conversationId,
+    [agenda],
+  );
 
   const conferirAntesDeGastar = useCallback(async (): Promise<boolean> => {
     const id = snapshotRef.current.conversationId;

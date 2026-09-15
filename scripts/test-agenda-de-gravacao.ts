@@ -31,6 +31,7 @@ import {
   criarAgendaDeGravacao,
   type Relogio,
 } from "../modules/nexo/lib/agenda-de-gravacao.ts";
+import { desfechoNaChegada } from "../modules/nexo/lib/destino-do-parecer.ts";
 
 let passed = 0;
 async function test(name: string, fn: () => Promise<void>) {
@@ -191,7 +192,39 @@ function storeDeMentira({ commitMs = 25 } = {}) {
       set((e) => ({ ...e, title: titulo }));
       flushPersist();
     },
-    async selectConversation(b: typeof CONVERSA_B, esperaMs: number) {
+    /**
+     * `conversaAberta()` do store: a conversa para a qual a troca já começou,
+     * ou a do snapshot. O store de antes só tinha a do snapshot.
+     */
+    conversaAberta() {
+      const api = agenda as unknown as { destinoDaTroca?: () => string | null };
+      return api.destinoDaTroca?.() ?? snapshot.id;
+    },
+    /** A resposta da auditoria de `origem` chega: grava e limpa só na origem. */
+    chegadaDaAuditoria(origem: string, parecer: string) {
+      const aberta = this.conversaAberta();
+      const desfecho = desfechoNaChegada({
+        origem,
+        aberta,
+        desconectou: false,
+      });
+      if (desfecho.gravarParecer) {
+        set((e) => ({ ...e, results: [...e.results, parecer] }));
+        agenda.agendar(persistNow);
+      }
+      if (desfecho.limparBilhete) {
+        set((e) => ({ ...e, pendente: false }));
+        snapshot = { ...snapshot, pendente: false };
+        flushPersist();
+      }
+      return desfecho;
+    },
+    estado: () => estado,
+    async selectConversation(
+      b: typeof CONVERSA_B,
+      esperaMs: number,
+      naJanelaDaTroca?: () => void,
+    ) {
       const alvo = flushPersist();
       if (alvo !== undefined) {
         await agenda.proximaSincronizacao(alvo, 1000);
@@ -217,6 +250,8 @@ function storeDeMentira({ commitMs = 25 } = {}) {
         geracao: e.geracao,
       }));
       snapshot = { ...snapshot, createdAt: b.createdAt };
+      // Antes do commit da troca: o que chega aqui chega "na janela".
+      naJanelaDaTroca?.();
     },
   };
 }
@@ -252,6 +287,33 @@ await test("dossiê: o título trocado por setTitle antes do flush vai para o di
   await s.r.avancar(1000);
   assert.equal(s.ultimaDe("A")?.title, "117-25-CRICIUMA");
   assert.equal(s.ultimaDe("A")?.memorial, "A:memorial+dossie");
+});
+
+await test("c5: a resposta da auditoria de A que chega na janela da troca para B não grava em B nem limpa o bilhete de B", async () => {
+  // Suspeita aberta da segunda rodada: entre as escritas da troca e o commit de
+  // B, `conversaAberta()` lia o snapshot — ainda A — e o parecer de A entrava
+  // na fila de estado DEPOIS dos campos de B, chegando a B no commit dela.
+  const s = storeDeMentira();
+  const b = { ...CONVERSA_B, pendente: true };
+  let desfecho: ReturnType<typeof desfechoNaChegada> | null = null;
+  const abrindo = s.selectConversation(b, 2, () => {
+    desfecho = s.chegadaDaAuditoria("A", "A:parecer-novo");
+  });
+  await s.r.avancar(2000);
+  await abrindo;
+  assert.equal(s.estado().id, "B");
+  assert.ok(
+    !s.estado().results.includes("A:parecer-novo"),
+    `o parecer de A foi parar em B: ${JSON.stringify(s.estado().results)}`,
+  );
+  assert.equal(s.estado().pendente, true, "o bilhete de B foi limpo");
+  assert.deepEqual(desfecho, { gravarParecer: false, limparBilhete: false });
+  assert.ok(
+    s
+      .gravacoesDe("B")
+      .every((g) => !g.results.includes("A:parecer-novo") && g.pendente),
+    JSON.stringify(s.gravacoesDe("B")),
+  );
 });
 
 await test("trocar de conversa com leituras rápidas: a mudança de A vai para A, nunca para B", async () => {

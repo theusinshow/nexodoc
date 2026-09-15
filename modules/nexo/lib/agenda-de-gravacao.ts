@@ -58,6 +58,12 @@ export type AgendaDeGravacao = {
    * deixam um pedido para `para`, cumprido pelo commit dela.
    */
   comecarTroca: (para: string) => void;
+  /**
+   * A conversa para a qual a troca começou e cujo commit ainda não sincronizou;
+   * `null` fora de troca. É a conversa aberta DE FATO nessa janela: o snapshot
+   * ainda tem o id da anterior (ver `conversaAberta` no store).
+   */
+  destinoDaTroca: () => string | null;
   /** Larga tudo o que estava para ser gravado: debounce e pedido. */
   descartar: () => void;
 };
@@ -198,6 +204,9 @@ export function criarAgendaDeGravacao(opcoes: {
     comecarTroca(para) {
       pedido = null;
       trocandoPara = para;
+    },
+    destinoDaTroca() {
+      return trocandoPara;
     },
     descartar() {
       desarmar();

@@ -25,4 +25,3 @@ quebra se o defeito voltar.
 
 ## Suspeitas abertas
 
-- C5: uma resposta de auditoria que chegue dentro da janela da própria troca de conversa (entre `selectConversation` e o commit da conversa nova) ainda lê o id anterior em `conversaAberta()`. Sem caso medido.

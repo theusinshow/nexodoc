@@ -2675,8 +2675,8 @@ function AuditoriaConfirmation({
      * A CONVERSA QUE PEDIU — 15/09/2026, jornada c5. A resposta chega minutos
      * depois, e `saveResult` grava na conversa aberta NAQUELE instante: trocar
      * de conversa no meio levava o parecer para a outra. Ver
-     * [[destino-do-parecer.ts]]. Limite: uma resposta que caia na janela de
-     * milissegundos da própria troca ainda lê o id anterior (sem caso medido).
+     * [[destino-do-parecer.ts]]. Na janela de milissegundos da própria troca,
+     * `conversaAberta()` já devolve a conversa de destino (15/09/2026).
      */
     const origem = conversationId;
     try {
