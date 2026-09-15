@@ -90,6 +90,8 @@ O plano e o desenho foram escritos para funcionar sem memória. Se quiser levá-
 | `a bateria só roda no banco nexodoc_teste` | a URL do passo 4 aponta para outro banco; troque o nome do banco |
 | `P1002 … advisory lock` na migração | outra migração pendurada no Neon: `npm run db:destravar` |
 | `o servidor da bateria não respondeu /api/saude` | abra `scratchpad/bateria/<data-hora>/servidor.log`; costuma ser `.env.local` incompleto |
+| `a porta 3100 continua ocupada pelo PID X` | a bateria tentou derrubar quem escuta na 3100 e não conseguiu (processo aberto como administrador, por exemplo); feche-o (`taskkill /PID X /T /F` num terminal de administrador) e rode de novo. Ela recusa subir de propósito: senão testaria o servidor velho |
+| `o servidor da bateria saiu antes de responder /api/saude` | o `next dev` morreu na subida; o erro traz o fim do `servidor.log` |
 | `Another next dev server is already running` | seu `npm run dev` está disputando a pasta de build; desligue-o e rode a bateria de novo (a tarefa 4 tenta resolver isso com `.next-bateria`) |
 | Jornada vermelha com `X is not a function` no navegador | chunk velho: apague `.next-bateria` e rode de novo |
 | Erros de tipo estranhos logo depois do `git pull` | `npx prisma generate` |

@@ -4,32 +4,100 @@
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 
-import { ambienteDoServidor } from "./ambiente.mjs";
+import { ambienteDoServidor, HOST_DA_BATERIA } from "./ambiente.mjs";
 
-export function matarPorta(porta) {
-  try {
-    if (process.platform === "win32") {
-      const saida = execSync("netstat -ano -p tcp", { encoding: "utf8" });
-      const pids = new Set(
+/**
+ * Os PIDs que ESCUTAM na porta agora (vazio = porta livre). `null` quando não
+ * deu para perguntar ao sistema: "não sei" não pode virar "livre".
+ */
+export function pidsEscutando(porta) {
+  if (process.platform === "win32") {
+    let saida = "";
+    try {
+      saida = execSync("netstat -ano -p tcp", { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch {
+      return null;
+    }
+    return [
+      ...new Set(
         saida
           .split(/\r?\n/)
-          .filter((l) => l.includes(`:${porta} `) && /LISTEN/i.test(l))
-          .map((l) => l.trim().split(/\s+/).at(-1))
+          .map((l) => l.trim().split(/\s+/))
+          // Proto, endereço local, endereço remoto, estado, PID. Olhar só o
+          // endereço LOCAL: `:3100 ` em qualquer lugar da linha pegaria também
+          // uma conexão de saída para a 3100 de outra máquina.
+          .filter((c) => c.length >= 5 && c[1].endsWith(`:${porta}`) && /LISTEN/i.test(c[3]))
+          .map((c) => c[4])
           .filter((pid) => pid && pid !== "0"),
-      );
-      for (const pid of pids) execSync(`taskkill /PID ${pid} /T /F`, { stdio: "ignore" });
-    } else {
-      const pids = execSync(`lsof -ti tcp:${porta} -sTCP:LISTEN || true`, { encoding: "utf8" }).trim();
-      if (pids) execSync(`kill -9 ${pids.split(/\s+/).join(" ")}`, { stdio: "ignore" });
-    }
+      ),
+    ];
+  }
+  try {
+    execSync("command -v lsof", { stdio: "ignore" });
+    const saida = execSync(`lsof -ti tcp:${porta} -sTCP:LISTEN || true`, { encoding: "utf8" }).trim();
+    return saida ? [...new Set(saida.split(/\s+/))] : [];
   } catch {
-    // Nada escutando: é o caso normal.
+    return null;
   }
 }
 
-async function esperarSaude(base, ms) {
+export function matarPorta(porta) {
+  for (const pid of pidsEscutando(porta) ?? []) {
+    try {
+      if (process.platform === "win32") execSync(`taskkill /PID ${pid} /T /F`, { stdio: "ignore" });
+      else execSync(`kill -9 ${pid}`, { stdio: "ignore" });
+    } catch {
+      // Quem sobreviveu é pego por `garantirPortaLivre`, com o PID no erro.
+    }
+  }
+}
+
+/*
+ * A PORTA TEM DE ESTAR LIVRE DE VERDADE antes de subir o servidor — 14/09/2026.
+ *
+ * `matarPorta` engolia toda falha do `taskkill`. Se quem escuta na 3100
+ * sobrevivesse (um `next dev` aberto como administrador, por exemplo), o
+ * servidor novo morria com EADDRINUSE e `/api/saude` respondia 200 pelo VELHO:
+ * código antigo, sem a IA simulada, e a bateria verde contra o servidor errado.
+ * O `taskkill` devolve antes de o Windows soltar a porta, então a checagem
+ * espera um pouco antes de acusar.
+ */
+export async function garantirPortaLivre(porta, { esperaMs = 5000 } = {}) {
+  const fim = Date.now() + esperaMs;
+  let pids = pidsEscutando(porta);
+  while (pids !== null && pids.length > 0 && Date.now() < fim) {
+    await new Promise((res) => setTimeout(res, 250));
+    pids = pidsEscutando(porta);
+  }
+  if (pids === null) {
+    const ferramenta = process.platform === "win32" ? "netstat" : "lsof";
+    throw new Error(
+      `não consegui ver quem escuta na porta ${porta} (${ferramenta} falhou); sem isso a bateria poderia testar um servidor velho`,
+    );
+  }
+  if (pids.length > 0) {
+    throw new Error(
+      `a porta ${porta} continua ocupada pelo PID ${pids.join(", ")}; derrube-o antes de rodar a bateria`,
+    );
+  }
+}
+
+/** As últimas linhas do log do servidor, para o erro dizer por que ele caiu. */
+function caudaDoLog(arquivoDeLog, linhas = 25) {
+  try {
+    return fs.readFileSync(arquivoDeLog, "utf8").split(/\r?\n/).filter(Boolean).slice(-linhas).join("\n");
+  } catch {
+    return "(log ilegível)";
+  }
+}
+
+export async function esperarSaude(base, ms, { saiu = () => null } = {}) {
   const fim = Date.now() + ms;
   while (Date.now() < fim) {
+    // O processo morreu antes de responder: esperar os 240s não traz ele de
+    // volta — só esconde o motivo por quatro minutos.
+    const motivo = saiu();
+    if (motivo) throw new Error(motivo);
     try {
       const r = await fetch(`${base}/api/saude`);
       if (r.ok) return;
@@ -43,6 +111,7 @@ async function esperarSaude(base, ms) {
 
 export async function subirServidor({ porta, arquivoDeLog }) {
   matarPorta(porta);
+  await garantirPortaLivre(porta);
   const log = fs.openSync(arquivoDeLog, "a");
   let logFechado = false;
   function fecharLog() {
@@ -53,10 +122,16 @@ export async function subirServidor({ porta, arquivoDeLog }) {
     fs.closeSync(log);
   }
 
-  const filho = spawn(`npx next dev -p ${porta}`, {
+  // Só no loopback: a bateria loga como dev sem senha, e isso não pode ficar
+  // aberto para a rede local enquanto ela roda.
+  const filho = spawn(`npx next dev -H ${HOST_DA_BATERIA} -p ${porta}`, {
     shell: true,
     env: ambienteDoServidor(porta),
     stdio: ["ignore", log, log],
+  });
+  let saida = null;
+  filho.on("exit", (codigo, sinal) => {
+    saida = { codigo, sinal };
   });
 
   /*
@@ -81,9 +156,14 @@ export async function subirServidor({ porta, arquivoDeLog }) {
     }
   }
 
-  const base = `http://localhost:${porta}`;
+  const base = `http://${HOST_DA_BATERIA}:${porta}`;
   try {
-    await esperarSaude(base, 240_000);
+    await esperarSaude(base, 240_000, {
+      saiu: () =>
+        saida
+          ? `o servidor da bateria saiu antes de responder /api/saude (código ${saida.codigo ?? saida.sinal}). Fim do log:\n${caudaDoLog(arquivoDeLog)}`
+          : null,
+    });
   } catch (err) {
     matarPorta(porta);
     matarFilho();

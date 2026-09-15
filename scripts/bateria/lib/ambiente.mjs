@@ -8,6 +8,13 @@ import { bancoDaBateria } from "./guarda-do-banco.mjs";
 
 export const EMAIL_DA_BATERIA = "bateria@nexodoc.local";
 
+/*
+ * O servidor da bateria escuta SÓ no loopback (`next dev -H`), e a URL usa o
+ * mesmo endereço, não `localhost`: o Auth.js compara o host da requisição com o
+ * AUTH_URL, e `localhost` pode resolver para ::1, onde ninguém escuta.
+ */
+export const HOST_DA_BATERIA = "127.0.0.1";
+
 export function lerEnvLocal() {
   const env = {};
   if (!fs.existsSync(".env.local")) return env;
@@ -41,7 +48,7 @@ export function ambienteDosTestes() {
 }
 
 export function ambienteDoServidor(porta) {
-  const base = `http://localhost:${porta}`;
+  const base = `http://${HOST_DA_BATERIA}:${porta}`;
   return {
     ...ambienteDosTestes(),
     NEXODOC_IA_SIMULADA: "1",
