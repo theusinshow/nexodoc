@@ -22,6 +22,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { consultarAuditoria } from "../lib/audit";
+import {
+  type BloqueioDaReconexao,
+  vistaDaReconexao,
+} from "../lib/vista-da-reconexao";
 import { auditoriaDaConversa, useAuditoria } from "../state/auditoria-store";
 import { useConversation } from "../state/conversation-store";
 import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
@@ -38,6 +42,11 @@ export interface ReconexaoDaAuditoria {
   } | null;
   /** Motivo de ter desistido — some sozinho quando o usuário age. */
   falha: string | null;
+  /**
+   * Descarta a espera bloqueada por falta de acesso (403): tira o bilhete e o
+   * motivo. `null` quando não há o que descartar (ver `vistaDaReconexao`).
+   */
+  descartar: (() => void) | null;
 }
 
 export function useReconectarAuditoria(): ReconexaoDaAuditoria {
@@ -64,6 +73,7 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
   const conduzidaAqui =
     auditoriaDaConversa(useAuditoria().emCurso, conversationId) !== null;
   const [falha, setFalha] = useState<string | null>(null);
+  const [semAcesso, setSemAcesso] = useState<BloqueioDaReconexao>(null);
   // Uma corrida nova aposenta o motivo da anterior: sem isto a falha velha
   // ficaria por cima do parecer novo quando ele chegasse (o palco a desenha
   // antes do parecer). Ajuste durante o render, e não num effect.
@@ -125,7 +135,7 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
        * próximo carregamento reconecta à análise que o servidor terminou.
        */
       if (estado.situacao === "sem-acesso") {
-        setFalha(estado.motivo);
+        setSemAcesso({ auditId: bilhete.auditId, motivo: estado.motivo });
         return;
       }
 
@@ -164,14 +174,28 @@ export function useReconectarAuditoria(): ReconexaoDaAuditoria {
     getResult,
   ]);
 
+  const vista = vistaDaReconexao({
+    bilhete: auditoriaPendente,
+    semAcesso,
+    falha,
+  });
   return {
-    pendente: auditoriaPendente
-      ? {
-          arquivo: auditoriaPendente.arquivo,
-          nivel: auditoriaPendente.nivel,
-          inicioMs: auditoriaPendente.inicioMs,
+    pendente:
+      auditoriaPendente && vista.mostrarPendente
+        ? {
+            arquivo: auditoriaPendente.arquivo,
+            nivel: auditoriaPendente.nivel,
+            inicioMs: auditoriaPendente.inicioMs,
+          }
+        : null,
+    falha: vista.falha,
+    descartar: vista.podeDescartar
+      ? () => {
+          marcarAuditoriaPendente(null);
+          setSemAcesso(null);
+          setFalha(null);
+          consultando.current = null;
         }
       : null,
-    falha,
   };
 }

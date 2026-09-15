@@ -541,6 +541,20 @@ export function PalcoDoNexo({
                   A análise não terminou
                 </p>
                 <p className="mt-3 text-sm text-muted-foreground">{reconexao.falha}</p>
+                {/*
+                 * Sem acesso (403) a espera fica guardada para o acesso que
+                 * voltar — e sem este botão não havia como sair dela
+                 * (15/09/2026, jornada x3).
+                 */}
+                {reconexao.descartar ? (
+                  <button
+                    type="button"
+                    onClick={reconexao.descartar}
+                    className="mt-4 text-sm underline underline-offset-4 hover:text-foreground"
+                  >
+                    Descartar esta espera
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : report ? (
