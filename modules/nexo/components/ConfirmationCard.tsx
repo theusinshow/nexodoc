@@ -697,7 +697,8 @@ function LdConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, totaisPorDisciplina, identidade } = useConversation();
+  const { getResult, saveResult, totaisPorDisciplina, identidade, podeGastar } =
+    useConversation();
   const id = ldId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -732,6 +733,15 @@ function LdConfirmation({
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
+    /*
+     * A ABA TRAVADA NÃO GERA — 15/09/2026. O botão de confirmar já fica cinza,
+     * mas "Regenerar" (`ResultLinks`, bytes ausentes) chama este mesmo `confirm`
+     * direto: o documento sairia e a fila de gravação desta aba o descartaria.
+     */
+    if (!podeGastar) {
+      setError(MOTIVO_ABA_TRAVADA);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -863,6 +873,7 @@ function LdConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
+          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
         />
       )}
       <CardError message={error} />
@@ -927,7 +938,7 @@ function CapaConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getResult, saveResult, results, identidade } = useConversation();
+  const { getResult, saveResult, results, identidade, podeGastar } = useConversation();
   const id = capaId(selos) + tomo.sufixo;
   // Capa gerada antes da correção da chave: acha pelo prefixo antigo.
   const saved =
@@ -951,6 +962,15 @@ function CapaConfirmation({
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
+    /*
+     * A ABA TRAVADA NÃO GERA — 15/09/2026. O botão de confirmar já fica cinza,
+     * mas "Regenerar" (`ResultLinks`, bytes ausentes) chama este mesmo `confirm`
+     * direto: o documento sairia e a fila de gravação desta aba o descartaria.
+     */
+    if (!podeGastar) {
+      setError(MOTIVO_ABA_TRAVADA);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -1068,6 +1088,7 @@ function CapaConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
+          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
         />
       )}
       <CardError message={error} />
@@ -3057,7 +3078,8 @@ function AuditoriaConfirmation({
         <AuditoriaAncora
           report={result.report}
           onVer={auditoria.verNoPalco}
-          onAuditarDeNovo={ehAMaisRecente ? auditarDeNovo : undefined}
+          // Aba travada: a rodada nova cairia numa conversa que esta aba não grava.
+          onAuditarDeNovo={ehAMaisRecente && podeGastar ? auditarDeNovo : undefined}
         />
       )}
       <CardError message={error} />
@@ -3161,7 +3183,7 @@ function SeparatrizConfirmation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { results, getResult, saveResult, identidade } = useConversation();
+  const { results, getResult, saveResult, identidade, podeGastar } = useConversation();
   const id = separatrizId(selos) + tomo.sufixo;
   const saved = getResult(id);
 
@@ -3196,6 +3218,15 @@ function SeparatrizConfirmation({
   const podeGerar = estado !== "aplicado";
 
   async function confirm() {
+    /*
+     * A ABA TRAVADA NÃO GERA — 15/09/2026. O botão de confirmar já fica cinza,
+     * mas "Regenerar" (`ResultLinks`, bytes ausentes) chama este mesmo `confirm`
+     * direto: o documento sairia e a fila de gravação desta aba o descartaria.
+     */
+    if (!podeGastar) {
+      setError(MOTIVO_ABA_TRAVADA);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -3286,6 +3317,7 @@ function SeparatrizConfirmation({
           */
           onRegerar={confirm}
           regerando={busy}
+          motivoRegerarBloqueado={podeGastar ? null : MOTIVO_ABA_TRAVADA}
         />
       )}
       <CardError message={error} />
