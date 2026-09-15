@@ -34,10 +34,8 @@ export type RespostaSimulada = {
 type Pedido = { operation: string; model: string; request: unknown };
 type ItemDaFila = { operation: string; comportamento: ComportamentoSimulado };
 
-/** As DUAS condições: uma variável esquecida no Render não pode ligar isto. */
-export function iaSimuladaLigada(env: Record<string, string | undefined> = process.env) {
-  return env.NEXODOC_IA_SIMULADA === "1" && env.NODE_ENV !== "production";
-}
+// A chave mora num módulo sem imports, que o `ai-runner` também usa.
+export { iaSimuladaLigada } from "./ia-simulada-ligada.ts";
 
 export function comportamentoValido(texto: string): texto is ComportamentoSimulado {
   return /^(abortar|truncar|503|recusar|json-invalido|lento:\d{1,6})$/.test(texto);

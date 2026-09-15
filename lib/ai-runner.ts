@@ -17,6 +17,7 @@ import {
   type AiAgentName,
 } from "@/lib/ai/tasks";
 import { extractTokenUsage, recordAiUsage } from "@/lib/ai-usage";
+import { iaSimuladaLigada } from "@/lib/ia-simulada-ligada";
 import { getOpenAIClient } from "@/lib/openai";
 import {
   type ClienteDeRespostas,
@@ -25,13 +26,8 @@ import {
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
 
-/**
- * A IA SIMULADA da bateria de fluxos. As duas condições, como em
- * `lib/ia-simulada.ts`: fora de teste o módulo nem é carregado.
- */
-function iaSimuladaLigada() {
-  return process.env.NEXODOC_IA_SIMULADA === "1" && process.env.NODE_ENV !== "production";
-}
+// A IA SIMULADA da bateria de fluxos: a chave vem de `lib/ia-simulada-ligada.ts`
+// (sem imports, testada); o simulador só é carregado quando ela está ligada.
 
 export type ExecuteOpenAiResponseArgs = {
   flow: AiProviderFlow;

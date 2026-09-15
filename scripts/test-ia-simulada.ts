@@ -13,12 +13,13 @@ import assert from "node:assert/strict";
 import {
   comportamentoValido,
   enfileirar,
-  iaSimuladaLigada,
+  iaSimuladaLigada as iaSimuladaLigadaReexportada,
   limparFila,
   respostaSimulada,
   streamSimulado,
   verFila,
 } from "../lib/ia-simulada.ts";
+import { iaSimuladaLigada } from "../lib/ia-simulada-ligada.ts";
 
 let passed = 0;
 async function test(name: string, fn: () => Promise<void> | void) {
@@ -49,6 +50,9 @@ await test("liga só com a variável E fora de produção", () => {
   assert.equal(iaSimuladaLigada({ NEXODOC_IA_SIMULADA: "1", NODE_ENV: "development" }), true);
   assert.equal(iaSimuladaLigada({ NEXODOC_IA_SIMULADA: "1", NODE_ENV: "production" }), false);
   assert.equal(iaSimuladaLigada({ NODE_ENV: "development" }), false);
+  assert.equal(iaSimuladaLigada({ NEXODOC_IA_SIMULADA: "true", NODE_ENV: "development" }), false);
+  // A mesma função que o `ai-runner` usa, e não uma cópia.
+  assert.equal(iaSimuladaLigadaReexportada, iaSimuladaLigada);
 });
 
 await test("leitura global devolve achados ancorados em trechos reais, com a página", async () => {
