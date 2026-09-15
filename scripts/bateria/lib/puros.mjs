@@ -25,8 +25,15 @@ function executar(args, env, timeoutMs) {
 
 function primeiraLinhaDeErro(saida) {
   const linhas = saida.split(/\r?\n/);
+  const falhouIdx = linhas.findIndex((l) => /FALHOU|falha/.test(l) && !/warning/i.test(l));
+  if (falhouIdx !== -1) {
+    const header = linhas[falhouIdx].trim();
+    // Procura a primeira linha não-vazia após FALHOU que não seja stack frame ("at ...")
+    const motivo = linhas.slice(falhouIdx + 1).find((l) => l.trim() && !/^\s*at\s+/.test(l))?.trim() ?? "";
+    return (motivo ? `${header}: ${motivo}` : header).slice(0, 200);
+  }
   return (
-    linhas.find((l) => /FALHOU|Error|AssertionError|falha/.test(l) && !/warning/i.test(l)) ??
+    linhas.find((l) => /Error|AssertionError/.test(l) && !/warning/i.test(l)) ??
     linhas.filter(Boolean).at(-1) ??
     ""
   ).trim().slice(0, 200);
@@ -42,7 +49,7 @@ async function rodarUm(arquivo, env, timeoutMs) {
   // de produção importa sem extensão (./disciplinas, ./parse-filename). O build resolve,
   // node cru não — que é por que package.json roda esses testes com --import resolver.
   // Sem isto, 5 testes foram flagrados como apodrecidos por engano (14/09/2026).
-  if (r.codigo !== 0 && /(ERR_MODULE_NOT_FOUND|Cannot find module)/.test(r.saida) && !/^Cannot find package/.test(r.saida)) {
+  if (r.codigo !== 0 && /(ERR_MODULE_NOT_FOUND|Cannot find module)/.test(r.saida) && !/Cannot find package '@\//.test(r.saida)) {
     r = await executar(["--import", "./scripts/lib/resolver-de-imports.mjs", arquivo], env, timeoutMs);
   }
   if (r.estourou) return { arquivo, estado: "vermelho", motivo: `tempo esgotado (${timeoutMs / 1000}s)`, ms: r.ms };
