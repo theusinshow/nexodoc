@@ -142,6 +142,7 @@ const VisorDaFolha = dynamic(
 );
 import { useConexao } from "../lib/use-conexao";
 import { duracaoLegivel, useSessaoExpirada } from "../lib/use-sessao-expirada";
+import { separarMemorialRepetido } from "../lib/memorial-repetido";
 import { detalheDoParecer, type ParecerParaIncompletude } from "@/lib/auditoria-incompleta";
 
 function reportDoPayload(payload: unknown): ParecerParaIncompletude | null {
@@ -1003,8 +1004,18 @@ function NexoWorkspaceInner({
 
   async function readSelos(list: FileList | null) {
     const all = list ? Array.from(list) : [];
-    const pdfs = all.filter((f) => /\.pdf$/i.test(f.name));
+    const pdfsSoltos = all.filter((f) => /\.pdf$/i.test(f.name));
     const images = all.filter(isImageFile);
+    /*
+     * O MEMORIAL QUE A CONVERSA JÁ TEM não entra de novo — decidido em
+     * 15/09/2026 (jornada c1). Sai ANTES dos chips e do pré-voo: soltá-lo outra
+     * vez criava um segundo chip, relia o documento e repetia "Anexei o memorial"
+     * e "Li as primeiras páginas" no histórico. Mesma régua das pranchas: o nome.
+     */
+    const { novos: pdfs, repetido } = separarMemorialRepetido(
+      pdfsSoltos,
+      memorialFile?.name ?? null,
+    );
 
     /*
      * ARQUIVO RECUSADO. Antes, soltar um .dwg não fazia NADA — sem aviso, sem
@@ -1012,7 +1023,7 @@ function NexoWorkspaceInner({
      * verdade é que ele exportou do CAD e soltou o arquivo errado, que é um
      * engano de dez segundos quando alguém avisa.
      */
-    const recusados = all.filter((f) => !pdfs.includes(f) && !images.includes(f));
+    const recusados = all.filter((f) => !pdfsSoltos.includes(f) && !images.includes(f));
     if (recusados.length > 0) {
       const exts = [
         ...new Set(
@@ -1026,6 +1037,14 @@ function NexoWorkspaceInner({
       setRecusa(null);
     }
 
+    if (repetido) {
+      // Uma linha, e não silêncio: soltar o arquivo e nada acontecer se lê como travamento.
+      conv.appendMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `O memorial ${repetido} já está nesta conversa — não li de novo.`,
+      });
+    }
     if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
 
