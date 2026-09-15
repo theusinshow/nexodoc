@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 import {
   decidirTroca,
   normalizarCentroDeCusto,
+  opcoesDoSeletorDeProjeto,
+  projetoEscolhidoValido,
   resolverProjeto,
 } from "../lib/resolucao-de-projeto.ts";
 
@@ -83,5 +85,24 @@ assert.deepEqual(decidirTroca({ codigoAtual: "099-25", codigoLido: "  " }), { ac
 
 // Sem nada dos dois lados, não há o que fazer.
 assert.deepEqual(decidirTroca({ codigoAtual: null, codigoLido: null }), { acao: "manter" });
+
+// O SELETOR (X2, decidido em 15/09/2026): quando o documento não traz código,
+// quem escolhe é gente — e a lista precisa ser lida do jeito que o escritório
+// procura, pelo centro de custo, com a prefeitura ao lado.
+const opcoes = opcoesDoSeletorDeProjeto([
+  { id: "p3", code: "099-25", client: "CRICIÚMA" },
+  { id: "p4", code: "040-26", client: "" },
+  { id: "p5", code: "063/26", client: "IÇARA" },
+]);
+assert.deepEqual(opcoes, [
+  { id: "p4", rotulo: "040-26" },
+  { id: "p5", rotulo: "063/26 · IÇARA" },
+  { id: "p3", rotulo: "099-25 · CRICIÚMA" },
+]);
+
+// Sem escolha, ou com um id que não está na lista, não se audita.
+assert.equal(projetoEscolhidoValido("", opcoes), false);
+assert.equal(projetoEscolhidoValido("p9", opcoes), false);
+assert.equal(projetoEscolhidoValido("p3", opcoes), true);
 
 console.log("OK  resolucao de projeto");

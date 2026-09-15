@@ -101,3 +101,25 @@ export function decidirTroca(args: {
 
   return { acao: atual === lido ? "manter" : "conflito" };
 }
+
+/** Uma linha do seletor de projeto do cartão de auditoria. */
+export type OpcaoDeProjeto = { id: string; rotulo: string };
+
+/**
+ * AS OPÇÕES DO SELETOR — quando o documento não traz centro de custo.
+ *
+ * Decidido pelo Matheus em 15/09/2026 (cenário X2 da bateria): a frase "Escolha
+ * o projeto desta auditoria" existia sem nada para escolher. A ordem é a do
+ * centro de custo NORMALIZADO, que é como o escritório procura; o rótulo leva a
+ * prefeitura porque dois projetos do mesmo ano se distinguem por ela.
+ */
+export function opcoesDoSeletorDeProjeto(projetos: readonly ProjetoConhecido[]): OpcaoDeProjeto[] {
+  return [...projetos]
+    .sort((a, b) => normalizarCentroDeCusto(a.code).localeCompare(normalizarCentroDeCusto(b.code)))
+    .map((p) => ({ id: p.id, rotulo: p.client?.trim() ? `${p.code} · ${p.client.trim()}` : p.code }));
+}
+
+/** Só um projeto que ESTÁ na lista libera a auditoria. */
+export function projetoEscolhidoValido(escolhido: string, opcoes: readonly OpcaoDeProjeto[]): boolean {
+  return escolhido !== "" && opcoes.some((o) => o.id === escolhido);
+}

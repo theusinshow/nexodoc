@@ -54,6 +54,11 @@ import {
 import { idDaAuditoriaDaProposta } from "../lib/auditoria-da-proposta";
 import { desfechoNaChegada } from "../lib/destino-do-parecer";
 import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
+import {
+  opcoesDoSeletorDeProjeto,
+  projetoEscolhidoValido,
+  type ProjetoConhecido,
+} from "@/lib/resolucao-de-projeto";
 import { useDeltaDoMemorial } from "./use-delta-do-memorial";
 import { usePaginasMudas } from "./use-paginas-mudas";
 import type { PaginaTranscrita } from "@/lib/pagina-muda";
@@ -2478,7 +2483,19 @@ function AuditoriaConfirmation({
     { prontas: number; total: number } | null
   >(null);
 
-  async function confirm(comTranscricao = false) {
+  /*
+   * O SELETOR DE PROJETO — decidido em 15/09/2026 (jornada x2). Sem código no
+   * documento, o cartão mandava "Escolha o projeto desta auditoria" e não tinha
+   * onde. Guarda os projetos e o botão que foi apertado (com ou sem
+   * transcrição), para a escolha retomar exatamente o pedido.
+   */
+  const [escolhaDeProjeto, setEscolhaDeProjeto] = useState<{
+    projetos: ProjetoConhecido[];
+    comTranscricao: boolean;
+  } | null>(null);
+  const [projetoEscolhido, setProjetoEscolhido] = useState("");
+
+  async function confirm(comTranscricao = false, projetoDaEscolha?: string) {
     if (!memorialFile) return;
     setBusy(true);
     setError(null);
@@ -2495,7 +2512,12 @@ function AuditoriaConfirmation({
      * O código já vem do documento (`memorialFatos.codigo`), então no caso
      * normal isto não pergunta nada.
      */
-    let projectId = projetoDaConversa;
+    let projectId = projetoDaEscolha ?? projetoDaConversa;
+    if (projetoDaEscolha) {
+      // A escolha endereça a conversa: a próxima auditoria dela não pergunta de novo.
+      vincularProjeto(projetoDaEscolha);
+      setEscolhaDeProjeto(null);
+    }
 
     if (!projectId) {
       /*
@@ -2510,6 +2532,13 @@ function AuditoriaConfirmation({
         obra,
         municipio,
       });
+
+      // Sem código e com projetos para escolher: pergunta, e não gasta.
+      if (destino.tipo === "sem-codigo" && destino.projetos.length > 0) {
+        setEscolhaDeProjeto({ projetos: destino.projetos, comTranscricao });
+        setBusy(false);
+        return;
+      }
 
       if (destino.tipo !== "achado") {
         setError(fraseDoImpasse(destino));
@@ -2918,6 +2947,49 @@ function AuditoriaConfirmation({
               </span>
             )}
           </div>
+          {/*
+            O SELETOR DE PROJETO (x2, 15/09/2026). O rótulo é a mesma frase de
+            `fraseDoImpasse`: é ela que explica por que a escolha apareceu. Sem
+            escolha válida o botão não libera — auditoria sem projeto não tem
+            fila, gate de emissão nem a quem atribuir achado.
+          */}
+          {escolhaDeProjeto &&
+            (() => {
+              const opcoes = opcoesDoSeletorDeProjeto(escolhaDeProjeto.projetos);
+              const idDoSeletor = `projeto-da-auditoria-${mensagemId ?? "cartao"}`;
+              return (
+                <div
+                  data-seletor-de-projeto
+                  className="nx-cut-6 flex flex-col gap-2 border-0 bg-[var(--nexodoc-recessed)] px-3 py-2"
+                >
+                  <label htmlFor={idDoSeletor} className="text-xs leading-relaxed text-foreground">
+                    {fraseDoImpasse({ tipo: "sem-codigo", projetos: escolhaDeProjeto.projetos })}
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      id={idDoSeletor}
+                      value={projetoEscolhido}
+                      onChange={(e) => setProjetoEscolhido(e.target.value)}
+                      className="nx-edge-5 h-8 min-w-0 flex-1 bg-transparent px-2 text-xs text-foreground [--nx-fill:var(--nexodoc-recessed)]"
+                    >
+                      <option value="">Escolha o projeto…</option>
+                      {opcoes.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.rotulo}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      disabled={busy || !projetoEscolhidoValido(projetoEscolhido, opcoes)}
+                      onClick={() => void confirm(escolhaDeProjeto.comTranscricao, projetoEscolhido)}
+                    >
+                      Auditar neste projeto
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
         </>
       )}
 
