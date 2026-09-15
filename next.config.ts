@@ -5,6 +5,13 @@ import { fileURLToPath } from "node:url";
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  /*
+   * A PASTA DE BUILD pode mudar pelo ambiente. O servidor da bateria usa
+   * `.next-bateria`: com a mesma `.next`, ele disputava o arquivo com o
+   * `npm run dev` de quem está programando ("Another next dev server is already
+   * running", visto em 14/09/2026). Sem a variável, nada muda.
+   */
+  distDir: process.env.NEXODOC_DIST_DIR || ".next",
   serverExternalPackages: ["pdfjs-dist"],
   /*
    * Os arquivos que as rotas LEEM do disco em tempo de execução. O rastreador
