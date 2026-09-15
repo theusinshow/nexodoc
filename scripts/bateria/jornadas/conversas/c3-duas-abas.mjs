@@ -72,16 +72,25 @@ export default {
      * POSTs /api/nexo/agent=1). Agora a aba confere a versão com o servidor
      * antes de gastar, e a faixa acende sem a aba ter gravado nada.
      *
-     * O "Auditar" do cartão não entra aqui: na aba restaurada ele nasce cinza
-     * (medido: `Auditar|disabled`, o memorial retido não volta ao cartão — ver
-     * "Suspeitas abertas" no registro), então o clique nem chega ao `confirm`.
-     * O que se conta é que nenhum dos dois POSTs pagos sai desta aba.
+     * O gesto é o "Auditar" do cartão, o mais caro. Até a a8 (15/09/2026) ele
+     * nascia cinza na aba restaurada — o memorial retido chegava antes da
+     * limpeza da view transition e era apagado por ela —, e esta jornada provava
+     * a recusa por um envio no chat. Consertado, o clique volta a ser a prova: o
+     * botão tem de estar HABILITADO antes, senão "nenhum POST" seria só um botão
+     * que não clica.
      */
     const ePost = (caminho) => (req) => req.method() === "POST" && new URL(req.url()).pathname === caminho;
     await aba2.bringToFront();
+    const auditarNaAba2 = aba2.getByRole("button", { name: /^Auditar$/ });
+    const habilitadoAntes = await ctx.esperar(async () => (await auditarNaAba2.count()) > 0 && (await auditarNaAba2.last().isEnabled()), 20_000, 250);
+    ctx.verificar(
+      "antes do gesto, o Auditar da aba 2 está habilitado e visível de verdade",
+      habilitadoAntes && (await ctx.visivelRolando(auditarNaAba2.last())),
+      `auditar=${await auditarNaAba2.count()}`,
+    );
     const turnosDaAba2 = ctx.contarRequisicoes(ePost("/api/nexo/agent"), aba2);
     const auditoriasDaAba2 = ctx.contarRequisicoes(ePost("/api/audit"), aba2);
-    await ctx.escrever("oi, tudo bem?", aba2);
+    await auditarNaAba2.last().click({ timeout: 10_000 }).catch(() => {});
     await aba2.waitForTimeout(6000);
     turnosDaAba2.parar();
     auditoriasDaAba2.parar();
@@ -89,7 +98,7 @@ export default {
     const faixa = aba2.getByText("Esta conversa mudou em outra aba", { exact: true });
     ctx.verificar("a aba 2 avisa que a conversa mudou em outra aba, visível de verdade", await ctx.visivelRolando(faixa), `contagem=${await faixa.count()}`);
     ctx.verificar(
-      "o primeiro envio da aba 2, parada, é recusado antes de gastar: nenhum POST a /api/nexo/agent nem a /api/audit",
+      "o Auditar da aba 2, parada, é recusado antes de gastar: nenhum POST a /api/audit nem a /api/nexo/agent",
       turnosDaAba2.total() === 0 && auditoriasDaAba2.total() === 0,
       `POSTs /api/nexo/agent=${turnosDaAba2.total()} /api/audit=${auditoriasDaAba2.total()}`,
     );
@@ -104,7 +113,6 @@ export default {
       campoTravado && /mudou em outra aba/.test(motivoNoCampo),
       `desabilitado=${campoTravado} placeholder=${motivoNoCampo}`,
     );
-    const auditarNaAba2 = aba2.getByRole("button", { name: /^Auditar$/ });
     const quantosAuditar = await auditarNaAba2.count();
     let auditarTravados = 0;
     for (let i = 0; i < quantosAuditar; i++) if (await auditarNaAba2.nth(i).isDisabled()) auditarTravados++;
@@ -117,8 +125,9 @@ export default {
     const depois = await noServidor();
     ctx.verificar("o servidor continua com o parecer da aba 1", pareceresDe(depois?.data).length === 1, `pareceres=${pareceresDe(depois?.data).length}`);
     ctx.verificar(
-      "a mensagem da aba parada não chegou ao servidor",
-      Boolean(depois) && !JSON.stringify(depois.data?.messages ?? []).includes("oi, tudo bem?"),
+      "o Auditar recusado não registrou auditoria nem bilhete no servidor",
+      Boolean(depois) && (depois.data?.auditorias ?? []).length === 1 && !depois.data?.auditoriaPendente,
+      `auditorias=${(depois?.data?.auditorias ?? []).length} bilhete=${JSON.stringify(depois?.data?.auditoriaPendente ?? null)}`,
     );
     ctx.verificar(
       "a versão do servidor não mudou",
@@ -127,9 +136,9 @@ export default {
     );
     const noDisco = await ctx.lerConversa(id);
     ctx.verificar(
-      "o disco que as abas dividem continua com o parecer",
-      pareceresDe(noDisco).length === 1 && !JSON.stringify(noDisco?.messages ?? []).includes("oi, tudo bem?"),
-      `pareceres=${pareceresDe(noDisco).length}`,
+      "o disco que as abas dividem continua com o parecer, sem bilhete da aba parada",
+      pareceresDe(noDisco).length === 1 && (noDisco?.auditorias ?? []).length === 1 && !noDisco?.auditoriaPendente,
+      `pareceres=${pareceresDe(noDisco).length} auditorias=${(noDisco?.auditorias ?? []).length}`,
     );
 
     // Outra máquina, com a base de quando abriu: a rota recusa por conta própria.

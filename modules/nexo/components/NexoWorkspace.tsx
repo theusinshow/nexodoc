@@ -1566,7 +1566,15 @@ function NexoWorkspaceInner({
   const selectConv = async (id: string) => {
     const rec = await conv.selectConversation(id);
     if (!rec) return;
-    runShellTransition(() =>
+    /*
+     * ESPERA A TROCA DE DOM, e não só o pedido dela (a8, 15/09/2026). Com view
+     * transition, este callback roda quadros depois — e zera `memorialFile`. Sem
+     * o `await`, o memorial retido lido logo abaixo voltava do IndexedDB ANTES
+     * (medido: pedido 931ms, memorial 997ms, callback 1018ms), a limpeza chegava
+     * por último e o "Auditar" da conversa restaurada (F5, segunda aba) nascia
+     * cinza e ficava assim. Regra travada em scripts/test-transicao-do-shell.ts.
+     */
+    await runShellTransition(() =>
       flushSync(() => {
         /*
          * Auditoria em voo também "começa" a conversa. Sem isto o shell abria no

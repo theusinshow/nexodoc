@@ -55,14 +55,33 @@ type StartViewTransition = (callback: () => void) => {
  * - com suporte → `startViewTransition(apply)`; o browser faz o FLIP dos
  *   elementos com `view-transition-name` (nexo-copilot/nexo-stage), honrando
  *   "só transform+opacity". O fallback CSS (`@supports not`) cobre o Firefox.
+ *
+ * DEVOLVE uma promessa que só resolve DEPOIS de `apply` ter rodado (a8,
+ * 15/09/2026). Com view transition o navegador chama `apply` quadros adiante, e
+ * não na hora: `selectConv` limpava o memorial ali e restaurava o retido na
+ * linha de baixo — o IndexedDB devolvia antes do callback, a limpeza chegava por
+ * último e o "Auditar" da conversa restaurada ficava cinza para sempre. Quem
+ * põe algo por cima do que `apply` limpa espera por esta promessa. Resolve
+ * mesmo se `apply` explodir: a exceção segue para o navegador como antes, e a
+ * restauração não fica pendurada.
  */
-export function runShellTransition(apply: () => void): void {
+export function runShellTransition(apply: () => void): Promise<void> {
   if (prefersReducedMotion() || !supportsViewTransitions()) {
     apply();
-    return;
+    return Promise.resolve();
   }
   const doc = document as Document & { startViewTransition?: StartViewTransition };
-  const transicao = doc.startViewTransition!(apply);
+  let aplicou!: () => void;
+  const aplicado = new Promise<void>((resolve) => {
+    aplicou = resolve;
+  });
+  const transicao = doc.startViewTransition!(() => {
+    try {
+      apply();
+    } finally {
+      aplicou();
+    }
+  });
   /*
    * DUAS TRANSIÇÕES SEGUIDAS: a nova PULA a anterior, e o `ready` da anterior
    * rejeita com "AbortError: Transition was skipped". A mudança de DOM das duas
@@ -72,4 +91,5 @@ export function runShellTransition(apply: () => void): void {
    * esperar a lista do servidor e terminou junto de outra abertura.
    */
   transicao?.ready?.catch(() => {});
+  return aplicado;
 }
