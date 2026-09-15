@@ -42,6 +42,7 @@ import { parecerARecuperar } from "../lib/parecer-a-recuperar";
 import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
 import { criarFilaDeGravacao } from "../lib/fila-de-gravacao";
+import { criarUltimaAbertura } from "../lib/ultima-abertura";
 import { podeGastar as podeGastarNaAba } from "../lib/aba-travada";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
@@ -592,6 +593,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * `gravarJa`). Criada uma vez só; ela lê o snapshot na hora de gravar.
    */
   const [agenda] = useState(() => criarAgendaDeGravacao({ esperaMs: PERSIST_DEBOUNCE_MS }));
+  /*
+   * A ÚLTIMA ABERTURA VENCE (revisão final da segunda rodada, 15/09/2026): ver
+   * `lib/ultima-abertura.ts` e `selectConversation`.
+   */
+  const [aberturas] = useState(() => criarUltimaAbertura());
   /**
    * A GERAÇÃO da gravação imediata que o estado comitado carrega. Cada flush
    * põe aqui a geração do seu pedido, na mesma volta da mudança: só o commit
@@ -1230,6 +1236,16 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
+      /*
+       * A ÚLTIMA ABERTURA VENCE — revisão final da segunda rodada, 15/09/2026.
+       * As esperas abaixo (commit, fila, lista do servidor por até 4s, disco,
+       * rede) soltavam duas aberturas juntas, e trocava por último a que
+       * terminasse por último: o F5 desfazia um clique, ou a retomada da
+       * auditoria. Depois de cada espera, a abertura que já não é a mais
+       * recente desiste sem trocar nada (`null`, como conversa não achada).
+       */
+      const minha = aberturas.comecar();
+      const superada = () => !aberturas.valeAinda(minha);
       const geracao = flushPersist(); // grava a conversa atual antes de trocar (#1)
       /*
        * E ESPERA O COMMIT da conversa que sai, 14/09/2026. O flush grava o
@@ -1243,6 +1259,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * garante que abrir uma conversa nunca trave por causa disso.
        */
       await agenda.proximaSincronizacao(geracao, 1000);
+      if (superada()) return null;
       /*
        * E ESPERA A FILA DE GRAVAÇÃO, 15/09/2026 (jornada c3). A gravação do
        * flush só chega ao disco depois de a fila conferir a versão dele; antes
@@ -1253,6 +1270,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * causa de disco lento.
        */
       await Promise.race([fila.ociosa(), new Promise((r) => setTimeout(r, 1000))]);
+      if (superada()) return null;
       /*
        * Recarregar depois do 409 do servidor: quem gravou foi OUTRA MÁQUINA, e o
        * disco desta tem a versão desta aba — com hora que pode ser mais nova
@@ -1287,6 +1305,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           listaRemota.current.chegando,
           new Promise((r) => setTimeout(r, 4000)),
         ]);
+        if (superada()) return null;
       }
       let verificada = listaRemota.current.carregada;
       /*
@@ -1307,6 +1326,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * propósito depois de 15/09/2026: o caso "raro" apagava edições.
        */
       const doDisco = await getConversation(id);
+      if (superada()) return null;
       const remoto = remotasRef.current.find((c) => c.id === id) ?? null;
       let rec = doDisco;
       const irAoServidor = manterDisco
@@ -1335,6 +1355,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           // O servidor é mais novo e não deu para ler: a base não está conferida.
           verificada = false;
         }
+        if (superada()) return null;
       }
       if (!rec) return null;
       /*
@@ -1362,6 +1383,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         // Grava já no disco: o próximo F5 não pode ler o formato antigo de novo
         // e casar com uma proposta que chegou depois.
         await putConversation(rec).catch(() => {});
+        if (superada()) return null;
       }
       // Reidrata os resultados: busca cada blob e cria URLs vivas.
       const restored: SavedResult[] = [];
@@ -1456,6 +1478,15 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * registro fantasma. Marcada a troca, gravação nenhuma lê o snapshot até
        * o commit desta — só fica o pedido, cumprido por ele.
        */
+      /*
+       * A ÚLTIMA CONFERÊNCIA antes da troca: reidratar os blobs e a rede de
+       * recuperação também esperam. Os URLs criados para esta abertura morrem
+       * com ela.
+       */
+      if (superada()) {
+        restored.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
+        return null;
+      }
       agenda.comecarTroca(rec.id);
       // Veio do disco: manter em dia, mesmo que fique "vazia" ao limpar campos.
       jaPersistiu.current = true;
@@ -1528,7 +1559,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [agenda, fila, flushPersist, schedulePersist],
+    [aberturas, agenda, fila, flushPersist, schedulePersist],
   );
 
   const removeConversation = useCallback(
