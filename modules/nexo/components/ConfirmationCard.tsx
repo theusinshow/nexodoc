@@ -640,10 +640,14 @@ function ConfirmButton({
    * ABA TRAVADA NÃO GASTA — revisão final da segunda rodada, 15/09/2026. Todo
    * cartão (LD, capa, conferência, volume, separatriz, auditoria) confirma por
    * aqui; com a conversa mudada em outra aba, o que se gerasse seria pago e
-   * nunca gravado. O `title` diz o porquê do botão cinza.
+   * nunca gravado. O porquê do botão cinza vai também em TEXTO ao lado
+   * (15/09/2026): só no `title` ele não existia no toque nem para quem não
+   * passa o mouse — e um botão cinza sem motivo se lê como travamento. É a
+   * mesma frase que o plano de geração e os volumes já mostravam.
    */
   const { podeGastar, motivoParaNaoGastar } = useConversation();
   return (
+    <>
     <Button
       size="sm"
       onClick={onConfirm}
@@ -668,6 +672,12 @@ function ConfirmButton({
       )}
       {busy ? busyLabel : label}
     </Button>
+    {!podeGastar && motivoParaNaoGastar && (
+      <span className="text-xs text-muted-foreground" data-motivo-sem-gasto>
+        {motivoParaNaoGastar}
+      </span>
+    )}
+    </>
   );
 }
 

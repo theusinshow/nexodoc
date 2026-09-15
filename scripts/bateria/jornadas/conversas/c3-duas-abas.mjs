@@ -124,6 +124,17 @@ export default {
       quantosAuditar > 0 && auditarTravados === quantosAuditar,
       `auditar=${quantosAuditar} travados=${auditarTravados}`,
     );
+    // O botão cinza diz o porquê em TEXTO, não só no tooltip (15/09/2026).
+    const motivoAoLado = aba2.locator("[data-motivo-sem-gasto]");
+    const motivosAoLado = await motivoAoLado.count();
+    ctx.verificar(
+      "o botão travado diz o porquê em texto ao lado, visível de verdade",
+      auditarTravados > 0 &&
+        motivosAoLado > 0 &&
+        /mudou em outra aba/.test((await motivoAoLado.first().textContent()) ?? "") &&
+        (await ctx.visivelRolando(motivoAoLado)),
+      `travados=${auditarTravados} motivos=${motivosAoLado}`,
+    );
 
     /*
      * NEM LÊ CARIMBO (última onda da frente A, 15/09/2026): soltar uma prancha na
