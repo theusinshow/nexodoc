@@ -64,6 +64,9 @@ export function comecarNovaConversa(args: {
    * faixa padrão (`await saveResult(...)`). A espera resolvia, A era gravada
    * sem a mudança, e a troca chegava junto com ela. Esperando a geração que
    * entrou no estado junto com a mudança, o commit que resolve é o que a traz.
+   * E só ele: o commit diz QUAIS gerações trouxe, e não a maior — o flush de
+   * outro gesto, comitado na faixa síncrona durante a espera, não a solta
+   * (ver `semCommit` em `agenda-de-gravacao.ts`).
    */
   return args.agenda
     .proximaSincronizacao(pendente, args.limiteMs ?? 1000)

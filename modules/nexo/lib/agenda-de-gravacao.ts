@@ -28,31 +28,43 @@ export type AgendaDeGravacao = {
    */
   agendar: (gravar: () => void) => number;
   /**
-   * A última geração entregue (debounce ou flush), se nenhum commit a
-   * sincronizou ainda; `null` se não há mudança pendente. É o que
-   * `comecarNovaConversa` espera antes de dar o flush e trocar de conversa: o
-   * commit que traz ESTA geração traz a mudança, porque as duas entraram no
-   * estado na mesma volta (e na mesma faixa de prioridade do React).
+   * O atualizador do estado do React para a geração `nova`, que quem chama
+   * passa ao setter NA MESMA VOLTA da mudança: `setGeracoes(juntarGeracao(g))`.
+   * O estado guarda a LISTA das gerações ainda sem commit — é ela que o commit
+   * entrega a `aoSincronizar`, e não a maior (ver `aoSincronizar`). As que já
+   * sincronizaram saem da lista aqui: o que conta é o que a agenda sabia NA
+   * CHAMADA, e uma geração que já sincronizou nunca volta a faltar.
+   */
+  juntarGeracao: (nova: number) => (atual: readonly number[]) => number[];
+  /**
+   * A maior geração entregue (debounce ou flush) se alguma ainda não chegou a
+   * um commit; `null` se não há mudança pendente. É o que `comecarNovaConversa`
+   * espera antes de dar o flush e trocar de conversa — e esperar por ela é
+   * esperar por TODAS até ela (ver `proximaSincronizacao`).
    */
   geracaoSemCommit: () => number | null;
   /**
    * Grava AGORA e pede outra gravação para o commit que trouxer a geração
    * devolvida. Quem chama PRECISA pôr essa geração no estado do React na mesma
-   * volta (`setGeracao(devolvida)`) — é isso que amarra o pedido ao commit que
-   * carrega a mudança. `conversaAtual` devolve o id que está no snapshot.
+   * volta (`setGeracoes(juntarGeracao(devolvida))`) — é isso que amarra o
+   * pedido ao commit que carrega a mudança. `conversaAtual` devolve o id que
+   * está no snapshot.
    */
   gravarJa: (gravar: () => void, conversaAtual: () => string) => number;
   /**
    * Chamado pelo store DEPOIS de copiar o estado comitado para o snapshot, com
-   * a geração que ESSE commit carrega. Cumpre o pedido só se o commit já tem a
-   * geração pedida e a conversa ainda é a mesma.
+   * as gerações que ESSE commit carrega. Cumpre o pedido só quando nenhuma
+   * geração até a dele falta chegar a um commit, e a conversa ainda é a mesma.
    */
   aoSincronizar: (
     gravar: () => void,
     conversaAtual: () => string,
-    geracaoComitada: number,
+    geracoesComitadas: readonly number[],
   ) => void;
-  /** Resolve quando um commit com `geracao` sincronizar (ou em `limiteMs`). */
+  /**
+   * Resolve quando todas as gerações entregues até `geracao` tiverem chegado a
+   * um commit (ou em `limiteMs`).
+   */
   proximaSincronizacao: (geracao: number, limiteMs: number) => Promise<void>;
   /**
    * O snapshot vai começar a receber campos da conversa `para` com o id ainda
@@ -85,8 +97,25 @@ export function criarAgendaDeGravacao(opcoes: {
   let alca: unknown = null;
   /** Última geração entregue a um `gravarJa` ou `agendar`. */
   let geracoes = 0;
-  /** A maior geração que um commit já sincronizou. */
-  let comitada = 0;
+  /*
+   * AS GERAÇÕES ENTREGUES QUE NENHUM COMMIT TROUXE AINDA — e não "a maior que
+   * sincronizou" (15/09/2026, a suspeita aberta da última onda da frente A).
+   * Com a maior, um commit com a geração g+1 dizia que g já tinha chegado. Não
+   * diz: o React comita a faixa síncrona na hora, PULANDO o que é da faixa
+   * padrão. Uma mudança de continuação assíncrona (`await saveResult(...)`, g)
+   * seguida do flush de outro gesto num clique (g+1) comitava g+1 sem a
+   * mudança — a espera de "Nova conversa" e da abertura resolvia cedo, e o
+   * pedido do flush (que desarmou o debounce de g) era cumprido sem ela; nada
+   * mais a gravava. A mudança e a geração dela entram no estado na mesma volta,
+   * portanto na mesma faixa e no mesmo commit: o commit que traz a geração traz
+   * a mudança, e só ele a tira daqui.
+   */
+  const semCommit = new Set<number>();
+  /** Nenhuma geração entregue até `geracao` falta chegar a um commit. */
+  const chegaramAte = (geracao: number) => {
+    for (const g of semCommit) if (g <= geracao) return false;
+    return true;
+  };
   /** O pedido pós-commit: para qual conversa e a partir de qual geração. */
   let pedido: { conversa: string; geracao: number } | null = null;
   let esperando: { geracao: number; resolver: () => void }[] = [];
@@ -107,25 +136,32 @@ export function criarAgendaDeGravacao(opcoes: {
     agendar(gravar) {
       desarmar();
       geracoes += 1;
+      semCommit.add(geracoes);
       alca = relogio.armar(() => {
         alca = null;
         // No meio de uma troca o snapshot é metade de cada conversa: o commit
         // da conversa nova é quem grava.
         if (trocandoPara !== null) {
           /*
-           * Qualquer commit da conversa nova cumpre: a geração é a última já
-           * comitada, e não a deste debounce — ela entra no estado junto com a
+           * Qualquer commit da conversa nova cumpre: a geração 0 não espera
+           * nenhuma, e não a deste debounce — ela entra no estado junto com a
            * mudança, e o commit que a traz pode ser o de antes da troca.
            */
-          pedido = { conversa: trocandoPara, geracao: comitada };
+          pedido = { conversa: trocandoPara, geracao: 0 };
           return;
         }
         gravar();
       }, opcoes.esperaMs);
       return geracoes;
     },
+    juntarGeracao(nova) {
+      const faltavam = new Set(semCommit);
+      return (atual) => [...atual.filter((g) => faltavam.has(g)), nova];
+    },
     geracaoSemCommit() {
-      return geracoes > comitada ? geracoes : null;
+      let maior: number | null = null;
+      for (const g of semCommit) if (maior === null || g > maior) maior = g;
+      return maior;
     },
     gravarJa(gravar, conversaAtual) {
       /*
@@ -164,6 +200,7 @@ export function criarAgendaDeGravacao(opcoes: {
        */
       desarmar();
       geracoes += 1;
+      semCommit.add(geracoes);
       if (trocandoPara !== null) {
         pedido = { conversa: trocandoPara, geracao: geracoes };
         return geracoes;
@@ -172,23 +209,26 @@ export function criarAgendaDeGravacao(opcoes: {
       pedido = { conversa: conversaAtual(), geracao: geracoes };
       return geracoes;
     },
-    aoSincronizar(gravar, conversaAtual, geracaoComitada) {
-      comitada = Math.max(comitada, geracaoComitada);
+    aoSincronizar(gravar, conversaAtual, geracoesComitadas) {
+      for (const g of geracoesComitadas) semCommit.delete(g);
       // O commit da conversa nova chegou ao snapshot: a troca acabou.
       if (trocandoPara !== null && conversaAtual() === trocandoPara)
         trocandoPara = null;
-      // Um commit de ANTES da troca não cumpre nem descarta o pedido dela.
+      /*
+       * Um commit de ANTES da troca não cumpre nem descarta o pedido dela. E o
+       * pedido espera TODAS as gerações até a dele, não só a dele: o flush
+       * desarmou o debounce das anteriores, e agora é ele quem as grava.
+       */
       if (
         trocandoPara === null &&
         pedido !== null &&
-        geracaoComitada >= pedido.geracao
+        chegaramAte(pedido.geracao)
       ) {
         const cumprir = pedido.conversa === conversaAtual();
         pedido = null;
         if (cumprir) gravar();
       }
-      const prontos = esperando.filter((e) => geracaoComitada >= e.geracao);
-      esperando = esperando.filter((e) => geracaoComitada < e.geracao);
+      const prontos = esperando.filter((e) => chegaramAte(e.geracao));
       for (const e of prontos) e.resolver();
     },
     proximaSincronizacao(geracao, limiteMs) {

@@ -678,12 +678,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    */
   const [aberturas] = useState(() => criarUltimaAbertura());
   /**
-   * A GERAÇÃO da gravação imediata que o estado comitado carrega. Cada flush
-   * põe aqui a geração do seu pedido, na mesma volta da mudança: só o commit
-   * que traz a mudança traz a geração, e só ele cumpre o pedido (ver `gravarJa`).
+   * AS GERAÇÕES das gravações que o estado comitado carrega. Cada flush e cada
+   * debounce junta aqui a sua, na mesma volta da mudança: só o commit que traz
+   * a mudança traz a geração, e só ele cumpre o pedido (ver `gravarJa`). É uma
+   * LISTA, e não a maior (15/09/2026): um commit da faixa síncrona com uma
+   * geração maior não traz a mudança ainda na faixa padrão (ver `juntarGeracao`).
    * Também garante que haja um commit depois de todo flush.
    */
-  const [geracaoDaGravacao, setGeracaoDaGravacao] = useState(0);
+  const [geracoesDaGravacao, setGeracoesDaGravacao] = useState<readonly number[]>([]);
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
   const jaPersistiu = useRef(false);
   /*
@@ -934,11 +936,10 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     /*
      * A geração do debounce vai para o estado junto com a mudança, como a do
      * flush: é o que deixa `geracaoSemCommit` saber se ela já chegou a um
-     * commit (ver `comecarNovaConversa`). O `max` não deixa um debounce baixar
-     * a geração de um flush da mesma volta.
+     * commit (ver `comecarNovaConversa`).
      */
     const geracao = agenda.agendar(persistNow);
-    setGeracaoDaGravacao((atual) => Math.max(atual, geracao));
+    setGeracoesDaGravacao(agenda.juntarGeracao(geracao));
   }, [agenda, persistNow]);
 
   // Flush: grava JÁ, antes de trocar/limpar a conversa. Sem isso, um debounce
@@ -946,7 +947,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   // E grava de novo no próximo commit da mesma conversa (ver `gravarJa`).
   const flushPersist = useCallback(() => {
     const geracao = agenda.gravarJa(persistNow, () => snapshotRef.current.conversationId);
-    setGeracaoDaGravacao(geracao);
+    setGeracoesDaGravacao(agenda.juntarGeracao(geracao));
     return geracao;
   }, [agenda, persistNow]);
 
@@ -958,7 +959,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * na tela e só a rodada 1 no disco; e o título de `salvarDossieDoMemorial`.
    * Sem dependências de propósito: tem de rodar em TODO commit, como o outro.
    *
-   * A geração é a DESTE commit. Effects rodam dos filhos para o pai, e um
+   * As gerações são as DESTE commit. Effects rodam dos filhos para o pai, e um
    * filho que dá flush dentro do próprio effect (`use-reconectar-auditoria`
    * limpando o bilhete residual) é seguido pelo effect do provider do commit
    * ANTERIOR — que recopia o bilhete velho para o snapshot. Cumprir o pedido
@@ -969,7 +970,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
     agenda.aoSincronizar(
       persistNow,
       () => snapshotRef.current.conversationId,
-      geracaoDaGravacao,
+      geracoesDaGravacao,
     );
   });
 

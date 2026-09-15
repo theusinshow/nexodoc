@@ -90,8 +90,8 @@ type Campos = {
   results: string[];
   memorial: string;
   pendente: boolean;
-  /** A geração da gravação imediata que o estado comitado carrega. */
-  geracao: number;
+  /** As gerações das gravações que o estado comitado carrega. */
+  geracao: readonly number[];
 };
 type Foto = Omit<Campos, "geracao"> & { createdAt: number; em: number };
 
@@ -117,7 +117,7 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     results: ["rodada-1"],
     memorial: "A:memorial",
     pendente: true,
-    geracao: 0,
+    geracao: [],
   };
   let snapshot: Omit<Campos, "geracao"> & { createdAt: number } = {
     ...estado,
@@ -162,8 +162,14 @@ function storeDeMentira({ commitMs = 25 } = {}) {
   function flushPersist(): number | undefined {
     const alvo: unknown = agenda.gravarJa(persistNow, conversaAtual);
     if (typeof alvo !== "number") return undefined;
-    set((e) => ({ ...e, geracao: alvo }));
+    const juntar = agenda.juntarGeracao(alvo);
+    set((e) => ({ ...e, geracao: juntar(e.geracao) }));
     return alvo;
+  }
+  /** O debounce põe a geração dele no estado na mesma volta, como o flush. */
+  function schedulePersist() {
+    const juntar = agenda.juntarGeracao(agenda.agendar(persistNow));
+    set((e) => ({ ...e, geracao: juntar(e.geracao) }));
   }
 
   return {
@@ -178,7 +184,7 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     commitSemEfeitos,
     saveResult(artefato: string) {
       set((e) => ({ ...e, results: [...e.results, artefato] }));
-      agenda.agendar(persistNow);
+      schedulePersist();
     },
     marcarAuditoriaPendenteNull() {
       set((e) => ({ ...e, pendente: false }));
@@ -210,7 +216,7 @@ function storeDeMentira({ commitMs = 25 } = {}) {
       });
       if (desfecho.gravarParecer) {
         set((e) => ({ ...e, results: [...e.results, parecer] }));
-        agenda.agendar(persistNow);
+        schedulePersist();
       }
       if (desfecho.limparBilhete) {
         set((e) => ({ ...e, pendente: false }));
@@ -391,7 +397,7 @@ await test("descartar larga o debounce e o pedido do flush", async () => {
   agenda.agendar(gravar);
   agenda.gravarJa(gravar, () => "A");
   agenda.descartar();
-  agenda.aoSincronizar?.(gravar, () => "A", 99);
+  agenda.aoSincronizar?.(gravar, () => "A", [99]);
   assert.equal(gravou, 1);
 });
 
@@ -512,10 +518,10 @@ await test("troca: debounce que vence na janela vira pedido da nova, e a marca s
   agenda.comecarTroca("B");
   await r.avancar(600); // o debounce vence com o snapshot ainda misto
   assert.deepEqual(gravadas, []);
-  agenda.aoSincronizar(gravar, () => id, 0); // commit de antes da troca
+  agenda.aoSincronizar(gravar, () => id, []); // commit de antes da troca
   assert.deepEqual(gravadas, []);
   id = "B";
-  agenda.aoSincronizar(gravar, () => id, 0); // o commit de B
+  agenda.aoSincronizar(gravar, () => id, []); // o commit de B
   assert.deepEqual(gravadas, ["B"]);
   agenda.gravarJa(gravar, () => id); // passada a troca, grava na hora de novo
   assert.deepEqual(gravadas, ["B", "B"]);
@@ -532,7 +538,7 @@ await test("a conversa aberta de fato é o destino da troca até o commit dela (
   agenda.aoSincronizar(
     () => {},
     () => "B",
-    0,
+    [],
   );
   assert.equal(agenda.abertaAgora("B"), "B");
 });
@@ -560,7 +566,7 @@ await test("a espera pela sincronização desarma o limite quando resolve", asyn
   agenda.aoSincronizar(
     () => {},
     () => "A",
-    alvo,
+    [alvo],
   );
   await esperando;
   assert.equal(armados, 1);

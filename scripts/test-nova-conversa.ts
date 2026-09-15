@@ -80,11 +80,23 @@ function relogioDeMentira() {
   return { relogio, avancar, esperar };
 }
 
-type Campos = { id: string; results: string[]; geracao: number };
+/**
+ * A geração que o estado comitado carrega: a LISTA das gerações que os commits
+ * trouxeram (o store de agora, `juntarGeracao`), ou o número da maior (antes).
+ */
+type Campos = { id: string; results: string[]; geracao: number | number[] };
+type JuntarGeracao = (g: number) => (atual: readonly number[]) => number[];
 
 function storeDeMentira({ commitMs = 25 } = {}) {
   const r = relogioDeMentira();
-  let estado: Campos = { id: "A", results: ["rodada-1"], geracao: 0 };
+  const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio: r.relogio });
+  const juntarGeracao = (agenda as unknown as { juntarGeracao?: JuntarGeracao })
+    .juntarGeracao;
+  let estado: Campos = {
+    id: "A",
+    results: ["rodada-1"],
+    geracao: juntarGeracao ? [] : 0,
+  };
   let snapshot = { id: "A", results: ["rodada-1"] };
   /*
    * DUAS FAIXAS DE PRIORIDADE, como o React (revisão da frente A, 15/09/2026).
@@ -98,7 +110,6 @@ function storeDeMentira({ commitMs = 25 } = {}) {
   let faixaAtual: "sync" | "padrao" = "padrao";
   let commitArmado: unknown = null;
   const disco: { id: string; results: string[] }[] = [];
-  const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio: r.relogio });
   const aberturas = criarUltimaAbertura();
   const conversaAtual = () => snapshot.id;
   // A guarda de vazia do `persistNow`: conversa nova sem nada não vai ao disco.
@@ -112,7 +123,7 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     estado = render;
     const { geracao, ...campos } = render;
     snapshot = { ...campos };
-    agenda.aoSincronizar(persistNow, conversaAtual, geracao);
+    agenda.aoSincronizar(persistNow, conversaAtual, geracao as never);
   }
   function set(fn: (e: Campos) => Campos) {
     fila.push({ fn, faixa: faixaAtual });
@@ -143,14 +154,24 @@ function storeDeMentira({ commitMs = 25 } = {}) {
   }
   function flushPersist() {
     const g = agenda.gravarJa(persistNow, conversaAtual);
-    set((e) => ({ ...e, geracao: g }));
+    const juntar = juntarGeracao?.(g);
+    set((e) => ({
+      ...e,
+      geracao: juntar ? juntar(e.geracao as number[]) : g,
+    }));
     return g;
   }
   function schedulePersist() {
     // O store de agora põe a geração do debounce no estado; o de antes não tinha.
     const g: unknown = agenda.agendar(persistNow);
-    if (typeof g === "number")
-      set((e) => ({ ...e, geracao: Math.max(e.geracao, g) }));
+    if (typeof g !== "number") return;
+    const juntar = juntarGeracao?.(g);
+    set((e) => ({
+      ...e,
+      geracao: juntar
+        ? juntar(e.geracao as number[])
+        : Math.max(e.geracao as number, g),
+    }));
   }
 
   return {
@@ -159,6 +180,8 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     estado: () => estado,
     flushSync,
     zerou: () => zerou,
+    /** A gravação imediata de um gesto qualquer (`marcarAuditoriaPendente`...). */
+    flushPersist,
     ultimaDe: (id: string) => disco.filter((g) => g.id === id).at(-1),
     saveResult(artefato: string) {
       set((e) => ({ ...e, results: [...e.results, artefato] }));
@@ -302,6 +325,46 @@ await test("abrir outra conversa por um clique (faixa síncrona) com mudança pe
   });
   await s.r.avancar(2000);
   assert.equal(await abrindo, "B");
+  assert.deepEqual(
+    s.ultimaDe("A")?.results,
+    ["rodada-1", "rodada-2"],
+    `disco=${JSON.stringify(s.disco)}`,
+  );
+});
+
+/*
+ * A MAIOR GERAÇÃO NÃO DIZ QUAIS O COMMIT TROUXE (suspeita aberta da última onda
+ * da frente A, fechada em 15/09/2026). O commit dizia só a maior geração, e a
+ * espera resolvia por `>=`: o flush de OUTRO gesto na faixa síncrona comitava
+ * uma geração maior SEM a mudança da faixa padrão, e passava por ela.
+ */
+await test("'Nova conversa' esperando a mudança da faixa padrão: o flush de outro gesto na faixa síncrona não solta a espera", async () => {
+  const s = storeDeMentira();
+  s.saveResult("rodada-2"); // faixa padrão, geração g, ainda sem commit
+  s.newConversation(); // espera o commit de g
+  s.flushSync(() => s.flushPersist()); // outro gesto: g+1 comita já, sem g
+  await s.r.avancar(1);
+  assert.equal(
+    s.zerou(),
+    0,
+    "a espera resolveu com o commit síncrono, que não trazia a mudança",
+  );
+  await s.r.avancar(2000);
+  assert.deepEqual(
+    s.ultimaDe("A")?.results,
+    ["rodada-1", "rodada-2"],
+    `disco=${JSON.stringify(s.disco)}`,
+  );
+  assert.equal(s.estado().id, "N");
+});
+
+await test("flush de outro gesto na faixa síncrona com mudança pendente na faixa padrão: a mudança chega ao disco", async () => {
+  // O flush desarma o debounce da mudança e pede a gravação pós-commit; o
+  // commit síncrono cumpria o pedido sem a mudança, e nada mais a gravava.
+  const s = storeDeMentira();
+  s.saveResult("rodada-2");
+  s.flushSync(() => s.flushPersist());
+  await s.r.avancar(2000);
   assert.deepEqual(
     s.ultimaDe("A")?.results,
     ["rodada-1", "rodada-2"],
