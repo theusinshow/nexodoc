@@ -5,6 +5,11 @@ export default {
   area: "auditoria",
   titulo: "leitura da IA aborta: parecer avisa e grava",
   async rodar(ctx) {
+    // O banco NÃO é esvaziado entre jornadas (só uma vez, no início da bateria
+    // inteira): numa corrida completa a1 roda antes de a3 no MESMO banco, e
+    // "a auditoria mais recente" sem filtro pegaria a de a3 se ela já tivesse
+    // gravado a sua. Cada jornada só lê o que ELA MESMA criou.
+    const inicio = new Date();
     await ctx.login();
     await ctx.ia.fila("audit-global", "abortar");
 
@@ -33,7 +38,8 @@ export default {
     );
 
     const [audit] = await ctx.banco.consultar(
-      `select status, report->'runtime'->'passadas_incompletas' as passadas from "Audit" order by "createdAt" desc limit 1`,
+      `select status, report->'runtime'->'passadas_incompletas' as passadas from "Audit" where "createdAt" >= $1 order by "createdAt" desc limit 1`,
+      [inicio],
     );
     ctx.verificar("auditoria gravada como COMPLETED", audit?.status === "COMPLETED", audit?.status);
     ctx.verificar(
