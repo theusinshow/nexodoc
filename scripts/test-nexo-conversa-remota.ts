@@ -20,6 +20,8 @@ import {
   LIMITE_BYTES,
   fundirListas,
   gravacaoDesatualizada,
+  gravarComVersao,
+  TENTATIVAS_DE_GRAVACAO,
   lapidesLocais,
   resumoDoRegistro,
   validarRegistro,
@@ -350,3 +352,164 @@ test("as próprias não salvam a versão de OUTRA aba", () => {
 });
 
 console.log(`\n${passed} verificações passaram.`);
+
+/*
+ * COMPARE-AND-SET NA GRAVAÇÃO — revisão final da segunda rodada, 15/09/2026.
+ *
+ * A rota lia a versão guardada e depois fazia `upsert`: duas gravações podiam
+ * ler a mesma versão, passar pelas duas regras e a segunda sobrescrever a
+ * primeira. Agora a escrita só pousa se a versão lida ainda for a guardada
+ * (`updateMany ... where updatedAt = lida`), e a criação que bate na chave
+ * (P2002) relê. Cada desencontro relê e reaplica as regras; desencontros sem
+ * fim (mais de `TENTATIVAS_DE_GRAVACAO`) são 409.
+ *
+ * Por que não UMA releitura só: medido na c3 (15/09/2026), a própria aba manda
+ * três gravações quase juntas (agora + commit + debounce). A terceira errava a
+ * versão duas vezes — as outras duas pousavam entre a leitura e a escrita dela —
+ * e o 409 falso travava a aba que auditava: o parecer nunca subia.
+ */
+type Dono = { userEmail: string; updatedAt: number } | null;
+
+function banco(leituras: Dono[], opcoes: { criacoes?: ("ok" | "ja-existe")[]; atualizacoes?: number[] } = {}) {
+  const chamadas: string[] = [];
+  const criacoes = [...(opcoes.criacoes ?? [])];
+  const atualizacoes = [...(opcoes.atualizacoes ?? [])];
+  return {
+    chamadas,
+    ler: async () => {
+      chamadas.push("ler");
+      return leituras.shift() ?? null;
+    },
+    criar: async () => {
+      chamadas.push("criar");
+      return criacoes.shift() ?? "ok";
+    },
+    atualizarSe: async (versaoLida: number) => {
+      chamadas.push(`atualizarSe:${versaoLida}`);
+      return atualizacoes.shift() ?? 1;
+    },
+  };
+}
+
+const EU = "eu@prosul.com.br";
+let passedAsync = 0;
+async function testAsync(name: string, fn: () => Promise<void>) {
+  try {
+    await fn();
+    passedAsync++;
+    console.log(`  ok  ${name}`);
+  } catch (err) {
+    console.error(`FALHOU  ${name}`);
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  }
+}
+
+await testAsync("sem nada guardado: cria", async () => {
+  const b = banco([null]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "gravada");
+  assert.deepEqual(b.chamadas, ["ler", "criar"]);
+});
+
+await testAsync("guardada da mesma pessoa: atualiza SÓ se a versão lida ainda for a guardada", async () => {
+  const b = banco([{ userEmail: EU, updatedAt: 4_000 }]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [] }), "gravada");
+  assert.deepEqual(b.chamadas, ["ler", "atualizarSe:4000"]);
+});
+
+await testAsync("conversa de outra pessoa: recusa sem escrever", async () => {
+  const b = banco([{ userEmail: "outro@prosul.com.br", updatedAt: 1_000 }]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "outro-dono");
+  assert.deepEqual(b.chamadas, ["ler"]);
+});
+
+await testAsync("guardada mais nova que a gravação: ignorada sem escrever", async () => {
+  const b = banco([{ userEmail: EU, updatedAt: 6_000 }]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "ignorada");
+  assert.deepEqual(b.chamadas, ["ler"]);
+});
+
+await testAsync("base velha: desatualizada sem escrever", async () => {
+  const b = banco([{ userEmail: EU, updatedAt: 4_500 }]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [] }), "desatualizada");
+  assert.deepEqual(b.chamadas, ["ler"]);
+});
+
+await testAsync("a CORRIDA: outra aba gravou entre a leitura e a escrita — relê e recusa pela base", async () => {
+  const b = banco(
+    [
+      { userEmail: EU, updatedAt: 4_000 },
+      { userEmail: EU, updatedAt: 4_800 },
+    ],
+    { atualizacoes: [0] },
+  );
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [] }), "desatualizada");
+  assert.deepEqual(b.chamadas, ["ler", "atualizarSe:4000", "ler"]);
+});
+
+await testAsync("a corrida com uma gravação MAIS NOVA: relê e ignora", async () => {
+  const b = banco(
+    [
+      { userEmail: EU, updatedAt: 4_000 },
+      { userEmail: EU, updatedAt: 6_000 },
+    ],
+    { atualizacoes: [0] },
+  );
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "ignorada");
+});
+
+await testAsync("a corrida com a PRÓPRIA gravação em dupla: relê e grava contra a versão nova", async () => {
+  const b = banco(
+    [
+      { userEmail: EU, updatedAt: 4_000 },
+      { userEmail: EU, updatedAt: 4_900 },
+    ],
+    { atualizacoes: [0, 1] },
+  );
+  assert.equal(
+    await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [4_900] }),
+    "gravada",
+  );
+  assert.deepEqual(b.chamadas, ["ler", "atualizarSe:4000", "ler", "atualizarSe:4900"]);
+});
+
+await testAsync("a rajada da própria aba (medida na c3): dois desencontros seguidos e ainda grava", async () => {
+  const b = banco(
+    [
+      { userEmail: EU, updatedAt: 4_000 },
+      { userEmail: EU, updatedAt: 4_900 },
+      { userEmail: EU, updatedAt: 4_950 },
+    ],
+    { atualizacoes: [0, 0, 1] },
+  );
+  assert.equal(
+    await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [4_900, 4_950] }),
+    "gravada",
+  );
+  assert.deepEqual(b.chamadas, ["ler", "atualizarSe:4000", "ler", "atualizarSe:4900", "ler", "atualizarSe:4950"]);
+});
+
+await testAsync("desencontros sem fim: 409 desatualizada, com as tentativas contadas", async () => {
+  const leituras = Array.from({ length: TENTATIVAS_DE_GRAVACAO + 2 }, (_, i) => ({ userEmail: EU, updatedAt: 4_000 + i }));
+  const b = banco(leituras, { atualizacoes: leituras.map(() => 0) });
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "desatualizada");
+  assert.equal(b.chamadas.filter((c) => c.startsWith("atualizarSe")).length, TENTATIVAS_DE_GRAVACAO);
+});
+
+await testAsync("criação que bate na chave (P2002): relê e reaplica as regras", async () => {
+  const b = banco([null, { userEmail: EU, updatedAt: 4_800 }], { criacoes: ["ja-existe"] });
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: 4_000, proprias: [] }), "desatualizada");
+  assert.deepEqual(b.chamadas, ["ler", "criar", "ler"]);
+});
+
+await testAsync("criação que bate na chave de OUTRA pessoa: outro-dono", async () => {
+  const b = banco([null, { userEmail: "outro@prosul.com.br", updatedAt: 4_800 }], { criacoes: ["ja-existe"] });
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "outro-dono");
+});
+
+await testAsync("cliente antigo, sem cabeçalho de base: continua gravando", async () => {
+  const b = banco([{ userEmail: EU, updatedAt: 4_000 }]);
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "gravada");
+});
+
+console.log(`${passedAsync} verificações de compare-and-set passaram.`);

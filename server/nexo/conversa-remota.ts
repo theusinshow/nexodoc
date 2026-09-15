@@ -165,6 +165,64 @@ export function gravacaoDesatualizada(args: {
   return args.guardada > args.base;
 }
 
+export const TENTATIVAS_DE_GRAVACAO = 6;
+
+export type DesfechoDaGravacao = "gravada" | "ignorada" | "outro-dono" | "desatualizada";
+
+/**
+ * A GRAVAÇÃO NO SERVIDOR, COM COMPARE-AND-SET — revisão final da segunda
+ * rodada, 15/09/2026.
+ *
+ * A rota lia a versão guardada e depois fazia `upsert`. Entre as duas, outra
+ * gravação podia pousar: as duas liam a mesma versão, as duas passavam por
+ * "mais velha é ignorada" e por `gravacaoDesatualizada`, e a segunda apagava a
+ * primeira — o mesmo apagão da c3, só que numa janela de milissegundos.
+ *
+ * Agora a escrita só pousa se a versão LIDA ainda for a guardada
+ * (`atualizarSe(lida)` devolve quantas linhas mudou) e a criação que bate na
+ * chave volta como `ja-existe`. Cada desencontro relê e reaplica as mesmas
+ * regras — só volta a tentar quem continua passando por elas —, e desencontros
+ * sem fim viram "desatualizada" (409), que o cliente já sabe tratar. Sem base
+ * (cliente antigo), as regras são as de sempre.
+ *
+ * Não é UMA releitura só: medido na c3 (15/09/2026), a própria aba manda três
+ * gravações quase juntas, e a terceira errava duas vezes com as outras duas
+ * pousando no meio — o 409 falso travava a aba que auditava. Cada desencontro
+ * quer dizer que alguma gravação pousou, então N gravações simultâneas acabam
+ * em N tentativas.
+ *
+ * O banco entra por funções: a decisão fica testável sem Prisma.
+ */
+export async function gravarComVersao(args: {
+  ler: () => Promise<{ userEmail: string; updatedAt: number } | null>;
+  criar: () => Promise<"ok" | "ja-existe">;
+  atualizarSe: (versaoLida: number) => Promise<number>;
+  userEmail: string;
+  /** O `updatedAt` do registro que chegou. */
+  updatedAt: number;
+  base: number | null;
+  proprias: readonly number[];
+}): Promise<DesfechoDaGravacao> {
+  for (let tentativa = 0; tentativa < TENTATIVAS_DE_GRAVACAO; tentativa++) {
+    const dono = await args.ler();
+    if (!dono) {
+      if ((await args.criar()) === "ok") return "gravada";
+      continue;
+    }
+    // Conversa de outra pessoa com o mesmo id: nunca sobrescrever.
+    if (dono.userEmail !== args.userEmail) return "outro-dono";
+    // Duas abas da mesma pessoa fora de ordem: o servidor já tem coisa melhor.
+    if (dono.updatedAt > args.updatedAt) return "ignorada";
+    if (
+      gravacaoDesatualizada({ guardada: dono.updatedAt, base: args.base, proprias: args.proprias })
+    ) {
+      return "desatualizada";
+    }
+    if ((await args.atualizarSe(dono.updatedAt)) > 0) return "gravada";
+  }
+  return "desatualizada";
+}
+
 /**
  * Funde a lista do disco com a do servidor.
  *

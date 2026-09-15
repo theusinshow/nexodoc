@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
-  gravacaoDesatualizada,
+  gravarComVersao,
   resumoDoRegistro,
   validarRegistro,
   type RegistroDaConversa,
@@ -167,31 +167,22 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const dono = await getPrisma().nexoConversation.findUnique({
-      where: { id: r.id },
-      select: { userEmail: true, updatedAt: true },
-    });
     /*
-     * Conversa de outra pessoa com o mesmo id: 409, nunca sobrescrever. É
-     * improvável (UUID v4), mas "improvável" não é uma regra de acesso.
-     */
-    if (dono && dono.userEmail !== g.userEmail) {
-      return NextResponse.json({ error: "conversa de outro usuário" }, { status: 409 });
-    }
-    /*
-     * Gravação mais VELHA que a guardada é descartada em silêncio, e aqui o
-     * silêncio é certo: acontece quando duas abas da mesma pessoa gravam fora
-     * de ordem, e a resposta honesta é "o servidor já tem coisa melhor".
-     */
-    if (dono && dono.updatedAt.getTime() > resumo.updatedAt) {
-      return NextResponse.json({ ok: true, ignorada: "servidor tem versão mais nova" });
-    }
-    /*
-     * A ABA DESATUALIZADA É RECUSADA — decidido em 15/09/2026 (jornada c3). A
-     * regra de cima só compara horas de GRAVAÇÃO: uma aba parada desde antes da
-     * auditoria grava com hora nova e passa. A base é a versão que a aba leu;
-     * se a guardada mudou desde então, 409 — o cliente avisa e oferece
-     * recarregar, e nada é sobrescrito. Sem o cabeçalho, vale o de sempre.
+     * AS REGRAS DA GRAVAÇÃO, e agora com COMPARE-AND-SET (revisão final da
+     * segunda rodada, 15/09/2026) — ver `gravarComVersao`. Ler e depois fazer
+     * `upsert` deixava duas gravações lerem a mesma versão e a segunda apagar a
+     * primeira.
+     *
+     * - Conversa de outra pessoa com o mesmo id: 409, nunca sobrescrever. É
+     *   improvável (UUID v4), mas "improvável" não é uma regra de acesso.
+     * - Gravação mais VELHA que a guardada é descartada em silêncio, e aqui o
+     *   silêncio é certo: duas abas da mesma pessoa gravam fora de ordem, e a
+     *   resposta honesta é "o servidor já tem coisa melhor".
+     * - A ABA DESATUALIZADA É RECUSADA — decidido em 15/09/2026 (jornada c3). A
+     *   regra de cima só compara horas de GRAVAÇÃO: uma aba parada desde antes
+     *   da auditoria grava com hora nova e passa. A base é a versão que a aba
+     *   leu; se a guardada mudou desde então, 409 — o cliente avisa e oferece
+     *   recarregar, e nada é sobrescrito. Sem o cabeçalho, vale o de sempre.
      *
      * As PRÓPRIAS são as versões que a aba mandou e ainda não viu confirmadas:
      * guardado igual a uma delas é dela mesma. O cliente manda sem esperar a
@@ -204,19 +195,6 @@ export async function PUT(req: NextRequest) {
       .map(Number)
       .filter((v) => Number.isFinite(v) && v > 0)
       .slice(0, 50);
-    if (
-      dono &&
-      gravacaoDesatualizada({
-        guardada: dono.updatedAt.getTime(),
-        base: Number.isFinite(baseDaAba) && baseDaAba > 0 ? baseDaAba : null,
-        proprias: propriasDaAba,
-      })
-    ) {
-      return NextResponse.json(
-        { error: "esta conversa mudou depois que esta aba a abriu", desatualizada: true },
-        { status: 409 },
-      );
-    }
 
     const campos = {
       userEmail: g.userEmail,
@@ -231,11 +209,51 @@ export async function PUT(req: NextRequest) {
       syncedAt: new Date(),
     };
 
-    await getPrisma().nexoConversation.upsert({
-      where: { id: r.id },
-      create: { id: r.id, ...campos },
-      update: campos,
+    const desfecho = await gravarComVersao({
+      userEmail: g.userEmail,
+      updatedAt: resumo.updatedAt,
+      base: Number.isFinite(baseDaAba) && baseDaAba > 0 ? baseDaAba : null,
+      proprias: propriasDaAba,
+      ler: async () => {
+        const dono = await getPrisma().nexoConversation.findUnique({
+          where: { id: r.id },
+          select: { userEmail: true, updatedAt: true },
+        });
+        return dono ? { userEmail: dono.userEmail, updatedAt: dono.updatedAt.getTime() } : null;
+      },
+      criar: async () => {
+        try {
+          await getPrisma().nexoConversation.create({ data: { id: r.id, ...campos } });
+          return "ok";
+        } catch (error) {
+          // Outra gravação criou a mesma conversa entre a leitura e aqui: relê.
+          if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+            return "ja-existe";
+          }
+          throw error;
+        }
+      },
+      atualizarSe: async (versaoLida) => {
+        const { count } = await getPrisma().nexoConversation.updateMany({
+          where: { id: r.id, userEmail: g.userEmail, updatedAt: new Date(versaoLida) },
+          data: campos,
+        });
+        return count;
+      },
     });
+
+    if (desfecho === "outro-dono") {
+      return NextResponse.json({ error: "conversa de outro usuário" }, { status: 409 });
+    }
+    if (desfecho === "ignorada") {
+      return NextResponse.json({ ok: true, ignorada: "servidor tem versão mais nova" });
+    }
+    if (desfecho === "desatualizada") {
+      return NextResponse.json(
+        { error: "esta conversa mudou depois que esta aba a abriu", desatualizada: true },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({ ok: true, bytes: veredito.bytes });
   } catch (error) {
