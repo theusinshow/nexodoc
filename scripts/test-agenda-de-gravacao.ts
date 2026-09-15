@@ -16,8 +16,12 @@
  * - `selectConversation` dá flush, espera leituras (`esperaMs`), escreve o
  *   `memorialMeta` e o `createdAt` da conversa NOVA no snapshot com o id ainda
  *   antigo, e só então pede a troca de estado.
- * As chamadas opcionais (`?.`) são as que o store passou a fazer; sem elas o
- * modelo é o store de 13ce603 — é assim que o teste mostra o vermelho lá.
+ * - effects rodam dos filhos para o pai: `commitSemEfeitos` devolve o effect do
+ *   provider de um commit para o teste rodá-lo DEPOIS de um flush feito num
+ *   effect de filho ou numa continuação assíncrona (segunda rodada da revisão).
+ * As chamadas opcionais (`?.`) e os ramos por API são o que o store passou a
+ * fazer; contra o helper de 13ce603 ou de ae3f61a, o modelo vira aquele store —
+ * é assim que o teste mostra o vermelho lá.
  *
  *   node scripts/test-agenda-de-gravacao.ts   (== npm run test:agenda-de-gravacao)
  */
@@ -85,16 +89,23 @@ type Campos = {
   results: string[];
   memorial: string;
   pendente: boolean;
+  /** A geração da gravação imediata que o estado comitado carrega. */
+  geracao: number;
 };
-type Foto = Campos & { createdAt: number; em: number };
+type Foto = Omit<Campos, "geracao"> & { createdAt: number; em: number };
 
-const CONVERSA_B: Campos & { createdAt: number } = {
+const CONVERSA_B: Omit<Campos, "geracao"> & { createdAt: number } = {
   id: "B",
   title: "B",
   results: ["B:parecer"],
   memorial: "B:memorial",
   pendente: false,
   createdAt: 999,
+};
+
+/** A API de ae3f61a, para o modelo rodar contra ela e mostrar o vermelho. */
+type AgendaLegada = {
+  proximaSincronizacao: (limiteMs: number) => Promise<void>;
 };
 
 function storeDeMentira({ commitMs = 25 } = {}) {
@@ -105,10 +116,14 @@ function storeDeMentira({ commitMs = 25 } = {}) {
     results: ["rodada-1"],
     memorial: "A:memorial",
     pendente: true,
+    geracao: 0,
   };
-  let snapshot: Campos & { createdAt: number } = { ...estado, createdAt: 100 };
+  let snapshot: Omit<Campos, "geracao"> & { createdAt: number } = {
+    ...estado,
+    createdAt: 100,
+  };
   const fila: ((e: Campos) => Campos)[] = [];
-  let commitArmado = false;
+  let commitArmado: unknown = null;
   const disco: Foto[] = [];
   const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio: r.relogio });
   const conversaAtual = () => snapshot.id;
@@ -118,28 +133,48 @@ function storeDeMentira({ commitMs = 25 } = {}) {
 
   function set(fn: (e: Campos) => Campos) {
     fila.push(fn);
-    if (commitArmado) return;
-    commitArmado = true;
-    r.relogio.armar(commit, commitMs);
+    if (commitArmado !== null) return;
+    commitArmado = r.relogio.armar(() => commitSemEfeitos()(), commitMs);
   }
-  function commit() {
-    commitArmado = false;
+  /**
+   * O render + commit, SEM rodar os effects: devolve o effect do provider
+   * daquele commit, para o teste decidir quando ele roda (effects de filhos
+   * rodam antes do pai).
+   */
+  function commitSemEfeitos() {
+    if (commitArmado !== null) r.relogio.desarmar(commitArmado);
+    commitArmado = null;
     for (const fn of fila.splice(0)) estado = fn(estado);
-    // O effect que sincroniza o snapshot, e o que roda logo depois dele.
-    snapshot = {
-      ...snapshot,
-      ...estado,
-      createdAt: snapshot.createdAt || r.agora(),
+    const doCommit = estado;
+    return () => {
+      // O effect que sincroniza o snapshot (linha ~402), e o que roda depois.
+      const { geracao, ...campos } = doCommit;
+      snapshot = {
+        ...snapshot,
+        ...campos,
+        createdAt: snapshot.createdAt || r.agora(),
+      };
+      agenda.aoSincronizar?.(persistNow, conversaAtual, geracao);
     };
-    agenda.aoSincronizar?.(persistNow, conversaAtual);
   }
-  const flushPersist = () => agenda.gravarJa(persistNow, conversaAtual);
+  /** Devolve a geração quando a agenda tem (o store de agora), ou nada. */
+  function flushPersist(): number | undefined {
+    const alvo: unknown = agenda.gravarJa(persistNow, conversaAtual);
+    if (typeof alvo !== "number") return undefined;
+    set((e) => ({ ...e, geracao: alvo }));
+    return alvo;
+  }
 
   return {
     r,
     disco,
     gravacoesDe: (id: string) => disco.filter((g) => g.id === id),
     ultimaDe: (id: string) => disco.filter((g) => g.id === id).at(-1),
+    /** Algum estado muda e um commit fica pronto para acontecer. */
+    renderizar() {
+      set((e) => ({ ...e }));
+    },
+    commitSemEfeitos,
     saveResult(artefato: string) {
       set((e) => ({ ...e, results: [...e.results, artefato] }));
       agenda.agendar(persistNow);
@@ -157,20 +192,23 @@ function storeDeMentira({ commitMs = 25 } = {}) {
       flushPersist();
     },
     async selectConversation(b: typeof CONVERSA_B, esperaMs: number) {
-      flushPersist();
-      if (agenda.proximaSincronizacao) {
-        set((e) => ({ ...e })); // o pulso que força o commit
-        await agenda.proximaSincronizacao(1000);
+      const alvo = flushPersist();
+      if (alvo !== undefined) {
+        await agenda.proximaSincronizacao(alvo, 1000);
+      } else if (agenda.proximaSincronizacao) {
+        set((e) => ({ ...e })); // ae3f61a: o pulso que forçava o commit
+        await (agenda as unknown as AgendaLegada).proximaSincronizacao(1000);
       }
       await r.esperar(esperaMs);
       agenda.esquecerPedido?.();
       snapshot = { ...snapshot, memorial: b.memorial };
-      set(() => ({
+      set((e) => ({
         id: b.id,
         title: b.title,
         results: b.results,
         memorial: b.memorial,
         pendente: b.pendente,
+        geracao: e.geracao,
       }));
       snapshot = { ...snapshot, createdAt: b.createdAt };
     },
@@ -285,8 +323,85 @@ await test("descartar larga o debounce e o pedido do flush", async () => {
   agenda.agendar(gravar);
   agenda.gravarJa(gravar, () => "A");
   agenda.descartar();
-  agenda.aoSincronizar?.(gravar, () => "A");
+  agenda.aoSincronizar?.(gravar, () => "A", 99);
   assert.equal(gravou, 1);
+});
+
+await test("effect de filho limpa o bilhete: o sync do commit ANTERIOR não regrava o bilhete velho", async () => {
+  // `use-reconectar-auditoria` limpa o bilhete residual de dentro de um
+  // effect. Effects rodam dos filhos para o pai: o do provider que vem logo
+  // depois é o do commit que AINDA tinha o bilhete.
+  const s = storeDeMentira();
+  s.renderizar();
+  const efeitoDoProviderDoCommitAnterior = s.commitSemEfeitos();
+  s.marcarAuditoriaPendenteNull(); // effect do filho
+  efeitoDoProviderDoCommitAnterior();
+  await s.r.avancar(1000); // o commit que traz o bilhete nulo
+  assert.equal(
+    s.ultimaDe("A")?.pendente,
+    false,
+    JSON.stringify(s.gravacoesDe("A")),
+  );
+});
+
+await test("a3 entre um commit e seus effects: o flush do finally não perde a rodada 2", async () => {
+  // O `finally` de `confirm()` é continuação assíncrona: pode rodar depois de
+  // um commit qualquer e antes dos effects dele.
+  const s = storeDeMentira();
+  s.renderizar();
+  const efeitoDoProviderDoCommitAnterior = s.commitSemEfeitos();
+  s.saveResult("rodada-2");
+  s.marcarAuditoriaPendenteNull();
+  efeitoDoProviderDoCommitAnterior();
+  await s.r.avancar(1000);
+  assert.deepEqual(s.ultimaDe("A")?.results, ["rodada-1", "rodada-2"]);
+  assert.equal(s.ultimaDe("A")?.pendente, false);
+});
+
+await test("trocar de conversa de dentro de um effect de filho: espera o commit certo", async () => {
+  const s = storeDeMentira();
+  s.renderizar();
+  const efeitoDoProviderDoCommitAnterior = s.commitSemEfeitos();
+  s.saveResult("rodada-2");
+  const abrindo = s.selectConversation(CONVERSA_B, 2);
+  efeitoDoProviderDoCommitAnterior();
+  await s.r.avancar(1000);
+  await abrindo;
+  assert.deepEqual(s.ultimaDe("A")?.results, ["rodada-1", "rodada-2"]);
+  assert.ok(
+    s.gravacoesDe("B").every((g) => !g.results.includes("rodada-2")),
+    JSON.stringify(s.gravacoesDe("B")),
+  );
+});
+
+await test("a espera pela sincronização desarma o limite quando resolve", async () => {
+  const r = relogioDeMentira();
+  let armados = 0;
+  let desarmados = 0;
+  const relogio: Relogio = {
+    armar: (fn, ms) => {
+      armados++;
+      return r.relogio.armar(fn, ms);
+    },
+    desarmar: (alca) => {
+      desarmados++;
+      r.relogio.desarmar(alca);
+    },
+  };
+  const agenda = criarAgendaDeGravacao({ esperaMs: 500, relogio });
+  const alvo = agenda.gravarJa(
+    () => {},
+    () => "A",
+  );
+  const esperando = agenda.proximaSincronizacao(alvo, 1000);
+  agenda.aoSincronizar(
+    () => {},
+    () => "A",
+    alvo,
+  );
+  await esperando;
+  assert.equal(armados, 1);
+  assert.equal(desarmados, 1);
 });
 
 console.log(`\n${passed} ok`);

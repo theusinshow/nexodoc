@@ -509,10 +509,12 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    */
   const [agenda] = useState(() => criarAgendaDeGravacao({ esperaMs: PERSIST_DEBOUNCE_MS }));
   /**
-   * Só existe para forçar um commit: `selectConversation` precisa que o estado
-   * da conversa que sai chegue ao snapshot (e ao disco) antes de trocar.
+   * A GERAÇÃO da gravação imediata que o estado comitado carrega. Cada flush
+   * põe aqui a geração do seu pedido, na mesma volta da mudança: só o commit
+   * que traz a mudança traz a geração, e só ele cumpre o pedido (ver `gravarJa`).
+   * Também garante que haja um commit depois de todo flush.
    */
-  const [, setPulsoDaGravacao] = useState(0);
+  const [geracaoDaGravacao, setGeracaoDaGravacao] = useState(0);
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
   const jaPersistiu = useRef(false);
 
@@ -681,7 +683,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
   // pendente seria CANCELADO e a última mudança se perderia (bug #1 da revisão).
   // E grava de novo no próximo commit da mesma conversa (ver `gravarJa`).
   const flushPersist = useCallback(() => {
-    agenda.gravarJa(persistNow, () => snapshotRef.current.conversationId);
+    const geracao = agenda.gravarJa(persistNow, () => snapshotRef.current.conversationId);
+    setGeracaoDaGravacao(geracao);
+    return geracao;
   }, [agenda, persistNow]);
 
   /*
@@ -691,9 +695,20 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * e nada gravava o de depois: 14/09/2026, a3 (reauditar o 117_25), rodada 2
    * na tela e só a rodada 1 no disco; e o título de `salvarDossieDoMemorial`.
    * Sem dependências de propósito: tem de rodar em TODO commit, como o outro.
+   *
+   * A geração é a DESTE commit. Effects rodam dos filhos para o pai, e um
+   * filho que dá flush dentro do próprio effect (`use-reconectar-auditoria`
+   * limpando o bilhete residual) é seguido pelo effect do provider do commit
+   * ANTERIOR — que recopia o bilhete velho para o snapshot. Cumprir o pedido
+   * ali gravava o bilhete velho, e todo F5 reabria a conversa (achado da
+   * revisão, 14/09/2026). Com a geração, esse effect não cumpre nada.
    */
   useEffect(() => {
-    agenda.aoSincronizar(persistNow, () => snapshotRef.current.conversationId);
+    agenda.aoSincronizar(
+      persistNow,
+      () => snapshotRef.current.conversationId,
+      geracaoDaGravacao,
+    );
   });
 
   const appendMessage = useCallback(
@@ -1080,18 +1095,19 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
-      flushPersist(); // grava a conversa atual antes de trocar (#1)
+      const geracao = flushPersist(); // grava a conversa atual antes de trocar (#1)
       /*
        * E ESPERA O COMMIT da conversa que sai, 14/09/2026. O flush grava o
-       * snapshot como está e pede outra gravação para o próximo commit; se as
-       * leituras abaixo voltassem antes dele, a troca de estado entraria no
-       * MESMO commit que a última mudança desta conversa — e ela se perderia
-       * (ou, com o timer que existiu em 13ce603, iria parar gravada sob o id
-       * errado). O pulso garante que haja um commit; o limite, que abrir uma
-       * conversa nunca trave por causa disso.
+       * snapshot como está e pede outra gravação para o commit que trouxer a
+       * geração dele; se as leituras abaixo voltassem antes, a troca de estado
+       * entraria no MESMO commit que a última mudança desta conversa — e ela se
+       * perderia (ou, com o timer que existiu em 13ce603, iria parar gravada
+       * sob o id errado). Esperar pela GERAÇÃO, e não pelo próximo effect, é o
+       * que vale quando a abertura sai de dentro do effect de um filho: o effect
+       * do provider que vem logo depois é de um commit anterior. O limite
+       * garante que abrir uma conversa nunca trave por causa disso.
        */
-      setPulsoDaGravacao((n) => n + 1);
-      await agenda.proximaSincronizacao(1000);
+      await agenda.proximaSincronizacao(geracao, 1000);
       /*
        * Disco preferido, MAS o desempate é a data.
        *

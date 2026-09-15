@@ -60,11 +60,14 @@ export default {
     // `updatedAt` mais alto", que numa bateria com mais conversas poderia ser
     // outra (o falso positivo do projeto de exemplo, agosto de 2026).
     const idDaConversa = await ctx.page.evaluate(() => localStorage.getItem("nexo:ultima-conversa"));
-    const lerPareceres = async () => {
-      const conversa = (await ctx.indexeddb.lerConversas()).find((c) => c.id === idDaConversa);
-      return (conversa?.results ?? []).filter((r) => r.kind === "auditoria");
-    };
+    const lerConversa = async () => (await ctx.indexeddb.lerConversas()).find((c) => c.id === idDaConversa);
+    const lerPareceres = async () => ((await lerConversa())?.results ?? []).filter((r) => r.kind === "auditoria");
     const pareceres = await lerPareceres();
+    // O bilhete da auditoria em voo sai do disco quando ela termina. Se ficar,
+    // todo F5 reabre a conversa como "auditoria em andamento" para sempre — o
+    // defeito que `marcarAuditoriaPendente` escreve no snapshot à mão para evitar.
+    const bilheteAposRodada2 = (await lerConversa())?.auditoriaPendente ?? null;
+    ctx.verificar("o bilhete da auditoria saiu do disco", bilheteAposRodada2 === null, JSON.stringify(bilheteAposRodada2));
     ctx.verificar("duas rodadas gravadas", pareceres.length === 2, `conversa=${idDaConversa} pareceres=${pareceres.length}`);
     ctx.verificar(
       "cada rodada com o próprio id",
@@ -160,6 +163,12 @@ export default {
         "depois do F5 o disco segue com as duas rodadas",
         pareceresDepois.length === 2 && pareceresDepois.some((r) => transcritas(r) > 0),
         `pareceres=${pareceresDepois.length}`,
+      );
+      const bilheteDepoisDoF5 = (await lerConversa())?.auditoriaPendente ?? null;
+      ctx.verificar(
+        "depois do F5 nenhum bilhete de auditoria em voo voltou",
+        bilheteDepoisDoF5 === null,
+        JSON.stringify(bilheteDepoisDoF5),
       );
     } finally {
       await ctx.page.unroute("**/api/audits/**");

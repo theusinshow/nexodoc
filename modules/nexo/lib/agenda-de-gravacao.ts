@@ -24,17 +24,24 @@ export type AgendaDeGravacao = {
   /** Grava `esperaMs` depois da ÚLTIMA chamada. */
   agendar: (gravar: () => void) => void;
   /**
-   * Grava AGORA, e de novo logo depois do próximo commit da MESMA conversa.
-   * `conversaAtual` devolve o id que está no snapshot no instante da leitura.
+   * Grava AGORA e pede outra gravação para o commit que trouxer a geração
+   * devolvida. Quem chama PRECISA pôr essa geração no estado do React na mesma
+   * volta (`setGeracao(devolvida)`) — é isso que amarra o pedido ao commit que
+   * carrega a mudança. `conversaAtual` devolve o id que está no snapshot.
    */
-  gravarJa: (gravar: () => void, conversaAtual: () => string) => void;
+  gravarJa: (gravar: () => void, conversaAtual: () => string) => number;
   /**
-   * Chamado pelo store DEPOIS de copiar o estado comitado para o snapshot.
-   * Cumpre o pedido do `gravarJa`, se ele ainda for desta conversa.
+   * Chamado pelo store DEPOIS de copiar o estado comitado para o snapshot, com
+   * a geração que ESSE commit carrega. Cumpre o pedido só se o commit já tem a
+   * geração pedida e a conversa ainda é a mesma.
    */
-  aoSincronizar: (gravar: () => void, conversaAtual: () => string) => void;
-  /** Resolve no próximo `aoSincronizar` (ou em `limiteMs`, o que vier antes). */
-  proximaSincronizacao: (limiteMs: number) => Promise<void>;
+  aoSincronizar: (
+    gravar: () => void,
+    conversaAtual: () => string,
+    geracaoComitada: number,
+  ) => void;
+  /** Resolve quando um commit com `geracao` sincronizar (ou em `limiteMs`). */
+  proximaSincronizacao: (geracao: number, limiteMs: number) => Promise<void>;
   /**
    * Esquece o pedido pendente sem gravar. Para quando o snapshot vai começar a
    * receber campos de OUTRA conversa: dali em diante nada pode ser gravado sob
@@ -51,9 +58,11 @@ export function criarAgendaDeGravacao(opcoes: {
 }): AgendaDeGravacao {
   const relogio = opcoes.relogio ?? RELOGIO_DO_NAVEGADOR;
   let alca: unknown = null;
-  /** A conversa para a qual um `gravarJa` pediu a gravação pós-commit. */
-  let pedidoPara: string | null = null;
-  let esperando: (() => void)[] = [];
+  /** Última geração entregue a um `gravarJa`. */
+  let geracoes = 0;
+  /** O pedido pós-commit: para qual conversa e a partir de qual geração. */
+  let pedido: { conversa: string; geracao: number } | null = null;
+  let esperando: { geracao: number; resolver: () => void }[] = [];
 
   function desarmar() {
     if (alca !== null) {
@@ -81,44 +90,62 @@ export function criarAgendaDeGravacao(opcoes: {
        * agendava, `marcarAuditoriaPendente(null)` gravava já, o flush cancelava
        * o debounce e a rodada 2 ficava na tela com só a rodada 1 no disco. O
        * mesmo desenho perdia o título que `salvarDossieDoMemorial` troca por
-       * `setTitle` logo antes do flush — sem debounce nenhum para rearmar.
+       * `setTitle` logo antes do flush.
        *
        * Então: grava agora (o que foi escrito à mão vale já — é o bilhete que
-       * um F5 no segundo seguinte precisa achar) e PEDE outra gravação para o
-       * primeiro commit depois daqui, se a conversa ainda for a mesma. O
-       * debounce pendente sai: o pedido cobre a mesma mudança, e um timer
-       * solto gravaria o snapshot de quem estivesse aberto meio segundo depois.
+       * um F5 no segundo seguinte precisa achar) e PEDE outra gravação.
+       *
+       * O PEDIDO TEM GERAÇÃO (segunda rodada da revisão, 14/09/2026). Cumprido
+       * pelo "próximo effect", ele foi cumprido pelo effect ERRADO: effects
+       * rodam dos filhos para o pai, e `use-reconectar-auditoria` limpa o
+       * bilhete de dentro de um effect. O effect do provider que rodava logo em
+       * seguida era o do commit ANTERIOR — recopiava o bilhete velho para o
+       * snapshot e gravava ele, e o commit com o bilhete nulo não tinha mais
+       * pedido. O bilhete ficava no disco e todo F5 reabria a conversa. A
+       * geração vai para o estado do React junto com a mudança, então só o
+       * commit que a traz pode cumprir o pedido.
        */
       desarmar();
       gravar();
-      pedidoPara = conversaAtual();
+      geracoes += 1;
+      pedido = { conversa: conversaAtual(), geracao: geracoes };
+      return geracoes;
     },
-    aoSincronizar(gravar, conversaAtual) {
-      const pedido = pedidoPara;
-      pedidoPara = null;
-      const avisar = esperando;
-      esperando = [];
-      if (pedido !== null && pedido === conversaAtual()) gravar();
-      for (const fn of avisar) fn();
+    aoSincronizar(gravar, conversaAtual, geracaoComitada) {
+      if (pedido !== null && geracaoComitada >= pedido.geracao) {
+        const cumprir = pedido.conversa === conversaAtual();
+        pedido = null;
+        if (cumprir) gravar();
+      }
+      const prontos = esperando.filter((e) => geracaoComitada >= e.geracao);
+      esperando = esperando.filter((e) => geracaoComitada < e.geracao);
+      for (const e of prontos) e.resolver();
     },
-    proximaSincronizacao(limiteMs) {
+    proximaSincronizacao(geracao, limiteMs) {
       return new Promise<void>((resolve) => {
-        let feito = false;
-        const uma = () => {
-          if (feito) return;
-          feito = true;
-          resolve();
+        let limite: unknown = null;
+        const entrada = {
+          geracao,
+          resolver: () => {
+            if (limite !== null) relogio.desarmar(limite);
+            limite = null;
+            esperando = esperando.filter((e) => e !== entrada);
+            resolve();
+          },
         };
-        esperando.push(uma);
-        relogio.armar(uma, limiteMs);
+        esperando.push(entrada);
+        limite = relogio.armar(() => {
+          limite = null;
+          entrada.resolver();
+        }, limiteMs);
       });
     },
     esquecerPedido() {
-      pedidoPara = null;
+      pedido = null;
     },
     descartar() {
       desarmar();
-      pedidoPara = null;
+      pedido = null;
     },
   };
 }
