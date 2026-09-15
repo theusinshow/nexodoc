@@ -508,6 +508,11 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
    * `gravarJa`). Criada uma vez só; ela lê o snapshot na hora de gravar.
    */
   const [agenda] = useState(() => criarAgendaDeGravacao({ esperaMs: PERSIST_DEBOUNCE_MS }));
+  /**
+   * Só existe para forçar um commit: `selectConversation` precisa que o estado
+   * da conversa que sai chegue ao snapshot (e ao disco) antes de trocar.
+   */
+  const [, setPulsoDaGravacao] = useState(0);
   /** Esta conversa já foi ao disco — daqui em diante, mantê-la em dia. */
   const jaPersistiu = useRef(false);
 
@@ -674,10 +679,22 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
 
   // Flush: grava JÁ, antes de trocar/limpar a conversa. Sem isso, um debounce
   // pendente seria CANCELADO e a última mudança se perderia (bug #1 da revisão).
-  // O debounce pendente não é cancelado: é rearmado (ver `gravarJa`).
+  // E grava de novo no próximo commit da mesma conversa (ver `gravarJa`).
   const flushPersist = useCallback(() => {
     agenda.gravarJa(persistNow, () => snapshotRef.current.conversationId);
   }, [agenda, persistNow]);
+
+  /*
+   * O PEDIDO DO FLUSH É CUMPRIDO AQUI, depois do effect lá em cima ter copiado
+   * o estado comitado para o snapshot — effects rodam na ordem em que foram
+   * declarados. Sem esta volta, o flush gravava o snapshot de antes do commit
+   * e nada gravava o de depois: 14/09/2026, a3 (reauditar o 117_25), rodada 2
+   * na tela e só a rodada 1 no disco; e o título de `salvarDossieDoMemorial`.
+   * Sem dependências de propósito: tem de rodar em TODO commit, como o outro.
+   */
+  useEffect(() => {
+    agenda.aoSincronizar(persistNow, () => snapshotRef.current.conversationId);
+  });
 
   const appendMessage = useCallback(
     (m: NexoChatMessage) => {
@@ -1055,12 +1072,26 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       prev.forEach((r) => r.files.forEach((f) => URL.revokeObjectURL(f.url)));
       return [];
     });
+    // O snapshot começa a carregar a conversa nova com o id ainda da antiga:
+    // o pedido do flush acima não pode ser cumprido a partir dele.
+    agenda.esquecerPedido();
     snapshotRef.current.createdAt = Date.now();
-  }, [flushPersist, descartarPendente]);
+  }, [agenda, flushPersist, descartarPendente]);
 
   const selectConversation = useCallback(
     async (id: string): Promise<StoredConversation | null> => {
       flushPersist(); // grava a conversa atual antes de trocar (#1)
+      /*
+       * E ESPERA O COMMIT da conversa que sai, 14/09/2026. O flush grava o
+       * snapshot como está e pede outra gravação para o próximo commit; se as
+       * leituras abaixo voltassem antes dele, a troca de estado entraria no
+       * MESMO commit que a última mudança desta conversa — e ela se perderia
+       * (ou, com o timer que existiu em 13ce603, iria parar gravada sob o id
+       * errado). O pulso garante que haja um commit; o limite, que abrir uma
+       * conversa nunca trave por causa disso.
+       */
+      setPulsoDaGravacao((n) => n + 1);
+      await agenda.proximaSincronizacao(1000);
       /*
        * Disco preferido, MAS o desempate é a data.
        *
@@ -1237,7 +1268,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * O snapshot só acompanha o estado no próximo render, e o dono chama
        * `recuperarMemorial()` logo em seguida — que lê do snapshot. Sem esta
        * linha ele leria o memorial da conversa ANTERIOR.
+       *
+       * Daqui até o commit, o snapshot mistura o id da conversa anterior com
+       * campos desta. Um flush da anterior pedido durante as leituras acima não
+       * pode ser cumprido a partir dele: gravaria a anterior com o memorial e o
+       * `createdAt` desta.
        */
+      agenda.esquecerPedido();
       snapshotRef.current = { ...snapshotRef.current, memorialMeta: rec.memorial ?? null };
       // Revoga os URLs da conversa anterior antes de trocar (evita vazamento).
       setResults((prev) => {
@@ -1247,7 +1284,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       snapshotRef.current.createdAt = rec.createdAt;
       return rec;
     },
-    [flushPersist, schedulePersist],
+    [agenda, flushPersist, schedulePersist],
   );
 
   const removeConversation = useCallback(
@@ -1258,6 +1295,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * isso, para sempre.
        */
       if (ultimaConversaLembrada() === id) esquecerUltimaConversa();
+      // Apagar a conversa ABERTA larga o que ia ser gravado dela: o debounce ou
+      // o pedido do flush a escreveriam de volta logo depois do `dbDelete`.
+      if (snapshotRef.current.conversationId === id) agenda.descartar();
       await dbDelete(id);
       refreshList();
       /*
@@ -1269,7 +1309,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       await apagarNoServidor(id);
       refreshRemote();
     },
-    [refreshList, refreshRemote],
+    [agenda, refreshList, refreshRemote],
   );
 
   /**
@@ -1286,12 +1326,14 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       if (ids.length === 0) return;
       const lembrada = ultimaConversaLembrada();
       if (lembrada && ids.includes(lembrada)) esquecerUltimaConversa();
+      // Como em `removeConversation`: a aberta no meio não pode ser regravada.
+      if (ids.includes(snapshotRef.current.conversationId)) agenda.descartar();
       for (const id of ids) await dbDelete(id).catch(() => {});
       refreshList();
       await Promise.all(ids.map((id) => apagarNoServidor(id).catch(() => {})));
       refreshRemote();
     },
-    [refreshList, refreshRemote],
+    [agenda, refreshList, refreshRemote],
   );
 
   /**

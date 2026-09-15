@@ -8,8 +8,8 @@ export default {
     // O banco NÃO é esvaziado entre jornadas (só uma vez, no início da bateria
     // inteira): numa corrida completa a1 roda antes de a3 no MESMO banco, e
     // "a auditoria mais recente" sem filtro pegaria a de a3 se ela já tivesse
-    // gravado a sua. Cada jornada só lê o que ELA MESMA criou.
-    const inicio = new Date();
+    // gravado a sua. Cada jornada só lê o que ELA MESMA criou — pelo `auditId`
+    // que a própria conversa registrou (ver a consulta ao banco abaixo).
     await ctx.login();
     await ctx.ia.fila("audit-global", "abortar");
 
@@ -37,10 +37,19 @@ export default {
       `contagem=${await contagem.count()}`,
     );
 
-    const [audit] = await ctx.banco.consultar(
-      `select status, report->'runtime'->'passadas_incompletas' as passadas from "Audit" where "createdAt" >= $1 order by "createdAt" desc limit 1`,
-      [inicio],
+    // R14: pelo `auditId` registrado na largada (`registrarAuditoria`; o id do
+    // cliente é o id da linha em "Audit"), e não por `"createdAt" >= inicio` —
+    // em 14/09/2026 esse filtro por relógio deixou a auditoria da a1 entrar na
+    // contagem da a3. A conversa é a que o produto lembra como aberta.
+    const idDaConversa = await ctx.page.evaluate(() => localStorage.getItem("nexo:ultima-conversa"));
+    const registradas =
+      (await ctx.indexeddb.lerConversas()).find((c) => c.id === idDaConversa)?.auditorias ?? [];
+    const linhas = await ctx.banco.consultar(
+      `select status, report->'runtime'->'passadas_incompletas' as passadas from "Audit" where id = any($1::text[])`,
+      [registradas.map((a) => a.auditId)],
     );
+    ctx.verificar("uma auditoria registrada na conversa e achada no banco", registradas.length === 1 && linhas.length === 1, `registradas=${registradas.length} linhas=${linhas.length}`);
+    const [audit] = linhas;
     ctx.verificar("auditoria gravada como COMPLETED", audit?.status === "COMPLETED", audit?.status);
     ctx.verificar(
       "a etapa que falhou está no parecer gravado",

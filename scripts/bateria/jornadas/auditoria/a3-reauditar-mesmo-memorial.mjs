@@ -42,18 +42,19 @@ export default {
     // Fim da rodada 2: dois cartões com parecer ("Ver o parecer" em cada um —
     // AuditoriaAncora, ConfirmationCard.tsx:2966).
     const verParecer = ctx.page.getByRole("button", { name: /Ver o parecer/ });
-    const fim = Date.now() + 900_000;
-    while (Date.now() < fim && (await verParecer.count()) < 2) {
-      await ctx.page.waitForTimeout(3000);
-    }
+    // `waitFor` e não um laço de 3 em 3s: a leitura do disco abaixo tem de
+    // acontecer logo depois de a rodada 2 aparecer, dentro da janela de 500ms
+    // em que um F5 a perderia se a gravação dependesse do debounce.
+    await verParecer.nth(1).waitFor({ timeout: 900_000 }).catch(() => {});
     // A espera acima não verifica nada sozinha: sem esta linha, "a rodada 2
     // nunca apareceu" e "apareceu mas não foi gravada" dariam a mesma falha lá
     // embaixo, no disco.
     const qtdNaTela = await verParecer.count();
     ctx.verificar("a tela mostra as duas rodadas", qtdNaTela === 2, `botões Ver o parecer=${qtdNaTela}`);
-    // Mais que os 500ms do debounce: a gravação que o flush rearma (ver
-    // agenda-de-gravacao.ts) precisa ter acontecido antes de ler o disco.
-    await ctx.page.waitForTimeout(2000);
+    // MENOS que os 500ms do debounce, de propósito: o flush agora grava de novo
+    // no commit que pôs a rodada 2 na tela (agenda-de-gravacao.ts), e não meio
+    // segundo depois. Esperar 2s escondia a janela em que um F5 perdia a rodada.
+    await ctx.page.waitForTimeout(300);
 
     // A conversa SOB TESTE é a que o produto lembra como aberta — não "a de
     // `updatedAt` mais alto", que numa bateria com mais conversas poderia ser
@@ -131,8 +132,18 @@ export default {
       while (Date.now() < fimDoF5 && (await verParecer.count()) < 2) {
         await ctx.page.waitForTimeout(1000);
       }
-      const aberta = await ctx.page.evaluate(() => localStorage.getItem("nexo:ultima-conversa"));
-      ctx.verificar("depois do F5 a conversa aberta é a mesma", aberta === idDaConversa, `${aberta} vs ${idDaConversa}`);
+      // A conversa aberta, pela TELA: o `localStorage` sobrevive ao F5 de
+      // qualquer jeito e não diz o que o engenheiro vê. A barra lateral marca a
+      // aberta com `aria-current` (CartaoDeProjeto.tsx), e o disco tem só esta
+      // conversa — então a marcada é a sob teste, e não outra.
+      const ativa = ctx.page.locator('button[aria-current="true"]', { hasText: /Memorial/ });
+      const qtdAtiva = await ativa.count();
+      const conversasNoDisco = (await ctx.indexeddb.lerConversas()).length;
+      ctx.verificar(
+        "depois do F5 a barra lateral marca a conversa sob teste como aberta",
+        qtdAtiva === 1 && conversasNoDisco === 1 && (await ctx.visivelRolando(ativa)),
+        `marcadas=${qtdAtiva} conversas no disco=${conversasNoDisco}`,
+      );
       const qtdDepoisDoF5 = await verParecer.count();
       ctx.verificar(
         "depois do F5, sem a rede de recuperação, as duas rodadas voltam do disco",
