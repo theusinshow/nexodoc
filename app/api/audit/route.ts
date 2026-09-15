@@ -64,6 +64,7 @@ import {
   persistFailedAudit,
   type UploadedAuditFile,
 } from "@/lib/audit-persistence";
+import { descartarAuditoriaRecusada, type BancoDoDescarte } from "@/lib/auditoria-recusada";
 import {
   agruparBlocosParaLeitura,
   chunkPdfByChapter,
@@ -4002,6 +4003,13 @@ async function executarAuditoria(
      */
     if (delta && delta.alterados.length === 0 && delta.novos.length === 0) {
       console.log(`[audit] recusada: documento idêntico à auditoria ${auditIdAnterior}`);
+      /*
+       * A LINHA QUE ACABOU DE NASCER SAI JUNTO — 15/09/2026, jornada a5. Ela
+       * foi criada em PROCESSING lá em cima (e precisa ser, para o F5 durante a
+       * extração), e este `return` não passa pelo `catch` que a fecharia. Sem
+       * isto, cada recusa deixava uma auditoria "rodando" para sempre.
+       */
+      await descartarAuditoriaRecusada(getPrisma() as unknown as BancoDoDescarte, persistedAuditId);
       return withCors(
         NextResponse.json(
           {
