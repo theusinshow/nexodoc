@@ -167,7 +167,12 @@ export function gravacaoDesatualizada(args: {
 
 export const TENTATIVAS_DE_GRAVACAO = 6;
 
-export type DesfechoDaGravacao = "gravada" | "ignorada" | "outro-dono" | "desatualizada";
+export type DesfechoDaGravacao =
+  | "gravada"
+  | "ignorada"
+  | "outro-dono"
+  | "desatualizada"
+  | "concorrencia";
 
 /**
  * A GRAVAÇÃO NO SERVIDOR, COM COMPARE-AND-SET — revisão final da segunda
@@ -181,9 +186,13 @@ export type DesfechoDaGravacao = "gravada" | "ignorada" | "outro-dono" | "desatu
  * Agora a escrita só pousa se a versão LIDA ainda for a guardada
  * (`atualizarSe(lida)` devolve quantas linhas mudou) e a criação que bate na
  * chave volta como `ja-existe`. Cada desencontro relê e reaplica as mesmas
- * regras — só volta a tentar quem continua passando por elas —, e desencontros
- * sem fim viram "desatualizada" (409), que o cliente já sabe tratar. Sem base
+ * regras — só volta a tentar quem continua passando por elas. Sem base
  * (cliente antigo), as regras são as de sempre.
+ *
+ * Desencontros sem fim são "concorrencia", e não "desatualizada" (15/09/2026):
+ * o 409 travava a aba como se outra tivesse gravado por cima, e a saída era
+ * recarregar. Nenhuma regra recusou esta gravação — só não houve vez. A rota
+ * responde 503, e a próxima gravação do cliente tenta de novo.
  *
  * Não é UMA releitura só: medido na c3 (15/09/2026), a própria aba manda três
  * gravações quase juntas, e a terceira errava duas vezes com as outras duas
@@ -220,7 +229,7 @@ export async function gravarComVersao(args: {
     }
     if ((await args.atualizarSe(dono.updatedAt)) > 0) return "gravada";
   }
-  return "desatualizada";
+  return "concorrencia";
 }
 
 /**

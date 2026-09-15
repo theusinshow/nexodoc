@@ -489,10 +489,16 @@ await testAsync("a rajada da própria aba (medida na c3): dois desencontros segu
   assert.deepEqual(b.chamadas, ["ler", "atualizarSe:4000", "ler", "atualizarSe:4900", "ler", "atualizarSe:4950"]);
 });
 
-await testAsync("desencontros sem fim: 409 desatualizada, com as tentativas contadas", async () => {
+/*
+ * Desencontros sem fim são CONCORRÊNCIA, não conflito (15/09/2026): virar
+ * "desatualizada" travava a aba como se outra aba tivesse gravado por cima, e
+ * a pessoa só saía recarregando. É passageiro — a rota responde 503 e a
+ * próxima gravação tenta de novo.
+ */
+await testAsync("desencontros sem fim: concorrência (503), com as tentativas contadas", async () => {
   const leituras = Array.from({ length: TENTATIVAS_DE_GRAVACAO + 2 }, (_, i) => ({ userEmail: EU, updatedAt: 4_000 + i }));
   const b = banco(leituras, { atualizacoes: leituras.map(() => 0) });
-  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "desatualizada");
+  assert.equal(await gravarComVersao({ ...b, userEmail: EU, updatedAt: 5_000, base: null, proprias: [] }), "concorrencia");
   assert.equal(b.chamadas.filter((c) => c.startsWith("atualizarSe")).length, TENTATIVAS_DE_GRAVACAO);
 });
 

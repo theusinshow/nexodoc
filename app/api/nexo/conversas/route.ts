@@ -274,6 +274,14 @@ export async function PUT(req: NextRequest) {
     if (desfecho === "ignorada") {
       return NextResponse.json({ ok: true, ignorada: "servidor tem versão mais nova" });
     }
+    if (desfecho === "concorrencia") {
+      // Passageiro: nenhuma regra recusou, só não houve vez. A próxima gravação
+      // do cliente tenta de novo (ver `gravarComVersao`).
+      return NextResponse.json(
+        { error: "muitas gravações simultâneas; tente de novo" },
+        { status: 503, headers: { "retry-after": "1" } },
+      );
+    }
     if (desfecho === "desatualizada") {
       return NextResponse.json(
         { error: "esta conversa mudou depois que esta aba a abriu", desatualizada: true },
