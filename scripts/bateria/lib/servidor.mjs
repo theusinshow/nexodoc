@@ -14,7 +14,11 @@ export function pidsEscutando(porta) {
   if (process.platform === "win32") {
     let saida = "";
     try {
-      saida = execSync("netstat -ano -p tcp", { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      // Sem `-p tcp`: ele lista só IPv4. Um ouvinte SÓ em IPv6 (`[::]:3100`)
+      // sumia, e a guarda dizia "porta livre" com alguém escutando nela (medido
+      // em 15/09/2026). O ouvinte dual-stack, que é o padrão do `next dev`, já
+      // aparecia também na linha `0.0.0.0`.
+      saida = execSync("netstat -ano", { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch {
       return null;
     }
@@ -25,8 +29,11 @@ export function pidsEscutando(porta) {
           .map((l) => l.trim().split(/\s+/))
           // Proto, endereço local, endereço remoto, estado, PID. Olhar só o
           // endereço LOCAL: `:3100 ` em qualquer lugar da linha pegaria também
-          // uma conexão de saída para a 3100 de outra máquina.
-          .filter((c) => c.length >= 5 && c[1].endsWith(`:${porta}`) && /LISTEN/i.test(c[3]))
+          // uma conexão de saída para a 3100 de outra máquina. As linhas de UDP
+          // não têm estado e ficam de fora pelo protocolo.
+          .filter(
+            (c) => c.length >= 5 && /^TCP/i.test(c[0]) && c[1].endsWith(`:${porta}`) && /LISTEN/i.test(c[3]),
+          )
           .map((c) => c[4])
           .filter((pid) => pid && pid !== "0"),
       ),
