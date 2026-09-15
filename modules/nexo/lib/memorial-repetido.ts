@@ -29,15 +29,21 @@ export interface ArquivoComparavel {
 }
 
 async function sha256(arquivo: ArquivoComparavel): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await arquivo.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await arquivo.arrayBuffer(),
+  );
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 export async function separarMemorialRepetido<T extends ArquivoComparavel>(
   pdfs: readonly T[],
   memorialRetido: ArquivoComparavel | null,
 ): Promise<{ novos: T[]; repetido: string | null; revisao: string | null }> {
-  if (!memorialRetido) return { novos: [...pdfs], repetido: null, revisao: null };
+  if (!memorialRetido)
+    return { novos: [...pdfs], repetido: null, revisao: null };
   const novos: T[] = [];
   let repetido: string | null = null;
   let revisao: string | null = null;

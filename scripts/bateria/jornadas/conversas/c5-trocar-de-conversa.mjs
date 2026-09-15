@@ -77,11 +77,35 @@ export default {
     // "abriu" e a de "continua aberta alguns segundos depois").
     await ctx.ia.fila("audit-global", "lento:30000");
     await ctx.abrirCartaoDeAuditoria(f.memorialCurto);
+    /*
+     * A CHEGADA DA RESPOSTA, e não o COMPLETED do banco — revisão final da
+     * segunda rodada, 15/09/2026. As checagens de vazamento lá embaixo liam o
+     * disco e a tela de B 5s depois do COMPLETED; o fluxo SSE podia chegar ao
+     * navegador depois disso, e a checagem passava sem o parecer ter chegado.
+     * O POST é um fluxo: `waitForResponse` resolve nos cabeçalhos, então a
+     * âncora é `finished()`, o fim do corpo.
+     */
+    const respostaDaAuditoria = page
+      .waitForResponse(
+        (r) => new URL(r.url()).pathname === "/api/audit" && r.request().method() === "POST",
+        { timeout: 240_000 },
+      )
+      .then(async (r) => (await r.finished()) === null)
+      .catch(() => false);
     await ctx.auditarNoCartao();
-    await page.waitForTimeout(3000);
 
-    const idA = await ctx.conversaAberta();
-    const bilhete = (await ctx.lerConversa(idA))?.auditoriaPendente ?? null;
+    // O bilhete aparece no disco pouco depois do clique: espera por ELE.
+    let idA = null;
+    let bilhete = null;
+    await ctx.esperar(
+      async () => {
+        idA = await ctx.conversaAberta();
+        bilhete = (await ctx.lerConversa(idA))?.auditoriaPendente ?? null;
+        return Boolean(bilhete?.auditId);
+      },
+      15_000,
+      250,
+    );
     ctx.verificar(
       "A tem o bilhete no disco antes da troca",
       Boolean(bilhete?.auditId) && idA !== idB,
@@ -102,7 +126,9 @@ export default {
     // divergência entre a conversa ativa e a que audita — e o clique acima era
     // a primeira desde o F5 que começou a auditoria. Esta verificação trava o
     // puxão: espera alguns segundos e confere se B AINDA está aberta, em vez de
-    // já ter voltado para A sozinha.
+    // já ter voltado para A sozinha. O relógio aqui é o próprio cenário (um
+    // puxão não tem evento: é a ausência dele por um tempo), e o puxão medido
+    // chegava em ~1s.
     await page.waitForTimeout(3000);
     const barraBDepois = await ctx.marcadaNaBarra("BATERIA C5 B");
     ctx.verificar(
@@ -125,7 +151,11 @@ export default {
       2000,
     );
     ctx.verificar("a auditoria de A seguiu até o fim no servidor", terminou);
-    await page.waitForTimeout(5000);
+    const chegou = await respostaDaAuditoria;
+    ctx.verificar("a resposta da auditoria chegou inteira ao navegador, com B aberta", chegou);
+    // Da chegada até o cartão decidir onde gravar e o debounce da gravação
+    // (500ms) pousar no disco: folga contada a partir da CHEGADA.
+    await page.waitForTimeout(2000);
 
     const barraAindaB = await ctx.marcadaNaBarra("BATERIA C5 B");
     const bAindaAberta = barraAindaB.ok && (await ctx.conversaAberta()) === idB;
@@ -175,7 +205,13 @@ export default {
       (await ver.count()) === 1 && (await ctx.visivelRolando(ver)),
       `botões Ver o parecer=${await ver.count()}`,
     );
-    await page.waitForTimeout(1500);
+    // Espera o parecer pousar no disco de A, em vez de um relógio.
+    await ctx.esperar(
+      async () =>
+        ((await ctx.lerConversa(idA))?.results ?? []).some((r) => r.kind === "auditoria"),
+      15_000,
+      250,
+    );
 
     const recA = await ctx.lerConversa(idA);
     const pareceresEmA = (recA?.results ?? []).filter(

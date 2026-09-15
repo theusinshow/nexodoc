@@ -16,11 +16,16 @@
  */
 export type BancoDoDescarte = {
   audit: {
-    deleteMany(args: { where: { id: string; status: "PROCESSING" } }): Promise<{ count: number }>;
+    deleteMany(args: {
+      where: { id: string; status: "PROCESSING" };
+    }): Promise<{ count: number }>;
   };
   projectEvent: {
     deleteMany(args: {
-      where: { type: "AUDIT_CREATED"; details: { path: string[]; equals: string } };
+      where: {
+        type: "AUDIT_CREATED";
+        details: { path: string[]; equals: string };
+      };
     }): Promise<{ count: number }>;
   };
 };
@@ -32,7 +37,10 @@ export async function descartarAuditoriaRecusada(
   if (!auditId) return { auditorias: 0, eventos: 0 };
   try {
     const eventos = await db.projectEvent.deleteMany({
-      where: { type: "AUDIT_CREATED", details: { path: ["auditId"], equals: auditId } },
+      where: {
+        type: "AUDIT_CREATED",
+        details: { path: ["auditId"], equals: auditId },
+      },
     });
     const auditorias = await db.audit.deleteMany({
       where: { id: auditId, status: "PROCESSING" },

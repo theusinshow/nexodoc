@@ -117,3 +117,4 @@ data/nexodoc-learnings.json
 # trabalho -- ter as duas seria a verdade duplicada que este repositorio ja
 # pagou caro para evitar.
 /design-system/
+.playwright-mcp/

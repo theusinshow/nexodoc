@@ -19,8 +19,9 @@ export default {
 
     await ctx.abrirCartaoDeAuditoria(f.memorialCurto);
     await ctx.auditarNoCartao();
-    await page.waitForTimeout(5000);
+    // Espera o bilhete pousar no disco (evento), e não 5s de relógio.
     const id = await ctx.conversaAberta();
+    await ctx.esperar(async () => Boolean((await ctx.lerConversa(id))?.auditoriaPendente?.auditId), 15_000, 250);
     const antes = await ctx.lerConversa(id);
     const bilhete = antes?.auditoriaPendente ?? null;
     ctx.verificar(
@@ -78,6 +79,8 @@ export default {
     const perguntasSemSessao = ctx.contarRequisicoes(
       (req) => new URL(req.url()).pathname === `/api/audits/${bilhete.auditId}`,
     );
+    // Doze segundos são o próprio cenário: "parou de perguntar" é a ausência de
+    // pergunta por mais de dois intervalos (5s cada), e ausência não tem evento.
     await page.waitForTimeout(12_000);
     perguntasSemSessao.parar();
     // Não vale só contar zero: uma tela quebrada que nunca perguntou nada (o
@@ -120,7 +123,11 @@ export default {
       (await ver.count()) === 1 && (await ctx.visivelRolando(ver)),
       `botões=${await ver.count()}`,
     );
-    await page.waitForTimeout(1500);
+    // Espera o parecer pousar no disco e o bilhete sair (evento), e não 1,5s de relógio.
+    await ctx.esperar(async () => {
+      const r = await ctx.lerConversa(id);
+      return (r?.results ?? []).some((x) => x.kind === "auditoria") && !r?.auditoriaPendente;
+    }, 15_000, 250);
     const depois = await ctx.lerConversa(id);
     const pareceres = (depois?.results ?? []).filter(
       (r) => r.kind === "auditoria",

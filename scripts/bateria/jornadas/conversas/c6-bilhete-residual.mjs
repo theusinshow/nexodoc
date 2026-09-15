@@ -55,10 +55,20 @@ export default {
     const ler = async (id) => (await ctx.indexeddb.lerConversas()).find((c) => c.id === id);
     const extras = async () =>
       (await ctx.indexeddb.lerConversas()).filter((c) => !semeadas.has(c.id)).map((c) => `${c.id} memorial=${c.memorial?.blobKey ?? "-"}`);
+    // ANCORADA NO EVENTO (revisão final da segunda rodada, 15/09/2026): as
+    // checagens de ausência (fantasma, bilhete) contam a partir de o bilhete SAIR
+    // do disco — é a gravação imediata do palco que dispara o defeito —, e não de
+    // um relógio fixo depois do F5.
     const esperarBilheteSair = async (id) => {
       const fim = Date.now() + 15_000;
-      while (Date.now() < fim && (await ler(id))?.auditoriaPendente) await page.waitForTimeout(500);
+      while (Date.now() < fim && (await ler(id))?.auditoriaPendente) await page.waitForTimeout(250);
       // Passa da janela do debounce: um fantasma gravado por último teria tempo de chegar ao disco.
+      await page.waitForTimeout(1500);
+    };
+    // Depois de um F5 sem bilhete: a conversa lembrada aberta e marcada na barra
+    // é o evento; a folga depois dele cobre o debounce antes das ausências.
+    const esperarAberta = async (id, titulo) => {
+      await ctx.esperar(async () => (await ultima()) === id && (await marcadaNaBarra(titulo)).ok, 20_000, 250);
       await page.waitForTimeout(1500);
     };
     const marcadaNaBarra = async (titulo) => {
@@ -74,7 +84,6 @@ export default {
     await ctx.indexeddb.gravarConversa(comBilheteResidual({ id: idB, titulo: "BATERIA C6 B", createdAt: agora - 7_200_000, agora }));
     await page.evaluate((id) => localStorage.setItem("nexo:ultima-conversa", id), idB);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(3000);
     await esperarBilheteSair(idB);
 
     const recB = await ler(idB);
@@ -90,7 +99,7 @@ export default {
 
     // Segundo F5: se um fantasma tivesse virado a "última conversa", abriria em branco aqui.
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(4000);
+    await esperarAberta(idB, "BATERIA C6 B");
     ctx.verificar("F5 de novo: a mesma conversa volta", (await ultima()) === idB, await ultima());
     const barra1 = await marcadaNaBarra("BATERIA C6 B");
     ctx.verificar("F5 de novo: a barra marca a conversa com o parecer", barra1.ok, barra1.detalhe);
@@ -140,7 +149,6 @@ export default {
     await ctx.indexeddb.gravarConversa(comBilheteResidual({ id: idD, titulo: "BATERIA C6 D", createdAt: agora - 1_800_000, agora }));
     await page.evaluate((id) => localStorage.setItem("nexo:ultima-conversa", id), idA);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(4000);
     await esperarBilheteSair(idD);
 
     const recA = await ler(idA);
@@ -160,7 +168,7 @@ export default {
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(4000);
+    await esperarAberta(idD, "BATERIA C6 D");
     ctx.verificar("troca + F5: a conversa aberta volta", (await ultima()) === idD, await ultima());
     const barraD = await marcadaNaBarra("BATERIA C6 D");
     ctx.verificar("troca + F5: a barra marca a conversa aberta", barraD.ok, barraD.detalhe);
