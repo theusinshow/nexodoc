@@ -1,0 +1,88 @@
+# A BATERIA DE FLUXOS no GitHub Actions: os testes puros (scripts/test-*.ts) e
+# as jornadas do Playwright contra um `next dev` próprio e um Postgres
+# descartável, com a IA simulada (zero token).
+#
+# Sem segredo nenhum: o repositório é público. O banco é o container abaixo,
+# chamado `nexodoc_teste` porque a guarda da bateria só roda num banco com esse
+# nome; o AUTH_SECRET é sorteado a cada corrida.
+#
+# Como ler uma corrida vermelha: docs/bateria/rodar-no-pc-de-casa.md, seção "CI".
+name: bateria
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bateria-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bateria:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexodoc_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexodoc_teste"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL_BATERIA: postgresql://postgres:postgres@localhost:5432/nexodoc_teste
+      # O `next dev` e os testes não leem `.env.local` aqui (não existe no
+      # runner); o resto do ambiente do servidor é forçado por
+      # scripts/bateria/lib/ambiente.mjs.
+      TZ: America/Sao_Paulo
+      NEXT_TELEMETRY_DISABLED: "1"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dependências
+        run: npm ci
+
+      - name: Cliente do Prisma
+        run: npx prisma generate
+
+      - name: Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: AUTH_SECRET descartável
+        run: |
+          segredo="$(openssl rand -base64 32)"
+          echo "::add-mask::$segredo"
+          echo "AUTH_SECRET=$segredo" >> "$GITHUB_ENV"
+
+      - name: Bateria
+        run: npm run bateria
+
+      # Capturas das jornadas vermelhas e o servidor.log do `next dev`. Não há
+      # segredo ali: o único é o AUTH_SECRET sorteado, que o servidor não loga.
+      - name: Artefatos da corrida
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bateria-${{ github.run_id }}-${{ github.run_attempt }}
+          path: scratchpad/bateria/**
+          if-no-files-found: ignore
+          retention-days: 14

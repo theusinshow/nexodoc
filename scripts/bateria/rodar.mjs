@@ -13,7 +13,7 @@ import { prepararBanco } from "./lib/banco.mjs";
 import { rodarJornadas } from "./lib/jornadas.mjs";
 import { rodarPuros } from "./lib/puros.mjs";
 import { imprimirRelatorio } from "./lib/relatorio.mjs";
-import { matarPorta, subirServidor } from "./lib/servidor.mjs";
+import { derrubarServidoresVivos, matarPorta, subirServidor } from "./lib/servidor.mjs";
 import { urlDaBateria } from "./lib/ambiente.mjs";
 
 const args = process.argv.slice(2);
@@ -46,7 +46,12 @@ for (const sinal of ["SIGINT", "SIGTERM"]) {
     console.log(`\nInterrompida (${sinal}): derrubando o servidor da bateria…`);
     try {
       if (servidor) await servidor.derrubar();
-      else matarPorta(PORTA);
+      else {
+        // Ainda subindo: no Linux o `next dev` está num grupo próprio e não
+        // recebeu o sinal junto; derruba o grupo antes de olhar a porta.
+        await derrubarServidoresVivos();
+        matarPorta(PORTA);
+      }
     } finally {
       process.exit(130);
     }

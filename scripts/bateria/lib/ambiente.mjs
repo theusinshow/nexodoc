@@ -30,7 +30,7 @@ export function urlDaBateria() {
   const guarda = bancoDaBateria(url);
   if (!guarda.ok) {
     throw new Error(
-      `${guarda.motivo}. Acrescente DATABASE_URL_BATERIA ao .env.local (ver docs/bateria/rodar-no-pc-de-casa.md).`,
+      `${guarda.motivo}. Defina DATABASE_URL_BATERIA no ambiente ou no .env.local (ver docs/bateria/rodar-no-pc-de-casa.md).`,
     );
   }
   return url;
