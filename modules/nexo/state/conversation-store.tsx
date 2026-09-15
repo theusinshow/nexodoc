@@ -43,6 +43,13 @@ import { removerResultado } from "../lib/results";
 import { criarAgendaDeGravacao } from "../lib/agenda-de-gravacao";
 import { criarFilaDeGravacao } from "../lib/fila-de-gravacao";
 import { criarUltimaAbertura } from "../lib/ultima-abertura";
+import {
+  abreTravada as decidirAbreTravada,
+  decidirAbertura,
+  depoisDoServidor,
+  type CopiaDoServidor,
+  type MarcaDeRecusa,
+} from "../lib/abertura-da-conversa";
 import { podeGastar as podeGastarNaAba } from "../lib/aba-travada";
 import { urlsAAbandonar } from "../lib/urls-a-abandonar";
 import {
@@ -359,7 +366,6 @@ const PREFIXO_DA_RECUSA = "nexo:recusada-pelo-servidor:";
  * servidor. "manter": a base não estava conferida e o 409 pode ser falso; quem
  * abre fica com o disco, travado, até "Recarregar a conversa".
  */
-type MarcaDeRecusa = "descer" | "manter";
 
 function lembrarRecusa(id: string, marca: MarcaDeRecusa) {
   try {
@@ -1272,23 +1278,15 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       await Promise.race([fila.ociosa(), new Promise((r) => setTimeout(r, 1000))]);
       if (superada()) return null;
       /*
-       * Recarregar depois do 409 do servidor: quem gravou foi OUTRA MÁQUINA, e o
-       * disco desta tem a versão desta aba — com hora que pode ser mais nova
-       * que a de lá. O desempate por data escolheria justamente a desatualizada.
-       * A marca guardada vale o mesmo depois de um F5 ou noutra aba local,
-       * enquanto a cópia do servidor não pousou no disco.
-       *
-       * Marca "manter" (409 com base não conferida, segunda revisão): o 409
-       * pode ter sido falso, contra a própria gravação atrasada desta aba, e o
-       * disco tem edições que não existem em lugar nenhum. Reabrir sem ser pelo
-       * botão (F5, outra aba) abre do DISCO e travada; só "Recarregar a
-       * conversa", com a trava na memória desta aba, troca pela do servidor.
+       * A trava na memória desta aba (recarregar depois do 409 do servidor) e a
+       * marca de recusa guardada ("descer"/"manter") são lidas AQUI, antes das
+       * esperas, como sempre foram. As regras que as usam moram em
+       * `lib/abertura-da-conversa.ts` (revisão final da segunda rodada,
+       * 15/09/2026), com tabela-verdade.
        */
       const travadaNaMemoria = fila.travada(id) === "servidor";
       const marca = recusaLembrada(id);
-      const manterDisco = marca === "manter" && !travadaNaMemoria;
-      const lerDoServidorPrimeiro = travadaNaMemoria || marca === "descer";
-      let copiaDoServidor: "desceu" | "ausente" | "falhou" | null = null;
+      let copiaDoServidor: CopiaDoServidor = null;
       /*
        * A ABERTURA DA CARGA ESPERA A LISTA DO SERVIDOR — segunda revisão da
        * Tarefa 15, 15/09/2026. A restauração do F5 roda um quadro depois da
@@ -1307,7 +1305,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
         ]);
         if (superada()) return null;
       }
-      let verificada = listaRemota.current.carregada;
+      // Lida aqui, logo depois da espera, e não depois do disco: é o instante
+      // que decide se a base nasce conferida.
+      const listaCarregada = listaRemota.current.carregada;
       /*
        * Disco preferido, MAS o desempate é a data.
        *
@@ -1329,32 +1329,30 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       if (superada()) return null;
       const remoto = remotasRef.current.find((c) => c.id === id) ?? null;
       let rec = doDisco;
-      const irAoServidor = manterDisco
-        ? !doDisco
-        : lerDoServidorPrimeiro || escolherCopia(doDisco, remoto) === "servidor";
-      if (manterDisco) verificada = false;
+      const { manterDisco, lerDoServidorPrimeiro, irAoServidor, ...abertura } = decidirAbertura({
+        travadaNaMemoria,
+        marca,
+        listaCarregada,
+        temDisco: Boolean(doDisco),
+        servidorMaisNovo: escolherCopia(doDisco, remoto) === "servidor",
+      });
+      let verificada = abertura.verificada;
       if (irAoServidor) {
         const consulta = await consultarConversaNoServidor(id);
+        let desceu = false;
         if (consulta.estado === "achada") {
           rec = consulta.copia;
-          verificada = true;
           // Desce para este disco, senão toda reabertura pagaria a rede de novo e
           // um F5 offline a perderia.
-          const desceu = await putConversation(consulta.copia).then(
+          desceu = await putConversation(consulta.copia).then(
             () => true,
             () => false,
           );
-          copiaDoServidor = desceu ? "desceu" : "falhou";
-          if (desceu) esquecerRecusa(id);
-        } else if (consulta.estado === "ausente") {
-          // Apagada no servidor (noutra máquina): a marca não trava para sempre.
-          copiaDoServidor = "ausente";
-          esquecerRecusa(id);
-        } else {
-          copiaDoServidor = "falhou";
-          // O servidor é mais novo e não deu para ler: a base não está conferida.
-          verificada = false;
         }
+        const leitura = depoisDoServidor({ verificada, consulta: consulta.estado, desceu });
+        verificada = leitura.verificada;
+        copiaDoServidor = leitura.copiaDoServidor;
+        if (leitura.esquecerMarca) esquecerRecusa(id);
         if (superada()) return null;
       }
       if (!rec) return null;
@@ -1497,18 +1495,9 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
        * gravação lê o snapshot até o commit trazer esta versão.
        */
       fila.abrir(rec.id, rec.updatedAt, { verificada });
-      /*
-       * Recusada pelo servidor e sem conseguir a cópia dele (rede fora): o que
-       * abriu é a cópia parada do disco. Abre travada, com a faixa — gravar dali
-       * apagaria o trabalho da outra máquina, porque a hora parada é mais nova.
-       * Com a marca "manter", abre do disco e travada de propósito (acima).
-       * Conversa que o servidor não tem mais ("ausente") abre destravada.
-       */
-      const abreTravada =
-        (lerDoServidorPrimeiro &&
-          copiaDoServidor !== "desceu" &&
-          copiaDoServidor !== "ausente") ||
-        (manterDisco && copiaDoServidor === null);
+      // Recusada e sem a cópia do servidor, ou com a marca "manter": abre travada,
+      // com a faixa. A regra e o porquê em `abreTravada` (lib/abertura-da-conversa.ts).
+      const abreTravada = decidirAbreTravada({ lerDoServidorPrimeiro, manterDisco, copiaDoServidor });
       if (abreTravada) fila.travar(rec.id, "servidor");
       setConflitoDeVersao(abreTravada);
       // Abrir do histórico também define "onde eu estava": é o F5 seguinte que
