@@ -120,6 +120,30 @@ export default {
         `update "OrganizationMember" set status = 'ACTIVE' where email = $1`,
         [EMAIL],
       );
+      /*
+       * E NADA DESTA JORNADA SOBRA PARA A SEGUINTE (15/09/2026, duas rodadas
+       * completas vermelhas). A auditoria de 30s segue no servidor depois do
+       * descarte: na rodada 1 a validação dela consumiu o "truncar" que a a2
+       * tinha enfileirado. E o descarte do bilhete não chega ao servidor (a
+       * gravação recebe 403): a a1, logada como o mesmo usuário, recebia esta
+       * conversa com bilhete na lista e a retomada a abria. Espera a auditoria
+       * terminar e tira o bilhete da cópia do servidor.
+       */
+      await ctx.esperar(
+        async () => {
+          const [linha] = await ctx.banco.consultar(
+            `select status from "Audit" where id = $1`,
+            [bilhete.auditId],
+          );
+          return linha?.status === "COMPLETED" || linha?.status === "FAILED";
+        },
+        90_000,
+        1000,
+      );
+      await ctx.banco.consultar(
+        `update "NexoConversation" set "auditoriaPendente" = false, data = data - 'auditoriaPendente' where id = $1`,
+        [id],
+      );
     }
   },
 };
