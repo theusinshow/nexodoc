@@ -28,17 +28,40 @@ caracterização viram fallback.
    "UBS Vila Manaus - Porte 1" (capa). O efeito é medido, não suposto (ver
    Provas).
 
+## Emendas ao escrever o plano (17/09/2026)
+
+Achadas ao mapear quem consome os campos; nenhuma muda o que foi decidido.
+
+- **Órgão canônico.** `GOVERNO DO MUNICÍPIO DE CRICIÚMA` vira
+  `PREFEITURA MUNICIPAL DE CRICIÚMA`. `marca-da-prefeitura.ts` só reconhece o
+  prefixo PREFEITURA, a pasta da conversa deriva do órgão, e o modelo de
+  Criciúma declara `defaults.orgao: "PREFEITURA MUNICIPAL DE CRICIÚMA"`. Guardar
+  o texto impresso apagaria a cor da marca e mudaria a pasta.
+- **Bairro com o prefixo**, como impresso (`BAIRRO SÃO JOÃO`). O modelo de
+  Criciúma imprime `{{BAIRRO}}` sozinho numa linha, e a identidade da conversa
+  alimenta esse marcador.
+- **Caixa preservada.** Obra, órgão, secretaria e bairro vindos da capa não
+  passam por `titleCase`: `IdentidadeDoProjeto.obra` é "como sai impresso na
+  capa", e "UBS" viraria "Ubs". Só o município vira caixa de título.
+- **Identidade da conversa** recebe `secretaria` e `bairro` (o bairro só quando
+  veio da capa, pelo motivo do prefixo). `mesAno` não entra: `MES_ANO` é
+  parâmetro do documento, não identidade.
+- **O recall de 93% não é remedido sem token.** O parecer versionado foi gerado
+  com o gabarito antigo. Sem token dá para medir a camada determinística
+  (`runWithinDocumentIdentityRules` com gabarito antigo × novo nos memoriais de
+  Criciúma). A parte da IA pede uma corrida nova (~US$ 0,56).
+
 ## 1. O leitor — `lib/leitura-da-capa.ts`
 
 Módulo PURO e sem `@/`, como `nome-da-obra.ts`: roda em node cru.
 
 ```ts
 export interface LeituraDaCapa {
-  orgao: string;      // linha do timbre como impressa, espaços normalizados
+  orgao: string;      // "PREFEITURA MUNICIPAL DE <CIDADE>" (ver Emendas)
   secretaria: string;
-  municipio: string;  // "…DE <CIDADE>" do timbre, em caixa de título
+  municipio: string;  // "…DE <CIDADE>" do timbre, como impresso
   obra: string;
-  bairro: string;     // sem o prefixo "BAIRRO"
+  bairro: string;     // com o prefixo: "BAIRRO SÃO JOÃO"
   mesAno: string;     // como impresso: "OUTUBRO/2025", "OUTUBRO 2025"
   codigo: string;     // normalizado com hífen: "027-24"
 }
@@ -79,7 +102,7 @@ separado por espaço tem um caractere é colada antes do reconhecimento
 `SÃOJOSÉ`. A cidade só é devolvida com grafia quando algum candidato do próprio
 documento (município da caracterização ou da impressão digital), colado da
 mesma forma, é igual ao final do timbre; aí vale a grafia do candidato, e o
-órgão é remontado como `GOVERNO DO MUNICÍPIO DE <CIDADE>`. Sem candidato que
+órgão é remontado como `PREFEITURA MUNICIPAL DE <CIDADE>`. Sem candidato que
 case, `municipio: ""` e o fallback decide.
 
 **É capa** quando há timbre **e** pelo menos uma âncora de fim (fase, título ou
