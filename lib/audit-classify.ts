@@ -4,6 +4,7 @@ import {
   type CaracterizacaoDaObra,
 } from "@/lib/caracterizacao-obra";
 import { nomeDaObra } from "@/lib/nome-da-obra";
+import { orgaoDoTimbre } from "@/lib/orgao-do-timbre";
 import { extractIdentityFingerprint } from "./cross-document-audit";
 
 export type DocumentKind =
@@ -100,11 +101,7 @@ function extractIdentity(source: { fileName: string; fileType: string; extracted
       ?.trim() ||
     "";
 
-  const orgao =
-    /Prefeitura\s+Municipal\s+de\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,40})/i
-      .exec(text)?.[0]
-      ?.replace(/\s+/g, " ")
-      .trim() ?? "";
+  const orgao = orgaoDoTimbre(text);
 
   const revisao = fingerprint.fields.revisao?.display ?? "";
 
