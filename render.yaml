@@ -233,7 +233,7 @@ services:
       # custam pouco enquanto rodam e derrubam o container muito antes de
       # virarem dinheiro.
       #
-      # Cada auditoria segura um PDF de até 25 MB mais o que o pdfjs constrói
+      # Cada auditoria segura um PDF de até 40 MB mais o que o pdfjs constrói
       # em cima dele, do início ao fim de uma conexão SSE, e dispara
       # `NEXODOC_CHUNK_CONCURRENCY` blocos em paralelo. Recusar a décima com
       # uma mensagem clara é melhor que aceitar as dez e perder as nove no OOM.
@@ -257,6 +257,12 @@ services:
       # cima é a mesma régua, e subir uma sem subir a outra ou desperdiça a
       # memória que se pagou, ou devolve o OOM que as duas evitam.
       #
+      # E VIROU 1 EM 17/09/2026, quando o teto por arquivo subiu de 25 para 40 MB
+      # (`lib/limite-do-anexo.ts`), para o memorial de Urubici — 26,8 MB — poder
+      # ser auditado. Medido nesse arquivo: 229 MB de RSS para lê-lo uma vez.
+      # Duas dessas ao mesmo tempo não cabem em 512 MB. Ao subir o plano, esta
+      # volta para 2 e o teto pode ficar onde está.
+      #
       # A POR USUÁRIO em 1, e não nos 2 que o módulo chama de "número humano":
       # numa máquina de DUAS vagas, limite de 2 por usuário é o mesmo que não
       # ter limite por usuário — uma pessoa ocupa a casa inteira e o colega lê
@@ -267,7 +273,7 @@ services:
       # uma conta a sua — que para proteger memória é a régua certa, porque a
       # memória também é por instância.
       - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL
-        value: "2"
+        value: "1"
       - key: NEXODOC_MAX_AUDITORIAS_SIMULTANEAS
         value: "1"
 

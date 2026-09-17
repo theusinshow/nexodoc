@@ -1,5 +1,6 @@
 "use client";
 
+import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Upload } from "lucide-react";
@@ -624,7 +625,7 @@ function NexoWorkspaceInner({
         conv.salvarDossieDoMemorial(lido);
         appendMemorialIntake(file, lido);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
+        avisarMemorialNaoLido(file.name, err);
       } finally {
         setReadingMemorial(false);
       }
@@ -668,12 +669,30 @@ function NexoWorkspaceInner({
     // palpite: sem isto a rota não lê o conteúdo e devolve identidade vazia.
     forcarMemorial = false,
   ): Promise<NexoDossieDraft | null> {
+    /*
+     * A RECUSA NÃO PODE SER ENGOLIDA (17/09/2026, memorial 031_26 de Urubici).
+     *
+     * Era `if (!res.ok) return null`: a rota recusou o arquivo por tamanho, o
+     * dossiê voltou vazio e o chat anunciou "Li as primeiras páginas: é o
+     * memorial descritivo" sem ter lido NADA. Sem identidade e sem motivo na
+     * tela, o único caminho visível era "tratar como prancha" — e as 206
+     * páginas do memorial foram parar na leitura de carimbo.
+     *
+     * O tamanho é conferido AQUI, ANTES de subir: recusar 27 MB depois de
+     * enviá-los é castigar quem já esperou o upload.
+     */
+    if (excedeOLimite(file.size)) {
+      throw new Error(motivoDeArquivoGrande(file.name, file.size));
+    }
     const form = new FormData();
     form.append("files", file);
     form.append("relPaths", JSON.stringify([""]));
     if (forcarMemorial) form.append("forcarMemorial", "1");
     const res = await fetch("/api/nexo/classify", { method: "POST", body: form });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const corpo = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(corpo?.error?.trim() || `A leitura do memorial falhou (HTTP ${res.status}).`);
+    }
     const payload = (await res.json().catch(() => null)) as { dossie?: NexoDossieDraft } | null;
     return payload?.dossie ?? null;
   }
@@ -1555,11 +1574,33 @@ function NexoWorkspaceInner({
         conv.salvarDossieDoMemorial(lido);
         appendMemorialIntake(memorial, lido);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao ler o memorial.");
+        avisarMemorialNaoLido(memorial.name, err);
       } finally {
         setReadingMemorial(false);
       }
     }
+  }
+
+  /**
+   * A LEITURA DO MEMORIAL FALHOU — e quem anexou precisa saber por quê.
+   *
+   * O erro ia só para `setError`, uma faixa que some, enquanto o chat seguia
+   * como se o arquivo tivesse sido lido. A mensagem fica no histórico, com o
+   * motivo que a rota deu, e diz o que o Nexo NÃO fez — porque foi justamente
+   * a ausência de saída que levou o memorial de Urubici para o fluxo de
+   * prancha.
+   */
+  function avisarMemorialNaoLido(nome: string, err: unknown) {
+    const motivo = err instanceof Error ? err.message : "Erro ao ler o memorial.";
+    setError(motivo);
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content:
+        `Não consegui ler o memorial ${nome}. ${motivo}\n\n` +
+        `Ele continua anexado como memorial: não o tratei como prancha, porque ` +
+        `memorial lido como prancha vira dezenas de folhas sem carimbo.`,
+    });
   }
 
   // Latch do shell: o 1º envio desliza welcome→active (chat vai pra direita, o

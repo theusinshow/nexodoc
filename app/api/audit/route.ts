@@ -1,3 +1,4 @@
+import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { formatarDiaMes } from "@/lib/fuso-de-brasilia";
 import { NextResponse } from "next/server";
 
@@ -133,7 +134,6 @@ import { filterGroundedFindings } from "@/lib/audit-verify";
 export const runtime = "nodejs";
 
 const MAX_FILES = 5;
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
 // Piso, não sugestão: ver `getMaxOutputTokens`. Era 1800 e truncava.
 const DEFAULT_CHUNK_MAX_OUTPUT_TOKENS = 6000;
 /** Limite de segurança do teto por bloco. Acima disto o bloco é grande demais. */
@@ -3690,8 +3690,8 @@ async function executarAuditoria(
         return jsonError(`O arquivo "${file.name}" não é um PDF válido.`);
       }
 
-      if (file.size > MAX_FILE_SIZE) {
-        return jsonError(`O arquivo "${file.name}" excede o limite de 25 MB.`);
+      if (excedeOLimite(file.size)) {
+        return jsonError(motivoDeArquivoGrande(file.name, file.size));
       }
     }
 

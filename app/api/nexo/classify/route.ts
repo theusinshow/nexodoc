@@ -1,3 +1,4 @@
+import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
@@ -11,7 +12,6 @@ import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 export const runtime = "nodejs";
 
 const MAX_FILES = 10;
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB por arquivo, igual a auditoria
 
 export async function POST(req: NextRequest) {
   // Kill-switch: rota inerte com o modulo desligado.
@@ -54,10 +54,10 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const tooBig = files.find((f) => f.size > MAX_BYTES);
+  const tooBig = files.find((f) => excedeOLimite(f.size));
   if (tooBig) {
     return NextResponse.json(
-      { error: `Arquivo "${tooBig.name}" excede 25 MB.` },
+      { error: motivoDeArquivoGrande(tooBig.name, tooBig.size) },
       { status: 400 },
     );
   }

@@ -196,6 +196,7 @@
     "test:decisao-da-validacao": "node scripts/test-decisao-da-validacao.ts",
     "test:arredondamento": "node scripts/test-arredondamento.ts",
     "test:fuso": "node scripts/test-fuso-de-brasilia.ts",
+    "test:limite-do-anexo": "node scripts/test-limite-do-anexo.ts",
     "test:identidade-do-parecer": "node scripts/test-identidade-do-parecer.ts",
     "test:diff-de-pareceres": "node scripts/test-diff-de-pareceres.ts",
     "prova:texto-do-pdf": "node scripts/prova-texto-do-pdf.ts",

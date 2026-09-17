@@ -139,7 +139,7 @@ export async function preVoar(file: File): Promise<PreVooDoAnexo> {
 /**
  * O lote inteiro, um de cada vez.
  *
- * SEM `Promise.all`: cada pré-voo abre um PDF de até 25 MB, e oito ao mesmo
+ * SEM `Promise.all`: cada pré-voo abre um PDF de até 40 MB, e oito ao mesmo
  * tempo é exatamente o pico de memória que a leitura de selo já limita a três.
  * O ganho de paralelizar aqui seria de décimos de segundo; o custo seria a aba
  * travando no lote grande, que é justamente o lote em que isto importa.

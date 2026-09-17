@@ -1,3 +1,4 @@
+import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { getPrisma } from "@/lib/db";
 import { getChecksumSha256 } from "@/lib/project-store";
 
@@ -65,14 +66,11 @@ function buildDownloadUrl(storageKey: string | null) {
 }
 
 /**
- * O TETO POR ARQUIVO.
- *
- * Memorial real tem 1,6 a 5,2 MB (medido em `docs/samples`). 25 MB é folga
- * generosa para o caso torto sem deixar um arquivo qualquer entrar. O que ele
- * evita não é o custo — é estourar em algum lugar mais fundo, sem motivo que
- * chegue a quem tentou.
+ * O TETO POR ARQUIVO vive em [[limite-do-anexo.ts]] desde 17/09/2026 — aqui ele
+ * estava em 25.000.000 de bytes e nas rotas em 25 mebibytes (26.214.400), e um
+ * arquivo entre os dois passava na rota para ser recusado na gravação.
  */
-export const LIMITE_DO_ARQUIVO = 25_000_000;
+export { LIMITE_DO_ARQUIVO_BYTES as LIMITE_DO_ARQUIVO } from "@/lib/limite-do-anexo";
 
 export class ArquivoRecusado extends Error {
   /*
@@ -109,10 +107,8 @@ export async function guardarArquivo(args: {
 }): Promise<{ checksumSha256: string; sizeBytes: number }> {
   const buffer = toBuffer(args.data);
 
-  if (buffer.byteLength > LIMITE_DO_ARQUIVO) {
-    const tamanho = (buffer.byteLength / 1_000_000).toFixed(1);
-    const teto = (LIMITE_DO_ARQUIVO / 1_000_000).toFixed(0);
-    throw new ArquivoRecusado(`Arquivo grande demais: ${tamanho} MB (teto ${teto} MB).`);
+  if (excedeOLimite(buffer.byteLength)) {
+    throw new ArquivoRecusado(motivoDeArquivoGrande("", buffer.byteLength));
   }
 
   const checksumSha256 = getChecksumSha256(buffer);

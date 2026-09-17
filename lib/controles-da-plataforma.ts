@@ -90,7 +90,7 @@ export const CONTROLES: readonly DefinicaoDeControle[] = [
     chave: "vazao.global",
     rotulo: "Auditorias simultâneas no sistema",
     descricao:
-      "É ESTE que protege a memória: cada auditoria segura um PDF de até 25 MB. A conta vive no processo — com mais de uma instância, cada uma conta a sua.",
+      "É ESTE que protege a memória: cada auditoria segura um PDF de até 40 MB. A conta vive no processo — com mais de uma instância, cada uma conta a sua.",
     variavel: "NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL",
     minimo: 1,
     maximo: 50,

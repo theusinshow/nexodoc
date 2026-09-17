@@ -1,3 +1,4 @@
+import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { NextResponse } from "next/server";
 
 import { extractPdfText } from "@/lib/pdf-text";
@@ -7,7 +8,6 @@ import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 export const runtime = "nodejs";
 
 const MAX_FILES = 5;
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 function isPdf(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -58,9 +58,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (excedeOLimite(file.size)) {
       return NextResponse.json(
-        { error: `O arquivo "${file.name}" excede o limite de 25 MB.` },
+        { error: motivoDeArquivoGrande(file.name, file.size) },
         { status: 400 },
       );
     }

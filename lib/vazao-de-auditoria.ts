@@ -6,7 +6,7 @@
  * enquanto rodam e derrubam o container muito antes de virarem dinheiro.
  *
  * O que derruba é memória. Cada auditoria segura, do início ao fim de uma
- * conexão SSE, um PDF de até 25 MB mais o que o pdfjs constrói em cima dele,
+ * conexão SSE, um PDF de até 40 MB mais o que o pdfjs constrói em cima dele,
  * e dispara `NEXODOC_CHUNK_CONCURRENCY` blocos em paralelo. O modo de falha é
  * o pior possível: o OOM não recusa a auditoria que passou do ponto, ele mata
  * o processo — e com ele TODAS as conexões abertas, inclusive as de quem não
