@@ -10,6 +10,7 @@
  * sem tocar nesta camada.
  */
 
+import { comPrazo } from "../lib/com-prazo";
 import {
   createContext,
   useCallback,
@@ -1889,9 +1890,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       const meta = file
         ? { name: file.name, blobKey: `${snapshotRef.current.conversationId}:memorial` }
         : null;
-      // Os bytes primeiro: gravar a referência antes do blob deixaria uma
-      // conversa apontando para um arquivo que não existe.
-      if (file && meta) await putBlob(meta.blobKey, file);
+      /*
+       * Os bytes primeiro: gravar a referência antes do blob deixaria uma
+       * conversa apontando para um arquivo que não existe.
+       *
+       * COM PRAZO (17/09/2026, Urubici). A gravação do memorial de 26,8 MB
+       * ficou pendente e NUNCA se resolveu: a referência não foi gravada, quem
+       * chama não recebeu rejeição — e por isso nem a mensagem de "não consegui
+       * guardar" apareceu. A conversa ficou com o memorial nulo, o cartão pedia
+       * o PDF de novo e o AUDITAR não fazia nada. Promessa que não volta é pior
+       * que erro: não dá para contar ao usuário.
+       */
+      if (file && meta) await comPrazo(putBlob(meta.blobKey, file), 30_000, file.name);
       setMemorialMeta(meta);
       // Mesmo motivo do bilhete da auditoria: o snapshot só acompanha o estado
       // depois do render, e aqui a gravação é imediata.

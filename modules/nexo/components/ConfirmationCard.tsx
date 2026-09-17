@@ -2583,7 +2583,20 @@ function AuditoriaConfirmation({
   const [projetoEscolhido, setProjetoEscolhido] = useState("");
 
   async function confirm(comTranscricao = false, projetoDaEscolha?: string) {
-    if (!memorialFile) return;
+    /*
+     * CLIQUE MUDO NÃO (17/09/2026, Urubici).
+     *
+     * Era `if (!memorialFile) return`: quem clicava em AUDITAR sem o arquivo na
+     * aba — memorial anexado noutra sessão, ou retenção que não completou —
+     * não via NADA acontecer. Sem mensagem, sem faixa, sem log: a conclusão
+     * razoável é que o produto travou.
+     */
+    if (!memorialFile) {
+      setError(
+        "O PDF do memorial não está nesta aba. Anexe o arquivo de novo (arraste para o chat) e clique em Auditar.",
+      );
+      return;
+    }
     /*
      * A ABA TRAVADA NÃO AUDITA — revisão final da segunda rodada, 15/09/2026.
      * Os botões já ficam cinza, mas a escolha de projeto e o "sem transcrição"
@@ -3051,9 +3064,17 @@ function AuditoriaConfirmation({
                 Conferindo se o documento tem texto…
               </span>
             )}
+            {/*
+              POR QUE O BOTÃO ESTÁ CINZA — em âmbar, não em cinza (17/09/2026,
+              Urubici). O aviso era um texto discreto ao lado de um botão
+              desabilitado: clicar não fazia nada e a frase não era lida. Botão
+              que não responde sem dizer por quê é indistinguível de produto
+              travado — foi essa a leitura do Matheus.
+            */}
             {!memorialFile && (
-              <span className="text-xs text-muted-foreground">
-                Anexe o memorial (o Nexo o separa das pranchas).
+              <span className="nx-cut-6 border border-[var(--status-warning)]/40 bg-[var(--status-warning-bg)]/40 px-2.5 py-1.5 text-xs leading-5 text-[var(--status-warning)]">
+                O PDF do memorial não está nesta aba — por isso Auditar está
+                desligado. Arraste o arquivo para o chat e ele volta a ligar.
               </span>
             )}
           </div>

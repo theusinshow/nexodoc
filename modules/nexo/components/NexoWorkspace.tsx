@@ -602,7 +602,7 @@ function NexoWorkspaceInner({
       setPranchaFiles((prev) => prev.filter((f) => f.name !== file.name));
       setSeloResults(seloResults.filter((r) => r.fileName !== file.name));
       setMemorialFile(file);
-      conv.salvarMemorial(file).catch(() => {
+      conv.salvarMemorial(file).catch((err) => {
         /*
          * A REJEIÇÃO CONTA. Era `void`, e a promessa rejeitada sumia sem
          * rastro: `salvarMemorial` aguarda `putBlob` ANTES de gravar a
@@ -614,7 +614,8 @@ function NexoWorkspaceInner({
           id: crypto.randomUUID(),
           role: "assistant",
           content:
-            "Não consegui guardar o memorial neste navegador. A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
+            `Não consegui guardar o memorial neste navegador${err instanceof Error ? `: ${err.message}` : "."} ` +
+            "A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
         });
       });
       setReadingMemorial(true);
@@ -1220,7 +1221,7 @@ function NexoWorkspaceInner({
       setMemorialFile(memorial);
       // Retido para poder auditar DE NOVO depois — inclusive numa conversa
       // restaurada, que é onde o veredito parcial manda rodar outra vez.
-      conv.salvarMemorial(memorial).catch(() => {
+      conv.salvarMemorial(memorial).catch((err) => {
         /*
          * A REJEIÇÃO CONTA. Era `void`, e a promessa rejeitada sumia sem
          * rastro: `salvarMemorial` aguarda `putBlob` ANTES de gravar a
@@ -1232,7 +1233,8 @@ function NexoWorkspaceInner({
           id: crypto.randomUUID(),
           role: "assistant",
           content:
-            "Não consegui guardar o memorial neste navegador. A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
+            `Não consegui guardar o memorial neste navegador${err instanceof Error ? `: ${err.message}` : "."} ` +
+            "A auditoria roda normalmente agora, mas se você sair e voltar vai precisar anexar o arquivo de novo.",
         });
       });
     }
