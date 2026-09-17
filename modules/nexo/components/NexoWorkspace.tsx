@@ -894,18 +894,25 @@ function NexoWorkspaceInner({
   // Intake conversacional do MEMORIAL: identifica e já propõe auditar/conferir.
   function appendMemorialIntake(memorial: File, dossie: NexoDossieDraft | null) {
     /*
-     * Só os campos que a classificação LÊ de fato: obra, órgão, município e
-     * código. O desenho falava também em endereço — o classificador não extrai
-     * endereço, e afirmar um dado que não foi lido é pior do que não mostrá-lo.
+     * O que a classificação LEU, na ordem da capa (ver [[lib/leitura-da-capa.ts]]).
+     * Endereço não entra: ele sai da caracterização da obra, não da capa, e
+     * misturá-lo aqui faria a frase afirmar a capa e o corpo como uma coisa só.
      */
     const detail = [
       dossie?.obra,
       dossie?.orgao,
+      dossie?.secretaria,
+      dossie?.bairro,
       dossie?.municipio,
       dossie?.codigo ? `código ${dossie.codigo}` : "",
+      dossie?.mesAno,
     ]
       .filter(Boolean)
       .join(" · ");
+    /* Código da capa × nome do arquivo: o nome manda, mas a divergência se vê. */
+    const divergencia = dossie?.arquivos
+      .find((a) => a.tipo === "memorial")
+      ?.sinais.find((s) => s.startsWith("código da capa"));
 
     /*
      * O ELO QUE FALTAVA.
@@ -921,6 +928,12 @@ function NexoWorkspaceInner({
     if (dossie?.obra) lido.obra = dossie.obra;
     if (dossie?.orgao) lido.orgao = dossie.orgao;
     if (dossie?.municipio) lido.municipio = dossie.municipio;
+    if (dossie?.secretaria) lido.secretaria = dossie.secretaria;
+    /*
+     * O bairro SÓ da capa: o modelo de Criciúma imprime `{{BAIRRO}}` sozinho e
+     * espera "BAIRRO X"; o da caracterização vem sem o prefixo.
+     */
+    if (dossie?.capa?.bairro) lido.bairro = dossie.capa.bairro;
     /* O código ANTES da correção: é com ele que `decidirTroca` compara. */
     const codigoAtual = conv.identidade?.codigo ?? null;
     if (Object.keys(lido).length > 0) conv.corrigirIdentidade(lido);
@@ -935,7 +948,12 @@ function NexoWorkspaceInner({
       id: crypto.randomUUID(),
       role: "assistant",
       content:
+        /*
+         * A abertura "Li as primeiras páginas" é CONTRATO: as jornadas da
+         * bateria esperam por ela. Os dados agora vêm da capa, mas a frase fica.
+         */
         `Li as primeiras páginas: é o memorial descritivo${detail ? ` — ${detail}` : ""}.\n\n` +
+        (divergencia ? `Atenção: ${divergencia}.\n\n` : "") +
         `Vou auditar usando essa obra como referência. Se o nome estiver errado, ` +
         `me diga o correto — é ele que denuncia texto reaproveitado de outro projeto.`,
       slotRequest: {
