@@ -13,6 +13,7 @@
  * objeto errado", que é o que de fato acontece numa lista de obras parecidas.
  */
 
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import { AlertTriangle, Database, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -56,9 +57,7 @@ function formatarBytes(bytes: number) {
 }
 
 function formatarData(valor: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(valor),
-  );
+  return formatarDataHora(valor);
 }
 
 /**

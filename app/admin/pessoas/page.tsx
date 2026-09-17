@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import { Check, DoorOpen, Search, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -35,7 +36,7 @@ type AdminUser = {
 };
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatarDataHora(value);
 }
 
 function roleClass(role: AdminUser["role"]) {

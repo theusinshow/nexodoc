@@ -31,9 +31,8 @@ async function ensureAdmin(request: Request) {
 }
 
 function sinceDate(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
+  // Duração, não calendário: N dias antes deste instante.
+  return new Date(Date.now() - days * 86_400_000);
 }
 
 export async function GET(request: Request) {

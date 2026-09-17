@@ -13,6 +13,7 @@
  * veredito precisa, e é por isso que a rota `/api/admin/status` pode ser
  * chamada em toda navegação sem pesar.
  */
+import { inicioDoMesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { getLastProviderFailures, getAiConfiguration } from "@/lib/ai-providers";
 import { carregarCotacao } from "@/lib/cambio-config";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
@@ -20,9 +21,8 @@ import { statusDoSistema, type StatusDoSistema } from "@/lib/status-do-sistema";
 
 export async function coletarStatusDoSistema(): Promise<StatusDoSistema> {
   const ultimasVinteQuatro = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const inicioDoMes = new Date();
-  inicioDoMes.setDate(1);
-  inicioDoMes.setHours(0, 0, 0, 0);
+  // O mês de Brasília; o servidor da Render roda em UTC.
+  const inicioDoMes = inicioDoMesEmBrasilia();
 
   const prisma = getPrisma();
   const [auditorias24h, auditoriasFalhadas24h, consumoDoMes, cotacao] = await Promise.all([

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import { AlertTriangle, BarChart3, CheckCircle2, Clock3, FileSpreadsheet, ListChecks, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -69,7 +70,7 @@ type OverviewResponse = {
 };
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatarDataHora(value);
 }
 
 function isErrorPayload(payload: OverviewResponse | { error?: string }): payload is { error?: string } {

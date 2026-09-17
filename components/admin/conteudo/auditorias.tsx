@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import {
   Clock3,
   FileText,
@@ -61,10 +62,7 @@ function getApiUrl() {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return formatarDataHora(value);
 }
 
 function formatDuration(ms: number | null) {

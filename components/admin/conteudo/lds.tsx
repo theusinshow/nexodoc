@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import { FileSpreadsheet, Search, Trash2, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -35,7 +36,7 @@ type LdRecord = {
 };
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatarDataHora(value);
 }
 
 /** A variante do `<Badge>`, e nao as classes: ver `scripts/prova-badge-a-mao.mjs`. */

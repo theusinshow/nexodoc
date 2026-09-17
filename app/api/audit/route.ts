@@ -1,3 +1,4 @@
+import { formatarDiaMes } from "@/lib/fuso-de-brasilia";
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
@@ -2113,7 +2114,7 @@ function inferDocumentType(auditMode: AuditMode, text: string) {
 /** "17/08" — a data do parecer anterior, para a frase da recusa e o selo. */
 function formatarDataCurta(quando: Date | null | undefined) {
   return quando
-    ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(quando)
+    ? formatarDiaMes(quando)
     : "antes";
 }
 

@@ -17,6 +17,7 @@
  * blobRegistry/canvas) — PR5/PR6. Estado honesto, sem fingir.
  */
 
+import { formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import {
   useEffect,
   useMemo,
@@ -2899,7 +2900,7 @@ function AuditoriaConfirmation({
               */}
               <p className="font-mono text-microrrotulo uppercase tracking-[0.05em] text-muted-foreground">
                 Comparado à auditoria de{" "}
-                {new Date(delta.dados.base?.quando ?? "").toLocaleString("pt-BR", {
+                {formatarEmBrasilia(delta.dados.base?.quando ?? "", {
                   day: "2-digit",
                   month: "2-digit",
                   hour: "2-digit",

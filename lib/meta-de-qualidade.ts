@@ -13,8 +13,11 @@
  * e a tela diz "meta não declarada". Uma meta chutada seria pior que meta
  * nenhuma, porque a partir dela o painel passaria a aprovar e reprovar sozinho.
  *
- * PURO: nenhum import. Roda em node cru (`npm run test:meta-qualidade`).
+ * PURO: só importa [[fuso-de-brasilia.ts]], também puro. Roda em node cru
+ * (`npm run test:meta-qualidade`).
  */
+
+import { diaEmBrasilia, partesEmBrasilia, somarDiasNaChave } from "./fuso-de-brasilia.ts";
 
 export interface MetasDeQualidade {
   /** Teto aceitável de falso positivo, em %. Zero = não declarada. */
@@ -104,15 +107,16 @@ export interface SemanaDeQualidade {
   cobertura: number | null;
 }
 
-/** A segunda-feira da semana de uma data, em YYYY-MM-DD (UTC). */
+/**
+ * A segunda-feira da semana de uma data, em YYYY-MM-DD, no calendário de
+ * BRASÍLIA (17/09/2026: era UTC, e domingo às 22h já contava na semana seguinte).
+ */
 export function segundaDaSemana(iso: string): string {
-  const data = new Date(iso);
-  if (Number.isNaN(data.getTime())) return "";
-  const dia = data.getUTCDay();
-  // getUTCDay: 0 = domingo. A semana do ofício começa na segunda.
-  const recuo = dia === 0 ? 6 : dia - 1;
-  const segunda = new Date(data.getTime() - recuo * 86_400_000);
-  return segunda.toISOString().slice(0, 10);
+  if (Number.isNaN(new Date(iso).getTime())) return "";
+  const { diaDaSemana } = partesEmBrasilia(iso);
+  // 0 = domingo. A semana do ofício começa na segunda.
+  const recuo = diaDaSemana === 0 ? 6 : diaDaSemana - 1;
+  return somarDiasNaChave(diaEmBrasilia(iso), -recuo);
 }
 
 function arredondar(valor: number): number {

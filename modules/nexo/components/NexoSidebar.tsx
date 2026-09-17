@@ -22,6 +22,7 @@
  *    título maior não truncar em cinco caracteres.
  */
 
+import { formatarDiaMes, formatarHora, mesmoDiaEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -59,15 +60,7 @@ import { MarcaViva } from "@/components/brand/marca-viva";
 
 /** Data curta pt-BR (hoje → hora; senão → dd/mm). Sem libs. */
 function shortDate(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const sameDay =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear();
-  return sameDay
-    ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return mesmoDiaEmBrasilia(ts, Date.now()) ? formatarHora(ts) : formatarDiaMes(ts);
 }
 
 /** As duas seções, na ordem em que aparecem. */

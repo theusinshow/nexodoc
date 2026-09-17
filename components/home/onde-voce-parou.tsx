@@ -35,6 +35,7 @@
  * vez, no botão de retomar, que é o único interativo primário.
  */
 
+import { formatarDiaMes } from "@/lib/fuso-de-brasilia";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 
@@ -48,7 +49,7 @@ function quando(ms: number, agora = Date.now()): string {
   const horas = Math.round(min / 60);
   if (horas < 24) return `há ${horas} h`;
   if (horas < 48) return "ontem";
-  return new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return formatarDiaMes(ms);
 }
 
 /** O nome que a pessoa reconhece: o contrato e a cidade, ou a chave crua. */

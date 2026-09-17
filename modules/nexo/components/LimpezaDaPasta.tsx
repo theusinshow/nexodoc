@@ -17,6 +17,7 @@
  * "confirmar", e é o oposto do que este painel existe para fazer.
  */
 
+import { formatarDiaMes, formatarHora } from "@/lib/fuso-de-brasilia";
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 
@@ -29,10 +30,7 @@ import {
 
 /** "31/08 10:28" — data e hora, que é o que distingue conversas irmãs. */
 function quando(ms: number): string {
-  const d = new Date(ms);
-  const dia = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  return `${dia} ${hora}`;
+  return `${formatarDiaMes(ms)} ${formatarHora(ms)}`;
 }
 
 const ROTULO_DO_KIND: Record<string, string> = {

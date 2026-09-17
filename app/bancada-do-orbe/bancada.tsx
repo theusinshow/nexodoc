@@ -1,5 +1,6 @@
 "use client";
 
+import { diaEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { Canvas } from "@react-three/fiber";
@@ -156,7 +157,7 @@ export function BancadaDoOrbe() {
 
     const changelog =
       `\n<!-- DESIGN.md §6 — colar na seção de afinação -->\n` +
-      `**${new Date().toISOString().slice(0, 10)}** — orbe afinado na bancada.\n` +
+      `**${diaEmBrasilia(new Date())}** — orbe afinado na bancada.\n` +
       `- cores: ${cores_}\n` +
       `- vidro: esfera ${vidro.esfera} · brilho ${vidro.brilho} · espessura ` +
       `${vidro.espessura} · onda ${vidro.ondaDaAlma} · translucidez ${vidro.translucidez}\n` +

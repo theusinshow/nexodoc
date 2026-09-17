@@ -1,3 +1,4 @@
+import { formatarDataHora } from "@/lib/fuso-de-brasilia";
 import type {
   AssemblyRow,
   VolumeMetadata,
@@ -6,7 +7,6 @@ import type {
 } from "@/modules/volume-builder/lib/volume/volume-types";
 import { formatPageSelection } from "@/modules/volume-builder/lib/utils/parse-page-selection";
 import { formatFileSize } from "@/modules/volume-builder/lib/utils/format-file-size";
-import { format } from "date-fns";
 
 export interface ReportData {
   metadata: VolumeMetadata;
@@ -23,7 +23,7 @@ export function generateMarkdownReport(data: ReportData): string {
 
   lines.push("# Relatorio de Montagem");
   lines.push("");
-  lines.push(`Gerado em: ${format(generatedAt, "dd/MM/yyyy HH:mm")}`);
+  lines.push(`Gerado em: ${formatarDataHora(generatedAt).replace(",", "")}`);
   lines.push("");
 
   lines.push("---");

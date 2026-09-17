@@ -62,6 +62,7 @@
  * sem pendência nenhuma aparece, e por isso o que você ENVIOU aparece junto do
  * que recebeu — o cartão é do projeto, não seu.
  */
+import { partesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -657,7 +658,7 @@ function ConviteDoOrbe({
 }
 
 /** Bom dia até 12h, boa tarde até 18h, boa noite depois. */
-function saudacao(hora = new Date().getHours()) {
+function saudacao(hora = partesEmBrasilia(new Date()).hora) {
   if (hora < 12) return "Bom dia";
   if (hora < 18) return "Boa tarde";
   return "Boa noite";

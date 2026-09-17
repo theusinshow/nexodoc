@@ -1,3 +1,4 @@
+import { inicioDoMesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { numeroDoControle } from "@/lib/cache-de-controles";
 
 /**
@@ -105,9 +106,12 @@ export function isentoDoTeto(
     .includes(alvo);
 }
 
-/** Primeiro instante do mês corrente, em UTC. */
+/**
+ * Primeiro instante do mês corrente em BRASÍLIA (17/09/2026: era UTC, e o teto
+ * do mês virava às 21h do último dia). Ver [[fuso-de-brasilia.ts]].
+ */
 export function inicioDoMes(agora = new Date()): Date {
-  return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1));
+  return inicioDoMesEmBrasilia(agora);
 }
 
 /**

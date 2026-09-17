@@ -11,10 +11,11 @@
  * A atribuição com recado é os dois ao mesmo tempo — a frase do evento e o texto
  * da pessoa — e por isso os dois campos são renderizados sem `else`.
  */
+import { formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import type { LinhaLegivel } from "@/lib/conversa-do-achado";
 
 function quando(ms: number): string {
-  return new Date(ms).toLocaleString("pt-BR", {
+  return formatarEmBrasilia(ms, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

@@ -22,6 +22,7 @@
  * fazendo o trabalho que o desenho pediu.
  */
 
+import { formatarDiaMes, formatarEmBrasilia, formatarHora, mesmoDiaEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { ChevronRight, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -36,16 +37,11 @@ function quando(ms: number, agora = Date.now()): string {
   const min = Math.round((agora - ms) / 60_000);
   if (min < 1) return "agora";
   if (min < 60) return `${min} min`;
-  const d = new Date(ms);
-  const hoje = new Date(agora);
-  const mesmoDia = d.toDateString() === hoje.toDateString();
-  if (mesmoDia) {
-    return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  }
+  if (mesmoDiaEmBrasilia(ms, agora)) return formatarHora(ms);
   const dias = Math.floor((agora - ms) / 86_400_000);
   if (dias <= 1) return "ontem";
-  if (dias < 7) return d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  if (dias < 7) return formatarEmBrasilia(ms, { weekday: "short" }).replace(".", "");
+  return formatarDiaMes(ms);
 }
 
 /** A etiqueta de um artefato. O documento FINAL vem mais forte que os meios. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDiaDeCalendario, formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { Activity, BarChart3, Coins, Loader2, RefreshCcw, ShieldCheck, Sigma, Wallet } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -151,10 +152,8 @@ function formatCurrency(value: number, currency: string) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-  }).format(new Date(`${value}T00:00:00`));
+  // Chave de dia vinda dos baldes da OpenAI: calendário, não instante.
+  return formatarDiaDeCalendario(value, { day: "2-digit", month: "2-digit" });
 }
 
 function formatUsd(value: number | null | undefined) {
@@ -396,7 +395,7 @@ export default function AdminUsagePage() {
               </div>
               {data ? (
                 <span className="font-mono text-xs text-muted-foreground">
-                  Atualizado {new Date(data.generatedAt).toLocaleTimeString("pt-BR")}
+                  Atualizado {formatarEmBrasilia(data.generatedAt, { timeStyle: "medium" })}
                 </span>
               ) : null}
             </div>

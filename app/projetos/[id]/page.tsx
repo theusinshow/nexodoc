@@ -1,3 +1,4 @@
+import { formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpenCheck, FileArchive, FileText, Layers3, TableProperties } from "lucide-react";
@@ -326,13 +327,13 @@ function DataTable({
 }
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatarEmBrasilia(value, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(value);
+  });
 }
 
 function formatBytes(value: number | null) {

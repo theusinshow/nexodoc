@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDiaDeCalendario } from "@/lib/fuso-de-brasilia";
 import {
   CheckCircle2,
   Clock3,
@@ -79,13 +80,8 @@ function formatSeconds(value: number | null) {
 
 /** "semana de 10/08" — a segunda-feira, que é como o escritório fala da semana. */
 function formatWeek(semana: string) {
-  const data = new Date(`${semana}T00:00:00Z`);
-  if (Number.isNaN(data.getTime())) return semana;
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "UTC",
-  }).format(data);
+  // A semana é chave de calendário, não instante: não se aplica fuso.
+  return formatarDiaDeCalendario(semana, { day: "2-digit", month: "2-digit" });
 }
 
 /**

@@ -18,6 +18,7 @@
  * é o produto, o widget é a ferramenta ao lado da bancada.
  */
 
+import { formatarDiaMes } from "@/lib/fuso-de-brasilia";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -85,5 +86,5 @@ export function quando(iso: string, agora = Date.now()): string {
   if (horas < 24) return `há ${horas} h`;
   if (horas < 48) return "ontem";
 
-  return new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return formatarDiaMes(ms);
 }

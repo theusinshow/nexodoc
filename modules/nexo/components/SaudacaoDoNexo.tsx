@@ -22,6 +22,7 @@
  * auditar?" — então nada se perdeu.
  */
 
+import { partesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { useEffect, useState } from "react";
 
 import { useRevealText } from "../lib/use-reveal-text";
@@ -39,7 +40,7 @@ export function SaudacaoDoNexo({
 
   useEffect(() => {
     const raf = requestAnimationFrame(() =>
-      setFrase(montarSaudacao(new Date().getHours(), nome)),
+      setFrase(montarSaudacao(partesEmBrasilia(new Date()).hora, nome)),
     );
     return () => cancelAnimationFrame(raf);
   }, [nome]);

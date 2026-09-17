@@ -1,3 +1,4 @@
+import { partesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
@@ -205,8 +206,9 @@ export async function POST(req: NextRequest) {
     obra: resumo.obra,
     prefeituras,
     escritorio,
-    mesAtual: now.getMonth() + 1,
-    anoAtual: now.getFullYear(),
+    // O mês de Brasília: às 22h do último dia o servidor em UTC já virou o mês.
+    mesAtual: partesEmBrasilia(now).mes,
+    anoAtual: partesEmBrasilia(now).ano,
     // A divisão em tomos é computada AQUI porque `sugerirNumeroDeTomos` é import
     // de runtime e os módulos do agente são folhas puras.
     tomosSugeridos: sugerirNumeroDeTomos(selos.length),

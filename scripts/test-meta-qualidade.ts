@@ -60,7 +60,10 @@ test("a semana começa na segunda, inclusive no domingo", () => {
   // 2026-08-13 é uma quinta; 2026-08-16, o domingo seguinte.
   assert.equal(segundaDaSemana("2026-08-13T10:00:00Z"), "2026-08-10");
   assert.equal(segundaDaSemana("2026-08-16T23:00:00Z"), "2026-08-10");
-  assert.equal(segundaDaSemana("2026-08-17T01:00:00Z"), "2026-08-17");
+  // 17/09/2026: a semana é a de Brasília. 01:00 UTC de segunda ainda é domingo
+  // 22:00 em Brasília, então conta na semana anterior; 03:00 UTC já é segunda.
+  assert.equal(segundaDaSemana("2026-08-17T01:00:00Z"), "2026-08-10");
+  assert.equal(segundaDaSemana("2026-08-17T03:00:00Z"), "2026-08-17");
   assert.equal(segundaDaSemana("nao-e-data"), "");
 });
 

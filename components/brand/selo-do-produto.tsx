@@ -18,6 +18,7 @@
  * quebraria a escada de reduções que a marca inteira sustenta.
  */
 
+import { formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { useEffect, useState } from "react";
 
 export function SeloDoProduto({ versao }: { versao: string }) {
@@ -25,10 +26,7 @@ export function SeloDoProduto({ versao }: { versao: string }) {
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      const agora = new Date();
-      setData(
-        `${String(agora.getDate()).padStart(2, "0")}/${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`,
-      );
+      setData(formatarEmBrasilia(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" }));
     });
     return () => cancelAnimationFrame(raf);
   }, []);

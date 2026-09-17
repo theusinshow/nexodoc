@@ -22,6 +22,7 @@
  * `startViewTransition`.
  */
 
+import { formatarEmBrasilia, formatarHora } from "@/lib/fuso-de-brasilia";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { DURATION, EASE, prefersReducedMotion } from "@/modules/nexo/lib/motion";
@@ -45,10 +46,11 @@ const semRelogioNoServidor = () => null;
 
 function formatar(fatia: number) {
   const agora = new Date(fatia * PASSO);
-  const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const data = agora
-    .toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })
-    .replace(/\.$/, "");
+  const hora = formatarHora(agora);
+  const data = formatarEmBrasilia(agora, { weekday: "short", day: "2-digit", month: "short" }).replace(
+    /\.$/,
+    "",
+  );
 
   return `${hora} · ${data}`.toUpperCase();
 }

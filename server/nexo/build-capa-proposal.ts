@@ -1,3 +1,4 @@
+import { partesEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { getTemplateRegistry } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel, nomeNaCapa } from "./disciplinas";
@@ -290,9 +291,10 @@ export async function buildCapaProposal(
   const tomosExplicitos = tomoInicial > 1 ? tomoLabels(numTomos, tomoInicial) : [];
 
   // Mês/ano: override do engenheiro (às vezes a capa é de outro mês) -> data atual.
-  const now = new Date();
-  const mes = normalizarMes(input.mes) || MESES[now.getMonth()];
-  const ano = input.ano?.trim() || String(now.getFullYear());
+  // O mês de Brasília: às 22h do último dia o servidor em UTC já virou o mês.
+  const agora = partesEmBrasilia(new Date());
+  const mes = normalizarMes(input.mes) || MESES[agora.mes - 1];
+  const ano = input.ano?.trim() || String(agora.ano);
 
   const generalData: GeneralData = {
     templateId: template.id,

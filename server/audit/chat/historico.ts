@@ -11,6 +11,7 @@
  * ele tem `ler_achado` e `buscar_no_memorial` para sustentar a conclusão. Uma
  * ferramenta que já afirmasse a repetição estaria julgando sem ler.
  */
+import { diaEmBrasilia } from "../../../lib/fuso-de-brasilia.ts";
 import type { FunctionTool } from "openai/resources/responses/responses";
 
 import { listAuditLearnings } from "../../../lib/audit-learnings.ts";
@@ -123,7 +124,7 @@ export async function historicoDaObra(args: {
 
     const anteriores: ParecerAnterior[] = linhas.map((linha) => ({
       auditId: linha.id,
-      quando: (linha.completedAt ?? linha.createdAt).toISOString().slice(0, 10),
+      quando: diaEmBrasilia(linha.completedAt ?? linha.createdAt),
       veredito: vereditoDoAnterior(linha.report as AuditReport | null),
       totalAchados: linha.totalFindings,
       criticos: criticosDe(linha.report),

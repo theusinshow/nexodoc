@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarDataHora, formatarDiaMes } from "@/lib/fuso-de-brasilia";
 import {
   Activity,
   AlertTriangle,
@@ -194,7 +195,7 @@ function formatarQuando(iso: string) {
   if (minutos < 60) return `ha ${minutos} min`;
   const horas = Math.floor(minutos / 60);
   if (horas < 24) return `ha ${horas} h`;
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(quando);
+  return formatarDiaMes(quando);
 }
 
 function formatFingerprint(fingerprint?: SecretFingerprint) {
@@ -610,7 +611,7 @@ export function CorpoDaConfiguracao() {
                     <p className="font-medium text-foreground">{flow.label}</p>
                     <p className="mt-1 font-mono text-[11px] text-muted-foreground">
                       {flow.hasOverride
-                        ? `override salvo${flow.updatedAt ? ` em ${new Date(flow.updatedAt).toLocaleString("pt-BR")}` : ""}`
+                        ? `override salvo${flow.updatedAt ? ` em ${formatarDataHora(flow.updatedAt)}` : ""}`
                         : "usando padrão/env"}
                     </p>
                   </div>
@@ -899,7 +900,7 @@ export function CorpoDaConfiguracao() {
                   : connectivityTest.message ?? "Falha no teste"}
               </p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
-                {connectivityTest.provider} · {connectivityTest.model} · {new Date(connectivityTest.testedAt).toLocaleString("pt-BR")}
+                {connectivityTest.provider} · {connectivityTest.model} · {formatarDataHora(connectivityTest.testedAt)}
               </p>
               {!connectivityTest.ok ? (
                 <div className="mt-3 grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">

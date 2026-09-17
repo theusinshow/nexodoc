@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarEmBrasilia } from "@/lib/fuso-de-brasilia";
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -305,11 +306,11 @@ function resumoDoProjeto(counts: ProjectConsoleItem["counts"]): string {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatarEmBrasilia(value, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }

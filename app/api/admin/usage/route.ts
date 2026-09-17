@@ -1,3 +1,4 @@
+import { chaveDiaUtc } from "@/lib/fuso-de-brasilia";
 import { NextResponse } from "next/server";
 import { getOpenAiAdminKey } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
@@ -95,7 +96,8 @@ function getDays(request: Request) {
 }
 
 function formatDay(unixSeconds: number) {
-  return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
+  // Os baldes da OpenAI são dias UTC; ver `chaveDiaUtc`.
+  return chaveDiaUtc(unixSeconds * 1000);
 }
 
 async function fetchOpenAIPage<T>(
