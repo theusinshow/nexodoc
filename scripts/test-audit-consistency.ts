@@ -256,6 +256,30 @@ check("gabarito × documento: acusa quando o arquivo é de outra obra", () => {
 });
 
 /*
+ * 113_22 (Navegantes, 17/09/2026). Com a capa virando a fonte do gabarito, ele
+ * passou a ser "HOSPITAL MUNICIPAL NOSSA SENHORA DOS NAVEGANTES", e o rodapé de
+ * todas as páginas diz "HOSPITAL NOSSA SENHORA DOS NAVEGANTES". O confronto
+ * gabarito × documento comparava por SUBSTRING e acusou Alta; a checagem por
+ * grupo, logo abaixo dele, já usava `mesmaObraPorTokens` e não acusava.
+ */
+check("gabarito × documento: qualificador de esfera não separa a mesma obra (113_22)", () => {
+  const rodape = "Sec. Municipal de Planejamento Urbano – 113-22 – HOSPITAL NOSSA SENHORA DOS NAVEGANTES – PROJETO EXECUTIVO";
+  const doc = makeSource("113_22_md_geral_a.pdf", "memorial", [
+    `Memorial do Hospital Nossa Senhora dos Navegantes.\n${rodape}`,
+    `O Hospital Nossa Senhora dos Navegantes terá centro cirúrgico.\n${rodape}`,
+    `Ampliação do Hospital Nossa Senhora dos Navegantes.\n${rodape}`,
+  ]);
+  const findings = runWithinDocumentIdentityRules(doc, {
+    gabaritoObra: "HOSPITAL MUNICIPAL NOSSA SENHORA DOS NAVEGANTES",
+  });
+  assert.equal(
+    findings.filter((f) => /diverge da obra declarada/i.test(f.tipo)).length,
+    0,
+    JSON.stringify(findings.map((f) => f.descricao)),
+  );
+});
+
+/*
  * Os dois falsos positivos do memorial 084_25 (Criciúma, 17/08/2026), medidos
  * numa auditoria real. Eram os achados 1 e 3 do parecer — e o de ocupação ainda
  * subia a crítico documental, virando o achado mais grave da lista.

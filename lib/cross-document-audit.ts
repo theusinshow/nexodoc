@@ -843,10 +843,17 @@ export function runWithinDocumentIdentityRules(
   // Gabarito × documento: o documento afirma fortemente outra obra que a declarada.
   if (declared && inferredDominant.count >= 3) {
     const domCanon = inferredDominant.mention.canonical;
+    /*
+     * `mesmaObraPorTokens` também aqui, e não só na checagem por grupo abaixo:
+     * sem ela, "HOSPITAL MUNICIPAL NOSSA SENHORA DOS NAVEGANTES" (capa) contra
+     * "Hospital Nossa Senhora dos Navegantes" (rodapé) virava Alta no 113_22
+     * (17/09/2026) — o mesmo hospital, separado por um qualificador de esfera.
+     */
     const divergesFromDeclared =
       domCanon !== baselineCanonical &&
       !domCanon.includes(baselineCanonical) &&
-      !baselineCanonical.includes(domCanon);
+      !baselineCanonical.includes(domCanon) &&
+      !mesmaObraPorTokens(domCanon, baselineCanonical);
 
     if (divergesFromDeclared) {
       findings.push({
