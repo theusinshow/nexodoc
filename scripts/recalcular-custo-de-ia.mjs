@@ -73,11 +73,17 @@ const soma = (k) => [...porModelo.values()].reduce((t, l) => t + l[k], 0);
 console.log(`total gravado US$ ${soma("gravado").toFixed(2)} → recalculado US$ ${soma("recalculado").toFixed(2)} · ${mudancas.length} evento(s) mudam`);
 
 if (gravar && mudancas.length > 0) {
-  await prisma.$transaction(
-    mudancas.map((m) =>
-      prisma.aiUsageEvent.update({ where: { id: m.id }, data: { estimatedCostUsd: m.novo } }),
-    ),
+  /*
+   * UM `UPDATE … FROM (VALUES …)`, e não um `update` por evento numa transação:
+   * em 17/09/2026 as 447 idas e voltas ao Neon passaram dos 5 s da transação e
+   * TUDO voltou atrás. Um comando só é atômico por si e cabe em uma viagem.
+   */
+  const valores = mudancas.map((_, i) => `($${2 * i + 1}::text, $${2 * i + 2}::double precision)`).join(", ");
+  const parametros = mudancas.flatMap((m) => [m.id, m.novo]);
+  const atualizados = await prisma.$executeRawUnsafe(
+    `UPDATE "AiUsageEvent" AS e SET "estimatedCostUsd" = v.custo FROM (VALUES ${valores}) AS v(id, custo) WHERE e.id = v.id`,
+    ...parametros,
   );
-  console.log(`gravado: ${mudancas.length} evento(s) atualizados`);
+  console.log(`gravado: ${atualizados} evento(s) atualizados de ${mudancas.length}`);
 }
 await prisma.$disconnect();
