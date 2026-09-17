@@ -19,14 +19,18 @@ import { AuditResult, type AuditView } from "@/components/audit-result";
 import { classifyFindingTier } from "@/lib/audit-report";
 import { compararPareceres, resumoDoDiff } from "@/lib/diff-de-pareceres";
 import { Chip } from "@/components/ui/chip";
-import { auditoriaMaisRecente, type MemorialAuditResult } from "../lib/audit";
+import {
+  auditoriaMaisRecente,
+  consultarAuditoria,
+  type MemorialAuditResult,
+} from "../lib/audit";
 import { useConversation } from "../state/conversation-store";
 import {
   auditoriaDaConversa,
   useAuditoria,
   type VistaDoPalco as Vista,
 } from "../state/auditoria-store";
-import { fonteDoDocumento } from "@/lib/fonte-do-documento";
+import { auditoriaParaBuscarArquivos, fonteDoDocumento } from "@/lib/fonte-do-documento";
 
 import { AuditCanvas } from "./AuditCanvas";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
@@ -149,7 +153,48 @@ export function PalcoDoNexo({
    * A escolha é PURA e mora em [[lib/fonte-do-documento.ts]], com teste que roda
    * sem navegador.
    */
-  const doServidor = salvo?.arquivos?.find((a) => a.checksumSha256) ?? null;
+  /*
+   * O PARECER GRAVADO PELO FLUXO NÃO TRAZ `arquivos` — só a consulta de
+   * retomada traz. Sem o PDF local (outra máquina, outro navegador, cache
+   * limpo) a aba sumia com o arquivo guardado no banco. Então pergunta ao
+   * servidor, uma vez por auditoria. Ver `auditoriaParaBuscarArquivos`.
+   */
+  const auditIdParaBuscar = auditoriaParaBuscarArquivos({
+    urlLocal: memorialPdf?.url ?? null,
+    arquivos: salvo?.arquivos,
+    auditId: salvo?.auditId,
+  });
+  const [buscados, setBuscados] = useState<{
+    auditId: string;
+    arquivos: NonNullable<MemorialAuditResult["arquivos"]>;
+  } | null>(null);
+  useEffect(() => {
+    if (!auditIdParaBuscar) return;
+    let vivo = true;
+    void consultarAuditoria(auditIdParaBuscar)
+      .then((estado) => {
+        if (!vivo) return;
+        setBuscados({
+          auditId: auditIdParaBuscar,
+          arquivos: estado.situacao === "pronta" ? (estado.resultado.arquivos ?? []) : [],
+        });
+      })
+      .catch(() => {
+        if (vivo) setBuscados({ auditId: auditIdParaBuscar, arquivos: [] });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [auditIdParaBuscar]);
+  const buscadosDestaAuditoria =
+    buscados && buscados.auditId === auditIdParaBuscar ? buscados.arquivos : null;
+  // A resposta ainda não voltou: dizer "não foi guardado" agora seria chute.
+  const buscandoArquivos = Boolean(auditIdParaBuscar) && buscadosDestaAuditoria === null;
+
+  const doServidor =
+    [...(salvo?.arquivos ?? []), ...(buscadosDestaAuditoria ?? [])].find(
+      (a) => a.checksumSha256,
+    ) ?? null;
   const fonte = fonteDoDocumento({
     urlLocal: memorialPdf?.url ?? null,
     checksum: doServidor?.checksumSha256 ?? null,
@@ -442,7 +487,7 @@ export function PalcoDoNexo({
             precisa saber se o documento não está guardado ou se o produto não
             faz isso.
           */}
-          {report && fonte.tipo === "ausente" ? (
+          {report && fonte.tipo === "ausente" && !buscandoArquivos ? (
             <span className="text-[11.5px] leading-5 text-muted-foreground">
               {fonte.motivo}
             </span>

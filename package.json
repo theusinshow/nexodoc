@@ -51,6 +51,7 @@
     "prova:batimento": "node --env-file=.env.local --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-batimento-da-auditoria.mjs",
     "prova:arquivo": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-arquivo-guardado.mjs",
     "prova:milton": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-milton-abre-o-pdf.mjs",
+    "prova:parecer-sem-arquivos": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-parecer-sem-arquivos.mjs",
     "prova:home": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-home-v3.mjs",
     "semear:home": "node scripts/semear-home.mjs",
     "prova:home-v4": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-home-v4.mjs",

@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-import { fonteDoDocumento } from "../lib/fonte-do-documento.ts";
+import { auditoriaParaBuscarArquivos, fonteDoDocumento } from "../lib/fonte-do-documento.ts";
 
 let passed = 0;
 function test(nome: string, fn: () => void) {
@@ -79,6 +79,42 @@ test("checksum de 64 hex é aceito", () => {
   const f = fonteDoDocumento({ urlLocal: null, checksum: bom });
   assert.equal(f.tipo, "servidor");
   assert.equal(f.tipo === "servidor" && f.url, `/api/arquivos/${bom}`);
+});
+
+/*
+ * 17/09/2026, 027_24 em produção: o parecer gravado pelo fluxo da auditoria
+ * não traz `arquivos` (só a consulta de retomada traz). Sem o PDF no IndexedDB
+ * — outra máquina, outro navegador, cache limpo — a aba "No documento" sumia e
+ * a tela dizia "auditado antes de o sistema passar a guardá-lo", com o arquivo
+ * guardado no banco.
+ */
+test("sem local e sem arquivos no parecer, pergunta ao servidor pelo auditId", () => {
+  assert.equal(
+    auditoriaParaBuscarArquivos({ urlLocal: null, arquivos: undefined, auditId: "aud_1" }),
+    "aud_1",
+  );
+});
+
+test("com o PDF local, não gasta a consulta", () => {
+  assert.equal(
+    auditoriaParaBuscarArquivos({ urlLocal: "blob:abc", arquivos: undefined, auditId: "aud_1" }),
+    null,
+  );
+});
+
+test("parecer que já traz o checksum não consulta", () => {
+  assert.equal(
+    auditoriaParaBuscarArquivos({
+      urlLocal: null,
+      arquivos: [{ checksumSha256: "a".repeat(64) }],
+      auditId: "aud_1",
+    }),
+    null,
+  );
+});
+
+test("sem auditId não há o que consultar", () => {
+  assert.equal(auditoriaParaBuscarArquivos({ urlLocal: null, arquivos: [], auditId: null }), null);
 });
 
 console.log(`\n${passed} passaram`);

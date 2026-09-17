@@ -47,3 +47,25 @@ export function fonteDoDocumento(args: {
 
   return { tipo: "servidor", url: `/api/arquivos/${checksum}` };
 }
+
+/**
+ * QUANDO PERGUNTAR AO SERVIDOR pelos arquivos da auditoria — o auditId, ou null.
+ *
+ * O parecer gravado pelo fluxo da auditoria traz só `report`, `texto` e
+ * `auditId`: os `arquivos` com checksum vêm apenas da consulta de retomada. A
+ * premissa era que quem rodou a auditoria tem o PDF no IndexedDB. Não tem em
+ * outra máquina, noutro navegador ou com o cache limpo — e no 027_24
+ * (17/09/2026) a aba "No documento" sumiu com o arquivo guardado no banco, e a
+ * tela ainda culpava o sistema por não tê-lo guardado.
+ *
+ * Só consulta quando falta tudo: sem local e sem checksum no parecer.
+ */
+export function auditoriaParaBuscarArquivos(args: {
+  urlLocal: string | null;
+  arquivos: readonly { checksumSha256: string | null }[] | undefined;
+  auditId: string | null | undefined;
+}): string | null {
+  if ((args.urlLocal ?? "").trim()) return null;
+  if (args.arquivos?.some((a) => (a.checksumSha256 ?? "").trim())) return null;
+  return (args.auditId ?? "").trim() || null;
+}
