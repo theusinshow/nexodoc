@@ -1,5 +1,6 @@
 "use client";
 
+import { folhasDoArquivo, semAsFolhasDoArquivo } from "../lib/folhas-do-memorial";
 import { excedeOLimite, motivoDeArquivoGrande } from "@/lib/limite-do-anexo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -1189,6 +1190,33 @@ function NexoWorkspaceInner({
       });
     }
     if (memorial) {
+      /*
+       * AS FOLHAS DESTE MESMO ARQUIVO SAEM (17/09/2026, Urubici).
+       *
+       * O memorial 031_26 tinha sido lido como prancha e deixou 206 folhas de
+       * carimbo na conversa. Reanexado — já com a leitura consertada —, a
+       * identidade vinha certa, mas as folhas velhas continuavam: o cartão
+       * anunciava "obra lida do carimbo das pranchas — fonte independente do
+       * memorial" sobre o PRÓPRIO memorial, e a conversa mostrava "1 folha de
+       * selo lida — pronto para gerar" ao lado de "Memorial anexado".
+       *
+       * A correção à mão (`definirPapelAnexo`) já fazia isto; faltava no
+       * caminho normal do anexo, que é por onde quase todo mundo passa.
+       */
+      const folhasDele = folhasDoArquivo(selosRef.current, memorial.name);
+      if (folhasDele > 0) {
+        const limpos = semAsFolhasDoArquivo(selosRef.current, memorial.name);
+        selosRef.current = limpos;
+        setSeloResults(limpos);
+        setPranchaFiles((prev) => prev.filter((f) => f.name !== memorial.name));
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            `Descartei ${plural(folhasDele, "folha", "folhas")} de carimbo que eu tinha lido de ` +
+            `${memorial.name}: ele é o memorial, não prancha.`,
+        });
+      }
       setMemorialFile(memorial);
       // Retido para poder auditar DE NOVO depois — inclusive numa conversa
       // restaurada, que é onde o veredito parcial manda rodar outra vez.
