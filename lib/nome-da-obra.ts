@@ -87,48 +87,12 @@ function doRodape(texto: string): string {
   return (m?.[1] ?? "").replace(/\s+/g, " ").trim();
 }
 
-/** Linha de timbre no topo da capa: quem contratou, não o que se constrói. */
-const TIMBRE = /^\s*(?:PREFEITURA|SECRETARIA)\b/i;
-
-/** Linha que encerra o nome na capa. */
-const FIM_DA_CAPA = /^\s*(?:PROJETO\s+(?:EXECUTIVO|B[ÁA]SICO)|MEMORIAL\s+DESCRITIVO|VOL(?:UME|\.))/i;
-
 /**
- * O nome escrito na capa do modelo PREFEITURA / SECRETARIA / nome / PROJETO
- * EXECUTIVO — o de São José, Chapecó e Navegantes.
- *
- * Existe por causa do 027_24: o rodapé dele é `027-24 – BEIRA MAR DE SÃO JOSÉ -
- * BARREIROS – PROJETO`, e o hífen do nome não passa em [[doRodape]]. Aceitar
- * hífen lá mudaria o gabarito de Criciúma (`116-25 – UBS RENASCER - PORTE 2`
- * passaria a vencer o campo "Obra:"), que é o memorial medido — decisão que não
- * cabe num conserto de São José.
- *
- * Só a PÁGINA 1, e só quando a capa abre com timbre E fecha com PROJETO/
- * MEMORIAL/VOLUME. Qualquer outra forma devolve "": a capa de Criciúma é outro
- * modelo e segue pelo campo, como antes.
- */
-function daCapa(texto: string): string {
-  const pagina1 = /--- PAGINA 1 ---\n([\s\S]*?)(?:\n--- PAGINA 2 ---|$)/.exec(texto)?.[1];
-  if (!pagina1) return "";
-
-  const linhas = pagina1.split("\n").map((l) => l.trim()).filter(Boolean);
-  let i = 0;
-  while (i < linhas.length && TIMBRE.test(linhas[i])) i++;
-  if (i === 0) return "";
-
-  const fim = linhas.findIndex((l, j) => j >= i && FIM_DA_CAPA.test(l));
-  // Nome de capa tem de 1 a 4 linhas; fora disso não é o modelo que conhecemos.
-  if (fim === -1 || fim === i || fim - i > 4) return "";
-
-  const nome = linhas.slice(i, fim).join(" ").replace(/\s+/g, " ").trim();
-  return nome.length >= 4 && nome.length <= 160 ? nome : "";
-}
-
-/**
- * O nome da obra, na ordem de confiança: rodapé, capa, depois campo declarado.
+ * O nome da obra no CORPO do memorial, na ordem de confiança: rodapé, depois
+ * campo declarado. A capa vem antes disto e mora em [[leitura-da-capa.ts]].
  * Devolve "" quando não encontra — nunca chuta, porque gabarito inventado é
  * pior que gabarito ausente: ele reprova a obra certa.
  */
 export function nomeDaObra(texto: string): string {
-  return doRodape(texto) || daCapa(texto) || doCampoObra(texto);
+  return doRodape(texto) || doCampoObra(texto);
 }

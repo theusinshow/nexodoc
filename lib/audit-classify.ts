@@ -3,6 +3,7 @@ import {
   lerCaracterizacaoDaObra,
   type CaracterizacaoDaObra,
 } from "@/lib/caracterizacao-obra";
+import { lerCapa, type LeituraDaCapa } from "@/lib/leitura-da-capa";
 import { nomeDaObra } from "@/lib/nome-da-obra";
 import { orgaoDoTimbre } from "@/lib/orgao-do-timbre";
 import { extractIdentityFingerprint } from "./cross-document-audit";
@@ -24,6 +25,13 @@ export type DocumentClassification = {
   codigo: string;
   orgao: string;
   revisao: string;
+  /** Da capa: `""` quando a capa não traz ou não foi reconhecida. */
+  secretaria: string;
+  /** Capa ("BAIRRO SÃO JOÃO"), senão a caracterização da obra. */
+  bairro: string;
+  mesAno: string;
+  /** A leitura crua da página 1, quando ela é capa. Ver [[leitura-da-capa.ts]]. */
+  capa?: LeituraDaCapa;
   /**
    * A caracterização da obra do memorial: endereço, bairro, áreas.
    *
@@ -74,12 +82,32 @@ function titleCase(value: string) {
 }
 
 /** identidade limpa para o cartão de confirmação (obra/código/município/órgão/revisão) */
-function extractIdentity(source: { fileName: string; fileType: string; extracted: ExtractedPdf }) {
+function extractIdentity(
+  source: { fileName: string; fileType: string; extracted: ExtractedPdf },
+  municipioDaCaracterizacao: string,
+) {
   const text = source.extracted.text;
   const fingerprint = extractIdentityFingerprint(source);
+  const municipioFp = fingerprint.fields.municipio?.display ?? "";
+  const municipioDoTexto =
+    /Munic[ií]pio\s+de\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,40})/i
+      .exec(text)?.[1]
+      ?.trim() ?? "";
 
   /*
-   * A obra sai de [[nome-da-obra.ts]] — rodapé primeiro, campo "Obra:" depois.
+   * A CAPA PRIMEIRO (17/09/2026). Rodapé e campo "Obra:" viraram fallback: no
+   * 027_24 os dois erravam e a capa dizia o nome certo na página 1. Os
+   * municípios já lidos entram como CANDIDATOS de grafia para o timbre espaçado
+   * de Criciúma, que perde a fronteira das palavras. Ver [[leitura-da-capa.ts]].
+   *
+   * O que vem da capa NÃO passa por `titleCase`: é o que o modelo imprime em
+   * `{{NOME_OBRA}}`, e "UBS" viraria "Ubs".
+   */
+  const capa = lerCapa(text, [municipioDaCaracterizacao, municipioFp, municipioDoTexto]);
+
+  /*
+   * O corpo, quando a capa falta: [[nome-da-obra.ts]] — rodapé primeiro, campo
+   * "Obra:" depois.
    *
    * As duas expressões viviam aqui e truncavam o gabarito do 084_25: a do campo
    * parava na quebra de linha (que só passou a existir dentro de uma página
@@ -88,24 +116,21 @@ function extractIdentity(source: { fileName: string; fileType: string; extracted
    * identidade acusava de divergentes justamente as páginas que citavam a obra
    * pelo nome certo.
    */
-  const obraRaw = (nomeDaObra(text) || fingerprint.fields.obra?.display || "").trim();
-  const obra = obraRaw ? titleCase(obraRaw) : "";
+  const obraDoCorpo = (nomeDaObra(text) || fingerprint.fields.obra?.display || "").trim();
+  const obra = capa?.obra || (obraDoCorpo ? titleCase(obraDoCorpo) : "");
 
-  const codigo = /\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "";
+  const codigo =
+    capa?.codigo || (/\b\d{2,4}[_-]\d{2}\b/.exec(text)?.[0]?.replace("_", "-") ?? "");
 
-  const municipioFp = fingerprint.fields.municipio?.display;
+  const municipioDaCapa = capa?.municipio ? titleCase(capa.municipio) : "";
   const municipio =
-    (municipioFp ? titleCase(municipioFp) : "") ||
-    /Munic[ií]pio\s+de\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç\s]{2,40})/i
-      .exec(text)?.[1]
-      ?.trim() ||
-    "";
+    municipioDaCapa || (municipioFp ? titleCase(municipioFp) : "") || municipioDoTexto;
 
-  const orgao = orgaoDoTimbre(text);
+  const orgao = capa?.orgao || orgaoDoTimbre(text);
 
   const revisao = fingerprint.fields.revisao?.display ?? "";
 
-  return { obra, codigo, municipio, orgao, revisao };
+  return { obra, codigo, municipio, municipioDaCapa, orgao, revisao, capa };
 }
 
 export function classifyDocument(
@@ -119,7 +144,16 @@ export function classifyDocument(
   const density = pageCount > 0 ? charCount / pageCount : charCount;
   const precisaOcr = charCount < MIN_TEXT_CHARS;
 
-  const identity = extractIdentity({ fileName, fileType, extracted });
+  /*
+   * Lida ANTES da identidade, mas só EXPOSTA para memorial (lá embaixo): o
+   * município dela serve de candidato de grafia para a capa em qualquer tipo,
+   * e é inofensivo como candidato — só vale se for igual ao timbre.
+   */
+  const caracterizacaoLida = lerCaracterizacaoDaObra(text);
+  const identity = extractIdentity(
+    { fileName, fileType, extracted },
+    caracterizacaoLida?.municipio ?? "",
+  );
   const sinais: string[] = [];
 
   const hasMemorial = /memorial\s+descritivo/i.test(text);
@@ -178,12 +212,18 @@ export function classifyDocument(
 
   /*
    * Só no memorial: é o único documento que traz a seção "Caracterização da
-   * obra". Rodar em prancha ou orçamento seria gastar regex à toa e, pior,
-   * arriscar casar um trecho parecido fora de contexto.
+   * obra". A leitura já rodou lá em cima (candidato de grafia da capa), mas
+   * EXPOR o que ela achou em prancha ou orçamento arriscaria afirmar um trecho
+   * parecido fora de contexto.
    */
-  const caracterizacao = tipo === "memorial" ? lerCaracterizacaoDaObra(text) : undefined;
+  const caracterizacao = tipo === "memorial" ? caracterizacaoLida : undefined;
   if (caracterizacao?.endereco) {
     sinais.push(`endereço lido da caracterização da obra: ${caracterizacao.endereco}`);
+  }
+  if (identity.capa) {
+    sinais.push("dados lidos da capa (página 1)");
+  } else if (tipo === "memorial") {
+    sinais.push("capa não reconhecida na página 1: dados do rodapé e do corpo");
   }
 
   return {
@@ -191,13 +231,20 @@ export function classifyDocument(
     tipo,
     tipoLabel: TIPO_LABEL[tipo],
     obra: identity.obra,
-    // O município da caracterização é mais confiável que o do timbre: o timbre
-    // diz quem CONTRATOU, a caracterização diz onde a obra FICA — e nem sempre
-    // são o mesmo município.
-    municipio: caracterizacao?.municipio || identity.municipio,
+    /*
+     * A CAPA VENCE (decisão de 17/09/2026). Antes a caracterização vencia o
+     * timbre com o argumento de que o timbre diz quem CONTRATOU e a
+     * caracterização diz onde a obra FICA; a decisão foi que a primeira folha é
+     * a fonte padrão. A caracterização vem depois, e o texto solto por último.
+     */
+    municipio: identity.municipioDaCapa || caracterizacao?.municipio || identity.municipio,
     codigo: identity.codigo,
     orgao: identity.orgao,
     revisao: identity.revisao,
+    secretaria: identity.capa?.secretaria ?? "",
+    bairro: identity.capa?.bairro || caracterizacao?.bairro || "",
+    mesAno: identity.capa?.mesAno ?? "",
+    ...(identity.capa ? { capa: identity.capa } : {}),
     ...(caracterizacao?.trecho ? { caracterizacao } : {}),
     confianca,
     auditMode,

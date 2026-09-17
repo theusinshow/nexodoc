@@ -9,6 +9,7 @@
  */
 
 import type { CaracterizacaoDaObra } from "@/lib/caracterizacao-obra";
+import type { LeituraDaCapa } from "@/lib/leitura-da-capa";
 import type { FichaDoDrop } from "./lib/ficha-do-drop";
 
 /** Arquivo enviado pelo usuario, antes/depois de classificado. */
@@ -133,6 +134,13 @@ export interface NexoFileClassification {
   /** Do nome do arquivo (autoritativo), com fallback no conteudo. */
   codigo: string;
   revisao: string;
+  /** Da capa do memorial. Ver [[lib/leitura-da-capa.ts]]. */
+  secretaria?: string;
+  /** Capa ("BAIRRO SÃO JOÃO"), senão caracterização. */
+  bairro?: string;
+  mesAno?: string;
+  /** A leitura crua da página 1, quando ela é capa. */
+  capa?: LeituraDaCapa;
   /** Codigos de disciplina do nome/pasta (multi). */
   disciplinas: string[];
   folha?: string;
@@ -176,6 +184,11 @@ export interface NexoDossieDraft {
   municipio?: string;
   codigo?: string;
   revisao?: string;
+  secretaria?: string;
+  bairro?: string;
+  mesAno?: string;
+  /** A capa do memorial do lote, quando lida. O bairro da identidade sai SÓ daqui. */
+  capa?: LeituraDaCapa;
   /** Endereço e áreas lidos do memorial — ver `NexoFileClassification`. */
   caracterizacao?: CaracterizacaoDaObra;
   disciplinas: string[];

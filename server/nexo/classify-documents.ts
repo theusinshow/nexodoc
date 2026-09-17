@@ -1,5 +1,6 @@
 import { extractPdfText } from "@/lib/pdf-text";
 import { classifyDocument } from "@/lib/audit-classify";
+import { divergenciaDeCodigo, type LeituraDaCapa } from "@/lib/leitura-da-capa";
 import type {
   NexoDossieDraft,
   NexoFileClassification,
@@ -41,6 +42,10 @@ interface ContentIdentity {
   municipio: string;
   orgao: string;
   codigo: string;
+  secretaria: string;
+  bairro: string;
+  mesAno: string;
+  capa?: LeituraDaCapa;
   pageCount: number;
   charCount: number;
   confianca: NexoFileClassification["confianca"];
@@ -69,6 +74,10 @@ function toClassification(
     // filename e autoritativo; conteudo so como fallback.
     codigo: parsed.codigo || content?.codigo || "",
     revisao: parsed.revisao,
+    secretaria: content?.secretaria ?? "",
+    bairro: content?.bairro ?? "",
+    mesAno: content?.mesAno ?? "",
+    ...(content?.capa ? { capa: content.capa } : {}),
     disciplinas: parsed.disciplinas,
     folha: parsed.folha,
     volume: parsed.volume,
@@ -107,6 +116,10 @@ export async function classifyDocuments(
         municipio: doc.municipio,
         orgao: doc.orgao,
         codigo: doc.codigo,
+        secretaria: doc.secretaria,
+        bairro: doc.bairro,
+        mesAno: doc.mesAno,
+        capa: doc.capa,
         pageCount: doc.pageCount,
         charCount: doc.charCount,
         confianca: doc.confianca,
@@ -114,6 +127,12 @@ export async function classifyDocuments(
         sinais: doc.sinais,
         caracterizacao: doc.caracterizacao,
       };
+      /*
+       * O nome do arquivo manda no código (é a chave do projeto); a capa só
+       * confere, e a divergência tem de aparecer em vez de ser engolida.
+       */
+      const divergencia = divergenciaDeCodigo(parsed.codigo, doc.capa?.codigo ?? "");
+      if (divergencia) content.sinais = [...content.sinais, divergencia];
     }
 
     arquivos.push(
@@ -146,7 +165,7 @@ export function classifyFilenames(items: ClassifyNamesInput[]): NexoDossieDraft 
 /** Escolhe o valor do arquivo de maior confianca que tem o campo preenchido. */
 function pickByConfidence(
   arquivos: NexoFileClassification[],
-  key: "obra" | "municipio" | "codigo" | "orgao" | "revisao",
+  key: "obra" | "municipio" | "codigo" | "orgao" | "revisao" | "secretaria" | "bairro" | "mesAno",
 ): string | undefined {
   const withValue = arquivos.filter((a) => !a.foraDeEscopo && a[key]?.trim());
   if (withValue.length === 0) return undefined;
@@ -171,6 +190,7 @@ function aggregate(arquivos: NexoFileClassification[]): NexoDossieDraft {
    * memorial declara, ou ninguém declara.
    */
   const caracterizacao = arquivos.find((a) => a.caracterizacao?.endereco)?.caracterizacao;
+  const capa = arquivos.find((a) => a.capa)?.capa;
 
   return {
     obra: pickByConfidence(arquivos, "obra"),
@@ -178,6 +198,10 @@ function aggregate(arquivos: NexoFileClassification[]): NexoDossieDraft {
     municipio: pickByConfidence(arquivos, "municipio"),
     codigo: pickByConfidence(arquivos, "codigo"),
     revisao: pickByConfidence(arquivos, "revisao"),
+    secretaria: pickByConfidence(arquivos, "secretaria"),
+    bairro: pickByConfidence(arquivos, "bairro"),
+    mesAno: pickByConfidence(arquivos, "mesAno"),
+    ...(capa ? { capa } : {}),
     ...(caracterizacao ? { caracterizacao } : {}),
     disciplinas,
     volumes,
