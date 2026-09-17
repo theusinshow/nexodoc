@@ -29,6 +29,7 @@ import {
 import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
 import { calibrarArredondamento } from "@/lib/arredondamento";
+import { identidadeDoParecer } from "@/lib/identidade-do-parecer";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { CRITERIO_DAS_FAIXAS } from "@/lib/faixas-de-impacto";
 import { aplicarDecisaoDaValidacao } from "@/lib/decisao-da-validacao";
@@ -4221,6 +4222,21 @@ async function executarAuditoria(
     );
     const combinedText = uploadedFiles.map((file) => file.extracted.text).join("\n");
     const inferred = inferProjectFields(combinedText, projectName);
+    /*
+     * O cabeçalho do parecer segue gabarito → capa → texto solto, como o resto
+     * do sistema. Ver [[identidade-do-parecer.ts]]: no 5cb5b3b2 a leitura solta
+     * pôs a linha "OBRA :" de uma tabela de drenagem no lugar da obra.
+     */
+    const identidade = identidadeDoParecer({
+      gabarito,
+      texto: combinedText,
+      inferido: {
+        obra: inferred.obra,
+        orgao: inferred.orgao,
+        municipio: inferred.municipio,
+        codigo: inferred.codigo,
+      },
+    });
     const inferredDocumentType = inferDocumentType(auditMode, combinedText);
     const dominantIdentity = uploadedFiles[0]
       ? getDominantIdentityCandidate(getIdentityCandidates(uploadedFiles[0].extracted))?.value
@@ -4335,11 +4351,13 @@ async function executarAuditoria(
         }),
         gerado_em: new Date().toISOString(),
       },
-      obra: isMissingProjectField(inferred.obra) ? dominantIdentity || "não identificada" : inferred.obra,
-      codigo: inferred.codigo,
-      municipio: inferred.municipio,
+      obra: isMissingProjectField(identidade.obra)
+        ? dominantIdentity || "não identificada"
+        : identidade.obra,
+      codigo: identidade.codigo,
+      municipio: identidade.municipio,
       volume: inferred.volume,
-      orgao: inferred.orgao,
+      orgao: identidade.orgao,
       data_documento: inferred.data,
       /*
        * O STATUS SAI DA MEDIÇÃO, e não é mais a constante `"concluida"`.

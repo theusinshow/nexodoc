@@ -53,3 +53,43 @@ existente), INC-024 ("pavimentos térreo, primeiro e segundo" em edificação de
 INC-026 ("banheiros entre as salas de atividades" — reaproveitamento, como o "apartamento").
 
 Não conferidos: os demais. A precisão do parecer inteiro não está medida.
+
+---
+
+# Segunda corrida — depois da calibração (17/09/2026, auditoria `5cb5b3b2`)
+
+Parecer: `parecer-nexodoc-2026-09-17-calibrado.json` (profunda, 60 achados, 7min22s).
+Mesma produção, mesmo PDF, obra de referência lida da capa. No ar: leitura da capa
+(`9429c83`), régua única de faixa e validação que não rebaixa regra (`7b768dd`),
+arredondamento (`0d9e183`), preço do sol (`4ab08ef`).
+
+## Recall
+
+**Manual: 8/9.** O casador diz 9/9 porque volta a casar AUD-003 ("terceira etapa") com o
+INC-010 ("4 entregas"). O "terceira etapa" segue **não pego**. O que entrou:
+AUD-009 (produtos finais sem capítulo) = INC-012.
+
+## Gravidade
+
+| | Antes (`849c9e8a`) | Depois (`5cb5b3b2`) |
+|---|---|---|
+| Hierarquia p.17 × p.21 | técnico (INC-007) | **crítico, INC-001** |
+| Caixa de gordura | técnico, "premissa não rastreável" | **crítico, INC-007, "valor adotado diferente do usado na fórmula"** |
+| 2.269,34 × 2.269,36 | crítico (INC-002) | **editorial (INC-049)** |
+| Identidade × "Diário de Obra" | crítico, falso (INC-001) | **não existe** |
+| Faixas | 6 crítico · 26 técnico · 23 editorial | 9 crítico · 31 técnico · 20 editorial |
+
+Os 9 críticos: hierarquia (regra), poste "60x40m", tambor "0,88 cm", caixaria "2,5 m",
+cobre "0,254 mícrons", hidrante 70 L/min × 70 L/s, caixa de gordura, reservatório, memória
+dos contentores prometida e ausente.
+
+Custo registrado: leitura global US$ 0,9118 (sol a $4/$20) + validação US$ 0,1743 + 15
+transcrições ~US$ 0,008.
+
+## Defeito que esta corrida revelou
+
+O cabeçalho do parecer (`obra`, `orgao`, `municipio`) saiu da leitura solta do texto:
+obra = linha "OBRA :" da tabela de drenagem, órgão com secretaria e obra colados,
+município "Antônio Carlos" (a jazida). Consertado em `lib/identidade-do-parecer.ts`
+(gabarito → capa → texto) depois desta corrida; o parecer `5cb5b3b2` gravado continua com
+o cabeçalho errado.
