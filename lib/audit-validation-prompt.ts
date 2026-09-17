@@ -20,6 +20,7 @@ import {
 } from "./audit-report.ts";
 import type { AnalysisLevel } from "./analysis-level.ts";
 import { paginasDoAchado } from "./paginas-do-achado.ts";
+import { CRITERIO_DAS_FAIXAS } from "./faixas-de-impacto.ts";
 import { textoDoDocumentoParaIA, type ExtractedPdf } from "./pdf-text.ts";
 
 const DEFAULT_GLOBAL_CONTEXT_CHARS = 90_000;
@@ -276,10 +277,9 @@ Sua tarefa não é procurar novos erros. Sua tarefa é validar os candidatos:
 - rebaixar gravidade quando for apenas ponto técnico/editorial;
 - remover falso positivo.
 
-Regra de gravidade:
-- critico_documental: somente quando houver troca real de obra, município, endereço, órgão, cliente, código, disciplina ou documento pertencente a outro projeto.
-- tecnico_contratual: numeração incoerente, sumário duplicado, linguagem técnica possivelmente reaproveitada, norma/cálculo/hierarquia que exige conferência.
-- revisao_editorial: grafia, padronização, redação e detalhes sem impacto técnico direto.
+Faixa de impacto — a MESMA régua do auditor; não há outra:
+${CRITERIO_DAS_FAIXAS}
+Rebaixe só quando a faixa do candidato contrariar esta régua. Achado de origem "regra" mantém a faixa que a regra deu: se discordar, diga no "motivo".
 
 Não mantenha como crítico:
 - rodapé/cabeçalho repetido com a identidade correta;

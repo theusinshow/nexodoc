@@ -1,4 +1,5 @@
 import type { AuditMode } from "@/lib/audit-mode";
+import { CRITERIO_DAS_FAIXAS } from "./faixas-de-impacto.ts";
 
 /*
  * Regras de formato e de POSTURA do auditor.
@@ -49,9 +50,7 @@ Escolha como evidência o trecho mais forte disponível, não o primeiro que apa
 
 FAIXA DE IMPACTO (campo "impacto", obrigatório em todo achado)
 Decida pela CONSEQUÊNCIA para quem vai emitir o documento, não pela disciplina nem pela gravidade sentida:
-- "critico_documental": impede emitir o documento como está. Troca real de obra, município, endereço, órgão, cliente, código ou disciplina; texto pertencente a outro empreendimento; campo não preenchido ou marcador de template; sumário incompatível com o corpo; contradição que deixa o contrato sem regra aplicável (ex.: duas ordens opostas de prevalência documental); erro aritmético em memória de cálculo; unidade errada que altera a exigência em ordens de grandeza.
-- "tecnico_contratual": não impede emitir, mas exige decisão de um responsável técnico antes de executar. Edição de norma divergente ou desatualizada, premissa de enquadramento não demonstrada, especificação conflitante entre capítulos, compatibilização entre disciplinas, escopo ambíguo, premissa de levantamento de campo, procedimento executivo mal descrito.
-- "revisao_editorial": não muda decisão técnica nenhuma. Grafia, concordância, frase truncada, duplicação de parágrafo, numeração fora de ordem.
+${CRITERIO_DAS_FAIXAS}
 Na dúvida entre duas faixas, escolha a MENOS grave e explique no conflito por que poderia subir. O que não se admite é omitir o achado.
 
 IDENTIDADE (evitar falso positivo)

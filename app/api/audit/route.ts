@@ -29,6 +29,8 @@ import {
 import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
+import { CRITERIO_DAS_FAIXAS } from "@/lib/faixas-de-impacto";
+import { aplicarDecisaoDaValidacao } from "@/lib/decisao-da-validacao";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 import type { Actor } from "@/lib/actor";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
@@ -80,11 +82,7 @@ import {
   TENTATIVAS_PADRAO,
 } from "@/lib/falha-transitoria";
 import { impressaoDoAchado } from "@/lib/impressao-do-achado";
-import {
-  linhaDeLog,
-  registrarContestacao,
-  type ContestacaoDeRegra,
-} from "@/lib/contestacao-de-regra";
+import { linhaDeLog, type ContestacaoDeRegra } from "@/lib/contestacao-de-regra";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
 import {
   coberturaCompleta,
@@ -2427,7 +2425,8 @@ Priorize pelo impacto:
 - Media/Alta: divergência técnica/contratual que pode afetar emissão, contratação ou revisão formal.
 - Media ou menor: redação, formatação, duplicidade e pontos de conferência editoriais.
 
-Preencha "impacto" em TODO achado, pela consequência para quem vai emitir: "critico_documental" (impede emitir), "tecnico_contratual" (exige decisão de responsável técnico antes de executar) ou "revisao_editorial" (não muda decisão técnica). A prioridade mede urgência; o impacto decide em qual seção do relatório o achado aparece. Norma desatualizada, edição normativa divergente e premissa de enquadramento não demonstrada são "tecnico_contratual", não crítico.
+Preencha "impacto" em TODO achado, pela consequência para quem vai emitir. A prioridade mede urgência; o impacto decide em qual seção do relatório o achado aparece. A régua é esta, a mesma do auditor e da validação:
+${CRITERIO_DAS_FAIXAS}
 
 Não invente evidência. Se o documento só permitir suspeita, marque confiança média ou baixa e explique o motivo — mas registre o achado.
 
@@ -2800,22 +2799,6 @@ ${sources.join("\n\n---\n\n")}
 `.trim();
 }
 
-function normalizeImpactDecision(value: string | undefined) {
-  if (
-    value === "critico_documental" ||
-    value === "tecnico_contratual" ||
-    value === "revisao_editorial"
-  ) {
-    return value;
-  }
-
-  return undefined;
-}
-
-function isMandatoryGuardFinding(finding: AuditFinding) {
-  return finding.id.startsWith("GUARDA-");
-}
-
 async function validateFindingsWithModel(args: {
   auditId?: string | null;
   auditMode: AuditMode;
@@ -2881,74 +2864,23 @@ async function validateFindingsWithModel(args: {
       return args.findings;
     }
 
-    return args.findings
-      .map((finding) => {
-        const decision = decisions.get(finding.id);
+    return args.findings.map((finding) => {
+      const decision = decisions.get(finding.id);
+      if (!decision) return finding;
 
-        if (!decision) {
-          return finding;
-        }
-
-        if (decision.acao === "remover") {
-          // Fase C — a Camada 1 determinística é dona da identidade e da coerência.
-          // A validação por IA pode reclassificar prioridade, mas nunca apagar um
-          // achado de regra (guardas, identidade intra-documento, coerência): eles
-          // não alucinam e citam página/evidência.
-          if (isMandatoryGuardFinding(finding) || finding.origem === "regra") {
-            /*
-             * O ACHADO FICA, MAS O DESACORDO NÃO SE PERDE.
-             *
-             * O veredito recusado era descartado em silêncio. Em 18/08/2026,
-             * medindo a validação com falsos positivos plantados, ela pediu
-             * remoção de 4 dos 6 achados de regra do lote — e três dos motivos
-             * eram diagnósticos CORRETOS de defeito nosso (nome por extenso lido
-             * como obra diferente, área comparada com população, ressalva de
-             * marca escrita sem o "ou"). Os três foram consertados no mesmo dia,
-             * mas por acaso: a camada que já sabia estava calada.
-             *
-             * Não alucinar não é o mesmo que estar certo. A regra continua
-             * protegida de ser apagada; o que muda é que a discordância vira
-             * relatório em vez de lixo.
-             */
-            const contestacao = registrarContestacao(finding, decision.motivo);
-            args.contestacoes?.push(contestacao);
-            console.warn(linhaDeLog(contestacao));
-            return finding;
-          }
-
-          // Item 4 — recall: a validação NÃO deleta mais achado de IA incerto.
-          // Rebaixa pra "Sugestão" (confiança baixa, camada recolhível) em vez de
-          // sumir com ele. Alucinação e meta-lixo já foram cortados antes (ancoragem
-          // + supressão). Aqui a gente prefere mostrar-e-marcar a perder recall.
-          return {
-            ...finding,
-            tier: "sugestao" as const,
-            confianca: "baixa" as const,
-            impacto: "revisao_editorial" as const,
-            prioridade: normalizePriority(decision.prioridade ?? "Baixa"),
-            tipo: String(decision.tipo ?? finding.tipo).trim() || finding.tipo,
-            descricao: String(decision.descricao ?? finding.descricao).trim() || finding.descricao,
-            conflito: String(decision.conflito ?? finding.conflito).trim() || finding.conflito,
-            sugestao_correcao:
-              String(decision.sugestao_correcao ?? finding.sugestao_correcao).trim() ||
-              finding.sugestao_correcao,
-          };
-        }
-
-        return {
-          ...finding,
-          prioridade: normalizePriority(decision.prioridade ?? finding.prioridade),
-          impacto: normalizeImpactDecision(decision.impacto) ?? finding.impacto,
-          tipo: String(decision.tipo ?? finding.tipo).trim() || finding.tipo,
-          descricao: String(decision.descricao ?? finding.descricao).trim() || finding.descricao,
-          conflito: String(decision.conflito ?? finding.conflito).trim() || finding.conflito,
-          sugestao_correcao:
-            String(decision.sugestao_correcao ?? finding.sugestao_correcao).trim() ||
-            finding.sugestao_correcao,
-          confianca: normalizeConfidence(decision.confianca ?? finding.confianca),
-        };
-      })
-      .filter((finding): finding is AuditFinding => Boolean(finding));
+      /*
+       * A decisão vira achado em [[decisao-da-validacao.ts]]: regra e guarda
+       * mantêm a faixa e o achado, e o desacordo vira contestação — que vai
+       * para o parecer E para o log, onde quem mexe na regra vê na hora.
+       */
+      const novas: ContestacaoDeRegra[] = [];
+      const resultado = aplicarDecisaoDaValidacao(finding, decision, novas);
+      for (const contestacao of novas) {
+        args.contestacoes?.push(contestacao);
+        console.warn(linhaDeLog(contestacao));
+      }
+      return resultado;
+    });
   } catch (error) {
     const failure = classifyProviderFailure(
       profile.provider,
