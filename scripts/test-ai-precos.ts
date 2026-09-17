@@ -31,19 +31,21 @@ function test(name: string, fn: () => void) {
 
 const umMilhao = { inputTokens: 1_000_000, outputTokens: 0, cachedTokens: 0, totalTokens: 1_000_000 };
 const semUso = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0 };
+/** Abaixo do corte de 272k: desde 17/09 o luna também tem faixa longa. */
+const cemMil = { inputTokens: 100_000, outputTokens: 0, cachedTokens: 0, totalTokens: 100_000 };
 
 test("o luna tem preço — era ele o custo invisível do painel", () => {
   assert.equal(isModelPriceKnown("gpt-5.6-luna"), true);
-  assert.equal(estimateOpenAiCostUsd("gpt-5.6-luna", umMilhao), 0.2);
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-luna", cemMil)!.toFixed(4)), 0.02);
 });
 
 test("o luna é 3,75x mais barato que o mini, na entrada e na saída", () => {
-  const entrada = (model: string) => estimateOpenAiCostUsd(model, umMilhao)!;
+  const entrada = (model: string) => estimateOpenAiCostUsd(model, cemMil)!;
   const saida = (model: string) =>
-    estimateOpenAiCostUsd(model, { ...semUso, outputTokens: 1_000_000 })!;
+    estimateOpenAiCostUsd(model, { ...semUso, outputTokens: 100_000 })!;
 
-  assert.equal(entrada("gpt-5.4-mini") / entrada("gpt-5.6-luna"), 3.75);
-  assert.equal(saida("gpt-5.4-mini") / saida("gpt-5.6-luna"), 3.75);
+  assert.equal(Number((entrada("gpt-5.4-mini") / entrada("gpt-5.6-luna")).toFixed(4)), 3.75);
+  assert.equal(Number((saida("gpt-5.4-mini") / saida("gpt-5.6-luna")).toFixed(4)), 3.75);
 });
 
 test("modelo desconhecido devolve null, e NUNCA zero", () => {
@@ -60,13 +62,30 @@ test("entrada cacheada custa 10x menos que entrada nova", () => {
   const nova = estimateOpenAiCostUsd("gpt-5.6-sol", cem)!;
   const cacheada = estimateOpenAiCostUsd("gpt-5.6-sol", { ...cem, cachedTokens: 100_000 })!;
 
-  assert.equal(nova, 0.5);
-  assert.equal(cacheada, 0.05);
+  assert.equal(nova, 0.4);
+  assert.equal(cacheada, 0.04);
   assert.equal(nova / cacheada, 10);
 });
 
+/*
+ * 17/09/2026: a tabela oficial (developers.openai.com/api/docs/pricing) dá o sol
+ * a $4,00 / $0,40 / $20,00 na faixa curta e $8,00 / $0,80 / $30,00 na longa. O
+ * código tinha $5 / $30 — o preço do gpt-5.5 — e o painel superestimou ~21% em
+ * 30 dias, quase tudo na leitura global da auditoria.
+ */
+test("sol na faixa curta: $4 de entrada, $0,40 cacheada, $20 de saída (tabela de 17/09)", () => {
+  const curto = { inputTokens: 100_000, outputTokens: 100_000, cachedTokens: 0, totalTokens: 200_000 };
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-sol", curto)!.toFixed(4)), 2.4);
+});
+
+test("REGRESSÃO 027_24: a leitura global de hoje custou $0,8692, não $1,1723", () => {
+  // audit-global do 849c9e8a: 131.412 de entrada e 17.176 de saída, sem cache.
+  const global = { inputTokens: 131_412, outputTokens: 17_176, cachedTokens: 0, totalTokens: 148_588 };
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-sol", global)!.toFixed(4)), 0.8692);
+});
+
 test("1M de entrada no sol já paga faixa longa — o corte é 272k, não 1M", () => {
-  assert.equal(estimateOpenAiCostUsd("gpt-5.6-sol", umMilhao), 10);
+  assert.equal(estimateOpenAiCostUsd("gpt-5.6-sol", umMilhao), 8);
 });
 
 test("acima de 272k o preço longo dobra a entrada e multiplica a saída por 1,5", () => {
@@ -76,15 +95,16 @@ test("acima de 272k o preço longo dobra a entrada e multiplica a saída por 1,5
   const a = estimateOpenAiCostUsd("gpt-5.6-sol", curto)!;
   const b = estimateOpenAiCostUsd("gpt-5.6-sol", longo)!;
 
-  // entrada 272k*$5 = $1,36 ; saída 100k*$30 = $3 -> $4,36
-  assert.equal(Number(a.toFixed(4)), 4.36);
-  // dobra a entrada (~$2,72) e 1,5x a saída ($4,50) -> ~$7,22
-  assert.equal(Number(b.toFixed(2)), 7.22);
+  // entrada 272k*$4 = $1,088 ; saída 100k*$20 = $2 -> $3,088
+  assert.equal(Number(a.toFixed(4)), 3.088);
+  // faixa longa: entrada $8 (~$2,176) e saída $30 ($3) -> ~$5,18
+  assert.equal(Number(b.toFixed(2)), 5.18);
 });
 
-test("o luna não paga preço de contexto longo — a regra é só do sol e do terra", () => {
-  const longo = { inputTokens: 300_000, outputTokens: 0, cachedTokens: 0, totalTokens: 300_000 };
-  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-luna", longo)!.toFixed(4)), 0.06);
+test("o luna TAMBÉM paga contexto longo: $0,40 / $1,80 (tabela de 17/09)", () => {
+  // Até 17/09 o código dizia que a faixa longa era só do sol e do terra.
+  const longo = { inputTokens: 300_000, outputTokens: 100_000, cachedTokens: 0, totalTokens: 400_000 };
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-luna", longo)!.toFixed(4)), 0.3);
 });
 
 test("nome de modelo não aceita chave de API — uma já foi parar no banco", () => {

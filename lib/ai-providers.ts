@@ -53,9 +53,9 @@ export type SafeProviderFailure = {
  * Rodavam em `gpt-5.5` até 11/08/2026 — resíduo de quando a geração 5.6 ainda
  * não existia, não escolha de critério. O `terra` iguala o 5.5 nos benchmarks
  * de inteligência da própria OpenAI e custa $2/$12 contra $5/$30: 2,5x menos
- * pela mesma capacidade declarada. O `gpt-5.5` ainda custava o MESMO que o
- * `sol`, que é o topo da geração seguinte — era pagar preço de fronteira por
- * geração anterior.
+ * pela mesma capacidade declarada. O `gpt-5.5` custa MAIS que o `sol` ($4/$20,
+ * conferido em 17/09/2026), que é o topo da geração seguinte — era pagar mais
+ * que o preço de fronteira por geração anterior.
  *
  * Nota de contexto: hoje este caminho é frio. `modules/nexo/lib/audit.ts` manda
  * `auditMode` fixo em "memorial", então toda auditoria que passa pelo Nexo usa
@@ -93,8 +93,8 @@ const DEFAULT_LD_OPENAI_MODEL = "gpt-5.6-luna";
  * definidas, para não quebrar quem já configurou pelo jeito antigo.
  *
  * Conversa quer RESPOSTA RÁPIDA e barata, não raciocínio profundo: o `terra`
- * ($2/$12 por 1M) com `effort` baixo é o ponto certo. O `sol`/`gpt-5.5`
- * ($5/$30) paga por deliberação que ninguém espera num chat.
+ * ($2/$12 por 1M) com `effort` baixo é o ponto certo. O `sol` ($4/$20) e o
+ * `gpt-5.5` ($5/$30) pagam por deliberação que ninguém espera num chat.
  */
 const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-terra";
 /**
