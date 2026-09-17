@@ -28,6 +28,7 @@ import {
 } from "@/lib/audit-report";
 import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
+import { calibrarArredondamento } from "@/lib/arredondamento";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
 import { CRITERIO_DAS_FAIXAS } from "@/lib/faixas-de-impacto";
 import { aplicarDecisaoDaValidacao } from "@/lib/decisao-da-validacao";
@@ -4193,13 +4194,22 @@ async function executarAuditoria(
          * recolhido aqui. A regra da faixa (`lib/severidade.ts`) é o que impede
          * "apertar a severidade" de virar, de novo, esconder achado.
          */
-        const severidade = severidadeDoAchado(finding);
+        /*
+         * Diferença de conta que cabe no arredondamento desce para editorial
+         * ANTES da matriz — ver [[arredondamento.ts]]. O achado fica; só a faixa
+         * muda, e o motivo vai junto para quem quiser conferir a conta.
+         */
+        const { finding: calibrado, nota: notaDeArredondamento } =
+          calibrarArredondamento(finding);
+        const severidade = severidadeDoAchado(calibrado);
 
         return {
-          ...finding,
+          ...calibrado,
           id: `INC-${String(index + 1).padStart(3, "0")}`,
           prioridade: severidade.prioridade,
-          severity_reason: severidade.motivo,
+          severity_reason: notaDeArredondamento
+            ? `${severidade.motivo} ${notaDeArredondamento}`
+            : severidade.motivo,
           // Ausente quando a página não tem cabeçalho: é o que preserva o
           // fallback da inferência em vez de afirmar "geral" sem base.
           ...(disciplina ? { disciplina } : {}),
