@@ -35,6 +35,8 @@ import {
   type CertezaMedida,
 } from "@/lib/conferente/encaixe-3-certeza";
 import { assinarAchadosDeRegra } from "@/lib/conferente/encaixe-1-assinatura";
+import { varrerOQueNinguemLeu } from "@/lib/conferente/encaixe-2-rede";
+import { acharDuplicadosPareados } from "@/lib/conferente/encaixe-4-dedupe";
 import { calibrarArredondamento } from "@/lib/arredondamento";
 import { identidadeDoParecer } from "@/lib/identidade-do-parecer";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
@@ -3533,6 +3535,38 @@ async function deepAnalyzeFile(args: {
         })
       : evidenceGate.kept;
 
+  /*
+   * A REDE DE ARRASTO (Encaixe 2) — o que ninguém leu deixa de ficar sem ninguém.
+   *
+   * Entra DEPOIS do portão de evidência, e de propósito: o achado de rede não
+   * tem trecho exato para ancorar, ele responde sobre o bloco inteiro.
+   * `filterGroundedFindings` o derrubaria com razão, e a saída não é afrouxar a
+   * trava — é não mandar a rede para ela. Em troca, o achado nasce dizendo no
+   * próprio texto que não tem trecho, com confiança baixa.
+   *
+   * Roda só onde há buraco de verdade: bloco que não foi ao modelo por bloco E
+   * que caiu fora do que a leitura global coube. Ver `blocosNaoLidos`.
+   */
+  let achadosDaRede: AuditFinding[] = [];
+
+  try {
+    achadosDaRede = await varrerOQueNinguemLeu(
+      blocosDisponiveis,
+      new Set(chunks.map((bloco) => bloco.id)),
+      args.file.file.name,
+      Math.min(args.file.extracted.text.length, getGlobalContextChars(args.analysisLevel)),
+      { userEmail: args.userEmail, conversationId: args.conversationId },
+    );
+
+    if (achadosDaRede.length > 0) {
+      console.log(
+        `[audit] rede de arrasto: ${achadosDaRede.length} achado(s) em blocos que a analise principal nao leu`,
+      );
+    }
+  } catch (error) {
+    console.warn("[audit] rede de arrasto falhou; o parecer sai sem ela", error);
+  }
+
   return dedupeFindings([
     ...mandatoryGuardFindings,
     ...withinDocumentIdentityFindings,
@@ -3540,6 +3574,7 @@ async function deepAnalyzeFile(args: {
     ...inferredIdentityFindings,
     ...ruleBasedReviewFindings,
     ...refutedGate,
+    ...achadosDaRede,
   ]);
 }
 
@@ -4178,9 +4213,43 @@ async function executarAuditoria(
           semEscrituracao.removidos.map((f) => f.tipo).join(" | "),
       );
     }
+    /*
+     * O DEDUPE PAREADO (Encaixe 4) — os ~50% que a impressão digital não casa.
+     *
+     * `impressaoDoAchado` rende 50% de estabilidade entre duas corridas do
+     * mesmo documento, e as chaves que rendiam mais fundiam defeitos distintos.
+     * O que sobra é decisão de linguagem sobre duas frases, que é o formato
+     * desta camada.
+     *
+     * A REMOÇÃO ACONTECE AQUI E NÃO LÁ DENTRO, de propósito: o encaixe devolve
+     * os pares e quem decide é este trecho, à vista. Fundir dois achados
+     * distintos apaga um achado, e apagar achado é a única coisa que este
+     * projeto decidiu nunca mais fazer por conveniência — por isso o corte é
+     * 0,85 nas DUAS perguntas e o empate mantém os dois.
+     */
+    let duplicadosPareados = new Set<string>();
+
+    try {
+      const pares = await acharDuplicadosPareados(semEscrituracao.mantidos, {
+        userEmail: sessionEmail,
+      });
+
+      duplicadosPareados = new Set(pares.map((par) => par.duplicado));
+
+      for (const par of pares) {
+        console.log(
+          `[audit] dedupe pareado: ${par.duplicado} e o mesmo defeito que ${par.manter} (${par.probabilidade.toFixed(2)})`,
+        );
+      }
+    } catch (error) {
+      console.warn("[audit] dedupe pareado falhou; o parecer sai com os dois achados", error);
+    }
+
     const ordenados = sortAuditFindings(
       compactRepeatedIdentityFindings(
-        filterFalsePositiveIdentityFindings(semEscrituracao.mantidos),
+        filterFalsePositiveIdentityFindings(
+          semEscrituracao.mantidos.filter((finding) => !duplicadosPareados.has(finding.id)),
+        ),
       ),
     );
 

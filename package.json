@@ -204,6 +204,8 @@
     "prova:texto-do-pdf": "node scripts/prova-texto-do-pdf.ts",
     "prova:conferente-certeza": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conferente-certeza.ts",
     "prova:conferente-assinatura": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conferente-assinatura.ts",
+    "prova:conferente-rede": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-conferente-rede.ts",
+    "test:conferente-rede": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-conferente-rede.ts",
     "test:nexo:escala": "node scripts/test-nexo-escala-de-dado.ts",
     "prova:tokens": "node scripts/prova-tokens-documentados.mjs",
     "prova:badge": "node scripts/prova-badge-a-mao.mjs",
