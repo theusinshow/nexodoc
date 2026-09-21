@@ -26,6 +26,7 @@ import { formatarDiaMes, formatarEmBrasilia, formatarHora, mesmoDiaEmBrasilia } 
 import { ChevronRight, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 import {
   ehDocumentoFinal,
   type CartaoDeProjeto as Cartao,
@@ -84,10 +85,16 @@ export function CartaoDeProjeto({
    * o sistema ter ligado a conversa a um projeto.
    */
   const semCodigo = cartao.aEnderecar;
+  /*
+   * A CIDADE, e não o órgão inteiro. Numa coluna de 300px, "129-24 ·
+   * PREFEITURA MUN…" corta antes da única palavra que separa esta obra da de
+   * cima. A MARCA continua recebendo o texto CRU: `chaveDaPrefeitura` sabe ler
+   * as duas formas, e a cor não depende de quem encurtou o rótulo.
+   */
   const nome = semCodigo
     ? "A endereçar"
     : cartao.cliente
-      ? `${cartao.codigo} · ${cartao.cliente}`
+      ? `${cartao.codigo} · ${cidadeDoCliente(cartao.cliente)}`
       : cartao.codigo;
 
   return (

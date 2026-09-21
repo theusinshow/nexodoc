@@ -19,6 +19,8 @@
  *
  * Puro: nenhum IO. Quem busca os projetos do escritório é quem chama.
  */
+import { cidadeDoCliente } from "./cliente-do-projeto.ts";
+
 export type ProjetoConhecido = { id: string; code: string; client: string };
 
 export type ResolucaoDeProjeto =
@@ -116,7 +118,7 @@ export type OpcaoDeProjeto = { id: string; rotulo: string };
 export function opcoesDoSeletorDeProjeto(projetos: readonly ProjetoConhecido[]): OpcaoDeProjeto[] {
   return [...projetos]
     .sort((a, b) => normalizarCentroDeCusto(a.code).localeCompare(normalizarCentroDeCusto(b.code)))
-    .map((p) => ({ id: p.id, rotulo: p.client?.trim() ? `${p.code} · ${p.client.trim()}` : p.code }));
+    .map((p) => ({ id: p.id, rotulo: p.client?.trim() ? `${p.code} · ${cidadeDoCliente(p.client)}` : p.code }));
 }
 
 /** Só um projeto que ESTÁ na lista libera a auditoria. */

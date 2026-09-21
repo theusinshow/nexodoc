@@ -40,6 +40,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 import type { ConversaCrua, ProjetoRecente } from "@/lib/trabalho-recente";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 
 /** "há 4 min", "há 3 h", "ontem", "12/08" — a régua que a home já usa. */
 function quando(ms: number, agora = Date.now()): string {
@@ -56,7 +57,7 @@ function quando(ms: number, agora = Date.now()): string {
 function nomeDoProjeto(p: ProjetoRecente): string {
   if (p.chave === "") return "Sem projeto";
   if (!p.codigo) return p.chave;
-  return `${p.codigo} · ${p.cliente}`;
+  return `${p.codigo} · ${cidadeDoCliente(p.cliente)}`;
 }
 
 /*

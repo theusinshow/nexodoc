@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-import { decidirCliente, slugDoCliente } from "../lib/cliente-do-projeto.ts";
+import { cidadeDoCliente, decidirCliente, slugDoCliente } from "../lib/cliente-do-projeto.ts";
 
 let passed = 0;
 function test(nome: string, fn: () => void) {
@@ -124,6 +124,43 @@ test("o município vence o órgão ao formar a chave", () => {
     municipioLido: "Chapecó",
   });
   assert.equal(d.clientKey, "chapeco");
+});
+
+test("o nome curto tira o que toda prefeitura tem no nome", () => {
+  // O motivo de existir: na barra lateral as cinco linhas começavam iguais.
+  assert.equal(cidadeDoCliente("PREFEITURA MUNICIPAL DE FLORIANÓPOLIS"), "FLORIANÓPOLIS");
+  assert.equal(cidadeDoCliente("Prefeitura Municipal de Urubici"), "Urubici");
+  assert.equal(cidadeDoCliente("Prefeitura de Criciúma"), "Criciúma");
+  assert.equal(cidadeDoCliente("MUNICÍPIO DE SÃO JOSÉ"), "SÃO JOSÉ");
+});
+
+test("o nome curto preserva acento e caixa — ele é para MOSTRAR", () => {
+  // É o que o separa de `slugDoCliente`, que mata as duas para comparar.
+  assert.equal(cidadeDoCliente("PREFEITURA MUNICIPAL DE CRICIÚMA"), "CRICIÚMA");
+  assert.equal(cidadeDoCliente("Chapecó"), "Chapecó");
+});
+
+test("a secretaria e a UF também são ruído de vitrine", () => {
+  assert.equal(
+    cidadeDoCliente("PREFEITURA MUNICIPAL DE CRICIÚMA / SECRETARIA DE OBRAS"),
+    "CRICIÚMA",
+  );
+  assert.equal(cidadeDoCliente("Criciúma - SC"), "Criciúma");
+  assert.equal(cidadeDoCliente("Criciúma, SC"), "Criciúma");
+});
+
+test("quem não é prefeitura sai inteiro — a tela não adivinha", () => {
+  assert.equal(cidadeDoCliente("Secretaria de Obras de Chapecó"), "Secretaria de Obras de Chapecó");
+  assert.equal(cidadeDoCliente("Autopista Litoral Sul"), "Autopista Litoral Sul");
+  // Duas letras que NÃO são UF ficam: cortar o par do fim comeria o nome.
+  assert.equal(cidadeDoCliente("Balneário Rincão XY"), "Balneário Rincão XY");
+});
+
+test("genérico é melhor que branco", () => {
+  // Sobrar nada da limpeza devolve o original: a linha não pode ficar vazia.
+  assert.equal(cidadeDoCliente("Prefeitura Municipal"), "Prefeitura Municipal");
+  assert.equal(cidadeDoCliente(""), "");
+  assert.equal(cidadeDoCliente(null), "");
 });
 
 console.log(`\n${passed} passaram`);

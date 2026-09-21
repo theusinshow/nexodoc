@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ProjectContext } from "@/lib/project-context";
 import { cn } from "@/lib/utils";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 
 type ProjectContextStripProps = {
   project: ProjectContext | null;
@@ -73,7 +74,7 @@ export function ProjectContextStrip({
           </div>
           <p className="mt-1 truncate text-sm font-medium">{project.name}</p>
           {project.client ? (
-            <p className="truncate text-xs text-muted-foreground">{project.client}</p>
+            <p className="truncate text-xs text-muted-foreground">{cidadeDoCliente(project.client)}</p>
           ) : null}
         </div>
       </div>

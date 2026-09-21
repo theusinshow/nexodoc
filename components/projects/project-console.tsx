@@ -16,6 +16,7 @@ import { Ima } from "@/components/ambiente/ima";
 import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { rotuloDeProjeto } from "@/lib/rotulos-de-status";
 import { plural } from "@/lib/plural";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 
 export type ProjectConsoleItem = {
   id: string;
@@ -242,7 +243,7 @@ export function ProjectConsole({ initialProjects }: { initialProjects: ProjectCo
                       <p className="mt-1 flex items-center gap-2 font-mono text-xs text-muted-foreground">
                         <MarcaDaPrefeitura prefeitura={project.client} forma="selo" />
                         <span className="min-w-0 truncate">
-                          {project.client ? `${project.code} · ${project.client}` : project.code}
+                          {project.client ? `${project.code} · ${cidadeDoCliente(project.client)}` : project.code}
                         </span>
                       </p>
                     </div>

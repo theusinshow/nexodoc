@@ -19,6 +19,7 @@
  * cada uma com o motivo dela.
  */
 import { getPrisma } from "@/lib/db";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 import { linkDoAchado } from "@/lib/link-do-achado";
 import { quemAvisar, type AchadoParaAvisar } from "@/lib/quem-avisar";
 import {
@@ -114,7 +115,10 @@ async function contextoDaAuditoria(auditId: string, organizationId: string): Pro
     auditId: audit.id,
     titulo: audit.title,
     codigo: audit.project?.code ?? audit.projectName,
-    cliente: audit.project?.client ?? "",
+    /* A CIDADE, não o órgão inteiro: o assunto do e-mail é o lugar em que os
+       24 caracteres de "PREFEITURA MUNICIPAL DE" custam mais caro — a caixa de
+       entrada corta o assunto antes do que importa. */
+    cliente: cidadeDoCliente(audit.project?.client),
     remetente: "",
   };
 }

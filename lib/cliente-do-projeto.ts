@@ -174,3 +174,57 @@ export function decidirCliente(args: {
     divergencia: mesmo ? null : { cadastrado: atual, lido },
   };
 }
+
+/**
+ * `"PREFEITURA MUNICIPAL DE FLORIANÓPOLIS"` → `"FLORIANÓPOLIS"`.
+ *
+ * O NOME CURTO É PARA A TELA, e só para ela. `slugDoCliente` existe para
+ * COMPARAR (agrupar, pintar, casar) e por isso mata acento e caixa; esta aqui
+ * existe para MOSTRAR, e por isso preserva as duas — "SÃO JOSÉ" continua com
+ * til e acento, "Criciúma" continua com a caixa que a pessoa digitou.
+ *
+ * O QUE SAI é só o que TODA prefeitura tem no nome e por isso não distingue
+ * nenhuma: o "PREFEITURA MUNICIPAL DE" da frente, a secretaria depois da barra
+ * e a UF do fim. Numa lista em que todas as linhas começam iguais, os 24
+ * caracteres do prefixo empurram a única palavra que separa uma obra da outra
+ * para fora da coluna — foi o que a barra lateral mostrava: cinco linhas
+ * "129-24 · PREFEITURA MUN…", cortadas antes da cidade.
+ *
+ * NÃO GRAVA NADA. O texto do banco fica como está, porque ele é de gente: quem
+ * digitou "Prefeitura Municipal de Urubici" em /projetos continua vendo o que
+ * digitou quando for EDITAR o campo. A limpeza é da vitrine, não do estoque.
+ *
+ * NÃO ADIVINHA. Sem o prefixo, o texto sai inteiro: "Secretaria de Obras de
+ * Chapecó" e "Autopista Litoral Sul" não são prefeituras, e encurtar pelo
+ * palpite faria a tela mentir. Se a limpeza esvaziar o campo (um "Prefeitura
+ * Municipal" sem cidade), volta o original — melhor genérico que em branco.
+ */
+export function cidadeDoCliente(valor: string | null | undefined): string {
+  const bruto = (valor ?? "").trim();
+  if (!bruto) return "";
+
+  const curto = bruto
+    /* "PREFEITURA MUNICIPAL DE …", "Pref. de …", "Município de …". A mesma
+       ordem de `centroDeCustoDaAuditoria`, para a pasta e a tela não
+       discordarem sobre a mesma obra. */
+    .replace(/^pref(?:\.|eitura)?\s+(?:municipal\s+)?(?:d[eao]s?\s+)?/i, "")
+    .replace(/^munic[ií]pio\s+(?:d[eao]s?\s+)?/i, "")
+    /* "… / SECRETARIA DE OBRAS" — o órgão vem inteiro do carimbo. */
+    .split("/")[0]
+    .replace(/\s+/g, " ")
+    .trim()
+    /* "Criciúma - SC", "Criciúma, SC". Só as 27 siglas reais: cortar qualquer
+       par de letras do fim comeria o "Sé" de um nome legítimo. */
+    .replace(/[\s,-]+([A-Za-z]{2})$/, (inteiro, uf: string) =>
+      UFS.has(uf.toLocaleLowerCase("pt-BR")) ? "" : inteiro,
+    )
+    .trim();
+
+  /*
+   * "Prefeitura Municipal" sem cidade sobra como "Municipal" — palavra que
+   * TODA prefeitura tem e que por isso não nomeia nenhuma. `slugDoCliente` já
+   * sabe quais são (é a mesma lista de `GENERICOS`), e devolver `""` é a forma
+   * de ele dizer "não sobrou nada que identifique um município".
+   */
+  return curto && slugDoCliente(curto) ? curto : bruto;
+}

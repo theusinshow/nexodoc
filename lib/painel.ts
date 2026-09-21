@@ -21,6 +21,7 @@
  * sai sozinho quando não houver mais.
  */
 import { getPrisma } from "@/lib/db";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 import {
   ondeParou,
   projetosRecentes,
@@ -296,7 +297,7 @@ export async function painelDe(args: {
     const atual = porProjeto.get(projeto.id) ?? {
       projectId: projeto.id,
       codigo: projeto.code,
-      nome: projeto.name || projeto.client || projeto.code,
+      nome: projeto.name || cidadeDoCliente(projeto.client) || projeto.code,
       cliente: projeto.client,
       atualizadoEm: projeto.updatedAt.toISOString(),
       itens: [],
@@ -363,7 +364,7 @@ export async function painelDe(args: {
     porProjeto.set(projeto.id, {
       projectId: projeto.id,
       codigo: projeto.code,
-      nome: projeto.name || projeto.client || projeto.code,
+      nome: projeto.name || cidadeDoCliente(projeto.client) || projeto.code,
       cliente: projeto.client,
       atualizadoEm: projeto.updatedAt.toISOString(),
       itens: [],
@@ -447,7 +448,7 @@ export async function painelDe(args: {
     porProjeto.set(projeto.id, {
       projectId: projeto.id,
       codigo: projeto.code,
-      nome: projeto.name || projeto.client || projeto.code,
+      nome: projeto.name || cidadeDoCliente(projeto.client) || projeto.code,
       cliente: projeto.client,
       /*
        * A data da CONVERSA, e não a do projeto: é ela que diz quando se mexeu

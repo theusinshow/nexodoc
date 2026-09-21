@@ -86,6 +86,7 @@ import type { ItemDoPainel, Painel, ProjetoDoPainel } from "@/lib/painel";
 import type { EscopoDaLista } from "@/lib/preferencias-da-home";
 import { MarcaDaPrefeitura } from "@/modules/nexo/components/MarcaDaPrefeitura";
 import { cn } from "@/lib/utils";
+import { cidadeDoCliente } from "@/lib/cliente-do-projeto";
 import { ControlesDaLista } from "./controles-da-lista";
 import { usePreferenciasDaHome } from "./use-preferencias-da-home";
 import { OndeVoceParou } from "./onde-voce-parou";
@@ -788,7 +789,7 @@ function CartaoDeProjeto({
             className="flex shrink-0"
             title={
               projeto.cliente.trim()
-                ? `Prefeitura de ${projeto.cliente.trim()}`
+                ? `Prefeitura de ${cidadeDoCliente(projeto.cliente)}`
                 : "Município não cadastrado"
             }
           >
@@ -837,7 +838,7 @@ function CartaoDeProjeto({
               data-codigo-do-projeto={projeto.codigo}
               className="shrink-0 font-mono text-[11.5px] tracking-[0.03em] text-muted-foreground"
             >
-              {projeto.codigo} · {projeto.cliente.trim() || "sem cidade"}
+              {projeto.codigo} · {cidadeDoCliente(projeto.cliente) || "sem cidade"}
             </span>
           </span>
 
