@@ -176,6 +176,20 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
+      # A CHAVE DO CONFERENTE (TypeSafe/Jev) — e o que acontece sem ela.
+      #
+      # Sem esta variavel o conferente nao roda, e a auditoria sai EXATAMENTE
+      # como saia antes dele: a severidade volta a usar o campo `confianca` que
+      # o proprio modelo escreveu sobre si, a regra nao recebe segunda
+      # assinatura, e o bloco que ninguem leu continua sem ninguem olhando.
+      # Nada quebra, nada avisa. E a mesma classe de armadilha do modelo de
+      # selo logo acima: o software funciona, so que sem o que foi construido.
+      #
+      # Cobra so ENTRADA, a US$ 0,042 por 1M; a saida e de graca. Uma auditoria
+      # profunda inteira com os quatro encaixes fica na casa de US$ 0,01.
+      - key: JEV_API_KEY
+        sync: false
+
       # O TETO MENSAL EM DÓLARES — a única coisa entre um erro de uso e a fatura.
       #
       # Sem esta variável NÃO HÁ TETO: `getMonthlyBudgetUsd()` devolve `null` e
