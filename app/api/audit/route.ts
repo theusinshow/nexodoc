@@ -34,6 +34,7 @@ import {
   medirCertezaDaLista,
   type CertezaMedida,
 } from "@/lib/conferente/encaixe-3-certeza";
+import { assinarAchadosDeRegra } from "@/lib/conferente/encaixe-1-assinatura";
 import { calibrarArredondamento } from "@/lib/arredondamento";
 import { identidadeDoParecer } from "@/lib/identidade-do-parecer";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
@@ -4206,6 +4207,28 @@ async function executarAuditoria(
       }
     } catch (error) {
       console.warn("[audit] conferente falhou; severidade segue pelo caminho de sempre", error);
+    }
+
+    /*
+     * A SEGUNDA ASSINATURA NO ACHADO DE REGRA (Encaixe 1).
+     *
+     * O achado de regra é blindado: a validação não pode removê-lo. A blindagem
+     * está certa e continua — mas quando a regex erra, o erro ia inteiro para o
+     * parecer e ninguém ficava sabendo. Agora o desacordo entra pelo canal que
+     * já existe, ao lado das contestações da validação, e o achado NÃO muda.
+     *
+     * Só as famílias cuja prova cabe no trecho (identidade e marca) podem gerar
+     * contestação — ver o cabeçalho de `encaixe-1-assinatura.ts`.
+     */
+    try {
+      const doConferente = await assinarAchadosDeRegra(ordenados, { userEmail: sessionEmail });
+
+      for (const contestacao of doConferente) {
+        contestacoes.push(contestacao);
+        console.warn(linhaDeLog(contestacao));
+      }
+    } catch (error) {
+      console.warn("[audit] assinatura do conferente falhou; o parecer sai sem ela", error);
     }
 
     const findings = ordenados.map(
