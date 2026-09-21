@@ -25,6 +25,7 @@ import { filterGroundedFindings, isMetaAuditFinding } from "../lib/audit-verify.
 import {
   classifyFindingDiscipline,
   classifyFindingErrorType,
+  buildExecutiveSummary,
   classifyFindingImpact,
   classifyFindingTier,
   getEmissionVerdict,
@@ -1304,6 +1305,102 @@ check("sumário incompatível com o corpo NÃO é suprimido como meta-achado", (
     termo_busca: "1 PROJETO ELÉTRICO",
   });
   assert.equal(isMetaAuditFinding(finding), false);
+});
+
+
+// --- 6.3 Peca companheira citada e nunca listada (129-24) ---------------------
+check("acusa peca citada que o documento nunca declara (Volume 2 do 129-24)", () => {
+  const doc = makeSource("memorial.pdf", "memorial", [
+    "PREFEITURA MUNICIPAL DE FLORIANOPOLIS\nMEMORIAL DESCRITIVO\nVol. I",
+    "Os volumes escavados foram classificados com base nas sondagens executadas.\nA procedencia e a destinacao desses materiais sao apresentadas no Volume 2 – Quadro de\nOrigem e Destino.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  const peca = findings.filter((f) => f.tipo.includes("Peça citada"));
+  assert.equal(peca.length, 1, "esperava 1 achado de peca nao listada");
+  assert.ok(peca[0].descricao.includes("Volume 2"), "o achado tem de nomear a peca");
+  assert.equal(peca[0].origem, "regra");
+});
+
+check("NAO acusa a peca que o proprio documento lista", () => {
+  const doc = makeSource("ok.pdf", "memorial", [
+    "Documentos que integram o projeto executivo:\n• Volume 2 – Quadro de Origem e Destino;\n• Projeto Estrutural;",
+    "A procedencia desses materiais e apresentada no Volume 2 – Quadro de Origem e Destino.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(
+    findings.filter((f) => f.tipo.includes("Peça citada")).length,
+    0,
+    "peca declarada em lista nao pode virar achado",
+  );
+});
+
+check("anexo de NORMA EXTERNA nao e peca deste projeto (falso positivo em 9 de 9 memoriais)", () => {
+  const doc = makeSource("ok.pdf", "memorial", [
+    "Proteger os elementos energizados, conforme Anexo I da NR-10; sinalizar com etiquetas.",
+    "A analise das saidas de emergencia foi elaborada conforme Anexo C – Tabela 6 da\nIN009/CMBSC. As tabelas abaixo apresentam o calculo.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.equal(
+    findings.filter((f) => f.tipo.includes("Peça citada")).length,
+    0,
+    "Anexo I da NR-10 e Anexo C da IN009 moram na norma, nao no memorial",
+  );
+});
+
+// --- 6.4 Residuo rodoviario: o achado tem de citar TODAS as paginas ----------
+check("residuo rodoviario reporta todas as paginas, nao so a primeira", () => {
+  const doc = makeSource("memorial.pdf", "memorial", [
+    "Definidas as caracteristicas tecnicas, operacionais e geometricas da rodovia/estrada.",
+    "Pagina sem sinal nenhum de projeto viario.",
+    "Os centros de gravidade foram projetados sobre o eixo da rodovia.",
+    "Niveis luminotecnicos e zonas de transicao, levando em conta a hierarquização das vias.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  const road = findings.filter((f) => f.tipo.includes("rodoviário"));
+  assert.equal(road.length, 1);
+  assert.equal(
+    road[0].pagina,
+    "1, 3, 4",
+    "citar so a pag. 1 mandava o revisor corrigir um trecho e deixar dois",
+  );
+});
+
+check("hierarquizacao das vias fora da terraplenagem entra como sinal rodoviario", () => {
+  const doc = makeSource("memorial.pdf", "memorial", [
+    "Implantacao do corpo estradal, com remocao da camada vegetal.",
+    "Capitulo eletrico: hierarquização das vias e zonas de transicao.",
+  ]);
+  const findings = runDocumentCoherenceRules(doc);
+  assert.ok(
+    findings.some((f) => f.tipo.includes("rodoviário") && f.pagina.includes("2")),
+    "o residuo do capitulo eletrico (pag. 45 do 129-24) precisa aparecer",
+  );
+});
+
+// --- 6.5 A conclusao tem de dizer o que os criticos sao (129-24) -------------
+check("conclusao nao chama de identidade o critico que nao e (129-24)", () => {
+  const critico = (tipo: string, categoria: string) =>
+    mkFinding({ impacto: "critico_documental", tipo, categoria }) as AuditFinding;
+
+  const misto = buildExecutiveSummary([
+    critico("Hierarquia documental contraditória", "Condições gerais / hierarquia documental"),
+    critico("Órgão de outro escopo administrativo", "Identidade documental"),
+    critico("Unidade de resistência incorreta", "Erro de unidade"),
+  ]);
+  assert.ok(
+    !misto.includes("identidade/localiza"),
+    "3 criticos e so 1 de identidade: a frase nao pode rotular os tres",
+  );
+  assert.ok(misto.includes("Erro de unidade") || misto.includes("Unidade de resist"));
+
+  const soIdentidade = buildExecutiveSummary([
+    critico("Nome da obra divergente", "Identidade documental"),
+    critico("Município divergente", "Identidade documental"),
+  ]);
+  assert.ok(
+    soIdentidade.includes("identidade/localiza"),
+    "quando TODOS sao de identidade a frase de sempre continua valendo",
+  );
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

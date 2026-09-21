@@ -871,9 +871,44 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
   const parts: string[] = [];
 
   if (critical.length > 0) {
-    parts.push(
-      `Documento com ${plural(critical.length, "incongruência crítica", "incongruências críticas")} de identidade/localização da obra, com risco de reaproveitamento de texto ou emissão com dados divergentes.`,
-    );
+    /*
+     * A FRASE PRECISA DIZER O QUE OS CRÍTICOS SÃO.
+     *
+     * Ela era fixa em "de identidade/localização da obra", e a faixa crítica há
+     * muito deixou de ser só isso: hierarquia documental contraditória, campo de
+     * template não preenchido e erro de unidade também sobem para cá. No 129-24
+     * a conclusão anunciou "4 incongruências críticas de identidade/localização
+     * da obra" quando só UMA delas era de identidade — as outras três eram
+     * prevalência documental e duas unidades erradas. Quem leu só a conclusão
+     * leu um documento diferente do que o relatório continha.
+     *
+     * Agora o qualificador só aparece quando TODOS os críticos são de
+     * identidade; se a faixa for mista, a frase nomeia os tipos que estão lá.
+     */
+    const ehIdentidade = (finding: AuditFinding) => {
+      const scope = normalizeForMatch([finding.tipo, finding.categoria ?? "", finding.local ?? ""].join(" "));
+      return (
+        scope.includes("identidade") ||
+        scope.includes("identificacao") ||
+        scope.includes("nome da obra") ||
+        scope.includes("municipio") ||
+        scope.includes("endereco") ||
+        scope.includes("localiza")
+      );
+    };
+
+    const contagem = plural(critical.length, "incongruência crítica", "incongruências críticas");
+
+    if (critical.every(ehIdentidade)) {
+      parts.push(
+        `Documento com ${contagem} de identidade/localização da obra, com risco de reaproveitamento de texto ou emissão com dados divergentes.`,
+      );
+    } else {
+      const tipos = [...new Set(critical.map((finding) => finding.tipo))].slice(0, 4);
+      parts.push(
+        `Documento com ${contagem} que impedem a emissão: ${tipos.join("; ")}.`,
+      );
+    }
   }
 
   if (technical.length > 0) {

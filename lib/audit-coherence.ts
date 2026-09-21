@@ -30,25 +30,51 @@ function findFirst(extracted: ExtractedPdf, pattern: RegExp): Hit | null {
   return null;
 }
 
-/** todas as ocorrências de um conjunto de sinais, para relatar reúso de texto */
+/**
+ * Todas as ocorrências de um conjunto de sinais, para relatar reúso de texto.
+ *
+ * DEDUPLICA POR RÓTULO, MAS GUARDA TODAS AS PÁGINAS. A versão anterior guardava
+ * só a primeira página de cada rótulo e o achado saía citando UMA página — no
+ * 129-24 o resíduo rodoviário está nas págs. 21, 22, 24 e 45, e o relatório
+ * dizia "Página: 22". Quem foi corrigir arrumou um trecho e deixou três.
+ */
 function collectSignals(
   extracted: ExtractedPdf,
   signals: Array<{ label: string; pattern: RegExp }>,
 ) {
-  const found: Array<{ label: string; page: number; evidence: string }> = [];
+  const found: Array<{ label: string; page: number; evidence: string; paginas: number[] }> = [];
 
   for (const page of extracted.pages) {
     for (const signal of signals) {
       signal.pattern.lastIndex = 0;
       const match = signal.pattern.exec(page.text);
 
-      if (match && !found.some((item) => item.label === signal.label)) {
-        found.push({ label: signal.label, page: page.page, evidence: snippet(page.text, match.index) });
+      if (!match) {
+        continue;
       }
+
+      const jaVisto = found.find((item) => item.label === signal.label);
+
+      if (jaVisto) {
+        jaVisto.paginas.push(page.page);
+        continue;
+      }
+
+      found.push({
+        label: signal.label,
+        page: page.page,
+        evidence: snippet(page.text, match.index),
+        paginas: [page.page],
+      });
     }
   }
 
   return found;
+}
+
+/** as páginas de um conjunto de sinais, sem repetir, em ordem — para o campo `pagina` */
+function paginasDosSinais(sinais: Array<{ paginas: number[] }>) {
+  return [...new Set(sinais.flatMap((item) => item.paginas))].sort((a, b) => a - b);
 }
 
 function makeFinding(
@@ -176,36 +202,55 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
   }
 
   // 3) Linguagem de projeto rodoviário reaproveitada numa obra de edificação
+  /*
+   * Os cinco primeiros sinais são os que a regra nasceu lendo. Os quatro de
+   * baixo entraram com o 129-24 (skatepark), cujo capítulo 3 é memorial
+   * rodoviário inteiro — "corpo estradal", "rodovia/estrada" e "greide do
+   * Projeto Geométrico" não eram lidos por nenhum padrão anterior.
+   *
+   * "hierarquização das vias" é o sinal que mais rende: no 129-24 ele mora no
+   * capítulo ELÉTRICO (pág. 45), longe dos outros oito, e é o único resíduo
+   * fora da terraplenagem. Era ele que escapava quando a regra parava no
+   * capítulo 3.
+   */
   const roadSignals = collectSignals(extracted, [
     { label: "eixo da rodovia", pattern: /eixo\s+da\s+rodovia/i },
     { label: "rodovias existentes", pattern: /rodovias?\s+existentes/i },
     { label: "superelevação das pistas", pattern: /supereleva[cç][ãa]o\s+das\s+pistas/i },
     { label: "segmento quilométrico (Km 0+000)", pattern: /Km\s*\d+\s*\+\s*\d+/i },
     { label: "velocidade de rodovia", pattern: /velocidades?\s+de\s+at[ée]\s+\d+\s*km\/h/i },
+    { label: "corpo estradal", pattern: /corpo\s+estradal/i },
+    { label: "rodovia/estrada", pattern: /rodovia\s*\/\s*estrada/i },
+    { label: "greide do projeto geométrico", pattern: /greide\s+do\s+projeto\s+geom[ée]trico/i },
+    { label: "hierarquização das vias", pattern: /hierarquiza[cç][ãa]o\s+das\s+vias/i },
   ]);
 
   if (roadSignals.length >= 2) {
     const first = roadSignals[0];
+    const paginasRodoviarias = paginasDosSinais(roadSignals);
     findings.push(
       makeFinding(nextId(), {
         arquivo: fileName,
         prioridade: "Media",
         impacto: "tecnico_contratual",
-        pagina: String(first.page),
+        pagina: paginasRodoviarias.join(", "),
         capitulo: "Terraplenagem / drenagem / pavimentação",
         local: "linguagem de projeto rodoviário",
         tipo: "Linguagem de projeto rodoviário não adaptada",
         descricao: `O documento usa termos de obra viária/rodoviária (${roadSignals
           .map((item) => item.label)
           .join(", ")}) num projeto de edificação (estacionamento/acessos) — indício de especificação genérica reaproveitada sem adaptação.`,
-        evidencia: `Pág. ${first.page}: "${first.evidence}"`,
+        evidencia: roadSignals
+          .slice(0, 4)
+          .map((item) => `Pág. ${item.page}: "${item.evidence}"`)
+          .join(" | "),
         termo_busca: first.label,
         /*
          * "num centro comunitário" era o projeto em que a regra nasceu, e ela
          * repetia isso em UBS, hospital e feira municipal. O conflito não pode
          * afirmar uma tipologia que a regra não lê.
          */
-        conflito: `${roadSignals.length} termo(s) de projeto rodoviário numa obra de edificação.`,
+        conflito: `${roadSignals.length} termo(s) de projeto rodoviário numa obra de edificação, em ${paginasRodoviarias.length} página(s): ${paginasRodoviarias.join(", ")}.`,
         sugestao_correcao:
           "Revisar os capítulos de terraplenagem/drenagem/pavimentação e adaptar a linguagem viária ao escopo real (estacionamento e acessos da edificação).",
         confianca: "media",
@@ -357,6 +402,11 @@ export function runDocumentCoherenceRules(source: CoherenceSource): AuditFinding
   // 13) Subitens irmãos com o mesmo título.
   for (const tituloDup of runSiblingDuplicateTitleRule(extracted, fileName, nextId)) {
     findings.push(tituloDup);
+  }
+
+  // 14) Peça companheira citada que o documento nunca lista.
+  for (const pecaFinding of runUnlistedCompanionPieceRule(extracted, fileName, nextId)) {
+    findings.push(pecaFinding);
   }
 
   return findings;
@@ -690,6 +740,166 @@ function runBrokenCrossReferenceRule(
         "O item referenciado não existe no documento — quem for executar não tem para onde ir, e a exigência fica sem conteúdo.",
       sugestao_correcao:
         "Corrigir a numeração da remissão para o item correto ou incluir o item que ficou faltando.",
+      confianca: "media",
+    }),
+  ];
+}
+
+// --- Regra 14: peça companheira citada e nunca listada ------------------------
+
+/*
+ * REMISSÃO QUE SAI DO DOCUMENTO, que é o ponto cego da regra 10.
+ *
+ * A regra 10 só conhece remissão a item NUMERADO do próprio memorial
+ * ("conforme item 3.4.2"). Ela é cega para a outra metade das remissões: a que
+ * aponta para uma PEÇA — "apresentadas no Volume 2 – Quadro de Origem e
+ * Destino", "conforme Anexo III", "detalhado no Caderno de Encargos".
+ *
+ * No 129-24 isso custou um achado inteiro. A capa diz "Vol. I"; o item 1.3
+ * lista as oito peças que integram o projeto executivo e nenhuma delas é um
+ * Volume 2; mesmo assim a pág. 22 remete DUAS vezes ao "Volume 2 – Quadro de
+ * Origem e Destino" para justificar a distribuição de massas. Ou a peça existe
+ * e ficou fora da lista de entrega, ou ela não existe e o quantitativo de
+ * terraplenagem está apoiado em documento nenhum. Em qualquer dos dois casos
+ * quem recebe o volume precisa saber antes de emitir.
+ *
+ * O CORTE QUE SEGURA O FALSO POSITIVO é contar quantas vezes a designação
+ * aparece FORA de uma remissão. Um projeto multivolume legítimo lista a peça em
+ * algum lugar — no sumário, na capa, no item que enumera os documentos — e essa
+ * menção não é remissão. Quando TODAS as ocorrências de "Volume 2" no documento
+ * inteiro são remissões, ninguém declarou que a peça existe.
+ *
+ * Não confundir com a peça que o próprio documento É: "Vol. I" na capa do
+ * 129-24 é declaração, não remissão, e não entra pelo padrão abaixo.
+ */
+const REMISSAO_A_PECA =
+  /\b(?:conforme|ver|vide|constam?\s+n[oa]|apresentad[oa]s?\s+n[oa]|detalhad[oa]s?\s+n[oa]|indicad[oa]s?\s+n[oa]|descrit[oa]s?\s+n[oa])\s+(?:o\s+|a\s+)?(Volume|Anexo|Tomo|Caderno)\s+([IVXLCDM]+|\d{1,2})\b/gi;
+
+function runUnlistedCompanionPieceRule(
+  extracted: ExtractedPdf,
+  fileName: string,
+  nextId: () => string,
+): AuditFinding[] {
+  type Peca = { designacao: string; remissoes: number; paginas: number[]; trecho: string };
+  const porPeca = new Map<string, Peca>();
+
+  for (const page of extracted.pages) {
+    REMISSAO_A_PECA.lastIndex = 0;
+
+    for (const match of page.text.matchAll(REMISSAO_A_PECA)) {
+      const designacao = `${match[1]} ${match[2]}`;
+
+      /*
+       * ANEXO DE NORMA EXTERNA NAO E PECA DESTE PROJETO.
+       *
+       * Mesma armadilha que a regra 10 ja documenta, e ela derrubou a primeira
+       * corrida desta aqui: dos 9 memoriais do acervo, TODOS os 9 acusavam. O
+       * que aparecia era "conforme Anexo I da NR-10" e "conforme Anexo C -
+       * Tabela 6 da IN009/CMBSC" - anexos que moram na norma do Corpo de
+       * Bombeiros e na NR, nao no volume que esta sendo auditado. Cobrar que o
+       * memorial os liste seria cobrar que ele reimprima a norma.
+       *
+       * A janela e maior que a da regra 10 (70 contra 60 caracteres) porque o
+       * anexo de norma costuma vir com a tabela no meio: entre "Anexo C" e "da
+       * IN009" cabe " - Tabela 6 ". Ela para na primeira quebra de linha ou
+       * ponto final para nao atravessar para a frase seguinte.
+       */
+      const depois = page.text.slice(
+        (match.index ?? 0) + match[0].length,
+        (match.index ?? 0) + match[0].length + 70,
+      );
+      /*
+       * A QUEBRA DE LINHA DO PDF MORA NO MEIO DA CITACAO. Cortar a janela na
+       * quebra deixava passar "conforme Anexo C - Tabela 6 da
+IN009/CMBSC":
+       * o "da" ficava de um lado e a norma do outro, e o anexo do Corpo de
+       * Bombeiros voltava a ser cobrado como peca do projeto em 6 memoriais.
+       * A janela se costura primeiro e so entao para no ponto final.
+       */
+      const ateOFim = depois.replace(/\s+/g, " ").split(".")[0];
+
+      if (/d[aeo]s?\s+(?:norma|nbr|nr-?\s?\d|in\s?\d|abnt|lei|decreto|portaria|resolu|instru|n-\d|cmbsc|nt\s?\d)/i.test(ateOFim)) {
+        continue;
+      }
+      const chave = stripAccentsLower(designacao).replace(/\s+/g, " ");
+      const existente = porPeca.get(chave);
+
+      if (existente) {
+        existente.remissoes += 1;
+
+        if (!existente.paginas.includes(page.page)) {
+          existente.paginas.push(page.page);
+        }
+
+        continue;
+      }
+
+      porPeca.set(chave, {
+        designacao,
+        remissoes: 1,
+        paginas: [page.page],
+        trecho: snippet(page.text, match.index ?? 0, 90).replace(/\s+/g, " ").trim(),
+      });
+    }
+  }
+
+  const orfas: Peca[] = [];
+
+  for (const peca of porPeca.values()) {
+    /*
+     * O QUE SEPARA UM PONTEIRO DE UMA DECLARACAO E A POSICAO NA LINHA.
+     *
+     * A primeira versao desta regra contava ocorrencias: se a designacao
+     * aparecesse mais vezes do que as remissoes, alguem a teria declarado. O
+     * 129-24 derrubou isso na primeira corrida - ele cita o "Volume 2" duas
+     * vezes, e so a primeira ("apresentadas no Volume 2") casa com o padrao de
+     * remissao; a segunda ("no Quadro de Origem e Destino de Terraplenagem no
+     * Volume 2") e ponteiro igual, mas escrita de um jeito que o padrao nao le.
+     * A contagem entao via 2 > 1 e dava a peca por declarada.
+     *
+     * Declaracao de peca nao mora no meio de uma frase. Ela abre linha: item de
+     * lista ("- Volume 2 - Quadro de Origem e Destino"), linha de sumario, ou
+     * linha de capa ("Vol. I"). E isso que a regra procura agora, e e tambem o
+     * que protege o documento que E o volume citado: sua propria capa declara.
+     */
+    const declaracao = new RegExp(
+      String.raw`^[\s•–—*-]*(?:\d+(?:\.\d+)*[\s.-]+)?` +
+        peca.designacao.replace(/\s+/g, String.raw`\s+`) +
+        String.raw`\b`,
+      "im",
+    );
+
+    if (declaracao.test(extracted.text)) {
+      continue;
+    }
+
+    orfas.push(peca);
+  }
+
+  if (orfas.length === 0) {
+    return [];
+  }
+
+  const paginas = [...new Set(orfas.flatMap((peca) => peca.paginas))].sort((a, b) => a - b);
+
+  return [
+    makeFinding(nextId(), {
+      arquivo: fileName,
+      prioridade: "Media/Alta",
+      impacto: "tecnico_contratual",
+      pagina: paginas.join(", "),
+      capitulo: "Peças do projeto",
+      local: "remissão a peça de outro volume",
+      tipo: "Peça citada que o documento não lista",
+      descricao: `${orfas.length} peça(s) são citadas como fonte de dados do projeto mas não aparecem em nenhum outro ponto do documento — nem na capa, nem na relação de documentos: ${orfas
+        .map((peca) => peca.designacao)
+        .join(", ")}.`,
+      evidencia: orfas.map((peca) => `p. ${peca.paginas[0]}: "${peca.trecho}"`).join(" | "),
+      termo_busca: orfas[0].designacao,
+      conflito:
+        "A exigência remete a uma peça que o próprio documento nunca declara existir — quem for executar (ou conferir o quantitativo) não tem onde procurar.",
+      sugestao_correcao:
+        "Incluir a peça na relação de documentos que integram o projeto e entregá-la junto, ou reescrever o trecho trazendo o dado para dentro deste volume.",
       confianca: "media",
     }),
   ];
