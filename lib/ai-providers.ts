@@ -31,8 +31,20 @@ export type { ProviderFailureCategory };
  * histórica (167 eventos MiMo, 100 DeepSeek) siga legível e para que voltar a
  * ter dois provedores um dia seja uma mudança de tipo, não uma arqueologia.
  */
-export type AiProvider = "openai";
-export type AiProviderFlow = "audit" | "audit-chat" | "audit-transcricao" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
+/*
+ * DOIS PROVEDORES DE NOVO, E DESTA VEZ POR UM MOTIVO QUE O DE CIMA NÃO TINHA.
+ *
+ * O texto acima explica por que MiMo e DeepSeek saíram: eram o MESMO trabalho
+ * em outra marca, e por isso morreram sem ninguém notar. O `typesafe` não é o
+ * mesmo trabalho. Ele não lê memorial nem escreve achado — ele responde
+ * pergunta de conjunto fechado com probabilidade, que é coisa que a OpenAI não
+ * devolve calibrada. Provedor que faz outra coisa não é redundância.
+ *
+ * E o comentário acima já previa este dia: "voltar a ter dois provedores um dia
+ * seja uma mudança de tipo, não uma arqueologia". É esta linha.
+ */
+export type AiProvider = "openai" | "typesafe";
+export type AiProviderFlow = "conferente" | "audit" | "audit-chat" | "audit-transcricao" | "nexo-agent" | "ld-extraction" | "volume-analysis" | "volume-suggestion" | "volume-conferencia";
 export type AuditAnalysisLevel = "standard" | "deep";
 export type AuditModelRole = "identity" | "global" | "chunk" | "crossDocument";
 export type AuditMode = "memorial" | "volume";
@@ -194,6 +206,19 @@ export function getSecretFingerprint(name: string) {
     prefix: value.slice(0, 7),
     suffix: value.slice(-4),
   };
+}
+
+/**
+ * A chave do conferente (TypeSafe/Jev). Mesma porta de todos os segredos —
+ * `.env.local` em dev, ambiente em produção — e NUNCA o banco.
+ *
+ * O precedente é caro: uma `sk-proj` já foi parar em 169 linhas do banco e no
+ * painel admin. Esta chave não entra em `metadata` de `AiUsageEvent`, não vai
+ * para o painel e não aparece em log de erro; quem precisa saber se ela existe
+ * chama `getSecretFingerprint("JEV_API_KEY")`, que só devolve tamanho e pontas.
+ */
+export function getJevApiKey() {
+  return getBackendValue("JEV_API_KEY");
 }
 
 export function getOpenAiAdminKey() {

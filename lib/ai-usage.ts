@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import { estimateOpenAiCostUsd } from "@/lib/ai-precos";
+import { estimateConferenteCostUsd, estimateOpenAiCostUsd } from "@/lib/ai-precos";
 import type { AiProvider, AiProviderFlow } from "@/lib/ai-providers";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 
@@ -102,7 +102,11 @@ export async function recordAiUsage(args: RecordAiUsageArgs) {
     totalTokens: args.usage?.totalTokens ?? responseUsage.totalTokens,
   };
   const estimatedCostUsd =
-    args.provider === "openai" ? estimateOpenAiCostUsd(args.model, usage) : null;
+    args.provider === "openai"
+      ? estimateOpenAiCostUsd(args.model, usage)
+      : args.provider === "typesafe"
+        ? estimateConferenteCostUsd(args.model, usage)
+        : null;
 
   try {
     await getPrisma().aiUsageEvent.create({

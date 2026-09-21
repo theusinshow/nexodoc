@@ -29,6 +29,7 @@
 
 import type { AuditFinding, FindingImpact, FindingPriority } from "./audit-report.ts";
 import { classifyFindingImpact } from "./audit-report.ts";
+import { grauDaCerteza, type CertezaMedida } from "./conferente/certeza.ts";
 
 export type SeveridadeDoAchado = {
   prioridade: FindingPriority;
@@ -64,9 +65,34 @@ const CONSEQUENCIA: Record<FindingImpact, string> = {
  * comparação determinística, não por leitura — não tem como alucinar, e a
  * confiança que o modelo declarou não fala dele.
  */
-function certeza(finding: AuditFinding): { grau: "alta" | "media" | "baixa"; texto: string } {
+function certeza(
+  finding: AuditFinding,
+  medida?: CertezaMedida,
+): { grau: "alta" | "media" | "baixa"; texto: string } {
   if (finding.origem === "regra") {
     return { grau: "alta", texto: "verificado por regra" };
+  }
+
+  /*
+   * A CERTEZA MEDIDA VENCE A DECLARADA — quando existe.
+   *
+   * `finding.confianca` é o modelo falando de si em três palavras: não é
+   * calibrado, não é comparável entre dois achados e não ordena lista. A
+   * probabilidade do conferente está na mesma escala para todos, e é por isso
+   * que ela entra primeiro. O texto do motivo diz o número, e não "alta", para
+   * o critério continuar auditável: dá para discordar de 0,62; de "média", não.
+   *
+   * Sem conferente (falhou, desligado, achado de regra) cai no de sempre, e a
+   * severidade sai idêntica à de antes deste encaixe.
+   */
+  if (medida) {
+    const grau = grauDaCerteza(medida.probabilidade, medida.decidibilidade);
+    const rotulo = grau === "alta" ? "alta" : grau === "baixa" ? "baixa" : "média";
+
+    return {
+      grau,
+      texto: `certeza medida ${medida.probabilidade.toFixed(2)} (${rotulo})`,
+    };
   }
 
   if (finding.confianca === "alta") return { grau: "alta", texto: "leitura de confiança alta" };
@@ -82,10 +108,23 @@ function certeza(finding: AuditFinding): { grau: "alta" | "media" | "baixa"; tex
  * "este é menos grave porque hoje tem muita coisa grave" — exatamente o
  * raciocínio que sumiu com achados em agosto.
  */
-export function severidadeDoAchado(finding: AuditFinding): SeveridadeDoAchado {
-  const impacto = finding.impacto ?? classifyFindingImpact(finding);
+export function severidadeDoAchado(
+  finding: AuditFinding,
+  medida?: CertezaMedida,
+): SeveridadeDoAchado {
+  /*
+   * A ORDEM DA FAIXA NÃO MUDOU, e o conferente entrou no fim dela.
+   *
+   * Primeiro o que o modelo declarou, depois a heurística de escopo. O
+   * conferente só é consultado quando NENHUM dos dois respondeu — e a
+   * `faixaSugerida` já chega ausente quando ele respondeu "insufficient".
+   * Ele preenche vazio; nunca contradiz quem falou antes. Rebaixar faixa
+   * declarada é o caminho pelo qual achado some, e ele não tem essa porta.
+   */
+  const impacto =
+    finding.impacto ?? medida?.faixaSugerida ?? classifyFindingImpact(finding);
   const faixa = FAIXA[impacto];
-  const { grau, texto } = certeza(finding);
+  const { grau, texto } = certeza(finding, medida);
 
   const prioridade =
     grau === "alta" ? faixa.teto : grau === "baixa" ? faixa.piso : (MEIO[impacto] ?? faixa.piso);

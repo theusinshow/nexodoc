@@ -30,6 +30,10 @@ import {
 } from "@/lib/audit-report";
 import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
 import { severidadeDoAchado } from "@/lib/severidade";
+import {
+  medirCertezaDaLista,
+  type CertezaMedida,
+} from "@/lib/conferente/encaixe-3-certeza";
 import { calibrarArredondamento } from "@/lib/arredondamento";
 import { identidadeDoParecer } from "@/lib/identidade-do-parecer";
 import { getAuditorPrompt } from "@/lib/auditor-prompt";
@@ -4173,11 +4177,38 @@ async function executarAuditoria(
           semEscrituracao.removidos.map((f) => f.tipo).join(" | "),
       );
     }
-    const findings = sortAuditFindings(
+    const ordenados = sortAuditFindings(
       compactRepeatedIdentityFindings(
         filterFalsePositiveIdentityFindings(semEscrituracao.mantidos),
       ),
-    ).map(
+    );
+
+    /*
+     * O CONFERENTE MEDE A CERTEZA — e some sem deixar marca quando não pode.
+     *
+     * Entra aqui, depois do dedupe e antes da matriz de severidade, porque é
+     * exatamente o insumo dela que ele melhora: `finding.confianca` é o modelo
+     * falando de si em três palavras, e não ordena lista nenhuma.
+     *
+     * NÃO ESTÁ NO CAMINHO CRÍTICO. `medirCertezaDaLista` já devolve mapa vazio
+     * quando a chave não existe, quando o Jev responde 429 três vezes ou quando
+     * estoura o tempo — e mapa vazio faz `severidadeDoAchado` cair no ramo de
+     * sempre. O `catch` abaixo é a terceira rede: nem uma exceção inesperada
+     * dentro da camada opcional pode derrubar um parecer que já está pronto.
+     */
+    let certezas = new Map<string, CertezaMedida>();
+
+    try {
+      certezas = await medirCertezaDaLista(ordenados, { userEmail: sessionEmail });
+
+      if (certezas.size > 0) {
+        console.log(`[audit] conferente mediu a certeza de ${certezas.size} achado(s)`);
+      }
+    } catch (error) {
+      console.warn("[audit] conferente falhou; severidade segue pelo caminho de sempre", error);
+    }
+
+    const findings = ordenados.map(
       (finding, index) => {
         const mapa =
           (finding.arquivo ? disciplinaPorArquivo.get(finding.arquivo) : undefined) ?? mapaUnico;
@@ -4203,7 +4234,7 @@ async function executarAuditoria(
          */
         const { finding: calibrado, nota: notaDeArredondamento } =
           calibrarArredondamento(finding);
-        const severidade = severidadeDoAchado(calibrado);
+        const severidade = severidadeDoAchado(calibrado, certezas.get(finding.id));
 
         return {
           ...calibrado,

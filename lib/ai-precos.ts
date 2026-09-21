@@ -47,11 +47,44 @@ const LONG_CONTEXT_INPUT_THRESHOLD = 272_000;
 const LONG_CONTEXT_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
 
 /**
+ * O CONFERENTE (TypeSafe/Jev) — outra tabela porque é outra conta.
+ *
+ * Conferido em 21/09/2026 em docs.typesafe.ai/models.md: US$ 0,042 por 1M de
+ * tokens de ENTRADA, e **saída de graça** ("Charged per input token. Output
+ * tokens are free."). Não há faixa de cache nem faixa de contexto longo — o
+ * teto é 64k por requisição e acabou.
+ *
+ * A saída ser gratuita não é detalhe de preço, é o que torna o Encaixe 2
+ * possível: varrer bloco que ninguém leu com 30 perguntas custa a ENTRADA do
+ * bloco e mais nada. No `sol` a mesma varredura paga a saída, e foi a saída que
+ * estourou o teto e censurou 24% dos blocos entre jun e ago/2026.
+ *
+ * `cachedInput` repete `input` de propósito: não existe desconto de cache
+ * documentado, e escrever 0 aqui faria o painel afirmar que houve desconto.
+ */
+export const CONFERENTE_PRICES_USD_PER_MILLION: Record<
+  string,
+  { input: number; cachedInput: number; output: number }
+> = {
+  "jev-1.13.0": { input: 0.042, cachedInput: 0.042, output: 0 },
+};
+
+export function estimateConferenteCostUsd(model: string, usage: TokenUsageForPricing) {
+  const price = CONFERENTE_PRICES_USD_PER_MILLION[model];
+
+  if (!price) {
+    return null;
+  }
+
+  return (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000;
+}
+
+/**
  * Existe preço para este modelo? Quem soma custo precisa distinguir "de graça"
  * de "sem preço" — as duas coisas viravam zero e o painel mostrava silêncio.
  */
 export function isModelPriceKnown(model: string) {
-  return Boolean(MODEL_PRICES_USD_PER_MILLION[model]);
+  return Boolean(MODEL_PRICES_USD_PER_MILLION[model] || CONFERENTE_PRICES_USD_PER_MILLION[model]);
 }
 
 /**

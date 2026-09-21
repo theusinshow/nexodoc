@@ -138,4 +138,62 @@ test("sem impacto declarado, a matriz usa o classificado — não estoura", () =
   assert.match(s.motivo, /Consequência:/);
 });
 
+// --- A certeza MEDIDA entrando na matriz (Encaixe 3) -------------------------
+test("a certeza medida vence a declarada, e o motivo diz o numero", () => {
+  const baixaDeclarada = { impacto: "tecnico_contratual" as const, confianca: "baixa" as const };
+
+  const semMedida = severidadeDoAchado(achado(baixaDeclarada));
+  const comMedida = severidadeDoAchado(achado(baixaDeclarada), {
+    findingId: "X",
+    probabilidade: 0.91,
+    decidibilidade: 0.8,
+  });
+
+  assert.equal(semMedida.prioridade, "Media", "sem conferente, a declarada manda");
+  assert.equal(comMedida.prioridade, "Media/Alta", "com conferente, a medida manda");
+  assert.match(comMedida.motivo, /certeza medida 0\.91/);
+});
+
+test("indecidivel pelo trecho NAO chega ao teto da faixa", () => {
+  /*
+   * O "0,254 microns" do 129-24: p=0,84 (o defeito e provavel) mas dec=0,31
+   * (conferir exige a NBR 13571, que nao esta citada). Ele fica no meio da
+   * faixa — continua na lista, so nao e promovido.
+   */
+  const s = severidadeDoAchado(achado({ impacto: "tecnico_contratual", confianca: "alta" }), {
+    findingId: "X",
+    probabilidade: 0.84,
+    decidibilidade: 0.31,
+  });
+  assert.equal(s.prioridade, "Media");
+});
+
+test("o conferente NAO rebaixa achado que impede a emissao", () => {
+  /*
+   * A garantia de agosto/2026: faixa de um degrau so. Mesmo com a certeza
+   * medida la embaixo, critico documental continua Alta — a duvida e dita em
+   * outro lugar, nunca tirando o achado do topo da lista.
+   */
+  const s = severidadeDoAchado(achado({ impacto: "critico_documental", confianca: "alta" }), {
+    findingId: "X",
+    probabilidade: 0.05,
+    decidibilidade: 0.05,
+  });
+  assert.equal(s.prioridade, "Alta");
+});
+
+test("a faixa do conferente so preenche vazio, nunca contradiz o declarado", () => {
+  const declarado = severidadeDoAchado(
+    achado({ impacto: "critico_documental", confianca: "alta" }),
+    { findingId: "X", probabilidade: 0.9, decidibilidade: 0.9, faixaSugerida: "revisao_editorial" },
+  );
+  assert.equal(declarado.prioridade, "Alta", "faixa declarada nao pode ser rebaixada pelo conferente");
+
+  const vazio = severidadeDoAchado(
+    achado({ tipo: "Algo sem escopo reconhecivel", confianca: "media" }),
+    { findingId: "Y", probabilidade: 0.9, decidibilidade: 0.9, faixaSugerida: "critico_documental" },
+  );
+  assert.equal(vazio.prioridade, "Alta", "sem impacto declarado, a faixa do conferente entra");
+});
+
 console.log(`\n${passed} teste(s) OK`);
