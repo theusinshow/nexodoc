@@ -51,8 +51,12 @@ import type { SeloResult } from "./selo-render.ts";
  * 13 campos nulos, e nao 6. Um carimbo parcial (so cliente e data) lido pelo
  * build anterior foi guardado como vazio; sem subir o numero ele voltaria da
  * memoria como nao lido. Custo unico: cada prancha e relida uma vez.
+ *
+ * 5 (24/09/2026): o modelo passou de `gpt-5.6-luna` para `gpt-6-luna`. Sem subir
+ * o numero, prancha ja lida continuaria voltando com a leitura do modelo antigo
+ * e o teste da troca nao mediria nada.
  */
-export const VERSAO_DO_LEITOR = 4;
+export const VERSAO_DO_LEITOR = 5;
 
 /** Um arquivo sem leitura guardada, com a chave já calculada (não recalcular). */
 export interface ArquivoInedito {

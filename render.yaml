@@ -309,17 +309,17 @@ services:
       # baratas pelo nome, e neste caso custam mais que o Luna. Confira a tabela
       # de preços antes de trocar, não o sufixo do nome.
       - key: NEXODOC_LD_OPENAI_MODEL
-        value: gpt-5.6-luna
+        value: gpt-6-luna
 
       # A conferência de identidade do selo: uma chamada só, sobre uma amostra.
       - key: NEXODOC_SELO_CHECK_MODEL
-        value: gpt-5.6-luna
+        value: gpt-6-luna
 
       # Organização de volumes: análise e sugestão no mesmo modelo.
       - key: NEXODOC_VOLUME_ANALYSIS_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
       - key: NEXODOC_VOLUME_SUGGESTION_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
 
       # CONVERSA — agente Nexo e chat pós-auditoria. Rápido e barato de
       # propósito: os dois respondem sobre material que JÁ foi julgado, então
@@ -329,9 +329,9 @@ services:
       # profunda — baixar o modelo da conversa por ela levava a auditoria junto,
       # sem aviso.
       - key: NEXODOC_NEXO_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
       - key: NEXODOC_AUDIT_CHAT_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
       - key: NEXODOC_NEXO_REASONING_EFFORT
         value: low
       - key: NEXODOC_CHAT_REASONING_EFFORT
@@ -347,16 +347,22 @@ services:
       # Saiu de `gpt-5.5` em 11/08/2026: o `terra` iguala o 5.5 nos benchmarks
       # da OpenAI por $2/$12 contra $5/$30. O 5.5 custava o mesmo que o `sol` —
       # preço de fronteira por geração anterior.
+      #
+      # 24/09/2026: TODA a IA foi para a familia 6, a pedido do Matheus, para
+      # testar em producao. Nao existe `gpt-6-terra`: `terra` e `sol` viraram
+      # `gpt-6-sol`, e o `luna` virou `gpt-6-luna`. A medicao que precedeu a troca
+      # esta em docs/benchmarks/*/comparacao-gpt6-2026-09-24.md. Voltar e trocar
+      # estes valores de novo para `gpt-5.6-*`.
       - key: OPENAI_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
       - key: NEXODOC_AUDIT_MEMORIAL_STANDARD_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_MODEL
-        value: gpt-5.6-sol
+        value: gpt-6-sol
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_GLOBAL_MODEL
-        value: gpt-5.6-sol
+        value: gpt-6-sol
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_VALIDATION_MODEL
-        value: gpt-5.6-sol
+        value: gpt-6-sol
 
       # O BLOCO tem modelo próprio, e a falta desta linha custava dinheiro todo
       # dia — descoberto em 19/08/2026, conferindo o Render contra o código.
@@ -373,7 +379,7 @@ services:
       # `.env.local` e não repete aqui volta ao padrão do código sem aviso, e o
       # software continua funcionando, só que mais caro.
       - key: NEXODOC_AUDIT_MEMORIAL_DEEP_CHUNK_MODEL
-        value: gpt-5.6-terra
+        value: gpt-6-sol
 
       # A COBERTURA TOTAL — um nível só que lê o documento inteiro, sem teto de
       # blocos. Desligada: medido em 18x o custo cru contra 2,8x com blocos

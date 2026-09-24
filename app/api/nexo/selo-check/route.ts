@@ -39,7 +39,7 @@ export const runtime = "nodejs";
  * páginas para descobrir de quem é o brasão.
  */
 
-const MODELO_PADRAO = "gpt-5.6-luna";
+const MODELO_PADRAO = "gpt-6-luna";
 /** Teto de amostras: o custo tem de ser previsível, e o brasão não muda. */
 const MAX_AMOSTRAS = 4;
 

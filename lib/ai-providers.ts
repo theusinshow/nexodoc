@@ -74,10 +74,24 @@ export type SafeProviderFailure = {
  * os modelos de memorial. A troca aqui não economiza nada agora — ela evita que
  * ligar o modo volume um dia comece a gastar no tier mais caro sem decisão.
  */
-const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-5.6-terra";
-const DEFAULT_AUDIT_DEEP_MODEL = "gpt-5.6-terra";
-const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-5.6-terra";
-const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
+/*
+ * FAMÍLIA 6 — 24/09/2026, decisão do Matheus para testar em produção.
+ *
+ * Não existe `gpt-6-terra`: `terra` e `sol` da 5.6 viram `gpt-6-sol` ($2/$10) e
+ * o `luna` vira `gpt-6-luna` ($0,10/$0,50). O esforço segue `medium`.
+ *
+ * Medido antes da troca (docs/benchmarks/027-24 e 117-25, comparacao-gpt6): na
+ * auditoria profunda o 6-sol achou 5/9 contra 7/9 da 5.6 no 027-24 e empatou em
+ * 13/15 no 117-25, pela metade do custo e mais devagar. A saída dele varia
+ * mais: numa corrida do 117-25 passou do teto de 22.000 da leitura global e a IA
+ * não leu o documento. Por isso o teto subiu para 32.000 junto (ver
+ * `getDeepGlobalMaxOutputTokens` em app/api/audit/route.ts). Voltar é trocar
+ * estes nomes e as linhas do `render.yaml`.
+ */
+const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-6-sol";
+const DEFAULT_AUDIT_DEEP_MODEL = "gpt-6-sol";
+const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-6-sol";
+const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-6-sol";
 /**
  * O MODELO BARATO DO SISTEMA — usado por tudo que só COPIA campo de carimbo.
  *
@@ -93,7 +107,7 @@ const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-5.6-sol";
  * o valor validado em uso é armadilha, e é por isso que a troca do barato mexe
  * no default E no `.env.local` juntos.
  */
-const DEFAULT_LD_OPENAI_MODEL = "gpt-5.6-luna";
+const DEFAULT_LD_OPENAI_MODEL = "gpt-6-luna";
 /**
  * CONVERSA — agente Nexo e chat pós-auditoria.
  *
@@ -108,7 +122,7 @@ const DEFAULT_LD_OPENAI_MODEL = "gpt-5.6-luna";
  * ($2/$12 por 1M) com `effort` baixo é o ponto certo. O `sol` ($4/$20) e o
  * `gpt-5.5` ($5/$30) pagam por deliberação que ninguém espera num chat.
  */
-const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-terra";
+const DEFAULT_CONVERSATION_MODEL = "gpt-6-sol";
 /**
  * Organização de volumes — análise e sugestão no MESMO modelo, de propósito.
  *
@@ -120,14 +134,14 @@ const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-terra";
  * que não é o valor validado é armadilha — ver o comentário do modelo de LD
  * logo acima, que descreve o estrago quando os dois se separam.
  */
-const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-5.6-terra";
-const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-5.6-terra";
+const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-6-sol";
+const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-6-sol";
 /**
  * A conferência do volume montado lê um recorte de carimbo por página, e são
  * MUITAS páginas. O modelo barato dá conta de copiar campo de carimbo, e o
  * flow é configurável no painel — trocar de modelo é um clique, sem código.
  */
-const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-5.6-luna";
+const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-6-luna";
 /**
  * A TRANSCRIÇÃO da página sem texto: uma imagem de folha A4 entra, a prosa dela
  * sai. Copiar o que está escrito não pede raciocínio — pede leitura fiel —, e é
@@ -138,7 +152,7 @@ const DEFAULT_VOLUME_CONFERENCIA_MODEL = "gpt-5.6-luna";
  * Nos modelos de raciocínio a mesma corrida passaria de US$ 0,40, e um portão
  * que cobra isso por documento não é usado. Trocar é um clique no painel.
  */
-const DEFAULT_AUDIT_TRANSCRICAO_MODEL = "gpt-5.6-luna";
+const DEFAULT_AUDIT_TRANSCRICAO_MODEL = "gpt-6-luna";
 
 const statusStore = globalThis as typeof globalThis & {
   __nexodocAiLastFailures?: Partial<Record<`${AiProviderFlow}:${AiProvider}`, SafeProviderFailure>>;

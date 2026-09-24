@@ -674,7 +674,12 @@ function getDeepGlobalMaxOutputTokens() {
     return Math.min(32000, Math.floor(value));
   }
 
-  return 22000;
+  /*
+   * 32.000 desde 24/09/2026, com a troca para o `gpt-6-sol`: no 117-25 (218
+   * páginas) a 5.6 usou 18.411 e a 6 variou de 17.639 a mais de 22.000 em duas
+   * corridas iguais. A que passou de 22.000 saiu sem leitura da IA.
+   */
+  return 32000;
 }
 
 // A leitura global do Profundo lê o documento inteiro e devolve bastante saída —
