@@ -59,3 +59,30 @@ export function validateAiModelName(model: string) {
 
   return "";
 }
+
+/**
+ * Modelos que RECUSAM `reasoning.effort: "none"`. Medido na API em 24/09/2026:
+ * o `gpt-6-astra` devolve "Unsupported value: 'none'" e aceita de `low` para
+ * cima; `gpt-6-sol` e `gpt-6-luna` aceitam `none`, como a família 5.6.
+ *
+ * Os fluxos que copiam em vez de pensar (selo, transcrição, conferência do
+ * volume, teste do painel) mandam `none` fixo. Sem esta troca, escolher o astra
+ * no painel para um deles faria TODA chamada falhar contra a API.
+ */
+const MODELOS_SEM_ESFORCO_NONE = new Set(["gpt-6-astra"]);
+
+/**
+ * Sobe `none` para `low` quando o modelo não aceita `none`. É o menor esforço
+ * que ele aceita, não uma escolha de qualidade. Os outros valores passam como
+ * vieram.
+ */
+export function esforcoAceitoPeloModelo<T extends string | null | undefined>(
+  model: string,
+  effort: T,
+): T | "low" {
+  if (effort === "none" && MODELOS_SEM_ESFORCO_NONE.has(normalizeAiModelName(model))) {
+    return "low";
+  }
+
+  return effort;
+}

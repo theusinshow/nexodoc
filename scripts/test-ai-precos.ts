@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 
 import { estimateOpenAiCostUsd, isModelPriceKnown } from "../lib/ai-precos.ts";
-import { validateAiModelName } from "../lib/ai-model-name.ts";
+import { esforcoAceitoPeloModelo, validateAiModelName } from "../lib/ai-model-name.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -133,6 +133,33 @@ test("nome com parêntese é recusado — foi por aí que o '(1)' entrou", () =>
 test("modelo AFINADO continua passando — os dois-pontos não podem cair junto", () => {
   assert.equal(validateAiModelName("ft:gpt-4.1-2025-04-14:acme::abc123"), "");
   assert.equal(validateAiModelName("org/gpt-5.6-terra"), "");
+});
+
+test("a família 6 tem preço, e o sol dela custa menos que o sol da 5.6", () => {
+  for (const modelo of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"]) {
+    assert.equal(isModelPriceKnown(modelo), true, modelo);
+  }
+  // Conferido em 24/09/2026: 6-sol $2 de entrada, 5.6-sol $4. O nome igual não
+  // diz nada sobre o preço.
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6-sol", cemMil)!.toFixed(4)), 0.2);
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-5.6-sol", cemMil)!.toFixed(4)), 0.4);
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6-luna", cemMil)!.toFixed(4)), 0.01);
+});
+
+test("a família 6 também paga a faixa de contexto longo", () => {
+  // 300k de entrada: acima do corte, a entrada dobra ($2 -> $4 por 1M).
+  const longo = { inputTokens: 300_000, outputTokens: 0, cachedTokens: 0, totalTokens: 300_000 };
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6-sol", longo)!.toFixed(4)), 1.2);
+});
+
+test("o astra não recebe 'none', que a API recusa para ele", () => {
+  assert.equal(esforcoAceitoPeloModelo("gpt-6-astra", "none"), "low");
+  assert.equal(esforcoAceitoPeloModelo(" gpt-6-astra ", "none"), "low");
+  assert.equal(esforcoAceitoPeloModelo("gpt-6-astra", "high"), "high");
+  // Quem aceita 'none' continua recebendo 'none'.
+  assert.equal(esforcoAceitoPeloModelo("gpt-6-sol", "none"), "none");
+  assert.equal(esforcoAceitoPeloModelo("gpt-6-luna", "none"), "none");
+  assert.equal(esforcoAceitoPeloModelo("gpt-6-astra", undefined), undefined);
 });
 
 console.log(`\n${passed} verificações de preço passaram.`);

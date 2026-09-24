@@ -15,6 +15,10 @@
  * 21% em 30 dias, quase tudo na leitura global da auditoria: o Matheus via "US$
  * 4" na tela e o saldo da OpenAI mal se mexia. Preço muda; ao mexer aqui, confira
  * a página e atualize a data.
+ *
+ * FAMÍLIA 6 conferida em 24/09/2026 na mesma página. Não existe `gpt-6-terra`, e
+ * o `gpt-6-sol` custa MENOS que o `gpt-5.6-sol` e empata com o `terra` na entrada
+ * ($2 contra $2, saída $10 contra $12). O `gpt-6-astra` é o topo: 2,5x o sol.
  */
 export type TokenUsageForPricing = {
   inputTokens: number;
@@ -26,6 +30,9 @@ export const MODEL_PRICES_USD_PER_MILLION: Record<
   string,
   { input: number; cachedInput: number; output: number }
 > = {
+  "gpt-6-astra": { input: 10, cachedInput: 1, output: 50 },
+  "gpt-6-sol": { input: 2, cachedInput: 0.2, output: 10 },
+  "gpt-6-luna": { input: 0.1, cachedInput: 0.01, output: 0.5 },
   "gpt-5.6-sol": { input: 4, cachedInput: 0.4, output: 20 },
   "gpt-5.6-terra": { input: 2, cachedInput: 0.2, output: 12 },
   "gpt-5.6-luna": { input: 0.2, cachedInput: 0.02, output: 1.2 },
@@ -42,9 +49,19 @@ export const MODEL_PRICES_USD_PER_MILLION: Record<
  * e saída 1,5x — conferido nas três linhas do 5.6 (sol $8/$30, terra $4/$18,
  * luna $0,40/$1,80). A página não escreve o corte para o 5.6; 272k é o que ela
  * escreve para o gpt-5.5, e segue valendo aqui até haver número melhor.
+ *
+ * A família 6 tem a mesma forma (conferida em 24/09/2026: astra $20/$75, sol
+ * $4/$15, luna $0,20/$0,75), e a página também não escreve o corte dela.
  */
 const LONG_CONTEXT_INPUT_THRESHOLD = 272_000;
-const LONG_CONTEXT_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
+const LONG_CONTEXT_MODELS = new Set([
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
+]);
 
 /**
  * O CONFERENTE (TypeSafe/Jev) — outra tabela porque é outra conta.

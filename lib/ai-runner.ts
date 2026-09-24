@@ -9,6 +9,7 @@ import {
   type AiProviderFlow,
 } from "@/lib/ai-providers";
 import { refreshAiModelOverrideCache } from "@/lib/ai-model-config";
+import { esforcoAceitoPeloModelo } from "@/lib/ai-model-name";
 import {
   completeAiTask,
   createAiTask,
@@ -25,6 +26,22 @@ import {
 } from "@/lib/resposta-em-segundo-plano";
 
 type OpenAiResponseCreateParams = Parameters<OpenAI["responses"]["create"]>[0];
+
+/**
+ * O pedido com o esforço de raciocínio que o modelo aceita. Fica no runner, e não
+ * em cada rota, porque o modelo vem do painel: quem escreve `none` na rota não
+ * sabe qual modelo vai atender. Ver `esforcoAceitoPeloModelo`.
+ */
+function comEsforcoAceito<T extends OpenAiResponseCreateParams>(request: T): T {
+  const effort = request.reasoning?.effort;
+  const aceito = esforcoAceitoPeloModelo(String(request.model ?? ""), effort);
+
+  if (aceito === effort) {
+    return request;
+  }
+
+  return { ...request, reasoning: { ...request.reasoning, effort: aceito } };
+}
 
 // A IA SIMULADA da bateria de fluxos: a chave vem de `lib/ia-simulada-ligada.ts`
 // (sem imports, testada); o simulador só é carregado quando ela está ligada.
@@ -178,8 +195,10 @@ function getProviderForFlow(flow: AiProviderFlow): AiProvider {
   }
 }
 
-export async function executeOpenAiResponse(args: ExecuteOpenAiResponseArgs) {
+export async function executeOpenAiResponse(rawArgs: ExecuteOpenAiResponseArgs) {
   await refreshAiModelOverrideCache();
+
+  const args = { ...rawArgs, request: comEsforcoAceito(rawArgs.request) };
 
   const provider = args.providerOverride ?? getProviderForFlow(args.flow);
   const timeoutMs = args.timeoutMs ?? getDefaultTimeoutMs();
@@ -330,10 +349,12 @@ export type AiStreamEvent =
  * só visual e o modelo seguiria gerando (e cobrando).
  */
 export async function* executeOpenAiResponseStream(
-  args: ExecuteOpenAiResponseArgs,
+  rawArgs: ExecuteOpenAiResponseArgs,
   externalSignal?: AbortSignal,
 ): AsyncGenerator<AiStreamEvent, void, unknown> {
   await refreshAiModelOverrideCache();
+
+  const args = { ...rawArgs, request: comEsforcoAceito(rawArgs.request) };
 
   const provider = args.providerOverride ?? getProviderForFlow(args.flow);
   if (provider !== "openai") {
