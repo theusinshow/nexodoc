@@ -60,6 +60,8 @@ import { idDaAuditoriaDaProposta } from "../lib/auditoria-da-proposta";
 import { falaDaDuracao, maisRecente, previsaoTotal } from "../lib/tempos-da-auditoria";
 import { desfechoNaChegada } from "../lib/destino-do-parecer";
 import { fraseDoImpasse, resolverProjetoDaAuditoria } from "../lib/projeto-da-auditoria";
+import { marcarDica } from "../lib/dicas-da-auditoria";
+import { ehConversaDeExemplo, resultadoDoMemorialDeExemplo } from "../lib/projeto-exemplo";
 import {
   opcoesDoSeletorDeProjeto,
   projetoEscolhidoValido,
@@ -2258,6 +2260,8 @@ function AuditoriaConfirmation({
   } = useConversation();
   const { refresh: refreshUsage } = useConversationUsage();
   const auditoria = useAuditoria();
+  /** O memorial de exemplo do primeiro acesso: o caminho é o real, o parecer é o escrito à mão. */
+  const exemplo = ehConversaDeExemplo(conversationId);
   const fotoDaCorrida =
     auditoria.emCurso && auditoria.emCurso.conversationId === conversationId ? maisRecente(auditoria.emCurso.marcos, "foto") : undefined;
   const etapaDaCorrida =
@@ -2478,7 +2482,7 @@ function AuditoriaConfirmation({
    */
   const perguntouProjeto = useRef(false);
   useEffect(() => {
-    if (result || projetoDaConversa || !memorialFile || perguntouProjeto.current) return;
+    if (exemplo || result || projetoDaConversa || !memorialFile || perguntouProjeto.current) return;
     let vivo = true;
     const espera = setTimeout(() => {
       perguntouProjeto.current = true;
@@ -2494,7 +2498,7 @@ function AuditoriaConfirmation({
       vivo = false;
       clearTimeout(espera);
     };
-  }, [result, projetoDaConversa, memorialFile, memorialFatos?.codigo, prefeitura, obra, municipio]);
+  }, [exemplo, result, projetoDaConversa, memorialFile, memorialFatos?.codigo, prefeitura, obra, municipio]);
   /** Vinculada a conversa, a pergunta feita de antemão não vale mais. */
   const escolhaVisivel = projetoDaConversa && escolhaDeProjeto?.proativa ? null : escolhaDeProjeto;
 
@@ -2519,6 +2523,25 @@ function AuditoriaConfirmation({
      * também chamam aqui: a auditoria rodaria paga e o parecer seria descartado
      * pela fila de gravação desta aba.
      */
+    // Conferiu a ficha: a dica do nome da obra já cumpriu o papel.
+    marcarDica("ficha-da-obra");
+    /*
+     * O EXEMPLO PARA AQUI (10/10/2026, M1 do doc 08). Tudo até este clique foi o
+     * caminho real; daqui em diante seria servidor e modelo. O parecer escrito à
+     * mão entra como entraria o de verdade, e abre no palco do mesmo jeito.
+     */
+    if (exemplo) {
+      const r = resultadoDoMemorialDeExemplo();
+      await saveResult({
+        artifactId: id,
+        kind: "auditoria",
+        summary: resumoDoParecer(r.report),
+        files: [],
+        payload: r,
+        canvas: { label: "Auditoria", detail: detalheDoParecer(r.report) },
+      });
+      return;
+    }
     if (!podeGastar) {
       setError(motivoDaTrava());
       return;
@@ -2714,6 +2737,8 @@ function AuditoriaConfirmation({
           detail: detalheDoParecer(r.report),
         },
       });
+      // A primeira auditoria de verdade: a oferta do exemplo não volta.
+      marcarDica("memorial-de-exemplo");
       refreshUsage();
     } catch (err) {
       // Desistir é escolha, não falha: um erro em vermelho depois de o próprio
@@ -2814,7 +2839,8 @@ function AuditoriaConfirmation({
           conferencia={conferencia ?? undefined}
           onVer={auditoria.verNoPalco}
           // Aba travada: a rodada nova cairia numa conversa que esta aba não grava.
-          onAuditarDeNovo={ehAMaisRecente && podeGastar ? auditarDeNovo : undefined}
+          onAuditarDeNovo={ehAMaisRecente && podeGastar && !exemplo ? auditarDeNovo : undefined}
+          exemplo={exemplo}
         />
         <CardError message={error} />
       </>
@@ -3187,6 +3213,7 @@ function AuditoriaAncora({
   conferencia,
   onVer,
   onAuditarDeNovo,
+  exemplo = false,
 }: {
   report: AuditReport;
   /** A obra desta auditoria × a capa do geral que chegou depois (09/10/2026). */
@@ -3194,6 +3221,11 @@ function AuditoriaAncora({
   onVer: () => void;
   /** Só na rodada mais recente. Abre outra proposta, com outro cartão. */
   onAuditarDeNovo?: () => void;
+  /**
+   * O parecer do memorial de exemplo: diz que é exemplo e não oferece as
+   * perguntas, que iriam ao modelo — o exemplo não gasta IA (doc 08, critério 6).
+   */
+  exemplo?: boolean;
 }) {
   const composer = useComposer();
   const incompleta = incompletudeDoParecer(report);
@@ -3268,13 +3300,19 @@ function AuditoriaAncora({
           })}
         </div>
       )}
+      {exemplo && (
+        <p className="cx-texto text-xs text-muted-foreground" data-parecer-de-exemplo>
+          Este é um parecer de exemplo, escrito à mão: nenhum modelo rodou. Abra-o para ver como se trata cada achado.
+          Para auditar o seu, comece uma conversa nova e solte o memorial.
+        </p>
+      )}
       <div className="cx-saidas">
-        {confirmados.length > 0 && (
+        {confirmados.length > 0 && !exemplo && (
           <button type="button" className="cx-saida cx-saida--principal" onClick={() => composer.send(bloqueios ? "O que trava a emissão?" : "O que precisa de decisão técnica?")}>
             {bloqueios ? "O que trava a emissão?" : "O que precisa de decisão técnica?"}
           </button>
         )}
-        {confirmados.length > 0 && (
+        {confirmados.length > 0 && !exemplo && (
           <button type="button" className="cx-saida" onClick={() => composer.send("Resume os achados para o cliente, em linguagem simples.")}>
             Resumir para o cliente
           </button>

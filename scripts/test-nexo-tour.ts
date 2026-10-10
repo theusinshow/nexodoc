@@ -19,7 +19,7 @@ import { PASSOS_DO_TOUR } from "../modules/nexo/lib/passos-do-tour.ts";
 import { PASSOS_DO_TOUR_DO_RESULTADO } from "../modules/nexo/lib/passos-do-tour-do-resultado.ts";
 import { PASSOS_DO_TOUR_DO_VOLUME } from "../modules/nexo/lib/passos-do-tour-do-volume.ts";
 import { pontosDoHolofote, recorteDoAlvo, recorteDoHolofote, RESPIRO } from "../modules/nexo/lib/holofote.ts";
-import { capitulosDoRoteiro, cliqueQueOPassoPressupoe, ondeEsta } from "../modules/nexo/lib/capitulos-do-tour.ts";
+import { ausentesPrevistos, capitulosDoRoteiro, cliqueQueOPassoPressupoe, ondeEsta, semOsAusentes } from "../modules/nexo/lib/capitulos-do-tour.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -244,6 +244,35 @@ test("todo passo do resultado sabe que vista pressupõe", () => {
   const busca = PASSOS_DO_TOUR_DO_RESULTADO.findIndex((p) => p.id === "busca");
   assert.equal(cliqueQueOPassoPressupoe(PASSOS_DO_TOUR_DO_RESULTADO, busca), '[data-tour="vista-findings"]');
   PASSOS_DO_TOUR_DO_RESULTADO.forEach((_, i) => assert.ok(cliqueQueOPassoPressupoe(PASSOS_DO_TOUR_DO_RESULTADO, i), `passo ${i}`));
+});
+
+// 10/10/2026: o volume sem tomo pesado ia de "O mapa · 6 de 8" a "8 de 8".
+test("o passo pulado sai da contagem: sem buraco no 'N de M'", () => {
+  const teto = PASSOS_DO_TOUR_DO_VOLUME.findIndex((p) => p.id === "teto");
+  const conferencia = PASSOS_DO_TOUR_DO_VOLUME.findIndex((p) => p.id === "conferencia");
+  const vis = semOsAusentes(PASSOS_DO_TOUR_DO_VOLUME, new Set([teto]));
+  const caps = capitulosDoRoteiro(vis.passos);
+  const onde = ondeEsta(caps, vis.indices.indexOf(conferencia));
+  assert.equal(onde.capitulo.nome, "O mapa");
+  assert.equal(onde.passo, onde.capitulo.total, "a conferência é o último do capítulo");
+  assert.equal(onde.passo, teto - caps[0].inicio + 1, "e ocupa o número que o teto ocuparia");
+});
+
+test("capítulo cujo primeiro passo saiu passa o nome ao seguinte", () => {
+  const doca = PASSOS_DO_TOUR_DO_VOLUME.findIndex((p) => p.id === "doca");
+  const vis = semOsAusentes(PASSOS_DO_TOUR_DO_VOLUME, new Set([doca]));
+  assert.deepEqual(capitulosDoRoteiro(vis.passos).map((c) => c.nome), ["O mapa", "A entrega"]);
+});
+
+test("a previsão de ausentes para na troca de vista", () => {
+  const passos = [
+    { id: "a", titulo: "a", corpo: "a" },
+    { id: "b", titulo: "b", corpo: "b", soSeExistir: "#b" },
+    { id: "c", titulo: "c", corpo: "c", clicarAntes: "#vista" },
+    { id: "d", titulo: "d", corpo: "d", soSeExistir: "#d" },
+  ];
+  assert.deepEqual(ausentesPrevistos(passos, 0, () => false), [1], "o d vem depois de trocar de vista: não se prevê");
+  assert.deepEqual(ausentesPrevistos(passos, 0, (sel) => sel === "#b"), []);
 });
 
 console.log(`\n${passed} testes ok`);

@@ -119,9 +119,9 @@ try {
     }
     if (["Faixa", "Achados · 1", "Outras leituras · 2"].some((s) => p.onde.startsWith(s)) || p.titulo === "O veredito vem primeiro")
       await page.screenshot({ path: path.join(SAIDA, `02-${String(i).padStart(2, "0")}.png`) });
-    if (p.onde === "Achados · 2 de 13") break;
+    if (/^Achados · 2 de \d+$/.test(p.onde)) break;
   }
-  confere(p.onde === "Achados · 2 de 13", `chegou à fila (${p.onde})`);
+  confere(/^Achados · 2 de \d+$/.test(p.onde), `chegou à fila (${p.onde})`);
 
   // 3. Clique fora encerra e guarda o passo.
   await page.mouse.click(p.longe[0], p.longe[1]);
@@ -135,7 +135,7 @@ try {
   await page.locator('[data-tour="tour-do-resultado"]').click();
   await esperarPasso();
   p = await passoAtual();
-  confere(p.onde === "Achados · 2 de 13", `retomou onde parou (${p.onde})`);
+  confere(/^Achados · 2 de \d+$/.test(p.onde), `retomou onde parou (${p.onde})`);
   confere(p.centroNitido === true, "retomado, o alvo da fila está na tela e nítido");
   await page.screenshot({ path: path.join(SAIDA, "03-retomado.png") });
 

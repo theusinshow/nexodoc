@@ -47,6 +47,7 @@ export function NexoCopilot({
   onTurnStatus,
   tarefa = null,
   onEscolherTarefa,
+  onUsarExemplo,
   obra = null,
 }: {
   /**
@@ -58,6 +59,8 @@ export function NexoCopilot({
   /** A tarefa da tela (Painel → Nexo, ou um atalho): a entrada fala dela. */
   tarefa?: Partida | null;
   onEscolherTarefa?: (id: string) => void;
+  /** "Usar um memorial de exemplo" — só para quem veio auditar e ainda não auditou. */
+  onUsarExemplo?: () => void;
   started: boolean;
   /** Nome de quem está logado — a saudação usa o primeiro. */
   nome?: string | null;
@@ -254,6 +257,7 @@ export function NexoCopilot({
           onAttach={onAttach}
           arrastando={arrastando}
           tarefa={tarefa?.tela ?? null}
+          onUsarExemplo={onUsarExemplo}
           readStatus={readStatus}
           pranchas={pranchas}
           memorialFile={memorialFile}

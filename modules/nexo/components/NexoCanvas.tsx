@@ -1545,13 +1545,31 @@ function AproximarNoTour() {
   useEffect(() => {
     let salvo: Viewport | null = null;
     const duracao = reduzido ? 0 : DURACAO_DA_APROXIMACAO_MS;
+    /*
+     * CHEGA PERTO DO ALVO, e não do nó (10/10/2026). Era `fitView` no nó — mas o
+     * nó é a fileira do tomo, com todas as folhas: com 6 tomos o "Montar" saía
+     * com 50px e o cabeçalho, um risco. Agora centra o próprio alvo, no zoom em
+     * que ele ocupa até 85% da largura do mapa, sem passar de 1:1.
+     */
     const aproximar = (e: Event) => {
       const seletor = (e as CustomEvent<string>).detail;
-      const no = document.querySelector(seletor)?.closest<HTMLElement>(".react-flow__node");
-      const id = no?.dataset.id;
-      if (!id) return;
-      salvo ??= fluxo.getViewport();
-      void fluxo.fitView({ nodes: [{ id }], padding: 0.15, maxZoom: 1, duration: duracao });
+      const alvo = document.querySelector<HTMLElement>(seletor);
+      const caixa = alvo?.closest<HTMLElement>(".react-flow");
+      if (!alvo || !caixa) return;
+      const vp = fluxo.getViewport();
+      const rc = caixa.getBoundingClientRect();
+      const ra = alvo.getBoundingClientRect();
+      if (rc.width === 0 || ra.width === 0) return;
+      // Um `zoom` de CSS num ancestral (o `.ds`) muda a escala entre a tela e o fluxo.
+      const escala = caixa.offsetWidth / rc.width;
+      const cx = ((ra.left + ra.width / 2 - rc.left) * escala - vp.x) / vp.zoom;
+      const cy = ((ra.top + ra.height / 2 - rc.top) * escala - vp.y) / vp.zoom;
+      const larguraNoFluxo = (ra.width * escala) / vp.zoom;
+      // O piso é o enquadramento da PESSOA, e não o atual: o passo anterior pode
+      // ter chegado a 1:1, e um alvo mais largo precisa afastar para caber.
+      salvo ??= vp;
+      const zoom = Math.min(1, Math.max(salvo.zoom, (caixa.offsetWidth * 0.85) / larguraNoFluxo));
+      void fluxo.setCenter(cx, cy, { zoom, duration: duracao });
     };
     const devolver = () => {
       if (!salvo) return;

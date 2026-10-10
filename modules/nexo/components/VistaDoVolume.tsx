@@ -107,7 +107,7 @@ export function VistaDoVolume({
           aoSair={() => setTour(false)}
         />
       )}
-      <div className="relative min-h-0 flex-1">
+      <div className="nx-area-do-volume relative min-h-0 flex-1">
         {obra ? (
           <VistaDaObra
             onAbrir={(id) => {

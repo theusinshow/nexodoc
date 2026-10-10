@@ -242,6 +242,7 @@ export function PlanoDeGeracao({
   idsBase,
   ldPreview,
   leitura,
+  ultimo = true,
 }: {
   proposals: NexoAgentProposal[];
   selos: SeloForLd[];
@@ -261,6 +262,11 @@ export function PlanoDeGeracao({
   /** `layout` é a estrutura do modelo ODT — é dela que o frame se desenha. */
   templates: { id: string; nome: string; layout?: ParagrafoDoModelo[] }[];
   idsBase: { capa: string; ld: string; separatriz: string };
+  /**
+   * O plano mais recente da conversa. A dica do plano só aparece nele: com
+   * dois planos no log, ela se repetia em cada um até o primeiro "Entendi".
+   */
+  ultimo?: boolean;
 }) {
   const {
     saveResult,
@@ -998,7 +1004,7 @@ export function PlanoDeGeracao({
           volume, que é onde a pessoa para. Uma vez, e não trava nada.
         */}
         {capa && (
-          <DicaDeUmaVez id="volume-plano" titulo="Como sai um volume">
+          <DicaDeUmaVez id="volume-plano" titulo="Como sai um volume" quando={ultimo}>
             <p>
               Uma <b>capa</b> abre o volume; cada disciplina ganha uma <b>separatriz</b> e uma <b>LD</b> (lista de documentos) antes
               das pranchas dela. Tudo sai do que o Nexo leu nos selos.

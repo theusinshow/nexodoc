@@ -20,6 +20,9 @@
  */
 
 import type { AuditReport } from "@/lib/audit-report";
+import type { NexoDossieDraft } from "../types";
+import { ehConversaDeExemplo } from "./estado-da-conversa";
+import { fichaDoMemorial } from "./ficha-do-memorial";
 import { deleteConversation, putBlob, putConversation } from "./nexo-db";
 import type { StoredConversation } from "./nexo-db";
 import type { SeloResult } from "./selo-render";
@@ -41,7 +44,7 @@ const PAGINAS_DO_MEMORIAL: { titulo: string; linhas: string[] }[] = [
       "Prefeitura Municipal de Criciuma - SC",
       "Codigo 042-26 - Revisao A",
       "",
-      "Este documento e um EXEMPLO gerado pelo Nexo para o tour guiado.",
+      "Este documento e um EXEMPLO gerado pelo Nexo para mostrar o caminho.",
       "Nenhum dado aqui pertence a um projeto real.",
     ],
   },
@@ -372,4 +375,96 @@ export async function criarProjetoExemplo(): Promise<string> {
 /** Apaga o exemplo e seus blobs. O tour termina sem deixar rastro na sidebar. */
 export async function removerProjetoExemplo(): Promise<void> {
   await deleteConversation(ID_CONVERSA_EXEMPLO);
+}
+
+/*
+ * O MEMORIAL DE EXEMPLO do primeiro acesso (10/10/2026, M1 do doc 08).
+ *
+ * Diferente do projeto acima, que chega PRONTO para o tour apontar: este chega
+ * no ponto em que um memorial de verdade chega — a ficha lida, o cartão com
+ * "Conferi — auditar" — e a pessoa faz o caminho real. O que muda é só o fim: o
+ * parecer é o escrito à mão, gravado sem ir ao servidor (ver
+ * `ehConversaDeExemplo` no cartão da auditoria). Nenhum passo chama modelo.
+ */
+export const ID_CONVERSA_MEMORIAL_EXEMPLO = "nexo-exemplo-memorial";
+export const TITULO_MEMORIAL_EXEMPLO = "Exemplo — memorial da Escola Municipal Vila Nova";
+
+/** As duas conversas fictícias (ver `estado-da-conversa.ts`): o id começa por `nexo-exemplo-`. */
+export { ehConversaDeExemplo };
+
+/** A frase do Nexo que acompanha a ficha — a mesma do anexo de verdade. */
+export const FALA_DA_FICHA =
+  "Li as primeiras páginas: é o memorial descritivo. Esta ficha é a régua da auditoria: " +
+  "confira e, estando certa, é só auditar.";
+
+/** O que a "capa" do exemplo traz: o que a classificação leria de um memorial real. */
+function dossieDoExemplo(): NexoDossieDraft {
+  const capa = {
+    orgao: "PREFEITURA MUNICIPAL DE CRICIUMA",
+    secretaria: "SECRETARIA MUNICIPAL DE EDUCACAO",
+    municipio: "CRICIUMA",
+    obra: "ESCOLA MUNICIPAL VILA NOVA",
+    bairro: "",
+    mesAno: "MARCO/2026",
+    codigo: "042-26",
+  };
+  return {
+    obra: capa.obra,
+    orgao: capa.orgao,
+    secretaria: capa.secretaria,
+    municipio: capa.municipio,
+    codigo: capa.codigo,
+    mesAno: capa.mesAno,
+    capa,
+    disciplinas: [],
+    volumes: [],
+    semVolume: [],
+    arquivos: [],
+  };
+}
+
+/** O resultado da auditoria do exemplo, no formato que o cartão grava. */
+export function resultadoDoMemorialDeExemplo() {
+  return {
+    auditId: null,
+    texto: "RESULTADO DA AUDITORIA (exemplo)",
+    report: parecerDoExemplo(),
+    exemplo: true as const,
+  };
+}
+
+/**
+ * Semeia a conversa do memorial de exemplo e devolve o id. Idempotente, como o
+ * do tour: usar o exemplo de novo reescreve o mesmo registro, do zero.
+ */
+export async function criarMemorialDeExemplo(): Promise<string> {
+  const memorial = await fabricarMemorial();
+  const convId = ID_CONVERSA_MEMORIAL_EXEMPLO;
+  await putBlob(`${convId}:memorial`, new Blob([new Uint8Array(memorial)], { type: "application/pdf" }));
+
+  const dossie = dossieDoExemplo();
+  const agora = Date.now();
+  const registro: StoredConversation = {
+    id: convId,
+    title: TITULO_MEMORIAL_EXEMPLO,
+    createdAt: agora,
+    updatedAt: agora,
+    tipo: "auditoria",
+    identidade: { obra: dossie.obra, orgao: dossie.orgao, secretaria: dossie.secretaria, codigo: dossie.codigo },
+    messages: [
+      { id: "exm-1", role: "user", content: `Anexei o memorial — ${ARQUIVO_MEMORIAL}` },
+      {
+        id: "exm-2",
+        role: "assistant",
+        content: FALA_DA_FICHA,
+        fichaDoMemorial: fichaDoMemorial(dossie, ARQUIVO_MEMORIAL),
+        proposals: [{ kind: "auditoria", resumo: "Auditoria do memorial", params: { nivel: "deep" } }],
+      },
+    ],
+    seloResults: [],
+    results: [],
+    memorial: { name: ARQUIVO_MEMORIAL, blobKey: `${convId}:memorial`, dossie },
+  };
+  await putConversation(registro);
+  return convId;
 }

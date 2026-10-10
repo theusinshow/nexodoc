@@ -10,11 +10,21 @@
  * primeiro acesso é o objeto do teste.
  */
 
-/** Marca o tour como já visto ANTES da primeira navegação. */
+/**
+ * Marca os tours como já vistos ANTES da primeira navegação: o do Nexo e o
+ * passo a passo do resultado, que abre sozinho no primeiro parecer e, com o
+ * holofote (09/10/2026), segura o clique de quem estiver por baixo — cinco
+ * jornadas de auditoria ficaram vermelhas por isso. As dicas de uma vez não
+ * entram: elas não bloqueiam nada, e uma jornada pode medir justamente elas.
+ */
 export async function pularTourGuiado(page) {
   await page.addInitScript(() => {
     try {
       localStorage.setItem("nexo:tour-visto", "1");
+      const vistas = JSON.parse(localStorage.getItem("nexo:dicas-vistas") ?? "[]");
+      if (Array.isArray(vistas) && !vistas.includes("tour-do-resultado")) {
+        localStorage.setItem("nexo:dicas-vistas", JSON.stringify([...vistas, "tour-do-resultado"]));
+      }
     } catch {
       // Sem storage não há tour para pular.
     }

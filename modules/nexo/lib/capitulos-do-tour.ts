@@ -51,3 +51,44 @@ export function cliqueQueOPassoPressupoe(passos: PassoDoTour[], indice: number):
   for (let i = indice; i >= 0; i--) if (passos[i].clicarAntes) return passos[i].clicarAntes;
   return undefined;
 }
+
+/**
+ * OS PASSOS QUE VÃO APARECER (10/10/2026). A contagem ("O mapa · 6 de 8") era
+ * feita sobre o roteiro inteiro, e o passo pulado por `soSeExistir` deixava um
+ * buraco: do "6 de 8" se ia ao "8 de 8". Conta-se sobre os que ficam; um
+ * capítulo cujo primeiro passo saiu passa o nome ao seguinte dele.
+ */
+export function semOsAusentes(
+  passos: PassoDoTour[],
+  fora: ReadonlySet<number>,
+): { passos: PassoDoTour[]; indices: number[] } {
+  const ficam: PassoDoTour[] = [];
+  const indices: number[] = [];
+  let capituloPendente: string | undefined;
+  passos.forEach((p, i) => {
+    if (fora.has(i)) {
+      if (p.capitulo) capituloPendente = p.capitulo;
+      return;
+    }
+    ficam.push(capituloPendente && !p.capitulo ? { ...p, capitulo: capituloPendente } : p);
+    indices.push(i);
+    capituloPendente = undefined;
+  });
+  return { passos: ficam, indices };
+}
+
+/**
+ * Os passos À FRENTE que já se sabe que vão ser pulados: pedem um alvo
+ * (`soSeExistir`) que não está na tela, e nenhum passo no caminho troca de
+ * vista. Depois de uma troca de vista não dá para prever — o alvo pode nascer
+ * com ela. Sem a previsão, o total mudaria no meio ("6 de 8" → "7 de 7").
+ */
+export function ausentesPrevistos(passos: PassoDoTour[], indice: number, existe: (seletor: string) => boolean): number[] {
+  const fora: number[] = [];
+  for (let j = indice + 1; j < passos.length; j++) {
+    if (passos[j].clicarAntes) break;
+    const sel = passos[j].soSeExistir;
+    if (sel && !existe(sel)) fora.push(j);
+  }
+  return fora;
+}

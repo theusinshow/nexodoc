@@ -125,7 +125,7 @@ export function FilaA({ f }: { f: Fila }) {
           <ul>
             <li><b>Marcar corrigido</b>: você vai corrigir (ou já corrigiu) o memorial. O PDF não muda sozinho.</li>
             <li><b>Decisão técnica</b>: o projeto segue assim de propósito. O motivo vai no parecer.</li>
-            <li><b>Falso positivo</b>: a IA errou. Isso ensina o motor.</li>
+            <li><b>Falso positivo</b>: a IA errou. Entra na medida de acerto do Nexo.</li>
           </ul>
           <p>Tudo se desfaz: Z logo depois, ou Reabrir.</p>
         </DicaDeUmaVez>

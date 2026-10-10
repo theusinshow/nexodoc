@@ -67,9 +67,27 @@ const passoAtual = () =>
       id: b.querySelector("h2").textContent,
       onde: b.querySelector("[data-tour-onde]").textContent,
       comAlvo,
-      centroNitido: comAlvo ? !centro?.closest("[data-tour-pelicula],[data-tour-balao]") : null,
+      // Nítido E à vista: o centro do alvo cai no recorte, e nada que flutua (a
+      // doca, uma dica) está por cima dele — a doca sobre o botão também é "nítida".
+      centroNitido: comAlvo
+        ? (() => {
+            if (centro?.closest("[data-tour-pelicula],[data-tour-balao]")) return false;
+            const alvo = document.querySelector(document.querySelector("[data-tour-anel]").dataset.tourAlvo);
+            if (!alvo) return false;
+            const a = alvo.getBoundingClientRect();
+            const x = a.x + a.width / 2;
+            const y = a.y + a.height / 2;
+            if (x < m.left || x > m.right || y < m.top || y > m.bottom) return false;
+            return ![...document.querySelectorAll('[data-tour="doca"], [data-dica]')].some((el) => {
+              if (el.contains(alvo) || alvo.contains(el)) return false;
+              const r = el.getBoundingClientRect();
+              return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+            });
+          })()
+        : null,
       balaoSobre: comAlvo && !(br.right <= m.left || br.left >= m.right || br.bottom <= m.top || br.top >= m.bottom),
       largura: Math.round(m.width),
+      noCentro: document.querySelector("[data-tour-anel]").dataset.tourAlvo,
     };
   });
 const esperarPasso = async () => {
@@ -124,7 +142,8 @@ try {
   await page.locator('[data-tour="tour-do-volume"]').click();
   await esperarPasso();
   let p = await passoAtual();
-  confere(p.onde === `O mapa · 1 de 8`, `abre no começo (${p.onde})`);
+  // O total depende do volume: o passo do teto e o da conferência só contam quando existem.
+  confere(/^O mapa · 1 de [6-8]$/.test(p.onde), `abre no começo (${p.onde})`);
   const ondes = [p.onde];
   for (let i = 0; i < 14; i++) {
     const botao = page.locator("[data-tour-proximo]");
@@ -134,16 +153,27 @@ try {
     p = await passoAtual();
     ondes.push(p.onde);
     if (p.comAlvo) {
-      confere(p.centroNitido, `${p.onde} — "${p.id}": alvo nítido`);
+      confere(p.centroNitido, `${p.onde} — "${p.id}": alvo nítido${p.centroNitido ? "" : ` (alvo coberto ou fora do recorte: ${p.noCentro})`}`);
       confere(!p.balaoSobre, `${p.onde}: o balão não cobre o alvo`);
     }
     // A 0,4 de zoom o cabeçalho era um risco: o canvas tem de chegar perto.
-    if (p.id === "O cabeçalho do tomo") confere(p.largura >= 300, `o canvas aproxima o cabeçalho (${p.largura}px de largura)`);
-    if (p.id === "Cada fileira é um tomo" || p.id === "Montar" || p.id.startsWith("1."))
+    // Com a coluna da conferência o mapa estreita: perto é ocupar o mapa, não um número fixo.
+    if (p.id === "O cabeçalho do tomo" || p.id === "Montar") {
+      const mapa = await page.evaluate(() => Math.round(document.querySelector(".react-flow").getBoundingClientRect().width));
+      confere(p.largura >= Math.min(300, mapa * 0.6) || (p.id === "Montar" && p.largura >= 90), `o canvas aproxima "${p.id}" (${p.largura}px num mapa de ${mapa}px)`);
+    }
+    if (p.id === "Cada fileira é um tomo" || p.id === "Montar" || p.id === "Acima de 20 MB" || p.id === "Conferência da LD" || p.id.startsWith("1."))
       await page.screenshot({ path: path.join(SAIDA, `02-${p.id.replace(/[^a-z0-9]+/gi, "-")}.png`) });
     if (p.onde.startsWith("A entrega · 2")) break;
   }
   console.log(`      passos vistos: ${ondes.join(" → ")}`);
+  // Sem buraco na contagem: dentro de cada capítulo, 1, 2, 3… até o total.
+  const semBuraco = ondes.every((o, i) => {
+    const [, cap, n] = /^(.+) · (\d+) de \d+$/.exec(o) ?? [];
+    const ant = i > 0 ? /^(.+) · (\d+) de \d+$/.exec(ondes[i - 1]) : null;
+    return ant && ant[1] === cap ? Number(n) === Number(ant[2]) + 1 : Number(n) === 1;
+  });
+  confere(semBuraco, "a contagem não pula número");
   confere(ondes.some((o) => o.startsWith("A entrega")), "chegou ao capítulo da entrega");
 
   // 4. Clique fora guarda o passo; o "?" vira "Continuar".
