@@ -49,7 +49,7 @@ import { recolherConversasPelaFila, useAreasRecolhidas } from "../lib/areas-reco
 import { TrilhoDoResultado } from "@/components/telas/resultado/trilho";
 import { marcarDica, useDica } from "../lib/dicas-da-auditoria";
 import { PASSOS_DO_TOUR_DO_RESULTADO } from "../lib/passos-do-tour-do-resultado";
-import { ID_CONVERSA_EXEMPLO } from "../lib/projeto-exemplo";
+import { ID_CONVERSA_EXEMPLO, ID_CONVERSA_MEMORIAL_EXEMPLO } from "../lib/projeto-exemplo";
 import { useRetomada } from "../lib/retomada-do-tour";
 import { TourDoNexo } from "./TourDoNexo";
 import { AuditoriaEmCurso } from "./AuditoriaEmCurso";
@@ -572,6 +572,12 @@ export function PalcoDoNexo({
       */}
       <header className="nw-palco-cabeca nx-palco-cabeca">
         {obra}
+        {/* O parecer do memorial de exemplo é escrito à mão: o palco diz isso no alto, onde o veredito é lido. */}
+        {conversationId === ID_CONVERSA_MEMORIAL_EXEMPLO && (
+          <span className="ds-pill ds-pill--line" data-selo-exemplo title="Memorial e parecer fabricados para mostrar o caminho. Nenhum modelo rodou.">
+            Exemplo
+          </span>
+        )}
         {/* As vistas só aparecem quando há duas de fato: com uma, seriam um controle que não controla nada. */}
         {temAuditoria && (
           <span className="nw-vistas" role="group" aria-label="Vistas do palco">

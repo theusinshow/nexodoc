@@ -49,7 +49,7 @@ import {
   type OrigemDoNumero,
 } from "@/server/nexo/parse-filename";
 import { runShellTransition } from "../lib/motion";
-import { esquecerDicas } from "../lib/dicas-da-auditoria";
+import { esquecerDicas, marcarDica, useDica } from "../lib/dicas-da-auditoria";
 import { partidaPorId } from "../lib/partidas";
 import type { ProjetoPedido } from "../lib/projeto-pedido";
 import {
@@ -100,7 +100,14 @@ import { VistaDoVolume } from "./VistaDoVolume";
 import { PalcoDoNexo } from "./PalcoDoNexo";
 import { useAbrirAuditoriaPorLink } from "./use-abrir-auditoria-por-link";
 import { TourDoNexo } from "./TourDoNexo";
-import { criarProjetoExemplo, ID_CONVERSA_EXEMPLO } from "../lib/projeto-exemplo";
+import {
+  criarMemorialDeExemplo,
+  criarProjetoExemplo,
+  ehConversaDeExemplo,
+  FALA_DA_FICHA,
+  ID_CONVERSA_EXEMPLO,
+  ID_CONVERSA_MEMORIAL_EXEMPLO,
+} from "../lib/projeto-exemplo";
 
 /** Marca de quem já viu o passo a passo. Local ao navegador, como a conversa. */
 const CHAVE_TOUR_VISTO = "nexo:tour-visto";
@@ -1101,11 +1108,12 @@ function NexoWorkspaceInner({
          * a FICHA, linha a linha (02/10/2026): era uma frase de sete campos
          * colados por "·", difícil de conferir, e corrigir um deles exigia
          * escrever ao agente — que não tem como aplicar a correção.
+         *
+         * CURTA desde 10/10/2026: o porquê do nome da obra virou a dica de uma
+         * vez na própria linha "Obra" (`ficha-da-obra`). Repetido em toda
+         * ficha, era um parágrafo que quem audita toda semana já não lia.
          */
-        `Li as primeiras páginas: é o memorial descritivo. Esta ficha é a referência ` +
-        `da auditoria — é pelo nome da obra que eu reconheço texto copiado de outro projeto. ` +
-        `Confira os dados, principalmente o NOME DA OBRA; se algum estiver errado, ` +
-        `corrija no lápis da linha. Estando certa, é só auditar.`,
+        FALA_DA_FICHA,
       fichaDoMemorial: fichaDoMemorial(dossie, memorial.name, divergencia ? `Atenção: ${divergencia}.` : null),
       /*
        * A PROPOSTA VEM JUNTO DA FICHA (auditoria UX do memorial, 07/10/2026).
@@ -2364,6 +2372,53 @@ function NexoWorkspaceInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /*
+   * O MEMORIAL DE EXEMPLO (10/10/2026, M1 do doc 08): quem veio auditar e não
+   * tem um memorial à mão faz o caminho real — a ficha, o lápis, o "Conferi —
+   * auditar" — sobre um documento fabricado, e o parecer que abre é o escrito à
+   * mão (nenhuma chamada de modelo). Entra pelo mesmo caminho do tour: semeia e
+   * abre como conversa restaurada, que é o que traz o PDF e a ficha de volta.
+   */
+  const abrindoExemplo = useRef(false);
+  const usarMemorialDeExemplo = useCallback(async () => {
+    abrindoExemplo.current = true;
+    try {
+      const id = await criarMemorialDeExemplo();
+      await selectConv(id);
+    } finally {
+      abrindoExemplo.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /*
+   * O EXEMPLO SOME AO SAIR, como o do tour: trocar de conversa, abrir uma nova
+   * ou recarregar a página com ele na barra apaga o registro. Quem chegou para
+   * trabalhar não herda a obra fictícia. Roda depois da troca, quando a gravação
+   * da conversa que saiu já foi feita — apagar antes, ela o ressuscitaria.
+   */
+  const exemploNaLista = conv.conversations.some((c) => c.id === ID_CONVERSA_MEMORIAL_EXEMPLO);
+  useEffect(() => {
+    if (!exemploNaLista || conv.conversationId === ID_CONVERSA_MEMORIAL_EXEMPLO || abrindoExemplo.current) return;
+    const t = setTimeout(() => {
+      if (!abrindoExemplo.current) void conv.removeConversation(ID_CONVERSA_MEMORIAL_EXEMPLO);
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exemploNaLista, conv.conversationId]);
+
+  /*
+   * A OFERTA É PARA QUEM AINDA NÃO AUDITOU. Quem já tem conversa de auditoria
+   * na barra (fora os exemplos) não precisa dela, e ela some de vez; a primeira
+   * auditoria de verdade também a apaga (no cartão da auditoria).
+   */
+  const ofertaDoExemplo = useDica("memorial-de-exemplo");
+  const jaAuditou = conv.conversations.some((c) => c.tipo === "auditoria" && !ehConversaDeExemplo(c.id));
+  useEffect(() => {
+    if (jaAuditou) marcarDica("memorial-de-exemplo");
+  }, [jaAuditou]);
+  const oferecerExemplo = tarefa?.id === "auditar" && ofertaDoExemplo.mostrar && !jaAuditou;
+
   const encerrarTour = useCallback(() => {
     setTourAtivo(false);
     try {
@@ -3326,6 +3381,7 @@ function NexoWorkspaceInner({
             obra={obraDaEntrada}
             tarefa={tarefa}
             onEscolherTarefa={(id) => setTarefaDaTela({ id, conv: convId })}
+            onUsarExemplo={oferecerExemplo ? () => void usarMemorialDeExemplo() : undefined}
             started={started}
             nome={nome}
             selos={selos}

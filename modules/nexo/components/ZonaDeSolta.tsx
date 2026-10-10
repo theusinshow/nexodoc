@@ -29,11 +29,19 @@ export function ZonaDeSolta({
    *  zona sai do caminho em vez de competir com ele por atenção. */
   arrastando = false,
   tarefa = null,
+  onUsarExemplo,
 }: {
   onAnexar?: () => void;
   arrastando?: boolean;
   /** A tela da tarefa escolhida (partidas.ts): o que soltar e o que o Nexo faz. */
   tarefa?: { pede: string; faz: string; botao: string } | null;
+  /**
+   * O MEMORIAL DE EXEMPLO (10/10/2026, M1 do doc 08). Quem chega para auditar
+   * sem um memorial à mão não tinha como ver o que acontece depois do anexo.
+   * Uma linha a mais, abaixo da ação primária e mais fraca que ela: o caminho
+   * normal continua sendo soltar o próprio arquivo. Ausente = não oferece.
+   */
+  onUsarExemplo?: () => void;
 }) {
   return (
     <div className={`nx-zona${arrastando ? " nx-zona--arrastando" : ""}`}>
@@ -48,6 +56,14 @@ export function ZonaDeSolta({
       <Botao variante={tarefa ? "primary" : "ghost"} tamanho="sm" onClick={onAnexar}>
         {tarefa ? tarefa.botao : "Anexar arquivos"}
       </Botao>
+      {onUsarExemplo && (
+        <p className="nx-zona-exemplo">
+          Não tem um memorial à mão?{" "}
+          <button type="button" onClick={onUsarExemplo} data-usar-exemplo>
+            Usar um memorial de exemplo
+          </button>
+        </p>
+      )}
     </div>
   );
 }

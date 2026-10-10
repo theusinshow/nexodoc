@@ -24,7 +24,7 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { DURACAO_DA_APROXIMACAO_MS, pedirAproximacao, pedirDevolucao } from "../lib/aproximar-no-tour";
-import { capitulosDoRoteiro, cliqueQueOPassoPressupoe, ondeEsta } from "../lib/capitulos-do-tour";
+import { ausentesPrevistos, capitulosDoRoteiro, cliqueQueOPassoPressupoe, ondeEsta, semOsAusentes } from "../lib/capitulos-do-tour";
 import { recorteDoAlvo, recorteDoHolofote } from "../lib/holofote";
 import { posicaoDoBalao, type Retangulo } from "../lib/posicao-do-balao";
 import { PASSOS_DO_TOUR, type PassoDoTour } from "../lib/passos-do-tour";
@@ -88,9 +88,16 @@ export function TourDoNexo({
   const balaoRef = useRef<HTMLDivElement | null>(null);
 
   const passo = passos[indice];
-  const ultimo = indice === passos.length - 1;
-  const capitulos = useMemo(() => capitulosDoRoteiro(passos), [passos]);
-  const onde = ondeEsta(capitulos, indice);
+  /**
+   * Os passos que NÃO vão aparecer: os pulados por `soSeExistir` e os que já se
+   * prevê que serão. A contagem e a barra andam só sobre os que ficam.
+   */
+  const [ausentes, setAusentes] = useState<ReadonlySet<number>>(() => new Set());
+  const visiveis = useMemo(() => semOsAusentes(passos, ausentes), [passos, ausentes]);
+  const posicao = Math.max(0, visiveis.indices.indexOf(indice));
+  const ultimo = posicao === visiveis.passos.length - 1;
+  const capitulos = useMemo(() => capitulosDoRoteiro(visiveis.passos), [visiveis]);
+  const onde = ondeEsta(capitulos, posicao);
   const comCapitulos = capitulos.length > 1;
 
   // Pela ref: quem chama pode passar uma função nova a cada render, e o clique do passo não pode repetir por isso.
@@ -122,6 +129,13 @@ export function TourDoNexo({
     const comecar = () => {
       const clique = saltou.current ? cliqueQueOPassoPressupoe(passos, indice) : passo.clicarAntes;
       saltou.current = false;
+      // Chegou e existe: se tinha sido dado como ausente, volta à contagem.
+      setAusentes((s) => {
+        if (!s.has(indice)) return s;
+        const n = new Set(s);
+        n.delete(indice);
+        return n;
+      });
       // O recorte fecha durante a troca de vista: a tela pulando atrás do holofote não é o que se quer mostrar.
       if (passo.clicarAntes) setAlvo(null);
       setPronto(indice);
@@ -156,6 +170,7 @@ export function TourDoNexo({
         espera = window.setTimeout(procurar, 60);
         return;
       }
+      setAusentes((s) => (s.has(indice) ? s : new Set(s).add(indice)));
       const proximo = indice + sentido.current;
       if (proximo >= 0 && proximo < passos.length) setIndice(proximo);
       else encerrar(true);
@@ -191,13 +206,19 @@ export function TourDoNexo({
     // Só mede o passo cuja tela já está pronta (o clique dele feito, o alvo dele na tela).
     if (pronto !== indice) return;
 
+    // Medido o passo, com a tela dele assentada: prevê os que vão ser pulados adiante (mesma vista).
+    const marcarMedido = () => {
+      setMedido(indice);
+      const previstos = ausentesPrevistos(passos, indice, (sel) => Boolean(document.querySelector(sel)));
+      setAusentes((s) => (previstos.every((j) => s.has(j)) ? s : new Set([...s, ...previstos])));
+    };
     const medir = () => {
       if (!vivo) return;
       setJanela({ largura: window.innerWidth, altura: window.innerHeight });
       if (!passo.alvo) {
         setAlvo(null);
         setPos(null);
-        setMedido(indice);
+        marcarMedido();
         return;
       }
       const el = document.querySelector(passo.alvo);
@@ -209,7 +230,7 @@ export function TourDoNexo({
         else {
           setAlvo(null);
           setPos(null);
-          setMedido(indice);
+          marcarMedido();
         }
         return;
       }
@@ -233,7 +254,7 @@ export function TourDoNexo({
           passo.lado ?? "abaixo",
         ),
       );
-      setMedido(indice);
+      marcarMedido();
     };
     const remedir = () => {
       cancelAnimationFrame(quadro);
@@ -256,7 +277,7 @@ export function TourDoNexo({
       window.removeEventListener("resize", remedir);
       window.removeEventListener("scroll", remedir, true);
     };
-  }, [passo, pronto, indice]);
+  }, [passo, pronto, indice, passos]);
 
   const avancar = useCallback(() => {
     sentido.current = 1;
@@ -274,8 +295,8 @@ export function TourDoNexo({
     if (onde.proximoCapitulo === null) return;
     sentido.current = 1;
     saltou.current = true;
-    setIndice(onde.proximoCapitulo);
-  }, [onde.proximoCapitulo]);
+    setIndice(visiveis.indices[onde.proximoCapitulo]);
+  }, [onde.proximoCapitulo, visiveis]);
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
@@ -313,6 +334,7 @@ export function TourDoNexo({
       <div
         aria-hidden
         data-tour-anel
+        data-tour-alvo={passo.alvo}
         className="tour-moldura"
         data-aceso={moldura ? "" : undefined}
         style={
@@ -341,7 +363,7 @@ export function TourDoNexo({
                 </>
               ) : (
                 <>
-                  {indice + 1} de {passos.length}
+                  {posicao + 1} de {visiveis.passos.length}
                 </>
               )}
             </p>
@@ -351,8 +373,8 @@ export function TourDoNexo({
           </div>
 
           <div className="tour-capitulos" aria-hidden>
-            {(comCapitulos ? capitulos : [{ nome: "", inicio: 0, total: passos.length }]).map((c, k) => {
-              const feito = Math.min(c.total, Math.max(0, indice - c.inicio + 1));
+            {(comCapitulos ? capitulos : [{ nome: "", inicio: 0, total: visiveis.passos.length }]).map((c, k) => {
+              const feito = Math.min(c.total, Math.max(0, posicao - c.inicio + 1));
               return (
                 <span key={c.inicio} className="tour-capitulo" style={{ flexGrow: c.total }} data-atual={comCapitulos && k === onde.ordem ? "" : undefined}>
                   <span style={{ width: `${(feito / c.total) * 100}%` }} />
@@ -368,7 +390,7 @@ export function TourDoNexo({
             <Button size="sm" onClick={avancar} data-tour-proximo>
               {ultimo ? rotuloFinal : "Próximo"}
             </Button>
-            {indice > 0 && !ultimo && (
+            {posicao > 0 && !ultimo && (
               <Button size="sm" variant="ghost" onClick={voltar}>
                 Voltar
               </Button>

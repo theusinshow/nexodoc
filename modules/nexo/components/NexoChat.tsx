@@ -94,6 +94,7 @@ export function NexoChat({
   onAttach,
   arrastando = false,
   tarefa = null,
+  onUsarExemplo,
   readStatus,
   pranchas,
   memorialFile,
@@ -111,6 +112,8 @@ export function NexoChat({
   arrastando?: boolean;
   /** A tela da tarefa escolhida — a zona de soltar fala dela. */
   tarefa?: { pede: string; faz: string; botao: string } | null;
+  /** A oferta do memorial de exemplo na zona de soltar (M1 do doc 08). */
+  onUsarExemplo?: () => void;
   readStatus?: ReadStatus | null;
   /** Pranchas originais retidas (bytes p/ montar o volume). */
   pranchas: PranchaNaSessao[];
@@ -166,6 +169,10 @@ export function NexoChat({
     motivoParaNaoGastar,
     conferirAntesDeGastar,
   } = useConversation();
+  /** A ficha do memorial mais recente: a dica da obra aparece só nela. */
+  const ultimaFicha = messages.findLast((m) => m.fichaDoMemorial)?.id;
+  /** O plano de geração mais recente: a dica do plano aparece só nele. */
+  const ultimoPlano = messages.findLast((m) => m.proposals?.some((p) => p.kind === "capa"))?.id;
   /*
    * O PARECER NO PALCO decide a porta do turno. Com parecer, a pergunta vai
    * para o chat que RELÊ o memorial; sem ele, para o roteador de intenção do
@@ -274,15 +281,32 @@ export function NexoChat({
    * fala final, com o veredito e os achados que travam. A regra acima continua
    * valendo para o que chega DEPOIS; isto é só a posição de abertura, uma vez.
    */
+  const ultimaFichaSemParecer =
+    Boolean(ultima?.fichaDoMemorial) &&
+    !results.some((r) => r.kind === "auditoria" && r.artifactId.endsWith(`:${ultima.id}`));
   const abriuNoFim = useRef(false);
   useEffect(() => {
     if (abriuNoFim.current || messages.length === 0) return;
     // A guarda é marcada dentro do quadro: marcada antes, um quadro cancelado deixaria a conversa no topo.
     const raf = requestAnimationFrame(() => {
       abriuNoFim.current = true;
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+      const log = scrollRef.current;
+      if (!log) return;
+      /*
+       * A FICHA AINDA A CONFERIR abre no topo dela (10/10/2026): o fim era o
+       * botão "Conferi — auditar", e a linha "Obra" — a que mais pede conferência,
+       * com a dica dela — ficava acima da dobra. Com parecer, vale o fim.
+       */
+      const fichas = ultimaFichaSemParecer ? log.querySelectorAll(".nx-ficha") : null;
+      const ficha = fichas?.[fichas.length - 1];
+      if (ficha) {
+        log.scrollTo({ top: log.scrollTop + ficha.getBoundingClientRect().top - log.getBoundingClientRect().top - 12 });
+        return;
+      }
+      log.scrollTo({ top: log.scrollHeight });
     });
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
   // `responding` = já chegou texto (o modelo saiu do raciocínio e está escrevendo).
@@ -664,7 +688,7 @@ export function NexoChat({
          */}
         {messages.length === 0 && (
           <div className="mx-auto h-full max-w-[46rem] px-4 py-6">
-            <ZonaDeSolta onAnexar={onAttach} arrastando={arrastando} tarefa={tarefa} />
+            <ZonaDeSolta onAnexar={onAttach} arrastando={arrastando} tarefa={tarefa} onUsarExemplo={onUsarExemplo} />
           </div>
         )}
         {/*
@@ -718,7 +742,7 @@ export function NexoChat({
                       decide: leia o que entrou, confira de quem é, então escolha. */}
                   {m.ficha && <FichaDoDropCard ficha={m.ficha} />}
                   {/* A ficha do memorial: o que a capa trouxe, cada linha corrigível. */}
-                  {m.fichaDoMemorial && <FichaDoMemorialCard mensagemId={m.id} ficha={m.fichaDoMemorial} />}
+                  {m.fichaDoMemorial && <FichaDoMemorialCard mensagemId={m.id} ficha={m.fichaDoMemorial} ultima={m.id === ultimaFicha} />}
                   {/* A obra corrigida na ficha: levar também ao cadastro do projeto? */}
                   {m.cadastroDaObra && <CadastroDaObraCard mensagemId={m.id} oferta={m.cadastroDaObra} />}
                   {/* UM plano para tudo que sai de capa/LD/separatriz; volume,
@@ -730,6 +754,7 @@ export function NexoChat({
                       templates={templates}
                       idsBase={idsBaseDosArtefatos(selos)}
                       ldPreview={m.ldPreview}
+                      ultimo={m.id === ultimoPlano}
                       /* Gerar no meio da leitura sai curto e calado: o plano
                          tranca o botão enquanto as folhas chegam. */
                       leitura={{

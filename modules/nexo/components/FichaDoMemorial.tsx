@@ -11,6 +11,9 @@
 import { Check, FileText, Pencil, X } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { DicaDeUmaVez } from "@/components/telas/comum/dica-de-uma-vez";
+
+import { marcarDica } from "../lib/dicas-da-auditoria";
 import { ROTULOS_DO_MEMORIAL, type CampoDoMemorial, type FichaDoMemorial, type LinhaDoMemorial } from "../lib/ficha-do-memorial";
 import { useCorrecaoDoMemorial } from "../state/correcao-do-memorial";
 
@@ -40,6 +43,8 @@ function Linha({
   const lapis = useRef<HTMLButtonElement>(null);
 
   function abrir() {
+    // Foi ao lápis: entendeu o que a dica da obra ensinava.
+    marcarDica("ficha-da-obra");
     setRascunho(linha.valor ?? "");
     setEditando(true);
   }
@@ -117,7 +122,16 @@ function Linha({
   );
 }
 
-export function FichaDoMemorialCard({ mensagemId, ficha }: { mensagemId: string; ficha: FichaDoMemorial }) {
+export function FichaDoMemorialCard({
+  mensagemId,
+  ficha,
+  ultima = true,
+}: {
+  mensagemId: string;
+  ficha: FichaDoMemorial;
+  /** A ficha mais recente da conversa: só nela a dica da obra aparece. */
+  ultima?: boolean;
+}) {
   const corrigir = useCorrecaoDoMemorial();
   const onSalvar = corrigir ? (campo: CampoDoMemorial, valor: string) => corrigir(mensagemId, campo, valor) : null;
 
@@ -130,11 +144,26 @@ export function FichaDoMemorialCard({ mensagemId, ficha }: { mensagemId: string;
           {ficha.arquivo}
         </span>
       </header>
-      <dl className="nx-ficha-linhas">
-        {ficha.linhas.map((l) => (
-          <Linha key={l.campo} linha={l} semCapa={Boolean(ficha.semCapa)} onSalvar={onSalvar} />
-        ))}
-      </dl>
+      {/*
+        A DICA DA OBRA (10/10/2026, M2 do doc 08) mora logo abaixo da linha que
+        ela explica, uma vez. Por isso a lista se parte em duas: um <dl> só não
+        aceita a nota no meio das linhas.
+      */}
+      <div className="nx-ficha-linhas">
+        <dl>
+          {ficha.linhas.slice(0, 1).map((l) => (
+            <Linha key={l.campo} linha={l} semCapa={Boolean(ficha.semCapa)} onSalvar={onSalvar} />
+          ))}
+        </dl>
+        <DicaDeUmaVez id="ficha-da-obra" titulo="Confira o nome da obra" quando={ultima && Boolean(onSalvar) && ficha.linhas[0]?.campo === "obra"}>
+          <p>É por ele que o Nexo descobre trecho copiado de outro projeto. Errado? Corrija no lápis antes de auditar.</p>
+        </DicaDeUmaVez>
+        <dl>
+          {ficha.linhas.slice(1).map((l) => (
+            <Linha key={l.campo} linha={l} semCapa={Boolean(ficha.semCapa)} onSalvar={onSalvar} />
+          ))}
+        </dl>
+      </div>
       {ficha.divergencia && (
         <p className="nx-ficha-aviso" role="note">
           <i aria-hidden />

@@ -22,7 +22,7 @@
  * (`npm run test:nexo:cartoes`).
  */
 
-import { ehDeExemplo, estadoDaConversa, type EstadoDaConversa } from "./estado-da-conversa.ts";
+import { ehConversaDeExemplo, ehDeExemplo, estadoDaConversa, type EstadoDaConversa } from "./estado-da-conversa.ts";
 
 /** Uma conversa com o que o resumo do servidor apurou. */
 export interface ConversaResumida {
@@ -272,7 +272,7 @@ export function cartoesDeProjeto(
       codigo,
       cliente,
       nome: comProjeto?.projectName?.trim() ?? "",
-      exemplo: ehDeExemplo(codigo, cliente),
+      exemplo: ehDeExemplo(codigo, cliente) || ordenado.every((x) => ehConversaDeExemplo(x.id)),
       atualizadoEm: ordenado[0].updatedAt,
       folhas,
       artefatos: ORDEM_DOS_ARTEFATOS.filter((k) => tipos.has(k)).map(

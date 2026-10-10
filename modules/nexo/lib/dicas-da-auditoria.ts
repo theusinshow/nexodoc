@@ -21,6 +21,14 @@
  * - `volume-entrega`: por que os editáveis vêm antes dos PDFs (a doca, na primeira vez);
  * - `volume-teto`: o que fazer com tomo acima de 20 MB (só quando acontece).
  *
+ * E as do PRIMEIRO ACESSO (10/10/2026, M1 e M2 do doc 08):
+ *
+ * - `memorial-de-exemplo`: a oferta "Usar um memorial de exemplo" na zona de
+ *   soltar, para quem ainda não auditou. Não tem "Entendi": some na primeira
+ *   auditoria de verdade (ou quando a lista mostra que já houve uma);
+ * - `ficha-da-obra`: por que conferir o nome da obra, na linha "Obra" da
+ *   primeira ficha. Some no lápis ou no "Conferi — auditar".
+ *
  * Guardadas no navegador (decisão D4): não há preferência por usuário no
  * banco, e um navegador novo mostrar as dicas de novo é um custo pequeno.
  * "Como funciona o Nexo" as traz de volta (`esquecerDicas`).
@@ -36,6 +44,8 @@ const IDS = [
   "volume-canvas",
   "volume-entrega",
   "volume-teto",
+  "memorial-de-exemplo",
+  "ficha-da-obra",
 ] as const;
 export type IdDaDica = (typeof IDS)[number];
 

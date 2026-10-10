@@ -78,7 +78,26 @@ Regras de desenho que valem para todo item abaixo:
 
 ## O que falta (em ordem)
 
-### 1. Conferir ao vivo os passos que a prova não viu
+### 1. Conferir ao vivo os passos que a prova não viu — FEITO em 10/10 (sem commit)
+
+`conferencia` visto ao vivo na conversa EST `f09e2fbf-8a5f-48b5-82a9-0b01eb1eb7da`
+(6 tomos). `teto` visto por `scripts/prova-teto-do-volume.mjs`: copia a EST para
+o IndexedDB da prova com o tomo 1 declarado com 21 MB e barra toda gravação no
+servidor (nenhum tomo real do banco passa de 20 MB). A aproximação passou a ter
+como piso o zoom da pessoa, não o do passo anterior (o "Dividir" saía cortado).
+A rodada achou e consertou:
+- a contagem pulava número ("6 de 8" → "8 de 8") quando um passo saía por
+  `soSeExistir`: agora conta só os que aparecem (`semOsAusentes`,
+  `ausentesPrevistos` em `capitulos-do-tour.ts`, com teste);
+- `aproximar` fazia `fitView` no NÓ (a fileira inteira) e o "Montar" saía com
+  50px: agora centra o próprio alvo, até 1:1;
+- a doca cobria a coluna da conferência: com área ≥ 900px centra no mapa; no
+  palco estreito fica onde estava e a lista ganha folga embaixo;
+- **perda de dados**: abrir uma conversa num navegador sem os bytes dos
+  arquivos e gravar qualquer coisa apagava as referências (`files`) no disco e
+  no servidor. A EST ficou com 0 de 54; reparada pela irmã `2ddeedc9` (backup
+  do antes no scratchpad da sessão). Consertado no store
+  (`arquivosAusentes`) e travado pela jornada `c8`.
 
 Os passos `teto` (tomo acima de 20 MB) e `conferencia` (coluna "Conferência da
 LD") do tour do volume foram pulados pelo `soSeExistir`, porque o volume de
@@ -89,7 +108,24 @@ teste não tinha nenhum dos dois.
 - Rode `prova-dicas-do-volume.mjs` com essa conversa e olhe as fotos.
 - Confira também se o `aproximar` enquadra os botões Comprimir/Dividir.
 
-### 2. Primeiro acesso: M1 e M2 do doc 08
+### 2. Primeiro acesso: M1 e M2 do doc 08 — FEITO em 10/10 (sem commit)
+
+Prova: `node scripts/prova-exemplo-e-ficha.mjs` (21 asserções, build de produção
+na 3000). O que saiu, além do desenho abaixo:
+- A oferta só aparece com tarefa "auditar" para quem não tem conversa de
+  auditoria na barra (fora os exemplos); a primeira auditoria real a apaga.
+- O exemplo é a conversa `nexo-exemplo-memorial`, semeada como a do tour. O
+  "Conferi — auditar" grava `resultadoDoMemorialDeExemplo()` sem rede; o
+  cartão esconde as perguntas que iriam ao modelo; o palco mostra o selo
+  "Exemplo"; a barra o põe em "Exemplos e testes" (`ehConversaDeExemplo`, pelo
+  id); e ele é apagado ao sair da conversa ou recarregar.
+- A fala da ficha ficou curta (`FALA_DA_FICHA`): o porquê do nome da obra
+  passou para a dica de uma vez.
+- Conversa aberta cuja última fala é ficha sem parecer abre NO TOPO da ficha
+  (antes ia ao fim e a linha "Obra" ficava acima da dobra — a foto pegou).
+- `pularTourGuiado` passou a marcar também `tour-do-resultado`: desde o
+  holofote ele segurava o clique e 5 jornadas de auditoria estavam vermelhas.
+
 
 O desenho está em `docs/ux-audit-memorial/08-tutorial-redesign.md`. M3–M5 já
 existem.
@@ -107,13 +143,18 @@ existem.
 - Prova: navegador limpo, nenhum balão sozinho, e a conversa de exemplo só
   nasce com o clique.
 
-### 3. Defeito pequeno: a dica do plano repetida
+### 3. Defeito pequeno: a dica do plano repetida — FEITO em 10/10 (`ultimo` no plano com capa)
 
 Se uma conversa tiver mais de um `PlanoDeGeracao` no log, a `volume-plano`
 aparece em cada um até o primeiro "Entendi". Mostre só no plano mais recente:
 passe uma prop `ultimo` do `NexoChat` e use `quando={ultimo}`.
 
-### 4. Uma camada comum: o "?" em toda tela
+### 4. Uma camada comum: o "?" em toda tela — DECIDIDO em 10/10: não fazer
+
+Painel, Projetos, Achados e Administração não ganham "?" nem tour: "Ajuda" já
+está fixa na barra de cima, essas telas são de consulta, e os estados vazios
+delas já seguem a DESIGN.md §7 (rótulo, uma linha, uma ação). Reabrir se
+aparecer dado de onde as pessoas travam.
 
 A frente 4 da conversa, que ficou para depois. Hoje há "?" no resultado e no
 mapa do volume.
@@ -128,7 +169,13 @@ mapa do volume.
   teste de que ele só clica em troca de vista, e uma prova no navegador nos
   moldes das duas que existem.
 
-### 5. Revisar as dicas antigas da auditoria
+### 5. Revisar as dicas antigas da auditoria — FEITO em 10/10
+
+Curtas, citam botões que existem e não aparecem juntas (a primeira encerrada
+apaga a `primeira-revisao`; a dos atalhos só vem depois de três). Corrigida a
+promessa falsa "Falso positivo ensina o motor" (aqui e na Ajuda, "Procede e
+Gravidade errada ensinam o motor"): o veredito só alimenta a medida de acerto do
+painel de qualidade; nada no motor o lê.
 
 `primeira-revisao` e `atalhos` (`components/telas/resultado/fila-a/fila-a.tsx:124`)
 são anteriores ao holofote. Confira se continuam curtas e se não aparecem

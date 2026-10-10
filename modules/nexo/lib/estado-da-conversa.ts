@@ -113,3 +113,13 @@ export function oQueFoiGerado(e: { capas: number; lds: number; separatrizes: num
 export function ehDeExemplo(codigo: string, cliente: string): boolean {
   return /^sim\d/i.test(codigo.trim()) || /fict[ií]cia/i.test(cliente) || /exemplo/i.test(codigo);
 }
+
+/**
+ * As conversas FICTÍCIAS que o próprio Nexo semeia: a do tour e a do memorial
+ * de exemplo (`projeto-exemplo.ts`). O código delas é de obra comum (042-26,
+ * Criciúma), então só o id as distingue — e sem isso o exemplo aparecia na
+ * barra como uma pasta de Criciúma de verdade (10/10/2026).
+ */
+export function ehConversaDeExemplo(id: string | null | undefined): boolean {
+  return typeof id === "string" && id.startsWith("nexo-exemplo-");
+}

@@ -83,6 +83,7 @@ import {
   versaoMaisNovaNoDisco,
   type ConversationSummary,
   type StoredConversation,
+  type StoredFileMeta,
   type StoredResultMeta,
 } from "../lib/nexo-db";
 import {
@@ -135,6 +136,14 @@ export interface SavedResult {
    * parece que funcionou. Com a marca, a tela pode dizer "gerar de novo".
    */
   bytesAusentes?: boolean;
+  /**
+   * AS REFERÊNCIAS DOS ARQUIVOS QUE NÃO ESTÃO AQUI, guardadas para voltar ao
+   * disco e ao servidor na próxima gravação (10/10/2026). Sem isto, abrir a
+   * conversa noutra máquina e mexer em qualquer coisa gravava o resultado sem
+   * elas, e a máquina que TEM os bytes perdia o caminho até eles: a conversa
+   * EST do 084-25 ficou com zero arquivos em seis volumes e seis LDs.
+   */
+  arquivosAusentes?: StoredFileMeta[];
 }
 
 /** Entrada de `saveResult`: os arquivos vêm como object URLs (o card já os tem). */
@@ -924,14 +933,18 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       kind: r.kind,
       summary: r.summary,
       ...(r.canvas ? { canvas: r.canvas } : {}),
-      files: r.files.map((f) => ({
-        label: f.label,
-        name: f.name,
-        mime: f.mime,
-        blobKey: f.blobKey,
-        ...(f.primary ? { primary: true } : {}),
-        ...(f.sizeBytes !== undefined ? { sizeBytes: f.sizeBytes } : {}),
-      })),
+      files: [
+        ...r.files.map((f) => ({
+          label: f.label,
+          name: f.name,
+          mime: f.mime,
+          blobKey: f.blobKey,
+          ...(f.primary ? { primary: true } : {}),
+          ...(f.sizeBytes !== undefined ? { sizeBytes: f.sizeBytes } : {}),
+        })),
+        // Os que não estão nesta máquina voltam como vieram (ver `arquivosAusentes`).
+        ...(r.arquivosAusentes ?? []),
+      ],
       ...(r.payload !== undefined ? { payload: r.payload } : {}),
       ...(r.generatedAt !== undefined ? { generatedAt: r.generatedAt } : {}),
     }));
@@ -1697,13 +1710,13 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
       const restored: SavedResult[] = [];
       for (const meta of rec.results) {
         const files: SavedFile[] = [];
-        let faltouByte = false;
+        const ausentes: StoredFileMeta[] = [];
         for (const fm of meta.files) {
           const blob = await getBlob(fm.blobKey);
           if (!blob) {
             // NÃO some: a marca sobe para o resultado e a tela diz que o
-            // arquivo não está nesta máquina.
-            faltouByte = true;
+            // arquivo não está nesta máquina — e a referência fica guardada.
+            ausentes.push(fm);
             continue;
           }
           files.push({
@@ -1726,7 +1739,7 @@ export function ConversationStoreProvider({ children }: { children: ReactNode })
           files,
           ...(meta.payload !== undefined ? { payload: meta.payload } : {}),
           ...(meta.generatedAt !== undefined ? { generatedAt: meta.generatedAt } : {}),
-          ...(faltouByte ? { bytesAusentes: true } : {}),
+          ...(ausentes.length > 0 ? { bytesAusentes: true, arquivosAusentes: ausentes } : {}),
         });
       }
       /*

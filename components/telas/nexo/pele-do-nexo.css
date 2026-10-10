@@ -116,3 +116,23 @@
 :root:has(.nexo-shell) .font-mono.uppercase {
   font-family: var(--font-ds-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+/*
+ * A DOCA DA ENTREGA E A COLUNA DA CONFERÊNCIA (10/10/2026). A doca centrava na
+ * área inteira, e com a coluna aberta passava por cima dela e escondia as
+ * últimas linhas da LD. Com espaço (área de 900px ou mais), ela centra no MAPA,
+ * ao lado da coluna (210px fixos, ColunaDaConferencia). No palco estreito,
+ * espremê-la ao lado deixava a doca alta e fina por cima do próprio mapa; ali
+ * ela fica onde estava, e a lista ganha folga embaixo para as últimas linhas
+ * subirem acima dela.
+ */
+.nexo-shell .nx-area-do-volume { container-type: inline-size; }
+@container (min-width: 900px) {
+  .nexo-shell .nx-area-do-volume:has([data-tour="conferencia-da-ld"]) > [data-tour="doca"] {
+    left: calc((100% - 210px) / 2);
+    width: min(760px, calc(100% - 210px - 96px));
+  }
+}
+@container (max-width: 899.98px) {
+  .nexo-shell .nx-area-do-volume:has(> [data-tour="doca"]) [data-tour="conferencia-da-ld"] ol { padding-bottom: 240px; }
+}

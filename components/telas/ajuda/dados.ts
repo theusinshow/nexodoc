@@ -51,7 +51,7 @@ export const TAREFAS: Tarefa[] = [
     passos: [
       { texto: "No trilho do resultado, abra Achados (tecla 2). J e K andam de achado em achado.", caminho: ["Resultado", "Achados"], tecla: "J K" },
       { texto: "Encerre cada achado: C marca corrigido, D grava uma decisão técnica com o motivo (vai no parecer), F marca falso positivo. Z desfaz logo depois; depois disso, Reabrir.", caminho: ["Achado", "Marcar corrigido"], tecla: "C D F" },
-      { texto: "A IA acertou? Procede e Gravidade errada ensinam o motor e não encerram o achado.", caminho: ["Achado", "Procede"] },
+      { texto: "A IA acertou? Procede e Gravidade errada entram na medida de acerto do Nexo e não encerram o achado.", caminho: ["Achado", "Procede"] },
       { texto: "Ver no memorial (tecla M) abre o PDF na página do trecho.", caminho: ["Achado", "Ver no memorial"], tecla: "M" },
       { texto: "Para passar um achado a alguém: Atribuir. Atribuir não manda e-mail: quem recebeu e ainda não foi avisado aparece no topo da fila, em Notificar por e-mail.", caminho: ["Achado", "Atribuir"] },
     ],
