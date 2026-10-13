@@ -20,7 +20,7 @@ import {
 } from "../pecas";
 
 /**
- * A PROPOSTA — seis folhas, abertas deliberadamente a partir da folha 18.
+ * A PROPOSTA — seis folhas, abertas deliberadamente a partir da folha 17.
  * A sequência é: objeto da compra → custo operacional → entregas → preço →
  * evidência final → decisão. O custo histórico de construção não ancora mais o
  * preço: ele explica o esforço do vendedor, não o valor recebido pelo comprador.

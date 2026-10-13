@@ -5,12 +5,13 @@ import { ArrowUpRight, Check } from "lucide-react";
 import { AgentOrb } from "@/modules/nexo/components/agent-orb/AgentOrb";
 
 import type { Slide } from "../palco";
-import { Checklist, Entra, MONO } from "../pecas";
+import { Entra, MONO } from "../pecas";
 
 /**
- * CAPÍTULO 5 — O PILOTO E A DECISÃO (folhas 17 a 20). O piloto como
+ * CAPÍTULO 5 — O PILOTO E A DECISÃO (folhas 16 a 18). O piloto como
  * cronograma, a ponte para a proposta (sem preço nesta folha — a regra do
- * deck), o checklist do que precisa sair decidido e o pedido.
+ * deck) e o pedido, que já diz as três decisões para começar. O checklist
+ * que as repetia saiu em 13/10/2026.
  */
 
 const BLOCO = "O piloto";
@@ -138,7 +139,7 @@ export function Cronograma({
   );
 }
 
-/* ═══════════════════════════════════════ folha 18: o botão da proposta */
+/* ═══════════════════════════════════════ folha 17: o botão da proposta */
 
 /**
  * O único elemento clicável do deck abre a proposta em outra aba. É a ação
@@ -173,7 +174,7 @@ const RESPONDE = [
 export const DECISAO: readonly Slide[] = [
   {
     rotulo: "Como o piloto mede",
-    numero: "17",
+    numero: "16",
     bloco: BLOCO,
     titulo: "Três meses, três checkpoints",
     manchete: [
@@ -197,7 +198,7 @@ export const DECISAO: readonly Slide[] = [
 
   {
     rotulo: "A proposta",
-    numero: "18",
+    numero: "17",
     bloco: BLOCO,
     titulo: "A proposta está separada",
     manchete: [
@@ -250,35 +251,8 @@ export const DECISAO: readonly Slide[] = [
   },
 
   {
-    rotulo: "Para começar",
-    numero: "19",
-    bloco: BLOCO,
-    titulo: "O que precisa ficar decidido",
-    manchete: [
-      { texto: "Sem projeto e sem responsáveis, não existe piloto.", fraca: true },
-      "Existe só acesso ao sistema.",
-    ],
-    notas:
-      "ESTA FOLHA TRANSFORMA INTERESSE EM IMPLANTAÇÃO. É o checklist do próprio produto, vazio de propósito: quem preenche é a sala. Não sair da reunião apenas com concordância abstrata. Os três itens podem ser decididos ali ou receber dono e prazo.\n\nPROJETO: escolher um trabalho real que atravesse conferência e montagem. Se nenhum projeto servir aos dois caminhos, escolher um para cada prova e manter as medidas separadas.\n\nRESPONSÁVEL: alguém da diretoria precisa responder pelo resultado, e não só pelo acesso.\n\nUSUÁRIOS: quem confere julga achados; quem monta registra tempo, retrabalho e aceitação dos arquivos. Sem essas pessoas, a evidência não nasce.",
-    corpo: (
-      <div style={{ width: 1300 }}>
-        <Checklist
-          atraso={300}
-          titulo="Para começar o piloto"
-          acao="Começar o piloto"
-          itens={[
-            { titulo: "Projeto de entrada", texto: "Um trabalho real que permita observar conferência e montagem sem criar um caso artificial.", campos: ["Qual projeto", "Prazo"] },
-            { titulo: "Responsável executivo", texto: "Uma pessoa com autoridade para remover bloqueios e receber a evidência do piloto.", campos: ["Quem", "Prazo"] },
-            { titulo: "Quem confere e quem monta", texto: "Usuários que julgam achados, registram o trabalho e dizem se os arquivos podem ser usados.", campos: ["Quem", "Prazo"] },
-          ]}
-        />
-      </div>
-    ),
-  },
-
-  {
     rotulo: "A decisão",
-    numero: "20",
+    numero: "18",
     bloco: BLOCO,
     titulo: "A decisão",
     manchete: ["Aprovar o piloto de três meses."],

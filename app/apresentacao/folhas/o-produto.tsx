@@ -619,7 +619,7 @@ export const O_PRODUTO: readonly Slide[] = [
     numero: "02",
     bloco: BLOCO,
     titulo: "O que é",
-    manchete: ["Um sistema para organizar", "e documentar projetos de engenharia."],
+    manchete: ["Um sistema que confere o memorial", "e monta o volume do projeto."],
     notas:
       "Ler a manchete devagar. Os dois painéis são os dois caminhos da próxima folha, na mesma ordem: primeiro confere, depois monta.\n\nNO PAINEL DA ESQUERDA, os três achados são de verdade, do 117-25 — a mesma corrida da folha 05: o endereço divergente da p. 25, o 'USB' da p. 29, o 'ambulânciua' da p. 38. Não precisa lê-los agora; voltam nas folhas 05 e 07.",
     corpo: (
