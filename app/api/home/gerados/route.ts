@@ -38,12 +38,12 @@ const ROTULO: Record<string, string> = {
   LD_ODT: "LD",
   LD_PDF: "LD",
   LD_ZIP: "LDs",
-  LD_REPORT: "Relatório da LD",
+  LD_REPORT: "Registro da LD",
   AUDIT_MARKDOWN: "Parecer",
   AUDIT_PDF: "Parecer",
   VOLUME_PDF: "Volume",
   VOLUME_ZIP: "Volume",
-  VOLUME_REPORT: "Relatório do volume",
+  VOLUME_REPORT: "Registro da montagem",
   OTHER: "Arquivo",
 };
 
