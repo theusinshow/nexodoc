@@ -93,8 +93,8 @@ export function Recado({ enviarRecado }: { enviarRecado: (dados: FormData) => Pr
           >
             <p className="en-form-titulo">Falar com o responsável</p>
             <label className="en-campo">
-              <span>Seu e-mail</span>
-              <input ref={primeiro} name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="para o responsável poder responder" />
+              <span>Seu e-mail, para a resposta</span>
+              <input ref={primeiro} name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@escritorio.com.br" />
             </label>
             <label className="en-campo">
               <span>
@@ -103,7 +103,7 @@ export function Recado({ enviarRecado }: { enviarRecado: (dados: FormData) => Pr
                   {texto.length}/{LIMITE_DE_MENSAGEM}
                 </em>
               </span>
-              <textarea name="mensagem" rows={3} required maxLength={LIMITE_DE_MENSAGEM} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="quem é você, de que escritório, e o que a tela disse" />
+              <textarea name="mensagem" rows={3} required maxLength={LIMITE_DE_MENSAGEM} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Seu nome, o escritório e o que a tela mostrou" />
             </label>
             {desfecho && <Aviso tom={desfecho.tom}>{desfecho.texto}</Aviso>}
             <div className="en-form-acoes">

@@ -67,14 +67,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Quem recebe o link de um achado no telefone continua entrando. */}
       <div className="en-celular" role="note">
         <p>No celular, dá para ler e tratar achados.</p>
-        <p>A montagem de volumes e o mapa do documento lado a lado rendem mais num computador.</p>
+        <p>Para montar volumes e ver o documento lado a lado, use o computador.</p>
       </div>
 
       <h1 className="en-titulo">Entre no Nexo</h1>
-      <p className="en-lede">Documentação de projetos de engenharia, do carimbo ao volume.</p>
+      <p className="en-lede">Lê o carimbo das pranchas, monta o volume e audita o memorial.</p>
 
       {error ? (
-        <Aviso tom="erro">Não foi possível autenticar com o Google. Tente de novo; se repetir, fale com o responsável.</Aviso>
+        <Aviso tom="erro">O Google não confirmou a sua entrada. Tente de novo; se repetir, fale com o responsável logo abaixo.</Aviso>
       ) : null}
 
       <form
@@ -86,7 +86,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <BotaoDoGoogle descritoPor="en-nota" />
       </form>
       <p id="en-nota" className="en-nota">
-        Use a conta Google do escritório. Depois dela, o Nexo confere se a conta está liberada; se não estiver, diz quem libera.
+        Use a conta Google do escritório. Se ela ainda não tiver acesso, o Nexo mostra a quem pedir.
       </p>
 
       {canUseDevAuth ? (
