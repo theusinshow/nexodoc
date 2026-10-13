@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 
 import { estimateOpenAiCostUsd, isModelPriceKnown, quemPagou } from "../lib/ai-precos.ts";
-import { esforcoAceitoPeloModelo, validateAiModelName } from "../lib/ai-model-name.ts";
+import { esforcoAceitoPeloModelo, modeloParaExibir, validateAiModelName } from "../lib/ai-model-name.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -169,6 +169,12 @@ test("quem pagou sai de billing.payer, e ausência não vira 'a conta pagou'", (
   assert.equal(quemPagou({ billing: {} }), null);
   assert.equal(quemPagou({}), null);
   assert.equal(quemPagou(undefined), null);
+});
+
+test("chave gravada como modelo NÃO vai para a tela (as 169 linhas de jun–jul/2026)", () => {
+  assert.equal(modeloParaExibir("sk-proj-abc123_DEF"), "[chave apagada]");
+  assert.equal(modeloParaExibir("gpt-5.4-mini"), "gpt-5.4-mini");
+  assert.equal(modeloParaExibir(null), null);
 });
 
 console.log(`\n${passed} verificações de preço passaram.`);

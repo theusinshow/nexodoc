@@ -86,3 +86,13 @@ export function esforcoAceitoPeloModelo<T extends string | null | undefined>(
 
   return effort;
 }
+
+/**
+ * O NOME DO MODELO PARA A TELA. Entre 09/06 e 20/07/2026 a chave inteira foi
+ * gravada como `model` em 169 linhas de `AiUsageEvent` de produção, e o painel
+ * de uso a mostrava (em "modelos sem preço" e nos eventos recentes). Enquanto
+ * as linhas não forem redigidas no banco, toda leitura para exibir passa aqui.
+ */
+export function modeloParaExibir<T extends string | null | undefined>(model: T): T | "[chave apagada]" {
+  return typeof model === "string" && looksLikeApiSecret(model) ? "[chave apagada]" : model;
+}

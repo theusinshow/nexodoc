@@ -5,6 +5,7 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import { carregarCotacao } from "@/lib/cambio-config";
 import { custoPorObra } from "@/lib/custo-por-obra";
 import { checkAdminRequest } from "@/lib/admin-gate";
+import { modeloParaExibir } from "@/lib/ai-model-name";
 
 export const runtime = "nodejs";
 
@@ -279,7 +280,7 @@ async function summarizeInternalUsage(startTime: number) {
     };
   }
 
-  const [events, aiTasks] = await Promise.all([
+  const [eventosDoBanco, aiTasks] = await Promise.all([
     getPrisma().aiUsageEvent.findMany({
       where: {
         createdAt: {
@@ -303,6 +304,8 @@ async function summarizeInternalUsage(startTime: number) {
       take: 100,
     }),
   ]);
+  // A chave gravada como modelo em jun–jul/2026 não vai para a tela (ver `modeloParaExibir`).
+  const events = eventosDoBanco.map((e) => ({ ...e, model: modeloParaExibir(e.model) }));
   /*
    * `estimatedCostUsd ?? 0` some com o que não tem preço. Modelo fora da tabela
    * não custa zero — custa uma quantia que ninguém sabe, e somar zero afirma o

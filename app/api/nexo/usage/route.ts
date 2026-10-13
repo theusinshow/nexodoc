@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { isNexoEnabled } from "@/lib/feature-flags";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
+import { modeloParaExibir } from "@/lib/ai-model-name";
 import { aggregateUsage, type UsageRow } from "@/server/nexo/usage/aggregate";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
 
@@ -77,6 +78,7 @@ export async function GET(req: NextRequest) {
     });
     const events: UsageRow[] = linhas.map(({ metadata, ...linha }) => ({
       ...linha,
+      model: modeloParaExibir(linha.model),
       cobertoPelaOpenAi: (metadata as { pagoPor?: unknown } | null)?.pagoPor === "openai",
     }));
 
