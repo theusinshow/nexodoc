@@ -12,7 +12,13 @@ import "./sobreposicoes.css";
 
 /** O último pedaço do endereço, se parece um código de obra ("117-26"): é o que vale buscar. */
 function termoDo(caminho: string) {
-  const ultimo = decodeURIComponent(caminho.split("/").filter(Boolean).pop() ?? "");
+  let ultimo: string;
+  try {
+    ultimo = decodeURIComponent(caminho.split("/").filter(Boolean).pop() ?? "");
+  } catch {
+    // "%" solto (robô varrendo, link cortado): `decodeURIComponent` estoura e derrubava o próprio 404.
+    return "";
+  }
   return /\d/.test(ultimo) && ultimo.length <= 24 ? ultimo : "";
 }
 
