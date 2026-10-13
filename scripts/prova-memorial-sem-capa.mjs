@@ -103,6 +103,9 @@ const linha = (page, campo) => page.locator(`.nx-ficha-linha[data-campo="${campo
   const id2 = await identidade(page);
   confere(id2?.campos?.obra?.origem === "capa", `a obra do projeto vem da capa: ${id2?.campos?.obra?.valor}`);
   confere(id2?.conferencias?.[AUDITORIA]?.estado === "diverge", `a auditoria semeada ficou "diverge" (${id2?.conferencias?.[AUDITORIA]?.estado})`);
+  // Capa vence e avisa: o cliente cadastrado (IÇARA no dev) vira o da capa.
+  const cliente = await page.evaluate(async (id) => (await (await fetch(`/api/projects/${id}`)).json()).project?.client, PROJETO);
+  confere(/CHAPEC/i.test(cliente ?? ""), `o cliente do projeto vem da capa: ${cliente}`);
   await fala.scrollIntoViewIfNeeded().catch(() => {});
   await page.screenshot({ path: path.join(SAIDA, "3-geral-diverge.png") });
   confere(gastos.length === 0, `nenhuma chamada de IA${gastos.length ? `: ${gastos.join(", ")}` : ""}`);

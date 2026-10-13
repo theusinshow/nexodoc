@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-import { cidadeDoCliente, decidirCliente, slugDoCliente } from "../lib/cliente-do-projeto.ts";
+import { cidadeDoCliente, clienteDaCapa, decidirCliente, slugDoCliente } from "../lib/cliente-do-projeto.ts";
 
 let passed = 0;
 function test(nome: string, fn: () => void) {
@@ -76,6 +76,30 @@ test("cliente PREENCHIDO não é sobrescrito", () => {
     cadastrado: "CRICIÚMA",
     lido: "Prefeitura Municipal de Florianópolis",
   });
+});
+
+test("a CAPA DO GERAL troca o cliente cadastrado, e a divergência fica para o aviso", () => {
+  // 13/10/2026: o 040-26 do dev ficou "IÇARA" numa obra de Chapecó; o nome trocava e o cliente não.
+  const d = clienteDaCapa({
+    atual: "IÇARA",
+    atualKey: "icara",
+    lido: "PREFEITURA MUNICIPAL DE CHAPECÓ",
+    municipioLido: "Chapecó",
+  });
+  assert.equal(d.client, "PREFEITURA MUNICIPAL DE CHAPECÓ", "a capa vence o cadastro");
+  assert.equal(d.clientKey, "chapeco");
+  assert.deepEqual(d.divergencia, { cadastrado: "IÇARA", lido: "PREFEITURA MUNICIPAL DE CHAPECÓ" });
+});
+
+test("a capa com o MESMO cliente não reescreve a grafia do cadastro", () => {
+  const d = clienteDaCapa({
+    atual: "CRICIÚMA",
+    atualKey: "criciuma",
+    lido: "Prefeitura Municipal de Criciúma",
+    municipioLido: "Criciúma",
+  });
+  assert.equal(d.client, "CRICIÚMA");
+  assert.equal(d.divergencia, null);
 });
 
 test("ruído de grafia NÃO é divergência", () => {

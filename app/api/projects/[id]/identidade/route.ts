@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
-import { decidirCliente } from "@/lib/cliente-do-projeto";
+import { clienteDaCapa } from "@/lib/cliente-do-projeto";
 import { getPrisma, isDatabaseConfigured } from "@/lib/db";
 import {
   aplicarGravacao,
@@ -110,23 +110,38 @@ export async function PUT(req: Request, { params }: Contexto) {
 
     /*
      * NOME E CLIENTE derivam da identidade quando a CAPA fala. O nome do
-     * cadastro não é sobrescrito por correção de ficha — só pela capa.
+     * cadastro não é sobrescrito por correção de ficha — só pela capa. O
+     * cliente também: capa vence e avisa (`clienteDaCapa`).
      */
     const dados: Prisma.ProjectUpdateInput = {
       identidade: identidade as unknown as Prisma.InputJsonValue,
     };
     if (r.obraDaCapa) dados.name = r.obraDaCapa;
-    if (origem === "capa" && (campos.orgao || campos.municipio)) {
-      const decisao = decidirCliente({
-        atual: projeto.client,
-        atualKey: projeto.clientKey,
-        lido: campos.orgao ?? "",
-        municipioLido: campos.municipio ?? "",
-      });
-      dados.client = decisao.client;
-      dados.clientKey = decisao.clientKey;
+    const cliente =
+      origem === "capa" && (campos.orgao || campos.municipio)
+        ? clienteDaCapa({
+            atual: projeto.client,
+            atualKey: projeto.clientKey,
+            lido: campos.orgao ?? "",
+            municipioLido: campos.municipio ?? "",
+          })
+        : null;
+    if (cliente) {
+      dados.client = cliente.client;
+      dados.clientKey = cliente.clientKey;
     }
     await prisma.project.update({ where: { id: projeto.id }, data: dados });
+
+    if (cliente?.divergencia) {
+      await createProjectEvent(prisma, {
+        projectId: projeto.id,
+        actor: { id: actor.userId, email: actor.email, name: actor.name },
+        type: "PROJECT_UPDATED",
+        title: "Cliente trocado pela capa do geral",
+        summary: `O cadastro dizia "${cliente.divergencia.cadastrado}"; a capa diz "${cliente.divergencia.lido}".`,
+        details: cliente.divergencia,
+      });
+    }
 
     for (const d of r.divergencias) {
       await createProjectEvent(prisma, {

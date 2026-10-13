@@ -176,6 +176,27 @@ export function decidirCliente(args: {
 }
 
 /**
+ * O CLIENTE QUANDO A CAPA DO MEMORIAL GERAL FALA (13/10/2026).
+ *
+ * A exceção a `decidirCliente`: a capa do geral não é "um PDF qualquer", é a
+ * identidade do projeto — ela já troca o nome, e trocava só o nome (o 040-26
+ * ficava "IÇARA" numa obra de Chapecó). Capa vence e avisa: o cliente passa a
+ * ser o lido e a divergência volta para virar `ProjectEvent`. Mesmo cliente
+ * com outra grafia não reescreve o cadastro.
+ */
+export function clienteDaCapa(args: {
+  atual: string;
+  atualKey: string;
+  lido: string;
+  municipioLido: string;
+}): DecisaoDeCliente {
+  const d = decidirCliente(args);
+  if (!d.divergencia) return d;
+  const lido = args.lido.trim();
+  return { ...d, client: lido, clientKey: slugDoCliente(args.municipioLido || lido) };
+}
+
+/**
  * `"PREFEITURA MUNICIPAL DE FLORIANÓPOLIS"` → `"FLORIANÓPOLIS"`.
  *
  * O NOME CURTO É PARA A TELA, e só para ela. `slugDoCliente` existe para
