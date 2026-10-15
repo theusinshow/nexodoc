@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { persistCoverGenerationArtifacts } from "@/lib/cover-artifacts";
 import { generateOdtBuffer } from "@/server/odt";
 import { convertOdtToPdf } from "@/server/pdf";
+import { semPaginasEmBranco } from "./pagina-em-branco";
 import { getFileName } from "@/lib/cover-utils";
 import type { GeneralData, CoverPage } from "@/modules/cover-generator/types";
 
@@ -78,7 +79,9 @@ export async function generateCovers(
 
   if (input.includePdf !== false) {
     const result = await convertOdtToPdf(odtBuffer);
-    pdfBuffer = result.pdfBuffer;
+    // Obra longa enche a folha e o parágrafo obrigatório do fim do modelo cai
+    // numa página nova, vazia — ver `pagina-em-branco.ts`.
+    pdfBuffer = result.pdfBuffer ? (await semPaginasEmBranco(result.pdfBuffer).catch(() => ({ buffer: result.pdfBuffer! }))).buffer : null;
     pdfError = result.error;
   }
 

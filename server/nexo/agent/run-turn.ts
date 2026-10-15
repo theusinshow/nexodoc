@@ -22,6 +22,7 @@ import type { NexoAgentProposal, NexoAgentTurn } from "@/modules/nexo/types";
 import { normalizeProposals } from "./normalize";
 import type { DadosDoEscritorio } from "@/lib/escritorio";
 import { createSplitState, pushChunk, endStream, parseTail } from "./split-stream";
+import { linhaDaDisciplina } from "./linha-da-disciplina";
 
 /** Fatos objetivos extraídos dos selos (via buildLdProposal, determinístico). */
 export interface NexoAgentSelosResumo {
@@ -32,6 +33,12 @@ export interface NexoAgentSelosResumo {
   totalFolhas: number;
   /** Palpite de título (tituloSecao mais frequente entre as pranchas). */
   tituloSugerido: string;
+  /**
+   * As disciplinas do volume, uma por bloco, na ordem em que entram. Com mais de
+   * uma, `disciplina` acima é só a MAIS FREQUENTE — e o Nexo respondia "li 7
+   * folhas da disciplina ESTRUTURAL" com 6 EST + 1 HID (15/10/2026).
+   */
+  blocos?: { disciplina: string; folhas: number }[];
 }
 
 /** Uma prefeitura disponível (template de capa). */
@@ -122,7 +129,7 @@ function buildPrompt(input: RunNexoAgentTurnInput): string {
 
   return `
 Você é o Nexo, assistente de um escritório de engenharia. O engenheiro já anexou
-as pranchas de UMA disciplina e o sistema JÁ LEU os selos (fatos abaixo). Sua
+as pranchas e o sistema JÁ LEU os selos (fatos abaixo). Sua
 função é interpretar o pedido e PROPOR os parâmetros para gerar a LD e/ou a capa.
 Você NÃO gera nada — quem gera é o botão de confirmação do usuário.
 
@@ -190,7 +197,7 @@ REGRAS:
 - Responda em português do Brasil, curto e direto.
 
 FATOS JÁ LIDOS DOS SELOS (não pergunte de novo):
-- Disciplina: ${resumo.disciplina || "?"}
+${linhaDaDisciplina(resumo)}
 - Código: ${resumo.codigo || "?"} · Revisão: ${resumo.revisao || "?"}
 - Obra: ${resumo.obra || "?"}
 - Nº de folhas: ${resumo.totalFolhas}

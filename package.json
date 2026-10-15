@@ -176,6 +176,8 @@
     "test:nexo:layout": "node scripts/test-nexo-layout.ts",
     "test:nexo:drop": "node scripts/test-nexo-drop.ts",
     "test:nexo:fileira-por-blocos": "node scripts/test-nexo-fileira-por-blocos.ts",
+    "test:pagina-em-branco": "node scripts/test-pagina-em-branco.ts",
+    "test:linha-da-disciplina": "node scripts/test-linha-da-disciplina.ts",
     "test:nexo:fatos": "node scripts/test-nexo-fatos.ts",
     "test:nexo:audit-delta": "node scripts/test-nexo-audit-delta.ts",
     "test:nexo:audit-desconexao": "node scripts/test-nexo-audit-desconexao.ts",

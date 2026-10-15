@@ -215,6 +215,13 @@ export function NexoChat({
     });
   }, []);
   const [busy, setBusy] = useState(false);
+  /*
+   * ENVIO QUE ESPERA A LEITURA (15/10/2026). Soltar folhas lê na hora; Enter no
+   * meio da leitura mandava ao agente só as folhas lidas até ali — com 6 EST
+   * lidas e a HID ainda lendo, ele respondia sobre metade do volume. Agora o
+   * envio fica guardado e sai sozinho quando a última folha terminar.
+   */
+  const [envioEsperando, setEnvioEsperando] = useState<{ textArg?: string; forcarNexo: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -431,12 +438,29 @@ export function NexoChat({
    * `send` de volta, e ali `auditoriaAtual` continua preenchido — sem esta
    * saída o turno voltaria ao chat da auditoria para sempre, e a tela travaria.
    */
+  // A leitura terminou com um envio guardado: ele sai agora, com todas as folhas.
+  const lendo = Boolean(readStatus?.busy);
+  useEffect(() => {
+    if (lendo || !envioEsperando) return;
+    const raf = requestAnimationFrame(() => {
+      setEnvioEsperando(null);
+      void send(envioEsperando.textArg, envioEsperando.forcarNexo);
+    });
+    return () => cancelAnimationFrame(raf);
+    // `send` é recriada a cada render; o que dispara é a leitura acabar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lendo, envioEsperando]);
+
   async function send(textArg?: string, forcarNexo = false) {
     const digitado = (textArg ?? input).trim();
     // O achado preso só vale para o que foi DIGITADO: chip e "tentar de novo" mandam o texto deles.
     const sobre = textArg === undefined ? achadoAnexado : null;
     const text = sobre && digitado ? textoDaPergunta(sobre, sobre.pagina, digitado) : digitado;
     if (!text || busy) return;
+    if (readStatus?.busy) {
+      setEnvioEsperando({ textArg, forcarNexo });
+      return;
+    }
     // Aba travada (conversa mudada em outra aba) não chama o agente: o turno
     // seria pago e descartado pela fila. O campo já diz o porquê.
     if (!podeGastar) return;
@@ -877,6 +901,11 @@ export function NexoChat({
                 )}
                 {readStatus.text}
               </div>
+              {envioEsperando && (
+                <p className="text-xs text-muted-foreground">
+                  Sua mensagem sai assim que a leitura terminar. Pode soltar mais folhas.
+                </p>
+              )}
               {/*
                 A barra só enquanto se LÊ. Depois de pronta ela seria uma fita
                 cheia dizendo o que a frase acima já diz, ocupando a linha que o

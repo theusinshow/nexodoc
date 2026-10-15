@@ -15,6 +15,7 @@ import {
 import { buildSlotRequestForTurn } from "@/server/nexo/agent/slot-request";
 import { tomosPorDisciplina } from "@/lib/ld/ld-rules";
 import { codigoDoSelo } from "@/modules/nexo/lib/disciplina-da-folha";
+import { disciplinaLabel } from "@/server/nexo/disciplinas";
 import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
 import { carregarEscritorio } from "@/lib/escritorio-config";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
@@ -46,6 +47,22 @@ type ChatTurn = { role: "user" | "assistant"; content: string };
  * lista de prefeituras, e delega a interpretação ao cérebro (run-turn). A
  * geração NÃO acontece aqui — o cliente confirma e chama /api/nexo/ld|capa.
  */
+/**
+ * As disciplinas do volume, com a contagem de cada — pela MESMA regra que o
+ * canvas e a montagem usam para os blocos (`codigoDoSelo`), na ordem em que
+ * aparecem e com as folhas sem disciplina por último.
+ */
+function blocosDosSelos(selos: SeloForLd[]): { disciplina: string; folhas: number }[] {
+  const contagem = new Map<string, number>();
+  for (const s of selos) {
+    const codigo = codigoDoSelo(s.fileName, s.disciplina, s.arquivo).trim().toLowerCase();
+    contagem.set(codigo, (contagem.get(codigo) ?? 0) + 1);
+  }
+  const ordem = [...contagem.keys()].filter((c) => c !== "");
+  if (contagem.has("")) ordem.push("");
+  return ordem.map((c) => ({ disciplina: c ? (disciplinaLabel(c) ?? c).toUpperCase() : "", folhas: contagem.get(c) ?? 0 }));
+}
+
 export async function POST(req: NextRequest) {
   if (!isNexoEnabled()) {
     return NextResponse.json({ error: "Modulo Nexo desativado." }, { status: 404 });
@@ -155,6 +172,7 @@ export async function POST(req: NextRequest) {
         obra: proposal.resumo.obra,
         totalFolhas: proposal.resumo.totalFolhas,
         tituloSugerido: proposal.input.ldData.sectionTitle,
+        blocos: blocosDosSelos(selos),
       }
     : {
         disciplina: "",

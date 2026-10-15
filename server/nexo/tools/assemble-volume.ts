@@ -1,6 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 
 import { paginasDaParte } from "@/server/nexo/volume-plano";
+import { semPaginasEmBranco } from "@/server/nexo/tools/pagina-em-branco";
 import { buildRowPdf } from "@/modules/volume-builder/lib/volume/assembly-builder";
 import type {
   AssemblyRow,
@@ -195,11 +196,30 @@ function buildRowFromParts(parts: VolumePart[]): {
 export async function assembleVolume(
   input: AssembleVolumeInput,
 ): Promise<AssembleVolumeOutput> {
-  const parts = Array.isArray(input.parts) ? input.parts : [];
+  const recebidas = Array.isArray(input.parts) ? input.parts : [];
 
-  if (parts.length === 0) {
+  if (recebidas.length === 0) {
     return { pdf: null, error: "Nenhuma parte informada para montar o volume." };
   }
+
+  /*
+   * As peças GERADAS (capa, separatriz, LD) entram sem página em branco: a capa
+   * de Chapecó com obra longa saía com uma segunda folha vazia, e ela ia junto
+   * para o volume (15/10/2026, ver `pagina-em-branco.ts`). Prancha nunca é
+   * mexida — o que o engenheiro mandou entra como veio.
+   */
+  const parts = await Promise.all(
+    recebidas.map(async (part) => {
+      if (!part || part.role === "prancha" || !Buffer.isBuffer(part.buffer) || part.buffer.byteLength === 0) return part;
+      if (typeof part.startPage === "number" || typeof part.endPage === "number") return part;
+      try {
+        const { buffer } = await semPaginasEmBranco(part.buffer);
+        return buffer === part.buffer ? part : { ...part, buffer };
+      } catch {
+        return part; // PDF ilegível: a validação abaixo diz qual parte é
+      }
+    }),
+  );
 
   // Valida cada parte como PDF antes de fundir, para reportar QUAL parte falhou
   // (buildRowPdf lancaria sem identificar a parte). De carona, conta quantas
