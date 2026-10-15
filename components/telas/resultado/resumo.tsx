@@ -22,7 +22,7 @@ import { useTempo } from "@/lib/ds/tempo";
 import { DISCIPLINAS, NIVEIS, type Nivel } from "@/lib/nivel-do-achado";
 import type { FindingDiscipline } from "@/lib/audit-report";
 
-import { SeloDaDisciplina } from "../comum/disciplina";
+import { SelosDasDisciplinas } from "../comum/disciplina";
 import { NOME_DO_DESFECHO, conta } from "./textos";
 import type { AchadoDaTela, ParecerVivo } from "./use-parecer-vivo";
 import "./resultado-c.css";
@@ -98,7 +98,7 @@ export function ResumoDoParecer({
   const pendentes = achados.filter((a) => !a.desfecho);
   const tratados = achados.filter((a) => a.desfecho);
   const porDisciplina = DISCIPLINAS.map((d) => {
-    const dela = achados.filter((a) => a.disc === d.id);
+    const dela = achados.filter((a) => a.discs.includes(d.id));
     return { ...d, total: dela.length, pendentes: dela.filter((a) => !a.desfecho).length };
   })
     .filter((d) => d.total)
@@ -172,7 +172,7 @@ export function ResumoDoParecer({
                     >
                       <button type="button" className="rc-linha-corpo" onClick={() => onAbrir(a.chave)}>
                         <span className="rc-titulo">{a.titulo}</span>
-                        <SeloDaDisciplina disc={a.disc} />
+                        <SelosDasDisciplinas discs={a.discs} maximo={1} />
                         {a.responsavel ? <AvatarDaPessoa email={a.responsavel.email} iniciais={iniciais(a.responsavel.nome)} pequeno /> : <span className="rc-sem">sem responsável</span>}
                       </button>
                       <span className="rc-acoes">

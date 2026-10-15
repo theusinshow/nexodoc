@@ -147,7 +147,7 @@ export function NoDocumento({
               >
                 <b>{a.titulo}</b>
                 <small>
-                  {DISCIPLINAS.find((d) => d.id === a.disc)?.sigla ?? "GER"}
+                  {a.discs.map((id) => DISCIPLINAS.find((d) => d.id === id)?.sigla ?? "GER").join(" · ")}
                   {a.desfecho ? `, ${NOME_DO_DESFECHO[a.desfecho.tipo].toLowerCase()}` : ""}
                 </small>
               </button>

@@ -871,6 +871,10 @@
 .ds .dc { display: inline-flex; align-items: center; gap: 5px; font-family: var(--ds-font-mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--dc-cor); white-space: nowrap; }
 .ds .dc i { width: 6px; height: 6px; border-radius: 2px; background: var(--dc-cor); }
 .ds .dc--nome { font-family: var(--ds-font-sans); font-size: var(--ds-text-2xs); letter-spacing: 0; }
+/* Principal + envolvidas: as siglas extras vêm mais quietas, a principal manda. */
+.ds .dc-varias { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.ds .dc-varias > .dc + .dc { opacity: 0.8; }
+.ds .dc-mais { font-family: var(--ds-font-mono); font-size: 10.5px; color: var(--ds-text-tertiary); }
 .ds .dc--arquitetura { --dc-cor: var(--ds-disc-arq); }
 .ds .dc--estrutural { --dc-cor: var(--ds-disc-est); }
 .ds .dc--hidrossanitario { --dc-cor: var(--ds-disc-hid); }

@@ -133,6 +133,30 @@ export function disciplinaDoAchado(
 }
 
 /**
+ * As disciplinas das OUTRAS páginas do achado — fora a `principal`, sem
+ * repetir, na ordem das páginas. Um achado que cita a p. 70 (capítulo de
+ * arquitetura) e a p. 123 (capítulo de hidrossanitário) é dos dois capítulos;
+ * a principal sozinha o escondia de quem revisa o segundo.
+ */
+export function disciplinasEnvolvidas(
+  paginas: readonly number[],
+  principal: FindingDiscipline | undefined,
+  mapa: ReadonlyMap<number, FindingDiscipline> | undefined,
+): FindingDiscipline[] {
+  if (!mapa) return [];
+  const vistas = new Set<FindingDiscipline>(principal ? [principal] : []);
+  const saida: FindingDiscipline[] = [];
+  for (const p of paginas) {
+    const d = mapa.get(p);
+    if (d && d !== "geral" && !vistas.has(d)) {
+      vistas.add(d);
+      saida.push(d);
+    }
+  }
+  return saida;
+}
+
+/**
  * A disciplina que VALE para o achado nesta corrida.
  *
  * A PÁGINA MANDA, e a gravada só entra quando a página não sabe responder — a

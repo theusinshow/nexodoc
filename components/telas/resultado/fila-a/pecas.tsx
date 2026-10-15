@@ -17,7 +17,7 @@ import { CartaoDoMotor } from "@/components/achado/cartao-do-motor";
 import { ConversaDoAchado } from "@/components/achado/conversa-do-achado";
 import { OQueFazer } from "@/components/achado/o-que-fazer";
 import { getHighlightNeedle } from "@/components/audit-result";
-import { SeloDaDisciplina } from "@/components/telas/comum/disciplina";
+import { SelosDasDisciplinas } from "@/components/telas/comum/disciplina";
 import { Trecho } from "@/components/telas/resultado/fila";
 import { PreviaDoTrecho } from "@/components/telas/resultado/previa-do-trecho";
 import { NOME_DO_DESFECHO, conta } from "@/components/telas/resultado/textos";
@@ -294,7 +294,7 @@ export function MetaDaLinha({ f, a }: { f: Fila; a: AchadoDaTela }) {
     );
   return (
     <>
-      {f.agrupar === "disciplina" ? <i className={`rs-ponto rs-ponto--${a.nivel}`} title={NIVEIS.find((n) => n.id === a.nivel)?.nome} /> : <SeloDaDisciplina disc={a.disc} />}
+      {f.agrupar === "disciplina" ? <i className={`rs-ponto rs-ponto--${a.nivel}`} title={NIVEIS.find((n) => n.id === a.nivel)?.nome} /> : <SelosDasDisciplinas discs={a.discs} maximo={1} />}
       {a.comentarios > 0 && <span className="rs-linha-conversa ds-num" title={conta(a.comentarios, "comentário", "comentários")}>{a.comentarios}</span>}
       {a.responsavel ? <AvatarDaPessoa email={a.responsavel.email} iniciais={iniciais(a.responsavel.nome)} pequeno /> : <span className="rs-sem-dono">sem responsável</span>}
     </>
@@ -489,7 +489,7 @@ export function CabecaDoAchado({ f, a, navegar = true }: { f: Fila; a: AchadoDaT
       <Selo tom={a.nivel} ponto>
         {nivel?.nome}
       </Selo>
-      <SeloDaDisciplina disc={a.disc} nome />
+      <SelosDasDisciplinas discs={a.discs} nome />
       <span className="rs-origem">
         {!a.confirmado ? "Sugestão da IA: não conta" : a.origem === "regra" ? "Regra verificada" : a.origem === "chat" ? "Achado da conversa" : "Lido pela IA, mantido pelo 2º modelo"}
       </span>

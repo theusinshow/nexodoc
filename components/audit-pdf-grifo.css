@@ -102,6 +102,10 @@
 }
 .grifo-balao--abaixo::before { top: -4px; }
 .grifo-balao--acima::before { bottom: -4px; }
+/* Arrastado, a ponta mentiria: ela aponta para um trecho que não está mais ali. */
+.grifo-balao--solto::before { display: none; }
+.grifo-balao [data-alca] { cursor: grab; touch-action: none; }
+.grifo-balao [data-alca]:active { cursor: grabbing; }
 
 @media (prefers-reduced-motion: reduce) {
   .grifo-faixa--pinta { animation: none; }

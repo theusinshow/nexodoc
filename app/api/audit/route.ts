@@ -29,7 +29,8 @@ import {
   type CoberturaDoArquivo,
   type AuditReport,
 } from "@/lib/audit-report";
-import { disciplinaPorPagina, disciplinaQueVale } from "@/lib/disciplina-da-pagina";
+import { disciplinaPorPagina, disciplinaQueVale, disciplinasEnvolvidas } from "@/lib/disciplina-da-pagina";
+import { paginasDoAchado } from "@/lib/paginas-do-achado";
 import { severidadeDoAchado } from "@/lib/severidade";
 import {
   medirCertezaDaLista,
@@ -4419,6 +4420,20 @@ async function executarAuditoria(
         // Ver `disciplinaQueVale` -- a ordem inversa deixava o conserto da
         // leitura de cabecalho invisivel em todo achado HERDADO.
         const disciplina = disciplinaQueVale(finding.disciplina, finding.pagina, mapa);
+        // As outras paginas citadas, pelo cabecalho de cada uma: o conflito
+        // entre dois capitulos e das duas disciplinas. Herdado rederiva pelo
+        // mesmo motivo da principal; sem mapa, fica o que estava gravado.
+        const envolvidas = mapa
+          ? disciplinasEnvolvidas(
+              paginasDoAchado({
+                pagina: finding.pagina,
+                referencia: finding.referencia_comparada,
+                textos: [finding.conflito, finding.descricao, finding.evidencia],
+              }),
+              disciplina,
+              mapa,
+            )
+          : (finding.disciplinas_envolvidas ?? []);
         /*
          * A PRIORIDADE PASSA A SER DERIVADA, e não mais o campo livre que o
          * modelo preenchia — dois achados idênticos em documentos diferentes
@@ -4449,6 +4464,7 @@ async function executarAuditoria(
           // Ausente quando a página não tem cabeçalho: é o que preserva o
           // fallback da inferência em vez de afirmar "geral" sem base.
           ...(disciplina ? { disciplina } : {}),
+          disciplinas_envolvidas: envolvidas.length ? envolvidas : undefined,
         };
       },
     );

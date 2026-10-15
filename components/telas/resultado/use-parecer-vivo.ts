@@ -22,7 +22,7 @@ import {
 } from "@/components/audit-result";
 import { classifyFindingTier, type AuditFinding, type AuditReport, type FindingDiscipline } from "@/lib/audit-report";
 import type { Desfecho } from "@/lib/desfecho-do-achado";
-import { disciplinaDoAchado, nivelDoAchado, type Nivel } from "@/lib/nivel-do-achado";
+import { disciplinasDoAchado, nivelDoAchado, type Nivel } from "@/lib/nivel-do-achado";
 import { paginasDoAchado } from "@/lib/paginas-do-achado";
 import { rotuloDoAchado } from "@/lib/rotulo-do-achado";
 
@@ -43,7 +43,13 @@ export interface AchadoDaTela {
   id: string;
   titulo: string;
   nivel: Nivel;
+  /** A principal — onde o achado é agrupado. */
   disc: FindingDiscipline;
+  /**
+   * Todas, a principal primeiro: um conflito entre arquitetura e
+   * hidrossanitário aparece no filtro das duas.
+   */
+  discs: FindingDiscipline[];
   paginas: number[];
   /** O campo de página como veio ("8, 60"). */
   pagina: string | null;
@@ -86,12 +92,14 @@ function porQue(falharam: readonly { email: string; erro?: string }[]) {
 
 function montarAchado(f: AuditFinding, linha: SavedFeedback | undefined, euSou: string): AchadoDaTela {
   const resolvido = Boolean(linha?.resolvedAt);
+  const discs = disciplinasDoAchado(f);
   return {
     chave: f.id,
     id: rotuloDoAchado(f.id),
     titulo: reportFindingToStructured(f).title,
     nivel: nivelDoAchado(f),
-    disc: disciplinaDoAchado(f),
+    disc: discs[0],
+    discs,
     // A prosa também: a IA escreve "(pág. 10) × (pág. 22)" no conflito e grava só "10" em `pagina`.
     paginas: paginasDoAchado({ pagina: f.pagina, referencia: f.referencia_comparada, textos: [f.conflito, f.descricao, f.evidencia] }),
     pagina: f.pagina || null,

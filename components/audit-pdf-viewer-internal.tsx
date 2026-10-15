@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as EventoDePonteiro, type ReactNode } from "react";
 import { Page, pdfjs } from "react-pdf";
 import { Skeleton } from "@/components/ui/skeleton";
 import { alturasDosPinos, caixasPelaGeometria, faixasPorLinha, segmentosPorItem, type Caixa, type ItemComGeometria } from "@/lib/faixas-do-grifo";
@@ -98,6 +98,8 @@ type AuditPdfViewerInternalProps = {
    * primeira quando o trecho está no pé da folha — e rola junto com a página.
    */
   balao?: ReactNode;
+  /** Muda quando o dono pede o balão de volta ao trecho (G): desfaz o arrasto. */
+  voltaDoBalao?: number;
   /**
    * A largura da página em 100%, quando o dono mede o espaço (as duas folhas
    * lado a lado). Sem ela, `LARGURA_BASE_DA_PAGINA`.
@@ -150,6 +152,7 @@ export default function AuditPdfViewerInternal({
   realce,
   onRealce,
   balao,
+  voltaDoBalao,
   largura = LARGURA_BASE_DA_PAGINA,
 }: AuditPdfViewerInternalProps) {
   // O documento é emprestado de `pdf-compartilhado`: a prévia, o visor e o
@@ -373,6 +376,61 @@ export default function AuditPdfViewerInternal({
     onGrifo(Boolean(faixas && faixas.size > 0), page);
   }, [onGrifo, itens, paginaDosItens, page, needle, faixas]);
 
+  /*
+   * O BALÃO SE ARRASTA (15/10/2026). Preso ao trecho ele cobria justamente as
+   * linhas de baixo, que às vezes são o resto da prova. Arrastado, fica onde a
+   * pessoa largou até o grifo mudar (outro achado, outra página); duplo clique
+   * na alça devolve ao trecho. Arrastar exige 4 px: menos que isso é clique, e
+   * o clique da pílula continua abrindo o balão.
+   */
+  const [arrasto, setArrasto] = useState<{ chave: string; dx: number; dy: number } | null>(null);
+  const acabouDeArrastar = useRef(false);
+  // A chave junta o grifo e o "volta" do dono: mudou qualquer um, o desvio caduca.
+  const chaveDoArrasto = `${chaveDoDesenho}|${voltaDoBalao ?? 0}`;
+  const desvio = arrasto && arrasto.chave === chaveDoArrasto ? arrasto : null;
+  /*
+   * O movimento é ouvido na JANELA: o primeiro passo do mouse já sai da pílula
+   * (28 px de altura), e o balão não ouviria o resto. Captura de ponteiro
+   * resolveria, mas mudaria o alvo do clique — e a pílula deixaria de abrir.
+   */
+  const pegarOBalao = (e: EventoDePonteiro<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    // O texto do balão aberto se seleciona; só a alça (topo e pílula) arrasta.
+    if (!(e.target as HTMLElement).closest("[data-alca]")) return;
+    const folha = e.currentTarget.parentElement?.getBoundingClientRect();
+    if (!folha) return;
+    e.preventDefault();
+    const caixa = e.currentTarget.getBoundingClientRect();
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const dx0 = desvio?.dx ?? 0;
+    const dy0 = desvio?.dy ?? 0;
+    const chave = chaveDoArrasto;
+    let moveu = false;
+    const mover = (ev: PointerEvent) => {
+      let mx = ev.clientX - x0;
+      let my = ev.clientY - y0;
+      if (!moveu && Math.hypot(mx, my) < 4) return;
+      moveu = true;
+      // Dentro da folha: um balão fora da página não tem como ser pego de volta.
+      mx = Math.max(folha.left - caixa.left, Math.min(mx, folha.right - caixa.right));
+      my = Math.max(folha.top - caixa.top, Math.min(my, folha.bottom - caixa.bottom));
+      setArrasto({ chave, dx: dx0 + mx, dy: dy0 + my });
+    };
+    const soltar = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      window.removeEventListener("pointercancel", soltar);
+      if (!moveu) return;
+      // O clique que fecha um arrasto não é clique; se ele não vier, a trava cai sozinha.
+      acabouDeArrastar.current = true;
+      setTimeout(() => (acabouDeArrastar.current = false), 0);
+    };
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+    window.addEventListener("pointercancel", soltar);
+  };
+
   // Onde o balão encosta: as linhas do grifo ativo, já medidas.
   const linhasDoAtivo = desenho && desenho.chave === chaveDoDesenho ? desenho.grupos.find((g) => g.grifo === 0)?.faixas : undefined;
   const lugarDoBalao = (() => {
@@ -470,7 +528,25 @@ export default function AuditPdfViewerInternal({
           </div>
         )}
         {lugarDoBalao && (
-          <div className={`grifo-balao grifo-balao--${lugarDoBalao.acima ? "acima" : "abaixo"}`} data-tom={tom} style={lugarDoBalao.estilo}>
+          <div
+            className={`grifo-balao grifo-balao--${lugarDoBalao.acima ? "acima" : "abaixo"}${desvio ? " grifo-balao--solto" : ""}`}
+            data-tom={tom}
+            style={{ ...lugarDoBalao.estilo, // `transform`, não `translate`: a animação de entrada anima `translate` com
+              // fill-mode both, e venceria o inline.
+              ...(desvio ? { transform: `translate(${desvio.dx}px, ${desvio.dy}px)` } : {}) }}
+            onPointerDown={pegarOBalao}
+            onClickCapture={(e) => {
+              // O clique que fecha um arrasto não é clique: não abre nem recolhe.
+              if (acabouDeArrastar.current) {
+                acabouDeArrastar.current = false;
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            onDoubleClick={(e) => {
+              if ((e.target as HTMLElement).closest("[data-alca]")) setArrasto(null);
+            }}
+          >
             {balao}
           </div>
         )}

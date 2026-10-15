@@ -81,6 +81,14 @@ export type AuditFinding = {
    * classificação cai na varredura do texto do achado.
    */
   disciplina?: FindingDiscipline;
+  /**
+   * As OUTRAS disciplinas que o achado envolve, lidas do cabeçalho das demais
+   * páginas que ele cita (`lib/disciplina-da-pagina.ts`). Um conflito entre o
+   * capítulo de arquitetura e o de hidrossanitário é dos dois — e com uma
+   * disciplina só, quem filtrava hidrossanitário não o via. Nunca repete a
+   * `disciplina`. Ausente em parecer antigo; aí a prosa responde.
+   */
+  disciplinas_envolvidas?: FindingDiscipline[];
   referencia_comparada?: string;
   conflito: string;
   sugestao_correcao: string;
@@ -772,6 +780,64 @@ export function classifyFindingDiscipline(finding: AuditFinding): FindingDiscipl
   }
 
   return disciplinaDoTexto(findingHaystack(finding)) ?? "geral";
+}
+
+/*
+ * OS NOMES DAS DISCIPLINAS, e não o vocabulário delas.
+ *
+ * `DISCIPLINE_RULES` casa palavra de ASSUNTO ("pintura", "esgoto", "split") —
+ * serve para adivinhar a disciplina de um texto que não diz qual é. Para saber
+ * se um achado ENVOLVE outra disciplina, isso casa demais: "aquecimento
+ * elétrico" num achado de arquitetura não envolve o projeto elétrico. Aqui só
+ * entra quando o achado NOMEIA a disciplina ("a arquitetura prevê…, enquanto o
+ * hidrossanitário declara…") — que é como a IA escreve um conflito entre
+ * capítulos. `estrutura` sozinha fica de fora: é palavra comum.
+ */
+const NOMES_DAS_DISCIPLINAS: Array<{ key: FindingDiscipline; pattern: RegExp }> = [
+  { key: "arquitetura", pattern: /\b(?:arquitetura|arquitetonic)/ },
+  { key: "estrutural", pattern: /\b(?:estrutural|projeto de estrutura|calculo estrutural)/ },
+  // "Sistema hidráulico" é do PPCI (hidrantes); só o PROJETO hidráulico é desta.
+  { key: "hidrossanitario", pattern: /\b(?:hidrossanit|projeto hidraulic|instalacoes hidraulicas|instalacoes sanitarias)/ },
+  { key: "eletrico", pattern: /\b(?:projeto eletrico|instalacoes eletricas|instalacao eletrica|capitulo de eletrica|o eletrico|a eletrica)\b/ },
+  { key: "ppci", pattern: /\b(?:ppci|preventivo de incendio|prevencao (?:e combate )?(?:a|contra) incendio|combate a incendio)/ },
+  { key: "cabeamento", pattern: /\b(?:cabeamento|cftv)/ },
+  { key: "climatizacao", pattern: /\b(?:climatiza)/ },
+  { key: "gases_medicinais", pattern: /\b(?:gases medicinais)/ },
+  { key: "terraplenagem", pattern: /\b(?:terraplenagem)/ },
+  { key: "drenagem", pattern: /\b(?:drenagem)/ },
+  { key: "pavimentacao", pattern: /\b(?:pavimentacao)\b/ },
+  { key: "sinalizacao", pattern: /\b(?:sinalizacao viaria)/ },
+  { key: "urbanizacao", pattern: /\b(?:urbanizacao)/ },
+  { key: "paisagismo", pattern: /\b(?:paisagism)/ },
+  { key: "acessibilidade", pattern: /\b(?:acessibilidade)/ },
+];
+
+/** As disciplinas que um texto NOMEIA, na ordem da lista. */
+export function disciplinasNomeadas(texto: string): FindingDiscipline[] {
+  const alvo = normalizeForMatch(texto);
+  return NOMES_DAS_DISCIPLINAS.filter((n) => n.pattern.test(alvo)).map((n) => n.key);
+}
+
+/**
+ * TODAS as disciplinas do achado: a principal primeiro, depois as envolvidas.
+ *
+ * Envolvida é o que o servidor leu nas outras páginas citadas
+ * (`disciplinas_envolvidas`) mais o que o próprio achado nomeia no tipo, na
+ * descrição, no conflito e na referência. A `evidencia` fica de fora pelo
+ * mesmo motivo de sempre: são as palavras do memorial, não a natureza do
+ * defeito. "Geral" nunca é envolvida — é ausência de disciplina.
+ */
+export function classifyFindingDisciplines(finding: AuditFinding): FindingDiscipline[] {
+  const principal = classifyFindingDiscipline(finding);
+  const prosa = disciplinasNomeadas(
+    [finding.tipo, finding.descricao, finding.conflito, finding.referencia_comparada ?? ""].join(" "),
+  );
+  const envolvidas = [...new Set([...(finding.disciplinas_envolvidas ?? []), ...prosa])].filter(
+    (d) => d !== "geral" && d !== principal,
+  );
+  // "Geral" é não saber: se alguma disciplina apareceu, ela assume a frente.
+  if (principal === "geral" && envolvidas.length) return envolvidas;
+  return [principal, ...envolvidas];
 }
 
 /*

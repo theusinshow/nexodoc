@@ -11,7 +11,7 @@
  * ortografia, acentuação, concordância ou pontuação vira "texto"; o resto da
  * revisão editorial fica "note". Assim nenhum parecer antigo precisa migrar.
  */
-import { classifyFindingDiscipline, classifyFindingImpact, type AuditFinding, type FindingDiscipline } from "./audit-report.ts";
+import { classifyFindingDiscipline, classifyFindingDisciplines, classifyFindingImpact, type AuditFinding, type FindingDiscipline } from "./audit-report.ts";
 
 export type Nivel = "block" | "decide" | "note" | "texto";
 
@@ -59,4 +59,9 @@ export function nivelDoAchado(achado: AuditFinding): Nivel {
 
 export function disciplinaDoAchado(achado: AuditFinding): FindingDiscipline {
   return classifyFindingDiscipline(achado);
+}
+
+/** A principal primeiro, depois as que o achado também envolve. */
+export function disciplinasDoAchado(achado: AuditFinding): FindingDiscipline[] {
+  return classifyFindingDisciplines(achado);
 }

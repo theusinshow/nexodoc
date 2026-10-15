@@ -116,7 +116,7 @@ export function useFila({
   };
   const alternarEm = <T,>(lista: T[], set: (v: T[]) => void, v: T) => set(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v]);
 
-  const discsPresentes = DISCIPLINAS.map((d) => ({ ...d, n: confirmados.filter((a) => a.disc === d.id).length }))
+  const discsPresentes = DISCIPLINAS.map((d) => ({ ...d, n: confirmados.filter((a) => a.discs.includes(d.id)).length }))
     .filter((d) => d.n)
     .sort((a, b) => b.n - a.n);
   const tiposPresentes = [...new Set(confirmados.map((a) => a.estruturado.tipoErro).filter((t): t is FindingErrorType => Boolean(t)))].map((t) => ({
@@ -162,21 +162,24 @@ export function useFila({
     };
     return [...confirmados].sort(cmp).filter((a) => {
       if (niveis.length && !niveis.includes(a.nivel)) return false;
-      if (discs.length && !discs.includes(a.disc)) return false;
+      if (discs.length && !a.discs.some((d) => discs.includes(d))) return false;
       if (tipos.length && !(a.estruturado.tipoErro && tipos.includes(a.estruturado.tipoErro))) return false;
       if (responsavel !== "qualquer" && a.responsavel?.email !== responsavel) return false;
       if (!q) return true;
-      const disc = DISCIPLINAS.find((d) => d.id === a.disc)?.nome ?? "";
+      const disc = a.discs.map((id) => DISCIPLINAS.find((d) => d.id === id)?.nome ?? "").join(" ");
       return [a.id, a.chave, a.titulo, disc, a.pagina ? `p. ${a.pagina}` : "", a.bruto.evidencia ?? "", a.bruto.descricao ?? ""].some((t) => t.toLowerCase().includes(q));
     });
   }, [confirmados, busca, niveis, discs, tipos, responsavel, ordem]);
 
   const visiveis = useMemo(() => filtrados.filter((a) => passaNaSituacao(a, filtro)), [filtrados, filtro]);
 
+  // Agrupado por disciplina, o achado de várias mora num grupo só: o da
+  // principal — ou, com filtro de disciplina, o da primeira que o filtro pediu.
+  const grupoDaDisciplina = (a: AchadoDaTela) => (discs.length ? (a.discs.find((d) => discs.includes(d)) ?? a.disc) : a.disc);
   const grupos =
     agrupar === "impacto"
       ? NIVEIS.map((n) => ({ id: n.id as string, nome: n.nome, ponto: `rs-ponto rs-ponto--${n.id}`, itens: visiveis.filter((a) => a.nivel === n.id) }))
-      : DISCIPLINAS.map((d) => ({ id: d.id as string, nome: d.nome, ponto: `dc-ponto dc--${d.id}`, itens: visiveis.filter((a) => a.disc === d.id) }));
+      : DISCIPLINAS.map((d) => ({ id: d.id as string, nome: d.nome, ponto: `dc-ponto dc--${d.id}`, itens: visiveis.filter((a) => grupoDaDisciplina(a) === d.id) }));
 
   const meusCorrigidos = useMemo(() => {
     if (filtro !== "meus") return [];

@@ -186,6 +186,8 @@ try {
         confianca: "alta",
         origem: "ia",
         impacto: "revisao_editorial",
+        // Achado de duas disciplinas (15/10/2026): o selo mostra as duas.
+        ...(a.id === "INC-001" ? { disciplina: "arquitetura", disciplinas_envolvidas: ["hidrossanitario"] } : {}),
         // O balão mostra a troca pronta do texto corrigido.
         ...(a.id === "INC-001"
           ? { texto_corrigido: { tipo: "troca", procure_por: "trecho de conferencia 3", substitua_por: "trecho de conferência 3", modelo: "qa", geradoEm: new Date(0).toISOString() } }
@@ -246,6 +248,8 @@ try {
   // O achado entre páginas troca o "Ver no memorial" pelos chips "p. 3", "p. 7";
   // M abre o visor nos dois casos.
   await page.getByText("Achado semeado.").first().waitFor({ timeout: 15000 });
+  const selos = await page.evaluate(() => [...document.querySelectorAll(".dc-varias")].map((s) => s.textContent?.replace(/\s+/g, " ").trim()));
+  check("o achado de duas disciplinas mostra as duas", selos.some((t) => /Arquitetura.*HID|ARQ.*HID/.test(t ?? "")), JSON.stringify(selos));
   // A prévia do trecho, no detalhe do achado, divide o PDF com o visor (pdf-compartilhado).
   const previa = page.locator(".rs-previa").first();
   if (await previa.count()) {
@@ -389,6 +393,54 @@ try {
   await page.keyboard.press("b");
   await page.waitForTimeout(400);
   check("B recolhe o balão", (await balao())?.aberto === false);
+
+  // --- 1e. arrastar e esconder o balão (15/10/2026) --------------------------
+  const pilula = page.locator(".vm-balao-pilula");
+  const pAntes = await pilula.boundingBox();
+  await page.mouse.move(pAntes.x + 20, pAntes.y + pAntes.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(pAntes.x + 80, pAntes.y + pAntes.height / 2 - 120, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const pDepois = await pilula.boundingBox();
+  const b3 = await balao();
+  const desvio = await page.evaluate(() => document.querySelector(".vm-pdf .grifo-balao")?.style.transform ?? "");
+  check("arrastar a pílula move o balão junto com o mouse", desvio === "translate(60px, -120px)", `${desvio}; caixa dx ${Math.round(pDepois.x - pAntes.x)} dy ${Math.round(pDepois.y - pAntes.y)}`);
+  check("o arrasto não abre o balão (não é clique)", b3?.aberto === false);
+  check("arrastado, continua dentro da folha", b3?.dentro === true);
+  // Arrastar para muito longe para: a folha é a cerca.
+  await page.mouse.move(pDepois.x + 20, pDepois.y + pDepois.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(pDepois.x - 3000, pDepois.y, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  check("não dá para arrastar para fora da folha", (await balao())?.dentro === true);
+  // Aberto, continua onde foi largado; o duplo clique no topo dele devolve ao trecho.
+  await page.keyboard.press("b");
+  await page.waitForTimeout(400);
+  check("abrir não devolve o balão ao trecho", (await page.evaluate(() => document.querySelector(".vm-pdf .grifo-balao")?.style.transform ?? "")) !== "");
+  await page.locator(".vm-balao header b").dblclick();
+  await page.waitForTimeout(400);
+  const b4 = await balao();
+  check("duplo clique no topo devolve o balão ao trecho", b4 && b4.encosta !== null && b4.encosta >= 0 && b4.encosta <= 16, `vão ${b4?.encosta}px`);
+  // Arrastado de novo, G (volta ao grifo) também o traz de volta.
+  const topo = await page.locator(".vm-balao header").boundingBox();
+  await page.mouse.move(topo.x + 30, topo.y + topo.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(topo.x + 30, topo.y - 60, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.keyboard.press("g");
+  await page.waitForTimeout(400);
+  check("G também devolve o balão ao trecho", (await page.evaluate(() => document.querySelector(".vm-pdf .grifo-balao")?.style.transform ?? "")) === "");
+  await page.keyboard.press("b");
+  await page.waitForTimeout(300);
+  await visor.getByRole("button", { name: /^Esconder o balão/ }).click();
+  await page.waitForTimeout(300);
+  check("o botão do topo esconde o balão", (await balao()) === null);
+  await page.keyboard.press("Shift+B");
+  await page.waitForTimeout(300);
+  check("Shift+B traz o balão de volta", (await balao()) !== null);
 
   // --- 2. a folha órfã, pelo campo ----------------------------------------
   await ir(PAGINA_ORFA);

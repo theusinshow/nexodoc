@@ -134,7 +134,7 @@ export function RelatorioDoParecer({ report, parecer }: { report: AuditReport; p
                         <dt>Ação recomendada</dt>
                         <dd>{a.estruturado.acao || "revisar o trecho indicado"}</dd>
                         <dt>Disciplina</dt>
-                        <dd>{DISCIPLINAS.find((d) => d.id === a.disc)?.nome ?? "Geral"}</dd>
+                        <dd>{a.discs.map((id) => DISCIPLINAS.find((d) => d.id === id)?.nome ?? "Geral").join(", ")}</dd>
                         {a.desfecho && (
                           <>
                             <dt>Situação</dt>

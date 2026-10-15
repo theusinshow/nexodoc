@@ -18,8 +18,9 @@ import {
   disciplinaPorPagina,
   disciplinaDoAchado,
   disciplinaQueVale,
+  disciplinasEnvolvidas,
 } from "../lib/disciplina-da-pagina.ts";
-import { disciplinaDoTexto } from "../lib/audit-report.ts";
+import { classifyFindingDisciplines, disciplinaDoTexto, disciplinasNomeadas, type AuditFinding } from "../lib/audit-report.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -246,6 +247,53 @@ test("e achado novo não muda de caminho", () => {
   // Sem gravada (o modelo nao emite o campo), os dois caminhos coincidem.
   assert.equal(disciplinaQueVale(undefined, "1", mapa), "eletrico");
   assert.equal(disciplinaQueVale(undefined, "99", mapa), undefined);
+});
+
+// --- Achado de várias disciplinas (15/10/2026) --------------------------------
+
+test("as outras páginas citadas trazem as disciplinas delas", () => {
+  const mapa = disciplinaPorPagina([
+    pagina(70, "3 - PROJETO ARQUITETONICO esquadrias"),
+    pagina(123, "9 - PROJETO HIDROSSANITARIO agua quente"),
+  ]);
+  assert.deepEqual(disciplinasEnvolvidas([70, 123], "arquitetura", mapa), ["hidrossanitario"]);
+  // Nem a principal, nem repetida, nem página fora do mapa.
+  assert.deepEqual(disciplinasEnvolvidas([70, 70, 999], "arquitetura", mapa), []);
+  assert.deepEqual(disciplinasEnvolvidas([70, 123], "arquitetura", undefined), []);
+});
+
+const achado = (campos: Partial<AuditFinding>): AuditFinding => ({
+  id: "INC-1", prioridade: "Media", pagina: "70", capitulo: "", local: "", tipo: "", descricao: "",
+  evidencia: "", conflito: "", sugestao_correcao: "", confianca: "alta", ...campos,
+});
+
+test("a prosa que NOMEIA outra disciplina a envolve", () => {
+  const a = achado({
+    disciplina: "arquitetura",
+    descricao: "A arquitetura prevê aquecimento elétrico local, enquanto o hidrossanitário declara que não há instalação de água quente.",
+  });
+  // "aquecimento elétrico" é assunto, não o projeto elétrico.
+  assert.deepEqual(classifyFindingDisciplines(a), ["arquitetura", "hidrossanitario"]);
+});
+
+test("a evidência (palavras do memorial) não envolve ninguém", () => {
+  const a = achado({ disciplina: "eletrico", evidencia: "bancada em granito conforme projeto arquitetônico" });
+  assert.deepEqual(classifyFindingDisciplines(a), ["eletrico"]);
+});
+
+test("gravada pelo servidor + nomeada, sem repetir, principal primeiro", () => {
+  const a = achado({ disciplina: "eletrico", disciplinas_envolvidas: ["climatizacao"], conflito: "o capítulo de climatização e o projeto elétrico divergem" });
+  assert.deepEqual(classifyFindingDisciplines(a), ["eletrico", "climatizacao"]);
+});
+
+test("'geral' cede a frente quando alguma disciplina aparece", () => {
+  const a = achado({ descricao: "Hierarquia documental contraditória.", disciplinas_envolvidas: ["ppci"] });
+  assert.deepEqual(classifyFindingDisciplines(a), ["ppci"]);
+});
+
+test("nomes, não vocabulário: pavimento e estrutura soltos não contam", () => {
+  assert.deepEqual(disciplinasNomeadas("Centro Cirúrgico no 2º pavimento, estrutura existente"), []);
+  assert.deepEqual(disciplinasNomeadas("O projeto estrutural e a pavimentação"), ["estrutural", "pavimentacao"]);
 });
 
 console.log(`

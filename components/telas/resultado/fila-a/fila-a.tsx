@@ -18,7 +18,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Botao, Selo, Tecla } from "@/components/ds/basicos";
 import { DicaDeUmaVez } from "@/components/telas/comum/dica-de-uma-vez";
-import { SeloDaDisciplina } from "@/components/telas/comum/disciplina";
+import { SelosDasDisciplinas } from "@/components/telas/comum/disciplina";
 import { useEncerradosComMouse } from "@/modules/nexo/lib/dicas-da-auditoria";
 import type { FonteDoCatalogo } from "@/lib/fonte-da-evidencia";
 import { NIVEIS, type Nivel } from "@/lib/nivel-do-achado";
@@ -90,7 +90,7 @@ export function FilaA({ f }: { f: Fila }) {
             <Selo tom={a.nivel} ponto>
               {nivel?.nome}
             </Selo>
-            <SeloDaDisciplina disc={a.disc} nome />
+            <SelosDasDisciplinas discs={a.discs} nome />
             <span className="am-a-origem">
               {!a.confirmado ? "Sugestão da IA: não conta" : a.origem === "regra" ? "Regra verificada" : a.origem === "chat" ? "Achado da conversa" : "Lido pela IA, mantido pelo 2º modelo"}
             </span>

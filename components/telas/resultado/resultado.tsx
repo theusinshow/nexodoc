@@ -167,7 +167,7 @@ export function ResultadoDoParecer({
               temArquivo={temArquivo}
               onAbrir={abrirNaFila}
               onVerNoMemorial={verNoMemorial}
-              onAbrirDisciplina={(d: FindingDiscipline) => abrirNaFila(parecer.achados.find((a) => a.confirmado && a.disc === d && !a.desfecho)?.chave)}
+              onAbrirDisciplina={(d: FindingDiscipline) => abrirNaFila(parecer.achados.find((a) => a.confirmado && a.discs.includes(d) && !a.desfecho)?.chave)}
               onNoDocumento={podeVerNoDocumento ? () => onVista("documento") : undefined}
             />
           )}

@@ -8,15 +8,18 @@
    n…" deixava a fila ilegível no palco. As abas de cima rolam de lado em vez
    de sumir pela borda. */
 .ds .re.re--embutido .rs-linha-corpo {
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* O número não encolhe; a meta (disciplinas + dono) é que cede — com duas
+     disciplinas (15/10/2026) ela crescia e quebrava o "ACH-001" em duas linhas. */
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas: "id meta" "titulo titulo";
   row-gap: 3px;
   height: auto;
   min-height: 52px;
   padding: 8px 10px 9px 8px;
 }
-.ds .re.re--embutido .rs-linha-id { grid-area: id; }
-.ds .re.re--embutido .rs-linha-meta { grid-area: meta; }
+.ds .re.re--embutido .rs-linha-id { grid-area: id; white-space: nowrap; }
+.ds .re.re--embutido .rs-linha-meta { grid-area: meta; justify-self: end; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
+.ds .re.re--embutido .rs-linha-meta .rs-sem-dono { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ds .re.re--embutido .rs-linha-titulo {
   grid-area: titulo;
   display: -webkit-box;
