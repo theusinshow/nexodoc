@@ -58,7 +58,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildBalancedQuantities, planoPorDisciplina, repartirPorBlocos } from "@/lib/ld/ld-rules";
 import { codigoNoVolume, ocultoPeloPar, repartirDaLista } from "../lib/blocos";
-import { codigoDaFolha } from "../lib/disciplina-da-folha";
+import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { fileiraPorBlocos } from "../lib/fileira-por-blocos";
 import {
   chaveDeOrdem,
   gruposDasFolhas,
@@ -494,6 +495,11 @@ const EDITAVEIS: NexoArtifactKind[] = ["capa", "ld", "separatriz"];
  */
 const GRADE: GradeDoDrop = { passoX: PASSO_X, passoY: PASSO_Y };
 
+/** Chave da grade de um bloco num tomo (`null` = a fileira de bloco único). */
+function chaveDaGrade(tomo: number, bloco: string | null): string {
+  return `${tomo}|${bloco ?? ""}`;
+}
+
 function CanvasInterno({
   folhas = [],
   numeros = {},
@@ -650,7 +656,7 @@ function CanvasInterno({
     [previaNumTomos, previaTomoInicial],
   );
 
-  const { nodes: derivados, edges, fileiras, fileirasDoDrop, folhasPorTomo, volumeDaFolha } = useMemo(() => {
+  const { nodes: derivados, edges, fileiras, fileirasDoDrop, folhasPorTomo, folhasPorGrade, volumeDaFolha } = useMemo(() => {
     type Item = { id: string; rank: number; type: "artifact"; data: unknown };
 
     /*
@@ -762,6 +768,8 @@ function CanvasInterno({
     const edges: Edge[] = [];
     const fileirasDoDrop: FileiraDoDrop[] = [];
     const folhasPorTomo = new Map<number, Folha[]>();
+    /** As folhas de cada grade (tomo + bloco), para o drop saber entre quem cai. */
+    const folhasPorGrade = new Map<string, Folha[]>();
 
     grupos.forEach((grupo, linha) => {
       const items: Item[] = grupo.itens
@@ -788,10 +796,14 @@ function CanvasInterno({
       const idDoVolume = idDoVolumeDe(codigoDoVolume, sufixoDoTomoNoCanvas(grupo.tomo));
       const daFileira = folhasPorFileira[linha];
 
-      // A grade das folhas entra na posição canônica (depois da LD, antes do
-      // volume): os documentos antes dela, os de depois deslocados pela largura.
-      const antes = items.filter((it) => it.rank < PRANCHAS_RANK);
-      const depois = items.filter((it) => it.rank > PRANCHAS_RANK);
+      /*
+       * A FILEIRA NA ORDEM DO VOLUME (15/10/2026): capa, e depois um bloco por
+       * disciplina — separatriz → LD → as pranchas DELE —, e o volume no fim. É
+       * a ordem em que o PDF é montado; ordenar por tipo desenhava as duas
+       * separatrizes juntas, as duas LDs juntas e as pranchas todas numa grade,
+       * e o volume parecia montado errado.
+       */
+      const { antes, blocos: segmentos, depois } = fileiraPorBlocos(items, daFileira, codigoDe, PRANCHAS_RANK);
 
       let cursorX = 0;
       let anterior: string | null = null;
@@ -822,14 +834,20 @@ function CanvasInterno({
 
       antes.forEach(empurrar);
 
+      // Posição da folha na fileira inteira (a onda da montagem corre por ela).
+      let indiceNaFileira = 0;
+      for (const segmento of segmentos) {
+      const inicioDoBloco = cursorX;
+      segmento.documentos.forEach(empurrar);
 
       const gradeX = cursorX;
+      const doBloco = segmento.folhas;
 
       // A grade alarga conforme a quantidade: com 6 colunas fixas, um tomo de 200
       // folhas virava 34 linhas e o `fitView` não dava conta do projeto inteiro.
-      const colunas = colunasDaGrade(daFileira.length);
+      const colunas = colunasDaGrade(doBloco.length);
 
-      daFileira.forEach((f, i) => {
+      doBloco.forEach((f, i) => {
         const p = posicaoNaGrade(i, colunas);
         const id = `folha:${f.id}`;
         nodes.push({
@@ -872,7 +890,7 @@ function CanvasInterno({
           } satisfies FolhaNodeData,
           draggable: true,
         });
-        volumeDaFolha.set(id, { volume: idDoVolume, indice: i });
+        volumeDaFolha.set(id, { volume: idDoVolume, indice: indiceNaFileira + i });
         idsDaFileira.push(id);
         // Só a PRIMEIRA folha recebe a seta: uma seta por folha viraria 200
         // linhas cruzando a grade, e a sequência já é dada pela leitura dela.
@@ -888,10 +906,32 @@ function CanvasInterno({
         }
         // A seta para o volume sai do FIM DA PRIMEIRA LINHA da grade, na altura
         // do volume — da última folha ela cruzava a grade na diagonal (06/10/2026).
-        if (i === Math.min(colunas, daFileira.length) - 1) anterior = id;
+        if (i === Math.min(colunas, doBloco.length) - 1) anterior = id;
       });
+      indiceNaFileira += doBloco.length;
 
-      if (daFileira.length > 0) cursorX += larguraDaGrade(daFileira.length, colunas) + 60;
+      if (doBloco.length > 0) cursorX += larguraDaGrade(doBloco.length, colunas) + 60;
+      // Bloco que ficou sem prancha (todas arrastadas para outro) guarda uma vaga:
+      // é o lugar para onde ela volta.
+      else if (segmento.codigo !== null) cursorX += GRADE.passoX + 60;
+
+      /*
+       * A geometria que o drop vai consultar: uma grade por bloco. A faixa
+       * `inicioX..fimX` inclui a separatriz e a LD do bloco — soltar em cima
+       * delas põe a prancha no começo daquele bloco.
+       */
+      fileirasDoDrop.push({
+        tomo: grupo.tomo,
+        topo: y,
+        altura: alturaDaFileira(daFileira.length),
+        gradeX,
+        gradeY: y,
+        colunas,
+        folhas: doBloco.map((f) => f.id),
+        ...(segmento.codigo !== null ? { bloco: segmento.codigo, inicioX: inicioDoBloco, fimX: cursorX } : {}),
+      });
+      folhasPorGrade.set(chaveDaGrade(grupo.tomo, segmento.codigo), doBloco);
+      }
 
       depois.forEach(empurrar);
 
@@ -913,20 +953,6 @@ function CanvasInterno({
         cursorX += 260;
       }
 
-      /*
-       * A geometria que o drop vai consultar. `gradeX` é o cursor de ANTES dos
-       * documentos que vêm depois da grade — por isso é capturado aqui e não
-       * recalculado: recalcular seria repetir a regra de layout em dois lugares.
-       */
-      fileirasDoDrop.push({
-        tomo: grupo.tomo,
-        topo: y,
-        altura: alturaDaFileira(daFileira.length),
-        gradeX,
-        gradeY: y,
-        colunas,
-        folhas: daFileira.map((f) => f.id),
-      });
       folhasPorTomo.set(grupo.tomo, daFileira);
 
       // A fileira também vira destino de navegação (barra e teclas 1-9).
@@ -962,7 +988,7 @@ function CanvasInterno({
       }
     });
 
-    return { nodes, edges, fileiras, fileirasDoDrop, folhasPorTomo, volumeDaFolha };
+    return { nodes, edges, fileiras, fileirasDoDrop, folhasPorTomo, folhasPorGrade, volumeDaFolha };
   }, [
     artifacts,
     folhas,
@@ -1165,7 +1191,7 @@ function CanvasInterno({
           arrastados.filter((n) => n.type === "folha").map((n) => String(n.data.id)),
         );
         const movidas = folhas.filter((f) => ids.has(f.id));
-        const destino = folhasPorTomo.get(alvo.tomo) ?? [];
+        const destino = folhasPorGrade.get(chaveDaGrade(alvo.tomo, alvo.bloco ?? null)) ?? [];
         /*
          * A divisão que está na tela, para o módulo puro CONGELAR o palpite. Com
          * uma fileira só ela é nula: sem divisão, gravar tomo seria inventar uma
@@ -1176,7 +1202,10 @@ function CanvasInterno({
           comTomo.length > 1
             ? comTomo.map((f) => ({ tomo: f.tomo, folhas: folhasPorTomo.get(f.tomo) ?? [] }))
             : null;
-        const patches = ajusteDoDrop(movidas, alvo, destino, divisaoAtual, chaveDeOrdem);
+        // A disciplina vai por extenso ("Hidrossanitário"), como o popover grava.
+        const patches = ajusteDoDrop(movidas, alvo, destino, divisaoAtual, chaveDeOrdem, codigoDe).map((p) =>
+          p.patch.disciplina ? { ...p, patch: { ...p.patch, disciplina: rotuloDoCodigo(p.patch.disciplina) || p.patch.disciplina } } : p,
+        );
         if (patches.length > 0) onMoverFolhas?.(patches);
       }
       /*
@@ -1190,6 +1219,8 @@ function CanvasInterno({
       centroDoNo,
       fileirasDoDrop,
       folhasPorTomo,
+      folhasPorGrade,
+      codigoDe,
       folhas,
       onMoverFolhas,
       derivados,

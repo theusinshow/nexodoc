@@ -37,6 +37,42 @@ export interface FileiraDoDrop {
   colunas: number;
   /** Ids das folhas da fileira, na ordem em que estão desenhadas. */
   folhas: FolhaId[];
+  /**
+   * O BLOCO (disciplina) desta grade, quando a fileira tem mais de um
+   * (15/10/2026): cada bloco é uma grade própria, depois da sua separatriz e da
+   * sua LD. Soltar aqui grava a disciplina — é assim que uma prancha muda de
+   * bloco. Ausente (ou `null`) numa fileira de bloco único: nada a gravar.
+   */
+  bloco?: string | null;
+  /**
+   * Faixa horizontal do bloco inteiro — separatriz e LD inclusas. Soltar em cima
+   * da separatriz ou da LD de um bloco é pôr a prancha no começo dele.
+   */
+  inicioX?: number;
+  fimX?: number;
+}
+
+/** Onde uma folha solta vai parar: tomo, posição e, num volume misto, bloco. */
+export interface AlvoDoDrop {
+  tomo: number;
+  indice: number;
+  bloco?: string | null;
+}
+
+function mesmaGrade(f: FileiraDoDrop, alvo: AlvoDoDrop): boolean {
+  return f.tomo === alvo.tomo && (f.bloco ?? null) === (alvo.bloco ?? null);
+}
+
+/** A grade sob o ponto: entre as da mesma altura, a do bloco que contém x, senão a mais próxima. */
+function gradeSob(ponto: { x: number; y: number }, fileiras: readonly FileiraDoDrop[]): FileiraDoDrop | undefined {
+  const naAltura = fileiras.filter((f) => ponto.y >= f.topo && ponto.y < f.topo + f.altura);
+  if (naAltura.length <= 1) return naAltura[0];
+  const distancia = (f: FileiraDoDrop) => {
+    const inicio = f.inicioX ?? f.gradeX;
+    const fim = f.fimX ?? Number.POSITIVE_INFINITY;
+    return ponto.x < inicio ? inicio - ponto.x : ponto.x >= fim ? ponto.x - fim : 0;
+  };
+  return naAltura.reduce((melhor, f) => (distancia(f) < distancia(melhor) ? f : melhor));
 }
 
 function limitar(valor: number, minimo: number, maximo: number): number {
@@ -120,10 +156,8 @@ export function alvoDoDrop(
   ponto: { x: number; y: number },
   fileiras: readonly FileiraDoDrop[],
   grade: GradeDoDrop,
-): { tomo: number; indice: number } | null {
-  const fileira = fileiras.find(
-    (f) => ponto.y >= f.topo && ponto.y < f.topo + f.altura,
-  );
+): AlvoDoDrop | null {
+  const fileira = gradeSob(ponto, fileiras);
   if (!fileira) return null;
 
   const coluna = limitar(
@@ -133,7 +167,9 @@ export function alvoDoDrop(
   );
   const linha = Math.max(0, Math.floor((ponto.y - fileira.gradeY) / grade.passoY));
   const indice = limitar(linha * fileira.colunas + coluna, 0, fileira.folhas.length);
-  return { tomo: fileira.tomo, indice };
+  return fileira.bloco != null
+    ? { tomo: fileira.tomo, indice, bloco: fileira.bloco }
+    : { tomo: fileira.tomo, indice };
 }
 
 /**
@@ -154,12 +190,12 @@ export function alvoDoDrop(
  * lugar que `alvoDoDrop` já escolhe ao arredondar a coluna para cima.
  */
 export function posicaoDaFresta(
-  alvo: { tomo: number; indice: number },
+  alvo: AlvoDoDrop,
   fileiras: readonly FileiraDoDrop[],
   grade: GradeDoDrop,
   alturaDaFolha: number,
 ): { x: number; y: number; altura: number } | null {
-  const fileira = fileiras.find((f) => f.tomo === alvo.tomo);
+  const fileira = fileiras.find((f) => mesmaGrade(f, alvo));
   if (!fileira || fileira.colunas <= 0) return null;
   const linha = Math.floor(alvo.indice / fileira.colunas);
   const coluna = alvo.indice % fileira.colunas;
@@ -208,10 +244,12 @@ export function ordensEntre(
  */
 export function ajusteDoDrop(
   movidas: readonly Folha[],
-  alvo: { tomo: number; indice: number },
+  alvo: AlvoDoDrop,
   fileiraAlvo: readonly Folha[],
   divisaoAtual: readonly { tomo: number; folhas: readonly Folha[] }[] | null,
   chaveDeOrdem: (f: Folha) => number,
+  /** O bloco de cada folha hoje — só consultado quando o alvo tem bloco. */
+  codigoDe?: (f: Folha) => string,
 ): { id: FolhaId; patch: Ajuste }[] {
   if (movidas.length === 0) return [];
 
@@ -233,6 +271,15 @@ export function ajusteDoDrop(
    * cresceria a cada gesto sem efeito, e a folha passaria a ter posição FIXADA à
    * mão sem que ninguém tenha decidido isso.
    */
+  /*
+   * MUDAR DE BLOCO (15/10/2026): a folha solta na grade de outra disciplina
+   * passa a ser dela. A disciplina vai como correção manual — a mesma que o
+   * popover da folha grava —, e é ela que decide o bloco na LD e no volume.
+   */
+  const blocoDoAlvo = alvo.bloco ?? null;
+  const mudaDeBloco = (f: Folha) =>
+    blocoDoAlvo !== null && blocoDoAlvo !== "" && codigoDe !== undefined && codigoDe(f).trim().toLowerCase() !== blocoDoAlvo;
+
   const jaMoravamAqui = naOrdem.every((f) => fileiraAlvo.some((g) => g.id === f.id));
   if (jaMoravamAqui) {
     const depois = [
@@ -267,6 +314,7 @@ export function ajusteDoDrop(
   naOrdem.forEach((f, i) => {
     patches.set(f.id, {
       ...(divisaoAtual ? { grupo: alvo.tomo } : {}),
+      ...(mudaDeBloco(f) ? { disciplina: blocoDoAlvo! } : {}),
       ordem: ordens[i],
     });
   });

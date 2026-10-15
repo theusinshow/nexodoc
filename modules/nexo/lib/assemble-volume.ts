@@ -61,6 +61,12 @@ export interface BlocoDoVolume {
    * ninguém ver.
    */
   separatrizPdf64?: string | null;
+  /**
+   * Alguém ARRASTOU folha neste bloco (`precisaRespeitarOrdem`): as pranchas
+   * entram na ordem de `selos`, a que o canvas desenha e a LD lista. Sem isto o
+   * PDF reordenava pelo número do nome e desfazia o arrasto calado.
+   */
+  respeitarOrdem?: boolean;
 }
 
 export interface AssembleVolumeInput {
@@ -141,10 +147,14 @@ export async function assembleVolume(
     // Pranchas na ordem do escritório (por nº de folha do nome), recortadas no
     // intervalo de pranchas (exclui capa/LD internas de um PDF combinado).
     const pages = pranchaPagesByFile(bloco.selos);
-    const ordered = [...bloco.pranchas].sort(
-      (a, b) =>
-        (sheetNumberFromFilename(a.name) ?? 9999) -
-        (sheetNumberFromFilename(b.name) ?? 9999),
+    const posicaoNosSelos = (nome: string) => {
+      const i = bloco.selos.findIndex((s) => s.fileName === nome);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    const ordered = [...bloco.pranchas].sort((a, b) =>
+      bloco.respeitarOrdem
+        ? posicaoNosSelos(a.name) - posicaoNosSelos(b.name)
+        : (sheetNumberFromFilename(a.name) ?? 9999) - (sheetNumberFromFilename(b.name) ?? 9999),
     );
     const pranchas: VolumePartSource[] = [];
     for (const prancha of ordered) {

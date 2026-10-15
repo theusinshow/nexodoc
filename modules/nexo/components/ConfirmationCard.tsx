@@ -132,7 +132,7 @@ import {
   type VolumeCheckResult,
 } from "@/server/nexo/volume-check-core";
 import { corDaDisciplina } from "../lib/disciplina-cor";
-import { assinaturaDoTomo, folhasDoTomo } from "../lib/drop-folhas";
+import { assinaturaDoTomo, folhasDoTomo, precisaRespeitarOrdem } from "../lib/drop-folhas";
 import { fatosDaConversa } from "@/server/nexo/agent/fatos";
 import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
@@ -1900,6 +1900,7 @@ function VolumeConfirmation({
           pranchas: pranchasDoTomo.filter((f) => arquivos.has(f.name)),
           separatrizPdf64,
           ldPdf64: ldDoBloco64,
+          respeitarOrdem: precisaRespeitarOrdem(doBloco),
         });
       }
 

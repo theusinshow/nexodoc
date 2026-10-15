@@ -397,4 +397,52 @@ test("documentoEnvelheceu: a LD do bloco de uma disciplina nao envelhece por cau
   assert.equal(documentoEnvelheceu(ldDoTomo, tomoMudado, codigo), true);
 });
 
+// ---------------------------------------------------------------------------
+// Volume misto: uma grade por bloco (15/10/2026)
+// ---------------------------------------------------------------------------
+
+{
+  // EST com 3 folhas, HID com 1 — como o volume do 15/10 (6 + 1, reduzido).
+  const est = PROJETADAS.slice(0, 3);
+  const hid = PROJETADAS.slice(3, 4);
+  const codigo = (f: Folha) => (hid.some((h) => h.id === f.id) ? "hid" : "est");
+  const BLOCOS: FileiraDoDrop[] = [
+    { tomo: 0, topo: 0, altura: 330, gradeX: 780, gradeY: 0, colunas: COLUNAS_MINIMAS, folhas: est.map((f) => f.id), bloco: "est", inicioX: 260, fimX: 780 + 3 * PASSO_X + 60 },
+    { tomo: 0, topo: 0, altura: 330, gradeX: 2200, gradeY: 0, colunas: COLUNAS_MINIMAS, folhas: hid.map((f) => f.id), bloco: "hid", inicioX: 1700, fimX: 2200 + PASSO_X + 60 },
+  ];
+
+  test("misto: soltar na grade do HID mira o bloco HID", () => {
+    const alvo = alvoDoDrop({ x: 2200 + PASSO_X, y: 10 }, BLOCOS, GRADE);
+    assert.deepEqual(alvo, { tomo: 0, indice: 1, bloco: "hid" });
+  });
+
+  test("misto: soltar em cima da separatriz/LD do HID põe a folha no começo dele", () => {
+    const alvo = alvoDoDrop({ x: 1800, y: 10 }, BLOCOS, GRADE);
+    assert.deepEqual(alvo, { tomo: 0, indice: 0, bloco: "hid" });
+  });
+
+  test("misto: a fresta é desenhada na grade do bloco certo", () => {
+    const p = posicaoDaFresta({ tomo: 0, indice: 0, bloco: "hid" }, BLOCOS, GRADE, ALTURA_DA_FOLHA);
+    assert.equal(p?.x, 2200);
+  });
+
+  test("misto: folha EST solta no HID ganha a disciplina HID", () => {
+    const patches = ajusteDoDrop([est[2]], { tomo: 0, indice: 1, bloco: "hid" }, hid, null, chaveDeOrdem, codigo);
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].patch.disciplina, "hid");
+    assert.equal(patches[0].patch.grupo, undefined, "sem divisão em tomos, não inventa tomo");
+  });
+
+  test("misto: reordenar dentro do próprio bloco não mexe na disciplina", () => {
+    const patches = ajusteDoDrop([est[2]], { tomo: 0, indice: 0, bloco: "est" }, est, null, chaveDeOrdem, codigo);
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].patch.disciplina, undefined);
+  });
+
+  test("bloco único (sem `bloco`) nunca grava disciplina", () => {
+    const patches = ajusteDoDrop([est[2]], { tomo: 0, indice: 0 }, est, null, chaveDeOrdem, codigo);
+    assert.equal(patches[0].patch.disciplina, undefined);
+  });
+}
+
 console.log(`\n${passed} teste(s) do drop OK`);
