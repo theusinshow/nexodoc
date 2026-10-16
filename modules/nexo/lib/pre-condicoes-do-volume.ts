@@ -170,3 +170,40 @@ export function motivoParaNaoGerarCapa(capa: CapaDoPlano): string | null {
     ? null
     : "Diga o número do volume — sem ele a capa sai como Vol. I, sem ninguém ter decidido.";
 }
+
+/** A situação que cada montador de volume publica (ver `montadores-de-volume`). */
+export interface SituacaoPublicada {
+  bloqueio: string | null;
+  erro: string | null;
+}
+
+/**
+ * O QUE O AGENTE PRECISA SABER DA MONTAGEM — uma linha por motivo (16/10/2026).
+ *
+ * O agente não via o botão. Com o volume travado ("gere a LD deste tomo"), ele
+ * respondia "eu só proponho; confirme pelo botão" — três vezes seguidas no
+ * 121-25, para um botão que não podia ser apertado. A trava já existia, escrita
+ * e testada; só não chegava à conversa.
+ *
+ * Tomos com o mesmo motivo viram uma linha só: quatro tomos travados pela mesma
+ * razão é uma coisa a dizer, não quatro.
+ */
+export function bloqueiosParaOAgente(
+  situacoes: Readonly<Record<string, SituacaoPublicada>>,
+): string[] {
+  const porMotivo = new Map<string, string[]>();
+  for (const [id, s] of Object.entries(situacoes)) {
+    const motivo = (s.erro ? `falhou: ${s.erro}` : s.bloqueio)?.trim();
+    if (!motivo) continue;
+    const tomo = /:t(\d+)$/.exec(id)?.[1] ?? "";
+    const tomos = porMotivo.get(motivo) ?? [];
+    if (!tomos.includes(tomo)) tomos.push(tomo);
+    porMotivo.set(motivo, tomos);
+  }
+  return [...porMotivo].map(([motivo, tomos]) => {
+    const numerados = tomos.filter(Boolean).sort();
+    if (numerados.length === 0) return motivo;
+    const rotulo = numerados.length === 1 ? "tomo" : "tomos";
+    return `${rotulo} ${numerados.join(", ")}: ${motivo}`;
+  });
+}

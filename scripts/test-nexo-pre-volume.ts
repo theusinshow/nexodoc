@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import {
   motivoParaNaoGerar,
   motivoParaNaoGerarCapa,
+  bloqueiosParaOAgente,
   motivoParaNaoMontar,
   type PartesDoVolume,
 } from "../modules/nexo/lib/pre-condicoes-do-volume.ts";
@@ -223,6 +224,26 @@ test("várias não guardadas: diz quantas e a primeira", () => {
 test("sem prancha nenhuma, a frase deixa de mandar reanexar sem motivo", () => {
   const m = motivoParaNaoMontar({ temCapa: true, temLd: true, misto: false, pranchas: 0 });
   assert.equal(m, "sem as pranchas — solte os arquivos das pranchas para montar");
+});
+
+
+test("bloqueios para o agente: tomos com o mesmo motivo viram uma linha", () => {
+  assert.deepEqual(
+    bloqueiosParaOAgente({
+      "volume:121-25:a:t01": { bloqueio: null, erro: null },
+      "volume:121-25:a:t03": { bloqueio: "gere a LD deste tomo antes de montar", erro: null },
+      "volume:121-25:a:t02": { bloqueio: "gere a LD deste tomo antes de montar", erro: null },
+    }),
+    ["tomos 02, 03: gere a LD deste tomo antes de montar"],
+  );
+});
+
+test("bloqueios para o agente: sem tomo, o motivo puro; erro vence bloqueio", () => {
+  assert.deepEqual(
+    bloqueiosParaOAgente({ "volume:x:a": { bloqueio: "sem as pranchas", erro: "timeout" } }),
+    ["falhou: timeout"],
+  );
+  assert.deepEqual(bloqueiosParaOAgente({}), []);
 });
 
 console.log(`\n${passed} teste(s) passaram.`);

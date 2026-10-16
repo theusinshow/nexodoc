@@ -43,6 +43,8 @@ import { ZonaDeSolta } from "./ZonaDeSolta";
 import { pedeNovaAuditoria } from "../lib/auditoria-da-proposta";
 import { detalheDoParecer, resumoDoParecer } from "@/lib/auditoria-incompleta";
 import type { PranchaNaSessao } from "../lib/pranchas-guardadas";
+import { useFasesDaMontagem } from "../state/montadores-de-volume";
+import { bloqueiosParaOAgente } from "../lib/pre-condicoes-do-volume";
 
 /** Status da leitura de selos (mostrado acima do composer). */
 export interface ReadStatus {
@@ -169,6 +171,8 @@ export function NexoChat({
     motivoParaNaoGastar,
     conferirAntesDeGastar,
   } = useConversation();
+  // O que trava a montagem agora: o agente precisa saber, senão manda "confirmar" um botão travado.
+  const { situacoes: situacoesDaMontagem } = useFasesDaMontagem();
   /** A ficha do memorial mais recente: a dica da obra aparece só nela. */
   const ultimaFicha = messages.findLast((m) => m.fichaDoMemorial)?.id;
   /** O plano de geração mais recente: a dica do plano aparece só nele. */
@@ -552,6 +556,7 @@ export function NexoChat({
           decisoes: Object.fromEntries(
             Object.entries(decisoes).map(([campo, d]) => [campo, d.valor]),
           ),
+          bloqueiosDaMontagem: bloqueiosParaOAgente(situacoesDaMontagem),
         }),
         signal: controller.signal,
       });

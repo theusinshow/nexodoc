@@ -72,6 +72,12 @@ export interface RunNexoAgentTurnInput {
    * tem de saber separar. Ausente: comportamento anterior, intacto.
    */
   escritorio?: DadosDoEscritorio;
+  /**
+   * O que trava a montagem do volume AGORA, como a tela diz ("tomos 02, 03: gere
+   * a LD deste tomo antes de montar"). Sem isto o agente respondia "confirme
+   * pelo botão" a um botão travado (121-25, 16/10/2026). Vazio: nada trava.
+   */
+  bloqueiosDaMontagem?: string[];
 }
 
 const MAX_OUTPUT_TOKENS = Number(process.env.NEXODOC_NEXO_MAX_OUTPUT_TOKENS ?? 900);
@@ -194,6 +200,12 @@ REGRAS:
   que entendeu ("anotei 3 tomos") e pergunte só o que ainda falta.
 - Se o pedido não for sobre gerar esses artefatos, responda conversando, com
   proposals: [].
+- MONTAGEM TRAVADA: se os FATOS abaixo listarem o que trava a montagem do
+  volume, NUNCA diga que basta confirmar ou apertar o botão — ele está travado.
+  Diga em qual tomo e o motivo, com as palavras dos fatos, e o que fazer. Se o
+  engenheiro disser que já fez aquilo, não discuta nem repita a proposta: diga
+  que o sistema ainda não reconhece, cite o motivo exato e sugira abrir o canvas
+  ("Ver no canvas") para conferir aquele tomo.
 - Responda em português do Brasil, curto e direto.
 
 FATOS JÁ LIDOS DOS SELOS (não pergunte de novo):
@@ -207,6 +219,11 @@ ${linhaDaDisciplina(resumo)}
     prefResolvida
       ? `${prefResolvida.nome} — LIDA DO CARIMBO, templateId="${prefResolvida.id}". Já decidida: afirme e não pergunte.`
       : "(não resolvida pelo carimbo — esta sim é decisão do engenheiro)"
+  }${
+    input.bloqueiosDaMontagem?.length
+      ? `
+- Montagem do volume: TRAVADA — ${input.bloqueiosDaMontagem.join("; ")}`
+      : ""
   }
 
 PREFEITURAS DISPONÍVEIS (use o id no templateId):

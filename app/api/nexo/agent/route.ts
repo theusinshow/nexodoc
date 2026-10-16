@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
   let memorial: FatosDoMemorial | null;
   let conversationId: string | null;
   let decisoes: Record<string, string>;
+  let bloqueiosDaMontagem: string[];
   try {
     const body = (await req.json()) as {
       message?: unknown;
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
       memorial?: unknown;
       conversationId?: unknown;
       decisoes?: unknown;
+      bloqueiosDaMontagem?: unknown;
     };
     message = String(body.message ?? "").trim();
     if (!message) throw new Error("mensagem ausente");
@@ -136,6 +138,14 @@ export async function POST(req: NextRequest) {
         ? body.conversationId.trim()
         : null;
     decisoes = lerDecisoes(body.decisoes);
+    // O que a tela diz que trava a montagem (ver `bloqueiosParaOAgente`). Texto
+    // da própria interface, curto e limitado: vai para o prompt como fato.
+    bloqueiosDaMontagem = Array.isArray(body.bloqueiosDaMontagem)
+      ? body.bloqueiosDaMontagem
+          .filter((b): b is string => typeof b === "string" && b.trim() !== "")
+          .slice(0, 8)
+          .map((b) => b.trim().slice(0, 240))
+      : [];
   } catch {
     return NextResponse.json({ error: "Corpo invalido." }, { status: 400 });
   }
@@ -312,6 +322,7 @@ export async function POST(req: NextRequest) {
               // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
               dataDoSelo: slotContext.dataDoSelo,
               prefeituraDoSelo: slotContext.prefeituraDoSelo,
+              bloqueiosDaMontagem,
             },
             req.signal,
           )) {
@@ -367,6 +378,7 @@ export async function POST(req: NextRequest) {
       // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
       dataDoSelo: slotContext.dataDoSelo,
       prefeituraDoSelo: slotContext.prefeituraDoSelo,
+      bloqueiosDaMontagem,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);
     return NextResponse.json({ turn: { ...turn, slotRequest }, ldPreview });
