@@ -323,6 +323,7 @@ export function PalcoDoNexo({
         continuam: doServidor.continuam.length,
         novosQueJaExistiam: doServidor.novos_em_texto_que_ja_existia?.length,
         novosEmTextoAlterado: doServidor.novos_em_texto_alterado?.length,
+        naoReapontados: doServidor.saidos_com_trecho_igual?.length,
       };
     }
     if (!report || !reportAnterior) return null;

@@ -53,6 +53,11 @@ export interface ComparadoComAnterior {
    */
   novosQueJaExistiam?: number;
   novosEmTextoAlterado?: number;
+  /**
+   * Dos `corrigidos`, os que saíram com o trecho igual no texto — não foram
+   * corrigidos, só não reapontados. Ausente sem o texto atual no servidor.
+   */
+  naoReapontados?: number;
 }
 
 const DIA = (ms: number) => formatarEmBrasilia(ms, { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -104,6 +109,8 @@ export function ResumoDoParecer({
 }) {
   const { dur, mola } = useTempo();
   const [verTratados, setVerTratados] = useState(false);
+  // "Corrigido" é só o que saiu com o trecho mexido; o resto ganha linha própria.
+  const corrigidosDeFato = comparado ? comparado.corrigidos - (comparado.naoReapontados ?? 0) : 0;
   const achados = parecer.achados.filter((a) => a.confirmado);
   const pendentes = achados.filter((a) => !a.desfecho);
   const tratados = achados.filter((a) => a.desfecho);
@@ -266,10 +273,22 @@ export function ResumoDoParecer({
           <section className="rc-cartao rc-comparado" data-diff-do-parecer title="Comparado com a auditoria anterior deste memorial">
             <h3>{comparado.desde ? `Desde ${formatarEmBrasilia(comparado.desde, { day: "2-digit", month: "2-digit" })}` : "Desde a auditoria anterior"}</h3>
             <p>
-              <b className="rs-delta--ok">{comparado.corrigidos}</b> {comparado.corrigidos === 1 ? "corrigido" : "corrigidos"},{" "}
+              <b className="rs-delta--ok">{corrigidosDeFato}</b> {corrigidosDeFato === 1 ? "corrigido" : "corrigidos"},{" "}
               <b className="rs-delta--novo">{comparado.novos}</b> {comparado.novos === 1 ? "novo" : "novos"}, <b>{comparado.continuam}</b>{" "}
               {comparado.continuam === 1 ? "continua" : "continuam"}
             </p>
+            {/*
+             * O QUE SAIU SEM SER CORRIGIDO. Na volta 5 do laço do 040_26, 6 dos 8
+             * que "saíram" seguiam com o trecho igual no texto: a leitura só não
+             * os apontou de novo. Contá-los como corrigidos é dizer a quem revisa
+             * que o trabalho está feito quando não está.
+             */}
+            {(comparado.naoReapontados ?? 0) > 0 && (
+              <p className="rc-comparado-origem" data-nao-reapontados>
+                {comparado.naoReapontados} {comparado.naoReapontados === 1 ? "não foi apontado" : "não foram apontados"} de novo, mas o
+                trecho continua igual
+              </p>
+            )}
             {/*
              * DE ONDE VEIO O NOVO. Quem corrigiu tudo e viu o número não cair
              * precisa saber se a correção gerou o achado ou se ele já estava lá —

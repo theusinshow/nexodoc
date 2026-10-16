@@ -271,6 +271,11 @@ export type AuditReport = {
       /** Só quando o texto anterior estava guardado. */
       novos_em_texto_que_ja_existia?: string[];
       novos_em_texto_alterado?: string[];
+      /**
+       * Dos `corrigidos`, os que saíram com o trecho IGUAL no texto atual: não
+       * foram corrigidos, a leitura não os apontou de novo.
+       */
+      saidos_com_trecho_igual?: { tipo: string; pagina: string; termo_busca: string }[];
     };
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";

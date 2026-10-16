@@ -179,10 +179,16 @@ test("termo contido conta: «mínimo de 60» × «mínimo de 60 minutos»", () =
   assert.equal(compararPareceres({ anterior: antes, atual: agora }).persistentes.length, 1);
 });
 
-test("termo curto contido NÃO conta: «DISPOSICOES» × «8. DISPOSICOES COMPLEMENTARES»", () => {
+test("termo contido com mais contexto, MESMA página: continua (volta 5 do laço)", () => {
+  const antes = parecer([achado({ tipo: "Premissas do TRRF", pagina: "6", termo_busca: "resistência ao fogo com o mínimo de 60" })]);
+  const agora = parecer([achado({ tipo: "Enquadramento do TRRF", pagina: "6", evidencia: "outra", termo_busca: "mínimo de 60" })]);
+  assert.equal(compararPareceres({ anterior: antes, atual: agora }).persistentes.length, 1);
+});
+
+test("termo contido sem proporção em OUTRA página: não casa", () => {
   // Par real do banco de dev: numeração de capítulo × acentuação — defeitos distintos.
-  const antes = parecer([achado({ tipo: "Numeração de capítulos", termo_busca: "8. DISPOSICOES COMPLEMENTARES" })]);
-  const agora = parecer([achado({ tipo: "Acentuação e grafia", evidencia: "outra", termo_busca: "DISPOSICOES" })]);
+  const antes = parecer([achado({ tipo: "Numeração de capítulos", pagina: "3", termo_busca: "8. DISPOSICOES COMPLEMENTARES" })]);
+  const agora = parecer([achado({ tipo: "Acentuação e grafia", pagina: "9", evidencia: "outra", termo_busca: "DISPOSICOES" })]);
   const d = compararPareceres({ anterior: antes, atual: agora });
   assert.equal(d.persistentes.length, 0);
   assert.equal(d.novos.length, 1);
@@ -227,6 +233,47 @@ test("sem o texto anterior, a divisão não existe (e não finge que existe)", (
   const d = compararPareceres({ anterior: parecer([]), atual: parecer([achado({ termo_busca: "arame preto no. 16" })]) });
   assert.equal(d.novosEmTextoQueJaExistia, undefined);
   assert.equal(d.novosEmTextoAlterado, undefined);
+});
+
+// --- o que saiu: corrigido × não reapontado ---------------------------------
+
+test("saiu com o trecho igual no texto atual: não foi corrigido (volta 5 do laço)", () => {
+  const antes = parecer([
+    achado({ tipo: "Vigência de norma", evidencia: "“ABNT NBR 7191:1982 - Execução de Desenhos”", termo_busca: "ABNT NBR 7191:1982" }),
+    achado({ tipo: "Redundância", evidencia: "“ou então na ocorrência delas”", termo_busca: "ou então na ocorrência delas" }),
+  ]);
+  const textoAtual = "• ABNT NBR 7191:1982 - Execução de\nDesenhos para Obras\n... quando houver iminência ou ocorrência de chuvas.";
+  const d = compararPareceres({ anterior: antes, atual: parecer([]), textoAtual });
+  assert.equal(d.corrigidos.length, 2);
+  assert.deepEqual(d.saidosComTrechoIgual?.map((f) => f.tipo), ["Vigência de norma"]);
+});
+
+test("aspas curtas no meio da evidência não viram o trecho (o “α” da volta 7)", () => {
+  const antes = parecer([
+    achado({
+      tipo: "Critério de solo",
+      evidencia: "deve fazer com a vertical um ângulo “α” com os valores:\na) Solos pouco resistentes: α > 60º",
+      termo_busca: "Solos pouco resistentes",
+    }),
+  ]);
+  const textoAtual = "a reta deve fazer com a vertical um ângulo “α” com os valores:\na) Solos pouco resistentes: α > 60º\nb) …";
+  const d = compararPareceres({ anterior: antes, atual: parecer([]), textoAtual });
+  assert.equal(d.saidosComTrechoIgual?.length, 1);
+});
+
+test("corrigir crase ou concordância CONTA como corrigido (o esqueleto enganava)", () => {
+  /*
+   * Sem acento e sem espaço, "a compressão" e "à compressão" são a mesma
+   * coisa, e "pilares apresentado" é prefixo de "apresentados": o teste por
+   * esqueleto dizia "trecho igual" para correções feitas.
+   */
+  const antes = parecer([
+    achado({ tipo: "Crase", evidencia: "Qualquer não conformidade ocorrida com a resistência a compressão do concreto" }),
+    achado({ tipo: "Concordância", evidencia: "“baseado nos pilares apresentado pelo projeto”" }),
+  ]);
+  const textoAtual = "Qualquer não conformidade ocorrida com a resistência à compressão do concreto; baseado nos pilares apresentados pelo projeto";
+  const d = compararPareceres({ anterior: antes, atual: parecer([]), textoAtual });
+  assert.equal(d.saidosComTrechoIgual?.length, 0);
 });
 
 // --- a frase da tela -------------------------------------------------------

@@ -4732,6 +4732,7 @@ async function executarAuditoria(
         projectId,
         arquivo: uploadedFiles[0].file.name,
         atual: report,
+        textoAtual: uploadedFiles[0].extracted.pages.map((p) => p.text).join("\n"),
         actor,
         excetoAuditId: persistedAuditId,
       });

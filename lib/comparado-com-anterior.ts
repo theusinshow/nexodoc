@@ -34,6 +34,8 @@ export async function compararComAnterior(args: {
   projectId: string;
   arquivo: string;
   atual: AuditReport;
+  /** O texto do documento auditado agora — separa o corrigido do não reapontado. */
+  textoAtual?: string;
   actor: Parameters<typeof auditWhereForActor>[0];
   excetoAuditId?: string | null;
 }): Promise<ComparadoComAnteriorNoServidor | null> {
@@ -83,13 +85,16 @@ export async function compararComAnterior(args: {
     const paginas = (texto?.pages ?? []) as { text?: string }[];
     const textoAnterior = paginas.length > 0 ? paginas.map((p) => p.text ?? "").join("\n") : undefined;
 
-    const d = compararPareceres({ anterior, atual: args.atual, textoAnterior });
+    const d = compararPareceres({ anterior, atual: args.atual, textoAnterior, textoAtual: args.textoAtual });
     return {
       audit_id: escolhida.auditId,
       desde: (linha?.completedAt ?? linha?.createdAt ?? new Date(escolhida.quando)).toISOString(),
       corrigidos: d.corrigidos.map((f) => ({ tipo: f.tipo, pagina: f.pagina, termo_busca: f.termo_busca ?? "" })),
       continuam: d.persistentes.map((f) => f.id),
       novos: d.novos.map((f) => f.id),
+      ...(d.saidosComTrechoIgual
+        ? { saidos_com_trecho_igual: d.saidosComTrechoIgual.map((f) => ({ tipo: f.tipo, pagina: f.pagina, termo_busca: f.termo_busca ?? "" })) }
+        : {}),
       ...(d.novosEmTextoQueJaExistia
         ? {
             novos_em_texto_que_ja_existia: d.novosEmTextoQueJaExistia.map((f) => f.id),

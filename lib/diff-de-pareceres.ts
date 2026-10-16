@@ -49,6 +49,14 @@ export type DiffDePareceres = {
   novosEmTextoQueJaExistia?: AuditFinding[];
   /** Só com o texto anterior: os NOVOS cujo trecho não existia antes. */
   novosEmTextoAlterado?: AuditFinding[];
+  /**
+   * Só quando o texto ATUAL foi dado: dos que saíram, os cujo trecho continua
+   * igual no documento. Não foram corrigidos — a leitura desta vez não os
+   * apontou. Chamá-los de "corrigidos" é o engano da volta 5 do laço do 040_26
+   * (16/10/2026): "8 corrigidos" quando 2 tinham sido mexidos, e a NBR
+   * 7191:1982 seguia no texto. Os demais saíram com o trecho mudado.
+   */
+  saidosComTrechoIgual?: AuditFinding[];
 };
 
 function normalizar(valor: string): string {
@@ -101,6 +109,12 @@ const MIN_TERMO_CONTIDO = 10;
  * pares que se juntariam DENTRO de um mesmo parecer são todos o mesmo defeito
  * dito duas vezes ("Cidade do Autista" × "Cidade do Autista").
  *
+ * A proporção perdia o caso de quem cita mais contexto da segunda vez — "mínimo
+ * de 60" × "resistência ao fogo com o mínimo de 60", "Cap.1 – Pág.6" × "…odt
+ * Cap.1 – Pág.6" (volta 5 do laço, IA real). Para esses vale o termo contido
+ * sem proporção, desde que na MESMA página. Custo medido: um par distinto em
+ * 1.105 achados ("DISPOSICOES" × "8. DISPOSICOES COMPLEMENTARES", p. 4).
+ *
  * Não esconde nada: no pior caso um achado novo é rotulado "continua".
  */
 export function mesmoTermoDeBusca(a: AuditFinding, b: AuditFinding): boolean {
@@ -109,7 +123,18 @@ export function mesmoTermoDeBusca(a: AuditFinding, b: AuditFinding): boolean {
   if (!x || !y) return false;
   if (x === y) return true;
   const [curto, longo] = x.length < y.length ? [x, y] : [y, x];
-  return curto.length >= MIN_TERMO_CONTIDO && longo.includes(curto) && curto.length / longo.length >= 0.5;
+  if (!longo.includes(curto)) return false;
+  if (curto.length >= MIN_TERMO_CONTIDO && curto.length / longo.length >= 0.5) return true;
+  return curto.length >= MIN_TERMO_NA_MESMA_PAGINA && mesmaPagina(a, b);
+}
+
+/** O termo contido sem proporção só casa na mesma página — e não abaixo disto. */
+const MIN_TERMO_NA_MESMA_PAGINA = 8;
+
+function mesmaPagina(a: AuditFinding, b: AuditFinding): boolean {
+  const de = (p: unknown) => new Set(String(p ?? "").match(/\d+/g) ?? []);
+  const pa = de(a.pagina);
+  return [...de(b.pagina)].some((p) => pa.has(p));
 }
 
 function mesmoDefeito(a: AuditFinding, b: AuditFinding): boolean {
@@ -124,6 +149,38 @@ function agulha(f: AuditFinding): string {
   return esqueleto(citado ?? "");
 }
 
+function soEspaco(valor: string): string {
+  return valor.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * O trecho citado, LITERAL: com acento, caixa e pontuação — só o espaço é
+ * normalizado. É o que decide se um achado que saiu foi mexido.
+ *
+ * O esqueleto de `agulha` não serve para isto: corrigir uma crase ("a
+ * compressão" → "à compressão") ou uma concordância ("pilares apresentado" →
+ * "apresentados") deixa o esqueleto do termo intacto, e a correção passaria por
+ * "trecho igual". Pedaço curto demais não decide nada e fica de fora.
+ */
+function trechosLiterais(f: AuditFinding): string[] {
+  const bruto = String(f.evidencia ?? "");
+  // Aspas curtas são citação DENTRO da frase (o “α” do 040_26), não o trecho.
+  const entreAspas = [...bruto.matchAll(/[“"«]([^”"»]{12,})[”"»]/g)].map((m) => m[1]);
+  const pedacos =
+    entreAspas.length > 0
+      ? entreAspas
+      : [bruto.replace(/^\s*(?:p[áa]g(?:ina)?\.?|p\.)\s*[\d,\s e–-]+:?\s*/i, "").replace(/[“”«»"]/g, "")];
+  /*
+   * LINHA A LINHA. A evidência sem aspas costuma costurar trechos que não são
+   * vizinhos — no laço do 040_26 ela juntou duas frases da p. 6 pulando a do
+   * meio —, e o bloco inteiro nunca é literal. Cada linha, sim.
+   */
+  return pedacos
+    .flatMap((p) => p.split(/\n+/))
+    .map(soEspaco)
+    .filter((p) => p.length >= 12);
+}
+
 /**
  * Compara dois pareceres do mesmo memorial.
  *
@@ -132,12 +189,14 @@ function agulha(f: AuditFinding): string {
  * nomeada e não posicional para quem chama não errar em silêncio.
  *
  * `textoAnterior`, quando vem, é o texto da versão anterior do documento, e
- * separa os novos em "já estava lá" e "texto alterado".
+ * separa os novos em "já estava lá" e "texto alterado". `textoAtual` separa,
+ * dos que saíram, os que continuam no texto sem que ninguém os tenha mexido.
  */
 export function compararPareceres(args: {
   anterior: AuditReport;
   atual: AuditReport;
   textoAnterior?: string;
+  textoAtual?: string;
 }): DiffDePareceres {
   // O primeiro de cada chave vence: duas ocorrências com o mesmo tipo e o
   // mesmo trecho são a mesma coisa dita duas vezes, e contá-las em dobro
@@ -170,8 +229,21 @@ export function compararPareceres(args: {
   }
 
   const corrigidos = doAnterior.filter((a) => !casados.has(a));
+  const saidos =
+    args.textoAtual === undefined
+      ? {}
+      : (() => {
+          // Sem aspas dos dois lados: a evidência sem citação também as perdeu.
+          const atual = soEspaco((args.textoAtual ?? "").replace(/[“”«»"]/g, ""));
+          return {
+            saidosComTrechoIgual: corrigidos.filter((f) => {
+              const pedacos = trechosLiterais(f);
+              return pedacos.length > 0 && pedacos.every((p) => atual.includes(p));
+            }),
+          };
+        })();
 
-  if (args.textoAnterior === undefined) return { corrigidos, persistentes, novos };
+  if (args.textoAnterior === undefined) return { corrigidos, persistentes, novos, ...saidos };
 
   const texto = esqueleto(args.textoAnterior);
   const novosEmTextoQueJaExistia: AuditFinding[] = [];
@@ -182,7 +254,7 @@ export function compararPareceres(args: {
     (texto.includes(a) ? novosEmTextoQueJaExistia : novosEmTextoAlterado).push(finding);
   }
 
-  return { corrigidos, persistentes, novos, novosEmTextoQueJaExistia, novosEmTextoAlterado };
+  return { corrigidos, persistentes, novos, novosEmTextoQueJaExistia, novosEmTextoAlterado, ...saidos };
 }
 
 /**
