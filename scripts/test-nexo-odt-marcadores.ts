@@ -153,4 +153,28 @@ test("desembrulhar preserva o XML que não é campo de usuário", () => {
   assert.equal(desembrulharCamposDeUsuario(bloco), bloco);
 });
 
+test("preencherCorpo: título em 2 parágrafos, volume com rótulo fixo", () => {
+  const corpo =
+    '<text:p text:style-name="P1">{{TITULO_CAPA}}</text:p>' +
+    '<text:p text:style-name="P1">{{TITULO_CAPA}}</text:p>' +
+    '<text:p text:style-name="P2">Vol. {{VOLUME}}</text:p>' +
+    '<text:p text:style-name="P3">{{CODIGO_EXIBIDO}}</text:p>';
+  const xml = preencherCorpo(
+    corpo,
+    {
+      gerais: { "{{CODIGO_EXIBIDO}}": "040-26" },
+      tituloCapa: "PROJETO ESTRUTURAL\nIMPLANTAÇÃO",
+      extras: {},
+      disciplina: "",
+      tomo: "",
+      volume: "VII",
+    },
+    (v) => v.replace(/\n/g, "<text:line-break/>"),
+  );
+  assert.match(xml, />PROJETO ESTRUTURAL</);
+  assert.match(xml, />IMPLANTAÇÃO</);
+  assert.match(xml, />Vol\. VII</);
+  assert.match(xml, />040-26</);
+});
+
 console.log(`\n${passed} teste(s) ok.`);
