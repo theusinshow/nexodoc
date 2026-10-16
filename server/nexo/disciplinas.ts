@@ -74,6 +74,16 @@ export interface NomesDaDisciplina {
   semSeparatriz?: true;
   semCapa?: true;
   /**
+   * A SIGLA DA FAMÍLIA que este código especializa no nome de arquivo.
+   *
+   * O escritório escreve o metálico como `est_met` — "estrutural, metálico" —
+   * e não como duas disciplinas. O carimbo do 138-26 (passarelas) traz
+   * `138_26_est_met_001_a` no campo ARQUIVO; lido como ["est","met"], as duas
+   * empatavam e a LD saía "PROJETO ESTRUTURAL CONCRETO" (16/10/2026). Só vale
+   * com as siglas COLADAS (`est_met`): separadas por outra, é um volume misto.
+   */
+  especializa?: string;
+  /**
    * QUALIFICADORES: o que o carimbo escreve para distinguir esta disciplina de
    * outra da mesma família.
    *
@@ -110,6 +120,7 @@ export const DISCIPLINAS: Record<string, NomesDaDisciplina> = {
     documento: "PROJETO ESTRUTURAL METÁLICO",
     grupo: "estrutural",
     termos: ["metalic"],
+    especializa: "est",
   },
 
   // ------------------------------------------------------------------ Instalações
@@ -203,6 +214,13 @@ export const QUALIFICADORES_DA_DISCIPLINA: Record<string, readonly string[]> =
       .filter(([, nomes]) => nomes.termos && nomes.termos.length > 0)
       .map(([codigo, nomes]) => [codigo, nomes.termos!]),
   );
+
+/** Código → a sigla de família que ele especializa (`met` → `est`). */
+export const FAMILIA_ESPECIALIZADA: Record<string, string> = Object.fromEntries(
+  Object.entries(DISCIPLINAS)
+    .filter(([, nomes]) => nomes.especializa)
+    .map(([codigo, nomes]) => [codigo, nomes.especializa!]),
+);
 
 /** Codigos que sao secoes/tipos de documento, nao disciplinas. */
 export const NAO_DISCIPLINA = new Set(["memorial", "md", "geral", "capa", "capas", "separatriz", "vol", "orcamento"]);

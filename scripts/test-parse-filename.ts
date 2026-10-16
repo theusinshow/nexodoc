@@ -112,4 +112,21 @@ test("o volume único do 114-19 deixa de ser chamado de prancha", () => {
   assert.equal(parseFilename("114_19_VOLUME ÚNICO.pdf").tipo, "outro");
 });
 
+/*
+ * `est_met` É UMA DISCIPLINA SÓ: estrutural, metálico.
+ *
+ * O campo ARQUIVO do carimbo do 138-26 (passarelas, 33 pranchas) escreve
+ * `138_26_est_met_001_a`. O parse devolvia ["est","met"], as duas empatavam na
+ * moda de `buildLdProposal`, a primeira vencia, e a LD saía "PROJETO ESTRUTURAL
+ * CONCRETO" com o PDF se chamando `138_26_met_passarelas_a.pdf` (16/10/2026).
+ */
+test("est_met é o metálico, não duas disciplinas", () => {
+  assert.deepEqual(parseFilename("138_26_est_met_001_a").disciplinas, ["met"]);
+  assert.deepEqual(parseFilename("138_26_est_met_001_a.pdf").disciplinas, ["met"]);
+  assert.deepEqual(parseFilename("138_26_met_passarelas_a.pdf").disciplinas, ["met"]);
+  // Separados por outra disciplina, cada um é o seu: o volume misto não colapsa.
+  assert.deepEqual(parseFilename("040_26_vol_est_fnd_met_a.pdf").disciplinas, ["est", "fnd", "met"]);
+  assert.deepEqual(parseFilename("040_26_est_001_a.pdf").disciplinas, ["est"]);
+});
+
 console.log(`\n${passed} teste(s) de parse-filename OK`);

@@ -6,7 +6,7 @@
  * número da folha — a regra mais consequente deste arquivo — só poderia ser
  * conferida abrindo o navegador.
  */
-import { DISCIPLINA_LEXICON } from "./disciplinas.ts";
+import { DISCIPLINA_LEXICON, FAMILIA_ESPECIALIZADA } from "./disciplinas.ts";
 import { aplicarFolhaManual, reconcileByPageOrder } from "./reconcile-sheets.ts";
 
 /**
@@ -317,9 +317,16 @@ export function parseFilename(fileName: string, relPath?: string): ParsedFilenam
   // Disciplinas do NOME sao autoritativas (a prancha carrega a sua). A pasta so
   // entra como fallback quando o nome nao tem nenhuma (evita o volume his_inc_spd
   // contaminar uma prancha que e so "his").
+  //
+  // `est_met` é UMA disciplina: a sigla da família colada na que a especializa
+  // sai, e fica a específica. Ver `especializa` em `disciplinas.ts`.
   const pick = (toks: string[]) => {
     const out: string[] = [];
-    for (const t of toks) if (DISCIPLINA_LEXICON[t] && !out.includes(t)) out.push(t);
+    toks.forEach((t, i) => {
+      if (!DISCIPLINA_LEXICON[t] || out.includes(t)) return;
+      if (FAMILIA_ESPECIALIZADA[toks[i + 1]] === t) return;
+      out.push(t);
+    });
     return out;
   };
   const fromName = pick(nameTokens);
