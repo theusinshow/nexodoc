@@ -188,12 +188,11 @@ test("o mesmo erro achado pela IA e pelo dicionário sai uma vez", () => {
  */
 test("erro só de acento é info; de letra é aviso", () => {
   const r = base();
-  const n = r.linhas.find((l) => l.texto === "TUBULACAO EXISTENTE")!.n;
   const m = r.linhas.find((l) => l.texto === "MAGUEIRA DE INCENDIO")!.n;
   const res = montarResultadoDaGrafia({
     ...r,
     erros: [
-      { linha: n, errado: "TUBULACAO", certo: "TUBULAÇÃO", motivo: "acento" },
+      { linha: m, errado: "INCENDIO", certo: "INCÊNDIO", motivo: "acento" },
       { linha: m, errado: "MAGUEIRA", certo: "MANGUEIRA", motivo: "falta o N" },
     ],
     suspeitas: [],
@@ -201,7 +200,7 @@ test("erro só de acento é info; de letra é aviso", () => {
   });
   assert.deepEqual(
     res.findings.map((f) => `${f.severidade}:${f.mensagem}`),
-    ['aviso:"MAGUEIRA" → "MANGUEIRA"', 'info:"TUBULACAO" → "TUBULAÇÃO"'],
+    ['aviso:"MAGUEIRA" → "MANGUEIRA"', 'info:"INCENDIO" → "INCÊNDIO"'],
   );
 });
 
@@ -267,7 +266,30 @@ test("letra acentuada trocada por outra letra é a fonte, não o papel", () => {
   });
   assert.deepEqual(
     res.findings.map((f) => `${f.severidade}:${f.mensagem}`),
-    ['aviso:"MAGUEIRA" → "MANGUEIRA"', 'info:"TUBULACAO" → "TUBULAÇÃO"'],
+    ['aviso:"TUBULACAO" → "TUBULAÇÃO"', 'aviso:"MAGUEIRA" → "MANGUEIRA"'],
+  );
+});
+
+/*
+ * CEDILHA FALTANDO É AVISO (pedido do Matheus, 16/10/2026). Ela muda a palavra
+ * ("CALCADA" é de calcar; a nota fala de calçada) — não é só acento.
+ */
+test("cedilha faltando é aviso; acento continua info", () => {
+  const r = linhasUnicas([folha("top.pdf", 1, ["CALCADA EM PAVER", "TUBULACAO EXISTENTE", "NIVEL DO TERRENO"])]);
+  const n = (t: string) => r.linhas.find((l) => l.texto === t)!.n;
+  const res = montarResultadoDaGrafia({
+    ...r,
+    erros: [
+      { linha: n("CALCADA EM PAVER"), errado: "CALCADA", certo: "CALÇADA", motivo: "" },
+      { linha: n("TUBULACAO EXISTENTE"), errado: "TUBULACAO", certo: "TUBULAÇÃO", motivo: "" },
+      { linha: n("NIVEL DO TERRENO"), errado: "NIVEL", certo: "NÍVEL", motivo: "" },
+    ],
+    suspeitas: [],
+    juizos: [],
+  });
+  assert.deepEqual(
+    res.findings.map((f) => `${f.severidade}:${f.mensagem}`),
+    ['aviso:"CALCADA" → "CALÇADA"', 'aviso:"TUBULACAO" → "TUBULAÇÃO"', 'info:"NIVEL" → "NÍVEL"'],
   );
 });
 

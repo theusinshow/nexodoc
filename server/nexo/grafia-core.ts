@@ -244,8 +244,14 @@ function contem(linha: string, trecho: string): boolean {
  * Só acento é INFO; letra trocada é AVISO. Desenho de CAD sai muito sem acento
  * ("RESISTENCIA", "NIVEL", "ELETRICA", nas amostras de 16/10/2026) — como aviso,
  * afogaria o erro de letra, que é o que muda o sentido da prancha.
+ *
+ * A CEDILHA NÃO É ACENTO aqui (pedido do Matheus, 16/10/2026): ela muda a
+ * palavra — "CALCADA" é de calcar, e a nota fala de calçada. Cedilha faltando
+ * ou sobrando é aviso, como letra trocada.
  */
 function gravidade(errado: string, certo: string): SeveridadeDaGrafia {
+  const cedilhas = (t: string) => (t.match(/[çÇ]/g) ?? []).length;
+  if (cedilhas(errado) !== cedilhas(certo)) return "aviso";
   return semAcento(errado) === semAcento(certo) ? "info" : "aviso";
 }
 
