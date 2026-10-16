@@ -164,6 +164,7 @@
     "test:nexo:odt-marcadores": "node scripts/test-nexo-odt-marcadores.ts",
     "test:nexo:odt-layout": "node scripts/test-nexo-odt-layout.ts",
     "test:nexo:modelo-capa": "node scripts/test-nexo-modelo-capa.ts",
+    "test:nexo:corte-dos-tomos": "node scripts/test-nexo-corte-dos-tomos.ts",
     "test:nexo:decisoes": "node scripts/test-nexo-decisoes.ts",
     "test:nexo:disciplinas": "node scripts/test-nexo-disciplinas.ts",
     "test:nexo:conversa-remota": "node scripts/test-nexo-conversa-remota.ts",
