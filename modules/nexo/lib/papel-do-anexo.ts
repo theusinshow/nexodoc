@@ -58,7 +58,12 @@ export interface FatosDoAnexo {
 }
 
 export type PapelPelaGeometria = "memorial" | "prancha" | "nao-sei";
-export type PapelDoAnexo = "memorial" | "prancha" | "indeciso";
+/**
+ * `capa` (16/10/2026): o PDF cujo nome diz capa e que tem 1 ou 2 folhas entra
+ * no volume COMO ESTÁ, no lugar da capa gerada. Ver
+ * docs/superpowers/specs/2026-10-16-capa-anexada-design.md.
+ */
+export type PapelDoAnexo = "memorial" | "prancha" | "indeciso" | "capa";
 
 /**
  * A partir de quantas folhas um PDF deixa de ser capa/separatriz e vira
@@ -233,6 +238,10 @@ export function decidirPapel(args: {
           `O nome diz ${pelaConvencao}, mas são ${fatos.paginas} folhas de texto corrido — ` +
           "isso é o formato de um memorial.",
       };
+    }
+    // A capa pronta que o engenheiro anexou: entra como está no volume.
+    if (pelaConvencao === "capa" && fatos.paginas >= 1 && fatos.paginas <= 2) {
+      return { papel: "capa", porque: "O nome diz capa: uso como a capa do volume, do jeito que está." };
     }
     return { papel: "prancha", porque: "O nome segue a convenção do escritório." };
   }

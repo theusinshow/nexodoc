@@ -32,6 +32,8 @@ const ROTULOS: Record<string, string> = {
   nivel: "Nível",
   titulos: "Disciplinas",
   folhas: "Folhas",
+  // A capa em PDF anexada (16/10/2026): pôr ou tirar muda a capa do volume.
+  capaAnexada: "Capa anexada",
 };
 
 function texto(valor: unknown): string {

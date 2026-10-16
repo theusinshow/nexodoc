@@ -120,6 +120,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { useCapaAnexada } from "../lib/capa-anexada";
 import { conferirGrafia } from "../lib/grafia";
 import { conferirIdentidadeDoSelo } from "../lib/selo-check";
 import { lerVolumeMontado } from "../lib/volume-leitura";
@@ -938,10 +939,20 @@ function CapaConfirmation({
     : params.templateId
       ? "carregando…"
       : "";
-  const semPrefeitura = params.templateId.trim() === "";
+  /*
+   * A CAPA EM PDF ANEXADA (16/10/2026) entra como está: não precisa de
+   * prefeitura nem de título, porque nada é gerado.
+   */
+  const capaAnexada = useCapaAnexada();
+  const semPrefeitura = !capaAnexada && params.templateId.trim() === "";
   // Título é decisão do engenheiro (igual ao da LD): sem ele, não gera.
-  const semTitulo = params.tituloCapa.trim() === "";
-  const paramsAtuais = { ...params, tomo: tomo.numero };
+  const semTitulo = !capaAnexada && params.tituloCapa.trim() === "";
+  // A capa anexada entra nos params: pô-la ou tirá-la deixa a capa gerada pendente.
+  const paramsAtuais = {
+    ...params,
+    tomo: tomo.numero,
+    ...(capaAnexada ? { capaAnexada: capaAnexada.arquivo.name } : {}),
+  };
   const estado = estadoDoArtefato(saved, paramsAtuais);
   const pendencia = {
     mudancas: mudancasDoArtefato(saved?.payload, paramsAtuais),
@@ -962,6 +973,23 @@ function CapaConfirmation({
     setBusy(true);
     setError(null);
     try {
+      if (capaAnexada) {
+        const url = URL.createObjectURL(capaAnexada.arquivo);
+        await saveResult({
+          artifactId: id,
+          kind: "capa",
+          payload: paramsAtuais,
+          summary: `Capa anexada · ${capaAnexada.arquivo.name} · entra como está`,
+          canvas: {
+            label: "Capa anexada",
+            detail: capaAnexada.arquivo.name,
+            titulo: params.tituloCapa,
+            pageNumber: 1,
+          },
+          files: [{ label: "PDF", name: capaAnexada.arquivo.name, mime: PDF_MIME, url, primary: true }],
+        });
+        return;
+      }
       const r = await postCapa(selos, {
         templateId: params.templateId,
         tituloCapa: params.tituloCapa,
@@ -982,7 +1010,16 @@ function CapaConfirmation({
         payload: { ...params, tomo: tomo.numero },
         summary: `Capa ${r.resumo.prefeitura} · ${r.resumo.codigo} · vol ${r.resumo.volume}${
           r.resumo.tomos > 1 ? ` · ${r.resumo.tomos} tomos` : ""
-        }${r.pdfError ? " · PDF indisponível" : ""}`,
+        }${r.pdfError ? " · PDF indisponível" : ""}${
+          /*
+           * TRANSBORDO DITO (16/10/2026): a capa que saiu com páginas a mais
+           * entrava no volume calada. Fica no resumo, que é o que se lê antes
+           * de baixar.
+           */
+          r.paginasAMais > 0
+            ? ` · saiu com ${plural(r.paginasAMais, "página", "páginas")} a mais — o modelo transborda, confira antes de entregar`
+            : ""
+        }`,
         canvas: {
           label: `Capa ${r.resumo.prefeitura}`,
           detail: `${r.resumo.codigo} · vol ${r.resumo.volume}`,
@@ -1013,6 +1050,17 @@ function CapaConfirmation({
       {podeGerar && (
         <>
           <div className="space-y-2">
+            {capaAnexada && (
+              <SummaryRow
+                label="Capa"
+                value={
+                  `${capaAnexada.arquivo.name} — entra como está` +
+                  (params.numTomos > 1
+                    ? "; a mesma em todos os tomos (para numerar o tomo, mande a capa em ODT)"
+                    : "")
+                }
+              />
+            )}
             <SummaryRow
               label="Prefeitura"
               value={semPrefeitura ? "escolha a prefeitura →" : prefeituraNome}

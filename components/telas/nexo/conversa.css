@@ -372,6 +372,13 @@
 .ds .nx-ficha-aviso { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 9px 14px; border-top: 1px solid var(--ds-line-subtle); font-size: var(--ds-text-xs); color: var(--ds-text-secondary); }
 .ds .nx-ficha-aviso i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ds-sev-decide); transform: translateY(-1px); }
 @media (hover: none) { .ds .nx-ficha-botao { opacity: 1; } }
+/* O card do MODELO DE CAPA (16/10/2026): a linha da capa à esquerda, o que ela é à direita. */
+.ds .nx-modelo-linha { grid-template-columns: minmax(0, 1fr) minmax(132px, 168px); }
+.ds .nx-modelo-linha dt { min-width: 0; font-size: var(--ds-text-sm); color: var(--ds-text-primary); }
+.ds .nx-modelo-texto { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds .nx-modelo-linha dd { justify-content: flex-end; }
+.ds .nx-modelo-campo { margin: 0; }
+.ds .nx-modelo-acoes { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--ds-line-subtle); }
 
 /* A obra corrigida na ficha, oferecida ao cadastro do projeto (CadastroDaObra.tsx) */
 .ds .nx-cadastro { justify-self: stretch; max-width: 560px; display: grid; gap: 10px; padding: 12px 14px; border-radius: var(--ds-radius-card); background: var(--ds-surface-card); box-shadow: inset 0 0 0 1px var(--ds-line-subtle); }

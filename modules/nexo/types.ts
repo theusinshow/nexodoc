@@ -13,6 +13,22 @@ import type { LeituraDaCapa } from "@/lib/leitura-da-capa";
 import type { OrigemNaFicha } from "@/lib/escada-da-identidade";
 import type { FichaDoDrop } from "./lib/ficha-do-drop";
 import type { FichaDoMemorial } from "./lib/ficha-do-memorial";
+import type { PropostaDeModelo } from "@/server/nexo/modelo-capa/tipos";
+
+/**
+ * A CAPA ANEXADA EM ODT, esperando o engenheiro conferir o que cada linha é
+ * antes de virar o modelo de capa do projeto (16/10/2026). Guardada na
+ * mensagem para o card sobreviver ao F5 — os BYTES não (ficam na memória da
+ * aba): depois do F5, gravar pede o ODT de novo.
+ */
+export interface ModeloDeCapaNaConversa {
+  anexoId: string;
+  nome: string;
+  proposta: PropostaDeModelo;
+  estado: "propondo" | "gravado" | "recusado" | "descartado";
+  /** Por que foi recusado (transbordo, erro do servidor). */
+  motivo?: string;
+}
 
 /** Arquivo enviado pelo usuario, antes/depois de classificado. */
 export interface NexoInputFile {
@@ -399,6 +415,8 @@ export interface NexoChatMessage {
    * decide. `estado` guarda a resposta para a pergunta não voltar após o F5.
    */
   cadastroDaObra?: { para: string; estado: "pendente" | "atualizado" | "mantido" };
+  /** A capa em ODT anexada, a conferir antes de virar o modelo do projeto. */
+  modeloDeCapa?: ModeloDeCapaNaConversa;
   /**
    * O BASTIDOR DO TURNO em uma linha ("leu 23 selos · propôs LD · 8,4s").
    *

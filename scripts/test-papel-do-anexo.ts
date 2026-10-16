@@ -236,4 +236,17 @@ test("todo indeciso vem com um porquê que cita o fato medido", () => {
   assert.ok(d.porque.length > 20, "o porquê precisa dizer algo");
 });
 
+test("nome diz capa e o PDF tem 1 folha: é a CAPA do volume (16/10/2026)", () => {
+  const umaFolha = fatos(1, [pagina({ chars: 300 })]);
+  const d = decidirPapel({ pelaConvencao: "capa", pelaGeometria: "prancha", fatos: umaFolha });
+  assert.equal(d.papel, "capa");
+});
+
+test("nome diz capa, mas são 5 folhas: continua prancha (não é uma capa)", () => {
+  assert.equal(
+    decidirPapel({ pelaConvencao: "capa", pelaGeometria: "nao-sei", fatos: naoSei }).papel,
+    "prancha",
+  );
+});
+
 console.log(`\n${passed} teste(s) de papel do anexo OK`);

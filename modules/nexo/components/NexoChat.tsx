@@ -2,6 +2,7 @@
 
 import { cabecalhosDeGeracao } from "@/lib/projeto-do-pedido";
 import { useTemplatesDeCapa } from "../lib/use-templates-de-capa";
+import { ModeloDeCapaCard } from "./ModeloDeCapaCard";
 import { Orbe } from "@/components/ds/basicos";
 import { Cronometro, Trelica } from "@/components/ds/micro";
 import { textoComRotulos } from "@/lib/rotulo-do-achado";
@@ -79,7 +80,11 @@ export interface Attachment {
    * visível por um raro e invisível — a convenção acerta 656 de 659 no acervo.
    * Ver [[modules/nexo/lib/papel-do-anexo.ts]].
    */
-  papel?: "memorial" | "prancha" | "indeciso";
+  /**
+   * `capa` (16/10/2026): a capa pronta. O ODT vira o modelo de capa do
+   * projeto; o PDF entra no volume como está.
+   */
+  papel?: "memorial" | "prancha" | "indeciso" | "capa";
   /** Por que o papel ficou indeciso — a frase que o chip mostra. */
   porque?: string;
 }
@@ -771,6 +776,8 @@ export function NexoChat({
                   {m.fichaDoMemorial && <FichaDoMemorialCard mensagemId={m.id} ficha={m.fichaDoMemorial} ultima={m.id === ultimaFicha} />}
                   {/* A obra corrigida na ficha: levar também ao cadastro do projeto? */}
                   {m.cadastroDaObra && <CadastroDaObraCard mensagemId={m.id} oferta={m.cadastroDaObra} />}
+                  {/* A capa em ODT anexada: o que é cada linha, antes de virar o modelo do projeto. */}
+                  {m.modeloDeCapa && <ModeloDeCapaCard mensagemId={m.id} modelo={m.modeloDeCapa} />}
                   {/* UM plano para tudo que sai de capa/LD/separatriz; volume,
                       auditoria e conferência seguem com cartão próprio. */}
                   {m.proposals && m.proposals.length > 0 && (
@@ -1093,6 +1100,8 @@ function AttachmentChip({
 }) {
   const viraMemorial = att.papel === "prancha";
   const indeciso = att.papel === "indeciso";
+  // O ODT só pode ser capa: não há "tratar como prancha" para ele.
+  const soCapa = /\.odt$/i.test(att.name);
   return (
     <div className="nx-anexo nexodoc-enter nx-edge-6 flex items-center gap-2 py-1 pl-1 pr-1.5 [--nx-fill:var(--nexodoc-recessed)]">
       {att.kind === "image" && att.url ? (
@@ -1186,7 +1195,7 @@ function AttachmentChip({
         encostados, sem nada distinguindo qual era qual. O verbo do botão já diz
         o papel atual por oposição.
       */}
-      {att.papel && !indeciso && estado.tipo !== "lido" && !onTrocarPapel && (
+      {att.papel && !indeciso && estado.tipo !== "lido" && (!onTrocarPapel || soCapa) && (
         <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
           {att.papel}
         </span>
@@ -1231,7 +1240,7 @@ function AttachmentChip({
             tratar como prancha
           </button>
         </>
-      ) : att.papel && !indeciso && onTrocarPapel && estado.tipo !== "lido" ? (
+      ) : att.papel && !indeciso && !soCapa && onTrocarPapel && estado.tipo !== "lido" ? (
         <button
           type="button"
           onClick={() => onTrocarPapel(att.id)}

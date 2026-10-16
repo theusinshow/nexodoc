@@ -204,6 +204,8 @@ import {
   type FichaDePrancha,
 } from "../lib/pranchas-guardadas";
 import { deOutroProjeto, pedidoDeVinculo } from "../lib/vinculo-pelos-selos";
+import { definirCapaAnexada, guardarOdtPendente, tirarCapaDoAnexo } from "../lib/capa-anexada";
+import type { PropostaDeModelo } from "@/server/nexo/modelo-capa/tipos";
 import { detalheDoParecer, type ParecerParaIncompletude } from "@/lib/auditoria-incompleta";
 
 function reportDoPayload(payload: unknown): ParecerParaIncompletude | null {
@@ -648,12 +650,93 @@ function NexoWorkspaceInner({
 
   function removeAttachment(id: string) {
     arquivosPorAnexo.current.delete(id);
+    // A capa em PDF sai junto com o chip dela: volta a capa gerada pelo modelo.
+    tirarCapaDoAnexo(id);
     setAttachments((prev) => {
       const a = prev.find((x) => x.id === id);
       if (a?.url) URL.revokeObjectURL(a.url);
       return prev.filter((x) => x.id !== id);
     });
   }
+
+  /*
+   * A CAPA PRONTA EM ODT (16/10/2026): lida no servidor (regras primeiro, IA só
+   * no que sobrar) e devolvida como um card para o engenheiro conferir antes de
+   * virar o modelo de capa do projeto. Sem projeto ainda — a conversa só ganha
+   * um depois de ler os carimbos —, o ODT espera na fila e é lido assim que o
+   * projeto chega (efeito logo abaixo). Desenho:
+   * docs/superpowers/specs/2026-10-16-capa-anexada-design.md
+   */
+  const odtsEsperandoProjeto = useRef<{ id: string; arquivo: File }[]>([]);
+
+  function anexarModeloDeCapa(arquivo: File) {
+    const id = crypto.randomUUID();
+    guardarOdtPendente(id, arquivo);
+    setAttachments((prev) => [...prev, { id, name: arquivo.name, kind: "pdf" as const, papel: "capa" as const }]);
+    if (conv.projectId) {
+      void lerModeloDeCapa(id, arquivo, conv.projectId);
+      return;
+    }
+    odtsEsperandoProjeto.current.push({ id, arquivo });
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content:
+        `Guardei a capa ${arquivo.name}. Leio assim que a conversa estiver num projeto — ` +
+        "anexe as pranchas (ou o memorial) e ela entra logo depois dos carimbos.",
+    });
+  }
+
+  async function lerModeloDeCapa(id: string, arquivo: File, projeto: string) {
+    const form = new FormData();
+    form.set("arquivo", arquivo);
+    const obra = conv.identidade?.obra?.trim();
+    if (obra) form.set("obra", obra);
+    const bairro = conv.identidade?.bairro?.trim();
+    if (bairro) form.set("bairro", bairro);
+    type Resposta = { proposta?: PropostaDeModelo; error?: string };
+    let corpo: Resposta | null = null;
+    try {
+      const res = await fetch(`/api/nexo/modelo-capa?projeto=${encodeURIComponent(projeto)}`, {
+        method: "POST",
+        body: form,
+      });
+      const lido = (await res.json().catch(() => null)) as Resposta | null;
+      corpo = res.ok ? lido : { error: lido?.error ?? `erro ${res.status}` };
+    } catch (err) {
+      corpo = { error: err instanceof Error ? err.message : "falha de rede" };
+    }
+    if (!corpo?.proposta) {
+      conv.appendMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Não consegui ler a capa ${arquivo.name}: ${corpo?.error ?? "erro desconhecido"}.`,
+      });
+      return;
+    }
+    conv.appendMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `Li a capa ${arquivo.name}. Confira o que é cada linha antes de eu usá-la como o modelo de capa deste projeto.`,
+      modeloDeCapa: { anexoId: id, nome: arquivo.name, proposta: corpo.proposta, estado: "propondo" },
+    });
+  }
+
+  // A capa em PDF é desta conversa: trocar de conversa a tira.
+  useEffect(() => {
+    definirCapaAnexada(null);
+    odtsEsperandoProjeto.current = [];
+  }, [conv.conversationId]);
+
+  // O projeto chegou: lê os ODTs que estavam esperando por ele.
+  useEffect(() => {
+    const projeto = conv.projectId;
+    if (!projeto || odtsEsperandoProjeto.current.length === 0) return;
+    const fila = odtsEsperandoProjeto.current;
+    odtsEsperandoProjeto.current = [];
+    for (const { id, arquivo } of fila) void lerModeloDeCapa(id, arquivo, projeto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só a chegada do projeto dispara
+  }, [conv.projectId]);
 
   /**
    * INVERTE o papel de um PDF — e é só isso que ela faz.
@@ -671,6 +754,13 @@ function NexoWorkspaceInner({
   async function trocarPapelAnexo(id: string) {
     const att = attachments.find((a) => a.id === id);
     if (!att?.papel || att.papel === "indeciso") return;
+    // A capa em PDF que, afinal, é uma prancha: sai do lugar da capa e vai ler o selo.
+    if (att.papel === "capa") {
+      if (/\.odt$/i.test(att.name)) return;
+      tirarCapaDoAnexo(id);
+      await definirPapelAnexo(id, "prancha");
+      return;
+    }
     await definirPapelAnexo(id, att.papel === "prancha" ? "memorial" : "prancha");
   }
 
@@ -1214,6 +1304,8 @@ function NexoWorkspaceInner({
     const all = list ? Array.from(list) : [];
     const pdfsSoltos = all.filter((f) => /\.pdf$/i.test(f.name));
     const images = all.filter(isImageFile);
+    // A capa pronta em ODT (16/10/2026): vira o modelo de capa do projeto.
+    const odts = all.filter((f) => /\.odt$/i.test(f.name));
     /*
      * O MEMORIAL QUE A CONVERSA JÁ TEM não entra de novo — decidido em
      * 15/09/2026 (jornada c1). Sai ANTES dos chips e do pré-voo: soltá-lo outra
@@ -1235,7 +1327,7 @@ function NexoWorkspaceInner({
      * verdade é que ele exportou do CAD e soltou o arquivo errado, que é um
      * engano de dez segundos quando alguém avisa.
      */
-    const recusados = all.filter((f) => !pdfsSoltos.includes(f) && !images.includes(f));
+    const recusados = all.filter((f) => !pdfsSoltos.includes(f) && !images.includes(f) && !odts.includes(f));
     if (recusados.length > 0) {
       const exts = [
         ...new Set(
@@ -1243,7 +1335,7 @@ function NexoWorkspaceInner({
         ),
       ].filter(Boolean);
       setRecusa(
-        `${exts.join(", ") || "Este formato"} não é aceito. O Nexo lê PDF — o memorial ou as pranchas: exporte em PDF e solte de novo.`,
+        `${exts.join(", ") || "Este formato"} não é aceito. O Nexo lê PDF — o memorial ou as pranchas — e a capa pronta em ODT: exporte e solte de novo.`,
       );
     } else {
       setRecusa(null);
@@ -1261,6 +1353,7 @@ function NexoWorkspaceInner({
     // `avisarMemorialRecusado`), então não há troca a anunciar. A troca da
     // revisão só é anunciada DEPOIS do pré-voo (ver `memorial` abaixo).
     const recusaDaTrava = conv.recusaDeLeituraPagaAgora();
+    for (const odt of odts) anexarModeloDeCapa(odt);
     if (pdfs.length === 0 && images.length === 0) return;
     setError(null);
 
@@ -1315,6 +1408,26 @@ function NexoWorkspaceInner({
     const indecisos = preVoos.filter((p) => p.papel === "indeciso");
     const memorials = preVoos.filter((p) => p.papel === "memorial").map((p) => p.file);
     const pranchas = preVoos.filter((p) => p.papel === "prancha").map((p) => p.file);
+    /*
+     * A CAPA EM PDF (16/10/2026) entra no volume como está — uso único. Dito
+     * em voz alta: o acervo tem 24 capas soltas nas pastas "arquivos
+     * separados", e quem solta a pasta de uma emissão velha precisa VER que a
+     * capa antiga vai entrar (e tirá-la pelo chip).
+     */
+    const capaPdf = preVoos.find((p) => p.papel === "capa");
+    if (capaPdf) {
+      const anexo = atts.find((a) => a.kind === "pdf" && a.name === capaPdf.file.name);
+      if (anexo) {
+        definirCapaAnexada({ anexoId: anexo.id, arquivo: capaPdf.file });
+        conv.appendMessage({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            `Vou usar ${capaPdf.file.name} como a capa do volume, do jeito que está — sem gerar a capa pelo modelo. ` +
+            "Se não é isso, tire o anexo ou marque como prancha.",
+        });
+      }
+    }
     const memorialSolto = memorials[0] ?? null;
     if (memorialSolto && recusaDaTrava) avisarMemorialRecusado(memorialSolto.name, recusaDaTrava);
     const memorial = recusaDaTrava ? null : memorialSolto;
@@ -3055,7 +3168,7 @@ function NexoWorkspaceInner({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf"
+        accept="application/pdf,.odt,application/vnd.oasis.opendocument.text"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -3077,7 +3190,7 @@ function NexoWorkspaceInner({
       <input
         ref={attachInputRef}
         type="file"
-        accept="application/pdf,image/*"
+        accept="application/pdf,.odt,application/vnd.oasis.opendocument.text,image/*"
         multiple
         className="hidden"
         onChange={(e) => {

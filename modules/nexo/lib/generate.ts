@@ -50,6 +50,11 @@ export interface CapaGenResult {
   odtName: string;
   pdfUrl?: string;
   pdfName?: string;
+  /**
+   * Páginas que o PDF tem A MAIS do que as capas pedidas: o modelo transbordou
+   * (16/10/2026). 0 quando bate ou sem PDF.
+   */
+  paginasAMais: number;
 }
 
 /** base64 -> object URL (para download sem trafegar o binário de novo). */
@@ -212,6 +217,7 @@ export async function postCapa(
         error?: string;
         resumo?: CapaGenResult["resumo"];
         pdfError?: string;
+        paginasAMais?: number;
         files?: {
           odt: { name: string; data: string };
           pdf: { name: string; data: string } | null;
@@ -225,6 +231,7 @@ export async function postCapa(
   return {
     resumo: payload.resumo!,
     pdfError: payload.pdfError,
+    paginasAMais: payload.paginasAMais ?? 0,
     odtName: payload.files.odt.name,
     odtUrl: base64ToUrl(payload.files.odt.data, ODT_MIME),
     zipName: payload.files.zip.name,
