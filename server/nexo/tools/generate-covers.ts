@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { PDFDocument } from "pdf-lib";
 
 import { persistCoverGenerationArtifacts } from "@/lib/cover-artifacts";
 import { generateOdtBuffer } from "@/server/odt";
@@ -27,6 +28,13 @@ export interface GenerateCoversInput {
    * ODT sairia literal na capa.
    */
   extras?: Record<string, string>;
+  /** Bytes do modelo de capa do projeto (cofre). Vence o `templateId`. */
+  templateBytes?: Buffer;
+  /**
+   * Páginas físicas de UMA capa no modelo (2 com contracapa). É a régua do
+   * aviso de transbordo. Ausente = 1.
+   */
+  paginasPorCapa?: number;
 }
 
 export interface GeneratedFile {
@@ -40,6 +48,12 @@ export interface GenerateCoversOutput {
   zip: GeneratedFile;
   pdfError?: string;
   persisted: boolean;
+  /**
+   * Páginas que o PDF tem A MAIS do que as capas pedidas ocupariam — o modelo
+   * transbordou (16/10/2026). Antes, uma capa de 2 páginas entrava no volume
+   * calada: Chapecó e Criciúma já fizeram isso. 0 quando bate ou sem PDF.
+   */
+  paginasAMais: number;
 }
 
 export async function generateCovers(
@@ -72,6 +86,7 @@ export async function generateCovers(
     generalData,
     pages,
     ...(input.extras ? { extras: input.extras } : {}),
+    ...(input.templateBytes ? { templateBytes: input.templateBytes } : {}),
   });
 
   let pdfBuffer: Buffer | null = null;
@@ -83,6 +98,15 @@ export async function generateCovers(
     // numa página nova, vazia — ver `pagina-em-branco.ts`.
     pdfBuffer = result.pdfBuffer ? (await semPaginasEmBranco(result.pdfBuffer).catch(() => ({ buffer: result.pdfBuffer! }))).buffer : null;
     pdfError = result.error;
+  }
+
+  let paginasAMais = 0;
+  if (pdfBuffer) {
+    const esperadas = pages.length * Math.max(1, input.paginasPorCapa ?? 1);
+    const paginas = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true, updateMetadata: false })
+      .then((d) => d.getPageCount())
+      .catch(() => esperadas);
+    paginasAMais = Math.max(0, paginas - esperadas);
   }
 
   const zip = new JSZip();
@@ -123,5 +147,6 @@ export async function generateCovers(
     zip: { name: zipFileName, buffer: zipBuffer },
     pdfError: pdfError || undefined,
     persisted,
+    paginasAMais,
   };
 }

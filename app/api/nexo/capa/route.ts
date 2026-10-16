@@ -10,6 +10,10 @@ import { buildCapaProposal } from "@/server/nexo/build-capa-proposal";
 import { generateCovers } from "@/server/nexo/tools/generate-covers";
 import type { SeloForLd } from "@/server/nexo/build-ld-proposal";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
+import { modeloDeCapaResolvido, projetoDoModelo, templateDoModeloDoProjeto } from "@/server/modelo-capa";
+import { projetoDoEscritorio } from "@/server/pranchas";
+import { getTemplateRegistry, type TemplateConfigFile } from "@/server/templates/registry";
 
 export const runtime = "nodejs";
 
@@ -37,8 +41,9 @@ export async function POST(req: NextRequest) {
    *
    * As duas recusas independentes estao em [[lib/actor.ts]].
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -119,11 +124,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum selo informado." }, { status: 400 });
   }
 
+  /*
+   * O MODELO DO PROJETO (16/10/2026): `projeto:<id>` não mora no disco — a
+   * config vem da tabela e os bytes do cofre, e só se o projeto é deste
+   * escritório. Os bytes sumidos do cofre viram pedido para anexar de novo,
+   * nunca uma capa de prefeitura no lugar, calada.
+   */
+  let doProjeto: { template: TemplateConfigFile; bytes: Buffer } | null = null;
+  const projetoDoTemplate = projetoDoModelo(templateId);
+  if (projetoDoTemplate) {
+    const ok = await projetoDoEscritorio(projetoDoTemplate, actor.organizationId);
+    const resolvido = ok ? await modeloDeCapaResolvido(projetoDoTemplate, actor.organizationId) : null;
+    if (!resolvido) {
+      return NextResponse.json(
+        { error: "O modelo de capa deste projeto não foi encontrado. Anexe a capa de novo." },
+        { status: 404 },
+      );
+    }
+    doProjeto = {
+      template: templateDoModeloDoProjeto(projetoDoTemplate, resolvido.ficha),
+      bytes: resolvido.bytes,
+    };
+  }
+  const paginasPorCapa = doProjeto
+    ? doProjeto.template.paginasPorCapa
+    : (await getTemplateRegistry()).find((t) => t.id === templateId)?.paginasPorCapa;
+
   let proposal;
   try {
     proposal = await buildCapaProposal({
       selos,
       templateId,
+      ...(doProjeto ? { template: doProjeto.template } : {}),
       tituloCapa,
       volume,
       numTomos,
@@ -157,6 +189,8 @@ export async function POST(req: NextRequest) {
     generalData: proposal.generalData,
     pages: proposal.pages,
     ...(Object.keys(extrasFinais).length > 0 ? { extras: extrasFinais } : {}),
+    ...(doProjeto ? { templateBytes: doProjeto.bytes } : {}),
+    ...(paginasPorCapa ? { paginasPorCapa } : {}),
   });
 
   /*
@@ -210,6 +244,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     resumo: proposal.resumo,
     pdfError: result.pdfError,
+    paginasAMais: result.paginasAMais,
     files: {
       odt: { name: result.odt.name, data: result.odt.buffer.toString("base64") },
       pdf: result.pdf

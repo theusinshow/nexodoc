@@ -28,6 +28,11 @@ export interface GenerateOdtInput {
    * não oferecer.
    */
   extras?: Record<string, string>;
+  /**
+   * Os bytes do modelo, quando ele não mora em `templates/capas` — o modelo de
+   * capa do PROJETO, que vem do cofre (16/10/2026). Vence o `templateId`.
+   */
+  templateBytes?: Buffer;
 }
 
 export async function generateOdtBuffer(input: GenerateOdtInput): Promise<Buffer> {
@@ -35,6 +40,18 @@ export async function generateOdtBuffer(input: GenerateOdtInput): Promise<Buffer
 
   const mesAno = formatMesAno(generalData.mes, generalData.ano);
   const codigoExibido = generalData.codigoExibido || formatDisplayCode(generalData.codigoInterno);
+
+  if (input.templateBytes) {
+    return await fillExistingOdt(
+      templateId ?? "",
+      input.templateBytes,
+      generalData,
+      mesAno,
+      codigoExibido,
+      pages,
+      extras ?? {}
+    );
+  }
 
   const templateOdtPath = templateId ? await getTemplateOdtPath(templateId) : null;
 

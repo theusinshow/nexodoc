@@ -6,6 +6,7 @@
   "arquivoTemplate": "modelo_capa.odt",
   "volumeFormat": "roman",
   "tomoFormat": "plain",
+  "paginasPorCapa": 2,
   "coverTitleMode": "items",
   "defaults": {
     "orgao": "PREFEITURA MUNICIPAL DE FLORIANÓPOLIS",

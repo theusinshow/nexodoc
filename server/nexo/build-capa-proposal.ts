@@ -1,5 +1,5 @@
 import { partesEmBrasilia } from "@/lib/fuso-de-brasilia";
-import { getTemplateRegistry } from "@/server/templates/registry";
+import { getTemplateRegistry, type TemplateConfigFile } from "@/server/templates/registry";
 import { parseFilename } from "./parse-filename";
 import { disciplinaLabel, nomeNaCapa } from "./disciplinas";
 import { generatePages } from "@/modules/cover-generator/hooks/helpers";
@@ -23,6 +23,11 @@ import type {
 export interface BuildCapaInput {
   selos: SeloForLd[];
   templateId: string;
+  /**
+   * O template JÁ resolvido — o modelo de capa do projeto, que não está no
+   * registro do disco (16/10/2026). Ausente = busca `templateId` no registro.
+   */
+  template?: TemplateConfigFile;
   /** Título técnico (opcional); default = rótulo da disciplina do template. */
   tituloCapa?: string;
   /** Override opcional; senao vem do parseFilename (arabico). */
@@ -179,8 +184,8 @@ function arabicToRoman(arabic: string): string {
 export async function buildCapaProposal(
   input: BuildCapaInput,
 ): Promise<CapaProposal> {
-  const registry = await getTemplateRegistry();
-  const template = registry.find((t) => t.id === input.templateId);
+  const template =
+    input.template ?? (await getTemplateRegistry()).find((t) => t.id === input.templateId);
   if (!template) {
     throw new Error(
       `Template de capa nao encontrado: "${input.templateId}". Verifique templates/capas/*/config.json.`,
