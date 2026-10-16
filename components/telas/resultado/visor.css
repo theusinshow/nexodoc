@@ -24,10 +24,12 @@
 
 .ds .vm--block { --vm-tom: var(--ds-sev-block); }
 .ds .vm--decide { --vm-tom: var(--ds-sev-decide); }
+.ds .vm--risco { --vm-tom: var(--ds-sev-risco); }
 .ds .vm--note { --vm-tom: #8e99ae; }
 .ds .vm--texto { --vm-tom: var(--ds-sev-texto); }
 .ds .vm-trecho.vm--block { --vm-tom: #d9483a; }
 .ds .vm-trecho.vm--decide { --vm-tom: #d49a2a; }
+.ds .vm-trecho.vm--risco { --vm-tom: #dc7a3e; }
 .ds .vm-trecho.vm--texto { --vm-tom: #4f8fd9; }
 
 .ds .vm-lado { display: flex; flex-direction: column; gap: 8px; padding: 16px; overflow-y: auto; border-left: 1px solid var(--ds-line-subtle); }

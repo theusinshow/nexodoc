@@ -97,4 +97,27 @@ test("arredondamento é editorial", () => {
   assert.match(editorial, /arredondamento/i);
 });
 
+test("risco na execução é faixa própria, entre o crítico e o técnico (16/10)", () => {
+  /*
+   * Parecer do 027-24 de 24/09: aterramento de 25 Ω × 10 Ω saía técnico Media,
+   * abaixo de "títulos iguais em itens distintos". O exemplo fica escrito na
+   * régua para o modelo não tratar valor incompatível como premissa a demonstrar.
+   */
+  const linhas = CRITERIO_DAS_FAIXAS.split("\n");
+  const ordem = ["critico_documental", "risco_de_execucao", "tecnico_contratual", "revisao_editorial"].map(
+    (f) => linhas.findIndex((l) => l.includes(`"${f}"`)),
+  );
+  assert.ok(ordem.every((i) => i >= 0), "falta faixa na régua");
+  assert.deepEqual([...ordem].sort((x, y) => x - y), ordem, "a régua tem de vir na ordem da gravidade");
+  assert.match(linhas[ordem[1]], /aterramento/i);
+});
+
+test("unidade com valor pretendido óbvio é técnica; a ambígua continua crítica", () => {
+  const linhas = CRITERIO_DAS_FAIXAS.split("\n");
+  const critico = linhas.find((l) => l.includes('"critico_documental"')) ?? "";
+  const tecnico = linhas.find((l) => l.includes('"tecnico_contratual"')) ?? "";
+  assert.match(critico, /NÃO permite deduzir/);
+  assert.match(tecnico, /0,88 cm/);
+});
+
 console.log(`\n${passed} teste(s) de faixas de impacto OK`);

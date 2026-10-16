@@ -12,6 +12,15 @@
  *
  *   A CONSEQUÊNCIA DEFINE A FAIXA. A CERTEZA MOVE DENTRO DELA, NUNCA PARA FORA.
  *
+ * 16/10/2026 — A CERTEZA PAROU DE MOVER O RÓTULO; agora só desempata. Com
+ * três faixas e cinco prioridades, as faixas se sobrepunham: técnico de regra
+ * saía "Media/Alta" e editorial certo saía "Media", e a lista lida pela
+ * prioridade punha "títulos iguais em itens distintos" acima de um
+ * aterramento de 25 Ω contra 10 Ω. Com a faixa `risco_de_execucao` são quatro
+ * faixas, cada uma com UM degrau só, sem sobreposição. A certeza continua
+ * escrita no motivo e ordena dentro da faixa (`sortAuditFindings`). A garantia
+ * ficou mais forte, não mais fraca: nenhuma certeza tira o achado do degrau.
+ *
  * Um achado que impede a emissão é Alta mesmo lido com confiança baixa — a
  * dúvida já é dita em outro lugar (a camada `sugestao`, o selo de confiança,
  * o "◻ Sugerido" do cartão), e dizê-la duas vezes custaria o lugar dele na
@@ -38,24 +47,20 @@ export type SeveridadeDoAchado = {
 };
 
 /**
- * A faixa de cada consequência: piso e teto. A certeza escolhe entre os dois —
- * e não tem como sair daqui, que é a razão de a faixa existir.
+ * Um degrau por consequência, e nenhum degrau compartilhado: a prioridade
+ * de um achado nunca empata com a de outra faixa nem passa na frente dela.
  */
-const FAIXA: Record<FindingImpact, { teto: FindingPriority; piso: FindingPriority }> = {
-  // Faixa de um degrau só: impedir a emissão é a consequência máxima, e
-  // nenhuma dose de incerteza a torna menos impeditiva.
-  critico_documental: { teto: "Alta", piso: "Alta" },
-  tecnico_contratual: { teto: "Media/Alta", piso: "Media" },
-  revisao_editorial: { teto: "Media", piso: "Baixa" },
-};
-
-const MEIO: Partial<Record<FindingImpact, FindingPriority>> = {
-  revisao_editorial: "Baixa/Media",
+const PRIORIDADE: Record<FindingImpact, FindingPriority> = {
+  critico_documental: "Alta",
+  risco_de_execucao: "Media/Alta",
+  tecnico_contratual: "Media",
+  revisao_editorial: "Baixa",
 };
 
 const CONSEQUENCIA: Record<FindingImpact, string> = {
   critico_documental: "impede emitir o documento",
-  tecnico_contratual: "exige decisão do responsável técnico antes de executar",
+  risco_de_execucao: "executada como está escrita, a obra sai errada, insegura ou mais cara",
+  tecnico_contratual: "exige que o responsável técnico demonstre ou confirme antes de executar",
   revisao_editorial: "não muda decisão técnica",
 };
 
@@ -123,21 +128,13 @@ export function severidadeDoAchado(
    */
   const impacto =
     finding.impacto ?? medida?.faixaSugerida ?? classifyFindingImpact(finding);
-  const faixa = FAIXA[impacto];
-  const { grau, texto } = certeza(finding, medida);
+  const prioridade = PRIORIDADE[impacto];
+  const { texto } = certeza(finding, medida);
 
-  const prioridade =
-    grau === "alta" ? faixa.teto : grau === "baixa" ? faixa.piso : (MEIO[impacto] ?? faixa.piso);
-
-  // Faixa de um degrau só: dizer "Alta–Alta" seria charada. Dizer que ela não
-  // se move é a informação que o leitor precisa para conferir a conta.
-  const regra =
-    faixa.piso === faixa.teto
-      ? `Faixa fixa em ${faixa.teto}: incerteza não atenua consequência máxima.`
-      : `Faixa ${faixa.piso}–${faixa.teto}.`;
-
+  // Dizer que o degrau não se move é a informação que o leitor precisa para
+  // conferir a conta — e para não ler a certeza baixa como gravidade baixa.
   return {
     prioridade,
-    motivo: `Consequência: ${CONSEQUENCIA[impacto]}. Certeza: ${texto}. ${regra}`,
+    motivo: `Consequência: ${CONSEQUENCIA[impacto]}. Certeza: ${texto}. Prioridade ${prioridade}, fixa na faixa: a certeza só ordena dentro dela.`,
   };
 }

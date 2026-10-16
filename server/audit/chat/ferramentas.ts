@@ -444,9 +444,9 @@ export const FERRAMENTA_REGISTRAR: FunctionTool = {
       },
       impacto: {
         type: "string",
-        enum: ["critico_documental", "tecnico_contratual", "revisao_editorial"],
+        enum: ["critico_documental", "risco_de_execucao", "tecnico_contratual", "revisao_editorial"],
         description:
-          "A régua do escritório: erro documental crítico, ponto técnico/contratual ou revisão editorial.",
+          "A régua do escritório: erro documental crítico, risco na execução (como está escrito, a obra sai errada), ponto técnico/contratual a demonstrar ou revisão editorial.",
       },
       capitulo: { type: "string", description: "Opcional: sai do índice se você não informar." },
       local: { type: "string", description: "Opcional: o ambiente ou item afetado." },

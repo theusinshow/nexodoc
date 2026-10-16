@@ -13,6 +13,7 @@
 /* ---------- a coluna ---------- */
 .ds .re-trilho { position: sticky; top: 16px; display: grid; gap: 10px; min-width: 0; --re-tom: var(--ds-sev-block); }
 .ds .re-trilho--decide { --re-tom: var(--ds-sev-decide); }
+.ds .re-trilho--risco { --re-tom: var(--ds-sev-risco); }
 .ds .re-trilho--ok { --re-tom: var(--ds-state-ok); }
 .ds .re-trilho > section, .ds .re-nav { border-radius: var(--ds-radius-card); background: var(--ds-surface-card); box-shadow: var(--ds-edge); }
 

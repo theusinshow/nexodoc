@@ -40,6 +40,7 @@ export type DecisaoDaValidacao = {
 
 const FAIXAS: readonly FindingImpact[] = [
   "critico_documental",
+  "risco_de_execucao",
   "tecnico_contratual",
   "revisao_editorial",
 ];

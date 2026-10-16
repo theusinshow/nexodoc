@@ -73,7 +73,7 @@ Responda APENAS JSON válido:
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",
       "confianca": "alta|media|baixa",
-      "impacto": "critico_documental|tecnico_contratual|revisao_editorial"
+      "impacto": "critico_documental|risco_de_execucao|tecnico_contratual|revisao_editorial"
     }
   ]
 }
@@ -171,7 +171,7 @@ Responda APENAS JSON válido:
       "conflito": "por que diverge",
       "sugestao_correcao": "correção sugerida",
       "confianca": "alta|media|baixa",
-      "impacto": "critico_documental|tecnico_contratual|revisao_editorial"
+      "impacto": "critico_documental|risco_de_execucao|tecnico_contratual|revisao_editorial"
     }
   ]
 }

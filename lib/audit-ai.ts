@@ -25,7 +25,7 @@ export type ValidationDecision = {
   source_id?: string;
   acao?: "confirmar" | "rebaixar" | "remover";
   prioridade?: string;
-  impacto?: "critico_documental" | "tecnico_contratual" | "revisao_editorial";
+  impacto?: "critico_documental" | "risco_de_execucao" | "tecnico_contratual" | "revisao_editorial";
   tipo?: string;
   descricao?: string;
   conflito?: string;

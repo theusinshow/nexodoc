@@ -11,6 +11,7 @@
 .ds .rc-grupo { --rc-tom: var(--ds-text-tertiary); padding-top: 8px; }
 .ds .rc--block { --rc-tom: var(--ds-sev-block); }
 .ds .rc--decide { --rc-tom: var(--ds-sev-decide); }
+.ds .rc--risco { --rc-tom: var(--ds-sev-risco); }
 .ds .rc--note { --rc-tom: #9aa1ad; }
 .ds .rc--texto { --rc-tom: var(--ds-sev-texto); }
 .ds .rc-grupo h3 { display: flex; align-items: center; gap: 8px; margin: 4px 12px 6px; font-size: 11.5px; font-weight: 500; color: var(--ds-text-secondary); }

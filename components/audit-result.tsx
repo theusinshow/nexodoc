@@ -588,7 +588,7 @@ function getSeverityVariant(
  */
 function getImpactVariant(impact: FindingImpact): "critical" | "warning" | "ok" {
   if (impact === "critico_documental") return "critical";
-  if (impact === "tecnico_contratual") return "warning";
+  if (impact === "risco_de_execucao" || impact === "tecnico_contratual") return "warning";
   return "ok";
 }
 
@@ -683,9 +683,14 @@ const IMPACT_SECTIONS = [
     hint: "Corrigir antes de gerar o documento.",
   },
   {
+    key: "risco_de_execucao" as const,
+    title: "RISCO NA EXECUÇÃO",
+    hint: "Executado como está escrito, sai errado, inseguro ou mais caro.",
+  },
+  {
     key: "tecnico_contratual" as const,
     title: "EXIGE DECISÃO TÉCNICA",
-    hint: "Não impede gerar, mas precisa de aceite do responsável antes de executar.",
+    hint: "Premissa, norma ou dado que o responsável precisa demonstrar ou confirmar antes de executar.",
   },
   {
     key: "revisao_editorial" as const,
@@ -1982,6 +1987,9 @@ export function AuditResult({
       (finding) =>
         finding.impacto === "critico_documental" ||
         (!finding.impacto && finding.severity === "critical"),
+    ),
+    risco_de_execucao: findingsWithPdf.filter(
+      (finding) => finding.impacto === "risco_de_execucao",
     ),
     tecnico_contratual: findingsWithPdf.filter(
       (finding) => finding.impacto === "tecnico_contratual",
@@ -4185,7 +4193,7 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                                         "font-semibold",
                                         faixa === "critico_documental"
                                           ? "text-destructive"
-                                          : faixa === "tecnico_contratual"
+                                          : faixa === "risco_de_execucao" || faixa === "tecnico_contratual"
                                             ? "text-[var(--status-warning)]"
                                             : "text-muted-foreground",
                                       )}
@@ -4350,7 +4358,7 @@ function porQue(falharam: readonly { email: string; erro?: string }[]): string {
                                   "font-mono text-[11px] font-semibold uppercase tracking-wider",
                                   faixa === "critico_documental"
                                     ? "text-destructive"
-                                    : faixa === "tecnico_contratual"
+                                    : faixa === "risco_de_execucao" || faixa === "tecnico_contratual"
                                       ? "text-[var(--status-warning)]"
                                       : "text-muted-foreground",
                                 )}

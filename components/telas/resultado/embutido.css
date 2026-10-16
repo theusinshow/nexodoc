@@ -105,6 +105,7 @@
 /* A faixa do veredito (faixa-do-veredito.tsx): o veredito escrito no topo de toda leitura. */
 .ds .re-faixa { --re-tom: var(--ds-sev-block); display: grid; gap: 4px; margin: 0; padding: 10px 14px; border-radius: var(--ds-radius-card); background: color-mix(in srgb, var(--re-tom) 7%, var(--ds-surface-card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--re-tom) 24%, transparent); }
 .ds .re-faixa--decide { --re-tom: var(--ds-sev-decide); }
+.ds .re-faixa--risco { --re-tom: var(--ds-sev-risco); }
 .ds .re-faixa--ok { --re-tom: var(--ds-state-ok); }
 .ds .re-faixa .rs-selo { --rs-tom: var(--re-tom); flex: none; }
 .ds .re-faixa-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; }

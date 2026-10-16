@@ -99,6 +99,11 @@
   --ds-sev-decide: var(--ds-p-amber);
   --ds-sev-decide-wash: rgb(240 180 92 / 0.12);
   --ds-sev-decide-line: rgb(240 180 92 / 0.28);
+  /* Risco na execução (16/10/2026): entre o coral do que bloqueia e o âmbar do que
+     pede decisão — a rampa de calor segue a ordem da gravidade. */
+  --ds-sev-risco: #f99a5f;
+  --ds-sev-risco-wash: rgb(249 154 95 / 0.12);
+  --ds-sev-risco-line: rgb(249 154 95 / 0.28);
   --ds-sev-note: var(--ds-p-slate);
   --ds-sev-note-wash: rgb(142 153 174 / 0.14);
   --ds-sev-note-line: rgb(142 153 174 / 0.28);
@@ -347,6 +352,7 @@
 .ds .ds-pill--nexo { background: var(--ds-nexo-wash); color: var(--ds-nexo); }
 .ds .ds-pill--block { background: var(--ds-sev-block-wash); color: var(--ds-sev-block); }
 .ds .ds-pill--decide { background: var(--ds-sev-decide-wash); color: var(--ds-sev-decide); }
+.ds .ds-pill--risco { background: var(--ds-sev-risco-wash); color: var(--ds-sev-risco); }
 .ds .ds-pill--note { background: var(--ds-sev-note-wash); color: #b4bdce; }
 .ds .ds-pill--texto { background: var(--ds-sev-texto-wash); color: var(--ds-sev-texto); }
 .ds .ds-pill--ok { background: var(--ds-state-ok-wash); color: var(--ds-state-ok); }
@@ -643,6 +649,7 @@
 .ds .gr-faixa-seg + .gr-faixa-seg { margin-left: 3px; }
 .ds .gr-faixa-seg--ok { background: var(--ds-state-ok); }
 .ds .gr-faixa-seg--decide { background: var(--ds-sev-decide); }
+.ds .gr-faixa-seg--risco { background: var(--ds-sev-risco); }
 .ds .gr-faixa-seg--block { background: var(--ds-sev-block); }
 .ds .gr-faixa-seg--ativa { opacity: 1; }
 .ds .gr-faixa-seg em { position: absolute; top: 16px; left: 0; font-style: normal; font-size: 11.5px; color: var(--ds-text-tertiary); white-space: nowrap; }
@@ -742,6 +749,7 @@
 .ds .gr-blocos-grupo { display: flex; flex-direction: column; gap: 4px; flex-basis: 0; min-width: 0; --gr-tom: var(--ds-text-tertiary); }
 .ds .gr-blocos-grupo--block { --gr-tom: var(--ds-sev-block); }
 .ds .gr-blocos-grupo--decide { --gr-tom: var(--ds-sev-decide); }
+.ds .gr-blocos-grupo--risco { --gr-tom: var(--ds-sev-risco); }
 .ds .gr-blocos-grupo--note { --gr-tom: var(--ds-sev-note); }
 .ds .gr-blocos-grupo--texto { --gr-tom: var(--ds-sev-texto); }
 .ds .gr-bloco {
@@ -773,6 +781,7 @@
 .ds .gr-blocos-leg i { width: 14px; height: 3px; border-radius: 999px; background: var(--gr-tom); }
 .ds .gr-blocos-leg--block { --gr-tom: var(--ds-sev-block); }
 .ds .gr-blocos-leg--decide { --gr-tom: var(--ds-sev-decide); }
+.ds .gr-blocos-leg--risco { --gr-tom: var(--ds-sev-risco); }
 .ds .gr-blocos-leg--note { --gr-tom: var(--ds-sev-note); }
 .ds .gr-blocos-leg--texto { --gr-tom: var(--ds-sev-texto); }
 
@@ -783,6 +792,7 @@
 .ds .gr-nivel--fora { opacity: 0.4; }
 .ds .gr-nivel-col--block { --gr-tom: var(--ds-sev-block); }
 .ds .gr-nivel-col--decide { --gr-tom: var(--ds-sev-decide); }
+.ds .gr-nivel-col--risco { --gr-tom: var(--ds-sev-risco); }
 .ds .gr-nivel-col--note { --gr-tom: #b4bac6; }
 .ds .gr-nivel-col--texto { --gr-tom: var(--ds-sev-texto); }
 .ds .gr-nivel-trilho {
@@ -816,6 +826,7 @@
 .ds .gr-niveis { display: grid; gap: 12px; --gr-tom: #9aa1ad; }
 .ds .gr-niveis--block { --gr-tom: var(--ds-sev-block); }
 .ds .gr-niveis--decide { --gr-tom: var(--ds-sev-decide); }
+.ds .gr-niveis--risco { --gr-tom: var(--ds-sev-risco); }
 .ds .gr-niveis--note { --gr-tom: #9aa1ad; }
 .ds .gr-niveis--texto { --gr-tom: var(--ds-sev-texto); }
 .ds .gr-niveis--fora { opacity: 0.3; }

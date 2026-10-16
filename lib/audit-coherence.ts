@@ -506,8 +506,12 @@ function runSiblingDuplicateTitleRule(
          * declarada, aqui o documento não afirma nada errado sobre a obra — ele
          * está mal escrito. Alguém precisa decidir qual dos dois itens fica com
          * qual nome, e é uma decisão de quem redigiu, não uma emissão indevida.
+         *
+         * 16/10/2026: desceu para editorial. Na lista ordenada, "títulos
+         * iguais" passava na frente de aterramento de 25 Ω × 10 Ω; o corpo de
+         * cada item já diz o que ele é, e só o nome está errado.
          */
-        impacto: "tecnico_contratual",
+        impacto: "revisao_editorial",
         pagina: String(paginas),
         capitulo: `Itens ${numeros}`,
         local: "títulos de subitens irmãos",
@@ -1687,7 +1691,7 @@ function runSewageExceedsWaterRule(
     makeFinding(nextId(), {
       arquivo: fileName,
       prioridade: "Media/Alta",
-      impacto: "tecnico_contratual",
+      impacto: "risco_de_execucao",
       pagina: paginas,
       capitulo: "Projeto hidrossanitário",
       local: "consumo de água × contribuição de efluente",
@@ -1809,7 +1813,7 @@ function runMedicalGasWithoutCentralRule(
     makeFinding(nextId(), {
       arquivo: fileName,
       prioridade: "Media/Alta",
-      impacto: "tecnico_contratual",
+      impacto: "risco_de_execucao",
       pagina: [...new Set([declarados.page, inicioCentrais.page])].sort((a, b) => a - b).join(" e "),
       capitulo: "Projeto de gases medicinais",
       local: "postos de utilização × dimensionamento das centrais",

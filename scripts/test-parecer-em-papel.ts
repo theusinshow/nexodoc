@@ -81,10 +81,11 @@ test("palavra maior que a linha ocupa a linha inteira em vez de sumir", () => {
 test("a contagem sai do IMPACTO, e achado sem impacto não some", () => {
   const c = contagemPorImpacto([
     achado(),
+    achado({ impacto: "risco_de_execucao" }),
     achado({ impacto: "tecnico_contratual" }),
     achado({ impacto: undefined }),
   ]);
-  assert.deepEqual(c, { criticos: 1, contratuais: 1, outros: 1, total: 3 });
+  assert.deepEqual(c, { criticos: 1, riscos: 1, contratuais: 1, outros: 1, total: 4 });
 });
 
 // --- o que entra no papel

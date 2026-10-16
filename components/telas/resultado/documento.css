@@ -6,6 +6,7 @@
 
 .ds .nd--block { --nd-tom: var(--ds-sev-block); }
 .ds .nd--decide { --nd-tom: var(--ds-sev-decide); }
+.ds .nd--risco { --nd-tom: var(--ds-sev-risco); }
 .ds .nd--note { --nd-tom: #9aa1ad; }
 .ds .nd--texto { --nd-tom: var(--ds-sev-texto); }
 

@@ -51,7 +51,11 @@ export type SinteseDoArquivo = {
 
 export type FindingPriority = "Alta" | "Media/Alta" | "Media" | "Baixa/Media" | "Baixa";
 export type FindingConfidence = "alta" | "media" | "baixa";
-export type FindingImpact = "critico_documental" | "tecnico_contratual" | "revisao_editorial";
+export type FindingImpact =
+  | "critico_documental"
+  | "risco_de_execucao"
+  | "tecnico_contratual"
+  | "revisao_editorial";
 
 export type AuditFinding = {
   id: string;
@@ -425,8 +429,9 @@ function normalizeForMatch(value: string) {
     .toLowerCase();
 }
 
-const FINDING_IMPACTS: FindingImpact[] = [
+export const FINDING_IMPACTS: FindingImpact[] = [
   "critico_documental",
+  "risco_de_execucao",
   "tecnico_contratual",
   "revisao_editorial",
 ];
@@ -938,12 +943,14 @@ export function getImpactRank(impact: FindingImpact) {
   switch (impact) {
     case "critico_documental":
       return 0;
-    case "tecnico_contratual":
+    case "risco_de_execucao":
       return 1;
-    case "revisao_editorial":
+    case "tecnico_contratual":
       return 2;
-    default:
+    case "revisao_editorial":
       return 3;
+    default:
+      return 4;
   }
 }
 
@@ -951,6 +958,8 @@ export function getImpactLabel(impact: FindingImpact) {
   switch (impact) {
     case "critico_documental":
       return "Crítico documental";
+    case "risco_de_execucao":
+      return "Risco na execução";
     case "tecnico_contratual":
       return "Técnico/contratual";
     case "revisao_editorial":
@@ -981,10 +990,24 @@ export function sortAuditFindings(findings: AuditFinding[]) {
       return impactDiff;
     }
 
+    /*
+     * DENTRO DA FAIXA, A CERTEZA SÓ DESEMPATA. Até 16/10/2026 o segundo
+     * critério era a prioridade, que variava com a certeza: achado de regra
+     * saía "Media/Alta" por ser regra, e "títulos iguais em itens distintos"
+     * passava na frente de aterramento de 25 Ω contra 10 Ω. Agora a prioridade
+     * é a da faixa ([[severidade.ts]]); ela segue aqui só para parecer antigo,
+     * gravado com a prioridade ainda variando.
+     */
     const priorityDiff = getPriorityRank(a.prioridade) - getPriorityRank(b.prioridade);
 
     if (priorityDiff !== 0) {
       return priorityDiff;
+    }
+
+    const certaintyDiff = getCertaintyRank(a) - getCertaintyRank(b);
+
+    if (certaintyDiff !== 0) {
+      return certaintyDiff;
     }
 
     const pageA = Number.parseInt(a.pagina, 10);
@@ -998,11 +1021,20 @@ export function sortAuditFindings(findings: AuditFinding[]) {
   });
 }
 
+/** Regra primeiro (comparação, não leitura), depois a confiança declarada. */
+function getCertaintyRank(finding: AuditFinding) {
+  if (finding.origem === "regra") return 0;
+  if (finding.confianca === "alta") return 1;
+  if (finding.confianca === "baixa") return 3;
+  return 2;
+}
+
 export function groupFindingsByImpact(findings: AuditFinding[]) {
   const sorted = sortAuditFindings(findings);
 
   return {
     critico_documental: sorted.filter((finding) => finding.impacto === "critico_documental"),
+    risco_de_execucao: sorted.filter((finding) => finding.impacto === "risco_de_execucao"),
     tecnico_contratual: sorted.filter((finding) => finding.impacto === "tecnico_contratual"),
     revisao_editorial: sorted.filter((finding) => finding.impacto === "revisao_editorial"),
   };
@@ -1011,6 +1043,7 @@ export function groupFindingsByImpact(findings: AuditFinding[]) {
 export function buildExecutiveSummary(findings: AuditFinding[]) {
   const groups = groupFindingsByImpact(findings);
   const critical = groups.critico_documental;
+  const risk = groups.risco_de_execucao;
   const technical = groups.tecnico_contratual;
   const editorial = groups.revisao_editorial;
 
@@ -1059,6 +1092,12 @@ export function buildExecutiveSummary(findings: AuditFinding[]) {
         `Documento com ${contagem} que impedem a emissão: ${tipos.join("; ")}.`,
       );
     }
+  }
+
+  if (risk.length > 0) {
+    parts.push(
+      `${plural(risk.length, "ponto faria", "pontos fariam")} a obra sair errada se executada como está escrito.`,
+    );
   }
 
   if (technical.length > 0) {
@@ -1127,6 +1166,17 @@ export function getEmissionVerdict(
       emoji: "🔴",
       label: "NÃO EMITIR",
       detail: `${plural(groups.critico_documental.length, "incongruência crítica", "incongruências críticas")} de identidade/documento antes da emissão.`,
+    };
+  }
+
+  if (groups.risco_de_execucao.length > 0) {
+    const tecnicos = groups.tecnico_contratual.length;
+    return {
+      emoji: "🟡",
+      label: "REVISAR ANTES DE EMITIR",
+      detail: `${plural(groups.risco_de_execucao.length, "risco na execução", "riscos na execução")}${
+        tecnicos > 0 ? ` e ${plural(tecnicos, "ponto técnico/contratual", "pontos técnicos/contratuais")}` : ""
+      } para conferir.`,
     };
   }
 
@@ -1355,7 +1405,10 @@ ${
 6. Achados críticos documentais
 ${grouped.critico_documental.length > 0 ? grouped.critico_documental.map(formatFindingLine).join("\n") : "- nenhum achado crítico documental"}
 
-6.1 Pontos técnicos/contratuais
+6.1 Riscos na execução
+${grouped.risco_de_execucao.length > 0 ? grouped.risco_de_execucao.map(formatFindingLine).join("\n") : "- nenhum risco na execução detectado"}
+
+6.1.1 Pontos técnicos/contratuais
 ${grouped.tecnico_contratual.length > 0 ? grouped.tecnico_contratual.map(formatFindingLine).join("\n") : "- nenhum ponto técnico/contratual detectado"}
 
 6.2 Revisões editoriais

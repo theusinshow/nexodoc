@@ -55,6 +55,7 @@ export type { CertezaMedida };
 
 const FAIXA_POR_OPCAO: Record<string, FindingImpact> = {
   blocks_issue: "critico_documental",
+  execution_risk: "risco_de_execucao",
   needs_decision: "tecnico_contratual",
   editorial: "revisao_editorial",
 };
@@ -89,11 +90,13 @@ export const PERGUNTAS: Record<string, Pergunta> = {
     instructions: "What is the consequence of this issue for issuing the document?",
     criteria: {
       blocks_issue:
-        "Prevents issuing: the work's identity or location is wrong, a field was left as a template placeholder, the document contradicts itself so neither reading can be applied, an arithmetic total does not close, or a unit is wrong by an order of magnitude.",
+        "Prevents issuing: the work's identity or location is wrong, a field was left as a template placeholder, the document contradicts itself so neither reading can be applied, an arithmetic total does not close, or a unit is wrong by an order of magnitude and the intended value cannot be inferred from context.",
+      execution_risk:
+        "Does not prevent issuing, but building exactly what is written would come out wrong, unsafe or more expensive: two incompatible values or specifications for the same element with no rule saying which applies, a capacity smaller than the load the document itself declares, a safety parameter that differs between sections, or a mismatch between disciplines that changes what gets built.",
       needs_decision:
-        "Does not prevent issuing, but a responsible engineer must decide before execution: a superseded standard edition, conflicting specifications across chapters, an unproven premise, ambiguous scope, or leftover generic text that does not name another project.",
+        "Does not prevent issuing and does not by itself lead to building it wrong, but a responsible engineer must prove, confirm or decide: an unproven premise or parameter, a superseded standard edition, ambiguous scope or contractual responsibility, data that depends on a field survey or another volume, leftover generic text that does not name another project, or a swapped unit whose intended value is obvious from context.",
       editorial: "Wording, spelling or formatting only; it changes no technical decision and no quantity.",
-      insufficient: "The excerpt does not allow choosing among the three above.",
+      insufficient: "The excerpt does not allow choosing among the four above.",
     },
   },
 };

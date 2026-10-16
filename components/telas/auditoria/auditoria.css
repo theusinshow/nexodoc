@@ -283,6 +283,7 @@
 .ds .au-fato-niveis em { flex-basis: 0; height: 6px; border-radius: 999px; }
 .ds .au-fato-nivel--block { background: var(--ds-sev-block); }
 .ds .au-fato-nivel--decide { background: var(--ds-sev-decide); }
+.ds .au-fato-nivel--risco { background: var(--ds-sev-risco); }
 .ds .au-fato-nivel--note { background: #9aa1ad; }
 .ds .au-fato-nivel--texto { background: var(--ds-sev-texto); }
 
@@ -344,6 +345,7 @@
 /* O resumo completo (Resultado → anel do trilho): a mesma tela, concluída, na cor do veredito */
 .ds .au-painel--concluida.au-painel--block { --au-tom: var(--ds-sev-block); }
 .ds .au-painel--concluida.au-painel--decide { --au-tom: var(--ds-sev-decide); }
+.ds .au-painel--concluida.au-painel--risco { --au-tom: var(--ds-sev-risco); }
 .ds .au-painel--concluida.au-painel--ok { --au-tom: var(--ds-state-ok); }
 .ds .au-geral-porque { margin: 0; padding: 0 24px 20px; font-size: var(--ds-text-xs); line-height: 1.5; color: var(--ds-text-secondary); }
 .ds .au--geral .au-anel--concluida .au-anel-arco { stroke-dasharray: none; }

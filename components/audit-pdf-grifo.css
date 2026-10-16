@@ -21,6 +21,7 @@
 .grifo-faixa, .grifo-pino { --grifo-tom: #f2c230; }
 .grifo-faixa[data-tom="block"], .grifo-pino[data-tom="block"] { --grifo-tom: #d9483a; }
 .grifo-faixa[data-tom="decide"], .grifo-pino[data-tom="decide"] { --grifo-tom: #e0a22a; }
+.grifo-faixa[data-tom="risco"], .grifo-pino[data-tom="risco"] { --grifo-tom: #e5793c; }
 .grifo-faixa[data-tom="note"], .grifo-pino[data-tom="note"] { --grifo-tom: #7d8db0; }
 .grifo-faixa[data-tom="texto"], .grifo-pino[data-tom="texto"] { --grifo-tom: #4f8fd9; }
 

@@ -3,8 +3,9 @@
  *
  *   node scripts/test-severidade.ts   (== npm run test:severidade)
  *
- * O GABARITO É A TABELA INTEIRA. São nove cruzamentos (três consequências ×
- * três graus de certeza) e todos estão aqui, um a um, escritos à mão. Testar
+ * O GABARITO É A TABELA INTEIRA. São doze cruzamentos (quatro consequências ×
+ * três graus de certeza) e todos estão aqui, um a um, escritos à mão. Desde
+ * 16/10/2026 cada faixa tem um degrau só: a certeza ordena, não rotula. Testar
  * "alguns casos" numa matriz é deixar de testá-la: o valor dela é ser completa
  * e igual toda vez.
  *
@@ -52,7 +53,7 @@ function achado(partial: Partial<AuditFinding>): AuditFinding {
 const prioridadeDe = (impacto: FindingImpact, confianca: FindingConfidence) =>
   severidadeDoAchado(achado({ impacto, confianca })).prioridade;
 
-// --- a tabela, os nove cruzamentos -----------------------------------------
+// --- a tabela, os doze cruzamentos -----------------------------------------
 
 test("crítico documental: Alta nos três graus de certeza", () => {
   assert.equal(prioridadeDe("critico_documental", "alta"), "Alta");
@@ -60,16 +61,39 @@ test("crítico documental: Alta nos três graus de certeza", () => {
   assert.equal(prioridadeDe("critico_documental", "baixa"), "Alta");
 });
 
-test("técnico contratual: Media/Alta, Media, Media", () => {
-  assert.equal(prioridadeDe("tecnico_contratual", "alta"), "Media/Alta");
+test("risco na execução: Media/Alta nos três graus de certeza", () => {
+  assert.equal(prioridadeDe("risco_de_execucao", "alta"), "Media/Alta");
+  assert.equal(prioridadeDe("risco_de_execucao", "media"), "Media/Alta");
+  assert.equal(prioridadeDe("risco_de_execucao", "baixa"), "Media/Alta");
+});
+
+test("técnico contratual: Media nos três graus de certeza", () => {
+  assert.equal(prioridadeDe("tecnico_contratual", "alta"), "Media");
   assert.equal(prioridadeDe("tecnico_contratual", "media"), "Media");
   assert.equal(prioridadeDe("tecnico_contratual", "baixa"), "Media");
 });
 
-test("revisão editorial: Media, Baixa/Media, Baixa", () => {
-  assert.equal(prioridadeDe("revisao_editorial", "alta"), "Media");
-  assert.equal(prioridadeDe("revisao_editorial", "media"), "Baixa/Media");
+test("revisão editorial: Baixa nos três graus de certeza", () => {
+  assert.equal(prioridadeDe("revisao_editorial", "alta"), "Baixa");
+  assert.equal(prioridadeDe("revisao_editorial", "media"), "Baixa");
   assert.equal(prioridadeDe("revisao_editorial", "baixa"), "Baixa");
+});
+
+test("as faixas não se sobrepõem: o pior de cima vence o melhor de baixo", () => {
+  /*
+   * 16/10/2026, parecer do 027-24 de 24/09: "títulos iguais em itens
+   * distintos" (regra, técnico) saía Media/Alta e o aterramento de 25 Ω × 10 Ω
+   * (IA, técnico) saía Media. Agora o segundo é risco na execução e a
+   * prioridade de qualquer risco fica acima da de qualquer técnico.
+   */
+  const ordem = ["Alta", "Media/Alta", "Media", "Baixa/Media", "Baixa"];
+  const graus = ["alta", "media", "baixa"] as const;
+  const faixas = ["critico_documental", "risco_de_execucao", "tecnico_contratual", "revisao_editorial"] as const;
+  for (let i = 0; i + 1 < faixas.length; i++) {
+    const piorDeCima = Math.max(...graus.map((c) => ordem.indexOf(prioridadeDe(faixas[i], c))));
+    const melhorDeBaixo = Math.min(...graus.map((c) => ordem.indexOf(prioridadeDe(faixas[i + 1], c))));
+    assert.ok(piorDeCima < melhorDeBaixo, `${faixas[i]} empata ou perde para ${faixas[i + 1]}`);
+  }
 });
 
 // --- a garantia: a certeza não sai da faixa --------------------------------
@@ -84,13 +108,13 @@ test("nenhuma incerteza rebaixa um achado que impede a emissão", () => {
     achado({ impacto: "critico_documental", confianca: "baixa", origem: "ia" }),
   );
   assert.equal(baixa.prioridade, "Alta");
-  assert.match(baixa.motivo, /incerteza não atenua/i);
+  assert.match(baixa.motivo, /fixa na faixa/i);
 });
 
 test("editorial nunca sobe para Alta, por mais certo que seja", () => {
   // A faixa protege dos dois lados: ela impede o rebaixamento e impede que
   // "revisão de texto" dispute o topo com o que impede emitir.
-  assert.equal(prioridadeDe("revisao_editorial", "alta"), "Media");
+  assert.equal(prioridadeDe("revisao_editorial", "alta"), "Baixa");
 });
 
 test("achado de REGRA conta como certeza alta, ignorando o campo confianca", () => {
@@ -103,7 +127,7 @@ test("achado de REGRA conta como certeza alta, ignorando o campo confianca", () 
   const porRegra = severidadeDoAchado(
     achado({ impacto: "tecnico_contratual", confianca: "baixa", origem: "regra" }),
   );
-  assert.equal(porRegra.prioridade, "Media/Alta");
+  assert.equal(porRegra.prioridade, "Media");
   assert.match(porRegra.motivo, /verificado por regra/i);
 });
 
@@ -116,6 +140,7 @@ test("o motivo nomeia os DOIS eixos, não só o resultado", () => {
   assert.match(s.motivo, /Consequência:/);
   assert.match(s.motivo, /Certeza:/);
   assert.match(s.motivo, /responsável técnico/i);
+  assert.match(s.motivo, /fixa na faixa/i);
   assert.match(s.motivo, /confiança alta/i);
 });
 
@@ -149,8 +174,10 @@ test("a certeza medida vence a declarada, e o motivo diz o numero", () => {
     decidibilidade: 0.8,
   });
 
-  assert.equal(semMedida.prioridade, "Media", "sem conferente, a declarada manda");
-  assert.equal(comMedida.prioridade, "Media/Alta", "com conferente, a medida manda");
+  // A medida vence a declarada no MOTIVO; o degrau é o da faixa nos dois.
+  assert.equal(semMedida.prioridade, "Media");
+  assert.equal(comMedida.prioridade, "Media");
+  assert.match(semMedida.motivo, /confiança baixa/);
   assert.match(comMedida.motivo, /certeza medida 0\.91/);
 });
 

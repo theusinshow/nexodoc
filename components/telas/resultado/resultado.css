@@ -31,6 +31,7 @@
 .ds .rs-veredito::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--rs-tom), transparent); opacity: 0.8; }
 .ds .rs-veredito--block { --rs-tom: var(--ds-sev-block); }
 .ds .rs-veredito--decide { --rs-tom: var(--ds-sev-decide); }
+.ds .rs-veredito--risco { --rs-tom: var(--ds-sev-risco); }
 .ds .rs-veredito--ok { --rs-tom: var(--ds-state-ok); }
 .ds .rs-veredito-texto small { font-size: 11.5px; color: var(--ds-text-tertiary); }
 .ds .rs-veredito-texto h2 { margin: 4px 0 8px; font-size: 28px; font-weight: 300; letter-spacing: -0.03em; line-height: 1.15; color: var(--rs-tom); }
@@ -85,6 +86,7 @@
 }
 .ds .rs-pilula--block { --rs-tom: var(--ds-sev-block); }
 .ds .rs-pilula--decide { --rs-tom: var(--ds-sev-decide); }
+.ds .rs-pilula--risco { --rs-tom: var(--ds-sev-risco); }
 .ds .rs-pilula--note { --rs-tom: var(--ds-sev-note); }
 .ds .rs-pilula--feita { background: var(--rs-tom); }
 .ds .rs-pilulas:hover .rs-pilula:not(:hover) { opacity: 0.4; }
@@ -118,6 +120,7 @@
 .ds .rs-ponto { width: 7px; height: 7px; flex: none; border-radius: 50%; }
 .ds .rs-ponto--block { background: var(--ds-sev-block); }
 .ds .rs-ponto--decide { background: var(--ds-sev-decide); }
+.ds .rs-ponto--risco { background: var(--ds-sev-risco); }
 .ds .rs-ponto--note { background: var(--ds-sev-note); }
 .ds .rs-impacto-texto { flex: 1; display: grid; gap: 2px; min-width: 0; }
 .ds .rs-impacto-texto b { font-weight: 400; font-size: var(--ds-text-xs); }
@@ -244,6 +247,7 @@
 /* ================= v2: o painel de cima, no idioma da auditoria ================= */
 .ds .rs-painel { position: relative; margin: 28px 0 14px; border-radius: var(--ds-radius-panel); background: var(--ds-surface-card); box-shadow: var(--ds-edge-strong); overflow: hidden; --rs-tom: var(--ds-sev-block); }
 .ds .rs-painel--decide { --rs-tom: var(--ds-sev-decide); }
+.ds .rs-painel--risco { --rs-tom: var(--ds-sev-risco); }
 .ds .rs-painel--ok { --rs-tom: var(--ds-state-ok); }
 .ds .rs-painel::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--rs-tom), transparent); opacity: 0.75; }
 .ds .rs-painel-topo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px; padding: 22px 24px 20px; }

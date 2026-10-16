@@ -18,6 +18,7 @@
 .ds .rl-secao { margin-top: 12px; border-top: 1px solid var(--ds-line-subtle); --rl-tom: var(--ds-text-primary); }
 .ds .rl--block { --rl-tom: var(--ds-sev-block); }
 .ds .rl--decide { --rl-tom: var(--ds-sev-decide); }
+.ds .rl--risco { --rl-tom: var(--ds-sev-risco); }
 .ds .rl--texto { --rl-tom: var(--ds-sev-texto); }
 .ds .rl-secao > h3 { color: var(--rl-tom); }
 .ds .rl-achado { padding: 10px 0 12px 14px; border-left: 2px solid color-mix(in srgb, var(--rl-tom) 55%, transparent); margin-bottom: 8px; }

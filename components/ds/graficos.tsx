@@ -610,7 +610,7 @@ export function FluxoPorTipo({ linhas, maximo }: { linhas: LinhaDoFluxo[]; maxim
 export interface GrupoDoMapa {
   id: string;
   rotulo: string;
-  tom: "block" | "decide" | "note" | "texto";
+  tom: "block" | "risco" | "decide" | "note" | "texto";
   itens: { id: string; rotulo: string; valor: number; tom?: "texto" }[];
   /** Os achados do nível, um a um: viram pílulas clicáveis (cheia = tratado). */
   achados?: { id: string; titulo: string; feito: boolean }[];
@@ -699,7 +699,7 @@ export function ColunasPorNivel({
   teto,
   altura = 132,
 }: {
-  colunas: { id: string; rotulo: string; valor: number; tom: "block" | "decide" | "note" | "texto"; dica?: string }[];
+  colunas: { id: string; rotulo: string; valor: number; tom: "block" | "risco" | "decide" | "note" | "texto"; dica?: string }[];
   teto?: number;
   altura?: number;
 }) {

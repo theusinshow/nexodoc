@@ -1,8 +1,8 @@
 /**
  * O NÍVEL DO ACHADO, na língua das telas novas (Resultado, Achados, Projeto).
  *
- * O relatório guarda três faixas de impacto (`classifyFindingImpact`). A tela
- * mostra quatro níveis, porque a gramática ganhou cor própria, separada da
+ * O relatório guarda quatro faixas de impacto (`classifyFindingImpact`). A tela
+ * mostra cinco níveis, porque a gramática ganhou cor própria, separada da
  * revisão de texto (pedido do Matheus, 30/09/2026): numeração e referência
  * cruzada pedem um olhar técnico; acento e concordância, não.
  *
@@ -13,11 +13,17 @@
  */
 import { classifyFindingDiscipline, classifyFindingDisciplines, classifyFindingImpact, type AuditFinding, type FindingDiscipline } from "./audit-report.ts";
 
-export type Nivel = "block" | "decide" | "note" | "texto";
+export type Nivel = "block" | "risco" | "decide" | "note" | "texto";
 
 export const NIVEIS: { id: Nivel; nome: string; curto: string; dica: string }[] = [
   { id: "block", nome: "Bloqueia a emissão", curto: "Impedem", dica: "Corrigir antes de gerar o documento." },
-  { id: "decide", nome: "Exige decisão técnica", curto: "Decisão", dica: "Não impede gerar, mas precisa de aceite do responsável antes de executar." },
+  /*
+   * 16/10/2026: a faixa técnica virou duas. "Risco" é o que sai errado na obra
+   * se executado como está escrito; "Decisão" é o que falta demonstrar ou
+   * confirmar. Ver [[faixas-de-impacto.ts]].
+   */
+  { id: "risco", nome: "Risco na execução", curto: "Risco", dica: "Executado como está escrito, sai errado, inseguro ou mais caro. Corrigir antes de executar." },
+  { id: "decide", nome: "Exige decisão técnica", curto: "Decisão", dica: "Premissa, norma ou dado que o responsável precisa demonstrar ou confirmar antes de executar." },
   { id: "note", nome: "Revisão de texto", curto: "Revisão", dica: "Numeração, unidades, referências cruzadas." },
   { id: "texto", nome: "Gramática", curto: "Gramática", dica: "Ortografia, acentuação, concordância. Não muda decisão técnica." },
 ];
@@ -50,6 +56,7 @@ function semAcento(texto: string) {
 export function nivelDoAchado(achado: AuditFinding): Nivel {
   const impacto = classifyFindingImpact(achado);
   if (impacto === "critico_documental") return "block";
+  if (impacto === "risco_de_execucao") return "risco";
   if (impacto === "tecnico_contratual") return "decide";
   // Só o que o achado diz de SI (tipo e categoria): a evidência é a frase do
   // memorial, e um trecho com erro de acento num achado de numeração não o

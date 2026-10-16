@@ -69,6 +69,8 @@ export interface AuditGraph {
 
 const SEVERITY_BY_IMPACT: Record<FindingImpact, AuditSeverity> = {
   critico_documental: "critico",
+  // O canvas tem três tons de pino; risco na execução fica no do técnico.
+  risco_de_execucao: "tecnico",
   tecnico_contratual: "tecnico",
   revisao_editorial: "editorial",
 };

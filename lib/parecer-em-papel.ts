@@ -114,14 +114,16 @@ export function quebrar(
  */
 export function contagemPorImpacto(achados: readonly AuditFinding[]) {
   let criticos = 0;
+  let riscos = 0;
   let contratuais = 0;
   let outros = 0;
   for (const a of achados) {
     if (a.impacto === "critico_documental") criticos++;
+    else if (a.impacto === "risco_de_execucao") riscos++;
     else if (a.impacto === "tecnico_contratual") contratuais++;
     else outros++;
   }
-  return { criticos, contratuais, outros, total: achados.length };
+  return { criticos, riscos, contratuais, outros, total: achados.length };
 }
 
 /**
@@ -199,6 +201,9 @@ export function blocosDoParecer(report: AuditReport): Bloco[] {
         `${conta.total} ${conta.total === 1 ? "achado" : "achados"}`,
         conta.criticos > 0
           ? `${conta.criticos} ${conta.criticos === 1 ? "crítico documental" : "críticos documentais"}`
+          : "",
+        conta.riscos > 0
+          ? `${conta.riscos} ${conta.riscos === 1 ? "risco na execução" : "riscos na execução"}`
           : "",
         conta.contratuais > 0 ? `${conta.contratuais} técnico/contratual` : "",
         conta.outros > 0

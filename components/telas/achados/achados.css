@@ -9,6 +9,7 @@
 .ds .ac-nivel i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
 .ds .ac-nivel--block i { background: var(--ds-sev-block); }
 .ds .ac-nivel--decide i { background: var(--ds-sev-decide); }
+.ds .ac-nivel--risco i { background: var(--ds-sev-risco); }
 .ds .ac-nivel--note i { box-shadow: inset 0 0 0 1.4px var(--ds-text-secondary); }
 .ds .ac-nivel--texto i { background: var(--ds-sev-texto); }
 .ds .ac-niveis { display: inline-flex; gap: 12px; }

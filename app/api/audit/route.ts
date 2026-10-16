@@ -1484,7 +1484,7 @@ function deriveSummaryAndNumberingFindings(extracted: ExtractedPdf, fileName: st
       conflito: "A repetição do mesmo título em itens diferentes sugere erro de edição, duplicidade ou seção não renomeada.",
       sugestao_correcao: "Confirmar se os itens tratam de assuntos diferentes; se forem distintos, renomear. Se forem duplicados, eliminar redundância e renumerar.",
       confianca: "alta",
-      impacto: "tecnico_contratual",
+      impacto: "revisao_editorial",
     });
 
     if (findings.length >= 3) {
@@ -1535,7 +1535,7 @@ function deriveSummaryAndNumberingFindings(extracted: ExtractedPdf, fileName: st
       conflito: "A numeração do subitem não acompanha o capítulo em que aparece, sugerindo colagem ou revisão incompleta.",
       sugestao_correcao: "Revisar a hierarquia e renumerar os subitens para seguir o capítulo correto.",
       confianca: "media",
-      impacto: "tecnico_contratual",
+      impacto: "revisao_editorial",
     });
   }
 
@@ -1726,7 +1726,7 @@ function deriveMemorialConsistencyFindings(extracted: ExtractedPdf, fileName: st
       conflito: "A mesma estrutura da obra fica ambigua, afetando entendimento de escopo, disciplinas e revisao do memorial.",
       sugestao_correcao: "Padronizar a lista de blocos, indicando Blocos C/D para ensino fundamental, Bloco E para quadra se essa for a estrutura correta, e tratar reservatorio como apoio quando aplicavel.",
       confianca: "media",
-      impacto: "tecnico_contratual",
+      impacto: "risco_de_execucao",
     });
   }
 

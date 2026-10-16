@@ -2,6 +2,7 @@
 .ds .pa-rotulo { --pa-tom: var(--ds-text-tertiary); display: grid; gap: 3px; padding: 7px 10px 8px; border-radius: 10px; background: color-mix(in srgb, var(--pa-tom) 10%, transparent); box-shadow: inset 2px 0 0 var(--pa-tom), inset 0 0 0 1px color-mix(in srgb, var(--pa-tom) 26%, transparent); text-align: left; }
 .ds .pa--block { --pa-tom: var(--ds-sev-block); }
 .ds .pa--decide { --pa-tom: var(--ds-sev-decide); }
+.ds .pa--risco { --pa-tom: var(--ds-sev-risco); }
 .ds .pa--note { --pa-tom: var(--ds-sev-note); }
 .ds .pa--texto { --pa-tom: var(--ds-sev-texto); }
 .ds .pa-cabeca { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 11.5px; color: var(--ds-text-tertiary); }

@@ -412,6 +412,7 @@
 .ds .na-cita i { align-self: stretch; border-radius: 2px; background: var(--ds-sev-note); }
 .ds .na-cita--block i { background: var(--ds-sev-block); }
 .ds .na-cita--decide i { background: var(--ds-sev-decide); }
+.ds .na-cita--risco i { background: var(--ds-sev-risco); }
 .ds .na-cita--texto i { background: var(--ds-sev-texto); }
 .ds .na-cita .ds-code { font-size: 11px; }
 .ds .na-cita-titulo { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

@@ -434,7 +434,7 @@ export const auditValidationResponseFormat = {
             prioridade: { type: "string" },
             impacto: {
               type: "string",
-              enum: ["critico_documental", "tecnico_contratual", "revisao_editorial"],
+              enum: ["critico_documental", "risco_de_execucao", "tecnico_contratual", "revisao_editorial"],
             },
             tipo: { type: "string" },
             descricao: { type: "string" },
@@ -506,7 +506,7 @@ Responda APENAS JSON válido:
       "source_id": "ID do achado candidato",
       "acao": "confirmar|rebaixar|remover",
       "prioridade": "Alta|Media/Alta|Media|Baixa/Media|Baixa",
-      "impacto": "critico_documental|tecnico_contratual|revisao_editorial",
+      "impacto": "critico_documental|risco_de_execucao|tecnico_contratual|revisao_editorial",
       "tipo": "tipo ajustado, se necessário",
       "descricao": "descrição ajustada, se necessário",
       "conflito": "por que é erro real, ponto de revisão ou falso positivo",
