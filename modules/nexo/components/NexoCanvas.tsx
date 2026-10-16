@@ -13,6 +13,9 @@
  */
 
 import { useTemplatesDeCapa } from "../lib/use-templates-de-capa";
+import { criarCorte, cortesDasFaixas, patchesDosCortes } from "../lib/corte-dos-tomos";
+import { corDaDisciplina } from "../lib/disciplina-cor";
+import { ReguaDosTomos, type CelulaDaRegua } from "./ReguaDosTomos";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
@@ -507,6 +510,7 @@ function CanvasInterno({
   origens = {},
   totais = {},
   arquivosDisponiveis,
+  bytesDosArquivos,
   onAbrirFolha,
   onCorrigirFolha,
   onRemoverFolha,
@@ -553,6 +557,8 @@ function CanvasInterno({
   totais?: Record<FolhaId, number | null>;
   /** Nomes de arquivo com bytes em memória — sem eles não dá para abrir a página. */
   arquivosDisponiveis?: ReadonlySet<string>;
+  /** Bytes de cada PDF de prancha, por nome — o peso de cada tomo na régua. */
+  bytesDosArquivos?: ReadonlyMap<string, number>;
   onAbrirFolha?: (id: FolhaId) => void;
   onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; total?: string; arquivo?: string; disciplina?: string }) => void;
   /** Tira a folha do conjunto (ou apaga, se ela foi criada à mão). */
@@ -636,6 +642,15 @@ function CanvasInterno({
     (id: FolhaId) => onRemoverFolha?.(id),
     [onRemoverFolha],
   );
+
+  /*
+   * "TOMO AQUI" NA FOLHA (16/10/2026): o nó só PEDE o corte; quem corta é o
+   * efeito junto da régua, que tem a divisão do momento. O nó recebe a função
+   * dentro da derivação que CALCULA essa divisão — com ela nas dependências, a
+   * função mudaria a cada arrasto e todos os nós seriam recriados.
+   */
+  const [corteNaFolha, setCorteNaFolha] = useState<FolhaId | null>(null);
+  const comecarTomo = setCorteNaFolha;
 
   /*
    * A DIVISÃO DO PLANO antes de gerar (§7): sem capa nem LD gerados e com um
@@ -882,6 +897,9 @@ function CanvasInterno({
             onFecharCorrecao: fecharCorrecao,
             onCorrigir: corrigirFolha,
             onRemover: removerFolha,
+            onComecarTomo: onMoverFolhas ? comecarTomo : undefined,
+            // A primeira folha do tomo já começa um: o "Tomo aqui" não tem o que fazer.
+            comecaTomo: indiceNaFileira + i === 0,
           } satisfies FolhaNodeData,
           draggable: true,
         });
@@ -994,6 +1012,8 @@ function CanvasInterno({
     abrirFolha,
     corrigirFolha,
     removerFolha,
+    comecarTomo,
+    onMoverFolhas,
     /*
      * `noEmCorrecao` remonta os nós ao abrir e ao fechar a correção — e isso é
      * aceitável porque abrir a correção é um gesto raro e deliberado, não algo
@@ -1370,6 +1390,46 @@ function CanvasInterno({
   // O tomo que o "+ Tomo" vai criar: o próximo depois do maior que existe.
   const maiorTomo = fileiras.reduce((maior, f) => Math.max(maior, f.tomo), 0);
 
+  /*
+   * A RÉGUA DOS TOMOS (16/10/2026): as folhas de cada tomo, na ordem da
+   * montagem. Com um tomo só, a sequência inteira — clicar num vão cria o
+   * primeiro corte.
+   */
+  const faixasDaRegua = useMemo<CelulaDaRegua[][]>(() => {
+    const tomos = [...folhasPorTomo.entries()].filter(([t, fs]) => t > 0 && fs.length > 0).sort(([a], [b]) => a - b);
+    // `folhas` já chega sem as removidas (a projeção as tira).
+    const listas = tomos.length > 1 ? tomos.map(([, fs]) => fs) : [folhas];
+    return listas.map((fs) =>
+      fs.map((f) => ({
+        id: f.id,
+        cor: corDaDisciplina(f.disciplina) ?? "var(--ds-text-tertiary)",
+        rotulo: [f.numeroFolha, f.conteudo].filter(Boolean).join(" · ") || f.fileName,
+      })),
+    );
+  }, [folhasPorTomo, folhas]);
+  useEffect(() => {
+    if (corteNaFolha === null) return;
+    // Consome o pedido do nó: ele vale uma vez, com a divisão de agora.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- o pedido é zerado aqui de propósito
+    setCorteNaFolha(null);
+    const { sequencia, cortes } = cortesDasFaixas(faixasDaRegua.map((fs) => fs.map((c) => c.id)));
+    const pos = sequencia.indexOf(corteNaFolha);
+    if (pos <= 0) return;
+    const novos = criarCorte(cortes, pos, sequencia.length);
+    if (novos.length !== cortes.length) onMoverFolhas?.(patchesDosCortes(sequencia, novos));
+  }, [corteNaFolha, faixasDaRegua, onMoverFolhas]);
+  /** Peso estimado de uma folha: o PDF dela dividido pelas folhas que ele tem. */
+  const bytesDaFolha = useMemo(() => {
+    const porArquivo = new Map<string, number>();
+    for (const f of folhas) porArquivo.set(f.fileName, (porArquivo.get(f.fileName) ?? 0) + 1);
+    const porId = new Map(folhas.map((f) => [f.id, f]));
+    return (id: string): number | null => {
+      const f = porId.get(id);
+      const bytes = f ? bytesDosArquivos?.get(f.fileName) : undefined;
+      return f && bytes !== undefined ? bytes / (porArquivo.get(f.fileName) ?? 1) : null;
+    };
+  }, [folhas, bytesDosArquivos]);
+
   if (nodes.length === 0 && memorial) {
     return (
       <div className="nx-palco-vazio" data-palco-vazio="memorial">
@@ -1437,6 +1497,9 @@ function CanvasInterno({
         juntar={juntar}
         pares={pares}
       />
+      {onMoverFolhas && (
+        <ReguaDosTomos faixas={faixasDaRegua} onCortar={onMoverFolhas} bytesDe={bytesDaFolha} />
+      )}
       <ReenquadrarAoCrescer quantidade={nodes.length} />
       <AproximarNoTour />
       <RemedirAlcas ids={idsEmOrdem} />
@@ -1675,6 +1738,7 @@ export function NexoCanvas(props: {
   origens?: Record<FolhaId, OrigemDoNumero | null>;
   totais?: Record<FolhaId, number | null>;
   arquivosDisponiveis?: ReadonlySet<string>;
+  bytesDosArquivos?: ReadonlyMap<string, number>;
   onAbrirFolha?: (id: FolhaId) => void;
   onCorrigirFolha?: (id: FolhaId, patch: { titulo?: string; numero?: string; total?: string; arquivo?: string; disciplina?: string }) => void;
   onRemoverFolha?: (id: FolhaId) => void;

@@ -56,3 +56,19 @@
 .ds .nx-folha.nx-folha--disc { background: color-mix(in srgb, var(--dc-cor) 9%, var(--ds-surface-raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dc-cor) 32%, var(--ds-line-strong)), inset 0 2px 0 0 color-mix(in srgb, var(--dc-cor) 75%, transparent); }
 .ds .nx-folha.nx-folha--disc .ct-sigla { color: color-mix(in srgb, var(--dc-cor) 80%, var(--ds-text-secondary)); }
 .ds .nx-folha.nx-folha--disc > .mt-1 { background: color-mix(in srgb, var(--dc-cor) 9%, var(--ds-surface-raised)); }
+
+/* A RÉGUA DOS TOMOS (16/10/2026): as pranchas do volume numa linha, com uma
+   marca onde cada tomo termina. Fica sob a barra de navegação do canvas. */
+.ds .nx-regua { position: absolute; left: 50%; top: 56px; z-index: 10; width: min(880px, calc(100% - 32px)); transform: translateX(-50%); padding: 8px 12px 10px; border-radius: var(--ds-radius-card); background: var(--ds-surface-card); box-shadow: var(--ds-shadow-float); }
+.ds .nx-regua-tomos { display: flex; gap: 2px; margin: 0 0 6px; padding: 0; list-style: none; }
+.ds .nx-regua-tomo { display: flex; flex-basis: 0; min-width: 0; gap: 6px; overflow: hidden; white-space: nowrap; font-family: var(--ds-font-mono); font-size: 10px; color: var(--ds-text-tertiary); }
+.ds .nx-regua-nome { color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+.ds .nx-regua-tomo--acima, .ds .nx-regua-tomo--acima .nx-regua-nome { color: var(--ds-sev-decide); }
+.ds .nx-regua-trilho { position: relative; display: flex; height: 14px; overflow: visible; }
+.ds .nx-regua-celula { min-width: 2px; height: 100%; padding: 0; border: 0; border-right: 1px solid var(--ds-surface-card); opacity: 0.55; cursor: copy; transition: opacity 0.12s; }
+.ds .nx-regua-celula:hover:not(:disabled) { opacity: 1; }
+.ds .nx-regua-celula:disabled { cursor: default; }
+.ds .nx-regua-marca { position: absolute; top: -5px; width: 12px; height: 24px; margin-left: -6px; padding: 0; border: 0; border-radius: 3px; background: transparent; cursor: ew-resize; touch-action: none; }
+.ds .nx-regua-marca::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: var(--ds-text-primary); }
+.ds .nx-regua-marca:hover::before, .ds .nx-regua-marca--na-mao::before { left: 4px; width: 4px; background: var(--primary); }
+.ds .nx-regua-marca:focus-visible { outline: 2px solid var(--ds-focus-ring); outline-offset: 1px; }

@@ -2935,6 +2935,20 @@ function NexoWorkspaceInner({
     () => new Set(pranchas.map((p) => p.name)),
     [pranchas],
   );
+  /**
+   * O peso de cada PDF de prancha — o arquivo na aba, ou a ficha guardada no
+   * servidor depois do F5. A régua dos tomos estima o peso de cada tomo com
+   * ele, e acende o âmbar ANTES de o tomo passar de 20 MB na montagem.
+   */
+  const bytesDosArquivos = useMemo(() => {
+    const porNome = new Map(fichas.map((f) => [f.fileName, f.sizeBytes]));
+    const mapa = new Map<string, number>();
+    for (const p of pranchas) {
+      const bytes = p.file?.size ?? porNome.get(p.name);
+      if (bytes !== undefined) mapa.set(p.name, bytes);
+    }
+    return mapa;
+  }, [pranchas, fichas]);
 
   /*
    * Object URL por ARQUIVO, retido num cache. Revogar logo depois do `open`
@@ -3473,6 +3487,7 @@ function NexoWorkspaceInner({
                     numeros={numerosDasFolhas}
                     origens={origensDasFolhas}
                     arquivosDisponiveis={arquivosDisponiveis}
+                    bytesDosArquivos={bytesDosArquivos}
                     onAbrirFolha={abrirFolha}
                     totais={totaisDasFolhas}
                     onCorrigirFolha={corrigirFolha}

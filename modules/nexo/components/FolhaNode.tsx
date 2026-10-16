@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Scissors, Trash2 } from "lucide-react";
 
 import { AgentPopover } from "@/components/ui/agent-popover";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,13 @@ export type FolhaNodeData = {
   ) => void;
   /** Tira a folha do conjunto (ou apaga de vez, se ela foi criada à mão). */
   onRemover: (id: FolhaId) => void;
+  /**
+   * "Tomo aqui" (16/10/2026): começa um tomo nesta folha — ela e as seguintes
+   * vão para o próximo. Ausente = o canvas não deixa mexer na divisão.
+   */
+  onComecarTomo?: (id: FolhaId) => void;
+  /** Esta folha já abre um tomo: o "Tomo aqui" não tem o que fazer. */
+  comecaTomo?: boolean;
 } & Record<string, unknown>;
 
 /**
@@ -314,6 +321,19 @@ export function FolhaNode({ data, selected }: NodeProps<Node<FolhaNodeData>>) {
             ajuda="Corrige o que a IA leu do carimbo: nº da prancha, total do conjunto, código do arquivo, disciplina e título. Os valores novos saem na LD gerada depois."
             onClick={() => data.onPedirCorrecao(data.id)}
           />
+          {data.onComecarTomo && (
+            <AcaoDoNo
+              icone={Scissors}
+              rotulo="Tomo aqui"
+              ajuda={
+                data.comecaTomo
+                  ? "Esta prancha já abre um tomo."
+                  : "Começa um tomo novo nesta prancha: ela e as seguintes vão para o próximo tomo. Para ajustar depois, arraste a marca na régua dos tomos."
+              }
+              desabilitado={data.comecaTomo === true}
+              onClick={() => data.onComecarTomo?.(data.id)}
+            />
+          )}
           <AcaoDoNo
             icone={Trash2}
             rotulo="Remover"
