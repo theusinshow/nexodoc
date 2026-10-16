@@ -294,6 +294,7 @@
     "prova:cobertura-honesta": "node scripts/prova-cobertura-honesta.mjs",
     "test:falha-transitoria": "node scripts/test-falha-transitoria.ts",
     "test:nota-consolidacao": "node scripts/test-nota-de-consolidacao.ts",
+    "test:sugestao-sem-correcao": "node scripts/test-sugestao-sem-correcao.ts",
     "prova:nota-consolidacao": "node scripts/prova-nota-de-consolidacao.mjs",
     "prova:evidencia-ancorada": "node scripts/prova-evidencia-ancorada.ts",
     "test:ancoragem": "node scripts/test-ancoragem.ts",

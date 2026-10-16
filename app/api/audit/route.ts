@@ -98,6 +98,7 @@ import { impressaoDoAchado } from "@/lib/impressao-do-achado";
 import { estenderGrafiaRepetida } from "@/lib/grafia-repetida";
 import { linhaDeLog, type ContestacaoDeRegra } from "@/lib/contestacao-de-regra";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
+import { semSugestoesSemCorrecao } from "@/lib/sugestao-sem-correcao";
 import {
   coberturaCompleta,
   coberturaReconciliada,
@@ -4316,6 +4317,18 @@ async function executarAuditoria(
       );
     }
     /*
+     * A SUGESTÃO QUE A VALIDAÇÃO DISPENSOU TAMBÉM NÃO ENTRA. Pedir "remover"
+     * rebaixa o achado de IA a `tier: "sugestao"`, e a fila e o `totalFindings`
+     * não leem `tier`: a linha que diz "Nenhuma correção necessária" era contada
+     * como defeito. Ver [[sugestao-sem-correcao.ts]].
+     */
+    const dispensadas = semSugestoesSemCorrecao(semEscrituracao.mantidos);
+    if (dispensadas.removidos.length > 0) {
+      console.log(
+        `[audit] ${dispensadas.removidos.length} sugestão(ões) dispensada(s) pela validação removida(s) do parecer`,
+      );
+    }
+    /*
      * O DEDUPE PAREADO (Encaixe 4) — os ~50% que a impressão digital não casa.
      *
      * `impressaoDoAchado` rende 50% de estabilidade entre duas corridas do
@@ -4332,7 +4345,7 @@ async function executarAuditoria(
     let duplicadosPareados = new Set<string>();
 
     try {
-      const pares = await acharDuplicadosPareados(semEscrituracao.mantidos, {
+      const pares = await acharDuplicadosPareados(dispensadas.mantidos, {
         userEmail: sessionEmail,
       });
 
@@ -4354,7 +4367,7 @@ async function executarAuditoria(
      */
     const paginasPorArquivo = new Map(uploadedFiles.map((file) => [file.file.name, file.extracted.pages]));
     const grafia = estenderGrafiaRepetida(
-      semEscrituracao.mantidos.filter((finding) => !duplicadosPareados.has(finding.id)),
+      dispensadas.mantidos.filter((finding) => !duplicadosPareados.has(finding.id)),
       (arquivo) =>
         (arquivo ? paginasPorArquivo.get(arquivo) : undefined) ??
         (uploadedFiles.length === 1 ? uploadedFiles[0].extracted.pages : undefined),
@@ -4510,6 +4523,16 @@ async function executarAuditoria(
          * diagnosticou corretamente em 18/08/2026.
          */
         ...(contestacoes.length > 0 ? { regras_contestadas: contestacoes } : {}),
+        ...(dispensadas.removidos.length > 0
+          ? {
+              sugestoes_dispensadas: dispensadas.removidos.map((f) => ({
+                tipo: f.tipo,
+                pagina: f.pagina,
+                evidencia: f.evidencia,
+                sugestao_correcao: f.sugestao_correcao,
+              })),
+            }
+          : {}),
         nivel_analise: analysisLevel,
         motor_auditoria: auditEngine,
         regras_locais_ativas: isRuleBasedAuditEnabled(),

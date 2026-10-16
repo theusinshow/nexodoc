@@ -245,6 +245,17 @@ export type AuditReport = {
       motivo: string;
       evidencia: string;
     }[];
+    /**
+     * Sugestões que a própria validação dispensou ("Nenhuma correção
+     * necessária", "Tratar no INC-005") e que saíram do parecer. Ver
+     * [[sugestao-sem-correcao.ts]]: guardadas para conferência, não contadas.
+     */
+    sugestoes_dispensadas?: {
+      tipo: string;
+      pagina: string;
+      evidencia: string;
+      sugestao_correcao: string;
+    }[];
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;
