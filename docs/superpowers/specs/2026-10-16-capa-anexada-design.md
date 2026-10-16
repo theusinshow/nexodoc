@@ -156,3 +156,28 @@ classificam tudo: < US$ 0,001. Gerar volumes depois não chama IA.
 - Editar PDF (tapar e reescrever).
 - Promover o modelo do projeto a modelo da prefeitura.
 - Mais de um modelo ativo por projeto.
+
+## O que mudou na implementação (16/10/2026)
+
+A prova no navegador (`scripts/prova-capa-anexada.mjs`) e o teste de ida e
+volta mudaram quatro pontos deste desenho:
+
+- **Órgão e secretaria são lidos como texto fixo**, não como campo. O modelo é
+  de um projeto só; como campo, a secretaria escrita no modelo de Florianópolis
+  e de São José sumia (o default dela é vazio). Quem quiser campo troca no card.
+- **O ensaio regera a própria capa** pelo modelo injetado, com os textos dela, e
+  conta as páginas depois de tirar as páginas em branco. Com dados exagerados
+  (obra de 4 linhas), até o modelo oficial de Chapecó transborda de verdade, e
+  recusar tudo não protege ninguém. O transbordo com dados reais é avisado a
+  cada capa gerada (`paginasAMais`, §7).
+- **Cada trecho herda os spans do texto dele no original.** Guardar só o
+  primeiro span imprimiu a fase de Chapecó em Courier (dois spans aninhados) e
+  tiraria o negrito do número do volume de Criciúma (um span por pedaço).
+- **A IA vem por env** (`NEXODOC_MODELO_CAPA_MODEL`, padrão `gpt-6-luna`), como
+  o `selo-check`, e não por `AiModelConfig`. Medido: 455 tokens de entrada e
+  53 de saída por capa.
+- **PDF de capa**: o pré-voo o reconhece pelo nome (1 ou 2 folhas). No acervo,
+  24 PDFs passam a ser "capa" e nenhum troca entre memorial e prancha. Por
+  isso o Nexo avisa no chat que vai usar o PDF como está, e o chip permite
+  tirar o anexo ou marcá-lo como prancha. O ODT espera na fila até a conversa
+  ganhar projeto (que vem da leitura dos carimbos).
