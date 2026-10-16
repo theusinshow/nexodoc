@@ -15,6 +15,11 @@ export interface TemplateConfigFile {
   volumeFormat?: "roman" | "numeric";
   tomoFormat?: "parenthesized-padded" | "parenthesized" | "plain-padded" | "plain";
   coverTitleMode?: "items" | "volume-title-items";
+  /**
+   * Páginas físicas de UMA capa: 1, ou 2 quando o modelo tem contracapa
+   * (Florianópolis). É a régua do aviso de transbordo. Ausente = 1.
+   */
+  paginasPorCapa?: number;
   defaults: {
     orgao: string;
     secretaria: string;

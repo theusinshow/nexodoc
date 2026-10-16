@@ -243,6 +243,7 @@ model Project {
   aiTasks        AiTask[]
   nexoConversations NexoConversation[]
   pranchas       PranchaDoProjeto[]
+  modeloDeCapa   ModeloDeCapaDoProjeto?
 
   /// O codigo do projeto e unico no ESCRITORIO, e era unico por dono: dois
   /// projetistas podiam cadastrar "099-25" cada um, e o banco achava normal.
@@ -1102,4 +1103,21 @@ model PranchaDoProjeto {
 
   @@unique([projectId, fileName])
   @@index([checksumSha256])
+}
+
+/// O MODELO DE CAPA que o projeto já tinha (16/10/2026). Os bytes moram no
+/// cofre (`StoredFile`, cifrado); aqui ficam a ficha e a leitura confirmada.
+/// Um ativo por projeto: anexar outro substitui.
+model ModeloDeCapaDoProjeto {
+  id             String   @id @default(cuid())
+  projectId      String   @unique
+  checksumSha256 String
+  nomeOriginal   String
+  /// campos, tomoFormat, volumeFormat, defaults, paginasPorCapa
+  config         Json
+  /// E-mail de quem confirmou. Registro, não posse.
+  criadoPor      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
