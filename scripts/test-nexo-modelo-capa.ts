@@ -184,6 +184,42 @@ await test("injeção: parágrafo FIXO fica byte a byte, o campo herda o span", 
   assert.match(saida, /<text:span text:style-name="T1">\{\{CODIGO_EXIBIDO\}\}<\/text:span>/);
 });
 
+await test("injeção: spans ANINHADOS ficam todos (o T3 de Chapecó corrige a fonte do de fora)", () => {
+  const xml =
+    '<office:body><office:text><text:p text:style-name="P9"><text:span text:style-name="Source_20_Text">' +
+    '<text:span text:style-name="T3">PROJETO EXECUTIVO</text:span></text:span></text:p></office:text></office:body>';
+  const saida = injetarMarcadores(xml, classificarPorRegras(lerParagrafos(xml), { orgaos: [], secretarias: [] }));
+  assert.match(
+    saida,
+    /<text:p text:style-name="P9"><text:span text:style-name="Source_20_Text"><text:span text:style-name="T3">\{\{FASE\}\}<\/text:span><\/text:span><\/text:p>/,
+  );
+});
+
+await test("injeção: ida e volta preserva os estilos de cada parágrafo de campo (4 modelos)", async () => {
+  for (const id of MODELOS) {
+    const { cfg, xml } = await carregar(id);
+    const capa = preencher(xml, valores(cfg, A, tomoNoFormato(cfg.tomoFormat, 2), cfg.volumeFormat === "numeric" ? "05" : "VII"));
+    const p = classificarPorRegras(lerParagrafos(capa), {
+      obra: A.obra.replace(/\n/g, " "),
+      bairro: A.bairro,
+      orgaos: [cfg.defaults.orgao],
+      secretarias: [cfg.defaults.secretaria],
+    });
+    const modelo = injetarMarcadores(capa, p);
+    // Os estilos de span que a capa usava continuam todos no modelo — menos os
+    // que só carregam `officeooo:rsid` (marca de revisão do LibreOffice, sem
+    // efeito na impressão).
+    const soRevisao = (nome: string) => {
+      const def = new RegExp(`<style:style style:name="${nome}"[^>]*>([\\s\\S]*?)</style:style>`).exec(capa)?.[1] ?? "";
+      return /^<style:text-properties officeooo:rsid="[^"]+"\/>$/.test(def.trim());
+    };
+    const estilos = (x: string) => new Set([...x.matchAll(/<text:span text:style-name="([^"]+)"/g)].map((m) => m[1]));
+    for (const e of estilos(capa)) {
+      if (!soRevisao(e)) assert.ok(estilos(modelo).has(e), `${id}: perdeu o estilo ${e}`);
+    }
+  }
+});
+
 await test("regras: Vol. VII mantém o rótulo fixo", () => {
   const p = classificarPorRegras([{ indice: 0, texto: "Vol. VII" }], { orgaos: [], secretarias: [] });
   assert.deepEqual(p.paragrafos[0].trechos, [

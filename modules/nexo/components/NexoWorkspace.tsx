@@ -670,6 +670,8 @@ function NexoWorkspaceInner({
   const odtsEsperandoProjeto = useRef<{ id: string; arquivo: File }[]>([]);
 
   function anexarModeloDeCapa(arquivo: File) {
+    // Sai da saudação: sem isto o card nascia por baixo do "Boa tarde".
+    start();
     const id = crypto.randomUUID();
     guardarOdtPendente(id, arquivo);
     setAttachments((prev) => [...prev, { id, name: arquivo.name, kind: "pdf" as const, papel: "capa" as const }]);
@@ -1418,6 +1420,7 @@ function NexoWorkspaceInner({
     if (capaPdf) {
       const anexo = atts.find((a) => a.kind === "pdf" && a.name === capaPdf.file.name);
       if (anexo) {
+        start();
         definirCapaAnexada({ anexoId: anexo.id, arquivo: capaPdf.file });
         conv.appendMessage({
           id: crypto.randomUUID(),

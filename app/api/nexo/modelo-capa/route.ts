@@ -32,6 +32,7 @@ import { aplicarRespostas, classificarPorRegras, pendentes } from "@/server/nexo
 import type { PropostaDeModelo } from "@/server/nexo/modelo-capa/tipos";
 import { generateOdtBuffer } from "@/server/odt";
 import { desembrulharCamposDeUsuario } from "@/server/odt/marcadores";
+import { semPaginasEmBranco } from "@/server/nexo/tools/pagina-em-branco";
 import { convertOdtToPdf } from "@/server/pdf";
 import { projetoDoEscritorio } from "@/server/pranchas";
 import { getTemplateRegistry } from "@/server/templates/registry";
@@ -84,11 +85,18 @@ async function odtDoFormulario(
   }
 }
 
-/** Páginas do PDF que o LibreOffice devolveu. `null` = sem conversor, não deu para medir. */
+/**
+ * Páginas do PDF que o LibreOffice devolveu. `null` = sem conversor, não deu
+ * para medir. Conta DEPOIS de tirar as páginas em branco, como a capa de
+ * verdade sai (`generate-covers.ts`): sem isso, o modelo oficial de Chapecó —
+ * cuja obra de 4 linhas empurra só um parágrafo vazio para a 2ª página — era
+ * recusado por um transbordo que nunca chega ao volume.
+ */
 async function paginasDoOdt(odt: Buffer): Promise<number | null> {
   const { pdfBuffer } = await convertOdtToPdf(odt);
   if (!pdfBuffer) return null;
-  return PDFDocument.load(pdfBuffer, { ignoreEncryption: true, updateMetadata: false })
+  const limpo = (await semPaginasEmBranco(pdfBuffer).catch(() => ({ buffer: pdfBuffer }))).buffer;
+  return PDFDocument.load(limpo, { ignoreEncryption: true, updateMetadata: false })
     .then((d) => d.getPageCount())
     .catch(() => null);
 }
@@ -197,17 +205,21 @@ export async function PUT(req: NextRequest) {
         proposta.paragrafos.flatMap((p) => (p.trechos ?? []).map((t) => t.campo)).filter((c) => c !== "FIXO"),
       ),
     ];
-    const textoDe = (campo: string) =>
-      proposta.paragrafos
-        .filter((p) => p.trechos?.some((t) => t.campo === campo))
-        .map((p) => p.texto)
-        .join(" ");
+    /** Os textos que a capa anexada tinha em cada campo, na ordem — um por parágrafo. */
+    const textosDe = (campo: string) =>
+      proposta.paragrafos.flatMap((p) => (p.trechos ?? []).filter((t) => t.campo === campo).map((t) => t.texto.trim()));
+    const textoDe = (campo: string) => textosDe(campo).join(" ");
+    const [mes = "", ano = ""] = textoDe("MES_ANO").split("/");
 
     /*
-     * 2. O ENSAIO: dados longos de propósito — obra de 4 linhas, título de 2,
-     * tomo e volume. Se a capa de ensaio passar das páginas do ODT original, o
-     * modelo transborda e é recusado: aceitar seria pôr no volume uma capa de 2
-     * páginas, que é exatamente o defeito que Chapecó e Criciúma já tiveram.
+     * 2. O ENSAIO: a capa anexada REGERADA pelo modelo injetado, com os textos
+     * dela mesma. Se isso passar das páginas que o ODT original tinha, a
+     * injeção quebrou o layout (um estilo perdido, um span que encolhia a
+     * fonte) e o modelo é recusado.
+     *
+     * Não com dados exagerados: obra de 4 linhas transborda até o modelo
+     * OFICIAL de Chapecó, e recusar tudo não protege ninguém. O transbordo com
+     * dados reais é avisado a cada capa gerada (`paginasAMais`).
      */
     const original = await paginasDoOdt(odt.bytes);
     const ensaio = await generateOdtBuffer({
@@ -215,16 +227,15 @@ export async function PUT(req: NextRequest) {
       templateBytes: modelo,
       generalData: {
         templateId: idDoModeloDoProjeto(projeto),
-        orgao: textoDe("ORGAO") || "PREFEITURA MUNICIPAL",
+        orgao: textoDe("ORGAO"),
         secretaria: textoDe("SECRETARIA"),
-        nomeObra:
-          "REVITALIZAÇÃO E AMPLIAÇÃO DO CENTRO MUNICIPAL\nDE EVENTOS E FEIRAS DA REGIÃO\nOESTE COM ESTACIONAMENTO\nE ÁREA DE LAZER",
-        bairro: "CENTRO",
-        fase: textoDe("FASE") || "PROJETO EXECUTIVO",
-        mes: "SETEMBRO",
-        ano: "2026",
-        codigoInterno: "999_26",
-        codigoExibido: "999-26",
+        nomeObra: textosDe("NOME_OBRA").join("\n"),
+        bairro: textoDe("BAIRRO"),
+        fase: textoDe("FASE"),
+        mes: mes.trim(),
+        ano: ano.trim(),
+        codigoInterno: textoDe("CODIGO_EXIBIDO"),
+        codigoExibido: textoDe("CODIGO_EXIBIDO"),
         siglaArquivo: "",
         revisao: "a",
       },
@@ -232,10 +243,10 @@ export async function PUT(req: NextRequest) {
         {
           id: "ensaio",
           groupId: "ensaio",
-          tituloCapa: "PROJETO DE INSTALAÇÕES HIDROSSANITÁRIAS\nREDE DE ESGOTO E DRENAGEM",
-          disciplina: "",
-          tomo: "(TOMO 04)",
-          volume: "VIII",
+          tituloCapa: textosDe("TITULO_CAPA").join("\n"),
+          disciplina: textoDe("DISCIPLINA"),
+          tomo: textoDe("TOMO"),
+          volume: textoDe("VOLUME"),
           pageNumber: 1,
         },
       ],
@@ -244,8 +255,8 @@ export async function PUT(req: NextRequest) {
     if (original !== null && doEnsaio !== null && doEnsaio > original) {
       return erro(
         422,
-        `A capa transborda para a ${doEnsaio}ª página quando a obra ocupa 4 linhas. ` +
-          "Abra o ODT, dê mais espaço às linhas da obra e do título, e anexe de novo.",
+        `Regerada por este modelo, a própria capa passa para a ${doEnsaio}ª página — ` +
+          "alguma linha perdeu o estilo ao virar campo. Troque essa linha para texto fixo, ou ajuste o ODT e anexe de novo.",
         { motivo: "transborda" },
       );
     }
