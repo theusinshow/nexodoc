@@ -1,5 +1,7 @@
 "use client";
 
+import { cabecalhosDeGeracao } from "@/lib/projeto-do-pedido";
+import { useTemplatesDeCapa } from "../lib/use-templates-de-capa";
 import { Orbe } from "@/components/ds/basicos";
 import { Cronometro, Trelica } from "@/components/ds/micro";
 import { textoComRotulos } from "@/lib/rotulo-do-achado";
@@ -227,7 +229,8 @@ export function NexoChat({
    */
   const [envioEsperando, setEnvioEsperando] = useState<{ textArg?: string; forcarNexo: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<NexoTemplateOption[]>([]);
+  // Os modelos de capa — com o do PROJETO na frente quando ele tem um.
+  const templates = useTemplatesDeCapa<NexoTemplateOption>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Id da resposta que chegou AO VIVO agora (revela com typewriter). Mensagens
@@ -257,13 +260,6 @@ export function NexoChat({
   const abortRef = useRef<AbortController | null>(null);
   // Última mensagem do usuário — o "tentar de novo" reenvia esta.
   const [lastSent, setLastSent] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/capas/templates")
-      .then((r) => r.json())
-      .then((d) => setTemplates(d.templates ?? []))
-      .catch(() => {});
-  }, []);
 
   // Só gruda no fim se o usuário JÁ estava no fim (margem de 64px p/ subpixel).
   // Quem rolou pra cima pra reler não é arrancado de lá.
@@ -537,7 +533,8 @@ export function NexoChat({
       const res = await fetch("/api/nexo/agent", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          // O projeto da conversa: é por ele que a capa acha o modelo do projeto.
+          ...cabecalhosDeGeracao(),
           Accept: "text/event-stream",
         },
         body: JSON.stringify({

@@ -17,8 +17,21 @@ let projetoDaConversa: string | null = null;
 
 /** Chamado pelo Nexo quando a conversa aberta (ou o projeto dela) muda. */
 export function definirProjetoDaConversa(projeto: string | null | undefined) {
-  projetoDaConversa = projeto && ID.test(projeto) ? projeto : null;
+  const novo = projeto && ID.test(projeto) ? projeto : null;
+  if (novo === projetoDaConversa) return;
+  projetoDaConversa = novo;
+  /*
+   * Quem depende do projeto (a lista de modelos de capa, que inclui o modelo
+   * DO PROJETO — 16/10/2026) busca de novo. Evento, e não estado: este módulo
+   * é puro e é lido fora do React.
+   */
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_PROJETO_MUDOU));
 }
+
+/** Disparado quando o projeto da conversa muda. */
+export const EVENTO_PROJETO_MUDOU = "nexo:projeto-mudou";
+/** Disparado quando o modelo de capa do projeto é gravado. */
+export const EVENTO_MODELO_DE_CAPA = "nexo:modelo-capa-gravado";
 
 /** Os cabeçalhos de um pedido de geração. */
 export function cabecalhosDeGeracao(): Record<string, string> {

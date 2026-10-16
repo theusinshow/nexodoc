@@ -19,6 +19,10 @@ import { disciplinaLabel } from "@/server/nexo/disciplinas";
 import { fatosDaConversa, type FatosDoMemorial } from "@/server/nexo/agent/fatos";
 import { carregarEscritorio } from "@/lib/escritorio-config";
 import { accessDeniedResponse, requireActor } from "@/lib/access-control";
+import type { Actor } from "@/lib/actor";
+import { projetoDoPedido } from "@/lib/projeto-do-pedido";
+import { fichaDoModeloDeCapa, idDoModeloDoProjeto } from "@/server/modelo-capa";
+import { projetoDoEscritorio } from "@/server/pranchas";
 import { dataDominante } from "@/server/nexo/data-do-selo";
 import { casarPrefeituraDoCarimbo } from "@/server/nexo/agent/normalize";
 
@@ -82,8 +86,9 @@ export async function POST(req: NextRequest) {
    *
    * As duas recusas independentes estao em [[lib/actor.ts]].
    */
+  let actor: Actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (err) {
     const negado = accessDeniedResponse(err);
     if (negado) return negado;
@@ -195,6 +200,18 @@ export async function POST(req: NextRequest) {
       };
 
   const registry = await getTemplateRegistry();
+  /*
+   * O MODELO DE CAPA DO PROJETO (16/10/2026), se a conversa está num projeto
+   * deste escritório e ele tem um. Falha de banco aqui não derruba o turno: a
+   * capa só cai para a prefeitura, como era antes.
+   */
+  const projetoDaConversa = projetoDoPedido(req.headers);
+  const modeloDoProjeto =
+    projetoDaConversa &&
+    (await projetoDoEscritorio(projetoDaConversa, actor.organizationId).catch(() => false)) &&
+    (await fichaDoModeloDeCapa(projetoDaConversa).catch(() => null))
+      ? idDoModeloDoProjeto(projetoDaConversa)
+      : undefined;
   /*
    * QUEM EMITE, para não ser lido como quem recebe. O endereço do escritório
    * está impresso em toda prancha, e foi ele que fez um volume de Criciúma sair
@@ -322,6 +339,7 @@ export async function POST(req: NextRequest) {
               // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
               dataDoSelo: slotContext.dataDoSelo,
               prefeituraDoSelo: slotContext.prefeituraDoSelo,
+              modeloDoProjeto,
               bloqueiosDaMontagem,
             },
             req.signal,
@@ -378,6 +396,7 @@ export async function POST(req: NextRequest) {
       // A data da capa sai do CARIMBO, nao do relogio -- mesma fonte do slot.
       dataDoSelo: slotContext.dataDoSelo,
       prefeituraDoSelo: slotContext.prefeituraDoSelo,
+      modeloDoProjeto,
       bloqueiosDaMontagem,
     });
     const slotRequest = buildSlotRequestForTurn(turn.proposals, slotContext);

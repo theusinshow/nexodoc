@@ -12,6 +12,7 @@
  * capa/separatriz/LD ganham miniatura real.
  */
 
+import { useTemplatesDeCapa } from "../lib/use-templates-de-capa";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
@@ -585,13 +586,7 @@ function CanvasInterno({
   }, [blocosFundidos]);
 
   // Prefeituras: lista fechada do campo da capa no editor do nó.
-  const [templates, setTemplates] = useState<{ id: string; nome: string }[]>([]);
-  useEffect(() => {
-    fetch("/api/capas/templates")
-      .then((r) => r.json())
-      .then((d) => setTemplates(d.templates ?? []))
-      .catch(() => {});
-  }, []);
+  const templates = useTemplatesDeCapa<{ id: string; nome: string }>();
 
   /*
    * Estáveis de propósito: eles entram no `data` de cada nó de folha, e uma

@@ -55,6 +55,12 @@ export interface NormalizeContext {
    * discordam.
    */
   prefeituraDoSelo?: string;
+  /**
+   * O MODELO DE CAPA QUE O PROJETO JÁ TEM (`projeto:<id>`), quando há
+   * (16/10/2026). Vale SÓ para a capa — a separatriz segue a prefeitura. Fica
+   * acima do carimbo; a decisão do engenheiro no card continua acima dele.
+   */
+  modeloDoProjeto?: string;
 }
 
 /** minúsculas + sem acento + espaço colapsado. */
@@ -437,15 +443,17 @@ export function normalizeProposals(
        * Um palpite aqui é o erro que este produto existe para impedir. Sem
        * certeza, quem decide é o engenheiro.
        */
-      const templateId = templateDoVolume;
+      // O modelo de capa do projeto vem antes do carimbo (16/10/2026).
+      const templateId = ctx.modeloDoProjeto || templateDoVolume;
       // Sem prefeitura CONFIGURADA não há capa possível; sem prefeitura
       // ESCOLHIDA há — ela é a pergunta.
-      if (ctx.prefeituras.length === 0) continue;
+      if (ctx.prefeituras.length === 0 && !ctx.modeloDoProjeto) continue;
       const volumeRaw = String(p.volume ?? "").trim();
       out.push({
         kind: "capa",
         resumo:
-          String(p.resumo ?? "").trim() || `Capa ${match?.nome ?? ctx.disciplina}`,
+          String(p.resumo ?? "").trim() ||
+          (ctx.modeloDoProjeto ? "Capa — modelo do projeto" : `Capa ${match?.nome ?? ctx.disciplina}`),
         params: {
           templateId,
           // Título é DECISÃO: vazio quando a IA não recebeu um do engenheiro.

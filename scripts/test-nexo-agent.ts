@@ -234,6 +234,26 @@ test("normalizeProposals: sem prefeitura dita, o CARIMBO responde", () => {
   assert.equal((r[0].params as { templateId: string }).templateId, "prefcri");
 });
 
+test("normalizeProposals: o modelo de capa do PROJETO vence o carimbo (16/10/2026)", () => {
+  const r = normalizeProposals([{ kind: "capa", tituloCapa: "PROJETO ESTRUTURAL" }], {
+    disciplina: "Estrutural",
+    prefeituras: PREFS,
+    prefeituraDoSelo: "prefcri",
+    modeloDoProjeto: "projeto:abc",
+  });
+  assert.equal((r[0].params as { templateId: string }).templateId, "projeto:abc");
+});
+
+test("normalizeProposals: a separatriz NÃO usa o modelo de capa do projeto", () => {
+  const r = normalizeProposals([{ kind: "separatriz" }], {
+    disciplina: "Estrutural",
+    prefeituras: PREFS,
+    prefeituraDoSelo: "prefcri",
+    modeloDoProjeto: "projeto:abc",
+  });
+  assert.equal((r[0].params as { templateId: string }).templateId, "prefcri");
+});
+
 test("normalizeProposals: o que foi DITO vence o carimbo", () => {
   /*
    * A folha reaproveitada de outro projeto no meio do conjunto não pode

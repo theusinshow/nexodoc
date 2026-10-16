@@ -66,6 +66,8 @@ export interface RunNexoAgentTurnInput {
   dataDoSelo?: { mes: number; ano: number };
   /** Prefeitura já resolvida pelo carimbo (id do template). Ver `NormalizeContext`. */
   prefeituraDoSelo?: string;
+  /** O modelo de capa do projeto (`projeto:<id>`). Ver `NormalizeContext`. */
+  modeloDoProjeto?: string;
   /**
    * Quem EMITE. O modelo às vezes devolve como "prefeitura" a linha do carimbo
    * inteira, endereço do escritório junto — e é o casamento, não o modelo, que
@@ -327,6 +329,7 @@ export async function runNexoAgentTurn(
       ...(input.dataDoSelo ? { dataDoSelo: input.dataDoSelo } : {}),
       // A prefeitura tambem, quando o carimbo a resolve sozinho.
       ...(input.prefeituraDoSelo ? { prefeituraDoSelo: input.prefeituraDoSelo } : {}),
+      ...(input.modeloDoProjeto ? { modeloDoProjeto: input.modeloDoProjeto } : {}),
     }),
     usage,
   };
@@ -419,6 +422,7 @@ export async function* runNexoAgentTurnStream(
       ...(input.dataDoSelo ? { dataDoSelo: input.dataDoSelo } : {}),
       // A prefeitura tambem, quando o carimbo a resolve sozinho.
       ...(input.prefeituraDoSelo ? { prefeituraDoSelo: input.prefeituraDoSelo } : {}),
+      ...(input.modeloDoProjeto ? { modeloDoProjeto: input.modeloDoProjeto } : {}),
     }),
     usage,
   };
