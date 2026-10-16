@@ -53,7 +53,7 @@ import {
 } from "../lib/editar-artefato";
 import { estadoDoArtefato } from "../lib/estado-do-artefato";
 import { CAMPO_DA_REDE, dataDaCapa as mesAnoDaCapa, redeParaGerar } from "../lib/rede-da-conversa";
-import { gravarRede, lerRede, redeDoVolumeAnterior } from "@/lib/ld/caminho-da-rede";
+import { gravarRede, lerRede, redeDoVolumeAnterior, redePendente } from "@/lib/ld/caminho-da-rede";
 import { PerguntaDaRede } from "./PerguntaDaRede";
 import {
   blocoGera,
@@ -465,7 +465,15 @@ export function PlanoDeGeracao({
     noPlano: itens.some((i) => i.kind === "capa"),
     volume: mesclado.valores.volume ?? "",
   });
-  const motivoDeBloqueio = motivoDeEspera ?? motivoDoVolume;
+  /*
+   * O CAMINHO DA REDE É PERGUNTA (16/10/2026): a LD não sai com um rodapé que
+   * ninguém confirmou — nem o deduzido, nem o herdado do volume anterior.
+   */
+  const redePorConfirmar =
+    itens.some((i) => i.kind === "ld") && redePendente(lerRede(decisoes[CAMPO_DA_REDE]?.valor))
+      ? "Confirme onde as LDs ficam na rede — no plano do chat."
+      : null;
+  const motivoDeBloqueio = motivoDeEspera ?? motivoDoVolume ?? redePorConfirmar;
 
   /*
    * O CAMINHO DA REDE DO VOLUME ANTERIOR. Conversa sem decisão própria, numa
@@ -1093,8 +1101,8 @@ export function PlanoDeGeracao({
          * decisão que a geração ignora.
          */}
         {/*
-         * ONDE AS LDs FICAM NA REDE — o caminho do rodapé. Opcional e já
-         * preenchido: quem não liga não clica. Uma linha por disciplina que
+         * ONDE AS LDs FICAM NA REDE — o caminho do rodapé. Recomendado, e
+         * travando o Gerar até alguém confirmar. Uma linha por disciplina que
          * gera LD, porque cada uma tem a sua pasta.
          */}
         {proposals.some((p) => p.kind === "ld") && (

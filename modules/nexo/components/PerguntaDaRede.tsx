@@ -8,11 +8,15 @@
  * Tudo nele é deduzido menos a pasta da EMISSÃO, que cada um escreve do seu
  * jeito e que varia até entre disciplinas do mesmo volume. Então:
  *
- * - fechada por padrão, já com a sugestão — quem não liga não clica;
  * - o campo do topo vale para todas; cada linha pode ter a sua ("própria");
  * - colar o endereço do Explorer em qualquer campo vence a dedução.
  *
- * Opcional: nunca trava o Gerar. Spec: 2026-10-08-caminho-da-rede-na-ld-design.
+ * É PERGUNTA, NÃO SUPOSIÇÃO (16/10/2026). Era "fechada por padrão, já com a
+ * sugestão, nunca trava o Gerar" — e o rodapé saía com um endereço que ninguém
+ * tinha olhado, inclusive o herdado do volume anterior, que se gravava
+ * sozinho. Agora ela abre pendente, diz de onde veio a recomendação, e o plano
+ * só gera a LD depois de "Usar este caminho" (ou de qualquer edição, que já é
+ * alguém escolhendo). Spec: 2026-10-08-caminho-da-rede-na-ld-design.
  */
 import { Check, ClipboardPaste, FolderTree, Pencil, Undo2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -22,10 +26,13 @@ import {
   aplicarColado,
   baseDeduzida,
   caminhoDaLd,
+  confirmarRede,
+  redePendente,
   separarCaminhoColado,
   sugerirEmissao,
   type RedeDaLd,
 } from "@/lib/ld/caminho-da-rede";
+import { Button } from "@/components/ui/button";
 import { CURVA, DURACAO } from "@/lib/ds/movimento";
 
 /** `P:\cad\pmcriciuma\116_25\eletrico\documentos` → `…\116_25\eletrico\documentos\` */
@@ -101,7 +108,10 @@ export function PerguntaDaRede({
   onMudar: (rede: RedeDaLd) => void;
 }) {
   const reduzido = useReducedMotion();
-  const [aberta, setAberta] = useState(false);
+  const [abertaAMao, setAberta] = useState(false);
+  const pendente = redePendente(rede);
+  // Pendente fica aberta: o ✓ do resumo só aparece depois de alguém confirmar.
+  const aberta = pendente || abertaAMao;
   const [editando, setEditando] = useState<string | null>(null);
 
   const varias = disciplinas.length > 1;
@@ -120,13 +130,8 @@ export function PerguntaDaRede({
   });
   const semCliente = linhas.every((l) => !l.base);
 
-  const mudar = (proxima: RedeDaLd) => {
-    // Guardar a sugestão como decisão a congelaria: mudar o mês da capa
-    // deixaria de mudar a pasta. Igual à sugestão = não decidido.
-    const limpa: RedeDaLd = { ...proxima };
-    if (limpa.emissao === sugestao) delete limpa.emissao;
-    onMudar(limpa);
-  };
+  // Toda escrita é alguém escolhendo: confirma, e congela a emissão sugerida.
+  const mudar = (proxima: RedeDaLd) => onMudar(confirmarRede(proxima, sugestao));
 
   const colar = (texto: string, alvo?: string): boolean => {
     const colado = separarCaminhoColado(texto);
@@ -138,6 +143,8 @@ export function PerguntaDaRede({
 
   const definirEmissaoDaLinha = (d: string, v: string) => {
     setEditando(null);
+    // Entrar no campo e sair sem mudar nada não é confirmar.
+    if (v === linhas.find((l) => l.d === d)?.emissao) return;
     if (!varias) return mudar({ ...rede, emissao: v });
     if (v === emissaoDoTopo && !rede.porDisciplina?.[d]?.base) return voltar(d);
     const por = { ...(rede.porDisciplina ?? {}) };
@@ -160,7 +167,7 @@ export function PerguntaDaRede({
 
   return (
     <section
-      className="flex flex-col gap-3 rounded-xl border border-border p-4"
+      className={`flex flex-col gap-3 rounded-xl border p-4 ${pendente ? "border-[var(--status-warning)]/45" : "border-border"}`}
       aria-label="Onde as LDs ficam na rede"
       data-prova="pergunta-da-rede"
     >
@@ -199,6 +206,15 @@ export function PerguntaDaRede({
           >
             <div className="flex flex-col gap-1">
               <p className="text-[15px] font-medium leading-snug">Onde as LDs ficam na rede?</p>
+              {pendente && (
+                <p className="text-xs leading-5 text-[var(--status-warning)]">
+                  {semCliente
+                    ? "Sem modelo de capa, não há pasta do cliente para recomendar."
+                    : rede.origem === "volume-anterior"
+                      ? "Recomendado: o mesmo caminho do volume anterior desta obra. Confira antes de gerar."
+                      : "Recomendado pelo padrão do escritório (cliente, projeto, disciplina, emissão). Confira antes de gerar."}
+                </p>
+              )}
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <ClipboardPaste className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 Cole o endereço da pasta (do Explorer) ou escreva o nome da pasta desta emissão.
@@ -215,7 +231,9 @@ export function PerguntaDaRede({
                   id="rede-emissao-topo"
                   rotulo="Pasta desta emissão, para todas as disciplinas"
                   inicial={emissaoDoTopo}
-                  onConfirmar={(v) => mudar({ ...rede, emissao: v })}
+                  onConfirmar={(v) => {
+                    if (v !== emissaoDoTopo) mudar({ ...rede, emissao: v });
+                  }}
                   onColar={(t) => colar(t)}
                 />
               </div>
@@ -267,17 +285,32 @@ export function PerguntaDaRede({
             </ul>
 
             <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditando(null);
-                  setAberta(false);
-                }}
-                className="inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              >
-                <Check className="h-3.5 w-3.5" aria-hidden />
-                Pronto
-              </button>
+              {pendente ? (
+                <Button
+                  size="sm"
+                  disabled={semCliente}
+                  onClick={() => {
+                    setEditando(null);
+                    setAberta(false);
+                    mudar(rede);
+                  }}
+                >
+                  <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  Usar este caminho
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditando(null);
+                    setAberta(false);
+                  }}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                  Pronto
+                </button>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>

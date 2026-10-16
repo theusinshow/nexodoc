@@ -76,6 +76,14 @@ export interface RedeDaLd {
   mes?: string;
   ano?: string;
   porDisciplina?: Record<string, AjusteDaDisciplina>;
+  /**
+   * ALGUÉM OLHOU E DISSE "É AQUI" (16/10/2026). Sem isto o caminho é só uma
+   * recomendação — deduzida do padrão ou herdada do volume anterior — e o
+   * plano não gera a LD: o rodapé imprime um endereço que ninguém confirmou.
+   */
+  confirmada?: true;
+  /** De onde veio a recomendação, enquanto não confirmada. Ausente = padrão do escritório. */
+  origem?: "volume-anterior";
 }
 
 export interface CaminhoColado {
@@ -232,8 +240,12 @@ export function caminhoDaLd(a: {
  */
 export function redeDoVolumeAnterior(anterior: RedeDaLd, revisao: string): RedeDaLd {
   const atual = revisao.trim().toLowerCase() || "a";
-  if ((anterior.revisao ?? "").trim().toLowerCase() === atual) return lerRede(anterior);
-  const rede: RedeDaLd = { revisao: atual };
+  // Herdar é RECOMENDAR: a confirmação foi de outro volume, não deste.
+  if ((anterior.revisao ?? "").trim().toLowerCase() === atual) {
+    const { confirmada: _c, ...herdada } = lerRede(anterior);
+    return { ...herdada, origem: "volume-anterior" };
+  }
+  const rede: RedeDaLd = { revisao: atual, origem: "volume-anterior" };
   if (anterior.cliente) rede.cliente = anterior.cliente;
   const por: Record<string, AjusteDaDisciplina> = {};
   for (const [d, ajuste] of Object.entries(anterior.porDisciplina ?? {})) {
@@ -264,6 +276,8 @@ export function lerRede(valor: unknown): RedeDaLd {
     const v = texto(o[k]);
     if (v !== undefined) rede[k] = v;
   }
+  if (o.confirmada === true) rede.confirmada = true;
+  if (o.origem === "volume-anterior") rede.origem = "volume-anterior";
   if (o.porDisciplina && typeof o.porDisciplina === "object" && !Array.isArray(o.porDisciplina)) {
     const por: Record<string, AjusteDaDisciplina> = {};
     for (const [d, aj] of Object.entries(o.porDisciplina as Record<string, unknown>)) {
@@ -279,6 +293,20 @@ export function lerRede(valor: unknown): RedeDaLd {
     if (Object.keys(por).length > 0) rede.porDisciplina = por;
   }
   return rede;
+}
+
+/** O plano ainda não pode gerar a LD: ninguém confirmou o caminho. */
+export function redePendente(rede: RedeDaLd): boolean {
+  return rede.confirmada !== true;
+}
+
+/**
+ * "Usar este caminho". A emissão sugerida é CONGELADA: enquanto pendente ela
+ * acompanha o mês da capa, mas o que alguém confirmou não muda sozinho depois.
+ */
+export function confirmarRede(rede: RedeDaLd, sugestao: string): RedeDaLd {
+  const { origem: _o, ...resto } = rede;
+  return { ...resto, emissao: rede.emissao ?? sugestao, confirmada: true };
 }
 
 /** A decisão como texto. Decisão vazia = `""`, que DESFAZ (regra das decisões). */

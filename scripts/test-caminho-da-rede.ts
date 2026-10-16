@@ -12,10 +12,12 @@ import {
   aplicarColado,
   baseDeduzida,
   caminhoDaLd,
+  confirmarRede,
   gravarRede,
   lerRede,
   nomeDaLd,
   redeDoVolumeAnterior,
+  redePendente,
   separarCaminhoColado,
   sugerirEmissao,
 } from "../lib/ld/caminho-da-rede.ts";
@@ -184,7 +186,7 @@ test("lerRede tolera lixo; gravarRede de vazio é vazio", () => {
 
 test("volume anterior da mesma revisão: tudo vale, inclusive a emissão", () => {
   const anterior = { cliente: "pmnavegantes", emissao: "1_x", revisao: "a", porDisciplina: { gme: { base: "P:\\cad\\pmnavegantes\\113_22\\climatizacao\\documentos", emissao: "1_y" } } };
-  assert.deepEqual(redeDoVolumeAnterior(anterior, "a"), anterior);
+  assert.deepEqual(redeDoVolumeAnterior(anterior, "a"), { ...anterior, origem: "volume-anterior" });
 });
 
 test("volume anterior de outra revisão: pastas valem, emissões voltam a ser sugeridas", () => {
@@ -193,7 +195,47 @@ test("volume anterior de outra revisão: pastas valem, emissões voltam a ser su
     cliente: "pmnavegantes",
     revisao: "b",
     porDisciplina: { gme: { base: "P:\\b" } },
+    origem: "volume-anterior",
   });
+});
+
+/*
+ * O CAMINHO É PERGUNTA, NÃO SUPOSIÇÃO (16/10/2026).
+ *
+ * O plano mostrava o caminho deduzido com um ✓ e liberava o Gerar; a herança
+ * do volume anterior se gravava sozinha. As LDs saíam com um rodapé que
+ * ninguém tinha olhado. Agora só a confirmação de alguém libera.
+ */
+test("sem decisão, o caminho está pendente", () => {
+  assert.equal(redePendente({}), true);
+  assert.equal(redePendente(lerRede("")), true);
+});
+
+test("herdado do volume anterior continua pendente — é recomendação", () => {
+  const anterior = { cliente: "pmnavegantes", emissao: "1_x", revisao: "a", confirmada: true as const };
+  const herdada = redeDoVolumeAnterior(anterior, "a");
+  assert.equal(herdada.confirmada, undefined);
+  assert.equal(redePendente(herdada), true);
+  assert.equal(herdada.origem, "volume-anterior");
+  assert.equal(herdada.emissao, "1_x");
+});
+
+test("confirmar congela a emissão sugerida e esquece a origem", () => {
+  const ok = confirmarRede({ origem: "volume-anterior", revisao: "a" }, "1_emissão inicial_out-26");
+  assert.equal(redePendente(ok), false);
+  assert.equal(ok.emissao, "1_emissão inicial_out-26");
+  assert.equal(ok.origem, undefined);
+  // A emissão decidida não é trocada pela sugestão.
+  assert.equal(confirmarRede({ emissao: "2_x" }, "1_y").emissao, "2_x");
+});
+
+test("a confirmação sobrevive a gravar e ler", () => {
+  const lida = lerRede(gravarRede(confirmarRede({ revisao: "a" }, "1_y")));
+  assert.equal(lida.confirmada, true);
+  assert.equal(redePendente(lida), false);
+  assert.equal(lerRede(gravarRede({ origem: "volume-anterior", revisao: "a" })).origem, "volume-anterior");
+  // Lixo não confirma.
+  assert.equal(lerRede('{"confirmada":"sim"}').confirmada, undefined);
 });
 
 console.log(`\n${passed} testes passaram.`);
