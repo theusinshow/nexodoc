@@ -42,6 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
 import { buildLdProposal, type SeloForLd } from "@/server/nexo/build-ld-proposal";
 import type { LightCheckResult } from "@/server/nexo/light-check-core";
+import { comGrafia } from "@/server/nexo/grafia-core";
 import type { SeloIdentityResult } from "@/server/nexo/selo-identity-core";
 import {
   avaliarEmissao,
@@ -119,6 +120,7 @@ import {
   type Bloco,
 } from "../lib/blocos";
 import { codigoDaFolha, rotuloDoCodigo } from "../lib/disciplina-da-folha";
+import { conferirGrafia } from "../lib/grafia";
 import { conferirIdentidadeDoSelo } from "../lib/selo-check";
 import { lerVolumeMontado } from "../lib/volume-leitura";
 import {
@@ -1128,7 +1130,21 @@ function ConferenciaConfirmation({
        * cobraria as 21 folhas do carimbo mal lido — dois documentos do mesmo
        * conjunto discordando entre si, que é pior que o defeito original.
        */
-      const r = await postCheck(selos, undefined, totaisPorDisciplina);
+      /*
+       * A GRAFIA vai junto (16/10/2026): o mesmo gesto confere se as pranchas
+       * batem entre si e se o texto delas está escrito certo — "QUADRA DE
+       * BOXA" num volume de terceirizado foi o caso. Em paralelo, e sem
+       * derrubar a leve: grafia que falha vira aviso, não silêncio.
+       */
+      const [leve, grafia] = await Promise.all([
+        postCheck(selos, undefined, totaisPorDisciplina),
+        pranchas.length === 0
+          ? Promise.resolve({ erro: "anexe os PDFs das pranchas para conferir o texto." })
+          : conferirGrafia({ selos, pranchas, conversationId }).catch((err: unknown) => ({
+              erro: err instanceof Error ? err.message : "falha desconhecida.",
+            })),
+      ]);
+      const r = comGrafia(leve, grafia);
       await saveResult({
         artifactId: id,
         kind: "conferencia",
@@ -1175,7 +1191,7 @@ function ConferenciaConfirmation({
         <>
           <p className="text-xs text-muted-foreground">
             Confere se as pranchas batem entre si (código/obra/revisão/folhas), disciplina
-            por disciplina. Sem memorial e sem IA.
+            por disciplina, e lê o texto delas atrás de palavra escrita errado.
           </p>
           <ConfirmButton
             busy={busy}

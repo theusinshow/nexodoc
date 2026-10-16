@@ -126,7 +126,8 @@ export function seloNaoLido(): StampExtraction {
 type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 let pdfjsPromise: Promise<PdfjsModule> | null = null;
 
-async function loadPdfjs(): Promise<PdfjsModule> {
+/** Exportado para a conferência de grafia ler o texto pelo MESMO pdf.js. */
+export async function loadPdfjs(): Promise<PdfjsModule> {
   if (!pdfjsPromise) {
     pdfjsPromise = import("pdfjs-dist/legacy/build/pdf.mjs").then((pdfjs) => {
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(

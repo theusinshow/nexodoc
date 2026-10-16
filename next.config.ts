@@ -12,7 +12,12 @@ const nextConfig: NextConfig = {
    * running", visto em 14/09/2026). Sem a variável, nada muda.
    */
   distDir: process.env.NEXODOC_DIST_DIR || ".next",
-  serverExternalPackages: ["pdfjs-dist"],
+  /*
+   * `hunspell-asm` carrega um WebAssembly e `dictionary-pt` lê o `.dic` do
+   * próprio pacote com `import.meta.url`: os dois têm de ficar fora do bundle,
+   * como o pdf.js. É o dicionário da conferência de grafia (16/10/2026).
+   */
+  serverExternalPackages: ["pdfjs-dist", "hunspell-asm", "dictionary-pt"],
   /*
    * O `<ViewTransition>` do React — a transição entre páginas
    * (components/layout/transicao-de-pagina.tsx) — dispensa flag desde a Next

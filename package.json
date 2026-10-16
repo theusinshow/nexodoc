@@ -344,6 +344,7 @@
     "test:quadro-em-imagem": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/test-quadro-em-imagem.ts",
     "prova:quadro-em-imagem": "node --import ./scripts/lib/resolver-de-imports.mjs scripts/prova-quadro-em-imagem.ts",
     "test:parse-filename": "node scripts/test-parse-filename.ts",
+    "test:grafia": "node scripts/test-grafia.ts",
     "test:base-anterior": "node scripts/test-base-anterior.ts",
     "prova:pagina-muda": "node scripts/prova-pagina-muda.ts",
     "prova:marcacao-ui": "node scripts/prova-marcacao-e-feedback.mjs"
@@ -363,7 +364,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "dictionary-pt": "^4.0.0",
     "gsap": "^3.15.0",
+    "hunspell-asm": "^4.0.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.16.0",
     "modern-screenshot": "4.7.0",
