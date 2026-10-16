@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
 import {
   desembrulharCamposDeUsuario,
   distribuirNosMarcadores,
+  preencherCorpo,
 } from "../server/odt/marcadores.ts";
 
 /** Escape neutro: o teste é sobre a estrutura, não sobre entidades XML. */

@@ -128,3 +128,43 @@ export function distribuirNosMarcadores(
   }
   return saida;
 }
+
+/** Os valores de UMA página da capa, já formatados. */
+export interface ValoresDaPagina {
+  /** Chaveado pelo marcador COM chaves: `"{{ORGAO}}"`. */
+  gerais: Record<string, string>;
+  tituloCapa: string;
+  /** Marcadores que o modelo tem e o Nexo não conhece, SEM chaves. */
+  extras: Record<string, string>;
+  disciplina: string;
+  tomo: string;
+  volume: string;
+}
+
+/**
+ * Preenche o corpo de UMA página. Saiu de `server/odt/index.ts` (16/10/2026)
+ * para o teste de ida e volta do modelo de capa anexado usar a MESMA
+ * substituição que imprime a capa — uma cópia no teste provaria a cópia, não o
+ * gerador.
+ *
+ * A ordem importa: os conhecidos antes dos `extras`, para um marcador novo do
+ * modelo nunca sobrescrever um deles por engano.
+ */
+export function preencherCorpo(
+  corpo: string,
+  valores: ValoresDaPagina,
+  escapar: (v: string) => string,
+): string {
+  let block = corpo;
+  for (const [marker, value] of Object.entries(valores.gerais)) {
+    block = distribuirNosMarcadores(block, marker, value, escapar);
+  }
+  block = distribuirNosMarcadores(block, "{{TITULO_CAPA}}", valores.tituloCapa, escapar);
+  for (const [nome, valor] of Object.entries(valores.extras)) {
+    block = distribuirNosMarcadores(block, `{{${nome}}}`, valor, escapar);
+  }
+  block = block.replaceAll("{{DISCIPLINA}}", escapar(valores.disciplina));
+  block = block.replaceAll("{{TOMO}}", escapar(valores.tomo));
+  block = block.replaceAll("{{VOLUME}}", escapar(valores.volume));
+  return block;
+}

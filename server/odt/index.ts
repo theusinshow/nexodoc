@@ -12,7 +12,7 @@ import type { GeneralData, CoverPage } from "@/modules/cover-generator/types";
 import { getTemplateOdtPath } from "@/server/templates/registry";
 // A regra do marcador vive num módulo PURO para poder ser testada em node cru:
 // este arquivo importa por alias `@/`, que o node pelado não resolve.
-import { desembrulharCamposDeUsuario, distribuirNosMarcadores } from "./marcadores";
+import { desembrulharCamposDeUsuario, preencherCorpo } from "./marcadores";
 
 export interface GenerateOdtInput {
   templateId?: string;
@@ -158,32 +158,23 @@ async function fillExistingOdt(
 
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
-    let block = corpoDoModelo;
-
-    for (const [marker, value] of Object.entries(replacements)) {
-      block = distribuirNosMarcadores(block, marker, value, markerXmlValue);
-    }
-
-    block = distribuirNosMarcadores(
-      block,
-      "{{TITULO_CAPA}}",
-      page.tituloCapa,
+    /*
+     * A substituição mora em `preencherCorpo` (puro): conhecidos, título,
+     * MARCADORES QUE O MODELO TEM E O NEXO NÃO CONHECE (depois dos conhecidos,
+     * para nunca sobrescrever um deles), e disciplina/tomo/volume.
+     */
+    let block = preencherCorpo(
+      corpoDoModelo,
+      {
+        gerais: replacements,
+        tituloCapa: page.tituloCapa,
+        extras,
+        disciplina: page.disciplina,
+        tomo: page.tomo,
+        volume: page.volume,
+      },
       markerXmlValue,
     );
-
-    /*
-     * MARCADORES QUE O MODELO TEM E O NEXO NÃO CONHECE.
-     *
-     * Vêm DEPOIS dos conhecidos, para nunca sobrescrever um deles por engano.
-     * Sem este canal, um `{{RESPONSAVEL}}` acrescentado ao ODT seria impresso
-     * literal na capa.
-     */
-    for (const [nome, valor] of Object.entries(extras)) {
-      block = distribuirNosMarcadores(block, `{{${nome}}}`, valor, markerXmlValue);
-    }
-    block = block.replaceAll("{{DISCIPLINA}}", markerXmlValue(page.disciplina));
-    block = block.replaceAll("{{TOMO}}", markerXmlValue(page.tomo));
-    block = block.replaceAll("{{VOLUME}}", markerXmlValue(page.volume));
 
     if (i > 0) {
       block = `<text:p text:style-name="Standard" fo:break-before="page"/>\n${block}`;
