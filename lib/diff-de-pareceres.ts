@@ -36,10 +36,19 @@ import type { AuditFinding, AuditReport } from "./audit-report.ts";
 export type DiffDePareceres = {
   /** Estavam no parecer anterior e não estão mais: o trecho saiu ou mudou. */
   corrigidos: AuditFinding[];
-  /** Continuam apontados, com o mesmo tipo e o mesmo trecho. */
+  /** Continuam apontados: mesmo tipo e trecho, ou o mesmo termo de busca. */
   persistentes: AuditFinding[];
   /** Não estavam no anterior. */
   novos: AuditFinding[];
+  /**
+   * Só quando o texto da versão anterior foi dado: os NOVOS cujo trecho já
+   * estava lá — a leitura anterior não os viu. A soma com `novosEmTextoAlterado`
+   * pode ficar abaixo de `novos`: o achado sem trecho reconhecível não vai para
+   * lado nenhum, porque atribuí-lo a um dos dois seria chute.
+   */
+  novosEmTextoQueJaExistia?: AuditFinding[];
+  /** Só com o texto anterior: os NOVOS cujo trecho não existia antes. */
+  novosEmTextoAlterado?: AuditFinding[];
 };
 
 function normalizar(valor: string): string {
@@ -62,43 +71,118 @@ export function chaveEntreVersoes(finding: AuditFinding): string {
   return `${normalizar(finding.tipo)}|${normalizar(finding.evidencia).slice(0, 120)}`;
 }
 
+/** Esqueleto para comparar trecho com texto: sem acento, caixa, espaço nem pontuação. */
+function esqueleto(valor: unknown): string {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Abaixo disto, "um termo contém o outro" casa por acaso ("disposicoes"). */
+const MIN_TERMO_CONTIDO = 10;
+
+/**
+ * O MESMO TERMO DE BUSCA — o segundo caminho para dizer "é o mesmo defeito".
+ *
+ * Tipo + trecho sozinhos não reconheciam NADA entre corridas: no laço de
+ * corrigir e reauditar o 040_26_est_md_a (16/10/2026), quatro voltas deram
+ * "0 continuam" com a NBR 7191:1982 e a sondagem apontadas em todas. O modelo
+ * reescreve o `tipo` a cada corrida ("Edição normativa a validar" → "Vigência
+ * de norma a confirmar") e recita a evidência com outra moldura. O
+ * `termo_busca` é a palavra exata que ele manda procurar no documento, e ela
+ * não muda.
+ *
+ * Contido conta, com duas travas medidas no banco de dev (1.105 achados):
+ * "mínimo de 60" e "mínimo de 60 minutos" são o mesmo TRRF; "DISPOSICOES"
+ * dentro de "8. DISPOSICOES COMPLEMENTARES" não é o mesmo achado — daí o
+ * comprimento mínimo e o menor ter ao menos metade do maior. Com elas, os
+ * pares que se juntariam DENTRO de um mesmo parecer são todos o mesmo defeito
+ * dito duas vezes ("Cidade do Autista" × "Cidade do Autista").
+ *
+ * Não esconde nada: no pior caso um achado novo é rotulado "continua".
+ */
+export function mesmoTermoDeBusca(a: AuditFinding, b: AuditFinding): boolean {
+  const x = esqueleto(a.termo_busca);
+  const y = esqueleto(b.termo_busca);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [curto, longo] = x.length < y.length ? [x, y] : [y, x];
+  return curto.length >= MIN_TERMO_CONTIDO && longo.includes(curto) && curto.length / longo.length >= 0.5;
+}
+
+function mesmoDefeito(a: AuditFinding, b: AuditFinding): boolean {
+  return chaveEntreVersoes(a) === chaveEntreVersoes(b) || mesmoTermoDeBusca(a, b);
+}
+
+/** O que o achado manda procurar no documento: o termo, senão o trecho entre aspas. */
+function agulha(f: AuditFinding): string {
+  const termo = esqueleto(f.termo_busca);
+  if (termo.length >= MIN_TERMO_CONTIDO) return termo;
+  const citado = [...String(f.evidencia ?? "").matchAll(/[“"«]([^”"»]{8,})[”"»]/g)].map((m) => m[1])[0];
+  return esqueleto(citado ?? "");
+}
+
 /**
  * Compara dois pareceres do mesmo memorial.
  *
  * A ordem dos argumentos é a da leitura: o de ANTES primeiro. Trocá-los inverte
  * "corrigido" e "novo" — e nenhum dos dois é simétrico, então a assinatura é
  * nomeada e não posicional para quem chama não errar em silêncio.
+ *
+ * `textoAnterior`, quando vem, é o texto da versão anterior do documento, e
+ * separa os novos em "já estava lá" e "texto alterado".
  */
 export function compararPareceres(args: {
   anterior: AuditReport;
   atual: AuditReport;
+  textoAnterior?: string;
 }): DiffDePareceres {
-  const chavesDoAnterior = new Map<string, AuditFinding>();
+  // O primeiro de cada chave vence: duas ocorrências com o mesmo tipo e o
+  // mesmo trecho são a mesma coisa dita duas vezes, e contá-las em dobro
+  // inflaria "corrigidos" quando uma delas saísse.
+  const doAnterior: AuditFinding[] = [];
+  const chavesVistas = new Set<string>();
   for (const finding of args.anterior.incongruencias) {
-    // O primeiro de cada chave vence: duas ocorrências com o mesmo tipo e o
-    // mesmo trecho são a mesma coisa dita duas vezes, e contá-las em dobro
-    // inflaria "corrigidos" quando uma delas saísse.
-    if (!chavesDoAnterior.has(chaveEntreVersoes(finding))) {
-      chavesDoAnterior.set(chaveEntreVersoes(finding), finding);
-    }
+    const chave = chaveEntreVersoes(finding);
+    if (chavesVistas.has(chave)) continue;
+    chavesVistas.add(chave);
+    doAnterior.push(finding);
   }
 
   const persistentes: AuditFinding[] = [];
   const novos: AuditFinding[] = [];
-  const vistas = new Set<string>();
+  const casados = new Set<AuditFinding>();
 
   for (const finding of args.atual.incongruencias) {
-    const chave = chaveEntreVersoes(finding);
-    vistas.add(chave);
-    if (chavesDoAnterior.has(chave)) persistentes.push(finding);
-    else novos.push(finding);
+    // Um par por achado antigo: dois novos não "continuam" o mesmo antigo, a
+    // não ser que sejam a mesma chave exata (a duplicata de sempre).
+    const par =
+      doAnterior.find((a) => chaveEntreVersoes(a) === chaveEntreVersoes(finding)) ??
+      doAnterior.find((a) => !casados.has(a) && mesmoDefeito(a, finding));
+    if (par) {
+      casados.add(par);
+      persistentes.push(finding);
+    } else {
+      novos.push(finding);
+    }
   }
 
-  const corrigidos = [...chavesDoAnterior.entries()]
-    .filter(([chave]) => !vistas.has(chave))
-    .map(([, finding]) => finding);
+  const corrigidos = doAnterior.filter((a) => !casados.has(a));
 
-  return { corrigidos, persistentes, novos };
+  if (args.textoAnterior === undefined) return { corrigidos, persistentes, novos };
+
+  const texto = esqueleto(args.textoAnterior);
+  const novosEmTextoQueJaExistia: AuditFinding[] = [];
+  const novosEmTextoAlterado: AuditFinding[] = [];
+  for (const finding of novos) {
+    const a = agulha(finding);
+    if (!a) continue;
+    (texto.includes(a) ? novosEmTextoQueJaExistia : novosEmTextoAlterado).push(finding);
+  }
+
+  return { corrigidos, persistentes, novos, novosEmTextoQueJaExistia, novosEmTextoAlterado };
 }
 
 /**

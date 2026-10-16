@@ -309,6 +309,22 @@ export function PalcoDoNexo({
   const reportAnterior = (auditorias.at(-2)?.payload as MemorialAuditResult | undefined)?.report;
   // O cartão "Desde 18/09" do Resumo (desenho do lab): números, não a frase.
   const comparado = useMemo(() => {
+    /*
+     * O DO SERVIDOR PRIMEIRO: ele acha a anterior em qualquer conversa do
+     * projeto e tem o texto dela (lib/comparado-com-anterior.ts). O local só
+     * vale para pareceres gravados antes disso.
+     */
+    const doServidor = report?.runtime?.comparado_com_anterior;
+    if (doServidor) {
+      return {
+        desde: doServidor.desde,
+        corrigidos: doServidor.corrigidos.length,
+        novos: doServidor.novos.length,
+        continuam: doServidor.continuam.length,
+        novosQueJaExistiam: doServidor.novos_em_texto_que_ja_existia?.length,
+        novosEmTextoAlterado: doServidor.novos_em_texto_alterado?.length,
+      };
+    }
     if (!report || !reportAnterior) return null;
     const d = compararPareceres({ anterior: reportAnterior, atual: report });
     return { desde: reportAnterior.runtime?.gerado_em ?? null, corrigidos: d.corrigidos.length, novos: d.novos.length, continuam: d.persistentes.length };

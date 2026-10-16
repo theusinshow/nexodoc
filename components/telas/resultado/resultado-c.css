@@ -49,6 +49,7 @@
 .ds .rc-comparado b { font-weight: 500; color: var(--ds-text-primary); }
 .ds .rc-comparado .rs-delta--ok { color: var(--ds-state-ok); }
 .ds .rc-comparado .rs-delta--novo { color: var(--ds-nexo); }
+.ds .rc-comparado p.rc-comparado-origem { font-size: var(--ds-text-2xs); color: var(--ds-text-tertiary); }
 .ds .rc-lido { display: block; margin: 0; padding: 0 4px; font-size: var(--ds-text-2xs); line-height: 1.5; color: var(--ds-text-tertiary); }
 .ds .rc-lido .rs-link { display: flex; margin-top: 4px; }
 

@@ -256,6 +256,22 @@ export type AuditReport = {
       evidencia: string;
       sugestao_correcao: string;
     }[];
+    /**
+     * A comparação com a última auditoria do MESMO documento no projeto, de
+     * qualquer conversa. Ver [[comparado-com-anterior.ts]]. Os achados atuais
+     * vão por `id` (deste parecer); os corrigidos, por descrição, porque o id
+     * deles é do parecer anterior.
+     */
+    comparado_com_anterior?: {
+      audit_id: string;
+      desde: string;
+      corrigidos: { tipo: string; pagina: string; termo_busca: string }[];
+      continuam: string[];
+      novos: string[];
+      /** Só quando o texto anterior estava guardado. */
+      novos_em_texto_que_ja_existia?: string[];
+      novos_em_texto_alterado?: string[];
+    };
     nivel_analise?: AnalysisLevel;
     motor_auditoria?: "single" | "dual";
     regras_locais_ativas?: boolean;

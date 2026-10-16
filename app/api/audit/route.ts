@@ -99,6 +99,7 @@ import { estenderGrafiaRepetida } from "@/lib/grafia-repetida";
 import { linhaDeLog, type ContestacaoDeRegra } from "@/lib/contestacao-de-regra";
 import { semNotasDeConsolidacao } from "@/lib/nota-de-consolidacao";
 import { semSugestoesSemCorrecao } from "@/lib/sugestao-sem-correcao";
+import { compararComAnterior } from "@/lib/comparado-com-anterior";
 import {
   coberturaCompleta,
   coberturaReconciliada,
@@ -4721,6 +4722,21 @@ async function executarAuditoria(
           ? "nenhum achado crítico detectado dentro da auditoria profunda executada"
           : executiveSummary,
     };
+    /*
+     * O QUE MUDOU DESDE A ÚLTIMA AUDITORIA DESTE MEMORIAL — de qualquer
+     * conversa do projeto. Só com um documento: a auditoria de vários
+     * arquivos confronta peças, não versões. Ver [[comparado-com-anterior.ts]].
+     */
+    if (projectId && uploadedFiles.length === 1) {
+      const comparado = await compararComAnterior({
+        projectId,
+        arquivo: uploadedFiles[0].file.name,
+        atual: report,
+        actor,
+        excetoAuditId: persistedAuditId,
+      });
+      if (comparado) report.runtime = { ...report.runtime, comparado_com_anterior: comparado };
+    }
     const result = makeTextReport(report);
     await persistCompletedAudit({
       auditId: persistedAuditId,

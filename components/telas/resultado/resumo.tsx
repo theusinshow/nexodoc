@@ -36,13 +36,23 @@ const ease = (c: readonly number[]) => [...c] as [number, number, number, number
  */
 const POR_NIVEL = 5;
 
-/** O que mudou desde a auditoria anterior desta conversa (lib/diff-de-pareceres.ts). */
+/**
+ * O que mudou desde a auditoria anterior deste memorial (lib/diff-de-pareceres.ts):
+ * a do servidor, de qualquer conversa do projeto, ou a desta conversa.
+ */
 export interface ComparadoComAnterior {
   /** Quando a anterior foi gerada (ISO); nula nos pareceres antigos. */
   desde: string | null;
   corrigidos: number;
   novos: number;
   continuam: number;
+  /**
+   * Dos novos, quantos estavam num trecho que já existia (a leitura anterior
+   * não viu) e quantos num trecho alterado. Ausentes quando o servidor não tinha
+   * o texto da versão anterior — aí a tela não divide.
+   */
+  novosQueJaExistiam?: number;
+  novosEmTextoAlterado?: number;
 }
 
 const DIA = (ms: number) => formatarEmBrasilia(ms, { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -253,13 +263,34 @@ export function ResumoDoParecer({
         {/* Quando, por quem e quanto levou (o cabeçalho do lab, que no palco da conversa fica escondido). */}
         {meta && <p className="rc-meta">{meta}</p>}
         {comparado && (
-          <section className="rc-cartao rc-comparado" data-diff-do-parecer title="Comparado com a auditoria anterior desta conversa">
+          <section className="rc-cartao rc-comparado" data-diff-do-parecer title="Comparado com a auditoria anterior deste memorial">
             <h3>{comparado.desde ? `Desde ${formatarEmBrasilia(comparado.desde, { day: "2-digit", month: "2-digit" })}` : "Desde a auditoria anterior"}</h3>
             <p>
               <b className="rs-delta--ok">{comparado.corrigidos}</b> {comparado.corrigidos === 1 ? "corrigido" : "corrigidos"},{" "}
               <b className="rs-delta--novo">{comparado.novos}</b> {comparado.novos === 1 ? "novo" : "novos"}, <b>{comparado.continuam}</b>{" "}
               {comparado.continuam === 1 ? "continua" : "continuam"}
             </p>
+            {/*
+             * DE ONDE VEIO O NOVO. Quem corrigiu tudo e viu o número não cair
+             * precisa saber se a correção gerou o achado ou se ele já estava lá —
+             * no laço do 040_26 (16/10/2026), 10 dos 13 novos já estavam.
+             */}
+            {comparado.novos > 0 && comparado.novosQueJaExistiam !== undefined && (
+              <p className="rc-comparado-origem" data-origem-dos-novos>
+                {comparado.novosQueJaExistiam > 0 && (
+                  <>
+                    {comparado.novosQueJaExistiam} {comparado.novosQueJaExistiam === 1 ? "já estava" : "já estavam"} no texto e não{" "}
+                    {comparado.novosQueJaExistiam === 1 ? "tinha sido apontado" : "tinham sido apontados"}
+                  </>
+                )}
+                {comparado.novosQueJaExistiam > 0 && (comparado.novosEmTextoAlterado ?? 0) > 0 && " · "}
+                {(comparado.novosEmTextoAlterado ?? 0) > 0 && (
+                  <>
+                    {comparado.novosEmTextoAlterado} em {comparado.novosEmTextoAlterado === 1 ? "trecho alterado" : "trechos alterados"}
+                  </>
+                )}
+              </p>
+            )}
           </section>
         )}
         <div className="re-distribuicao">

@@ -157,6 +157,78 @@ test("duplicata no parecer anterior não infla os corrigidos", () => {
   assert.equal(d.corrigidos.length, 1);
 });
 
+// --- o termo de busca: o caminho que reconhece o mesmo defeito reescrito -------
+
+test("tipo e moldura reescritos, mesmo termo de busca: CONTINUA (o laço do 040_26)", () => {
+  /*
+   * Quatro voltas de corrigir e reauditar deram "0 continuam" com a NBR 7191
+   * apontada em todas: o modelo trocou "Edição normativa a validar" por
+   * "Vigência de norma a confirmar" e recitou a evidência de outro jeito.
+   */
+  const antes = parecer([achado({ tipo: "Edição normativa a validar", evidencia: "Pág. 2: “ABNT NBR 7191:1982 - Execução”", termo_busca: "ABNT NBR 7191:1982" })]);
+  const agora = parecer([achado({ tipo: "Vigência de norma a confirmar", evidencia: "“• ABNT NBR 7191:1982”", termo_busca: "ABNT NBR 7191:1982" })]);
+  const d = compararPareceres({ anterior: antes, atual: agora });
+  assert.equal(d.persistentes.length, 1);
+  assert.equal(d.novos.length, 0);
+  assert.equal(d.corrigidos.length, 0);
+});
+
+test("termo contido conta: «mínimo de 60» × «mínimo de 60 minutos»", () => {
+  const antes = parecer([achado({ tipo: "Premissa de resistência ao fogo", termo_busca: "mínimo de 60 minutos" })]);
+  const agora = parecer([achado({ tipo: "Premissa de TRRF", evidencia: "outra", termo_busca: "mínimo de 60" })]);
+  assert.equal(compararPareceres({ anterior: antes, atual: agora }).persistentes.length, 1);
+});
+
+test("termo curto contido NÃO conta: «DISPOSICOES» × «8. DISPOSICOES COMPLEMENTARES»", () => {
+  // Par real do banco de dev: numeração de capítulo × acentuação — defeitos distintos.
+  const antes = parecer([achado({ tipo: "Numeração de capítulos", termo_busca: "8. DISPOSICOES COMPLEMENTARES" })]);
+  const agora = parecer([achado({ tipo: "Acentuação e grafia", evidencia: "outra", termo_busca: "DISPOSICOES" })]);
+  const d = compararPareceres({ anterior: antes, atual: agora });
+  assert.equal(d.persistentes.length, 0);
+  assert.equal(d.novos.length, 1);
+});
+
+test("um achado antigo não 'continua' em dois novos diferentes", () => {
+  const antes = parecer([achado({ tipo: "A", termo_busca: "relatório de sondagem SPT" })]);
+  const agora = parecer([
+    achado({ tipo: "B", evidencia: "x", termo_busca: "relatório de sondagem SPT" }),
+    achado({ tipo: "C", evidencia: "y", termo_busca: "relatório de sondagem SPT" }),
+  ]);
+  const d = compararPareceres({ anterior: antes, atual: agora });
+  assert.equal(d.persistentes.length, 1);
+  assert.equal(d.novos.length, 1);
+});
+
+// --- o texto anterior: "já estava lá" × "texto alterado" ---------------------
+
+test("com o texto anterior, o novo se divide entre 'já estava lá' e 'texto alterado'", () => {
+  const textoAnterior = "1.6 Aço\nEstas serão amarradas com arame preto no. 16 ou 18.";
+  const agora = parecer([
+    achado({ tipo: "Especificação divergente", termo_busca: "arame preto no. 16 ou 18" }),
+    achado({ tipo: "Norma nova a validar", evidencia: "z", termo_busca: "ABNT NBR 14931:2004" }),
+  ]);
+  const d = compararPareceres({ anterior: parecer([]), atual: agora, textoAnterior });
+  assert.deepEqual(d.novosEmTextoQueJaExistia?.map((f) => f.tipo), ["Especificação divergente"]);
+  assert.deepEqual(d.novosEmTextoAlterado?.map((f) => f.tipo), ["Norma nova a validar"]);
+});
+
+test("sem trecho reconhecível o novo não vai para lado nenhum — atribuir seria chute", () => {
+  const d = compararPareceres({
+    anterior: parecer([]),
+    atual: parecer([achado({ evidencia: "sem aspas", termo_busca: "" })]),
+    textoAnterior: "qualquer texto",
+  });
+  assert.equal(d.novos.length, 1);
+  assert.equal(d.novosEmTextoQueJaExistia?.length, 0);
+  assert.equal(d.novosEmTextoAlterado?.length, 0);
+});
+
+test("sem o texto anterior, a divisão não existe (e não finge que existe)", () => {
+  const d = compararPareceres({ anterior: parecer([]), atual: parecer([achado({ termo_busca: "arame preto no. 16" })]) });
+  assert.equal(d.novosEmTextoQueJaExistia, undefined);
+  assert.equal(d.novosEmTextoAlterado, undefined);
+});
+
 // --- a frase da tela -------------------------------------------------------
 
 test("resumo vazio quando nada mudou e nada sobrou", () => {
