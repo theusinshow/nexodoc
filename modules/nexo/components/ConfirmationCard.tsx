@@ -1484,24 +1484,7 @@ function VolumeConfirmation({
 
   // As partes DESTE tomo: cada tomo é um volume físico com as suas.
   const capa = results.find((r) => r.artifactId === capaId(selos) + tomo.sufixo);
-  const ld = results.find((r) => r.artifactId === ldId(selos) + tomo.sufixo);
-  const separatriz = results.find(
-    (r) => r.artifactId === separatrizId(selos) + tomo.sufixo,
-  );
   const capaPdfUrl = capa?.files.find((f) => f.mime === PDF_MIME)?.url;
-  const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
-  const sepPdfUrl = separatriz?.files.find((f) => f.mime === PDF_MIME)?.url;
-  /*
-   * Título da separatriz. Antes vinha do rótulo do canvas ("LD ESTRUTURAL"),
-   * então a folha saía SEMPRE com a sigla crua da disciplina — o mesmo texto
-   * para "Estrutural Concreto" e "Estrutural Concreto Implantação", que é
-   * justamente o que a separatriz existe para distinguir dentro do volume.
-   *
-   * Agora usa o TÍTULO que o engenheiro decidiu na LD (guardado nos params do
-   * resultado), com o rótulo do canvas como último recurso para resultados
-   * gerados antes disso existir.
-   */
-  const ldParams = ld?.payload as NexoLdProposalParams | undefined;
   const capaParams = capa?.payload as NexoCapaProposalParams | undefined;
 
   /*
@@ -1571,6 +1554,37 @@ function VolumeConfirmation({
   );
   // Par juntado conta como "por bloco": LD e separatriz próprias, não a única do volume.
   const misto = porBloco(blocos);
+
+  /*
+   * A LD E A SEPARATRIZ DESTE TOMO — procuradas também pela chave do BLOCO
+   * (16/10/2026). O plano decide "por bloco" olhando o VOLUME inteiro; este card
+   * decide olhando o TOMO. No 121-25 (Fundações + Estrutural em 4 tomos) o plano
+   * gravou `ld:121-25:a:est:t02`, o tomo 02 é só estrutural, e o card procurava
+   * `ld:121-25:a:t02` — que não existe. O botão ficava em "gere a LD deste tomo"
+   * com a LD pronta no canvas, e pedir de novo só reabria a mesma proposta.
+   */
+  const chaveDoUnico =
+    !misto && blocos.length === 1 ? `:${blocos[0].codigo || "sem"}` : null;
+  const doTomo = (base: string) =>
+    results.find((r) => r.artifactId === base + tomo.sufixo) ??
+    (chaveDoUnico
+      ? results.find((r) => r.artifactId === base + chaveDoUnico + tomo.sufixo)
+      : undefined);
+  const ld = doTomo(ldId(selos));
+  const separatriz = doTomo(separatrizId(selos));
+  const ldPdfUrl = ld?.files.find((f) => f.mime === PDF_MIME)?.url;
+  const sepPdfUrl = separatriz?.files.find((f) => f.mime === PDF_MIME)?.url;
+  /*
+   * Título da separatriz. Antes vinha do rótulo do canvas ("LD ESTRUTURAL"),
+   * então a folha saía SEMPRE com a sigla crua da disciplina — o mesmo texto
+   * para "Estrutural Concreto" e "Estrutural Concreto Implantação", que é
+   * justamente o que a separatriz existe para distinguir dentro do volume.
+   *
+   * Agora usa o TÍTULO que o engenheiro decidiu na LD (guardado nos params do
+   * resultado), com o rótulo do canvas como último recurso para resultados
+   * gerados antes disso existir.
+   */
+  const ldParams = ld?.payload as NexoLdProposalParams | undefined;
 
   /*
    * O QUE IMPEDE ESTE VOLUME DE SER MONTADO — uma verdade só, consultada pelo
