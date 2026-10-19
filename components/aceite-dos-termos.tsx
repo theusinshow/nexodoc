@@ -1,11 +1,15 @@
 "use client";
 
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { AVISO_DE_RESPONSABILIDADE, ROTA_DOS_TERMOS, VERSAO_DOS_TERMOS } from "@/lib/aviso-de-responsabilidade";
+import { AvisoDeResponsabilidade } from "@/components/aviso-de-responsabilidade";
+import { Botao } from "@/components/ds/basicos";
+import { Camada } from "@/components/moldura/sobreposicoes";
+import { ROTA_DOS_TERMOS, VERSAO_DOS_TERMOS } from "@/lib/aviso-de-responsabilidade";
+
+import "./aviso-de-responsabilidade.css";
 
 /*
  * O ACEITE ANTES DA PRIMEIRA AUDITORIA.
@@ -104,18 +108,15 @@ function ModalDoAceite({ onResposta }: { onResposta: (aceitou: boolean) => void 
   const [marcado, setMarcado] = useState(false);
   const [gravando, setGravando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const idTitulo = useId();
   const idMarca = useId();
   const caixa = useRef<HTMLInputElement>(null);
 
+  // Esc, clique fora e foco de volta ficam com a `Camada`; aqui só o foco de entrada.
   useEffect(() => {
     caixa.current?.focus();
-    const tecla = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onResposta(false);
-    };
-    document.addEventListener("keydown", tecla);
-    return () => document.removeEventListener("keydown", tecla);
-  }, [onResposta]);
+  }, []);
+
+  const cancelar = useCallback(() => onResposta(false), [onResposta]);
 
   async function aceitar() {
     setGravando(true);
@@ -129,47 +130,39 @@ function ModalDoAceite({ onResposta }: { onResposta: (aceitou: boolean) => void 
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={idTitulo}
-        className="nx-cut-8 w-full max-w-lg border border-border bg-card p-6 text-foreground"
-      >
-        <h2 id={idTitulo} className="text-lg font-medium">
-          Antes da primeira auditoria
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{AVISO_DE_RESPONSABILIDADE}</p>
-        <label htmlFor={idMarca} className="mt-5 flex cursor-pointer items-start gap-3 text-sm">
-          <Checkbox
-            id={idMarca}
-            ref={caixa}
-            checked={marcado}
-            onChange={(e) => setMarcado(e.target.checked)}
-            className="mt-0.5"
-          />
+    <Camada aberta onFechar={cancelar} rotulo="Antes da primeira auditoria" largura={480}>
+      <header className="ar-cabeca">
+        <h2>Antes da primeira auditoria</h2>
+        <Botao variante="quiet" icone aria-label="Fechar" onClick={cancelar}>
+          <X />
+        </Botao>
+      </header>
+      <div className="ar-corpo">
+        <AvisoDeResponsabilidade />
+        <label htmlFor={idMarca} className="ar-aceite">
+          <input id={idMarca} ref={caixa} type="checkbox" className="ar-marca" checked={marcado} onChange={(e) => setMarcado(e.target.checked)} />
           <span>
             Li e aceito os{" "}
-            <Link href={ROTA_DOS_TERMOS} target="_blank" rel="noopener" className="text-primary underline underline-offset-2">
+            <Link href={ROTA_DOS_TERMOS} target="_blank" rel="noopener" className="ar-link">
               termos de uso e a limitação de responsabilidade
             </Link>
             .
           </span>
         </label>
         {erro && (
-          <p role="alert" className="mt-3 text-sm text-[var(--status-critical)]">
+          <p role="alert" className="ar-erro">
             {erro}
           </p>
         )}
-        <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onResposta(false)}>
+        <div className="ar-acoes">
+          <Botao variante="ghost" onClick={cancelar}>
             Cancelar
-          </Button>
-          <Button type="button" disabled={!marcado || gravando} onClick={aceitar}>
+          </Botao>
+          <Botao variante="primary" disabled={!marcado || gravando} onClick={aceitar}>
             Aceitar e continuar
-          </Button>
+          </Botao>
         </div>
       </div>
-    </div>
+    </Camada>
   );
 }

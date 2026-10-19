@@ -1,7 +1,14 @@
+import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
+import "@/app/ds.css";
+import "@/components/aviso-de-responsabilidade.css";
+import "@/components/moldura/moldura.css";
 import { AvisoDeResponsabilidade } from "@/components/aviso-de-responsabilidade";
+import { Moldura } from "@/components/moldura/moldura";
+import { FONTES_DS } from "@/lib/ds/fontes";
 import { VERSAO_DOS_TERMOS } from "@/lib/aviso-de-responsabilidade";
+import { tentarMoldura } from "@/lib/moldura";
 
 export const metadata = {
   title: "Termos de uso - Nexo",
@@ -10,7 +17,8 @@ export const metadata = {
 
 /*
  * Página pública (fora do `matcher` do proxy): o link do aceite e do rodapé
- * precisa abrir também para quem ainda não entrou. Texto estático.
+ * precisa abrir também para quem ainda não entrou. Texto estático. Logado, vem
+ * na moldura do app (Topo e busca); sem sessão, só a página, como a 404.
  */
 const CLAUSULAS: { titulo: string; texto: string }[] = [
   {
@@ -45,38 +53,54 @@ const CLAUSULAS: { titulo: string; texto: string }[] = [
   },
 ];
 
-export default function TermosPage() {
+function Termos() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 text-foreground">
-      <p className="font-mono text-xs uppercase tracking-[0.05em] text-muted-foreground">NexoDoc</p>
-      <h1 className="mt-2 text-2xl font-medium tracking-tight">Termos de uso e limitação de responsabilidade</h1>
-      <p className="mt-1 text-xs text-muted-foreground">Versão {VERSAO_DOS_TERMOS}</p>
+    <div className="ar-pagina">
+      <h1>Termos de uso e limitação de responsabilidade</h1>
+      <p className="ar-versao">Versão {VERSAO_DOS_TERMOS}</p>
 
-      <div
-        role="note"
-        data-revisao-juridica
-        className="nx-cut-6 mt-6 bg-[var(--status-warning-bg)] px-4 py-3 text-sm text-[var(--status-warning)]"
-      >
-        <strong className="font-semibold">Atenção:</strong> este texto é um modelo e deve ser revisado por um advogado antes de produzir
-        efeitos jurídicos.
-      </div>
+      <article className="ar-folha">
+        <div role="note" data-revisao-juridica className="ar-nota">
+          <TriangleAlert aria-hidden />
+          <p>
+            <b>Atenção:</b> este texto é um modelo e deve ser revisado por um advogado antes de produzir efeitos jurídicos.
+          </p>
+        </div>
+        <div className="ar-texto">
+          <section>
+            <AvisoDeResponsabilidade />
+          </section>
+          {CLAUSULAS.map((c) => (
+            <section key={c.titulo}>
+              <h2>{c.titulo}</h2>
+              <p>{c.texto}</p>
+            </section>
+          ))}
+        </div>
+      </article>
 
-      <section className="mt-8 border-y border-border py-4">
-        <AvisoDeResponsabilidade className="text-sm" />
-      </section>
-
-      {CLAUSULAS.map((c) => (
-        <section key={c.titulo} className="mt-8">
-          <h2 className="text-base font-medium">{c.titulo}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.texto}</p>
-        </section>
-      ))}
-
-      <p className="mt-12 text-sm">
-        <Link href="/" className="text-primary underline underline-offset-2">
+      <p className="ar-pe">
+        <Link href="/" className="ar-link">
           Voltar ao NexoDoc
         </Link>
       </p>
-    </main>
+    </div>
+  );
+}
+
+export default async function TermosPage() {
+  const dados = await tentarMoldura();
+  if (!dados)
+    return (
+      <div className={`ds ${FONTES_DS} md-raiz`}>
+        <main id="conteudo">
+          <Termos />
+        </main>
+      </div>
+    );
+  return (
+    <Moldura dados={dados} atual={null}>
+      <Termos />
+    </Moldura>
   );
 }
