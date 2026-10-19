@@ -37,6 +37,7 @@ import {
   Check,
 } from "lucide-react";
 
+import { useAceiteDosTermos } from "@/components/aceite-dos-termos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -2581,6 +2582,8 @@ function AuditoriaConfirmation({
   /** Vinculada a conversa, a pergunta feita de antemão não vale mais. */
   const escolhaVisivel = projetoDaConversa && escolhaDeProjeto?.proativa ? null : escolhaDeProjeto;
 
+  const { exigirAceite, modal: modalDoAceite } = useAceiteDosTermos();
+
   async function confirm(comTranscricao = false, projetoDaEscolha?: string) {
     /*
      * CLIQUE MUDO NÃO (17/09/2026, Urubici).
@@ -2625,6 +2628,8 @@ function AuditoriaConfirmation({
       setError(motivoDaTrava());
       return;
     }
+    // O termo de uso antes da primeira auditoria de verdade (o exemplo já saiu acima).
+    if (!(await exigirAceite())) return;
     setBusy(true);
     setError(null);
     /*
@@ -2928,6 +2933,7 @@ function AuditoriaConfirmation({
 
   return (
     <CardShell kind="auditoria" resumo={resumo}>
+      {modalDoAceite}
       {podeAuditar && (
         <>
           {!comFicha && (

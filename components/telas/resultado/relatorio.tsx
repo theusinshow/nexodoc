@@ -17,6 +17,7 @@ import { useTempo } from "@/lib/ds/tempo";
 import { DISCIPLINAS, NIVEIS } from "@/lib/nivel-do-achado";
 
 import { NOME_DO_DESFECHO } from "./textos";
+import { AVISO_DE_RESPONSABILIDADE } from "@/lib/aviso-de-responsabilidade";
 import type { ParecerVivo } from "./use-parecer-vivo";
 import "./relatorio.css";
 
@@ -158,6 +159,12 @@ export function RelatorioDoParecer({ report, parecer }: { report: AuditReport; p
               <p>{report.conclusao}</p>
             </section>
           )}
+
+          {/* Dentro de `.rl-texto`: "Copiar o texto" leva o aviso junto. */}
+          <section>
+            <h3>Responsabilidade</h3>
+            <p>{AVISO_DE_RESPONSABILIDADE}</p>
+          </section>
         </div>
       </article>
     </div>

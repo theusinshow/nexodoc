@@ -504,7 +504,9 @@ function MenuDaConta({ dados }: { dados: DadosDaMoldura }) {
                 Sair
               </button>
             </div>
-            <p className="pn-menu-nota">Conta Google. Sair encerra a sessão só neste navegador.</p>
+            <p className="pn-menu-nota">
+              Conta Google. Sair encerra a sessão só neste navegador. <Link href="/termos" onClick={() => fechar(false)}>Termos de uso</Link>
+            </p>
           </Painel>
         )}
       </AnimatePresence>

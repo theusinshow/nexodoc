@@ -97,6 +97,7 @@ import { AvisoDeAuditoriaIncompleta } from "@/components/aviso-de-auditoria-inco
 import { incompletudeDoParecer } from "@/lib/auditoria-incompleta";
 import { cn } from "@/lib/utils";
 import { useSpotlight } from "@/lib/use-spotlight";
+import { AVISO_DE_RESPONSABILIDADE } from "@/lib/aviso-de-responsabilidade";
 
 // Visor de PDF só no cliente (react-pdf não faz SSR).
 const AuditPdfViewer = dynamic(
@@ -1256,7 +1257,7 @@ function FindingField({ label, value }: { label: string; value?: string }) {
 }
 
 function downloadMarkdown(result: string, fileName = "nexodoc-auditoria.md") {
-  const blob = new Blob([result], { type: "text/markdown;charset=utf-8" });
+  const blob = new Blob([`${result}\n\n---\n\n${AVISO_DE_RESPONSABILIDADE}\n`], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
